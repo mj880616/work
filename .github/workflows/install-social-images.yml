@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install Pillow
+        run: python3 -m pip install --user pillow
       - name: Decode and validate approved JPEGs
         run: |
           set -euo pipefail
