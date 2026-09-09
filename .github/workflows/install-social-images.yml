@@ -20,24 +20,20 @@ jobs:
           from pathlib import Path
           from PIL import Image
           import base64, re, io
-
           root = Path('assets/social')
           upload = root / '.upload'
-
           def decode(parts):
               raw = ''.join((upload / p).read_text() for p in parts)
               clean = re.sub(r'[^A-Za-z0-9+/=]', '', raw)
               clean = clean.rstrip('=') + '=' * ((4 - len(clean.rstrip('=')) % 4) % 4)
               return base64.b64decode(clean)
-
           sources = {
               'home': (root / 'home-social.jpg').read_bytes(),
               'field': decode(['field.part0', 'field.part1']),
               'workforce': decode(['workforce.part0', 'workforce.part1']),
               'press': decode([f'press3.part{i}' for i in range(8)]),
-              'joint': (root / 'joint-social.jpg').read_bytes(),
+              'joint': decode([f'joint2.part{i}' for i in range(9)]),
           }
-
           outputs = {
               'home': 'home-social-final-20260910.jpg',
               'field': 'field-social-final-20260910.jpg',
@@ -45,7 +41,6 @@ jobs:
               'press': 'press-social-final-20260910.jpg',
               'joint': 'joint-social-final-20260910.jpg',
           }
-
           for key, data in sources.items():
               with Image.open(io.BytesIO(data)) as im:
                   im.load()
@@ -68,71 +63,23 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re, html
-
           pages = {
-              'index.html': {
-                  'title': '공공기관사업팀 업무·사업 현황',
-                  'description': '공공운수노조 공공기관사업팀의 주요 사업, 공동투쟁, 기자회견, 국회 대응 현황을 한곳에서 확인합니다.',
-                  'url': 'https://mj880616.github.io/work/',
-                  'image': 'home-social-final-20260910.jpg',
-                  'alt': '업무·사업 현황 SNS 미리보기 이미지',
-              },
-              '2in1/field-testimony/index.html': {
-                  'title': '2인1조 법제화 국회토론회 현장증언을 찾습니다',
-                  'description': '혼자 일하다 위험했던 순간, 현장에서 직접 이야기해 주세요. 2인1조 법제화 국회토론회 현장증언 모집 안내',
-                  'url': 'https://mj880616.github.io/work/2in1/field-testimony/',
-                  'image': 'field-social-final-20260910.jpg',
-                  'alt': '2인1조 법제화 국회토론회 현장증언 모집 SNS 미리보기 이미지',
-              },
-              'workforce/index.html': {
-                  'title': '공공기관 인력확충·인력감축 대응',
-                  'description': '공공기관 증원 연계 인력감축 방침 철회와 인력확충 대응 현황',
-                  'url': 'https://mj880616.github.io/work/workforce/',
-                  'image': 'workforce-social-final-20260910.jpg',
-                  'alt': '인력확충 사업 SNS 미리보기 이미지',
-              },
-              'workforce/press-conference-0914/index.html': {
-                  'title': '9/14 공공기관 인력감축 방침 폐기 촉구 기자회견',
-                  'description': '증원 연계 2% 인력감축 방침 폐기와 공공부문 인력 확대·충원을 요구하는 9월 14일 기자회견 준비 현황',
-                  'url': 'https://mj880616.github.io/work/workforce/press-conference-0914/',
-                  'image': 'press-social-final-20260910.jpg',
-                  'alt': '9.14 공공기관 인력감축 방침 규탄 기자회견 SNS 미리보기 이미지',
-              },
-              'workforce/joint-struggle-0921/index.html': {
-                  'title': '9.21~22 인력확충 촉구 청와대 앞 1박 2일 공동투쟁',
-                  'description': '공공기관 인력확충을 요구하는 9월 21~22일 청와대 앞 1박 2일 공동투쟁 준비 현황',
-                  'url': 'https://mj880616.github.io/work/workforce/joint-struggle-0921/',
-                  'image': 'joint-social-final-20260910.jpg',
-                  'alt': '9.21~9.22 인력확충 촉구 청와대 앞 공동투쟁 SNS 미리보기 이미지',
-              },
+              'index.html': {'title':'공공기관사업팀 업무·사업 현황','description':'공공운수노조 공공기관사업팀의 주요 사업, 공동투쟁, 기자회견, 국회 대응 현황을 한곳에서 확인합니다.','url':'https://mj880616.github.io/work/','image':'home-social-final-20260910.jpg','alt':'업무·사업 현황 SNS 미리보기 이미지'},
+              '2in1/field-testimony/index.html': {'title':'2인1조 법제화 국회토론회 현장증언을 찾습니다','description':'혼자 일하다 위험했던 순간, 현장에서 직접 이야기해 주세요. 2인1조 법제화 국회토론회 현장증언 모집 안내','url':'https://mj880616.github.io/work/2in1/field-testimony/','image':'field-social-final-20260910.jpg','alt':'2인1조 법제화 국회토론회 현장증언 모집 SNS 미리보기 이미지'},
+              'workforce/index.html': {'title':'공공기관 인력확충·인력감축 대응','description':'공공기관 증원 연계 인력감축 방침 철회와 인력확충 대응 현황','url':'https://mj880616.github.io/work/workforce/','image':'workforce-social-final-20260910.jpg','alt':'인력확충 사업 SNS 미리보기 이미지'},
+              'workforce/press-conference-0914/index.html': {'title':'9/14 공공기관 인력감축 방침 폐기 촉구 기자회견','description':'증원 연계 2% 인력감축 방침 폐기와 공공부문 인력 확대·충원을 요구하는 9월 14일 기자회견 준비 현황','url':'https://mj880616.github.io/work/workforce/press-conference-0914/','image':'press-social-final-20260910.jpg','alt':'9.14 공공기관 인력감축 방침 규탄 기자회견 SNS 미리보기 이미지'},
+              'workforce/joint-struggle-0921/index.html': {'title':'9.21~22 인력확충 촉구 청와대 앞 1박 2일 공동투쟁','description':'공공기관 인력확충을 요구하는 9월 21~22일 청와대 앞 1박 2일 공동투쟁 준비 현황','url':'https://mj880616.github.io/work/workforce/joint-struggle-0921/','image':'joint-social-final-20260910.jpg','alt':'9.21~9.22 인력확충 촉구 청와대 앞 공동투쟁 SNS 미리보기 이미지'},
           }
-
           for page, meta in pages.items():
-              p = Path(page)
-              s = p.read_text()
+              p = Path(page); s = p.read_text()
               s = re.sub(r'<meta\s+(?:property|name)=["\'](?:og:[^"\']+|twitter:[^"\']+)["\'][^>]*>\s*', '', s, flags=re.I)
-              image_url = f"https://mj880616.github.io/work/assets/social/{meta['image']}"
+              image_url = f"https://mj880616.github.io/work/assets/social/{meta['image']}?v=20260910-4"
               tags = ''.join([
-                  '<meta property="og:type" content="website">',
-                  '<meta property="og:locale" content="ko_KR">',
-                  '<meta property="og:site_name" content="공공운수노조">',
-                  f'<meta property="og:title" content="{html.escape(meta["title"], quote=True)}">',
-                  f'<meta property="og:description" content="{html.escape(meta["description"], quote=True)}">',
-                  f'<meta property="og:url" content="{meta["url"]}">',
-                  f'<meta property="og:image" content="{image_url}">',
-                  f'<meta property="og:image:secure_url" content="{image_url}">',
-                  '<meta property="og:image:type" content="image/jpeg">',
-                  '<meta property="og:image:width" content="600">',
-                  '<meta property="og:image:height" content="600">',
-                  f'<meta property="og:image:alt" content="{html.escape(meta["alt"], quote=True)}">',
-                  '<meta name="twitter:card" content="summary">',
-                  f'<meta name="twitter:title" content="{html.escape(meta["title"], quote=True)}">',
-                  f'<meta name="twitter:description" content="{html.escape(meta["description"], quote=True)}">',
-                  f'<meta name="twitter:image" content="{image_url}">',
-                  f'<meta name="twitter:image:alt" content="{html.escape(meta["alt"], quote=True)}">',
-              ])
-              s = s.replace('</head>', tags + '</head>', 1)
-              p.write_text(s)
+                  '<meta property="og:type" content="website">','<meta property="og:locale" content="ko_KR">','<meta property="og:site_name" content="공공운수노조">',
+                  f'<meta property="og:title" content="{html.escape(meta["title"], quote=True)}">',f'<meta property="og:description" content="{html.escape(meta["description"], quote=True)}">',f'<meta property="og:url" content="{meta["url"]}">',
+                  f'<meta property="og:image" content="{image_url}">',f'<meta property="og:image:secure_url" content="{image_url}">','<meta property="og:image:type" content="image/jpeg">','<meta property="og:image:width" content="600">','<meta property="og:image:height" content="600">',f'<meta property="og:image:alt" content="{html.escape(meta["alt"], quote=True)}">',
+                  '<meta name="twitter:card" content="summary_large_image">',f'<meta name="twitter:title" content="{html.escape(meta["title"], quote=True)}">',f'<meta name="twitter:description" content="{html.escape(meta["description"], quote=True)}">',f'<meta name="twitter:image" content="{image_url}">',f'<meta name="twitter:image:alt" content="{html.escape(meta["alt"], quote=True)}">'])
+              s = s.replace('</head>', tags + '</head>', 1); p.write_text(s)
               print(page, '->', image_url)
           PY
       - name: Remove temporary staging chunks
