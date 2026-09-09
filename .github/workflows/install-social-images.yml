@@ -21,13 +21,13 @@ jobs:
           from PIL import Image
           import base64, re
           pairs={
-            'field':'field-social-v2.jpg',
-            'workforce':'workforce-social-v2.jpg',
-            'press':'press-social-v2.jpg',
-            'joint':'joint-social-v2.jpg',
+            'field':('field','field-social-v2.jpg'),
+            'workforce':('workforce','workforce-social-v2.jpg'),
+            'press':('press2','press-social-v2.jpg'),
+            'joint':('joint','joint-social-v2.jpg'),
           }
-          for key,out in pairs.items():
-              raw=(Path(f'assets/social/.upload/{key}.part0').read_text()+Path(f'assets/social/.upload/{key}.part1').read_text())
+          for key,(src,out) in pairs.items():
+              raw=(Path(f'assets/social/.upload/{src}.part0').read_text()+Path(f'assets/social/.upload/{src}.part1').read_text())
               clean=re.sub(r'[^A-Za-z0-9+/=]','',raw)
               clean=clean.rstrip('=') + '='*((4-len(clean.rstrip('='))%4)%4)
               data=base64.b64decode(clean)
@@ -38,7 +38,7 @@ jobs:
               with Image.open(dst) as im:
                   assert im.size == (600,600), (dst, im.size)
                   assert im.format == 'JPEG', (dst, im.format)
-              print(dst, len(data), '600x600 JPEG')
+              print(key, dst, len(data), '600x600 JPEG')
           PY
       - name: Connect Open Graph metadata
         run: |
