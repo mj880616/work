@@ -1,0 +1,1 @@
+Final social images are sourced from the approved 600x600 JPEG exports in this conversation.
