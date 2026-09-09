@@ -20,14 +20,15 @@ jobs:
           from pathlib import Path
           from PIL import Image
           import base64, re
-          pairs={
-            'field':('field','field-social-v2.jpg'),
-            'workforce':('workforce','workforce-social-v2.jpg'),
-            'press':('press2','press-social-v2.jpg'),
-            'joint':('joint','joint-social-v2.jpg'),
+          sources={
+            'field':(['field.part0','field.part1'],'field-social-v2.jpg'),
+            'workforce':(['workforce.part0','workforce.part1'],'workforce-social-v2.jpg'),
+            'press':([f'press3.part{i}' for i in range(8)],'press-social-v2.jpg'),
+            'joint':(['joint.part0','joint.part1'],'joint-social-v2.jpg'),
           }
-          for key,(src,out) in pairs.items():
-              raw=(Path(f'assets/social/.upload/{src}.part0').read_text()+Path(f'assets/social/.upload/{src}.part1').read_text())
+          root=Path('assets/social/.upload')
+          for key,(parts,out) in sources.items():
+              raw=''.join((root/p).read_text() for p in parts)
               clean=re.sub(r'[^A-Za-z0-9+/=]','',raw)
               clean=clean.rstrip('=') + '='*((4-len(clean.rstrip('='))%4)%4)
               data=base64.b64decode(clean)
