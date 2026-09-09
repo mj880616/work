@@ -28,11 +28,11 @@ jobs:
               clean = clean.rstrip('=') + '=' * ((4 - len(clean.rstrip('=')) % 4) % 4)
               return base64.b64decode(clean)
           sources = {
-              'home': decode([f'home4.part{i}' for i in range(7)]),
+              'home': decode(['home4a.part0','home4b.part0','home4b.part1','home4.part1','home4.part2','home4.part3','home4.part4','home4.part5','home4.part6']),
               'field': decode(['field.part0', 'field.part1']),
               'workforce': decode(['workforce.part0', 'workforce.part1']),
               'press': decode([f'press3.part{i}' for i in range(8)]),
-              'joint': decode([f'joint2.part{i}' for i in range(9)]),
+              'joint': (root / 'joint-social.jpg').read_bytes(),
           }
           outputs = {
               'home': 'home-social-final-20260910.jpg',
@@ -42,7 +42,7 @@ jobs:
               'joint': 'joint-social-final-20260910.jpg',
           }
           expected_home_sha='980caa23fa957105e9fc3992996da7c6684bfcbf4b0d7788e6e2ba70929f6cff'
-          assert hashlib.sha256(sources['home']).hexdigest() == expected_home_sha
+          assert hashlib.sha256(sources['home']).hexdigest() == expected_home_sha, 'home source checksum mismatch'
           for key, data in sources.items():
               with Image.open(io.BytesIO(data)) as im:
                   im.load()
@@ -73,15 +73,30 @@ jobs:
               'workforce/joint-struggle-0921/index.html': {'title':'9.21~22 인력확충 촉구 청와대 앞 1박 2일 공동투쟁','description':'공공기관 인력확충을 요구하는 9월 21~22일 청와대 앞 1박 2일 공동투쟁 준비 현황','url':'https://mj880616.github.io/work/workforce/joint-struggle-0921/','image':'joint-social-final-20260910.jpg','alt':'9.21~9.22 인력확충 촉구 청와대 앞 공동투쟁 SNS 미리보기 이미지'},
           }
           for page, meta in pages.items():
-              p = Path(page); s = p.read_text()
+              p = Path(page)
+              s = p.read_text()
               s = re.sub(r'<meta\s+(?:property|name)=["\'](?:og:[^"\']+|twitter:[^"\']+)["\'][^>]*>\s*', '', s, flags=re.I)
               image_url = f"https://mj880616.github.io/work/assets/social/{meta['image']}"
               tags = ''.join([
-                  '<meta property="og:type" content="website">','<meta property="og:locale" content="ko_KR">','<meta property="og:site_name" content="공공운수노조">',
-                  f'<meta property="og:title" content="{html.escape(meta["title"], quote=True)}">',f'<meta property="og:description" content="{html.escape(meta["description"], quote=True)}">',f'<meta property="og:url" content="{meta["url"]}">',
-                  f'<meta property="og:image" content="{image_url}">',f'<meta property="og:image:secure_url" content="{image_url}">','<meta property="og:image:type" content="image/jpeg">','<meta property="og:image:width" content="600">','<meta property="og:image:height" content="600">',f'<meta property="og:image:alt" content="{html.escape(meta["alt"], quote=True)}">',
-                  '<meta name="twitter:card" content="summary">',f'<meta name="twitter:title" content="{html.escape(meta["title"], quote=True)}">',f'<meta name="twitter:description" content="{html.escape(meta["description"], quote=True)}">',f'<meta name="twitter:image" content="{image_url}">',f'<meta name="twitter:image:alt" content="{html.escape(meta["alt"], quote=True)}">'])
-              s = s.replace('</head>', tags + '</head>', 1); p.write_text(s)
+                  '<meta property="og:type" content="website">',
+                  '<meta property="og:locale" content="ko_KR">',
+                  '<meta property="og:site_name" content="공공운수노조">',
+                  f'<meta property="og:title" content="{html.escape(meta["title"], quote=True)}">',
+                  f'<meta property="og:description" content="{html.escape(meta["description"], quote=True)}">',
+                  f'<meta property="og:url" content="{meta["url"]}">',
+                  f'<meta property="og:image" content="{image_url}">',
+                  f'<meta property="og:image:secure_url" content="{image_url}">',
+                  '<meta property="og:image:type" content="image/jpeg">',
+                  '<meta property="og:image:width" content="600">',
+                  '<meta property="og:image:height" content="600">',
+                  f'<meta property="og:image:alt" content="{html.escape(meta["alt"], quote=True)}">',
+                  '<meta name="twitter:card" content="summary">',
+                  f'<meta name="twitter:title" content="{html.escape(meta["title"], quote=True)}">',
+                  f'<meta name="twitter:description" content="{html.escape(meta["description"], quote=True)}">',
+                  f'<meta name="twitter:image" content="{image_url}">',
+                  f'<meta name="twitter:image:alt" content="{html.escape(meta["alt"], quote=True)}">'])
+              s = s.replace('</head>', tags + '</head>', 1)
+              p.write_text(s)
               print(page, '->', image_url)
           PY
       - name: Remove temporary staging chunks
