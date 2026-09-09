@@ -1,1 +1,65 @@
-PLACEHOLDER
+name: Install approved social preview images
+on:
+  push:
+    paths:
+      - '.github/workflows/install-social-images.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode approved JPEGs
+        run: |
+          set -euo pipefail
+          cat assets/social/.upload/field.part0 assets/social/.upload/field.part1 | base64 -d > assets/social/field-social-v2.jpg
+          cat assets/social/.upload/workforce.part0 assets/social/.upload/workforce.part1 | base64 -d > assets/social/workforce-social-v2.jpg
+          cat assets/social/.upload/press.part0 assets/social/.upload/press.part1 | base64 -d > assets/social/press-social-v2.jpg
+          cat assets/social/.upload/joint.part0 assets/social/.upload/joint.part1 | base64 -d > assets/social/joint-social-v2.jpg
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          for p in Path('assets/social').glob('*-social-v2.jpg'):
+              with Image.open(p) as im:
+                  assert im.size == (600,600), (p, im.size)
+                  assert im.format == 'JPEG', (p, im.format)
+                  print(p, im.size, im.format)
+          PY
+      - name: Connect Open Graph metadata
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          pages={
+            '2in1/field-testimony/index.html':'field-social-v2.jpg',
+            'workforce/index.html':'workforce-social-v2.jpg',
+            'workforce/press-conference-0914/index.html':'press-social-v2.jpg',
+            'workforce/joint-struggle-0921/index.html':'joint-social-v2.jpg',
+          }
+          for page,img in pages.items():
+              p=Path(page)
+              s=p.read_text()
+              s=re.sub(r'<meta[^>]+(?:property|name)=["\'](?:og:image(?::[^"\']*)?|twitter:image)["\'][^>]*>','',s,flags=re.I)
+              url=f'https://mj880616.github.io/work/assets/social/{img}?v=20260910-3'
+              tags=(f'<meta property="og:image" content="{url}">'
+                    f'<meta property="og:image:secure_url" content="{url}">'
+                    f'<meta property="og:image:type" content="image/jpeg">'
+                    f'<meta property="og:image:width" content="600">'
+                    f'<meta property="og:image:height" content="600">'
+                    f'<meta name="twitter:card" content="summary_large_image">'
+                    f'<meta name="twitter:image" content="{url}">')
+              s=s.replace('</head>',tags+'</head>',1)
+              p.write_text(s)
+          PY
+      - name: Remove staging chunks
+        run: rm -rf assets/social/.upload
+      - name: Commit installed images and metadata
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add -A assets/social 2in1/field-testimony/index.html workforce/index.html workforce/press-conference-0914/index.html workforce/joint-struggle-0921/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Use approved final social preview images'
+          git push
