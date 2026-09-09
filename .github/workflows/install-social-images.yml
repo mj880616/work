@@ -11,21 +11,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Decode approved JPEGs
+      - name: Decode and validate approved JPEGs
         run: |
           set -euo pipefail
-          cat assets/social/.upload/field.part0 assets/social/.upload/field.part1 | base64 -d > assets/social/field-social-v2.jpg
-          cat assets/social/.upload/workforce.part0 assets/social/.upload/workforce.part1 | base64 -d > assets/social/workforce-social-v2.jpg
-          cat assets/social/.upload/press.part0 assets/social/.upload/press.part1 | base64 -d > assets/social/press-social-v2.jpg
-          cat assets/social/.upload/joint.part0 assets/social/.upload/joint.part1 | base64 -d > assets/social/joint-social-v2.jpg
           python3 - <<'PY'
-          from PIL import Image
           from pathlib import Path
-          for p in Path('assets/social').glob('*-social-v2.jpg'):
-              with Image.open(p) as im:
-                  assert im.size == (600,600), (p, im.size)
-                  assert im.format == 'JPEG', (p, im.format)
-                  print(p, im.size, im.format)
+          from PIL import Image
+          import base64, re
+          pairs={
+            'field':'field-social-v2.jpg',
+            'workforce':'workforce-social-v2.jpg',
+            'press':'press-social-v2.jpg',
+            'joint':'joint-social-v2.jpg',
+          }
+          for key,out in pairs.items():
+              raw=(Path(f'assets/social/.upload/{key}.part0').read_text()+Path(f'assets/social/.upload/{key}.part1').read_text())
+              clean=re.sub(r'[^A-Za-z0-9+/=]','',raw)
+              clean=clean.rstrip('=') + '='*((4-len(clean.rstrip('='))%4)%4)
+              data=base64.b64decode(clean)
+              dst=Path('assets/social')/out
+              dst.write_bytes(data)
+              with Image.open(dst) as im:
+                  im.verify()
+              with Image.open(dst) as im:
+                  assert im.size == (600,600), (dst, im.size)
+                  assert im.format == 'JPEG', (dst, im.format)
+              print(dst, len(data), '600x600 JPEG')
           PY
       - name: Connect Open Graph metadata
         run: |
