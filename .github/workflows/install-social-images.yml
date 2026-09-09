@@ -29,9 +29,9 @@ jobs:
               return base64.b64decode(clean)
           sources = {
               'home': decode(['home4a.part0','home4b.part0','home4b.part1','home4.part1','home4.part2','home4.part3','home4.part4','home4.part5','home4.part6']),
-              'field': decode(['field.part0', 'field.part1']),
-              'workforce': decode(['workforce.part0', 'workforce.part1']),
-              'press': decode([f'press3.part{i}' for i in range(8)]),
+              'field': (root / 'field-social.jpg').read_bytes(),
+              'workforce': (root / 'workforce-social.jpg').read_bytes(),
+              'press': (root / 'press-social.jpg').read_bytes(),
               'joint': (root / 'joint-social.jpg').read_bytes(),
           }
           outputs = {
@@ -58,7 +58,7 @@ jobs:
                   assert check.mode == 'RGB', (dst, check.mode)
               size = dst.stat().st_size
               assert size > 10000, (dst, size)
-              print(f'{dst}: JPEG 600x600 RGB {size} bytes OK')
+              print(f'{key}: {dst} JPEG 600x600 RGB {size} bytes OK sha256={hashlib.sha256(dst.read_bytes()).hexdigest()}')
           PY
       - name: Install complete Open Graph and Twitter metadata
         run: |
