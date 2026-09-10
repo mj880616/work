@@ -9,6 +9,15 @@
   const materials=`<section class="section" id="materials"><div class="section-head"><h2>민자철도 자료실</h2><span>Google Drive</span></div><p class="material-note">자료는 Google Drive에 보관하며, 분류별 폴더와 개별 파일을 바로 열거나 내려받을 수 있습니다.</p><div class="material-board">${(window.PRIVATE_RAIL_MATERIALS||[]).map(category).join('')}</div></section>`;
   const r=await fetch('./page.html?v=1',{cache:'no-store'}); if(!r.ok) throw new Error('page');
   let html=await r.text();
+
+  // 세부항목은 소제목을 직접 입력한 경우에만 굵게 표시함.
+  // 과거 자동 저장된 '내용' 라벨도 빈 라벨로 정규화함.
+  html=html.replace("map(d=>({label:d.label,text:d.text}))","map(d=>({label:d.label==='내용'?'':d.label,text:d.text}))");
+  html=html.replace("if(i<0)return{label:'내용',text:line};return{label:line.slice(0,i).trim()||'내용',text:line.slice(i+1).trim()}","if(i<0)return{label:'',text:line};return{label:line.slice(0,i).trim(),text:line.slice(i+1).trim()}");
+  html=html.replace("map(d=>`${d.label} | ${d.text}`).join('\\n')","map(d=>d.label?`${d.label} | ${d.text}`:d.text).join('\\n')");
+  html=html.replace("각 줄을 ‘항목명 | 내용’ 형식으로 입력하면 기존 카드 디자인에 맞춰 자동 배치됩니다.","소제목이 필요하면 ‘항목명 | 내용’ 형식으로 입력하세요. 문장만 입력하면 소제목 없이 표시됩니다.");
+  html=html.replace('</style>','.subitem b:empty{display:none}.task-brief-row b:empty{display:none}.task-brief-row:has(>b:empty){grid-template-columns:1fr}</style>');
+
   const start=html.indexOf('<section class="section" id="materials">');
   const end=html.indexOf('<section class="section">',start+1);
   if(start<0||end<0) throw new Error('materials');
