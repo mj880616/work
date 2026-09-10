@@ -17,7 +17,7 @@ button,input{font:inherit}
 .section-title h2{font-size:20px;margin:0}
 .section-title span{font-size:12px;color:var(--muted)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.card{display:block;background:var(--paper);border:1px solid var(--line);border-radius:17px;padding:20px;text-decoration:none;color:inherit;transition:.15s}
+.card{display:block;background:var(--paper);border:1px solid var(--line);border-radius:17px;padding:20px;text-decoration:none;color:inherit;transition:.15s;cursor:pointer}
 .card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(22,34,50,.08)}
 .top{display:flex;justify-content:space-between;gap:10px;align-items:start}
 .badge{display:inline-block;font-size:11px;font-weight:800;padding:4px 8px;border-radius:99px;background:#eaf3ed;color:var(--green)}
@@ -29,6 +29,16 @@ button,input{font:inherit}
 .card p{font-size:14px;color:var(--muted);margin:0}
 .links{margin-top:15px;display:flex;gap:7px;flex-wrap:wrap}
 .link{font-size:12px;font-weight:800;color:var(--blue);background:var(--soft);border-radius:8px;padding:6px 9px}
+.archive-move{border:0;background:transparent;color:#7a8591;padding:3px 0 3px 8px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
+.archive-move:hover{color:var(--blue);text-decoration:underline}
+.archive-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:28px 2px 12px}
+.archive-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:transparent;padding:0;cursor:pointer;color:inherit;text-align:left}
+.archive-toggle strong{font-size:20px}
+.archive-toggle span{font-size:12px;color:var(--muted);font-weight:800}
+.archive-wrap{display:none}
+.archive-wrap.open{display:block}
+.archive-empty{background:#fff;border:1px dashed #cbd3dc;border-radius:15px;padding:18px;color:var(--muted);font-size:13px}
+.archive-wrap .card{opacity:.88}
 .schedule-actions{display:flex;align-items:center;gap:7px}
 .schedule-btn{border:1px solid #cbd5df;background:#fff;color:var(--blue);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer}
 .schedule-btn.primary{border-color:var(--navy);background:var(--navy);color:#fff}
@@ -57,6 +67,7 @@ button,input{font:inherit}
 .footer{text-align:center;color:#8a939f;font-size:11px;margin-top:28px}
 @media(max-width:650px){
  .wrap{padding:16px 12px 50px}.hero{padding:25px 21px}.hero h1{font-size:27px}.grid{grid-template-columns:1fr}.section-title{margin-top:23px;align-items:center}
+ .archive-head{margin-top:23px}.archive-toggle strong{font-size:20px}.archive-move{font-size:10px;padding-left:6px}
  .event{grid-template-columns:66px minmax(0,1fr) auto;gap:8px;padding:13px 12px}.event-actions{flex-direction:column;gap:3px}.event-action{padding:4px 6px}.form-grid{grid-template-columns:1fr}.form-field.full{grid-column:auto}
 }
 </style>
@@ -74,12 +85,22 @@ button,input{font:inherit}
 <header class="hero"><h1>업무 현황</h1></header>
 
 <div class="section-title"><h2>진행 중인 주요 사업</h2><span>2026. 9. 11. 기준</span></div>
-<div class="grid">
-<a class="card" href="./2in1/"><div class="top"><span class="badge">진행 중</span></div><h3>위험업무 2인1조 법제화</h3><p>법안 보완 · 노동부 대응 · 국회토론회 · 국정감사 · 궤도 공동투쟁</p><div class="links"><span class="link">사업 현황</span></div></a>
-<a class="card" href="./workforce/"><div class="top"><span class="badge action">당면 대응</span></div><h3>공공기관 인력확충</h3><p>증원 연계 2% 인력감축 방침 철회와 안전·공공서비스 인력 확충 대응</p><div class="links"><span class="link">9/14 기자회견</span><span class="link">9/21~22 공동투쟁</span></div></a>
-<a class="card" href="./private-rail/"><div class="top"><span class="badge">현장 공유</span></div><h3>민자철도 사업 현황</h3><p>공영화 · 운영기준 · 사업장별 임단투 · 민간철도·지하철 부실운영 방지법 진행 현황</p><div class="links"><span class="link">사업 타임라인</span><span class="link">현장 직접 업데이트</span></div></a>
-<a class="card" href="./press/"><div class="top"><span class="badge press">언론자료</span></div><h3>성명·보도자료·취재요청</h3><p>공공기관 관련 성명, 보도자료, 취재요청을 최신순으로 모아봅니다.</p><div class="links"><span class="link">언론자료 목록</span></div></a>
-<a class="card" href="./public-policy/"><div class="top"><span class="badge library">정책자료</span></div><h3>공공기관 정책자료</h3><p>정부 정책·예산·인력·경영평가·기능개혁·법령·연구자료를 분야별로 정리합니다.</p><div class="links"><span class="link">자료 검색</span><span class="link">현장 공유</span></div></a>
+<div class="grid" id="activeProjects">
+<article class="card project-card" data-key="2in1" data-href="./2in1/"><div class="top"><span class="badge">진행 중</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>위험업무 2인1조 법제화</h3><p>법안 보완 · 노동부 대응 · 국회토론회 · 국정감사 · 궤도 공동투쟁</p><div class="links"><span class="link">사업 현황</span></div></article>
+<article class="card project-card" data-key="workforce" data-href="./workforce/"><div class="top"><span class="badge action">당면 대응</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>공공기관 인력확충</h3><p>증원 연계 2% 인력감축 방침 철회와 안전·공공서비스 인력 확충 대응</p><div class="links"><span class="link">9/14 기자회견</span><span class="link">9/21~22 공동투쟁</span></div></article>
+<article class="card project-card" data-key="private-rail" data-href="./private-rail/"><div class="top"><span class="badge">현장 공유</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>민자철도 사업 현황</h3><p>공영화 · 운영기준 · 사업장별 임단투 · 민간철도·지하철 부실운영 방지법 진행 현황</p><div class="links"><span class="link">사업 타임라인</span><span class="link">현장 직접 업데이트</span></div></article>
+<article class="card project-card" data-key="press" data-href="./press/"><div class="top"><span class="badge press">언론자료</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>성명·보도자료·취재요청</h3><p>공공기관 관련 성명, 보도자료, 취재요청을 최신순으로 모아봅니다.</p><div class="links"><span class="link">언론자료 목록</span></div></article>
+<article class="card project-card" data-key="public-policy" data-href="./public-policy/"><div class="top"><span class="badge library">정책자료</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>공공기관 정책자료</h3><p>정부 정책·예산·인력·경영평가·기능개혁·법령·연구자료를 분야별로 정리합니다.</p><div class="links"><span class="link">자료 검색</span><span class="link">현장 공유</span></div></article>
+</div>
+
+<div class="archive-head">
+  <button type="button" class="archive-toggle" id="archiveToggle" aria-expanded="false" aria-controls="archiveWrap">
+    <strong>지나간 업무 · 사업</strong><span id="archiveToggleText">펼치기 ▾</span>
+  </button>
+</div>
+<div class="archive-wrap" id="archiveWrap">
+  <div class="grid" id="archivedProjects"></div>
+  <div class="archive-empty" id="archiveEmpty">지나간 업무 · 사업으로 이동한 항목이 없습니다.</div>
 </div>
 
 <div class="section-title">
@@ -106,7 +127,7 @@ button,input{font:inherit}
   <div class="event"><div class="date">10/24</div><div class="event-main"><b>공공기관 집회</b><small>하반기 공동투쟁</small></div></div>
 </div>
 
-<div class="future">향후 이 홈페이지를 기준으로 철도·지하철, 공공기관 기능개혁·통폐합 대응과 종료 사업 아카이브를 추가합니다.</div>
+<div class="future">향후 이 홈페이지를 기준으로 철도·지하철, 공공기관 기능개혁·통폐합 대응 페이지를 추가합니다.</div>
 <div class="footer">공공운수노조 공공기관사업팀 · 업무 공유용</div>
 </main>
 
@@ -117,6 +138,63 @@ const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let scheduleRows=[];
 let editingScheduleId=null;
+
+const projectCards=[...document.querySelectorAll('.project-card')];
+const activeProjects=document.getElementById('activeProjects');
+const archivedProjects=document.getElementById('archivedProjects');
+const archiveEmpty=document.getElementById('archiveEmpty');
+const archiveWrap=document.getElementById('archiveWrap');
+const archiveToggle=document.getElementById('archiveToggle');
+const archiveToggleText=document.getElementById('archiveToggleText');
+
+function placeProject(card,archived){
+  const btn=card.querySelector('.archive-move');
+  btn.textContent=archived?'진행 중으로 이동':'지나간 업무로 이동';
+  card.dataset.archived=archived?'true':'false';
+  (archived?archivedProjects:activeProjects).appendChild(card);
+  archiveEmpty.style.display=archivedProjects.children.length?'none':'block';
+}
+
+async function loadProjectArchiveState(){
+  try{
+    const r=await fetch(SB+'/rest/v1/main_project_archive_state?select=card_key,archived',{headers:H});
+    if(!r.ok)throw new Error(await r.text());
+    const rows=await r.json();
+    const state=new Map(rows.map(x=>[x.card_key,!!x.archived]));
+    projectCards.forEach(card=>placeProject(card,state.get(card.dataset.key)===true));
+  }catch(e){
+    console.error(e);
+    projectCards.forEach(card=>placeProject(card,false));
+  }
+}
+
+async function moveProject(card){
+  const archived=card.dataset.archived!=='true';
+  const btn=card.querySelector('.archive-move');
+  btn.disabled=true;
+  try{
+    const payload={card_key:card.dataset.key,archived,updated_at:new Date().toISOString()};
+    const r=await fetch(SB+'/rest/v1/main_project_archive_state?on_conflict=card_key',{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
+    if(!r.ok)throw new Error(await r.text());
+    placeProject(card,archived);
+  }catch(e){
+    console.error(e);alert('이동 상태를 저장하지 못했습니다. 다시 시도해 주세요.');
+  }finally{btn.disabled=false;}
+}
+
+projectCards.forEach(card=>{
+  card.addEventListener('click',e=>{
+    if(e.target.closest('.archive-move')){e.preventDefault();e.stopPropagation();moveProject(card);return;}
+    location.href=card.dataset.href;
+  });
+});
+
+archiveToggle.addEventListener('click',()=>{
+  const open=!archiveWrap.classList.contains('open');
+  archiveWrap.classList.toggle('open',open);
+  archiveToggle.setAttribute('aria-expanded',String(open));
+  archiveToggleText.textContent=open?'숨기기 ▴':'펼치기 ▾';
+});
 
 function formatScheduleDate(start,end){
   const s=new Date(start+'T00:00:00');
@@ -207,6 +285,7 @@ async function deleteSchedule(id){
 document.getElementById('addScheduleBtn').onclick=()=>openScheduleForm();
 document.getElementById('cancelScheduleBtn').onclick=closeScheduleForm;
 document.getElementById('saveScheduleBtn').onclick=saveSchedule;
+loadProjectArchiveState();
 loadSchedule();
 </script>
 </body>
