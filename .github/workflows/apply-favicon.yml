@@ -1,0 +1,46 @@
+name: Apply favicon to all HTML pages
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-favicon.yml'
+permissions:
+  contents: write
+jobs:
+  apply-favicon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add favicon links to every HTML page
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          links = '''<link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">\n<link rel="shortcut icon" href="/work/favicon.svg?v=1">'''
+          changed = []
+
+          for p in Path('.').rglob('*.html'):
+              s = p.read_text(encoding='utf-8')
+              old = s
+
+              # Remove older variants first so every page ends up identical.
+              s = re.sub(r'\s*<link\s+rel=["\'](?:icon|shortcut icon)["\'][^>]*favicon[^>]*>\s*', '\n', s, flags=re.I)
+
+              if '</head>' in s.lower():
+                  m = re.search(r'</head>', s, flags=re.I)
+                  s = s[:m.start()] + links + '\n' + s[m.start():]
+
+              if s != old:
+                  p.write_text(s, encoding='utf-8')
+                  changed.append(str(p))
+
+          print('Updated favicon links:', *changed, sep='\n- ')
+          PY
+      - name: Commit favicon links
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add '*.html' '**/*.html' || true
+          git diff --cached --quiet && exit 0
+          git commit -m 'Apply favicon to all HTML pages'
+          git push
