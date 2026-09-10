@@ -18,8 +18,8 @@
   html=html.replace("각 줄을 ‘항목명 | 내용’ 형식으로 입력하면 기존 카드 디자인에 맞춰 자동 배치됩니다.","소제목이 필요하면 ‘항목명 | 내용’ 형식으로 입력하세요. 문장만 입력하면 소제목 없이 표시됩니다.");
   html=html.replace('</style>','.subitem b:empty{display:none}.task-brief-row b:empty{display:none}.task-brief-row:has(>b:empty){grid-template-columns:1fr}</style>');
 
-  // 카드 순서: 국회 대응을 4번, 사업장별 하반기 임단투를 5번으로 표시함.
-  html=html.replace("return [...defaults,...custom].filter(c=>!c.hidden).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0))","return [...defaults,...custom].filter(c=>!c.hidden).sort((a,b)=>{const rank=c=>c.title==='국회 대응'?4:(c.id==='bargaining'||c.title==='사업장별 하반기 임단투')?5:(Number(c.order)||0);return rank(a)-rank(b)})");
+  // 노선별 공영화 투쟁 카드는 제거하고, 국회 대응 → 임단투 순서로 연속 번호를 부여함.
+  html=html.replace("return [...defaults,...custom].filter(c=>!c.hidden).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0))","return [...defaults,...custom].filter(c=>!c.hidden&&c.id!=='public').sort((a,b)=>{const rank=c=>c.title==='국회 대응'?3:(c.id==='bargaining'||c.title==='사업장별 하반기 임단투')?4:(Number(c.order)||0);return rank(a)-rank(b)})");
 
   const start=html.indexOf('<section class="section" id="materials">');
   const end=html.indexOf('<section class="section">',start+1);
