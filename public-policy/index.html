@@ -63,7 +63,7 @@ button,input,select,textarea{font:inherit}
   <div class="status" id="formStatus"></div>
 </div>
 
-<div class="drive-note"><b>Google Drive 연동</b> · 현재는 Drive 파일 링크를 등록하는 방식임. 지정 폴더가 만들어지면 폴더 기준 자동 수집·분류와 웹페이지에서 Drive로 직접 업로드하는 연결을 추가할 수 있음.</div>
+<div class="drive-note"><b>Google Drive 연동</b> · 현재는 Drive 파일 링크를 등록하는 방식임. 지정 폴더가 만들어지면 폴더 안 자료를 읽어 목록화·자동분류하는 것은 연결 가능함. 웹페이지에서 파일을 곧바로 Drive에 업로드하려면 Google 인증을 처리하는 별도 중계 기능이 추가로 필요함.</div>
 
 <section class="section">
   <div class="section-head"><h2>자료 목록</h2><span id="resultCount">불러오는 중…</span></div>
@@ -170,7 +170,7 @@ async function saveMaterial(){
   const status=document.getElementById('formStatus'),btn=document.getElementById('saveBtn');
   if(!title||!drive_url){status.textContent='자료명과 Google Drive 링크를 입력해 주세요.';return;}
   let password=editPassword;
-  if(!editingId){password=prompt('마스터 비밀번호를 입력하세요.');if(password===null)return;}
+  if(!password){password=prompt('마스터 비밀번호를 입력하세요.');if(password===null)return;}
   btn.disabled=true;status.textContent='저장 중…';
   try{
     const payload={title,source,document_date,category,tags,drive_url,description,updated_at:new Date().toISOString()};
@@ -187,7 +187,7 @@ async function deleteMaterial(id){
   try{const r=await fetch(SB+'/rest/v1/public_policy_materials?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{...H,'x-master-password':password,'Prefer':'return=representation'}});if(!r.ok)throw new Error(await r.text());const deleted=await r.json();if(!Array.isArray(deleted)||deleted.length===0){alert('비밀번호가 올바르지 않습니다.');return}await load()}catch(e){console.error(e);alert('삭제하지 못했습니다. 다시 시도해 주세요.')}
 }
 
-document.getElementById('addBtn').onclick=()=>{const password=prompt('마스터 비밀번호를 입력하세요.');if(password===null)return;editingId=null;editPassword=password;openForm();suggestCategory()};
+document.getElementById('addBtn').onclick=()=>{editingId=null;editPassword='';openForm();suggestCategory()};
 document.getElementById('cancelBtn').onclick=closeForm;
 document.getElementById('saveBtn').onclick=saveMaterial;
 document.getElementById('searchInput').oninput=render;
