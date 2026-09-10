@@ -6,71 +6,93 @@
 <title>공공기관 정책자료</title>
 <meta name="description" content="공공기관 정책·제도·예산·인력·경영평가 관련 현장 공유 자료실">
 <link rel="canonical" href="https://mj880616.github.io/work/public-policy/">
-<meta property="og:type" content="website">
-<meta property="og:locale" content="ko_KR">
+<meta property="og:type" content="website"><meta property="og:locale" content="ko_KR">
 <meta property="og:title" content="공공기관 정책자료">
 <meta property="og:description" content="공공기관 정책·제도 관련 자료를 분류해 공유하는 현장용 자료실">
 <meta property="og:url" content="https://mj880616.github.io/work/public-policy/">
+<link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
 <style>
-:root{--bg:#f4f6f8;--paper:#fff;--ink:#18202a;--muted:#687383;--line:#e2e7ec;--navy:#17324d;--blue:#245786;--green:#28704b;--soft:#edf3f8;--red:#9a3d45}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.58}
-button,input,select,textarea{font:inherit}
-.wrap{max-width:980px;margin:auto;padding:22px 16px 64px}
-.hero{background:linear-gradient(135deg,#142a42,#245786);color:#fff;border-radius:20px;padding:30px 28px}
-.hero h1{font-size:30px;margin:0 0 8px;letter-spacing:-.7px}.hero p{margin:0;color:#dce8f2;font-size:14px}.meta{margin-top:14px;font-size:12px;color:#c8d7e5}
-.toolbar{margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:17px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 190px auto;gap:8px}
-.toolbar input,.toolbar select{width:100%;border:1px solid #ccd5dd;border-radius:10px;padding:10px 11px;background:#fff;color:var(--ink)}
-.btn{border:1px solid #cbd5df;background:#fff;color:var(--blue);border-radius:10px;padding:10px 13px;font-weight:800;font-size:13px;cursor:pointer}.btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}.btn.danger{color:var(--red)}.btn:disabled{opacity:.55;cursor:default}
+:root{--bg:#f4f6f8;--paper:#fff;--ink:#18202a;--muted:#687383;--line:#e2e7ec;--navy:#17324d;--blue:#245786;--green:#28704b;--soft:#edf3f8;--red:#9a3d45;--amber:#9a6514}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.58}
+button,input,select,textarea{font:inherit}.wrap{max-width:980px;margin:auto;padding:22px 16px 64px}
+.hero{background:linear-gradient(135deg,#142a42,#245786);color:#fff;border-radius:20px;padding:30px 28px}.hero h1{font-size:30px;margin:0 0 8px}.hero p{margin:0;color:#dce8f2;font-size:14px}.meta{margin-top:14px;font-size:12px;color:#c8d7e5}
+.toolbar{margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:17px;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 190px auto auto;gap:8px}.toolbar input,.toolbar select{width:100%;border:1px solid #ccd5dd;border-radius:10px;padding:10px 11px;background:#fff;color:var(--ink)}
+.btn{border:1px solid #cbd5df;background:#fff;color:var(--blue);border-radius:10px;padding:10px 13px;font-weight:800;font-size:13px;cursor:pointer}.btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}.btn.green{background:var(--green);border-color:var(--green);color:#fff}.btn:disabled{opacity:.55;cursor:default}
 .summary{display:flex;gap:8px;flex-wrap:wrap;margin:12px 2px 0}.pill{font-size:11px;font-weight:800;padding:5px 9px;border-radius:99px;background:#eaf0f5;color:var(--navy)}
+.panel{display:none;margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:17px;padding:17px}.panel.open{display:block}.panel h3{margin:0 0 12px;font-size:17px}.panel-note{font-size:12px;color:var(--muted);margin:-5px 0 13px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1/-1}.field label{font-size:11px;font-weight:800;color:#4e5966}.field input,.field select,.field textarea{width:100%;border:1px solid #ccd5dd;border-radius:9px;padding:10px 11px;font-size:13px;background:#fff}.field textarea{min-height:88px;resize:vertical}.classify-note,.status{font-size:11px;color:var(--muted);margin-top:5px;min-height:17px}.panel-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:11px}
+.drive-note{margin-top:14px;background:#f8fafb;border:1px solid var(--line);border-radius:14px;padding:14px 15px;font-size:12px;color:#5c6875;display:flex;gap:12px;justify-content:space-between;align-items:center}.drive-note b{color:var(--navy)}.drive-note .drive-text{min-width:0}.drive-state{display:inline-block;font-weight:800;margin-left:5px}.drive-state.ok{color:var(--green)}.drive-state.wait{color:var(--amber)}
+.setup-steps{background:#f7f9fb;border-radius:11px;padding:12px 14px;font-size:12px;color:#53606d;margin-bottom:12px}.setup-steps code{font-size:11px;word-break:break-all}
 .section{margin-top:22px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:10px;margin:0 2px 10px}.section-head h2{font-size:20px;margin:0}.section-head span{font-size:12px;color:var(--muted)}
 .groups{display:grid;gap:11px}.group{background:#fff;border:1px solid var(--line);border-radius:17px;overflow:hidden}.group summary{list-style:none;cursor:pointer;padding:15px 17px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-weight:900;color:var(--navy)}.group summary::-webkit-details-marker{display:none}.group summary:after{content:"펼치기 ＋";font-size:11px;color:var(--muted);font-weight:800}.group[open] summary{border-bottom:1px solid var(--line)}.group[open] summary:after{content:"접기 －"}.group-count{font-size:11px;background:var(--soft);padding:4px 8px;border-radius:99px;color:var(--blue);margin-left:auto;margin-right:8px}
-.material{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:15px 17px;border-top:1px solid #edf0f3}.material:first-child{border-top:0}.material-main{min-width:0}.material-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.material-title a{color:var(--ink);font-weight:900;text-decoration:none;font-size:15px}.material-title a:hover{text-decoration:underline}.file-badge{font-size:10px;font-weight:800;color:var(--green);background:#eaf3ed;border-radius:99px;padding:3px 7px}.material-meta{font-size:11px;color:var(--muted);margin-top:4px}.material-desc{font-size:13px;color:#4f5b68;margin-top:6px;white-space:pre-wrap}.material-tags{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}.tag{font-size:10px;color:#5f6d7b;background:#f2f5f7;border-radius:7px;padding:3px 6px}.actions{display:flex;gap:5px;align-items:start}.small-btn{border:1px solid #d7dee5;background:#fff;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:800;cursor:pointer;color:#66717d}.small-btn.edit{color:var(--blue)}
-.empty{background:#fff;border:1px dashed #cbd3dc;border-radius:14px;padding:19px;color:var(--muted);font-size:13px}
-.panel{display:none;margin-top:12px;background:#fff;border:1px solid var(--line);border-radius:17px;padding:17px}.panel.open{display:block}.panel h3{margin:0 0 12px;font-size:17px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{display:flex;flex-direction:column;gap:5px}.field.full{grid-column:1/-1}.field label{font-size:11px;font-weight:800;color:#4e5966}.field input,.field select,.field textarea{width:100%;border:1px solid #ccd5dd;border-radius:9px;padding:10px 11px;font-size:13px;background:#fff}.field textarea{min-height:90px;resize:vertical}.classify-note{font-size:11px;color:var(--muted);margin-top:5px}.panel-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:11px}.status{font-size:11px;color:var(--muted);min-height:17px;margin-top:7px}
-.drive-note{margin-top:14px;background:#f8fafb;border:1px solid var(--line);border-radius:14px;padding:14px 15px;font-size:12px;color:#5c6875}.drive-note b{color:var(--navy)}
+.material{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:15px 17px;border-top:1px solid #edf0f3}.material:first-child{border-top:0}.material-main{min-width:0}.material-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.material-title a{color:var(--ink);font-weight:900;text-decoration:none;font-size:15px}.material-title a:hover{text-decoration:underline}.file-badge{font-size:10px;font-weight:800;color:var(--green);background:#eaf3ed;border-radius:99px;padding:3px 7px}.material-meta{font-size:11px;color:var(--muted);margin-top:4px}.material-desc{font-size:13px;color:#4f5b68;margin-top:6px;white-space:pre-wrap}.material-tags{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}.tag{font-size:10px;color:#5f6d7b;background:#f2f5f7;border-radius:7px;padding:3px 6px}.actions{display:flex;gap:5px;align-items:start}.small-btn{border:1px solid #d7dee5;background:#fff;border-radius:8px;padding:5px 8px;font-size:10px;font-weight:800;cursor:pointer;color:#66717d}.small-btn.edit{color:var(--blue)}.empty{background:#fff;border:1px dashed #cbd3dc;border-radius:14px;padding:19px;color:var(--muted);font-size:13px}
 .footer{text-align:center;color:#8a939f;font-size:11px;margin-top:28px}
-@media(max-width:650px){.wrap{padding:14px 11px 48px}.hero{padding:24px 20px}.hero h1{font-size:27px}.toolbar{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.material{grid-template-columns:1fr}.actions{justify-content:flex-end}.group summary{padding:14px}.material{padding:14px}}
+@media(max-width:720px){.wrap{padding:14px 11px 48px}.hero{padding:24px 20px}.hero h1{font-size:27px}.toolbar{grid-template-columns:1fr 1fr}.toolbar input,.toolbar select{grid-column:1/-1}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.material{grid-template-columns:1fr}.actions{justify-content:flex-end}.drive-note{align-items:flex-start;flex-direction:column}.group summary{padding:14px}}
 </style>
-<link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
-<link rel="shortcut icon" href="/work/favicon.svg?v=1">
 </head>
-<body>
-<main class="wrap">
-<header class="hero">
-  <h1>공공기관 정책자료</h1>
-  <p>공공기관 정책·제도·예산·인력·경영평가 관련 자료를 현장에서 바로 찾을 수 있도록 분류한 자료실</p>
-  <div class="meta">공공운수노조 · 현장 공유용</div>
-</header>
+<body><main class="wrap">
+<header class="hero"><h1>공공기관 정책자료</h1><p>공공기관 정책·제도·예산·인력·경영평가 관련 자료를 현장에서 바로 찾을 수 있도록 분류한 자료실</p><div class="meta">공공운수노조 · 현장 공유용</div></header>
 
 <div class="toolbar">
-  <input id="searchInput" type="search" placeholder="자료명 · 출처 · 설명 · 태그 검색">
-  <select id="filterCategory"><option value="">전체 분류</option></select>
-  <button type="button" class="btn primary" id="addBtn">+ 자료 추가</button>
+<input id="searchInput" type="search" placeholder="자료명 · 출처 · 설명 · 태그 검색">
+<select id="filterCategory"><option value="">전체 분류</option></select>
+<button type="button" class="btn" id="addBtn">+ 링크 추가</button>
+<button type="button" class="btn green" id="uploadBtn">+ 파일 업로드</button>
 </div>
 <div class="summary" id="summary"></div>
 
-<div class="panel" id="formPanel">
-  <h3 id="formTitle">자료 추가</h3>
-  <div class="form-grid">
-    <div class="field full"><label for="titleInput">자료명</label><input id="titleInput" maxlength="300" placeholder="자료 제목"></div>
-    <div class="field"><label for="sourceInput">출처</label><input id="sourceInput" maxlength="160" placeholder="예: 기획재정부, 행정안전부"></div>
-    <div class="field"><label for="dateInput">자료일</label><input id="dateInput" type="date"></div>
-    <div class="field"><label for="categoryInput">분류</label><select id="categoryInput"></select><div class="classify-note" id="classifyNote">제목·출처·설명 기준으로 자동 분류됨. 직접 변경 가능.</div></div>
-    <div class="field"><label for="tagsInput">태그</label><input id="tagsInput" maxlength="240" placeholder="쉼표로 구분: 총인건비, 예산운용지침"></div>
-    <div class="field full"><label for="urlInput">Google Drive 링크</label><input id="urlInput" type="url" placeholder="https://drive.google.com/..."></div>
-    <div class="field full"><label for="descInput">설명</label><textarea id="descInput" maxlength="1500" placeholder="자료의 핵심 내용이나 활용처를 짧게 입력"></textarea></div>
-  </div>
-  <div class="panel-actions"><button type="button" class="btn" id="cancelBtn">취소</button><button type="button" class="btn primary" id="saveBtn">저장</button></div>
-  <div class="status" id="formStatus"></div>
+<div class="panel" id="linkPanel">
+<h3 id="formTitle">링크 자료 추가</h3>
+<div class="form-grid">
+<div class="field full"><label>자료명</label><input id="titleInput" maxlength="300" placeholder="자료 제목"></div>
+<div class="field"><label>출처</label><input id="sourceInput" maxlength="160" placeholder="예: 기획재정부, 행정안전부"></div>
+<div class="field"><label>자료일</label><input id="dateInput" type="date"></div>
+<div class="field"><label>분류</label><select id="categoryInput"></select><div class="classify-note" id="classifyNote"></div></div>
+<div class="field"><label>태그</label><input id="tagsInput" maxlength="240" placeholder="쉼표로 구분"></div>
+<div class="field full"><label>Google Drive 링크</label><input id="urlInput" type="url" placeholder="https://drive.google.com/..."></div>
+<div class="field full"><label>설명</label><textarea id="descInput" maxlength="1500" placeholder="자료의 핵심 내용이나 활용처"></textarea></div>
+</div>
+<div class="panel-actions"><button class="btn" id="cancelBtn">취소</button><button class="btn primary" id="saveBtn">저장</button></div><div class="status" id="formStatus"></div>
 </div>
 
-<div class="drive-note"><b>Google Drive 연동</b> · 현재는 Drive 파일 링크를 등록하는 방식임. 지정 폴더가 만들어지면 폴더 안 자료를 읽어 목록화·자동분류하는 것은 연결 가능함. 웹페이지에서 파일을 곧바로 Drive에 업로드하려면 Google 인증을 처리하는 별도 중계 기능이 추가로 필요함.</div>
+<div class="panel" id="uploadPanel">
+<h3>Google Drive에 파일 업로드</h3>
+<div class="panel-note">Google 계정 로그인 없이 마스터 비밀번호로 업로드함. 파일은 ‘홈페이지 자료실 &gt; 공공기관’ 폴더에 저장되고 자료목록에 자동 등록됨.</div>
+<div class="form-grid">
+<div class="field full"><label>파일</label><input id="uploadFile" type="file"></div>
+<div class="field full"><label>자료명</label><input id="uploadTitle" maxlength="300" placeholder="파일 선택 시 자동 입력"></div>
+<div class="field"><label>출처</label><input id="uploadSource" maxlength="160" placeholder="예: 행정안전부"></div>
+<div class="field"><label>자료일</label><input id="uploadDate" type="date"></div>
+<div class="field"><label>분류</label><select id="uploadCategory"></select><div class="classify-note" id="uploadClassifyNote"></div></div>
+<div class="field"><label>태그</label><input id="uploadTags" maxlength="240" placeholder="쉼표로 구분"></div>
+<div class="field full"><label>설명</label><textarea id="uploadDesc" maxlength="1500" placeholder="자료의 핵심 내용이나 활용처"></textarea></div>
+</div>
+<div class="panel-actions"><button class="btn" id="uploadCancelBtn">취소</button><button class="btn green" id="uploadSaveBtn">Drive에 업로드</button></div><div class="status" id="uploadStatus"></div>
+</div>
 
-<section class="section">
-  <div class="section-head"><h2>자료 목록</h2><span id="resultCount">불러오는 중…</span></div>
-  <div class="groups" id="materialGroups"><div class="empty">자료를 불러오는 중…</div></div>
-</section>
+<div class="drive-note">
+<div class="drive-text"><b>Google Drive 자동 업로드</b><span class="drive-state wait" id="driveState">상태 확인 중</span><br><span id="driveDescription">공공기관 폴더 연결 상태를 확인하고 있습니다.</span></div>
+<button type="button" class="btn" id="driveSetupBtn">Drive 연결 설정</button>
+</div>
+
+<div class="panel" id="driveSetupPanel">
+<h3>관리자 Google Drive 연결</h3>
+<div class="setup-steps">
+1. Google Cloud에서 Drive API를 사용 설정함.<br>
+2. OAuth Client를 <b>웹 애플리케이션</b>으로 생성함.<br>
+3. 승인된 리디렉션 URI에 아래 주소를 정확히 등록함.<br>
+<code id="callbackText">불러오는 중…</code><br>
+4. Client ID와 Client Secret을 아래에 저장한 뒤 ‘Google 계정 연결’을 한 번 실행함.<br>
+※ 업로더들은 이후 Google 로그인이나 권한 승인이 필요 없음.
+</div>
+<div class="form-grid">
+<div class="field full"><label>OAuth Client ID</label><input id="clientIdInput" autocomplete="off" placeholder="...apps.googleusercontent.com"></div>
+<div class="field full"><label>OAuth Client Secret</label><input id="clientSecretInput" type="password" autocomplete="new-password" placeholder="Google Cloud에서 발급된 Client Secret"></div>
+</div>
+<div class="panel-actions"><button class="btn" id="setupCloseBtn">닫기</button><button class="btn" id="saveOAuthBtn">설정 저장</button><button class="btn primary" id="connectOAuthBtn">Google 계정 연결</button></div><div class="status" id="setupStatus"></div>
+</div>
+
+<section class="section"><div class="section-head"><h2>자료 목록</h2><span id="resultCount">불러오는 중…</span></div><div class="groups" id="materialGroups"><div class="empty">자료를 불러오는 중…</div></div></section>
 <div class="footer">공공운수노조 공공기관사업팀 · 정책자료 공유용</div>
 </main>
 
@@ -78,125 +100,44 @@ button,input,select,textarea{font:inherit}
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
-const CATEGORIES=['정부 정책·지침','예산·총인건비·보수','정원·인력·조직','경영평가·공공기관 운영','기능개혁·통폐합','노동·교섭','법령·국회','연구·통계','기타'];
+const EDGE=SB+'/functions/v1/public-policy-drive';
+const FOLDER='https://drive.google.com/drive/folders/1Uzvxq6FEqsx0P-FaBynOrgqY2UoT5Jvf';
+const CATEGORIES=['정부 정책·지침','예산·총인건비·보수','정원·인력·조직','경영평가·공공기관 운영','기능개혁·통폐합','노정 교섭 · 협의','법령·국회','연구·통계','기타'];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let rows=[],editingId=null,editPassword='',categoryManuallyChanged=false;
+let rows=[],editingId=null,editPassword='',manualCategory=false,uploadPassword='',uploadManualCategory=false,drivePassword='',driveStatus={};
 
 function classifyMaterial(text){
-  const t=String(text||'').toLowerCase();
-  const rules=[
-    ['기능개혁·통폐합',['기능개혁','기능 조정','기능조정','통폐합','통합','기관 감축','기관개편','구조개혁']],
-    ['예산·총인건비·보수',['총인건비','예산운용지침','예산 편성','예산편성','보수지침','임금체계','임금 인상','임금인상','성과연봉','인건비','복리후생']],
-    ['정원·인력·조직',['정원','현원','증원','감원','인력감축','인력 확충','인력확충','인력운영','조직개편','직제']],
-    ['경영평가·공공기관 운영',['경영평가','공공기관운영','공공기관 운영','공운위','공공기관 지정','경영공시','알리오','혁신계획']],
-    ['노동·교섭',['노정협의','노사협의','단체교섭','임단협','노동정책','노사관계','교섭']],
-    ['법령·국회',['법률','법령','시행령','시행규칙','개정안','국정감사','국감','국회','상임위','법안']],
-    ['연구·통계',['연구보고서','연구용역','실태조사','통계','분석보고서','연구원','kdi','koti']],
-    ['정부 정책·지침',['정부정책','정책방향','가이드라인','지침','기획재정부','재정경제부','행정안전부','고용노동부','국토교통부','공공기관 정책']]
-  ];
-  for(const [cat,words] of rules){if(words.some(w=>t.includes(w)))return cat;}
-  return '기타';
+ const t=String(text||'').toLowerCase();
+ const rules=[
+ ['기능개혁·통폐합',['기능개혁','기능 조정','기능조정','통폐합','통합','기관 감축','기관개편','구조개혁']],
+ ['예산·총인건비·보수',['총인건비','예산운용지침','예산 편성','예산편성','보수지침','임금체계','임금 인상','임금인상','성과연봉','인건비','복리후생']],
+ ['정원·인력·조직',['정원','현원','증원','감원','인력감축','인력 확충','인력확충','인력운영','조직개편','직제']],
+ ['경영평가·공공기관 운영',['경영평가','공공기관운영','공공기관 운영','공운위','공공기관 지정','경영공시','알리오','혁신계획']],
+ ['노정 교섭 · 협의',['노정협의','노정 협의','노정교섭','노정 교섭','노사협의','단체교섭','임단협','노동정책','노사관계','교섭']],
+ ['법령·국회',['법률','법령','시행령','시행규칙','개정안','국정감사','국감','국회','상임위','법안']],
+ ['연구·통계',['연구보고서','연구용역','실태조사','통계','분석보고서','연구원','kdi','koti']],
+ ['정부 정책·지침',['정부정책','정책방향','가이드라인','지침','기획재정부','재정경제부','행정안전부','고용노동부','국토교통부','공공기관 정책']]
+ ];for(const [c,words] of rules)if(words.some(w=>t.includes(w)))return c;return'기타';
 }
-
-function initCategories(){
-  const filter=document.getElementById('filterCategory'),form=document.getElementById('categoryInput');
-  CATEGORIES.forEach(c=>{filter.insertAdjacentHTML('beforeend',`<option value="${esc(c)}">${esc(c)}</option>`);form.insertAdjacentHTML('beforeend',`<option value="${esc(c)}">${esc(c)}</option>`)});
-}
-
-function formatDate(v){if(!v)return'';const [y,m,d]=v.split('-');return `${y}. ${Number(m)}. ${Number(d)}.`}
+function initCategories(){const sels=['filterCategory','categoryInput','uploadCategory'].map(id=>document.getElementById(id));CATEGORIES.forEach(c=>sels.forEach(s=>s.insertAdjacentHTML('beforeend',`<option value="${esc(c)}">${esc(c)}</option>`)))}
+function formatDate(v){if(!v)return'';const [y,m,d]=v.split('-');return`${y}. ${Number(m)}. ${Number(d)}.`}
 function tagsHtml(v){return String(v||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="tag">${esc(s)}</span>`).join('')}
-function buildSearchText(x){return [x.title,x.category,x.source,x.description,x.tags].filter(Boolean).join(' ').toLowerCase()}
-
-function render(){
-  const q=document.getElementById('searchInput').value.trim().toLowerCase();
-  const cat=document.getElementById('filterCategory').value;
-  const filtered=rows.filter(x=>(!cat||x.category===cat)&&(!q||buildSearchText(x).includes(q)));
-  document.getElementById('resultCount').textContent=`${filtered.length}개 자료`;
-  const counts={};rows.forEach(x=>counts[x.category]=(counts[x.category]||0)+1);
-  document.getElementById('summary').innerHTML=`<span class="pill">전체 ${rows.length}</span>`+CATEGORIES.filter(c=>counts[c]).map(c=>`<span class="pill">${esc(c)} ${counts[c]}</span>`).join('');
-  const box=document.getElementById('materialGroups');
-  if(!filtered.length){box.innerHTML='<div class="empty">조건에 맞는 자료가 없습니다.</div>';return;}
-  const groups=CATEGORIES.map(c=>[c,filtered.filter(x=>x.category===c)]).filter(([,list])=>list.length);
-  box.innerHTML=groups.map(([c,list],i)=>`<details class="group" ${i<3?'open':''}><summary><span>${esc(c)}</span><span class="group-count">${list.length}</span></summary><div>${list.map(x=>`<div class="material" id="material-${Number(x.id)}"><div class="material-main"><div class="material-title"><a href="${esc(x.drive_url)}" target="_blank" rel="noopener">${esc(x.title)}</a><span class="file-badge">Drive</span></div><div class="material-meta">${[x.document_date?formatDate(x.document_date):'',x.source||''].filter(Boolean).map(esc).join(' · ')}</div>${x.description?`<div class="material-desc">${esc(x.description)}</div>`:''}${x.tags?`<div class="material-tags">${tagsHtml(x.tags)}</div>`:''}</div><div class="actions"><button type="button" class="small-btn edit" onclick="startEdit(${Number(x.id)})">수정</button><button type="button" class="small-btn" onclick="deleteMaterial(${Number(x.id)})">삭제</button></div></div>`).join('')}</div></details>`).join('');
-}
-
-async function load(){
-  try{
-    const r=await fetch(SB+'/rest/v1/public_policy_materials?select=id,title,category,source,document_date,description,tags,drive_url,drive_file_id,sort_order,created_at,updated_at&order=document_date.desc.nullslast,sort_order.asc,id.desc',{headers:H});
-    if(!r.ok)throw new Error(await r.text());
-    rows=await r.json();render();
-  }catch(e){console.error(e);document.getElementById('materialGroups').innerHTML='<div class="empty">자료 목록을 불러오지 못했습니다.</div>';document.getElementById('resultCount').textContent='불러오기 실패';}
-}
-
-function suggestCategory(){
-  if(categoryManuallyChanged)return;
-  const text=[document.getElementById('titleInput').value,document.getElementById('sourceInput').value,document.getElementById('descInput').value,document.getElementById('tagsInput').value].join(' ');
-  const c=classifyMaterial(text);document.getElementById('categoryInput').value=c;document.getElementById('classifyNote').textContent=`자동 분류: ${c} · 필요하면 직접 변경 가능`;
-}
-
-function fillForm(row=null){
-  document.getElementById('titleInput').value=row?.title||'';
-  document.getElementById('sourceInput').value=row?.source||'';
-  document.getElementById('dateInput').value=row?.document_date||'';
-  document.getElementById('categoryInput').value=row?.category||'기타';
-  document.getElementById('tagsInput').value=row?.tags||'';
-  document.getElementById('urlInput').value=row?.drive_url||'';
-  document.getElementById('descInput').value=row?.description||'';
-  document.getElementById('formTitle').textContent=row?'자료 수정':'자료 추가';
-  document.getElementById('saveBtn').textContent=row?'수정 저장':'저장';
-  document.getElementById('formStatus').textContent='';
-  categoryManuallyChanged=!!row;
-}
-function openForm(row=null){fillForm(row);document.getElementById('formPanel').classList.add('open');setTimeout(()=>document.getElementById('titleInput').focus(),0)}
-function closeForm(){editingId=null;editPassword='';categoryManuallyChanged=false;document.getElementById('formPanel').classList.remove('open');document.getElementById('formStatus').textContent=''}
-
-async function verifyPasswordForEdit(id,password){
-  const x=rows.find(v=>Number(v.id)===Number(id));if(!x)return false;
-  const r=await fetch(SB+'/rest/v1/public_policy_materials?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:{...H,'x-master-password':password,'Prefer':'return=representation'},body:JSON.stringify({updated_at:x.updated_at})});
-  if(!r.ok)return false;const changed=await r.json();return Array.isArray(changed)&&changed.length>0;
-}
-
-async function startEdit(id){
-  const password=prompt('마스터 비밀번호를 입력하세요.');if(password===null)return;
-  try{if(!await verifyPasswordForEdit(id,password)){alert('비밀번호가 올바르지 않습니다.');return}editingId=Number(id);editPassword=password;openForm(rows.find(v=>Number(v.id)===Number(id)));}catch(e){alert('비밀번호를 확인하지 못했습니다. 다시 시도해 주세요.')}
-}
-
-async function saveMaterial(){
-  const title=document.getElementById('titleInput').value.trim();
-  const source=document.getElementById('sourceInput').value.trim()||null;
-  const document_date=document.getElementById('dateInput').value||null;
-  const category=document.getElementById('categoryInput').value||'기타';
-  const tags=document.getElementById('tagsInput').value.trim()||null;
-  const drive_url=document.getElementById('urlInput').value.trim();
-  const description=document.getElementById('descInput').value.trim()||null;
-  const status=document.getElementById('formStatus'),btn=document.getElementById('saveBtn');
-  if(!title||!drive_url){status.textContent='자료명과 Google Drive 링크를 입력해 주세요.';return;}
-  let password=editPassword;
-  if(!password){password=prompt('마스터 비밀번호를 입력하세요.');if(password===null)return;}
-  btn.disabled=true;status.textContent='저장 중…';
-  try{
-    const payload={title,source,document_date,category,tags,drive_url,description,updated_at:new Date().toISOString()};
-    const url=editingId?SB+'/rest/v1/public_policy_materials?id=eq.'+encodeURIComponent(editingId):SB+'/rest/v1/public_policy_materials';
-    const r=await fetch(url,{method:editingId?'PATCH':'POST',headers:{...H,'x-master-password':password,'Prefer':'return=representation'},body:JSON.stringify(payload)});
-    if(!r.ok)throw new Error(await r.text());const changed=await r.json();if(!Array.isArray(changed)||changed.length===0){status.textContent='비밀번호가 올바르지 않습니다.';return;}
-    closeForm();await load();
-  }catch(e){console.error(e);status.textContent='저장하지 못했습니다. 비밀번호와 입력값을 확인해 주세요.'}finally{btn.disabled=false}
-}
-
-async function deleteMaterial(id){
-  const password=prompt('마스터 비밀번호를 입력하세요.');if(password===null)return;
-  const x=rows.find(v=>Number(v.id)===Number(id));if(!x)return;if(!confirm(`‘${x.title}’ 자료를 삭제하시겠습니까?`))return;
-  try{const r=await fetch(SB+'/rest/v1/public_policy_materials?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{...H,'x-master-password':password,'Prefer':'return=representation'}});if(!r.ok)throw new Error(await r.text());const deleted=await r.json();if(!Array.isArray(deleted)||deleted.length===0){alert('비밀번호가 올바르지 않습니다.');return}await load()}catch(e){console.error(e);alert('삭제하지 못했습니다. 다시 시도해 주세요.')}
-}
-
-document.getElementById('addBtn').onclick=()=>{editingId=null;editPassword='';openForm();suggestCategory()};
-document.getElementById('cancelBtn').onclick=closeForm;
-document.getElementById('saveBtn').onclick=saveMaterial;
-document.getElementById('searchInput').oninput=render;
-document.getElementById('filterCategory').onchange=render;
-['titleInput','sourceInput','descInput','tagsInput'].forEach(id=>document.getElementById(id).addEventListener('input',suggestCategory));
-document.getElementById('categoryInput').addEventListener('change',()=>{categoryManuallyChanged=true;document.getElementById('classifyNote').textContent='분류 직접 지정됨'});
-initCategories();load();
-</script>
-</body>
-</html>
+function render(){const q=document.getElementById('searchInput').value.trim().toLowerCase(),cat=document.getElementById('filterCategory').value;const filtered=rows.filter(x=>(!cat||x.category===cat)&&(!q||[x.title,x.category,x.source,x.description,x.tags].filter(Boolean).join(' ').toLowerCase().includes(q)));document.getElementById('resultCount').textContent=`${filtered.length}개 자료`;const counts={};rows.forEach(x=>counts[x.category]=(counts[x.category]||0)+1);document.getElementById('summary').innerHTML=`<span class="pill">전체 ${rows.length}</span>`+CATEGORIES.filter(c=>counts[c]).map(c=>`<span class="pill">${esc(c)} ${counts[c]}</span>`).join('');const box=document.getElementById('materialGroups');if(!filtered.length){box.innerHTML='<div class="empty">조건에 맞는 자료가 없습니다.</div>';return}box.innerHTML=CATEGORIES.map(c=>[c,filtered.filter(x=>x.category===c)]).filter(([,a])=>a.length).map(([c,a],i)=>`<details class="group" ${i<3?'open':''}><summary><span>${esc(c)}</span><span class="group-count">${a.length}</span></summary><div>${a.map(x=>`<div class="material"><div class="material-main"><div class="material-title"><a href="${esc(x.drive_url)}" target="_blank" rel="noopener">${esc(x.title)}</a><span class="file-badge">Drive</span></div><div class="material-meta">${[x.document_date?formatDate(x.document_date):'',x.source||''].filter(Boolean).map(esc).join(' · ')}</div>${x.description?`<div class="material-desc">${esc(x.description)}</div>`:''}${x.tags?`<div class="material-tags">${tagsHtml(x.tags)}</div>`:''}</div><div class="actions"><button class="small-btn edit" onclick="startEdit(${Number(x.id)})">수정</button><button class="small-btn" onclick="deleteMaterial(${Number(x.id)})">삭제</button></div></div>`).join('')}</div></details>`).join('')}
+async function load(){try{const r=await fetch(SB+'/rest/v1/public_policy_materials?select=*&order=document_date.desc.nullslast,sort_order.asc,id.desc',{headers:H});if(!r.ok)throw 0;rows=await r.json();render()}catch(e){document.getElementById('materialGroups').innerHTML='<div class="empty">자료 목록을 불러오지 못했습니다.</div>'}}
+function suggestLinkCategory(){if(manualCategory)return;const c=classifyMaterial([titleInput.value,sourceInput.value,descInput.value,tagsInput.value].join(' '));categoryInput.value=c;classifyNote.textContent='자동 분류: '+c}
+function fillLink(row=null){titleInput.value=row?.title||'';sourceInput.value=row?.source||'';dateInput.value=row?.document_date||'';categoryInput.value=row?.category||'기타';tagsInput.value=row?.tags||'';urlInput.value=row?.drive_url||'';descInput.value=row?.description||'';formTitle.textContent=row?'자료 수정':'링크 자료 추가';saveBtn.textContent=row?'수정 저장':'저장';formStatus.textContent='';manualCategory=!!row}
+function closeLink(){editingId=null;editPassword='';manualCategory=false;linkPanel.classList.remove('open')}
+async function verifyEdit(id,p){const x=rows.find(v=>Number(v.id)===Number(id));const r=await fetch(SB+'/rest/v1/public_policy_materials?id=eq.'+id,{method:'PATCH',headers:{...H,'x-master-password':p,'Prefer':'return=representation'},body:JSON.stringify({updated_at:x.updated_at})});if(!r.ok)return false;const a=await r.json();return Array.isArray(a)&&a.length>0}
+async function startEdit(id){const p=prompt('마스터 비밀번호를 입력하세요.');if(p===null)return;if(!await verifyEdit(id,p)){alert('비밀번호가 올바르지 않습니다.');return}editingId=id;editPassword=p;fillLink(rows.find(v=>Number(v.id)===Number(id)));linkPanel.classList.add('open')}
+async function saveLink(){const title=titleInput.value.trim(),drive_url=urlInput.value.trim();if(!title||!drive_url){formStatus.textContent='자료명과 Drive 링크를 입력해 주세요.';return}let p=editPassword;if(!p){p=prompt('마스터 비밀번호를 입력하세요.');if(p===null)return}const payload={title,source:sourceInput.value.trim()||null,document_date:dateInput.value||null,category:categoryInput.value||'기타',tags:tagsInput.value.trim()||null,drive_url,description:descInput.value.trim()||null,updated_at:new Date().toISOString()};const u=editingId?SB+'/rest/v1/public_policy_materials?id=eq.'+editingId:SB+'/rest/v1/public_policy_materials';saveBtn.disabled=true;formStatus.textContent='저장 중…';try{const r=await fetch(u,{method:editingId?'PATCH':'POST',headers:{...H,'x-master-password':p,'Prefer':'return=representation'},body:JSON.stringify(payload)});const a=await r.json();if(!r.ok||!Array.isArray(a)||!a.length){formStatus.textContent='비밀번호가 올바르지 않거나 저장하지 못했습니다.';return}closeLink();await load()}finally{saveBtn.disabled=false}}
+async function deleteMaterial(id){const p=prompt('마스터 비밀번호를 입력하세요.');if(p===null)return;const x=rows.find(v=>Number(v.id)===Number(id));if(!x||!confirm(`‘${x.title}’ 자료를 삭제하시겠습니까?`))return;const r=await fetch(SB+'/rest/v1/public_policy_materials?id=eq.'+id,{method:'DELETE',headers:{...H,'x-master-password':p,'Prefer':'return=representation'}});const a=await r.json();if(!r.ok||!Array.isArray(a)||!a.length){alert('비밀번호가 올바르지 않습니다.');return}await load()}
+function suggestUploadCategory(){if(uploadManualCategory)return;const c=classifyMaterial([uploadTitle.value,uploadSource.value,uploadDesc.value,uploadTags.value,uploadFile.files[0]?.name||''].join(' '));uploadCategory.value=c;uploadClassifyNote.textContent='자동 분류: '+c}
+async function openUpload(){const p=prompt('마스터 비밀번호를 입력하세요.');if(p===null)return;uploadPassword=p;uploadPanel.classList.add('open');uploadStatus.textContent=driveStatus.connected?'':'Google Drive 관리자 연결이 아직 완료되지 않았습니다.'}
+function closeUpload(){uploadPanel.classList.remove('open');uploadPassword='';uploadFile.value='';uploadTitle.value='';uploadSource.value='';uploadDate.value='';uploadTags.value='';uploadDesc.value='';uploadCategory.value='기타';uploadManualCategory=false;uploadStatus.textContent=''}
+async function uploadToDrive(){const file=uploadFile.files[0];if(!file){uploadStatus.textContent='업로드할 파일을 선택해 주세요.';return}if(!driveStatus.connected){uploadStatus.textContent='먼저 Drive 연결 설정에서 관리자 Google 계정을 연결해 주세요.';return}const fd=new FormData();fd.append('file',file);fd.append('title',uploadTitle.value.trim()||file.name.replace(/\.[^.]+$/,''));fd.append('source',uploadSource.value.trim());fd.append('document_date',uploadDate.value);fd.append('category',uploadCategory.value||'기타');fd.append('tags',uploadTags.value.trim());fd.append('description',uploadDesc.value.trim());uploadSaveBtn.disabled=true;uploadStatus.textContent='Google Drive에 업로드 중…';try{const r=await fetch(EDGE+'/upload',{method:'POST',headers:{'x-master-password':uploadPassword},body:fd});const a=await r.json();if(!r.ok){uploadStatus.textContent=a.error||'업로드하지 못했습니다.';return}uploadStatus.textContent='업로드 및 자료목록 등록 완료';await load();setTimeout(closeUpload,500)}catch(e){uploadStatus.textContent='업로드 중 오류가 발생했습니다.'}finally{uploadSaveBtn.disabled=false}}
+async function refreshDriveStatus(){try{const r=await fetch(EDGE+'/status');driveStatus=await r.json();callbackText.textContent=driveStatus.callback_url||'';if(driveStatus.connected){driveState.textContent='연결됨';driveState.className='drive-state ok';driveDescription.innerHTML=`업로드 파일은 <a href="${FOLDER}" target="_blank" rel="noopener">공공기관 Drive 폴더</a>에 바로 저장됨.`}else if(driveStatus.configured){driveState.textContent='관리자 승인 필요';driveState.className='drive-state wait';driveDescription.textContent='OAuth 설정은 저장됨. 관리자 Google 계정을 한 번 연결해 주세요.'}else{driveState.textContent='초기 설정 필요';driveState.className='drive-state wait';driveDescription.textContent='관리자 Google 계정을 최초 1회 연결하면 현장 사용자는 Google 로그인 없이 업로드 가능.'}}catch(e){driveState.textContent='상태 확인 실패';driveDescription.textContent='Drive 중계 기능 상태를 확인하지 못했습니다.'}}
+async function openDriveSetup(){const p=prompt('마스터 비밀번호를 입력하세요.');if(p===null)return;drivePassword=p;driveSetupPanel.classList.add('open');await refreshDriveStatus()}
+async function saveOAuth(){const client_id=clientIdInput.value.trim(),client_secret=clientSecretInput.value.trim();if(!client_id||!client_secret){setupStatus.textContent='Client ID와 Client Secret을 입력해 주세요.';return}setupStatus.textContent='저장 중…';const r=await fetch(EDGE+'/configure',{method:'POST',headers:{'Content-Type':'application/json','x-master-password':drivePassword},body:JSON.stringify({client_id,client_secret})});const a=await r.json();if(!r.ok){setupStatus.textContent=a.error||'저장 실패';return}setupStatus.textContent='OAuth 설정 저장됨. 이제 Google 계정 연결을 누르세요.';clientSecretInput.value='';await refreshDriveStatus()}
+async function connectOAuth(){setupStatus.textContent='Google 연결 주소 생성 중…';const r=await fetch(EDGE+'/begin-auth',{method:'POST',headers:{'x-master-password':drivePassword}});const a=await r.json();if(!r.ok){setupStatus.textContent=a.error||'연결 시작 실패';return}location.href=a.auth_url}
+addBtn.onclick=()=>{editingId=null;editPassword='';fillLink();linkPanel.classList.add('open');suggestLinkCategory()};cancelBtn.onclick=closeLink;saveBtn.onclick=saveLink;uploadBtn.onclick=openUpload;uploadCancelBtn.onclick=closeUpload;uploadSaveBtn.onclick=uploadToDrive;driveSetupBtn.onclick=openDriveSetup;setupCloseBtn.onclick=()=>{driveSetupPanel.classList.remove('open');drivePassword=''};saveOAuthBtn.onclick=saveOAuth;connectOAuthBtn.onclick=connectOAuth;searchInput.oninput=render;filterCategory.onchange=render;['titleInput','sourceInput','descInput','tagsInput'].forEach(id=>document.getElementById(id).addEventListener('input',suggestLinkCategory));categoryInput.onchange=()=>{manualCategory=true;classifyNote.textContent='분류 직접 지정됨'};['uploadTitle','uploadSource','uploadDesc','uploadTags'].forEach(id=>document.getElementById(id).addEventListener('input',suggestUploadCategory));uploadCategory.onchange=()=>{uploadManualCategory=true;uploadClassifyNote.textContent='분류 직접 지정됨'};uploadFile.onchange=()=>{const f=uploadFile.files[0];if(f&&!uploadTitle.value)uploadTitle.value=f.name.replace(/\.[^.]+$/,'');suggestUploadCategory()};initCategories();load();refreshDriveStatus();const driveParam=new URLSearchParams(location.search).get('drive');if(driveParam==='connected'){setTimeout(()=>alert('관리자 Google Drive 연결이 완료되었습니다.'),100);history.replaceState({},'',location.pathname)}else if(driveParam){setTimeout(()=>alert('Google Drive 연결을 완료하지 못했습니다. Drive 연결 설정을 확인해 주세요.'),100);history.replaceState({},'',location.pathname)}
+</script></body></html>
