@@ -25,6 +25,7 @@ body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,
 section{background:#fff;border:1px solid var(--line);border-radius:16px;padding:21px;margin-top:15px}
 h2{font-size:20px;margin:0}
 .sectionHead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+.sectionActions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .area{border:1px solid var(--line);border-radius:12px;padding:15px}
 .areaTop{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
@@ -64,6 +65,27 @@ th{background:#f9fafb;color:#475467}
 .scheduleActions{display:flex;gap:5px;align-items:center;flex-shrink:0}
 .empty{grid-column:1/-1;padding:18px;border:1px dashed #d0d5dd;border-radius:12px;text-align:center;color:var(--muted);font-size:13px}
 .foot{font-size:11px;color:var(--muted);text-align:right;margin-top:14px}
+.modalBackdrop{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.58);display:none;align-items:center;justify-content:center;padding:18px}
+.modalBackdrop.open{display:flex}
+.modalCard{width:min(920px,100%);max-height:92vh;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.28);display:flex;flex-direction:column;overflow:hidden}
+.modalHead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px 15px;border-bottom:1px solid var(--line)}
+.modalHead h3{margin:0;font-size:20px}
+.modalHead p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.modalClose{border:0;background:transparent;font-size:25px;line-height:1;color:#667085;cursor:pointer;padding:0 3px}
+.modalBody{padding:18px 22px;overflow:auto;background:#f8fafc}
+.areaEditorList{display:grid;gap:14px}
+.areaEditorRow{background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px}
+.areaEditorMeta{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(180px,.6fr);gap:10px;margin-bottom:10px}
+.areaEditorRow label{display:block;font-size:12px;font-weight:800;color:#475467;margin-bottom:5px}
+.areaEditorRow input,.areaEditorRow textarea,.modalPassword{width:100%;border:1px solid #cfd5df;border-radius:9px;background:#fff;color:var(--ink);font:inherit;padding:10px 11px;outline:none}
+.areaEditorRow input:focus,.areaEditorRow textarea:focus,.modalPassword:focus{border-color:#7f98c8;box-shadow:0 0 0 3px rgba(38,63,115,.09)}
+.areaEditorRow textarea{display:block;min-height:190px;max-height:520px;resize:vertical;line-height:1.65;overflow-y:auto}
+.modalFoot{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:12px;align-items:end;padding:14px 22px 18px;border-top:1px solid var(--line);background:#fff}
+.passwordWrap label{display:block;font-size:11px;font-weight:800;color:#475467;margin-bottom:5px}
+.modalButtons{display:flex;gap:7px;justify-content:flex-end}
+.modalButtons button{border:1px solid #cfd5df;border-radius:9px;background:#fff;color:#344054;font:inherit;font-weight:800;padding:9px 13px;cursor:pointer}
+.modalButtons .primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.modalButtons button:disabled{opacity:.55;cursor:wait}
 @media(max-width:700px){
  .summary,.grid{grid-template-columns:1fr}
  .hero{padding:24px 20px}.hero h1{font-size:25px}
@@ -83,6 +105,17 @@ th{background:#f9fafb;color:#475467}
  .scheduleActions .editBtn,.scheduleActions .deleteBtn{font-size:10px;padding:3px 5px}
  .scheduleStatusCell .tag{font-size:10px;padding:2px 6px}
  .sectionHead{align-items:center}
+ .sectionActions{gap:5px}
+ .modalBackdrop{padding:0;align-items:stretch}
+ .modalCard{width:100%;max-height:none;height:100dvh;border-radius:0}
+ .modalHead{padding:17px 16px 13px}
+ .modalBody{padding:13px 14px}
+ .areaEditorMeta{grid-template-columns:1fr}
+ .areaEditorRow{padding:13px}
+ .areaEditorRow textarea{min-height:230px;max-height:none}
+ .modalFoot{grid-template-columns:1fr;padding:12px 14px 14px}
+ .modalButtons{justify-content:stretch}
+ .modalButtons button{flex:1}
 }
 </style>
 <link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
@@ -101,7 +134,7 @@ th{background:#f9fafb;color:#475467}
 </header>
 
 <section>
-<div class="sectionHead"><h2>영역별 진행상황</h2><button class="miniBtn" id="areaAddBtn">+ 영역 추가</button></div>
+<div class="sectionHead"><h2>영역별 진행상황</h2><div class="sectionActions"><button class="miniBtn" id="areaEditAllBtn">전체 수정</button><button class="miniBtn" id="areaAddBtn">+ 영역 추가</button></div></div>
 <div class="grid" id="areaGrid"></div>
 </section>
 
@@ -122,6 +155,20 @@ th{background:#f9fafb;color:#475467}
 
 <div class="foot">내부 사업진척 공유용 · 공공운수노조 위험업무 2인1조 법제화 사업</div>
 </main>
+
+<div class="modalBackdrop" id="areaEditorModal" aria-hidden="true">
+ <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="areaEditorTitle">
+  <div class="modalHead">
+   <div><h3 id="areaEditorTitle">영역별 진행상황 전체 수정</h3><p>모든 영역을 한 화면에서 수정할 수 있습니다. 본문 입력창은 긴 내용에 맞춰 넉넉하게 표시됩니다.</p></div>
+   <button class="modalClose" id="areaEditorClose" aria-label="닫기">×</button>
+  </div>
+  <div class="modalBody"><div class="areaEditorList" id="areaEditorList"></div></div>
+  <div class="modalFoot">
+   <div class="passwordWrap"><label for="areaEditorPassword">마스터 비밀번호</label><input class="modalPassword" id="areaEditorPassword" type="password" autocomplete="current-password" placeholder="저장할 때 입력"></div>
+   <div class="modalButtons"><button id="areaEditorCancel">취소</button><button class="primary" id="areaEditorSave">전체 저장</button></div>
+  </div>
+ </div>
+</div>
 
 <script>
 const API='https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/pc0921-board?board=pc2in1';
@@ -168,6 +215,10 @@ let ready=false,state={};
 const root=document.getElementById('checkRoot');
 const areaGrid=document.getElementById('areaGrid');
 const scheduleBody=document.getElementById('scheduleBody');
+const areaEditorModal=document.getElementById('areaEditorModal');
+const areaEditorList=document.getElementById('areaEditorList');
+const areaEditorPassword=document.getElementById('areaEditorPassword');
+const areaEditorSave=document.getElementById('areaEditorSave');
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const uid=()=> 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
@@ -201,6 +252,9 @@ function customAreaKeys(){
   .filter(k=>!defaults.has(k))
   .sort();
 }
+function visibleAreaKeys(){
+ return [...Object.keys(areaDefaults),...customAreaKeys()].filter(k=>state['area_hidden_'+k]!==true);
+}
 function areaData(k){
  const d=areaDefaults[k]||{};
  return {
@@ -210,11 +264,41 @@ function areaData(k){
  };
 }
 function renderAreas(){
- const keys=[...Object.keys(areaDefaults),...customAreaKeys()].filter(k=>state['area_hidden_'+k]!==true);
+ const keys=visibleAreaKeys();
  areaGrid.innerHTML=keys.map(k=>{
   const a=areaData(k);
-  return `<div class="area" data-area="${k}"><div class="areaTop"><strong>${esc(a.title)}</strong><span class="tag ${tagClass(a.status)}">${esc(a.status)}</span></div><p>${esc(a.body)}</p><div class="areaActions"><button class="areaEditBtn" data-area-edit="${k}">수정</button><button class="areaDeleteBtn" data-area-delete="${k}">삭제</button></div></div>`;
+  return `<div class="area" data-area="${k}"><div class="areaTop"><strong>${esc(a.title)}</strong><span class="tag ${tagClass(a.status)}">${esc(a.status)}</span></div><p>${esc(a.body)}</p><div class="areaActions"><button class="areaDeleteBtn" data-area-delete="${k}">삭제</button></div></div>`;
  }).join('') || '<div class="empty">등록된 영역이 없습니다.</div>';
+}
+function autoGrowAreaTextareas(){
+ areaEditorList.querySelectorAll('textarea').forEach(t=>{
+  t.style.height='auto';
+  t.style.height=Math.min(Math.max(t.scrollHeight,190),520)+'px';
+ });
+}
+function openAreaEditor(){
+ const keys=visibleAreaKeys();
+ areaEditorList.innerHTML=keys.map(k=>{
+  const a=areaData(k);
+  return `<div class="areaEditorRow" data-area-editor="${k}">
+   <div class="areaEditorMeta">
+    <div><label>영역 제목</label><input data-field="title" value="${esc(a.title)}"></div>
+    <div><label>진행 상태</label><input data-field="status" value="${esc(a.status)}"></div>
+   </div>
+   <label>진행상황 내용</label>
+   <textarea data-field="body">${esc(a.body)}</textarea>
+  </div>`;
+ }).join('') || '<div class="empty">등록된 영역이 없습니다.</div>';
+ areaEditorPassword.value='';
+ areaEditorModal.classList.add('open');
+ areaEditorModal.setAttribute('aria-hidden','false');
+ document.body.style.overflow='hidden';
+ requestAnimationFrame(autoGrowAreaTextareas);
+}
+function closeAreaEditor(){
+ areaEditorModal.classList.remove('open');
+ areaEditorModal.setAttribute('aria-hidden','true');
+ document.body.style.overflow='';
 }
 
 function tagClass(status){
@@ -336,6 +420,40 @@ root.addEventListener('click',async e=>{
  }
 });
 
+document.getElementById('areaEditAllBtn').addEventListener('click',openAreaEditor);
+document.getElementById('areaEditorClose').addEventListener('click',closeAreaEditor);
+document.getElementById('areaEditorCancel').addEventListener('click',closeAreaEditor);
+areaEditorModal.addEventListener('click',e=>{if(e.target===areaEditorModal)closeAreaEditor()});
+areaEditorList.addEventListener('input',e=>{if(e.target.matches('textarea'))autoGrowAreaTextareas()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&areaEditorModal.classList.contains('open'))closeAreaEditor()});
+areaEditorSave.addEventListener('click',async()=>{
+ const rows=[...areaEditorList.querySelectorAll('[data-area-editor]')];
+ const pw=areaEditorPassword.value.trim();
+ if(!pw){alert('마스터 비밀번호를 입력하세요.');areaEditorPassword.focus();return}
+ const changes=[];
+ for(const row of rows){
+  const k=row.dataset.areaEditor;
+  const title=row.querySelector('[data-field=title]').value.trim();
+  const status=row.querySelector('[data-field=status]').value.trim();
+  const body=row.querySelector('[data-field=body]').value.trim();
+  if(!title||!status||!body){alert('제목·진행 상태·진행상황 내용을 모두 입력해 주세요.');return}
+  const old=areaData(k);
+  if(title!==old.title)changes.push(['area_title_'+k,title]);
+  if(status!==old.status)changes.push(['area_status_'+k,status]);
+  if(body!==old.body)changes.push(['area_body_'+k,body]);
+ }
+ if(!changes.length){closeAreaEditor();return}
+ areaEditorSave.disabled=true;
+ areaEditorSave.textContent='저장 중…';
+ let ok=true;
+ for(const [key,value] of changes){
+  if(!await saveValue(key,value,pw)){ok=false;break}
+ }
+ areaEditorSave.disabled=false;
+ areaEditorSave.textContent='전체 저장';
+ if(ok){renderAreas();closeAreaEditor()}
+});
+
 document.getElementById('areaAddBtn').addEventListener('click',async()=>{
  const pw=prompt('마스터 비밀번호를 입력하세요.');if(pw===null)return;
  const title=prompt('영역 제목을 입력하세요.');if(title===null||!title.trim())return;
@@ -363,18 +481,6 @@ document.getElementById('scheduleAddBtn').addEventListener('click',async()=>{
 });
 
 document.addEventListener('click',async e=>{
- const areaEdit=e.target.closest('[data-area-edit]');
- if(areaEdit){
-  const k=areaEdit.dataset.areaEdit,a=areaData(k);
-  const pw=prompt('마스터 비밀번호를 입력하세요.');if(pw===null)return;
-  const title=prompt('영역 제목을 수정하세요.',a.title);if(title===null||!title.trim())return;
-  const status=prompt('진행 상태를 수정하세요.',a.status);if(status===null||!status.trim())return;
-  const body=prompt('진행상황 내용을 수정하세요.',a.body);if(body===null||!body.trim())return;
-  if(await saveValue('area_title_'+k,title.trim(),pw.trim()) &&
-     await saveValue('area_status_'+k,status.trim(),pw.trim()) &&
-     await saveValue('area_body_'+k,body.trim(),pw.trim()))renderAreas();
-  return;
- }
  const areaDel=e.target.closest('[data-area-delete]');
  if(areaDel){
   const k=areaDel.dataset.areaDelete;
