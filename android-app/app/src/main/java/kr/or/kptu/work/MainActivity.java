@@ -57,6 +57,9 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSupportZoom(false);
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        settings.setUserAgentString(settings.getUserAgentString() + " KPTUAndroid/0.1.4");
+        webView.clearCache(true);
         WebView.setWebContentsDebuggingEnabled(false);
 
         webView.setWebChromeClient(new WebChromeClient());
@@ -79,12 +82,16 @@ public class MainActivity extends Activity {
     private void loadFromIntent(Intent intent) {
         Uri data = intent != null ? intent.getData() : null;
         if (data != null && "kptuwork".equalsIgnoreCase(data.getScheme()) && "auth".equalsIgnoreCase(data.getHost())) {
-            StringBuilder target = new StringBuilder(HOME);
-            if (data.getEncodedQuery() != null && !data.getEncodedQuery().isEmpty()) {
-                target.append('?').append(data.getEncodedQuery());
+            String payload = data.getQueryParameter("payload");
+            if (payload != null && !payload.isEmpty()) {
+                webView.loadUrl(HOME + "#" + payload);
+                return;
             }
+            StringBuilder target = new StringBuilder(HOME);
             if (data.getEncodedFragment() != null && !data.getEncodedFragment().isEmpty()) {
                 target.append('#').append(data.getEncodedFragment());
+            } else if (data.getEncodedQuery() != null && !data.getEncodedQuery().isEmpty()) {
+                target.append('?').append(data.getEncodedQuery());
             }
             webView.loadUrl(target.toString());
         } else {
