@@ -11,19 +11,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Complete sanbyeol requested fixes
+      - name: Improve summary card editor
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('sanbyeol/index.html')
           s=p.read_text(encoding='utf-8')
-          # Keep page isolated and metadata image-free.
-          s=s.replace('<a class="back" href="/work/">← 업무 현황</a>\n','')
-          # Static fallback summaries for LX education events.
-          s=s.replace('<div class="row editable" data-key="public-0904" data-type="row"><div class="date">9/4</div><div><b>한국국토정보공사노조 서울지역 확대운영위원회 산별전환 교육</b></div></div>', '<div class="row editable" data-key="public-0904" data-type="row"><div class="date">9/4</div><div><b>한국국토정보공사노조 서울지역 확대운영위원회 산별전환 교육</b><p>기업별노조의 사후 대응을 넘어 LX 현안은 공사와 교섭하고 총인건비·정부지침은 산별 공동교섭으로 대응하는 구조 전환을 중심으로 교육함.</p></div></div>')
-          s=s.replace('<div class="row editable" data-key="public-0911" data-type="row"><div class="date">9/11</div><div><b>한국국토정보공사노조 경남본부 간부 산별전환 교육</b></div></div>', '<div class="row editable" data-key="public-0911" data-type="row"><div class="date">9/11</div><div><b>한국국토정보공사노조 경남본부 간부 산별전환 교육</b><p>LX의 임금·인력·조직개편 현안을 정부의 공공기관 정책과 연결하고, 이를 넘어설 산별전환의 필요성을 중심으로 교육함.</p></div></div>')
-          # Make summary editing explicit and preserve title/content separately.
-          s=s.replace("const title=prompt('제목',v.title);if(title===null)return;const text=prompt('내용',v.text);", "const title=prompt('카드 제목',v.title);if(title===null)return;const text=prompt('카드 내용',v.text);")
+
+          # Preserve manual line breaks in summary-card content.
+          s=s.replace('.sum small{display:block;color:var(--muted);margin-top:4px;padding-right:76px}', '.sum small{display:block;color:var(--muted);margin-top:4px;padding-right:76px;white-space:pre-line}')
+
+          modal_css='''.summary-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.42);display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999}.summary-modal{width:min(520px,100%);background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.22);padding:20px}.summary-modal h3{margin:0 0 16px;font-size:18px}.summary-modal label{display:block;font-size:12px;font-weight:800;color:#536171;margin:12px 0 6px}.summary-modal input,.summary-modal textarea{width:100%;border:1px solid #ccd5df;border-radius:9px;padding:10px 11px;font:inherit;color:var(--ink);background:#fff}.summary-modal textarea{min-height:120px;resize:vertical;white-space:pre-wrap}.summary-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.summary-modal-actions button{border:1px solid #ccd5df;background:#fff;border-radius:8px;padding:8px 13px;font-size:12px;font-weight:800;cursor:pointer}.summary-modal-actions .save{background:var(--navy);border-color:var(--navy);color:#fff}'''
+          if '.summary-modal-backdrop{' not in s:
+              s=s.replace('.hidden-item{display:none!important}', '.hidden-item{display:none!important}'+modal_css)
+
+          modal_js=r'''function editSummaryModal(v){return new Promise(resolve=>{const bg=document.createElement('div');bg.className='summary-modal-backdrop';bg.innerHTML='<div class="summary-modal" role="dialog" aria-modal="true"><h3>요약카드 수정</h3><label>제목</label><input class="summary-title" type="text"><label>내용</label><textarea class="summary-text" placeholder="줄바꿈이 필요한 위치에서 Enter를 누르세요."></textarea><div class="summary-modal-actions"><button type="button" class="cancel">취소</button><button type="button" class="save">저장</button></div></div>';const title=bg.querySelector('.summary-title'),text=bg.querySelector('.summary-text');title.value=v.title||'';text.value=v.text||'';const close=x=>{bg.remove();resolve(x)};bg.querySelector('.cancel').onclick=()=>close(null);bg.querySelector('.save').onclick=()=>close({title:title.value.trim(),text:text.value.trim(),hidden:false});bg.onclick=e=>{if(e.target===bg)close(null)};document.addEventListener('keydown',function escOnce(e){if(e.key==='Escape'){document.removeEventListener('keydown',escOnce);close(null)}});document.body.appendChild(bg);title.focus()})}
+'''
+          if 'function editSummaryModal(v)' not in s:
+              s=s.replace('async function editEl(el){', modal_js+'async function editEl(el){')
+
+          old="if(type==='summary'){const title=prompt('카드 제목',v.title);if(title===null)return;const text=prompt('카드 내용',v.text);if(text===null)return;await save(el,{title:title.trim(),text:text.trim(),hidden:false});return}"
+          if old not in s:
+              old="if(type==='summary'){const title=prompt('제목',v.title);if(title===null)return;const text=prompt('내용',v.text);if(text===null)return;await save(el,{title:title.trim(),text:text.trim(),hidden:false});return}"
+          new="if(type==='summary'){const edited=await editSummaryModal(v);if(!edited)return;await save(el,edited);return}"
+          s=s.replace(old,new)
+
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit changes
@@ -31,5 +43,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add sanbyeol/index.html
-          git diff --cached --quiet || git commit -m 'Complete sanbyeol page fixes'
+          git diff --cached --quiet || git commit -m 'Improve sanbyeol summary card editor'
           git push
