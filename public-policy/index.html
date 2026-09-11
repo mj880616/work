@@ -104,7 +104,7 @@ const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/
 const EDGE=SB+'/functions/v1/public-policy-drive';
 const FOLDER='https://drive.google.com/drive/folders/1Uzvxq6FEqsx0P-FaBynOrgqY2UoT5Jvf';
 const CATEGORIES=['정부 정책·지침','예산·총인건비·보수','정원·인력·조직','경영평가·공공기관 운영','기능개혁·통폐합','노정 교섭 · 협의','법령·국회','연구·통계','기타'];
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let rows=[],editingId=null,editPassword='',manualCategory=false,uploadPassword='',uploadManualCategory=false,drivePassword='',driveStatus={};
 
 function classifyMaterial(text){
