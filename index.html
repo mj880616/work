@@ -25,6 +25,7 @@ button,input{font:inherit}
 .badge.recruit{background:#eef2ff;color:#334e96}
 .badge.press{background:#eef3f8;color:var(--navy)}
 .badge.library{background:#edf1ff;color:#3c5595}
+.badge.internal{background:#f2edf8;color:#654a82}
 .card h3{font-size:19px;margin:11px 0 6px;letter-spacing:-.3px}
 .card p{font-size:14px;color:var(--muted);margin:0}
 .links{margin-top:15px;display:flex;gap:7px;flex-wrap:wrap}
@@ -35,259 +36,64 @@ button,input{font:inherit}
 .archive-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:transparent;padding:0;cursor:pointer;color:inherit;text-align:left}
 .archive-toggle strong{font-size:20px}
 .archive-toggle span{font-size:12px;color:var(--muted);font-weight:800}
-.archive-wrap{display:none}
-.archive-wrap.open{display:block}
+.archive-wrap{display:none}.archive-wrap.open{display:block}
 .archive-empty{background:#fff;border:1px dashed #cbd3dc;border-radius:15px;padding:18px;color:var(--muted);font-size:13px}
 .archive-wrap .card{opacity:.88}
 .schedule-actions{display:flex;align-items:center;gap:7px}
 .schedule-btn{border:1px solid #cbd5df;background:#fff;color:var(--blue);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer}
-.schedule-btn.primary{border-color:var(--navy);background:var(--navy);color:#fff}
-.schedule-btn.danger{color:#7b4650}
+.schedule-btn.primary{border-color:var(--navy);background:var(--navy);color:#fff}.schedule-btn.danger{color:#7b4650}
 .schedule{background:#fff;border:1px solid var(--line);border-radius:17px;overflow:hidden}
-.event{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:12px;padding:14px 17px;border-top:1px solid #edf0f3;align-items:center}
-.event:first-child{border-top:0}
-.date{font-weight:900;color:var(--navy);white-space:nowrap}
-.event-main{min-width:0}
-.event b{display:block;font-size:14px}
-.event small{display:block;color:var(--muted);margin-top:2px}
-.event-actions{display:flex;gap:5px}
-.event-action{border:1px solid #d7dee5;background:#fff;border-radius:7px;padding:5px 8px;font-size:10px;font-weight:800;cursor:pointer;color:#66717d}
-.event-action.edit{color:var(--blue)}
+.event{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:12px;padding:14px 17px;border-top:1px solid #edf0f3;align-items:center}.event:first-child{border-top:0}
+.date{font-weight:900;color:var(--navy);white-space:nowrap}.event-main{min-width:0}.event b{display:block;font-size:14px}.event small{display:block;color:var(--muted);margin-top:2px}
+.event-actions{display:flex;gap:5px}.event-action{border:1px solid #d7dee5;background:#fff;border-radius:7px;padding:5px 8px;font-size:10px;font-weight:800;cursor:pointer;color:#66717d}.event-action.edit{color:var(--blue)}
 .schedule-empty{padding:18px;color:var(--muted);font-size:13px}
-.schedule-form{display:none;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px}
-.schedule-form.open{display:block}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.form-field{display:flex;flex-direction:column;gap:5px}
-.form-field.full{grid-column:1/-1}
-.form-field label{font-size:11px;font-weight:800;color:#4e5966}
-.form-field input{width:100%;border:1px solid #ccd5dd;border-radius:9px;padding:10px 11px;font-size:13px;background:#fff}
-.form-buttons{display:flex;justify-content:flex-end;gap:7px;margin-top:10px}
-.schedule-status{font-size:11px;color:var(--muted);margin-top:7px;min-height:17px}
-.future{margin-top:12px;background:#fff;border:1px dashed #cbd3dc;border-radius:15px;padding:18px;color:var(--muted);font-size:14px}
-.footer{text-align:center;color:#8a939f;font-size:11px;margin-top:28px}
-@media(max-width:650px){
- .wrap{padding:16px 12px 50px}.hero{padding:25px 21px}.hero h1{font-size:27px}.grid{grid-template-columns:1fr}.section-title{margin-top:23px;align-items:center}
- .archive-head{margin-top:23px}.archive-toggle strong{font-size:20px}.archive-move{font-size:10px;padding-left:6px}
- .event{grid-template-columns:66px minmax(0,1fr) auto;gap:8px;padding:13px 12px}.event-actions{flex-direction:column;gap:3px}.event-action{padding:4px 6px}.form-grid{grid-template-columns:1fr}.form-field.full{grid-column:auto}
-}
+.schedule-form{display:none;margin-bottom:10px;background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px}.schedule-form.open{display:block}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.form-field{display:flex;flex-direction:column;gap:5px}.form-field.full{grid-column:1/-1}.form-field label{font-size:11px;font-weight:800;color:#4e5966}.form-field input{width:100%;border:1px solid #ccd5dd;border-radius:9px;padding:10px 11px;font-size:13px;background:#fff}
+.form-buttons{display:flex;justify-content:flex-end;gap:7px;margin-top:10px}.schedule-status{font-size:11px;color:var(--muted);margin-top:7px;min-height:17px}
+.future{margin-top:12px;background:#fff;border:1px dashed #cbd3dc;border-radius:15px;padding:18px;color:var(--muted);font-size:14px}.footer{text-align:center;color:#8a939f;font-size:11px;margin-top:28px}
+@media(max-width:650px){.wrap{padding:16px 12px 50px}.hero{padding:25px 21px}.hero h1{font-size:27px}.grid{grid-template-columns:1fr}.section-title{margin-top:23px;align-items:center}.archive-head{margin-top:23px}.archive-toggle strong{font-size:20px}.archive-move{font-size:10px;padding-left:6px}.event{grid-template-columns:66px minmax(0,1fr) auto;gap:8px;padding:13px 12px}.event-actions{flex-direction:column;gap:3px}.event-action{padding:4px 6px}.form-grid{grid-template-columns:1fr}.form-field.full{grid-column:auto}}
 </style>
-<meta property="og:type" content="website">
-<meta property="og:locale" content="ko_KR">
-<meta property="og:title" content="업무 현황">
-<meta property="og:url" content="https://mj880616.github.io/work/">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="업무 현황">
-<link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
-<link rel="shortcut icon" href="/work/favicon.svg?v=1">
+<meta property="og:type" content="website"><meta property="og:locale" content="ko_KR"><meta property="og:title" content="업무 현황"><meta property="og:url" content="https://mj880616.github.io/work/"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="업무 현황">
+<link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml"><link rel="shortcut icon" href="/work/favicon.svg?v=1">
 </head>
-<body>
-<main class="wrap">
+<body><main class="wrap">
 <header class="hero"><h1>업무 현황</h1></header>
-
 <div class="section-title"><h2>진행 중인 주요 사업</h2><span>2026. 9. 11. 기준</span></div>
 <div class="grid" id="activeProjects">
 <article class="card project-card" data-key="2in1" data-href="./2in1/"><div class="top"><span class="badge">진행 중</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>위험업무 2인1조 법제화</h3><p>법안 보완 · 노동부 대응 · 국회토론회 · 국정감사 · 궤도 공동투쟁</p><div class="links"><span class="link">사업 현황</span></div></article>
 <article class="card project-card" data-key="workforce" data-href="./workforce/"><div class="top"><span class="badge action">당면 대응</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>공공기관 인력확충</h3><p>증원 연계 2% 인력감축 방침 철회와 안전·공공서비스 인력 확충 대응</p><div class="links"><span class="link">9/14 기자회견</span><span class="link">9/21~22 공동투쟁</span></div></article>
 <article class="card project-card" data-key="private-rail" data-href="./private-rail/"><div class="top"><span class="badge">현장 공유</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>민자철도 사업 현황</h3><p>공영화 · 운영기준 · 사업장별 임단투 · 민간철도·지하철 부실운영 방지법 진행 현황</p><div class="links"><span class="link">사업 타임라인</span><span class="link">현장 직접 업데이트</span></div></article>
 <article class="card project-card" data-key="rail-council" data-href="./rail-council/"><div class="top"><span class="badge">궤도 공동사업</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>궤도협의회</h3><p>철도·지하철 공동투쟁 · 확대간부수련회 · 산별전환 등 궤도 공동사업</p><div class="links"><span class="link">2026 확대간부수련회</span><span class="link">공동선언문 초안</span></div></article>
+<article class="card project-card" data-key="sanbyeol" data-href="./sanbyeol/"><div class="top"><span class="badge internal">중앙 사무처</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>산별전환 업무 현황</h3><p>철도 · 지하철 · 국토정보공사 등 조직별 교육·간담회·의결 경과와 교육 피드백</p><div class="links"><span class="link">조직별 경과</span><span class="link">교육 질문·피드백</span></div></article>
 <article class="card project-card" data-key="press" data-href="./press/"><div class="top"><span class="badge press">언론자료</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>성명·보도자료·취재요청</h3><p>공공기관 관련 성명, 보도자료, 취재요청을 최신순으로 모아봅니다.</p><div class="links"><span class="link">언론자료 목록</span></div></article>
 <article class="card project-card" data-key="public-policy" data-href="./public-policy/"><div class="top"><span class="badge library">정책자료</span><button type="button" class="archive-move">지나간 업무로 이동</button></div><h3>공공기관 정책자료</h3><p>정부 정책·예산·인력·경영평가·기능개혁·법령·연구자료를 분야별로 정리합니다.</p><div class="links"><span class="link">자료 검색</span><span class="link">현장 공유</span></div></article>
 </div>
-
-<div class="archive-head">
-  <button type="button" class="archive-toggle" id="archiveToggle" aria-expanded="false" aria-controls="archiveWrap">
-    <strong>지나간 업무 · 사업</strong><span id="archiveToggleText">펼치기 ▾</span>
-  </button>
-</div>
-<div class="archive-wrap" id="archiveWrap">
-  <div class="grid" id="archivedProjects"></div>
-  <div class="archive-empty" id="archiveEmpty">지나간 업무 · 사업으로 이동한 항목이 없습니다.</div>
-</div>
-
-<div class="section-title">
-  <h2>다가오는 일정</h2>
-  <div class="schedule-actions"><button type="button" class="schedule-btn" id="addScheduleBtn">+ 일정 추가</button></div>
-</div>
-
-<div class="schedule-form" id="scheduleForm">
-  <div class="form-grid">
-    <div class="form-field"><label for="scheduleStart">시작일</label><input id="scheduleStart" type="date"></div>
-    <div class="form-field"><label for="scheduleEnd">종료일 (선택)</label><input id="scheduleEnd" type="date"></div>
-    <div class="form-field full"><label for="scheduleTitle">일정명</label><input id="scheduleTitle" maxlength="200" placeholder="일정명을 입력"></div>
-    <div class="form-field full"><label for="scheduleDetail">시간 · 장소 · 메모 (선택)</label><input id="scheduleDetail" maxlength="300" placeholder="예: 11:00 · 청와대 앞"></div>
-  </div>
-  <div class="form-buttons"><button type="button" class="schedule-btn" id="cancelScheduleBtn">취소</button><button type="button" class="schedule-btn primary" id="saveScheduleBtn">저장</button></div>
-  <div class="schedule-status" id="scheduleStatus"></div>
-</div>
-
-<div class="schedule" id="scheduleList">
-  <div class="event"><div class="date">9/14</div><div class="event-main"><b>2% 인력감축 방침 폐기 촉구 기자회견</b><small>11:00 · 청와대 앞</small></div></div>
-  <div class="event"><div class="date">9/21~22</div><div class="event-main"><b>인력확충 촉구 1박 2일 공동투쟁</b><small>청와대 앞</small></div></div>
-  <div class="event"><div class="date">9/29</div><div class="event-main"><b>민자철도 국회토론회</b><small>안전인력 · 운영기준 · 관리감독</small></div></div>
-  <div class="event"><div class="date">10/2</div><div class="event-main"><b>위험업무 2인1조 법제화 국회토론회</b><small>10:00 · 국회 제7간담회실</small></div></div>
-  <div class="event"><div class="date">10/24</div><div class="event-main"><b>공공기관 집회</b><small>하반기 공동투쟁</small></div></div>
-</div>
-
-<div class="future">향후 공공기관 기능개혁·통폐합 대응 등 추가 사업 페이지를 연결합니다.</div>
-<div class="footer">공공운수노조 공공기관사업팀 · 업무 공유용</div>
+<div class="archive-head"><button type="button" class="archive-toggle" id="archiveToggle" aria-expanded="false" aria-controls="archiveWrap"><strong>지나간 업무 · 사업</strong><span id="archiveToggleText">펼치기 ▾</span></button></div>
+<div class="archive-wrap" id="archiveWrap"><div class="grid" id="archivedProjects"></div><div class="archive-empty" id="archiveEmpty">지나간 업무 · 사업으로 이동한 항목이 없습니다.</div></div>
+<div class="section-title"><h2>다가오는 일정</h2><div class="schedule-actions"><button type="button" class="schedule-btn" id="addScheduleBtn">+ 일정 추가</button></div></div>
+<div class="schedule-form" id="scheduleForm"><div class="form-grid"><div class="form-field"><label for="scheduleStart">시작일</label><input id="scheduleStart" type="date"></div><div class="form-field"><label for="scheduleEnd">종료일 (선택)</label><input id="scheduleEnd" type="date"></div><div class="form-field full"><label for="scheduleTitle">일정명</label><input id="scheduleTitle" maxlength="200" placeholder="일정명을 입력"></div><div class="form-field full"><label for="scheduleDetail">시간 · 장소 · 메모 (선택)</label><input id="scheduleDetail" maxlength="300" placeholder="예: 11:00 · 청와대 앞"></div></div><div class="form-buttons"><button type="button" class="schedule-btn" id="cancelScheduleBtn">취소</button><button type="button" class="schedule-btn primary" id="saveScheduleBtn">저장</button></div><div class="schedule-status" id="scheduleStatus"></div></div>
+<div class="schedule" id="scheduleList"><div class="event"><div class="date">9/14</div><div class="event-main"><b>2% 인력감축 방침 폐기 촉구 기자회견</b><small>11:00 · 청와대 앞</small></div></div><div class="event"><div class="date">9/21~22</div><div class="event-main"><b>인력확충 촉구 1박 2일 공동투쟁</b><small>청와대 앞</small></div></div><div class="event"><div class="date">9/29</div><div class="event-main"><b>민자철도 국회토론회</b><small>안전인력 · 운영기준 · 관리감독</small></div></div><div class="event"><div class="date">10/2</div><div class="event-main"><b>위험업무 2인1조 법제화 국회토론회</b><small>10:00 · 국회 제7간담회실</small></div></div><div class="event"><div class="date">10/24</div><div class="event-main"><b>공공기관 집회</b><small>하반기 공동투쟁</small></div></div></div>
+<div class="future">향후 공공기관 기능개혁·통폐합 대응 등 추가 사업 페이지를 연결합니다.</div><div class="footer">공공운수노조 공공기관사업팀 · 업무 공유용</div>
 </main>
-
 <script>
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let scheduleRows=[];
-let editingScheduleId=null;
-
-const projectCards=[...document.querySelectorAll('.project-card')];
-const activeProjects=document.getElementById('activeProjects');
-const archivedProjects=document.getElementById('archivedProjects');
-const archiveEmpty=document.getElementById('archiveEmpty');
-const archiveWrap=document.getElementById('archiveWrap');
-const archiveToggle=document.getElementById('archiveToggle');
-const archiveToggleText=document.getElementById('archiveToggleText');
-
-function placeProject(card,archived){
-  const btn=card.querySelector('.archive-move');
-  btn.textContent=archived?'진행 중으로 이동':'지나간 업무로 이동';
-  card.dataset.archived=archived?'true':'false';
-  (archived?archivedProjects:activeProjects).appendChild(card);
-  archiveEmpty.style.display=archivedProjects.children.length?'none':'block';
-}
-
-async function loadProjectArchiveState(){
-  try{
-    const r=await fetch(SB+'/rest/v1/main_project_archive_state?select=card_key,archived',{headers:H});
-    if(!r.ok)throw new Error(await r.text());
-    const rows=await r.json();
-    const state=new Map(rows.map(x=>[x.card_key,!!x.archived]));
-    projectCards.forEach(card=>placeProject(card,state.get(card.dataset.key)===true));
-  }catch(e){
-    console.error(e);
-    projectCards.forEach(card=>placeProject(card,false));
-  }
-}
-
-async function moveProject(card){
-  const archived=card.dataset.archived!=='true';
-  const btn=card.querySelector('.archive-move');
-  btn.disabled=true;
-  try{
-    const payload={card_key:card.dataset.key,archived,updated_at:new Date().toISOString()};
-    const r=await fetch(SB+'/rest/v1/main_project_archive_state?on_conflict=card_key',{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
-    if(!r.ok)throw new Error(await r.text());
-    placeProject(card,archived);
-  }catch(e){
-    console.error(e);alert('이동 상태를 저장하지 못했습니다. 다시 시도해 주세요.');
-  }finally{btn.disabled=false;}
-}
-
-projectCards.forEach(card=>{
-  card.addEventListener('click',e=>{
-    if(e.target.closest('.archive-move')){e.preventDefault();e.stopPropagation();moveProject(card);return;}
-    location.href=card.dataset.href;
-  });
-});
-
-archiveToggle.addEventListener('click',()=>{
-  const open=!archiveWrap.classList.contains('open');
-  archiveWrap.classList.toggle('open',open);
-  archiveToggle.setAttribute('aria-expanded',String(open));
-  archiveToggleText.textContent=open?'숨기기 ▴':'펼치기 ▾';
-});
-
-function formatScheduleDate(start,end){
-  const s=new Date(start+'T00:00:00');
-  const sm=s.getMonth()+1, sd=s.getDate();
-  if(!end)return `${sm}/${sd}`;
-  const e=new Date(end+'T00:00:00');
-  const em=e.getMonth()+1, ed=e.getDate();
-  if(start===end)return `${sm}/${sd}`;
-  return sm===em?`${sm}/${sd}~${ed}`:`${sm}/${sd}~${em}/${ed}`;
-}
-
-function renderSchedule(){
-  const box=document.getElementById('scheduleList');
-  if(!scheduleRows.length){box.innerHTML='<div class="schedule-empty">등록된 일정이 없습니다. 위의 ‘일정 추가’ 버튼으로 추가할 수 있습니다.</div>';return;}
-  box.innerHTML=scheduleRows.map(x=>`<div class="event" id="schedule-${Number(x.id)}"><div class="date">${formatScheduleDate(x.start_date,x.end_date)}</div><div class="event-main"><b>${esc(x.title)}</b>${x.detail?`<small>${esc(x.detail)}</small>`:''}</div><div class="event-actions"><button type="button" class="event-action edit" onclick="startScheduleEdit(${Number(x.id)})">수정</button><button type="button" class="event-action" onclick="deleteSchedule(${Number(x.id)})">삭제</button></div></div>`).join('');
-}
-
-async function loadSchedule(){
-  try{
-    const r=await fetch(SB+'/rest/v1/main_upcoming_events?select=id,start_date,end_date,title,detail&order=start_date.asc,id.asc',{headers:H});
-    if(!r.ok)throw new Error('load failed');
-    scheduleRows=await r.json();
-    renderSchedule();
-  }catch(e){
-    console.error(e);
-  }
-}
-
-function openScheduleForm(row=null){
-  editingScheduleId=row?Number(row.id):null;
-  document.getElementById('scheduleStart').value=row?.start_date||'';
-  document.getElementById('scheduleEnd').value=row?.end_date||'';
-  document.getElementById('scheduleTitle').value=row?.title||'';
-  document.getElementById('scheduleDetail').value=row?.detail||'';
-  document.getElementById('saveScheduleBtn').textContent=row?'수정 저장':'저장';
-  document.getElementById('scheduleStatus').textContent='';
-  document.getElementById('scheduleForm').classList.add('open');
-  setTimeout(()=>document.getElementById(row?'scheduleTitle':'scheduleStart').focus(),0);
-}
-
-function closeScheduleForm(){
-  editingScheduleId=null;
-  document.getElementById('scheduleForm').classList.remove('open');
-  document.getElementById('scheduleStatus').textContent='';
-}
-
-function startScheduleEdit(id){
-  const row=scheduleRows.find(x=>Number(x.id)===Number(id));
-  if(row)openScheduleForm(row);
-}
-
-async function saveSchedule(){
-  const start=document.getElementById('scheduleStart').value;
-  const end=document.getElementById('scheduleEnd').value||null;
-  const title=document.getElementById('scheduleTitle').value.trim();
-  const detail=document.getElementById('scheduleDetail').value.trim()||null;
-  const status=document.getElementById('scheduleStatus');
-  const btn=document.getElementById('saveScheduleBtn');
-  if(!start||!title){status.textContent='시작일과 일정명을 입력해 주세요.';return;}
-  if(end&&end<start){status.textContent='종료일은 시작일보다 빠를 수 없습니다.';return;}
-  btn.disabled=true;status.textContent='저장 중…';
-  try{
-    const payload={start_date:start,end_date:end,title,detail,updated_at:new Date().toISOString()};
-    const url=editingScheduleId?SB+'/rest/v1/main_upcoming_events?id=eq.'+encodeURIComponent(editingScheduleId):SB+'/rest/v1/main_upcoming_events';
-    const r=await fetch(url,{method:editingScheduleId?'PATCH':'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(payload)});
-    if(!r.ok)throw new Error(await r.text());
-    closeScheduleForm();
-    await loadSchedule();
-  }catch(e){
-    console.error(e);status.textContent='저장하지 못했습니다. 다시 시도해 주세요.';
-  }finally{btn.disabled=false;}
-}
-
-async function deleteSchedule(id){
-  const row=scheduleRows.find(x=>Number(x.id)===Number(id));
-  if(!row)return;
-  if(!confirm(`‘${row.title}’ 일정을 삭제하시겠습니까?`))return;
-  try{
-    const r=await fetch(SB+'/rest/v1/main_upcoming_events?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{...H,'Prefer':'return=representation'}});
-    if(!r.ok)throw new Error(await r.text());
-    if(editingScheduleId===Number(id))closeScheduleForm();
-    await loadSchedule();
-  }catch(e){
-    console.error(e);alert('삭제하지 못했습니다. 다시 시도해 주세요.');
-  }
-}
-
-document.getElementById('addScheduleBtn').onclick=()=>openScheduleForm();
-document.getElementById('cancelScheduleBtn').onclick=closeScheduleForm;
-document.getElementById('saveScheduleBtn').onclick=saveSchedule;
-loadProjectArchiveState();
-loadSchedule();
-</script>
-</body>
-</html>
+let scheduleRows=[];let editingScheduleId=null;
+const projectCards=[...document.querySelectorAll('.project-card')],activeProjects=document.getElementById('activeProjects'),archivedProjects=document.getElementById('archivedProjects'),archiveEmpty=document.getElementById('archiveEmpty'),archiveWrap=document.getElementById('archiveWrap'),archiveToggle=document.getElementById('archiveToggle'),archiveToggleText=document.getElementById('archiveToggleText');
+function placeProject(card,archived){const btn=card.querySelector('.archive-move');btn.textContent=archived?'진행 중으로 이동':'지나간 업무로 이동';card.dataset.archived=archived?'true':'false';(archived?archivedProjects:activeProjects).appendChild(card);archiveEmpty.style.display=archivedProjects.children.length?'none':'block'}
+async function loadProjectArchiveState(){try{const r=await fetch(SB+'/rest/v1/main_project_archive_state?select=card_key,archived',{headers:H});if(!r.ok)throw new Error(await r.text());const rows=await r.json(),state=new Map(rows.map(x=>[x.card_key,!!x.archived]));projectCards.forEach(card=>placeProject(card,state.get(card.dataset.key)===true))}catch(e){console.error(e);projectCards.forEach(card=>placeProject(card,false))}}
+async function moveProject(card){const archived=card.dataset.archived!=='true',btn=card.querySelector('.archive-move');btn.disabled=true;try{const payload={card_key:card.dataset.key,archived,updated_at:new Date().toISOString()};const r=await fetch(SB+'/rest/v1/main_project_archive_state?on_conflict=card_key',{method:'POST',headers:{...H,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});if(!r.ok)throw new Error(await r.text());placeProject(card,archived)}catch(e){console.error(e);alert('이동 상태를 저장하지 못했습니다. 다시 시도해 주세요.')}finally{btn.disabled=false}}
+projectCards.forEach(card=>card.addEventListener('click',e=>{if(e.target.closest('.archive-move')){e.preventDefault();e.stopPropagation();moveProject(card);return}location.href=card.dataset.href}));
+archiveToggle.addEventListener('click',()=>{const open=!archiveWrap.classList.contains('open');archiveWrap.classList.toggle('open',open);archiveToggle.setAttribute('aria-expanded',String(open));archiveToggleText.textContent=open?'숨기기 ▴':'펼치기 ▾'});
+function formatScheduleDate(start,end){const s=new Date(start+'T00:00:00'),sm=s.getMonth()+1,sd=s.getDate();if(!end)return `${sm}/${sd}`;const e=new Date(end+'T00:00:00'),em=e.getMonth()+1,ed=e.getDate();if(start===end)return `${sm}/${sd}`;return sm===em?`${sm}/${sd}~${ed}`:`${sm}/${sd}~${em}/${ed}`}
+function renderSchedule(){const box=document.getElementById('scheduleList');if(!scheduleRows.length){box.innerHTML='<div class="schedule-empty">등록된 일정이 없습니다. 위의 ‘일정 추가’ 버튼으로 추가할 수 있습니다.</div>';return}box.innerHTML=scheduleRows.map(x=>`<div class="event" id="schedule-${Number(x.id)}"><div class="date">${formatScheduleDate(x.start_date,x.end_date)}</div><div class="event-main"><b>${esc(x.title)}</b>${x.detail?`<small>${esc(x.detail)}</small>`:''}</div><div class="event-actions"><button type="button" class="event-action edit" onclick="startScheduleEdit(${Number(x.id)})">수정</button><button type="button" class="event-action" onclick="deleteSchedule(${Number(x.id)})">삭제</button></div></div>`).join('')}
+async function loadSchedule(){try{const r=await fetch(SB+'/rest/v1/main_upcoming_events?select=id,start_date,end_date,title,detail&order=start_date.asc,id.asc',{headers:H});if(!r.ok)throw new Error('load failed');scheduleRows=await r.json();renderSchedule()}catch(e){console.error(e)}}
+function openScheduleForm(row=null){editingScheduleId=row?Number(row.id):null;document.getElementById('scheduleStart').value=row?.start_date||'';document.getElementById('scheduleEnd').value=row?.end_date||'';document.getElementById('scheduleTitle').value=row?.title||'';document.getElementById('scheduleDetail').value=row?.detail||'';document.getElementById('saveScheduleBtn').textContent=row?'수정 저장':'저장';document.getElementById('scheduleStatus').textContent='';document.getElementById('scheduleForm').classList.add('open');setTimeout(()=>document.getElementById(row?'scheduleTitle':'scheduleStart').focus(),0)}
+function closeScheduleForm(){editingScheduleId=null;document.getElementById('scheduleForm').classList.remove('open');document.getElementById('scheduleStatus').textContent=''}
+function startScheduleEdit(id){const row=scheduleRows.find(x=>Number(x.id)===Number(id));if(row)openScheduleForm(row)}
+async function saveSchedule(){const start=document.getElementById('scheduleStart').value,end=document.getElementById('scheduleEnd').value||null,title=document.getElementById('scheduleTitle').value.trim(),detail=document.getElementById('scheduleDetail').value.trim()||null,status=document.getElementById('scheduleStatus'),btn=document.getElementById('saveScheduleBtn');if(!start||!title){status.textContent='시작일과 일정명을 입력해 주세요.';return}if(end&&end<start){status.textContent='종료일은 시작일보다 빠를 수 없습니다.';return}btn.disabled=true;status.textContent='저장 중…';try{const payload={start_date:start,end_date:end,title,detail,updated_at:new Date().toISOString()},url=editingScheduleId?SB+'/rest/v1/main_upcoming_events?id=eq.'+encodeURIComponent(editingScheduleId):SB+'/rest/v1/main_upcoming_events';const r=await fetch(url,{method:editingScheduleId?'PATCH':'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(payload)});if(!r.ok)throw new Error(await r.text());closeScheduleForm();await loadSchedule()}catch(e){console.error(e);status.textContent='저장하지 못했습니다. 다시 시도해 주세요.'}finally{btn.disabled=false}}
+async function deleteSchedule(id){const row=scheduleRows.find(x=>Number(x.id)===Number(id));if(!row)return;if(!confirm(`‘${row.title}’ 일정을 삭제하시겠습니까?`))return;try{const r=await fetch(SB+'/rest/v1/main_upcoming_events?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{...H,'Prefer':'return=representation'}});if(!r.ok)throw new Error(await r.text());if(editingScheduleId===Number(id))closeScheduleForm();await loadSchedule()}catch(e){console.error(e);alert('삭제하지 못했습니다. 다시 시도해 주세요.')}}
+document.getElementById('addScheduleBtn').onclick=()=>openScheduleForm();document.getElementById('cancelScheduleBtn').onclick=closeScheduleForm;document.getElementById('saveScheduleBtn').onclick=saveSchedule;loadProjectArchiveState();loadSchedule();
+</script></body></html>
