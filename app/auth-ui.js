@@ -1,8 +1,9 @@
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const APP_URL='https://mj880616.github.io/work/app/';
+const NATIVE_CALLBACK=APP_URL+'native-callback.html?native=android';
 function isNativeAndroid(){return /KPTUAndroid/i.test(navigator.userAgent)||/;\s*wv\)/i.test(navigator.userAgent)||/\bwv\b/i.test(navigator.userAgent)}
 function showStatus(msg,type='error'){const el=document.querySelector('#authStatus');if(!el)return;el.textContent=msg;el.className='status '+type}
-function startGoogleLogin(){const redirect=isNativeAndroid()?'kptuwork://auth':APP_URL;const url=SB+'/auth/v1/authorize?provider=google&redirect_to='+encodeURIComponent(redirect);showStatus('Google 로그인으로 이동합니다…','');location.href=url}
+function startGoogleLogin(){const redirect=isNativeAndroid()?NATIVE_CALLBACK:APP_URL;const url=SB+'/auth/v1/authorize?provider=google&redirect_to='+encodeURIComponent(redirect);showStatus('Google 로그인으로 이동합니다…','');location.href=url}
 function enhanceAuth(){
   const form=document.querySelector('#authForm'),card=document.querySelector('#authView .auth-card'),tabs=card?.querySelector('.auth-tabs'),status=document.querySelector('#authStatus');
   if(!form||!card||!tabs||!status)return false;
