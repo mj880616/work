@@ -6,7 +6,7 @@
   await import('./auth-bootstrap.js?v=1');
   await import('./auth-ui.js?v=5');
   await import('./auth-cleanup.js?v=2');
-  await import('./session-resilience.js?v=1');
+  await import('./session-resilience.js?v=2');
   await import('./brand-logo.js?v=1');
   await import('./team.js?v=5');
   await import('./meeting-file-route.js?v=1');
