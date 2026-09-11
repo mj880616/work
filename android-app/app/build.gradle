@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'kr.or.kptu.work'
-    compileSdk 37
+    compileSdk 36
 
     defaultConfig {
         applicationId 'kr.or.kptu.work'
