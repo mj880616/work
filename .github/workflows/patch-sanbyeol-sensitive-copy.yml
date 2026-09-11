@@ -1,0 +1,100 @@
+name: Patch sanbyeol shared wording
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-sanbyeol-sensitive-copy.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply approved wording changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('sanbyeol/index.html')
+          text = path.read_text(encoding='utf-8')
+
+          def replace(old, new, expected=1):
+              global text
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'Expected {expected} occurrence(s), found {count}: {old[:100]}')
+              text = text.replace(old, new)
+
+          # 1. 철도 내부토론 표현 완화
+          replace("‘왜 굳이 지금인가’, 조직 확대 시 끌려갈 우려, 직종별 이해 차이 등 설득의 핵심 난점을 사전 점검.",
+                  "왜 지금인가 등 설득의 핵심 난점을 사전 점검.")
+
+          # 2. 철도 현장순회 메시지 전략 삭제
+          replace("하반기 임단투와 산별전환을 주제로 약 5주간 현장순회. 내부적으로 ‘2/3 통과’뿐 아니라 조합원에게 무엇을 남길지 메시지 전략을 재점검.",
+                  "하반기 임단투와 산별전환을 주제로 약 5주간 현장순회.")
+
+          # 4. 서울교통공사 내부 판단 표현 완화
+          replace("연내 총투표는 어렵다는 조직 판단과 별개로 올해부터 무엇을 준비할지 논의.",
+                  "향후 추진 일정과 조건을 추가 논의하기로 함.")
+
+          # 6. 부산 조직동력 평가 표현 완화
+          replace("궤도 사업장들의 전환 흐름이 가시화돼야 부산의 동력도 커진다는 의견. 양산선 인력 문제 등 하반기 투쟁과 함께 논의.",
+                  "타 궤도사업장의 추진 상황과 연계 방안을 함께 논의함. 양산선 인력 문제 등 하반기 투쟁과 함께 논의.")
+
+          # 7. 대구 관심도 평가 표현 완화
+          replace("현장 관심 부족, 임금·인력 교섭 성과 필요, 궤도협의회 이후 체계와 산별 효능감 사례가 중요하다는 의견 제기.",
+                  "임금·인력 등 현안과 산별전환의 연계 필요성이 제기됨.")
+
+          # 12. 철도 조직 내부 약점 평가 삭제
+          replace("<li>현장 교류 부족, 공동투쟁 불이행, 지도부 임기 연속성 등 조직 내부의 실제 약점이 토론에서 드러남.</li>", "")
+
+          # 13. 철도 교육 보완 표현 완화
+          replace("<li>문제 제기가 넓어 핵심 결론이 늦게 도착함. ‘기업 밖에서 결정되는 문제 → 힘도 기업 밖으로 확장’이라는 연결을 더 앞에 둘 필요.</li>",
+                  "<li>기업 밖에서 결정되는 문제와 산별전환 필요성의 연결을 보다 분명히 제시할 필요.</li>")
+
+          # 14. 철도 특이점 표현 완화
+          replace("<li>산별전환을 만능 해법처럼 설명하지 않고 ‘조건을 만드는 것’이라고 답한 점이 신뢰도를 높임.</li>",
+                  "<li>산별전환을 만능 해법이 아니라 공동 대응의 조건을 만드는 과정으로 설명함.</li>")
+
+          # 19. 공무원연금 설득재료 표현 완화
+          replace("<li>노정교섭 성과를 실제 사례로 보여주는 것이 산별 필요성을 설명하는 가장 중요한 설득 재료라는 의견이 제기됨.</li>",
+                  "<li>노정교섭의 실질적 성과 여부가 주요 관심사항으로 확인됨.</li>")
+
+          # 21. 대구 현장 관심도 평가 삭제 (본문·항목 모두)
+          replace("현장 관심이 낮은 상황에서 임금·인력 교섭 성과와 전환 이후 궤도체계의 그림이 있어야 한다는 의견이 집중됨.",
+                  "임금·인력 교섭 성과와 전환 이후 궤도체계의 그림이 있어야 한다는 의견이 집중됨.")
+          replace("<li>현장은 산별전환 자체에 관심이 낮음.</li>", "")
+
+          # 26. 발전노조 제목 완화
+          replace("찬성 논리보다 ‘단점과 비용’을 정면으로 토론",
+                  "산별전환 이후 예상되는 변화와 주요 쟁점을 함께 토론")
+
+          # 27. 발전노조 특이점 표현 완화
+          replace("<li>산별전환 토론에서 단점과 손실 가능성을 숨기지 않는 방식이 필요하다는 점을 보여줌.</li>",
+                  "<li>산별전환 이후 예상되는 변화와 유의점을 함께 검토할 필요가 확인됨.</li>")
+
+          # 28. 구리 교육자 내부 피드백 삭제
+          replace("<li>총인건비 제도·노조 역사까지 한 번에 다뤄 정보량이 많음. 핵심 메시지를 더 압축할 필요.</li>", "")
+
+          # 32. 섹션 제목 변경
+          replace("반복해서 확인되는 설득 쟁점", "반복해서 확인되는 쟁점")
+
+          # 34. 효능감 설득전략 항목 삭제 및 뒤 번호 정리
+          replace(" &nbsp; <b>③ 효능감</b> · 노정교섭·산별교섭이 실제 성과로 이어진 사례를 더 많이 제시할 필요. &nbsp; <b>④ 조직체계</b>",
+                  " &nbsp; <b>③ 조직체계</b>")
+          replace(" &nbsp; <b>⑤ 운동적 이유</b>", " &nbsp; <b>④ 운동적 이유</b>")
+
+          path.write_text(text, encoding='utf-8')
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sanbyeol/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: sanitize sanbyeol shared wording"
+          git push
