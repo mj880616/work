@@ -11,32 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add April rail activities
+      - name: Fix summary card editor
+        shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('sanbyeol/index.html')
-          s=p.read_text(encoding='utf-8')
-          old='<div class="row editable" data-key="rail-0407" data-type="row"><div class="date">4/7</div><div><b>영주지방본부 대의원대회 산별전환 교육</b><p>산별노조 역사와 조직형태 변화, 재경부 등 실질 사용자와의 교섭 필요성을 중심으로 교육.</p></div></div>'
-          new='''<div class="row editable" data-key="rail-0407" data-type="row"><div class="date">4/7</div><div><b>영주지방본부 정기대의원대회 산별전환 교육</b><p>산별노조 역사와 조직형태 변화, 정부 상대 교섭 필요성을 중심으로 김명진 국장이 교육함.</p></div></div>
-<div class="row editable" data-key="rail-0410" data-type="row"><div class="date">4/10</div><div><b>부산지방본부 정기대의원대회 산별전환 교육</b><p>박진현 국장이 산별전환 필요성과 조직적 과제를 중심으로 교육함.</p></div></div>
-<div class="row editable" data-key="rail-0414" data-type="row"><div class="date">4/14</div><div><b>호남지방본부 정기대의원대회 산별전환 교육</b><p>강철 위원장이 산별전환 필요성과 철도노조의 조직적 과제를 중심으로 교육함.</p></div></div>
-<div class="row editable" data-key="rail-0428" data-type="row"><div class="date">4/28</div><div><b>대전지방본부 초급간부 기초교육 산별전환 교육</b><p>김명진 국장이 초급간부를 대상으로 산별전환의 필요성과 조직운영 변화를 중심으로 교육함.</p></div></div>'''
-          if old in s:
-              s=s.replace(old,new)
-          else:
-              # If 4/7 text was already revised, insert only missing rows immediately after the existing 4/7 row.
-              marker='data-key="rail-0407"'
-              if marker in s and 'data-key="rail-0410"' not in s:
-                  start=s.index('<div class="row editable"', s.index(marker)-80)
-                  end=s.index('</div></div>', s.index(marker))+12
-                  s=s[:end]+'\n'+new.split('\n',1)[1]+s[end:]
-          p.write_text(s,encoding='utf-8')
-          PY
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCnAgPSBQYXRoKCJzYW5ieWVvbC9pbmRleC5odG1sIikKcyA9IHAucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCgpzID0gcy5yZXBsYWNlKAogICAgIi5zdW0gc21hbGx7ZGlzcGxheTpibG9jaztjb2xvcjp2YXIoLS1tdXRlZCk7bWFyZ2luLXRvcDo0cHg7cGFkZGluZy1yaWdodDo3NnB4fSIsCiAgICAiLnN1bSBzbWFsbHtkaXNwbGF5OmJsb2NrO2NvbG9yOnZhcigtLW11dGVkKTttYXJnaW4tdG9wOjRweDtwYWRkaW5nLXJpZ2h0Ojc2cHg7d2hpdGUtc3BhY2U6cHJlLWxpbmV9IgopCgptb2RhbF9jc3MgPSAiIiIuc3VtbWFyeS1tb2RhbC1iYWNrZHJvcHtwb3NpdGlvbjpmaXhlZDtpbnNldDowO2JhY2tncm91bmQ6cmdiYSgxNSwyMyw0MiwuNDIpO2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7anVzdGlmeS1jb250ZW50OmNlbnRlcjtwYWRkaW5nOjE4cHg7ei1pbmRleDo5OTk5fS5zdW1tYXJ5LW1vZGFse3dpZHRoOm1pbig1MjBweCwxMDAlKTtiYWNrZ3JvdW5kOiNmZmY7Ym9yZGVyLXJhZGl1czoxNnB4O2JveC1zaGFkb3c6MCAyMHB4IDYwcHggcmdiYSgwLDAsMCwuMjIpO3BhZGRpbmc6MjBweH0uc3VtbWFyeS1tb2RhbCBoM3ttYXJnaW46MCAwIDE2cHg7Zm9udC1zaXplOjE4cHh9LnN1bW1hcnktbW9kYWwgbGFiZWx7ZGlzcGxheTpibG9jaztmb250LXNpemU6MTJweDtmb250LXdlaWdodDo4MDA7Y29sb3I6IzUzNjE3MTttYXJnaW46MTJweCAwIDZweH0uc3VtbWFyeS1tb2RhbCBpbnB1dCwuc3VtbWFyeS1tb2RhbCB0ZXh0YXJlYXt3aWR0aDoxMDAlO2JvcmRlcjoxcHggc29saWQgI2NjZDVkZjtib3JkZXItcmFkaXVzOjlweDtwYWRkaW5nOjEwcHggMTFweDtmb250OmluaGVyaXQ7Y29sb3I6dmFyKC0taW5rKTtiYWNrZ3JvdW5kOiNmZmZ9LnN1bW1hcnktbW9kYWwgdGV4dGFyZWF7bWluLWhlaWdodDoxNDBweDtyZXNpemU6dmVydGljYWw7d2hpdGUtc3BhY2U6cHJlLXdyYXB9LnN1bW1hcnktbW9kYWwtYWN0aW9uc3tkaXNwbGF5OmZsZXg7anVzdGlmeS1jb250ZW50OmZsZXgtZW5kO2dhcDo4cHg7bWFyZ2luLXRvcDoxNnB4fS5zdW1tYXJ5LW1vZGFsLWFjdGlvbnMgYnV0dG9ue2JvcmRlcjoxcHggc29saWQgI2NjZDVkZjtiYWNrZ3JvdW5kOiNmZmY7Ym9yZGVyLXJhZGl1czo4cHg7cGFkZGluZzo4cHggMTNweDtmb250LXNpemU6MTJweDtmb250LXdlaWdodDo4MDA7Y3Vyc29yOnBvaW50ZXJ9LnN1bW1hcnktbW9kYWwtYWN0aW9ucyAuc2F2ZXtiYWNrZ3JvdW5kOnZhcigtLW5hdnkpO2JvcmRlci1jb2xvcjp2YXIoLS1uYXZ5KTtjb2xvcjojZmZmfSIiIgppZiAiLnN1bW1hcnktbW9kYWwtYmFja2Ryb3B7IiBub3QgaW4gczoKICAgIHMgPSBzLnJlcGxhY2UoIi5oaWRkZW4taXRlbXtkaXNwbGF5Om5vbmUhaW1wb3J0YW50fSIsICIuaGlkZGVuLWl0ZW17ZGlzcGxheTpub25lIWltcG9ydGFudH0iICsgbW9kYWxfY3NzKQoKbW9kYWxfanMgPSAiIiJmdW5jdGlvbiBlZGl0U3VtbWFyeU1vZGFsKHYpe3JldHVybiBuZXcgUHJvbWlzZShyZXNvbHZlPT57Y29uc3QgYmc9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnZGl2Jyk7YmcuY2xhc3NOYW1lPSdzdW1tYXJ5LW1vZGFsLWJhY2tkcm9wJztiZy5pbm5lckhUTUw9JzxkaXYgY2xhc3M9InN1bW1hcnktbW9kYWwiIHJvbGU9ImRpYWxvZyIgYXJpYS1tb2RhbD0idHJ1ZSI+PGgzPuyalOyVvey5tOuTnCDsiJjsoJU8L2gzPjxsYWJlbD7soJzrqqk8L2xhYmVsPjxpbnB1dCBjbGFzcz0ic3VtbWFyeS10aXRsZSIgdHlwZT0idGV4dCI+PGxhYmVsPuuCtOyaqTwvbGFiZWw+PHRleHRhcmVhIGNsYXNzPSJzdW1tYXJ5LXRleHQiIHBsYWNlaG9sZGVyPSLspITrsJTqv4jsnbQg7ZWE7JqU7ZWcIOychOy5mOyXkOyEnCBFbnRlcuulvCDriITrpbTshLjsmpQuIj48L3RleHRhcmVhPjxkaXYgY2xhc3M9InN1bW1hcnktbW9kYWwtYWN0aW9ucyI+PGJ1dHRvbiB0eXBlPSJidXR0b24iIGNsYXNzPSJjYW5jZWwiPuy3qOyGjDwvYnV0dG9uPjxidXR0b24gdHlwZT0iYnV0dG9uIiBjbGFzcz0ic2F2ZSI+7KCA7J6lPC9idXR0b24+PC9kaXY+PC9kaXY+Jztjb25zdCB0aXRsZT1iZy5xdWVyeVNlbGVjdG9yKCcuc3VtbWFyeS10aXRsZScpLHRleHQ9YmcucXVlcnlTZWxlY3RvcignLnN1bW1hcnktdGV4dCcpO3RpdGxlLnZhbHVlPXYudGl0bGV8fCcnO3RleHQudmFsdWU9di50ZXh0fHwnJztsZXQgZG9uZT1mYWxzZTtjb25zdCBjbG9zZT14PT57aWYoZG9uZSlyZXR1cm47ZG9uZT10cnVlO2JnLnJlbW92ZSgpO3Jlc29sdmUoeCl9O2JnLnF1ZXJ5U2VsZWN0b3IoJy5jYW5jZWwnKS5vbmNsaWNrPSgpPT5jbG9zZShudWxsKTtiZy5xdWVyeVNlbGVjdG9yKCcuc2F2ZScpLm9uY2xpY2s9KCk9PmNsb3NlKHt0aXRsZTp0aXRsZS52YWx1ZS50cmltKCksdGV4dDp0ZXh0LnZhbHVlLnRyaW0oKSxoaWRkZW46ZmFsc2V9KTtiZy5vbmNsaWNrPWU9PntpZihlLnRhcmdldD09PWJnKWNsb3NlKG51bGwpfTtkb2N1bWVudC5ib2R5LmFwcGVuZENoaWxkKGJnKTt0aXRsZS5mb2N1cygpfSl9CiIiIgppZiAiZnVuY3Rpb24gZWRpdFN1bW1hcnlNb2RhbCh2KSIgbm90IGluIHM6CiAgICBzID0gcy5yZXBsYWNlKCJhc3luYyBmdW5jdGlvbiBlZGl0RWwoZWwpeyIsIG1vZGFsX2pzICsgImFzeW5jIGZ1bmN0aW9uIGVkaXRFbChlbCl7IikKCm9sZDEgPSAiaWYodHlwZT09PSdzdW1tYXJ5Jyl7Y29uc3QgdGl0bGU9cHJvbXB0KCfsubTrk5wg7KCc66qpJyx2LnRpdGxlKTtpZih0aXRsZT09PW51bGwpcmV0dXJuO2NvbnN0IHRleHQ9cHJvbXB0KCfsubTrk5wg64K07JqpJyx2LnRleHQpO2lmKHRleHQ9PT1udWxsKXJldHVybjthd2FpdCBzYXZlKGVsLHt0aXRsZTp0aXRsZS50cmltKCksdGV4dDp0ZXh0LnRyaW0oKSxoaWRkZW46ZmFsc2V9KTtyZXR1cm59IgpvbGQyID0gImlmKHR5cGU9PT0nc3VtbWFyeScpe2NvbnN0IHRpdGxlPXByb21wdCgn7KCc66qpJyx2LnRpdGxlKTtpZih0aXRsZT09PW51bGwpcmV0dXJuO2NvbnN0IHRleHQ9cHJvbXB0KCfrgrTsmqknLHYudGV4dCk7aWYodGV4dD09PW51bGwpcmV0dXJuO2F3YWl0IHNhdmUoZWwse3RpdGxlOnRpdGxlLnRyaW0oKSx0ZXh0OnRleHQudHJpbSgpLGhpZGRlbjpmYWxzZX0pO3JldHVybn0iCm5ldyA9ICJpZih0eXBlPT09J3N1bW1hcnknKXtjb25zdCBlZGl0ZWQ9YXdhaXQgZWRpdFN1bW1hcnlNb2RhbCh2KTtpZighZWRpdGVkKXJldHVybjthd2FpdCBzYXZlKGVsLGVkaXRlZCk7cmV0dXJufSIKaWYgb2xkMSBpbiBzOgogICAgcyA9IHMucmVwbGFjZShvbGQxLCBuZXcpCmVsaWYgb2xkMiBpbiBzOgogICAgcyA9IHMucmVwbGFjZShvbGQyLCBuZXcpCmVsc2U6CiAgICByYWlzZSBSdW50aW1lRXJyb3IoInN1bW1hcnkgZWRpdG9yIHByb21wdCBibG9jayBub3QgZm91bmQiKQoKcC53cml0ZV90ZXh0KHMsIGVuY29kaW5nPSJ1dGYtOCIpCg==' | base64 -d > /tmp/patch.py
+          python /tmp/patch.py
       - name: Commit changes
+        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add sanbyeol/index.html
-          git diff --cached --quiet || git commit -m 'Add April rail conversion activities'
+          git diff --cached --quiet || git commit -m 'Fix summary editor and line breaks'
           git push
