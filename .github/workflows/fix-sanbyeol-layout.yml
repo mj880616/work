@@ -11,16 +11,76 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix summary card editor
+      - name: Add organization schedule controls
         shell: bash
         run: |
-          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCnAgPSBQYXRoKCJzYW5ieWVvbC9pbmRleC5odG1sIikKcyA9IHAucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCgpzID0gcy5yZXBsYWNlKAogICAgIi5zdW0gc21hbGx7ZGlzcGxheTpibG9jaztjb2xvcjp2YXIoLS1tdXRlZCk7bWFyZ2luLXRvcDo0cHg7cGFkZGluZy1yaWdodDo3NnB4fSIsCiAgICAiLnN1bSBzbWFsbHtkaXNwbGF5OmJsb2NrO2NvbG9yOnZhcigtLW11dGVkKTttYXJnaW4tdG9wOjRweDtwYWRkaW5nLXJpZ2h0Ojc2cHg7d2hpdGUtc3BhY2U6cHJlLWxpbmV9IgopCgptb2RhbF9jc3MgPSAiIiIuc3VtbWFyeS1tb2RhbC1iYWNrZHJvcHtwb3NpdGlvbjpmaXhlZDtpbnNldDowO2JhY2tncm91bmQ6cmdiYSgxNSwyMyw0MiwuNDIpO2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7anVzdGlmeS1jb250ZW50OmNlbnRlcjtwYWRkaW5nOjE4cHg7ei1pbmRleDo5OTk5fS5zdW1tYXJ5LW1vZGFse3dpZHRoOm1pbig1MjBweCwxMDAlKTtiYWNrZ3JvdW5kOiNmZmY7Ym9yZGVyLXJhZGl1czoxNnB4O2JveC1zaGFkb3c6MCAyMHB4IDYwcHggcmdiYSgwLDAsMCwuMjIpO3BhZGRpbmc6MjBweH0uc3VtbWFyeS1tb2RhbCBoM3ttYXJnaW46MCAwIDE2cHg7Zm9udC1zaXplOjE4cHh9LnN1bW1hcnktbW9kYWwgbGFiZWx7ZGlzcGxheTpibG9jaztmb250LXNpemU6MTJweDtmb250LXdlaWdodDo4MDA7Y29sb3I6IzUzNjE3MTttYXJnaW46MTJweCAwIDZweH0uc3VtbWFyeS1tb2RhbCBpbnB1dCwuc3VtbWFyeS1tb2RhbCB0ZXh0YXJlYXt3aWR0aDoxMDAlO2JvcmRlcjoxcHggc29saWQgI2NjZDVkZjtib3JkZXItcmFkaXVzOjlweDtwYWRkaW5nOjEwcHggMTFweDtmb250OmluaGVyaXQ7Y29sb3I6dmFyKC0taW5rKTtiYWNrZ3JvdW5kOiNmZmZ9LnN1bW1hcnktbW9kYWwgdGV4dGFyZWF7bWluLWhlaWdodDoxNDBweDtyZXNpemU6dmVydGljYWw7d2hpdGUtc3BhY2U6cHJlLXdyYXB9LnN1bW1hcnktbW9kYWwtYWN0aW9uc3tkaXNwbGF5OmZsZXg7anVzdGlmeS1jb250ZW50OmZsZXgtZW5kO2dhcDo4cHg7bWFyZ2luLXRvcDoxNnB4fS5zdW1tYXJ5LW1vZGFsLWFjdGlvbnMgYnV0dG9ue2JvcmRlcjoxcHggc29saWQgI2NjZDVkZjtiYWNrZ3JvdW5kOiNmZmY7Ym9yZGVyLXJhZGl1czo4cHg7cGFkZGluZzo4cHggMTNweDtmb250LXNpemU6MTJweDtmb250LXdlaWdodDo4MDA7Y3Vyc29yOnBvaW50ZXJ9LnN1bW1hcnktbW9kYWwtYWN0aW9ucyAuc2F2ZXtiYWNrZ3JvdW5kOnZhcigtLW5hdnkpO2JvcmRlci1jb2xvcjp2YXIoLS1uYXZ5KTtjb2xvcjojZmZmfSIiIgppZiAiLnN1bW1hcnktbW9kYWwtYmFja2Ryb3B7IiBub3QgaW4gczoKICAgIHMgPSBzLnJlcGxhY2UoIi5oaWRkZW4taXRlbXtkaXNwbGF5Om5vbmUhaW1wb3J0YW50fSIsICIuaGlkZGVuLWl0ZW17ZGlzcGxheTpub25lIWltcG9ydGFudH0iICsgbW9kYWxfY3NzKQoKbW9kYWxfanMgPSAiIiJmdW5jdGlvbiBlZGl0U3VtbWFyeU1vZGFsKHYpe3JldHVybiBuZXcgUHJvbWlzZShyZXNvbHZlPT57Y29uc3QgYmc9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnZGl2Jyk7YmcuY2xhc3NOYW1lPSdzdW1tYXJ5LW1vZGFsLWJhY2tkcm9wJztiZy5pbm5lckhUTUw9JzxkaXYgY2xhc3M9InN1bW1hcnktbW9kYWwiIHJvbGU9ImRpYWxvZyIgYXJpYS1tb2RhbD0idHJ1ZSI+PGgzPuyalOyVvey5tOuTnCDsiJjsoJU8L2gzPjxsYWJlbD7soJzrqqk8L2xhYmVsPjxpbnB1dCBjbGFzcz0ic3VtbWFyeS10aXRsZSIgdHlwZT0idGV4dCI+PGxhYmVsPuuCtOyaqTwvbGFiZWw+PHRleHRhcmVhIGNsYXNzPSJzdW1tYXJ5LXRleHQiIHBsYWNlaG9sZGVyPSLspITrsJTqv4jsnbQg7ZWE7JqU7ZWcIOychOy5mOyXkOyEnCBFbnRlcuulvCDriITrpbTshLjsmpQuIj48L3RleHRhcmVhPjxkaXYgY2xhc3M9InN1bW1hcnktbW9kYWwtYWN0aW9ucyI+PGJ1dHRvbiB0eXBlPSJidXR0b24iIGNsYXNzPSJjYW5jZWwiPuy3qOyGjDwvYnV0dG9uPjxidXR0b24gdHlwZT0iYnV0dG9uIiBjbGFzcz0ic2F2ZSI+7KCA7J6lPC9idXR0b24+PC9kaXY+PC9kaXY+Jztjb25zdCB0aXRsZT1iZy5xdWVyeVNlbGVjdG9yKCcuc3VtbWFyeS10aXRsZScpLHRleHQ9YmcucXVlcnlTZWxlY3RvcignLnN1bW1hcnktdGV4dCcpO3RpdGxlLnZhbHVlPXYudGl0bGV8fCcnO3RleHQudmFsdWU9di50ZXh0fHwnJztsZXQgZG9uZT1mYWxzZTtjb25zdCBjbG9zZT14PT57aWYoZG9uZSlyZXR1cm47ZG9uZT10cnVlO2JnLnJlbW92ZSgpO3Jlc29sdmUoeCl9O2JnLnF1ZXJ5U2VsZWN0b3IoJy5jYW5jZWwnKS5vbmNsaWNrPSgpPT5jbG9zZShudWxsKTtiZy5xdWVyeVNlbGVjdG9yKCcuc2F2ZScpLm9uY2xpY2s9KCk9PmNsb3NlKHt0aXRsZTp0aXRsZS52YWx1ZS50cmltKCksdGV4dDp0ZXh0LnZhbHVlLnRyaW0oKSxoaWRkZW46ZmFsc2V9KTtiZy5vbmNsaWNrPWU9PntpZihlLnRhcmdldD09PWJnKWNsb3NlKG51bGwpfTtkb2N1bWVudC5ib2R5LmFwcGVuZENoaWxkKGJnKTt0aXRsZS5mb2N1cygpfSl9CiIiIgppZiAiZnVuY3Rpb24gZWRpdFN1bW1hcnlNb2RhbCh2KSIgbm90IGluIHM6CiAgICBzID0gcy5yZXBsYWNlKCJhc3luYyBmdW5jdGlvbiBlZGl0RWwoZWwpeyIsIG1vZGFsX2pzICsgImFzeW5jIGZ1bmN0aW9uIGVkaXRFbChlbCl7IikKCm9sZDEgPSAiaWYodHlwZT09PSdzdW1tYXJ5Jyl7Y29uc3QgdGl0bGU9cHJvbXB0KCfsubTrk5wg7KCc66qpJyx2LnRpdGxlKTtpZih0aXRsZT09PW51bGwpcmV0dXJuO2NvbnN0IHRleHQ9cHJvbXB0KCfsubTrk5wg64K07JqpJyx2LnRleHQpO2lmKHRleHQ9PT1udWxsKXJldHVybjthd2FpdCBzYXZlKGVsLHt0aXRsZTp0aXRsZS50cmltKCksdGV4dDp0ZXh0LnRyaW0oKSxoaWRkZW46ZmFsc2V9KTtyZXR1cm59IgpvbGQyID0gImlmKHR5cGU9PT0nc3VtbWFyeScpe2NvbnN0IHRpdGxlPXByb21wdCgn7KCc66qpJyx2LnRpdGxlKTtpZih0aXRsZT09PW51bGwpcmV0dXJuO2NvbnN0IHRleHQ9cHJvbXB0KCfrgrTsmqknLHYudGV4dCk7aWYodGV4dD09PW51bGwpcmV0dXJuO2F3YWl0IHNhdmUoZWwse3RpdGxlOnRpdGxlLnRyaW0oKSx0ZXh0OnRleHQudHJpbSgpLGhpZGRlbjpmYWxzZX0pO3JldHVybn0iCm5ldyA9ICJpZih0eXBlPT09J3N1bW1hcnknKXtjb25zdCBlZGl0ZWQ9YXdhaXQgZWRpdFN1bW1hcnlNb2RhbCh2KTtpZighZWRpdGVkKXJldHVybjthd2FpdCBzYXZlKGVsLGVkaXRlZCk7cmV0dXJufSIKaWYgb2xkMSBpbiBzOgogICAgcyA9IHMucmVwbGFjZShvbGQxLCBuZXcpCmVsaWYgb2xkMiBpbiBzOgogICAgcyA9IHMucmVwbGFjZShvbGQyLCBuZXcpCmVsc2U6CiAgICByYWlzZSBSdW50aW1lRXJyb3IoInN1bW1hcnkgZWRpdG9yIHByb21wdCBibG9jayBub3QgZm91bmQiKQoKcC53cml0ZV90ZXh0KHMsIGVuY29kaW5nPSJ1dGYtOCIpCg==' | base64 -d > /tmp/patch.py
-          python /tmp/patch.py
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('sanbyeol/index.html')
+          s = p.read_text(encoding='utf-8')
+
+          # Ensure April railroad activities exist in the DOM.
+          if 'data-key="rail-0403"' not in s:
+              marker = '<div class="row editable" data-key="rail-0407"'
+              row = '<div class="row editable" data-key="rail-0403" data-type="row"><div class="date">4/3</div><div><b>철도노조-서울지방본부 산별전환 간담회</b><p>산별전환에 대한 일부 우려와 반대 의견을 확인하고 향후 내부 설득·토론이 필요한 쟁점을 점검함.</p></div></div>\n'
+              if marker not in s:
+                  raise RuntimeError('rail-0407 marker not found')
+              s = s.replace(marker, row + marker, 1)
+
+          s = s.replace(
+              '<div class="row editable" data-key="rail-0407" data-type="row"><div class="date">4/7</div><div><b>영주지방본부 대의원대회 산별전환 교육</b><p>산별노조 역사와 조직형태 변화, 재경부 등 실질 사용자와의 교섭 필요성을 중심으로 교육.</p></div></div>',
+              '<div class="row editable" data-key="rail-0407" data-type="row"><div class="date">4/7</div><div><b>영주지방본부 정기대의원대회 산별전환 교육</b><p>산별노조 역사와 조직형태 변화, 정부 상대 교섭 필요성을 중심으로 김명진 국장이 교육함.</p></div></div>'
+          )
+
+          if 'data-key="rail-0410"' not in s:
+              marker = '<div class="row editable" data-key="rail-0515"'
+              rows = (
+                  '<div class="row editable" data-key="rail-0410" data-type="row"><div class="date">4/10</div><div><b>부산지방본부 정기대의원대회 산별전환 교육</b><p>박진현 국장이 산별전환 필요성과 조직적 과제를 중심으로 교육함.</p></div></div>\n'
+                  '<div class="row editable" data-key="rail-0414" data-type="row"><div class="date">4/14</div><div><b>호남지방본부 정기대의원대회 산별전환 교육</b><p>강철 위원장이 산별전환 필요성과 철도노조의 조직적 과제를 중심으로 교육함.</p></div></div>\n'
+                  '<div class="row editable" data-key="rail-0428" data-type="row"><div class="date">4/28</div><div><b>대전지방본부 초급간부 기초교육 산별전환 교육</b><p>김명진 국장이 초급간부를 대상으로 산별전환의 필요성과 조직운영 변화를 중심으로 교육함.</p></div></div>\n'
+              )
+              if marker not in s:
+                  raise RuntimeError('rail-0515 marker not found')
+              s = s.replace(marker, rows + marker, 1)
+
+          # Add per-organization schedule add button styles.
+          css_anchor = '.summary-modal-actions .save{background:var(--navy);border-color:var(--navy);color:#fff}'
+          css_extra = '.timeline-add-wrap{padding:0 19px 16px;display:flex;justify-content:flex-end}.timeline-add{border:1px solid #cbd5df;background:#f8fafc;color:var(--navy);border-radius:8px;padding:7px 11px;font-size:11px;font-weight:800;cursor:pointer}.timeline-add:hover{background:#eef3f7}'
+          if '.timeline-add-wrap{' not in s:
+              if css_anchor not in s:
+                  raise RuntimeError('CSS anchor not found')
+              s = s.replace(css_anchor, css_anchor + css_extra, 1)
+
+          # Add reusable schedule modal + dynamic row helpers.
+          if 'function editRowModal(' not in s:
+              js_anchor = 'async function editEl(el){'
+              js_extra = '''function editRowModal(v={},heading='일정 추가'){return new Promise(resolve=>{const bg=document.createElement('div');bg.className='summary-modal-backdrop';bg.innerHTML='<div class="summary-modal" role="dialog" aria-modal="true"><h3>'+esc(heading)+'</h3><label>일자</label><input class="row-date" type="text" placeholder="예: 9/18"><label>제목</label><input class="row-title" type="text" placeholder="일정·교육·간담회 제목"><label>한 줄 요약</label><textarea class="row-text" placeholder="핵심 내용이나 확인된 쟁점을 한 줄로 입력하세요."></textarea><div class="summary-modal-actions"><button type="button" class="cancel">취소</button><button type="button" class="save">저장</button></div></div>';const date=bg.querySelector('.row-date'),title=bg.querySelector('.row-title'),text=bg.querySelector('.row-text');date.value=v.date||'';title.value=v.title||'';text.value=v.text||'';let done=false;const close=x=>{if(done)return;done=true;bg.remove();resolve(x)};bg.querySelector('.cancel').onclick=()=>close(null);bg.querySelector('.save').onclick=()=>{if(!date.value.trim()||!title.value.trim()){alert('일자와 제목을 입력해 주세요.');return}close({date:date.value.trim(),title:title.value.trim(),text:text.value.trim(),hidden:false})};bg.onclick=e=>{if(e.target===bg)close(null)};document.body.appendChild(bg);date.focus()})}
+function orgPrefix(org){const k=org?.dataset?.key||'';return k.startsWith('org-')?k.slice(4):''}
+function createTimelineRow(key,v){const el=document.createElement('div');el.className='row editable';el.dataset.key=key;el.dataset.type='row';el.innerHTML='<div class="date"></div><div><b></b><p></p></div>';applyValue(el,v||{});tools(el);return el}
+async function saveNewSchedule(org,v){const pw=getPw();if(pw===null)return false;const prefix=orgPrefix(org);if(!prefix)return false;const key='custom-'+prefix+'-'+Date.now().toString(36);try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_key:'san_'+key,value:v,master_password:pw})});let d={};try{d=await r.json()}catch{}if(!r.ok){if(r.status===403){adminPw='';alert('마스터 비밀번호가 올바르지 않습니다.')}else alert('저장하지 못했습니다.');return false}org.querySelector('.timeline').appendChild(createTimelineRow(key,v));return true}catch(e){alert('저장하지 못했습니다. 다시 시도해 주세요.');return false}}
+async function addSchedule(org){const v=await editRowModal({},'일정 추가');if(!v)return;await saveNewSchedule(org,v)}
+function addScheduleButtons(){document.querySelectorAll('.org').forEach(org=>{if(org.querySelector(':scope > .timeline-add-wrap'))return;const wrap=document.createElement('div');wrap.className='timeline-add-wrap';wrap.innerHTML='<button type="button" class="timeline-add">+ 일정 추가</button>';wrap.querySelector('button').onclick=e=>{e.stopPropagation();addSchedule(org)};org.appendChild(wrap)})}
+function loadDynamicRow(key,v){const m=key.match(/^custom-(rail|metro|public)-/);if(!m)return false;const org=document.querySelector('[data-key="org-'+m[1]+'"]');if(!org)return false;const timeline=org.querySelector('.timeline');if(!timeline)return false;timeline.appendChild(createTimelineRow(key,v));return true}
+'''
+              if js_anchor not in s:
+                  raise RuntimeError('JS anchor not found')
+              s = s.replace(js_anchor, js_extra + js_anchor, 1)
+
+          old_load = "async function load(){document.querySelectorAll('.editable').forEach(tools);try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)return;const rows=await r.json();if(!Array.isArray(rows))return;rows.forEach(x=>{const k=String(x.item_key||'');if(!k.startsWith('san_'))return;const el=document.querySelector('[data-key=\"'+CSS.escape(k.slice(4))+'\"]');if(el)applyValue(el,x.value)})}catch(e){console.error(e)}}"
+          new_load = "async function load(){document.querySelectorAll('.editable').forEach(tools);addScheduleButtons();try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)return;const rows=await r.json();if(!Array.isArray(rows))return;rows.forEach(x=>{const k=String(x.item_key||'');if(!k.startsWith('san_'))return;const key=k.slice(4);const el=document.querySelector('[data-key=\"'+CSS.escape(key)+'\"]');if(el)applyValue(el,x.value);else loadDynamicRow(key,x.value)})}catch(e){console.error(e)}}"
+          if old_load in s:
+              s = s.replace(old_load, new_load, 1)
+          elif "else loadDynamicRow(key,x.value)" not in s:
+              raise RuntimeError('load() block not found')
+
+          p.write_text(s, encoding='utf-8')
+          PY
       - name: Commit changes
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add sanbyeol/index.html
-          git diff --cached --quiet || git commit -m 'Fix summary editor and line breaks'
+          git diff --cached --quiet || git commit -m 'Add org schedule controls and April activities'
           git push
