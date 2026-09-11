@@ -25,12 +25,11 @@ function tidyAuth(){
   toggle.insertAdjacentElement('afterend',wrap);
   wrap.appendChild(tabs);
   wrap.appendChild(form);
-  wrap.appendChild(status);
 
   const note=document.createElement('p');
   note.className='login-session-note';
   note.textContent='로그인 상태는 기본으로 유지되며, 로그아웃하거나 세션이 만료될 때 다시 로그인합니다.';
-  wrap.insertAdjacentElement('afterend',note);
+  status.insertAdjacentElement('afterend',note);
 
   toggle.addEventListener('click',()=>{
     const open=wrap.classList.contains('hidden');
@@ -39,7 +38,7 @@ function tidyAuth(){
   });
 
   const style=document.createElement('style');
-  style.textContent='.email-auth-toggle{width:100%;border:0;background:transparent;color:#657383;font-size:12px;font-weight:750;padding:9px 4px;cursor:pointer}.email-auth-wrap{border-top:1px solid #e8ebef;margin-top:7px;padding-top:14px}.email-auth-wrap.hidden{display:none!important}.login-session-note{text-align:center;color:#929aa4;font-size:10px;line-height:1.5;margin:2px 8px 0}';
+  style.textContent='.email-auth-toggle{width:100%;border:0;background:transparent;color:#657383;font-size:12px;font-weight:750;padding:9px 4px;cursor:pointer}.email-auth-wrap{border-top:1px solid #e8ebef;margin-top:7px;padding-top:14px}.email-auth-wrap.hidden{display:none!important}.login-session-note{text-align:center;color:#929aa4;font-size:10px;line-height:1.5;margin:8px 8px 0}#authStatus{margin-top:8px}';
   document.head.appendChild(style);
   return true;
 }
