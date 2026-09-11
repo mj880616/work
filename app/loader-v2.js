@@ -1,10 +1,10 @@
 (async()=>{
-  await import('./native-auth-bridge.js?v=2');
+  await import('./native-auth-bridge.js?v=3');
   if(window.__KPTU_NATIVE_BRIDGE__)return;
   await import('./calendar-return-bridge.js?v=1');
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
   await import('./auth-bootstrap.js?v=1');
-  await import('./auth-ui.js?v=5');
+  await import('./auth-ui.js?v=6');
   await import('./auth-cleanup.js?v=2');
   await import('./session-resilience.js?v=2');
   await import('./brand-logo.js?v=1');
