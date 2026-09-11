@@ -23,8 +23,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Android 15/16의 강제 edge-to-edge 환경에서도 시스템 상태바 영역은
-        // 앱 콘텐츠와 분리되도록 루트 컨테이너에 inset을 적용함.
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
 
@@ -75,7 +73,30 @@ public class MainActivity extends Activity {
         });
 
         webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> openExternal(Uri.parse(url)));
-        webView.loadUrl(HOME);
+        loadFromIntent(getIntent());
+    }
+
+    private void loadFromIntent(Intent intent) {
+        Uri data = intent != null ? intent.getData() : null;
+        if (data != null && "kptuwork".equalsIgnoreCase(data.getScheme()) && "auth".equalsIgnoreCase(data.getHost())) {
+            StringBuilder target = new StringBuilder(HOME);
+            if (data.getEncodedQuery() != null && !data.getEncodedQuery().isEmpty()) {
+                target.append('?').append(data.getEncodedQuery());
+            }
+            if (data.getEncodedFragment() != null && !data.getEncodedFragment().isEmpty()) {
+                target.append('#').append(data.getEncodedFragment());
+            }
+            webView.loadUrl(target.toString());
+        } else {
+            webView.loadUrl(HOME);
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        loadFromIntent(intent);
     }
 
     private void openExternal(Uri uri) {
