@@ -109,6 +109,23 @@
 </div>
 
 <div id="toast" class="toast hidden"></div>
-<script src="./app.js?v=1" defer></script>
+<script>
+(() => {
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    try {
+      if (typeof input === 'string' && input.includes('/auth/v1/signup')) {
+        const u = new URL(input, location.href);
+        if (!u.searchParams.has('redirect_to')) {
+          u.searchParams.set('redirect_to', 'https://mj880616.github.io/work/app/confirmed.html');
+        }
+        input = u.toString();
+      }
+    } catch (_) {}
+    return nativeFetch(input, init);
+  };
+})();
+</script>
+<script src="./app.js?v=2" defer></script>
 </body>
 </html>
