@@ -4,6 +4,7 @@
   await import('./calendar-return-bridge.js?v=1');
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
   await import('./auth-bootstrap.js?v=1');
+  await import('./session-resilience.js?v=1');
   await import('./team.js?v=5');
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
@@ -12,6 +13,7 @@
     import('./password-reset.js?v=1'),
     import('./auth-ui.js?v=3'),
     import('./calendar-health.js?v=2'),
+    import('./calendar-persistence.js?v=1'),
     import('./task-workflow.js?v=2'),
     import('./meeting-round-detail.js?v=1'),
     import('./project-files.js?v=1'),
