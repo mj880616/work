@@ -1,1 +1,1 @@
-Promise.all([import('./team.js?v=4'),import('./photo-room.js?v=1'),import('./project-access.js?v=1')]).catch(err=>{console.error(err);document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+Promise.all([import('./team.js?v=4'),import('./photo-room.js?v=1'),import('./project-access.js?v=1'),import('./password-reset.js?v=1')]).catch(err=>{console.error(err);document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
