@@ -1,5 +1,6 @@
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const APP_URL='https://mj880616.github.io/work/app/';
+const ANDROID_CALLBACK='https://mj880616.github.io/work/app/native-callback.html?native=android';
 
 function isNativeAndroid(){
   return /KPTUAndroid/i.test(navigator.userAgent)||/;\s*wv\)/i.test(navigator.userAgent)||/\bwv\b/i.test(navigator.userAgent);
@@ -13,7 +14,7 @@ function showStatus(msg,type='error'){
 }
 
 function startGoogleLogin(){
-  const redirect=isNativeAndroid()?APP_URL+'?native=android':APP_URL;
+  const redirect=isNativeAndroid()?ANDROID_CALLBACK:APP_URL;
   const url=SB+'/auth/v1/authorize?provider=google&redirect_to='+encodeURIComponent(redirect);
   showStatus('Google 로그인으로 이동합니다…','');
   location.href=url;
