@@ -1,5 +1,5 @@
 (async()=>{
-  await import('./native-auth-bridge.js?v=1');
+  await import('./native-auth-bridge.js?v=2');
   if(window.__KPTU_NATIVE_BRIDGE__)return;
   await import('./auth-bootstrap.js?v=1');
   await import('./team.js?v=5');
@@ -7,7 +7,7 @@
     import('./photo-room.js?v=1'),
     import('./project-access.js?v=1'),
     import('./password-reset.js?v=1'),
-    import('./auth-ui.js?v=2')
+    import('./auth-ui.js?v=3')
   ]);
   await import('./auth-cleanup.js?v=1');
 })().catch(err=>{
