@@ -1,0 +1,35 @@
+name: Fix sanbyeol layout
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-sanbyeol-layout.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update sanbyeol page
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('sanbyeol/index.html')
+          s=p.read_text(encoding='utf-8')
+          desc='공공운수노조 산하 미전환 노동조합의 산별전환 관련 활동 경과와 현재 상황, 향후 과제를 한 곳에서 점검하기 위함.'
+          s=s.replace('<title>산별전환 업무 현황</title>', '<title>산별전환 업무 현황</title>\n<meta name="description" content="'+desc+'">\n<meta property="og:title" content="산별전환 업무 현황">\n<meta property="og:description" content="'+desc+'">\n<meta property="og:url" content="https://mj880616.github.io/work/sanbyeol/">\n<meta property="og:type" content="website">\n<meta name="twitter:card" content="summary">\n<meta name="twitter:title" content="산별전환 업무 현황">\n<meta name="twitter:description" content="'+desc+'">')
+          s=s.replace('<a class="back" href="/work/">← 업무 현황</a>\n','')
+          s=s.replace('.org{background:var(--paper);border:1px solid var(--line);border-radius:18px;margin-bottom:12px;overflow:hidden}', '.org{background:var(--paper);border:1px solid var(--line);border-radius:18px;margin-bottom:12px;overflow:hidden;position:relative}')
+          s=s.replace('.org-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-right:82px}', '.org-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-right:0}')
+          s=s.replace('.edit-tools{display:flex;gap:4px;position:absolute;right:9px;top:9px;z-index:3}', '.edit-tools{display:flex;gap:4px;position:absolute;right:9px;top:9px;z-index:3}.org>.edit-tools{top:52px;right:12px}')
+          s=s.replace('.org-title .status{margin-right:72px}', '.org-title .status{margin-right:0}')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sanbyeol/index.html
+          git diff --cached --quiet || git commit -m 'Fix sanbyeol isolated layout and metadata'
+          git push
