@@ -11,16 +11,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch summary editor
-        shell: bash
+      - name: Add April rail activities
         run: |
-          echo 'CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aApwID0gUGF0aCgic2FuYnllb2wvaW5kZXguaHRtbCIpCnMgPSBwLnJlYWRfdGV4dChlbmNvZGluZz0idXRmLTgiKQoKcyA9IHMucmVwbGFjZSgKICAgICIuc3VtIHNtYWxse2Rpc3BsYXk6YmxvY2s7Y29sb3I6dmFyKC0tbXV0ZWQpO21hcmdpbi10b3A6NHB4O3BhZGRpbmctcmlnaHQ6NzZweH0iLAogICAgIi5zdW0gc21hbGx7ZGlzcGxheTpibG9jaztjb2xvcjp2YXIoLS1tdXRlZCk7bWFyZ2luLXRvcDo0cHg7cGFkZGluZy1yaWdodDo3NnB4O3doaXRlLXNwYWNlOnByZS1saW5lfSIKKQoKbW9kYWxfY3NzID0gJy5zdW1tYXJ5LW1vZGFsLWJhY2tkcm9we3Bvc2l0aW9uOmZpeGVkO2luc2V0OjA7YmFja2dyb3VuZDpyZ2JhKDE1LDIzLDQyLC40Mik7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtqdXN0aWZ5LWNvbnRlbnQ6Y2VudGVyO3BhZGRpbmc6MThweDt6LWluZGV4Ojk5OTl9LnN1bW1hcnktbW9kYWx7d2lkdGg6bWluKDUyMHB4LDEwMCUpO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjE2cHg7Ym94LXNoYWRvdzowIDIwcHggNjBweCByZ2JhKDAsMCwwLC4yMik7cGFkZGluZzoyMHB4fS5zdW1tYXJ5LW1vZGFsIGgze21hcmdpbjowIDAgMTZweDtmb250LXNpemU6MThweH0uc3VtbWFyeS1tb2RhbCBsYWJlbHtkaXNwbGF5OmJsb2NrO2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OjgwMDtjb2xvcjojNTM2MTcxO21hcmdpbjoxMnB4IDAgNnB4fS5zdW1tYXJ5LW1vZGFsIGlucHV0LC5zdW1tYXJ5LW1vZGFsIHRleHRhcmVhe3dpZHRoOjEwMCU7Ym9yZGVyOjFweCBzb2xpZCAjY2NkNWRmO2JvcmRlci1yYWRpdXM6OXB4O3BhZGRpbmc6MTBweCAxMXB4O2ZvbnQ6aW5oZXJpdDtjb2xvcjp2YXIoLS1pbmspO2JhY2tncm91bmQ6I2ZmZn0uc3VtbWFyeS1tb2RhbCB0ZXh0YXJlYXttaW4taGVpZ2h0OjEyMHB4O3Jlc2l6ZTp2ZXJ0aWNhbDt3aGl0ZS1zcGFjZTpwcmUtd3JhcH0uc3VtbWFyeS1tb2RhbC1hY3Rpb25ze2Rpc3BsYXk6ZmxleDtqdXN0aWZ5LWNvbnRlbnQ6ZmxleC1lbmQ7Z2FwOjhweDttYXJnaW4tdG9wOjE2cHh9LnN1bW1hcnktbW9kYWwtYWN0aW9ucyBidXR0b257Ym9yZGVyOjFweCBzb2xpZCAjY2NkNWRmO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjhweDtwYWRkaW5nOjhweCAxM3B4O2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OjgwMDtjdXJzb3I6cG9pbnRlcn0uc3VtbWFyeS1tb2RhbC1hY3Rpb25zIC5zYXZle2JhY2tncm91bmQ6dmFyKC0tbmF2eSk7Ym9yZGVyLWNvbG9yOnZhcigtLW5hdnkpO2NvbG9yOiNmZmZ9JwppZiAiLnN1bW1hcnktbW9kYWwtYmFja2Ryb3B7IiBub3QgaW4gczoKICAgIHMgPSBzLnJlcGxhY2UoIi5oaWRkZW4taXRlbXtkaXNwbGF5Om5vbmUhaW1wb3J0YW50fSIsICIuaGlkZGVuLWl0ZW17ZGlzcGxheTpub25lIWltcG9ydGFudH0iICsgbW9kYWxfY3NzKQoKbW9kYWxfanMgPSAnJydmdW5jdGlvbiBlZGl0U3VtbWFyeU1vZGFsKHYpe3JldHVybiBuZXcgUHJvbWlzZShyZXNvbHZlPT57Y29uc3QgYmc9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgiZGl2Iik7YmcuY2xhc3NOYW1lPSJzdW1tYXJ5LW1vZGFsLWJhY2tkcm9wIjtiZy5pbm5lckhUTUw9JzxkaXYgY2xhc3M9InN1bW1hcnktbW9kYWwiIHJvbGU9ImRpYWxvZyIgYXJpYS1tb2RhbD0idHJ1ZSI+PGgzPuyalOyVvey5tOuTnCDsiJjsoJU8L2gzPjxsYWJlbD7soJzrqqk8L2xhYmVsPjxpbnB1dCBjbGFzcz0ic3VtbWFyeS10aXRsZSIgdHlwZT0idGV4dCI+PGxhYmVsPuuCtOyaqTwvbGFiZWw+PHRleHRhcmVhIGNsYXNzPSJzdW1tYXJ5LXRleHQiIHBsYWNlaG9sZGVyPSLspITrsJTqv4jsnbQg7ZWE7JqU7ZWcIOychOy5mOyXkOyEnCBFbnRlcuulvCDriITrpbTshLjsmpQuIj48L3RleHRhcmVhPjxkaXYgY2xhc3M9InN1bW1hcnktbW9kYWwtYWN0aW9ucyI+PGJ1dHRvbiB0eXBlPSJidXR0b24iIGNsYXNzPSJjYW5jZWwiPuy3qOyGjDwvYnV0dG9uPjxidXR0b24gdHlwZT0iYnV0dG9uIiBjbGFzcz0ic2F2ZSI+7KCA7J6lPC9idXR0b24+PC9kaXY+PC9kaXY+Jztjb25zdCB0aXRsZT1iZy5xdWVyeVNlbGVjdG9yKCIuc3VtbWFyeS10aXRsZSIpLHRleHQ9YmcucXVlcnlTZWxlY3RvcigiLnN1bW1hcnktdGV4dCIpO3RpdGxlLnZhbHVlPXYudGl0bGV8fCIiO3RleHQudmFsdWU9di50ZXh0fHwiIjtjb25zdCBjbG9zZT14PT57YmcucmVtb3ZlKCk7cmVzb2x2ZSh4KX07YmcucXVlcnlTZWxlY3RvcigiLmNhbmNlbCIpLm9uY2xpY2s9KCk9PmNsb3NlKG51bGwpO2JnLnF1ZXJ5U2VsZWN0b3IoIi5zYXZlIikub25jbGljaz0oKT0+Y2xvc2Uoe3RpdGxlOnRpdGxlLnZhbHVlLnRyaW0oKSx0ZXh0OnRleHQudmFsdWUudHJpbSgpLGhpZGRlbjpmYWxzZX0pO2JnLm9uY2xpY2s9ZT0+e2lmKGUudGFyZ2V0PT09YmcpY2xvc2UobnVsbCl9O2NvbnN0IGVzY09uY2U9ZT0+e2lmKGUua2V5PT09IkVzY2FwZSIpe2RvY3VtZW50LnJlbW92ZUV2ZW50TGlzdGVuZXIoImtleWRvd24iLGVzY09uY2UpO2Nsb3NlKG51bGwp fX07ZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcigia2V5ZG93biIsZXNjT25jZSk7ZG9jdW1lbnQuYm9keS5hcHBlbmRDaGlsZChiZyk7dGl0bGUuZm9jdXMoKX0pfQonJycKaWYgImZ1bmN0aW9uIGVkaXRTdW1tYXJ5TW9kYWwodikiIG5vdCBpbiBzOgogICAgcyA9IHMucmVwbGFjZSgiYXN5bmMgZnVuY3Rpb24gZWRpdEVsKGVsKXsiLCBtb2RhbF9qcyArICJhc3luYyBmdW5jdGlvbiBlZGl0RWwoZWwpeyIpCgp2YXJpYW50cyA9IFsKImlmKHR5cGU9PT0nc3VtbWFyeScpe2NvbnN0IHRpdGxlPXByb21wdCgn7Lm065OcIOygnOuqqScsdi50aXRsZSk7aWYodGl0bGU9PT1udWxsKXJldHVybjtjb25zdCB0ZXh0PXByb21wdCgn7Lm065OcIOuCtOyaqScsdi50ZXh0KTtpZih0ZXh0PT09bnVsbClyZXR1cm47YXdhaXQgc2F2ZShlbCx7dGl0bGU6dGl0bGUudHJpbSgpLHRleHQ6dGV4dC50cmltKCksaGlkZGVuOmZhbHNlfSk7cmV0dXJ9IiwKImlmKHR5cGU9PT0nc3VtbWFyeScpe2NvbnN0IHRpdGxlPXByb21wdCgn7KCc66qpJyx2LnRpdGxlKTtpZih0aXRsZT09PW51bGwpcmV0dXJuO2NvbnN0IHRleHQ9cHJvbXB0KCfrgpjsmqknLHYudGV4dCk7aWYodGV4dD09PW51bGwpcmV0dXJuO2F3YWl0IHNhdmUoZWwse3RpdGxlOnRpdGxlLnRyaW0oKSx0ZXh0OnRleHQudHJpbSgpLGhpZGRlbjpmYWxzZX0pO3JldHVybn0iCl0KbmV3ID0gImlmKHR5cGU9PT0nc3VtbWFyeScpe2NvbnN0IGVkaXRlZD1hd2FpdCBlZGl0U3VtbWFyeU1vZGFsKHYpO2lmKCFlZGl0ZWQpcmV0dXJuO2F3YWl0IHNhdmUoZWwsZWRpdGVkKTtyZXR1cm59Igpmb3Igb2xkIGluIHZhcmlhbnRzOgogICAgcyA9IHMucmVwbGFjZShvbGQsIG5ldykKCnAud3JpdGVfdGV4dChzLCBlbmNvZGluZz0idXRmLTgiKQo=' | base64 -d > /tmp/patch.py
-          python /tmp/patch.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('sanbyeol/index.html')
+          s=p.read_text(encoding='utf-8')
+          old='<div class="row editable" data-key="rail-0407" data-type="row"><div class="date">4/7</div><div><b>영주지방본부 대의원대회 산별전환 교육</b><p>산별노조 역사와 조직형태 변화, 재경부 등 실질 사용자와의 교섭 필요성을 중심으로 교육.</p></div></div>'
+          new='''<div class="row editable" data-key="rail-0407" data-type="row"><div class="date">4/7</div><div><b>영주지방본부 정기대의원대회 산별전환 교육</b><p>산별노조 역사와 조직형태 변화, 정부 상대 교섭 필요성을 중심으로 김명진 국장이 교육함.</p></div></div>
+<div class="row editable" data-key="rail-0410" data-type="row"><div class="date">4/10</div><div><b>부산지방본부 정기대의원대회 산별전환 교육</b><p>박진현 국장이 산별전환 필요성과 조직적 과제를 중심으로 교육함.</p></div></div>
+<div class="row editable" data-key="rail-0414" data-type="row"><div class="date">4/14</div><div><b>호남지방본부 정기대의원대회 산별전환 교육</b><p>강철 위원장이 산별전환 필요성과 철도노조의 조직적 과제를 중심으로 교육함.</p></div></div>
+<div class="row editable" data-key="rail-0428" data-type="row"><div class="date">4/28</div><div><b>대전지방본부 초급간부 기초교육 산별전환 교육</b><p>김명진 국장이 초급간부를 대상으로 산별전환의 필요성과 조직운영 변화를 중심으로 교육함.</p></div></div>'''
+          if old in s:
+              s=s.replace(old,new)
+          else:
+              # If 4/7 text was already revised, insert only missing rows immediately after the existing 4/7 row.
+              marker='data-key="rail-0407"'
+              if marker in s and 'data-key="rail-0410"' not in s:
+                  start=s.index('<div class="row editable"', s.index(marker)-80)
+                  end=s.index('</div></div>', s.index(marker))+12
+                  s=s[:end]+'\n'+new.split('\n',1)[1]+s[end:]
+          p.write_text(s,encoding='utf-8')
+          PY
       - name: Commit changes
-        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add sanbyeol/index.html
-          git diff --cached --quiet || git commit -m 'Improve sanbyeol summary card editor'
+          git diff --cached --quiet || git commit -m 'Add April rail conversion activities'
           git push
