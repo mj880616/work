@@ -4,7 +4,7 @@
   await import('./calendar-return-bridge.js?v=1');
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
   await import('./auth-bootstrap.js?v=1');
-  await import('./auth-ui.js?v=4');
+  await import('./auth-ui.js?v=5');
   await import('./auth-cleanup.js?v=2');
   await import('./session-resilience.js?v=1');
   await import('./team.js?v=5');
