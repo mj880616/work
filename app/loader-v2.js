@@ -7,6 +7,7 @@
   await import('./auth-ui.js?v=5');
   await import('./auth-cleanup.js?v=2');
   await import('./session-resilience.js?v=1');
+  await import('./brand-logo.js?v=1');
   await import('./team.js?v=5');
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
@@ -16,6 +17,8 @@
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=2'),
     import('./task-workflow.js?v=2'),
+    import('./task-layout.js?v=1'),
+    import('./profile-settings.js?v=1'),
     import('./meeting-round-detail.js?v=1'),
     import('./project-files.js?v=1'),
     import('./library-upload.js?v=1'),
