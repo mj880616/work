@@ -2,28 +2,40 @@ package kr.or.kptu.work;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.webkit.DownloadListener;
+import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 
 public class MainActivity extends Activity {
     private WebView webView;
+    private FrameLayout root;
     private static final String HOME = "https://mj880616.github.io/work/app/";
     private static final String INTERNAL_HOST = "mj880616.github.io";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        webView = new WebView(this);
 
-        // Android 15/16 edge-to-edge 환경에서 웹 헤더가 상태바/내비게이션바와
-        // 겹치지 않도록 시스템 바 inset을 WebView 여백으로 반영함.
-        webView.setOnApplyWindowInsetsListener((view, insets) -> {
+        // Android 15/16의 강제 edge-to-edge 환경에서도 시스템 상태바 영역은
+        // 앱 콘텐츠와 분리되도록 루트 컨테이너에 inset을 적용함.
+        root = new FrameLayout(this);
+        root.setBackgroundColor(Color.WHITE);
+
+        webView = new WebView(this);
+        webView.setBackgroundColor(Color.WHITE);
+        root.addView(webView, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
             view.setPadding(
                 0,
                 insets.getSystemWindowInsetTop(),
@@ -33,8 +45,12 @@ public class MainActivity extends Activity {
             return insets;
         });
 
-        setContentView(webView);
-        webView.requestApplyInsets();
+        setContentView(root);
+        root.requestApplyInsets();
+
+        getWindow().setStatusBarColor(Color.WHITE);
+        getWindow().setNavigationBarColor(Color.WHITE);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
