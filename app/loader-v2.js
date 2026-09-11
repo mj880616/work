@@ -10,7 +10,8 @@
     import('./project-access.js?v=1'),
     import('./password-reset.js?v=1'),
     import('./auth-ui.js?v=3'),
-    import('./calendar-health.js?v=1')
+    import('./calendar-health.js?v=1'),
+    import('./task-workflow.js?v=1')
   ]);
   await import('./auth-cleanup.js?v=1');
 })().catch(err=>{
