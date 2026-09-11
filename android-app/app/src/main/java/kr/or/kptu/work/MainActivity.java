@@ -20,7 +20,21 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         webView = new WebView(this);
+
+        // Android 15/16 edge-to-edge 환경에서 웹 헤더가 상태바/내비게이션바와
+        // 겹치지 않도록 시스템 바 inset을 WebView 여백으로 반영함.
+        webView.setOnApplyWindowInsetsListener((view, insets) -> {
+            view.setPadding(
+                0,
+                insets.getSystemWindowInsetTop(),
+                0,
+                insets.getSystemWindowInsetBottom()
+            );
+            return insets;
+        });
+
         setContentView(webView);
+        webView.requestApplyInsets();
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
