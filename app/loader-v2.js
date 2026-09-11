@@ -1,6 +1,8 @@
 (async()=>{
   await import('./native-auth-bridge.js?v=2');
   if(window.__KPTU_NATIVE_BRIDGE__)return;
+  await import('./calendar-return-bridge.js?v=1');
+  if(window.__KPTU_CALENDAR_BRIDGE__)return;
   await import('./auth-bootstrap.js?v=1');
   await import('./team.js?v=5');
   await Promise.all([
