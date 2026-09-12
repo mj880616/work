@@ -1,7 +1,12 @@
 (()=>{
+  const pathKey=location.pathname
+    .toLowerCase()
+    .replace(/[^a-z0-9가-힣_-]+/g,'_')
+    .replace(/^_+|_+$/g,'')
+    .slice(0,170);
   const cfg={
     api:'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/pc0921-board?board=private_rail',
-    itemKey:'page_edit:'+location.pathname.replace(/[^a-zA-Z0-9가-힣_-]+/g,'_'),
+    itemKey:'page_edit_'+pathKey,
     editSelector:'[data-edit]',
     toggleId:'editToggle',saveId:'editSave',cancelId:'editCancel',statusId:'editStatus',
     ...(window.EDITABLE_PAGE_CONFIG||{})
@@ -18,6 +23,14 @@
   const readBackup=()=>{try{return JSON.parse(localStorage.getItem(localKey)||'null')}catch{return null}};
   const enter=()=>{snapshot=collect();editing=true;document.body.classList.add('editing');els.forEach(el=>el.contentEditable='true');toggle.hidden=true;save.hidden=false;cancel.hidden=false;setStatus('수정 중')};
   const exit=(restore=false)=>{if(restore)apply(snapshot);editing=false;document.body.classList.remove('editing');els.forEach(el=>el.removeAttribute('contenteditable'));toggle.hidden=false;save.hidden=true;cancel.hidden=true;setStatus('읽기 모드')};
+  const errorText=(body,statusCode)=>{
+    const code=body&&body.error;
+    if(code==='password')return '비밀번호가 올바르지 않습니다.';
+    if(code==='key')return '페이지 저장키가 서버 규칙과 맞지 않습니다.';
+    if(code==='value')return '수정 내용이 저장 허용 크기를 넘었습니다.';
+    if(code)return String(code);
+    return '서버 응답 '+statusCode;
+  };
   async function load(){
     let server=null;
     try{
@@ -41,10 +54,7 @@
     try{
       const r=await fetch(cfg.api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_key:cfg.itemKey,value:{fields,savedAt},master_password:pw.trim()})});
       let body=null;try{body=await r.json()}catch{}
-      if(!r.ok){
-        if(r.status===403)throw new Error('비밀번호가 올바르지 않습니다.');
-        throw new Error((body&&body.error)||('서버 응답 '+r.status));
-      }
+      if(!r.ok)throw new Error(errorText(body,r.status));
       const vr=await fetch(cfg.api,{cache:'no-store'});
       if(!vr.ok)throw new Error('저장 확인 실패');
       const rows=await vr.json();
