@@ -21,6 +21,16 @@
   const apply=(fields)=>{if(!fields||typeof fields!=='object')return;els.forEach(el=>{if(Object.prototype.hasOwnProperty.call(fields,el.dataset.edit))el.innerHTML=fields[el.dataset.edit]})};
   const backup=(fields,savedAt,serverSaved=false)=>{try{localStorage.setItem(localKey,JSON.stringify({fields,savedAt,serverSaved}))}catch{}};
   const readBackup=()=>{try{return JSON.parse(localStorage.getItem(localKey)||'null')}catch{return null}};
+  const sameFields=(a,b)=>{
+    if(!a||!b||typeof a!=='object'||typeof b!=='object')return false;
+    const ak=Object.keys(a).sort(),bk=Object.keys(b).sort();
+    if(ak.length!==bk.length)return false;
+    for(let i=0;i<ak.length;i++){
+      if(ak[i]!==bk[i])return false;
+      if(String(a[ak[i]])!==String(b[bk[i]]))return false;
+    }
+    return true;
+  };
   const enter=()=>{snapshot=collect();editing=true;document.body.classList.add('editing');els.forEach(el=>el.contentEditable='true');toggle.hidden=true;save.hidden=false;cancel.hidden=false;setStatus('수정 중')};
   const exit=(restore=false)=>{if(restore)apply(snapshot);editing=false;document.body.classList.remove('editing');els.forEach(el=>el.removeAttribute('contenteditable'));toggle.hidden=false;save.hidden=true;cancel.hidden=true;setStatus('읽기 모드')};
   const errorText=(body,statusCode)=>{
@@ -60,9 +70,8 @@
       const rows=await vr.json();
       const row=Array.isArray(rows)?rows.find(x=>x&&x.item_key===cfg.itemKey):null;
       if(!row?.value?.fields)throw new Error('저장 확인 데이터 없음');
-      const expected=JSON.stringify(fields),actual=JSON.stringify(row.value.fields);
-      if(expected!==actual)throw new Error('저장 확인 불일치');
-      backup(fields,row.value.savedAt||savedAt,true);
+      if(!sameFields(fields,row.value.fields))throw new Error('저장 확인 불일치');
+      backup(row.value.fields,row.value.savedAt||savedAt,true);
       exit(false);setStatus('저장 완료');
       setTimeout(()=>{if(!editing)setStatus('읽기 모드')},1400);
     }catch(e){
