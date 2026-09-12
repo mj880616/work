@@ -27,7 +27,7 @@
     import('./library-upload.js?v=2'),
     import('./page-editor-fix.js?v=1')
   ]);
-  await import('./meeting-buttons-compact.js?v=2');
+  await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
   await import('./meeting-multi-tasks.js?v=3');
   await import('./project-create-submit.js?v=2');
