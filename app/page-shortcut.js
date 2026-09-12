@@ -21,5 +21,11 @@ function psuInstall(){
   window.KPTURouter?.on?.('pages',()=>setTimeout(psuDecorate,0));
   document.querySelector('#pageSearch')?.addEventListener('input',()=>setTimeout(psuDecorate,0));
   document.querySelector('#pageFilter')?.addEventListener('change',()=>setTimeout(psuDecorate,0));
+  document.addEventListener('click',e=>{
+    const a=e.target.closest?.('[data-page-shortcut="1"]');
+    if(!a||!/KPTUAndroid/i.test(navigator.userAgent))return;
+    e.preventDefault();
+    location.href=a.href;
+  },false);
 }
 psuInstall();
