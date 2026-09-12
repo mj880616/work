@@ -22,8 +22,8 @@
     import('./task-layout.js?v=3'),
     import('./profile-settings.js?v=1'),
     import('./meeting-round-detail.js?v=1'),
-    import('./project-files.js?v=2'),
-    import('./library-upload.js?v=1'),
+    import('./project-files.js?v=3'),
+    import('./library-upload.js?v=2'),
     import('./page-editor-fix.js?v=1')
   ]);
   await import('./meeting-multi-tasks.js?v=1');
