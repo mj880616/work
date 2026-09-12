@@ -1,0 +1,54 @@
+name: Update 2in1 labor ministry meeting status 0911
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch current labor ministry meeting status
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('2in1/index.html')
+          s=p.read_text()
+          # Update date marker
+          s=s.replace('공공운수노조 내부·산하조직 공유용 · 2026. 9. 11. 기준','공공운수노조 내부·산하조직 공유용 · 2026. 9. 13. 기준')
+          # Insert latest confirmed 9/11 ministry follow-up into the labor-ministry area default.
+          marker="const areaDefaults={"
+          assert marker in s
+          # Find the labor area object and append latest status to its description without disturbing other areas.
+          key="labor:"
+          a=s.find(key, s.find(marker))
+          assert a!=-1, 'labor area default not found'
+          b=s.find('},', a)
+          assert b!=-1
+          block=s[a:b]
+          latest='9/11 노동부 민영성 사무관 회신 후 실무면담 진행에 합의. 공공운수노조가 9/18·9/21·9/22 세 날짜를 제안하여 일정 회신 대기 중. 실무면담에서는 2인1조 법제화 요구, 국회 발의 법안에 대한 노동부 검토 상황·쟁점·제도개선 방향을 협의하고, 10/2 국회토론회에 산업안전정책과장의 직접 토론 참석을 요청할 예정. 9/11 민주노총-고용노동부 산업안전보건본부 간담회에서도 본부장 면담을 요청했으며, 본부장 면담은 실무면담과 별도로 계속 추진.'
+          # replace desc field in this object only
+          import re
+          m=re.search(r"desc:'([^']*)'", block)
+          assert m, 'labor desc not found'
+          old=m.group(1)
+          new=old
+          if latest not in old:
+              new=(old.rstrip()+' '+latest).strip()
+          block2=block[:m.start(1)]+new+block[m.end(1):]
+          s=s[:a]+block2+s[b:]
+          p.write_text(s)
+          # Safety checks
+          out=p.read_text()
+          for x in ['9/18·9/21·9/22','산업안전정책과장의 직접 토론 참석','민주노총-고용노동부 산업안전보건본부 간담회','10/2 국회토론회']:
+              assert x in out, x
+          assert len(out)>25000
+          PY
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add 2in1/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Update 2in1 labor ministry meeting status"
+          git push
