@@ -35,7 +35,6 @@
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
   await import('./meeting-multi-tasks.js?v=3');
-  await import('./project-create-submit.js?v=2');
   await import('./task-personal-due.js?v=2');
   await import('./task-title-ui.js?v=1');
   await import('./task-project-routing.js?v=1');
