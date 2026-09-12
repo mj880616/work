@@ -27,6 +27,7 @@
     import('./page-editor-fix.js?v=1')
   ]);
   await import('./task-personal-due.js?v=2');
+  await import('./task-title-ui.js?v=1');
   await import('./project-update-actions.js?v=1');
   await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
