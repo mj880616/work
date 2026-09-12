@@ -7,7 +7,6 @@ on:
     paths:
       - 'app/**'
       - 'p/**'
-      - 'assets/rich-copy.js'
       - 'tests/app-e2e/**'
       - '.github/workflows/app-e2e-check.yml'
   pull_request:
@@ -16,7 +15,6 @@ on:
     paths:
       - 'app/**'
       - 'p/**'
-      - 'assets/rich-copy.js'
       - 'tests/app-e2e/**'
       - '.github/workflows/app-e2e-check.yml'
   workflow_dispatch:
@@ -49,7 +47,7 @@ jobs:
           exit 1
 
       - name: Run core browser flows
-        run: npx playwright test tests/app-e2e/workspace.spec.mjs tests/app-e2e/page-builder.spec.mjs tests/app-e2e/project-v2.spec.mjs tests/app-e2e/legacy-transition.spec.mjs --browser=chromium --workers=1 --reporter=line
+        run: npx playwright test tests/app-e2e/workspace.spec.mjs tests/app-e2e/page-builder.spec.mjs tests/app-e2e/project-v2.spec.mjs tests/app-e2e/project-templates.spec.mjs --browser=chromium --workers=1 --reporter=line
 
       - name: Upload Playwright report on failure
         if: failure()

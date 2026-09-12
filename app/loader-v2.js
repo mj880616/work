@@ -28,7 +28,7 @@
     import('./task-layout.js?v=4'),
     import('./profile-settings.js?v=2'),
     import('./meeting-round-detail.js?v=5'),
-    import('./project-files.js?v=3'),
+    import('./project-files.js?v=4'),
     import('./library-upload.js?v=3'),
     import('./page-editor-fix.js?v=2'),
     import('./page-builder.js?v=1'),
@@ -40,8 +40,9 @@
   await import('./meeting-multi-tasks.js?v=3');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=3');
-  await import('./project-task-link.js?v=5');
+  await import('./project-task-link.js?v=6');
   await import('./project-v2.js?v=1');
+  await import('./project-templates.js?v=1');
   await import('./project-deeplink.js?v=1');
   await import('./project-task-guide-cleanup.js?v=1');
   await import('./task-completed-label.js?v=2');

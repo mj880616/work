@@ -1,43 +1,130 @@
-const PT_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const PT_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
-const PT_SESSION='kptu_collab_session_v1';
-let ptUser=null,ptWorkspace=null,ptMembers=[],ptProfiles=[],ptCurrentProject=null,ptTasks=[],ptEditing=null;
+(()=>{
+  'use strict';
+  const PT_RT=window.KPTURuntime;
+  if(!PT_RT)throw new Error('KPTURuntime is required by project-task-link');
 
-function ptSession(){try{return JSON.parse(localStorage.getItem(PT_SESSION)||'null')}catch{return null}}
-async function ptApi(path,{method='GET',body=null}={}){const s=ptSession();if(!s?.access_token)throw new Error('로그인이 필요합니다.');const r=await fetch(PT_SB+path,{method,headers:{apikey:PT_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:body==null?null:JSON.stringify(body),cache:'no-store'});const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.hint||d?.error_description||('요청 실패 '+r.status));return d}
-function ptEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function ptName(id){return ptProfiles.find(x=>x.user_id===id)?.display_name||id?.slice(0,8)||'담당자 미정'}
-function ptToday(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
-function ptDate(v){if(!v)return '';const s=String(v),m=s.match(/^(\d{4}-\d{2}-\d{2})/);if(m)return m[1];const d=new Date(v);if(Number.isNaN(d.getTime()))return '';const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
-function ptDateDisplay(v){const s=ptDate(v);if(!s)return '기한 미정';const [y,m,d]=s.split('-').map(Number);return `${y}. ${m}. ${d}.`}
-function ptDueLabel(v){if(!v)return '기한 미정';const d=new Date(v);return d.toLocaleDateString('ko-KR',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'})}
-function ptMemberOptions(selected=''){return '<option value="">선택</option>'+ptMembers.map(m=>`<option value="${m.user_id}" ${m.user_id===selected?'selected':''}>${ptEsc(ptName(m.user_id))}</option>`).join('')}
-function ptEmitChanged(){window.dispatchEvent(new CustomEvent('kptu:tasks-changed',{detail:{project_id:ptCurrentProject}}))}
-function ptSyncDueText(){const due=document.querySelector('#projectTaskDue'),text=document.querySelector('#projectTaskDueText');if(text)text.textContent=ptDateDisplay(due?.value)}
+  let ptUser=null,ptWorkspace=null,ptMembers=[],ptProfiles=[],ptCurrentProject=null,ptTasks=[],ptEditing=null;
+  let ptBound=false,ptInitPromise=null,ptInitTimer=null;
 
-function ptInstallUi(){
-  const modal=document.querySelector('#projectModal .modal-card');if(!modal)return false;
-  const checkSel=document.querySelector('#projectCheckAssignee');if(checkSel){checkSel.value='';checkSel.style.display='none';checkSel.tabIndex=-1}
-  if(!document.querySelector('#projectTasksSection')){
-    const comments=modal.querySelector('#projectComments')?.closest('section');
-    const section=document.createElement('section');section.id='projectTasksSection';section.className='pt-section';
-    section.innerHTML=`<div class="pt-head"><h3>할 일</h3><span id="projectTaskCount" class="updated"></span></div><div class="tl-columns pt-columns"><b>내용</b><b>기한</b><b>관리</b></div><div id="projectTaskList"><div class="empty compact">프로젝트를 열면 할 일을 불러옵니다.</div></div><div class="pt-form"><input id="projectTaskTitle" type="text" placeholder="여기에 추가할 할 일을 입력하세요"><label class="pt-labelled-field pt-assignee-field"><span>담당 :</span><select id="projectTaskAssignee">${ptMemberOptions()}</select></label><label class="pt-labelled-field pt-date-field"><span>기한 :</span><strong id="projectTaskDueText">${ptDateDisplay(ptToday())}</strong><input id="projectTaskDue" type="date" value="${ptToday()}" aria-label="기한"></label><div class="pt-form-actions"><button id="projectTaskSave" class="secondary" type="button">추가</button><button id="projectTaskCancel" class="ghost hidden" type="button">취소</button></div></div><div id="projectTaskStatus" class="status"></div>`;
-    comments?.insertAdjacentElement('beforebegin',section);
+  const ptApi=(path,opts={})=>PT_RT.api(path,opts);
+  const ptEsc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ptName=id=>ptProfiles.find(x=>x.user_id===id)?.display_name||id?.slice(0,8)||'담당자 미정';
+  const ptToday=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
+  function ptDate(v){if(!v)return '';const s=String(v),m=s.match(/^(\d{4}-\d{2}-\d{2})/);if(m)return m[1];const d=new Date(v);if(Number.isNaN(d.getTime()))return '';const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
+  function ptDateDisplay(v){const s=ptDate(v);if(!s)return '기한 미정';const [y,m,d]=s.split('-').map(Number);return `${y}. ${m}. ${d}.`}
+  function ptDueLabel(v){if(!v)return '기한 미정';const d=new Date(v);return d.toLocaleDateString('ko-KR',{year:'numeric',month:'numeric',day:'numeric',weekday:'short'})}
+  function ptMemberOptions(selected=''){return '<option value="">선택</option>'+ptMembers.map(m=>`<option value="${m.user_id}" ${m.user_id===selected?'selected':''}>${ptEsc(ptName(m.user_id))}</option>`).join('')}
+  function ptEmitChanged(){window.dispatchEvent(new CustomEvent('kptu:tasks-changed',{detail:{project_id:ptCurrentProject,source:'project-task-link'}}))}
+  function ptSyncDueText(){const due=document.querySelector('#projectTaskDue'),text=document.querySelector('#projectTaskDueText');if(text)text.textContent=ptDateDisplay(due?.value)}
+
+  function ptInstallUi(){
+    const modal=document.querySelector('#projectModal .modal-card, #projectModal .project-modal');if(!modal)return false;
+    const checkSel=document.querySelector('#projectCheckAssignee');if(checkSel){checkSel.value='';checkSel.style.display='none';checkSel.tabIndex=-1}
+    if(!document.querySelector('#projectTasksSection')){
+      const comments=modal.querySelector('#projectComments')?.closest('section');
+      const section=document.createElement('section');section.id='projectTasksSection';section.className='pt-section';
+      section.innerHTML=`<div class="pt-head"><h3>할 일</h3><span id="projectTaskCount" class="updated"></span></div><div class="tl-columns pt-columns"><b>내용</b><b>기한</b><b>관리</b></div><div id="projectTaskList"><div class="empty compact">프로젝트를 열면 할 일을 불러옵니다.</div></div><div class="pt-form"><input id="projectTaskTitle" type="text" placeholder="여기에 추가할 할 일을 입력하세요"><label class="pt-labelled-field pt-assignee-field"><span>담당 :</span><select id="projectTaskAssignee">${ptMemberOptions(ptUser?.id||'')}</select></label><label class="pt-labelled-field pt-date-field"><span>기한 :</span><strong id="projectTaskDueText">${ptDateDisplay(ptToday())}</strong><input id="projectTaskDue" type="date" value="${ptToday()}" aria-label="기한"></label><div class="pt-form-actions"><button id="projectTaskSave" class="secondary" type="button">추가</button><button id="projectTaskCancel" class="ghost hidden" type="button">취소</button></div></div><div id="projectTaskStatus" class="status"></div>`;
+      if(comments)comments.insertAdjacentElement('beforebegin',section);else modal.append(section);
+    }
+    if(!document.querySelector('#ptStyle')){const s=document.createElement('style');s.id='ptStyle';s.textContent=`#projectChecks .check-row small{display:none!important}.pt-section{margin:22px 0 8px;padding-top:18px;border-top:1px solid #e8ecef}.pt-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}.pt-head h3{margin:0}.pt-form{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(150px,.9fr) minmax(160px,.9fr) auto;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #edf0f3}.pt-form>input{min-width:0}.pt-labelled-field{position:relative;display:flex;align-items:center;gap:5px;min-width:0;min-height:42px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:#6f7b86;font-size:13px;white-space:nowrap}.pt-labelled-field>span{flex:0 0 auto;font-weight:700}.pt-assignee-field select{min-width:0;flex:1;border:0!important;padding:0!important;background:transparent!important;box-shadow:none!important;font:inherit;color:var(--ink);font-weight:700;outline:0}.pt-date-field{cursor:pointer}.pt-date-field strong{font-size:13px;color:var(--ink);font-weight:700}.pt-date-field input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.pt-form-actions{display:flex;gap:6px}.pt-form-actions button{white-space:nowrap}.pt-section .tl-task-actions .pt-delete{color:#a33b45;border-color:#ead2d5;background:#fff}@media(max-width:700px){.pt-columns{display:none!important}.pt-form{grid-template-columns:1fr 1fr;gap:7px}.pt-form #projectTaskTitle{grid-column:1/-1}.pt-form-actions{grid-column:1/-1}.pt-form-actions button{flex:1}.pt-labelled-field{min-height:42px;padding:0 10px;font-size:12px}.pt-date-field strong{font-size:12px}}`;document.head.appendChild(s)}
+    const save=document.querySelector('#projectTaskSave');if(save&&!save.dataset.ptBound){save.dataset.ptBound='1';save.addEventListener('click',ptSave)}
+    const cancel=document.querySelector('#projectTaskCancel');if(cancel&&!cancel.dataset.ptBound){cancel.dataset.ptBound='1';cancel.addEventListener('click',ptResetForm)}
+    const list=document.querySelector('#projectTaskList');if(list&&!list.dataset.ptBound){list.dataset.ptBound='1';list.addEventListener('click',ptHandleListClick)}
+    const due=document.querySelector('#projectTaskDue');if(due&&!due.dataset.ptBound){due.dataset.ptBound='1';due.addEventListener('change',ptSyncDueText)}
+    ptRefreshMemberSelect();ptSyncDueText();return true;
   }
-  if(!document.querySelector('#ptStyle')){const s=document.createElement('style');s.id='ptStyle';s.textContent=`#projectChecks .check-row small{display:none!important}.pt-section{margin:22px 0 8px;padding-top:18px;border-top:1px solid #e8ecef}.pt-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}.pt-head h3{margin:0}.pt-form{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(150px,.9fr) minmax(160px,.9fr) auto;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #edf0f3}.pt-form>input{min-width:0}.pt-labelled-field{position:relative;display:flex;align-items:center;gap:5px;min-width:0;min-height:42px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:#6f7b86;font-size:13px;white-space:nowrap}.pt-labelled-field>span{flex:0 0 auto;font-weight:700}.pt-assignee-field select{min-width:0;flex:1;border:0!important;padding:0!important;background:transparent!important;box-shadow:none!important;font:inherit;color:var(--ink);font-weight:700;outline:0}.pt-date-field{cursor:pointer}.pt-date-field strong{font-size:13px;color:var(--ink);font-weight:700}.pt-date-field input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.pt-form-actions{display:flex;gap:6px}.pt-form-actions button{white-space:nowrap}.pt-section .tl-task-actions .pt-delete{color:#a33b45;border-color:#ead2d5;background:#fff}@media(max-width:700px){.pt-columns{display:none!important}.pt-form{grid-template-columns:1fr 1fr;gap:7px}.pt-form #projectTaskTitle{grid-column:1/-1}.pt-form-actions{grid-column:1/-1}.pt-form-actions button{flex:1}.pt-labelled-field{min-height:42px;padding:0 10px;font-size:12px}.pt-date-field strong{font-size:12px}}`;document.head.appendChild(s)}
-  const save=document.querySelector('#projectTaskSave');if(save&&!save.dataset.ptBound){save.dataset.ptBound='1';save.addEventListener('click',ptSave)}
-  const cancel=document.querySelector('#projectTaskCancel');if(cancel&&!cancel.dataset.ptBound){cancel.dataset.ptBound='1';cancel.addEventListener('click',ptResetForm)}
-  const list=document.querySelector('#projectTaskList');if(list&&!list.dataset.ptBound){list.dataset.ptBound='1';list.addEventListener('click',ptHandleListClick)}
-  const due=document.querySelector('#projectTaskDue');if(due&&!due.dataset.ptBound){due.dataset.ptBound='1';due.addEventListener('change',ptSyncDueText)}
-  ptSyncDueText();
-  return true;
-}
 
-function ptResetForm(){ptEditing=null;const title=document.querySelector('#projectTaskTitle'),assignee=document.querySelector('#projectTaskAssignee'),due=document.querySelector('#projectTaskDue'),save=document.querySelector('#projectTaskSave'),cancel=document.querySelector('#projectTaskCancel'),st=document.querySelector('#projectTaskStatus');if(title)title.value='';if(assignee)assignee.value=ptUser?.id||'';if(due)due.value=ptToday();ptSyncDueText();if(save)save.textContent='추가';cancel?.classList.add('hidden');if(st){st.textContent='';st.className='status'}}
-function ptEdit(task){ptEditing=task;document.querySelector('#projectTaskTitle').value=task.title||'';document.querySelector('#projectTaskAssignee').value=task.assignee_id||'';document.querySelector('#projectTaskDue').value=ptDate(task.due_at)||ptToday();ptSyncDueText();document.querySelector('#projectTaskSave').textContent='수정 저장';document.querySelector('#projectTaskCancel').classList.remove('hidden');document.querySelector('#projectTaskTitle').focus()}
-function ptRender(){const list=document.querySelector('#projectTaskList');if(!list)return;const open=ptTasks.filter(t=>t.status!=='done').length;const count=document.querySelector('#projectTaskCount');if(count)count.textContent=`미완료 ${open}건 · 전체 ${ptTasks.length}건`;list.innerHTML=ptTasks.length?ptTasks.map(t=>`<article class="tl-task-row ${t.status==='done'?'done':''}" data-pt-task-row="${t.id}"><div class="tl-task-content"><b>${ptEsc(t.title)}</b><small>${ptEsc(ptName(t.assignee_id))}${t.source_type==='meeting'?' · 회의 배정':t.source_type==='manual'?' · 내 할 일에서 등록':' · 프로젝트 할 일'}</small></div><div class="tl-task-meta"><span><i>기한</i>${ptEsc(ptDueLabel(t.due_at))}</span></div><div class="tl-task-actions"><button class="mini" data-pt-edit="${t.id}" type="button">수정</button>${t.created_by===ptUser.id?`<button class="mini pt-delete" data-pt-delete="${t.id}" type="button">삭제</button>`:''}<button class="mini" data-pt-toggle="${t.id}" type="button">${t.status==='done'?'미완료로 변경':'완료'}</button></div></article>`).join(''):'<div class="empty compact">등록된 할 일이 없습니다.</div>';const card=document.querySelector(`[data-project="${CSS.escape(ptCurrentProject||'')}"]`);const stat=card?.querySelector('.project-stats span');if(stat)stat.textContent=`할 일 ${open}`}
-async function ptLoadProject(id){if(!id||!ptWorkspace)return;ptCurrentProject=id;ptInstallUi();const st=document.querySelector('#projectTaskStatus');if(st){st.textContent='불러오는 중…';st.className='status'}try{ptTasks=await ptApi(`/rest/v1/app_tasks?workspace_id=eq.${ptWorkspace}&project_id=eq.${encodeURIComponent(id)}&select=*&order=due_at.asc.nullslast,created_at.desc`);ptRender();ptResetForm()}catch(e){if(st){st.textContent=e.message||String(e);st.className='status error'}}}
-async function ptSave(){if(!ptCurrentProject)return;const title=document.querySelector('#projectTaskTitle')?.value.trim(),assignee=document.querySelector('#projectTaskAssignee')?.value,due=document.querySelector('#projectTaskDue')?.value,st=document.querySelector('#projectTaskStatus'),btn=document.querySelector('#projectTaskSave');if(!title){st.textContent='할 일을 입력해 주세요.';st.className='status error';return}if(!assignee){st.textContent='담당자를 선택해 주세요.';st.className='status error';return}if(!due){st.textContent='기한을 선택해 주세요.';st.className='status error';return}btn.disabled=true;st.textContent=ptEditing?'수정 중…':'추가 중…';st.className='status';try{if(ptEditing){await ptApi(`/rest/v1/app_tasks?id=eq.${encodeURIComponent(ptEditing.id)}`,{method:'PATCH',body:{title,assignee_id:assignee,due_at:due,updated_at:new Date().toISOString()}})}else{await ptApi('/rest/v1/app_tasks',{method:'POST',body:{workspace_id:ptWorkspace,project_id:ptCurrentProject,title,description:null,assignee_id:assignee,status:'todo',priority:'normal',due_at:due,source_type:'project',created_by:ptUser.id}})}await ptLoadProject(ptCurrentProject);ptEmitChanged();st.textContent='저장했습니다.';setTimeout(()=>{if(st.textContent==='저장했습니다.')st.textContent=''},1200)}catch(e){st.textContent=e.message||String(e);st.className='status error'}finally{btn.disabled=false}}
-async function ptHandleListClick(e){const edit=e.target.closest('[data-pt-edit]');if(edit){const t=ptTasks.find(x=>x.id===edit.dataset.ptEdit);if(t)ptEdit(t);return}const del=e.target.closest('[data-pt-delete]');if(del){const t=ptTasks.find(x=>x.id===del.dataset.ptDelete);if(!t||!confirm(`“${t.title}” 할 일을 삭제할까요?`))return;del.disabled=true;try{await ptApi(`/rest/v1/app_tasks?id=eq.${encodeURIComponent(t.id)}`,{method:'DELETE'});await ptLoadProject(ptCurrentProject);ptEmitChanged()}catch(err){alert(err.message||String(err));del.disabled=false}return}const toggle=e.target.closest('[data-pt-toggle]');if(toggle){const t=ptTasks.find(x=>x.id===toggle.dataset.ptToggle);if(!t)return;toggle.disabled=true;try{const done=t.status==='done';await ptApi(`/rest/v1/app_tasks?id=eq.${encodeURIComponent(t.id)}`,{method:'PATCH',body:{status:done?'todo':'done',completed_at:done?null:new Date().toISOString(),updated_at:new Date().toISOString()}});await ptLoadProject(ptCurrentProject);ptEmitChanged()}catch(err){alert(err.message||String(err));toggle.disabled=false}}}
-async function ptInit(){for(let i=0;i<40;i++){if(document.querySelector('#projectModal'))break;await new Promise(r=>setTimeout(r,100))}if(!document.querySelector('#projectModal'))return;try{const s=ptSession();if(!s?.access_token)return;const ur=await fetch(PT_SB+'/auth/v1/user',{headers:{apikey:PT_KEY,Authorization:'Bearer '+s.access_token}});if(!ur.ok)return;ptUser=await ur.json();const ms=await ptApi(`/rest/v1/app_workspace_members?user_id=eq.${ptUser.id}&select=workspace_id&limit=1`);if(!ms?.length)return;ptWorkspace=ms[0].workspace_id;[ptMembers,ptProfiles]=await Promise.all([ptApi(`/rest/v1/app_workspace_members?workspace_id=eq.${ptWorkspace}&select=user_id,role`),ptApi('/rest/v1/app_profiles?select=user_id,display_name')]);ptInstallUi();ptResetForm();document.addEventListener('click',e=>{const card=e.target.closest?.('[data-project]');if(card?.dataset.project){ptCurrentProject=card.dataset.project;setTimeout(()=>ptLoadProject(ptCurrentProject),60)}},true);const pm=document.querySelector('#projectModal');if(pm)new MutationObserver(()=>{if(!pm.classList.contains('hidden')&&ptCurrentProject)ptLoadProject(ptCurrentProject)}).observe(pm,{attributes:true,attributeFilter:['class']});window.addEventListener('kptu:tasks-changed',e=>{if(ptCurrentProject&&(!e.detail?.project_id||e.detail.project_id===ptCurrentProject))ptLoadProject(ptCurrentProject)})}catch(e){console.error('project task link init',e)}}
-ptInit();
+  function ptRefreshMemberSelect(){
+    const select=document.querySelector('#projectTaskAssignee');if(!select)return;
+    const selected=select.value||ptUser?.id||'';select.innerHTML=ptMemberOptions(selected);
+    if([...select.options].some(o=>o.value===selected))select.value=selected;
+  }
+
+  function ptResetForm(){
+    ptEditing=null;
+    const title=document.querySelector('#projectTaskTitle'),assignee=document.querySelector('#projectTaskAssignee'),due=document.querySelector('#projectTaskDue'),save=document.querySelector('#projectTaskSave'),cancel=document.querySelector('#projectTaskCancel'),st=document.querySelector('#projectTaskStatus');
+    if(title)title.value='';if(assignee)assignee.value=ptUser?.id||'';if(due)due.value=ptToday();ptSyncDueText();if(save)save.textContent='추가';cancel?.classList.add('hidden');if(st){st.textContent='';st.className='status'}
+  }
+
+  function ptEdit(task){
+    ptEditing=task;ptInstallUi();
+    document.querySelector('#projectTaskTitle').value=task.title||'';
+    document.querySelector('#projectTaskAssignee').value=task.assignee_id||'';
+    document.querySelector('#projectTaskDue').value=ptDate(task.due_at)||ptToday();
+    ptSyncDueText();document.querySelector('#projectTaskSave').textContent='수정 저장';document.querySelector('#projectTaskCancel').classList.remove('hidden');document.querySelector('#projectTaskTitle').focus();
+  }
+
+  function ptRender(){
+    const list=document.querySelector('#projectTaskList');if(!list)return;
+    const open=ptTasks.filter(t=>t.status!=='done').length;
+    const count=document.querySelector('#projectTaskCount');if(count)count.textContent=`미완료 ${open}건 · 전체 ${ptTasks.length}건`;
+    list.innerHTML=ptTasks.length?ptTasks.map(t=>`<article class="tl-task-row ${t.status==='done'?'done':''}" data-pt-task-row="${t.id}"><div class="tl-task-content"><b>${ptEsc(t.title)}</b><small>${ptEsc(ptName(t.assignee_id))}${t.source_type==='meeting'?' · 회의 배정':t.source_type==='manual'?' · 내 할 일에서 등록':' · 프로젝트 할 일'}</small></div><div class="tl-task-meta"><span><i>기한</i>${ptEsc(ptDueLabel(t.due_at))}</span></div><div class="tl-task-actions"><button class="mini" data-pt-edit="${t.id}" type="button">수정</button>${t.created_by===ptUser?.id?`<button class="mini pt-delete" data-pt-delete="${t.id}" type="button">삭제</button>`:''}<button class="mini" data-pt-toggle="${t.id}" type="button">${t.status==='done'?'미완료로 변경':'완료'}</button></div></article>`).join(''):'<div class="empty compact">등록된 할 일이 없습니다.</div>';
+    const card=document.querySelector(`[data-project="${CSS.escape(ptCurrentProject||'')}"]`);const stat=card?.querySelector('.project-stats span');if(stat)stat.textContent=`할 일 ${open}`;
+  }
+
+  async function ptLoadProject(id){
+    if(!id)return;
+    if(!ptWorkspace){const ok=await ptInitContext();if(!ok)return}
+    ptCurrentProject=id;ptInstallUi();
+    const st=document.querySelector('#projectTaskStatus');if(st){st.textContent='불러오는 중…';st.className='status'}
+    try{
+      ptTasks=await ptApi(`/rest/v1/app_tasks?workspace_id=eq.${ptWorkspace}&project_id=eq.${encodeURIComponent(id)}&select=*&order=due_at.asc.nullslast,created_at.desc`);
+      ptRender();ptResetForm();
+    }catch(e){if(st){st.textContent=e.message||String(e);st.className='status error'}}
+  }
+
+  async function ptSave(){
+    if(!ptCurrentProject)return;
+    const title=document.querySelector('#projectTaskTitle')?.value.trim(),assignee=document.querySelector('#projectTaskAssignee')?.value,due=document.querySelector('#projectTaskDue')?.value,st=document.querySelector('#projectTaskStatus'),btn=document.querySelector('#projectTaskSave');
+    if(!title){st.textContent='할 일을 입력해 주세요.';st.className='status error';return}
+    if(!assignee){st.textContent='담당자를 선택해 주세요.';st.className='status error';return}
+    if(!due){st.textContent='기한을 선택해 주세요.';st.className='status error';return}
+    btn.disabled=true;st.textContent=ptEditing?'수정 중…':'추가 중…';st.className='status';
+    try{
+      if(ptEditing)await ptApi(`/rest/v1/app_tasks?id=eq.${encodeURIComponent(ptEditing.id)}`,{method:'PATCH',body:{title,assignee_id:assignee,due_at:due,updated_at:new Date().toISOString()}});
+      else await ptApi('/rest/v1/app_tasks',{method:'POST',body:{workspace_id:ptWorkspace,project_id:ptCurrentProject,title,description:null,assignee_id:assignee,status:'todo',priority:'normal',due_at:due,source_type:'project',created_by:ptUser.id}});
+      await ptLoadProject(ptCurrentProject);ptEmitChanged();st.textContent='저장했습니다.';setTimeout(()=>{if(st.textContent==='저장했습니다.')st.textContent=''},1200);
+    }catch(e){st.textContent=e.message||String(e);st.className='status error'}finally{btn.disabled=false}
+  }
+
+  async function ptHandleListClick(e){
+    const edit=e.target.closest('[data-pt-edit]');if(edit){const t=ptTasks.find(x=>x.id===edit.dataset.ptEdit);if(t)ptEdit(t);return}
+    const del=e.target.closest('[data-pt-delete]');if(del){const t=ptTasks.find(x=>x.id===del.dataset.ptDelete);if(!t||!confirm(`“${t.title}” 할 일을 삭제할까요?`))return;del.disabled=true;try{await ptApi(`/rest/v1/app_tasks?id=eq.${encodeURIComponent(t.id)}`,{method:'DELETE'});await ptLoadProject(ptCurrentProject);ptEmitChanged()}catch(err){alert(err.message||String(err));del.disabled=false}return}
+    const toggle=e.target.closest('[data-pt-toggle]');if(toggle){const t=ptTasks.find(x=>x.id===toggle.dataset.ptToggle);if(!t)return;toggle.disabled=true;try{const done=t.status==='done';await ptApi(`/rest/v1/app_tasks?id=eq.${encodeURIComponent(t.id)}`,{method:'PATCH',body:{status:done?'todo':'done',completed_at:done?null:new Date().toISOString(),updated_at:new Date().toISOString()}});await ptLoadProject(ptCurrentProject);ptEmitChanged()}catch(err){alert(err.message||String(err));toggle.disabled=false}}
+  }
+
+  function ptBindGlobal(){
+    if(ptBound)return;ptBound=true;
+    document.addEventListener('click',e=>{const card=e.target.closest?.('[data-project]');if(card?.dataset.project){ptCurrentProject=card.dataset.project;setTimeout(()=>ptLoadProject(ptCurrentProject),60)}},true);
+    const pm=document.querySelector('#projectModal');if(pm)new MutationObserver(()=>{if(!pm.classList.contains('hidden')&&ptCurrentProject)ptLoadProject(ptCurrentProject)}).observe(pm,{attributes:true,attributeFilter:['class']});
+    window.addEventListener('kptu:tasks-changed',e=>{if(e.detail?.source==='project-task-link')return;if(ptCurrentProject&&(!e.detail?.project_id||e.detail.project_id===ptCurrentProject))ptLoadProject(ptCurrentProject)});
+    window.addEventListener('kptu:session-changed',()=>{clearTimeout(ptInitTimer);ptInitTimer=setTimeout(ptInitContext,120)});
+  }
+
+  async function ptInitContext(){
+    if(ptInitPromise)return ptInitPromise;
+    ptInitPromise=(async()=>{
+      for(let i=0;i<40;i++){if(document.querySelector('#projectModal'))break;await new Promise(r=>setTimeout(r,100))}
+      if(!document.querySelector('#projectModal'))return false;
+      ptBindGlobal();ptInstallUi();
+      const s=PT_RT.session.read();
+      if(!s?.access_token){ptUser=null;ptWorkspace=null;ptMembers=[];ptProfiles=[];ptTasks=[];ptRefreshMemberSelect();return false}
+      try{
+        ptUser=await ptApi('/auth/v1/user');
+        const ms=await ptApi(`/rest/v1/app_workspace_members?user_id=eq.${ptUser.id}&select=workspace_id&limit=1`);
+        if(!ms?.length)return false;
+        ptWorkspace=ms[0].workspace_id;
+        [ptMembers,ptProfiles]=await Promise.all([
+          ptApi(`/rest/v1/app_workspace_members?workspace_id=eq.${ptWorkspace}&select=user_id,role`),
+          ptApi('/rest/v1/app_profiles?select=user_id,display_name')
+        ]);
+        ptInstallUi();ptRefreshMemberSelect();ptResetForm();
+        if(ptCurrentProject)await ptLoadProject(ptCurrentProject);
+        return true;
+      }catch(e){console.error('project task link init',e);return false}
+    })();
+    try{return await ptInitPromise}finally{ptInitPromise=null}
+  }
+
+  ptInitContext();
+})();
