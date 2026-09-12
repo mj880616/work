@@ -14,7 +14,7 @@
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
     import('./photo-room.js?v=1'),
-    import('./project-access.js?v=1'),
+    import('./project-access.js?v=2'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=7'),
@@ -32,7 +32,6 @@
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=1');
   await import('./project-task-link.js?v=2');
-  await import('./project-hierarchy-ui.js?v=3');
   await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=1');
