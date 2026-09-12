@@ -5,13 +5,13 @@ const authPreload=document.createElement('style');authPreload.id='authPreloadSty
   './auth-handoff-client.js?v=1',
   './auth-bootstrap.js?v=1',
   './session-resilience.js?v=5',
-  './startup-speed.js?v=1',
   './auth-ui.js?v=6',
   './auth-cleanup.js?v=2',
   './brand-logo.js?v=1',
   './team.js?v=5',
-  './calendar-persistence.js?v=8'
+  './calendar-persistence.js?v=8',
+  './calendar-event-edit.js?v=6'
 ].forEach(href=>{const l=document.createElement('link');l.rel='modulepreload';l.href=href;document.head.appendChild(l)});
 const teamCssPreload=document.createElement('link');teamCssPreload.rel='preload';teamCssPreload.as='style';teamCssPreload.href='./team.css?v=1';document.head.appendChild(teamCssPreload);
 import('./pwa.js?v=1');
-import('./loader-v2.js?v=30').catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+import('./loader-v2.js?v=31').catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
