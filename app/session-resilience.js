@@ -1,9 +1,10 @@
 const SR_KEY='kptu_collab_session_v1';
 const SR_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const SR_APIKEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
-const SR_RETRY='kptu_session_boot_retry_v3';
+const SR_RETRY='kptu_session_boot_retry_v4';
 let srExplicitLogout=false,srRefreshing=false,srChecking=false;
 const srOriginalRemove=Storage.prototype.removeItem;
+const srBaseFetch=window.fetch.bind(window);
 function srRead(){try{return JSON.parse(localStorage.getItem(SR_KEY)||'null')}catch{return null}}
 function srHasSession(){const s=srRead();return !!(s?.refresh_token||s?.access_token)}
 function srAllowRemoval(){return srExplicitLogout||/type=recovery/.test(location.hash)||new URLSearchParams(location.search).get('password')==='changed'}
@@ -15,12 +16,12 @@ document.addEventListener('click',e=>{if(e.target.closest('#logoutBtn'))srExplic
 function srSetAuthMessage(text){const status=document.querySelector('#authStatus');if(status){status.textContent=text;status.className='status'}}
 async function srUserValid(token){
   if(!token)return false;
-  try{const r=await fetch(SR_SB+'/auth/v1/user',{headers:{apikey:SR_APIKEY,Authorization:'Bearer '+token}});if(r.ok)return true;if(r.status===401||r.status===403)return false;return null}catch{return null}
+  try{const r=await srBaseFetch(SR_SB+'/auth/v1/user',{headers:{apikey:SR_APIKEY,Authorization:'Bearer '+token}});if(r.ok)return true;if(r.status===401||r.status===403)return false;return null}catch{return null}
 }
 async function srRefreshStoredSession(){
   if(srRefreshing)return null;const s=srRead();if(!s?.refresh_token)return false;srRefreshing=true;
   try{
-    const r=await fetch(SR_SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SR_APIKEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
+    const r=await srBaseFetch(SR_SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SR_APIKEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});
     const d=await r.json().catch(()=>({}));
     if(r.ok&&d?.access_token){d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);localStorage.setItem(SR_KEY,JSON.stringify(d));return true}
     const text=JSON.stringify(d).toLowerCase();
@@ -28,6 +29,20 @@ async function srRefreshStoredSession(){
     return null;
   }catch{return null}finally{srRefreshing=false}
 }
+window.fetch=async function(input,init={}){
+  const response=await srBaseFetch(input,init);
+  const url=typeof input==='string'?input:(input instanceof URL?input.toString():(input?.url||''));
+  if(response.status!==401||!url.startsWith(SR_SB)||url.includes('/auth/v1/token')||srExplicitLogout)return response;
+  const s=srRead();if(!s?.refresh_token)return response;
+  const refreshed=await srRefreshStoredSession();if(refreshed!==true)return response;
+  const fresh=srRead();if(!fresh?.access_token)return response;
+  try{
+    const headers=new Headers(init?.headers||(input instanceof Request?input.headers:undefined)||{});
+    if(headers.has('Authorization')||url.includes('/rest/v1/')||url.includes('/auth/v1/user')||url.includes('/functions/v1/'))headers.set('Authorization','Bearer '+fresh.access_token);
+    if(!headers.has('apikey')&&url.startsWith(SR_SB))headers.set('apikey',SR_APIKEY);
+    return await srBaseFetch(input,{...init,headers});
+  }catch{return response}
+};
 async function srRecover(){
   if(srChecking||srExplicitLogout||!srHasSession())return;srChecking=true;
   try{
