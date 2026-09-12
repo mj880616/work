@@ -1,9 +1,3 @@
-const SB_CAL='https://xmlkxfjeagycwttklxjw.supabase.co';
-const SESSION_KEY_CAL='kptu_collab_session_v1';
-
-function readCalendarSession(){
-  try{return JSON.parse(localStorage.getItem(SESSION_KEY_CAL)||'null')}catch{return null}
-}
 function calendarWarningText(raw=''){
   const s=String(raw||'');
   if(/calendar api has not been used|calendar-json\.googleapis\.com|api.*disabled/i.test(s))return 'Google 계정 연결은 완료됐습니다. Google Cloud에서 Calendar API만 켜면 일정이 표시됩니다.';
@@ -22,13 +16,12 @@ function installCalendarCompactStyle(){
 }
 
 async function refreshCalendarStatus(){
-  const s=readCalendarSession();
-  if(!s?.access_token)return;
+  const rt=window.KPTURuntime;
+  if(!rt?.session||!rt?.api||!(await rt.session.ensure()))return;
   installCalendarCompactStyle();
   try{
-    const r=await fetch(SB_CAL+'/functions/v1/google-calendar?action=status',{headers:{Authorization:'Bearer '+s.access_token}});
-    const d=await r.json();
-    if(!r.ok||d.error)return;
+    const d=await rt.api('/functions/v1/google-calendar?action=status');
+    if(d?.error)return;
     const btn=document.querySelector('#googleConnectBtn');
     const label=document.querySelector('#googleAccountLabel');
     const toggle=document.querySelector('#showGoogleCalendar');
