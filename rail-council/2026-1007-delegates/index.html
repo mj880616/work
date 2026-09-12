@@ -18,13 +18,14 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.64;word-break:keep-all}
 button{font:inherit}.wrap{max-width:980px;margin:auto;padding:22px 16px 70px}.back{display:inline-flex;margin:0 2px 12px;color:#566577;text-decoration:none;font-size:13px;font-weight:800}.hero{background:linear-gradient(135deg,#142a42,#245786);color:#fff;border-radius:20px;padding:31px 29px}.eyebrow{font-size:12px;font-weight:900;color:#cbdbea;margin-bottom:8px}.hero h1{font-size:30px;line-height:1.25;margin:0;letter-spacing:-.7px}.hero p{margin:9px 0 0;color:#dce8f2;font-size:14px}.hero-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:15px}.hero-tag{display:inline-block;padding:5px 9px;border-radius:99px;background:rgba(255,255,255,.13);font-size:11px;font-weight:900}
-.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:14px 2px 0}.state{font-size:11px;color:var(--muted)}.tools{display:flex;gap:7px}.tool{border:1px solid #cbd5df;background:#fff;color:var(--navy);border-radius:9px;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer}.tool.primary{background:var(--navy);border-color:var(--navy);color:#fff}.tool:disabled{opacity:.55}.edit-tools{display:none;gap:7px}.edit-tools.open{display:flex}.help{display:none;margin:10px 0 0;background:#fff8ea;border:1px solid #f0d8a9;border-radius:12px;padding:11px 13px;color:#76501a;font-size:12px}.help.open{display:block}
-#editablePlan{outline:none}.editing #editablePlan{background:rgba(255,255,255,.45);border-radius:15px}.editing [contenteditable="true"]{caret-color:#17324d}.editing .section,.editing .summary,.editing .decision{outline:1px dashed #91a8bd;outline-offset:3px}.editing td,.editing th,.editing li,.editing p,.editing h2,.editing h3,.editing strong{cursor:text}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:14px 2px 0}.state{font-size:11px;color:var(--muted)}.edit-guide{font-size:11px;color:var(--muted);font-weight:800}.edit-guide b{color:var(--blue)}
 .summary{margin-top:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.summary-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px}.summary-card small{display:block;font-size:11px;color:var(--muted);font-weight:800;margin-bottom:5px}.summary-card strong{display:block;font-size:15px;color:var(--navy);line-height:1.45}
 .section{margin-top:18px;background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:24px 25px}.section h2{font-size:20px;color:var(--navy);margin:0 0 13px;letter-spacing:-.3px}.section h3{font-size:15px;margin:17px 0 7px;color:#294b69}.section p{font-size:14px;margin:0 0 10px}.section ul{margin:0;padding-left:20px}.section li{font-size:14px;margin:6px 0}.lead{font-size:16px!important;font-weight:800;color:#22384e;background:#f4f8fb;border-left:4px solid var(--blue);border-radius:0 10px 10px 0;padding:13px 15px;margin-bottom:14px!important}.flow{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:12px 0}.flow span{background:var(--soft);color:var(--navy);border-radius:9px;padding:7px 10px;font-size:12px;font-weight:900}.flow b{color:#8b96a2}.requirements{display:grid;grid-template-columns:1fr 1fr;gap:10px}.req{background:#f8fafb;border-radius:13px;padding:15px}.req h3{margin:0 0 8px;font-size:15px}.req p{margin:0;font-size:13px;color:#4f5c69}.req.full{grid-column:1/-1}
 .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:13px}.plan-table{width:100%;border-collapse:collapse;min-width:700px;background:#fff}.plan-table th,.plan-table td{border-bottom:1px solid #e8edf1;border-right:1px solid #edf0f3;padding:10px 11px;text-align:left;vertical-align:top;font-size:13px}.plan-table th:last-child,.plan-table td:last-child{border-right:0}.plan-table tr:last-child td{border-bottom:0}.plan-table th{background:#edf3f7;color:var(--navy);font-size:12px}.plan-table td:first-child{white-space:nowrap;font-weight:800;color:#44515f}.note{margin-top:10px!important;color:var(--muted);font-size:12px!important}.point{background:#f8fafb;border-radius:13px;padding:13px 14px;margin-top:9px}.point strong{display:block;color:var(--navy);font-size:14px;margin-bottom:3px}.point p{font-size:13px;margin:0;color:#4d5966}.decision{margin-top:18px;background:#fffdf8;border:1px solid #efd9af;border-radius:18px;padding:24px 25px}.decision h2{font-size:20px;margin:0 0 12px;color:#78531b}.decision ol{margin:0;padding-left:22px}.decision li{font-size:14px;margin:7px 0}.footer{text-align:center;color:#8a939f;font-size:11px;margin-top:28px}
-@media(max-width:720px){.wrap{padding:14px 11px 48px}.hero{padding:25px 21px}.hero h1{font-size:26px}.summary{grid-template-columns:1fr 1fr}.section,.decision{padding:20px 18px}.requirements{grid-template-columns:1fr}.req.full{grid-column:auto}.toolbar{align-items:flex-start}.tools,.edit-tools{flex-wrap:wrap;justify-content:flex-end}}
-@media(max-width:430px){.summary{grid-template-columns:1fr}.hero h1{font-size:24px}.toolbar{display:block}.tools,.edit-tools{margin-top:8px;justify-content:flex-start}}
+/* 세부 항목별 수정 */
+.editable-unit{position:relative}.editable-unit:not(tr){padding-right:58px}.unit-tools{position:absolute;right:0;top:0;display:flex;gap:4px;z-index:3}.unit-btn{border:1px solid #d5dde4;background:#fff;color:#5f6b77;border-radius:7px;padding:4px 7px;font-size:10px;font-weight:900;cursor:pointer;line-height:1.2;white-space:nowrap}.unit-btn.edit{color:var(--blue)}.unit-btn.save{background:var(--navy);border-color:var(--navy);color:#fff}.unit-btn.cancel{color:#777}.editable-unit.unit-active{outline:2px solid #8eabc5;outline-offset:3px;background-color:#fbfdff}.editable-unit.unit-active[contenteditable="true"]{cursor:text}.row-tools{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}.row-editing td{background:#fbfdff;outline:1px dashed #9fb3c5;outline-offset:-2px}.edit-saving{opacity:.6;pointer-events:none}
+@media(max-width:720px){.wrap{padding:14px 11px 48px}.hero{padding:25px 21px}.hero h1{font-size:26px}.summary{grid-template-columns:1fr 1fr}.section,.decision{padding:20px 18px}.requirements{grid-template-columns:1fr}.req.full{grid-column:auto}.toolbar{align-items:flex-start}.editable-unit:not(tr){padding-right:52px}.unit-btn{padding:4px 6px}}
+@media(max-width:430px){.summary{grid-template-columns:1fr}.hero h1{font-size:24px}.toolbar{display:block}.edit-guide{margin-top:5px}}
 </style>
 </head>
 <body><main class="wrap" id="pageRoot">
@@ -33,14 +34,12 @@ button{font:inherit}.wrap{max-width:980px;margin:auto;padding:22px 16px 70px}.ba
   <div class="eyebrow">2026년 궤도협의회 하반기 공동투쟁</div>
   <h1>10.7 궤도노동자 공동대의원대회 기획안</h1>
   <p>국회 앞 500명 · 하반기 공동투쟁의 공식 출발점</p>
-  <div class="hero-tags"><span class="hero-tag">기획 초안</span><span class="hero-tag">직접 수정 가능</span><span class="hero-tag">10.7 국회 앞</span></div>
+  <div class="hero-tags"><span class="hero-tag">기획 초안</span><span class="hero-tag">세부 항목별 수정</span><span class="hero-tag">10.7 국회 앞</span></div>
 </header>
 <div class="toolbar">
   <div class="state" id="state">초안 기본내용을 표시 중입니다.</div>
-  <div class="tools" id="viewTools"><button class="tool" id="editBtn">기획안 수정</button></div>
-  <div class="edit-tools" id="editTools"><button class="tool" id="cancelBtn">취소</button><button class="tool primary" id="saveBtn">저장</button></div>
+  <div class="edit-guide"><b>수정</b> 버튼으로 각 항목을 따로 편집할 수 있습니다.</div>
 </div>
-<div class="help" id="editHelp">편집 중입니다. 아래 문장·표·제목을 직접 눌러 수정한 뒤 ‘저장’을 누르세요. 표의 셀도 문구 수정이 가능합니다.</div>
 
 <div id="editablePlan">
 <div class="summary">
@@ -213,56 +212,125 @@ button{font:inherit}.wrap{max-width:980px;margin:auto;padding:22px 16px 70px}.ba
 </main>
 <script>
 const API='https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/rail-1007-plan';
-const root=document.getElementById('pageRoot');
 const plan=document.getElementById('editablePlan');
-const editBtn=document.getElementById('editBtn');
-const saveBtn=document.getElementById('saveBtn');
-const cancelBtn=document.getElementById('cancelBtn');
-const viewTools=document.getElementById('viewTools');
-const editTools=document.getElementById('editTools');
-const editHelp=document.getElementById('editHelp');
 const state=document.getElementById('state');
-let password='',beforeEdit='';
+let masterPassword='';
+let activeTarget=null;
+let beforeHtml='';
+
 function fmt(v){try{return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))}catch{return ''}}
+function stripUi(node){
+  node.querySelectorAll('.unit-tools,.row-tools').forEach(x=>x.remove());
+  node.querySelectorAll('[contenteditable]').forEach(x=>x.removeAttribute('contenteditable'));
+  node.querySelectorAll('.editable-unit,.unit-active,.row-editing,.edit-saving').forEach(x=>x.classList.remove('editable-unit','unit-active','row-editing','edit-saving'));
+  return node;
+}
+function cleanPlanHtml(){const clone=plan.cloneNode(true);stripUi(clone);return clone.innerHTML.trim()}
+function targetSnapshot(target){const c=target.cloneNode(true);stripUi(c);return c.innerHTML}
+
+async function ensurePassword(){
+  if(masterPassword)return true;
+  const pw=prompt('마스터 비밀번호를 입력하세요.');
+  if(pw===null)return false;
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check',password:pw})});
+    if(r.status===403){alert('마스터 비밀번호가 올바르지 않습니다.');return false}
+    if(!r.ok)throw 0;
+    masterPassword=pw;return true;
+  }catch{alert('수정 권한을 확인하지 못했습니다. 다시 시도해 주세요.');return false}
+}
+
+function editControls(target){
+  if(target.tagName==='TR'){
+    const last=target.lastElementChild;
+    const wrap=document.createElement('span');wrap.className='row-tools';wrap.contentEditable='false';
+    const btn=document.createElement('button');btn.type='button';btn.className='unit-btn edit';btn.textContent='수정';btn.onclick=e=>{e.stopPropagation();startEdit(target)};
+    wrap.appendChild(btn);last.appendChild(wrap);return;
+  }
+  const wrap=document.createElement('span');wrap.className='unit-tools';wrap.contentEditable='false';
+  const btn=document.createElement('button');btn.type='button';btn.className='unit-btn edit';btn.textContent='수정';btn.onclick=e=>{e.stopPropagation();startEdit(target)};
+  wrap.appendChild(btn);target.appendChild(wrap);
+}
+function saveCancelControls(target){
+  const cls=target.tagName==='TR'?'row-tools':'unit-tools';
+  const parent=target.tagName==='TR'?target.lastElementChild:target;
+  parent.querySelectorAll('.'+cls).forEach(x=>x.remove());
+  const wrap=document.createElement('span');wrap.className=cls;wrap.contentEditable='false';
+  const save=document.createElement('button');save.type='button';save.className='unit-btn save';save.textContent='저장';save.onclick=e=>{e.stopPropagation();saveEdit(target)};
+  const cancel=document.createElement('button');cancel.type='button';cancel.className='unit-btn cancel';cancel.textContent='취소';cancel.onclick=e=>{e.stopPropagation();cancelEdit(target)};
+  wrap.append(save,cancel);parent.appendChild(wrap);
+}
+function decorate(){
+  plan.querySelectorAll('.unit-tools,.row-tools').forEach(x=>x.remove());
+  plan.querySelectorAll('.editable-unit').forEach(x=>x.classList.remove('editable-unit'));
+  const selectors=[
+    '.summary-card',
+    '.section > h2',
+    '.section > .lead',
+    '.section > ul > li',
+    '.section > .flow',
+    '.requirements > .req',
+    '.section > .note',
+    '.section > .point',
+    '.plan-table tbody > tr',
+    '.decision > h2',
+    '.decision > ol > li'
+  ];
+  const targets=[...new Set(selectors.flatMap(s=>[...plan.querySelectorAll(s)]))];
+  targets.forEach(t=>{t.classList.add('editable-unit');editControls(t)});
+}
+
+async function startEdit(target){
+  if(activeTarget&&activeTarget!==target){alert('수정 중인 항목을 먼저 저장하거나 취소해 주세요.');return}
+  if(!(await ensurePassword()))return;
+  activeTarget=target;beforeHtml=targetSnapshot(target);
+  target.classList.add('unit-active');
+  if(target.tagName==='TR'){
+    target.classList.add('row-editing');
+    [...target.children].forEach(td=>{td.contentEditable='true';td.spellcheck=false});
+  }else{
+    target.contentEditable='true';target.spellcheck=false;
+  }
+  saveCancelControls(target);
+  setTimeout(()=>{
+    const focusEl=target.tagName==='TR'?target.children[0]:target;
+    focusEl.focus();
+    try{const sel=window.getSelection(),range=document.createRange();range.selectNodeContents(focusEl);range.collapse(false);sel.removeAllRanges();sel.addRange(range)}catch{}
+  },30);
+}
+function finishTarget(target){
+  target.removeAttribute('contenteditable');
+  target.querySelectorAll('[contenteditable]').forEach(x=>x.removeAttribute('contenteditable'));
+  target.classList.remove('unit-active','row-editing','edit-saving');
+  activeTarget=null;beforeHtml='';decorate();
+}
+function cancelEdit(target){
+  target.innerHTML=beforeHtml;
+  finishTarget(target);
+}
+async function saveEdit(target){
+  target.classList.add('edit-saving');
+  const content=cleanPlanHtml();
+  state.textContent='저장 중…';
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',password:masterPassword,content})});
+    let d={};try{d=await r.json()}catch{}
+    if(r.status===403){masterPassword='';alert('마스터 비밀번호가 올바르지 않습니다.');state.textContent='저장되지 않았습니다.';target.classList.remove('edit-saving');return}
+    if(!r.ok)throw 0;
+    finishTarget(target);
+    state.textContent='마지막 수정 '+fmt(d.updated_at||new Date().toISOString());
+  }catch{target.classList.remove('edit-saving');state.textContent='저장 실패';alert('저장하지 못했습니다. 다시 시도해 주세요.')}
+}
+
 async function load(){
   try{
-    const r=await fetch(API,{cache:'no-store'}); if(!r.ok)throw 0;
+    const r=await fetch(API,{cache:'no-store'});if(!r.ok)throw 0;
     const d=await r.json();
     if(typeof d.content==='string'&&d.content.trim())plan.innerHTML=d.content;
     state.textContent=d.updated_at?'마지막 수정 '+fmt(d.updated_at):'초안 기본내용을 표시 중입니다.';
   }catch{state.textContent='저장된 수정본을 불러오지 못해 기본 초안을 표시합니다.'}
+  decorate();
 }
-function setEditing(on){
-  root.classList.toggle('editing',on);
-  plan.contentEditable=on?'true':'false';
-  plan.spellcheck=false;
-  viewTools.style.display=on?'none':'flex';
-  editTools.classList.toggle('open',on);
-  editHelp.classList.toggle('open',on);
-  if(on){setTimeout(()=>plan.focus(),30)}
-}
-editBtn.onclick=async()=>{
-  const pw=prompt('마스터 비밀번호를 입력하세요.'); if(pw===null)return;
-  editBtn.disabled=true;
-  try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check',password:pw})});
-    if(r.status===403){alert('마스터 비밀번호가 올바르지 않습니다.');return}
-    if(!r.ok)throw 0;
-    password=pw; beforeEdit=plan.innerHTML; setEditing(true);
-  }catch{alert('수정 권한을 확인하지 못했습니다. 다시 시도해 주세요.')}finally{editBtn.disabled=false}
-};
-cancelBtn.onclick=()=>{plan.innerHTML=beforeEdit;password='';setEditing(false)};
-saveBtn.onclick=async()=>{
-  const content=plan.innerHTML.trim(); if(!content)return;
-  saveBtn.disabled=true;state.textContent='저장 중…';
-  try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',password,content})});
-    let d={};try{d=await r.json()}catch{}
-    if(r.status===403){password='';alert('마스터 비밀번호가 올바르지 않습니다.');state.textContent='저장되지 않았습니다.';return}
-    if(!r.ok)throw 0;
-    beforeEdit=content;setEditing(false);password='';state.textContent='마지막 수정 '+fmt(d.updated_at||new Date().toISOString());
-  }catch{state.textContent='저장 실패';alert('저장하지 못했습니다. 다시 시도해 주세요.')}finally{saveBtn.disabled=false}
-};
 load();
 </script>
 </body>
