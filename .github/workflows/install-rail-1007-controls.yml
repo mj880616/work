@@ -1,0 +1,34 @@
+name: Install 10.7 page controls
+on:
+  push:
+    paths:
+      - 'assets/rail-1007-controls.js'
+      - '.github/workflows/install-rail-1007-controls.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install-controls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inject 10.7 page controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('rail-council/2026-1007-delegates/index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="/work/assets/rail-1007-controls.js?v=1"></script>'
+          if '/work/assets/rail-1007-controls.js' not in s:
+              s=re.sub(r'</body\s*>',tag+'</body>',s,count=1,flags=re.I)
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit injection
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add rail-council/2026-1007-delegates/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Protect 10.7 page edits and normalize slogans'
+          git push
