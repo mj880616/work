@@ -28,12 +28,12 @@ function caeUiSync(){
     const row=scope.closest('label');
     if(row){row.classList.add('cae-scope-row');row.style.display='none'}
   }
-  const title=document.querySelector('#caeTitle')?.value.trim()||'일정';
+  const title=document.querySelector('#caeTitle')?.value.trim()||'제목 없는 일정';
   const color=document.querySelector('#caeColor')?.value||'#7656a8';
   const heroTitle=document.querySelector('#caeHeroTitle');
   const heroColor=document.querySelector('#caeHeroColor');
-  if(heroTitle)heroTitle.textContent=title;
-  if(heroColor)heroColor.style.background=color;
+  if(heroTitle&&heroTitle.textContent!==title)heroTitle.textContent=title;
+  if(heroColor&&heroColor.style.background!==color)heroColor.style.background=color;
   const save=document.querySelector('#caeSave');
   if(save)save.textContent='변경사항 저장';
 }
