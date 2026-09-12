@@ -1,0 +1,53 @@
+name: App browser E2E check
+
+on:
+  push:
+    paths:
+      - 'app/**'
+      - 'tests/app-e2e/**'
+      - '.github/workflows/app-e2e-check.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'tests/app-e2e/**'
+      - '.github/workflows/app-e2e-check.yml'
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start static app server
+        run: |
+          python3 -m http.server 8123 >/tmp/kptu-e2e-http.log 2>&1 &
+          echo $! > /tmp/kptu-e2e-http.pid
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8123/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat /tmp/kptu-e2e-http.log
+          exit 1
+
+      - name: Run core browser flows
+        run: npx playwright test tests/app-e2e/workspace.spec.mjs --browser=chromium --workers=1 --reporter=line
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
