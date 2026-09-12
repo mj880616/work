@@ -1,11 +1,7 @@
-const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
-const SESSION_KEY='kptu_collab_session_v1';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const VIS={private:'비공개',restricted:'초대형',team:'팀 전체'};
 let state={user:null,workspace:null,members:[],profiles:[],spaces:[],currentProject:null};
-function session(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
-async function api(path,{method='GET',body=null,prefer=''}={}){const s=session();if(!s?.access_token)throw new Error('로그인이 필요합니다.');const headers={apikey:KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'};if(prefer)headers.Prefer=prefer;const r=await fetch(SB+path,{method,headers,body:body===null?null:JSON.stringify(body),cache:'no-store'});const text=await r.text();let d=null;try{d=text?JSON.parse(text):null}catch{d=text}if(!r.ok)throw new Error(d?.message||d?.hint||('요청 실패 '+r.status));return d}
+async function api(path,options={}){const rt=window.KPTURuntime;if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,options)}
 function nameOf(id){return state.profiles.find(p=>p.user_id===id)?.display_name||state.members.find(m=>m.user_id===id)?.email||id?.slice(0,8)||'구성원'}
 function topSpaces(){return state.spaces.filter(s=>!s.parent_id&&s.status!=='archived')}
 async function bootstrap(){for(let i=0;i<40;i++){if(document.querySelector('#projectCreateModal')&&document.querySelector('#saveProjectBtn'))break;await new Promise(r=>setTimeout(r,150))}if(!document.querySelector('#projectCreateModal'))return;try{state.user=await api('/auth/v1/user');const ms=await api('/rest/v1/app_workspace_members?user_id=eq.'+state.user.id+'&select=workspace_id,role&limit=1');if(!ms?.length)return;state.workspace=ms[0];[state.members,state.profiles,state.spaces]=await Promise.all([api('/rest/v1/app_workspace_members?workspace_id=eq.'+state.workspace.workspace_id+'&select=workspace_id,user_id,role'),api('/rest/v1/app_profiles?select=user_id,display_name'),api('/rest/v1/app_spaces?workspace_id=eq.'+state.workspace.workspace_id+'&select=id,name,description,parent_id,owner_id,visibility,status')]);installCreateControls();installManageModal();installProjectDetailUi();bindCardTracking();annotateCards();}catch(e){console.error('project access init',e)}}
