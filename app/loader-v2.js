@@ -1,7 +1,7 @@
 (async()=>{
   await import('./native-auth-bridge.js?v=4');
   if(window.__KPTU_NATIVE_BRIDGE__)return;
-  await import('./calendar-return-bridge.js?v=1');
+  await import('./calendar-return-bridge.js?v=2');
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
   await import('./runtime-client.js?v=1');
   await import('./auth-handoff-client.js?v=1');
@@ -25,17 +25,18 @@
     import('./calendar-health.js?v=3'),
     import('./calendar-persistence.js?v=8'),
     import('./task-workflow.js?v=3'),
-    import('./task-layout.js?v=3'),
-    import('./profile-settings.js?v=1'),
+    import('./task-layout.js?v=4'),
+    import('./profile-settings.js?v=2'),
     import('./meeting-round-detail.js?v=5'),
     import('./project-files.js?v=3'),
     import('./library-upload.js?v=3'),
-    import('./page-editor-fix.js?v=1')
+    import('./page-editor-fix.js?v=1'),
+    import('./page-shortcut.js?v=1')
   ]);
+  await import('./google-calendar-return-status.js?v=1');
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
   await import('./meeting-multi-tasks.js?v=3');
-  await import('./task-title-ui.js?v=1');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=3');
   await import('./project-task-link.js?v=5');
