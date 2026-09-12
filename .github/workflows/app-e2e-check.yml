@@ -8,6 +8,13 @@ on:
       - 'app/**'
       - 'tests/app-e2e/**'
       - '.github/workflows/app-e2e-check.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'tests/app-e2e/**'
+      - '.github/workflows/app-e2e-check.yml'
   workflow_dispatch:
 
 jobs:
@@ -38,10 +45,12 @@ jobs:
           exit 1
 
       - name: Run core browser flows
+        id: e2e
+        continue-on-error: true
         run: npx playwright test tests/app-e2e/workspace.spec.mjs --browser=chromium --workers=1 --reporter=line
 
-      - name: Upload Playwright report on failure
-        if: failure()
+      - name: Upload Playwright report on diagnostic failure
+        if: steps.e2e.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: app-e2e-report
