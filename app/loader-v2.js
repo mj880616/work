@@ -5,7 +5,7 @@
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
-  if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=3';document.head.appendChild(l)}
+  if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=4';document.head.appendChild(l)}
   await import('./auth-ui.js?v=6');
   await import('./auth-login-fallback.js?v=1');
   await import('./auth-cleanup.js?v=2');
@@ -42,7 +42,7 @@
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
   await import('./collaboration-center.js?v=1');
-  await import('./notification-center-ui.js?v=1');
+  await import('./notification-center-ui.js?v=2');
   await import('./mobile-dock-tune.js?v=1');
   await import('./brand-home-nav.js?v=1');
   await import('./task-assignment-visibility.js?v=3');
