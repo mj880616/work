@@ -18,6 +18,7 @@
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=3'),
     import('./calendar-event-edit.js?v=1'),
+    import('./calendar-date-create.js?v=1'),
     import('./task-workflow.js?v=2'),
     import('./task-layout.js?v=1'),
     import('./profile-settings.js?v=1'),
