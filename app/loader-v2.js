@@ -16,7 +16,7 @@
     import('./project-access.js?v=1'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=2'),
-    import('./calendar-persistence.js?v=4'),
+    import('./calendar-persistence.js?v=5'),
     import('./calendar-event-edit.js?v=1'),
     import('./calendar-date-create.js?v=1'),
     import('./task-workflow.js?v=2'),
