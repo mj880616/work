@@ -42,6 +42,7 @@
   await import('./project-update-actions.js?v=3');
   await import('./project-task-link.js?v=5');
   await import('./project-v2.js?v=1');
+  await import('./project-deeplink.js?v=1');
   await import('./project-task-guide-cleanup.js?v=1');
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
