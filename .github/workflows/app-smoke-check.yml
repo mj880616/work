@@ -80,8 +80,9 @@ jobs:
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
           grep -q 'app.js?v=12' app/index.html
-          grep -q "loader-v2.js?v=94" app/app.js
+          grep -q "loader-v2.js?v=95" app/app.js
           grep -q "auth-ui.js?v=8" app/app.js
+          grep -q "calendar-return-bridge.js?v=2" app/app.js
           grep -q "runtime-client.js?v=1" app/loader-v2.js
           grep -q "app-router.js?v=1" app/loader-v2.js
           grep -q "workspace-ui.css?v=5" app/loader-v2.js
@@ -100,6 +101,10 @@ jobs:
           grep -q "calendar-plus.js?v=4" app/loader-v2.js
           grep -q "calendar-interactions-v2.js?v=2" app/loader-v2.js
           grep -q "task-workflow.js?v=3" app/loader-v2.js
+          grep -q "task-layout.js?v=4" app/loader-v2.js
+          grep -q "profile-settings.js?v=2" app/loader-v2.js
+          grep -q "page-shortcut.js?v=1" app/loader-v2.js
+          grep -q "google-calendar-return-status.js?v=1" app/loader-v2.js
           grep -q "meeting-round-detail.js?v=5" app/loader-v2.js
           grep -q "KPTURouter?.on" app/team.js
           grep -q "KPTURuntime.session.ensure" app/team.js
@@ -112,15 +117,23 @@ jobs:
           grep -q "KPTURuntime" app/calendar-plus.js
           grep -q "KPTURuntime" app/calendar-interactions-v2.js
           grep -q "KPTURuntime" app/task-workflow.js
+          grep -q "KPTURuntime" app/task-layout.js
+          grep -q "KPTURuntime" app/profile-settings.js
           grep -q "KPTURuntime" app/project-access.js
           grep -q "KPTURuntime" app/meeting-round-detail.js
+          grep -q "tlGroup('내 할 일'" app/task-layout.js
+          grep -q "완료된 할 일" app/task-layout.js
+          grep -q "<details class=\"tl-completed\"" app/task-layout.js
+          grep -q "바로가기" app/page-shortcut.js
+          grep -q "external','1" app/page-shortcut.js
           grep -q "KPTURouter?.on)window.KPTURouter.on('notifications'" app/notification-center-ui.js
           if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification center global observer returned'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification center polling returned'; exit 1; fi
           if grep -q "addEventListener('click',intercept,true)" app/notification-center-ui.js; then echo 'notification capture interceptor returned'; exit 1; fi
           if grep -q "refresh_token" app/task-workflow.js app/meeting-round-detail.js; then echo 'feature refresh logic returned'; exit 1; fi
-          if grep -q "kptu_collab_session_v1" app/calendar-health.js app/calendar-persistence.js app/calendar-plus.js app/calendar-interactions-v2.js app/task-workflow.js app/project-access.js app/meeting-round-detail.js app/collaboration-center.js; then echo 'feature-local session storage returned'; exit 1; fi
+          if grep -q "kptu_collab_session_v1" app/calendar-health.js app/calendar-persistence.js app/calendar-plus.js app/calendar-interactions-v2.js app/task-workflow.js app/task-layout.js app/profile-settings.js app/project-access.js app/meeting-round-detail.js app/collaboration-center.js; then echo 'feature-local session storage returned'; exit 1; fi
           if grep -q "authPreloadStyle.*remove" app/auth-ui.js; then echo 'auth UI can unlock before login handlers bind'; exit 1; fi
+          if grep -q "task-title-ui.js" app/loader-v2.js; then echo 'task title CSS shim loaded again'; exit 1; fi
           if grep -q "brand-home-nav.js" app/loader-v2.js; then echo 'legacy brand router loaded'; exit 1; fi
           if grep -q "auth-cleanup.js" app/loader-v2.js; then echo 'redundant auth cleanup loaded'; exit 1; fi
           if grep -q "mobile-dock-tune.js" app/loader-v2.js; then echo 'mobile dock JS override loaded'; exit 1; fi
