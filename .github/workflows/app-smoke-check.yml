@@ -73,6 +73,8 @@ jobs:
           test -f app/app-router.js
           test -f app/runtime-client.js
           test -f app/styles.css
+          test -d app/legacy
+          test -f app/legacy/README.md
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
           grep -q 'app.js?v=11' app/index.html
@@ -83,15 +85,25 @@ jobs:
           grep -q "library-upload.js?v=3" app/loader-v2.js
           grep -q "collaboration-center.js?v=4" app/loader-v2.js
           grep -q "notification-center-ui.js?v=5" app/loader-v2.js
+          grep -q "project-access.js?v=4" app/loader-v2.js
+          grep -q "calendar-persistence.js?v=8" app/loader-v2.js
+          grep -q "task-workflow.js?v=3" app/loader-v2.js
+          grep -q "meeting-round-detail.js?v=5" app/loader-v2.js
           grep -q "KPTURouter?.on" app/team.js
           grep -q "KPTURuntime.session.ensure" app/team.js
           grep -q "KPTURuntime.session.ensure" app/library-upload.js
           grep -q "KPTURuntime.session.ensure" app/collaboration-center.js
           grep -q "rt.session.ensure" app/notification-center-ui.js
+          grep -q "KPTURuntime" app/calendar-persistence.js
+          grep -q "KPTURuntime" app/task-workflow.js
+          grep -q "KPTURuntime" app/project-access.js
+          grep -q "KPTURuntime" app/meeting-round-detail.js
           grep -q "KPTURouter?.on)window.KPTURouter.on('notifications'" app/notification-center-ui.js
           if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification center global observer returned'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification center polling returned'; exit 1; fi
           if grep -q "addEventListener('click',intercept,true)" app/notification-center-ui.js; then echo 'notification capture interceptor returned'; exit 1; fi
+          if grep -q "refresh_token" app/task-workflow.js app/meeting-round-detail.js; then echo 'feature refresh logic returned'; exit 1; fi
+          if grep -q "kptu_collab_session_v1" app/calendar-persistence.js app/task-workflow.js app/project-access.js app/meeting-round-detail.js; then echo 'feature-local session storage returned'; exit 1; fi
           if grep -q "brand-home-nav.js" app/loader-v2.js; then echo 'legacy brand router loaded'; exit 1; fi
           if grep -q "auth-cleanup.js" app/loader-v2.js; then echo 'redundant auth cleanup loaded'; exit 1; fi
           if grep -q "mobile-dock-tune.js" app/loader-v2.js; then echo 'mobile dock JS override loaded'; exit 1; fi
@@ -99,6 +111,10 @@ jobs:
           if grep -q "b.onclick=()=>ccSwitch('messages')" app/collaboration-center.js; then echo 'collaboration owns message nav click again'; exit 1; fi
           if grep -q "프로젝트 초대와 할 일 배정을 여기서 수락·거절합니다" app/collaboration-center.js; then echo 'legacy notification popup copy returned'; exit 1; fi
           if grep -q "p.id='ccProfileTop'" app/collaboration-center.js; then echo 'legacy top profile button returned'; exit 1; fi
+          for f in calendar-app-edit-ui.js calendar-create-live-title.js calendar-date-create.js calendar-edit-actions.js calendar-event-edit.js calendar-google-fast-edit.js calendar-observer-stability.js editable-page.js google-color-palette.js home-task-actions.js meeting-detail-patches.js page-preview-tools.js project-child-header.js project-hierarchy-ui.js startup-speed.js; do
+            if test -e "app/$f"; then echo "inactive module returned to app root: $f"; exit 1; fi
+            test -f "app/legacy/$f"
+          done
 
       - name: Static HTTP smoke test
         run: |
