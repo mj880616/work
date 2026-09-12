@@ -9,7 +9,6 @@
   if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=4';document.head.appendChild(l)}
   await import('./auth-ui.js?v=6');
   await import('./auth-login-fallback.js?v=1');
-  await import('./auth-cleanup.js?v=2');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=1');
   await import('./team.js?v=6');
