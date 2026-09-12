@@ -45,7 +45,7 @@
   await import('./mobile-dock-tune.js?v=1');
   await import('./brand-home-nav.js?v=1');
   await import('./task-assignment-visibility.js?v=3');
-  await import('./home-cleanup.js?v=1');
+  await import('./home-cleanup.js?v=2');
   await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=1');
