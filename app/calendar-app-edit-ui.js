@@ -28,11 +28,11 @@ function caeUiSync(){
     const row=scope.closest('label');
     if(row){row.classList.add('cae-scope-row');row.style.display='none'}
   }
-  const title=document.querySelector('#caeTitle')?.value.trim()||'제목 없는 일정';
+  const title=document.querySelector('#caeTitle')?.value.trim()||'일정';
   const color=document.querySelector('#caeColor')?.value||'#7656a8';
   const heroTitle=document.querySelector('#caeHeroTitle');
   const heroColor=document.querySelector('#caeHeroColor');
-  if(heroTitle&&heroTitle.textContent!==title)heroTitle.textContent=title;
+  if(heroTitle)heroTitle.textContent=title;
   if(heroColor)heroColor.style.background=color;
   const save=document.querySelector('#caeSave');
   if(save)save.textContent='변경사항 저장';
@@ -43,10 +43,7 @@ function caeUiBind(){
   if(title&&!title.dataset.heroBound){title.dataset.heroBound='1';title.addEventListener('input',caeUiSync)}
   if(color&&!color.dataset.heroBound){color.dataset.heroBound='1';color.addEventListener('input',caeUiSync);color.addEventListener('change',caeUiSync)}
 }
-function caeRefreshAfterOpen(){
-  [0,120,300,700].forEach(ms=>setTimeout(()=>{caeUiSync();caeUiBind()},ms));
-}
-window.__KPTU_APP_EDIT_HEADER__=caeRefreshAfterOpen;
+window.__KPTU_APP_EDIT_HEADER__=()=>{caeUiSync();caeUiBind()};
 const style=document.createElement('style');
 style.id='caeHeroStyles';
 style.textContent=`
@@ -68,7 +65,4 @@ style.textContent=`
 }
 `;
 document.head.appendChild(style);
-document.addEventListener('click',e=>{
-  if(e.target.closest?.('.cm-app[data-app-event]'))caeRefreshAfterOpen();
-},true);
 setTimeout(()=>{caeUiSync();caeUiBind()},0);
