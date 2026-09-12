@@ -1,0 +1,84 @@
+name: One-time shared session migration
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-time-shared-session.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Connect core modules to shared session runtime
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def one(path,old,new):
+              p=Path(path);s=p.read_text(encoding='utf-8')
+              n=s.count(old)
+              if n!=1: raise SystemExit(f'{path}: expected 1 match, got {n}')
+              p.write_text(s.replace(old,new),encoding='utf-8')
+
+          one('app/team.js',
+              "function saveSession(s){session=s;if(s)localStorage.setItem(SESSION_KEY,JSON.stringify(s));else localStorage.removeItem(SESSION_KEY)}\nfunction loadSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}\nasync function refreshSession(){if(!session?.refresh_token)return false;const r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});if(!r.ok){saveSession(null);return false}const d=await r.json();d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);saveSession(d);return true}\nasync function ensureSession(){if(!session)return false;if((session.expires_at||0)<Math.floor(Date.now()/1000)+60)return refreshSession();return true}",
+              "function saveSession(s){session=s;if(window.KPTURuntime?.session){window.KPTURuntime.session.write(s);return}if(s)localStorage.setItem(SESSION_KEY,JSON.stringify(s));else localStorage.removeItem(SESSION_KEY)}\nfunction loadSession(){if(window.KPTURuntime?.session)return window.KPTURuntime.session.read();try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}\nasync function refreshSession(){if(window.KPTURuntime?.session){const next=await window.KPTURuntime.session.refresh();session=next||null;return !!next}if(!session?.refresh_token)return false;const r=await fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});if(!r.ok){saveSession(null);return false}const d=await r.json();d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);saveSession(d);return true}\nasync function ensureSession(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();session=window.KPTURuntime.session.read();return ok}if(!session)return false;if((session.expires_at||0)<Math.floor(Date.now()/1000)+60)return refreshSession();return true}"
+          )
+
+          one('app/library-upload.js',
+              "function luRead(){try{return JSON.parse(localStorage.getItem(LU_SESSION)||'null')}catch{return null}}\nasync function luEnsure(){luSession=luRead();if(!luSession)return false;if((luSession.expires_at||0)<Math.floor(Date.now()/1000)+60&&luSession.refresh_token){const r=await fetch(LU_SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:LU_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:luSession.refresh_token})});if(!r.ok)return false;const d=await r.json();d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);luSession=d;localStorage.setItem(LU_SESSION,JSON.stringify(d))}return true}",
+              "function luRead(){if(window.KPTURuntime?.session)return window.KPTURuntime.session.read();try{return JSON.parse(localStorage.getItem(LU_SESSION)||'null')}catch{return null}}\nasync function luEnsure(){if(window.KPTURuntime?.session){const ok=await window.KPTURuntime.session.ensure();luSession=window.KPTURuntime.session.read();return ok}luSession=luRead();if(!luSession)return false;if((luSession.expires_at||0)<Math.floor(Date.now()/1000)+60&&luSession.refresh_token){const r=await fetch(LU_SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:LU_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:luSession.refresh_token})});if(!r.ok)return false;const d=await r.json();d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);luSession=d;localStorage.setItem(LU_SESSION,JSON.stringify(d))}return true}"
+          )
+
+          one('app/collaboration-center.js',
+              "function ccSession(){try{return JSON.parse(localStorage.getItem(CC_SESSION)||'null')}catch{return null}}\nasync function ccApi(path,{method='GET',body=null,prefer=''}={}){const s=ccSession();if(!s?.access_token)throw new Error('로그인이 필요합니다.');",
+              "function ccSession(){if(window.KPTURuntime?.session)return window.KPTURuntime.session.read();try{return JSON.parse(localStorage.getItem(CC_SESSION)||'null')}catch{return null}}\nasync function ccApi(path,{method='GET',body=null,prefer=''}={}){if(window.KPTURuntime?.session&&!(await window.KPTURuntime.session.ensure()))throw new Error('로그인이 필요합니다.');const s=ccSession();if(!s?.access_token)throw new Error('로그인이 필요합니다.');"
+          )
+
+          one('app/notification-center-ui.js',
+              "  function session(){try{return JSON.parse(localStorage.getItem(SESSION)||'null')}catch{return null}}\n  async function api(path){const s=session();if(!s?.access_token)throw new Error('로그인이 필요합니다.');",
+              "  function session(){if(window.KPTURuntime?.session)return window.KPTURuntime.session.read();try{return JSON.parse(localStorage.getItem(SESSION)||'null')}catch{return null}}\n  async function api(path){if(window.KPTURuntime?.session&&!(await window.KPTURuntime.session.ensure()))throw new Error('로그인이 필요합니다.');const s=session();if(!s?.access_token)throw new Error('로그인이 필요합니다.');"
+          )
+
+          p=Path('app/loader-v2.js');s=p.read_text(encoding='utf-8')
+          s=s.replace("  await import('./auth-handoff-client.js?v=1');", "  await import('./runtime-client.js?v=1');\n  await import('./auth-handoff-client.js?v=1');")
+          s=s.replace("./team.js?v=7","./team.js?v=8")
+          s=s.replace("./library-upload.js?v=2","./library-upload.js?v=3")
+          s=s.replace("./collaboration-center.js?v=3","./collaboration-center.js?v=4")
+          s=s.replace("./notification-center-ui.js?v=3","./notification-center-ui.js?v=4")
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('app/app.js');s=p.read_text(encoding='utf-8')
+          marker="  './auth-handoff-client.js?v=1',"
+          s=s.replace(marker,"  './runtime-client.js?v=1',\n"+marker)
+          s=s.replace("./team.js?v=7","./team.js?v=8")
+          s=s.replace('loader-v2.js?v=87','loader-v2.js?v=88')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate shared session migration
+        run: |
+          node --check app/runtime-client.js
+          node --check app/team.js
+          node --check app/library-upload.js
+          node --check app/collaboration-center.js
+          node --check app/notification-center-ui.js
+          grep -q "runtime-client.js?v=1" app/loader-v2.js
+          grep -q "team.js?v=8" app/loader-v2.js
+          grep -q "library-upload.js?v=3" app/loader-v2.js
+          grep -q "collaboration-center.js?v=4" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=4" app/loader-v2.js
+          grep -q "KPTURuntime.session.ensure" app/team.js
+          grep -q "KPTURuntime.session.ensure" app/library-upload.js
+      - name: Commit migration
+        run: |
+          git config user.name kptu-app-bot
+          git config user.email actions@users.noreply.github.com
+          git add app/team.js app/library-upload.js app/collaboration-center.js app/notification-center-ui.js app/loader-v2.js app/app.js
+          git commit -m 'Share session refresh across core app modules'
+          git push
