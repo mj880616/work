@@ -25,7 +25,7 @@
     import('./calendar-health.js?v=3'),
     import('./calendar-persistence.js?v=8'),
     import('./task-workflow.js?v=3'),
-    import('./task-layout.js?v=4'),
+    import('./task-layout.js?v=5'),
     import('./profile-settings.js?v=2'),
     import('./meeting-round-detail.js?v=5'),
     import('./project-files.js?v=4'),
@@ -49,7 +49,7 @@
   await import('./task-notes.js?v=2');
   await import('./collaboration-center.js?v=5');
   await import('./notification-center-ui.js?v=5');
-  await import('./task-assignment-visibility.js?v=3');
+  await import('./task-assignment-visibility.js?v=4');
   await import('./home-cleanup.js?v=2');
   await import('./calendar-plus.js?v=4');
   await import('./calendar-defaults.js?v=1');
