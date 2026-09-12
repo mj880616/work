@@ -7,8 +7,8 @@
     '.editbar','.jump','.attachment-nav','.kptu-copy-btn','.kptu-copy-wrap',
     'button','input','textarea','select','script','style','noscript'
   ].join(',');
-  const BLOCK_TAGS=new Set(['P','DIV','SECTION','ARTICLE','H1','H2','H3','H4','H5','H6','LI','UL','OL','BLOCKQUOTE','TABLE','TR']);
   const KEEP_STYLES=['font-family','font-size','font-weight','font-style','text-decoration','text-align','line-height','color','background-color','white-space','vertical-align'];
+  const IS_RAIL_1007=location.pathname.includes('/rail-council/2026-1007-delegates/');
 
   function flash(btn){
     if(!btn)return;
@@ -117,6 +117,8 @@
   }
 
   function enhanceGenericSections(){
+    /* 10.7 페이지는 페이지 자체의 단락복사/편집 툴바를 사용해 중복 버튼을 방지 */
+    if(IS_RAIL_1007)return;
     document.querySelectorAll('.section,.decision').forEach(sec=>{
       if(sec.querySelector(':scope > h2 .unit-btn.copy')||sec.querySelector(':scope > .kptu-copy-wrap'))return;
       const h=sec.querySelector(':scope > h2');if(!h)return;
