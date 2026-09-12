@@ -52,6 +52,7 @@
   await import('./calendar-interactions-v2.js?v=1');
   await import('./calendar-mobile-ui.js?v=2');
   await import('./suborganizations.js?v=1');
+  await import('./suborganization-planned-assignee.js?v=1');
   await import('./team-profile-view.js?v=1');
   await import('./global-action-buttons.js?v=1');
 })().catch(err=>{
