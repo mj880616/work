@@ -8,24 +8,26 @@
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=1');
   if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=5';document.head.appendChild(l)}
-  await import('./auth-ui.js?v=6');
+  await import('./auth-ui.js?v=8');
   await import('./auth-login-fallback.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=1');
   await import('./team.js?v=8');
+  window.dispatchEvent(new Event('kptu:auth-fields-ready'));
+  document.querySelector('#authPreloadStyle')?.remove();
   await import('./member-default-role.js?v=2');
   await import('./myspace-return.js?v=1');
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
     import('./photo-room.js?v=1'),
-    import('./project-access.js?v=3'),
+    import('./project-access.js?v=4'),
     import('./password-reset.js?v=1'),
-    import('./calendar-health.js?v=2'),
-    import('./calendar-persistence.js?v=7'),
-    import('./task-workflow.js?v=2'),
+    import('./calendar-health.js?v=3'),
+    import('./calendar-persistence.js?v=8'),
+    import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=3'),
     import('./profile-settings.js?v=1'),
-    import('./meeting-round-detail.js?v=4'),
+    import('./meeting-round-detail.js?v=5'),
     import('./project-files.js?v=3'),
     import('./library-upload.js?v=3'),
     import('./page-editor-fix.js?v=1')
@@ -33,8 +35,6 @@
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
   await import('./meeting-multi-tasks.js?v=3');
-  await import('./project-create-submit.js?v=2');
-  await import('./task-personal-due.js?v=2');
   await import('./task-title-ui.js?v=1');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=3');
@@ -42,13 +42,13 @@
   await import('./project-task-guide-cleanup.js?v=1');
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
-  await import('./collaboration-center.js?v=4');
-  await import('./notification-center-ui.js?v=4');
+  await import('./collaboration-center.js?v=5');
+  await import('./notification-center-ui.js?v=5');
   await import('./task-assignment-visibility.js?v=3');
   await import('./home-cleanup.js?v=2');
-  await import('./calendar-plus.js?v=3');
+  await import('./calendar-plus.js?v=4');
   await import('./calendar-defaults.js?v=1');
-  await import('./calendar-interactions-v2.js?v=1');
+  await import('./calendar-interactions-v2.js?v=2');
   await import('./calendar-mobile-ui.js?v=2');
   await import('./suborganizations.js?v=1');
   await import('./suborganization-planned-assignee.js?v=1');

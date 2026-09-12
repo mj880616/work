@@ -1,8 +1,5 @@
-const CP_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const CP_SESSION='kptu_collab_session_v1';
 let cpState=null,cpEvents=[],cpPainting=false;
-function cpToken(){try{return JSON.parse(localStorage.getItem(CP_SESSION)||'null')?.access_token||''}catch{return ''}}
-async function cpCall(action,{method='GET',body=null,params=null}={}){const token=cpToken();if(!token)throw new Error('로그인이 필요합니다.');const u=new URL(CP_SB+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const r=await fetch(u,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):null});const d=await r.json();if(!r.ok||d.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
+async function cpCall(action,{method='GET',body=null,params=null}={}){const rt=window.KPTURuntime;if(!rt?.session||!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
 function cpRange(){const m=(document.querySelector('#monthTitle')?.textContent||'').match(/(\d{4})년\s*(\d{1,2})월/),n=new Date(),y=m?+m[1]:n.getFullYear(),mo=m?+m[2]-1:n.getMonth(),f=new Date(y,mo,1),s=new Date(f);s.setDate(1-f.getDay());s.setHours(0,0,0,0);const e=new Date(s);e.setDate(s.getDate()+42);return {s,e}}
 function cpKey(v){const d=new Date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function cpColor(id){return cpState?.colors?.[id]||cpState?.calendars?.find(x=>x.id===id)?.backgroundColor||'#4285f4'}

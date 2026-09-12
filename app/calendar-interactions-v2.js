@@ -1,12 +1,7 @@
-const CI_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const CI_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
-const CI_SESSION='kptu_collab_session_v1';
 let ciAppCurrent=null,ciGoogleCurrent=null;
-function ciSession(){try{return JSON.parse(localStorage.getItem(CI_SESSION)||'null')}catch{return null}}
-function ciToken(){return ciSession()?.access_token||''}
-function ciTimeout(ms=12000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);return {signal:c.signal,clear:()=>clearTimeout(t)}}
-async function ciRest(path,{method='GET',body=null}={}){const token=ciToken();if(!token)throw new Error('로그인이 필요합니다.');const x=ciTimeout();try{const r=await fetch(CI_SB+path,{method,signal:x.signal,headers:{apikey:CI_KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body===null?null:JSON.stringify(body)});const txt=await r.text();let d=null;try{d=txt?JSON.parse(txt):null}catch{d=txt}if(!r.ok)throw new Error(d?.message||d?.error_description||d?.hint||('요청 실패 '+r.status));return d}catch(e){if(e?.name==='AbortError')throw new Error('일정 정보를 불러오는 데 시간이 오래 걸립니다. 다시 시도해 주세요.');throw e}finally{x.clear()}}
-async function ciGoogleCall(action,{method='GET',body=null,params=null}={}){const token=ciToken();if(!token)throw new Error('로그인이 필요합니다.');const u=new URL(CI_SB+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const x=ciTimeout();try{const r=await fetch(u,{method,signal:x.signal,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):null});const d=await r.json().catch(()=>({}));if(!r.ok||d.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}catch(e){if(e?.name==='AbortError')throw new Error('Google 일정 정보를 불러오는 데 시간이 오래 걸립니다. 다시 시도해 주세요.');throw e}finally{x.clear()}}
+function ciRuntime(){const rt=window.KPTURuntime;if(!rt?.session||!rt?.api)throw new Error('앱 런타임을 불러오지 못했습니다.');return rt}
+async function ciRest(path,{method='GET',body=null}={}){const rt=ciRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');return rt.api(path,{method,body})}
+async function ciGoogleCall(action,{method='GET',body=null,params=null}={}){const rt=ciRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
 function ciPad(n){return String(n).padStart(2,'0')}
 function ciLocal(v){if(!v)return '';const d=new Date(v);return `${d.getFullYear()}-${ciPad(d.getMonth()+1)}-${ciPad(d.getDate())}T${ciPad(d.getHours())}:${ciPad(d.getMinutes())}`}
 function ciParts(v){const d=new Date(v);return {date:`${d.getFullYear()}-${ciPad(d.getMonth()+1)}-${ciPad(d.getDate())}`,time:`${ciPad(d.getHours())}:${ciPad(d.getMinutes())}`}}
