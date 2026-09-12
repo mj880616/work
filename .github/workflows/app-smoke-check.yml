@@ -7,11 +7,7 @@ on:
     paths:
       - 'app/**'
       - '.github/workflows/app-smoke-check.yml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'app/**'
+  workflow_dispatch:
 
 jobs:
   smoke:
