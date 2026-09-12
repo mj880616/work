@@ -64,13 +64,14 @@ jobs:
           test -f app/app-router.js
           test -f app/runtime-client.js
           test -f app/page-builder.js
+          test -f app/project-v2.js
           test -f p/index.html
           test -d app/legacy
           test -f app/legacy/README.md
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
           grep -q 'app.js?v=12' app/index.html
-          grep -q "loader-v2.js?v=96" app/app.js
+          grep -q "loader-v2.js?v=97" app/app.js
           grep -q "auth-ui.js?v=8" app/app.js
           grep -q "calendar-return-bridge.js?v=2" app/app.js
           grep -q "runtime-client.js?v=1" app/loader-v2.js
@@ -83,6 +84,7 @@ jobs:
           grep -q "page-editor-fix.js?v=2" app/loader-v2.js
           grep -q "page-builder.js?v=1" app/loader-v2.js
           grep -q "page-shortcut.js?v=1" app/loader-v2.js
+          grep -q "project-v2.js?v=1" app/loader-v2.js
           grep -q "google-calendar-return-status.js?v=1" app/loader-v2.js
           grep -q "collaboration-center.js?v=5" app/loader-v2.js
           grep -q "notification-center-ui.js?v=5" app/loader-v2.js
@@ -90,6 +92,11 @@ jobs:
           grep -q "KPTURuntime" app/profile-settings.js
           grep -q "KPTURuntime" app/page-editor-fix.js
           grep -q "KPTURuntime" app/page-builder.js
+          grep -q "KPTURuntime" app/project-v2.js
+          grep -q "app_project_sections" app/project-v2.js
+          grep -q "app_project_blocks" app/project-v2.js
+          grep -q "PROJECT HUB" app/project-v2.js
+          grep -q "data-pv-target=\"pvCustomSection\"" app/project-v2.js
           grep -q "PB_TEMPLATES" app/page-builder.js
           grep -q "AI로 초안 만들기" app/page-builder.js
           grep -q "page_design" app/page-builder.js
@@ -101,7 +108,7 @@ jobs:
           if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification center global observer returned'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification center polling returned'; exit 1; fi
           if grep -q "refresh_token" app/task-workflow.js app/meeting-round-detail.js app/page-editor-fix.js; then echo 'feature refresh logic returned'; exit 1; fi
-          if grep -q "kptu_collab_session_v1" app/calendar-health.js app/calendar-persistence.js app/calendar-plus.js app/calendar-interactions-v2.js app/task-workflow.js app/task-layout.js app/profile-settings.js app/page-editor-fix.js app/page-builder.js app/project-access.js app/meeting-round-detail.js app/collaboration-center.js; then echo 'feature-local session storage returned'; exit 1; fi
+          if grep -q "kptu_collab_session_v1" app/calendar-health.js app/calendar-persistence.js app/calendar-plus.js app/calendar-interactions-v2.js app/task-workflow.js app/task-layout.js app/profile-settings.js app/page-editor-fix.js app/page-builder.js app/project-v2.js app/project-access.js app/meeting-round-detail.js app/collaboration-center.js; then echo 'feature-local session storage returned'; exit 1; fi
           if grep -q "task-title-ui.js" app/loader-v2.js; then echo 'task title CSS shim loaded again'; exit 1; fi
           if grep -q "project-create-submit.js" app/loader-v2.js; then echo 'duplicate project submit shim loaded'; exit 1; fi
           if grep -q "task-personal-due.js" app/loader-v2.js; then echo 'duplicate task submit shim loaded'; exit 1; fi
@@ -120,9 +127,11 @@ jobs:
           curl --fail --silent http://127.0.0.1:8123/app/app.js >/tmp/app.js
           curl --fail --silent http://127.0.0.1:8123/app/loader-v2.js >/tmp/loader.js
           curl --fail --silent http://127.0.0.1:8123/app/page-builder.js >/tmp/page-builder.js
+          curl --fail --silent http://127.0.0.1:8123/app/project-v2.js >/tmp/project-v2.js
           curl --fail --silent http://127.0.0.1:8123/p/ >/tmp/public-page.html
           test -s /tmp/app-index.html
           test -s /tmp/app.js
           test -s /tmp/loader.js
           test -s /tmp/page-builder.js
+          test -s /tmp/project-v2.js
           test -s /tmp/public-page.html
