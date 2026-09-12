@@ -27,4 +27,10 @@
   #projectUpdates .list-item>span{font-size:14px;line-height:1.55}
   .project-files-head{align-items:center}.project-files-head>div{min-width:0}
   .section-head>.primary,.section-head>.secondary,#newProjectBtn{padding:5px 8px!important;font-size:11px!important;min-height:29px!important}
+
+  /* 메시지 상대 선택 영역은 내용 높이만 사용 */
+  .cc-messages-layout{grid-template-rows:auto minmax(0,1fr)!important;align-content:start!important;min-height:0!important}
+  .cc-peer-list{align-self:start!important;min-height:0!important;height:auto!important;padding:4px 6px!important;gap:3px!important;overflow-x:auto!important;overflow-y:hidden!important}
+  .cc-peer{padding:6px 9px!important;line-height:1.2!important;min-height:30px!important}
+  .cc-chat{min-height:420px!important}
 }
