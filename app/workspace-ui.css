@@ -6,4 +6,25 @@
 #taskModal .two-col:has(#taskAssignee){grid-template-columns:1fr}
 .project-file-upload{flex:0 0 auto;white-space:nowrap}
 .project-file-upload span{white-space:nowrap}
-@media(max-width:700px){#projectUpdates .list-item>span{font-size:14px;line-height:1.55}.project-files-head{align-items:center}.project-files-head>div{min-width:0}}
+
+/* 각 메뉴 상단의 추가/등록 버튼은 모바일에서도 작고 일정한 규격으로 유지 */
+.section-head>.primary,
+.section-head>.secondary,
+#newProjectBtn{
+  width:auto!important;
+  min-width:0!important;
+  min-height:30px!important;
+  flex:0 0 auto!important;
+  padding:5px 9px!important;
+  border-radius:8px!important;
+  font-size:11px!important;
+  line-height:1.2!important;
+  white-space:nowrap!important;
+}
+.section-head{align-items:center}
+
+@media(max-width:700px){
+  #projectUpdates .list-item>span{font-size:14px;line-height:1.55}
+  .project-files-head{align-items:center}.project-files-head>div{min-width:0}
+  .section-head>.primary,.section-head>.secondary,#newProjectBtn{padding:5px 8px!important;font-size:11px!important;min-height:29px!important}
+}
