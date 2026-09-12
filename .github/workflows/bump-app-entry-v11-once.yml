@@ -1,0 +1,26 @@
+name: One-time app entry v11 cache bump
+
+on:
+  push:
+    paths:
+      - '.github/workflows/bump-app-entry-v11-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump app entry
+        run: |
+          sed -i 's#app.js?v=10#app.js?v=11#' app/index.html
+          grep -q 'app.js?v=11' app/index.html
+      - name: Commit
+        run: |
+          git config user.name kptu-app-bot
+          git config user.email actions@users.noreply.github.com
+          git add app/index.html
+          git commit -m 'Bump app entry to v11 after session stabilization'
+          git push
