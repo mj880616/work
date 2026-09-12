@@ -30,12 +30,13 @@ function openTeamEventForDate(d){
   setTimeout(()=>document.querySelector('#eventTitle')?.focus(),0);
 }
 document.addEventListener('click',e=>{
+  if(e.target.closest?.('.cal-event,.cp-event,.cm-app,[data-google-event],[data-app-event]'))return;
   const cell=e.target.closest?.('#calendarGrid .cal-cell');
   if(!cell)return;
-  if(e.target.closest('.cal-event,button,a,input,select,textarea'))return;
+  if(e.target.closest('button,a,input,select,textarea'))return;
   const d=clickedDate(cell);
   if(d)openTeamEventForDate(d);
 });
 const style=document.createElement('style');
-style.textContent='#calendarGrid .cal-cell{cursor:pointer}#calendarGrid .cal-cell:hover{outline:1px solid rgba(23,50,77,.18);outline-offset:-1px}';
+style.textContent='#calendarGrid .cal-cell{cursor:pointer;-webkit-tap-highlight-color:transparent}#calendarGrid .cal-event{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}#calendarGrid .cal-cell:hover{outline:1px solid rgba(23,50,77,.18);outline-offset:-1px}';
 document.head.appendChild(style);
