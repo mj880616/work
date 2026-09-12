@@ -41,6 +41,8 @@ async function installSupabaseMock(page, state) {
     }
     if (path === '/rest/v1/app_profiles') return ok(state.profiles);
     if (path === '/rest/v1/app_workspaces') return ok([state.workspace]);
+    if (path === '/rest/v1/app_profile_workplaces') return ok(state.workplaces);
+    if (path === '/rest/v1/app_profile_report_projects') return ok([]);
 
     if (path === '/rest/v1/app_spaces') {
       if (method === 'GET') return ok(state.spaces);
@@ -77,6 +79,12 @@ async function installSupabaseMock(page, state) {
         if (row) Object.assign(row, body || {});
         return ok([]);
       }
+      if (method === 'DELETE') {
+        const id = (url.searchParams.get('id') || '').replace(/^eq\./, '');
+        const idx = state.tasks.findIndex(x => x.id === id);
+        if (idx >= 0) state.tasks.splice(idx, 1);
+        return ok([]);
+      }
     }
 
     if (path === '/rest/v1/app_meetings') {
@@ -91,7 +99,7 @@ async function installSupabaseMock(page, state) {
     if (path === '/rest/v1/app_documents') return ok(state.documents);
     if (path === '/rest/v1/app_groups') return ok([]);
     if (path === '/rest/v1/app_group_members') return ok([]);
-    if (path === '/rest/v1/app_pages') return ok([]);
+    if (path === '/rest/v1/app_pages') return ok(state.pages);
     if (path === '/rest/v1/app_page_shares') return ok([]);
     if (path === '/rest/v1/app_project_updates') return ok([]);
     if (path === '/rest/v1/app_project_checkitems') return ok([]);
@@ -148,10 +156,15 @@ test('login and core workspace flows remain usable', async ({ page }) => {
       { workspace_id: 'workspace-1', user_id: 'user-2', role: 'editor', email: 'peer@example.org' }
     ],
     profiles: [
-      { user_id: 'user-1', display_name: 'E2E 사용자' },
-      { user_id: 'user-2', display_name: '동료 사용자' }
+      { user_id: 'user-1', display_name: 'E2E 사용자', job_title: '국장' },
+      { user_id: 'user-2', display_name: '동료 사용자', job_title: '팀원' }
+    ],
+    workplaces: [
+      { id: 'workplace-1', user_id: 'user-1', full_name: '한국철도공사', sort_order: 10, created_at: now() },
+      { id: 'workplace-2', user_id: 'user-1', full_name: '공항철도', sort_order: 20, created_at: now() }
     ],
     spaces: [{ id: 'space-1', workspace_id: 'workspace-1', name: '기존 프로젝트', parent_id: null, status: 'active', owner_id: 'user-1', visibility: 'team', sort_order: 10, created_at: now() }],
+    pages: [{ id: 'page-1', workspace_id: 'workspace-1', space_id: 'space-1', slug: 'e2e-page', title: 'E2E 게시글', summary: '공개 게시글', visibility: 'public', status: 'published', owner_id: 'user-1', published_at: now(), created_at: now(), updated_at: now() }],
     events: [], tasks: [], meetings: [], documents: [], directMessages: [],
     projectInvites: [{ id: 'invite-1', project_id: 'space-1', user_id: 'user-1', role: 'edit', status: 'pending', created_at: now() }],
     notifications: [{ id: 'notif-1', user_id: 'user-1', kind: 'project_invite', related_id: 'invite-1', title: '프로젝트 초대', body: '기존 프로젝트에 초대되었습니다.', created_at: now(), read_at: null }]
@@ -178,10 +191,31 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await page.locator('[data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#tlTaskSections')).toContainText('내 할 일');
+  await expect(page.locator('#tlTaskSections')).toContainText('팀에서 부여된 할 일');
   await page.locator('#newTaskBtn').click();
   await page.locator('#taskTitle').fill('E2E 할 일');
   await page.locator('#saveTaskBtn').click();
   await expect.poll(() => state.tasks.length).toBeGreaterThan(0);
+  await expect(page.locator('.tl-task-section').first()).toContainText('E2E 할 일');
+  await expect(page.locator('.tl-task-section').first().locator('.tl-completed')).not.toHaveAttribute('open', '');
+  await page.locator('.tl-task-section').first().locator('[data-tl-toggle]').click();
+  await expect.poll(() => state.tasks[0].status).toBe('done');
+  await expect(page.locator('.tl-task-section').first().locator('.tl-completed summary')).toContainText('완료된 할 일');
+
+  await page.locator('[data-view="profile"]').click();
+  await expect(page.locator('#profileView')).toBeVisible();
+  await expect(page.locator('#psWorkplaceList')).toContainText('한국철도공사');
+  await expect(page.locator('#psWorkplaceList')).toContainText('공항철도');
+  await expect(page.locator('#psWorkplaceList input')).toHaveCount(0);
+
+  await page.locator('[data-view="pages"]').click();
+  await expect(page.locator('#pagesView')).toBeVisible();
+  await expect(page.locator('#pageList')).toContainText('E2E 게시글');
+  const shortcut=page.locator('[data-page-shortcut="1"]');
+  await expect(shortcut).toHaveText('바로가기');
+  await expect(shortcut).toHaveAttribute('target','_blank');
+  await expect(shortcut).toHaveAttribute('href',/slug=e2e-page.*external=1|external=1.*slug=e2e-page/);
 
   await page.locator('[data-view="projects"]').click();
   await page.locator('#newProjectBtn').click();
