@@ -33,4 +33,11 @@
   .cc-peer-list{align-self:start!important;min-height:0!important;height:auto!important;padding:4px 6px!important;gap:3px!important;overflow-x:auto!important;overflow-y:hidden!important}
   .cc-peer{padding:6px 9px!important;line-height:1.2!important;min-height:30px!important}
   .cc-chat{min-height:420px!important}
+
+  /* 하단바 보정은 JS 주입 없이 공용 CSS에서 관리 */
+  .cc-mobile-dock{height:60px!important;padding-top:5px!important;padding-bottom:calc(env(safe-area-inset-bottom) + 2px)!important}
+  .cc-mobile-dock button{font-size:10px!important;gap:1px!important;justify-content:flex-start!important;padding-top:7px!important}
+  .cc-mobile-dock .cc-dock-icon{font-size:17px!important;line-height:1!important}
+  .cc-mobile-dock .cc-count{min-width:15px!important;height:15px!important;font-size:8px!important;padding:0 3px!important}
+  body{padding-bottom:70px!important}
 }
