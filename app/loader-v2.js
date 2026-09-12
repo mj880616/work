@@ -33,7 +33,7 @@
   await import('./project-update-actions.js?v=2');
   await import('./project-task-link.js?v=3');
   await import('./task-completed-label.js?v=2');
-  await import('./task-notes.js?v=1');
+  await import('./task-notes.js?v=2');
   await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=1');
