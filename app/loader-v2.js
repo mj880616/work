@@ -11,7 +11,7 @@
   await import('./auth-login-fallback.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=1');
-  await import('./team.js?v=6');
+  await import('./team.js?v=7');
   await import('./member-default-role.js?v=2');
   await import('./myspace-return.js?v=1');
   await import('./meeting-file-route.js?v=1');
@@ -41,7 +41,7 @@
   await import('./project-task-guide-cleanup.js?v=1');
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
-  await import('./collaboration-center.js?v=2');
+  await import('./collaboration-center.js?v=3');
   await import('./notification-center-ui.js?v=3');
   await import('./task-assignment-visibility.js?v=3');
   await import('./home-cleanup.js?v=2');
