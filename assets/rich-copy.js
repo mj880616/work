@@ -10,17 +10,17 @@
   const KEEP_STYLES=['font-family','font-size','font-weight','font-style','text-decoration','text-align','line-height','color','background-color','white-space','vertical-align'];
   const IS_RAIL_1007=location.pathname.includes('/rail-council/2026-1007-delegates/');
   const APP_PROJECTS={
-    '/work/2in1/':'0810f1f4-e31f-48b3-b361-c15492e89b12',
-    '/work/workforce/':'66595057-5d92-4193-a5d3-2221a99f82f4',
-    '/work/private-rail/':'455f9b0c-cd46-4597-87e7-27dcf8466a76',
-    '/work/private-rail/page.html':'455f9b0c-cd46-4597-87e7-27dcf8466a76',
-    '/work/rail-council/':'a4581540-dbba-4a48-9736-7a9f51dbde78',
-    '/work/sanbyeol/':'a7305bd9-b5ef-41c0-9747-310eb9b84ae2',
-    '/work/public-policy/':'02f4b08a-f862-44d0-9275-ae57f93bcb3e'
+    '/2in1/':'0810f1f4-e31f-48b3-b361-c15492e89b12',
+    '/workforce/':'66595057-5d92-4193-a5d3-2221a99f82f4',
+    '/private-rail/':'455f9b0c-cd46-4597-87e7-27dcf8466a76',
+    '/private-rail/page.html':'455f9b0c-cd46-4597-87e7-27dcf8466a76',
+    '/rail-council/':'a4581540-dbba-4a48-9736-7a9f51dbde78',
+    '/sanbyeol/':'a7305bd9-b5ef-41c0-9747-310eb9b84ae2',
+    '/public-policy/':'02f4b08a-f862-44d0-9275-ae57f93bcb3e'
   };
 
   function normalizedPath(){
-    let p=location.pathname.replace(/\/index\.html$/,'/');
+    let p=location.pathname.replace(/^\/work(?=\/)/,'').replace(/\/index\.html$/,'/');
     if(!p.endsWith('/')&&!p.endsWith('.html'))p+='/';
     return p;
   }
