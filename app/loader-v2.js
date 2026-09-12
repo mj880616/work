@@ -11,6 +11,7 @@
   await import('./brand-logo.js?v=1');
   await import('./team.js?v=5');
   await import('./meeting-file-route.js?v=1');
+  await import('./calendar-google-fast-edit.js?v=1');
   await Promise.all([
     import('./photo-room.js?v=1'),
     import('./project-access.js?v=1'),
