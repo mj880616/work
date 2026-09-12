@@ -2,8 +2,8 @@ const CC_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const CC_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const CC_SESSION='kptu_collab_session_v1';
 let ccUser=null,ccWorkspace=null,ccRole=null,ccMembers=[],ccProfiles=[],ccSpaces=[],ccCurrentProject=null,ccPeer=null,ccTimer=null;
-function ccSession(){try{return JSON.parse(localStorage.getItem(CC_SESSION)||'null')}catch{return null}}
-async function ccApi(path,{method='GET',body=null,prefer=''}={}){const s=ccSession();if(!s?.access_token)throw new Error('로그인이 필요합니다.');const h={apikey:CC_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'};if(prefer)h.Prefer=prefer;const r=await fetch(CC_SB+path,{method,headers:h,body:body===null?null:JSON.stringify(body),cache:'no-store'});const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.error_description||d?.hint||('요청 실패 '+r.status));return d}
+function ccSession(){if(window.KPTURuntime?.session)return window.KPTURuntime.session.read();try{return JSON.parse(localStorage.getItem(CC_SESSION)||'null')}catch{return null}}
+async function ccApi(path,{method='GET',body=null,prefer=''}={}){if(window.KPTURuntime?.session&&!(await window.KPTURuntime.session.ensure()))throw new Error('로그인이 필요합니다.');const s=ccSession();if(!s?.access_token)throw new Error('로그인이 필요합니다.');const h={apikey:CC_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'};if(prefer)h.Prefer=prefer;const r=await fetch(CC_SB+path,{method,headers:h,body:body===null?null:JSON.stringify(body),cache:'no-store'});const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.error_description||d?.hint||('요청 실패 '+r.status));return d}
 function ccEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function ccName(id){return ccProfiles.find(x=>x.user_id===id)?.display_name||id?.slice(0,8)||'팀원'}
 function ccFmt(v){return v?new Date(v).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}

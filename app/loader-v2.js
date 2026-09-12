@@ -3,6 +3,7 @@
   if(window.__KPTU_NATIVE_BRIDGE__)return;
   await import('./calendar-return-bridge.js?v=1');
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
+  await import('./runtime-client.js?v=1');
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=1');
@@ -11,7 +12,7 @@
   await import('./auth-login-fallback.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=1');
-  await import('./team.js?v=7');
+  await import('./team.js?v=8');
   await import('./member-default-role.js?v=2');
   await import('./myspace-return.js?v=1');
   await import('./meeting-file-route.js?v=1');
@@ -26,7 +27,7 @@
     import('./profile-settings.js?v=1'),
     import('./meeting-round-detail.js?v=4'),
     import('./project-files.js?v=3'),
-    import('./library-upload.js?v=2'),
+    import('./library-upload.js?v=3'),
     import('./page-editor-fix.js?v=1')
   ]);
   await import('./meeting-buttons-compact.js?v=3');
@@ -41,8 +42,8 @@
   await import('./project-task-guide-cleanup.js?v=1');
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
-  await import('./collaboration-center.js?v=3');
-  await import('./notification-center-ui.js?v=3');
+  await import('./collaboration-center.js?v=4');
+  await import('./notification-center-ui.js?v=4');
   await import('./task-assignment-visibility.js?v=3');
   await import('./home-cleanup.js?v=2');
   await import('./calendar-plus.js?v=3');
