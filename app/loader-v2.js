@@ -11,7 +11,7 @@
   await import('./session-resilience.js?v=5');
   await import('./brand-logo.js?v=1');
   await import('./team.js?v=6');
-  await import('./member-default-role.js?v=1');
+  await import('./member-default-role.js?v=2');
   await import('./myspace-return.js?v=1');
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
