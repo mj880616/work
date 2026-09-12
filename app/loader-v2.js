@@ -5,10 +5,13 @@
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
-  await import('./auth-ui.js?v=6');
-  await import('./auth-cleanup.js?v=2');
   await import('./session-resilience.js?v=5');
-  await import('./brand-logo.js?v=1');
+  await import('./startup-speed.js?v=1');
+  await Promise.all([
+    import('./auth-ui.js?v=6'),
+    import('./auth-cleanup.js?v=2'),
+    import('./brand-logo.js?v=1')
+  ]);
   await import('./team.js?v=5');
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
@@ -16,8 +19,8 @@
     import('./project-access.js?v=1'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=2'),
-    import('./calendar-persistence.js?v=7'),
-    import('./calendar-event-edit.js?v=4'),
+    import('./calendar-persistence.js?v=8'),
+    import('./calendar-event-edit.js?v=5'),
     import('./calendar-date-create.js?v=2'),
     import('./task-workflow.js?v=2'),
     import('./task-layout.js?v=1'),
@@ -30,6 +33,7 @@
   await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-edit-actions.js?v=1');
+  await import('./calendar-create-live-title.js?v=1');
   await import('./calendar-app-edit-ui.js?v=3');
   await import('./google-color-palette.js?v=2');
   await import('./calendar-mobile-ui.js?v=2');
