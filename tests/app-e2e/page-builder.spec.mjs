@@ -63,7 +63,7 @@ test('page builder creates a designed AI draft and stores template metadata',asy
   await page.locator('#pbPrompt').fill('인력확충 사업의 현재 상황과 다음 계획을 공유하는 페이지');
   await page.locator('#pbGenerate').click();
   await expect(page.locator('#pageTitle')).toHaveValue('AI 업무현황');
-  await expect(page.locator('#pageBody')).toContainText('현재 상황');
+  await expect(page.locator('#pageBody')).toHaveValue(/현재 상황/);
   await expect(page.locator('#pbPreview')).toBeVisible();
   await expect(page.locator('#pbPreview')).toHaveClass(/status/);
   await expect(page.locator('#pbPreview .pb-paper')).toContainText('다음 계획');
