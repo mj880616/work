@@ -1,4 +1,4 @@
-name: Bump 10.7 controls asset v3
+name: Bump 10.7 UI assets v4
 on:
   push:
     paths:
@@ -11,13 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Bump asset version
+      - name: Bump asset versions
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('rail-council/2026-1007-delegates/index.html')
           s=p.read_text(encoding='utf-8')
-          s=s.replace('/work/assets/rail-1007-controls.js?v=2','/work/assets/rail-1007-controls.js?v=3')
+          s=s.replace('/work/assets/rich-copy.js?v=1','/work/assets/rich-copy.js?v=2')
+          s=s.replace('/work/assets/rail-1007-controls.js?v=3','/work/assets/rail-1007-controls.js?v=4')
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -26,5 +27,5 @@ jobs:
           git config user.email github-actions@github.com
           git add rail-council/2026-1007-delegates/index.html
           git diff --cached --quiet && exit 0
-          git commit -m 'Use 10.7 controls v3'
+          git commit -m 'Use 10.7 UI assets v4'
           git push
