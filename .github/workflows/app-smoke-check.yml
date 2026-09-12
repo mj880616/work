@@ -72,7 +72,7 @@ jobs:
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
           grep -q 'app.js?v=12' app/index.html
-          grep -q "loader-v2.js?v=98" app/app.js
+          grep -q "loader-v2.js?v=99" app/app.js
           grep -q "auth-ui.js?v=8" app/app.js
           grep -q "calendar-return-bridge.js?v=2" app/app.js
           grep -q "runtime-client.js?v=1" app/loader-v2.js
@@ -80,7 +80,8 @@ jobs:
           grep -q "workspace-ui.css?v=5" app/loader-v2.js
           grep -q "auth-ui.js?v=8" app/loader-v2.js
           grep -q "team.js?v=8" app/loader-v2.js
-          grep -q "task-layout.js?v=4" app/loader-v2.js
+          grep -q "task-layout.js?v=5" app/loader-v2.js
+          grep -q "task-assignment-visibility.js?v=4" app/loader-v2.js
           grep -q "profile-settings.js?v=2" app/loader-v2.js
           grep -q "project-files.js?v=4" app/loader-v2.js
           grep -q "project-task-link.js?v=6" app/loader-v2.js
@@ -100,6 +101,8 @@ jobs:
           grep -q "KPTURuntime" app/project-templates.js
           grep -q "KPTURuntime" app/project-files.js
           grep -q "KPTURuntime" app/project-task-link.js
+          grep -q "tlIsTeamAssigned" app/task-layout.js
+          grep -q "tl-incomplete" app/task-layout.js
           grep -q "app_project_sections" app/project-v2.js
           grep -q "app_project_blocks" app/project-v2.js
           grep -q "PROJECT HUB" app/project-v2.js

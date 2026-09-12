@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><style>.hidden{display:none}</style></head>
+<body>
+  <div id="tasksView"><div class="toolbar"></div><div id="taskList"></div></div>
+  <div id="taskModal" class="hidden" aria-hidden="true">
+    <div class="modal-head"><h2>할 일 추가</h2></div>
+    <input id="taskTitle"><select id="taskAssignee"><option value="user-1">나</option></select>
+    <select id="taskProject"><option value="space-1">사업</option></select><input id="taskDue"><select id="taskPriority"><option value="normal">보통</option></select><textarea id="taskDescription"></textarea>
+    <button id="saveTaskBtn">저장</button><div id="taskModalStatus"></div><button data-close="taskModal">닫기</button>
+  </div>
+  <div id="toast" class="hidden"></div>
+  <script>
+    const rows=[
+      {id:'self-open',workspace_id:'workspace-1',project_id:'space-1',title:'내가 만든 프로젝트 할 일',assignee_id:'user-1',created_by:'user-1',source_type:'project',status:'todo'},
+      {id:'self-done',workspace_id:'workspace-1',project_id:'space-1',title:'내가 완료한 프로젝트 할 일',assignee_id:'user-1',created_by:'user-1',source_type:'project',status:'done'},
+      {id:'team-one',workspace_id:'workspace-1',project_id:null,title:'회의에서 부여된 할 일',assignee_id:'user-1',created_by:'user-1',source_type:'meeting',status:'done'}
+    ];
+    window.KPTURuntime={
+      session:{ensure:async()=>true},
+      api:async(path)=>{
+        if(path==='/auth/v1/user')return {id:'user-1'};
+        if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1'}];
+        if(path.startsWith('/rest/v1/app_spaces'))return [{id:'space-1',name:'인력확충 투쟁'}];
+        if(path.startsWith('/rest/v1/app_tasks'))return rows;
+        return [];
+      }
+    };
+    window.KPTURouter={on(){}};
+  </script>
+  <script src="../../app/task-layout.js"></script>
+</body>
+</html>
