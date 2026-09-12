@@ -4,11 +4,26 @@
 
   const UI_SELECTOR=[
     '.unit-tools','.row-tools','.program-rowbar','.program-row-delete','.table-copy-wrap',
-    '.editbar','.jump','.attachment-nav','.kptu-copy-btn','.kptu-copy-wrap',
+    '.editbar','.jump','.attachment-nav','.kptu-copy-btn','.kptu-copy-wrap','.kptu-app-transition',
     'button','input','textarea','select','script','style','noscript'
   ].join(',');
   const KEEP_STYLES=['font-family','font-size','font-weight','font-style','text-decoration','text-align','line-height','color','background-color','white-space','vertical-align'];
   const IS_RAIL_1007=location.pathname.includes('/rail-council/2026-1007-delegates/');
+  const APP_PROJECTS={
+    '/work/2in1/':'0810f1f4-e31f-48b3-b361-c15492e89b12',
+    '/work/workforce/':'66595057-5d92-4193-a5d3-2221a99f82f4',
+    '/work/private-rail/':'455f9b0c-cd46-4597-87e7-27dcf8466a76',
+    '/work/private-rail/page.html':'455f9b0c-cd46-4597-87e7-27dcf8466a76',
+    '/work/rail-council/':'a4581540-dbba-4a48-9736-7a9f51dbde78',
+    '/work/sanbyeol/':'a7305bd9-b5ef-41c0-9747-310eb9b84ae2',
+    '/work/public-policy/':'02f4b08a-f862-44d0-9275-ae57f93bcb3e'
+  };
+
+  function normalizedPath(){
+    let p=location.pathname.replace(/\/index\.html$/,'/');
+    if(!p.endsWith('/')&&!p.endsWith('.html'))p+='/';
+    return p;
+  }
 
   function flash(btn){
     if(!btn)return;
@@ -138,6 +153,19 @@
     });
   }
 
+  function enhanceAppTransition(){
+    if(document.getElementById('kptuAppTransition'))return;
+    const projectId=APP_PROJECTS[normalizedPath()];
+    if(!projectId||!document.body)return;
+    const banner=document.createElement('aside');
+    banner.id='kptuAppTransition';
+    banner.className='kptu-app-transition';
+    banner.setAttribute('role','region');
+    banner.setAttribute('aria-label','앱 전환 안내');
+    banner.innerHTML=`<div class="kptu-app-transition-inner"><div><b>이 사업은 앱 프로젝트로 이전되었습니다.</b><span>업무 현황·할 일·일정·자료 관리는 앱에서 이어집니다. 이 기존 페이지는 이행 기간 동안 유지됩니다.</span></div><a href="/work/app/?project=${encodeURIComponent(projectId)}">앱에서 프로젝트 열기 →</a></div>`;
+    document.body.insertBefore(banner,document.body.firstChild);
+  }
+
   function interceptExisting(){
     document.addEventListener('click',e=>{
       const btn=e.target.closest('.unit-btn.copy,.table-copy-btn');
@@ -151,11 +179,11 @@
   function installStyle(){
     if(document.getElementById('kptu-rich-copy-style'))return;
     const s=document.createElement('style');s.id='kptu-rich-copy-style';
-    s.textContent=`.kptu-copy-wrap{display:flex;justify-content:flex-end;gap:6px;margin:-4px 0 8px}.kptu-copy-wrap.table{margin:8px 0 2px}.kptu-copy-btn{border:1px solid #c7d3dd;background:#fff;color:#294b69;border-radius:8px;padding:6px 9px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.editbar .kptu-copy-btn{order:2}.editbar .editmsg{order:0}@media print{.kptu-copy-wrap,.kptu-copy-btn{display:none!important}}`;
+    s.textContent=`.kptu-copy-wrap{display:flex;justify-content:flex-end;gap:6px;margin:-4px 0 8px}.kptu-copy-wrap.table{margin:8px 0 2px}.kptu-copy-btn{border:1px solid #c7d3dd;background:#fff;color:#294b69;border-radius:8px;padding:6px 9px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.editbar .kptu-copy-btn{order:2}.editbar .editmsg{order:0}.kptu-app-transition{position:relative;z-index:50;margin:0;background:#172d48;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif}.kptu-app-transition-inner{max-width:1040px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:16px}.kptu-app-transition-inner>div{display:flex;align-items:baseline;gap:9px;min-width:0}.kptu-app-transition b{font-size:12px;white-space:nowrap}.kptu-app-transition span{font-size:11px;color:#cbd8e4}.kptu-app-transition a{flex:0 0 auto;border:1px solid rgba(255,255,255,.42);border-radius:8px;padding:6px 9px;color:#fff;text-decoration:none;font-size:11px;font-weight:850;background:rgba(255,255,255,.08)}.kptu-app-transition a:hover{background:rgba(255,255,255,.15)}@media(max-width:700px){.kptu-app-transition-inner{align-items:flex-start;padding:9px 11px}.kptu-app-transition-inner>div{display:block}.kptu-app-transition b{display:block;white-space:normal;margin-bottom:2px}.kptu-app-transition span{display:block;line-height:1.45}.kptu-app-transition a{margin-top:1px;white-space:nowrap}}@media(max-width:460px){.kptu-app-transition-inner{display:block}.kptu-app-transition a{display:inline-block;margin-top:7px}}@media print{.kptu-copy-wrap,.kptu-copy-btn,.kptu-app-transition{display:none!important}}`;
     document.head.append(s);
   }
 
-  function enhance(){installStyle();enhancePressRelease();enhanceGenericSections();enhanceTables()}
+  function enhance(){installStyle();enhanceAppTransition();enhancePressRelease();enhanceGenericSections();enhanceTables()}
   interceptExisting();
   window.KPTURichCopy={copyElement,enhance};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enhance);else enhance();
