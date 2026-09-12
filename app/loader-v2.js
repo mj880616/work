@@ -42,8 +42,8 @@
   await import('./project-task-guide-cleanup.js?v=1');
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
-  await import('./collaboration-center.js?v=1');
-  await import('./notification-center-ui.js?v=2');
+  await import('./collaboration-center.js?v=2');
+  await import('./notification-center-ui.js?v=3');
   await import('./mobile-dock-tune.js?v=1');
   await import('./task-assignment-visibility.js?v=3');
   await import('./home-cleanup.js?v=2');
