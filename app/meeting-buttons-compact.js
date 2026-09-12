@@ -3,7 +3,7 @@
   const s=document.createElement('style');
   s.id='meetingButtonsCompactStyle';
   s.textContent=`
-#meetingRoundDetailModal .meeting-round-detail-card button:not(.icon-btn),
+#meetingRoundDetailModal .meeting-round-detail-card button:not(.icon-btn):not(.map-picker-btn),
 #meetingRoundDetailModal .meeting-round-detail-card .mrd-upload-label{
   width:auto!important;
   min-width:0!important;
@@ -35,8 +35,24 @@
 #meetingRoundDetailModal #mrdTasks{
   margin-top:0!important;
 }
+#meetingRoundDetailModal .mrd-task-form>label:nth-of-type(2),
+#meetingRoundDetailModal .mrd-task-form>label:nth-of-type(3){
+  min-width:0!important;
+  width:100%!important;
+}
+#meetingRoundDetailModal .mrd-task-form .map-picker,
+#meetingRoundDetailModal .mrd-task-form .map-picker-btn,
+#meetingRoundDetailModal .mrd-task-form input[type="date"]{
+  width:100%!important;
+  min-width:0!important;
+}
+#meetingRoundDetailModal .mrd-task-form .map-picker-btn,
+#meetingRoundDetailModal .mrd-task-form input[type="date"]{
+  min-height:42px!important;
+  height:42px!important;
+}
 @media(max-width:700px){
-  #meetingRoundDetailModal .meeting-round-detail-card button:not(.icon-btn),
+  #meetingRoundDetailModal .meeting-round-detail-card button:not(.icon-btn):not(.map-picker-btn),
   #meetingRoundDetailModal .meeting-round-detail-card .mrd-upload-label{
     min-height:31px!important;
     padding:5px 8px!important;
@@ -48,6 +64,27 @@
   }
   #meetingRoundDetailModal .mrd-material-section{
     padding-bottom:14px!important;
+  }
+  #meetingRoundDetailModal .mrd-task-form{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    column-gap:8px!important;
+    row-gap:8px!important;
+  }
+  #meetingRoundDetailModal .mrd-task-form>label:first-child{
+    grid-column:1/-1!important;
+  }
+  #meetingRoundDetailModal .mrd-task-form>label:nth-of-type(2){
+    grid-column:1/2!important;
+  }
+  #meetingRoundDetailModal .mrd-task-form>label:nth-of-type(3){
+    grid-column:2/3!important;
+  }
+  #meetingRoundDetailModal .mrd-task-form .map-picker-btn,
+  #meetingRoundDetailModal .mrd-task-form input[type="date"]{
+    min-height:42px!important;
+    height:42px!important;
+    padding:0 10px!important;
+    font-size:12px!important;
   }
 }
 `;
