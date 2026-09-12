@@ -6,6 +6,20 @@
     .slice(0,170);
 
   const isQuestion0912=location.pathname.includes('/private-rail/question-0912/');
+  const oldQuestionTitle='민자철도 안전인력 기준 및 철도안전관리체계 실효성';
+  const newQuestionTitle='국토교통부 장관 인사청문회 구두 질의 요청';
+  const ensureQuestionTitle=()=>{
+    if(!isQuestion0912)return;
+    document.title=newQuestionTitle;
+    const el=document.querySelector('[data-edit="title"]');
+    if(el&&el.textContent.trim()===oldQuestionTitle)el.textContent=newQuestionTitle;
+  };
+  ensureQuestionTitle();
+  if(isQuestion0912){
+    const titleEl=document.querySelector('[data-edit="title"]');
+    if(titleEl)new MutationObserver(ensureQuestionTitle).observe(titleEl,{childList:true,subtree:true,characterData:true});
+  }
+
   const cfg={
     api:'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/pc0921-board?board=private_rail',
     itemKey:'page_edit_'+pathKey,
@@ -25,7 +39,7 @@
 
   const setStatus=(t)=>{if(status)status.textContent=t};
   const collect=()=>Object.fromEntries(els.map(el=>[el.dataset.edit,el.innerHTML]));
-  const apply=(fields)=>{if(!fields||typeof fields!=='object')return;els.forEach(el=>{if(Object.prototype.hasOwnProperty.call(fields,el.dataset.edit))el.innerHTML=fields[el.dataset.edit]})};
+  const apply=(fields)=>{if(!fields||typeof fields!=='object')return;els.forEach(el=>{if(Object.prototype.hasOwnProperty.call(fields,el.dataset.edit))el.innerHTML=fields[el.dataset.edit]});ensureQuestionTitle()};
 
   const usedDeleteKeys=new Set();
   deletables.forEach((el,i)=>{
@@ -136,11 +150,13 @@
       backup(server.fields,server.deleted||[],server.savedAt||new Date().toISOString(),true);
       setStatus('저장본 불러옴');
     }
+    ensureQuestionTitle();
   }
 
   async function persist(){
     const pw=prompt('마스터 비밀번호를 입력하세요.');
     if(pw===null)return;
+    ensureQuestionTitle();
     const fields=collect(),deleted=collectDeleted(),savedAt=new Date().toISOString();
     backup(fields,deleted,savedAt,false);
     save.disabled=true;setStatus('저장 중…');
