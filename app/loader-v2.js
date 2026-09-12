@@ -22,7 +22,7 @@
     import('./photo-room.js?v=1'),
     import('./project-access.js?v=4'),
     import('./password-reset.js?v=1'),
-    import('./calendar-health.js?v=2'),
+    import('./calendar-health.js?v=3'),
     import('./calendar-persistence.js?v=8'),
     import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=3'),
@@ -48,9 +48,9 @@
   await import('./notification-center-ui.js?v=5');
   await import('./task-assignment-visibility.js?v=3');
   await import('./home-cleanup.js?v=2');
-  await import('./calendar-plus.js?v=3');
+  await import('./calendar-plus.js?v=4');
   await import('./calendar-defaults.js?v=1');
-  await import('./calendar-interactions-v2.js?v=1');
+  await import('./calendar-interactions-v2.js?v=2');
   await import('./calendar-mobile-ui.js?v=2');
   await import('./suborganizations.js?v=1');
   await import('./suborganization-planned-assignee.js?v=1');
