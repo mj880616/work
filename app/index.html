@@ -129,5 +129,5 @@
 <div id="groupModal" class="modal hidden" aria-hidden="true"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">GROUP</div><h2>그룹 만들기</h2></div><button class="icon-btn" data-close="groupModal" type="button">×</button></div><label>그룹명<input id="groupName" type="text"></label><label>슬러그<input id="groupSlug" type="text"></label><label>설명<textarea id="groupDescription" rows="3"></textarea></label><button id="saveGroupBtn" class="primary wide" type="button">저장</button><div id="groupStatus" class="status"></div></div></div>
 <div id="toast" class="toast hidden"></div>
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to','https://mj880616.github.io/work/app/confirmed.html');input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=5" defer></script>
+<script src="./app.js?v=6" defer></script>
 </body></html>
