@@ -5,7 +5,7 @@
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
-  if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=1';document.head.appendChild(l)}
+  if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=2';document.head.appendChild(l)}
   await import('./auth-ui.js?v=6');
   await import('./auth-cleanup.js?v=2');
   await import('./session-resilience.js?v=5');
@@ -30,7 +30,7 @@
   await import('./task-title-ui.js?v=1');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=1');
-  await import('./project-task-link.js?v=1');
+  await import('./project-task-link.js?v=2');
   await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=1');
