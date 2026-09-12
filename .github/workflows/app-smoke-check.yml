@@ -58,8 +58,6 @@ jobs:
           candidates=[p.name for p in sorted(root.glob('*.js')) if p.name not in active]
           print('\nInactive/legacy candidates (informational only):')
           print('\n'.join(candidates) if candidates else '(none)')
-          Path('/tmp/active-modules.txt').write_text('\n'.join(sorted(active)),encoding='utf-8')
-          Path('/tmp/legacy-candidates.txt').write_text('\n'.join(candidates),encoding='utf-8')
           PY
 
       - name: Check stabilized app shell
@@ -72,12 +70,18 @@ jobs:
           test -f app/styles.css
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
-          grep -q 'app.js?v=' app/index.html
+          grep -q 'app.js?v=10' app/index.html
           grep -q "app-router.js?v=1" app/loader-v2.js
-          grep -q "collaboration-center.js?v=2" app/loader-v2.js
+          grep -q "workspace-ui.css?v=5" app/loader-v2.js
+          grep -q "team.js?v=7" app/loader-v2.js
+          grep -q "collaboration-center.js?v=3" app/loader-v2.js
           grep -q "notification-center-ui.js?v=3" app/loader-v2.js
+          grep -q "KPTURouter?.on" app/team.js
           if grep -q "brand-home-nav.js" app/loader-v2.js; then echo 'legacy brand router loaded'; exit 1; fi
           if grep -q "auth-cleanup.js" app/loader-v2.js; then echo 'redundant auth cleanup loaded'; exit 1; fi
+          if grep -q "mobile-dock-tune.js" app/loader-v2.js; then echo 'mobile dock JS override loaded'; exit 1; fi
+          if grep -Fq "$$('.nav-btn').forEach(b=>b.onclick" app/team.js; then echo 'team owns nav click handlers again'; exit 1; fi
+          if grep -q "b.onclick=()=>ccSwitch('messages')" app/collaboration-center.js; then echo 'collaboration owns message nav click again'; exit 1; fi
           if grep -q "프로젝트 초대와 할 일 배정을 여기서 수락·거절합니다" app/collaboration-center.js; then echo 'legacy notification popup copy returned'; exit 1; fi
           if grep -q "p.id='ccProfileTop'" app/collaboration-center.js; then echo 'legacy top profile button returned'; exit 1; fi
 
