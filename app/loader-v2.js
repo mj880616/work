@@ -19,7 +19,7 @@
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=8'),
-    import('./calendar-event-edit.js?v=5'),
+    import('./calendar-event-edit.js?v=6'),
     import('./calendar-date-create.js?v=2'),
     import('./task-workflow.js?v=2'),
     import('./task-layout.js?v=1'),
@@ -33,7 +33,7 @@
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-edit-actions.js?v=1');
   await import('./calendar-create-live-title.js?v=1');
-  await import('./calendar-app-edit-ui.js?v=3');
+  await import('./calendar-app-edit-ui.js?v=4');
   await import('./google-color-palette.js?v=2');
   await import('./calendar-mobile-ui.js?v=2');
 })().catch(err=>{
