@@ -160,6 +160,9 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await installSupabaseMock(page, state);
   await page.goto('http://127.0.0.1:8123/app/');
 
+  await expect(page.locator('#emailAuthToggle')).toBeVisible({ timeout: 10000 });
+  await page.locator('#emailAuthToggle').click();
+  await expect(page.locator('#authEmail')).toBeVisible();
   await page.locator('#authEmail').fill('e2e@example.org');
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
