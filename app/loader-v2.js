@@ -17,7 +17,7 @@
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=7'),
-    import('./calendar-event-edit.js?v=1'),
+    import('./calendar-event-edit.js?v=2'),
     import('./calendar-date-create.js?v=1'),
     import('./task-workflow.js?v=2'),
     import('./task-layout.js?v=1'),
@@ -27,7 +27,7 @@
     import('./library-upload.js?v=1'),
     import('./page-editor-fix.js?v=1')
   ]);
-  await import('./calendar-plus.js?v=2');
+  await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
   await import('./google-color-palette.js?v=1');
   await import('./calendar-mobile-ui.js?v=2');
