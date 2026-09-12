@@ -26,6 +26,7 @@
     import('./library-upload.js?v=1'),
     import('./page-editor-fix.js?v=1')
   ]);
+  await import('./project-create-submit.js?v=1');
   await import('./task-personal-due.js?v=2');
   await import('./task-title-ui.js?v=1');
   await import('./task-project-routing.js?v=1');
