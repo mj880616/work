@@ -8,13 +8,6 @@ on:
       - 'app/**'
       - 'tests/app-e2e/**'
       - '.github/workflows/app-e2e-check.yml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'app/**'
-      - 'tests/app-e2e/**'
-      - '.github/workflows/app-e2e-check.yml'
   workflow_dispatch:
 
 jobs:
