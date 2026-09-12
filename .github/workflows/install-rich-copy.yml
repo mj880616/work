@@ -1,0 +1,48 @@
+name: Install rich copy on static pages
+on:
+  push:
+    paths:
+      - 'assets/rich-copy.js'
+      - '.github/workflows/install-rich-copy.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install-rich-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inject rich copy helper into static HTML pages
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          tag = '<script src="/work/assets/rich-copy.js?v=1"></script>'
+          skip_roots = {'app','android-app','tests','p','s'}
+          changed = []
+
+          for p in Path('.').rglob('*.html'):
+              parts = p.parts
+              if not parts or parts[0] in skip_roots:
+                  continue
+              s = p.read_text(encoding='utf-8')
+              if '/work/assets/rich-copy.js' in s:
+                  continue
+              if re.search(r'</body\s*>', s, flags=re.I):
+                  s = re.sub(r'</body\s*>', tag + '</body>', s, count=1, flags=re.I)
+              else:
+                  s += '\n' + tag + '\n'
+              p.write_text(s, encoding='utf-8')
+              changed.append(str(p))
+
+          print('Rich-copy helper injected into:', *changed, sep='\n- ')
+          PY
+      - name: Commit injected script tags
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add '*.html' '**/*.html' || true
+          git diff --cached --quiet && exit 0
+          git commit -m 'Enable rich section copy across static pages'
+          git push
