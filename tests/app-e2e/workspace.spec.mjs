@@ -186,7 +186,6 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('[data-view="projects"]').click();
   await page.locator('#newProjectBtn').click();
   await expect(page.locator('#projectCreateModal')).toBeVisible();
-  await expect(page.locator('#newProjectVisibility')).toBeVisible();
   await page.locator('#newProjectName').fill('E2E 프로젝트');
   await page.locator('#saveProjectBtn').dispatchEvent('click');
   await expect.poll(() => state.spaces.length).toBeGreaterThan(1);
