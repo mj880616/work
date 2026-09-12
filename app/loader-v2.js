@@ -6,7 +6,6 @@
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./session-resilience.js?v=5');
-  await import('./startup-speed.js?v=1');
   await Promise.all([
     import('./auth-ui.js?v=6'),
     import('./auth-cleanup.js?v=2'),
