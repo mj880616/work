@@ -1,64 +1,18 @@
-const TPD_TASK_PATH='/rest/v1/app_tasks';
+const TPD_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const TPD_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
+const TPD_SESSION='kptu_collab_session_v1';
+let tpdSaving=false;
 
-function tpdToday(){
-  const d=new Date(),p=n=>String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
-}
-function tpdDateOnly(value){
-  if(!value)return null;
-  const s=String(value);
-  const m=s.match(/^(\d{4}-\d{2}-\d{2})/);
-  if(m)return m[1];
-  const d=new Date(value);
-  if(Number.isNaN(d.getTime()))return null;
-  const p=n=>String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
-}
-function tpdNormalizePayload(payload){
-  const rows=Array.isArray(payload)?payload:[payload];
-  rows.forEach(row=>{
-    if(!row||typeof row!=='object'||!Object.prototype.hasOwnProperty.call(row,'due_at'))return;
-    row.due_at=row.due_at?tpdDateOnly(row.due_at):null;
-  });
-  return payload;
-}
-function tpdInstallFetchPatch(){
-  if(window.__KPTU_TASK_DUE_DATE_PATCH__)return;
-  window.__KPTU_TASK_DUE_DATE_PATCH__=true;
-  const previous=window.fetch.bind(window);
-  window.fetch=async function(input,init={}){
-    try{
-      const url=typeof input==='string'?input:(input?.url||'');
-      const method=String(init.method||'GET').toUpperCase();
-      if(url.includes(TPD_TASK_PATH)&&['POST','PATCH'].includes(method)&&typeof init.body==='string'){
-        const payload=tpdNormalizePayload(JSON.parse(init.body));
-        init={...init,body:JSON.stringify(payload)};
-      }
-    }catch(_){ }
-    return previous(input,init);
-  };
-}
-function tpdPrepareInput(){
-  const input=document.querySelector('#taskDue');
-  if(!input)return;
-  const previous=tpdDateOnly(input.value);
-  if(input.type!=='date')input.type='date';
-  input.value=previous||input.value||tpdToday();
-  if(!input.dataset.tpdPicker){
-    input.dataset.tpdPicker='1';
-    input.addEventListener('click',()=>{try{input.showPicker?.()}catch(_){ }});
-  }
-}
-function tpdInit(){
-  tpdInstallFetchPatch();
-  tpdPrepareInput();
-  document.addEventListener('click',e=>{
-    if(e.target.closest?.('#quickTaskBtn,#newTaskBtn'))setTimeout(tpdPrepareInput,0);
-  },true);
-  const modal=document.querySelector('#taskModal');
-  if(modal)new MutationObserver(()=>{
-    if(!modal.classList.contains('hidden'))setTimeout(tpdPrepareInput,0);
-  }).observe(modal,{attributes:true,attributeFilter:['class']});
-}
+function tpdSession(){try{return JSON.parse(localStorage.getItem(TPD_SESSION)||'null')}catch{return null}}
+function tpdToday(){const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
+function tpdDateOnly(value){if(!value)return null;const s=String(value),m=s.match(/^(\d{4}-\d{2}-\d{2})/);if(m)return m[1];const d=new Date(value);if(Number.isNaN(d.getTime()))return null;const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
+function tpdDueIso(date){return date?new Date(date+'T18:00:00+09:00').toISOString():null}
+function tpdStatus(msg,err=false){const el=document.querySelector('#taskModalStatus');if(el){el.textContent=msg||'';el.className='status'+(err?' error':'')}}
+function tpdToast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),1800)}
+async function tpdFetch(path,{method='GET',body=null}={}){const s=tpdSession();if(!s?.access_token)throw new Error('로그인이 필요합니다.');const r=await fetch(TPD_SB+path,{method,headers:{apikey:TPD_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:body===null?null:JSON.stringify(body)});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)throw new Error(data?.message||data?.error_description||data?.hint||('요청 실패 '+r.status));return data}
+async function tpdContext(){const s=tpdSession();if(!s?.access_token)throw new Error('로그인이 필요합니다.');const ur=await fetch(TPD_SB+'/auth/v1/user',{headers:{apikey:TPD_KEY,Authorization:'Bearer '+s.access_token}});if(!ur.ok)throw new Error('사용자 정보를 확인할 수 없습니다.');const user=await ur.json();const ms=await tpdFetch('/rest/v1/app_workspace_members?user_id=eq.'+encodeURIComponent(user.id)+'&select=workspace_id,user_id,role&limit=1');if(!ms?.length)throw new Error('워크스페이스 정보를 확인할 수 없습니다.');return {user,member:ms[0]}}
+function tpdPrepareInput(reset=false){const input=document.querySelector('#taskDue');if(!input)return;if(input.type!=='date')input.type='date';if(reset||!tpdDateOnly(input.value))input.value=tpdToday();else input.value=tpdDateOnly(input.value);if(!input.dataset.tpdPicker){input.dataset.tpdPicker='1';input.addEventListener('click',()=>{try{input.showPicker?.()}catch(_){}});input.addEventListener('focus',()=>{try{input.showPicker?.()}catch(_){}})}}
+async function tpdSave(){if(tpdSaving)return;const title=document.querySelector('#taskTitle')?.value.trim();if(!title)return tpdStatus('할 일을 입력해 주세요.',true);const due=document.querySelector('#taskDue')?.value||tpdToday();const project=document.querySelector('#taskProject')?.value||null;const priority=document.querySelector('#taskPriority')?.value||'normal';const description=document.querySelector('#taskDescription')?.value.trim()||null;const target=document.querySelector('#taskTarget')?.value.trim()||null;const btn=document.querySelector('#saveTaskBtn');tpdSaving=true;if(btn)btn.disabled=true;tpdStatus('저장 중…');try{const {user,member}=await tpdContext();await tpdFetch('/rest/v1/app_tasks',{method:'POST',body:{workspace_id:member.workspace_id,project_id:project,title,description,assignee_id:user.id,status:'todo',priority,due_at:tpdDueIso(due),target,source_type:'manual',source_id:null,created_by:user.id}});document.querySelector('#taskModal')?.classList.add('hidden');tpdToast('할 일을 저장했습니다.');setTimeout(()=>location.reload(),180)}catch(e){tpdStatus(e.message||String(e),true)}finally{tpdSaving=false;if(btn)btn.disabled=false}}
+function tpdInit(){tpdPrepareInput(false);document.addEventListener('click',e=>{if(e.target.closest?.('#quickTaskBtn,#newTaskBtn'))setTimeout(()=>tpdPrepareInput(true),0);const save=e.target.closest?.('#saveTaskBtn');if(save){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();tpdSave()}},true);const modal=document.querySelector('#taskModal');if(modal)new MutationObserver(()=>{if(!modal.classList.contains('hidden'))setTimeout(()=>tpdPrepareInput(true),0)}).observe(modal,{attributes:true,attributeFilter:['class']})}
 
 tpdInit();
