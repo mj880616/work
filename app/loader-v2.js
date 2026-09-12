@@ -10,7 +10,7 @@
   await import('./auth-cleanup.js?v=2');
   await import('./session-resilience.js?v=5');
   await import('./brand-logo.js?v=1');
-  await import('./team.js?v=5');
+  await import('./team.js?v=6');
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
     import('./photo-room.js?v=1'),
@@ -32,7 +32,7 @@
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=1');
   await import('./project-task-link.js?v=2');
-  await import('./project-hierarchy-ui.js?v=1');
+  await import('./project-hierarchy-ui.js?v=2');
   await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=1');
