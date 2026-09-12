@@ -26,7 +26,7 @@
     import('./calendar-persistence.js?v=8'),
     import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=5'),
-    import('./profile-settings.js?v=3'),
+    import('./profile-settings.js?v=2&wd=1'),
     import('./workplace-detail.js?v=1'),
     import('./meeting-round-detail.js?v=5'),
     import('./project-files.js?v=4'),
