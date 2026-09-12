@@ -1,0 +1,40 @@
+name: Update 2in1 labor meeting status
+on:
+  push:
+    paths:
+      - '.github/workflows/update-2in1-labor-meeting-0913.yml'
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update exact 2in1 status text
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('2in1/index.html')
+          s=p.read_text()
+          replacements={
+          '<p>공공운수노조 내부·산하조직 공유용 · 2026. 9. 11. 기준</p>':'<p>공공운수노조 내부·산하조직 공유용 · 2026. 9. 13. 기준</p>',
+          "labor:{title:'고용노동부',status:'면담 완료·후속 추진',body:'9/11 민주노총-고용노동부 산업안전보건본부장 면담 진행. 김제하 공공운수노조 노동안전보건부장 참석. 구의역 당시 현장 방문에 감사를 전하고, 21~22대 국회 입법 추진 경과와 법안소위 과정에서 간사 의원실 보완문구에 찬성했던 맥락을 설명함. 대통령·장관·국회 여당이 적극적인 데 비해 노동부 대응이 미온적인 점을 지적하고, 기존 면담 요청 인지 여부를 확인하며 별도 면담 수용과 2인1조 법제화를 노동부 주요 과제로 추진할 것을 요청함.'}":"labor:{title:'고용노동부',status:'실무면담 일정 조율 중',body:'9/11 민주노총-고용노동부 산업안전보건본부 간담회에서 김제하 공공운수노조 노동안전보건부장이 2인1조 법제화 필요성과 노동부의 적극적 대응을 요구하고, 산업안전보건본부장 별도 면담을 요청함. 이후 민영성 사무관이 추석 전 본부장 일정상 면담이 어렵다며 사무관 실무면담을 제안함. 9/13 공공운수노조 김명진이 회신하여 9/18·9/21·9/22 중 실무면담 일정을 제안함. 실무면담에서는 2인1조 법제화 요구, 국회 발의 법안에 대한 노동부 검토 상황, 관련 쟁점과 향후 제도개선 방향을 협의할 예정임. 아울러 10/2 국회토론회에 산업안전정책과장이 직접 토론자로 참석할 것을 요청하고 실무면담에서 참석 여부를 협의하기로 함. 본부장 면담은 실무면담과 별도로 계속 추진함.'}",
+          "{key:'labor_follow',date:'추석 전',title:'고용노동부 산업안전보건본부 면담 추진',status:'추진'}":"{key:'labor_follow',date:'9/18·9/21·9/22 제안',title:'고용노동부 민영성 사무관 실무면담',status:'일정 조율 중'}",
+          "['task_kmj_labor','고용노동부 대응 및 별도 면담 추진','9/11 본부장 면담 이후 후속']":"['task_kmj_labor','고용노동부 실무면담 및 본부장 별도 면담 추진','9/18·9/21·9/22 실무면담 일정 제안 · 10/2 토론회 산업안전정책과장 참석 요청']",
+          "['task_kjh_gov','고용노동부 산업안전보건본부장 면담 대응','9/11 완료 · 별도 면담 후속 추진']":"['task_kjh_gov','고용노동부 산업안전보건본부 대응','9/11 간담회에서 본부장 별도 면담 요청 · 후속 추진']"
+          }
+          for old,new in replacements.items():
+              if s.count(old)!=1:
+                  raise SystemExit(f'exact target count {s.count(old)}: {old[:80]}')
+              s=s.replace(old,new)
+          for marker in ['영역별 진행상황','공동 준비 체크리스트','10/2 국회토론회 현장증언 모집 안내','주요 일정']:
+              assert marker in s
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add 2in1/index.html
+          git commit -m 'Reflect labor ministry meeting follow-up on 2in1 page'
+          git push
