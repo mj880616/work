@@ -1,0 +1,66 @@
+name: App smoke check
+
+on:
+  push:
+    paths:
+      - 'app/**'
+      - '.github/workflows/app-smoke-check.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check JavaScript syntax
+        run: |
+          set -e
+          find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Check dynamic import targets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, sys
+          root = Path('app')
+          missing = []
+          for name in ['app.js', 'loader-v2.js']:
+              text = (root / name).read_text(encoding='utf-8')
+              for ref in re.findall(r"import\(['\"]([^'\"]+)['\"]\)", text):
+                  rel = ref.split('?', 1)[0]
+                  if rel.startswith('./'):
+                      target = root / rel[2:]
+                      if not target.exists():
+                          missing.append(f'{name}: {ref}')
+          if missing:
+              print('Missing imports:')
+              print('\n'.join(missing))
+              sys.exit(1)
+          print('All dynamic import targets exist.')
+          PY
+
+      - name: Check required app shell files
+        run: |
+          test -f app/index.html
+          test -f app/app.js
+          test -f app/loader-v2.js
+          test -f app/styles.css
+          grep -q 'id="appView"' app/index.html
+          grep -q 'id="authView"' app/index.html
+          grep -q 'app.js?v=' app/index.html
+
+      - name: Static HTTP smoke test
+        run: |
+          python3 -m http.server 8123 >/tmp/kptu-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          sleep 1
+          curl --fail --silent http://127.0.0.1:8123/app/ >/tmp/app-index.html
+          curl --fail --silent http://127.0.0.1:8123/app/app.js >/tmp/app.js
+          curl --fail --silent http://127.0.0.1:8123/app/loader-v2.js >/tmp/loader.js
+          test -s /tmp/app-index.html
+          test -s /tmp/app.js
+          test -s /tmp/loader.js
