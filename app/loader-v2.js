@@ -18,14 +18,14 @@
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
     import('./photo-room.js?v=1'),
-    import('./project-access.js?v=3'),
+    import('./project-access.js?v=4'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=2'),
-    import('./calendar-persistence.js?v=7'),
-    import('./task-workflow.js?v=2'),
+    import('./calendar-persistence.js?v=8'),
+    import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=3'),
     import('./profile-settings.js?v=1'),
-    import('./meeting-round-detail.js?v=4'),
+    import('./meeting-round-detail.js?v=5'),
     import('./project-files.js?v=3'),
     import('./library-upload.js?v=3'),
     import('./page-editor-fix.js?v=1')
