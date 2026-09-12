@@ -1,8 +1,9 @@
 (async()=>{
-  await import('./native-auth-bridge.js?v=3');
+  await import('./native-auth-bridge.js?v=4');
   if(window.__KPTU_NATIVE_BRIDGE__)return;
   await import('./calendar-return-bridge.js?v=1');
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
+  await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./auth-ui.js?v=6');
   await import('./auth-cleanup.js?v=2');
