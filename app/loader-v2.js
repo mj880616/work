@@ -47,6 +47,7 @@
   await import('./calendar-interactions-v2.js?v=1');
   await import('./calendar-mobile-ui.js?v=2');
   await import('./suborganizations.js?v=1');
+  await import('./global-action-buttons.js?v=1');
 })().catch(err=>{
   console.error(err);
   document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
