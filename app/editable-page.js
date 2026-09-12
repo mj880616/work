@@ -20,6 +20,34 @@
     if(titleEl)new MutationObserver(ensureQuestionTitle).observe(titleEl,{childList:true,subtree:true,characterData:true});
   }
 
+  // 같은 서식으로 이어지는 문단은 하나의 편집 덩어리로 묶음.
+  // 제목·라벨·회색 사실박스·답변요구 등 서식이 달라지는 지점은 별도 편집영역으로 유지함.
+  const groupEditNodes=(nodes,key)=>{
+    nodes=[...nodes].filter(Boolean);
+    if(nodes.length<2)return;
+    const parent=nodes[0].parentElement;
+    if(!parent||!nodes.every(n=>n.parentElement===parent))return;
+    const wrap=document.createElement('div');
+    wrap.className='editable-text-group';
+    wrap.dataset.edit=key;
+    parent.insertBefore(wrap,nodes[0]);
+    nodes.forEach(n=>{
+      n.removeAttribute('data-edit');
+      wrap.appendChild(n);
+    });
+  };
+
+  if(isQuestion0912){
+    groupEditNodes(document.querySelectorAll('.summary > p[data-edit^="direction-"]'),'direction-body');
+
+    document.querySelectorAll('.q').forEach((q,i)=>{
+      const ps=q.querySelectorAll(':scope > p[data-edit]');
+      if(ps.length>1)groupEditNodes(ps,'question-block-'+(i+1));
+    });
+
+    groupEditNodes(document.querySelectorAll('main > .section > p[data-edit^="strategy-"]'),'strategy-body');
+  }
+
   const cfg={
     api:'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/pc0921-board?board=private_rail',
     itemKey:'page_edit_'+pathKey,
@@ -63,6 +91,8 @@
     .editing .block-delete-btn{display:flex}
     .block-delete-btn:hover{background:#fff0f0}
     .deleted-block{display:none!important}
+    .editable-text-group{display:block}
+    .editing .editable-text-group{padding:3px 5px;margin-left:-5px;margin-right:-5px}
   `;
   document.head.appendChild(style);
 
