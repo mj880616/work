@@ -8,11 +8,12 @@
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=1');
   if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=5';document.head.appendChild(l)}
-  await import('./auth-ui.js?v=6');
+  await import('./auth-ui.js?v=7');
   await import('./auth-login-fallback.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=1');
   await import('./team.js?v=8');
+  document.querySelector('#authPreloadStyle')?.remove();
   await import('./member-default-role.js?v=2');
   await import('./myspace-return.js?v=1');
   await import('./meeting-file-route.js?v=1');
