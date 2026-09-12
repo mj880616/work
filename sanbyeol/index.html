@@ -171,4 +171,4 @@ async function deleteEl(el){if(getPw()===null)return;if(!confirm('이 내용을 
 async function load(){document.querySelectorAll('.editable').forEach(tools);addScheduleButtons();try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)return;const rows=await r.json();if(!Array.isArray(rows))return;rows.forEach(x=>{const k=String(x.item_key||'');if(!k.startsWith('san_'))return;const key=k.slice(4);const el=document.querySelector('[data-key="'+CSS.escape(key)+'"]');if(el)applyValue(el,x.value);else loadDynamicRow(key,x.value)})}catch(e){console.error(e)}}
 load();
 </script>
-</body></html>
+<script src="/work/assets/rich-copy.js?v=1"></script></body></html>
