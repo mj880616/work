@@ -43,7 +43,7 @@
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
   await import('./collaboration-center.js?v=4');
-  await import('./notification-center-ui.js?v=4');
+  await import('./notification-center-ui.js?v=5');
   await import('./task-assignment-visibility.js?v=3');
   await import('./home-cleanup.js?v=2');
   await import('./calendar-plus.js?v=3');
