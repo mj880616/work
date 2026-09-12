@@ -14,4 +14,4 @@ const authPreload=document.createElement('style');authPreload.id='authPreloadSty
 const teamCssPreload=document.createElement('link');teamCssPreload.rel='preload';teamCssPreload.as='style';teamCssPreload.href='./team.css?v=1';document.head.appendChild(teamCssPreload);
 window.addEventListener('kptu:tasks-changed',()=>{const list=document.querySelector('#taskList');if(!list)return;const marker=document.createElement('span');marker.hidden=true;list.appendChild(marker);marker.remove()});
 import('./pwa.js?v=1');
-import('./meeting-assignee-picker.js?v=1').then(()=>import('./loader-v2.js?v=71')).catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+import('./meeting-assignee-picker.js?v=2').then(()=>import('./loader-v2.js?v=71')).catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
