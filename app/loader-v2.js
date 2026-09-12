@@ -30,7 +30,8 @@
     import('./meeting-round-detail.js?v=5'),
     import('./project-files.js?v=3'),
     import('./library-upload.js?v=3'),
-    import('./page-editor-fix.js?v=1'),
+    import('./page-editor-fix.js?v=2'),
+    import('./page-builder.js?v=1'),
     import('./page-shortcut.js?v=1')
   ]);
   await import('./google-calendar-return-status.js?v=1');
