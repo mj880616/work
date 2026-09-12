@@ -6,6 +6,7 @@
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./session-resilience.js?v=5');
+  await import('./calendar-observer-stability.js?v=1');
   await Promise.all([import('./auth-ui.js?v=6'),import('./auth-cleanup.js?v=2'),import('./brand-logo.js?v=1')]);
   await import('./team.js?v=5');
   await import('./meeting-file-route.js?v=1');
