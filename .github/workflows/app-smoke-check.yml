@@ -20,26 +20,46 @@ jobs:
           set -e
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
-      - name: Check dynamic import targets
+      - name: Check recursive app dependency graph
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re, sys
-          root = Path('app')
-          missing = []
-          for name in ['app.js', 'loader-v2.js']:
-              text = (root / name).read_text(encoding='utf-8')
-              for ref in re.findall(r"import\(['\"]([^'\"]+)['\"]\)", text):
-                  rel = ref.split('?', 1)[0]
+          root=Path('app')
+          queue=['app.js']
+          active=set()
+          missing=[]
+          patterns=[
+              r"import\(['\"]([^'\"]+\.js(?:\?[^'\"]*)?)['\"]\)",
+              r"(?:from|import)\s*['\"]([^'\"]+\.js(?:\?[^'\"]*)?)['\"]",
+              r"serviceWorker\.register\(['\"]([^'\"]+\.js(?:\?[^'\"]*)?)['\"]"
+          ]
+          while queue:
+              name=queue.pop(0)
+              if name in active: continue
+              path=root/name
+              if not path.exists():
+                  missing.append(name);continue
+              active.add(name)
+              text=path.read_text(encoding='utf-8')
+              refs=[]
+              for pat in patterns: refs.extend(re.findall(pat,text))
+              for ref in refs:
+                  rel=ref.split('?',1)[0]
                   if rel.startswith('./'):
-                      target = root / rel[2:]
-                      if not target.exists():
-                          missing.append(f'{name}: {ref}')
+                      child=Path(rel[2:]).name
+                      if not (root/child).exists(): missing.append(f'{name} -> {ref}')
+                      elif child not in active: queue.append(child)
           if missing:
-              print('Missing imports:')
-              print('\n'.join(missing))
-              sys.exit(1)
-          print('All dynamic import targets exist.')
+              print('Missing recursive dependencies:')
+              print('\n'.join(missing));sys.exit(1)
+          print('Active JS modules:',len(active))
+          print('\n'.join(sorted(active)))
+          candidates=[p.name for p in sorted(root.glob('*.js')) if p.name not in active]
+          print('\nInactive/legacy candidates (informational only):')
+          print('\n'.join(candidates) if candidates else '(none)')
+          Path('/tmp/active-modules.txt').write_text('\n'.join(sorted(active)),encoding='utf-8')
+          Path('/tmp/legacy-candidates.txt').write_text('\n'.join(candidates),encoding='utf-8')
           PY
 
       - name: Check stabilized app shell
@@ -60,23 +80,6 @@ jobs:
           if grep -q "auth-cleanup.js" app/loader-v2.js; then echo 'redundant auth cleanup loaded'; exit 1; fi
           if grep -q "프로젝트 초대와 할 일 배정을 여기서 수락·거절합니다" app/collaboration-center.js; then echo 'legacy notification popup copy returned'; exit 1; fi
           if grep -q "p.id='ccProfileTop'" app/collaboration-center.js; then echo 'legacy top profile button returned'; exit 1; fi
-
-      - name: Report inactive top-level modules
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          root=Path('app')
-          entry=(root/'app.js').read_text(encoding='utf-8')+'\n'+(root/'loader-v2.js').read_text(encoding='utf-8')
-          active={Path(x.split('?',1)[0]).name for x in re.findall(r"import\(['\"]([^'\"]+)['\"]\)",entry)}
-          active.update({Path(x.split('?',1)[0]).name for x in re.findall(r"href=['\"]([^'\"]+\.js[^'\"]*)",entry)})
-          candidates=[]
-          for p in sorted(root.glob('*.js')):
-              if p.name not in active and p.name not in {'app.js','loader-v2.js'}:
-                  candidates.append(p.name)
-          print('Inactive/legacy candidates (informational only):')
-          print('\n'.join(candidates) if candidates else '(none)')
-          PY
 
       - name: Static HTTP smoke test
         run: |
