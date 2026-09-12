@@ -214,7 +214,6 @@ button{font:inherit}.wrap{max-width:980px;margin:auto;padding:22px 16px 70px}.ba
 const API='https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/rail-1007-plan';
 const plan=document.getElementById('editablePlan');
 const state=document.getElementById('state');
-let masterPassword='';
 let activeTarget=null;
 let beforeHtml='';
 
@@ -227,18 +226,6 @@ function stripUi(node){
 }
 function cleanPlanHtml(){const clone=plan.cloneNode(true);stripUi(clone);return clone.innerHTML.trim()}
 function targetSnapshot(target){const c=target.cloneNode(true);stripUi(c);return c.innerHTML}
-
-async function ensurePassword(){
-  if(masterPassword)return true;
-  const pw=prompt('마스터 비밀번호를 입력하세요.');
-  if(pw===null)return false;
-  try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check',password:pw})});
-    if(r.status===403){alert('마스터 비밀번호가 올바르지 않습니다.');return false}
-    if(!r.ok)throw 0;
-    masterPassword=pw;return true;
-  }catch{alert('수정 권한을 확인하지 못했습니다. 다시 시도해 주세요.');return false}
-}
 
 function editControls(target){
   if(target.tagName==='TR'){
@@ -282,7 +269,6 @@ function decorate(){
 
 async function startEdit(target){
   if(activeTarget&&activeTarget!==target){alert('수정 중인 항목을 먼저 저장하거나 취소해 주세요.');return}
-  if(!(await ensurePassword()))return;
   activeTarget=target;beforeHtml=targetSnapshot(target);
   target.classList.add('unit-active');
   if(target.tagName==='TR'){
@@ -313,9 +299,8 @@ async function saveEdit(target){
   const content=cleanPlanHtml();
   state.textContent='저장 중…';
   try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',password:masterPassword,content})});
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',content})});
     let d={};try{d=await r.json()}catch{}
-    if(r.status===403){masterPassword='';alert('마스터 비밀번호가 올바르지 않습니다.');state.textContent='저장되지 않았습니다.';target.classList.remove('edit-saving');return}
     if(!r.ok)throw 0;
     finishTarget(target);
     state.textContent='마지막 수정 '+fmt(d.updated_at||new Date().toISOString());
