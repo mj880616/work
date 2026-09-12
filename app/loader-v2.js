@@ -19,7 +19,7 @@
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=7'),
     import('./task-workflow.js?v=2'),
-    import('./task-layout.js?v=1'),
+    import('./task-layout.js?v=2'),
     import('./profile-settings.js?v=1'),
     import('./meeting-round-detail.js?v=1'),
     import('./project-files.js?v=1'),
