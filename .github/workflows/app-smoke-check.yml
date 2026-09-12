@@ -67,16 +67,23 @@ jobs:
           test -f app/app.js
           test -f app/loader-v2.js
           test -f app/app-router.js
+          test -f app/runtime-client.js
           test -f app/styles.css
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
-          grep -q 'app.js?v=10' app/index.html
+          grep -q 'app.js?v=11' app/index.html
+          grep -q "runtime-client.js?v=1" app/loader-v2.js
           grep -q "app-router.js?v=1" app/loader-v2.js
           grep -q "workspace-ui.css?v=5" app/loader-v2.js
-          grep -q "team.js?v=7" app/loader-v2.js
-          grep -q "collaboration-center.js?v=3" app/loader-v2.js
-          grep -q "notification-center-ui.js?v=3" app/loader-v2.js
+          grep -q "team.js?v=8" app/loader-v2.js
+          grep -q "library-upload.js?v=3" app/loader-v2.js
+          grep -q "collaboration-center.js?v=4" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=4" app/loader-v2.js
           grep -q "KPTURouter?.on" app/team.js
+          grep -q "KPTURuntime.session.ensure" app/team.js
+          grep -q "KPTURuntime.session.ensure" app/library-upload.js
+          grep -q "KPTURuntime.session.ensure" app/collaboration-center.js
+          grep -q "KPTURuntime.session.ensure" app/notification-center-ui.js
           if grep -q "brand-home-nav.js" app/loader-v2.js; then echo 'legacy brand router loaded'; exit 1; fi
           if grep -q "auth-cleanup.js" app/loader-v2.js; then echo 'redundant auth cleanup loaded'; exit 1; fi
           if grep -q "mobile-dock-tune.js" app/loader-v2.js; then echo 'mobile dock JS override loaded'; exit 1; fi
@@ -95,7 +102,9 @@ jobs:
           curl --fail --silent http://127.0.0.1:8123/app/app.js >/tmp/app.js
           curl --fail --silent http://127.0.0.1:8123/app/loader-v2.js >/tmp/loader.js
           curl --fail --silent http://127.0.0.1:8123/app/app-router.js >/tmp/router.js
+          curl --fail --silent http://127.0.0.1:8123/app/runtime-client.js >/tmp/runtime.js
           test -s /tmp/app-index.html
           test -s /tmp/app.js
           test -s /tmp/loader.js
           test -s /tmp/router.js
+          test -s /tmp/runtime.js
