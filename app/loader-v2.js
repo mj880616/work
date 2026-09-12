@@ -30,7 +30,7 @@
   await import('./task-personal-due.js?v=2');
   await import('./task-title-ui.js?v=1');
   await import('./task-project-routing.js?v=1');
-  await import('./project-update-actions.js?v=1');
+  await import('./project-update-actions.js?v=2');
   await import('./project-task-link.js?v=3');
   await import('./task-completed-label.js?v=2');
   await import('./calendar-plus.js?v=3');
