@@ -22,14 +22,14 @@
     import('./task-workflow.js?v=2'),
     import('./task-layout.js?v=3'),
     import('./profile-settings.js?v=1'),
-    import('./meeting-round-detail.js?v=3'),
+    import('./meeting-round-detail.js?v=4'),
     import('./project-files.js?v=3'),
     import('./library-upload.js?v=2'),
     import('./page-editor-fix.js?v=1')
   ]);
   await import('./meeting-buttons-compact.js?v=2');
   await import('./photo-upload-fix.js?v=1');
-  await import('./meeting-multi-tasks.js?v=2');
+  await import('./meeting-multi-tasks.js?v=3');
   await import('./project-create-submit.js?v=2');
   await import('./task-personal-due.js?v=2');
   await import('./task-title-ui.js?v=1');
