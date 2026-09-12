@@ -58,9 +58,9 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSupportZoom(false);
-        // 기본 HTTP/WebView 캐시를 유지해 앱을 다시 열 때 정적 파일을 매번 재다운로드하지 않음.
+        // 정적 JS/CSS 캐시는 유지하되, 최상위 HTML은 실행할 때마다 새 URL로 확인한다.
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString(settings.getUserAgentString() + " KPTUAndroid/0.1.5");
+        settings.setUserAgentString(settings.getUserAgentString() + " KPTUAndroid/0.1.6");
         WebView.setWebContentsDebuggingEnabled(false);
 
         webView.setWebChromeClient(new WebChromeClient());
@@ -80,23 +80,27 @@ public class MainActivity extends Activity {
         loadFromIntent(getIntent());
     }
 
+    private String freshHome() {
+        return HOME + "?app=" + System.currentTimeMillis();
+    }
+
     private void loadFromIntent(Intent intent) {
         Uri data = intent != null ? intent.getData() : null;
         if (data != null && "kptuwork".equalsIgnoreCase(data.getScheme()) && "auth".equalsIgnoreCase(data.getHost())) {
             String payload = data.getQueryParameter("payload");
             if (payload != null && !payload.isEmpty()) {
-                webView.loadUrl(HOME + "#" + payload);
+                webView.loadUrl(freshHome() + "#" + payload);
                 return;
             }
-            StringBuilder target = new StringBuilder(HOME);
+            StringBuilder target = new StringBuilder(freshHome());
             if (data.getEncodedFragment() != null && !data.getEncodedFragment().isEmpty()) {
                 target.append('#').append(data.getEncodedFragment());
             } else if (data.getEncodedQuery() != null && !data.getEncodedQuery().isEmpty()) {
-                target.append('?').append(data.getEncodedQuery());
+                target.append('&').append(data.getEncodedQuery());
             }
             webView.loadUrl(target.toString());
         } else {
-            webView.loadUrl(HOME);
+            webView.loadUrl(freshHome());
         }
     }
 
