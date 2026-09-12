@@ -4,4 +4,6 @@
 #projectUpdates .list-item>small{display:block;font-size:10px;line-height:1.3;color:#9aa2aa;margin-top:6px}
 #taskModal label:has(#taskAssignee),#taskModal #personalTaskNote{display:none!important}
 #taskModal .two-col:has(#taskAssignee){grid-template-columns:1fr}
-@media(max-width:700px){#projectUpdates .list-item>span{font-size:14px;line-height:1.55}}
+.project-file-upload{flex:0 0 auto;white-space:nowrap}
+.project-file-upload span{white-space:nowrap}
+@media(max-width:700px){#projectUpdates .list-item>span{font-size:14px;line-height:1.55}.project-files-head{align-items:center}.project-files-head>div{min-width:0}}
