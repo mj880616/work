@@ -29,12 +29,25 @@
 #meetingRoundDetailModal .meeting-round-detail-card .icon-btn{
   flex:none!important;
 }
+#meetingRoundDetailModal .mrd-followup-section .mrd-section-head{
+  margin-bottom:11px!important;
+}
+#meetingRoundDetailModal #mrdTasks{
+  margin-top:0!important;
+}
 @media(max-width:700px){
   #meetingRoundDetailModal .meeting-round-detail-card button:not(.icon-btn),
   #meetingRoundDetailModal .meeting-round-detail-card .mrd-upload-label{
     min-height:31px!important;
     padding:5px 8px!important;
     font-size:10.5px!important;
+  }
+  #meetingRoundDetailModal .meeting-round-detail-card{
+    padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;
+    scroll-padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;
+  }
+  #meetingRoundDetailModal .mrd-material-section{
+    padding-bottom:14px!important;
   }
 }
 `;
