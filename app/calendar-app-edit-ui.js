@@ -32,8 +32,8 @@ function caeUiSync(){
   const color=document.querySelector('#caeColor')?.value||'#7656a8';
   const heroTitle=document.querySelector('#caeHeroTitle');
   const heroColor=document.querySelector('#caeHeroColor');
-  if(heroTitle)heroTitle.textContent=title;
-  if(heroColor)heroColor.style.background=color;
+  if(heroTitle&&heroTitle.textContent!==title)heroTitle.textContent=title;
+  if(heroColor&&heroColor.style.background!==color)heroColor.style.background=color;
   const save=document.querySelector('#caeSave');
   if(save)save.textContent='변경사항 저장';
 }
@@ -43,6 +43,7 @@ function caeUiBind(){
   if(title&&!title.dataset.heroBound){title.dataset.heroBound='1';title.addEventListener('input',caeUiSync)}
   if(color&&!color.dataset.heroBound){color.dataset.heroBound='1';color.addEventListener('input',caeUiSync);color.addEventListener('change',caeUiSync)}
 }
+window.__KPTU_APP_EDIT_HEADER__=()=>{caeUiSync();caeUiBind()};
 const style=document.createElement('style');
 style.id='caeHeroStyles';
 style.textContent=`
@@ -64,15 +65,4 @@ style.textContent=`
 }
 `;
 document.head.appendChild(style);
-
-const observer=new MutationObserver(()=>{
-  const modal=document.querySelector('#caeModal');
-  if(!modal)return;
-  if(!modal.classList.contains('hidden')){caeUiSync();caeUiBind()}
-});
-observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','aria-hidden']});
-
-document.addEventListener('click',e=>{
-  if(e.target.closest?.('.cm-app[data-app-event]'))setTimeout(()=>{caeUiSync();caeUiBind()},80);
-},true);
 setTimeout(()=>{caeUiSync();caeUiBind()},0);
