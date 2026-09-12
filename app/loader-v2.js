@@ -11,15 +11,14 @@
   await import('./brand-logo.js?v=1');
   await import('./team.js?v=5');
   await import('./meeting-file-route.js?v=1');
-  await import('./calendar-google-fast-edit.js?v=2');
   await Promise.all([
     import('./photo-room.js?v=1'),
     import('./project-access.js?v=1'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=7'),
-    import('./calendar-event-edit.js?v=3'),
-    import('./calendar-date-create.js?v=1'),
+    import('./calendar-event-edit.js?v=4'),
+    import('./calendar-date-create.js?v=2'),
     import('./task-workflow.js?v=2'),
     import('./task-layout.js?v=1'),
     import('./profile-settings.js?v=1'),
