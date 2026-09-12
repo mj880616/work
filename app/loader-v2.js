@@ -29,6 +29,7 @@
   ]);
   await import('./calendar-plus.js?v=3');
   await import('./calendar-defaults.js?v=1');
+  await import('./calendar-edit-actions.js?v=1');
   await import('./google-color-palette.js?v=1');
   await import('./calendar-mobile-ui.js?v=2');
 })().catch(err=>{
