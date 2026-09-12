@@ -42,15 +42,41 @@ jobs:
           print('All dynamic import targets exist.')
           PY
 
-      - name: Check required app shell files
+      - name: Check stabilized app shell
         run: |
+          set -e
           test -f app/index.html
           test -f app/app.js
           test -f app/loader-v2.js
+          test -f app/app-router.js
           test -f app/styles.css
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
           grep -q 'app.js?v=' app/index.html
+          grep -q "app-router.js?v=1" app/loader-v2.js
+          grep -q "collaboration-center.js?v=2" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=3" app/loader-v2.js
+          if grep -q "brand-home-nav.js" app/loader-v2.js; then echo 'legacy brand router loaded'; exit 1; fi
+          if grep -q "auth-cleanup.js" app/loader-v2.js; then echo 'redundant auth cleanup loaded'; exit 1; fi
+          if grep -q "프로젝트 초대와 할 일 배정을 여기서 수락·거절합니다" app/collaboration-center.js; then echo 'legacy notification popup copy returned'; exit 1; fi
+          if grep -q "p.id='ccProfileTop'" app/collaboration-center.js; then echo 'legacy top profile button returned'; exit 1; fi
+
+      - name: Report inactive top-level modules
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('app')
+          entry=(root/'app.js').read_text(encoding='utf-8')+'\n'+(root/'loader-v2.js').read_text(encoding='utf-8')
+          active={Path(x.split('?',1)[0]).name for x in re.findall(r"import\(['\"]([^'\"]+)['\"]\)",entry)}
+          active.update({Path(x.split('?',1)[0]).name for x in re.findall(r"href=['\"]([^'\"]+\.js[^'\"]*)",entry)})
+          candidates=[]
+          for p in sorted(root.glob('*.js')):
+              if p.name not in active and p.name not in {'app.js','loader-v2.js'}:
+                  candidates.append(p.name)
+          print('Inactive/legacy candidates (informational only):')
+          print('\n'.join(candidates) if candidates else '(none)')
+          PY
 
       - name: Static HTTP smoke test
         run: |
@@ -61,6 +87,8 @@ jobs:
           curl --fail --silent http://127.0.0.1:8123/app/ >/tmp/app-index.html
           curl --fail --silent http://127.0.0.1:8123/app/app.js >/tmp/app.js
           curl --fail --silent http://127.0.0.1:8123/app/loader-v2.js >/tmp/loader.js
+          curl --fail --silent http://127.0.0.1:8123/app/app-router.js >/tmp/router.js
           test -s /tmp/app-index.html
           test -s /tmp/app.js
           test -s /tmp/loader.js
+          test -s /tmp/router.js
