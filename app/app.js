@@ -1,3 +1,3 @@
 const authPreload=document.createElement('style');authPreload.id='authPreloadStyle';authPreload.textContent='#authView .auth-tabs,#authView #authForm{visibility:hidden;pointer-events:none}';document.head.appendChild(authPreload);
 import('./pwa.js?v=1');
-import('./loader-v2.js?v=14').catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+import('./loader-v2.js?v=15').catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
