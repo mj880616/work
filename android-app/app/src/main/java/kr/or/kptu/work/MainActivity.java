@@ -62,7 +62,7 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSupportZoom(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString(settings.getUserAgentString() + " KPTUAndroid/0.1.7");
+        settings.setUserAgentString(settings.getUserAgentString() + " KPTUAndroid/0.1.8");
         WebView.setWebContentsDebuggingEnabled(false);
 
         webView.setWebChromeClient(new WebChromeClient() {
@@ -101,16 +101,32 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
-                if ("https".equalsIgnoreCase(uri.getScheme()) && INTERNAL_HOST.equalsIgnoreCase(uri.getHost())) {
-                    return false;
+                if (shouldOpenExternal(uri)) {
+                    openExternal(uri);
+                    return true;
                 }
-                openExternal(uri);
-                return true;
+                return false;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                Uri uri = Uri.parse(url);
+                if (shouldOpenExternal(uri)) {
+                    openExternal(uri);
+                    return true;
+                }
+                return false;
             }
         });
 
         webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> openExternal(Uri.parse(url)));
         loadFromIntent(getIntent());
+    }
+
+    private boolean shouldOpenExternal(Uri uri) {
+        if (uri == null) return false;
+        if ("1".equals(uri.getQueryParameter("external"))) return true;
+        return !("https".equalsIgnoreCase(uri.getScheme()) && INTERNAL_HOST.equalsIgnoreCase(uri.getHost()));
     }
 
     @Override
