@@ -77,7 +77,8 @@ jobs:
           test -f app/legacy/README.md
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
-          grep -q 'app.js?v=11' app/index.html
+          grep -q 'app.js?v=12' app/index.html
+          grep -q "loader-v2.js?v=89" app/app.js
           grep -q "runtime-client.js?v=1" app/loader-v2.js
           grep -q "app-router.js?v=1" app/loader-v2.js
           grep -q "workspace-ui.css?v=5" app/loader-v2.js
