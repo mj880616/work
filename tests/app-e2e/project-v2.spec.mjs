@@ -63,8 +63,8 @@ async function mockApp(page,state){
   });
 }
 
-test('project hub provides common sections and editable status blocks',async({page})=>{
-  const state={
+function baseState(){
+  return {
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'프로젝트 관리자'}},
     workspace:{id:'workspace-1',slug:'team',name:'공공기관사업팀 Workspace'},
     spaces:[{id:'space-1',workspace_id:'workspace-1',name:'민자철도',description:'민자철도 운영기준·공영화·사업장별 대응',parent_id:null,status:'active',owner_id:'user-1',visibility:'team',legacy_path:'/work/private-rail/',metadata:{},sort_order:10}],
@@ -75,14 +75,22 @@ test('project hub provides common sections and editable status blocks',async({pa
     pages:[{id:'page-1',workspace_id:'workspace-1',space_id:'space-1',slug:'private-rail-brief',title:'민자철도 현황 공유',status:'published',visibility:'public',updated_at:now()}],
     sections:[],blocks:[]
   };
-  await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/');
+}
+
+async function signIn(page){
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('owner@example.org');
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+}
+
+test('project hub provides common sections and editable status blocks',async({page})=>{
+  const state=baseState();
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/');
+  await signIn(page);
 
   await page.locator('[data-view="projects"]').click();
   const project=page.locator('[data-project="space-1"]').first();
@@ -113,4 +121,15 @@ test('project hub provides common sections and editable status blocks',async({pa
   await expect.poll(()=>state.blocks.length).toBe(1);
   await expect(page.locator('#pvSectionList table')).toContainText('공항철도');
   await expect(page.locator('#pvSectionList table')).toContainText('GTX-A');
+});
+
+test('project query deep link opens the requested project after login',async({page})=>{
+  const state=baseState();
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=space-1');
+  await signIn(page);
+  await expect(page.locator('#projectModal')).toBeVisible({timeout:10000});
+  await expect(page.locator('#projectModalTitle')).toHaveText('민자철도');
+  await expect(page.locator('#pvHub')).toContainText('PROJECT HUB');
+  await expect(page).toHaveURL(/project=space-1/);
 });
