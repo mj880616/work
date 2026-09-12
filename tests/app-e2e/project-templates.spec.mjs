@@ -87,6 +87,7 @@ test('editable project exposes design gallery and applies a reusable template',a
   await page.locator('[data-project="space-1"]').first().click();
   await expect(page.locator('#projectModal')).toBeVisible();
   await expect(page.locator('#pvtOpen')).toBeVisible({timeout:10000});
+  await page.waitForTimeout(500);
 
   await page.locator('#pvtOpen').click();
   await expect(page.locator('#pvtModal')).toBeVisible();
