@@ -14,7 +14,7 @@
   await import('./meeting-file-route.js?v=1');
   await Promise.all([
     import('./photo-room.js?v=1'),
-    import('./project-access.js?v=2'),
+    import('./project-access.js?v=3'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=7'),
