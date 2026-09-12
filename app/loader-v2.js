@@ -19,7 +19,7 @@
     import('./calendar-health.js?v=2'),
     import('./calendar-persistence.js?v=7'),
     import('./task-workflow.js?v=2'),
-    import('./task-layout.js?v=2'),
+    import('./task-layout.js?v=3'),
     import('./profile-settings.js?v=1'),
     import('./meeting-round-detail.js?v=1'),
     import('./project-files.js?v=2'),
@@ -31,7 +31,7 @@
   await import('./task-title-ui.js?v=1');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=2');
-  await import('./project-task-link.js?v=3');
+  await import('./project-task-link.js?v=4');
   await import('./project-task-guide-cleanup.js?v=1');
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
