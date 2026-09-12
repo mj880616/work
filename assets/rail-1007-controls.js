@@ -4,7 +4,6 @@
   if(window.__rail1007ControlsInstalled)return;
   window.__rail1007ControlsInstalled=true;
 
-  const AUTH='https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/pc0921-board?mode=summary';
   const PLAN='https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/rail-1007-plan';
   let unlocked=false, authenticating=false, masterPassword='';
 
@@ -12,6 +11,18 @@
   style.textContent=`
     .program-section.editable-unit{padding-right:25px!important}
     .program-section.editable-unit>h2{padding-right:130px}
+
+    /* 세부항목 수정·삭제 버튼은 해당 문장 바로 뒤에 배치 */
+    .section>ul>li.editable-unit,
+    .decision ol>li.editable-unit{padding-right:0!important}
+    .section>ul>li.editable-unit>.unit-tools,
+    .decision ol>li.editable-unit>.unit-tools{
+      position:static!important;display:inline-flex!important;gap:4px!important;
+      margin-left:8px!important;vertical-align:middle!important;transform:translateY(-1px)
+    }
+    .section>ul>li.editable-unit>.unit-tools .unit-btn,
+    .decision ol>li.editable-unit>.unit-tools .unit-btn{padding:3px 7px!important;font-size:9.5px!important}
+
     @media(max-width:900px){
       .program-section.editable-unit{padding-right:18px!important}
       .program-section.editable-unit>h2{padding-right:130px}
@@ -26,13 +37,15 @@
       .program-section .table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
       .program-section .plan-table{min-width:560px!important;table-layout:auto!important}
       .program-section .plan-table th,.program-section .plan-table td{font-size:11px!important;padding:8px 7px!important;word-break:keep-all!important;overflow-wrap:normal!important}
+      .section>ul>li.editable-unit>.unit-tools,
+      .decision ol>li.editable-unit>.unit-tools{margin-left:5px!important}
     }
   `;
   document.head.append(style);
 
   async function validMaster(password){
     try{
-      const r=await fetch(AUTH,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check',id:1,password})});
+      const r=await fetch(PLAN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check',password})});
       return r.ok;
     }catch{return false}
   }
@@ -80,35 +93,59 @@
   },true);
 
   function heading(sec){return sec.querySelector(':scope > h2')?.textContent.replace(/[\u200B-\u200D\uFEFF]/g,'').trim()||''}
-  function cleanText(li){return li.textContent.replace(/^[\s·ㆍ•]+/,'').trim()}
+  function cleanText(li){
+    const c=li.cloneNode(true);
+    c.querySelectorAll('.unit-tools,.row-tools,.program-row-delete,.kptu-copy-wrap,.kptu-copy-btn').forEach(x=>x.remove());
+    return c.textContent.replace(/^[\s·ㆍ•]+/,'').trim();
+  }
+  function cleanPlanHtml(plan){
+    const c=plan.cloneNode(true);
+    c.querySelectorAll('.unit-tools,.row-tools,.program-rowbar,.program-row-delete,.table-copy-wrap,.kptu-copy-wrap,.kptu-copy-btn').forEach(x=>x.remove());
+    c.querySelectorAll('[contenteditable]').forEach(x=>x.removeAttribute('contenteditable'));
+    c.querySelectorAll('.editable-unit,.unit-active,.program-editing,.program-section').forEach(x=>x.classList.remove('editable-unit','unit-active','program-editing','program-section'));
+    return c.innerHTML.trim();
+  }
+  async function persistPlan(plan){
+    try{await nativeFetch(PLAN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',content:cleanPlanHtml(plan)})})}catch{}
+  }
 
-  function ensureSlogans(){
+  async function ensureSlogans(){
     const plan=document.getElementById('editablePlan');
     if(!plan||plan.querySelector('.loading'))return false;
     const sec=[...plan.querySelectorAll('.section')].find(s=>heading(s).startsWith('7. 핵심 구호'));
     if(!sec)return false;
     let ul=sec.querySelector(':scope > ul');if(!ul){ul=document.createElement('ul');sec.append(ul)}
+
     const firstText='궤도노동자 총단결로 공동투쟁 승리하자';
     const secondText='궤도노동자 공동투쟁으로 산별노조 완성하자!';
     const privateText='안전 사각지대 민자철도 최소 인력기준을 즉각 제도화하라';
-    let items=[...ul.querySelectorAll(':scope > li')];
-    let first=items.find(li=>cleanText(li)===firstText);
-    if(!first){first=document.createElement('li');first.textContent=firstText}
-    let second=items.find(li=>cleanText(li)===secondText);
-    if(!second){second=document.createElement('li');second.textContent=secondText}
-    second.textContent=secondText;
-    second.classList.add('slogan-final');
-    items=[...ul.querySelectorAll(':scope > li')];
-    if(!items.some(li=>cleanText(li)===privateText)){const li=document.createElement('li');li.textContent=privateText;ul.append(li)}
-    if(ul.firstElementChild!==first)ul.insertBefore(first,ul.firstElementChild);
-    if(first.nextElementSibling!==second)ul.insertBefore(second,first.nextElementSibling);
+    let changed=false;
+
+    const normalizeOne=(text,klass='')=>{
+      let matches=[...ul.querySelectorAll(':scope > li')].filter(li=>cleanText(li)===text);
+      let keep=matches.shift();
+      if(!keep){keep=document.createElement('li');keep.textContent=text;changed=true}
+      matches.forEach(li=>{li.remove();changed=true});
+      if(cleanText(keep)!==text||keep.childNodes.length!==1||keep.firstChild?.nodeType!==3){keep.textContent=text;changed=true}
+      if(klass&&!keep.classList.contains(klass)){keep.classList.add(klass);changed=true}
+      return keep;
+    };
+
+    const first=normalizeOne(firstText);
+    const second=normalizeOne(secondText,'slogan-final');
+    normalizeOne(privateText);
+
+    if(ul.firstElementChild!==first){ul.insertBefore(first,ul.firstElementChild);changed=true}
+    if(first.nextElementSibling!==second){ul.insertBefore(second,first.nextElementSibling);changed=true}
+
+    if(changed)await persistPlan(plan);
     setTimeout(()=>window.KPTURichCopy?.enhance?.(),50);
     return true;
   }
 
   let tries=0;
-  const timer=setInterval(()=>{
+  const timer=setInterval(async()=>{
     tries++;
-    if(ensureSlogans()||tries>40)clearInterval(timer);
+    if(await ensureSlogans()||tries>40)clearInterval(timer);
   },250);
 })();
