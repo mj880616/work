@@ -7,8 +7,9 @@
   await import('./auth-bootstrap.js?v=1');
   if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=3';document.head.appendChild(l)}
   await import('./auth-ui.js?v=6');
+  await import('./auth-login-fallback.js?v=1');
   await import('./auth-cleanup.js?v=2');
-  await import('./session-resilience.js?v=5');
+  await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=1');
   await import('./team.js?v=6');
   await import('./member-default-role.js?v=2');
@@ -51,5 +52,6 @@
   await import('./global-action-buttons.js?v=1');
 })().catch(err=>{
   console.error(err);
+  document.querySelector('#authPreloadStyle')?.remove();
   document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
 });
