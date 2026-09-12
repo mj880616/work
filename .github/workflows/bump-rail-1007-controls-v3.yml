@@ -1,0 +1,30 @@
+name: Bump 10.7 controls asset v3
+on:
+  push:
+    paths:
+      - '.github/workflows/bump-rail-1007-controls-v3.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump asset version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('rail-council/2026-1007-delegates/index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('/work/assets/rail-1007-controls.js?v=2','/work/assets/rail-1007-controls.js?v=3')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add rail-council/2026-1007-delegates/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Use 10.7 controls v3'
+          git push
