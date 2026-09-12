@@ -12,4 +12,4 @@ const authPreload=document.createElement('style');authPreload.id='authPreloadSty
 ].forEach(href=>{const l=document.createElement('link');l.rel='modulepreload';l.href=href;document.head.appendChild(l)});
 const teamCssPreload=document.createElement('link');teamCssPreload.rel='preload';teamCssPreload.as='style';teamCssPreload.href='./team.css?v=1';document.head.appendChild(teamCssPreload);
 import('./pwa.js?v=1');
-import('./loader-v2.js?v=21').catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+import('./loader-v2.js?v=22').catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
