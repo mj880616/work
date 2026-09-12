@@ -6,7 +6,7 @@ const authPreload=document.createElement('style');authPreload.id='authPreloadSty
   './auth-bootstrap.js?v=1',
   './auth-ui.js?v=6',
   './auth-cleanup.js?v=2',
-  './session-resilience.js?v=5',
+  './session-resilience.js?v=6',
   './brand-logo.js?v=1',
   './team.js?v=6',
   './project-access.js?v=3'
@@ -17,4 +17,4 @@ import('./pwa.js?v=1');
 Promise.all([
   import('./meeting-assignee-picker.js?v=2'),
   import('./due-date-calendar.js?v=1')
-]).then(()=>import('./loader-v2.js?v=75')).catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+]).then(()=>import('./loader-v2.js?v=76')).catch(err=>{console.error(err);document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
