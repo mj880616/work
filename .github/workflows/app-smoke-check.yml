@@ -78,14 +78,17 @@ jobs:
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
           grep -q 'app.js?v=12' app/index.html
-          grep -q "loader-v2.js?v=90" app/app.js
-          grep -q "auth-ui.js?v=7" app/app.js
+          grep -q "loader-v2.js?v=91" app/app.js
+          grep -q "auth-ui.js?v=8" app/app.js
           grep -q "runtime-client.js?v=1" app/loader-v2.js
           grep -q "app-router.js?v=1" app/loader-v2.js
           grep -q "workspace-ui.css?v=5" app/loader-v2.js
-          grep -q "auth-ui.js?v=7" app/loader-v2.js
+          grep -q "auth-ui.js?v=8" app/loader-v2.js
           grep -q "team.js?v=8" app/loader-v2.js
-          grep -q "authPreloadStyle" app/loader-v2.js
+          grep -q "kptu:auth-fields-ready" app/loader-v2.js
+          grep -q "syncPasswordConfirmation" app/auth-ui.js
+          grep -q "input.disabled=!signup" app/auth-ui.js
+          grep -q "input.required=signup" app/auth-ui.js
           grep -q "library-upload.js?v=3" app/loader-v2.js
           grep -q "collaboration-center.js?v=4" app/loader-v2.js
           grep -q "notification-center-ui.js?v=5" app/loader-v2.js
