@@ -13,6 +13,12 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/meeting-ai-ingest')return ok({ok:true,transcript:'',materials_text:'[토론회 자료]\n현황과 대응 방향',warnings:[]});
+    if(path==='/functions/v1/meeting-ai-draft'){
+      const draft={decisions:'- 10월 대응안을 확정한다.',actions:[{task:'의원실에 최종안 전달',assignee:'일반 사용자',due:'2026-09-20'}],information:'- 정부 협의 경과를 공유했다.'};
+      const row=state.meetings.find(x=>x.id===body?.meeting_id);if(row)Object.assign(row,{ai_draft:draft,transcript_text:body?.transcript_text,result_status:'draft',ai_generated_at:now(),updated_at:now()});
+      return ok({ok:true,draft,warnings:[]});
+    }
     if(path==='/functions/v1/team-ai')return ok({answer:JSON.stringify({decisions:'- 10월 대응안을 확정한다.',actions:[{task:'의원실에 최종안 전달',assignee:'일반 사용자',due:'2026-09-20'}],information:'- 정부 협의 경과를 공유했다.'})});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -105,6 +111,7 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await expect(page.locator('#wfMeetingAiBtn')).toBeVisible({timeout:5000});
   await page.locator('#wfMeetingAiBtn').click();
   await expect(page.locator('#wfMeetingAiModal')).toBeVisible();
+  await expect(page.locator('#wfMeetingGenerate')).toHaveAttribute('data-ingest-backend','1');
   await page.locator('#wfMeetingTranscript').fill('대응안을 확정했다. 일반 사용자가 9월 20일까지 의원실에 최종안을 전달한다. 정부 협의 경과를 공유했다.');
   await page.locator('#wfMeetingGenerate').click();
   await expect(page.locator('#wfMeetingDraft')).toBeVisible();
