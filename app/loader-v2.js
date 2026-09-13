@@ -71,6 +71,7 @@
       await import('./project-hide-legacy.js?v=1');
       await import('./project-type-labels.js?v=2');
       await import('./project-modal-scroll-lock.js?v=2');
+      await import('./project-empty-workstream-guard.js?v=1');
       projectSystemLoaded=true;return true;
     }catch(e){console.warn('project system v2 activation skipped',e);return false}
   };
