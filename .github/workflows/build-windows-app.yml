@@ -1,0 +1,63 @@
+name: Build Windows app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'windows-app/**'
+      - 'app/auth-ui.js'
+      - 'app/native-auth-bridge.js'
+      - 'app/native-callback.html'
+      - 'app/loader-v2.js'
+      - 'app/app.js'
+      - '.github/workflows/build-windows-app.yml'
+  pull_request:
+    paths:
+      - 'windows-app/**'
+      - 'app/auth-ui.js'
+      - 'app/native-auth-bridge.js'
+      - 'app/native-callback.html'
+      - 'app/loader-v2.js'
+      - 'app/app.js'
+      - '.github/workflows/build-windows-app.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore windows-app/KPTUWork.csproj -r win-x64
+
+      - name: Publish Windows x64
+        run: dotnet publish windows-app/KPTUWork.csproj -c Release -r win-x64 --self-contained true --no-restore -o publish/KPTUWork
+
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          $exe = 'publish/KPTUWork/KPTUWork.exe'
+          if (-not (Test-Path $exe)) { throw 'KPTUWork.exe was not produced.' }
+          Get-Item $exe | Format-List Name,Length,LastWriteTime
+
+      - name: Package
+        shell: pwsh
+        run: |
+          if (Test-Path 'KPTUWork-win-x64.zip') { Remove-Item 'KPTUWork-win-x64.zip' -Force }
+          Compress-Archive -Path 'publish/KPTUWork/*' -DestinationPath 'KPTUWork-win-x64.zip' -CompressionLevel Optimal
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KPTUWork-win-x64
+          path: KPTUWork-win-x64.zip
+          if-no-files-found: error
+          retention-days: 30
