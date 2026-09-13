@@ -57,7 +57,16 @@
   await import('./project-deeplink.js?v=1');
   await import('./project-delete.js?v=1');
   await import('./project-task-guide-cleanup.js?v=1');
-  await import('./project-system-v2.js?v=1');
+  try{
+    const u=await window.KPTURuntime.api('/auth/v1/user');
+    const ms=await window.KPTURuntime.api(`/rest/v1/app_workspace_members?user_id=eq.${u.id}&select=workspace_id&limit=1`);
+    const wid=ms?.[0]?.workspace_id;
+    if(wid){
+      const rows=await window.KPTURuntime.api(`/rest/v1/app_spaces?workspace_id=eq.${wid}&select=id,metadata&limit=100`);
+      const useV2=!rows?.length||rows.some(x=>x?.metadata?.project_system==='v2'||x?.metadata?.legacy_snapshot===true);
+      if(useV2)await import('./project-system-v2.js?v=1');
+    }
+  }catch(e){console.warn('project system v2 activation skipped',e)}
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
   await import('./collaboration-center.js?v=5');
