@@ -6,12 +6,20 @@ on:
     paths:
       - '**/*.html'
       - '**/*.js'
+      - '**/*.mjs'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/*.jsx'
       - '.github/workflows/browser-storage-audit.yml'
   pull_request:
     branches: [main]
     paths:
       - '**/*.html'
       - '**/*.js'
+      - '**/*.mjs'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/*.jsx'
       - '.github/workflows/browser-storage-audit.yml'
   workflow_dispatch:
 
@@ -20,36 +28,81 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Audit browser-local persistence
+      - name: Enforce shared-storage policy
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import re, sys
 
-          roots = [Path('.')]
-          exts = {'.html','.js','.mjs','.ts','.tsx','.jsx'}
-          skip_parts = {'.git','node_modules','dist','build'}
-          patterns = {
-              'localStorage': re.compile(r'\blocalStorage\b'),
-              'sessionStorage': re.compile(r'\bsessionStorage\b'),
-              'indexedDB': re.compile(r'\bindexedDB\b'),
-              'CacheStorage': re.compile(r'\bcaches\s*\.'),
+          exts={'.html','.js','.mjs','.ts','.tsx','.jsx'}
+          skip_parts={'.git','node_modules','dist','build'}
+          patterns={
+              'localStorage':re.compile(r'\blocalStorage\b'),
+              'sessionStorage':re.compile(r'\bsessionStorage\b'),
+              'indexedDB':re.compile(r'\bindexedDB\b'),
+              'CacheStorage':re.compile(r'\bcaches\s*\.'),
           }
-          hits=[]
+
+          # Browser-local storage is permitted only for authentication/session state
+          # or a truly device-local UI preference. User-created/shared content must
+          # always be persisted to the server.
+          allowed={
+              'index.html':[r'AUTH_KEY',r'AUTH_SESSION_KEY'],
+              'app/task-project-routing.js':[r'TPR_SESSION'],
+              'app/auth-handoff-client.js':[r'AH_SESSION'],
+              'app/team-profile-view.js':[r'TPV_SESSION'],
+              'app/suborganization-planned-assignee.js':[r'PA_SESSION'],
+              'app/task-notes.js':[r'TN_SESSION'],
+              'app/session-resilience.js':[r'SR_KEY'],
+              'app/calendar-plus.js':[r'CM_PREF'],
+              'app/library-upload.js':[r'LU_SESSION'],
+              'app/suborganizations.js':[r'SO_SESSION'],
+              'app/project-update-actions.js':[r'PUA_SESSION'],
+              'app/photo-upload-fix.js':[r'PUF_SESSION'],
+              'app/team.js':[r'SESSION_KEY'],
+              'app/member-default-role.js':[r'\bSESSION\b'],
+              'app/auth-bootstrap.js':[r'SESSION_KEY'],
+              'app/runtime-client.js':[r'config\.sessionKey'],
+              'app/photo-room.js':[r'SESSION_KEY'],
+              'app/password-reset.js':[r'SESSION_KEY'],
+          }
+
+          active_hits=[]; legacy_hits=[]; violations=[]
           for p in Path('.').rglob('*'):
               if not p.is_file() or p.suffix.lower() not in exts: continue
               if any(part in skip_parts for part in p.parts): continue
-              try: text=p.read_text(encoding='utf-8')
-              except Exception: continue
+              path=p.as_posix().lstrip('./')
+              try:text=p.read_text(encoding='utf-8')
+              except Exception:continue
               for lineno,line in enumerate(text.splitlines(),1):
                   for kind,pat in patterns.items():
-                      if pat.search(line):
-                          hits.append((str(p),lineno,kind,line.strip()))
-          print('=== BROWSER STORAGE AUDIT ===')
-          if not hits:
-              print('NO_BROWSER_LOCAL_PERSISTENCE_FOUND')
-          else:
-              for path,lineno,kind,line in hits:
+                      if not pat.search(line):continue
+                      row=(path,lineno,kind,line.strip())
+                      if path.startswith('app/legacy/'):
+                          legacy_hits.append(row)
+                          continue
+                      active_hits.append(row)
+                      # indexedDB / CacheStorage are not allowlisted at all.
+                      if kind in {'indexedDB','CacheStorage'}:
+                          violations.append(row);continue
+                      tokens=allowed.get(path,[])
+                      if not any(re.search(t,line) for t in tokens):
+                          violations.append(row)
+
+          print('=== ACTIVE BROWSER STORAGE USE ===')
+          for path,lineno,kind,line in active_hits:
+              print(f'{path}:{lineno}: [{kind}] {line}')
+          print(f'ACTIVE_HITS={len(active_hits)}')
+          print('=== INACTIVE LEGACY STORAGE USE (reported only) ===')
+          for path,lineno,kind,line in legacy_hits:
+              print(f'{path}:{lineno}: [{kind}] {line}')
+          print(f'LEGACY_HITS={len(legacy_hits)}')
+
+          if violations:
+              print('=== POLICY VIOLATIONS ===')
+              for path,lineno,kind,line in violations:
                   print(f'{path}:{lineno}: [{kind}] {line}')
-          print(f'TOTAL_HITS={len(hits)}')
+              print('\nBrowser-local persistence is forbidden for shared/user-created content. Use server/shared persistence instead.')
+              sys.exit(1)
+          print('PASS: no unauthorized active browser-local persistence found.')
           PY
