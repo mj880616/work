@@ -57,6 +57,20 @@
   await import('./project-deeplink.js?v=1');
   await import('./project-delete.js?v=1');
   await import('./project-task-guide-cleanup.js?v=1');
+  let projectSystemLoaded=false;
+  const loadProjectSystem=async()=>{
+    if(projectSystemLoaded||!(await window.KPTURuntime.session.ensure()))return false;
+    try{
+      const u=await window.KPTURuntime.api('/auth/v1/user');
+      const ms=await window.KPTURuntime.api(`/rest/v1/app_workspace_members?user_id=eq.${u.id}&select=workspace_id&limit=1`);
+      const wid=ms?.[0]?.workspace_id;if(!wid)return false;
+      const rows=await window.KPTURuntime.api(`/rest/v1/app_spaces?workspace_id=eq.${wid}&select=id,metadata&limit=100`);
+      const useV2=!rows?.length||rows.some(x=>x?.metadata?.project_system==='v2'||x?.metadata?.legacy_snapshot===true);
+      if(!useV2)return false;
+      await import('./project-system-v2.js?v=1');projectSystemLoaded=true;return true;
+    }catch(e){console.warn('project system v2 activation skipped',e);return false}
+  };
+  if(!(await loadProjectSystem()))window.addEventListener('kptu:session-changed',()=>{loadProjectSystem().catch(console.error)},{once:true});
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
   await import('./collaboration-center.js?v=5');
