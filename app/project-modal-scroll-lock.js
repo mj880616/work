@@ -4,6 +4,7 @@
   const MODAL_SELECTOR='[id^="pm2"][id$="Modal"].modal';
   let locked=false;
   let savedScrollY=0;
+  let shellStyle=null;
 
   const openModals=()=>[...document.querySelectorAll(MODAL_SELECTOR)].filter(el=>!el.classList.contains('hidden'));
 
@@ -11,25 +12,37 @@
     if(locked)return;
     locked=true;
     savedScrollY=window.scrollY||window.pageYOffset||0;
+    const shell=document.querySelector('.shell');
     document.documentElement.classList.add('pm2-page-locked');
     document.body.classList.add('pm2-page-locked');
-    document.body.style.position='fixed';
-    document.body.style.top=`-${savedScrollY}px`;
-    document.body.style.left='0';
-    document.body.style.right='0';
-    document.body.style.width='100%';
+    if(shell){
+      shellStyle={position:shell.style.position||'',top:shell.style.top||'',left:shell.style.left||'',right:shell.style.right||'',width:shell.style.width||'',overflow:shell.style.overflow||''};
+      shell.style.position='fixed';
+      shell.style.top=`-${savedScrollY}px`;
+      shell.style.left='0';
+      shell.style.right='0';
+      shell.style.width='100%';
+      shell.style.overflow='hidden';
+      shell.classList.add('pm2-background-locked');
+    }
   }
 
   function unlockPage(){
     if(!locked)return;
     locked=false;
+    const shell=document.querySelector('.shell');
     document.documentElement.classList.remove('pm2-page-locked');
     document.body.classList.remove('pm2-page-locked');
-    document.body.style.position='';
-    document.body.style.top='';
-    document.body.style.left='';
-    document.body.style.right='';
-    document.body.style.width='';
+    if(shell&&shellStyle){
+      shell.style.position=shellStyle.position;
+      shell.style.top=shellStyle.top;
+      shell.style.left=shellStyle.left;
+      shell.style.right=shellStyle.right;
+      shell.style.width=shellStyle.width;
+      shell.style.overflow=shellStyle.overflow;
+      shell.classList.remove('pm2-background-locked');
+    }
+    shellStyle=null;
     window.scrollTo(0,savedScrollY);
   }
 
@@ -54,10 +67,11 @@
     const style=document.createElement('style');
     style.id='pm2ScrollLockStyle';
     style.textContent=`
-      html.pm2-page-locked,body.pm2-page-locked{overflow:hidden!important;overscroll-behavior:none!important}
-      ${MODAL_SELECTOR}{overscroll-behavior:contain}
-      ${MODAL_SELECTOR} .modal-card{overflow-y:auto!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
-      @media(max-width:760px){${MODAL_SELECTOR} .modal-card{max-height:calc(100dvh - env(safe-area-inset-top) - 10px)!important}}
+      html.pm2-page-locked,body.pm2-page-locked{overflow:hidden!important;overscroll-behavior:none!important;height:100%!important}
+      .shell.pm2-background-locked{overflow:hidden!important;overscroll-behavior:none!important}
+      ${MODAL_SELECTOR}{overflow:hidden!important;overscroll-behavior:none!important}
+      ${MODAL_SELECTOR} .modal-card{overflow-y:auto!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+      @media(max-width:760px){${MODAL_SELECTOR} .modal-card{max-height:calc(100dvh - env(safe-area-inset-top) - 8px)!important}}
     `;
     document.head.appendChild(style);
   }
