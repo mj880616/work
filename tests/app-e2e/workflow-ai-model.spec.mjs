@@ -17,8 +17,8 @@ async function mockApp(page,state){
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members'){
-      if(url.searchParams.has('user_id')&&url.searchParams.get('limit')==='1')return ok([{workspace_id:state.workspace.id,user_id:state.user.id,role:'owner',email:state.user.email}]);
-      return ok([{workspace_id:state.workspace.id,user_id:state.user.id,role:'owner',email:state.user.email}]);
+      if(url.searchParams.has('user_id')&&url.searchParams.get('limit')==='1')return ok([{workspace_id:state.workspace.id,user_id:state.user.id,role:'owner'}]);
+      return ok([{workspace_id:state.workspace.id,user_id:state.user.id,role:'owner'}]);
     }
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'일반 사용자'}]);
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
@@ -76,6 +76,7 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 
+  await page.locator('[data-view="tasks"]').click();
   await page.locator('#newTaskBtn').click();
   await expect(page.locator('#taskModal')).toBeVisible();
   await expect(page.locator('#taskProject option')).toHaveCount(2);
