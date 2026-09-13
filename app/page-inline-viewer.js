@@ -7,7 +7,7 @@
   let currentId='';
   let opening=false;
 
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function pageIdFromUrl(){return new URLSearchParams(location.search).get(PARAM)||''}
   function setPageInUrl(id,{replace=false}={}){
@@ -140,6 +140,7 @@
   }
 
   function restore(){
+    if(opening)return;
     const pagesView=document.querySelector('#pagesView');
     if(!pagesView||pagesView.classList.contains('hidden'))return;
     const id=pageIdFromUrl();
