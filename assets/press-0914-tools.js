@@ -57,7 +57,7 @@ function injectFiles(){
   document.getElementById('fileRefreshBtn').onclick=load;
   load();
 
-  if(!document.querySelector('script[src*="file-dropzone.js"]')){const s=document.createElement('script');s.src='/work/assets/file-dropzone.js?v=20260914';document.body.appendChild(s)}
+  if(!document.querySelector('script[src*="file-dropzone.js"]')){const s=document.createElement('script');s.src='/work/assets/file-dropzone.js?v=20260914-2';document.body.appendChild(s)}
 }
 
 function boot(){if(!location.pathname.includes('/workforce/press-conference-0914/'))return;if(location.pathname.includes('/press-release/'))return;installStyle();installProgressFix();injectFiles()}
