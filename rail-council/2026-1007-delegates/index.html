@@ -33,14 +33,14 @@ document.getElementById('printBtn').onclick=()=>window.print();
 const fmt=v=>{try{return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(v))}catch{return''}};
 const heading=(n)=>n?.querySelector?.(':scope > h2')?.textContent.replace(/[\u200B-\u200D\uFEFF]/g,'').trim()||'';
 const h2starts=(n,t)=>heading(n).startsWith(t);
-const isProgram=n=>n?.tagName==='SECTION'&&h2starts(n,'5. 대회 프로그램');
+const isProgram=n=>n?.tagName==='SECTION'&&heading(n).includes('대회 프로그램');
 const deletable=t=>!!t&&(t.matches('.section > ul > li')||t.matches('.requirements > .req')||t.matches('.section > .point')||t.matches('.section > .note')||t.matches('.section > .flow')||t.matches('.decision > ol > li'));
 function stripUi(n){n.querySelectorAll('.unit-tools,.row-tools,.program-rowbar,.program-row-delete,.table-copy-wrap').forEach(x=>x.remove());n.querySelectorAll('[contenteditable]').forEach(x=>x.removeAttribute('contenteditable'));n.querySelectorAll('.editable-unit,.unit-active,.program-editing,.program-section').forEach(x=>x.classList.remove('editable-unit','unit-active','program-editing','program-section'));return n}
 const clean=()=>{const c=plan.cloneNode(true);stripUi(c);return c.innerHTML.trim()};
 async function persist(msg='저장 중…'){state.textContent=msg;const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',content:clean()})});if(!r.ok)throw 0;const d=await r.json();state.textContent='마지막 수정 '+fmt(d.updated_at||new Date())}
 function migrateContent(){let changed=false;
   [...plan.querySelectorAll('.section,.decision')].forEach(s=>{const h=heading(s);if(h.startsWith('9. 조직계획')||h.startsWith('10. 대회 전 사전사업')||h.startsWith('12. 역할분담')||h.startsWith('13. 바로 결정')){s.remove();changed=true}});
-  const slogans=[...plan.querySelectorAll('.section')].find(s=>h2starts(s,'7. 핵심 구호'));
+  const slogans=[...plan.querySelectorAll('.section')].find(s=>heading(s).includes('핵심 구호'));
   if(slogans){const target=[...slogans.querySelectorAll(':scope > ul > li')].find(li=>li.textContent.replace(/^[\s·ㆍ•]+/,'').trim()==='궤도노동자 공동투쟁으로 산별노조 완성하자!');if(target){const cleanText=target.textContent.replace(/^[\s·ㆍ•]+/,'').trim();if(target.textContent!==cleanText){target.textContent=cleanText;changed=true}if(!target.classList.contains('slogan-final')){target.classList.add('slogan-final');changed=true}}}
   const follow=[...plan.querySelectorAll('.section')].find(s=>/10\.7 이후 투쟁 연결/.test(heading(s)));
   if(follow){const flow=follow.querySelector(':scope > .flow');if(flow){let spans=[...flow.querySelectorAll(':scope > span')];let anchor=spans.find(x=>x.textContent.includes('10.24 공동투쟁'));if(!anchor){anchor=spans.find(x=>x.textContent.includes('10월 총궐기'));if(anchor){anchor.textContent='10.24 공동투쟁';changed=true}}const label='11월 초 공동 쟁의행위 찬반투표 결과발표 기자회견';if(anchor&&!spans.some(x=>x.textContent.trim()===label)){const arrow=document.createElement('b');arrow.textContent='→';const box=document.createElement('span');box.textContent=label;anchor.after(arrow,box);changed=true}}}
@@ -64,4 +64,4 @@ async function saveEdit(t){try{await persist();finish(t)}catch{alert('저장하�
 async function load(){try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();plan.innerHTML=(typeof d.content==='string'&&d.content.trim())?d.content:'<section class="section"><h2>저장된 기획안이 없습니다.</h2></section>';state.textContent=d.updated_at?'마지막 수정 '+fmt(d.updated_at):'초안';const changed=migrateContent();decorate();if(changed)try{await persist('내용 정리 저장 중…')}catch{}}catch{plan.innerHTML='<section class="section"><h2>기획안을 불러오지 못했습니다.</h2><p>잠시 후 새로고침해 주세요.</p></section>';state.textContent='불러오기 실패'}}
 load();
 </script>
-<script src="/work/assets/rich-copy.js?v=2"></script><script src="/work/assets/rail-1007-controls.js?v=4"></script></body></html>
+<script src="/work/assets/rich-copy.js?v=2"></script><script src="/work/assets/rail-1007-controls.js?v=5"></script></body></html>
