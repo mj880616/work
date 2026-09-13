@@ -74,7 +74,7 @@ async function signIn(page){
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 
-test('legacy snapshots stay preserved while a normalized V2 project is created and progressed',async({page})=>{
+test('legacy snapshots stay preserved but hidden while a normalized V2 project is created and progressed',async({page})=>{
   const state={
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'프로젝트 관리자'}},
     workspace:{id:'workspace-1',slug:'team',name:'공공기관사업팀 Workspace'},
@@ -86,7 +86,7 @@ test('legacy snapshots stay preserved while a normalized V2 project is created a
   await signIn(page);
   await page.locator('[data-view="projects"]').click();
 
-  await expect(page.locator('.pm2-legacy-box')).toContainText('기존 이식본 1개');
+  await expect(page.locator('.pm2-legacy-box')).toHaveCount(0);
   await expect(page.locator('[data-project="legacy-1"]')).toHaveCount(0);
 
   await page.locator('#newProjectBtn').click();
