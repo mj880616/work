@@ -35,6 +35,8 @@
     import('./page-builder.js?v=1'),
     import('./page-shortcut.js?v=1')
   ]);
+  await import('./workplace-ai-report.js?v=1');
+  await import('./workflow-ai-v3.js?v=1');
   await import('./google-calendar-return-status.js?v=1');
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
@@ -43,6 +45,7 @@
   await import('./project-update-actions.js?v=3');
   await import('./project-task-link.js?v=6');
   await import('./project-v2.js?v=1');
+  await import('./project-operating-model.js?v=1');
   await import('./project-templates.js?v=1');
   await import('./project-deeplink.js?v=1');
   await import('./project-delete.js?v=1');
