@@ -1,26 +1,7 @@
-name: Build Windows app
+name: Build Windows app (legacy/manual)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'windows-app/**'
-      - 'app/auth-ui.js'
-      - 'app/native-auth-bridge.js'
-      - 'app/native-callback.html'
-      - 'app/loader-v2.js'
-      - 'app/app.js'
-      - '.github/workflows/build-windows-app.yml'
-  pull_request:
-    paths:
-      - 'windows-app/**'
-      - 'app/auth-ui.js'
-      - 'app/native-auth-bridge.js'
-      - 'app/native-callback.html'
-      - 'app/loader-v2.js'
-      - 'app/app.js'
-      - '.github/workflows/build-windows-app.yml'
 
 permissions:
   contents: read
