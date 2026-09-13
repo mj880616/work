@@ -69,31 +69,44 @@
     style.textContent=`
       html.pm2-page-locked,body.pm2-page-locked{overflow:hidden!important;overscroll-behavior:none!important;height:100%!important}
       .shell.pm2-background-locked{overflow:hidden!important;overscroll-behavior:none!important}
-      ${MODAL_SELECTOR}{overflow:hidden!important;overscroll-behavior:none!important}
-      ${MODAL_SELECTOR} .modal-card{overflow-y:auto!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;touch-action:pan-y}
 
-      #pm2DetailModal{
+      /* 프로젝트 상세 위에서 호출되는 공용 입력창은 항상 상세창보다 위에 표시 */
+      #taskModal,#documentModal,#meetingModal,#editorModal{z-index:80!important}
+
+      /* Android WebView에서도 카드 자체가 아니라 오버레이가 스크롤을 담당하도록 통일 */
+      ${MODAL_SELECTOR}{
         display:block;
         overflow-y:auto!important;
         overflow-x:hidden!important;
         overscroll-behavior:contain!important;
         -webkit-overflow-scrolling:touch;
         touch-action:pan-y!important;
-        padding-top:max(20px,env(safe-area-inset-top))!important;
-        padding-bottom:max(20px,env(safe-area-inset-bottom))!important;
+        padding:max(20px,env(safe-area-inset-top)) 20px max(20px,env(safe-area-inset-bottom))!important;
       }
-      #pm2DetailModal.hidden{display:none!important}
-      #pm2DetailModal .pm2-detail-card{
+      ${MODAL_SELECTOR}.hidden{display:none!important}
+      ${MODAL_SELECTOR} .modal-card{
         max-height:none!important;
         overflow:visible!important;
         margin:0 auto!important;
         touch-action:auto!important;
       }
+      #pm2DetailModal .pm2-detail-card{max-height:none!important;overflow:visible!important}
 
       @media(max-width:760px){
-        ${MODAL_SELECTOR} .modal-card{max-height:calc(100dvh - env(safe-area-inset-top) - 8px)!important}
-        #pm2DetailModal{padding:8px 0 max(8px,env(safe-area-inset-bottom))!important}
-        #pm2DetailModal .pm2-detail-card{max-height:none!important;min-height:calc(100dvh - env(safe-area-inset-top) - 8px);border-radius:18px 18px 0 0!important}
+        ${MODAL_SELECTOR}{
+          padding:max(8px,env(safe-area-inset-top)) 0 max(12px,env(safe-area-inset-bottom))!important;
+        }
+        ${MODAL_SELECTOR} .modal-card{
+          width:100%!important;
+          max-height:none!important;
+          min-height:0!important;
+          border-radius:18px 18px 0 0!important;
+          padding-bottom:calc(22px + env(safe-area-inset-bottom))!important;
+        }
+        #pm2DetailModal .pm2-detail-card{min-height:calc(100dvh - env(safe-area-inset-top) - 8px)!important}
+        #pm2MilestoneModal .small-card,#pm2DecisionModal .small-card,#pm2ProgressModal .small-card,#pm2WorkstreamModal .small-card,#pm2ModulesModal .small-card{
+          margin-top:8px!important;
+        }
       }
     `;
     document.head.appendChild(style);

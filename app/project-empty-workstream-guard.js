@@ -8,18 +8,22 @@
     const realOptions=[...select.options].filter(option=>option.value);
     const emptyOption=[...select.options].find(option=>!option.value);
     const hasWorkstreams=realOptions.length>0;
+    const shouldDisable=!hasWorkstreams;
 
-    select.disabled=!hasWorkstreams;
-    select.setAttribute('aria-disabled',hasWorkstreams?'false':'true');
+    if(select.disabled!==shouldDisable)select.disabled=shouldDisable;
+    const aria=hasWorkstreams?'false':'true';
+    if(select.getAttribute('aria-disabled')!==aria)select.setAttribute('aria-disabled',aria);
 
     if(emptyOption){
-      emptyOption.textContent=hasWorkstreams?'프로젝트 전체':'프로젝트 전체 · 진행 영역 없음';
+      const label=hasWorkstreams?'프로젝트 전체':'프로젝트 전체 · 진행 영역 없음';
+      if(emptyOption.textContent!==label)emptyOption.textContent=label;
     }
 
     if(!hasWorkstreams){
-      select.value='';
-      select.title='진행 영역이 없어 프로젝트 전체에 연결됩니다.';
-    }else{
+      if(select.value!=='')select.value='';
+      const title='진행 영역이 없어 프로젝트 전체에 연결됩니다.';
+      if(select.title!==title)select.title=title;
+    }else if(select.hasAttribute('title')){
       select.removeAttribute('title');
     }
   }
