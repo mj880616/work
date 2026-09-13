@@ -1,4 +1,4 @@
-const iconHref='./app-icon.svg?v=20260913-2';
+const iconHref='./app-icon.svg?v=20260913-3';
 let favicon=document.querySelector('link[rel="icon"]');
 if(!favicon){favicon=document.createElement('link');favicon.rel='icon';document.head.appendChild(favicon)}
 favicon.type='image/svg+xml';
@@ -8,7 +8,7 @@ if(!appleIcon){appleIcon=document.createElement('link');appleIcon.rel='apple-tou
 appleIcon.href=iconHref;
 const link=document.createElement('link');
 link.rel='manifest';
-link.href='./windows-manifest.json?v=2';
+link.href='./windows-manifest.json?v=3';
 document.head.appendChild(link);
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=1',{scope:'./'}).catch(()=>{}));
