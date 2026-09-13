@@ -1,0 +1,55 @@
+name: Browser storage audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.html'
+      - '**/*.js'
+      - '.github/workflows/browser-storage-audit.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.html'
+      - '**/*.js'
+      - '.github/workflows/browser-storage-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit browser-local persistence
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          roots = [Path('.')]
+          exts = {'.html','.js','.mjs','.ts','.tsx','.jsx'}
+          skip_parts = {'.git','node_modules','dist','build'}
+          patterns = {
+              'localStorage': re.compile(r'\blocalStorage\b'),
+              'sessionStorage': re.compile(r'\bsessionStorage\b'),
+              'indexedDB': re.compile(r'\bindexedDB\b'),
+              'CacheStorage': re.compile(r'\bcaches\s*\.'),
+          }
+          hits=[]
+          for p in Path('.').rglob('*'):
+              if not p.is_file() or p.suffix.lower() not in exts: continue
+              if any(part in skip_parts for part in p.parts): continue
+              try: text=p.read_text(encoding='utf-8')
+              except Exception: continue
+              for lineno,line in enumerate(text.splitlines(),1):
+                  for kind,pat in patterns.items():
+                      if pat.search(line):
+                          hits.append((str(p),lineno,kind,line.strip()))
+          print('=== BROWSER STORAGE AUDIT ===')
+          if not hits:
+              print('NO_BROWSER_LOCAL_PERSISTENCE_FOUND')
+          else:
+              for path,lineno,kind,line in hits:
+                  print(f'{path}:{lineno}: [{kind}] {line}')
+          print(f'TOTAL_HITS={len(hits)}')
+          PY
