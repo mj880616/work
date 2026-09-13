@@ -1,5 +1,6 @@
 const authPreload=document.createElement('style');authPreload.id='authPreloadStyle';authPreload.textContent='#authView .auth-tabs,#authView #authForm{visibility:hidden;pointer-events:none}';document.head.appendChild(authPreload);
 const desktopCss=document.createElement('link');desktopCss.id='desktopUiCss';desktopCss.rel='stylesheet';desktopCss.href='./desktop-ui.css?v=2';document.head.appendChild(desktopCss);
+const desktopTightNav=document.createElement('link');desktopTightNav.id='desktopTightNavCss';desktopTightNav.rel='stylesheet';desktopTightNav.href='./desktop-tight-nav.css?v=1';document.head.appendChild(desktopTightNav);
 [
   './native-auth-bridge.js?v=4',
   './calendar-return-bridge.js?v=2',
