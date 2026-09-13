@@ -125,6 +125,30 @@
     });
   }
 
+  function enhanceRailWholeCopy(){
+    if(!IS_RAIL_1007)return;
+    const actions=document.querySelector('.page-actions');
+    if(!actions||document.getElementById('railWholeCopy'))return;
+    const b=document.createElement('button');
+    b.type='button';b.id='railWholeCopy';b.className='action-btn';b.textContent='전체 문서 복사';
+    b.addEventListener('click',async e=>{
+      e.preventDefault();e.stopPropagation();
+      const plan=document.getElementById('editablePlan');
+      if(!plan)return;
+      const source=document.createElement('div');
+      source.style.cssText='position:fixed;left:-99999px;top:0;width:900px;opacity:.01;pointer-events:none;background:#fff;color:#000;padding:0';
+      const title=document.createElement('h1');
+      title.textContent=document.querySelector('.hero h1')?.textContent||document.title;
+      source.append(title);
+      const subtitle=document.querySelector('.hero p');
+      if(subtitle){const p=document.createElement('p');p.textContent=subtitle.textContent;source.append(p)}
+      [...plan.children].forEach(node=>source.append(node.cloneNode(true)));
+      document.body.append(source);
+      try{await copyElement(source,b)}finally{source.remove()}
+    });
+    actions.prepend(b);
+  }
+
   function enhanceGenericSections(){
     /* 10.7 페이지는 페이지 자체의 단락복사/편집 툴바를 사용해 중복 버튼을 방지 */
     if(IS_RAIL_1007)return;
@@ -160,11 +184,11 @@
   function installStyle(){
     if(document.getElementById('kptu-rich-copy-style'))return;
     const s=document.createElement('style');s.id='kptu-rich-copy-style';
-    s.textContent=`.kptu-copy-wrap{display:flex;justify-content:flex-end;gap:6px;margin:-4px 0 8px}.kptu-copy-wrap.table{margin:8px 0 2px}.kptu-copy-btn{border:1px solid #c7d3dd;background:#fff;color:#294b69;border-radius:8px;padding:6px 9px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.editbar .kptu-copy-btn{order:2}.editbar .editmsg{order:0}@media print{.kptu-copy-wrap,.kptu-copy-btn{display:none!important}}`;
+    s.textContent=`.kptu-copy-wrap{display:flex;justify-content:flex-end;gap:6px;margin:-4px 0 8px}.kptu-copy-wrap.table{margin:8px 0 2px}.kptu-copy-btn{border:1px solid #c7d3dd;background:#fff;color:#294b69;border-radius:8px;padding:6px 9px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.editbar .kptu-copy-btn{order:2}.editbar .editmsg{order:0}@media print{.kptu-copy-wrap,.kptu-copy-btn,#railWholeCopy{display:none!important}}`;
     document.head.append(s);
   }
 
-  function enhance(){installStyle();enhancePressRelease();enhanceGenericSections();enhanceTables()}
+  function enhance(){installStyle();enhanceRailWholeCopy();enhancePressRelease();enhanceGenericSections();enhanceTables()}
   interceptExisting();
   window.KPTURichCopy={copyElement,enhance};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enhance);else enhance();
