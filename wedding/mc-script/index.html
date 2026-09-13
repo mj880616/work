@@ -117,16 +117,15 @@
 
   <script>
     (() => {
+      const API = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/wedding-mc-shared';
       const script = document.getElementById('script');
       const editBtn = document.getElementById('editBtn');
       const saveBtn = document.getElementById('saveBtn');
       const printBtn = document.getElementById('printBtn');
       const savedState = document.getElementById('savedState');
-      const storageKey = 'wedding-mc-script-v1';
       const editableSelector = '.speech, .cue, .hero h1, .hero .meta';
-
-      const stored = localStorage.getItem(storageKey);
-      if (stored) script.innerHTML = stored;
+      let dirty = false;
+      let lastServerUpdated = null;
 
       function setEditing(on){
         document.body.classList.toggle('editing', on);
@@ -138,20 +137,47 @@
         }
       }
 
+      async function loadShared(silent=false){
+        if(document.body.classList.contains('editing') || dirty) return;
+        try{
+          const r = await fetch(API,{cache:'no-store'});
+          if(!r.ok) throw new Error('load');
+          const d = await r.json();
+          if(d.content && d.updated_at !== lastServerUpdated){
+            script.innerHTML = d.content;
+            lastServerUpdated = d.updated_at || null;
+          }
+          if(!silent) savedState.textContent = d.updated_at ? '공동저장 최신본' : '공동저장 준비됨';
+        }catch{
+          if(!silent) savedState.textContent = '불러오기 실패';
+        }
+      }
+
       editBtn.addEventListener('click', () => setEditing(!document.body.classList.contains('editing')));
-      saveBtn.addEventListener('click', () => {
+      saveBtn.addEventListener('click', async () => {
         script.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
-        localStorage.setItem(storageKey, script.innerHTML);
         setEditing(false);
-        savedState.textContent = '저장됨';
-        setTimeout(() => savedState.textContent = '', 1600);
+        savedState.textContent = '서버 저장 중…';
+        try{
+          const r = await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:script.innerHTML})});
+          if(!r.ok) throw new Error('save');
+          const d = await r.json();
+          lastServerUpdated = d.updated_at || null;
+          dirty = false;
+          savedState.textContent = '공동저장됨';
+          setTimeout(() => savedState.textContent = '', 1600);
+        }catch{
+          dirty = true;
+          savedState.textContent = '서버 저장 실패';
+          alert('공동 서버에 저장하지 못했습니다. 다시 시도해 주세요.');
+        }
       });
-      script.addEventListener('input', () => savedState.textContent = '수정됨');
-      printBtn.addEventListener('click', () => {
-        setEditing(false);
-        window.print();
-      });
+      script.addEventListener('input', () => { dirty = true; savedState.textContent = '수정됨 · 미저장'; });
+      printBtn.addEventListener('click', () => { setEditing(false); window.print(); });
+      document.addEventListener('visibilitychange', () => { if(!document.hidden) loadShared(true); });
+      setInterval(() => { if(document.visibilityState === 'visible') loadShared(true); }, 5000);
       setEditing(false);
+      loadShared(false);
     })();
   </script>
 <script src="/work/assets/rich-copy.js?v=1"></script></body>
