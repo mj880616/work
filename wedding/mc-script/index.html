@@ -26,7 +26,6 @@
     .kicker{font-size:13px;letter-spacing:.11em;color:var(--accent);font-weight:800;margin-bottom:12px}
     h1{font-size:34px;line-height:1.28;margin:0 0 10px;letter-spacing:-.045em}
     .meta{font-size:16px;color:var(--muted);font-weight:600}
-    .guide{margin-top:22px;padding:14px 16px;border-radius:12px;background:var(--accent-soft);font-size:13px;color:#6d514c}
     .section{padding:30px 0;border-top:1px solid var(--line);break-inside:avoid-page}
     .section:first-of-type{border-top:0}
     h2{display:flex;gap:10px;align-items:center;font-size:20px;line-height:1.35;margin:0 0 18px;letter-spacing:-.03em}
@@ -51,7 +50,7 @@
     @media print{
       @page{size:A4;margin:15mm 14mm 16mm}
       body{background:white;font-size:10.5pt;line-height:1.65;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .toolbar,.guide,.edit-badge{display:none!important}.wrap{max-width:none;margin:0;padding:0}.paper{box-shadow:none;border:0;border-radius:0;padding:0;background:white}
+      .toolbar,.edit-badge{display:none!important}.wrap{max-width:none;margin:0;padding:0}.paper{box-shadow:none;border:0;border-radius:0;padding:0;background:white}
       .hero{padding-bottom:18px;margin-bottom:10px}h1{font-size:22pt}.meta{font-size:10.5pt}
       .section{padding:15px 0;break-inside:avoid-page;page-break-inside:avoid}.section h2{font-size:14pt;margin-bottom:10px}.num{width:24px;height:24px;font-size:9pt}
       .speech{font-size:11pt}.speech p{margin-bottom:7px}.cue{font-size:9.3pt;padding:8px 10px;margin:10px 0;background:#f3f1ed!important}.cue.music{background:#eef3f8!important}
@@ -66,7 +65,6 @@
       <span class="saved" id="savedState">저장됨</span>
       <button id="editBtn" class="primary" type="button">편집</button>
       <button id="saveBtn" type="button">저장</button>
-      <button id="resetBtn" type="button">원문 복원</button>
       <button id="printBtn" type="button">인쇄</button>
     </div>
   </div>
@@ -77,7 +75,6 @@
         <div class="kicker">WEDDING MC SCRIPT</div>
         <h1>김명진 · 강승지 결혼식 사회 대본</h1>
         <div class="meta">2026년 10월 3일 17:30 · 공덕 아펠가모 7층 마리에홀</div>
-        <div class="guide">편집 버튼을 누르면 본문을 바로 수정할 수 있습니다. 저장 내용은 이 기기의 브라우저에 보관되며, 인쇄 버튼으로 사회자용 A4 대본을 출력할 수 있습니다.</div>
       </header>
 
       <section class="section"><h2><span class="num">01</span>식전 안내 · 예식 3분 전</h2><div class="cue">식전 영상 반복 재생 중</div><div class="speech"><p>잠시 후 5시 30분부터 신랑 김명진 군과 신부 강승지 양의 결혼식이 시작될 예정입니다.</p><p>하객 여러분께서는 실내 입장하여 착석 준비 부탁드립니다.</p><p>뒷 공간이 다소 협소하니 앞좌석부터 채워 앉아 주시면 좋을 것 같습니다.</p></div><div class="cue">식전 영상 종료 · 스크린 UP</div></section>
@@ -123,11 +120,9 @@
       const script = document.getElementById('script');
       const editBtn = document.getElementById('editBtn');
       const saveBtn = document.getElementById('saveBtn');
-      const resetBtn = document.getElementById('resetBtn');
       const printBtn = document.getElementById('printBtn');
       const savedState = document.getElementById('savedState');
       const storageKey = 'wedding-mc-script-v1';
-      const original = script.innerHTML;
       const editableSelector = '.speech, .cue, .hero h1, .hero .meta';
 
       const stored = localStorage.getItem(storageKey);
@@ -152,14 +147,6 @@
         setTimeout(() => savedState.textContent = '', 1600);
       });
       script.addEventListener('input', () => savedState.textContent = '수정됨');
-      resetBtn.addEventListener('click', () => {
-        if(!confirm('이 기기에 저장된 수정 내용을 지우고 처음 대본으로 되돌릴까요?')) return;
-        localStorage.removeItem(storageKey);
-        script.innerHTML = original;
-        setEditing(false);
-        savedState.textContent = '복원됨';
-        setTimeout(() => savedState.textContent = '', 1600);
-      });
       printBtn.addEventListener('click', () => {
         setEditing(false);
         window.print();
