@@ -51,15 +51,16 @@
       .piv-chip{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:850;background:#eef2f5;color:#566370}
       .piv-chip.published{background:#eaf5ee;color:var(--green)}.piv-chip.review{background:#fff4df;color:var(--amber)}.piv-chip.public,.piv-chip.unlisted{background:#e9f2fb;color:var(--blue)}
       .piv-content{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:44px;padding:36px 48px 58px;align-items:start}
-      .piv-body{min-width:0;font-size:15.5px;line-height:1.9;color:#273441;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+      .piv-body{min-width:0;font-size:15.5px;line-height:1.9;color:#273441;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
       .piv-body:empty:before{content:'내용이 없습니다.';color:var(--muted)}
       .piv-aside{border-left:1px solid #edf0f3;padding-left:22px;color:var(--muted)}
       .piv-aside h2{font-size:12px;letter-spacing:.08em;color:#65717d;margin:0 0 16px;text-transform:uppercase}
       .piv-info{margin:0 0 15px}.piv-info dt{font-size:10px;font-weight:900;color:#89939d;margin-bottom:3px}.piv-info dd{font-size:12px;line-height:1.55;color:#4d5965;margin:0;word-break:break-word}
       .piv-loading{padding:90px 24px;text-align:center;color:var(--muted);font-size:13px}
       .piv-error{padding:70px 24px;text-align:center;color:var(--muted)}
-      @media(max-width:820px){.piv-head{padding:32px 30px 26px}.piv-content{grid-template-columns:1fr;gap:28px;padding:30px 30px 48px}.piv-aside{border-left:0;border-top:1px solid #edf0f3;padding:22px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.piv-aside h2{grid-column:1/-1;margin-bottom:0}.piv-info{margin:0}.piv-head h1{font-size:30px}}
-      @media(max-width:760px){.piv-toolbar{margin-bottom:10px;gap:7px}.piv-actions [data-piv-external]{display:none}.piv-actions .mini{padding:6px 8px}.piv-sheet{border-radius:16px}.piv-head{padding:26px 20px 22px}.piv-kicker{margin-bottom:10px}.piv-head h1{font-size:26px;letter-spacing:-.45px}.piv-summary{font-size:14px;margin-top:11px}.piv-badges{margin-top:17px}.piv-content{padding:24px 20px 46px}.piv-body{font-size:15px;line-height:1.82}.piv-aside{grid-template-columns:1fr 1fr}.piv-info:last-child{grid-column:1/-1}}
+      .piv-sheet.pd-hero-band .piv-head{margin:28px 48px 0}.piv-sheet.pd-hero-split .piv-head{margin:0 48px}.piv-sheet.pd-layout-dashboard .piv-content{background:#fbfcfd}
+      @media(max-width:820px){.piv-head{padding:32px 30px 26px}.piv-content{grid-template-columns:1fr;gap:28px;padding:30px 30px 48px}.piv-aside{border-left:0;border-top:1px solid #edf0f3;padding:22px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.piv-aside h2{grid-column:1/-1;margin-bottom:0}.piv-info{margin:0}.piv-head h1{font-size:30px}.piv-sheet.pd-hero-band .piv-head,.piv-sheet.pd-hero-split .piv-head{margin-left:30px;margin-right:30px}}
+      @media(max-width:760px){.piv-toolbar{margin-bottom:10px;gap:7px}.piv-actions [data-piv-external]{display:none}.piv-actions .mini{padding:6px 8px}.piv-sheet{border-radius:16px}.piv-head{padding:26px 20px 22px}.piv-kicker{margin-bottom:10px}.piv-head h1{font-size:26px;letter-spacing:-.45px}.piv-summary{font-size:14px;margin-top:11px}.piv-badges{margin-top:17px}.piv-content{padding:24px 20px 46px}.piv-body{font-size:15px;line-height:1.82}.piv-aside{grid-template-columns:1fr 1fr}.piv-info:last-child{grid-column:1/-1}.piv-sheet.pd-hero-band .piv-head,.piv-sheet.pd-hero-split .piv-head{margin-left:14px;margin-right:14px}}
     `;
     document.head.appendChild(s);
   }
@@ -99,28 +100,28 @@
   }
 
   async function fetchPage(id){
-    const rows=await window.KPTURuntime.api('/rest/v1/app_pages?id=eq.'+encodeURIComponent(id)+'&select=id,space_id,slug,title,summary,body,visibility,status,updated_at&limit=1');
+    const rows=await window.KPTURuntime.api('/rest/v1/app_pages?id=eq.'+encodeURIComponent(id)+'&select=id,space_id,slug,title,summary,body,visibility,status,metadata,updated_at&limit=1');
     return rows?.[0]||null;
   }
 
   function renderPage(row){
     const sheet=document.querySelector('#pivSheet');
     if(!sheet)return;
-    const status=row.status||'draft';
-    const visibility=row.visibility||'private';
-    const updated=formatDate(row.updated_at);
+    const status=row.status||'draft',visibility=row.visibility||'private',updated=formatDate(row.updated_at),pd=window.KPTUPageDesign;
+    const pageDesign=row.metadata?.page_design||{},template=pageDesign.template||'article';
+    sheet.className=`piv-sheet ${pd?.classNames(pageDesign,template)||'pd-design'}`;
     sheet.innerHTML=`
-      <header class="piv-head">
-        <div class="piv-kicker">게시글 상세</div>
-        <h1>${esc(row.title||'제목 없음')}</h1>
-        ${row.summary?`<p class="piv-summary">${esc(row.summary)}</p>`:''}
+      <header class="piv-head pd-hero">
+        <div class="piv-kicker pd-kicker">게시글 상세</div>
+        <h1 class="pd-title">${esc(row.title||'제목 없음')}</h1>
+        ${row.summary?`<p class="piv-summary pd-summary">${esc(row.summary)}</p>`:''}
         <div class="piv-badges">
           <span class="piv-chip ${esc(status)}">${esc(STATUS_LABELS[status]||status)}</span>
           <span class="piv-chip ${esc(visibility)}">${esc(VISIBILITY_LABELS[visibility]||visibility)}</span>
         </div>
       </header>
       <div class="piv-content">
-        <div class="piv-body">${esc(row.body||'')}</div>
+        <div class="piv-body pd-body">${pd?.renderMarkdown(row.body||'')||esc(row.body||'')}</div>
         <aside class="piv-aside" aria-label="문서 정보">
           <h2>문서 정보</h2>
           <dl class="piv-info"><dt>상태</dt><dd>${esc(STATUS_LABELS[status]||status)}</dd></dl>
@@ -137,7 +138,7 @@
       window.KPTURouter?.go?.('pages',{source:'page-inline',scroll:false,updateUrl:true,replaceUrl:true});
       showViewer();
       const sheet=document.querySelector('#pivSheet');
-      if(sheet)sheet.innerHTML='<div class="piv-loading">게시글을 불러오는 중입니다.</div>';
+      if(sheet){sheet.className='piv-sheet';sheet.innerHTML='<div class="piv-loading">게시글을 불러오는 중입니다.</div>'}
       const row=await fetchPage(id);
       if(!row){showList({sync:false});return}
       currentId=id;
