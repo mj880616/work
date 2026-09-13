@@ -4,6 +4,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
 async function installMock(page){
   const pageRow={id:'page-1',workspace_id:'workspace-1',space_id:'space-1',slug:'desktop-page',title:'데스크톱 게시글',summary:'게시 탭 내부 미리보기',body:'# 본문\n\n게시글 본문입니다.',visibility:'public',status:'published',owner_id:'desktop-user',published_at:new Date().toISOString(),created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  const taskRow={id:'task-1',workspace_id:'workspace-1',project_id:null,title:'메인에서 바로 처리할 할 일',description:'',assignee_id:'desktop-user',status:'todo',priority:'normal',due_at:null,source_type:'manual',created_by:'desktop-user',created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
   await page.route(`${SB}/**`,async route=>{
     const req=route.request();
     const url=new URL(req.url());
@@ -24,6 +25,7 @@ async function installMock(page){
     if(path==='/rest/v1/app_workspaces') return ok([{id:'workspace-1',slug:'public-institutions',name:'공공기관사업팀 Workspace'}]);
     if(path==='/rest/v1/app_spaces') return ok([{id:'space-1',workspace_id:'workspace-1',name:'반응형 프로젝트',parent_id:null,status:'active',owner_id:'desktop-user',visibility:'team',sort_order:10}]);
     if(path==='/rest/v1/app_pages') return ok([pageRow]);
+    if(path==='/rest/v1/app_tasks') return ok([taskRow]);
     if(path.startsWith('/rest/v1/')) return ok([]);
     return ok({});
   });
@@ -60,6 +62,11 @@ test('desktop web uses a compact left navigation while sharing the same app',asy
   expect(desktop.navPosition).toBe('sticky');
   expect(desktop.navWidth).toBeLessThanOrEqual(160);
   expect(desktop.mainMaxWidth).toBe('1720px');
+
+  await expect(page.locator('#myTaskMini')).toContainText('메인에서 바로 처리할 할 일');
+  await expect(page.locator('#myTaskMini [data-hta-toggle="task-1"]')).toBeVisible();
+  await expect(page.locator('#myTaskMini [data-hta-edit="task-1"]')).toHaveText('수정');
+  await expect(page.locator('#myTaskMini [data-hta-delete="task-1"]')).toHaveText('삭제');
 
   await page.setViewportSize({width:760,height:900});
   const mobile=await page.locator('#appView').evaluate(el=>({display:getComputedStyle(el).display,navDirection:getComputedStyle(el.querySelector(':scope > .app-nav')).flexDirection}));
