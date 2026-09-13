@@ -5,6 +5,10 @@ const user={id:'mobile-user',email:'mobile@example.org',user_metadata:{display_n
 const workspace={id:'mobile-workspace',slug:'mobile',name:'공공기관사업팀 Workspace'};
 const tasks=Array.from({length:8},(_,i)=>({id:`task-${i+1}`,workspace_id:workspace.id,title:`모바일 QA 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`2026-09-${String(14+i).padStart(2,'0')}T09:00:00Z`,created_at:'2026-09-13T00:00:00Z'}));
 const events=Array.from({length:5},(_,i)=>({id:`event-${i+1}`,workspace_id:workspace.id,title:`9월 13일 일정 ${i+1}`,event_type:'meeting',start_at:`2026-09-13T${String(1+i).padStart(2,'0')}:00:00Z`,end_at:`2026-09-13T${String(2+i).padStart(2,'0')}:00:00Z`,calendar_scope:'team',created_by:user.id,color_hex:'#24496f'}));
+const googleTasks=[
+  {id:'gt-1',title:'Google 제출자료 확인',notes:'읽기 전용 테스트',due:'2026-09-16T00:00:00.000Z',status:'needsAction',taskListId:'list-1',taskListTitle:'내 할 일',source:'google-task'},
+  {id:'gt-2',title:'Google 일정 후속 확인',notes:'',due:null,status:'needsAction',taskListId:'list-2',taskListTitle:'업무',source:'google-task'}
+];
 
 async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
@@ -14,6 +18,7 @@ async function mockApp(page){
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/google-tasks')return ok({tasks:googleTasks,needs_reconnect:false,connected:true,authorized:true});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email}]);
@@ -48,7 +53,7 @@ async function swipe(page,selector,from,to){
   },{from,to});
 }
 
-test('mobile navigation, modal safe area, back behavior, task expansion and busy day UI',async({page})=>{
+test('mobile navigation, modal safe area, back behavior, task expansion, Google tasks and busy day UI',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
@@ -92,4 +97,13 @@ test('mobile navigation, modal safe area, back behavior, task expansion and busy
     return {cardBottom:card.bottom,dockTop:dock.top};
   });
   expect(agendaSafe.cardBottom).toBeLessThanOrEqual(agendaSafe.dockTop+1);
+
+  await page.goBack();
+  await expect(page.locator('#calendarDayModal')).toBeHidden();
+  await page.locator('[data-view="tasks"]').click();
+  await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
+  await expect(page.locator('#gtTaskSection .gt-row')).toHaveCount(2);
+  await expect(page.locator('#gtTaskSection')).toContainText('Google 제출자료 확인');
+  await expect(page.locator('#gtTaskSection')).toContainText('Workspace 할 일과 별도 · 읽기 전용');
+  await expect(page.locator('#tlTaskSections .tl-task-section')).toHaveCount(3);
 });
