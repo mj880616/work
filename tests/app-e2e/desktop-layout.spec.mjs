@@ -94,8 +94,11 @@ test('selected view survives refresh and page cards open inside the 게시 tab',
   await expect(card).toHaveAttribute('data-inline-page','page-1');
   await card.locator('h3').click();
   await expect(page.locator('#pageInlineViewer')).toBeVisible();
-  await expect(page.locator('#pivTitle')).toHaveText('데스크톱 게시글');
-  await expect(page.locator('#pivFrame')).toHaveAttribute('src',/\/p\/\?slug=desktop-page/);
+  await expect(page.locator('#pivSheet h1')).toHaveText('데스크톱 게시글');
+  await expect(page.locator('#pivSheet .piv-summary')).toHaveText('게시 탭 내부 미리보기');
+  await expect(page.locator('#pivSheet .piv-body')).toContainText('게시글 본문입니다.');
+  await expect(page.locator('[data-piv-external]')).toHaveAttribute('href',/\/p\/\?slug=desktop-page/);
+  await expect(page.locator('#pivFrame')).toHaveCount(0);
   await expect(page).toHaveURL(/view=pages/);
   await expect(page).toHaveURL(/page=page-1/);
   await expect(page.locator('#pageList')).toBeHidden();
