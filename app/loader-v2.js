@@ -28,7 +28,6 @@
     import('./task-layout.js?v=5'),
     import('./profile-settings.js?v=2&wd=1'),
     import('./workplace-detail.js?v=1'),
-    import('./meeting-round-detail.js?v=5'),
     import('./project-files.js?v=4'),
     import('./library-upload.js?v=3'),
     import('./page-editor-fix.js?v=2'),
@@ -36,6 +35,7 @@
     import('./page-shortcut.js?v=1')
   ]);
   const loadAuthenticatedAi=async()=>{
+    await import('./meeting-round-detail.js?v=5');
     await import('./workplace-ai-report.js?v=1');
     await import('./workflow-ai-v3.js?v=1');
     await import('./meeting-ai-ingest-client.js?v=1');
