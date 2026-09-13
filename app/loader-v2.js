@@ -26,7 +26,7 @@
     import('./calendar-persistence.js?v=8'),
     import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=5'),
-    import('./home-task-controls.js?v=1'),
+    import('./home-task-controls.js?v=2'),
     import('./profile-settings.js?v=2&wd=1'),
     import('./workplace-detail.js?v=1'),
     import('./project-files.js?v=4'),
@@ -70,7 +70,7 @@
       await import('./project-system-v2.js?v=1');
       await import('./project-hide-legacy.js?v=1');
       await import('./project-type-labels.js?v=2');
-      await import('./project-modal-scroll-lock.js?v=1');
+      await import('./project-modal-scroll-lock.js?v=2');
       projectSystemLoaded=true;return true;
     }catch(e){console.warn('project system v2 activation skipped',e);return false}
   };
