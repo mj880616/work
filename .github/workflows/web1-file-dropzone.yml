@@ -1,0 +1,63 @@
+name: Apply Web1 file dropzones
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Add shared dropzone helper to every Web1 upload page
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          helper = '<script src="/work/assets/file-dropzone.js?v=20260913"></script>'
+          excluded = ('.github/', 'app/', 'android-app/', 'windows-app/', 'tests/')
+          file_input = re.compile(r'type\s*=\s*\\?["\']file\\?["\']', re.I)
+          changed = []
+
+          for path in Path('.').rglob('*.html'):
+              rel = path.as_posix().lstrip('./')
+              if rel.startswith(excluded):
+                  continue
+              text = path.read_text(encoding='utf-8')
+              if not file_input.search(text):
+                  continue
+              if '/work/assets/file-dropzone.js' in text:
+                  continue
+              lower = text.lower()
+              pos = lower.rfind('</body>')
+              if pos < 0:
+                  continue
+              text = text[:pos] + '\n' + helper + '\n' + text[pos:]
+              path.write_text(text, encoding='utf-8')
+              changed.append(rel)
+
+          print('Patched upload pages:')
+          for rel in changed:
+              print(' -', rel)
+          PY
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- '*.html'
+          if git diff --cached --quiet; then
+            echo "No Web1 upload pages needed changes."
+            exit 0
+          fi
+          git commit -m "Apply drag and drop upload UI across Web1"
+          git push origin main
