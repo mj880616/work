@@ -11,7 +11,7 @@
   await import('./auth-ui.js?v=8');
   await import('./auth-login-fallback.js?v=1');
   await import('./session-resilience.js?v=6');
-  await import('./brand-logo.js?v=1');
+  await import('./brand-logo.js?v=2');
   await import('./team.js?v=8');
   window.dispatchEvent(new Event('kptu:auth-fields-ready'));
   document.querySelector('#authPreloadStyle')?.remove();
