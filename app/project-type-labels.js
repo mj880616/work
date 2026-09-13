@@ -46,9 +46,6 @@
       if(el.textContent.trim()==='영역별 상태를 덮어쓰지 않고 시간순으로 누적합니다.'){
         el.textContent='현재 상태와 다음 조치를 영역별로 시간순으로 누적합니다.';
       }
-      if(el.textContent.trim()==='프로젝트 관련 의견과 검토 메모를 남깁니다.'){
-        el.textContent='프로젝트 관련 의견과 검토 메모를 남깁니다.';
-      }
     });
 
     document.querySelectorAll('[data-pm2-module-row] input[type="text"]').forEach(input=>{
