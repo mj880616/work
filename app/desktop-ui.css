@@ -1,0 +1,97 @@
+/* Desktop web layout for the shared responsive workspace.
+   Mobile keeps the existing navigation and compact layout. */
+@media (min-width: 1024px) {
+  html,body{background:#eef2f5}
+  body{overflow-y:scroll}
+  .topbar{height:68px;padding:0 28px;box-shadow:0 1px 0 rgba(20,33,48,.03)}
+  .topbar .brand{font-size:15px}
+  .topbar .user-badge{max-width:260px}
+  main{max-width:1600px;margin:0 auto;padding:26px 32px 76px}
+
+  #appView.app-view{
+    display:grid;
+    grid-template-columns:220px minmax(0,1fr);
+    column-gap:28px;
+    align-items:start;
+  }
+  #appView>.workspace-head{
+    grid-column:2;
+    grid-row:1;
+    margin:0 0 22px;
+    padding:0 2px;
+    align-items:center;
+  }
+  #appView>.workspace-head h1{font-size:30px;letter-spacing:-1.1px}
+  #appView>.workspace-head .head-actions{flex:0 0 auto}
+
+  #appView>.app-nav{
+    grid-column:1;
+    grid-row:1 / span 40;
+    position:sticky;
+    top:92px;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:4px;
+    max-height:calc(100vh - 116px);
+    overflow:auto;
+    padding:10px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:18px;
+    box-shadow:0 10px 30px rgba(20,33,48,.055);
+  }
+  #appView>.app-nav .nav-btn{
+    width:100%;
+    min-height:42px;
+    border:0;
+    border-radius:10px;
+    background:transparent;
+    color:#536171;
+    padding:10px 12px;
+    text-align:left;
+    font-size:13px;
+    font-weight:850;
+    line-height:1.25;
+    transition:background .14s ease,color .14s ease,transform .14s ease;
+  }
+  #appView>.app-nav .nav-btn:hover{background:#edf3f8;color:var(--navy);transform:translateX(1px)}
+  #appView>.app-nav .nav-btn.active{background:var(--navy);color:#fff;box-shadow:0 4px 12px rgba(29,53,87,.16)}
+
+  #appView>.view-panel{grid-column:2;min-width:0}
+  #appView>.view-panel:not(.hidden){display:block}
+  .section-head{align-items:center;margin-bottom:16px}
+  .section-head h2{font-size:24px;letter-spacing:-.5px}
+  .section-head p{font-size:13px}
+  .toolbar{gap:10px;margin-bottom:16px}
+  .toolbar select{width:180px}
+
+  .stat-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .project-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .page-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .member-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .group-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+
+  .panel,.project-card,.page-card,.group-card{box-shadow:0 5px 18px rgba(20,33,48,.035)}
+  .calendar-toolbar{max-width:420px}
+  .calendar-grid{min-height:620px}
+
+  .modal{padding:28px}
+  .modal-card{max-height:90vh}
+  .modal-card.medium-card{width:min(92vw,980px)}
+  .modal-card.editor-card{width:min(94vw,1180px)}
+  .editor-grid{grid-template-columns:minmax(0,1fr) 320px;gap:24px}
+
+  /* The bottom dock is a mobile affordance. Desktop uses the left navigation. */
+  .cc-mobile-dock{display:none!important}
+  body{padding-bottom:0!important}
+}
+
+@media (min-width: 1440px) {
+  main{max-width:1720px;padding-left:42px;padding-right:42px}
+  #appView.app-view{grid-template-columns:240px minmax(0,1fr);column-gap:32px}
+  #appView>.app-nav{padding:12px}
+  #appView>.app-nav .nav-btn{min-height:44px;padding:11px 13px;font-size:13.5px}
+  .project-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
