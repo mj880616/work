@@ -1,6 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="공공기관사업팀">
-  <rect width="512" height="512" rx="104" fill="#1d3557"/>
-  <rect x="58" y="58" width="396" height="396" rx="76" fill="#ffffff" opacity="0.08"/>
-  <text x="256" y="238" text-anchor="middle" fill="#ffffff" font-size="150" font-weight="900" font-family="Arial, 'Noto Sans KR', sans-serif">공공</text>
-  <text x="256" y="355" text-anchor="middle" fill="#dbe7f4" font-size="82" font-weight="800" font-family="Arial, 'Noto Sans KR', sans-serif">사업팀</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="공공기관사업팀 Workspace">
+  <rect x="4" y="4" width="504" height="504" rx="112" fill="#ffffff" stroke="#e7ebf0" stroke-width="8"/>
+  <g aria-hidden="true">
+    <path d="M118 164C156 118 218 112 257 83C273 71 282 57 287 43C291 75 288 101 268 119C249 136 218 143 187 151C157 158 136 169 118 184C119 176 119 170 118 164Z" fill="#ef1738"/>
+    <path d="M181 164C219 133 260 129 301 132C338 135 370 128 409 105L393 145C361 162 325 171 285 168C244 165 213 165 181 178C186 172 187 168 181 164Z" fill="#a8adb4"/>
+    <path d="M134 209C181 173 233 165 287 176C337 187 382 172 444 129C446 171 432 207 400 233L412 187C365 214 320 223 272 215C221 207 179 204 134 218C137 214 137 212 134 209Z" fill="#0874c9"/>
+  </g>
+  <text x="256" y="318" text-anchor="middle" fill="#0c376f" font-size="79" font-weight="900" font-family="Pretendard, 'Noto Sans KR', 'Apple SD Gothic Neo', Arial, sans-serif" letter-spacing="-5">공공기관</text>
+  <text x="256" y="412" text-anchor="middle" fill="#0c376f" font-size="94" font-weight="900" font-family="Pretendard, 'Noto Sans KR', 'Apple SD Gothic Neo', Arial, sans-serif" letter-spacing="-5">사업팀</text>
+  <text x="256" y="466" text-anchor="middle" fill="#697383" font-size="32" font-weight="800" font-family="Arial, sans-serif" letter-spacing="7">WORKSPACE</text>
 </svg>
