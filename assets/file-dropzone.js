@@ -1,6 +1,13 @@
 (()=>{
   'use strict';
 
+  const ACCOUNT={
+    url:'https://xmlkxfjeagycwttklxjw.supabase.co',
+    key:'sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA',
+    sessionKey:'kptu_collab_session_v1'
+  };
+  let accountNamePromise=null;
+
   function installStyle(){
     if(document.getElementById('kptu-file-dropzone-style'))return;
     const style=document.createElement('style');
@@ -73,6 +80,75 @@
     root.querySelectorAll?.('input[type="file"]').forEach(enhance);
   }
 
+  function readSession(){
+    try{return JSON.parse(localStorage.getItem(ACCOUNT.sessionKey)||'null')}catch{return null}
+  }
+
+  function writeSession(session){
+    try{
+      if(session)localStorage.setItem(ACCOUNT.sessionKey,JSON.stringify(session));
+    }catch(_){ }
+  }
+
+  function fallbackName(session){
+    const meta=session?.user?.user_metadata||{};
+    return String(meta.display_name||meta.full_name||meta.name||'').trim();
+  }
+
+  async function ensureSession(){
+    const current=readSession();
+    if(!current)return null;
+    const now=Math.floor(Date.now()/1000);
+    if((current.expires_at||0)>=now+60||!current.refresh_token)return current;
+    try{
+      const r=await fetch(ACCOUNT.url+'/auth/v1/token?grant_type=refresh_token',{
+        method:'POST',
+        headers:{apikey:ACCOUNT.key,'Content-Type':'application/json'},
+        body:JSON.stringify({refresh_token:current.refresh_token}),
+        cache:'no-store'
+      });
+      if(!r.ok)return current;
+      const next=await r.json();
+      next.expires_at=next.expires_at||now+(next.expires_in||3600);
+      writeSession(next);
+      return next;
+    }catch(_){return current}
+  }
+
+  async function getAccountName(){
+    if(accountNamePromise)return accountNamePromise;
+    accountNamePromise=(async()=>{
+      const session=await ensureSession();
+      if(!session)return'';
+      const fallback=fallbackName(session);
+      const userId=session?.user?.id;
+      const token=session?.access_token;
+      if(!userId||!token)return fallback;
+      try{
+        const url=ACCOUNT.url+'/rest/v1/app_profiles?select=display_name&user_id=eq.'+encodeURIComponent(userId)+'&limit=1';
+        const r=await fetch(url,{headers:{apikey:ACCOUNT.key,Authorization:'Bearer '+token},cache:'no-store'});
+        if(!r.ok)return fallback;
+        const rows=await r.json();
+        const name=String(rows?.[0]?.display_name||'').trim();
+        return name||fallback;
+      }catch(_){return fallback}
+    })();
+    return accountNamePromise;
+  }
+
+  async function fillUploaderFromAccount(root=document){
+    const input=root.querySelector?.('#fileUploader')||(root.matches?.('#fileUploader')?root:null);
+    if(!input||input.dataset.accountNameReady==='1')return;
+    input.dataset.accountNameReady='1';
+    input.addEventListener('input',()=>{input.dataset.accountNameManual='1'});
+    const name=await getAccountName();
+    if(name&&!input.value.trim()&&input.dataset.accountNameManual!=='1'){
+      input.value=name;
+      input.dataset.accountNameDefault='1';
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+  }
+
   function tuneJointStruggleBoard(){
     if(!location.pathname.includes('/workforce/joint-struggle-0921'))return;
     const heading=document.querySelector('main .section h2');
@@ -84,12 +160,14 @@
 
   function boot(){
     enhanceAll();
+    fillUploaderFromAccount();
     tuneJointStruggleBoard();
     new MutationObserver(records=>{
       records.forEach(record=>record.addedNodes.forEach(node=>{
         if(node.nodeType!==1)return;
         if(node.matches?.('input[type="file"]'))enhance(node);
         enhanceAll(node);
+        fillUploaderFromAccount(node);
       }));
     }).observe(document.documentElement,{childList:true,subtree:true});
   }
