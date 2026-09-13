@@ -27,6 +27,8 @@
       #pm2MilestoneModal .small-card,#pm2DecisionModal .small-card,#pm2ProgressModal .small-card{padding-bottom:28px!important}
       #pm2MilestoneModal label,#pm2DecisionModal label,#pm2ProgressModal label{margin:11px 0!important}
       #pm2MilestoneModal textarea,#pm2DecisionModal textarea,#pm2ProgressModal textarea{min-height:82px}
+      #pm2DetailModal .pm2-detail-head .pm2-actions{gap:8px!important;row-gap:8px!important}
+      #projectModal #newSubprojectBtn,#projectModal #deleteProjectBtn,#projectModal #projectAccessBtn{margin-top:8px!important;margin-right:8px!important}
       @media(max-width:760px){
         #pm2MilestoneModal .two-col,#pm2DecisionModal .two-col,#pm2ProgressModal .two-col{grid-template-columns:1fr!important;gap:0!important}
         #pm2MilestoneModal input,#pm2MilestoneModal select,#pm2MilestoneModal textarea,
