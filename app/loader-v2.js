@@ -35,9 +35,13 @@
     import('./page-builder.js?v=1'),
     import('./page-shortcut.js?v=1')
   ]);
-  await import('./workplace-ai-report.js?v=1');
-  await import('./workflow-ai-v3.js?v=1');
-  await import('./meeting-ai-ingest-client.js?v=1');
+  const loadAuthenticatedAi=async()=>{
+    await import('./workplace-ai-report.js?v=1');
+    await import('./workflow-ai-v3.js?v=1');
+    await import('./meeting-ai-ingest-client.js?v=1');
+  };
+  if(await window.KPTURuntime.session.ensure()) await loadAuthenticatedAi();
+  else window.addEventListener('kptu:session-changed',()=>{loadAuthenticatedAi().catch(console.error)},{once:true});
   await import('./google-calendar-return-status.js?v=1');
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
