@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'android-app/**'
+      - 'app/app-icon.svg'
       - '.github/workflows/build-android-app.yml'
 
 permissions:
@@ -28,6 +29,14 @@ jobs:
 
       - name: Install Android platform
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install icon renderer
+        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin fonts-noto-cjk
+
+      - name: Render Android launcher icon
+        run: |
+          mkdir -p android-app/app/src/main/res/drawable-nodpi
+          rsvg-convert -w 512 -h 512 app/app-icon.svg -o android-app/app/src/main/res/drawable-nodpi/app_icon.png
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
