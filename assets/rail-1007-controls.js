@@ -153,8 +153,8 @@
   document.head.append(style);
 
   function heading(sec){return sec?.querySelector?.(':scope > h2')?.textContent.replace(/[\u200B-\u200D\uFEFF]/g,'').trim()||''}
-  const isProgram=sec=>heading(sec).startsWith('5. 대회 프로그램');
-  const isSlogans=sec=>heading(sec).startsWith('7. 핵심 구호');
+  const isProgram=sec=>heading(sec).includes('대회 프로그램');
+  const isSlogans=sec=>heading(sec).includes('핵심 구호');
 
   function installTopToggle(){
     if(document.getElementById('railEditToggle'))return;
