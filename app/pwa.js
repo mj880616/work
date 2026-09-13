@@ -1,4 +1,4 @@
-const iconHref='./app-icon.svg?v=20260913';
+const iconHref='./app-icon.svg?v=20260913-2';
 let favicon=document.querySelector('link[rel="icon"]');
 if(!favicon){favicon=document.createElement('link');favicon.rel='icon';document.head.appendChild(favicon)}
 favicon.type='image/svg+xml';
