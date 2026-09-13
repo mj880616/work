@@ -20,7 +20,9 @@
     margin:0 0 22px;
     padding:0 2px;
     align-items:center;
+    display:none;
   }
+  #appView:has(#homeView:not(.hidden))>.workspace-head{display:flex}
   #appView>.workspace-head h1{font-size:30px;letter-spacing:-1.1px}
   #appView>.workspace-head .head-actions{flex:0 0 auto}
 
@@ -82,6 +84,26 @@
   .modal-card.medium-card{width:min(92vw,980px)}
   .modal-card.editor-card{width:min(94vw,1180px)}
   .editor-grid{grid-template-columns:minmax(0,1fr) 320px;gap:24px}
+
+  /* Project detail: keep every corner and action inside the desktop viewport. */
+  #pm2DetailModal{
+    box-sizing:border-box!important;
+    padding:32px clamp(30px,4vw,64px)!important;
+    scroll-padding-top:32px;
+    scroll-padding-bottom:32px;
+  }
+  #pm2DetailModal .pm2-detail-card{
+    box-sizing:border-box!important;
+    width:min(1180px,calc(100vw - 96px))!important;
+    max-width:100%!important;
+    margin:0 auto!important;
+    padding:26px 28px 34px!important;
+    border-radius:20px!important;
+  }
+  #pm2DetailModal .modal-head{padding:0 2px}
+  #pm2DetailModal .modal-head .icon-btn{flex:0 0 auto}
+  #pm2DetailModal .pm2-detail-head{gap:16px!important}
+  #pm2DetailModal .pm2-detail-head>*{min-width:0}
 
   /* The bottom dock is a mobile affordance. Desktop uses the left navigation. */
   .cc-mobile-dock{display:none!important}

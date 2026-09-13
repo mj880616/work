@@ -93,6 +93,7 @@
   await import('./team-profile-view.js?v=1');
   await import('./global-action-buttons.js?v=1');
   await import('./task-child-project-guard.js?v=1');
+  await import('./task-status-state.js?v=1');
   await import('./home-task-expand.js?v=2');
   await import('./home-task-expand-retry.js?v=1');
   await import('./google-tasks.js?v=1');

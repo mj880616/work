@@ -25,3 +25,18 @@ test('task screen separates my tasks from team assignments and nests both status
   await expect(team).toContainText('회의에서 부여된 할 일');
   await expect(team).not.toContainText('내가 만든 프로젝트 할 일');
 });
+
+test('expanded completed section stays open while restoring several tasks to incomplete',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  const mine=page.locator('#tlTaskSections .tl-task-section').filter({hasText:'내 할 일'}).first();
+  const completed=mine.locator('.tl-completed');
+
+  await completed.locator('summary').click();
+  await expect(completed).toHaveAttribute('open','');
+  await completed.locator('[data-tl-toggle="self-done"]').click();
+
+  await expect(mine.locator('.tl-completed')).toHaveAttribute('open','');
+  await expect(mine.locator('.tl-completed summary b')).toHaveText('0');
+  await expect(mine.locator('.tl-incomplete summary b')).toHaveText('2');
+  await expect(mine.locator('.tl-incomplete')).toContainText('내가 완료한 프로젝트 할 일');
+});
