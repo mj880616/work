@@ -7,7 +7,7 @@
   let currentId='';
   let opening=false;
 
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 
   function pageIdFromUrl(){return new URLSearchParams(location.search).get(PARAM)||''}
   function setPageInUrl(id,{replace=false}={}){
@@ -54,13 +54,15 @@
 
   function listParts(){
     const view=document.querySelector('#pagesView');
-    return [view?.querySelector(':scope > .section-head'),view?.querySelector(':scope > .toolbar'),document.querySelector('#pageList'),document.querySelector('#pageEmpty')].filter(Boolean);
+    return [view?.querySelector(':scope > .section-head'),view?.querySelector(':scope > .toolbar'),document.querySelector('#pageList')].filter(Boolean);
   }
 
   function showList({sync=true}={}){
     const box=ensureViewer();
     box?.classList.add('hidden');
     listParts().forEach(el=>el.classList.remove('hidden'));
+    const empty=document.querySelector('#pageEmpty');
+    if(empty)empty.classList.toggle('hidden',!!document.querySelector('#pageList')?.children.length);
     const frame=document.querySelector('#pivFrame');
     if(frame){frame.src='about:blank';frame.classList.add('hidden')}
     document.querySelector('#pivDraft')?.classList.add('hidden');
@@ -70,6 +72,7 @@
 
   function showViewer(){
     listParts().forEach(el=>el.classList.add('hidden'));
+    document.querySelector('#pageEmpty')?.classList.add('hidden');
     ensureViewer()?.classList.remove('hidden');
   }
 
@@ -137,7 +140,8 @@
   }
 
   function restore(){
-    if(!document.querySelector('#pagesView')||document.querySelector('#pagesView')?.classList.contains('hidden'))return;
+    const pagesView=document.querySelector('#pagesView');
+    if(!pagesView||pagesView.classList.contains('hidden'))return;
     const id=pageIdFromUrl();
     if(id){if(id!==currentId)openPage(id,{sync:false})}
     else showList({sync:false});
