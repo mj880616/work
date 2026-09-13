@@ -18,6 +18,7 @@
   await import('./member-default-role.js?v=2');
   await import('./myspace-return.js?v=1');
   await import('./meeting-file-route.js?v=1');
+  await import('./page-design-core.js?v=1');
   await Promise.all([
     import('./photo-room.js?v=1'),
     import('./project-access.js?v=4'),
@@ -32,9 +33,9 @@
     import('./project-files.js?v=4'),
     import('./library-upload.js?v=3'),
     import('./page-editor-fix.js?v=2'),
-    import('./page-builder.js?v=1'),
+    import('./page-builder.js?v=1&designer=2'),
     import('./page-shortcut.js?v=1'),
-    import('./page-inline-viewer.js?v=1')
+    import('./page-inline-viewer.js?v=2')
   ]);
   const loadAuthenticatedAi=async()=>{
     await import('./meeting-round-detail.js?v=5');
