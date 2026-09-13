@@ -67,7 +67,9 @@
       const rows=await window.KPTURuntime.api(`/rest/v1/app_spaces?workspace_id=eq.${wid}&select=id,metadata&limit=100`);
       const useV2=!rows?.length||rows.some(x=>x?.metadata?.project_system==='v2'||x?.metadata?.legacy_snapshot===true);
       if(!useV2)return false;
-      await import('./project-system-v2.js?v=1');projectSystemLoaded=true;return true;
+      await import('./project-system-v2.js?v=1');
+      await import('./project-hide-legacy.js?v=1');
+      projectSystemLoaded=true;return true;
     }catch(e){console.warn('project system v2 activation skipped',e);return false}
   };
   if(!(await loadProjectSystem()))window.addEventListener('kptu:session-changed',()=>{loadProjectSystem().catch(console.error)},{once:true});
