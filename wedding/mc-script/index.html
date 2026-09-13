@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>김명진 · 강승지 결혼식 사회 대본</title>
+  <meta name="description" content="2026년 10월 3일 17:30 · 공덕 아펠가모 7층 마리에홀 · 사회자용 진행 대본" />
+  <link rel="icon" href="../../favicon.svg" />
+  <style>
+    :root {
+      --ink:#22201f; --muted:#736d68; --paper:#fffdf9; --line:#e8e1da;
+      --accent:#7f4d46; --accent-soft:#f7efec; --cue:#f3f1ed; --shadow:0 18px 60px rgba(61,43,35,.08);
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:#f2eee9;color:var(--ink);font-family:Pretendard,"Noto Sans KR",Apple SD Gothic Neo,"Malgun Gothic",sans-serif;line-height:1.78}
+    .toolbar{position:sticky;top:0;z-index:20;background:rgba(255,253,249,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+    .toolbar-inner{max-width:980px;margin:auto;padding:10px 24px;display:flex;align-items:center;gap:8px}
+    .toolbar-title{font-size:13px;color:var(--muted);margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    button{appearance:none;border:1px solid var(--line);background:white;color:var(--ink);border-radius:10px;padding:9px 13px;font-weight:700;cursor:pointer}
+    button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+    button:hover{transform:translateY(-1px)}
+    .wrap{max-width:980px;margin:30px auto 80px;padding:0 24px}
+    .paper{background:var(--paper);box-shadow:var(--shadow);border:1px solid #eee6df;border-radius:20px;padding:56px 62px}
+    .hero{padding-bottom:34px;border-bottom:1px solid var(--line);margin-bottom:34px}
+    .kicker{font-size:13px;letter-spacing:.11em;color:var(--accent);font-weight:800;margin-bottom:12px}
+    h1{font-size:34px;line-height:1.28;margin:0 0 10px;letter-spacing:-.045em}
+    .meta{font-size:16px;color:var(--muted);font-weight:600}
+    .guide{margin-top:22px;padding:14px 16px;border-radius:12px;background:var(--accent-soft);font-size:13px;color:#6d514c}
+    .section{padding:30px 0;border-top:1px solid var(--line);break-inside:avoid-page}
+    .section:first-of-type{border-top:0}
+    h2{display:flex;gap:10px;align-items:center;font-size:20px;line-height:1.35;margin:0 0 18px;letter-spacing:-.03em}
+    .num{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--accent);color:white;font-size:13px;flex:0 0 auto}
+    .speech{font-size:18px;letter-spacing:-.015em;font-weight:630;margin:0}
+    .speech p{margin:0 0 12px}
+    .speech p:last-child{margin-bottom:0}
+    .cue{margin:16px 0;padding:13px 15px;border-left:3px solid #c9c0b7;background:var(--cue);border-radius:0 10px 10px 0;color:#68615b;font-size:14px;line-height:1.65;font-weight:500}
+    .cue strong{color:#514a45}
+    .highlight{color:var(--accent);font-weight:800}
+    .placeholder{display:inline-block;min-width:290px;border-bottom:1px dashed #998e86;color:#8b817a}
+    [contenteditable="true"]{outline:none;border-radius:6px;box-shadow:0 0 0 2px rgba(127,77,70,.12);background:#fff8f5}
+    .edit-badge{display:none;position:fixed;right:20px;bottom:20px;background:#292624;color:white;padding:9px 12px;border-radius:999px;font-size:12px;z-index:30;box-shadow:0 8px 30px rgba(0,0,0,.12)}
+    body.editing .edit-badge{display:block}
+    .saved{font-size:12px;color:var(--muted);min-width:58px;text-align:right}
+    @media(max-width:700px){
+      .toolbar-inner{padding:9px 12px}.toolbar-title{display:none}.wrap{padding:0 10px;margin-top:12px}.paper{padding:30px 22px;border-radius:14px}
+      h1{font-size:27px}.speech{font-size:17px}.section{padding:25px 0}.placeholder{min-width:180px}
+      button{padding:8px 10px;font-size:13px}.saved{display:none}
+    }
+    @media print{
+      @page{size:A4;margin:15mm 14mm 16mm}
+      body{background:white;font-size:10.5pt;line-height:1.65;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .toolbar,.guide,.edit-badge{display:none!important}.wrap{max-width:none;margin:0;padding:0}.paper{box-shadow:none;border:0;border-radius:0;padding:0;background:white}
+      .hero{padding-bottom:18px;margin-bottom:10px}h1{font-size:22pt}.meta{font-size:10.5pt}
+      .section{padding:15px 0;break-inside:avoid-page;page-break-inside:avoid}.section h2{font-size:14pt;margin-bottom:10px}.num{width:24px;height:24px;font-size:9pt}
+      .speech{font-size:11pt}.speech p{margin-bottom:7px}.cue{font-size:9.3pt;padding:8px 10px;margin:10px 0;background:#f3f1ed!important}
+      [contenteditable="true"]{box-shadow:none;background:transparent}
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="toolbar-inner">
+      <div class="toolbar-title">김명진 · 강승지 결혼식 사회 대본</div>
+      <span class="saved" id="savedState">저장됨</span>
+      <button id="editBtn" class="primary" type="button">편집</button>
+      <button id="saveBtn" type="button">저장</button>
+      <button id="resetBtn" type="button">원문 복원</button>
+      <button id="printBtn" type="button">인쇄</button>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <article class="paper" id="script">
+      <header class="hero">
+        <div class="kicker">WEDDING MC SCRIPT</div>
+        <h1>김명진 · 강승지 결혼식 사회 대본</h1>
+        <div class="meta">2026년 10월 3일 17:30 · 공덕 아펠가모 7층 마리에홀</div>
+        <div class="guide">편집 버튼을 누르면 본문을 바로 수정할 수 있습니다. 저장 내용은 이 기기의 브라우저에 보관되며, 인쇄 버튼으로 사회자용 A4 대본을 출력할 수 있습니다.</div>
+      </header>
+
+      <section class="section"><h2><span class="num">01</span>식전 안내 · 예식 3분 전</h2><div class="cue">식전 영상 반복 재생 중</div><div class="speech"><p>잠시 후 5시 30분부터 신랑 김명진 군과 신부 강승지 양의 결혼식이 시작될 예정입니다.</p><p>하객 여러분께서는 실내 입장하여 착석 준비 부탁드립니다.</p><p>뒷 공간이 다소 협소하니 앞좌석부터 채워 앉아 주시면 좋을 것 같습니다.</p></div><div class="cue">식전 영상 종료 · 스크린 UP</div></section>
+
+      <section class="section"><h2><span class="num">02</span>예식 시작 안내</h2><div class="speech"><p>잠시 후 신랑 김명진 군과 신부 강승지 양의 결혼식을 시작하겠습니다.</p><p>하객 여러분께서는 자리에 편안히 착석해주시고, 휴대전화는 진동으로 부탁드립니다.</p></div></section>
+
+      <section class="section"><h2><span class="num">03</span>개식 선언</h2><div class="speech"><p>안녕하십니까.</p><p>오늘 신랑 김명진 군과 신부 강승지 양의 결혼식 사회를 맡은 신부의 직장동료 배예랑입니다.</p><p>평소 승지언니와 <span class="placeholder">(　　　　　　　　　　　　　　　　　)</span> 했는데 오늘 이렇게 두 사람이 부부가 되는 날에 함께할 수 있어서 무척 뜻깊습니다.</p><p>그럼 지금부터 양가 가족분들과 귀빈 여러분을 모신 가운데 김명진 군과 강승지 양의 결혼식을 시작하겠습니다.</p><p>큰 박수로 이 결혼식을 축복해주시기 바랍니다.</p></div></section>
+
+      <section class="section"><h2><span class="num">04</span>양가 부모님 입장</h2><div class="speech"><p>먼저 오늘의 두 주인공을 큰 사랑과 기쁨으로 키워주신 양가 부모님의 입장이 있겠습니다.</p><p>먼저 신랑 김명진 군의 부모님 입장하겠습니다.</p><p>오늘 신랑신부 못지않게 멋지고 아름다운 모습으로 서 계신데요, 두 분 입장 하실 때 큰 박수 부탁드립니다.</p><p><span class="highlight">아버지 김종섭, 어머니 정순옥. 입장!</span></p></div><div class="cue">신랑 측 부모님 입장 · 버진로드 끝 도착 후 대기</div><div class="speech"><p>뒤에서 신부 강승지 양의 부모님도 입장하려고 대기 중이십니다.</p><p>약간 긴장하신 듯 보이는데 환하게 웃으며 들어오실 수 있도록 하객 여러분께서 큰 박수로 맞아주시기 부탁드립니다.</p><p><span class="highlight">아버지 강춘석, 어머니 이미화. 입장!</span></p></div><div class="cue">신부 측 부모님 입장 · 버진로드 끝 도착 후 네 분 나란히 단 근처로 이동</div></section>
+
+      <section class="section"><h2><span class="num">05</span>화촉점화</h2><div class="speech"><p>이제 양가 부모님께서 두 사람의 밝은 앞날을 축복하는 의미로 함께 화촉을 밝히겠습니다.</p><p>양가 부모님께서는 화촉점화를 위해 앞으로 올라와 주시길 바랍니다.</p></div><div class="cue">어머님 두 분 중심으로 화촉점화 · 아버님들은 한발 옆에서 대기</div><div class="speech"><p>이제 양가 부모님께서 오늘 이 자리를 찾아주신 하객 여러분께 감사 인사를 드리겠습니다.</p><p><span class="highlight">양가 부모님, 하객 여러분께 인사.</span></p></div><div class="cue">양가 부모님 네 분 함께 하객 인사</div><div class="speech"><p>두 사람이 앞으로 만들어갈 따뜻한 가정을 축복하는 마음으로 양가 부모님께 다시 한번 큰 박수 부탁드립니다.</p><p>부모님께서는 혼주석에 착석해주시기 바랍니다.</p></div></section>
+
+      <section class="section"><h2><span class="num">06</span>신랑 입장</h2><div class="speech"><p>자, 이제 오늘 이 자리에서 가장 멋진 남자, 신랑이 입장을 위해 대기 중입니다.</p><p>한 사람의 남편이 되기 위해 씩씩하게 이 길을 걸어올 신랑 김명진 군을 향해 힘껏 축하의 박수를 보내 주시기 바랍니다.</p><p><span class="highlight">신랑, 입장!</span></p></div><div class="cue">「위풍당당 행진곡」 피아노 3중주 · 신랑 입장</div></section>
+
+      <section class="section"><h2><span class="num">07</span>신부 입장</h2><div class="speech"><p>신랑 김명진 군은 신부 강승지 양을 만나면서,</p><p>“이 사람과 함께라면 평생 어떤 순간이 찾아와도 서로의 곁에서 함께 웃고, 의지하며 살아갈 수 있겠다”는 생각에 결혼을 결심했다고 합니다.</p><p>신랑이 평생의 동반자로 선택한 단단한 사람, 오늘의 아름다운 두 번째 주인공 신부 강승지 양이 신랑의 손을 잡기 위해 이 길을 걸어올 준비를 하고 있습니다.</p><p>하객 여러분께서는 모두 뒤쪽을 봐주시기 바랍니다.</p><p><span class="highlight">신부, 입장!</span></p></div><div class="cue">「Romantic Wedding March」 피아노 3중주 · 신부 단독 입장<br>신부가 버진로드 약 3분의 2 지점까지 혼자 걸어옴 · 신랑이 부케를 들고 신부를 향해 마중 나감</div><div class="speech"><p>두 사람을 큰 박수로 축복해주시기 바랍니다.</p></div><div class="cue">신랑·신부 함께 입장</div></section>
+
+      <section class="section"><h2><span class="num">08</span>맞절</h2><div class="speech"><p>두 사람 서로 마주 보겠습니다.</p><p>오늘 이 자리까지 각자의 삶을 살아온 두 사람이 이제 서로의 가장 가까운 사람이 되어 살아가게 됩니다.</p><p>서로를 존중하고 아끼겠다는 마음을 담아 인사하겠습니다.</p><p><span class="highlight">신랑 신부, 맞절.</span></p></div><div class="cue">맞절</div><div class="speech"><p>두 사람에게 박수 부탁드립니다.</p></div></section>
+
+      <section class="section"><h2><span class="num">09</span>복둥이 화견 입장</h2><div class="speech"><p>이제 두 사람이 직접 혼인서약서를 발표할 차례인데요.</p><p>그런데 오늘의 혼인서약서는 조금 특별한 친구가 가져오기로 했습니다.</p><p>신랑 신부의 가족이자, 두 사람의 일상에 언제나 함께하고 있는 반려견, 복둥이가 아주 중요한 임무를 맡았습니다.</p><p>저 뒤를 봐주시면 예쁘게 꽃단장을 한 복둥이가 서있습니다.</p><p>하객 여러분, 박수로 복둥이를 응원해주세요.</p></div><div class="cue">잠시 복둥이 정비</div><div class="speech"><p><span class="highlight">복둥이, 입장!</span></p></div><div class="cue">음악 없이 복둥이가 혼인서약서를 가지고 신랑에게 도착 · 신랑이 복둥이를 안아 들어 올릴 준비<br>복둥이를 ‘심바’처럼 들어 올리는 순간 라이온킹 OST 재생</div><div class="speech"><p>오늘 중요한 임무를 수행한 복둥이에게도 큰 박수 부탁드립니다!</p></div><div class="cue">사진 및 박수</div><div class="speech"><p>이제 복둥이는 남은 예식을 편안하게 지켜볼 수 있도록 친구분께서 데리고 자리로 이동하겠습니다.</p></div><div class="cue">음악 종료 · 친구에게 복둥이 인계</div></section>
+
+      <section class="section"><h2><span class="num">10</span>혼인서약 · 성혼 선언</h2><div class="cue">마이크 전달 · 신랑·신부가 혼인서약 순서대로 낭독</div><div class="speech"><p>오늘 서로에게 전한 이 약속은 두 사람만의 약속이 아니라 이 자리에 함께한 모든 분들과의 약속이기도 합니다.</p><p>두 사람의 마음이 오래도록 변함없기를 바라며, 이 자리에 함께한 모두를 대표하여 사회자인 제가 두 사람의 성혼을 선언하겠습니다.</p><p><span class="highlight">신랑 김명진 군과 신부 강승지 양이 부부가 되었음을 선언합니다.</span></p><p>모두 축하의 마음을 담아 큰 박수 부탁드립니다.</p></div></section>
+
+      <section class="section"><h2><span class="num">11</span>축사</h2><div class="speech"><p>이제 두 사람의 결혼을 축하하는 축사가 있겠습니다.</p><p>오늘의 축사는 신부 강승지 양과 무려 34년을 알고 지낸, 동생 강진호 님이 준비했습니다.</p><p>누나의 결혼을 가장 가까운 가족의 마음으로 바라보며 어떤 이야기를 준비했을지 저도 궁금한데요.</p><p>강진호 님을 큰 박수로 모시겠습니다.</p></div><div class="cue">강진호 축사</div><div class="speech"><p>진심이 담긴 축사를 전해주신 강진호 님께 다시 한번 큰 박수 부탁드립니다.</p></div></section>
+
+      <section class="section"><h2><span class="num">12</span>축연 및 축가</h2><div class="speech"><p>이번에는 신랑의 여동생 부부가 새 가족을 환영하는 마음을 담아 아름다운 축가를 준비했습니다.</p><p>오늘을 위해 베를린에서부터 먼 길을 달려온 여동생 김온유 님과 남편 김요한 님이 전하고 싶은 이야기가 있을 것 같은데, 연주에 앞서 짧게라도 축하의 인사를 들어보겠습니다.</p></div><div class="cue">마이크 전달 · 짧은 축하 인사</div><div class="speech"><p>하객 여러분, 큰 박수 부탁드립니다.</p></div><div class="cue">축가 MR 재생 · 바이올린 연주 및 축가</div><div class="speech"><p>두 분께 다시 한번 큰 박수 부탁드립니다.</p></div></section>
+
+      <section class="section"><h2><span class="num">13</span>양가 부모님께 인사</h2><div class="speech"><p>이제 오늘의 두 사람이 있기까지 가장 오랫동안 곁을 지켜주신 부모님께 감사의 인사를 드리는 순서입니다.</p></div><div class="cue">「Always With Me」 피아노 3중주 시작</div><div class="speech"><p>먼저 신부 측 부모님께 인사드리겠습니다.</p><p>신랑 신부는 신부 측 부모님 앞으로 이동해주시기 바랍니다.</p></div><div class="cue">이동</div><div class="speech"><p>사랑으로 키워주신 부모님께 감사의 마음을 담아 인사드리겠습니다.</p><p><span class="highlight">신랑 신부, 인사.</span></p></div><div class="cue">인사 · 포옹</div><div class="speech"><p>이어서 신랑 측 부모님 앞으로 이동해주시기 바랍니다.</p></div><div class="cue">이동</div><div class="speech"><p>두 사람의 출발을 누구보다 기쁜 마음으로 축복해주실 부모님께 감사의 인사를 드리겠습니다.</p><p><span class="highlight">신랑 신부, 인사.</span></p></div><div class="cue">인사 · 포옹</div></section>
+
+      <section class="section"><h2><span class="num">14</span>하객 감사 인사</h2><div class="speech"><p>이제 신랑 신부는 앞쪽으로 이동해 오늘 이 자리를 찾아주신 모든 하객 여러분께 감사의 인사를 드리겠습니다.</p></div><div class="cue">신랑 신부 나란히 하객을 바라봄</div><div class="speech"><p><span class="highlight">신랑 신부, 하객 여러분께 인사.</span></p></div><div class="cue">신랑 신부 정중하게 인사</div></section>
+
+      <section class="section"><h2><span class="num">15</span>행진 준비</h2><div class="speech"><p>이제 정말 마지막 순서만을 남겨두고 있습니다.</p><p>오늘 각자의 길을 걸어 이곳에 도착한 두 사람이 이제부터는 부부로서 같은 방향으로 함께 걸어가게 됩니다.</p><p>그리고 그 첫걸음은 두 사람을 아끼고 사랑해주시는 여기 이 곳에 계신 여러분께로 향합니다.</p><p>신랑 신부가 힘차게 나아갈 수 있도록 지금까지 중 가장 큰 박수와 환호 부탁드립니다.</p></div><div class="cue">꽃을 뿌릴 친구들 버진로드 양쪽 배치 확인</div></section>
+
+      <section class="section"><h2><span class="num">16</span>신랑 신부 행진</h2><div class="speech"><p>그럼,</p><p><span class="highlight">신랑 신부 행진!</span></p></div><div class="cue">멘델스존 「축혼행진곡」 피아노 3중주 시작<br>신부 측 3~4명, 신랑 측 3~4명 등 친구 총 6~8명이 버진로드 양쪽에서 식장 제공 꽃을 뿌림 · 신랑 신부 행진</div></section>
+
+      <section class="section"><h2><span class="num">17</span>폐식 · 촬영 안내</h2><div class="speech"><p>이것으로 두 사람의 결혼식을 모두 마치겠습니다.</p><p>오늘 함께해주신 모든 분들께 감사드립니다.</p></div><div class="cue">신랑·신부 다시 앞쪽으로 이동</div><div class="speech"><p>잠시 후 기념촬영이 이어질 예정이오니 촬영에 함께하실 가족과 친지, 친구분들께서는 안내에 따라 이동해주시기 바랍니다.</p><p>먼저 양가 가족 및 친지분들 기념촬영을 위해 앞으로 나와주시기 바랍니다.</p><p>가족 및 친지 촬영이 끝난 뒤에 친구와 직장 동료 등 신랑 신부를 축하해 주신 하객 여러분과 함께 촬영하겠습니다.</p></div><div class="cue">가족 촬영</div><div class="speech"><p><span class="highlight">이제 신랑 신부의 친구, 직장 동료, 지인 나와주세요.</span></p></div></section>
+    </article>
+  </main>
+
+  <div class="edit-badge">편집 중 · 수정 후 저장</div>
+
+  <script>
+    (() => {
+      const script = document.getElementById('script');
+      const editBtn = document.getElementById('editBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const printBtn = document.getElementById('printBtn');
+      const savedState = document.getElementById('savedState');
+      const storageKey = 'wedding-mc-script-v1';
+      const original = script.innerHTML;
+      const editableSelector = '.speech, .cue, .hero h1, .hero .meta';
+
+      const stored = localStorage.getItem(storageKey);
+      if (stored) script.innerHTML = stored;
+
+      function setEditing(on){
+        document.body.classList.toggle('editing', on);
+        script.querySelectorAll(editableSelector).forEach(el => el.contentEditable = on ? 'true' : 'false');
+        editBtn.textContent = on ? '편집 종료' : '편집';
+        if(on){
+          const first = script.querySelector('.speech');
+          first && first.focus({preventScroll:true});
+        }
+      }
+
+      editBtn.addEventListener('click', () => setEditing(!document.body.classList.contains('editing')));
+      saveBtn.addEventListener('click', () => {
+        script.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+        localStorage.setItem(storageKey, script.innerHTML);
+        setEditing(false);
+        savedState.textContent = '저장됨';
+        setTimeout(() => savedState.textContent = '', 1600);
+      });
+      script.addEventListener('input', () => savedState.textContent = '수정됨');
+      resetBtn.addEventListener('click', () => {
+        if(!confirm('이 기기에 저장된 수정 내용을 지우고 처음 대본으로 되돌릴까요?')) return;
+        localStorage.removeItem(storageKey);
+        script.innerHTML = original;
+        setEditing(false);
+        savedState.textContent = '복원됨';
+        setTimeout(() => savedState.textContent = '', 1600);
+      });
+      printBtn.addEventListener('click', () => {
+        setEditing(false);
+        window.print();
+      });
+      setEditing(false);
+    })();
+  </script>
+</body>
+</html>
