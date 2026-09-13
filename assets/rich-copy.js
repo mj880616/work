@@ -128,29 +128,39 @@
   function enhanceRailWholeCopy(){
     if(!IS_RAIL_1007)return;
     const actions=document.querySelector('.page-actions');
-    if(!actions||document.getElementById('railWholeCopy'))return;
-    const b=document.createElement('button');
-    b.type='button';b.id='railWholeCopy';b.className='action-btn';b.textContent='전체 문서 복사';
-    b.addEventListener('click',async e=>{
-      e.preventDefault();e.stopPropagation();
-      const plan=document.getElementById('editablePlan');
-      if(!plan)return;
-      const source=document.createElement('div');
-      source.style.cssText='position:fixed;left:-99999px;top:0;width:900px;opacity:.01;pointer-events:none;background:#fff;color:#000;padding:0';
-      const title=document.createElement('h1');
-      title.textContent=document.querySelector('.hero h1')?.textContent||document.title;
-      source.append(title);
-      const subtitle=document.querySelector('.hero p');
-      if(subtitle){const p=document.createElement('p');p.textContent=subtitle.textContent;source.append(p)}
-      [...plan.children].forEach(node=>source.append(node.cloneNode(true)));
-      document.body.append(source);
-      try{await copyElement(source,b)}finally{source.remove()}
-    });
-    actions.prepend(b);
+    if(!actions)return;
+    let b=document.getElementById('railWholeCopy');
+    if(!b){
+      b=document.createElement('button');
+      b.type='button';b.id='railWholeCopy';b.className='action-btn';b.textContent='전체 문서 복사';
+      b.addEventListener('click',async e=>{
+        e.preventDefault();e.stopPropagation();
+        const plan=document.getElementById('editablePlan');
+        if(!plan)return;
+        const source=document.createElement('div');
+        source.style.cssText='position:fixed;left:-99999px;top:0;width:900px;opacity:.01;pointer-events:none;background:#fff;color:#000;padding:0';
+        const title=document.createElement('h1');
+        title.textContent=document.querySelector('.hero h1')?.textContent||document.title;
+        source.append(title);
+        const subtitle=document.querySelector('.hero p');
+        if(subtitle){const p=document.createElement('p');p.textContent=subtitle.textContent;source.append(p)}
+        [...plan.children].forEach(node=>source.append(node.cloneNode(true)));
+        document.body.append(source);
+        try{await copyElement(source,b)}finally{source.remove()}
+      });
+    }
+    const printBtn=actions.querySelector('#printBtn');
+    const editBtn=actions.querySelector('#railEditToggle');
+    if(printBtn){
+      if(printBtn.nextElementSibling!==b)printBtn.after(b);
+    }else if(editBtn){
+      actions.insertBefore(b,editBtn);
+    }else if(!b.parentElement){
+      actions.append(b);
+    }
   }
 
   function enhanceGenericSections(){
-    /* 10.7 페이지는 페이지 자체의 단락복사/편집 툴바를 사용해 중복 버튼을 방지 */
     if(IS_RAIL_1007)return;
     document.querySelectorAll('.section,.decision').forEach(sec=>{
       if(sec.querySelector(':scope > h2 .unit-btn.copy')||sec.querySelector(':scope > .kptu-copy-wrap'))return;
