@@ -78,7 +78,7 @@
     const heading=document.querySelector('main .section h2');
     if(heading&&heading.textContent.trim()==='확정·완료사항')heading.textContent='사전 준비';
     const style=document.createElement('style');
-    style.textContent='.task-row>.small-btn.save,.task-note-editor .note-save{display:none!important}';
+    style.textContent='.task-row>.small-btn.save:disabled{display:none!important}.task-row:has(>.small-btn.save:disabled){grid-template-columns:28px minmax(0,1fr) 54px 54px!important}@media(max-width:620px){.task-row:has(>.small-btn.save:disabled){grid-template-columns:25px minmax(0,1fr) 50px 50px!important}.task-row:has(>.small-btn.save:disabled) .danger{grid-column:auto!important;justify-self:stretch!important;width:auto!important;margin-top:0!important}}';
     document.head.appendChild(style);
   }
 
