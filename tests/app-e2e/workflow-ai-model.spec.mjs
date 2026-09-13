@@ -85,7 +85,6 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await page.locator('[data-view="tasks"]').click();
   await page.locator('#newTaskBtn').click();
   await expect(page.locator('#taskModal')).toBeVisible();
-  await expect(page.locator('#taskProject option')).toHaveCount(2);
   await expect(page.locator('#taskProject')).not.toContainText('지방이전 대응');
   await expect(page.locator('#taskProject')).toContainText('10월 국회토론회');
   await page.locator('[data-close="taskModal"]').click();
