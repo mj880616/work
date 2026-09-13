@@ -6,7 +6,7 @@
   await import('./runtime-client.js?v=1');
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
-  await import('./app-router.js?v=2');
+  await import('./app-router.js?v=1');
   if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=5';document.head.appendChild(l)}
   await import('./auth-ui.js?v=8');
   await import('./auth-login-fallback.js?v=1');
