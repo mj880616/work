@@ -73,6 +73,7 @@
       await import('./project-modal-scroll-lock.js?v=3');
       await import('./project-empty-workstream-guard.js?v=1');
       await import('./project-modal-polish.js?v=1');
+      await import('./project-archive.js?v=1');
       projectSystemLoaded=true;return true;
     }catch(e){console.warn('project system v2 activation skipped',e);return false}
   };
