@@ -101,7 +101,7 @@ body.auth-ok .auth-gate{display:none}
 <script>
 const AUTH_KEY='work_main_auth_v1';
 const AUTH_SESSION_KEY='work_main_auth_session_v1';
-const AUTH_HASH='fdd4cbee540b03e33c231fb9d12c287e8f64c3981ad06998ded3f54e55dcf4bd';
+const AUTH_HASH='6775dfa399241255444222312063f968d6aa1d69037d0ed62bb2ebf90000b6f0';
 const AUTH_TTL=30*24*60*60*1000;
 function unlockWorkPage(){document.body.classList.remove('auth-locked');document.body.classList.add('auth-ok')}
 function hasValidWorkAuth(){try{if(sessionStorage.getItem(AUTH_SESSION_KEY)===AUTH_HASH)return true;const raw=localStorage.getItem(AUTH_KEY);if(!raw)return false;const data=JSON.parse(raw);if(data.hash===AUTH_HASH&&Number(data.expires)>Date.now())return true;localStorage.removeItem(AUTH_KEY)}catch(e){}return false}
