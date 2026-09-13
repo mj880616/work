@@ -73,8 +73,18 @@
     root.querySelectorAll?.('input[type="file"]').forEach(enhance);
   }
 
+  function tuneJointStruggleBoard(){
+    if(!location.pathname.includes('/workforce/joint-struggle-0921'))return;
+    const heading=document.querySelector('main .section h2');
+    if(heading&&heading.textContent.trim()==='확정·완료사항')heading.textContent='사전 준비';
+    const style=document.createElement('style');
+    style.textContent='.task-row>.small-btn.save,.task-note-editor .note-save{display:none!important}';
+    document.head.appendChild(style);
+  }
+
   function boot(){
     enhanceAll();
+    tuneJointStruggleBoard();
     new MutationObserver(records=>{
       records.forEach(record=>record.addedNodes.forEach(node=>{
         if(node.nodeType!==1)return;
