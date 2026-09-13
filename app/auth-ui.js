@@ -1,9 +1,11 @@
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const APP_URL='https://mj880616.github.io/work/app/';
-const NATIVE_CALLBACK=APP_URL+'native-callback.html?native=android';
+const ANDROID_CALLBACK=APP_URL+'native-callback.html?native=android';
+const WINDOWS_CALLBACK=APP_URL+'native-callback.html?native=windows';
 function isNativeAndroid(){return /KPTUAndroid/i.test(navigator.userAgent)||/;\s*wv\)/i.test(navigator.userAgent)||/\bwv\b/i.test(navigator.userAgent)}
+function isNativeWindows(){return /KPTUWindows/i.test(navigator.userAgent)}
 function showStatus(msg,type='error'){const el=document.querySelector('#authStatus');if(!el)return;el.textContent=msg;el.className='status '+type}
-function startGoogleLogin(){const redirect=isNativeAndroid()?NATIVE_CALLBACK:APP_URL;const url=SB+'/auth/v1/authorize?provider=google&redirect_to='+encodeURIComponent(redirect);showStatus('Google 로그인으로 이동합니다…','');location.href=url}
+function startGoogleLogin(){let redirect=APP_URL;if(isNativeAndroid())redirect=ANDROID_CALLBACK;else if(isNativeWindows())redirect=WINDOWS_CALLBACK;const url=SB+'/auth/v1/authorize?provider=google&redirect_to='+encodeURIComponent(redirect);showStatus('Google 로그인으로 이동합니다…','');location.href=url}
 function syncPasswordConfirmation(){const input=document.querySelector('#authPasswordConfirm');if(!input)return;const signup=document.querySelector('[data-auth-tab="signup"]')?.classList.contains('active')===true;input.disabled=!signup;input.required=signup;if(!signup)input.value=''}
 function enhanceAuth(){
   const form=document.querySelector('#authForm'),card=document.querySelector('#authView .auth-card'),tabs=card?.querySelector('.auth-tabs'),status=document.querySelector('#authStatus');
