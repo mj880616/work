@@ -40,12 +40,12 @@ async function login(page){
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 
-test('desktop web uses a compact left navigation while sharing the same app',async({page})=>{
+test('desktop web uses a compact left navigation, home-only workspace header and safe project detail margins',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   await installMock(page);
   await page.goto('http://127.0.0.1:8123/app/');
 
-  await expect(page.locator('#desktopUiCss')).toHaveAttribute('href','./desktop-ui.css?v=2');
+  await expect(page.locator('#desktopUiCss')).toHaveAttribute('href','./desktop-ui.css?v=3');
   await expect(page.locator('#desktopTightNavCss')).toHaveAttribute('href','./desktop-tight-nav.css?v=1');
   await login(page);
 
@@ -62,11 +62,33 @@ test('desktop web uses a compact left navigation while sharing the same app',asy
   expect(desktop.navPosition).toBe('sticky');
   expect(desktop.navWidth).toBeLessThanOrEqual(160);
   expect(desktop.mainMaxWidth).toBe('1720px');
+  await expect(page.locator('#appView>.workspace-head')).toBeVisible();
 
   await expect(page.locator('#myTaskMini')).toContainText('메인에서 바로 처리할 할 일');
   await expect(page.locator('#myTaskMini [data-hta-toggle="task-1"]')).toBeVisible();
   await expect(page.locator('#myTaskMini [data-hta-edit="task-1"]')).toHaveText('수정');
   await expect(page.locator('#myTaskMini [data-hta-delete="task-1"]')).toHaveText('삭제');
+
+  await page.locator('[data-view="projects"]').click();
+  await expect(page.locator('#projectsView')).toBeVisible();
+  await expect(page.locator('#appView>.workspace-head')).toBeHidden();
+
+  await page.evaluate(()=>{
+    const modal=document.createElement('div');
+    modal.id='pm2DetailModal';
+    modal.className='modal';
+    modal.innerHTML='<div class="modal-card pm2-detail-card"><div class="modal-head"><div><div class="eyebrow">PROJECT</div><h2>PC 프로젝트 상세</h2></div><button class="icon-btn" type="button">×</button></div><div style="height:1000px">상세 내용</div></div>';
+    document.body.appendChild(modal);
+  });
+  const modalRect=await page.locator('#pm2DetailModal .pm2-detail-card').evaluate(el=>{
+    const r=el.getBoundingClientRect();
+    return {left:r.left,right:r.right,top:r.top,width:r.width};
+  });
+  expect(modalRect.left).toBeGreaterThanOrEqual(30);
+  expect(modalRect.right).toBeLessThanOrEqual(1410);
+  expect(modalRect.top).toBeGreaterThanOrEqual(30);
+  expect(modalRect.width).toBeLessThanOrEqual(1180);
+  await page.locator('#pm2DetailModal').evaluate(el=>el.remove());
 
   await page.setViewportSize({width:760,height:900});
   const mobile=await page.locator('#appView').evaluate(el=>({display:getComputedStyle(el).display,navDirection:getComputedStyle(el.querySelector(':scope > .app-nav')).flexDirection}));
@@ -82,11 +104,13 @@ test('selected view survives refresh and page cards open inside the 게시 tab',
 
   await page.locator('[data-view="calendar"]').click();
   await expect(page.locator('#calendarView')).toBeVisible();
+  await expect(page.locator('#appView>.workspace-head')).toBeHidden();
   await expect(page).toHaveURL(/view=calendar/);
   await page.reload();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
   await expect(page.locator('[data-view="calendar"]')).toHaveClass(/active/);
+  await expect(page.locator('#appView>.workspace-head')).toBeHidden();
 
   await page.locator('[data-view="pages"]').click();
   await expect(page.locator('#pageList')).toContainText('데스크톱 게시글');
