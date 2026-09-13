@@ -67,6 +67,7 @@ jobs:
           test -f app/project-v2.js
           test -f app/project-templates.js
           test -f app/workflow-ai-v3.js
+          test -f app/meeting-ai-ingest-client.js
           test -f app/workplace-ai-report.js
           test -f app/project-operating-model.js
           test -f p/index.html
@@ -75,7 +76,7 @@ jobs:
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
           grep -q 'app.js?v=12' app/index.html
-          grep -q "loader-v2.js?v=101" app/app.js
+          grep -q "loader-v2.js?v=102" app/app.js
           grep -q "auth-ui.js?v=8" app/app.js
           grep -q "calendar-return-bridge.js?v=2" app/app.js
           grep -q "runtime-client.js?v=1" app/loader-v2.js
@@ -94,6 +95,7 @@ jobs:
           grep -q "project-v2.js?v=1" app/loader-v2.js
           grep -q "project-templates.js?v=1" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=1" app/loader-v2.js
+          grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
           grep -q "workplace-ai-report.js?v=1" app/loader-v2.js
           grep -q "project-operating-model.js?v=1" app/loader-v2.js
           grep -q "google-calendar-return-status.js?v=1" app/loader-v2.js
@@ -108,11 +110,14 @@ jobs:
           grep -q "KPTURuntime" app/project-files.js
           grep -q "KPTURuntime" app/project-task-link.js
           grep -q "KPTURuntime" app/workflow-ai-v3.js
+          grep -q "KPTURuntime" app/meeting-ai-ingest-client.js
           grep -q "KPTURuntime" app/workplace-ai-report.js
           grep -q "KPTURuntime" app/project-operating-model.js
           grep -q "중요 결정 사항" app/workflow-ai-v3.js
           grep -q "후속 과제와 역할분담 및 기한" app/workflow-ai-v3.js
           grep -q "사업 정보공유" app/workflow-ai-v3.js
+          grep -q "meeting-ai-ingest" app/meeting-ai-ingest-client.js
+          grep -q "meeting-ai-draft" app/meeting-ai-ingest-client.js
           grep -q "app_suborganization_updates" app/workplace-ai-report.js
           grep -q "app_suborganization_weekly_reports" app/workplace-ai-report.js
           grep -q "연중사업 기본구성" app/project-operating-model.js
@@ -137,9 +142,9 @@ jobs:
           grep -q "바로가기" app/page-shortcut.js
           if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification center global observer returned'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification center polling returned'; exit 1; fi
-          if grep -q "setInterval" app/workflow-ai-v3.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'workflow AI polling introduced'; exit 1; fi
-          if grep -q "refresh_token" app/task-workflow.js app/meeting-round-detail.js app/page-editor-fix.js app/project-files.js app/project-task-link.js app/project-templates.js app/workflow-ai-v3.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'feature refresh logic returned'; exit 1; fi
-          if grep -q "kptu_collab_session_v1" app/calendar-health.js app/calendar-persistence.js app/calendar-plus.js app/calendar-interactions-v2.js app/task-workflow.js app/task-layout.js app/profile-settings.js app/page-editor-fix.js app/page-builder.js app/project-v2.js app/project-templates.js app/project-access.js app/project-files.js app/project-task-link.js app/meeting-round-detail.js app/collaboration-center.js app/workflow-ai-v3.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'feature-local session storage returned'; exit 1; fi
+          if grep -q "setInterval" app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'workflow AI polling introduced'; exit 1; fi
+          if grep -q "refresh_token" app/task-workflow.js app/meeting-round-detail.js app/page-editor-fix.js app/project-files.js app/project-task-link.js app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'feature refresh logic returned'; exit 1; fi
+          if grep -q "kptu_collab_session_v1" app/calendar-health.js app/calendar-persistence.js app/calendar-plus.js app/calendar-interactions-v2.js app/task-workflow.js app/task-layout.js app/profile-settings.js app/page-editor-fix.js app/page-builder.js app/project-v2.js app/project-templates.js app/project-access.js app/project-files.js app/project-task-link.js app/meeting-round-detail.js app/collaboration-center.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'feature-local session storage returned'; exit 1; fi
           if grep -q "task-title-ui.js" app/loader-v2.js; then echo 'task title CSS shim loaded again'; exit 1; fi
           if grep -q "project-create-submit.js" app/loader-v2.js; then echo 'duplicate project submit shim loaded'; exit 1; fi
           if grep -q "task-personal-due.js" app/loader-v2.js; then echo 'duplicate task submit shim loaded'; exit 1; fi
@@ -163,6 +168,7 @@ jobs:
           curl --fail --silent http://127.0.0.1:8123/app/project-files.js >/tmp/project-files.js
           curl --fail --silent http://127.0.0.1:8123/app/project-task-link.js >/tmp/project-task-link.js
           curl --fail --silent http://127.0.0.1:8123/app/workflow-ai-v3.js >/tmp/workflow-ai-v3.js
+          curl --fail --silent http://127.0.0.1:8123/app/meeting-ai-ingest-client.js >/tmp/meeting-ai-ingest-client.js
           curl --fail --silent http://127.0.0.1:8123/app/workplace-ai-report.js >/tmp/workplace-ai-report.js
           curl --fail --silent http://127.0.0.1:8123/app/project-operating-model.js >/tmp/project-operating-model.js
           curl --fail --silent http://127.0.0.1:8123/p/ >/tmp/public-page.html
@@ -175,6 +181,7 @@ jobs:
           test -s /tmp/project-files.js
           test -s /tmp/project-task-link.js
           test -s /tmp/workflow-ai-v3.js
+          test -s /tmp/meeting-ai-ingest-client.js
           test -s /tmp/workplace-ai-report.js
           test -s /tmp/project-operating-model.js
           test -s /tmp/public-page.html
