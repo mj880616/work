@@ -1,0 +1,47 @@
+name: Generate Web2 icon files
+
+on:
+  push:
+    paths:
+      - '.github/workflows/generate-web2-icons.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate PNG icon sizes from app icon
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import base64, io, re
+
+          svg = Path('app/app-icon.svg').read_text(encoding='utf-8')
+          m = re.search(r'data:image/jpeg;base64,([^"\']+)', svg)
+          if not m:
+              raise SystemExit('embedded JPEG not found')
+          src = Image.open(io.BytesIO(base64.b64decode(m.group(1)))).convert('RGB')
+          outputs = {
+              'app/icon-512.png': 512,
+              'app/icon-192.png': 192,
+              'app/apple-touch-icon.png': 180,
+              'app/favicon-32.png': 32,
+          }
+          for path, size in outputs.items():
+              src.resize((size, size), Image.Resampling.LANCZOS).save(path, 'PNG', optimize=True)
+          PY
+      - name: Commit generated icons
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/icon-512.png app/icon-192.png app/apple-touch-icon.png app/favicon-32.png
+          git diff --cached --quiet && exit 0
+          git commit -m "Generate Web2 PNG icon sizes"
+          git push
