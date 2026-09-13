@@ -18,16 +18,26 @@
     ];
     window.KPTURuntime={
       session:{ensure:async()=>true},
-      api:async(path)=>{
+      api:async(path,opts={})=>{
         if(path==='/auth/v1/user')return {id:'user-1'};
         if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1'}];
         if(path.startsWith('/rest/v1/app_spaces'))return [{id:'space-1',name:'인력확충 투쟁'}];
-        if(path.startsWith('/rest/v1/app_tasks'))return rows;
+        if(path.startsWith('/rest/v1/app_tasks')){
+          if(opts.method==='PATCH'){
+            const match=path.match(/[?&]id=eq\.([^&]+)/);
+            const id=match?decodeURIComponent(match[1]):'';
+            const row=rows.find(item=>item.id===id);
+            if(row)Object.assign(row,opts.body||{});
+            return null;
+          }
+          return rows;
+        }
         return [];
       }
     };
     window.KPTURouter={on(){}};
   </script>
   <script src="../../app/task-layout.js"></script>
+  <script src="../../app/task-status-state.js"></script>
 </body>
 </html>
