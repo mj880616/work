@@ -84,6 +84,7 @@
   await import('./notification-center-ui.js?v=5');
   await import('./task-assignment-visibility.js?v=4');
   await import('./home-cleanup.js?v=2');
+  await import('./home-dashboard-v2.js?v=1');
   await import('./calendar-plus.js?v=4');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=2');

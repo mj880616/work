@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><style>:root{--line:#ddd;--muted:#6b7582;--blue:#315f95;--red:#a33b45}.dashboard-grid{display:grid}.panel{background:#fff;border:1px solid #ddd;padding:12px}.panel-head{display:flex;justify-content:space-between}.mini{font-size:11px}</style></head>
+<body>
+<section id="homeView">
+  <div class="dashboard-grid home-dashboard-single">
+    <article class="panel"><div class="panel-head"><div><h2>내 할 일</h2></div></div><div id="myTaskMini"></div></article>
+  </div>
+</section>
+<script>
+const now=new Date();
+const tomorrow=new Date(now.getTime()+86400000).toISOString();
+const yesterday=new Date(now.getTime()-86400000).toISOString();
+window.KPTURuntime={
+  session:{ensure:async()=>true},
+  api:async(path)=>{
+    if(path==='/auth/v1/user')return {id:'user-1'};
+    if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1'}];
+    if(path.startsWith('/rest/v1/app_spaces'))return [
+      {id:'project-1',name:'인력확충 투쟁',parent_id:null,status:'active',metadata:{project_system:'v2',project_type:'campaign'},project_type:'campaign',current_phase:'execution',updated_at:new Date().toISOString(),is_legacy_snapshot:false},
+      {id:'project-2',name:'민자철도',parent_id:null,status:'active',metadata:{project_system:'v2',project_type:'ongoing'},project_type:'ongoing',current_phase:'consultation',updated_at:yesterday,is_legacy_snapshot:false},
+      {id:'legacy',name:'숨김 이식본',parent_id:null,status:'active',metadata:{legacy_snapshot:true},updated_at:new Date().toISOString(),is_legacy_snapshot:true}
+    ];
+    if(path.startsWith('/rest/v1/app_project_milestones'))return [
+      {id:'m1',project_id:'project-1',title:'국회 기자회견',status:'planned',start_at:tomorrow,updated_at:new Date().toISOString()}
+    ];
+    if(path.startsWith('/rest/v1/app_project_progress_updates'))return [
+      {id:'u1',project_id:'project-1',summary:'현장발언 섭외 완료',next_step:'보도자료 확정',effective_on:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()}
+    ];
+    return [];
+  }
+};
+window.__routeCalls=[];
+window.KPTURouter={go:(view,detail)=>window.__routeCalls.push({view,detail}),on:()=>{}};
+</script>
+<script src="../../app/home-dashboard-v2.js"></script>
+</body>
+</html>
