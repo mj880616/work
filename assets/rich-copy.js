@@ -194,7 +194,7 @@
   function installStyle(){
     if(document.getElementById('kptu-rich-copy-style'))return;
     const s=document.createElement('style');s.id='kptu-rich-copy-style';
-    s.textContent=`.kptu-copy-wrap{display:flex;justify-content:flex-end;gap:6px;margin:-4px 0 8px}.kptu-copy-wrap.table{margin:8px 0 2px}.kptu-copy-btn{border:1px solid #c7d3dd;background:#fff;color:#294b69;border-radius:8px;padding:6px 9px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.editbar .kptu-copy-btn{order:2}.editbar .editmsg{order:0}@media print{.kptu-copy-wrap,.kptu-copy-btn,#railWholeCopy{display:none!important}}`;
+    s.textContent=`.kptu-copy-wrap{display:flex;justify-content:flex-end;gap:6px;margin:-4px 0 8px}.kptu-copy-wrap.table{margin:8px 0 2px}.kptu-copy-btn{border:1px solid #c7d3dd;background:#fff;color:#294b69;border-radius:8px;padding:6px 9px;font:inherit;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}.editbar .kptu-copy-btn{order:2}.editbar .editmsg{order:0}@media print{.kptu-copy-wrap,.kptu-copy-btn,#railWholeCopy,.unit-tools,.row-tools,.rail-section-edit,.unit-btn.edit,.unit-btn.copy,.table-copy-wrap,.table-copy-btn,.editbar{display:none!important}}`;
     document.head.append(s);
   }
 
