@@ -28,13 +28,20 @@
     import('./task-layout.js?v=5'),
     import('./profile-settings.js?v=2&wd=1'),
     import('./workplace-detail.js?v=1'),
-    import('./meeting-round-detail.js?v=5'),
     import('./project-files.js?v=4'),
     import('./library-upload.js?v=3'),
     import('./page-editor-fix.js?v=2'),
     import('./page-builder.js?v=1'),
     import('./page-shortcut.js?v=1')
   ]);
+  const loadAuthenticatedAi=async()=>{
+    await import('./meeting-round-detail.js?v=5');
+    await import('./workplace-ai-report.js?v=1');
+    await import('./workflow-ai-v3.js?v=1');
+    await import('./meeting-ai-ingest-client.js?v=1');
+  };
+  if(await window.KPTURuntime.session.ensure()) await loadAuthenticatedAi();
+  else window.addEventListener('kptu:session-changed',()=>{loadAuthenticatedAi().catch(console.error)},{once:true});
   await import('./google-calendar-return-status.js?v=1');
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
@@ -43,6 +50,7 @@
   await import('./project-update-actions.js?v=3');
   await import('./project-task-link.js?v=6');
   await import('./project-v2.js?v=1');
+  await import('./project-operating-model.js?v=1');
   await import('./project-templates.js?v=1');
   await import('./project-deeplink.js?v=1');
   await import('./project-delete.js?v=1');
@@ -61,6 +69,7 @@
   await import('./suborganization-planned-assignee.js?v=1');
   await import('./team-profile-view.js?v=1');
   await import('./global-action-buttons.js?v=1');
+  await import('./task-child-project-guard.js?v=1');
 })().catch(err=>{
   console.error(err);
   document.querySelector('#authPreloadStyle')?.remove();
