@@ -37,6 +37,7 @@
   ]);
   await import('./workplace-ai-report.js?v=1');
   await import('./workflow-ai-v3.js?v=1');
+  await import('./meeting-ai-ingest-client.js?v=1');
   await import('./google-calendar-return-status.js?v=1');
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
