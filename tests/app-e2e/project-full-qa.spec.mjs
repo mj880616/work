@@ -162,6 +162,7 @@ test('mobile full project QA: create, scroll, input, linked modals and layout',a
   await expectControlReachable(page,'#pm2ProgressModal','#pm2SaveProgress');
   await page.locator('#pm2SaveProgress').click();
   await expect.poll(()=>state.progress.length).toBe(1);
+  await expect(page.locator('#pm2-mod-progress')).toContainText('자동 QA 진행 기록');
 
   await page.locator('[data-pm2-add-milestone]').click();
   await expect(page.locator('#pm2MilestoneModal h2')).toHaveText('주요 일정 추가');
@@ -179,6 +180,7 @@ test('mobile full project QA: create, scroll, input, linked modals and layout',a
   await expectControlReachable(page,'#pm2DecisionModal','#pm2SaveDecision');
   await page.locator('#pm2SaveDecision').click();
   await expect.poll(()=>state.decisions.length).toBe(1);
+  await expect(page.locator('#pm2-mod-decisions')).toContainText('QA 결정사항');
 
   const linked=[
     ['task','#taskModal','#taskProject','[data-close="taskModal"]'],
