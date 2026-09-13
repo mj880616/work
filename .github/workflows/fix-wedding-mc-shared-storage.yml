@@ -16,9 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Replace browser-local save with shared server save
+        env:
+          NEW_SCRIPT_B64: ICA8c2NyaXB0PgogICAgKCgpID0+IHsKICAgICAgY29uc3QgQVBJID0gJ2h0dHBzOi8veG1sa3hmamVhZ3ljd3R0a2x4ancuc3VwYWJhc2UuY28vZnVuY3Rpb25zL3YxL3dlZGRpbmctbWMtc2hhcmVkJzsKICAgICAgY29uc3Qgc2NyaXB0ID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3NjcmlwdCcpOwogICAgICBjb25zdCBlZGl0QnRuID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2VkaXRCdG4nKTsKICAgICAgY29uc3Qgc2F2ZUJ0biA9IGRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdzYXZlQnRuJyk7CiAgICAgIGNvbnN0IHByaW50QnRuID0gZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3ByaW50QnRuJyk7CiAgICAgIGNvbnN0IHNhdmVkU3RhdGUgPSBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnc2F2ZWRTdGF0ZScpOwogICAgICBjb25zdCBlZGl0YWJsZVNlbGVjdG9yID0gJy5zcGVlY2gsIC5jdWUsIC5oZXJvIGgxLCAuaGVybyAubWV0YSc7CiAgICAgIGxldCBkaXJ0eSA9IGZhbHNlOwogICAgICBsZXQgbGFzdFNlcnZlclVwZGF0ZWQgPSBudWxsOwoKICAgICAgZnVuY3Rpb24gc2V0RWRpdGluZyhvbil7CiAgICAgICAgZG9jdW1lbnQuYm9keS5jbGFzc0xpc3QudG9nZ2xlKCdlZGl0aW5nJywgb24pOwogICAgICAgIHNjcmlwdC5xdWVyeVNlbGVjdG9yQWxsKGVkaXRhYmxlU2VsZWN0b3IpLmZvckVhY2goZWwgPT4gZWwuY29udGVudEVkaXRhYmxlID0gb24gPyAndHJ1ZScgOiAnZmFsc2UnKTsKICAgICAgICBlZGl0QnRuLnRleHRDb250ZW50ID0gb24gPyAn7Y647KeRIOyiheujjCcgOiAn7Y647KeRJzsKICAgICAgICBpZihvbil7CiAgICAgICAgICBjb25zdCBmaXJzdCA9IHNjcmlwdC5xdWVyeVNlbGVjdG9yKCcuc3BlZWNoJyk7CiAgICAgICAgICBmaXJzdCAmJiBmaXJzdC5mb2N1cyh7cHJldmVudFNjcm9sbDp0cnVlfSk7CiAgICAgICAgfQogICAgICB9CgogICAgICBhc3luYyBmdW5jdGlvbiBsb2FkU2hhcmVkKHNpbGVudD1mYWxzZSl7CiAgICAgICAgaWYoZG9jdW1lbnQuYm9keS5jbGFzc0xpc3QuY29udGFpbnMoJ2VkaXRpbmcnKSB8fCBkaXJ0eSkgcmV0dXJuOwogICAgICAgIHRyeXsKICAgICAgICAgIGNvbnN0IHIgPSBhd2FpdCBmZXRjaChBUEkse2NhY2hlOiduby1zdG9yZSd9KTsKICAgICAgICAgIGlmKCFyLm9rKSB0aHJvdyBuZXcgRXJyb3IoJ2xvYWQnKTsKICAgICAgICAgIGNvbnN0IGQgPSBhd2FpdCByLmpzb24oKTsKICAgICAgICAgIGlmKGQuY29udGVudCAmJiBkLnVwZGF0ZWRfYXQgIT09IGxhc3RTZXJ2ZXJVcGRhdGVkKXsKICAgICAgICAgICAgc2NyaXB0LmlubmVySFRNTCA9IGQuY29udGVudDsKICAgICAgICAgICAgbGFzdFNlcnZlclVwZGF0ZWQgPSBkLnVwZGF0ZWRfYXQgfHwgbnVsbDsKICAgICAgICAgIH0KICAgICAgICAgIGlmKCFzaWxlbnQpIHNhdmVkU3RhdGUudGV4dENvbnRlbnQgPSBkLnVwZGF0ZWRfYXQgPyAn6rO164+Z7KCA7J6lIOy1nOyLoOuzuCcgOiAn6rO164+Z7KCA7J6lIOykgOu5hOuQqCc7CiAgICAgICAgfWNhdGNoewogICAgICAgICAgaWYoIXNpbGVudCkgc2F2ZWRTdGF0ZS50ZXh0Q29udGVudCA9ICfrtojrn6zsmKTquLAg7Iuk7YyoJzsKICAgICAgICB9CiAgICAgIH0KCiAgICAgIGVkaXRCdG4uYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCAoKSA9PiBzZXRFZGl0aW5nKCFkb2N1bWVudC5ib2R5LmNsYXNzTGlzdC5jb250YWlucygnZWRpdGluZycpKSk7CiAgICAgIHNhdmVCdG4uYWRkRXZlbnRMaXN0ZW5lcignY2xpY2snLCBhc3luYyAoKSA9PiB7CiAgICAgICAgc2NyaXB0LnF1ZXJ5U2VsZWN0b3JBbGwoJ1tjb250ZW50ZWRpdGFibGVdJykuZm9yRWFjaChlbCA9PiBlbC5yZW1vdmVBdHRyaWJ1dGUoJ2NvbnRlbnRlZGl0YWJsZScpKTsKICAgICAgICBzZXRFZGl0aW5nKGZhbHNlKTsKICAgICAgICBzYXZlZFN0YXRlLnRleHRDb250ZW50ID0gJ+yEnOuyhCDsoIDsnqUg7KSR4oCmJzsKICAgICAgICB0cnl7CiAgICAgICAgICBjb25zdCByID0gYXdhaXQgZmV0Y2goQVBJLHttZXRob2Q6J1BPU1QnLGhlYWRlcnM6eydDb250ZW50LVR5cGUnOidhcHBsaWNhdGlvbi9qc29uJ30sYm9keTpKU09OLnN0cmluZ2lmeSh7Y29udGVudDpzY3JpcHQuaW5uZXJIVE1MfSl9KTsKICAgICAgICAgIGlmKCFyLm9rKSB0aHJvdyBuZXcgRXJyb3IoJ3NhdmUnKTsKICAgICAgICAgIGNvbnN0IGQgPSBhd2FpdCByLmpzb24oKTsKICAgICAgICAgIGxhc3RTZXJ2ZXJVcGRhdGVkID0gZC51cGRhdGVkX2F0IHx8IG51bGw7CiAgICAgICAgICBkaXJ0eSA9IGZhbHNlOwogICAgICAgICAgc2F2ZWRTdGF0ZS50ZXh0Q29udGVudCA9ICfqs7Xrj5nsoIDsnqXrkKgnOwogICAgICAgICAgc2V0VGltZW91dCgoKSA9PiBzYXZlZFN0YXRlLnRleHRDb250ZW50ID0gJycsIDE2MDApOwogICAgICAgIH1jYXRjaHsKICAgICAgICAgIGRpcnR5ID0gdHJ1ZTsKICAgICAgICAgIHNhdmVkU3RhdGUudGV4dENvbnRlbnQgPSAn7ISc67KEIOyggOyepSDsi6TtjKgnOwogICAgICAgICAgYWxlcnQoJ+qzteuPmSDshJzrsoTsl5Ag7KCA7J6l7ZWY7KeAIOuqu+2WiOyKteuLiOuLpC4g64uk7IucIOyLnOuPhO2VtCDso7zshLjsmpQuJyk7CiAgICAgICAgfQogICAgICB9KTsKICAgICAgc2NyaXB0LmFkZEV2ZW50TGlzdGVuZXIoJ2lucHV0JywgKCkgPT4geyBkaXJ0eSA9IHRydWU7IHNhdmVkU3RhdGUudGV4dENvbnRlbnQgPSAn7IiY7KCV65CoIMK3IOuvuOyggOyepSc7IH0pOwogICAgICBwcmludEJ0bi5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsICgpID0+IHsgc2V0RWRpdGluZyhmYWxzZSk7IHdpbmRvdy5wcmludCgpOyB9KTsKICAgICAgZG9jdW1lbnQuYWRkRXZlbnRMaXN0ZW5lcigndmlzaWJpbGl0eWNoYW5nZScsICgpID0+IHsgaWYoIWRvY3VtZW50LmhpZGRlbikgbG9hZFNoYXJlZCh0cnVlKTsgfSk7CiAgICAgIHNldEludGVydmFsKCgpID0+IHsgaWYoZG9jdW1lbnQudmlzaWJpbGl0eVN0YXRlID09PSAndmlzaWJsZScpIGxvYWRTaGFyZWQodHJ1ZSk7IH0sIDUwMDApOwogICAgICBzZXRFZGl0aW5nKGZhbHNlKTsKICAgICAgbG9hZFNoYXJlZChmYWxzZSk7CiAgICB9KSgpOwogIDwvc2NyaXB0Pg==
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import os, base64
           p=Path('wedding/mc-script/index.html')
           text=p.read_text(encoding='utf-8')
           start=text.rfind('  <script>\n    (() => {')
@@ -28,71 +31,7 @@ jobs:
           if end < 0:
               raise SystemExit('old wedding editor script end not found')
           end += len('  </script>')
-          new_script=r'''  <script>
-    (() => {
-      const API = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/wedding-mc-shared';
-      const script = document.getElementById('script');
-      const editBtn = document.getElementById('editBtn');
-      const saveBtn = document.getElementById('saveBtn');
-      const printBtn = document.getElementById('printBtn');
-      const savedState = document.getElementById('savedState');
-      const editableSelector = '.speech, .cue, .hero h1, .hero .meta';
-      let dirty = false;
-      let lastServerUpdated = null;
-
-      function setEditing(on){
-        document.body.classList.toggle('editing', on);
-        script.querySelectorAll(editableSelector).forEach(el => el.contentEditable = on ? 'true' : 'false');
-        editBtn.textContent = on ? '편집 종료' : '편집';
-        if(on){
-          const first = script.querySelector('.speech');
-          first && first.focus({preventScroll:true});
-        }
-      }
-
-      async function loadShared(silent=false){
-        if(document.body.classList.contains('editing') || dirty) return;
-        try{
-          const r = await fetch(API,{cache:'no-store'});
-          if(!r.ok) throw new Error('load');
-          const d = await r.json();
-          if(d.content && d.updated_at !== lastServerUpdated){
-            script.innerHTML = d.content;
-            lastServerUpdated = d.updated_at || null;
-          }
-          if(!silent) savedState.textContent = d.updated_at ? '공동저장 최신본' : '공동저장 준비됨';
-        }catch{
-          if(!silent) savedState.textContent = '불러오기 실패';
-        }
-      }
-
-      editBtn.addEventListener('click', () => setEditing(!document.body.classList.contains('editing')));
-      saveBtn.addEventListener('click', async () => {
-        script.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
-        setEditing(false);
-        savedState.textContent = '서버 저장 중…';
-        try{
-          const r = await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:script.innerHTML})});
-          if(!r.ok) throw new Error('save');
-          const d = await r.json();
-          lastServerUpdated = d.updated_at || null;
-          dirty = false;
-          savedState.textContent = '공동저장됨';
-          setTimeout(() => savedState.textContent = '', 1600);
-        }catch{
-          dirty = true;
-          savedState.textContent = '서버 저장 실패';
-          alert('공동 서버에 저장하지 못했습니다. 다시 시도해 주세요.');
-        }
-      });
-      script.addEventListener('input', () => { dirty = true; savedState.textContent = '수정됨 · 미저장'; });
-      printBtn.addEventListener('click', () => { setEditing(false); window.print(); });
-      document.addEventListener('visibilitychange', () => { if(!document.hidden) loadShared(true); });
-      setInterval(() => { if(document.visibilityState === 'visible') loadShared(true); }, 5000);
-      setEditing(false);
-      loadShared(false);
-    })();
-  </script>'''
+          new_script=base64.b64decode(os.environ['NEW_SCRIPT_B64']).decode('utf-8')
           p.write_text(text[:start]+new_script+text[end:],encoding='utf-8')
           PY
       - name: Verify local content storage removed
