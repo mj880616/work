@@ -77,5 +77,7 @@ fileUploadBtn.onclick=async()=>{const file=relatedFile.files?.[0];fileUploadStat
 document.getElementById('fileRefreshBtn').onclick=loadRelatedFiles;
 load();loadRelatedFiles();setInterval(()=>{if(document.visibilityState==='visible'&&editingOrg===null&&!addingOrg&&!editingTask&&!editingNote&&!addingTaskSection)load()},5000);document.addEventListener('visibilitychange',()=>{if(!document.hidden&&editingOrg===null&&!addingOrg&&!editingTask&&!editingNote&&!addingTaskSection)load()});
 </script>
-<script src="/work/assets/rich-copy.js?v=1"></script></body>
+<script src="/work/assets/rich-copy.js?v=1"></script>
+<script src="/work/assets/file-dropzone.js?v=20260913"></script>
+</body>
 </html>
