@@ -33,8 +33,17 @@
       const cs=getComputedStyle(s);
       const style=[];
       KEEP_STYLES.forEach(k=>{const v=cs.getPropertyValue(k);if(v)style.push(`${k}:${v}`)});
-      if(['TH','TD'].includes(d.tagName))style.push('border:1px solid #777','padding:5px 7px');
-      if(d.tagName==='TABLE')style.push('border-collapse:collapse','width:100%');
+      if(['TH','TD'].includes(d.tagName)){
+        style.push('border:1.2pt solid #000','padding:5px 7px');
+      }
+      if(d.tagName==='TABLE'){
+        style.push('border-collapse:collapse','width:100%','border:1.2pt solid #000');
+        d.setAttribute('border','1');
+        d.setAttribute('rules','all');
+        d.setAttribute('frame','box');
+        d.setAttribute('cellspacing','0');
+        d.setAttribute('cellpadding','0');
+      }
       if(['P','H1','H2','H3','H4','H5','H6'].includes(d.tagName))style.push('margin-top:0','margin-bottom:8pt');
       d.removeAttribute('class');d.removeAttribute('id');d.removeAttribute('data-editor');
       d.setAttribute('style',style.join(';'));
