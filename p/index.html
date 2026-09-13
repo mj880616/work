@@ -7,7 +7,7 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <style>
 :root{--bg:#f2f5f7;--paper:#fff;--ink:#18222d;--muted:#697682;--line:#dde4e9}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.72}.wrap{max-width:980px;margin:auto;padding:34px 16px 80px}.paper{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:44px 48px;box-shadow:0 10px 32px rgba(25,45,65,.055)}.paper .pd-title{font-size:38px}.paper .pd-summary{font-size:17px}.paper .pd-body{font-size:15.5px}.paper .pd-body h2{font-size:23px;letter-spacing:-.45px}.paper .pd-body h3{font-size:18px}.meta{font-size:11px;color:#8b959f;margin-top:34px;padding-top:15px;border-top:1px solid #edf0f2}.error{text-align:center;color:var(--muted);padding:70px 20px}@media(max-width:650px){.wrap{padding:12px 10px 50px}.paper{border-radius:15px;padding:27px 20px}.paper .pd-title{font-size:29px}.paper .pd-summary{font-size:15px}.paper .pd-body{font-size:14.5px}.paper .pd-body h2{font-size:20px}.paper.pd-hero-band .pd-hero{margin-left:-7px;margin-right:-7px}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.72}.wrap{max-width:980px;margin:auto;padding:34px 16px 80px}.paper{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:44px 48px;box-shadow:0 10px 32px rgba(25,45,65,.055)}.template-status{}.paper .pd-title{font-size:38px}.paper .pd-summary{font-size:17px}.paper .pd-body{font-size:15.5px}.paper .pd-body h2{font-size:23px;letter-spacing:-.45px}.paper .pd-body h3{font-size:18px}.meta{font-size:11px;color:#8b959f;margin-top:34px;padding-top:15px;border-top:1px solid #edf0f2}.error{text-align:center;color:var(--muted);padding:70px 20px}@media(max-width:650px){.wrap{padding:12px 10px 50px}.paper{border-radius:15px;padding:27px 20px}.paper .pd-title{font-size:29px}.paper .pd-summary{font-size:15px}.paper .pd-body{font-size:14.5px}.paper .pd-body h2{font-size:20px}.paper.pd-hero-band .pd-hero{margin-left:-7px;margin-right:-7px}}
 </style>
 </head>
 <body>
@@ -21,7 +21,7 @@ function render(p,secure=false){
   document.title=p.title+' · 업무 현황';
   const pd=window.KPTUPageDesign,pageDesign=secure?{}:(p.metadata?.page_design||{}),template=secure?'article':(pageDesign.template||'article');
   const paper=document.querySelector('#paper');
-  paper.className='paper '+(pd?.classNames(pageDesign,template)||'pd-design');
+  paper.className='paper template-'+template+' '+(pd?.classNames(pageDesign,template)||'pd-design');
   paper.innerHTML=`<header class="pd-hero"><div class="pd-kicker">${secure?'제한 공유 문서':LABEL[template]||LABEL.article}</div><h1 class="pd-title">${esc(p.title)}</h1>${p.summary?`<p class="pd-summary">${esc(p.summary)}</p>`:''}</header><div class="pd-body">${pd?.renderMarkdown(p.body||'')||esc(p.body||'')}</div><div class="meta">최근 수정 ${new Date(p.updated_at).toLocaleString('ko-KR')}</div>`;
 }
 async function run(){
