@@ -40,7 +40,7 @@
     await import('./meeting-round-detail.js?v=5');
     await import('./workplace-ai-report.js?v=1');
     await import('./workflow-ai-v3.js?v=1');
-    await import('./meeting-ai-ingest-client.js?v=1');
+    await import('./meeting-ai-ingest-client.js?v=1&text=1');
   };
   if(await window.KPTURuntime.session.ensure()) await loadAuthenticatedAi();
   else window.addEventListener('kptu:session-changed',()=>{loadAuthenticatedAi().catch(console.error)},{once:true});
