@@ -12,7 +12,7 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[]});
-    if(path==='/functions/v1/team-ai')return ok({answer:JSON.stringify({title:'AI 업무현황',summary:'이번 사업의 핵심 진행상황을 공유합니다.',body:'## 현재 상황\n- 핵심 일정 진행 중\n- 현장 의견 취합 중\n\n## 다음 계획\n- 후속 협의 준비'})});
+    if(path==='/functions/v1/team-ai')return ok({answer:JSON.stringify({title:'AI 업무현황',summary:'이번 사업의 핵심 진행상황을 공유합니다.',body:'## 현재 상황\n- 핵심 일정 진행 중\n- 현장 의견 취합 중\n\n## 다음 계획\n- 후속 협의 준비',design:{layout:'dashboard',hero:'band',accent:'green',section_style:'cards',density:'compact'}})});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path==='/rest/v1/rpc/app_save_page_v2'){
       const row={id:'page-new',workspace_id:state.workspace.id,space_id:body?.p_space||null,slug:body?.p_slug,title:body?.p_title,summary:body?.p_summary,body:body?.p_body,status:body?.p_status,visibility:body?.p_visibility,owner_id:state.user.id,metadata:{},created_at:now(),updated_at:now()};
@@ -38,7 +38,7 @@ async function mockApp(page,state){
   });
 }
 
-test('page builder creates a designed AI draft and stores template metadata',async({page})=>{
+test('page builder creates AI content and visual design, saves it and renders the public page',async({page})=>{
   const state={
     user:{id:'user-1',email:'writer@example.org',user_metadata:{display_name:'페이지 작성자'}},
     workspace:{id:'workspace-1',slug:'team',name:'공공기관사업팀 Workspace'},
@@ -65,12 +65,28 @@ test('page builder creates a designed AI draft and stores template metadata',asy
   await expect(page.locator('#pageTitle')).toHaveValue('AI 업무현황');
   await expect(page.locator('#pageBody')).toHaveValue(/현재 상황/);
   await expect(page.locator('#pbPreview')).toBeVisible();
-  await expect(page.locator('#pbPreview')).toHaveClass(/status/);
-  await expect(page.locator('#pbPreview .pb-paper')).toContainText('다음 계획');
+  await expect(page.locator('#pbDesignSummary')).toContainText('대시보드형');
+  await expect(page.locator('#pbDesignSummary')).toContainText('카드');
+  await expect(page.locator('#pbDesignSummary')).toContainText('그린');
+  await expect(page.locator('#pbPreview .pb-paper')).toHaveClass(/pd-layout-dashboard/);
+  await expect(page.locator('#pbPreview .pb-paper')).toHaveClass(/pd-hero-band/);
+  await expect(page.locator('#pbPreview .pb-paper')).toHaveClass(/pd-accent-green/);
+  await expect(page.locator('#pbPreview .pd-section')).toHaveCount(2);
 
   await page.locator('#pageStatus').selectOption('published');
   await page.locator('#pageVisibility').selectOption('public');
   await page.locator('#savePageBtn').click();
   await expect.poll(()=>state.pages.length).toBe(1);
-  await expect.poll(()=>state.pages[0]?.metadata?.page_design?.template).toBe('status');
+  await expect.poll(()=>state.pages[0]?.metadata?.page_design?.version).toBe(2);
+  await expect.poll(()=>state.pages[0]?.metadata?.page_design?.layout).toBe('dashboard');
+  await expect.poll(()=>state.pages[0]?.metadata?.page_design?.hero).toBe('band');
+  await expect.poll(()=>state.pages[0]?.metadata?.page_design?.accent).toBe('green');
+  await expect.poll(()=>state.pages[0]?.metadata?.page_design?.section_style).toBe('cards');
+
+  await page.goto(`http://127.0.0.1:8123/p/?slug=${encodeURIComponent(state.pages[0].slug)}`);
+  await expect(page.locator('#paper')).toHaveClass(/pd-layout-dashboard/);
+  await expect(page.locator('#paper')).toHaveClass(/pd-hero-band/);
+  await expect(page.locator('#paper')).toHaveClass(/pd-accent-green/);
+  await expect(page.locator('#paper .pd-section')).toHaveCount(2);
+  await expect(page.locator('#paper')).toContainText('후속 협의 준비');
 });
