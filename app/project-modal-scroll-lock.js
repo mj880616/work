@@ -71,7 +71,30 @@
       .shell.pm2-background-locked{overflow:hidden!important;overscroll-behavior:none!important}
       ${MODAL_SELECTOR}{overflow:hidden!important;overscroll-behavior:none!important}
       ${MODAL_SELECTOR} .modal-card{overflow-y:auto!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;touch-action:pan-y}
-      @media(max-width:760px){${MODAL_SELECTOR} .modal-card{max-height:calc(100dvh - env(safe-area-inset-top) - 8px)!important}}
+
+      #pm2DetailModal{
+        display:block;
+        overflow-y:auto!important;
+        overflow-x:hidden!important;
+        overscroll-behavior:contain!important;
+        -webkit-overflow-scrolling:touch;
+        touch-action:pan-y!important;
+        padding-top:max(20px,env(safe-area-inset-top))!important;
+        padding-bottom:max(20px,env(safe-area-inset-bottom))!important;
+      }
+      #pm2DetailModal.hidden{display:none!important}
+      #pm2DetailModal .pm2-detail-card{
+        max-height:none!important;
+        overflow:visible!important;
+        margin:0 auto!important;
+        touch-action:auto!important;
+      }
+
+      @media(max-width:760px){
+        ${MODAL_SELECTOR} .modal-card{max-height:calc(100dvh - env(safe-area-inset-top) - 8px)!important}
+        #pm2DetailModal{padding:8px 0 max(8px,env(safe-area-inset-bottom))!important}
+        #pm2DetailModal .pm2-detail-card{max-height:none!important;min-height:calc(100dvh - env(safe-area-inset-top) - 8px);border-radius:18px 18px 0 0!important}
+      }
     `;
     document.head.appendChild(style);
   }
