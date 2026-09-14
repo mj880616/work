@@ -23,7 +23,7 @@ async function mock(page){
   });
 }
 
-test('meeting create button keeps an active handler and opens the meeting modal',async({page})=>{
+test('meeting create button keeps the team save owner and opens the meeting modal',async({page})=>{
   await mock(page);
   const returnTo=`${BASE}/app/?view=meetings`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
@@ -37,4 +37,7 @@ test('meeting create button keeps an active handler and opens the meeting modal'
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#wfMeetingLocation')).toBeVisible();
+  const saveOwner=await page.locator('#saveMeetingBtn').evaluate(el=>String(el.onclick||''));
+  expect(saveOwner).toContain('wfMeetingLocation');
+  expect(saveOwner).not.toContain('twSaveMeeting');
 });
