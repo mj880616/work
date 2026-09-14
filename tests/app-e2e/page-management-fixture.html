@@ -20,11 +20,12 @@
   </div>
 </section>
 <script>
+window.__pageDeleteCall=null;
 window.KPTURuntime={
   session:{ensure:async()=>true},
   api:async(path,opt={})=>{
     if(path==='/rest/v1/rpc/app_delete_pages'){
-      sessionStorage.setItem('pageDeleteCall',JSON.stringify(opt.body||{}));
+      window.__pageDeleteCall=opt.body||{};
       return (opt.body?.p_page_ids||[]).length;
     }
     return null;
