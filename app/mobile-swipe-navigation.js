@@ -6,7 +6,7 @@
 
   const style=document.createElement('style');
   style.id='kptuSwipeStyle';
-  style.textContent=`@media(max-width:760px){#appView .view-panel{touch-action:pan-y}.kptu-swipe-panel{will-change:transform,opacity}.kptu-swipe-animate{transition:transform .18s cubic-bezier(.2,.72,.2,1),opacity .18s ease}}`;
+  style.textContent=`@media(max-width:760px){#appView .view-panel{touch-action:pan-y}#calendarView .calendar-toolbar,#calendarView .google-bar,#calendarView .google-cal-list,#calendarView .calendar-grid,#calendarView .cal-cell,#calendarView .cal-event,#calendarView .kptu-day-more{touch-action:pan-y}.kptu-swipe-panel{will-change:transform,opacity}.kptu-swipe-animate{transition:transform .18s cubic-bezier(.2,.72,.2,1),opacity .18s ease}}`;
   document.head.appendChild(style);
 
   function orderedViews(){
@@ -24,7 +24,7 @@
   }
 
   function blockedTarget(target){
-    return !!target?.closest?.('.modal,.app-nav,#ccMobileDock,[data-swipe-lock],.pm2-nav,.pv-nav,.google-cal-list,.cc-peer-list,.calendar-toolbar');
+    return !!target?.closest?.('.modal,.app-nav,#ccMobileDock,[data-swipe-lock],.pm2-nav,.pv-nav,.cc-peer-list');
   }
 
   function visiblePanel(target){
