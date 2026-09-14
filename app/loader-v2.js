@@ -29,17 +29,23 @@
     const rt=window.KPTURuntime;
     const settled=()=>{
       if(!rt.session.read())return true;
+      const auth=document.querySelector('#authView');
       const bootstrap=document.querySelector('#bootstrapView');
       const app=document.querySelector('#appView');
-      return !!bootstrap&&!bootstrap.classList.contains('hidden')||!!app&&!app.classList.contains('hidden');
+      const homeTasks=document.querySelector('#myTaskMini');
+      const authVisible=!!auth&&!auth.classList.contains('hidden');
+      const bootstrapVisible=!!bootstrap&&!bootstrap.classList.contains('hidden');
+      const appRendered=!!app&&!app.classList.contains('hidden')&&!!homeTasks?.childElementCount;
+      return authVisible||bootstrapVisible||appRendered;
     };
     if(settled())return;
     await new Promise(resolve=>{
       let done=false;
-      const finish=()=>{if(done)return;done=true;observer.disconnect();clearTimeout(timeout);resolve()};
+      const finish=()=>{if(done)return;done=true;observer.disconnect();resolve()};
       const observer=new MutationObserver(()=>{if(settled())finish()});
-      ['bootstrapView','appView'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']})});
-      const timeout=setTimeout(finish,3000);
+      ['authView','bootstrapView','appView'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']})});
+      const homeTasks=document.querySelector('#myTaskMini');
+      if(homeTasks)observer.observe(homeTasks,{childList:true});
     });
   };
   await waitForTeamState();
@@ -61,7 +67,6 @@
   ]);
   await import('./access-approval.js?v=4');
   await import('./home-dashboard-v2.js?v=3');
-  window.__KPTU_MARK_APP_UI_READY__?.();
   await import('./member-default-role.js?v=3');
   await import('./myspace-return.js?v=2');
   await import('./meeting-file-route.js?v=1');
@@ -145,6 +150,7 @@
   await import('./calendar-day-overflow.js?v=1');
   await import('./mobile-modal-history.js?v=1');
   await import('./mobile-swipe-navigation.js?v=2');
+  window.__KPTU_MARK_APP_UI_READY__?.();
 })().catch(err=>{
   console.error(err);
   window.__KPTU_MARK_APP_UI_READY__?.();
