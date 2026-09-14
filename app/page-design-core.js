@@ -54,8 +54,7 @@
       <div class="pd-flow-top">
         <div class="pd-flow-node pd-flow-red">수익 ↑ · 비용절감 압력</div><span class="pd-flow-arrow">→</span>
         <div class="pd-flow-node pd-flow-redsoft">낮은 처우·인력 축소</div><span class="pd-flow-arrow">→</span>
-        <div class="pd-flow-node pd-flow-amber">이직·결원</div><span class="pd-flow-arrow">→</span>
-        <div class="pd-flow-node pd-flow-amber">정원 부족</div><span class="pd-flow-arrow">→</span>
+        <div class="pd-flow-node pd-flow-amber">이직·결원·정원 부족</div><span class="pd-flow-arrow">→</span>
         <div class="pd-flow-node pd-flow-yellow">과로·휴일근무·1인근무</div><span class="pd-flow-arrow">→</span>
         <div class="pd-flow-node pd-flow-danger">노동자 건강 위험<br>시민 안전 위험</div>
       </div>
