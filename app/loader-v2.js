@@ -59,9 +59,7 @@
     import('./meeting-assignee-picker.js?v=2'),
     import('./due-date-calendar.js?v=1')
   ]);
-  await import('./access-approval.js?v=3');
-  await import('./access-approval-copyfix.js?v=1');
-  await import('./access-approval-stability.js?v=1');
+  await import('./access-approval.js?v=4');
   await import('./home-dashboard-v2.js?v=3');
   window.__KPTU_MARK_APP_UI_READY__?.();
   await import('./member-default-role.js?v=3');
