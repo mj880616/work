@@ -33,6 +33,8 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_space_members')return ok([]);
     if(path==='/rest/v1/app_meetings'){
       if(method==='POST'){
+        state.meetingPosts=state.meetingPosts||[];
+        state.meetingPosts.push(body);
         const row={...(body||{}),id:`meeting-${state.meetings.length+1}`,created_at:now(),updated_at:now(),followups:[],result_status:'final'};
         state.meetings.unshift(row);return ok([row]);
       }
@@ -103,8 +105,19 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await page.locator('#meetingDecisions').fill('10월 대응안 확정');
   await page.locator('#wfMeetingLocation').fill('회의실');
   await page.locator('#wfMeetingAttendees').fill('6');
+  const saveSnapshot=await page.locator('#saveMeetingBtn').evaluate(el=>({
+    handler:String(el.onclick||''),
+    location:document.querySelector('#wfMeetingLocation')?.value,
+    attendees:document.querySelector('#wfMeetingAttendees')?.value
+  }));
+  console.log('MEETING_SAVE_SNAPSHOT',JSON.stringify(saveSnapshot));
+  expect(saveSnapshot.location).toBe('회의실');
+  expect(saveSnapshot.attendees).toBe('6');
+  expect(saveSnapshot.handler).toContain('wfMeetingLocation');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>state.meetings.length).toBe(1);
+  console.log('MEETING_POSTS',JSON.stringify(state.meetingPosts||[]));
+  expect(state.meetingPosts).toHaveLength(1);
   expect(state.meetings[0].location).toBe('회의실');
   expect(state.meetings[0].attendee_count).toBe(6);
   expect(state.meetings[0].result_status).toBe('final');
