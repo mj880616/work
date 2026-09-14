@@ -2,9 +2,15 @@ import {test,expect} from '@playwright/test';
 
 const url='http://127.0.0.1:8123/tests/app-e2e/profile-workplaces-fixture.html';
 
-test('profile can add and remove own assigned workplaces',async({page})=>{
+async function openProfile(page){
   await page.goto(url);
+  await expect(page.locator('[data-view="profile"]')).toBeVisible();
+  await page.click('[data-view="profile"]');
   await expect(page.locator('#profileView')).toBeVisible();
+}
+
+test('profile can add and remove own assigned workplaces',async({page})=>{
+  await openProfile(page);
   await expect(page.locator('[data-ps-workplace-org="org-a"]')).toContainText('철도노조');
 
   await page.click('#psAddWorkplace');
@@ -36,7 +42,7 @@ test('profile can add and remove own assigned workplaces',async({page})=>{
 });
 
 test('profile picker excludes inactive and already assigned organizations',async({page})=>{
-  await page.goto(url);
+  await openProfile(page);
   await page.click('#psAddWorkplace');
   await expect(page.locator('[data-ps-add-workplace="org-a"]')).toHaveCount(0);
   await expect(page.locator('[data-ps-add-workplace="org-c"]')).toHaveCount(0);
