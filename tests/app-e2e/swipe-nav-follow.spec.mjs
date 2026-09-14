@@ -28,6 +28,7 @@ async function login(page){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_MOBILE_SWIPE_NAV__),{timeout:10000}).toBe(true);
 }
 
 async function swipe(page,selector,direction='left'){
