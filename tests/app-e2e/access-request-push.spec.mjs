@@ -35,6 +35,7 @@ test('access request deep link opens approval inside Team member management',asy
   await expect(page.locator('#teamView')).toBeVisible({timeout:10000});
   const review=page.locator('#aaReviewSection');
   await expect(review).toBeVisible({timeout:10000});
+  await expect(review).toHaveAttribute('open','');
   await expect(review).toContainText('가입 승인 요청');
   await expect(review).toContainText('신규 조합원');
   await expect(review).toContainText('열람자');
@@ -44,7 +45,6 @@ test('access request deep link opens approval inside Team member management',asy
   await expect(review).toContainText('새 팀 콘텐츠 작성·수정은 할 수 없음');
   await expect(review).toContainText('팀 공용 항목을 다른 사람이 만든 경우에도 수정·정리');
   await expect(page.locator('#aaPendingCount')).toHaveText('대기 1명');
-  await expect(review).toHaveAttribute('open','');
   await expect.poll(()=>page.evaluate(()=>document.activeElement?.id)).toBe('aaReviewSection');
   expect(new URL(page.url()).searchParams.get('focus')).toBe('access-requests');
 });
@@ -59,7 +59,6 @@ test('admin sees only Team pending badge, not a separate Home approval card',asy
   await page.locator('.app-nav [data-view="team"]').click();
   const review=page.locator('#aaReviewSection');
   await expect(review).toBeVisible();
-  await review.locator('summary').click();
   await expect(review).toHaveAttribute('open','');
   await expect(review).toContainText('신규 조합원');
 });
@@ -68,6 +67,7 @@ test('selected approval role immediately explains what that role means',async({p
   await mock(page);
   await login(page);
   const select=page.locator('[data-aa-role="req-1"]');
+  await expect(select).toBeVisible();
   await select.selectOption('viewer');
   await expect(page.locator('[data-aa-help="req-1"]')).toContainText('새 팀 콘텐츠 작성·수정은 할 수 없음');
   await select.selectOption('editor');
