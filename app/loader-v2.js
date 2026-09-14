@@ -24,6 +24,7 @@
     return;
   }
 
+  await import('./meeting-multi-tasks.js?v=4');
   await import('./team.js?v=8');
   const waitForTeamState=async()=>{
     const rt=window.KPTURuntime;
@@ -98,7 +99,6 @@
   await import('./google-calendar-return-status.js?v=1');
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
-  await import('./meeting-multi-tasks.js?v=3');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=3');
   await import('./project-task-link.js?v=6');
