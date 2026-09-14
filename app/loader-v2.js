@@ -7,7 +7,6 @@
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=2');
-  if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=5';document.head.appendChild(l)}
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
   await import('./auth-service.js?v=1');
@@ -63,9 +62,27 @@
   await import('./access-approval.js?v=3');
   await import('./access-approval-copyfix.js?v=1');
   await import('./access-approval-stability.js?v=1');
-  await Promise.all([import('./home-cleanup.js?v=3'),import('./home-dashboard-v2.js?v=2')]);
+
+  /* Final shell structure is installed before the workspace is paintable. */
+  await Promise.all([
+    import('./home-cleanup.js?v=3'),
+    import('./home-dashboard-v2.js?v=2'),
+    import('./home-task-controls.js?v=2'),
+    import('./notification-center-ui.js?v=5'),
+    import('./mobile-safe-area.js?v=2')
+  ]);
+  await import('./collaboration-center.js?v=5');
+  const appVisible=()=>{const app=document.querySelector('#appView');return !!app&&!app.classList.contains('hidden')};
+  if(appVisible()&&!document.querySelector('#ccMobileDock')){
+    await new Promise(resolve=>{
+      let tries=0;
+      const check=()=>{if(document.querySelector('#ccMobileDock')||!appVisible()||tries++>=50)return resolve();setTimeout(check,40)};
+      check();
+    });
+  }
+  await import('./global-action-buttons.js?v=1');
   window.__KPTU_MARK_APP_UI_READY__?.();
-  document.querySelector('#authPreloadStyle')?.remove();
+
   await import('./member-default-role.js?v=3');
   await import('./myspace-return.js?v=2');
   await import('./meeting-file-route.js?v=1');
@@ -78,7 +95,6 @@
     import('./calendar-persistence.js?v=8'),
     import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=5'),
-    import('./home-task-controls.js?v=2'),
     import('./profile-settings.js?v=2&wd=2'),
     import('./workplace-detail.js?v=2'),
     import('./project-files.js?v=4'),
@@ -131,8 +147,6 @@
   await loadProjectSystem();
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
-  await import('./collaboration-center.js?v=5');
-  await import('./notification-center-ui.js?v=5');
   await import('./task-assignment-visibility.js?v=4');
   await import('./calendar-plus.js?v=4');
   await import('./calendar-defaults.js?v=1');
@@ -144,7 +158,6 @@
   await import('./profile-workplace-legacy.js?v=1');
   await import('./project-suborganization-links.js?v=1');
   await import('./team-profile-view.js?v=1');
-  await import('./global-action-buttons.js?v=1');
   await import('./task-child-project-guard.js?v=1');
   await import('./task-status-state.js?v=1');
   await import('./home-task-expand.js?v=2');
@@ -152,12 +165,10 @@
   await import('./google-tasks.js?v=2');
   await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
-  await import('./mobile-safe-area.js?v=1');
   await import('./mobile-modal-history.js?v=1');
   await import('./mobile-swipe-navigation.js?v=2');
 })().catch(err=>{
   console.error(err);
   window.__KPTU_MARK_APP_UI_READY__?.();
-  document.querySelector('#authPreloadStyle')?.remove();
   document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
 });
