@@ -35,7 +35,7 @@
     import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=5'),
     import('./home-task-controls.js?v=2'),
-    import('./profile-settings.js?v=3&wd=1'),
+    import('./profile-settings.js?v=2&wd=2'),
     import('./workplace-detail.js?v=2'),
     import('./project-files.js?v=4'),
     import('./library-upload.js?v=3'),
