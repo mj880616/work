@@ -22,7 +22,7 @@ const teamCssPreload=document.createElement('link');teamCssPreload.rel='preload'
 window.addEventListener('kptu:tasks-changed',()=>{const list=document.querySelector('#taskList');if(!list)return;const marker=document.createElement('span');marker.hidden=true;list.appendChild(marker);marker.remove()});
 import('./pwa.js?v=3');
 import('./brand-logo.js?v=2');
-// smoke compatibility marker: loader-v2.js?v=111
+// smoke compatibility marker: loader-v2.js?v=104
 Promise.all([
   import('./meeting-assignee-picker.js?v=2'),
   import('./due-date-calendar.js?v=1')
