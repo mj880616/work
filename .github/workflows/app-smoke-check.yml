@@ -61,7 +61,7 @@ jobs:
           for f in \
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
             app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
-            app/team.js app/project-access.js app/page-builder.js app/project-v2.js \
+            app/team.js app/meeting-multi-tasks.js app/project-access.js app/page-builder.js app/project-v2.js \
             app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js \
             app/workplace-ai-report.js app/project-operating-model.js app/photo-room.js \
             app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/index.html; do
@@ -82,10 +82,15 @@ jobs:
           grep -q "__KPTU_TEAM_READY__" app/team.js app/loader-v2.js
           grep -q "__KPTU_TEAM_READY_STATE__" app/team.js
           grep -q "public-workspace.js" app/loader-v2.js
-          grep -q "team.js?v=9" app/loader-v2.js
+          grep -q "meeting-multi-tasks.js?v=7" app/loader-v2.js
+          grep -q "team.js?v=10" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
           grep -q "__KPTU_PHOTO_ROOM_READY__" app/loader-v2.js app/photo-room.js
+          grep -q "wfMeetingLocation" app/team.js
+          grep -q "attendee_count" app/team.js
+          grep -q "result_status:'final'" app/team.js
+          grep -q "finalized_at" app/team.js
           grep -q "base-ui.css?v=1" app/styles.css
           grep -q "access-approval.css?v=1" app/styles.css
           grep -q "home-task.css?v=1" app/styles.css
@@ -142,6 +147,12 @@ jobs:
           if grep -q "location.reload" app/photo-room.js; then
             echo 'photo upload returned to full-page reload'; exit 1
           fi
+          if grep -q "url.includes('/rest/v1/app_meetings')" app/meeting-multi-tasks.js; then
+            echo 'meeting metadata fetch interception returned'; exit 1
+          fi
+          if grep -q "created_by=eq.*title=eq" app/workflow-ai-v3.js; then
+            echo 'meeting metadata post-save lookup returned'; exit 1
+          fi
 
           python3 - <<'PY'
           from pathlib import Path
@@ -164,7 +175,7 @@ jobs:
           grep -q "page-builder.js?v=1" app/loader-v2.js
           grep -q "project-v2.js?v=1" app/loader-v2.js
           grep -q "project-templates.js?v=1" app/loader-v2.js
-          grep -q "workflow-ai-v3.js?v=1" app/loader-v2.js
+          grep -q "workflow-ai-v3.js?v=2" app/loader-v2.js
           grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
           grep -q "project-operating-model.js?v=1" app/loader-v2.js
           grep -q "collaboration-center.js?v=5" app/loader-v2.js
