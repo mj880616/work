@@ -65,7 +65,7 @@
     }
   }
 
-  function schedule(delay=80){
+  function schedule(delay=0){
     clearTimeout(scheduled);
     scheduled=setTimeout(render,delay);
   }
@@ -120,13 +120,13 @@
       const del=e.target.closest?.('[data-hta-delete]');
       if(del)remove(del.dataset.htaDelete);
     });
-    window.KPTURouter?.on?.('home',()=>schedule(0));
-    window.addEventListener('kptu:tasks-changed',()=>schedule(0));
+    window.KPTURouter?.on?.('home',()=>schedule());
+    window.addEventListener('kptu:app-ui-ready',()=>schedule());
+    window.addEventListener('kptu:tasks-changed',()=>schedule());
     window.addEventListener('kptu:session-changed',()=>{
       userId='';workspaceId='';projects=[];expanded=false;
-      schedule(0);
+      if(document.querySelector('#appView')?.classList.contains('kptu-ui-ready'))schedule();
     });
-    schedule(0);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
