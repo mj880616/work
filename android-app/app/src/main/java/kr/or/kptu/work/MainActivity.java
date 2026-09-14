@@ -32,8 +32,9 @@ public class MainActivity extends Activity {
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
     private static final String HOME = "https://mj880616.github.io/work/app/";
     private static final String INTERNAL_HOST = "mj880616.github.io";
-    private static final String APP_VERSION = "0.1.9";
+    private static final String APP_VERSION = "0.1.10";
     private boolean firebaseConfigured = false;
+    private boolean backDispatchPending = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -127,6 +128,12 @@ public class MainActivity extends Activity {
                     return true;
                 }
                 return false;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (isInternalAppUri(Uri.parse(url))) installNativeBackBridge(view);
             }
         });
 
@@ -319,10 +326,50 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void installNativeBackBridge(WebView view) {
+        if (view == null) return;
+        String js = "(function(){try{"
+            + "if(window.KPTUNativeBack&&window.KPTUNativeBack.version>=2)return;"
+            + "var stack=window.__KPTU_NATIVE_BACK_STACK__||[];window.__KPTU_NATIVE_BACK_STACK__=stack;"
+            + "window.__KPTU_NATIVE_BACK_CURRENT__=(window.KPTURouter&&window.KPTURouter.current)||window.__KPTU_NATIVE_BACK_CURRENT__||null;"
+            + "if(!window.__KPTU_NATIVE_BACK_BOUND__){window.__KPTU_NATIVE_BACK_BOUND__=true;window.addEventListener('kptu:view-changed',function(e){"
+            + "var d=e&&e.detail||{};var next=d.view;if(!next)return;var cur=window.__KPTU_NATIVE_BACK_CURRENT__;"
+            + "if(next===cur)return;if(d.source==='native-back'){window.__KPTU_NATIVE_BACK_CURRENT__=next;return;}"
+            + "if(d.source==='popstate'){if(stack.length&&stack[stack.length-1]===next)stack.pop();window.__KPTU_NATIVE_BACK_CURRENT__=next;return;}"
+            + "if(cur&&['initial','restore','visibility','session'].indexOf(d.source)<0&&stack[stack.length-1]!==cur)stack.push(cur);"
+            + "window.__KPTU_NATIVE_BACK_CURRENT__=next;});}"
+            + "function visible(el){return !!el&&!el.classList.contains('hidden')&&getComputedStyle(el).display!=='none'&&el.getAttribute('aria-hidden')!=='true';}"
+            + "window.KPTUNativeBack={version:2,handle:function(){try{"
+            + "var guestBack=document.querySelector('#guestBackBtn');var auth=document.querySelector('#authView');var app=document.querySelector('#appView');"
+            + "if(guestBack&&visible(auth)&&(!app||!visible(app))){guestBack.click();return true;}"
+            + "var modals=[].slice.call(document.querySelectorAll('.modal')).filter(visible);var modal=modals.length?modals[modals.length-1]:null;"
+            + "if(modal){var close=modal.querySelector('[data-close=\"'+modal.id+'\"],[data-pm2-close=\"'+modal.id+'\"],.icon-btn');if(close)close.click();else{modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');}return true;}"
+            + "var router=window.KPTURouter;var now=(router&&router.current)||window.__KPTU_NATIVE_BACK_CURRENT__;"
+            + "if(router){while(stack.length){var prev=stack.pop();if(prev&&prev!==now&&document.getElementById(prev+'View')){router.go(prev,{source:'native-back',replaceUrl:true});window.__KPTU_NATIVE_BACK_CURRENT__=prev;return true;}}"
+            + "if(now&&now!=='home'&&document.getElementById('homeView')){router.go('home',{source:'native-back',replaceUrl:true});window.__KPTU_NATIVE_BACK_CURRENT__='home';return true;}}"
+            + "return false;}catch(e){return false;}}};"
+            + "}catch(e){}})();";
+        view.evaluateJavascript(js, null);
+    }
+
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
+        if (webView == null) {
+            super.onBackPressed();
+            return;
+        }
+        if (backDispatchPending) return;
+        backDispatchPending = true;
+        String js = "(function(){try{return !!(window.KPTUNativeBack&&window.KPTUNativeBack.handle&&window.KPTUNativeBack.handle());}catch(e){return false;}})();";
+        webView.evaluateJavascript(js, value -> {
+            backDispatchPending = false;
+            if ("true".equals(value)) return;
+            if (webView != null && webView.canGoBack()) {
+                webView.goBack();
+                return;
+            }
+            MainActivity.super.onBackPressed();
+        });
     }
 
     @Override
