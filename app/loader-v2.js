@@ -13,7 +13,7 @@
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
   await import('./team.js?v=8');
-  await import('./access-approval.js?v=2');
+  await import('./access-approval.js?v=3');
   await import('./access-approval-copyfix.js?v=1');
   await Promise.all([
     import('./home-cleanup.js?v=3'),
@@ -107,11 +107,11 @@
   await import('./home-task-expand.js?v=2');
   await import('./home-task-expand-retry.js?v=1');
   await import('./google-tasks.js?v=2');
-  await import('./push-notifications-ui.js?v=1');
+  await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
   await import('./mobile-safe-area.js?v=1');
   await import('./mobile-modal-history.js?v=1');
-  await import('./mobile-swipe-navigation.js?v=1');
+  await import('./mobile-swipe-navigation.js?v=2');
 })().catch(err=>{
   console.error(err);
   window.__KPTU_MARK_APP_UI_READY__?.();
