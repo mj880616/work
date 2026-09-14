@@ -4,8 +4,10 @@ const BASE='http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
 async function mockPublic(page){
-  const snapshot={spaces:[{id:'p1',name:'공개 프로젝트',slug:'public-project',description:'공개 사업 설명',status:'active',parent_id:null,sort_order:10}],tasks:[{id:'t1',project_id:'p1',title:'프로젝트 공개 할 일',status:'todo',priority:'high',due_at:null,note:'외부 비공개 내부 메모',assignee_name:'비공개 담당자'},{id:'personal',project_id:null,title:'개인 할 일 - 표시 금지',status:'todo',priority:'normal'}],pages:[{id:'pg1',space_id:'p1',slug:'public-page',title:'공개 게시물',summary:'공개 요약',updated_at:new Date().toISOString()}]};
-  await page.route(`${SB}/rest/v1/rpc/app_public_projects_snapshot`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(snapshot)}));
+  const calls={snapshot:0};
+  const snapshot={spaces:[{id:'p1',name:'공개 프로젝트',slug:'public-project',description:'공개 사업 설명',status:'active',parent_id:null,sort_order:10}],tasks:[{id:'t1',project_id:'p1',title:'프로젝트 공개 할 일',status:'todo',priority:'high',due_at:null,note:'INTERNAL_NOTE',assignee_name:'INTERNAL_ASSIGNEE'},{id:'personal',project_id:null,title:'개인 할 일',status:'todo',priority:'normal'}],pages:[{id:'pg1',space_id:'p1',slug:'public-page',title:'공개 게시물',summary:'공개 요약',updated_at:new Date().toISOString()}]};
+  await page.route(`${SB}/rest/v1/rpc/app_public_projects_snapshot`,route=>{calls.snapshot+=1;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(snapshot)})});
+  return calls;
 }
 
 async function mockSignedIn(page){
@@ -25,7 +27,8 @@ async function mockSignedIn(page){
 }
 
 test('anonymous root is a read-only workspace, not a login screen',async({page})=>{
-  await mockPublic(page);
+  const calls=await mockPublic(page);
+  const errors=[];page.on('pageerror',e=>errors.push(String(e)));
   await page.goto(`${BASE}/app/`);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#authView')).toBeHidden();
@@ -33,11 +36,14 @@ test('anonymous root is a read-only workspace, not a login screen',async({page})
   await expect(page.locator('.app-nav [data-view="projects"]')).toBeVisible();
   await expect(page.locator('.app-nav [data-view="pages"]')).toBeVisible();
   await expect(page.locator('.app-nav [data-view="tasks"]')).toBeHidden();
-  await page.getByRole('button',{name:/공개 프로젝트/}).click();
+  await expect.poll(()=>calls.snapshot).toBe(1);
+  expect(errors).toEqual([]);
+  await expect(page.locator('#projectGrid')).toContainText('공개 프로젝트',{timeout:10000});
+  await page.locator('[data-public-project="p1"]').click();
   await expect(page.locator('#publicProjectBody')).toContainText('프로젝트 공개 할 일');
-  await expect(page.locator('#publicProjectBody')).not.toContainText('개인 할 일 - 표시 금지');
-  await expect(page.locator('#publicProjectBody')).not.toContainText('외부 비공개 내부 메모');
-  await expect(page.locator('#publicProjectBody')).not.toContainText('비공개 담당자');
+  await expect(page.locator('#publicProjectBody')).not.toContainText('개인 할 일');
+  await expect(page.locator('#publicProjectBody')).not.toContainText('INTERNAL_NOTE');
+  await expect(page.locator('#publicProjectBody')).not.toContainText('INTERNAL_ASSIGNEE');
   await page.locator('#publicProjectClose').click();
   await page.locator('.app-nav [data-view="pages"]').click();
   await expect(page.locator('#pageList')).toContainText('공개 게시물');
