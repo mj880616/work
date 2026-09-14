@@ -21,7 +21,8 @@ async function mock(page,{role='owner'}={}){
 }
 
 async function login(page,url='http://127.0.0.1:8123/app/?view=team&focus=access-requests'){
-  await page.goto(url);
+  const target=new URL(url),entry=new URL('/app/login/',target.origin);entry.searchParams.set('return',target.href);
+  await page.goto(entry.href);
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('owner@example.org');
   await page.locator('#authPassword').fill('password123');

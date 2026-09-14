@@ -32,6 +32,8 @@ async function installMock(page){
 }
 
 async function login(page){
+  const returnTo=page.url().startsWith('http://127.0.0.1:8123/app/')?page.url():'http://127.0.0.1:8123/app/';
+  await page.goto(`http://127.0.0.1:8123/app/login/?return=${encodeURIComponent(returnTo)}`);
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('desktop@example.org');
@@ -121,7 +123,7 @@ test('selected view survives refresh and page cards open inside the 게시 tab',
   await expect(page.locator('#pivSheet h1')).toHaveText('데스크톱 게시글');
   await expect(page.locator('#pivSheet .piv-summary')).toHaveText('게시 탭 내부 미리보기');
   await expect(page.locator('#pivSheet .piv-body')).toContainText('게시글 본문입니다.');
-  await expect(page.locator('[data-piv-external]')).toHaveAttribute('href',/\/p\/\?slug=desktop-page/);
+  await expect(page.locator('[data-piv-external]')).toHaveAttribute('href',/\/p\/desktop-page\//);
   await expect(page.locator('#pivFrame')).toHaveCount(0);
   await expect(page).toHaveURL(/view=pages/);
   await expect(page).toHaveURL(/page=page-1/);

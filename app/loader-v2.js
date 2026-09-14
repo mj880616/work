@@ -8,14 +8,26 @@
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=2');
   if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=5';document.head.appendChild(l)}
-  await import('./auth-ui.js?v=8');
-  await import('./auth-login-fallback.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
+  await import('./auth-service.js?v=1');
+  await import('./capabilities.js?v=1');
+  await import('./pwa.js?v=3');
+
+  const authenticated=await window.KPTURuntime.session.ensure();
+  if(!authenticated){
+    if(new URLSearchParams(location.search).has('invite')){
+      location.replace(window.KPTUAuth.loginUrl(location.href));
+      return;
+    }
+    await import('./public-workspace.js?v=2');
+    return;
+  }
+
+  await import('./meeting-multi-tasks.js?v=6');
   await import('./team.js?v=8');
   const waitForTeamState=async()=>{
     const rt=window.KPTURuntime;
-    if(!rt?.session?.read?.())return;
     const settled=()=>{
       if(!rt.session.read())return true;
       const bootstrap=document.querySelector('#bootstrapView');
@@ -27,20 +39,32 @@
       let done=false;
       const finish=()=>{if(done)return;done=true;observer.disconnect();clearTimeout(timeout);resolve()};
       const observer=new MutationObserver(()=>{if(settled())finish()});
-      ['bootstrapView','appView','authView'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']})});
+      ['bootstrapView','appView'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']})});
       const timeout=setTimeout(finish,3000);
     });
   };
   await waitForTeamState();
+  try{
+    const user=await window.KPTURuntime.api('/auth/v1/user');
+    const memberships=await window.KPTURuntime.api(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id,role&limit=1`);
+    window.KPTUCapabilities.setContext({user,membership:memberships?.[0]||null});
+  }catch(e){console.warn('capability context skipped',e)}
+
+  await Promise.all([
+    import('./forum-flow-polish.js?v=2'),
+    import('./public-page-links.js?v=1'),
+    import('./calendar-move.js?v=1'),
+    import('./team-member-overview-bootstrap.js?v=2'),
+    import('./profile-workplace-edit-mode.js?v=1'),
+    import('./suborganization-filters.js?v=2'),
+    import('./meeting-assignee-picker.js?v=2'),
+    import('./due-date-calendar.js?v=1')
+  ]);
   await import('./access-approval.js?v=3');
   await import('./access-approval-copyfix.js?v=1');
   await import('./access-approval-stability.js?v=1');
-  await Promise.all([
-    import('./home-cleanup.js?v=3'),
-    import('./home-dashboard-v2.js?v=2')
-  ]);
+  await Promise.all([import('./home-cleanup.js?v=3'),import('./home-dashboard-v2.js?v=2')]);
   window.__KPTU_MARK_APP_UI_READY__?.();
-  window.dispatchEvent(new Event('kptu:auth-fields-ready'));
   document.querySelector('#authPreloadStyle')?.remove();
   await import('./member-default-role.js?v=3');
   await import('./myspace-return.js?v=2');
@@ -48,7 +72,7 @@
   await import('./page-design-core.js?v=3');
   await Promise.all([
     import('./photo-room.js?v=1'),
-    import('./project-access.js?v=4'),
+    import('./project-access.js?v=5'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=3'),
     import('./calendar-persistence.js?v=8'),
@@ -71,12 +95,10 @@
     await import('./workflow-ai-v3.js?v=1');
     await import('./meeting-ai-ingest-client.js?v=1&text=1');
   };
-  if(await window.KPTURuntime.session.ensure()) await loadAuthenticatedAi();
-  else window.addEventListener('kptu:session-changed',()=>{loadAuthenticatedAi().catch(console.error)},{once:true});
+  await loadAuthenticatedAi();
   await import('./google-calendar-return-status.js?v=1');
   await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
-  await import('./meeting-multi-tasks.js?v=3');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=3');
   await import('./project-task-link.js?v=6');
@@ -88,7 +110,7 @@
   await import('./project-task-guide-cleanup.js?v=1');
   let projectSystemLoaded=false;
   const loadProjectSystem=async()=>{
-    if(projectSystemLoaded||!(await window.KPTURuntime.session.ensure()))return false;
+    if(projectSystemLoaded)return false;
     try{
       const u=await window.KPTURuntime.api('/auth/v1/user');
       const ms=await window.KPTURuntime.api(`/rest/v1/app_workspace_members?user_id=eq.${u.id}&select=workspace_id&limit=1`);
@@ -106,7 +128,7 @@
       projectSystemLoaded=true;return true;
     }catch(e){console.warn('project system v2 activation skipped',e);return false}
   };
-  if(!(await loadProjectSystem()))window.addEventListener('kptu:session-changed',()=>{loadProjectSystem().catch(console.error)},{once:true});
+  await loadProjectSystem();
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
   await import('./collaboration-center.js?v=5');

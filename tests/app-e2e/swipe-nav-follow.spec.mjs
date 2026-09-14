@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -22,7 +23,7 @@ async function mockApp(page){
 }
 
 async function login(page){
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('nav@example.org');
   await page.locator('#authPassword').fill('password123');

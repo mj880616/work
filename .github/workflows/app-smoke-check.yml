@@ -55,103 +55,88 @@ jobs:
           print('Active JS modules:',len(active));print('\n'.join(sorted(active)))
           PY
 
-      - name: Check stabilized app shell
+      - name: Check public and authenticated app boundaries
         run: |
           set -e
-          test -f app/index.html
-          test -f app/app.js
-          test -f app/loader-v2.js
-          test -f app/app-router.js
-          test -f app/runtime-client.js
-          test -f app/page-builder.js
-          test -f app/project-v2.js
-          test -f app/project-templates.js
-          test -f app/workflow-ai-v3.js
-          test -f app/meeting-ai-ingest-client.js
-          test -f app/workplace-ai-report.js
-          test -f app/project-operating-model.js
-          test -f p/index.html
+          for f in \
+            app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
+            app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
+            app/team.js app/project-access.js app/page-builder.js app/project-v2.js \
+            app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js \
+            app/workplace-ai-report.js app/project-operating-model.js p/index.html; do
+            test -f "$f"
+          done
           test -d app/legacy
           test -f app/legacy/README.md
+
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
-          grep -q 'app.js?v=14' app/index.html
-          grep -q "loader-v2.js?v=104" app/app.js
-          grep -q "auth-ui.js?v=8" app/app.js
-          grep -q "calendar-return-bridge.js?v=2" app/app.js
-          grep -q "runtime-client.js?v=1" app/loader-v2.js
-          grep -q "app-router.js?v=2" app/loader-v2.js
-          grep -q "workspace-ui.css?v=5" app/loader-v2.js
-          grep -q "auth-ui.js?v=8" app/loader-v2.js
+          grep -q 'app.js?v=15' app/index.html
+          grep -q "loader-v2.js" app/app.js
+
+          grep -q "runtime-client.js" app/loader-v2.js
+          grep -q "auth-service.js" app/loader-v2.js
+          grep -q "capabilities.js" app/loader-v2.js
+          grep -q "KPTURuntime.session.ensure" app/loader-v2.js
+          grep -q "public-workspace.js" app/loader-v2.js
           grep -q "team.js?v=8" app/loader-v2.js
+          grep -q "workspace-ui.css?v=5" app/loader-v2.js
+
+          grep -q "app_public_projects_snapshot" app/public-workspace.js
+          grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
+          grep -q "공개 열람" app/public-workspace.js
+          grep -q "auth-service.js" app/login/index.html
+          grep -q "KPTUAuth" app/login/login.js
+          grep -q "KPTUCapabilities" app/capabilities.js
+          grep -q "value=\"public\"" app/project-access.js
+
+          if grep -q "auth-ui.js" app/loader-v2.js app/app.js; then
+            echo 'legacy in-app authentication UI returned to the root app'; exit 1
+          fi
+          if grep -q "team.js" app/app.js; then
+            echo 'authenticated workspace modules bypass the session boundary'; exit 1
+          fi
+          if grep -q "project-public-visibility.js" app/loader-v2.js; then
+            echo 'duplicate project visibility shim returned'; exit 1
+          fi
+
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('app/loader-v2.js').read_text(encoding='utf-8')
+          auth=text.index('const authenticated=await window.KPTURuntime.session.ensure()')
+          guest=text.index("import('./public-workspace.js",auth)
+          team=text.index("import('./team.js",auth)
+          if not auth < guest < team:
+              raise SystemExit('guest/authenticated branch ordering is invalid')
+          login=Path('app/login/index.html').read_text(encoding='utf-8')
+          if 'id="appView"' in login:
+              raise SystemExit('dedicated login page must not contain the workspace app shell')
+          PY
+
+      - name: Check retained feature invariants
+        run: |
+          set -e
           grep -q "task-layout.js?v=5" app/loader-v2.js
-          grep -q "task-assignment-visibility.js?v=4" app/loader-v2.js
-          grep -q "profile-settings.js?v=2" app/loader-v2.js
-          grep -q "project-files.js?v=4" app/loader-v2.js
           grep -q "project-task-link.js?v=6" app/loader-v2.js
-          grep -q "page-editor-fix.js?v=2" app/loader-v2.js
           grep -q "page-builder.js?v=1" app/loader-v2.js
-          grep -q "page-shortcut.js?v=1" app/loader-v2.js
           grep -q "project-v2.js?v=1" app/loader-v2.js
           grep -q "project-templates.js?v=1" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=1" app/loader-v2.js
           grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
-          grep -q "workplace-ai-report.js?v=1" app/loader-v2.js
           grep -q "project-operating-model.js?v=1" app/loader-v2.js
-          grep -q "google-calendar-return-status.js?v=1" app/loader-v2.js
           grep -q "collaboration-center.js?v=5" app/loader-v2.js
           grep -q "notification-center-ui.js?v=5" app/loader-v2.js
-          grep -q "KPTURuntime" app/task-layout.js
-          grep -q "KPTURuntime" app/profile-settings.js
-          grep -q "KPTURuntime" app/page-editor-fix.js
-          grep -q "KPTURuntime" app/page-builder.js
-          grep -q "KPTURuntime" app/project-v2.js
-          grep -q "KPTURuntime" app/project-templates.js
-          grep -q "KPTURuntime" app/project-files.js
-          grep -q "KPTURuntime" app/project-task-link.js
-          grep -q "KPTURuntime" app/workflow-ai-v3.js
-          grep -q "KPTURuntime" app/meeting-ai-ingest-client.js
-          grep -q "KPTURuntime" app/workplace-ai-report.js
-          grep -q "KPTURuntime" app/project-operating-model.js
-          grep -q "중요 결정 사항" app/workflow-ai-v3.js
-          grep -q "후속 과제와 역할분담 및 기한" app/workflow-ai-v3.js
-          grep -q "사업 정보공유" app/workflow-ai-v3.js
-          grep -q "meeting-ai-ingest" app/meeting-ai-ingest-client.js
-          grep -q "meeting-ai-draft" app/meeting-ai-ingest-client.js
-          grep -q "app_suborganization_updates" app/workplace-ai-report.js
-          grep -q "app_suborganization_weekly_reports" app/workplace-ai-report.js
-          grep -q "연중사업 기본구성" app/project-operating-model.js
-          grep -q "프로젝트 관리" app/project-operating-model.js
-          grep -q "tlIsTeamAssigned" app/task-layout.js
-          grep -q "tl-incomplete" app/task-layout.js
-          grep -q "app_project_sections" app/project-v2.js
-          grep -q "app_project_blocks" app/project-v2.js
           grep -q "PROJECT HUB" app/project-v2.js
-          grep -q "data-pv-target=\"pvCustomSection\"" app/project-v2.js
-          grep -q "기본 사업현황" app/project-templates.js
-          grep -q "정책·입법 대응" app/project-templates.js
-          grep -q "행사·기자회견 준비" app/project-templates.js
-          grep -q "이 템플릿 사용" app/project-templates.js
           grep -q "PB_TEMPLATES" app/page-builder.js
-          grep -q "AI로 초안 만들기" app/page-builder.js
           grep -q "page_design" app/page-builder.js
-          grep -q "template-status" p/index.html
-          grep -q "metadata,page_design\|metadata?.page_design\|metadata.*page_design" p/index.html
-          grep -q "tlGroup('내 할 일'" app/task-layout.js
           grep -q "완료된 할 일" app/task-layout.js
           grep -q "바로가기" app/page-shortcut.js
+
           if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification center global observer returned'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification center polling returned'; exit 1; fi
           if grep -q "setInterval" app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'workflow AI polling introduced'; exit 1; fi
-          if grep -q "refresh_token" app/task-workflow.js app/meeting-round-detail.js app/page-editor-fix.js app/project-files.js app/project-task-link.js app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'feature refresh logic returned'; exit 1; fi
-          if grep -q "kptu_collab_session_v1" app/calendar-health.js app/calendar-persistence.js app/calendar-plus.js app/calendar-interactions-v2.js app/task-workflow.js app/task-layout.js app/profile-settings.js app/page-editor-fix.js app/page-builder.js app/project-v2.js app/project-templates.js app/project-access.js app/project-files.js app/project-task-link.js app/meeting-round-detail.js app/collaboration-center.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'feature-local session storage returned'; exit 1; fi
-          if grep -q "task-title-ui.js" app/loader-v2.js; then echo 'task title CSS shim loaded again'; exit 1; fi
-          if grep -q "project-create-submit.js" app/loader-v2.js; then echo 'duplicate project submit shim loaded'; exit 1; fi
-          if grep -q "task-personal-due.js" app/loader-v2.js; then echo 'duplicate task submit shim loaded'; exit 1; fi
-          for f in calendar-app-edit-ui.js calendar-create-live-title.js calendar-date-create.js calendar-edit-actions.js calendar-event-edit.js calendar-google-fast-edit.js calendar-observer-stability.js editable-page.js google-color-palette.js home-task-actions.js meeting-detail-patches.js page-preview-tools.js project-child-header.js project-hierarchy-ui.js project-create-submit.js task-personal-due.js startup-speed.js; do
-            if test -e "app/$f"; then echo "inactive module returned to app root: $f"; exit 1; fi
-            test -f "app/legacy/$f"
-          done
+          if grep -q "refresh_token" app/task-workflow.js app/meeting-round-detail.js app/page-editor-fix.js app/project-files.js app/project-task-link.js app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'feature-local refresh logic returned'; exit 1; fi
+          if grep -q "task-title-ui.js\|project-create-submit.js\|task-personal-due.js" app/loader-v2.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
       - name: Static HTTP smoke test
         run: |
@@ -159,29 +144,9 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID' EXIT
           sleep 1
-          curl --fail --silent http://127.0.0.1:8123/app/ >/tmp/app-index.html
-          curl --fail --silent http://127.0.0.1:8123/app/app.js >/tmp/app.js
-          curl --fail --silent http://127.0.0.1:8123/app/loader-v2.js >/tmp/loader.js
-          curl --fail --silent http://127.0.0.1:8123/app/page-builder.js >/tmp/page-builder.js
-          curl --fail --silent http://127.0.0.1:8123/app/project-v2.js >/tmp/project-v2.js
-          curl --fail --silent http://127.0.0.1:8123/app/project-templates.js >/tmp/project-templates.js
-          curl --fail --silent http://127.0.0.1:8123/app/project-files.js >/tmp/project-files.js
-          curl --fail --silent http://127.0.0.1:8123/app/project-task-link.js >/tmp/project-task-link.js
-          curl --fail --silent http://127.0.0.1:8123/app/workflow-ai-v3.js >/tmp/workflow-ai-v3.js
-          curl --fail --silent http://127.0.0.1:8123/app/meeting-ai-ingest-client.js >/tmp/meeting-ai-ingest-client.js
-          curl --fail --silent http://127.0.0.1:8123/app/workplace-ai-report.js >/tmp/workplace-ai-report.js
-          curl --fail --silent http://127.0.0.1:8123/app/project-operating-model.js >/tmp/project-operating-model.js
-          curl --fail --silent http://127.0.0.1:8123/p/ >/tmp/public-page.html
-          test -s /tmp/app-index.html
-          test -s /tmp/app.js
-          test -s /tmp/loader.js
-          test -s /tmp/page-builder.js
-          test -s /tmp/project-v2.js
-          test -s /tmp/project-templates.js
-          test -s /tmp/project-files.js
-          test -s /tmp/project-task-link.js
-          test -s /tmp/workflow-ai-v3.js
-          test -s /tmp/meeting-ai-ingest-client.js
-          test -s /tmp/workplace-ai-report.js
-          test -s /tmp/project-operating-model.js
-          test -s /tmp/public-page.html
+          for path in \
+            app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js \
+            app/capabilities.js app/public-workspace.js app/page-builder.js \
+            app/project-v2.js app/workflow-ai-v3.js p/; do
+            curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
+          done

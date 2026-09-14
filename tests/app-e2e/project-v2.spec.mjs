@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -78,6 +79,7 @@ function baseState(){
 }
 
 async function signIn(page){
+  await page.goto(loginEntry(page.url()));
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('owner@example.org');
