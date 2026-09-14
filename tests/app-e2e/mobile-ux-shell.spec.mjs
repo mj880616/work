@@ -81,6 +81,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
     ev('touchstart',{x:330,y:360});ev('touchmove',{x:210,y:362});ev('touchend',{x:90,y:364},'changedTouches');
   });
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
+  await page.waitForTimeout(240);
 
   await page.locator('#newEventBtn').click();
   await expect(page.locator('#eventModal')).toBeVisible();
