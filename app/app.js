@@ -23,6 +23,7 @@ const teamCssPreload=document.createElement('link');teamCssPreload.id='teamCssPr
 window.addEventListener('kptu:tasks-changed',()=>{const list=document.querySelector('#taskList');if(!list)return;const marker=document.createElement('span');marker.hidden=true;list.appendChild(marker);marker.remove()});
 import('./pwa.js?v=3');
 import('./brand-logo.js?v=2');
+import('./forum-flow-polish.js?v=1');
 import('./calendar-move.js?v=1');
 import('./team-member-overview-bootstrap.js?v=2');
 import('./profile-workplace-edit-mode.js?v=1');
