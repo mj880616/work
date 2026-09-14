@@ -74,7 +74,7 @@
     import('./calendar-persistence.js?v=8'),
     import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=5'),
-    import('./home-task-controls.js?v=2'),
+    import('./home-task-controls.js?v=3'),
     import('./profile-settings.js?v=2&wd=2'),
     import('./workplace-detail.js?v=2'),
     import('./project-files.js?v=4'),
@@ -142,8 +142,6 @@
   await import('./team-profile-view.js?v=1');
   await import('./task-child-project-guard.js?v=1');
   await import('./task-status-state.js?v=1');
-  await import('./home-task-expand.js?v=2');
-  await import('./home-task-expand-retry.js?v=1');
   await import('./google-tasks.js?v=2');
   await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
