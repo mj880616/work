@@ -1,5 +1,6 @@
 const authPreload=document.createElement('style');authPreload.id='authPreloadStyle';authPreload.textContent='#authView .auth-tabs,#authView #authForm{visibility:hidden;pointer-events:none}';document.head.appendChild(authPreload);
 const appUiPreload=document.createElement('style');appUiPreload.id='appUiPreloadStyle';appUiPreload.textContent='#appView:not(.kptu-ui-ready){visibility:hidden!important;pointer-events:none!important}';document.head.appendChild(appUiPreload);
+const myspaceGate=document.createElement('style');myspaceGate.id='myspaceGateStyle';myspaceGate.textContent='[data-view="myspace"],#myspaceView{display:none!important}';document.head.appendChild(myspaceGate);
 window.__KPTU_MARK_APP_UI_READY__=()=>{const app=document.querySelector('#appView');app?.classList.add('kptu-ui-ready');document.querySelector('#appUiPreloadStyle')?.remove();window.dispatchEvent(new Event('kptu:app-ui-ready'))};
 const desktopCss=document.createElement('link');desktopCss.id='desktopUiCss';desktopCss.rel='stylesheet';desktopCss.href='./desktop-ui.css?v=3';document.head.appendChild(desktopCss);
 const desktopTightNav=document.createElement('link');desktopTightNav.id='desktopTightNavCss';desktopTightNav.rel='stylesheet';desktopTightNav.href='./desktop-tight-nav.css?v=1';document.head.appendChild(desktopTightNav);
@@ -25,7 +26,7 @@ import('./brand-logo.js?v=2');
 import('./calendar-move.js?v=1');
 import('./team-member-overview-bootstrap.js?v=2');
 import('./profile-workplace-edit-mode.js?v=1');
-import('./suborganization-filters.js?v=1');
+import('./suborganization-filters.js?v=2');
 // smoke compatibility marker: loader-v2.js?v=104
 Promise.all([
   import('./meeting-assignee-picker.js?v=2'),
