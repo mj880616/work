@@ -2,13 +2,13 @@ import { test, expect } from '@playwright/test';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
-async function mock(page){
+async function mock(page,{role='owner'}={}){
   await page.route(`${SB}/**`,async route=>{
     const u=new URL(route.request().url()),p=u.pathname;
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
     if(p==='/auth/v1/token')return ok({access_token:'qa',refresh_token:'qa',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
     if(p==='/auth/v1/user')return ok({id:'qa-owner',email:'owner@example.org',user_metadata:{display_name:'QA 관리자'}});
-    if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-owner',role:'owner'}]);
+    if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-owner',role}]);
     if(p==='/rest/v1/app_workspaces')return ok([{id:'qa-ws',name:'QA Workspace'}]);
     if(p==='/rest/v1/app_profiles')return ok([{user_id:'qa-owner',display_name:'QA 관리자'}]);
     if(p==='/rest/v1/app_access_requests')return ok([{id:'req-1',user_id:'new-user',display_name:'신규 조합원',email:'new@example.org',requested_role:'author',requested_at:'2026-09-14T00:00:00Z',status:'pending'}]);
@@ -20,8 +20,8 @@ async function mock(page){
   });
 }
 
-async function login(page){
-  await page.goto('http://127.0.0.1:8123/app/?view=team&focus=access-requests');
+async function login(page,url='http://127.0.0.1:8123/app/?view=team&focus=access-requests'){
+  await page.goto(url);
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('owner@example.org');
   await page.locator('#authPassword').fill('password123');
@@ -39,4 +39,28 @@ test('access request push deep link opens Team approval area',async({page})=>{
   await expect(page.locator('#aaPendingCount')).toHaveText('대기 1명');
   await expect.poll(()=>page.evaluate(()=>document.activeElement?.id)).toBe('aaReviewSection');
   expect(new URL(page.url()).searchParams.get('focus')).toBe('access-requests');
+});
+
+test('admin sees Team pending badge and Home approval card that opens review',async({page})=>{
+  await mock(page);
+  await login(page,'http://127.0.0.1:8123/app/');
+  const badge=page.locator('.app-nav [data-view="team"] .aa-nav-badge');
+  await expect(badge).toBeVisible({timeout:10000});
+  await expect(badge).toHaveText('1');
+  await expect(page.locator('#aaHomeCard')).toBeVisible({timeout:10000});
+  await expect(page.locator('#aaHomeCard')).toContainText('가입 승인 1건');
+  await expect(page.locator('#aaHomeCard')).toContainText('신규 조합원');
+  await page.locator('#aaHomeCard [data-aa-open]').click();
+  await expect(page.locator('#teamView')).toBeVisible();
+  await expect(page.locator('#aaReviewSection')).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>document.activeElement?.id)).toBe('aaReviewSection');
+  expect(new URL(page.url()).searchParams.get('focus')).toBe('access-requests');
+});
+
+test('ordinary member does not see access approval badge or Home card',async({page})=>{
+  await mock(page,{role:'author'});
+  await login(page,'http://127.0.0.1:8123/app/');
+  await expect(page.locator('.app-nav [data-view="team"] .aa-nav-badge')).toBeHidden();
+  await expect(page.locator('#aaHomeCard')).toBeHidden();
+  await expect(page.locator('#aaReviewSection')).toHaveCount(0);
 });
