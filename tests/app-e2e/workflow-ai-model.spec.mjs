@@ -47,8 +47,9 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_tasks'){
       if(method==='POST'){
         const list=Array.isArray(body)?body:[body];
-        for(const item of list){const row={...(item||{}),id:`task-${state.tasks.length+1}`,created_at:now(),updated_at:now(),assignment_status:'accepted'};state.tasks.push(row)}
-        return ok(Array.isArray(body)?state.tasks.slice(-list.length):[state.tasks.at(-1)]);
+        const made=[];
+        for(const item of list){const row={...(item||{}),id:`task-${state.tasks.length+1}`,created_at:now(),updated_at:now(),assignment_status:'accepted'};state.tasks.push(row);made.push(row)}
+        return ok(made);
       }
       return ok(state.tasks);
     }
@@ -100,8 +101,11 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#wfMeetingLocation')).toBeVisible();
   await expect(page.locator('#wfMeetingAttendees')).toBeVisible();
+  await expect(page.locator('#meetingSeriesName')).toBeVisible();
   await page.locator('#meetingTitle').fill('10월 토론회 준비회의');
   await page.locator('#meetingProject').selectOption('child-1');
+  await page.locator('#meetingSeriesName').fill('궤도협의회 집행위원회');
+  await page.locator('#meetingRoundNo').fill('8');
   await page.locator('#meetingNotes').fill('정부 협의 경과 공유');
   await page.locator('#meetingDecisions').fill('10월 대응안 확정');
   await page.locator('#wfMeetingLocation').fill('회의실');
@@ -114,6 +118,8 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   expect(state.meetingPosts).toHaveLength(1);
   expect(state.meetings[0].location).toBe('회의실');
   expect(state.meetings[0].attendee_count).toBe(6);
+  expect(state.meetings[0].series_name).toBe('궤도협의회 집행위원회');
+  expect(state.meetings[0].round_no).toBe(8);
   expect(state.meetings[0].result_status).toBe('final');
   expect(state.meetings[0].finalized_at).toBeTruthy();
   await page.waitForTimeout(450);
