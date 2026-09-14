@@ -23,7 +23,7 @@ const teamCssPreload=document.createElement('link');teamCssPreload.id='teamCssPr
 window.addEventListener('kptu:tasks-changed',()=>{const list=document.querySelector('#taskList');if(!list)return;const marker=document.createElement('span');marker.hidden=true;list.appendChild(marker);marker.remove()});
 import('./pwa.js?v=3');
 import('./brand-logo.js?v=2');
-import('./forum-flow-polish.js?v=1');
+import('./forum-flow-polish.js?v=2');
 import('./calendar-move.js?v=1');
 import('./team-member-overview-bootstrap.js?v=2');
 import('./profile-workplace-edit-mode.js?v=1');
@@ -32,4 +32,4 @@ import('./suborganization-filters.js?v=2');
 Promise.all([
   import('./meeting-assignee-picker.js?v=2'),
   import('./due-date-calendar.js?v=1')
-]).then(()=>import('./loader-v2.js?v=117')).catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+]).then(()=>import('./loader-v2.js?v=118')).catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
