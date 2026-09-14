@@ -63,7 +63,8 @@ jobs:
             app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
             app/team.js app/project-access.js app/page-builder.js app/project-v2.js \
             app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js \
-            app/workplace-ai-report.js app/project-operating-model.js p/index.html; do
+            app/workplace-ai-report.js app/project-operating-model.js \
+            app/access-approval.css app/home-task.css app/meeting-ui.css p/index.html; do
             test -f "$f"
           done
           test -d app/legacy
@@ -80,7 +81,11 @@ jobs:
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
           grep -q "public-workspace.js" app/loader-v2.js
           grep -q "team.js?v=8" app/loader-v2.js
+          grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "base-ui.css?v=1" app/styles.css
+          grep -q "access-approval.css?v=1" app/styles.css
+          grep -q "home-task.css?v=1" app/styles.css
+          grep -q "meeting-ui.css?v=1" app/styles.css
           grep -q "workspace-ui.css?v=6" app/styles.css
           grep -q "desktop-ui.css?v=3" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
@@ -103,8 +108,21 @@ jobs:
           if grep -q "project-public-visibility.js" app/loader-v2.js; then
             echo 'duplicate project visibility shim returned'; exit 1
           fi
-          if grep -q "home-cleanup.js\|global-action-buttons.js\|mobile-safe-area.js" app/loader-v2.js app/app.js; then
+          if grep -Eq "home-cleanup.js|global-action-buttons.js|mobile-safe-area.js|access-approval-copyfix.js|access-approval-stability.js|home-task-expand.js|home-task-expand-retry.js|meeting-buttons-compact.js|project-task-guide-cleanup.js" app/loader-v2.js app/app.js; then
             echo 'retired UI patch module returned to the active graph'; exit 1
+          fi
+          for retired in \
+            app/home-cleanup.js app/global-action-buttons.js app/mobile-safe-area.js \
+            app/access-approval-copyfix.js app/access-approval-stability.js \
+            app/home-task-expand.js app/home-task-expand-retry.js \
+            app/meeting-buttons-compact.js app/project-task-guide-cleanup.js; do
+            if test -e "$retired"; then echo "retired UI patch file returned: $retired"; exit 1; fi
+          done
+          if grep -q "MutationObserver" app/access-approval.js app/home-task-controls.js; then
+            echo 'core access/home task modules must not depend on DOM mutation polling'; exit 1
+          fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-task-controls.js app/home-dashboard-v2.js; then
+            echo 'core UI module returned to late dynamic style injection'; exit 1
           fi
 
           python3 - <<'PY'
@@ -154,6 +172,7 @@ jobs:
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js \
             app/capabilities.js app/public-workspace.js app/page-builder.js \
-            app/project-v2.js app/workflow-ai-v3.js p/; do
+            app/project-v2.js app/workflow-ai-v3.js app/styles.css \
+            app/access-approval.css app/home-task.css app/meeting-ui.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done
