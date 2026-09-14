@@ -1,8 +1,3 @@
-const authPreload=document.createElement('style');authPreload.id='authPreloadStyle';authPreload.textContent='#authView{display:none!important}';document.head.appendChild(authPreload);
-const appUiPreload=document.createElement('style');appUiPreload.id='appUiPreloadStyle';appUiPreload.textContent='#appView:not(.kptu-ui-ready){visibility:hidden!important;pointer-events:none!important}';document.head.appendChild(appUiPreload);
 const myspaceGate=document.createElement('style');myspaceGate.id='myspaceGateStyle';myspaceGate.textContent='[data-view="myspace"],#myspaceView{display:none!important}';document.head.appendChild(myspaceGate);
-window.__KPTU_MARK_APP_UI_READY__=()=>{const app=document.querySelector('#appView');app?.classList.add('kptu-ui-ready');document.querySelector('#appUiPreloadStyle')?.remove();window.dispatchEvent(new Event('kptu:app-ui-ready'))};
-const desktopCss=document.createElement('link');desktopCss.id='desktopUiCss';desktopCss.rel='stylesheet';desktopCss.href='./desktop-ui.css?v=3';document.head.appendChild(desktopCss);
-const desktopTightNav=document.createElement('link');desktopTightNav.id='desktopTightNavCss';desktopTightNav.rel='stylesheet';desktopTightNav.href='./desktop-tight-nav.css?v=1';document.head.appendChild(desktopTightNav);
-// smoke compatibility marker: loader-v2.js?v=104
-import('./loader-v2.js?v=121').catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+window.__KPTU_MARK_APP_UI_READY__=()=>{const app=document.querySelector('#appView');app?.classList.add('kptu-ui-ready');window.dispatchEvent(new Event('kptu:app-ui-ready'))};
+import('./loader-v2.js?v=123').catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});

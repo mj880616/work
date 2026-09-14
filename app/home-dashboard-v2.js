@@ -26,10 +26,19 @@
     userId=user.id;workspaceId=ms[0].workspace_id;return true;
   }
 
-  function ensureCards(){
-    const grid=document.querySelector('#homeView .dashboard-grid');
-    const taskPanel=document.querySelector('#myTaskMini')?.closest('article.panel');
-    if(!grid||!taskPanel)return false;
+  function prepareStructure(){
+    const home=document.querySelector('#homeView');
+    const grid=home?.querySelector('.dashboard-grid');
+    const taskPanel=home?.querySelector('#myTaskMini')?.closest('article.panel');
+    if(!home||!grid||!taskPanel)return false;
+    ['#todayList','#notifList','#weeklyCopyBtn'].forEach(sel=>{
+      const panel=home.querySelector(sel)?.closest('article.panel');
+      if(!panel)return;
+      panel.hidden=true;
+      panel.setAttribute('aria-hidden','true');
+      panel.classList.add('home-dashboard-deprecated');
+    });
+    grid.classList.add('home-dashboard-current');
     if(!document.querySelector('#hdvMilestones')){
       taskPanel.insertAdjacentHTML('afterend',`
         <article class="panel hdv-panel" id="hdvMilestonePanel"><div class="panel-head"><div><h2>다가오는 주요 일정</h2><p>프로젝트의 다음 분기점</p></div><button class="mini" type="button" data-hdv-goto="projects">전체</button></div><div id="hdvMilestones" class="hdv-list"></div></article>
@@ -57,7 +66,7 @@
   }
 
   async function render(){
-    if(loading||!ensureCards()||!(await context()))return;
+    if(loading||!prepareStructure()||!(await context()))return;
     loading=true;
     try{
       const [spaceRows,milestoneRows,progressRows]=await Promise.all([
@@ -102,12 +111,13 @@
   function install(){
     if(!document.querySelector('#hdvStyle')){
       const s=document.createElement('style');s.id='hdvStyle';s.textContent=`
-        #homeView .dashboard-grid.home-dashboard-single{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px}
+        #homeView .home-dashboard-deprecated{display:none!important}
+        #homeView .dashboard-grid.home-dashboard-current{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px}
         #homeView .hdv-panel{min-width:0}.hdv-list{display:grid}.hdv-row{width:100%;border:0;border-bottom:1px solid #edf0f3;background:transparent;color:inherit;text-align:left;padding:9px 2px;display:flex;gap:10px;align-items:center;min-width:0}.hdv-row:last-child{border-bottom:0}.hdv-row:hover{background:#f7f9fb}.hdv-main{min-width:0;flex:1}.hdv-main b{display:block;font-size:12.5px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdv-main small{display:block;color:var(--muted);font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdv-meta{flex:0 0 auto;color:#71808c;font-size:10px;white-space:nowrap}.hdv-date{flex:0 0 76px;font-size:10.5px;font-weight:850;color:var(--blue);background:#eef4f8;border-radius:8px;padding:5px 7px;text-align:center}.hdv-empty{padding:18px 4px;color:var(--muted);font-size:11px}.hdv-empty.error{color:var(--red)}
-        @media(max-width:760px){#homeView .dashboard-grid.home-dashboard-single{grid-template-columns:1fr!important;gap:10px}.hdv-row{padding:8px 1px}.hdv-date{flex-basis:70px}.hdv-main b{font-size:12px}.hdv-main small{font-size:10px}}
+        @media(max-width:760px){#homeView .dashboard-grid.home-dashboard-current{grid-template-columns:1fr!important;gap:10px}.hdv-row{padding:8px 1px}.hdv-date{flex-basis:70px}.hdv-main b{font-size:12px}.hdv-main small{font-size:10px}}
       `;document.head.appendChild(s);
     }
-    ensureCards();
+    prepareStructure();
     document.addEventListener('click',e=>{const goto=e.target.closest?.('[data-hdv-goto]');if(goto){window.KPTURouter?.go?.(goto.dataset.hdvGoto,{source:'home-dashboard'});return}const row=e.target.closest?.('[data-hdv-project]');if(row)goProjects(row.dataset.hdvProject)});
     window.KPTURouter?.on?.('home',()=>schedule(60));
     window.addEventListener('kptu:session-changed',()=>{userId='';workspaceId='';schedule(250)});

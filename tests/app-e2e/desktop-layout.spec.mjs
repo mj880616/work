@@ -46,9 +46,6 @@ test('desktop web uses a compact left navigation, home-only workspace header and
   await page.setViewportSize({width:1440,height:900});
   await installMock(page);
   await page.goto('http://127.0.0.1:8123/app/');
-
-  await expect(page.locator('#desktopUiCss')).toHaveAttribute('href','./desktop-ui.css?v=3');
-  await expect(page.locator('#desktopTightNavCss')).toHaveAttribute('href','./desktop-tight-nav.css?v=1');
   await login(page);
 
   const desktop=await page.locator('#appView').evaluate(el=>{
