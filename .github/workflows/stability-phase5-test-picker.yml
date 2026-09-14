@@ -1,0 +1,41 @@
+name: Stability phase5 test picker
+
+on:
+  push:
+    branches:
+      - stability-audit-phase5
+    paths:
+      - '.github/workflows/stability-phase5-test-picker.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stability-audit-phase5
+      - name: Use visible assignee picker in E2E
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tests/app-e2e/workflow-ai-model.spec.mjs')
+          text=p.read_text(encoding='utf-8')
+          old1="  await firstAction.locator('.meeting-action-assignee').selectOption('user-1');"
+          new1="  await expect(firstAction.locator('.map-picker-btn')).toBeVisible();\n  await firstAction.locator('.map-picker-btn').click();\n  await firstAction.locator('.map-picker-menu [data-map-value=\"user-1\"]').click();"
+          old2="  await secondAction.locator('.meeting-action-assignee').selectOption('user-1');"
+          new2="  await expect(secondAction.locator('.map-picker-btn')).toBeVisible();\n  await secondAction.locator('.map-picker-btn').click();\n  await secondAction.locator('.map-picker-menu [data-map-value=\"user-1\"]').click();"
+          if text.count(old1)!=1 or text.count(old2)!=1: raise SystemExit(f'matches first={text.count(old1)} second={text.count(old2)}')
+          text=text.replace(old1,new1).replace(old2,new2)
+          p.write_text(text,encoding='utf-8')
+          PY
+          node --check tests/app-e2e/workflow-ai-model.spec.mjs
+      - name: Commit patch
+        run: |
+          git config user.name "mj880616"
+          git config user.email "mj880616@gmail.com"
+          git add tests/app-e2e/workflow-ai-model.spec.mjs
+          git commit -m "Test: 실제 회의 담당자 선택 UI로 E2E 검증"
+          git push origin HEAD:stability-audit-phase5
