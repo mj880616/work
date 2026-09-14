@@ -110,11 +110,21 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await page.locator('#meetingDecisions').fill('10월 대응안 확정');
   await page.locator('#wfMeetingLocation').fill('회의실');
   await page.locator('#wfMeetingAttendees').fill('6');
+  const firstAction=page.locator('.meeting-action-row').first();
+  await firstAction.locator('.meeting-action-title').fill('회의자료 최종 확인');
+  await firstAction.locator('.meeting-action-assignee').selectOption('user-1');
+  await firstAction.locator('.meeting-action-due').fill('2026-09-19');
+  await page.locator('#addMeetingAction').click();
+  const secondAction=page.locator('.meeting-action-row').nth(1);
+  await secondAction.locator('.meeting-action-title').fill('의원실 전달 준비');
+  await secondAction.locator('.meeting-action-assignee').selectOption('user-1');
+  await secondAction.locator('.meeting-action-due').fill('2026-09-20');
   const saveOwner=await page.locator('#saveMeetingBtn').evaluate(el=>String(el.onclick||''));
   expect(saveOwner).toContain('wfMeetingLocation');
   expect(saveOwner).not.toContain('twSaveMeeting');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>state.meetings.length).toBe(1);
+  await expect.poll(()=>state.tasks.filter(x=>x.source_type==='meeting').length).toBe(2);
   expect(state.meetingPosts).toHaveLength(1);
   expect(state.meetings[0].location).toBe('회의실');
   expect(state.meetings[0].attendee_count).toBe(6);
@@ -122,6 +132,7 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   expect(state.meetings[0].round_no).toBe(8);
   expect(state.meetings[0].result_status).toBe('final');
   expect(state.meetings[0].finalized_at).toBeTruthy();
+  expect(state.tasks.filter(x=>x.source_type==='meeting').map(x=>x.title)).toEqual(['회의자료 최종 확인','의원실 전달 준비']);
   await page.waitForTimeout(450);
   expect(state.meetingPatches||0).toBe(0);
 
@@ -140,10 +151,10 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   expect(state.meetings[0].result_status).toBe('draft');
 
   await page.locator('#wfFinalizeMeeting').click();
-  await expect.poll(()=>state.tasks.length).toBe(1);
-  expect(state.tasks[0].project_id).toBe('child-1');
-  expect(state.tasks[0].source_type).toBe('meeting_ai');
-  expect(state.tasks[0].title).toBe('의원실에 최종안 전달');
+  await expect.poll(()=>state.tasks.filter(x=>x.source_type==='meeting_ai').length).toBe(1);
+  const aiTask=state.tasks.find(x=>x.source_type==='meeting_ai');
+  expect(aiTask.project_id).toBe('child-1');
+  expect(aiTask.title).toBe('의원실에 최종안 전달');
 });
 
 test('main project exposes the long-running project operating model',async({page})=>{
