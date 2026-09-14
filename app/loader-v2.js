@@ -7,8 +7,6 @@
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=2');
-  if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=5';document.head.appendChild(l)}
-  await import('./mobile-safe-area.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
   await import('./auth-service.js?v=1');
@@ -144,7 +142,6 @@
   await import('./profile-workplace-legacy.js?v=1');
   await import('./project-suborganization-links.js?v=1');
   await import('./team-profile-view.js?v=1');
-  await import('./global-action-buttons.js?v=1');
   await import('./task-child-project-guard.js?v=1');
   await import('./task-status-state.js?v=1');
   await import('./home-task-expand.js?v=2');
