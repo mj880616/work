@@ -98,6 +98,7 @@
   await import('./suborganizations.js?v=1');
   await import('./suborganization-planned-assignee.js?v=1');
   await import('./profile-workplace-sync.js?v=1');
+  await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=1');
   await import('./global-action-buttons.js?v=1');
   await import('./task-child-project-guard.js?v=1');
