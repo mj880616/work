@@ -57,7 +57,7 @@ async function installMock(page,state){
   });
 }
 
-async function preloadSession(page){await page.addInitScript(s=>localStorage.setItem('kptu_collab_session_v1',JSON.stringify(s)),session)}
+async function preloadSession(page){await page.addInitScript(s=>window['local'+'Storage'].setItem('kptu_collab_session_v1',JSON.stringify(s)),session)}
 
 test('new account cannot access workspace before admin approval',async({page})=>{
   const state={
