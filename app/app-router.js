@@ -34,6 +34,29 @@
     else history.pushState(state,'',next);
   }
 
+  function scrollControlIntoView(container,control,behavior='smooth'){
+    if(!container||!control||container.scrollWidth<=container.clientWidth+1)return;
+    const box=container.getBoundingClientRect(),item=control.getBoundingClientRect();
+    const pad=Math.min(24,Math.max(8,container.clientWidth*.06));
+    const visible=item.left>=box.left+pad&&item.right<=box.right-pad;
+    if(visible)return;
+    const current=container.scrollLeft;
+    const delta=(item.left-box.left)-(container.clientWidth-item.width)/2;
+    const max=Math.max(0,container.scrollWidth-container.clientWidth);
+    const left=Math.max(0,Math.min(max,current+delta));
+    try{container.scrollTo({left,behavior})}catch{container.scrollLeft=left}
+  }
+
+  function keepActiveNavigationVisible(view,{behavior='smooth'}={}){
+    const nav=document.querySelector('#appView>.app-nav')||document.querySelector('.app-nav');
+    const navButton=nav?[...nav.querySelectorAll('.nav-btn[data-view]')].find(btn=>btn.dataset.view===view):null;
+    scrollControlIntoView(nav,navButton,behavior);
+
+    const dock=document.querySelector('#ccMobileDock');
+    const dockButton=dock?[...dock.querySelectorAll('[data-cc-view]')].find(btn=>btn.dataset.ccView===view):null;
+    scrollControlIntoView(dock,dockButton,behavior);
+  }
+
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false}={}){
     if(!view)return false;
     const target=document.getElementById(view+'View');
@@ -42,6 +65,8 @@
     document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===view));
     document.querySelectorAll('#ccMobileDock [data-cc-view]').forEach(btn=>btn.classList.toggle('active',btn.dataset.ccView===view));
     api.current=view;
+    const navBehavior=['initial','restore','visibility'].includes(source)?'auto':'smooth';
+    requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:navBehavior}));
     if(updateUrl&&appReady())syncUrl(view,{replace:replaceUrl||source==='api'});
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
     const detail={view,source};
@@ -57,7 +82,10 @@
     const view=viewFromUrl();
     if(!view)return false;
     const target=document.getElementById(view+'View');
-    if(api.current===view&&target&&!target.classList.contains('hidden'))return true;
+    if(api.current===view&&target&&!target.classList.contains('hidden')){
+      requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:'auto'}));
+      return true;
+    }
     return go(view,{scroll:false,source,updateUrl:false});
   }
 
@@ -105,7 +133,7 @@
     setTimeout(()=>restoreFromUrl('initial'),0);
   }
 
-  const api={current:null,go,on,detect,bind,restoreFromUrl};
+  const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible};
   window.KPTURouter=api;
   window.addEventListener('popstate',()=>restoreFromUrl('popstate'));
   window.addEventListener('kptu:session-changed',()=>setTimeout(()=>restoreFromUrl('session'),50));
