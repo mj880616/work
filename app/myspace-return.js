@@ -1,18 +1,8 @@
-function patchMyWorkLink(){
-  const root=document.querySelector('#mySpaceLinks');
-  if(!root)return;
-  const links=[...root.querySelectorAll('a.project-card')];
-  const target=links.find(a=>a.querySelector('h3')?.textContent?.trim()==='내 업무 현황');
-  if(target&&target.getAttribute('href')!=='./my-work.html')target.setAttribute('href','./my-work.html');
-}
-function install(){
-  const root=document.querySelector('#mySpaceLinks');
-  if(!root)return false;
-  patchMyWorkLink();
-  new MutationObserver(patchMyWorkLink).observe(root,{childList:true,subtree:true});
-  return true;
-}
-if(!install()){
-  const timer=setInterval(()=>{if(install())clearInterval(timer)},100);
-  setTimeout(()=>clearInterval(timer),10000);
-}
+let myspaceAllowed=false;
+function patchMyWorkLink(){const root=document.querySelector('#mySpaceLinks');if(!root||!myspaceAllowed)return;const target=[...root.querySelectorAll('a.project-card')].find(a=>a.querySelector('h3')?.textContent?.trim()==='내 업무 현황');if(target&&target.getAttribute('href')!=='./my-work.html')target.setAttribute('href','./my-work.html')}
+function redirectPrivate(){const active=document.querySelector('[data-view="myspace"].active'),requested=new URLSearchParams(location.search).get('view')==='myspace';if(!active&&!requested)return;if(window.KPTURouter?.go)window.KPTURouter.go('home');else document.querySelector('[data-view="home"]')?.click()}
+function deny(){myspaceAllowed=false;if(!document.querySelector('#myspaceGateStyle')){const s=document.createElement('style');s.id='myspaceGateStyle';s.textContent='[data-view="myspace"],#myspaceView{display:none!important}';document.head.appendChild(s)}redirectPrivate()}
+function allow(){myspaceAllowed=true;document.querySelector('#myspaceGateStyle')?.remove();patchMyWorkLink();const root=document.querySelector('#mySpaceLinks');if(root)new MutationObserver(patchMyWorkLink).observe(root,{childList:true,subtree:true})}
+async function verify(){const rt=window.KPTURuntime;if(!rt){deny();return}try{if(!(await rt.session.ensure()))return deny();const u=await rt.api('/auth/v1/user');const rows=await rt.api(`/rest/v1/app_profiles?user_id=eq.${u.id}&select=display_name&limit=1`);const name=rows?.[0]?.display_name||u?.user_metadata?.display_name||'';if(name==='김명진')return allow()}catch(e){console.warn('myspace access check',e)}deny()}
+window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='myspace'&&!myspaceAllowed)setTimeout(redirectPrivate,0)});
+verify();
