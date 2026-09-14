@@ -98,6 +98,7 @@ async function saveMeeting(){
     let assignments=actionRows.filter(x=>x.title&&x.assignee_id);
     if(!actionRows.length){const fallbackTitle=$('#meetingTaskTitle')?.value.trim()||'';if(fallbackTitle)assignments=[{title:fallbackTitle,assignee_id:$('#meetingTaskAssignee')?.value||null,due:$('#meetingTaskDue')?.value||''}].filter(x=>x.title&&x.assignee_id)}
     if(actionRows.some(x=>!x.title||!x.assignee_id))throw new Error('후속 할 일과 담당자를 모두 입력해 주세요.');
+    assignments=assignments.flatMap(a=>a.assignee_id==='__team__'?members.map(m=>({...a,assignee_id:m.user_id})): [a]);
     if(assignments.length)await api('/rest/v1/app_tasks',{method:'POST',body:assignments.map(a=>({workspace_id:workspace.id,project_id:projectId,title:a.title,description:'회의 역할분담 · '+title,assignee_id:a.assignee_id,status:'todo',priority:'normal',due_at:a.due?new Date(a.due+'T18:00:00+09:00').toISOString():null,source_type:'meeting',source_id:meeting.id,created_by:user.id}))});
     const files=[...($('#meetingFiles')?.files||[])];
     for(const file of files){const fd=new FormData();fd.append('file',file);fd.append('meeting_id',meeting.id);if(projectId)fd.append('project_id',projectId);fd.append('category','회의자료');fd.append('description',title+' 회의자료');await api('/functions/v1/library-files',{method:'POST',body:fd})}
