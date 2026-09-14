@@ -1,0 +1,45 @@
+name: Sync public page metadata
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'p/index.html'
+      - 'scripts/generate-public-pages.mjs'
+      - '.github/workflows/sync-public-page-meta.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-public-page-meta
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Generate metadata shells
+        run: node scripts/generate-public-pages.mjs
+      - name: Commit changes
+        shell: bash
+        run: |
+          if git diff --quiet -- p; then
+            echo "No public page metadata changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add p
+          git commit -m "chore: sync public page metadata"
+          git pull --rebase origin main
+          git push origin HEAD:main
