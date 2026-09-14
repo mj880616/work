@@ -21,7 +21,7 @@ test('page cards align actions and delete only after save confirmation',async({p
   await expect(page.locator('.page-card').first()).toHaveClass(/page-delete-pending/);
   await expect(page.locator('#pageDeleteSaveBtn')).toBeEnabled();
   await expect(page.locator('#pageDeleteSaveBtn')).toHaveText('저장 (1)');
-  expect(await page.evaluate(()=>sessionStorage.getItem('pageDeleteCall'))).toBeNull();
+  expect(await page.evaluate(()=>window.__pageDeleteCall)).toBeNull();
 
   await page.locator('.page-delete-mark').first().click();
   await expect(page.locator('.page-card').first()).not.toHaveClass(/page-delete-pending/);
@@ -33,7 +33,7 @@ test('page cards align actions and delete only after save confirmation',async({p
     await dialog.accept();
   });
   await page.locator('#pageDeleteSaveBtn').click();
-  await expect.poll(async()=>page.evaluate(()=>sessionStorage.getItem('pageDeleteCall'))).not.toBeNull();
-  const call=JSON.parse(await page.evaluate(()=>sessionStorage.getItem('pageDeleteCall')));
+  await expect.poll(async()=>page.evaluate(()=>window.__pageDeleteCall),{timeout:150}).not.toBeNull();
+  const call=await page.evaluate(()=>window.__pageDeleteCall);
   expect(call.p_page_ids).toEqual(['11111111-1111-1111-1111-111111111111']);
 });
