@@ -66,11 +66,13 @@ test('top-level action buttons share one compact size and mobile content clears 
   expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(1.5);
 
   await page.locator('[data-view="tasks"]').first().click();
-  await expect(page.locator('#taskList .item-card')).toHaveCount(24,{timeout:10000});
-  const last=page.locator('#taskList .item-card').last();
+  const rows=page.locator('#tlTaskSections .tl-task-row');
+  await expect(rows).toHaveCount(24,{timeout:10000});
+  const last=rows.last();
   await last.scrollIntoViewIfNeeded();
   const clearance=await page.evaluate(()=>{
-    const item=document.querySelector('#taskList .item-card:last-child')?.getBoundingClientRect();
+    const items=document.querySelectorAll('#tlTaskSections .tl-task-row');
+    const item=items[items.length-1]?.getBoundingClientRect();
     const dock=document.querySelector('#ccMobileDock')?.getBoundingClientRect();
     return item&&dock?{itemBottom:item.bottom,dockTop:dock.top,scrollY:window.scrollY,docHeight:document.documentElement.scrollHeight}:null;
   });
