@@ -8,6 +8,7 @@
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=2');
   if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=5';document.head.appendChild(l)}
+  await import('./mobile-safe-area.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
   await import('./auth-service.js?v=1');
@@ -151,7 +152,6 @@
   await import('./google-tasks.js?v=2');
   await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
-  await import('./mobile-safe-area.js?v=1');
   await import('./mobile-modal-history.js?v=1');
   await import('./mobile-swipe-navigation.js?v=2');
 })().catch(err=>{
