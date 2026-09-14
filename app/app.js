@@ -1,5 +1,3 @@
 const myspaceGate=document.createElement('style');myspaceGate.id='myspaceGateStyle';myspaceGate.textContent='[data-view="myspace"],#myspaceView{display:none!important}';document.head.appendChild(myspaceGate);
 window.__KPTU_MARK_APP_UI_READY__=()=>{const app=document.querySelector('#appView');app?.classList.add('kptu-ui-ready');window.dispatchEvent(new Event('kptu:app-ui-ready'))};
-const desktopCss=document.createElement('link');desktopCss.id='desktopUiCss';desktopCss.rel='stylesheet';desktopCss.href='./desktop-ui.css?v=3';document.head.appendChild(desktopCss);
-const desktopTightNav=document.createElement('link');desktopTightNav.id='desktopTightNavCss';desktopTightNav.rel='stylesheet';desktopTightNav.href='./desktop-tight-nav.css?v=1';document.head.appendChild(desktopTightNav);
-import('./loader-v2.js?v=122').catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+import('./loader-v2.js?v=123').catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
