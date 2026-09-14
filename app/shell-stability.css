@@ -1,0 +1,62 @@
+:root{
+  --kptu-control-h:38px;
+  --kptu-control-h-sm:32px;
+  --kptu-control-radius:9px;
+  --kptu-page-bottom:80px;
+}
+html{min-height:100%;scrollbar-gutter:stable}
+body{min-height:100dvh;overflow-x:hidden}
+.shell{min-height:100dvh}
+#appView:not(.kptu-ui-ready){visibility:hidden!important;pointer-events:none!important}
+#appView[aria-busy="true"]{visibility:hidden!important;pointer-events:none!important}
+main{padding-bottom:calc(var(--kptu-page-bottom) + env(safe-area-inset-bottom))}
+.primary,.secondary,.ghost{
+  min-height:var(--kptu-control-h);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 13px;
+  border-radius:var(--kptu-control-radius);
+  line-height:1.2;
+}
+.mini{
+  min-height:var(--kptu-control-h-sm);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 9px;
+  line-height:1.2;
+}
+.icon-btn{display:inline-grid;place-items:center;flex:0 0 auto}
+.section-head>.primary,
+.section-head>.secondary,
+#newProjectBtn{
+  min-height:var(--kptu-control-h-sm)!important;
+  height:var(--kptu-control-h-sm)!important;
+  padding:0 10px!important;
+  font-size:11px!important;
+  line-height:1!important;
+}
+.modal{z-index:120}
+.modal-card{max-height:94dvh}
+.toast{z-index:140}
+@media(min-width:1024px){
+  #appView.app-view{grid-template-columns:148px minmax(0,1fr)!important;column-gap:20px!important}
+  #appView>.app-nav{gap:3px!important;padding:8px!important;border-radius:16px!important}
+  #appView>.app-nav .nav-btn{min-height:40px!important;padding:9px 10px!important;font-size:12.5px!important;white-space:nowrap!important}
+}
+@media(min-width:1440px){
+  #appView.app-view{grid-template-columns:156px minmax(0,1fr)!important;column-gap:22px!important}
+  #appView>.app-nav{padding:9px!important}
+  #appView>.app-nav .nav-btn{min-height:41px!important;padding:9px 10px!important;font-size:13px!important}
+}
+@media(max-width:760px){
+  :root{--kptu-page-bottom:64px}
+  html,body{min-height:100dvh}
+  main{padding-bottom:calc(var(--kptu-page-bottom) + env(safe-area-inset-bottom))}
+  .section-head{align-items:center}
+  .section-head>div:first-child{min-width:0}
+  .section-head>.primary,.section-head>.secondary,#newProjectBtn{flex:0 0 auto!important}
+  .modal{max-height:100dvh}
+  .modal-card{max-height:calc(100dvh - max(8px,env(safe-area-inset-top)) - max(8px,env(safe-area-inset-bottom)))}
+}
