@@ -5,7 +5,7 @@ const TPV_ROLE_LABEL={owner:'소유자',admin:'관리자',editor:'편집자',aut
 let tpvUser=null,tpvWorkspace=null,tpvMembers=[],tpvProfiles=[],tpvTimer=null;
 function tpvSession(){try{return JSON.parse(localStorage.getItem(TPV_SESSION)||'null')}catch{return null}}
 async function tpvApi(path,{method='GET',body=null}={}){const s=tpvSession();if(!s?.access_token)throw new Error('로그인이 필요합니다.');const r=await fetch(TPV_SB+path,{method,headers:{apikey:TPV_KEY,Authorization:'Bearer '+s.access_token,'Content-Type':'application/json'},body:body==null?null:JSON.stringify(body),cache:'no-store'});const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.error_description||('요청 실패 '+r.status));return d}
-function tpvEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]))}
+function tpvEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function tpvName(id){return tpvProfiles.find(x=>x.user_id===id)?.display_name||'팀원'}
 function tpvTitle(id){return tpvProfiles.find(x=>x.user_id===id)?.job_title||''}
 function tpvRole(id){const role=tpvMembers.find(x=>x.user_id===id)?.role||'';return TPV_ROLE_LABEL[role]||role||'팀원'}
