@@ -15,6 +15,11 @@
   await import('./team.js?v=8');
   await import('./access-approval.js?v=1');
   await import('./access-approval-copyfix.js?v=1');
+  await Promise.all([
+    import('./home-cleanup.js?v=3'),
+    import('./home-dashboard-v2.js?v=2')
+  ]);
+  window.__KPTU_MARK_APP_UI_READY__?.();
   window.dispatchEvent(new Event('kptu:auth-fields-ready'));
   document.querySelector('#authPreloadStyle')?.remove();
   await import('./member-default-role.js?v=2');
@@ -86,8 +91,6 @@
   await import('./collaboration-center.js?v=5');
   await import('./notification-center-ui.js?v=5');
   await import('./task-assignment-visibility.js?v=4');
-  await import('./home-cleanup.js?v=2');
-  await import('./home-dashboard-v2.js?v=1');
   await import('./calendar-plus.js?v=4');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=2');
@@ -108,6 +111,7 @@
   await import('./mobile-swipe-navigation.js?v=1');
 })().catch(err=>{
   console.error(err);
+  window.__KPTU_MARK_APP_UI_READY__?.();
   document.querySelector('#authPreloadStyle')?.remove();
   document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
 });
