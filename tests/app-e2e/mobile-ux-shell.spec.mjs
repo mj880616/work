@@ -14,6 +14,7 @@ async function mockApp(page){
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email}]);
@@ -37,18 +38,22 @@ async function signIn(page){
   await expect(page.locator('#ccMobileDock')).toBeVisible({timeout:10000});
 }
 
-async function swipe(page,selector,from,to){
-  await page.locator(selector).evaluate((el,{from,to})=>{
-    const start=new Event('touchstart',{bubbles:true,cancelable:true});
-    Object.defineProperty(start,'touches',{value:[{clientX:from.x,clientY:from.y}]});
-    el.dispatchEvent(start);
-    const end=new Event('touchend',{bubbles:true,cancelable:true});
-    Object.defineProperty(end,'changedTouches',{value:[{clientX:to.x,clientY:to.y}]});
-    el.dispatchEvent(end);
-  },{from,to});
+async function gesture(page,selector,points){
+  return page.locator(selector).evaluate((el,points)=>{
+    const touch=(type,p,key='touches')=>{
+      const ev=new Event(type,{bubbles:true,cancelable:true});
+      Object.defineProperty(ev,key,{value:[{clientX:p.x,clientY:p.y}]});
+      el.dispatchEvent(ev);
+    };
+    touch('touchstart',points[0]);
+    for(const p of points.slice(1,-1))touch('touchmove',p);
+    const transform=el.style.transform;
+    touch('touchend',points.at(-1),'changedTouches');
+    return transform;
+  },points);
 }
 
-test('mobile navigation, modal safe area, back behavior, task expansion and busy day UI',async({page})=>{
+test('mobile navigation, animated full-area swipe, safe area, back behavior and busy day UI',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
@@ -60,9 +65,22 @@ test('mobile navigation, modal safe area, back behavior, task expansion and busy
   await expect(page.locator('#myTaskMini .hta-task')).toHaveCount(8);
   await expect(page.locator('[data-hta-expand]')).toHaveText('접기');
 
-  await swipe(page,'#homeView',{x:320,y:400},{x:70,y:405});
+  const motion=await gesture(page,'#homeView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
+  expect(motion).toContain('translate3d');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
+  await expect.poll(()=>page.locator('#calendarView').evaluate(el=>el.style.transform||'')).toBe('');
+
+  await page.locator('[data-view="home"]').click();
+  const vertical=await gesture(page,'#homeView',[{x:220,y:300},{x:214,y:390},{x:210,y:510}]);
+  expect(vertical).toBe('');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('home');
+
+  await page.locator('#homeAddEvent').evaluate(el=>{
+    const ev=(type,p,key='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,key,{value:[{clientX:p.x,clientY:p.y}]});el.dispatchEvent(e)};
+    ev('touchstart',{x:330,y:360});ev('touchmove',{x:210,y:362});ev('touchend',{x:90,y:364},'changedTouches');
+  });
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
 
   await page.locator('#newEventBtn').click();
   await expect(page.locator('#eventModal')).toBeVisible();
@@ -78,6 +96,12 @@ test('mobile navigation, modal safe area, back behavior, task expansion and busy
   await expect(page.locator('#calendarView')).toBeVisible();
   await page.goBack();
   await expect(page.locator('#homeView')).toBeVisible();
+
+  const before=await page.evaluate(()=>window.KPTURouter?.current);
+  const dockBox=await page.locator('#ccMobileDock').boundingBox();
+  await gesture(page,'#ccMobileDock',[{x:330,y:dockBox.y+10},{x:210,y:dockBox.y+10},{x:80,y:dockBox.y+10}]);
+  await page.waitForTimeout(220);
+  expect(await page.evaluate(()=>window.KPTURouter?.current)).toBe(before);
 
   await page.locator('[data-view="calendar"]').click();
   await expect(page.locator('.kptu-day-more').first()).toBeVisible({timeout:10000});
