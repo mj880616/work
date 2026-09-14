@@ -24,6 +24,7 @@ window.addEventListener('kptu:tasks-changed',()=>{const list=document.querySelec
 import('./pwa.js?v=3');
 import('./brand-logo.js?v=2');
 import('./forum-flow-polish.js?v=2');
+import('./public-page-links.js?v=1');
 import('./calendar-move.js?v=1');
 import('./team-member-overview-bootstrap.js?v=2');
 import('./profile-workplace-edit-mode.js?v=1');
