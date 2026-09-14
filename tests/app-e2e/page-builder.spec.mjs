@@ -64,7 +64,8 @@ test('page builder selects project, meeting and document references, indexes upl
     indexed:new Set(),pages:[],lastPageAi:null
   };
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/');
+  const returnTo='http://127.0.0.1:8123/app/';
+  await page.goto(`http://127.0.0.1:8123/app/login/?return=${encodeURIComponent(returnTo)}`);
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('writer@example.org');
