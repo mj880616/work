@@ -2,7 +2,7 @@
   'use strict';
   if(window.KPTUPageDesign)return;
   const allowed={
-    layout:['editorial','dashboard','campaign','briefing'],
+    layout:['editorial','dashboard','campaign','briefing','checklist'],
     hero:['minimal','band','split'],
     accent:['navy','blue','green','amber','red'],
     section_style:['plain','cards','rules'],
@@ -13,10 +13,11 @@
     notice:{layout:'briefing',hero:'band',accent:'navy',section_style:'rules',density:'compact'},
     status:{layout:'dashboard',hero:'minimal',accent:'blue',section_style:'cards',density:'compact'},
     event:{layout:'campaign',hero:'band',accent:'red',section_style:'cards',density:'comfortable'},
-    brief:{layout:'briefing',hero:'split',accent:'navy',section_style:'rules',density:'comfortable'}
+    brief:{layout:'briefing',hero:'split',accent:'navy',section_style:'rules',density:'comfortable'},
+    checklist:{layout:'checklist',hero:'band',accent:'navy',section_style:'cards',density:'comfortable'}
   };
   const labels={
-    layout:{editorial:'문서형',dashboard:'대시보드형',campaign:'캠페인형',briefing:'브리핑형'},
+    layout:{editorial:'문서형',dashboard:'대시보드형',campaign:'캠페인형',briefing:'브리핑형',checklist:'체크리스트형'},
     hero:{minimal:'미니멀',band:'강조 배너',split:'분할 헤더'},
     accent:{navy:'네이비',blue:'블루',green:'그린',amber:'앰버',red:'레드'},
     section_style:{plain:'기본',cards:'카드',rules:'구분선'},
@@ -47,6 +48,7 @@
       if((m=line.match(/^##\s+(.+)$/))){closeSection();out+=`<section class="pd-section"><h2>${inline(m[1])}</h2>`;section=true;continue}
       if((m=line.match(/^###\s+(.+)$/))){closeList();out+=`<h3>${inline(m[1])}</h3>`;continue}
       if((m=line.match(/^#\s+(.+)$/))){closeList();out+=`<h2>${inline(m[1])}</h2>`;continue}
+      if((m=line.match(/^[-*]\s+\[([ xX])\]\s+(.+)$/))){if(list!=='ul'){closeList();list='ul';out+='<ul class="pd-checklist">'}const done=m[1].toLowerCase()==='x';out+=`<li class="pd-check ${done?'pd-check-done':'pd-check-open'}"><span class="pd-checkbox" aria-hidden="true">${done?'✓':''}</span><span>${inline(m[2])}</span></li>`;continue}
       if((m=line.match(/^[-*]\s+(.+)$/))){if(list!=='ul'){closeList();list='ul';out+='<ul>'}out+=`<li>${inline(m[1])}</li>`;continue}
       if((m=line.match(/^\d+[.)]\s+(.+)$/))){if(list!=='ol'){closeList();list='ol';out+='<ol>'}out+=`<li>${inline(m[1])}</li>`;continue}
       closeList();
@@ -68,7 +70,8 @@
       .pd-sections-cards .pd-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pd-sections-cards .pd-body>.pd-section{border:1px solid #e2e8ec;background:#fff;border-radius:13px;padding:15px 16px;min-width:0}.pd-sections-cards .pd-body>:not(.pd-section){grid-column:1/-1}.pd-sections-cards .pd-section h2{color:var(--pd-accent);font-size:1.12em}.pd-sections-rules .pd-section{padding:16px 0;border-top:1px solid #e4e9ed}.pd-sections-rules .pd-section:first-child{border-top:0;padding-top:0}.pd-sections-rules .pd-section h2{color:var(--pd-accent)}
       .pd-layout-dashboard .pd-body{background:#f7f9fa;border-radius:14px;padding:12px}.pd-layout-dashboard.pd-sections-cards .pd-body{background:#f4f7f9}.pd-layout-campaign .pd-title{font-weight:900}.pd-layout-campaign .pd-body h2{color:var(--pd-accent)}.pd-layout-briefing .pd-body strong{color:var(--pd-accent)}
       .pd-density-compact .pd-body{line-height:1.6}.pd-density-compact .pd-body p{margin:.5em 0}.pd-density-compact.pd-sections-cards .pd-body>.pd-section{padding:12px 13px}
-      @media(max-width:700px){.pd-hero-split .pd-hero{grid-template-columns:1fr;gap:10px}.pd-hero-split .pd-summary{padding-left:0;border-left:0}.pd-sections-cards .pd-body{grid-template-columns:1fr}.pd-design .pd-hero-band .pd-hero{padding:18px}}
+      .pd-layout-checklist{background:#f7f9fb}.pd-layout-checklist .pd-hero{border-radius:20px;padding:28px 30px;box-shadow:0 12px 28px rgba(23,50,77,.14)}.pd-layout-checklist .pd-title{font-weight:950;font-size:34px}.pd-layout-checklist .pd-summary{max-width:850px;font-size:14px}.pd-layout-checklist .pd-content{background:#f7f9fb}.pd-layout-checklist .pd-body{display:block!important;background:transparent!important;padding:0!important}.pd-layout-checklist .pd-body>.pd-section{margin:0 0 14px!important;border:1px solid #e0e6eb!important;background:#fff!important;border-radius:16px!important;padding:18px 20px!important;box-shadow:0 5px 16px rgba(23,50,77,.045)}.pd-layout-checklist .pd-body>.pd-section:first-child{background:var(--pd-soft)!important;border-color:#d4e0e9!important}.pd-layout-checklist .pd-section h2{display:flex;align-items:center;gap:8px;margin:0 0 11px!important;color:var(--pd-accent)!important;font-size:18px!important;font-weight:900}.pd-layout-checklist .pd-section p{color:#53616e}.pd-layout-checklist .pd-checklist{list-style:none!important;padding:0!important;margin:10px 0 0!important;display:grid;gap:8px}.pd-layout-checklist .pd-check{display:flex;align-items:flex-start;gap:10px;margin:0!important;padding:10px 12px;border:1px solid #e6ebef;border-radius:11px;background:#fbfcfd;line-height:1.55}.pd-layout-checklist .pd-checkbox{flex:0 0 18px;width:18px;height:18px;margin-top:2px;border:1.5px solid #9fb0bd;border-radius:5px;background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff}.pd-layout-checklist .pd-check-done{background:#f4faf6;border-color:#cfe2d5;color:#53655a}.pd-layout-checklist .pd-check-done .pd-checkbox{background:#3d7350;border-color:#3d7350}.pd-layout-checklist .pd-body strong{color:var(--pd-accent)}.pd-layout-checklist .piv-aside{background:#fff;border:1px solid #e4e9ed;border-radius:13px;padding:15px!important}
+      @media(max-width:700px){.pd-hero-split .pd-hero{grid-template-columns:1fr;gap:10px}.pd-hero-split .pd-summary{padding-left:0;border-left:0}.pd-sections-cards .pd-body{grid-template-columns:1fr}.pd-design .pd-hero-band .pd-hero{padding:18px}.pd-layout-checklist .pd-hero{padding:22px 19px!important;border-radius:17px}.pd-layout-checklist .pd-title{font-size:27px}.pd-layout-checklist .pd-body>.pd-section{padding:15px 14px!important;border-radius:14px!important}.pd-layout-checklist .pd-check{padding:9px 10px}}
     `;document.head.appendChild(s)
   }
   ensureStyles();
