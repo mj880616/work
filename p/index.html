@@ -19,10 +19,12 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <style>
 :root{--bg:#f2f5f7;--paper:#fff;--ink:#18222d;--muted:#697682;--line:#dde4e9}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.72}.wrap{max-width:980px;margin:auto;padding:34px 16px 80px}.paper{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:44px 48px;box-shadow:0 10px 32px rgba(25,45,65,.055)}.template-status{}.paper .pd-title{font-size:38px}.paper .pd-summary{font-size:17px}.paper .pd-body{font-size:15.5px}.paper .pd-body h2{font-size:23px;letter-spacing:-.45px}.paper .pd-body h3{font-size:18px}.meta{font-size:11px;color:#8b959f;margin-top:34px;padding-top:15px;border-top:1px solid #edf0f2}.error{text-align:center;color:var(--muted);padding:70px 20px}@media(max-width:650px){.wrap{padding:12px 10px 50px}.paper{border-radius:15px;padding:27px 20px}.paper .pd-title{font-size:29px}.paper .pd-summary{font-size:15px}.paper .pd-body{font-size:14.5px}.paper .pd-body h2{font-size:20px}.paper.pd-hero-band .pd-hero{margin-left:-7px;margin-right:-7px}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.72}.wrap{max-width:980px;margin:auto;padding:20px 16px 80px}.print-tools{max-width:980px;margin:0 auto 10px;display:flex;justify-content:flex-end}.print-btn{appearance:none;border:1px solid #ccd6de;background:#fff;color:#344554;border-radius:9px;padding:8px 12px;font:inherit;font-size:12px;font-weight:800;line-height:1;cursor:pointer;box-shadow:0 2px 8px rgba(25,45,65,.04)}.print-btn:hover{background:#f7f9fa;border-color:#b8c5cf}.print-btn:focus-visible{outline:3px solid rgba(49,95,149,.18);outline-offset:2px}.paper{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:44px 48px;box-shadow:0 10px 32px rgba(25,45,65,.055)}.template-status{}.paper .pd-title{font-size:38px}.paper .pd-summary{font-size:17px}.paper .pd-body{font-size:15.5px}.paper .pd-body h2{font-size:23px;letter-spacing:-.45px}.paper .pd-body h3{font-size:18px}.meta{font-size:11px;color:#8b959f;margin-top:34px;padding-top:15px;border-top:1px solid #edf0f2}.error{text-align:center;color:var(--muted);padding:70px 20px}@media(max-width:650px){.wrap{padding:8px 10px 50px}.print-tools{margin-bottom:8px}.print-btn{padding:8px 10px}.paper{border-radius:15px;padding:27px 20px}.paper .pd-title{font-size:29px}.paper .pd-summary{font-size:15px}.paper .pd-body{font-size:14.5px}.paper .pd-body h2{font-size:20px}.paper.pd-hero-band .pd-hero{margin-left:-7px;margin-right:-7px}}
+@media print{@page{margin:14mm}html,body{background:#fff!important}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.print-tools{display:none!important}.wrap{max-width:none!important;margin:0!important;padding:0!important}.paper{border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;overflow:visible!important}.paper.pd-hero-band .pd-hero,.paper.pd-hero-split .pd-hero{margin-left:0!important;margin-right:0!important}.pd-body details{break-inside:auto}.pd-body h2,.pd-body h3{break-after:avoid-page}.pd-flow,.pd-flow-branch,.pd-flow-track{break-inside:avoid-page}}
 </style>
 </head>
 <body>
+<div class="print-tools" aria-label="문서 도구"><button id="printPageBtn" class="print-btn" type="button">인쇄 / PDF</button></div>
 <main class="wrap"><article id="paper" class="paper"><div class="error">불러오는 중…</div></article></main>
 <script src="../app/page-design-core.js?v=3"></script>
 <script src="../app/forum-flow-polish.js?v=2"></script>
@@ -31,6 +33,13 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co',KEY='sb_publishable_X-0lXJzt
 const LABEL={article:'ARTICLE · 현장 공유',notice:'NOTICE · 알림',status:'STATUS UPDATE · 업무현황',event:'EVENT · 행사 안내',brief:'POLICY BRIEF · 정책 브리핑'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const setMeta=(selector,value)=>{const el=document.querySelector(selector);if(el&&value)el.setAttribute('content',String(value))};
+let printDetailState=[];
+function expandForPrint(){printDetailState=[...document.querySelectorAll('#paper details')].map(el=>({el,open:el.open}));printDetailState.forEach(x=>x.el.open=true)}
+function restoreAfterPrint(){printDetailState.forEach(x=>x.el.open=x.open);printDetailState=[]}
+function printPage(){expandForPrint();requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()))}
+window.addEventListener('beforeprint',expandForPrint);
+window.addEventListener('afterprint',restoreAfterPrint);
+document.querySelector('#printPageBtn')?.addEventListener('click',printPage);
 function render(p,secure=false){
   document.title=p.title+' · 업무 현황';
   if(!secure){
