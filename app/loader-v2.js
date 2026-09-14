@@ -71,7 +71,7 @@
   await import('./page-design-core.js?v=3');
   await Promise.all([
     import('./photo-room.js?v=1'),
-    import('./project-access.js?v=4'),
+    import('./project-access.js?v=5'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=3'),
     import('./calendar-persistence.js?v=8'),
@@ -88,7 +88,6 @@
     import('./page-management.js?v=1'),
     import('./page-inline-viewer.js?v=2')
   ]);
-  await import('./project-public-visibility.js?v=1');
   const loadAuthenticatedAi=async()=>{
     await import('./meeting-round-detail.js?v=5');
     await import('./workplace-ai-report.js?v=1');
