@@ -15,8 +15,7 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
  if(path==='/auth/v1/user')return {id:currentId,user_metadata:{display_name:other?'한소영':'김명진'}};
  if(path.startsWith('/rest/v1/app_workspace_members?user_id='))return [{workspace_id:'ws-1'}];
  if(path==='/rest/v1/app_profiles?select=user_id,display_name')return [{user_id:'user-me',display_name:'김명진'},{user_id:'user-other',display_name:'한소영'}];
- if(path.startsWith('/rest/v1/app_profiles?user_id=eq.user-me'))return [{display_name:'김명진'}];
- if(path.startsWith('/rest/v1/app_profiles?user_id=eq.user-other'))return [{display_name:'한소영'}];
+ if(path.startsWith('/rest/v1/app_private_feature_access?'))return other?[]:[{feature_key:'myspace'}];
  if(path.startsWith('/rest/v1/app_suborganizations?workspace_id=eq.ws-1&active=eq.true'))return [
   {id:'org-rail',name:'전국철도노동조합',aliases:['철도노조'],description:'철도',organization_type:'철도·도시철도',default_assignee_name:'김명진'},
   {id:'org-consumer',name:'한국소비자원지부',aliases:['소비자원'],description:'소비자 정책',organization_type:'중앙공공기관',default_assignee_name:'한소영'},
