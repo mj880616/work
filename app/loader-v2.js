@@ -12,6 +12,7 @@
   await import('./brand-logo.js?v=2');
   await import('./auth-service.js?v=1');
   await import('./capabilities.js?v=1');
+  await import('./pwa.js?v=3');
 
   const authenticated=await window.KPTURuntime.session.ensure();
   if(!authenticated){
@@ -19,7 +20,7 @@
       location.replace(window.KPTUAuth.loginUrl(location.href));
       return;
     }
-    await import('./public-workspace.js?v=1');
+    await import('./public-workspace.js?v=2');
     return;
   }
 
@@ -48,6 +49,16 @@
     window.KPTUCapabilities.setContext({user,membership:memberships?.[0]||null});
   }catch(e){console.warn('capability context skipped',e)}
 
+  await Promise.all([
+    import('./forum-flow-polish.js?v=2'),
+    import('./public-page-links.js?v=1'),
+    import('./calendar-move.js?v=1'),
+    import('./team-member-overview-bootstrap.js?v=2'),
+    import('./profile-workplace-edit-mode.js?v=1'),
+    import('./suborganization-filters.js?v=2'),
+    import('./meeting-assignee-picker.js?v=2'),
+    import('./due-date-calendar.js?v=1')
+  ]);
   await import('./access-approval.js?v=3');
   await import('./access-approval-copyfix.js?v=1');
   await import('./access-approval-stability.js?v=1');
