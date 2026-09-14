@@ -79,7 +79,7 @@
     g.panel.classList.add('kptu-swipe-animate');
     g.panel.style.transform=`translate3d(${dir*Math.min(width*.28,120)}px,0,0)`;
     g.panel.style.opacity='.45';
-    suppressClickUntil=Date.now()+400;
+    suppressClickUntil=Date.now()+220;
     setTimeout(()=>{
       resetPanel(g.panel,false);
       const next=views[nextIndex];
