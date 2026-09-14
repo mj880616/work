@@ -30,6 +30,26 @@ async function login(page){
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 
+async function swipe(page,selector,direction='left'){
+  const locator=page.locator(selector).first();
+  await expect(locator).toBeVisible({timeout:10000});
+  await locator.evaluate((el,direction)=>{
+    const r=el.getBoundingClientRect();
+    const y=Math.max(r.top+2,Math.min(r.bottom-2,r.top+r.height/2));
+    const startX=direction==='left'?Math.min(innerWidth-24,Math.max(90,r.left+r.width*.78)):Math.max(24,Math.min(innerWidth-90,r.left+r.width*.22));
+    const endX=direction==='left'?Math.max(24,startX-170):Math.min(innerWidth-24,startX+170);
+    const fire=(type,x,key='touches')=>{
+      const ev=new Event(type,{bubbles:true,cancelable:true});
+      Object.defineProperty(ev,key,{value:[{clientX:x,clientY:y}]});
+      el.dispatchEvent(ev);
+    };
+    fire('touchstart',startX);
+    fire('touchmove',startX+(endX-startX)*.55);
+    fire('touchend',endX,'changedTouches');
+  },direction);
+  await page.waitForTimeout(260);
+}
+
 test('active top menu follows swipe navigation and remains visible',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
@@ -48,4 +68,33 @@ test('active top menu follows swipe navigation and remains visible',async({page}
   await page.evaluate(()=>window.KPTURouter.go('home',{source:'swipe'}));
   await expect(page.locator('#homeView')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>document.querySelector('.app-nav')?.scrollLeft||0)).toBeLessThan(4);
+});
+
+test('calendar horizontal swipe works from toolbar, date cells and Google options',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await mockApp(page);
+  await login(page);
+
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
+  await expect(page.locator('#calendarView')).toBeVisible();
+  const monthBefore=await page.locator('#monthTitle').textContent();
+  await page.locator('#nextMonthBtn').click();
+  await expect.poll(()=>page.locator('#monthTitle').textContent()).not.toBe(monthBefore);
+
+  await swipe(page,'.calendar-toolbar','left');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
+
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
+  await expect(page.locator('#calendarView')).toBeVisible();
+  await swipe(page,'#calendarGrid .cal-cell:nth-of-type(11)','right');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('home');
+
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
+  await page.evaluate(()=>{
+    const list=document.querySelector('#googleCalendarList');
+    list.classList.remove('hidden');
+    list.innerHTML='<b>표시할 Google 캘린더</b><label class="toggle-line"><input type="checkbox"> 테스트 캘린더</label>';
+  });
+  await swipe(page,'#googleCalendarList','left');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
 });
