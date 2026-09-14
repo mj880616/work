@@ -4,13 +4,15 @@ on:
     branches: [main]
     paths:
       - 'app/team-member-overview*.js'
-      - 'tests/app-e2e/team-member-overview*'
+      - 'app/team-member-management.js'
+      - 'tests/app-e2e/team-member-*'
       - '.github/workflows/team-member-overview-e2e.yml'
   push:
     branches: [main]
     paths:
       - 'app/team-member-overview*.js'
-      - 'tests/app-e2e/team-member-overview*'
+      - 'app/team-member-management.js'
+      - 'tests/app-e2e/team-member-*'
       - '.github/workflows/team-member-overview-e2e.yml'
 jobs:
   e2e:
@@ -24,4 +26,4 @@ jobs:
       - run: npm install --no-save @playwright/test@1.55.0
       - run: npx playwright install --with-deps chromium
       - run: python3 -m http.server 8123 >/tmp/http.log 2>&1 &
-      - run: npx playwright test tests/app-e2e/team-member-overview.spec.mjs --browser=chromium --workers=1 --reporter=line
+      - run: npx playwright test tests/app-e2e/team-member-overview.spec.mjs tests/app-e2e/team-member-management.spec.mjs --browser=chromium --workers=1 --reporter=line
