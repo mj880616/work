@@ -15,6 +15,7 @@
   await import('./team.js?v=8');
   await import('./access-approval.js?v=3');
   await import('./access-approval-copyfix.js?v=1');
+  await import('./access-approval-stability.js?v=1');
   await Promise.all([
     import('./home-cleanup.js?v=3'),
     import('./home-dashboard-v2.js?v=2')
