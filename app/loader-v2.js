@@ -62,6 +62,7 @@
     import('./page-editor-fix.js?v=2'),
     import('./page-builder.js?v=1&designer=2'),
     import('./page-shortcut.js?v=1'),
+    import('./page-management.js?v=1'),
     import('./page-inline-viewer.js?v=2')
   ]);
   const loadAuthenticatedAi=async()=>{
