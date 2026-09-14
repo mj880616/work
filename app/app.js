@@ -29,4 +29,4 @@ import('./profile-workplace-edit-mode.js?v=1');
 Promise.all([
   import('./meeting-assignee-picker.js?v=2'),
   import('./due-date-calendar.js?v=1')
-]).then(()=>import('./loader-v2.js?v=112')).catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+]).then(()=>import('./loader-v2.js?v=113')).catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
