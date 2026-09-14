@@ -5,30 +5,39 @@ window.__KPTU_MARK_APP_UI_READY__=()=>{const app=document.querySelector('#appVie
 const desktopCss=document.createElement('link');desktopCss.id='desktopUiCss';desktopCss.rel='stylesheet';desktopCss.href='./desktop-ui.css?v=3';document.head.appendChild(desktopCss);
 const desktopTightNav=document.createElement('link');desktopTightNav.id='desktopTightNavCss';desktopTightNav.rel='stylesheet';desktopTightNav.href='./desktop-tight-nav.css?v=1';document.head.appendChild(desktopTightNav);
 [
-  './native-auth-bridge.js?v=4',
-  './calendar-return-bridge.js?v=2',
-  './runtime-client.js?v=1',
-  './auth-handoff-client.js?v=1',
-  './auth-bootstrap.js?v=1',
-  './app-router.js?v=2',
-  './auth-ui.js?v=8',
-  './session-resilience.js?v=6',
-  './brand-logo.js?v=2',
-  './team.js?v=8',
-  './project-access.js?v=4',
-  './home-cleanup.js?v=3',
-  './home-dashboard-v2.js?v=2'
+  './native-auth-bridge.js?v=4','./calendar-return-bridge.js?v=2','./runtime-client.js?v=1','./auth-handoff-client.js?v=1','./auth-bootstrap.js?v=1','./app-router.js?v=2','./auth-ui.js?v=8','./session-resilience.js?v=6','./brand-logo.js?v=2','./team.js?v=8','./project-access.js?v=4','./home-cleanup.js?v=3','./home-dashboard-v2.js?v=2'
 ].forEach(href=>{const l=document.createElement('link');l.rel='modulepreload';l.href=href;document.head.appendChild(l)});
 const teamCssPreload=document.createElement('link');teamCssPreload.id='teamCssPreload';teamCssPreload.rel='preload';teamCssPreload.as='style';teamCssPreload.href='./team.css?v=1';document.head.appendChild(teamCssPreload);
 window.addEventListener('kptu:tasks-changed',()=>{const list=document.querySelector('#taskList');if(!list)return;const marker=document.createElement('span');marker.hidden=true;list.appendChild(marker);marker.remove()});
+const hasLocalSession=()=>{try{return !!JSON.parse(localStorage.getItem('kptu_collab_session_v1')||'null')}catch{return false}};
+const fail=err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')};
 import('./pwa.js?v=3');
 import('./brand-logo.js?v=2');
-import('./calendar-move.js?v=1');
-import('./team-member-overview-bootstrap.js?v=2');
-import('./profile-workplace-edit-mode.js?v=1');
-import('./suborganization-filters.js?v=2');
-// smoke compatibility marker: loader-v2.js?v=104
-Promise.all([
-  import('./meeting-assignee-picker.js?v=2'),
-  import('./due-date-calendar.js?v=1')
-]).then(()=>import('./loader-v2.js?v=117')).catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.querySelector('#authPreloadStyle')?.remove();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+
+async function bootPublicReadonly(){
+  await import('./native-auth-bridge.js?v=4');if(window.__KPTU_NATIVE_BRIDGE__)return;
+  await import('./calendar-return-bridge.js?v=2');if(window.__KPTU_CALENDAR_BRIDGE__)return;
+  await import('./runtime-client.js?v=1');
+  await import('./auth-handoff-client.js?v=1');
+  await import('./auth-bootstrap.js?v=1');
+  await import('./app-router.js?v=2');
+  if(!document.querySelector('#workspaceUiCss')){const l=document.createElement('link');l.id='workspaceUiCss';l.rel='stylesheet';l.href='./workspace-ui.css?v=5';document.head.appendChild(l)}
+  await import('./auth-ui.js?v=8');
+  await import('./auth-login-fallback.js?v=1');
+  await import('./session-resilience.js?v=6');
+  await import('./team.js?v=8');
+  if(window.KPTURuntime?.session?.read?.()){location.reload();return}
+  await import('./public-readonly-bootstrap.js?v=1');
+  await import('./mobile-safe-area.js?v=1');
+  await import('./mobile-swipe-navigation.js?v=3');
+}
+
+if(hasLocalSession()){
+  import('./calendar-move.js?v=1');
+  import('./team-member-overview-bootstrap.js?v=2');
+  import('./profile-workplace-edit-mode.js?v=1');
+  import('./suborganization-filters.js?v=2');
+  Promise.all([import('./meeting-assignee-picker.js?v=2'),import('./due-date-calendar.js?v=1')]).then(()=>import('./loader-v2.js?v=117')).catch(fail);
+}else{
+  bootPublicReadonly().catch(fail);
+}
