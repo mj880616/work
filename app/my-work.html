@@ -21,9 +21,8 @@ try{
   if(!rt||!(await rt.session.ensure()))deny();
   else{
     const u=await rt.api('/auth/v1/user');
-    const rows=await rt.api(`/rest/v1/app_profiles?user_id=eq.${u.id}&select=display_name&limit=1`);
-    const name=rows?.[0]?.display_name||u?.user_metadata?.display_name||'';
-    if(name!=='김명진')deny();
+    const rows=await rt.api(`/rest/v1/app_private_feature_access?feature_key=eq.myspace&user_id=eq.${u.id}&select=feature_key&limit=1`);
+    if(!rows?.length)deny();
     else document.querySelector('.mywork-shell').hidden=false;
   }
 }catch(e){deny()}
