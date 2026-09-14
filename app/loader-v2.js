@@ -35,7 +35,7 @@
     import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=5'),
     import('./home-task-controls.js?v=2'),
-    import('./profile-settings.js?v=2&wd=1'),
+    import('./profile-settings.js?v=2&wd=2'),
     import('./workplace-detail.js?v=2'),
     import('./project-files.js?v=4'),
     import('./library-upload.js?v=3'),
@@ -97,6 +97,8 @@
   await import('./calendar-mobile-ui.js?v=2');
   await import('./suborganizations.js?v=1');
   await import('./suborganization-planned-assignee.js?v=1');
+  await import('./profile-workplace-sync.js?v=1');
+  await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=1');
   await import('./global-action-buttons.js?v=1');
   await import('./task-child-project-guard.js?v=1');
