@@ -102,7 +102,6 @@
   await import('./project-templates.js?v=1');
   await import('./project-deeplink.js?v=1');
   await import('./project-delete.js?v=1');
-  await import('./project-task-guide-cleanup.js?v=1');
   let projectSystemLoaded=false;
   const loadProjectSystem=async()=>{
     if(projectSystemLoaded)return false;
