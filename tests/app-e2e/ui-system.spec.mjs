@@ -54,6 +54,14 @@ test('top-level action buttons share one compact size and mobile content clears 
   await signIn(page);
   await expect(page.locator('#ccMobileDock')).toBeVisible({timeout:10000});
 
+  await page.locator('[data-view="home"]').first().click();
+  await expect(page.locator('#myTaskMini .hta-task')).toHaveCount(6,{timeout:10000});
+  await expect(page.locator('#myTaskMini [data-hta-expand]')).toHaveText('+ 18개 더 보기');
+  await expect(page.locator('#htaStyle')).toHaveCount(0);
+  await page.locator('#myTaskMini [data-hta-expand]').click();
+  await expect(page.locator('#myTaskMini .hta-task')).toHaveCount(24);
+  await expect(page.locator('#myTaskMini [data-hta-expand]')).toHaveText('접기');
+
   const heights=[];
   heights.push(await buttonHeight(page,'calendar','#newEventBtn'));
   heights.push(await buttonHeight(page,'tasks','#newTaskBtn'));

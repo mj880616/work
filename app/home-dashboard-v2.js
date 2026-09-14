@@ -9,7 +9,7 @@
   let loading=false;
   let timer=null;
 
-  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const dt=v=>{if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?null:d};
   const dateLabel=v=>{const d=dt(v);return d?d.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',weekday:'short'}):'일정 미정'};
   const relative=v=>{const d=dt(v);if(!d)return '';const diff=Date.now()-d.getTime();const day=Math.floor(diff/86400000);if(day<=0)return '오늘';if(day===1)return '어제';if(day<7)return `${day}일 전`;return d.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})};
@@ -109,14 +109,6 @@
   }
 
   function install(){
-    if(!document.querySelector('#hdvStyle')){
-      const s=document.createElement('style');s.id='hdvStyle';s.textContent=`
-        #homeView .home-dashboard-deprecated{display:none!important}
-        #homeView .dashboard-grid.home-dashboard-current{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px}
-        #homeView .hdv-panel{min-width:0}.hdv-list{display:grid}.hdv-row{width:100%;border:0;border-bottom:1px solid #edf0f3;background:transparent;color:inherit;text-align:left;padding:9px 2px;display:flex;gap:10px;align-items:center;min-width:0}.hdv-row:last-child{border-bottom:0}.hdv-row:hover{background:#f7f9fb}.hdv-main{min-width:0;flex:1}.hdv-main b{display:block;font-size:12.5px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdv-main small{display:block;color:var(--muted);font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdv-meta{flex:0 0 auto;color:#71808c;font-size:10px;white-space:nowrap}.hdv-date{flex:0 0 76px;font-size:10.5px;font-weight:850;color:var(--blue);background:#eef4f8;border-radius:8px;padding:5px 7px;text-align:center}.hdv-empty{padding:18px 4px;color:var(--muted);font-size:11px}.hdv-empty.error{color:var(--red)}
-        @media(max-width:760px){#homeView .dashboard-grid.home-dashboard-current{grid-template-columns:1fr!important;gap:10px}.hdv-row{padding:8px 1px}.hdv-date{flex-basis:70px}.hdv-main b{font-size:12px}.hdv-main small{font-size:10px}}
-      `;document.head.appendChild(s);
-    }
     prepareStructure();
     document.addEventListener('click',e=>{const goto=e.target.closest?.('[data-hdv-goto]');if(goto){window.KPTURouter?.go?.(goto.dataset.hdvGoto,{source:'home-dashboard'});return}const row=e.target.closest?.('[data-hdv-project]');if(row)goProjects(row.dataset.hdvProject)});
     window.KPTURouter?.on?.('home',()=>schedule(60));

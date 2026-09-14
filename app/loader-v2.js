@@ -29,17 +29,23 @@
     const rt=window.KPTURuntime;
     const settled=()=>{
       if(!rt.session.read())return true;
+      const auth=document.querySelector('#authView');
       const bootstrap=document.querySelector('#bootstrapView');
       const app=document.querySelector('#appView');
-      return !!bootstrap&&!bootstrap.classList.contains('hidden')||!!app&&!app.classList.contains('hidden');
+      const homeTasks=document.querySelector('#myTaskMini');
+      const authVisible=!!auth&&!auth.classList.contains('hidden');
+      const bootstrapVisible=!!bootstrap&&!bootstrap.classList.contains('hidden');
+      const appRendered=!!app&&!app.classList.contains('hidden')&&!!homeTasks?.childElementCount;
+      return authVisible||bootstrapVisible||appRendered;
     };
     if(settled())return;
     await new Promise(resolve=>{
       let done=false;
-      const finish=()=>{if(done)return;done=true;observer.disconnect();clearTimeout(timeout);resolve()};
+      const finish=()=>{if(done)return;done=true;observer.disconnect();resolve()};
       const observer=new MutationObserver(()=>{if(settled())finish()});
-      ['bootstrapView','appView'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']})});
-      const timeout=setTimeout(finish,3000);
+      ['authView','bootstrapView','appView'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']})});
+      const homeTasks=document.querySelector('#myTaskMini');
+      if(homeTasks)observer.observe(homeTasks,{childList:true});
     });
   };
   await waitForTeamState();
@@ -59,11 +65,8 @@
     import('./meeting-assignee-picker.js?v=2'),
     import('./due-date-calendar.js?v=1')
   ]);
-  await import('./access-approval.js?v=3');
-  await import('./access-approval-copyfix.js?v=1');
-  await import('./access-approval-stability.js?v=1');
+  await import('./access-approval.js?v=4');
   await import('./home-dashboard-v2.js?v=3');
-  window.__KPTU_MARK_APP_UI_READY__?.();
   await import('./member-default-role.js?v=3');
   await import('./myspace-return.js?v=2');
   await import('./meeting-file-route.js?v=1');
@@ -76,7 +79,7 @@
     import('./calendar-persistence.js?v=8'),
     import('./task-workflow.js?v=3'),
     import('./task-layout.js?v=5'),
-    import('./home-task-controls.js?v=2'),
+    import('./home-task-controls.js?v=3'),
     import('./profile-settings.js?v=2&wd=2'),
     import('./workplace-detail.js?v=2'),
     import('./project-files.js?v=4'),
@@ -95,7 +98,6 @@
   };
   await loadAuthenticatedAi();
   await import('./google-calendar-return-status.js?v=1');
-  await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=3');
@@ -105,7 +107,6 @@
   await import('./project-templates.js?v=1');
   await import('./project-deeplink.js?v=1');
   await import('./project-delete.js?v=1');
-  await import('./project-task-guide-cleanup.js?v=1');
   let projectSystemLoaded=false;
   const loadProjectSystem=async()=>{
     if(projectSystemLoaded)return false;
@@ -144,13 +145,12 @@
   await import('./team-profile-view.js?v=1');
   await import('./task-child-project-guard.js?v=1');
   await import('./task-status-state.js?v=1');
-  await import('./home-task-expand.js?v=2');
-  await import('./home-task-expand-retry.js?v=1');
   await import('./google-tasks.js?v=2');
   await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
   await import('./mobile-modal-history.js?v=1');
   await import('./mobile-swipe-navigation.js?v=2');
+  window.__KPTU_MARK_APP_UI_READY__?.();
 })().catch(err=>{
   console.error(err);
   window.__KPTU_MARK_APP_UI_READY__?.();
