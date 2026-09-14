@@ -13,6 +13,25 @@
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
   await import('./team.js?v=8');
+  const waitForTeamState=async()=>{
+    const rt=window.KPTURuntime;
+    if(!rt?.session?.read?.())return;
+    const settled=()=>{
+      if(!rt.session.read())return true;
+      const bootstrap=document.querySelector('#bootstrapView');
+      const app=document.querySelector('#appView');
+      return !!bootstrap&&!bootstrap.classList.contains('hidden')||!!app&&!app.classList.contains('hidden');
+    };
+    if(settled())return;
+    await new Promise(resolve=>{
+      let done=false;
+      const finish=()=>{if(done)return;done=true;observer.disconnect();clearTimeout(timeout);resolve()};
+      const observer=new MutationObserver(()=>{if(settled())finish()});
+      ['bootstrapView','appView','authView'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']})});
+      const timeout=setTimeout(finish,3000);
+    });
+  };
+  await waitForTeamState();
   await import('./access-approval.js?v=3');
   await import('./access-approval-copyfix.js?v=1');
   await import('./access-approval-stability.js?v=1');
