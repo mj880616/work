@@ -48,7 +48,7 @@ function injectFiles(){
   if(document.getElementById('related-files'))return;
   const root=document.getElementById('sections');if(!root)return;
   const sec=document.createElement('section');sec.className='pc-files';sec.id='related-files';
-  sec.innerHTML=`<h2>관련 파일</h2><p class="desc">보도자료·발언문·현장사진 등 기자회견 관련 파일을 올립니다. 별도 로그인 없이 업로드할 수 있습니다.</p><div class="file-upload-box"><div class="file-upload-grid"><div class="file-field"><label for="relatedFile">파일 선택</label><input id="relatedFile" type="file"></div><div class="file-field"><label for="fileUploader">이름·조직 <span style="font-weight:500;color:#8a929b">(선택)</span></label><input id="fileUploader" type="text" maxlength="80" placeholder="예: 철도노조 홍길동"></div><button type="button" class="file-upload-btn" id="fileUploadBtn">파일 업로드</button></div><input class="file-honeypot" id="fileWebsite" type="text" tabindex="-1" autocomplete="off" aria-hidden="true"><div class="file-status" id="fileUploadStatus"></div><div class="file-note">※ 파일당 최대 30MB · 실행파일 등 위험한 형식은 업로드되지 않음. 다운로드 시 원래 파일명으로 저장됨.</div></div><div class="file-head"><b>최근 업로드</b><button type="button" class="file-refresh" id="fileRefreshBtn">새로고침</button></div><div class="file-list" id="relatedFileList"><div class="file-empty">파일 목록을 불러오는 중…</div></div>`;
+  sec.innerHTML=`<h2>관련 파일</h2><p class="desc">보도자료·발언문·현장사진 등 기자회견 관련 파일을 올립니다. 별도 로그인 없이 누구나 업로드할 수 있습니다.</p><div class="file-upload-box"><div class="file-upload-grid"><div class="file-field"><label for="relatedFile">파일 선택</label><input id="relatedFile" type="file"></div><div class="file-field"><label for="fileUploader">이름·조직 <span style="font-weight:500;color:#8a929b">(직접 입력)</span></label><input id="fileUploader" type="text" maxlength="80" placeholder="예: 공공운수노조 김명진"></div><button type="button" class="file-upload-btn" id="fileUploadBtn">파일 업로드</button></div><input class="file-honeypot" id="fileWebsite" type="text" tabindex="-1" autocomplete="off" aria-hidden="true"><div class="file-status" id="fileUploadStatus"></div><div class="file-note">※ 파일당 최대 30MB · 실행파일 등 위험한 형식은 업로드되지 않음. 다운로드 시 원래 파일명으로 저장됨.</div></div><div class="file-head"><b>최근 업로드</b><button type="button" class="file-refresh" id="fileRefreshBtn">새로고침</button></div><div class="file-list" id="relatedFileList"><div class="file-empty">파일 목록을 불러오는 중…</div></div>`;
   root.insertAdjacentElement('afterend',sec);
 
   const input=document.getElementById('relatedFile'),uploader=document.getElementById('fileUploader'),btn=document.getElementById('fileUploadBtn'),status=document.getElementById('fileUploadStatus'),list=document.getElementById('relatedFileList');
@@ -57,7 +57,7 @@ function injectFiles(){
   document.getElementById('fileRefreshBtn').onclick=load;
   load();
 
-  if(!document.querySelector('script[src*="file-dropzone.js"]')){const s=document.createElement('script');s.src='/work/assets/file-dropzone.js?v=20260914-2';document.body.appendChild(s)}
+  if(!document.querySelector('script[src*="file-dropzone.js"]')){const s=document.createElement('script');s.src='/work/assets/file-dropzone.js?v=20260914-3';document.body.appendChild(s)}
 }
 
 function boot(){if(!location.pathname.includes('/workforce/press-conference-0914/'))return;if(location.pathname.includes('/press-release/'))return;installStyle();installProgressFix();injectFiles()}
