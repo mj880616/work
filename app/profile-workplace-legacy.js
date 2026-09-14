@@ -15,7 +15,7 @@ async function pwlRender(){
     for(const row of rows){const span=document.createElement('span');span.className='ps-workplace-chip pwl-legacy-chip';span.dataset.pwlLegacy='1';span.title='기존 담당사업장 정보';span.innerHTML=pwlEsc(row.full_name||'이름 없는 사업장');wrap.appendChild(span)}
   }catch(e){console.warn('legacy workplace render skipped',e)}
 }
-function pwlSchedule(){clearTimeout(pwlTimer);pwlTimer=setTimeout(()=>pwlRender(),0)}
+function pwlSchedule(){clearTimeout(pwlTimer);pwlTimer=setTimeout(()=>pwlRender(),250)}
 window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='profile')pwlSchedule()});
 window.addEventListener('kptu:profile-updated',pwlSchedule);
 pwlSchedule();
