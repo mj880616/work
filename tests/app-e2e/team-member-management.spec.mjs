@@ -3,10 +3,12 @@ const base='http://127.0.0.1:8123/tests/app-e2e/team-member-management-fixture.h
 
 test.beforeEach(async({page})=>{page.on('dialog',d=>d.accept())});
 
-test('owner can change member role and approval does not offer admin directly',async({page})=>{
+test('owner can change member role and approval or invite does not offer admin directly',async({page})=>{
   await page.goto(base+'?actor=owner&targetRole=author');
   await expect(page.locator('[data-aa-role] option[value="admin"]')).toHaveCount(0);
-  await expect(page.locator('.tmm-approval-note')).toContainText('가입 승인 후 소유자');
+  await expect(page.locator('#inviteRole option[value="admin"]')).toHaveCount(0);
+  await expect(page.locator('#inviteRole + .tmm-approval-note')).toContainText('가입 후 구성원 상세');
+  await expect(page.locator('#aaReviewSection .tmm-approval-note')).toContainText('가입 승인 후 소유자');
   await page.click('#openMember');
   await expect(page.locator('#tmmSection')).toBeVisible();
   await expect(page.locator('#tmmRole')).toHaveValue('author');
