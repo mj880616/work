@@ -20,7 +20,7 @@
       location.replace(window.KPTUAuth.loginUrl(location.href));
       return;
     }
-    await import('./public-workspace.js?v=2');
+    await import('./public-workspace.js?v=3');
     return;
   }
 
@@ -63,9 +63,8 @@
   await import('./access-approval.js?v=3');
   await import('./access-approval-copyfix.js?v=1');
   await import('./access-approval-stability.js?v=1');
-  await Promise.all([import('./home-cleanup.js?v=3'),import('./home-dashboard-v2.js?v=2')]);
+  await import('./home-dashboard-v2.js?v=3');
   window.__KPTU_MARK_APP_UI_READY__?.();
-  document.querySelector('#authPreloadStyle')?.remove();
   await import('./member-default-role.js?v=3');
   await import('./myspace-return.js?v=2');
   await import('./meeting-file-route.js?v=1');
@@ -158,6 +157,5 @@
 })().catch(err=>{
   console.error(err);
   window.__KPTU_MARK_APP_UI_READY__?.();
-  document.querySelector('#authPreloadStyle')?.remove();
   document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
 });
