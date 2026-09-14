@@ -24,7 +24,7 @@
     return;
   }
 
-  await import('./meeting-multi-tasks.js?v=4');
+  await import('./meeting-multi-tasks.js?v=5');
   await import('./team.js?v=8');
   const waitForTeamState=async()=>{
     const rt=window.KPTURuntime;
