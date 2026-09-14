@@ -16,7 +16,9 @@ const state=window.__state={
 };
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function orgFromPath(path){const m=path.match(/organization_id=eq\.([^&]+)/);return m?decodeURIComponent(m[1]):null}
-window.KPTURouter={on(){return()=>{}},current:'profile'};
+const routerHooks=new Map();
+window.KPTURouter={current:'team',on(view,fn){if(!routerHooks.has(view))routerHooks.set(view,new Set());routerHooks.get(view).add(fn);return()=>routerHooks.get(view)?.delete(fn)},go(view){document.querySelectorAll('#appView .view-panel').forEach(x=>x.classList.toggle('hidden',x.id!==view+'View'));this.current=view;const detail={view,source:'fixture'};window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));for(const fn of routerHooks.get(view)||[])fn(detail)}};
+document.addEventListener('click',e=>{const b=e.target.closest?.('[data-view]');if(b)window.KPTURouter.go(b.dataset.view)});
 window.__KPTU_RELOAD_SUBORGANIZATIONS__=()=>{state.reloads++};
 window.addEventListener('kptu:suborganization-updated',()=>state.events++);
 window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opts={})=>{
