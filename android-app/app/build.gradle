@@ -2,6 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
+def envValue = { String name ->
+    def value = System.getenv(name) ?: ''
+    return value.replace('\\', '\\\\').replace('"', '\\"')
+}
+
 android {
     namespace 'kr.or.kptu.work'
     compileSdk 36
@@ -10,8 +15,17 @@ android {
         applicationId 'kr.or.kptu.work'
         minSdk 26
         targetSdk 36
-        versionCode 9
-        versionName '0.1.8'
+        versionCode 10
+        versionName '0.1.9'
+
+        buildConfigField 'String', 'FIREBASE_API_KEY', '"' + envValue('KPTU_FIREBASE_API_KEY') + '"'
+        buildConfigField 'String', 'FIREBASE_APP_ID', '"' + envValue('KPTU_FIREBASE_APP_ID') + '"'
+        buildConfigField 'String', 'FIREBASE_PROJECT_ID', '"' + envValue('KPTU_FIREBASE_PROJECT_ID') + '"'
+        buildConfigField 'String', 'FIREBASE_SENDER_ID', '"' + envValue('KPTU_FIREBASE_SENDER_ID') + '"'
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     compileOptions {
@@ -24,4 +38,9 @@ android {
             minifyEnabled false
         }
     }
+}
+
+dependencies {
+    implementation platform('com.google.firebase:firebase-bom:34.19.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }
