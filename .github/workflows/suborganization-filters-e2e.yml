@@ -1,0 +1,35 @@
+name: Suborganization filters E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/suborganization-filters.js'
+      - 'app/app.js'
+      - 'tests/app-e2e/suborganization-filters-*'
+      - '.github/workflows/suborganization-filters-e2e.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/suborganization-filters.js'
+      - 'app/app.js'
+      - 'tests/app-e2e/suborganization-filters-*'
+      - '.github/workflows/suborganization-filters-e2e.yml'
+
+jobs:
+  suborganization-filters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start server
+        run: python3 -m http.server 8123 >/tmp/kptu-suborg-http.log 2>&1 &
+      - name: Run suborganization filter tests
+        run: npx playwright test tests/app-e2e/suborganization-filters.spec.mjs --browser=chromium --workers=1 --reporter=line
