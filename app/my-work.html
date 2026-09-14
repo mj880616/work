@@ -5,13 +5,27 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>내 업무 현황</title>
 <style>
-:root{color-scheme:light}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif}.mywork-shell{height:100%;display:flex;flex-direction:column}.mywork-bar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-top));background:#fff;border-bottom:1px solid #e3e8ed;z-index:3}.mywork-back{appearance:none;border:1px solid #cfd7df;background:#fff;color:#23466f;border-radius:10px;padding:8px 11px;font:inherit;font-size:13px;font-weight:800;cursor:pointer}.mywork-title{font-size:14px;font-weight:800;color:#26313d}.mywork-frame{border:0;width:100%;flex:1 1 auto;min-height:0;background:#f4f6f8}
+:root{color-scheme:light}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif}.mywork-shell{height:100%;display:flex;flex-direction:column}.mywork-shell[hidden]{display:none}.mywork-bar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-top));background:#fff;border-bottom:1px solid #e3e8ed;z-index:3}.mywork-back{appearance:none;border:1px solid #cfd7df;background:#fff;color:#23466f;border-radius:10px;padding:8px 11px;font:inherit;font-size:13px;font-weight:800;cursor:pointer}.mywork-title{font-size:14px;font-weight:800;color:#26313d}.mywork-frame{border:0;width:100%;flex:1 1 auto;min-height:0;background:#f4f6f8}
 </style>
 </head>
 <body>
-<div class="mywork-shell">
+<div class="mywork-shell" hidden>
   <div class="mywork-bar"><button class="mywork-back" type="button" onclick="location.href='./'">← 앱 홈으로</button><div class="mywork-title">내 업무 현황</div></div>
   <iframe class="mywork-frame" src="../" title="내 업무 현황"></iframe>
 </div>
+<script type="module">
+await import('./runtime-client.js?v=1');
+const rt=window.KPTURuntime;
+const deny=()=>location.replace('./');
+try{
+  if(!rt||!(await rt.session.ensure()))deny();
+  else{
+    const u=await rt.api('/auth/v1/user');
+    const rows=await rt.api(`/rest/v1/app_private_feature_access?feature_key=eq.myspace&user_id=eq.${u.id}&select=feature_key&limit=1`);
+    if(!rows?.length)deny();
+    else document.querySelector('.mywork-shell').hidden=false;
+  }
+}catch(e){deny()}
+</script>
 </body>
 </html>
