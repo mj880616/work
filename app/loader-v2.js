@@ -23,7 +23,7 @@
     return;
   }
 
-    await import('./team.js?v=11');
+  await import('./team.js?v=11');
   await window.__KPTU_TEAM_READY__;
   try{
     const user=await window.KPTURuntime.api('/auth/v1/user');
