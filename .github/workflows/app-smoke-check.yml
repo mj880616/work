@@ -80,7 +80,10 @@ jobs:
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
           grep -q "public-workspace.js" app/loader-v2.js
           grep -q "team.js?v=8" app/loader-v2.js
-          grep -q "workspace-ui.css?v=5" app/loader-v2.js
+          grep -q "workspace-ui.css?v=6" app/styles.css
+          grep -q "desktop-ui.css?v=3" app/styles.css
+          grep -q "#authView{display:none!important}" app/styles.css
+          grep -q "#appView:not(.kptu-ui-ready)" app/styles.css
 
           grep -q "app_public_projects_snapshot" app/public-workspace.js
           grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
@@ -98,6 +101,9 @@ jobs:
           fi
           if grep -q "project-public-visibility.js" app/loader-v2.js; then
             echo 'duplicate project visibility shim returned'; exit 1
+          fi
+          if grep -q "home-cleanup.js\|global-action-buttons.js\|mobile-safe-area.js" app/loader-v2.js app/app.js; then
+            echo 'retired UI patch module returned to the active graph'; exit 1
           fi
 
           python3 - <<'PY'
