@@ -11,8 +11,10 @@ test('legacy auth screen and workspace shell cannot paint before the current UI 
     await route.continue();
   });
 
-  await page.goto('http://127.0.0.1:8123/app/', { waitUntil: 'domcontentloaded' });
+  await page.goto('http://127.0.0.1:8123/app/', { waitUntil: 'commit' });
   await expect.poll(() => appRequested, { timeout: 10000 }).toBeTruthy();
+  await page.locator('#authView').waitFor({ state: 'attached', timeout: 10000 });
+  await page.locator('#appView').waitFor({ state: 'attached', timeout: 10000 });
 
   const legacyAuthDisplay = await page.locator('#authView').evaluate(el => getComputedStyle(el).display);
   expect(legacyAuthDisplay).toBe('none');
