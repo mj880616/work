@@ -1,4 +1,6 @@
-<!doctype html><html><head><meta charset="utf-8"><title>suborganization filters fixture</title></head><body>
+<!doctype html><html><head><meta charset="utf-8"><title>suborganization filters fixture</title><style id="myspaceGateStyle">[data-view="myspace"],#myspaceView{display:none!important}</style></head><body>
+<nav class="app-nav"><button class="nav-btn active" data-view="home">홈</button><button class="nav-btn" data-view="myspace">내 공간</button></nav>
+<section id="homeView"></section><section id="myspaceView"><div id="mySpaceLinks"><a class="project-card" href="../"><h3>내 업무 현황</h3></a></div></section>
 <div id="teamView"><section id="soTeamSection"><div id="soOrganizationList" class="so-list">
 <article class="so-card" data-so-org="org-rail"><h4>전국철도노동조합</h4><button data-so-edit="org-rail">수정</button></article>
 <article class="so-card" data-so-org="org-consumer"><h4>한국소비자원지부</h4><button data-so-edit="org-consumer">수정</button></article>
@@ -6,12 +8,15 @@
 </div></section></div>
 <div id="soEditModal" class="modal hidden"><div class="modal-card"><label>조직명<input id="soEditName"></label><label>약칭<input id="soEditAliases"></label><label>설명<textarea id="soEditDescription"></textarea></label><button id="soSaveOrg">저장</button></div></div>
 <script>
-const now=Date.now();
-window.__patches=[];
+const now=Date.now(),other=new URLSearchParams(location.search).has('other'),currentId=other?'user-other':'user-me';
+window.__patches=[];window.__routed='';
+window.KPTURouter={go:view=>{window.__routed=view;document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view))}};
 window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
- if(path==='/auth/v1/user')return {id:'user-me',user_metadata:{display_name:'김명진'}};
+ if(path==='/auth/v1/user')return {id:currentId,user_metadata:{display_name:other?'한소영':'김명진'}};
  if(path.startsWith('/rest/v1/app_workspace_members?user_id='))return [{workspace_id:'ws-1'}];
  if(path==='/rest/v1/app_profiles?select=user_id,display_name')return [{user_id:'user-me',display_name:'김명진'},{user_id:'user-other',display_name:'한소영'}];
+ if(path.startsWith('/rest/v1/app_profiles?user_id=eq.user-me'))return [{display_name:'김명진'}];
+ if(path.startsWith('/rest/v1/app_profiles?user_id=eq.user-other'))return [{display_name:'한소영'}];
  if(path.startsWith('/rest/v1/app_suborganizations?workspace_id=eq.ws-1&active=eq.true'))return [
   {id:'org-rail',name:'전국철도노동조합',aliases:['철도노조'],description:'철도',organization_type:'철도·도시철도',default_assignee_name:'김명진'},
   {id:'org-consumer',name:'한국소비자원지부',aliases:['소비자원'],description:'소비자 정책',organization_type:'중앙공공기관',default_assignee_name:'한소영'},
@@ -22,6 +27,8 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
   {organization_id:'org-rail',occurred_at:new Date(now-3*86400000).toISOString()},
   {organization_id:'org-consumer',occurred_at:new Date(now-45*86400000).toISOString()}
  ];
+ if(path.startsWith('/rest/v1/app_org_affiliation_tags?'))return [{id:'c-social',name:'경제사회단체협의회'},{id:'c-rail',name:'철도지하철협의회'}];
+ if(path==='/rest/v1/app_suborganization_affiliations?select=organization_id,tag_id')return [{organization_id:'org-rail',tag_id:'c-rail'},{organization_id:'org-consumer',tag_id:'c-social'}];
  if(path.startsWith('/rest/v1/app_suborganizations?id=eq.')&&opt.method==='PATCH'){window.__patches.push({path,body:opt.body});return null}
  return [];
 }};
@@ -29,4 +36,5 @@ document.querySelectorAll('[data-so-edit]').forEach(btn=>btn.addEventListener('c
 document.querySelector('#soSaveOrg').onclick=async()=>{document.querySelector('#soEditModal').classList.add('hidden')};
 </script>
 <script type="module" src="/app/suborganization-filters.js"></script>
+<script type="module" src="/app/myspace-return.js"></script>
 </body></html>
