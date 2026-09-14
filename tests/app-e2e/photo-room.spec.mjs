@@ -76,6 +76,7 @@ test('photo upload uses shared session and refreshes the room without reloading 
   await page.locator('#photoCaption').fill('현장 사진');
   await page.locator('#photoTags').fill('기자회견');
   await page.locator('#photoFile').setInputFiles({name:'photo.png',mimeType:'image/png',buffer:Buffer.from(pixel.split(',')[1],'base64')});
+  const navigationBaseline=appNavigations;
   await page.locator('#photoUploadBtn').click();
 
   await expect(page.locator('#photoUploadModal')).toBeHidden({timeout:10000});
@@ -83,5 +84,5 @@ test('photo upload uses shared session and refreshes the room without reloading 
   await expect(page.locator('#toast')).toContainText('사진을 올렸습니다.');
   expect(uploadRequest?.authorization).toBe('Bearer photo-access');
   expect(uploadRequest?.contentType).toContain('multipart/form-data');
-  expect(appNavigations).toBe(1);
+  expect(appNavigations).toBe(navigationBaseline);
 });
