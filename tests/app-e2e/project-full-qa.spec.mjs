@@ -94,6 +94,8 @@ async function mockApp(page,state){
 }
 
 async function signIn(page){
+  const returnTo=page.url().startsWith('http://127.0.0.1:8123/app/')?page.url():'http://127.0.0.1:8123/app/';
+  await page.goto(`http://127.0.0.1:8123/app/login/?return=${encodeURIComponent(returnTo)}`);
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
