@@ -87,6 +87,7 @@ jobs:
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
           grep -q "__KPTU_PHOTO_ROOM_READY__" app/loader-v2.js app/photo-room.js
+          grep -q "__KPTU_TASK_WORKFLOW_MEETING_UI_ONLY__" app/task-workflow.js
           grep -q "wfMeetingLocation" app/team.js
           grep -q "attendee_count" app/team.js
           grep -q "meetingSeriesName" app/team.js
