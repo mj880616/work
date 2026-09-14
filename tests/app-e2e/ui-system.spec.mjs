@@ -1,0 +1,80 @@
+import { test, expect } from '@playwright/test';
+import { loginEntry } from './helpers/login-entry.mjs';
+
+const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const user={id:'ui-system-user',email:'ui-system@example.org',user_metadata:{display_name:'UI QA'}};
+const workspace={id:'ui-system-workspace',slug:'ui-system',name:'공공기관사업팀 Workspace'};
+const tasks=Array.from({length:24},(_,i)=>({id:`ui-task-${i+1}`,workspace_id:workspace.id,title:`UI 점검 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`2026-09-${String(15+(i%10)).padStart(2,'0')}T09:00:00Z`,created_at:'2026-09-14T00:00:00Z'}));
+
+async function mockApp(page){
+  await page.route(`${SB}/**`,async route=>{
+    const req=route.request();
+    const url=new URL(req.url());
+    const path=url.pathname;
+    const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
+    if(path==='/auth/v1/token')return ok({access_token:'ui-access',refresh_token:'ui-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/user')return ok(user);
+    if(path==='/auth/v1/logout')return ok({});
+    if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
+    if(path.startsWith('/functions/v1/'))return ok({});
+    if(path.startsWith('/rest/v1/rpc/'))return ok(null);
+    if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email}]);
+    if(path==='/rest/v1/app_workspaces')return ok([workspace]);
+    if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'UI QA'}]);
+    if(path==='/rest/v1/app_tasks')return ok(tasks);
+    if(path==='/rest/v1/app_spaces')return ok([]);
+    if(path.startsWith('/rest/v1/'))return ok([]);
+    return ok({});
+  });
+}
+
+async function signIn(page){
+  await page.goto(loginEntry(page.url()));
+  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
+  await page.locator('#emailAuthToggle').click();
+  await page.locator('#authEmail').fill(user.email);
+  await page.locator('#authPassword').fill('password123');
+  await page.locator('#authSubmit').click();
+  await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+}
+
+async function buttonHeight(page,view,selector){
+  await page.locator(`[data-view="${view}"]`).first().click();
+  const button=page.locator(selector);
+  await expect(button).toBeVisible({timeout:10000});
+  return button.evaluate(el=>el.getBoundingClientRect().height);
+}
+
+test('top-level action buttons share one compact size and mobile content clears the dock',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:390,height:844});
+  await mockApp(page);
+  await page.goto('http://127.0.0.1:8123/app/');
+  await signIn(page);
+  await expect(page.locator('#ccMobileDock')).toBeVisible({timeout:10000});
+
+  const heights=[];
+  heights.push(await buttonHeight(page,'calendar','#newEventBtn'));
+  heights.push(await buttonHeight(page,'tasks','#newTaskBtn'));
+  heights.push(await buttonHeight(page,'projects','#newProjectBtn'));
+  heights.push(await buttonHeight(page,'library','#newDocumentBtn'));
+  heights.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
+  heights.push(await buttonHeight(page,'pages','#newPageBtn'));
+
+  expect(Math.min(...heights)).toBeGreaterThanOrEqual(30);
+  expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(1.5);
+
+  await page.locator('[data-view="tasks"]').first().click();
+  await expect(page.locator('#taskList .item-card')).toHaveCount(24,{timeout:10000});
+  const last=page.locator('#taskList .item-card').last();
+  await last.scrollIntoViewIfNeeded();
+  const clearance=await page.evaluate(()=>{
+    const item=document.querySelector('#taskList .item-card:last-child')?.getBoundingClientRect();
+    const dock=document.querySelector('#ccMobileDock')?.getBoundingClientRect();
+    return item&&dock?{itemBottom:item.bottom,dockTop:dock.top,scrollY:window.scrollY,docHeight:document.documentElement.scrollHeight}:null;
+  });
+  expect(clearance).not.toBeNull();
+  expect(clearance.itemBottom).toBeLessThanOrEqual(clearance.dockTop-4);
+  expect(clearance.scrollY).toBeGreaterThan(0);
+});
