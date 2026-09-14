@@ -68,8 +68,11 @@ test('top-level action buttons share one compact size and mobile content clears 
   await page.locator('[data-view="tasks"]').first().click();
   const rows=page.locator('#tlTaskSections .tl-task-row');
   await expect(rows).toHaveCount(24,{timeout:10000});
-  const last=rows.last();
-  await last.scrollIntoViewIfNeeded();
+  await page.evaluate(()=>{
+    const items=document.querySelectorAll('#tlTaskSections .tl-task-row');
+    items[items.length-1]?.scrollIntoView({block:'end'});
+  });
+  await page.waitForTimeout(80);
   const clearance=await page.evaluate(()=>{
     const items=document.querySelectorAll('#tlTaskSections .tl-task-row');
     const item=items[items.length-1]?.getBoundingClientRect();
