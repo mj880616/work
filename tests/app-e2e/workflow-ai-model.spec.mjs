@@ -37,6 +37,7 @@ async function mockApp(page,state){
         state.meetings.unshift(row);return ok([row]);
       }
       if(method==='PATCH'){
+        state.meetingPatches=(state.meetingPatches||0)+1;
         const row=state.meetings.find(x=>x.id===idFrom());if(row)Object.assign(row,body||{});return ok([]);
       }
       return ok(state.meetings);
@@ -104,9 +105,12 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await page.locator('#wfMeetingAttendees').fill('6');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>state.meetings.length).toBe(1);
-  await page.waitForTimeout(700);
   expect(state.meetings[0].location).toBe('회의실');
   expect(state.meetings[0].attendee_count).toBe(6);
+  expect(state.meetings[0].result_status).toBe('final');
+  expect(state.meetings[0].finalized_at).toBeTruthy();
+  await page.waitForTimeout(450);
+  expect(state.meetingPatches||0).toBe(0);
 
   await page.locator('#meetingList article.item-card').first().click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();

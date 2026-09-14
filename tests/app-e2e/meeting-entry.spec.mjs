@@ -33,16 +33,8 @@ test('meeting create button keeps an active handler and opens the meeting modal'
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#meetingsView')).toBeVisible({timeout:10000});
-  await page.waitForTimeout(1200);
-  const diagnostic=await page.locator('#newMeetingBtn').evaluate(el=>{
-    const before={onclick:typeof el.onclick,html:el.outerHTML,modal:document.querySelector('#meetingModal')?.className||'',meetingProject:!!document.querySelector('#meetingProject'),meetingTaskAssignee:!!document.querySelector('#meetingTaskAssignee')};
-    let error='';
-    try{el.onclick?.call(el,new MouseEvent('click',{bubbles:true,cancelable:true}))}catch(e){error=String(e?.stack||e)}
-    return {before,error,after:{modal:document.querySelector('#meetingModal')?.className||'',aria:document.querySelector('#meetingModal')?.getAttribute('aria-hidden')}};
-  });
-  console.log('MEETING_ENTRY_DIAGNOSTIC',JSON.stringify(diagnostic));
-  expect(diagnostic.before.onclick).toBe('function');
-  expect(diagnostic.error).toBe('');
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#wfMeetingLocation')).toBeVisible();
 });
