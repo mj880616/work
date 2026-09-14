@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body>
+<section id="pagesView" class="view-panel">
+  <div class="section-head">
+    <div><h2>현장 공유 페이지</h2><p>테스트</p></div>
+    <button id="newPageBtn" class="primary" type="button">+ 새 페이지</button>
+  </div>
+  <div class="toolbar"><input id="pageSearch"><select id="pageFilter"><option value="all">전체</option></select></div>
+  <div id="pageList" class="page-list">
+    <article class="page-card">
+      <div class="badges"><span>게시</span></div><h3>첫 페이지</h3><p>요약</p>
+      <div class="page-card-foot"><span>오늘</span><div class="card-actions"><button class="mini" data-edit-page="11111111-1111-1111-1111-111111111111">편집</button><a class="mini" href="../p/?slug=one">바로가기</a><button class="mini">링크 복사</button></div></div>
+    </article>
+    <article class="page-card">
+      <div class="badges"><span>게시</span></div><h3>둘째 페이지</h3><p>요약</p>
+      <div class="page-card-foot"><span>오늘</span><div class="card-actions"><button class="mini" data-edit-page="22222222-2222-2222-2222-222222222222">편집</button><a class="mini" href="../p/?slug=two">바로가기</a><button class="mini">링크 복사</button></div></div>
+    </article>
+  </div>
+</section>
+<script>
+window.KPTURuntime={
+  session:{ensure:async()=>true},
+  api:async(path,opt={})=>{
+    if(path==='/rest/v1/rpc/app_delete_pages'){
+      sessionStorage.setItem('pageDeleteCall',JSON.stringify(opt.body||{}));
+      return (opt.body?.p_page_ids||[]).length;
+    }
+    return null;
+  }
+};
+</script>
+<script src="/app/page-management.js"></script>
+</body>
+</html>
