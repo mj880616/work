@@ -1,5 +1,4 @@
-/* Desktop web layout for the shared responsive workspace.
-   Mobile keeps the existing navigation and compact layout. */
+/* Desktop web layout for the shared responsive workspace. */
 @media (min-width: 1024px) {
   html,body{background:#eef2f5}
   body{overflow-y:scroll}
@@ -10,8 +9,8 @@
 
   #appView.app-view{
     display:grid;
-    grid-template-columns:220px minmax(0,1fr);
-    column-gap:28px;
+    grid-template-columns:148px minmax(0,1fr);
+    column-gap:20px;
     align-items:start;
   }
   #appView>.workspace-head{
@@ -34,27 +33,28 @@
     display:flex;
     flex-direction:column;
     align-items:stretch;
-    gap:4px;
-    max-height:calc(100vh - 116px);
+    gap:3px;
+    max-height:calc(100dvh - 116px);
     overflow:auto;
-    padding:10px;
+    padding:8px;
     background:#fff;
     border:1px solid var(--line);
-    border-radius:18px;
+    border-radius:16px;
     box-shadow:0 10px 30px rgba(20,33,48,.055);
   }
   #appView>.app-nav .nav-btn{
     width:100%;
-    min-height:42px;
+    min-height:40px;
     border:0;
     border-radius:10px;
     background:transparent;
     color:#536171;
-    padding:10px 12px;
+    padding:9px 10px;
     text-align:left;
-    font-size:13px;
+    font-size:12.5px;
     font-weight:850;
     line-height:1.25;
+    white-space:nowrap;
     transition:background .14s ease,color .14s ease,transform .14s ease;
   }
   #appView>.app-nav .nav-btn:hover{background:#edf3f8;color:var(--navy);transform:translateX(1px)}
@@ -80,12 +80,11 @@
   .calendar-grid{min-height:620px}
 
   .modal{padding:28px}
-  .modal-card{max-height:90vh}
+  .modal-card{max-height:90dvh}
   .modal-card.medium-card{width:min(92vw,980px)}
   .modal-card.editor-card{width:min(94vw,1180px)}
   .editor-grid{grid-template-columns:minmax(0,1fr) 320px;gap:24px}
 
-  /* Project detail: keep every corner and action inside the desktop viewport. */
   #pm2DetailModal{
     box-sizing:border-box!important;
     padding:32px clamp(30px,4vw,64px)!important;
@@ -105,15 +104,14 @@
   #pm2DetailModal .pm2-detail-head{gap:16px!important}
   #pm2DetailModal .pm2-detail-head>*{min-width:0}
 
-  /* The bottom dock is a mobile affordance. Desktop uses the left navigation. */
   .cc-mobile-dock{display:none!important}
   body{padding-bottom:0!important}
 }
 
 @media (min-width: 1440px) {
   main{max-width:1720px;padding-left:42px;padding-right:42px}
-  #appView.app-view{grid-template-columns:240px minmax(0,1fr);column-gap:32px}
-  #appView>.app-nav{padding:12px}
-  #appView>.app-nav .nav-btn{min-height:44px;padding:11px 13px;font-size:13.5px}
+  #appView.app-view{grid-template-columns:156px minmax(0,1fr);column-gap:22px}
+  #appView>.app-nav{padding:9px}
+  #appView>.app-nav .nav-btn{min-height:41px;padding:9px 10px;font-size:13px}
   .project-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
