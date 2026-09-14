@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'app/suborganization-filters.js'
+      - 'app/myspace-return.js'
+      - 'app/my-work.html'
       - 'app/app.js'
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
@@ -12,6 +14,8 @@ on:
     branches: [main]
     paths:
       - 'app/suborganization-filters.js'
+      - 'app/myspace-return.js'
+      - 'app/my-work.html'
       - 'app/app.js'
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
