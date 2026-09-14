@@ -46,42 +46,16 @@ jobs:
           if count!=1:
               raise SystemExit(f'loader waitForTeamState replacement count={count}')
           loader.write_text(text,encoding='utf-8')
-
-          smoke=Path('.github/workflows/app-smoke-check.yml')
-          text=smoke.read_text(encoding='utf-8')
-          text=text.replace('grep -q "team.js?v=8" app/loader-v2.js','grep -q "team.js?v=9" app/loader-v2.js',1)
-          marker='          grep -q "KPTURuntime.session.ensure" app/loader-v2.js\n'
-          insert=(marker+
-                  '          grep -q "__KPTU_TEAM_READY__" app/team.js app/loader-v2.js\n'
-                  '          grep -q "__KPTU_TEAM_READY_STATE__" app/team.js\n')
-          if marker not in text:
-              raise SystemExit('smoke ready marker insertion point not found')
-          text=text.replace(marker,insert,1)
-          marker2="          if grep -q \"MutationObserver\" app/access-approval.js app/home-task-controls.js app/photo-room.js; then\n"
-          insert2=("          if grep -q \"MutationObserver\" app/loader-v2.js; then\n"
-                   "            echo 'loader must use explicit feature readiness contracts, not DOM mutation polling'; exit 1\n"
-                   "          fi\n"+marker2)
-          if marker2 not in text:
-              raise SystemExit('smoke observer insertion point not found')
-          text=text.replace(marker2,insert2,1)
-          marker3="          if grep -q \"createElement('style')\\|createElement(\\\"style\\\")\" app/access-approval.js app/home-task-controls.js app/home-dashboard-v2.js app/photo-room.js; then\n"
-          insert3=("          if grep -q \"createElement('link')\" app/team.js; then\n"
-                   "            echo 'team css must stay in the static stylesheet graph'; exit 1\n"
-                   "          fi\n"+marker3)
-          if marker3 not in text:
-              raise SystemExit('smoke css insertion point not found')
-          text=text.replace(marker3,insert3,1)
-          smoke.write_text(text,encoding='utf-8')
           PY
 
           node --check app/team.js
           node --check app/loader-v2.js
           git diff --check
-          git diff -- app/team.js app/loader-v2.js .github/workflows/app-smoke-check.yml
+          git diff -- app/team.js app/loader-v2.js
       - name: Commit patch
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/team.js app/loader-v2.js .github/workflows/app-smoke-check.yml
+          git add app/team.js app/loader-v2.js
           git commit -m 'Web2 4차: 명시적 team ready 계약 적용'
           git push origin HEAD:stability-audit-phase4
