@@ -24,31 +24,8 @@
   }
 
   await import('./meeting-multi-tasks.js?v=6');
-  await import('./team.js?v=8');
-  const waitForTeamState=async()=>{
-    const rt=window.KPTURuntime;
-    const settled=()=>{
-      if(!rt.session.read())return true;
-      const auth=document.querySelector('#authView');
-      const bootstrap=document.querySelector('#bootstrapView');
-      const app=document.querySelector('#appView');
-      const homeTasks=document.querySelector('#myTaskMini');
-      const authVisible=!!auth&&!auth.classList.contains('hidden');
-      const bootstrapVisible=!!bootstrap&&!bootstrap.classList.contains('hidden');
-      const appRendered=!!app&&!app.classList.contains('hidden')&&!!homeTasks?.childElementCount;
-      return authVisible||bootstrapVisible||appRendered;
-    };
-    if(settled())return;
-    await new Promise(resolve=>{
-      let done=false;
-      const finish=()=>{if(done)return;done=true;observer.disconnect();resolve()};
-      const observer=new MutationObserver(()=>{if(settled())finish()});
-      ['authView','bootstrapView','appView'].forEach(id=>{const el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class']})});
-      const homeTasks=document.querySelector('#myTaskMini');
-      if(homeTasks)observer.observe(homeTasks,{childList:true});
-    });
-  };
-  await waitForTeamState();
+  await import('./team.js?v=9');
+  await window.__KPTU_TEAM_READY__;
   try{
     const user=await window.KPTURuntime.api('/auth/v1/user');
     const memberships=await window.KPTURuntime.api(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id,role&limit=1`);

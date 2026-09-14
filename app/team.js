@@ -40,7 +40,6 @@ function enhanceDom(){
   const ch=$('#calendarView .section-head');if(ch&&!$('#googleCalendarControls'))ch.insertAdjacentHTML('afterend',`<div id="googleCalendarControls" class="google-bar"><label class="toggle-line"><input id="showTeamCalendar" type="checkbox" checked> 팀 일정</label><label class="toggle-line"><input id="showGoogleCalendar" type="checkbox"> Google 일정</label><button id="googleConnectBtn" class="secondary" type="button">Google Calendar 연결</button><span id="googleAccountLabel" class="updated"></span></div><div id="googleCalendarList" class="google-cal-list hidden"></div>`);
   if(!$('#projectCreateModal'))document.body.insertAdjacentHTML('beforeend',`<div id="projectCreateModal" class="modal hidden" aria-hidden="true"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">PROJECT</div><h2>프로젝트 만들기</h2></div><button class="icon-btn" data-close="projectCreateModal" type="button">×</button></div><label>프로젝트명<input id="newProjectName" type="text"></label><label>상위 프로젝트<select id="newProjectParent"></select></label><label>목표·설명<textarea id="newProjectDescription" rows="4" placeholder="무엇을 하려는 프로젝트인지 간단히 적습니다."></textarea></label><button id="saveProjectBtn" class="primary wide" type="button">프로젝트 개설</button><div id="projectCreateStatus" class="status"></div></div></div>`);
   const pm=$('#projectModal .modal-head');if(pm&&!$('#newSubprojectBtn'))pm.querySelector('div')?.insertAdjacentHTML('beforeend','<button id="newSubprojectBtn" class="mini" type="button">+ 하위 프로젝트</button>');
-  const css=document.createElement('link');css.rel='stylesheet';css.href='./team.css?v=1';document.head.appendChild(css);
 }
 async function signIn(email,password){const r=await fetch(SB+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});const d=await r.json();if(!r.ok)throw new Error(d.error_description||d.msg||'로그인에 실패했습니다.');d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);saveSession(d)}
 async function signUp(email,password,displayName){const r=await fetch(SB+'/auth/v1/signup',{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password,data:{display_name:displayName||''}})});const d=await r.json();if(!r.ok)throw new Error(d.error_description||d.msg||'계정 생성에 실패했습니다.');if(d.access_token){d.expires_at=d.expires_at||Math.floor(Date.now()/1000)+(d.expires_in||3600);saveSession(d);return true}return false}
@@ -129,4 +128,9 @@ function bind(){
  $('#weeklyCopyBtn').onclick=()=>copy($('#weeklyPreview').textContent,'이번 주 업무 요약을 복사했습니다.');
 }
 async function init(){enhanceDom();bind();setAuthMode('signin');$('#inviteNotice')?.classList.toggle('hidden',!new URLSearchParams(location.search).get('invite'));session=loadSession();if(!session){showOnly('authView');return}try{await loadWorkspaceState();loadGoogleStatus(false)}catch(e){saveSession(null);showOnly('authView');setStatus($('#authStatus'),'세션을 다시 확인해 주세요. '+e.message,'error')}}
-init();
+window.__KPTU_TEAM_READY__=init().then(()=>{
+  const state=!session?'auth':membership?'workspace':'bootstrap';
+  window.__KPTU_TEAM_READY_STATE__=state;
+  window.dispatchEvent(new CustomEvent('kptu:team-ready',{detail:{state}}));
+  return state;
+});
