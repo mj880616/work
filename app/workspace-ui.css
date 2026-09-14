@@ -7,26 +7,73 @@
 .project-file-upload{flex:0 0 auto;white-space:nowrap}
 .project-file-upload span{white-space:nowrap}
 
-/* 각 메뉴 상단의 추가/등록 버튼은 모바일에서도 작고 일정한 규격으로 유지 */
-.section-head>.primary,
-.section-head>.secondary,
-#newProjectBtn{
+/* Web2 공통 컨트롤 규격. 화면별 JS가 버튼 크기를 덮어쓰지 않도록 여기서 단일 관리함. */
+:root{
+  --kptu-action-height:32px;
+  --kptu-action-pad-y:5px;
+  --kptu-action-pad-x:9px;
+  --kptu-action-radius:9px;
+  --kptu-action-font:11px;
+  --kptu-mobile-dock:calc(72px + env(safe-area-inset-bottom));
+  --kptu-mobile-gap:14px;
+}
+#appView .mini,
+#appView .section-head button:not(.nav-btn),
+#appView .panel-head button:not(.nav-btn),
+#appView .workspace-head .head-actions button,
+#appView .card-actions button,
+#appView .so-card-actions button,
+#appView button.secondary:not(.wide),
+#appView label.secondary,
+.modal .mini,
+.modal .card-actions button,
+.modal .so-card-actions button,
+.modal label.secondary:not(.wide){
   width:auto!important;
   min-width:0!important;
-  min-height:30px!important;
-  flex:0 0 auto!important;
-  padding:5px 9px!important;
-  border-radius:8px!important;
-  font-size:11px!important;
-  line-height:1.2!important;
+  min-height:var(--kptu-action-height)!important;
+  height:auto!important;
+  padding:var(--kptu-action-pad-y) var(--kptu-action-pad-x)!important;
+  border-radius:var(--kptu-action-radius)!important;
+  font-size:var(--kptu-action-font)!important;
+  line-height:1.15!important;
   white-space:nowrap!important;
+  flex:0 0 auto!important;
 }
-.section-head{align-items:center}
+#appView .section-head button.primary:not(.wide),
+#appView .panel-head button.primary:not(.wide),
+#appView .workspace-head .head-actions button.primary:not(.wide){
+  width:auto!important;
+  min-width:0!important;
+  min-height:var(--kptu-action-height)!important;
+  height:auto!important;
+  padding:var(--kptu-action-pad-y) var(--kptu-action-pad-x)!important;
+  border-radius:var(--kptu-action-radius)!important;
+  font-size:var(--kptu-action-font)!important;
+  line-height:1.15!important;
+  white-space:nowrap!important;
+  flex:0 0 auto!important;
+}
+#appView .card-actions,
+#appView .so-card-actions,
+#appView .head-actions,
+.modal .card-actions,
+.modal .so-card-actions{align-items:center!important;gap:6px!important;flex-wrap:wrap!important}
+#appView button.wide,
+.modal button.wide,
+#appView .modal-foot button,
+.modal .modal-foot button{min-height:unset}
+.section-head,.panel-head{align-items:center}
+
+/* 화면 전체는 문서가 스크롤하고, 마지막 콘텐츠는 하단 dock 뒤까지 도달할 수 있어야 함. */
+html,body{min-height:100%;scroll-padding-bottom:24px}
+#appView>.view-panel{min-width:0}
+.modal-card{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 
 @media(max-width:700px){
+  :root{--kptu-action-height:31px;--kptu-action-pad-x:8px;--kptu-action-font:10.5px}
   #projectUpdates .list-item>span{font-size:14px;line-height:1.55}
   .project-files-head{align-items:center}.project-files-head>div{min-width:0}
-  .section-head>.primary,.section-head>.secondary,#newProjectBtn{padding:5px 8px!important;font-size:11px!important;min-height:29px!important}
 
   /* 메시지 상대 선택 영역은 내용 높이만 사용 */
   .cc-messages-layout{grid-template-rows:auto minmax(0,1fr)!important;align-content:start!important;min-height:0!important}
@@ -34,10 +81,19 @@
   .cc-peer{padding:6px 9px!important;line-height:1.2!important;min-height:30px!important}
   .cc-chat{min-height:420px!important}
 
-  /* 하단바 보정은 JS 주입 없이 공용 CSS에서 관리 */
+  /* 하단 dock과 콘텐츠의 안전영역을 한 곳에서 관리함. */
+  html,body{scroll-padding-bottom:calc(var(--kptu-mobile-dock) + var(--kptu-mobile-gap))!important}
+  body{padding-bottom:var(--kptu-mobile-dock)!important}
+  main{padding-bottom:calc(var(--kptu-mobile-dock) + 30px)!important}
+  #appView .view-panel{padding-bottom:calc(var(--kptu-mobile-dock) + 22px)!important;scroll-padding-bottom:calc(var(--kptu-mobile-dock) + 22px)!important}
   .cc-mobile-dock{height:60px!important;padding-top:5px!important;padding-bottom:calc(env(safe-area-inset-bottom) + 2px)!important}
   .cc-mobile-dock button{font-size:10px!important;gap:1px!important;justify-content:flex-start!important;padding-top:7px!important}
   .cc-mobile-dock .cc-dock-icon{font-size:17px!important;line-height:1!important}
   .cc-mobile-dock .cc-count{min-width:15px!important;height:15px!important;font-size:8px!important;padding:0 3px!important}
-  body{padding-bottom:70px!important}
+  .toast{bottom:calc(var(--kptu-mobile-dock) + 8px)!important}
+  .modal:not([id^="pm2"]){padding:max(8px,env(safe-area-inset-top)) 0 calc(var(--kptu-mobile-dock) + 8px)!important;align-items:end!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch}
+  .modal:not([id^="pm2"])>.modal-card{width:100%!important;max-height:calc(100dvh - var(--kptu-mobile-dock) - 16px)!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;scroll-padding-bottom:24px!important;padding-bottom:24px!important}
+  [id^="pm2"][id$="Modal"].modal{padding-bottom:calc(var(--kptu-mobile-dock) + 10px)!important;scroll-padding-bottom:calc(var(--kptu-mobile-dock) + 10px)!important}
+  [id^="pm2"][id$="Modal"].modal .modal-card{padding-bottom:28px!important}
+  #pm2DetailModal .pm2-detail-card{min-height:calc(100dvh - var(--kptu-mobile-dock) - 12px)!important}
 }
