@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -94,8 +95,7 @@ async function mockApp(page,state){
 }
 
 async function signIn(page){
-  const returnTo=page.url().startsWith('http://127.0.0.1:8123/app/')?page.url():'http://127.0.0.1:8123/app/';
-  await page.goto(`http://127.0.0.1:8123/app/login/?return=${encodeURIComponent(returnTo)}`);
+  await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
@@ -143,7 +143,6 @@ test('mobile full project QA: create, scroll, input, linked modals and layout',a
   page.on('pageerror',e=>pageErrors.push(String(e)));
   page.on('requestfailed',r=>failed.push(`${r.method()} ${r.url()} ${r.failure()?.errorText||''}`));
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
   const project=await createQaProject(page,state);
 
@@ -215,7 +214,6 @@ test('core navigation and creation modals stay usable on desktop',async({page})=
   await page.setViewportSize({width:1440,height:1000});
   const state=initialState();
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 
   for(const view of ['home','calendar','tasks','projects','library','meetings','pages','team']){
