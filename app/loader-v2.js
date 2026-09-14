@@ -13,6 +13,11 @@
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
   await import('./team.js?v=8');
+  const inviteMode=new URLSearchParams(location.search).has('invite');
+  if(!inviteMode&&!(await window.KPTURuntime.session.ensure())){
+    await import('./public-readonly.js?v=1');
+    return;
+  }
   const waitForTeamState=async()=>{
     const rt=window.KPTURuntime;
     if(!rt?.session?.read?.())return;
