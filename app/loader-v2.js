@@ -13,6 +13,8 @@
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
   await import('./team.js?v=8');
+  await import('./access-approval.js?v=1');
+  await import('./access-approval-copyfix.js?v=1');
   window.dispatchEvent(new Event('kptu:auth-fields-ready'));
   document.querySelector('#authPreloadStyle')?.remove();
   await import('./member-default-role.js?v=2');
@@ -29,7 +31,7 @@
     import('./task-layout.js?v=5'),
     import('./home-task-controls.js?v=2'),
     import('./profile-settings.js?v=2&wd=1'),
-    import('./workplace-detail.js?v=1'),
+    import('./workplace-detail.js?v=2'),
     import('./project-files.js?v=4'),
     import('./library-upload.js?v=3'),
     import('./page-editor-fix.js?v=2'),
