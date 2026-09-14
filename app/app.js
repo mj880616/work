@@ -24,6 +24,7 @@ import('./pwa.js?v=3');
 import('./brand-logo.js?v=2');
 import('./calendar-move.js?v=1');
 import('./team-member-overview-bootstrap.js?v=2');
+import('./profile-workplace-edit-mode.js?v=1');
 // smoke compatibility marker: loader-v2.js?v=104
 Promise.all([
   import('./meeting-assignee-picker.js?v=2'),
