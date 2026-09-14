@@ -72,7 +72,7 @@
   await import('./meeting-file-route.js?v=1');
   await import('./page-design-core.js?v=3');
   await Promise.all([
-    import('./photo-room.js?v=1'),
+    import('./photo-room.js?v=2'),
     import('./project-access.js?v=5'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=3'),
@@ -90,6 +90,7 @@
     import('./page-management.js?v=1'),
     import('./page-inline-viewer.js?v=2')
   ]);
+  await window.__KPTU_PHOTO_ROOM_READY__;
   const loadAuthenticatedAi=async()=>{
     await import('./meeting-round-detail.js?v=5');
     await import('./workplace-ai-report.js?v=1');
@@ -98,7 +99,6 @@
   };
   await loadAuthenticatedAi();
   await import('./google-calendar-return-status.js?v=1');
-  await import('./photo-upload-fix.js?v=1');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=3');
   await import('./project-task-link.js?v=6');
