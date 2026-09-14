@@ -14,6 +14,7 @@
   await import('./brand-logo.js?v=2');
   await import('./team.js?v=8');
   await import('./access-approval.js?v=1');
+  await import('./access-approval-copyfix.js?v=1');
   window.dispatchEvent(new Event('kptu:auth-fields-ready'));
   document.querySelector('#authPreloadStyle')?.remove();
   await import('./member-default-role.js?v=2');
