@@ -23,7 +23,7 @@
   window.dispatchEvent(new Event('kptu:auth-fields-ready'));
   document.querySelector('#authPreloadStyle')?.remove();
   await import('./member-default-role.js?v=2');
-  await import('./myspace-return.js?v=1');
+  await import('./myspace-return.js?v=2');
   await import('./meeting-file-route.js?v=1');
   await import('./page-design-core.js?v=1');
   await Promise.all([
