@@ -60,7 +60,7 @@ jobs:
           set -e
           for f in \
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
-            app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html \
+            app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
             app/team.js app/project-access.js app/page-builder.js app/project-v2.js \
             app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js \
             app/workplace-ai-report.js app/project-operating-model.js p/index.html; do
@@ -85,8 +85,8 @@ jobs:
           grep -q "app_public_projects_snapshot" app/public-workspace.js
           grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
           grep -q "공개 열람" app/public-workspace.js
-          grep -q "KPTUAuth" app/login/index.html
           grep -q "auth-service.js" app/login/index.html
+          grep -q "KPTUAuth" app/login/login.js
           grep -q "KPTUCapabilities" app/capabilities.js
           grep -q "value=\"public\"" app/project-access.js
 
