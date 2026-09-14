@@ -112,12 +112,16 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await page.locator('#wfMeetingAttendees').fill('6');
   const firstAction=page.locator('.meeting-action-row').first();
   await firstAction.locator('.meeting-action-title').fill('회의자료 최종 확인');
-  await firstAction.locator('.meeting-action-assignee').selectOption('user-1');
+  await expect(firstAction.locator('.map-picker-btn')).toBeVisible();
+  await firstAction.locator('.map-picker-btn').click();
+  await firstAction.locator('.map-picker-menu [data-map-value="user-1"]').click();
   await firstAction.locator('.meeting-action-due').fill('2026-09-19');
   await page.locator('#addMeetingAction').click();
   const secondAction=page.locator('.meeting-action-row').nth(1);
   await secondAction.locator('.meeting-action-title').fill('의원실 전달 준비');
-  await secondAction.locator('.meeting-action-assignee').selectOption('user-1');
+  await expect(secondAction.locator('.map-picker-btn')).toBeVisible();
+  await secondAction.locator('.map-picker-btn').click();
+  await secondAction.locator('.map-picker-menu [data-map-value="user-1"]').click();
   await secondAction.locator('.meeting-action-due').fill('2026-09-20');
   const saveOwner=await page.locator('#saveMeetingBtn').evaluate(el=>String(el.onclick||''));
   expect(saveOwner).toContain('wfMeetingLocation');
