@@ -29,3 +29,4 @@ function psuInstall(){
   },false);
 }
 psuInstall();
+import('./page-management.js?v=1').catch(console.error);
