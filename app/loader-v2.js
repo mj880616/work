@@ -93,7 +93,6 @@
   };
   await loadAuthenticatedAi();
   await import('./google-calendar-return-status.js?v=1');
-  await import('./meeting-buttons-compact.js?v=3');
   await import('./photo-upload-fix.js?v=1');
   await import('./task-project-routing.js?v=1');
   await import('./project-update-actions.js?v=3');
