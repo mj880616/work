@@ -7,6 +7,16 @@
 .project-file-upload{flex:0 0 auto;white-space:nowrap}
 .project-file-upload span{white-space:nowrap}
 
+/* 홈 대시보드: 스크립트가 늦게 스타일을 붙이지 않도록 정적으로 관리함. */
+#homeView .home-dashboard-deprecated{display:none!important}
+#homeView .dashboard-grid.home-dashboard-current{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px}
+#homeView .hdv-panel{min-width:0}
+.hdv-list{display:grid}
+.hdv-row{width:100%;border:0;border-bottom:1px solid #edf0f3;background:transparent;color:inherit;text-align:left;padding:9px 2px;display:flex;gap:10px;align-items:center;min-width:0}
+.hdv-row:last-child{border-bottom:0}.hdv-row:hover{background:#f7f9fb}
+.hdv-main{min-width:0;flex:1}.hdv-main b{display:block;font-size:12.5px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdv-main small{display:block;color:var(--muted);font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdv-meta{flex:0 0 auto;color:#71808c;font-size:10px;white-space:nowrap}.hdv-date{flex:0 0 76px;font-size:10.5px;font-weight:850;color:var(--blue);background:#eef4f8;border-radius:8px;padding:5px 7px;text-align:center}.hdv-empty{padding:18px 4px;color:var(--muted);font-size:11px}.hdv-empty.error{color:var(--red)}
+
 /* Web2 공통 컨트롤 규격. 화면별 JS가 버튼 크기를 덮어쓰지 않도록 여기서 단일 관리함. */
 :root{
   --kptu-action-height:32px;
@@ -74,6 +84,7 @@ html,body{min-height:100%;scroll-padding-bottom:24px}
   :root{--kptu-action-height:31px;--kptu-action-pad-x:8px;--kptu-action-font:10.5px}
   #projectUpdates .list-item>span{font-size:14px;line-height:1.55}
   .project-files-head{align-items:center}.project-files-head>div{min-width:0}
+  #homeView .dashboard-grid.home-dashboard-current{grid-template-columns:1fr!important;gap:10px}.hdv-row{padding:8px 1px}.hdv-date{flex-basis:70px}.hdv-main b{font-size:12px}.hdv-main small{font-size:10px}
 
   /* 메시지 상대 선택 영역은 내용 높이만 사용 */
   .cc-messages-layout{grid-template-rows:auto minmax(0,1fr)!important;align-content:start!important;min-height:0!important}
