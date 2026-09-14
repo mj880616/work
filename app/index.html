@@ -6,7 +6,7 @@
 <title>공공기관사업팀 Workspace</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="./styles.css?v=3">
+<link rel="stylesheet" href="./styles.css?v=4">
 </head>
 <body>
 <div class="shell">
@@ -15,7 +15,7 @@
   <div class="top-actions"><span id="userBadge" class="user-badge hidden"></span><button id="logoutBtn" class="ghost hidden" type="button">로그아웃</button></div>
 </header>
 <main>
-<section id="authView" class="auth-wrap">
+<section id="authView" class="auth-wrap hidden" aria-hidden="true">
   <div class="auth-card">
     <div class="eyebrow">KPTU PUBLIC INSTITUTIONS TEAM</div>
     <h1>업무와 자료를<br>한 공간에서 공유합니다.</h1>
@@ -61,11 +61,11 @@
       <button class="stat-card" data-goto="projects"><span>프로젝트</span><b id="statProjects">0</b></button>
       <button class="stat-card" data-goto="home"><span>새 알림</span><b id="statUnread">0</b></button>
     </div>
-    <div class="dashboard-grid">
-      <article class="panel"><div class="panel-head"><div><h2>오늘 누가 어디에</h2><p>수락한 팀원 기준 일정 현황</p></div><button id="homeAddEvent" class="mini" type="button">+ 일정</button></div><div id="todayList" class="stack-list"></div></article>
+    <div class="dashboard-grid home-dashboard-current">
+      <article class="panel hidden home-dashboard-deprecated" aria-hidden="true"><div class="panel-head"><div><h2>오늘 누가 어디에</h2><p>수락한 팀원 기준 일정 현황</p></div><button id="homeAddEvent" class="mini" type="button">+ 일정</button></div><div id="todayList" class="stack-list"></div></article>
       <article class="panel"><div class="panel-head"><div><h2>내 할 일</h2><p>완료되지 않은 업무</p></div><button class="mini" data-goto="tasks" type="button">전체</button></div><div id="myTaskMini" class="stack-list"></div></article>
-      <article class="panel"><div class="panel-head"><div><h2>알림</h2><p>일정 초대·업무 배정</p></div></div><div id="notifList" class="stack-list"></div></article>
-      <article class="panel"><div class="panel-head"><div><h2>이번 주 업무 취합</h2><p>일정·할 일·프로젝트 업데이트를 복사용 텍스트로 정리</p></div></div><button id="weeklyCopyBtn" class="secondary wide" type="button">이번 주 업무 요약 복사</button><div id="weeklyPreview" class="weekly-preview"></div></article>
+      <article class="panel hidden home-dashboard-deprecated" aria-hidden="true"><div class="panel-head"><div><h2>알림</h2><p>일정 초대·업무 배정</p></div></div><div id="notifList" class="stack-list"></div></article>
+      <article class="panel hidden home-dashboard-deprecated" aria-hidden="true"><div class="panel-head"><div><h2>이번 주 업무 취합</h2><p>일정·할 일·프로젝트 업데이트를 복사용 텍스트로 정리</p></div></div><button id="weeklyCopyBtn" class="secondary wide" type="button">이번 주 업무 요약 복사</button><div id="weeklyPreview" class="weekly-preview"></div></article>
     </div>
   </section>
 
@@ -129,5 +129,5 @@
 <div id="groupModal" class="modal hidden" aria-hidden="true"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">GROUP</div><h2>그룹 만들기</h2></div><button class="icon-btn" data-close="groupModal" type="button">×</button></div><label>그룹명<input id="groupName" type="text"></label><label>슬러그<input id="groupSlug" type="text"></label><label>설명<textarea id="groupDescription" rows="3"></textarea></label><button id="saveGroupBtn" class="primary wide" type="button">저장</button><div id="groupStatus" class="status"></div></div></div>
 <div id="toast" class="toast hidden"></div>
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to','https://mj880616.github.io/work/app/confirmed.html');input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=16" defer></script>
+<script src="./app.js?v=17" defer></script>
 </body></html>
