@@ -61,7 +61,7 @@ jobs:
           for f in \
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
             app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
-            app/team.js app/task-workflow.js app/project-access.js app/page-builder.js app/project-v2.js \
+            app/team.js app/task-workflow.js app/meeting-assignee-picker.js app/project-access.js app/page-builder.js app/project-v2.js \
             app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js \
             app/workplace-ai-report.js app/project-operating-model.js app/photo-room.js \
             app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/index.html; do
@@ -94,6 +94,7 @@ jobs:
           grep -q "meetingRoundNo" app/team.js
           grep -q "meetingFiles" app/team.js
           grep -q "meeting-action-row" app/team.js
+          grep -q "assignee_id==='__team__'" app/team.js
           grep -q "result_status:'final'" app/team.js
           grep -q "finalized_at" app/team.js
           grep -q "base-ui.css?v=1" app/styles.css
@@ -157,6 +158,15 @@ jobs:
           fi
           if grep -q "twSaveMeeting\|saveMeeting.onclick" app/task-workflow.js; then
             echo 'task workflow must not own or overwrite meeting persistence'; exit 1
+          fi
+          if grep -q "setInterval(enhance" app/meeting-assignee-picker.js; then
+            echo 'meeting assignee picker polling returned'; exit 1
+          fi
+          if grep -q "attributeFilter:\['class'\]" app/meeting-assignee-picker.js; then
+            echo 'meeting assignee picker returned to class mutation churn'; exit 1
+          fi
+          if grep -q "__KPTU_MEETING_TEAM_FETCH_V3__\|originalFetch" app/meeting-assignee-picker.js; then
+            echo 'meeting assignee picker must not intercept persistence fetches'; exit 1
           fi
 
           python3 - <<'PY'
