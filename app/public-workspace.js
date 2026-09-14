@@ -5,11 +5,21 @@
   const rt=window.KPTURuntime;
   if(!rt?.api)return;
   const state={spaces:[],tasks:[],pages:[]};
+  const PUBLIC_VIEWS=new Set(['projects','pages']);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=v=>v?new Date(v).toLocaleDateString('ko-KR'):'';
   const taskLabel={todo:'할 일',doing:'진행',done:'완료',blocked:'막힘'};
   const priorityLabel={urgent:'긴급',high:'높음',normal:'보통',low:'낮음'};
 
+  function normalizePublicRoute(){
+    const u=new URL(location.href);
+    let view=u.searchParams.get('view');
+    if(!PUBLIC_VIEWS.has(view)){
+      view='projects';u.searchParams.set('view',view);
+      history.replaceState({...history.state,kptuView:view},'',u.pathname+u.search+u.hash);
+    }
+    return view;
+  }
   function installStyle(){
     if(document.getElementById('publicWorkspaceCss'))return;
     const style=document.createElement('style');style.id='publicWorkspaceCss';style.textContent=`
@@ -32,9 +42,8 @@
     document.getElementById('logoutBtn')?.classList.add('hidden');
     let login=document.getElementById('publicLoginBtn');
     if(!login){login=document.createElement('button');login.id='publicLoginBtn';login.type='button';login.className='secondary';login.textContent='로그인';login.onclick=()=>location.href=window.KPTUAuth.loginUrl(location.href);document.querySelector('.top-actions')?.appendChild(login)}
-    const allowed=new Set(['projects','pages']);
-    document.querySelectorAll('.app-nav [data-view]').forEach(btn=>btn.classList.toggle('public-hidden',!allowed.has(btn.dataset.view)));
-    document.querySelectorAll('#appView .view-panel').forEach(panel=>{const view=panel.id?.replace(/View$/,'');if(view&&!allowed.has(view))panel.classList.add('public-hidden')});
+    document.querySelectorAll('.app-nav [data-view]').forEach(btn=>btn.classList.toggle('public-hidden',!PUBLIC_VIEWS.has(btn.dataset.view)));
+    document.querySelectorAll('#appView .view-panel').forEach(panel=>{const view=panel.id?.replace(/View$/,'');if(view&&!PUBLIC_VIEWS.has(view))panel.classList.add('public-hidden')});
     ['quickInviteBtn','quickTaskBtn','newEventBtn','homeAddEvent','newTaskBtn','newDocumentBtn','newMeetingBtn','newPageBtn','inviteBtn','newGroupBtn','newProjectBtn'].forEach(id=>document.getElementById(id)?.classList.add('public-hidden'));
     document.querySelectorAll('.admin-only').forEach(x=>x.classList.add('public-hidden'));
     const p=document.querySelector('#projectsView .section-head p');if(p)p.textContent='공개된 사업의 개요와 프로젝트 할 일을 볼 수 있습니다.';
@@ -75,9 +84,10 @@
     state.pages=Array.isArray(data?.pages)?data.pages:[];
   }
   async function init(){
+    const initialView=normalizePublicRoute();
     installStyle();showApp();
     document.addEventListener('click',e=>{const p=e.target.closest?.('[data-public-project]');if(p){e.preventDefault();openProject(p.dataset.publicProject)}},true);
-    try{await load();renderProjects();renderPages();window.KPTURouter?.go?.('projects',{source:'public',updateUrl:false})}catch(err){console.error(err);const grid=document.getElementById('projectGrid');if(grid)grid.innerHTML='<div class="empty">공개 프로젝트를 불러오지 못했습니다.</div>'}
+    try{await load();renderProjects();renderPages();window.KPTURouter?.go?.(initialView,{source:'public',updateUrl:false,scroll:false})}catch(err){console.error(err);const grid=document.getElementById('projectGrid');if(grid)grid.innerHTML='<div class="empty">공개 프로젝트를 불러오지 못했습니다.</div>'}
     document.querySelector('#authPreloadStyle')?.remove();window.__KPTU_MARK_APP_UI_READY__?.();
   }
   init();
