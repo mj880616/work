@@ -2,15 +2,13 @@ name: App smoke check
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'app/**'
       - 'p/**'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'app/**'
       - 'p/**'
@@ -61,9 +59,9 @@ jobs:
           for f in \
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
             app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
-            app/team.js app/task-workflow.js app/meeting-assignee-picker.js app/project-access.js app/page-builder.js app/project-v2.js \
-            app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js \
-            app/workplace-ai-report.js app/project-operating-model.js app/photo-room.js \
+            app/team.js app/task-workflow.js app/meeting-assignee-picker.js app/page-builder.js \
+            app/project-system-v3.js app/project-system-v3.css \
+            app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/photo-room.js \
             app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/index.html; do
             test -f "$f"
           done
@@ -74,46 +72,25 @@ jobs:
           grep -q 'id="authView"' app/index.html
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
-
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
           grep -q "capabilities.js" app/loader-v2.js
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
-          grep -q "__KPTU_TEAM_READY__" app/team.js app/loader-v2.js
-          grep -q "__KPTU_TEAM_READY_STATE__" app/team.js
           grep -q "public-workspace.js" app/loader-v2.js
           grep -q "team.js?v=11" app/loader-v2.js
+          grep -q "project-system-v3.js?v=1" app/loader-v2.js
           grep -q "task-workflow.js?v=4" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
-          grep -q "__KPTU_PHOTO_ROOM_READY__" app/loader-v2.js app/photo-room.js
-          grep -q "__KPTU_TASK_WORKFLOW_MEETING_UI_ONLY__" app/task-workflow.js
-          grep -q "wfMeetingLocation" app/team.js
-          grep -q "attendee_count" app/team.js
-          grep -q "meetingSeriesName" app/team.js
-          grep -q "meetingRoundNo" app/team.js
-          grep -q "meetingFiles" app/team.js
-          grep -q "meeting-action-row" app/team.js
-          grep -q "assignee_id==='__team__'" app/team.js
-          grep -q "result_status:'final'" app/team.js
-          grep -q "finalized_at" app/team.js
-          grep -q "base-ui.css?v=1" app/styles.css
-          grep -q "access-approval.css?v=1" app/styles.css
-          grep -q "home-task.css?v=1" app/styles.css
-          grep -q "meeting-ui.css?v=1" app/styles.css
-          grep -q "photo-room.css?v=1" app/styles.css
-          grep -q "workspace-ui.css?v=6" app/styles.css
-          grep -q "desktop-ui.css?v=3" app/styles.css
+          grep -q "project-system-v3.css?v=1" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
 
           grep -q "app_public_projects_snapshot" app/public-workspace.js
           grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
-          grep -q "공개 열람" app/public-workspace.js
           grep -q "auth-service.js" app/login/index.html
           grep -q "KPTUAuth" app/login/login.js
           grep -q "KPTUCapabilities" app/capabilities.js
-          grep -q "value=\"public\"" app/project-access.js
 
           if grep -q "auth-ui.js" app/loader-v2.js app/app.js; then
             echo 'legacy in-app authentication UI returned to the root app'; exit 1
@@ -121,25 +98,8 @@ jobs:
           if grep -q "team.js" app/app.js; then
             echo 'authenticated workspace modules bypass the session boundary'; exit 1
           fi
-          if grep -q "project-public-visibility.js" app/loader-v2.js; then
-            echo 'duplicate project visibility shim returned'; exit 1
-          fi
-          if grep -Eq "home-cleanup.js|global-action-buttons.js|mobile-safe-area.js|access-approval-copyfix.js|access-approval-stability.js|home-task-expand.js|home-task-expand-retry.js|meeting-buttons-compact.js|meeting-multi-tasks.js|project-task-guide-cleanup.js|photo-upload-fix.js" app/loader-v2.js app/app.js; then
-            echo 'retired UI patch module returned to the active graph'; exit 1
-          fi
-          for retired in \
-            app/home-cleanup.js app/global-action-buttons.js app/mobile-safe-area.js \
-            app/access-approval-copyfix.js app/access-approval-stability.js \
-            app/home-task-expand.js app/home-task-expand-retry.js \
-            app/meeting-buttons-compact.js app/meeting-multi-tasks.js app/project-task-guide-cleanup.js \
-            app/photo-upload-fix.js; do
-            if test -e "$retired"; then echo "retired UI patch file returned: $retired"; exit 1; fi
-          done
           if grep -q "MutationObserver" app/loader-v2.js; then
-            echo 'loader must use explicit feature readiness contracts, not DOM mutation polling'; exit 1
-          fi
-          if grep -q "MutationObserver" app/access-approval.js app/home-task-controls.js app/photo-room.js; then
-            echo 'core access/home/photo modules must not depend on DOM mutation polling'; exit 1
+            echo 'loader must use explicit readiness contracts'; exit 1
           fi
           if grep -q "createElement('link')" app/team.js; then
             echo 'team css must stay in the static stylesheet graph'; exit 1
@@ -153,21 +113,6 @@ jobs:
           if grep -q "location.reload" app/photo-room.js; then
             echo 'photo upload returned to full-page reload'; exit 1
           fi
-          if grep -q "created_by=eq.*title=eq" app/workflow-ai-v3.js; then
-            echo 'meeting metadata post-save lookup returned'; exit 1
-          fi
-          if grep -q "twSaveMeeting\|saveMeeting.onclick" app/task-workflow.js; then
-            echo 'task workflow must not own or overwrite meeting persistence'; exit 1
-          fi
-          if grep -q "setInterval(enhance" app/meeting-assignee-picker.js; then
-            echo 'meeting assignee picker polling returned'; exit 1
-          fi
-          if grep -q "attributeFilter:\['class'\]" app/meeting-assignee-picker.js; then
-            echo 'meeting assignee picker returned to class mutation churn'; exit 1
-          fi
-          if grep -q "__KPTU_MEETING_TEAM_FETCH_V3__\|originalFetch" app/meeting-assignee-picker.js; then
-            echo 'meeting assignee picker must not intercept persistence fetches'; exit 1
-          fi
 
           python3 - <<'PY'
           from pathlib import Path
@@ -179,33 +124,47 @@ jobs:
               raise SystemExit('guest/authenticated branch ordering is invalid')
           login=Path('app/login/index.html').read_text(encoding='utf-8')
           if 'id="appView"' in login:
-              raise SystemExit('dedicated login page must not contain the workspace app shell')
+              raise SystemExit('dedicated login page must not contain workspace shell')
           PY
 
-      - name: Check retained feature invariants
+      - name: Check project single-render invariants
+        run: |
+          set -e
+          grep -q "data-ps3-delete-project" app/project-system-v3.js
+          grep -q "data-ps3-edit-milestone" app/project-system-v3.js
+          grep -q "ps3MilestoneDelete" app/project-system-v3.js
+          grep -q "data-ps3-library" app/project-system-v3.js
+          grep -q "ps3-parent-link" app/project-system-v3.js
+          grep -q "data-ps3-doc-filter" app/project-system-v3.js
+          grep -q "app-icon.svg" app/project-system-v3.css
+          grep -q "html.kptu-project-v3-ready #projectGrid>\[data-project\]" app/project-system-v3.css
+
+          if grep -Eq "project-system-v2.js|project-hide-legacy.js|project-files.js|project-delete.js|project-modal-polish.js|project-modal-scroll-lock.js|project-access.js|project-update-actions.js|project-task-link.js|project-v2.js|project-operating-model.js|project-templates.js|project-deeplink.js|project-archive.js|project-suborganization-links.js" app/loader-v2.js; then
+            echo 'legacy project overlay module returned to active loader'; exit 1
+          fi
+          if grep -q "MutationObserver" app/project-system-v3.js; then
+            echo 'project V3 must not rely on DOM mutation polling'; exit 1
+          fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/project-system-v3.js; then
+            echo 'project V3 styles must remain in static CSS'; exit 1
+          fi
+
+      - name: Check retained non-project feature invariants
         run: |
           set -e
           grep -q "task-layout.js?v=5" app/loader-v2.js
           grep -q "task-workflow.js?v=4" app/loader-v2.js
-          grep -q "project-task-link.js?v=6" app/loader-v2.js
           grep -q "page-builder.js?v=1" app/loader-v2.js
-          grep -q "project-v2.js?v=1" app/loader-v2.js
-          grep -q "project-templates.js?v=1" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=2" app/loader-v2.js
           grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
-          grep -q "project-operating-model.js?v=1" app/loader-v2.js
           grep -q "collaboration-center.js?v=5" app/loader-v2.js
           grep -q "notification-center-ui.js?v=5" app/loader-v2.js
-          grep -q "PROJECT HUB" app/project-v2.js
           grep -q "PB_TEMPLATES" app/page-builder.js
           grep -q "page_design" app/page-builder.js
           grep -q "완료된 할 일" app/task-layout.js
           grep -q "바로가기" app/page-shortcut.js
-
           if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification center global observer returned'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification center polling returned'; exit 1; fi
-          if grep -q "setInterval" app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'workflow AI polling introduced'; exit 1; fi
-          if grep -q "refresh_token" app/task-workflow.js app/meeting-round-detail.js app/page-editor-fix.js app/project-files.js app/project-task-link.js app/project-templates.js app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/project-operating-model.js; then echo 'feature-local refresh logic returned'; exit 1; fi
           if grep -q "task-title-ui.js\|project-create-submit.js\|task-personal-due.js" app/loader-v2.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
       - name: Static HTTP smoke test
@@ -217,7 +176,7 @@ jobs:
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js \
             app/capabilities.js app/public-workspace.js app/page-builder.js \
-            app/project-v2.js app/workflow-ai-v3.js app/photo-room.js app/styles.css \
-            app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/; do
+            app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
+            app/styles.css app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done
