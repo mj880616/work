@@ -6,6 +6,7 @@
   const signedIn=()=>!!rt?.session?.read?.()?.access_token;
   const userId=()=>context.user?.id||null;
   const role=()=>context.membership?.role||null;
+  const workspaceId=()=>context.membership?.workspace_id||null;
   const canWriteWorkspace=()=>signedIn()&&!['viewer',null].includes(role());
 
   function setContext(next={}){context={...context,...next}}
@@ -35,5 +36,5 @@
     window.dispatchEvent(new CustomEvent('kptu:permission-denied',{detail:{action,resource}}));
     return false;
   }
-  window.KPTUCapabilities={setContext,can,require:requireCapability,signedIn,userId,role};
+  window.KPTUCapabilities={setContext,can,require:requireCapability,signedIn,userId,role,workspaceId};
 })();

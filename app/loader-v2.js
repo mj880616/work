@@ -10,7 +10,7 @@
   await import('./native-back-guard.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./auth-service.js?v=1');
-  await import('./capabilities.js?v=1');
+  await import('./capabilities.js?v=2');
   await import('./pwa.js?v=3');
 
   const authenticated=await window.KPTURuntime.session.ensure();
@@ -25,7 +25,7 @@
   }
 
   await import('./topbar-actions.js?v=1');
-  await import('./team.js?v=16');
+  await import('./team.js?v=17');
   await window.__KPTU_TEAM_READY__;
 
   try{
@@ -71,14 +71,21 @@
     import('./workplace-detail.js?v=3'),
     import('./library-upload.js?v=3'),
     import('./library-public-toggle.js?v=1'),
-    import('./page-editor-fix.js?v=2'),
-    import('./page-builder.js?v=1&designer=2'),
-    import('./page-shortcut.js?v=1'),
-    import('./page-management.js?v=1'),
-    import('./page-inline-viewer.js?v=2')
+    import('./page-builder.js?v=1&designer=2')
   ]);
 
   await window.__KPTU_PHOTO_ROOM_READY__;
+
+  await import('./page-list-controller.js?v=1');
+  await window.__KPTU_PAGE_LIST_READY__;
+  await import('./page-save-controller.js?v=1');
+  await window.__KPTU_PAGE_SAVE_READY__;
+  await import('./page-shortcut.js?v=2');
+  await window.__KPTU_PAGE_SHORTCUT_READY__;
+  await import('./page-management.js?v=2');
+  await window.__KPTU_PAGE_MANAGEMENT_READY__;
+  await import('./page-inline-viewer-v2.js?v=1');
+  await window.__KPTU_PAGE_INLINE_VIEWER_READY__;
 
   await import('./meeting-round-detail.js?v=6');
   await window.__KPTU_MEETING_ROUND_DETAIL_READY__;

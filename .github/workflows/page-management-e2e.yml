@@ -6,6 +6,12 @@ on:
       - main
     paths:
       - 'app/page-management.js'
+      - 'app/page-list-controller.js'
+      - 'app/page-save-controller.js'
+      - 'app/page-shortcut.js'
+      - 'app/page-inline-viewer-v2.js'
+      - 'app/page-core.css'
+      - 'app/loader-v2.js'
       - 'app/app.js'
       - 'tests/app-e2e/page-management-*'
       - '.github/workflows/page-management-e2e.yml'
@@ -14,6 +20,12 @@ on:
       - main
     paths:
       - 'app/page-management.js'
+      - 'app/page-list-controller.js'
+      - 'app/page-save-controller.js'
+      - 'app/page-shortcut.js'
+      - 'app/page-inline-viewer-v2.js'
+      - 'app/page-core.css'
+      - 'app/loader-v2.js'
       - 'app/app.js'
       - 'tests/app-e2e/page-management-*'
       - '.github/workflows/page-management-e2e.yml'
@@ -42,4 +54,4 @@ jobs:
           cat /tmp/kptu-page-e2e-http.log
           exit 1
       - name: Run page management E2E
-        run: npx playwright test tests/app-e2e/page-management.spec.mjs --browser=chromium --workers=1 --reporter=line
+        run: npx playwright test tests/app-e2e/page-management-v2.spec.mjs --browser=chromium --workers=1 --reporter=line

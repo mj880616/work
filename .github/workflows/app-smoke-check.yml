@@ -63,6 +63,7 @@ jobs:
             app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
             app/profile-settings.js app/profile-settings.css app/collaboration-center.js app/collaboration-center.css app/notification-center-ui.js app/notification-center-ui.css \
             app/task-workflow.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/page-builder.js \
+            app/page-list-controller.js app/page-save-controller.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js app/page-core.css \
             app/project-system-v3.js app/project-system-v3.css \
             app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
             app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/photo-room.js \
@@ -74,6 +75,8 @@ jobs:
           test ! -f app/meeting-assignee-picker.js
           test ! -f app/meeting-file-route.js
           test ! -f app/calendar-defaults.js
+          test ! -f app/page-editor-fix.js
+          test ! -f app/page-inline-viewer.js
 
           grep -q 'id="appView"' app/index.html
           grep -q 'id="authView"' app/index.html
@@ -81,11 +84,11 @@ jobs:
           grep -q "loader-v2.js" app/app.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
-          grep -q "capabilities.js" app/loader-v2.js
+          grep -q "capabilities.js?v=2" app/loader-v2.js
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
           grep -q "public-workspace.js" app/loader-v2.js
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
-          grep -q "team.js?v=16" app/loader-v2.js
+          grep -q "team.js?v=17" app/loader-v2.js
           grep -q "project-system-v3.js?v=1" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
@@ -96,6 +99,14 @@ jobs:
           grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
+          grep -q "page-list-controller.js?v=1" app/loader-v2.js
+          grep -q "__KPTU_PAGE_LIST_READY__" app/loader-v2.js
+          grep -q "page-save-controller.js?v=1" app/loader-v2.js
+          grep -q "__KPTU_PAGE_SAVE_READY__" app/loader-v2.js
+          grep -q "page-management.js?v=2" app/loader-v2.js
+          grep -q "__KPTU_PAGE_MANAGEMENT_READY__" app/loader-v2.js
+          grep -q "page-inline-viewer-v2.js?v=1" app/loader-v2.js
+          grep -q "__KPTU_PAGE_INLINE_VIEWER_READY__" app/loader-v2.js
           grep -q "meeting-round-detail.js?v=6" app/loader-v2.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/loader-v2.js
           grep -q "collaboration-center.js?v=6" app/loader-v2.js
@@ -120,6 +131,7 @@ jobs:
           grep -q "google-tasks.css?v=1" app/styles.css
           grep -q "meeting-ui.css?v=2" app/styles.css
           grep -q "calendar-ui.css?v=1" app/styles.css
+          grep -q "page-core.css?v=1" app/styles.css
           grep -q "project-system-v3.css?v=1" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
@@ -130,6 +142,8 @@ jobs:
           grep -q "taskProjectOptions(true)" app/team.js
           grep -q "data-mrd-meeting" app/team.js
           grep -q "/functions/v1/meeting-files" app/team.js
+          grep -q "function renderPages(){window.KPTUPageList?.render?.()}" app/team.js
+          grep -q "__KPTU_SYNC_TEAM_PAGES__" app/team.js
 
           grep -q "app_public_projects_snapshot" app/public-workspace.js
           grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
@@ -151,6 +165,9 @@ jobs:
           fi
           if grep -q "calendar-defaults.js" app/loader-v2.js; then
             echo 'calendar returned to delayed default-value shim'; exit 1
+          fi
+          if grep -q "page-editor-fix.js\|page-inline-viewer.js" app/loader-v2.js; then
+            echo 'page screen returned to legacy post-render correction modules'; exit 1
           fi
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js; then
             echo 'loader/topbar/meeting UI must use explicit readiness contracts'; exit 1
@@ -177,7 +194,7 @@ jobs:
           auth=text.index('const authenticated=await window.KPTURuntime.session.ensure()')
           guest=text.index("import('./public-workspace.js",auth)
           topbar=text.index("import('./topbar-actions.js",auth)
-          team=text.index("import('./team.js?v=16')",auth)
+          team=text.index("import('./team.js?v=17')",auth)
           member=text.index("import('./team-member-overview.js?v=2')",team)
           member_ready=text.index('await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__',member)
           task_workflow=text.index("import('./task-workflow.js?v=6')",member_ready)
@@ -186,7 +203,15 @@ jobs:
           task_ready=text.index('await window.__KPTU_TASK_LAYOUT_READY__',task)
           profile=text.index("import('./profile-settings.js?v=4')",task_ready)
           profile_ready=text.index('await window.__KPTU_PROFILE_SETTINGS_READY__',profile)
-          meeting=text.index("import('./meeting-round-detail.js?v=6')",profile_ready)
+          pages=text.index("import('./page-list-controller.js?v=1')",profile_ready)
+          pages_ready=text.index('await window.__KPTU_PAGE_LIST_READY__',pages)
+          page_save=text.index("import('./page-save-controller.js?v=1')",pages_ready)
+          page_save_ready=text.index('await window.__KPTU_PAGE_SAVE_READY__',page_save)
+          page_manage=text.index("import('./page-management.js?v=2')",page_save_ready)
+          page_manage_ready=text.index('await window.__KPTU_PAGE_MANAGEMENT_READY__',page_manage)
+          page_inline=text.index("import('./page-inline-viewer-v2.js?v=1')",page_manage_ready)
+          page_inline_ready=text.index('await window.__KPTU_PAGE_INLINE_VIEWER_READY__',page_inline)
+          meeting=text.index("import('./meeting-round-detail.js?v=6')",page_inline_ready)
           meeting_ready=text.index('await window.__KPTU_MEETING_ROUND_DETAIL_READY__',meeting)
           collab=text.index("import('./collaboration-center.js?v=6')",meeting_ready)
           collab_ready=text.index('await window.__KPTU_COLLABORATION_READY__',collab)
@@ -203,7 +228,7 @@ jobs:
           cal_overflow=text.index("import('./calendar-day-overflow.js?v=2')",cal_mobile_ready)
           cal_overflow_ready=text.index('await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',cal_overflow)
           app_ready=text.index('window.__KPTU_MARK_APP_UI_READY__?.()',cal_overflow_ready)
-          if not auth < guest < topbar < team < member < member_ready < task_workflow < task_workflow_ready < task < task_ready < profile < profile_ready < meeting < meeting_ready < collab < collab_ready < notif < notif_ready < cal_plus < cal_plus_ready < cal_persist < cal_persist_ready < cal_interact < cal_interact_ready < cal_mobile < cal_mobile_ready < cal_overflow < cal_overflow_ready < app_ready:
+          if not auth < guest < topbar < team < member < member_ready < task_workflow < task_workflow_ready < task < task_ready < profile < profile_ready < pages < pages_ready < page_save < page_save_ready < page_manage < page_manage_ready < page_inline < page_inline_ready < meeting < meeting_ready < collab < collab_ready < notif < notif_ready < cal_plus < cal_plus_ready < cal_persist < cal_persist_ready < cal_interact < cal_interact_ready < cal_mobile < cal_mobile_ready < cal_overflow < cal_overflow_ready < app_ready:
               raise SystemExit('authenticated readiness ordering is invalid')
           login=Path('app/login/index.html').read_text(encoding='utf-8')
           if 'id="appView"' in login:
@@ -319,6 +344,7 @@ jobs:
           sleep 1
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js app/public-workspace.js app/page-builder.js \
+            app/page-list-controller.js app/page-save-controller.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js app/page-core.css \
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css app/collaboration-center.js app/collaboration-center.css app/notification-center-ui.js app/notification-center-ui.css \
             app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
