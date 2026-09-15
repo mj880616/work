@@ -25,7 +25,7 @@
   }
 
   await import('./topbar-actions.js?v=1');
-  await import('./team.js?v=13');
+  await import('./team.js?v=14');
   await window.__KPTU_TEAM_READY__;
 
   try{
