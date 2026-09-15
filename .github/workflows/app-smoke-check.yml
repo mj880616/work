@@ -98,6 +98,7 @@ jobs:
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
           grep -q "profile-settings.js?v=4" app/loader-v2.js
           grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
+          grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
           grep -q "page-list-controller.js?v=1" app/loader-v2.js
           grep -q "__KPTU_PAGE_LIST_READY__" app/loader-v2.js
@@ -125,13 +126,23 @@ jobs:
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/loader-v2.js
           grep -q "calendar-day-overflow.js?v=2" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/loader-v2.js
-          grep -q "page-builder.css?v=1" app/styles.css
-          grep -q "page-core.css?v=1" app/styles.css
+
+          grep -q "topbar-actions.css?v=1" app/styles.css
+          grep -q "profile-settings.css?v=1" app/styles.css
+          grep -q "collaboration-center.css?v=1" app/styles.css
+          grep -q "notification-center-ui.css?v=1" app/styles.css
+          grep -q "task-layout.css?v=1" app/styles.css
+          grep -q "google-tasks.css?v=1" app/styles.css
+          grep -q "meeting-ui.css?v=2" app/styles.css
           grep -q "calendar-ui.css?v=1" app/styles.css
+          grep -q "page-core.css?v=1" app/styles.css
+          grep -q "page-builder.css?v=1" app/styles.css
           grep -q "project-system-v3.css?v=1" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
+          grep -q ".top-actions #logoutBtn" app/topbar-actions.css
           grep -q "button.id='ccNotifTop'" app/topbar-actions.js
+
           grep -q "function taskProjectOptions" app/team.js
           grep -q "x.status!=='archived'&&x.parent_id" app/team.js
           grep -q "taskProjectOptions(true)" app/team.js
@@ -139,6 +150,7 @@ jobs:
           grep -q "/functions/v1/meeting-files" app/team.js
           grep -q "function renderPages(){window.KPTUPageList?.render?.()}" app/team.js
           grep -q "__KPTU_SYNC_TEAM_PAGES__" app/team.js
+
           grep -q "app_public_projects_snapshot" app/public-workspace.js
           grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
           grep -q "auth-service.js" app/login/index.html
@@ -151,6 +163,8 @@ jobs:
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js; then echo 'core readiness returned to mutation polling'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/page-builder.js; then echo 'core styles returned to runtime injection'; exit 1; fi
           if grep -q "createElement('link')" app/team.js; then echo 'team css must stay static'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-task-controls.js app/home-dashboard-v2.js app/photo-room.js app/collaboration-center.js app/notification-center-ui.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
+          if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js app/collaboration-center.js app/notification-center-ui.js; then echo 'core UI bypassed shared runtime session'; exit 1; fi
           if grep -q "location.reload" app/photo-room.js app/page-save-controller.js app/page-builder.js; then echo 'feature returned to full-page reload'; exit 1; fi
 
           python3 - <<'PY'
@@ -159,6 +173,7 @@ jobs:
           keys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=17')",'await window.__KPTU_TEAM_READY__',
+            "import('./team-member-overview.js?v=2')",'await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__',
             "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-layout.js?v=6')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./profile-settings.js?v=4')",'await window.__KPTU_PROFILE_SETTINGS_READY__',
@@ -179,6 +194,8 @@ jobs:
           ]
           pos=[text.index(x) for x in keys]
           if pos!=sorted(pos): raise SystemExit('authenticated readiness ordering is invalid')
+          login=Path('app/login/index.html').read_text(encoding='utf-8')
+          if 'id="appView"' in login: raise SystemExit('dedicated login page must not contain workspace shell')
           PY
 
       - name: Check calendar explicit-render invariants
@@ -190,9 +207,11 @@ jobs:
           grep -q "KPTUCalendarPlus?.paint?.()" app/team.js
           grep -q "KPTUCalendarPersistence?.paint?.()" app/team.js
           grep -q "KPTUCalendarDayOverflow?.apply?.()" app/team.js
+          grep -q "calendar-ui.css?v=1" app/styles.css
           if grep -q "MutationObserver" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js app/calendar-interactions-v2.js; then echo 'calendar returned to DOM mutation correction'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js app/calendar-interactions-v2.js; then echo 'calendar styles returned to runtime injection'; exit 1; fi
-          if grep -q "dayEvents.slice" app/team.js; then echo 'team.js returned to painting event cards before painters'; exit 1; fi
+          if grep -Eq "setTimeout\([^,]+,(20|25|40|120|150|180|250|350|400)\)" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js; then echo 'calendar returned to delayed render correction'; exit 1; fi
+          if grep -q "dayEvents.slice" app/team.js; then echo 'team.js returned to painting event cards before calendar painters'; exit 1; fi
 
       - name: Check project single-render invariants
         run: |
@@ -202,10 +221,17 @@ jobs:
           grep -q "data-ps3-edit-project" app/project-system-v3.js
           grep -q "data-ps3-archive-project" app/project-system-v3.js
           grep -q "data-ps3-restore" app/project-system-v3.js
+          grep -q "data-ps3-edit-milestone" app/project-system-v3.js
+          grep -q "ps3MilestoneDelete" app/project-system-v3.js
+          grep -q "data-ps3-library" app/project-system-v3.js
+          grep -q "ps3-parent-link" app/project-system-v3.js
           grep -q "ps3-child-menu" app/project-system-v3.js
           grep -q "data-ps3-doc-filter" app/project-system-v3.js
+          grep -q "app-icon.svg" app/project-system-v3.css
           if grep -Eq 'id="projectModal"|id="projectCreateModal"|projectModalTitle|projectUpdates|projectChecks|projectComments' app/index.html; then echo 'legacy project modal returned'; exit 1; fi
-          if grep -Eq 'renderProjects|projectCard\(|openProject\(|saveProject\(|app_project_updates|app_project_checkitems|currentProject|projectCreateModal' app/team.js; then echo 'legacy project renderer returned'; exit 1; fi
+          if grep -Eq 'renderProjects|projectCard\(|openProject\(|saveProject\(|openProjectCreate|addProjectUpdate|addProjectCheck|addProjectComment|notifyMentions|app_project_updates|app_project_checkitems|currentProject|newSubprojectBtn|projectCheckAssignee|projectCreateModal' app/team.js; then echo 'legacy project renderer returned'; exit 1; fi
+          if grep -q "ps3-child-section" app/project-system-v3.js; then echo 'large bottom child-project section returned'; exit 1; fi
+          if grep -Eq "project-system-v2.js|project-hide-legacy.js|project-files.js|project-delete.js|project-modal-polish.js|project-modal-scroll-lock.js|project-access.js|project-update-actions.js|project-task-link.js|project-v2.js|project-operating-model.js|project-templates.js|project-deeplink.js|project-archive.js|project-suborganization-links.js" app/loader-v2.js; then echo 'legacy project overlay returned'; exit 1; fi
           if grep -q "MutationObserver" app/project-system-v3.js; then echo 'project V3 returned to mutation polling'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/project-system-v3.js; then echo 'project V3 styles must remain static'; exit 1; fi
 
@@ -217,7 +243,10 @@ jobs:
           grep -q "btn.onclick=saveTask" app/task-layout.js
           grep -q "window.__KPTU_TASK_LAYOUT_READY__" app/task-layout.js
           grep -q "taskList.insertAdjacentElement('afterend',sec)" app/google-tasks.js
-          if grep -q "MutationObserver\|createElement('style')\|createElement(\"style\")" app/task-layout.js app/google-tasks.js; then echo 'task UI returned to post-render correction'; exit 1; fi
+          if grep -q "tlTaskSections\|original.style.display\|insertAdjacentElement('afterend'" app/task-layout.js; then echo 'task screen returned to sibling overlay'; exit 1; fi
+          if grep -q "tlTaskSections\|MutationObserver\|createElement('style')\|createElement(\"style\")" app/google-tasks.js; then echo 'Google Tasks returned to post-render correction'; exit 1; fi
+          if grep -q "MutationObserver" app/task-layout.js; then echo 'task layout returned to mutation polling'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/task-layout.js; then echo 'task layout styles must remain static'; exit 1; fi
 
       - name: Check team member single-render invariants
         run: |
@@ -226,12 +255,19 @@ jobs:
           grep -q "team-member-overview.js?v=2" app/loader-v2.js
           grep -q "__KPTU_TEAM_MEMBER_OVERVIEW_READY__" app/loader-v2.js
           grep -q "team-member-management.js?v=2" app/loader-v2.js
+          grep -q "__KPTU_TEAM_MEMBER_MANAGEMENT_READY__" app/loader-v2.js
           grep -q "team-profile-view.js?v=2" app/loader-v2.js
+          grep -q "__KPTU_TEAM_PROFILE_READY__" app/loader-v2.js
+          grep -q "team-member-overview.css?v=1" app/styles.css
+          grep -q "team-profile-view.css?v=1" app/styles.css
+          grep -q "team-member-management.css?v=1" app/styles.css
           grep -q "window.__KPTU_RELOAD_TEAM_MEMBERS__" app/team-member-overview.js
           grep -q "KPTUTeamMemberManagement" app/team-profile-view.js
           if grep -q "memberList" app/team.js; then echo 'team.js returned to owning memberList'; exit 1; fi
           if grep -q "MutationObserver\|setInterval" app/team-member-overview.js app/team-profile-view.js app/team-member-management.js; then echo 'team member UI returned to polling'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/team-member-overview.js app/team-profile-view.js app/team-member-management.js; then echo 'team member styles returned to dynamic injection'; exit 1; fi
           if grep -Eq "localStorage|TPV_SESSION|kptu_collab_session_v1" app/team-member-overview.js app/team-profile-view.js app/team-member-management.js; then echo 'team member module bypassed runtime'; exit 1; fi
+          if grep -q "tpvBody.*prepend\|insertAdjacentElement.*tpvBody" app/team-member-management.js; then echo 'member management returned to post-render body injection'; exit 1; fi
 
       - name: Check collaboration ownership invariants
         run: |
@@ -239,9 +275,12 @@ jobs:
           grep -q "window.__KPTU_COLLABORATION_READY__" app/collaboration-center.js
           grep -q "window.__KPTU_NOTIFICATION_CENTER_READY__" app/notification-center-ui.js
           grep -q "id=\"psLogout\"" app/profile-settings.js
+          grep -q "collaboration-center.css?v=1" app/styles.css
+          grep -q "notification-center-ui.css?v=1" app/styles.css
           if grep -Eq "app_notifications|ccNotifTop|myTaskMini|statUnread" app/collaboration-center.js; then echo 'collaboration center is touching notification/home UI'; exit 1; fi
           if grep -Eq "ps-profile-grid|ncuLogout|logoutBtn|installLogout" app/notification-center-ui.js; then echo 'notification center is touching profile UI'; exit 1; fi
-          if grep -q "MutationObserver\|createElement('style')\|createElement(\"style\")" app/collaboration-center.js app/notification-center-ui.js; then echo 'collaboration UI returned to post-render correction'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/collaboration-center.js app/notification-center-ui.js; then echo 'collaboration styles returned to runtime injection'; exit 1; fi
+          if grep -q "MutationObserver" app/collaboration-center.js app/notification-center-ui.js; then echo 'collaboration UI returned to mutation correction'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification polling returned'; exit 1; fi
 
       - name: Check page core and builder invariants
@@ -252,6 +291,7 @@ jobs:
           grep -q "addEventListener('click',interceptOpen,true)" app/page-save-controller.js
           grep -q "kptu:page-editor-opened" app/page-save-controller.js
           grep -q "addEventListener('kptu:page-editor-opened'" app/page-builder.js
+          grep -q "__KPTU_PAGE_BUILDER_READY__" app/page-builder.js
           grep -q "/functions/v1/page-ai-draft" app/page-builder.js
           grep -q "/functions/v1/document-ai-index" app/page-builder.js
           grep -q "/functions/v1/library-files" app/page-builder.js
@@ -272,9 +312,16 @@ jobs:
       - name: Check retained non-project feature invariants
         run: |
           set -e
+          grep -q "task-workflow.js?v=6" app/loader-v2.js
+          grep -q "page-builder.js?v=2" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=2" app/loader-v2.js
           grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
+          grep -q "collaboration-center.js?v=6" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=6" app/loader-v2.js
+          grep -q "PB_TEMPLATES" app/page-builder.js
+          grep -q "page_design" app/page-builder.js
           grep -q "완료된 할 일" app/task-layout.js
+          grep -q "바로가기" app/page-shortcut.js
           if grep -q "task-title-ui.js\|project-create-submit.js\|task-personal-due.js" app/loader-v2.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
       - name: Static HTTP smoke test
@@ -286,10 +333,10 @@ jobs:
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js app/public-workspace.js \
             app/page-builder.js app/page-builder.css app/page-list-controller.js app/page-save-controller.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js app/page-core.css \
-            app/topbar-actions.js app/profile-settings.js app/collaboration-center.js app/notification-center-ui.js \
-            app/team-member-overview.js app/team-profile-view.js app/team-member-management.js \
-            app/task-layout.js app/google-tasks.js app/project-system-v3.js app/workflow-ai-v3.js app/photo-room.js \
+            app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css app/collaboration-center.js app/collaboration-center.css app/notification-center-ui.js app/notification-center-ui.css \
+            app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
+            app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
-            app/styles.css app/meeting-ui.css app/calendar-ui.css p/; do
+            app/styles.css app/access-approval.css app/home-task.css app/meeting-ui.css app/calendar-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done
