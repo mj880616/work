@@ -19,7 +19,7 @@
       location.replace(window.KPTUAuth.loginUrl(location.href));
       return;
     }
-    await import('./public-workspace.js?v=3');
+    await import('./public-workspace.js?v=4');
     return;
   }
 
