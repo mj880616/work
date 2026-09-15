@@ -113,12 +113,12 @@
   }
 
   function enhancePrivateRailPrint(){
-    if(!IS_PRIVATE_RAIL_QUESTION||document.getElementById('privateRailPrintBar'))return;
-    const hero=document.querySelector('.hero');if(!hero)return;
-    const bar=document.createElement('div');bar.id='privateRailPrintBar';bar.className='private-rail-printbar';
-    const btn=document.createElement('button');btn.type='button';btn.className='private-rail-printbtn';btn.textContent='인쇄';
-    btn.addEventListener('click',()=>window.print());
-    bar.append(btn);hero.after(bar);
+    if(!IS_PRIVATE_RAIL_QUESTION)return;
+    if(window.__PRIVATE_RAIL_QUESTION_TOOLS__||document.getElementById('privateRailQuestionToolsLoader'))return;
+    const s=document.createElement('script');
+    s.id='privateRailQuestionToolsLoader';
+    s.src='/work/assets/private-rail-question-tools.js?v=0915-1';
+    document.head.append(s);
   }
 
   async function checkPressPassword(password){
