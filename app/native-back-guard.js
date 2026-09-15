@@ -11,7 +11,12 @@
   window.addEventListener('kptu:view-changed',event=>{
     const d=event?.detail||{},next=d.view;
     if(!next)return;
-    if(d.source==='native-back'||d.source==='native-back-guard'||d.source==='popstate'){
+    if(d.source==='native-back'||d.source==='popstate'){
+      if(stack[stack.length-1]===next)stack.pop();
+      current=next;
+      return;
+    }
+    if(d.source==='native-back-guard'){
       current=next;
       return;
     }
