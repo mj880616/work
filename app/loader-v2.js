@@ -45,7 +45,6 @@
     import('./forum-flow-polish.js?v=2'),
     import('./public-page-links.js?v=1'),
     import('./calendar-move.js?v=1'),
-    import('./profile-workplace-edit-mode.js?v=1'),
     import('./meeting-assignee-picker.js?v=2'),
     import('./due-date-calendar.js?v=1')
   ]);
@@ -62,13 +61,15 @@
   await import('./task-layout.js?v=6');
   await window.__KPTU_TASK_LAYOUT_READY__;
 
+  await import('./profile-settings.js?v=3');
+  await window.__KPTU_PROFILE_SETTINGS_READY__;
+
   await Promise.all([
     import('./photo-room.js?v=2'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=3'),
     import('./calendar-persistence.js?v=8'),
     import('./home-task-controls.js?v=3'),
-    import('./profile-settings.js?v=2&wd=2'),
     import('./workplace-detail.js?v=2'),
     import('./library-upload.js?v=3'),
     import('./library-public-toggle.js?v=1'),
@@ -103,8 +104,6 @@
   await window.__KPTU_SUBORGANIZATIONS_READY__;
   await import('./suborganization-filters.js?v=3');
   await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
-  await import('./profile-workplace-sync.js?v=2');
-  await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=2');
   await window.__KPTU_TEAM_PROFILE_READY__;
 
