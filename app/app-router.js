@@ -2,11 +2,11 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
-  let visibilityObserver=null;
+  let bound=false;
 
   function appReady(){
     const app=document.querySelector('#appView');
-    return !!app&&!app.classList.contains('hidden');
+    return !!app&&!app.classList.contains('hidden')&&app.classList.contains('kptu-ui-ready');
   }
 
   function viewExists(view){
@@ -51,7 +51,6 @@
     const nav=document.querySelector('#appView>.app-nav')||document.querySelector('.app-nav');
     const navButton=nav?[...nav.querySelectorAll('.nav-btn[data-view]')].find(btn=>btn.dataset.view===view):null;
     scrollControlIntoView(nav,navButton,behavior);
-
     const dock=document.querySelector('#ccMobileDock');
     const dockButton=dock?[...dock.querySelectorAll('[data-cc-view]')].find(btn=>btn.dataset.ccView===view):null;
     scrollControlIntoView(dock,dockButton,behavior);
@@ -65,7 +64,7 @@
     document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===view));
     document.querySelectorAll('#ccMobileDock [data-cc-view]').forEach(btn=>btn.classList.toggle('active',btn.dataset.ccView===view));
     api.current=view;
-    const navBehavior=['initial','restore','visibility'].includes(source)?'auto':'smooth';
+    const navBehavior=['restore','ready','session','popstate'].includes(source)?'auto':'smooth';
     requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:navBehavior}));
     if(updateUrl&&appReady())syncUrl(view,{replace:replaceUrl||source==='api'});
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
@@ -100,18 +99,15 @@
     return panel?.id?.replace(/View$/,'')||null;
   }
 
-  function watchVisibility(){
-    if(visibilityObserver)return;
-    const app=document.querySelector('#appView');
-    if(!app)return;
-    visibilityObserver=new MutationObserver(()=>{
-      if(appReady())setTimeout(()=>restoreFromUrl('visibility'),0);
-    });
-    visibilityObserver.observe(app,{attributes:true,attributeFilter:['class']});
+  function handleUiReady(){
+    if(!appReady())return false;
+    api.current=detect();
+    return restoreFromUrl('ready');
   }
 
   function bind(){
-    if(document.documentElement.dataset.kptuRouterBound==='1')return;
+    if(bound)return;
+    bound=true;
     document.documentElement.dataset.kptuRouterBound='1';
     api.current=detect();
     document.addEventListener('click',e=>{
@@ -124,19 +120,22 @@
     if(brand&&brand.dataset.coreHomeBound!=='1'){
       brand.dataset.coreHomeBound='1';
       brand.addEventListener('click',e=>{
-        if(document.querySelector('#appView')?.classList.contains('hidden'))return;
+        if(!appReady())return;
         e.preventDefault();
         go('home',{source:'brand'});
       });
     }
-    watchVisibility();
-    setTimeout(()=>restoreFromUrl('initial'),0);
+    if(appReady())handleUiReady();
   }
 
   const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible};
   window.KPTURouter=api;
+  window.addEventListener('kptu:app-ui-ready',handleUiReady);
   window.addEventListener('popstate',()=>restoreFromUrl('popstate'));
-  window.addEventListener('kptu:session-changed',()=>setTimeout(()=>restoreFromUrl('session'),50));
+  window.addEventListener('kptu:session-changed',e=>{
+    if(!e.detail?.session){api.current=null;return}
+    if(appReady())restoreFromUrl('session');
+  });
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});
   else bind();
 })();

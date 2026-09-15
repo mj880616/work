@@ -1,0 +1,56 @@
+name: Router ready E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/app-router.js'
+      - 'app/app.js'
+      - 'app/loader-v2.js'
+      - 'app/index.html'
+      - 'tests/app-e2e/app-initial-paint.spec.mjs'
+      - '.github/workflows/router-ready-e2e.yml'
+
+jobs:
+  router-ready:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check explicit router readiness contract
+        run: |
+          set -e
+          node --check app/app-router.js
+          grep -q "app-router.js?v=3" app/loader-v2.js
+          grep -q "loader-v2.js?v=137" app/app.js
+          grep -q 'app.js?v=28' app/index.html
+          grep -q "kptu:app-ui-ready" app/app-router.js
+          grep -q "kptu:session-changed" app/app-router.js
+          grep -q "popstate" app/app-router.js
+          if grep -q "MutationObserver" app/app-router.js; then
+            echo 'router returned to DOM visibility observation'; exit 1
+          fi
+          if grep -q "setTimeout" app/app-router.js; then
+            echo 'router returned to delayed route restoration'; exit 1
+          fi
+      - name: Install Playwright
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start static app server
+        run: |
+          python3 -m http.server 8123 >/tmp/kptu-router-e2e-http.log 2>&1 &
+          echo $! > /tmp/kptu-router-e2e-http.pid
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8123/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat /tmp/kptu-router-e2e-http.log
+          exit 1
+      - name: Run router ready tests
+        run: >-
+          npx playwright test tests/app-e2e/app-initial-paint.spec.mjs
+          --browser=chromium --workers=1 --reporter=line
