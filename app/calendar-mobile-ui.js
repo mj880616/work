@@ -15,22 +15,8 @@ function applyCalendarMobileUi(){
     if(!btn)return;
     btn.textContent=mq.matches?labels[0]:labels[1];
   });
-  const eventBtn=document.querySelector('#newEventBtn');
-  eventBtn?.setAttribute('aria-label','일정 등록');
+  document.querySelector('#newEventBtn')?.setAttribute('aria-label','일정 등록');
 }
-const style=document.createElement('style');
-style.textContent=`
-#calendarView .section-head>#newEventBtn{flex:0 0 auto;width:auto;min-width:0;white-space:nowrap}
-@media(max-width:760px){
-  .view-panel>.section-head{align-items:flex-start;gap:8px}
-  .view-panel>.section-head>div:first-child{min-width:0;flex:1}
-  .view-panel>.section-head>.primary,
-  .view-panel>.section-head>.secondary{flex:0 0 auto;width:auto;min-width:0;white-space:nowrap;padding:8px 11px;font-size:13px;line-height:1.15;border-radius:9px;margin-top:1px;min-height:34px}
-  .view-panel>.section-head>.head-actions{width:auto;flex:0 0 auto;gap:6px}
-  .view-panel>.section-head>.head-actions button{flex:0 0 auto;width:auto;min-width:0;white-space:nowrap;padding:8px 10px;font-size:12px;line-height:1.15;min-height:34px}
-  #calendarView>.section-head>div{min-width:0;flex:1}
-}
-`;
-document.head.appendChild(style);
 applyCalendarMobileUi();
 if(mq.addEventListener)mq.addEventListener('change',applyCalendarMobileUi);else mq.addListener?.(applyCalendarMobileUi);
+window.__KPTU_CALENDAR_MOBILE_UI_READY__=Promise.resolve(true);
