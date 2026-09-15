@@ -8,25 +8,29 @@ function json(route,data,status=200){
   return route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
 }
 
-async function openWithSession(page){
-  await page.route('**/private-rail/forum-0929/state.js*',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
-  await page.goto('http://127.0.0.1:8123/private-rail/forum-0929/');
-  await page.evaluate(userId=>window.KPTURuntime.session.write({
-    access_token:'forum-access',
-    refresh_token:'forum-refresh',
-    expires_at:Math.floor(Date.now()/1000)+3600,
-    user:{id:userId}
-  }),user.id);
-  await page.unroute('**/private-rail/forum-0929/state.js*');
-  await page.addScriptTag({url:'http://127.0.0.1:8123/private-rail/forum-0929/state.js?e2e=1'});
+async function installRuntimeMock(page,{authenticated=true}={}){
+  await page.addInitScript(({base,authenticated})=>{
+    window.KPTURuntime={
+      session:{ensure:async()=>authenticated},
+      api:async(path,{method='GET',body=null,prefer=''}={})=>{
+        const headers={'Content-Type':'application/json'};
+        if(prefer)headers.Prefer=prefer;
+        const response=await fetch(base+path,{method,headers,body:body===null?null:JSON.stringify(body)});
+        const text=await response.text();
+        let data=null;try{data=text?JSON.parse(text):null}catch{data=text}
+        if(!response.ok)throw new Error(data?.message||data?.error||`요청 실패 ${response.status}`);
+        return data;
+      }
+    };
+  },{base:SB,authenticated});
 }
 
 test('9.29 forum checklist loads and saves shared state through authenticated server persistence',async({page})=>{
+  await installRuntimeMock(page,{authenticated:true});
   const writes=[];
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
     if(path==='/auth/v1/user')return json(route,user);
-    if(path==='/auth/v1/token')return json(route,{access_token:'forum-access-2',refresh_token:'forum-refresh-2',expires_at:Math.floor(Date.now()/1000)+3600});
     if(path==='/rest/v1/app_workspace_members')return json(route,[{workspace_id:workspaceId,user_id:user.id,role:'editor'}]);
     if(path==='/rest/v1/app_internal_checklist_items'&&req.method()==='GET')return json(route,[
       {workspace_id:workspaceId,checklist:'private-rail-forum-0929',item_key:'field-seohae',checked:true,memo:'서버에서 불러온 메모'}
@@ -39,7 +43,7 @@ test('9.29 forum checklist loads and saves shared state through authenticated se
     return json(route,[]);
   });
 
-  await openWithSession(page);
+  await page.goto('http://127.0.0.1:8123/private-rail/forum-0929/');
 
   const row=page.locator('[data-key="field-seohae"]');
   await expect(row.locator('input[type="checkbox"]')).toBeChecked({timeout:10000});
@@ -60,6 +64,7 @@ test('9.29 forum checklist loads and saves shared state through authenticated se
 });
 
 test('9.29 forum checklist does not allow editing without a Web2 authenticated session',async({page})=>{
+  await installRuntimeMock(page,{authenticated:false});
   let stateWrites=0;
   await page.route(`${SB}/**`,async route=>{
     const path=new URL(route.request().url()).pathname;
