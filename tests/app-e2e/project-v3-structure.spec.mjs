@@ -17,24 +17,40 @@ test('project view has one active renderer and no legacy overlay chain', async (
   ]) expect(loader).not.toContain(legacy);
 });
 
-test('project V3 includes required management actions', async () => {
+test('project V3 includes the complete management actions in its own renderer', async () => {
   const src=read('app/project-system-v3.js');
   expect(src).toContain('data-ps3-delete-project');
+  expect(src).toContain('data-ps3-edit-project');
+  expect(src).toContain('data-ps3-archive-project');
+  expect(src).toContain('data-ps3-restore');
   expect(src).toContain('data-ps3-edit-milestone');
   expect(src).toContain('ps3MilestoneDelete');
   expect(src).toContain('data-ps3-library');
   expect(src).toContain('ps3-parent-link');
+  expect(src).toContain('ps3-child-menu');
   expect(src).toContain('data-ps3-doc-filter');
+  expect(src).not.toContain('ps3-child-section');
 });
 
-test('first paint uses final icon and project renderer styles', async () => {
+test('first paint uses final icon, topbar and project renderer styles', async () => {
   const html=read('app/index.html');
   const styles=read('app/styles.css');
+  const loader=read('app/loader-v2.js');
+  const topbar=read('app/topbar-actions.js');
+  const topbarCss=read('app/topbar-actions.css');
   const projectCss=read('app/project-system-v3.css');
   expect(html).toContain('rel="icon" href="./app-icon.svg?v=20260913-3"');
   expect(html).not.toContain('href="../favicon.svg"');
   expect(html).not.toContain('<span class="leaf">⌁</span>');
+  expect(styles).toContain('topbar-actions.css');
   expect(styles).toContain('project-system-v3.css');
+  expect(topbarCss).toContain('.top-actions #logoutBtn');
+  expect(topbarCss).toContain('display:none!important');
+  expect(topbar).toContain("button.id='ccNotifTop'");
+  const topbarImport=loader.indexOf("import('./topbar-actions.js");
+  const teamImport=loader.indexOf("import('./team.js");
+  expect(topbarImport).toBeGreaterThan(-1);
+  expect(topbarImport).toBeLessThan(teamImport);
   expect(projectCss).toContain('app-icon.svg');
   expect(projectCss).toContain('html.kptu-project-v3-ready #projectGrid>[data-project]{display:none!important}');
 });
