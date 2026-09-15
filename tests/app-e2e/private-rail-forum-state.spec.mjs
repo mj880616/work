@@ -1,27 +1,27 @@
 import { test, expect } from '@playwright/test';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const SESSION_KEY='kptu_collab_session_v1';
 const user={id:'forum-state-user',email:'forum@example.org',user_metadata:{display_name:'Forum QA'}};
 const workspaceId='11111111-1111-4111-8111-111111111111';
-
-async function seedSession(page){
-  await page.addInitScript(({key,userId})=>{
-    localStorage.setItem(key,JSON.stringify({
-      access_token:'forum-access',
-      refresh_token:'forum-refresh',
-      expires_at:Math.floor(Date.now()/1000)+3600,
-      user:{id:userId}
-    }));
-  },{key:SESSION_KEY,userId:user.id});
-}
 
 function json(route,data,status=200){
   return route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
 }
 
+async function openWithSession(page){
+  await page.route('**/private-rail/forum-0929/state.js*',route=>route.fulfill({status:200,contentType:'application/javascript',body:''}));
+  await page.goto('http://127.0.0.1:8123/private-rail/forum-0929/');
+  await page.evaluate(userId=>window.KPTURuntime.session.write({
+    access_token:'forum-access',
+    refresh_token:'forum-refresh',
+    expires_at:Math.floor(Date.now()/1000)+3600,
+    user:{id:userId}
+  }),user.id);
+  await page.unroute('**/private-rail/forum-0929/state.js*');
+  await page.addScriptTag({url:'http://127.0.0.1:8123/private-rail/forum-0929/state.js?e2e=1'});
+}
+
 test('9.29 forum checklist loads and saves shared state through authenticated server persistence',async({page})=>{
-  await seedSession(page);
   const writes=[];
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
@@ -39,7 +39,7 @@ test('9.29 forum checklist loads and saves shared state through authenticated se
     return json(route,[]);
   });
 
-  await page.goto('http://127.0.0.1:8123/private-rail/forum-0929/');
+  await openWithSession(page);
 
   const row=page.locator('[data-key="field-seohae"]');
   await expect(row.locator('input[type="checkbox"]')).toBeChecked({timeout:10000});
