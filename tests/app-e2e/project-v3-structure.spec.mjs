@@ -27,10 +27,14 @@ test('project V3 includes required management actions', async () => {
   expect(src).toContain('data-ps3-doc-filter');
 });
 
-test('startup CSS prevents old project cards and old brand mark from painting', async () => {
+test('first paint uses final icon and project renderer styles', async () => {
+  const html=read('app/index.html');
   const styles=read('app/styles.css');
   const projectCss=read('app/project-system-v3.css');
+  expect(html).toContain('rel="icon" href="./app-icon.svg?v=20260913-3"');
+  expect(html).not.toContain('href="../favicon.svg"');
+  expect(html).not.toContain('<span class="leaf">⌁</span>');
   expect(styles).toContain('project-system-v3.css');
-  expect(projectCss).toContain("app-icon.svg");
-  expect(projectCss).toContain('#projectGrid>[data-project]{display:none!important}');
+  expect(projectCss).toContain('app-icon.svg');
+  expect(projectCss).toContain('html.kptu-project-v3-ready #projectGrid>[data-project]{display:none!important}');
 });
