@@ -32,9 +32,10 @@ public class MainActivity extends Activity {
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
     private static final String HOME = "https://mj880616.github.io/work/app/";
     private static final String INTERNAL_HOST = "mj880616.github.io";
-    private static final String APP_VERSION = "0.1.11";
+    private static final String APP_VERSION = "0.1.12";
     private boolean firebaseConfigured = false;
     private boolean backDispatchPending = false;
+    private Object platformBackCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +64,7 @@ public class MainActivity extends Activity {
 
         setContentView(root);
         root.requestApplyInsets();
+        registerPlatformBackCallback();
 
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
@@ -352,8 +354,18 @@ public class MainActivity extends Activity {
         view.evaluateJavascript(js, null);
     }
 
-    @Override
-    public void onBackPressed() {
+    private void registerPlatformBackCallback() {
+        if (Build.VERSION.SDK_INT < 33 || platformBackCallback != null) return;
+        platformBackCallback = Api33BackHandler.register(this, this::handleSystemBack);
+    }
+
+    private void unregisterPlatformBackCallback() {
+        if (Build.VERSION.SDK_INT < 33 || platformBackCallback == null) return;
+        Api33BackHandler.unregister(this, platformBackCallback);
+        platformBackCallback = null;
+    }
+
+    private void handleSystemBack() {
         if (webView == null || backDispatchPending) return;
         backDispatchPending = true;
         String js = "(function(){try{return !!(window.KPTUNativeBack&&window.KPTUNativeBack.handle&&window.KPTUNativeBack.handle());}catch(e){return false;}})();";
@@ -364,13 +376,37 @@ public class MainActivity extends Activity {
                 webView.goBack();
                 return;
             }
-            // The workspace back button must never fall through to Activity.finish().
-            // At the root screen the back key is intentionally consumed so the app stays open.
+            // Root back is intentionally consumed. Never finish/move the workspace Activity.
         });
+    }
+
+    private static class Api33BackHandler {
+        static Object register(MainActivity activity, Runnable action) {
+            android.window.OnBackInvokedCallback callback = action::run;
+            activity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                callback
+            );
+            return callback;
+        }
+
+        static void unregister(MainActivity activity, Object callback) {
+            if (callback instanceof android.window.OnBackInvokedCallback) {
+                activity.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
+                    (android.window.OnBackInvokedCallback) callback
+                );
+            }
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        handleSystemBack();
     }
 
     @Override
     protected void onDestroy() {
+        unregisterPlatformBackCallback();
         if (filePathCallback != null) {
             filePathCallback.onReceiveValue(null);
             filePathCallback = null;
