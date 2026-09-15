@@ -8,6 +8,8 @@ const read=path=>readFileSync(resolve(here,'../..',path),'utf8');
 
 test('project view has one active renderer and no legacy overlay chain', async () => {
   const loader=read('app/loader-v2.js');
+  const html=read('app/index.html');
+  const team=read('app/team.js');
   expect(loader).toContain("project-system-v3.js");
   for(const legacy of [
     'project-system-v2.js','project-hide-legacy.js','project-files.js','project-delete.js',
@@ -15,6 +17,12 @@ test('project view has one active renderer and no legacy overlay chain', async (
     'project-update-actions.js','project-task-link.js','project-v2.js','project-operating-model.js',
     'project-templates.js','project-deeplink.js','project-archive.js','project-suborganization-links.js'
   ]) expect(loader).not.toContain(legacy);
+  expect(html).not.toContain('id="projectModal"');
+  expect(html).not.toContain('id="projectCreateModal"');
+  expect(team).not.toContain('renderProjects');
+  expect(team).not.toContain('openProject(');
+  expect(team).not.toContain('app_project_updates');
+  expect(team).not.toContain('app_project_checkitems');
 });
 
 test('project V3 includes the complete management actions in its own renderer', async () => {
@@ -32,7 +40,7 @@ test('project V3 includes the complete management actions in its own renderer', 
   expect(src).not.toContain('ps3-child-section');
 });
 
-test('first paint uses final icon, topbar and project renderer styles', async () => {
+test('first paint uses final icon, topbar and direct project renderer styles', async () => {
   const html=read('app/index.html');
   const styles=read('app/styles.css');
   const loader=read('app/loader-v2.js');
@@ -42,6 +50,7 @@ test('first paint uses final icon, topbar and project renderer styles', async ()
   expect(html).toContain('rel="icon" href="./app-icon.svg?v=20260913-3"');
   expect(html).not.toContain('href="../favicon.svg"');
   expect(html).not.toContain('<span class="leaf">⌁</span>');
+  expect(html).toContain('id="newProjectBtn"');
   expect(styles).toContain('topbar-actions.css');
   expect(styles).toContain('project-system-v3.css');
   expect(topbarCss).toContain('.top-actions #logoutBtn');
@@ -52,5 +61,6 @@ test('first paint uses final icon, topbar and project renderer styles', async ()
   expect(topbarImport).toBeGreaterThan(-1);
   expect(topbarImport).toBeLessThan(teamImport);
   expect(projectCss).toContain('app-icon.svg');
-  expect(projectCss).toContain('html.kptu-project-v3-ready #projectGrid>[data-project]{display:none!important}');
+  expect(projectCss).toContain('#projectGrid[data-ps3-ready="1"]{display:grid}');
+  expect(projectCss).not.toContain('#projectGrid>[data-project]');
 });
