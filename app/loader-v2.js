@@ -7,6 +7,7 @@
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=2');
+  await import('./native-back-guard.js?v=1');
   await import('./session-resilience.js?v=6');
   await import('./brand-logo.js?v=2');
   await import('./auth-service.js?v=1');
@@ -20,6 +21,7 @@
       return;
     }
     await import('./public-workspace.js?v=4');
+    await import('./public-workspace-extras.js?v=1');
     return;
   }
 
@@ -60,6 +62,7 @@
     import('./workplace-detail.js?v=2'),
     import('./project-files.js?v=4'),
     import('./library-upload.js?v=3'),
+    import('./library-public-toggle.js?v=1'),
     import('./page-editor-fix.js?v=2'),
     import('./page-builder.js?v=1&designer=2'),
     import('./page-shortcut.js?v=1'),
@@ -126,7 +129,7 @@
   await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
   await import('./mobile-modal-history.js?v=1');
-  await import('./mobile-swipe-navigation.js?v=2');
+  await import('./mobile-swipe-navigation.js?v=3');
   window.__KPTU_MARK_APP_UI_READY__?.();
 })().catch(err=>{
   console.error(err);
