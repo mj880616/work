@@ -1,5 +1,6 @@
 function openShortcut(anchor){
   if(!anchor)return;
+  anchor.setAttribute('aria-label','바로가기');
   try{
     const u=new URL(anchor.getAttribute('href')||'',location.href);
     u.searchParams.set('external','1');
