@@ -1,7 +1,12 @@
 import {test,expect} from '@playwright/test';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {dirname,resolve} from 'node:path';
 
 const BASE='http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const here=dirname(fileURLToPath(import.meta.url));
+const read=path=>readFileSync(resolve(here,'../..',path),'utf8');
 
 async function mock(page){
   await page.route(`${SB}/**`,async route=>{
@@ -23,7 +28,7 @@ async function mock(page){
   });
 }
 
-test('meeting create button keeps the team save owner and opens the meeting modal',async({page})=>{
+test('meeting create button keeps the team save owner and opens the final meeting modal',async({page})=>{
   await mock(page);
   const returnTo=`${BASE}/app/?view=meetings`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
@@ -37,7 +42,37 @@ test('meeting create button keeps the team save owner and opens the meeting moda
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#wfMeetingLocation')).toBeVisible();
+  await expect(page.locator('#meetingSeriesName')).toBeVisible();
+  await expect(page.locator('#meetingRoundNo')).toBeVisible();
+  await expect(page.locator('#meetingFiles')).toBeAttached();
+  await expect(page.locator('#meetingActionList')).toBeVisible();
+  await expect(page.locator('.meeting-action-row')).toHaveCount(1);
+  await expect(page.locator('.meeting-action-assignee')).toBeVisible();
+  await expect(page.locator('.map-picker')).toHaveCount(0);
   const saveOwner=await page.locator('#saveMeetingBtn').evaluate(el=>String(el.onclick||''));
   expect(saveOwner).toContain('wfMeetingLocation');
   expect(saveOwner).not.toContain('twSaveMeeting');
+});
+
+test('meeting UI has one render path without observer or fetch interception shims',async()=>{
+  const html=read('app/index.html');
+  const loader=read('app/loader-v2.js');
+  const workflow=read('app/task-workflow.js');
+  const detail=read('app/meeting-round-detail.js');
+  const team=read('app/team.js');
+  const css=read('app/styles.css');
+
+  for(const id of ['meetingSeriesName','meetingRoundNo','meetingFiles','meetingActionList','addMeetingAction'])expect(html).toContain(`id="${id}"`);
+  expect(loader).not.toContain('meeting-assignee-picker.js');
+  expect(loader).not.toContain('meeting-file-route.js');
+  expect(loader).toContain('await window.__KPTU_TASK_WORKFLOW_READY__');
+  expect(loader).toContain('await window.__KPTU_MEETING_ROUND_DETAIL_READY__');
+  expect(workflow).not.toContain('MutationObserver');
+  expect(workflow).not.toContain("document.createElement('style')");
+  expect(detail).not.toContain('MutationObserver');
+  expect(detail).not.toContain("document.createElement('style')");
+  expect(team).toContain('data-mrd-meeting');
+  expect(team).toContain("/functions/v1/meeting-files");
+  expect(team).not.toContain("/functions/v1/library-files',{method:'POST',body:fd");
+  expect(css).toContain("meeting-ui.css?v=2");
 });
