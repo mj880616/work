@@ -6,6 +6,7 @@ const read=path=>readFileSync(path,'utf8');
 test('page core uses explicit readiness without post-render correction',async()=>{
   const loader=read('app/loader-v2.js');
   const styles=read('app/styles.css');
+  const team=read('app/team.js');
   const files=['app/page-list-controller.js','app/page-save-controller.js','app/page-shortcut.js','app/page-management.js','app/page-inline-viewer-v2.js'];
 
   expect(loader).toContain("page-list-controller.js?v=1");
@@ -21,6 +22,9 @@ test('page core uses explicit readiness without post-render correction',async()=
   expect(loader).not.toContain('page-editor-fix.js');
   expect(loader).not.toContain("page-inline-viewer.js");
   expect(styles).toContain("page-core.css?v=1");
+  expect(team).toContain('function renderPages(){window.KPTUPageList?.render?.()}');
+  expect(team).not.toContain("$('#pageList').innerHTML=rows.map");
+  expect(team).toContain('__KPTU_SYNC_TEAM_PAGES__');
   expect(existsSync('app/page-editor-fix.js')).toBeFalsy();
   expect(existsSync('app/page-inline-viewer.js')).toBeFalsy();
 
