@@ -3,7 +3,7 @@
   if(window.__KPTU_LIBRARY_PUBLIC_TOGGLE__)return;
   window.__KPTU_LIBRARY_PUBLIC_TOGGLE__=true;
   const rt=window.KPTURuntime;if(!rt?.api)return;
-  let docs=new Map(),workspaceId='';
+  let docs=new Map(),workspaceId='',loading=false;
 
   async function context(){
     if(!(await rt.session.ensure()))return false;
@@ -13,10 +13,18 @@
     return !!workspaceId;
   }
   async function load(){
-    if(!workspaceId&&!(await context()))return;
-    const rows=await rt.api(`/rest/v1/app_documents?workspace_id=eq.${workspaceId}&select=id,visibility&order=created_at.desc`);
-    docs=new Map((rows||[]).map(x=>[x.id,x]));
-    decorate();
+    if(loading)return;
+    loading=true;
+    try{
+      if(!workspaceId&&!(await context()))return;
+      const rows=await rt.api(`/rest/v1/app_documents?workspace_id=eq.${workspaceId}&select=id,visibility&order=created_at.desc`);
+      docs=new Map((rows||[]).map(x=>[x.id,x]));
+      decorate();
+    }finally{loading=false}
+  }
+  function libraryVisible(){
+    const view=document.querySelector('#libraryView');
+    return !!view&&!view.classList.contains('hidden');
   }
   function decorate(){
     document.querySelectorAll('#documentList [data-lu-document]').forEach(card=>{
@@ -47,9 +55,10 @@
   function install(){
     const list=document.querySelector('#documentList');if(!list)return;
     list.addEventListener('click',e=>{const b=e.target.closest?.('[data-library-public-toggle]');if(!b)return;e.preventDefault();e.stopPropagation();toggle(b.dataset.libraryPublicToggle,b)});
-    new MutationObserver(()=>decorate()).observe(list,{childList:true,subtree:true});
-    window.addEventListener('kptu:documents-changed',()=>setTimeout(load,60));
-    load().catch(console.error);
+    new MutationObserver(()=>{if(libraryVisible())decorate()}).observe(list,{childList:true,subtree:true});
+    window.KPTURouter?.on?.('library',()=>load().catch(console.error));
+    window.addEventListener('kptu:documents-changed',()=>{if(libraryVisible())setTimeout(()=>load().catch(console.error),60)});
+    if(window.KPTURouter?.current==='library'||libraryVisible())setTimeout(()=>load().catch(console.error),0);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
