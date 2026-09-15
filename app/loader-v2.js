@@ -26,7 +26,7 @@
 
   // Authenticated top bar has one owner and paints its final state before the app is revealed.
   await import('./topbar-actions.js?v=1');
-  await import('./team.js?v=11');
+  await import('./team.js?v=12');
   await window.__KPTU_TEAM_READY__;
 
   try{
@@ -99,7 +99,6 @@
   await import('./profile-workplace-sync.js?v=1');
   await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=1');
-  await import('./task-child-project-guard.js?v=1');
   await import('./task-status-state.js?v=1');
   await import('./google-tasks.js?v=2');
   await import('./push-notifications-ui.js?v=2');

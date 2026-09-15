@@ -78,7 +78,7 @@ jobs:
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
           grep -q "public-workspace.js" app/loader-v2.js
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
-          grep -q "team.js?v=11" app/loader-v2.js
+          grep -q "team.js?v=12" app/loader-v2.js
           grep -q "project-system-v3.js?v=1" app/loader-v2.js
           grep -q "task-workflow.js?v=4" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
@@ -89,6 +89,9 @@ jobs:
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -q ".top-actions #logoutBtn" app/topbar-actions.css
           grep -q "button.id='ccNotifTop'" app/topbar-actions.js
+          grep -q "function taskProjectOptions" app/team.js
+          grep -q "x.status!=='archived'&&x.parent_id" app/team.js
+          grep -q "taskProjectOptions(true)" app/team.js
 
           grep -q "app_public_projects_snapshot" app/public-workspace.js
           grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
@@ -101,6 +104,9 @@ jobs:
           fi
           if grep -q "team.js" app/app.js; then
             echo 'authenticated workspace modules bypass the session boundary'; exit 1
+          fi
+          if grep -q "task-child-project-guard.js" app/loader-v2.js; then
+            echo 'task project options returned to a post-render correction module'; exit 1
           fi
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js; then
             echo 'loader/topbar must use explicit readiness contracts'; exit 1
@@ -127,9 +133,10 @@ jobs:
           auth=text.index('const authenticated=await window.KPTURuntime.session.ensure()')
           guest=text.index("import('./public-workspace.js",auth)
           topbar=text.index("import('./topbar-actions.js",auth)
-          team=text.index("import('./team.js",auth)
-          if not auth < guest < topbar < team:
-              raise SystemExit('guest/topbar/authenticated branch ordering is invalid')
+          team=text.index("import('./team.js?v=12')",auth)
+          app_ready=text.index('window.__KPTU_MARK_APP_UI_READY__?.()',team)
+          if not auth < guest < topbar < team < app_ready:
+              raise SystemExit('authenticated readiness ordering is invalid')
           login=Path('app/login/index.html').read_text(encoding='utf-8')
           if 'id="appView"' in login:
               raise SystemExit('dedicated login page must not contain workspace shell')
