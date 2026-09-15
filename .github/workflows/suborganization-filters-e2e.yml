@@ -4,7 +4,13 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'app/suborganizations.js'
+      - 'app/suborganizations.css'
       - 'app/suborganization-filters.js'
+      - 'app/suborganization-filters.css'
+      - 'app/profile-workplace-sync.js'
+      - 'app/loader-v2.js'
+      - 'app/styles.css'
       - 'app/myspace-return.js'
       - 'app/my-work.html'
       - 'app/app.js'
@@ -13,7 +19,13 @@ on:
   push:
     branches: [main]
     paths:
+      - 'app/suborganizations.js'
+      - 'app/suborganizations.css'
       - 'app/suborganization-filters.js'
+      - 'app/suborganization-filters.css'
+      - 'app/profile-workplace-sync.js'
+      - 'app/loader-v2.js'
+      - 'app/styles.css'
       - 'app/myspace-return.js'
       - 'app/my-work.html'
       - 'app/app.js'
@@ -29,11 +41,35 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Check single-render invariants
+        run: |
+          set -e
+          test -f app/suborganizations.css
+          test -f app/suborganization-filters.css
+          test ! -f app/suborganization-planned-assignee.js
+          grep -q "suborganizations.js?v=2" app/loader-v2.js
+          grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/loader-v2.js
+          grep -q "suborganization-filters.js?v=3" app/loader-v2.js
+          grep -q "__KPTU_SUBORGANIZATION_FILTERS_READY__" app/loader-v2.js
+          grep -q "suborganizations.css?v=1" app/styles.css
+          grep -q "suborganization-filters.css?v=1" app/styles.css
+          grep -q "default_assignee_name" app/suborganizations.js
+          grep -q "계정 연결 전" app/suborganizations.js
+          grep -q "sofEditType" app/suborganizations.js
+          if grep -q "MutationObserver" app/suborganizations.js app/suborganization-filters.js app/profile-workplace-sync.js; then
+            echo 'suborganization UI returned to DOM mutation polling'; exit 1
+          fi
+          if grep -Eq "localStorage|SO_SESSION|kptu_collab_session_v1" app/suborganizations.js; then
+            echo 'suborganizations bypassed shared runtime session handling'; exit 1
+          fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/suborganizations.js app/suborganization-filters.js; then
+            echo 'suborganization styles returned to dynamic injection'; exit 1
+          fi
       - name: Install Playwright
         run: |
           npm install --no-save @playwright/test@1.55.0
           npx playwright install --with-deps chromium
       - name: Start server
         run: python3 -m http.server 8123 >/tmp/kptu-suborg-http.log 2>&1 &
-      - name: Run suborganization filter tests
+      - name: Run suborganization tests
         run: npx playwright test tests/app-e2e/suborganization-filters.spec.mjs --browser=chromium --workers=1 --reporter=line
