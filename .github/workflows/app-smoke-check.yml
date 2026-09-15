@@ -59,7 +59,7 @@ jobs:
           for f in \
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
             app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
-            app/team.js app/topbar-actions.js app/topbar-actions.css app/task-workflow.js app/task-layout.js app/task-layout.css app/meeting-assignee-picker.js app/page-builder.js \
+            app/team.js app/topbar-actions.js app/topbar-actions.css app/task-workflow.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-assignee-picker.js app/page-builder.js \
             app/project-system-v3.js app/project-system-v3.css \
             app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/photo-room.js \
             app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/index.html; do
@@ -80,13 +80,15 @@ jobs:
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
           grep -q "team.js?v=12" app/loader-v2.js
           grep -q "project-system-v3.js?v=1" app/loader-v2.js
-          grep -q "task-workflow.js?v=4" app/loader-v2.js
+          grep -q "task-workflow.js?v=5" app/loader-v2.js
           grep -q "task-layout.js?v=6" app/loader-v2.js
+          grep -q "google-tasks.js?v=3" app/loader-v2.js
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
           grep -q "topbar-actions.css?v=1" app/styles.css
           grep -q "task-layout.css?v=1" app/styles.css
+          grep -q "google-tasks.css?v=1" app/styles.css
           grep -q "project-system-v3.css?v=1" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
@@ -183,8 +185,12 @@ jobs:
           grep -q "r.innerHTML=group('mine'" app/task-layout.js
           grep -q "btn.onclick=saveTask" app/task-layout.js
           grep -q "window.__KPTU_TASK_LAYOUT_READY__" app/task-layout.js
+          grep -q "taskList.insertAdjacentElement('afterend',sec)" app/google-tasks.js
           if grep -q "tlTaskSections\|original.style.display\|insertAdjacentElement('afterend'" app/task-layout.js; then
             echo 'task screen returned to a sibling overlay renderer'; exit 1
+          fi
+          if grep -q "tlTaskSections\|MutationObserver\|createElement('style')\|createElement(\"style\")" app/google-tasks.js; then
+            echo 'Google Tasks returned to a post-render task correction pattern'; exit 1
           fi
           if grep -q "MutationObserver" app/task-layout.js; then
             echo 'task layout returned to DOM mutation polling'; exit 1
@@ -197,7 +203,7 @@ jobs:
       - name: Check retained non-project feature invariants
         run: |
           set -e
-          grep -q "task-workflow.js?v=4" app/loader-v2.js
+          grep -q "task-workflow.js?v=5" app/loader-v2.js
           grep -q "page-builder.js?v=1" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=2" app/loader-v2.js
           grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
@@ -220,7 +226,7 @@ jobs:
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js \
             app/capabilities.js app/public-workspace.js app/page-builder.js app/topbar-actions.js app/topbar-actions.css \
-            app/task-layout.js app/task-layout.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
+            app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/styles.css app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done
