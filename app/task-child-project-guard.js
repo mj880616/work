@@ -3,7 +3,7 @@
 const rt=window.KPTURuntime;if(!rt)return;
 let spaces=[];
 const api=(p,o={})=>rt.api(p,o);
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]||c));
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function render(){
   const sel=document.querySelector('#taskProject');
   if(!sel)return;
