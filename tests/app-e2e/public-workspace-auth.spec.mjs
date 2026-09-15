@@ -42,10 +42,11 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   await expect(page.locator('#homeView')).toContainText('공개 업무 둘러보기');
 
   await page.locator('.app-nav [data-view="tasks"]').click();
-  await expect(page.locator('#tasksView')).toContainText('프로젝트 공개 할 일');
-  await expect(page.locator('#tasksView')).not.toContainText('개인 할 일');
-  await expect(page.locator('#tasksView')).not.toContainText('INTERNAL_NOTE');
-  await expect(page.locator('#tasksView')).not.toContainText('INTERNAL_ASSIGNEE');
+  const publicTasks=page.locator('#tasksView .public-task-list');
+  await expect(publicTasks).toContainText('프로젝트 공개 할 일');
+  await expect(publicTasks).not.toContainText('개인 할 일');
+  await expect(publicTasks).not.toContainText('INTERNAL_NOTE');
+  await expect(publicTasks).not.toContainText('INTERNAL_ASSIGNEE');
 
   await page.locator('.app-nav [data-view="calendar"]').click();
   await expect(page.locator('#calendarView')).toContainText('공동 일정은 로그인 후 열람할 수 있습니다.');
