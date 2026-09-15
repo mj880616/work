@@ -1,0 +1,4 @@
+.top-actions #logoutBtn,.top-actions #userBadge{display:none!important}
+#ccNotifTop{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+.cc-count{display:inline-flex;min-width:17px;height:17px;border-radius:999px;align-items:center;justify-content:center;padding:0 4px;margin-left:4px;background:#ad2831;color:#fff;font-size:9px;font-weight:900}
+@media(max-width:700px){.top-actions{gap:5px!important}.top-actions .ghost{padding:6px 7px!important;font-size:11px!important}#ccNotifTop{min-width:auto!important}}
