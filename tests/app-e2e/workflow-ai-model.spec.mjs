@@ -33,18 +33,23 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_space_members')return ok([]);
     if(path==='/rest/v1/app_meetings'){
       if(method==='POST'){
+        state.meetingPosts=state.meetingPosts||[];
+        state.meetingPosts.push(body);
         const row={...(body||{}),id:`meeting-${state.meetings.length+1}`,created_at:now(),updated_at:now(),followups:[],result_status:'final'};
         state.meetings.unshift(row);return ok([row]);
       }
       if(method==='PATCH'){
+        state.meetingPatches=(state.meetingPatches||0)+1;
         const row=state.meetings.find(x=>x.id===idFrom());if(row)Object.assign(row,body||{});return ok([]);
       }
       return ok(state.meetings);
     }
     if(path==='/rest/v1/app_tasks'){
       if(method==='POST'){
-        const row={...(body||{}),id:`task-${state.tasks.length+1}`,created_at:now(),updated_at:now(),assignment_status:'accepted'};
-        state.tasks.push(row);return ok([row]);
+        const list=Array.isArray(body)?body:[body];
+        const made=[];
+        for(const item of list){const row={...(item||{}),id:`task-${state.tasks.length+1}`,created_at:now(),updated_at:now(),assignment_status:'accepted'};state.tasks.push(row);made.push(row)}
+        return ok(made);
       }
       return ok(state.tasks);
     }
@@ -96,17 +101,44 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#wfMeetingLocation')).toBeVisible();
   await expect(page.locator('#wfMeetingAttendees')).toBeVisible();
+  await expect(page.locator('#meetingSeriesName')).toBeVisible();
   await page.locator('#meetingTitle').fill('10월 토론회 준비회의');
   await page.locator('#meetingProject').selectOption('child-1');
+  await page.locator('#meetingSeriesName').fill('궤도협의회 집행위원회');
+  await page.locator('#meetingRoundNo').fill('8');
   await page.locator('#meetingNotes').fill('정부 협의 경과 공유');
   await page.locator('#meetingDecisions').fill('10월 대응안 확정');
   await page.locator('#wfMeetingLocation').fill('회의실');
   await page.locator('#wfMeetingAttendees').fill('6');
+  const firstAction=page.locator('.meeting-action-row').first();
+  await firstAction.locator('.meeting-action-title').fill('회의자료 최종 확인');
+  await expect(firstAction.locator('.map-picker-btn')).toBeVisible();
+  await firstAction.locator('.map-picker-btn').click();
+  await firstAction.locator('.map-picker-menu [data-map-value="user-1"]').click();
+  await firstAction.locator('.meeting-action-due').fill('2026-09-19');
+  await page.locator('#addMeetingAction').click();
+  const secondAction=page.locator('.meeting-action-row').nth(1);
+  await secondAction.locator('.meeting-action-title').fill('의원실 전달 준비');
+  await expect(secondAction.locator('.map-picker-btn')).toBeVisible();
+  await secondAction.locator('.map-picker-btn').click();
+  await secondAction.locator('.map-picker-menu [data-map-value="user-1"]').click();
+  await secondAction.locator('.meeting-action-due').fill('2026-09-20');
+  const saveOwner=await page.locator('#saveMeetingBtn').evaluate(el=>String(el.onclick||''));
+  expect(saveOwner).toContain('wfMeetingLocation');
+  expect(saveOwner).not.toContain('twSaveMeeting');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>state.meetings.length).toBe(1);
-  await page.waitForTimeout(700);
+  await expect.poll(()=>state.tasks.filter(x=>x.source_type==='meeting').length).toBe(2);
+  expect(state.meetingPosts).toHaveLength(1);
   expect(state.meetings[0].location).toBe('회의실');
   expect(state.meetings[0].attendee_count).toBe(6);
+  expect(state.meetings[0].series_name).toBe('궤도협의회 집행위원회');
+  expect(state.meetings[0].round_no).toBe(8);
+  expect(state.meetings[0].result_status).toBe('final');
+  expect(state.meetings[0].finalized_at).toBeTruthy();
+  expect(state.tasks.filter(x=>x.source_type==='meeting').map(x=>x.title)).toEqual(['회의자료 최종 확인','의원실 전달 준비']);
+  await page.waitForTimeout(450);
+  expect(state.meetingPatches||0).toBe(0);
 
   await page.locator('#meetingList article.item-card').first().click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
@@ -123,10 +155,10 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   expect(state.meetings[0].result_status).toBe('draft');
 
   await page.locator('#wfFinalizeMeeting').click();
-  await expect.poll(()=>state.tasks.length).toBe(1);
-  expect(state.tasks[0].project_id).toBe('child-1');
-  expect(state.tasks[0].source_type).toBe('meeting_ai');
-  expect(state.tasks[0].title).toBe('의원실에 최종안 전달');
+  await expect.poll(()=>state.tasks.filter(x=>x.source_type==='meeting_ai').length).toBe(1);
+  const aiTask=state.tasks.find(x=>x.source_type==='meeting_ai');
+  expect(aiTask.project_id).toBe('child-1');
+  expect(aiTask.title).toBe('의원실에 최종안 전달');
 });
 
 test('main project exposes the long-running project operating model',async({page})=>{

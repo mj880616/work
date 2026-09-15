@@ -23,8 +23,7 @@
     return;
   }
 
-  await import('./meeting-multi-tasks.js?v=6');
-  await import('./team.js?v=9');
+  await import('./team.js?v=11');
   await window.__KPTU_TEAM_READY__;
   try{
     const user=await window.KPTURuntime.api('/auth/v1/user');
@@ -54,7 +53,7 @@
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=3'),
     import('./calendar-persistence.js?v=8'),
-    import('./task-workflow.js?v=3'),
+    import('./task-workflow.js?v=4'),
     import('./task-layout.js?v=5'),
     import('./home-task-controls.js?v=3'),
     import('./profile-settings.js?v=2&wd=2'),
@@ -71,7 +70,7 @@
   const loadAuthenticatedAi=async()=>{
     await import('./meeting-round-detail.js?v=5');
     await import('./workplace-ai-report.js?v=1');
-    await import('./workflow-ai-v3.js?v=1');
+    await import('./workflow-ai-v3.js?v=2');
     await import('./meeting-ai-ingest-client.js?v=1&text=1');
   };
   await loadAuthenticatedAi();
