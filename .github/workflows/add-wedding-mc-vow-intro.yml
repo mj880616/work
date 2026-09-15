@@ -1,0 +1,64 @@
+name: Add wedding MC vow intro
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/add-wedding-mc-vow-intro.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add vow intro line
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('wedding/mc-script/index.html')
+          text=p.read_text(encoding='utf-8')
+          old='''<section class="section"><h2><span class="num">09</span>혼인서약 · 성혼선언</h2><div class="cue">마이크 전달 · 신랑 김명진 → 신부 강승지 → 두 사람 공동서약 순서로 낭독</div>'''
+          new='''<section class="section"><h2><span class="num">09</span>혼인서약 · 성혼선언</h2><div class="speech"><p>이제 두 사람은 부부로서 함께 살아갈 약속을 서로에게 직접 전하는 혼인서약을 하겠습니다.</p><p>먼저 신랑 김명진 군, 이어서 신부 강승지 양, 마지막으로 두 사람의 공동서약이 있겠습니다.</p></div><div class="cue">마이크 전달 · 신랑 김명진 → 신부 강승지 → 두 사람 공동서약 순서로 낭독</div>'''
+          if old not in text:
+              raise SystemExit('target block not found')
+          p.write_text(text.replace(old,new,1),encoding='utf-8')
+          PY
+      - name: Verify shared-storage policy
+        run: |
+          set -e
+          grep -q '서로에게 직접 전하는 혼인서약을 하겠습니다.' wedding/mc-script/index.html
+          ! grep -q 'localStorage\|sessionStorage\|indexedDB' wedding/mc-script/index.html
+          grep -q 'wedding-mc-shared' wedding/mc-script/index.html
+      - name: Commit page update
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add wedding/mc-script/index.html
+          git commit -m 'Add MC introduction for wedding vows'
+          git push
+      - name: Sync page body to shared server and verify
+        env:
+          API: https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/wedding-mc-shared
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json
+          text=Path('wedding/mc-script/index.html').read_text(encoding='utf-8')
+          m=re.search(r'<article class="paper" id="script">(.*?)</article>',text,re.S)
+          if not m: raise SystemExit('article not found')
+          Path('/tmp/payload.json').write_text(json.dumps({'content':m.group(1).strip()},ensure_ascii=False),encoding='utf-8')
+          PY
+          curl --fail --silent --show-error -X POST "$API" -H 'Origin: https://mj880616.github.io' -H 'Content-Type: application/json' --data-binary @/tmp/payload.json >/tmp/save.json
+          curl --fail --silent --show-error "$API" -H 'Origin: https://mj880616.github.io' >/tmp/read.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/read.json',encoding='utf-8'))
+          c=d.get('content') or ''
+          assert '이제 두 사람은 부부로서 함께 살아갈 약속을 서로에게 직접 전하는 혼인서약을 하겠습니다.' in c
+          assert '먼저 신랑 김명진 군, 이어서 신부 강승지 양, 마지막으로 두 사람의 공동서약이 있겠습니다.' in c
+          print('shared readback ok',d.get('updated_at'))
+          PY
