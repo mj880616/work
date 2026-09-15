@@ -101,11 +101,8 @@
   function goProjects(projectId){
     window.KPTURouter?.go?.('projects',{source:'home-dashboard'});
     if(!projectId)return;
-    setTimeout(()=>{
-      const candidates=[...document.querySelectorAll('#projectGrid .project-card,#projectGrid [data-project-id],[data-pm2-project]')];
-      const target=candidates.find(el=>el.dataset?.projectId===projectId||el.dataset?.pm2Project===projectId||el.getAttribute('data-id')===projectId);
-      target?.click?.();
-    },180);
+    const target=[...document.querySelectorAll('#projectGrid [data-ps3-project]')].find(el=>el.dataset?.ps3Project===projectId);
+    target?.click?.();
   }
 
   function install(){
