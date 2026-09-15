@@ -26,30 +26,60 @@ async function mockSignedIn(page){
   });
 }
 
-test('anonymous root is a read-only workspace, not a login screen',async({page})=>{
+test('anonymous root exposes every menu while content stays permission-scoped',async({page})=>{
   const calls=await mockPublic(page);
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));
   await page.goto(`${BASE}/app/`);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#authView')).toBeHidden();
   await expect(page.locator('#userBadge')).toContainText('공개 열람');
-  await expect(page.locator('.app-nav [data-view="projects"]')).toBeVisible();
-  await expect(page.locator('.app-nav [data-view="pages"]')).toBeVisible();
-  await expect(page.locator('.app-nav [data-view="tasks"]')).toBeHidden();
+
+  for(const view of ['home','calendar','tasks','projects','library','meetings','pages','team']){
+    await expect(page.locator(`.app-nav [data-view="${view}"]`)).toBeVisible();
+  }
   await expect.poll(()=>calls.snapshot).toBe(1);
   expect(errors).toEqual([]);
-  await expect(page.locator('#projectGrid')).toContainText('공개 프로젝트',{timeout:10000});
+  await expect(page.locator('#homeView')).toContainText('공개 업무 둘러보기');
+
+  await page.locator('.app-nav [data-view="tasks"]').click();
+  const publicTasks=page.locator('#tasksView .public-task-list');
+  await expect(publicTasks).toContainText('프로젝트 공개 할 일');
+  await expect(publicTasks).not.toContainText('개인 할 일');
+  await expect(publicTasks).not.toContainText('INTERNAL_NOTE');
+  await expect(publicTasks).not.toContainText('INTERNAL_ASSIGNEE');
+
+  await page.locator('.app-nav [data-view="calendar"]').click();
+  await expect(page.locator('#calendarView')).toContainText('공동 일정은 로그인 후 열람할 수 있습니다.');
+
+  await page.locator('.app-nav [data-view="projects"]').click();
+  await expect(page.locator('#projectGrid')).toContainText('공개 프로젝트');
   await page.locator('[data-public-project="p1"]').click();
   await expect(page.locator('#publicProjectBody')).toContainText('프로젝트 공개 할 일');
   await expect(page.locator('#publicProjectBody')).not.toContainText('개인 할 일');
   await expect(page.locator('#publicProjectBody')).not.toContainText('INTERNAL_NOTE');
   await expect(page.locator('#publicProjectBody')).not.toContainText('INTERNAL_ASSIGNEE');
   await page.locator('#publicProjectClose').click();
+
   await page.locator('.app-nav [data-view="pages"]').click();
   await expect(page.locator('#pageList')).toContainText('공개 게시물');
+  await expect(page.locator('#pagesView')).toContainText('링크 공개(unlisted)');
+  await expect(page.locator('#pagesView')).toContainText('비공개 글은 제목과 요약도 외부 목록에 노출하지 않습니다.');
+
+  await page.locator('.app-nav [data-view="team"]').click();
+  await expect(page.locator('#teamView')).toContainText('팀 정보는 로그인 후 열람할 수 있습니다.');
+
   await page.locator('#publicLoginBtn').click();
   await expect(page).toHaveURL(/\/app\/login\/?\?return=/);
   await expect(page.locator('#emailAuthToggle')).toBeVisible();
+});
+
+test('anonymous deep link keeps the requested locked menu instead of redirecting to projects',async({page})=>{
+  await mockPublic(page);
+  await page.goto(`${BASE}/app/?view=meetings`);
+  await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await expect(page.locator('#meetingsView')).toBeVisible();
+  await expect(page.locator('#meetingsView')).toContainText('회의 결과는 로그인 후 열람할 수 있습니다.');
+  await expect(page).toHaveURL(`${BASE}/app/?view=meetings`);
 });
 
 test('dedicated login signs in and returns to authenticated app',async({page})=>{

@@ -5,58 +5,68 @@
   const rt=window.KPTURuntime;
   if(!rt?.api)return;
   const state={spaces:[],tasks:[],pages:[]};
-  const PUBLIC_VIEWS=new Set(['projects','pages']);
+  const PUBLIC_VIEWS=new Set(['home','calendar','tasks','projects','library','meetings','pages','team']);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=v=>v?new Date(v).toLocaleDateString('ko-KR'):'';
   const taskLabel={todo:'할 일',doing:'진행',done:'완료',blocked:'막힘'};
   const priorityLabel={urgent:'긴급',high:'높음',normal:'보통',low:'낮음'};
 
+  function loginUrl(){return window.KPTUAuth.loginUrl(location.href)}
   function normalizePublicRoute(){
     const u=new URL(location.href);
-    let view=u.searchParams.get('view');
-    if(!PUBLIC_VIEWS.has(view)){
-      view='projects';u.searchParams.set('view',view);
-      history.replaceState({...history.state,kptuView:view},'',u.pathname+u.search+u.hash);
-    }
+    let view=u.searchParams.get('view')||'home';
+    if(!PUBLIC_VIEWS.has(view))view='home';
+    if(view==='home')u.searchParams.delete('view');else u.searchParams.set('view',view);
+    history.replaceState({...history.state,kptuView:view},'',u.pathname+u.search+u.hash);
     return view;
-  }
-  function installStyle(){
-    if(document.getElementById('publicWorkspaceCss'))return;
-    const style=document.createElement('style');style.id='publicWorkspaceCss';style.textContent=`
-      body.kptu-public-workspace .public-hidden{display:none!important}
-      .public-readonly-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:900;color:#48647f;background:#edf3f8;border-radius:999px;padding:4px 8px;margin-left:5px}
-      .public-project-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px;color:#77848f;font-size:10px}
-      .public-project-detail{display:grid;gap:18px}.public-project-detail section{border-top:1px solid #e8edf0;padding-top:14px}.public-project-detail section:first-child{border-top:0;padding-top:0}
-      .public-project-detail h3{font-size:14px;margin:0 0 9px}.public-project-task{display:grid;gap:3px;padding:9px 0;border-bottom:1px solid #eef1f3}.public-project-task:last-child{border-bottom:0}
-      .public-project-task b{font-size:13px}.public-project-task span,.public-project-task small{font-size:10.5px;color:#6f7c87}.public-page-actions{display:flex;justify-content:flex-end;margin-top:10px}
-      .public-child-list{display:grid;gap:7px}.public-child{border:1px solid #dfe6eb;background:#fafcfd;border-radius:11px;padding:10px 12px;text-align:left;color:inherit}.public-child b{display:block;font-size:12px}.public-child span{display:block;margin-top:3px;font-size:10.5px;color:#72808b}
-    `;document.head.appendChild(style);
   }
   function showApp(){
     document.body.classList.add('kptu-public-workspace');
     document.getElementById('authView')?.classList.add('hidden');
     document.getElementById('bootstrapView')?.classList.add('hidden');
     document.getElementById('appView')?.classList.remove('hidden');
-    const role=document.getElementById('workspaceRole');if(role)role.innerHTML='로그인 없이 공개 업무를 열람할 수 있습니다. <span class="public-readonly-badge">읽기 전용</span>';
+    const role=document.getElementById('workspaceRole');if(role)role.innerHTML='로그인 없이 공개된 업무를 둘러볼 수 있습니다. <span class="public-readonly-badge">읽기 전용</span>';
     const badge=document.getElementById('userBadge');if(badge){badge.textContent='공개 열람';badge.classList.remove('hidden')}
     document.getElementById('logoutBtn')?.classList.add('hidden');
     let login=document.getElementById('publicLoginBtn');
-    if(!login){login=document.createElement('button');login.id='publicLoginBtn';login.type='button';login.className='secondary';login.textContent='로그인';login.onclick=()=>location.href=window.KPTUAuth.loginUrl(location.href);document.querySelector('.top-actions')?.appendChild(login)}
-    document.querySelectorAll('.app-nav [data-view]').forEach(btn=>btn.classList.toggle('public-hidden',!PUBLIC_VIEWS.has(btn.dataset.view)));
-    document.querySelectorAll('#appView .view-panel').forEach(panel=>{const view=panel.id?.replace(/View$/,'');if(view&&!PUBLIC_VIEWS.has(view))panel.classList.add('public-hidden')});
+    if(!login){login=document.createElement('button');login.id='publicLoginBtn';login.type='button';login.className='secondary';login.textContent='로그인';login.onclick=()=>location.href=loginUrl();document.querySelector('.top-actions')?.appendChild(login)}
+    document.querySelectorAll('.app-nav [data-view]').forEach(btn=>btn.classList.remove('public-hidden'));
+    document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.remove('public-hidden'));
     ['quickInviteBtn','quickTaskBtn','newEventBtn','homeAddEvent','newTaskBtn','newDocumentBtn','newMeetingBtn','newPageBtn','inviteBtn','newGroupBtn','newProjectBtn'].forEach(id=>document.getElementById(id)?.classList.add('public-hidden'));
     document.querySelectorAll('.admin-only').forEach(x=>x.classList.add('public-hidden'));
-    const p=document.querySelector('#projectsView .section-head p');if(p)p.textContent='공개된 사업의 개요와 프로젝트 할 일을 볼 수 있습니다.';
-    const pp=document.querySelector('#pagesView .section-head p');if(pp)pp.textContent='공개 상태로 게시된 페이지를 로그인 없이 볼 수 있습니다.';
+  }
+  function gateMarkup(title,description){return `<div class="public-access-gate"><div class="public-lock" aria-hidden="true">🔒</div><h3>${esc(title)}</h3><p>${esc(description)}</p><a class="primary" href="${esc(loginUrl())}">로그인해서 보기</a></div>`}
+  function renderHome(){
+    const view=document.getElementById('homeView');if(!view)return;
+    const openTasks=state.tasks.filter(t=>t.status!=='done').length;
+    view.innerHTML=`<div class="public-home-intro"><div class="section-head"><div><h2>공개 업무 둘러보기</h2><p>메뉴 구조는 모두 볼 수 있고, 실제 내용은 각 항목의 공개범위에 따라 열람됩니다.</p></div></div><div class="stat-grid"><button class="stat-card" data-goto="projects" type="button"><span>공개 프로젝트</span><b>${state.spaces.filter(s=>!s.parent_id).length}</b></button><button class="stat-card" data-goto="tasks" type="button"><span>공개 할 일</span><b>${openTasks}</b></button><button class="stat-card" data-goto="pages" type="button"><span>공개 게시</span><b>${state.pages.length}</b></button><button class="stat-card" data-goto="calendar" type="button"><span>로그인 필요 영역</span><b>보기</b></button></div><div class="public-home-note">공개 프로젝트와 그 프로젝트에 연결된 할 일, 공개 게시글은 로그인 없이 열람할 수 있습니다. 제한된 업무의 제목·요약은 비로그인 사용자에게 노출하지 않습니다.</div></div>`;
+  }
+  function renderLockedViews(){
+    const configs={
+      calendar:['공동 일정은 로그인 후 열람할 수 있습니다.','현재 일정에는 항목별 외부 공개범위가 없어 팀 내부 일정 정보를 외부에 노출하지 않습니다.'],
+      library:['자료실은 로그인 후 열람할 수 있습니다.','자료별 공개범위가 전체 공개로 설정된 경우에만 향후 이 화면에서 외부 열람할 수 있도록 연결합니다.'],
+      meetings:['회의 결과는 로그인 후 열람할 수 있습니다.','회의에는 아직 항목별 외부 공개범위가 없으므로 제목과 회의내용을 외부에 노출하지 않습니다.'],
+      team:['팀 정보는 로그인 후 열람할 수 있습니다.','구성원·권한·그룹 정보는 업무자료와 별도의 내부 정보로 취급합니다.']
+    };
+    for(const [view,[title,description]] of Object.entries(configs)){
+      const panel=document.getElementById(view+'View');if(!panel)continue;
+      panel.innerHTML=`<div class="section-head"><div><h2>${view==='calendar'?'공동 일정':view==='library'?'자료실':view==='meetings'?'회의 결과':'팀'}</h2><p>메뉴는 공개되며 실제 데이터는 열람권한에 따라 표시됩니다.</p></div></div>${gateMarkup(title,description)}`;
+    }
   }
   const children=id=>state.spaces.filter(x=>x.parent_id===id);
   const tasks=id=>state.tasks.filter(x=>x.project_id===id);
   const pages=id=>state.pages.filter(x=>x.space_id===id);
+  const projectName=id=>state.spaces.find(x=>x.id===id)?.name||'공개 프로젝트';
+  function renderTasks(){
+    const view=document.getElementById('tasksView');if(!view)return;
+    const rows=state.tasks.filter(t=>t.project_id);
+    view.innerHTML=`<div class="section-head"><div><h2>할 일</h2><p>전체 공개 프로젝트에 연결된 업무만 로그인 없이 표시됩니다.</p></div></div><div class="public-visibility-note">개인 할 일과 제한 프로젝트의 할 일은 목록 자체에 나타나지 않습니다.</div><div class="public-task-list">${rows.length?rows.map(t=>`<article class="public-task-card"><b>${esc(t.title)}</b><span>${esc(projectName(t.project_id))} · ${esc(taskLabel[t.status]||t.status||'')} · 우선순위 ${esc(priorityLabel[t.priority]||t.priority||'보통')}</span>${t.due_at?`<small>기한 ${fmt(t.due_at)}</small>`:''}</article>`).join(''):'<div class="empty">현재 공개된 할 일이 없습니다.</div>'}</div>`;
+  }
   function renderProjects(){
     const grid=document.getElementById('projectGrid');if(!grid)return;
     const tops=state.spaces.filter(x=>!x.parent_id&&x.status!=='archived');
+    const head=document.querySelector('#projectsView .section-head p');if(head)head.textContent='전체 공개로 설정된 프로젝트와 공개 가능한 업무만 표시됩니다.';
     grid.innerHTML=tops.length?tops.map(p=>`<button class="project-card" data-public-project="${esc(p.id)}" type="button"><span class="badge">공개</span><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="public-project-meta"><span>미완료 할 일 ${tasks(p.id).filter(t=>t.status!=='done').length}</span><span>하위 프로젝트 ${children(p.id).length}</span></div></button>`).join(''):'<div class="empty">현재 공개된 프로젝트가 없습니다.</div>';
-    const stat=document.getElementById('statProjects');if(stat)stat.textContent=tops.length;
   }
   function ensureModal(){
     if(document.getElementById('publicProjectModal'))return;
@@ -73,8 +83,10 @@
   }
   function renderPages(){
     const list=document.getElementById('pageList'),search=document.getElementById('pageSearch'),filter=document.getElementById('pageFilter');if(!list)return;
-    if(filter){filter.innerHTML='<option value="published">공개 게시</option>';filter.disabled=true}
-    const paint=()=>{const q=(search?.value||'').trim().toLowerCase(),rows=state.pages.filter(p=>!q||`${p.title||''} ${p.summary||''}`.toLowerCase().includes(q));list.innerHTML=rows.map(p=>`<article class="page-card"><div class="badges"><span class="badge published">공개</span></div><h3>${esc(p.title)}</h3><p>${esc(p.summary||'')}</p><div class="page-card-foot"><span class="updated">${fmt(p.updated_at)}</span><a class="mini" href="../p/${encodeURIComponent(p.slug)}/" target="_blank" rel="noopener">열기</a></div></article>`).join('');document.getElementById('pageEmpty')?.classList.toggle('hidden',!!rows.length)};
+    const head=document.querySelector('#pagesView .section-head p');if(head)head.textContent='게시글의 열람 상태에 따라 비로그인 열람 여부가 결정됩니다.';
+    if(filter){filter.innerHTML='<option value="published">전체 공개 게시</option>';filter.disabled=true}
+    if(!document.getElementById('publicPageVisibilityNote'))list.insertAdjacentHTML('beforebegin','<div id="publicPageVisibilityNote" class="public-visibility-note">전체 공개(public) 글만 목록에 표시됩니다. 링크 공개(unlisted)는 주소를 아는 사람만 직접 열람할 수 있고, 로그인 사용자·지정 그룹·비공개 글은 제목과 요약도 외부 목록에 노출하지 않습니다.</div>');
+    const paint=()=>{const q=(search?.value||'').trim().toLowerCase(),rows=state.pages.filter(p=>!q||`${p.title||''} ${p.summary||''}`.toLowerCase().includes(q));list.innerHTML=rows.map(p=>`<article class="page-card"><div class="badges"><span class="badge published">전체 공개</span></div><h3>${esc(p.title)}</h3><p>${esc(p.summary||'')}</p><div class="page-card-foot"><span class="updated">${fmt(p.updated_at)}</span><a class="mini" href="../p/${encodeURIComponent(p.slug)}/" target="_blank" rel="noopener">열기</a></div></article>`).join('');document.getElementById('pageEmpty')?.classList.toggle('hidden',!!rows.length)};
     if(search)search.oninput=paint;paint();
   }
   async function load(){
@@ -85,9 +97,16 @@
   }
   async function init(){
     const initialView=normalizePublicRoute();
-    installStyle();showApp();
+    showApp();
     document.addEventListener('click',e=>{const p=e.target.closest?.('[data-public-project]');if(p){e.preventDefault();openProject(p.dataset.publicProject)}},true);
-    try{await load();renderProjects();renderPages();window.KPTURouter?.go?.(initialView,{source:'public',updateUrl:false,scroll:false})}catch(err){console.error(err);const grid=document.getElementById('projectGrid');if(grid)grid.innerHTML='<div class="empty">공개 프로젝트를 불러오지 못했습니다.</div>'}
+    try{
+      await load();
+      renderHome();renderLockedViews();renderTasks();renderProjects();renderPages();
+      window.KPTURouter?.go?.(initialView,{source:'public',updateUrl:false,scroll:false});
+    }catch(err){
+      console.error(err);
+      const home=document.getElementById('homeView');if(home)home.innerHTML=gateMarkup('공개 업무를 불러오지 못했습니다.','잠시 후 다시 시도하거나 로그인해 주세요.');
+    }
     document.querySelector('#authPreloadStyle')?.remove();window.__KPTU_MARK_APP_UI_READY__?.();
   }
   init();
