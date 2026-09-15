@@ -3,11 +3,12 @@
   if(window.__KPTU_PUBLIC_PAGE_EDITOR__)return;
   window.__KPTU_PUBLIC_PAGE_EDITOR__=true;
 
-  const rt=window.KPTURuntime;
+  const EDIT_API='https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/public-page-edit';
   const btn=()=>document.querySelector('#editPageBtn');
   let current=null;
   let secureMode=false;
   let saving=false;
+  let editPassword='';
 
   function ensureStyle(){
     if(document.querySelector('#publicPageEditorStyle'))return;
@@ -58,34 +59,39 @@
     document.body.style.overflow='';
   }
 
-  async function fetchFull(){
-    if(!current?.id)throw new Error('페이지 정보를 찾을 수 없습니다.');
-    const rows=await rt.api('/rest/v1/app_pages?id=eq.'+encodeURIComponent(current.id)+'&select=id,title,summary,body,updated_at&limit=1');
-    if(!rows?.[0])throw new Error('수정할 페이지를 찾을 수 없습니다.');
-    return rows[0];
+  async function verifyPassword(password){
+    const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check',id:current?.id,password})});
+    let d=null;try{d=await r.json()}catch{}
+    if(!r.ok){
+      if(d?.error==='password')throw new Error('비밀번호가 올바르지 않습니다.');
+      throw new Error(d?.error||'수정 권한 확인에 실패했습니다.');
+    }
+    return true;
   }
 
   async function open(){
-    if(secureMode||!current?.id||!rt)return;
+    if(secureMode||!current?.id)return;
+    const pw=prompt('마스터 비밀번호를 입력하세요.');
+    if(pw===null)return;
     try{
-      if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');
-      const p=await fetchFull();
-      current={...current,...p};
+      await verifyPassword(pw.trim());
+      editPassword=pw.trim();
       const root=ensureModal();
-      root.querySelector('#ppePageTitle').value=p.title||'';
-      root.querySelector('#ppePageSummary').value=p.summary||'';
-      root.querySelector('#ppePageBody').value=p.body||'';
+      root.querySelector('#ppePageTitle').value=current.title||'';
+      root.querySelector('#ppePageSummary').value=current.summary||'';
+      root.querySelector('#ppePageBody').value=current.body||'';
       status('');
       root.classList.remove('hidden');
       document.body.style.overflow='hidden';
       root.querySelector('#ppePageTitle')?.focus();
     }catch(e){
+      editPassword='';
       alert(e?.message||'수정 화면을 열지 못했습니다.');
     }
   }
 
   async function save(){
-    if(saving||!current?.id||!rt)return;
+    if(saving||!current?.id||!editPassword)return;
     const title=document.querySelector('#ppePageTitle')?.value.trim()||'';
     if(!title){status('제목을 입력해 주세요.',true);return}
     const summary=document.querySelector('#ppePageSummary')?.value.trim()||'';
@@ -95,12 +101,17 @@
     if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='저장 중…'}
     status('저장 중…');
     try{
-      const rows=await rt.api('/rest/v1/app_pages?id=eq.'+encodeURIComponent(current.id),{method:'PATCH',body:{title,summary,body},prefer:'return=representation'});
-      if(!rows?.[0])throw new Error('저장 결과를 확인하지 못했습니다.');
-      current={...current,...rows[0]};
+      const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update',id:current.id,password:editPassword,title,summary,body})});
+      let d=null;try{d=await r.json()}catch{}
+      if(!r.ok||!d?.page){
+        if(d?.error==='password')throw new Error('비밀번호가 올바르지 않습니다.');
+        throw new Error(d?.error||'저장에 실패했습니다.');
+      }
+      current={...current,...d.page};
       status('저장 완료');
       document.querySelector('#publicPageEditor')?.classList.add('hidden');
       document.body.style.overflow='';
+      editPassword='';
       if(typeof window.KPTURenderPublicPage==='function')window.KPTURenderPublicPage(current,false);
       else location.reload();
     }catch(e){
@@ -111,20 +122,16 @@
     }
   }
 
-  async function setPage(page,secure=false){
+  function setPage(page,secure=false){
     current=page||null;
     secureMode=!!secure;
+    editPassword='';
     const b=btn();
     if(!b)return;
-    b.classList.add('hidden');
     b.onclick=null;
-    if(secureMode||!current?.id||!rt)return;
-    try{
-      if(await rt.session.ensure()){
-        b.classList.remove('hidden');
-        b.onclick=e=>{e.preventDefault();open()};
-      }
-    }catch{}
+    if(secureMode||!current?.id){b.classList.add('hidden');return}
+    b.classList.remove('hidden');
+    b.onclick=e=>{e.preventDefault();open()};
   }
 
   ensureStyle();
