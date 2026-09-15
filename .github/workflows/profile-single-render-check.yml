@@ -34,11 +34,12 @@ jobs:
           test ! -f app/profile-workplace-legacy.js
           test ! -f app/profile-workplace-sync.js
           grep -q "profile-settings.css?v=1" app/styles.css
-          grep -q "profile-settings.js?v=3" app/loader-v2.js
+          grep -q "profile-settings.js?v=4" app/loader-v2.js
           grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
           grep -q "psSaveWorkplaces" app/profile-settings.js
           grep -q "ps-legacy-chip" app/profile-settings.js
           grep -q "산하조직 연결 전" app/profile-settings.js
+          grep -q "id=\"psLogout\"" app/profile-settings.js
           if grep -Eq "profile-workplace-edit-mode|profile-workplace-legacy|profile-workplace-sync" app/loader-v2.js; then
             echo 'profile post-render correction module returned to active loader'; exit 1
           fi
