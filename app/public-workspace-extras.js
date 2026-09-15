@@ -6,8 +6,7 @@
   if(!rt?.api)return;
   import('./mobile-swipe-navigation.js?v=3').catch(console.error);
 
-  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
-  const fmt=v=>v?new Date(v).toLocaleDateString('ko-KR'):'';
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let documents=[];
 
   function installStyle(){
