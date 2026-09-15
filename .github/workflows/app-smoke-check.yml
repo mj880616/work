@@ -81,7 +81,7 @@ jobs:
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
           grep -q "public-workspace.js" app/loader-v2.js
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
-          grep -q "team.js?v=13" app/loader-v2.js
+          grep -q "team.js?v=14" app/loader-v2.js
           grep -q "project-system-v3.js?v=1" app/loader-v2.js
           grep -q "task-workflow.js?v=5" app/loader-v2.js
           grep -q "task-layout.js?v=6" app/loader-v2.js
@@ -150,7 +150,7 @@ jobs:
           auth=text.index('const authenticated=await window.KPTURuntime.session.ensure()')
           guest=text.index("import('./public-workspace.js",auth)
           topbar=text.index("import('./topbar-actions.js",auth)
-          team=text.index("import('./team.js?v=13')",auth)
+          team=text.index("import('./team.js?v=14')",auth)
           member=text.index("import('./team-member-overview.js?v=2')",team)
           member_ready=text.index('await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__',member)
           task=text.index("import('./task-layout.js?v=6')",member_ready)
@@ -172,6 +172,7 @@ jobs:
       - name: Check project single-render invariants
         run: |
           set -e
+          grep -q 'id="newProjectBtn"' app/index.html
           grep -q "data-ps3-delete-project" app/project-system-v3.js
           grep -q "data-ps3-edit-project" app/project-system-v3.js
           grep -q "data-ps3-archive-project" app/project-system-v3.js
@@ -183,7 +184,8 @@ jobs:
           grep -q "ps3-child-menu" app/project-system-v3.js
           grep -q "data-ps3-doc-filter" app/project-system-v3.js
           grep -q "app-icon.svg" app/project-system-v3.css
-          grep -q "html.kptu-project-v3-ready #projectGrid>\[data-project\]" app/project-system-v3.css
+          if grep -Eq 'id="projectModal"|id="projectCreateModal"|projectModalTitle|projectUpdates|projectChecks|projectComments' app/index.html; then echo 'legacy project modal markup returned to index'; exit 1; fi
+          if grep -Eq 'renderProjects|projectCard\(|openProject\(|saveProject\(|openProjectCreate|addProjectUpdate|addProjectCheck|addProjectComment|notifyMentions|app_project_updates|app_project_checkitems|currentProject|newSubprojectBtn|projectCheckAssignee|projectCreateModal' app/team.js; then echo 'legacy project renderer returned to team.js'; exit 1; fi
           if grep -q "ps3-child-section" app/project-system-v3.js; then echo 'large bottom child-project section returned'; exit 1; fi
           if grep -Eq "project-system-v2.js|project-hide-legacy.js|project-files.js|project-delete.js|project-modal-polish.js|project-modal-scroll-lock.js|project-access.js|project-update-actions.js|project-task-link.js|project-v2.js|project-operating-model.js|project-templates.js|project-deeplink.js|project-archive.js|project-suborganization-links.js" app/loader-v2.js; then echo 'legacy project overlay module returned to active loader'; exit 1; fi
           if grep -q "MutationObserver" app/project-system-v3.js; then echo 'project V3 must not rely on DOM mutation polling'; exit 1; fi
