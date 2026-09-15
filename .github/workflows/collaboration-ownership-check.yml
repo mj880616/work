@@ -1,0 +1,61 @@
+name: Collaboration ownership check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/collaboration-center.js'
+      - 'app/collaboration-center.css'
+      - 'app/notification-center-ui.js'
+      - 'app/notification-center-ui.css'
+      - 'app/profile-settings.js'
+      - 'app/loader-v2.js'
+      - 'app/styles.css'
+      - '.github/workflows/collaboration-ownership-check.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/collaboration-center.js'
+      - 'app/collaboration-center.css'
+      - 'app/notification-center-ui.js'
+      - 'app/notification-center-ui.css'
+      - 'app/profile-settings.js'
+      - 'app/loader-v2.js'
+      - 'app/styles.css'
+      - '.github/workflows/collaboration-ownership-check.yml'
+
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check collaboration ownership boundaries
+        run: |
+          set -e
+          grep -q "collaboration-center.js?v=6" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=6" app/loader-v2.js
+          grep -q "await window.__KPTU_COLLABORATION_READY__" app/loader-v2.js
+          grep -q "await window.__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js
+          grep -q "collaboration-center.css?v=1" app/styles.css
+          grep -q "notification-center-ui.css?v=1" app/styles.css
+          grep -q "window.__KPTU_COLLABORATION_READY__" app/collaboration-center.js
+          grep -q "window.__KPTU_NOTIFICATION_CENTER_READY__" app/notification-center-ui.js
+          grep -q "id=\"psLogout\"" app/profile-settings.js
+          if grep -Eq "app_notifications|ccNotifTop|myTaskMini|statUnread" app/collaboration-center.js; then
+            echo 'message module crossed into notification/home ownership'; exit 1
+          fi
+          if grep -Eq "ps-profile-grid|ncuLogout|logoutBtn|installLogout" app/notification-center-ui.js; then
+            echo 'notification module crossed into profile ownership'; exit 1
+          fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/collaboration-center.js app/notification-center-ui.js; then
+            echo 'dynamic collaboration styles returned'; exit 1
+          fi
+          if grep -q "MutationObserver" app/collaboration-center.js app/notification-center-ui.js; then
+            echo 'collaboration DOM observer returned'; exit 1
+          fi
+          if grep -q "setInterval" app/notification-center-ui.js; then
+            echo 'notification polling returned'; exit 1
+          fi
+          node --check app/collaboration-center.js
+          node --check app/notification-center-ui.js
+          node --check app/profile-settings.js

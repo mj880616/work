@@ -61,7 +61,7 @@
   await import('./task-layout.js?v=6');
   await window.__KPTU_TASK_LAYOUT_READY__;
 
-  await import('./profile-settings.js?v=3');
+  await import('./profile-settings.js?v=4');
   await window.__KPTU_PROFILE_SETTINGS_READY__;
 
   await Promise.all([
@@ -92,8 +92,12 @@
   await import('./task-project-routing.js?v=1');
   await import('./task-completed-label.js?v=2');
   await import('./task-notes.js?v=2');
-  await import('./collaboration-center.js?v=5');
-  await import('./notification-center-ui.js?v=5');
+
+  await import('./collaboration-center.js?v=6');
+  await window.__KPTU_COLLABORATION_READY__;
+  await import('./notification-center-ui.js?v=6');
+  await window.__KPTU_NOTIFICATION_CENTER_READY__;
+
   await import('./task-assignment-visibility.js?v=4');
   await import('./calendar-plus.js?v=4');
   await import('./calendar-defaults.js?v=1');
