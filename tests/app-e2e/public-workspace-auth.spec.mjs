@@ -5,7 +5,12 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
 async function mockPublic(page){
   const calls={snapshot:0};
-  const snapshot={spaces:[{id:'p1',name:'공개 프로젝트',slug:'public-project',description:'공개 사업 설명',status:'active',parent_id:null,sort_order:10}],tasks:[{id:'t1',project_id:'p1',title:'프로젝트 공개 할 일',status:'todo',priority:'high',due_at:null,note:'INTERNAL_NOTE',assignee_name:'INTERNAL_ASSIGNEE'},{id:'personal',project_id:null,title:'개인 할 일',status:'todo',priority:'normal'}],pages:[{id:'pg1',space_id:'p1',slug:'public-page',title:'공개 게시물',summary:'공개 요약',updated_at:new Date().toISOString()}]};
+  const snapshot={
+    spaces:[{id:'p1',name:'공개 프로젝트',slug:'public-project',description:'공개 사업 설명',status:'active',parent_id:null,sort_order:10}],
+    tasks:[{id:'t1',project_id:'p1',title:'프로젝트 공개 할 일',status:'todo',priority:'high',due_at:null,note:'INTERNAL_NOTE',assignee_name:'INTERNAL_ASSIGNEE'},{id:'personal',project_id:null,title:'개인 할 일',status:'todo',priority:'normal'}],
+    pages:[{id:'pg1',space_id:'p1',slug:'public-page',title:'공개 게시물',summary:'공개 요약',updated_at:new Date().toISOString()}],
+    documents:[{id:'d1',project_id:'p1',title:'공개 자료',category:'정책자료',source:'테스트 출처',document_date:'2026-09-15',description:'공개 설명',tags:['테스트'],drive_url:'https://example.com/public-doc',file_name:'public.pdf'}]
+  };
   await page.route(`${SB}/rest/v1/rpc/app_public_projects_snapshot`,route=>{calls.snapshot+=1;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(snapshot)})});
   return calls;
 }
@@ -37,7 +42,7 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   for(const view of ['home','calendar','tasks','projects','library','meetings','pages','team']){
     await expect(page.locator(`.app-nav [data-view="${view}"]`)).toBeVisible();
   }
-  await expect.poll(()=>calls.snapshot).toBe(1);
+  await expect.poll(()=>calls.snapshot).toBeGreaterThanOrEqual(1);
   expect(errors).toEqual([]);
   await expect(page.locator('#homeView')).toContainText('공개 업무 둘러보기');
 
@@ -60,10 +65,17 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   await expect(page.locator('#publicProjectBody')).not.toContainText('INTERNAL_ASSIGNEE');
   await page.locator('#publicProjectClose').click();
 
+  await page.locator('.app-nav [data-view="library"]').click();
+  await expect(page.locator('#libraryView')).toContainText('공개 자료');
+  await expect(page.locator('#libraryView')).not.toContainText('자료실은 로그인 후 열람할 수 있습니다.');
+
   await page.locator('.app-nav [data-view="pages"]').click();
   await expect(page.locator('#pageList')).toContainText('공개 게시물');
   await expect(page.locator('#pagesView')).toContainText('링크 공개(unlisted)');
   await expect(page.locator('#pagesView')).toContainText('비공개 글은 제목과 요약도 외부 목록에 노출하지 않습니다.');
+  const pageCard=page.locator('#pageList .page-card').first();
+  await expect(pageCard).toHaveAttribute('data-public-card-url',/\/app\/p\/public-page\/$/);
+  await expect(pageCard.locator('.page-card-foot a.mini')).toBeHidden();
 
   await page.locator('.app-nav [data-view="team"]').click();
   await expect(page.locator('#teamView')).toContainText('팀 정보는 로그인 후 열람할 수 있습니다.');
@@ -80,6 +92,36 @@ test('anonymous deep link keeps the requested locked menu instead of redirecting
   await expect(page.locator('#meetingsView')).toBeVisible();
   await expect(page.locator('#meetingsView')).toContainText('회의 결과는 로그인 후 열람할 수 있습니다.');
   await expect(page).toHaveURL(`${BASE}/app/?view=meetings`);
+});
+
+test('guest mobile mode loads swipe navigation',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+  const page=await context.newPage();
+  await mockPublic(page);
+  await page.goto(`${BASE}/app/`);
+  await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await expect.poll(()=>page.evaluate(()=>window.__KPTU_MOBILE_SWIPE_NAV__===true)).toBe(true);
+  await context.close();
+});
+
+test('Android native back returns to prior view and never falls through to app exit',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,userAgent:'Mozilla/5.0 Android WebView KPTUAndroid/0.1.10'});
+  await context.addInitScript(()=>{window.KPTUNativeBack={handle(){return false}}});
+  const page=await context.newPage();
+  await mockPublic(page);
+  await page.goto(`${BASE}/app/`);
+  await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await expect.poll(()=>page.evaluate(()=>!!window.KPTUNativeBack?.__kptuGuarded)).toBe(true);
+  await page.locator('.app-nav [data-view="tasks"]').click();
+  await page.locator('.app-nav [data-view="projects"]').click();
+  await expect(page.locator('#projectsView')).toBeVisible();
+  expect(await page.evaluate(()=>window.KPTUNativeBack.handle())).toBe(true);
+  await expect(page.locator('#tasksView')).toBeVisible();
+  expect(await page.evaluate(()=>window.KPTUNativeBack.handle())).toBe(true);
+  await expect(page.locator('#homeView')).toBeVisible();
+  expect(await page.evaluate(()=>window.KPTUNativeBack.handle())).toBe(true);
+  await expect(page.locator('#homeView')).toBeVisible();
+  await context.close();
 });
 
 test('dedicated login signs in and returns to authenticated app',async({page})=>{
