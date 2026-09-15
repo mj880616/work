@@ -36,7 +36,6 @@
       await window.KPTUPageList?.refresh?.();
       if(status){status.classList.remove('error');status.textContent=`${ids.length}개 페이지를 삭제했습니다.`}
       updateControls();
-      window.dispatchEvent(new CustomEvent('kptu:pages-changed',{detail:{deleted:ids}}));
     }catch(err){saving=false;if(status){status.classList.add('error');status.textContent=err?.message||'페이지 삭제에 실패했습니다.'}updateControls()}
   }
 
