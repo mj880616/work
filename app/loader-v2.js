@@ -25,7 +25,7 @@
   }
 
   await import('./topbar-actions.js?v=1');
-  await import('./team.js?v=14');
+  await import('./team.js?v=15');
   await window.__KPTU_TEAM_READY__;
 
   try{
@@ -45,7 +45,6 @@
     import('./forum-flow-polish.js?v=2'),
     import('./public-page-links.js?v=1'),
     import('./calendar-move.js?v=1'),
-    import('./meeting-assignee-picker.js?v=2'),
     import('./due-date-calendar.js?v=1')
   ]);
 
@@ -54,10 +53,10 @@
   await import('./home-dashboard-v2.js?v=3');
   await import('./member-default-role.js?v=3');
   await import('./myspace-return.js?v=2');
-  await import('./meeting-file-route.js?v=1');
   await import('./page-design-core.js?v=3');
 
-  await import('./task-workflow.js?v=5');
+  await import('./task-workflow.js?v=6');
+  await window.__KPTU_TASK_WORKFLOW_READY__;
   await import('./task-layout.js?v=6');
   await window.__KPTU_TASK_LAYOUT_READY__;
 
@@ -82,7 +81,8 @@
 
   await window.__KPTU_PHOTO_ROOM_READY__;
 
-  await import('./meeting-round-detail.js?v=5');
+  await import('./meeting-round-detail.js?v=6');
+  await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
   await import('./workplace-ai-report.js?v=1');
   await import('./workflow-ai-v3.js?v=2');
   await import('./meeting-ai-ingest-client.js?v=1&text=1');
