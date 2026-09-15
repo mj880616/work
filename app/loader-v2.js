@@ -98,7 +98,6 @@
   await import('./notification-center-ui.js?v=6');
   await window.__KPTU_NOTIFICATION_CENTER_READY__;
 
-  await import('./task-assignment-visibility.js?v=4');
   await import('./calendar-plus.js?v=4');
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=2');
