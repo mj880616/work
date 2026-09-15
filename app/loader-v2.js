@@ -24,6 +24,8 @@
     return;
   }
 
+  // Authenticated top bar has one owner and paints its final state before the app is revealed.
+  await import('./topbar-actions.js?v=1');
   await import('./team.js?v=11');
   await window.__KPTU_TEAM_READY__;
 
