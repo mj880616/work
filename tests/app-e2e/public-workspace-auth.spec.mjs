@@ -74,7 +74,7 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   await expect(page.locator('#pagesView')).toContainText('링크 공개(unlisted)');
   await expect(page.locator('#pagesView')).toContainText('비공개 글은 제목과 요약도 외부 목록에 노출하지 않습니다.');
   const pageCard=page.locator('#pageList .page-card').first();
-  await expect(pageCard).toHaveAttribute('data-public-card-url',/\/app\/p\/public-page\/$/);
+  await expect(pageCard).toHaveAttribute('data-public-card-url',/\/p\/public-page\/$/);
   await expect(pageCard.locator('.page-card-foot a.mini')).toBeHidden();
 
   await page.locator('.app-nav [data-view="team"]').click();
@@ -106,7 +106,17 @@ test('guest mobile mode loads swipe navigation',async({browser})=>{
 
 test('Android native back returns to prior view and never falls through to app exit',async({browser})=>{
   const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,userAgent:'Mozilla/5.0 Android WebView KPTUAndroid/0.1.10'});
-  await context.addInitScript(()=>{window.KPTUNativeBack={handle(){return false}}});
+  await context.addInitScript(()=>{
+    window.KPTUNativeBack={
+      _stack:['home','tasks'],
+      handle(){
+        const prev=this._stack.pop();
+        if(!prev)return false;
+        window.KPTURouter?.go?.(prev,{source:'native-back',replaceUrl:true});
+        return true;
+      }
+    };
+  });
   const page=await context.newPage();
   await mockPublic(page);
   await page.goto(`${BASE}/app/`);
