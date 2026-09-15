@@ -59,7 +59,7 @@ jobs:
           for f in \
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
             app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
-            app/team.js app/topbar-actions.js app/topbar-actions.css app/task-workflow.js app/task-child-project-guard.js app/meeting-assignee-picker.js app/page-builder.js \
+            app/team.js app/topbar-actions.js app/topbar-actions.css app/task-workflow.js app/meeting-assignee-picker.js app/page-builder.js \
             app/project-system-v3.js app/project-system-v3.css \
             app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/photo-room.js \
             app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/index.html; do
@@ -78,11 +78,9 @@ jobs:
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
           grep -q "public-workspace.js" app/loader-v2.js
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
-          grep -q "team.js?v=11" app/loader-v2.js
+          grep -q "team.js?v=12" app/loader-v2.js
           grep -q "project-system-v3.js?v=1" app/loader-v2.js
           grep -q "task-workflow.js?v=4" app/loader-v2.js
-          grep -q "task-child-project-guard.js?v=2" app/loader-v2.js
-          grep -q "__KPTU_TASK_CHILD_GUARD_READY__" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
           grep -q "topbar-actions.css?v=1" app/styles.css
@@ -91,6 +89,9 @@ jobs:
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -q ".top-actions #logoutBtn" app/topbar-actions.css
           grep -q "button.id='ccNotifTop'" app/topbar-actions.js
+          grep -q "function taskProjectOptions" app/team.js
+          grep -q "x.status!=='archived'&&x.parent_id" app/team.js
+          grep -q "taskProjectOptions(true)" app/team.js
 
           grep -q "app_public_projects_snapshot" app/public-workspace.js
           grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
@@ -104,8 +105,11 @@ jobs:
           if grep -q "team.js" app/app.js; then
             echo 'authenticated workspace modules bypass the session boundary'; exit 1
           fi
-          if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js app/task-child-project-guard.js; then
-            echo 'loader/topbar/task project options must use explicit readiness or direct events'; exit 1
+          if grep -q "task-child-project-guard.js" app/loader-v2.js; then
+            echo 'task project options returned to a post-render correction module'; exit 1
+          fi
+          if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js; then
+            echo 'loader/topbar must use explicit readiness contracts'; exit 1
           fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js; then
             echo 'topbar styles must remain in static CSS'; exit 1
@@ -129,11 +133,9 @@ jobs:
           auth=text.index('const authenticated=await window.KPTURuntime.session.ensure()')
           guest=text.index("import('./public-workspace.js",auth)
           topbar=text.index("import('./topbar-actions.js",auth)
-          team=text.index("import('./team.js",auth)
-          task_guard=text.index("import('./task-child-project-guard.js?v=2')",team)
-          task_ready=text.index('await window.__KPTU_TASK_CHILD_GUARD_READY__',task_guard)
-          app_ready=text.index('window.__KPTU_MARK_APP_UI_READY__?.()',task_ready)
-          if not auth < guest < topbar < team < task_guard < task_ready < app_ready:
+          team=text.index("import('./team.js?v=12')",auth)
+          app_ready=text.index('window.__KPTU_MARK_APP_UI_READY__?.()',team)
+          if not auth < guest < topbar < team < app_ready:
               raise SystemExit('authenticated readiness ordering is invalid')
           login=Path('app/login/index.html').read_text(encoding='utf-8')
           if 'id="appView"' in login:
@@ -196,7 +198,7 @@ jobs:
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js \
             app/capabilities.js app/public-workspace.js app/page-builder.js app/topbar-actions.js app/topbar-actions.css \
-            app/task-child-project-guard.js app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
+            app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/styles.css app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done
