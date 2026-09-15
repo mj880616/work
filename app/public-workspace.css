@@ -1,0 +1,13 @@
+body.kptu-public-workspace .public-hidden{display:none!important}
+.public-readonly-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:900;color:#48647f;background:#edf3f8;border-radius:999px;padding:4px 8px;margin-left:5px}
+.public-project-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px;color:#77848f;font-size:10px}
+.public-project-detail{display:grid;gap:18px}.public-project-detail section{border-top:1px solid #e8edf0;padding-top:14px}.public-project-detail section:first-child{border-top:0;padding-top:0}
+.public-project-detail h3{font-size:14px;margin:0 0 9px}.public-project-task{display:grid;gap:3px;padding:9px 0;border-bottom:1px solid #eef1f3}.public-project-task:last-child{border-bottom:0}
+.public-project-task b{font-size:13px}.public-project-task span,.public-project-task small{font-size:10.5px;color:#6f7c87}.public-page-actions{display:flex;justify-content:flex-end;margin-top:10px}
+.public-child-list{display:grid;gap:7px}.public-child{border:1px solid #dfe6eb;background:#fafcfd;border-radius:11px;padding:10px 12px;text-align:left;color:inherit}.public-child b{display:block;font-size:12px}.public-child span{display:block;margin-top:3px;font-size:10.5px;color:#72808b}
+.public-access-gate{max-width:720px;margin:18px auto;padding:28px 24px;border:1px solid #dfe6eb;border-radius:18px;background:#fff;text-align:center;box-shadow:0 8px 24px rgba(25,45,65,.04)}
+.public-access-gate .public-lock{font-size:24px;line-height:1;margin-bottom:10px}.public-access-gate h3{margin:0 0 8px;font-size:17px}.public-access-gate p{margin:0 auto 16px;max-width:560px;color:#6f7c87;font-size:12px;line-height:1.65}.public-access-gate a{display:inline-flex;text-decoration:none}
+.public-home-intro{display:grid;gap:14px}.public-home-intro .section-head{margin-bottom:0}.public-home-note{padding:12px 14px;border:1px solid #e1e7ec;border-radius:12px;background:#f8fafb;color:#66737f;font-size:11px;line-height:1.6}
+.public-task-list{display:grid;gap:8px}.public-task-card{display:grid;gap:4px;padding:13px 14px;border:1px solid #dfe6eb;border-radius:12px;background:#fff}.public-task-card b{font-size:13px}.public-task-card span,.public-task-card small{font-size:10.5px;color:#6f7c87}
+.public-visibility-note{margin:0 0 12px;padding:10px 12px;border:1px solid #e1e7ec;border-radius:10px;background:#f8fafb;color:#697682;font-size:10.5px;line-height:1.55}
+@media(max-width:700px){.public-access-gate{margin:12px 0;padding:23px 16px;border-radius:15px}.public-access-gate h3{font-size:16px}.public-home-note{font-size:10.5px}}
