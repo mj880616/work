@@ -8,6 +8,7 @@
   let current=null;
   let secureMode=false;
   let saving=false;
+  let editing=false;
   let editPassword='';
 
   function ensureStyle(){
@@ -15,48 +16,53 @@
     const s=document.createElement('style');
     s.id='publicPageEditorStyle';
     s.textContent=`
-      .ppe-backdrop{position:fixed;inset:0;background:rgba(20,31,43,.42);display:grid;place-items:center;padding:18px;z-index:9999}
-      .ppe-backdrop.hidden{display:none!important}
-      .ppe-card{width:min(920px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.2);padding:20px}
-      .ppe-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}.ppe-head>div{flex:1}.ppe-head h2{margin:0;font-size:20px}.ppe-head p{margin:4px 0 0;color:#71808d;font-size:12px}
-      .ppe-close{border:0;background:#eef2f5;color:#43515d;width:34px;height:34px;border-radius:10px;font-size:20px;cursor:pointer}
-      .ppe-form{display:grid;gap:12px}.ppe-form label{display:grid;gap:6px;font-size:12px;font-weight:800;color:#44525f}
-      .ppe-form input,.ppe-form textarea{width:100%;border:1px solid #ccd6de;border-radius:10px;padding:10px 11px;font:inherit;color:#18222d;background:#fff;outline:none}
-      .ppe-form input:focus,.ppe-form textarea:focus{border-color:#8ca5ba;box-shadow:0 0 0 3px rgba(49,95,149,.1)}
-      .ppe-form textarea{min-height:420px;resize:vertical;line-height:1.65;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
-      .ppe-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;align-items:center}.ppe-actions button{border-radius:9px;padding:9px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.ppe-cancel{border:1px solid #ccd6de;background:#fff;color:#40505e}.ppe-save{border:1px solid #17324d;background:#17324d;color:#fff}.ppe-save:disabled{opacity:.55;cursor:default}.ppe-status{margin-right:auto;font-size:11px;color:#6d7a86}.ppe-status.error{color:#a33b45}
-      @media(max-width:650px){.ppe-backdrop{padding:0;align-items:end}.ppe-card{border-radius:18px 18px 0 0;max-height:96vh;padding:16px}.ppe-form textarea{min-height:52vh}.ppe-actions{position:sticky;bottom:0;background:#fff;padding-top:10px}}
-      @media print{.ppe-backdrop{display:none!important}}
+      .ppe-editing .paper{box-shadow:0 0 0 3px rgba(47,97,149,.08),0 10px 32px rgba(25,45,65,.055)}
+      .ppe-editing [data-ppe-editable]{border-radius:6px;outline:1px dashed rgba(47,97,149,.32);outline-offset:3px;cursor:text;transition:outline-color .12s,background .12s}
+      .ppe-editing [data-ppe-editable]:hover{outline-color:rgba(47,97,149,.62);background:rgba(237,244,251,.42)}
+      .ppe-editing [data-ppe-editable]:focus{outline:2px solid rgba(47,97,149,.72);background:#fff;box-shadow:0 0 0 4px rgba(47,97,149,.08)}
+      .ppe-editing .pd-summary.ppe-empty-summary{min-height:34px;padding:6px 8px;margin-left:-8px;margin-right:-8px}
+      .ppe-editing .pd-summary.ppe-empty-summary:empty:before{content:'요약을 입력하려면 여기를 클릭';color:#9aa5ae;font-weight:500}
+      .ppe-editing .pd-forum-flow{position:relative}
+      .ppe-editing .pd-forum-flow:before{content:'도식 문구도 직접 수정할 수 있습니다';display:block;margin:0 0 8px;color:#73808b;font-size:11px;font-weight:700;letter-spacing:-.1px}
+      .ppe-live-status{font-size:11px;color:#687681;align-self:center;margin-right:auto}.ppe-live-status.error{color:#a33b45}
+      .ppe-live-save{background:#17324d!important;border-color:#17324d!important;color:#fff!important}.ppe-live-save:disabled{opacity:.55;cursor:default}
+      @media(max-width:650px){.ppe-editing [data-ppe-editable]{outline-offset:2px}.ppe-live-status{display:none}}
+      @media print{.ppe-live-controls{display:none!important}.ppe-editing [data-ppe-editable]{outline:0!important;box-shadow:none!important}}
     `;
     document.head.appendChild(s);
   }
 
-  function ensureModal(){
-    let root=document.querySelector('#publicPageEditor');
-    if(root)return root;
-    root=document.createElement('div');
-    root.id='publicPageEditor';
-    root.className='ppe-backdrop hidden';
-    root.innerHTML=`<section class="ppe-card" role="dialog" aria-modal="true" aria-labelledby="ppeTitle"><div class="ppe-head"><div><h2 id="ppeTitle">페이지 수정</h2><p>현재 공개페이지를 벗어나지 않고 원문을 수정합니다.</p></div><button class="ppe-close" type="button" data-ppe-close aria-label="닫기">×</button></div><div class="ppe-form"><label>제목<input id="ppePageTitle" type="text"></label><label>요약<textarea id="ppePageSummary" rows="3" style="min-height:88px;font-family:inherit"></textarea></label><label>본문 (Markdown)<textarea id="ppePageBody"></textarea></label></div><div class="ppe-actions"><span id="ppeStatus" class="ppe-status"></span><button class="ppe-cancel" type="button" data-ppe-close>취소</button><button id="ppeSave" class="ppe-save" type="button">저장</button></div></section>`;
-    document.body.appendChild(root);
-    root.querySelectorAll('[data-ppe-close]').forEach(x=>x.addEventListener('click',close));
-    root.addEventListener('click',e=>{if(e.target===root)close()});
-    root.querySelector('#ppeSave')?.addEventListener('click',save);
-    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!root.classList.contains('hidden'))close()});
-    return root;
+  function ensureTools(){
+    const tools=document.querySelector('.print-tools');
+    if(!tools)return null;
+    if(!document.querySelector('#ppeLiveStatus')){
+      const status=document.createElement('span');
+      status.id='ppeLiveStatus';
+      status.className='ppe-live-status ppe-live-controls hidden';
+      status.textContent='수정 중 · 문구를 직접 클릭해 수정';
+      tools.prepend(status);
+      const cancel=document.createElement('button');
+      cancel.id='ppeLiveCancel';
+      cancel.type='button';
+      cancel.className='print-btn ppe-live-controls hidden';
+      cancel.textContent='취소';
+      cancel.addEventListener('click',cancelEdit);
+      const save=document.createElement('button');
+      save.id='ppeLiveSave';
+      save.type='button';
+      save.className='print-btn ppe-live-save ppe-live-controls hidden';
+      save.textContent='저장';
+      save.addEventListener('click',save);
+      tools.append(cancel,save);
+    }
+    return tools;
   }
 
-  function status(text,error=false){
-    const el=document.querySelector('#ppeStatus');
+  function setStatus(text,error=false){
+    const el=document.querySelector('#ppeLiveStatus');
     if(!el)return;
     el.textContent=text||'';
     el.classList.toggle('error',!!error);
-  }
-
-  function close(){
-    if(saving)return;
-    document.querySelector('#publicPageEditor')?.classList.add('hidden');
-    document.body.style.overflow='';
   }
 
   async function verifyPassword(password){
@@ -66,56 +72,215 @@
       if(d?.error==='password')throw new Error('비밀번호가 올바르지 않습니다.');
       throw new Error(d?.error||'수정 권한 확인에 실패했습니다.');
     }
+  }
+
+  function cleanText(el){
+    return String(el?.innerText??el?.textContent??'').replace(/\u00a0/g,' ').replace(/\r/g,'').trim();
+  }
+
+  function encodeFlow(v){return String(v||'').replace(/\r/g,'').replace(/\n/g,'\\n').trim()}
+
+  function markEditable(el){
+    if(!el)return;
+    el.contentEditable='true';
+    el.spellcheck=true;
+    el.dataset.ppeEditable='1';
+  }
+
+  function prepareFlow(flow){
+    flow.querySelectorAll('.pd-flow-node,.pd-flow-solution,.pd-flow-goal,.pd-flow-note').forEach(markEditable);
+    flow.querySelectorAll('.pd-flow-problem').forEach(problem=>{
+      const note=problem.querySelector(':scope > .pd-flow-note');
+      if(!note){markEditable(problem);return}
+      let field=problem.querySelector(':scope > [data-ppe-flow-problem]');
+      if(!field){
+        field=document.createElement('span');
+        field.dataset.ppeFlowProblem='1';
+        [...problem.childNodes].filter(n=>n!==note).forEach(n=>field.appendChild(n));
+        problem.insertBefore(field,note);
+      }
+      markEditable(field);
+      markEditable(note);
+    });
+  }
+
+  function prepareLiveFields(){
+    const paper=document.querySelector('#paper');
+    if(!paper)return false;
+    const title=paper.querySelector('.pd-title');
+    let summary=paper.querySelector('.pd-summary');
+    const hero=paper.querySelector('.pd-hero');
+    if(!summary&&hero){
+      summary=document.createElement('p');
+      summary.className='pd-summary ppe-empty-summary';
+      hero.appendChild(summary);
+    }
+    markEditable(title);
+    markEditable(summary);
+
+    paper.querySelectorAll('.pd-body p,.pd-body h2,.pd-body h3,.pd-body h4,.pd-body blockquote,.pd-details summary').forEach(markEditable);
+    paper.querySelectorAll('.pd-body ul:not(.pd-checklist) > li,.pd-body ol > li').forEach(markEditable);
+    paper.querySelectorAll('.pd-body .pd-checklist > li').forEach(li=>markEditable(li.querySelector(':scope > span:last-child')||li));
+    paper.querySelectorAll('.pd-forum-flow').forEach(prepareFlow);
     return true;
   }
 
+  function inlineNode(node){
+    if(node.nodeType===Node.TEXT_NODE)return String(node.nodeValue||'').replace(/\u00a0/g,' ');
+    if(node.nodeType!==Node.ELEMENT_NODE)return '';
+    const el=node,tag=el.tagName;
+    if(tag==='BR')return '\n';
+    const inner=[...el.childNodes].map(inlineNode).join('');
+    if(tag==='STRONG'||tag==='B')return '**'+inner+'**';
+    if(tag==='EM'||tag==='I')return '*'+inner+'*';
+    return inner;
+  }
+
+  function inlineText(el){return [...(el?.childNodes||[])].map(inlineNode).join('').replace(/[ \t]+\n/g,'\n').trim()}
+
+  function serializeFlow(flow){
+    const top=[...flow.querySelectorAll('.pd-flow-top .pd-flow-node')].map(cleanText).filter(Boolean);
+    const tracks=[...flow.querySelectorAll('.pd-flow-track')];
+    const readTrack=track=>{
+      const problem=track?.querySelector('.pd-flow-problem');
+      const field=problem?.querySelector(':scope > [data-ppe-flow-problem]');
+      return {
+        problem:cleanText(field||problem),
+        note:cleanText(problem?.querySelector(':scope > .pd-flow-note')),
+        solution:cleanText(track?.querySelector('.pd-flow-solution'))
+      };
+    };
+    const left=readTrack(tracks[0]),right=readTrack(tracks[1]);
+    return [':::forum-flow',
+      `top: ${top.map(encodeFlow).join(' | ')}`,
+      `left_problem: ${encodeFlow(left.problem)}`,
+      `left_note: ${encodeFlow(left.note)}`,
+      `left_solution: ${encodeFlow(left.solution)}`,
+      `right_problem: ${encodeFlow(right.problem)}`,
+      `right_note: ${encodeFlow(right.note)}`,
+      `right_solution: ${encodeFlow(right.solution)}`,
+      `goal: ${encodeFlow(cleanText(flow.querySelector('.pd-flow-goal')))}`,
+      ':::'
+    ].join('\n');
+  }
+
+  function serializeList(el){
+    const ordered=el.tagName==='OL';
+    const checklist=el.classList.contains('pd-checklist');
+    return [...el.children].filter(x=>x.tagName==='LI').map((li,i)=>{
+      if(checklist){
+        const done=li.classList.contains('pd-check-done');
+        const textEl=li.querySelector(':scope > span:last-child')||li;
+        return `- [${done?'x':' '}] ${inlineText(textEl)}`;
+      }
+      return `${ordered?(i+1)+'.':'-'} ${inlineText(li)}`;
+    }).join('\n');
+  }
+
+  function serializeChildren(parent,inSection=false){
+    const out=[];
+    [...parent.children].forEach(el=>{
+      const value=serializeBlock(el,inSection);
+      if(value&&value.trim())out.push(value.trim());
+    });
+    return out.join('\n\n');
+  }
+
+  function serializeBlock(el,inSection=false){
+    if(!el)return '';
+    if(el.classList.contains('pd-forum-flow'))return serializeFlow(el);
+    if(el.classList.contains('pd-section')){
+      const children=[...el.children],parts=[];
+      children.forEach((child,i)=>{
+        if(i===0&&child.tagName==='H2')parts.push('## '+inlineText(child));
+        else{const v=serializeBlock(child,true);if(v)parts.push(v)}
+      });
+      return parts.join('\n\n');
+    }
+    if(el.tagName==='DETAILS'){
+      const summary=inlineText(el.querySelector(':scope > summary'));
+      const body=el.querySelector(':scope > .pd-details-body');
+      return `:::details ${summary}\n${body?serializeChildren(body,inSection):''}\n:::`;
+    }
+    if(el.tagName==='H2')return `${inSection?'##':'#'} ${inlineText(el)}`;
+    if(el.tagName==='H3')return `### ${inlineText(el)}`;
+    if(el.tagName==='H4')return `#### ${inlineText(el)}`;
+    if(el.tagName==='P')return inlineText(el);
+    if(el.tagName==='UL'||el.tagName==='OL')return serializeList(el);
+    if(el.tagName==='BLOCKQUOTE')return '> '+inlineText(el).replace(/\n/g,'\n> ');
+    return serializeChildren(el,inSection);
+  }
+
+  function collectLivePage(){
+    const paper=document.querySelector('#paper');
+    const title=cleanText(paper?.querySelector('.pd-title'));
+    const summary=cleanText(paper?.querySelector('.pd-summary'));
+    const bodyEl=paper?.querySelector('.pd-body');
+    const body=bodyEl?serializeChildren(bodyEl,false):'';
+    return {title,summary,body};
+  }
+
+  function setEditingUi(on){
+    editing=on;
+    document.body.classList.toggle('ppe-editing',on);
+    const edit=btn(),print=document.querySelector('#printPageBtn');
+    const saveBtn=document.querySelector('#ppeLiveSave'),cancel=document.querySelector('#ppeLiveCancel'),status=document.querySelector('#ppeLiveStatus');
+    edit?.classList.toggle('hidden',on||secureMode||!current?.id);
+    print?.classList.toggle('hidden',on);
+    [saveBtn,cancel,status].forEach(x=>x?.classList.toggle('hidden',!on));
+    if(on)setStatus('수정 중 · 바꾸고 싶은 문구를 화면에서 직접 클릭');
+  }
+
   async function open(){
-    if(secureMode||!current?.id)return;
+    if(secureMode||!current?.id||editing)return;
     const pw=prompt('마스터 비밀번호를 입력하세요.');
     if(pw===null)return;
     try{
       await verifyPassword(pw.trim());
       editPassword=pw.trim();
-      const root=ensureModal();
-      root.querySelector('#ppePageTitle').value=current.title||'';
-      root.querySelector('#ppePageSummary').value=current.summary||'';
-      root.querySelector('#ppePageBody').value=current.body||'';
-      status('');
-      root.classList.remove('hidden');
-      document.body.style.overflow='hidden';
-      root.querySelector('#ppePageTitle')?.focus();
+      ensureTools();
+      setEditingUi(true);
+      if(!prepareLiveFields())throw new Error('편집할 내용을 찾지 못했습니다.');
+      document.querySelector('#paper .pd-title')?.focus();
     }catch(e){
       editPassword='';
-      alert(e?.message||'수정 화면을 열지 못했습니다.');
+      setEditingUi(false);
+      alert(e?.message||'수정 모드를 열지 못했습니다.');
     }
   }
 
+  function cancelEdit(){
+    if(saving||!editing)return;
+    editPassword='';
+    editing=false;
+    document.body.classList.remove('ppe-editing');
+    if(typeof window.KPTURenderPublicPage==='function')window.KPTURenderPublicPage(current,false);
+    setEditingUi(false);
+  }
+
   async function save(){
-    if(saving||!current?.id||!editPassword)return;
-    const title=document.querySelector('#ppePageTitle')?.value.trim()||'';
-    if(!title){status('제목을 입력해 주세요.',true);return}
-    const summary=document.querySelector('#ppePageSummary')?.value.trim()||'';
-    const body=document.querySelector('#ppePageBody')?.value||'';
-    const saveBtn=document.querySelector('#ppeSave');
+    if(saving||!editing||!current?.id||!editPassword)return;
+    const next=collectLivePage();
+    if(!next.title){setStatus('제목은 비워둘 수 없습니다.',true);return}
+    const saveBtn=document.querySelector('#ppeLiveSave');
     saving=true;
     if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='저장 중…'}
-    status('저장 중…');
+    setStatus('저장 중…');
     try{
-      const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update',id:current.id,password:editPassword,title,summary,body})});
+      const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update',id:current.id,password:editPassword,...next})});
       let d=null;try{d=await r.json()}catch{}
       if(!r.ok||!d?.page){
         if(d?.error==='password')throw new Error('비밀번호가 올바르지 않습니다.');
         throw new Error(d?.error||'저장에 실패했습니다.');
       }
       current={...current,...d.page};
-      status('저장 완료');
-      document.querySelector('#publicPageEditor')?.classList.add('hidden');
-      document.body.style.overflow='';
       editPassword='';
+      editing=false;
+      document.body.classList.remove('ppe-editing');
       if(typeof window.KPTURenderPublicPage==='function')window.KPTURenderPublicPage(current,false);
-      else location.reload();
+      setEditingUi(false);
     }catch(e){
-      status(e?.message||'저장에 실패했습니다.',true);
+      setStatus(e?.message||'저장에 실패했습니다.',true);
     }finally{
       saving=false;
       if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='저장'}
@@ -125,15 +290,22 @@
   function setPage(page,secure=false){
     current=page||null;
     secureMode=!!secure;
-    editPassword='';
+    if(!editing)editPassword='';
+    ensureTools();
     const b=btn();
     if(!b)return;
     b.onclick=null;
     if(secureMode||!current?.id){b.classList.add('hidden');return}
-    b.classList.remove('hidden');
+    if(!editing)b.classList.remove('hidden');
     b.onclick=e=>{e.preventDefault();open()};
   }
 
+  document.addEventListener('keydown',e=>{
+    if(!editing)return;
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save();return}
+    if(e.key==='Escape'){e.preventDefault();cancelEdit()}
+  });
+
   ensureStyle();
-  window.KPTUPublicPageEditor={setPage,open,close};
+  window.KPTUPublicPageEditor={setPage,open,cancel:cancelEdit,save};
 })();
