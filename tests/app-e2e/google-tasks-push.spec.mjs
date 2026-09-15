@@ -29,6 +29,7 @@ async function login(page){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
 }
 
 test('Google Tasks is separate and push settings render',async({page})=>{
