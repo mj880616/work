@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><title>suborganization canonical fixture</title><style>.hidden{display:none}</style></head><body>
+<section id="teamView"></section>
+<div id="eventModal" class="modal hidden"><div class="modal-card"><label>설명<textarea id="eventDescription"></textarea></label><button id="saveEventBtn" type="button">저장</button></div></div>
+<div id="toast" class="hidden"></div>
+<script>
+const orgs=[
+ {id:'org-rail',workspace_id:'ws-1',name:'전국철도노동조합',aliases:['철도노조'],description:'철도',organization_type:'철도·도시철도',default_assignee_name:'김명진',created_by:'user-me',active:true},
+ {id:'org-consumer',workspace_id:'ws-1',name:'한국소비자원지부',aliases:['소비자원'],description:'소비자 정책',organization_type:'중앙공공기관',default_assignee_name:'한소영',created_by:'user-me',active:true}
+];
+let assignments=[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
+window.__patches=[];
+window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
+ if(path==='/auth/v1/user')return {id:'user-me',user_metadata:{display_name:'김명진'}};
+ if(path.startsWith('/rest/v1/app_workspace_members?user_id='))return [{workspace_id:'ws-1',role:'owner'}];
+ if(path.startsWith('/rest/v1/app_workspace_members?workspace_id='))return [{user_id:'user-me',role:'owner'},{user_id:'user-other',role:'editor'}];
+ if(path==='/rest/v1/app_profiles?select=user_id,display_name')return [{user_id:'user-me',display_name:'김명진'},{user_id:'user-other',display_name:'한소영'}];
+ if(path.startsWith('/rest/v1/app_suborganizations?workspace_id=eq.ws-1&active=eq.true'))return orgs;
+ if(path==='/rest/v1/app_suborganization_assignees?select=organization_id,user_id,assigned_by,created_at')return assignments;
+ if(path.startsWith('/rest/v1/app_suborganizations?id=eq.')&&opt.method==='PATCH'){
+   const id=decodeURIComponent(path.match(/id=eq\.([^&]+)/)?.[1]||'');
+   const row=orgs.find(x=>x.id===id);if(row)Object.assign(row,opt.body||{});window.__patches.push({path,body:opt.body});return null;
+ }
+ if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&opt.method==='DELETE'){assignments=assignments.filter(x=>!path.includes(x.organization_id));return null}
+ if(path==='/rest/v1/app_suborganization_assignees'&&opt.method==='POST'){assignments.push(...(Array.isArray(opt.body)?opt.body:[opt.body]));return null}
+ if(path.startsWith('/rest/v1/app_event_suborganizations'))return [];
+ return [];
+}};
+</script>
+<script src="/app/suborganizations.js"></script>
+</body></html>

@@ -24,7 +24,6 @@
     return;
   }
 
-  // Authenticated top bar has one owner and paints its final state before the app is revealed.
   await import('./topbar-actions.js?v=1');
   await import('./team.js?v=12');
   await window.__KPTU_TEAM_READY__;
@@ -35,7 +34,6 @@
     window.KPTUCapabilities.setContext({user,membership:memberships?.[0]||null});
   }catch(e){console.warn('capability context skipped',e)}
 
-  // Project System V3 owns project list/detail. Legacy project UI add-ons are not loaded.
   await import('./project-system-v3.js?v=1');
 
   await Promise.all([
@@ -44,7 +42,6 @@
     import('./calendar-move.js?v=1'),
     import('./team-member-overview-bootstrap.js?v=2'),
     import('./profile-workplace-edit-mode.js?v=1'),
-    import('./suborganization-filters.js?v=2'),
     import('./meeting-assignee-picker.js?v=2'),
     import('./due-date-calendar.js?v=1')
   ]);
@@ -96,11 +93,15 @@
   await import('./calendar-defaults.js?v=1');
   await import('./calendar-interactions-v2.js?v=2');
   await import('./calendar-mobile-ui.js?v=2');
-  await import('./suborganizations.js?v=1');
-  await import('./suborganization-planned-assignee.js?v=1');
-  await import('./profile-workplace-sync.js?v=1');
+
+  await import('./suborganizations.js?v=2');
+  await window.__KPTU_SUBORGANIZATIONS_READY__;
+  await import('./suborganization-filters.js?v=3');
+  await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
+  await import('./profile-workplace-sync.js?v=2');
   await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=1');
+
   await import('./google-tasks.js?v=3');
   await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
