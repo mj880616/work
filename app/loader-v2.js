@@ -25,7 +25,7 @@
   }
 
   await import('./topbar-actions.js?v=1');
-  await import('./team.js?v=12');
+  await import('./team.js?v=13');
   await window.__KPTU_TEAM_READY__;
 
   try{
@@ -38,7 +38,8 @@
 
   await import('./team-member-overview.js?v=2');
   await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__;
-  await import('./team-member-management.js?v=1');
+  await import('./team-member-management.js?v=2');
+  await window.__KPTU_TEAM_MEMBER_MANAGEMENT_READY__;
 
   await Promise.all([
     import('./forum-flow-polish.js?v=2'),
@@ -50,6 +51,7 @@
   ]);
 
   await import('./access-approval.js?v=4');
+  window.KPTUTeamMemberManagement?.limitApprovalRoles();
   await import('./home-dashboard-v2.js?v=3');
   await import('./member-default-role.js?v=3');
   await import('./myspace-return.js?v=2');
@@ -103,7 +105,8 @@
   await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
   await import('./profile-workplace-sync.js?v=2');
   await import('./profile-workplace-legacy.js?v=1');
-  await import('./team-profile-view.js?v=1');
+  await import('./team-profile-view.js?v=2');
+  await window.__KPTU_TEAM_PROFILE_READY__;
 
   await import('./google-tasks.js?v=3');
   await import('./push-notifications-ui.js?v=2');
