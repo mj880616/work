@@ -61,6 +61,7 @@ jobs:
             app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
             app/team.js app/topbar-actions.js app/topbar-actions.css \
             app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
+            app/profile-settings.js app/profile-settings.css app/collaboration-center.js app/collaboration-center.css app/notification-center-ui.js app/notification-center-ui.css \
             app/task-workflow.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-assignee-picker.js app/page-builder.js \
             app/project-system-v3.js app/project-system-v3.css \
             app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/photo-room.js \
@@ -86,9 +87,18 @@ jobs:
           grep -q "task-layout.js?v=6" app/loader-v2.js
           grep -q "google-tasks.js?v=3" app/loader-v2.js
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
+          grep -q "profile-settings.js?v=4" app/loader-v2.js
+          grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
+          grep -q "collaboration-center.js?v=6" app/loader-v2.js
+          grep -q "__KPTU_COLLABORATION_READY__" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=6" app/loader-v2.js
+          grep -q "__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js
           grep -q "topbar-actions.css?v=1" app/styles.css
+          grep -q "profile-settings.css?v=1" app/styles.css
+          grep -q "collaboration-center.css?v=1" app/styles.css
+          grep -q "notification-center-ui.css?v=1" app/styles.css
           grep -q "task-layout.css?v=1" app/styles.css
           grep -q "google-tasks.css?v=1" app/styles.css
           grep -q "project-system-v3.css?v=1" app/styles.css
@@ -124,11 +134,11 @@ jobs:
           if grep -q "createElement('link')" app/team.js; then
             echo 'team css must stay in the static stylesheet graph'; exit 1
           fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-task-controls.js app/home-dashboard-v2.js app/photo-room.js; then
+          if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-task-controls.js app/home-dashboard-v2.js app/photo-room.js app/collaboration-center.js app/notification-center-ui.js; then
             echo 'core UI module returned to late dynamic style injection'; exit 1
           fi
-          if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js; then
-            echo 'photo room bypassed shared runtime session handling'; exit 1
+          if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js app/collaboration-center.js app/notification-center-ui.js; then
+            echo 'core UI module bypassed shared runtime session handling'; exit 1
           fi
           if grep -q "location.reload" app/photo-room.js; then
             echo 'photo upload returned to full-page reload'; exit 1
@@ -145,8 +155,14 @@ jobs:
           member_ready=text.index('await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__',member)
           task=text.index("import('./task-layout.js?v=6')",member_ready)
           task_ready=text.index('await window.__KPTU_TASK_LAYOUT_READY__',task)
-          app_ready=text.index('window.__KPTU_MARK_APP_UI_READY__?.()',task_ready)
-          if not auth < guest < topbar < team < member < member_ready < task < task_ready < app_ready:
+          profile=text.index("import('./profile-settings.js?v=4')",task_ready)
+          profile_ready=text.index('await window.__KPTU_PROFILE_SETTINGS_READY__',profile)
+          collab=text.index("import('./collaboration-center.js?v=6')",profile_ready)
+          collab_ready=text.index('await window.__KPTU_COLLABORATION_READY__',collab)
+          notif=text.index("import('./notification-center-ui.js?v=6')",collab_ready)
+          notif_ready=text.index('await window.__KPTU_NOTIFICATION_CENTER_READY__',notif)
+          app_ready=text.index('window.__KPTU_MARK_APP_UI_READY__?.()',notif_ready)
+          if not auth < guest < topbar < team < member < member_ready < task < task_ready < profile < profile_ready < collab < collab_ready < notif < notif_ready < app_ready:
               raise SystemExit('authenticated readiness ordering is invalid')
           login=Path('app/login/index.html').read_text(encoding='utf-8')
           if 'id="appView"' in login:
@@ -208,6 +224,20 @@ jobs:
           if grep -Eq "localStorage|TPV_SESSION|kptu_collab_session_v1" app/team-member-overview.js app/team-profile-view.js app/team-member-management.js; then echo 'team member modules bypassed shared runtime session'; exit 1; fi
           if grep -q "tpvBody.*prepend\|insertAdjacentElement.*tpvBody" app/team-member-management.js; then echo 'member management returned to post-render body injection'; exit 1; fi
 
+      - name: Check collaboration ownership invariants
+        run: |
+          set -e
+          grep -q "window.__KPTU_COLLABORATION_READY__" app/collaboration-center.js
+          grep -q "window.__KPTU_NOTIFICATION_CENTER_READY__" app/notification-center-ui.js
+          grep -q "id=\"psLogout\"" app/profile-settings.js
+          grep -q "collaboration-center.css?v=1" app/styles.css
+          grep -q "notification-center-ui.css?v=1" app/styles.css
+          if grep -Eq "app_notifications|ccNotifTop|myTaskMini|statUnread" app/collaboration-center.js; then echo 'collaboration center is touching notification or home-task UI'; exit 1; fi
+          if grep -Eq "ps-profile-grid|ncuLogout|logoutBtn|installLogout" app/notification-center-ui.js; then echo 'notification center is touching profile account UI'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/collaboration-center.js app/notification-center-ui.js; then echo 'collaboration styles returned to runtime injection'; exit 1; fi
+          if grep -q "MutationObserver" app/collaboration-center.js app/notification-center-ui.js; then echo 'collaboration UI returned to DOM mutation correction'; exit 1; fi
+          if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification center polling returned'; exit 1; fi
+
       - name: Check retained non-project feature invariants
         run: |
           set -e
@@ -215,14 +245,12 @@ jobs:
           grep -q "page-builder.js?v=1" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=2" app/loader-v2.js
           grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
-          grep -q "collaboration-center.js?v=5" app/loader-v2.js
-          grep -q "notification-center-ui.js?v=5" app/loader-v2.js
+          grep -q "collaboration-center.js?v=6" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=6" app/loader-v2.js
           grep -q "PB_TEMPLATES" app/page-builder.js
           grep -q "page_design" app/page-builder.js
           grep -q "완료된 할 일" app/task-layout.js
           grep -q "바로가기" app/page-shortcut.js
-          if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification center global observer returned'; exit 1; fi
-          if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification center polling returned'; exit 1; fi
           if grep -q "task-title-ui.js\|project-create-submit.js\|task-personal-due.js" app/loader-v2.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
       - name: Static HTTP smoke test
@@ -233,7 +261,8 @@ jobs:
           sleep 1
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js app/public-workspace.js app/page-builder.js \
-            app/topbar-actions.js app/topbar-actions.css app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
+            app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css app/collaboration-center.js app/collaboration-center.css app/notification-center-ui.js app/notification-center-ui.css \
+            app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/styles.css app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
