@@ -39,6 +39,7 @@ test('completed open state is retained without a mutation observer',async({page}
 
 test('new manual task is saved by the canonical task renderer',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.locator('#taskModal').evaluate(el=>{el.classList.remove('hidden');el.setAttribute('aria-hidden','false')});
   await page.locator('#taskTitle').fill('새 할 일');
   await page.locator('#taskProject').selectOption('space-1');
   await page.locator('#saveTaskBtn').click();
