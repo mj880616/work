@@ -27,16 +27,17 @@
 </style>
 </head>
 <body>
-<div class="print-tools" aria-label="문서 도구"><a id="editPageBtn" class="print-btn hidden" href="/work/app/?view=pages">수정</a><button id="printPageBtn" class="print-btn" type="button">인쇄 / PDF</button></div>
+<div class="print-tools" aria-label="문서 도구"><button id="editPageBtn" class="print-btn hidden" type="button">수정</button><button id="printPageBtn" class="print-btn" type="button">인쇄 / PDF</button></div>
 <main class="wrap"><article id="paper" class="paper"><div class="error">불러오는 중…</div></article></main>
+<script src="../../app/runtime-client.js?v=1"></script>
 <script src="../../app/page-design-core.js?v=3"></script>
 <script src="../../app/forum-flow-polish.js?v=2"></script>
+<script src="../../app/public-page-editor.js?v=1"></script>
 <script>
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const LABEL={article:'ARTICLE · 현장 공유',notice:'NOTICE · 알림',status:'STATUS UPDATE · 업무현황',event:'EVENT · 행사 안내',brief:'POLICY BRIEF · 정책 브리핑'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const setMeta=(selector,value)=>{const el=document.querySelector(selector);if(el&&value)el.setAttribute('content',String(value))};
-const setEditLink=(p,secure=false)=>{const btn=document.querySelector('#editPageBtn');if(!btn)return;if(!secure&&p?.id){btn.href='/work/app/?view=pages&page='+encodeURIComponent(p.id);btn.classList.remove('hidden')}else{btn.classList.add('hidden');btn.removeAttribute('href')}};
 let printDetailState=[];
 function expandForPrint(){printDetailState=[...document.querySelectorAll('#paper details')].map(el=>({el,open:el.open}));printDetailState.forEach(x=>x.el.open=true)}
 function restoreAfterPrint(){printDetailState.forEach(x=>x.el.open=x.open);printDetailState=[]}
@@ -46,7 +47,7 @@ window.addEventListener('afterprint',restoreAfterPrint);
 document.querySelector('#printPageBtn')?.addEventListener('click',printPage);
 function render(p,secure=false){
   document.title=p.title+' · 업무 현황';
-  setEditLink(p,secure);
+  window.KPTUPublicPageEditor?.setPage(p,secure);
   if(!secure){
     setMeta('meta[name="description"]',p.summary||p.title);
     setMeta('meta[property="og:title"]',p.title);
@@ -59,6 +60,7 @@ function render(p,secure=false){
   paper.className='paper template-'+template+' '+(pd?.classNames(pageDesign,template)||'pd-design');
   paper.innerHTML=`<header class="pd-hero"><div class="pd-kicker">${secure?'제한 공유 문서':LABEL[template]||LABEL.article}</div><h1 class="pd-title">${esc(p.title)}</h1>${p.summary?`<p class="pd-summary">${esc(p.summary)}</p>`:''}</header><div class="pd-body">${pd?.renderMarkdown(p.body||'')||esc(p.body||'')}</div><div class="meta">최근 수정 ${new Date(p.updated_at).toLocaleString('ko-KR')}</div>`;
 }
+window.KPTURenderPublicPage=render;
 async function run(){
   const hash=new URLSearchParams(location.hash.replace(/^#/,'')),token=hash.get('t');
   if(token){
