@@ -70,16 +70,17 @@
     import('./home-task-controls.js?v=3'),
     import('./workplace-detail.js?v=3'),
     import('./library-upload.js?v=3'),
-    import('./library-public-toggle.js?v=1'),
-    import('./page-builder.js?v=1&designer=2')
+    import('./library-public-toggle.js?v=1')
   ]);
 
   await window.__KPTU_PHOTO_ROOM_READY__;
 
   await import('./page-list-controller.js?v=1');
   await window.__KPTU_PAGE_LIST_READY__;
-  await import('./page-save-controller.js?v=1');
+  await import('./page-save-controller.js?v=2');
   await window.__KPTU_PAGE_SAVE_READY__;
+  await import('./page-builder.js?v=2');
+  await window.__KPTU_PAGE_BUILDER_READY__;
   await import('./page-shortcut.js?v=2');
   await window.__KPTU_PAGE_SHORTCUT_READY__;
   await import('./page-management.js?v=2');
