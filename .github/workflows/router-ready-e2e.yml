@@ -7,6 +7,7 @@ on:
       - 'app/app-router.js'
       - 'app/app.js'
       - 'app/loader-v2.js'
+      - 'app/index.html'
       - 'tests/app-e2e/app-initial-paint.spec.mjs'
       - '.github/workflows/router-ready-e2e.yml'
 
@@ -19,6 +20,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Check explicit router readiness contract
+        run: |
+          set -e
+          node --check app/app-router.js
+          grep -q "app-router.js?v=3" app/loader-v2.js
+          grep -q "loader-v2.js?v=137" app/app.js
+          grep -q 'app.js?v=28' app/index.html
+          grep -q "kptu:app-ui-ready" app/app-router.js
+          grep -q "kptu:session-changed" app/app-router.js
+          grep -q "popstate" app/app-router.js
+          if grep -q "MutationObserver" app/app-router.js; then
+            echo 'router returned to DOM visibility observation'; exit 1
+          fi
+          if grep -q "setTimeout" app/app-router.js; then
+            echo 'router returned to delayed route restoration'; exit 1
+          fi
       - name: Install Playwright
         run: |
           npm install --no-save @playwright/test@1.55.0
