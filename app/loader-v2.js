@@ -56,13 +56,15 @@
   await import('./meeting-file-route.js?v=1');
   await import('./page-design-core.js?v=3');
 
+  await import('./task-workflow.js?v=5');
+  await import('./task-layout.js?v=6');
+  await window.__KPTU_TASK_LAYOUT_READY__;
+
   await Promise.all([
     import('./photo-room.js?v=2'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=3'),
     import('./calendar-persistence.js?v=8'),
-    import('./task-workflow.js?v=4'),
-    import('./task-layout.js?v=5'),
     import('./home-task-controls.js?v=3'),
     import('./profile-settings.js?v=2&wd=2'),
     import('./workplace-detail.js?v=2'),
@@ -99,8 +101,7 @@
   await import('./profile-workplace-sync.js?v=1');
   await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=1');
-  await import('./task-status-state.js?v=1');
-  await import('./google-tasks.js?v=2');
+  await import('./google-tasks.js?v=3');
   await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
   await import('./mobile-modal-history.js?v=1');

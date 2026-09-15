@@ -59,7 +59,7 @@ jobs:
           for f in \
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
             app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
-            app/team.js app/topbar-actions.js app/topbar-actions.css app/task-workflow.js app/meeting-assignee-picker.js app/page-builder.js \
+            app/team.js app/topbar-actions.js app/topbar-actions.css app/task-workflow.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-assignee-picker.js app/page-builder.js \
             app/project-system-v3.js app/project-system-v3.css \
             app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/photo-room.js \
             app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/index.html; do
@@ -80,10 +80,15 @@ jobs:
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
           grep -q "team.js?v=12" app/loader-v2.js
           grep -q "project-system-v3.js?v=1" app/loader-v2.js
-          grep -q "task-workflow.js?v=4" app/loader-v2.js
+          grep -q "task-workflow.js?v=5" app/loader-v2.js
+          grep -q "task-layout.js?v=6" app/loader-v2.js
+          grep -q "google-tasks.js?v=3" app/loader-v2.js
+          grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
           grep -q "topbar-actions.css?v=1" app/styles.css
+          grep -q "task-layout.css?v=1" app/styles.css
+          grep -q "google-tasks.css?v=1" app/styles.css
           grep -q "project-system-v3.css?v=1" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
@@ -105,8 +110,8 @@ jobs:
           if grep -q "team.js" app/app.js; then
             echo 'authenticated workspace modules bypass the session boundary'; exit 1
           fi
-          if grep -q "task-child-project-guard.js" app/loader-v2.js; then
-            echo 'task project options returned to a post-render correction module'; exit 1
+          if grep -q "task-child-project-guard.js\|task-status-state.js" app/loader-v2.js; then
+            echo 'task screen returned to a post-render correction module'; exit 1
           fi
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js; then
             echo 'loader/topbar must use explicit readiness contracts'; exit 1
@@ -134,8 +139,10 @@ jobs:
           guest=text.index("import('./public-workspace.js",auth)
           topbar=text.index("import('./topbar-actions.js",auth)
           team=text.index("import('./team.js?v=12')",auth)
-          app_ready=text.index('window.__KPTU_MARK_APP_UI_READY__?.()',team)
-          if not auth < guest < topbar < team < app_ready:
+          task=text.index("import('./task-layout.js?v=6')",team)
+          task_ready=text.index('await window.__KPTU_TASK_LAYOUT_READY__',task)
+          app_ready=text.index('window.__KPTU_MARK_APP_UI_READY__?.()',task_ready)
+          if not auth < guest < topbar < team < task < task_ready < app_ready:
               raise SystemExit('authenticated readiness ordering is invalid')
           login=Path('app/login/index.html').read_text(encoding='utf-8')
           if 'id="appView"' in login:
@@ -171,11 +178,32 @@ jobs:
             echo 'project V3 styles must remain in static CSS'; exit 1
           fi
 
+      - name: Check task single-render invariants
+        run: |
+          set -e
+          grep -q "const r=\$('#taskList')" app/task-layout.js
+          grep -q "r.innerHTML=group('mine'" app/task-layout.js
+          grep -q "btn.onclick=saveTask" app/task-layout.js
+          grep -q "window.__KPTU_TASK_LAYOUT_READY__" app/task-layout.js
+          grep -q "taskList.insertAdjacentElement('afterend',sec)" app/google-tasks.js
+          if grep -q "tlTaskSections\|original.style.display\|insertAdjacentElement('afterend'" app/task-layout.js; then
+            echo 'task screen returned to a sibling overlay renderer'; exit 1
+          fi
+          if grep -q "tlTaskSections\|MutationObserver\|createElement('style')\|createElement(\"style\")" app/google-tasks.js; then
+            echo 'Google Tasks returned to a post-render task correction pattern'; exit 1
+          fi
+          if grep -q "MutationObserver" app/task-layout.js; then
+            echo 'task layout returned to DOM mutation polling'; exit 1
+          fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/task-layout.js; then
+            echo 'task layout styles must remain in static CSS'; exit 1
+          fi
+          test ! -f app/task-status-state.js
+
       - name: Check retained non-project feature invariants
         run: |
           set -e
-          grep -q "task-layout.js?v=5" app/loader-v2.js
-          grep -q "task-workflow.js?v=4" app/loader-v2.js
+          grep -q "task-workflow.js?v=5" app/loader-v2.js
           grep -q "page-builder.js?v=1" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=2" app/loader-v2.js
           grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
@@ -198,7 +226,7 @@ jobs:
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js \
             app/capabilities.js app/public-workspace.js app/page-builder.js app/topbar-actions.js app/topbar-actions.css \
-            app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
+            app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/styles.css app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done
