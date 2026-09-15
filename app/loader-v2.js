@@ -25,7 +25,7 @@
   }
 
   await import('./topbar-actions.js?v=1');
-  await import('./team.js?v=15');
+  await import('./team.js?v=16');
   await window.__KPTU_TEAM_READY__;
 
   try{
@@ -67,7 +67,6 @@
     import('./photo-room.js?v=2'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=3'),
-    import('./calendar-persistence.js?v=8'),
     import('./home-task-controls.js?v=3'),
     import('./workplace-detail.js?v=3'),
     import('./library-upload.js?v=3'),
@@ -98,10 +97,16 @@
   await import('./notification-center-ui.js?v=6');
   await window.__KPTU_NOTIFICATION_CENTER_READY__;
 
-  await import('./calendar-plus.js?v=4');
-  await import('./calendar-defaults.js?v=1');
-  await import('./calendar-interactions-v2.js?v=2');
-  await import('./calendar-mobile-ui.js?v=2');
+  await import('./calendar-plus.js?v=5');
+  await window.__KPTU_CALENDAR_PLUS_READY__;
+  await import('./calendar-persistence.js?v=9');
+  await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
+  await import('./calendar-interactions-v2.js?v=3');
+  await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
+  await import('./calendar-mobile-ui.js?v=3');
+  await window.__KPTU_CALENDAR_MOBILE_UI_READY__;
+  await import('./calendar-day-overflow.js?v=2');
+  await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__;
 
   await import('./suborganizations.js?v=2');
   await window.__KPTU_SUBORGANIZATIONS_READY__;
@@ -112,7 +117,6 @@
 
   await import('./google-tasks.js?v=3');
   await import('./push-notifications-ui.js?v=2');
-  await import('./calendar-day-overflow.js?v=1');
   await import('./mobile-modal-history.js?v=1');
   await import('./mobile-swipe-navigation.js?v=3');
 
