@@ -1,0 +1,5 @@
+collaboration-center: messages view + direct-message unread badge only
+notification-center-ui: notifications view + notification unread badge only
+topbar-actions: top notification button only
+profile-settings: profile/account/logout area only
+home-task-controls: home task list only
