@@ -1,0 +1,13 @@
+name: Collaboration contract doc check
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/app-e2e/collaboration-ownership-contract.txt'
+      - '.github/workflows/collaboration-contract-doc-check.yml'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: test -s tests/app-e2e/collaboration-ownership-contract.txt
