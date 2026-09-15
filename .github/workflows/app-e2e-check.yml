@@ -55,6 +55,7 @@ jobs:
           tests/app-e2e/calendar-move.spec.mjs
           tests/app-e2e/profile-workplaces.spec.mjs
           tests/app-e2e/page-builder.spec.mjs
+          tests/app-e2e/page-core-structure.spec.mjs
           tests/app-e2e/project-system-v3.spec.mjs
           tests/app-e2e/project-v3-structure.spec.mjs
           tests/app-e2e/mobile-ux-shell.spec.mjs
