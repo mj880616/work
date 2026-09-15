@@ -97,6 +97,7 @@
   await import('./suborganizations.js?v=2');
   await window.__KPTU_SUBORGANIZATIONS_READY__;
   await import('./suborganization-filters.js?v=3');
+  await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
   await import('./profile-workplace-sync.js?v=2');
   await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=1');
