@@ -56,7 +56,7 @@
   await import('./meeting-file-route.js?v=1');
   await import('./page-design-core.js?v=3');
 
-  await import('./task-workflow.js?v=4');
+  await import('./task-workflow.js?v=5');
   await import('./task-layout.js?v=6');
   await window.__KPTU_TASK_LAYOUT_READY__;
 
@@ -101,7 +101,7 @@
   await import('./profile-workplace-sync.js?v=1');
   await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=1');
-  await import('./google-tasks.js?v=2');
+  await import('./google-tasks.js?v=3');
   await import('./push-notifications-ui.js?v=2');
   await import('./calendar-day-overflow.js?v=1');
   await import('./mobile-modal-history.js?v=1');
