@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const url='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-fixture.html';
+const canonical='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-canonical-fixture.html';
 
 async function open(page,suffix=''){await page.goto(url+suffix);await expect(page.locator('#sofToolbar')).toBeVisible();await expect(page.locator('#sofCount')).toHaveText('3 / 3개 조직')}
 const visibleNames=page=>page.locator('.so-card:not(.sof-hidden) h4').allTextContents();
@@ -39,8 +40,21 @@ test('내 담당·미지정·30일 미업데이트 필터가 동작한다',async
  expect(await visibleNames(page)).toEqual(['미지정조직미분류','한국소비자원지부중앙공공기관']);
 });
 
-test('조직유형을 조직 수정 화면에서 저장할 수 있다',async({page})=>{
- await open(page);
+test('원 렌더러가 예정담당자와 실제담당자를 처음부터 구분해 표시한다',async({page})=>{
+ await page.goto(canonical);
+ await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
+ const rail=page.locator('[data-so-org="org-rail"]');
+ await expect(rail).toContainText('김명진');
+ await expect(rail).toContainText('계정 연결 전');
+ const consumer=page.locator('[data-so-org="org-consumer"]');
+ await expect(consumer).toContainText('한소영');
+ await expect(consumer).not.toContainText('계정 연결 전');
+ await expect(page.locator('#soStyle')).toHaveCount(0);
+});
+
+test('조직유형은 원 산하조직 편집 화면에서 직접 저장된다',async({page})=>{
+ await page.goto(canonical);
+ await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
  await page.locator('[data-so-edit="org-rail"]').click();
  await expect(page.locator('#sofEditType')).toHaveValue('철도·도시철도');
  await page.locator('#sofEditType').fill('철도산업');
