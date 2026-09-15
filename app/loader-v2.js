@@ -99,7 +99,8 @@
   await import('./profile-workplace-sync.js?v=1');
   await import('./profile-workplace-legacy.js?v=1');
   await import('./team-profile-view.js?v=1');
-  await import('./task-child-project-guard.js?v=1');
+  await import('./task-child-project-guard.js?v=2');
+  await window.__KPTU_TASK_CHILD_GUARD_READY__;
   await import('./task-status-state.js?v=1');
   await import('./google-tasks.js?v=2');
   await import('./push-notifications-ui.js?v=2');
