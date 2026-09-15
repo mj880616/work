@@ -20,6 +20,7 @@ test('home dashboard restores project, milestone and recent progress cards',asyn
 
   await page.locator('#hdvProjects [data-hdv-project="project-1"]').click();
   await expect.poll(()=>page.evaluate(()=>window.__routeCalls.at(-1)?.view)).toBe('projects');
+  await expect.poll(()=>page.evaluate(()=>window.__projectClicks.at(-1))).toBe('project-1');
 });
 
 test('home dashboard stacks cards on mobile without horizontal overflow',async({page})=>{
