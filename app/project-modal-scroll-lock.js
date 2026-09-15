@@ -94,16 +94,17 @@
 
       @media(max-width:760px){
         ${MODAL_SELECTOR}{
-          padding:max(8px,env(safe-area-inset-top)) 0 max(12px,env(safe-area-inset-bottom))!important;
+          padding:max(8px,env(safe-area-inset-top)) 0 calc(var(--kptu-mobile-dock,72px) + 12px)!important;
+          scroll-padding-bottom:calc(var(--kptu-mobile-dock,72px) + 12px)!important;
         }
         ${MODAL_SELECTOR} .modal-card{
           width:100%!important;
           max-height:none!important;
           min-height:0!important;
           border-radius:18px 18px 0 0!important;
-          padding-bottom:calc(22px + env(safe-area-inset-bottom))!important;
+          padding-bottom:28px!important;
         }
-        #pm2DetailModal .pm2-detail-card{min-height:calc(100dvh - env(safe-area-inset-top) - 8px)!important}
+        #pm2DetailModal .pm2-detail-card{min-height:calc(100dvh - var(--kptu-mobile-dock,72px) - 12px)!important}
         #pm2MilestoneModal .small-card,#pm2DecisionModal .small-card,#pm2ProgressModal .small-card,#pm2WorkstreamModal .small-card,#pm2ModulesModal .small-card{
           margin-top:8px!important;
         }
