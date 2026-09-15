@@ -1,0 +1,38 @@
+name: Task visibility observer check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/task-layout.js'
+      - 'app/loader-v2.js'
+      - 'app/task-assignment-visibility.js'
+      - '.github/workflows/task-visibility-observer-check.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/task-layout.js'
+      - 'app/loader-v2.js'
+      - 'app/task-assignment-visibility.js'
+      - '.github/workflows/task-visibility-observer-check.yml'
+
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check canonical task rendering
+        run: |
+          set -e
+          test ! -f app/task-assignment-visibility.js
+          if grep -q "task-assignment-visibility" app/loader-v2.js; then
+            echo 'legacy task visibility observer returned to loader'; exit 1
+          fi
+          grep -q "assignee_id=eq." app/task-layout.js
+          grep -q "r.innerHTML=group('mine'" app/task-layout.js
+          grep -q "group('assigned'" app/task-layout.js
+          if grep -q "MutationObserver" app/task-layout.js; then
+            echo 'task renderer returned to DOM mutation correction'; exit 1
+          fi
+          node --check app/task-layout.js
+          node --check app/loader-v2.js
