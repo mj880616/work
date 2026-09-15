@@ -79,19 +79,23 @@ function baseState(){return{
   decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],spaceMembers:[]
 }}
 
-test('V3 renders one project hierarchy and child returns to parent',async({page})=>{
+test('V3 uses a compact child-project menu and child returns to parent',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   await expect(page.locator('[data-ps3-project="main-1"]')).toBeVisible();
   await expect(page.locator('#projectGrid [data-project]')).toHaveCount(0);
-  await page.locator('[data-ps3-project="child-1"]').first().click();
+  await page.locator('[data-ps3-project="main-1"]').first().click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await expect(page.locator('.ps3-child-menu')).toBeVisible();
+  await expect(page.locator('.ps3-child-section')).toHaveCount(0);
+  await page.locator('.ps3-child-menu summary').click();
+  await page.locator('.ps3-child-menu [data-ps3-project="child-1"]').click();
   await expect(page.locator('#ps3Hierarchy')).toContainText('하위 프로젝트');
   await expect(page.locator('.ps3-parent-link')).toContainText('민자철도 정책·조직사업');
   await page.locator('.ps3-parent-link').click();
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
 });
 
-test('V3 creates project with default workstreams',async({page})=>{
+test('V3 creates and edits a project with the same final renderer',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await page.locator('#ps3CreateType').selectOption('campaign');await page.locator('#ps3CreateName').fill('인력확충 투쟁');await page.locator('#ps3CreateObjective').fill('안전·공공서비스 인력확충');await page.locator('#ps3CreateSave').click();
@@ -99,6 +103,13 @@ test('V3 creates project with default workstreams',async({page})=>{
   const made=state.spaces.find(x=>x.name==='인력확충 투쟁');
   await expect.poll(()=>state.workstreams.filter(x=>x.project_id===made.id).length).toBe(5);
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await page.locator('[data-ps3-edit-project]').click();
+  await expect(page.locator('#ps3CreateHeading')).toHaveText('프로젝트 수정');
+  await page.locator('#ps3CreateName').fill('인력확충 공동투쟁');
+  await page.locator('#ps3CreateEnd').fill('2026-10-24');
+  await page.locator('#ps3CreateSave').click();
+  await expect.poll(()=>state.spaces.find(x=>x.id===made.id)?.name).toBe('인력확충 공동투쟁');
+  await expect(page.locator('#ps3Title')).toHaveText('인력확충 공동투쟁');
 });
 
 test('V3 edits and deletes a key schedule and filters project documents',async({page})=>{
@@ -112,6 +123,19 @@ test('V3 edits and deletes a key schedule and filters project documents',async({
   await expect(page.locator('#ps3-documents')).toContainText('민자철도 국토부 요구자료 답변');
   await page.locator('[data-ps3-doc-filter="정부자료"]').click();await expect(page.locator('.ps3-doc-card')).toHaveCount(1);
   await page.locator('#ps3DocSearch').fill('없는자료');await expect(page.locator('.ps3-doc-card')).toHaveCount(0);
+});
+
+test('V3 archives and restores without returning to a legacy project screen',async({page})=>{
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await expect(page.locator('[data-ps3-archive-project]')).toBeVisible({timeout:10000});
+  page.once('dialog',d=>d.accept());await page.locator('[data-ps3-archive-project]').click();
+  await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('archived');
+  await expect(page.locator('#ps3DetailModal')).toBeHidden();
+  await page.locator('#ps3ArchiveBtn').click();
+  await expect(page.locator('#ps3ArchiveModal')).toBeVisible();
+  await expect(page.locator('[data-ps3-restore="main-1"]')).toBeVisible();
+  await page.locator('[data-ps3-restore="main-1"]').click();
+  await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('active');
 });
 
 test('V3 exposes project delete in final renderer',async({page})=>{
