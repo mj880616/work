@@ -32,7 +32,7 @@ public class MainActivity extends Activity {
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
     private static final String HOME = "https://mj880616.github.io/work/app/";
     private static final String INTERNAL_HOST = "mj880616.github.io";
-    private static final String APP_VERSION = "0.1.10";
+    private static final String APP_VERSION = "0.1.11";
     private boolean firebaseConfigured = false;
     private boolean backDispatchPending = false;
 
@@ -354,11 +354,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView == null) {
-            super.onBackPressed();
-            return;
-        }
-        if (backDispatchPending) return;
+        if (webView == null || backDispatchPending) return;
         backDispatchPending = true;
         String js = "(function(){try{return !!(window.KPTUNativeBack&&window.KPTUNativeBack.handle&&window.KPTUNativeBack.handle());}catch(e){return false;}})();";
         webView.evaluateJavascript(js, value -> {
@@ -368,7 +364,8 @@ public class MainActivity extends Activity {
                 webView.goBack();
                 return;
             }
-            MainActivity.super.onBackPressed();
+            // The workspace back button must never fall through to Activity.finish().
+            // At the root screen the back key is intentionally consumed so the app stays open.
         });
     }
 

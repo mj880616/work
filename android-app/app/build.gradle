@@ -15,8 +15,8 @@ android {
         applicationId 'kr.or.kptu.work'
         minSdk 26
         targetSdk 36
-        versionCode 11
-        versionName '0.1.10'
+        versionCode 12
+        versionName '0.1.11'
 
         buildConfigField 'String', 'FIREBASE_API_KEY', '"' + envValue('KPTU_FIREBASE_API_KEY') + '"'
         buildConfigField 'String', 'FIREBASE_APP_ID', '"' + envValue('KPTU_FIREBASE_APP_ID') + '"'
