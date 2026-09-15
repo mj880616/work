@@ -72,6 +72,7 @@
     await import('./workplace-ai-report.js?v=1');
     await import('./workflow-ai-v3.js?v=2');
     await import('./meeting-ai-ingest-client.js?v=1&text=1');
+    await import('./meeting-ai-paste-ui.js?v=1');
   };
   await loadAuthenticatedAi();
   await import('./google-calendar-return-status.js?v=1');
@@ -96,7 +97,7 @@
       await import('./project-system-v2.js?v=1');
       await import('./project-hide-legacy.js?v=1');
       await import('./project-type-labels.js?v=4');
-      await import('./project-modal-scroll-lock.js?v=3');
+      await import('./project-modal-scroll-lock.js?v=4');
       await import('./project-empty-workstream-guard.js?v=2');
       await import('./project-modal-polish.js?v=1');
       await import('./project-archive.js?v=1');

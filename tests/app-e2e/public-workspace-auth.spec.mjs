@@ -95,3 +95,17 @@ test('dedicated login signs in and returns to authenticated app',async({page})=>
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#userBadge')).toContainText('테스트 사용자');
 });
+
+test('Android app Google login returns through native callback',async({browser})=>{
+  const context=await browser.newContext({userAgent:'Mozilla/5.0 Android WebView KPTUAndroid/0.1.10'});
+  const page=await context.newPage();
+  let authorizeUrl='';
+  await page.route(`${SB}/auth/v1/authorize**`,route=>{authorizeUrl=route.request().url();return route.abort()});
+  await page.goto(`${BASE}/app/login/`);
+  await page.locator('#googleLoginBtn').click();
+  await expect.poll(()=>authorizeUrl).not.toBe('');
+  const target=new URL(authorizeUrl);
+  expect(target.searchParams.get('provider')).toBe('google');
+  expect(target.searchParams.get('redirect_to')).toBe(`${BASE}/app/native-callback.html?native=android`);
+  await context.close();
+});
