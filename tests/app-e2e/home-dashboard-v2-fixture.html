@@ -11,6 +11,7 @@
     <article class="panel"><div class="panel-head"><div><h2>내 할 일</h2></div></div><div id="myTaskMini"></div></article>
   </div>
 </section>
+<section id="projectsView" hidden><div id="projectGrid"><button type="button" data-ps3-project="project-1">인력확충 투쟁</button><button type="button" data-ps3-project="project-2">민자철도</button></div></section>
 <script>
 const now=new Date();
 const tomorrow=new Date(now.getTime()+86400000).toISOString();
@@ -34,8 +35,9 @@ window.KPTURuntime={
     return [];
   }
 };
-window.__routeCalls=[];
+window.__routeCalls=[];window.__projectClicks=[];
 window.KPTURouter={go:(view,detail)=>window.__routeCalls.push({view,detail}),on:()=>{}};
+document.querySelectorAll('[data-ps3-project]').forEach(el=>el.addEventListener('click',()=>window.__projectClicks.push(el.dataset.ps3Project)));
 </script>
 <script src="../../app/home-dashboard-v2.js"></script>
 </body>
