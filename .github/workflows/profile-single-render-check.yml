@@ -1,0 +1,74 @@
+name: Profile single-render check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/profile-settings.js'
+      - 'app/profile-settings.css'
+      - 'app/loader-v2.js'
+      - 'app/styles.css'
+      - 'tests/app-e2e/profile-workplaces*'
+      - '.github/workflows/profile-single-render-check.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/profile-settings.js'
+      - 'app/profile-settings.css'
+      - 'app/loader-v2.js'
+      - 'app/styles.css'
+      - 'tests/app-e2e/profile-workplaces*'
+      - '.github/workflows/profile-single-render-check.yml'
+
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check canonical profile ownership
+        run: |
+          set -e
+          test -f app/profile-settings.js
+          test -f app/profile-settings.css
+          test ! -f app/profile-workplace-edit-mode.js
+          test ! -f app/profile-workplace-legacy.js
+          test ! -f app/profile-workplace-sync.js
+          grep -q "profile-settings.css?v=1" app/styles.css
+          grep -q "profile-settings.js?v=3" app/loader-v2.js
+          grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
+          grep -q "psSaveWorkplaces" app/profile-settings.js
+          grep -q "ps-legacy-chip" app/profile-settings.js
+          grep -q "산하조직 연결 전" app/profile-settings.js
+          if grep -Eq "profile-workplace-edit-mode|profile-workplace-legacy|profile-workplace-sync" app/loader-v2.js; then
+            echo 'profile post-render correction module returned to active loader'; exit 1
+          fi
+          if grep -q "MutationObserver" app/profile-settings.js; then
+            echo 'profile renderer returned to MutationObserver correction'; exit 1
+          fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/profile-settings.js; then
+            echo 'profile styles returned to dynamic injection'; exit 1
+          fi
+          if grep -Eq "localStorage|kptu_collab_session_v1" app/profile-settings.js; then
+            echo 'profile renderer bypassed shared runtime session'; exit 1
+          fi
+          node --check app/profile-settings.js
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+      - run: |
+          python3 -m http.server 8123 >/tmp/profile-http.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8123/tests/app-e2e/profile-workplaces-fixture.html >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          exit 1
+      - run: npx playwright test tests/app-e2e/profile-workplaces.spec.mjs --browser=chromium --workers=1 --reporter=line

@@ -18,11 +18,14 @@ test('profile workplace changes are staged and saved together',async({page})=>{
   const fontSize=await chip.evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
   expect(fontSize).toBeLessThanOrEqual(13);
 
+  await expect(page.locator('.ps-legacy-chip')).toContainText('과거 담당기관');
+  await expect(page.locator('.ps-legacy-chip')).toContainText('산하조직 연결 전');
+
   await expect(page.locator('[data-ps-remove-workplace="org-a"]')).toBeHidden();
   await page.click('#psDeleteWorkplace');
   await expect(page.locator('[data-ps-remove-workplace="org-a"]')).toBeVisible();
   await page.click('[data-ps-remove-workplace="org-a"]');
-  await expect(page.locator('.pwe-pending-remove')).toHaveCount(1);
+  await expect(page.locator('.ps-pending-remove')).toHaveCount(1);
   await expect.poll(()=>page.evaluate(()=>window.__state.assignments.some(x=>x.organization_id==='org-a'))).toBeTruthy();
 
   await page.click('#psAddWorkplace');
@@ -31,7 +34,7 @@ test('profile workplace changes are staged and saved together',async({page})=>{
   const add=page.locator('[data-ps-add-workplace="org-b"]');
   await expect(add).toContainText('한국가스공사노조');
   await add.click();
-  await expect(add).toHaveClass(/pwe-selected/);
+  await expect(add).toHaveClass(/selected/);
   await expect(add.locator('b')).toHaveText('선택됨');
   await expect.poll(()=>page.evaluate(()=>window.__state.assignments.some(x=>x.organization_id==='org-b'))).toBeFalsy();
 
@@ -46,6 +49,7 @@ test('profile workplace changes are staged and saved together',async({page})=>{
   await expect(page.locator('[data-ps-workplace-org="org-a"]')).toHaveCount(0);
   await expect(page.locator('[data-ps-remove-workplace="org-b"]')).toBeHidden();
   await expect(page.locator('#psSaveWorkplaces')).toBeDisabled();
+  await expect(page.locator('.ps-legacy-chip')).toContainText('과거 담당기관');
 
   const state=await page.evaluate(()=>window.__state);
   expect(state.calls.some(x=>x.method==='POST'&&x.path==='/rest/v1/app_suborganization_assignees'&&x.body?.organization_id==='org-b')).toBeTruthy();
@@ -54,6 +58,7 @@ test('profile workplace changes are staged and saved together',async({page})=>{
   expect(state.calls.some(x=>x.method==='DELETE'&&x.path.includes('/app_suborganization_assignees?')&&x.path.includes('organization_id=eq.org-a'))).toBeTruthy();
   expect(state.events).toBeGreaterThanOrEqual(1);
   expect(state.reloads).toBeGreaterThanOrEqual(1);
+  expect(state.memberReloads).toBeGreaterThanOrEqual(1);
 });
 
 test('delete mode can be cancelled before save and picker excludes inactive organizations',async({page})=>{
@@ -61,9 +66,9 @@ test('delete mode can be cancelled before save and picker excludes inactive orga
   await page.click('#psDeleteWorkplace');
   const remove=page.locator('[data-ps-remove-workplace="org-a"]');
   await remove.click();
-  await expect(page.locator('.pwe-pending-remove')).toHaveCount(1);
+  await expect(page.locator('.ps-pending-remove')).toHaveCount(1);
   await remove.click();
-  await expect(page.locator('.pwe-pending-remove')).toHaveCount(0);
+  await expect(page.locator('.ps-pending-remove')).toHaveCount(0);
   await expect(page.locator('#psSaveWorkplaces')).toBeDisabled();
 
   await page.click('#psAddWorkplace');
