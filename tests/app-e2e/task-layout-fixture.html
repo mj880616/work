@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ko">
-<head><meta charset="utf-8"><style>.hidden{display:none}</style></head>
+<head><meta charset="utf-8"><link rel="stylesheet" href="../../app/task-layout.css"><style>.hidden{display:none}:root{--line:#ddd;--muted:#6b7582}</style></head>
 <body>
   <div id="tasksView"><div class="toolbar"></div><div id="taskList"></div></div>
   <div id="taskModal" class="hidden" aria-hidden="true">
@@ -21,7 +21,10 @@
       api:async(path,opts={})=>{
         if(path==='/auth/v1/user')return {id:'user-1'};
         if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1'}];
-        if(path.startsWith('/rest/v1/app_spaces'))return [{id:'space-1',name:'인력확충 투쟁'}];
+        if(path.startsWith('/rest/v1/app_spaces'))return [{id:'space-1',name:'인력확충 투쟁',parent_id:'main-1',status:'active'}];
+        if(path==='/rest/v1/app_tasks'&&opts.method==='POST'){
+          const row={id:'new-'+(rows.length+1),...(opts.body||{})};rows.push(row);return [row];
+        }
         if(path.startsWith('/rest/v1/app_tasks')){
           if(opts.method==='PATCH'){
             const match=path.match(/[?&]id=eq\.([^&]+)/);
@@ -29,6 +32,9 @@
             const row=rows.find(item=>item.id===id);
             if(row)Object.assign(row,opts.body||{});
             return null;
+          }
+          if(opts.method==='DELETE'){
+            const match=path.match(/[?&]id=eq\.([^&]+)/);const id=match?decodeURIComponent(match[1]):'';const i=rows.findIndex(x=>x.id===id);if(i>=0)rows.splice(i,1);return null;
           }
           return rows;
         }
@@ -38,6 +44,5 @@
     window.KPTURouter={on(){}};
   </script>
   <script src="../../app/task-layout.js"></script>
-  <script src="../../app/task-status-state.js"></script>
 </body>
 </html>
