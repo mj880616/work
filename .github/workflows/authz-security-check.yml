@@ -1,0 +1,48 @@
+name: Authorization security check
+
+on:
+  push:
+    paths:
+      - 'supabase/**'
+      - 'tests/security/**'
+      - '.github/workflows/authz-security-check.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/**'
+      - 'tests/security/**'
+      - '.github/workflows/authz-security-check.yml'
+  workflow_dispatch:
+
+jobs:
+  static-authz-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify trusted-layer authorization invariants
+        run: node --test tests/security/*.test.mjs
+
+      - name: Verify SQL authorization regression assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            supabase/tests/authz_workspace_relationships.sql
+            supabase/tests/authz_task_assignee.sql
+            supabase/tests/authz_document_visibility.sql
+            supabase/tests/authz_page_visibility.sql
+            supabase/tests/authz_direct_id_writes.sql
+            supabase/tests/authz_membership_invites.sql
+            supabase/tests/authz_project_invitations.sql
+          )
+          for file in "${required[@]}"; do
+            test -s "$file" || { echo "missing security regression: $file"; exit 1; }
+            grep -q '^rollback;' "$file" || { echo "security regression must roll back: $file"; exit 1; }
+          done
