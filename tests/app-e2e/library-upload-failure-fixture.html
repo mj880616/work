@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>Library upload failure fixture</title></head>
+<body>
+  <div id="toast" class="hidden"></div>
+  <section id="libraryView"><div class="section-head"></div><input id="documentSearch"><select id="documentProject"><option value="all">전체</option></select><div id="documentList"></div></section>
+  <div id="documentModal"><div class="modal-card">
+    <label>자료명<input id="docTitle"></label>
+    <input id="docCategory"><input id="docSource"><input id="docDate"><input id="docTags"><select id="docProject"><option value="">없음</option></select><textarea id="docDescription"></textarea>
+    <button id="saveDocumentBtn" type="button">등록</button><div id="documentStatus"></div>
+  </div></div>
+  <script>
+    window.__documentsChanged=0;
+    window.addEventListener('kptu:documents-changed',()=>window.__documentsChanged++);
+    window.KPTURuntime={
+      session:{ensure:async()=>true,read:()=>({access_token:'token',expires_at:9999999999})},
+      api:async(path,opts={})=>{
+        if(path==='/auth/v1/user')return {id:'user-1'};
+        if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1'}];
+        if(path.startsWith('/rest/v1/app_spaces'))return [];
+        if(path.startsWith('/rest/v1/app_documents'))return [];
+        if(path==='/functions/v1/library-files'){
+          const e=new Error('요청 시간이 초과되었습니다. 다시 시도해 주세요.');e.code='timeout';e.retryable=true;throw e;
+        }
+        return [];
+      }
+    };
+  </script>
+  <script src="/app/library-upload.js"></script>
+</body>
+</html>

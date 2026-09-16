@@ -13,7 +13,7 @@ test('page core and builder use explicit readiness without post-render correctio
 
   expect(loader).toContain("page-list-controller.js?v=1");
   expect(loader).toContain('__KPTU_PAGE_LIST_READY__');
-  expect(loader).toContain("page-save-controller.js?v=2");
+  expect(loader).toContain("page-save-controller.js?v=3");
   expect(loader).toContain('__KPTU_PAGE_SAVE_READY__');
   expect(loader).toContain("page-builder.js?v=2");
   expect(loader).toContain('__KPTU_PAGE_BUILDER_READY__');
