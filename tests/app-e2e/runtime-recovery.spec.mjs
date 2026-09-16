@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const liveSession=()=>({
@@ -92,6 +93,14 @@ test('concurrent identical mutations are single-flight by default',async({page})
   });
   expect(mutationCalls).toBe(1);
   expect(result).toEqual([[{id:'project-1'}],[{id:'project-1'}]]);
+});
+
+test('library mutations use the shared runtime recovery transport',async()=>{
+  const source=readFileSync('app/library-upload.js','utf8');
+  expect(source).toContain("if(window.KPTURuntime?.api)return window.KPTURuntime.api(path,{method,body,prefer})");
+  expect(source).not.toContain("fetch(LU_SB+'/functions/v1/library-files'");
+  expect(source).not.toContain("fetch(LU_SB+'/functions/v1/document-actions'");
+  expect(source).not.toContain("fetch(LU_SB+'/auth/v1/user'");
 });
 
 test('page save is single-flight and prevents duplicate RPC submission',async({page})=>{
