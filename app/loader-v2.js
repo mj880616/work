@@ -3,7 +3,7 @@
   if(window.__KPTU_NATIVE_BRIDGE__)return;
   await import('./calendar-return-bridge.js?v=2');
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
-  await import('./runtime-client.js?v=1');
+  await import('./runtime-client.js?v=2');
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=3');
@@ -77,7 +77,7 @@
 
   await import('./page-list-controller.js?v=1');
   await window.__KPTU_PAGE_LIST_READY__;
-  await import('./page-save-controller.js?v=2');
+  await import('./page-save-controller.js?v=3');
   await window.__KPTU_PAGE_SAVE_READY__;
   await import('./page-builder.js?v=2');
   await window.__KPTU_PAGE_BUILDER_READY__;
