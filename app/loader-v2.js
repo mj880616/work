@@ -107,7 +107,7 @@
 
   await import('./calendar-plus.js?v=5');
   await window.__KPTU_CALENDAR_PLUS_READY__;
-  await import('./calendar-persistence.js?v=9');
+  await import('./calendar-persistence.js?v=10');
   await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
   await import('./calendar-interactions-v2.js?v=3');
   await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
