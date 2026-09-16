@@ -7,6 +7,7 @@
     timeoutMs:15000
   };
   let refreshPromise=null;
+  const mutationFlights=new Map();
 
   class RuntimeError extends Error{
     constructor(message,{status=0,code='request_failed',retryable=false,cause=null}={}){
@@ -68,6 +69,26 @@
   function sessionRequired(message='로그인이 필요합니다.'){
     return new RuntimeError(message,{status:401,code:'session_required',retryable:false});
   }
+  function mutationBodyKey(body){
+    if(body===null||body===undefined)return '';
+    if(body instanceof FormData){
+      const parts=[];
+      for(const [key,value] of body.entries()){
+        if(typeof value==='string')parts.push([key,'text',value]);
+        else parts.push([key,'blob',value.name||'',Number(value.size)||0,value.type||'',Number(value.lastModified)||0]);
+      }
+      return JSON.stringify(parts);
+    }
+    try{return JSON.stringify(body)}catch{return null}
+  }
+  function mutationKey(path,{method='GET',body=null,prefer='',auth=true,headers={}}={}){
+    const verb=String(method||'GET').toUpperCase();
+    if(!['POST','PUT','PATCH','DELETE'].includes(verb))return null;
+    const bodyKey=mutationBodyKey(body);
+    if(bodyKey===null)return null;
+    const headerKey=JSON.stringify(Object.entries(headers||{}).sort(([a],[b])=>a.localeCompare(b)));
+    return [verb,path,auth?'auth':'anon',prefer||'',headerKey,bodyKey].join('\n');
+  }
 
   async function refresh(){
     if(refreshPromise)return refreshPromise;
@@ -111,7 +132,7 @@
     if((current.expires_at||0)<Math.floor(Date.now()/1000)+60)return !!(await refresh());
     return true;
   }
-  async function api(path,{method='GET',body=null,prefer='',auth=true,headers={},timeoutMs=config.timeoutMs}={}){
+  async function apiRequest(path,{method='GET',body=null,prefer='',auth=true,headers={},timeoutMs=config.timeoutMs}={}){
     if(auth&&!(await ensure()))throw sessionRequired();
     const url=path.startsWith('http')?path:config.url+path;
     const requestBody=body===null?null:(body instanceof FormData?body:JSON.stringify(body));
@@ -147,9 +168,18 @@
     }
     return data;
   }
+  async function api(path,options={}){
+    const key=options.singleFlight===false?null:mutationKey(path,options);
+    if(key&&mutationFlights.has(key))return mutationFlights.get(key);
+    const flight=apiRequest(path,options);
+    if(!key)return flight;
+    mutationFlights.set(key,flight);
+    try{return await flight}
+    finally{if(mutationFlights.get(key)===flight)mutationFlights.delete(key)}
+  }
 
   window.KPTURuntime={
-    version:'1.1.0',
+    version:'1.2.0',
     config,
     RuntimeError,
     session:{read,write,refresh,ensure},
