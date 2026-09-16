@@ -74,5 +74,5 @@ test('meeting UI has one render path without observer or fetch interception shim
   expect(team).toContain('data-mrd-meeting');
   expect(team).toContain("/functions/v1/meeting-files");
   expect(team).not.toContain("/functions/v1/library-files',{method:'POST',body:fd");
-  expect(css).toContain("meeting-ui.css?v=2");
+  expect(css).toContain("meeting-ui.css?v=3");
 });
