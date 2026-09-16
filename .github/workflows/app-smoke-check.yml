@@ -127,17 +127,18 @@ jobs:
           grep -q "calendar-day-overflow.js?v=2" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/loader-v2.js
 
-          grep -q "topbar-actions.css?v=1" app/styles.css
-          grep -q "profile-settings.css?v=1" app/styles.css
-          grep -q "collaboration-center.css?v=1" app/styles.css
-          grep -q "notification-center-ui.css?v=1" app/styles.css
-          grep -q "task-layout.css?v=1" app/styles.css
-          grep -q "google-tasks.css?v=1" app/styles.css
-          grep -q "meeting-ui.css?v=2" app/styles.css
-          grep -q "calendar-ui.css?v=1" app/styles.css
-          grep -q "page-core.css?v=1" app/styles.css
-          grep -q "page-builder.css?v=1" app/styles.css
-          grep -q "project-system-v3.css?v=1" app/styles.css
+          grep -q "topbar-actions.css?v=2" app/styles.css
+          grep -q "team.css?v=2" app/styles.css
+          grep -q "profile-settings.css?v=2" app/styles.css
+          grep -q "collaboration-center.css?v=2" app/styles.css
+          grep -q "notification-center-ui.css?v=2" app/styles.css
+          grep -q "task-layout.css?v=2" app/styles.css
+          grep -q "google-tasks.css?v=2" app/styles.css
+          grep -q "meeting-ui.css?v=3" app/styles.css
+          grep -q "calendar-ui.css?v=2" app/styles.css
+          grep -q "page-core.css?v=2" app/styles.css
+          grep -q "page-builder.css?v=2" app/styles.css
+          grep -q "project-system-v3.css?v=2" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -q ".top-actions #logoutBtn" app/topbar-actions.css
@@ -198,6 +199,47 @@ jobs:
           if 'id="appView"' in login: raise SystemExit('dedicated login page must not contain workspace shell')
           PY
 
+      - name: Check Design System 1.0 invariants
+        run: |
+          set -e
+          for token in \
+            --kptu-bg --kptu-surface --kptu-ink --kptu-muted --kptu-border \
+            --kptu-primary --kptu-success --kptu-warning --kptu-danger --kptu-info \
+            --kptu-space-1 --kptu-space-2 --kptu-space-3 --kptu-space-4 --kptu-space-5 --kptu-space-6 \
+            --kptu-radius-sm --kptu-radius-md --kptu-radius-lg \
+            --kptu-control-height --kptu-action-compact-height; do
+            grep -q -- "$token" app/base-ui.css || { echo "missing design token: $token"; exit 1; }
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,sys
+          managed={
+            'team.css','team-member-overview.css','team-profile-view.css','team-member-management.css',
+            'profile-settings.css','workplace-detail.css','suborganizations.css','suborganization-filters.css',
+            'access-approval.css','collaboration-center.css','notification-center-ui.css','home-task.css',
+            'photo-room.css','public-workspace.css','topbar-actions.css','calendar-ui.css','task-layout.css',
+            'google-tasks.css','project-system-v3.css','meeting-ui.css','page-core.css','page-builder.css',
+            'page-editor-static.css'
+          }
+          # Exact feature exception: calendar event source marker uses an inset shadow, not card elevation.
+          shadow_allow={('calendar-ui.css','inset 3px 0 rgba(255,255,255,.22)')}
+          errors=[]
+          for name in sorted(managed):
+            path=Path('app')/name
+            text=path.read_text(encoding='utf-8')
+            for value in re.findall(r'border-radius\s*:\s*([^;}]+)',text):
+              value=value.strip()
+              if 'var(--kptu-radius-' not in value and value!='999px':
+                errors.append(f'{name}: raw radius {value}')
+            for value in re.findall(r'box-shadow\s*:\s*([^;}]+)',text):
+              value=value.strip()
+              if value=='none' or 'var(--kptu-shadow-' in value or (name,value) in shadow_allow:
+                continue
+              errors.append(f'{name}: raw shadow {value}')
+          if errors:
+            print('\n'.join(errors)); sys.exit(1)
+          PY
+
       - name: Check calendar explicit-render invariants
         run: |
           set -e
@@ -207,7 +249,7 @@ jobs:
           grep -q "KPTUCalendarPlus?.paint?.()" app/team.js
           grep -q "KPTUCalendarPersistence?.paint?.()" app/team.js
           grep -q "KPTUCalendarDayOverflow?.apply?.()" app/team.js
-          grep -q "calendar-ui.css?v=1" app/styles.css
+          grep -q "calendar-ui.css?v=2" app/styles.css
           if grep -q "MutationObserver" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js app/calendar-interactions-v2.js; then echo 'calendar returned to DOM mutation correction'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js app/calendar-interactions-v2.js; then echo 'calendar styles returned to runtime injection'; exit 1; fi
           if grep -Eq "setTimeout\([^,]+,(20|25|40|120|150|180|250|350|400)\)" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js; then echo 'calendar returned to delayed render correction'; exit 1; fi
@@ -258,9 +300,9 @@ jobs:
           grep -q "__KPTU_TEAM_MEMBER_MANAGEMENT_READY__" app/loader-v2.js
           grep -q "team-profile-view.js?v=2" app/loader-v2.js
           grep -q "__KPTU_TEAM_PROFILE_READY__" app/loader-v2.js
-          grep -q "team-member-overview.css?v=1" app/styles.css
-          grep -q "team-profile-view.css?v=1" app/styles.css
-          grep -q "team-member-management.css?v=1" app/styles.css
+          grep -q "team-member-overview.css?v=2" app/styles.css
+          grep -q "team-profile-view.css?v=2" app/styles.css
+          grep -q "team-member-management.css?v=2" app/styles.css
           grep -q "window.__KPTU_RELOAD_TEAM_MEMBERS__" app/team-member-overview.js
           grep -q "KPTUTeamMemberManagement" app/team-profile-view.js
           if grep -q "memberList" app/team.js; then echo 'team.js returned to owning memberList'; exit 1; fi
@@ -275,8 +317,8 @@ jobs:
           grep -q "window.__KPTU_COLLABORATION_READY__" app/collaboration-center.js
           grep -q "window.__KPTU_NOTIFICATION_CENTER_READY__" app/notification-center-ui.js
           grep -q "id=\"psLogout\"" app/profile-settings.js
-          grep -q "collaboration-center.css?v=1" app/styles.css
-          grep -q "notification-center-ui.css?v=1" app/styles.css
+          grep -q "collaboration-center.css?v=2" app/styles.css
+          grep -q "notification-center-ui.css?v=2" app/styles.css
           if grep -Eq "app_notifications|ccNotifTop|myTaskMini|statUnread" app/collaboration-center.js; then echo 'collaboration center is touching notification/home UI'; exit 1; fi
           if grep -Eq "ps-profile-grid|ncuLogout|logoutBtn|installLogout" app/notification-center-ui.js; then echo 'notification center is touching profile UI'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/collaboration-center.js app/notification-center-ui.js; then echo 'collaboration styles returned to runtime injection'; exit 1; fi

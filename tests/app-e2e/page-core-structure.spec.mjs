@@ -25,8 +25,8 @@ test('page core and builder use explicit readiness without post-render correctio
   expect(loader).toContain('__KPTU_PAGE_INLINE_VIEWER_READY__');
   expect(loader).not.toContain('page-editor-fix.js');
   expect(loader).not.toContain("page-inline-viewer.js");
-  expect(styles).toContain("page-core.css?v=1");
-  expect(styles).toContain("page-builder.css?v=1");
+  expect(styles).toContain("page-core.css?v=2");
+  expect(styles).toContain("page-builder.css?v=2");
   expect(team).toContain('function renderPages(){window.KPTUPageList?.render?.()}');
   expect(team).not.toContain("$('#pageList').innerHTML=rows.map");
   expect(team).toContain('__KPTU_SYNC_TEAM_PAGES__');

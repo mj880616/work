@@ -51,8 +51,8 @@ jobs:
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/loader-v2.js
           grep -q "suborganization-filters.js?v=3" app/loader-v2.js
           grep -q "__KPTU_SUBORGANIZATION_FILTERS_READY__" app/loader-v2.js
-          grep -q "suborganizations.css?v=1" app/styles.css
-          grep -q "suborganization-filters.css?v=1" app/styles.css
+          grep -q "suborganizations.css?v=2" app/styles.css
+          grep -q "suborganization-filters.css?v=2" app/styles.css
           grep -q "default_assignee_name" app/suborganizations.js
           grep -q "계정 연결 전" app/suborganizations.js
           grep -q "sofEditType" app/suborganizations.js
