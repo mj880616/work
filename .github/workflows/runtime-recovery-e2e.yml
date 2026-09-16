@@ -5,6 +5,7 @@ on:
     paths:
       - 'app/runtime-client.js'
       - 'app/page-save-controller.js'
+      - 'app/library-upload.js'
       - 'tests/app-e2e/runtime-client-fixture.html'
       - 'tests/app-e2e/page-save-singleflight-fixture.html'
       - 'tests/app-e2e/runtime-recovery.spec.mjs'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'app/runtime-client.js'
       - 'app/page-save-controller.js'
+      - 'app/library-upload.js'
       - 'tests/app-e2e/runtime-client-fixture.html'
       - 'tests/app-e2e/page-save-singleflight-fixture.html'
       - 'tests/app-e2e/runtime-recovery.spec.mjs'
