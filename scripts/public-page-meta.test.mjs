@@ -7,7 +7,8 @@ const page={
   slug:'bus-strike-publicness-internal-archive-202609',
   title:'서울버스 파업·공공성 논쟁 아카이브｜공공교통네트워크 2026.9',
   summary:'제한 공개 테스트 요약',
-  visibility:'unlisted'
+  visibility:'unlisted',
+  metadata:{page_design:{title_size:'small'}}
 };
 
 test('published public and unlisted pages are included in metadata generation query',()=>{
@@ -15,6 +16,7 @@ test('published public and unlisted pages are included in metadata generation qu
   assert.equal(qs.get('status'),'eq.published');
   assert.equal(qs.get('visibility'),'in.(public,unlisted)');
   assert.match(qs.get('select'),/visibility/);
+  assert.match(qs.get('select'),/metadata/);
 });
 
 test('unlisted page metadata uses the page title and noindex',()=>{
@@ -35,4 +37,15 @@ test('generated shell title is exactly the page title',()=>{
   const html=renderShell(template,page,{site:SITE});
   assert.match(html,new RegExp(`<title>${page.title}</title>`));
   assert.doesNotMatch(html,/· 업무 현황<\/title>/);
+});
+
+test('small title design adds page-specific title sizing without affecting other pages',()=>{
+  const template='<!doctype html><html><head><title>업무 자료</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body></body></html>';
+  const small=renderShell(template,page,{site:SITE});
+  assert.match(small,/data-kptu-page-title-size="small"/);
+  assert.match(small,/font-size:32px!important/);
+  assert.match(small,/font-size:25px!important/);
+
+  const normal=renderShell(template,{...page,metadata:{page_design:{}}},{site:SITE});
+  assert.doesNotMatch(normal,/data-kptu-page-title-size="small"/);
 });
