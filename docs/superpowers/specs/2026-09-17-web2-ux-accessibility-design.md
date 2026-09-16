@@ -1,7 +1,7 @@
 # Web2 Task 7 — UX·접근성·반응형 정리 설계
 
 Date: 2026-09-17
-Status: Approved for planning
+Status: Ready for user review
 Branch: `design/web2-ux-accessibility`
 Base: `main@ce2e5bd18342125771ffa18f79d4a5fd177b7663`
 
