@@ -1,98 +1,55 @@
-#projectUpdates .list-item{padding:12px 13px}
-#projectUpdates .list-item>b{display:block;font-size:10px;font-weight:750;line-height:1.3;letter-spacing:.04em;color:#8b95a0;margin:0 0 5px;text-transform:uppercase}
-#projectUpdates .list-item>span{display:block;font-size:14px;font-weight:700;line-height:1.5;color:#263442;margin:0}
-#projectUpdates .list-item>small{display:block;font-size:10px;line-height:1.3;color:#9aa2aa;margin-top:6px}
-#taskModal label:has(#taskAssignee),#taskModal #personalTaskNote{display:none!important}
+#projectUpdates .list-item{padding:var(--kptu-space-3)}
+#projectUpdates .list-item>b{display:block;font-size:10px;font-weight:700;line-height:1.3;letter-spacing:.04em;color:var(--kptu-faint);margin:0 0 var(--kptu-space-1);text-transform:uppercase}
+#projectUpdates .list-item>span{display:block;font-size:14px;font-weight:700;line-height:1.5;color:var(--kptu-ink);margin:0}
+#projectUpdates .list-item>small{display:block;font-size:10px;line-height:1.3;color:var(--kptu-faint);margin-top:var(--kptu-space-2)}
+#taskModal label:has(#taskAssignee),#taskModal #personalTaskNote{display:none}
 #taskModal .two-col:has(#taskAssignee){grid-template-columns:1fr}
 .project-file-upload{flex:0 0 auto;white-space:nowrap}
 .project-file-upload span{white-space:nowrap}
 
-/* 홈 대시보드: 스크립트가 늦게 스타일을 붙이지 않도록 정적으로 관리함. */
+/* 홈 대시보드는 구조만 여기서 관리하고 공통 카드 시각은 base-ui.css가 소유함. */
 #homeView .home-dashboard-deprecated{display:none!important}
-#homeView .dashboard-grid.home-dashboard-current{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px}
+#homeView .dashboard-grid.home-dashboard-current{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--kptu-space-4)}
 #homeView .hdv-panel{min-width:0}
 .hdv-list{display:grid}
-.hdv-row{width:100%;border:0;border-bottom:1px solid #edf0f3;background:transparent;color:inherit;text-align:left;padding:9px 2px;display:flex;gap:10px;align-items:center;min-width:0}
-.hdv-row:last-child{border-bottom:0}.hdv-row:hover{background:#f7f9fb}
-.hdv-main{min-width:0;flex:1}.hdv-main b{display:block;font-size:12.5px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hdv-main small{display:block;color:var(--muted);font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hdv-meta{flex:0 0 auto;color:#71808c;font-size:10px;white-space:nowrap}.hdv-date{flex:0 0 76px;font-size:10.5px;font-weight:850;color:var(--blue);background:#eef4f8;border-radius:8px;padding:5px 7px;text-align:center}.hdv-empty{padding:18px 4px;color:var(--muted);font-size:11px}.hdv-empty.error{color:var(--red)}
+.hdv-row{width:100%;border:0;border-bottom:1px solid var(--kptu-border);background:transparent;color:inherit;text-align:left;padding:8px 2px;display:flex;gap:var(--kptu-space-3);align-items:center;min-width:0}
+.hdv-row:last-child{border-bottom:0}
+.hdv-row:hover{background:var(--kptu-surface-subtle)}
+.hdv-main{min-width:0;flex:1}
+.hdv-main b{display:block;font-size:13px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdv-main small{display:block;color:var(--kptu-muted);font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdv-meta{flex:0 0 auto;color:var(--kptu-muted);font-size:10px;white-space:nowrap}
+.hdv-date{flex:0 0 76px;font-size:11px;font-weight:700;color:var(--kptu-info);background:var(--kptu-info-soft);border-radius:var(--kptu-radius-md);padding:4px 8px;text-align:center}
+.hdv-empty{padding:var(--kptu-space-4) var(--kptu-space-1);color:var(--kptu-muted);font-size:11px}
+.hdv-empty.error{color:var(--kptu-danger)}
 
-/* Web2 공통 컨트롤 규격. 화면별 JS가 버튼 크기를 덮어쓰지 않도록 여기서 단일 관리함. */
 :root{
-  --kptu-action-height:32px;
-  --kptu-action-pad-y:5px;
-  --kptu-action-pad-x:9px;
-  --kptu-action-radius:9px;
-  --kptu-action-font:11px;
   --kptu-mobile-dock:calc(72px + env(safe-area-inset-bottom));
   --kptu-mobile-gap:14px;
 }
-#appView .mini,
-#appView .section-head button:not(.nav-btn),
-#appView .panel-head button:not(.nav-btn),
-#appView .workspace-head .head-actions button,
-#appView .card-actions button,
-#appView .so-card-actions button,
-#appView button.secondary:not(.wide),
-#appView label.secondary,
-.modal .mini,
-.modal .card-actions button,
-.modal .so-card-actions button,
-.modal label.secondary:not(.wide){
-  width:auto!important;
-  min-width:0!important;
-  min-height:var(--kptu-action-height)!important;
-  height:auto!important;
-  padding:var(--kptu-action-pad-y) var(--kptu-action-pad-x)!important;
-  border-radius:var(--kptu-action-radius)!important;
-  font-size:var(--kptu-action-font)!important;
-  line-height:1.15!important;
-  white-space:nowrap!important;
-  flex:0 0 auto!important;
-}
-#appView .section-head button.primary:not(.wide),
-#appView .panel-head button.primary:not(.wide),
-#appView .workspace-head .head-actions button.primary:not(.wide){
-  width:auto!important;
-  min-width:0!important;
-  min-height:var(--kptu-action-height)!important;
-  height:auto!important;
-  padding:var(--kptu-action-pad-y) var(--kptu-action-pad-x)!important;
-  border-radius:var(--kptu-action-radius)!important;
-  font-size:var(--kptu-action-font)!important;
-  line-height:1.15!important;
-  white-space:nowrap!important;
-  flex:0 0 auto!important;
-}
-#appView .card-actions,
-#appView .so-card-actions,
-#appView .head-actions,
-.modal .card-actions,
-.modal .so-card-actions{align-items:center!important;gap:6px!important;flex-wrap:wrap!important}
-#appView button.wide,
-.modal button.wide,
-#appView .modal-foot button,
-.modal .modal-foot button{min-height:unset}
-.section-head,.panel-head{align-items:center}
 
 /* 화면 전체는 문서가 스크롤하고, 마지막 콘텐츠는 하단 dock 뒤까지 도달할 수 있어야 함. */
 html,body{min-height:100%;scroll-padding-bottom:24px}
 #appView>.view-panel{min-width:0}
 .modal-card{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 
-@media(max-width:700px){
-  :root{--kptu-action-height:31px;--kptu-action-pad-x:8px;--kptu-action-font:10.5px}
+@media(max-width:760px){
   #projectUpdates .list-item>span{font-size:14px;line-height:1.55}
-  .project-files-head{align-items:center}.project-files-head>div{min-width:0}
-  #homeView .dashboard-grid.home-dashboard-current{grid-template-columns:1fr!important;gap:10px}.hdv-row{padding:8px 1px}.hdv-date{flex-basis:70px}.hdv-main b{font-size:12px}.hdv-main small{font-size:10px}
+  .project-files-head{align-items:center}
+  .project-files-head>div{min-width:0}
+  #homeView .dashboard-grid.home-dashboard-current{grid-template-columns:1fr;gap:var(--kptu-space-3)}
+  .hdv-row{padding:8px 1px}
+  .hdv-date{flex-basis:70px}
+  .hdv-main b{font-size:12px}
+  .hdv-main small{font-size:10px}
 
   /* 메시지 상대 선택 영역은 내용 높이만 사용 */
-  .cc-messages-layout{grid-template-rows:auto minmax(0,1fr)!important;align-content:start!important;min-height:0!important}
-  .cc-peer-list{align-self:start!important;min-height:0!important;height:auto!important;padding:4px 6px!important;gap:3px!important;overflow-x:auto!important;overflow-y:hidden!important}
-  .cc-peer{padding:6px 9px!important;line-height:1.2!important;min-height:30px!important}
-  .cc-chat{min-height:420px!important}
+  .cc-messages-layout{grid-template-rows:auto minmax(0,1fr);align-content:start;min-height:0}
+  .cc-peer-list{align-self:start;min-height:0;height:auto;padding:4px 6px;gap:3px;overflow-x:auto;overflow-y:hidden}
+  .cc-peer{padding:6px 9px;line-height:1.2;min-height:30px}
+  .cc-chat{min-height:420px}
 
-  /* 하단 dock과 콘텐츠의 안전영역을 한 곳에서 관리함. */
+  /* 하단 dock과 콘텐츠의 안전영역은 app-shell invariant로 강제함. */
   html,body{scroll-padding-bottom:calc(var(--kptu-mobile-dock) + var(--kptu-mobile-gap))!important}
   body{padding-bottom:var(--kptu-mobile-dock)!important}
   main{padding-bottom:calc(var(--kptu-mobile-dock) + 30px)!important}
