@@ -32,21 +32,13 @@ jobs:
             'app/index.html': [
               ('app.js?v=28', 'app.js?v=29'),
             ],
-            '.github/workflows/app-smoke-check.yml': [
-              ('calendar-persistence.js?v=9', 'calendar-persistence.js?v=10'),
-            ],
-            '.github/workflows/router-ready-e2e.yml': [
-              ('loader-v2.js?v=139', 'loader-v2.js?v=140'),
-              ('app.js?v=28', 'app.js?v=29'),
-            ],
           }
 
           for filename, pairs in replacements.items():
             path = Path(filename)
             text = path.read_text(encoding='utf-8')
             for old, new in pairs:
-              count = text.count(old)
-              if count < 1:
+              if old not in text:
                 raise SystemExit(f'{filename}: expected token missing: {old}')
               text = text.replace(old, new)
               if old in text:
@@ -54,11 +46,11 @@ jobs:
             path.write_text(text, encoding='utf-8')
           PY
           git diff --check
-          git diff -- app/loader-v2.js app/app.js app/index.html .github/workflows/app-smoke-check.yml .github/workflows/router-ready-e2e.yml
+          git diff -- app/loader-v2.js app/app.js app/index.html
       - name: Commit cache version bump
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/loader-v2.js app/app.js app/index.html .github/workflows/app-smoke-check.yml .github/workflows/router-ready-e2e.yml
+          git add app/loader-v2.js app/app.js app/index.html
           git commit -m 'Finalize runtime cache versions'
           git push origin HEAD:fix/web2-runtime-recovery
