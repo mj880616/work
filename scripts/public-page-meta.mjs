@@ -1,5 +1,5 @@
 const escText=v=>String(v??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const escAttr=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const escAttr=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 const compact=v=>String(v??'').replace(/\s+/g,' ').trim();
 
 export function buildPagesQuery(){
@@ -22,7 +22,7 @@ export function metaBlock(page,{site}){
 
 function titleSizeStyle(page){
   if(page?.metadata?.page_design?.title_size!=='small')return '';
-  return '<style data-kptu-page-title-size="small">.paper .pd-title{font-size:32px!important}@media(max-width:650px){.paper .pd-title{font-size:25px!important}}</style>';
+  return '<style data-kptu-page-title-size="small">.paper .pd-title{font-size:29px!important;word-break:keep-all!important}@media(max-width:650px){.paper .pd-title{font-size:23px!important}}</style>';
 }
 
 export function renderShell(template,page,{site}){
