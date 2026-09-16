@@ -12,6 +12,8 @@ on:
       - 'tests/app-e2e/runtime-recovery.spec.mjs'
       - 'tests/app-e2e/calendar-persistence-race-fixture.html'
       - 'tests/app-e2e/calendar-persistence-race.spec.mjs'
+      - 'tests/app-e2e/library-upload-failure-fixture.html'
+      - 'tests/app-e2e/library-upload-failure.spec.mjs'
       - '.github/workflows/runtime-recovery-e2e.yml'
   pull_request:
     branches:
@@ -26,6 +28,8 @@ on:
       - 'tests/app-e2e/runtime-recovery.spec.mjs'
       - 'tests/app-e2e/calendar-persistence-race-fixture.html'
       - 'tests/app-e2e/calendar-persistence-race.spec.mjs'
+      - 'tests/app-e2e/library-upload-failure-fixture.html'
+      - 'tests/app-e2e/library-upload-failure.spec.mjs'
       - '.github/workflows/runtime-recovery-e2e.yml'
   workflow_dispatch:
 
@@ -60,6 +64,7 @@ jobs:
           npx playwright test
           tests/app-e2e/runtime-recovery.spec.mjs
           tests/app-e2e/calendar-persistence-race.spec.mjs
+          tests/app-e2e/library-upload-failure.spec.mjs
           --browser=chromium --workers=1 --reporter=line
 
       - name: Upload Playwright report on failure
