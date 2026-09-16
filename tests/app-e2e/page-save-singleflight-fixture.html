@@ -20,6 +20,7 @@
 
   <script>
     window.__saveCalls=0;
+    window.__failSecondary=false;
     window.KPTUCapabilities={workspaceId:()=> 'workspace-1'};
     window.KPTURuntime={
       api:async(path,opts={})=>{
@@ -36,7 +37,10 @@
             visibility:'unlisted'
           };
         }
-        if(path.startsWith('/rest/v1/app_page_permissions')&&opts.method==='DELETE')return [];
+        if(path.startsWith('/rest/v1/app_page_permissions')&&opts.method==='DELETE'){
+          if(window.__failSecondary)throw new Error('권한 저장 실패');
+          return [];
+        }
         if(path.startsWith('/rest/v1/app_page_revisions'))return [];
         return [];
       }
