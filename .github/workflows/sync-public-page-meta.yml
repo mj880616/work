@@ -9,6 +9,8 @@ on:
     paths:
       - 'p/index.html'
       - 'scripts/generate-public-pages.mjs'
+      - 'scripts/public-page-meta.mjs'
+      - 'scripts/public-page-meta.test.mjs'
       - '.github/workflows/sync-public-page-meta.yml'
 
 permissions:
@@ -28,6 +30,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Test metadata shell rules
+        run: node --test scripts/public-page-meta.test.mjs
       - name: Generate metadata shells
         run: node scripts/generate-public-pages.mjs
       - name: Commit changes
