@@ -99,3 +99,12 @@ test('page editor reconciles to the canonical server record after save',async({p
   await expect(page.locator('#pageStatus')).toHaveValue('published');
   await expect(page.locator('#pageVisibility')).toHaveValue('unlisted');
 });
+
+test('partial page save failure is explicit after the primary record is saved',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/page-save-singleflight-fixture.html');
+  await page.evaluate(()=>{window.__failSecondary=true});
+  await page.locator('#savePageBtn').click();
+  await expect(page.locator('#editorStatus')).toContainText('본문은 저장됐지만 일부 부가설정 저장에 실패했습니다.',{timeout:3000});
+  await expect(page.locator('#editorStatus')).toContainText('그룹 권한: 권한 저장 실패');
+  await expect(page.locator('#pageTitle')).toHaveValue('서버 기준 제목');
+});
