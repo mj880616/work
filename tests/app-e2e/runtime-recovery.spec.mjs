@@ -83,3 +83,19 @@ test('page save is single-flight and prevents duplicate RPC submission',async({p
   await expect(page.locator('#editorStatus')).toContainText('저장했습니다.',{timeout:3000});
   await expect(page.locator('#savePageBtn')).toBeEnabled();
 });
+
+test('page editor reconciles to the canonical server record after save',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/page-save-singleflight-fixture.html');
+  await page.locator('#pageTitle').fill('클라이언트 제목');
+  await page.locator('#pageSlug').fill('client-slug');
+  await page.locator('#pageSummary').fill('클라이언트 요약');
+  await page.locator('#pageBody').fill('클라이언트 본문');
+  await page.locator('#savePageBtn').click();
+  await expect(page.locator('#editorStatus')).toContainText('저장했습니다.',{timeout:3000});
+  await expect(page.locator('#pageTitle')).toHaveValue('서버 기준 제목');
+  await expect(page.locator('#pageSlug')).toHaveValue('server-canonical-slug');
+  await expect(page.locator('#pageSummary')).toHaveValue('서버 기준 요약');
+  await expect(page.locator('#pageBody')).toHaveValue('서버 기준 본문');
+  await expect(page.locator('#pageStatus')).toHaveValue('published');
+  await expect(page.locator('#pageVisibility')).toHaveValue('unlisted');
+});
