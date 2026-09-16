@@ -3,7 +3,7 @@
   if(window.__KPTU_NATIVE_BRIDGE__)return;
   await import('./calendar-return-bridge.js?v=2');
   if(window.__KPTU_CALENDAR_BRIDGE__)return;
-  await import('./runtime-client.js?v=2');
+  await import('./runtime-client.js?v=3');
   await import('./auth-handoff-client.js?v=1');
   await import('./auth-bootstrap.js?v=1');
   await import('./app-router.js?v=3');
