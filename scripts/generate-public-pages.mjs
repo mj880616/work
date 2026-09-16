@@ -9,6 +9,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const SITE='https://mj880616.github.io/work';
 
+// Generate a dedicated metadata shell for every published public or unlisted page.
 async function loadPages(){
   const qs=buildPagesQuery();
   const r=await fetch(`${SB}/rest/v1/app_pages?${qs}`,{headers:{apikey:KEY,Authorization:`Bearer ${KEY}`}});
