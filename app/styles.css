@@ -13,10 +13,10 @@
 @import url('./suborganization-filters.css?v=1');
 @import url('./access-approval.css?v=1');
 @import url('./home-task.css?v=1');
-@import url('./task-layout.css?v=1');
-@import url('./google-tasks.css?v=1');
+@import url('./task-layout.css?v=2');
+@import url('./google-tasks.css?v=2');
 @import url('./meeting-ui.css?v=2');
-@import url('./calendar-ui.css?v=1');
+@import url('./calendar-ui.css?v=2');
 @import url('./photo-room.css?v=1');
 @import url('./public-workspace.css?v=1');
 @import url('./workspace-ui.css?v=7');
