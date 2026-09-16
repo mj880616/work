@@ -75,6 +75,25 @@ test('transient refresh failure preserves session and reports retryable session 
   expect(result).toMatchObject({ok:false,code:'session_refresh_failed',retryable:true,hasSession:true});
 });
 
+test('concurrent identical mutations are single-flight by default',async({page})=>{
+  let mutationCalls=0;
+  await page.route(`${SB}/rest/v1/app_spaces`,async route=>{
+    mutationCalls++;
+    await new Promise(r=>setTimeout(r,150));
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'project-1'}])});
+  });
+  await loadRuntime(page,liveSession());
+  const result=await page.evaluate(async()=>{
+    const body={workspace_id:'workspace-1',name:'중복 저장 방지'};
+    return Promise.all([
+      window.KPTURuntime.api('/rest/v1/app_spaces',{method:'POST',body,prefer:'return=representation'}),
+      window.KPTURuntime.api('/rest/v1/app_spaces',{method:'POST',body,prefer:'return=representation'})
+    ]);
+  });
+  expect(mutationCalls).toBe(1);
+  expect(result).toEqual([[{id:'project-1'}],[{id:'project-1'}]]);
+});
+
 test('page save is single-flight and prevents duplicate RPC submission',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/page-save-singleflight-fixture.html');
   await page.evaluate(()=>{const b=document.querySelector('#savePageBtn');b.click();b.click()});
