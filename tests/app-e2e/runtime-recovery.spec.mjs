@@ -8,12 +8,12 @@ const expiredSession=()=>({
   access_token:'expired-access',refresh_token:'refresh-1',token_type:'bearer',expires_at:Math.floor(Date.now()/1000)-10
 });
 
-async function preloadSession(page,session){
-  await page.addInitScript(s=>localStorage.setItem('kptu_collab_session_v1',JSON.stringify(s)),session);
+async function loadRuntime(page,session){
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/runtime-client-fixture.html');
+  await page.evaluate(s=>window.KPTURuntime.session.write(s),session);
 }
 
 test('authenticated API retries once after 401 by refreshing the session',async({page})=>{
-  await preloadSession(page,liveSession());
   let apiCalls=0,refreshCalls=0,secondAuth='';
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url());
@@ -29,7 +29,7 @@ test('authenticated API retries once after 401 by refreshing the session',async(
     }
     return route.fulfill({status:404,body:'not found'});
   });
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/runtime-client-fixture.html');
+  await loadRuntime(page,liveSession());
   const result=await page.evaluate(()=>window.KPTURuntime.api('/rest/v1/retry-me'));
   expect(result).toEqual({ok:true});
   expect(apiCalls).toBe(2);
@@ -38,12 +38,11 @@ test('authenticated API retries once after 401 by refreshing the session',async(
 });
 
 test('timeout is isolated as a retryable runtime error',async({page})=>{
-  await preloadSession(page,liveSession());
   await page.route(`${SB}/rest/v1/slow`,async route=>{
     await new Promise(r=>setTimeout(r,250));
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})}).catch(()=>{});
   });
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/runtime-client-fixture.html');
+  await loadRuntime(page,liveSession());
   const result=await page.evaluate(async()=>{
     const started=performance.now();
     try{await window.KPTURuntime.api('/rest/v1/slow',{timeoutMs:50});return {ok:true,elapsed:performance.now()-started}}
@@ -56,9 +55,8 @@ test('timeout is isolated as a retryable runtime error',async({page})=>{
 });
 
 test('5xx response keeps status and retryability without clearing session',async({page})=>{
-  await preloadSession(page,liveSession());
   await page.route(`${SB}/rest/v1/fail`,route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'temporary outage'})}));
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/runtime-client-fixture.html');
+  await loadRuntime(page,liveSession());
   const result=await page.evaluate(async()=>{
     try{await window.KPTURuntime.api('/rest/v1/fail');return {ok:true}}
     catch(e){return {ok:false,code:e.code,status:e.status,retryable:e.retryable,message:e.message,hasSession:!!window.KPTURuntime.session.read()}}
@@ -68,9 +66,8 @@ test('5xx response keeps status and retryability without clearing session',async
 });
 
 test('transient refresh failure preserves session and reports retryable session error',async({page})=>{
-  await preloadSession(page,expiredSession());
   await page.route(`${SB}/auth/v1/token?grant_type=refresh_token`,route=>route.abort('failed'));
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/runtime-client-fixture.html');
+  await loadRuntime(page,expiredSession());
   const result=await page.evaluate(async()=>{
     try{await window.KPTURuntime.api('/rest/v1/anything');return {ok:true}}
     catch(e){return {ok:false,code:e.code,status:e.status,retryable:e.retryable,hasSession:!!window.KPTURuntime.session.read(),message:e.message}}
