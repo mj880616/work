@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>Page save single-flight fixture</title></head>
+<body>
+  <button id="savePageBtn" type="button">저장</button>
+  <button id="secureShareBtn" type="button" class="hidden">공유</button>
+  <a id="publicOpenBtn" class="hidden"></a>
+  <div id="editorStatus"></div>
+  <h2 id="editorHeading">새 페이지</h2>
+  <label>제목 <input id="pageTitle" value="중복 저장 테스트"></label>
+  <label>URL <input id="pageSlug" value="single-flight-test"></label>
+  <div id="pageSlugPreview"></div>
+  <textarea id="pageSummary"></textarea>
+  <textarea id="pageBody">본문</textarea>
+  <select id="pageStatus"><option value="draft" selected>draft</option></select>
+  <select id="pageVisibility"><option value="private" selected>private</option></select>
+  <select id="pageSpace"><option value="">프로젝트 없음</option></select>
+  <div id="pageGroupChecks"></div>
+  <div id="revisionList"></div>
+
+  <script>
+    window.__saveCalls=0;
+    window.KPTUCapabilities={workspaceId:()=> 'workspace-1'};
+    window.KPTURuntime={
+      api:async(path,opts={})=>{
+        if(path==='/rest/v1/rpc/app_save_page_v2'){
+          window.__saveCalls++;
+          await new Promise(r=>setTimeout(r,150));
+          return {id:'page-1',slug:'single-flight-test',status:'draft',visibility:'private'};
+        }
+        if(path.startsWith('/rest/v1/app_page_permissions')&&opts.method==='DELETE')return [];
+        if(path.startsWith('/rest/v1/app_page_revisions'))return [];
+        return [];
+      }
+    };
+    window.KPTUPageList={refresh:async()=>{}};
+  </script>
+  <script src="/app/page-save-controller.js"></script>
+</body>
+</html>
