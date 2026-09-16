@@ -1,7 +1,7 @@
 # Web2 Task 7 — UX·접근성·반응형 정리 설계
 
 Date: 2026-09-17
-Status: Proposed for implementation
+Status: Approved for planning
 Branch: `design/web2-ux-accessibility`
 Base: `main@ce2e5bd18342125771ffa18f79d4a5fd177b7663`
 
@@ -63,6 +63,8 @@ Task 7은 Design System 1.0의 시각 언어를 바꾸지 않고, 그 위에 공
 - 현재 활성 navigation item은 시각적 `.active` 상태와 함께 `aria-current="page"`를 가짐.
 - 좌측 desktop navigation과 mobile dock 모두 동일한 active/current 의미를 사용함.
 - router가 화면 전환을 단독 소유하므로 `aria-current` 갱신도 router의 view activation 경계에서 함께 처리함.
+- desktop navigation에는 `aria-label="주요 메뉴"`를 부여함.
+- mobile dock은 별도 navigation landmark로 유지하고 의미 있는 `aria-label`을 부여함.
 - hidden view의 내부 focusable element가 tab sequence에 남지 않아야 함.
 
 ### 4.2 Icon-only controls
@@ -74,7 +76,7 @@ Task 7은 Design System 1.0의 시각 언어를 바꾸지 않고, 그 위에 공
 - `‹` → `aria-label="이전 달"`
 - `›` → `aria-label="다음 달"`
 
-단순 `title`만으로 대체하지 않음.
+단순 `title`만으로 대체하지 않음. 정적 control은 HTML에 직접 속성을 두고, 동적 renderer가 만드는 control은 해당 canonical owner가 생성 시점에 accessible name을 포함함.
 
 ### 4.3 Modal / Dialog
 
@@ -87,21 +89,45 @@ Task 7은 Design System 1.0의 시각 언어를 바꾸지 않고, 그 위에 공
 - 열기 직전 trigger element를 기억함
 - 열리면 첫 의미 있는 interactive control 또는 dialog container로 focus 이동함
 - Tab / Shift+Tab은 열린 modal 안에서 순환함
-- Escape로 닫힘. 단, 저장 중이거나 기능상 닫으면 안 되는 state는 명시적으로 예외 처리함
+- Escape로 닫힘. 단, 저장 중이거나 기능상 닫으면 안 되는 state는 해당 owner가 `requestClose`를 거부함
 - 닫힌 뒤 원래 trigger가 DOM에 남아 있으면 해당 trigger로 focus 복귀함
-- trigger가 사라진 경우 화면 heading 또는 의미 있는 fallback으로 focus 복귀함
+- trigger가 사라진 경우 현재 view heading 또는 의미 있는 fallback으로 focus 복귀함
 - modal이 닫힐 때 `aria-hidden="true"`, 열릴 때 `aria-hidden="false"`를 기존 visibility contract와 일치시킴
 
-공통 focus helper가 필요한 경우 별도 작은 module로 만들되, modal open/close 자체를 소유하지 않음. 기존 owner가 helper API를 호출하는 구조로 제한함.
+공통 keyboard/focus 동작은 새 `app/accessibility-dialog.js`가 단일 제공함. 단, 이 helper는 modal 표시 여부나 저장 상태를 직접 변경하지 않으며, 기존 canonical owner가 열기/닫기 결정을 계속 소유함.
 
-예상 helper interface:
+공통 interface는 다음으로 고정함.
 
 ```js
-window.KPTUA11y.openDialog(modal,{trigger,initialFocus});
-window.KPTUA11y.closeDialog(modal,{restoreFocus:true});
+window.KPTUA11y.activateDialog(modal, {
+  trigger,
+  initialFocus,
+  requestClose
+});
+
+window.KPTUA11y.deactivateDialog(modal, {
+  restoreFocus: true,
+  fallbackFocus
+});
 ```
 
-실제 구현 시 기존 modal owner들의 중복 수준을 확인한 뒤 helper 도입 여부를 최종 결정함. 중복이 낮으면 각 canonical owner에 직접 구현함.
+`activateDialog()` 역할:
+- trigger 기록
+- initial focus 이동
+- modal 내부 Tab/Shift+Tab 순환
+- Escape 입력 시 owner가 넘긴 `requestClose()` 호출
+
+`deactivateDialog()` 역할:
+- key handler 해제
+- trigger 또는 fallback으로 focus 복귀
+
+금지사항:
+- helper가 `.hidden` class를 직접 조작하지 않음
+- helper가 `aria-hidden`을 owner 대신 임의 변경하지 않음
+- MutationObserver로 열린 modal을 탐지하지 않음
+- 기존 `mobile-modal-history.js`의 browser-back 처리 소유권을 대체하지 않음
+
+정적 modal semantics는 `index.html`에 직접 기록하고, 동적 modal은 renderer가 생성 시점에 semantics를 포함함. helper는 이미 존재하는 dialog DOM의 keyboard/focus lifecycle만 담당함.
 
 ### 4.4 Status / Error / Busy
 
@@ -229,10 +255,12 @@ window.KPTUA11y.closeDialog(modal,{restoreFocus:true});
 
 ### 공통
 
-- `app/index.html`: 정적 modal semantics, labels, navigation semantics가 적절한 경우 수정
-- `app/app-router.js`: active/current navigation 동기화가 필요한 경우 최소 수정
-- `app/base-ui.css`: focus/label/responsive shared rules 보강
-- `app/workspace-ui.css`, `app/desktop-ui.css`: shell overflow/focus clearance만 수정
+- Create: `app/accessibility-dialog.js` — dialog keyboard/focus lifecycle 전용 helper
+- Modify: `app/loader-v2.js` — helper를 feature modal owners보다 먼저 1회 로드
+- Modify: `app/index.html` — 정적 modal semantics, labels, navigation semantics
+- Modify: `app/app-router.js` — active/current navigation 동기화
+- Modify: `app/base-ui.css` — focus/label/responsive shared rules 보강
+- Modify: `app/workspace-ui.css`, `app/desktop-ui.css` — shell overflow/focus clearance만 수정
 
 ### Modal/feature owners
 
@@ -246,7 +274,7 @@ window.KPTUA11y.closeDialog(modal,{restoreFocus:true});
 - `app/profile-settings.js`
 - `app/suborganizations.js`
 
-각 기능 owner가 modal open/close state를 알고 있으므로, 접근성 hook은 해당 owner에서 명시적으로 호출함.
+각 기능 owner가 modal visibility와 save lifecycle을 계속 소유하며, open/close 직후 `KPTUA11y.activateDialog()` / `deactivateDialog()`를 명시적으로 호출함.
 
 ### Tests
 
@@ -254,7 +282,7 @@ window.KPTUA11y.closeDialog(modal,{restoreFocus:true});
 - Modify: `tests/app-e2e/ui-system.spec.mjs`
 - Review/modify: `mobile-ux-shell.spec.mjs`, `desktop-layout.spec.mjs` 및 feature-specific specs
 - Modify: `.github/workflows/app-e2e-check.yml`
-- 필요 시 smoke에 접근성 구조 invariant 일부 추가
+- Modify: `.github/workflows/app-smoke-check.yml` — MutationObserver/setTimeout 기반 접근성 보정 재유입 금지 및 helper load contract 검사
 
 ## 8. Test Design
 
@@ -263,11 +291,12 @@ window.KPTUA11y.closeDialog(modal,{restoreFocus:true});
 최소 검증:
 
 - active nav에 `aria-current="page"`
+- navigation landmark에 accessible name 존재
 - icon-only controls에 accessible name 존재
 - 주요 modal에 `role=dialog`, `aria-modal=true`, valid labelledby 존재
 - modal open 시 focus가 modal 내부로 이동
 - Tab / Shift+Tab이 modal 밖으로 탈출하지 않음
-- Escape로 닫힘
+- Escape가 owner close path를 호출해 modal을 닫음
 - close 후 trigger로 focus 복귀
 - saving button의 disabled + `aria-busy`
 - error/status live semantics
@@ -304,6 +333,7 @@ Calendar와 Pages에서도 같은 modal contract를 재사용 검증함.
 
 - navigation current state
 - icon accessible names
+- `accessibility-dialog.js`
 - dialog semantics
 - focus open/close/trap/Escape
 - live/busy semantics
