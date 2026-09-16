@@ -42,7 +42,7 @@ window.addEventListener('beforeprint',expandForPrint);
 window.addEventListener('afterprint',restoreAfterPrint);
 document.querySelector('#printPageBtn')?.addEventListener('click',printPage);
 function render(p,secure=false){
-  document.title=p.title+' · 업무 현황';
+  document.title=p.title;
   window.KPTUPublicPageEditor?.setPage(p,secure);
   if(!secure){
     setMeta('meta[name="description"]',p.summary||p.title);
