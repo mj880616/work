@@ -70,8 +70,8 @@ test('top-level action buttons share one compact size and mobile content clears 
   heights.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
   heights.push(await buttonHeight(page,'pages','#newPageBtn'));
 
-  expect(Math.min(...heights)).toBeGreaterThanOrEqual(30);
-  expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(1.5);
+  expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(.5);
+  for(const height of heights)expect(height).toBeCloseTo(36,0);
 
   await page.locator('[data-view="tasks"]').first().click();
   const rows=page.locator('#taskList .tl-task-row');
