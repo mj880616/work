@@ -6,7 +6,7 @@
 #pagesView.page-delete-mode #pageList .page-card{cursor:pointer}
 #pagesView.page-delete-mode #pageList .page-card:after{content:'×';position:absolute;top:10px;right:10px;width:30px;height:30px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);color:var(--kptu-muted);font-size:20px;line-height:28px;text-align:center;z-index:2}
 #pagesView.page-delete-mode #pageList .card-actions{opacity:.32;pointer-events:none}
-#pageList .page-card.page-delete-pending{border-color:var(--kptu-danger);box-shadow:0 0 0 2px rgba(154,64,72,.10);background:var(--kptu-danger-soft)}
+#pageList .page-card.page-delete-pending{border-color:var(--kptu-danger);outline:2px solid var(--kptu-danger);outline-offset:-2px;background:var(--kptu-danger-soft)}
 #pagesView.page-delete-mode #pageList .page-card.page-delete-pending:after{background:var(--kptu-danger);border-color:var(--kptu-danger);color:#fff}
 #pageDeleteModeBtn.active{border-color:var(--kptu-danger);color:var(--kptu-danger);background:var(--kptu-danger-soft)}
 #pageDeleteSaveBtn:disabled{opacity:.45;cursor:not-allowed}
