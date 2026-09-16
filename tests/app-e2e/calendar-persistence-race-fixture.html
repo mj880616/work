@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>Calendar persistence race fixture</title></head>
+<body>
+  <input id="showGoogleCalendar" type="checkbox" checked>
+  <div id="googleCalendarControls"></div>
+  <div id="googleCalendarList">
+    <label><input type="checkbox" data-google-cal="cal-a" checked> A</label>
+    <label><input type="checkbox" data-google-cal="cal-b"> B</label>
+  </div>
+  <button id="saveGooglePrefs" type="button">저장</button>
+  <div id="monthTitle">2026년 9월</div>
+  <div id="calendarGrid"></div>
+  <script>
+    window.__preferenceCalls=0;
+    window.__serverPrefs={calendar_ids:['cal-a'],calendar_colors:{},enabled:true};
+    window.__KPTU_RENDER_GOOGLE_CONTROLS__=()=>{};
+    window.KPTURuntime={
+      config:{url:'https://calendar.test'},
+      session:{ensure:async()=>true},
+      api:async(url,{method='GET',body=null}={})=>{
+        const u=new URL(url,location.href),action=u.searchParams.get('action')||'';
+        if(action==='status')return {connected:true,enabled:true,selected:['cal-a'],colors:{},calendars:[{id:'cal-a',backgroundColor:'#4285f4'},{id:'cal-b',backgroundColor:'#4285f4'}]};
+        if(action==='events')return {events:[],eventColors:{}};
+        if(method==='POST'&&body?.action==='preferences'){
+          const call=++window.__preferenceCalls;
+          await new Promise(r=>setTimeout(r,call===1?180:20));
+          window.__serverPrefs=structuredClone(body);
+          return {ok:true};
+        }
+        return {};
+      }
+    };
+  </script>
+  <script src="/app/calendar-persistence.js"></script>
+</body>
+</html>
