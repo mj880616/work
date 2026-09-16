@@ -12,8 +12,8 @@
   <div id="pageSlugPreview"></div>
   <textarea id="pageSummary"></textarea>
   <textarea id="pageBody">본문</textarea>
-  <select id="pageStatus"><option value="draft" selected>draft</option></select>
-  <select id="pageVisibility"><option value="private" selected>private</option></select>
+  <select id="pageStatus"><option value="draft" selected>draft</option><option value="published">published</option></select>
+  <select id="pageVisibility"><option value="private" selected>private</option><option value="unlisted">unlisted</option></select>
   <select id="pageSpace"><option value="">프로젝트 없음</option></select>
   <div id="pageGroupChecks"></div>
   <div id="revisionList"></div>
@@ -26,7 +26,15 @@
         if(path==='/rest/v1/rpc/app_save_page_v2'){
           window.__saveCalls++;
           await new Promise(r=>setTimeout(r,150));
-          return {id:'page-1',slug:'single-flight-test',status:'draft',visibility:'private'};
+          return {
+            id:'page-1',
+            slug:'server-canonical-slug',
+            title:'서버 기준 제목',
+            summary:'서버 기준 요약',
+            body:'서버 기준 본문',
+            status:'published',
+            visibility:'unlisted'
+          };
         }
         if(path.startsWith('/rest/v1/app_page_permissions')&&opts.method==='DELETE')return [];
         if(path.startsWith('/rest/v1/app_page_revisions'))return [];
