@@ -39,12 +39,13 @@ test('generated shell title is exactly the page title',()=>{
   assert.doesNotMatch(html,/· 업무 현황<\/title>/);
 });
 
-test('small title design adds page-specific title sizing without affecting other pages',()=>{
+test('small title design is compact and does not split Korean words',()=>{
   const template='<!doctype html><html><head><title>업무 자료</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body></body></html>';
   const small=renderShell(template,page,{site:SITE});
   assert.match(small,/data-kptu-page-title-size="small"/);
-  assert.match(small,/font-size:32px!important/);
-  assert.match(small,/font-size:25px!important/);
+  assert.match(small,/font-size:29px!important/);
+  assert.match(small,/font-size:23px!important/);
+  assert.match(small,/word-break:keep-all!important/);
 
   const normal=renderShell(template,{...page,metadata:{page_design:{}}},{site:SITE});
   assert.doesNotMatch(normal,/data-kptu-page-title-size="small"/);
