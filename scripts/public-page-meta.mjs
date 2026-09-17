@@ -3,6 +3,9 @@ const escAttr=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>
 const compact=v=>String(v??'').replace(/\s+/g,' ').trim();
 const TITLE_SIZE_STYLE_RE=/<style data-kptu-page-title-size="small">[\s\S]*?<\/style>/gi;
 const META_BLOCK_RE=/<!-- PUBLIC_PAGE_META_START -->[\s\S]*?<!-- PUBLIC_PAGE_META_END -->/i;
+const MANAGED_NAME_META_RE=/<meta\s+name=["'](?:kptu-page-slug|description|robots|twitter:card|twitter:title|twitter:description)["'][^>]*>\s*/gi;
+const MANAGED_OG_META_RE=/<meta\s+property=["'](?:og:type|og:locale|og:site_name|og:title|og:description|og:url)["'][^>]*>\s*/gi;
+const MANAGED_CANONICAL_RE=/<link\s+rel=["']canonical["'][^>]*>\s*/gi;
 
 export function buildPagesQuery(){
   return new URLSearchParams({
@@ -34,12 +37,23 @@ function applyTitleSizeStyle(html,page){
   return next;
 }
 
+function stripLegacyManagedMeta(html){
+  return String(html||'')
+    .replace(MANAGED_NAME_META_RE,'')
+    .replace(MANAGED_OG_META_RE,'')
+    .replace(MANAGED_CANONICAL_RE,'');
+}
+
 function refreshMetadata(html,page,{site}){
   const title=compact(page.title)||'업무 자료';
-  if(!META_BLOCK_RE.test(html))throw new Error(`custom public page shell for ${page.slug} is missing metadata markers`);
-  const next=String(html)
-    .replace(/<title>[\s\S]*?<\/title>/i,`<title>${escText(title)}</title>`)
-    .replace(META_BLOCK_RE,metaBlock(page,{site}));
+  let next=String(html||'').replace(/<title>[\s\S]*?<\/title>/i,`<title>${escText(title)}</title>`);
+  if(META_BLOCK_RE.test(next)){
+    next=next.replace(META_BLOCK_RE,metaBlock(page,{site}));
+  }else{
+    next=stripLegacyManagedMeta(next);
+    if(!/<title>[\s\S]*?<\/title>/i.test(next))throw new Error(`custom public page shell for ${page.slug} is missing a title element`);
+    next=next.replace(/<\/title>/i,`</title>\n${metaBlock(page,{site})}`);
+  }
   return applyTitleSizeStyle(next,page);
 }
 
