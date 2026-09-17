@@ -73,6 +73,21 @@ test('task dialog exposes semantics, closes on Escape, and restores trigger focu
   await expect(trigger).toBeFocused();
 });
 
+test('task dialog wraps keyboard focus within the dialog',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await page.locator('.app-nav [data-view="tasks"]').click();
+  await page.locator('#newTaskBtn').click();
+  const modal=page.locator('#taskModal');
+  const first=modal.locator('[data-close="taskModal"]');
+  const last=page.locator('#saveTaskBtn');
+  await first.focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(last).toBeFocused();
+  await last.focus();
+  await page.keyboard.press('Tab');
+  await expect(first).toBeFocused();
+});
+
 test('symbol-only controls have accessible names',async({page})=>{
   await boot(page,{width:1024,height:768});
   await expect(page.locator('#prevMonthBtn')).toHaveAttribute('aria-label','이전 달');
