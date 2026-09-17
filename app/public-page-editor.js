@@ -28,7 +28,7 @@
       .ppe-editing .paper{box-shadow:0 0 0 3px rgba(47,97,149,.08),0 10px 32px rgba(25,45,65,.055)}
       .ppe-editing [data-ppe-editable]{border-radius:6px;outline:1px dashed rgba(47,97,149,.32);outline-offset:3px;cursor:text;transition:outline-color .12s,background .12s}
       .ppe-editing [data-ppe-editable]:hover{outline-color:rgba(47,97,149,.62);background:rgba(237,244,251,.42)}
-      .ppe-editing [data-ppe-editable]:focus{outline:2px solid rgba(47,97,149,.72);background:#fff;box-shadow:0 0 0 4px rgba(47,97,149,.08)}
+      .ppe-editing [data-ppe-editable]:focus{outline:2px solid rgba(47,97,149,.72);background:#fff;color:#17324d!important;-webkit-text-fill-color:#17324d;caret-color:#17324d;box-shadow:0 0 0 4px rgba(47,97,149,.08)}
       .ppe-editing .pd-summary.ppe-empty-summary{min-height:34px;padding:6px 8px;margin-left:-8px;margin-right:-8px}
       .ppe-editing .pd-summary.ppe-empty-summary:empty:before{content:'요약을 입력하려면 여기를 클릭';color:#9aa5ae;font-weight:500}
       .ppe-editing .pd-forum-flow{position:relative}
