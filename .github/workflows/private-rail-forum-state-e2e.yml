@@ -1,21 +1,27 @@
-name: Private rail forum state E2E
+name: Private rail pages E2E
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - 'private-rail/forum-0929/**'
+      - 'private-rail/**'
+      - 'assets/private-rail-question-tools.js'
+      - 'assets/private-rail-gimpo-tools.js'
       - 'tests/app-e2e/private-rail-forum-state.spec.mjs'
+      - 'tests/app-e2e/private-rail-gimpo-public.spec.mjs'
       - '.github/workflows/private-rail-forum-state-e2e.yml'
   push:
     branches: [main]
     paths:
-      - 'private-rail/forum-0929/**'
+      - 'private-rail/**'
+      - 'assets/private-rail-question-tools.js'
+      - 'assets/private-rail-gimpo-tools.js'
       - 'tests/app-e2e/private-rail-forum-state.spec.mjs'
+      - 'tests/app-e2e/private-rail-gimpo-public.spec.mjs'
       - '.github/workflows/private-rail-forum-state-e2e.yml'
 
 jobs:
-  forum-state:
+  private-rail-pages:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -29,14 +35,16 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Start static server
         run: |
-          python3 -m http.server 8123 >/tmp/forum-state-e2e-http.log 2>&1 &
+          python3 -m http.server 8123 >/tmp/private-rail-e2e-http.log 2>&1 &
           for i in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8123/private-rail/forum-0929/ >/dev/null; then exit 0; fi
             sleep 0.5
           done
-          cat /tmp/forum-state-e2e-http.log
+          cat /tmp/private-rail-e2e-http.log
           exit 1
-      - name: Run forum shared-state tests
+      - name: Run private rail page tests
         run: >-
-          npx playwright test tests/app-e2e/private-rail-forum-state.spec.mjs
+          npx playwright test
+          tests/app-e2e/private-rail-forum-state.spec.mjs
+          tests/app-e2e/private-rail-gimpo-public.spec.mjs
           --browser=chromium --workers=1 --reporter=line
