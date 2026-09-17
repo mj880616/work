@@ -64,25 +64,15 @@ test('9호선 1단계 행감 하위페이지는 핵심 프레임과 후속과제
   expect(html).toContain('id="printPageBtn"');
 });
 
-test('공개페이지 편집기는 Web2 로그인 세션과 RLS 기반 저장을 사용하고 두 도구줄 형식을 모두 지원한다', async () => {
+test('공개페이지 편집기는 Web2 로그인 세션과 RLS 기반 저장을 공통 런타임으로 사용하고 두 도구줄 형식을 지원한다', async () => {
   const editor = await read('app/public-page-editor.js');
   expect(editor).toContain("document.querySelector('.print-tools,.tools')");
+  expect(editor).toContain("RUNTIME_SRC='/work/app/runtime-client.js?v=1'");
   expect(editor).toContain('window.KPTURuntime');
   expect(editor).toContain("'/functions/v1/public-page-edit'");
+  expect(editor).toContain('rt.session.ensure()');
   expect(editor).not.toContain('마스터 비밀번호');
-  expect(editor).not.toContain("password:editPassword");
-
-  for (const path of [
-    'p/gimpo-publicization/index.html',
-    'p/gimpo-publicization-audit/index.html',
-    'p/gimpo-publicization-press-1008/index.html',
-    'p/line9-publicization/index.html',
-    'p/line9-publicization-audit/index.html'
-  ]) {
-    const html = await read(path);
-    expect(html).toContain('app/runtime-client.js');
-    expect(html.indexOf('app/runtime-client.js')).toBeLessThan(html.indexOf('app/public-page-editor.js'));
-  }
+  expect(editor).not.toContain('password:editPassword');
 });
 
 test('public-page-edit 함수는 사용자 JWT와 app_pages RLS로만 수정하고 공용 비밀번호·service role을 사용하지 않는다', async () => {
