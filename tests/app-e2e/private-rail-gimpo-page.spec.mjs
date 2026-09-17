@@ -35,3 +35,9 @@ test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은
   expect(questionTools).toContain('margin-right:auto!important');
   expect(questionTools).toContain('bar.append(back,stat,edit,cancel,print)');
 });
+
+test('국감 페이지 도구줄은 제목 위에 배치된다', async () => {
+  const questionTools = await read('assets/private-rail-question-tools.js');
+  expect(questionTools).toContain('hero.before(bar)');
+  expect(questionTools).not.toContain('hero.after(bar)');
+});
