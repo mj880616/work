@@ -18,10 +18,10 @@ test('김포 공영화 투쟁 상세페이지는 핵심 쟁점과 편집·인쇄
   expect(html).toContain('김포골드라인 공영화·공공운영 전환');
   expect(html).toContain('5편성 증차에 따른 안전인력 충원');
   expect(html).toContain('민간위탁 운영비 및 적정인력 산정 문제');
-  expect(html).toMatch(/민자철도 사업현황/);
-  expect(html).toMatch(/인쇄/);
-  expect(html).toMatch(/수정/);
-  expect(html).toMatch(/저장/);
+  expect(html).toContain('민자철도 사업현황');
+  expect(html).toContain('인쇄');
+  expect(html).toContain('수정');
+  expect(html).toContain('저장');
 });
 
 test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은 좌측 정렬 규칙을 쓴다', async () => {
