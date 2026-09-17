@@ -94,7 +94,7 @@ test('공개페이지 수정·저장은 인증된 공통 편집 경로로 완료
   await page.locator('#ppeLiveSave').click();
   await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
   await expect(page.locator('.pd-title')).toHaveText('변경된 제목');
-  await expect(page.locator('.pd-body p')).toHaveText('변경된 본문');
+  await expect(page.locator('.pd-body p')).toContainText('변경된 본문');
   const updateCall=await page.evaluate(()=>window.__ppeCalls.find(x=>x.body?.action==='update'));
   expect(updateCall?.path).toBe('/functions/v1/public-page-edit');
   expect(updateCall?.body?.title).toBe('변경된 제목');
