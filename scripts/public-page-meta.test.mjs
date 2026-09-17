@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildPagesQuery,metaBlock,renderShell} from './public-page-meta.mjs';
+import {buildPagesQuery,metaBlock,renderShell,renderManagedShell} from './public-page-meta.mjs';
 
 const SITE='https://mj880616.github.io/work';
 const page={
@@ -49,4 +49,26 @@ test('small title design is compact and does not split Korean words',()=>{
 
   const normal=renderShell(template,{...page,metadata:{page_design:{}}},{site:SITE});
   assert.doesNotMatch(normal,/data-kptu-page-title-size="small"/);
+});
+
+test('managed custom shell keeps legacy body and scripts while metadata is refreshed',()=>{
+  const template='<!doctype html><html><head><title>generic</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body>generic body</body></html>';
+  const existing='<!doctype html><html><head><title>old title</title><meta name="description" content="old summary"><meta name="robots" content="noindex,nofollow"><link rel="canonical" href="https://old.example/"><meta property="og:title" content="old title"><meta property="og:description" content="old summary"><meta property="og:url" content="https://old.example/"></head><body><nav id="custom-nav">custom nav</nav><script src="/work/custom.js?v=9"></script></body></html>';
+  const next={...page,title:'새 제목',summary:'새 요약'};
+  const html=renderManagedShell(template,existing,next,{site:SITE,preserveExisting:true});
+  assert.match(html,/id="custom-nav">custom nav/);
+  assert.match(html,/src="\/work\/custom\.js\?v=9"/);
+  assert.match(html,/<title>새 제목<\/title>/);
+  assert.match(html,/PUBLIC_PAGE_META_START/);
+  assert.match(html,/<meta property="og:title" content="새 제목">/);
+  assert.match(html,/<meta property="og:description" content="새 요약">/);
+  assert.doesNotMatch(html,/old title|old summary|old\.example/);
+});
+
+test('unmanaged shell is regenerated from the generic template',()=>{
+  const template='<!doctype html><html><head><title>generic</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body id="generic-body">generic</body></html>';
+  const existing='<!doctype html><html><head><title>old</title></head><body id="custom-body">custom</body></html>';
+  const html=renderManagedShell(template,existing,page,{site:SITE,preserveExisting:false});
+  assert.match(html,/id="generic-body">generic/);
+  assert.doesNotMatch(html,/custom-body/);
 });
