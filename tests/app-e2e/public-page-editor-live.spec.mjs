@@ -82,17 +82,21 @@ test('편집 종료는 미저장 변경을 먼저 저장한 뒤 렌더링 상태
   expect(calls.at(-1).body.title).toBe('종료 직전 변경');
 });
 
-test('김포·9호선 전체 공개페이지와 템플릿은 공통 편집기 v6을 사용한다',async()=>{
-  const paths=[
-    'p/index.html',
+test('공개페이지 템플릿 v6은 커스텀 김포·9호선 셸에도 자동 전파된다',async()=>{
+  const template=await read('p/index.html');
+  const meta=await read('scripts/public-page-meta.mjs');
+  const targets=[
     'p/gimpo-publicization/index.html',
     'p/gimpo-publicization-audit/index.html',
     'p/gimpo-publicization-press-1008/index.html',
     'p/line9-publicization/index.html',
     'p/line9-publicization-audit/index.html'
   ];
-  for(const path of paths){
+  expect(template).toContain('public-page-editor.js?v=6');
+  expect(meta).toContain('templateEditorVersion(template)');
+  expect(meta).toContain('applyEditorVersion(next,editorVersion)');
+  for(const path of targets){
     const html=await read(path);
-    expect(html,`${path} editor version`).toContain('public-page-editor.js?v=6');
+    expect(html,`${path} editor hook`).toContain('public-page-editor.js?v=');
   }
 });
