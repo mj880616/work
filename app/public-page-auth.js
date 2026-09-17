@@ -65,7 +65,7 @@
     const endpoint=config.url+'/auth/v1/recover?redirect_to='+encodeURIComponent(String(redirectTo));
     const response=await fetchWithTimeout(endpoint,{method:'POST',headers:{apikey:config.key,'Content-Type':'application/json'},body:JSON.stringify({email:cleanEmail})});
     const data=await responseData(response);
-    if(!response.ok)throw new PublicAuthError(message(data,response.status),{status:response.status,code:'recovery_failed',retryable:retryable(response.status)});
+    if(!response.ok){if(response.status===429)throw new PublicAuthError('재설정 메일을 너무 자주 요청했습니다. 잠시 후 다시 시도해 주세요.',{status:429,code:'recovery_rate_limited',retryable:true});throw new PublicAuthError(message(data,response.status),{status:response.status,code:'recovery_failed',retryable:retryable(response.status)})}
     return data||{};
   }
 
@@ -123,11 +123,13 @@
     const actions=root.querySelector('#ppeAuthForm .ppe-auth-actions'),email=root.querySelector('#ppeAuthEmail');
     if(actions&&!root.querySelector('#ppeAuthReset')){
       const reset=document.createElement('button');reset.id='ppeAuthReset';reset.type='button';reset.textContent='비밀번호를 잊으셨나요?';actions.prepend(reset);
+      let cooldownTimer=null;
+      const startCooldown=seconds=>{let left=Math.max(1,Number(seconds)||60);reset.disabled=true;reset.textContent=`재요청 ${left}초`;clearInterval(cooldownTimer);cooldownTimer=setInterval(()=>{left-=1;if(left<=0){clearInterval(cooldownTimer);reset.disabled=false;reset.textContent='비밀번호를 잊으셨나요?';return}reset.textContent=`재요청 ${left}초`},1000)};
       reset.addEventListener('click',async()=>{
         const address=String(email?.value||'').trim();if(!address){setDialogMessage(root,'먼저 이메일을 입력해 주세요.',true);email?.focus();return}
         reset.disabled=true;setDialogMessage(root,'재설정 메일을 보내는 중입니다.');
-        try{await resetPasswordForEmail(address);setDialogMessage(root,'재설정 메일을 보냈습니다. 메일의 링크를 열어 새 비밀번호를 설정해 주세요.')}
-        catch(e){setDialogMessage(root,e?.message||'재설정 메일 발송에 실패했습니다.',true)}finally{reset.disabled=false}
+        try{await resetPasswordForEmail(address);setDialogMessage(root,'재설정 메일을 보냈습니다. 메일의 링크를 열어 새 비밀번호를 설정해 주세요.');startCooldown(60)}
+        catch(e){setDialogMessage(root,e?.message||'재설정 메일 발송에 실패했습니다.',true);if(e?.status===429)startCooldown(60);else reset.disabled=false}
       });
     }
     if(consumeRecoverySession())showRecoveryForm(root);
@@ -138,6 +140,6 @@
     const observer=new MutationObserver(()=>{const root=document.querySelector('#ppeAuthDialog');if(root)enhanceAuthDialog(root)});observer.observe(document.documentElement,{childList:true,subtree:true});
   }
 
-  window.KPTUPublicAuth={version:'1.1.0',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,resetPasswordForEmail,consumeRecoverySession,updatePassword,api};
+  window.KPTUPublicAuth={version:'1.1.1',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,resetPasswordForEmail,consumeRecoverySession,updatePassword,api};
   installRecoveryUi();
 })();
