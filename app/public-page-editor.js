@@ -10,6 +10,8 @@
   let secureMode=false;
   let saving=false;
   let editing=false;
+  let canEdit=false;
+  let accessCheckSeq=0;
   let runtimePromise=null;
 
   function ensureStyle(){
@@ -97,10 +99,23 @@
     return window.KPTURuntime;
   }
 
-  async function checkAccess(){
+  async function checkAccess(pageId=current?.id){
     const rt=await runtime();
     if(!(await rt.session.ensure()))throw new Error('Web2에서 로그인한 뒤 다시 시도해 주세요.');
-    return rt.api(EDIT_API,{method:'POST',body:{action:'check',id:current?.id}});
+    return rt.api(EDIT_API,{method:'POST',body:{action:'check',id:pageId}});
+  }
+
+  async function refreshEditAvailability(pageId,seq){
+    try{
+      await checkAccess(pageId);
+      if(seq!==accessCheckSeq||secureMode||editing||current?.id!==pageId)return;
+      canEdit=true;
+      btn()?.classList.remove('hidden');
+    }catch{
+      if(seq!==accessCheckSeq||current?.id!==pageId)return;
+      canEdit=false;
+      btn()?.classList.add('hidden');
+    }
   }
 
   async function updatePage(next){
@@ -260,21 +275,23 @@
     document.body.classList.toggle('ppe-editing',on);
     const edit=btn(),print=document.querySelector('#printPageBtn');
     const saveBtn=document.querySelector('#ppeLiveSave'),cancel=document.querySelector('#ppeLiveCancel'),status=document.querySelector('#ppeLiveStatus');
-    edit?.classList.toggle('hidden',on||secureMode||!current?.id);
+    edit?.classList.toggle('hidden',on||secureMode||!current?.id||!canEdit);
     print?.classList.toggle('hidden',on);
     [saveBtn,cancel,status].forEach(x=>x?.classList.toggle('hidden',!on));
     if(on)setStatus('수정 중 · 바꾸고 싶은 문구를 화면에서 직접 클릭');
   }
 
   async function open(){
-    if(secureMode||!current?.id||editing)return;
+    if(secureMode||!current?.id||editing||!canEdit)return;
     try{
-      await checkAccess();
+      await checkAccess(current.id);
+      canEdit=true;
       ensureTools();
       setEditingUi(true);
       if(!prepareLiveFields())throw new Error('편집할 내용을 찾지 못했습니다.');
       document.querySelector('#paper .pd-title')?.focus();
     }catch(e){
+      canEdit=false;
       setEditingUi(false);
       alert(e?.message||'수정 권한을 확인하지 못했습니다.');
     }
@@ -315,13 +332,17 @@
   function setPage(page,secure=false){
     current=page||null;
     secureMode=!!secure;
+    canEdit=false;
+    const seq=++accessCheckSeq;
     ensureTools();
     const b=btn();
     if(!b)return;
     b.onclick=null;
-    if(secureMode||!current?.id){b.classList.add('hidden');return}
-    if(!editing)b.classList.remove('hidden');
+    b.classList.add('hidden');
+    if(secureMode||!current?.id)return;
+    const pageId=current.id;
     b.onclick=e=>{e.preventDefault();open()};
+    void refreshEditAvailability(pageId,seq);
   }
 
   document.addEventListener('keydown',e=>{
