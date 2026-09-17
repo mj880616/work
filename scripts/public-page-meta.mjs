@@ -6,6 +6,8 @@ const META_BLOCK_RE=/<!-- PUBLIC_PAGE_META_START -->[\s\S]*?<!-- PUBLIC_PAGE_MET
 const MANAGED_NAME_META_RE=/<meta\s+name=["'](?:kptu-page-slug|description|robots|twitter:card|twitter:title|twitter:description)["'][^>]*>\s*/gi;
 const MANAGED_OG_META_RE=/<meta\s+property=["'](?:og:type|og:locale|og:site_name|og:title|og:description|og:url)["'][^>]*>\s*/gi;
 const MANAGED_CANONICAL_RE=/<link\s+rel=["']canonical["'][^>]*>\s*/gi;
+const EDITOR_VERSION_RE=/public-page-editor\.js\?v=([^"'&<>\s]+)/i;
+const EDITOR_VERSION_RE_GLOBAL=/(public-page-editor\.js\?v=)[^"'&<>\s]+/gi;
 
 export function buildPagesQuery(){
   return new URLSearchParams({
@@ -44,7 +46,16 @@ function stripLegacyManagedMeta(html){
     .replace(MANAGED_CANONICAL_RE,'');
 }
 
-function refreshMetadata(html,page,{site}){
+function templateEditorVersion(template){
+  return String(template||'').match(EDITOR_VERSION_RE)?.[1]||'';
+}
+
+function applyEditorVersion(html,version){
+  if(!version)return String(html||'');
+  return String(html||'').replace(EDITOR_VERSION_RE_GLOBAL,`$1${version}`);
+}
+
+function refreshMetadata(html,page,{site,editorVersion=''}){
   const title=compact(page.title)||'업무 자료';
   let next=String(html||'').replace(/<title>[\s\S]*?<\/title>/i,`<title>${escText(title)}</title>`);
   if(META_BLOCK_RE.test(next)){
@@ -54,6 +65,7 @@ function refreshMetadata(html,page,{site}){
     if(!/<title>[\s\S]*?<\/title>/i.test(next))throw new Error(`custom public page shell for ${page.slug} is missing a title element`);
     next=next.replace(/<\/title>/i,`</title>\n${metaBlock(page,{site})}`);
   }
+  next=applyEditorVersion(next,editorVersion);
   return applyTitleSizeStyle(next,page);
 }
 
@@ -70,7 +82,7 @@ export function renderShell(template,page,{site}){
 export function renderManagedShell(template,existing,page,{site,preserveExisting=false}={}){
   if(preserveExisting){
     if(!existing)throw new Error(`custom public page shell for ${page.slug} does not exist`);
-    return refreshMetadata(existing,page,{site});
+    return refreshMetadata(existing,page,{site,editorVersion:templateEditorVersion(template)});
   }
   return renderShell(template,page,{site});
 }
