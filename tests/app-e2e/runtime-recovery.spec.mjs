@@ -108,8 +108,12 @@ test('page save is single-flight and prevents duplicate RPC submission',async({p
   await page.evaluate(()=>{const b=document.querySelector('#savePageBtn');b.click();b.click()});
   await expect.poll(()=>page.evaluate(()=>window.__saveCalls)).toBe(1);
   await expect(page.locator('#savePageBtn')).toBeDisabled();
+  await expect(page.locator('#savePageBtn')).toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#editorStatus')).toHaveAttribute('role','status');
+  await expect(page.locator('#editorStatus')).toHaveAttribute('aria-live','polite');
   await expect(page.locator('#editorStatus')).toContainText('저장했습니다.',{timeout:3000});
   await expect(page.locator('#savePageBtn')).toBeEnabled();
+  await expect(page.locator('#savePageBtn')).not.toHaveAttribute('aria-busy');
 });
 
 test('page editor reconciles to the canonical server record after save',async({page})=>{
@@ -134,5 +138,9 @@ test('partial page save failure is explicit after the primary record is saved',a
   await page.locator('#savePageBtn').click();
   await expect(page.locator('#editorStatus')).toContainText('본문은 저장됐지만 일부 부가설정 저장에 실패했습니다.',{timeout:3000});
   await expect(page.locator('#editorStatus')).toContainText('그룹 권한: 권한 저장 실패');
+  await expect(page.locator('#editorStatus')).toHaveAttribute('role','alert');
+  await expect(page.locator('#editorStatus')).not.toHaveAttribute('aria-live');
+  await expect(page.locator('#savePageBtn')).toBeEnabled();
+  await expect(page.locator('#savePageBtn')).not.toHaveAttribute('aria-busy');
   await expect(page.locator('#pageTitle')).toHaveValue('서버 기준 제목');
 });

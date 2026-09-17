@@ -11,6 +11,7 @@
   </div></div>
   <script>
     window.__documentsChanged=0;
+    window.__releaseLibraryUpload=null;
     window.addEventListener('kptu:documents-changed',()=>window.__documentsChanged++);
     window.KPTURuntime={
       session:{ensure:async()=>true,read:()=>({access_token:'token',expires_at:9999999999})},
@@ -20,6 +21,7 @@
         if(path.startsWith('/rest/v1/app_spaces'))return [];
         if(path.startsWith('/rest/v1/app_documents'))return [];
         if(path==='/functions/v1/library-files'){
+          await new Promise(resolve=>{window.__releaseLibraryUpload=resolve});
           const e=new Error('요청 시간이 초과되었습니다. 다시 시도해 주세요.');e.code='timeout';e.retryable=true;throw e;
         }
         return [];

@@ -95,6 +95,56 @@ test('V3 uses a compact child-project menu and child returns to parent',async({p
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
 });
 
+test('V3 generated dialogs expose consistent accessibility semantics',async({page})=>{
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  for(const id of ['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3DeleteModal','ps3AccessModal','ps3ArchiveModal']){
+    const modal=page.locator('#'+id);
+    await expect(modal).toHaveAttribute('role','dialog');
+    await expect(modal).toHaveAttribute('aria-modal','true');
+    const labelledby=await modal.getAttribute('aria-labelledby');
+    expect(labelledby,id).toBeTruthy();
+    await expect(page.locator('#'+labelledby)).toHaveCount(1);
+    await expect(modal.locator('[data-ps3-close]').first()).toHaveAttribute('aria-label','닫기');
+  }
+});
+
+test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',async({page})=>{
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  const card=page.locator('[data-ps3-project="main-1"]').first();
+  await card.focus();await card.click();
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await expect(page.locator('#ps3DetailModal .ps3-modal-head [data-ps3-close]')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#ps3DetailModal')).toHaveClass(/hidden/);
+  await expect(card).toBeFocused();
+
+  await card.click();
+  const wsTrigger=page.locator('[data-ps3-add-ws]');
+  await wsTrigger.focus();await wsTrigger.click();
+  await expect(page.locator('#ps3WsTitle')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#ps3WorkstreamModal')).toHaveClass(/hidden/);
+  await expect(wsTrigger).toBeFocused();
+
+  const milestoneTrigger=page.locator('[data-ps3-add-milestone]');
+  await milestoneTrigger.focus();await milestoneTrigger.click();
+  await expect(page.locator('#ps3MilestoneTitle')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#ps3MilestoneModal')).toHaveClass(/hidden/);
+  await expect(milestoneTrigger).toBeFocused();
+});
+
+test('V3 child project details use native keyboard disclosure behavior',async({page})=>{
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  await page.locator('[data-ps3-project="main-1"]').first().click();
+  const details=page.locator('.ps3-child-menu'),summary=details.locator('summary');
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(details).toHaveAttribute('open','');
+  await page.keyboard.press('Tab');
+  await expect(details.locator('[data-ps3-project="child-1"]')).toBeFocused();
+});
+
 test('V3 creates and edits a project with the same final renderer',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();

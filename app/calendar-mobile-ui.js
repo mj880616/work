@@ -16,6 +16,11 @@ function applyCalendarMobileUi(){
     btn.textContent=mq.matches?labels[0]:labels[1];
   });
   document.querySelector('#newEventBtn')?.setAttribute('aria-label','일정 등록');
+  const monthToolbar=document.querySelector('.calendar-toolbar');
+  if(monthToolbar){
+    monthToolbar.setAttribute('role','group');
+    monthToolbar.setAttribute('aria-labelledby','monthTitle');
+  }
 }
 applyCalendarMobileUi();
 if(mq.addEventListener)mq.addEventListener('change',applyCalendarMobileUi);else mq.addListener?.(applyCalendarMobileUi);
