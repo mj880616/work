@@ -1,6 +1,8 @@
 const escText=v=>String(v??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const escAttr=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const compact=v=>String(v??'').replace(/\s+/g,' ').trim();
+const TITLE_SIZE_STYLE_RE=/<style data-kptu-page-title-size="small">[\s\S]*?<\/style>/gi;
+const META_BLOCK_RE=/<!-- PUBLIC_PAGE_META_START -->[\s\S]*?<!-- PUBLIC_PAGE_META_END -->/i;
 
 export function buildPagesQuery(){
   return new URLSearchParams({
@@ -25,14 +27,36 @@ function titleSizeStyle(page){
   return '<style data-kptu-page-title-size="small">.paper .pd-title{font-size:29px!important;word-break:keep-all!important}@media(max-width:650px){.paper .pd-title{font-size:23px!important}}</style>';
 }
 
+function applyTitleSizeStyle(html,page){
+  let next=String(html||'').replace(TITLE_SIZE_STYLE_RE,'');
+  const style=titleSizeStyle(page);
+  if(style)next=next.replace(/<\/head>/i,`${style}</head>`);
+  return next;
+}
+
+function refreshMetadata(html,page,{site}){
+  const title=compact(page.title)||'업무 자료';
+  if(!META_BLOCK_RE.test(html))throw new Error(`custom public page shell for ${page.slug} is missing metadata markers`);
+  const next=String(html)
+    .replace(/<title>[\s\S]*?<\/title>/i,`<title>${escText(title)}</title>`)
+    .replace(META_BLOCK_RE,metaBlock(page,{site}));
+  return applyTitleSizeStyle(next,page);
+}
+
 export function renderShell(template,page,{site}){
   const title=compact(page.title)||'업무 자료';
   let html=template
     .replace(/<title>[\s\S]*?<\/title>/i,`<title>${escText(title)}</title>`)
-    .replace(/<!-- PUBLIC_PAGE_META_START -->[\s\S]*?<!-- PUBLIC_PAGE_META_END -->/i,metaBlock(page,{site}))
+    .replace(META_BLOCK_RE,metaBlock(page,{site}))
     .replaceAll('href="../favicon.svg"','href="../../favicon.svg"')
     .replaceAll('src="../app/','src="../../app/');
-  const style=titleSizeStyle(page);
-  if(style)html=html.replace(/<\/head>/i,`${style}</head>`);
-  return html;
+  return applyTitleSizeStyle(html,page);
+}
+
+export function renderManagedShell(template,existing,page,{site,preserveExisting=false}={}){
+  if(preserveExisting){
+    if(!existing)throw new Error(`custom public page shell for ${page.slug} does not exist`);
+    return refreshMetadata(existing,page,{site});
+  }
+  return renderShell(template,page,{site});
 }
