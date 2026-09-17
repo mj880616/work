@@ -56,13 +56,27 @@
     scrollControlIntoView(dock,dockButton,behavior);
   }
 
+  function syncNavigationState(view){
+    document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>{
+      const current=btn.dataset.view===view;
+      btn.classList.toggle('active',current);
+      if(current)btn.setAttribute('aria-current','page');
+      else btn.removeAttribute('aria-current');
+    });
+    document.querySelectorAll('#ccMobileDock [data-cc-view]').forEach(btn=>{
+      const current=btn.dataset.ccView===view;
+      btn.classList.toggle('active',current);
+      if(current)btn.setAttribute('aria-current','page');
+      else btn.removeAttribute('aria-current');
+    });
+  }
+
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false}={}){
     if(!view)return false;
     const target=document.getElementById(view+'View');
     if(!target)return false;
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.toggle('hidden',panel!==target));
-    document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===view));
-    document.querySelectorAll('#ccMobileDock [data-cc-view]').forEach(btn=>btn.classList.toggle('active',btn.dataset.ccView===view));
+    syncNavigationState(view);
     api.current=view;
     const navBehavior=['restore','ready','session','popstate'].includes(source)?'auto':'smooth';
     requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:navBehavior}));
@@ -82,6 +96,7 @@
     if(!view)return false;
     const target=document.getElementById(view+'View');
     if(api.current===view&&target&&!target.classList.contains('hidden')){
+      syncNavigationState(view);
       requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:'auto'}));
       return true;
     }
@@ -125,6 +140,7 @@
         go('home',{source:'brand'});
       });
     }
+    if(api.current)syncNavigationState(api.current);
     if(appReady())handleUiReady();
   }
 
