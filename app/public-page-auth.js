@@ -130,7 +130,7 @@
         const address=String(email?.value||'').trim();if(!address){setDialogMessage(root,'먼저 이메일을 입력해 주세요.',true);email?.focus();return}
         reset.disabled=true;setDialogMessage(root,'재설정 메일을 보내는 중입니다.');
         try{await resetPasswordForEmail(address);setDialogMessage(root,'재설정 메일을 보냈습니다. 메일의 링크를 열어 새 비밀번호를 설정해 주세요.');startCooldown(60)}
-        catch(e){setDialogMessage(root,e?.message||'재설정 메일 발송에 실패했습니다.',true);if(e?.status===429)startCooldown(60);else reset.disabled=false}
+        catch(e){setDialogMessage(root,e?.message||'재설정 메일 발송에 실패했습니다.',true);reset.disabled=false;reset.textContent='비밀번호를 잊으셨나요?'}
       });
     }
     if(consumeRecoverySession())showRecoveryForm(root);
@@ -141,6 +141,6 @@
     const observer=new MutationObserver(()=>{const root=document.querySelector('#ppeAuthDialog');if(root)enhanceAuthDialog(root)});observer.observe(document.documentElement,{childList:true,subtree:true});
   }
 
-  window.KPTUPublicAuth={version:'1.2.0',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,resetPasswordForEmail,consumeRecoverySession,updatePassword,api};
+  window.KPTUPublicAuth={version:'1.2.1',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,resetPasswordForEmail,consumeRecoverySession,updatePassword,api};
   installRecoveryUi();
 })();
