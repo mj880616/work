@@ -4,7 +4,7 @@
   window.__KPTU_PUBLIC_PAGE_EDITOR__=true;
 
   const EDIT_API='/functions/v1/public-page-edit';
-  const PUBLIC_AUTH_SRC='/work/app/public-page-auth.js?v=4';
+  const PUBLIC_AUTH_SRC='/work/app/public-page-auth.js?v=5';
   const AUTOSAVE_DELAY=650;
   const RETRY_DELAYS=[900,2200];
   const btn=()=>document.querySelector('#editPageBtn');
@@ -56,7 +56,8 @@
       const retry=document.createElement('button');retry.id='ppeLiveRetry';retry.type='button';retry.className='print-btn ppe-live-retry ppe-live-controls hidden';retry.textContent='다시 저장';retry.addEventListener('click',retrySave);
       const done=document.createElement('button');done.id='ppeLiveDone';done.type='button';done.className='print-btn ppe-live-controls hidden';done.textContent='편집 종료';done.addEventListener('click',finishEditing);
       const saveBtn=document.createElement('button');saveBtn.id='ppeLiveSave';saveBtn.type='button';saveBtn.className='print-btn ppe-live-save ppe-live-controls hidden';saveBtn.textContent='저장';saveBtn.addEventListener('click',save);
-      tools.append(cancel,retry,done,saveBtn);
+      const logout=document.createElement('button');logout.id='ppeLogout';logout.type='button';logout.className='print-btn';logout.textContent='로그아웃';logout.addEventListener('click',logoutEditor);
+      tools.append(cancel,retry,done,saveBtn,logout);
     }
     return tools;
   }
@@ -111,6 +112,11 @@
 
   async function checkAccess(pageId=current?.id){const auth=await publicAuth();return auth.api(EDIT_API,{method:'POST',body:{action:'check',id:pageId}})}
   async function updatePage(next){const auth=await publicAuth();if(!(await auth.session.ensure()))throw new Error('편집자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');return auth.api(EDIT_API,{method:'POST',body:{action:'update',id:current?.id,...next}})}
+
+  async function logoutEditor(){
+    if(editing){const ok=await finishEditing();if(editing)return}
+    try{const auth=await publicAuth();auth.session.write(null);setStatus('');showAuthDialog('로그아웃했습니다. 다시 수정하려면 편집자 계정으로 로그인해 주세요.')}catch(e){showAuthDialog(e?.message||'로그아웃 처리에 실패했습니다.')}
+  }
 
   async function startEditing(){
     closeAuthDialog();ensureTools();dirtyVersion=0;savedVersion=0;retryAttempt=0;clearAutosave();clearRetry();setEditingUi(true);
@@ -218,8 +224,8 @@
   async function finishEditing(){if(!editing)return;clearAutosave();clearRetry();let ok=true;if(saving)ok=await(savePromise||Promise.resolve(false));if(ok&&dirtyVersion>savedVersion)ok=await persistDirty({autoRetry:false});if(!ok||dirtyVersion>savedVersion)return;exitEditing()}
 
   function setEditingUi(on){
-    editing=on;document.body.classList.toggle('ppe-editing',on);const edit=btn(),print=document.querySelector('#printPageBtn'),saveBtn=document.querySelector('#ppeLiveSave'),done=document.querySelector('#ppeLiveDone'),cancel=document.querySelector('#ppeLiveCancel'),status=document.querySelector('#ppeLiveStatus');
-    edit?.classList.toggle('hidden',on||secureMode||!current?.id);print?.classList.toggle('hidden',on);[saveBtn,done,cancel,status].forEach(x=>x?.classList.toggle('hidden',!on));if(!on)showRetry(false);if(on)setStatus('수정 중 · 자동 저장');
+    editing=on;document.body.classList.toggle('ppe-editing',on);const edit=btn(),print=document.querySelector('#printPageBtn'),saveBtn=document.querySelector('#ppeLiveSave'),done=document.querySelector('#ppeLiveDone'),cancel=document.querySelector('#ppeLiveCancel'),status=document.querySelector('#ppeLiveStatus'),logout=document.querySelector('#ppeLogout');
+    edit?.classList.toggle('hidden',on||secureMode||!current?.id);print?.classList.toggle('hidden',on);logout?.classList.toggle('hidden',on||secureMode||!current?.id);[saveBtn,done,cancel,status].forEach(x=>x?.classList.toggle('hidden',!on));if(!on)showRetry(false);if(on)setStatus('수정 중 · 자동 저장');
   }
 
   async function open(){
@@ -247,5 +253,5 @@
   window.addEventListener('beforeunload',e=>{if(!editing||(!saving&&dirtyVersion<=savedVersion))return;e.preventDefault();e.returnValue=''});
 
   ensureStyle();ensureAuthDialog();
-  window.KPTUPublicPageEditor={setPage,open,cancel:cancelEdit,save,finish:finishEditing,retry:retrySave};
+  window.KPTUPublicPageEditor={setPage,open,cancel:cancelEdit,save,finish:finishEditing,retry:retrySave,logout:logoutEditor};
 })();
