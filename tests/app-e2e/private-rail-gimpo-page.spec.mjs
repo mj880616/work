@@ -138,11 +138,12 @@ test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은
   expect(questionTools).toContain('bar.append(back,stat,edit,cancel,print)');
 });
 
-test('국감 페이지 도구줄은 제목 위에 배치된다', async () => {
-  const html = await read('private-rail/audit-question/index.html');
-  const toolsIndex=html.indexOf('id="privateRailQuestionTools"');
-  const paperIndex=html.indexOf('id="privateRailQuestionPaper"');
-  expect(toolsIndex).toBeGreaterThan(-1);
-  expect(paperIndex).toBeGreaterThan(-1);
-  expect(toolsIndex).toBeLessThan(paperIndex);
+test('국감 페이지 도구줄은 현재 question-0912 페이지의 제목 위에 동적으로 배치된다', async () => {
+  const html = await read('private-rail/question-0912/index.html');
+  const questionTools = await read('assets/private-rail-question-tools.js');
+  expect(html).toContain('/work/assets/private-rail-question-tools.js');
+  expect(html).toContain('class="hero"');
+  expect(questionTools).toContain("const hero=document.querySelector('.hero')");
+  expect(questionTools).toContain("bar.id='privateRailPrintBar'");
+  expect(questionTools).toContain('hero.before(bar)');
 });
