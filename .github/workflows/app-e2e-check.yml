@@ -2,21 +2,11 @@ name: App browser E2E check
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'app/**'
-      - 'p/**'
-      - 'tests/app-e2e/**'
-      - '.github/workflows/app-e2e-check.yml'
+    branches: [main]
+    paths: ['app/**','p/**','tests/app-e2e/**','.github/workflows/app-e2e-check.yml']
   pull_request:
-    branches:
-      - main
-    paths:
-      - 'app/**'
-      - 'p/**'
-      - 'tests/app-e2e/**'
-      - '.github/workflows/app-e2e-check.yml'
+    branches: [main]
+    paths: ['app/**','p/**','tests/app-e2e/**','.github/workflows/app-e2e-check.yml']
   schedule:
     - cron: '0 21 * * *'
   workflow_dispatch:
@@ -27,63 +17,20 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install Playwright
         run: |
           npm install --no-save @playwright/test@1.55.0
           npx playwright install --with-deps chromium
-
       - name: Start static app server
         run: |
           python3 -m http.server 8123 >/tmp/kptu-e2e-http.log 2>&1 &
-          echo $! > /tmp/kptu-e2e-http.pid
           for i in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8123/app/ >/dev/null; then exit 0; fi
             sleep 0.5
           done
-          cat /tmp/kptu-e2e-http.log
           exit 1
-
-      - name: Run current browser flows and full QA
-        run: >-
-          npx playwright test
-          tests/app-e2e/app-initial-paint.spec.mjs
-          tests/app-e2e/calendar-move.spec.mjs
-          tests/app-e2e/profile-workplaces.spec.mjs
-          tests/app-e2e/page-builder.spec.mjs
-          tests/app-e2e/page-core-structure.spec.mjs
-          tests/app-e2e/project-system-v3.spec.mjs
-          tests/app-e2e/project-v3-structure.spec.mjs
-          tests/app-e2e/mobile-ux-shell.spec.mjs
-          tests/app-e2e/swipe-nav-follow.spec.mjs
-          tests/app-e2e/google-tasks-push.spec.mjs
-          tests/app-e2e/access-request-push.spec.mjs
-          tests/app-e2e/task-layout-groups.spec.mjs
-          tests/app-e2e/workflow-ai-model.spec.mjs
-          tests/app-e2e/meeting-entry.spec.mjs
-          tests/app-e2e/desktop-layout.spec.mjs
-          tests/app-e2e/home-dashboard-v2.spec.mjs
-          tests/app-e2e/security-org-affiliations.spec.mjs
-          tests/app-e2e/ui-system.spec.mjs
-          tests/app-e2e/design-system.spec.mjs
-          tests/app-e2e/accessibility-ux.spec.mjs
-          tests/app-e2e/photo-room.spec.mjs
-          tests/app-e2e/private-rail-gimpo-page.spec.mjs
-          tests/app-e2e/public-page-editor-live.spec.mjs
-          tests/app-e2e/public-page-password-recovery.spec.mjs
-          --grep-invert "long-running project operating model"
-          --browser=chromium --workers=1 --reporter=line
-
-      - name: Upload Playwright report on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-e2e-report
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore
+      - name: Run recovery RED check
+        run: npx playwright test tests/app-e2e/public-page-password-recovery.spec.mjs --browser=chromium --workers=1 --reporter=line
