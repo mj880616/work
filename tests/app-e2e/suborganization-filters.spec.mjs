@@ -65,6 +65,17 @@ test('조직유형은 원 산하조직 편집 화면에서 직접 저장된다',
  expect(patch.body.organization_type).toBe('철도산업');
 });
 
+test('viewer에게 산하조직 관리자 전용 컨트롤이 노출되거나 탭되지 않는다',async({page})=>{
+ await page.goto(canonical+'?role=viewer');
+ await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
+ await expect(page.locator('#soAddOrg')).toBeHidden();
+ await expect(page.locator('[data-so-edit]')).toHaveCount(0);
+ await expect(page.locator('[data-so-assign]')).toHaveCount(0);
+ await expect(page.locator('[data-so-delete]')).toHaveCount(0);
+ await page.keyboard.press('Tab');
+ await expect(page.locator('#soAddOrg')).not.toBeFocused();
+});
+
 test('내 공간은 김명진 계정에서만 노출된다',async({page})=>{
  await open(page);
  await expect(page.locator('#myspaceGateStyle')).toHaveCount(0);
