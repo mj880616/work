@@ -51,15 +51,22 @@ test('small title design is compact and does not split Korean words',()=>{
   assert.doesNotMatch(normal,/data-kptu-page-title-size="small"/);
 });
 
-test('custom page shell keeps its body and scripts while metadata is refreshed',()=>{
+test('managed custom shell keeps its body and scripts while metadata is refreshed',()=>{
   const template='<!doctype html><html><head><title>generic</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body>generic body</body></html>';
-  const existing='<!doctype html><html><head><!-- KPTU_CUSTOM_PAGE_SHELL --><title>old title</title><!-- PUBLIC_PAGE_META_START --><meta property="og:title" content="old title"><!-- PUBLIC_PAGE_META_END --></head><body><nav id="custom-nav">custom nav</nav><script src="/work/custom.js?v=9"></script></body></html>';
+  const existing='<!doctype html><html><head><title>old title</title><!-- PUBLIC_PAGE_META_START --><meta property="og:title" content="old title"><!-- PUBLIC_PAGE_META_END --></head><body><nav id="custom-nav">custom nav</nav><script src="/work/custom.js?v=9"></script></body></html>';
   const next={...page,title:'새 제목',summary:'새 요약'};
-  const html=renderManagedShell(template,existing,next,{site:SITE});
-  assert.match(html,/KPTU_CUSTOM_PAGE_SHELL/);
+  const html=renderManagedShell(template,existing,next,{site:SITE,preserveExisting:true});
   assert.match(html,/id="custom-nav">custom nav/);
   assert.match(html,/src="\/work\/custom\.js\?v=9"/);
   assert.match(html,/<title>새 제목<\/title>/);
   assert.match(html,/<meta property="og:title" content="새 제목">/);
   assert.doesNotMatch(html,/old title/);
+});
+
+test('unmanaged shell is regenerated from the generic template',()=>{
+  const template='<!doctype html><html><head><title>generic</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body id="generic-body">generic</body></html>';
+  const existing='<!doctype html><html><head><title>old</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body id="custom-body">custom</body></html>';
+  const html=renderManagedShell(template,existing,page,{site:SITE,preserveExisting:false});
+  assert.match(html,/id="generic-body">generic/);
+  assert.doesNotMatch(html,/custom-body/);
 });
