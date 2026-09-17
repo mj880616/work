@@ -68,6 +68,7 @@ jobs:
               'app/password-reset.js':[r'SESSION_KEY'],
               'tests/app-e2e/public-page-editor-fixture.html':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-page-editor-live.spec.mjs':[r'kptu_public_editor_session_v1',r'kptu_collab_session_v1'],
+              'tests/app-e2e/public-page-password-recovery.spec.mjs':[r'kptu_public_editor_session_v1'],
           }
 
           active_hits=[]; legacy_hits=[]; violations=[]
@@ -85,7 +86,6 @@ jobs:
                           legacy_hits.append(row)
                           continue
                       active_hits.append(row)
-                      # indexedDB / CacheStorage are not allowlisted at all.
                       if kind in {'indexedDB','CacheStorage'}:
                           violations.append(row);continue
                       tokens=allowed.get(path,[])

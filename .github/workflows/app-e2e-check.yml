@@ -74,6 +74,7 @@ jobs:
           tests/app-e2e/photo-room.spec.mjs
           tests/app-e2e/private-rail-gimpo-page.spec.mjs
           tests/app-e2e/public-page-editor-live.spec.mjs
+          tests/app-e2e/public-page-password-recovery.spec.mjs
           --grep-invert "long-running project operating model"
           --browser=chromium --workers=1 --reporter=line
 
