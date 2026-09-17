@@ -43,8 +43,9 @@ test('10/8 김포 기자회견 준비페이지는 기획안 편집·인쇄와 �
   expect(html).toContain('2026. 10. 8.(목) 11:00');
   expect(html).toContain('김포시청 앞');
   expect(html).toContain('공공운수노조 전국철도지하철노동조합협의회');
-  expect(html).toContain('발언 순서');
-  expect(html).toContain('세부 역할분담');
+  expect(html).toContain('발언·섭외');
+  expect(html).toContain('현장·진행');
+  expect(html).toContain('언론·선전');
   expect(html).toContain('준비 체크리스트');
   expect(html).toContain('board=private_rail');
   expect(html).toContain('task_gimpo1008_');
