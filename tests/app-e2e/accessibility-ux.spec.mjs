@@ -72,6 +72,35 @@ test('high-frequency filters, month controls, and destructive task actions expos
   await expect(page.locator('.calendar-toolbar')).toHaveAttribute('aria-labelledby','monthTitle');
 });
 
+test('library and page toolbars expose programmatic labels',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await page.locator('.app-nav [data-view="library"]').click();
+  await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
+  await expect(page.locator('label[for="documentProject"]')).toHaveCount(1);
+  await page.locator('.app-nav [data-view="pages"]').click();
+  await expect(page.locator('label[for="pageSearch"]')).toHaveCount(1);
+  await expect(page.locator('label[for="pageFilter"]')).toHaveCount(1);
+});
+
+test('project creation dialog exposes semantics, keyboard close, and trigger restore',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await page.locator('.app-nav [data-view="projects"]').click();
+  const trigger=page.locator('#newProjectBtn');
+  await trigger.focus();
+  await trigger.click();
+  const modal=page.locator('#ps3CreateModal');
+  await expect(modal).toBeVisible();
+  await expect(modal).toHaveAttribute('role','dialog');
+  await expect(modal).toHaveAttribute('aria-modal','true');
+  const labelledby=await modal.getAttribute('aria-labelledby');
+  expect(labelledby).toBeTruthy();
+  await expect(page.locator('#'+labelledby)).toBeVisible();
+  await expect(page.locator('#ps3CreateName')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(modal).toHaveClass(/hidden/);
+  await expect(trigger).toBeFocused();
+});
+
 test('task dialog exposes semantics, closes on Escape, and restores trigger focus',async({page})=>{
   await boot(page,{width:1024,height:768});
   await page.locator('.app-nav [data-view="tasks"]').click();
