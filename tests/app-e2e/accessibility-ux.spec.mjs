@@ -61,6 +61,17 @@ test('active navigation exposes aria-current',async({page})=>{
   await expect(page.locator('.app-nav [data-view="home"]')).not.toHaveAttribute('aria-current');
 });
 
+test('high-frequency filters, month controls, and destructive task actions expose clear names',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await page.locator('.app-nav [data-view="tasks"]').click();
+  await expect(page.locator('label[for="taskScope"]')).toHaveText('할 일 범위');
+  await expect(page.locator('label[for="taskStatus"]')).toHaveText('할 일 상태');
+  await expect(page.locator('[data-tl-delete="a11y-task-1"]')).toHaveAttribute('aria-label','접근성 점검 할 일 삭제');
+  await page.locator('.app-nav [data-view="calendar"]').click();
+  await expect(page.locator('.calendar-toolbar')).toHaveAttribute('role','group');
+  await expect(page.locator('.calendar-toolbar')).toHaveAttribute('aria-labelledby','monthTitle');
+});
+
 test('task dialog exposes semantics, closes on Escape, and restores trigger focus',async({page})=>{
   await boot(page,{width:1024,height:768});
   await page.locator('.app-nav [data-view="tasks"]').click();
