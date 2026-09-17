@@ -4,13 +4,19 @@
 <div class="tools"><button id="editPageBtn" class="hidden" type="button">수정</button><button id="printPageBtn" type="button">인쇄</button></div>
 <article id="paper" class="paper"></article>
 <script>
+const fixtureParams=new URLSearchParams(location.search);
 window.__ppeCalls=[];
 window.__ppeFailUpdate=false;
+window.__ppeSession=fixtureParams.get('anon')!=='1';
+window.__ppeCanEdit=fixtureParams.get('forbidden')!=='1';
 window.KPTURuntime={
-  session:{ensure:async()=>true},
+  session:{ensure:async()=>window.__ppeSession},
   api:async(path,{body}={})=>{
     window.__ppeCalls.push({path,body});
-    if(body?.action==='check')return {ok:true};
+    if(body?.action==='check'){
+      if(!window.__ppeCanEdit)throw new Error('forbidden');
+      return {ok:true};
+    }
     if(body?.action==='update'){
       if(window.__ppeFailUpdate)throw new Error('의도된 저장 실패');
       return {page:{id:body.id,title:body.title,summary:body.summary,body:body.body,metadata:{},updated_at:new Date().toISOString()}};
