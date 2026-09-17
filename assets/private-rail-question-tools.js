@@ -27,16 +27,17 @@
     if(document.getElementById('privateRailQuestionToolsStyle'))return;
     const s=document.createElement('style');s.id='privateRailQuestionToolsStyle';
     s.textContent=`
-      .private-rail-printbar{display:flex!important;justify-content:flex-end!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important;margin:12px 0 -4px!important}
+      .private-rail-printbar{display:flex!important;justify-content:flex-start!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important;margin:12px 0 -4px!important}
       .private-rail-printbtn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:34px}
       .private-rail-question-back,.private-rail-question-edit,.private-rail-question-cancel{background:#fff!important;color:#294b69!important;border-color:#c7d3dd!important;box-shadow:none!important}
+      .private-rail-question-back{margin-right:auto!important}
       .private-rail-question-cancel{display:none!important}
       .private-rail-question-editing .private-rail-question-cancel{display:inline-flex!important}
       .private-rail-question-editing main.wrap{outline:2px solid rgba(49,95,136,.22);outline-offset:8px;border-radius:20px}
       .private-rail-question-editing main.wrap [contenteditable="true"]{caret-color:#17324d}
       .private-rail-question-editing main.wrap .kptu-copy-wrap{display:none!important}
-      .private-rail-question-status{font-size:11px;color:#66717d;margin-right:auto}
-      @media(max-width:760px){.private-rail-printbar{justify-content:flex-start!important}.private-rail-question-status{width:100%;order:9;margin-top:2px}}
+      .private-rail-question-status{font-size:11px;color:#66717d;margin-right:0}
+      @media(max-width:760px){.private-rail-printbar{justify-content:flex-start!important}.private-rail-question-back{width:auto;margin-right:auto!important}.private-rail-question-status{width:100%;order:9;margin-top:2px}}
       @media print{#privateRailPrintBar{display:none!important}}
     `;
     document.head.append(s);
@@ -62,12 +63,12 @@
     const hero=document.querySelector('.hero');if(!hero)return;
     document.getElementById('privateRailPrintBar')?.remove();
     const bar=document.createElement('div');bar.id='privateRailPrintBar';bar.className='private-rail-printbar';bar.contentEditable='false';
+    const back=document.createElement('a');back.className='private-rail-printbtn private-rail-question-back back-link';back.href='/work/private-rail/';back.textContent='← 민자철도 사업현황';
     const stat=document.createElement('span');stat.id='privateRailQuestionStatus';stat.className='private-rail-question-status';stat.textContent='';
-    const back=document.createElement('a');back.className='private-rail-printbtn private-rail-question-back';back.href='/work/private-rail/';back.textContent='← 사업현황';
     const edit=document.createElement('button');edit.type='button';edit.id='privateRailQuestionEdit';edit.className='private-rail-printbtn private-rail-question-edit';edit.textContent=state.editing?'저장':'수정';edit.addEventListener('click',toggleEdit);
     const cancel=document.createElement('button');cancel.type='button';cancel.id='privateRailQuestionCancel';cancel.className='private-rail-printbtn private-rail-question-cancel';cancel.textContent='취소';cancel.addEventListener('click',cancelEdit);
     const print=document.createElement('button');print.type='button';print.className='private-rail-printbtn';print.textContent='인쇄';print.addEventListener('click',()=>window.print());
-    bar.append(stat,back,edit,cancel,print);hero.after(bar);
+    bar.append(back,stat,edit,cancel,print);hero.after(bar);
     if(state.editing){bar.classList.add('editing');status('수정 중 · 화면의 문구를 직접 수정한 뒤 저장');}
   }
 
