@@ -129,5 +129,5 @@
     return data;
   }
 
-  window.KPTUPublicAuth={version:'1.0.0',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,api};
+  window.KPTUPublicAuth={version:'1.0.1',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,api};
 })();
