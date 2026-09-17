@@ -8,7 +8,7 @@
     sessionKey:'kptu_public_editor_session_v1',
     timeoutMs:15000
   };
-  let refreshPromise=null;
+  let refreshPromise=null,recoverySession=null;
 
   class PublicAuthError extends Error{
     constructor(message,{status=0,code='request_failed',retryable=false,cause=null}={}){
@@ -75,19 +75,20 @@
     const access_token=params.get('access_token'),refresh_token=params.get('refresh_token');
     if(!access_token||!refresh_token)return false;
     const session=normalizeSession({access_token,refresh_token,expires_in:Number(params.get('expires_in'))||3600,token_type:params.get('token_type')||'bearer'});
-    write(session);
+    recoverySession=session;
+    write(null);
     history.replaceState(null,'',location.pathname+location.search);
     return session;
   }
 
   async function updatePassword(password){
     const next=String(password||'');if(next.length<8)throw new PublicAuthError('새 비밀번호는 8자 이상 입력해 주세요.',{code:'weak_password'});
-    if(!(await ensure()))throw new PublicAuthError('비밀번호 재설정 링크가 만료되었습니다. 재설정 메일을 다시 요청해 주세요.',{status:401,code:'session_required'});
-    const current=read();
+    const current=recoverySession;
+    if(!current?.access_token)throw new PublicAuthError('비밀번호 재설정 링크가 만료되었습니다. 재설정 메일을 다시 요청해 주세요.',{status:401,code:'session_required'});
     const response=await fetchWithTimeout(config.url+'/auth/v1/user',{method:'PUT',headers:{apikey:config.key,'Content-Type':'application/json',Authorization:'Bearer '+current.access_token},body:JSON.stringify({password:next})});
     const data=await responseData(response);
     if(!response.ok)throw new PublicAuthError(message(data,response.status),{status:response.status,code:'password_update_failed',retryable:retryable(response.status)});
-    return data||{};
+    write(current);recoverySession=null;return data||{};
   }
 
   async function api(path,{method='GET',body=null,headers={},timeoutMs=config.timeoutMs}={}){
@@ -140,6 +141,6 @@
     const observer=new MutationObserver(()=>{const root=document.querySelector('#ppeAuthDialog');if(root)enhanceAuthDialog(root)});observer.observe(document.documentElement,{childList:true,subtree:true});
   }
 
-  window.KPTUPublicAuth={version:'1.1.1',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,resetPasswordForEmail,consumeRecoverySession,updatePassword,api};
+  window.KPTUPublicAuth={version:'1.2.0',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,resetPasswordForEmail,consumeRecoverySession,updatePassword,api};
   installRecoveryUi();
 })();
