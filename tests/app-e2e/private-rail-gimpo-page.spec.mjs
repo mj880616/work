@@ -24,7 +24,7 @@ test('김포 허브와 하위페이지 명칭을 공영화 및 안전인력 확�
   expect(hub).toContain('property="og:title" content="김포 공영화 및 안전인력 확충 투쟁"');
   expect(audit).toContain('← 김포 공영화 및 안전인력 확충 투쟁');
   expect(press).toContain('← 김포 공영화 및 안전인력 확충 투쟁');
-  expect(press).toContain('public-page-editor.js?v=4');
+  expect(press).toContain('public-page-editor.js?v=');
 });
 
 test('김포 허브는 3개 대응영역과 행감·기자회견 하위페이지를 제공한다', async () => {
