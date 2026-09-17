@@ -11,6 +11,10 @@ const orgs=[
 ];
 let assignments=[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
 window.__patches=[];
+window.__holdOrgSave=false;window.__failOrgSave=false;window.__holdAssigneeSave=false;
+let releaseOrgSave,releaseAssigneeSave;
+window.__orgSaveGate=new Promise(r=>releaseOrgSave=r);window.__assigneeSaveGate=new Promise(r=>releaseAssigneeSave=r);
+window.__releaseOrgSave=()=>releaseOrgSave();window.__releaseAssigneeSave=()=>releaseAssigneeSave();
 window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
  if(path==='/auth/v1/user')return {id:fixtureUser,user_metadata:{display_name:fixtureRole==='viewer'?'열람자':'김명진'}};
  if(path.startsWith('/rest/v1/app_workspace_members?user_id='))return [{workspace_id:'ws-1',role:fixtureRole}];
@@ -19,10 +23,11 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
  if(path.startsWith('/rest/v1/app_suborganizations?workspace_id=eq.ws-1&active=eq.true'))return orgs;
  if(path==='/rest/v1/app_suborganization_assignees?select=organization_id,user_id,assigned_by,created_at')return assignments;
  if(path.startsWith('/rest/v1/app_suborganizations?id=eq.')&&opt.method==='PATCH'){
+   if(window.__holdOrgSave)await window.__orgSaveGate;if(window.__failOrgSave)throw new Error('조직 저장 실패');
    const id=decodeURIComponent(path.match(/id=eq\.([^&]+)/)?.[1]||'');
    const row=orgs.find(x=>x.id===id);if(row)Object.assign(row,opt.body||{});window.__patches.push({path,body:opt.body});return null;
  }
- if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&opt.method==='DELETE'){assignments=assignments.filter(x=>!path.includes(x.organization_id));return null}
+ if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&opt.method==='DELETE'){if(window.__holdAssigneeSave)await window.__assigneeSaveGate;assignments=assignments.filter(x=>!path.includes(x.organization_id));return null}
  if(path==='/rest/v1/app_suborganization_assignees'&&opt.method==='POST'){assignments.push(...(Array.isArray(opt.body)?opt.body:[opt.body]));return null}
  if(path.startsWith('/rest/v1/app_event_suborganizations'))return [];
  return [];
