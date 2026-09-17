@@ -1,0 +1,37 @@
+import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+const repoRoot = new URL('../../', import.meta.url);
+
+async function read(path) {
+  return readFile(new URL(path, repoRoot), 'utf8');
+}
+
+test('민자철도 사업현황에 김포 공영화 투쟁 바로가기가 노출된다', async () => {
+  const html = await read('private-rail/index.html');
+  expect(html).toContain('김포 공영화 투쟁');
+  expect(html).toContain('/work/p/gimpo-publicization/');
+});
+
+test('김포 공영화 투쟁 상세페이지는 기존 공개페이지 편집·인쇄 흐름을 사용한다', async () => {
+  const html = await read('p/gimpo-publicization/index.html');
+  expect(html).toContain('김포 공영화 투쟁');
+  expect(html).toContain('김포골드라인 공영화·공공운영 전환');
+  expect(html).toContain('5편성 증차 안전인력 충원');
+  expect(html).toContain('민간위탁 운영비·적정인력 산정 문제');
+  expect(html).toContain('name="kptu-page-slug" content="gimpo-publicization"');
+  expect(html).toContain('id="editPageBtn"');
+  expect(html).toContain('id="printPageBtn"');
+  expect(html).toContain('back-link');
+  expect(html).toContain('← 민자철도 사업현황');
+});
+
+test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은 좌측 고정 규칙을 쓴다', async () => {
+  const forumTools = await read('app/forum-flow-polish.js');
+  const questionTools = await read('assets/private-rail-question-tools.js');
+  expect(forumTools).toContain("a.className='print-btn back-link'");
+  expect(forumTools).toContain("a.style.marginRight='auto'");
+  expect(questionTools).toContain('private-rail-question-back back-link');
+  expect(questionTools).toContain('margin-right:auto!important');
+  expect(questionTools).toContain('bar.append(back,stat,edit,cancel,print)');
+});
