@@ -5,10 +5,11 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'a11y-user',email:'a11y@example.org',user_metadata:{display_name:'접근성 QA'}};
 const workspace={id:'a11y-workspace',slug:'a11y',name:'공공기관사업팀 Workspace'};
 const tasks=[{id:'a11y-task-1',workspace_id:workspace.id,title:'접근성 점검 할 일',assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:null,created_at:'2026-09-17T00:00:00Z'}];
+const orgs=[{id:'a11y-org-1',workspace_id:workspace.id,name:'철도노조',aliases:['철도'],description:'철도 산하조직',organization_type:'철도·도시철도',default_assignee_name:null,active:true,created_by:user.id}];
 
 function deferred(){let resolve;const promise=new Promise(r=>{resolve=r});return {promise,resolve}}
 
-async function mockApp(page,{eventSaveGate=null,failEventSave=false}={}){
+async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveGate=null}={}){
   await page.route(`${SB}/**`,async route=>{
     const req=route.request();
     const url=new URL(req.url());
@@ -23,8 +24,14 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false}={}){
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email}]);
     if(path==='/rest/v1/app_workspaces')return ok([workspace]);
-    if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'접근성 QA'}]);
+    if(path==='/rest/v1/app_profiles'&&req.method()==='PATCH'){
+      if(profileSaveGate)await profileSaveGate;
+      return ok([]);
+    }
+    if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'접근성 QA',job_title:'국장'}]);
     if(path==='/rest/v1/app_tasks')return ok(tasks);
+    if(path==='/rest/v1/app_suborganizations')return req.method()==='GET'?ok(orgs):ok([]);
+    if(path==='/rest/v1/app_suborganization_assignees')return ok([]);
     if(path==='/rest/v1/app_events'&&req.method()==='POST'){
       if(eventSaveGate)await eventSaveGate;
       if(failEventSave)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'일정 저장 실패'})});
@@ -198,6 +205,51 @@ test('failed save releases busy state and announces the error',async({page})=>{
   await expect(page.locator('#eventStatus')).toHaveAttribute('role','alert');
   await expect(save).toBeEnabled();
   await expect(save).not.toHaveAttribute('aria-busy','true');
+});
+
+test('suborganization toolbar and destructive actions expose clear names',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await page.locator('.app-nav [data-view="team"]').click();
+  await expect(page.locator('label[for="sofSearch"]')).toHaveText('산하조직 검색');
+  await expect(page.locator('label[for="sofAssignee"]')).toHaveText('담당자 필터');
+  await expect(page.locator('label[for="sofCouncil"]')).toHaveText('협의회 필터');
+  await expect(page.locator('label[for="sofType"]')).toHaveText('조직유형 필터');
+  await expect(page.locator('[data-so-delete="a11y-org-1"]')).toHaveAttribute('aria-label','철도노조 삭제');
+});
+
+test('suborganization edit dialog exposes semantics, Escape close, and trigger restore',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await page.locator('.app-nav [data-view="team"]').click();
+  const trigger=page.locator('#soAddOrg');
+  await trigger.focus();
+  await trigger.click();
+  const modal=page.locator('#soEditModal');
+  await expect(modal).toBeVisible();
+  await expect(modal).toHaveAttribute('role','dialog');
+  await expect(modal).toHaveAttribute('aria-modal','true');
+  await expect(modal).toHaveAttribute('aria-labelledby','soEditHeading');
+  await expect(page.locator('[data-so-close="soEditModal"]')).toHaveAttribute('aria-label','닫기');
+  await expect(page.locator('#soEditName')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(modal).toHaveClass(/hidden/);
+  await expect(trigger).toBeFocused();
+});
+
+test('profile save exposes and releases busy state',async({page})=>{
+  const gate=deferred();
+  await boot(page,{width:1024,height:768},{profileSaveGate:gate.promise});
+  await page.locator('.app-nav [data-view="profile"]').click();
+  await page.locator('#psName').fill('접근성 QA 수정');
+  const save=page.locator('#psSaveProfile');
+  await save.click();
+  try{
+    await expect(save).toBeDisabled();
+    await expect(save).toHaveAttribute('aria-busy','true');
+  }finally{
+    gate.resolve();
+  }
+  await expect(save).toBeEnabled();
+  await expect(save).not.toHaveAttribute('aria-busy');
 });
 
 test('symbol-only controls have accessible names',async({page})=>{
