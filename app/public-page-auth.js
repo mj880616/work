@@ -1,133 +1,16 @@
 (()=>{
-  'use strict';
-  if(window.KPTUPublicAuth)return;
-
-  const config={
-    url:'https://xmlkxfjeagycwttklxjw.supabase.co',
-    key:'sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA',
-    sessionKey:'kptu_public_editor_session_v1',
-    timeoutMs:15000
-  };
-  let refreshPromise=null;
-
-  class PublicAuthError extends Error{
-    constructor(message,{status=0,code='request_failed',retryable=false,cause=null}={}){
-      super(message);
-      this.name='KPTUPublicAuthError';
-      this.status=status;
-      this.code=code;
-      this.retryable=retryable;
-      if(cause)this.cause=cause;
-    }
-  }
-
-  function read(){
-    try{return JSON.parse(localStorage.getItem(config.sessionKey)||'null')}catch{return null}
-  }
-  function write(value){
-    try{
-      if(value)localStorage.setItem(config.sessionKey,JSON.stringify(value));
-      else localStorage.removeItem(config.sessionKey);
-    }catch(e){
-      throw new PublicAuthError('편집자 로그인 정보를 저장하지 못했습니다.',{code:'storage_error',cause:e});
-    }
-    return value||null;
-  }
-  function normalizeSession(value){
-    if(!value)return null;
-    return {...value,expires_at:value.expires_at||Math.floor(Date.now()/1000)+(Number(value.expires_in)||3600)};
-  }
-  async function fetchWithTimeout(url,options={},timeoutMs=config.timeoutMs){
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),timeoutMs);
-    try{return await fetch(url,{...options,signal:controller.signal,cache:'no-store'})}
-    catch(e){
-      if(e?.name==='AbortError')throw new PublicAuthError('요청 시간이 초과되었습니다. 다시 시도해 주세요.',{code:'timeout',retryable:true,cause:e});
-      throw new PublicAuthError('네트워크 연결을 확인한 뒤 다시 시도해 주세요.',{code:'network_error',retryable:true,cause:e});
-    }finally{clearTimeout(timer)}
-  }
-  async function responseData(response){
-    const text=await response.text();
-    if(!text)return null;
-    try{return JSON.parse(text)}catch{return text}
-  }
-  function message(data,status){return data?.message||data?.error_description||data?.hint||data?.error||`요청 실패 ${status}`}
-  function retryable(status){return status===408||status===425||status===429||status>=500}
-
-  async function refresh(){
-    if(refreshPromise)return refreshPromise;
-    const current=read();
-    if(!current?.refresh_token)return false;
-    refreshPromise=(async()=>{
-      try{
-        const response=await fetchWithTimeout(config.url+'/auth/v1/token?grant_type=refresh_token',{
-          method:'POST',
-          headers:{apikey:config.key,'Content-Type':'application/json'},
-          body:JSON.stringify({refresh_token:current.refresh_token})
-        });
-        const data=await responseData(response);
-        if(!response.ok){
-          if([400,401,403].includes(response.status)){write(null);return false}
-          throw new PublicAuthError(message(data,response.status),{status:response.status,code:'refresh_failed',retryable:retryable(response.status)});
-        }
-        const next=normalizeSession(data);
-        write(next);
-        return next;
-      }finally{refreshPromise=null}
-    })();
-    return refreshPromise;
-  }
-
-  async function ensure(){
-    const current=read();
-    if(!current?.access_token)return false;
-    if((Number(current.expires_at)||0)<Math.floor(Date.now()/1000)+60)return !!(await refresh());
-    return true;
-  }
-
-  async function signIn(email,password){
-    const cleanEmail=String(email||'').trim();
-    if(!cleanEmail||!password)throw new PublicAuthError('이메일과 비밀번호를 입력해 주세요.',{code:'missing_credentials'});
-    const response=await fetchWithTimeout(config.url+'/auth/v1/token?grant_type=password',{
-      method:'POST',
-      headers:{apikey:config.key,'Content-Type':'application/json'},
-      body:JSON.stringify({email:cleanEmail,password:String(password)})
-    });
-    const data=await responseData(response);
-    if(!response.ok){
-      if([400,401,403].includes(response.status))throw new PublicAuthError('이메일 또는 비밀번호를 확인해 주세요.',{status:response.status,code:'invalid_credentials'});
-      throw new PublicAuthError(message(data,response.status),{status:response.status,code:'sign_in_failed',retryable:retryable(response.status)});
-    }
-    const session=normalizeSession(data);
-    if(!session?.access_token||!session?.refresh_token)throw new PublicAuthError('로그인 결과를 확인하지 못했습니다.',{code:'invalid_session'});
-    write(session);
-    return session;
-  }
-
-  async function api(path,{method='GET',body=null,headers={},timeoutMs=config.timeoutMs}={}){
-    if(!(await ensure()))throw new PublicAuthError('편집자 로그인이 필요합니다.',{status:401,code:'session_required'});
-    const url=path.startsWith('http')?path:config.url+path;
-    const requestBody=body===null?null:JSON.stringify(body);
-    const request=async()=>{
-      const current=read();
-      if(!current?.access_token)throw new PublicAuthError('편집자 로그인이 필요합니다.',{status:401,code:'session_required'});
-      return fetchWithTimeout(url,{
-        method,
-        headers:{apikey:config.key,'Content-Type':'application/json',Authorization:'Bearer '+current.access_token,...headers},
-        body:requestBody
-      },timeoutMs);
-    };
-    let response=await request();
-    if(response.status===401){
-      const renewed=await refresh();
-      if(!renewed)throw new PublicAuthError('편집자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.',{status:401,code:'session_required'});
-      response=await request();
-      if(response.status===401){write(null);throw new PublicAuthError('편집자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.',{status:401,code:'session_required'})}
-    }
-    const data=await responseData(response);
-    if(!response.ok)throw new PublicAuthError(message(data,response.status),{status:response.status,code:'http_'+response.status,retryable:retryable(response.status)});
-    return data;
-  }
-
-  window.KPTUPublicAuth={version:'1.0.1',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,api};
+'use strict';if(window.KPTUPublicAuth)return;
+const config={url:'https://xmlkxfjeagycwttklxjw.supabase.co',key:'sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA',sessionKey:'kptu_public_editor_session_v1',timeoutMs:15000};let refreshPromise=null;
+class PublicAuthError extends Error{constructor(message,{status=0,code='request_failed',retryable=false,cause=null}={}){super(message);this.name='KPTUPublicAuthError';this.status=status;this.code=code;this.retryable=retryable;if(cause)this.cause=cause}}
+function read(){try{return JSON.parse(localStorage.getItem(config.sessionKey)||'null')}catch{return null}}function write(v){try{v?localStorage.setItem(config.sessionKey,JSON.stringify(v)):localStorage.removeItem(config.sessionKey)}catch(e){throw new PublicAuthError('편집자 로그인 정보를 저장하지 못했습니다.',{code:'storage_error',cause:e})}return v||null}function normalizeSession(v){return v?{...v,expires_at:v.expires_at||Math.floor(Date.now()/1000)+(Number(v.expires_in)||3600)}:null}
+async function fetchWithTimeout(url,options={},timeoutMs=config.timeoutMs){const c=new AbortController(),t=setTimeout(()=>c.abort(),timeoutMs);try{return await fetch(url,{...options,signal:c.signal,cache:'no-store'})}catch(e){if(e?.name==='AbortError')throw new PublicAuthError('요청 시간이 초과되었습니다. 다시 시도해 주세요.',{code:'timeout',retryable:true,cause:e});throw new PublicAuthError('네트워크 연결을 확인한 뒤 다시 시도해 주세요.',{code:'network_error',retryable:true,cause:e})}finally{clearTimeout(t)}}async function responseData(r){const x=await r.text();if(!x)return null;try{return JSON.parse(x)}catch{return x}}function message(d,s){return d?.message||d?.error_description||d?.hint||d?.error||`요청 실패 ${s}`}function retryable(s){return s===408||s===425||s===429||s>=500}
+async function refresh(){if(refreshPromise)return refreshPromise;const cur=read();if(!cur?.refresh_token)return false;refreshPromise=(async()=>{try{const r=await fetchWithTimeout(config.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:config.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:cur.refresh_token})}),d=await responseData(r);if(!r.ok){if([400,401,403].includes(r.status)){write(null);return false}throw new PublicAuthError(message(d,r.status),{status:r.status,code:'refresh_failed',retryable:retryable(r.status)})}const n=normalizeSession(d);write(n);return n}finally{refreshPromise=null}})();return refreshPromise}async function ensure(){const c=read();if(!c?.access_token)return false;if((Number(c.expires_at)||0)<Math.floor(Date.now()/1000)+60)return !!(await refresh());return true}
+async function signIn(email,password){const e=String(email||'').trim();if(!e||!password)throw new PublicAuthError('이메일과 비밀번호를 입력해 주세요.',{code:'missing_credentials'});const r=await fetchWithTimeout(config.url+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:config.key,'Content-Type':'application/json'},body:JSON.stringify({email:e,password:String(password)})}),d=await responseData(r);if(!r.ok){if([400,401,403].includes(r.status))throw new PublicAuthError('이메일 또는 비밀번호를 확인해 주세요.',{status:r.status,code:'invalid_credentials'});throw new PublicAuthError(message(d,r.status),{status:r.status,code:'sign_in_failed',retryable:retryable(r.status)})}const s=normalizeSession(d);if(!s?.access_token||!s?.refresh_token)throw new PublicAuthError('로그인 결과를 확인하지 못했습니다.',{code:'invalid_session'});write(s);return s}
+async function resetPassword(email){const e=String(email||'').trim();if(!e)throw new PublicAuthError('재설정 메일을 받을 이메일을 입력해 주세요.',{code:'missing_email'});const r=await fetchWithTimeout(config.url+'/auth/v1/recover',{method:'POST',headers:{apikey:config.key,'Content-Type':'application/json'},body:JSON.stringify({email:e,redirect_to:location.origin+'/work/p/',type:'recovery'})}),d=await responseData(r);if(!r.ok)throw new PublicAuthError(message(d,r.status),{status:r.status,code:'recovery_failed',retryable:retryable(r.status)});return d||{ok:true}}
+async function updatePassword(password){if(String(password||'').length<8)throw new PublicAuthError('새 비밀번호는 8자 이상 입력해 주세요.',{code:'weak_password'});if(!(await ensure()))throw new PublicAuthError('비밀번호 재설정 링크가 만료되었습니다. 재설정 메일을 다시 요청해 주세요.',{status:401,code:'session_required'});const c=read(),r=await fetchWithTimeout(config.url+'/auth/v1/user',{method:'PUT',headers:{apikey:config.key,'Content-Type':'application/json',Authorization:'Bearer '+c.access_token},body:JSON.stringify({password:String(password)})}),d=await responseData(r);if(!r.ok)throw new PublicAuthError(message(d,r.status),{status:r.status,code:'password_update_failed',retryable:retryable(r.status)});return d}
+async function api(path,{method='GET',body=null,headers={},timeoutMs=config.timeoutMs}={}){if(!(await ensure()))throw new PublicAuthError('편집자 로그인이 필요합니다.',{status:401,code:'session_required'});const url=path.startsWith('http')?path:config.url+path,requestBody=body===null?null:JSON.stringify(body);const request=async()=>{const c=read();if(!c?.access_token)throw new PublicAuthError('편집자 로그인이 필요합니다.',{status:401,code:'session_required'});return fetchWithTimeout(url,{method,headers:{apikey:config.key,'Content-Type':'application/json',Authorization:'Bearer '+c.access_token,...headers},body:requestBody},timeoutMs)};let r=await request();if(r.status===401){if(!(await refresh()))throw new PublicAuthError('편집자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.',{status:401,code:'session_required'});r=await request();if(r.status===401){write(null);throw new PublicAuthError('편집자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.',{status:401,code:'session_required'})}}const d=await responseData(r);if(!r.ok)throw new PublicAuthError(message(d,r.status),{status:r.status,code:'http_'+r.status,retryable:retryable(r.status)});return d}
+const auth={version:'1.1.0',config,PublicAuthError,session:{read,write,ensure,refresh},signIn,resetPassword,updatePassword,api};window.KPTUPublicAuth=auth;
+function injectReset(){const form=document.querySelector('#ppeAuthForm');if(!form||form.querySelector('#ppeAuthReset'))return;const actions=form.querySelector('.ppe-auth-actions'),b=document.createElement('button');b.id='ppeAuthReset';b.type='button';b.textContent='비밀번호 재설정';actions?.prepend(b);b.addEventListener('click',async()=>{const email=form.querySelector('#ppeAuthEmail')?.value||'',err=form.querySelector('#ppeAuthError');b.disabled=true;if(err)err.textContent='';try{await resetPassword(email);if(err)err.textContent='비밀번호 재설정 메일을 보냈습니다. 메일의 링크를 열어 새 비밀번호를 설정해 주세요.'}catch(e){if(err)err.textContent=e?.message||'재설정 메일 발송에 실패했습니다.'}finally{b.disabled=false}})}
+new MutationObserver(injectReset).observe(document.documentElement,{childList:true,subtree:true});injectReset();
+function consumeRecovery(){const h=new URLSearchParams(location.hash.replace(/^#/,''));if(h.get('type')!=='recovery'||!h.get('access_token'))return;write(normalizeSession({access_token:h.get('access_token'),refresh_token:h.get('refresh_token'),expires_in:Number(h.get('expires_in'))||3600,user:null}));history.replaceState(null,'',location.pathname+location.search);setTimeout(async()=>{const p=prompt('새 비밀번호를 입력해 주세요. (8자 이상)');if(!p)return;try{await updatePassword(p);alert('비밀번호가 변경되었습니다. 이제 수정 버튼에서 새 비밀번호로 로그인할 수 있습니다.')}catch(e){alert(e?.message||'비밀번호 변경에 실패했습니다.')}},50)}consumeRecovery();
 })();
