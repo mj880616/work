@@ -7,7 +7,7 @@
   const item=([id,title,type])=>`<div class="material-item"><div class="material-title"><strong>${esc(title)}</strong><small>${esc(type||'PDF')}</small></div><div class="material-actions"><a class="material-btn" target="_blank" rel="noopener" href="https://drive.google.com/file/d/${encodeURIComponent(id)}/view">보기</a><a class="material-btn download" href="https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}">다운로드</a></div></div>`;
   const category=c=>{const files=Array.isArray(c.files)?c.files:[];const first=files.slice(0,5),rest=files.slice(5);return `<details class="material-cat"><summary><span>${esc(c.no)} · ${esc(c.name)}</span><span class="material-cat-count">${files.length}개</span></summary><div class="material-body">${files.length?`<div class="material-list">${first.map(item).join('')}</div>${rest.length?`<details class="material-more"><summary>자료 ${rest.length}개 더보기</summary><div class="material-list">${rest.map(item).join('')}</div></details>`:''}`:'<div class="material-empty">등록된 자료가 없습니다.</div>'}<div class="material-folder-row"><a class="material-folder" target="_blank" rel="noopener" href="${esc(c.folder)}">${esc(c.name)} 폴더 ${files.length?'전체보기':'열기'} →</a></div></div></details>`};
   const materials=`<section class="section" id="materials"><div class="section-head"><h2>민자철도 자료실</h2><span>Google Drive</span></div><p class="material-note">자료는 Google Drive에 보관하며, 분류별 폴더와 개별 파일을 바로 열거나 내려받을 수 있습니다.</p><div class="material-board">${(window.PRIVATE_RAIL_MATERIALS||[]).map(category).join('')}</div></section>`;
-  const r=await fetch('./page.html?v=1',{cache:'no-store'}); if(!r.ok) throw new Error('page');
+  const r=await fetch('./page.html?v=2',{cache:'no-store'}); if(!r.ok) throw new Error('page');
   let html=await r.text();
 
   // 세부항목은 소제목을 직접 입력한 경우에만 굵게 표시함.
@@ -21,13 +21,14 @@
   // 국회 대응 및 노선별 투쟁 상세 페이지 바로가기.
   html=html.replace('</header>','</header><a class="forum-prep-link" href="/work/p/private-rail-forum-0929-prep/"><strong>9.29 민자철도 국회토론회 · 기획·준비 점검 →</strong><span>현장증언 · 발제·토론 · 안전관리체계 · 운영기준</span></a><a class="forum-prep-link" href="/work/private-rail/question-0912/"><strong>민자철도 인사청문회·국정감사 질의 검토안 →</strong><span>서해선 · GTX-A · 신분당선 · 공항철도 안전인력·관리감독</span></a><a class="forum-prep-link" href="/work/p/gimpo-publicization/"><strong>김포 공영화 투쟁 →</strong><span>10.8 기자회견 · 행정사무감사 · 공영화 · 안전인력 충원</span></a>');
 
-  // 노선별 공영화 투쟁 카드는 제거하고, 국회 대응 → 임단투 순서로 연속 번호를 부여함.
-  html=html.replace("return [...defaults,...custom].filter(c=>!c.hidden).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0))","return [...defaults,...custom].filter(c=>!c.hidden&&c.id!=='public').sort((a,b)=>{const rank=c=>c.title==='국회 대응'?3:(c.id==='bargaining'||c.title==='사업장별 하반기 임단투')?4:(Number(c.order)||0);return rank(a)-rank(b)})");
+  // 노선별 공영화·기존 임단투 카드는 제거하고 조직별 현황판으로 대체함.
+  html=html.replace("return [...defaults,...custom].filter(c=>!c.hidden).sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0))","return [...defaults,...custom].filter(c=>!c.hidden&&c.id!=='public'&&c.id!=='bargaining').sort((a,b)=>{const rank=c=>c.title==='국회 대응'?3:(Number(c.order)||0);return rank(a)-rank(b)})");
 
   const start=html.indexOf('<section class="section" id="materials">');
   const end=html.indexOf('<section class="section">',start+1);
   if(start<0||end<0) throw new Error('materials');
   html=html.slice(0,start)+materials+'\n'+html.slice(end);
+  html=html.replace('</body>','<script src="./org-data.js?v=1"><\\/script><script src="./org-status.js?v=1"><\\/script></body>');
   document.open();document.write(html);document.close();
 })().catch(()=>location.replace('./page.html'));
 </script><script src="/work/assets/rich-copy.js?v=1"></script></body></html>
