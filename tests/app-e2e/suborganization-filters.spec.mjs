@@ -65,6 +65,49 @@ test('조직유형은 원 산하조직 편집 화면에서 직접 저장된다',
  expect(patch.body.organization_type).toBe('철도산업');
 });
 
+test('산하조직 저장은 busy 상태와 진행·오류 상태를 보조기기에 노출한다',async({page})=>{
+ await page.goto(canonical);
+ await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
+ await page.locator('[data-so-edit="org-rail"]').click();
+ await page.evaluate(()=>{window.__holdOrgSave=true});
+ const save=page.locator('#soSaveOrg');
+ await save.click();
+ await expect(save).toBeDisabled();
+ await expect(save).toHaveAttribute('aria-busy','true');
+ await expect(page.locator('#soEditStatus')).toHaveAttribute('role','status');
+ await expect(page.locator('#soEditStatus')).toHaveAttribute('aria-live','polite');
+ await page.evaluate(()=>window.__releaseOrgSave());
+ await expect(page.locator('#soEditModal')).toHaveClass(/hidden/);
+ await expect(save).toBeEnabled();
+ await expect(save).not.toHaveAttribute('aria-busy');
+
+ await page.locator('[data-so-edit="org-rail"]').click();
+ await page.evaluate(()=>{window.__holdOrgSave=false;window.__failOrgSave=true});
+ await save.click();
+ await expect(page.locator('#soEditStatus')).toContainText('조직 저장 실패');
+ await expect(page.locator('#soEditStatus')).toHaveAttribute('role','alert');
+ await expect(page.locator('#soEditStatus')).not.toHaveAttribute('aria-live');
+ await expect(save).toBeEnabled();
+ await expect(save).not.toHaveAttribute('aria-busy');
+});
+
+test('담당자 저장은 busy 상태와 진행 상태를 보조기기에 노출한다',async({page})=>{
+ await page.goto(canonical);
+ await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
+ await page.locator('[data-so-assign="org-consumer"]').click();
+ await page.evaluate(()=>{window.__holdAssigneeSave=true});
+ const save=page.locator('#soSaveAssignees');
+ await save.click();
+ await expect(save).toBeDisabled();
+ await expect(save).toHaveAttribute('aria-busy','true');
+ await expect(page.locator('#soAssignStatus')).toHaveAttribute('role','status');
+ await expect(page.locator('#soAssignStatus')).toHaveAttribute('aria-live','polite');
+ await page.evaluate(()=>window.__releaseAssigneeSave());
+ await expect(page.locator('#soAssignModal')).toHaveClass(/hidden/);
+ await expect(save).toBeEnabled();
+ await expect(save).not.toHaveAttribute('aria-busy');
+});
+
 test('viewer에게 산하조직 관리자 전용 컨트롤이 노출되거나 탭되지 않는다',async({page})=>{
  await page.goto(canonical+'?role=viewer');
  await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
