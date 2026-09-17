@@ -8,7 +8,8 @@ const cors={
   'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods':'POST,OPTIONS',
   'Content-Type':'application/json; charset=utf-8',
-  'Cache-Control':'no-store'
+  'Cache-Control':'no-store',
+  'Vary':'Origin'
 };
 const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 
@@ -24,6 +25,7 @@ Deno.serve(async(req:Request)=>{
   const origin=req.headers.get('origin')||'';
   if(origin&&origin!==ALLOWED_ORIGIN)return reply({error:'origin'},403);
   if(req.method!=='POST')return reply({error:'method'},405);
+
   const authorization=req.headers.get('Authorization')||'';
   if(!/^Bearer\s+\S+$/i.test(authorization))return reply({error:'authentication_required'},401);
 
@@ -33,16 +35,12 @@ Deno.serve(async(req:Request)=>{
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return reply({error:'invalid_id'},400);
 
   const db=userClient(req);
+  const {data:canEdit,error:canEditError}=await db.rpc('app_can_edit_page_rpc',{p_page:id});
+  if(canEditError)return reply({error:'access_check_failed'},500);
+  if(canEdit!==true)return reply({error:'forbidden'},403);
+
   const action=String(body.action||'update');
-  if(action==='check'){
-    const {data,error}=await db.from('app_pages').select('id').eq('id',id).maybeSingle();
-    if(error){
-      if(error.code==='PGRST301'||error.code==='42501')return reply({error:'forbidden'},403);
-      return reply({error:'access_check_failed'},500);
-    }
-    if(!data)return reply({error:'forbidden'},403);
-    return reply({ok:true});
-  }
+  if(action==='check')return reply({ok:true});
   if(action!=='update')return reply({error:'invalid_action'},400);
 
   const title=String(body.title||'').trim();
