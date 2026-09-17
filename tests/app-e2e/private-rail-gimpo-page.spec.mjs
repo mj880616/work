@@ -27,6 +27,6 @@ test('김포 공영화 투쟁 상세페이지는 핵심 쟁점과 편집·인쇄
 test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은 좌측 정렬 규칙을 쓴다', async () => {
   const forum = await read('private-rail/forum-0929/index.html');
   const question = await read('private-rail/question-0912/index.html');
-  expect(forum).toMatch(/back-link[^>]*|class=["'][^"']*back-link/);
-  expect(question).toMatch(/back-link[^>]*|class=["'][^"']*back-link/);
+  expect(forum).toContain('back-link');
+  expect(question).toContain('back-link');
 });
