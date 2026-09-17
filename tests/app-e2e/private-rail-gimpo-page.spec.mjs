@@ -13,13 +13,15 @@ test('민자철도 사업현황에 김포 공영화 투쟁 바로가기가 노�
   expect(html).toContain('/work/p/gimpo-publicization/');
 });
 
-test('김포 공영화 투쟁 허브는 3개 대응영역과 행감 하위페이지를 제공한다', async () => {
+test('김포 공영화 투쟁 허브는 3개 대응영역과 행감·기자회견 하위페이지를 제공한다', async () => {
   const html = await read('p/gimpo-publicization/index.html');
   expect(html).toContain('name="kptu-page-slug" content="gimpo-publicization"');
   expect(html).toContain('하반기 임단투');
   expect(html).toContain('시의회 대응');
   expect(html).toContain('언론 대응');
   expect(html).toContain('/work/p/gimpo-publicization-audit/');
+  expect(html).toContain('/work/p/gimpo-publicization-press-1008/');
+  expect(html).toContain('기자회견 준비페이지');
   expect(html).toContain('id="editPageBtn"');
   expect(html).toContain('id="printPageBtn"');
   expect(html).toContain('← 민자철도 사업현황');
@@ -33,6 +35,22 @@ test('김포시 행정사무감사 대응 하위페이지는 편집·인쇄와 �
   expect(html).toContain('← 김포 공영화 투쟁');
   expect(html).toContain('id="editPageBtn"');
   expect(html).toContain('id="printPageBtn"');
+});
+
+test('10/8 김포 기자회견 준비페이지는 기획안 편집·인쇄와 서버 체크리스트를 제공한다', async () => {
+  const html = await read('p/gimpo-publicization-press-1008/index.html');
+  expect(html).toContain('name="kptu-page-slug" content="gimpo-publicization-press-1008"');
+  expect(html).toContain('2026. 10. 8.(목) 11:00');
+  expect(html).toContain('김포시청 앞');
+  expect(html).toContain('공공운수노조 전국철도지하철노동조합협의회');
+  expect(html).toContain('발언 순서');
+  expect(html).toContain('세부 역할분담');
+  expect(html).toContain('준비 체크리스트');
+  expect(html).toContain('board=private_rail');
+  expect(html).toContain('task_gimpo1008_');
+  expect(html).toContain('id="editPageBtn"');
+  expect(html).toContain('id="printPageBtn"');
+  expect(html).toContain('← 김포 공영화 투쟁');
 });
 
 test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은 좌측 고정 규칙을 쓴다', async () => {
