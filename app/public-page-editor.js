@@ -3,13 +3,12 @@
   if(window.__KPTU_PUBLIC_PAGE_EDITOR__)return;
   window.__KPTU_PUBLIC_PAGE_EDITOR__=true;
 
-  const EDIT_API='https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/public-page-edit';
+  const EDIT_API='/functions/v1/public-page-edit';
   const btn=()=>document.querySelector('#editPageBtn');
   let current=null;
   let secureMode=false;
   let saving=false;
   let editing=false;
-  let editPassword='';
 
   function ensureStyle(){
     if(document.querySelector('#publicPageEditorStyle'))return;
@@ -33,7 +32,7 @@
   }
 
   function ensureTools(){
-    const tools=document.querySelector('.print-tools');
+    const tools=document.querySelector('.print-tools,.tools');
     if(!tools)return null;
     if(!document.querySelector('#ppeLiveStatus')){
       const status=document.createElement('span');
@@ -47,13 +46,13 @@
       cancel.className='print-btn ppe-live-controls hidden';
       cancel.textContent='취소';
       cancel.addEventListener('click',cancelEdit);
-      const save=document.createElement('button');
-      save.id='ppeLiveSave';
-      save.type='button';
-      save.className='print-btn ppe-live-save ppe-live-controls hidden';
-      save.textContent='저장';
-      save.addEventListener('click',save);
-      tools.append(cancel,save);
+      const saveBtn=document.createElement('button');
+      saveBtn.id='ppeLiveSave';
+      saveBtn.type='button';
+      saveBtn.className='print-btn ppe-live-save ppe-live-controls hidden';
+      saveBtn.textContent='저장';
+      saveBtn.addEventListener('click',save);
+      tools.append(cancel,saveBtn);
     }
     return tools;
   }
@@ -65,13 +64,22 @@
     el.classList.toggle('error',!!error);
   }
 
-  async function verifyPassword(password){
-    const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'check',id:current?.id,password})});
-    let d=null;try{d=await r.json()}catch{}
-    if(!r.ok){
-      if(d?.error==='password')throw new Error('비밀번호가 올바르지 않습니다.');
-      throw new Error(d?.error||'수정 권한 확인에 실패했습니다.');
-    }
+  function runtime(){
+    const rt=window.KPTURuntime;
+    if(!rt?.api||!rt?.session)throw new Error('편집 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+    return rt;
+  }
+
+  async function checkAccess(){
+    const rt=runtime();
+    if(!(await rt.session.ensure()))throw new Error('Web2에서 로그인한 뒤 다시 시도해 주세요.');
+    return rt.api(EDIT_API,{method:'POST',body:{action:'check',id:current?.id}});
+  }
+
+  async function updatePage(next){
+    const rt=runtime();
+    if(!(await rt.session.ensure()))throw new Error('로그인 세션이 만료되었습니다. Web2에서 다시 로그인해 주세요.');
+    return rt.api(EDIT_API,{method:'POST',body:{action:'update',id:current?.id,...next}});
   }
 
   function cleanText(el){
@@ -117,7 +125,6 @@
     }
     markEditable(title);
     markEditable(summary);
-
     paper.querySelectorAll('.pd-body p,.pd-body h2,.pd-body h3,.pd-body h4,.pd-body blockquote,.pd-details summary').forEach(markEditable);
     paper.querySelectorAll('.pd-body ul:not(.pd-checklist) > li,.pd-body ol > li').forEach(markEditable);
     paper.querySelectorAll('.pd-body .pd-checklist > li').forEach(li=>markEditable(li.querySelector(':scope > span:last-child')||li));
@@ -144,11 +151,7 @@
     const readTrack=track=>{
       const problem=track?.querySelector('.pd-flow-problem');
       const field=problem?.querySelector(':scope > [data-ppe-flow-problem]');
-      return {
-        problem:cleanText(field||problem),
-        note:cleanText(problem?.querySelector(':scope > .pd-flow-note')),
-        solution:cleanText(track?.querySelector('.pd-flow-solution'))
-      };
+      return {problem:cleanText(field||problem),note:cleanText(problem?.querySelector(':scope > .pd-flow-note')),solution:cleanText(track?.querySelector('.pd-flow-solution'))};
     };
     const left=readTrack(tracks[0]),right=readTrack(tracks[1]);
     return [':::forum-flow',
@@ -179,10 +182,7 @@
 
   function serializeChildren(parent,inSection=false){
     const out=[];
-    [...parent.children].forEach(el=>{
-      const value=serializeBlock(el,inSection);
-      if(value&&value.trim())out.push(value.trim());
-    });
+    [...parent.children].forEach(el=>{const value=serializeBlock(el,inSection);if(value&&value.trim())out.push(value.trim())});
     return out.join('\n\n');
   }
 
@@ -191,10 +191,7 @@
     if(el.classList.contains('pd-forum-flow'))return serializeFlow(el);
     if(el.classList.contains('pd-section')){
       const children=[...el.children],parts=[];
-      children.forEach((child,i)=>{
-        if(i===0&&child.tagName==='H2')parts.push('## '+inlineText(child));
-        else{const v=serializeBlock(child,true);if(v)parts.push(v)}
-      });
+      children.forEach((child,i)=>{if(i===0&&child.tagName==='H2')parts.push('## '+inlineText(child));else{const v=serializeBlock(child,true);if(v)parts.push(v)}});
       return parts.join('\n\n');
     }
     if(el.tagName==='DETAILS'){
@@ -233,25 +230,20 @@
 
   async function open(){
     if(secureMode||!current?.id||editing)return;
-    const pw=prompt('마스터 비밀번호를 입력하세요.');
-    if(pw===null)return;
     try{
-      await verifyPassword(pw.trim());
-      editPassword=pw.trim();
+      await checkAccess();
       ensureTools();
       setEditingUi(true);
       if(!prepareLiveFields())throw new Error('편집할 내용을 찾지 못했습니다.');
       document.querySelector('#paper .pd-title')?.focus();
     }catch(e){
-      editPassword='';
       setEditingUi(false);
-      alert(e?.message||'수정 모드를 열지 못했습니다.');
+      alert(e?.message||'수정 권한을 확인하지 못했습니다.');
     }
   }
 
   function cancelEdit(){
     if(saving||!editing)return;
-    editPassword='';
     editing=false;
     document.body.classList.remove('ppe-editing');
     if(typeof window.KPTURenderPublicPage==='function')window.KPTURenderPublicPage(current,false);
@@ -259,7 +251,7 @@
   }
 
   async function save(){
-    if(saving||!editing||!current?.id||!editPassword)return;
+    if(saving||!editing||!current?.id)return;
     const next=collectLivePage();
     if(!next.title){setStatus('제목은 비워둘 수 없습니다.',true);return}
     const saveBtn=document.querySelector('#ppeLiveSave');
@@ -267,20 +259,15 @@
     if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='저장 중…'}
     setStatus('저장 중…');
     try{
-      const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update',id:current.id,password:editPassword,...next})});
-      let d=null;try{d=await r.json()}catch{}
-      if(!r.ok||!d?.page){
-        if(d?.error==='password')throw new Error('비밀번호가 올바르지 않습니다.');
-        throw new Error(d?.error||'저장에 실패했습니다.');
-      }
+      const d=await updatePage(next);
+      if(!d?.page)throw new Error(d?.error||'저장 결과를 확인하지 못했습니다.');
       current={...current,...d.page};
-      editPassword='';
       editing=false;
       document.body.classList.remove('ppe-editing');
       if(typeof window.KPTURenderPublicPage==='function')window.KPTURenderPublicPage(current,false);
       setEditingUi(false);
     }catch(e){
-      setStatus(e?.message||'저장에 실패했습니다.',true);
+      setStatus(e?.message||'저장에 실패했습니다. 수정 내용은 화면에 유지됩니다.',true);
     }finally{
       saving=false;
       if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='저장'}
@@ -290,7 +277,6 @@
   function setPage(page,secure=false){
     current=page||null;
     secureMode=!!secure;
-    if(!editing)editPassword='';
     ensureTools();
     const b=btn();
     if(!b)return;
