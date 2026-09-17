@@ -6,7 +6,9 @@ const user={id:'a11y-user',email:'a11y@example.org',user_metadata:{display_name:
 const workspace={id:'a11y-workspace',slug:'a11y',name:'공공기관사업팀 Workspace'};
 const tasks=[{id:'a11y-task-1',workspace_id:workspace.id,title:'접근성 점검 할 일',assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:null,created_at:'2026-09-17T00:00:00Z'}];
 
-async function mockApp(page){
+function deferred(){let resolve;const promise=new Promise(r=>{resolve=r});return {promise,resolve}}
+
+async function mockApp(page,{eventSaveGate=null,failEventSave=false}={}){
   await page.route(`${SB}/**`,async route=>{
     const req=route.request();
     const url=new URL(req.url());
@@ -23,6 +25,11 @@ async function mockApp(page){
     if(path==='/rest/v1/app_workspaces')return ok([workspace]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'접근성 QA'}]);
     if(path==='/rest/v1/app_tasks')return ok(tasks);
+    if(path==='/rest/v1/app_events'&&req.method()==='POST'){
+      if(eventSaveGate)await eventSaveGate;
+      if(failEventSave)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'일정 저장 실패'})});
+      return ok([{id:'a11y-event-new',workspace_id:workspace.id,title:'접근성 일정',created_by:user.id}]);
+    }
     if(path==='/rest/v1/app_spaces')return ok([]);
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});
@@ -40,9 +47,9 @@ async function signIn(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
 }
 
-async function boot(page,viewport){
+async function boot(page,viewport,options={}){
   await page.setViewportSize(viewport);
-  await mockApp(page);
+  await mockApp(page,options);
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 }
@@ -86,6 +93,71 @@ test('task dialog wraps keyboard focus within the dialog',async({page})=>{
   await last.focus();
   await page.keyboard.press('Tab');
   await expect(first).toBeFocused();
+});
+
+for(const c of [
+  {name:'event',view:'calendar',trigger:'#newEventBtn',modal:'#eventModal',initial:'#eventTitle'},
+  {name:'document',view:'library',trigger:'#newDocumentBtn',modal:'#documentModal',initial:'#docTitle'},
+  {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle'},
+  {name:'page editor',view:'pages',trigger:'#newPageBtn',modal:'#editorModal',initial:'#pageTitle'},
+  {name:'invite',view:'team',trigger:'#inviteBtn',modal:'#inviteModal',initial:'#inviteRole'},
+  {name:'group',view:'team',trigger:'#newGroupBtn',modal:'#groupModal',initial:'#groupName'}
+]){
+  test(`${c.name} dialog focuses its first field and restores its trigger`,async({page})=>{
+    await boot(page,{width:1024,height:768});
+    await page.locator(`.app-nav [data-view="${c.view}"]`).click();
+    const trigger=page.locator(c.trigger);
+    await trigger.focus();
+    await trigger.click();
+    await expect(page.locator(c.modal)).toBeVisible();
+    await expect(page.locator(c.initial)).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator(c.modal)).toHaveClass(/hidden/);
+    await expect(trigger).toBeFocused();
+  });
+}
+
+test('saving exposes busy and polite status semantics, then releases them on success',async({page})=>{
+  const gate=deferred();
+  await boot(page,{width:1024,height:768},{eventSaveGate:gate.promise});
+  await page.locator('.app-nav [data-view="calendar"]').click();
+  await page.locator('#newEventBtn').click();
+  await page.locator('#eventTitle').fill('접근성 일정');
+  await page.locator('#eventStart').fill('2026-09-18T10:00');
+  const save=page.locator('#saveEventBtn');
+  await save.click();
+  try{
+    await expect(save).toBeDisabled();
+    await expect(save).toHaveAttribute('aria-busy','true');
+    await expect(page.locator('#eventStatus')).toHaveAttribute('role','status');
+    await expect(page.locator('#eventStatus')).toHaveAttribute('aria-live','polite');
+  }finally{
+    gate.resolve();
+  }
+  await expect(page.locator('#eventModal')).toHaveClass(/hidden/);
+  await expect(save).toBeEnabled();
+  await expect(save).not.toHaveAttribute('aria-busy','true');
+});
+
+test('failed save releases busy state and announces the error',async({page})=>{
+  const gate=deferred();
+  await boot(page,{width:1024,height:768},{eventSaveGate:gate.promise,failEventSave:true});
+  await page.locator('.app-nav [data-view="calendar"]').click();
+  await page.locator('#newEventBtn').click();
+  await page.locator('#eventTitle').fill('실패 일정');
+  await page.locator('#eventStart').fill('2026-09-18T11:00');
+  const save=page.locator('#saveEventBtn');
+  await save.click();
+  try{
+    await expect(save).toBeDisabled();
+    await expect(save).toHaveAttribute('aria-busy','true');
+  }finally{
+    gate.resolve();
+  }
+  await expect(page.locator('#eventStatus')).toContainText('일정 저장 실패');
+  await expect(page.locator('#eventStatus')).toHaveAttribute('role','alert');
+  await expect(save).toBeEnabled();
+  await expect(save).not.toHaveAttribute('aria-busy','true');
 });
 
 test('symbol-only controls have accessible names',async({page})=>{
