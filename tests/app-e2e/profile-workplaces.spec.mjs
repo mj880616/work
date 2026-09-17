@@ -76,3 +76,14 @@ test('delete mode can be cancelled before save and picker excludes inactive orga
   await expect(page.locator('[data-ps-add-workplace="org-c"]')).toHaveCount(0);
   await expect(page.locator('[data-ps-add-workplace="org-b"]')).toHaveCount(1);
 });
+
+test('profile destructive controls include the target name',async({page})=>{
+  await openProfile(page);
+  await page.click('#psDeleteWorkplace');
+  await expect(page.locator('[data-ps-remove-workplace="org-a"]')).toHaveAttribute('aria-label','철도노조 담당사업장 삭제');
+  await page.evaluate(async()=>{
+    window.__state.projects=[{id:'project-1',user_id:'u1',name:'민자철도 대응',description:'',sort_order:0,created_at:'2026-09-17T00:00:00Z'}];
+    await window.KPTUProfileSettings.reload();
+  });
+  await expect(page.locator('[data-ps-delete-project="project-1"]')).toHaveAttribute('aria-label','민자철도 대응 프로젝트 삭제');
+});
