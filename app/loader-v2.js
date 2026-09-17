@@ -80,8 +80,14 @@
   await window.__KPTU_PAGE_LIST_READY__;
   await import('./page-save-controller.js?v=3');
   await window.__KPTU_PAGE_SAVE_READY__;
-  await import('./page-builder.js?v=2');
-  await window.__KPTU_PAGE_BUILDER_READY__;
+  const loadPageBuilder=async detail=>{
+    window.removeEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);
+    await import('./page-builder.js?v=2');
+    await window.__KPTU_PAGE_BUILDER_READY__;
+    await window.KPTUPageBuilder?.open?.(detail||{});
+  };
+  const lazyPageBuilderOpen=e=>loadPageBuilder(e.detail).catch(err=>console.error('page builder lazy load failed',err));
+  window.addEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);
   await import('./page-shortcut.js?v=2');
   await window.__KPTU_PAGE_SHORTCUT_READY__;
   await import('./page-management.js?v=2');
@@ -91,10 +97,13 @@
 
   await import('./meeting-round-detail.js?v=6');
   await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
-  await import('./workplace-ai-report.js?v=1');
-  await import('./workflow-ai-v3.js?v=2');
-  await import('./meeting-ai-ingest-client.js?v=1&text=1');
-  await import('./meeting-ai-paste-ui.js?v=1');
+  const loadAiFeatures=()=>Promise.all([
+    import('./workplace-ai-report.js?v=1'),
+    import('./workflow-ai-v3.js?v=2'),
+    import('./meeting-ai-ingest-client.js?v=1&text=1'),
+    import('./meeting-ai-paste-ui.js?v=1')
+  ]).catch(err=>console.error('AI feature load failed',err));
+  window.addEventListener('kptu:app-ui-ready',loadAiFeatures,{once:true});
 
   await import('./google-calendar-return-status.js?v=1');
   await import('./task-project-routing.js?v=1');
