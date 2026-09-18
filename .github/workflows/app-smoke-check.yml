@@ -90,7 +90,7 @@ jobs:
           grep -q "public-workspace.js" app/loader-v2.js
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
           grep -q "team.js?v=17" app/loader-v2.js
-          grep -q "project-system-v3.js?v=1" app/loader-v2.js
+          grep -q "project-system-v3.js?v=2" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
           grep -q "task-layout.js?v=6" app/loader-v2.js
