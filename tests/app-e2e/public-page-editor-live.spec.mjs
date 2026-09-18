@@ -31,6 +31,7 @@ test('지정 관리자 세션은 서버 권한 확인 후 편집모드로 진입
   expect(checks.length).toBeGreaterThanOrEqual(1);
   await expect.poll(()=>page.evaluate(()=>window.__ppeDebug?.())).toMatchObject({alert:undefined,paper:true,title:true,bodyClass:''});
   await page.evaluate(()=>window.KPTUPublicPageEditor.open());
+  await expect.poll(()=>page.evaluate(()=>window.__ppeDebug?.())).toMatchObject({error:undefined,rejection:undefined});
   await expect(page.locator('body')).toHaveClass(/ppe-editing/);
   const checksAfter=await page.evaluate(()=>window.__ppeCalls.filter(x=>x.body?.action==='check'));
   expect(checksAfter.length).toBeGreaterThanOrEqual(1);
