@@ -45,7 +45,12 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   }
   await expect.poll(()=>calls.snapshot).toBeGreaterThanOrEqual(1);
   expect(errors).toEqual([]);
-  await expect(page.locator('#homeView')).toContainText('공개 업무 둘러보기');
+  await expect(page.locator('#homeView')).toContainText('공개 업무');
+  for(const label of ['프로젝트','다가오는 주요 일정','게시판','자료실']){
+    await expect(page.locator('#homeView')).toContainText(label);
+  }
+  await expect(page.locator('#homeView .panel')).toHaveCount(4);
+  await expect(page.locator('.app-nav [data-view="pages"]')).toHaveText('게시판');
 
   await page.locator('.app-nav [data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toContainText('할 일은 로그인 후 열람할 수 있습니다.');
