@@ -104,7 +104,7 @@ test('편집 종료는 미저장 변경을 먼저 저장한 뒤 렌더링 상태
   expect(calls.at(-1).body.title).toBe('종료 직전 변경');
 });
 
-test('공개페이지 템플릿 v7은 커스텀 김포·9호선 셸에도 자동 전파된다',async()=>{
+test('공개페이지 템플릿 최신 편집기 버전은 커스텀 김포·9호선 셸에도 자동 전파된다',async()=>{
   const template=await read('p/index.html');
   const meta=await read('scripts/public-page-meta.mjs');
   const editor=await read('app/public-page-editor.js');
@@ -116,7 +116,7 @@ test('공개페이지 템플릿 v7은 커스텀 김포·9호선 셸에도 자동
     'p/line9-publicization/index.html',
     'p/line9-publicization-audit/index.html'
   ];
-  expect(template).toContain('public-page-editor.js?v=7');
+  expect(template).toContain('public-page-editor.js?v=11');
   expect(editor).toContain("PUBLIC_AUTH_SRC='/work/app/public-page-auth.js?v=1'");
   expect(editor).not.toContain('Web2에서 로그인');
   expect(auth).toContain("sessionKey:'kptu_public_editor_session_v1'");
