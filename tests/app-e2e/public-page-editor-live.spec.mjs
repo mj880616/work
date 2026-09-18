@@ -27,9 +27,12 @@ test('지정 관리자 세션은 서버 권한 확인 후 편집모드로 진입
   await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html`);
   await page.locator('#editPageBtn').click();
   await expect.poll(()=>page.evaluate(()=>window.__ppeDebug?.())).toMatchObject({session:true,canEdit:true,alert:undefined,google:0,editor:true,btnClass:''});
-  await expect(page.locator('body')).toHaveClass(/ppe-editing/);
   const checks=await page.evaluate(()=>window.__ppeCalls.filter(x=>x.body?.action==='check'));
   expect(checks.length).toBeGreaterThanOrEqual(1);
+  await expect.poll(()=>page.evaluate(()=>window.__ppeDebug?.().alert??null)).toBe(null);
+  await expect(page.locator('body')).toHaveClass(/ppe-editing/);
+  const checksAfter=await page.evaluate(()=>window.__ppeCalls.filter(x=>x.body?.action==='check'));
+  expect(checksAfter.length).toBeGreaterThanOrEqual(1);
 });
 
 test('관리자가 아닌 계정은 편집모드로 진입하지 않는다',async({page})=>{
