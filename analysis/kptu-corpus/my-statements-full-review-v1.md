@@ -699,3 +699,47 @@
 
 각각:
 정확성 / 의도추론 / 과잉설명 / 과잉수사의 문제를 가장 잘 보여준다.
+
+
+---
+
+# 원문 13편
+
+1. 2024.08.21 서울교통공사 부당해고 판정  
+   https://mj880616.github.io/work/press/2024-08-21-seoulmetro-lrc-ruling/
+
+2. 2025.01.22 수도권 지하철 요금인상  
+   https://mj880616.github.io/work/press/2025-01-22-subway-fare/
+
+3. 2025.02.28 서울교통공사 행정소송  
+   https://mj880616.github.io/work/press/2025-02-28-seoulmetro-timeoff/
+
+4. 2025.06.03 5호선 방화사건·1인 승무  
+   https://mj880616.github.io/work/press/2025-06-03-line5-fire-one-person/
+
+5. 2025.07.02 기재부 개편  
+   https://mj880616.github.io/work/press/2025-07-02-mof-reorganization/
+
+6. 2025.07.30 통상임금·총인건비  
+   https://mj880616.github.io/work/press/2025-07-30-ordinary-wage/
+
+7. 2025.08.20 철도 선로작업 사망사고  
+   https://mj880616.github.io/work/press/2025-08-20-railway-worker-deaths/
+
+8. 2025.10.02 서해철도 단협해지  
+   https://mj880616.github.io/work/press/2025-10-02-seohae-rail-cba/
+
+9. 2025.11.21 대구지하철 파업  
+   https://mj880616.github.io/work/press/2025-11-21-daegu-subway-strike/
+
+10. 2025.12.03 용인에버라인 부당해고  
+    https://mj880616.github.io/work/press/2025-12-03-everline-unfair-dismissal/
+
+11. 2025.12.08 고속철도 통합  
+    https://mj880616.github.io/work/press/2025-12-08-high-speed-rail-integration/
+
+12. 2025.12.22 철도 성과급  
+    https://mj880616.github.io/work/press/2025-12-22-korail-performance-pay/
+
+13. 2026.04.27 민자철도 공영화  
+    https://mj880616.github.io/work/press/2026-04-27-private-rail-publicization/
