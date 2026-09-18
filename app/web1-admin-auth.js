@@ -1,0 +1,12 @@
+(()=>{'use strict';if(window.KPTUWeb1AdminAuth)return;
+const cfg={provider:'google',url:'https://xmlkxfjeagycwttklxjw.supabase.co',key:'sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA',sessionKey:'kptu_web1_admin_session_v1',adminUserId:'987b778e-69fe-4080-ad7f-191dc732d234'};
+function read(){try{return JSON.parse(localStorage.getItem(cfg.sessionKey)||'null')}catch{return null}}
+function write(v){try{v?localStorage.setItem(cfg.sessionKey,JSON.stringify(v)):localStorage.removeItem(cfg.sessionKey)}catch{}return v||null}
+function normalize(v){if(!v)return null;return {...v,expires_at:v.expires_at||Math.floor(Date.now()/1000)+(Number(v.expires_in)||3600)}}
+function consume(){const q=new URLSearchParams(location.hash.replace(/^#/,''));if(!q.get('access_token'))return;const s=normalize({access_token:q.get('access_token'),refresh_token:q.get('refresh_token'),expires_in:Number(q.get('expires_in')||3600),token_type:q.get('token_type')||'bearer'});write(s);history.replaceState(null,'',location.pathname+location.search)}
+async function user(s=read()){if(!s?.access_token)return null;const r=await fetch(cfg.url+'/auth/v1/user',{headers:{apikey:cfg.key,Authorization:'Bearer '+s.access_token},cache:'no-store'});if(!r.ok){if(r.status===401)write(null);return null}return r.json()}
+async function session(){const s=read();if(!s?.access_token)return null;if((Number(s.expires_at)||0)>Math.floor(Date.now()/1000)+60)return s;if(!s.refresh_token){write(null);return null}const r=await fetch(cfg.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:cfg.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refresh_token})});if(!r.ok){write(null);return null}return write(normalize(await r.json()))}
+async function isAdmin(){const s=await session();if(!s)return false;const u=await user(s);return u?.id===cfg.adminUserId}
+function signInWithGoogle(){const redirect=location.origin+location.pathname+location.search;location.href=cfg.url+'/auth/v1/authorize?provider=google&redirect_to='+encodeURIComponent(redirect)}
+async function signOut(){const s=read();try{if(s?.access_token)await fetch(cfg.url+'/auth/v1/logout',{method:'POST',headers:{apikey:cfg.key,Authorization:'Bearer '+s.access_token}})}finally{write(null);location.reload()}}
+consume();window.KPTUWeb1AdminAuth={config:cfg,session,isAdmin,signInWithGoogle,signOut,read};})();

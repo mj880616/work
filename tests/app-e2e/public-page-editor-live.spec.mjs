@@ -16,50 +16,31 @@ function updateCalls(page){
   return page.evaluate(()=>window.__ppeCalls.filter(x=>x.body?.action==='update'));
 }
 
-test('비로그인 Web1에서도 수정 버튼은 보이고 클릭하면 Web1 편집자 로그인을 연다',async({page})=>{
+test('비로그인 Web1 수정은 Google 관리자 로그인을 시작한다',async({page})=>{
   await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?anon=1`);
-  await expect(page.locator('#editPageBtn')).toBeVisible();
   await page.locator('#editPageBtn').click();
-  await expect(page.locator('#ppeAuthDialog')).toBeVisible();
-  await expect(page.locator('#ppeAuthDialog')).toContainText('편집자 로그인');
+  await expect.poll(()=>page.evaluate(()=>window.__ppeGoogleLogin||0)).toBe(1);
   await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
 });
 
-test('Web1 로그인 성공 후 서버 편집권한을 확인하고 편집모드로 진입한다',async({page})=>{
-  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?anon=1`);
+test('지정 관리자 세션은 서버 권한 확인 후 편집모드로 진입한다',async({page})=>{
+  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html`);
   await page.locator('#editPageBtn').click();
-  await page.locator('#ppeAuthEmail').fill('editor@example.com');
-  await page.locator('#ppeAuthPassword').fill('secret-pass');
-  await page.locator('#ppeAuthForm button[type="submit"]').click();
-  await expect(page.locator('body')).toHaveClass(/ppe-editing/);
-  const authCalls=await page.evaluate(()=>window.__ppeAuthCalls);
-  expect(authCalls).toEqual([{email:'editor@example.com',password:'secret-pass'}]);
+  await expect.poll(()=>page.evaluate(()=>window.__ppeDebug?.())).toMatchObject({session:true,canEdit:true,alert:undefined,google:0,editor:true,btnClass:''});
   const checks=await page.evaluate(()=>window.__ppeCalls.filter(x=>x.body?.action==='check'));
   expect(checks.length).toBeGreaterThanOrEqual(1);
-  const storage=await page.evaluate(()=>({editor:localStorage.getItem('kptu_public_editor_session_v1'),web2:localStorage.getItem('kptu_collab_session_v1')}));
-  expect(storage.editor).toContain('web1-test-token');
-  expect(storage.web2).toBeNull();
+  await expect.poll(()=>page.evaluate(()=>window.__ppeDebug?.())).toMatchObject({alert:undefined,paper:true,title:true,bodyClass:''});
+  await page.evaluate(()=>window.KPTUPublicPageEditor.open());
+  await expect.poll(()=>page.evaluate(()=>window.__ppeDebug?.())).toMatchObject({error:undefined,rejection:undefined});
+  await expect(page.locator('body')).toHaveClass(/ppe-editing/);
+  const checksAfter=await page.evaluate(()=>window.__ppeCalls.filter(x=>x.body?.action==='check'));
+  expect(checksAfter.length).toBeGreaterThanOrEqual(1);
 });
 
-test('Web1 로그인 실패는 비밀번호를 저장하지 않고 로그인 화면에 오류를 표시한다',async({page})=>{
-  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?anon=1&authfail=1`);
+test('관리자가 아닌 계정은 편집모드로 진입하지 않는다',async({page})=>{
+  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?forbidden=1`);
   await page.locator('#editPageBtn').click();
-  await page.locator('#ppeAuthEmail').fill('editor@example.com');
-  await page.locator('#ppeAuthPassword').fill('wrong');
-  await page.locator('#ppeAuthForm button[type="submit"]').click();
-  await expect(page.locator('#ppeAuthError')).toContainText('로그인에 실패');
-  await expect(page.locator('#ppeAuthPassword')).toHaveValue('');
-  await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
-  expect(await page.evaluate(()=>localStorage.getItem('kptu_public_editor_session_v1'))).toBeNull();
-});
-
-test('로그인했어도 페이지 편집권한이 없으면 수정은 열리지 않는다',async({page})=>{
-  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?anon=1&forbidden=1`);
-  await page.locator('#editPageBtn').click();
-  await page.locator('#ppeAuthEmail').fill('viewer@example.com');
-  await page.locator('#ppeAuthPassword').fill('secret-pass');
-  await page.locator('#ppeAuthForm button[type="submit"]').click();
-  await expect(page.locator('#ppeAuthError')).toContainText('수정 권한');
+  await expect.poll(()=>page.evaluate(()=>window.__ppeGoogleLogin||0)).toBe(1);
   await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
 });
 
@@ -129,11 +110,11 @@ test('편집 종료는 미저장 변경을 먼저 저장한 뒤 렌더링 상태
   expect(calls.at(-1).body.title).toBe('종료 직전 변경');
 });
 
-test('공개페이지 템플릿 v7은 커스텀 김포·9호선 셸에도 자동 전파된다',async()=>{
+test('공개페이지 템플릿 최신 편집기 버전은 커스텀 김포·9호선 셸에도 자동 전파된다',async()=>{
   const template=await read('p/index.html');
   const meta=await read('scripts/public-page-meta.mjs');
   const editor=await read('app/public-page-editor.js');
-  const auth=await read('app/public-page-auth.js');
+  const auth=await read('app/web1-admin-auth.js');
   const targets=[
     'p/gimpo-publicization/index.html',
     'p/gimpo-publicization-audit/index.html',
@@ -141,10 +122,10 @@ test('공개페이지 템플릿 v7은 커스텀 김포·9호선 셸에도 자동
     'p/line9-publicization/index.html',
     'p/line9-publicization-audit/index.html'
   ];
-  expect(template).toContain('public-page-editor.js?v=7');
-  expect(editor).toContain("PUBLIC_AUTH_SRC='/work/app/public-page-auth.js?v=1'");
+  expect(template).toContain('public-page-editor.js?v=11');
+  expect(editor).toContain("ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js?v=1'");
   expect(editor).not.toContain('Web2에서 로그인');
-  expect(auth).toContain("sessionKey:'kptu_public_editor_session_v1'");
+  expect(auth).toContain("sessionKey:'kptu_web1_admin_session_v1'");
   expect(auth).not.toContain('kptu_collab_session_v1');
   expect(meta).toContain('templateEditorVersion(template)');
   expect(meta).toContain('applyEditorVersion(next,editorVersion)');
