@@ -180,7 +180,6 @@
   }
 
   document.addEventListener('keydown',e=>{
-    if(authDialogOpen()&&e.key==='Escape'){e.preventDefault();closeAuthDialog();return}
     if(!editing)return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();void save();return}if(e.key==='Escape'){e.preventDefault();cancelEdit()}
   });
   window.addEventListener('beforeunload',e=>{if(!editing||(!saving&&dirtyVersion<=savedVersion))return;e.preventDefault();e.returnValue=''});
