@@ -104,6 +104,6 @@ test('국감 페이지 도구줄은 현재 question-0912 페이지의 제목 위
   expect(html).toContain('/work/app/web1-toolbar.js?v=1');
   expect(html).toContain('class="hero"');
   const toolbar=await read('app/web1-toolbar.js');
-  expect(toolbar).toContain("document.querySelector('h1,.hero,.pd-hero')");
-  expect(toolbar).toContain('target.parentNode.insertBefore(bar,target)');
+  expect(toolbar).toContain("document.querySelector('.hero')");
+  expect(toolbar).toContain('anchor.parentNode.insertBefore(bar,anchor)');
 });
