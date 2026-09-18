@@ -57,7 +57,7 @@ async function createCase(){
   await window.KPTUPageSave.open(null);
   const title=el('pageTitle'),slug=el('pageSlug'),summary=el('pageSummary'),body=el('pageBody'),status=el('pageStatus'),visibility=el('pageVisibility');
   if(title)title.value='[언론대응] ';
-  if(slug)slug.value=newSlug();
+  if(slug){slug.value=newSlug();slug.dispatchEvent(new Event('input',{bubbles:true}))}
   if(summary)summary.value='언론대응 · 사건 팩트시트 → 초안 → QA';
   if(body)body.value=template();
   if(status)status.value='draft';
