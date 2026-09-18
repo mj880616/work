@@ -85,7 +85,8 @@ test('V3 uses a compact child-project menu and child returns to parent',async({p
   await expect(page.locator('#projectGrid [data-project]')).toHaveCount(0);
   await page.locator('[data-ps3-project="main-1"]').first().click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  await expect(page.locator('.ps3-child-menu')).toBeVisible();
+  await expect(page.locator('#ps3Hierarchy .ps3-child-menu')).toBeVisible();
+  await expect(page.locator('.ps3-actions .ps3-child-menu')).toHaveCount(0);
   await expect(page.locator('.ps3-child-section')).toHaveCount(0);
   await page.locator('.ps3-child-menu summary').click();
   await page.locator('.ps3-child-menu [data-ps3-project="child-1"]').click();

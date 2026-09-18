@@ -36,6 +36,8 @@ test('project V3 includes the complete management actions in its own renderer', 
   expect(src).toContain('data-ps3-library');
   expect(src).toContain('ps3-parent-link');
   expect(src).toContain('ps3-child-menu');
+  expect(src).toContain("$('#ps3Hierarchy').innerHTML");
+  expect(src).not.toContain('<div class="ps3-actions">${!par?childMenu');
   expect(src).toContain('data-ps3-doc-filter');
   expect(src).not.toContain('ps3-child-section');
 });
