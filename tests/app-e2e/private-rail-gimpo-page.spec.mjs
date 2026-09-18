@@ -81,7 +81,7 @@ test('public-page-edit 함수는 지정 관리자 JWT·DB 편집권한·app_page
   const fn=await read('supabase/functions/public-page-edit/index.ts');
   expect(fn).toContain("req.headers.get('Authorization')");
   expect(fn).toContain('WEB1_ADMIN_USER_ID');
-  expect(fn).toContain('db.auth.getUser()');
+  expect(fn).toContain('await db.auth.getUser()');
   expect(fn).toContain("rpc('app_can_edit_page_rpc'");
   expect(fn).toContain("from('app_pages')");
   expect(fn).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
