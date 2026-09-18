@@ -38,3 +38,14 @@ test('representative Web1 pages load the shared toolbar',async()=>{
     expect(html,path).toContain('/work/app/web1-toolbar.js?v=');
   }
 });
+
+
+test('designated public-edit pages do not ask for legacy master password',async()=>{
+  const html=await read('2in1/index.html');
+  expect(html).not.toContain('마스터 비밀번호');
+  expect(html).not.toContain('master_password');
+  const edge=await read('supabase/functions/pc0921-board/index.ts');
+  expect(edge).toContain('PUBLIC_EDIT_BOARDS');
+  expect(edge).toContain("'pc2in1'");
+  expect(edge).toContain("'pc0921'");
+});
