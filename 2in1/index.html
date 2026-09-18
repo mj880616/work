@@ -334,7 +334,7 @@ function renderSchedules(){
  }).join('') || '<tr><td colspan="3" class="empty">등록된 일정이 없습니다.</td></tr>';
 }
 
-async function saveValue(k,v,masterPassword){
+async function saveValue(k,v){
  if(!ready){alert('공유 상태를 불러온 뒤 다시 시도해 주세요.');return false}
  document.getElementById('sync').textContent='저장 중…';
  try{
