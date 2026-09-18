@@ -108,7 +108,7 @@ test('공개페이지 템플릿 최신 편집기 버전은 커스텀 김포·9�
   const template=await read('p/index.html');
   const meta=await read('scripts/public-page-meta.mjs');
   const editor=await read('app/public-page-editor.js');
-  const auth=await read('app/public-page-auth.js');
+  const auth=await read('app/web1-admin-auth.js');
   const targets=[
     'p/gimpo-publicization/index.html',
     'p/gimpo-publicization-audit/index.html',
@@ -117,9 +117,9 @@ test('공개페이지 템플릿 최신 편집기 버전은 커스텀 김포·9�
     'p/line9-publicization-audit/index.html'
   ];
   expect(template).toContain('public-page-editor.js?v=11');
-  expect(editor).toContain("PUBLIC_AUTH_SRC='/work/app/public-page-auth.js?v=1'");
+  expect(editor).toContain("ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js?v=1'");
   expect(editor).not.toContain('Web2에서 로그인');
-  expect(auth).toContain("sessionKey:'kptu_public_editor_session_v1'");
+  expect(auth).toContain("sessionKey:'kptu_web1_admin_session_v1'");
   expect(auth).not.toContain('kptu_collab_session_v1');
   expect(meta).toContain('templateEditorVersion(template)');
   expect(meta).toContain('applyEditorVersion(next,editorVersion)');
