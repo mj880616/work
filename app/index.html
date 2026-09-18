@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="./app-icon.svg?v=20260913-3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260913-3">
-<link rel="stylesheet" href="./styles.css?v=14">
+<link rel="stylesheet" href="./styles.css?v=15">
 </head>
 <body>
 <div class="shell">
@@ -51,7 +51,7 @@
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
     <button class="nav-btn" data-view="library" type="button">자료실</button>
     <button class="nav-btn" data-view="meetings" type="button">회의</button>
-    <button class="nav-btn" data-view="pages" type="button">게시</button>
+    <button class="nav-btn" data-view="pages" type="button">게시판</button>
     <button class="nav-btn" data-view="team" type="button">팀</button>
   </nav>
 
@@ -129,5 +129,5 @@
 <div id="toast" class="toast hidden"></div>
 
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to','https://mj880616.github.io/work/app/confirmed.html');input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=31" defer></script>
+<script src="./app.js?v=32" defer></script>
 </body></html>

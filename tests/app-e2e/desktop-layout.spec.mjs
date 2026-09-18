@@ -63,10 +63,10 @@ test('desktop web uses a compact left navigation, home-only workspace header and
   expect(desktop.mainMaxWidth).toBe('1720px');
   await expect(page.locator('#appView>.workspace-head')).toBeVisible();
 
-  await expect(page.locator('#myTaskMini')).toContainText('메인에서 바로 처리할 할 일');
-  await expect(page.locator('#myTaskMini [data-hta-toggle="task-1"]')).toBeVisible();
-  await expect(page.locator('#myTaskMini [data-hta-edit="task-1"]')).toHaveText('수정');
-  await expect(page.locator('#myTaskMini [data-hta-delete="task-1"]')).toHaveText('삭제');
+  await expect(page.locator('#hdvTaskPanel')).toBeVisible();
+  await expect(page.locator('#hdvTasks')).toContainText('메인에서 바로 처리할 할 일');
+  await expect(page.locator('#hdvTasks [data-hdv-goto="tasks"]')).toHaveCount(1);
+  await expect(page.locator('#myTaskMini')).toHaveCount(0);
 
   await page.locator('[data-view="projects"]').click();
   await expect(page.locator('#projectsView')).toBeVisible();
@@ -95,7 +95,7 @@ test('desktop web uses a compact left navigation, home-only workspace header and
   expect(mobile.navDirection).not.toBe('column');
 });
 
-test('selected view survives refresh and page cards open inside the 게시 tab',async({page})=>{
+test('selected view survives refresh and page cards open inside the 게시판 tab',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   await installMock(page);
   await page.goto('http://127.0.0.1:8123/app/');

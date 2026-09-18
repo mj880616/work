@@ -6,11 +6,7 @@
 <style>:root{--line:#ddd;--muted:#6b7582;--blue:#315f95;--red:#a33b45}.dashboard-grid{display:grid}.panel{background:#fff;border:1px solid #ddd;padding:12px}.panel-head{display:flex;justify-content:space-between}.mini{font-size:11px}</style>
 </head>
 <body>
-<section id="homeView">
-  <div class="dashboard-grid home-dashboard-single">
-    <article class="panel"><div class="panel-head"><div><h2>내 할 일</h2></div></div><div id="myTaskMini"></div></article>
-  </div>
-</section>
+<section id="homeView"></section>
 <section id="projectsView" hidden><div id="projectGrid"><button type="button" data-ps3-project="project-1">인력확충 투쟁</button><button type="button" data-ps3-project="project-2">민자철도</button></div></section>
 <script>
 const now=new Date();
@@ -29,8 +25,13 @@ window.KPTURuntime={
     if(path.startsWith('/rest/v1/app_project_milestones'))return [
       {id:'m1',project_id:'project-1',title:'국회 기자회견',status:'planned',start_at:tomorrow,updated_at:new Date().toISOString()}
     ];
-    if(path.startsWith('/rest/v1/app_project_progress_updates'))return [
-      {id:'u1',project_id:'project-1',summary:'현장발언 섭외 완료',next_step:'보도자료 확정',effective_on:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()}
+    if(path.startsWith('/rest/v1/app_tasks'))return [
+      {id:'t1',title:'보도자료 확정',project_id:'project-1',status:'doing',priority:'high',due_at:tomorrow,updated_at:new Date().toISOString()},
+      {id:'t2',title:'국토부 면담자료 검토',project_id:'project-2',status:'todo',priority:'normal',due_at:null,updated_at:yesterday}
+    ];
+    if(path.startsWith('/rest/v1/app_documents'))return [
+      {id:'d1',title:'인력확충 기자회견 자료',project_id:'project-1',category:'선전·언론자료',source:'공공운수노조',document_date:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()},
+      {id:'d2',title:'민자철도 운영실태 개선요구',project_id:'project-2',category:'국토교통부 대응',source:'공공운수노조',document_date:null,updated_at:yesterday}
     ];
     return [];
   }
