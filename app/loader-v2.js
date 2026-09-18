@@ -80,7 +80,7 @@
 
   await window.__KPTU_PHOTO_ROOM_READY__;
 
-  await import('./page-list-controller.js?v=1');
+  await import('./page-list-controller.js?v=2');
   await window.__KPTU_PAGE_LIST_READY__;
   await import('./page-save-controller.js?v=3');
   await window.__KPTU_PAGE_SAVE_READY__;
