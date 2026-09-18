@@ -1,0 +1,26 @@
+name: Filter KPTU press contacts
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/kptu_contact_target_genres.py'
+      - '.github/workflows/kptu-contact-target-genres.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/kptu_contact_target_genres.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kptu-corpus/contact-author-target-genres.json
+          git diff --cached --quiet || git commit -m "Filter KPTU contacts to press genres"
+          git pull --rebase origin main
+          git push

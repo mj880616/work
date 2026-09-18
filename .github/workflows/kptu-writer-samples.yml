@@ -1,0 +1,31 @@
+name: Build KPTU writer reading samples
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'analysis/kptu-corpus/contact-authors-hwp-full.json'
+      - 'scripts/kptu_writer_samples.py'
+      - '.github/workflows/kptu-writer-samples.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+      - run: |
+          python -m pip install --upgrade "pip<25" "setuptools<70" wheel
+          python -m pip install six requests beautifulsoup4
+          python -m pip install --pre pyhwp
+      - run: python scripts/kptu_writer_samples.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kptu-corpus/writer-samples analysis/kptu-corpus/writer-samples-index.json
+          git diff --cached --quiet || git commit -m "Build KPTU writer reading samples"
+          git pull --rebase origin main
+          git push
