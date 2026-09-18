@@ -339,11 +339,11 @@ async function saveValue(k,v){
  document.getElementById('sync').textContent='저장 중…';
  try{
   const payload={item_key:k,value:v};
-  if(masterPassword!==undefined)payload.master_password=masterPassword;
+
   const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   if(!r.ok){
    let data={};try{data=await r.json()}catch{}
-   if(r.status===403&&data.error==='password')alert('마스터 비밀번호가 올바르지 않습니다.');
+
    throw 0;
   }
   state[k]=v;
@@ -429,8 +429,7 @@ areaEditorList.addEventListener('input',e=>{if(e.target.matches('textarea'))auto
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&areaEditorModal.classList.contains('open'))closeAreaEditor()});
 areaEditorSave.addEventListener('click',async()=>{
  const rows=[...areaEditorList.querySelectorAll('[data-area-editor]')];
- const pw=areaEditorPassword.value.trim();
- if(!pw){alert('마스터 비밀번호를 입력하세요.');areaEditorPassword.focus();return}
+
  const changes=[];
  for(const row of rows){
   const k=row.dataset.areaEditor;
