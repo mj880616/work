@@ -29,11 +29,18 @@ button,input,select,textarea{font:inherit}.wrap{max-width:980px;margin:auto;padd
 .footer{text-align:center;color:#8a939f;font-size:11px;margin-top:28px}
 @media(max-width:720px){.wrap{padding:14px 11px 48px}.hero{padding:24px 20px}.hero h1{font-size:27px}.toolbar{grid-template-columns:1fr 1fr}.toolbar input,.toolbar select{grid-column:1/-1}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.material{grid-template-columns:1fr}.actions{justify-content:flex-end}.drive-note{align-items:flex-start;flex-direction:column}.group summary{padding:14px}}
 </style>
+<link rel="stylesheet" href="/work/assets/web1-design-lite.css?v=1">
+
+<style>
+/* Public-policy library hierarchy */
+.hero p{max-width:720px}.section-label{display:flex;align-items:baseline;gap:8px;margin:22px 2px 8px}.section-label span,.section-kicker{font-size:9px;font-weight:900;letter-spacing:.14em;color:#8793a0}.section-label b{font-size:18px;letter-spacing:-.25px}.toolbar{margin-top:0;box-shadow:none;border-radius:12px}.toolbar input[type=search]{min-width:240px}.summary{margin-top:10px}.panel,.drive-note{box-shadow:none;border-radius:12px}.drive-note{margin-top:12px}.section{margin-top:26px}.section-head>div:first-child{min-width:0}.section-kicker{display:block;margin-bottom:2px}.section-head h2{margin:0}.groups{gap:12px}.group{box-shadow:none;border-radius:12px}.material{box-shadow:none}.material-actions{flex-wrap:wrap}
+@media(max-width:720px){.section-label{margin-top:19px}.toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px}.toolbar input[type=search]{grid-column:1/-1;min-width:0;width:100%}.toolbar select{min-width:0;width:100%}.toolbar .btn{width:100%}.summary{gap:7px}.drive-note{align-items:flex-start;gap:10px}.section-head{align-items:flex-start}.panel{padding:14px}.groups{gap:9px}}
+</style>
 </head>
 <body><main class="wrap">
 <header class="hero"><h1>공공기관 정책자료</h1><p>공공기관 정책·제도·예산·인력·경영평가 관련 자료를 현장에서 바로 찾을 수 있도록 분류한 자료실</p><div class="meta">공공운수노조 · 현장 공유용</div></header>
 
-<div class="toolbar">
+<div class="section-label"><span>FIND</span><b>자료 찾기</b></div><div class="toolbar">
 <input id="searchInput" type="search" placeholder="자료명 · 출처 · 설명 · 태그 검색">
 <select id="filterCategory"><option value="">전체 분류</option></select>
 <button type="button" class="btn" id="addBtn">+ 링크 추가</button>
@@ -93,7 +100,7 @@ button,input,select,textarea{font:inherit}.wrap{max-width:980px;margin:auto;padd
 <div class="panel-actions"><button class="btn" id="setupCloseBtn">닫기</button><button class="btn" id="saveOAuthBtn">설정 저장</button><button class="btn primary" id="connectOAuthBtn">Google 계정 연결</button></div><div class="status" id="setupStatus"></div>
 </div>
 
-<section class="section"><div class="section-head"><h2>자료 목록</h2><span id="resultCount">불러오는 중…</span></div><div class="groups" id="materialGroups"><div class="empty">자료를 불러오는 중…</div></div></section>
+<section class="section"><div class="section-head"><div><span class="section-kicker">LIBRARY</span><h2>자료 목록</h2></div><span id="resultCount">불러오는 중…</span></div><div class="groups" id="materialGroups"><div class="empty">자료를 불러오는 중…</div></div></section>
 <div class="footer">공공운수노조 공공기관사업팀 · 정책자료 공유용</div>
 </main>
 
