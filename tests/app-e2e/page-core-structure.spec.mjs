@@ -11,7 +11,7 @@ test('page core and builder use explicit readiness without post-render correctio
   const builder=read('app/page-builder.js');
   const files=['app/page-list-controller.js','app/page-save-controller.js','app/page-builder.js','app/page-shortcut.js','app/page-management.js','app/page-inline-viewer-v2.js'];
 
-  expect(loader).toContain("page-list-controller.js?v=1");
+  expect(loader).toContain("page-list-controller.js?v=2");
   expect(loader).toContain('__KPTU_PAGE_LIST_READY__');
   expect(loader).toContain("page-save-controller.js?v=3");
   expect(loader).toContain('__KPTU_PAGE_SAVE_READY__');
