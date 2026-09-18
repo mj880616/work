@@ -1,0 +1,584 @@
+{
+  "targets": [
+    {
+      "target": {
+        "file": "240805_보도자료_0805_서교공_해고자복직_촉구_양대노총_기자회견.hwp",
+        "date": "2024-08-05",
+        "keywords": [
+          "서교공",
+          "해고자",
+          "복직",
+          "양대노총",
+          "기자회견"
+        ]
+      },
+      "matches": [
+        {
+          "score": 44,
+          "keyword_hits": 3,
+          "date_diff_days": 1,
+          "idx": 51281,
+          "page": 89,
+          "title": "[보도자료] 서울교통공사 집단해고 복직촉구 양대노총 기자회견",
+          "kind": "보도자료",
+          "date": "2024-08-04",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=89&idx=51281&bid=KPTU_NEW04",
+          "row_text": "7422 [보도자료] 서울교통공사 집단해고 복직촉구 양대노총 기자회견 등록일 2024-08-04 | 조회수 371 공공기관사업본부 371 2024-08-04"
+        },
+        {
+          "score": 37,
+          "keyword_hits": 3,
+          "date_diff_days": 3,
+          "idx": 51280,
+          "page": 89,
+          "title": "[취재요청] 서울교통공사 집단해고 복직촉구 양대노총 기자회견",
+          "kind": "취재요청",
+          "date": "2024-08-02",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=89&idx=51280&bid=KPTU_NEW04",
+          "row_text": "7421 [취재요청] 서울교통공사 집단해고 복직촉구 양대노총 기자회견 등록일 2024-08-02 | 조회수 279 공공기관사업본부 279 2024-08-02"
+        },
+        {
+          "score": 10,
+          "keyword_hits": 1,
+          "date_diff_days": 14,
+          "idx": 51366,
+          "page": 88,
+          "title": "[취재요청]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견",
+          "kind": "취재요청",
+          "date": "2024-08-19",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=88&idx=51366&bid=KPTU_NEW04",
+          "row_text": "7432 [취재요청]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견 등록일 2024-08-19 | 조회수 174 조직쟁의실 174 2024-08-19"
+        }
+      ]
+    },
+    {
+      "target": {
+        "file": "20240819_성명_서울교통공사는_지노위판정_존중하고_노조탄압_중단하라 (2).hwp",
+        "date": "2024-08-19",
+        "keywords": [
+          "서울교통공사",
+          "지노위",
+          "판정",
+          "노조탄압",
+          "중단"
+        ]
+      },
+      "matches": [
+        {
+          "score": 63,
+          "keyword_hits": 5,
+          "date_diff_days": 2,
+          "idx": 51391,
+          "page": 87,
+          "title": "[성명]서울교통공사는 지노위 판정 존중하고 노조탄압 중단해야",
+          "kind": "성명",
+          "date": "2024-08-21",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51391&bid=KPTU_NEW04",
+          "row_text": "7436 [성명]서울교통공사는 지노위 판정 존중하고 노조탄압 중단해야 등록일 2024-08-21 | 조회수 1007 공공기관사업본부 1007 2024-08-21"
+        },
+        {
+          "score": 29,
+          "keyword_hits": 2,
+          "date_diff_days": 1,
+          "idx": 51389,
+          "page": 87,
+          "title": "[보도자료] 중간착취 중단! 노조탄압 저지! 서울도시가스분회 투쟁 승리! 공공서울본부결의대회",
+          "kind": "보도자료",
+          "date": "2024-08-20",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51389&bid=KPTU_NEW04",
+          "row_text": "7435 [보도자료] 중간착취 중단! 노조탄압 저지! 서울도시가스분회 투쟁 승리! 공공서울본부결의대회 등록일 2024-08-20 | 조회수 241 서울본부 241 2024-08-20"
+        },
+        {
+          "score": 27,
+          "keyword_hits": 2,
+          "date_diff_days": 3,
+          "idx": 51359,
+          "page": 88,
+          "title": "[취재요청서] 중간착취 중단! 노조탄압 저지! 서울도시가스분회 투쟁 승리! 공공서울본부결의대회",
+          "kind": "취재요청",
+          "date": "2024-08-16",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=88&idx=51359&bid=KPTU_NEW04",
+          "row_text": "7429 [취재요청서] 중간착취 중단! 노조탄압 저지! 서울도시가스분회 투쟁 승리! 공공서울본부결의대회 등록일 2024-08-16 | 조회수 328 서울지역본부 328 2024-08-16"
+        }
+      ]
+    },
+    {
+      "target": {
+        "file": "240827_취재요청서_서울메트로9호선지부_기자회견_최종.hwp",
+        "date": "2024-08-27",
+        "keywords": [
+          "서울메트로9호선",
+          "9호선",
+          "지부",
+          "기자회견"
+        ]
+      },
+      "matches": [
+        {
+          "score": 31,
+          "keyword_hits": 2,
+          "date_diff_days": 4,
+          "idx": 51406,
+          "page": 87,
+          "title": "[취재요청]9호선 2·3단계 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견",
+          "kind": "취재요청",
+          "date": "2024-08-23",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51406&bid=KPTU_NEW04",
+          "row_text": "7439 [취재요청]9호선 2·3단계 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견 등록일 2024-08-23 | 조회수 271 공공기관사업본부 271 2024-08-23"
+        },
+        {
+          "score": 30,
+          "keyword_hits": 2,
+          "date_diff_days": 0,
+          "idx": 51422,
+          "page": 86,
+          "title": "[보도자료] 9호선 2·3단계, 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견",
+          "kind": "보도자료",
+          "date": "2024-08-27",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=86&idx=51422&bid=KPTU_NEW04",
+          "row_text": "7444 [보도자료] 9호선 2·3단계, 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견 등록일 2024-08-27 | 조회수 296 공공기관사업본부 296 2024-08-27"
+        },
+        {
+          "score": 24,
+          "keyword_hits": 1,
+          "date_diff_days": 1,
+          "idx": 51410,
+          "page": 87,
+          "title": "[취재요청서] 안전운임 국제행동 주간 기자회견",
+          "kind": "취재요청",
+          "date": "2024-08-26",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51410&bid=KPTU_NEW04",
+          "row_text": "7441 [취재요청서] 안전운임 국제행동 주간 기자회견 등록일 2024-08-26 | 조회수 251 정책기획실 251 2024-08-26"
+        },
+        {
+          "score": 20,
+          "keyword_hits": 2,
+          "date_diff_days": 10,
+          "idx": 51480,
+          "page": 85,
+          "title": "[보도자료]저연차 임금인상, 근속승진 도입 비정규직 정규직화 촉구 기자회견(사회복지지부)",
+          "kind": "보도자료",
+          "date": "2024-09-06",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51480&bid=KPTU_NEW04",
+          "row_text": "7459 [보도자료]저연차 임금인상, 근속승진 도입 비정규직 정규직화 촉구 기자회견(사회복지지부) 등록일 2024-09-06 | 조회수 307 조직쟁의실 307 2024-09-06"
+        },
+        {
+          "score": 18,
+          "keyword_hits": 1,
+          "date_diff_days": 2,
+          "idx": 51434,
+          "page": 86,
+          "title": "[보도자료] 안전운임 국제행동 주간 기자회견",
+          "kind": "보도자료",
+          "date": "2024-08-29",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=86&idx=51434&bid=KPTU_NEW04",
+          "row_text": "7447 [보도자료] 안전운임 국제행동 주간 기자회견 등록일 2024-08-29 | 조회수 236 정책기획실 236 2024-08-29"
+        },
+        {
+          "score": 17,
+          "keyword_hits": 1,
+          "date_diff_days": 8,
+          "idx": 51366,
+          "page": 88,
+          "title": "[취재요청]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견",
+          "kind": "취재요청",
+          "date": "2024-08-19",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=88&idx=51366&bid=KPTU_NEW04",
+          "row_text": "7432 [취재요청]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견 등록일 2024-08-19 | 조회수 174 조직쟁의실 174 2024-08-19"
+        },
+        {
+          "score": 16,
+          "keyword_hits": 1,
+          "date_diff_days": 9,
+          "idx": 51475,
+          "page": 85,
+          "title": "[취재요청]저연차 임금인상, 근속승진 도입 비정규직 정규직화 촉구 기자회견",
+          "kind": "취재요청",
+          "date": "2024-09-05",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51475&bid=KPTU_NEW04",
+          "row_text": "7456 [취재요청]저연차 임금인상, 근속승진 도입 비정규직 정규직화 촉구 기자회견 등록일 2024-09-05 | 조회수 245 조직쟁의실 245 2024-09-05"
+        },
+        {
+          "score": 14,
+          "keyword_hits": 1,
+          "date_diff_days": 6,
+          "idx": 51397,
+          "page": 87,
+          "title": "[보도자료]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견",
+          "kind": "보도자료",
+          "date": "2024-08-21",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51397&bid=KPTU_NEW04",
+          "row_text": "7438 [보도자료]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견 등록일 2024-08-21 | 조회수 229 조직쟁의실 229 2024-08-21"
+        }
+      ]
+    },
+    {
+      "target": {
+        "file": "240827_보도자료_서울메트로9호선지부_기자회견_2차수정완료.hwp",
+        "date": "2024-08-27",
+        "keywords": [
+          "서울메트로9호선",
+          "9호선",
+          "지부",
+          "기자회견"
+        ]
+      },
+      "matches": [
+        {
+          "score": 35,
+          "keyword_hits": 2,
+          "date_diff_days": 0,
+          "idx": 51422,
+          "page": 86,
+          "title": "[보도자료] 9호선 2·3단계, 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견",
+          "kind": "보도자료",
+          "date": "2024-08-27",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=86&idx=51422&bid=KPTU_NEW04",
+          "row_text": "7444 [보도자료] 9호선 2·3단계, 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견 등록일 2024-08-27 | 조회수 296 공공기관사업본부 296 2024-08-27"
+        },
+        {
+          "score": 26,
+          "keyword_hits": 2,
+          "date_diff_days": 4,
+          "idx": 51406,
+          "page": 87,
+          "title": "[취재요청]9호선 2·3단계 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견",
+          "kind": "취재요청",
+          "date": "2024-08-23",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51406&bid=KPTU_NEW04",
+          "row_text": "7439 [취재요청]9호선 2·3단계 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견 등록일 2024-08-23 | 조회수 271 공공기관사업본부 271 2024-08-23"
+        },
+        {
+          "score": 25,
+          "keyword_hits": 2,
+          "date_diff_days": 10,
+          "idx": 51480,
+          "page": 85,
+          "title": "[보도자료]저연차 임금인상, 근속승진 도입 비정규직 정규직화 촉구 기자회견(사회복지지부)",
+          "kind": "보도자료",
+          "date": "2024-09-06",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51480&bid=KPTU_NEW04",
+          "row_text": "7459 [보도자료]저연차 임금인상, 근속승진 도입 비정규직 정규직화 촉구 기자회견(사회복지지부) 등록일 2024-09-06 | 조회수 307 조직쟁의실 307 2024-09-06"
+        },
+        {
+          "score": 23,
+          "keyword_hits": 1,
+          "date_diff_days": 2,
+          "idx": 51434,
+          "page": 86,
+          "title": "[보도자료] 안전운임 국제행동 주간 기자회견",
+          "kind": "보도자료",
+          "date": "2024-08-29",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=86&idx=51434&bid=KPTU_NEW04",
+          "row_text": "7447 [보도자료] 안전운임 국제행동 주간 기자회견 등록일 2024-08-29 | 조회수 236 정책기획실 236 2024-08-29"
+        },
+        {
+          "score": 19,
+          "keyword_hits": 1,
+          "date_diff_days": 1,
+          "idx": 51410,
+          "page": 87,
+          "title": "[취재요청서] 안전운임 국제행동 주간 기자회견",
+          "kind": "취재요청",
+          "date": "2024-08-26",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51410&bid=KPTU_NEW04",
+          "row_text": "7441 [취재요청서] 안전운임 국제행동 주간 기자회견 등록일 2024-08-26 | 조회수 251 정책기획실 251 2024-08-26"
+        },
+        {
+          "score": 19,
+          "keyword_hits": 1,
+          "date_diff_days": 6,
+          "idx": 51397,
+          "page": 87,
+          "title": "[보도자료]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견",
+          "kind": "보도자료",
+          "date": "2024-08-21",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51397&bid=KPTU_NEW04",
+          "row_text": "7438 [보도자료]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견 등록일 2024-08-21 | 조회수 229 조직쟁의실 229 2024-08-21"
+        },
+        {
+          "score": 12,
+          "keyword_hits": 1,
+          "date_diff_days": 8,
+          "idx": 51467,
+          "page": 85,
+          "title": "[성명] 노후빈곤, 세대갈등 조장 복지부 연금개악 비판",
+          "kind": "성명",
+          "date": "2024-09-04",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51467&bid=KPTU_NEW04",
+          "row_text": "7454 [성명] 노후빈곤, 세대갈등 조장 복지부 연금개악 비판 등록일 2024-09-04 | 조회수 449 공공기관사업본부 449 2024-09-04"
+        },
+        {
+          "score": 12,
+          "keyword_hits": 1,
+          "date_diff_days": 8,
+          "idx": 51366,
+          "page": 88,
+          "title": "[취재요청]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견",
+          "kind": "취재요청",
+          "date": "2024-08-19",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=88&idx=51366&bid=KPTU_NEW04",
+          "row_text": "7432 [취재요청]서울시사회서비스원 돌봄노동자 집단실업사태, 서울시 대책마련 촉구 기자회견 등록일 2024-08-19 | 조회수 174 조직쟁의실 174 2024-08-19"
+        }
+      ]
+    },
+    {
+      "target": {
+        "file": "취재요청_240904_공공 철도-지하철 정책대회.hwp",
+        "date": "2024-09-04",
+        "keywords": [
+          "공공",
+          "철도",
+          "지하철",
+          "정책대회"
+        ]
+      },
+      "matches": [
+        {
+          "score": 55,
+          "keyword_hits": 4,
+          "date_diff_days": 0,
+          "idx": 51466,
+          "page": 85,
+          "title": "[취재요청]기후위기, 불평등 해결하는 공공 철도-지하철 정책대회",
+          "kind": "취재요청",
+          "date": "2024-09-04",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51466&bid=KPTU_NEW04",
+          "row_text": "7453 [취재요청]기후위기, 불평등 해결하는 공공 철도-지하철 정책대회 등록일 2024-09-04 | 조회수 211 공공기관사업본부 211 2024-09-04"
+        },
+        {
+          "score": 23,
+          "keyword_hits": 1,
+          "date_diff_days": 2,
+          "idx": 51476,
+          "page": 85,
+          "title": "[취재요청] [9/11] 공공부문 비정규직 차별 해소 촉구 추석 한마당",
+          "kind": "취재요청",
+          "date": "2024-09-06",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51476&bid=KPTU_NEW04",
+          "row_text": "7457 [취재요청] [9/11] 공공부문 비정규직 차별 해소 촉구 추석 한마당 등록일 2024-09-06 | 조회수 303 조직쟁의실 303 2024-09-06"
+        },
+        {
+          "score": 23,
+          "keyword_hits": 1,
+          "date_diff_days": 2,
+          "idx": 51458,
+          "page": 86,
+          "title": "[취재요청] 인천공항공사_철도공사 자회사 인력충원 요구와 시민안전을 위한 토론회",
+          "kind": "취재요청",
+          "date": "2024-09-02",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=86&idx=51458&bid=KPTU_NEW04",
+          "row_text": "7452 [취재요청] 인천공항공사_철도공사 자회사 인력충원 요구와 시민안전을 위한 토론회 등록일 2024-09-02 | 조회수 278 공공기관사업본부 278 2024-09-02"
+        },
+        {
+          "score": 18,
+          "keyword_hits": 1,
+          "date_diff_days": 7,
+          "idx": 51487,
+          "page": 85,
+          "title": "[취재요청]서울시 ‘돌봄서비스 공공성 강화계획’규탄 기자회견",
+          "kind": "취재요청",
+          "date": "2024-09-11",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51487&bid=KPTU_NEW04",
+          "row_text": "7460 [취재요청]서울시 ‘돌봄서비스 공공성 강화계획’규탄 기자회견 등록일 2024-09-11 | 조회수 210 조직쟁의실 210 2024-09-11"
+        },
+        {
+          "score": 15,
+          "keyword_hits": 1,
+          "date_diff_days": 14,
+          "idx": 51394,
+          "page": 87,
+          "title": "[취재요청] [8/22]\"저임금과 차별, 강요하는 정부 예산 이제는 바꿔야 한다\" 공공부문 무기계약직 인건비 개선방안 토론회",
+          "kind": "취재요청",
+          "date": "2024-08-21",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51394&bid=KPTU_NEW04",
+          "row_text": "7437 [취재요청] [8/22]\"저임금과 차별, 강요하는 정부 예산 이제는 바꿔야 한다\" 공공부문 무기계약직 인건비 개선방안 토론회 등록일 2024-08-21 | 조회수 260 조직쟁의실 260 2024-08-21"
+        }
+      ]
+    },
+    {
+      "target": {
+        "file": "공공철도지하철_정책대회_보도자료_2024_9_9_수정.hwp",
+        "date": "2024-09-09",
+        "keywords": [
+          "공공",
+          "철도",
+          "지하철",
+          "정책대회"
+        ]
+      },
+      "matches": [
+        {
+          "score": 45,
+          "keyword_hits": 4,
+          "date_diff_days": 5,
+          "idx": 51466,
+          "page": 85,
+          "title": "[취재요청]기후위기, 불평등 해결하는 공공 철도-지하철 정책대회",
+          "kind": "취재요청",
+          "date": "2024-09-04",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51466&bid=KPTU_NEW04",
+          "row_text": "7453 [취재요청]기후위기, 불평등 해결하는 공공 철도-지하철 정책대회 등록일 2024-09-04 | 조회수 211 공공기관사업본부 211 2024-09-04"
+        },
+        {
+          "score": 25,
+          "keyword_hits": 2,
+          "date_diff_days": 12,
+          "idx": 51510,
+          "page": 84,
+          "title": "[보도자료] 철도 지하철 중대재해·질병에 대한 종합대책 수립 촉구 기자회견",
+          "kind": "보도자료",
+          "date": "2024-09-21",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=84&idx=51510&bid=KPTU_NEW04",
+          "row_text": "7466 [보도자료] 철도 지하철 중대재해·질병에 대한 종합대책 수립 촉구 기자회견 등록일 2024-09-21 | 조회수 237 공공기관사업본부 237 2024-09-21"
+        },
+        {
+          "score": 20,
+          "keyword_hits": 2,
+          "date_diff_days": 10,
+          "idx": 51506,
+          "page": 84,
+          "title": "[취재요청] 철도 지하철 중대재해 · 질병에 대한 종합대책 수립 촉구 기자회견",
+          "kind": "취재요청",
+          "date": "2024-09-19",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=84&idx=51506&bid=KPTU_NEW04",
+          "row_text": "7465 [취재요청] 철도 지하철 중대재해 · 질병에 대한 종합대책 수립 촉구 기자회견 등록일 2024-09-19 | 조회수 273 공공기관사업본부 273 2024-09-19"
+        },
+        {
+          "score": 18,
+          "keyword_hits": 1,
+          "date_diff_days": 2,
+          "idx": 51487,
+          "page": 85,
+          "title": "[취재요청]서울시 ‘돌봄서비스 공공성 강화계획’규탄 기자회견",
+          "kind": "취재요청",
+          "date": "2024-09-11",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51487&bid=KPTU_NEW04",
+          "row_text": "7460 [취재요청]서울시 ‘돌봄서비스 공공성 강화계획’규탄 기자회견 등록일 2024-09-11 | 조회수 210 조직쟁의실 210 2024-09-11"
+        },
+        {
+          "score": 17,
+          "keyword_hits": 1,
+          "date_diff_days": 3,
+          "idx": 51476,
+          "page": 85,
+          "title": "[취재요청] [9/11] 공공부문 비정규직 차별 해소 촉구 추석 한마당",
+          "kind": "취재요청",
+          "date": "2024-09-06",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51476&bid=KPTU_NEW04",
+          "row_text": "7457 [취재요청] [9/11] 공공부문 비정규직 차별 해소 촉구 추석 한마당 등록일 2024-09-06 | 조회수 303 조직쟁의실 303 2024-09-06"
+        },
+        {
+          "score": 13,
+          "keyword_hits": 1,
+          "date_diff_days": 7,
+          "idx": 51458,
+          "page": 86,
+          "title": "[취재요청] 인천공항공사_철도공사 자회사 인력충원 요구와 시민안전을 위한 토론회",
+          "kind": "취재요청",
+          "date": "2024-09-02",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=86&idx=51458&bid=KPTU_NEW04",
+          "row_text": "7452 [취재요청] 인천공항공사_철도공사 자회사 인력충원 요구와 시민안전을 위한 토론회 등록일 2024-09-02 | 조회수 278 공공기관사업본부 278 2024-09-02"
+        }
+      ]
+    },
+    {
+      "target": {
+        "file": "241010_고_박OO_동지_투쟁_연대_기자회견_취재요청서초안.hwp",
+        "date": "2024-10-10",
+        "keywords": [
+          "투쟁",
+          "연대",
+          "기자회견"
+        ]
+      },
+      "matches": [
+        {
+          "score": 33,
+          "keyword_hits": 2,
+          "date_diff_days": 2,
+          "idx": 51576,
+          "page": 83,
+          "title": "[취재요청] 부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라, 정당-시민단체-연대단위 공동주최 기자회견",
+          "kind": "취재요청",
+          "date": "2024-10-08",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=83&idx=51576&bid=KPTU_NEW04",
+          "row_text": "7475 [취재요청] 부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라, 정당-시민단체-연대단위 공동주최 기자회견 등록일 2024-10-08 | 조회수 326 공공기관사업본부 326 2024-10-08"
+        },
+        {
+          "score": 29,
+          "keyword_hits": 2,
+          "date_diff_days": 1,
+          "idx": 51584,
+          "page": 83,
+          "title": "[보도자료]부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라, 정당-시민단체-연대단위 공동주최 기자회견",
+          "kind": "보도자료",
+          "date": "2024-10-09",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=83&idx=51584&bid=KPTU_NEW04",
+          "row_text": "7476 [보도자료]부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라, 정당-시민단체-연대단위 공동주최 기자회견 등록일 2024-10-09 | 조회수 337 공공기관사업본부 337 2024-10-09"
+        },
+        {
+          "score": 16,
+          "keyword_hits": 1,
+          "date_diff_days": 4,
+          "idx": 51606,
+          "page": 83,
+          "title": "[보도자료] 해양수산부 청원경찰 처우개선을 위한 현장 실태증언 및 해결촉구 기자회견",
+          "kind": "보도자료",
+          "date": "2024-10-14",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=83&idx=51606&bid=KPTU_NEW04",
+          "row_text": "7477 [보도자료] 해양수산부 청원경찰 처우개선을 위한 현장 실태증언 및 해결촉구 기자회견 등록일 2024-10-14 | 조회수 335 조직쟁의실 335 2024-10-14"
+        }
+      ]
+    },
+    {
+      "target": {
+        "file": "241010_고_박OO_동지_투쟁_연대_기자회견_보도자료.hwp",
+        "date": "2024-10-10",
+        "keywords": [
+          "투쟁",
+          "연대",
+          "기자회견"
+        ]
+      },
+      "matches": [
+        {
+          "score": 34,
+          "keyword_hits": 2,
+          "date_diff_days": 1,
+          "idx": 51584,
+          "page": 83,
+          "title": "[보도자료]부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라, 정당-시민단체-연대단위 공동주최 기자회견",
+          "kind": "보도자료",
+          "date": "2024-10-09",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=83&idx=51584&bid=KPTU_NEW04",
+          "row_text": "7476 [보도자료]부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라, 정당-시민단체-연대단위 공동주최 기자회견 등록일 2024-10-09 | 조회수 337 공공기관사업본부 337 2024-10-09"
+        },
+        {
+          "score": 28,
+          "keyword_hits": 2,
+          "date_diff_days": 2,
+          "idx": 51576,
+          "page": 83,
+          "title": "[취재요청] 부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라, 정당-시민단체-연대단위 공동주최 기자회견",
+          "kind": "취재요청",
+          "date": "2024-10-08",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=83&idx=51576&bid=KPTU_NEW04",
+          "row_text": "7475 [취재요청] 부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라, 정당-시민단체-연대단위 공동주최 기자회견 등록일 2024-10-08 | 조회수 326 공공기관사업본부 326 2024-10-08"
+        },
+        {
+          "score": 21,
+          "keyword_hits": 1,
+          "date_diff_days": 4,
+          "idx": 51606,
+          "page": 83,
+          "title": "[보도자료] 해양수산부 청원경찰 처우개선을 위한 현장 실태증언 및 해결촉구 기자회견",
+          "kind": "보도자료",
+          "date": "2024-10-14",
+          "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=83&idx=51606&bid=KPTU_NEW04",
+          "row_text": "7477 [보도자료] 해양수산부 청원경찰 처우개선을 위한 현장 실태증언 및 해결촉구 기자회견 등록일 2024-10-14 | 조회수 335 조직쟁의실 335 2024-10-14"
+        }
+      ]
+    }
+  ]
+}

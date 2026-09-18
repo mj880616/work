@@ -1,0 +1,1421 @@
+{
+  "summary": {
+    "total": 48,
+    "cells": {
+      "보도자료-2023": {
+        "pool_valid": 10,
+        "ids": [
+          38890,
+          38383,
+          38124,
+          38091
+        ]
+      },
+      "보도자료-2024": {
+        "pool_valid": 12,
+        "ids": [
+          52080,
+          51469,
+          39618,
+          46691
+        ]
+      },
+      "보도자료-2025": {
+        "pool_valid": 11,
+        "ids": [
+          53929,
+          53870,
+          53391,
+          53266
+        ]
+      },
+      "보도자료-2026": {
+        "pool_valid": 10,
+        "ids": [
+          56205,
+          55596,
+          54830,
+          56005
+        ]
+      },
+      "취재요청-2023": {
+        "pool_valid": 11,
+        "ids": [
+          39436,
+          38242,
+          37208,
+          38311
+        ]
+      },
+      "취재요청-2024": {
+        "pool_valid": 11,
+        "ids": [
+          51867,
+          51466,
+          39606,
+          51162
+        ]
+      },
+      "취재요청-2025": {
+        "pool_valid": 11,
+        "ids": [
+          54500,
+          53888,
+          52285,
+          52989
+        ]
+      },
+      "취재요청-2026": {
+        "pool_valid": 11,
+        "ids": [
+          55684,
+          55086,
+          54807,
+          55606
+        ]
+      },
+      "성명-2023": {
+        "pool_valid": 12,
+        "ids": [
+          37870,
+          37540,
+          36772,
+          38359
+        ]
+      },
+      "성명-2024": {
+        "pool_valid": 11,
+        "ids": [
+          51896,
+          51367,
+          51110,
+          40128
+        ]
+      },
+      "성명-2025": {
+        "pool_valid": 12,
+        "ids": [
+          54387,
+          52978,
+          52146,
+          53259
+        ]
+      },
+      "성명-2026": {
+        "pool_valid": 12,
+        "ids": [
+          56131,
+          55384,
+          54793,
+          55427
+        ]
+      }
+    },
+    "priority_topic": 36
+  },
+  "items": [
+    {
+      "idx": 55684,
+      "page": 10,
+      "title": "[취재요청] '민자철도가 안전을 위협한다' GTX-A 삼성역 철근 누락 사태로 본 민자철도 안전문제 기자회견",
+      "kind": "취재요청",
+      "date": "2026-06-08",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=10&idx=55684&bid=KPTU_NEW04",
+      "row_text": "8211 [취재요청] '민자철도가 안전을 위협한다' GTX-A 삼성역 철근 누락 사태로 본 민자철도 안전문제 기자회견 등록일 2026-06-08 | 조회수 287 공공기관사업본부 287 2026-06-08",
+      "priority_topic": true,
+      "title_detail": "[취재요청] ''민자철도가 안전을 위협한다'' GTX-A 삼성역 철근 누락 사태로 본 민자철도 안전문제 기자회견",
+      "author": "공공기관사업본부",
+      "date_detail": "2026-06-08",
+      "views": "289",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=10267a6a-2013-4a10-a474-470d73037b14.hwp",
+          "bytes": 194560,
+          "chars": 1923,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1923,
+      "low_text": false
+    },
+    {
+      "idx": 55606,
+      "page": 12,
+      "title": "[취재요청] 구의역 산재사망 참사 10주기 추모제 및 서울시장후보 생명안전 시민약속식",
+      "kind": "취재요청",
+      "date": "2026-05-21",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=12&idx=55606&bid=KPTU_NEW04",
+      "row_text": "8189 [취재요청] 구의역 산재사망 참사 10주기 추모제 및 서울시장후보 생명안전 시민약속식 등록일 2026-05-21 | 조회수 236 노동안전보건실 236 2026-05-21",
+      "priority_topic": false,
+      "title_detail": "[취재요청] 구의역 산재사망 참사 10주기 추모제 및 서울시장후보 생명안전 시민약속식",
+      "author": "노동안전보건실",
+      "date_detail": "2026-05-21",
+      "views": "238",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=071c6f49-0e40-437d-a24d-c12fe46e2ea8.hwp",
+          "bytes": 187392,
+          "chars": 652,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 652,
+      "low_text": false
+    },
+    {
+      "idx": 55086,
+      "page": 20,
+      "title": "[취재요청] 민자철도 지하철 부실운영 방지법 발의 기자회견",
+      "kind": "취재요청",
+      "date": "2026-03-27",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=20&idx=55086&bid=KPTU_NEW04",
+      "row_text": "8103 [취재요청] 민자철도 지하철 부실운영 방지법 발의 기자회견 등록일 2026-03-27 | 조회수 289 공공기관사업본부 289 2026-03-27",
+      "priority_topic": true,
+      "title_detail": "[취재요청] 민자철도 지하철 부실운영 방지법 발의 기자회견",
+      "author": "공공기관사업본부",
+      "date_detail": "2026-03-27",
+      "views": "291",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=60a2e275-d219-4d6a-9c0d-d0f237367cc2.hwp",
+          "bytes": 653824,
+          "chars": 538,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 538,
+      "low_text": false
+    },
+    {
+      "idx": 54807,
+      "page": 26,
+      "title": "[취재요청] '지방공공기관 총인건비제 개선 패싱' 행안부 규탄! 양대노총 기자회견(2.11.)",
+      "kind": "취재요청",
+      "date": "2026-02-10",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=26&idx=54807&bid=KPTU_NEW04",
+      "row_text": "8045 [취재요청] '지방공공기관 총인건비제 개선 패싱' 행안부 규탄! 양대노총 기자회견(2.11.) 등록일 2026-02-10 | 조회수 250 공공기관사업본부 250 2026-02-10",
+      "priority_topic": true,
+      "title_detail": "[취재요청] ''지방공공기관 총인건비제 개선 패싱'' 행안부 규탄! 양대노총 기자회견(2.11.)",
+      "author": "공공기관사업본부",
+      "date_detail": "2026-02-10",
+      "views": "252",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=2be234f6-2fa6-4ea3-961b-47432b936f8c.hwp",
+          "bytes": 205824,
+          "chars": 2344,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 2344,
+      "low_text": false
+    },
+    {
+      "idx": 54500,
+      "page": 32,
+      "title": "[취재요청] 대통령이 말한 ‘공공부문, 왜 최저임금만 주나’, 당사자들이 요구한다! 공공부문 쪼개기 계약·최저임금 관행 해결촉구 기자회견",
+      "kind": "취재요청",
+      "date": "2025-12-17",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=32&idx=54500&bid=KPTU_NEW04",
+      "row_text": "7990 [취재요청] 대통령이 말한 ‘공공부문, 왜 최저임금만 주나’, 당사자들이 요구한다! 공공부문 쪼개기 계약·최저임금 관행 해결촉구 기자회견 등록일 2025-12-17 | 조회수 212 정책기획실 212 2025-12-17",
+      "priority_topic": true,
+      "title_detail": "[취재요청] 대통령이 말한 ‘공공부문, 왜 최저임금만 주나’, 당사자들이 요구한다! 공공부문 쪼개기 계약·최저임금 관행 해결촉구 기자회견",
+      "author": "정책기획실",
+      "date_detail": "2025-12-17",
+      "views": "214",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=36a96039-88ef-45f0-96ec-b0c4f403ccc8.hwp",
+          "bytes": 196608,
+          "chars": 802,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 802,
+      "low_text": false
+    },
+    {
+      "idx": 53888,
+      "page": 43,
+      "title": "[취재요청] 노동자의 안전이 시민의 안전이다! 도시철도 PSO 정부 재정지원 쟁취! 전국철도지하철 노동자대회 개최",
+      "kind": "취재요청",
+      "date": "2025-10-17",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=43&idx=53888&bid=KPTU_NEW04",
+      "row_text": "7882 [취재요청] 노동자의 안전이 시민의 안전이다! 도시철도 PSO 정부 재정지원 쟁취! 전국철도지하철 노동자대회 개최 등록일 2025-10-17 | 조회수 133 공공기관사업본부 133 2025-10-17",
+      "priority_topic": true,
+      "title_detail": "[취재요청] 노동자의 안전이 시민의 안전이다! 도시철도 PSO 정부 재정지원 쟁취! 전국철도지하철 노동자대회 개최",
+      "author": "공공기관사업본부",
+      "date_detail": "2025-10-17",
+      "views": "135",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=86455680-d5ba-4d03-8304-fd592e354715.hwp",
+          "bytes": 3718656,
+          "chars": 1015,
+          "returncode": 0,
+          "stderr": "undefined UnderlineStyle value: 15\ndefined name/values: {'SOLID': UnderlineStyle.SOLID, 'DASHED': UnderlineStyle.DASHED, 'DOTTED': UnderlineStyle.DOTTED, 'DASH_DOT': UnderlineStyle.DASH_DOT, 'DASH_DOT_DOT': UnderlineStyle.DASH_DOT_DOT, 'LONG_DASHED': UnderlineStyle.LONG_DASHED, 'LARGE_DOTTED': UnderlineStyle.LARGE_DOTTED, 'DOUBLE': UnderlineStyle.DOUBLE, 'LOWER_WEIGHTED': UnderlineStyle.LOWER_WEIGHTED, 'UPPER_WEIGHTED': UnderlineStyle.UPPER_WEIGHTED, 'MIDDLE_WEIGHTED': UnderlineStyle.MIDDLE_WEIG"
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1015,
+      "low_text": false
+    },
+    {
+      "idx": 52989,
+      "page": 62,
+      "title": "[취재요청] 이재명대통령, 발전소 비정규직 노동자와 만납시다",
+      "kind": "취재요청",
+      "date": "2025-06-05",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=62&idx=52989&bid=KPTU_NEW04",
+      "row_text": "7689 [취재요청] 이재명대통령, 발전소 비정규직 노동자와 만납시다 등록일 2025-06-05 | 조회수 223 공공기관사업본부 223 2025-06-05",
+      "priority_topic": false,
+      "title_detail": "[취재요청] 이재명대통령, 발전소 비정규직 노동자와 만납시다",
+      "author": "공공기관사업본부",
+      "date_detail": "2025-06-05",
+      "views": "225",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=a400de60-4d98-4698-88fb-7f4c75eda0e4.hwp",
+          "bytes": 75264,
+          "chars": 573,
+          "returncode": 0,
+          "stderr": "undefined UnderlineStyle value: 15\ndefined name/values: {'SOLID': UnderlineStyle.SOLID, 'DASHED': UnderlineStyle.DASHED, 'DOTTED': UnderlineStyle.DOTTED, 'DASH_DOT': UnderlineStyle.DASH_DOT, 'DASH_DOT_DOT': UnderlineStyle.DASH_DOT_DOT, 'LONG_DASHED': UnderlineStyle.LONG_DASHED, 'LARGE_DOTTED': UnderlineStyle.LARGE_DOTTED, 'DOUBLE': UnderlineStyle.DOUBLE, 'LOWER_WEIGHTED': UnderlineStyle.LOWER_WEIGHTED, 'UPPER_WEIGHTED': UnderlineStyle.UPPER_WEIGHTED, 'MIDDLE_WEIGHTED': UnderlineStyle.MIDDLE_WEIG"
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 573,
+      "low_text": false
+    },
+    {
+      "idx": 52285,
+      "page": 74,
+      "title": "[취재요청] 전국의 공항이 위험하다 _ 무안공항 제주항공 여객기참사 재발 방지 및 공항 인력충원을 위한 토론회",
+      "kind": "취재요청",
+      "date": "2025-02-14",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=74&idx=52285&bid=KPTU_NEW04",
+      "row_text": "7568 [취재요청] 전국의 공항이 위험하다 _ 무안공항 제주항공 여객기참사 재발 방지 및 공항 인력충원을 위한 토론회 등록일 2025-02-14 | 조회수 223 노동안전보건실 223 2025-02-14",
+      "priority_topic": true,
+      "title_detail": "[취재요청] 전국의 공항이 위험하다 _ 무안공항 제주항공 여객기참사 재발 방지 및 공항 인력충원을 위한 토론회",
+      "author": "노동안전보건실",
+      "date_detail": "2025-02-14",
+      "views": "225",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=%eb%b3%b4%eb%8f%84%ec%9e%90%eb%a3%8c_250218_%eb%ac%b4%ec%95%88%ea%b3%b5%ed%95%ad_%ec%a0%9c%ec%a3%bc%ed%95%ad%ea%b3%b5_%ec%97%ac%ea%b0%9d%ea%b8%b0_%ec%b0%b8%ec%82%ac_%ec%9e%ac%eb%b0%9c%eb%b0%a9%ec%a7%80_%ed%86%a0%eb%a1%a0%ed%9a%8c%ec%b4%88.hwp",
+          "bytes": 635392,
+          "chars": 2072,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 2072,
+      "low_text": false
+    },
+    {
+      "idx": 51867,
+      "page": 80,
+      "title": "[취재요청] 9호선 2·3단계 부족인력 197명 충원! 서해선 외주화 저지! 용인경전철 역사 무인화 중단! 민자철도 3사 노조 연합집회",
+      "kind": "취재요청",
+      "date": "2024-11-19",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=80&idx=51867&bid=KPTU_NEW04",
+      "row_text": "7506 [취재요청] 9호선 2·3단계 부족인력 197명 충원! 서해선 외주화 저지! 용인경전철 역사 무인화 중단! 민자철도 3사 노조 연합집회 등록일 2024-11-19 | 조회수 206 공공기관사업본부 206 2024-11-19",
+      "priority_topic": true,
+      "title_detail": "[취재요청] 9호선 2·3단계 부족인력 197명 충원! 서해선 외주화 저지! 용인경전철 역사 무인화 중단! 민자철도 3사 노조 연합집회",
+      "author": "공공기관사업본부",
+      "date_detail": "2024-11-19",
+      "views": "208",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=%5b%ec%b7%a8%ec%9e%ac%ec%9a%94%ec%b2%ad%5d241120+%eb%af%bc%ec%9e%90%ec%b2%a0%eb%8f%84+3%ec%82%ac+%eb%85%b8%ec%a1%b0+%ec%97%b0%ed%95%a9%ec%a7%91%ed%9a%8c.hwp",
+          "bytes": 233984,
+          "chars": 792,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 792,
+      "low_text": false
+    },
+    {
+      "idx": 51466,
+      "page": 85,
+      "title": "[취재요청]기후위기, 불평등 해결하는 공공 철도-지하철 정책대회",
+      "kind": "취재요청",
+      "date": "2024-09-04",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51466&bid=KPTU_NEW04",
+      "row_text": "7453 [취재요청]기후위기, 불평등 해결하는 공공 철도-지하철 정책대회 등록일 2024-09-04 | 조회수 211 공공기관사업본부 211 2024-09-04",
+      "priority_topic": true,
+      "title_detail": "[취재요청]기후위기, 불평등 해결하는 공공 철도-지하철 정책대회",
+      "author": "공공기관사업본부",
+      "date_detail": "2024-09-04",
+      "views": "213",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=%ec%b7%a8%ec%9e%ac%ec%9a%94%ec%b2%ad_240904_%ea%b3%b5%ea%b3%b5+%ec%b2%a0%eb%8f%84-%ec%a7%80%ed%95%98%ec%b2%a0+%ec%a0%95%ec%b1%85%eb%8c%80%ed%9a%8c.hwp",
+          "bytes": 3923968,
+          "chars": 865,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 865,
+      "low_text": false
+    },
+    {
+      "idx": 51162,
+      "page": 93,
+      "title": "[취재요청]서울시사회서비스원 폐지조례에 대한 오세훈 서울시장 재의권 행사 촉구하는” 서울시민 공공돌봄 시의회",
+      "kind": "취재요청",
+      "date": "2024-07-05",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=93&idx=51162&bid=KPTU_NEW04",
+      "row_text": "7376 [취재요청]서울시사회서비스원 폐지조례에 대한 오세훈 서울시장 재의권 행사 촉구하는” 서울시민 공공돌봄 시의회 등록일 2024-07-05 | 조회수 130 조직쟁의실 130 2024-07-05",
+      "priority_topic": false,
+      "title_detail": "[취재요청]서울시사회서비스원 폐지조례에 대한 오세훈 서울시장 재의권 행사 촉구하는” 서울시민 공공돌봄 시의회",
+      "author": "조직쟁의실",
+      "date_detail": "2024-07-05",
+      "views": "132",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=240503_%ec%b7%a8%ec%9e%ac%ec%9a%94%ec%b2%ad%ec%84%9c_%ec%84%9c%ec%9a%b8%ec%8b%9c_%ec%82%ac%ed%9a%8c%ec%84%9c%eb%b9%84%ec%8a%a4%ec%9b%90_%ed%8f%90%ec%a7%80%ec%a1%b0%eb%a1%80%ec%97%90_%eb%8c%80%ed%95%9c_%ec%98%a4%ec%84%b8%ed%9b%88_%ec%84%9c%ec%9a%b8%ec%8b%9c%ec%9e%a5_%ec%9e%ac%ec%9d%98%ea%b6%8c_%ed%96%89%ec%82%ac%eb%a5%bc_%ec%b4%89%ea%b5%ac%ed%95%98%eb%8a%94_%ec%84%9c%ec%9a%b8%ec%8b%9c%eb%af%bc_%ea%b3%b5%ea%b3%b5%eb%8f%8c%eb%b4%84.hwp",
+          "bytes": 79872,
+          "chars": 625,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 625,
+      "low_text": false
+    },
+    {
+      "idx": 39606,
+      "page": 112,
+      "title": "[취재요청]도서발전 해고협박 소송 포기강요_자회사전환 즉각 중단하라",
+      "kind": "취재요청",
+      "date": "2024-01-26",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=112&idx=39606&bid=KPTU_NEW04",
+      "row_text": "7190 [취재요청]도서발전 해고협박 소송 포기강요_자회사전환 즉각 중단하라 등록일 2024-01-26 | 조회수 250 공공기관사업본부 250 2024-01-26",
+      "priority_topic": true,
+      "title_detail": "[취재요청]도서발전 해고협박 소송 포기강요_자회사전환 즉각 중단하라",
+      "author": "공공기관사업본부",
+      "date_detail": "2024-01-26",
+      "views": "252",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=20240126_%5b%ec%b7%a8%ec%9e%ac%ec%9a%94%ec%b2%ad%5d%eb%8f%84%ec%84%9c%eb%b0%9c%ec%a0%84%ed%95%b4%ea%b3%a0%ed%98%91%eb%b0%95%ec%86%8c%ec%86%a1%ed%8f%ac%ea%b8%b0%ea%b0%95%ec%9a%94_%ec%9e%90%ed%9a%8c%ec%82%ac%ec%a0%84%ed%99%98%ec%a6%89%ea%b0%81%ec%a4%91%eb%8b%a8%ed%95%98%eb%9d%bc.hwp",
+          "bytes": 39424,
+          "chars": 544,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 544,
+      "low_text": false
+    },
+    {
+      "idx": 39436,
+      "page": 115,
+      "title": "[취재요청]20대 청년에 갑질, 보복 해고한 서울교통공사 규탄, 부당해고 구제 신청해",
+      "kind": "취재요청",
+      "date": "2023-12-27",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=115&idx=39436&bid=KPTU_NEW04",
+      "row_text": "7156 [취재요청]20대 청년에 갑질, 보복 해고한 서울교통공사 규탄, 부당해고 구제 신청해 등록일 2023-12-27 | 조회수 241 공공기관사업본부 241 2023-12-27",
+      "priority_topic": true,
+      "title_detail": "[취재요청]20대 청년에 갑질, 보복 해고한 서울교통공사 규탄, 부당해고 구제 신청해",
+      "author": "공공기관사업본부",
+      "date_detail": "2023-12-27",
+      "views": "243",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=231227_%ec%b7%a8%ec%9e%ac%ec%9a%94%ec%b2%ad%ec%84%9c_%ec%8b%a0%eb%8b%b5%ec%8a%b9%eb%ac%b4_%eb%b6%80%ed%95%b4_%ea%b8%b0%ec%9e%90%ed%9a%8c%ea%b2%ac.hwp",
+          "bytes": 935424,
+          "chars": 750,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 750,
+      "low_text": false
+    },
+    {
+      "idx": 38311,
+      "page": 148,
+      "title": "[취재요청] “윤석열 돌격대장 원희룡 이제 그만!” 희룡이에게 개빡치는 사연 컨테스트",
+      "kind": "취재요청",
+      "date": "2023-09-08",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=148&idx=38311&bid=KPTU_NEW04",
+      "row_text": "6831 [취재요청] “윤석열 돌격대장 원희룡 이제 그만!” 희룡이에게 개빡치는 사연 컨테스트 등록일 2023-09-08 | 조회수 210 관리자 210 2023-09-08",
+      "priority_topic": false,
+      "title_detail": "[취재요청] “윤석열 돌격대장 원희룡 이제 그만!” 희룡이에게 개빡치는 사연 컨테스트",
+      "author": "관리자",
+      "date_detail": "2023-09-08",
+      "views": "212",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=230908_%5b%ec%b7%a8%ec%9e%ac%ec%9a%94%ec%b2%ad%5d+%ec%9b%90%eb%b9%a1+%ec%bb%a8%ed%85%8c%ec%8a%a4%ed%8a%b8.hwp",
+          "bytes": 605696,
+          "chars": 4438,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 4438,
+      "low_text": false
+    },
+    {
+      "idx": 38242,
+      "page": 150,
+      "title": "[취재요청] 긴축과 임금 억제에 맞선 유럽 공공부문 노동운동의 대응 사례 공유 웨비나 개최",
+      "kind": "취재요청",
+      "date": "2023-09-01",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=150&idx=38242&bid=KPTU_NEW04",
+      "row_text": "6809 [취재요청] 긴축과 임금 억제에 맞선 유럽 공공부문 노동운동의 대응 사례 공유 웨비나 개최 등록일 2023-09-01 | 조회수 152 관리자 152 2023-09-01",
+      "priority_topic": true,
+      "title_detail": "[취재요청] 긴축과 임금 억제에 맞선 유럽 공공부문 노동운동의 대응 사례 공유 웨비나 개최",
+      "author": "관리자",
+      "date_detail": "2023-09-01",
+      "views": "154",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=230831_%ec%b7%a8%ec%9e%ac%ec%9a%94%ec%b2%ad_%ec%9c%a0%eb%9f%bd%ec%9d%98_%ea%b3%b5%ea%b3%b5%eb%b6%80%eb%ac%b8_%ea%b8%b4%ec%b6%95_%ec%a0%95%ec%b1%85%ea%b3%bc_%eb%85%b8%eb%8f%99%ec%a1%b0%ed%95%a9%ec%9d%98_%eb%8c%80%ec%9d%91.hwp",
+          "bytes": 2683392,
+          "chars": 1261,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1261,
+      "low_text": false
+    },
+    {
+      "idx": 37208,
+      "page": 187,
+      "title": "[취재요청]9호선 지하철, 자주 이용하십니까? 1-8호선과는 다른 9호선의 위험한 비밀9호선(2·3단계 민간위탁 철폐 및 시민안전을 위한 인력 충원 촉구 기자회견)",
+      "kind": "취재요청",
+      "date": "2023-04-04",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=187&idx=37208&bid=KPTU_NEW04",
+      "row_text": "6442 [취재요청]9호선 지하철, 자주 이용하십니까? 1-8호선과는 다른 9호선의 위험한 비밀9호선(2·3단계 민간위탁 철폐 및 시민안전을 위한 인력 충원 촉구 기자회견) 등록일 2023-04-04 | 조회수 271 공공기관사업본부 271 2023-04-04",
+      "priority_topic": true,
+      "title_detail": "[취재요청]9호선 지하철, 자주 이용하십니까? 1-8호선과는 다른 9호선의 위험한 비밀9호선(2·3단계 민간위탁 철폐 및 시민안전을 위한 인력 충원 촉구 기자회견)",
+      "author": "공공기관사업본부",
+      "date_detail": "2023-04-04",
+      "views": "273",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=%5b%ec%b7%a8%ec%9e%ac%ec%9a%94%ec%b2%ad%5d9%ed%98%b8%ec%84%a0+%ec%a7%80%ed%95%98%ec%b2%a0%2c+%ec%9e%90%ec%a3%bc+%ec%9d%b4%ec%9a%a9%ed%95%98%ec%8b%ad%eb%8b%88%ea%b9%8c+1-8%ed%98%b8%ec%84%a0%ea%b3%bc%eb%8a%94+%eb%8b%a4%eb%a5%b8+9%ed%98%b8%ec%84%a0%ec%9d%98+%ec%9c%84%ed%97%98%ed%95%9c+%eb%b9%84%eb%b0%809%ed%98%b8%ec%84%a0(2%c2%b73%eb%8b%a8%ea%b3%84+%eb%af%bc%ea%b0%84%ec%9c%84%ed%83%81+%ec%b2%a0%ed%8f%90+%eb%b0%8f+%ec%8b%9c%eb%af%bc%ec%95%88%ec%a0%84%ec%9d%84+%ec%9c%84%ed%95%9c+%ec%9d%b8%eb%a0%a5+%ec%b6%a9%ec%9b%90+%ec%b4%89%ea%b5%ac+%ea%b8%b0%ec%9e%90%ed%9a%8c%ea%b2%ac)(230403).hwp",
+          "bytes": 380928,
+          "chars": 930,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 930,
+      "low_text": false
+    },
+    {
+      "idx": 56131,
+      "page": 2,
+      "title": "[성명] 재공영화·직영화 원칙 빠진 「공공부문 도급 노동자 보호 지침」, 정부는 지침 발표에 그치지 않고 점검·개정 등 후속 논의 계속 이어나가야",
+      "kind": "성명",
+      "date": "2026-09-08",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=2&idx=56131&bid=KPTU_NEW04",
+      "row_text": "8291 [성명] 재공영화·직영화 원칙 빠진 「공공부문 도급 노동자 보호 지침」, 정부는 지침 발표에 그치지 않고 점검·개정 등 후속 논의 계속 이어나가야 등록일 2026-09-08 | 조회수 664 정책기획실 664 2026-09-08",
+      "priority_topic": true,
+      "title_detail": "[성명] 재공영화·직영화 원칙 빠진 「공공부문 도급 노동자 보호 지침」, 정부는 지침 발표에 그치지 않고 점검·개정 등 후속 논의 계속 이어나가야",
+      "author": "정책기획실",
+      "date_detail": "2026-09-08",
+      "views": "666",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=7c8927ac-8c84-4426-a961-79a4c6dde72b.hwp",
+          "bytes": 468480,
+          "chars": 1676,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1676,
+      "low_text": false
+    },
+    {
+      "idx": 55427,
+      "page": 14,
+      "title": "[성명] 특수고용·플랫폼 노동기본권과 원청 책임의 길을 열겠다 - 화물연대본부와 BGF로지스 간 합의에 대한 공공운수노조 입장",
+      "kind": "성명",
+      "date": "2026-04-30",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=14&idx=55427&bid=KPTU_NEW04",
+      "row_text": "8163 [성명] 특수고용·플랫폼 노동기본권과 원청 책임의 길을 열겠다 - 화물연대본부와 BGF로지스 간 합의에 대한 공공운수노조 입장 등록일 2026-04-30 | 조회수 514 관리자 514 2026-04-30",
+      "priority_topic": false,
+      "title_detail": "[성명] 특수고용·플랫폼 노동기본권과 원청 책임의 길을 열겠다 - 화물연대본부와 BGF로지스 간 합의에 대한 공공운수노조 입장",
+      "author": "관리자",
+      "date_detail": "2026-04-30",
+      "views": "516",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=3a305780-b65e-4f34-89aa-1782ef6da5cd.hwp",
+          "bytes": 457728,
+          "chars": 1267,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1267,
+      "low_text": false
+    },
+    {
+      "idx": 55384,
+      "page": 15,
+      "title": "[성명] 민자철도는 실패했다. 땜질 대책 대신 철도 건설과 운영을 공영화 하라.",
+      "kind": "성명",
+      "date": "2026-04-27",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=15&idx=55384&bid=KPTU_NEW04",
+      "row_text": "8154 [성명] 민자철도는 실패했다. 땜질 대책 대신 철도 건설과 운영을 공영화 하라. 등록일 2026-04-27 | 조회수 347 공공기관사업본부 347 2026-04-27",
+      "priority_topic": true,
+      "title_detail": "[성명] 민자철도는 실패했다. 땜질 대책 대신 철도 건설과 운영을 공영화 하라.",
+      "author": "공공기관사업본부",
+      "date_detail": "2026-04-27",
+      "views": "349",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=6b541530-56e0-4f4e-b3dc-8c6dde8dc756.hwp",
+          "bytes": 239616,
+          "chars": 1713,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1713,
+      "low_text": false
+    },
+    {
+      "idx": 54793,
+      "page": 27,
+      "title": "[성명] 공무직위원회법의 기후에너지환경노동위원회 전체회의 통과를 환영한다 - 여전히 산적한 미완의 과제는 반드시 보완해야",
+      "kind": "성명",
+      "date": "2026-02-06",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=27&idx=54793&bid=KPTU_NEW04",
+      "row_text": "8041 [성명] 공무직위원회법의 기후에너지환경노동위원회 전체회의 통과를 환영한다 - 여전히 산적한 미완의 과제는 반드시 보완해야 등록일 2026-02-06 | 조회수 613 정책기획실 613 2026-02-06",
+      "priority_topic": true,
+      "title_detail": "[성명] 공무직위원회법의 기후에너지환경노동위원회 전체회의 통과를 환영한다 - 여전히 산적한 미완의 과제는 반드시 보완해야",
+      "author": "정책기획실",
+      "date_detail": "2026-02-06",
+      "views": "615",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=aeebd9d5-6bba-4901-8c45-a22226f3e082.hwp",
+          "bytes": 460288,
+          "chars": 1081,
+          "returncode": 0,
+          "stderr": "undefined UnderlineStyle value: 15\ndefined name/values: {'SOLID': UnderlineStyle.SOLID, 'DASHED': UnderlineStyle.DASHED, 'DOTTED': UnderlineStyle.DOTTED, 'DASH_DOT': UnderlineStyle.DASH_DOT, 'DASH_DOT_DOT': UnderlineStyle.DASH_DOT_DOT, 'LONG_DASHED': UnderlineStyle.LONG_DASHED, 'LARGE_DOTTED': UnderlineStyle.LARGE_DOTTED, 'DOUBLE': UnderlineStyle.DOUBLE, 'LOWER_WEIGHTED': UnderlineStyle.LOWER_WEIGHTED, 'UPPER_WEIGHTED': UnderlineStyle.UPPER_WEIGHTED, 'MIDDLE_WEIGHTED': UnderlineStyle.MIDDLE_WEIG"
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1081,
+      "low_text": false
+    },
+    {
+      "idx": 54387,
+      "page": 35,
+      "title": "[성명] 우정사업본부 공무직 명절상여금, 드디어 공무원과 동률지급 2026년도 정부예산 국회 통과를 환영한다!",
+      "kind": "성명",
+      "date": "2025-12-03",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=35&idx=54387&bid=KPTU_NEW04",
+      "row_text": "7957 [성명] 우정사업본부 공무직 명절상여금, 드디어 공무원과 동률지급 2026년도 정부예산 국회 통과를 환영한다! 등록일 2025-12-03 | 조회수 1262 전국민주우체국본부 1262 2025-12-03",
+      "priority_topic": true,
+      "title_detail": "[성명] 우정사업본부 공무직 명절상여금, 드디어 공무원과 동률지급 2026년도 정부예산 국회 통과를 환영한다!",
+      "author": "전국민주우체국본부",
+      "date_detail": "2025-12-03",
+      "views": "1264",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=23a171cf-25e0-47f2-bac5-c28b423f6f4f.hwp",
+          "bytes": 453120,
+          "chars": 961,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 961,
+      "low_text": false
+    },
+    {
+      "idx": 53259,
+      "page": 56,
+      "title": "[성명] 김충현의 죽음을 왜곡·조작한 국민의힘 김소희 의원은 사퇴하라. - 잘못된 자료라는 걸 확인시켜줬음에도 떳떳하면 조사받으라는 국민의힘 의원실을 규탄한다",
+      "kind": "성명",
+      "date": "2025-07-17",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=56&idx=53259&bid=KPTU_NEW04",
+      "row_text": "7743 [성명] 김충현의 죽음을 왜곡·조작한 국민의힘 김소희 의원은 사퇴하라. - 잘못된 자료라는 걸 확인시켜줬음에도 떳떳하면 조사받으라는 국민의힘 의원실을 규탄한다 등록일 2025-07-17 | 조회수 195 정책기획실 195 2025-07-17",
+      "priority_topic": false,
+      "title_detail": "[성명] 김충현의 죽음을 왜곡·조작한 국민의힘 김소희 의원은 사퇴하라. - 잘못된 자료라는 걸 확인시켜줬음에도 떳떳하면 조사받으라는 국민의힘 의원실을 규탄한다",
+      "author": "정책기획실",
+      "date_detail": "2025-07-17",
+      "views": "197",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=4847d643-fa7b-4e5b-a994-a5162fe64c2d.hwp",
+          "bytes": 77824,
+          "chars": 1429,
+          "returncode": 0,
+          "stderr": "undefined UnderlineStyle value: 15\ndefined name/values: {'SOLID': UnderlineStyle.SOLID, 'DASHED': UnderlineStyle.DASHED, 'DOTTED': UnderlineStyle.DOTTED, 'DASH_DOT': UnderlineStyle.DASH_DOT, 'DASH_DOT_DOT': UnderlineStyle.DASH_DOT_DOT, 'LONG_DASHED': UnderlineStyle.LONG_DASHED, 'LARGE_DOTTED': UnderlineStyle.LARGE_DOTTED, 'DOUBLE': UnderlineStyle.DOUBLE, 'LOWER_WEIGHTED': UnderlineStyle.LOWER_WEIGHTED, 'UPPER_WEIGHTED': UnderlineStyle.UPPER_WEIGHTED, 'MIDDLE_WEIGHTED': UnderlineStyle.MIDDLE_WEIG"
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1429,
+      "low_text": false
+    },
+    {
+      "idx": 52978,
+      "page": 62,
+      "title": "[성명] 민주수호와 내란청산을 향한 민심의 승리, 비정규직 인력감축 저지·정규인력 확충으로 우편공공성 강화하자!",
+      "kind": "성명",
+      "date": "2025-06-04",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=62&idx=52978&bid=KPTU_NEW04",
+      "row_text": "7687 [성명] 민주수호와 내란청산을 향한 민심의 승리, 비정규직 인력감축 저지·정규인력 확충으로 우편공공성 강화하자! 등록일 2025-06-04 | 조회수 151 전국민주우체국본부 151 2025-06-04",
+      "priority_topic": true,
+      "title_detail": "[성명] 민주수호와 내란청산을 향한 민심의 승리, 비정규직 인력감축 저지·정규인력 확충으로 우편공공성 강화하자!",
+      "author": "전국민주우체국본부",
+      "date_detail": "2025-06-04",
+      "views": "153",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=22cab06e-f64f-4087-8238-52efb712862d.hwp",
+          "bytes": 491520,
+          "chars": 1046,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1046,
+      "low_text": false
+    },
+    {
+      "idx": 52146,
+      "page": 75,
+      "title": "[성명] 기획재정부는 '공공기관별 가임기 여성 수 공개' 지침 사과하라!",
+      "kind": "성명",
+      "date": "2025-01-15",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=75&idx=52146&bid=KPTU_NEW04",
+      "row_text": "7554 [성명] 기획재정부는 '공공기관별 가임기 여성 수 공개' 지침 사과하라! 등록일 2025-01-15 | 조회수 302 정책실 302 2025-01-15",
+      "priority_topic": true,
+      "title_detail": "[성명] 기획재정부는 ''공공기관별 가임기 여성 수 공개'' 지침 사과하라!",
+      "author": "정책실",
+      "date_detail": "2025-01-15",
+      "views": "304",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=0115_%ea%b8%b0%ec%9e%ac%eb%b6%80%eb%8a%94+%27%ea%b3%b5%ea%b3%b5%ea%b8%b0%ea%b4%80%eb%b3%84+%ea%b0%80%ec%9e%84%ea%b8%b0+%ec%97%ac%ec%84%b1+%ec%88%98+%ea%b3%b5%ea%b0%9c%27+%ec%a7%80%ec%b9%a8+%ec%82%ac%ea%b3%bc%ed%95%98%eb%9d%bc(2).hwp",
+          "bytes": 470016,
+          "chars": 1322,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1322,
+      "low_text": false
+    },
+    {
+      "idx": 51896,
+      "page": 79,
+      "title": "[성명] 부산시는 '공공기관 조직정원 관리방향' 폐기하라!",
+      "kind": "성명",
+      "date": "2024-11-22",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=79&idx=51896&bid=KPTU_NEW04",
+      "row_text": "7513 [성명] 부산시는 '공공기관 조직정원 관리방향' 폐기하라! 등록일 2024-11-22 | 조회수 220 공공기관사업본부 220 2024-11-22",
+      "priority_topic": true,
+      "title_detail": "[성명] 부산시는 ''공공기관 조직정원 관리방향'' 폐기하라!",
+      "author": "공공기관사업본부",
+      "date_detail": "2024-11-22",
+      "views": "222",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=241122_%ec%84%b1%eb%aa%85_%eb%b6%80%ec%82%b0%ec%8b%9c+%ea%b3%b5%ea%b3%b5%ea%b8%b0%ea%b4%80+%ec%a0%95%ec%9b%90%ea%b4%80%eb%a6%ac%eb%b0%a9%ed%96%a5+%ed%8f%90%ea%b8%b0%ed%95%98%eb%9d%bc.hwp",
+          "bytes": 192000,
+          "chars": 1395,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1395,
+      "low_text": false
+    },
+    {
+      "idx": 51367,
+      "page": 87,
+      "title": "[성명]기후정의도 서울지하철 타고 싶다",
+      "kind": "성명",
+      "date": "2024-08-19",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=87&idx=51367&bid=KPTU_NEW04",
+      "row_text": "7433 [성명]기후정의도 서울지하철 타고 싶다 등록일 2024-08-19 | 조회수 508 공공기관사업본부 508 2024-08-19",
+      "priority_topic": true,
+      "title_detail": "[성명]기후정의도 서울지하철 타고 싶다",
+      "author": "공공기관사업본부",
+      "date_detail": "2024-08-19",
+      "views": "510",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=20240819_%ec%84%b1%eb%aa%85_%ea%b8%b0%ed%9b%84%ec%a0%95%ec%9d%98%eb%8f%84%ec%84%9c%ec%9a%b8%ec%a7%80%ed%95%98%ec%b2%a0%ed%83%80%ea%b3%a0%ec%8b%b6%eb%8b%a4.hwp",
+          "bytes": 105472,
+          "chars": 1118,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1118,
+      "low_text": false
+    },
+    {
+      "idx": 51110,
+      "page": 95,
+      "title": "[성명] 윤석열 정부와 서울시의 노조탄압 규탄한다! 서울교통공사는 부당해고 즉각 철회하라!",
+      "kind": "성명",
+      "date": "2024-06-26",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=95&idx=51110&bid=KPTU_NEW04",
+      "row_text": "7361 [성명] 윤석열 정부와 서울시의 노조탄압 규탄한다! 서울교통공사는 부당해고 즉각 철회하라! 등록일 2024-06-26 | 조회수 250 공공기관사업본부 250 2024-06-26",
+      "priority_topic": true,
+      "title_detail": "[성명] 윤석열 정부와 서울시의 노조탄압 규탄한다! 서울교통공사는 부당해고 즉각 철회하라!",
+      "author": "공공기관사업본부",
+      "date_detail": "2024-06-26",
+      "views": "252",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=240626_%ec%84%9c%ec%9a%b8%ea%b5%90%ed%86%b5%ea%b3%b5%ec%82%ac%eb%8a%94_%eb%b6%80%eb%8b%b9%ed%95%b4%ea%b3%a0%eb%a5%bc_%ec%a6%89%ea%b0%81_%ec%b2%a0%ed%9a%8c%ed%95%98%eb%9d%bc.hwp",
+          "bytes": 169984,
+          "chars": 1248,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1248,
+      "low_text": false
+    },
+    {
+      "idx": 40128,
+      "page": 102,
+      "title": "[성명] 한국옵티칼 고용승계 쟁취 결의대회에서 벌어진 경찰 폭력 규탄-외국자본 먹튀에 고공농성으로 저항하는 노동자를 보호하라, 그게 민생이다",
+      "kind": "성명",
+      "date": "2024-04-18",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=102&idx=40128&bid=KPTU_NEW04",
+      "row_text": "7287 [성명] 한국옵티칼 고용승계 쟁취 결의대회에서 벌어진 경찰 폭력 규탄-외국자본 먹튀에 고공농성으로 저항하는 노동자를 보호하라, 그게 민생이다 등록일 2024-04-18 | 조회수 549 정책기획실 549 2024-04-18",
+      "priority_topic": false,
+      "title_detail": "[성명] 한국옵티칼 고용승계 쟁취 결의대회에서 벌어진 경찰 폭력 규탄-외국자본 먹튀에 고공농성으로 저항하는 노동자를 보호하라, 그게 민생이다",
+      "author": "정책기획실",
+      "date_detail": "2024-04-18",
+      "views": "551",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=%5b%ec%84%b1%eb%aa%85%ec%84%9c%5d20240418+%ea%b8%88%ec%86%8d%eb%85%b8%ec%a1%b0+%ec%97%b0%eb%8c%80%ec%84%b1%eb%aa%85%ec%84%9c(2).hwp",
+          "bytes": 139264,
+          "chars": 1239,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1239,
+      "low_text": false
+    },
+    {
+      "idx": 38359,
+      "page": 145,
+      "title": "[성명] 양천구청, 양천경찰서의 폭력 연행 항의: 갑질 구청, 폭주 경찰에게 브레이크를 겁시다",
+      "kind": "성명",
+      "date": "2023-09-14",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=145&idx=38359&bid=KPTU_NEW04",
+      "row_text": "6856 [성명] 양천구청, 양천경찰서의 폭력 연행 항의: 갑질 구청, 폭주 경찰에게 브레이크를 겁시다 등록일 2023-09-14 | 조회수 209 관리자 209 2023-09-14",
+      "priority_topic": false,
+      "title_detail": "[성명] 양천구청, 양천경찰서의 폭력 연행 항의: 갑질 구청, 폭주 경찰에게 브레이크를 겁시다",
+      "author": "관리자",
+      "date_detail": "2023-09-14",
+      "views": "210",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=230914_%5b%ec%84%b1%eb%aa%85%5d+%ec%96%91%ec%b2%9c%ea%b5%ac%ec%b2%ad+%ec%96%91%ec%b2%9c%ea%b2%bd%ec%b0%b0%ec%84%9c%ec%9d%98+%ed%8f%ad%eb%a0%a5%ec%97%b0%ed%96%89+%ed%95%ad%ec%9d%98_%ec%84%9c%ec%9a%b8%ec%a7%80%eb%b6%80.hwp",
+          "bytes": 99840,
+          "chars": 2240,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 2240,
+      "low_text": false
+    },
+    {
+      "idx": 37870,
+      "page": 163,
+      "title": "[성명] 단체교섭 거부하는 최연혜사장, 공공기관장 자격 있나",
+      "kind": "성명",
+      "date": "2023-07-04",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=163&idx=37870&bid=KPTU_NEW04",
+      "row_text": "6673 [성명] 단체교섭 거부하는 최연혜사장, 공공기관장 자격 있나 등록일 2023-07-04 | 조회수 595 공공기관사업본부 595 2023-07-04",
+      "priority_topic": true,
+      "title_detail": "[성명] 단체교섭 거부하는 최연혜사장, 공공기관장 자격 있나",
+      "author": "공공기관사업본부",
+      "date_detail": "2023-07-04",
+      "views": "597",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=20230704_%ec%84%b1%eb%aa%85%eb%8b%a8%ec%b2%b4%ea%b5%90%ec%84%ad%ea%b1%b0%eb%b6%80%ed%95%98%eb%8a%94%ec%b5%9c%ec%97%b0%ed%98%9c%ec%82%ac%ec%9e%a5_%ea%b3%b5%ea%b3%b5%ea%b8%b0%ea%b4%80%ec%9e%a5%ec%9e%90%ea%b2%a9%ec%9e%88%eb%82%98(1).hwp",
+          "bytes": 207360,
+          "chars": 1930,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1930,
+      "low_text": false
+    },
+    {
+      "idx": 37540,
+      "page": 176,
+      "title": "[성명] 단체협약 무력화, 노동기본권 파괴로 공공부문 노사관계 파국으로 내모는 고용노동부 규탄한다",
+      "kind": "성명",
+      "date": "2023-05-17",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=176&idx=37540&bid=KPTU_NEW04",
+      "row_text": "6547 [성명] 단체협약 무력화, 노동기본권 파괴로 공공부문 노사관계 파국으로 내모는 고용노동부 규탄한다 등록일 2023-05-17 | 조회수 383 관리자 383 2023-05-17",
+      "priority_topic": true,
+      "title_detail": "[성명] 단체협약 무력화, 노동기본권 파괴로 공공부문 노사관계 파국으로 내모는 고용노동부 규탄한다",
+      "author": "관리자",
+      "date_detail": "2023-05-17",
+      "views": "385",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=230517_%5b%ec%84%b1%eb%aa%85%5d+%ea%b3%b5%ea%b3%b5%eb%b6%80%eb%ac%b8_%eb%85%b8%ec%82%ac%ea%b4%80%ea%b3%84_%ed%8c%8c%ea%b5%ad%ec%9c%bc%eb%a1%9c_%eb%82%b4%eb%aa%a8%eb%8a%94_%ea%b3%a0%ec%9a%a9%eb%85%b8%eb%8f%99%eb%b6%80_%ea%b7%9c%ed%83%84%ed%95%9c%eb%8b%a4.hwp",
+          "bytes": 299008,
+          "chars": 1743,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1743,
+      "low_text": false
+    },
+    {
+      "idx": 36772,
+      "page": 200,
+      "title": "[성명] 정부와 서울시 그리고 서울교통공사는 갈등과 대립 조장으로 책임을 회피하지 말라",
+      "kind": "성명",
+      "date": "2023-01-30",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=200&idx=36772&bid=KPTU_NEW04",
+      "row_text": "6307 [성명] 정부와 서울시 그리고 서울교통공사는 갈등과 대립 조장으로 책임을 회피하지 말라 등록일 2023-01-30 | 조회수 342 공공기관사업본부 342 2023-01-30",
+      "priority_topic": true,
+      "title_detail": "[성명] 정부와 서울시 그리고 서울교통공사는 갈등과 대립 조장으로 책임을 회피하지 말라",
+      "author": "공공기관사업본부",
+      "date_detail": "2023-01-30",
+      "views": "344",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=%5b%ec%84%9c%ec%9a%b8%ea%b5%90%ed%86%b5%ea%b3%b5%ec%82%ac%eb%85%b8%ec%a1%b0+%ec%84%b1%eb%aa%85%5d%ec%a0%95%eb%b6%80%ec%99%80+%ec%84%9c%ec%9a%b8%ec%8b%9c+%ea%b7%b8%eb%a6%ac%ea%b3%a0+%ea%b3%b5%ec%82%ac%eb%8a%94+%ea%b0%88%eb%93%b1%ea%b3%bc+%eb%8c%80%eb%a6%bd%ec%a1%b0%ec%9e%a5%ec%9c%bc%eb%a1%9c+%ec%b1%85%ec%9e%84%ec%9d%84+%ed%9a%8c%ed%94%bc%ed%95%98%ec%a7%80+%eb%a7%90%eb%9d%bc(230130%ec%a0%84%ec%9e%a5%ec%97%b0+%ec%9e%85%ec%9e%a52).hwp",
+          "bytes": 154624,
+          "chars": 2116,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 2116,
+      "low_text": false
+    },
+    {
+      "idx": 56205,
+      "page": 1,
+      "title": "[보도자료] 공공운수노조 중앙행정기관 공무직 노동자 대정부교섭요구 결의대회",
+      "kind": "보도자료",
+      "date": "2026-09-16",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&idx=56205&bid=KPTU_NEW04",
+      "row_text": "8301 [보도자료] 공공운수노조 중앙행정기관 공무직 노동자 대정부교섭요구 결의대회 등록일 2026-09-16 | 조회수 185 조직쟁의실 185 2026-09-16",
+      "priority_topic": true,
+      "title_detail": "[보도자료] 공공운수노조 중앙행정기관 공무직 노동자 대정부교섭요구 결의대회",
+      "author": "조직쟁의실",
+      "date_detail": "2026-09-16",
+      "views": "187",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=113af370-b540-4144-9b50-b2690f478ea8.hwp",
+          "bytes": 482304,
+          "chars": 14016,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 14016,
+      "low_text": false
+    },
+    {
+      "idx": 56005,
+      "page": 4,
+      "title": "[보도자료] “당사자 말 한마디 안 듣고 지정취소 강행” 충남서부장애인종합복지관 주간활동센터지회, 보령시청 앞 1인시위 돌입",
+      "kind": "보도자료",
+      "date": "2026-08-18",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=4&idx=56005&bid=KPTU_NEW04",
+      "row_text": "8272 [보도자료] “당사자 말 한마디 안 듣고 지정취소 강행” 충남서부장애인종합복지관 주간활동센터지회, 보령시청 앞 1인시위 돌입 등록일 2026-08-18 | 조회수 245 사회복지지부 245 2026-08-18",
+      "priority_topic": false,
+      "title_detail": "[보도자료] “당사자 말 한마디 안 듣고 지정취소 강행” 충남서부장애인종합복지관 주간활동센터지회, 보령시청 앞 1인시위 돌입",
+      "author": "사회복지지부",
+      "date_detail": "2026-08-18",
+      "views": "247",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=b8769797-fa5e-4a84-b8b0-081a234c468d.hwp",
+          "bytes": 6727680,
+          "chars": 1065,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1065,
+      "low_text": false
+    },
+    {
+      "idx": 55596,
+      "page": 12,
+      "title": "[보도자료] 천만 시민이 이용하는 경기도 민자철도 경기도지사 후보들의 민자철도 개선 대책 수립 촉구 공공운수노조-전국철도지하철노조협의회 기자회견",
+      "kind": "보도자료",
+      "date": "2026-05-20",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=12&idx=55596&bid=KPTU_NEW04",
+      "row_text": "8188 [보도자료] 천만 시민이 이용하는 경기도 민자철도 경기도지사 후보들의 민자철도 개선 대책 수립 촉구 공공운수노조-전국철도지하철노조협의회 기자회견 등록일 2026-05-20 | 조회수 180 공공기관사업본부 180 2026-05-20",
+      "priority_topic": true,
+      "title_detail": "[보도자료] 천만 시민이 이용하는 경기도 민자철도 경기도지사 후보들의 민자철도 개선 대책 수립 촉구 공공운수노조-전국철도지하철노조협의회 기자회견",
+      "author": "공공기관사업본부",
+      "date_detail": "2026-05-20",
+      "views": "182",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=727489a1-bc58-413c-ad26-0f585da560b6.hwp",
+          "bytes": 210944,
+          "chars": 7939,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 7939,
+      "low_text": false
+    },
+    {
+      "idx": 54830,
+      "page": 26,
+      "title": "[보도자료] '지방공공기관 총인건비제 개선 패싱' 행안부 규탄! 양대노총 기자회견(2.11.)",
+      "kind": "보도자료",
+      "date": "2026-02-11",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=26&idx=54830&bid=KPTU_NEW04",
+      "row_text": "8051 [보도자료] '지방공공기관 총인건비제 개선 패싱' 행안부 규탄! 양대노총 기자회견(2.11.) 등록일 2026-02-11 | 조회수 213 공공기관사업본부 213 2026-02-11",
+      "priority_topic": true,
+      "title_detail": "[보도자료] ''지방공공기관 총인건비제 개선 패싱'' 행안부 규탄! 양대노총 기자회견(2.11.)",
+      "author": "공공기관사업본부",
+      "date_detail": "2026-02-11",
+      "views": "215",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=ff36b585-10de-454c-b639-5e4a3e6256f3.hwp",
+          "bytes": 216576,
+          "chars": 6974,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 6974,
+      "low_text": false
+    },
+    {
+      "idx": 53929,
+      "page": 42,
+      "title": "[보도자료] 4대강에도 차별받는 공무직이 있다!",
+      "kind": "보도자료",
+      "date": "2025-10-23",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=42&idx=53929&bid=KPTU_NEW04",
+      "row_text": "7888 [보도자료] 4대강에도 차별받는 공무직이 있다! 등록일 2025-10-23 | 조회수 145 조직쟁의실 145 2025-10-23",
+      "priority_topic": true,
+      "title_detail": "[보도자료] 4대강에도 차별받는 공무직이 있다!",
+      "author": "조직쟁의실",
+      "date_detail": "2025-10-23",
+      "views": "147",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=0233315e-4ad5-42cd-aa80-5943eaa0f489.hwp",
+          "bytes": 4826112,
+          "chars": 1301,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1301,
+      "low_text": false
+    },
+    {
+      "idx": 53870,
+      "page": 43,
+      "title": "[보도자료] 9호선 2·3단계 노동조합, 투쟁선포 기자회견 (서울교통공사9호선지부 파업 찬반 투표 82%로 가결)",
+      "kind": "보도자료",
+      "date": "2025-10-16",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=43&idx=53870&bid=KPTU_NEW04",
+      "row_text": "7875 [보도자료] 9호선 2·3단계 노동조합, 투쟁선포 기자회견 (서울교통공사9호선지부 파업 찬반 투표 82%로 가결) 등록일 2025-10-16 | 조회수 137 공공기관사업본부 137 2025-10-16",
+      "priority_topic": true,
+      "title_detail": "[보도자료] 9호선 2·3단계 노동조합, 투쟁선포 기자회견 (서울교통공사9호선지부 파업 찬반 투표 82%로 가결)",
+      "author": "공공기관사업본부",
+      "date_detail": "2025-10-16",
+      "views": "139",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=041ce320-e553-4b4e-8ba4-14e6f15c9182.hwp",
+          "bytes": 1117696,
+          "chars": 7276,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 7276,
+      "low_text": false
+    },
+    {
+      "idx": 53391,
+      "page": 54,
+      "title": "[보도자료] 故윤원모?故정석현 1주기 추모제 및 항철위 규탄대회 (철도노조)",
+      "kind": "보도자료",
+      "date": "2025-08-07",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=54&idx=53391&bid=KPTU_NEW04",
+      "row_text": "7769 [보도자료] 故윤원모?故정석현 1주기 추모제 및 항철위 규탄대회 (철도노조) 등록일 2025-08-07 | 조회수 203 공공기관사업본부 203 2025-08-07",
+      "priority_topic": true,
+      "title_detail": "[보도자료] 故윤원모?故정석현 1주기 추모제 및 항철위 규탄대회 (철도노조)",
+      "author": "공공기관사업본부",
+      "date_detail": "2025-08-07",
+      "views": "205",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=7c61fbca-b1fe-4c11-a163-387d5382ad10.hwp",
+          "bytes": 172544,
+          "chars": 1782,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 1782,
+      "low_text": false
+    },
+    {
+      "idx": 53266,
+      "page": 56,
+      "title": "[보도자료] \"서울시내버스 사모펀드 문제, 시민이 나선다\" - 사모펀드시내버스 서울시 인수를 요구하는 시민운동 준비위원회 출범",
+      "kind": "보도자료",
+      "date": "2025-07-18",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=56&idx=53266&bid=KPTU_NEW04",
+      "row_text": "7744 [보도자료] \"서울시내버스 사모펀드 문제, 시민이 나선다\" - 사모펀드시내버스 서울시 인수를 요구하는 시민운동 준비위원회 출범 등록일 2025-07-18 | 조회수 164 서울본부 164 2025-07-18",
+      "priority_topic": false,
+      "title_detail": "[보도자료] \"서울시내버스 사모펀드 문제, 시민이 나선다\" - 사모펀드시내버스 서울시 인수를 요구하는 시민운동 준비위원회 출범",
+      "author": "서울본부",
+      "date_detail": "2025-07-18",
+      "views": "166",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=e00bf6b5-a501-4c0a-8ad4-4c6e9edd4e9d.hwp",
+          "bytes": 190464,
+          "chars": 911,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 911,
+      "low_text": false
+    },
+    {
+      "idx": 52080,
+      "page": 76,
+      "title": "[보도자료] <통상임금 대법판결 무력화, ILO 권고 무시> 공공기관 총인건비 제도 개선 및 노정교섭 촉구 기자회견",
+      "kind": "보도자료",
+      "date": "2024-12-26",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=76&idx=52080&bid=KPTU_NEW04",
+      "row_text": "7546 [보도자료] <통상임금 대법판결 무력화, ILO 권고 무시> 공공기관 총인건비 제도 개선 및 노정교섭 촉구 기자회견 등록일 2024-12-26 | 조회수 291 공공기관사업본부 291 2024-12-26",
+      "priority_topic": true,
+      "title_detail": "[보도자료] <통상임금 대법판결 무력화, ILO 권고 무시> 공공기관 총인건비 제도 개선 및 노정교섭 촉구 기자회견",
+      "author": "공공기관사업본부",
+      "date_detail": "2024-12-26",
+      "views": "294",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=241226_%eb%b3%b4%eb%8f%84%ec%9e%90%eb%a3%8c_%ed%86%b5%ec%83%81%ec%9e%84%ea%b8%88_%eb%8c%80%eb%b2%95%ed%8c%90%ea%b2%b0_%ec%a1%b4%ec%a4%91_%eb%85%b8%ec%a0%95%ea%b5%90%ec%84%ad_%ec%b4%89%ea%b5%ac_%ea%b8%b0%ec%9e%90%ed%9a%8c%ea%b2%ac+(5).hwp",
+          "bytes": 866816,
+          "chars": 8758,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 8758,
+      "low_text": false
+    },
+    {
+      "idx": 51469,
+      "page": 85,
+      "title": "[보도자료]공무직 악성민원 개선을 위한 행안부 간담회 개최_2차 방문간호사",
+      "kind": "보도자료",
+      "date": "2024-09-05",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=85&idx=51469&bid=KPTU_NEW04",
+      "row_text": "7455 [보도자료]공무직 악성민원 개선을 위한 행안부 간담회 개최_2차 방문간호사 등록일 2024-09-05 | 조회수 189 정책기획실 189 2024-09-05",
+      "priority_topic": true,
+      "title_detail": "[보도자료]공무직 악성민원 개선을 위한 행안부 간담회 개최_2차 방문간호사",
+      "author": "정책기획실",
+      "date_detail": "2024-09-05",
+      "views": "191",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=0905%eb%b3%b4%eb%8f%84%ec%9e%90%eb%a3%8c_%ec%95%85%ec%84%b1%eb%af%bc%ec%9b%90%ea%b0%9c%ec%84%a0%ed%96%89%ec%95%88%eb%b6%80%ea%b0%84%eb%8b%b4%ed%9a%8c_%eb%b0%a9%eb%ac%b8%ea%b0%84%ed%98%b8%ec%82%ac.hwp",
+          "bytes": 956416,
+          "chars": 7023,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 7023,
+      "low_text": false
+    },
+    {
+      "idx": 46691,
+      "page": 98,
+      "title": "[보도자료] 구의역 산재사망 참사 8주기 추모 문화제 및 설문조사 결과",
+      "kind": "보도자료",
+      "date": "2024-05-27",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=98&idx=46691&bid=KPTU_NEW04",
+      "row_text": "7328 [보도자료] 구의역 산재사망 참사 8주기 추모 문화제 및 설문조사 결과 등록일 2024-05-27 | 조회수 202 노동안전보건실 202 2024-05-27",
+      "priority_topic": false,
+      "title_detail": "[보도자료] 구의역 산재사망 참사 8주기 추모 문화제 및 설문조사 결과",
+      "author": "노동안전보건실",
+      "date_detail": "2024-05-27",
+      "views": "204",
+      "hwp_count": 2,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=%ea%b5%ac%ec%9d%98%ec%97%ad8%ec%a3%bc%ea%b8%b0_%ec%84%a4%eb%ac%b8%ea%b2%b0%ea%b3%bc%eb%b6%84%ec%84%9d.hwp",
+          "bytes": 786432,
+          "chars": 5450,
+          "returncode": 0,
+          "stderr": "undefined UnderlineStyle value: 15\ndefined name/values: {'SOLID': UnderlineStyle.SOLID, 'DASHED': UnderlineStyle.DASHED, 'DOTTED': UnderlineStyle.DOTTED, 'DASH_DOT': UnderlineStyle.DASH_DOT, 'DASH_DOT_DOT': UnderlineStyle.DASH_DOT_DOT, 'LONG_DASHED': UnderlineStyle.LONG_DASHED, 'LARGE_DOTTED': UnderlineStyle.LARGE_DOTTED, 'DOUBLE': UnderlineStyle.DOUBLE, 'LOWER_WEIGHTED': UnderlineStyle.LOWER_WEIGHTED, 'UPPER_WEIGHTED': UnderlineStyle.UPPER_WEIGHTED, 'MIDDLE_WEIGHTED': UnderlineStyle.MIDDLE_WEIG"
+        },
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=%eb%b3%b4%eb%8f%84%ec%9e%90%eb%a3%8c_%ea%b5%ac%ec%9d%98%ec%97%ad_%ec%82%b0%ec%97%85%ec%9e%ac%ed%95%b4_%ec%b0%b8%ec%82%ac_8%ec%a3%bc%ea%b8%b0_%ec%b6%94%eb%aa%a8%eb%ac%b8%ed%99%94%ec%a0%9c_%ec%99%84+(2).hwp",
+          "bytes": 524288,
+          "chars": 7662,
+          "returncode": 0,
+          "stderr": "undefined UnderlineStyle value: 15\ndefined name/values: {'SOLID': UnderlineStyle.SOLID, 'DASHED': UnderlineStyle.DASHED, 'DOTTED': UnderlineStyle.DOTTED, 'DASH_DOT': UnderlineStyle.DASH_DOT, 'DASH_DOT_DOT': UnderlineStyle.DASH_DOT_DOT, 'LONG_DASHED': UnderlineStyle.LONG_DASHED, 'LARGE_DOTTED': UnderlineStyle.LARGE_DOTTED, 'DOUBLE': UnderlineStyle.DOUBLE, 'LOWER_WEIGHTED': UnderlineStyle.LOWER_WEIGHTED, 'UPPER_WEIGHTED': UnderlineStyle.UPPER_WEIGHTED, 'MIDDLE_WEIGHTED': UnderlineStyle.MIDDLE_WEIG"
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 7662,
+      "low_text": false
+    },
+    {
+      "idx": 39618,
+      "page": 111,
+      "title": "[보도자료] 도서발전노동자 해고 협박, 소송 포기 강요 자회사 전환 즉각 중단하라",
+      "kind": "보도자료",
+      "date": "2024-01-29",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=111&idx=39618&bid=KPTU_NEW04",
+      "row_text": "7193 [보도자료] 도서발전노동자 해고 협박, 소송 포기 강요 자회사 전환 즉각 중단하라 등록일 2024-01-29 | 조회수 269 공공기관사업본부 269 2024-01-29",
+      "priority_topic": true,
+      "title_detail": "[보도자료] 도서발전노동자 해고 협박, 소송 포기 강요 자회사 전환 즉각 중단하라",
+      "author": "공공기관사업본부",
+      "date_detail": "2024-01-29",
+      "views": "271",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=20240129_%5b%ec%b5%9c%ec%a2%85_%eb%b3%b4%eb%8f%84%ec%9e%90%eb%a3%8c%5d%eb%8f%84%ec%84%9c%eb%b0%9c%ec%a0%84%ed%95%b4%ea%b3%a0%ed%98%91%eb%b0%95%ec%86%8c%ec%86%a1%ed%8f%ac%ea%b8%b0%ea%b0%95%ec%9a%94_%ec%9e%90%ed%9a%8c%ec%82%ac%ec%a0%84%ed%99%98%ec%a6%89%ea%b0%81%ec%a4%91%eb%8b%a8%ed%95%98%eb%9d%bc.hwp",
+          "bytes": 19103744,
+          "chars": 3650,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 3650,
+      "low_text": false
+    },
+    {
+      "idx": 38890,
+      "page": 122,
+      "title": "[보도자료]서울교통공사노조 안전업무 외주화 저지, 현장안전인력 공백 대책 수립 위해 11월 22일부터 2차 총파업 돌입",
+      "kind": "보도자료",
+      "date": "2023-11-15",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=122&idx=38890&bid=KPTU_NEW04",
+      "row_text": "7090 [보도자료]서울교통공사노조 안전업무 외주화 저지, 현장안전인력 공백 대책 수립 위해 11월 22일부터 2차 총파업 돌입 등록일 2023-11-15 | 조회수 287 공공기관사업본부 287 2023-11-15",
+      "priority_topic": true,
+      "title_detail": "[보도자료]서울교통공사노조 안전업무 외주화 저지, 현장안전인력 공백 대책 수립 위해 11월 22일부터 2차 총파업 돌입",
+      "author": "공공기관사업본부",
+      "date_detail": "2023-11-15",
+      "views": "289",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=231115.hwp",
+          "bytes": 237568,
+          "chars": 6514,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 6514,
+      "low_text": false
+    },
+    {
+      "idx": 38383,
+      "page": 144,
+      "title": "[보도자료] 모두의 삶을 지키는 공공운수노조 공동파업: 대통령실을 포위하는 철도-사회보험-비정규직 3개 결의대회 동시 개최",
+      "kind": "보도자료",
+      "date": "2023-09-16",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=144&idx=38383&bid=KPTU_NEW04",
+      "row_text": "6872 [보도자료] 모두의 삶을 지키는 공공운수노조 공동파업: 대통령실을 포위하는 철도-사회보험-비정규직 3개 결의대회 동시 개최 등록일 2023-09-16 | 조회수 265 관리자 265 2023-09-16",
+      "priority_topic": true,
+      "title_detail": "[보도자료] 모두의 삶을 지키는 공공운수노조 공동파업: 대통령실을 포위하는 철도-사회보험-비정규직 3개 결의대회 동시 개최",
+      "author": "관리자",
+      "date_detail": "2023-09-16",
+      "views": "267",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=230915_%5b%eb%b3%b4%eb%8f%84%ec%9e%90%eb%a3%8c%5d+%ea%b3%b5%ea%b3%b5%ec%9a%b4%ec%88%98%ea%b3%b5%eb%8f%99%ed%8c%8c%ec%97%85_1%ec%b0%a8_916%ea%b2%b0%ec%9d%98%eb%8c%80%ed%9a%8c_2.hwp",
+          "bytes": 109056,
+          "chars": 5463,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 5463,
+      "low_text": false
+    },
+    {
+      "idx": 38124,
+      "page": 154,
+      "title": "[보도자료] 교육공무직 악성 민원 긴급 실태조사 결과 및 민원 고충 사례 발표 기자간담회",
+      "kind": "보도자료",
+      "date": "2023-08-17",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=154&idx=38124&bid=KPTU_NEW04",
+      "row_text": "6769 [보도자료] 교육공무직 악성 민원 긴급 실태조사 결과 및 민원 고충 사례 발표 기자간담회 등록일 2023-08-17 | 조회수 191 관리자 191 2023-08-17",
+      "priority_topic": true,
+      "title_detail": "[보도자료] 교육공무직 악성 민원 긴급 실태조사 결과 및 민원 고충 사례 발표 기자간담회",
+      "author": "관리자",
+      "date_detail": "2023-08-17",
+      "views": "193",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=230817_%5b%eb%b3%b4%eb%8f%84%ec%9e%90%eb%a3%8c%5d+%ec%95%85%ec%84%b1%eb%af%bc%ec%9b%90_%eb%b0%8f_%eb%8c%80%ec%9d%91%eb%b0%a9%ec%95%88_%eb%b0%9c%ed%91%9c_%ea%b8%b0%ec%9e%90%ea%b0%84%eb%8b%b4%ed%9a%8c_%ea%b5%90%ea%b3%b5.hwp",
+          "bytes": 929280,
+          "chars": 15594,
+          "returncode": 0,
+          "stderr": ""
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 15594,
+      "low_text": false
+    },
+    {
+      "idx": 38091,
+      "page": 155,
+      "title": "[보도자료] 부산시민 SRT 좌석 축소 반발. 10명 중 7명 “부산-수서 KTX 도입 필요”",
+      "kind": "보도자료",
+      "date": "2023-08-11",
+      "url": "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=155&idx=38091&bid=KPTU_NEW04",
+      "row_text": "6753 [보도자료] 부산시민 SRT 좌석 축소 반발. 10명 중 7명 “부산-수서 KTX 도입 필요” 등록일 2023-08-11 | 조회수 174 관리자 174 2023-08-11",
+      "priority_topic": false,
+      "title_detail": "[보도자료] 부산시민 SRT 좌석 축소 반발. 10명 중 7명 “부산-수서 KTX 도입 필요”",
+      "author": "관리자",
+      "date_detail": "2023-08-11",
+      "views": "176",
+      "hwp_count": 1,
+      "hwp_results": [
+        {
+          "url": "https://kptu.net/data/FileDown.aspx?path=/data/board/KPTU_NEW04/&filename=230811_%5b%eb%b3%b4%eb%8f%84%ec%9e%90%eb%a3%8c%5d+%eb%b6%80%ec%82%b0%ec%8b%9c%eb%af%bc_SRT_%ec%a2%8c%ec%84%9d_%ec%b6%95%ec%86%8c_%eb%b0%98%eb%b0%9c_10%eb%aa%85_%ec%a4%91_7%eb%aa%85_%eb%b6%80%ec%82%b0_%ec%88%98%ec%84%9c_KTX_%eb%8f%84%ec%9e%85_%ed%95%84%ec%9a%94_%ec%b2%a0%eb%8f%84%eb%85%b8%ec%a1%b0.hwp",
+          "bytes": 224768,
+          "chars": 969,
+          "returncode": 0,
+          "stderr": "undefined UnderlineStyle value: 15\ndefined name/values: {'SOLID': UnderlineStyle.SOLID, 'DASHED': UnderlineStyle.DASHED, 'DOTTED': UnderlineStyle.DOTTED, 'DASH_DOT': UnderlineStyle.DASH_DOT, 'DASH_DOT_DOT': UnderlineStyle.DASH_DOT_DOT, 'LONG_DASHED': UnderlineStyle.LONG_DASHED, 'LARGE_DOTTED': UnderlineStyle.LARGE_DOTTED, 'DOUBLE': UnderlineStyle.DOUBLE, 'LOWER_WEIGHTED': UnderlineStyle.LOWER_WEIGHTED, 'UPPER_WEIGHTED': UnderlineStyle.UPPER_WEIGHTED, 'MIDDLE_WEIGHTED': UnderlineStyle.MIDDLE_WEIG"
+        }
+      ],
+      "text_source": "hwp",
+      "text_chars": 969,
+      "low_text": false
+    }
+  ]
+}
