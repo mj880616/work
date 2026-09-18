@@ -1,0 +1,35 @@
+name: Extract KPTU analysis corpus
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/kptu_corpus_extract.py'
+      - '.github/workflows/kptu-corpus-extract.yml'
+      - 'analysis/kptu-corpus/selected-180.json'
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade "pip<25" "setuptools<70" wheel
+          python -m pip install six requests beautifulsoup4
+          python -m pip install --pre pyhwp
+          hwp5txt --help >/dev/null
+      - name: Extract selected documents
+        run: python scripts/kptu_corpus_extract.py
+      - name: Commit extracted corpus
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kptu-corpus/text analysis/kptu-corpus/extraction-summary.json
+          git diff --cached --quiet || git commit -m "Extract KPTU analysis corpus text"
+          git pull --rebase origin main
+          git push

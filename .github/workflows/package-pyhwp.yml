@@ -1,0 +1,25 @@
+name: Package pyhwp offline
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/package-pyhwp.yml'
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+      - name: Download wheels
+        run: |
+          mkdir -p wheelhouse
+          python -m pip install --upgrade "pip<25"
+          python -m pip download --dest wheelhouse six "pyhwp==0.1b15" olefile "lxml<6" "cryptography<44" cffi pycparser typing-extensions
+          ls -lh wheelhouse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pyhwp-wheelhouse
+          path: wheelhouse
+          retention-days: 1
