@@ -9,7 +9,8 @@ async function mockPublic(page){
     spaces:[{id:'p1',name:'공개 프로젝트',slug:'public-project',description:'공개 사업 설명',status:'active',parent_id:null,sort_order:10}],
     tasks:[{id:'t1',project_id:'p1',title:'프로젝트 공개 할 일',status:'todo',priority:'high',due_at:null,note:'INTERNAL_NOTE',assignee_name:'INTERNAL_ASSIGNEE'},{id:'personal',project_id:null,title:'개인 할 일',status:'todo',priority:'normal'}],
     pages:[{id:'pg1',space_id:'p1',slug:'public-page',title:'공개 게시물',summary:'공개 요약',updated_at:new Date().toISOString()}],
-    documents:[{id:'d1',project_id:'p1',title:'공개 자료',category:'정책자료',source:'테스트 출처',document_date:'2026-09-15',description:'공개 설명',tags:['테스트'],drive_url:'https://example.com/public-doc',file_name:'public.pdf'}]
+    documents:[{id:'d1',project_id:'p1',title:'공개 자료',category:'정책자료',source:'테스트 출처',document_date:'2026-09-15',description:'공개 설명',tags:['테스트'],drive_url:'https://example.com/public-doc',file_name:'public.pdf'}],
+    events:[{id:'e1',title:'공개 공동 일정',event_type:'meeting',start_at:'2099-09-22T10:30:00+09:00',end_at:null,body:'INTERNAL_EVENT_BODY',attendees:['INTERNAL_ATTENDEE']}]
   };
   await page.route(`${SB}/rest/v1/rpc/app_public_projects_snapshot`,route=>{calls.snapshot+=1;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(snapshot)})});
   return calls;
@@ -47,14 +48,15 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   await expect(page.locator('#homeView')).toContainText('공개 업무 둘러보기');
 
   await page.locator('.app-nav [data-view="tasks"]').click();
-  const publicTasks=page.locator('#tasksView .public-task-list');
-  await expect(publicTasks).toContainText('프로젝트 공개 할 일');
-  await expect(publicTasks).not.toContainText('개인 할 일');
-  await expect(publicTasks).not.toContainText('INTERNAL_NOTE');
-  await expect(publicTasks).not.toContainText('INTERNAL_ASSIGNEE');
+  await expect(page.locator('#tasksView')).toContainText('할 일은 로그인 후 열람할 수 있습니다.');
+  await expect(page.locator('#tasksView')).not.toContainText('프로젝트 공개 할 일');
+  await expect(page.locator('#tasksView')).not.toContainText('개인 할 일');
 
   await page.locator('.app-nav [data-view="calendar"]').click();
-  await expect(page.locator('#calendarView')).toContainText('공동 일정은 로그인 후 열람할 수 있습니다.');
+  await expect(page.locator('#calendarView')).toContainText('공개 공동 일정');
+  await expect(page.locator('#calendarView')).toContainText('개인 일정·Google 일정·상세 메모·참석자 정보는 비로그인 사용자에게 노출하지 않습니다.');
+  await expect(page.locator('#calendarView')).not.toContainText('INTERNAL_EVENT_BODY');
+  await expect(page.locator('#calendarView')).not.toContainText('INTERNAL_ATTENDEE');
 
   await page.locator('.app-nav [data-view="projects"]').click();
   await expect(page.locator('#projectGrid')).toContainText('공개 프로젝트');
