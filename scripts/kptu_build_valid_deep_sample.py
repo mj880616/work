@@ -28,6 +28,7 @@ for x in valid: groups[(x["kind"],x["date"][:4])].append(x)
 def spread(rows,n):
     rows=sorted(rows,key=lambda x:(x["date"],x["idx"]),reverse=True)
     if len(rows)<=n:return rows
+    if n==1:return [rows[len(rows)//2]]
     return [rows[round(i*(len(rows)-1)/(n-1))] for i in range(n)]
 
 sel=[]
