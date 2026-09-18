@@ -9,10 +9,10 @@
 </style>
 <meta property="og:type" content="website"><meta property="og:title" content="성명·보도자료·취재요청"><meta property="og:description" content="공공운수노조 공공기관사업팀 언론자료 모음"><link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
 <link rel="shortcut icon" href="/work/favicon.svg?v=1">
-</head>
-<body><main class="wrap"><div class="logoBar"><img src="../assets/kptu-logo.svg" alt="민주노총 공공운수노조"></div>
+<link rel="stylesheet" href="/work/press/press-archive.css?v=1"></head>
+<body><nav class="press-archive-nav" aria-label="업무 탐색"><a class="press-archive-back" href="../">← 업무 현황</a></nav><main class="wrap"><div class="logoBar"><img src="../assets/kptu-logo.svg" alt="민주노총 공공운수노조"></div>
 <header class="archive-head"><div class="eyebrow">공공기관사업팀</div><h1>성명·보도자료·취재요청</h1><p>공공기관 관련 언론자료를 날짜순으로 모아봅니다.</p></header>
-<a class="back" href="../">← 업무 현황</a>
+
 <div class="tools"><input id="pressSearch" class="search" type="search" placeholder="제목 검색" aria-label="언론자료 제목 검색"><div class="filters" aria-label="자료 유형"><button class="filter active" data-type="all">전체</button><button class="filter" data-type="statement">성명</button><button class="filter" data-type="release">보도자료</button><button class="filter" data-type="request">취재요청</button></div></div>
 <section class="year-group"><h2 class="year">2026</h2><div class="list">
 <a class="item" data-type="release" href="../workforce/press-conference-0914/press-release/"><span class="date">09.14</span><span class="tag release">보도자료</span><div><h3>공공기관 인력감축 없다더니… 증원 요구 기관에는 “기존 정원 최소 2% 감축 소요 발굴”</h3><span class="org">민주노총 공공운수노조</span></div></a>
@@ -21,5 +21,5 @@
 <section class="year-group"><h2 class="year">2025</h2><div class="list">
 <a class="item" data-type="statement" href="./2025-01-22-subway-fare/"><span class="date">01.22</span><span class="tag statement">성명</span><div><h3>교통불평등 심화하고, 기후정의 역행하는 수도권 지하철 요금인상 즉각 철회하라</h3><span class="org">전국공공운수사회서비스노조</span></div></a>
 </div></section>
-<div id="noResult" class="no-result">조건에 맞는 자료가 없습니다.</div><div class="footer">공공운수노조 공공기관사업팀</div></main><script src="/work/assets/rich-copy.js?v=1"></script><script src="/work/app/web1-page-capabilities.js?v=2"></script><script src="/work/app/web1-admin-auth.js?v=2"></script><script src="/work/app/web1-toolbar.js?v=2"></script>
+<div id="noResult" class="no-result">조건에 맞는 자료가 없습니다.</div><div class="footer">공공운수노조 공공기관사업팀</div></main><script src="/work/assets/rich-copy.js?v=1"></script>
 <script>(()=>{const q=document.getElementById('pressSearch'),buttons=[...document.querySelectorAll('.filter')],items=[...document.querySelectorAll('.item')],groups=[...document.querySelectorAll('.year-group')],empty=document.getElementById('noResult');let type='all';function apply(){const term=q.value.trim().toLowerCase();let visible=0;items.forEach(item=>{const show=(type==='all'||item.dataset.type===type)&&(!term||item.textContent.toLowerCase().includes(term));item.hidden=!show;if(show)visible++});groups.forEach(g=>g.hidden=![...g.querySelectorAll('.item')].some(x=>!x.hidden));empty.style.display=visible?'none':'block'}buttons.forEach(b=>b.onclick=()=>{type=b.dataset.type;buttons.forEach(x=>x.classList.toggle('active',x===b));apply()});q.addEventListener('input',apply)})();</script></body></html>
