@@ -1,5 +1,5 @@
 (()=>{'use strict';if(window.KPTUWeb1AdminAuth)return;
-const cfg={url:'https://xmlkxfjeagycwttklxjw.supabase.co',key:'sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA',sessionKey:'kptu_web1_admin_session_v1',adminUserId:'987b778e-69fe-4080-ad7f-191dc732d234'};
+const cfg={provider:'google',url:'https://xmlkxfjeagycwttklxjw.supabase.co',key:'sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA',sessionKey:'kptu_web1_admin_session_v1',adminUserId:'987b778e-69fe-4080-ad7f-191dc732d234'};
 function read(){try{return JSON.parse(localStorage.getItem(cfg.sessionKey)||'null')}catch{return null}}
 function write(v){try{v?localStorage.setItem(cfg.sessionKey,JSON.stringify(v)):localStorage.removeItem(cfg.sessionKey)}catch{}return v||null}
 function normalize(v){if(!v)return null;return {...v,expires_at:v.expires_at||Math.floor(Date.now()/1000)+(Number(v.expires_in)||3600)}}
