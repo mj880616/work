@@ -6,8 +6,6 @@ test('home dashboard renders project, task, milestone and library panels',async(
 
   await expect(page.locator('#hdvProjectPanel')).toBeVisible();
   await expect(page.locator('#hdvTaskPanel')).toBeVisible();
-  await expect(page.locator('#hdvLibraryPanel')).toBeVisible();
-  await expect(page.locator('#hdvTaskPanel')).toBeVisible();
   await expect(page.locator('#hdvMilestonePanel')).toBeVisible();
   await expect(page.locator('#hdvLibraryPanel')).toBeVisible();
   await expect(page.locator('#hdvProjects')).toContainText('인력확충 투쟁');
@@ -32,6 +30,8 @@ test('home dashboard stacks cards on mobile without horizontal overflow',async({
   await page.setViewportSize({width:390,height:844});
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/home-dashboard-v2-fixture.html');
   await expect(page.locator('#hdvProjectPanel')).toBeVisible();
+  await expect(page.locator('#hdvTaskPanel')).toBeVisible();
+  await expect(page.locator('#hdvLibraryPanel')).toBeVisible();
   const layout=await page.evaluate(()=>({
     scrollWidth:document.documentElement.scrollWidth,
     innerWidth:window.innerWidth,
