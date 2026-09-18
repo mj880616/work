@@ -8,5 +8,5 @@ const PARENTS=[
   [/^\/work\/rail-council\/[^/]+\/?$/,'/work/rail-council/']
 ];
 function canonical(pathname){let p=String(pathname||location.pathname);if(!p.endsWith('/'))p+='/';return p}
-function resolve(pathname){const path=canonical(pathname);let backHref='/work/';let archiveReadOnly=false;if(path==='/work/press/'){backHref='/work/'}else if(PRESS_ARCHIVE.test(path)){backHref='/work/press/';archiveReadOnly=true}else{for(const [re,target] of PARENTS){if(re.test(path)){backHref=target;break}}}return {path,publicEdit:PUBLIC_EDIT.has(path),backHref,archiveReadOnly}}
+function resolve(pathname){const path=canonical(pathname);let backHref='/work/';for(const [re,target] of PARENTS){if(re.test(path)){backHref=target;break}}return {path,publicEdit:PUBLIC_EDIT.has(path),backHref}}
 window.KPTUWeb1Capabilities={resolve,publicEditPaths:[...PUBLIC_EDIT]};})();
