@@ -96,6 +96,8 @@
   await window.__KPTU_PAGE_SHORTCUT_READY__;
   await import('./page-management.js?v=2');
   await window.__KPTU_PAGE_MANAGEMENT_READY__;
+  await import('./media-workflow.js?v=1');
+  await window.__KPTU_MEDIA_WORKFLOW_READY__;
   await import('./page-inline-viewer-v2.js?v=1');
   await window.__KPTU_PAGE_INLINE_VIEWER_READY__;
 
