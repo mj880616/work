@@ -121,6 +121,12 @@ th{background:#f9fafb;color:#475467}
 <link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
 <link rel="shortcut icon" href="/work/favicon.svg?v=1">
 <link rel="stylesheet" href="/work/assets/web1-design-lite.css?v=1">
+
+<style>
+/* 2in1 information hierarchy pilot */
+.hero>.summary{margin-top:18px}.summary>div{padding:14px 15px}.summary b{font-size:11px;letter-spacing:.02em}.summary span{line-height:1.5}.sectionHead,.checkHead{margin-top:28px}.sectionHead>div:first-child,.checkHead>div:first-child{min-width:0}.section-kicker{display:block;font-size:9px;font-weight:900;letter-spacing:.14em;color:#83909e;margin-bottom:2px}.sectionHead h2,.checkHead h2{margin:0}.area{box-shadow:none}.area .tag{margin-bottom:7px}.progress{margin-top:10px;border-radius:12px}.cta{margin-top:4px;box-shadow:none}.tableWrap{border-radius:12px;box-shadow:none}
+@media(max-width:700px){.hero>.summary{margin-top:15px}.summary>div{padding:12px 13px}.sectionHead,.checkHead{align-items:flex-start;gap:8px}.sectionActions{margin-left:auto;flex-wrap:wrap;justify-content:flex-end}.checkHead>.sync{max-width:45%;text-align:right}.progress{align-items:flex-start}.cta{padding:15px}.tableWrap{overflow-x:auto}.tableWrap table{min-width:520px}}
+</style>
 </head>
 <body>
 <main class="wrap">
@@ -135,12 +141,12 @@ th{background:#f9fafb;color:#475467}
 </header>
 
 <section>
-<div class="sectionHead"><h2>영역별 진행상황</h2><div class="sectionActions"><button class="miniBtn" id="areaEditAllBtn">전체 수정</button><button class="miniBtn" id="areaAddBtn">+ 영역 추가</button></div></div>
+<div class="sectionHead"><div><span class="section-kicker">STATUS</span><h2>영역별 진행상황</h2></div><div class="sectionActions"><button class="miniBtn" id="areaEditAllBtn">전체 수정</button><button class="miniBtn" id="areaAddBtn">+ 영역 추가</button></div></div>
 <div class="grid" id="areaGrid"></div>
 </section>
 
 <section id="checklist">
-<div class="checkHead"><h2>공동 준비 체크리스트</h2><span class="sync" id="sync">공유 상태 불러오는 중</span></div>
+<div class="checkHead"><div><span class="section-kicker">ACTION</span><h2>공동 준비 체크리스트</h2></div><span class="sync" id="sync">공유 상태 불러오는 중</span></div>
 <div class="progress"><b id="pct">0%</b><div><div class="bar"><i id="bar"></i></div><div class="sync"><span id="doneCount">0</span>/<span id="totalCount">0</span> 완료 · 체크·추가·수정·삭제는 모든 브라우저에 공유됨</div></div></div>
 <div id="checkRoot"></div>
 </section>
@@ -150,7 +156,7 @@ th{background:#f9fafb;color:#475467}
 </section>
 
 <section>
-<div class="sectionHead"><h2>주요 일정</h2><button class="miniBtn" id="scheduleAddBtn">+ 일정 추가</button></div>
+<div class="sectionHead"><div><span class="section-kicker">SCHEDULE</span><h2>주요 일정</h2></div><button class="miniBtn" id="scheduleAddBtn">+ 일정 추가</button></div>
 <div class="tableWrap"><table><thead><tr><th>일정</th><th>사업</th><th>상태</th></tr></thead><tbody id="scheduleBody"></tbody></table></div>
 </section>
 
