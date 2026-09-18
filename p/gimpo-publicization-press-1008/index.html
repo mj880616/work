@@ -128,5 +128,5 @@ function update(){document.querySelectorAll('select.status-select').forEach(el=>
 async function loadChecklist(){try{const r=await fetch(BOARD_API,{cache:'no-store'}),rows=await r.json(),map={};if(Array.isArray(rows))rows.forEach(x=>map[x.item_key]=x.value);document.querySelectorAll('input[type=checkbox]').forEach(el=>{if(Object.prototype.hasOwnProperty.call(map,el.id))el.checked=!!map[el.id]});document.querySelectorAll('select.status-select').forEach(el=>{const done=!!map[el.id+'_done'],failed=!!map[el.id+'_failed']&&!done;el.value=failed?'failed':String(done);el.dataset.done=String(done);el.dataset.failed=String(failed)});setSaveStatus('서버 동기화 완료')}catch{setSaveStatus('서버 동기화 실패',true)}ready=true;update()}
 loadChecklist();document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadChecklist()});
 </script>
-<script src="/work/app/web1-page-capabilities.js?v=1"></script>\n<script src="/work/app/web1-admin-auth.js?v=1"></script>\n<script src="/work/app/web1-toolbar.js?v=1"></script>\n</body>
+<script src="/work/app/web1-page-capabilities.js?v=2"></script>\n<script src="/work/app/web1-admin-auth.js?v=2"></script>\n<script src="/work/app/web1-toolbar.js?v=2"></script>\n</body>
 </html>
