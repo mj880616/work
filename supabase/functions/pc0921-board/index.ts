@@ -9,7 +9,8 @@ const cors={
   "Cache-Control":"no-store"
 };
 
-const boards=new Set(["pc0921","pc2in1","private_rail","sanbyeol","press0914"]);\nconst PUBLIC_EDIT_BOARDS=new Set(["pc0921","pc2in1"]);
+const boards=new Set(["pc0921","pc2in1","private_rail","sanbyeol","press0914"]);
+const PUBLIC_EDIT_BOARDS=new Set(["pc0921","pc2in1"]);
 const fixed=/^(done_|task_|org_|people_|staff_)[a-z0-9_-]{1,80}$/;
 const dynamic=/^extra_(name|checked|people|note)_[a-z0-9_-]{1,80}$/;
 const area=/^area_(title|status|body|hidden)_[a-z0-9_-]{1,80}$/;
