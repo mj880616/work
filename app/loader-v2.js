@@ -21,7 +21,6 @@
       return;
     }
     await import('./public-workspace.js?v=4');
-    await import('./public-workspace-extras.js?v=1');
     return;
   }
 
