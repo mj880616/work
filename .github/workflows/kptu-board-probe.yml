@@ -1,21 +1,30 @@
 name: KPTU board probe
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/kptu-board-probe.yml'
 permissions:
   contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
-      - name: Probe metadata and HWP extraction
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+      - name: Install pyhwp
         shell: bash
         run: |
-          set -e
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq libhwp-bin >/dev/null 2>&1 || true
-          python - <<'PY'
-          import urllib.request,re,html,os,subprocess,tempfile
+          python -m pip install --upgrade "pip<25" "setuptools<70" wheel
+          python -m pip install --pre pyhwp
+          hwp5txt --help >/dev/null
+      - name: Probe metadata and HWP extraction
+        shell: python
+        run: |
+          import urllib.request,re,html,subprocess,os
           from urllib.parse import urljoin
           UA={"User-Agent":"Mozilla/5.0 KPTU-archive-probe/1.0"}
           urls=[
@@ -27,33 +36,22 @@ jobs:
               s=re.sub(r'<script[\s\S]*?</script>|<style[\s\S]*?</style>',' ',s,flags=re.I)
               s=re.sub(r'<[^>]+>',' ',s)
               return html.unescape(re.sub(r'\s+',' ',s)).strip()
-          for url in urls:
+          for docno,url in enumerate(urls):
               req=urllib.request.Request(url,headers=UA)
               with urllib.request.urlopen(req,timeout=20) as r:
                   raw=r.read(); page=raw.decode(r.headers.get_content_charset() or "utf-8","replace")
-              # candidate metadata around common board labels and heading tags
-              heads=[clean(x) for x in re.findall(r'<(?:h1|h2|h3|h4|strong|dt|dd|th|td)[^>]*>([\s\S]*?)</(?:h1|h2|h3|h4|strong|dt|dd|th|td)>',page,re.I)]
-              heads=[x for x in heads if x and len(x)<300]
+              fields=[clean(x) for x in re.findall(r'<(?:h1|h2|h3|h4|strong|dt|dd|th|td)[^>]*>([\s\S]*?)</(?:h1|h2|h3|h4|strong|dt|dd|th|td)>',page,re.I)]
+              fields=[x for x in fields if x and len(x)<300]
               hrefs=re.findall(r'href\s*=\s*["\']([^"\']+)["\']',page,re.I)
-              files=[urljoin(url,html.unescape(x)) for x in hrefs if re.search(r'FileDown\.aspx',x,re.I)]
-              print("META",{"url":url,"candidate_fields":heads[-30:],"files":files})
-              for i,fu in enumerate(files[:3]):
-                  try:
-                      rq=urllib.request.Request(fu,headers=UA)
-                      with urllib.request.urlopen(rq,timeout=30) as rr:
-                          data=rr.read()
-                          ctype=rr.headers.get("content-type"); dispo=rr.headers.get("content-disposition")
-                      ext=".hwp" if ".hwp" in fu.lower() else ".bin"
-                      p=f"/tmp/kptu_{i}{ext}"
-                      open(p,"wb").write(data)
-                      print("FILE",{"url":fu,"bytes":len(data),"content_type":ctype,"disposition":dispo,"magic":data[:16].hex()})
-                      for cmd in (["hwp5txt",p],["hwp5proc","xml",p]):
-                          try:
-                              z=subprocess.run(cmd,capture_output=True,timeout=30)
-                              out=(z.stdout or b"").decode("utf-8","replace")
-                              if out.strip():
-                                  print("EXTRACT",{"tool":cmd[0],"chars":len(out),"sample":re.sub(r'\s+',' ',out)[:1200]})
-                                  break
-                          except Exception as e: pass
-                  except Exception as e: print("FILE_ERROR",fu,repr(e))
-          PY
+              hwps=[urljoin(url,html.unescape(x)) for x in hrefs if re.search(r'FileDown\.aspx.*\.hwp(?:&|$)',html.unescape(x),re.I)]
+              print("META",{"url":url,"candidate_fields":fields[-20:],"hwp_count":len(hwps)})
+              for i,fu in enumerate(hwps):
+                  rq=urllib.request.Request(fu,headers=UA)
+                  with urllib.request.urlopen(rq,timeout=30) as rr:
+                      data=rr.read()
+                  p=f"/tmp/kptu_{docno}_{i}.hwp"
+                  open(p,"wb").write(data)
+                  z=subprocess.run(["hwp5txt",p],capture_output=True,timeout=60)
+                  out=z.stdout.decode("utf-8","replace")
+                  err=z.stderr.decode("utf-8","replace")
+                  print("HWP_RESULT",{"url":fu,"bytes":len(data),"returncode":z.returncode,"chars":len(out),"sample":re.sub(r'\s+',' ',out)[:1800],"stderr":err[:500]})
