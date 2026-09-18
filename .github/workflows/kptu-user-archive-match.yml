@@ -1,0 +1,27 @@
+name: Match user archive to KPTU
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/kptu_match_user_archive.py'
+      - '.github/workflows/kptu-user-archive-match.yml'
+permissions:
+  contents: write
+jobs:
+  match:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/kptu_match_user_archive.py
+      - name: Commit matches
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kptu-corpus/user-archive-matches.json
+          git diff --cached --quiet || git commit -m "Match user archive to KPTU posts"
+          git pull --rebase origin main
+          git push
