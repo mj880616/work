@@ -134,7 +134,8 @@ Deno.serve(async(req)=>{
   if(req.method==="POST"){
     let body:any;try{body=await req.json()}catch{return new Response(JSON.stringify({error:"json"}),{status:400,headers:cors})}
     const publicEdit=PUBLIC_EDIT_BOARDS.has(board);
-    const publicEdit=PUBLIC_EDIT_BOARDS.has(board);\n    if(!publicEdit&&!await requireAdmin())return new Response(JSON.stringify({error:"forbidden"}),{status:403,headers:cors});\n    const k=String(body.item_key||"");
+    if(!publicEdit&&!await requireAdmin())return new Response(JSON.stringify({error:"forbidden"}),{status:403,headers:cors});
+    const k=String(body.item_key||"");
     if(!validKey(k))return new Response(JSON.stringify({error:"key"}),{status:400,headers:cors});
     const v=body.value!==undefined?body.value:body.checked;
     const raw=JSON.stringify(v),maxBytes=isPageEdit(k)?60000:k.startsWith("rail_card_")?8000:k.startsWith("san_")?12000:(k.startsWith("press_")||k.startsWith("attachment_"))?40000:1000;
