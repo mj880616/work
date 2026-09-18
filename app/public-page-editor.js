@@ -62,6 +62,11 @@
     return tools;
   }
 
+  function setStatus(text,error=false){const el=document.querySelector('#ppeLiveStatus');if(!el)return;el.textContent=text||'';el.classList.toggle('error',!!error)}
+  function showRetry(on){const el=document.querySelector('#ppeLiveRetry');if(el)el.classList.toggle('hidden',!on||!editing)}
+  function clearAutosave(){if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null}}
+  function clearRetry(){if(retryTimer){clearTimeout(retryTimer);retryTimer=null}}
+
   async function adminAuth(){
     if(window.KPTUWeb1AdminAuth)return window.KPTUWeb1AdminAuth;
     if(!authPromise){authPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=ADMIN_AUTH_SRC;script.async=true;script.onload=()=>resolve(window.KPTUWeb1AdminAuth);script.onerror=()=>reject(new Error('Google 편집 인증 모듈을 불러오지 못했습니다.'));document.head.appendChild(script)}).catch(e=>{authPromise=null;throw e})}
