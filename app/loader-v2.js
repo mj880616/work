@@ -74,8 +74,7 @@
     import('./calendar-health.js?v=3'),
     import('./home-task-controls.js?v=3'),
     import('./workplace-detail.js?v=3'),
-    import('./library-upload.js?v=5'),
-    import('./library-public-toggle.js?v=1')
+    import('./library-upload.js?v=6')
   ]);
 
   await window.__KPTU_PHOTO_ROOM_READY__;
