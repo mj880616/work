@@ -50,6 +50,7 @@
     <button class="nav-btn" data-view="tasks" type="button">할 일</button>
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
     <button class="nav-btn" data-view="library" type="button">자료실</button>
+    <button class="nav-btn" data-view="media" type="button">언론대응</button>
     <button class="nav-btn" data-view="meetings" type="button">회의</button>
     <button class="nav-btn" data-view="pages" type="button">게시판</button>
     <button class="nav-btn" data-view="team" type="button">팀</button>
@@ -92,6 +93,13 @@
     <div class="section-head"><div><h2>자료실</h2><p>정부·국회·정책·교섭·교육 자료를 축적하고 검색합니다.</p></div><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div>
     <div class="toolbar"><label class="a11y-only" for="documentSearch">자료 검색</label><input id="documentSearch" class="search" type="search" placeholder="제목·출처·태그 검색"><label class="a11y-only" for="documentProject">프로젝트 필터</label><select id="documentProject"><option value="all">전체 프로젝트</option></select></div>
     <div id="documentList" class="card-list"></div>
+  </section>
+
+  <section id="mediaView" class="view-panel hidden">
+    <div class="section-head"><div><h2>언론대응</h2><p>사건 팩트시트부터 취재요청·보도자료·성명 초안, 배포 전 QA까지 한 문서에서 관리합니다.</p></div><button id="newMediaCaseBtn" class="primary" type="button">+ 사건 만들기</button></div>
+    <div class="media-intro">내부 제작 화면입니다. 여기서 확정한 자료만 이후 Web1 공개 아카이브로 넘기는 구조로 사용합니다.</div>
+    <div class="media-toolbar"><input id="mediaSearch" class="search" type="search" placeholder="사건 검색" aria-label="언론대응 사건 검색"><select id="mediaStatusFilter" aria-label="진행 상태"><option value="all">전체 상태</option><option value="draft">작성중</option><option value="review">검토중</option><option value="published">확정</option><option value="archived">종료</option></select></div>
+    <div id="mediaCaseList" class="media-case-list"></div><div id="mediaCaseEmpty" class="empty hidden">아직 등록된 언론대응 사건이 없습니다.</div>
   </section>
 
   <section id="meetingsView" class="view-panel hidden">
