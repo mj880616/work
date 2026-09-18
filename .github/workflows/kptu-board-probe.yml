@@ -6,41 +6,54 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
-      - name: Probe KPTU board and detail pages
-        shell: python
+      - name: Probe metadata and HWP extraction
+        shell: bash
         run: |
-          import urllib.request, re, html
+          set -e
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libhwp-bin >/dev/null 2>&1 || true
+          python - <<'PY'
+          import urllib.request,re,html,os,subprocess,tempfile
           from urllib.parse import urljoin
           UA={"User-Agent":"Mozilla/5.0 KPTU-archive-probe/1.0"}
-          base="https://kptu.net/board/list.aspx?mid=F686C1F3"
-          details_all=[]
-          for page in (1,2,10):
-              url=base if page==1 else base+"&page="+str(page)
+          urls=[
+            "https://kptu.net/board/detail.aspx?mid=F686C1F3&idx=56205&bid=KPTU_NEW04",
+            "https://kptu.net/board/detail.aspx?mid=F686C1F3&idx=56177&bid=KPTU_NEW04",
+            "https://kptu.net/board/detail.aspx?mid=F686C1F3&page=10&idx=55684&bid=KPTU_NEW04"
+          ]
+          def clean(s):
+              s=re.sub(r'<script[\s\S]*?</script>|<style[\s\S]*?</style>',' ',s,flags=re.I)
+              s=re.sub(r'<[^>]+>',' ',s)
+              return html.unescape(re.sub(r'\s+',' ',s)).strip()
+          for url in urls:
               req=urllib.request.Request(url,headers=UA)
-              try:
-                  with urllib.request.urlopen(req,timeout=20) as r:
-                      raw=r.read(); text=raw.decode("utf-8","replace")
-                      details=re.findall(r'href=["\']?([^"\' >]*detail\.aspx[^"\' >]*)',text,re.I)
-                      details=[urljoin(url,x.replace("&amp;","&")) for x in details]
-                      print({"page":page,"status":r.status,"bytes":len(raw),"detail_count":len(details),"samples":details[:3]})
-                      details_all += details[1:4]
-              except Exception as e: print({"page":page,"error":repr(e)})
-          seen=[]
-          for url in details_all:
-              if url in seen: continue
-              seen.append(url)
-              try:
-                  req=urllib.request.Request(url,headers=UA)
-                  with urllib.request.urlopen(req,timeout=20) as r:
-                      raw=r.read()
-                      enc=r.headers.get_content_charset() or "utf-8"
-                      text=raw.decode(enc,"replace")
-                      title=(re.search(r'<title[^>]*>([\s\S]*?)</title>',text,re.I) or [None,None])[1]
-                      hrefs=re.findall(r'href\s*=\s*["\']([^"\']+)["\']',text,re.I)
-                      file_hrefs=[urljoin(url,html.unescape(x)) for x in hrefs if re.search(r'(download|attach|file|\.hwp|\.hwpx|\.pdf|\.docx?|\.xlsx?|\.pptx?)',x,re.I)]
-                      plain=re.sub(r'<script[\s\S]*?</script>|<style[\s\S]*?</style>',' ',text,flags=re.I)
-                      plain=re.sub(r'<[^>]+>',' ',plain); plain=html.unescape(re.sub(r'\s+',' ',plain)).strip()
-                      print({"detail":url,"status":r.status,"bytes":len(raw),"title":re.sub(r'<[^>]+>',' ',title or '').strip(),"file_candidates":file_hrefs[:10],"text_sample":plain[:500]})
-              except Exception as e: print({"detail":url,"error":repr(e)})
+              with urllib.request.urlopen(req,timeout=20) as r:
+                  raw=r.read(); page=raw.decode(r.headers.get_content_charset() or "utf-8","replace")
+              # candidate metadata around common board labels and heading tags
+              heads=[clean(x) for x in re.findall(r'<(?:h1|h2|h3|h4|strong|dt|dd|th|td)[^>]*>([\s\S]*?)</(?:h1|h2|h3|h4|strong|dt|dd|th|td)>',page,re.I)]
+              heads=[x for x in heads if x and len(x)<300]
+              hrefs=re.findall(r'href\s*=\s*["\']([^"\']+)["\']',page,re.I)
+              files=[urljoin(url,html.unescape(x)) for x in hrefs if re.search(r'FileDown\.aspx',x,re.I)]
+              print("META",{"url":url,"candidate_fields":heads[-30:],"files":files})
+              for i,fu in enumerate(files[:3]):
+                  try:
+                      rq=urllib.request.Request(fu,headers=UA)
+                      with urllib.request.urlopen(rq,timeout=30) as rr:
+                          data=rr.read()
+                          ctype=rr.headers.get("content-type"); dispo=rr.headers.get("content-disposition")
+                      ext=".hwp" if ".hwp" in fu.lower() else ".bin"
+                      p=f"/tmp/kptu_{i}{ext}"
+                      open(p,"wb").write(data)
+                      print("FILE",{"url":fu,"bytes":len(data),"content_type":ctype,"disposition":dispo,"magic":data[:16].hex()})
+                      for cmd in (["hwp5txt",p],["hwp5proc","xml",p]):
+                          try:
+                              z=subprocess.run(cmd,capture_output=True,timeout=30)
+                              out=(z.stdout or b"").decode("utf-8","replace")
+                              if out.strip():
+                                  print("EXTRACT",{"tool":cmd[0],"chars":len(out),"sample":re.sub(r'\s+',' ',out)[:1200]})
+                                  break
+                          except Exception as e: pass
+                  except Exception as e: print("FILE_ERROR",fu,repr(e))
+          PY
