@@ -1,0 +1,7 @@
+/* Press archive shell: navigation only. Document bodies keep their own publication layout. */
+.press-archive-nav{max-width:920px;margin:0 auto;padding:14px 18px 10px}
+.press-archive-back{display:inline-flex;align-items:center;min-height:36px;padding:7px 11px;border:1px solid #cbd5df;border-radius:9px;background:#fff;color:#17324d;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;font-size:12px;font-weight:800;line-height:1.2}
+.press-archive-back:hover{background:#f8fafc}
+.press-archive-back:focus-visible{outline:3px solid rgba(53,95,134,.22);outline-offset:2px}
+@media(max-width:650px){.press-archive-nav{padding:10px 11px 8px}.press-archive-back{min-height:34px;padding:7px 9px;font-size:11px}}
+@media print{.press-archive-nav{display:none!important}}
