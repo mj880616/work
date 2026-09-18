@@ -70,7 +70,7 @@
   async function checkAccess(pageId=current?.id){const auth=await adminAuth();const s=await auth.session();if(!s?.access_token)throw new Error('login');const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.access_token},body:JSON.stringify({action:'check',id:pageId})});if(!r.ok)throw new Error('denied');return r.json()}
   async function updatePage(next){const auth=await adminAuth();const s=await auth.session();if(!s?.access_token)throw new Error('편집자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.access_token},body:JSON.stringify({action:'update',id:current?.id,...next})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.error||'페이지 저장에 실패했습니다.');return d}
   async function logoutEditor(){if(editing){await finishEditing();if(editing)return}const auth=await adminAuth();await auth.signOut()}
-  async function startEditing(){ensureTools();dirtyVersion=0;savedVersion=0;retryAttempt=0;clearAutosave();clearRetry();setEditingUi(true);if(!prepareLiveFields()){setEditingUi(false);throw new Error('편집할 내용을 찾지 못했습니다.')}document.querySelector('#paper .pd-title')?.focus()}
+  async function startEditing(){ensureTools();dirtyVersion=0;savedVersion=0;retryAttempt=0;clearAutosave();clearRetry();if(!prepareLiveFields())throw new Error('편집할 내용을 찾지 못했습니다.');setEditingUi(true);document.querySelector('#paper .pd-title')?.focus()}
 
   function cleanText(el){return String(el?.innerText??el?.textContent??'').replace(/\u00a0/g,' ').replace(/\r/g,'').trim()}
   function encodeFlow(v){return String(v||'').replace(/\r/g,'').replace(/\n/g,'\\n').trim()}
