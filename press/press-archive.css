@@ -6,12 +6,18 @@
 @media(max-width:650px){.press-archive-nav{padding:10px 11px 8px}.press-archive-back{min-height:34px;padding:7px 9px;font-size:11px}}
 @media print{.press-archive-nav{display:none!important}}
 
-/* Press archive content frame: unify the viewing width without changing each document's internal typography. */
-body.press-archive-detail main,
+/* Press archive detail shell. 9.14 release is the width reference. */
+.press-archive-nav{max-width:850px}
 body.press-archive-detail .page,
-body.press-archive-detail .wrap{
-  width:min(100%,860px);
-  max-width:860px;
+body.press-archive-detail > main,
+body.press-archive-detail > .wrap{
+  width:calc(100% - 30px);
+  max-width:850px;
   margin-left:auto;
   margin-right:auto;
+}
+@media(max-width:650px){
+  body.press-archive-detail .page,
+  body.press-archive-detail > main,
+  body.press-archive-detail > .wrap{width:calc(100% - 22px)}
 }
