@@ -39,7 +39,7 @@
     window.KPTUCapabilities.setContext({user,membership:memberships?.[0]||null});
   }catch(e){console.warn('capability context skipped',e)}
 
-  await import('./project-system-v3.js?v=2');
+  await import('./project-system-v3.js?v=3');
 
   await import('./team-member-overview.js?v=2');
   await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__;
