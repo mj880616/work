@@ -25,8 +25,8 @@ jobs:
           set -e
           node --check app/app-router.js
           grep -q "app-router.js?v=3" app/loader-v2.js
-          grep -q "loader-v2.js?v=140" app/app.js
-          grep -q 'app.js?v=29' app/index.html
+          grep -q "loader-v2.js?v=141" app/app.js
+          grep -q 'app.js?v=30' app/index.html
           grep -q "kptu:app-ui-ready" app/app-router.js
           grep -q "kptu:session-changed" app/app-router.js
           grep -q "popstate" app/app-router.js
