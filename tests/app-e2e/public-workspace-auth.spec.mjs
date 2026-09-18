@@ -65,7 +65,7 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
 
   await page.locator('.app-nav [data-view="projects"]').click();
   await expect(page.locator('#projectGrid')).toContainText('공개 프로젝트');
-  await page.locator('[data-public-project="p1"]').click();
+  await page.locator('#projectGrid [data-public-project="p1"]').click();
   await expect(page.locator('#publicProjectBody')).toContainText('프로젝트 공개 할 일');
   await expect(page.locator('#publicProjectBody')).not.toContainText('개인 할 일');
   await expect(page.locator('#publicProjectBody')).not.toContainText('INTERNAL_NOTE');
