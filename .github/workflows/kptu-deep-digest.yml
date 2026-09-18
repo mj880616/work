@@ -1,0 +1,27 @@
+name: Build KPTU deep digests
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/kptu_build_deep_digest.py'
+      - '.github/workflows/kptu-deep-digest.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/kptu_build_deep_digest.py
+      - name: Commit digests
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kptu-corpus/deep analysis/kptu-corpus/deep-summary.json
+          git diff --cached --quiet || git commit -m "Build KPTU deep-reading digests"
+          git pull --rebase origin main
+          git push
