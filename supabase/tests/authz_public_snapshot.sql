@@ -26,16 +26,18 @@ begin
   if uid is null then raise exception 'at least one auth user is required'; end if;
 
   insert into public.app_spaces(
-    id,workspace_id,slug,name,description,created_by,owner_id,status,visibility,sort_order
+    id,workspace_id,parent_id,slug,name,description,created_by,owner_id,status,visibility,sort_order
   ) values
-    ('11111111-aaaa-4111-8111-111111111111',wid,'authz-public-snapshot-public','AUTHZ PUBLIC SPACE','public fixture',uid,uid,'active','public',99990),
-    ('22222222-aaaa-4222-8222-222222222222',wid,'authz-public-snapshot-private','AUTHZ PRIVATE SPACE','private fixture',uid,uid,'active','private',99991);
+    ('11111111-aaaa-4111-8111-111111111111',wid,null,'authz-public-snapshot-public','AUTHZ PUBLIC SPACE','public fixture',uid,uid,'active','public',99990),
+    ('12121212-aaaa-4121-8121-121212121212',wid,'11111111-aaaa-4111-8111-111111111111','authz-public-snapshot-public-child','AUTHZ PUBLIC CHILD','public child fixture',uid,uid,'active','public',99991),
+    ('22222222-aaaa-4222-8222-222222222222',wid,null,'authz-public-snapshot-private','AUTHZ PRIVATE SPACE','private fixture',uid,uid,'active','private',99992),
+    ('23232323-aaaa-4232-8232-232323232323',wid,'22222222-aaaa-4222-8222-222222222222','authz-public-snapshot-private-child','AUTHZ PRIVATE CHILD','private child fixture',uid,uid,'active','private',99993);
 
   insert into public.app_tasks(
     id,workspace_id,project_id,title,note,status,priority,created_by
   ) values
-    ('33333333-aaaa-4333-8333-333333333333',wid,'11111111-aaaa-4111-8111-111111111111','AUTHZ PUBLIC TASK','SECRET_TASK_NOTE','todo','normal',uid),
-    ('44444444-aaaa-4444-8444-444444444444',wid,'22222222-aaaa-4222-8222-222222222222','AUTHZ PRIVATE TASK','PRIVATE_TASK_NOTE','todo','normal',uid);
+    ('33333333-aaaa-4333-8333-333333333333',wid,'12121212-aaaa-4121-8121-121212121212','AUTHZ PUBLIC TASK','SECRET_TASK_NOTE','todo','normal',uid),
+    ('44444444-aaaa-4444-8444-444444444444',wid,'23232323-aaaa-4232-8232-232323232323','AUTHZ PRIVATE TASK','PRIVATE_TASK_NOTE','todo','normal',uid);
 
   insert into public.app_events(
     id,workspace_id,title,description,event_type,start_at,end_at,location,created_by,body,calendar_scope
@@ -46,8 +48,8 @@ begin
   insert into public.app_documents(
     id,workspace_id,project_id,title,category,description,visibility,uploaded_by,extracted_text
   ) values
-    ('77777777-aaaa-4777-8777-777777777777',wid,'11111111-aaaa-4111-8111-111111111111','AUTHZ PUBLIC DOCUMENT','테스트','public description','public',uid,'SECRET_EXTRACTED_TEXT'),
-    ('88888888-aaaa-4888-8888-888888888888',wid,'11111111-aaaa-4111-8111-111111111111','AUTHZ WORKSPACE DOCUMENT','테스트','workspace description','workspace',uid,'WORKSPACE_EXTRACTED_TEXT');
+    ('77777777-aaaa-4777-8777-777777777777',wid,'12121212-aaaa-4121-8121-121212121212','AUTHZ PUBLIC DOCUMENT','테스트','public description','public',uid,'SECRET_EXTRACTED_TEXT'),
+    ('88888888-aaaa-4888-8888-888888888888',wid,'12121212-aaaa-4121-8121-121212121212','AUTHZ WORKSPACE DOCUMENT','테스트','workspace description','workspace',uid,'WORKSPACE_EXTRACTED_TEXT');
 end $$;
 
 set local role anon;
