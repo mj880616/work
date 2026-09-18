@@ -26,14 +26,12 @@
   }
 
   await import('./topbar-actions.js?v=1');
-  await import('./team.js?v=17');
+  // team.js reads the same persisted session, but its legacy init can race the dedicated-login handoff.
+  // Seed its in-memory session before init so the authenticated renderer owns the first committed UI.
+  window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
+  await import('./team.js?v=18');
   await window.__KPTU_TEAM_READY__;
-  // Runtime session is authoritative for this branch. If team.js saw stale pre-login state,
-  // reload the authenticated workspace once instead of leaving the auth renderer visible.
-  if(window.__KPTU_TEAM_READY_STATE__==='auth'&&window.KPTURuntime.session.read()){
-    location.reload();
-    return;
-  }
+  delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
 
   try{
     const user=await window.KPTURuntime.api('/auth/v1/user');
