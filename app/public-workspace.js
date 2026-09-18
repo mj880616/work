@@ -4,7 +4,7 @@
   window.__KPTU_PUBLIC_WORKSPACE__=true;
   const rt=window.KPTURuntime;
   if(!rt?.api)return;
-  const state={spaces:[],tasks:[],pages:[]};
+  const state={spaces:[],tasks:[],pages:[],documents:[]};
   const PUBLIC_VIEWS=new Set(['home','calendar','tasks','projects','library','meetings','pages','team']);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=v=>v?new Date(v).toLocaleDateString('ko-KR'):'';
@@ -44,7 +44,6 @@
   function renderLockedViews(){
     const configs={
       calendar:['공동 일정은 로그인 후 열람할 수 있습니다.','현재 일정에는 항목별 외부 공개범위가 없어 팀 내부 일정 정보를 외부에 노출하지 않습니다.'],
-      library:['자료실은 로그인 후 열람할 수 있습니다.','자료별 공개범위가 전체 공개로 설정된 경우에만 향후 이 화면에서 외부 열람할 수 있도록 연결합니다.'],
       meetings:['회의 결과는 로그인 후 열람할 수 있습니다.','회의에는 아직 항목별 외부 공개범위가 없으므로 제목과 회의내용을 외부에 노출하지 않습니다.'],
       team:['팀 정보는 로그인 후 열람할 수 있습니다.','구성원·권한·그룹 정보는 업무자료와 별도의 내부 정보로 취급합니다.']
     };
@@ -86,14 +85,35 @@
     const head=document.querySelector('#pagesView .section-head p');if(head)head.textContent='게시글의 열람 상태에 따라 비로그인 열람 여부가 결정됩니다.';
     if(filter){filter.innerHTML='<option value="published">전체 공개 게시</option>';filter.disabled=true}
     if(!document.getElementById('publicPageVisibilityNote'))list.insertAdjacentHTML('beforebegin','<div id="publicPageVisibilityNote" class="public-visibility-note">전체 공개(public) 글만 목록에 표시됩니다. 링크 공개(unlisted)는 주소를 아는 사람만 직접 열람할 수 있고, 로그인 사용자·지정 그룹·비공개 글은 제목과 요약도 외부 목록에 노출하지 않습니다.</div>');
-    const paint=()=>{const q=(search?.value||'').trim().toLowerCase(),rows=state.pages.filter(p=>!q||`${p.title||''} ${p.summary||''}`.toLowerCase().includes(q));list.innerHTML=rows.map(p=>`<article class="page-card"><div class="badges"><span class="badge published">전체 공개</span></div><h3>${esc(p.title)}</h3><p>${esc(p.summary||'')}</p><div class="page-card-foot"><span class="updated">${fmt(p.updated_at)}</span><a class="mini" href="../p/${encodeURIComponent(p.slug)}/" target="_blank" rel="noopener">열기</a></div></article>`).join('');document.getElementById('pageEmpty')?.classList.toggle('hidden',!!rows.length)};
+    const paint=()=>{const q=(search?.value||'').trim().toLowerCase(),rows=state.pages.filter(p=>!q||`${p.title||''} ${p.summary||''}`.toLowerCase().includes(q));list.innerHTML=rows.map(p=>`<article class="page-card" tabindex="0" role="link" data-public-card-url="../p/${encodeURIComponent(p.slug)}/"><div class="badges"><span class="badge published">전체 공개</span></div><h3>${esc(p.title)}</h3><p>${esc(p.summary||'')}</p><div class="page-card-foot"><span class="updated">${fmt(p.updated_at)}</span><a class="mini" href="../p/${encodeURIComponent(p.slug)}/" target="_blank" rel="noopener">열기</a></div></article>`).join('');document.getElementById('pageEmpty')?.classList.toggle('hidden',!!rows.length)};
     if(search)search.oninput=paint;paint();
+    list.addEventListener('click',e=>{
+      const card=e.target.closest?.('.page-card[data-public-card-url]');
+      if(card&&!e.target.closest('button,input,select,textarea,label'))location.href=card.dataset.publicCardUrl;
+    });
+  }
+  function renderLibrary(){
+    const view=document.getElementById('libraryView');if(!view)return;
+    view.innerHTML=`<div class="section-head"><div><h2>자료실</h2><p>외부 공개로 지정된 자료는 로그인 없이 열람할 수 있습니다.</p></div></div><div class="public-library-toolbar"><input id="publicLibrarySearch" class="search" type="search" placeholder="자료명·출처·태그 검색"></div><div class="public-visibility-note">팀 공개·비공개 자료는 제목과 설명도 외부에 노출하지 않습니다.</div><div id="publicLibraryList" class="public-library-list"></div>`;
+    const box=document.getElementById('publicLibraryList'),search=document.getElementById('publicLibrarySearch');
+    const paint=()=>{
+      const q=(search?.value||'').trim().toLowerCase();
+      const rows=state.documents.filter(d=>!q||[d.title,d.file_name,d.source,d.category,d.description,(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q));
+      box.innerHTML=rows.length?rows.map(d=>{
+        const body=`<div class="badges"><span class="badge">${esc(d.category||'기타')}</span><span class="badge published">공개</span></div><h3>${esc(d.title||d.file_name||'자료')}</h3><p>${esc(d.source||'출처 미기재')}${d.document_date?' · '+esc(d.document_date):''}</p>${d.description?`<small>${esc(d.description)}</small>`:''}`;
+        return d.drive_url?`<button class="public-library-card" type="button" data-public-document-url="${esc(d.drive_url)}">${body}</button>`:`<article class="public-library-card">${body}</article>`;
+      }).join(''):'<div class="empty">현재 외부 공개로 지정된 자료가 없습니다.</div>';
+    };
+    if(search)search.oninput=paint;
+    box.onclick=e=>{const card=e.target.closest?.('[data-public-document-url]');if(card)window.open(card.dataset.publicDocumentUrl,'_blank','noopener')};
+    paint();
   }
   async function load(){
     const data=await rt.api('/rest/v1/rpc/app_public_projects_snapshot',{method:'POST',body:{},auth:false});
     state.spaces=Array.isArray(data?.spaces)?data.spaces:[];
     state.tasks=(Array.isArray(data?.tasks)?data.tasks:[]).filter(t=>!!t.project_id);
     state.pages=Array.isArray(data?.pages)?data.pages:[];
+    state.documents=Array.isArray(data?.documents)?data.documents:[];
   }
   async function init(){
     const initialView=normalizePublicRoute();
@@ -101,7 +121,7 @@
     document.addEventListener('click',e=>{const p=e.target.closest?.('[data-public-project]');if(p){e.preventDefault();openProject(p.dataset.publicProject)}},true);
     try{
       await load();
-      renderHome();renderLockedViews();renderTasks();renderProjects();renderPages();
+      renderHome();renderLockedViews();renderTasks();renderProjects();renderPages();renderLibrary();
       window.KPTURouter?.go?.(initialView,{source:'public',updateUrl:false,scroll:false});
     }catch(err){
       console.error(err);
