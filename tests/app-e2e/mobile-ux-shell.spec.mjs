@@ -62,10 +62,10 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 
-  await expect(page.locator('[data-hta-expand]')).toHaveText('+ 2개 더 보기',{timeout:10000});
-  await page.locator('[data-hta-expand]').click();
-  await expect(page.locator('#myTaskMini .hta-task')).toHaveCount(8);
-  await expect(page.locator('[data-hta-expand]')).toHaveText('접기');
+  await expect(page.locator('#hdvTaskPanel')).toBeVisible({timeout:10000});
+  await expect(page.locator('#hdvTasks .hdv-row')).toHaveCount(6);
+  await expect(page.locator('#hdvTasks')).toContainText('모바일 QA 할 일 1');
+  await expect(page.locator('[data-hta-expand]')).toHaveCount(0);
 
   const motion=await gesture(page,'#homeView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
   expect(motion).toContain('translate3d');
@@ -78,7 +78,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   expect(vertical).toBe('');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('home');
 
-  await page.locator('#homeAddEvent').evaluate(el=>{
+  await page.locator('#hdvMilestonePanel [data-hdv-goto="calendar"]').evaluate(el=>{
     const ev=(type,p,key='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,key,{value:[{clientX:p.x,clientY:p.y}]});el.dispatchEvent(e)};
     ev('touchstart',{x:330,y:360});ev('touchmove',{x:210,y:362});ev('touchend',{x:90,y:364},'changedTouches');
   });
