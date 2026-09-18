@@ -36,6 +36,10 @@ Deno.serve(async(req:Request)=>{
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))return reply({error:'invalid_id'},400);
 
   const db=userClient(req);
+  const {data:{user},error:userError}=await db.auth.getUser();
+  if(userError||!user)return reply({error:'authentication_required'},401);
+  if(user.id!==WEB1_ADMIN_USER_ID)return reply({error:'forbidden'},403);
+
   const {data:canEdit,error:canEditError}=await db.rpc('app_can_edit_page_rpc',{p_page:id});
   if(canEditError)return reply({error:'access_check_failed'},500);
   if(canEdit!==true)return reply({error:'forbidden'},403);
