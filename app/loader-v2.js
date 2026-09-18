@@ -29,7 +29,7 @@
   // team.js reads the same persisted session, but its legacy init can race the dedicated-login handoff.
   // Seed its in-memory session before init so the authenticated renderer owns the first committed UI.
   window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
-  await import('./team.js?v=18');
+  await import('./team.js?v=17');
   await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
 
