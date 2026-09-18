@@ -90,8 +90,8 @@ jobs:
           grep -q "public-workspace.js?v=7" app/loader-v2.js
           grep -q "home-dashboard-v2.js?v=4" app/loader-v2.js
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
-          grep -q "team.js?v=17" app/loader-v2.js
-          grep -q "project-system-v3.js?v=3" app/loader-v2.js
+          grep -q "team.js?v=18" app/loader-v2.js
+          grep -q "project-system-v3.js?v=4" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
           grep -q "task-layout.js?v=6" app/loader-v2.js
