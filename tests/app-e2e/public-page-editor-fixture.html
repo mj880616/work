@@ -31,6 +31,7 @@ const editorApi=async(path,{body}={})=>{
   }
   throw new Error('unexpected request');
 };
+window.__ppeGoogleLogin=0;
 window.KPTUWeb1AdminAuth={
   session:async()=>window.__ppeSession?{access_token:'web1-test-token'}:null,
   isAdmin:async()=>window.__ppeSession&&window.__ppeCanEdit,
