@@ -144,24 +144,7 @@ test('dedicated login signs in and returns to authenticated app',async({page})=>
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page).toHaveURL(`${BASE}/app/?view=projects`,{timeout:10000});
-  try{
-    await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  }catch(err){
-    const diag=await page.evaluate(()=>({
-      href:location.href,
-      loaderReady:!!window.KPTURuntime,
-      runtimeSession:window.KPTURuntime?.session?.read?.()||null,
-      teamState:window.__KPTU_TEAM_READY_STATE__||null,
-      bootSession:window.__KPTU_AUTHENTICATED_BOOT_SESSION__||null,
-      appClass:document.querySelector('#appView')?.className||null,
-      authClass:document.querySelector('#authView')?.className||null,
-      bootstrapClass:document.querySelector('#bootstrapView')?.className||null,
-      badge:document.querySelector('#userBadge')?.textContent||null,
-      errors:[...document.querySelectorAll('pre')].map(x=>x.textContent)
-    }));
-    console.log('AUTH_BOOT_DIAGNOSTIC',JSON.stringify(diag));
-    throw err;
-  }
+  await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#userBadge')).toContainText('테스트 사용자');
 });
 
