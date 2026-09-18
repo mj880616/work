@@ -57,6 +57,7 @@ jobs:
           tests/app-e2e/page-builder.spec.mjs
           tests/app-e2e/page-core-structure.spec.mjs
           tests/app-e2e/media-workflow.spec.mjs
+          tests/app-e2e/library-upload-failure.spec.mjs
           tests/app-e2e/startup-performance.spec.mjs
           tests/app-e2e/project-system-v3.spec.mjs
           tests/app-e2e/project-v3-structure.spec.mjs
