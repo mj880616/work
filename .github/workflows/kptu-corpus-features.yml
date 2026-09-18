@@ -1,0 +1,28 @@
+name: Analyze KPTU corpus features
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/kptu_corpus_features.py'
+      - '.github/workflows/kptu-corpus-features.yml'
+      - 'analysis/kptu-corpus/text/**'
+permissions:
+  contents: write
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/kptu_corpus_features.py
+      - name: Commit feature analysis
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kptu-corpus/feature-summary.json
+          git diff --cached --quiet || git commit -m "Analyze KPTU corpus structural features"
+          git pull --rebase origin main
+          git push
