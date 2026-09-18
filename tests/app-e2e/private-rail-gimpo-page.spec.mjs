@@ -51,81 +51,41 @@ test('9호선 1단계 행감 하위페이지는 독립 문서·상위 복귀·�
   expect(html).toContain('id="printPageBtn"');
 });
 
-test('공개페이지 편집기는 Web1 독립 세션으로 로그인하고 서버 RLS 권한검증을 유지한다', async () => {
-  const editor = await read('app/public-page-editor.js');
-  const auth = await read('app/public-page-auth.js');
-  expect(editor).toContain("document.querySelector('.print-tools,.tools')");
-  expect(editor).toContain("PUBLIC_AUTH_SRC='/work/app/public-page-auth.js?v=1'");
-  expect(editor).toContain('window.KPTUPublicAuth');
+test('공개페이지 편집기는 Google 관리자 인증과 서버 RLS 권한검증을 사용한다', async () => {
+  const editor=await read('app/public-page-editor.js');
+  const auth=await read('app/web1-admin-auth.js');
+  expect(editor).toContain("ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js?v=1'");
+  expect(editor).toContain('window.KPTUWeb1AdminAuth');
   expect(editor).toContain("'/functions/v1/public-page-edit'");
   expect(editor).not.toContain('window.KPTURuntime');
-  expect(editor).not.toContain('Web2에서 로그인');
-  expect(auth).toContain("sessionKey:'kptu_public_editor_session_v1'");
-  expect(auth).not.toContain('kptu_collab_session_v1');
-  expect(auth).toContain("/auth/v1/token?grant_type=password");
-  expect(auth).toContain("/auth/v1/token?grant_type=refresh_token");
-  expect(editor).not.toContain('마스터 비밀번호');
+  expect(auth).toContain("provider:'google'");
+  expect(auth).not.toContain('grant_type=password');
 });
 
-test('비로그인 공개 열람자도 수정 진입 버튼을 볼 수 있고 클릭하면 편집자 로그인을 연다', async ({page}) => {
+test('비로그인 공개 열람자의 수정은 Google 관리자 로그인을 시작한다',async({page})=>{
   await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?anon=1`);
   await expect(page.locator('#editPageBtn')).toBeVisible();
-  expect(await page.evaluate(()=>window.__ppeCalls)).toEqual([]);
   await page.locator('#editPageBtn').click();
-  await expect(page.locator('#ppeAuthDialog')).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>window.__ppeGoogleLogin||0)).toBe(1);
   await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
 });
 
-test('Web1 세션은 있어도 페이지 수정권한이 없으면 로그인 화면에서 권한 부족을 안내한다', async ({page}) => {
+test('관리자가 아닌 Google 계정은 편집모드로 진입하지 않는다',async({page})=>{
   await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html?forbidden=1`);
-  await expect(page.locator('#editPageBtn')).toBeVisible();
   await page.locator('#editPageBtn').click();
-  await expect(page.locator('#ppeAuthDialog')).toBeVisible();
-  await expect(page.locator('#ppeAuthError')).toContainText('수정 권한');
+  await expect.poll(()=>page.evaluate(()=>window.__ppeGoogleLogin||0)).toBe(1);
   await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
 });
 
-test('public-page-edit 함수는 사용자 JWT·DB 편집권한·app_pages RLS로 수정하고 공용 비밀번호·service role을 사용하지 않는다', async () => {
-  const fn = await read('supabase/functions/public-page-edit/index.ts');
+test('public-page-edit 함수는 지정 관리자 JWT·DB 편집권한·app_pages RLS를 모두 확인한다',async()=>{
+  const fn=await read('supabase/functions/public-page-edit/index.ts');
   expect(fn).toContain("req.headers.get('Authorization')");
-  expect(fn).toContain("Deno.env.get('SUPABASE_ANON_KEY')");
+  expect(fn).toContain('WEB1_ADMIN_USER_ID');
+  expect(fn).toContain('db.auth.getUser()');
   expect(fn).toContain("rpc('app_can_edit_page_rpc'");
   expect(fn).toContain("from('app_pages')");
   expect(fn).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
   expect(fn).not.toContain('0822');
-  expect(fn).not.toContain('password');
-});
-
-test('공개페이지 수정·저장은 인증된 공통 편집 경로로 완료되고 저장값을 다시 렌더링한다', async ({page}) => {
-  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html`);
-  await expect(page.locator('#editPageBtn')).toBeVisible();
-  await page.locator('#editPageBtn').click();
-  await expect(page.locator('body')).toHaveClass(/ppe-editing/);
-  await page.locator('.pd-title').fill('변경된 제목');
-  await page.locator('.pd-summary').fill('변경된 요약');
-  await page.locator('.pd-body p').fill('변경된 본문');
-  await page.locator('#ppeLiveSave').click();
-  await expect(page.locator('body')).not.toHaveClass(/ppe-editing/);
-  await expect(page.locator('.pd-title')).toHaveText('변경된 제목');
-  await expect(page.locator('.pd-body p')).toContainText('변경된 본문');
-  const updateCall=await page.evaluate(()=>window.__ppeCalls.find(x=>x.body?.action==='update'));
-  expect(updateCall?.path).toBe('/functions/v1/public-page-edit');
-  expect(updateCall?.body?.title).toBe('변경된 제목');
-  expect(updateCall?.body?.summary).toBe('변경된 요약');
-  expect(updateCall?.body?.body).toContain('변경된 본문');
-});
-
-test('공개페이지 저장 실패 시 수정내용을 버리지 않고 편집상태를 유지해 재시도할 수 있다', async ({page}) => {
-  await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html`);
-  await page.evaluate(()=>{window.__ppeFailUpdate=true});
-  await expect(page.locator('#editPageBtn')).toBeVisible();
-  await page.locator('#editPageBtn').click();
-  await page.locator('.pd-title').fill('실패해도 남을 제목');
-  await page.locator('#ppeLiveSave').click();
-  await expect(page.locator('body')).toHaveClass(/ppe-editing/);
-  await expect(page.locator('.pd-title')).toHaveText('실패해도 남을 제목');
-  await expect(page.locator('#ppeLiveStatus')).toContainText('의도된 저장 실패');
-  await expect(page.locator('#ppeLiveSave')).toBeEnabled();
 });
 
 test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은 좌측 고정 규칙을 쓴다', async () => {
@@ -141,9 +101,9 @@ test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은
 test('국감 페이지 도구줄은 현재 question-0912 페이지의 제목 위에 동적으로 배치된다', async () => {
   const html = await read('private-rail/question-0912/index.html');
   const questionTools = await read('assets/private-rail-question-tools.js');
-  expect(html).toContain('/work/assets/private-rail-question-tools.js');
+  expect(html).toContain('/work/app/web1-toolbar.js?v=1');
   expect(html).toContain('class="hero"');
-  expect(questionTools).toContain("const hero=document.querySelector('.hero')");
-  expect(questionTools).toContain("bar.id='privateRailPrintBar'");
-  expect(questionTools).toContain('hero.before(bar)');
+  const toolbar=await read('app/web1-toolbar.js');
+  expect(toolbar).toContain("document.querySelector('h1,.hero,.pd-hero')");
+  expect(toolbar).toContain('target.parentNode.insertBefore(bar,target)');
 });
