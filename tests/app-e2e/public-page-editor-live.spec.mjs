@@ -26,6 +26,7 @@ test('비로그인 Web1 수정은 Google 관리자 로그인을 시작한다',as
 test('지정 관리자 세션은 서버 권한 확인 후 편집모드로 진입한다',async({page})=>{
   await page.goto(`${BASE}/tests/app-e2e/public-page-editor-fixture.html`);
   await page.locator('#editPageBtn').click();
+  await expect.poll(()=>page.evaluate(()=>window.__ppeDebug?.())).toMatchObject({session:true,canEdit:true,alert:undefined,google:0});
   await expect(page.locator('body')).toHaveClass(/ppe-editing/);
   const checks=await page.evaluate(()=>window.__ppeCalls.filter(x=>x.body?.action==='check'));
   expect(checks.length).toBeGreaterThanOrEqual(1);
