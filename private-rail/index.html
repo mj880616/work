@@ -28,7 +28,7 @@
   const end=html.indexOf('<section class="section">',start+1);
   if(start<0||end<0) throw new Error('materials');
   html=html.slice(0,start)+materials+'\n'+html.slice(end);
-  html=html.replace('<script src="/work/app/web1-page-capabilities.js?v=1"></script>\n<script src="/work/app/web1-admin-auth.js?v=1"></script>\n<script src="/work/app/web1-toolbar.js?v=1"></script>\n</body>','<script src="./org-data.js?v=1"><\/script><script src="./org-status.js?v=1"><\/script></body>');
+  html=html.replace('<script src="/work/app/web1-page-capabilities.js?v=2"></script>\n<script src="/work/app/web1-admin-auth.js?v=2"></script>\n<script src="/work/app/web1-toolbar.js?v=2"></script>\n</body>','<script src="./org-data.js?v=1"><\/script><script src="./org-status.js?v=1"><\/script></body>');
   document.open();document.write(html);document.close();
 })().catch(()=>location.replace('./page.html'));
 </script><script src="/work/assets/rich-copy.js?v=1"></script></body></html>
