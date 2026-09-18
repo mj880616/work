@@ -4,7 +4,7 @@
   window.__KPTU_PUBLIC_PAGE_EDITOR__=true;
 
   const EDIT_API='/functions/v1/public-page-edit';
-  const PUBLIC_AUTH_SRC='/work/app/public-page-auth.js?v=6';
+  const ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js?v=1';
   const AUTOSAVE_DELAY=650;
   const RETRY_DELAYS=[900,2200];
   const btn=()=>document.querySelector('#editPageBtn');
@@ -62,78 +62,15 @@
     return tools;
   }
 
-  function ensureAuthDialog(){
-    let root=document.querySelector('#ppeAuthDialog');
-    if(root)return root;
-    root=document.createElement('div');
-    root.id='ppeAuthDialog';
-    root.className='ppe-auth-backdrop hidden';
-    root.setAttribute('role','dialog');
-    root.setAttribute('aria-modal','true');
-    root.setAttribute('aria-labelledby','ppeAuthTitle');
-    root.innerHTML=`<div class="ppe-auth-dialog"><h2 id="ppeAuthTitle">편집자 로그인</h2><p>페이지 열람에는 로그인이 필요하지 않습니다. 수정이 필요한 경우에만 편집자 계정으로 로그인합니다.</p><form id="ppeAuthForm"><label class="ppe-auth-field"><span>이메일</span><input id="ppeAuthEmail" type="email" autocomplete="username" required></label><label class="ppe-auth-field"><span>비밀번호</span><input id="ppeAuthPassword" type="password" autocomplete="current-password" required></label><div id="ppeAuthError" class="ppe-auth-error" role="alert"></div><div class="ppe-auth-actions"><button id="ppeAuthCancel" type="button">취소</button><button type="submit">로그인 후 수정</button></div></form></div>`;
-    document.body.appendChild(root);
-    root.querySelector('#ppeAuthCancel')?.addEventListener('click',closeAuthDialog);
-    root.querySelector('#ppeAuthForm')?.addEventListener('submit',submitAuth);
-    return root;
+  async function adminAuth(){
+    if(window.KPTUWeb1AdminAuth)return window.KPTUWeb1AdminAuth;
+    if(!authPromise){authPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=ADMIN_AUTH_SRC;script.async=true;script.onload=()=>resolve(window.KPTUWeb1AdminAuth);script.onerror=()=>reject(new Error('Google 편집 인증 모듈을 불러오지 못했습니다.'));document.head.appendChild(script)}).catch(e=>{authPromise=null;throw e})}
+    return authPromise;
   }
-
-  function authError(text=''){const el=document.querySelector('#ppeAuthError');if(el)el.textContent=text}
-  function showAuthDialog(message=''){
-    const root=ensureAuthDialog();authError(message);const pass=root.querySelector('#ppeAuthPassword');if(pass)pass.value='';root.classList.remove('hidden');requestAnimationFrame(()=>root.querySelector('#ppeAuthEmail')?.focus());
-  }
-  function closeAuthDialog(){
-    const root=document.querySelector('#ppeAuthDialog');if(!root||root.classList.contains('hidden'))return;root.classList.add('hidden');authError('');const pass=root.querySelector('#ppeAuthPassword');if(pass)pass.value='';btn()?.focus();
-  }
-  function authDialogOpen(){return !document.querySelector('#ppeAuthDialog')?.classList.contains('hidden')}
-  function setStatus(text,error=false){const el=document.querySelector('#ppeLiveStatus');if(!el)return;el.textContent=text||'';el.classList.toggle('error',!!error)}
-  function showRetry(on){const el=document.querySelector('#ppeLiveRetry');if(el)el.classList.toggle('hidden',!on||!editing)}
-  function clearAutosave(){if(autosaveTimer){clearTimeout(autosaveTimer);autosaveTimer=null}}
-  function clearRetry(){if(retryTimer){clearTimeout(retryTimer);retryTimer=null}}
-
-  async function publicAuth(){
-    if(window.KPTUPublicAuth?.api&&window.KPTUPublicAuth?.session&&window.KPTUPublicAuth?.signIn)return window.KPTUPublicAuth;
-    if(!authPromise){
-      authPromise=new Promise((resolve,reject)=>{
-        const existing=document.querySelector('script[data-kptu-public-auth]');
-        if(existing){
-          if(window.KPTUPublicAuth)return resolve(window.KPTUPublicAuth);
-          existing.addEventListener('load',()=>resolve(window.KPTUPublicAuth),{once:true});
-          existing.addEventListener('error',()=>reject(new Error('편집 인증 모듈을 불러오지 못했습니다.')),{once:true});
-          return;
-        }
-        const script=document.createElement('script');script.src=PUBLIC_AUTH_SRC;script.async=true;script.dataset.kptuPublicAuth='1';script.onload=()=>resolve(window.KPTUPublicAuth);script.onerror=()=>reject(new Error('편집 인증 모듈을 불러오지 못했습니다.'));document.head.appendChild(script);
-      }).catch(error=>{authPromise=null;throw error});
-    }
-    await authPromise;
-    if(!window.KPTUPublicAuth?.api||!window.KPTUPublicAuth?.session||!window.KPTUPublicAuth?.signIn)throw new Error('편집 인증 모듈을 초기화하지 못했습니다. 새로고침 후 다시 시도해 주세요.');
-    return window.KPTUPublicAuth;
-  }
-
-  async function checkAccess(pageId=current?.id){const auth=await publicAuth();return auth.api(EDIT_API,{method:'POST',body:{action:'check',id:pageId}})}
-  async function updatePage(next){const auth=await publicAuth();if(!(await auth.session.ensure()))throw new Error('편집자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');return auth.api(EDIT_API,{method:'POST',body:{action:'update',id:current?.id,...next}})}
-
-  async function logoutEditor(){
-    if(editing){const ok=await finishEditing();if(editing)return}
-    try{const auth=await publicAuth();auth.session.write(null);setStatus('');showAuthDialog('로그아웃했습니다. 다시 수정하려면 편집자 계정으로 로그인해 주세요.')}catch(e){showAuthDialog(e?.message||'로그아웃 처리에 실패했습니다.')}
-  }
-
-  async function startEditing(){
-    closeAuthDialog();ensureTools();dirtyVersion=0;savedVersion=0;retryAttempt=0;clearAutosave();clearRetry();setEditingUi(true);
-    if(!prepareLiveFields()){setEditingUi(false);throw new Error('편집할 내용을 찾지 못했습니다.')}
-    document.querySelector('#paper .pd-title')?.focus();
-  }
-
-  async function submitAuth(event){
-    event.preventDefault();if(secureMode||!current?.id||editing)return;
-    const form=event.currentTarget,submit=form.querySelector('button[type="submit"]'),email=form.querySelector('#ppeAuthEmail')?.value||'',pass=form.querySelector('#ppeAuthPassword'),password=pass?.value||'';
-    authError('');if(submit)submit.disabled=true;
-    try{
-      const auth=await publicAuth();await auth.signIn(email,password);if(pass)pass.value='';
-      try{await checkAccess(current.id)}catch{authError('이 계정에는 이 페이지 수정 권한이 없습니다. 다른 편집자 계정으로 로그인해 주세요.');return}
-      await startEditing();
-    }catch(e){if(pass)pass.value='';authError(e?.message||'로그인에 실패했습니다.')}finally{if(submit)submit.disabled=false}
-  }
+  async function checkAccess(pageId=current?.id){const auth=await adminAuth();const s=await auth.session();if(!s?.access_token)throw new Error('login');const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.access_token},body:JSON.stringify({action:'check',id:pageId})});if(!r.ok)throw new Error('denied');return r.json()}
+  async function updatePage(next){const auth=await adminAuth();const s=await auth.session();if(!s?.access_token)throw new Error('편집자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');const r=await fetch(EDIT_API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.access_token},body:JSON.stringify({action:'update',id:current?.id,...next})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.error||'페이지 저장에 실패했습니다.');return d}
+  async function logoutEditor(){if(editing){await finishEditing();if(editing)return}const auth=await adminAuth();await auth.signOut()}
+  async function startEditing(){ensureTools();dirtyVersion=0;savedVersion=0;retryAttempt=0;clearAutosave();clearRetry();setEditingUi(true);if(!prepareLiveFields()){setEditingUi(false);throw new Error('편집할 내용을 찾지 못했습니다.')}document.querySelector('#paper .pd-title')?.focus()}
 
   function cleanText(el){return String(el?.innerText??el?.textContent??'').replace(/\u00a0/g,' ').replace(/\r/g,'').trim()}
   function encodeFlow(v){return String(v||'').replace(/\r/g,'').replace(/\n/g,'\\n').trim()}
@@ -230,11 +167,7 @@
 
   async function open(){
     if(secureMode||!current?.id||editing)return;
-    try{
-      const auth=await publicAuth();if(!(await auth.session.ensure())){showAuthDialog();return}
-      try{await checkAccess(current.id)}catch{showAuthDialog('현재 편집자 계정에는 이 페이지 수정 권한이 없습니다. 다른 계정으로 로그인해 주세요.');return}
-      await startEditing();
-    }catch(e){showAuthDialog(e?.message||'편집자 로그인을 준비하지 못했습니다.')}
+    try{const auth=await adminAuth();if(!await auth.isAdmin()){auth.signInWithGoogle();return}await checkAccess(current.id);await startEditing()}catch(e){const auth=await adminAuth();if(!await auth.isAdmin()){auth.signInWithGoogle();return}alert('현재 Google 계정에는 이 페이지 수정 권한이 없습니다.')}
   }
 
   function cancelEdit(){if(!editing||saving)return;const hasUnsaved=dirtyVersion>savedVersion;if(hasUnsaved&&!window.confirm('아직 저장되지 않은 변경을 버릴까요?'))return;exitEditing()}
@@ -252,6 +185,6 @@
   });
   window.addEventListener('beforeunload',e=>{if(!editing||(!saving&&dirtyVersion<=savedVersion))return;e.preventDefault();e.returnValue=''});
 
-  ensureStyle();ensureAuthDialog();
+  ensureStyle();
   window.KPTUPublicPageEditor={setPage,open,cancel:cancelEdit,save,finish:finishEditing,retry:retrySave,logout:logoutEditor};
 })();
