@@ -1,0 +1,26 @@
+name: KPTU board probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe KPTU board
+        shell: python
+        run: |
+          import urllib.request, re
+          base="https://kptu.net/board/list.aspx?mid=F686C1F3"
+          for page in (1,2,10):
+              url=base if page==1 else base+"&page="+str(page)
+              req=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 KPTU-archive-probe/1.0"})
+              try:
+                  with urllib.request.urlopen(req,timeout=20) as r:
+                      raw=r.read()
+                      text=raw.decode("utf-8","replace")
+                      details=re.findall(r'href=["\']?([^"\' >]*detail\.aspx[^"\' >]*)',text,re.I)
+                      print({"page":page,"status":r.status,"bytes":len(raw),"detail_count":len(details),"samples":details[:3]})
+              except Exception as e:
+                  print({"page":page,"error":repr(e)})
