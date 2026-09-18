@@ -20,7 +20,7 @@
       location.replace(window.KPTUAuth.loginUrl(location.href));
       return;
     }
-    await import('./public-workspace.js?v=5');
+    await import('./public-workspace.js?v=6');
     await import('./mobile-swipe-navigation.js?v=3');
     return;
   }
@@ -39,7 +39,7 @@
     window.KPTUCapabilities.setContext({user,membership:memberships?.[0]||null});
   }catch(e){console.warn('capability context skipped',e)}
 
-  await import('./project-system-v3.js?v=1');
+  await import('./project-system-v3.js?v=2');
 
   await import('./team-member-overview.js?v=2');
   await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__;
