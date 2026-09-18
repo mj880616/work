@@ -3,7 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const cors={
   "Access-Control-Allow-Origin":"https://mj880616.github.io",
-  "Access-Control-Allow-Headers":"content-type",
+  "Access-Control-Allow-Headers":"authorization, content-type",
   "Access-Control-Allow-Methods":"GET,POST,OPTIONS",
   "Content-Type":"application/json; charset=utf-8",
   "Cache-Control":"no-store"
@@ -11,6 +11,7 @@ const cors={
 
 const boards=new Set(["pc0921","pc2in1","private_rail","sanbyeol","press0914"]);
 const PUBLIC_EDIT_BOARDS=new Set(["pc0921","pc2in1"]);
+const WEB1_ADMIN_USER_ID="987b778e-69fe-4080-ad7f-191dc732d234";
 const fixed=/^(done_|task_|org_|people_|staff_)[a-z0-9_-]{1,80}$/;
 const dynamic=/^extra_(name|checked|people|note)_[a-z0-9_-]{1,80}$/;
 const area=/^area_(title|status|body|hidden)_[a-z0-9_-]{1,80}$/;
@@ -46,6 +47,7 @@ Deno.serve(async(req)=>{
   const url=new URL(req.url);
   const mode=url.searchParams.get("mode")||"board";
   const service=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const requireAdmin=async()=>{const token=(req.headers.get("authorization")||"").replace(/^Bearer\\s+/i,"");if(!token)return false;const {data:{user},error}=await service.auth.getUser(token);return !error&&user?.id===WEB1_ADMIN_USER_ID};
 
   if(mode==="summary"){
     if(req.method==="GET"){
@@ -56,7 +58,7 @@ Deno.serve(async(req)=>{
     }
     if(req.method==="POST"){
       let body:any;try{body=await req.json()}catch{return new Response(JSON.stringify({error:"json"}),{status:400,headers:cors})}
-      if(String(body.password||"")!=="0822")return new Response(JSON.stringify({error:"password"}),{status:403,headers:cors});
+      if(!await requireAdmin())return new Response(JSON.stringify({error:"forbidden"}),{status:403,headers:cors});
       const action=String(body.action||"");
       const id=Number(body.id);
       if(!Number.isInteger(id)||id<1)return new Response(JSON.stringify({error:"id"}),{status:400,headers:cors});
@@ -131,6 +133,7 @@ Deno.serve(async(req)=>{
   }
   if(req.method==="POST"){
     let body:any;try{body=await req.json()}catch{return new Response(JSON.stringify({error:"json"}),{status:400,headers:cors})}
+    const publicEdit=PUBLIC_EDIT_BOARDS.has(board);
     const k=String(body.item_key||"");
     if(!validKey(k))return new Response(JSON.stringify({error:"key"}),{status:400,headers:cors});
     const v=body.value!==undefined?body.value:body.checked;
@@ -141,9 +144,9 @@ Deno.serve(async(req)=>{
       const {data:existing,error:lookupError}=await service.from("board_state").select("item_key").eq("board",board).eq("item_key",k).maybeSingle();
       if(lookupError)return new Response(JSON.stringify({error:lookupError.message}),{status:500,headers:cors});
       const publicCreate=!existing&&k.startsWith("rail_card_custom_")&&v.custom===true&&v.hidden!==true;
-      if(!publicEdit&&!publicCreate&&String(body.master_password||"")!=="0822")return new Response(JSON.stringify({error:"password"}),{status:403,headers:cors});
-    }else if(!publicEdit&&(k.startsWith("area_")||k.startsWith("schedule_")||k.startsWith("san_")||k.startsWith("press_")||k.startsWith("attachment_")||isPageEdit(k))&&String(body.master_password||"")!=="0822"){
-      return new Response(JSON.stringify({error:"password"}),{status:403,headers:cors});
+      if(!publicEdit&&!publicCreate&&!await requireAdmin())return new Response(JSON.stringify({error:"forbidden"}),{status:403,headers:cors});
+    }else if(!publicEdit&&(k.startsWith("area_")||k.startsWith("schedule_")||k.startsWith("san_")||k.startsWith("press_")||k.startsWith("attachment_")||isPageEdit(k))&&!await requireAdmin()){
+      return new Response(JSON.stringify({error:"forbidden"}),{status:403,headers:cors});
     }
     if((k.startsWith("press_")||k.startsWith("attachment_"))&&!(typeof v==="string"&&v.trim().length>0&&v.length<=40000))return new Response(JSON.stringify({error:"press"}),{status:400,headers:cors});
     if(k.includes("people")&&!(Number.isInteger(v)&&v>=0&&v<=9999))return new Response(JSON.stringify({error:"people"}),{status:400,headers:cors});
