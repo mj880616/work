@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>나는 어떤 사람이고, 어떤 작업을 이어가면 좋을까</title>
+  <meta name="description" content="지금까지의 작업과 일상을 바탕으로 살펴본 한 사람의 작업 방식과 앞으로 이어갈 프로젝트에 대한 대화">
+  <style>
+    :root{
+      --bg:#f7f7f5; --paper:#fff; --text:#202124; --muted:#6f7378; --line:#e7e7e3;
+      --user:#f0f3ff; --accent:#253a75; --quote:#f4f4f1;
+    }
+    *{box-sizing:border-box}
+    html{background:var(--bg)}
+    body{
+      margin:0; color:var(--text); background:var(--bg);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo",Arial,sans-serif;
+      line-height:1.82; word-break:keep-all;
+    }
+    main{width:min(820px,calc(100% - 32px)); margin:0 auto; padding:64px 0 96px}
+    header{margin-bottom:34px}
+    h1{font-size:clamp(30px,5vw,48px);line-height:1.22;letter-spacing:-.035em;margin:0 0 14px}
+    .sub{color:var(--muted);font-size:15px}
+    .turn{border:1px solid var(--line);background:var(--paper);border-radius:18px;padding:26px 28px;margin:18px 0}
+    .turn.user{background:var(--user)}
+    .label{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:11px}
+    .question{font-size:20px;line-height:1.65;font-weight:650;letter-spacing:-.02em}
+    h2{font-size:25px;line-height:1.4;letter-spacing:-.025em;margin:42px 0 14px}
+    h3{font-size:20px;line-height:1.45;letter-spacing:-.02em;margin:30px 0 10px}
+    p{margin:0 0 17px}
+    blockquote{
+      margin:19px 0;padding:16px 18px;border-left:4px solid var(--accent);
+      background:var(--quote);border-radius:0 10px 10px 0
+    }
+    blockquote p:last-child{margin-bottom:0}
+    .arrow{
+      text-align:center;color:var(--muted);font-weight:700;letter-spacing:.08em;
+      margin:8px 0
+    }
+    .flow{padding:18px 20px;background:var(--quote);border-radius:12px;margin:16px 0 22px}
+    .flow p{margin:6px 0;text-align:center}
+    strong{font-weight:750}
+    hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+    footer{color:var(--muted);font-size:13px;margin-top:42px;text-align:center}
+    @media(max-width:600px){
+      main{width:min(100% - 20px,820px);padding:30px 0 64px}
+      .turn{padding:21px 18px;border-radius:14px}
+      h2{font-size:22px;margin-top:34px}
+      h3{font-size:18px}
+      .question{font-size:18px}
+      body{line-height:1.75}
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>나는 어떤 사람이고,<br>어떤 작업을 이어가면 좋을까</h1>
+    <div class="sub">2026년 9월 18일 · ChatGPT와의 대화</div>
+  </header>
+
+  <section class="turn user">
+    <div class="label">질문</div>
+    <div class="question">웹1 웹2 읽생기 등 너를 통해 내가 하려고 했던 것들 그외 모든 작업들을 종합해 나를 살펴봤을 때 + 일상 프로젝트 포함 나는 어떤 사람이고 어떤 작업을 이어서 하면 좋을지 제안 상상력을 넓히고 싶음</div>
+  </section>
+
+  <section class="turn">
+    <div class="label">답변</div>
+
+    <p>지금까지 웹1·웹2·읽생기·각종 자료 아카이빙·산별전환 소책자·정책자료·회의자료·일상 프로젝트까지 한꺼번에 놓고 보면, 꽤 일관된 패턴이 보임.</p>
+
+    <p>내가 보기에는 너는 단순히 “업무를 많이 하는 사람”보다는, 계속해서 <strong>복잡한 현실을 구조화하고 다시 쓸 수 있는 형태로 만드는 사람</strong>에 가까움.</p>
+
+    <h2>1. 너한테 반복해서 나타나는 작업 방식</h2>
+
+    <p>첫째는 <strong>흩어진 것을 모으는 것</strong>임.</p>
+
+    <p>회의결과, 텔레그램 대화, 전화 내용, 정부자료, 노조 자료, 보도자료, 일정, 할 일, 과거 판단을 그냥 흘려보내는 걸 꽤 싫어함. “전에 우리가 뭐라고 했지?”, “이 사업이 어디까지 갔지?”, “이 자료가 어느 이벤트에 속하지?”가 반복적으로 등장함.</p>
+
+    <p>그래서 웹1·웹2도 사실 홈페이지 개발 자체가 목적이라기보다,</p>
+
+    <blockquote><p>내가 했던 일을 잃어버리지 않고, 다시 찾고, 다음 판단에 사용할 수 있게 만드는 장치</p></blockquote>
+
+    <p>에 가까움.</p>
+
+    <p>둘째는 <strong>자료를 저장하는 것보다 관계를 만드는 데 관심이 많음.</strong></p>
+
+    <p>예를 들어 민자철도 문제에서도 단순히 ‘신분당선 자료’, ‘서해선 자료’를 모으는 것으로 끝내지 않고,</p>
+
+    <div class="flow">
+      <p>현장 인력부족</p><p>↓</p>
+      <p>철도안전관리체계</p><p>↓</p>
+      <p>민자철도 운영기준</p><p>↓</p>
+      <p>국토부</p><p>↓</p>
+      <p>국회 토론회·국감</p><p>↓</p>
+      <p>제도개선</p>
+    </div>
+
+    <p>식으로 연결함.</p>
+
+    <p>공공기관 인력 문제도 마찬가지임.</p>
+
+    <div class="flow">
+      <p>2% 감축</p><p>↓</p>
+      <p>증원</p><p>↓</p>
+      <p>청년채용</p><p>↓</p>
+      <p>총인건비</p><p>↓</p>
+      <p>기관별 교섭</p><p>↓</p>
+      <p>정부지침</p><p>↓</p>
+      <p>공동투쟁</p>
+    </div>
+
+    <p>으로 연결하려고 함.</p>
+
+    <p>즉 너는 본질적으로 <strong>문서관리자보다는 관계·맥락 관리자</strong>임.</p>
+
+    <p>셋째는 <strong>무언가를 한 번 하고 버리는 걸 별로 좋아하지 않음.</strong></p>
+
+    <p>기자회견 한 번을 하더라도 취재요청서 → 보도자료 → 현장자료 → 언론보도 → 이후 정부면담까지 하나의 흐름으로 묶으려 하고, 산별전환도 PPT 하나가 아니라 가이드북·웹페이지·간담회·조직별 상황을 연결하려고 함.</p>
+
+    <p>그래서 반복해서 만드는 것은 사실 콘텐츠가 아니라 <strong>재사용 가능한 업무 자산</strong>임.</p>
+
+    <p>넷째는 <strong>도구 자체보다 자기 사고방식을 도구에 이식하려고 함.</strong></p>
+
+    <p>읽생기가 대표적임.</p>
+
+    <p>단순 북마크 서비스였다면 이미 관심을 잃었을 가능성이 큼. 그런데 네가 원하는 건</p>
+
+    <blockquote><p>읽을 글 발견 → 왜 읽는지 → 질문 → 기록 → 생각 발전 → 다시 글쓰기</p></blockquote>
+
+    <p>라는 사고의 순환을 시스템화하는 것임.</p>
+
+    <p>이건 웹 개발 취미와는 조금 다름.</p>
+
+    <h2>2. 그래서 너는 어떤 사람이냐고 묻는다면</h2>
+
+    <p>한 문장으로 하면:</p>
+
+    <blockquote><p><strong>현장의 복잡한 정보를 모아 구조를 발견하고, 그 구조를 조직의 판단과 행동으로 바꾸는 사람.</strong></p></blockquote>
+
+    <p>조금 더 구체적으로는 네 안에 네 가지 역할이 같이 있음.</p>
+
+    <h3>① 조직가</h3>
+    <p>사람과 조직이 실제로 어떻게 움직일지를 계속 생각함. 좋은 주장보다 “GTX-A가 지금 참여 가능한가?”, “부산은 위원장이 왜 소극적인가?”, “이 공동투쟁을 각 조직이 자기 사업으로 받아들일까?”가 중요함.</p>
+
+    <h3>② 편집자</h3>
+    <p>제로에서 글을 만드는 능력보다도 많은 정보 중 핵심을 골라 배열하고, 메시지를 만드는 능력을 상당히 많이 사용함. 웹1 아카이브 작업이나 보도자료 검토에서도 이 경향이 강함.</p>
+
+    <h3>③ 정책·전략 분석가</h3>
+    <p>문제를 개별 사건보다 제도적 구조로 올려 보는 습관이 있음. 특히 권한이 어디 있는지 계속 따짐.</p>
+
+    <h3>④ 시스템 설계자</h3>
+    <p>최근 들어 이 부분이 빠르게 커지고 있음.</p>
+
+    <p>“이 일을 다음에는 어떻게 덜 반복할 것인가?”<br>
+    “정보가 자동으로 연결되게 할 수 없는가?”<br>
+    “내가 없어도 구조가 남게 할 수 없는가?”</p>
+
+    <p>웹1·웹2·읽생기에서 계속 이 질문을 하고 있음.</p>
+
+    <p>그래서 나는 앞으로 네가 코딩을 많이 배우는 것보다 <strong>업무·지식 시스템을 설계하는 능력을 키우는 쪽</strong>이 훨씬 생산적이라고 봄.</p>
+
+    <h2>3. 웹1·웹2·읽생기는 사실 하나의 프로젝트로 볼 수 있음</h2>
+
+    <p>지금은 세 프로젝트처럼 보이는데, 나는 장기적으로 이렇게 구분하는 게 가장 자연스럽다고 봄.</p>
+
+    <h3>웹1 — 기록과 대외표현</h3>
+    <p>“우리가 무엇을 했는가?”</p>
+    <p>성명, 보도자료, 취재요청, 사업, 정책자료, 투쟁기록 등을 축적하는 <strong>공개 아카이브</strong>.</p>
+    <p>시간이 지나면 공공운수노조의 작은 디지털 연감 역할을 할 수 있음.</p>
+
+    <h3>웹2 — 현재의 운영</h3>
+    <p>“지금 무엇을 해야 하는가?”</p>
+    <p>사업현황<br>회의<br>일정<br>할 일<br>조직별 상황<br>담당자<br>후속조치<br>결정사항</p>
+    <p>을 관리하는 <strong>업무 상황실</strong>.</p>
+    <p>즉 웹1이 과거라면 웹2는 현재임.</p>
+
+    <h3>읽생기 — 사고와 학습</h3>
+    <p>“나는 무엇을 생각하고 있는가?”</p>
+    <p>읽은 글<br>질문<br>메모<br>논쟁거리<br>아이디어<br>글쓰기</p>
+    <p>를 축적하는 <strong>개인 사고실험실</strong>임.</p>
+
+    <p>여기에 하나가 빠져 있음.</p>
+
+    <h3>웹3 같은 것을 만든다면 — 판단</h3>
+    <p>“그래서 지금 무엇을 판단해야 하는가?”</p>
+
+    <p>새 서비스를 실제로 만들라는 뜻은 아님.</p>
+
+    <p>AI가 웹1·웹2·읽생기와 자료를 읽고,</p>
+
+    <blockquote>
+      <p>이번 주에 중요한 결정 5개<br>
+      미뤄진 후속조치<br>
+      최근 반복되는 쟁점<br>
+      이전 결정과 충돌하는 사항<br>
+      다음 회의에서 확인할 질문</p>
+    </blockquote>
+
+    <p>을 끌어내는 <strong>판단 레이어</strong>임.</p>
+
+    <p>나는 결국 네가 만들고 싶은 것이 이쪽이라고 봄.</p>
+
+    <h2>4. 앞으로 가장 가치 있어 보이는 프로젝트</h2>
+
+    <p>여기서부터는 조금 상상력을 넓혀보겠음.</p>
+
+    <h3>A. ‘나의 업무 운영체제’</h3>
+    <p>현재 할 일 앱보다 한 단계 위임.</p>
+
+    <p>예를 들어 화면에:</p>
+
+    <blockquote><p><strong>이번 주</strong><br><br>
+    공공기관 인력<br>
+    민자철도<br>
+    2인1조<br>
+    산별전환<br>
+    궤도 공동투쟁</p></blockquote>
+
+    <p>이 있고 사업을 누르면</p>
+
+    <p>목표<br>
+    현재 상태<br>
+    최근 결정<br>
+    관계자<br>
+    다음 일정<br>
+    해야 할 일<br>
+    관련 문서<br>
+    최근 대화</p>
+
+    <p>가 한 번에 나오는 구조.</p>
+
+    <p>핵심은 할 일 관리가 아니라 <strong>사업의 상태(state)를 관리하는 것</strong>임.</p>
+
+    <p>이게 만들어지면 너에게 가장 많은 정신적 여유를 줄 가능성이 큼.</p>
+
+    <h3>B. ‘결정 기록’</h3>
+    <p>이건 생각보다 가치가 큼.</p>
+
+    <p>회의자료나 업무기록에는 경과는 많이 남지만</p>
+
+    <blockquote><p>왜 그렇게 결정했는가</p></blockquote>
+
+    <p>는 사라지는 경우가 많음.</p>
+
+    <p>따라서 아주 간단하게</p>
+
+    <blockquote>
+      <p><strong>결정</strong><br>9.29 국회토론회 현장증언을 서해선·신분당선으로 구성</p>
+      <p><strong>이유</strong><br>민자철도의 1인근무와 직무통합을 각각 보여주기 위함</p>
+      <p><strong>대안</strong><br>GTX-A 사례 포함</p>
+      <p><strong>후속</strong><br>국감에서는 GTX-A 포함 확대</p>
+    </blockquote>
+
+    <p>이런 기록을 남김.</p>
+
+    <p>몇 년 쌓이면 이것은 너 개인에게 상당히 강력한 <strong>전략적 기억</strong>이 됨.</p>
+
+    <h3>C. ‘조직·인물 관계지도’</h3>
+    <p>업무상 상당히 유용할 것 같음.</p>
+
+    <p>예를 들어</p>
+
+    <p>서울교통공사노조<br>
+    부산지하철노조<br>
+    철도노조<br>
+    GTX-A<br>
+    신분당선<br>
+    서해선<br>
+    김포</p>
+
+    <p>각 조직에 대해</p>
+
+    <p>주요 현안<br>
+    교섭일정<br>
+    투쟁일정<br>
+    조직 상황<br>
+    핵심 담당자<br>
+    최근 연락<br>
+    공동사업 참여 가능성</p>
+
+    <p>을 관리함.</p>
+
+    <p>단, 인물의 민감한 평가나 정치적 성향 같은 것은 저장하지 않고 <strong>업무상 확인된 관계와 일정 중심</strong>으로.</p>
+
+    <p>그러면 “이번 궤도 공동사업을 누구에게 어떻게 제안할 것인가?”를 훨씬 빠르게 판단할 수 있음.</p>
+
+    <h3>D. ‘언론대응 연구소’</h3>
+    <p>최근 네가 보도자료·성명·취재요청서 수백 개를 모으려 하는 이유도 꽤 중요함.</p>
+
+    <p>단순 아카이빙에서 한 단계 더 가면</p>
+
+    <blockquote><p>사건<br>→ 취재요청<br>→ 기자회견<br>→ 보도자료<br>→ 실제 기사<br>→ 기사 제목<br>→ 언론이 가져간 메시지<br>→ 이후 정책 반응</p></blockquote>
+
+    <p>을 연결할 수 있음.</p>
+
+    <p>그러면 몇 년 뒤에는 감이 아니라 데이터로</p>
+
+    <blockquote><p>어떤 제목이 보도가 되는가<br>
+    어떤 현장사례가 기사에 남는가<br>
+    기자회견에서 우리가 강조한 것과 언론이 가져가는 것은 어떻게 다른가</p></blockquote>
+
+    <p>를 볼 수 있음.</p>
+
+    <p>이건 노조 언론사업에서 꽤 희귀한 자산이 될 수 있음.</p>
+
+    <h3>E. ‘정책 계보’</h3>
+    <p>나는 이것도 추천함.</p>
+
+    <p>예를 들어 공공기관 인력정책이라는 페이지 하나에</p>
+
+    <p>2017<br>2022<br>2025<br>2026</p>
+
+    <p>정부방침이 시간순으로 있고,</p>
+
+    <p>정원<br>총인건비<br>경영평가<br>기능조정<br>청년채용</p>
+
+    <p>이 서로 연결됨.</p>
+
+    <p>그러면 정책을 사건별로 따라가는 게 아니라</p>
+
+    <blockquote><p>정부 정책이 어떤 논리로 변해왔는가</p></blockquote>
+
+    <p>를 볼 수 있음.</p>
+
+    <p>철도 민영화·민자철도·안전관리체계도 같은 방식으로 만들 수 있음.</p>
+
+    <p>이게 쌓이면 너의 정책역량 자체가 크게 달라질 가능성이 있음.</p>
+
+    <h2>5. 읽생기는 조금 다른 방향으로 키웠으면 함</h2>
+
+    <p>읽생기는 기능을 계속 추가하기보다 <strong>생각의 순환</strong>을 제대로 만드는 것이 중요함.</p>
+
+    <p>내가 상상하는 완성형은 이 정도임.</p>
+
+    <div class="flow">
+      <p>읽을 글을 발견함.</p><p>↓</p>
+      <p>AI가 요약하지 않고<br>“왜 지금 이 글을 읽을 만한가?”만 제시함.</p><p>↓</p>
+      <p>읽고 나서 네가 3~5줄 기록.</p><p>↓</p>
+      <p>며칠 뒤 시스템이 물어봄.</p>
+    </div>
+
+    <blockquote><p>이 글에서 지금도 동의하는 것은 무엇인가?<br>최근 업무와 연결되는 대목이 있는가?</p></blockquote>
+
+    <div class="flow">
+      <p>↓</p>
+      <p>비슷한 기록 3~4개가 쌓이면</p>
+    </div>
+
+    <blockquote><p>최근 당신의 메모에서는 ‘공공서비스 노동자의 파업과 공공성’ 문제가 반복되고 있음.</p></blockquote>
+
+    <div class="flow">
+      <p>처럼 연결함.</p><p>↓</p>
+      <p>원하면 <strong>‘내 생각 초안’</strong>으로 발전.</p>
+    </div>
+
+    <p>이렇게 되면 읽생기는 북마크 앱이 아니라 <strong>생각을 숙성시키는 시스템</strong>이 됨.</p>
+
+    <h2>6. 업무만 시스템화하지 않았으면 좋겠음</h2>
+
+    <p>여기서 일상 프로젝트가 중요함.</p>
+
+    <p>결혼 준비, 가족 문제, 재무계획, 여행, 건강, 공부 등을 같이 봤을 때 너는 생활에서도 비슷한 패턴을 보임.</p>
+
+    <p>정보를 많이 수집하고<br>→ 선택지를 비교하고<br>→ 계획을 만들고<br>→ 기록함.</p>
+
+    <p>문제는 이것도 전부 ‘업무’처럼 관리하기 시작하면 삶이 상당히 피곤해질 수 있다는 점임.</p>
+
+    <p>그래서 개인 영역은 반대로 <strong>덜 관리하는 시스템</strong>을 추천함.</p>
+
+    <p>예를 들어 개인 화면은</p>
+
+    <p>이번 달 중요한 것 3개<br>
+    가족 일정<br>
+    돈<br>
+    건강<br>
+    읽고 싶은 것<br>
+    놀러 갈 곳</p>
+
+    <p>정도만.</p>
+
+    <p>업무 웹2처럼 만들지 않는 것임.</p>
+
+    <h2>7. 네게 특히 필요한 것은 ‘더 많은 기능’보다 ‘압축’</h2>
+
+    <p>최근 프로젝트를 보면 위험도 하나 보임.</p>
+
+    <p>기능을 만들 수 있게 되면서</p>
+
+    <blockquote><p>이것도 넣을까?<br>저것도 자동화할까?<br>여기도 DB를 붙일까?</p></blockquote>
+
+    <p>가 굉장히 쉬워짐.</p>
+
+    <p>그 결과</p>
+
+    <p>웹1<br>웹2<br>읽생기<br>GitHub<br>Supabase<br>Google Drive<br>ChatGPT</p>
+
+    <p>등 여러 시스템을 네가 관리해야 하는 상황이 생길 수 있음.</p>
+
+    <p>그 순간부터 시스템이 너를 돕는 게 아니라 <strong>네가 시스템을 돌보는 사람</strong>이 됨.</p>
+
+    <p>그래서 앞으로 개발할 때는 아주 단순한 원칙 하나를 두는 걸 추천함.</p>
+
+    <blockquote><p>새로운 기능 하나를 추가하기 전에<br><strong>“이 기능이 매달 반복되는 내 작업을 실제로 줄이는가?”</strong></p></blockquote>
+
+    <p>YES가 아니면 만들지 않는 것.</p>
+
+    <h2>8. 1년 정도를 본다면 나는 이런 그림이 제일 흥미로움</h2>
+
+    <p>2027년의 어느 월요일 아침에 네가 ChatGPT를 열고</p>
+
+    <blockquote><p>이번 주 정리해줘.</p></blockquote>
+
+    <p>라고 하면,</p>
+
+    <p>지난주 회의 결과<br>
+    Google Drive 문서<br>
+    웹2 사업상태<br>
+    캘린더<br>
+    남은 할 일<br>
+    웹1에 기록된 사업<br>
+    읽생기 메모</p>
+
+    <p>를 바탕으로</p>
+
+    <blockquote>
+      <p><strong>이번 주 핵심 사업</strong></p>
+      <p>1. 공공기관 인력<br>2. 민자철도 운영기준<br>3. 궤도 산별전환</p>
+      <p><strong>결정 필요</strong></p>
+      <p>- 국토부 면담 요구안 확정<br>- 공동투쟁 조직별 참여수준 확인</p>
+      <p><strong>밀린 후속</strong></p>
+      <p>- ○○지부 회신 없음<br>- 토론회 속기록 아카이빙 미완료</p>
+      <p><strong>전략적으로 눈여겨볼 변화</strong></p>
+      <p>- 최근 3개 기관에서 동일한 인력 논리 확인됨</p>
+      <p><strong>개인</strong></p>
+      <p>- 이번 주 가족 일정 2건<br>- 읽생기에서 3주째 미완성인 메모 1건</p>
+    </blockquote>
+
+    <p>정도로 나오는 것.</p>
+
+    <p>나는 웹1·웹2·읽생기를 따로 성공시키는 것보다 <strong>이 상태에 도달하는 것</strong>을 목표로 삼는 게 훨씬 재미있다고 봄.</p>
+
+    <hr>
+
+    <p>그리고 더 크게 보면 너에게 가장 흥미로운 장기 프로젝트는 어쩌면 웹 개발이 아닐 수도 있음.</p>
+
+    <p><strong>8년 넘게 노동조합에서 일하면서 축적한 현장·정책·조직 경험을 개인의 암묵지로 두지 않고, 검색·연결·재사용 가능한 지식으로 바꾸는 것.</strong></p>
+
+    <p>그것을 제대로 해놓으면 어느 순간부터 너 혼자 일을 잘하는 것을 넘어서</p>
+
+    <blockquote><p><strong>“조직이 과거의 경험을 잊어버리지 않게 만드는 사람”</strong></p></blockquote>
+
+    <p>이라는 역할까지 갈 수 있음.</p>
+
+    <p>지금까지 한 프로젝트들을 보면 그 방향으로 이미 상당히 움직이고 있음.</p>
+  </section>
+
+  <footer>이 페이지는 공유를 위해 별도로 만든 읽기 전용 페이지입니다.</footer>
+</main>
+</body>
+</html>
