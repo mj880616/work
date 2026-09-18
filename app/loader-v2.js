@@ -20,14 +20,18 @@
       location.replace(window.KPTUAuth.loginUrl(location.href));
       return;
     }
-    await import('./public-workspace.js?v=4');
-    await import('./public-workspace-extras.js?v=1');
+    await import('./public-workspace.js?v=5');
+    await import('./mobile-swipe-navigation.js?v=3');
     return;
   }
 
   await import('./topbar-actions.js?v=1');
+  // team.js reads the same persisted session, but its legacy init can race the dedicated-login handoff.
+  // Seed its in-memory session before init so the authenticated renderer owns the first committed UI.
+  window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
   await import('./team.js?v=17');
   await window.__KPTU_TEAM_READY__;
+  delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
 
   try{
     const user=await window.KPTURuntime.api('/auth/v1/user');
