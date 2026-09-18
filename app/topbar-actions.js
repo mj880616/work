@@ -4,6 +4,8 @@ if(window.__KPTU_TOPBAR_ACTIONS__)return;
 window.__KPTU_TOPBAR_ACTIONS__=true;
 const host=document.querySelector('.top-actions');
 if(!host)return;
+// Topbar actions are owned here. Remove the legacy logout control so later renderers cannot flash or re-show it.
+document.querySelector('#logoutBtn')?.remove();
 let button=document.querySelector('#ccNotifTop');
 if(!button){
   button=document.createElement('button');
