@@ -60,3 +60,5 @@ summary={
 }
 OUT.write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding="utf-8")
 print(json.dumps({"documents":summary["documents"],"low_text":summary["low_text"],"groups":{k:v["count"] for k,v in groups.items()}},ensure_ascii=False))
+
+# corpus text available: rerun marker
