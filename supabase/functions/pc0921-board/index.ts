@@ -134,7 +134,7 @@ Deno.serve(async(req)=>{
   if(req.method==="POST"){
     let body:any;try{body=await req.json()}catch{return new Response(JSON.stringify({error:"json"}),{status:400,headers:cors})}
     const publicEdit=PUBLIC_EDIT_BOARDS.has(board);
-    const k=String(body.item_key||"");
+    const publicEdit=PUBLIC_EDIT_BOARDS.has(board);\n    if(!publicEdit&&!await requireAdmin())return new Response(JSON.stringify({error:"forbidden"}),{status:403,headers:cors});\n    const k=String(body.item_key||"");
     if(!validKey(k))return new Response(JSON.stringify({error:"key"}),{status:400,headers:cors});
     const v=body.value!==undefined?body.value:body.checked;
     const raw=JSON.stringify(v),maxBytes=isPageEdit(k)?60000:k.startsWith("rail_card_")?8000:k.startsWith("san_")?12000:(k.startsWith("press_")||k.startsWith("attachment_"))?40000:1000;
@@ -143,10 +143,6 @@ Deno.serve(async(req)=>{
       if(!validRailCard(v))return new Response(JSON.stringify({error:"rail_card"}),{status:400,headers:cors});
       const {data:existing,error:lookupError}=await service.from("board_state").select("item_key").eq("board",board).eq("item_key",k).maybeSingle();
       if(lookupError)return new Response(JSON.stringify({error:lookupError.message}),{status:500,headers:cors});
-      const publicCreate=!existing&&k.startsWith("rail_card_custom_")&&v.custom===true&&v.hidden!==true;
-      if(!publicEdit&&!publicCreate&&!await requireAdmin())return new Response(JSON.stringify({error:"forbidden"}),{status:403,headers:cors});
-    }else if(!publicEdit&&(k.startsWith("area_")||k.startsWith("schedule_")||k.startsWith("san_")||k.startsWith("press_")||k.startsWith("attachment_")||isPageEdit(k))&&!await requireAdmin()){
-      return new Response(JSON.stringify({error:"forbidden"}),{status:403,headers:cors});
     }
     if((k.startsWith("press_")||k.startsWith("attachment_"))&&!(typeof v==="string"&&v.trim().length>0&&v.length<=40000))return new Response(JSON.stringify({error:"press"}),{status:400,headers:cors});
     if(k.includes("people")&&!(Number.isInteger(v)&&v>=0&&v<=9999))return new Response(JSON.stringify({error:"people"}),{status:400,headers:cors});
