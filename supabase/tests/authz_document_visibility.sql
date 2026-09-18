@@ -37,7 +37,8 @@ begin
   insert into public.app_documents(id, workspace_id, title, visibility, uploaded_by) values
     ('ffffffff-ffff-4fff-8fff-fffffffffff1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'PRIVATE DOC', 'private', u1),
     ('ffffffff-ffff-4fff-8fff-fffffffffff2', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'WORKSPACE DOC', 'workspace', u1),
-    ('ffffffff-ffff-4fff-8fff-fffffffffff3', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'GROUPS DOC', 'groups', u1);
+    ('ffffffff-ffff-4fff-8fff-fffffffffff3', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'GROUPS DOC', 'groups', u1),
+    ('ffffffff-ffff-4fff-8fff-fffffffffff4', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'PUBLIC DOC', 'public', u1);
 
   insert into public.app_document_chunks(id, document_id, workspace_id, chunk_index, content) values
     ('11111111-1111-4111-8111-111111111111', 'ffffffff-ffff-4fff-8fff-fffffffffff1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 0, 'PRIVATE CHUNK'),
@@ -62,10 +63,14 @@ begin
   where id in (
     'ffffffff-ffff-4fff-8fff-fffffffffff1'::uuid,
     'ffffffff-ffff-4fff-8fff-fffffffffff2'::uuid,
-    'ffffffff-ffff-4fff-8fff-fffffffffff3'::uuid
+    'ffffffff-ffff-4fff-8fff-fffffffffff3'::uuid,
+    'ffffffff-ffff-4fff-8fff-fffffffffff4'::uuid
   );
 
-  if visible_ids is distinct from array['ffffffff-ffff-4fff-8fff-fffffffffff2'::uuid] then
+  if visible_ids is distinct from array[
+    'ffffffff-ffff-4fff-8fff-fffffffffff2'::uuid,
+    'ffffffff-ffff-4fff-8fff-fffffffffff4'::uuid
+  ] then
     raise exception 'viewer document visibility mismatch: %', visible_ids;
   end if;
 
