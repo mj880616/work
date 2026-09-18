@@ -87,10 +87,15 @@
     if(!document.getElementById('publicPageVisibilityNote'))list.insertAdjacentHTML('beforebegin','<div id="publicPageVisibilityNote" class="public-visibility-note">전체 공개(public) 글만 목록에 표시됩니다. 링크 공개(unlisted)는 주소를 아는 사람만 직접 열람할 수 있고, 로그인 사용자·지정 그룹·비공개 글은 제목과 요약도 외부 목록에 노출하지 않습니다.</div>');
     const paint=()=>{const q=(search?.value||'').trim().toLowerCase(),rows=state.pages.filter(p=>!q||`${p.title||''} ${p.summary||''}`.toLowerCase().includes(q));list.innerHTML=rows.map(p=>`<article class="page-card" tabindex="0" role="link" data-public-card-url="../p/${encodeURIComponent(p.slug)}/"><div class="badges"><span class="badge published">전체 공개</span></div><h3>${esc(p.title)}</h3><p>${esc(p.summary||'')}</p><div class="page-card-foot"><span class="updated">${fmt(p.updated_at)}</span><a class="mini" href="../p/${encodeURIComponent(p.slug)}/" target="_blank" rel="noopener">열기</a></div></article>`).join('');document.getElementById('pageEmpty')?.classList.toggle('hidden',!!rows.length)};
     if(search)search.oninput=paint;paint();
-    list.addEventListener('click',e=>{
+    const openCard=e=>{
       const card=e.target.closest?.('.page-card[data-public-card-url]');
-      if(card&&!e.target.closest('button,input,select,textarea,label'))location.href=card.dataset.publicCardUrl;
-    });
+      if(!card||e.target.closest('button,input,select,textarea,label,a'))return;
+      if(e.type==='keydown'&&!['Enter',' '].includes(e.key))return;
+      if(e.type==='keydown')e.preventDefault();
+      location.href=card.dataset.publicCardUrl;
+    };
+    list.onclick=openCard;
+    list.onkeydown=openCard;
   }
   function renderLibrary(){
     const view=document.getElementById('libraryView');if(!view)return;
