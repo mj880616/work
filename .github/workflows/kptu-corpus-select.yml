@@ -1,0 +1,27 @@
+name: Select KPTU analysis corpus
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/kptu_corpus_select.py'
+      - '.github/workflows/kptu-corpus-select.yml'
+permissions:
+  contents: write
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Select balanced corpus
+        run: python scripts/kptu_corpus_select.py
+      - name: Commit selection
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kptu-corpus/selected-180.json
+          git diff --cached --quiet || git commit -m "Select KPTU analysis corpus"
+          git push
