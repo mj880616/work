@@ -9,7 +9,7 @@ const cors={
   "Cache-Control":"no-store"
 };
 
-const boards=new Set(["pc0921","pc2in1","private_rail","sanbyeol","press0914"]);
+const boards=new Set(["pc0921","pc2in1","private_rail","sanbyeol","press0914"]);\nconst PUBLIC_EDIT_BOARDS=new Set(["pc0921","pc2in1"]);
 const fixed=/^(done_|task_|org_|people_|staff_)[a-z0-9_-]{1,80}$/;
 const dynamic=/^extra_(name|checked|people|note)_[a-z0-9_-]{1,80}$/;
 const area=/^area_(title|status|body|hidden)_[a-z0-9_-]{1,80}$/;
@@ -140,8 +140,8 @@ Deno.serve(async(req)=>{
       const {data:existing,error:lookupError}=await service.from("board_state").select("item_key").eq("board",board).eq("item_key",k).maybeSingle();
       if(lookupError)return new Response(JSON.stringify({error:lookupError.message}),{status:500,headers:cors});
       const publicCreate=!existing&&k.startsWith("rail_card_custom_")&&v.custom===true&&v.hidden!==true;
-      if(!publicCreate&&String(body.master_password||"")!=="0822")return new Response(JSON.stringify({error:"password"}),{status:403,headers:cors});
-    }else if((k.startsWith("area_")||k.startsWith("schedule_")||k.startsWith("san_")||k.startsWith("press_")||k.startsWith("attachment_")||isPageEdit(k))&&String(body.master_password||"")!=="0822"){
+      if(!publicEdit&&!publicCreate&&String(body.master_password||"")!=="0822")return new Response(JSON.stringify({error:"password"}),{status:403,headers:cors});
+    }else if(!publicEdit&&(k.startsWith("area_")||k.startsWith("schedule_")||k.startsWith("san_")||k.startsWith("press_")||k.startsWith("attachment_")||isPageEdit(k))&&String(body.master_password||"")!=="0822"){
       return new Response(JSON.stringify({error:"password"}),{status:403,headers:cors});
     }
     if((k.startsWith("press_")||k.startsWith("attachment_"))&&!(typeof v==="string"&&v.trim().length>0&&v.length<=40000))return new Response(JSON.stringify({error:"press"}),{status:400,headers:cors});
