@@ -3,6 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 const SB=Deno.env.get('SUPABASE_URL')!;
 const ANON=Deno.env.get('SUPABASE_ANON_KEY')!;
 const ALLOWED_ORIGIN='https://mj880616.github.io';
+const WEB1_ADMIN_USER_ID='987b778e-69fe-4080-ad7f-191dc732d234';
 const cors={
   'Access-Control-Allow-Origin':ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type',
