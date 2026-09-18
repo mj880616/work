@@ -7,3 +7,5 @@ body.kptu-public-workspace .public-hidden{display:none!important}.public-readonl
 .public-library-list{display:grid;gap:10px}
 .public-library-card{display:block;width:100%;text-align:left;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface);padding:14px;color:inherit}
 button.public-library-card{cursor:pointer}.public-library-card h3{margin:6px 0 4px;font-size:15px}.public-library-card p{margin:0;color:var(--kptu-muted);font-size:12px;line-height:1.55}.public-library-card small{display:block;color:var(--kptu-muted);font-size:10.5px;margin-top:6px}.public-library-card .badges{display:flex;gap:5px;flex-wrap:wrap}
+
+.public-home-link{text-decoration:none}
