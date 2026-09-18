@@ -13,7 +13,14 @@ select set_config(
 );
 select set_config(
   'app.authz_public_user',
-  (select id::text from auth.users order by created_at,id limit 1),
+  (
+    select m.user_id::text
+    from public.app_workspace_members m
+    join public.app_workspaces w on w.id=m.workspace_id
+    where w.slug='kptu-work'
+    order by m.created_at,m.user_id
+    limit 1
+  ),
   true
 );
 
@@ -34,10 +41,10 @@ begin
     ('23232323-aaaa-4232-8232-232323232323',wid,'22222222-aaaa-4222-8222-222222222222','authz-public-snapshot-private-child','AUTHZ PRIVATE CHILD','private child fixture',uid,uid,'active','private',99993);
 
   insert into public.app_tasks(
-    id,workspace_id,project_id,title,note,status,priority,created_by
+    id,workspace_id,project_id,title,note,status,priority,created_by,assignee_id
   ) values
-    ('33333333-aaaa-4333-8333-333333333333',wid,'12121212-aaaa-4121-8121-121212121212','AUTHZ PUBLIC TASK','SECRET_TASK_NOTE','todo','normal',uid),
-    ('44444444-aaaa-4444-8444-444444444444',wid,'23232323-aaaa-4232-8232-232323232323','AUTHZ PRIVATE TASK','PRIVATE_TASK_NOTE','todo','normal',uid);
+    ('33333333-aaaa-4333-8333-333333333333',wid,'12121212-aaaa-4121-8121-121212121212','AUTHZ PUBLIC TASK','SECRET_TASK_NOTE','todo','normal',uid,uid),
+    ('44444444-aaaa-4444-8444-444444444444',wid,'23232323-aaaa-4232-8232-232323232323','AUTHZ PRIVATE TASK','PRIVATE_TASK_NOTE','todo','normal',uid,uid);
 
   insert into public.app_events(
     id,workspace_id,title,description,event_type,start_at,end_at,location,created_by,body,calendar_scope
