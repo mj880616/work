@@ -56,12 +56,6 @@
   const children=id=>state.spaces.filter(x=>x.parent_id===id);
   const tasks=id=>state.tasks.filter(x=>x.project_id===id);
   const pages=id=>state.pages.filter(x=>x.space_id===id);
-  const projectName=id=>state.spaces.find(x=>x.id===id)?.name||'공개 프로젝트';
-  function renderTasks(){
-    const view=document.getElementById('tasksView');if(!view)return;
-    const rows=state.tasks.filter(t=>t.project_id);
-    view.innerHTML=`<div class="section-head"><div><h2>할 일</h2><p>전체 공개 프로젝트에 연결된 업무만 로그인 없이 표시됩니다.</p></div></div><div class="public-visibility-note">개인 할 일과 제한 프로젝트의 할 일은 목록 자체에 나타나지 않습니다.</div><div class="public-task-list">${rows.length?rows.map(t=>`<article class="public-task-card"><b>${esc(t.title)}</b><span>${esc(projectName(t.project_id))} · ${esc(taskLabel[t.status]||t.status||'')} · 우선순위 ${esc(priorityLabel[t.priority]||t.priority||'보통')}</span>${t.due_at?`<small>기한 ${fmt(t.due_at)}</small>`:''}</article>`).join(''):'<div class="empty">현재 공개된 할 일이 없습니다.</div>'}</div>`;
-  }
   function renderCalendar(){
     const view=document.getElementById('calendarView');if(!view)return;
     const rows=[...state.events].sort((a,b)=>new Date(a.start_at)-new Date(b.start_at));
