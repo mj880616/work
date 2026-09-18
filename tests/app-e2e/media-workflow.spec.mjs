@@ -57,11 +57,11 @@ test('press workflow uses internal page storage and keeps cases out of general p
   await expect(page.locator('#pageSlug')).toHaveValue(/^media-/);
   await expect(page.locator('#pageVisibility')).toHaveValue('workspace');
   await expect(page.locator('#pageStatus')).toHaveValue('draft');
-  await expect(page.locator('#pageBody')).toContainText('# 사건 팩트시트');
-  await expect(page.locator('#pageBody')).toContainText('# 취재요청 초안');
-  await expect(page.locator('#pageBody')).toContainText('# 보도자료 초안');
-  await expect(page.locator('#pageBody')).toContainText('# 성명 초안');
-  await expect(page.locator('#pageBody')).toContainText('# 배포 전 QA');
+  await expect(page.locator('#pageBody')).toHaveValue(/# 사건 팩트시트/);
+  await expect(page.locator('#pageBody')).toHaveValue(/# 취재요청 초안/);
+  await expect(page.locator('#pageBody')).toHaveValue(/# 보도자료 초안/);
+  await expect(page.locator('#pageBody')).toHaveValue(/# 성명 초안/);
+  await expect(page.locator('#pageBody')).toHaveValue(/# 배포 전 QA/);
 
   await page.locator('[data-close="editorModal"]').first().click();
   await page.locator('[data-view="pages"]').click();
