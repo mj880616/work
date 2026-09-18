@@ -20,13 +20,20 @@
       location.replace(window.KPTUAuth.loginUrl(location.href));
       return;
     }
-    await import('./public-workspace.js?v=4');
+    await import('./public-workspace.js?v=5');
+    await import('./mobile-swipe-navigation.js?v=3');
     return;
   }
 
   await import('./topbar-actions.js?v=1');
   await import('./team.js?v=17');
   await window.__KPTU_TEAM_READY__;
+  // Runtime session is authoritative for this branch. If team.js saw stale pre-login state,
+  // reload the authenticated workspace once instead of leaving the auth renderer visible.
+  if(window.__KPTU_TEAM_READY_STATE__==='auth'&&window.KPTURuntime.session.read()){
+    location.reload();
+    return;
+  }
 
   try{
     const user=await window.KPTURuntime.api('/auth/v1/user');
