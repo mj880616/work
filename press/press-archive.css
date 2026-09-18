@@ -5,3 +5,13 @@
 .press-archive-back:focus-visible{outline:3px solid rgba(53,95,134,.22);outline-offset:2px}
 @media(max-width:650px){.press-archive-nav{padding:10px 11px 8px}.press-archive-back{min-height:34px;padding:7px 9px;font-size:11px}}
 @media print{.press-archive-nav{display:none!important}}
+
+/* Press archive content frame: unify the viewing width without changing each document's internal typography. */
+body.press-archive-detail main,
+body.press-archive-detail .page,
+body.press-archive-detail .wrap{
+  width:min(100%,860px);
+  max-width:860px;
+  margin-left:auto;
+  margin-right:auto;
+}
