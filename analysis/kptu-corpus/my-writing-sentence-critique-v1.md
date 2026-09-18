@@ -919,3 +919,42 @@
 - 2026.09 공공기관 증원 연계 인력감축 방침 취재요청·보도자료
 
 판정 관련 사실관계는 2024년 8월 21일 서울지노위 판정에 대한 공개 보도와 교차검증했다.
+
+
+---
+
+# 원문 바로가기
+
+- 2024.08 서울교통공사 집단해고 복직촉구 기자회견  
+  https://mj880616.github.io/work/press/2024-08-02-seoulmetro-reinstatement-press-conference/
+
+- 2024.08.21 서울지노위 부당해고 판정 성명  
+  https://mj880616.github.io/work/press/2024-08-21-seoulmetro-lrc-ruling/
+
+- 2024.08.25 9호선 2·3단계 안전인력 취재요청  
+  https://mj880616.github.io/work/press/2024-08-25-line9-staffing-press-request/
+
+- 2024.08.27 9호선 2·3단계 안전인력 보도자료  
+  https://mj880616.github.io/work/press/2024-08-27-line9-staffing-press-release/
+
+- 2024.09.04 공공 철도·지하철 정책대회 취재요청  
+  https://mj880616.github.io/work/press/2024-09-04-public-rail-policy-conference/
+
+- 2024.09.09 공공 철도·지하철 정책대회 보도자료  
+  https://mj880616.github.io/work/press/2024-09-09-public-rail-policy-conference/
+
+- 2024.10.08 故 박OO 노동자 관련 취재요청  
+  https://mj880616.github.io/work/press/2024-10-08-seoulmetro-park-solidarity-press-request/
+
+- 2024.10.10 故 박OO 노동자 관련 보도자료  
+  https://mj880616.github.io/work/press/2024-10-10-seoulmetro-park-solidarity-press-release/
+
+- 2026.09 공공기관 인력감축 방침 취재요청  
+  https://mj880616.github.io/work/press/2026-09-14-workforce/
+
+- 2026.09.14 공공기관 인력감축 방침 보도자료  
+  https://mj880616.github.io/work/workforce/press-conference-0914/press-release/
+
+판정 이유 교차검증:
+- 연합뉴스 2024.08.21 「서울지노위 "서울교통공사 노조 간부 32명 해고는 부당"」  
+  https://www.yna.co.kr/view/AKR20240821137000530
