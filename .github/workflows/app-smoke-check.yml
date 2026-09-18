@@ -87,7 +87,8 @@ jobs:
           grep -q "auth-service.js" app/loader-v2.js
           grep -q "capabilities.js?v=2" app/loader-v2.js
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
-          grep -q "public-workspace.js" app/loader-v2.js
+          grep -q "public-workspace.js?v=7" app/loader-v2.js
+          grep -q "home-dashboard-v2.js?v=4" app/loader-v2.js
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
           grep -q "team.js?v=17" app/loader-v2.js
           grep -q "project-system-v3.js?v=2" app/loader-v2.js
