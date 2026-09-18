@@ -1,0 +1,27 @@
+name: Build validated KPTU deep sample
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/kptu_build_valid_deep_sample.py'
+      - '.github/workflows/kptu-valid-deep-sample.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/kptu_build_valid_deep_sample.py
+      - name: Commit validated sample
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis/kptu-corpus/deep-sample-valid-48.json analysis/kptu-corpus/deep-valid
+          git diff --cached --quiet || git commit -m "Build validated KPTU deep-reading sample"
+          git pull --rebase origin main
+          git push
