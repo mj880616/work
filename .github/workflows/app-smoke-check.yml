@@ -101,7 +101,7 @@ jobs:
           grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
           grep -q "home-task-controls.js?v=3" app/loader-v2.js
           grep -q "photo-room.js?v=2" app/loader-v2.js
-          grep -q "page-list-controller.js?v=1" app/loader-v2.js
+          grep -q "page-list-controller.js?v=2" app/loader-v2.js
           grep -q "__KPTU_PAGE_LIST_READY__" app/loader-v2.js
           grep -q "page-save-controller.js?v=3" app/loader-v2.js
           grep -q "__KPTU_PAGE_SAVE_READY__" app/loader-v2.js
@@ -179,7 +179,7 @@ jobs:
             "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-layout.js?v=6')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./profile-settings.js?v=4')",'await window.__KPTU_PROFILE_SETTINGS_READY__',
-            "import('./page-list-controller.js?v=1')",'await window.__KPTU_PAGE_LIST_READY__',
+            "import('./page-list-controller.js?v=2')",'await window.__KPTU_PAGE_LIST_READY__',
             "import('./page-save-controller.js?v=3')",'await window.__KPTU_PAGE_SAVE_READY__',
             "import('./page-builder.js?v=2')",'await window.__KPTU_PAGE_BUILDER_READY__',
             "import('./page-management.js?v=2')",'await window.__KPTU_PAGE_MANAGEMENT_READY__',
