@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade "pip<25" "setuptools<70" wheel
-          python -m pip install --pre pyhwp
+          python -m pip install six\n          python -m pip install --pre pyhwp
           hwp5txt --help >/dev/null
       - name: Probe metadata and HWP extraction
         shell: python
