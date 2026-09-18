@@ -149,7 +149,6 @@ test('dedicated login signs in and returns to authenticated app',async({page})=>
   }catch(err){
     const diag=await page.evaluate(()=>({
       href:location.href,
-      session:localStorage.getItem('kptu_collab_session_v1'),
       loaderReady:!!window.KPTURuntime,
       runtimeSession:window.KPTURuntime?.session?.read?.()||null,
       teamState:window.__KPTU_TEAM_READY_STATE__||null,
