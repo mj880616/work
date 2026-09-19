@@ -10,7 +10,7 @@ test('authenticated home commits before non-critical feature bundle', async ({ p
   const source=await response.text();
   const usable=source.indexOf('window.__KPTU_MARK_APP_UI_READY__?.()');
   const deferred=source.indexOf('defer(()=>loadFeatures()');
-  expect(source).toContain('await window.__KPTU_HOME_READY__');
+  expect(source).toContain('await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])');
   expect(source).toContain('await window.__KPTU_START_TEAM_DATA__()');
   expect(usable).toBeGreaterThan(0);
   expect(deferred).toBeGreaterThan(usable);
