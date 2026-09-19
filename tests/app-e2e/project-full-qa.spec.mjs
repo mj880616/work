@@ -216,11 +216,14 @@ test('core navigation and creation modals stay usable on desktop',async({page})=
   await mockApp(page,state);
   await signIn(page);
 
-  for(const view of ['home','calendar','tasks','projects','library','meetings','pages','team']){
+  for(const view of ['home','calendar','tasks','projects','library','meetings','pages']){
     await page.locator(`[data-view="${view}"]`).click();
     await expect(page.locator(`[data-view="${view}"]`)).toHaveClass(/active/);
     await expectNoHorizontalOverflow(page);
   }
+  await page.locator('#teamManageTop').click();
+  await expect(page.locator('#teamView')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 
   const buttons=[
     ['#newEventBtn','#eventModal','[data-close="eventModal"]'],

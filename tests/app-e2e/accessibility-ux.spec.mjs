@@ -166,7 +166,7 @@ for(const c of [
 ]){
   test(`${c.name} dialog focuses its first field and restores its trigger`,async({page})=>{
     await boot(page,{width:1024,height:768});
-    await page.locator(`.app-nav [data-view="${c.view}"]`).click();
+    await page.locator(c.view==='team'?'#teamManageTop':`.app-nav [data-view="${c.view}"]`).click();
     const trigger=page.locator(c.trigger);
     await trigger.focus();
     await trigger.click();
@@ -223,7 +223,7 @@ test('failed save releases busy state and announces the error',async({page})=>{
 
 test('suborganization toolbar and destructive actions expose clear names',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="team"]').click();
+  await page.locator('#teamManageTop').click();
   await expect(page.locator('label[for="sofSearch"]')).toHaveText('산하조직 검색');
   await expect(page.locator('label[for="sofAssignee"]')).toHaveText('담당자 필터');
   await expect(page.locator('label[for="sofCouncil"]')).toHaveText('협의회 필터');
@@ -233,7 +233,7 @@ test('suborganization toolbar and destructive actions expose clear names',async(
 
 test('suborganization edit dialog exposes semantics, Escape close, and trigger restore',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="team"]').click();
+  await page.locator('#teamManageTop').click();
   const trigger=page.locator('#soAddOrg');
   await trigger.focus();
   await trigger.click();
@@ -252,7 +252,7 @@ test('suborganization edit dialog exposes semantics, Escape close, and trigger r
 test('profile save exposes and releases busy state',async({page})=>{
   const gate=deferred();
   await boot(page,{width:1024,height:768},{profileSaveGate:gate.promise});
-  await page.locator('.app-nav [data-view="profile"]').click();
+  await page.locator('#userBadge').click();
   await page.locator('#psName').fill('접근성 QA 수정');
   const save=page.locator('#psSaveProfile');
   await save.click();
@@ -282,7 +282,7 @@ for(const viewport of [
   test(`core views do not overflow at ${viewport.width}`,async({page})=>{
     await boot(page,viewport);
     for(const view of ['home','calendar','tasks','projects','library','meetings','pages','team']){
-      await page.locator(`.app-nav [data-view="${view}"]`).click();
+      await page.locator(view==='team'?'#teamManageTop':`.app-nav [data-view="${view}"]`).click();
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
       expect(overflow,view).toBeLessThanOrEqual(1);
     }

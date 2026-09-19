@@ -8,6 +8,8 @@ const event={id:'event-1',workspace_id:workspace.id,title:'인력확충 기자�
 const pixel='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlKx8sAAAAASUVORK5CYII=';
 let uploaded=false;
 let uploadRequest=null;
+let comments=[];
+let documents=[];
 
 async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
@@ -39,6 +41,14 @@ async function mockApp(page){
     if(path==='/rest/v1/app_workspaces')return ok([workspace]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'포토 QA'}]);
     if(path==='/rest/v1/app_events')return ok([event]);
+    if(path==='/rest/v1/app_event_comments'){
+      if(req.method()==='POST')comments.push({...req.postDataJSON(),id:'comment-'+(comments.length+1),created_at:new Date().toISOString()});
+      return ok(comments);
+    }
+    if(path==='/rest/v1/app_documents'){
+      if(req.method()==='POST')documents.push({...req.postDataJSON(),id:'document-'+(documents.length+1)});
+      return ok(documents);
+    }
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});
   });
@@ -55,9 +65,10 @@ async function signIn(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
 }
 
-test('photo upload uses shared session and refreshes the room without reloading the app',async({page})=>{
+test('photo upload uses shared session and refreshes schedule records without reloading the app',async({page})=>{
   test.setTimeout(60000);
   uploaded=false;uploadRequest=null;
+  comments=[];documents=[];
   let appNavigations=0;
   page.on('framenavigated',frame=>{if(frame===page.mainFrame()&&new URL(frame.url()).pathname.endsWith('/app/'))appNavigations++});
 
@@ -65,12 +76,11 @@ test('photo upload uses shared session and refreshes the room without reloading 
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 
-  await expect(page.locator('[data-view="photos"]')).toBeVisible({timeout:10000});
-  await page.locator('[data-view="photos"]').click();
-  await expect(page.locator('#photosView')).toBeVisible();
-  await expect(page.locator('#photoGrid')).toContainText('조건에 맞는 사진이 없습니다.');
-
-  await page.locator('#photoUploadOpen').click();
+  await page.locator('[data-view="calendar"]').click();
+  await page.locator('#eventRecordList [data-event-detail]').click();
+  await expect(page.locator('#eventDetailModal')).toBeVisible();
+  await expect(page.locator('#eventPhotoStrip')).toContainText('사진이 없습니다.');
+  await page.locator('#eventPhotoUpload').click();
   await expect(page.locator('#photoUploadModal')).toBeVisible();
   await expect(page.locator('#photoEvent')).toContainText('인력확충 기자회견');
   await page.locator('#photoCaption').fill('현장 사진');
@@ -80,8 +90,16 @@ test('photo upload uses shared session and refreshes the room without reloading 
   await page.locator('#photoUploadBtn').click();
 
   await expect(page.locator('#photoUploadModal')).toBeHidden({timeout:10000});
-  await expect(page.locator('#photoGrid')).toContainText('현장 사진',{timeout:10000});
+  await expect(page.locator('#eventPhotoStrip')).toContainText('현장 사진',{timeout:10000});
   await expect(page.locator('#toast')).toContainText('사진을 올렸습니다.');
+  await page.locator('#eventCommentBody').fill('현장 기록 댓글');
+  await page.locator('#addEventComment').click();
+  await expect(page.locator('#eventComments')).toContainText('현장 기록 댓글');
+  await page.locator('#eventDocTitle').fill('현장 자료');
+  await page.locator('#eventDocUrl').fill('https://example.org/record');
+  await page.locator('#addEventDocument').click();
+  await expect(page.locator('#eventDocuments')).toContainText('현장 자료');
+  await expect(page.locator('#eventDocuments a')).toHaveAttribute('href','https://example.org/record');
   expect(uploadRequest?.authorization).toBe('Bearer photo-access');
   expect(uploadRequest?.contentType).toContain('multipart/form-data');
   expect(appNavigations).toBe(navigationBaseline);

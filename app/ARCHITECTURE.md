@@ -16,10 +16,12 @@
 
 화면 전환은 `app-router.js`가 단독 소유함.
 
-- 상단 메뉴: `data-view`
+- 7개 기본 메뉴: `index.html`의 `.app-nav [data-view]`가 유일한 생성 위치임
 - 홈 카드 등 이동 버튼: `data-goto`
-- 모바일 하단바: `data-cc-view`
+- 모바일: 같은 기본 메뉴를 가로 스크롤하고 화면 스와이프로 전환함
 - 좌상단 브랜드: 홈으로 이동
+
+메시지·구성원 관리·내 정보·언론대응은 보조 화면으로 유지함. 상단 메시지 버튼·팀원 정보, 상단 구성원 버튼, 사용자 배지, 게시판의 언론대응 페이지 버튼에서 각각 진입함. 기존 직접 URL도 `app-router.js`가 처리하며 `?view=photos`는 기존 사진 목록을 열고 해당 화면에서 일정으로 이동할 수 있음.
 
 각 기능 모듈은 직접 모든 `.view-panel`을 숨기거나 활성 메뉴를 다시 계산하지 않음. 화면 전환이 필요하면 `window.KPTURouter.go(view)`를 사용함.
 
@@ -68,7 +70,7 @@ Android OAuth 복귀 경로는 별도 기능 수정과 섞지 않음. 인증 UI 
 
 ### 협업
 
-- `collaboration-center.js`: 메시지, 알림 수량, 프로젝트 초대 관련 협업 기능
+- `collaboration-center.js`: 팀원 간 메시지 화면과 대화 기능
 - `notification-center-ui.js`: 전용 알림 화면
 - `team-profile-view.js`: 다른 팀원 프로필 조회
 - `profile-settings.js`: 내 프로필 및 담당 정보 관리

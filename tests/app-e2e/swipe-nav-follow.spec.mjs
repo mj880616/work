@@ -57,14 +57,14 @@ test('active top menu follows swipe navigation and remains visible',async({page}
   await mockApp(page);
   await login(page);
 
-  await page.evaluate(()=>window.KPTURouter.go('team',{source:'swipe'}));
-  await expect(page.locator('#teamView')).toBeVisible();
+  await page.evaluate(()=>window.KPTURouter.go('pages',{source:'swipe'}));
+  await expect(page.locator('#pagesView')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>{
     const nav=document.querySelector('.app-nav');
     const active=nav?.querySelector('.nav-btn.active');
     if(!nav||!active)return false;
     const n=nav.getBoundingClientRect(),a=active.getBoundingClientRect();
-    return nav.scrollLeft>0&&a.left>=n.left-1&&a.right<=n.right+1;
+    return (nav.scrollWidth<=nav.clientWidth+1||nav.scrollLeft>0)&&a.left>=n.left-1&&a.right<=n.right+1;
   })).toBe(true);
 
   await page.evaluate(()=>window.KPTURouter.go('home',{source:'swipe'}));

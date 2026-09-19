@@ -34,7 +34,7 @@ jobs:
           test ! -f app/profile-workplace-legacy.js
           test ! -f app/profile-workplace-sync.js
           grep -q "profile-settings.css?v=2" app/styles.css
-          grep -q "profile-settings.js?v=4" app/loader-v2.js
+          grep -q "profile-settings.js?v=6" app/loader-v2.js
           grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
           grep -q "psSaveWorkplaces" app/profile-settings.js
           grep -q "ps-legacy-chip" app/profile-settings.js

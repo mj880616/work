@@ -46,7 +46,6 @@
   #pm2DetailModal .pm2-detail-head{gap:var(--kptu-space-4)!important}
   #pm2DetailModal .pm2-detail-head>*{min-width:0}
 
-  .cc-mobile-dock{display:none!important}
   body{padding-bottom:0!important}
 }
 

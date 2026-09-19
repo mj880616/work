@@ -11,9 +11,9 @@
 
   function orderedViews(){
     const out=[],seen=new Set();
-    const controls=[...document.querySelectorAll('#ccMobileDock [data-cc-view],.app-nav .nav-btn[data-view]')];
+    const controls=[...document.querySelectorAll('.app-nav .nav-btn[data-view]')];
     for(const btn of controls){
-      const view=btn.dataset.ccView||btn.dataset.view;
+      const view=btn.dataset.view;
       if(!view||seen.has(view))continue;
       const panel=document.getElementById(view+'View');
       if(!panel||btn.classList.contains('hidden')||getComputedStyle(btn).display==='none')continue;
@@ -24,7 +24,7 @@
   }
 
   function blockedTarget(target){
-    return !!target?.closest?.('.modal,.app-nav,#ccMobileDock,[data-swipe-lock],.pm2-nav,.pv-nav,.cc-peer-list');
+    return !!target?.closest?.('.modal,.app-nav,[data-swipe-lock],.pm2-nav,.pv-nav,.cc-peer-list');
   }
 
   function visiblePanel(target){
@@ -36,11 +36,6 @@
   function inSwipeArea(y,panel){
     const r=panel.getBoundingClientRect();
     if(y<r.top||y>r.bottom)return false;
-    const dock=document.querySelector('#ccMobileDock');
-    if(dock&&getComputedStyle(dock).display!=='none'){
-      const dr=dock.getBoundingClientRect();
-      if(y>=dr.top)return false;
-    }
     return true;
   }
 

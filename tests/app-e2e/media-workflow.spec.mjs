@@ -46,7 +46,8 @@ test('press workflow uses internal page storage and keeps cases out of general p
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 
-  await page.locator('[data-view="media"]').click();
+  await page.locator('[data-view="pages"]').click();
+  await page.locator('#pagesMediaEntry').click();
   await expect(page.locator('#mediaView')).toBeVisible();
   await expect(page.locator('#mediaCaseList')).toContainText('기존 사건');
   await expect(page.locator('#mediaCaseList')).toContainText('언론대응 · 사건 팩트시트 → 초안 → QA');

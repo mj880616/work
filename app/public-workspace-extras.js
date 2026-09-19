@@ -4,7 +4,7 @@
   window.__KPTU_PUBLIC_WORKSPACE_EXTRAS__=true;
   const rt=window.KPTURuntime;
   if(!rt?.api)return;
-  import('./mobile-swipe-navigation.js?v=3').catch(console.error);
+  import('./mobile-swipe-navigation.js?v=4').catch(console.error);
 
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let documents=[];

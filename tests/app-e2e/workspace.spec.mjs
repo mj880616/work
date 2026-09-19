@@ -204,7 +204,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect.poll(() => state.tasks[0].status).toBe('done');
   await expect(page.locator('.tl-task-section').first().locator('.tl-completed summary')).toContainText('완료된 할 일');
 
-  await page.locator('[data-view="profile"]').click();
+  await page.locator('#userBadge').click();
   await expect(page.locator('#profileView')).toBeVisible();
   await expect(page.locator('#psWorkplaceList')).toContainText('한국철도공사');
   await expect(page.locator('#psWorkplaceList')).toContainText('공항철도');
@@ -235,8 +235,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect.poll(() => state.meetings.length).toBeGreaterThan(0);
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
 
-  await expect(page.locator('[data-view="messages"]')).toBeVisible({ timeout: 10000 });
-  await page.locator('[data-view="messages"]').click();
+  await page.evaluate(()=>window.KPTURouter.go('messages'));
   await expect(page.locator('#messagesView')).toBeVisible();
   await page.locator('[data-cc-peer="user-2"]').click();
   await page.locator('#ccMessageBody').fill('E2E 메시지');
