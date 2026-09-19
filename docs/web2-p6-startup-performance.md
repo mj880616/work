@@ -23,7 +23,7 @@ P6는 `/app/`의 인증된 홈 critical path만 줄인다. Supabase schema/RLS, 
 
 개발자 도구에서는 `window.__KPTU_STARTUP__.marks`로 같은 navigation의 원시 값을 읽을 수 있다. 자동 비교는 `tests/app-e2e/startup-benchmark.mjs`와 `.github/workflows/app-e2e-check.yml`에서 수행한다. 기준 main `3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c`와 P6 코드를 각각 로컬 정적 서버로 열고 정상 로그인 화면을 거쳐 인증 세션을 만든다. 두 버전 모두 동일한 모의 Supabase 응답을 사용한다. GitHub Actions ubuntu-latest, Chromium/Playwright 1.55.0, 1280×800에서 추가 네트워크 지연 없이 측정한다. cold는 새 브라우저 context의 첫 앱 진입, warm은 같은 context의 두 번째 진입이다. 각각 3회 중앙값을 사용한다. shell은 topbar DOM, auth는 검증된 workspace 역할 표시, home data는 네 홈 패널의 내용 생성, home usable은 그 데이터와 앱 가시성의 동시 충족으로 판정한다. 기존 main의 전체 모듈 완료는 `kptu:app-ui-ready`, P6는 `allInitialModulesComplete` 계측점이다. Resource Timing에서 home usable 시점까지의 JS URL 및 Supabase 요청을 센다.
 
-이 수치는 동일한 조건의 실제 Chromium 실행 결과다([측정 CI 실행](https://github.com/mj880616/work/actions/runs/35425160160)). 다만 모의 API에 지연을 넣지 않았고 실서비스 로그인 계정·GitHub Pages 지역 네트워크를 사용하지 않았으므로 사용자 관측 10~15초를 재현하거나 실제 환경의 2~3초/5초 목표 달성을 판정하지 않는다. 그 수치는 실제 서비스에서 별도 계측이 필요하다.
+이 수치는 동일한 조건의 실제 Chromium 실행 결과다([측정 CI 실행](https://github.com/mj880616/work/actions/runs/35425814260)). 다만 모의 API에 지연을 넣지 않았고 실서비스 로그인 계정·GitHub Pages 지역 네트워크를 사용하지 않았으므로 사용자 관측 10~15초를 재현하거나 실제 환경의 2~3초/5초 목표 달성을 판정하지 않는다. 그 수치는 실제 서비스에서 별도 계측이 필요하다.
 
 ## 변경 전 부팅 경로와 병목 순위
 
@@ -55,15 +55,15 @@ GitHub Pages는 정적 호스팅이므로 query-string 버전이 바뀐 JS/CSS�
 
 | 지표 | cold 변경 전 | cold 변경 후 | warm 변경 전 | warm 변경 후 |
 |---|---:|---:|---:|---:|
-| shell 표시 | 14.2 | 14.0 | 15.2 | 17.5 |
-| auth/workspace 완료 | 134.8 | 108.6 | 120.1 | 106.0 |
-| home data 완료 | 313.6 | 203.6 | 285.4 | 200.9 |
-| home usable | 454.1 | 203.6 | 425.3 | 200.9 |
-| 전체 초기 모듈 완료 | 453.0 | 504.8 | 424.4 | 483.1 |
+| shell 표시 | 15.4 | 15.6 | 15.9 | 20.2 |
+| auth/workspace 완료 | 138.1 | 130.0 | 120.3 | 124.7 |
+| home data 완료 | 319.2 | 234.9 | 291.8 | 230.7 |
+| home usable | 474.0 | 234.9 | 445.3 | 230.7 |
+| 전체 초기 모듈 완료 | 469.9 | 587.0 | 443.8 | 583.5 |
 | home usable 시점 JS import 수 | 61 | 18 | 61 | 18 |
 | home usable 시점 Supabase API 요청 수 | 107 | 7 | 107 | 7 |
 
-이 환경에서 home usable은 cold 250.5ms(55.2%), warm 224.4ms(52.8%) 단축됐다. 전체 모듈 완료 시점은 뒤로 이동했다. 홈과 무관한 작업을 홈 표시 이후로 옮긴 설계에 따른 결과다. 기존 loader의 전체 정적 import 그래프는 65개이며 기능을 삭제하지 않았다. 요청 수 107→7은 이 모의 계정과 응답을 사용한 브라우저 Resource Timing 기록이다. 코드 경로의 최소 요청 수 22→7과 범위가 다르고, 실제 계정의 데이터·모듈 분기·네트워크 조건에 따라 달라질 수 있다.
+이 환경에서 home usable은 cold 239.1ms(50.4%), warm 214.6ms(48.2%) 단축됐다. 전체 모듈 완료 시점은 뒤로 이동했다. 홈과 무관한 작업을 홈 표시 이후로 옮긴 설계에 따른 결과다. 기존 loader의 전체 정적 import 그래프는 65개이며 기능을 삭제하지 않았다. 요청 수 107→7은 이 모의 계정과 응답을 사용한 브라우저 Resource Timing 기록이다. 코드 경로의 최소 요청 수 22→7과 범위가 다르고, 실제 계정의 데이터·모듈 분기·네트워크 조건에 따라 달라질 수 있다.
 
 ## 회귀검사
 
@@ -77,7 +77,7 @@ GitHub Pages는 정적 호스팅이므로 query-string 버전이 바뀐 JS/CSS�
 - 홈 바로가기를 로드 완료 전에 눌렀을 때 첫 클릭이 기능 화면으로 이어지는지
 - deferred module 로드 실패 시 홈이 유지되고 alert가 표시되는지
 
-기존 public workspace 코드는 인증 분기 이전/이후 동작을 변경하지 않았다. 모바일 스와이프 모듈은 public 경로와 인증 홈에서 모두 초기 로드하며, 직접 feature URL은 bundle을 선행하여 reload 동작을 보존한다. 원래의 모바일 메뉴·스와이프 E2E 검사는 수정 없이 통과했다. 최종 코드의 측정 CI 실행에서 11개 워크플로와 App browser E2E 기존 102개가 통과했으며 첫 클릭·실패 복구 브라우저 검사를 2개 추가했다.
+기존 public workspace 코드는 인증 분기 이전/이후 동작을 변경하지 않았다. 모바일 스와이프 모듈은 public 경로와 인증 홈에서 모두 초기 로드하며, 직접 feature URL은 bundle을 선행하여 reload 동작을 보존한다. 원래의 모바일 메뉴·스와이프 E2E 검사는 수정 없이 통과했다. 최종 코드의 측정 CI 실행에서 11개 워크플로와 App browser E2E는 첫 클릭·실패 복구 검사 2개를 포함해 104개가 통과했다.
 
 ## 일부러 수정하지 않은 부분
 
