@@ -36,7 +36,7 @@
 
   await import('./topbar-actions.js?v=4');
   window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
-  await import('./team.js?v=21');
+  await import('./team.js?v=22');
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
   if(teamState==='bootstrap'){await import('./access-approval.js?v=4');return}
