@@ -55,7 +55,7 @@
 
   await import('./access-approval.js?v=4');
   window.KPTUTeamMemberManagement?.limitApprovalRoles();
-  await import('./home-dashboard-v2.js?v=4');
+  await import('./home-dashboard-v2.js?v=5');
   await import('./member-default-role.js?v=3');
   await import('./myspace-return.js?v=2');
   await import('./page-design-core.js?v=3');
