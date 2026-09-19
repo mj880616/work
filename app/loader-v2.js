@@ -37,18 +37,21 @@
   await import('./topbar-actions.js?v=1');
   window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
   await import('./team.js?v=20');
-  await window.__KPTU_TEAM_READY__;
+  const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
+  if(teamState==='bootstrap'){await import('./access-approval.js?v=4');return}
+  if(teamState!=='workspace')return;
 
   const context=window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
   startup?.mark('routeResolved',{route:'authenticated'});
+  const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=3');
   startup?.mark('homeRendererStart');
   await import('./home-dashboard-v2.js?v=6');
   startup?.mark('homeRendererReady');
-  await window.__KPTU_HOME_READY__;
+  await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady]);
 
-  let featurePromise=null;
+  let featurePromise=null,featuresReady=false;
   const showFeatureError=err=>{
     console.error('deferred feature load failed',err);
     let box=document.querySelector('#deferredFeatureError');
@@ -90,10 +93,22 @@
     await import('./suborganization-filters.js?v=3'); await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
     await import('./team-profile-view.js?v=2'); await window.__KPTU_TEAM_PROFILE_READY__;
     await Promise.all([import('./google-tasks.js?v=3'),import('./push-notifications-ui.js?v=2'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=3')]);
+    featuresReady=true;
     startup?.mark('allInitialModulesComplete');
     Promise.all([import('./workplace-ai-report.js?v=1'),import('./workflow-ai-v3.js?v=2'),import('./meeting-ai-ingest-client.js?v=1&text=1'),import('./meeting-ai-paste-ui.js?v=1')]).catch(showFeatureError);
   })().catch(err=>{featurePromise=null;showFeatureError(err);throw err}));
   window.KPTUDeferredFeatures={load:loadFeatures};
+  document.addEventListener('click',event=>{
+    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#ccMobileDock [data-cc-view],#newPageBtn,[data-edit-page]');
+    if(!control||featuresReady)return;
+    const view=control.dataset.view||control.dataset.goto||control.dataset.ccView;
+    if(view==='home')return;
+    event.preventDefault();event.stopImmediatePropagation();
+    let status=document.querySelector('#deferredFeatureStatus');
+    if(!status){status=document.createElement('div');status.id='deferredFeatureStatus';status.className='notice';status.setAttribute('role','status');document.querySelector('#appView .app-nav')?.after(status)}
+    status.textContent='기능을 불러오는 중입니다…';
+    loadFeatures().then(()=>{status.remove();if(view)window.KPTURouter?.go?.(view,{source:'delegated'});else control.click()}).catch(()=>status.remove());
+  },true);
 
   const requested=new URLSearchParams(location.search).get('view');
   if(requested&&requested!=='home')await loadFeatures();

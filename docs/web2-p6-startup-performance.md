@@ -41,7 +41,8 @@ GitHub Pages는 정적 호스팅이므로 query-string 버전이 바뀐 JS/CSS�
 - session 확인 후에만 `team.js`를 import하며, 사용자→membership→workspace 검증 순서는 유지했다.
 - 검증된 `{user, membership, workspace}`를 기존 boot lifecycle의 읽기 전용 context로 홈과 capability에 전달해 초기 중복 4요청을 제거했다. 별도 영속 저장소나 권한 판단 source는 추가하지 않았다.
 - team의 11개 전체 데이터 요청은 홈 reveal 뒤 feature bundle이 시작할 때로 이동했다. 홈은 자신이 소유한 최소 4개 병렬 query(프로젝트, 마일스톤, 내 할 일, 자료)를 완료한 뒤 usable 이벤트를 보낸다.
-- 홈과 무관한 기능 bundle은 home usable 후 `requestIdleCallback`(2.5초 timeout)에서 background load한다. 직접 `?view=` URL은 해당 bundle readiness를 기다린 뒤 해당 화면을 reveal한다.
+- 홈과 무관한 기능 bundle은 home usable 후 `requestIdleCallback`(2.5초 timeout)에서 background load한다. 메뉴와 페이지 편집 버튼의 첫 클릭은 해당 bundle readiness를 기다린 뒤 이어서 실행한다. 직접 `?view=` URL도 bundle readiness를 기다린 뒤 해당 화면을 reveal한다.
+- 모바일 스와이프 동작은 홈 진입 시 함께 준비해 첫 제스처가 놓치지 않도록 한다. 소속이 없는 로그인 사용자의 가입 승인 안내는 홈 로드 대신 접근 승인 모듈로 처리한다.
 - 페이지 builder는 편집기 open 이벤트 시 lazy load를 유지하고, AI 4개 모듈은 feature bundle 이후 background load한다.
 - deferred load 실패는 앱 전체를 제거하지 않고 navigation 아래 `role=alert` 안내를 표시한다.
 - session 제거 이벤트가 오면 즉시 인증 화면으로 전환하고 boot context를 폐기한다. 홈 renderer의 epoch guard도 이전 사용자의 늦은 응답 commit을 계속 차단한다.
@@ -57,7 +58,7 @@ GitHub Pages는 정적 호스팅이므로 query-string 버전이 바뀐 JS/CSS�
 | 전체 초기 모듈 완료 | 기존 계측 없음 | `allInitialModulesComplete`로 별도 계측; 홈을 차단하지 않음 |
 | 전체 loader import 그래프 | 65 | 65 (기능 삭제 없음) |
 | home usable 전 명시적 top-level 순차 import | 50 | 6 |
-| home usable 전 dynamic import 모듈 | 65 | 15 |
+| home usable 전 dynamic import 모듈 | 65 | 16 |
 | home usable 전 Supabase API 요청 | 최소 22 | 7 |
 
 요청 수는 로그인 session이 만료되지 않았고 invite/Google callback이 없는 기본 인증 홈에서 source call path를 세어 얻었다. 변경 전은 user/membership/workspace 3 + 전체 workspace 11 + capability 2 + 홈 context 2 + 홈 data 4에서 중복되는 실행을 포함한 최소치이며, 변경 후는 user/membership/workspace 3 + 홈 data 4이다. 기능 bundle 완료 시 전체 데이터 요청은 그대로 수행되므로 기능이나 데이터 일관성을 제거한 최적화가 아니다.

@@ -46,3 +46,11 @@ test('page builder and AI modules remain lazy or background-only', async ({ page
     expect(source.indexOf(modulePath)).toBeGreaterThan(source.indexOf("startup?.mark('allInitialModulesComplete')"));
   }
 });
+
+test('feature navigation waits for deferred readiness and bootstrap loads access approval', async () => {
+  const source=read('app/loader-v2.js');
+  expect(source).toContain("if(teamState==='bootstrap'){await import('./access-approval.js?v=4');return}");
+  expect(source).toContain("event.stopImmediatePropagation()");
+  expect(source).toContain("loadFeatures().then(()=>{status.remove()");
+  expect(source).toContain("await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])");
+});
