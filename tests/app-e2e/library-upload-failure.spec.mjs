@@ -18,3 +18,15 @@ test('library upload timeout stays isolated in the upload form and releases busy
   await expect(page.locator('#documentModal')).toBeVisible();
   expect(await page.evaluate(()=>window.__documentsChanged)).toBe(0);
 });
+
+
+test('library visibility toggle uses the canonical visibility action',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  const card=page.locator('[data-lu-document="doc-1"]');
+  await expect(card).toContainText('팀 내부',{timeout:3000});
+  await expect(card.locator('[data-lu-toggle-public]')).toHaveText('외부 공개');
+  page.once('dialog',dialog=>dialog.accept());
+  await card.locator('[data-lu-toggle-public]').click();
+  await expect(card).toContainText('외부 공개');
+  await expect.poll(()=>page.evaluate(()=>window.__visibilityCalls.at(-1))).toEqual({action:'set-visibility',document_id:'doc-1',visibility:'public'});
+});

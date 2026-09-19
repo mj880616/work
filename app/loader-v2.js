@@ -29,7 +29,7 @@
   // team.js reads the same persisted session, but its legacy init can race the dedicated-login handoff.
   // Seed its in-memory session before init so the authenticated renderer owns the first committed UI.
   window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
-  await import('./team.js?v=17');
+  await import('./team.js?v=18');
   await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
 
@@ -39,7 +39,7 @@
     window.KPTUCapabilities.setContext({user,membership:memberships?.[0]||null});
   }catch(e){console.warn('capability context skipped',e)}
 
-  await import('./project-system-v3.js?v=3');
+  await import('./project-system-v3.js?v=4');
 
   await import('./team-member-overview.js?v=2');
   await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__;
@@ -74,8 +74,7 @@
     import('./calendar-health.js?v=3'),
     import('./home-task-controls.js?v=3'),
     import('./workplace-detail.js?v=3'),
-    import('./library-upload.js?v=5'),
-    import('./library-public-toggle.js?v=1')
+    import('./library-upload.js?v=6')
   ]);
 
   await window.__KPTU_PHOTO_ROOM_READY__;
