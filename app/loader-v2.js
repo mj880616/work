@@ -47,9 +47,9 @@
   startup?.mark('routeResolved',{route:'authenticated'});
   const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=3');
   startup?.mark('homeRendererStart');
-  await import('./home-dashboard-v2.js?v=6');
+  await import('./home-dashboard-v2.js?v=7');
   startup?.mark('homeRendererReady');
-  await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady]);
+  const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady]);
 
   let featurePromise=null,featuresReady=false;
   const showFeatureError=err=>{
@@ -112,7 +112,7 @@
 
   const requested=new URLSearchParams(location.search).get('view');
   if(requested&&requested!=='home')await loadFeatures();
-  window.__KPTU_MARK_APP_UI_READY__?.();
+  window.__KPTU_MARK_APP_UI_READY__?.({usable:homeResult?.ok===true});
   if(!requested||requested==='home'){
     const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
     defer(()=>loadFeatures().catch(()=>{}),{timeout:2500});

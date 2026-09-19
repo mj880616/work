@@ -46,7 +46,7 @@ GitHub Pages는 정적 호스팅이므로 query-string 버전이 바뀐 JS/CSS�
 - 인증된 앱 영역은 사용자·membership·workspace 검증 뒤에만 표시한다. 그 뒤 UI 준비 중 발생한 화면 전환은 URL에 보존해 준비 완료 시 홈으로 되돌아가는 경쟁 조건을 막는다.
 - 지연 로딩된 메시지 메뉴가 추가되면 라우터의 활성 메뉴 스크롤 정렬을 호출한다.
 - 페이지 builder는 편집기 open 이벤트 시 lazy load를 유지하고, AI 4개 모듈은 feature bundle 이후 background load한다.
-- deferred load 실패는 앱 전체를 제거하지 않고 navigation 아래 `role=alert` 안내를 표시한다.
+- deferred load 실패는 앱 전체를 제거하지 않고 navigation 아래 `role=alert` 안내를 표시한다. 홈 핵심 API가 실패하면 오류를 보여주되 `homeUsable` 성공 계측점은 기록하지 않는다.
 - session 제거 이벤트가 오면 즉시 인증 화면으로 전환하고 boot context를 폐기한다. 홈 renderer의 epoch guard도 이전 사용자의 늦은 응답 commit을 계속 차단한다.
 
 ## 전/후 결과

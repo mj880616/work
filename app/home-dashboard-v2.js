@@ -111,10 +111,10 @@
       document.querySelector('#hdvMilestones').innerHTML=future.length?future.slice(0,5).map(m=>milestoneRow(m,names)).join(''):empty('등록된 다음 주요 일정이 없습니다.');
       document.querySelector('#hdvLibrary').innerHTML=docs.length?docs.slice(0,5).map(d=>documentRow(d,names)).join(''):empty('최근 자료가 없습니다.');
       window.__KPTU_STARTUP__?.mark('homeDataComplete');
-      resolveReady?.();resolveReady=null;
+      resolveReady?.({ok:true});resolveReady=null;
     }catch(e){
       if(epoch===renderEpoch)['#hdvProjects','#hdvTasks','#hdvMilestones','#hdvLibrary'].forEach(sel=>{const el=document.querySelector(sel);if(el)el.innerHTML=`<div class="hdv-empty error">${esc(e.message||String(e))}</div>`});
-      resolveReady?.();resolveReady=null;
+      resolveReady?.({ok:false});resolveReady=null;
     }finally{
       loading=false;
       if(epoch!==renderEpoch)schedule(0);

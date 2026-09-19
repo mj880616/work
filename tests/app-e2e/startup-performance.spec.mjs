@@ -8,13 +8,15 @@ test('authenticated home commits before non-critical feature bundle', async ({ p
   const response=await page.request.get(loaderUrl);
   expect(response.ok()).toBeTruthy();
   const source=await response.text();
-  const usable=source.indexOf('window.__KPTU_MARK_APP_UI_READY__?.()');
+  const usable=source.indexOf('window.__KPTU_MARK_APP_UI_READY__?.({usable:homeResult?.ok===true})');
   const deferred=source.indexOf('defer(()=>loadFeatures()');
-  expect(source).toContain('await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])');
+  expect(source).toContain('const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])');
   const router=read('app/app-router.js');
   expect(router).toContain('authenticatedShellReady()');
   expect(router).toContain('appReady()||authenticatedShellReady()');
   expect(source).toContain('await window.__KPTU_START_TEAM_DATA__()');
+  expect(read('app/home-dashboard-v2.js')).toContain('resolveReady?.({ok:false})');
+  expect(read('app/app.js')).toContain("mark(usable?'homeUsable':'uiReadyWithError')");
   expect(usable).toBeGreaterThan(0);
   expect(deferred).toBeGreaterThan(usable);
   const criticalAwaitedImports=source.split('\n').filter(line=>/^  await import\(/.test(line));
