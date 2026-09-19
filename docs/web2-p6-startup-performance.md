@@ -74,8 +74,10 @@ GitHub Pages는 정적 호스팅이므로 query-string 버전이 바뀐 JS/CSS�
 - deferred failure가 사용자에게 alert로 남는지
 - 홈이 검증된 boot context를 재사용하고 session epoch를 검사하는지
 - page builder와 AI가 critical top-level await 경로로 돌아오지 않는지
+- 홈 바로가기를 로드 완료 전에 눌렀을 때 첫 클릭이 기능 화면으로 이어지는지
+- deferred module 로드 실패 시 홈이 유지되고 alert가 표시되는지
 
-기존 public workspace 코드는 인증 분기 이전/이후 동작을 변경하지 않았다. 모바일 스와이프 모듈은 public 경로와 인증 홈에서 모두 초기 로드하며, 직접 feature URL은 bundle을 선행하여 reload 동작을 보존한다. 원래의 모바일 메뉴·스와이프 E2E 검사는 수정 없이 통과했다. 최종 코드의 측정 CI 실행에서 11개 워크플로와 App browser E2E 102개가 통과했다.
+기존 public workspace 코드는 인증 분기 이전/이후 동작을 변경하지 않았다. 모바일 스와이프 모듈은 public 경로와 인증 홈에서 모두 초기 로드하며, 직접 feature URL은 bundle을 선행하여 reload 동작을 보존한다. 원래의 모바일 메뉴·스와이프 E2E 검사는 수정 없이 통과했다. 최종 코드의 측정 CI 실행에서 11개 워크플로와 App browser E2E 기존 102개가 통과했으며 첫 클릭·실패 복구 브라우저 검사를 2개 추가했다.
 
 ## 일부러 수정하지 않은 부분
 
