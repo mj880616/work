@@ -57,9 +57,8 @@ test('active top menu follows swipe navigation and remains visible',async({page}
   await mockApp(page);
   await login(page);
 
-  await page.evaluate(()=>{window.__navEvents=[];for(const name of ['kptu:view-changed','kptu:session-changed','kptu:app-ui-ready'])window.addEventListener(name,e=>window.__navEvents.push({name,view:e.detail?.view,source:e.detail?.source,at:performance.now()}))});
   await page.evaluate(()=>window.KPTURouter.go('team',{source:'swipe'}));
-  try{await expect(page.locator('#teamView')).toBeVisible()}catch(error){console.log('P6 NAV TEAM FAILURE',JSON.stringify(await page.evaluate(()=>({events:window.__navEvents,href:location.href,current:window.KPTURouter?.current,ready:document.querySelector('#appView')?.className,team:document.querySelector('#teamView')?.className,home:document.querySelector('#homeView')?.className}))));throw error}
+  await expect(page.locator('#teamView')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>{
     const nav=document.querySelector('.app-nav');
     const active=nav?.querySelector('.nav-btn.active');
@@ -78,9 +77,8 @@ test('calendar horizontal swipe works from toolbar, date cells and Google option
   await mockApp(page);
   await login(page);
 
-  await page.evaluate(()=>{window.__navEvents=[];for(const name of ['kptu:view-changed','kptu:session-changed','kptu:app-ui-ready'])window.addEventListener(name,e=>window.__navEvents.push({name,view:e.detail?.view,source:e.detail?.source,at:performance.now()}))});
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
-  try{await expect(page.locator('#calendarView')).toBeVisible()}catch(error){console.log('P6 NAV CALENDAR FAILURE',JSON.stringify(await page.evaluate(()=>({events:window.__navEvents,href:location.href,current:window.KPTURouter?.current,ready:document.querySelector('#appView')?.className,calendar:document.querySelector('#calendarView')?.className,home:document.querySelector('#homeView')?.className}))));throw error}
+  await expect(page.locator('#calendarView')).toBeVisible();
   const monthBefore=await page.locator('#monthTitle').textContent();
   await page.locator('#nextMonthBtn').click();
   await expect.poll(()=>page.locator('#monthTitle').textContent()).not.toBe(monthBefore);

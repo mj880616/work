@@ -82,7 +82,7 @@
     await import('./page-inline-viewer-v2.js?v=1'); await window.__KPTU_PAGE_INLINE_VIEWER_READY__;
     await import('./meeting-round-detail.js?v=6'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await Promise.all([import('./google-calendar-return-status.js?v=1'),import('./task-project-routing.js?v=1'),import('./task-completed-label.js?v=2'),import('./task-notes.js?v=2')]);
-    await import('./collaboration-center.js?v=6'); await window.__KPTU_COLLABORATION_READY__;
+    await import('./collaboration-center.js?v=7'); await window.__KPTU_COLLABORATION_READY__;
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
     await import('./calendar-plus.js?v=5'); await window.__KPTU_CALENDAR_PLUS_READY__;
     await import('./calendar-persistence.js?v=10'); await window.__KPTU_CALENDAR_PERSISTENCE_READY__;

@@ -1,3 +1,3 @@
 window.__KPTU_STARTUP__={startedAt:performance.now(),marks:{htmlStart:0,appJs:performance.now()},mark(name,detail={}){this.marks[name]=performance.now();window.dispatchEvent(new CustomEvent('kptu:startup-mark',{detail:{name,at:this.marks[name],...detail}}))}};
 window.__KPTU_MARK_APP_UI_READY__=()=>{const app=document.querySelector('#appView');app?.classList.add('kptu-ui-ready');window.__KPTU_STARTUP__?.mark('homeUsable');window.dispatchEvent(new Event('kptu:app-ui-ready'))};
-import('./loader-v2.js?v=152').catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});
+import('./loader-v2.js?v=153').catch(err=>{console.error(err);window.__KPTU_MARK_APP_UI_READY__?.();document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>')});

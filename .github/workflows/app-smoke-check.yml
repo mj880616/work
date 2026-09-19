@@ -116,7 +116,7 @@ jobs:
           grep -q "__KPTU_PAGE_INLINE_VIEWER_READY__" app/loader-v2.js
           grep -q "meeting-round-detail.js?v=6" app/loader-v2.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/loader-v2.js
-          grep -q "collaboration-center.js?v=6" app/loader-v2.js
+          grep -q "collaboration-center.js?v=7" app/loader-v2.js
           grep -q "__KPTU_COLLABORATION_READY__" app/loader-v2.js
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
           grep -q "__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js
@@ -188,7 +188,7 @@ jobs:
             "import('./page-management.js?v=2')",'await window.__KPTU_PAGE_MANAGEMENT_READY__',
             "import('./page-inline-viewer-v2.js?v=1')",'await window.__KPTU_PAGE_INLINE_VIEWER_READY__',
             "import('./meeting-round-detail.js?v=6')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
-            "import('./collaboration-center.js?v=6')",'await window.__KPTU_COLLABORATION_READY__',
+            "import('./collaboration-center.js?v=7')",'await window.__KPTU_COLLABORATION_READY__',
             "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
             "import('./calendar-plus.js?v=5')",'await window.__KPTU_CALENDAR_PLUS_READY__',
             "import('./calendar-persistence.js?v=10')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
@@ -362,7 +362,7 @@ jobs:
           grep -q "page-builder.js?v=2" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=2" app/loader-v2.js
           grep -q "meeting-ai-ingest-client.js?v=1" app/loader-v2.js
-          grep -q "collaboration-center.js?v=6" app/loader-v2.js
+          grep -q "collaboration-center.js?v=7" app/loader-v2.js
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
           grep -q "PB_TEMPLATES" app/page-builder.js
           grep -q "page_design" app/page-builder.js
