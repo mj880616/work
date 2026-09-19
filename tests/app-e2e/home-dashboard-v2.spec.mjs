@@ -40,3 +40,27 @@ test('home dashboard stacks cards on mobile without horizontal overflow',async({
   expect(layout.scrollWidth).toBeLessThanOrEqual(layout.innerWidth+1);
   expect(layout.columns.split(' ').length).toBe(1);
 });
+
+test('home dashboard explains an initialization failure and recovers after a session refresh',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/home-dashboard-v2-fixture.html?fail-user=1');
+
+  await expect(page.locator('#hdvProjects')).toContainText('세션 확인에 실패했습니다.');
+  await expect(page.locator('#hdvTasks')).toContainText('세션 확인에 실패했습니다.');
+
+  await page.evaluate(()=>window.__retryDashboard());
+  await expect(page.locator('#hdvProjects')).toContainText('인력확충 투쟁');
+  await expect(page.locator('#hdvTasks')).toContainText('보도자료 확정');
+});
+
+test('home dashboard never reuses context resolved by a previous session',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/home-dashboard-v2-fixture.html?race-session=1');
+  await page.waitForFunction(()=>window.__firstMembershipPending===true);
+
+  await page.evaluate(()=>window.__switchDashboardSession());
+  await expect(page.locator('#hdvProjects')).toContainText('인력확충 투쟁');
+
+  const taskRequests=await page.evaluate(()=>window.__apiCalls.filter(path=>path.startsWith('/rest/v1/app_tasks')));
+  expect(taskRequests).toHaveLength(1);
+  expect(taskRequests[0]).toContain('workspace_id=eq.workspace-2');
+  expect(taskRequests[0]).toContain('assignee_id=eq.user-2');
+});

@@ -8,6 +8,7 @@
   let workspaceId='';
   let loading=false;
   let timer=null;
+  let renderEpoch=0;
 
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const dt=v=>{if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?null:d};
@@ -16,15 +17,15 @@
   const typeLabel=v=>({ongoing:'상시사업·산업관리',campaign:'의제 사업',event:'행사·집중사업',knowledge:'자료·지식',blank:'프로젝트'}[v]||'프로젝트');
 
   async function api(path,opts={}){if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,opts)}
-  async function context(){
-    if(userId&&workspaceId)return true;
+  async function context(epoch){
+    if(userId&&workspaceId)return {userId,workspaceId};
     if(!rt?.session||!(await rt.session.ensure()))return false;
     const user=await api('/auth/v1/user');
     const ms=await api('/rest/v1/app_workspace_members?user_id=eq.'+encodeURIComponent(user.id)+'&select=workspace_id&limit=1');
-    if(!ms?.length)return false;
+    if(!ms?.length||epoch!==renderEpoch)return false;
     userId=user.id;
     workspaceId=ms[0].workspace_id;
-    return true;
+    return {userId,workspaceId};
   }
 
   function prepareStructure(){
@@ -64,10 +65,13 @@
   }
 
   async function render(){
-    if(loading||!prepareStructure()||!(await context()))return;
+    if(loading||!prepareStructure())return;
     loading=true;
+    const epoch=renderEpoch;
     try{
-      const wid=encodeURIComponent(workspaceId),uid=encodeURIComponent(userId);
+      const activeContext=await context(epoch);
+      if(!activeContext||epoch!==renderEpoch)return;
+      const wid=encodeURIComponent(activeContext.workspaceId),uid=encodeURIComponent(activeContext.userId);
       const [spaceRows,milestoneRows,taskRows,documentRows]=await Promise.all([
         api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&status=neq.archived&select=id,name,parent_id,status,metadata,project_type,current_phase,start_on,end_on,updated_at,is_legacy_snapshot'),
         api('/rest/v1/app_project_milestones?select=id,project_id,title,status,start_at,end_at,updated_at&order=start_at.asc.nullslast&limit=100'),
@@ -94,13 +98,19 @@
       });
       const docs=(documentRows||[]).sort((a,b)=>(dt(b.updated_at||b.created_at)?.getTime()||0)-(dt(a.updated_at||a.created_at)?.getTime()||0));
 
+      // A session change can happen while the requests above are in flight. Never
+      // commit a previous user's dashboard into the next session's shell.
+      if(epoch!==renderEpoch)return;
       document.querySelector('#hdvProjects').innerHTML=projects.length?projects.slice(0,5).map(projectRow).join(''):empty('진행 중인 프로젝트가 없습니다.');
       document.querySelector('#hdvTasks').innerHTML=tasks.length?tasks.slice(0,6).map(t=>taskRow(t,names)).join(''):empty('미완료 업무가 없습니다.');
       document.querySelector('#hdvMilestones').innerHTML=future.length?future.slice(0,5).map(m=>milestoneRow(m,names)).join(''):empty('등록된 다음 주요 일정이 없습니다.');
       document.querySelector('#hdvLibrary').innerHTML=docs.length?docs.slice(0,5).map(d=>documentRow(d,names)).join(''):empty('최근 자료가 없습니다.');
     }catch(e){
-      ['#hdvProjects','#hdvTasks','#hdvMilestones','#hdvLibrary'].forEach(sel=>{const el=document.querySelector(sel);if(el)el.innerHTML=`<div class="hdv-empty error">${esc(e.message||String(e))}</div>`});
-    }finally{loading=false}
+      if(epoch===renderEpoch)['#hdvProjects','#hdvTasks','#hdvMilestones','#hdvLibrary'].forEach(sel=>{const el=document.querySelector(sel);if(el)el.innerHTML=`<div class="hdv-empty error">${esc(e.message||String(e))}</div>`});
+    }finally{
+      loading=false;
+      if(epoch!==renderEpoch)schedule(0);
+    }
   }
 
   function schedule(delay=80){clearTimeout(timer);timer=setTimeout(render,delay)}
@@ -120,7 +130,7 @@
       if(goto)window.KPTURouter?.go?.(goto.dataset.hdvGoto,{source:'home-dashboard'});
     });
     window.KPTURouter?.on?.('home',()=>schedule(40));
-    window.addEventListener('kptu:session-changed',()=>{userId='';workspaceId='';schedule(120)});
+    window.addEventListener('kptu:session-changed',()=>{renderEpoch+=1;userId='';workspaceId='';schedule(120)});
     ['kptu:tasks-changed','kptu:projects-changed','kptu:calendar-changed','kptu:documents-changed'].forEach(name=>window.addEventListener(name,()=>schedule(80)));
     schedule(80);
   }
