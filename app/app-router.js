@@ -9,6 +9,12 @@
     return !!app&&!app.classList.contains('hidden')&&app.classList.contains('kptu-ui-ready');
   }
 
+  function authenticatedShellReady(){
+    const app=document.querySelector('#appView');
+    const context=window.__KPTU_BOOT_CONTEXT__;
+    return !!app&&!app.classList.contains('hidden')&&!!context?.user?.id&&!!context?.workspace?.id;
+  }
+
   function viewExists(view){
     return !!view&&!!document.getElementById(view+'View');
   }
@@ -80,7 +86,7 @@
     api.current=view;
     const navBehavior=['restore','ready','session','popstate'].includes(source)?'auto':'smooth';
     requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:navBehavior}));
-    if(updateUrl&&appReady())syncUrl(view,{replace:replaceUrl||source==='api'});
+    if(updateUrl&&(appReady()||authenticatedShellReady()))syncUrl(view,{replace:replaceUrl||source==='api'});
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
     const detail={view,source};
     window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));
