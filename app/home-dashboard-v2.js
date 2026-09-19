@@ -9,6 +9,8 @@
   let loading=false;
   let timer=null;
   let renderEpoch=0;
+  let resolveReady;
+  window.__KPTU_HOME_READY__=new Promise(resolve=>{resolveReady=resolve});
 
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const dt=v=>{if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?null:d};
@@ -19,6 +21,8 @@
   async function api(path,opts={}){if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,opts)}
   async function context(epoch){
     if(userId&&workspaceId)return {userId,workspaceId};
+    const boot=window.__KPTU_BOOT_CONTEXT__;
+    if(boot?.user?.id&&boot?.workspace?.id){userId=boot.user.id;workspaceId=boot.workspace.id;return {userId,workspaceId}}
     if(!rt?.session||!(await rt.session.ensure()))return false;
     const user=await api('/auth/v1/user');
     const ms=await api('/rest/v1/app_workspace_members?user_id=eq.'+encodeURIComponent(user.id)+'&select=workspace_id&limit=1');
@@ -72,6 +76,7 @@
       const activeContext=await context(epoch);
       if(!activeContext||epoch!==renderEpoch)return;
       const wid=encodeURIComponent(activeContext.workspaceId),uid=encodeURIComponent(activeContext.userId);
+      window.__KPTU_STARTUP__?.mark('homeDataStart');
       const [spaceRows,milestoneRows,taskRows,documentRows]=await Promise.all([
         api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&status=neq.archived&select=id,name,parent_id,status,metadata,project_type,current_phase,start_on,end_on,updated_at,is_legacy_snapshot'),
         api('/rest/v1/app_project_milestones?select=id,project_id,title,status,start_at,end_at,updated_at&order=start_at.asc.nullslast&limit=100'),
@@ -105,8 +110,11 @@
       document.querySelector('#hdvTasks').innerHTML=tasks.length?tasks.slice(0,6).map(t=>taskRow(t,names)).join(''):empty('미완료 업무가 없습니다.');
       document.querySelector('#hdvMilestones').innerHTML=future.length?future.slice(0,5).map(m=>milestoneRow(m,names)).join(''):empty('등록된 다음 주요 일정이 없습니다.');
       document.querySelector('#hdvLibrary').innerHTML=docs.length?docs.slice(0,5).map(d=>documentRow(d,names)).join(''):empty('최근 자료가 없습니다.');
+      window.__KPTU_STARTUP__?.mark('homeDataComplete');
+      resolveReady?.();resolveReady=null;
     }catch(e){
       if(epoch===renderEpoch)['#hdvProjects','#hdvTasks','#hdvMilestones','#hdvLibrary'].forEach(sel=>{const el=document.querySelector(sel);if(el)el.innerHTML=`<div class="hdv-empty error">${esc(e.message||String(e))}</div>`});
+      resolveReady?.();resolveReady=null;
     }finally{
       loading=false;
       if(epoch!==renderEpoch)schedule(0);

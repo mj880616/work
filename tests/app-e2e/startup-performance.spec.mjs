@@ -1,34 +1,48 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
-const loaderUrl='http://127.0.0.1:8123/app/loader-v2.js?task8-startup-contract=1';
+const loaderUrl='http://127.0.0.1:8123/app/loader-v2.js?p6-startup-contract=1';
+const read=path=>readFileSync(path,'utf8');
 
-test('page builder is absent from unconditional awaited startup imports', async ({ page }) => {
+test('authenticated home commits before non-critical feature bundle', async ({ page }) => {
   const response=await page.request.get(loaderUrl);
   expect(response.ok()).toBeTruthy();
   const source=await response.text();
-  expect(source.split('\n').some(line=>/^  await import\('\.\/page-builder\.js/.test(line))).toBeFalsy();
+  const usable=source.indexOf('window.__KPTU_MARK_APP_UI_READY__?.()');
+  const deferred=source.indexOf('defer(()=>loadFeatures()');
+  expect(source).toContain('await window.__KPTU_HOME_READY__');
+  expect(source).toContain('await window.__KPTU_START_TEAM_DATA__()');
+  expect(usable).toBeGreaterThan(0);
+  expect(deferred).toBeGreaterThan(usable);
+  const criticalAwaitedImports=source.split('\n').filter(line=>/^  await import\(/.test(line));
+  for(const path of ['project-system-v3','profile-settings','media-workflow','meeting-round-detail','google-tasks']){
+    expect(criticalAwaitedImports.some(line=>line.includes(path))).toBeFalsy();
+  }
+});
+
+test('direct feature URLs wait for the feature bundle and failures remain visible', async ({ page }) => {
+  const source=await (await page.request.get(loaderUrl)).text();
+  expect(source).toContain("if(requested&&requested!=='home')await loadFeatures()");
+  expect(source).toContain("box.id='deferredFeatureError'");
+  expect(source).toContain("setAttribute('role','alert')");
+  expect(source).toContain('이 기능을 불러오지 못했습니다.');
+});
+
+test('home reuses authenticated boot context and guards stale-session commits', async () => {
+  const home=read('app/home-dashboard-v2.js');
+  const team=read('app/team.js');
+  expect(home).toContain('window.__KPTU_BOOT_CONTEXT__');
+  expect(home).toContain('if(epoch!==renderEpoch)return');
+  expect(home).toContain("addEventListener('kptu:session-changed'");
+  expect(team).toContain("addEventListener('kptu:session-changed'");
+  expect(team).toContain("showOnly('authView')");
+});
+
+test('page builder and AI modules remain lazy or background-only', async ({ page }) => {
+  const source=await (await page.request.get(loaderUrl)).text();
   expect(source).toContain("addEventListener('kptu:page-editor-opened',lazyPageBuilderOpen)");
-});
-
-test('lazy page builder preserves explicit readiness and critical team readiness', async ({ page }) => {
-  const response=await page.request.get(loaderUrl);
-  expect(response.ok()).toBeTruthy();
-  const source=await response.text();
-  expect(source).toContain('await window.__KPTU_TEAM_READY__');
   expect(source).toContain('await window.__KPTU_PAGE_BUILDER_READY__');
-  expect(source).toContain('window.__KPTU_MARK_APP_UI_READY__?.()');
-});
-
-test('AI feature modules stay out of the unconditional awaited startup path', async ({ page }) => {
-  const response=await page.request.get(loaderUrl);
-  expect(response.ok()).toBeTruthy();
-  const source=await response.text();
-  const startupLines=source.split('\n').filter(line=>/^  await import\(/.test(line));
-  for(const modulePath of [
-    './workplace-ai-report.js',
-    './workflow-ai-v3.js',
-    './meeting-ai-ingest-client.js',
-    './meeting-ai-paste-ui.js'
-  ]) expect(startupLines.some(line=>line.includes(modulePath))).toBeFalsy();
-  expect(source).toContain("addEventListener('kptu:app-ui-ready'");
+  for(const modulePath of ['./workplace-ai-report.js','./workflow-ai-v3.js','./meeting-ai-ingest-client.js','./meeting-ai-paste-ui.js']){
+    expect(source.indexOf(modulePath)).toBeGreaterThan(source.indexOf("startup?.mark('allInitialModulesComplete')"));
+  }
 });
