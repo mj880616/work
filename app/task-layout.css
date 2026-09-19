@@ -27,11 +27,11 @@
 .tl-task-note{display:block;min-width:0;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-muted,#68737e);font-size:11px;line-height:1.4}
 .tl-note-prefix{color:var(--kptu-info,#38677d);font-weight:700;margin-right:6px}
 .tl-task-menu{position:relative;align-self:center}
-.tl-menu-trigger{width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--kptu-ink,#27333c);font-size:23px;line-height:1;cursor:pointer}
+.tl-menu-trigger{width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:var(--kptu-radius-md,8px);background:transparent;color:var(--kptu-ink,#27333c);font-size:23px;line-height:1;cursor:pointer}
 .tl-menu-trigger:hover,.tl-menu-trigger[aria-expanded="true"]{background:var(--kptu-info-soft,#eef4f6)}
-.tl-menu-items{position:absolute;right:0;top:100%;z-index:20;min-width:148px;padding:5px;border:1px solid var(--kptu-border,#e5e9ed);border-radius:10px;background:var(--kptu-surface,#fff);box-shadow:0 8px 24px rgba(20,32,44,.16)}
+.tl-menu-items{position:absolute;right:0;top:100%;z-index:20;min-width:148px;padding:5px;border:1px solid var(--kptu-border,#e5e9ed);border-radius:var(--kptu-radius-lg,12px);background:var(--kptu-surface,#fff);box-shadow:var(--kptu-shadow-float,0 8px 24px rgba(20,33,48,.08))}
 .tl-menu-items[hidden]{display:none}
-.tl-menu-items button{display:block;width:100%;min-height:40px;text-align:left;border:0;border-radius:6px;background:transparent;padding:8px 10px;color:inherit;font:inherit;font-size:12px;cursor:pointer}
+.tl-menu-items button{display:block;width:100%;min-height:40px;text-align:left;border:0;border-radius:var(--kptu-radius-sm,6px);background:transparent;padding:8px 10px;color:inherit;font:inherit;font-size:12px;cursor:pointer}
 .tl-menu-items button:hover,.tl-menu-items button:focus-visible{background:var(--kptu-info-soft,#eef4f6)}
 .tl-menu-items [data-tl-delete],.tl-menu-items [data-pt-delete]{color:var(--kptu-danger,#a33b45)}
 .tl-task-main:focus-visible,.tl-menu-trigger:focus-visible,.tl-task-check-wrap input:focus-visible{outline:2px solid var(--kptu-info,#38677d);outline-offset:2px}
