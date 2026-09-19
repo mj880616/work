@@ -9,7 +9,8 @@ const session={access_token:'p6-benchmark-access',refresh_token:'p6-benchmark-re
 async function mockApi(context){
   await context.route(SB+'/**',async route=>{
     const url=new URL(route.request().url()),path=url.pathname;
-    const data=path==='/auth/v1/user'?user:
+    const data=path==='/auth/v1/token'?{...session,expires_in:3600}:
+      path==='/auth/v1/user'?user:
       path==='/rest/v1/app_workspace_members'?[{workspace_id:workspace.id,user_id:user.id,role:'owner'}]:
       path==='/rest/v1/app_workspaces'?[workspace]:
       path==='/rest/v1/app_profiles'?[{user_id:user.id,display_name:'P6 측정'}]:
@@ -21,8 +22,7 @@ async function mockApi(context){
 }
 
 async function instrument(context){
-  await context.addInitScript(value=>{
-    try{if(location.pathname.startsWith('/app/'))localStorage.setItem('kptu_collab_session_v1',JSON.stringify(value))}catch{}
+  await context.addInitScript(()=>{
     const metric=window.__P6_BENCHMARK__={shellMs:null,authMs:null,homeDataMs:null,homeUsableMs:null,allModulesMs:null,initialImports:null,initialApiRequests:null};
     const snapshot=()=>{
       const resources=performance.getEntriesByType('resource');
@@ -45,14 +45,30 @@ async function instrument(context){
         metric.homeUsableMs=now;snapshot();clearInterval(timer);
       }
     },5);
-  },session);
+  });
 }
 
-async function measure(page,url){
-  await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
+async function waitForStartup(page){
   await page.waitForFunction(()=>typeof window.__P6_BENCHMARK__?.homeUsableMs==='number',null,{timeout:30000});
   await page.waitForFunction(()=>typeof window.__P6_BENCHMARK__?.allModulesMs==='number',null,{timeout:15000}).catch(()=>{});
   return page.evaluate(()=>window.__P6_BENCHMARK__);
+}
+
+async function coldLoad(page,url){
+  const login=new URL('/app/login/',url);
+  login.searchParams.set('return',url);
+  await page.goto(login.href,{waitUntil:'domcontentloaded',timeout:30000});
+  await page.locator('#emailAuthToggle').click();
+  await page.locator('#authEmail').fill(user.email);
+  await page.locator('#authPassword').fill('benchmark-password');
+  await page.locator('#authSubmit').click();
+  await page.waitForURL(url,{timeout:30000});
+  return waitForStartup(page);
+}
+
+async function warmLoad(page,url){
+  await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
+  return waitForStartup(page);
 }
 
 function median(rows,key){
@@ -69,8 +85,8 @@ try{
       const context=await browser.newContext({viewport:{width:1280,height:800},serviceWorkers:'block'});
       await mockApi(context);await instrument(context);
       const page=await context.newPage(),url='http://127.0.0.1:'+port+'/app/';
-      cold.push(await measure(page,url));
-      warm.push(await measure(page,url));
+      cold.push(await coldLoad(page,url));
+      warm.push(await warmLoad(page,url));
       await context.close();
     }
     results.samples[label]={cold,warm,medianCold:{},medianWarm:{}};
