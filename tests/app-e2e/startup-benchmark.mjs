@@ -23,7 +23,7 @@ async function mockApi(context){
 
 async function instrument(context){
   await context.addInitScript(()=>{
-    const metric=window.__P6_BENCHMARK__={shellMs:null,authMs:null,homeDataMs:null,homeUsableMs:null,allModulesMs:null,initialImports:null,initialApiRequests:null};
+    const metric=window.__P6_BENCHMARK__={topbarMs:null,shellMs:null,authMs:null,homeDataMs:null,homeUsableMs:null,allModulesMs:null,initialImports:null,initialApiRequests:null};
     const snapshot=()=>{
       const resources=performance.getEntriesByType('resource');
       metric.initialImports=new Set(resources.filter(r=>/\/app\/[^?#]+\.js(?:\?|$)/.test(r.name)).map(r=>r.name)).size;
@@ -37,10 +37,12 @@ async function instrument(context){
     });
     const timer=setInterval(()=>{
       const now=performance.now();
-      if(metric.shellMs===null&&document.querySelector('.topbar'))metric.shellMs=now;
+      if(metric.topbarMs===null&&document.querySelector('.topbar'))metric.topbarMs=now;
+      const app=document.querySelector('#appView');
+      const nav=app?.querySelector('.app-nav');
+      if(metric.shellMs===null&&nav&&app&&!app.classList.contains('hidden')&&getComputedStyle(app).visibility==='visible'&&getComputedStyle(nav).visibility==='visible')metric.shellMs=now;
       if(metric.authMs===null&&document.querySelector('#workspaceRole')?.textContent?.includes('내 권한'))metric.authMs=now;
       if(metric.homeDataMs===null&&document.querySelector('#hdvProjects')?.children.length)metric.homeDataMs=now;
-      const app=document.querySelector('#appView');
       if(metric.homeUsableMs===null&&metric.homeDataMs!==null&&app&&!app.classList.contains('hidden')&&getComputedStyle(app).visibility==='visible'){
         metric.homeUsableMs=now;snapshot();clearInterval(timer);
       }
@@ -90,7 +92,7 @@ try{
       await context.close();
     }
     results.samples[label]={cold,warm,medianCold:{},medianWarm:{}};
-    for(const key of ['shellMs','authMs','homeDataMs','homeUsableMs','allModulesMs','initialImports','initialApiRequests']){
+    for(const key of ['topbarMs','shellMs','authMs','homeDataMs','homeUsableMs','allModulesMs','initialImports','initialApiRequests']){
       results.samples[label].medianCold[key]=median(cold,key);
       results.samples[label].medianWarm[key]=median(warm,key);
     }
