@@ -192,8 +192,8 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await page.locator('[data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();
-  await expect(page.locator('#tlTaskSections')).toContainText('내 할 일');
-  await expect(page.locator('#tlTaskSections')).toContainText('팀에서 부여된 할 일');
+  await expect(page.locator('#taskList')).toContainText('내 할 일');
+  await expect(page.locator('#taskList')).toContainText('팀에서 부여된 할 일');
   await page.locator('#newTaskBtn').click();
   await page.locator('#taskTitle').fill('E2E 할 일');
   await page.locator('#saveTaskBtn').click();
@@ -220,11 +220,12 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await page.locator('[data-view="projects"]').click();
   await page.locator('#newProjectBtn').click();
-  await expect(page.locator('#projectCreateModal')).toBeVisible();
-  await page.locator('#newProjectName').fill('E2E 프로젝트');
-  await page.locator('#saveProjectBtn').dispatchEvent('click');
+  await expect(page.locator('#ps3CreateModal')).toBeVisible();
+  await page.locator('#ps3CreateName').fill('E2E 프로젝트');
+  await page.locator('#ps3CreateSave').dispatchEvent('click');
   await expect.poll(() => state.spaces.length).toBeGreaterThan(1);
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
+  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
 
   await page.locator('[data-view="meetings"]').click();
   await expect(page.locator('#meetingsView')).toBeVisible();

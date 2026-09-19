@@ -101,6 +101,7 @@ test('organization detail shows representative contact, system update time, and 
   };
   await preloadSession(page);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await page.evaluate(()=>window.KPTUDeferredFeatures.load());
   await page.evaluate(()=>{const b=document.createElement('button');b.id='openOrgE2E';b.dataset.psWorkplaceOrg='org-1';document.body.appendChild(b)});
   await page.locator('#openOrgE2E').click();
   await expect(page.locator('#wdModal')).toBeVisible();

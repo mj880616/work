@@ -46,3 +46,97 @@ test('new manual task is saved by the canonical task renderer',async({page})=>{
   await expect(page.locator('#taskList .tl-task-section').first()).toContainText('새 할 일');
   await expect(page.locator('#taskModal')).toHaveClass(/hidden/);
 });
+
+test('390px task rows prioritize two-line information and keep actions in a menu',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  const row=page.locator('[data-tl-task-row="self-open"]');
+  await expect(row.locator('[data-tl-toggle]')).toHaveAttribute('type','checkbox');
+  await expect(row.locator('[data-tl-menu]')).toBeVisible();
+  await expect(row.locator('.tl-task-note')).toContainText('후속 논의');
+  await expect(row.locator('.tl-task-description')).toContainText('공공기관 공동사업 준비');
+  await expect(page.locator('[data-tl-task-row="self-done"] .tl-task-note')).toHaveCount(0);
+  await expect(row.locator('[data-tl-edit]:visible,[data-tl-delete]:visible,[data-tn-edit]:visible')).toHaveCount(0);
+  const metrics=await row.evaluate(el=>{
+    const title=el.querySelector('.tl-task-title');
+    const cs=getComputedStyle(title);
+    return {height:title.getBoundingClientRect().height,lineHeight:parseFloat(cs.lineHeight),clamp:cs.webkitLineClamp,scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,contentWidth:el.querySelector('.tl-task-main').getBoundingClientRect().width,rowWidth:el.getBoundingClientRect().width};
+  });
+  expect(metrics.clamp).toBe('2');
+  expect(metrics.height).toBeGreaterThan(metrics.lineHeight*1.5);
+  expect(metrics.height).toBeLessThanOrEqual(metrics.lineHeight*2.1);
+  expect(metrics.contentWidth/metrics.rowWidth).toBeGreaterThan(.6);
+  expect(metrics.scroll).toBeLessThanOrEqual(metrics.client+1);
+  await row.locator('.tl-task-note').click();
+  await expect(page.locator('#taskModal')).toBeVisible();
+  await expect(page.locator('#taskNote')).toBeFocused();
+  await page.locator('#taskNote').fill('새 메모 내용');
+  await page.locator('#saveTaskBtn').click();
+  await expect(row.locator('.tl-task-note')).toContainText('새 메모 내용');
+  await expect(row.locator('.tl-task-main')).toBeFocused();
+  await row.locator('.tl-task-main').click();
+  await expect(page.locator('#taskTitle')).toBeFocused();
+  await page.locator('[data-close="taskModal"]').click();
+  await row.locator('[data-tl-menu]').click();
+  await expect(row.locator('[data-tl-menu-items]')).toBeVisible();
+  await expect(row.locator('[data-tl-menu-edit]')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(row.locator('[data-tl-menu-items]')).toBeHidden();
+  await expect(row.locator('[data-tl-menu]')).toBeFocused();
+  await row.locator('[data-tl-menu]').click();
+  await page.keyboard.press('Tab');
+  await expect(row.locator('[data-tl-menu-items]')).toBeVisible();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await expect(row.locator('[data-tl-menu-items]')).toBeHidden();
+});
+
+test('checkbox reverses completion and delete keeps confirmation',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  const row=page.locator('[data-tl-task-row="self-open"]');
+  await row.locator('[data-tl-toggle]').click();
+  const completed=page.locator('#taskList .tl-task-section').first().locator('.tl-completed');
+  await completed.locator('summary').click();
+  await expect(completed.locator('[data-tl-task-row="self-open"] [data-tl-toggle]')).toBeChecked();
+  await completed.locator('[data-tl-task-row="self-open"] [data-tl-toggle]').click();
+  await expect(row.locator('[data-tl-toggle]')).not.toBeChecked();
+  await row.locator('[data-tl-menu]').click();
+  page.once('dialog',dialog=>dialog.dismiss());
+  await row.locator('[data-tl-delete]').click();
+  await expect(row).toBeVisible();
+  await expect(row.locator('[data-tl-menu]')).toBeFocused();
+  await row.locator('[data-tl-menu]').click();
+  page.once('dialog',dialog=>dialog.accept());
+  await row.locator('[data-tl-delete]').click();
+  await expect(row).toHaveCount(0);
+});
+
+test('detail offers completion and hides delete for tasks created by others',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  const completed=page.locator('#taskList [data-tl-section="assigned"] .tl-completed');
+  await completed.locator('summary').click();
+  const team=completed.locator('[data-tl-task-row="team-one"]');
+  await team.locator('[data-tl-menu]').click();
+  await expect(team.locator('[data-tl-delete]')).toHaveCount(0);
+  await team.locator('[data-tl-menu-edit]').click();
+  await expect(page.locator('#taskModal')).toBeVisible();
+  await expect(page.locator('#taskModalDelete')).toBeHidden();
+  await page.locator('#taskModalToggle').click();
+  await expect(page.locator('#taskModalToggle')).toHaveText('완료');
+  await page.locator('#taskModalToggle').click();
+  await expect(page.locator('#taskModalToggle')).toHaveText('미완료로 변경');
+});
+
+test('a denied task update leaves completion and note unchanged',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.evaluate(()=>{window.__denyTaskPatch=true});
+  const row=page.locator('[data-tl-task-row="self-open"]');
+  page.once('dialog',dialog=>dialog.accept());
+  await row.locator('[data-tl-toggle]').click();
+  await expect(row.locator('[data-tl-toggle]')).not.toBeChecked();
+  await row.locator('.tl-task-note').click();
+  await page.locator('#taskNote').fill('저장되지 않아야 하는 메모');
+  await page.locator('#saveTaskBtn').click();
+  await expect(page.locator('#taskModalStatus')).toContainText('권한 없음');
+  await expect(row.locator('.tl-task-note')).toContainText('후속 논의 내용을 기록했습니다.');
+});

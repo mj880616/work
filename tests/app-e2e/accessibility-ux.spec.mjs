@@ -142,6 +142,20 @@ test('task dialog wraps keyboard focus within the dialog',async({page})=>{
   await expect(first).toBeFocused();
 });
 
+test('task detail stays inside a 390px mobile viewport',async({page})=>{
+  await boot(page,{width:390,height:844});
+  await page.locator('.app-nav [data-view="tasks"]').click();
+  await page.locator('[data-tl-task-row="a11y-task-1"] .tl-task-main').click();
+  const modal=page.locator('#taskModal');
+  await expect(modal).toBeVisible();
+  const bounds=await modal.locator('.modal-card').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,viewportWidth:innerWidth,viewportHeight:innerHeight,scrollWidth:document.documentElement.scrollWidth}});
+  expect(bounds.left).toBeGreaterThanOrEqual(0);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth+1);
+  expect(bounds.top).toBeGreaterThanOrEqual(0);
+  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight+1);
+  expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.viewportWidth+1);
+});
+
 for(const c of [
   {name:'event',view:'calendar',trigger:'#newEventBtn',modal:'#eventModal',initial:'#eventTitle'},
   {name:'document',view:'library',trigger:'#newDocumentBtn',modal:'#documentModal',initial:'#docTitle'},
