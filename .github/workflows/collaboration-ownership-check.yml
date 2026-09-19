@@ -32,7 +32,7 @@ jobs:
       - name: Check collaboration ownership boundaries
         run: |
           set -e
-          grep -q "collaboration-center.js?v=6" app/loader-v2.js
+          grep -q "collaboration-center.js?v=7" app/loader-v2.js
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
           grep -q "await window.__KPTU_COLLABORATION_READY__" app/loader-v2.js
           grep -q "await window.__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js

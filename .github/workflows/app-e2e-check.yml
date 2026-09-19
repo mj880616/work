@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -47,6 +49,29 @@ jobs:
           done
           cat /tmp/kptu-e2e-http.log
           exit 1
+
+      - name: Start baseline main app server
+        run: |
+          mkdir -p /tmp/kptu-p6-main
+          git archive 3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c | tar -x -C /tmp/kptu-p6-main
+          (cd /tmp/kptu-p6-main && python3 -m http.server 8124 >/tmp/kptu-p6-main-http.log 2>&1 &)
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8124/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat /tmp/kptu-p6-main-http.log
+          exit 1
+
+      - name: Measure main and P6 startup with identical mocked APIs
+        run: node tests/app-e2e/startup-benchmark.mjs
+
+      - name: Upload startup measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p6-startup-measurement
+          path: /tmp/p6-startup-measurement.json
+          if-no-files-found: ignore
 
       - name: Run current browser flows and full QA
         run: >-
