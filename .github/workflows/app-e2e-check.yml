@@ -100,6 +100,7 @@ jobs:
           tests/app-e2e/design-system.spec.mjs
           tests/app-e2e/accessibility-ux.spec.mjs
           tests/app-e2e/photo-room.spec.mjs
+          tests/app-e2e/navigation-p8a.spec.mjs
           tests/app-e2e/private-rail-gimpo-page.spec.mjs
           tests/app-e2e/public-page-editor-live.spec.mjs
           tests/app-e2e/public-page-password-recovery.spec.mjs

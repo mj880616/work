@@ -1,6 +1,6 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><title>profile workplaces fixture</title><link rel="stylesheet" href="../../app/profile-settings.css?fixture=2"><style>.hidden{display:none}.app-nav{display:flex;gap:6px}.panel{padding:12px}.toast{position:fixed;bottom:5px}</style></head><body>
 <nav class="app-nav"><button data-view="team">팀</button></nav>
-<div id="appView"></div><span id="userBadge">테스터</span><div id="toast" class="toast hidden"></div>
+<div id="appView"></div><button id="userBadge" type="button">테스터</button><div id="toast" class="toast hidden"></div>
 <script>
 const state=window.__state={
  user:{id:'u1',user_metadata:{display_name:'테스터'}},workspace:'w1',
@@ -21,7 +21,7 @@ function clone(v){return JSON.parse(JSON.stringify(v))}
 function orgFromPath(path){const m=path.match(/organization_id=eq\.([^&]+)/);return m?decodeURIComponent(m[1]):null}
 const routerHooks=new Map();
 window.KPTURouter={current:'team',on(view,fn){if(!routerHooks.has(view))routerHooks.set(view,new Set());routerHooks.get(view).add(fn);return()=>routerHooks.get(view)?.delete(fn)},go(view){document.querySelectorAll('#appView .view-panel').forEach(x=>x.classList.toggle('hidden',x.id!==view+'View'));this.current=view;const detail={view,source:'fixture'};window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));for(const fn of routerHooks.get(view)||[])fn(detail)}};
-document.addEventListener('click',e=>{const b=e.target.closest?.('[data-view]');if(b)window.KPTURouter.go(b.dataset.view)});
+document.querySelector('#userBadge').addEventListener('click',()=>window.KPTURouter.go('profile'));
 window.__KPTU_RELOAD_SUBORGANIZATIONS__=()=>{state.reloads++};
 window.__KPTU_RELOAD_TEAM_MEMBERS__=()=>{state.memberReloads++};
 window.addEventListener('kptu:suborganization-updated',()=>state.events++);

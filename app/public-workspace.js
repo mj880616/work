@@ -28,13 +28,13 @@
     document.getElementById('bootstrapView')?.classList.add('hidden');
     document.getElementById('appView')?.classList.remove('hidden');
     const role=document.getElementById('workspaceRole');if(role)role.innerHTML='로그인 없이 공개된 업무를 둘러볼 수 있습니다. <span class="public-readonly-badge">읽기 전용</span>';
-    const badge=document.getElementById('userBadge');if(badge){badge.textContent='공개 열람';badge.classList.remove('hidden')}
+    const badge=document.getElementById('userBadge');if(badge){badge.textContent='공개 열람';badge.disabled=true;badge.classList.remove('hidden')}
     document.getElementById('logoutBtn')?.classList.add('hidden');
     let login=document.getElementById('publicLoginBtn');
     if(!login){login=document.createElement('button');login.id='publicLoginBtn';login.type='button';login.className='secondary';login.textContent='로그인';login.onclick=()=>location.href=loginUrl();document.querySelector('.top-actions')?.appendChild(login)}
     document.querySelectorAll('.app-nav [data-view]').forEach(btn=>btn.classList.remove('public-hidden'));
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.remove('public-hidden'));
-    ['quickInviteBtn','quickTaskBtn','newEventBtn','homeAddEvent','newTaskBtn','newDocumentBtn','newMeetingBtn','newPageBtn','inviteBtn','newGroupBtn','newProjectBtn'].forEach(id=>document.getElementById(id)?.classList.add('public-hidden'));
+    ['quickInviteBtn','quickTaskBtn','newEventBtn','homeAddEvent','newTaskBtn','newDocumentBtn','newMeetingBtn','newPageBtn','pagesMediaEntry','inviteBtn','newGroupBtn','newProjectBtn'].forEach(id=>document.getElementById(id)?.classList.add('public-hidden'));
     document.querySelectorAll('.admin-only').forEach(x=>x.classList.add('public-hidden'));
   }
   function gateMarkup(title,description){return `<div class="public-access-gate"><div class="public-lock" aria-hidden="true">🔒</div><h3>${esc(title)}</h3><p>${esc(description)}</p><a class="primary" href="${esc(loginUrl())}">로그인해서 보기</a></div>`}

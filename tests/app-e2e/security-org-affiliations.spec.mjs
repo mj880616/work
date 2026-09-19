@@ -84,7 +84,7 @@ test('admin sees pending access request and can approve it',async({page})=>{
   page.on('dialog',d=>d.accept());
   await preloadSession(page);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await page.locator('[data-view="team"]').click();
+  await page.locator('#teamManageTop').click();
   await expect(page.locator('#aaReviewSection')).toBeVisible();
   await expect(page.locator('#aaReviewSection')).toContainText('신규 팀원');
   await page.locator('[data-aa-approve="request-1"]').click();

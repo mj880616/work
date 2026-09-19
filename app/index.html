@@ -7,13 +7,13 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="./app-icon.svg?v=20260913-3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260913-3">
-<link rel="stylesheet" href="./styles.css?v=20">
+<link rel="stylesheet" href="./styles.css?v=22">
 </head>
 <body>
 <div class="shell">
 <header class="topbar">
   <a class="brand" href="./"><span class="leaf" aria-hidden="true"></span><span>공공기관사업팀</span><b>WORKSPACE</b></a>
-  <div class="top-actions"><span id="userBadge" class="user-badge hidden"></span><button id="logoutBtn" class="ghost hidden" type="button">로그아웃</button></div>
+  <div class="top-actions"><button id="userBadge" class="user-badge hidden" type="button" aria-label="내 정보 및 설정"></button><button id="logoutBtn" class="ghost hidden" type="button">로그아웃</button></div>
 </header>
 <main>
 <section id="authView" class="auth-wrap hidden" aria-hidden="true">
@@ -50,10 +50,8 @@
     <button class="nav-btn" data-view="tasks" type="button">할 일</button>
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
     <button class="nav-btn" data-view="library" type="button">자료실</button>
-    <button class="nav-btn" data-view="media" type="button">언론대응</button>
     <button class="nav-btn" data-view="meetings" type="button">회의</button>
     <button class="nav-btn" data-view="pages" type="button">게시판</button>
-    <button class="nav-btn" data-view="team" type="button">팀</button>
   </nav>
 
   <section id="homeView" class="view-panel">
@@ -96,7 +94,7 @@
   </section>
 
   <section id="mediaView" class="view-panel hidden">
-    <div class="section-head"><div><h2>언론대응</h2><p>사건 팩트시트부터 취재요청·보도자료·성명 초안, 배포 전 QA까지 한 문서에서 관리합니다.</p></div><button id="newMediaCaseBtn" class="primary" type="button">+ 사건 만들기</button></div>
+    <div class="section-head"><div><h2>언론대응</h2><p>사건 팩트시트부터 취재요청·보도자료·성명 초안, 배포 전 QA까지 한 문서에서 관리합니다.</p></div><div class="head-actions"><button class="secondary" data-goto="pages" type="button">게시판으로</button><button id="newMediaCaseBtn" class="primary" type="button">+ 사건 만들기</button></div></div>
     <div class="media-intro">내부 제작 화면입니다. 여기서 확정한 자료만 이후 Web1 공개 아카이브로 넘기는 구조로 사용합니다.</div>
     <div class="media-toolbar"><input id="mediaSearch" class="search" type="search" placeholder="사건 검색" aria-label="언론대응 사건 검색"><select id="mediaStatusFilter" aria-label="진행 상태"><option value="all">전체 상태</option><option value="draft">작성중</option><option value="review">검토중</option><option value="published">확정</option><option value="archived">종료</option></select></div>
     <div id="mediaCaseList" class="media-case-list"></div><div id="mediaCaseEmpty" class="empty hidden">아직 등록된 언론대응 사건이 없습니다.</div>
@@ -108,7 +106,7 @@
   </section>
 
   <section id="pagesView" class="view-panel hidden">
-    <div class="section-head"><div><h2>현장 공유 페이지</h2><p>팀원이 직접 작성하고 URL로 바로 공유할 수 있습니다.</p></div><button id="newPageBtn" class="primary" type="button">+ 새 페이지</button></div>
+    <div class="section-head"><div><h2>현장 공유 페이지</h2><p>팀원이 직접 작성하고 URL로 바로 공유할 수 있습니다.</p></div><div class="head-actions"><button id="pagesMediaEntry" class="secondary" data-goto="media" type="button">언론대응 페이지</button><button id="newPageBtn" class="primary" type="button">+ 새 페이지</button></div></div>
     <div class="toolbar"><label class="a11y-only" for="pageSearch">페이지 검색</label><input id="pageSearch" class="search" type="search" placeholder="페이지 검색"><label class="a11y-only" for="pageFilter">게시 상태</label><select id="pageFilter"><option value="all">전체 상태</option><option value="draft">초안</option><option value="review">검토중</option><option value="published">게시</option><option value="archived">보관</option></select></div>
     <div id="pageList" class="page-list"></div><div id="pageEmpty" class="empty hidden">아직 작성된 페이지가 없습니다.</div>
   </section>
@@ -137,5 +135,5 @@
 <div id="toast" class="toast hidden"></div>
 
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to','https://mj880616.github.io/work/app/confirmed.html');input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=46" defer></script>
+<script src="./app.js?v=48" defer></script>
 </body></html>

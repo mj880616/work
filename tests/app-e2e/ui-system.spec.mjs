@@ -46,13 +46,13 @@ async function buttonHeight(page,view,selector){
   return button.evaluate(el=>el.getBoundingClientRect().height);
 }
 
-test('top-level action buttons share one compact size and mobile content clears the dock',async({page})=>{
+test('top-level action buttons share one compact size and mobile content reaches the viewport bottom',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
-  await expect(page.locator('#ccMobileDock')).toBeVisible({timeout:10000});
+  await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 
   await page.locator('[data-view="home"]').first().click();
   await expect(page.locator('#hdvTaskPanel')).toBeVisible({timeout:10000});
@@ -83,10 +83,9 @@ test('top-level action buttons share one compact size and mobile content clears 
   const clearance=await page.evaluate(()=>{
     const items=document.querySelectorAll('#taskList .tl-task-row');
     const item=items[items.length-1]?.getBoundingClientRect();
-    const dock=document.querySelector('#ccMobileDock')?.getBoundingClientRect();
-    return item&&dock?{itemBottom:item.bottom,dockTop:dock.top,scrollY:window.scrollY,docHeight:document.documentElement.scrollHeight}:null;
+    return item?{itemBottom:item.bottom,viewportBottom:innerHeight,scrollY:window.scrollY,docHeight:document.documentElement.scrollHeight}:null;
   });
   expect(clearance).not.toBeNull();
-  expect(clearance.itemBottom).toBeLessThanOrEqual(clearance.dockTop-4);
+  expect(clearance.itemBottom).toBeLessThanOrEqual(clearance.viewportBottom-4);
   expect(clearance.scrollY).toBeGreaterThan(0);
 });

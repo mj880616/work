@@ -4,8 +4,8 @@ const url='http://127.0.0.1:8123/tests/app-e2e/profile-workplaces-fixture.html';
 
 async function openProfile(page){
   await page.goto(url);
-  await expect(page.locator('[data-view="profile"]')).toBeVisible();
-  await page.click('[data-view="profile"]');
+  await expect(page.locator('#userBadge')).toBeVisible();
+  await page.click('#userBadge');
   await expect(page.locator('#profileView')).toBeVisible();
   await expect(page.locator('#psDeleteWorkplace')).toBeVisible();
   await expect(page.locator('#psSaveWorkplaces')).toBeVisible();

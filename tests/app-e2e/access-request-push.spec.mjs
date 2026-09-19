@@ -53,11 +53,11 @@ test('access request deep link opens approval inside Team member management',asy
 test('admin sees only Team pending badge, not a separate Home approval card',async({page})=>{
   await mock(page);
   await login(page,'http://127.0.0.1:8123/app/');
-  const badge=page.locator('.app-nav [data-view="team"] .aa-nav-badge');
+  const badge=page.locator('#teamManageTop .aa-nav-badge');
   await expect(badge).toBeVisible({timeout:10000});
   await expect(badge).toHaveText('1');
   await expect(page.locator('#aaHomeCard')).toHaveCount(0);
-  await page.locator('.app-nav [data-view="team"]').click();
+  await page.locator('#teamManageTop').click();
   const review=page.locator('#aaReviewSection');
   await expect(review).toBeVisible();
   await expect(review).toHaveAttribute('open','');
@@ -78,7 +78,7 @@ test('selected approval role immediately explains what that role means',async({p
 test('ordinary member does not see access approval controls',async({page})=>{
   await mock(page,{role:'author'});
   await login(page,'http://127.0.0.1:8123/app/');
-  await expect(page.locator('.app-nav [data-view="team"] .aa-nav-badge')).toBeHidden();
+  await expect(page.locator('#teamManageTop .aa-nav-badge')).toBeHidden();
   await expect(page.locator('#aaHomeCard')).toHaveCount(0);
   await expect(page.locator('#aaReviewSection')).toHaveCount(0);
 });

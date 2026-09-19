@@ -40,9 +40,11 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   await expect(page.locator('#authView')).toBeHidden();
   await expect(page.locator('#userBadge')).toContainText('공개 열람');
 
-  for(const view of ['home','calendar','tasks','projects','library','meetings','pages','team']){
+  for(const view of ['home','calendar','tasks','projects','library','meetings','pages']){
     await expect(page.locator(`.app-nav [data-view="${view}"]`)).toBeVisible();
   }
+  await expect(page.locator('#teamManageTop')).toHaveCount(0);
+  await expect(page.locator('#pagesMediaEntry')).toBeHidden();
   await expect.poll(()=>calls.snapshot).toBeGreaterThanOrEqual(1);
   expect(errors).toEqual([]);
   await expect(page.locator('#homeView')).toContainText('공개 업무');
@@ -84,7 +86,7 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   await expect(pageCard).toHaveAttribute('data-public-card-url',/\/p\/public-page\/$/);
   await expect(pageCard.locator('.page-card-foot a.mini')).toBeHidden();
 
-  await page.locator('.app-nav [data-view="team"]').click();
+  await page.goto(`${BASE}/app/?view=team`);
   await expect(page.locator('#teamView')).toContainText('팀 정보는 로그인 후 열람할 수 있습니다.');
 
   await page.locator('#publicLoginBtn').click();

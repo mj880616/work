@@ -2,6 +2,7 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
+  const NAV_ALIAS={messages:'home',team:'home',profile:'home',media:'pages',photos:'calendar',myspace:'home',notifications:'home'};
   let bound=false;
 
   function appReady(){
@@ -55,22 +56,13 @@
 
   function keepActiveNavigationVisible(view,{behavior='smooth'}={}){
     const nav=document.querySelector('#appView>.app-nav')||document.querySelector('.app-nav');
-    const navButton=nav?[...nav.querySelectorAll('.nav-btn[data-view]')].find(btn=>btn.dataset.view===view):null;
+    const navButton=nav?[...nav.querySelectorAll('.nav-btn[data-view]')].find(btn=>btn.dataset.view===(NAV_ALIAS[view]||view)):null;
     scrollControlIntoView(nav,navButton,behavior);
-    const dock=document.querySelector('#ccMobileDock');
-    const dockButton=dock?[...dock.querySelectorAll('[data-cc-view]')].find(btn=>btn.dataset.ccView===view):null;
-    scrollControlIntoView(dock,dockButton,behavior);
   }
 
   function syncNavigationState(view){
     document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>{
-      const current=btn.dataset.view===view;
-      btn.classList.toggle('active',current);
-      if(current)btn.setAttribute('aria-current','page');
-      else btn.removeAttribute('aria-current');
-    });
-    document.querySelectorAll('#ccMobileDock [data-cc-view]').forEach(btn=>{
-      const current=btn.dataset.ccView===view;
+      const current=btn.dataset.view===(NAV_ALIAS[view]||view);
       btn.classList.toggle('active',current);
       if(current)btn.setAttribute('aria-current','page');
       else btn.removeAttribute('aria-current');
@@ -100,6 +92,7 @@
     if(!appReady())return false;
     const view=viewFromUrl();
     if(!view)return false;
+    if(new URLSearchParams(location.search).get(VIEW_PARAM)!==view&&new URLSearchParams(location.search).has(VIEW_PARAM))syncUrl(view,{replace:true});
     const target=document.getElementById(view+'View');
     if(api.current===view&&target&&!target.classList.contains('hidden')){
       syncNavigationState(view);
@@ -132,9 +125,9 @@
     document.documentElement.dataset.kptuRouterBound='1';
     api.current=detect();
     document.addEventListener('click',e=>{
-      const control=e.target.closest?.('[data-view],[data-goto],[data-cc-view]');
+      const control=e.target.closest?.('[data-view],[data-goto]');
       if(!control)return;
-      const view=control.dataset.view||control.dataset.goto||control.dataset.ccView;
+      const view=control.dataset.view||control.dataset.goto;
       if(view)go(view,{source:'delegated'});
     });
     const brand=document.querySelector('.topbar .brand');

@@ -24,9 +24,7 @@
 .hdv-empty{padding:var(--kptu-space-4) var(--kptu-space-1);color:var(--kptu-muted);font-size:11px}
 .hdv-empty.error{color:var(--kptu-danger)}
 
-:root{--kptu-mobile-dock:calc(72px + env(safe-area-inset-bottom));--kptu-mobile-gap:14px}
-
-/* 화면 전체는 문서가 스크롤하고, 마지막 콘텐츠는 하단 dock 뒤까지 도달할 수 있어야 함. */
+/* 화면 전체는 문서가 스크롤하고, 마지막 콘텐츠까지 접근할 수 있어야 함. */
 html,body{min-height:100%;scroll-padding-bottom:24px}
 #appView>.view-panel{min-width:0}
 .modal-card{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
@@ -41,19 +39,13 @@ html,body{min-height:100%;scroll-padding-bottom:24px}
   .hdv-main b{font-size:12px}
   .hdv-main small{font-size:10px}
 
-  /* 하단 dock과 콘텐츠의 안전영역은 app-shell invariant로 강제함. */
-  html,body{scroll-padding-bottom:calc(var(--kptu-mobile-dock) + var(--kptu-mobile-gap))!important}
-  body{padding-bottom:var(--kptu-mobile-dock)!important}
-  main{padding-bottom:calc(var(--kptu-mobile-dock) + 30px)!important}
-  #appView .view-panel{padding-bottom:calc(var(--kptu-mobile-dock) + 22px)!important;scroll-padding-bottom:calc(var(--kptu-mobile-dock) + 22px)!important}
-  .cc-mobile-dock{height:60px!important;padding-top:5px!important;padding-bottom:calc(env(safe-area-inset-bottom) + 2px)!important}
-  .cc-mobile-dock button{font-size:10px!important;gap:1px!important;justify-content:flex-start!important;padding-top:7px!important}
-  .cc-mobile-dock .cc-dock-icon{font-size:17px!important;line-height:1!important}
-  .cc-mobile-dock .cc-count{min-width:15px!important;height:15px!important;font-size:8px!important;padding:0 3px!important}
-  .toast{bottom:calc(var(--kptu-mobile-dock) + 8px)!important}
-  .modal:not([id^="pm2"]){padding:max(8px,env(safe-area-inset-top)) 0 calc(var(--kptu-mobile-dock) + 8px)!important;align-items:end!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch}
-  .modal:not([id^="pm2"])>.modal-card{width:100%!important;max-height:calc(100dvh - var(--kptu-mobile-dock) - 16px)!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;scroll-padding-bottom:24px!important;padding-bottom:24px!important}
-  [id^="pm2"][id$="Modal"].modal{padding-bottom:calc(var(--kptu-mobile-dock) + 10px)!important;scroll-padding-bottom:calc(var(--kptu-mobile-dock) + 10px)!important}
+  html,body{scroll-padding-bottom:calc(24px + env(safe-area-inset-bottom))!important}
+  main{padding-bottom:calc(30px + env(safe-area-inset-bottom))!important}
+  #appView .view-panel{padding-bottom:calc(22px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(22px + env(safe-area-inset-bottom))!important}
+  .toast{bottom:calc(8px + env(safe-area-inset-bottom))!important}
+  .modal:not([id^="pm2"]){padding:max(8px,env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom))!important;align-items:end!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch}
+  .modal:not([id^="pm2"])>.modal-card{width:100%!important;max-height:calc(100dvh - 16px - env(safe-area-inset-bottom))!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;scroll-padding-bottom:24px!important;padding-bottom:24px!important}
+  [id^="pm2"][id$="Modal"].modal{padding-bottom:calc(10px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(10px + env(safe-area-inset-bottom))!important}
   [id^="pm2"][id$="Modal"].modal .modal-card{padding-bottom:28px!important}
-  #pm2DetailModal .pm2-detail-card{min-height:calc(100dvh - var(--kptu-mobile-dock) - 12px)!important}
+  #pm2DetailModal .pm2-detail-card{min-height:calc(100dvh - 12px - env(safe-area-inset-bottom))!important}
 }

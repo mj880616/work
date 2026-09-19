@@ -84,7 +84,7 @@ test('V2 project can be archived, reviewed in profile, and restored to Live',asy
   await expect.poll(()=>state.spaces[0].status).toBe('archived');
 
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  const profileButton=page.locator('[data-view="profile"]');
+  const profileButton=page.locator('#userBadge');
   await expect(profileButton).toBeVisible({timeout:10000});
   await profileButton.click();
   await expect(page.locator('#paArchivedProjectsPanel')).toContainText('인력확충 투쟁',{timeout:10000});

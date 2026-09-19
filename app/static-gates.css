@@ -1,1 +1,1 @@
-[data-view="myspace"],#myspaceView{display:none!important}
+body:not(.myspace-allowed) #myspaceView{display:none!important}

@@ -37,7 +37,7 @@ async function signIn(page){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await expect(page.locator('#ccMobileDock')).toBeVisible({timeout:10000});
+  await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 }
 
 async function gesture(page,selector,points){
@@ -89,10 +89,9 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await expect(page.locator('#eventModal')).toBeVisible();
   const safe=await page.evaluate(()=>{
     const card=document.querySelector('#eventModal .modal-card').getBoundingClientRect();
-    const dock=document.querySelector('#ccMobileDock').getBoundingClientRect();
-    return {cardBottom:card.bottom,dockTop:dock.top};
+    return {cardBottom:card.bottom,viewportBottom:innerHeight};
   });
-  expect(safe.cardBottom).toBeLessThanOrEqual(safe.dockTop+1);
+  expect(safe.cardBottom).toBeLessThanOrEqual(safe.viewportBottom+1);
 
   await page.goBack();
   await expect(page.locator('#eventModal')).toBeHidden();
@@ -101,8 +100,8 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await expect(page.locator('#homeView')).toBeVisible();
 
   const before=await page.evaluate(()=>window.KPTURouter?.current);
-  const dockBox=await page.locator('#ccMobileDock').boundingBox();
-  await gesture(page,'#ccMobileDock',[{x:330,y:dockBox.y+10},{x:210,y:dockBox.y+10},{x:80,y:dockBox.y+10}]);
+  const navBox=await page.locator('.app-nav').boundingBox();
+  await gesture(page,'.app-nav',[{x:330,y:navBox.y+10},{x:210,y:navBox.y+10},{x:80,y:navBox.y+10}]);
   await page.waitForTimeout(220);
   expect(await page.evaluate(()=>window.KPTURouter?.current)).toBe(before);
 
@@ -115,8 +114,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(5);
   const agendaSafe=await page.evaluate(()=>{
     const card=document.querySelector('#calendarDayModal .modal-card').getBoundingClientRect();
-    const dock=document.querySelector('#ccMobileDock').getBoundingClientRect();
-    return {cardBottom:card.bottom,dockTop:dock.top};
+    return {cardBottom:card.bottom,viewportBottom:innerHeight};
   });
-  expect(agendaSafe.cardBottom).toBeLessThanOrEqual(agendaSafe.dockTop+1);
+  expect(agendaSafe.cardBottom).toBeLessThanOrEqual(agendaSafe.viewportBottom+1);
 });
