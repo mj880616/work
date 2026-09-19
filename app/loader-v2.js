@@ -10,7 +10,7 @@
   await Promise.all([
     import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
-    import('./app-router.js?v=3'),
+    import('./app-router.js?v=4'),
     import('./accessibility-dialog.js?v=1'),
     import('./native-back-guard.js?v=1'),
     import('./session-resilience.js?v=6'),
