@@ -25,6 +25,19 @@ When a shared permission or data model changes, review all features that use the
 - Minimize unrelated structural changes.
 - Preserve existing security invariants while adding functionality.
 
+## Confirmed Web2 product structure
+
+Web2 is the public-agency project team's shared operational database and status board, not a personal task application. Preserve the links among projects, owners, schedules, follow-up tasks, meetings, and documents, and keep handover and low administrative overhead in mind.
+
+- A UI region has one state owner and one final renderer. Do not repair competing renderers with delayed overwrites, broad `MutationObserver` decorators, or `display:none` patches.
+- Prefer the startup order session check → public or authenticated path selection → required data/modules → one final UI reveal.
+- Anonymous users may receive only the minimum public dataset allowed by trusted DB/RLS/RPC/server policy. Standalone tasks, personal schedules, Google Calendar, and personal work are authenticated-only.
+- The anonymous home contains projects, upcoming major schedules, board posts, and the library. The authenticated home contains projects, tasks, upcoming major schedules, and the library. The authenticated schedule panel continues to use project milestones until a separate product decision changes it.
+- Child-project navigation stays in the hierarchy area above the title and separate from edit, visibility, archive, and delete actions. Preserve native keyboard-accessible disclosure behavior and keep child creation inside that navigation.
+- Document visibility remains `public`, `workspace`, or `private`. Project-linked and meeting documents default to internal. Public publication requires explicit confirmation and successful Google Drive permission synchronization before Web2 exposes the item; unpublishing must also revoke Drive access.
+
+Do not independently change Supabase schemas, RLS, existing data, visibility policy, URL structure, or Edge Function authentication boundaries. Record a proposal instead. Do not add product features or redesign the application as part of stabilization work.
+
 ## Verification
 
 After each meaningful change, verify:

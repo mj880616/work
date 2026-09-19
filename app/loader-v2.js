@@ -72,7 +72,6 @@
     import('./photo-room.js?v=2'),
     import('./password-reset.js?v=1'),
     import('./calendar-health.js?v=3'),
-    import('./home-task-controls.js?v=3'),
     import('./workplace-detail.js?v=3'),
     import('./library-upload.js?v=6')
   ]);

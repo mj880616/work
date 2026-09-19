@@ -66,7 +66,7 @@ jobs:
             app/project-system-v3.js app/project-system-v3.css \
             app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
             app/workflow-ai-v3.js app/meeting-ai-ingest-client.js app/workplace-ai-report.js app/photo-room.js \
-            app/access-approval.css app/home-task.css app/meeting-ui.css app/photo-room.css p/index.html; do
+            app/access-approval.css app/meeting-ui.css app/photo-room.css p/index.html; do
             test -f "$f"
           done
           test -d app/legacy
@@ -99,7 +99,10 @@ jobs:
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
           grep -q "profile-settings.js?v=4" app/loader-v2.js
           grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
-          grep -q "home-task-controls.js?v=3" app/loader-v2.js
+          test ! -f app/home-task-controls.js
+          test ! -f app/home-task.css
+          test ! -f app/library-public-toggle.js
+          if grep -Eq "home-task-controls|home-task.css|library-public-toggle" app/loader-v2.js app/styles.css; then echo 'retired home/library decorator returned'; exit 1; fi
           grep -q "photo-room.js?v=2" app/loader-v2.js
           grep -q "page-list-controller.js?v=2" app/loader-v2.js
           grep -q "__KPTU_PAGE_LIST_READY__" app/loader-v2.js
@@ -165,7 +168,7 @@ jobs:
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js; then echo 'core readiness returned to mutation polling'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/page-builder.js; then echo 'core styles returned to runtime injection'; exit 1; fi
           if grep -q "createElement('link')" app/team.js; then echo 'team css must stay static'; exit 1; fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-task-controls.js app/home-dashboard-v2.js app/photo-room.js app/collaboration-center.js app/notification-center-ui.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-dashboard-v2.js app/photo-room.js app/collaboration-center.js app/notification-center-ui.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
           if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js app/collaboration-center.js app/notification-center-ui.js; then echo 'core UI bypassed shared runtime session'; exit 1; fi
           if grep -q "location.reload" app/photo-room.js app/page-save-controller.js app/page-builder.js; then echo 'feature returned to full-page reload'; exit 1; fi
 
@@ -217,7 +220,7 @@ jobs:
           managed={
             'team.css','team-member-overview.css','team-profile-view.css','team-member-management.css',
             'profile-settings.css','workplace-detail.css','suborganizations.css','suborganization-filters.css',
-            'access-approval.css','collaboration-center.css','notification-center-ui.css','home-task.css',
+            'access-approval.css','collaboration-center.css','notification-center-ui.css',
             'photo-room.css','public-workspace.css','topbar-actions.css','calendar-ui.css','task-layout.css',
             'google-tasks.css','project-system-v3.css','meeting-ui.css','page-core.css','page-builder.css',
             'page-editor-static.css'
