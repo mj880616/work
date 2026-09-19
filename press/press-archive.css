@@ -7,7 +7,7 @@
 @media print{.press-archive-nav{display:none!important}}
 
 /* Press archive detail shell. 9.14 release is the width reference. */
-.press-archive-nav{max-width:850px}
+body.press-archive-detail .press-archive-nav{max-width:850px}
 body.press-archive-detail > main,
 body.press-archive-detail > .wrap{
   width:calc(100% - 30px);
