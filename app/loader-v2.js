@@ -62,7 +62,8 @@
 
   await import('./task-workflow.js?v=6');
   await window.__KPTU_TASK_WORKFLOW_READY__;
-  await import('./task-layout.js?v=6');
+  await import('./task-row-view.js?v=1');
+  await import('./task-layout.js?v=7');
   await window.__KPTU_TASK_LAYOUT_READY__;
 
   await import('./profile-settings.js?v=4');
@@ -110,9 +111,6 @@
   window.addEventListener('kptu:app-ui-ready',loadAiFeatures,{once:true});
 
   await import('./google-calendar-return-status.js?v=1');
-  await import('./task-project-routing.js?v=1');
-  await import('./task-completed-label.js?v=2');
-  await import('./task-notes.js?v=2');
 
   await import('./collaboration-center.js?v=6');
   await window.__KPTU_COLLABORATION_READY__;

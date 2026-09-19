@@ -182,6 +182,7 @@ test('V3 archives and restores without returning to a legacy project screen',asy
   page.once('dialog',d=>d.accept());await page.locator('[data-ps3-archive-project]').click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('archived');
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
+  await page.locator('.app-nav [data-view="projects"]').click();
   await page.locator('#ps3ArchiveBtn').click();
   await expect(page.locator('#ps3ArchiveModal')).toBeVisible();
   await expect(page.locator('[data-ps3-restore="main-1"]')).toBeVisible();

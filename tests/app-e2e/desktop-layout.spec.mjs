@@ -40,6 +40,7 @@ async function login(page){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
 }
 
 test('desktop web uses a compact left navigation, home-only workspace header and safe project detail margins',async({page})=>{

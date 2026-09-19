@@ -3,18 +3,19 @@
 <head><meta charset="utf-8"><link rel="stylesheet" href="../../app/task-layout.css"><style>.hidden{display:none}:root{--line:#ddd;--muted:#6b7582}</style></head>
 <body>
   <div id="tasksView"><div class="toolbar"></div><div id="taskList"></div></div>
-  <div id="taskModal" class="hidden" aria-hidden="true">
+  <div id="taskModal" class="hidden" role="dialog" aria-hidden="true">
     <div class="modal-head"><h2>할 일 추가</h2></div>
     <input id="taskTitle"><select id="taskAssignee"><option value="user-1">나</option></select>
-    <select id="taskProject"><option value="space-1">사업</option></select><input id="taskDue"><select id="taskPriority"><option value="normal">보통</option></select><textarea id="taskDescription"></textarea>
+    <select id="taskProject"><option value="space-1">사업</option></select><input id="taskDue"><select id="taskPriority"><option value="normal">보통</option></select><textarea id="taskDescription"></textarea><textarea id="taskNote"></textarea>
+    <div id="taskModalActions" class="hidden"><button id="taskModalToggle" type="button">완료</button><button id="taskModalDelete" type="button">삭제</button></div>
     <button id="saveTaskBtn">저장</button><div id="taskModalStatus"></div><button data-close="taskModal">닫기</button>
   </div>
   <div id="toast" class="hidden"></div>
   <script>
     const rows=[
-      {id:'self-open',workspace_id:'workspace-1',project_id:'space-1',title:'내가 만든 프로젝트 할 일',assignee_id:'user-1',created_by:'user-1',source_type:'project',status:'todo'},
+      {id:'self-open',workspace_id:'workspace-1',project_id:'space-1',title:'모바일 화면에서 두 줄까지 읽을 수 있어야 하는 길고 중요한 업무 제목입니다',description:'공공기관 공동사업 준비',note:'후속 논의 내용을 기록했습니다.',assignee_id:'user-1',created_by:'user-1',source_type:'project',status:'todo'},
       {id:'self-done',workspace_id:'workspace-1',project_id:'space-1',title:'내가 완료한 프로젝트 할 일',assignee_id:'user-1',created_by:'user-1',source_type:'project',status:'done'},
-      {id:'team-one',workspace_id:'workspace-1',project_id:null,title:'회의에서 부여된 할 일',assignee_id:'user-1',created_by:'user-1',source_type:'meeting',status:'done'}
+      {id:'team-one',workspace_id:'workspace-1',project_id:null,title:'회의에서 부여된 할 일',assignee_id:'user-1',created_by:'user-2',source_type:'meeting',status:'done'}
     ];
     window.KPTURuntime={
       session:{ensure:async()=>true},
@@ -27,6 +28,7 @@
         }
         if(path.startsWith('/rest/v1/app_tasks')){
           if(opts.method==='PATCH'){
+            if(window.__denyTaskPatch)throw new Error('권한 없음');
             const match=path.match(/[?&]id=eq\.([^&]+)/);
             const id=match?decodeURIComponent(match[1]):'';
             const row=rows.find(item=>item.id===id);
@@ -43,6 +45,6 @@
     };
     window.KPTURouter={on(){}};
   </script>
-  <script src="../../app/task-layout.js"></script>
+  <script src="../../app/task-row-view.js"></script><script src="../../app/task-layout.js"></script>
 </body>
 </html>

@@ -61,7 +61,7 @@ jobs:
             app/team.js app/topbar-actions.js app/topbar-actions.css \
             app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
             app/profile-settings.js app/profile-settings.css app/collaboration-center.js app/collaboration-center.css app/notification-center-ui.js app/notification-center-ui.css \
-            app/task-workflow.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/page-builder.js app/page-builder.css \
+            app/task-workflow.js app/task-row-view.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/page-builder.js app/page-builder.css \
             app/page-list-controller.js app/page-save-controller.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js app/page-core.css \
             app/project-system-v3.js app/project-system-v3.css \
             app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
@@ -94,7 +94,8 @@ jobs:
           grep -q "project-system-v3.js?v=4" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
-          grep -q "task-layout.js?v=6" app/loader-v2.js
+          grep -q "task-row-view.js?v=1" app/loader-v2.js
+          grep -q "task-layout.js?v=7" app/loader-v2.js
           grep -q "google-tasks.js?v=3" app/loader-v2.js
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
           grep -q "profile-settings.js?v=4" app/loader-v2.js
@@ -136,7 +137,7 @@ jobs:
           grep -q "profile-settings.css?v=2" app/styles.css
           grep -q "collaboration-center.css?v=2" app/styles.css
           grep -q "notification-center-ui.css?v=2" app/styles.css
-          grep -q "task-layout.css?v=2" app/styles.css
+          grep -q "task-layout.css?v=3" app/styles.css
           grep -q "google-tasks.css?v=2" app/styles.css
           grep -q "meeting-ui.css?v=3" app/styles.css
           grep -q "calendar-ui.css?v=2" app/styles.css
@@ -180,7 +181,7 @@ jobs:
             "import('./team.js?v=19')",'await window.__KPTU_TEAM_READY__',
             "import('./team-member-overview.js?v=2')",'await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__',
             "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
-            "import('./task-layout.js?v=6')",'await window.__KPTU_TASK_LAYOUT_READY__',
+            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=7')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./profile-settings.js?v=4')",'await window.__KPTU_PROFILE_SETTINGS_READY__',
             "import('./page-list-controller.js?v=2')",'await window.__KPTU_PAGE_LIST_READY__',
             "import('./page-save-controller.js?v=3')",'await window.__KPTU_PAGE_SAVE_READY__',
