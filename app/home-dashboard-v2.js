@@ -17,15 +17,15 @@
   const typeLabel=v=>({ongoing:'상시사업·산업관리',campaign:'의제 사업',event:'행사·집중사업',knowledge:'자료·지식',blank:'프로젝트'}[v]||'프로젝트');
 
   async function api(path,opts={}){if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,opts)}
-  async function context(){
-    if(userId&&workspaceId)return true;
+  async function context(epoch){
+    if(userId&&workspaceId)return {userId,workspaceId};
     if(!rt?.session||!(await rt.session.ensure()))return false;
     const user=await api('/auth/v1/user');
     const ms=await api('/rest/v1/app_workspace_members?user_id=eq.'+encodeURIComponent(user.id)+'&select=workspace_id&limit=1');
-    if(!ms?.length)return false;
+    if(!ms?.length||epoch!==renderEpoch)return false;
     userId=user.id;
     workspaceId=ms[0].workspace_id;
-    return true;
+    return {userId,workspaceId};
   }
 
   function prepareStructure(){
@@ -69,8 +69,9 @@
     loading=true;
     const epoch=renderEpoch;
     try{
-      if(!(await context())||epoch!==renderEpoch)return;
-      const wid=encodeURIComponent(workspaceId),uid=encodeURIComponent(userId);
+      const activeContext=await context(epoch);
+      if(!activeContext||epoch!==renderEpoch)return;
+      const wid=encodeURIComponent(activeContext.workspaceId),uid=encodeURIComponent(activeContext.userId);
       const [spaceRows,milestoneRows,taskRows,documentRows]=await Promise.all([
         api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&status=neq.archived&select=id,name,parent_id,status,metadata,project_type,current_phase,start_on,end_on,updated_at,is_legacy_snapshot'),
         api('/rest/v1/app_project_milestones?select=id,project_id,title,status,start_at,end_at,updated_at&order=start_at.asc.nullslast&limit=100'),

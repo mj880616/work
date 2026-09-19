@@ -13,14 +13,26 @@ const now=new Date();
 const tomorrow=new Date(now.getTime()+86400000).toISOString();
 const yesterday=new Date(now.getTime()-86400000).toISOString();
 let failUserRequest=new URLSearchParams(location.search).has('fail-user');
+const raceSession=new URLSearchParams(location.search).has('race-session');
+let currentUserId='user-1';
+let releaseFirstMembership;
+const firstMembershipGate=new Promise(resolve=>{releaseFirstMembership=resolve});
+window.__apiCalls=[];
 window.KPTURuntime={
   session:{ensure:async()=>true},
   api:async(path)=>{
+    window.__apiCalls.push(path);
     if(path==='/auth/v1/user'){
       if(failUserRequest){failUserRequest=false;throw new Error('세션 확인에 실패했습니다.')}
-      return {id:'user-1'};
+      return {id:currentUserId};
     }
-    if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1'}];
+    if(path.startsWith('/rest/v1/app_workspace_members')){
+      if(raceSession&&path.includes('user_id=eq.user-1')){
+        window.__firstMembershipPending=true;
+        await firstMembershipGate;
+      }
+      return [{workspace_id:currentUserId==='user-1'?'workspace-1':'workspace-2'}];
+    }
     if(path.startsWith('/rest/v1/app_spaces'))return [
       {id:'project-1',name:'인력확충 투쟁',parent_id:null,status:'active',metadata:{project_system:'v2',project_type:'campaign'},project_type:'campaign',current_phase:'execution',updated_at:new Date().toISOString(),is_legacy_snapshot:false},
       {id:'project-2',name:'민자철도',parent_id:null,status:'active',metadata:{project_system:'v2',project_type:'ongoing'},project_type:'ongoing',current_phase:'consultation',updated_at:yesterday,is_legacy_snapshot:false},
@@ -42,6 +54,11 @@ window.KPTURuntime={
 };
 window.__routeCalls=[];window.__projectClicks=[];
 window.__retryDashboard=()=>window.dispatchEvent(new Event('kptu:session-changed'));
+window.__switchDashboardSession=()=>{
+  currentUserId='user-2';
+  window.dispatchEvent(new Event('kptu:session-changed'));
+  releaseFirstMembership();
+};
 window.KPTURouter={go:(view,detail)=>window.__routeCalls.push({view,detail}),on:()=>{}};
 document.querySelectorAll('[data-ps3-project]').forEach(el=>el.addEventListener('click',()=>window.__projectClicks.push(el.dataset.ps3Project)));
 </script>
