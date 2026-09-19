@@ -13,7 +13,7 @@
   #appView>.app-nav .nav-btn:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary)}
   #appView>.app-nav .nav-btn.active{background:var(--kptu-primary);color:#fff;box-shadow:none}
 
-  #appView>.view-panel{grid-column:2;min-width:0}
+  #appView>.view-panel{grid-column:2;grid-row:1;min-width:0}
   #appView>.view-panel:not(.hidden){display:block}
   .toolbar select{width:180px}
 
