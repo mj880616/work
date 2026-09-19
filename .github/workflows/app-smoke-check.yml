@@ -88,7 +88,7 @@ jobs:
           grep -q "capabilities.js?v=2" app/loader-v2.js
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
           grep -q "public-workspace.js?v=7" app/loader-v2.js
-          grep -q "home-dashboard-v2.js?v=4" app/loader-v2.js
+          grep -q "home-dashboard-v2.js?v=5" app/loader-v2.js
           grep -q "topbar-actions.js?v=1" app/loader-v2.js
           grep -q "team.js?v=19" app/loader-v2.js
           grep -q "project-system-v3.js?v=4" app/loader-v2.js
@@ -383,6 +383,6 @@ jobs:
             app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
-            app/styles.css app/access-approval.css app/home-task.css app/meeting-ui.css app/calendar-ui.css app/photo-room.css p/; do
+            app/styles.css app/access-approval.css app/meeting-ui.css app/calendar-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done
