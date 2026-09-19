@@ -21,9 +21,9 @@ P6는 `/app/`의 인증된 홈 critical path만 줄인다. Supabase schema/RLS, 
 9. `homeUsable`
 10. `allInitialModulesComplete` (deferred feature bundle 완료)
 
-개발자 도구에서는 `window.__KPTU_STARTUP__.marks`로 같은 navigation의 원시 값을 읽을 수 있다. 자동 비교는 `tests/app-e2e/startup-benchmark.mjs`와 `.github/workflows/app-e2e-check.yml`에서 수행한다. 기준 main `3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c`와 P6 코드를 각각 로컬 정적 서버로 열고 정상 로그인 화면을 거쳐 인증 세션을 만든다. 두 버전 모두 동일한 모의 Supabase 응답을 사용한다. GitHub Actions ubuntu-latest, Chromium/Playwright 1.55.0, 1280×800에서 추가 네트워크 지연 없이 측정한다. cold는 새 브라우저 context의 첫 앱 진입, warm은 같은 context의 두 번째 진입이다. 각각 3회 중앙값을 사용한다. shell은 topbar DOM, auth는 검증된 workspace 역할 표시, home data는 네 홈 패널의 내용 생성, home usable은 그 데이터와 앱 가시성의 동시 충족으로 판정한다. 기존 main의 전체 모듈 완료는 `kptu:app-ui-ready`, P6는 `allInitialModulesComplete` 계측점이다. Resource Timing에서 home usable 시점까지의 JS URL 및 Supabase 요청을 센다.
+개발자 도구에서는 `window.__KPTU_STARTUP__.marks`로 같은 navigation의 원시 값을 읽을 수 있다. 자동 비교는 `tests/app-e2e/startup-benchmark.mjs`와 `.github/workflows/app-e2e-check.yml`에서 수행한다. 기준 main `3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c`와 P6 코드를 각각 로컬 정적 서버로 열고 정상 로그인 화면을 거쳐 인증 세션을 만든다. 두 버전 모두 동일한 모의 Supabase 응답을 사용한다. GitHub Actions ubuntu-latest, Chromium/Playwright 1.55.0, 1280×800에서 추가 네트워크 지연 없이 측정한다. cold는 새 브라우저 context의 첫 앱 진입, warm은 같은 context의 두 번째 진입이다. 각각 3회 중앙값을 사용한다. shell은 인증된 app 메뉴의 실제 가시성(공개 topbar는 별도 계측), auth는 검증된 workspace 역할 표시, home data는 네 홈 패널의 내용 생성, home usable은 그 데이터와 앱 가시성의 동시 충족으로 판정한다. 기존 main의 전체 모듈 완료는 `kptu:app-ui-ready`, P6는 `allInitialModulesComplete` 계측점이다. Resource Timing에서 home usable 시점까지의 JS URL 및 Supabase 요청을 센다.
 
-이 수치는 동일한 조건의 실제 Chromium 실행 결과다([측정 CI 실행](https://github.com/mj880616/work/actions/runs/35425814260)). 다만 모의 API에 지연을 넣지 않았고 실서비스 로그인 계정·GitHub Pages 지역 네트워크를 사용하지 않았으므로 사용자 관측 10~15초를 재현하거나 실제 환경의 2~3초/5초 목표 달성을 판정하지 않는다. 그 수치는 실제 서비스에서 별도 계측이 필요하다.
+이 수치는 동일한 조건의 실제 Chromium 실행 결과다([측정 CI 실행](https://github.com/mj880616/work/actions/runs/35426037958)). 다만 모의 API에 지연을 넣지 않았고 실서비스 로그인 계정·GitHub Pages 지역 네트워크를 사용하지 않았으므로 사용자 관측 10~15초를 재현하거나 실제 환경의 2~3초/5초 목표 달성을 판정하지 않는다. 그 수치는 실제 서비스에서 별도 계측이 필요하다.
 
 ## 변경 전 부팅 경로와 병목 순위
 
@@ -55,15 +55,15 @@ GitHub Pages는 정적 호스팅이므로 query-string 버전이 바뀐 JS/CSS�
 
 | 지표 | cold 변경 전 | cold 변경 후 | warm 변경 전 | warm 변경 후 |
 |---|---:|---:|---:|---:|
-| shell 표시 | 15.4 | 15.6 | 15.9 | 20.2 |
-| auth/workspace 완료 | 138.1 | 130.0 | 120.3 | 124.7 |
-| home data 완료 | 319.2 | 234.9 | 291.8 | 230.7 |
-| home usable | 474.0 | 234.9 | 445.3 | 230.7 |
-| 전체 초기 모듈 완료 | 469.9 | 587.0 | 443.8 | 583.5 |
+| 앱 shell/메뉴 표시 | 474.4 | 218.9 | 451.7 | 210.6 |
+| auth/workspace 완료 | 139.4 | 113.9 | 122.2 | 110.6 |
+| home data 완료 | 324.5 | 218.9 | 298.5 | 210.6 |
+| home usable | 474.4 | 218.9 | 451.7 | 210.6 |
+| 전체 초기 모듈 완료 | 471.8 | 528.0 | 447.3 | 501.7 |
 | home usable 시점 JS import 수 | 61 | 18 | 61 | 18 |
 | home usable 시점 Supabase API 요청 수 | 107 | 7 | 107 | 7 |
 
-이 환경에서 home usable은 cold 239.1ms(50.4%), warm 214.6ms(48.2%) 단축됐다. 전체 모듈 완료 시점은 뒤로 이동했다. 홈과 무관한 작업을 홈 표시 이후로 옮긴 설계에 따른 결과다. 기존 loader의 전체 정적 import 그래프는 65개이며 기능을 삭제하지 않았다. 요청 수 107→7은 이 모의 계정과 응답을 사용한 브라우저 Resource Timing 기록이다. 코드 경로의 최소 요청 수 22→7과 범위가 다르고, 실제 계정의 데이터·모듈 분기·네트워크 조건에 따라 달라질 수 있다.
+이 환경에서 home usable은 cold 255.5ms(53.9%), warm 241.1ms(53.4%) 단축됐다. 공개 topbar는 cold 16.4→15.9ms, warm 18.2→17.6ms였다. 전체 모듈 완료 시점은 뒤로 이동했다. 홈과 무관한 작업을 홈 표시 이후로 옮긴 설계에 따른 결과다. 기존 loader의 전체 정적 import 그래프는 65개이며 기능을 삭제하지 않았다. 요청 수 107→7은 이 모의 계정과 응답을 사용한 브라우저 Resource Timing 기록이다. 코드 경로의 최소 요청 수 22→7과 범위가 다르고, 실제 계정의 데이터·모듈 분기·네트워크 조건에 따라 달라질 수 있다.
 
 ## 회귀검사
 
