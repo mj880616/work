@@ -174,7 +174,7 @@ jobs:
           text=Path('app/loader-v2.js').read_text(encoding='utf-8')
           keys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=17')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=18')",'await window.__KPTU_TEAM_READY__',
             "import('./team-member-overview.js?v=2')",'await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__',
             "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-layout.js?v=6')",'await window.__KPTU_TASK_LAYOUT_READY__',
