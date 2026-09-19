@@ -8,11 +8,6 @@
   main{max-width:1600px;margin:0 auto;padding:26px 32px 76px}
 
   #appView.app-view{display:grid;grid-template-columns:220px minmax(0,1fr);column-gap:28px;align-items:start}
-  #appView>.workspace-head{grid-column:2;grid-row:1;margin:0 0 var(--kptu-space-5);padding:0 2px;align-items:center;display:none}
-  #appView:has(#homeView:not(.hidden))>.workspace-head{display:flex}
-  #appView>.workspace-head h1{font-size:28px;letter-spacing:-.8px}
-  #appView>.workspace-head .head-actions{flex:0 0 auto}
-
   #appView>.app-nav{grid-column:1;grid-row:1 / span 40;position:sticky;top:92px;display:flex;flex-direction:column;align-items:stretch;gap:var(--kptu-space-1);max-height:calc(100vh - 116px);overflow:auto;padding:var(--kptu-space-2);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:none}
   #appView>.app-nav .nav-btn{width:100%;min-height:40px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);padding:9px 10px;text-align:left;font-size:13px;font-weight:700;line-height:1.25;transition:background .14s ease,color .14s ease}
   #appView>.app-nav .nav-btn:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary)}
