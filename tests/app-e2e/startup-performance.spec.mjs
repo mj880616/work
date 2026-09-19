@@ -16,7 +16,7 @@ test('authenticated home commits before non-critical feature bundle', async ({ p
   expect(router).toContain('appReady()||authenticatedShellReady()');
   expect(source).toContain('await window.__KPTU_START_TEAM_DATA__()');
   expect(read('app/home-dashboard-v2.js')).toContain('resolveReady?.({ok:false})');
-  expect(read('app/app.js')).toContain("mark(usable?'homeUsable':'uiReadyWithError')");
+  expect(read('app/app.js')).toContain("mark(usable?'homeUsable':'uiReadyOnly')");
   expect(usable).toBeGreaterThan(0);
   expect(deferred).toBeGreaterThan(usable);
   const criticalAwaitedImports=source.split('\n').filter(line=>/^  await import\(/.test(line));
