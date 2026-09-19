@@ -56,6 +56,9 @@ test('feature navigation waits for deferred readiness and bootstrap loads access
   const source=read('app/loader-v2.js');
   expect(source).toContain("if(teamState==='bootstrap'){await import('./access-approval.js?v=4');return}");
   expect(source).toContain("event.stopImmediatePropagation()");
+  expect(source).toContain('#appView [data-hdv-goto]');
+  expect(source).toContain('#appView [data-hdv-project]');
+  expect(source).toContain('#quickTaskBtn');
   expect(source).toContain("loadFeatures().then(()=>{status.remove()");
-  expect(source).toContain("await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])");
+  expect(source).toContain("const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])");
 });

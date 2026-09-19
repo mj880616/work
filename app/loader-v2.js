@@ -99,7 +99,7 @@
   })().catch(err=>{featurePromise=null;showFeatureError(err);throw err}));
   window.KPTUDeferredFeatures={load:loadFeatures};
   document.addEventListener('click',event=>{
-    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#ccMobileDock [data-cc-view],#newPageBtn,[data-edit-page]');
+    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#ccMobileDock [data-cc-view],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn,#newPageBtn,[data-edit-page]');
     if(!control||featuresReady)return;
     const view=control.dataset.view||control.dataset.goto||control.dataset.ccView;
     if(view==='home')return;

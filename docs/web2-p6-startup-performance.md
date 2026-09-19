@@ -41,7 +41,7 @@ GitHub Pages는 정적 호스팅이므로 query-string 버전이 바뀐 JS/CSS�
 - session 확인 후에만 `team.js`를 import하며, 사용자→membership→workspace 검증 순서는 유지했다.
 - 검증된 `{user, membership, workspace}`를 기존 boot lifecycle의 읽기 전용 context로 홈과 capability에 전달해 초기 중복 4요청을 제거했다. 별도 영속 저장소나 권한 판단 source는 추가하지 않았다.
 - team의 11개 전체 데이터 요청은 홈 reveal 뒤 feature bundle이 시작할 때로 이동했다. 홈은 자신이 소유한 최소 4개 병렬 query(프로젝트, 마일스톤, 내 할 일, 자료)를 완료한 뒤 usable 이벤트를 보낸다.
-- 홈과 무관한 기능 bundle은 home usable 후 `requestIdleCallback`(2.5초 timeout)에서 background load한다. 메뉴와 페이지 편집 버튼의 첫 클릭은 해당 bundle readiness를 기다린 뒤 이어서 실행한다. 직접 `?view=` URL도 bundle readiness를 기다린 뒤 해당 화면을 reveal한다.
+- 홈과 무관한 기능 bundle은 home usable 후 `requestIdleCallback`(2.5초 timeout)에서 background load한다. 메뉴·홈 바로가기·빠른 등록·페이지 편집 버튼의 첫 클릭은 해당 bundle readiness를 기다린 뒤 이어서 실행한다. 직접 `?view=` URL도 bundle readiness를 기다린 뒤 해당 화면을 reveal한다.
 - 모바일 스와이프 동작은 홈 진입 시 함께 준비해 첫 제스처가 놓치지 않도록 한다. 소속이 없는 로그인 사용자의 가입 승인 안내는 홈 로드 대신 접근 승인 모듈로 처리한다.
 - 인증된 앱 영역은 사용자·membership·workspace 검증 뒤에만 표시한다. 그 뒤 UI 준비 중 발생한 화면 전환은 URL에 보존해 준비 완료 시 홈으로 되돌아가는 경쟁 조건을 막는다.
 - 지연 로딩된 메시지 메뉴가 추가되면 라우터의 활성 메뉴 스크롤 정렬을 호출한다.
