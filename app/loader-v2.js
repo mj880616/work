@@ -34,7 +34,7 @@
     return;
   }
 
-  await import('./topbar-actions.js?v=3');
+  await import('./topbar-actions.js?v=4');
   window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
   await import('./team.js?v=21');
   const teamState=await window.__KPTU_TEAM_READY__;
@@ -84,7 +84,6 @@
     await import('./meeting-round-detail.js?v=6'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
     await import('./collaboration-center.js?v=9'); await window.__KPTU_COLLABORATION_READY__;
-    await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
     await import('./calendar-plus.js?v=5'); await window.__KPTU_CALENDAR_PLUS_READY__;
     await import('./calendar-persistence.js?v=10'); await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
     await import('./calendar-interactions-v2.js?v=3'); await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
@@ -93,7 +92,7 @@
     await import('./suborganizations.js?v=2'); await window.__KPTU_SUBORGANIZATIONS_READY__;
     await import('./suborganization-filters.js?v=3'); await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
     await import('./team-profile-view.js?v=3'); await window.__KPTU_TEAM_PROFILE_READY__;
-    await Promise.all([import('./google-tasks.js?v=3'),import('./push-notifications-ui.js?v=2'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
+    await Promise.all([import('./google-tasks.js?v=3'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
     featuresReady=true;
     startup?.mark('allInitialModulesComplete');
     Promise.all([import('./workplace-ai-report.js?v=1'),import('./workflow-ai-v3.js?v=2'),import('./meeting-ai-ingest-client.js?v=1&text=1'),import('./meeting-ai-paste-ui.js?v=1')]).catch(showFeatureError);
