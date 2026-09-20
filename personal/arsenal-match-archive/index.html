@@ -15,14 +15,20 @@
       <div>
         <p class="eyebrow">ARSENAL MATCH ARCHIVE</p>
         <h1>아스날 경기노트</h1>
-        <p class="header-copy">결과보다 경기의 구조를 기록함. 왜 풀렸고, 왜 막혔고, 다음 경기에서 무엇을 확인할지 누적함.</p>
+        <p class="header-copy">결과보다 경기의 구조를 기록함. 왜 풀렸고, 왜 막혔고, 다음 경기에서 무엇을 확인할지 시즌을 가로질러 누적함.</p>
       </div>
-      <div class="season-badge" aria-label="현재 시즌">2026–27</div>
+      <div class="season-badge" aria-label="수록 시즌">2025–26 · 2026–27</div>
     </div>
   </header>
 
   <main class="wrap">
     <section class="controls" aria-label="경기 필터">
+      <label>
+        <span>시즌</span>
+        <select id="seasonFilter">
+          <option value="all">전체</option>
+        </select>
+      </label>
       <label>
         <span>대회</span>
         <select id="competitionFilter">
@@ -37,8 +43,8 @@
 
     <section id="latest" aria-labelledby="latestTitle">
       <div class="section-heading">
-        <p class="eyebrow">LATEST REVIEW</p>
-        <h2 id="latestTitle">최근 경기</h2>
+        <p class="eyebrow">MATCH REVIEW</p>
+        <h2 id="latestTitle">경기 리뷰</h2>
       </div>
       <div id="latestReview"></div>
     </section>
