@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><image width="48" height="48" href="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCAAwADADASIAAhEBAxEB/8QAGwABAAMBAAMAAAAAAAAAAAAABgEFBwADBAj/xAAyEAABAwIEBAQFBAMBAAAAAAABAgMEBREABhIhBxNBURQxYZEiMnGisYGS0dJCRMLx/8QAFgEBAQEAAAAAAAAAAAAAAAAAAwIE/8QAIBEAAQUAAQUBAAAAAAAAAAAAAgABAxESUQQTFCFBMf/aAAwDAQACEQMRAD8A+j81Zqg5Tp3jJmpalnQ0yj5nVdh2Hc9MZm/xsrSnCWKdT2277JXrWR9TcfjHcbHVqzBAZKjy0RNSU9ASs3P2j2wcyfk6Tmudy7uxoaUkrkhoqTcf4g+V/wCMZZJC1TLMZk5ZFIE8aMwqPwwKcrrs24f+sQONdfP+lTP2L/thzlvI1My62nlhb0pKifFKAQ4R2+Hp6G+PHVOHeXqq7IWuMtl59fMUtk6bKtbbbYdbdSTibPlJ2pK/UOZ42VpDiS9Tqe43fdKNaSf1ufxjTMq5qg5spvjIepCknQ6yv5mldj3HY9cYVmvKczKs4R5Cucysam5CEEJV6b+R9MKeCbq05gnshR5a4mop6EhYsfuPvio5C1TowMmLJKx4kUB/MmeIMJhYbSIIW46oXCE8xW9up32GGVEYYgMNwW1HTHbSlINhsB52G3/uDWcKsxR+ItPdknS07A5OomwQS4qxPp09L4vaVrePNCwdafiV5gJBHvvgpHqRbYAGif6vdhVyFUZT0eHKjSFx3OW8lpwKLauygPI4idXYFMksR5syNGXJc5bKXnQguq7JB8zuPcd8BpGVoXCGgVmsZSh+Pq0kqfLNQmkBTfMK1hAJA+HUTYWKja5JxLOVIfFug0Ws5tiCBWYoDpaps24S2VhaULAJFlaEEg3II2O2Ep+UnpM6/Ej1OK7AdJ0PtqCgN7A+Shfr/GBvDWgyMu53nQ5CkuDwJW24nyWnmJ39D3GFdV5jCy6pYFkix8gUk3/TfFFk6rMVfiLUHIx1NNQOUFA3CyHE3I9PzbBRvciPqAFmF/qoeNjLicwQHik8tcTQlXQkLNx9w98H8oZ2mZXlAK1SYSrIWypROhN7ko6A42zNOVoObKd4OZqQpJ1tPI+ZpXcdx3HXGaPcE6ylxQZqVPcbvspYWkn6ix/OGkjLWmWMxNi0KWtZpyrmyI0zJfjaisOIakWS42sHZQv5K+nfEPZsyplSG4zFfjkhZWtmNZS3Fk7qNtifUnBA8FK8fOdTP3L/AK44cFK8BYTqZ+5f9cRk+E3kS5zSoM2Z1m5olKN1R4aQUIYSo/Em9xr6E4RcE2VqzBPeCTy0RNBV0BKxYfafbHM8E6ypxIeqVPbbvupAWoj6Cw/ONLytlaDlOneDh6lqUdbry/mdV3PYdh0xccZat0AAblol/9k="/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="복둥">
+  <rect width="64" height="64" rx="16" fill="#6f946d"/>
+  <path d="M16 29c-2-7 2-13 8-14 2-5 8-8 13-5 4-2 10 1 11 6 6 1 10 7 8 14-1 5-4 8-8 10-1 9-8 15-16 15S17 49 16 40c-4-2-7-6-8-11-1-6 3-11 8-12Z" fill="#f5ead7"/>
+  <path d="M17 29c-4-4-6-1-7 2-1 5 2 10 7 12 2-3 3-8 2-12Z" fill="#e7cfad"/>
+  <path d="M47 29c4-4 6-1 7 2 1 5-2 10-7 12-2-3-3-8-2-12Z" fill="#e7cfad"/>
+  <path d="M21 24c2-4 6-7 11-7 6 0 10 3 12 7-3-2-6-2-8 0-2-2-4-3-6-3-3 0-6 1-9 3Z" fill="#fff8eb"/>
+  <circle cx="24" cy="32" r="4.2" fill="#30251f"/>
+  <circle cx="40" cy="32" r="4.2" fill="#30251f"/>
+  <circle cx="25.3" cy="30.7" r="1.2" fill="#fff"/>
+  <circle cx="41.3" cy="30.7" r="1.2" fill="#fff"/>
+  <ellipse cx="32" cy="39" rx="5" ry="4" fill="#30251f"/>
+  <path d="M32 42c-2 0-4 1-5 3 2 3 4 4 5 4s3-1 5-4c-1-2-3-3-5-3Z" fill="#f28f86"/>
+  <path d="M25 41c2 4 5 6 7 6s5-2 7-6" fill="none" stroke="#30251f" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M19 36c3 2 5 3 8 3M45 36c-3 2-5 3-8 3" stroke="#fff8eb" stroke-width="4" stroke-linecap="round"/>
+</svg>
