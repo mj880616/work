@@ -1,3 +1,4 @@
+# Production deployment is managed by .github/workflows/cloudflare-worker-deploy.yml
 name = "bokdoong-router"
 main = "bokdoong-router.mjs"
 compatibility_date = "2026-09-20"
