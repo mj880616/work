@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import vm from 'node:vm';
 
-const source=readFileSync(new URL('../app/web1-admin-auth.js',import.meta.url),'utf8');
+const source=readFileSync(new URL('../../app/web1-admin-auth.js',import.meta.url),'utf8');
 
 function load({path='/work/p/',search='',hash='',storage=new Map()}={}){
   const location={origin:'https://work.bokdoong.com',pathname:path,search,hash,reloadCount:0};
