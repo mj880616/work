@@ -1,0 +1,61 @@
+name: Web2 synthetic Supabase authorization
+
+# Manual only. This workflow has no hosted Supabase credential and never links
+# to a remote project. A separately reviewed schema-only baseline is required.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web2-synthetic-supabase-authz
+  cancel-in-progress: false
+
+jobs:
+  local-authz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      WEB2_BASELINE_SHA256: ${{ vars.WEB2_BASELINE_SHA256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Require separately reviewed schema baseline
+        shell: bash
+        run: |
+          test -s supabase/local-verify/baseline.sql || {
+            echo 'Reviewed baseline.sql is not present; no hosted DB connection is configured.' >&2
+            exit 1
+          }
+          test -n "$WEB2_BASELINE_SHA256" || {
+            echo 'Reviewed baseline SHA-256 variable is not configured.' >&2
+            exit 1
+          }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Check public URL and CI safety contracts
+        run: node --test tests/security/*.test.mjs
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+
+      - name: Check isolated runner prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+
+      - name: Run schema-only synthetic authorization checks
+        shell: bash
+        run: bash supabase/local-verify/bootstrap-ci.sh

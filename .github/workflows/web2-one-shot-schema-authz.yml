@@ -1,7 +1,8 @@
 name: Web2 one-shot schema authorization
 
 # Inspect and verify are separate manual invocations. No raw dump is persisted
-# between jobs or uploaded; verification re-extracts and checks the reviewed hash.
+# between jobs or uploaded; verification compares a canonical digest while
+# retaining pg_dump's unpredictable restriction key in the raw restore file.
 on:
   workflow_dispatch:
     inputs:
@@ -9,7 +10,7 @@ on:
         description: 'inspect first; verify only after reviewing its findings and SHA-256'
         required: true
         type: choice
-        options: [inspect, verify]
+        options: [inspect, seed-diagnose, edge-diagnose, verify, predeploy, transition]
       expected_sha256:
         description: 'SHA-256 printed by the clean inspect run; required for verify'
         required: false
@@ -24,7 +25,7 @@ concurrency:
 
 jobs:
   schema-authz:
-    if: github.repository == 'mj880616/work' && github.ref == 'refs/heads/main'
+    if: github.repository == 'mj880616/work' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/web2-schema-verify' || github.ref == 'refs/heads/codex/web2-transition-verify') && (inputs.phase != 'transition' || github.ref == 'refs/heads/codex/web2-transition-verify')
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     environment: web2-schema-verification
@@ -52,8 +53,8 @@ jobs:
           for name in PGHOST PGPORT PGUSER PGDATABASE; do
             test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
           done
-          test "$VERIFICATION_PHASE" = inspect || test "$VERIFICATION_PHASE" = verify
-          if test "$VERIFICATION_PHASE" = verify; then
+          test "$VERIFICATION_PHASE" = inspect || test "$VERIFICATION_PHASE" = seed-diagnose || test "$VERIFICATION_PHASE" = edge-diagnose || test "$VERIFICATION_PHASE" = verify || test "$VERIFICATION_PHASE" = predeploy || test "$VERIFICATION_PHASE" = transition
+          if test "$VERIFICATION_PHASE" != inspect; then
             [[ "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]] || {
               echo 'The reviewed SHA-256 is required for verify' >&2; exit 1;
             }
@@ -96,32 +97,119 @@ jobs:
                 exit 1
               }
           node supabase/local-verify/scan-schema.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
-      - name: Stop after inspection and discard temporary schema
-        if: ${{ inputs.phase == 'inspect' }}
-        run: echo 'Inspection completed. Review the reported findings and hash before a separate verify run.'
+          if test "$VERIFICATION_PHASE" != inspect; then
+            node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
+            docker run --rm --network host --read-only --tmpfs /tmp:rw,noexec,nosuid \
+              --user "$(id -u):$(id -g)" \
+              -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE -e PGPASSWORD \
+              -e PGOPTIONS -e PGSSLMODE -e PGSSLROOTCERT \
+              -v "$RUNNER_TEMP:/out" \
+              -v "$PWD/supabase/local-verify/definer-acl.sql:/verify/definer-acl.sql:ro" \
+              postgres:17 psql -X -qAt -v ON_ERROR_STOP=1 \
+                -f /verify/definer-acl.sql \
+                > "$RUNNER_TEMP/definer-acl.json" 2> "$RUNNER_TEMP/definer-acl.err" || {
+                  echo 'DEFINER_ACL_QUERY_FAILED: read-only catalog query failed; raw output withheld' >&2
+                  exit 1
+                }
+            node supabase/local-verify/definer-acl.mjs "$RUNNER_TEMP/definer-acl.json"
+          fi
+          if test "$VERIFICATION_PHASE" = inspect; then
+            if test -n "$EXPECTED_SHA256"; then
+              node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
+            else
+              node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+            fi
+            node supabase/local-verify/analyze-baseline.mjs inventory "$RUNNER_TEMP/web2-schema.raw.sql"
+            node supabase/local-verify/definer-diagnostics.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+            node supabase/local-verify/role-diagnostics.mjs target "$RUNNER_TEMP/web2-schema.raw.sql" 10343
+            docker run --rm --network host --read-only --tmpfs /tmp:rw,noexec,nosuid \
+              --user "$(id -u):$(id -g)" \
+              -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE -e PGPASSWORD \
+              -e PGOPTIONS -e PGSSLMODE -e PGSSLROOTCERT \
+              -v "$RUNNER_TEMP:/out" \
+              -v "$PWD/supabase/local-verify/role-catalog.sql:/verify/role-catalog.sql:ro" \
+              postgres:17 psql -X -qAt -v ON_ERROR_STOP=1 \
+                -f /verify/role-catalog.sql \
+                > "$RUNNER_TEMP/web2-hosted-roles.json" \
+                2> "$RUNNER_TEMP/role-catalog.err" || {
+                  echo 'HOSTED_ROLE_CATALOG_FAILED: read-only catalog query failed; raw output withheld' >&2
+                  exit 1
+                }
+          fi
       - uses: supabase/setup-cli@v3
-        if: ${{ inputs.phase == 'verify' }}
+        if: ${{ inputs.phase == 'inspect' }}
         with:
           version: 2.84.2
-      - name: Verify hash and run synthetic authorization tests
-        if: ${{ inputs.phase == 'verify' }}
+      - name: Compare hosted and disposable local role catalogs
+        if: ${{ inputs.phase == 'inspect' }}
         shell: bash
         env:
           WEB2_BASELINE_FILE: ${{ runner.temp }}/web2-schema.raw.sql
           WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
+          WEB2_HOSTED_ROLES_FILE: ${{ runner.temp }}/web2-hosted-roles.json
+          WEB2_ROLE_DIAGNOSTIC: '1'
         run: |
           set -euo pipefail
+          node --test tests/security/local-supabase-ci.test.mjs
+          bash -n supabase/local-verify/bootstrap-ci.sh
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          bash supabase/local-verify/bootstrap-ci.sh
+      - name: Stop after inspection and discard temporary schema
+        if: ${{ inputs.phase == 'inspect' }}
+        run: echo 'Inspection completed. Review the reported findings and hash before a separate verify run.'
+      - name: Compare reviewed canonical schema hash before any tests or local stack setup
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
+        shell: bash
+        run: node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
+      - uses: supabase/setup-cli@v3
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
+        with:
+          version: 2.84.2
+      - uses: denoland/setup-deno@v2
+        if: ${{ inputs.phase == 'predeploy' }}
+        with:
+          deno-version: v2.x
+      - name: Run static contracts and synthetic authorization tests
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
+        shell: bash
+        env:
+          WEB2_BASELINE_FILE: ${{ runner.temp }}/web2-schema.raw.sql
+          WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
+          WEB2_SEED_DIAGNOSTIC: ${{ inputs.phase == 'seed-diagnose' && '1' || '0' }}
+          WEB2_EDGE_DIAGNOSTIC: ${{ inputs.phase == 'edge-diagnose' && '1' || '0' }}
+          WEB2_PREDEPLOY: ${{ inputs.phase == 'predeploy' && '1' || '0' }}
+          WEB2_TRANSITION: ${{ inputs.phase == 'transition' && '1' || '0' }}
+        run: |
+          set -euo pipefail
+          node supabase/local-verify/analyze-baseline.mjs inventory "$WEB2_BASELINE_FILE"
+          node supabase/local-verify/definer-diagnostics.mjs "$WEB2_BASELINE_FILE"
+          if test "$VERIFICATION_PHASE" = predeploy; then
+            node supabase/local-verify/review-definer-body.mjs "$WEB2_BASELINE_FILE"
+          fi
           node --test tests/security/*.test.mjs
           if ! command -v psql >/dev/null; then
             sudo apt-get update -qq
             sudo apt-get install -y -qq postgresql-client
           fi
           bash supabase/local-verify/bootstrap-ci.sh
+          if test "$VERIFICATION_PHASE" = predeploy; then
+            fixture="$RUNNER_TEMP/web2-hwp-smoke.hwp"
+            curl --fail --location --silent --show-error --proto '=https' --tlsv1.2 \
+              'https://raw.githubusercontent.com/edwardkim/rhwp/bc38ff55a7e8acb65aebebe237dca0542480d381/samples/para-001.hwp' \
+              --output "$fixture"
+            printf '%s  %s\n' 'bab4561ceb02cdfa184a1689be9619c08e18d6021cdbc423486b848bc14d267e' "$fixture" | sha256sum --check --status
+            deno run --allow-read --allow-env --allow-net supabase/local-verify/hwp-smoke.mjs "$fixture"
+          fi
       - name: Destroy temporary schema and local stack
         if: always()
         shell: bash
         run: |
           if test -d "$RUNNER_TEMP"; then
-            rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err" "$RUNNER_TEMP/prod-ca-2021.crt"
+            rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err" "$RUNNER_TEMP/prod-ca-2021.crt" \
+              "$RUNNER_TEMP/web2-hosted-roles.json" "$RUNNER_TEMP/role-catalog.err"
+            rm -f -- "$RUNNER_TEMP/definer-acl.json" "$RUNNER_TEMP/definer-acl.err"
+            rm -f -- "$RUNNER_TEMP/web2-hwp-smoke.hwp"
           fi
-
