@@ -318,5 +318,369 @@ window.ARSENAL_MATCHES = [
         "url": "https://www.theguardian.com/football/2026/aug/21/arsenal-coventry-premier-league-match-report"
       }
     ]
+  },
+  {
+    "id": "2025-09-21-man-city-home",
+    "date": "2025-09-21",
+    "season": "2025-26",
+    "competition": "Premier League",
+    "round": "5R",
+    "venue": "Emirates Stadium",
+    "home": "아스날",
+    "away": "맨체스터 시티",
+    "homeScore": 1,
+    "awayScore": 1,
+    "result": "무",
+    "title": "아스날 1-1 맨체스터 시티",
+    "subtitle": "점유는 압도했지만 낮은 블록을 오래 깨지 못했고, 교체 카드가 마지막에 겨우 답을 만든 경기",
+    "verdict": "경기를 지배한 시간과 실제로 상대 골문을 위협한 시간 사이의 간극이 컸음. 초반 전환수비 실패를 93분 교체 조합으로 만회한 무승부였음.",
+    "summary": [
+      "시티는 9분 하란의 빠른 전환 득점 뒤 평소보다 훨씬 낮게 내려앉았고, 아스날은 약 67%의 점유율과 12개의 슈팅을 기록하면서도 오랫동안 박스 안의 좋은 슈팅을 만들지 못했음.",
+      "라이스와 수비멘디가 빌드업의 더블 피벗을 맡고 칼라피오리가 왼쪽에서 위치를 바꾸며 압박 기준점을 흔들었지만, 시티의 깊은 블록 앞에서 공이 측면으로 돌고 크로스 비중이 높아졌음.",
+      "후반 사카·에제·마르티넬리 투입으로 전진성과 박스 침투가 늘었고, 추가시간 에제의 로빙 패스를 마르티넬리가 마무리해 동점을 만들었음."
+    ],
+    "decisive": [
+      "하란의 선제골은 아스날이 공격적으로 올라간 순간 시티가 중앙을 빠르게 통과한 전환 한 번에서 나왔음. 높은 점유율과 별개로 레스트 디펜스의 작은 균열이 바로 실점으로 연결됨.",
+      "시티가 선제골 이후 극단적으로 낮은 점유율을 받아들이면서 아스날은 공을 가졌지만, 박스 중앙을 여는 패스보다 바깥 순환과 크로스에 머무는 시간이 길었음.",
+      "후반 교체된 에제와 마르티넬리가 기존 공격보다 더 직접적으로 마지막 라인을 공격했고, 이 조합이 결국 동점골을 생산함."
+    ],
+    "arteta": [
+      "선발에서 사카·에제·마르티넬리를 아끼고 메리노·트로사르·마두에케를 택한 보수적 선택은 초반 공격의 폭발력을 낮췄다는 비판을 받을 만했음.",
+      "반면 후반에는 사카와 에제를 넣고 마지막에는 마르티넬리까지 투입해 상대 박스에 더 많은 주자를 보내는 쪽으로 구조를 바꿨고, 결과적으로 교체가 승점 1점을 만들었음.",
+      "이 경기는 '점유를 얼마나 오래 했는가'보다 낮은 블록을 상대로 얼마나 빨리 침투·전환·개인 돌파를 추가하느냐가 중요하다는 사례로 남음."
+    ],
+    "nextWatch": [
+      "상대가 선제골 뒤 낮게 내려앉을 때 사카와 에제 같은 1대1·마지막 패스 자원을 더 일찍 투입하는지.",
+      "공격 중 공을 잃었을 때 센터백 앞 공간을 라이스·수비멘디가 어떻게 보호하는지.",
+      "점유 우위가 박스 터치와 높은 질의 슈팅으로 연결되는지, 아니면 다시 크로스 중심으로 정체되는지."
+    ],
+    "stats": {
+      "possession": "67%",
+      "shots": "12",
+      "xg": "0.90",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "33%",
+      "shots": "5",
+      "xg": "0.99",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "사진 포함 전술 분석 · Coaches' Voice",
+        "url": "https://learning.coachesvoice.com/cv/arsenal-1-manchester-city-1-tactical-analysis/"
+      },
+      {
+        "label": "경기 리포트 · Arseblog",
+        "url": "https://arseblog.news/2025/09/report-arsenal-1-1-manchester-city-incl-goals/"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/arsenal-vs-manchester-city-stats-opta-premier-league-09-2025"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/epl/arsenal-man-city/xg-statistics"
+      },
+      {
+        "label": "Arseblog 경기 리포트",
+        "url": "https://arseblog.news/2025/09/report-arsenal-1-1-manchester-city-incl-goals/"
+      }
+    ]
+  },
+  {
+    "id": "2025-09-13-forest-home",
+    "date": "2025-09-13",
+    "season": "2025-26",
+    "competition": "Premier League",
+    "round": "4R",
+    "venue": "Emirates Stadium",
+    "home": "아스날",
+    "away": "노팅엄 포리스트",
+    "homeScore": 3,
+    "awayScore": 0,
+    "result": "승",
+    "title": "아스날 3-0 노팅엄 포리스트",
+    "subtitle": "새 공격진을 전면에 세우고 오른쪽의 마두에케와 중앙의 수비멘디까지 공격 자원으로 확장한 반등",
+    "verdict": "안필드에서 지나치게 조심스러웠던 경기 뒤, 아르테타가 공격적인 선발과 더 과감한 위치 점유로 즉시 반응한 경기였음.",
+    "summary": [
+      "아르테타는 에제-요케레스-마두에케를 처음으로 함께 선발했고, 외데고르가 이른 부상으로 빠졌음에도 포리스트를 계속 자기 진영에 묶어뒀음.",
+      "마두에케가 오른쪽에서 가장 지속적인 전진 출구가 됐고, 수비멘디는 후방 연결 역할에 머물지 않고 박스 주변과 박스 안까지 전진해 두 골을 기록했음.",
+      "아스날은 54% 점유율이었지만 16-5 슈팅, xG 2.31-0.28로 찬스의 질에서 압도했음. 점유율보다 상대 진영에서의 공격 효율이 두드러졌음."
+    ],
+    "decisive": [
+      "포리스트가 초반에는 높은 압박을 시도했지만 아스날이 이를 밀어낸 뒤에는 경기 대부분이 포리스트 진영에서 진행됐음.",
+      "마두에케가 폭을 유지하면서도 적극적으로 안쪽을 공격해 상대 왼쪽 수비를 고정했고, 반대쪽 에제와 중앙 요케레스까지 수비 간격을 넓혔음.",
+      "수비멘디의 전진 타이밍이 포리스트 중원의 기준점을 무너뜨렸고, 세트피스와 오픈플레이 모두에서 중앙 미드필더가 직접 득점 위협이 됐음.",
+      "모스케라가 살리바 공백을 안정적으로 메우면서 공격적인 팀 배치에도 후방 리스크가 거의 발생하지 않았음."
+    ],
+    "arteta": [
+      "리버풀전의 보수적 선발과 달리 에제와 마두에케를 동시에 투입해 양쪽에서 적극적으로 1대1을 만들려 했음.",
+      "라이스를 선발에서 빼고 메리노·수비멘디를 쓴 선택도 상대를 자기 진영에 가두는 경기에서는 기능했음. 수비멘디에게 단순 6번 이상의 전진 자유를 준 것이 특히 효과적이었음.",
+      "외데고르가 일찍 빠졌지만 은와네리를 넣어 기본 공격 구조를 유지했고, 리드를 잡은 뒤에도 과도하게 후퇴하지 않았음."
+    ],
+    "nextWatch": [
+      "수비멘디의 박스 침투가 낮은 블록 상대의 상시 패턴으로 발전하는지.",
+      "에제-요케레스-마두에케 조합이 강한 압박과 높은 수비라인을 상대할 때도 같은 효과를 내는지.",
+      "외데고르가 없을 때 은와네리 또는 에제가 중앙 창조성을 얼마나 안정적으로 대신할 수 있는지."
+    ],
+    "stats": {
+      "possession": "54%",
+      "shots": "16",
+      "xg": "2.31",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "46%",
+      "shots": "5",
+      "xg": "0.28",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "공식 사진 38장 · Arsenal",
+        "url": "https://www.arsenal.com/gallery/gallery-38-photos-from-our-forest-victory-aZPq88J9f1UQ"
+      },
+      {
+        "label": "경기 리포트 · Arseblog",
+        "url": "https://arseblog.news/2025/09/report-arsenal-3-0-nottingham-forest-inc-goals/"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/arsenal-vs-nottingham-forest-stats-premier-league-09-2025"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/epl/arsenal-nottingham-forest/xg-statistics"
+      },
+      {
+        "label": "BBC 경기 분석",
+        "url": "https://www.bbc.co.uk/sport/football/articles/c5y491zyz28o"
+      }
+    ]
+  },
+  {
+    "id": "2025-08-31-liverpool-away",
+    "date": "2025-08-31",
+    "season": "2025-26",
+    "competition": "Premier League",
+    "round": "3R",
+    "venue": "Anfield",
+    "home": "리버풀",
+    "away": "아스날",
+    "homeScore": 1,
+    "awayScore": 0,
+    "result": "패",
+    "title": "리버풀 1-0 아스날",
+    "subtitle": "서로 거의 아무것도 허용하지 않은 경기에서 아르테타의 신중함이 공격 가능성까지 함께 지운 패배",
+    "verdict": "수비적으로는 안필드에서 리버풀을 거의 막아냈지만, 승리를 노릴 위험도 함께 제거하면서 0-0에 가까운 경기가 한 번의 프리킥으로 넘어갔음.",
+    "summary": [
+      "양 팀 모두 찬스 생산이 매우 낮았고 xG는 리버풀 0.54-아스날 0.56 수준이었음. 아스날은 47% 점유율과 11개의 슈팅을 기록했지만 유효슈팅은 1개뿐이었음.",
+      "사카가 부상으로 빠지고 외데고르도 선발에서 제외되면서 아르테타는 메리노-라이스-수비멘디의 피지컬과 안정성을 택했음. 그 결과 중앙은 쉽게 무너지지 않았지만 전진 패스와 마지막 연결이 부족했음.",
+      "83분 소보슬라이가 먼 거리 프리킥을 성공시키기 전까지 경기의 균형은 거의 깨지지 않았음. 패배 원인이 대량의 수비 실수라기보다 공격 리스크를 제한한 경기 설계와 한 번의 고난도 킥에 가까웠음."
+    ],
+    "decisive": [
+      "아스날은 리버풀의 전환과 살라 쪽 위협을 줄이는 데는 성공했지만, 공격 시 전방에 충분한 숫자와 창조성을 공급하지 않았음.",
+      "요케레스는 리버풀 센터백 사이에서 고립되는 시간이 길었고, 사카·외데고르가 빠진 상황에서 마두에케와 마르티넬리도 지속적으로 유리한 1대1을 받지 못했음.",
+      "후반에도 경기 구조가 0-0 보존에 가까운 채 오래 유지됐고, 에제와 외데고르 같은 공격적 자원을 더 일찍 활용할 여지가 있었음.",
+      "결국 오픈플레이가 아니라 소보슬라이의 장거리 프리킥 한 번이 승패를 갈랐다는 점은 수비 계획의 실패보다 공격적 야심의 부족을 더 선명하게 보여줌."
+    ],
+    "arteta": [
+      "안필드 원정이라는 맥락과 핵심 공격수들의 부상을 고려하면 중원에 메리노를 추가한 선택 자체는 이해 가능했음.",
+      "다만 경기가 낮은 위험 수준에서 고착됐을 때도 먼저 구조를 흔들지 않았고, 이는 '지지 않는 경기'를 만들려다 이길 가능성도 너무 작게 만든 선택으로 볼 수 있음.",
+      "이후 시즌에서 강팀 원정에서도 수비 안정성을 유지하면서 에제·외데고르·사카 등 창조적 자원을 얼마나 적극적으로 함께 쓰는지가 중요한 비교 지점이 됨."
+    ],
+    "nextWatch": [
+      "강팀 원정에서 3명의 안정형 미드필더 대신 창조적 8번을 얼마나 과감하게 배치하는지.",
+      "요케레스가 고립될 때 풀백·윙어·8번이 얼마나 가까이 붙어 세컨드볼과 두 번째 공격을 만드는지.",
+      "0-0으로 고착된 경기에서 아르테타의 첫 공격적 교체 시점이 빨라지는지."
+    ],
+    "stats": {
+      "possession": "47%",
+      "shots": "11",
+      "xg": "0.56",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "53%",
+      "shots": "9",
+      "xg": "0.54",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "사진 포함 전술 분석 · Coaches' Voice",
+        "url": "https://learning.coachesvoice.com/cv/liverpool-arsenal-tactics-august-2025/"
+      },
+      {
+        "label": "경기 리포트 · Arseblog",
+        "url": "https://arseblog.news/2025/08/report-liverpool-1-0-arsenal-inc-goal/"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Coaches' Voice 전술 분석",
+        "url": "https://learning.coachesvoice.com/cv/liverpool-arsenal-tactics-august-2025/"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/epl/liverpool-arsenal/xg-statistics"
+      },
+      {
+        "label": "BBC 분석",
+        "url": "https://www.bbc.co.uk/sport/football/articles/clydelgp7x8o"
+      }
+    ]
+  },
+  {
+    "id": "2025-08-23-leeds-home",
+    "date": "2025-08-23",
+    "season": "2025-26",
+    "competition": "Premier League",
+    "round": "2R",
+    "venue": "Emirates Stadium",
+    "home": "아스날",
+    "away": "리즈 유나이티드",
+    "homeScore": 5,
+    "awayScore": 0,
+    "result": "승",
+    "title": "아스날 5-0 리즈 유나이티드",
+    "subtitle": "3-2 빌드업, 풀백의 유동성, 요케레스의 깊이 공격이 한꺼번에 작동한 시즌 초 공격 모델",
+    "verdict": "상대를 낮게 밀어 넣는 포지셔널 플레이와 세트피스, 새 9번의 직선성이 동시에 작동하면서 개막전의 답답함을 완전히 지운 경기였음.",
+    "summary": [
+      "아스날은 68% 점유율, 18슈팅, 약 2.7 xG를 기록했고 리즈를 3슈팅에 묶었음. 팀버와 요케레스가 각각 두 골, 사카가 한 골을 기록함.",
+      "빌드업에서는 팀버가 안쪽으로 좁히고 칼라피오리가 중원에 합류하는 3-2 성격의 구조가 반복됐고, 라이스와 외데고르가 더 높은 위치를 점유하며 패스 각도를 늘렸음.",
+      "요케레스는 공을 받으러 계속 내려오기보다 센터백을 뒤로 밀고 뒷공간과 니어포스트를 공격했음. 이 움직임이 중간 지대에서 아스날 미드필더가 공을 받을 공간을 키웠음."
+    ],
+    "decisive": [
+      "리즈가 내려앉을 때 풀백과 미드필더의 위치 교환으로 중앙 숫자를 확보했고, 사카를 넓게 고정해 팀버·외데고르에게 오른쪽 하프스페이스를 열었음.",
+      "세트피스에서 팀버가 선제골을 넣으면서 리즈의 낮은 블록을 일찍 열었고, 이후에는 전환과 박스 침투 공간이 급격히 커졌음.",
+      "요케레스가 수비라인을 뒤로 밀어 중원과 최전방 사이의 공간을 늘렸고, 직접 두 골을 넣으며 기존 하베르츠형 9번과 다른 공격 효과를 보여줌.",
+      "15세 다우먼까지 투입할 정도로 후반 경기 통제가 확실했음."
+    ],
+    "arteta": [
+      "개막전에서 상대 압박에 고전한 뒤, 리즈의 낮은 블록을 상대로는 풀백을 유동적으로 중앙에 배치해 패스 숫자와 하프스페이스 점유를 늘렸음.",
+      "요케레스에게 연계보다 깊이와 박스 공격을 우선하도록 한 것이 상대 센터백을 후퇴시키는 효과를 냈음.",
+      "다만 사카와 외데고르가 모두 부상으로 교체된 것은 다음 안필드 원정의 공격 구성을 크게 바꾸는 변수로 이어졌음."
+    ],
+    "nextWatch": [
+      "3-2 빌드업이 강한 전방 압박을 만났을 때도 같은 안정성을 보이는지.",
+      "요케레스가 강팀 센터백을 상대로도 라인을 뒤로 밀어 중간 공간을 만들 수 있는지.",
+      "사카·외데고르가 빠질 경우 오른쪽 하프스페이스의 창조성을 누가 대신할지."
+    ],
+    "stats": {
+      "possession": "68%",
+      "shots": "18",
+      "xg": "2.70",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "32%",
+      "shots": "3",
+      "xg": "0.18",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "공식 경기 하이라이트 · Leeds",
+        "url": "https://www.youtube.com/watch?v=aVnsrYfFiEU"
+      },
+      {
+        "label": "전술 분석 · Total Football Analysis",
+        "url": "https://totalfootballanalysis.com/match-analysis/arsenal-leeds-united-premier-league-2025-2026-tactical-analysis"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/arsenal-vs-leeds-stats-opta-premier-league-08-2025"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/epl/arsenal-leeds/xg-statistics"
+      },
+      {
+        "label": "Total Football Analysis",
+        "url": "https://totalfootballanalysis.com/match-analysis/arsenal-leeds-united-premier-league-2025-2026-tactical-analysis"
+      }
+    ]
+  },
+  {
+    "id": "2025-08-17-man-utd-away",
+    "date": "2025-08-17",
+    "season": "2025-26",
+    "competition": "Premier League",
+    "round": "1R",
+    "venue": "Old Trafford",
+    "home": "맨체스터 유나이티드",
+    "away": "아스날",
+    "homeScore": 0,
+    "awayScore": 1,
+    "result": "승",
+    "title": "맨체스터 유나이티드 0-1 아스날",
+    "subtitle": "세트피스 한 골과 라야의 선방으로 버틴 승리, 하지만 빌드업과 압박 탈출은 시즌 첫 경고",
+    "verdict": "원정 개막전 승점 3점은 얻었지만 경기 내용은 통제와 거리가 멀었음. 세트피스 우위와 골키퍼가 흔들린 빌드업을 가려준 경기였음.",
+    "summary": [
+      "맨유가 초반부터 강하게 전진 압박했고 아스날은 첫 10분 동안 자기 진영에 깊게 밀렸음. 최종 점유율은 39%, 슈팅은 9-22로 뒤졌음.",
+      "13분 라이스의 코너킥에서 칼라피오리가 헤더로 선제골을 넣었지만, 오픈플레이에서는 전진 연결이 매끄럽지 않았고 여러 차례 공을 쉽게 잃었음.",
+      "후반에는 맨유가 계속 박스에 공을 공급했지만 라야가 중요한 선방을 반복했고 가브리엘·살리바 중심의 박스 수비가 버텨 1-0을 지켰음."
+    ],
+    "decisive": [
+      "세트피스에서 골키퍼의 공간을 공격해 이른 선제골을 얻은 것이 경기 계획을 완전히 바꿈.",
+      "아스날의 빌드업이 맨유의 압박과 빠른 전진에 여러 차례 막혔지만, 라야가 실점 가능성이 높은 슈팅을 막으면서 리드를 유지함.",
+      "오픈플레이 xG는 맨유 쪽이 더 높았고 아스날의 xG 상당 부분이 세트피스에서 나왔음. 결과와 경기 지배력 사이에 분명한 괴리가 있었음.",
+      "요케레스는 전방에서 고립되는 시간이 많았고 새 6번 수비멘디를 포함한 중원도 압박을 깨고 공격수까지 공을 운반하는 데 어려움을 겪었음."
+    ],
+    "arteta": [
+      "아르테타는 경기 중 점유를 되찾기보다 리드를 지키는 방향으로 풀백과 중원의 안정성을 우선했고, 후반 교체도 수비 에너지 보강 성격이 강했음.",
+      "개막전이라는 맥락에서는 실용적 선택이었지만, 강한 압박에 짧은 빌드업이 막힐 때 롱볼·세컨드볼 또는 더 직접적인 전진을 체계적으로 섞어야 한다는 과제가 바로 드러났음.",
+      "이 문제는 이후 시즌 내내 '압박을 기술로 풀 것인가, 라야의 킥과 전방 타깃으로 건너뛸 것인가'라는 핵심 관찰 항목으로 이어짐."
+    ],
+    "nextWatch": [
+      "라야와 센터백이 높은 압박을 받을 때 수비멘디를 거치지 않고 전방 타깃으로 직접 나가는 비중이 늘어나는지.",
+      "요케레스 주변에 세컨드볼 회수 인원을 얼마나 빨리 붙이는지.",
+      "세트피스 우위에 의존하지 않고 오픈플레이에서 박스 진입과 슈팅을 늘릴 수 있는지."
+    ],
+    "stats": {
+      "possession": "39%",
+      "shots": "9",
+      "xg": "1.29",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "61%",
+      "shots": "22",
+      "xg": "1.51",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "경기 사진 포함 리포트 · Guardian",
+        "url": "https://www.theguardian.com/football/live/2025/aug/17/manchester-united-v-arsenal-premier-league-live"
+      },
+      {
+        "label": "무료 하이라이트 · Sky Sports",
+        "url": "https://www.skysports.com/football/manchester-united-vs-arsenal/531137"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/man-utd-vs-arsenal-stats-opta-premier-league-08-2025"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/epl/man-united-arsenal/xg-statistics"
+      },
+      {
+        "label": "Arseblog 경기 리포트",
+        "url": "https://arseblog.news/2025/08/report-manchester-united-0-1-arsenal-inc-goal-3/"
+      }
+    ]
   }
 ];
