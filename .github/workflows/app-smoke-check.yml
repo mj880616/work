@@ -172,8 +172,9 @@ jobs:
           grep -q "function renderPages(){window.KPTUPageList?.render?.()}" app/team.js
           grep -q "__KPTU_SYNC_TEAM_PAGES__" app/team.js
 
-          grep -q "app_public_projects_snapshot" app/public-workspace.js
-          grep -q "filter(t=>!!t.project_id)" app/public-workspace.js
+          grep -q "app_public_workspace_index" app/public-workspace.js
+          grep -q "app_public_workspace_index" app/public-workspace-extras.js
+          if grep -Eq "app_public_projects_snapshot|app_public_workspace_snapshot" app/public-workspace.js app/public-workspace-extras.js; then echo 'anonymous workspace client returned to a broad snapshot'; exit 1; fi
           grep -q "auth-service.js" app/login/index.html
           grep -q "KPTUAuth" app/login/login.js
           grep -q "KPTUCapabilities" app/capabilities.js

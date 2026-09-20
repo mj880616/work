@@ -9,6 +9,7 @@ const expected=[
   ['20260920121000_project_public_view.sql','c737e45980c99b019e9c0883fde7861d2c35be1c35e29082d01527479b661d5f','eaff2ba212218ad1b33765c3b079b467c67104da65f6c8557ff5fbb2f76ebeb6'],
   ['20260920122000_public_single_post_cutover.sql','5d8c219e65f8c8ed34675431b94561404b2d357cdf2a548ac795f40b686733d0','400b4f19bd2ff65ea54711d2bdffefd6152eb6bf280ee778173213c5ce63fcaf']
 ];
+const forwardRepair='20260921050000_public_workspace_forward_repair.sql';
 const sha256=file=>createHash('sha256').update(readFileSync(file,'utf8').replace(/\r\n/g,'\n')).digest('hex');
 
 test('expand migrations precede cutover with unchanged SQL bodies and rollback pairs',()=>{
@@ -16,11 +17,18 @@ test('expand migrations precede cutover with unchanged SQL bodies and rollback p
   const rollbackDir=new URL('scripts/sql/rollback/',ROOT);
   const actual=readdirSync(migrationDir).filter(name=>name.includes('public_single_post_')||name.includes('project_public_view'));
   assert.deepEqual(actual,expected.map(([name])=>name));
-  assert.deepEqual(readdirSync(rollbackDir).sort(),actual);
+  assert.deepEqual(readdirSync(rollbackDir).filter(name=>name.includes('public_single_post_')||name.includes('project_public_view')).sort(),actual);
   for(const [name,migrationHash,rollbackHash] of expected){
     assert.equal(sha256(new URL(name,migrationDir)),migrationHash,name);
     assert.equal(sha256(new URL(name,rollbackDir)),rollbackHash,`rollback ${name}`);
   }
+});
+
+test('forward repair follows the unchanged transition and has a rollback pair',()=>{
+  const transitionNames=[...expected.map(([name])=>name),forwardRepair];
+  const relevant=name=>transitionNames.includes(name);
+  assert.deepEqual(readdirSync(new URL('supabase/migrations/',ROOT)).filter(relevant).sort(),transitionNames);
+  assert.deepEqual(readdirSync(new URL('scripts/sql/rollback/',ROOT)).filter(relevant).sort(),transitionNames);
 });
 
 test('project public view is independent of the legacy public-post cutover',()=>{
