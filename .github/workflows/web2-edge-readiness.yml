@@ -2,6 +2,13 @@ name: Web2 local Edge readiness
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/web2-transition-verify
+    paths:
+      - .github/workflows/web2-edge-readiness.yml
+      - supabase/local-verify/edge-readiness.mjs
+      - supabase/local-verify/diagnose-edge.mjs
 
 permissions:
   contents: read
@@ -49,7 +56,9 @@ jobs:
           command -v docker >/dev/null || { echo 'Docker is unavailable on this runner' >&2; exit 1; }
           command -v supabase >/dev/null || { echo 'Supabase CLI is unavailable on this runner' >&2; exit 1; }
 
-          docker network create --driver bridge             -o com.docker.network.bridge.host_binding_ipv4=127.0.0.1             "$network_name" >/dev/null
+          docker network create --driver bridge \
+            -o com.docker.network.bridge.host_binding_ipv4=127.0.0.1 \
+            "$network_name" >/dev/null
 
           cd "$ci_root"
           supabase init > "$ci_root/init.log" 2>&1 || {
