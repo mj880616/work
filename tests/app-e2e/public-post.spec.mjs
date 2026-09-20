@@ -30,6 +30,13 @@ test('private post and guessed slug stay unavailable after publication is revoke
   await expect(page.locator('#paper h1')).toHaveCount(0);
 });
 
+test('legacy seventh public URL resolves through the shared shell without a hardcoded base path',async({page})=>{
+  await page.route(`${SB}/rest/v1/rpc/app_public_post`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{title:'기존 공개 글',summary:'',body:'공개 본문',updated_at:'2026-09-19T00:00:00Z'}])}));
+  await page.goto(`${BASE}/p/bus-strike-publicness-internal-archive-202609/`);
+  await expect(page).toHaveURL(/\/p\/\?slug=bus-strike-publicness-internal-archive-202609$/);
+  await expect(page.locator('#paper h1')).toHaveText('기존 공개 글');
+});
+
 test('project public view uses the same shell and only whitelisted blocks',async({page})=>{
   const calls=[];
   await page.route(`${SB}/**`,route=>{

@@ -70,10 +70,7 @@ Android OAuth 복귀 경로는 별도 기능 수정과 섞지 않음. 인증 UI 
 
 ### 협업
 
-- `collaboration-center.js`: 팀원 간 메시지 화면과 대화 기능
 - `notification-center-ui.js`: 전용 알림 화면
-- `team-profile-view.js`: 다른 팀원 프로필 조회
-- `profile-settings.js`: 내 프로필 및 담당 정보 관리
 - `suborganizations.js`, `suborganization-planned-assignee.js`: 산하조직 영역
 
 ### 업무 기능
@@ -154,7 +151,7 @@ Playwright Chromium에서 Supabase 응답을 테스트 상태로 대체하고 �
 - 할 일 저장
 - 프로젝트 생성
 - 회의 결과 저장
-- 메시지 전송
+- 성명·보도자료와 게시판 진입
 - 알림 화면 진입 및 프로젝트 초대 수락
 
 두 검사는 작업 브랜치의 매 커밋마다 실행하지 않고 `main` 반영 또는 `main` 대상 Pull Request에서 실행하도록 제한함. 개발 중간 실패 메일이 반복되는 문제를 줄이고, 반영 직전 회귀검사에 집중함.
