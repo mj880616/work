@@ -85,7 +85,7 @@ test('only the selected GitHub Pages trees are proxied', async () => {
   assert.equal(denied.calls.length, 0);
 });
 
-test('all proxied mutable pages and assets revalidate both Cloudflare and browser caches', async () => {
+test('all proxied mutable pages and assets bypass Cloudflare cache and revalidate browser caches', async () => {
   for (const url of [
     'https://bokdoong.com/',
     'https://work.bokdoong.com/work/',
@@ -100,7 +100,7 @@ test('all proxied mutable pages and assets revalidate both Cloudflare and browse
       })
     });
     assert.equal(calls.length, 1, url);
-    assert.equal(calls[0].cache, 'no-cache', url);
+    assert.equal(calls[0].cache, 'no-store', url);
     assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
     assert.equal(response.headers.get('ETag'), '"current"', url);
     assert.equal(await response.text(), 'current version', url);
@@ -113,7 +113,7 @@ test('conditional and range requests retain HTTP semantics while revalidating', 
     upstream: new Response(null, { status: 304, headers: { ETag: '"current"' } })
   });
   assert.equal(conditional.calls[0].headers.get('If-None-Match'), '"old"');
-  assert.equal(conditional.calls[0].cache, 'no-cache');
+  assert.equal(conditional.calls[0].cache, 'no-store');
   assert.equal(conditional.response.status, 304);
   assert.equal(conditional.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
 
