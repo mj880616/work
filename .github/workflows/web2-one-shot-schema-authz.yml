@@ -74,7 +74,22 @@ jobs:
               --schema-only --schema=public --schema=private --no-comments \
               --file=/out/web2-schema.raw.sql \
               >/dev/null 2>"$RUNNER_TEMP/pg-dump.err" || {
-                echo 'Schema-only extraction failed; diagnostics are withheld' >&2; exit 1;
+                if grep -Eiq 'password authentication failed|SQLSTATE 28P01' "$RUNNER_TEMP/pg-dump.err"; then
+                  echo 'DB_AUTH_FAILED: password authentication failed; no credential was changed' >&2
+                elif grep -Eiq 'certificate verify failed|root certificate file|SSL error' "$RUNNER_TEMP/pg-dump.err"; then
+                  echo 'DB_TLS_FAILED: certificate or TLS validation failed' >&2
+                elif grep -Eiq 'could not translate host|Name or service not known' "$RUNNER_TEMP/pg-dump.err"; then
+                  echo 'DB_DNS_FAILED: database host could not be resolved' >&2
+                elif grep -Eiq 'Connection refused|Network is unreachable|timeout expired|No route to host' "$RUNNER_TEMP/pg-dump.err"; then
+                  echo 'DB_NETWORK_FAILED: database endpoint was unreachable' >&2
+                elif grep -Eiq 'role .* does not exist|database .* does not exist' "$RUNNER_TEMP/pg-dump.err"; then
+                  echo 'DB_LOGIN_CONFIG_FAILED: database or role was not found' >&2
+                elif grep -Eiq 'permission denied|read-only file system' "$RUNNER_TEMP/pg-dump.err"; then
+                  echo 'RUNNER_FILE_FAILED: container could not write its temporary output' >&2
+                else
+                  echo 'EXTRACT_FAILED_UNCLASSIFIED: see no raw diagnostics; stop for review' >&2
+                fi
+                exit 1
               }
           node supabase/local-verify/scan-schema.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
       - name: Stop after inspection and discard temporary schema
