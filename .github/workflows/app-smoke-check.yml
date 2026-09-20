@@ -5,12 +5,18 @@ on:
     branches: [main]
     paths:
       - 'app/**'
+      - 'cloudflare/**'
+      - 'tests/domain/bokdoong-router.test.mjs'
+      - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'p/**'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
     branches: [main]
     paths:
       - 'app/**'
+      - 'cloudflare/**'
+      - 'tests/domain/bokdoong-router.test.mjs'
+      - 'tests/domain/web2-pwa-registration.test.mjs'
       - 'p/**'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
@@ -25,6 +31,9 @@ jobs:
         run: |
           set -e
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Check domain routing and service worker registration
+        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs
 
       - name: Check recursive app dependency graph
         run: |

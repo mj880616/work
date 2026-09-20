@@ -11,5 +11,7 @@ link.rel='manifest';
 link.href='./windows-manifest.json?v=3';
 document.head.appendChild(link);
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=2',{scope:'./'}).catch(()=>{}));
+  const register=()=>navigator.serviceWorker.register('./sw.js?v=2',{scope:'./'}).catch(()=>{});
+  if(document.readyState==='complete')register();
+  else window.addEventListener('load',register,{once:true});
 }
