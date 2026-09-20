@@ -47,11 +47,18 @@ if (mode === 'classify') {
       failed = true;
     }
   }
-  const listing = spawnSync('docker',['ps','-a','--format','{{.Names}}'],{encoding:'utf8',timeout:10000,maxBuffer:1024*1024});
-  const candidates = (listing.stdout ?? '').split(/\r?\n/).filter(x=>/^supabase_(?:edge_runtime|functions)_[-a-z0-9_]+$/i.test(x));
-  if (listing.status !== 0 || !candidates.length) {
+
+  const allListing = spawnSync('docker',['ps','-a','--format','{{.Names}}'],{encoding:'utf8',timeout:10000,maxBuffer:1024*1024});
+  const runningListing = spawnSync('docker',['ps','--format','{{.Names}}'],{encoding:'utf8',timeout:10000,maxBuffer:1024*1024});
+  const isEdge = x => /^supabase_(?:edge_runtime|functions)_[.a-z0-9_-]+$/i.test(x);
+  const candidates = (allListing.stdout ?? '').split(/\r?\n/).filter(isEdge);
+  const running = new Set((runningListing.stdout ?? '').split(/\r?\n/).filter(isEdge));
+
+  if (allListing.status !== 0 || runningListing.status !== 0 || !candidates.length) {
+    console.log('EDGE_RUNTIME_CONTAINER=ABSENT_OR_UNREADABLE');
     console.log('EDGE_RUNTIME_LOG_CATEGORY=UNAVAILABLE');
   } else {
+    console.log(`EDGE_RUNTIME_CONTAINER=${candidates.some(name => running.has(name)) ? 'RUNNING' : 'STOPPED'}`);
     for (const container of candidates) {
       const logs = spawnSync('docker',['logs','--tail','250',container],{encoding:'utf8',timeout:10000,maxBuffer:1024*1024});
       console.log(`EDGE_RUNTIME_LOG_CATEGORY=${logs.status===0?classify(`${logs.stdout}\n${logs.stderr}`):'UNAVAILABLE'}`);
