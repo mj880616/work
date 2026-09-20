@@ -682,5 +682,395 @@ window.ARSENAL_MATCHES = [
         "url": "https://arseblog.news/2025/08/report-manchester-united-0-1-arsenal-inc-goal-3/"
       }
     ]
+  },
+  {
+    "id": "2025-09-16-athletic-club-away",
+    "date": "2025-09-16",
+    "season": "2025-26",
+    "competition": "UEFA Champions League",
+    "round": "League Phase MD1",
+    "venue": "San Mamés",
+    "home": "아틀레틱 클루브",
+    "away": "아스날",
+    "homeScore": 0,
+    "awayScore": 2,
+    "result": "승",
+    "title": "아틀레틱 클루브 0-2 아스날",
+    "subtitle": "산마메스의 초반 압박을 버틴 뒤 마르티넬리-트로사르 교체 조합의 직선성으로 승부를 바꾼 챔스 개막전",
+    "verdict": "빌드업 완성도는 높지 않았지만 요케레스의 채널 러닝과 수비 조직으로 어려운 구간을 버틴 뒤, 벤치의 속도와 직접성으로 경기의 성격을 바꾼 승리였음.",
+    "summary": [
+      "아틀레틱은 초반부터 강한 압박과 홈 관중의 에너지를 앞세웠고 전반 한때 아스날의 전진 패스를 자주 끊었음. 아스날은 공을 62% 소유했지만 전반 공격은 매끄럽지 않았고, 요케레스와 마두에케의 직접적인 운반이 주된 탈출구였음.",
+      "65분 트로사르가 요케레스를 대신해 들어간 뒤 71분 마르티넬리가 에제 대신 투입됐고, 마르티넬리는 투입 36초 만에 트로사르의 패스를 받아 선제골을 넣었음. 87분에는 마르티넬리의 돌파와 컷백을 트로사르가 마무리함.",
+      "xGScore 기준 아스날은 1.30 xG, 아틀레틱은 0.48 xG였고 슈팅은 11-11로 같았음. 초반의 체감 압박과 달리 결정적인 기회의 질에서는 아스날이 우위를 만들었음."
+    ],
+    "decisive": [
+      "라야-수비진이 아틀레틱의 초반 압박 구간에서 실점 없이 버텨 경기가 열리는 후반까지 균형을 유지함.",
+      "요케레스가 왼쪽 채널과 뒷공간을 반복적으로 공격하면서 짧은 빌드업이 막힐 때 전방으로 건너뛸 수 있는 직접적인 출구를 제공함.",
+      "마르티넬리와 트로사르의 교체가 단순한 체력 교체가 아니라 공격 속도와 침투 방향을 바꾸는 전술적 변화가 됐고, 두 골을 모두 만들어냄.",
+      "포리스트전에 이어 교체 자원의 질이 경기 후반 상대 수비의 피로와 공간을 직접 공략할 수 있다는 점이 확인됨."
+    ],
+    "arteta": [
+      "초반 압박에 흔들렸다고 해서 중원 구조를 급하게 바꾸기보다 수비 안정성을 유지했고, 후반에는 중앙 숫자를 늘리기보다 전방의 프로필을 교체해 경기 속도를 높였음.",
+      "요케레스를 65분에 빼고 트로사르를 중앙에 두면서 연계와 유동성을 높였고, 이어 마르티넬리를 투입해 마지막 라인 뒤 공간을 공격하게 한 순서가 효과적이었음.",
+      "맨유전에서 드러난 '강한 압박을 짧게만 풀려 하지 말고 직접적인 출구를 섞어야 한다'는 과제에 대해, 이 경기에서는 요케레스의 채널 러닝과 후반 윙어 속도를 활용하는 답을 보여줌."
+    ],
+    "nextWatch": [
+      "라야의 중·장거리 킥과 요케레스의 채널 러닝이 더 의도적인 탈압박 패턴으로 발전하는지.",
+      "마르티넬리·트로사르 같은 교체 카드가 상대 수비가 지친 뒤 반복적으로 경기의 속도를 바꾸는지.",
+      "강한 원정 압박을 받을 때 수비멘디-라이스 주변의 세컨드볼 회수 위치가 더 안정되는지.",
+      "점유율 우위가 전반부터 중앙의 찬스 생산으로 이어질 수 있는지."
+    ],
+    "stats": {
+      "possession": "62%",
+      "shots": "11",
+      "xg": "1.30",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "38%",
+      "shots": "11",
+      "xg": "0.48",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "공식 경기·하이라이트 · UEFA",
+        "url": "https://www.uefa.com/uefachampionsleague/history/h2h/50125/52280/"
+      },
+      {
+        "label": "경기 분석 · Opta Analyst",
+        "url": "https://theanalyst.com/articles/athletic-club-0-2-arsenal-stats-opta-champions-league-martinelli-trossard-09-2025"
+      }
+    ],
+    "sources": [
+      {
+        "label": "UEFA 경기 정보·라인업",
+        "url": "https://www.uefa.com/news-media/mediaservices/informationkits/competitions/uefachampionsleague/2026/match/2045908/"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/champions-league/athletic-arsenal/xg-statistics"
+      },
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/athletic-club-0-2-arsenal-stats-opta-champions-league-martinelli-trossard-09-2025"
+      }
+    ]
+  },
+  {
+    "id": "2025-09-28-newcastle-away",
+    "date": "2025-09-28",
+    "season": "2025-26",
+    "competition": "Premier League",
+    "round": "6R",
+    "venue": "St. James' Park",
+    "home": "뉴캐슬 유나이티드",
+    "away": "아스날",
+    "homeScore": 1,
+    "awayScore": 2,
+    "result": "승",
+    "title": "뉴캐슬 유나이티드 1-2 아스날",
+    "subtitle": "찬스 우위를 끝까지 밀어붙이고 두 번의 코너킥과 교체 카드로 뒤집은 타이틀 레이스형 역전승",
+    "verdict": "안필드전과 달리 강한 원정에서도 안정만 택하지 않고 끝까지 공격 숫자를 늘렸고, 세트피스와 교체 자원이 그 위험 감수를 보상한 경기였음.",
+    "summary": [
+      "뉴캐슬은 34분 짧은 코너 이후 토날리의 크로스를 볼테마데가 헤더로 마무리해 앞섰지만, 전체 찬스 생산은 아스날이 크게 앞섰음. xGScore 기준 아스날은 2.11 xG와 20개의 슈팅, 뉴캐슬은 0.72 xG와 8개의 슈팅을 기록함.",
+      "후반 초반 아스날은 점유와 영토를 크게 끌어올렸지만 닉 포프의 선방에 막혔음. 84분 교체 투입된 메리노가 라이스의 크로스를 헤더로 연결해 동점을 만들었고, 추가시간 96분 외데고르의 코너킥을 가브리엘이 헤더로 넣어 역전함.",
+      "사카-에제-트로사르가 요케레스 뒤에 배치됐고, 후반에는 마르티넬리·메리노·외데고르까지 투입해 공격 인원을 늘렸음. 경기 막판까지 압박 강도와 박스 점유를 떨어뜨리지 않은 점이 결과로 이어짐."
+    ],
+    "decisive": [
+      "닉 포프가 여러 차례 결정적인 선방을 했음에도 아스날이 공격 빈도를 낮추지 않아 후반 막판까지 기대득점과 박스 점유 우위를 누적함.",
+      "동점골은 짧게 처리한 코너에서 라이스의 크로스와 메리노의 헤더로, 결승골은 외데고르의 코너와 가브리엘의 헤더로 나왔음. 시즌 초부터 이어진 세트피스 우위가 다시 승점으로 전환됨.",
+      "메리노와 외데고르라는 교체 카드가 각각 득점과 어시스트에 직접 관여해 빌바오전·맨시티전에 이어 벤치의 영향력이 반복적으로 확인됨.",
+      "라이스가 공격 가담뿐 아니라 전환 상황에서 중앙을 회수하며, 많은 선수를 전진시킨 뒤에도 뉴캐슬의 역습 빈도를 억제하는 역할을 수행함."
+    ],
+    "arteta": [
+      "리버풀 원정에서는 위험을 억제하는 쪽에 가까웠다면, 이 경기에서는 뒤진 상황에서 마르티넬리와 메리노를 함께 넣고 이후 외데고르까지 투입해 공격 숫자와 박스 침투를 적극적으로 늘렸음.",
+      "요케레스가 득점하지 못해도 센터백을 고정하고, 그 주변에 에제·사카·메리노가 접근하는 구조를 유지해 두 번째 공격과 세트피스 압박을 누적함.",
+      "세트피스가 승부를 결정했지만 그 세트피스를 반복해서 얻어낸 배경은 후반의 지속적인 영토 압박이었음. 단순히 '세트피스 팀'으로만 설명하기 어려운 경기였음."
+    ],
+    "nextWatch": [
+      "세트피스 득점이 줄어드는 경기에서도 같은 박스 점유와 오픈플레이 찬스 생산을 유지할 수 있는지.",
+      "요케레스의 비득점 경기에서 2선이 얼마나 가까이 붙어 세컨드볼과 컷백 기회를 만들어주는지.",
+      "외데고르가 완전히 정상 컨디션으로 돌아왔을 때 에제·사카와 창조 역할을 어떻게 나눌지.",
+      "많은 선수를 전진시킨 경기에서 라이스-수비멘디의 레스트 디펜스가 계속 안정적인지."
+    ],
+    "stats": {
+      "possession": "63%",
+      "shots": "20",
+      "xg": "2.11",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "37%",
+      "shots": "8",
+      "xg": "0.72",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "공식 경기 리포트·하이라이트 · Premier League",
+        "url": "https://www.premierleague.com/en/news/4423671/newars-report"
+      },
+      {
+        "label": "경기 분석 · Opta Analyst",
+        "url": "https://theanalyst.com/articles/newcastle-vs-arsenal-stats-opta-premier-league-09-2025"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Premier League 경기 리포트",
+        "url": "https://www.premierleague.com/en/news/4423671/newars-report"
+      },
+      {
+        "label": "Premier League 공식 라인업",
+        "url": "https://www.premierleague.com/en/match/2561952/newcastle-united-vs-arsenal/lineups"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/epl/newcastle-arsenal/xg-statistics"
+      },
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/newcastle-vs-arsenal-stats-opta-premier-league-09-2025"
+      }
+    ]
+  },
+  {
+    "id": "2025-10-01-olympiacos-home",
+    "date": "2025-10-01",
+    "season": "2025-26",
+    "competition": "UEFA Champions League",
+    "round": "League Phase MD2",
+    "venue": "Emirates Stadium",
+    "home": "아스날",
+    "away": "올림피아코스",
+    "homeScore": 2,
+    "awayScore": 0,
+    "result": "승",
+    "title": "아스날 2-0 올림피아코스",
+    "subtitle": "6명 로테이션에도 수비 기준선을 유지했고, 요케레스의 직선성과 마르티넬리의 후속 침투가 선제골을 만든 경기",
+    "verdict": "완전히 무결한 경기는 아니었지만 로테이션 속에서도 높은 찬스 생산과 클린시트를 동시에 확보하며 선수층이 전술 강도를 유지할 수 있음을 보여줌.",
+    "summary": [
+      "아르테타는 뉴캐슬전에서 6명을 바꿔 선발했지만 경기 초반부터 주도권을 잡았음. 12분 요케레스가 직접 수비를 밀어내며 때린 슈팅이 골대를 맞고 나온 뒤 마르티넬리가 재빨리 밀어 넣어 선제골을 기록함.",
+      "아스날은 여러 추가 기회를 놓치며 경기를 일찍 끝내지 못했고, 후반에는 라야의 선방 뒤 엘 카비의 득점이 오프사이드로 취소되는 위험한 순간도 있었음. 그러나 추가시간 외데고르와 사카의 연계로 2-0을 만들며 승부를 확정함.",
+      "xGScore 기준 61% 점유율, 16개의 슈팅, 2.81 xG를 기록했고 올림피아코스는 0.51 xG에 그쳤음. UEFA 공식 통계도 아스날의 16회 슈팅을 확인함."
+    ],
+    "decisive": [
+      "요케레스가 수비 뒤 공간을 직접 공격하고 몸싸움으로 센터백을 밀어내며 슈팅까지 만든 장면이 마르티넬리의 선제골로 이어짐. 9번의 직접성이 주변 공격수의 세컨드 액션을 살린 사례였음.",
+      "외데고르가 선발 복귀해 중앙에서 패스 속도와 마지막 연결을 높였고, 막판 사카의 득점도 외데고르와의 짧은 연계에서 나왔음.",
+      "화이트·루이스스켈리·메리노·트로사르 등 로테이션 자원이 포함돼도 전방 압박과 수비 조직의 기본선이 크게 내려가지 않았음.",
+      "득점 기회를 많이 놓친 탓에 후반 한때 위험이 남았지만 라야와 수비진이 클린시트를 지켜 공격진의 비효율이 결과 손실로 이어지지 않게 함."
+    ],
+    "arteta": [
+      "뉴캐슬 원정 직후 대폭 로테이션을 선택하면서도 수비멘디와 외데고르를 중심으로 기본 빌드업 틀은 유지했음. 경기 후에는 클린시트와 벤치의 기여, 선수층의 경쟁력을 긍정적으로 평가함.",
+      "마르티넬리·트로사르를 함께 선발해 빌바오전에서 교체로 효과를 냈던 두 선수에게 연속성을 줬고, 후반에는 사카·라이스·에제·팀버 등을 투입해 경기 통제와 마무리를 강화함.",
+      "시즌 초 아스날의 강점이 선발 11명의 고정 조합보다 여러 프로필을 교체해도 수비 강도와 세트피스·전환 기준선을 유지하는 데 있다는 점이 선명해진 경기였음."
+    ],
+    "nextWatch": [
+      "요케레스의 직접적인 돌파와 슈팅 이후 반대편 윙어가 세컨드볼을 먹는 패턴이 반복되는지.",
+      "외데고르 복귀가 낮은 블록 상대의 중앙 찬스 생산을 얼마나 개선하는지.",
+      "대폭 로테이션 경기에서도 후반 집중력과 빌드업 안정성이 유지되는지.",
+      "높은 xG를 만들고도 경기를 일찍 끝내지 못하는 결정력 문제가 반복되는지."
+    ],
+    "stats": {
+      "possession": "61%",
+      "shots": "16",
+      "xg": "2.81",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "39%",
+      "shots": "10",
+      "xg": "0.51",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "공식 경기·하이라이트 · UEFA",
+        "url": "https://www.uefa.com/uefachampionsleague/history/h2h/52280/2610/"
+      },
+      {
+        "label": "경기 분석 · Opta Analyst",
+        "url": "https://theanalyst.com/articles/arsenal-vs-olympiakos-stats-opta-champions-league-10-2025"
+      }
+    ],
+    "sources": [
+      {
+        "label": "UEFA 공식 라인업",
+        "url": "https://www.uefa.com/newsfiles/UCL/2026/2045930_LU.pdf"
+      },
+      {
+        "label": "UEFA 공식 팀 통계",
+        "url": "https://www.uefa.com/newsfiles/UCL/2026/2045930_TS.pdf"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/champions-league/arsenal-olympiakos/xg-statistics"
+      },
+      {
+        "label": "Arteta 경기 후 인터뷰 · Reuters",
+        "url": "https://www.reuters.com/sports/soccer/clean-sheets-bench-strength-boosting-arsenal-arteta-says-2025-10-01/"
+      }
+    ]
+  },
+  {
+    "id": "2025-10-04-west-ham-home",
+    "date": "2025-10-04",
+    "season": "2025-26",
+    "competition": "Premier League",
+    "round": "7R",
+    "venue": "Emirates Stadium",
+    "home": "아스날",
+    "away": "웨스트햄 유나이티드",
+    "homeScore": 2,
+    "awayScore": 0,
+    "result": "승",
+    "title": "아스날 2-0 웨스트햄 유나이티드",
+    "subtitle": "초반부터 수비 블록을 압착하고 21개의 슈팅을 쏟아낸, 낮은 블록 상대 해법이 가장 매끄럽게 작동한 경기",
+    "verdict": "외데고르 부상이라는 변수를 제외하면 공격·전환수비·박스 점유가 모두 시즌 최고 수준으로 맞물린 경기였음.",
+    "summary": [
+      "아스날은 첫 15분에 76%의 점유율과 6개의 슈팅을 기록하며 웨스트햄을 자기 진영에 묶었음. 외데고르가 무릎 충돌로 전반 30분경 교체되는 악재가 있었지만 경기의 주도권은 흔들리지 않았음.",
+      "38분 에제의 슈팅을 아레올라가 쳐낸 뒤 라이스가 세컨드볼을 마무리해 선제골을 넣었고, 67분에는 팀버가 박스 안에서 파울을 얻어 사카가 페널티로 2-0을 만들었음.",
+      "xGScore 기준 아스날은 68% 점유율, 21개의 슈팅, 2.80 xG를 기록했고 웨스트햄은 4개의 슈팅과 0개의 유효슈팅, 0.61 xG에 그쳤음. 점유가 실제 박스 압박과 슈팅으로 연결된 경기였음."
+    ],
+    "decisive": [
+      "초반부터 사카와 에제가 양쪽에서 수비 폭을 넓히고 라이스가 박스 주변까지 올라가면서, 맨시티전처럼 측면 순환만 반복하지 않고 중앙과 세컨드볼에서 계속 슈팅을 만들었음.",
+      "외데고르가 빠진 뒤에도 에제와 라이스가 중앙의 전진·침투 역할을 나눠 맡아 공격 구조가 무너지지 않았음.",
+      "팀버가 높은 위치에서 반복적으로 공격에 관여하다 페널티를 얻었고, 반대편에서는 칼라피오리가 안쪽과 바깥쪽 위치를 오가며 웨스트햄의 수비 기준점을 흔들었음.",
+      "웨스트햄에 유효슈팅을 하나도 허용하지 않은 레스트 디펜스 덕분에 공격 인원을 많이 올리고도 역습 리스크를 거의 만들지 않았음."
+    ],
+    "arteta": [
+      "외데고르의 이른 부상에도 포지션 전체를 보수적으로 내리기보다 에제와 라이스의 공격 가담을 유지해 상대를 계속 압착했음.",
+      "맨시티전에서 낮은 블록을 상대로 점유와 위협이 분리됐던 것과 달리, 이 경기에서는 풀백의 높은 위치·2선 침투·세컨드볼 회수가 동시에 작동해 슈팅 수를 크게 늘렸음.",
+      "리드 이후에도 지나치게 내려앉지 않고 수비 전환의 출발 위치를 높게 유지하면서 웨스트햄의 반격 자체를 제한한 경기 관리가 좋았음."
+    ],
+    "nextWatch": [
+      "외데고르 부재가 길어질 경우 에제-라이스-수비멘디 조합이 중앙 창조성을 지속적으로 유지할 수 있는지.",
+      "낮은 블록 상대에서 20개 안팎의 슈팅 생산을 일회성이 아니라 반복 가능한 구조로 만들 수 있는지.",
+      "팀버와 칼라피오리의 공격적 위치가 강한 전환 공격을 가진 상대에게도 같은 수준으로 허용되는지.",
+      "세트피스가 아닌 오픈플레이에서 중앙 컷백과 박스 침투 득점 비중이 늘어나는지."
+    ],
+    "stats": {
+      "possession": "68%",
+      "shots": "21",
+      "xg": "2.80",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "32%",
+      "shots": "4",
+      "xg": "0.61",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "공식 경기 리포트·영상 · Premier League",
+        "url": "https://www.premierleague.com/en/news/4430596/saka-and-rice-on-target-as-arsenal-go-top"
+      },
+      {
+        "label": "경기 분석 · Opta Analyst",
+        "url": "https://theanalyst.com/articles/arsenal-vs-west-ham-stats-opta-premier-league-10-2025"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Premier League 경기 리포트",
+        "url": "https://www.premierleague.com/en/news/4430596/saka-and-rice-on-target-as-arsenal-go-top"
+      },
+      {
+        "label": "Premier League 공식 경기 페이지",
+        "url": "https://www.premierleague.com/en/match/2561956/arsenal-vs-west-ham-united"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/epl/arsenal-west-ham/xg-statistics"
+      },
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/arsenal-vs-west-ham-stats-opta-premier-league-10-2025"
+      }
+    ]
+  },
+  {
+    "id": "2025-10-18-fulham-away",
+    "date": "2025-10-18",
+    "season": "2025-26",
+    "competition": "Premier League",
+    "round": "8R",
+    "venue": "Craven Cottage",
+    "home": "풀럼",
+    "away": "아스날",
+    "homeScore": 0,
+    "awayScore": 1,
+    "result": "승",
+    "title": "풀럼 0-1 아스날",
+    "subtitle": "오픈플레이는 다시 막혔지만 세트피스 한 골 뒤 상대를 완전히 봉쇄해 승리한, 시즌 초 아스날의 장단점이 압축된 경기",
+    "verdict": "요케레스가 고립되고 공격 전개는 답답했지만, 코너킥 우위와 리드 후 수비 통제만큼은 우승 경쟁 팀 수준으로 안정적이었음.",
+    "summary": [
+      "풀럼은 초반 18분 동안 4개의 슈팅을 시도하며 강하게 시작했고 아스날의 첫 슈팅은 22분에 나왔음. 요케레스는 전반에 볼 터치가 7회에 그칠 정도로 전방에서 고립됐고, 외데고르가 빠진 중앙은 낮은 블록 사이를 여는 데 어려움을 겪었음.",
+      "58분 사카의 코너킥을 가브리엘이 니어포스트에서 넘겼고 트로사르가 뒷공간에서 마무리해 선제골을 넣었음. 이후 아스날은 무리하게 경기를 열지 않고 풀럼의 전진을 끊으며 리드를 관리함.",
+      "xGScore 기준 아스날은 63% 점유율, 16개의 슈팅, 1.94 xG를 기록했고 풀럼은 0.49 xG와 유효슈팅 0개에 그쳤음. 공격 과정은 답답했지만 수비 통제는 매우 강했음."
+    ],
+    "decisive": [
+      "오픈플레이에서 중앙을 열지 못하는 상황에서도 코너킥에서 사카-가브리엘-트로사르로 이어지는 준비된 동선이 결승골을 만들었음.",
+      "요케레스가 전반에 고립됐지만 풀럼 센터백을 계속 깊게 묶어두면서 후반 2선의 박스 진입 공간은 조금씩 늘어났고, 아스날은 슈팅과 점유 우위를 누적함.",
+      "선제골 뒤 라이스·수비멘디와 센터백 라인이 세컨드볼을 빠르게 회수해 풀럼이 아스날 진영에서 연속 공격을 이어가지 못하게 함.",
+      "시즌 첫 8경기에서 단 3실점에 그친 수비 안정성과 세트피스 생산력이, 오픈플레이 창조성이 막힌 날에도 승점을 가져오는 안전망으로 기능함."
+    ],
+    "arteta": [
+      "외데고르 부재 속에 에제를 8번으로 선발했지만 중앙 연결이 충분히 풀리지 않자 62분 메리노를 투입해 피지컬과 세컨드볼 장악을 보강했음.",
+      "리드를 잡은 뒤에는 마르티넬리와 노르가르를 차례로 넣어 공격 속도와 중원 수비력을 관리했고, 불필요하게 라인을 낮추기보다 상대 진영에서 다시 공을 회수하는 방식을 유지했음.",
+      "아르테타가 경기 후 강조한 '성숙함'은 화려한 공격보다 어려운 원정에서 한 골을 만든 뒤 경기의 위험도를 낮추는 능력에 가까웠음. 다만 낮은 블록을 오픈플레이로 해체하는 과제는 그대로 남음."
+    ],
+    "nextWatch": [
+      "외데고르 없이 에제-라이스-수비멘디 중원이 낮은 블록 사이에서 9번과 더 자주 연결될 수 있는지.",
+      "요케레스가 고립되는 경기에서 라야의 롱킥이나 측면 채널 패스로 더 직접적인 공급을 늘리는지.",
+      "세트피스 의존도가 높아질 때도 오픈플레이의 중앙 컷백·침투 루트를 병행할 수 있는지.",
+      "리드 후 높은 위치에서 세컨드볼을 회수하는 수비 통제가 다음 강팀 상대에서도 유지되는지."
+    ],
+    "stats": {
+      "possession": "63%",
+      "shots": "16",
+      "xg": "1.94",
+      "bigChances": "—"
+    },
+    "opponentStats": {
+      "possession": "37%",
+      "shots": "9",
+      "xg": "0.49",
+      "bigChances": "—"
+    },
+    "media": [
+      {
+        "label": "공식 경기 리포트·영상 · Premier League",
+        "url": "https://www.premierleague.com/en/news/4437118/trossard-edges-arsenal-past-fulham-to-keep-gunners-top"
+      },
+      {
+        "label": "경기 분석 · Opta Analyst",
+        "url": "https://theanalyst.com/articles/fulham-vs-arsenal-stats-premier-league-10-2025"
+      }
+    ],
+    "sources": [
+      {
+        "label": "Premier League 경기 리포트",
+        "url": "https://www.premierleague.com/en/news/4437118/trossard-edges-arsenal-past-fulham-to-keep-gunners-top"
+      },
+      {
+        "label": "Premier League 공식 라인업",
+        "url": "https://www.premierleague.com/en/match/2561968/fulham-vs-arsenal/lineups"
+      },
+      {
+        "label": "xGScore 경기 데이터",
+        "url": "https://xgscore.io/es/epl/fulham-arsenal/xg-statistics"
+      },
+      {
+        "label": "Arteta 경기 후 평가 · Premier League",
+        "url": "https://www.premierleague.com/en/news/4441618/arteta-hails-maturity-as-set-piece-kings-arsenal-return-to-the-top"
+      },
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/fulham-vs-arsenal-stats-premier-league-10-2025"
+      }
+    ]
   }
 ];
