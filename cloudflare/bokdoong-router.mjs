@@ -30,6 +30,14 @@ export default {
       incoming.protocol = 'https:';
       return Response.redirect(incoming.href, 301);
     }
+    if (incoming.pathname === '/favicon.ico' && (host === 'read.bokdoong.com' || host === 'arsenal.bokdoong.com')) {
+      const mark = host === 'read.bokdoong.com' ? 'R' : 'A';
+      const color = host === 'read.bokdoong.com' ? '#315d50' : '#a5232a';
+      const icon = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${color}"/><text x="16" y="23" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="22" font-weight="700">${mark}</text></svg>`;
+      return new Response(request.method === 'HEAD' ? null : icon, {
+        headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=86400' }
+      });
+    }
     if (incoming.pathname === '/' && host !== 'bokdoong.com') {
       incoming.pathname = SERVICES[host].root;
       return Response.redirect(incoming.href, 302);
@@ -52,6 +60,12 @@ export default {
       if (value) headers.set(name, value);
     }
     const upstream = await fetch(new Request(originUrl, { method: request.method, headers, redirect: 'manual' }));
+    if (host === 'read.bokdoong.com' && incoming.pathname !== SERVICES[host].root && upstream.status === 404 &&
+        (request.headers.get('Sec-Fetch-Dest') === 'document' || request.headers.get('Accept')?.includes('text/html'))) {
+      const recovery = new URL(SERVICES[host].root, incoming);
+      recovery.searchParams.set('redirect', incoming.pathname.slice('/read-think-write'.length) + incoming.search);
+      return Response.redirect(recovery.href, 302);
+    }
     const responseHeaders = new Headers(upstream.headers);
     const location = responseHeaders.get('Location');
     if (location) {

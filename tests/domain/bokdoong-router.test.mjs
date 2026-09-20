@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import router from '../../cloudflare/bokdoong-router.mjs';
 
-async function request(url, { method = 'GET', upstream = new Response('ok') } = {}) {
+async function request(url, { method = 'GET', upstream = new Response('ok'), headers = {} } = {}) {
   const calls = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
@@ -12,7 +12,7 @@ async function request(url, { method = 'GET', upstream = new Response('ok') } = 
   try {
     const response = await router.fetch(new Request(url, {
       method,
-      headers: { Cookie: 'session=private', Authorization: 'Bearer private' }
+      headers: { Cookie: 'session=private', Authorization: 'Bearer private', ...headers }
     }));
     return { response, calls };
   } finally {
@@ -96,5 +96,43 @@ test('unknown hosts and non-static methods do not reach GitHub Pages', async () 
     const { response, calls } = await request(url, { method });
     assert.equal(response.status, status);
     assert.equal(calls.length, 0);
+  }
+});
+
+test('read document deep links recover through the app root without an upstream 404', async () => {
+  const { response, calls } = await request(
+    'https://read.bokdoong.com/read-think-write/records/?tab=recent',
+    {
+      upstream: new Response('missing', { status: 404 }),
+      headers: { 'Sec-Fetch-Dest': 'document', Accept: 'text/html' }
+    }
+  );
+  assert.equal(response.status, 302);
+  assert.equal(
+    response.headers.get('Location'),
+    'https://read.bokdoong.com/read-think-write/?redirect=%2Frecords%2F%3Ftab%3Drecent'
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://mj880616.github.io/read-think-write/records/?tab=recent');
+
+  const asset = await request('https://read.bokdoong.com/read-think-write/src/missing.js', {
+    upstream: new Response('missing', { status: 404 }),
+    headers: { 'Sec-Fetch-Dest': 'script', Accept: '*/*' }
+  });
+  assert.equal(asset.response.status, 404);
+});
+
+test('read and Arsenal favicon requests do not return 404 or reach unrelated origins', async () => {
+  for (const host of ['read', 'arsenal']) {
+    const { response, calls } = await request(`https://${host}.bokdoong.com/favicon.ico`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Content-Type'), 'image/svg+xml; charset=utf-8');
+    assert.match(await response.text(), /<svg\b/);
+    assert.equal(calls.length, 0);
+
+    const head = await request(`https://${host}.bokdoong.com/favicon.ico`, { method: 'HEAD' });
+    assert.equal(head.response.status, 200);
+    assert.equal(await head.response.text(), '');
+    assert.equal(head.calls.length, 0);
   }
 });
