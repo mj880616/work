@@ -43,7 +43,7 @@ test('library secondary action does not open its card, while card body opens the
   await expect(page).toHaveURL('http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html');
 });
 
-test('revoked Google Drive token gives an actionable deletion error and keeps the record',async({page})=>{
+test('revoked Google Drive token starts reconnect through the canonical function entry and keeps the record',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
   await page.evaluate(()=>{window.__documentActionError='Token has been expired or revoked.'});
   const dialogs=[];
@@ -51,5 +51,7 @@ test('revoked Google Drive token gives an actionable deletion error and keeps th
   await page.locator('[data-lu-delete="doc-1"]').click();
   await expect.poll(()=>dialogs.length).toBe(2);
   expect(dialogs[1]).toContain('Google Drive 연결이 만료됐습니다');
+  await expect.poll(()=>page.evaluate(()=>window.__driveReconnectCalls.at(-1))).toEqual({action:'drive-start'});
+  await expect(page).toHaveURL(/#drive-auth$/);
   await expect(page.locator('[data-lu-document="doc-1"]')).toBeVisible();
 });
