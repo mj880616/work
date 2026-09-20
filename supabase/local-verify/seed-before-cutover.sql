@@ -81,7 +81,7 @@ values ('90000000-0000-4000-8000-000000000041','90000000-0000-4000-8000-00000000
         '','90000000-0000-4000-8000-000000000001');
 insert into public.app_tasks(id,workspace_id,project_id,title,note,assignee_id,created_by,source_type)
 values ('90000000-0000-4000-8000-000000000042','90000000-0000-4000-8000-000000000010',
-        '90000000-0000-4000-8000-000000000020','LOCAL INTERNAL TASK',
+        '90000000-0000-4000-8000-000000000021','LOCAL INTERNAL TASK',
         'Synthetic internal task note','90000000-0000-4000-8000-000000000001',
         '90000000-0000-4000-8000-000000000001','manual');
 insert into public.app_project_updates(project_id,author_id,kind,body)
