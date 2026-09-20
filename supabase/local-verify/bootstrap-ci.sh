@@ -12,10 +12,12 @@ if [[ ! -s "$baseline" ]]; then
 fi
 node "$repo_root/supabase/local-verify/check-baseline.mjs" "$baseline" "$expected_hash"
 node "$repo_root/supabase/local-verify/scan-schema.mjs" "$baseline"
+# The extraction step sets read-only/TLS settings for the production connection.
+# The disposable local stack must never inherit a production endpoint or those settings.
+unset PGHOST PGPORT PGUSER PGDATABASE PGPASSWORD PGOPTIONS PGSSLMODE PGSSLROOTCERT
 command -v docker >/dev/null || { echo 'Docker is unavailable on this runner' >&2; exit 1; }
 command -v supabase >/dev/null || { echo 'Supabase CLI is unavailable on this runner' >&2; exit 1; }
 command -v psql >/dev/null || { echo 'Postgres client is unavailable on this runner' >&2; exit 1; }
-docker info >/dev/null 2>&1 || { echo 'Docker daemon is unavailable on this runner' >&2; exit 1; }
 
 ci_root="$(mktemp -d)"
 network_name="web2-local-authz-${GITHUB_RUN_ID:-$$}"
@@ -36,11 +38,16 @@ docker network create --driver bridge \
 cd "$ci_root"
 supabase init > "$ci_root/init.log" 2>&1 || { echo 'Local Supabase init failed' >&2; exit 1; }
 mkdir -p supabase/migrations supabase/functions
+# Print resource sizes and availability only; never print Docker or CLI output.
+node "$repo_root/supabase/local-verify/diagnose-start.mjs" preflight || {
+  echo 'LOCAL_PREFLIGHT_FAILED: Docker daemon, Supabase CLI or local config unavailable' >&2
+  exit 1
+}
 # A fresh Supabase instance already has PostgreSQL's public schema. Keep the
 # reviewed dump untouched and make only these two schema declarations idempotent
 # in the disposable copy; all object definitions, grants, and policies remain.
 sed -E 's/^CREATE SCHEMA (public|private);$/CREATE SCHEMA IF NOT EXISTS \1;/' \
-  "$baseline" > supabase/migrations/20260919000000_web2_current_schema.sql
+  "$baseline" > "$ci_root/baseline-local.sql"
 for name in meeting-ai-draft meeting-ai-ingest meeting-files; do
   cp -R "$repo_root/supabase/functions/$name" "supabase/functions/$name"
 done
@@ -48,9 +55,11 @@ done
 printf 'OPENAI_API_KEY=local-ci-placeholder\n' > supabase/functions/.env
 
 if ! supabase start --network-id "$network_name" > "$ci_root/start.log" 2>&1; then
-  echo 'Local Supabase start failed; startup output is withheld to protect keys' >&2
+  node "$repo_root/supabase/local-verify/diagnose-start.mjs" failure "$ci_root/start.log"
+  echo 'LOCAL_STACK_START_FAILED: startup output was classified without printing raw output' >&2
   exit 1
 fi
+echo 'LOCAL_STACK_START_PASSED'
 supabase status -o env > "$ci_root/status.env" 2> "$ci_root/status-error.log" || {
   echo 'Could not read local Supabase status' >&2; exit 1;
 }
@@ -70,6 +79,18 @@ esac
 [[ -n "${ANON_KEY:-}" && -n "${SERVICE_ROLE_KEY:-}" ]] || {
   echo 'Local API keys are missing' >&2; exit 1;
 }
+
+# The reviewed dump uses PostgreSQL 17's \restrict directive. Use the same
+# major client as extraction; the runner's distro psql may be older.
+if ! PGOPTIONS='-c app.local_verification=on' docker run --rm --network host --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid -e DB_URL -e PGOPTIONS \
+  -v "$ci_root/baseline-local.sql:/verify/baseline.sql:ro" postgres:17 \
+  sh -c 'psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f /verify/baseline.sql' \
+  > "$ci_root/baseline-apply.log" 2>&1; then
+  echo 'BASELINE_APPLY_FAILED: local schema restore failed; SQL output is withheld' >&2
+  exit 1
+fi
+echo 'BASELINE_APPLY_PASSED'
 
 if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
   -f "$repo_root/supabase/local-verify/custom-auth-trigger.sql" > "$ci_root/auth-trigger.log" 2>&1; then

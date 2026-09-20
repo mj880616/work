@@ -15,6 +15,7 @@ const bootstrap = load('supabase/local-verify/bootstrap-ci.sh');
 const checker = new URL('../../supabase/local-verify/check-baseline.mjs', import.meta.url);
 const createAuth = new URL('../../supabase/local-verify/create-local-auth.mjs', import.meta.url);
 const scanner = new URL('../../supabase/local-verify/scan-schema.mjs', import.meta.url);
+const diagnostics = new URL('../../supabase/local-verify/diagnose-start.mjs', import.meta.url);
 
 const restricted = (sql, key) => `\\restrict ${key}\n${sql}\\unrestrict ${key}\n`;
 
@@ -66,6 +67,7 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/scan-schema.mjs',
     'supabase/local-verify/check-baseline.mjs',
     'supabase/local-verify/bootstrap-ci.sh',
+    'supabase/local-verify/diagnose-start.mjs',
     'supabase/local-verify/custom-auth-trigger.sql',
     'supabase/local-verify/create-local-auth.mjs',
     'supabase/local-verify/seed-before-cutover.sql',
@@ -82,16 +84,39 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
   ]) assert.ok(existsSync(new URL(path, root)), `${path} absent from checkout`);
 
   const auth = bootstrap.indexOf('create-local-auth.mjs');
+  const start = bootstrap.indexOf('supabase start --network-id');
+  const baseline = bootstrap.indexOf('> "$ci_root/baseline-apply.log"');
   const seed = bootstrap.indexOf('seed-before-cutover.sql');
   const prepare = bootstrap.indexOf('20260920120000_public_single_post_prepare.sql');
   const cutover = bootstrap.indexOf('20260920121000_public_single_post_cutover.sql');
   const project = bootstrap.indexOf('20260920122000_project_public_view.sql');
   const sql = bootstrap.indexOf('authz_public_snapshot.sql');
   const http = bootstrap.indexOf('http-authz.test.mjs');
-  assert.ok(auth >= 0 && auth < seed && seed < prepare && prepare < cutover &&
+  assert.ok(start >= 0 && start < baseline && baseline < auth && auth < seed && seed < prepare && seed < cutover &&
     cutover < project && project < sql && sql < http);
+  assert.match(bootstrap, /unset PGHOST PGPORT PGUSER PGDATABASE PGPASSWORD PGOPTIONS PGSSLMODE PGSSLROOTCERT/);
   assert.match(load('supabase/local-verify/seed-before-cutover.sql'),
     /app\.local_verification.*is distinct from 'on'/s);
+});
+
+test('startup diagnostics classify failure without echoing log secrets', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'web2-start-log-'));
+  try {
+    const file = join(directory, 'start.log');
+    const credential = 'postgresql://user:password@production.invalid/db';
+    writeFileSync(file, `supabase_auth_web2 is unhealthy\n${credential}\nOPENAI_API_KEY=secret-token\n`);
+    const result = spawnSync(process.execPath, [fileURLToPath(diagnostics), 'classify', file], {encoding: 'utf8'});
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /LOCAL_START_CATEGORY=HEALTH_CHECK_FAILED/);
+    assert.match(result.stdout, /LOCAL_START_SERVICE=auth/);
+    assert.ok(!`${result.stdout}${result.stderr}`.includes(credential));
+    assert.ok(!`${result.stdout}${result.stderr}`.includes('secret-token'));
+    writeFileSync(file, 'Error: no space left on device during image extraction\n');
+    assert.match(spawnSync(process.execPath, [fileURLToPath(diagnostics), 'classify', file], {encoding: 'utf8'}).stdout,
+      /LOCAL_START_CATEGORY=RUNNER_DISK/);
+  } finally {
+    rmSync(directory, {recursive: true, force: true});
+  }
 });
 
 test('baseline checker requires reviewed hash and rejects row data', () => {
