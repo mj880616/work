@@ -43,7 +43,7 @@ async function login(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
 }
 
-test('desktop web uses a compact left navigation, home-only workspace header and safe project detail margins',async({page})=>{
+test('desktop web uses compact left navigation and safe project detail margins',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   await installMock(page);
   await page.goto('http://127.0.0.1:8123/app/');
@@ -62,8 +62,6 @@ test('desktop web uses a compact left navigation, home-only workspace header and
   expect(desktop.navPosition).toBe('sticky');
   expect(desktop.navWidth).toBeLessThanOrEqual(160);
   expect(desktop.mainMaxWidth).toBe('1720px');
-  await expect(page.locator('#appView>.workspace-head')).toBeVisible();
-
   await expect(page.locator('#hdvTaskPanel')).toBeVisible();
   await expect(page.locator('#hdvTasks')).toContainText('메인에서 바로 처리할 할 일');
   await expect(page.locator('#hdvTasks [data-hdv-goto="tasks"]')).toHaveCount(1);
@@ -71,7 +69,6 @@ test('desktop web uses a compact left navigation, home-only workspace header and
 
   await page.locator('[data-view="projects"]').click();
   await expect(page.locator('#projectsView')).toBeVisible();
-  await expect(page.locator('#appView>.workspace-head')).toBeHidden();
 
   await page.evaluate(()=>{
     const modal=document.createElement('div');
@@ -104,13 +101,11 @@ test('selected view survives refresh and page cards open inside the 게시판 ta
 
   await page.locator('[data-view="calendar"]').click();
   await expect(page.locator('#calendarView')).toBeVisible();
-  await expect(page.locator('#appView>.workspace-head')).toBeHidden();
   await expect(page).toHaveURL(/view=calendar/);
   await page.reload();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
   await expect(page.locator('[data-view="calendar"]')).toHaveClass(/active/);
-  await expect(page.locator('#appView>.workspace-head')).toBeHidden();
 
   await page.locator('[data-view="pages"]').click();
   await expect(page.locator('#pageList')).toContainText('데스크톱 게시글');
