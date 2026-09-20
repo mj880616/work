@@ -91,6 +91,7 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/seed-before-cutover.sql',
     'supabase/local-verify/transition-legacy.sql',
     'supabase/local-verify/transition-additive.sql',
+    'supabase/local-verify/transition-cutover-rollback.sql',
     'supabase/local-verify/transition-legacy-fingerprint.sql',
     'supabase/local-verify/http-transition.test.mjs',
     'supabase/local-verify/seed-catalog.sql',
@@ -155,10 +156,30 @@ test('one-shot transition checks legacy, additive, static, contract, and guarded
   assert.match(branch, /WEB2_TRANSITION_STAGE=A node --test/);
   assert.match(branch, /WEB2_TRANSITION_STAGE=B node --test/);
   assert.match(branch, /WEB2_TRANSITION_STAGE=C node --test/);
+  assert.match(branch, /WEB2_TRANSITION_STAGE=B node --test[^\n]+\n\s*echo 'TRANSITION_C_STATIC_ROLLBACK_PASSED'/);
   assert.match(branch, /http-authz\.test\.mjs/);
+  assert.match(branch, /TRANSITION_D_AUTHORIZATION_FAILED/);
+  assert.ok(branch.indexOf('TRANSITION_D_AUTHORIZATION_FAILED') < branch.lastIndexOf('apply_local_rollback "$cutover"'));
+  assert.match(branch, /run_local_sql_check supabase\/local-verify\/transition-cutover-rollback\.sql/);
+  assert.doesNotMatch(branch.slice(branch.lastIndexOf('apply_local_rollback "$cutover"')), /apply_local_rollback "\$project"/);
   const additive = load('supabase/local-verify/transition-additive.sql');
   assert.match(additive, /exists \(select 1 from public\.app_public_post\('local-private-post'\)\)/);
   assert.doesNotMatch(additive, /app_public_post\([^\n]+\) is not null/);
+});
+
+test('edge readiness is a separate local-only phase with probes before and after ordered migrations', () => {
+  assert.match(oneShot, /options: \[[^\]]*edge-readiness[^\]]*transition\]/);
+  assert.match(oneShot, /WEB2_EDGE_READINESS:.*inputs\.phase == 'edge-readiness'/);
+  const start = bootstrap.indexOf('LOCAL_STACK_START_PASSED');
+  const readiness = bootstrap.indexOf('if [[ "${WEB2_EDGE_READINESS:-0}" == 1 ]]');
+  const transition = bootstrap.indexOf('if [[ "${WEB2_TRANSITION:-0}" == 1 ]]');
+  assert.ok(start >= 0 && start < readiness && readiness < transition);
+  const branch = bootstrap.slice(readiness, transition);
+  assert.match(branch, /diagnose-edge\.mjs" readiness before-migrations/);
+  assert.match(branch, /diagnose-edge\.mjs" readiness after-migrations/);
+  assert.ok(branch.indexOf('"$prepare"') < branch.indexOf('"$project"'));
+  assert.ok(branch.indexOf('"$project"') < branch.indexOf('"$cutover"'));
+  assert.doesNotMatch(branch, /http-authz\.test|http-transition\.test/);
 });
 
 test('synthetic seed failure reports SQLSTATE and first table without printing literals', () => {

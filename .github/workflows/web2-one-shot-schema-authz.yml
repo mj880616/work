@@ -10,7 +10,7 @@ on:
         description: 'inspect first; verify only after reviewing its findings and SHA-256'
         required: true
         type: choice
-        options: [inspect, seed-diagnose, edge-diagnose, verify, predeploy, transition]
+        options: [inspect, seed-diagnose, edge-diagnose, edge-readiness, verify, predeploy, transition]
       expected_sha256:
         description: 'SHA-256 printed by the clean inspect run; required for verify'
         required: false
@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   schema-authz:
-    if: github.repository == 'mj880616/work' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/web2-schema-verify' || github.ref == 'refs/heads/codex/web2-transition-verify') && (inputs.phase != 'transition' || github.ref == 'refs/heads/codex/web2-transition-verify')
+    if: github.repository == 'mj880616/work' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/web2-schema-verify' || github.ref == 'refs/heads/codex/web2-transition-verify' || github.ref == 'refs/heads/codex/web2-transition-edge-readiness') && (inputs.phase != 'transition' || github.ref == 'refs/heads/codex/web2-transition-verify') && (inputs.phase != 'edge-readiness' || github.ref == 'refs/heads/codex/web2-transition-edge-readiness')
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     environment: web2-schema-verification
@@ -53,7 +53,7 @@ jobs:
           for name in PGHOST PGPORT PGUSER PGDATABASE; do
             test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
           done
-          test "$VERIFICATION_PHASE" = inspect || test "$VERIFICATION_PHASE" = seed-diagnose || test "$VERIFICATION_PHASE" = edge-diagnose || test "$VERIFICATION_PHASE" = verify || test "$VERIFICATION_PHASE" = predeploy || test "$VERIFICATION_PHASE" = transition
+          test "$VERIFICATION_PHASE" = inspect || test "$VERIFICATION_PHASE" = seed-diagnose || test "$VERIFICATION_PHASE" = edge-diagnose || test "$VERIFICATION_PHASE" = edge-readiness || test "$VERIFICATION_PHASE" = verify || test "$VERIFICATION_PHASE" = predeploy || test "$VERIFICATION_PHASE" = transition
           if test "$VERIFICATION_PHASE" != inspect; then
             [[ "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]] || {
               echo 'The reviewed SHA-256 is required for verify' >&2; exit 1;
@@ -161,11 +161,11 @@ jobs:
         if: ${{ inputs.phase == 'inspect' }}
         run: echo 'Inspection completed. Review the reported findings and hash before a separate verify run.'
       - name: Compare reviewed canonical schema hash before any tests or local stack setup
-        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'edge-readiness' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
         shell: bash
         run: node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
       - uses: supabase/setup-cli@v3
-        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'edge-readiness' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
         with:
           version: 2.84.2
       - uses: denoland/setup-deno@v2
@@ -173,13 +173,14 @@ jobs:
         with:
           deno-version: v2.x
       - name: Run static contracts and synthetic authorization tests
-        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' || inputs.phase == 'edge-diagnose' || inputs.phase == 'edge-readiness' || inputs.phase == 'predeploy' || inputs.phase == 'transition' }}
         shell: bash
         env:
           WEB2_BASELINE_FILE: ${{ runner.temp }}/web2-schema.raw.sql
           WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
           WEB2_SEED_DIAGNOSTIC: ${{ inputs.phase == 'seed-diagnose' && '1' || '0' }}
           WEB2_EDGE_DIAGNOSTIC: ${{ inputs.phase == 'edge-diagnose' && '1' || '0' }}
+          WEB2_EDGE_READINESS: ${{ inputs.phase == 'edge-readiness' && '1' || '0' }}
           WEB2_PREDEPLOY: ${{ inputs.phase == 'predeploy' && '1' || '0' }}
           WEB2_TRANSITION: ${{ inputs.phase == 'transition' && '1' || '0' }}
         run: |

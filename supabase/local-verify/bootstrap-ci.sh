@@ -198,6 +198,21 @@ run_local_sql_check() {
   echo "LOCAL_SQL_CHECK_PASSED: ${name##*/}"
 }
 
+if [[ "${WEB2_EDGE_READINESS:-0}" == 1 ]]; then
+  # Diagnostic only: use the same restored schema, seed and function mount as
+  # transition verification, without executing A/B/C/D or the full auth suite.
+  node "$repo_root/supabase/local-verify/diagnose-edge.mjs" readiness before-migrations "$ci_root/start.log"
+  prepare=20260920120000_public_single_post_prepare.sql
+  project=20260920121000_project_public_view.sql
+  cutover=20260920122000_public_single_post_cutover.sql
+  apply_local_migration "$prepare"
+  apply_local_migration "$project"
+  apply_local_migration "$cutover"
+  node "$repo_root/supabase/local-verify/diagnose-edge.mjs" readiness after-migrations "$ci_root/start.log"
+  echo 'EDGE_READINESS_PASSED'
+  exit 0
+fi
+
 if [[ "${WEB2_TRANSITION:-0}" == 1 ]]; then
   prepare=20260920120000_public_single_post_prepare.sql
   project=20260920121000_project_public_view.sql
@@ -235,23 +250,29 @@ if [[ "${WEB2_TRANSITION:-0}" == 1 ]]; then
   run_local_sql_check supabase/local-verify/transition-additive.sql
   WEB2_TRANSITION_STAGE=C node --test "$repo_root/supabase/local-verify/http-transition.test.mjs"
   echo 'TRANSITION_C_PASSED'
+  WEB2_TRANSITION_STAGE=B node --test "$repo_root/supabase/local-verify/http-transition.test.mjs"
+  echo 'TRANSITION_C_STATIC_ROLLBACK_PASSED'
 
   apply_local_migration "$cutover"
   for sql_test in authz_public_snapshot.sql authz_project_public_view.sql authz_definer_helpers.sql; do
     run_local_sql_check "supabase/tests/$sql_test"
   done
   export LOCAL_USERS_FILE="$ci_root/users.json"
-  if ! node --test "$repo_root/supabase/local-verify/http-authz.test.mjs"; then
-    node "$repo_root/supabase/local-verify/diagnose-edge.mjs" run
-    exit 1
+  auth_failed=0
+  if node --test "$repo_root/supabase/local-verify/http-authz.test.mjs"; then
+    echo 'TRANSITION_D_PASSED'
+  else
+    echo 'TRANSITION_D_AUTHORIZATION_FAILED'
+    node "$repo_root/supabase/local-verify/diagnose-edge.mjs" run || true
+    auth_failed=1
   fi
-  echo 'TRANSITION_D_PASSED'
 
-  # After contract, do not restore broad anon SELECT or run prepare rollback.
+  # Always exercise the narrow cutover fallback, even after an HTTP failure.
+  # Never restore broad anon SELECT or run prepare rollback after contract.
   apply_local_rollback "$cutover"
-  apply_local_rollback "$project"
-  run_local_sql_check supabase/tests/authz_safe_rollback.sql
-  echo 'TRANSITION_POST_CONTRACT_SAFE_ROLLBACK_PASSED'
+  run_local_sql_check supabase/local-verify/transition-cutover-rollback.sql
+  echo 'TRANSITION_D_ROLLBACK_PASSED'
+  if [[ "$auth_failed" == 1 ]]; then exit 1; fi
   exit 0
 fi
 
