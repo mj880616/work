@@ -22,16 +22,16 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Run router regression tests
         run: node --test tests/domain/bokdoong-router.test.mjs
 
       - name: Deploy Worker
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config cloudflare/wrangler.toml
 
       - name: Verify production routes
@@ -41,11 +41,21 @@ jobs:
 
           check_200() {
             local url="$1"
-            local accept="${2:-*/*}"
+            local accept="\${2:-*/*}"
             local code=""
 
             for attempt in {1..20}; do
-              code="$(curl                 --silent                 --show-error                 --location                 --max-redirs 8                 --connect-timeout 10                 --max-time 30                 --header "Accept: $accept"                 --output /dev/null                 --write-out '%{http_code}'                 "$url" || true)"
+              code="$(curl \
+                --silent \
+                --show-error \
+                --location \
+                --max-redirs 8 \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --header "Accept: $accept" \
+                --output /dev/null \
+                --write-out '%{http_code}' \
+                "$url" || true)"
 
               if [[ "$code" == "200" ]]; then
                 echo "OK  $url"
@@ -62,8 +72,18 @@ jobs:
 
           check_https_upgrade() {
             local host="$1"
-            local result
-            result="$(curl               --silent               --show-error               --location               --max-redirs 8               --connect-timeout 10               --max-time 30               --output /dev/null               --write-out '%{url_effective}|%{http_code}'               "http://$host/" || true)"
+            local result=""
+
+            result="$(curl \
+              --silent \
+              --show-error \
+              --location \
+              --max-redirs 8 \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --output /dev/null \
+              --write-out '%{url_effective}|%{http_code}' \
+              "http://$host/" || true)"
 
             if [[ "$result" != https://*'|200' ]]; then
               echo "FAIL  http://$host/ -> $result"
@@ -73,23 +93,39 @@ jobs:
             echo "OK  http://$host/ -> $result"
           }
 
-          for url in             https://bokdoong.com/             https://work.bokdoong.com/             https://desk.bokdoong.com/             https://read.bokdoong.com/             https://arsenal.bokdoong.com/
+          for url in \
+            https://bokdoong.com/ \
+            https://work.bokdoong.com/ \
+            https://desk.bokdoong.com/ \
+            https://read.bokdoong.com/ \
+            https://arsenal.bokdoong.com/
           do
             check_200 "$url" "text/html"
           done
 
-          for host in             bokdoong.com             work.bokdoong.com             desk.bokdoong.com             read.bokdoong.com             arsenal.bokdoong.com
+          for host in \
+            bokdoong.com \
+            work.bokdoong.com \
+            desk.bokdoong.com \
+            read.bokdoong.com \
+            arsenal.bokdoong.com
           do
             check_https_upgrade "$host"
           done
 
-          check_200             'https://read.bokdoong.com/read-think-write/records/?tab=recent'             'text/html'
+          check_200 \
+            'https://read.bokdoong.com/read-think-write/records/?tab=recent' \
+            'text/html'
 
           check_200 'https://read.bokdoong.com/favicon.ico'
           check_200 'https://arsenal.bokdoong.com/favicon.ico'
           check_200 'https://desk.bokdoong.com/work/app/sw.js?v=2'
 
-          for url in             https://mj880616.github.io/work/             https://mj880616.github.io/work/app/             https://mj880616.github.io/read-think-write/             https://mj880616.github.io/work/personal/arsenal-match-archive/
+          for url in \
+            https://mj880616.github.io/work/ \
+            https://mj880616.github.io/work/app/ \
+            https://mj880616.github.io/read-think-write/ \
+            https://mj880616.github.io/work/personal/arsenal-match-archive/
           do
             check_200 "$url" "text/html"
           done
