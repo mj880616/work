@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { loadArchive, auditArchive } from './validate-archive.mjs';
 
 const baselineText = execFileSync('git', [
@@ -60,4 +61,23 @@ test('2026-27 mutation is rejected', () => {
   const data = copy();
   data.find(m => m.season === '2026-27').subtitle += 'changed';
   assert.match(auditArchive(data, { complete: false, baselineMatches: original }).errors.join(' '), /2026-27/);
+});
+
+test('2025-26 match statistics have numeric big-chance coverage and source links', () => {
+  const data = loadArchive(readFileSync(new URL('./matches.js', import.meta.url), 'utf8'))
+    .filter(match => match.season === '2025-26');
+  assert.equal(data.length, 53);
+  for (const match of data) {
+    for (const stats of [match.stats, match.opponentStats]) {
+      assert.match(stats.bigChances, /^\d+$/, `${match.id}: missing big chances`);
+    }
+    assert.ok(match.sources.some(source => source.label.includes('빅찬스')),
+      `${match.id}: missing big-chance provenance`);
+  }
+  const villa = data.find(match => match.id === '2025-12-06-aston-villa-away');
+  assert.deepEqual([villa.stats.xg, villa.opponentStats.xg, villa.stats.bigChances, villa.opponentStats.bigChances],
+    ['1.84', '2.27', '3', '2']);
+  const brugge = data.find(match => match.id === '2025-12-10-club-brugge-away');
+  assert.deepEqual([brugge.stats.xg, brugge.opponentStats.xg, brugge.stats.bigChances, brugge.opponentStats.bigChances],
+    ['2.97', '1.06', '5', '1']);
 });
