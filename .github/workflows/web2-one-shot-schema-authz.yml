@@ -37,7 +37,7 @@ jobs:
       EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
       PGOPTIONS: '-c default_transaction_read_only=on'
       PGSSLMODE: verify-full
-      PGSSLROOTCERT: /etc/ssl/certs/ca-certificates.crt
+      PGSSLROOTCERT: /out/prod-ca-2021.crt
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,6 +66,10 @@ jobs:
           set -euo pipefail
           umask 077
           test -n "$PGPASSWORD" || { echo 'Missing protected DB password' >&2; exit 1; }
+          curl --fail --location --silent --show-error \
+            'https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt' \
+            --output "$RUNNER_TEMP/prod-ca-2021.crt"
+          openssl x509 -in "$RUNNER_TEMP/prod-ca-2021.crt" -noout -checkend 0 >/dev/null
           docker run --rm --network host --read-only --tmpfs /tmp:rw,noexec,nosuid \
             --user "$(id -u):$(id -g)" \
             -e PGPASSWORD -e PGOPTIONS -e PGSSLMODE -e PGSSLROOTCERT \
@@ -118,6 +122,6 @@ jobs:
         shell: bash
         run: |
           if test -d "$RUNNER_TEMP"; then
-            rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err"
+            rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err" "$RUNNER_TEMP/prod-ca-2021.crt"
           fi
 
