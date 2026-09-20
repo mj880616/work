@@ -18,7 +18,7 @@
     return y + "." + m + "." + d;
   };
 
-  const list = (items) => "<ul>" + items.map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>";
+  const list = (items) => "<ul>" + (Array.isArray(items) ? items : []).map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>";
 
   function renderReview(match) {
     if (!match) {
@@ -26,10 +26,12 @@
       return;
     }
 
-    const sourceLinks = match.sources.map((source) =>
+    const sourceLinks = (match.sources || []).map((source) =>
       '<a href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">' +
       escapeHtml(source.label) + "</a>"
     ).join("");
+
+    const decisive = match.decisive || match.whyLost || [];
 
     latestEl.innerHTML = `
       <article class="match-review" id="${escapeHtml(match.id)}">
@@ -54,8 +56,8 @@
             ${list(match.summary)}
           </section>
           <section class="review-block">
-            <h3>왜 졌나</h3>
-            ${list(match.whyLost)}
+            <h3>승패를 가른 핵심</h3>
+            ${list(decisive)}
           </section>
           <section class="review-block">
             <h3>아르테타의 선택</h3>

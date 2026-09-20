@@ -1,65 +1,321 @@
 window.ARSENAL_MATCHES = [
   {
-    id: "2026-09-19-brighton-away",
-    date: "2026-09-19",
-    season: "2026-27",
-    competition: "Premier League",
-    round: "5R",
-    venue: "AMEX Stadium",
-    home: "브라이튼",
-    away: "아스날",
-    homeScore: 3,
-    awayScore: 0,
-    result: "패",
-    title: "브라이튼 3-0 아스날",
-    subtitle: "짧은 빌드업도, 직선 롱볼도 풀리지 않았고 세 번째 해법 전환이 늦었음",
-    verdict: "3-0이라는 점수에는 중거리 슈팅의 결정력이라는 변수가 있었지만, 패배 자체는 우연이 아니었음.",
-    summary: [
+    "id": "2026-09-19-brighton-away",
+    "date": "2026-09-19",
+    "season": "2026-27",
+    "competition": "Premier League",
+    "round": "5R",
+    "venue": "AMEX Stadium",
+    "home": "브라이튼",
+    "away": "아스날",
+    "homeScore": 3,
+    "awayScore": 0,
+    "result": "패",
+    "title": "브라이튼 3-0 아스날",
+    "subtitle": "짧은 빌드업도, 직선 롱볼도 풀리지 않았고 세 번째 해법 전환이 늦었음",
+    "verdict": "3-0이라는 점수에는 중거리 슈팅의 결정력이라는 변수가 있었지만, 패배 자체는 우연이 아니었음.",
+    "summary": [
       "브라이튼은 중앙 진입로를 닫고 아스날을 측면으로 유도한 뒤 강하게 포위했음. 아스날은 자기 진영에서 여러 차례 기술적 실수를 냈고, 브라이튼은 아스날 진영 마지막 3분의 1에서 9차례 공을 탈취했음.",
       "아스날이 롱볼을 전혀 쓰지 않은 것은 아님. 문제는 라야→하베르츠→세컨드볼 회수라는 탈압박 시스템으로 연결되지 못했다는 점임. 첫 경합과 두 번째 공에서 브라이튼이 더 빨랐음.",
       "따라서 문제를 단순히 '짧은 빌드업 고집'으로만 보면 부족함. 짧게 푸는 A안과 하베르츠를 향한 직선적인 B안이 모두 막혔을 때, 하베르츠가 센터백을 끌어내고 윙어가 뒷공간을 치는 등 세 번째 해법으로 빨리 전환하지 못한 것이 더 큰 문제였음."
     ],
-    whyLost: [
+    "decisive": [
       "브라이튼의 높은 압박과 맨투맨 대응에 빌드업 안정성이 크게 떨어짐.",
       "라이스·브루노 주변의 세컨드볼 장악력이 부족했고, 50:50 경합에서 반복적으로 밀림.",
       "첫 두 실점에서 박스 앞 슈터에게 시간이 과도하게 주어졌고, 세 번째 실점은 코너킥 수비 실패였음.",
       "0-2로 뒤진 하프타임에도 구조적 변화 없이 같은 선발 11명이 재개했고, 교체와 역할 변경이 뒤늦게 이뤄짐."
     ],
-    arteta: [
+    "arteta": [
       "지난 시즌 아르테타는 라야의 롱킥과 하베르츠의 제공권을 적극적으로 활용했기 때문에 롱볼 해법을 모른다고 보기는 어려움.",
       "이번 경기는 짧은 빌드업을 통한 탈압박 능력을 더 신뢰했거나, 롱볼 이후 세컨드볼 회수가 어렵다고 판단한 상황으로 보임.",
       "다만 두 방식이 모두 불안정한 것이 전반에 드러난 뒤에도 제3의 출구를 빠르게 만들지 못한 점은 전술적 조정의 문제로 남음."
     ],
-    nextWatch: [
+    "nextWatch": [
       "강한 전방압박 팀을 상대로 브루노-라이스 조합이 중앙에서 압박 한 줄을 실제로 지울 수 있는지.",
       "라야의 롱킥이 단순 타깃 패스가 아니라 윙어 뒷공간 침투와 연동되는지.",
       "경합에서 밀리는 날 아르테타가 얼마나 빨리 빌드업 구조와 점유 방식을 바꾸는지.",
       "박스 앞 중거리 슈팅 공간을 줄이는 전환수비가 다음 경기에서 교정되는지."
     ],
-    stats: {
-      possession: "59.7%",
-      shots: "11",
-      xg: "1.58",
-      bigChances: "2"
+    "stats": {
+      "possession": "59.7%",
+      "shots": "11",
+      "xg": "1.58",
+      "bigChances": "2"
     },
-    opponentStats: {
-      possession: "40.3%",
-      shots: "17",
-      xg: "1.33",
-      bigChances: "4"
+    "opponentStats": {
+      "possession": "40.3%",
+      "shots": "17",
+      "xg": "1.33",
+      "bigChances": "4"
     },
-    sources: [
+    "sources": [
       {
-        label: "Opta Analyst 경기 통계",
-        url: "https://theanalyst.com/articles/brighton-vs-arsenal-stats-premier-league-09-2026"
+        "label": "Opta Analyst 경기 통계",
+        "url": "https://theanalyst.com/articles/brighton-vs-arsenal-stats-premier-league-09-2026"
       },
       {
-        label: "Arseblog 경기 리포트",
-        url: "https://arseblog.news/2026/09/report-brighton-3-0-arsenal-inc-goals/"
+        "label": "Arseblog 경기 리포트",
+        "url": "https://arseblog.news/2026/09/report-brighton-3-0-arsenal-inc-goals/"
       },
       {
-        label: "Arteta 경기 후 인터뷰",
-        url: "https://arseblog.news/2026/09/arteta-this-is-a-big-lesson/"
+        "label": "Arteta 경기 후 인터뷰",
+        "url": "https://arseblog.news/2026/09/arteta-this-is-a-big-lesson/"
+      }
+    ]
+  },
+  {
+    "id": "2026-09-12-sunderland-away",
+    "date": "2026-09-12",
+    "season": "2026-27",
+    "competition": "Premier League",
+    "round": "4R",
+    "venue": "Stadium of Light",
+    "home": "선덜랜드",
+    "away": "아스날",
+    "homeScore": 0,
+    "awayScore": 2,
+    "result": "승",
+    "title": "선덜랜드 0-2 아스날",
+    "subtitle": "라야의 페널티 선방과 후반 교체가 승부를 바꿨지만, 스코어보다 훨씬 어려웠던 경기",
+    "verdict": "2-0 완승처럼 보이지만 경기 내용은 시즌 첫 네 경기 중 가장 불안정했음. 위기를 버틴 뒤 교체 카드와 개인의 질로 가져간 승리였음.",
+    "summary": [
+      "전반에는 아스날이 공을 더 오래 소유했지만 선덜랜드의 직접적인 플레이와 세트피스 위협을 완전히 통제하지 못했음. 후반에는 오히려 선덜랜드가 점유를 끌어올리며 아스날을 밀어붙였음.",
+      "56분 라야가 엔조 르페의 페널티를 막은 것이 경기의 분기점이었고, 불과 121초 뒤 교체 투입된 브루노 기마랑이스가 중거리 슈팅으로 선제골을 넣었음.",
+      "아스날은 자기 박스 안 공중볼 경합에서는 강했지만 선덜랜드가 2.15 xG를 만든 대부분의 위협이 세트피스에서 나왔다는 점은 경고 신호였음. 막판 사카의 페널티가 점수 차를 벌렸음."
+    ],
+    "decisive": [
+      "라야의 페널티 선방이 0-1이 될 수 있던 흐름을 즉시 뒤집었음.",
+      "하프타임에 투입된 브루노와 팀버가 중원과 오른쪽의 에너지 레벨을 높였고, 브루노가 곧바로 선제골을 기록함.",
+      "가브리엘을 중심으로 자기 진영의 공중볼 경합을 거의 모두 이기며 선덜랜드의 직접적인 공격을 버팀.",
+      "다만 xG는 선덜랜드 2.15-아스날 1.93이었고 빅찬스도 선덜랜드가 더 많았음. 결과만큼 통제된 경기는 아니었음."
+    ],
+    "arteta": [
+      "전반의 정체를 그대로 두지 않고 하프타임부터 브루노와 팀버를 투입한 조정이 효과를 냈음.",
+      "리드를 잡은 뒤에는 소유를 무리하게 유지하기보다 수비 경합과 전환을 받아들이는 방향으로 경기를 관리했음.",
+      "승리는 가져왔지만 상대의 롱스로인·세트피스에 많은 xG를 허용했다는 점은 다음 경기에서 구조적으로 보완해야 할 부분으로 남았음."
+    ],
+    "nextWatch": [
+      "브루노가 선발로 들어갔을 때도 교체 투입 때처럼 경기 템포와 탈압박을 개선할 수 있는지.",
+      "상대가 강한 피지컬과 세트피스로 밀어붙일 때 박스 앞 두 번째 공을 더 안정적으로 회수할 수 있는지.",
+      "후반에 점유와 필드 틸트를 상대에게 내주는 현상이 일시적인 경기 운영인지 반복되는 패턴인지.",
+      "라야의 선방에 의존하지 않고 비슷한 위기 구간을 구조적으로 줄일 수 있는지."
+    ],
+    "stats": {
+      "possession": "51%",
+      "shots": "11",
+      "xg": "1.93",
+      "bigChances": "1"
+    },
+    "opponentStats": {
+      "possession": "49%",
+      "shots": "11",
+      "xg": "2.15",
+      "bigChances": "3"
+    },
+    "sources": [
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/sunderland-vs-arsenal-stats-bruno-guimaraes-david-raya-penalty-save"
+      },
+      {
+        "label": "Guardian 경기 리포트",
+        "url": "https://www.theguardian.com/football/2026/sep/12/sunderland-arsenal-premier-league-match-report"
+      },
+      {
+        "label": "xG Stat 경기 데이터",
+        "url": "https://www.xgstat.com/competitions/premier-league/2026-2027/matches/sunderland-arsenal-2026-09-12"
+      }
+    ]
+  },
+  {
+    "id": "2026-09-06-chelsea-home",
+    "date": "2026-09-06",
+    "season": "2026-27",
+    "competition": "Premier League",
+    "round": "3R",
+    "venue": "Emirates Stadium",
+    "home": "아스날",
+    "away": "첼시",
+    "homeScore": 2,
+    "awayScore": 1,
+    "result": "승",
+    "title": "아스날 2-1 첼시",
+    "subtitle": "77초 만의 실점에도 흔들리지 않고 하베르츠-외데고르 축으로 경기를 다시 장악한 역전승",
+    "verdict": "이번 시즌 첫 강팀 상대 경기에서 초반 실수를 바로 복구하고, 이후 찬스의 질과 영토를 모두 우위로 가져간 가장 완성도 높은 승리였음.",
+    "summary": [
+      "첼시가 경기 시작 77초 만에 세트피스 이후 모건 로저스의 골로 앞섰지만 아스날은 조급해지지 않았음. 곧바로 박스 점유와 세트피스 압박을 높였고 25분 하베르츠가 동점골을 넣었음.",
+      "후반 50분에는 츠올리스의 패스를 하베르츠가 흘려주고 외데고르가 침투해 역전골을 기록함. 하베르츠가 득점뿐 아니라 중앙에서 연결점과 더미 러너 역할까지 수행한 장면이었음.",
+      "아스날은 16-13 슈팅, 2.57-0.53 xG, 빅찬스 3-0으로 찬스의 질에서 크게 앞섰음. 첼시의 몇 차례 빠른 전환과 막판 에스테방의 슈팅은 위협적이었지만 라야가 마지막을 막았음."
+    ],
+    "decisive": [
+      "초반 실점 뒤에도 빌드업과 압박 구조를 버리지 않고 경기 영토를 다시 회복한 대응력이 좋았음.",
+      "하베르츠가 박스 안 마무리와 2선 연결을 동시에 맡으면서 첼시 센터백의 기준점을 흔들었음.",
+      "외데고르가 박스 안으로 침투해 득점하는 움직임이 살아났고, 츠올리스도 왼쪽에서 전진 패스와 최종 연결을 제공함.",
+      "세트피스와 오픈플레이를 합쳐 아스날이 훨씬 높은 질의 기회를 만들면서 단순한 접전 스코어와 달리 내용상 우위를 확보함."
+    ],
+    "arteta": [
+      "77초 만에 실점했지만 즉흥적인 전술 변경보다 기존 구조의 속도와 압박 강도를 높이는 선택을 했고 결과적으로 맞았음.",
+      "하베르츠를 단순한 타깃형 9번이 아니라 내려와 연결하고 다시 박스로 들어가는 축으로 활용한 것이 첼시 수비를 어렵게 했음.",
+      "리드 후에는 상대 전환에 몇 차례 노출됐기 때문에 공격적 우위를 유지하면서도 리스크를 줄이는 경기 관리가 과제로 남았음."
+    ],
+    "nextWatch": [
+      "외데고르의 박스 침투가 일회성이 아니라 올 시즌 공격 패턴으로 복원되는지.",
+      "츠올리스-하베르츠-외데고르의 왼쪽·중앙 연계가 강한 압박팀 상대로도 유지되는지.",
+      "선제 실점이나 경기 초반 혼란 이후에도 같은 수준으로 구조를 회복할 수 있는지.",
+      "리드 상황에서 상대의 빠른 전환을 더 일찍 차단할 수 있는지."
+    ],
+    "stats": {
+      "possession": "51%",
+      "shots": "16",
+      "xg": "2.57",
+      "bigChances": "3"
+    },
+    "opponentStats": {
+      "possession": "49%",
+      "shots": "13",
+      "xg": "0.53",
+      "bigChances": "0"
+    },
+    "sources": [
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/arsenal-vs-chelsea-stats-premier-league-09-2026"
+      },
+      {
+        "label": "Guardian 경기 리포트",
+        "url": "https://www.theguardian.com/football/2026/sep/06/arsenal-chelsea-premier-league-match-report"
+      },
+      {
+        "label": "xG Stat 경기 데이터",
+        "url": "https://www.xgstat.com/competitions/premier-league/2026-2027/matches/arsenal-chelsea-2026-09-06"
+      }
+    ]
+  },
+  {
+    "id": "2026-08-31-aston-villa-away",
+    "date": "2026-08-31",
+    "season": "2026-27",
+    "competition": "Premier League",
+    "round": "2R",
+    "venue": "Villa Park",
+    "home": "아스톤 빌라",
+    "away": "아스날",
+    "homeScore": 0,
+    "awayScore": 1,
+    "result": "승",
+    "title": "아스톤 빌라 0-1 아스날",
+    "subtitle": "공격은 답답했지만 에제 투입과 칼라피오리의 전진으로 한 번의 구조적 우위를 만들어낸 1-0",
+    "verdict": "화려하지 않았지만 상대에게 유효슈팅을 하나도 허용하지 않고 필요한 한 골을 만든, 지난 시즌 우승팀다운 실용적인 승리였음.",
+    "summary": [
+      "아스날은 61%의 점유율을 가졌지만 전반에는 빌라의 좁은 수비 간격을 거의 깨지 못했고 위협적인 슈팅도 만들지 못했음. 오히려 부엔디아의 슈팅이 크로스바를 맞으며 먼저 위험한 장면을 허용함.",
+      "후반 에베레치 에제가 투입된 뒤 왼쪽에서 칼라피오리를 박스 안으로 전진시키는 패스가 나왔고, 칼라피오리의 컷백을 사카가 마무리해 59분 선제골을 기록함.",
+      "득점 이후에는 굳이 경기를 열지 않고 빌라의 공격을 바깥으로 밀어냈음. 빌라는 90분 동안 유효슈팅을 기록하지 못했고 아스날은 1-0 리드를 안정적으로 지켰음."
+    ],
+    "decisive": [
+      "에제 투입으로 왼쪽 하프스페이스에서 수비선을 흔드는 패스가 생겼고, 칼라피오리의 깊은 전진이 결승골로 연결됨.",
+      "사카는 마트센과의 반복적인 1대1에서 우위를 만들며 공격의 가장 확실한 출구 역할을 했음.",
+      "공격 생산량은 7슈팅, 약 1.0 xG로 많지 않았지만 수비적으로 빌라의 박스 접근과 슈팅 질을 극단적으로 낮췄음.",
+      "리드를 잡은 뒤 경기를 더 크게 벌리려 하지 않고 수비 안정성을 우선한 판단이 1-0 승리를 지켜냄."
+    ],
+    "arteta": [
+      "정체된 경기에서 에제를 투입해 새로운 패스 각도를 만든 것이 핵심 조정이었음.",
+      "풀백인 칼라피오리를 단순한 후방 빌드업 자원이 아니라 박스 안까지 침투시키면서 빌라의 수비 기준점을 깨뜨렸음.",
+      "이후에는 콘사를 투입하는 등 리드를 지키는 방향으로 위험을 줄였고, 지난 시즌부터 이어진 1-0 승리의 관리 능력을 다시 보여줌."
+    ],
+    "nextWatch": [
+      "상대가 깊게 내려앉을 때 에제가 선발 혹은 교체로 얼마나 꾸준히 잠금 해제 역할을 할 수 있는지.",
+      "칼라피오리의 공격적인 전진과 후방 균형을 동시에 유지할 수 있는지.",
+      "점유율에 비해 슈팅 숫자가 낮아지는 경기에서 중앙 찬스 생산을 어떻게 늘릴지.",
+      "사카에게 공격 부담이 과도하게 집중되지 않도록 반대편과 중앙에서 득점 루트를 추가할 수 있는지."
+    ],
+    "stats": {
+      "possession": "61%",
+      "shots": "7",
+      "xg": "0.96",
+      "bigChances": "1"
+    },
+    "opponentStats": {
+      "possession": "39%",
+      "shots": "7",
+      "xg": "0.47",
+      "bigChances": "0"
+    },
+    "sources": [
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/aston-villa-vs-arsenal-stats-premier-league-08-2026"
+      },
+      {
+        "label": "Reuters 경기 리포트",
+        "url": "https://www.reuters.com/sports/soccer/saka-earns-arsenal-narrow-victory-troubled-villa-2026-08-31/"
+      },
+      {
+        "label": "Guardian 경기 리포트",
+        "url": "https://www.theguardian.com/football/2026/aug/31/aston-villa-arsenal-premier-league-match-report"
+      }
+    ]
+  },
+  {
+    "id": "2026-08-21-coventry-home",
+    "date": "2026-08-21",
+    "season": "2026-27",
+    "competition": "Premier League",
+    "round": "1R",
+    "venue": "Emirates Stadium",
+    "home": "아스날",
+    "away": "코번트리",
+    "homeScore": 3,
+    "awayScore": 0,
+    "result": "승",
+    "title": "아스날 3-0 코번트리",
+    "subtitle": "초반 23분 안에 승부를 정리하고 새 왼쪽 자원과 기존 오른쪽 축을 함께 살린 안정적인 개막전",
+    "verdict": "상대 전력을 감안해야 하지만, 우승팀이 승격팀을 상대로 해야 할 일을 거의 그대로 수행한 경기였음.",
+    "summary": [
+      "아스날은 초반부터 높은 점유와 영토 우위를 확보했고 15분 하베르츠, 23분 사카의 연속골로 경기의 긴장을 빠르게 없앴음. 후반 49분 외데고르가 세 번째 골을 넣으며 승부를 끝냈음.",
+      "새로 합류한 츠올리스가 왼쪽에서 폭과 전진성을 제공하면서 사카 쪽에만 공격이 몰리지 않았고, 하베르츠는 중앙에서 연결과 마무리를 동시에 수행했음.",
+      "62% 점유율, 20슈팅, 2.30 xG를 기록한 반면 코번트리는 4슈팅과 0.30 xG에 그쳤음. 공격과 후방 균형 모두에서 큰 흔들림 없이 관리한 경기였음."
+    ],
+    "decisive": [
+      "경기 초반 두 골로 코번트리가 준비한 수비적 플랜을 빠르게 무너뜨림.",
+      "사카의 오른쪽뿐 아니라 츠올리스가 왼쪽에서도 전진성을 제공해 공격 폭이 넓어졌음.",
+      "하베르츠가 9번 위치에서 수비수를 묶고 직접 득점까지 하면서 박스 안 존재감을 확보함.",
+      "상대의 전환을 초기에 끊어 코번트리가 아스날 진영에서 의미 있는 공격을 거의 만들지 못하게 함."
+    ],
+    "arteta": [
+      "개막전부터 츠올리스를 선발로 넣어 새 공격 조합을 바로 시험했고, 기존 사카-외데고르 축과 충돌하지 않게 배치했음.",
+      "2-0 이후에도 무리하게 템포를 올리기보다 점유와 위치를 유지하면서 상대가 경기에 다시 들어올 가능성을 차단함.",
+      "후반에는 주전들의 시간을 관리하면서도 경기 구조가 무너지지 않도록 교체를 분산해 사용함."
+    ],
+    "nextWatch": [
+      "츠올리스가 더 강한 상대와 압박 강도가 높은 경기에서도 같은 수준의 전진성과 창의성을 보여줄 수 있는지.",
+      "하베르츠가 낮은 블록뿐 아니라 높은 수비라인을 상대로도 9번 역할을 안정적으로 수행할 수 있는지.",
+      "상대가 중원에서 더 강하게 압박할 때도 이 정도의 빌드업 안정성이 유지되는지.",
+      "외데고르의 득점 위치 진입이 시즌 전체의 변화로 이어지는지."
+    ],
+    "stats": {
+      "possession": "62%",
+      "shots": "20",
+      "xg": "2.30",
+      "bigChances": "2"
+    },
+    "opponentStats": {
+      "possession": "38%",
+      "shots": "4",
+      "xg": "0.30",
+      "bigChances": "0"
+    },
+    "sources": [
+      {
+        "label": "Opta Analyst 경기 분석",
+        "url": "https://theanalyst.com/articles/arsenal-vs-coventry-stats-premier-league-08-2026"
+      },
+      {
+        "label": "Reuters 경기 리포트",
+        "url": "https://www.reuters.com/sports/soccer/arsenal-sweep-coventry-aside-start-title-defence-with-3-0-win-2026-08-21/"
+      },
+      {
+        "label": "Guardian 경기 리포트",
+        "url": "https://www.theguardian.com/football/2026/aug/21/arsenal-coventry-premier-league-match-report"
       }
     ]
   }
