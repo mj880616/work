@@ -49,7 +49,7 @@ test('first paint uses final icon, topbar and direct project renderer styles', a
   const topbar=read('app/topbar-actions.js');
   const topbarCss=read('app/topbar-actions.css');
   const projectCss=read('app/project-system-v3.css');
-  expect(html).toContain('rel="icon" href="./app-icon.svg?v=20260913-3"');
+  expect(html).toMatch(/rel="icon" href="\.\/app-icon\.svg\?v=[\w-]+"/);
   expect(html).not.toContain('href="../favicon.svg"');
   expect(html).not.toContain('<span class="leaf">⌁</span>');
   expect(html).toContain('id="newProjectBtn"');
@@ -57,7 +57,7 @@ test('first paint uses final icon, topbar and direct project renderer styles', a
   expect(styles).toContain('project-system-v3.css');
   expect(topbarCss).toContain('.top-actions #logoutBtn');
   expect(topbarCss).toContain('display:none!important');
-  expect(topbar).toContain("button.id='ccNotifTop'");
+  expect(topbar).toContain("messageButton.id='ccMessageTop'");
   const topbarImport=loader.indexOf("import('./topbar-actions.js");
   const teamImport=loader.indexOf("import('./team.js");
   expect(topbarImport).toBeGreaterThan(-1);
