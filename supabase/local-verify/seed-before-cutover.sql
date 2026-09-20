@@ -27,6 +27,12 @@ insert into public.app_workspaces(id,slug,name)
 values ('90000000-0000-4000-8000-000000000060','local-foreign-workspace','LOCAL FOREIGN WORKSPACE');
 insert into public.app_workspace_members(workspace_id,user_id,role)
 values ('90000000-0000-4000-8000-000000000060','90000000-0000-4000-8000-000000000003','owner');
+insert into public.app_suborganizations(id,workspace_id,name,organization_type,created_by,active)
+values ('90000000-0000-4000-8000-000000000065','90000000-0000-4000-8000-000000000010',
+        'LOCAL TEST SUBORGANIZATION','미분류','90000000-0000-4000-8000-000000000001',true);
+insert into public.app_suborganization_assignees(organization_id,user_id,assigned_by)
+values ('90000000-0000-4000-8000-000000000065','90000000-0000-4000-8000-000000000002',
+        '90000000-0000-4000-8000-000000000001');
 insert into public.app_spaces(id,workspace_id,slug,name,description,created_by,owner_id,status,visibility,metadata)
 values ('90000000-0000-4000-8000-000000000061','90000000-0000-4000-8000-000000000060',
         'local-foreign-project','LOCAL FOREIGN PROJECT','Synthetic foreign project',
@@ -36,6 +42,10 @@ insert into public.app_meetings(id,workspace_id,project_id,title,meeting_at,crea
 values ('90000000-0000-4000-8000-000000000062','90000000-0000-4000-8000-000000000060',
         '90000000-0000-4000-8000-000000000061','LOCAL FOREIGN MEETING',now(),
         '90000000-0000-4000-8000-000000000003');
+insert into public.app_events(id,workspace_id,title,description,event_type,start_at,created_by,body,calendar_scope)
+values ('90000000-0000-4000-8000-000000000064','90000000-0000-4000-8000-000000000060',
+        'LOCAL FOREIGN EVENT','Synthetic foreign event','meeting',now()+interval '1 day',
+        '90000000-0000-4000-8000-000000000003','Synthetic foreign event body','team');
 insert into public.app_documents(id,workspace_id,project_id,meeting_id,title,description,visibility,uploaded_by,extraction_status,extracted_text)
 values ('90000000-0000-4000-8000-000000000063','90000000-0000-4000-8000-000000000060',
         '90000000-0000-4000-8000-000000000061','90000000-0000-4000-8000-000000000062',

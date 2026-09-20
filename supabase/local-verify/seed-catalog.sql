@@ -22,5 +22,6 @@ from pg_class c join pg_namespace n on n.oid=c.relnamespace
 where n.nspname='public' and c.relkind in ('r','p') and
   (c.relname in ('app_workspaces','app_workspace_members','app_pages','app_documents',
     'app_spaces','app_project_sections','app_project_blocks','app_events','app_meetings',
+    'app_suborganizations','app_suborganization_assignees',
     'app_tasks','app_project_updates') or c.relname like 'app_%profile%')
 order by c.relname;

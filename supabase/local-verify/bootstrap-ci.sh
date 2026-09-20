@@ -165,6 +165,17 @@ if [[ "${WEB2_SEED_DIAGNOSTIC:-0}" == 1 ]]; then
   exit 0
 fi
 
+apply_local_rollback() {
+  local phase="$1" path="$repo_root/scripts/sql/rollback/$1" log="$ci_root/rollback-$1.log"
+  if ! psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+    -f "$path" > "$log" 2>&1; then
+    node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" ROLLBACK "$path" "$log"
+    echo "LOCAL_ROLLBACK_FAILED: $phase; SQL output withheld" >&2
+    exit 1
+  fi
+  echo "LOCAL_ROLLBACK_PASSED: $phase"
+}
+
 for migration in \
   20260920120000_public_single_post_prepare.sql \
   20260920121000_public_single_post_cutover.sql \
@@ -175,6 +186,18 @@ for migration in \
       "$repo_root/supabase/migrations/$migration" "$ci_root/$migration.log"
     echo "LOCAL migration failed: $migration; SQL output is withheld" >&2
     exit 1
+  fi
+  if [[ "${WEB2_PREDEPLOY:-0}" == 1 && "$migration" == 20260920120000_public_single_post_prepare.sql ]]; then
+    apply_local_rollback "$migration"
+    # Restore the additive reader grant before the guarded cutover.
+    if ! psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+      -f "$repo_root/supabase/migrations/$migration" > "$ci_root/reapply-$migration.log" 2>&1; then
+      echo 'LOCAL_PREPARE_REAPPLY_FAILED: SQL output withheld' >&2
+      exit 1
+    fi
+  fi
+  if [[ "${WEB2_PREDEPLOY:-0}" == 1 && "$migration" == 20260920121000_public_single_post_cutover.sql ]]; then
+    apply_local_rollback "$migration"
   fi
 done
 
@@ -203,3 +226,15 @@ if ! node --test "$repo_root/supabase/local-verify/http-authz.test.mjs"; then
   exit 1
 fi
 echo 'Local-only Supabase authorization checks passed'
+if [[ "${WEB2_PREDEPLOY:-0}" == 1 ]]; then
+  apply_local_rollback 20260920122000_project_public_view.sql
+  rollback_test="$repo_root/supabase/tests/authz_safe_rollback.sql"
+  if ! psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+    -f "$rollback_test" > "$ci_root/authz-safe-rollback.log" 2>&1; then
+    node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" ROLLBACK_CHECK \
+      "$rollback_test" "$ci_root/authz-safe-rollback.log"
+    echo 'LOCAL_ROLLBACK_CHECK_FAILED: SQL output withheld' >&2
+    exit 1
+  fi
+  echo 'LOCAL_ROLLBACK_PUBLIC_URLS_PASSED'
+fi

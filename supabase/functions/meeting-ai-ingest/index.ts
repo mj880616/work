@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { MeetingAuthError, meetingAuthResponse } from '../_shared/meeting-auth.mjs';
+import { extractHwp } from './hwp-parser.mjs';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -18,7 +19,6 @@ function isAudio(mime:string,name:string){return /^audio\//.test(mime)||/^video\
 function isText(mime:string,name:string){return /^text\//.test(mime)||['txt','md','csv','json','log','xml'].includes(ext(name))}
 function bytesToDataUrl(bytes:Uint8Array,mime:string){let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+0x8000,bytes.length)));return `data:${mime||'application/octet-stream'};base64,${btoa(bin)}`}
 function outputText(r:any){for(const item of r.output||[]){if(item.type==='message'){for(const c of item.content||[]){if(c.type==='output_text'&&c.text)return c.text}}}return r.output_text||''}
-async function extractHwp(bytes:Uint8Array,name:string){const {default:HwpxReader,hwpToText}=await import('npm:@ssabrojs/hwpxjs');if(ext(name)==='hwp')return cut(await hwpToText(bytes),50000);const reader=new HwpxReader();const ab=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);await reader.loadFromArrayBuffer(ab as ArrayBuffer);return cut(await reader.extractText(),50000)}
 async function extractWithOpenAI(bytes:Uint8Array,name:string,mime:string,model:string){if(!OPENAI)throw new Error('AI API 키가 설정되지 않았습니다.');if(bytes.length>25*1024*1024)throw new Error('문서 AI 읽기는 현재 파일당 25MB까지 지원합니다.');const input=[{role:'user',content:[{type:'input_text',text:'이 파일은 노조 업무·회의·사업 자료다. 후속 업무와 사업현황을 정리할 때 참고할 수 있도록 문서의 사실관계, 핵심 논점, 요구사항, 수치, 일정, 쟁점, 제안 내용을 빠짐없이 한국어로 추출·정리해라. 문서에 없는 사실은 만들지 말고, 추측하지 마라.'},{type:'input_file',filename:name,file_data:bytesToDataUrl(bytes,mime||'application/octet-stream'),detail:'auto'}]}];const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify({model,store:false,max_output_tokens:5000,input})});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'문서 AI 읽기에 실패했습니다.');const text=outputText(d);if(!text)throw new Error('문서 AI 읽기 결과가 비어 있습니다.');return cut(text,50000)}
 async function extractionModel(workspaceId:string){const {data}=await admin.from('app_ai_workspace_settings').select('default_model').eq('workspace_id',workspaceId).maybeSingle();return data?.default_model||'gpt-5.6-luna'}
 
