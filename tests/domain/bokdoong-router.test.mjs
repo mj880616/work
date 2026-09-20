@@ -32,6 +32,18 @@ test('portal root serves only its own static entry without forwarding credential
   assert.equal(unknown.calls.length, 0);
 });
 
+
+test('portal favicon routes to the dedicated Bokdoong icon asset', async () => {
+  for (const path of ['/favicon.svg', '/favicon.ico']) {
+    const { response, calls } = await request(`https://bokdoong.com${path}`, {
+      upstream: new Response('<svg></svg>', { headers: { 'Content-Type': 'image/svg+xml' } })
+    });
+    assert.equal(response.status, 200);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'https://mj880616.github.io/work/personal/portal/favicon.svg');
+  }
+});
+
 test('service roots stay on their vanity hosts and retain deployed base paths', async () => {
   for (const [host, path] of [
     ['work', '/work/'],
