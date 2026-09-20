@@ -178,10 +178,10 @@
       archiveEl.appendChild(row);
     });
 
-    if (filtered.length && !filtered.some((m) => latestEl.querySelector?.("#" + CSS.escape(m.id)))) {
-      // Keep the selected review unless filters exclude it; then show the newest matching game.
-      const currentId = latestEl.querySelector(".match-review")?.id;
-      if (!currentId || !filtered.some((m) => m.id === currentId)) renderReview(filtered[0]);
+    // Keep the selected review unless the active filters exclude it.
+    const currentId = latestEl.querySelector(".match-review")?.id;
+    if (filtered.length && (!currentId || !filtered.some((m) => m.id === currentId))) {
+      renderReview(filtered[0]);
     }
   }
 
