@@ -16,6 +16,7 @@ const checker = new URL('../../supabase/local-verify/check-baseline.mjs', import
 const createAuth = new URL('../../supabase/local-verify/create-local-auth.mjs', import.meta.url);
 const scanner = new URL('../../supabase/local-verify/scan-schema.mjs', import.meta.url);
 const diagnostics = new URL('../../supabase/local-verify/diagnose-start.mjs', import.meta.url);
+const edgeDiagnostics = new URL('../../supabase/local-verify/diagnose-edge.mjs', import.meta.url);
 const baselineReview = new URL('../../supabase/local-verify/analyze-baseline.mjs', import.meta.url);
 const roleDiagnostics = new URL('../../supabase/local-verify/role-diagnostics.mjs', import.meta.url);
 const definerDiagnostics = new URL('../../supabase/local-verify/definer-diagnostics.mjs', import.meta.url);
@@ -76,6 +77,7 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/check-baseline.mjs',
     'supabase/local-verify/bootstrap-ci.sh',
     'supabase/local-verify/diagnose-start.mjs',
+    'supabase/local-verify/diagnose-edge.mjs',
     'supabase/local-verify/analyze-baseline.mjs',
     'supabase/local-verify/role-diagnostics.mjs',
     'supabase/local-verify/role-catalog.sql',
@@ -292,6 +294,19 @@ test('startup diagnostics classify failure without echoing log secrets', () => {
   } finally {
     rmSync(directory, {recursive: true, force: true});
   }
+});
+
+test('Edge boot diagnostics classify import failure without emitting logs or credentials', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'web2-edge-log-'));
+  try {
+    const file = join(directory, 'edge.log');
+    const secret = 'sk-local-secret-never-print';
+    writeFileSync(file, `worker boot error: The requested module did not provide an export named hwpToText\nOPENAI_API_KEY=${secret}\n`);
+    const run = spawnSync(process.execPath, [fileURLToPath(edgeDiagnostics), 'classify', file], {encoding:'utf8'});
+    assert.equal(run.status, 0);
+    assert.match(run.stdout, /EDGE_LOG_CATEGORY=IMPORT_OR_EXPORT/);
+    assert.ok(!`${run.stdout}${run.stderr}`.includes(secret));
+  } finally { rmSync(directory, {recursive:true, force:true}); }
 });
 
 test('baseline checker requires reviewed hash and rejects row data', () => {

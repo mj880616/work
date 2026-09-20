@@ -192,5 +192,9 @@ for sql_test in \
 done
 
 export LOCAL_USERS_FILE="$ci_root/users.json"
+if [[ "${WEB2_EDGE_DIAGNOSTIC:-0}" == 1 ]]; then
+  node "$repo_root/supabase/local-verify/diagnose-edge.mjs" run
+  exit $?
+fi
 node --test "$repo_root/supabase/local-verify/http-authz.test.mjs"
 echo 'Local-only Supabase authorization checks passed'
