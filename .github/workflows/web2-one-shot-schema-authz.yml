@@ -179,6 +179,7 @@ jobs:
         run: |
           set -euo pipefail
           node supabase/local-verify/analyze-baseline.mjs inventory "$WEB2_BASELINE_FILE"
+          node supabase/local-verify/definer-diagnostics.mjs "$WEB2_BASELINE_FILE"
           node --test tests/security/*.test.mjs
           if ! command -v psql >/dev/null; then
             sudo apt-get update -qq

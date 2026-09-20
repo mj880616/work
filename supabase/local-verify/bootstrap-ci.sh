@@ -53,6 +53,7 @@ node "$repo_root/supabase/local-verify/compat-default-acl.mjs" split \
 for name in meeting-ai-draft meeting-ai-ingest meeting-files; do
   cp -R "$repo_root/supabase/functions/$name" "supabase/functions/$name"
 done
+cp -R "$repo_root/supabase/functions/_shared" "supabase/functions/_shared"
 # This is a synthetic, unusable key. Authorized draft tests stop before an AI call.
 printf 'OPENAI_API_KEY=local-ci-placeholder\n' > supabase/functions/.env
 
@@ -179,7 +180,8 @@ done
 
 for sql_test in \
   "$repo_root/supabase/tests/authz_public_snapshot.sql" \
-  "$repo_root/supabase/tests/authz_project_public_view.sql"; do
+  "$repo_root/supabase/tests/authz_project_public_view.sql" \
+  "$repo_root/supabase/tests/authz_definer_helpers.sql"; do
   name="$(basename "$sql_test")"
   if ! psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
     -f "$sql_test" > "$ci_root/$name.log" 2>&1; then
@@ -196,5 +198,8 @@ if [[ "${WEB2_EDGE_DIAGNOSTIC:-0}" == 1 ]]; then
   node "$repo_root/supabase/local-verify/diagnose-edge.mjs" run
   exit $?
 fi
-node --test "$repo_root/supabase/local-verify/http-authz.test.mjs"
+if ! node --test "$repo_root/supabase/local-verify/http-authz.test.mjs"; then
+  node "$repo_root/supabase/local-verify/diagnose-edge.mjs" run
+  exit 1
+fi
 echo 'Local-only Supabase authorization checks passed'

@@ -92,8 +92,10 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/seed-catalog.sql',
     'supabase/local-verify/seed-catalog.mjs',
     'supabase/local-verify/http-authz.test.mjs',
+    'supabase/local-verify/http-policy.mjs',
     'supabase/tests/authz_public_snapshot.sql',
     'supabase/tests/authz_project_public_view.sql',
+    'supabase/tests/authz_definer_helpers.sql',
     'supabase/migrations/20260920120000_public_single_post_prepare.sql',
     'supabase/migrations/20260920121000_public_single_post_cutover.sql',
     'supabase/migrations/20260920122000_project_public_view.sql',
@@ -101,6 +103,7 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/functions/meeting-ai-draft/parse.mjs',
     'supabase/functions/meeting-ai-ingest/index.ts',
     'supabase/functions/meeting-files/index.ts',
+    'supabase/functions/_shared/meeting-auth.mjs',
   ]) assert.ok(existsSync(new URL(path, root)), `${path} absent from checkout`);
 
   const auth = bootstrap.indexOf('create-local-auth.mjs');

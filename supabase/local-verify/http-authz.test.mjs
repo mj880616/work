@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {hidden, assertMeetingDenied} from './http-policy.mjs';
 
 const api = process.env.API_URL;
 const anonKey = process.env.ANON_KEY;
@@ -35,8 +36,6 @@ async function call(path, {token = anonKey, method = 'GET', body, headers = {}} 
 }
 const rpc = (name, args, token = anonKey) =>
   call(`/rest/v1/rpc/${name}`, {token, method: 'POST', body: args});
-const hidden = result => result.status >= 400 ||
-  result.data == null || (Array.isArray(result.data) && result.data.length === 0);
 const publicProject = id => rpc('app_public_project', {p_slug: slugFor(id)});
 const publicPost = slug => rpc('app_public_post', {p_slug: slug});
 
@@ -147,45 +146,54 @@ test('synthetic local Supabase authorization and public URL flow', async t => {
     assert.equal((await publicProject(project)).data, null);
   });
 
-  await t.test('meeting Edge Functions stop unauthorized IDs before AI or Drive', async () => {
-    const json = {'Content-Type': 'application/json'};
-    const draftBody = {meeting_id: meeting};
-    const anonDraft = await call('/functions/v1/meeting-ai-draft', {method: 'POST', body: draftBody, token: anonKey});
-    assert.ok(anonDraft.status >= 400);
-    const outsiderDraft = await call('/functions/v1/meeting-ai-draft', {method: 'POST', body: draftBody, token: outsider});
-    assert.ok(outsiderDraft.status >= 400);
-    assert.ok(!JSON.stringify(outsiderDraft.data).includes('Synthetic private'));
-    const ownerDraft = await call('/functions/v1/meeting-ai-draft', {method: 'POST', body: draftBody, token: owner});
-    assert.ok(ownerDraft.status >= 400);
-    assert.match(String(ownerDraft.data?.error), /팀 AI 설정|녹취 텍스트/);
+  const foreignProject = '90000000-0000-4000-8000-000000000061';
+  const foreignMeeting = '90000000-0000-4000-8000-000000000062';
+  const foreignFile = '90000000-0000-4000-8000-000000000063';
+  const assertDenied = (result, status, code, label) =>
+    assertMeetingDenied(assert, result, status, code, label);
 
-    const outsiderIngest = await call('/functions/v1/meeting-ai-ingest', {
-      method: 'POST', body: {meeting_id: meeting}, token: outsider, headers: json,
+  await t.test('meeting-ai-draft distinguishes auth denial from AI setup', async () => {
+    const invoke = (token, id) => call('/functions/v1/meeting-ai-draft', {
+      method: 'POST', body: {meeting_id: id}, token,
     });
-    const anonIngest = await call('/functions/v1/meeting-ai-ingest', {
-      method: 'POST', body: {meeting_id: meeting}, token: anonKey, headers: json,
-    });
-    assert.ok(anonIngest.status >= 400);
-    assert.ok(outsiderIngest.status >= 400);
-    const ownerIngest = await call('/functions/v1/meeting-ai-ingest', {
-      method: 'POST', body: {meeting_id: meeting}, token: owner, headers: json,
-    });
-    assert.equal(ownerIngest.status, 200);
-    assert.equal(ownerIngest.data?.ok, true);
-    assert.match(ownerIngest.data?.materials_text || '', /Synthetic internal file text/);
+    assertDenied(await invoke(anonKey, meeting), 401, 'AUTH_REQUIRED', 'draft anon');
+    assertDenied(await invoke(outsider, meeting), 403, 'RESOURCE_FORBIDDEN', 'draft outsider');
+    assertDenied(await invoke(owner, foreignMeeting), 403, 'RESOURCE_FORBIDDEN', 'draft foreign meeting');
+    const allowed = await invoke(owner, meeting);
+    assert.equal(allowed.status, 400, 'draft reaches AI configuration without real AI call');
+    assert.ok(/팀 AI 설정/.test(String(allowed.data?.error)), 'draft reached local AI configuration stage');
+  });
 
-    const form = () => {
-      const value = new FormData();
-      value.append('meeting_id', meeting);
-      value.append('file', new Blob(['synthetic file'], {type: 'text/plain'}), 'local.txt');
-      return value;
+  await t.test('meeting-ai-ingest distinguishes auth denial and reads allowed fixture', async () => {
+    const invoke = (token, body) => call('/functions/v1/meeting-ai-ingest', {
+      method: 'POST', body, token,
+    });
+    assertDenied(await invoke(anonKey, {meeting_id: meeting}), 401, 'AUTH_REQUIRED', 'ingest anon');
+    assertDenied(await invoke(outsider, {meeting_id: meeting}), 403, 'RESOURCE_FORBIDDEN', 'ingest outsider');
+    assertDenied(await invoke(owner, {meeting_id: foreignMeeting}), 403, 'RESOURCE_FORBIDDEN', 'ingest foreign meeting');
+    assertDenied(await invoke(owner, {project_id: foreignProject}), 403, 'RESOURCE_FORBIDDEN', 'ingest foreign project');
+    assertDenied(await invoke(owner, {meeting_id: meeting, document_ids: [foreignFile]}),
+      403, 'RESOURCE_FORBIDDEN', 'ingest foreign file');
+    const allowed = await invoke(owner, {meeting_id: meeting});
+    assert.equal(allowed.status, 200, 'ingest authorized ready document');
+    assert.equal(allowed.data?.ok, true);
+    assert.ok(/Synthetic internal file text/.test(allowed.data?.materials_text || ''),
+      'ingest returned authorized synthetic text');
+  });
+
+  await t.test('meeting-files distinguishes auth denial from Drive setup', async () => {
+    const invoke = (token, id) => {
+      const form = new FormData();
+      form.append('meeting_id', id);
+      form.append('file', new Blob(['synthetic file'], {type: 'text/plain'}), 'local.txt');
+      return call('/functions/v1/meeting-files', {method: 'POST', body: form, token});
     };
-    const anonFile = await call('/functions/v1/meeting-files', {method: 'POST', body: form(), token: anonKey});
-    assert.ok(anonFile.status >= 400);
-    const outsiderFile = await call('/functions/v1/meeting-files', {method: 'POST', body: form(), token: outsider});
-    assert.ok(outsiderFile.status >= 400);
-    const ownerFile = await call('/functions/v1/meeting-files', {method: 'POST', body: form(), token: owner});
-    assert.ok(ownerFile.status >= 400);
-    assert.match(String(ownerFile.data?.error), /Google Drive 연결 설정/);
+    assertDenied(await invoke(anonKey, meeting), 401, 'AUTH_REQUIRED', 'files anon');
+    assertDenied(await invoke(outsider, meeting), 403, 'RESOURCE_FORBIDDEN', 'files outsider');
+    assertDenied(await invoke(owner, foreignMeeting), 403, 'RESOURCE_FORBIDDEN', 'files foreign meeting');
+    const allowed = await invoke(owner, meeting);
+    assert.equal(allowed.status, 400, 'files reaches Drive configuration without real Drive call');
+    assert.ok(/Google Drive 연결 설정/.test(String(allowed.data?.error)),
+      'files reached local Drive configuration stage');
   });
 });

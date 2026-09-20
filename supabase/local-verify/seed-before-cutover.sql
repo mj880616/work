@@ -22,6 +22,26 @@ insert into public.app_workspace_members(workspace_id,user_id,role) values
   ('90000000-0000-4000-8000-000000000010','90000000-0000-4000-8000-000000000002','viewer'),
   ('90000000-0000-4000-8000-000000000010','90000000-0000-4000-8000-000000000004','admin');
 
+-- A separate synthetic tenant lets owner credentials probe foreign resource IDs.
+insert into public.app_workspaces(id,slug,name)
+values ('90000000-0000-4000-8000-000000000060','local-foreign-workspace','LOCAL FOREIGN WORKSPACE');
+insert into public.app_workspace_members(workspace_id,user_id,role)
+values ('90000000-0000-4000-8000-000000000060','90000000-0000-4000-8000-000000000003','owner');
+insert into public.app_spaces(id,workspace_id,slug,name,description,created_by,owner_id,status,visibility,metadata)
+values ('90000000-0000-4000-8000-000000000061','90000000-0000-4000-8000-000000000060',
+        'local-foreign-project','LOCAL FOREIGN PROJECT','Synthetic foreign project',
+        '90000000-0000-4000-8000-000000000003','90000000-0000-4000-8000-000000000003',
+        'active','team','{"project_system":"v2"}');
+insert into public.app_meetings(id,workspace_id,project_id,title,meeting_at,created_by)
+values ('90000000-0000-4000-8000-000000000062','90000000-0000-4000-8000-000000000060',
+        '90000000-0000-4000-8000-000000000061','LOCAL FOREIGN MEETING',now(),
+        '90000000-0000-4000-8000-000000000003');
+insert into public.app_documents(id,workspace_id,project_id,meeting_id,title,description,visibility,uploaded_by,extraction_status,extracted_text)
+values ('90000000-0000-4000-8000-000000000063','90000000-0000-4000-8000-000000000060',
+        '90000000-0000-4000-8000-000000000061','90000000-0000-4000-8000-000000000062',
+        'LOCAL FOREIGN FILE','Synthetic foreign file metadata only','private',
+        '90000000-0000-4000-8000-000000000003','ready','Synthetic foreign file text');
+
 insert into public.app_pages(workspace_id,slug,title,summary,body,content_format,visibility,status,owner_id)
 select '90000000-0000-4000-8000-000000000010',slug,'LOCAL '||slug,
        'Synthetic public URL compatibility fixture','Synthetic body only',
