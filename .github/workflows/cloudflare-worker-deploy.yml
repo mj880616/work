@@ -28,6 +28,35 @@ jobs:
       - name: Run router regression tests
         run: node --test tests/domain/bokdoong-router.test.mjs
 
+      - name: Wait for portal icons on GitHub Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 300))
+          for icon in favicon.png favicon.ico; do
+            expected="$(sha256sum "personal/portal/$icon" | cut -d ' ' -f1)"
+            ready=false
+            for attempt in {1..60}; do
+              actual="$(curl --silent --fail --location --compressed \
+                --connect-timeout 5 --max-time 10 \
+                --header 'Cache-Control: no-cache' \
+                "https://mj880616.github.io/work/personal/portal/$icon?deploy=$GITHUB_SHA" \
+                | sha256sum | cut -d ' ' -f1 || true)"
+              if [[ "$actual" == "$expected" ]]; then
+                ready=true
+                echo "OK  GitHub Pages $icon matches this commit"
+                break
+              fi
+              echo "WAIT ($attempt/60)  GitHub Pages $icon"
+              if (( SECONDS >= deadline )); then break; fi
+              sleep 5
+            done
+            if [[ "$ready" != true ]]; then
+              echo "FAIL  GitHub Pages $icon did not match this commit"
+              exit 1
+            fi
+          done
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
