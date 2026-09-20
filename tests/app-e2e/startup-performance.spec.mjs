@@ -59,7 +59,7 @@ test('feature navigation waits for deferred readiness and bootstrap loads access
   expect(source).toContain("event.stopImmediatePropagation()");
   expect(source).toContain('#appView [data-hdv-goto]');
   expect(source).toContain('#appView [data-hdv-project]');
-  expect(source).toContain('#quickTaskBtn');
+  expect(source).toContain('#newTaskBtn');
   expect(source).toContain("loadFeatures().then(()=>{status.remove()");
   expect(source).toContain("const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])");
 });

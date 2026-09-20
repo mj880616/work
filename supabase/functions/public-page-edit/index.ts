@@ -2,17 +2,19 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const ANON=Deno.env.get('SUPABASE_ANON_KEY')!;
-const ALLOWED_ORIGIN='https://mj880616.github.io';
+const ALLOWED_ORIGINS=new Set([
+  'https://mj880616.github.io',
+  'https://work.bokdoong.com',
+  'https://desk.bokdoong.com'
+]);
 const WEB1_ADMIN_USER_ID='987b778e-69fe-4080-ad7f-191dc732d234';
-const cors={
-  'Access-Control-Allow-Origin':ALLOWED_ORIGIN,
+const baseCors={
   'Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods':'POST,OPTIONS',
   'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'no-store',
   'Vary':'Origin'
 };
-const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
 
 function userClient(req:Request){
   return createClient(SB,ANON,{
@@ -22,9 +24,12 @@ function userClient(req:Request){
 }
 
 Deno.serve(async(req:Request)=>{
-  if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
   const origin=req.headers.get('origin')||'';
-  if(origin&&origin!==ALLOWED_ORIGIN)return reply({error:'origin'},403);
+  const cors:Record<string,string>={...baseCors};
+  if(origin&&ALLOWED_ORIGINS.has(origin))cors['Access-Control-Allow-Origin']=origin;
+  const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
+  if(origin&&!ALLOWED_ORIGINS.has(origin))return reply({error:'origin'},403);
+  if(req.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
   if(req.method!=='POST')return reply({error:'method'},405);
 
   const authorization=req.headers.get('Authorization')||'';

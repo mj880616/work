@@ -70,7 +70,7 @@
     await import('./task-row-view.js?v=1');
     await import('./task-layout.js?v=7'); await window.__KPTU_TASK_LAYOUT_READY__;
     await import('./profile-settings.js?v=6'); await window.__KPTU_PROFILE_SETTINGS_READY__;
-    await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=1'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=6')]);
+    await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=6')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
     await import('./page-list-controller.js?v=2'); await window.__KPTU_PAGE_LIST_READY__;
     await import('./page-save-controller.js?v=3'); await window.__KPTU_PAGE_SAVE_READY__;

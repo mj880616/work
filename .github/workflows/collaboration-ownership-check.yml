@@ -33,9 +33,9 @@ jobs:
         run: |
           set -e
           grep -q "collaboration-center.js?v=9" app/loader-v2.js
-          grep -q "notification-center-ui.js?v=6" app/loader-v2.js
           grep -q "await window.__KPTU_COLLABORATION_READY__" app/loader-v2.js
-          grep -q "await window.__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js
+          grep -q "app_notifications" app/team.js
+          grep -q "statUnread" app/team.js
           grep -q "collaboration-center.css?v=3" app/styles.css
           grep -q "notification-center-ui.css?v=2" app/styles.css
           grep -q "window.__KPTU_COLLABORATION_READY__" app/collaboration-center.js

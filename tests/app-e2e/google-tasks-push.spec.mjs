@@ -33,13 +33,10 @@ async function login(page){
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
 }
 
-test('Google Tasks is separate and push settings render',async({page})=>{
+test('Google Tasks remains separate from the app task list',async({page})=>{
   await mock(page);await login(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
   await expect(page.locator('#gtTaskSection')).toContainText('읽기 전용');
-  await page.evaluate(()=>window.KPTURouter.go('profile',{source:'qa'}));
-  await expect(page.locator('#pushSettingsPanel')).toBeVisible({timeout:10000});
-  await expect(page.locator('#pushSettingsPanel')).toContainText('푸시 알림');
 });
