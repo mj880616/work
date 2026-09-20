@@ -326,16 +326,17 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await expect(page.locator('#documentModal')).toBeVisible();
   await expect(page.locator('#docProject')).toHaveValue(created.id);
   await page.locator('[data-close="documentModal"]').first().click();
-  for(const [kind,modal,projectField] of [
-    ['meeting','#meetingModal','#meetingProject'],
-    ['page','#editorModal','#pageSpace']
-  ]){
-    await page.locator(`[data-ps3-global="${kind}"]`).click();
-    await expect(page.locator(modal)).toBeVisible();
-    await expect(page.locator(projectField)).toHaveValue(created.id);
-    await page.locator(`${modal} [data-close]`).first().click();
-    await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  }
+  await page.locator('[data-ps3-global="meeting"]').click();
+  await expect(page.locator('#meetingModal')).toBeVisible();
+  await expect(page.locator('#meetingProject')).toHaveValue(created.id);
+  await page.locator('#meetingModal [data-close]').first().click();
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await expect(page.locator('[data-ps3-global="page"]')).toHaveCount(0);
+  await page.locator('#ps3Hierarchy .ps3-child-menu summary').click();
+  await page.locator('[data-ps3-child]').click();
+  await expect(page.locator('#ps3CreateModal')).toBeVisible();
+  await expect(page.locator('#ps3CreateParent')).toHaveValue(created.id);
+  await page.locator('[data-ps3-close="ps3CreateModal"]').click();
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);

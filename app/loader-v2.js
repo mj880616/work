@@ -34,7 +34,7 @@
     return;
   }
 
-  await import('./topbar-actions.js?v=5');
+  await import('./topbar-actions.js?v=6');
   window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
   await import('./team.js?v=24');
   const teamState=await window.__KPTU_TEAM_READY__;
