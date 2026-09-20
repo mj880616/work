@@ -97,6 +97,36 @@ jobs:
             echo "OK  http://$host/ -> $result"
           }
 
+          check_icon() {
+            local url="$1"
+            local expected_type="$2"
+            local result=""
+
+            for attempt in {1..20}; do
+              result="$(curl \
+                --silent \
+                --show-error \
+                --location \
+                --max-redirs 8 \
+                --connect-timeout 10 \
+                --max-time 30 \
+                --output /dev/null \
+                --write-out '%{http_code}|%{content_type}' \
+                "$url" || true)"
+
+              if [[ "$result" == "200|$expected_type" ]]; then
+                echo "OK  $url ($expected_type)"
+                return 0
+              fi
+
+              echo "WAIT ($attempt/20, $result)  $url"
+              sleep 5
+            done
+
+            echo "FAIL  $url (last $result)"
+            return 1
+          }
+
           for url in \
             https://bokdoong.com/ \
             https://work.bokdoong.com/ \
@@ -124,6 +154,8 @@ jobs:
           check_200 'https://read.bokdoong.com/favicon.ico'
           check_200 'https://arsenal.bokdoong.com/favicon.ico'
           check_200 'https://desk.bokdoong.com/work/app/sw.js?v=2'
+          check_icon 'https://bokdoong.com/favicon.png' 'image/png'
+          check_icon 'https://bokdoong.com/favicon.ico' 'image/x-icon'
 
           # These are stable URLs whose contents change on GitHub Pages deploys.
           # Fail the deploy verification if Cloudflare starts giving browsers a TTL.

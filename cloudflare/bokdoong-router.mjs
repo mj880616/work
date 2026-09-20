@@ -10,13 +10,13 @@ const SERVICES = Object.freeze({
 });
 
 function allowedPath(host, path) {
-  if (host === 'bokdoong.com') return path === '/' || path === '/favicon.svg' || path === '/favicon.ico';
+  if (host === 'bokdoong.com') return path === '/' || path === '/favicon.png' || path === '/favicon.ico';
   return Boolean(SERVICES[host] && path.startsWith(SERVICES[host].prefix));
 }
 
 function upstreamPath(host, path) {
   if (host === 'bokdoong.com') {
-    if (path === '/favicon.svg' || path === '/favicon.ico') return '/work/personal/portal/favicon.svg';
+    if (path === '/favicon.png' || path === '/favicon.ico') return `/work/personal/portal${path}`;
     return '/work/personal/portal/';
   }
   return path;
@@ -75,6 +75,10 @@ export default {
       return Response.redirect(recovery.href, 302);
     }
     const responseHeaders = new Headers(upstream.headers);
+    if (host === 'bokdoong.com' && upstream.ok) {
+      if (incoming.pathname === '/favicon.png') responseHeaders.set('Content-Type', 'image/png');
+      if (incoming.pathname === '/favicon.ico') responseHeaders.set('Content-Type', 'image/x-icon');
+    }
     // The default Cloudflare browser TTL can turn GitHub's 10 minutes into
     // four hours. Require browsers to revalidate every proxied response.
     responseHeaders.set('Cache-Control', 'no-cache, must-revalidate');
