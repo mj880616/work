@@ -104,7 +104,43 @@ jobs:
               node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
             fi
             node supabase/local-verify/analyze-baseline.mjs inventory "$RUNNER_TEMP/web2-schema.raw.sql"
+            node supabase/local-verify/definer-diagnostics.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+            node supabase/local-verify/role-diagnostics.mjs target "$RUNNER_TEMP/web2-schema.raw.sql" 10343
+            docker run --rm --network host --read-only --tmpfs /tmp:rw,noexec,nosuid \
+              --user "$(id -u):$(id -g)" \
+              -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE -e PGPASSWORD \
+              -e PGOPTIONS -e PGSSLMODE -e PGSSLROOTCERT \
+              -v "$RUNNER_TEMP:/out" \
+              -v "$PWD/supabase/local-verify/role-catalog.sql:/verify/role-catalog.sql:ro" \
+              postgres:17 psql -X -qAt -v ON_ERROR_STOP=1 \
+                -f /verify/role-catalog.sql \
+                > "$RUNNER_TEMP/web2-hosted-roles.json" \
+                2> "$RUNNER_TEMP/role-catalog.err" || {
+                  echo 'HOSTED_ROLE_CATALOG_FAILED: read-only catalog query failed; raw output withheld' >&2
+                  exit 1
+                }
           fi
+      - uses: supabase/setup-cli@v3
+        if: ${{ inputs.phase == 'inspect' }}
+        with:
+          version: 2.84.2
+      - name: Compare hosted and disposable local role catalogs
+        if: ${{ inputs.phase == 'inspect' }}
+        shell: bash
+        env:
+          WEB2_BASELINE_FILE: ${{ runner.temp }}/web2-schema.raw.sql
+          WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
+          WEB2_HOSTED_ROLES_FILE: ${{ runner.temp }}/web2-hosted-roles.json
+          WEB2_ROLE_DIAGNOSTIC: '1'
+        run: |
+          set -euo pipefail
+          node --test tests/security/local-supabase-ci.test.mjs
+          bash -n supabase/local-verify/bootstrap-ci.sh
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          bash supabase/local-verify/bootstrap-ci.sh
       - name: Stop after inspection and discard temporary schema
         if: ${{ inputs.phase == 'inspect' }}
         run: echo 'Inspection completed. Review the reported findings and hash before a separate verify run.'
@@ -136,5 +172,6 @@ jobs:
         shell: bash
         run: |
           if test -d "$RUNNER_TEMP"; then
-            rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err" "$RUNNER_TEMP/prod-ca-2021.crt"
+            rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err" "$RUNNER_TEMP/prod-ca-2021.crt" \
+              "$RUNNER_TEMP/web2-hosted-roles.json" "$RUNNER_TEMP/role-catalog.err"
           fi

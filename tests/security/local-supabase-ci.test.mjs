@@ -17,6 +17,8 @@ const createAuth = new URL('../../supabase/local-verify/create-local-auth.mjs', 
 const scanner = new URL('../../supabase/local-verify/scan-schema.mjs', import.meta.url);
 const diagnostics = new URL('../../supabase/local-verify/diagnose-start.mjs', import.meta.url);
 const baselineReview = new URL('../../supabase/local-verify/analyze-baseline.mjs', import.meta.url);
+const roleDiagnostics = new URL('../../supabase/local-verify/role-diagnostics.mjs', import.meta.url);
+const definerDiagnostics = new URL('../../supabase/local-verify/definer-diagnostics.mjs', import.meta.url);
 
 const restricted = (sql, key) => `\\restrict ${key}\n${sql}\\unrestrict ${key}\n`;
 
@@ -56,8 +58,8 @@ test('one-shot workflow keeps DB credential in extraction step and raw dump off 
   const compare = oneShot.indexOf('node supabase/local-verify/schema-hash.mjs');
   const setup = oneShot.indexOf('supabase/setup-cli@v3');
   const verifyInventory = oneShot.lastIndexOf('node supabase/local-verify/analyze-baseline.mjs inventory');
-  const staticTests = oneShot.indexOf('node --test tests/security/');
-  const bootstrapStep = oneShot.indexOf('bash supabase/local-verify/bootstrap-ci.sh');
+  const staticTests = oneShot.lastIndexOf('node --test tests/security/');
+  const bootstrapStep = oneShot.lastIndexOf('bash supabase/local-verify/bootstrap-ci.sh');
   assert.ok(scan >= 0 && scan < compare && compare < setup && setup < staticTests && staticTests < bootstrapStep,
     'raw scan and canonical hash gate must precede all verification work');
   assert.ok(setup < verifyInventory && verifyInventory < staticTests,
@@ -74,6 +76,9 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/bootstrap-ci.sh',
     'supabase/local-verify/diagnose-start.mjs',
     'supabase/local-verify/analyze-baseline.mjs',
+    'supabase/local-verify/role-diagnostics.mjs',
+    'supabase/local-verify/role-catalog.sql',
+    'supabase/local-verify/definer-diagnostics.mjs',
     'supabase/local-verify/custom-auth-trigger.sql',
     'supabase/local-verify/create-local-auth.mjs',
     'supabase/local-verify/seed-before-cutover.sql',
@@ -105,6 +110,58 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
   assert.match(bootstrap, /analyze-baseline\.mjs" failure/);
   assert.match(load('supabase/local-verify/seed-before-cutover.sql'),
     /app\.local_verification.*is distinct from 'on'/s);
+});
+
+test('security definer triage reports flags but withholds function bodies', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'web2-definer-review-'));
+  try {
+    const dump = join(directory, 'dump.sql');
+    const secret = 'sensitive-body-literal';
+    writeFileSync(dump, [
+      '-- Name: app_public_project(uuid); Type: FUNCTION; Schema: public; Owner: postgres',
+      'CREATE FUNCTION public.app_public_project(p_id uuid) RETURNS boolean AS $$',
+      `SELECT auth.uid() IS NOT NULL AND private.app_can_edit_space(p_id) AND '${secret}' IS NOT NULL;`,
+      '$$ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, public;',
+      '-- Name: app_public_project(uuid); Type: ACL; Schema: public; Owner: postgres',
+      'REVOKE ALL ON FUNCTION public.app_public_project(uuid) FROM PUBLIC;',
+      'GRANT EXECUTE ON FUNCTION public.app_public_project(uuid) TO anon, authenticated;',
+    ].join('\n'));
+    const run = spawnSync(process.execPath, [fileURLToPath(definerDiagnostics), dump], {encoding: 'utf8'});
+    assert.equal(run.status, 0);
+    assert.match(run.stdout, /DEFINER_REVIEW_COUNT=1/);
+    assert.match(run.stdout, /search_path:true id_input:true identity_ref:true permission_helper_ref:true/);
+    assert.ok(!`${run.stdout}${run.stderr}`.includes(secret));
+  } finally { rmSync(directory, {recursive: true, force: true}); }
+});
+
+test('target default privilege statement is classified without leaking custom roles or SQL literals', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'web2-role-review-'));
+  try {
+    const dump = join(directory, 'dump.sql');
+    const hosted = join(directory, 'hosted.json');
+    const local = join(directory, 'local.json');
+    const custom = 'person-secret-name';
+    writeFileSync(dump, [
+      '-- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: postgres',
+      `ALTER DEFAULT PRIVILEGES FOR ROLE "${custom}" IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon, authenticated;`,
+      '',
+    ].join('\n'));
+    writeFileSync(hosted, JSON.stringify({currentUser: 'postgres', roles: [
+      {name: 'postgres', superuser: false}, {name: custom, superuser: false},
+    ], memberships: [{member: 'postgres', role: custom}], schemaOwners: [{schema: 'public', owner: 'postgres'}]}));
+    writeFileSync(local, JSON.stringify({currentUser: 'postgres', roles: [
+      {name: 'postgres', superuser: false},
+    ], memberships: [], schemaOwners: [{schema: 'public', owner: 'pg_database_owner'}]}));
+    const run = spawnSync(process.execPath,
+      [fileURLToPath(roleDiagnostics), 'compare', dump, '2', hosted, local], {encoding: 'utf8'});
+    assert.equal(run.status, 0);
+    assert.match(run.stdout, /TARGET_KIND=ALTER_DEFAULT_PRIVILEGES/);
+    assert.match(run.stdout, /TARGET_SCHEMA=public/);
+    assert.match(run.stdout, /TARGET_RECIPIENTS=anon,authenticated/);
+    assert.match(run.stdout, /ROLE_hostedCurrentMemberOfTarget=true/);
+    assert.match(run.stdout, /ROLE_localTargetExists=false/);
+    assert.ok(!`${run.stdout}${run.stderr}`.includes(custom));
+  } finally { rmSync(directory, {recursive: true, force: true}); }
 });
 
 test('baseline inventory reports review candidates without printing literals or function bodies', () => {

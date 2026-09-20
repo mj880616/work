@@ -80,6 +80,23 @@ esac
   echo 'Local API keys are missing' >&2; exit 1;
 }
 
+# Diagnostic mode compares catalog metadata only. It never applies the hosted
+# baseline, seed, migration, or production credentials to the local stack.
+if [[ "${WEB2_ROLE_DIAGNOSTIC:-0}" == 1 ]]; then
+  [[ -s "${WEB2_HOSTED_ROLES_FILE:-}" ]] || {
+    echo 'Read-only hosted role catalog was not captured' >&2; exit 1;
+  }
+  if ! psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 \
+    -f "$repo_root/supabase/local-verify/role-catalog.sql" \
+    > "$ci_root/local-roles.json" 2> "$ci_root/local-roles.err"; then
+    echo 'LOCAL_ROLE_CATALOG_FAILED: SQL error withheld' >&2; exit 1;
+  fi
+  node "$repo_root/supabase/local-verify/role-diagnostics.mjs" compare \
+    "$baseline" 10343 "$WEB2_HOSTED_ROLES_FILE" "$ci_root/local-roles.json"
+  echo 'LOCAL_ROLE_DIAGNOSTIC_PASSED'
+  exit 0
+fi
+
 # The reviewed dump uses PostgreSQL 17's \restrict directive. Use the same
 # major client as extraction; the runner's distro psql may be older.
 if ! PGOPTIONS='-c app.local_verification=on' docker run --rm --network host --read-only \
