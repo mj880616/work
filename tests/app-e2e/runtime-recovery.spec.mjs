@@ -137,7 +137,7 @@ test('partial page save failure is explicit after the primary record is saved',a
   await page.evaluate(()=>{window.__failSecondary=true});
   await page.locator('#savePageBtn').click();
   await expect(page.locator('#editorStatus')).toContainText('본문은 저장됐지만 일부 부가설정 저장에 실패했습니다.',{timeout:3000});
-  await expect(page.locator('#editorStatus')).toContainText('그룹 권한: 권한 저장 실패');
+  await expect(page.locator('#editorStatus')).toContainText('AI/디자인 설정: 설정 저장 실패');
   await expect(page.locator('#editorStatus')).toHaveAttribute('role','alert');
   await expect(page.locator('#editorStatus')).not.toHaveAttribute('aria-live');
   await expect(page.locator('#savePageBtn')).toBeEnabled();

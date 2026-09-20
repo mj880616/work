@@ -1,20 +1,17 @@
-@import url('./base-ui.css?v=4');
+@import url('./base-ui.css?v=5');
 @import url('./static-gates.css?v=2');
-@import url('./topbar-actions.css?v=4');
+@import url('./topbar-actions.css?v=5');
 @import url('./team.css?v=2');
-@import url('./team-member-overview.css?v=2');
-@import url('./team-profile-view.css?v=2');
-@import url('./team-member-management.css?v=2');
 @import url('./profile-settings.css?v=2');
 @import url('./workplace-detail.css?v=2');
-@import url('./collaboration-center.css?v=3');
+@import url('./mobile-dock.css?v=1');
 @import url('./notification-center-ui.css?v=2');
 @import url('./suborganizations.css?v=2');
 @import url('./suborganization-filters.css?v=2');
 @import url('./access-approval.css?v=3');
 @import url('./task-layout.css?v=4');
 @import url('./google-tasks.css?v=2');
-@import url('./meeting-ui.css?v=3');
+@import url('./meeting-ui.css?v=5');
 @import url('./calendar-ui.css?v=2');
 @import url('./photo-room.css?v=2');
 @import url('./public-workspace.css?v=4');
@@ -22,9 +19,10 @@
 @import url('./desktop-ui.css?v=7');
 @import url('./desktop-tight-nav.css?v=2');
 @import url('./page-editor-static.css?v=2');
-@import url('./page-core.css?v=2');
+@import url('./page-core.css?v=5');
+@import url('./compact-list.css?v=1');
 @import url('./page-builder.css?v=2');
 @import url('./forum-flow-polish.css?v=1');
-@import url('./project-system-v3.css?v=3');
+@import url('./project-system-v3.css?v=8');
 
 @import url('./media-workflow.css?v=1');

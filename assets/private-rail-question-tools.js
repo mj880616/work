@@ -68,7 +68,7 @@
     const edit=document.createElement('button');edit.type='button';edit.id='privateRailQuestionEdit';edit.className='private-rail-printbtn private-rail-question-edit';edit.textContent=state.editing?'저장':'수정';edit.addEventListener('click',toggleEdit);
     const cancel=document.createElement('button');cancel.type='button';cancel.id='privateRailQuestionCancel';cancel.className='private-rail-printbtn private-rail-question-cancel';cancel.textContent='취소';cancel.addEventListener('click',cancelEdit);
     const print=document.createElement('button');print.type='button';print.className='private-rail-printbtn';print.textContent='인쇄';print.addEventListener('click',()=>window.print());
-    bar.append(back,stat,edit,cancel,print);hero.before(bar);
+    bar.append(back,stat,edit,cancel,print);hero.after(bar);
     if(state.editing){bar.classList.add('editing');status('수정 중 · 화면의 문구를 직접 수정한 뒤 저장');}
   }
 

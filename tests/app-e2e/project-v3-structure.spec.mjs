@@ -57,7 +57,8 @@ test('first paint uses final icon, topbar and direct project renderer styles', a
   expect(styles).toContain('project-system-v3.css');
   expect(topbarCss).toContain('.top-actions #logoutBtn');
   expect(topbarCss).toContain('display:none!important');
-  expect(topbar).toContain("messageButton.id='ccMessageTop'");
+  expect(topbar).toContain("logout.addEventListener");
+  expect(topbar).not.toContain('ccMessageTop');
   const topbarImport=loader.indexOf("import('./topbar-actions.js");
   const teamImport=loader.indexOf("import('./team.js");
   expect(topbarImport).toBeGreaterThan(-1);

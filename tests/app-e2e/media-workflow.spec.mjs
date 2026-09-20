@@ -49,6 +49,9 @@ test('press workflow uses internal page storage and keeps cases out of general p
   await page.locator('[data-view="pages"]').click();
   await page.locator('#pagesMediaEntry').click();
   await expect(page.locator('#mediaView')).toBeVisible();
+  await expect(page.locator('[data-view="media"]')).toHaveText('성명·보도자료');
+  await expect(page.locator('#mediaView h2').first()).toHaveText('성명·보도자료');
+  await expect(page.locator('#pressArchiveLink')).toHaveAttribute('href','../press/');
   await expect(page.locator('#mediaCaseList')).toContainText('기존 사건');
   await expect(page.locator('#mediaCaseList')).toContainText('언론대응 · 사건 팩트시트 → 초안 → QA');
 

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('legacy auth screen and workspace shell cannot paint before the current UI is ready', async ({ page }) => {
+test('anonymous workspace shell cannot paint before redirect to login', async ({ page }) => {
   let releaseApp;
   let appRequested = false;
   const appHold = new Promise(resolve => { releaseApp = resolve; });
@@ -30,10 +30,8 @@ test('legacy auth screen and workspace shell cannot paint before the current UI 
   expect(beforeReady).toBe('hidden');
 
   releaseApp();
-  await page.waitForFunction(() => typeof window.__KPTU_MARK_APP_UI_READY__ === 'function');
-  await page.evaluate(() => window.__KPTU_MARK_APP_UI_READY__?.());
-  const afterReady = await page.locator('#appView').evaluate(el => getComputedStyle(el).visibility);
-  expect(afterReady).toBe('visible');
+  await expect(page).toHaveURL(/\/app\/login\/?\?return=/, { timeout: 10000 });
+  await expect(page.locator('#appView')).toHaveCount(0);
 });
 
 test('router restores deep links only after explicit app-ui-ready and preserves browser history', async ({ page }) => {

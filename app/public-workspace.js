@@ -27,8 +27,6 @@
     document.getElementById('authView')?.classList.add('hidden');
     document.getElementById('bootstrapView')?.classList.add('hidden');
     document.getElementById('appView')?.classList.remove('hidden');
-    const role=document.getElementById('workspaceRole');if(role)role.innerHTML='로그인 없이 공개된 업무를 둘러볼 수 있습니다. <span class="public-readonly-badge">읽기 전용</span>';
-    const badge=document.getElementById('userBadge');if(badge){badge.textContent='공개 열람';badge.disabled=true;badge.classList.remove('hidden')}
     document.getElementById('logoutBtn')?.classList.add('hidden');
     let login=document.getElementById('publicLoginBtn');
     if(!login){login=document.createElement('button');login.id='publicLoginBtn';login.type='button';login.className='secondary';login.textContent='로그인';login.onclick=()=>location.href=loginUrl();document.querySelector('.top-actions')?.appendChild(login)}
@@ -97,7 +95,7 @@
     const head=document.querySelector('#pagesView .section-head p');if(head)head.textContent='게시글의 열람 상태에 따라 비로그인 열람 여부가 결정됩니다.';
     if(filter){filter.innerHTML='<option value="published">전체 공개 게시</option>';filter.disabled=true}
     if(!document.getElementById('publicPageVisibilityNote'))list.insertAdjacentHTML('beforebegin','<div id="publicPageVisibilityNote" class="public-visibility-note">전체 공개(public) 글만 목록에 표시됩니다. 링크 공개(unlisted)는 주소를 아는 사람만 직접 열람할 수 있고, 로그인 사용자·지정 그룹·비공개 글은 제목과 요약도 외부 목록에 노출하지 않습니다.</div>');
-    const paint=()=>{const q=(search?.value||'').trim().toLowerCase(),rows=state.pages.filter(p=>!q||`${p.title||''} ${p.summary||''}`.toLowerCase().includes(q));list.innerHTML=rows.map(p=>`<article class="page-card" tabindex="0" role="link" data-public-card-url="../p/${encodeURIComponent(p.slug)}/"><div class="badges"><span class="badge published">전체 공개</span></div><h3>${esc(p.title)}</h3><p>${esc(p.summary||'')}</p><div class="page-card-foot"><span class="updated">${fmt(p.updated_at)}</span><a class="mini" href="../p/${encodeURIComponent(p.slug)}/" target="_blank" rel="noopener">열기</a></div></article>`).join('');document.getElementById('pageEmpty')?.classList.toggle('hidden',!!rows.length)};
+    const paint=()=>{const q=(search?.value||'').trim().toLowerCase(),rows=state.pages.filter(p=>!q||`${p.title||''} ${p.summary||''}`.toLowerCase().includes(q));list.innerHTML=rows.map(p=>`<article class="page-card compact-entry" tabindex="0" role="link" data-public-card-url="../p/${encodeURIComponent(p.slug)}/"><div class="compact-entry-main"><span class="badge published">전체 공개</span><h3>${esc(p.title)}</h3><p class="compact-entry-summary">${esc(p.summary||'')}</p></div><div class="page-card-foot compact-entry-actions"><span class="updated compact-entry-meta">${fmt(p.updated_at)}</span></div></article>`).join('');document.getElementById('pageEmpty')?.classList.toggle('hidden',!!rows.length)};
     if(search)search.oninput=paint;paint();
     const openCard=e=>{
       const card=e.target.closest?.('.page-card[data-public-card-url]');
@@ -117,12 +115,12 @@
       const q=(search?.value||'').trim().toLowerCase();
       const rows=state.documents.filter(d=>!q||[d.title,d.file_name,d.source,d.category,d.description,(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q));
       box.innerHTML=rows.length?rows.map(d=>{
-        const body=`<div class="badges"><span class="badge">${esc(d.category||'기타')}</span><span class="badge published">공개</span></div><h3>${esc(d.title||d.file_name||'자료')}</h3><p>${esc(d.source||'출처 미기재')}${d.document_date?' · '+esc(d.document_date):''}</p>${d.description?`<small>${esc(d.description)}</small>`:''}`;
-        return d.drive_url?`<button class="public-library-card" type="button" data-public-document-url="${esc(d.drive_url)}">${body}</button>`:`<article class="public-library-card">${body}</article>`;
+        const body=`<div class="compact-entry-main"><div class="badges"><span class="badge">${esc(d.category||'기타')}</span><span class="badge published">공개</span></div><h3>${esc(d.title||d.file_name||'자료')}</h3>${d.description?`<small class="compact-entry-summary">${esc(d.description)}</small>`:''}</div><div class="compact-entry-actions compact-entry-meta">${esc(d.source||'출처 미기재')}${d.document_date?' · '+esc(d.document_date):''}</div>`;
+        return d.drive_url?`<button class="public-library-card compact-entry" type="button" data-public-document-url="${esc(d.drive_url)}">${body}</button>`:`<article class="public-library-card compact-entry">${body}</article>`;
       }).join(''):'<div class="empty">현재 외부 공개로 지정된 자료가 없습니다.</div>';
     };
     if(search)search.oninput=paint;
-    box.onclick=e=>{const card=e.target.closest?.('[data-public-document-url]');if(card)window.open(card.dataset.publicDocumentUrl,'_blank','noopener')};
+    box.onclick=e=>{const card=e.target.closest?.('[data-public-document-url]');if(!card)return;try{const url=new URL(card.dataset.publicDocumentUrl);if(['http:','https:'].includes(url.protocol))window.open(url.href,'_blank','noopener');else console.error('invalid public document URL protocol')}catch{console.error('invalid public document URL')}};
     paint();
   }
   async function load(){
