@@ -148,12 +148,16 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const action = url.pathname.split('/').filter(Boolean).pop() || '';
 
-  if (req.method === 'POST' && action === 'drive-start') {
-    try {
-      return await startDriveAuth(req);
-    } catch (e) {
-      console.error(e);
-      return json(req, { error: e instanceof Error ? e.message : String(e) }, 403);
+  if (req.method === 'POST') {
+    const body = await req.json().catch(() => ({}));
+    const requestedAction = action === 'drive-start' ? 'drive-start' : String(body?.action || '');
+    if (requestedAction === 'drive-start') {
+      try {
+        return await startDriveAuth(req);
+      } catch (e) {
+        console.error(e);
+        return json(req, { error: e instanceof Error ? e.message : String(e) }, 403);
+      }
     }
   }
 
