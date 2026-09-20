@@ -86,6 +86,23 @@ test('2026-27 scoring additions are allowed without masking existing fields or l
   assert.match(auditArchive(data, { complete: false, baselineMatches: withScoringBaseline }).errors.join(' '), /2026-27/);
 });
 
+test('only the three verified Ipswich assist-label corrections are allowed in legacy reviews', () => {
+  const data = copy();
+  const match = data.find(m => m.id === '2026-09-15-ipswich-away-carabao');
+  match.events[1] = '16분 마두에케 골(메리노 패스·공식 도움 배정 없음)';
+  match.events[3] = '58분 메리노 골(다우먼 연결·공식 도움 배정 없음)';
+  match.decisive[1] = '브루노-메리노 중원이 경기 초반 세컨드볼과 전진 패스를 장악해 입스위치가 압박을 지속하지 못하게 했고, 메리노는 1골과 16분 추가골의 마지막 패스로 공격 마무리까지 관여했음. 공식 이벤트에서는 해당 패스에 도움을 배정하지 않았음.';
+  assert.deepEqual(auditArchive(data, { complete: false, baselineMatches: original }).errors, []);
+
+  match.events[0] += 'incorrect';
+  assert.match(auditArchive(data, { complete: false, baselineMatches: original }).errors.join(' '), /2026-27/);
+
+  match.events[0] = original.find(m => m.id === match.id).events[0];
+  const correctedBaseline = structuredClone(data);
+  match.events[1] = '16분 마두에케 골(메리노 도움)';
+  assert.match(auditArchive(data, { complete: false, baselineMatches: correctedBaseline }).errors.join(' '), /2026-27/);
+});
+
 test('2025-26 match statistics have numeric big-chance coverage and source links', () => {
   const data = loadArchive(readFileSync(new URL('./matches.js', import.meta.url), 'utf8'))
     .filter(match => match.season === '2025-26');

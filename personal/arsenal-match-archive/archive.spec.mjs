@@ -13,10 +13,12 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     await page.locator('#seasonFilter').selectOption('2025-26');
 
     await page.locator('#archiveList .archive-item').filter({ hasText: '맨체스터 유나이티드 0-1 아스날' }).click();
+    await expect(page.getByRole('region', { name: '득점·도움 기록' })).toBeVisible();
     await expect(page.locator('.goal-side.home')).toContainText('득점 없음');
     await expect(page.locator('.goal-side.away')).toContainText('13′');
     await expect(page.locator('.goal-side.away')).toContainText('Calafiori');
     await expect(page.locator('.goal-side.away')).toContainText('도움 —');
+    await expect(page.locator('.goal-source')).toContainText('도움 —: 공식 기록상 도움 배정 없음');
     await expect(page.locator('.goal-source a')).toHaveAttribute('href', /^https:\/\//);
     await expect(page.locator('.goal-source a')).toHaveAttribute('rel', 'noopener noreferrer');
 

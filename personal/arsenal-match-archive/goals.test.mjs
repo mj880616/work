@@ -28,6 +28,11 @@ test('official scoring distinctions survive representative fixtures', () => {
   assert.equal(byDate('2025-08-17').goals[0].minute, '13');
   assert.equal(byDate('2025-08-17').goals[0].assist, null);
   assert.equal(byDate('2025-12-13').goals.filter(goal => goal.type === 'own-goal').length, 2);
+  assert.equal(byDate('2025-10-26').goals[0].assist, null);
+  assert.ok(!byDate('2025-10-26').events.some(event => /가브리엘 도움/.test(event)));
+  assert.ok(byDate('2025-10-26').events.some(event => /공식 도움 배정 없음/.test(event)));
+  assert.ok(!byDate('2026-09-15').events.some(event => /(?:메리노|다우먼) 도움/.test(event)));
+  assert.ok(!byDate('2026-09-15').decisive.some(text => /1골 1도움/.test(text)));
   assert.equal(byDate('2026-01-28').goals[0].minute, '3'); // UEFA official report, not PL syndication minute.
   assert.equal(byDate('2026-05-05').goals[0].minute, '45');
   assert.match(byDate('2026-01-28').goalsTimeSource, /^https:\/\/www\.uefa\.com\//);

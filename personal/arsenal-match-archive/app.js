@@ -37,13 +37,13 @@
   }
 
   function renderGoalSummary(match) {
-    return '<div class="goal-summary" aria-label="득점·도움 기록">' +
-      renderGoalSide(match, "home") + renderGoalSide(match, "away") + '</div>' +
+    return '<section class="goal-summary" aria-label="득점·도움 기록">' +
+      renderGoalSide(match, "home") + renderGoalSide(match, "away") + '</section>' +
       (match.goalsSource ? '<p class="goal-source"><a href="' + escapeHtml(match.goalsSource) +
-        '" target="_blank" rel="noopener noreferrer">공식 득점·도움 기록</a>' +
+        '" target="_blank" rel="noopener noreferrer">공식 득점·도움 데이터(JSON)</a>' +
         (match.goalsTimeSource ? ' · <a href="' + escapeHtml(match.goalsTimeSource) +
           '" target="_blank" rel="noopener noreferrer">UEFA 공식 득점 시간</a>' : "") +
-        ' · 도움 —: 공식 경기 이벤트에 미기록</p>' : "");
+        ' · 도움 —: 공식 기록상 도움 배정 없음</p>' : "");
   }
 
   function renderPhotos(match) {
