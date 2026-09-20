@@ -212,6 +212,29 @@ Deno.serve(async (req) => {
         await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
         return Response.redirect(driveRedirect('error', 'drive_scope_failed'), 302);
       }
+
+      const workspaces = await serviceGet('app_workspaces?slug=eq.kptu-work&select=id&limit=1');
+      const workspaceId = workspaces?.[0]?.id;
+      if (!workspaceId) {
+        await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
+        return Response.redirect(driveRedirect('error', 'workspace_missing'), 302);
+      }
+      const settings = await serviceGet(
+        `app_drive_settings?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=library_folder_id,root_folder_id&limit=1`
+      );
+      const folderId = settings?.[0]?.library_folder_id || settings?.[0]?.root_folder_id || null;
+      if (folderId) {
+        const folderCheck = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id&supportsAllDrives=true`,
+          { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+        );
+        if (!folderCheck.ok) {
+          console.error(await folderCheck.text());
+          await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
+          return Response.redirect(driveRedirect('error', 'drive_folder_access_failed'), 302);
+        }
+      }
+
       await servicePatch('public_policy_drive_config?id=eq.1', {
         google_refresh_token: tokens.refresh_token,
         updated_at: new Date().toISOString()
