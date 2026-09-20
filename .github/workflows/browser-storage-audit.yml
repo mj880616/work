@@ -64,12 +64,13 @@ jobs:
               'app/auth-bootstrap.js':[r'SESSION_KEY'],
               'app/runtime-client.js':[r'config\.sessionKey'],
               'app/public-page-auth.js':[r'config[.]sessionKey'],
-              'app/web1-admin-auth.js':[r'cfg[.]sessionKey'],
+              'app/web1-admin-auth.js':[r'cfg[.]sessionKey',r'oauthReturnKey'],
               'app/photo-room.js':[r'SESSION_KEY'],
               'app/password-reset.js':[r'SESSION_KEY'],
               'tests/app-e2e/public-page-editor-fixture.html':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-page-editor-live.spec.mjs':[r'kptu_public_editor_session_v1',r'kptu_collab_session_v1'],
               'tests/app-e2e/public-page-password-recovery.spec.mjs':[r'kptu_public_editor_session_v1'],
+              'tests/security/web1-admin-auth-redirect.test.mjs':[r'\bsessionStorage\b',r'\blocalStorage\b'],
           }
 
           active_hits=[]; legacy_hits=[]; violations=[]
