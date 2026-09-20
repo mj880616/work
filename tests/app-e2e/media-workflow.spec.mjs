@@ -46,8 +46,7 @@ test('press workflow uses internal page storage and keeps cases out of general p
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 
-  await page.locator('[data-view="pages"]').click();
-  await page.locator('#pagesMediaEntry').click();
+  await page.locator('.app-nav [data-view="media"]').click();
   await expect(page.locator('#mediaView')).toBeVisible();
   await expect(page.locator('[data-view="media"]')).toHaveText('성명·보도자료');
   await expect(page.locator('#mediaView h2').first()).toHaveText('성명·보도자료');

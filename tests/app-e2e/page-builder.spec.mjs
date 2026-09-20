@@ -147,7 +147,7 @@ test('page builder keeps imported source metadata when metadata read fails after
     if(req.method()==='PATCH')metadataPatches++;
     return route.fallback();
   });
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto('http://127.0.0.1:8123/app/login/?return='+encodeURIComponent('http://127.0.0.1:8123/app/'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('writer@example.org');
   await page.locator('#authPassword').fill('password123');

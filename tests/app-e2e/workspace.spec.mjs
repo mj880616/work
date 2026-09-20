@@ -204,11 +204,10 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect.poll(() => state.tasks[0].status).toBe('done');
   await expect(page.locator('.tl-task-section').first().locator('.tl-completed summary')).toContainText('완료된 할 일');
 
-  await page.locator('#userBadge').click();
-  await expect(page.locator('#profileView')).toBeVisible();
-  await expect(page.locator('#psWorkplaceList')).toContainText('한국철도공사');
-  await expect(page.locator('#psWorkplaceList')).toContainText('공항철도');
-  await expect(page.locator('#psWorkplaceList input')).toHaveCount(0);
+  await expect(page.locator('#userBadge,#profileView,#teamManageTop')).toHaveCount(0);
+  await page.locator('.app-nav [data-view="team"]').click();
+  await expect(page.locator('#teamView')).toBeVisible();
+  await expect(page.locator('#soOrganizationList')).toBeVisible();
 
   await page.locator('[data-view="pages"]').click();
   await expect(page.locator('#pagesView')).toBeVisible();

@@ -1,7 +1,7 @@
 #pagesView .page-management-actions{display:flex;align-items:center;gap:var(--kptu-space-2);flex-wrap:wrap}
 #pagesView .page-management-status{font-size:11px;color:var(--kptu-muted);min-height:16px;align-self:center}
 #pagesView .page-management-status.error{color:var(--kptu-danger)}
-#pagesView>.toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,180px);gap:var(--kptu-space-2)}
+#pagesView>.toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,180px);align-items:start;gap:var(--kptu-space-2)}
 #pagesView>.toolbar .search,#pagesView>.toolbar select{width:100%;min-width:0;box-sizing:border-box}
 #pageList .page-card.compact-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--kptu-space-2);padding:8px 12px;min-height:0}
 #pageList .compact-entry-main{display:grid;gap:2px;min-width:0}
