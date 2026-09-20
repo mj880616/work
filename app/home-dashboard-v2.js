@@ -48,6 +48,14 @@
   }
 
   function empty(text){return `<div class="hdv-empty">${esc(text)}</div>`}
+  function revealHomeShell(){
+    const requested=new URLSearchParams(location.search).get('view');
+    if(requested&&requested!=='home')return;
+    const app=document.querySelector('#appView');
+    if(!app||app.classList.contains('hidden'))return;
+    app.classList.add('kptu-shell-ready');
+    window.__KPTU_STARTUP__?.mark('shellReady');
+  }
   function projectRow(p){
     const kind=p.project_type||p.metadata?.project_type||'blank';
     const phase=p.current_phase||p.metadata?.current_phase||'in_progress';
@@ -131,6 +139,7 @@
 
   function install(){
     prepareStructure();
+    revealHomeShell();
     document.addEventListener('click',e=>{
       const row=e.target.closest?.('[data-hdv-project]');
       if(row){goProjects(row.dataset.hdvProject);return}

@@ -54,7 +54,8 @@ button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 .hidden{display:none!important}
 #authView{display:none!important}
-#appView:not(.kptu-ui-ready){visibility:hidden!important;pointer-events:none!important}
+#appView:not(.kptu-ui-ready):not(.kptu-shell-ready){visibility:hidden!important;pointer-events:none!important}
+#appView.kptu-shell-ready #homeView .hdv-list:empty::before{content:'불러오는 중…';display:block;padding:14px 2px;color:var(--kptu-faint);font-size:12px}
 .shell{min-height:100vh;min-height:100dvh}
 .topbar{height:62px;padding:0 max(18px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border);position:sticky;top:0;z-index:20}
 .brand{display:flex;align-items:center;gap:var(--kptu-space-2);color:var(--kptu-ink);text-decoration:none;font-weight:800;white-space:nowrap;flex:0 0 auto}

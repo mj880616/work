@@ -37,6 +37,10 @@ test('direct feature URLs wait for the feature bundle and failures remain visibl
 test('home reuses authenticated boot context and guards stale-session commits', async () => {
   const home=read('app/home-dashboard-v2.js');
   const team=read('app/team.js');
+  expect(team).toContain("user=userFromSession()||await getUser()");
+  expect(team).toContain("workspace:app_workspaces(id,slug,name)");
+  expect(home).toContain("app.classList.add('kptu-shell-ready')");
+  expect(read('app/base-ui.css')).toContain("#appView:not(.kptu-ui-ready):not(.kptu-shell-ready)");
   expect(home).toContain('window.__KPTU_BOOT_CONTEXT__');
   expect(home).toContain('if(epoch!==renderEpoch)return');
   expect(home).toContain("addEventListener('kptu:session-changed'");
@@ -70,9 +74,9 @@ async function loginWithMock(page,{delayGroups=false}={}){
   await page.route(SB+'/**',async route=>{
     const path=new URL(route.request().url()).pathname;
     if(delayGroups&&path==='/rest/v1/app_groups')await new Promise(resolve=>setTimeout(resolve,700));
-    const data=path==='/auth/v1/token'?{access_token:'p6-flow-access',refresh_token:'p6-flow-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600}:
+    const data=path==='/auth/v1/token'?{access_token:'p6-flow-access',refresh_token:'p6-flow-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user}:
       path==='/auth/v1/user'?user:
-      path==='/rest/v1/app_workspace_members'?[{workspace_id:'p6-flow-workspace',user_id:user.id,role:'owner'}]:
+      path==='/rest/v1/app_workspace_members'?[{workspace_id:'p6-flow-workspace',user_id:user.id,role:'owner',workspace:{id:'p6-flow-workspace',slug:'kptu-work',name:'공공기관사업팀 Workspace'}}]:
       path==='/rest/v1/app_workspaces'?[{id:'p6-flow-workspace',name:'공공기관사업팀 Workspace'}]:
       path==='/rest/v1/app_profiles'?[{user_id:user.id,display_name:'P6 QA'}]:
       path==='/functions/v1/google-calendar'?{connected:false,enabled:false,selected:[],calendars:[],events:[]}:
