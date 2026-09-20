@@ -1,12 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const cors={
-  "Access-Control-Allow-Origin":"https://mj880616.github.io",
+const ALLOWED_ORIGINS=new Set([
+  "https://mj880616.github.io",
+  "https://work.bokdoong.com",
+  "https://desk.bokdoong.com"
+]);
+const baseCors={
   "Access-Control-Allow-Headers":"authorization, content-type",
   "Access-Control-Allow-Methods":"GET,POST,OPTIONS",
   "Content-Type":"application/json; charset=utf-8",
-  "Cache-Control":"no-store"
+  "Cache-Control":"no-store",
+  "Vary":"Origin"
 };
 
 const boards=new Set(["pc0921","pc2in1","private_rail","sanbyeol","press0914"]);
@@ -40,9 +45,11 @@ function validRailCard(v:any){
 }
 
 Deno.serve(async(req)=>{
-  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
   const origin=req.headers.get("origin")||"";
-  if(origin&&origin!=="https://mj880616.github.io")return new Response(JSON.stringify({error:"origin"}),{status:403,headers:cors});
+  const cors:Record<string,string>={...baseCors};
+  if(origin&&ALLOWED_ORIGINS.has(origin))cors["Access-Control-Allow-Origin"]=origin;
+  if(origin&&!ALLOWED_ORIGINS.has(origin))return new Response(JSON.stringify({error:"origin"}),{status:403,headers:cors});
+  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
 
   const url=new URL(req.url);
   const mode=url.searchParams.get("mode")||"board";
