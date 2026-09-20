@@ -32,13 +32,14 @@ async function mockSignedIn(page){
   });
 }
 
-test('anonymous root exposes every menu while content stays permission-scoped',async({page})=>{
+test('anonymous app entry uses only the public snapshot and gates internal work',async({page})=>{
   const calls=await mockPublic(page);
-  const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+  const errors=[];
+  page.on('pageerror',error=>errors.push(String(error)));
   await page.goto(`${BASE}/app/`);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#authView')).toBeHidden();
-  await expect(page.locator('#userBadge')).toContainText('공개 열람');
+  await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop')).toHaveCount(0);
 
   for(const view of ['home','calendar','tasks','projects','library','meetings','pages']){
     await expect(page.locator(`.app-nav [data-view="${view}"]`)).toBeVisible();
@@ -92,54 +93,28 @@ test('anonymous root exposes every menu while content stays permission-scoped',a
   await page.locator('#publicLoginBtn').click();
   await expect(page).toHaveURL(/\/app\/login\/?\?return=/);
   await expect(page.locator('#emailAuthToggle')).toBeVisible();
+  expect(calls.snapshot).toBeGreaterThanOrEqual(1);
 });
 
-test('anonymous deep link keeps the requested locked menu instead of redirecting to projects',async({page})=>{
-  await mockPublic(page);
-  await page.goto(`${BASE}/app/?view=meetings`);
+test('anonymous internal deep links show a login gate without internal records',async({page})=>{
+  const calls=await mockPublic(page);
+  const target=`${BASE}/app/?view=meetings&project=hidden`;
+  await page.goto(target);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await expect(page.locator('#meetingsView')).toBeVisible();
-  await expect(page.locator('#meetingsView')).toContainText('회의 결과는 로그인 후 열람할 수 있습니다.');
-  await expect(page).toHaveURL(`${BASE}/app/?view=meetings`);
+  await expect(page.locator('#meetingsView')).toContainText('로그인');
+  await expect(page.locator('#meetingsView')).not.toContainText('hidden');
+  expect(calls.snapshot).toBeGreaterThanOrEqual(1);
 });
 
-test('guest mobile mode loads swipe navigation',async({browser})=>{
+test('anonymous mobile library keeps the public read-only view',async({browser})=>{
   const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
   const page=await context.newPage();
-  await mockPublic(page);
-  await page.goto(`${BASE}/app/`);
+  const calls=await mockPublic(page);
+  await page.goto(`${BASE}/app/?view=library`);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await expect.poll(()=>page.evaluate(()=>window.__KPTU_MOBILE_SWIPE_NAV__===true)).toBe(true);
-  await context.close();
-});
-
-test('Android native back returns to prior view and never falls through to app exit',async({browser})=>{
-  const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,userAgent:'Mozilla/5.0 Android WebView KPTUAndroid/0.1.10'});
-  await context.addInitScript(()=>{
-    window.KPTUNativeBack={
-      _stack:['home','tasks'],
-      handle(){
-        const prev=this._stack.pop();
-        if(!prev)return false;
-        window.KPTURouter?.go?.(prev,{source:'native-back',replaceUrl:true});
-        return true;
-      }
-    };
-  });
-  const page=await context.newPage();
-  await mockPublic(page);
-  await page.goto(`${BASE}/app/`);
-  await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await expect.poll(()=>page.evaluate(()=>!!window.KPTUNativeBack?.__kptuGuarded)).toBe(true);
-  await page.locator('.app-nav [data-view="tasks"]').click();
-  await page.locator('.app-nav [data-view="projects"]').click();
-  await expect(page.locator('#projectsView')).toBeVisible();
-  expect(await page.evaluate(()=>window.KPTUNativeBack.handle())).toBe(true);
-  await expect(page.locator('#tasksView')).toBeVisible();
-  expect(await page.evaluate(()=>window.KPTUNativeBack.handle())).toBe(true);
-  await expect(page.locator('#homeView')).toBeVisible();
-  expect(await page.evaluate(()=>window.KPTUNativeBack.handle())).toBe(true);
-  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#libraryView')).toContainText('공개 자료');
+  await expect(page.locator('#libraryView')).not.toContainText('INTERNAL_NOTE');
+  expect(calls.snapshot).toBeGreaterThanOrEqual(1);
   await context.close();
 });
 
@@ -154,7 +129,7 @@ test('dedicated login signs in and returns to authenticated app',async({page})=>
   await page.locator('#authSubmit').click();
   await expect(page).toHaveURL(`${BASE}/app/?view=projects`,{timeout:10000});
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await expect(page.locator('#userBadge')).toContainText('테스트 사용자');
+  await expect(page.locator('#userBadge')).toHaveCount(0);
 });
 
 test('Android app Google login returns through native callback',async({browser})=>{

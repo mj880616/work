@@ -56,12 +56,12 @@ function printPage(){expandForPrint();requestAnimationFrame(()=>requestAnimation
 window.addEventListener('beforeprint',expandForPrint);window.addEventListener('afterprint',restoreAfterPrint);document.querySelector('#printPageBtn')?.addEventListener('click',printPage);
 function render(p,secure=false){
   document.title=p.title;window.KPTUPublicPageEditor?.setPage(p,secure);
-  const pd=window.KPTUPageDesign,pageDesign=secure?{}:(p.metadata?.page_design||{}),template=secure?'article':(pageDesign.template||'event');
+  const pd=window.KPTUPageDesign,pageDesign=secure?{}:(p.page_design||{}),template=secure?'article':(pageDesign.template||'event');
   const paper=document.querySelector('#paper');paper.className='paper template-'+template+' '+(pd?.classNames(pageDesign,template)||'pd-design');
   paper.innerHTML=`<header class="pd-hero"><div class="pd-kicker">${secure?'제한 공유 문서':LABEL[template]||LABEL.event}</div><h1 class="pd-title">${esc(p.title)}</h1>${p.summary?`<p class="pd-summary">${esc(p.summary)}</p>`:''}</header><div class="pd-body">${pd?.renderMarkdown(p.body||'')||esc(p.body||'')}</div><div style="font-size:11px;color:#8b959f;margin-top:30px;padding-top:13px;border-top:1px solid #edf0f2">최근 수정 ${new Date(p.updated_at).toLocaleString('ko-KR')}</div>`;
 }
 window.KPTURenderPublicPage=render;
-async function loadPage(){const url=SB+'/rest/v1/app_pages?slug=eq.'+encodeURIComponent(PAGE_SLUG)+'&status=eq.published&visibility=in.(public,unlisted)&select=id,title,summary,body,metadata,updated_at&limit=1';const r=await fetch(url,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}}),d=await r.json();if(!r.ok||!d.length)throw new Error('page');render(d[0],false)}
+async function loadPage(){const url=SB+'/rest/v1/rpc/app_public_post';const r=await fetch(url,{method:'POST',cache:'no-store',headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({p_slug:PAGE_SLUG})}),d=await r.json();if(!r.ok||!d.length)throw new Error('page');render(d[0],false)}
 loadPage().catch(()=>document.querySelector('#paper').innerHTML='<div style="text-align:center;color:#68727c;padding:60px 20px">페이지를 불러오지 못했습니다.</div>');
 
 const checklist=[
@@ -128,5 +128,5 @@ function update(){document.querySelectorAll('select.status-select').forEach(el=>
 async function loadChecklist(){try{const r=await fetch(BOARD_API,{cache:'no-store'}),rows=await r.json(),map={};if(Array.isArray(rows))rows.forEach(x=>map[x.item_key]=x.value);document.querySelectorAll('input[type=checkbox]').forEach(el=>{if(Object.prototype.hasOwnProperty.call(map,el.id))el.checked=!!map[el.id]});document.querySelectorAll('select.status-select').forEach(el=>{const done=!!map[el.id+'_done'],failed=!!map[el.id+'_failed']&&!done;el.value=failed?'failed':String(done);el.dataset.done=String(done);el.dataset.failed=String(failed)});setSaveStatus('서버 동기화 완료')}catch{setSaveStatus('서버 동기화 실패',true)}ready=true;update()}
 loadChecklist();document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadChecklist()});
 </script>
-<script src="/work/app/web1-page-capabilities.js?v=2"></script>\n<script src="/work/app/web1-admin-auth.js?v=2"></script>\n<script src="/work/app/web1-toolbar.js?v=2"></script>\n</body>
+<script src="/work/app/web1-page-capabilities.js?v=2"></script>\n<script src="/work/app/web1-admin-auth.js?v=2"></script>\n\n</body>
 </html>

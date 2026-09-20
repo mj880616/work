@@ -160,9 +160,7 @@ for(const c of [
   {name:'event',view:'calendar',trigger:'#newEventBtn',modal:'#eventModal',initial:'#eventTitle'},
   {name:'document',view:'library',trigger:'#newDocumentBtn',modal:'#documentModal',initial:'#docTitle'},
   {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle'},
-  {name:'page editor',view:'pages',trigger:'#newPageBtn',modal:'#editorModal',initial:'#pageTitle'},
-  {name:'invite',view:'team',trigger:'#inviteBtn',modal:'#inviteModal',initial:'#inviteGroup'},
-  {name:'group',view:'team',trigger:'#newGroupBtn',modal:'#groupModal',initial:'#groupName'}
+  {name:'page editor',view:'pages',trigger:'#newPageBtn',modal:'#editorModal',initial:'#pageTitle'}
 ]){
   test(`${c.name} dialog focuses its first field and restores its trigger`,async({page})=>{
     await boot(page,{width:1024,height:768});

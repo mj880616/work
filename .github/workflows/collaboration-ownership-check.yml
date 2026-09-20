@@ -1,11 +1,11 @@
-name: Collaboration ownership check
+name: Mobile and notification ownership check
 
 on:
   push:
     branches: [main]
     paths:
-      - 'app/collaboration-center.js'
-      - 'app/collaboration-center.css'
+      - 'app/mobile-dock.js'
+      - 'app/mobile-dock.css'
       - 'app/notification-center-ui.js'
       - 'app/notification-center-ui.css'
       - 'app/profile-settings.js'
@@ -15,8 +15,8 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'app/collaboration-center.js'
-      - 'app/collaboration-center.css'
+      - 'app/mobile-dock.js'
+      - 'app/mobile-dock.css'
       - 'app/notification-center-ui.js'
       - 'app/notification-center-ui.css'
       - 'app/profile-settings.js'
@@ -29,33 +29,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check collaboration ownership boundaries
+      - name: Check mobile and notification ownership boundaries
         run: |
           set -e
-          grep -q "collaboration-center.js?v=9" app/loader-v2.js
-          grep -q "await window.__KPTU_COLLABORATION_READY__" app/loader-v2.js
-          grep -q "app_notifications" app/team.js
-          grep -q "statUnread" app/team.js
-          grep -q "collaboration-center.css?v=3" app/styles.css
+          grep -q "mobile-dock.js?v=1" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=6" app/loader-v2.js
+          grep -q "await window.__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js
+          grep -q "mobile-dock.css?v=1" app/styles.css
           grep -q "notification-center-ui.css?v=2" app/styles.css
-          grep -q "window.__KPTU_COLLABORATION_READY__" app/collaboration-center.js
+          grep -q "ccMobileDock" app/mobile-dock.js
           grep -q "window.__KPTU_NOTIFICATION_CENTER_READY__" app/notification-center-ui.js
           grep -q "id=\"psLogout\"" app/profile-settings.js
-          if grep -Eq "app_notifications|ccNotifTop|myTaskMini|statUnread" app/collaboration-center.js; then
-            echo 'message module crossed into notification/home ownership'; exit 1
+          if grep -Eq "app_notifications|ccNotifTop|myTaskMini|statUnread|messagesView" app/mobile-dock.js; then
+            echo 'mobile dock crossed into notification, message, or home ownership'; exit 1
           fi
           if grep -Eq "ps-profile-grid|ncuLogout|logoutBtn|installLogout" app/notification-center-ui.js; then
             echo 'notification module crossed into profile ownership'; exit 1
           fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/collaboration-center.js app/notification-center-ui.js; then
-            echo 'dynamic collaboration styles returned'; exit 1
+          if grep -q "createElement('style')\|createElement(\"style\")" app/mobile-dock.js app/notification-center-ui.js; then
+            echo 'dynamic mobile or notification styles returned'; exit 1
           fi
-          if grep -q "MutationObserver" app/collaboration-center.js app/notification-center-ui.js; then
-            echo 'collaboration DOM observer returned'; exit 1
+          if grep -q "MutationObserver" app/mobile-dock.js app/notification-center-ui.js; then
+            echo 'mobile or notification DOM observer returned'; exit 1
           fi
           if grep -q "setInterval" app/notification-center-ui.js; then
             echo 'notification polling returned'; exit 1
           fi
-          node --check app/collaboration-center.js
+          node --check app/mobile-dock.js
           node --check app/notification-center-ui.js
           node --check app/profile-settings.js
