@@ -222,7 +222,9 @@ test('V3 edits existing timeline and status items without flattening their JSON'
   await page.locator('[data-ps3-save-block]').click();
   await expect.poll(()=>state.blocks[0].content.items[0].body).toBe('현장 질문 반영');
   expect(state.blocks[0].content.items[0].source_id).toBe('source-preserved');
+  await expect(page.locator('[data-ps3-editing="timeline-1"]')).toHaveCount(0);
   await page.locator('[data-ps3-edit-block="status-1"]').click();
+  await expect(page.locator('[data-ps3-editing="status-1"]')).toBeVisible();
   await page.locator('[data-ps3-item="value"]').fill('총투표 논의');
   await page.locator('[data-ps3-save-block]').click();
   await expect.poll(()=>state.blocks[1].content.items[0].value).toBe('총투표 논의');
