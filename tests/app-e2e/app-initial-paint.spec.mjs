@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('anonymous workspace shell cannot paint before redirect to login', async ({ page }) => {
+test('anonymous workspace shell stays hidden until the public home is ready', async ({ page }) => {
   let releaseApp;
   let appRequested = false;
   const appHold = new Promise(resolve => { releaseApp = resolve; });
@@ -18,9 +18,7 @@ test('anonymous workspace shell cannot paint before redirect to login', async ({
 
   const favicon = await page.locator('link[rel="icon"]').getAttribute('href');
   expect(favicon).toMatch(/^\.\/app-icon\.svg\?v=[\w-]+$/);
-  const brandIcon = page.locator('.brand .brand-icon');
-  await expect(brandIcon).toHaveAttribute('src', /^\.\/app-icon\.svg\?v=[\w-]+$/);
-  await expect.poll(() => brandIcon.evaluate(el => el.complete && el.naturalWidth > 0)).toBeTruthy();
+  await expect(page.locator('.brand .brand-icon')).toHaveCount(0);
 
   const legacyAuthDisplay = await page.locator('#authView').evaluate(el => getComputedStyle(el).display);
   expect(legacyAuthDisplay).toBe('none');
@@ -30,8 +28,9 @@ test('anonymous workspace shell cannot paint before redirect to login', async ({
   expect(beforeReady).toBe('hidden');
 
   releaseApp();
-  await expect(page).toHaveURL(/\/app\/login\/?\?return=/, { timeout: 10000 });
-  await expect(page.locator('#appView')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/app\/$/, { timeout: 10000 });
+  await expect(page.locator('body')).toHaveClass(/kptu-public-workspace/);
+  await expect(page.locator('#publicLoginBtn')).toBeVisible();
 });
 
 test('router restores deep links only after explicit app-ui-ready and preserves browser history', async ({ page }) => {

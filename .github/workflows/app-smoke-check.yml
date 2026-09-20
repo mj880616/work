@@ -197,7 +197,7 @@ jobs:
             "import('./team.js?v=23')",'await window.__KPTU_TEAM_READY__',
             "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-row-view.js?v=1')","import('./task-layout.js?v=9')",'await window.__KPTU_TASK_LAYOUT_READY__',
-            "import('./profile-settings.js?v=4')",'await window.__KPTU_PROFILE_SETTINGS_READY__',
+            "import('./profile-settings.js?v=6')",'await window.__KPTU_PROFILE_SETTINGS_READY__',
             "import('./page-list-controller.js?v=5')",'await window.__KPTU_PAGE_LIST_READY__',
             "import('./page-save-controller.js?v=4')",'await window.__KPTU_PAGE_SAVE_READY__',
             "import('./page-builder.js?v=3')",'await window.__KPTU_PAGE_BUILDER_READY__',
