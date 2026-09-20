@@ -16,6 +16,7 @@ const checker = new URL('../../supabase/local-verify/check-baseline.mjs', import
 const createAuth = new URL('../../supabase/local-verify/create-local-auth.mjs', import.meta.url);
 const scanner = new URL('../../supabase/local-verify/scan-schema.mjs', import.meta.url);
 const diagnostics = new URL('../../supabase/local-verify/diagnose-start.mjs', import.meta.url);
+const baselineReview = new URL('../../supabase/local-verify/analyze-baseline.mjs', import.meta.url);
 
 const restricted = (sql, key) => `\\restrict ${key}\n${sql}\\unrestrict ${key}\n`;
 
@@ -47,16 +48,20 @@ test('one-shot workflow keeps DB credential in extraction step and raw dump off 
   assert.match(oneShot, /secrets\.WEB2_SCHEMA_DB_PASSWORD/);
   assert.match(oneShot, /pg_dump .*--schema-only --schema=public --schema=private --no-comments/s);
   assert.match(oneShot, /scan-schema\.mjs/);
+  assert.match(oneShot, /analyze-baseline\.mjs inventory/);
   assert.match(oneShot, /EXPECTED_SHA256/);
   assert.doesNotMatch(oneShot, /upload-artifact|db pull|db push|supabase link/);
   assert.doesNotMatch(oneShot, /["']\$\{\{\s*inputs\.expected_sha256/);
   const scan = oneShot.indexOf('node supabase/local-verify/scan-schema.mjs');
   const compare = oneShot.indexOf('node supabase/local-verify/schema-hash.mjs');
   const setup = oneShot.indexOf('supabase/setup-cli@v3');
+  const verifyInventory = oneShot.lastIndexOf('node supabase/local-verify/analyze-baseline.mjs inventory');
   const staticTests = oneShot.indexOf('node --test tests/security/');
   const bootstrapStep = oneShot.indexOf('bash supabase/local-verify/bootstrap-ci.sh');
   assert.ok(scan >= 0 && scan < compare && compare < setup && setup < staticTests && staticTests < bootstrapStep,
     'raw scan and canonical hash gate must precede all verification work');
+  assert.ok(setup < verifyInventory && verifyInventory < staticTests,
+    'verified dump inventory must precede local authorization work');
 });
 
 test('CI inputs exist and the local seed precedes pending migrations', () => {
@@ -68,6 +73,7 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/check-baseline.mjs',
     'supabase/local-verify/bootstrap-ci.sh',
     'supabase/local-verify/diagnose-start.mjs',
+    'supabase/local-verify/analyze-baseline.mjs',
     'supabase/local-verify/custom-auth-trigger.sql',
     'supabase/local-verify/create-local-auth.mjs',
     'supabase/local-verify/seed-before-cutover.sql',
@@ -95,8 +101,65 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
   assert.ok(start >= 0 && start < baseline && baseline < auth && auth < seed && seed < prepare && seed < cutover &&
     cutover < project && project < sql && sql < http);
   assert.match(bootstrap, /unset PGHOST PGPORT PGUSER PGDATABASE PGPASSWORD PGOPTIONS PGSSLMODE PGSSLROOTCERT/);
+  assert.match(bootstrap, /VERBOSITY=sqlstate/);
+  assert.match(bootstrap, /analyze-baseline\.mjs" failure/);
   assert.match(load('supabase/local-verify/seed-before-cutover.sql'),
     /app\.local_verification.*is distinct from 'on'/s);
+});
+
+test('baseline inventory reports review candidates without printing literals or function bodies', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'web2-baseline-review-'));
+  try {
+    const file = join(directory, 'baseline.sql');
+    const credential = 'postgresql://person:do-not-print@private.invalid/db';
+    writeFileSync(file, [
+      '-- Name: public; Type: SCHEMA; Schema: -; Owner: postgres',
+      'CREATE SCHEMA public;',
+      '-- Name: app_spaces; Type: TABLE; Schema: public; Owner: postgres',
+      `CREATE TABLE public.app_spaces (id uuid DEFAULT 'private-literal-${credential}');`,
+      'ALTER TABLE public.app_spaces OWNER TO postgres;',
+      '-- Name: app_can_edit_space(uuid); Type: FUNCTION; Schema: private; Owner: postgres',
+      'CREATE FUNCTION private.app_can_edit_space(uuid) RETURNS boolean AS $$',
+      `SELECT '${credential}'::text IS NOT NULL FROM auth.users;`,
+      '$$ LANGUAGE sql SECURITY DEFINER SET search_path = private, public;',
+      '-- Name: app_spaces; Type: ACL; Schema: public; Owner: postgres',
+      'GRANT SELECT ON TABLE public.app_spaces TO authenticated;',
+      '',
+    ].join('\n'));
+    const result = spawnSync(process.execPath, [fileURLToPath(baselineReview), 'inventory', file], {encoding: 'utf8'});
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /LOCAL_SCHEMA_COLLISION_CANDIDATE.*public/);
+    assert.match(result.stdout, /SECURITY_DEFINER.*private\.app_can_edit_space/);
+    assert.match(result.stdout, /SEARCH_PATH.*private\.app_can_edit_space/);
+    assert.match(result.stdout, /ROLE_REFERENCE.*authenticated/);
+    assert.ok(!`${result.stdout}${result.stderr}`.includes(credential));
+    assert.ok(!`${result.stdout}${result.stderr}`.includes('private-literal'));
+  } finally { rmSync(directory, {recursive: true, force: true}); }
+});
+
+test('baseline failure reports first SQLSTATE, dump line and object without SQL text', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'web2-baseline-error-'));
+  try {
+    const dump = join(directory, 'baseline.sql');
+    const error = join(directory, 'stderr.log');
+    const secret = 'sk-this-must-not-appear-12345678901234567890';
+    writeFileSync(dump, [
+      '-- Name: app_spaces; Type: TABLE; Schema: public; Owner: postgres',
+      'CREATE TABLE public.app_spaces (id uuid);',
+      'ALTER TABLE public.app_spaces OWNER TO postgres;',
+      '',
+    ].join('\n'));
+    writeFileSync(error, `psql:/verify/baseline.sql:3: ERROR:  42704: role \'${secret}\' does not exist\nDETAIL: ${secret}\n`);
+    const result = spawnSync(process.execPath,
+      [fileURLToPath(baselineReview), 'failure', dump, error], {encoding: 'utf8'});
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /BASELINE_SQLSTATE=42704/);
+    assert.match(result.stdout, /BASELINE_DUMP_LINE=3/);
+    assert.match(result.stdout, /BASELINE_STAGE=GRANTS_OWNERSHIP/);
+    assert.match(result.stdout, /BASELINE_OBJECT_TYPE=TABLE/);
+    assert.match(result.stdout, /BASELINE_OBJECT=public\.app_spaces/);
+    assert.ok(!`${result.stdout}${result.stderr}`.includes(secret));
+  } finally { rmSync(directory, {recursive: true, force: true}); }
 });
 
 test('startup diagnostics classify failure without echoing log secrets', () => {

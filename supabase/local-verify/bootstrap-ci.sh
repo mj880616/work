@@ -85,9 +85,11 @@ esac
 if ! PGOPTIONS='-c app.local_verification=on' docker run --rm --network host --read-only \
   --tmpfs /tmp:rw,noexec,nosuid -e DB_URL -e PGOPTIONS \
   -v "$ci_root/baseline-local.sql:/verify/baseline.sql:ro" postgres:17 \
-  sh -c 'psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f /verify/baseline.sql' \
+  sh -c 'psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never -f /verify/baseline.sql' \
   > "$ci_root/baseline-apply.log" 2>&1; then
-  echo 'BASELINE_APPLY_FAILED: local schema restore failed; SQL output is withheld' >&2
+  node "$repo_root/supabase/local-verify/analyze-baseline.mjs" failure \
+    "$baseline" "$ci_root/baseline-apply.log"
+  echo 'BASELINE_APPLY_FAILED: first SQLSTATE and dump object reported; raw SQL withheld' >&2
   exit 1
 fi
 echo 'BASELINE_APPLY_PASSED'

@@ -98,7 +98,12 @@ jobs:
               }
           node supabase/local-verify/scan-schema.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
           if test "$VERIFICATION_PHASE" = inspect; then
-            node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+            if test -n "$EXPECTED_SHA256"; then
+              node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
+            else
+              node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+            fi
+            node supabase/local-verify/analyze-baseline.mjs inventory "$RUNNER_TEMP/web2-schema.raw.sql"
           fi
       - name: Stop after inspection and discard temporary schema
         if: ${{ inputs.phase == 'inspect' }}
@@ -119,6 +124,7 @@ jobs:
           WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
         run: |
           set -euo pipefail
+          node supabase/local-verify/analyze-baseline.mjs inventory "$WEB2_BASELINE_FILE"
           node --test tests/security/*.test.mjs
           if ! command -v psql >/dev/null; then
             sudo apt-get update -qq
