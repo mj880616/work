@@ -14,16 +14,21 @@
     window.__releaseLibraryUpload=null;
     window.__visibilityCalls=[];
     window.__documentActionError=null;
+    window.__driveReconnectCalls=[];
     window.__libraryDocs=[{id:'doc-1',workspace_id:'workspace-1',title:'내부 자료',category:'정책자료',source:'테스트',visibility:'workspace',tags:[],drive_url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html'}];
     window.addEventListener('kptu:documents-changed',()=>window.__documentsChanged++);
     window.KPTURuntime={
       session:{ensure:async()=>true,read:()=>({access_token:'token',expires_at:9999999999})},
       api:async(path,opts={})=>{
         if(path==='/auth/v1/user')return {id:'user-1'};
-        if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1'}];
+        if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1',role:'owner'}];
         if(path.startsWith('/rest/v1/app_spaces'))return [];
         if(path.startsWith('/rest/v1/app_documents'))return window.__libraryDocs;
         if(path==='/functions/v1/document-actions'&&window.__documentActionError)throw new Error(window.__documentActionError);
+        if(path==='/functions/v1/public-policy-drive'){
+          window.__driveReconnectCalls.push(opts.body);
+          return {url:location.origin+location.pathname+'#drive-auth'};
+        }
         if(path==='/functions/v1/library-files'){
           if(opts.body?.action==='set-visibility'){
             window.__visibilityCalls.push(opts.body);
