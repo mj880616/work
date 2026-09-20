@@ -125,6 +125,31 @@ jobs:
           check_200 'https://arsenal.bokdoong.com/favicon.ico'
           check_200 'https://desk.bokdoong.com/work/app/sw.js?v=2'
 
+          # These are stable URLs whose contents change on GitHub Pages deploys.
+          # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
+          for url in \
+            https://bokdoong.com/ \
+            https://work.bokdoong.com/work/assets/web1-design-lite.css \
+            https://desk.bokdoong.com/work/app/sw.js?v=2 \
+            https://read.bokdoong.com/read-think-write/src/app-entry.js \
+            https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js
+          do
+            headers="$(curl \
+              --silent \
+              --show-error \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --header "User-Agent: $USER_AGENT" \
+              --dump-header - \
+              --output /dev/null \
+              "$url")"
+            if ! printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^cache-control: no-cache, must-revalidate$'; then
+              echo "FAIL  cache policy $url"
+              exit 1
+            fi
+            echo "OK  cache policy $url"
+          done
+
           for url in \
             https://mj880616.github.io/work/ \
             https://mj880616.github.io/work/app/ \

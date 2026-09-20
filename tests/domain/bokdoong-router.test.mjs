@@ -63,6 +63,48 @@ test('only the selected GitHub Pages trees are proxied', async () => {
   assert.equal(denied.calls.length, 0);
 });
 
+test('all proxied mutable pages and assets revalidate both Cloudflare and browser caches', async () => {
+  for (const url of [
+    'https://bokdoong.com/',
+    'https://work.bokdoong.com/work/',
+    'https://work.bokdoong.com/work/assets/web1-design-lite.css',
+    'https://desk.bokdoong.com/work/app/sw.js?v=2',
+    'https://read.bokdoong.com/read-think-write/src/app-entry.js',
+    'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js'
+  ]) {
+    const { response, calls } = await request(url, {
+      upstream: new Response('current version', {
+        headers: { 'Cache-Control': 'max-age=14400', ETag: '"current"' }
+      })
+    });
+    assert.equal(calls.length, 1, url);
+    assert.equal(calls[0].cache, 'no-cache', url);
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
+    assert.equal(response.headers.get('ETag'), '"current"', url);
+    assert.equal(await response.text(), 'current version', url);
+  }
+});
+
+test('conditional and range requests retain HTTP semantics while revalidating', async () => {
+  const conditional = await request('https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js', {
+    headers: { 'If-None-Match': '"old"' },
+    upstream: new Response(null, { status: 304, headers: { ETag: '"current"' } })
+  });
+  assert.equal(conditional.calls[0].headers.get('If-None-Match'), '"old"');
+  assert.equal(conditional.calls[0].cache, 'no-cache');
+  assert.equal(conditional.response.status, 304);
+  assert.equal(conditional.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+
+  const partial = await request('https://desk.bokdoong.com/work/app/app.js', {
+    headers: { Range: 'bytes=0-3' },
+    upstream: new Response('data', { status: 206, headers: { 'Content-Range': 'bytes 0-3/10' } })
+  });
+  assert.equal(partial.calls[0].headers.get('Range'), 'bytes=0-3');
+  assert.equal(partial.response.status, 206);
+  assert.equal(partial.response.headers.get('Content-Range'), 'bytes 0-3/10');
+  assert.equal(partial.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+});
+
 test('desk keeps authenticated app assets and sends public pages to work origin', async () => {
   const app = await request('https://desk.bokdoong.com/work/app/auth-service.js');
   assert.equal(app.response.status, 200);
