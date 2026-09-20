@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
       `app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=*`
     );
     if (!Array.isArray(rows) || !rows.length) {
-      return Response.redirect(driveRedirect('error', 'invalid_state'), 302);
+      return Response.redirect(isDriveState ? driveRedirect('error', 'invalid_state') : `${CALENDAR_APP_URL}?google=error`, 302);
     }
 
     const row = rows[0];
