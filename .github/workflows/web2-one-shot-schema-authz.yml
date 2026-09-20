@@ -1,0 +1,108 @@
+name: Web2 one-shot schema authorization
+
+# Inspect and verify are separate manual invocations. No raw dump is persisted
+# between jobs or uploaded; verification re-extracts and checks the reviewed hash.
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: 'inspect first; verify only after reviewing its findings and SHA-256'
+        required: true
+        type: choice
+        options: [inspect, verify]
+      expected_sha256:
+        description: 'SHA-256 printed by the clean inspect run; required for verify'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web2-one-shot-schema-authz
+  cancel-in-progress: false
+
+jobs:
+  schema-authz:
+    if: github.repository == 'mj880616/work' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    environment: web2-schema-verification
+    env:
+      PGHOST: ${{ vars.WEB2_SCHEMA_PGHOST }}
+      PGPORT: ${{ vars.WEB2_SCHEMA_PGPORT }}
+      PGUSER: ${{ vars.WEB2_SCHEMA_PGUSER }}
+      PGDATABASE: ${{ vars.WEB2_SCHEMA_PGDATABASE }}
+      VERIFICATION_PHASE: ${{ inputs.phase }}
+      EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+      PGOPTIONS: '-c default_transaction_read_only=on'
+      PGSSLMODE: verify-full
+      PGSSLROOTCERT: /etc/ssl/certs/ca-certificates.crt
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check read-only connection settings without printing values
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in PGHOST PGPORT PGUSER PGDATABASE; do
+            test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
+          done
+          test "$VERIFICATION_PHASE" = inspect || test "$VERIFICATION_PHASE" = verify
+          if test "$VERIFICATION_PHASE" = verify; then
+            [[ "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]] || {
+              echo 'The reviewed SHA-256 is required for verify' >&2; exit 1;
+            }
+          fi
+      - name: Read only public/private schema into temporary runner storage
+        shell: bash
+        env:
+          PGPASSWORD: ${{ secrets.WEB2_SCHEMA_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$PGPASSWORD" || { echo 'Missing protected DB password' >&2; exit 1; }
+          docker run --rm --network host --read-only --tmpfs /tmp:rw,noexec,nosuid \
+            --user "$(id -u):$(id -g)" \
+            -e PGPASSWORD -e PGOPTIONS -e PGSSLMODE -e PGSSLROOTCERT \
+            -v "$RUNNER_TEMP:/out" postgres:17 \
+            pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
+              --schema-only --schema=public --schema=private --no-comments \
+              --file=/out/web2-schema.raw.sql \
+              >/dev/null 2>"$RUNNER_TEMP/pg-dump.err" || {
+                echo 'Schema-only extraction failed; diagnostics are withheld' >&2; exit 1;
+              }
+          node supabase/local-verify/scan-schema.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+      - name: Stop after inspection and discard temporary schema
+        if: ${{ inputs.phase == 'inspect' }}
+        run: echo 'Inspection completed. Review the reported findings and hash before a separate verify run.'
+      - uses: supabase/setup-cli@v3
+        if: ${{ inputs.phase == 'verify' }}
+        with:
+          version: 2.84.2
+      - name: Verify hash and run synthetic authorization tests
+        if: ${{ inputs.phase == 'verify' }}
+        shell: bash
+        env:
+          WEB2_BASELINE_FILE: ${{ runner.temp }}/web2-schema.raw.sql
+          WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
+        run: |
+          set -euo pipefail
+          node --test tests/security/*.test.mjs
+          if ! command -v psql >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          bash supabase/local-verify/bootstrap-ci.sh
+      - name: Destroy temporary schema and local stack
+        if: always()
+        shell: bash
+        run: |
+          if test -d "$RUNNER_TEMP"; then
+            rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err"
+          fi
+
