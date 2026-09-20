@@ -1,0 +1,100 @@
+name: Web2 local Edge readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web2-local-edge-readiness
+  cancel-in-progress: false
+
+jobs:
+  edge-readiness:
+    if: github.repository == 'mj880616/work' && github.ref == 'refs/heads/codex/web2-transition-verify'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.84.2
+      - name: Start disposable Edge Runtime and probe function readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+
+          repo_root="$PWD"
+          ci_root="$(mktemp -d)"
+          network_name="web2-edge-readiness-${GITHUB_RUN_ID:-$$}"
+
+          cleanup() {
+            if [[ -f "$ci_root/supabase/config.toml" ]]; then
+              (cd "$ci_root" && supabase stop --no-backup >/dev/null 2>&1) || true
+            fi
+            docker network rm "$network_name" >/dev/null 2>&1 || true
+            if [[ -n "$ci_root" && "$ci_root" == /tmp/* ]]; then
+              rm -rf -- "$ci_root"
+            fi
+          }
+          trap cleanup EXIT
+
+          command -v docker >/dev/null || { echo 'Docker is unavailable on this runner' >&2; exit 1; }
+          command -v supabase >/dev/null || { echo 'Supabase CLI is unavailable on this runner' >&2; exit 1; }
+
+          docker network create --driver bridge             -o com.docker.network.bridge.host_binding_ipv4=127.0.0.1             "$network_name" >/dev/null
+
+          cd "$ci_root"
+          supabase init > "$ci_root/init.log" 2>&1 || {
+            echo 'EDGE_READINESS_INIT_FAILED' >&2
+            exit 1
+          }
+          mkdir -p supabase/functions
+          for name in meeting-ai-draft meeting-ai-ingest meeting-files; do
+            cp -R "$repo_root/supabase/functions/$name" "supabase/functions/$name"
+          done
+          cp -R "$repo_root/supabase/functions/_shared" "supabase/functions/_shared"
+          printf 'OPENAI_API_KEY=local-ci-placeholder\n' > supabase/functions/.env
+
+          node "$repo_root/supabase/local-verify/diagnose-start.mjs" preflight || {
+            echo 'EDGE_READINESS_PREFLIGHT_FAILED' >&2
+            exit 1
+          }
+
+          if ! supabase start --network-id "$network_name" > "$ci_root/start.log" 2>&1; then
+            node "$repo_root/supabase/local-verify/diagnose-start.mjs" failure "$ci_root/start.log"
+            echo 'EDGE_READINESS_STACK_START_FAILED' >&2
+            exit 1
+          fi
+          echo 'EDGE_READINESS_STACK_START_PASSED'
+
+          supabase status -o env > "$ci_root/status.env" 2> "$ci_root/status-error.log" || {
+            echo 'EDGE_READINESS_STATUS_FAILED' >&2
+            exit 1
+          }
+          set -a
+          source "$ci_root/status.env"
+          set +a
+          export API_URL ANON_KEY
+
+          case "${API_URL:-}" in
+            http://127.0.0.1:*|http://localhost:*) ;;
+            *) echo 'EDGE_READINESS_REFUSED_NONLOCAL_TARGET' >&2; exit 1 ;;
+          esac
+          [[ -n "${ANON_KEY:-}" ]] || {
+            echo 'EDGE_READINESS_LOCAL_KEY_MISSING' >&2
+            exit 1
+          }
+
+          if ! node "$repo_root/supabase/local-verify/edge-readiness.mjs"; then
+            node "$repo_root/supabase/local-verify/diagnose-edge.mjs" run || true
+            exit 1
+          fi
+          echo 'EDGE_READINESS_ALL_PASSED'
