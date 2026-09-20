@@ -2,7 +2,8 @@
 select json_build_object(
   'currentUser', current_user,
   'sessionUser', session_user,
-  'roles', (select coalesce(json_agg(json_build_object('name',rolname,'superuser',rolsuper)), '[]'::json) from pg_roles),
+  'roles', (select coalesce(json_agg(json_build_object('name',rolname,'superuser',rolsuper,
+                                                     'canLogin',rolcanlogin,'createRole',rolcreaterole)), '[]'::json) from pg_roles),
   'memberships', (select coalesce(json_agg(json_build_object('member',member.rolname,'role',parent.rolname)), '[]'::json)
                   from pg_auth_members edge
                   join pg_roles member on member.oid=edge.member

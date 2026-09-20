@@ -158,6 +158,7 @@ test('target default privilege statement is classified without leaking custom ro
     assert.match(run.stdout, /TARGET_KIND=ALTER_DEFAULT_PRIVILEGES/);
     assert.match(run.stdout, /TARGET_SCHEMA=public/);
     assert.match(run.stdout, /TARGET_RECIPIENTS=anon,authenticated/);
+    assert.match(run.stdout, /DEFAULT_ACL_CENSUS=role_[a-f0-9]{12}:public:FUNCTIONS:1/);
     assert.match(run.stdout, /ROLE_hostedCurrentMemberOfTarget=true/);
     assert.match(run.stdout, /ROLE_localTargetExists=false/);
     assert.ok(!`${run.stdout}${run.stderr}`.includes(custom));

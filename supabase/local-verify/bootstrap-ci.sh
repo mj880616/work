@@ -93,6 +93,14 @@ if [[ "${WEB2_ROLE_DIAGNOSTIC:-0}" == 1 ]]; then
   fi
   node "$repo_root/supabase/local-verify/role-diagnostics.mjs" compare \
     "$baseline" 10343 "$WEB2_HOSTED_ROLES_FILE" "$ci_root/local-roles.json"
+  admin_db_url="$(node -e 'const u=new URL(process.env.DB_URL);if(!["127.0.0.1","localhost"].includes(u.hostname))process.exit(1);u.username="supabase_admin";process.stdout.write(u.toString())')"
+  if psql "$admin_db_url" -X -qAt -v ON_ERROR_STOP=1 -c 'select current_user' \
+    > "$ci_root/admin-login.log" 2> "$ci_root/admin-login.err" && \
+    grep -qx 'supabase_admin' "$ci_root/admin-login.log"; then
+    echo 'LOCAL_ADMIN_SAME_PASSWORD_LOGIN=true'
+  else
+    echo 'LOCAL_ADMIN_SAME_PASSWORD_LOGIN=false'
+  fi
   echo 'LOCAL_ROLE_DIAGNOSTIC_PASSED'
   exit 0
 fi

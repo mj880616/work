@@ -44,6 +44,19 @@ export function classifyTarget(sql, targetLine) {
     recipients: roleList(recipient), objectClass: className};
 }
 
+export function defaultAclCensus(sql) {
+  const counts = new Map();
+  for (const line of sql.split(/\r?\n/)) {
+    if (!/^\s*ALTER\s+DEFAULT\s+PRIVILEGES\b/i.test(line)) continue;
+    const role = decode(new RegExp(`\\bFOR\\s+ROLE\\s+(${identifier})`, 'i').exec(line)?.[1]);
+    const scope = decode(new RegExp(`\\bIN\\s+SCHEMA\\s+(${identifier})`, 'i').exec(line)?.[1]) ?? 'GLOBAL';
+    const objectClass = /\bON\s+(TABLES|SEQUENCES|FUNCTIONS|ROUTINES|TYPES|SCHEMAS)\b/i.exec(line)?.[1]?.toUpperCase() ?? 'OTHER';
+    const key = `${alias(role)}:${scope === 'public' || scope === 'private' || scope === 'GLOBAL' ? scope : alias(scope)}:${objectClass}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts].sort(([a], [b]) => a.localeCompare(b));
+}
+
 function hasMembership(catalog, member, role) {
   if (!member || !role) return false;
   if (member === role) return true;
@@ -67,8 +80,12 @@ export function compareRoles(target, hosted, local) {
     localCurrent: alias(local.currentUser)};
   for (const [label, catalog] of [['hosted', hosted], ['local', local]]) {
     const current = (catalog.roles ?? []).find(item => item.name === catalog.currentUser);
+    const targetRole = (catalog.roles ?? []).find(item => item.name === role);
     facts[`${label}TargetExists`] = Boolean((catalog.roles ?? []).some(item => item.name === role));
     facts[`${label}CurrentSuperuser`] = Boolean(current?.superuser);
+    facts[`${label}CurrentCreateRole`] = Boolean(current?.createRole);
+    facts[`${label}TargetSuperuser`] = Boolean(targetRole?.superuser);
+    facts[`${label}TargetCanLogin`] = Boolean(targetRole?.canLogin);
     facts[`${label}CurrentMemberOfTarget`] = hasMembership(catalog, catalog.currentUser, role);
     facts[`${label}SchemaOwner`] = alias((catalog.schemaOwners ?? []).find(item => item.schema === target.schema)?.owner);
   }
@@ -94,8 +111,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exit(2);
   }
   try {
-    const target = classifyTarget(readFileSync(dumpFile, 'utf8'), Number(lineText));
+    const sql = readFileSync(dumpFile, 'utf8');
+    const target = classifyTarget(sql, Number(lineText));
     outputTarget(target);
+    const census = defaultAclCensus(sql);
+    console.log(`DEFAULT_ACL_CENSUS_GROUPS=${census.length}`);
+    for (const [group, count] of census) console.log(`DEFAULT_ACL_CENSUS=${group}:${count}`);
     if (mode === 'compare') {
       if (!hostedFile || !localFile) throw new Error('Role catalog paths missing');
       const facts = compareRoles(target, JSON.parse(readFileSync(hostedFile, 'utf8')),
