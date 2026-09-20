@@ -48,13 +48,12 @@ jobs:
           if (pl.length !== 27 || ucl.length !== 8) throw new Error(`Unexpected 2025-26 counts after batch: PL=${pl.length}, UCL=${ucl.length}`);
           console.log(`Validated ${matches.length} total archive rows; 2025-26 PL=${pl.length}, UCL=${ucl.length}`);
           NODE
-      - name: Remove temporary applicator files and commit only matches.js
+      - name: Remove temporary applicator files and commit result
         run: |
           rm -f personal/arsenal-match-archive/.backfill-2026-01-28_02-18.json
           rm -f .github/workflows/arsenal-backfill-temp.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          test "$(git diff --cached --name-only)" = "personal/arsenal-match-archive/matches.js"
           git commit -m 'Backfill 2025-26 Arsenal matches through Wolves away'
           git push origin HEAD:automation/arsenal-2526-backfill-01
