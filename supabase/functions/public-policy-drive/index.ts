@@ -1,6 +1,7 @@
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const APP_URL = 'https://work.bokdoong.com/?view=library';
+const DRIVE_APP_URL = 'https://work.bokdoong.com/?view=library';
+const CALENDAR_APP_URL = 'https://mj880616.github.io/work/app/';
 const CALLBACK_URL = `${SB}/functions/v1/public-policy-drive/callback`;
 const ALLOWED_ORIGINS = new Set([
   'https://mj880616.github.io',
@@ -136,7 +137,7 @@ async function startDriveAuth(req: Request) {
 }
 
 function driveRedirect(result: 'connected' | 'error', reason?: string) {
-  const u = new URL(APP_URL);
+  const u = new URL(DRIVE_APP_URL);
   u.searchParams.set('drive', result);
   if (reason) u.searchParams.set('reason', reason);
   return u.toString();
@@ -165,7 +166,8 @@ Deno.serve(async (req) => {
 
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  if (!code || !state) return Response.redirect(driveRedirect('error', 'missing_oauth_params'), 302);
+  const isDriveState = !!state?.startsWith('drive.');
+  if (!code || !state) return Response.redirect(isDriveState ? driveRedirect('error', 'missing_oauth_params') : `${CALENDAR_APP_URL}?google=error`, 302);
 
   try {
     const stateHash = await sha256(state);
@@ -194,12 +196,12 @@ Deno.serve(async (req) => {
     if (!tokenRes.ok) {
       console.error(await tokenRes.text());
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
-      return Response.redirect(driveRedirect('error', 'token_exchange_failed'), 302);
+      return Response.redirect(isDriveState ? driveRedirect('error', 'token_exchange_failed') : `${CALENDAR_APP_URL}?google=error`, 302);
     }
 
     const tokens = await tokenRes.json();
 
-    if (state.startsWith('drive.')) {
+    if (isDriveState) {
       if (!tokens.refresh_token || !tokens.access_token) {
         await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
         return Response.redirect(driveRedirect('error', 'refresh_token_missing'), 302);
@@ -275,9 +277,9 @@ Deno.serve(async (req) => {
     await serviceDelete(
       `app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`
     );
-    return Response.redirect('https://mj880616.github.io/work/app/?google=connected', 302);
+    return Response.redirect(`${CALENDAR_APP_URL}?google=connected`, 302);
   } catch (e) {
     console.error(e);
-    return Response.redirect(driveRedirect('error', 'callback_failed'), 302);
+    return Response.redirect(isDriveState ? driveRedirect('error', 'callback_failed') : `${CALENDAR_APP_URL}?google=error`, 302);
   }
 });
