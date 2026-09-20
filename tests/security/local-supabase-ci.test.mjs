@@ -124,14 +124,16 @@ test('synthetic seed failure reports SQLSTATE and first table without printing l
     const error = join(directory, 'error.log');
     const secret = 'dont-print-this-value';
     writeFileSync(sql, `insert into public.app_workspaces(id,name)\nvalues ('id','${secret}');\n`);
-    writeFileSync(error, `psql:${sql}:2: ERROR:  23502: failing ${secret}\n`);
+    writeFileSync(error, `psql:${sql}:2: ERROR:  P0001: failing ${secret}\nCONTEXT: PL/pgSQL function private.app_task_child_project_guard() line 17 at RAISE\n`);
     const run = spawnSync(process.execPath,
       [fileURLToPath(sqlFailure), 'SYNTHETIC_SEED', sql, error], {encoding: 'utf8'});
     assert.equal(run.status, 0);
-    assert.match(run.stdout, /LOCAL_SQLSTATE=23502/);
+    assert.match(run.stdout, /LOCAL_SQLSTATE=P0001/);
     assert.match(run.stdout, /LOCAL_SQL_LINE=2/);
     assert.match(run.stdout, /LOCAL_SQL_STATEMENT=INSERT_INTO/);
     assert.match(run.stdout, /LOCAL_SQL_OBJECT=public\.app_workspaces/);
+    assert.match(run.stdout, /LOCAL_SQL_TRIGGER_FUNCTION=private\.app_task_child_project_guard/);
+    assert.match(run.stdout, /LOCAL_SQL_TRIGGER_ACTION=RAISE/);
     assert.ok(!`${run.stdout}${run.stderr}`.includes(secret));
   } finally { rmSync(directory, {recursive: true, force: true}); }
 });

@@ -31,6 +31,13 @@ try {
   console.log(`LOCAL_SQL_LINE=${line || 'UNAVAILABLE'}`);
   console.log(`LOCAL_SQL_STATEMENT=${kind}`);
   console.log(`LOCAL_SQL_OBJECT=${object}`);
+  if (stage === 'SYNTHETIC_SEED') {
+    const context = /PL\/pgSQL function ((?:(?:public|private)\.)?[a-z_][a-z_0-9]*)\([^\r\n)]*\) line (\d+) at ([A-Z_]+)/i.exec(error);
+    const fn = context?.[1] || 'UNAVAILABLE';
+    const action = context?.[3]?.toUpperCase() || 'UNAVAILABLE';
+    console.log(`LOCAL_SQL_TRIGGER_FUNCTION=${/^(?:(?:public|private)\.)?[a-z_][a-z_0-9]*$/i.test(fn) ? fn : 'UNAVAILABLE'}`);
+    console.log(`LOCAL_SQL_TRIGGER_ACTION=${/^[A-Z_]+$/.test(action) ? action : 'UNAVAILABLE'}`);
+  }
   console.log('LOCAL_SQL_AND_ERROR_WITHHELD=true');
 } catch {
   console.error('Local SQL diagnosis failed without printing source or captured errors');

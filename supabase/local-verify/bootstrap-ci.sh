@@ -151,7 +151,7 @@ if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -q -v ON_ERROR_S
 fi
 node "$repo_root/supabase/local-verify/create-local-auth.mjs" "$ci_root/users.json"
 if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 \
-  -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+  -v VERBOSITY=sqlstate -v SHOW_CONTEXT=errors \
   -f "$repo_root/supabase/local-verify/seed-before-cutover.sql" > "$ci_root/seed.log" 2>&1; then
   node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" SYNTHETIC_SEED \
     "$repo_root/supabase/local-verify/seed-before-cutover.sql" "$ci_root/seed.log"

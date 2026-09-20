@@ -20,6 +20,8 @@ try {
     const laterRefs = table.foreignKeys.map(f=>f.references).filter(x=>x.startsWith('public.'))
       .map(x=>x.slice(7)).filter(x=>x!==item.table && inserts.findIndex(y=>y.table===x)>first);
     console.log(`SEED_SHAPE table=public.${item.table} line=${item.line} rls=${table.rls} required_missing=${missing.filter(safe).join(',')||'none'} unknown_columns=${unknown.filter(safe).join(',')||'none'} later_fk_targets=${laterRefs.filter(safe).join(',')||'none'} trigger_count=${table.triggers.length}`);
+    if (item.table==='app_tasks') for (const t of table.triggers)
+      if (safe(t.name) && safe(t.function)) console.log(`SEED_TRIGGER table=public.app_tasks name=${t.name} function=${t.function}`);
     for (const f of table.foreignKeys) if (safe(f.name) && /^(?:public|auth)\.[a-z_][a-z_0-9]*$/i.test(f.references))
       console.log(`SEED_FK table=public.${item.table} constraint=${f.name} references=${f.references}`);
   }

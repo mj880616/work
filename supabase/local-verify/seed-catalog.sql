@@ -13,7 +13,8 @@ select json_build_object(
     from pg_constraint k where k.conrelid=c.oid and k.contype='f'
   ),
   'triggers', (
-    select coalesce(json_agg(t.tgname), '[]'::json) from pg_trigger t
+    select coalesce(json_agg(json_build_object('name',t.tgname,'function',p.proname)), '[]'::json)
+    from pg_trigger t join pg_proc p on p.oid=t.tgfoid
     where t.tgrelid=c.oid and not t.tgisinternal
   )
 )
