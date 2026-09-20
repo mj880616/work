@@ -59,7 +59,11 @@ export default {
       const value = request.headers.get(name);
       if (value) headers.set(name, value);
     }
-    const upstream = await fetch(new Request(originUrl, { method: request.method, headers, redirect: 'manual' }));
+    // GitHub Pages publishes mutable files at stable URLs. Revalidate the
+    // Cloudflare subrequest on every visit, including cached JS/CSS/JSON.
+    const upstream = await fetch(new Request(originUrl, {
+      method: request.method, headers, redirect: 'manual', cache: 'no-cache'
+    }));
     if (host === 'read.bokdoong.com' && incoming.pathname !== SERVICES[host].root && upstream.status === 404 &&
         (request.headers.get('Sec-Fetch-Dest') === 'document' || request.headers.get('Accept')?.includes('text/html'))) {
       const recovery = new URL(SERVICES[host].root, incoming);
@@ -67,6 +71,9 @@ export default {
       return Response.redirect(recovery.href, 302);
     }
     const responseHeaders = new Headers(upstream.headers);
+    // The default Cloudflare browser TTL can turn GitHub's 10 minutes into
+    // four hours. Require browsers to revalidate every proxied response.
+    responseHeaders.set('Cache-Control', 'no-cache, must-revalidate');
     const location = responseHeaders.get('Location');
     if (location) {
       const target = new URL(location, originUrl);
