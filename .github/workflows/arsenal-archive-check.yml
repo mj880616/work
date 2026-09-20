@@ -1,0 +1,28 @@
+name: Arsenal archive check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'personal/arsenal-match-archive/**'
+      - '.github/workflows/arsenal-archive-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save --no-package-lock @playwright/test@1.55.0
+      - run: npx playwright install --with-deps chromium
+      - run: node --test personal/arsenal-match-archive/validate-archive.test.mjs
+      - run: node personal/arsenal-match-archive/validate-archive.mjs --baseline-ref ${{ github.event.pull_request.base.sha }}
+      - run: npx playwright test personal/arsenal-match-archive/archive.spec.mjs --browser=chromium --workers=1 --reporter=line
