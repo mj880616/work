@@ -1,0 +1,95 @@
+name: Deploy bokdoong Cloudflare Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bokdoong-cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy and verify bokdoong-router
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run router regression tests
+        run: node --test tests/domain/bokdoong-router.test.mjs
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config cloudflare/wrangler.toml
+
+      - name: Verify production routes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          check_200() {
+            local url="$1"
+            local accept="${2:-*/*}"
+            local code=""
+
+            for attempt in {1..20}; do
+              code="$(curl                 --silent                 --show-error                 --location                 --max-redirs 8                 --connect-timeout 10                 --max-time 30                 --header "Accept: $accept"                 --output /dev/null                 --write-out '%{http_code}'                 "$url" || true)"
+
+              if [[ "$code" == "200" ]]; then
+                echo "OK  $url"
+                return 0
+              fi
+
+              echo "WAIT ($attempt/20, HTTP $code)  $url"
+              sleep 5
+            done
+
+            echo "FAIL  $url (last HTTP $code)"
+            return 1
+          }
+
+          check_https_upgrade() {
+            local host="$1"
+            local result
+            result="$(curl               --silent               --show-error               --location               --max-redirs 8               --connect-timeout 10               --max-time 30               --output /dev/null               --write-out '%{url_effective}|%{http_code}'               "http://$host/" || true)"
+
+            if [[ "$result" != https://*'|200' ]]; then
+              echo "FAIL  http://$host/ -> $result"
+              return 1
+            fi
+
+            echo "OK  http://$host/ -> $result"
+          }
+
+          for url in             https://bokdoong.com/             https://work.bokdoong.com/             https://desk.bokdoong.com/             https://read.bokdoong.com/             https://arsenal.bokdoong.com/
+          do
+            check_200 "$url" "text/html"
+          done
+
+          for host in             bokdoong.com             work.bokdoong.com             desk.bokdoong.com             read.bokdoong.com             arsenal.bokdoong.com
+          do
+            check_https_upgrade "$host"
+          done
+
+          check_200             'https://read.bokdoong.com/read-think-write/records/?tab=recent'             'text/html'
+
+          check_200 'https://read.bokdoong.com/favicon.ico'
+          check_200 'https://arsenal.bokdoong.com/favicon.ico'
+          check_200 'https://desk.bokdoong.com/work/app/sw.js?v=2'
+
+          for url in             https://mj880616.github.io/work/             https://mj880616.github.io/work/app/             https://mj880616.github.io/read-think-write/             https://mj880616.github.io/work/personal/arsenal-match-archive/
+          do
+            check_200 "$url" "text/html"
+          done
