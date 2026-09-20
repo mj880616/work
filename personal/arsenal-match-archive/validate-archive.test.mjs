@@ -63,6 +63,29 @@ test('2026-27 mutation is rejected', () => {
   assert.match(auditArchive(data, { complete: false, baselineMatches: original }).errors.join(' '), /2026-27/);
 });
 
+test('scoring links must use HTTPS in either season', () => {
+  const data = copy();
+  data.find(m => m.season === '2025-26').goalsSource = 'javascript:alert(1)';
+  data.find(m => m.season === '2026-27').goalsTimeSource = 'data:text/html,test';
+  assert.equal(auditArchive(data, { complete: false }).errors.filter(error => /scoring source/i.test(error)).length, 2);
+});
+
+test('2026-27 scoring additions are allowed without masking existing fields or later goal edits', () => {
+  const data = copy();
+  const match = data.find(m => m.season === '2026-27');
+  match.goals = [{ side: 'home', minute: '31', scorer: 'Example', assist: null, type: 'goal' }];
+  match.goalsSource = 'https://example.org/match-events';
+  assert.deepEqual(auditArchive(data, { complete: false, baselineMatches: original }).errors, []);
+
+  match.subtitle += 'changed';
+  assert.match(auditArchive(data, { complete: false, baselineMatches: original }).errors.join(' '), /2026-27/);
+
+  match.subtitle = original.find(m => m.id === match.id).subtitle;
+  const withScoringBaseline = structuredClone(data);
+  match.goals[0].minute = '32';
+  assert.match(auditArchive(data, { complete: false, baselineMatches: withScoringBaseline }).errors.join(' '), /2026-27/);
+});
+
 test('2025-26 match statistics have numeric big-chance coverage and source links', () => {
   const data = loadArchive(readFileSync(new URL('./matches.js', import.meta.url), 'utf8'))
     .filter(match => match.season === '2025-26');

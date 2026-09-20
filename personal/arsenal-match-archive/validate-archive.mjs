@@ -59,6 +59,11 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
     else if (ids.has(match.id)) errors.push(`${name}: duplicate id`);
     else ids.add(match.id);
     if (!validDate(match.date)) errors.push(`${name}: invalid date`);
+    for (const field of ['goalsSource', 'goalsTimeSource']) {
+      if (match[field] !== undefined && !isHttps(match[field])) {
+        errors.push(`${name}: invalid scoring source URL (${field})`);
+      }
+    }
 
     if (match.season !== '2025-26') continue;
     seasonMatches.push(match);
@@ -118,7 +123,15 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
   }
   if (baselineMatches) {
     const recent = list => list.filter(match => match?.season === '2026-27');
-    if (JSON.stringify(recent(matches)) !== JSON.stringify(recent(baselineMatches))) {
+    const baselineRecent = recent(baselineMatches);
+    const scoringFields = new Set(['goals', 'goalsSource', 'goalsTimeSource']);
+    const comparableRecent = recent(matches).map((match, index) => {
+      const baseline = baselineRecent[index];
+      if (!baseline || baseline.id !== match.id) return match;
+      return Object.fromEntries(Object.entries(match).filter(([key]) =>
+        !scoringFields.has(key) || Object.hasOwn(baseline, key)));
+    });
+    if (JSON.stringify(comparableRecent) !== JSON.stringify(baselineRecent)) {
       errors.push('2026-27 records differ from baseline');
     }
   }
