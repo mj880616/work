@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#d71920">
+  <meta name="description" content="아스날 경기별 전술 리뷰와 관찰 기록을 누적하는 개인 아카이브">
+  <title>아스날 경기노트</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div>
+        <p class="eyebrow">ARSENAL MATCH ARCHIVE</p>
+        <h1>아스날 경기노트</h1>
+        <p class="header-copy">결과보다 경기의 구조를 기록함. 왜 풀렸고, 왜 막혔고, 다음 경기에서 무엇을 확인할지 누적함.</p>
+      </div>
+      <div class="season-badge" aria-label="현재 시즌">2026–27</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="controls" aria-label="경기 필터">
+      <label>
+        <span>대회</span>
+        <select id="competitionFilter">
+          <option value="all">전체</option>
+        </select>
+      </label>
+      <label>
+        <span>상대 검색</span>
+        <input id="searchInput" type="search" placeholder="예: 브라이튼">
+      </label>
+    </section>
+
+    <section id="latest" aria-labelledby="latestTitle">
+      <div class="section-heading">
+        <p class="eyebrow">LATEST REVIEW</p>
+        <h2 id="latestTitle">최근 경기</h2>
+      </div>
+      <div id="latestReview"></div>
+    </section>
+
+    <section class="archive-section" aria-labelledby="archiveTitle">
+      <div class="section-heading">
+        <p class="eyebrow">ARCHIVE</p>
+        <h2 id="archiveTitle">경기 아카이브</h2>
+      </div>
+      <div id="archiveList" class="archive-list"></div>
+      <p id="emptyState" class="empty-state" hidden>조건에 맞는 경기가 없음.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">개인 경기 기록 · 읽생기 / 웹1 / 웹2와 분리 운영</div>
+  </footer>
+
+  <script src="./matches.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
