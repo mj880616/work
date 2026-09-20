@@ -144,7 +144,15 @@
       if(!(body instanceof FormData)&&!h['Content-Type'])h['Content-Type']='application/json';
       h.Authorization='Bearer '+(auth?current.access_token:config.key);
       if(prefer)h.Prefer=prefer;
-      return fetchWithTimeout(url,{method,headers:h,body:requestBody,cache:'no-store'},timeoutMs);
+      const started=performance.now();
+      try{
+        const response=await fetchWithTimeout(url,{method,headers:h,body:requestBody,cache:'no-store'},timeoutMs);
+        window.__KPTU_STARTUP__?.request?.(url,performance.now()-started,response.status);
+        return response;
+      }catch(e){
+        window.__KPTU_STARTUP__?.request?.(url,performance.now()-started,e?.status||0);
+        throw e;
+      }
     }
 
     let r=await request();
@@ -179,7 +187,7 @@
   }
 
   window.KPTURuntime={
-    version:'1.2.0',
+    version:'1.2.1',
     config,
     RuntimeError,
     session:{read,write,refresh,ensure},
