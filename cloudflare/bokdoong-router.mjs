@@ -1,7 +1,7 @@
 const PAGES_ORIGIN = 'https://mj880616.github.io';
 const SERVICES = Object.freeze({
   'work.bokdoong.com': { root: '/work/', prefix: '/work/' },
-  'desk.bokdoong.com': { root: '/work/app/', prefix: '/work/' },
+  'desk.bokdoong.com': { root: '/work/app/', prefix: '/work/app/' },
   'read.bokdoong.com': { root: '/read-think-write/', prefix: '/read-think-write/' },
   'arsenal.bokdoong.com': {
     root: '/work/personal/arsenal-match-archive/',
@@ -32,6 +32,14 @@ export default {
     }
     if (incoming.pathname === '/' && host !== 'bokdoong.com') {
       incoming.pathname = SERVICES[host].root;
+      return Response.redirect(incoming.href, 302);
+    }
+    if (host === 'desk.bokdoong.com' && incoming.pathname === '/work/app') {
+      incoming.pathname = '/work/app/';
+      return Response.redirect(incoming.href, 302);
+    }
+    if (host === 'desk.bokdoong.com' && incoming.pathname.startsWith('/work/') && !incoming.pathname.startsWith('/work/app/')) {
+      incoming.hostname = 'work.bokdoong.com';
       return Response.redirect(incoming.href, 302);
     }
     if (!allowedPath(host, incoming.pathname)) return new Response('Not found', { status: 404 });

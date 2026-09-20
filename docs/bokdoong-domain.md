@@ -19,11 +19,11 @@ GitHub Pages custom domain을 설정하지 않음. 기존 github.io URL을 계�
 | --- | --- | --- |
 | `bokdoong.com` | 포털 페이지를 바로 제공 | `/work/personal/portal/` |
 | `work.bokdoong.com` | `/work/`로 호스트 내부 이동 | `/work/**` |
-| `desk.bokdoong.com` | `/work/app/`로 호스트 내부 이동 | `/work/**` |
+| `desk.bokdoong.com` | `/work/app/`로 호스트 내부 이동 | `/work/app/**` |
 | `read.bokdoong.com` | `/read-think-write/`로 호스트 내부 이동 | `/read-think-write/**` |
 | `arsenal.bokdoong.com` | `/work/personal/arsenal-match-archive/`로 호스트 내부 이동 | 해당 아카이브 경로만 |
 
-기존 경로를 유지하므로 CSS, JS, Web2 Service Worker 범위, 읽생기 SPA 경로를 일괄 변경하지 않아도 됨. `desk`에서 Web1 링크를 열 때도 `/work/**`를 제공하여 현재 앱의 같은 Origin 경로 의존성을 보존함. `lab`·`archive`를 추가하려면 Worker의 호스트별 경로 매핑과 Wrangler Custom Domain을 하나씩 추가하면 됨.
+기존 경로를 유지하므로 CSS, JS, Web2 Service Worker 범위, 읽생기 SPA 경로를 일괄 변경하지 않아도 됨. `desk`의 Web1 공개 페이지 링크는 `work.bokdoong.com`의 같은 경로로 이동시켜 인증 앱과 공개 페이지의 새 Origin을 분리함. `lab`·`archive`를 추가하려면 Worker의 호스트별 경로 매핑과 Wrangler Custom Domain을 하나씩 추가하면 됨.
 
 Cloudflare Worker Custom Domain을 배포하면 Cloudflare가 해당 호스트의 DNS 레코드와 인증서를 관리함. 기존 같은 이름의 CNAME이 있으면 먼저 충돌 여부를 확인해야 함. Worker 무료 플랜은 하루 100,000 요청 제한이 있으므로 트래픽을 관찰해야 함.
 

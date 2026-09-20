@@ -63,6 +63,21 @@ test('only the selected GitHub Pages trees are proxied', async () => {
   assert.equal(denied.calls.length, 0);
 });
 
+test('desk keeps authenticated app assets and sends public pages to work origin', async () => {
+  const app = await request('https://desk.bokdoong.com/work/app/auth-service.js');
+  assert.equal(app.response.status, 200);
+  assert.equal(app.calls[0].url, 'https://mj880616.github.io/work/app/auth-service.js');
+
+  const appWithoutSlash = await request('https://desk.bokdoong.com/work/app');
+  assert.equal(appWithoutSlash.response.headers.get('Location'), 'https://desk.bokdoong.com/work/app/');
+  assert.equal(appWithoutSlash.calls.length, 0);
+
+  const publicPage = await request('https://desk.bokdoong.com/work/p/?slug=example');
+  assert.equal(publicPage.response.status, 302);
+  assert.equal(publicPage.response.headers.get('Location'), 'https://work.bokdoong.com/work/p/?slug=example');
+  assert.equal(publicPage.calls.length, 0);
+});
+
 test('upstream directory redirects keep the requested hostname', async () => {
   const upstream = new Response(null, {
     status: 301,
