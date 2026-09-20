@@ -48,6 +48,8 @@ node "$repo_root/supabase/local-verify/diagnose-start.mjs" preflight || {
 # in the disposable copy; all object definitions, grants, and policies remain.
 sed -E 's/^CREATE SCHEMA (public|private);$/CREATE SCHEMA IF NOT EXISTS \1;/' \
   "$baseline" > "$ci_root/baseline-local.sql"
+node "$repo_root/supabase/local-verify/compat-default-acl.mjs" split \
+  "$ci_root/baseline-local.sql" "$ci_root/baseline-apply.sql" "$ci_root/admin-default-acl.sql"
 for name in meeting-ai-draft meeting-ai-ingest meeting-files; do
   cp -R "$repo_root/supabase/functions/$name" "supabase/functions/$name"
 done
@@ -79,6 +81,13 @@ esac
 [[ -n "${ANON_KEY:-}" && -n "${SERVICE_ROLE_KEY:-}" ]] || {
   echo 'Local API keys are missing' >&2; exit 1;
 }
+admin_db_url="$(node -e 'const u=new URL(process.env.DB_URL);if(!["127.0.0.1","localhost"].includes(u.hostname))process.exit(1);u.username="supabase_admin";process.stdout.write(u.toString())')"
+if ! psql "$admin_db_url" -X -qAt -v ON_ERROR_STOP=1 -c 'select current_user' \
+  > "$ci_root/admin-login.log" 2> "$ci_root/admin-login.err" || \
+  ! grep -qx 'supabase_admin' "$ci_root/admin-login.log"; then
+  echo 'LOCAL_ADMIN_LOGIN_FAILED: cannot apply original default ACL as its owner' >&2
+  exit 1
+fi
 
 # Diagnostic mode compares catalog metadata only. It never applies the hosted
 # baseline, seed, migration, or production credentials to the local stack.
@@ -93,14 +102,7 @@ if [[ "${WEB2_ROLE_DIAGNOSTIC:-0}" == 1 ]]; then
   fi
   node "$repo_root/supabase/local-verify/role-diagnostics.mjs" compare \
     "$baseline" 10343 "$WEB2_HOSTED_ROLES_FILE" "$ci_root/local-roles.json"
-  admin_db_url="$(node -e 'const u=new URL(process.env.DB_URL);if(!["127.0.0.1","localhost"].includes(u.hostname))process.exit(1);u.username="supabase_admin";process.stdout.write(u.toString())')"
-  if psql "$admin_db_url" -X -qAt -v ON_ERROR_STOP=1 -c 'select current_user' \
-    > "$ci_root/admin-login.log" 2> "$ci_root/admin-login.err" && \
-    grep -qx 'supabase_admin' "$ci_root/admin-login.log"; then
-    echo 'LOCAL_ADMIN_SAME_PASSWORD_LOGIN=true'
-  else
-    echo 'LOCAL_ADMIN_SAME_PASSWORD_LOGIN=false'
-  fi
+  echo 'LOCAL_ADMIN_SAME_PASSWORD_LOGIN=true'
   echo 'LOCAL_ROLE_DIAGNOSTIC_PASSED'
   exit 0
 fi
@@ -109,7 +111,7 @@ fi
 # major client as extraction; the runner's distro psql may be older.
 if ! PGOPTIONS='-c app.local_verification=on' docker run --rm --network host --read-only \
   --tmpfs /tmp:rw,noexec,nosuid -e DB_URL -e PGOPTIONS \
-  -v "$ci_root/baseline-local.sql:/verify/baseline.sql:ro" postgres:17 \
+  -v "$ci_root/baseline-apply.sql:/verify/baseline.sql:ro" postgres:17 \
   sh -c 'psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never -f /verify/baseline.sql' \
   > "$ci_root/baseline-apply.log" 2>&1; then
   node "$repo_root/supabase/local-verify/analyze-baseline.mjs" failure \
@@ -117,6 +119,15 @@ if ! PGOPTIONS='-c app.local_verification=on' docker run --rm --network host --r
   echo 'BASELINE_APPLY_FAILED: first SQLSTATE and dump object reported; raw SQL withheld' >&2
   exit 1
 fi
+if ! PGOPTIONS='-c app.local_verification=on' psql "$admin_db_url" -X -q \
+  -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+  -f "$ci_root/admin-default-acl.sql" > "$ci_root/admin-default-acl.log" 2>&1; then
+  node "$repo_root/supabase/local-verify/compat-default-acl.mjs" failure \
+    "$ci_root/admin-default-acl.sql" "$ci_root/admin-default-acl.log"
+  echo 'ADMIN_DEFAULT_ACL_APPLY_FAILED: original SQL withheld' >&2
+  exit 1
+fi
+echo 'ADMIN_DEFAULT_ACL_APPLY_PASSED'
 echo 'BASELINE_APPLY_PASSED'
 
 if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -v ON_ERROR_STOP=1 \

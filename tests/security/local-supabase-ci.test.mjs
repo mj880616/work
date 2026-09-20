@@ -79,6 +79,7 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/role-diagnostics.mjs',
     'supabase/local-verify/role-catalog.sql',
     'supabase/local-verify/definer-diagnostics.mjs',
+    'supabase/local-verify/compat-default-acl.mjs',
     'supabase/local-verify/custom-auth-trigger.sql',
     'supabase/local-verify/create-local-auth.mjs',
     'supabase/local-verify/seed-before-cutover.sql',
@@ -110,6 +111,24 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
   assert.match(bootstrap, /analyze-baseline\.mjs" failure/);
   assert.match(load('supabase/local-verify/seed-before-cutover.sql'),
     /app\.local_verification.*is distinct from 'on'/s);
+});
+
+test('local compatibility moves only reviewed admin default ACLs and preserves source lines', async () => {
+  const {splitAdminDefaultAcl} = await import('../../supabase/local-verify/compat-default-acl.mjs');
+  const sql = [
+    'CREATE TABLE public.before_acl (id uuid);',
+    'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO anon;',
+    ...Array.from({length: 12}, (_, i) =>
+      `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ${i % 3 === 0 ? 'SELECT ON TABLES' : i % 3 === 1 ? 'USAGE ON SEQUENCES' : 'EXECUTE ON FUNCTIONS'} TO postgres;`),
+    'GRANT SELECT ON TABLE public.before_acl TO anon;',
+  ].join('\n');
+  const result = splitAdminDefaultAcl(sql);
+  assert.equal(result.movedLines.length, 12);
+  assert.equal(result.mainSql.split('\n').length, sql.split('\n').length);
+  assert.match(result.mainSql, /FOR ROLE postgres/);
+  assert.doesNotMatch(result.mainSql, /FOR ROLE supabase_admin/);
+  assert.equal((result.adminSql.match(/FOR ROLE supabase_admin/g) ?? []).length, 12);
+  assert.throws(() => splitAdminDefaultAcl(sql.replace('FOR ROLE supabase_admin', 'FOR ROLE other_role')));
 });
 
 test('security definer triage reports flags but withholds function bodies', () => {
