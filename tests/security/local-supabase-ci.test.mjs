@@ -19,6 +19,7 @@ const diagnostics = new URL('../../supabase/local-verify/diagnose-start.mjs', im
 const baselineReview = new URL('../../supabase/local-verify/analyze-baseline.mjs', import.meta.url);
 const roleDiagnostics = new URL('../../supabase/local-verify/role-diagnostics.mjs', import.meta.url);
 const definerDiagnostics = new URL('../../supabase/local-verify/definer-diagnostics.mjs', import.meta.url);
+const sqlFailure = new URL('../../supabase/local-verify/analyze-sql-failure.mjs', import.meta.url);
 
 const restricted = (sql, key) => `\\restrict ${key}\n${sql}\\unrestrict ${key}\n`;
 
@@ -80,6 +81,7 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/role-catalog.sql',
     'supabase/local-verify/definer-diagnostics.mjs',
     'supabase/local-verify/compat-default-acl.mjs',
+    'supabase/local-verify/analyze-sql-failure.mjs',
     'supabase/local-verify/custom-auth-trigger.sql',
     'supabase/local-verify/create-local-auth.mjs',
     'supabase/local-verify/seed-before-cutover.sql',
@@ -111,6 +113,25 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
   assert.match(bootstrap, /analyze-baseline\.mjs" failure/);
   assert.match(load('supabase/local-verify/seed-before-cutover.sql'),
     /app\.local_verification.*is distinct from 'on'/s);
+});
+
+test('synthetic seed failure reports SQLSTATE and first table without printing literals', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'web2-seed-error-'));
+  try {
+    const sql = join(directory, 'seed.sql');
+    const error = join(directory, 'error.log');
+    const secret = 'dont-print-this-value';
+    writeFileSync(sql, `insert into public.app_workspaces(id,name)\nvalues ('id','${secret}');\n`);
+    writeFileSync(error, `psql:${sql}:2: ERROR:  23502: failing ${secret}\n`);
+    const run = spawnSync(process.execPath,
+      [fileURLToPath(sqlFailure), 'SYNTHETIC_SEED', sql, error], {encoding: 'utf8'});
+    assert.equal(run.status, 0);
+    assert.match(run.stdout, /LOCAL_SQLSTATE=23502/);
+    assert.match(run.stdout, /LOCAL_SQL_LINE=2/);
+    assert.match(run.stdout, /LOCAL_SQL_STATEMENT=INSERT_INTO/);
+    assert.match(run.stdout, /LOCAL_SQL_OBJECT=public\.app_workspaces/);
+    assert.ok(!`${run.stdout}${run.stderr}`.includes(secret));
+  } finally { rmSync(directory, {recursive: true, force: true}); }
 });
 
 test('local compatibility moves only reviewed admin default ACLs and preserves source lines', async () => {

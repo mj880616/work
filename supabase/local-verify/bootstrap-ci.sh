@@ -130,14 +130,20 @@ fi
 echo 'ADMIN_DEFAULT_ACL_APPLY_PASSED'
 echo 'BASELINE_APPLY_PASSED'
 
-if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
+if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
   -f "$repo_root/supabase/local-verify/custom-auth-trigger.sql" > "$ci_root/auth-trigger.log" 2>&1; then
+  node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" AUTH_TRIGGER \
+    "$repo_root/supabase/local-verify/custom-auth-trigger.sql" "$ci_root/auth-trigger.log"
   echo 'Local custom Auth trigger setup failed; SQL output is withheld' >&2
   exit 1
 fi
 node "$repo_root/supabase/local-verify/create-local-auth.mjs" "$ci_root/users.json"
-if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
+if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
   -f "$repo_root/supabase/local-verify/seed-before-cutover.sql" > "$ci_root/seed.log" 2>&1; then
+  node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" SYNTHETIC_SEED \
+    "$repo_root/supabase/local-verify/seed-before-cutover.sql" "$ci_root/seed.log"
   echo 'Synthetic local seed failed; SQL output is withheld' >&2
   exit 1
 fi
@@ -146,8 +152,10 @@ for migration in \
   20260920120000_public_single_post_prepare.sql \
   20260920121000_public_single_post_cutover.sql \
   20260920122000_project_public_view.sql; do
-  if ! psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
+  if ! psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
     -f "$repo_root/supabase/migrations/$migration" > "$ci_root/$migration.log" 2>&1; then
+    node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" MIGRATION \
+      "$repo_root/supabase/migrations/$migration" "$ci_root/$migration.log"
     echo "LOCAL migration failed: $migration; SQL output is withheld" >&2
     exit 1
   fi
@@ -157,7 +165,10 @@ for sql_test in \
   "$repo_root/supabase/tests/authz_public_snapshot.sql" \
   "$repo_root/supabase/tests/authz_project_public_view.sql"; do
   name="$(basename "$sql_test")"
-  if ! psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$sql_test" > "$ci_root/$name.log" 2>&1; then
+  if ! psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+    -f "$sql_test" > "$ci_root/$name.log" 2>&1; then
+    node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" AUTHORIZATION_SQL \
+      "$sql_test" "$ci_root/$name.log"
     echo "LOCAL authorization SQL test failed: $name; SQL output is withheld" >&2
     exit 1
   fi
