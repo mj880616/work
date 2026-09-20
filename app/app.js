@@ -1,15 +1,6 @@
 (()=>{
-  const KEY='kptu_startup_diag_v1',MAX=20;
   const startedAt=performance.now(),requests=[];
-  let finalized=false;
-  function safeRead(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}}
-  function save(sample){
-    try{
-      const rows=safeRead();
-      rows.unshift(sample);
-      localStorage.setItem(KEY,JSON.stringify(rows.slice(0,MAX)));
-    }catch{}
-  }
+  let finalized=false,latest=null;
   function endpointLabel(raw){
     try{
       const u=new URL(raw,location.origin),p=u.pathname;
@@ -35,35 +26,34 @@
       window.dispatchEvent(new CustomEvent('kptu:startup-mark',{detail:{name,at:this.marks[name],...detail}}));
     },
     finalize(outcome='ready'){
-      if(finalized)return;
+      if(finalized)return latest;
       finalized=true;
-      const marks=Object.fromEntries(Object.entries(this.marks).map(([k,v])=>[k,Math.round(v)]));
-      const sample={
+      latest={
         at:new Date().toISOString(),
         outcome,
         totalMs:Math.round(performance.now()),
-        marks,
+        marks:Object.fromEntries(Object.entries(this.marks).map(([k,v])=>[k,Math.round(v)])),
         requests:[...requests],
         connection:navigator.connection?.effectiveType||null
       };
-      save(sample);
-      this.latest=sample;
+      this.latest=latest;
+      return latest;
     }
   };
   window.KPTUStartupDiagnostics={
-    latest:()=>startup.latest||safeRead()[0]||null,
-    history:()=>safeRead(),
-    clear:()=>{try{localStorage.removeItem(KEY)}catch{}},
+    latest:()=>latest,
     async copy(){
-      const text=JSON.stringify({latest:this.latest(),history:this.history().slice(0,5)},null,2);
+      const text=JSON.stringify({latest},null,2);
       await navigator.clipboard.writeText(text);
       return text;
     }
   };
-  function maybeDebugButton(){
-    if(new URLSearchParams(location.search).get('startup-debug')!=='1'||document.querySelector('#startupDiagCopy'))return;
+  function maybeDebugButton(sample){
+    const forced=new URLSearchParams(location.search).get('startup-debug')==='1';
+    const slow=(sample?.totalMs||0)>=1500;
+    if((!forced&&!slow)||document.querySelector('#startupDiagCopy'))return;
     const b=document.createElement('button');
-    b.id='startupDiagCopy';b.type='button';b.textContent='로딩 기록 복사';
+    b.id='startupDiagCopy';b.type='button';b.textContent=slow?'느린 로딩 기록 복사':'로딩 기록 복사';
     b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:9999;padding:8px 10px;border:1px solid #cfd6dc;border-radius:8px;background:#fff;color:#263f5f;font:700 12px sans-serif;box-shadow:0 4px 16px rgba(20,33,48,.12)';
     b.onclick=async()=>{try{await window.KPTUStartupDiagnostics.copy();b.textContent='복사됨'}catch{b.textContent='복사 실패'}};
     document.body.appendChild(b);
@@ -71,9 +61,9 @@
   window.__KPTU_MARK_APP_UI_READY__=({usable=false}={})=>{
     const app=document.querySelector('#appView');app?.classList.add('kptu-ui-ready');
     startup.mark(usable?'homeUsable':'uiReadyOnly');
-    startup.finalize(usable?'home-usable':'ui-ready');
+    const sample=startup.finalize(usable?'home-usable':'ui-ready');
     window.dispatchEvent(new Event('kptu:app-ui-ready'));
-    maybeDebugButton();
+    maybeDebugButton(sample);
   };
   import('./loader-v2.js?v=169').catch(err=>{
     console.error(err);startup.finalize('error');window.__KPTU_MARK_APP_UI_READY__?.();
