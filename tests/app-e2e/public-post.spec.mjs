@@ -1,8 +1,36 @@
 import {readFileSync} from 'node:fs';
 import {test,expect} from '@playwright/test';
+import {renderShell} from '../../scripts/public-page-meta.mjs';
 
 const BASE='http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+
+test('generated slug shell loads the shared renderer and uses fixed metadata slug',async({page})=>{
+  const template=readFileSync(new URL('../../p/index.html',import.meta.url),'utf8');
+  const shell=renderShell(template,{slug:'generated-public',title:'생성 공개 페이지',summary:'생성 요약',visibility:'public',metadata:{}},{site:'https://mj880616.github.io/work'});
+  const calls=[];
+  await page.route(`${BASE}/p/generated-public/?slug=wrong-public`,route=>route.fulfill({status:200,contentType:'text/html',body:shell}));
+  await page.route(`${SB}/rest/v1/rpc/app_public_post`,route=>{
+    calls.push(route.request().postDataJSON());
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{title:'생성 공개 페이지',summary:'생성 요약',body:'렌더링 확인',page_design:{}}])});
+  });
+  await page.goto(`${BASE}/p/generated-public/?slug=wrong-public`);
+  await expect(page.locator('#paper h1')).toHaveText('생성 공개 페이지');
+  await expect(page.locator('#paper')).toContainText('렌더링 확인');
+  expect(calls).toEqual([{p_slug:'generated-public'}]);
+});
+
+test('all seven reviewed legacy URLs retain a fixed shell or generic redirect',()=>{
+  const manifest=JSON.parse(readFileSync(new URL('../../p/.custom-page-shells.json',import.meta.url),'utf8'));
+  expect(manifest.slugs).toHaveLength(6);
+  for(const slug of manifest.slugs){
+    const shell=readFileSync(new URL(`../../p/${slug}/index.html`,import.meta.url),'utf8');
+    expect(shell).toContain(`<meta name="kptu-page-slug" content="${slug}">`);
+    expect(shell).toContain('PUBLIC_PAGE_META_START');
+  }
+  const seventh=readFileSync(new URL('../../p/bus-strike-publicness-internal-archive-202609/index.html',import.meta.url),'utf8');
+  expect(seventh).toContain("location.replace('../?slug=bus-strike-publicness-internal-archive-202609')");
+});
 
 test('anonymous public post uses only the single-post RPC and isolated shell',async({page})=>{
   const calls=[];

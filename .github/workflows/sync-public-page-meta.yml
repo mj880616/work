@@ -8,6 +8,16 @@ on:
     branches: [main]
     paths:
       - 'p/index.html'
+      - 'p/public-post.js'
+      - 'scripts/generate-public-pages.mjs'
+      - 'scripts/public-page-meta.mjs'
+      - 'scripts/public-page-meta.test.mjs'
+      - '.github/workflows/sync-public-page-meta.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'p/index.html'
+      - 'p/public-post.js'
       - 'scripts/generate-public-pages.mjs'
       - 'scripts/public-page-meta.mjs'
       - 'scripts/public-page-meta.test.mjs'
@@ -35,6 +45,7 @@ jobs:
       - name: Generate metadata shells
         run: node scripts/generate-public-pages.mjs
       - name: Commit changes
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           git add -A p

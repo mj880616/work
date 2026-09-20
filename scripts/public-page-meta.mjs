@@ -66,7 +66,8 @@ export function renderShell(template,page,{site}){
     .replace(/<title>[\s\S]*?<\/title>/i,`<title>${escText(title)}</title>`)
     .replace(META_BLOCK_RE,metaBlock(page,{site}))
     .replaceAll('href="../favicon.svg"','href="../../favicon.svg"')
-    .replaceAll('src="../app/','src="../../app/');
+    .replaceAll('src="../app/','src="../../app/')
+    .replaceAll('src="./public-post.js','src="../public-post.js');
   return applyTitleSizeStyle(html,page);
 }
 

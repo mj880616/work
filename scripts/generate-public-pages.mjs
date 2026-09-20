@@ -17,15 +17,25 @@ if(!Array.isArray(custom)||custom.length!==6||new Set(custom).size!==6||
   throw new Error('Invalid reviewed custom public page manifest');
 }
 const template=await fs.readFile(TEMPLATE_PATH,'utf8');
-if(!template.includes('PUBLIC_PAGE_META_START'))throw new Error('Missing metadata template markers');
+if(!template.includes('<!-- PUBLIC_PAGE_META_START -->')||!template.includes('<!-- PUBLIC_PAGE_META_END -->')){
+  throw new Error('Missing metadata template markers');
+}
 
+let awaitingPrepare=false;
 for(const slug of custom){
   const response=await fetch(SB+'/rest/v1/rpc/app_public_post',{
     method:'POST',cache:'no-store',
     headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},
     body:JSON.stringify({p_slug:slug})
   });
-  if(!response.ok)throw new Error('Public post lookup failed for '+slug+': '+response.status);
+  if(!response.ok){
+    const problem=await response.json().catch(()=>null);
+    if(response.status===404&&problem?.code==='PGRST202'){
+      awaitingPrepare=true;
+      break;
+    }
+    throw new Error('Public post lookup failed for '+slug+': '+response.status);
+  }
   const rows=await response.json();
   const post=Array.isArray(rows)?rows[0]:null;
   const page=post
@@ -36,4 +46,17 @@ for(const slug of custom){
   const html=renderManagedShell(template,existing,page,{site:SITE,preserveExisting:true});
   if(html!==existing)await fs.writeFile(file,html,'utf8');
 }
-console.log('synced metadata for '+custom.length+' reviewed public URLs');
+if(awaitingPrepare){
+  // Before the additive prepare migration, preserve reviewed shells instead of
+  // querying the broad anonymous page list or replacing live metadata.
+  for(const slug of custom){
+    const existing=await fs.readFile(path.join(ROOT,'p',slug,'index.html'),'utf8');
+    if(!existing.includes(`<!-- PUBLIC_PAGE_META_START -->`)||
+       !existing.includes(`<meta name="kptu-page-slug" content="${slug}">`)){
+      throw new Error('Existing public shell metadata is incomplete for '+slug);
+    }
+  }
+  console.log('public post RPC not deployed yet; preserved six reviewed metadata shells');
+}else{
+  console.log('synced metadata for '+custom.length+' reviewed public URLs');
+}

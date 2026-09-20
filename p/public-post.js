@@ -28,7 +28,7 @@
   document.querySelector('#printPageBtn')?.addEventListener('click',()=>window.print());
 
   async function load(){
-    const slug=new URLSearchParams(location.search).get('slug');
+    const slug=document.querySelector('meta[name="kptu-page-slug"]')?.content?.trim()||new URLSearchParams(location.search).get('slug');
     if(!slug||!(/^[a-z0-9][a-z0-9-]{0,99}$/.test(slug)))return error();
     const projectSlug=/^project-[0-9a-f]{32}$/.test(slug);
     const response=await fetch(SB+'/rest/v1/rpc/'+(projectSlug?'app_public_project':'app_public_post'),{
