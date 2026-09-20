@@ -60,6 +60,8 @@ test('one-shot workflow keeps DB credential in extraction step and raw dump off 
 
 test('CI inputs exist and the local seed precedes pending migrations', () => {
   for (const path of [
+    '.github/workflows/web2-one-shot-schema-authz.yml',
+    '.github/workflows/web2-local-supabase-authz.yml',
     'supabase/local-verify/schema-hash.mjs',
     'supabase/local-verify/scan-schema.mjs',
     'supabase/local-verify/check-baseline.mjs',
