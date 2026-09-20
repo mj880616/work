@@ -74,7 +74,7 @@
 
   async function loadPublicDocuments(){
     try{
-      const data=await rt.api('/rest/v1/rpc/app_public_projects_snapshot',{method:'POST',body:{},auth:false});
+      const data=await rt.api('/rest/v1/rpc/app_public_workspace_index',{method:'POST',body:{},auth:false});
       documents=Array.isArray(data?.documents)?data.documents:[];
     }catch(e){console.warn('public library load failed',e);documents=[]}
     renderLibrary();

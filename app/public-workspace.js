@@ -38,14 +38,14 @@
   function gateMarkup(title,description){return `<div class="public-access-gate"><div class="public-lock" aria-hidden="true">🔒</div><h3>${esc(title)}</h3><p>${esc(description)}</p><a class="primary" href="${esc(loginUrl())}">로그인해서 보기</a></div>`}
   function renderHome(){
     const view=document.getElementById('homeView');if(!view)return;
-    const topProjects=state.spaces.filter(s=>!s.parent_id&&s.status!=='archived').slice(0,5);
+    const topProjects=state.spaces.filter(s=>s.status!=='archived').slice(0,5);
     const now=Date.now()-86400000;
     const upcoming=[...state.events].filter(e=>new Date(e.start_at).getTime()>=now).sort((a,b)=>new Date(a.start_at)-new Date(b.start_at)).slice(0,5);
     const board=[...state.pages].sort((a,b)=>new Date(b.updated_at||b.published_at||0)-new Date(a.updated_at||a.published_at||0)).slice(0,5);
     const docs=[...state.documents].sort((a,b)=>new Date(b.updated_at||b.document_date||0)-new Date(a.updated_at||a.document_date||0)).slice(0,5);
     const empty=text=>`<div class="hdv-empty">${esc(text)}</div>`;
-    view.innerHTML=`<div class="public-home-intro"><div class="section-head"><div><h2>공개 업무</h2><p>외부 공개로 지정된 사업·일정·게시·자료만 표시합니다.</p></div></div><div class="dashboard-grid home-dashboard-current public-home-grid">
-      <article class="panel hdv-panel"><div class="panel-head"><div><h2>프로젝트</h2><p>공개 프로젝트 ${topProjects.length}개</p></div><button class="mini" type="button" data-goto="projects">전체</button></div><div class="hdv-list">${topProjects.length?topProjects.map(p=>`<button class="hdv-row" type="button" data-public-project="${esc(p.id)}"><div class="hdv-main"><b>${esc(p.name)}</b><small>${esc(p.description||'공개 프로젝트')}</small></div></button>`).join(''):empty('현재 공개된 프로젝트가 없습니다.')}</div></article>
+    view.innerHTML=`<div class="public-home-intro"><div class="section-head"><div><h2>공개 업무</h2><p>외부 공개로 지정된 프로젝트·게시·자료만 표시합니다.</p></div></div><div class="dashboard-grid home-dashboard-current public-home-grid">
+      <article class="panel hdv-panel"><div class="panel-head"><div><h2>프로젝트</h2><p>공개 프로젝트 ${topProjects.length}개</p></div><button class="mini" type="button" data-goto="projects">전체</button></div><div class="hdv-list">${topProjects.length?topProjects.map(p=>`<button class="hdv-row" type="button" data-public-project="${esc(p.slug)}"><div class="hdv-main"><b>${esc(p.name)}</b><small>${esc(p.description||'공개 프로젝트')}</small></div></button>`).join(''):empty('현재 공개된 프로젝트가 없습니다.')}</div></article>
       <article class="panel hdv-panel"><div class="panel-head"><div><h2>다가오는 주요 일정</h2><p>공개 팀 일정 중 가까운 일정</p></div><button class="mini" type="button" data-goto="calendar">전체</button></div><div class="hdv-list">${upcoming.length?upcoming.map(e=>`<button class="hdv-row" type="button" data-goto="calendar"><span class="hdv-date">${esc(fmt(e.start_at))}</span><div class="hdv-main"><b>${esc(e.title)}</b><small>${esc(eventLabel[e.event_type]||e.event_type||'일정')}</small></div></button>`).join(''):empty('다가오는 공개 일정이 없습니다.')}</div></article>
       <article class="panel hdv-panel"><div class="panel-head"><div><h2>게시판</h2><p>최근 공개 게시</p></div><button class="mini" type="button" data-goto="pages">전체</button></div><div class="hdv-list">${board.length?board.map(p=>`<a class="hdv-row public-home-link" href="../p/${encodeURIComponent(p.slug)}/"><div class="hdv-main"><b>${esc(p.title)}</b><small>${esc(p.summary||'공개 게시')}</small></div><span class="hdv-meta">${esc(fmt(p.updated_at||p.published_at))}</span></a>`).join(''):empty('현재 공개된 게시가 없습니다.')}</div></article>
       <article class="panel hdv-panel"><div class="panel-head"><div><h2>자료실</h2><p>최근 공개 자료</p></div><button class="mini" type="button" data-goto="library">전체</button></div><div class="hdv-list">${docs.length?docs.map(d=>`<button class="hdv-row" type="button" data-goto="library"><div class="hdv-main"><b>${esc(d.title||d.file_name||'자료')}</b><small>${esc([d.category,d.source].filter(Boolean).join(' · ')||'공개 자료')}</small></div><span class="hdv-meta">${esc(fmt(d.document_date||d.updated_at))}</span></button>`).join(''):empty('현재 공개된 자료가 없습니다.')}</div></article>
@@ -72,9 +72,9 @@
   }
   function renderProjects(){
     const grid=document.getElementById('projectGrid');if(!grid)return;
-    const tops=state.spaces.filter(x=>!x.parent_id&&x.status!=='archived');
+    const tops=state.spaces.filter(x=>x.status!=='archived');
     const head=document.querySelector('#projectsView .section-head p');if(head)head.textContent='전체 공개로 설정된 프로젝트와 공개 가능한 업무만 표시됩니다.';
-    grid.innerHTML=tops.length?tops.map(p=>`<button class="project-card" data-public-project="${esc(p.id)}" type="button"><span class="badge">공개</span><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="public-project-meta"><span>미완료 할 일 ${tasks(p.id).filter(t=>t.status!=='done').length}</span><span>하위 프로젝트 ${children(p.id).length}</span></div></button>`).join(''):'<div class="empty">현재 공개된 프로젝트가 없습니다.</div>';
+    grid.innerHTML=tops.length?tops.map(p=>`<button class="project-card" data-public-project="${esc(p.slug)}" type="button"><span class="badge">공개</span><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="public-project-meta"><span>공개 프로젝트</span></div></button>`).join(''):'<div class="empty">현재 공개된 프로젝트가 없습니다.</div>';
   }
   function ensureModal(){
     if(document.getElementById('publicProjectModal'))return;
@@ -82,12 +82,9 @@
     document.getElementById('publicProjectClose').onclick=()=>document.getElementById('publicProjectModal').classList.add('hidden');
   }
   function taskRows(rows){return rows.length?rows.map(t=>`<div class="public-project-task"><b>${esc(t.title)}</b><span>${esc(taskLabel[t.status]||t.status||'')} · 우선순위 ${esc(priorityLabel[t.priority]||t.priority||'보통')}</span>${t.due_at?`<small>기한 ${fmt(t.due_at)}</small>`:''}</div>`).join(''):'<div class="empty compact">연결된 공개 할 일이 없습니다.</div>'}
-  function openProject(id){
-    const p=state.spaces.find(x=>x.id===id);if(!p)return;ensureModal();
-    document.getElementById('publicProjectTitle').textContent=p.name;document.getElementById('publicProjectDescription').textContent=p.description||'';
-    const child=children(id),projectPages=pages(id);
-    document.getElementById('publicProjectBody').innerHTML=`<section><h3>프로젝트 할 일</h3>${taskRows(tasks(id))}</section>${projectPages.length?`<section><h3>공개 게시</h3>${projectPages.map(pg=>`<div class="public-project-task"><b>${esc(pg.title)}</b><span>${esc(pg.summary||'')}</span><div class="public-page-actions"><a class="mini" href="../p/${encodeURIComponent(pg.slug)}/" target="_blank" rel="noopener">열기</a></div></div>`).join('')}</section>`:''}${child.length?`<section><h3>하위 프로젝트</h3><div class="public-child-list">${child.map(c=>`<button class="public-child" type="button" data-public-project="${esc(c.id)}"><b>${esc(c.name)}</b><span>${esc(c.description||'')}</span></button>`).join('')}</div></section>`:''}`;
-    const modal=document.getElementById('publicProjectModal');modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
+  function openProject(slug){
+    if(!/^project-[0-9a-f]{32}$/.test(String(slug||'')))return;
+    location.href='../p/?slug='+encodeURIComponent(slug);
   }
   function renderPages(){
     const list=document.getElementById('pageList'),search=document.getElementById('pageSearch'),filter=document.getElementById('pageFilter');if(!list)return;
@@ -124,12 +121,12 @@
     paint();
   }
   async function load(){
-    const data=await rt.api('/rest/v1/rpc/app_public_projects_snapshot',{method:'POST',body:{},auth:false});
-    state.spaces=Array.isArray(data?.spaces)?data.spaces:[];
-    state.tasks=(Array.isArray(data?.tasks)?data.tasks:[]).filter(t=>!!t.project_id);
+    const data=await rt.api('/rest/v1/rpc/app_public_workspace_index',{method:'POST',body:{},auth:false});
+    state.spaces=Array.isArray(data?.projects)?data.projects:[];
+    state.tasks=[];
     state.pages=Array.isArray(data?.pages)?data.pages:[];
     state.documents=Array.isArray(data?.documents)?data.documents:[];
-    state.events=Array.isArray(data?.events)?data.events:[];
+    state.events=[];
   }
   async function init(){
     const initialView=normalizePublicRoute();
