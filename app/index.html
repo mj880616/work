@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="./app-icon.svg?v=20260919-unicorn1" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260919-unicorn1">
-<link rel="stylesheet" href="./styles.css?v=30">
+<link rel="stylesheet" href="./styles.css?v=31">
 </head>
 <body>
 <div class="shell">
@@ -133,5 +133,5 @@
 <div id="toast" class="toast hidden"></div>
 
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to',new URL('/work/app/confirmed.html',location.origin).href);input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=56" defer></script>
+<script src="./app.js?v=57" defer></script>
 </body></html>

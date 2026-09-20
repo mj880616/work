@@ -1,7 +1,0 @@
-.cc-mobile-dock{display:none}
-@media(max-width:760px){
-  .cc-mobile-dock{position:fixed;z-index:90;left:0;right:0;bottom:0;height:62px;padding-bottom:env(safe-area-inset-bottom);display:grid;grid-template-columns:repeat(2,1fr);background:var(--kptu-surface);border-top:1px solid var(--kptu-border);box-shadow:var(--kptu-shadow-float)}
-  .cc-mobile-dock button{border:0;background:transparent;color:var(--kptu-muted);font-size:11px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
-  .cc-mobile-dock button.active{color:var(--kptu-primary)}
-  .cc-mobile-dock .cc-dock-icon{font-size:19px;line-height:1}
-}

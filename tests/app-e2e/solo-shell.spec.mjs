@@ -39,12 +39,7 @@ for (const width of [1280, 768, 390, 360]) {
     await expect(page.locator('.app-nav')).not.toContainText('메시지');
     await expect(page.locator('#appView')).not.toContainText('소유자');
     await expect(page.locator('#appView')).not.toContainText('구성원');
-    if (width <= 760) {
-      await expect(page.locator('#ccMobileDock')).toBeVisible();
-      await expect(page.locator('#ccMobileDock button')).toHaveCount(2);
-    } else {
-      await expect(page.locator('#ccMobileDock')).toBeHidden();
-    }
+    await expect(page.locator('#ccMobileDock')).toHaveCount(0);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
