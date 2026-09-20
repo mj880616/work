@@ -92,7 +92,7 @@ test('unpublished project yields no content on its original URL',async({page})=>
 
 test('public post migrations constrain rows and remove legacy anonymous paths',()=>{
   const prepare=readFileSync(new URL('../../supabase/migrations/20260920120000_public_single_post_prepare.sql',import.meta.url),'utf8');
-  const cutover=readFileSync(new URL('../../supabase/migrations/20260920121000_public_single_post_cutover.sql',import.meta.url),'utf8');
+  const cutover=readFileSync(new URL('../../supabase/migrations/20260920122000_public_single_post_cutover.sql',import.meta.url),'utf8');
   expect(prepare).toContain("p.status = 'published'");
   expect(prepare).toContain("p.visibility = 'public'");
   expect(prepare).toContain('p.slug = p_slug');
