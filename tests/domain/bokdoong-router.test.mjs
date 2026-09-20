@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import router from '../../cloudflare/bokdoong-router.mjs';
 
@@ -33,15 +34,24 @@ test('portal root serves only its own static entry without forwarding credential
 });
 
 
-test('portal favicon routes to the dedicated Bokdoong icon asset', async () => {
-  for (const path of ['/favicon.svg', '/favicon.ico']) {
-    const { response, calls } = await request(`https://bokdoong.com${path}`, {
-      upstream: new Response('<svg></svg>', { headers: { 'Content-Type': 'image/svg+xml' } })
+test('portal favicon requests serve the correct PNG and ICO assets with image MIME types', async () => {
+  for (const [path, type] of [['/favicon.png', 'image/png'], ['/favicon.ico', 'image/x-icon']]) {
+    const { response, calls } = await request(`https://bokdoong.com${path}?v=20260920`, {
+      upstream: new Response('icon bytes', { headers: { 'Content-Type': 'application/octet-stream' } })
     });
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Content-Type'), type);
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].url, 'https://mj880616.github.io/work/personal/portal/favicon.svg');
+    assert.equal(calls[0].url, `https://mj880616.github.io/work/personal/portal${path}?v=20260920`);
   }
+});
+
+test('portal icon files contain PNG and ICO image data', async () => {
+  const png = await readFile(new URL('../../personal/portal/favicon.png', import.meta.url));
+  const ico = await readFile(new URL('../../personal/portal/favicon.ico', import.meta.url));
+  assert.deepEqual(png.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  assert.deepEqual(ico.subarray(0, 4), Buffer.from([0, 0, 1, 0]));
+  assert.ok(ico.readUInt16LE(4) >= 3, 'ICO includes multiple icon sizes');
 });
 
 test('service roots stay on their vanity hosts and retain deployed base paths', async () => {
@@ -75,7 +85,7 @@ test('only the selected GitHub Pages trees are proxied', async () => {
   assert.equal(denied.calls.length, 0);
 });
 
-test('all proxied mutable pages and assets revalidate both Cloudflare and browser caches', async () => {
+test('all proxied mutable pages and assets bypass Cloudflare cache and revalidate browser caches', async () => {
   for (const url of [
     'https://bokdoong.com/',
     'https://work.bokdoong.com/work/',
@@ -90,7 +100,7 @@ test('all proxied mutable pages and assets revalidate both Cloudflare and browse
       })
     });
     assert.equal(calls.length, 1, url);
-    assert.equal(calls[0].cache, 'no-cache', url);
+    assert.equal(calls[0].cache, 'no-store', url);
     assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
     assert.equal(response.headers.get('ETag'), '"current"', url);
     assert.equal(await response.text(), 'current version', url);
@@ -103,7 +113,7 @@ test('conditional and range requests retain HTTP semantics while revalidating', 
     upstream: new Response(null, { status: 304, headers: { ETag: '"current"' } })
   });
   assert.equal(conditional.calls[0].headers.get('If-None-Match'), '"old"');
-  assert.equal(conditional.calls[0].cache, 'no-cache');
+  assert.equal(conditional.calls[0].cache, 'no-store');
   assert.equal(conditional.response.status, 304);
   assert.equal(conditional.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
 
