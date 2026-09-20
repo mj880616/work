@@ -10,12 +10,16 @@ const SERVICES = Object.freeze({
 });
 
 function allowedPath(host, path) {
-  if (host === 'bokdoong.com') return path === '/';
+  if (host === 'bokdoong.com') return path === '/' || path === '/favicon.svg' || path === '/favicon.ico';
   return Boolean(SERVICES[host] && path.startsWith(SERVICES[host].prefix));
 }
 
 function upstreamPath(host, path) {
-  return host === 'bokdoong.com' ? '/work/personal/portal/' : path;
+  if (host === 'bokdoong.com') {
+    if (path === '/favicon.svg' || path === '/favicon.ico') return '/work/personal/portal/favicon.svg';
+    return '/work/personal/portal/';
+  }
+  return path;
 }
 
 export default {
