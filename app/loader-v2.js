@@ -79,7 +79,6 @@
     await import('./page-inline-viewer-v2.js?v=4'); await window.__KPTU_PAGE_INLINE_VIEWER_READY__;
     await import('./meeting-round-detail.js?v=8'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
-    await import('./mobile-dock.js?v=1');
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
     await import('./calendar-plus.js?v=5'); await window.__KPTU_CALENDAR_PLUS_READY__;
     await import('./calendar-persistence.js?v=10'); await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
@@ -95,7 +94,7 @@
   })().catch(err=>{featurePromise=null;showFeatureError(err);throw err}));
   window.KPTUDeferredFeatures={load:loadFeatures};
   document.addEventListener('click',event=>{
-    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#ccMobileDock [data-cc-view],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn,#newPageBtn,[data-edit-page]');
+    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn,#newPageBtn,[data-edit-page]');
     if(!control||featuresReady)return;
     const view=control.dataset.view||control.dataset.goto||control.dataset.ccView;
     if(view==='home')return;
