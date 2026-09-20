@@ -17,7 +17,7 @@
     const view=document.querySelector('#pagesView'),mode=document.querySelector('#pageDeleteModeBtn'),save=document.querySelector('#pageDeleteSaveBtn'),status=document.querySelector('#pageManagementStatus');
     view?.classList.toggle('page-delete-mode',deleteMode);
     if(mode){mode.classList.toggle('active',deleteMode);mode.textContent=deleteMode?'삭제 취소':'페이지 삭제'}
-    if(save){save.classList.toggle('hidden',!deleteMode);save.disabled=saving||pending.size===0;save.textContent=saving?'삭제 중…':pending.size?`저장 (${pending.size})`:'저장'}
+    if(save){save.classList.toggle('hidden',!deleteMode);save.disabled=saving||pending.size===0;save.textContent=saving?'삭제 중…':pending.size?`삭제 (${pending.size})`:'삭제'}
     if(status&&!saving){status.classList.remove('error');status.textContent=deleteMode?(pending.size?`${pending.size}개 페이지가 삭제 예정입니다.`:'삭제할 페이지를 선택하세요.'):''}
   }
 
@@ -43,11 +43,11 @@
     const view=document.querySelector('#pagesView'),head=view?.querySelector('.section-head'),newBtn=document.querySelector('#newPageBtn');
     if(!view||!head||!newBtn)return false;
     if(!document.querySelector('#pageManagementActions')){
-      const actions=document.createElement('div');actions.id='pageManagementActions';actions.className='page-management-actions';actions.innerHTML='<button id="pageDeleteModeBtn" class="secondary" type="button">페이지 삭제</button><button id="pageDeleteSaveBtn" class="primary hidden" type="button" disabled>저장</button><span id="pageManagementStatus" class="page-management-status" aria-live="polite"></span>';newBtn.before(actions);actions.appendChild(newBtn);
+      const actions=document.createElement('div');actions.id='pageManagementActions';actions.className='page-management-actions';actions.innerHTML='<button id="pageDeleteSaveBtn" class="secondary hidden" type="button" disabled>삭제</button><details id="pageManagementMenu" class="page-management-menu"><summary aria-label="페이지 관리 메뉴">⋯</summary><div class="page-management-menu-panel"><button id="pageDeleteModeBtn" class="secondary" type="button">페이지 삭제</button></div></details><span id="pageManagementStatus" class="page-management-status" aria-live="polite"></span>';newBtn.before(actions);actions.prepend(newBtn);
       document.querySelector('#pageDeleteModeBtn').onclick=toggleMode;document.querySelector('#pageDeleteSaveBtn').onclick=saveDeletion;
     }
     const list=document.querySelector('#pageList');
-    if(list&&!list.dataset.pageDeleteBound){list.dataset.pageDeleteBound='1';list.addEventListener('click',e=>{if(!deleteMode)return;const card=e.target.closest?.('.page-card');if(!card)return;e.preventDefault();e.stopPropagation();toggleCard(card)})}
+    if(list&&!list.dataset.pageDeleteBound){list.dataset.pageDeleteBound='1';list.addEventListener('click',e=>{const visibility=e.target.closest?.('[data-page-visibility-action]');if(visibility){e.preventDefault();e.stopPropagation();visibility.closest('.page-card')?.querySelector('[data-edit-page]')?.click();return}const select=e.target.closest?.('[data-page-select-delete]');if(select){e.preventDefault();e.stopPropagation();const card=select.closest('.page-card');if(!deleteMode)deleteMode=true;pending.add(card?.dataset.pageCardId||select.dataset.pageSelectDelete);list.querySelectorAll('.page-row-menu[open]').forEach(menu=>menu.open=false);syncCards();return}if(!deleteMode)return;const card=e.target.closest?.('.page-card');if(!card)return;e.preventDefault();e.stopPropagation();toggleCard(card)})}
     window.addEventListener('kptu:pages-rendered',syncCards);
     syncCards();return true;
   }

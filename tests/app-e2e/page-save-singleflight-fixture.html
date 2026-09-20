@@ -3,7 +3,6 @@
 <head><meta charset="utf-8"><title>Page save single-flight fixture</title></head>
 <body>
   <button id="savePageBtn" type="button">저장</button>
-  <button id="secureShareBtn" type="button" class="hidden">공유</button>
   <a id="publicOpenBtn" class="hidden"></a>
   <div id="editorStatus"></div>
   <h2 id="editorHeading">새 페이지</h2>
@@ -15,7 +14,6 @@
   <select id="pageStatus"><option value="draft" selected>draft</option><option value="published">published</option></select>
   <select id="pageVisibility"><option value="private" selected>private</option><option value="unlisted">unlisted</option></select>
   <select id="pageSpace"><option value="">프로젝트 없음</option></select>
-  <div id="pageGroupChecks"></div>
   <div id="revisionList"></div>
 
   <script>
@@ -37,14 +35,11 @@
             visibility:'unlisted'
           };
         }
-        if(path.startsWith('/rest/v1/app_page_permissions')&&opts.method==='DELETE'){
-          if(window.__failSecondary)throw new Error('권한 저장 실패');
-          return [];
-        }
         if(path.startsWith('/rest/v1/app_page_revisions'))return [];
         return [];
       }
     };
+    window.KPTUPageBuilder={saveMetadata:async()=>{if(window.__failSecondary)throw new Error('설정 저장 실패')}};
     window.KPTUPageList={refresh:async()=>{}};
   </script>
   <script src="/app/page-save-controller.js"></script>

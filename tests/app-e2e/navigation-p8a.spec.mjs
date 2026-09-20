@@ -3,7 +3,7 @@ import {loginEntry} from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app='http://127.0.0.1:8123/app/';
-const views=['home','calendar','tasks','projects','library','meetings','pages'];
+const views=['home','calendar','tasks','projects','library','meetings','media','pages','team'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 
@@ -51,121 +51,61 @@ async function signIn(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 
-test('seven core tabs own navigation and secondary features stay reachable',async({page})=>{
+test('top-level V3 navigation opens the media archive and keeps removed controls absent',async({page})=>{
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
-  await expect(page.locator('.app-nav .nav-btn')).toHaveCount(7,{timeout:20000});
-  expect(await page.locator('.app-nav .nav-btn').evaluateAll(nodes=>nodes.map(n=>n.dataset.view))).toEqual(views);
-  await expect(page.locator('#ccMobileDock')).toHaveCount(0);
+  const nav=page.locator('.app-nav .nav-btn');
+  await expect(nav).toHaveCount(views.length);
+  expect(await nav.evaluateAll(nodes=>nodes.map(node=>node.dataset.view))).toEqual(views);
+  await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop,#pagesMediaEntry')).toHaveCount(0);
+  await expect(page.locator('#logoutBtn')).toBeVisible();
 
-  await page.locator('#userBadge').click();
-  await expect(page.locator('#profileView')).toBeVisible();
-  await expect(page.locator('#psName')).toHaveValue('내비게이션 QA');
-  await expect(page.locator('#psTitle')).toHaveValue('담당자');
-  await expect(page.locator('#psLogout')).toBeVisible();
-
-  await page.locator('#teamManageTop').click();
-  await expect(page.locator('#teamView')).toBeVisible();
-  await expect(page.locator('#memberList')).toBeVisible();
-  await expect(page.locator('.app-nav .nav-btn')).toHaveCount(7);
-  await page.locator('[data-tpv-open="p8a-peer"]').click();
-  await page.locator('#tpvMessage').click();
-  await expect(page.locator('#messagesView')).toBeVisible();
-  await expect(page.locator('[data-cc-peer="p8a-peer"]')).toHaveClass(/active/);
-
-  await page.locator('.app-nav [data-view="pages"]').click();
-  await page.locator('#pagesMediaEntry').click();
+  await page.locator('.app-nav [data-view="media"]').click();
   await expect(page.locator('#mediaView')).toBeVisible();
   await expect(page.locator('#mediaCaseList')).toContainText('현장 사건');
+  await expect(page.locator('.app-nav [data-view="media"]')).toHaveAttribute('aria-current','page');
   await page.reload();
   await expect(page.locator('#mediaView')).toBeVisible({timeout:20000});
-  await expect(page.locator('.app-nav [data-view="pages"]')).toHaveAttribute('aria-current','page');
+  await expect(page.locator('.app-nav [data-view="media"]')).toHaveAttribute('aria-current','page');
+  await page.locator('.app-nav [data-view="pages"]').click();
+  await expect(page.locator('#pagesView')).toBeVisible();
+  await expect(page.locator('#pagesMediaEntry')).toHaveCount(0);
+  await page.locator('#logoutBtn').click();
+  await expect(page.locator('#publicLoginBtn')).toBeVisible({timeout:20000});
+});
 
-  await page.goto(app+'?view=profile');
-  await expect(page.locator('#profileView')).toBeVisible({timeout:20000});
-  await page.goto(app+'?view=messages');
-  await expect(page.locator('#messagesView')).toBeVisible({timeout:20000});
+test('removed personal deep links return home while photo and media links remain reachable',async({page})=>{
+  test.setTimeout(60000);
+  await mockApp(page);
+  await signIn(page);
+  for(const view of ['profile','messages','myspace']){
+    await page.goto(app+'?view='+view);
+    await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
+    await expect(page.locator('#'+view+'View')).toHaveCount(0);
+  }
+  await page.goto(app+'?view=media');
+  await expect(page.locator('#mediaView')).toBeVisible({timeout:20000});
   await page.goto(app+'?view=photos');
-  await expect(page.locator('#photosView')).toBeVisible({timeout:20000});
-  await page.reload();
   await expect(page.locator('#photosView')).toBeVisible({timeout:20000});
   await page.locator('#photosCalendarEntry').click();
   await expect(page.locator('#calendarView')).toBeVisible();
   await expect(page.locator('#eventRecordList [data-event-detail]')).toHaveCount(1);
-  await page.locator('#eventRecordList [data-event-detail]').click();
-  await expect(page.locator('#eventPhotoStrip')).toBeVisible();
-  await expect(page.locator('#eventComments')).toBeVisible();
-  await expect(page.locator('#eventDocuments')).toBeVisible();
-  await page.locator('[data-photo-close="eventDetailModal"]').click();
-  await page.locator('#userBadge').click();
-  await page.locator('#psLogout').click();
-  await expect(page.locator('#publicLoginBtn')).toBeVisible({timeout:20000});
-  await expect(page.locator('#userBadge')).toContainText('공개 열람');
 });
 
-test('incoming messages keep an unread indicator and refresh the open conversation',async({page})=>{
-  test.setTimeout(60000);
-  const messages=await mockApp(page);
-  await signIn(page);
-  await expect(page.locator('#ccMessageTop')).toBeVisible({timeout:20000});
-  messages.unread=1;
-  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
-  await expect(page.locator('#ccMessageBadge')).toHaveText('1');
-  await page.locator('#ccMessageTop').click();
-  await expect(page.locator('#messagesView')).toBeVisible();
-  await page.locator('[data-cc-peer="p8a-peer"]').click();
-  await expect(page.locator('#ccMessageList')).toContainText('확인 부탁드립니다');
-  await expect(page.locator('#ccMessageBadge')).toBeHidden();
-});
-
-test('private My Space stays available only through the allowed profile entry',async({page})=>{
-  test.setTimeout(60000);
-  const state=await mockApp(page);
-  state.myspaceAllowed=true;
-  await signIn(page);
-  await page.locator('#userBadge').click();
-  await expect(page.locator('#psMySpaceEntry')).toBeVisible();
-  await page.locator('#psMySpaceEntry').click();
-  await expect(page.locator('#myspaceView')).toBeVisible();
-  await expect(page.locator('.app-nav .nav-btn')).toHaveCount(7);
-  state.myspaceAllowed=false;
-  await page.goto(app+'?view=myspace');
-  await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
-  await page.locator('#userBadge').click();
-  await expect(page.locator('#psMySpaceEntry')).toBeHidden();
-});
-
-test('mobile uses the same seven tabs and scrolls the active tab into view',async({page})=>{
-  test.setTimeout(60000);
-  await page.setViewportSize({width:390,height:844});
-  await mockApp(page);
-  await signIn(page);
-  await expect(page.locator('#ccMobileDock')).toHaveCount(0);
-  await expect(page.locator('.app-nav .nav-btn')).toHaveCount(7,{timeout:20000});
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-  await page.locator('.app-nav [data-view="pages"]').click();
-  await expect(page.locator('#pagesView')).toBeVisible();
-  await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>{
-    const b=nav.querySelector('[data-view="pages"]'),n=nav.getBoundingClientRect(),r=b.getBoundingClientRect();
-    return r.left>=n.left-1&&r.right<=n.right+1;
-  })).toBe(true);
-  await expect(page.locator('#userBadge')).toBeVisible();
-});
-
-test('user badge opens settings when tapped before the home renderer finishes',async({page})=>{
-  test.setTimeout(30000);
-  await page.route('**/home-dashboard-v2.js*',async route=>{
-    await new Promise(resolve=>setTimeout(resolve,1200));
-    await route.continue();
+for(const width of [390,360]){
+  test(`mobile ${width}px keeps V3 tabs navigable without horizontal page overflow`,async({page})=>{
+    test.setTimeout(60000);
+    await page.setViewportSize({width,height:844});
+    await mockApp(page);
+    await signIn(page);
+    await expect(page.locator('.app-nav .nav-btn')).toHaveCount(views.length);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+    await page.locator('.app-nav [data-view="media"]').click();
+    await expect(page.locator('#mediaView')).toBeVisible();
+    await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>{
+      const item=nav.querySelector('[data-view="media"]'),box=nav.getBoundingClientRect(),rect=item.getBoundingClientRect();
+      return rect.left>=box.left-1&&rect.right<=box.right+1;
+    })).toBe(true);
   });
-  await mockApp(page);
-  await page.goto(loginEntry(app));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
-  await expect(page.locator('#userBadge')).toBeVisible({timeout:10000});
-  await page.locator('#userBadge').click();
-  await expect(page.locator('#profileView')).toBeVisible({timeout:20000});
-});
+}

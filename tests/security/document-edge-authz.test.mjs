@@ -35,3 +35,24 @@ test('team-ai context tables are loaded through user-scoped RLS', () => {
     assert.match(src, new RegExp(`userDb\\.from\\(['\"]${table}['\"]\\)`), `${table} must use user-scoped RLS`);
   }
 });
+
+test('meeting AI reads and mutations stay in the caller RLS scope', () => {
+  const draft = read('meeting-ai-draft');
+  const ingest = read('meeting-ai-ingest');
+  for (const source of [draft, ingest]) {
+    assert.match(source, /SUPABASE_ANON_KEY/);
+    assert.match(source, /userDb\.from\(['"]app_meetings['"]\)/);
+    assert.match(source, /userDb\.from\(['"]app_documents['"]\)/);
+    assert.doesNotMatch(source, /admin\.from\(['"]app_documents['"]\)/);
+  }
+  assert.match(draft, /userDb\.from\(['"]app_meetings['"]\)\.update/);
+  assert.match(ingest, /userDb\.from\(['"]app_documents['"]\)\.update/);
+});
+
+test('meeting file upload uses project editor roles and caller RLS for document insert', () => {
+  const source = read('meeting-files');
+  assert.match(source, /\['edit','manage'\]\.includes\(m\.role\)/);
+  assert.match(source, /userDb\.from\(['"]app_meetings['"]\)/);
+  assert.match(source, /userDb\.from\(['"]app_documents['"]\)\.insert/);
+  assert.doesNotMatch(source, /admin\.from\(['"]app_documents['"]\)\.insert/);
+});

@@ -40,7 +40,7 @@ async function mockApp(page,state){
       }
       if(method==='PATCH'){
         state.meetingPatches=(state.meetingPatches||0)+1;
-        const row=state.meetings.find(x=>x.id===idFrom());if(row)Object.assign(row,body||{});return ok([]);
+        const row=state.meetings.find(x=>x.id===idFrom());if(row)Object.assign(row,body||{});return ok(row?[row]:[]);
       }
       return ok(state.meetings);
     }
@@ -140,8 +140,8 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
 
   await page.locator('#meetingList article.item-card').first().click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
-  await expect(page.locator('#wfMeetingAiBtn')).toBeVisible({timeout:5000});
-  await page.locator('#wfMeetingAiBtn').click();
+  await expect(page.locator('#mrdAiDraft')).toBeVisible({timeout:5000});
+  await page.locator('#mrdAiDraft').click();
   await expect(page.locator('#wfMeetingAiModal')).toBeVisible();
   await expect(page.locator('#wfMeetingGenerate')).toHaveAttribute('data-ingest-backend','text-only');
   await expect(page.locator('#wfMeetingAiModal .notice')).toContainText('음성파일 자동전사(STT)는 비용 절감을 위해 사용하지 않습니다');
@@ -153,24 +153,8 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   expect(state.meetings[0].result_status).toBe('draft');
 
   await page.locator('#wfFinalizeMeeting').click();
-  await expect.poll(()=>state.tasks.filter(x=>x.source_type==='meeting_ai').length).toBe(1);
-  const aiTask=state.tasks.find(x=>x.source_type==='meeting_ai');
+  await expect.poll(()=>state.tasks.filter(x=>x.source_type==='meeting'&&x.title==='의원실에 최종안 전달').length).toBe(1);
+  const aiTask=state.tasks.find(x=>x.source_type==='meeting'&&x.title==='의원실에 최종안 전달');
   expect(aiTask.project_id).toBe('child-1');
   expect(aiTask.title).toBe('의원실에 최종안 전달');
-});
-
-test('main project exposes the long-running project operating model',async({page})=>{
-  const state={
-    user:{id:'user-1',email:'member@example.org',user_metadata:{display_name:'일반 사용자'}},
-    workspace:{id:'workspace-1',slug:'team',name:'팀 Workspace'},
-    spaces:[{id:'main-1',workspace_id:'workspace-1',name:'통폐합 대응',description:'연중 사업',parent_id:null,status:'active',owner_id:'user-1',visibility:'team',metadata:{},sort_order:10}],meetings:[],tasks:[]
-  };
-  await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/');
-  await signIn(page);
-  await page.locator('[data-view="projects"]').click();
-  await page.locator('[data-project="main-1"]').first().click();
-  await expect(page.locator('#projectModal')).toBeVisible();
-  await expect(page.locator('#pomTemplate')).toBeVisible({timeout:7000});
-  await expect(page.locator('#pomAi')).toHaveText('AI로 사업현황 초안');
 });

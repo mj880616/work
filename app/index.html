@@ -7,13 +7,13 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="./app-icon.svg?v=20260919-unicorn1" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260919-unicorn1">
-<link rel="stylesheet" href="./styles.css?v=23">
+<link rel="stylesheet" href="./styles.css?v=31">
 </head>
 <body>
 <div class="shell">
 <header class="topbar">
-  <a class="brand" href="./" aria-label="웹2 홈"><img class="brand-icon" src="./app-icon.svg?v=20260919-unicorn1" alt="" aria-hidden="true"><span>웹2</span></a>
-  <div class="top-actions"><button id="userBadge" class="user-badge hidden" type="button" aria-label="내 정보 및 설정"></button><button id="logoutBtn" class="ghost hidden" type="button">로그아웃</button></div>
+  <a class="brand" href="./"><span class="leaf" aria-hidden="true"></span><span>공공기관사업팀</span><b>WORKSPACE</b></a>
+  <div class="top-actions"><button id="ccNotifTop" class="ghost hidden" type="button" data-goto="notifications">알림 <span id="ccNotifBadge" class="hidden" aria-label="읽지 않은 알림"></span></button><button id="logoutBtn" class="ghost hidden" type="button">로그아웃</button></div>
 </header>
 <main>
 <section id="authView" class="auth-wrap hidden" aria-hidden="true">
@@ -34,12 +34,16 @@
 </section>
 <section id="bootstrapView" class="center-card hidden">
   <div class="eyebrow">FIRST ADMIN</div><h2>첫 관리자 등록</h2>
-  <p>최초 1회용 관리자 코드를 입력하면 이 계정이 소유자가 됩니다.</p>
+  <p>최초 1회용 관리자 코드를 입력하면 이 계정이 관리자로 등록됩니다.</p>
   <label>표시 이름<input id="bootstrapName" type="text" maxlength="50"></label>
   <label>관리자 등록 코드<input id="bootstrapCode" type="password" autocomplete="off"></label>
   <button id="bootstrapBtn" class="primary" type="button">관리자로 시작</button><div id="bootstrapStatus" class="status"></div>
 </section>
 <section id="appView" class="app-view hidden">
+  <div class="workspace-head">
+    <div><div class="eyebrow">TEAM WORKSPACE</div><h1 id="workspaceName">공공기관사업팀 Workspace</h1></div>
+    <div class="head-actions"><button id="quickTaskBtn" class="primary" type="button">+ 할 일</button></div>
+  </div>
   <nav class="app-nav">
     <button class="nav-btn active" data-view="home" type="button">홈</button>
     <button class="nav-btn" data-view="calendar" type="button">일정</button>
@@ -47,7 +51,9 @@
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
     <button class="nav-btn" data-view="library" type="button">자료실</button>
     <button class="nav-btn" data-view="meetings" type="button">회의</button>
+    <button class="nav-btn" data-view="media" type="button">성명·보도자료</button>
     <button class="nav-btn" data-view="pages" type="button">게시판</button>
+    <button class="nav-btn" data-view="team" type="button">산하조직</button>
   </nav>
 
   <section id="homeView" class="view-panel">
@@ -90,8 +96,8 @@
   </section>
 
   <section id="mediaView" class="view-panel hidden">
-    <div class="section-head"><div><h2>언론대응</h2><p>사건 팩트시트부터 취재요청·보도자료·성명 초안, 배포 전 QA까지 한 문서에서 관리합니다.</p></div><div class="head-actions"><button class="secondary" data-goto="pages" type="button">게시판으로</button><button id="newMediaCaseBtn" class="primary" type="button">+ 사건 만들기</button></div></div>
-    <div class="media-intro">내부 제작 화면입니다. 여기서 확정한 자료만 이후 Web1 공개 아카이브로 넘기는 구조로 사용합니다.</div>
+    <div class="section-head"><div><h2>성명·보도자료</h2><p>대외 메시지의 작성 초안과 기존 발표 기록을 확인합니다.</p></div><button id="newMediaCaseBtn" class="primary" type="button">+ 작성 초안</button></div>
+    <div class="media-intro">현재 작성 기록은 내부 초안입니다. <a id="pressArchiveLink" href="../press/">기존 성명·보도자료 목록 보기 ↗</a></div>
     <div class="media-toolbar"><input id="mediaSearch" class="search" type="search" placeholder="사건 검색" aria-label="언론대응 사건 검색"><select id="mediaStatusFilter" aria-label="진행 상태"><option value="all">전체 상태</option><option value="draft">작성중</option><option value="review">검토중</option><option value="published">확정</option><option value="archived">종료</option></select></div>
     <div id="mediaCaseList" class="media-case-list"></div><div id="mediaCaseEmpty" class="empty hidden">아직 등록된 언론대응 사건이 없습니다.</div>
   </section>
@@ -102,15 +108,13 @@
   </section>
 
   <section id="pagesView" class="view-panel hidden">
-    <div class="section-head"><div><h2>현장 공유 페이지</h2><p>팀원이 직접 작성하고 URL로 바로 공유할 수 있습니다.</p></div><div class="head-actions"><button id="pagesMediaEntry" class="secondary" data-goto="media" type="button">언론대응 페이지</button><button id="newPageBtn" class="primary" type="button">+ 새 페이지</button></div></div>
+    <div class="section-head"><div><h2>현장 공유 페이지</h2><p>팀원이 직접 작성하고 URL로 바로 공유할 수 있습니다.</p></div><div class="head-actions"><button id="newPageBtn" class="primary" type="button">+ 새 페이지</button></div></div>
     <div class="toolbar"><label class="a11y-only" for="pageSearch">페이지 검색</label><input id="pageSearch" class="search" type="search" placeholder="페이지 검색"><label class="a11y-only" for="pageFilter">게시 상태</label><select id="pageFilter"><option value="all">전체 상태</option><option value="draft">초안</option><option value="review">검토중</option><option value="published">게시</option><option value="archived">보관</option></select></div>
     <div id="pageList" class="page-list"></div><div id="pageEmpty" class="empty hidden">아직 작성된 페이지가 없습니다.</div>
   </section>
 
   <section id="teamView" class="view-panel hidden">
-    <div class="section-head"><div><h2>팀</h2><p>구성원·권한·공개 그룹을 관리합니다.</p></div><div class="head-actions"><button id="inviteBtn" class="secondary admin-only hidden" type="button">구성원 초대</button><button id="newGroupBtn" class="secondary admin-only hidden" type="button">+ 그룹</button></div></div>
-    <h3 class="minor-title">구성원</h3><div id="memberList" class="member-grid"></div>
-    <h3 class="minor-title">그룹</h3><div id="groupList" class="group-list"></div>
+    <div class="section-head"><div><h2>산하조직</h2><p>담당 조직의 정보와 현황을 관리합니다.</p></div></div>
   </section>
 </section>
 </main>
@@ -124,12 +128,10 @@
 
 <div id="meetingModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="meetingModalTitle"><div class="modal-card medium-card"><div class="modal-head"><div><div class="eyebrow">MEETING NOTE</div><h2 id="meetingModalTitle">회의 결과</h2></div><button class="icon-btn" data-close="meetingModal" type="button" aria-label="닫기">×</button></div><label>회의명<input id="meetingTitle" type="text"></label><div class="two-col"><label>일시<input id="meetingAt" type="datetime-local"></label><label>프로젝트<select id="meetingProject"></select></label></div><div id="meetingRoundFields" class="two-col"><label>정기회의·회의 구분<input id="meetingSeriesName" type="text" placeholder="예: 궤도협의회 집행위원회"></label><label>차수<input id="meetingRoundNo" type="number" min="1" placeholder="예: 8"></label></div><label>논의 내용<textarea id="meetingNotes" rows="6"></textarea></label><label>결정사항·역할분담<textarea id="meetingDecisions" rows="6"></textarea></label><div id="meetingMaterialsBlock" class="meeting-materials-block"><label>회의자료 <span>(여러 파일 가능)</span><input id="meetingFiles" type="file" multiple></label><p>회의를 저장하면 파일이 해당 회차에 연결되고 자료실에도 한 번만 등록됩니다.</p></div><div class="action-box"><div class="meeting-action-head"><div><b>역할분담 · 후속 할 일</b><p>회의결과에서 팀원별 업무를 배정하면 각자의 할 일에 자동 등록됩니다.</p></div><button id="addMeetingAction" class="secondary" type="button">+ 역할 추가</button></div><div id="meetingActionList"></div></div><button id="saveMeetingBtn" class="primary wide" type="button">회의 결과 저장</button><div id="meetingStatus" class="status"></div></div></div>
 
-<div id="editorModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editorHeading"><div class="modal-card editor-card"><div class="modal-head"><div><div class="eyebrow">PAGE EDITOR</div><h2 id="editorHeading">새 페이지</h2></div><button class="icon-btn" data-close="editorModal" type="button" aria-label="닫기">×</button></div><div class="editor-grid"><div class="editor-main"><label>제목<input id="pageTitle" type="text" maxlength="160"></label><label>요약<textarea id="pageSummary" rows="2" maxlength="500"></textarea></label><label>본문<textarea id="pageBody" class="body-editor" rows="18" placeholder="현장에 공유할 내용을 입력합니다."></textarea></label></div><aside class="editor-side"><label>프로젝트<select id="pageSpace"></select></label><label>URL 슬러그<input id="pageSlug" type="text" pattern="[a-z0-9-]+"></label><label>게시 상태<select id="pageStatus"><option value="draft">초안</option><option value="review">검토중</option><option value="published">게시</option><option value="archived">보관</option></select></label><label>공개 범위<select id="pageVisibility"><option value="public">전체 공개</option><option value="unlisted">링크 공개</option><option value="workspace">로그인 사용자</option><option value="groups">지정 그룹</option><option value="private">비공개</option></select></label><div class="permission-box"><b>열람 그룹</b><div id="pageGroupChecks"></div></div><div class="side-actions"><button id="secureShareBtn" class="secondary hidden" type="button">7일 비밀 공유링크</button><a id="publicOpenBtn" class="secondary link-button hidden" target="_blank" rel="noopener">게시 페이지 열기</a></div><div class="revision-box"><b>수정 이력</b><div id="revisionList" class="revision-list"></div></aside></div><div class="modal-foot"><div id="editorStatus" class="status"></div><div><button class="ghost" data-close="editorModal" type="button">취소</button><button id="savePageBtn" class="primary" type="button">저장</button></div></div></div></div>
+<div id="editorModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editorHeading"><div class="modal-card editor-card"><div class="modal-head"><div><div class="eyebrow">PAGE EDITOR</div><h2 id="editorHeading">새 페이지</h2></div><button class="icon-btn" data-close="editorModal" type="button" aria-label="닫기">×</button></div><div class="editor-grid"><div class="editor-main"><label>제목<input id="pageTitle" type="text" maxlength="160"></label><label>요약<textarea id="pageSummary" rows="2" maxlength="500"></textarea></label><label>본문<textarea id="pageBody" class="body-editor" rows="18" placeholder="현장에 공유할 내용을 입력합니다."></textarea></label></div><aside class="editor-side"><label>프로젝트<select id="pageSpace"></select></label><label>URL 슬러그<input id="pageSlug" type="text" pattern="[a-z0-9-]+"></label><label>게시 상태<select id="pageStatus"><option value="draft">초안</option><option value="review">검토중</option><option value="published">게시</option><option value="archived">보관</option></select></label><label>공개 범위<select id="pageVisibility"><option value="public">전체 공개</option><option value="unlisted">링크 공개</option><option value="workspace">로그인 사용자</option><option value="groups">지정 그룹</option><option value="private">비공개</option></select></label><div class="side-actions"><a id="publicOpenBtn" class="secondary link-button hidden" target="_blank" rel="noopener">게시 페이지 열기</a></div><div class="revision-box"><b>수정 이력</b><div id="revisionList" class="revision-list"></div></aside></div><div class="modal-foot"><div id="editorStatus" class="status"></div><div><button class="ghost" data-close="editorModal" type="button">취소</button><button id="savePageBtn" class="primary" type="button">저장</button></div></div></div></div>
 
-<div id="inviteModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="inviteModalTitle"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">INVITE</div><h2 id="inviteModalTitle">구성원 초대</h2></div><button class="icon-btn" data-close="inviteModal" type="button" aria-label="닫기">×</button></div><label>권한<select id="inviteRole"><option value="viewer">열람자</option><option value="author" selected>작성자</option><option value="editor">편집자</option><option value="admin">관리자</option></select></label><label>그룹<select id="inviteGroup"><option value="">그룹 지정 없음</option></select></label><button id="createInviteBtn" class="primary wide" type="button">7일 유효 초대링크 만들기</button><div id="inviteResult" class="result-box hidden"></div></div></div>
-<div id="groupModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="groupModalTitle"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">GROUP</div><h2 id="groupModalTitle">그룹 만들기</h2></div><button class="icon-btn" data-close="groupModal" type="button" aria-label="닫기">×</button></div><label>그룹명<input id="groupName" type="text"></label><label>슬러그<input id="groupSlug" type="text"></label><label>설명<textarea id="groupDescription" rows="3"></textarea></label><button id="saveGroupBtn" class="primary wide" type="button">저장</button><div id="groupStatus" class="status"></div></div></div>
 <div id="toast" class="toast hidden"></div>
 
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to',new URL('/work/app/confirmed.html',location.origin).href);input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=50" defer></script>
+<script src="./app.js?v=57" defer></script>
 </body></html>

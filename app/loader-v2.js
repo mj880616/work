@@ -10,7 +10,7 @@
   await Promise.all([
     import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
-    import('./app-router.js?v=6'),
+    import('./app-router.js?v=7'),
     import('./accessibility-dialog.js?v=1'),
     import('./native-back-guard.js?v=1'),
     import('./session-resilience.js?v=6'),
@@ -28,15 +28,15 @@
       location.replace(window.KPTUAuth.loginUrl(location.href));
       return;
     }
-    await import('./public-workspace.js?v=8');
+    await import('./public-workspace.js?v=10');
     await import('./mobile-swipe-navigation.js?v=4');
     startup?.mark('allInitialModulesComplete');
     return;
   }
 
-  await import('./topbar-actions.js?v=4');
+  await import('./topbar-actions.js?v=6');
   window.__KPTU_AUTHENTICATED_BOOT_SESSION__=window.KPTURuntime.session.read();
-  await import('./team.js?v=22');
+  await import('./team.js?v=24');
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
   if(teamState==='bootstrap'){await import('./access-approval.js?v=4');return}
@@ -60,30 +60,26 @@
   };
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
     await window.__KPTU_START_TEAM_DATA__();
-    await import('./project-system-v3.js?v=4');
-    await import('./team-member-overview.js?v=2'); await window.__KPTU_TEAM_MEMBER_OVERVIEW_READY__;
-    await import('./team-member-management.js?v=2'); await window.__KPTU_TEAM_MEMBER_MANAGEMENT_READY__;
+    await import('./project-system-v3.js?v=10');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./calendar-move.js?v=1'),import('./due-date-calendar.js?v=1')]);
-    await import('./access-approval.js?v=4'); window.KPTUTeamMemberManagement?.limitApprovalRoles();
-    await Promise.all([import('./member-default-role.js?v=3'),import('./myspace-return.js?v=3'),import('./page-design-core.js?v=3')]);
+    await import('./page-design-core.js?v=4');
     await import('./task-workflow.js?v=6'); await window.__KPTU_TASK_WORKFLOW_READY__;
     await import('./task-row-view.js?v=1');
-    await import('./task-layout.js?v=7'); await window.__KPTU_TASK_LAYOUT_READY__;
-    await import('./profile-settings.js?v=6'); await window.__KPTU_PROFILE_SETTINGS_READY__;
-    await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=6')]);
+    await import('./task-layout.js?v=9'); await window.__KPTU_TASK_LAYOUT_READY__;
+    await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=8')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
-    await import('./page-list-controller.js?v=2'); await window.__KPTU_PAGE_LIST_READY__;
-    await import('./page-save-controller.js?v=3'); await window.__KPTU_PAGE_SAVE_READY__;
-    const loadPageBuilder=async detail=>{window.removeEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);await import('./page-builder.js?v=2');await window.__KPTU_PAGE_BUILDER_READY__;await window.KPTUPageBuilder?.open?.(detail||{})};
+    await import('./page-list-controller.js?v=5'); await window.__KPTU_PAGE_LIST_READY__;
+    await import('./page-save-controller.js?v=4'); await window.__KPTU_PAGE_SAVE_READY__;
+    const loadPageBuilder=async detail=>{window.removeEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);await import('./page-builder.js?v=3');await window.__KPTU_PAGE_BUILDER_READY__;await window.KPTUPageBuilder?.open?.(detail||{})};
     const lazyPageBuilderOpen=e=>loadPageBuilder(e.detail).catch(showFeatureError);
     window.addEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);
     await import('./page-shortcut.js?v=2'); await window.__KPTU_PAGE_SHORTCUT_READY__;
-    await import('./page-management.js?v=2'); await window.__KPTU_PAGE_MANAGEMENT_READY__;
+    await import('./page-management.js?v=4'); await window.__KPTU_PAGE_MANAGEMENT_READY__;
     await import('./media-workflow.js?v=2'); await window.__KPTU_MEDIA_WORKFLOW_READY__;
-    await import('./page-inline-viewer-v2.js?v=1'); await window.__KPTU_PAGE_INLINE_VIEWER_READY__;
-    await import('./meeting-round-detail.js?v=6'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
+    await import('./page-inline-viewer-v2.js?v=4'); await window.__KPTU_PAGE_INLINE_VIEWER_READY__;
+    await import('./meeting-round-detail.js?v=8'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
-    await import('./collaboration-center.js?v=9'); await window.__KPTU_COLLABORATION_READY__;
+    await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
     await import('./calendar-plus.js?v=5'); await window.__KPTU_CALENDAR_PLUS_READY__;
     await import('./calendar-persistence.js?v=10'); await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
     await import('./calendar-interactions-v2.js?v=3'); await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
@@ -91,17 +87,16 @@
     await import('./calendar-day-overflow.js?v=2'); await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__;
     await import('./suborganizations.js?v=2'); await window.__KPTU_SUBORGANIZATIONS_READY__;
     await import('./suborganization-filters.js?v=3'); await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
-    await import('./team-profile-view.js?v=3'); await window.__KPTU_TEAM_PROFILE_READY__;
-    await Promise.all([import('./google-tasks.js?v=3'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
+    await Promise.all([import('./google-tasks.js?v=3'),import('./push-notifications-ui.js?v=4'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
     featuresReady=true;
     startup?.mark('allInitialModulesComplete');
-    Promise.all([import('./workplace-ai-report.js?v=1'),import('./workflow-ai-v3.js?v=2'),import('./meeting-ai-ingest-client.js?v=1&text=1'),import('./meeting-ai-paste-ui.js?v=1')]).catch(showFeatureError);
+    Promise.all([import('./workplace-ai-report.js?v=1'),import('./workflow-ai-v3.js?v=4')]).catch(showFeatureError);
   })().catch(err=>{featurePromise=null;showFeatureError(err);throw err}));
   window.KPTUDeferredFeatures={load:loadFeatures};
   document.addEventListener('click',event=>{
-    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn,#newPageBtn,[data-edit-page]');
+    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn,#newPageBtn,[data-edit-page]');
     if(!control||featuresReady)return;
-    const view=control.dataset.view||control.dataset.goto;
+    const view=control.dataset.view||control.dataset.goto||control.dataset.ccView;
     if(view==='home')return;
     event.preventDefault();event.stopImmediatePropagation();
     let status=document.querySelector('#deferredFeatureStatus');

@@ -31,7 +31,7 @@
     let p=document.querySelector('#pushSettingsPanel');
     if(!p){
       p=document.createElement('article');p.className='panel';p.id='pushSettingsPanel';
-      p.innerHTML='<div class="push-row"><div class="push-copy"><h3 style="margin:0">푸시 알림 <span id="pushDevice" class="push-device"></span></h3><p>새 메시지·할 일 배정·가입 승인 등 필요한 알림을 기기에서 받습니다.</p></div><div class="push-actions"><button id="pushEnableBtn" class="secondary" type="button">알림 허용</button><button id="pushDisableBtn" class="ghost hidden" type="button">해제</button></div></div><div id="pushState" class="push-state">상태 확인 중…</div>';
+      p.innerHTML='<div class="push-row"><div class="push-copy"><h3 style="margin:0">푸시 알림 <span id="pushDevice" class="push-device"></span></h3><p>할 일과 일정에 필요한 알림을 기기에서 받습니다.</p></div><div class="push-actions"><button id="pushEnableBtn" class="secondary" type="button">알림 허용</button><button id="pushDisableBtn" class="ghost hidden" type="button">해제</button></div></div><div id="pushState" class="push-state">상태 확인 중…</div>';
       const first=grid.firstElementChild;first?.insertAdjacentElement('afterend',p)||grid.appendChild(p);
       p.querySelector('#pushEnableBtn').onclick=enable;
       p.querySelector('#pushDisableBtn').onclick=disable;
