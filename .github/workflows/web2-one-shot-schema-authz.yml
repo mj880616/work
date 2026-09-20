@@ -10,7 +10,7 @@ on:
         description: 'inspect first; verify only after reviewing its findings and SHA-256'
         required: true
         type: choice
-        options: [inspect, verify]
+        options: [inspect, seed-diagnose, verify]
       expected_sha256:
         description: 'SHA-256 printed by the clean inspect run; required for verify'
         required: false
@@ -53,8 +53,8 @@ jobs:
           for name in PGHOST PGPORT PGUSER PGDATABASE; do
             test -n "${!name:-}" || { echo "Missing $name" >&2; exit 1; }
           done
-          test "$VERIFICATION_PHASE" = inspect || test "$VERIFICATION_PHASE" = verify
-          if test "$VERIFICATION_PHASE" = verify; then
+          test "$VERIFICATION_PHASE" = inspect || test "$VERIFICATION_PHASE" = seed-diagnose || test "$VERIFICATION_PHASE" = verify
+          if test "$VERIFICATION_PHASE" != inspect; then
             [[ "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]] || {
               echo 'The reviewed SHA-256 is required for verify' >&2; exit 1;
             }
@@ -145,19 +145,20 @@ jobs:
         if: ${{ inputs.phase == 'inspect' }}
         run: echo 'Inspection completed. Review the reported findings and hash before a separate verify run.'
       - name: Compare reviewed canonical schema hash before any tests or local stack setup
-        if: ${{ inputs.phase == 'verify' }}
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' }}
         shell: bash
         run: node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
       - uses: supabase/setup-cli@v3
-        if: ${{ inputs.phase == 'verify' }}
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' }}
         with:
           version: 2.84.2
       - name: Run static contracts and synthetic authorization tests
-        if: ${{ inputs.phase == 'verify' }}
+        if: ${{ inputs.phase == 'verify' || inputs.phase == 'seed-diagnose' }}
         shell: bash
         env:
           WEB2_BASELINE_FILE: ${{ runner.temp }}/web2-schema.raw.sql
           WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
+          WEB2_SEED_DIAGNOSTIC: ${{ inputs.phase == 'seed-diagnose' && '1' || '0' }}
         run: |
           set -euo pipefail
           node supabase/local-verify/analyze-baseline.mjs inventory "$WEB2_BASELINE_FILE"

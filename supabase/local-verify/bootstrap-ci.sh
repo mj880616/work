@@ -130,6 +130,17 @@ fi
 echo 'ADMIN_DEFAULT_ACL_APPLY_PASSED'
 echo 'BASELINE_APPLY_PASSED'
 
+if [[ "${WEB2_SEED_DIAGNOSTIC:-0}" == 1 ]]; then
+  if ! psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 \
+    -f "$repo_root/supabase/local-verify/seed-catalog.sql" \
+    > "$ci_root/seed-catalog.json" 2> "$ci_root/seed-catalog.err"; then
+    echo 'SEED_CATALOG_FAILED: SQL output withheld' >&2
+    exit 1
+  fi
+  node "$repo_root/supabase/local-verify/seed-catalog.mjs" \
+    "$ci_root/seed-catalog.json" "$repo_root/supabase/local-verify/seed-before-cutover.sql"
+fi
+
 if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 \
   -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
   -f "$repo_root/supabase/local-verify/custom-auth-trigger.sql" > "$ci_root/auth-trigger.log" 2>&1; then
@@ -146,6 +157,11 @@ if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -q -v ON_ERROR_S
     "$repo_root/supabase/local-verify/seed-before-cutover.sql" "$ci_root/seed.log"
   echo 'Synthetic local seed failed; SQL output is withheld' >&2
   exit 1
+fi
+
+if [[ "${WEB2_SEED_DIAGNOSTIC:-0}" == 1 ]]; then
+  echo 'SYNTHETIC_SEED_DIAGNOSTIC_PASSED: migrations and authorization tests deliberately not started'
+  exit 0
 fi
 
 for migration in \

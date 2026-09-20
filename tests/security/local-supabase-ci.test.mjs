@@ -85,6 +85,8 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/custom-auth-trigger.sql',
     'supabase/local-verify/create-local-auth.mjs',
     'supabase/local-verify/seed-before-cutover.sql',
+    'supabase/local-verify/seed-catalog.sql',
+    'supabase/local-verify/seed-catalog.mjs',
     'supabase/local-verify/http-authz.test.mjs',
     'supabase/tests/authz_public_snapshot.sql',
     'supabase/tests/authz_project_public_view.sql',
@@ -100,7 +102,7 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
   const auth = bootstrap.indexOf('create-local-auth.mjs');
   const start = bootstrap.indexOf('supabase start --network-id');
   const baseline = bootstrap.indexOf('> "$ci_root/baseline-apply.log"');
-  const seed = bootstrap.indexOf('seed-before-cutover.sql');
+  const seed = bootstrap.indexOf('-f "$repo_root/supabase/local-verify/seed-before-cutover.sql"');
   const prepare = bootstrap.indexOf('20260920120000_public_single_post_prepare.sql');
   const cutover = bootstrap.indexOf('20260920121000_public_single_post_cutover.sql');
   const project = bootstrap.indexOf('20260920122000_project_public_view.sql');
