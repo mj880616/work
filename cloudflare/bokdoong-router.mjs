@@ -63,10 +63,10 @@ export default {
       const value = request.headers.get(name);
       if (value) headers.set(name, value);
     }
-    // GitHub Pages publishes mutable files at stable URLs. Revalidate the
-    // Cloudflare subrequest on every visit, including cached JS/CSS/JSON.
+    // GitHub Pages publishes mutable files at stable URLs. Bypass Cloudflare's
+    // subrequest cache entirely so each request sees the currently deployed origin.
     const upstream = await fetch(new Request(originUrl, {
-      method: request.method, headers, redirect: 'manual', cache: 'no-cache'
+      method: request.method, headers, redirect: 'manual', cache: 'no-store'
     }));
     if (host === 'read.bokdoong.com' && incoming.pathname !== SERVICES[host].root && upstream.status === 404 &&
         (request.headers.get('Sec-Fetch-Dest') === 'document' || request.headers.get('Accept')?.includes('text/html'))) {
