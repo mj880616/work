@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { loadArchive, auditArchive } from './validate-archive.mjs';
 
 const baselineText = execFileSync('git', [
@@ -60,4 +61,63 @@ test('2026-27 mutation is rejected', () => {
   const data = copy();
   data.find(m => m.season === '2026-27').subtitle += 'changed';
   assert.match(auditArchive(data, { complete: false, baselineMatches: original }).errors.join(' '), /2026-27/);
+});
+
+test('scoring links must use HTTPS in either season', () => {
+  const data = copy();
+  data.find(m => m.season === '2025-26').goalsSource = 'javascript:alert(1)';
+  data.find(m => m.season === '2026-27').goalsTimeSource = 'data:text/html,test';
+  assert.equal(auditArchive(data, { complete: false }).errors.filter(error => /scoring source/i.test(error)).length, 2);
+});
+
+test('2026-27 scoring additions are allowed without masking existing fields or later goal edits', () => {
+  const data = copy();
+  const match = data.find(m => m.season === '2026-27');
+  match.goals = [{ side: 'home', minute: '31', scorer: 'Example', assist: null, type: 'goal' }];
+  match.goalsSource = 'https://example.org/match-events';
+  assert.deepEqual(auditArchive(data, { complete: false, baselineMatches: original }).errors, []);
+
+  match.subtitle += 'changed';
+  assert.match(auditArchive(data, { complete: false, baselineMatches: original }).errors.join(' '), /2026-27/);
+
+  match.subtitle = original.find(m => m.id === match.id).subtitle;
+  const withScoringBaseline = structuredClone(data);
+  match.goals[0].minute = '32';
+  assert.match(auditArchive(data, { complete: false, baselineMatches: withScoringBaseline }).errors.join(' '), /2026-27/);
+});
+
+test('only the three verified Ipswich assist-label corrections are allowed in legacy reviews', () => {
+  const data = copy();
+  const match = data.find(m => m.id === '2026-09-15-ipswich-away-carabao');
+  match.events[1] = '16분 마두에케 골(메리노 패스·공식 도움 배정 없음)';
+  match.events[3] = '58분 메리노 골(다우먼 연결·공식 도움 배정 없음)';
+  match.decisive[1] = '브루노-메리노 중원이 경기 초반 세컨드볼과 전진 패스를 장악해 입스위치가 압박을 지속하지 못하게 했고, 메리노는 1골과 16분 추가골의 마지막 패스로 공격 마무리까지 관여했음. 공식 이벤트에서는 해당 패스에 도움을 배정하지 않았음.';
+  assert.deepEqual(auditArchive(data, { complete: false, baselineMatches: original }).errors, []);
+
+  match.events[0] += 'incorrect';
+  assert.match(auditArchive(data, { complete: false, baselineMatches: original }).errors.join(' '), /2026-27/);
+
+  match.events[0] = original.find(m => m.id === match.id).events[0];
+  const correctedBaseline = structuredClone(data);
+  match.events[1] = '16분 마두에케 골(메리노 도움)';
+  assert.match(auditArchive(data, { complete: false, baselineMatches: correctedBaseline }).errors.join(' '), /2026-27/);
+});
+
+test('2025-26 match statistics have numeric big-chance coverage and source links', () => {
+  const data = loadArchive(readFileSync(new URL('./matches.js', import.meta.url), 'utf8'))
+    .filter(match => match.season === '2025-26');
+  assert.equal(data.length, 53);
+  for (const match of data) {
+    for (const stats of [match.stats, match.opponentStats]) {
+      assert.match(stats.bigChances, /^\d+$/, `${match.id}: missing big chances`);
+    }
+    assert.ok(match.sources.some(source => source.label.includes('빅찬스')),
+      `${match.id}: missing big-chance provenance`);
+  }
+  const villa = data.find(match => match.id === '2025-12-06-aston-villa-away');
+  assert.deepEqual([villa.stats.xg, villa.opponentStats.xg, villa.stats.bigChances, villa.opponentStats.bigChances],
+    ['1.84', '2.27', '3', '2']);
+  const brugge = data.find(match => match.id === '2025-12-10-club-brugge-away');
+  assert.deepEqual([brugge.stats.xg, brugge.opponentStats.xg, brugge.stats.bigChances, brugge.opponentStats.bigChances],
+    ['2.97', '1.06', '5', '1']);
 });

@@ -12,6 +12,15 @@ const uclRounds = new Set([
   'Quarter-final 1st Leg', 'Quarter-final 2nd Leg',
   'Semi-final 1st Leg', 'Semi-final 2nd Leg', 'Final'
 ]);
+// Exact factual corrections to the pre-existing Ipswich review; all other 2026-27 text remains guarded.
+const ipswichAssistCorrections = new Map([
+  ['16분 마두에케 골(메리노 도움)', '16분 마두에케 골(메리노 패스·공식 도움 배정 없음)'],
+  ['58분 메리노 골(다우먼 도움)', '58분 메리노 골(다우먼 연결·공식 도움 배정 없음)'],
+  [
+    '브루노-메리노 중원이 경기 초반 세컨드볼과 전진 패스를 장악해 입스위치가 압박을 지속하지 못하게 했고, 메리노는 1골 1도움으로 공격 마무리까지 담당했음.',
+    '브루노-메리노 중원이 경기 초반 세컨드볼과 전진 패스를 장악해 입스위치가 압박을 지속하지 못하게 했고, 메리노는 1골과 16분 추가골의 마지막 패스로 공격 마무리까지 관여했음. 공식 이벤트에서는 해당 패스에 도움을 배정하지 않았음.'
+  ]
+]);
 
 const validDate = value => typeof value === 'string' &&
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -59,6 +68,11 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
     else if (ids.has(match.id)) errors.push(`${name}: duplicate id`);
     else ids.add(match.id);
     if (!validDate(match.date)) errors.push(`${name}: invalid date`);
+    for (const field of ['goalsSource', 'goalsTimeSource']) {
+      if (match[field] !== undefined && !isHttps(match[field])) {
+        errors.push(`${name}: invalid scoring source URL (${field})`);
+      }
+    }
 
     if (match.season !== '2025-26') continue;
     seasonMatches.push(match);
@@ -118,7 +132,25 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
   }
   if (baselineMatches) {
     const recent = list => list.filter(match => match?.season === '2026-27');
-    if (JSON.stringify(recent(matches)) !== JSON.stringify(recent(baselineMatches))) {
+    const baselineRecent = recent(baselineMatches);
+    const scoringFields = new Set(['goals', 'goalsSource', 'goalsTimeSource']);
+    const comparableRecent = recent(matches).map((match, index) => {
+      const baseline = baselineRecent[index];
+      if (!baseline || baseline.id !== match.id) return match;
+      const comparable = Object.fromEntries(Object.entries(match).filter(([key]) =>
+        !scoringFields.has(key) || Object.hasOwn(baseline, key)));
+      if (match.id === '2026-09-15-ipswich-away-carabao') {
+        for (const field of ['events', 'decisive']) {
+          if (!Array.isArray(comparable[field])) continue;
+          comparable[field] = comparable[field].map((text, position) => {
+            const oldText = baseline[field]?.[position];
+            return ipswichAssistCorrections.get(oldText) === text ? oldText : text;
+          });
+        }
+      }
+      return comparable;
+    });
+    if (JSON.stringify(comparableRecent) !== JSON.stringify(baselineRecent)) {
       errors.push('2026-27 records differ from baseline');
     }
   }

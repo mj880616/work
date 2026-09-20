@@ -22,6 +22,30 @@
   const list = (items) => "<ul>" + (Array.isArray(items) ? items : []).map((item) => "<li>" + escapeHtml(item) + "</li>").join("") + "</ul>";
   const safeStat = (match, key) => escapeHtml(match?.stats?.[key] ?? "—");
 
+  function renderGoalSide(match, side) {
+    const goals = (Array.isArray(match.goals) ? match.goals : []).filter((goal) => goal.side === side);
+    const team = side === "home" ? match.home : match.away;
+    const entries = goals.length ? '<ul>' + goals.map((goal) => {
+      const kind = goal.type === "own-goal" ? "자책골" : goal.type === "penalty" ? "페널티킥" : "";
+      return '<li class="goal-entry ' + escapeHtml(goal.type || "goal") + '">' +
+        '<span class="goal-minute">' + escapeHtml(goal.minute) + "′</span> " +
+        '<span class="goal-scorer">' + escapeHtml(goal.scorer) + "</span>" +
+        (kind ? ' <span class="goal-kind">(' + kind + ")</span>" : "") +
+        ' <span class="goal-assist">· 도움 ' + escapeHtml(goal.assist || "—") + "</span></li>";
+    }).join("") + '</ul>' : '<p class="no-goals">득점 없음</p>';
+    return '<div class="goal-side ' + side + '"><h3>' + escapeHtml(team) + '</h3>' + entries + '</div>';
+  }
+
+  function renderGoalSummary(match) {
+    return '<section class="goal-summary" aria-label="득점·도움 기록">' +
+      renderGoalSide(match, "home") + renderGoalSide(match, "away") + '</section>' +
+      (match.goalsSource ? '<p class="goal-source"><a href="' + escapeHtml(match.goalsSource) +
+        '" target="_blank" rel="noopener noreferrer">공식 득점·도움 데이터(JSON)</a>' +
+        (match.goalsTimeSource ? ' · <a href="' + escapeHtml(match.goalsTimeSource) +
+          '" target="_blank" rel="noopener noreferrer">UEFA 공식 득점 시간</a>' : "") +
+        ' · 도움 —: 공식 기록상 도움 배정 없음</p>' : "");
+  }
+
   function renderPhotos(match) {
     const photos = Array.isArray(match.photos) ? match.photos.filter((p) => p && p.src) : [];
     if (!photos.length) return "";
@@ -72,6 +96,7 @@
             <div class="score">${match.homeScore}–${match.awayScore}</div>
             <div class="team away">${escapeHtml(match.away)}</div>
           </div>
+          ${renderGoalSummary(match)}
           <p class="verdict">${escapeHtml(match.verdict)}</p>
         </div>
 
