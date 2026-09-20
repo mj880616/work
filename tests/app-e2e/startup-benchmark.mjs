@@ -4,14 +4,14 @@ import { writeFileSync } from 'node:fs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'p6-benchmark-user',email:'p6@example.org',user_metadata:{display_name:'P6 측정'}};
 const workspace={id:'p6-benchmark-workspace',name:'공공기관사업팀 Workspace'};
-const session={access_token:'p6-benchmark-access',refresh_token:'p6-benchmark-refresh',expires_at:Math.floor(Date.now()/1000)+3600};
+const session={access_token:'p6-benchmark-access',refresh_token:'p6-benchmark-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user};
 
 async function mockApi(context){
   await context.route(SB+'/**',async route=>{
     const url=new URL(route.request().url()),path=url.pathname;
     const data=path==='/auth/v1/token'?{...session,expires_in:3600}:
       path==='/auth/v1/user'?user:
-      path==='/rest/v1/app_workspace_members'?[{workspace_id:workspace.id,user_id:user.id,role:'owner'}]:
+      path==='/rest/v1/app_workspace_members'?[{workspace_id:workspace.id,user_id:user.id,role:'owner',workspace}]:
       path==='/rest/v1/app_workspaces'?[workspace]:
       path==='/rest/v1/app_profiles'?[{user_id:user.id,display_name:'P6 측정'}]:
       path==='/functions/v1/google-calendar'?{connected:false,enabled:false,selected:[],calendars:[],events:[]}:
