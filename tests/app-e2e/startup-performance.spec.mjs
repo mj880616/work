@@ -109,3 +109,21 @@ test('deferred module failure leaves home usable and shows an alert',async({page
   await expect(page.locator('#deferredFeatureError')).toContainText('이 기능을 불러오지 못했습니다.');
   await expect(page.locator('#homeView')).toBeVisible();
 });
+
+
+test('startup diagnostics keep only timing metadata and debug UI is opt-in',async({page})=>{
+  await loginWithMock(page);
+  const sample=await page.evaluate(()=>window.KPTUStartupDiagnostics?.latest?.());
+  expect(sample).toBeTruthy();
+  expect(sample.outcome).toBe('home-usable');
+  expect(sample.totalMs).toBeGreaterThan(0);
+  expect(sample.requests.map(x=>x.name)).toEqual(expect.arrayContaining(['workspace-member','projects','milestones','tasks','documents']));
+  const serialized=JSON.stringify(sample);
+  expect(serialized).not.toContain('p6-flow-user');
+  expect(serialized).not.toContain('p6-flow-access');
+  await expect(page.locator('#startupDiagCopy')).toHaveCount(0);
+
+  await page.goto('http://127.0.0.1:8123/app/?startup-debug=1');
+  await page.waitForFunction(()=>typeof window.__KPTU_STARTUP__?.marks?.homeUsable==='number');
+  await expect(page.locator('#startupDiagCopy')).toBeVisible();
+});
