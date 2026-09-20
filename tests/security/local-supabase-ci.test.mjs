@@ -122,8 +122,12 @@ test('baseline inventory reports review candidates without printing literals or 
       'CREATE FUNCTION private.app_can_edit_space(uuid) RETURNS boolean AS $$',
       `SELECT '${credential}'::text IS NOT NULL FROM auth.users;`,
       '$$ LANGUAGE sql SECURITY DEFINER SET search_path = private, public;',
+      '-- Name: unsafe_function(); Type: FUNCTION; Schema: private; Owner: postgres',
+      'CREATE FUNCTION private.unsafe_function() RETURNS void AS $$',
+      'EXECUTE some_statement;',
+      '$$ LANGUAGE plpgsql SECURITY DEFINER;',
       '-- Name: app_spaces; Type: ACL; Schema: public; Owner: postgres',
-      'GRANT SELECT ON TABLE public.app_spaces TO authenticated;',
+      'GRANT SELECT ON TABLE public.app_spaces TO anon, authenticated;',
       '',
     ].join('\n'));
     const result = spawnSync(process.execPath, [fileURLToPath(baselineReview), 'inventory', file], {encoding: 'utf8'});
@@ -132,6 +136,9 @@ test('baseline inventory reports review candidates without printing literals or 
     assert.match(result.stdout, /SECURITY_DEFINER.*private\.app_can_edit_space/);
     assert.match(result.stdout, /SEARCH_PATH.*private\.app_can_edit_space/);
     assert.match(result.stdout, /ROLE_REFERENCE.*authenticated/);
+    assert.match(result.stdout, /ROLE_REFERENCE.*anon/);
+    assert.match(result.stdout, /SECURITY_DEFINER_NO_SEARCH_PATH.*private\.unsafe_function/);
+    assert.match(result.stdout, /DYNAMIC_SQL_REVIEW.*private\.unsafe_function/);
     assert.ok(!`${result.stdout}${result.stderr}`.includes(credential));
     assert.ok(!`${result.stdout}${result.stderr}`.includes('private-literal'));
   } finally { rmSync(directory, {recursive: true, force: true}); }

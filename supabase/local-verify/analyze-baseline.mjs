@@ -20,6 +20,7 @@ const typeOf = value => /^[A-Z][A-Z ]{0,30}$/.test(value ?? '') ? value : 'UNKNO
 const metaAt = [];
 let current = {name: 'UNKNOWN', type: 'UNKNOWN', schema: 'UNKNOWN'};
 const categoryEntries = new Map();
+const functionFlags = new Map();
 const add = (label, value) => {
   if (!categoryEntries.has(label)) categoryEntries.set(label, new Set());
   categoryEntries.get(label).add(value);
@@ -31,7 +32,10 @@ for (let i = 0; i < lines.length; i++) {
   const header = /^-- Name: (.*?); Type: (.*?); Schema: (.*?); Owner: (.*?)\s*$/.exec(line);
   if (header) {
     current = {name: header[1], type: typeOf(header[2]), schema: header[3]};
-    if (current.type === 'FUNCTION' || current.type === 'PROCEDURE') add('FUNCTION_BODY_REVIEW', nameOf(current));
+    if (current.type === 'FUNCTION' || current.type === 'PROCEDURE') {
+      add('FUNCTION_BODY_REVIEW', nameOf(current));
+      functionFlags.set(nameOf(current), {definer: false, searchPath: false, dynamic: false});
+    }
     if (current.type === 'POLICY' || current.type === 'ROW SECURITY') add('RLS_DEFINITION', nameOf(current));
   }
   metaAt[i + 1] = current;
@@ -40,19 +44,34 @@ for (let i = 0; i < lines.length; i++) {
   if (/^CREATE SCHEMA (?:IF NOT EXISTS )?public\s*;/i.test(line)) add('LOCAL_SCHEMA_COLLISION_CANDIDATE', 'public');
   if (/^CREATE EXTENSION\b/i.test(line) || /\bextensions\.[A-Za-z_]/i.test(line)) add('EXTENSION_REFERENCE', object);
   if (/\b(?:auth|storage)\.[A-Za-z_]/i.test(line)) add('AUTH_STORAGE_DEPENDENCY', object);
+  for (const match of line.matchAll(/\b(auth|storage|extensions|vault|net|cron|pgmq|pgsodium)\.[A-Za-z_]/gi)) {
+    add('EXTERNAL_SCHEMA_REFERENCE', `${match[1].toLowerCase()}:${object}`);
+  }
   if (/\bSECURITY\s+DEFINER\b/i.test(line)) add('SECURITY_DEFINER', object);
   if (/\b(?:SET\s+)?search_path\b/i.test(line)) add('SEARCH_PATH', object);
+  const flags = functionFlags.get(object);
+  if (flags && (current.type === 'FUNCTION' || current.type === 'PROCEDURE')) {
+    if (/\bSECURITY\s+DEFINER\b/i.test(line)) flags.definer = true;
+    if (/\b(?:SET\s+)?search_path\b/i.test(line)) flags.searchPath = true;
+    if (/\bEXECUTE\b/i.test(line)) flags.dynamic = true;
+  }
   if (/\bDEFAULT\b/i.test(line) && current.type !== 'UNKNOWN') add('DEFAULT_REVIEW', object);
   const owner = /^ALTER\s+(?:TABLE|FUNCTION|VIEW|SCHEMA|SEQUENCE|TYPE|DOMAIN|MATERIALIZED VIEW)\b.*\sOWNER TO\s+([^\s;]+);\s*$/i.exec(line);
   if (owner) {
     add('ALTER_OWNER', object);
     add('ROLE_REFERENCE', ident(owner[1]));
   }
-  const grant = /^(?:GRANT|REVOKE)\b.*\b(?:TO|FROM)\s+([^\s;]+)(?:\s+WITH GRANT OPTION)?;\s*$/i.exec(line);
+  const grant = /^(?:GRANT|REVOKE)\b.*\b(?:TO|FROM)\s+([^;]+);\s*$/i.exec(line);
   if (grant) {
     add('GRANT_REVOKE', object);
-    add('ROLE_REFERENCE', ident(grant[1]));
+    for (const role of grant[1].replace(/\s+WITH GRANT OPTION\s*$/i, '').split(',')) {
+      add('ROLE_REFERENCE', ident(role));
+    }
   }
+}
+for (const [name, flags] of functionFlags) {
+  if (flags.definer && !flags.searchPath) add('SECURITY_DEFINER_NO_SEARCH_PATH', name);
+  if (flags.dynamic) add('DYNAMIC_SQL_REVIEW', name);
 }
 
 const stageOf = (line, meta) => {
