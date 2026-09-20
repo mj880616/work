@@ -1,7 +1,8 @@
 name: Web2 one-shot schema authorization
 
 # Inspect and verify are separate manual invocations. No raw dump is persisted
-# between jobs or uploaded; verification re-extracts and checks the reviewed hash.
+# between jobs or uploaded; verification compares a canonical digest while
+# retaining pg_dump's unpredictable restriction key in the raw restore file.
 on:
   workflow_dispatch:
     inputs:
@@ -24,7 +25,7 @@ concurrency:
 
 jobs:
   schema-authz:
-    if: github.repository == 'mj880616/work' && github.ref == 'refs/heads/main'
+    if: github.repository == 'mj880616/work' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/web2-schema-verify')
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     environment: web2-schema-verification
@@ -96,14 +97,21 @@ jobs:
                 exit 1
               }
           node supabase/local-verify/scan-schema.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+          if test "$VERIFICATION_PHASE" = inspect; then
+            node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+          fi
       - name: Stop after inspection and discard temporary schema
         if: ${{ inputs.phase == 'inspect' }}
         run: echo 'Inspection completed. Review the reported findings and hash before a separate verify run.'
+      - name: Compare reviewed canonical schema hash before any tests or local stack setup
+        if: ${{ inputs.phase == 'verify' }}
+        shell: bash
+        run: node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
       - uses: supabase/setup-cli@v3
         if: ${{ inputs.phase == 'verify' }}
         with:
           version: 2.84.2
-      - name: Verify hash and run synthetic authorization tests
+      - name: Run static contracts and synthetic authorization tests
         if: ${{ inputs.phase == 'verify' }}
         shell: bash
         env:
@@ -124,4 +132,3 @@ jobs:
           if test -d "$RUNNER_TEMP"; then
             rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err" "$RUNNER_TEMP/prod-ca-2021.crt"
           fi
-

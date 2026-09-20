@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+script_dir="${BASH_SOURCE[0]%/*}"
+repo_root="$(cd "$script_dir/../.." && pwd)"
+baseline="${WEB2_BASELINE_FILE:-$repo_root/supabase/local-verify/baseline.sql}"
+expected_hash="${WEB2_BASELINE_SHA256:-}"
+if [[ ! -s "$baseline" ]]; then
+  echo 'A reviewed schema-only baseline.sql is required; no production connection is attempted.' >&2
+  exit 1
+fi
+node "$repo_root/supabase/local-verify/check-baseline.mjs" "$baseline" "$expected_hash"
+node "$repo_root/supabase/local-verify/scan-schema.mjs" "$baseline"
+command -v docker >/dev/null || { echo 'Docker is unavailable on this runner' >&2; exit 1; }
+command -v supabase >/dev/null || { echo 'Supabase CLI is unavailable on this runner' >&2; exit 1; }
+command -v psql >/dev/null || { echo 'Postgres client is unavailable on this runner' >&2; exit 1; }
+docker info >/dev/null 2>&1 || { echo 'Docker daemon is unavailable on this runner' >&2; exit 1; }
+
+ci_root="$(mktemp -d)"
+network_name="web2-local-authz-${GITHUB_RUN_ID:-$$}"
+cleanup() {
+  if [[ -f "$ci_root/supabase/config.toml" ]]; then
+    (cd "$ci_root" && supabase stop --no-backup >/dev/null 2>&1) || true
+  fi
+  docker network rm "$network_name" >/dev/null 2>&1 || true
+  if [[ -n "$ci_root" && "$ci_root" == /tmp/* ]]; then rm -rf -- "$ci_root"; fi
+}
+trap cleanup EXIT
+
+# Supabase recommends a loopback-bound network for local development stacks.
+docker network create --driver bridge \
+  -o com.docker.network.bridge.host_binding_ipv4=127.0.0.1 \
+  "$network_name" >/dev/null
+
+cd "$ci_root"
+supabase init > "$ci_root/init.log" 2>&1 || { echo 'Local Supabase init failed' >&2; exit 1; }
+mkdir -p supabase/migrations supabase/functions
+# A fresh Supabase instance already has PostgreSQL's public schema. Keep the
+# reviewed dump untouched and make only these two schema declarations idempotent
+# in the disposable copy; all object definitions, grants, and policies remain.
+sed -E 's/^CREATE SCHEMA (public|private);$/CREATE SCHEMA IF NOT EXISTS \1;/' \
+  "$baseline" > supabase/migrations/20260919000000_web2_current_schema.sql
+for name in meeting-ai-draft meeting-ai-ingest meeting-files; do
+  cp -R "$repo_root/supabase/functions/$name" "supabase/functions/$name"
+done
+# This is a synthetic, unusable key. Authorized draft tests stop before an AI call.
+printf 'OPENAI_API_KEY=local-ci-placeholder\n' > supabase/functions/.env
+
+if ! supabase start --network-id "$network_name" > "$ci_root/start.log" 2>&1; then
+  echo 'Local Supabase start failed; startup output is withheld to protect keys' >&2
+  exit 1
+fi
+supabase status -o env > "$ci_root/status.env" 2> "$ci_root/status-error.log" || {
+  echo 'Could not read local Supabase status' >&2; exit 1;
+}
+# Supabase CLI generated this file locally; it contains local-only keys.
+set -a
+source "$ci_root/status.env"
+set +a
+export API_URL DB_URL ANON_KEY SERVICE_ROLE_KEY
+case "${API_URL:-}" in
+  http://127.0.0.1:*|http://localhost:*) ;;
+  *) echo 'Supabase API URL is not loopback; refusing to continue' >&2; exit 1 ;;
+esac
+case "${DB_URL:-}" in
+  postgresql://*@127.0.0.1:*/*|postgresql://*@localhost:*/*) ;;
+  *) echo 'Supabase DB URL is not loopback; refusing to continue' >&2; exit 1 ;;
+esac
+[[ -n "${ANON_KEY:-}" && -n "${SERVICE_ROLE_KEY:-}" ]] || {
+  echo 'Local API keys are missing' >&2; exit 1;
+}
+
+if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/local-verify/custom-auth-trigger.sql" > "$ci_root/auth-trigger.log" 2>&1; then
+  echo 'Local custom Auth trigger setup failed; SQL output is withheld' >&2
+  exit 1
+fi
+node "$repo_root/supabase/local-verify/create-local-auth.mjs" "$ci_root/users.json"
+if ! PGOPTIONS='-c app.local_verification=on' psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
+  -f "$repo_root/supabase/local-verify/seed-before-cutover.sql" > "$ci_root/seed.log" 2>&1; then
+  echo 'Synthetic local seed failed; SQL output is withheld' >&2
+  exit 1
+fi
+
+for migration in \
+  20260920120000_public_single_post_prepare.sql \
+  20260920121000_public_single_post_cutover.sql \
+  20260920122000_project_public_view.sql; do
+  if ! psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
+    -f "$repo_root/supabase/migrations/$migration" > "$ci_root/$migration.log" 2>&1; then
+    echo "LOCAL migration failed: $migration; SQL output is withheld" >&2
+    exit 1
+  fi
+done
+
+for sql_test in \
+  "$repo_root/supabase/tests/authz_public_snapshot.sql" \
+  "$repo_root/supabase/tests/authz_project_public_view.sql"; do
+  name="$(basename "$sql_test")"
+  if ! psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$sql_test" > "$ci_root/$name.log" 2>&1; then
+    echo "LOCAL authorization SQL test failed: $name; SQL output is withheld" >&2
+    exit 1
+  fi
+  echo "LOCAL authorization SQL test passed: $name"
+done
+
+export LOCAL_USERS_FILE="$ci_root/users.json"
+node --test "$repo_root/supabase/local-verify/http-authz.test.mjs"
+echo 'Local-only Supabase authorization checks passed'
