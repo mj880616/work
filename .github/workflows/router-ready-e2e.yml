@@ -24,7 +24,7 @@ jobs:
         run: |
           set -e
           node --check app/app-router.js
-          grep -q "app-router.js?v=7" app/loader-v2.js
+          grep -q "app-router.js?v=6" app/loader-v2.js
           grep -Eq "loader-v2\.js\?v=[0-9]+" app/app.js
           grep -Eq 'app\.js\?v=[0-9]+' app/index.html
           grep -q "kptu:app-ui-ready" app/app-router.js

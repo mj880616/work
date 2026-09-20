@@ -31,6 +31,7 @@ button,input,select{font:inherit}
 .material{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:15px 17px;border-top:1px solid #edf0f3}.material:first-child{border-top:0}.material-main{min-width:0}.material-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.material-title a{color:var(--ink);font-weight:900;text-decoration:none;font-size:15px}.material-title a:hover{text-decoration:underline}.public-badge{font-size:10px;font-weight:800;color:var(--green);background:#eaf3ed;border-radius:99px;padding:3px 7px}.material-meta{font-size:11px;color:var(--muted);margin-top:4px}.material-desc{font-size:13px;color:#4f5b68;margin-top:6px;white-space:pre-wrap}.material-tags{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap}.tag{font-size:10px;color:#5f6d7b;background:#f2f5f7;border-radius:7px;padding:3px 6px}.open-btn{align-self:start;border:1px solid #cbd5df;background:#fff;color:var(--blue);border-radius:8px;padding:6px 9px;font-size:11px;font-weight:800;text-decoration:none;white-space:nowrap}.open-btn:hover{background:#f8fafc}
 .empty{background:#fff;border:1px dashed #cbd3dc;border-radius:12px;padding:19px;color:var(--muted);font-size:13px}.error{color:var(--red)}
 .footer{text-align:center;color:#8a939f;font-size:11px;margin-top:28px}
+.web1-toolbar #web1Edit{display:none!important}
 @media(max-width:720px){.wrap{padding:14px 11px 48px}.hero{padding:24px 20px}.hero h1{font-size:27px}.toolbar{grid-template-columns:1fr}.material{grid-template-columns:1fr}.open-btn{justify-self:start}.sync-note{align-items:flex-start;flex-direction:column}.section-head{align-items:flex-start}.group summary{padding:14px}}
 </style>
 <link rel="stylesheet" href="/work/assets/web1-design-lite.css?v=1">
@@ -65,8 +66,7 @@ button,input,select{font:inherit}
 <script>
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
-const PUBLIC_POST=SB+'/rest/v1/rpc/app_public_post';
-const DOCUMENT_SLUGS=["public-doc-8c529b9c6699","public-doc-8bdd35d6ad75","public-doc-9f56e9067b66","public-doc-a772e38145f0","public-doc-a31ad451ed30","public-doc-3f3477610b3c","public-doc-1acdfa2a5aa1","public-doc-12af6595ee61","public-doc-00aa6b9c4d66","public-doc-c09aa8d786d2","public-doc-0e8d97dedfb8","public-doc-80219444ae6b","public-doc-d8e5f6c18e56","public-doc-17ea0a1ed92c"];
+const SNAPSHOT=SB+'/rest/v1/rpc/app_public_projects_snapshot';
 const H={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let rows=[];
@@ -109,32 +109,21 @@ function render(){
     const title=x.title||x.file_name||'자료';
     const meta=[x.document_date?formatDate(x.document_date):'',x.source||''].filter(Boolean).map(esc).join(' · ');
     const link=x.drive_url?'<a class="open-btn" href="'+esc(x.drive_url)+'" target="_blank" rel="noopener">열기</a>':'';
-    const postLink='<a class="open-btn" href="/work/p/?slug='+encodeURIComponent(x.slug)+'">게시글</a>';
     return '<div class="material"><div class="material-main"><div class="material-title">'+
       (x.drive_url?'<a href="'+esc(x.drive_url)+'" target="_blank" rel="noopener">'+esc(title)+'</a>':'<span>'+esc(title)+'</span>')+
       '<span class="public-badge">공개</span></div>'+
       (meta?'<div class="material-meta">'+meta+'</div>':'')+
       (x.description?'<div class="material-desc">'+esc(x.description)+'</div>':'')+
       ((Array.isArray(x.tags)&&x.tags.length)||(!Array.isArray(x.tags)&&x.tags)?'<div class="material-tags">'+tagsHtml(x.tags)+'</div>':'')+
-      '</div>'+postLink+link+'</div>';
+      '</div>'+link+'</div>';
   }).join('')+'</div></details>').join('');
 }
 async function load(){
   try{
-    const posts=await Promise.all(DOCUMENT_SLUGS.map(async slug=>{
-      const r=await fetch(PUBLIC_POST,{method:'POST',headers:H,body:JSON.stringify({p_slug:slug}),cache:'no-store'});
-      if(!r.ok)throw new Error('공개 자료 조회 실패: '+r.status);
-      const data=await r.json();
-      const post=Array.isArray(data)?data[0]:null;
-      if(!post||!post.document_url)throw new Error('공개 자료 게시글 누락: '+slug);
-      return {
-        slug,title:post.title,description:post.summary,
-        category:post.document_category,source:post.document_source,
-        document_date:post.document_date,tags:post.document_tags,
-        drive_url:post.document_url
-      };
-    }));
-    rows=posts;
+    const r=await fetch(SNAPSHOT,{method:'POST',headers:H,body:'{}',cache:'no-store'});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data?.message||data?.error||'공개 자료 조회 실패');
+    rows=Array.isArray(data?.documents)?data.documents:[];
     refreshFilter();
     render();
   }catch(e){
@@ -148,6 +137,6 @@ filterCategory.addEventListener('change',render);
 load();
 </script>
 <script src="/work/app/web1-page-capabilities.js?v=2"></script>
-
+<script src="/work/app/web1-toolbar.js?v=2"></script>
 </body>
 </html>

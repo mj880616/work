@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {metaBlock,renderShell,renderManagedShell} from './public-page-meta.mjs';
+import {buildPagesQuery,metaBlock,renderShell,renderManagedShell} from './public-page-meta.mjs';
 
 const SITE='https://mj880616.github.io/work';
 const page={
@@ -11,11 +11,19 @@ const page={
   metadata:{page_design:{title_size:'small'}}
 };
 
-test('nonpublic page metadata is excluded from indexing',()=>{
+test('published public and unlisted pages are included in metadata generation query',()=>{
+  const qs=buildPagesQuery();
+  assert.equal(qs.get('status'),'eq.published');
+  assert.equal(qs.get('visibility'),'in.(public,unlisted)');
+  assert.match(qs.get('select'),/visibility/);
+  assert.match(qs.get('select'),/metadata/);
+});
+
+test('unlisted page metadata uses the page title and noindex',()=>{
   const html=metaBlock(page,{site:SITE});
   assert.match(html,new RegExp(`<meta property="og:title" content="${page.title}">`));
   assert.match(html,new RegExp(`<meta name="twitter:title" content="${page.title}">`));
-  assert.match(html,/<meta name="robots" content="noindex,nofollow">/);
+  assert.match(html,/<meta name="robots" content="noindex,follow">/);
   assert.match(html,/\/p\/bus-strike-publicness-internal-archive-202609\//);
 });
 

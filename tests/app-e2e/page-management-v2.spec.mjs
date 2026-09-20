@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test';
 
 test('page delete mode selects cards without injected controls',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/page-management-fixture.html');
-  await page.locator('#pageManagementMenu summary').click();
   await expect(page.locator('#pageDeleteModeBtn')).toBeVisible();
   await page.locator('#pageDeleteModeBtn').click();
   await expect(page.locator('#pagesView')).toHaveClass(/page-delete-mode/);

@@ -11,21 +11,21 @@ test('page core and builder use explicit readiness without post-render correctio
   const builder=read('app/page-builder.js');
   const files=['app/page-list-controller.js','app/page-save-controller.js','app/page-builder.js','app/page-shortcut.js','app/page-management.js','app/page-inline-viewer-v2.js'];
 
-  expect(loader).toContain("page-list-controller.js?v=5");
+  expect(loader).toContain("page-list-controller.js?v=2");
   expect(loader).toContain('__KPTU_PAGE_LIST_READY__');
-  expect(loader).toContain("page-save-controller.js?v=4");
+  expect(loader).toContain("page-save-controller.js?v=3");
   expect(loader).toContain('__KPTU_PAGE_SAVE_READY__');
-  expect(loader).toContain("page-builder.js?v=3");
+  expect(loader).toContain("page-builder.js?v=2");
   expect(loader).toContain('__KPTU_PAGE_BUILDER_READY__');
   expect(loader).toContain("page-shortcut.js?v=2");
   expect(loader).toContain('__KPTU_PAGE_SHORTCUT_READY__');
-  expect(loader).toContain("page-management.js?v=4");
+  expect(loader).toContain("page-management.js?v=2");
   expect(loader).toContain('__KPTU_PAGE_MANAGEMENT_READY__');
-  expect(loader).toContain("page-inline-viewer-v2.js?v=4");
+  expect(loader).toContain("page-inline-viewer-v2.js?v=1");
   expect(loader).toContain('__KPTU_PAGE_INLINE_VIEWER_READY__');
   expect(loader).not.toContain('page-editor-fix.js');
   expect(loader).not.toContain("page-inline-viewer.js");
-  expect(styles).toContain("page-core.css?v=6");
+  expect(styles).toContain("page-core.css?v=2");
   expect(styles).toContain("page-builder.css?v=2");
   expect(team).toContain('function renderPages(){window.KPTUPageList?.render?.()}');
   expect(team).not.toContain("$('#pageList').innerHTML=rows.map");

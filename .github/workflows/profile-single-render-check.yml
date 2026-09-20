@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check legacy profile fixture is excluded from the production shell
+      - name: Check canonical profile ownership
         run: |
           set -e
           test -f app/profile-settings.js
@@ -33,8 +33,9 @@ jobs:
           test ! -f app/profile-workplace-edit-mode.js
           test ! -f app/profile-workplace-legacy.js
           test ! -f app/profile-workplace-sync.js
-          if grep -q "profile-settings.css" app/styles.css; then echo 'removed profile stylesheet returned to production'; exit 1; fi
-          if grep -q "profile-settings.js" app/loader-v2.js; then echo 'removed profile view returned to production'; exit 1; fi
+          grep -q "profile-settings.css?v=2" app/styles.css
+          grep -q "profile-settings.js?v=6" app/loader-v2.js
+          grep -q "__KPTU_PROFILE_SETTINGS_READY__" app/loader-v2.js
           grep -q "psSaveWorkplaces" app/profile-settings.js
           grep -q "ps-legacy-chip" app/profile-settings.js
           grep -q "산하조직 연결 전" app/profile-settings.js

@@ -1,31 +1,6 @@
 #pagesView .page-management-actions{display:flex;align-items:center;gap:var(--kptu-space-2);flex-wrap:wrap}
 #pagesView .page-management-status{font-size:11px;color:var(--kptu-muted);min-height:16px;align-self:center}
 #pagesView .page-management-status.error{color:var(--kptu-danger)}
-#pagesView>.toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,180px);align-items:start;gap:var(--kptu-space-2)}
-#pagesView>.toolbar .search,#pagesView>.toolbar select{width:100%;min-width:0;box-sizing:border-box}
-#pageList .page-card.compact-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--kptu-space-2);padding:8px 12px;min-height:0}
-#pageList .compact-entry-main{display:grid;gap:2px;min-width:0}
-#pageList .page-row-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
-#pageList .page-row-title{display:flex;align-items:center;gap:8px;min-width:0}
-#pageList .page-row-title h3{flex:0 1 auto;min-width:0;font-size:13px}
-#pageList .page-visibility{flex:none;border-radius:var(--kptu-radius-pill);padding:2px 7px;font-size:10px;font-weight:750;line-height:1.4}
-#pageList .page-visibility.is-public{background:var(--kptu-info-soft);color:var(--kptu-info)}
-#pageList .page-visibility.is-private{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
-#pageList .compact-entry-summary{font-size:11px;line-height:1.4}
-#pageList .page-row-meta{display:flex;gap:8px;min-width:0;color:var(--kptu-muted);font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden}
-#pageList .page-row-meta span,#pageList .page-row-meta time{overflow:hidden;text-overflow:ellipsis}
-#pageList .page-row-meta span+span:before,#pageList .page-row-meta time:before{content:'·';margin-right:8px;color:var(--kptu-faint)}
-#pageList .page-row-menu,#pagesView .page-management-menu{position:relative}
-#pageList .page-row-menu summary,#pagesView .page-management-menu summary{display:grid;place-items:center;list-style:none;cursor:pointer;width:32px;height:32px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);font-size:19px;line-height:1;color:var(--kptu-muted);background:var(--kptu-surface)}
-#pageList .page-row-menu summary::-webkit-details-marker,#pagesView .page-management-menu summary::-webkit-details-marker{display:none}
-#pageList .page-row-menu summary:focus-visible,#pagesView .page-management-menu summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
-#pageList .page-row-menu-panel,#pagesView .page-management-menu-panel{position:absolute;z-index:10;right:0;top:calc(100% + 4px);display:grid;gap:2px;min-width:132px;padding:5px;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);box-shadow:var(--kptu-shadow-sm)}
-#pageList .page-row-menu:not([open]) .page-row-menu-panel,#pagesView .page-management-menu:not([open]) .page-management-menu-panel{display:none}
-#pageList .page-row-menu-panel .mini,#pagesView .page-management-menu-panel button{width:100%;min-height:32px;justify-content:flex-start;text-align:left;background:transparent;border:0;color:var(--kptu-ink);font-size:12px;box-shadow:none}
-#pageList .page-row-menu-panel .mini:hover,#pagesView .page-management-menu-panel button:hover{background:var(--kptu-surface-subtle)}
-#pageList .page-row-menu-panel .page-row-danger,#pagesView #pageDeleteModeBtn{color:var(--kptu-danger)}
-#pageList .page-row-menu[open]{z-index:11}
-#pageList .page-card:has(.page-row-menu[open]){z-index:10}
 #pageList .page-card{position:relative}
 #pageList .card-actions .mini{display:inline-flex;align-items:center;justify-content:center;min-height:var(--kptu-action-compact-height);padding:0 var(--kptu-space-2);line-height:1;text-decoration:none!important;white-space:nowrap;border-radius:var(--kptu-radius-md);box-sizing:border-box}
 #pagesView.page-delete-mode #pageList .page-card{cursor:pointer}
@@ -38,7 +13,6 @@
 #pageList .page-card[data-inline-page]{cursor:pointer;transition:border-color .14s ease,transform .14s ease}
 #pageList .page-card[data-inline-page]:hover{border-color:var(--kptu-border-strong);box-shadow:none;transform:translateY(-1px)}
 #pageList .page-card[data-inline-page]:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
-@media(max-width:650px){#pagesView>.toolbar{grid-template-columns:minmax(0,1fr)}#pageList .page-card.compact-entry{grid-template-columns:minmax(0,1fr) auto}#pageList .page-row-title{flex-wrap:wrap}#pageList .page-row-meta{gap:5px}#pageList .page-row-meta span+span:before,#pageList .page-row-meta time:before{margin-right:5px}}
 .piv-viewer{width:100%}
 .piv-toolbar{display:flex;align-items:center;gap:var(--kptu-space-3);margin-bottom:var(--kptu-space-4);min-height:40px}
 .piv-back{border:0;background:transparent;color:var(--kptu-muted);border-radius:var(--kptu-radius-md);padding:7px 2px;font-weight:700;font-size:13px;white-space:nowrap}
@@ -50,7 +24,7 @@
 .piv-head{padding:40px 48px 30px;border-bottom:1px solid var(--kptu-border);background:var(--kptu-surface)}
 .piv-kicker{font-size:11px;letter-spacing:.12em;font-weight:800;color:var(--kptu-link);margin-bottom:var(--kptu-space-3)}
 .piv-head h1{font-size:28px;line-height:1.25;letter-spacing:-.7px;margin:0;max-width:900px;word-break:keep-all;overflow-wrap:anywhere;font-weight:800}
-.piv-summary{max-width:900px;margin:var(--kptu-space-4) 0 0;color:var(--kptu-ink);font-size:16px;line-height:1.7;word-break:keep-all;overflow-wrap:anywhere;font-weight:650}
+.piv-summary{max-width:900px;margin:var(--kptu-space-4) 0 0;color:var(--kptu-muted);font-size:16px;line-height:1.7;word-break:keep-all;overflow-wrap:anywhere}
 .piv-badges{display:flex;gap:var(--kptu-space-2);flex-wrap:wrap;margin-top:var(--kptu-space-5)}
 .piv-chip{display:inline-flex;align-items:center;border-radius:var(--kptu-radius-pill);padding:5px 9px;font-size:11px;font-weight:700;background:var(--kptu-primary-soft);color:var(--kptu-muted)}
 .piv-chip.published{background:var(--kptu-success-soft);color:var(--kptu-success)}
@@ -64,7 +38,6 @@
 .piv-info{margin:0 0 15px}
 .piv-info dt{font-size:10px;font-weight:700;color:var(--kptu-faint);margin-bottom:3px}
 .piv-info dd{font-size:12px;line-height:1.55;color:var(--kptu-ink);margin:0;word-break:break-word}
-.piv-management{display:flex;align-items:center;justify-content:flex-end;gap:var(--kptu-space-3);padding:var(--kptu-space-3) 2px;color:var(--kptu-faint);font-size:11px}
 .piv-loading{padding:90px 24px;text-align:center;color:var(--kptu-muted);font-size:13px}
 .piv-error{padding:70px 24px;text-align:center;color:var(--kptu-danger)}
 .piv-sheet.pd-hero-band .piv-head{margin:28px 48px 0}

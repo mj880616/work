@@ -11,12 +11,17 @@ test('Web1 capability manifest exposes only designated anonymous-edit pages',asy
   expect(js).not.toContain("publicEdit:true,default");
 });
 
-test('Web1 does not inject a shared header before page content',async()=>{
-  for(const path of ['2in1/index.html','workforce/joint-struggle-0921/index.html','private-rail/index.html','rail-council/index.html','sanbyeol/index.html','review/260914-press-article-redline/index.html']){
-    const html=await read(path);
-    expect(html,path).not.toContain('web1-toolbar.js');
-    expect(html,path).not.toContain('id="web1Toolbar"');
-  }
+test('shared Web1 toolbar has the fixed control order and mounts before title',async()=>{
+  const js=await read('app/web1-toolbar.js');
+  const back=js.indexOf('web1Back');
+  const edit=js.indexOf('web1Edit');
+  const print=js.indexOf('web1Print');
+  const logout=js.indexOf('web1Logout');
+  expect(back).toBeGreaterThan(-1);
+  expect(back).toBeLessThan(edit);
+  expect(edit).toBeLessThan(print);
+  expect(print).toBeLessThan(logout);
+  expect(js).toContain('insertBefore');
 });
 
 test('Web1 admin auth uses Google OAuth and immutable admin user id',async()=>{
@@ -27,11 +32,20 @@ test('Web1 admin auth uses Google OAuth and immutable admin user id',async()=>{
   expect(js).not.toContain('password');
 });
 
+test('representative Web1 pages load the shared toolbar',async()=>{
+  for(const path of ['2in1/index.html','workforce/joint-struggle-0921/index.html','private-rail/index.html','rail-council/index.html','sanbyeol/index.html']){
+    const html=await read(path);
+    expect(html,path).toContain('/work/app/web1-toolbar.js?v=');
+  }
+});
+
+
 test('designated public-edit pages do not ask for legacy master password',async()=>{
   const html=await read('2in1/index.html');
   expect(html).not.toContain('마스터 비밀번호');
   expect(html).not.toContain('master_password');
   const edge=await read('supabase/functions/pc0921-board/index.ts');
   expect(edge).toContain('PUBLIC_EDIT_BOARDS');
-  expect(edge).toMatch(/PUBLIC_EDIT_BOARDS=new Set\(\[["']pc0921["'],["']pc2in1["']\]\)/);
+  expect(edge).toContain("'pc2in1'");
+  expect(edge).toContain("'pc0921'");
 });

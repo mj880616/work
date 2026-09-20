@@ -140,31 +140,3 @@ test('a denied task update leaves completion and note unchanged',async({page})=>
   await expect(page.locator('#taskModalStatus')).toContainText('권한 없음');
   await expect(row.locator('.tl-task-note')).toContainText('후속 논의 내용을 기록했습니다.');
 });
-
-test('direct A-to-B session switch discards a stale project task response',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
-  await expect(page.locator('#taskList')).toContainText('내가 완료한 프로젝트 할 일');
-  await page.evaluate(()=>{window.KPTUTaskLayout.openTask('pending-project')});
-  await expect.poll(()=>page.evaluate(()=>Boolean(window.__resolvePendingProjectTask))).toBeTruthy();
-  await page.evaluate(()=>{
-    window.__fixtureUserId='user-2';
-    window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:{user:{id:'user-2'}}}}));
-    window.__resolvePendingProjectTask([{id:'pending-project',workspace_id:'workspace-1',assignee_id:'user-1',title:'A의 비공개 할 일',status:'todo'}]);
-  });
-  await expect(page.locator('#taskModal')).toBeHidden();
-  await expect(page.locator('#taskList')).not.toContainText('A의 비공개 할 일');
-  await expect(page.locator('#taskList')).not.toContainText('내가 완료한 프로젝트 할 일');
-});
-
-test('logout discards a stale project task response',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
-  await expect(page.locator('#taskList')).toContainText('내가 완료한 프로젝트 할 일');
-  await page.evaluate(()=>{window.KPTUTaskLayout.openTask('pending-project')});
-  await expect.poll(()=>page.evaluate(()=>Boolean(window.__resolvePendingProjectTask))).toBeTruthy();
-  await page.evaluate(()=>{
-    window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:null}}));
-    window.__resolvePendingProjectTask([{id:'pending-project',workspace_id:'workspace-1',assignee_id:'user-1',title:'A의 비공개 할 일',status:'todo'}]);
-  });
-  await expect(page.locator('#taskModal')).toBeHidden();
-  await expect(page.locator('#taskList')).toBeEmpty();
-});

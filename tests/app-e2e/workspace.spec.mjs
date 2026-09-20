@@ -204,16 +204,17 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect.poll(() => state.tasks[0].status).toBe('done');
   await expect(page.locator('.tl-task-section').first().locator('.tl-completed summary')).toContainText('완료된 할 일');
 
-  await expect(page.locator('#userBadge,#profileView,#teamManageTop')).toHaveCount(0);
-  await page.locator('.app-nav [data-view="team"]').click();
-  await expect(page.locator('#teamView')).toBeVisible();
-  await expect(page.locator('#soOrganizationList')).toBeVisible();
+  await page.locator('#userBadge').click();
+  await expect(page.locator('#profileView')).toBeVisible();
+  await expect(page.locator('#psWorkplaceList')).toContainText('한국철도공사');
+  await expect(page.locator('#psWorkplaceList')).toContainText('공항철도');
+  await expect(page.locator('#psWorkplaceList input')).toHaveCount(0);
 
   await page.locator('[data-view="pages"]').click();
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#pageList')).toContainText('E2E 게시글');
   const shortcut=page.locator('[data-page-shortcut="1"]');
-  await expect(shortcut).toHaveText('공개 열기');
+  await expect(shortcut).toHaveText('바로가기');
   await expect(shortcut).toHaveAttribute('target','_blank');
   await expect(shortcut).toHaveAttribute('href',/slug=e2e-page.*external=1|external=1.*slug=e2e-page/);
 
@@ -234,7 +235,12 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect.poll(() => state.meetings.length).toBeGreaterThan(0);
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
 
-  await expect(page.locator('[data-view="messages"],#messagesView,[data-cc-view="messages"]')).toHaveCount(0);
+  await page.evaluate(()=>window.KPTURouter.go('messages'));
+  await expect(page.locator('#messagesView')).toBeVisible();
+  await page.locator('[data-cc-peer="user-2"]').click();
+  await page.locator('#ccMessageBody').fill('E2E 메시지');
+  await page.locator('#ccSendMessage').click();
+  await expect.poll(() => state.directMessages.length).toBe(1);
 
   await page.locator('#ccNotifTop').click();
   await expect(page.locator('#notificationsView')).toBeVisible();

@@ -98,10 +98,12 @@ test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은
   expect(questionTools).toContain('bar.append(back,stat,edit,cancel,print)');
 });
 
-test('국감 페이지는 제목 뒤에 기존 편집 도구를 배치하고 공통 Web1 헤더를 넣지 않는다', async () => {
+test('국감 페이지 도구줄은 현재 question-0912 페이지의 제목 위에 동적으로 배치된다', async () => {
   const html = await read('private-rail/question-0912/index.html');
   const questionTools = await read('assets/private-rail-question-tools.js');
-  expect(html).not.toContain('/work/app/web1-toolbar.js');
+  expect(html).toContain('/work/app/web1-toolbar.js?v=2');
   expect(html).toContain('class="hero"');
-  expect(questionTools).toContain('hero.after(bar)');
+  const toolbar=await read('app/web1-toolbar.js');
+  expect(toolbar).toContain("document.querySelector('.hero')");
+  expect(toolbar).toContain('anchor.parentNode.insertBefore(bar,anchor)');
 });

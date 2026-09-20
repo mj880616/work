@@ -37,8 +37,7 @@
 .mrd-task-row b{display:block}
 .mrd-task-row small{display:block;color:var(--kptu-muted);margin-top:3px}
 .mrd-task-actions{display:flex;gap:var(--kptu-space-1);align-items:flex-start}
-.mrd-task-actions .danger,.mrd-head-actions .mrd-delete{color:var(--kptu-danger);border-color:var(--kptu-border-strong);background:var(--kptu-surface)}
-.mrd-head-actions .mrd-delete:hover{background:var(--kptu-danger-soft);border-color:var(--kptu-danger);color:var(--kptu-danger)}
+.mrd-task-actions .danger,.mrd-head-actions .danger,#mrdDelete{color:var(--kptu-danger);border-color:var(--kptu-border-strong)}
 .mrd-head-actions{display:flex;gap:6px;margin-top:var(--kptu-space-2)}
 .mrd-editor-actions{display:flex;justify-content:flex-end;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
 #meetingList article.item-card[data-mrd-meeting]{cursor:pointer}

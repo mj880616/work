@@ -1,118 +1,119 @@
--- Authorization regression for the final public single-post boundary.
--- Run only against the local synthetic seed after both 20260920 public-post migrations.
+-- Authorization regression: controlled public snapshot and direct-table denial.
+-- Uses the existing kptu-work workspace, inserts temporary fixtures, and rolls everything back.
+
 begin;
 
-create temp table authz_public_post_result(phase text, payload jsonb);
-grant select,insert on authz_public_post_result to anon;
-create temp table authz_legacy_url_result(slug text, payload jsonb);
-grant select,insert on authz_legacy_url_result to anon;
-create temp table authz_document_url_result(slug text, payload jsonb);
-grant select,insert on authz_document_url_result to anon;
+create temp table authz_public_snapshot(payload jsonb);
+grant select, insert on authz_public_snapshot to anon;
 
-do $block$
+select set_config(
+  'app.authz_public_ws',
+  (select id::text from public.app_workspaces where slug='kptu-work' limit 1),
+  true
+);
+select set_config(
+  'app.authz_public_user',
+  (
+    select m.user_id::text
+    from public.app_workspace_members m
+    join public.app_workspaces w on w.id=m.workspace_id
+    where w.slug='kptu-work'
+    order by m.created_at,m.user_id
+    limit 1
+  ),
+  true
+);
+
+do $$
 declare
-  wid uuid;
-  uid uuid;
+  wid uuid := current_setting('app.authz_public_ws')::uuid;
+  uid uuid := current_setting('app.authz_public_user')::uuid;
 begin
-  select id into wid from public.app_workspaces where slug='kptu-work' limit 1;
-  select m.user_id into uid from public.app_workspace_members m
-    where m.workspace_id=wid order by m.created_at limit 1;
-  if wid is null or uid is null then raise exception 'Public-post fixture needs a workspace member'; end if;
-  insert into public.app_pages(
-    workspace_id,slug,title,summary,body,content_format,visibility,status,owner_id
+  if wid is null then raise exception 'kptu-work workspace is required'; end if;
+  if uid is null then raise exception 'at least one auth user is required'; end if;
+
+  insert into public.app_spaces(
+    id,workspace_id,parent_id,slug,name,description,created_by,owner_id,status,visibility,sort_order
   ) values
-    (wid,'authz-public-post-fixture','PUBLIC FIXTURE','safe summary','PUBLIC BODY','markdown','public','published',uid),
-    (wid,'authz-private-post-fixture','PRIVATE FIXTURE','private summary','PRIVATE BODY','markdown','private','published',uid);
-end
-$block$;
+    ('11111111-aaaa-4111-8111-111111111111',wid,null,'authz-public-snapshot-public','AUTHZ PUBLIC SPACE','public fixture',uid,uid,'active','public',99990),
+    ('12121212-aaaa-4121-8121-121212121212',wid,'11111111-aaaa-4111-8111-111111111111','authz-public-snapshot-public-child','AUTHZ PUBLIC CHILD','public child fixture',uid,uid,'active','public',99991),
+    ('22222222-aaaa-4222-8222-222222222222',wid,null,'authz-public-snapshot-private','AUTHZ PRIVATE SPACE','private fixture',uid,uid,'active','private',99992),
+    ('23232323-aaaa-4232-8232-232323232323',wid,'22222222-aaaa-4222-8222-222222222222','authz-public-snapshot-private-child','AUTHZ PRIVATE CHILD','private child fixture',uid,uid,'active','private',99993);
+
+  insert into public.app_tasks(
+    id,workspace_id,project_id,title,note,status,priority,created_by,assignee_id
+  ) values
+    ('33333333-aaaa-4333-8333-333333333333',wid,'12121212-aaaa-4121-8121-121212121212','AUTHZ PUBLIC TASK','SECRET_TASK_NOTE','todo','normal',uid,uid),
+    ('44444444-aaaa-4444-8444-444444444444',wid,'23232323-aaaa-4232-8232-232323232323','AUTHZ PRIVATE TASK','PRIVATE_TASK_NOTE','todo','normal',uid,uid);
+
+  insert into public.app_events(
+    id,workspace_id,title,description,event_type,start_at,end_at,location,created_by,body,calendar_scope
+  ) values
+    ('55555555-aaaa-4555-8555-555555555555',wid,'AUTHZ TEAM EVENT','SECRET_EVENT_DESCRIPTION','meeting',now()+interval '1 day',null,'SECRET_EVENT_LOCATION',uid,'SECRET_EVENT_BODY','team'),
+    ('66666666-aaaa-4666-8666-666666666666',wid,'AUTHZ PERSONAL EVENT','PERSONAL_DESCRIPTION','meeting',now()+interval '2 days',null,'PERSONAL_LOCATION',uid,'PERSONAL_BODY','personal');
+
+  insert into public.app_documents(
+    id,workspace_id,project_id,title,category,description,visibility,uploaded_by,extracted_text
+  ) values
+    ('77777777-aaaa-4777-8777-777777777777',wid,'12121212-aaaa-4121-8121-121212121212','AUTHZ PUBLIC DOCUMENT','테스트','public description','public',uid,'SECRET_EXTRACTED_TEXT'),
+    ('88888888-aaaa-4888-8888-888888888888',wid,'12121212-aaaa-4121-8121-121212121212','AUTHZ WORKSPACE DOCUMENT','테스트','workspace description','workspace',uid,'WORKSPACE_EXTRACTED_TEXT');
+end $$;
 
 set local role anon;
-insert into authz_public_post_result
-select 'initial',to_jsonb(x) from public.app_public_post('authz-public-post-fixture') x;
-insert into authz_public_post_result
-select 'private',to_jsonb(x) from public.app_public_post('authz-private-post-fixture') x;
-insert into authz_legacy_url_result
-select legacy.slug,to_jsonb(post)
-from (values
-  ('bus-strike-publicness-internal-archive-202609'),
-  ('gimpo-publicization'),
-  ('gimpo-publicization-audit'),
-  ('gimpo-publicization-press-1008'),
-  ('line9-publicization'),
-  ('line9-publicization-audit'),
-  ('private-rail-forum-0929-prep')
-) as legacy(slug)
-cross join lateral public.app_public_post(legacy.slug) post;
-insert into authz_document_url_result
-select doc.slug,to_jsonb(post)
-from (select 'public-doc-90000000'||lpad(n::text,4,'0') as slug
-      from generate_series(100,113) n) doc
-cross join lateral public.app_public_post(doc.slug) post;
+insert into authz_public_snapshot(payload)
+select public.app_public_projects_snapshot();
 reset role;
 
-do $block$
+do $$
+declare
+  j jsonb;
+  default_visibility text;
 begin
-  if (select count(*) from authz_public_post_result where phase='initial') <> 1
-     or (select count(*) from authz_public_post_result where phase='private') <> 0 then
-    raise exception 'Public/private single-post filtering failed';
-  end if;
-  if (select count(*) from authz_legacy_url_result) <> 7
-     or (select count(distinct slug) from authz_legacy_url_result) <> 7
-     or (select count(*) from authz_legacy_url_result
-         where slug='private-rail-forum-0929-prep' and payload->>'indexable'='true') <> 1
-     or (select count(*) from authz_legacy_url_result
-         where slug<>'private-rail-forum-0929-prep' and payload->>'indexable'='false') <> 6 then
-    raise exception 'Seven legacy public URLs or indexability changed';
-  end if;
-  if (select count(*) from authz_document_url_result) <> 14
-     or (select count(distinct slug) from authz_document_url_result) <> 14 then
-    raise exception 'Fourteen public document URLs changed';
-  end if;
-  if exists (
-    select 1 from (
-      select payload from authz_public_post_result
-      union all select payload from authz_legacy_url_result
-      union all select payload from authz_document_url_result
-    ) result
-    where payload ?| array['workspace_id','owner_id','metadata','space_id','workstream_id']
-  ) then
-    raise exception 'Public response includes internal columns';
-  end if;
-  if not has_function_privilege('anon','public.app_public_post(text)','EXECUTE')
-     or has_function_privilege('anon','public.app_public_projects_snapshot()','EXECUTE')
-     or has_function_privilege('anon','public.app_public_workspace_snapshot()','EXECUTE')
-     or has_function_privilege('anon','public.app_open_share(text)','EXECUTE') then
-    raise exception 'Anonymous function grants are too broad';
-  end if;
-  if exists (
-    select 1 from pg_catalog.pg_class c
-    join pg_catalog.pg_namespace n on n.oid=c.relnamespace
-    where n.nspname='public' and c.relkind in ('r','p')
-      and c.relname like 'app\_%' escape '\'
-      and has_table_privilege('anon',c.oid,'SELECT')
-  ) then
-    raise exception 'Anonymous direct app-table SELECT remains';
-  end if;
-end
-$block$;
+  select payload into j from authz_public_snapshot limit 1;
 
-update public.app_pages set visibility='private' where slug='authz-public-post-fixture';
-update public.app_pages set visibility='public' where slug='authz-private-post-fixture';
-
-set local role anon;
-insert into authz_public_post_result
-select 'revoked',to_jsonb(x) from public.app_public_post('authz-public-post-fixture') x;
-insert into authz_public_post_result
-select 'published',to_jsonb(x) from public.app_public_post('authz-private-post-fixture') x;
-reset role;
-
-do $block$
-begin
-  if (select count(*) from authz_public_post_result where phase='revoked') <> 0
-     or (select count(*) from authz_public_post_result where phase='published') <> 1 then
-    raise exception 'Visibility transitions are not immediate';
+  if not (j->'spaces' @> '[{"id":"11111111-aaaa-4111-8111-111111111111"}]'::jsonb)
+     or (j->'spaces' @> '[{"id":"22222222-aaaa-4222-8222-222222222222"}]'::jsonb) then
+    raise exception 'public space filtering failed: %',j->'spaces';
   end if;
-end
-$block$;
+
+  if not (j->'tasks' @> '[{"id":"33333333-aaaa-4333-8333-333333333333"}]'::jsonb)
+     or (j->'tasks' @> '[{"id":"44444444-aaaa-4444-8444-444444444444"}]'::jsonb)
+     or j::text like '%SECRET_TASK_NOTE%' then
+    raise exception 'public task projection failed: %',j->'tasks';
+  end if;
+
+  if not (j->'events' @> '[{"id":"55555555-aaaa-4555-8555-555555555555"}]'::jsonb)
+     or (j->'events' @> '[{"id":"66666666-aaaa-4666-8666-666666666666"}]'::jsonb)
+     or j::text like '%SECRET_EVENT_BODY%'
+     or j::text like '%SECRET_EVENT_DESCRIPTION%'
+     or j::text like '%SECRET_EVENT_LOCATION%' then
+    raise exception 'public event projection failed: %',j->'events';
+  end if;
+
+  if not (j->'documents' @> '[{"id":"77777777-aaaa-4777-8777-777777777777"}]'::jsonb)
+     or (j->'documents' @> '[{"id":"88888888-aaaa-4888-8888-888888888888"}]'::jsonb)
+     or j::text like '%SECRET_EXTRACTED_TEXT%' then
+    raise exception 'public document projection failed: %',j->'documents';
+  end if;
+
+  if has_table_privilege('anon','public.app_spaces','SELECT')
+     or has_table_privilege('anon','public.app_tasks','SELECT')
+     or has_table_privilege('anon','public.app_events','SELECT')
+     or has_table_privilege('anon','public.app_documents','SELECT') then
+    raise exception 'anon direct-table privilege remains on internal tables';
+  end if;
+
+  if not has_function_privilege('anon','public.app_public_projects_snapshot()','EXECUTE') then
+    raise exception 'anon cannot execute controlled public snapshot';
+  end if;
+
+  select column_default into default_visibility
+  from information_schema.columns
+  where table_schema='public' and table_name='app_spaces' and column_name='visibility';
+
+  if default_visibility is distinct from '''team''::text' then
+    raise exception 'project visibility default is not team: %',default_visibility;
+  end if;
+end $$;
 
 rollback;

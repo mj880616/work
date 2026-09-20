@@ -48,7 +48,7 @@ test('page builder and AI modules remain lazy or background-only', async ({ page
   const source=await (await page.request.get(loaderUrl)).text();
   expect(source).toContain("addEventListener('kptu:page-editor-opened',lazyPageBuilderOpen)");
   expect(source).toContain('await window.__KPTU_PAGE_BUILDER_READY__');
-  for(const modulePath of ['./workplace-ai-report.js','./workflow-ai-v3.js']){
+  for(const modulePath of ['./workplace-ai-report.js','./workflow-ai-v3.js','./meeting-ai-ingest-client.js','./meeting-ai-paste-ui.js']){
     expect(source.indexOf(modulePath)).toBeGreaterThan(source.indexOf("startup?.mark('allInitialModulesComplete')"));
   }
 });
