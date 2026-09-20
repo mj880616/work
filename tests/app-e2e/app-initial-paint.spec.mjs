@@ -18,9 +18,9 @@ test('legacy auth screen and workspace shell cannot paint before the current UI 
 
   const favicon = await page.locator('link[rel="icon"]').getAttribute('href');
   expect(favicon).toMatch(/^\.\/app-icon\.svg\?v=[\w-]+$/);
-  await expect(page.locator('.brand .leaf')).toHaveText('');
-  const brandImage = await page.locator('.brand .leaf').evaluate(el => getComputedStyle(el).backgroundImage);
-  expect(brandImage).toContain('app-icon.svg');
+  const brandIcon = page.locator('.brand .brand-icon');
+  await expect(brandIcon).toHaveAttribute('src', /^\.\/app-icon\.svg\?v=[\w-]+$/);
+  await expect.poll(() => brandIcon.evaluate(el => el.complete && el.naturalWidth > 0)).toBeTruthy();
 
   const legacyAuthDisplay = await page.locator('#authView').evaluate(el => getComputedStyle(el).display);
   expect(legacyAuthDisplay).toBe('none');
