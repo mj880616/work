@@ -241,17 +241,24 @@ if [[ "${WEB2_TRANSITION:-0}" == 1 ]]; then
     run_local_sql_check "supabase/tests/$sql_test"
   done
   export LOCAL_USERS_FILE="$ci_root/users.json"
+  d_http_failed=0
   if ! node --test "$repo_root/supabase/local-verify/http-authz.test.mjs"; then
-    node "$repo_root/supabase/local-verify/diagnose-edge.mjs" run
-    exit 1
+    node "$repo_root/supabase/local-verify/diagnose-edge.mjs" run || true
+    d_http_failed=1
+    echo 'TRANSITION_D_HTTP_FAILED: safe post-contract rollback will still be verified' >&2
+  else
+    echo 'TRANSITION_D_PASSED'
   fi
-  echo 'TRANSITION_D_PASSED'
 
   # After contract, do not restore broad anon SELECT or run prepare rollback.
+  # Always collect this result independently, even when D HTTP verification fails.
   apply_local_rollback "$cutover"
   apply_local_rollback "$project"
   run_local_sql_check supabase/tests/authz_safe_rollback.sql
   echo 'TRANSITION_POST_CONTRACT_SAFE_ROLLBACK_PASSED'
+  if [[ "$d_http_failed" == 1 ]]; then
+    exit 1
+  fi
   exit 0
 fi
 
