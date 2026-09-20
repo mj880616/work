@@ -37,6 +37,15 @@ try {
     const action = context?.[3]?.toUpperCase() || 'UNAVAILABLE';
     console.log(`LOCAL_SQL_TRIGGER_FUNCTION=${/^(?:(?:public|private)\.)?[a-z_][a-z_0-9]*$/i.test(fn) ? fn : 'UNAVAILABLE'}`);
     console.log(`LOCAL_SQL_TRIGGER_ACTION=${/^[A-Z_]+$/.test(action) ? action : 'UNAVAILABLE'}`);
+    const firstErrorLine = error.split(/\r?\n/).find(x=>/psql:[^\r\n]*?:\d+:\s*ERROR:/i.test(x)) ?? '';
+    const errorClass = /child.?project/i.test(firstErrorLine) ? 'CHILD_PROJECT'
+      : /assignee|assignment/i.test(firstErrorLine) ? 'ASSIGNMENT'
+      : /workspace/i.test(firstErrorLine) ? 'WORKSPACE'
+      : /project/i.test(firstErrorLine) ? 'PROJECT'
+      : /member/i.test(firstErrorLine) ? 'MEMBERSHIP'
+      : /source/i.test(firstErrorLine) ? 'SOURCE'
+      : 'UNCLASSIFIED';
+    console.log(`LOCAL_SQL_ERROR_CLASS=${errorClass}`);
   }
   console.log('LOCAL_SQL_AND_ERROR_WITHHELD=true');
 } catch {

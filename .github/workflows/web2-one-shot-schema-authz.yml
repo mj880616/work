@@ -97,6 +97,22 @@ jobs:
                 exit 1
               }
           node supabase/local-verify/scan-schema.mjs "$RUNNER_TEMP/web2-schema.raw.sql"
+          if test "$VERIFICATION_PHASE" != inspect; then
+            node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
+            docker run --rm --network host --read-only --tmpfs /tmp:rw,noexec,nosuid \
+              --user "$(id -u):$(id -g)" \
+              -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE -e PGPASSWORD \
+              -e PGOPTIONS -e PGSSLMODE -e PGSSLROOTCERT \
+              -v "$RUNNER_TEMP:/out" \
+              -v "$PWD/supabase/local-verify/definer-acl.sql:/verify/definer-acl.sql:ro" \
+              postgres:17 psql -X -qAt -v ON_ERROR_STOP=1 \
+                -f /verify/definer-acl.sql \
+                > "$RUNNER_TEMP/definer-acl.json" 2> "$RUNNER_TEMP/definer-acl.err" || {
+                  echo 'DEFINER_ACL_QUERY_FAILED: read-only catalog query failed; raw output withheld' >&2
+                  exit 1
+                }
+            node supabase/local-verify/definer-acl.mjs "$RUNNER_TEMP/definer-acl.json"
+          fi
           if test "$VERIFICATION_PHASE" = inspect; then
             if test -n "$EXPECTED_SHA256"; then
               node supabase/local-verify/schema-hash.mjs "$RUNNER_TEMP/web2-schema.raw.sql" "$EXPECTED_SHA256"
@@ -175,4 +191,5 @@ jobs:
           if test -d "$RUNNER_TEMP"; then
             rm -f -- "$RUNNER_TEMP/web2-schema.raw.sql" "$RUNNER_TEMP/pg-dump.err" "$RUNNER_TEMP/prod-ca-2021.crt" \
               "$RUNNER_TEMP/web2-hosted-roles.json" "$RUNNER_TEMP/role-catalog.err"
+            rm -f -- "$RUNNER_TEMP/definer-acl.json" "$RUNNER_TEMP/definer-acl.err"
           fi

@@ -80,6 +80,8 @@ test('CI inputs exist and the local seed precedes pending migrations', () => {
     'supabase/local-verify/role-diagnostics.mjs',
     'supabase/local-verify/role-catalog.sql',
     'supabase/local-verify/definer-diagnostics.mjs',
+    'supabase/local-verify/definer-acl.sql',
+    'supabase/local-verify/definer-acl.mjs',
     'supabase/local-verify/compat-default-acl.mjs',
     'supabase/local-verify/analyze-sql-failure.mjs',
     'supabase/local-verify/custom-auth-trigger.sql',
@@ -124,7 +126,7 @@ test('synthetic seed failure reports SQLSTATE and first table without printing l
     const error = join(directory, 'error.log');
     const secret = 'dont-print-this-value';
     writeFileSync(sql, `insert into public.app_workspaces(id,name)\nvalues ('id','${secret}');\n`);
-    writeFileSync(error, `psql:${sql}:2: ERROR:  P0001: failing ${secret}\nCONTEXT: PL/pgSQL function private.app_task_child_project_guard() line 17 at RAISE\n`);
+    writeFileSync(error, `psql:${sql}:2: ERROR:  P0001: child project failing ${secret}\nCONTEXT: PL/pgSQL function private.app_task_child_project_guard() line 17 at RAISE\n`);
     const run = spawnSync(process.execPath,
       [fileURLToPath(sqlFailure), 'SYNTHETIC_SEED', sql, error], {encoding: 'utf8'});
     assert.equal(run.status, 0);
@@ -134,6 +136,7 @@ test('synthetic seed failure reports SQLSTATE and first table without printing l
     assert.match(run.stdout, /LOCAL_SQL_OBJECT=public\.app_workspaces/);
     assert.match(run.stdout, /LOCAL_SQL_TRIGGER_FUNCTION=private\.app_task_child_project_guard/);
     assert.match(run.stdout, /LOCAL_SQL_TRIGGER_ACTION=RAISE/);
+    assert.match(run.stdout, /LOCAL_SQL_ERROR_CLASS=CHILD_PROJECT/);
     assert.ok(!`${run.stdout}${run.stderr}`.includes(secret));
   } finally { rmSync(directory, {recursive: true, force: true}); }
 });
