@@ -46,11 +46,6 @@
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
   startup?.mark('routeResolved',{route:'authenticated'});
   const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=4');
-  startup?.mark('homeRendererStart');
-  await import('./home-dashboard-v2.js?v=7');
-  startup?.mark('homeRendererReady');
-  const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady]);
-
   let featurePromise=null,featuresReady=false;
   const showFeatureError=err=>{
     console.error('deferred feature load failed',err);
@@ -104,6 +99,11 @@
     status.textContent='기능을 불러오는 중입니다…';
     loadFeatures().then(()=>{status.remove();if(view)window.KPTURouter?.go?.(view,{source:'delegated'});else control.click()}).catch(()=>status.remove());
   },true);
+
+  startup?.mark('homeRendererStart');
+  await import('./home-dashboard-v2.js?v=7');
+  startup?.mark('homeRendererReady');
+  const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady]);
 
   const requested=new URLSearchParams(location.search).get('view');
   if(requested&&requested!=='home')await loadFeatures();
