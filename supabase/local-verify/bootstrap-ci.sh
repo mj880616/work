@@ -209,6 +209,9 @@ if [[ "${WEB2_EDGE_READINESS:-0}" == 1 ]]; then
   apply_local_migration "$project"
   apply_local_migration "$cutover"
   node "$repo_root/supabase/local-verify/diagnose-edge.mjs" readiness after-migrations "$ci_root/start.log"
+  apply_local_rollback "$cutover"
+  run_local_sql_check supabase/local-verify/transition-cutover-rollback.sql
+  echo 'EDGE_READINESS_D_ROLLBACK_PASSED'
   echo 'EDGE_READINESS_PASSED'
   exit 0
 fi

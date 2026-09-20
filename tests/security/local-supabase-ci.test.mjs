@@ -177,6 +177,8 @@ test('edge readiness is a separate local-only phase with probes before and after
   const branch = bootstrap.slice(readiness, transition);
   assert.match(branch, /diagnose-edge\.mjs" readiness before-migrations/);
   assert.match(branch, /diagnose-edge\.mjs" readiness after-migrations/);
+  assert.match(branch, /apply_local_rollback "\$cutover"/);
+  assert.match(branch, /run_local_sql_check supabase\/local-verify\/transition-cutover-rollback\.sql/);
   assert.ok(branch.indexOf('"$prepare"') < branch.indexOf('"$project"'));
   assert.ok(branch.indexOf('"$project"') < branch.indexOf('"$cutover"'));
   assert.doesNotMatch(branch, /http-authz\.test|http-transition\.test/);

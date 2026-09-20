@@ -106,7 +106,7 @@ if (mode === 'classify') {
     console.log(`EDGE_READINESS name=${name} point=${point} stage=${stage} options=${optionsStatus} request=${requestStatus} category=${category}`);
     if (stage !== 'AUTH_RETURNED') failed = true;
   }
-  if (failed) inspectLocalRuntime();
+  inspectLocalRuntime();
   if (failed) process.exitCode = 1;
 } else if (mode === 'run') {
   const {url, key} = localTarget();
