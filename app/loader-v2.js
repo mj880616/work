@@ -10,7 +10,7 @@
   await Promise.all([
     import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
-    import('./app-router.js?v=6'),
+    import('./app-router.js?v=7'),
     import('./accessibility-dialog.js?v=1'),
     import('./native-back-guard.js?v=1'),
     import('./session-resilience.js?v=6'),
@@ -28,7 +28,7 @@
       location.replace(window.KPTUAuth.loginUrl(location.href));
       return;
     }
-    await import('./public-workspace.js?v=9');
+    await import('./public-workspace.js?v=10');
     await import('./mobile-swipe-navigation.js?v=4');
     startup?.mark('allInitialModulesComplete');
     return;

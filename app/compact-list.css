@@ -1,7 +1,7 @@
 /* Shared scan-friendly rows for the library and field-share pages. */
 #documentList,#pageList{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--kptu-space-2)}
 .compact-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--kptu-space-3);min-width:0;padding:var(--kptu-space-2) var(--kptu-space-3);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);cursor:pointer;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease}
-.compact-entry:hover{background:var(--kptu-surface-subtle);border-color:var(--kptu-info);box-shadow:0 2px 7px rgba(20,33,48,.06);transform:none!important}
+.compact-entry:hover{background:var(--kptu-surface-subtle);border-color:var(--kptu-info);box-shadow:var(--kptu-shadow-float);transform:none!important}
 .compact-entry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
 .compact-entry-main{min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:3px var(--kptu-space-2)}
 .compact-entry h3{font-size:13px;line-height:1.4;margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

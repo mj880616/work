@@ -45,7 +45,7 @@ test('anonymous app entry uses only the public snapshot and gates internal work'
     await expect(page.locator(`.app-nav [data-view="${view}"]`)).toBeVisible();
   }
   await expect(page.locator('#teamManageTop')).toHaveCount(0);
-  await expect(page.locator('#pagesMediaEntry')).toBeHidden();
+  await expect(page.locator('#pagesMediaEntry')).toHaveCount(0);
   await expect.poll(()=>calls.snapshot).toBeGreaterThanOrEqual(1);
   expect(errors).toEqual([]);
   await expect(page.locator('#homeView')).toContainText('공개 업무');

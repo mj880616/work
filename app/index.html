@@ -7,7 +7,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="./app-icon.svg?v=20260919-unicorn1" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260919-unicorn1">
-<link rel="stylesheet" href="./styles.css?v=26">
+<link rel="stylesheet" href="./styles.css?v=28">
 </head>
 <body>
 <div class="shell">
@@ -108,7 +108,7 @@
   </section>
 
   <section id="pagesView" class="view-panel hidden">
-    <div class="section-head"><div><h2>현장 공유 페이지</h2><p>팀원이 직접 작성하고 URL로 바로 공유할 수 있습니다.</p></div><div class="head-actions"><button id="pagesMediaEntry" class="secondary" data-goto="media" type="button">언론대응 페이지</button><button id="newPageBtn" class="primary" type="button">+ 새 페이지</button></div></div>
+    <div class="section-head"><div><h2>현장 공유 페이지</h2><p>팀원이 직접 작성하고 URL로 바로 공유할 수 있습니다.</p></div><div class="head-actions"><button id="newPageBtn" class="primary" type="button">+ 새 페이지</button></div></div>
     <div class="toolbar"><label class="a11y-only" for="pageSearch">페이지 검색</label><input id="pageSearch" class="search" type="search" placeholder="페이지 검색"><label class="a11y-only" for="pageFilter">게시 상태</label><select id="pageFilter"><option value="all">전체 상태</option><option value="draft">초안</option><option value="review">검토중</option><option value="published">게시</option><option value="archived">보관</option></select></div>
     <div id="pageList" class="page-list"></div><div id="pageEmpty" class="empty hidden">아직 작성된 페이지가 없습니다.</div>
   </section>
@@ -133,5 +133,5 @@
 <div id="toast" class="toast hidden"></div>
 
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to',new URL('/work/app/confirmed.html',location.origin).href);input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=52" defer></script>
+<script src="./app.js?v=53" defer></script>
 </body></html>

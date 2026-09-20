@@ -2,7 +2,7 @@
 .brand .leaf{width:40px!important;height:36px!important;border:0!important;border-radius:var(--kptu-radius-md)!important;background:transparent url('./app-icon.svg?v=20260915-1') center/36px 36px no-repeat!important;color:transparent!important;font-size:0!important;overflow:hidden}
 #projectGrid[data-ps3-ready="1"]{display:grid}
 .ps3-project-card{background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-4);text-align:left;color:var(--kptu-ink);box-shadow:none;cursor:pointer;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease}
-.ps3-project-card:hover{background:var(--kptu-surface-subtle);border-color:var(--kptu-info);box-shadow:0 2px 7px rgba(20,33,48,.06)}
+.ps3-project-card:hover{background:var(--kptu-surface-subtle);border-color:var(--kptu-info);box-shadow:var(--kptu-shadow-float)}
 .ps3-project-card:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
 .ps3-project-card h3{margin:var(--kptu-space-2) 0 var(--kptu-space-1);font-size:15px;line-height:1.4;font-weight:700;letter-spacing:-.1px}
 .ps3-project-card>p{margin:0;color:var(--kptu-muted);font-size:12px;line-height:1.55;min-height:37px}
@@ -34,6 +34,7 @@
 .ps3-child-menu summary b{display:inline-flex;min-width:16px;height:16px;align-items:center;justify-content:center;border-radius:var(--kptu-radius-pill);background:var(--kptu-info);color:#fff;font-size:8.5px}
 .ps3-child-menu[open] summary{background:var(--kptu-info-soft);color:var(--kptu-info)}
 .ps3-child-menu-panel{position:absolute;left:0;right:auto;top:calc(100% + 6px);z-index:8;width:min(320px,78vw);padding:var(--kptu-space-2);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:var(--kptu-shadow-float);display:grid;gap:var(--kptu-space-1)}
+:is(#documentModal,#meetingModal,#editorModal,#taskModal):not(.hidden){z-index:51}
 .ps3-child-menu-panel>button{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--kptu-space-2);align-items:center;width:100%;border:0;background:var(--kptu-surface-subtle);color:var(--kptu-ink);border-radius:var(--kptu-radius-md);padding:var(--kptu-space-2) 9px;text-align:left}
 .ps3-child-menu-panel>button:hover{background:var(--kptu-primary-soft)}
 .ps3-child-menu-panel strong{font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
