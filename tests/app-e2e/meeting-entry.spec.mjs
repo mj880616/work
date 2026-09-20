@@ -78,11 +78,120 @@ test('meeting detail dialog exposes semantics, Escape close, and trigger focus r
   await expect(trigger).toBeFocused();
 });
 
+test('editing a meeting retains the structured decision field',async({page})=>{
+  await signIn(page);
+  let saved=null;
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    if(route.request().method()==='PATCH'){
+      saved=route.request().postDataJSON();
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:meeting.id}])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await expect(page.locator('#mrdResult')).toContainText('1. 중요 결정 사항');
+  await expect(page.locator('#mrdResult')).toContainText('결정 내용');
+  await page.locator('#mrdEdit').click();
+  await expect(page.locator('#mrdEditDecisions')).toHaveValue('결정 내용');
+  await expect(page.locator('#mrdEditNotes')).toHaveValue('논의 내용');
+  await page.locator('#mrdEditNotes').fill('정보 공유 수정');
+  await page.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>saved).not.toBeNull();
+  expect(saved.decisions).toBe('결정 내용');
+  expect(saved.notes).toBe('정보 공유 수정');
+  await expect(page.locator('#mrdEditStatus')).toContainText('수정했습니다.');
+});
+
+test('meeting edit does not report success when RLS updates zero rows',async({page})=>{
+  await signIn(page);
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    const data=route.request().method()==='PATCH'?[]:[meeting];
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await page.locator('#mrdEdit').click();
+  await page.locator('#mrdSaveEdit').click();
+  await expect(page.locator('#mrdEditStatus')).toContainText('수정 권한을 확인하지 못했습니다.');
+  await expect(page.locator('#mrdEditor')).toBeVisible();
+});
+
+test('closing a meeting ignores its late detail response',async({page})=>{
+  await signIn(page);
+  let release;
+  const held=new Promise(resolve=>{release=resolve});
+  let requested=false;
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    requested=true;
+    await held;
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await expect.poll(()=>requested).toBe(true);
+  await page.locator('#mrdClose').evaluate(button=>button.click());
+  release();
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveClass(/hidden/);
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('aria-hidden','true');
+});
+
+test('closing a meeting during a delayed follow-up save does not reopen its detail',async({page})=>{
+  await signIn(page);
+  let release,posted=false;
+  const held=new Promise(resolve=>{release=resolve});
+  await page.route(`${SB}/rest/v1/app_tasks**`,async route=>{
+    if(route.request().method()==='POST'){
+      posted=true;
+      await held;
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await page.locator('#mrdAddTask').click();
+  await page.locator('#mrdTaskTitle').fill('후속 자료 정리');
+  await page.locator('#mrdTaskAssignee').selectOption('meeting-user');
+  await page.locator('#mrdTaskSave').click();
+  await expect.poll(()=>posted).toBe(true);
+  await page.locator('#mrdClose').click();
+  release();
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveClass(/hidden/);
+  await page.waitForTimeout(100);
+  await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('aria-hidden','true');
+});
+
+test('closing AI review during a delayed save does not create meeting tasks',async({page})=>{
+  await signIn(page);
+  let release,patchStarted=false,taskPosts=0;
+  const held=new Promise(resolve=>{release=resolve});
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    if(route.request().method()==='PATCH'){
+      patchStarted=true;
+      await held;
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:meeting.id}])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{...meeting,project_id:'child'}])});
+  });
+  await page.route(`${SB}/rest/v1/app_tasks**`,async route=>{
+    if(route.request().method()==='POST')taskPosts++;
+    return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+  });
+  await page.evaluate(()=>window.__KPTU_OPEN_AI_FOR_MEETING__('meeting-1'));
+  await expect(page.locator('#wfMeetingAiModal')).toBeVisible();
+  await page.locator('#wfMeetingDraft').evaluate(el=>el.classList.remove('hidden'));
+  await page.locator('#wfDraftActions').fill('후속 정리 | 회의 QA | 2026-09-25');
+  await page.locator('#wfFinalizeMeeting').click();
+  await expect.poll(()=>patchStarted).toBe(true);
+  await page.locator('#wfMeetingAiClose').click();
+  release();
+  await expect(page.locator('#wfMeetingAiModal')).toHaveClass(/hidden/);
+  await page.waitForTimeout(100);
+  expect(taskPosts).toBe(0);
+});
+
 test('meeting UI has one render path without observer or fetch interception shims',async()=>{
   const html=read('app/index.html');
   const loader=read('app/loader-v2.js');
   const workflow=read('app/task-workflow.js');
   const detail=read('app/meeting-round-detail.js');
+  const ai=read('app/workflow-ai-v3.js');
   const team=read('app/team.js');
   const css=read('app/styles.css');
 
@@ -95,8 +204,9 @@ test('meeting UI has one render path without observer or fetch interception shim
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
   expect(detail).not.toContain("document.createElement('style')");
+  expect(ai).not.toContain('annotateMeetingDetail');
   expect(team).toContain('data-mrd-meeting');
   expect(team).toContain("/functions/v1/meeting-files");
   expect(team).not.toContain("/functions/v1/library-files',{method:'POST',body:fd");
-  expect(css).toContain("meeting-ui.css?v=3");
+  expect(css).toContain("meeting-ui.css?v=5");
 });

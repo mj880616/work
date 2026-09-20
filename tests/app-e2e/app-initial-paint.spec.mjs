@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('legacy auth screen and workspace shell cannot paint before the current UI is ready', async ({ page }) => {
+test('anonymous workspace shell stays hidden until the public home is ready', async ({ page }) => {
   let releaseApp;
   let appRequested = false;
   const appHold = new Promise(resolve => { releaseApp = resolve; });
@@ -18,9 +18,7 @@ test('legacy auth screen and workspace shell cannot paint before the current UI 
 
   const favicon = await page.locator('link[rel="icon"]').getAttribute('href');
   expect(favicon).toMatch(/^\.\/app-icon\.svg\?v=[\w-]+$/);
-  const brandIcon = page.locator('.brand .brand-icon');
-  await expect(brandIcon).toHaveAttribute('src', /^\.\/app-icon\.svg\?v=[\w-]+$/);
-  await expect.poll(() => brandIcon.evaluate(el => el.complete && el.naturalWidth > 0)).toBeTruthy();
+  await expect(page.locator('.brand .brand-icon')).toHaveCount(0);
 
   const legacyAuthDisplay = await page.locator('#authView').evaluate(el => getComputedStyle(el).display);
   expect(legacyAuthDisplay).toBe('none');
@@ -30,10 +28,9 @@ test('legacy auth screen and workspace shell cannot paint before the current UI 
   expect(beforeReady).toBe('hidden');
 
   releaseApp();
-  await page.waitForFunction(() => typeof window.__KPTU_MARK_APP_UI_READY__ === 'function');
-  await page.evaluate(() => window.__KPTU_MARK_APP_UI_READY__?.());
-  const afterReady = await page.locator('#appView').evaluate(el => getComputedStyle(el).visibility);
-  expect(afterReady).toBe('visible');
+  await expect(page).toHaveURL(/\/app\/$/, { timeout: 10000 });
+  await expect(page.locator('body')).toHaveClass(/kptu-public-workspace/);
+  await expect(page.locator('#publicLoginBtn')).toBeVisible();
 });
 
 test('router restores deep links only after explicit app-ui-ready and preserves browser history', async ({ page }) => {

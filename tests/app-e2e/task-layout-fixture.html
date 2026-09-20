@@ -12,6 +12,8 @@
   </div>
   <div id="toast" class="hidden"></div>
   <script>
+    window.__fixtureUserId='user-1';
+    window.__resolvePendingProjectTask=null;
     const rows=[
       {id:'self-open',workspace_id:'workspace-1',project_id:'space-1',title:'모바일 화면에서 두 줄까지 읽을 수 있어야 하는 길고 중요한 업무 제목입니다',description:'공공기관 공동사업 준비',note:'후속 논의 내용을 기록했습니다.',assignee_id:'user-1',created_by:'user-1',source_type:'project',status:'todo'},
       {id:'self-done',workspace_id:'workspace-1',project_id:'space-1',title:'내가 완료한 프로젝트 할 일',assignee_id:'user-1',created_by:'user-1',source_type:'project',status:'done'},
@@ -20,9 +22,9 @@
     window.KPTURuntime={
       session:{ensure:async()=>true},
       api:async(path,opts={})=>{
-        if(path==='/auth/v1/user')return {id:'user-1'};
-        if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:'workspace-1'}];
-        if(path.startsWith('/rest/v1/app_spaces'))return [{id:'space-1',name:'인력확충 투쟁',parent_id:'main-1',status:'active'}];
+        if(path==='/auth/v1/user')return {id:window.__fixtureUserId};
+        if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:window.__fixtureUserId==='user-1'?'workspace-1':'workspace-2'}];
+        if(path.startsWith('/rest/v1/app_spaces'))return window.__fixtureUserId==='user-1'?[{id:'space-1',name:'인력확충 투쟁',parent_id:'main-1',status:'active'}]:[];
         if(path==='/rest/v1/app_tasks'&&opts.method==='POST'){
           const row={id:'new-'+(rows.length+1),...(opts.body||{})};rows.push(row);return [row];
         }
@@ -38,7 +40,9 @@
           if(opts.method==='DELETE'){
             const match=path.match(/[?&]id=eq\.([^&]+)/);const id=match?decodeURIComponent(match[1]):'';const i=rows.findIndex(x=>x.id===id);if(i>=0)rows.splice(i,1);return null;
           }
-          return rows;
+          if(path.includes('id=eq.pending-project'))return new Promise(resolve=>{window.__resolvePendingProjectTask=resolve});
+          const workspace=path.match(/[?&]workspace_id=eq\.([^&]+)/)?.[1],assignee=path.match(/[?&]assignee_id=eq\.([^&]+)/)?.[1],id=path.match(/[?&]id=eq\.([^&]+)/)?.[1];
+          return rows.filter(row=>(!workspace||row.workspace_id===decodeURIComponent(workspace))&&(!assignee||row.assignee_id===decodeURIComponent(assignee))&&(!id||row.id===decodeURIComponent(id)));
         }
         return [];
       }

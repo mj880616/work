@@ -62,7 +62,8 @@ button{cursor:pointer}
 .brand-icon{width:34px;height:34px;display:block;object-fit:cover;border-radius:9px;flex:0 0 auto}
 .brand b{font-size:11px;color:var(--kptu-link);background:var(--kptu-primary-soft);padding:3px 7px;border-radius:var(--kptu-radius-pill)}
 .top-actions{display:flex;gap:var(--kptu-space-2);align-items:center}
-.user-badge{font-size:12px;color:var(--kptu-muted);max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-badge{border:0;background:transparent;padding:6px 8px;border-radius:var(--kptu-radius-md);font-size:12px;color:var(--kptu-muted);max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.user-badge:hover,.user-badge:focus-visible{background:var(--kptu-primary-soft);color:var(--kptu-ink)}
 main{max-width:1120px;margin:0 auto;padding:34px 20px 80px}
 .eyebrow{font-size:11px;letter-spacing:.12em;font-weight:800;color:var(--kptu-link);margin-bottom:var(--kptu-space-2)}
 .auth-wrap{min-height:calc(100vh - 140px);display:grid;place-items:center}

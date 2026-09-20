@@ -73,7 +73,7 @@ test('new account cannot access workspace before admin approval',async({page})=>
   await expect.poll(()=>state.requests.length).toBe(1);
 });
 
-test('admin sees pending access request and can approve it',async({page})=>{
+test('solo workspace does not expose account approval controls',async({page})=>{
   const state={
     user:{id:'owner-1',email:'owner@example.org',user_metadata:{display_name:'김명진'}},
     workspace:{id:'workspace-1',slug:'kptu-work',name:'공공기관사업팀 Workspace'},membership:{workspace_id:'workspace-1',user_id:'owner-1',role:'owner'},
@@ -84,12 +84,10 @@ test('admin sees pending access request and can approve it',async({page})=>{
   page.on('dialog',d=>d.accept());
   await preloadSession(page);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await page.locator('#teamManageTop').click();
-  await expect(page.locator('#aaReviewSection')).toBeVisible();
-  await expect(page.locator('#aaReviewSection')).toContainText('신규 팀원');
-  await page.locator('[data-aa-approve="request-1"]').click();
-  await expect.poll(()=>state.requests[0].status).toBe('approved');
-  await expect(page.locator('#aaReviewList')).toContainText('승인 대기 중인 계정이 없습니다.');
+  await page.locator('[data-view="team"]').click();
+  await expect(page.locator('#aaReviewSection')).toHaveCount(0);
+  await expect(page.locator('[data-aa-approve="request-1"]')).toHaveCount(0);
+  expect(state.requests[0].status).toBe('pending');
 });
 
 test('organization detail shows representative contact, system update time, and multi affiliation tags',async({page})=>{

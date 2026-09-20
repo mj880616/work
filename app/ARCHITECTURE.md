@@ -16,12 +16,12 @@
 
 화면 전환은 `app-router.js`가 단독 소유함.
 
-- 7개 기본 메뉴: `index.html`의 `.app-nav [data-view]`가 유일한 생성 위치임
+- 9개 기본 메뉴: `index.html`의 `.app-nav [data-view]`가 유일한 생성 위치임
 - 홈 카드 등 이동 버튼: `data-goto`
 - 모바일: 같은 기본 메뉴를 가로 스크롤하고 화면 스와이프로 전환함
 - 좌상단 브랜드: 홈으로 이동
 
-메시지·구성원 관리·내 정보·언론대응은 보조 화면으로 유지함. 상단 메시지 버튼·팀원 정보, 상단 구성원 버튼, 사용자 배지, 게시판의 언론대응 페이지 버튼에서 각각 진입함. 기존 직접 URL도 `app-router.js`가 처리하며 `?view=photos`는 기존 사진 목록을 열고 해당 화면에서 일정으로 이동할 수 있음.
+성명·보도자료는 독립 상단 메뉴에서 열고, 게시판은 현장 공유 페이지를 관리함. 개인 배지·구성원 관리·메시지 화면은 앱 셸에서 제거했으며 기존 개인 화면 URL은 홈으로 귀결됨. `?view=photos`는 기존 사진 목록을 열고 해당 화면에서 일정으로 이동할 수 있음.
 
 각 기능 모듈은 직접 모든 `.view-panel`을 숨기거나 활성 메뉴를 다시 계산하지 않음. 화면 전환이 필요하면 `window.KPTURouter.go(view)`를 사용함.
 
@@ -70,10 +70,7 @@ Android OAuth 복귀 경로는 별도 기능 수정과 섞지 않음. 인증 UI 
 
 ### 협업
 
-- `collaboration-center.js`: 팀원 간 메시지 화면과 대화 기능
 - `notification-center-ui.js`: 전용 알림 화면
-- `team-profile-view.js`: 다른 팀원 프로필 조회
-- `profile-settings.js`: 내 프로필 및 담당 정보 관리
 - `suborganizations.js`, `suborganization-planned-assignee.js`: 산하조직 영역
 
 ### 업무 기능
@@ -154,7 +151,7 @@ Playwright Chromium에서 Supabase 응답을 테스트 상태로 대체하고 �
 - 할 일 저장
 - 프로젝트 생성
 - 회의 결과 저장
-- 메시지 전송
+- 성명·보도자료와 게시판 진입
 - 알림 화면 진입 및 프로젝트 초대 수락
 
 두 검사는 작업 브랜치의 매 커밋마다 실행하지 않고 `main` 반영 또는 `main` 대상 Pull Request에서 실행하도록 제한함. 개발 중간 실패 메일이 반복되는 문제를 줄이고, 반영 직전 회귀검사에 집중함.

@@ -47,7 +47,7 @@ window.addEventListener('beforeprint',expandForPrint);window.addEventListener('a
 function render(p,secure=false){
   document.title=p.title;window.KPTUPublicPageEditor?.setPage(p,secure);
   if(!secure){setMeta('meta[name="description"]',p.summary||p.title);setMeta('meta[property="og:title"]',p.title);setMeta('meta[property="og:description"]',p.summary||p.title)}
-  const pd=window.KPTUPageDesign,pageDesign=secure?{}:(p.metadata?.page_design||{}),template=secure?'article':(pageDesign.template||'article');
+  const pd=window.KPTUPageDesign,pageDesign=secure?{}:(p.page_design||{}),template=secure?'article':(pageDesign.template||'article');
   const paper=document.querySelector('#paper');paper.className='paper template-'+template+' '+(pd?.classNames(pageDesign,template)||'pd-design');
   const hub=secure?'':`<nav class="gimpo-hub" aria-label="김포 공영화 및 안전인력 확충 투쟁 영역"><a href="#gimpo-bargaining"><b>하반기 임단투</b><span>교섭·조정·쟁의권 확보와 공영화·안전인력 요구 연계</span><em>현황 보기 →</em></a><a href="/work/p/gimpo-publicization-audit/"><b>시의회 대응</b><span>김포시 행정사무감사 자료요구·질의안</span><em>행정사무감사 대응 →</em></a><a href="/work/p/gimpo-publicization-press-1008/"><b>언론 대응</b><span>9.10 보도자료 · 10.8 김포시청 기자회견</span><em>10/8 기자회견 준비페이지 →</em></a></nav>`;
   paper.innerHTML=`<header class="pd-hero"><div class="pd-kicker">${secure?'제한 공유 문서':LABEL[template]||LABEL.article}</div><h1 class="pd-title">${esc(p.title)}</h1>${p.summary?`<p class="pd-summary">${esc(p.summary)}</p>`:''}</header>${hub}<div class="pd-body">${pd?.renderMarkdown(p.body||'')||esc(p.body||'')}</div><div class="meta">최근 수정 ${new Date(p.updated_at).toLocaleString('ko-KR')}</div>`;
@@ -60,8 +60,8 @@ function render(p,secure=false){
   }
 }
 window.KPTURenderPublicPage=render;
-async function run(){const slug=document.querySelector('meta[name="kptu-page-slug"]')?.content?.trim();const url=SB+'/rest/v1/app_pages?slug=eq.'+encodeURIComponent(slug)+'&status=eq.published&visibility=in.(public,unlisted)&select=id,title,summary,body,metadata,updated_at&limit=1';const r=await fetch(url,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}}),d=await r.json();if(!r.ok||!d.length){document.querySelector('#paper').innerHTML='<div class="error">공개된 페이지를 찾을 수 없습니다.</div>';return}render(d[0],false)}
+async function run(){const slug=document.querySelector('meta[name="kptu-page-slug"]')?.content?.trim();const url=SB+'/rest/v1/rpc/app_public_post';const r=await fetch(url,{method:'POST',cache:'no-store',headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({p_slug:slug})}),d=await r.json();if(!r.ok||!d.length){document.querySelector('#paper').innerHTML='<div class="error">공개된 페이지를 찾을 수 없습니다.</div>';return}render(d[0],false)}
 run().catch(()=>document.querySelector('#paper').innerHTML='<div class="error">페이지를 불러오지 못했습니다.</div>');
 </script>
-<script src="/work/app/web1-page-capabilities.js?v=2"></script>\n<script src="/work/app/web1-admin-auth.js?v=2"></script>\n<script src="/work/app/web1-toolbar.js?v=2"></script>\n</body>
+<script src="/work/app/web1-page-capabilities.js?v=2"></script>\n<script src="/work/app/web1-admin-auth.js?v=2"></script>\n\n</body>
 </html>

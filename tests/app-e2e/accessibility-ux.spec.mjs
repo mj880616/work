@@ -160,9 +160,7 @@ for(const c of [
   {name:'event',view:'calendar',trigger:'#newEventBtn',modal:'#eventModal',initial:'#eventTitle'},
   {name:'document',view:'library',trigger:'#newDocumentBtn',modal:'#documentModal',initial:'#docTitle'},
   {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle'},
-  {name:'page editor',view:'pages',trigger:'#newPageBtn',modal:'#editorModal',initial:'#pageTitle'},
-  {name:'invite',view:'team',trigger:'#inviteBtn',modal:'#inviteModal',initial:'#inviteGroup'},
-  {name:'group',view:'team',trigger:'#newGroupBtn',modal:'#groupModal',initial:'#groupName'}
+  {name:'page editor',view:'pages',trigger:'#newPageBtn',modal:'#editorModal',initial:'#pageTitle'}
 ]){
   test(`${c.name} dialog focuses its first field and restores its trigger`,async({page})=>{
     await boot(page,{width:1024,height:768});
@@ -223,7 +221,7 @@ test('failed save releases busy state and announces the error',async({page})=>{
 
 test('suborganization toolbar and destructive actions expose clear names',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('#teamManageTop').click();
+  await page.locator('.app-nav [data-view="team"]').click();
   await expect(page.locator('label[for="sofSearch"]')).toHaveText('산하조직 검색');
   await expect(page.locator('label[for="sofAssignee"]')).toHaveText('담당자 필터');
   await expect(page.locator('label[for="sofCouncil"]')).toHaveText('협의회 필터');
@@ -233,7 +231,7 @@ test('suborganization toolbar and destructive actions expose clear names',async(
 
 test('suborganization edit dialog exposes semantics, Escape close, and trigger restore',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('#teamManageTop').click();
+  await page.locator('.app-nav [data-view="team"]').click();
   const trigger=page.locator('#soAddOrg');
   await trigger.focus();
   await trigger.click();
@@ -249,21 +247,11 @@ test('suborganization edit dialog exposes semantics, Escape close, and trigger r
   await expect(trigger).toBeFocused();
 });
 
-test('profile save exposes and releases busy state',async({page})=>{
-  const gate=deferred();
-  await boot(page,{width:1024,height:768},{profileSaveGate:gate.promise});
-  await page.locator('#userBadge').click();
-  await page.locator('#psName').fill('접근성 QA 수정');
-  const save=page.locator('#psSaveProfile');
-  await save.click();
-  try{
-    await expect(save).toBeDisabled();
-    await expect(save).toHaveAttribute('aria-busy','true');
-  }finally{
-    gate.resolve();
-  }
-  await expect(save).toBeEnabled();
-  await expect(save).not.toHaveAttribute('aria-busy');
+test('solo shell keeps logout accessible without a personal profile entry',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop')).toHaveCount(0);
+  await expect(page.locator('#logoutBtn')).toBeVisible();
+  await expect(page.locator('#logoutBtn')).toHaveAccessibleName('로그아웃');
 });
 
 test('symbol-only controls have accessible names',async({page})=>{
@@ -281,8 +269,8 @@ for(const viewport of [
 ]){
   test(`core views do not overflow at ${viewport.width}`,async({page})=>{
     await boot(page,viewport);
-    for(const view of ['home','calendar','tasks','projects','library','meetings','pages','team']){
-      await page.locator(view==='team'?'#teamManageTop':`.app-nav [data-view="${view}"]`).click();
+    for(const view of ['home','calendar','tasks','projects','library','meetings','media','pages','team']){
+      await page.locator(`.app-nav [data-view="${view}"]`).click();
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
       expect(overflow,view).toBeLessThanOrEqual(1);
     }
