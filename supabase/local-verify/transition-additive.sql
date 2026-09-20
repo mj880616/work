@@ -19,7 +19,7 @@ begin
      or not has_function_privilege('anon','public.app_public_post(text)','EXECUTE')
      or not has_function_privilege('anon','public.app_public_project(text)','EXECUTE')
      or public.app_public_project('project-90000000000040008000000000000020') is not null
-     or public.app_public_post('local-private-post') is not null then
+     or exists (select 1 from public.app_public_post('local-private-post')) then
     raise exception 'Additive public API contract failed';
   end if;
 end

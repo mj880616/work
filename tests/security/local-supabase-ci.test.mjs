@@ -156,6 +156,9 @@ test('one-shot transition checks legacy, additive, static, contract, and guarded
   assert.match(branch, /WEB2_TRANSITION_STAGE=B node --test/);
   assert.match(branch, /WEB2_TRANSITION_STAGE=C node --test/);
   assert.match(branch, /http-authz\.test\.mjs/);
+  const additive = load('supabase/local-verify/transition-additive.sql');
+  assert.match(additive, /exists \(select 1 from public\.app_public_post\('local-private-post'\)\)/);
+  assert.doesNotMatch(additive, /app_public_post\([^\n]+\) is not null/);
 });
 
 test('synthetic seed failure reports SQLSTATE and first table without printing literals', () => {
