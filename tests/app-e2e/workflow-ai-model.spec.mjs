@@ -163,6 +163,39 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
 });
 
 
+test('new meeting raw text is classified before the meeting is saved',async({page})=>{
+  const state={
+    user:{id:'user-1',email:'member@example.org',user_metadata:{display_name:'일반 사용자'}},
+    workspace:{id:'workspace-1',slug:'team',name:'팀 Workspace'},
+    spaces:[{id:'child-1',workspace_id:'workspace-1',name:'10월 국회토론회',description:'',parent_id:'main-1',status:'active',owner_id:'user-1',visibility:'team',metadata:{},sort_order:20}],
+    meetings:[],tasks:[]
+  };
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/');
+  await signIn(page);
+  await page.locator('[data-view="meetings"]').click();
+  await page.locator('#newMeetingBtn').click();
+  await page.locator('#meetingTitle').fill('원문 자동정리 테스트 회의');
+  await page.locator('#meetingProject').selectOption('child-1');
+  await page.locator('#meetingTranscript').fill('10월 대응안을 확정했다. 일반 사용자가 9월 20일까지 의원실에 최종안을 전달한다. 정부 협의 경과를 공유했다.');
+  await page.locator('#meetingAutoClassify').click();
+  await expect(page.locator('#meetingAutoClassifyStatus')).toContainText('자동 정리했습니다');
+  await expect(page.locator('#meetingDecisions')).toHaveValue(/10월 대응안을 확정/);
+  await expect(page.locator('#meetingNotes')).toHaveValue(/정부 협의 경과/);
+  const action=page.locator('.meeting-action-row').first();
+  await expect(action.locator('.meeting-action-title')).toHaveValue('의원실에 최종안 전달');
+  await expect(action.locator('.meeting-action-assignee')).toHaveValue('user-1');
+  await expect(action.locator('.meeting-action-due')).toHaveValue('2026-09-20');
+  expect(state.meetings).toHaveLength(0);
+  await page.locator('#saveMeetingBtn').click();
+  await expect.poll(()=>state.meetings.length).toBe(1);
+  expect(state.meetings[0].transcript_text).toContain('10월 대응안을 확정했다');
+  expect(state.meetings[0].decisions).toContain('10월 대응안을 확정');
+  expect(state.meetings[0].notes).toContain('정부 협의 경과');
+  await expect.poll(()=>state.tasks.filter(x=>x.source_type==='meeting').length).toBe(1);
+});
+
+
 test('meeting AI draft keeps usable content when response keys vary',async({page})=>{
   const state={
     user:{id:'user-1',email:'member@example.org',user_metadata:{display_name:'일반 사용자'}},
