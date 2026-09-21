@@ -47,11 +47,11 @@ jobs:
           test -f app/suborganizations.css
           test -f app/suborganization-filters.css
           test ! -f app/suborganization-planned-assignee.js
-          grep -q "suborganizations.js?v=2" app/loader-v2.js
+          grep -q "suborganizations.js?v=3" app/loader-v2.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/loader-v2.js
-          grep -q "suborganization-filters.js?v=3" app/loader-v2.js
+          grep -q "suborganization-filters.js?v=4" app/loader-v2.js
           grep -q "__KPTU_SUBORGANIZATION_FILTERS_READY__" app/loader-v2.js
-          grep -q "suborganizations.css?v=2" app/styles.css
+          grep -q "suborganizations.css?v=3" app/styles.css
           grep -q "suborganization-filters.css?v=2" app/styles.css
           grep -q "default_assignee_name" app/suborganizations.js
           grep -q "계정 연결 전" app/suborganizations.js
