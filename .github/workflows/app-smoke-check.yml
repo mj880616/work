@@ -136,7 +136,7 @@ jobs:
           grep -q "__KPTU_PAGE_MANAGEMENT_READY__" app/loader-v2.js
           grep -q "page-inline-viewer-v2.js?v=4" app/loader-v2.js
           grep -q "__KPTU_PAGE_INLINE_VIEWER_READY__" app/loader-v2.js
-          grep -q "meeting-round-detail.js?v=8" app/loader-v2.js
+          grep -q "meeting-round-detail.js?v=9" app/loader-v2.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
@@ -159,7 +159,7 @@ jobs:
           grep -q "notification-center-ui.css?v=2" app/styles.css
           grep -q "task-layout.css?v=4" app/styles.css
           grep -q "google-tasks.css?v=2" app/styles.css
-          grep -q "meeting-ui.css?v=5" app/styles.css
+          grep -q "meeting-ui.css?v=6" app/styles.css
           grep -q "calendar-ui.css?v=2" app/styles.css
           grep -q "page-core.css?v=7" app/styles.css
           grep -q "page-builder.css?v=2" app/styles.css
@@ -210,7 +210,7 @@ jobs:
             "import('./page-builder.js?v=3')",'await window.__KPTU_PAGE_BUILDER_READY__',
             "import('./page-management.js?v=4')",'await window.__KPTU_PAGE_MANAGEMENT_READY__',
             "import('./page-inline-viewer-v2.js?v=4')",'await window.__KPTU_PAGE_INLINE_VIEWER_READY__',
-            "import('./meeting-round-detail.js?v=8')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
+            "import('./meeting-round-detail.js?v=9')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
             "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
             "import('./calendar-plus.js?v=5')",'await window.__KPTU_CALENDAR_PLUS_READY__',
             "import('./calendar-persistence.js?v=10')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
