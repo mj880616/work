@@ -110,7 +110,7 @@ async function loginWithMock(page,{delayGroups=false}={}){
   await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
+  await page.locator('#authPassword').fill('test-password-value');
   await page.locator('#authSubmit').click();
   await page.waitForURL('http://127.0.0.1:8123/app/');
   await page.waitForFunction(()=>typeof window.__KPTU_STARTUP__?.marks?.homeUsable==='number');
