@@ -84,6 +84,7 @@ export default {
     // app's release chain and can be reused without another network round trip.
     const versionedAsset = host === 'desk.bokdoong.com'
       && incoming.searchParams.has('v')
+      && !incoming.pathname.endsWith('/sw.js')
       && /\.(?:js|css|svg|png|ico|webp)$/i.test(incoming.pathname);
     responseHeaders.set(
       'Cache-Control',
