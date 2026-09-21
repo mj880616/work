@@ -112,7 +112,7 @@ jobs:
           grep -q "public-workspace.js?v=10" app/loader-v2.js
           grep -q "home-dashboard-v2.js?v=7" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
-          grep -q "team.js?v=30" app/loader-v2.js
+          grep -q "team.js?v=31" app/loader-v2.js
           grep -q "project-system-v3.js?v=13" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
@@ -202,7 +202,7 @@ jobs:
           text=Path('app/loader-v2.js').read_text(encoding='utf-8')
           keys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=30')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=31')",'await window.__KPTU_TEAM_READY__',
             "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-row-view.js?v=1')","import('./task-layout.js?v=9')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./page-list-controller.js?v=6')",'await window.__KPTU_PAGE_LIST_READY__',

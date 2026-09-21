@@ -55,12 +55,12 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=30')
+    import('./team.js?v=31')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
   delete window.__KPTU_BOOT_MEMBERSHIP_PROMISE__;
-  if(teamState==='bootstrap'){await import('./access-approval.js?v=4');return}
+  if(teamState==='bootstrap'){await import('./access-approval.js?v=5');return}
   if(teamState!=='workspace')return;
 
   const context=window.__KPTU_BOOT_CONTEXT__;
