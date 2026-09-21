@@ -15,6 +15,7 @@ function open(id){const m=document.querySelector('#'+id);if(m){m.classList.remov
 let aiOpenEpoch=0;
 async function openAiForMeeting(id){const epoch=++aiOpenEpoch;const rows=await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);if(epoch!==aiOpenEpoch)return;currentMeeting=rows?.[0];if(!currentMeeting)return;installMeetingAi();document.querySelector('#wfMeetingTranscript').value=currentMeeting.transcript_text||'';const d=currentMeeting.ai_draft||{};document.querySelector('#wfDraftDecisions').value=d.decisions||currentMeeting.decisions||'';document.querySelector('#wfDraftActions').value=(d.actions||currentMeeting.followups||[]).map(a=>typeof a==='string'?a:[a.task,a.assignee,a.due].filter(Boolean).join(' | ')).join('\n');document.querySelector('#wfDraftInfo').value=d.information||currentMeeting.notes||'';document.querySelector('#wfMeetingDraft').classList.toggle('hidden',!(currentMeeting.ai_draft||currentMeeting.followups?.length));document.querySelector('#wfMeetingAiStatus').textContent='';open('wfMeetingAiModal')}
 window.__KPTU_OPEN_AI_FOR_MEETING__=openAiForMeeting;
+// Preserve reviewable meeting content even when AI response keys vary slightly.
 function normalizeMeetingDraftPayload(data){
   const raw=data?.draft??data?.result??null;
   if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
