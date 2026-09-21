@@ -6,7 +6,7 @@ const repoRoot=new URL('../../',import.meta.url);
 const read=path=>readFile(new URL(path,repoRoot),'utf8');
 
 test('민자철도 사업현황에 김포·9호선 안전인력 투쟁 바로가기가 노출된다', async () => {
-  const html = await read('private-rail/index.html');
+  const html = await read('private-rail/page.html');
   expect(html).toContain('/work/p/gimpo-publicization/');
   expect(html).toContain('김포 공영화 및 안전인력 확충 투쟁');
   expect(html).toContain('/work/p/line9-publicization/');
