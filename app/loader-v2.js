@@ -94,7 +94,7 @@
     await import('./page-management.js?v=4'); await window.__KPTU_PAGE_MANAGEMENT_READY__;
     await import('./media-workflow.js?v=2'); await window.__KPTU_MEDIA_WORKFLOW_READY__;
     await import('./page-inline-viewer-v2.js?v=4'); await window.__KPTU_PAGE_INLINE_VIEWER_READY__;
-    await import('./meeting-round-detail.js?v=8'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
+    await import('./meeting-round-detail.js?v=9'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
     await import('./calendar-plus.js?v=5'); await window.__KPTU_CALENDAR_PLUS_READY__;
