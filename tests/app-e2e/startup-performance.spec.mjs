@@ -5,6 +5,13 @@ import { loginEntry } from './helpers/login-entry.mjs';
 const loaderUrl='http://127.0.0.1:8123/app/loader-v2.js?p6-startup-contract=1';
 const read=path=>readFileSync(path,'utf8');
 
+test('shell has a single visible Web2 brand and no duplicate workspace heading',async()=>{
+  const html=read('app/index.html');
+  expect((html.match(/<span>웹2<\/span>/g)||[]).length).toBe(1);
+  expect(html).not.toContain('class="workspace-head"');
+  expect(html).not.toContain('id="workspaceName"');
+});
+
 test('startup assets are discovered from the document head without changing auth gates', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
@@ -103,7 +110,7 @@ async function loginWithMock(page,{delayGroups=false}={}){
   await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('test-password-value');
+  await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await page.waitForURL('http://127.0.0.1:8123/app/');
   await page.waitForFunction(()=>typeof window.__KPTU_STARTUP__?.marks?.homeUsable==='number');
