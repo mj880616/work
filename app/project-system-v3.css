@@ -166,3 +166,14 @@
   .ps3-type-control{grid-template-columns:1fr}
   .ps3-type-control .mini{justify-self:start}
 }
+
+.ps3-memo-form{display:grid;gap:6px;margin:8px 0 12px}
+.ps3-memo-form textarea{width:100%;margin:0;resize:vertical}
+.ps3-memo-actions{display:flex;justify-content:flex-end;gap:6px}
+.ps3-memo-row{align-items:flex-start}
+.ps3-memo-row .ps3-row-main p{white-space:pre-wrap;margin:0 0 4px}
+.ps3-memo-row-actions{display:flex;gap:4px;flex:0 0 auto}
+@media(max-width:760px){
+  .ps3-memo-row{grid-template-columns:minmax(0,1fr)}
+  .ps3-memo-row-actions{justify-content:flex-start}
+}
