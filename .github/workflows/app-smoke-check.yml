@@ -127,7 +127,11 @@ jobs:
           if grep -Eq "home-task-controls|home-task.css|library-public-toggle" app/loader-v2.js app/styles.css; then echo 'retired home/library decorator returned'; exit 1; fi
           grep -q "photo-room.js?v=4" app/loader-v2.js
           grep -q "web1-board.js?v=1" app/loader-v2.js
-          if grep -Eq "page-list-controller.js|page-save-controller.js|page-builder.js|page-management.js|page-inline-viewer-v2.js" app/loader-v2.js; then echo 'retired Web2 page management returned'; exit 1; fi
+          grep -q "page-list-controller.js?v=6" app/loader-v2.js
+          grep -q "page-save-controller.js?v=4" app/loader-v2.js
+          grep -q "page-builder.js?v=3" app/loader-v2.js
+          grep -q "page-management.js?v=4" app/loader-v2.js
+          grep -q "page-inline-viewer-v2.js?v=4" app/loader-v2.js
           grep -q "meeting-round-detail.js?v=9" app/loader-v2.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
