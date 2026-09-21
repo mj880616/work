@@ -68,6 +68,7 @@ test('press workflow uses internal page storage and keeps cases out of general p
 
   await page.locator('[data-close="editorModal"]').first().click();
   await page.locator('[data-view="pages"]').click();
-  await expect(page.locator('#pageList')).toContainText('일반 게시글');
-  await expect(page.locator('#pageList')).not.toContainText('기존 사건');
+  await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
+  await expect(page.locator('#web1BoardActive')).not.toContainText('기존 사건');
+  await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');
 });
