@@ -1,12 +1,13 @@
 (async()=>{
   const startup=window.__KPTU_STARTUP__;
   startup?.mark('loaderStart');
-  await import('./native-auth-bridge.js?v=4');
-  if(window.__KPTU_NATIVE_BRIDGE__)return;
-  await import('./calendar-return-bridge.js?v=2');
-  if(window.__KPTU_CALENDAR_BRIDGE__)return;
-
-  await import('./runtime-client.js?v=3');
+  const runtimeReady=import('./runtime-client.js?v=3');
+  await Promise.all([
+    import('./native-auth-bridge.js?v=4'),
+    import('./calendar-return-bridge.js?v=2')
+  ]);
+  if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return;
+  await runtimeReady;
   await Promise.all([
     import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
