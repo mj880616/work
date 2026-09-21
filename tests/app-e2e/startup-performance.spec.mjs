@@ -7,7 +7,7 @@ const read=path=>readFileSync(path,'utf8');
 
 test('shell has a single visible Web2 brand and no duplicate workspace heading',async()=>{
   const html=read('app/index.html');
-  expect((html.match(/>웹2</g)||[]).length).toBe(1);
+  expect((html.match(/<span>웹2<\/span>/g)||[]).length).toBe(1);
   expect(html).not.toContain('class="workspace-head"');
   expect(html).not.toContain('id="workspaceName"');
 });
@@ -16,11 +16,11 @@ test('startup assets are discovered from the document head without changing auth
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=65" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=65" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=66" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=66" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=177','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
-    './calendar-return-bridge.js?v=2','./team.js?v=27','./home-dashboard-v2.js?v=7'
+    './loader-v2.js?v=178','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './calendar-return-bridge.js?v=2','./team.js?v=28','./home-dashboard-v2.js?v=7'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
