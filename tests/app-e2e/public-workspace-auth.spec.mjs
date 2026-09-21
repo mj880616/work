@@ -30,7 +30,7 @@ async function mockSignedIn(page){
     if(path==='/auth/v1/user')return ok({id:'u1',email:'member@example.org',user_metadata:{display_name:'테스트 사용자'}});
     if(path==='/rest/v1/app_workspace_members'&&url.searchParams.has('user_id'))return ok([{workspace_id:'w1',role:'owner',user_id:'u1'}]);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'w1',role:'owner',user_id:'u1'}]);
-    if(path==='/rest/v1/app_workspaces')return ok([{id:'w1',slug:'public-institutions',name:'공공기관사업팀 Workspace'}]);
+    if(path==='/rest/v1/app_workspaces')return ok([{id:'w1',slug:'public-institutions',name:'웹2'}]);
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[]});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path.startsWith('/rest/v1/'))return ok([]);
