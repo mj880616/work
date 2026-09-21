@@ -126,156 +126,20 @@ test('project list loads and its heading uses available width at desktop, tablet
   }
 });
 
-test('V3 selects canonical content, previews, publishes, copies and revokes a project URL',async({page,context})=>{
+test('project detail omits removed content, linked-post and collaboration features',async({page})=>{
   const state=baseState();
-  state.sections=[{id:'section-1',project_id:'main-1',title:'사업 현황',sort_order:10}];
-  state.blocks=[
-    {id:'block-1',project_id:'main-1',section_id:'section-1',block_type:'text',title:'공개 상황',content:{text:'외부 현황'},sort_order:10},
-    {id:'block-2',project_id:'main-1',section_id:'section-1',block_type:'text',title:'교섭 전략',content:{text:'내부 전략'},sort_order:20}
-  ];
-  await context.grantPermissions(['clipboard-read','clipboard-write']);
+  state.sections=[{id:'section-legacy',project_id:'main-1',title:'기존 사업 콘텐츠',sort_order:10}];
+  state.blocks=[{id:'block-legacy',project_id:'main-1',section_id:'section-legacy',block_type:'text',title:'기존 내용',content:{text:'남겨진 데이터'},sort_order:10}];
+  state.pages=[{id:'page-legacy',space_id:'main-1',title:'기존 연결 게시글',slug:'legacy',summary:'기존 페이지',status:'draft',visibility:'private',metadata:{},updated_at:now()}];
+  state.comments=[{id:'comment-legacy',project_id:'main-1',author_id:'user-1',body:'기존 협업 메모',created_at:now()}];
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await expect(page.locator('[data-ps3-public-status]')).toContainText('내부');
-  page.once('dialog',dialog=>dialog.accept());await page.locator('[data-ps3-publish-block="block-1"]').click();
-  await expect.poll(()=>state.publication['main-1']?.blocks[0]?.published).toBe(true);
-  await expect(page.locator('[data-ps3-block="block-1"] small')).toContainText('공개 선택');
-  await page.locator('[data-ps3-public-summary]').fill('외부에서 읽을 짧은 소개');
-  await page.locator('[data-ps3-save-summary]').click();
-  await expect.poll(()=>state.publication['main-1']?.public_summary).toBe('외부에서 읽을 짧은 소개');
-  await page.locator('[data-ps3-preview]').click();
-  await expect(page.locator('[data-ps3-preview-panel]')).toContainText('외부에서 읽을 짧은 소개');
-  await expect(page.locator('[data-ps3-preview-panel]')).toContainText('외부 현황');
-  await expect(page.locator('[data-ps3-preview-panel]')).not.toContainText('내부 전략');
-  page.once('dialog',dialog=>dialog.accept());await page.locator('[data-ps3-publish-project]').click();
-  await expect.poll(()=>state.publication['main-1']?.published).toBe(true);
-  await expect(page.locator('[data-ps3-public-status]')).toContainText('공개 중');
-  await page.locator('[data-ps3-copy-public]').click();
-  const copied=await page.evaluate(()=>navigator.clipboard.readText());
-  expect(copied).toContain('/p/?slug=project-');
-  await page.locator('[data-ps3-publish-project]').click();
-  await expect.poll(()=>state.publication['main-1']?.published).toBe(false);
-  await expect(page.locator('[data-ps3-public-status]')).toContainText('내부');
-});
-
-test('parent and child publication states are independent and public order differs from editing order',async({page})=>{
-  const state=baseState();state.sections=[{id:'section-1',project_id:'main-1',title:'현황',sort_order:10}];
-  state.blocks=[
-    {id:'block-1',project_id:'main-1',section_id:'section-1',block_type:'text',title:'첫 항목',content:{text:'A'},sort_order:10},
-    {id:'block-2',project_id:'main-1',section_id:'section-1',block_type:'text',title:'둘째 항목',content:{text:'B'},sort_order:20}
-  ];
-  state.publication['main-1']={published:false,public_summary:null,blocks:[{id:'block-1',published:true,public_order:10},{id:'block-2',published:true,public_order:20}]};
-  state.publication['child-1']={published:true,public_summary:'하위 공개',blocks:[]};
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await expect(page.locator('[data-ps3-public-status]')).toContainText('내부');
-  await page.locator('[data-ps3-public-down="block-1"]').click();
-  await expect.poll(()=>state.publication['main-1'].blocks.find(x=>x.id==='block-1').public_order).toBe(20);
-  await expect(page.locator('.ps3-content-section [data-ps3-block]').first()).toHaveAttribute('data-ps3-block','block-1');
-  await page.locator('[data-ps3-preview]').click();
-  const preview=page.locator('[data-ps3-preview-panel] .ps3-public-preview-block');
-  await expect(preview.first()).toContainText('둘째 항목');
-  await page.locator('.ps3-child-menu summary').click();await page.locator('.ps3-child-menu [data-ps3-project="child-1"]').click();
-  await expect(page.locator('[data-ps3-public-status]')).toContainText('공개 중');
-});
-
-test('workspace role alone does not offer project publication or block edits',async({page})=>{
-  const state=baseState();state.spaces[0].owner_id='other-user';
-  state.sections=[{id:'section-1',project_id:'main-1',title:'현황',sort_order:10}];
-  state.blocks=[{id:'block-1',project_id:'main-1',section_id:'section-1',block_type:'text',title:'내부 현황',content:{text:'비공개'},sort_order:10}];
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await expect(page.locator('[data-ps3-block="block-1"]')).toContainText('비공개');
-  await expect(page.locator('[data-ps3-edit-block],[data-ps3-publish-block],[data-ps3-publish-project]')).toHaveCount(0);
-});
-
-test('V3 edits canonical project blocks without losing structured content and changes their order',async({page})=>{
-  const state=baseState();
-  state.sections=[{id:'section-1',project_id:'main-1',title:'산별전환 현황',sort_order:10},{id:'section-2',project_id:'main-1',title:'사업 과제',sort_order:20}];
-  state.blocks=[
-    {id:'block-1',project_id:'main-1',section_id:'section-1',block_type:'text',title:'현재 상황',content:{text:'전환 논의 진행 중'},sort_order:10},
-    {id:'block-2',project_id:'main-1',section_id:'section-1',block_type:'table',title:'조직별 현황',content:{columns:['조직','상태'],rows:[['철도','논의'],['지하철','교육']]},sort_order:20}
-  ];
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await expect(page.locator('[data-ps3-block="block-1"]')).toContainText('전환 논의 진행 중');
-  await expect(page.locator('[data-ps3-block="block-2"]')).toContainText('지하철');
-  await page.locator('[data-ps3-edit-block="block-1"]').click();
-  await page.locator('[data-ps3-block-text]').fill('새 상황');
-  await page.locator('[data-ps3-save-block]').click();
-  await expect.poll(()=>state.blocks[0].content.text).toBe('새 상황');
-  await page.locator('[data-ps3-edit-block="block-2"]').click();
-  await page.locator('[data-ps3-block-title]').fill('조직 현황 변경');
-  await page.locator('[data-ps3-save-block]').click();
-  await expect.poll(()=>state.blocks[1].title).toBe('조직 현황 변경');
-  expect(state.blocks[1].content).toEqual({columns:['조직','상태'],rows:[['철도','논의'],['지하철','교육']]});
-  await page.locator('[data-ps3-block-down="block-1"]').click();
-  await expect.poll(()=>state.blocks[0].sort_order>state.blocks[1].sort_order).toBe(true);
-  await expect(page.locator('.ps3-content-section [data-ps3-block]').first()).toHaveAttribute('data-ps3-block','block-2');
-});
-
-test('V3 edits existing timeline and status items without flattening their JSON',async({page})=>{
-  const state=baseState();state.sections=[{id:'section-1',project_id:'main-1',title:'산별전환',sort_order:10}];
-  state.blocks=[
-    {id:'timeline-1',project_id:'main-1',section_id:'section-1',block_type:'timeline',title:'추진 경과',content:{items:[{date:'5/18',title:'간담회',body:'의견 확인',source_id:'source-preserved'}]},sort_order:10},
-    {id:'status-1',project_id:'main-1',section_id:'section-1',block_type:'status',title:'조직별 현황',content:{items:[{label:'철도',value:'토론 중',note:'교육',unknown:'keep'}]},sort_order:20}
-  ];
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-edit-block="timeline-1"]').click();
-  await page.locator('[data-ps3-item="body"]').fill('현장 질문 반영');
-  await page.locator('[data-ps3-save-block]').click();
-  await expect.poll(()=>state.blocks[0].content.items[0].body).toBe('현장 질문 반영');
-  expect(state.blocks[0].content.items[0].source_id).toBe('source-preserved');
-  await expect(page.locator('[data-ps3-editing="timeline-1"]')).toHaveCount(0);
-  await page.locator('[data-ps3-edit-block="status-1"]').click();
-  await expect(page.locator('[data-ps3-editing="status-1"]')).toBeVisible();
-  await page.locator('[data-ps3-item="value"]').fill('총투표 논의');
-  await page.locator('[data-ps3-save-block]').click();
-  await expect.poll(()=>state.blocks[1].content.items[0].value).toBe('총투표 논의');
-  expect(state.blocks[1].content.items[0].unknown).toBe('keep');
-});
-
-test('V3 keeps unsaved project content in place after a failed save',async({page})=>{
-  const state=baseState();state.sections=[{id:'section-1',project_id:'main-1',title:'현황',sort_order:10}];
-  state.blocks=[{id:'block-1',project_id:'main-1',section_id:'section-1',block_type:'text',title:'메모',content:{text:'원문'},sort_order:10}];
-  await mockApp(page,state);
-  let fail=true;await page.route(`${SB}/rest/v1/app_project_blocks?*`,async route=>{
-    if(fail&&route.request().method()==='PATCH'&&new URL(route.request().url()).searchParams.get('id')==='eq.block-1'){fail=false;return route.fulfill({status:503,contentType:'application/json',body:'{"message":"offline"}'})}
-    return route.fallback();
-  });
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-edit-block="block-1"]').click();
-  await page.locator('[data-ps3-block-text]').fill('잃어서는 안 되는 입력');
-  await page.locator('[data-ps3-save-block]').click();
-  await expect(page.locator('[data-ps3-block-state]')).toContainText('실패');
-  await expect(page.locator('[data-ps3-block-text]')).toHaveValue('잃어서는 안 되는 입력');
-  await page.locator('[data-ps3-save-block]').click();
-  await expect.poll(()=>state.blocks[0].content.text).toBe('잃어서는 안 되는 입력');
-});
-
-test('V3 warns before leaving an unsaved block and ignores background refresh',async({page})=>{
-  const state=baseState();state.sections=[{id:'section-1',project_id:'main-1',title:'현황',sort_order:10}];
-  state.blocks=[{id:'block-1',project_id:'main-1',section_id:'section-1',block_type:'text',title:'메모',content:{text:'원문'},sort_order:10}];
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-edit-block="block-1"]').click();
-  await page.locator('[data-ps3-block-text]').fill('아직 저장하지 않음');
-  await page.evaluate(()=>window.dispatchEvent(new Event('kptu:tasks-changed')));
-  await expect(page.locator('[data-ps3-block-text]')).toHaveValue('아직 저장하지 않음');
-  page.once('dialog',dialog=>dialog.dismiss());
-  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  await expect(page.locator('[data-ps3-block-text]')).toHaveValue('아직 저장하지 않음');
-});
-
-test('V3 adds a section and content in place with explicit save',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-add-section]').click();
-  await page.locator('[data-ps3-new-section] input').fill('새 사업 현황');
-  await page.locator('[data-ps3-new-section] button[type="submit"]').click();
-  await expect.poll(()=>state.sections.find(x=>x.title==='새 사업 현황')?.id).toBeTruthy();
-  const section=state.sections.find(x=>x.title==='새 사업 현황');
-  await page.locator(`[data-ps3-add-block="${section.id}"]`).click();
-  await page.locator('[data-ps3-new-block] [data-ps3-block-title]').fill('이번 주 현황');
-  await page.locator('[data-ps3-new-block] [data-ps3-block-text]').fill('내부 검토 중');
-  await page.locator('[data-ps3-new-block] button[type="submit"]').click();
-  await expect.poll(()=>state.blocks.find(x=>x.title==='이번 주 현황')?.content.text).toBe('내부 검토 중');
-  await expect(page.locator(`[data-ps3-section="${section.id}"]`)).toContainText('내부 검토 중');
+  await expect(page.locator('#ps3-content')).toHaveCount(0);
+  await expect(page.locator('#ps3-pages')).toHaveCount(0);
+  await expect(page.locator('#ps3-collaboration')).toHaveCount(0);
+  await expect(page.locator('[data-ps3-nav="ps3-content"],[data-ps3-nav="ps3-pages"],[data-ps3-nav="ps3-collaboration"]')).toHaveCount(0);
+  await expect(page.locator('#ps3Body')).not.toContainText('사업 콘텐츠·현황');
+  await expect(page.locator('#ps3Body')).not.toContainText('기존 연결 게시글');
+  await expect(page.locator('#ps3Body')).not.toContainText('기존 협업 메모');
 });
 
 test('V3 mobile project creation, detail scrolling and linked document remain usable',async({page})=>{
