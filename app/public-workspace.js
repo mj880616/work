@@ -87,6 +87,8 @@
     location.href='../p/?slug='+encodeURIComponent(slug);
   }
   function renderPages(){
+    const view=document.getElementById('pagesView');if(!view)return;
+    if(!document.getElementById('pageList'))view.innerHTML='<div class="section-head"><div><h2>게시판</h2><p>게시글의 열람 상태에 따라 비로그인 열람 여부가 결정됩니다.</p></div></div><div class="toolbar"><label class="a11y-only" for="pageSearch">페이지 검색</label><input id="pageSearch" class="search" type="search" placeholder="페이지 검색"><label class="a11y-only" for="pageFilter">게시 상태</label><select id="pageFilter"><option value="published">전체 공개 게시</option></select></div><div id="pageList" class="page-list"></div><div id="pageEmpty" class="empty hidden">현재 공개된 게시가 없습니다.</div>';
     const list=document.getElementById('pageList'),search=document.getElementById('pageSearch'),filter=document.getElementById('pageFilter');if(!list)return;
     const title=document.querySelector('#pagesView .section-head h2');if(title)title.textContent='게시판';
     const head=document.querySelector('#pagesView .section-head p');if(head)head.textContent='게시글의 열람 상태에 따라 비로그인 열람 여부가 결정됩니다.';
