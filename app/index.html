@@ -133,5 +133,5 @@
 <div id="toast" class="toast hidden"></div>
 
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to',new URL('/work/app/confirmed.html',location.origin).href);input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=57" defer></script>
+<script src="./app.js?v=58" defer></script>
 </body></html>
