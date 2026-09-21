@@ -11,7 +11,7 @@ test('page core and builder use explicit readiness without post-render correctio
   const builder=read('app/page-builder.js');
   const files=['app/page-list-controller.js','app/page-save-controller.js','app/page-builder.js','app/page-shortcut.js','app/page-management.js','app/page-inline-viewer-v2.js'];
 
-  expect(loader).toContain("page-list-controller.js?v=5");
+  expect(loader).toContain("page-list-controller.js?v=6");
   expect(loader).toContain('__KPTU_PAGE_LIST_READY__');
   expect(loader).toContain("page-save-controller.js?v=4");
   expect(loader).toContain('__KPTU_PAGE_SAVE_READY__');
@@ -25,11 +25,15 @@ test('page core and builder use explicit readiness without post-render correctio
   expect(loader).toContain('__KPTU_PAGE_INLINE_VIEWER_READY__');
   expect(loader).not.toContain('page-editor-fix.js');
   expect(loader).not.toContain("page-inline-viewer.js");
-  expect(styles).toContain("page-core.css?v=6");
+  expect(styles).toContain("page-core.css?v=7");
   expect(styles).toContain("page-builder.css?v=2");
   expect(team).toContain('function renderPages(){window.KPTUPageList?.render?.()}');
   expect(team).not.toContain("$('#pageList').innerHTML=rows.map");
   expect(team).toContain('__KPTU_SYNC_TEAM_PAGES__');
+  const list=read('app/page-list-controller.js');
+  expect(list).toContain('data-board-project');
+  expect(list).toContain('parent_id,status,sort_order,project_type,current_phase');
+  expect(list).toContain("KPTURouter?.go?.('projects'");
   expect(save).toContain("addEventListener('click',interceptOpen,true)");
   expect(save).toContain('kptu:page-editor-opened');
   expect(builder).toContain("addEventListener('kptu:page-editor-opened'");
