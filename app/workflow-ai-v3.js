@@ -15,6 +15,27 @@ function open(id){const m=document.querySelector('#'+id);if(m){m.classList.remov
 let aiOpenEpoch=0;
 async function openAiForMeeting(id){const epoch=++aiOpenEpoch;const rows=await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);if(epoch!==aiOpenEpoch)return;currentMeeting=rows?.[0];if(!currentMeeting)return;installMeetingAi();document.querySelector('#wfMeetingTranscript').value=currentMeeting.transcript_text||'';const d=currentMeeting.ai_draft||{};document.querySelector('#wfDraftDecisions').value=d.decisions||currentMeeting.decisions||'';document.querySelector('#wfDraftActions').value=(d.actions||currentMeeting.followups||[]).map(a=>typeof a==='string'?a:[a.task,a.assignee,a.due].filter(Boolean).join(' | ')).join('\n');document.querySelector('#wfDraftInfo').value=d.information||currentMeeting.notes||'';document.querySelector('#wfMeetingDraft').classList.toggle('hidden',!(currentMeeting.ai_draft||currentMeeting.followups?.length));document.querySelector('#wfMeetingAiStatus').textContent='';open('wfMeetingAiModal')}
 window.__KPTU_OPEN_AI_FOR_MEETING__=openAiForMeeting;
+function normalizeMeetingDraftPayload(data){
+  const raw=data?.draft??data?.result??null;
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
+  const decisions=typeof raw.decisions==='string'?raw.decisions:'';
+  const information=typeof raw.information==='string'?raw.information:(typeof raw.info==='string'?raw.info:'');
+  const sourceActions=Array.isArray(raw.actions)?raw.actions:[];
+  const actions=sourceActions.map(action=>{
+    if(typeof action==='string'){
+      const task=action.trim();
+      return task?{task,assignee:'[확인 필요]',due:'[확인 필요]'}:null;
+    }
+    if(!action||typeof action!=='object')return null;
+    const task=String(action.task??action.title??'').trim();
+    if(!task)return null;
+    const assignee=String(action.assignee??action.owner??'[확인 필요]').trim()||'[확인 필요]';
+    const due=String(action.due??action.deadline??'[확인 필요]').trim()||'[확인 필요]';
+    return {task,assignee,due};
+  }).filter(Boolean);
+  if(!decisions&&!information&&!actions.length)return null;
+  return {decisions,actions,information};
+}
 async function generateMeetingDraft(){
   const meeting=currentMeeting,epoch=aiOpenEpoch;
   if(!meeting)return;
@@ -29,8 +50,8 @@ async function generateMeetingDraft(){
     st.textContent='회의자료 맥락과 스크립트를 바탕으로 결과 초안을 만드는 중…';
     const data=await api('/functions/v1/meeting-ai-draft',{method:'POST',body:{meeting_id:meeting.id,transcript_text:transcript}});
     if(!stillCurrent())return;
-    const draft=data?.draft;
-    if(!draft||typeof draft.decisions!=='string'||!Array.isArray(draft.actions)||typeof draft.information!=='string')throw new Error('invalid_meeting_draft');
+    const draft=normalizeMeetingDraftPayload(data);
+    if(!draft)throw new Error('invalid_meeting_draft');
     document.querySelector('#wfDraftDecisions').value=draft.decisions;
     document.querySelector('#wfDraftActions').value=draft.actions.map(a=>[a.task,a.assignee,a.due].filter(Boolean).join(' | ')).join('\n');
     document.querySelector('#wfDraftInfo').value=draft.information;
