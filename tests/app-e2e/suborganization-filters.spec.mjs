@@ -3,15 +3,18 @@ import { test, expect } from '@playwright/test';
 const url='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-fixture.html';
 const canonical='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-canonical-fixture.html';
 
-async function open(page,suffix=''){await page.goto(url+suffix);await expect(page.locator('#sofToolbar')).toBeVisible();await expect(page.locator('#sofCount')).toHaveText('3 / 3개 조직')}
+async function open(page,suffix=''){await page.goto(url+suffix);await expect(page.locator('#sofToolbar')).toBeVisible();await expect(page.locator('#sofMine')).toBeChecked();await expect(page.locator('#sofStale')).toHaveCount(0);await expect(page.locator('#sofCount')).toHaveText('1 / 3개 조직')}
 const visibleNames=page=>page.locator('.so-card:not(.sof-hidden) h4').allTextContents();
 
 test('산하조직은 가나다순이고 검색·담당자·유형 필터가 동작한다',async({page})=>{
  await open(page);
+ expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
+ await page.locator('#sofMine').uncheck();
  expect(await visibleNames(page)).toEqual(['미지정조직미분류','전국철도노동조합철도·도시철도','한국소비자원지부중앙공공기관']);
  await page.locator('#sofSearch').fill('철도노조');
  expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
  await page.locator('#sofReset').click();
+ await page.locator('#sofMine').uncheck();
  await page.locator('#sofAssignee').selectOption({label:'한소영'});
  expect(await visibleNames(page)).toEqual(['한국소비자원지부중앙공공기관']);
  await page.locator('#sofReset').click();
@@ -24,20 +27,20 @@ test('협의회별 필터가 기존 협의회 태그 기준으로 동작한다',
  await page.locator('#sofCouncil').selectOption({label:'철도지하철협의회'});
  expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
  await page.locator('#sofReset').click();
+ await page.locator('#sofMine').uncheck();
  await page.locator('#sofCouncil').selectOption({label:'경제사회단체협의회'});
  expect(await visibleNames(page)).toEqual(['한국소비자원지부중앙공공기관']);
 });
 
-test('내 담당·미지정·30일 미업데이트 필터가 동작한다',async({page})=>{
+test('내 담당조직이 기본이고 미지정 필터를 선택할 수 있다',async({page})=>{
  await open(page);
- await page.locator('#sofMine').check();
  expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
- await page.locator('#sofReset').click();
+ await page.locator('#sofMine').uncheck();
  await page.locator('#sofUnassigned').check();
  expect(await visibleNames(page)).toEqual(['미지정조직미분류']);
  await page.locator('#sofReset').click();
- await page.locator('#sofStale').check();
- expect(await visibleNames(page)).toEqual(['미지정조직미분류','한국소비자원지부중앙공공기관']);
+ await expect(page.locator('#sofMine')).toBeChecked();
+ expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
 });
 
 test('원 렌더러가 예정담당자와 실제담당자를 처음부터 구분해 표시한다',async({page})=>{
@@ -50,6 +53,17 @@ test('원 렌더러가 예정담당자와 실제담당자를 처음부터 구분
  await expect(consumer).toContainText('한소영');
  await expect(consumer).not.toContainText('계정 연결 전');
  await expect(page.locator('#soStyle')).toHaveCount(0);
+});
+
+test('산하조직 카드는 상세창 진입 대상으로 렌더되고 이미 지정된 조직은 담당자 지정 버튼을 숨긴다',async({page})=>{
+ await page.goto(canonical);
+ await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
+ const consumer=page.locator('[data-so-org="org-consumer"]');
+ await expect(consumer).toHaveAttribute('data-ps-workplace-org','org-consumer');
+ await expect(consumer).toHaveAttribute('role','button');
+ await expect(consumer.locator('[data-so-assign]')).toHaveCount(0);
+ const rail=page.locator('[data-so-org="org-rail"]');
+ await expect(rail.locator('[data-so-assign]')).toHaveCount(1);
 });
 
 test('산하조직 삭제 버튼은 빨간 배경에 글자가 묻히지 않는다',async({page})=>{
@@ -104,7 +118,7 @@ test('산하조직 저장은 busy 상태와 진행·오류 상태를 보조기�
 test('담당자 저장은 busy 상태와 진행 상태를 보조기기에 노출한다',async({page})=>{
  await page.goto(canonical);
  await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
- await page.locator('[data-so-assign="org-consumer"]').click();
+ await page.locator('[data-so-assign="org-rail"]').click();
  await page.evaluate(()=>{window.__holdAssigneeSave=true});
  const save=page.locator('#soSaveAssignees');
  await save.click();
