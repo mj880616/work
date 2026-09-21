@@ -63,10 +63,6 @@ test('direct A-to-B session switch discards a stale Google Tasks response',async
   await mock(page);await login(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
-  await page.evaluate(()=>{
-    const session=window.KPTURuntime.session.read();
-    localStorage.setItem('kptu_collab_session_v1',JSON.stringify({...session,access_token:'token-a',refresh_token:'token-a',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-a'}}));
-  });
   let releaseA=()=>{},aRequestStarted=false;
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const request=route.request(),url=new URL(request.url()),action=url.searchParams.get('action'),auth=request.headers().authorization||'';
@@ -79,7 +75,7 @@ test('direct A-to-B session switch discards a stale Google Tasks response',async
     }
     return ok({tasks:[{id:'b-private',title:'B의 Google 할 일',taskListTitle:'B 목록',source:'google-task'}],needs_reconnect:false});
   });
-  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-a',refresh_token:'token-a',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-a'}}));
   await expect.poll(()=>aRequestStarted).toBeTruthy();
   await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-b',refresh_token:'token-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-b'}}));
   releaseA();
@@ -91,10 +87,6 @@ test('logout discards a stale Google Tasks response and clears its DOM',async({p
   await mock(page);await login(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
-  await page.evaluate(()=>{
-    const session=window.KPTURuntime.session.read();
-    localStorage.setItem('kptu_collab_session_v1',JSON.stringify({...session,access_token:'token-a',refresh_token:'token-a',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-a'}}));
-  });
   let releaseA=()=>{},aRequestStarted=false;
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const request=route.request(),url=new URL(request.url()),action=url.searchParams.get('action');
@@ -104,7 +96,7 @@ test('logout discards a stale Google Tasks response and clears its DOM',async({p
     await new Promise(resolve=>{releaseA=resolve});
     return ok({tasks:[{id:'a-private',title:'A의 비공개 Google 할 일',taskListTitle:'A 목록',source:'google-task'}],needs_reconnect:false});
   });
-  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-a',refresh_token:'token-a',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-a'}}));
   await expect.poll(()=>aRequestStarted).toBeTruthy();
   await page.evaluate(()=>window.KPTURuntime.session.write(null));
   releaseA();
