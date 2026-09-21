@@ -59,6 +59,7 @@ async function mockApp(page,state){
       if(method==='DELETE'){if(id){const i=arr.findIndex(x=>x.id===id);if(i>=0)arr.splice(i,1)}return ok([])}
       return ok([]);
     };
+    if(table('app_project_templates',state.projectTypes||[],'workspace_id'))return;
     if(table('app_project_modules',state.modules))return;
     if(table('app_project_sections',state.sections||[]))return;
     if(table('app_project_blocks',state.blocks||[]))return;
@@ -88,6 +89,13 @@ async function signIn(page){
 }
 function baseState(){return{
   user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'프로젝트 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'공공기관사업팀 Workspace'},
+  projectTypes:[
+    {id:'type-ongoing',workspace_id:null,template_key:'ongoing',name:'상시사업·산업관리형',description:null,config:{suggested_workstreams:['정책·제도 대응','산하조직·현장 상황']},is_system:true,created_by:null,created_at:now()},
+    {id:'type-campaign',workspace_id:null,template_key:'campaign',name:'쟁점·캠페인형',description:null,config:{suggested_workstreams:['정부·정책 대응']},is_system:true,created_by:null,created_at:now()},
+    {id:'type-event',workspace_id:null,template_key:'event',name:'행사·집중사업형',description:null,config:{suggested_workstreams:['기획·섭외']},is_system:true,created_by:null,created_at:now()},
+    {id:'type-knowledge',workspace_id:null,template_key:'knowledge',name:'자료·지식형',description:null,config:{suggested_workstreams:['자료 수집']},is_system:true,created_by:null,created_at:now()},
+    {id:'type-blank',workspace_id:null,template_key:'blank',name:'빈 프로젝트',description:null,config:{suggested_workstreams:[]},is_system:true,created_by:null,created_at:now()}
+  ],
   spaces:[
     {id:'main-1',workspace_id:'workspace-1',name:'민자철도 정책·조직사업',description:'민자철도 사업',parent_id:null,status:'active',visibility:'public',owner_id:'user-1',sort_order:10,metadata:{project_system:'v2',management_version:2,project_type:'ongoing',objective:'민자철도 안전·인력 제도개선',start_on:'2026-09-01'}},
     {id:'child-1',workspace_id:'workspace-1',name:'9.29 민자철도 국회토론회',description:'국회토론회',parent_id:'main-1',status:'active',visibility:'restricted',owner_id:'user-1',sort_order:20,metadata:{project_system:'v2',management_version:2,project_type:'event',objective:'국회 공론화',start_on:'2026-09-29'}}
@@ -140,6 +148,53 @@ test('project detail omits removed content, linked-post and collaboration featur
   await expect(page.locator('#ps3Body')).not.toContainText('사업 콘텐츠·현황');
   await expect(page.locator('#ps3Body')).not.toContainText('기존 연결 게시글');
   await expect(page.locator('#ps3Body')).not.toContainText('기존 협업 메모');
+});
+
+test('project types can be added, edited and deleted without changing system types',async({page})=>{
+  const state=baseState();
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/');
+  await signIn(page);
+  await page.locator('[data-view="projects"]').click();
+  await page.locator('#newProjectBtn').click();
+  await expect(page.locator('#ps3ManageTypes')).toBeVisible();
+  await page.locator('#ps3ManageTypes').click();
+  await expect(page.locator('#ps3TypeModal')).toBeVisible();
+  await expect(page.locator('#ps3TypeList .ps3-type-row')).toHaveCount(5);
+  await page.locator('#ps3TypeName').fill('철도 현안 대응');
+  await page.locator('#ps3TypeWorkstreams').fill('교섭 대응\n현장 상황');
+  await page.locator('#ps3TypeSave').click();
+  await expect.poll(()=>state.projectTypes.some(x=>x.name==='철도 현안 대응')).toBe(true);
+  const custom=state.projectTypes.find(x=>x.name==='철도 현안 대응');
+  expect(custom.is_system).toBe(false);
+  expect(custom.config.suggested_workstreams).toEqual(['교섭 대응','현장 상황']);
+  await expect(page.locator('#ps3CreateType option')).toContainText('철도 현안 대응');
+  await page.locator(`[data-ps3-edit-type="${custom.id}"]`).click();
+  await page.locator('#ps3TypeName').fill('철도 현안');
+  await page.locator('#ps3TypeSave').click();
+  await expect.poll(()=>state.projectTypes.find(x=>x.id===custom.id)?.name).toBe('철도 현안');
+  await page.locator(`[data-ps3-edit-type="${custom.id}"]`).click();
+  page.once('dialog',d=>d.accept());
+  await page.locator('#ps3TypeDelete').click();
+  await expect.poll(()=>state.projectTypes.some(x=>x.id===custom.id)).toBe(false);
+  await expect(page.locator('#ps3TypeList .ps3-type-row')).toHaveCount(5);
+});
+
+test('custom project type supplies default workstreams on project creation',async({page})=>{
+  const state=baseState();
+  state.projectTypes.push({id:'type-custom',workspace_id:'workspace-1',template_key:'custom-rail',name:'철도 현안',description:null,config:{suggested_workstreams:['교섭 대응','현장 상황']},is_system:false,created_by:'user-1',created_at:now()});
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/');
+  await signIn(page);
+  await page.locator('[data-view="projects"]').click();
+  await page.locator('#newProjectBtn').click();
+  await page.locator('#ps3CreateName').fill('신규 철도 프로젝트');
+  await page.locator('#ps3CreateType').selectOption('custom-rail');
+  await page.locator('#ps3CreateSave').click();
+  await expect.poll(()=>state.spaces.some(x=>x.name==='신규 철도 프로젝트')).toBe(true);
+  const p=state.spaces.find(x=>x.name==='신규 철도 프로젝트');
+  await expect.poll(()=>state.workstreams.filter(x=>x.project_id===p.id).length).toBe(2);
+  expect(state.workstreams.filter(x=>x.project_id===p.id).map(x=>x.title)).toEqual(['교섭 대응','현장 상황']);
 });
 
 test('V3 mobile project creation, detail scrolling and linked document remain usable',async({page})=>{
