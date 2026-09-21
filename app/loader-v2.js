@@ -46,6 +46,14 @@
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
   startup?.mark('routeResolved',{route:'authenticated'});
   const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=4');
+  let featureStylesPromise=null;
+  const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
+    if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
+    const link=document.createElement('link');
+    link.rel='stylesheet';link.href='./styles.css?v=31';link.dataset.kptuFeatureStyles='1';
+    link.onload=()=>resolve();link.onerror=()=>resolve();
+    document.head.appendChild(link);
+  }));
   let featurePromise=null,featuresReady=false;
   const showFeatureError=err=>{
     console.error('deferred feature load failed',err);
@@ -54,6 +62,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
+    await ensureFeatureStyles();
     await window.__KPTU_START_TEAM_DATA__();
     await import('./project-system-v3.js?v=10');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./calendar-move.js?v=1'),import('./due-date-calendar.js?v=1')]);
