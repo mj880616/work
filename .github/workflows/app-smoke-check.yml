@@ -307,23 +307,18 @@ jobs:
           if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification UI returned to mutation correction'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification polling returned'; exit 1; fi
 
-      - name: Check page core and builder invariants
+      - name: Check Web1-backed board invariants
         run: |
           set -e
           grep -q "위험업무 2인1조 법제화" app/web1-board.js
+          grep -q "공공기관 인력확충" app/web1-board.js
+          grep -q "민자철도 사업 현황" app/web1-board.js
+          grep -q "궤도협의회" app/web1-board.js
           grep -q "산별전환 업무 현황" app/web1-board.js
-          grep -q "addEventListener('click',interceptOpen,true)" app/page-save-controller.js
-          grep -q "kptu:page-editor-opened" app/page-save-controller.js
-          grep -q "addEventListener('kptu:page-editor-opened'" app/page-builder.js
-          grep -q "__KPTU_PAGE_BUILDER_READY__" app/page-builder.js
-          grep -q "/functions/v1/page-ai-draft" app/page-builder.js
-          grep -q "/functions/v1/document-ai-index" app/page-builder.js
-          grep -q "/functions/v1/library-files" app/page-builder.js
-          grep -q "app_save_page_v2" app/page-save-controller.js
-          for f in app/page-list-controller.js app/page-save-controller.js app/page-builder.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js; do
-            if grep -q "MutationObserver\|createElement('style')\|createElement(\"style\")\|location.reload\|setTimeout(" "$f"; then echo "$f returned to delayed page correction"; exit 1; fi
-          done
-
+          grep -q "main_project_archive_state" app/web1-board.js
+          if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
+          if grep -Eq "MutationObserver|location.reload|setTimeout\\(" app/web1-board.js; then echo 'Web1 board returned to correction or polling code'; exit 1; fi
+          if grep -Eq "page-list-controller.js|page-save-controller.js|page-builder.js|page-shortcut.js|page-management.js|page-inline-viewer-v2.js" app/loader-v2.js; then echo 'retired page management returned to authenticated loader'; exit 1; fi
       - name: Check security-sensitive client boundaries
         run: |
           set -e
