@@ -356,10 +356,8 @@ test('V3 keeps the testimony child canonical and excludes private import snapsho
   await signIn(page);
   await page.locator('.ps3-child-menu summary').click();
   await expect(page.locator('.ps3-child-menu [data-ps3-project="child-1"]')).toBeVisible();
-  const rows=page.locator('#ps3-pages .ps3-page-row');
-  await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toContainText('독립 현장 공지');
-  await expect(page.locator('#ps3-pages [data-ps3-global="page"]')).toHaveCount(0);
+  await expect(page.locator('#ps3-pages')).toHaveCount(0);
+  await expect(page.locator('#ps3Body')).not.toContainText('독립 현장 공지');
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await page.locator('[data-view="pages"]').click();
   await expect(page.locator('#pageList .page-card')).toHaveCount(1);
