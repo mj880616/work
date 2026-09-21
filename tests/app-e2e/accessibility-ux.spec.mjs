@@ -79,14 +79,14 @@ test('high-frequency filters, month controls, and destructive task actions expos
   await expect(page.locator('.calendar-toolbar')).toHaveAttribute('aria-labelledby','monthTitle');
 });
 
-test('library and page toolbars expose programmatic labels',async({page})=>{
+test('library toolbar and Web1 board expose accessible navigation',async({page})=>{
   await boot(page,{width:1024,height:768});
   await page.locator('.app-nav [data-view="library"]').click();
   await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
   await expect(page.locator('label[for="documentProject"]')).toHaveCount(1);
   await page.locator('.app-nav [data-view="pages"]').click();
-  await expect(page.locator('label[for="pageSearch"]')).toHaveCount(1);
-  await expect(page.locator('label[for="pageFilter"]')).toHaveCount(1);
+  await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
+  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('href',/^https:\/\/work\.bokdoong\.com\//);
 });
 
 test('project creation dialog exposes semantics, keyboard close, and trigger restore',async({page})=>{
@@ -159,8 +159,7 @@ test('task detail stays inside a 390px mobile viewport',async({page})=>{
 for(const c of [
   {name:'event',view:'calendar',trigger:'#newEventBtn',modal:'#eventModal',initial:'#eventTitle'},
   {name:'document',view:'library',trigger:'#newDocumentBtn',modal:'#documentModal',initial:'#docTitle'},
-  {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle'},
-  {name:'page editor',view:'pages',trigger:'#newPageBtn',modal:'#editorModal',initial:'#pageTitle'}
+  {name:'meeting',view:'meetings',trigger:'#newMeetingBtn',modal:'#meetingModal',initial:'#meetingTitle'}
 ]){
   test(`${c.name} dialog focuses its first field and restores its trigger`,async({page})=>{
     await boot(page,{width:1024,height:768});
