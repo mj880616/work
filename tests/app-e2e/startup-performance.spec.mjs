@@ -5,6 +5,22 @@ import { loginEntry } from './helpers/login-entry.mjs';
 const loaderUrl='http://127.0.0.1:8123/app/loader-v2.js?p6-startup-contract=1';
 const read=path=>readFileSync(path,'utf8');
 
+test('startup assets are discovered from the document head without changing auth gates', async () => {
+  const html=read('app/index.html');
+  const head=html.slice(0,html.indexOf('</head>'));
+  const body=html.slice(html.indexOf('<body>'));
+  expect(head).toContain('<script src="./app.js?v=65" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=65" defer></script>');
+  for(const asset of [
+    './loader-v2.js?v=177','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './calendar-return-bridge.js?v=2','./team.js?v=27','./home-dashboard-v2.js?v=7'
+  ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
+  const loader=read('app/loader-v2.js');
+  expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
+  expect(loader).toContain("if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return");
+  expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
+});
+
 test('authenticated home commits before non-critical feature bundle', async ({ page }) => {
   const response=await page.request.get(loaderUrl);
   expect(response.ok()).toBeTruthy();
