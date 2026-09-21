@@ -98,3 +98,34 @@
   .piv-info:last-child{grid-column:1/-1}
   .piv-sheet.pd-hero-band .piv-head,.piv-sheet.pd-hero-split .piv-head{margin-left:14px;margin-right:14px}
 }
+
+/* Project-derived board: display hierarchy only; projects remain the editing surface. */
+#pageList{display:grid;gap:var(--kptu-space-4)}
+#pageList .board-root{border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface);overflow:visible}
+#pageList .board-root-head{padding:0;border-bottom:1px solid var(--kptu-border)}
+#pageList .board-root-link,#pageList .board-child-link{width:100%;border:0;background:transparent;color:inherit;text-align:left;display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:var(--kptu-space-2);padding:13px 14px}
+#pageList .board-root-link:hover,#pageList .board-child-link:hover{background:var(--kptu-surface-subtle)}
+#pageList .board-root-link:focus-visible,#pageList .board-child-link:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+#pageList .board-root-link .board-project-title{font-size:16px;font-weight:800;color:var(--kptu-primary)}
+#pageList .board-child-link .board-project-title{font-size:13px;font-weight:750;color:var(--kptu-ink)}
+#pageList .board-project-meta{font-size:10px;color:var(--kptu-muted);white-space:nowrap}
+#pageList .board-page-count{font-size:10px;color:var(--kptu-faint);white-space:nowrap}
+#pageList .board-root-body{padding:6px 14px 12px}
+#pageList .board-child{border-top:1px solid var(--kptu-border)}
+#pageList .board-child:first-child{border-top:0}
+#pageList .board-child-link{padding:10px 2px}
+#pageList .board-page-list{display:grid;gap:6px;padding:0 0 8px 14px}
+#pageList .board-page-list .page-card.compact-entry{border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+#pageList .board-common{padding-top:4px}
+#pageList .board-subhead{font-size:10px;font-weight:800;color:var(--kptu-muted);padding:7px 2px}
+#pageList .board-no-pages{font-size:11px;color:var(--kptu-faint);padding:8px 2px 10px 14px}
+#pageList .board-static-title{padding:13px 14px;font-size:14px;font-weight:800}
+#pageList .board-static-title span{font-size:10px;color:var(--kptu-faint);margin-left:6px;font-weight:600}
+#pageList .board-unassigned .board-root-body{padding-top:12px}
+@media(max-width:650px){
+  #pageList{gap:var(--kptu-space-3)}
+  #pageList .board-root-link,#pageList .board-child-link{grid-template-columns:minmax(0,1fr) auto}
+  #pageList .board-project-meta{grid-column:1/-1;white-space:normal}
+  #pageList .board-root-body{padding:4px 10px 10px}
+  #pageList .board-page-list{padding-left:8px}
+}
