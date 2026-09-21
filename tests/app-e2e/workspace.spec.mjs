@@ -211,11 +211,9 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await page.locator('[data-view="pages"]').click();
   await expect(page.locator('#pagesView')).toBeVisible();
-  await expect(page.locator('#pageList')).toContainText('E2E 게시글');
-  const shortcut=page.locator('[data-page-shortcut="1"]');
-  await expect(shortcut).toHaveText('공개 열기');
-  await expect(shortcut).toHaveAttribute('target','_blank');
-  await expect(shortcut).toHaveAttribute('href',/slug=e2e-page.*external=1|external=1.*slug=e2e-page/);
+  await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
+  await expect(page.locator('#web1BoardActive')).toContainText('공공기관 인력확충');
+  await expect(page.locator('#web1BoardActive')).not.toContainText('E2E 게시글');
 
   await page.locator('[data-view="projects"]').click();
   await page.locator('#newProjectBtn').click();
