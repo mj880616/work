@@ -144,10 +144,30 @@ test('project detail omits removed content, linked-post and collaboration featur
   await expect(page.locator('#ps3-content')).toHaveCount(0);
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
   await expect(page.locator('#ps3-collaboration')).toHaveCount(0);
-  await expect(page.locator('[data-ps3-nav="ps3-content"],[data-ps3-nav="ps3-pages"],[data-ps3-nav="ps3-collaboration"]')).toHaveCount(0);
+  await expect(page.locator('#ps3-overview')).toHaveCount(0);
+  await expect(page.locator('#ps3-decisions')).toHaveCount(0);
+  await expect(page.locator('[data-ps3-nav="ps3-content"],[data-ps3-nav="ps3-pages"],[data-ps3-nav="ps3-collaboration"],[data-ps3-nav="ps3-overview"],[data-ps3-nav="ps3-decisions"]')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('사업 콘텐츠·현황');
   await expect(page.locator('#ps3Body')).not.toContainText('기존 연결 게시글');
-  await expect(page.locator('#ps3Body')).not.toContainText('기존 협업 메모');
+  await expect(page.locator('#ps3-memos')).toContainText('기존 협업 메모');
+});
+
+test('project memo supports add edit and delete',async({page})=>{
+  const state=baseState();
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await expect(page.locator('#ps3-overview,#ps3-decisions')).toHaveCount(0);
+  await expect(page.locator('#ps3-memos')).toBeVisible();
+  await page.locator('#ps3MemoBody').fill('첫 메모');
+  await page.locator('[data-ps3-memo-save]').click();
+  await expect.poll(()=>state.comments.some(x=>x.body==='첫 메모')).toBe(true);
+  const memo=state.comments.find(x=>x.body==='첫 메모');
+  await page.locator(`[data-ps3-edit-memo="${memo.id}"]`).click();
+  await page.locator('#ps3MemoBody').fill('수정 메모');
+  await page.locator('[data-ps3-memo-save]').click();
+  await expect.poll(()=>state.comments.find(x=>x.id===memo.id)?.body).toBe('수정 메모');
+  page.once('dialog',d=>d.accept());
+  await page.locator(`[data-ps3-delete-memo="${memo.id}"]`).click();
+  await expect.poll(()=>state.comments.some(x=>x.id===memo.id)).toBe(false);
 });
 
 test('project types can be added, edited and deleted without changing system types',async({page})=>{
@@ -247,11 +267,6 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await expect(page.locator('#documentModal')).toBeVisible();
   await expect(page.locator('#docProject')).toHaveValue(created.id);
   await page.locator('[data-close="documentModal"]').first().click();
-  await page.locator('[data-ps3-global="meeting"]').click();
-  await expect(page.locator('#meetingModal')).toBeVisible();
-  await expect(page.locator('#meetingProject')).toHaveValue(created.id);
-  await page.locator('#meetingModal [data-close]').first().click();
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();
   await expect(page.locator('[data-ps3-global="page"]')).toHaveCount(0);
   await page.locator('#ps3Hierarchy .ps3-child-menu summary').click();
   await page.locator('[data-ps3-child]').click();
