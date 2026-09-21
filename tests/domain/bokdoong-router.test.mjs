@@ -118,6 +118,11 @@ test('desk versioned static assets are reusable without network revalidation', a
     });
     assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
   }
+  const serviceWorker = await request('https://desk.bokdoong.com/work/app/sw.js?v=2', {
+    upstream: new Response('service worker', { headers: { 'Cache-Control': 'max-age=0' } })
+  });
+  assert.equal(serviceWorker.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+
   const html = await request('https://desk.bokdoong.com/work/app/?v=58', {
     upstream: new Response('<!doctype html>', { headers: { 'Cache-Control': 'max-age=0' } })
   });
