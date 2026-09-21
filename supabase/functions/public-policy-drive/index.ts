@@ -1,6 +1,6 @@
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const DRIVE_APP_URL = 'https://work.bokdoong.com/?view=library';
+const DRIVE_APP_URL = 'https://desk.bokdoong.com/work/app/?view=library';
 const CALENDAR_APP_URL = 'https://mj880616.github.io/work/app/';
 const CALLBACK_URL = `${SB}/functions/v1/public-policy-drive/callback`;
 const ALLOWED_ORIGINS = new Set([
