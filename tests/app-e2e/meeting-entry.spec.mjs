@@ -7,7 +7,7 @@ const BASE='http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const here=dirname(fileURLToPath(import.meta.url));
 const read=path=>readFileSync(resolve(here,'../..',path),'utf8');
-const meeting={id:'meeting-1',workspace_id:'meeting-ws',project_id:'main',title:'접근성 회의',meeting_at:'2026-09-17T10:00:00Z',notes:'논의 내용',decisions:'결정 내용',series_name:'궤도협의회',round_no:1,created_by:'meeting-user'};
+const meeting={id:'meeting-1',workspace_id:'meeting-ws',project_id:'main',title:'접근성 회의',meeting_at:'2026-09-17T10:00:00Z',notes:'논의 내용',decisions:'결정 내용',series_name:'궤도협의회',round_no:1,location:'회의실',attendee_count:6,transcript_text:'원문 기록',created_by:'meeting-user'};
 
 async function mock(page){
   await page.route(`${SB}/**`,async route=>{
@@ -60,6 +60,17 @@ test('meeting create button keeps the team save owner and opens the final meetin
   expect(saveOwner).not.toContain('twSaveMeeting');
 });
 
+test('meeting list is compact and filters by meeting type',async({page})=>{
+  await signIn(page);
+  await expect(page.locator('#meetingTypeFilter')).toBeVisible();
+  await expect(page.locator('#meetingTypeFilter option')).toContainText(['회의유형 전체','궤도협의회','유형 미지정']);
+  await page.locator('#meetingTypeFilter').selectOption({label:'궤도협의회'});
+  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
+  await expect(page.locator('#meetingList .meeting-list-row')).toContainText('접근성 회의');
+  const box=await page.locator('#meetingList .meeting-list-row').boundingBox();
+  expect(box.height).toBeLessThanOrEqual(90);
+});
+
 test('meeting detail dialog exposes semantics, Escape close, and trigger focus restore',async({page})=>{
   await signIn(page);
   const trigger=page.locator('[data-mrd-meeting="meeting-1"]');
@@ -92,13 +103,25 @@ test('editing a meeting retains the structured decision field',async({page})=>{
   await expect(page.locator('#mrdResult')).toContainText('1. 중요 결정 사항');
   await expect(page.locator('#mrdResult')).toContainText('결정 내용');
   await page.locator('#mrdEdit').click();
+  await expect(page.locator('#mrdEditSeries')).toHaveValue('궤도협의회');
+  await expect(page.locator('#mrdEditRound')).toHaveValue('1');
+  await expect(page.locator('#mrdEditLocation')).toHaveValue('회의실');
+  await expect(page.locator('#mrdEditAttendees')).toHaveValue('6');
+  await expect(page.locator('#mrdEditTranscript')).toHaveValue('원문 기록');
   await expect(page.locator('#mrdEditDecisions')).toHaveValue('결정 내용');
   await expect(page.locator('#mrdEditNotes')).toHaveValue('논의 내용');
+  await page.locator('#mrdEditLocation').fill('새 회의실');
+  await page.locator('#mrdEditTranscript').fill('수정 원문');
   await page.locator('#mrdEditNotes').fill('정보 공유 수정');
   await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>saved).not.toBeNull();
   expect(saved.decisions).toBe('결정 내용');
   expect(saved.notes).toBe('정보 공유 수정');
+  expect(saved.series_name).toBe('궤도협의회');
+  expect(saved.round_no).toBe(1);
+  expect(saved.location).toBe('새 회의실');
+  expect(saved.attendee_count).toBe(6);
+  expect(saved.transcript_text).toBe('수정 원문');
   await expect(page.locator('#mrdEditStatus')).toContainText('수정했습니다.');
 });
 
@@ -195,7 +218,7 @@ test('meeting UI has one render path without observer or fetch interception shim
   const team=read('app/team.js');
   const css=read('app/styles.css');
 
-  for(const id of ['meetingSeriesName','meetingRoundNo','meetingFiles','meetingActionList','addMeetingAction'])expect(html).toContain(`id="${id}"`);
+  for(const id of ['meetingSeriesName','meetingRoundNo','meetingFiles','meetingActionList','addMeetingAction','meetingTypeFilter'])expect(html).toContain(`id="${id}"`);
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).toContain('await window.__KPTU_TASK_WORKFLOW_READY__');
@@ -206,7 +229,9 @@ test('meeting UI has one render path without observer or fetch interception shim
   expect(detail).not.toContain("document.createElement('style')");
   expect(ai).not.toContain('annotateMeetingDetail');
   expect(team).toContain('data-mrd-meeting');
+  expect(team).toContain('meeting-list-row');
+  expect(team).toContain('renderMeetingTypeOptions');
   expect(team).toContain("/functions/v1/meeting-files");
   expect(team).not.toContain("/functions/v1/library-files',{method:'POST',body:fd");
-  expect(css).toContain("meeting-ui.css?v=5");
+  expect(css).toContain("meeting-ui.css?v=6");
 });
