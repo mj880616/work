@@ -62,7 +62,7 @@
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='./styles.css?v=31';link.dataset.kptuFeatureStyles='1';
+    link.rel='stylesheet';link.href='./styles.css?v=32';link.dataset.kptuFeatureStyles='1';
     link.onload=()=>resolve();link.onerror=()=>resolve();
     document.head.appendChild(link);
   }));
@@ -84,7 +84,7 @@
     await import('./task-layout.js?v=9'); await window.__KPTU_TASK_LAYOUT_READY__;
     await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=9')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
-    await import('./page-list-controller.js?v=5'); await window.__KPTU_PAGE_LIST_READY__;
+    await import('./page-list-controller.js?v=6'); await window.__KPTU_PAGE_LIST_READY__;
     await import('./page-save-controller.js?v=4'); await window.__KPTU_PAGE_SAVE_READY__;
     const loadPageBuilder=async detail=>{window.removeEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);await import('./page-builder.js?v=3');await window.__KPTU_PAGE_BUILDER_READY__;await window.KPTUPageBuilder?.open?.(detail||{})};
     const lazyPageBuilderOpen=e=>loadPageBuilder(e.detail).catch(showFeatureError);
