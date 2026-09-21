@@ -6,6 +6,7 @@ const CALLBACK_URL = `${SB}/functions/v1/public-policy-drive/callback`;
 const ALLOWED_ORIGINS = new Set([
   'https://mj880616.github.io',
   'https://work.bokdoong.com',
+  'https://desk.bokdoong.com',
 ]);
 
 function corsHeaders(req: Request) {
