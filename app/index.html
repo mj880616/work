@@ -12,13 +12,12 @@
 <body>
 <div class="shell">
 <header class="topbar">
-  <a class="brand" href="./"><span class="leaf" aria-hidden="true"></span><span>공공기관사업팀</span><b>WORKSPACE</b></a>
+  <a class="brand" href="./"><span class="leaf" aria-hidden="true"></span><span>웹2</span></a>
   <div class="top-actions"><button id="ccNotifTop" class="ghost hidden" type="button" data-goto="notifications">알림 <span id="ccNotifBadge" class="hidden" aria-label="읽지 않은 알림"></span></button><button id="logoutBtn" class="ghost hidden" type="button">로그아웃</button></div>
 </header>
 <main>
 <section id="authView" class="auth-wrap hidden" aria-hidden="true">
   <div class="auth-card">
-    <div class="eyebrow">KPTU PUBLIC INSTITUTIONS TEAM</div>
     <h1>업무와 자료를<br>한 공간에서 공유합니다.</h1>
     <p>일정·할 일·프로젝트·자료·회의결과·현장공유 페이지를 함께 관리합니다.</p>
     <div id="inviteNotice" class="notice hidden">초대 링크가 확인되었습니다. 로그인하거나 계정을 만든 뒤 자동으로 팀에 참여합니다.</div>
@@ -41,8 +40,7 @@
 </section>
 <section id="appView" class="app-view hidden">
   <div class="workspace-head">
-    <div><div class="eyebrow">TEAM WORKSPACE</div><h1 id="workspaceName">공공기관사업팀 Workspace</h1></div>
-    <div class="head-actions"><button id="quickTaskBtn" class="primary" type="button">+ 할 일</button></div>
+    <div><h1 id="workspaceName">웹2</h1></div>
   </div>
   <nav class="app-nav">
     <button class="nav-btn active" data-view="home" type="button">홈</button>
@@ -133,5 +131,5 @@
 <div id="toast" class="toast hidden"></div>
 
 <script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to',new URL('/work/app/confirmed.html',location.origin).href);input=u.toString()}}catch(_){}return f(input,init)}})();</script>
-<script src="./app.js?v=58" defer></script>
+<script src="./app.js?v=59" defer></script>
 </body></html>
