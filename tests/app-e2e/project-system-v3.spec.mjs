@@ -90,10 +90,10 @@ async function signIn(page){
 function baseState(){return{
   user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'프로젝트 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'공공기관사업팀 Workspace'},
   projectTypes:[
-    {id:'type-ongoing',workspace_id:null,template_key:'ongoing',name:'상시사업·산업관리형',description:null,config:{suggested_workstreams:['정책·제도 대응','산하조직·현장 상황']},is_system:true,created_by:null,created_at:now()},
-    {id:'type-campaign',workspace_id:null,template_key:'campaign',name:'쟁점·캠페인형',description:null,config:{suggested_workstreams:['정부·정책 대응']},is_system:true,created_by:null,created_at:now()},
-    {id:'type-event',workspace_id:null,template_key:'event',name:'행사·집중사업형',description:null,config:{suggested_workstreams:['기획·섭외']},is_system:true,created_by:null,created_at:now()},
-    {id:'type-knowledge',workspace_id:null,template_key:'knowledge',name:'자료·지식형',description:null,config:{suggested_workstreams:['자료 수집']},is_system:true,created_by:null,created_at:now()},
+    {id:'type-ongoing',workspace_id:null,template_key:'ongoing',name:'상시사업·산업관리형',description:null,config:{suggested_workstreams:['정책·제도','조직·현장','교섭·투쟁','대외대응']},is_system:true,created_by:null,created_at:now()},
+    {id:'type-campaign',workspace_id:null,template_key:'campaign',name:'쟁점·캠페인형',description:null,config:{suggested_workstreams:['정부대응','국회대응','현장조직화','공동행동','성과·후속']},is_system:true,created_by:null,created_at:now()},
+    {id:'type-event',workspace_id:null,template_key:'event',name:'행사·집중사업형',description:null,config:{suggested_workstreams:['기획','섭외·참여','자료·선전','당일진행','결과·후속']},is_system:true,created_by:null,created_at:now()},
+    {id:'type-knowledge',workspace_id:null,template_key:'knowledge',name:'자료·지식형',description:null,config:{suggested_workstreams:['정부자료','국회·법령','정책검토','현장자료']},is_system:true,created_by:null,created_at:now()},
     {id:'type-blank',workspace_id:null,template_key:'blank',name:'빈 프로젝트',description:null,config:{suggested_workstreams:[]},is_system:true,created_by:null,created_at:now()}
   ],
   spaces:[
@@ -168,7 +168,7 @@ test('project types can be added, edited and deleted without changing system typ
   const custom=state.projectTypes.find(x=>x.name==='철도 현안 대응');
   expect(custom.is_system).toBe(false);
   expect(custom.config.suggested_workstreams).toEqual(['교섭 대응','현장 상황']);
-  await expect(page.locator('#ps3CreateType option')).toContainText('철도 현안 대응');
+  await expect(page.locator('#ps3CreateType')).toContainText('철도 현안 대응');
   await page.locator(`[data-ps3-edit-type="${custom.id}"]`).click();
   await page.locator('#ps3TypeName').fill('철도 현안');
   await page.locator('#ps3TypeSave').click();
