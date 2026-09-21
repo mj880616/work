@@ -1,0 +1,39 @@
+(()=>{
+  'use strict';
+  if(window.KPTUWeb1Board)return;
+  const rt=window.KPTURuntime;
+  const items=[
+    {key:'2in1',title:'위험업무 2인1조 법제화',description:'법안 보완 · 노동부 대응 · 국회토론회 · 국정감사 · 궤도 공동투쟁',badge:'진행 중',href:'https://work.bokdoong.com/2in1/'},
+    {key:'workforce',title:'공공기관 인력확충',description:'증원 연계 2% 인력감축 방침 철회와 안전·공공서비스 인력 확충 대응',badge:'당면 대응',href:'https://work.bokdoong.com/workforce/'},
+    {key:'private-rail',title:'민자철도 사업 현황',description:'공영화 · 운영기준 · 사업장별 임단투 · 민간철도·지하철 부실운영 방지법 진행 현황',badge:'현장 공유',href:'https://work.bokdoong.com/private-rail/'},
+    {key:'rail-council',title:'궤도협의회',description:'철도·지하철 공동투쟁 · 확대간부수련회 · 산별전환 등 궤도 공동사업',badge:'궤도 공동사업',href:'https://work.bokdoong.com/rail-council/'},
+    {key:'sanbyeol',title:'산별전환 업무 현황',description:'철도 · 지하철 · 국토정보공사 등 조직별 교육·간담회·의결 경과와 교육 피드백',badge:'중앙 사무처',href:'https://work.bokdoong.com/sanbyeol/'}
+  ];
+  let state=new Map(),loaded=false;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const card=x=>`<a class="w1b-card" href="${esc(x.href)}"><div class="w1b-card-top"><span class="badge">${esc(x.badge)}</span><span class="w1b-open">웹1 열기 ↗</span></div><h3>${esc(x.title)}</h3><p>${esc(x.description)}</p></a>`;
+  function render(){
+    const host=document.querySelector('#pagesView');
+    const active=document.querySelector('#web1BoardActive');
+    const archived=document.querySelector('#web1BoardArchived');
+    const archivedWrap=document.querySelector('#web1BoardArchivedWrap');
+    if(!host||!active||!archived||!archivedWrap)return;
+    const aa=items.filter(x=>state.get(x.key)!==true),zz=items.filter(x=>state.get(x.key)===true);
+    active.innerHTML=aa.length?aa.map(card).join(''):'<div class="empty">진행 중인 Web1 사업 페이지가 없습니다.</div>';
+    archived.innerHTML=zz.length?zz.map(card).join(''):'<div class="empty">지나간 업무·사업이 없습니다.</div>';
+    archivedWrap.classList.toggle('hidden',!zz.length);
+    host.dataset.web1BoardReady='1';
+  }
+  async function load(){
+    if(loaded){render();return}
+    loaded=true;
+    try{
+      const rows=await rt.api('/rest/v1/main_project_archive_state?select=card_key,archived',{auth:false});
+      state=new Map((rows||[]).map(x=>[x.card_key,!!x.archived]));
+    }catch(e){console.warn('web1 board archive state unavailable',e)}
+    render();
+  }
+  window.KPTUWeb1Board={render:load};
+  window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='pages')load()});
+  load();
+})();
