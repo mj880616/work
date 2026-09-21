@@ -150,7 +150,7 @@ async function installSupabaseMock(page, state) {
 test('login and core workspace flows remain usable', async ({ page }) => {
   const state = {
     user: { id: 'user-1', email: 'e2e@example.org', user_metadata: { display_name: 'E2E 사용자' } },
-    workspace: { id: 'workspace-1', slug: 'public-institutions', name: '공공기관사업팀 Workspace' },
+    workspace: { id: 'workspace-1', slug: 'public-institutions', name: '웹2' },
     members: [
       { workspace_id: 'workspace-1', user_id: 'user-1', role: 'owner', email: 'e2e@example.org' },
       { workspace_id: 'workspace-1', user_id: 'user-2', role: 'editor', email: 'peer@example.org' }
