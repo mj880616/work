@@ -365,7 +365,7 @@ jobs:
           set -e
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "page-builder.js?v=3" app/loader-v2.js
-          grep -q "workflow-ai-v3.js?v=4" app/loader-v2.js
+          grep -q "workflow-ai-v3.js?v=5" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
           grep -q "PB_TEMPLATES" app/page-builder.js
