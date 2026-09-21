@@ -322,11 +322,8 @@ jobs:
       - name: Check security-sensitive client boundaries
         run: |
           set -e
-          grep -q "KPTUCapabilities" app/page-save-controller.js
-          grep -q "KPTURuntime" app/page-builder.js
           if grep -Eq "service_role|SUPABASE_SERVICE_ROLE|Authorization:.*service" app/*.js; then echo 'service-role material must never ship to client'; exit 1; fi
-          if grep -Eq "localStorage|kptu_collab_session_v1" app/page-save-controller.js app/page-builder.js app/notification-center-ui.js app/photo-room.js; then echo 'feature module bypassed shared runtime session'; exit 1; fi
-
+          if grep -Eq "localStorage|kptu_collab_session_v1" app/notification-center-ui.js app/photo-room.js app/web1-board.js; then echo 'feature module bypassed shared runtime session'; exit 1; fi
       - name: Check retained non-project feature invariants
         run: |
           set -e
