@@ -52,6 +52,16 @@ test('원 렌더러가 예정담당자와 실제담당자를 처음부터 구분
  await expect(page.locator('#soStyle')).toHaveCount(0);
 });
 
+test('산하조직 삭제 버튼은 빨간 배경에 글자가 묻히지 않는다',async({page})=>{
+ await page.goto(canonical);
+ await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
+ const del=page.locator('[data-so-delete="org-rail"]');
+ await expect(del).toHaveText('삭제');
+ const style=await del.evaluate(el=>{const s=getComputedStyle(el);return {color:s.color,background:s.backgroundColor,border:s.borderColor}});
+ expect(style.color).not.toBe(style.background);
+ expect(style.background).toBe('rgb(255, 255, 255)');
+});
+
 test('조직유형은 원 산하조직 편집 화면에서 직접 저장된다',async({page})=>{
  await page.goto(canonical);
  await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
