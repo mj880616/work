@@ -17,13 +17,13 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=9">
 <link rel="preload" as="style" href="./desktop-ui.css?v=7">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=180">
+<link rel="modulepreload" href="./loader-v2.js?v=181">
 <link rel="modulepreload" href="./runtime-client.js?v=3">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=4">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=2">
-<link rel="modulepreload" href="./team.js?v=29">
+<link rel="modulepreload" href="./team.js?v=30">
 <link rel="modulepreload" href="./home-dashboard-v2.js?v=7">
-<script src="./app.js?v=68" defer></script>
+<script src="./app.js?v=69" defer></script>
 </head>
 <body>
 <div class="shell">
@@ -46,6 +46,10 @@
     </form>
     <div id="authStatus" class="status"></div>
   </div>
+</section>
+<section id="bootView" class="center-card hidden" aria-hidden="true" aria-live="polite">
+  <div class="eyebrow">WEB2</div><h2>업무 공간을 확인하고 있습니다.</h2>
+  <p>로그인 상태와 접근 권한을 확인한 뒤 바로 화면을 엽니다.</p>
 </section>
 <section id="bootstrapView" class="center-card hidden">
   <div class="eyebrow">FIRST ADMIN</div><h2>첫 관리자 등록</h2>

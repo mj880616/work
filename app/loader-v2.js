@@ -36,18 +36,26 @@
   }
 
   const bootSession=window.KPTURuntime.session.read();
+  const bootView=document.querySelector('#bootView');
+  if(bootView){
+    ['authView','bootstrapView','appView'].forEach(id=>document.querySelector('#'+id)?.classList.add('hidden'));
+    bootView.classList.remove('hidden');
+    bootView.setAttribute('aria-hidden','false');
+    startup?.mark('authenticatedShellVisible');
+  }
   window.__KPTU_AUTHENTICATED_BOOT_SESSION__=bootSession;
   const bootUserId=bootSession?.user?.id||'';
   if(bootUserId){
     startup?.mark('workspacePrefetchStart');
+    startup?.mark('membershipCheckStart');
     const membershipPath='/rest/v1/app_workspace_members?user_id=eq.'+encodeURIComponent(bootUserId)+'&select=workspace_id,role,workspace:app_workspaces(id,slug,name)&limit=1';
     window.__KPTU_BOOT_MEMBERSHIP_PROMISE__=window.KPTURuntime.api(membershipPath)
-      .then(rows=>{startup?.mark('workspacePrefetchComplete');return {ok:true,rows}})
-      .catch(error=>{startup?.mark('workspacePrefetchFailed');return {ok:false,error}});
+      .then(rows=>{startup?.mark('workspacePrefetchComplete');startup?.mark('membershipCheckComplete');return {ok:true,rows}})
+      .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=29')
+    import('./team.js?v=30')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
