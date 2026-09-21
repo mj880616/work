@@ -68,7 +68,57 @@ function memberIdByName(name){const n=String(name||'').trim();if(!n||/확인 필
 function dueIso(v){const s=String(v||'').trim();if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const d=new Date(s+'T18:00:00+09:00');return Number.isNaN(d.getTime())?null:d.toISOString()}
 async function createConfirmedTasks(meeting,actions,stillCurrent){if(!actions.length)return {created:0,skipped:0};const projectId=meeting.project_id||null;if(projectId){const p=spaces.find(s=>s.id===projectId);if(!p?.parent_id)return {created:0,skipped:actions.length,reason:'회의가 메인 프로젝트에 연결되어 있어 할 일을 만들지 않았습니다. 하위 프로젝트로 변경한 뒤 생성하세요.'}}const existing=await api(`/rest/v1/app_tasks?source_type=eq.meeting&source_id=eq.${meeting.id}&select=id,title`);if(!stillCurrent())return null;const titles=new Set((existing||[]).map(x=>x.title));let created=0,skipped=0;for(const a of actions){if(!stillCurrent())return null;const title=String(a.task||'').trim(),assignee=memberIdByName(a.assignee),due=dueIso(a.due);if(!title||!assignee||!due||titles.has(title)){skipped++;continue}await api('/rest/v1/app_tasks',{method:'POST',body:{workspace_id:workspaceId,project_id:projectId,title,description:`회의 결과에서 확정 · ${meeting.title}`,assignee_id:assignee,status:'todo',priority:'normal',due_at:due,source_type:'meeting',source_id:meeting.id,created_by:user.id}});titles.add(title);created++}if(created)window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));return {created,skipped}}
 async function saveMeetingResult(finalize){const meeting=currentMeeting,epoch=aiOpenEpoch;if(!meeting)return;const st=document.querySelector('#wfMeetingAiStatus'),draft={decisions:document.querySelector('#wfDraftDecisions').value.trim(),actions:actionLines(),information:document.querySelector('#wfDraftInfo').value.trim()},stillCurrent=()=>epoch===aiOpenEpoch&&currentMeeting?.id===meeting.id;try{const body={ai_draft:draft,transcript_text:document.querySelector('#wfMeetingTranscript').value.trim()||null,result_status:finalize?'final':'draft',updated_at:new Date().toISOString()};if(finalize){body.decisions=draft.decisions;body.notes=draft.information;body.followups=draft.actions;body.finalized_at=new Date().toISOString()}const saved=await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meeting.id)}&select=id`,{method:'PATCH',body,prefer:'return=representation'});if(!Array.isArray(saved)||saved.length!==1)throw new Error('회의 결과 저장 권한을 확인하지 못했습니다.');if(!stillCurrent())return;if(!finalize){st.textContent='초안을 저장했습니다.';st.className='status ok';return}const taskResult=await createConfirmedTasks(meeting,draft.actions,stillCurrent);if(!stillCurrent()||!taskResult)return;st.textContent=`최종 확정했습니다. 할 일 ${taskResult.created}건 생성${taskResult.skipped?` · ${taskResult.skipped}건은 담당자/기한 확인이 필요해 보류`:''}${taskResult.reason?' · '+taskResult.reason:''}`;st.className='status ok';setTimeout(()=>{if(stillCurrent()){close('wfMeetingAiModal');location.reload()}},1100)}catch(e){if(stillCurrent()){st.textContent=e.message||String(e);st.className='status error'}}}
-function bind(){if(document.documentElement.dataset.wfAiBound)return;document.documentElement.dataset.wfAiBound='1';document.addEventListener('click',e=>{if(e.target.closest('#quickTaskBtn,#newTaskBtn'))setTimeout(filterTaskProjects,0);if(e.target.closest('#newMeetingBtn'))setTimeout(()=>{filterTaskProjects();enhanceMeetingCreate()},0)});window.addEventListener('kptu:session-changed',()=>{aiOpenEpoch++;currentMeeting=null;close('wfMeetingAiModal');setTimeout(init,0)})}
+function memberIdByDisplayName(name){
+  const n=String(name||'').trim();
+  if(!n||/확인 필요/.test(n))return '';
+  const profile=profiles.find(p=>String(p.display_name||'').trim()===n&&members.some(m=>m.user_id===p.user_id));
+  return profile?.user_id||'';
+}
+function applyCreateDraft(draft){
+  const decisions=document.querySelector('#meetingDecisions'),notes=document.querySelector('#meetingNotes'),list=document.querySelector('#meetingActionList'),add=document.querySelector('#addMeetingAction');
+  if(decisions)decisions.value=draft.decisions||'';
+  if(notes)notes.value=draft.information||'';
+  if(list){
+    list.innerHTML='';
+    const actions=Array.isArray(draft.actions)?draft.actions:[];
+    const count=Math.max(1,actions.length);
+    for(let i=0;i<count;i++)add?.click();
+    [...list.querySelectorAll('.meeting-action-row')].forEach((row,i)=>{
+      const action=actions[i];
+      if(!action)return;
+      const title=row.querySelector('.meeting-action-title'),assignee=row.querySelector('.meeting-action-assignee'),due=row.querySelector('.meeting-action-due');
+      if(title)title.value=String(action.task||'');
+      const memberId=memberIdByDisplayName(action.assignee);
+      if(assignee&&memberId)assignee.value=memberId;
+      if(due&&/^\d{4}-\d{2}-\d{2}$/.test(String(action.due||'')))due.value=String(action.due);
+    });
+  }
+}
+async function classifyNewMeeting(){
+  const transcript=document.querySelector('#meetingTranscript')?.value.trim()||'';
+  const status=document.querySelector('#meetingAutoClassifyStatus'),button=document.querySelector('#meetingAutoClassify');
+  if(!transcript){if(status){status.textContent='회의 원문을 붙여넣어 주세요.';status.className='status error'};return}
+  const projectId=document.querySelector('#meetingProject')?.value||null;
+  const title=document.querySelector('#meetingTitle')?.value.trim()||'새 회의';
+  const meetingAt=document.querySelector('#meetingAt')?.value||new Date().toISOString();
+  const location=document.querySelector('#wfMeetingLocation')?.value.trim()||null;
+  const attendeeRaw=document.querySelector('#wfMeetingAttendees')?.value;
+  const attendeeCount=attendeeRaw===''||attendeeRaw==null?null:Number(attendeeRaw);
+  if(button)button.disabled=true;
+  if(status){status.textContent='회의 원문을 3개 항목으로 정리하는 중…';status.className='status'}
+  try{
+    const data=await api('/functions/v1/meeting-ai-draft',{method:'POST',body:{workspace_id:workspaceId,project_id:projectId,title,meeting_at:meetingAt,location,attendee_count:Number.isFinite(attendeeCount)?attendeeCount:null,transcript_text:transcript}});
+    const draft=normalizeMeetingDraftPayload(data);
+    if(!draft)throw new Error('invalid_meeting_draft');
+    applyCreateDraft(draft);
+    const unresolved=draft.actions.filter(a=>/확인 필요/.test(a.assignee)||/확인 필요/.test(a.due)||!memberIdByDisplayName(a.assignee)||!/^\d{4}-\d{2}-\d{2}$/.test(a.due)).length;
+    if(status){status.textContent=unresolved?'자동 정리했습니다. 후속 과제 '+unresolved+'건은 담당자 또는 기한을 확인해 주세요.':'자동 정리했습니다. 아래 내용을 검수한 뒤 저장하세요.';status.className='status ok'}
+  }catch(e){
+    console.error('new meeting AI classify failed',e);
+    if(status){status.textContent=e?.code==='session_required'?'로그인 세션이 만료됐습니다. 다시 로그인해 주세요.':'자동 정리에 실패했습니다. 원문은 그대로 유지됩니다.';status.className='status error'}
+  }finally{if(button)button.disabled=false}
+}
+function bind(){if(document.documentElement.dataset.wfAiBound)return;document.documentElement.dataset.wfAiBound='1';document.querySelector('#meetingAutoClassify')?.addEventListener('click',classifyNewMeeting);document.addEventListener('click',e=>{if(e.target.closest('#quickTaskBtn,#newTaskBtn'))setTimeout(filterTaskProjects,0);if(e.target.closest('#newMeetingBtn'))setTimeout(()=>{filterTaskProjects();enhanceMeetingCreate()},0)});window.addEventListener('kptu:session-changed',()=>{aiOpenEpoch++;currentMeeting=null;close('wfMeetingAiModal');setTimeout(init,0)})}
 async function init(){if(!(await context()))return;filterTaskProjects();enhanceMeetingCreate();installMeetingAi();setMeetingAiLabels();bind()}
 init();
 })();
