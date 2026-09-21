@@ -85,12 +85,11 @@ test('only the selected GitHub Pages trees are proxied', async () => {
   assert.equal(denied.calls.length, 0);
 });
 
-test('all proxied mutable pages and assets bypass Cloudflare cache and revalidate browser caches', async () => {
+test('unversioned proxied pages and assets bypass Cloudflare cache and revalidate browser caches', async () => {
   for (const url of [
     'https://bokdoong.com/',
     'https://work.bokdoong.com/work/',
     'https://work.bokdoong.com/work/assets/web1-design-lite.css',
-    'https://desk.bokdoong.com/work/app/sw.js?v=2',
     'https://read.bokdoong.com/read-think-write/src/app-entry.js',
     'https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js'
   ]) {
@@ -105,6 +104,24 @@ test('all proxied mutable pages and assets bypass Cloudflare cache and revalidat
     assert.equal(response.headers.get('ETag'), '"current"', url);
     assert.equal(await response.text(), 'current version', url);
   }
+});
+
+
+test('desk versioned static assets are reusable without network revalidation', async () => {
+  for (const url of [
+    'https://desk.bokdoong.com/work/app/app.js?v=58',
+    'https://desk.bokdoong.com/work/app/loader-v2.js?v=170',
+    'https://desk.bokdoong.com/work/app/styles.css?v=31'
+  ]) {
+    const { response } = await request(url, {
+      upstream: new Response('versioned asset', { headers: { 'Cache-Control': 'max-age=0' } })
+    });
+    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
+  }
+  const html = await request('https://desk.bokdoong.com/work/app/?v=58', {
+    upstream: new Response('<!doctype html>', { headers: { 'Cache-Control': 'max-age=0' } })
+  });
+  assert.equal(html.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
 });
 
 test('conditional and range requests retain HTTP semantics while revalidating', async () => {

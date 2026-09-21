@@ -79,9 +79,16 @@ export default {
       if (incoming.pathname === '/favicon.png') responseHeaders.set('Content-Type', 'image/png');
       if (incoming.pathname === '/favicon.ico') responseHeaders.set('Content-Type', 'image/x-icon');
     }
-    // The default Cloudflare browser TTL can turn GitHub's 10 minutes into
-    // four hours. Require browsers to revalidate every proxied response.
-    responseHeaders.set('Cache-Control', 'no-cache, must-revalidate');
+    // HTML and unversioned assets must revalidate so deployments stay current.
+    // Versioned static assets (e.g. app.js?v=58) are content-addressed by the
+    // app's release chain and can be reused without another network round trip.
+    const versionedAsset = host === 'desk.bokdoong.com'
+      && incoming.searchParams.has('v')
+      && /\.(?:js|css|svg|png|ico|webp)$/i.test(incoming.pathname);
+    responseHeaders.set(
+      'Cache-Control',
+      versionedAsset ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate'
+    );
     const location = responseHeaders.get('Location');
     if (location) {
       const target = new URL(location, originUrl);
