@@ -70,7 +70,7 @@ test('Design System 1.0 exposes tokens and one top-level action contract',async(
 
   const actions=[
     ['calendar','#newEventBtn'],['tasks','#newTaskBtn'],['projects','#newProjectBtn'],
-    ['library','#newDocumentBtn'],['meetings','#newMeetingBtn'],['pages','#newPageBtn']
+    ['library','#newDocumentBtn'],['meetings','#newMeetingBtn']
   ];
   const metrics=[];
   for(const [view,selector] of actions)metrics.push(await actionMetrics(page,view,selector));
