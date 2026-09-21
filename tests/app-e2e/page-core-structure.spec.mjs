@@ -1,56 +1,40 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 const read=path=>readFileSync(path,'utf8');
 
-test('page core and builder use explicit readiness without post-render correction',async()=>{
+test('authenticated board uses Web1 source without loading retired page management modules',async()=>{
   const loader=read('app/loader-v2.js');
-  const styles=read('app/styles.css');
   const team=read('app/team.js');
-  const save=read('app/page-save-controller.js');
-  const builder=read('app/page-builder.js');
-  const files=['app/page-list-controller.js','app/page-save-controller.js','app/page-builder.js','app/page-shortcut.js','app/page-management.js','app/page-inline-viewer-v2.js'];
+  const board=read('app/web1-board.js');
+  const index=read('app/index.html');
 
-  expect(loader).toContain("page-list-controller.js?v=6");
-  expect(loader).toContain('__KPTU_PAGE_LIST_READY__');
-  expect(loader).toContain("page-save-controller.js?v=4");
-  expect(loader).toContain('__KPTU_PAGE_SAVE_READY__');
-  expect(loader).toContain("page-builder.js?v=3");
-  expect(loader).toContain('__KPTU_PAGE_BUILDER_READY__');
-  expect(loader).toContain("page-shortcut.js?v=2");
-  expect(loader).toContain('__KPTU_PAGE_SHORTCUT_READY__');
-  expect(loader).toContain("page-management.js?v=4");
-  expect(loader).toContain('__KPTU_PAGE_MANAGEMENT_READY__');
-  expect(loader).toContain("page-inline-viewer-v2.js?v=4");
-  expect(loader).toContain('__KPTU_PAGE_INLINE_VIEWER_READY__');
-  expect(loader).not.toContain('page-editor-fix.js');
-  expect(loader).not.toContain("page-inline-viewer.js");
-  expect(styles).toContain("page-core.css?v=7");
-  expect(styles).toContain("page-builder.css?v=2");
-  expect(team).toContain('function renderPages(){window.KPTUPageList?.render?.()}');
-  expect(team).not.toContain("$('#pageList').innerHTML=rows.map");
-  expect(team).toContain('__KPTU_SYNC_TEAM_PAGES__');
-  const list=read('app/page-list-controller.js');
-  expect(list).toContain('data-board-project');
-  expect(list).toContain('parent_id,status,sort_order,project_type,current_phase');
-  expect(list).toContain("KPTURouter?.go?.('projects'");
-  expect(save).toContain("addEventListener('click',interceptOpen,true)");
-  expect(save).toContain('kptu:page-editor-opened');
-  expect(builder).toContain("addEventListener('kptu:page-editor-opened'");
-  expect(builder).toContain('__KPTU_PAGE_BUILDER_READY__');
-  expect(builder).toContain("/functions/v1/page-ai-draft");
-  expect(builder).toContain("/functions/v1/document-ai-index");
-  expect(builder).toContain("/functions/v1/library-files");
-  expect(existsSync('app/page-builder.css')).toBeTruthy();
-  expect(existsSync('app/page-editor-fix.js')).toBeFalsy();
-  expect(existsSync('app/page-inline-viewer.js')).toBeFalsy();
+  expect(loader).toContain("import('./web1-board.js?v=1')");
+  for(const retired of [
+    'page-list-controller.js',
+    'page-save-controller.js',
+    'page-builder.js',
+    'page-shortcut.js',
+    'page-management.js',
+    'page-inline-viewer-v2.js'
+  ])expect(loader).not.toContain(retired);
 
-  for(const path of files){
-    const text=read(path);
-    expect(text).not.toContain('MutationObserver');
-    expect(text).not.toContain("createElement('style')");
-    expect(text).not.toContain('createElement("style")');
-    expect(text).not.toContain('location.reload');
-    expect(text).not.toContain('setTimeout(');
-  }
+  expect(team).toContain('function renderPages(){window.KPTUWeb1Board?.render?.()}');
+  expect(index).toContain('id="web1BoardActive"');
+  expect(index).toContain('id="web1BoardArchived"');
+  expect(index).not.toContain('id="newPageBtn"');
+  expect(index).not.toContain('id="pageSearch"');
+  expect(index).not.toContain('id="pageFilter"');
+
+  expect(board).toContain("key:'2in1'");
+  expect(board).toContain("key:'workforce'");
+  expect(board).toContain("key:'private-rail'");
+  expect(board).toContain("key:'rail-council'");
+  expect(board).toContain("key:'sanbyeol'");
+  expect(board).not.toContain('public-policy');
+  expect(board).not.toContain('/press/');
+  expect(board).toContain('main_project_archive_state');
+  expect(board).not.toContain('MutationObserver');
+  expect(board).not.toContain("createElement('style')");
+  expect(board).not.toContain('setTimeout(');
 });
