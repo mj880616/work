@@ -40,3 +40,28 @@ test('Google Tasks remains separate from the app task list',async({page})=>{
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
   await expect(page.locator('#gtTaskSection')).toContainText('읽기 전용');
 });
+
+
+test('Google Tasks missing scope shows an explicit reconnect action',async({page})=>{
+  await mock(page);
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const u=new URL(route.request().url());
+    const action=u.searchParams.get('action');
+    const body=action==='status'
+      ? {connected:true,authorized:false,needs_reconnect:true}
+      : {tasks:[],needs_reconnect:true};
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+  });
+  await login(page);
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
+  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 읽기 권한이 없습니다');
+  await expect(page.locator('[data-gt-connect]')).toHaveText('Google 할 일 권한 다시 연결');
+});
+
+test('Google Tasks client detects Android app and checks authorization before task fetch',async()=>{
+  const source=await import('node:fs').then(({readFileSync})=>readFileSync('app/google-tasks.js','utf8'));
+  expect(source).toContain("endpoint('status')");
+  expect(source).toContain('/KPTUAndroid/i.test(navigator.userAgent)');
+  expect(source).toContain("params.get('native')==='android'");
+});
