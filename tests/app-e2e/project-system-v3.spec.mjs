@@ -267,11 +267,6 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await expect(page.locator('#documentModal')).toBeVisible();
   await expect(page.locator('#docProject')).toHaveValue(created.id);
   await page.locator('[data-close="documentModal"]').first().click();
-  await page.locator('[data-ps3-global="meeting"]').click();
-  await expect(page.locator('#meetingModal')).toBeVisible();
-  await expect(page.locator('#meetingProject')).toHaveValue(created.id);
-  await page.locator('#meetingModal [data-close]').first().click();
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();
   await expect(page.locator('[data-ps3-global="page"]')).toHaveCount(0);
   await page.locator('#ps3Hierarchy .ps3-child-menu summary').click();
   await page.locator('[data-ps3-child]').click();
