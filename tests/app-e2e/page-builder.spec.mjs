@@ -3,15 +3,10 @@ import { test, expect } from '@playwright/test';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
 async function installMock(page){
-  await page.addInitScript(()=>localStorage.setItem('kptu_collab_session_v1',JSON.stringify({
-    access_token:'e2e-access',
-    refresh_token:'e2e-refresh',
-    expires_at:Math.floor(Date.now()/1000)+3600,
-    user:{id:'user-1',email:'writer@example.org',user_metadata:{display_name:'페이지 작성자'}}
-  })));
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
+    if(path==='/auth/v1/token'&&url.searchParams.get('grant_type')==='password')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-1',email:'writer@example.org',user_metadata:{display_name:'페이지 작성자'}}});
     if(path==='/auth/v1/user')return ok({id:'user-1',email:'writer@example.org',user_metadata:{display_name:'페이지 작성자'}});
     if(path==='/rest/v1/app_workspace_members'&&url.searchParams.has('user_id'))return ok([{workspace_id:'workspace-1',role:'owner',user_id:'user-1',workspace:{id:'workspace-1',slug:'team',name:'웹2'}}]);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',role:'owner',user_id:'user-1'}]);
@@ -27,7 +22,13 @@ async function installMock(page){
 
 test('authenticated board mirrors Web1 business pages and excludes library and press',async({page})=>{
   await installMock(page);
-  await page.goto('http://127.0.0.1:8123/app/?view=pages');
+  const target='http://127.0.0.1:8123/app/?view=pages';
+  await page.goto('http://127.0.0.1:8123/app/login/?return='+encodeURIComponent(target));
+  await page.locator('#emailAuthToggle').click();
+  await page.locator('#authEmail').fill('writer@example.org');
+  await page.locator('#authPassword').fill('password123');
+  await page.locator('#authSubmit').click();
+  await expect(page).toHaveURL(target,{timeout:10000});
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#newPageBtn')).toHaveCount(0);
