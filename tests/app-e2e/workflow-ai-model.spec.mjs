@@ -16,9 +16,12 @@ async function mockApp(page,state){
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     if(path==='/functions/v1/meeting-ai-ingest')return ok({ok:true,materials_text:'[토론회 자료]\n현황과 대응 방향',warnings:[],stt_enabled:false});
     if(path==='/functions/v1/meeting-ai-draft'){
-      const draft={decisions:'- 10월 대응안을 확정한다.',actions:[{task:'의원실에 최종안 전달',assignee:'일반 사용자',due:'2026-09-20'}],information:'- 정부 협의 경과를 공유했다.'};
+      const variant=String(body?.transcript_text||'').includes('변형 응답');
+      const draft=variant
+        ? {decisions:'- 변형 응답도 결정사항으로 보존한다.',actions:[{title:'변형 과제',owner:'일반 사용자',deadline:'2026-09-21'},'담당자 확인이 필요한 추가 과제'],info:'- 변형 키의 정보공유도 보존한다.'}
+        : {decisions:'- 10월 대응안을 확정한다.',actions:[{task:'의원실에 최종안 전달',assignee:'일반 사용자',due:'2026-09-20'}],information:'- 정부 협의 경과를 공유했다.'};
       const row=state.meetings.find(x=>x.id===body?.meeting_id);if(row)Object.assign(row,{ai_draft:draft,transcript_text:body?.transcript_text,result_status:'draft',ai_generated_at:now(),updated_at:now()});
-      return ok({ok:true,draft,warnings:[]});
+      return ok({ok:true,draft,warnings:variant?['응답 정규화 필요']:[]});
     }
     if(path==='/functions/v1/team-ai')return ok({answer:JSON.stringify({decisions:'- 10월 대응안을 확정한다.',actions:[{task:'의원실에 최종안 전달',assignee:'일반 사용자',due:'2026-09-20'}],information:'- 정부 협의 경과를 공유했다.'})});
     if(path.startsWith('/functions/v1/'))return ok({});
@@ -157,4 +160,30 @@ test('meeting AI draft is reviewed before finalization and project tasks only ta
   const aiTask=state.tasks.find(x=>x.source_type==='meeting'&&x.title==='의원실에 최종안 전달');
   expect(aiTask.project_id).toBe('child-1');
   expect(aiTask.title).toBe('의원실에 최종안 전달');
+});
+
+
+test('meeting AI draft keeps usable content when response keys vary',async({page})=>{
+  const state={
+    user:{id:'user-1',email:'member@example.org',user_metadata:{display_name:'일반 사용자'}},
+    workspace:{id:'workspace-1',slug:'team',name:'팀 Workspace'},
+    spaces:[{id:'child-1',workspace_id:'workspace-1',name:'세부 사업',description:'',parent_id:'main-1',status:'active',owner_id:'user-1',visibility:'team',metadata:{},sort_order:20}],
+    meetings:[{id:'meeting-1',workspace_id:'workspace-1',project_id:'child-1',title:'변형 응답 테스트 회의',meeting_at:now(),created_by:'user-1',decisions:'',notes:'',followups:[],result_status:'final'}],
+    tasks:[]
+  };
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/');
+  await signIn(page);
+  await page.locator('[data-view="meetings"]').click();
+  await page.locator('#meetingList article.item-card').first().click();
+  await page.locator('#mrdAiDraft').click();
+  await expect(page.locator('#wfMeetingAiModal')).toBeVisible();
+  await page.locator('#wfMeetingTranscript').fill('변형 응답 테스트용 회의록');
+  await page.locator('#wfMeetingGenerate').click();
+  await expect(page.locator('#wfMeetingDraft')).toBeVisible();
+  await expect(page.locator('#wfDraftDecisions')).toHaveValue(/변형 응답도 결정사항/);
+  await expect(page.locator('#wfDraftActions')).toHaveValue(/변형 과제 \| 일반 사용자 \| 2026-09-21/);
+  await expect(page.locator('#wfDraftActions')).toHaveValue(/담당자 확인이 필요한 추가 과제 \| \[확인 필요\] \| \[확인 필요\]/);
+  await expect(page.locator('#wfDraftInfo')).toHaveValue(/변형 키의 정보공유/);
+  await expect(page.locator('#wfMeetingAiStatus')).toContainText('초안을 만들었습니다');
 });
