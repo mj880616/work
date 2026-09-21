@@ -332,10 +332,9 @@ jobs:
           grep -q "workflow-ai-v3.js?v=6" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
-          grep -q "PB_TEMPLATES" app/page-builder.js
-          grep -q "page_design" app/page-builder.js
+          grep -q "위험업무 2인1조 법제화" app/web1-board.js
+          grep -q "산별전환 업무 현황" app/web1-board.js
           grep -q "완료된 할 일" app/task-layout.js
-          grep -q "바로가기" app/page-shortcut.js
           if grep -q "task-title-ui.js\|project-create-submit.js\|task-personal-due.js" app/loader-v2.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
       - name: Static HTTP smoke test
@@ -346,7 +345,7 @@ jobs:
           sleep 1
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js app/public-workspace.js \
-            app/page-builder.js app/page-builder.css app/page-list-controller.js app/page-save-controller.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js app/page-core.css app/compact-list.css \
+            app/web1-board.js app/web1-board.css app/page-core.css app/compact-list.css \
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css app/notification-center-ui.js app/notification-center-ui.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
