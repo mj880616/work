@@ -7,10 +7,19 @@ const visibilityLabel={public:'공개',unlisted:'링크 공개',workspace:'내�
 const phaseLabel={preparation:'준비',in_progress:'진행',consultation:'협의',execution:'실행',follow_up:'후속',done:'종료'};
 const typeLabel={ongoing:'상시사업',campaign:'의제사업',event:'행사',knowledge:'자료'};
 function projectName(id){return spaces.find(x=>x.id===id)?.name||''}
+function projectSearchText(id){
+  const names=[],seen=new Set();
+  let current=spaces.find(x=>x.id===id);
+  while(current&&!seen.has(current.id)){
+    seen.add(current.id);names.push(current.name||'');
+    current=current.parent_id?spaces.find(x=>x.id===current.parent_id):null;
+  }
+  return names.join(' ');
+}
 function visibleRows(){
   const q=(document.querySelector('#pageSearch')?.value||'').trim().toLowerCase();
   const filter=document.querySelector('#pageFilter')?.value||'all';
-  return pages.filter(p=>!p.metadata?.web1_trial_import&&!String(p.slug||'').startsWith('media-')&&(filter==='all'||p.status===filter)&&(!q||`${p.title||''} ${p.summary||''} ${projectName(p.space_id)}`.toLowerCase().includes(q)));
+  return pages.filter(p=>!p.metadata?.web1_trial_import&&!String(p.slug||'').startsWith('media-')&&(filter==='all'||p.status===filter)&&(!q||`${p.title||''} ${p.summary||''} ${projectSearchText(p.space_id)}`.toLowerCase().includes(q)));
 }
 function pageCard(p){
   const project=projectName(p.space_id);
