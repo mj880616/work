@@ -12,20 +12,33 @@ test('shell has a single visible Web2 brand and no duplicate workspace heading',
   expect(html).not.toContain('id="workspaceName"');
 });
 
+test('authenticated session exposes a non-sensitive startup shell before workspace membership resolves', async () => {
+  const html=read('app/index.html');
+  expect(html).toContain('id="bootView"');
+  expect(html).toContain('업무 공간을 확인하고 있습니다.');
+  const loader=read('app/loader-v2.js');
+  expect(loader.indexOf("document.querySelector('#bootView')")).toBeLessThan(loader.indexOf("workspacePrefetchStart"));
+  expect(loader).toContain("mark('authenticatedShellVisible')");
+  expect(loader).toContain("mark('membershipCheckStart')");
+  expect(loader).toContain("mark('membershipCheckComplete')");
+  const team=read('app/team.js');
+  expect(team).toContain("'authView','bootstrapView','appView','bootView'");
+});
+
 test('startup assets are discovered from the document head without changing auth gates', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=68" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=68" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=69" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=69" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=180','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
-    './calendar-return-bridge.js?v=2','./team.js?v=29','./home-dashboard-v2.js?v=7'
+    './loader-v2.js?v=181','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './calendar-return-bridge.js?v=2','./team.js?v=30','./home-dashboard-v2.js?v=7'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=180')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=181')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
-  expect(loader).toContain("import('./team.js?v=29')");
+  expect(loader).toContain("import('./team.js?v=30')");
   expect(loader).toContain("import('./google-tasks.js?v=5')");
   expect(loader).toContain("if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return");
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
