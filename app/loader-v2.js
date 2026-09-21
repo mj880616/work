@@ -93,16 +93,8 @@
     await import('./task-layout.js?v=9'); await window.__KPTU_TASK_LAYOUT_READY__;
     await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=9')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
-    await import('./page-list-controller.js?v=6'); await window.__KPTU_PAGE_LIST_READY__;
-    await import('./page-save-controller.js?v=4'); await window.__KPTU_PAGE_SAVE_READY__;
-    const loadPageBuilder=async detail=>{window.removeEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);await import('./page-builder.js?v=3');await window.__KPTU_PAGE_BUILDER_READY__;await window.KPTUPageBuilder?.open?.(detail||{})};
-    const lazyPageBuilderOpen=e=>loadPageBuilder(e.detail).catch(showFeatureError);
-    window.addEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);
-    await import('./page-shortcut.js?v=2'); await window.__KPTU_PAGE_SHORTCUT_READY__;
-    await import('./page-management.js?v=4'); await window.__KPTU_PAGE_MANAGEMENT_READY__;
     await import('./web1-board.js?v=1');
-    await import('./media-workflow.js?v=2');
-    await import('./page-inline-viewer-v2.js?v=4'); await window.__KPTU_PAGE_INLINE_VIEWER_READY__; await window.__KPTU_MEDIA_WORKFLOW_READY__;
+    await import('./media-workflow.js?v=2'); await window.__KPTU_MEDIA_WORKFLOW_READY__;
     await import('./meeting-round-detail.js?v=9'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
