@@ -154,3 +154,15 @@
   #projectsView>.section-head{flex-direction:column;align-items:stretch}
   .ps3-project-toolbar{justify-content:flex-end}
 }
+
+.ps3-type-control{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:end}
+.ps3-type-control select{min-width:0}
+.ps3-type-list{display:grid;gap:2px;max-height:260px;overflow:auto;margin-bottom:var(--kptu-space-3)}
+.ps3-type-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--kptu-border)}
+.ps3-type-row:last-child{border-bottom:0}
+.ps3-type-row b{display:block;font-size:11px}
+.ps3-type-row small{display:block;margin-top:2px;color:var(--kptu-muted);font-size:9.5px}
+@media(max-width:760px){
+  .ps3-type-control{grid-template-columns:1fr}
+  .ps3-type-control .mini{justify-self:start}
+}

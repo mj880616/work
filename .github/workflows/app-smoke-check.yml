@@ -100,7 +100,7 @@ jobs:
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
           grep -q "critical.css?v=1" app/index.html
-          grep -q "styles.css?v=33" app/loader-v2.js
+          grep -q "styles.css?v=34" app/loader-v2.js
           grep -q "ensureFeatureStyles" app/loader-v2.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
@@ -113,7 +113,7 @@ jobs:
           grep -q "home-dashboard-v2.js?v=7" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
           grep -q "team.js?v=29" app/loader-v2.js
-          grep -q "project-system-v3.js?v=11" app/loader-v2.js
+          grep -q "project-system-v3.js?v=12" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
           grep -q "task-row-view.js?v=1" app/loader-v2.js
@@ -163,7 +163,7 @@ jobs:
           grep -q "calendar-ui.css?v=2" app/styles.css
           grep -q "page-core.css?v=7" app/styles.css
           grep -q "page-builder.css?v=2" app/styles.css
-          grep -q "project-system-v3.css?v=9" app/styles.css
+          grep -q "project-system-v3.css?v=10" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -q ".top-actions #logoutBtn" app/topbar-actions.css
