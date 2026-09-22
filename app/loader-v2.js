@@ -94,7 +94,7 @@
     await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=9')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
     await import('./web1-board.js?v=1');
-    await import('./web1-press.js?v=1'); await window.__KPTU_WEB1_PRESS_READY__;
+    await import('./web1-press.js?v=2'); await window.__KPTU_WEB1_PRESS_READY__;
     await import('./meeting-round-detail.js?v=9'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
