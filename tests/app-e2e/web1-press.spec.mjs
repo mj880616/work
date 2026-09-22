@@ -31,12 +31,18 @@ async function signIn(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 test('Web2 media tab reuses the self-hosted Web1 press archive without drafting workflow controls',async({page})=>{
-  await mockApp(page);await signIn(page);
+  await mockApp(page);
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({
+    status:200,
+    contentType:'text/html; charset=utf-8',
+    body:'<!doctype html><html><head><title>원본 보도자료</title></head><body><main id="rawPressBody">원본 보도자료 본문</main></body></html>'
+  }));
+  await signIn(page);
   await page.locator('.app-nav [data-view="media"]').click();
   await expect(page.locator('#mediaView')).toBeVisible();
   await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(37);
   await expect(page.locator('#mediaView')).toContainText('공공기관 인력감축 없다더니');
-  await expect(page.locator('#newMediaCaseBtn,#mediaCaseList,#mediaStatusFilter')).toHaveCount(0);
+  await expect(page.locator('#newMediaCaseBtn,#mediaCaseList,#mediaStatusFilter,#pressArchiveSource')).toHaveCount(0);
   await expect(page.locator('#mediaView')).not.toContainText('사건 팩트시트');
   await expect(page.locator('#mediaView')).not.toContainText('배포 전 QA');
 
@@ -52,7 +58,9 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await page.locator('#pressSearch').fill('');
   await page.locator('#pressArchiveList .w1p-item').first().click();
   await expect(page.locator('#pressDetailModal')).toBeVisible();
-  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('src','https://work.bokdoong.com/work/workforce/press-conference-0914/press-release/');
+  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/원본 보도자료 본문/);
+  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/https:\/\/work\.bokdoong\.com\/work\/workforce\/press-conference-0914\/press-release\//);
+  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('sandbox',/allow-scripts/);
   await page.locator('[data-close-press]').click();
   await expect(page.locator('#pressDetailModal')).toHaveClass(/hidden/);
 });

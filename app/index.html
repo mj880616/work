@@ -17,13 +17,13 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=9">
 <link rel="preload" as="style" href="./desktop-ui.css?v=7">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=187">
+<link rel="modulepreload" href="./loader-v2.js?v=188">
 <link rel="modulepreload" href="./runtime-client.js?v=3">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=4">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=2">
 <link rel="modulepreload" href="./team.js?v=32">
 <link rel="modulepreload" href="./home-dashboard-v2.js?v=7">
-<script src="./app.js?v=75" defer></script>
+<script src="./app.js?v=76" defer></script>
 </head>
 <body>
 <div class="shell">
@@ -111,7 +111,7 @@
   </section>
 
   <section id="mediaView" class="view-panel hidden">
-    <div class="section-head"><div><h2>성명·보도자료</h2><p>Web1에 보존한 성명·보도자료·취재요청을 날짜순으로 확인합니다.</p></div><button id="pressArchiveSource" class="secondary w1p-source" type="button">Web1 원본 목록 ↗</button></div>
+    <div class="section-head"><div><h2>성명·보도자료</h2><p>Web1에 보존한 성명·보도자료·취재요청을 날짜순으로 확인합니다.</p></div></div>
     <p class="w1p-intro">자료실과 분리된 언론자료 아카이브입니다. 제목·날짜·발행주체·본문은 Web1의 자체 보존본을 기준으로 표시합니다.</p>
     <div class="w1p-tools"><label class="a11y-only" for="pressSearch">언론자료 검색</label><input id="pressSearch" class="search" type="search" placeholder="제목·발행주체 검색"><div class="w1p-filters" aria-label="자료 유형"><button class="w1p-filter active" data-press-type="all" type="button">전체</button><button class="w1p-filter" data-press-type="statement" type="button">성명</button><button class="w1p-filter" data-press-type="release" type="button">보도자료</button><button class="w1p-filter" data-press-type="request" type="button">취재요청</button></div></div>
     <div id="pressArchiveList"></div><div id="pressArchiveEmpty" class="empty hidden">조건에 맞는 자료가 없습니다.</div>
@@ -155,7 +155,7 @@
 
 <div id="meetingModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="meetingModalTitle"><div class="modal-card medium-card"><div class="modal-head"><div><div class="eyebrow">MEETING NOTE</div><h2 id="meetingModalTitle">회의 결과</h2></div><button class="icon-btn" data-close="meetingModal" type="button" aria-label="닫기">×</button></div><label>회의명<input id="meetingTitle" type="text"></label><div class="two-col"><label>일시<input id="meetingAt" type="datetime-local"></label><label>프로젝트<select id="meetingProject"></select></label></div><div id="meetingRoundFields" class="two-col"><label>정기회의·회의 구분<input id="meetingSeriesName" type="text" placeholder="예: 궤도협의회 집행위원회"></label><label>차수<input id="meetingRoundNo" type="number" min="1" placeholder="예: 8"></label></div><div class="meeting-raw-input"><label>회의 원문<textarea id="meetingTranscript" rows="9" placeholder="회의 메모·통화 녹취 정리·회의록을 형식 없이 그대로 붙여넣으세요."></textarea></label><button id="meetingAutoClassify" class="secondary wide" type="button">AI 자동 정리</button><div id="meetingAutoClassifyStatus" class="status"></div><p class="muted">원문은 그대로 보존되며, 아래 3개 영역으로 자동 분류한 뒤 직접 검수·수정할 수 있습니다.</p></div><label>논의 내용<textarea id="meetingNotes" rows="6"></textarea></label><label>결정사항·역할분담<textarea id="meetingDecisions" rows="6"></textarea></label><div id="meetingMaterialsBlock" class="meeting-materials-block"><label>회의자료 <span>(여러 파일 가능)</span><input id="meetingFiles" type="file" multiple></label><p>회의를 저장하면 파일이 해당 회차에 연결되고 자료실에도 한 번만 등록됩니다.</p></div><div class="action-box"><div class="meeting-action-head"><div><b>역할분담 · 후속 할 일</b><p>회의결과에서 팀원별 업무를 배정하면 각자의 할 일에 자동 등록됩니다.</p></div><button id="addMeetingAction" class="secondary" type="button">+ 역할 추가</button></div><div id="meetingActionList"></div></div><button id="saveMeetingBtn" class="primary wide" type="button">회의 결과 저장</button><div id="meetingStatus" class="status"></div></div></div>
 
-<div id="pressDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pressDetailTitle"><div class="modal-card w1p-detail-card"><div class="modal-head w1p-detail-head"><h2 id="pressDetailTitle">성명·보도자료</h2><button class="icon-btn" data-close-press type="button" aria-label="닫기">×</button></div><iframe id="pressDetailFrame" class="w1p-detail-frame" src="about:blank" title="성명·보도자료 본문" loading="lazy"></iframe></div></div>
+<div id="pressDetailModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pressDetailTitle"><div class="modal-card w1p-detail-card"><div class="modal-head w1p-detail-head"><h2 id="pressDetailTitle">성명·보도자료</h2><button class="icon-btn" data-close-press type="button" aria-label="닫기">×</button></div><iframe id="pressDetailFrame" class="w1p-detail-frame" src="about:blank" title="성명·보도자료 본문" loading="lazy" sandbox="allow-scripts allow-popups allow-forms allow-downloads"></iframe></div></div>
 
 <div id="editorModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="editorHeading"><div class="modal-card editor-card"><div class="modal-head"><div><div class="eyebrow">PAGE EDITOR</div><h2 id="editorHeading">새 페이지</h2></div><button class="icon-btn" data-close="editorModal" type="button" aria-label="닫기">×</button></div><div class="editor-grid"><div class="editor-main"><label>제목<input id="pageTitle" type="text" maxlength="160"></label><label>요약<textarea id="pageSummary" rows="2" maxlength="500"></textarea></label><label>본문<textarea id="pageBody" class="body-editor" rows="18" placeholder="현장에 공유할 내용을 입력합니다."></textarea></label></div><aside class="editor-side"><label>프로젝트<select id="pageSpace"></select></label><label>URL 슬러그<input id="pageSlug" type="text" pattern="[a-z0-9-]+"></label><label>게시 상태<select id="pageStatus"><option value="draft">초안</option><option value="review">검토중</option><option value="published">게시</option><option value="archived">보관</option></select></label><label>공개 범위<select id="pageVisibility"><option value="public">전체 공개</option><option value="unlisted">링크 공개</option><option value="workspace">로그인 사용자</option><option value="groups">지정 그룹</option><option value="private">비공개</option></select></label><div class="side-actions"><a id="publicOpenBtn" class="secondary link-button hidden" target="_blank" rel="noopener">게시 페이지 열기</a></div><div class="revision-box"><b>수정 이력</b><div id="revisionList" class="revision-list"></div></aside></div><div class="modal-foot"><div id="editorStatus" class="status"></div><div><button class="ghost" data-close="editorModal" type="button">취소</button><button id="savePageBtn" class="primary" type="button">저장</button></div></div></div></div>
 
