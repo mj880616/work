@@ -66,7 +66,7 @@
   const context=window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
   startup?.mark('routeResolved',{route:'authenticated'});
-  const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=4');
+  const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=4').catch(err=>{console.error('mobile navigation load failed',err);return null});
   let featureStylesPromise=null;
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
@@ -126,7 +126,7 @@
   startup?.mark('homeRendererStart');
   await import('./home-dashboard-v2.js?v=7');
   startup?.mark('homeRendererReady');
-  const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady]);
+  const homeResult=await window.__KPTU_HOME_READY__;
 
   const requested=new URLSearchParams(location.search).get('view');
   if(requested&&requested!=='home')await loadFeatures();
