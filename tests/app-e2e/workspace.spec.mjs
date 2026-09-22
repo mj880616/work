@@ -23,8 +23,14 @@ async function installSupabaseMock(page, state) {
     if (path === '/auth/v1/logout') return ok({});
 
     if (path === '/functions/v1/google-calendar') {
-      if (url.searchParams.get('action') === 'events') return ok({ events: [], eventColors: {} });
-      return ok({ connected: false, enabled: false, selected: [], calendars: [], colors: {} });
+      const action=url.searchParams.get('action');
+      if (method==='POST' && body?.action==='create-event') {
+        const row={id:`google-${(state.googleEvents||[]).length+1}`,title:body.title,start:body.start_iso,end:body.end_iso,calendarId:body.calendar_id||'primary',source:'google'};
+        state.googleEvents=(state.googleEvents||[]).concat(row);
+        return ok({ok:true,event:row});
+      }
+      if (action === 'events') return ok({ events: state.googleEvents||[], eventColors: {} });
+      return ok({ connected: true, enabled: true, selected: ['primary'], calendars: [{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}], colors: {} });
     }
     if (path.startsWith('/functions/v1/')) return ok({});
 
@@ -165,7 +171,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
     ],
     spaces: [{ id: 'space-1', workspace_id: 'workspace-1', name: '기존 프로젝트', parent_id: null, status: 'active', owner_id: 'user-1', visibility: 'team', sort_order: 10, created_at: now() }],
     pages: [{ id: 'page-1', workspace_id: 'workspace-1', space_id: 'space-1', slug: 'e2e-page', title: 'E2E 게시글', summary: '공개 게시글', visibility: 'public', status: 'published', owner_id: 'user-1', published_at: now(), created_at: now(), updated_at: now() }],
-    events: [], tasks: [], meetings: [], documents: [], directMessages: [],
+    events: [], googleEvents: [], tasks: [], meetings: [], documents: [], directMessages: [],
     projectInvites: [{ id: 'invite-1', project_id: 'space-1', user_id: 'user-1', role: 'edit', status: 'pending', created_at: now() }],
     notifications: [{ id: 'notif-1', user_id: 'user-1', kind: 'project_invite', related_id: 'invite-1', title: '프로젝트 초대', body: '기존 프로젝트에 초대되었습니다.', created_at: now(), read_at: null }]
   };
@@ -187,8 +193,9 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('E2E 일정');
   await page.locator('#eventStart').fill('2026-09-14T10:00');
+  await page.locator('#eventEnd').fill('2026-09-14T11:00');
   await page.locator('#saveEventBtn').click();
-  await expect.poll(() => state.events.length).toBe(1);
+  await expect.poll(() => state.googleEvents.length).toBe(1);
 
   await page.locator('[data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();
