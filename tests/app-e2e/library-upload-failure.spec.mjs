@@ -55,3 +55,18 @@ test('revoked Google Drive token starts reconnect through the canonical function
   await expect(page).toHaveURL(/#drive-auth$/);
   await expect(page.locator('[data-lu-document="doc-1"]')).toBeVisible();
 });
+
+
+test('mobile library upload opens the native file picker from the visible tap target',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  const zone=page.locator('#libraryDropzone');
+  await expect(zone).toBeVisible();
+  await expect(zone.locator('.library-picker-mobile')).toBeVisible();
+  await expect(zone.locator('.library-picker-desktop')).toBeHidden();
+  const chooser=page.waitForEvent('filechooser');
+  await zone.click();
+  const fileChooser=await chooser;
+  await fileChooser.setFiles({name:'mobile-upload.pdf',mimeType:'application/pdf',buffer:Buffer.from('pdf')});
+  await expect(page.locator('#librarySelectedFile')).toHaveText('mobile-upload.pdf');
+});
