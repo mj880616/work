@@ -3,12 +3,24 @@
 if(window.KPTUWeb1Press)return;
 const ARCHIVE=new URL('../press/archive.json',location.href).href;
 const WEB1='https://work.bokdoong.com/work/press/';
+const RAW='https://raw.githubusercontent.com/mj880616/work/main/';
 const typeLabel={statement:'성명',release:'보도자료',request:'취재요청'};
 let items=[],type='all',loaded=false,bound=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const el=id=>document.getElementById(id);
 function internalUrl(href){
   return new URL(href,WEB1).href;
+}
+function repoPath(href){
+  const u=new URL(internalUrl(href));
+  let p=u.pathname.replace(/^\/work\//,'');
+  if(p.endsWith('/'))p+='index.html';
+  return p;
+}
+function sourceUrl(href){return RAW+repoPath(href)}
+function withBase(html,href){
+  const base='<base href="'+internalUrl(href).replace(/"/g,'&quot;')+'">';
+  return /<head[^>]*>/i.test(html)?html.replace(/<head([^>]*)>/i,'<head$1>'+base):base+html;
 }
 function filtered(){
   const q=(el('pressSearch')?.value||'').trim().toLowerCase();
@@ -31,15 +43,24 @@ function render(){
 }
 function closeDetail(){
   const modal=el('pressDetailModal'),frame=el('pressDetailFrame');if(!modal)return;
-  modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');if(frame)frame.src='about:blank';
+  modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');
+  if(frame){frame.removeAttribute('srcdoc');frame.src='about:blank'}
 }
-function openDetail(href,title){
+async function openDetail(href,title){
   const modal=el('pressDetailModal'),frame=el('pressDetailFrame'),heading=el('pressDetailTitle');if(!modal||!frame)return;
   if(heading)heading.textContent=title||'성명·보도자료';
   frame.title=(title||'성명·보도자료')+' 본문';
-  frame.src=internalUrl(href);
+  frame.removeAttribute('srcdoc');frame.src='about:blank';
   modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
   modal.querySelector('[data-close-press]')?.focus();
+  try{
+    const r=await fetch(sourceUrl(href),{cache:'no-store'});
+    if(!r.ok)throw new Error('본문을 불러오지 못했습니다.');
+    frame.srcdoc=withBase(await r.text(),href);
+  }catch(e){
+    frame.srcdoc='<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;padding:24px;color:#26323d}p{line-height:1.6}</style><p>본문을 불러오지 못했습니다.</p>';
+    console.error('press detail load',e);
+  }
 }
 function bind(){
   if(bound)return;bound=true;
