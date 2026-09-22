@@ -47,15 +47,17 @@ jobs:
           test -f app/suborganizations.css
           test -f app/suborganization-filters.css
           test ! -f app/suborganization-planned-assignee.js
-          grep -q "suborganizations.js?v=3" app/loader-v2.js
+          grep -q "suborganizations.js?v=4" app/loader-v2.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/loader-v2.js
-          grep -q "suborganization-filters.js?v=4" app/loader-v2.js
+          grep -q "suborganization-filters.js?v=5" app/loader-v2.js
           grep -q "__KPTU_SUBORGANIZATION_FILTERS_READY__" app/loader-v2.js
-          grep -q "suborganizations.css?v=3" app/styles.css
-          grep -q "suborganization-filters.css?v=2" app/styles.css
+          grep -q "suborganizations.css?v=4" app/styles.css
+          grep -q "suborganization-filters.css?v=3" app/styles.css
           grep -q "default_assignee_name" app/suborganizations.js
-          grep -q "계정 연결 전" app/suborganizations.js
           grep -q "sofEditType" app/suborganizations.js
+          grep -q "<h3>담당조직</h3>" app/suborganizations.js
+          grep -q "const mine=myOrganizations()" app/suborganizations.js
+          grep -q "id=\"wdDeleteOrg\"" app/workplace-detail.js
           if grep -q "MutationObserver" app/suborganizations.js app/suborganization-filters.js app/profile-workplace-sync.js; then
             echo 'suborganization UI returned to DOM mutation polling'; exit 1
           fi
