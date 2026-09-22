@@ -112,6 +112,9 @@ test('selected view survives refresh and page cards open inside the 게시판 ta
   await expect(page.locator('#web1BoardActive')).toContainText('산별전환 업무 현황');
   await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');
   await expect(page.locator('#web1BoardActive')).not.toContainText('자료실');
-  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('href',/^https:\/\/work\.bokdoong\.com\//);
+  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);
+  await page.locator('#web1BoardActive .w1b-card').first().click();
+  await expect(page.locator('#web1BoardDetailModal')).toBeVisible();
+  await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page).toHaveURL(/view=pages/);
 });
