@@ -41,7 +41,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await expect(page.locator('#mediaView')).not.toContainText('배포 전 QA');
 
   await page.locator('[data-press-type="statement"]').click();
-  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(14);
+  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(13);
   await expect(page.locator('#pressArchiveList')).toContainText('민자철도는 실패했다');
   await expect(page.locator('#pressArchiveList')).not.toContainText('청년일자리 늘린다더니');
 
