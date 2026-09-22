@@ -4,7 +4,7 @@
   const runtimeReady=import('./runtime-client.js?v=3');
   await Promise.all([
     import('./native-auth-bridge.js?v=4'),
-    import('./calendar-return-bridge.js?v=2')
+    import('./calendar-return-bridge.js?v=3')
   ]);
   if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return;
   await runtimeReady;

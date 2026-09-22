@@ -1,10 +1,10 @@
 const params=new URLSearchParams(location.search);
 const googleResult=params.get('google');
 const isCalendarReturn=['connected','error','denied'].includes(googleResult||'');
-const isAndroid=/Android/i.test(navigator.userAgent);
+const nativeAndroid=params.get('native')==='android';
 const isKptuApp=/KPTUAndroid/i.test(navigator.userAgent);
 
-if(isCalendarReturn&&isAndroid&&!isKptuApp){
+if(isCalendarReturn&&nativeAndroid&&!isKptuApp){
   window.__KPTU_CALENDAR_BRIDGE__=true;
   const reason=params.get('reason')||'';
   const q=new URLSearchParams({google:googleResult||'error'});
