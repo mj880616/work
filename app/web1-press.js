@@ -19,12 +19,12 @@ function render(){
   const rows=filtered(),years=[...new Set(rows.map(x=>x.year))].sort((a,b)=>b-a);
   host.innerHTML=years.map(year=>{
     const list=rows.filter(x=>x.year===year);
-    return '<section class="w1p-year"><h3>'+esc(year)+'</h3><div class="w1p-list">'+list.map(x=>
+    return '<section class="w1p-year"><h3>'+esc(year)+'</h3><div class="w1p-table"><div class="w1p-head" aria-hidden="true"><span>날짜</span><span>구분</span><span>제목</span><span>발행</span></div><div class="w1p-list">'+list.map(x=>
       '<button class="w1p-item" type="button" data-press-href="'+esc(x.href)+'" data-press-title="'+esc(x.title)+'">'+
       '<span class="w1p-date">'+esc(x.display_date)+'</span>'+
       '<span class="w1p-tag '+esc(x.type)+'">'+esc(typeLabel[x.type]||x.type_label)+'</span>'+
-      '<span class="w1p-copy"><strong>'+esc(x.title)+'</strong><small>'+esc(x.publisher)+'</small></span></button>'
-    ).join('')+'</div></section>';
+      '<span class="w1p-title">'+esc(x.title)+'</span><span class="w1p-publisher">'+esc(x.publisher)+'</span></button>'
+     ).join('')+'</div></div></section>';
   }).join('');
   empty?.classList.toggle('hidden',rows.length>0);
   el('mediaView')?.setAttribute('data-press-ready','1');
