@@ -40,7 +40,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await signIn(page);
   await page.locator('.app-nav [data-view="media"]').click();
   await expect(page.locator('#mediaView')).toBeVisible();
-  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(37);
+  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(38);
   await expect(page.locator('#mediaView')).toContainText('공공기관 인력감축 없다더니');
   await expect(page.locator('#newMediaCaseBtn,#mediaCaseList,#mediaStatusFilter,#pressArchiveSource')).toHaveCount(0);
   await expect(page.locator('#mediaView')).not.toContainText('사건 팩트시트');
