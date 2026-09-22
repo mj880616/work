@@ -133,11 +133,12 @@
       await Promise.all([
         import('./password-reset.js?v=2'),
         import('./calendar-health.js?v=3'),
-        import('./notification-center-ui.js?v=6').then(()=>window.__KPTU_NOTIFICATION_CENTER_READY__),
         import('./push-notifications-ui.js?v=4'),
         import('./mobile-modal-history.js?v=1'),
         mobileNavigationReady
       ]);
+      await import('./notification-center-ui.js?v=6');
+      await window.__KPTU_NOTIFICATION_CENTER_READY__;
       startup?.mark('backgroundModulesComplete');
       Promise.all([import('./workplace-ai-report.js?v=2'),import('./workflow-ai-v3.js?v=6')]).catch(showFeatureError);
     })().catch(err=>{routePromises.delete('__background__');showFeatureError(err);throw err});
