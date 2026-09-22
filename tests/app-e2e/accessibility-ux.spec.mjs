@@ -36,7 +36,7 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveG
     if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'접근성 QA',job_title:'국장'}]);
     if(path==='/rest/v1/app_tasks')return ok(tasks);
     if(path==='/rest/v1/app_suborganizations')return req.method()==='GET'?ok(orgs):ok([]);
-    if(path==='/rest/v1/app_suborganization_assignees')return ok([]);
+    if(path==='/rest/v1/app_suborganization_assignees')return ok([{organization_id:'a11y-org-1',user_id:user.id,assigned_by:user.id,created_at:'2026-09-17T00:00:00Z'}]);
     if(path==='/rest/v1/app_events'&&req.method()==='POST'){
       if(eventSaveGate)await eventSaveGate;
       if(failEventSave)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'일정 저장 실패'})});
@@ -225,14 +225,16 @@ test('failed save releases busy state and announces the error',async({page})=>{
   await expect(save).not.toHaveAttribute('aria-busy','true');
 });
 
-test('suborganization toolbar and destructive actions expose clear names',async({page})=>{
+test('assigned organization toolbar and compact rows expose clear names',async({page})=>{
   await boot(page,{width:1024,height:768});
   await page.locator('.app-nav [data-view="team"]').click();
-  await expect(page.locator('label[for="sofSearch"]')).toHaveText('산하조직 검색');
-  await expect(page.locator('label[for="sofAssignee"]')).toHaveText('담당자 필터');
+  await expect(page.locator('label[for="sofSearch"]')).toHaveText('담당조직 검색');
+  await expect(page.locator('#sofAssignee,#sofMine,#sofUnassigned')).toHaveCount(0);
   await expect(page.locator('label[for="sofCouncil"]')).toHaveText('협의회 필터');
   await expect(page.locator('label[for="sofType"]')).toHaveText('조직유형 필터');
-  await expect(page.locator('[data-so-delete="a11y-org-1"]')).toHaveAttribute('aria-label','철도노조 삭제');
+  const row=page.locator('[data-so-org="a11y-org-1"]');
+  await expect(row).toHaveAttribute('aria-label','철도노조 상세 열기');
+  await expect(row.locator('[data-so-delete],[data-so-edit],[data-so-assign]')).toHaveCount(0);
 });
 
 test('suborganization edit dialog exposes semantics, Escape close, and trigger restore',async({page})=>{
