@@ -86,7 +86,7 @@ test('library toolbar and Web1 board expose accessible navigation',async({page})
   await expect(page.locator('label[for="documentProject"]')).toHaveCount(1);
   await page.locator('.app-nav [data-view="pages"]').click();
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
-  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('href',/^https:\/\/work\.bokdoong\.com\//);
+  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);
 });
 
 test('project creation dialog exposes semantics, keyboard close, and trigger restore',async({page})=>{
