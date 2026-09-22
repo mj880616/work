@@ -40,9 +40,17 @@ test('authenticated board mirrors Web1 business pages and excludes library and p
   await expect(page.locator('#web1BoardActive')).not.toContainText('자료실');
   await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');
   await expect(page.locator('#web1BoardArchived')).toContainText('산별전환 업무 현황');
-  const hrefs=await page.locator('#pagesView .w1b-card').evaluateAll(nodes=>nodes.map(x=>x.href));
-  expect(hrefs).toContain('https://work.bokdoong.com/work/2in1/');
-  expect(hrefs).toContain('https://work.bokdoong.com/work/workforce/');
-  expect(hrefs).not.toContain('https://work.bokdoong.com/public-policy/');
-  expect(hrefs).not.toContain('https://work.bokdoong.com/press/');
+  await expect(page.locator('#pagesView .w1b-card')).toHaveCount(5);
+  const cards=await page.locator('#pagesView .w1b-card').evaluateAll(nodes=>nodes.map(x=>x.dataset.web1BoardHref));
+  expect(cards).toContain('https://work.bokdoong.com/work/2in1/');
+  expect(cards).toContain('https://work.bokdoong.com/work/workforce/');
+  expect(cards).not.toContain('https://work.bokdoong.com/public-policy/');
+  expect(cards).not.toContain('https://work.bokdoong.com/press/');
+
+  await page.locator('#web1BoardActive .w1b-card').first().click();
+  await expect(page.locator('#web1BoardDetailModal')).toBeVisible();
+  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('src','https://work.bokdoong.com/work/2in1/');
+  await expect(page.locator('#pagesView')).toBeVisible();
+  await page.locator('[data-close-web1-board]').click();
+  await expect(page.locator('#web1BoardDetailModal')).toHaveClass(/hidden/);
 });
