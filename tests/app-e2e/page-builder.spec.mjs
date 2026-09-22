@@ -41,8 +41,8 @@ test('authenticated board mirrors Web1 business pages and excludes library and p
   await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');
   await expect(page.locator('#web1BoardArchived')).toContainText('산별전환 업무 현황');
   const hrefs=await page.locator('#pagesView .w1b-card').evaluateAll(nodes=>nodes.map(x=>x.href));
-  expect(hrefs).toContain('https://work.bokdoong.com/2in1/');
-  expect(hrefs).toContain('https://work.bokdoong.com/workforce/');
+  expect(hrefs).toContain('https://work.bokdoong.com/work/2in1/');
+  expect(hrefs).toContain('https://work.bokdoong.com/work/workforce/');
   expect(hrefs).not.toContain('https://work.bokdoong.com/public-policy/');
   expect(hrefs).not.toContain('https://work.bokdoong.com/press/');
 });
