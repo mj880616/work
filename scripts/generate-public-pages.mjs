@@ -38,11 +38,13 @@ for(const slug of custom){
   }
   const rows=await response.json();
   const post=Array.isArray(rows)?rows[0]:null;
-  const page=post
-    ?{slug,title:post.title,summary:post.summary,visibility:post.indexable===false?'unlisted':'public',metadata:{page_design:post.page_design||{}}}
-    :{slug,title:'공유 게시글',summary:'',visibility:'private',metadata:{}};
   const file=path.join(ROOT,'p',slug,'index.html');
   const existing=await fs.readFile(file,'utf8');
+  if(!post){
+    console.log('public post missing for '+slug+'; preserved reviewed metadata shell');
+    continue;
+  }
+  const page={slug,title:post.title,summary:post.summary,visibility:post.indexable===false?'unlisted':'public',metadata:{page_design:post.page_design||{}}};
   const html=renderManagedShell(template,existing,page,{site:SITE,preserveExisting:true});
   if(html!==existing)await fs.writeFile(file,html,'utf8');
 }
