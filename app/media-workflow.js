@@ -52,9 +52,15 @@ async function refresh(){
   rows=await rt.api('/rest/v1/app_pages?workspace_id=eq.'+wid+'&slug=like.media-*&select=id,slug,title,summary,visibility,status,owner_id,created_at,updated_at&order=updated_at.desc');
   render();return true;
 }
+async function ensurePageSave(){
+  if(window.KPTUPageSave?.open)return window.KPTUPageSave;
+  await import('./page-save-controller.js?v=4');
+  await window.__KPTU_PAGE_SAVE_READY__;
+  return window.KPTUPageSave;
+}
 async function createCase(){
-  if(!window.KPTUPageSave?.open)return;
-  await window.KPTUPageSave.open(null);
+  const pageSave=await ensurePageSave();if(!pageSave?.open)return;
+  await pageSave.open(null);
   const title=el('pageTitle'),slug=el('pageSlug'),summary=el('pageSummary'),body=el('pageBody'),status=el('pageStatus'),visibility=el('pageVisibility');
   if(title)title.value='[언론대응] ';
   if(slug){slug.value=newSlug();slug.dispatchEvent(new Event('input',{bubbles:true}))}
@@ -64,7 +70,7 @@ async function createCase(){
   if(visibility)visibility.value='workspace';
   title?.focus();
 }
-async function editCase(id){if(window.KPTUPageSave?.open)await window.KPTUPageSave.open(id)}
+async function editCase(id){const pageSave=await ensurePageSave();if(pageSave?.open)await pageSave.open(id)}
 function bind(){
   if(bound)return;bound=true;
   el('newMediaCaseBtn')?.addEventListener('click',createCase);
