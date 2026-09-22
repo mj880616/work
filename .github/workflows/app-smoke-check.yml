@@ -47,25 +47,26 @@ jobs:
           node <<'NODE'
           const fs=require('fs');
           const text=fs.readFileSync('app/loader-v2.js','utf8');
-          const keys=[
+          const required=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=32')",'await window.__KPTU_TEAM_READY__',
-            "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
-            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=9')",'await window.__KPTU_TASK_LAYOUT_READY__',
-            "import('./web1-board.js?v=1')",
-            "import('./meeting-round-detail.js?v=9')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
-            "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
-            "import('./calendar-plus.js?v=5')",'await window.__KPTU_CALENDAR_PLUS_READY__',
+            "const loadRoute=route=>",
+            "if(view==='tasks')","import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
+            "if(view==='calendar')","import('./calendar-plus.js?v=5')",'await window.__KPTU_CALENDAR_PLUS_READY__',
             "import('./calendar-persistence.js?v=10')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
-            "import('./calendar-interactions-v2.js?v=3')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
-            "import('./calendar-mobile-ui.js?v=3')",'await window.__KPTU_CALENDAR_MOBILE_UI_READY__',
-            "import('./calendar-day-overflow.js?v=2')",'await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',
-            'window.__KPTU_MARK_APP_UI_READY__?.()'
+            "if(view==='pages')","import('./web1-board.js?v=1')",
+            "if(view==='meetings')","import('./meeting-round-detail.js?v=9')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
+            "const requested=new URLSearchParams(location.search).get('view')||'home'",
+            "if(requested!=='home')await loadRoute(requested)",
+            "window.__KPTU_MARK_APP_UI_READY__?.({usable:homeResult?.ok===true,route:requested})"
           ];
-          const pos=keys.map(key=>text.indexOf(key));
-          const missing=keys.filter((_,i)=>pos[i]<0);
+          const missing=required.filter(key=>!text.includes(key));
           if(missing.length)throw new Error('missing authenticated readiness marker: '+missing.join(', '));
-          if(pos.some((value,i)=>i>0&&value<=pos[i-1]))throw new Error('authenticated readiness ordering is invalid: '+JSON.stringify(pos));
+          const sessionPos=text.indexOf('const authenticated=await window.KPTURuntime.session.ensure()');
+          const teamPos=text.indexOf("import('./team.js?v=32')");
+          const routePos=text.indexOf('const loadRoute=route=>');
+          const readyPos=text.indexOf("window.__KPTU_MARK_APP_UI_READY__?.({usable:homeResult?.ok===true,route:requested})");
+          if(!(sessionPos<teamPos&&teamPos<routePos&&routePos<readyPos))throw new Error('authenticated readiness ordering is invalid');
           const login=fs.readFileSync('app/login/index.html','utf8');
           if(login.includes('id="appView"'))throw new Error('dedicated login page must not contain workspace shell');
           NODE
