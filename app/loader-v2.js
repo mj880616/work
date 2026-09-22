@@ -71,7 +71,7 @@
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='./styles.css?v=38';link.dataset.kptuFeatureStyles='1';
+    link.rel='stylesheet';link.href='./styles.css?v=39';link.dataset.kptuFeatureStyles='1';
     link.onload=()=>resolve();link.onerror=()=>resolve();
     document.head.appendChild(link);
   }));
@@ -91,7 +91,7 @@
     await import('./task-workflow.js?v=6'); await window.__KPTU_TASK_WORKFLOW_READY__;
     await import('./task-row-view.js?v=1');
     await import('./task-layout.js?v=9'); await window.__KPTU_TASK_LAYOUT_READY__;
-    await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=9')]);
+    await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=4'),import('./library-upload.js?v=9')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
     await import('./web1-board.js?v=1');
     await import('./web1-press.js?v=2'); await window.__KPTU_WEB1_PRESS_READY__;
@@ -103,8 +103,8 @@
     await import('./calendar-interactions-v2.js?v=4'); await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
     await import('./calendar-mobile-ui.js?v=3'); await window.__KPTU_CALENDAR_MOBILE_UI_READY__;
     await import('./calendar-day-overflow.js?v=2'); await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__;
-    await import('./suborganizations.js?v=3'); await window.__KPTU_SUBORGANIZATIONS_READY__;
-    await import('./suborganization-filters.js?v=4'); await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
+    await import('./suborganizations.js?v=4'); await window.__KPTU_SUBORGANIZATIONS_READY__;
+    await import('./suborganization-filters.js?v=5'); await window.__KPTU_SUBORGANIZATION_FILTERS_READY__;
     await Promise.all([import('./google-tasks.js?v=6'),import('./push-notifications-ui.js?v=4'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
     featuresReady=true;
     startup?.mark('allInitialModulesComplete');
