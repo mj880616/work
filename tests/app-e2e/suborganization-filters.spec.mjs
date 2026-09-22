@@ -1,166 +1,100 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 const url='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-fixture.html';
 const canonical='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-canonical-fixture.html';
 
-async function open(page,suffix=''){await page.goto(url+suffix);await expect(page.locator('#sofToolbar')).toBeVisible();await expect(page.locator('#sofMine')).toBeChecked();await expect(page.locator('#sofStale')).toHaveCount(0);await expect(page.locator('#sofCount')).toHaveText('1 / 3개 조직')}
+async function open(page,suffix=''){
+  await page.goto(url+suffix);
+  await expect(page.locator('#sofToolbar')).toBeVisible();
+  await expect(page.locator('#sofMine,#sofAssignee,#sofUnassigned')).toHaveCount(0);
+  await expect(page.locator('#sofCount')).toHaveText('1개 담당조직');
+}
 const visibleNames=page=>page.locator('.so-card:not(.sof-hidden) h4').allTextContents();
 
-test('산하조직은 가나다순이고 검색·담당자·유형 필터가 동작한다',async({page})=>{
- await open(page);
- expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
- await page.locator('#sofMine').uncheck();
- expect(await visibleNames(page)).toEqual(['미지정조직미분류','전국철도노동조합철도·도시철도','한국소비자원지부중앙공공기관']);
- await page.locator('#sofSearch').fill('철도노조');
- expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
- await page.locator('#sofReset').click();
- await page.locator('#sofMine').uncheck();
- await page.locator('#sofAssignee').selectOption({label:'한소영'});
- expect(await visibleNames(page)).toEqual(['한국소비자원지부중앙공공기관']);
- await page.locator('#sofReset').click();
- await page.locator('#sofType').selectOption({label:'철도·도시철도'});
- expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
+test('담당조직 화면은 내 담당조직만 표시하고 검색·유형 필터가 동작한다',async({page})=>{
+  await open(page);
+  expect(await visibleNames(page)).toEqual(['전국철도노동조합']);
+  await page.locator('#sofSearch').fill('소비자원');
+  expect(await visibleNames(page)).toEqual([]);
+  await expect(page.locator('#sofNoResults')).toContainText('조건에 맞는 담당조직이 없습니다.');
+  await page.locator('#sofReset').click();
+  await page.locator('#sofType').selectOption({label:'철도·도시철도'});
+  expect(await visibleNames(page)).toEqual(['전국철도노동조합']);
 });
 
-test('협의회별 필터가 기존 협의회 태그 기준으로 동작한다',async({page})=>{
- await open(page);
- await page.locator('#sofCouncil').selectOption({label:'철도지하철협의회'});
- expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
- await page.locator('#sofReset').click();
- await page.locator('#sofMine').uncheck();
- await page.locator('#sofCouncil').selectOption({label:'경제사회단체협의회'});
- expect(await visibleNames(page)).toEqual(['한국소비자원지부중앙공공기관']);
+test('협의회 필터도 내 담당조직 범위 안에서만 동작한다',async({page})=>{
+  await open(page);
+  await page.locator('#sofCouncil').selectOption({label:'철도지하철협의회'});
+  expect(await visibleNames(page)).toEqual(['전국철도노동조합']);
+  await page.locator('#sofCouncil').selectOption({label:'경제사회단체협의회'});
+  expect(await visibleNames(page)).toEqual([]);
 });
 
-test('내 담당조직이 기본이고 미지정 필터를 선택할 수 있다',async({page})=>{
- await open(page);
- expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
- await page.locator('#sofMine').uncheck();
- await page.locator('#sofUnassigned').check();
- expect(await visibleNames(page)).toEqual(['미지정조직미분류']);
- await page.locator('#sofReset').click();
- await expect(page.locator('#sofMine')).toBeChecked();
- expect(await visibleNames(page)).toEqual(['전국철도노동조합철도·도시철도']);
+test('원 렌더러는 내 담당조직만 콤팩트 행으로 출력하고 담당자명·행 액션을 제거한다',async({page})=>{
+  await page.goto(canonical);
+  await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
+  const rail=page.locator('[data-so-org="org-rail"]');
+  await expect(rail).toHaveCount(1);
+  await expect(page.locator('[data-so-org="org-consumer"]')).toHaveCount(0);
+  await expect(rail).toHaveAttribute('data-ps-workplace-org','org-rail');
+  await expect(rail).toHaveAttribute('role','button');
+  await expect(rail).toContainText('전국철도노동조합');
+  await expect(rail.locator('.sof-type')).toHaveText('철도·도시철도');
+  await expect(rail.locator('.so-chevron')).toHaveText('›');
+  await expect(rail).not.toContainText('김명진');
+  await expect(rail.locator('[data-so-edit],[data-so-delete],[data-so-assign]')).toHaveCount(0);
+  const height=await rail.evaluate(el=>el.getBoundingClientRect().height);
+  expect(height).toBeLessThanOrEqual(60);
 });
 
-test('원 렌더러가 예정담당자와 실제담당자를 처음부터 구분해 표시한다',async({page})=>{
- await page.goto(canonical);
- await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
- const rail=page.locator('[data-so-org="org-rail"]');
- await expect(rail).toContainText('김명진');
- await expect(rail).toContainText('계정 연결 전');
- const consumer=page.locator('[data-so-org="org-consumer"]');
- await expect(consumer).toContainText('한소영');
- await expect(consumer).not.toContainText('계정 연결 전');
- await expect(page.locator('#soStyle')).toHaveCount(0);
+test('담당조직 명칭과 상세 편집·삭제 기능은 상세창에 모인다',async()=>{
+  const sub=readFileSync('app/suborganizations.js','utf8');
+  const detail=readFileSync('app/workplace-detail.js','utf8');
+  expect(sub).toContain('<h3>담당조직</h3>');
+  expect(sub).toContain('내가 담당하는 조직만 표시합니다.');
+  expect(sub).toContain('const mine=myOrganizations()');
+  expect(detail).toContain('id="wdType"');
+  expect(detail).toContain('id="wdAliases"');
+  expect(detail).toContain('id="wdDescription"');
+  expect(detail).toContain('id="wdDeleteOrg"');
+  expect(detail).toContain('async function wdDeleteOrg()');
+  expect(detail).toContain("wdToast('담당조직을 삭제했습니다.')");
 });
 
-test('산하조직 카드는 상세창 진입 대상으로 렌더되고 이미 지정된 조직은 담당자 지정 버튼을 숨긴다',async({page})=>{
- await page.goto(canonical);
- await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
- const consumer=page.locator('[data-so-org="org-consumer"]');
- await expect(consumer).toHaveAttribute('data-ps-workplace-org','org-consumer');
- await expect(consumer).toHaveAttribute('role','button');
- await expect(consumer.locator('[data-so-assign]')).toHaveCount(0);
- const rail=page.locator('[data-so-org="org-rail"]');
- await expect(rail.locator('[data-so-assign]')).toHaveCount(1);
+test('관련 일정 선택도 담당조직 명칭을 사용하고 내 조직만 사용한다',async()=>{
+  const sub=readFileSync('app/suborganizations.js','utf8');
+  expect(sub).toContain('관련 담당조직');
+  expect(sub).toContain("checks('event',selected,myOrganizations())");
 });
 
-test('산하조직 삭제 버튼은 빨간 배경에 글자가 묻히지 않는다',async({page})=>{
- await page.goto(canonical);
- await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
- const del=page.locator('[data-so-delete="org-rail"]');
- await expect(del).toHaveText('삭제');
- const style=await del.evaluate(el=>{const s=getComputedStyle(el);return {color:s.color,background:s.backgroundColor,border:s.borderColor}});
- expect(style.color).not.toBe(style.background);
- expect(style.background).toBe('rgb(255, 255, 255)');
-});
-
-test('조직유형은 원 산하조직 편집 화면에서 직접 저장된다',async({page})=>{
- await page.goto(canonical);
- await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
- await page.locator('[data-so-edit="org-rail"]').click();
- await expect(page.locator('#sofEditType')).toHaveValue('철도·도시철도');
- await page.locator('#sofEditType').fill('철도산업');
- await page.locator('#soSaveOrg').click();
- await expect.poll(()=>page.evaluate(()=>window.__patches.length)).toBe(1);
- const patch=await page.evaluate(()=>window.__patches[0]);
- expect(patch.path).toContain('org-rail');
- expect(patch.body.organization_type).toBe('철도산업');
-});
-
-test('산하조직 저장은 busy 상태와 진행·오류 상태를 보조기기에 노출한다',async({page})=>{
- await page.goto(canonical);
- await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
- await page.locator('[data-so-edit="org-rail"]').click();
- await page.evaluate(()=>{window.__holdOrgSave=true});
- const save=page.locator('#soSaveOrg');
- await save.click();
- await expect(save).toBeDisabled();
- await expect(save).toHaveAttribute('aria-busy','true');
- await expect(page.locator('#soEditStatus')).toHaveAttribute('role','status');
- await expect(page.locator('#soEditStatus')).toHaveAttribute('aria-live','polite');
- await page.evaluate(()=>window.__releaseOrgSave());
- await expect(page.locator('#soEditModal')).toHaveClass(/hidden/);
- await expect(save).toBeEnabled();
- await expect(save).not.toHaveAttribute('aria-busy');
-
- await page.locator('[data-so-edit="org-rail"]').click();
- await page.evaluate(()=>{window.__holdOrgSave=false;window.__failOrgSave=true});
- await save.click();
- await expect(page.locator('#soEditStatus')).toContainText('조직 저장 실패');
- await expect(page.locator('#soEditStatus')).toHaveAttribute('role','alert');
- await expect(page.locator('#soEditStatus')).not.toHaveAttribute('aria-live');
- await expect(save).toBeEnabled();
- await expect(save).not.toHaveAttribute('aria-busy');
-});
-
-test('담당자 저장은 busy 상태와 진행 상태를 보조기기에 노출한다',async({page})=>{
- await page.goto(canonical);
- await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
- await page.locator('[data-so-assign="org-rail"]').click();
- await page.evaluate(()=>{window.__holdAssigneeSave=true});
- const save=page.locator('#soSaveAssignees');
- await save.click();
- await expect(save).toBeDisabled();
- await expect(save).toHaveAttribute('aria-busy','true');
- await expect(page.locator('#soAssignStatus')).toHaveAttribute('role','status');
- await expect(page.locator('#soAssignStatus')).toHaveAttribute('aria-live','polite');
- await page.evaluate(()=>window.__releaseAssigneeSave());
- await expect(page.locator('#soAssignModal')).toHaveClass(/hidden/);
- await expect(save).toBeEnabled();
- await expect(save).not.toHaveAttribute('aria-busy');
-});
-
-test('viewer에게 산하조직 관리자 전용 컨트롤이 노출되거나 탭되지 않는다',async({page})=>{
- await page.goto(canonical+'?role=viewer');
- await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
- await expect(page.locator('#soAddOrg')).toBeHidden();
- await expect(page.locator('[data-so-edit]')).toHaveCount(0);
- await expect(page.locator('[data-so-assign]')).toHaveCount(0);
- await expect(page.locator('[data-so-delete]')).toHaveCount(0);
- await page.keyboard.press('Tab');
- await expect(page.locator('#soAddOrg')).not.toBeFocused();
+test('viewer에게 담당조직 관리자 전용 추가 컨트롤이 노출되거나 탭되지 않는다',async({page})=>{
+  await page.goto(canonical+'?role=viewer');
+  await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
+  await expect(page.locator('#soAddOrg')).toBeHidden();
+  await expect(page.locator('[data-so-edit],[data-so-assign],[data-so-delete]')).toHaveCount(0);
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#soAddOrg')).not.toBeFocused();
 });
 
 test('내 공간은 김명진 계정에서만 노출된다',async({page})=>{
- await open(page);
- await expect(page.locator('#myspaceGateStyle')).toHaveCount(0);
- await expect(page.locator('[data-view="myspace"]')).toBeVisible();
- await expect(page.locator('#mySpaceLinks a')).toHaveAttribute('href','./my-work.html');
+  await open(page);
+  await expect(page.locator('#myspaceGateStyle')).toHaveCount(0);
+  await expect(page.locator('[data-view="myspace"]')).toBeVisible();
+  await expect(page.locator('#mySpaceLinks a')).toHaveAttribute('href','./my-work.html');
 });
 
 test('다른 계정은 내 공간이 숨겨지고 직접 진입도 홈으로 돌아간다',async({page})=>{
- await open(page,'?other=1');
- await expect(page.locator('#myspaceGateStyle')).toHaveCount(1);
- await expect(page.locator('[data-view="myspace"]')).toBeHidden();
- await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail:{view:'myspace'}})));
- await expect.poll(()=>page.evaluate(()=>window.__routed)).toBe('home');
+  await open(page,'?other=1');
+  await expect(page.locator('#myspaceGateStyle')).toHaveCount(1);
+  await expect(page.locator('[data-view="myspace"]')).toBeHidden();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail:{view:'myspace'}})));
+  await expect.poll(()=>page.evaluate(()=>window.__routed)).toBe('home');
 });
 
-test('모바일에서 필터가 가로 넘침 없이 표시된다',async({page})=>{
- await page.setViewportSize({width:390,height:844});
- await open(page);
- const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth);
- expect(overflow).toBe(false);
+test('모바일에서 담당조직 목록과 필터가 가로 넘침 없이 표시된다',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await open(page);
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth);
+  expect(overflow).toBe(false);
 });
