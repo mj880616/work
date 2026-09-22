@@ -8,7 +8,7 @@ let items=[],type='all',loaded=false,bound=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const el=id=>document.getElementById(id);
 function internalUrl(href){
-  return new URL(href,new URL('../press/',location.href)).href;
+  return new URL(href,WEB1).href;
 }
 function filtered(){
   const q=(el('pressSearch')?.value||'').trim().toLowerCase();
