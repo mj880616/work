@@ -53,7 +53,6 @@ function bind(){
     const row=e.target.closest?.('[data-press-href]');if(row)openDetail(row.dataset.pressHref,row.dataset.pressTitle);
     if(e.target.closest?.('[data-close-press]'))closeDetail();
   });
-  el('pressArchiveSource')?.addEventListener('click',()=>window.open(WEB1,'_blank','noopener'));
   window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!el('pressDetailModal')?.classList.contains('hidden'))closeDetail()});
 }
 async function load(){
