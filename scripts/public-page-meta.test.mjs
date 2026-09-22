@@ -32,7 +32,7 @@ test('real generic template has managed metadata markers and stays noindex',()=>
   assert.match(shell,/src="\.\.\/public-post\.js\?v=2"/);
 });
 
-function runGeneratorWithSyntheticFetch(status=200){
+function runGeneratorWithSyntheticFetch(status=200,{empty=false}={}){
   const dir=mkdtempSync(path.join(tmpdir(),'web2-public-meta-'));
   try{
     mkdirSync(path.join(dir,'p'),{recursive:true});
@@ -44,7 +44,7 @@ function runGeneratorWithSyntheticFetch(status=200){
       cpSync(path.join(ROOT,'p',slug,'index.html'),path.join(dir,'p',slug,'index.html'));
     }
     const before=slugs.map(slug=>readFileSync(path.join(dir,'p',slug,'index.html'),'utf8'));
-    const source=`globalThis.fetch=async(_url,options)=>{const slug=JSON.parse(options.body).p_slug;return new Response(${status}===200?JSON.stringify([{title:'합성 '+slug,summary:'합성 요약',indexable:false,page_design:{}}]):JSON.stringify({code:'PGRST202'}),{status:${status},headers:{'Content-Type':'application/json'}})};await import(${JSON.stringify(new URL('./generate-public-pages.mjs',import.meta.url).href)});`;
+    const source=`globalThis.fetch=async(_url,options)=>{const slug=JSON.parse(options.body).p_slug;return new Response(${status}===200?JSON.stringify(${empty} ? [] : [{title:'합성 '+slug,summary:'합성 요약',indexable:false,page_design:{}}]):JSON.stringify({code:'PGRST202'}),{status:${status},headers:{'Content-Type':'application/json'}})};await import(${JSON.stringify(new URL('./generate-public-pages.mjs',import.meta.url).href)});`;
     const result=spawnSync(process.execPath,['--input-type=module','-e',source],{cwd:dir,encoding:'utf8'});
     const after=slugs.map(slug=>readFileSync(path.join(dir,'p',slug,'index.html'),'utf8'));
     return {result,slugs,before,after};
@@ -59,6 +59,12 @@ test('actual generator refreshes six legacy shells from synthetic public rows',(
     assert.match(after[index],new RegExp(`<title>합성 ${slug}</title>`));
     assert.match(after[index],/<meta name="robots" content="noindex,nofollow">/);
   }
+});
+
+test('empty public post lookup preserves all six reviewed metadata shells',()=>{
+  const {result,before,after}=runGeneratorWithSyntheticFetch(200,{empty:true});
+  assert.equal(result.status,0,result.stderr);
+  assert.deepEqual(after,before);
 });
 
 test('pre-migration missing RPC preserves all six existing public shells',()=>{
