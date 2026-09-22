@@ -170,7 +170,7 @@ jobs:
           grep -q "/functions/v1/meeting-files" app/team.js
           grep -q "function renderPages(){window.KPTUWeb1Board?.render?.()}" app/team.js
           grep -q "main_project_archive_state" app/web1-board.js
-          grep -q "work.bokdoong.com/2in1/" app/web1-board.js
+          grep -q "work.bokdoong.com/work/2in1/" app/web1-board.js
           if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
 
           grep -q "app_public_workspace_index" app/public-workspace.js
