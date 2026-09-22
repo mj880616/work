@@ -52,7 +52,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await page.locator('#pressSearch').fill('');
   await page.locator('#pressArchiveList .w1p-item').first().click();
   await expect(page.locator('#pressDetailModal')).toBeVisible();
-  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('src',/\/workforce\/press-conference-0914\/press-release\/$/);
+  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('src','https://work.bokdoong.com/work/workforce/press-conference-0914/press-release/');
   await page.locator('[data-close-press]').click();
   await expect(page.locator('#pressDetailModal')).toHaveClass(/hidden/);
 });
