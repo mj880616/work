@@ -93,7 +93,8 @@ test('retired page editors and media drafting workflow stay out while the Web1 p
     expect(source).not.toContain(retired);
   }
   expect(source).toContain("import('./web1-board.js?v=1')");
-  expect(source).not.toContain("import('./media-workflow.js");\n  expect(source).toContain("import('./web1-press.js?v=1')");
+  expect(source).not.toContain("import('./media-workflow.js");
+  expect(source).toContain("import('./web1-press.js?v=1')");
   for(const modulePath of ['./workplace-ai-report.js','./workflow-ai-v3.js']){
     expect(source.indexOf(modulePath)).toBeGreaterThan(source.indexOf("startup?.mark('allInitialModulesComplete')"));
   }
