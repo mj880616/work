@@ -1,0 +1,376 @@
+{
+  "version": 1,
+  "base_path": "/work/press/",
+  "items": [
+    {
+      "year": 2026,
+      "date": "2026-09-14",
+      "display_date": "09.14",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "공공기관 인력감축 없다더니… 증원 요구 기관에는 “기존 정원 최소 2% 감축 소요 발굴”",
+      "publisher": "민주노총 공공운수노조",
+      "href": "../workforce/press-conference-0914/press-release/"
+    },
+    {
+      "year": 2026,
+      "date": "2026-09-11",
+      "display_date": "09.11",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "청년일자리 늘린다더니… ‘인력 필요하면 기존 인력부터 2% 감축’",
+      "publisher": "이재명 정부 공공기관 인력 감축 방침 규탄 기자회견",
+      "href": "./2026-09-14-workforce/"
+    },
+    {
+      "year": 2026,
+      "date": "2026-04-27",
+      "display_date": "04.27",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "민자철도는 실패했다",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2026-04-27-private-rail-publicization/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-12-22",
+      "display_date": "12.22",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "철도 노동자 성과급 차별 해소가 공공기관 운영 정상화다",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-12-22-korail-performance-pay/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-12-08",
+      "display_date": "12.08",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "정부의 고속철도 운영기관 통합 추진 환영한다",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-12-08-high-speed-rail-integration/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-12-03",
+      "display_date": "12.03",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "중앙노동위원회의 용인에버라인운영㈜ 부당해고·부당노동행위 인정 환영한다",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-12-03-everline-unfair-dismissal/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-11-21",
+      "display_date": "11.21",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "‘오죽했으면’, 대구 지하철 노동자들의 20년만의 파업투쟁 정당하다!",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-11-21-daegu-subway-strike/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-11-17",
+      "display_date": "11.17",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "혁신가이드라인 원상회복 요구 기자회견",
+      "publisher": "공공운수노조",
+      "href": "./2025-11-17-innovation-guideline-restoration/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-11-11",
+      "display_date": "11.11",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "궤도노동자 공동투쟁 결의대회",
+      "publisher": "공공운수노조",
+      "href": "./2025-11-11-rail-workers-joint-struggle-rally/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-11-10",
+      "display_date": "11.10",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "궤도노동자 공동투쟁 결의대회",
+      "publisher": "공공운수노조",
+      "href": "./2025-11-10-rail-workers-joint-struggle-rally-request/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-11-04",
+      "display_date": "11.04",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "궤도노동자 투쟁선포 기자회견",
+      "publisher": "공공운수노조",
+      "href": "./2025-11-04-rail-workers-struggle-declaration/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-10-28",
+      "display_date": "10.28",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "서해선지부 경고파업 돌입 기자회견",
+      "publisher": "공공운수노조 서해선지부",
+      "href": "./2025-10-28-seohae-warning-strike/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-10-24",
+      "display_date": "10.24",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "서해선지부 경고파업 돌입 예고",
+      "publisher": "공공운수노조 서해선지부",
+      "href": "./2025-10-24-seohae-warning-strike-request/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-10-24",
+      "display_date": "10.24",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "민간도시철도 공공성·안전 강화를 위한 도시철도법 개정 촉구",
+      "publisher": "공공운수노조",
+      "href": "./2025-10-24-private-urban-rail-law-revision/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-10-16",
+      "display_date": "10.16",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "서울교통공사 9호선지부 기자회견",
+      "publisher": "공공운수노조 서울교통공사9호선지부",
+      "href": "./2025-10-16-line9-press-conference/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-10-02",
+      "display_date": "10.02",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "서해철도는 비정규직 확대 노린 단협해지 통고를 즉각 철회하라",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "../2025-10-02-seohae-rail-cba/index.html"
+    },
+    {
+      "year": 2025,
+      "date": "2025-08-25",
+      "display_date": "08.25",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "공공기관 총인건비 증언대회",
+      "publisher": "공공운수노조",
+      "href": "./2025-08-25-public-institution-total-labor-cost-testimony/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-08-20",
+      "display_date": "08.20",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "대통령의 엄중경고와 장관의 다짐만으로는 일터의 죽음을 막을 수 없다",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-08-20-railway-worker-deaths/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-07-30",
+      "display_date": "07.30",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "통상임금 대법 판결 기준 반영한 총인건비 모수 증액 결정을 환영한다",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-07-30-ordinary-wage/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-07-02",
+      "display_date": "07.02",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "기재부 개편, 단순 분리를 넘어 공공기관 운영 민주화와 재정 민주주의 실현으로 나아가야 한다",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-07-02-mof-reorganization/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-06-21",
+      "display_date": "06.21",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "양대노총 공공노동자 총력투쟁 결의대회",
+      "publisher": "양대노총 공공부문 노동조합",
+      "href": "./2025-06-21-public-workers-joint-rally/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-06-03",
+      "display_date": "06.03",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "참사는 막았지만 참사 직전의 시스템은 남았다",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-06-03-line5-fire-one-person/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-04-15",
+      "display_date": "04.15",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "총인건비 제도 전면개선 촉구 궤도노동자 결의대회",
+      "publisher": "공공운수노조",
+      "href": "./2025-04-15-rail-workers-total-labor-cost-rally/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-02-28",
+      "display_date": "02.28",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "서울교통공사는 노동위원회의 부당해고 판정을 존중하고 무리한 행정소송을 즉각 취하하라",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-02-28-seoulmetro-timeoff/"
+    },
+    {
+      "year": 2025,
+      "date": "2025-01-22",
+      "display_date": "01.22",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "교통불평등 심화하고, 기후정의 역행하는 수도권 지하철 요금인상 즉각 철회하라",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2025-01-22-subway-fare/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-12-26",
+      "display_date": "12.26",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "통상임금 대법 판결 존중·노정교섭 촉구 기자회견",
+      "publisher": "공공운수노조",
+      "href": "./2024-12-26-ordinary-wage-ruling-press-release/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-12-24",
+      "display_date": "12.24",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "통상임금 대법 판결 존중·노정교섭 촉구 기자회견",
+      "publisher": "공공운수노조",
+      "href": "./2024-12-24-ordinary-wage-ruling-press-request/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-11-20",
+      "display_date": "11.20",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "민자철도 3사 노조 연합집회",
+      "publisher": "공공운수노조",
+      "href": "./2024-11-20-private-rail-three-unions-rally/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-11-08",
+      "display_date": "11.08",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "민자철도 3사 노조 파업찬반투표 결과발표",
+      "publisher": "공공운수노조",
+      "href": "./2024-11-08-private-rail-strike-vote-result/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-11-05",
+      "display_date": "11.05",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "민자철도 3사가 동시에 멈춥니다",
+      "publisher": "공공운수노조",
+      "href": "./2024-11-05-private-rail-three-companies-strike/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-10-10",
+      "display_date": "10.10",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라",
+      "publisher": "공공운수노조 외 공동주최",
+      "href": "./2024-10-10-seoulmetro-park-solidarity-press-release/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-10-08",
+      "display_date": "10.08",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "부당해고가 죽였다, 오세훈과 서울교통공사는 사죄하라",
+      "publisher": "공공운수노조 외 공동주최",
+      "href": "./2024-10-08-seoulmetro-park-solidarity-press-request/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-08-27",
+      "display_date": "08.27",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "9호선 2·3단계, 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견",
+      "publisher": "공공운수노조 서울메트로9호선지부",
+      "href": "./2024-08-27-line9-staffing-press-release/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-08-25",
+      "display_date": "08.25",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "9호선 2·3단계, 시민과 노동자 안전을 위한 인력 충원 촉구 기자회견",
+      "publisher": "공공운수노조 서울메트로9호선지부",
+      "href": "./2024-08-25-line9-staffing-press-request/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-08-21",
+      "display_date": "08.21",
+      "type": "statement",
+      "type_label": "성명",
+      "title": "지노위, 해고 노조간부 전원 부당해고 판정",
+      "publisher": "민주노총 공공운수노조",
+      "href": "./2024-08-21-seoulmetro-lrc-ruling/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-08-02",
+      "display_date": "08.02",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "서울교통공사 집단해고 복직촉구 양대노총 기자회견",
+      "publisher": "민주노총 · 한국노총 / 공공운수노조 · 공공연맹",
+      "href": "./2024-08-02-seoulmetro-reinstatement-press-conference/"
+    },
+    {
+      "year": 2024,
+      "date": "2024-07-03",
+      "display_date": "07.03",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "ILO 국제노동기준으로 바라 본 서울교통공사의 노동조합 탄압 국회토론회",
+      "publisher": "전국공공운수사회서비스노조",
+      "href": "./2024-07-03-seoulmetro-ilo-forum/"
+    }
+  ]
+}
