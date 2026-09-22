@@ -34,6 +34,7 @@
         totalMs:Math.round(performance.now()),
         marks:Object.fromEntries(Object.entries(this.marks).map(([k,v])=>[k,Math.round(v)])),
         requests:[...requests],
+        requestedView:new URLSearchParams(location.search).get('view')||'home',
         connection:navigator.connection?.effectiveType||null
       };
       this.latest=latest;
@@ -58,14 +59,15 @@
     b.onclick=async()=>{try{await window.KPTUStartupDiagnostics.copy();b.textContent='복사됨'}catch{b.textContent='복사 실패'}};
     document.body.appendChild(b);
   }
-  window.__KPTU_MARK_APP_UI_READY__=({usable=false}={})=>{
+  window.__KPTU_MARK_APP_UI_READY__=({usable=false,route='home'}={})=>{
     const app=document.querySelector('#appView');app?.classList.add('kptu-ui-ready');
-    startup.mark(usable?'homeUsable':'uiReadyOnly');
-    const sample=startup.finalize(usable?'home-usable':'ui-ready');
+    const directRoute=route&&route!=='home';
+    startup.mark(usable?(directRoute?'routeUsable':'homeUsable'):'uiReadyOnly',{route});
+    const sample=startup.finalize(usable?(directRoute?'route-usable':'home-usable'):'ui-ready');
     window.dispatchEvent(new Event('kptu:app-ui-ready'));
     maybeDebugButton(sample);
   };
-  import('./loader-v2.js?v=186').catch(err=>{
+  import('./loader-v2.js?v=187').catch(err=>{
     console.error(err);startup.finalize('error');window.__KPTU_MARK_APP_UI_READY__?.();
     document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
   });
