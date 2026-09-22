@@ -2,6 +2,7 @@
   'use strict';
   if(window.KPTUWeb1Board)return;
   const rt=window.KPTURuntime;
+  const RAW='https://raw.githubusercontent.com/mj880616/work/main/';
   const items=[
     {key:'2in1',title:'위험업무 2인1조 법제화',description:'법안 보완 · 노동부 대응 · 국회토론회 · 국정감사 · 궤도 공동투쟁',badge:'진행 중',href:'https://work.bokdoong.com/work/2in1/'},
     {key:'workforce',title:'공공기관 인력확충',description:'증원 연계 2% 인력감축 방침 철회와 안전·공공서비스 인력 확충 대응',badge:'당면 대응',href:'https://work.bokdoong.com/work/workforce/'},
@@ -25,17 +26,30 @@
     host.dataset.web1BoardReady='1';
   }
   let detailTrigger=null;
+  function repoPath(href){
+    const u=new URL(href);
+    let p=u.pathname.replace(/^\/work\//,'');
+    if(p.endsWith('/'))p+='index.html';
+    return p;
+  }
+  function sourceUrl(href){return RAW+repoPath(href)}
+  function sanitizeSource(html,href){
+    const base='<base href="'+href.replace(/"/g,'&quot;')+'">';
+    let out=/<head[^>]*>/i.test(html)?html.replace(/<head([^>]*)>/i,'<head$1>'+base):base+html;
+    out=out.replace(/<script[^>]+src=["']\/work\/app\/web1-(?:admin-auth|page-capabilities)\.js[^"']*["'][^>]*><\/script>/gi,'');
+    return out;
+  }
   function closeDetail(){
     const modal=document.querySelector('#web1BoardDetailModal');
     const frame=document.querySelector('#web1BoardDetailFrame');
     if(!modal)return;
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden','true');
-    if(frame)frame.src='about:blank';
+    if(frame){frame.removeAttribute('srcdoc');frame.src='about:blank'}
     window.KPTUA11y?.dialog.deactivate(modal,{restoreFocus:true,fallbackFocus:'#pagesView h2'});
     detailTrigger=null;
   }
-  function openDetail(href,title){
+  async function openDetail(href,title){
     const modal=document.querySelector('#web1BoardDetailModal');
     const frame=document.querySelector('#web1BoardDetailFrame');
     const heading=document.querySelector('#web1BoardDetailTitle');
@@ -43,12 +57,20 @@
     detailTrigger=document.activeElement;
     if(heading)heading.textContent=title||'게시판';
     frame.title=(title||'게시판')+' 본문';
-    frame.src=href;
+    frame.removeAttribute('srcdoc');frame.src='about:blank';
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden','false');
     const close=modal.querySelector('[data-close-web1-board]');
     window.KPTUA11y?.dialog.activate(modal,{trigger:detailTrigger,initialFocus:close,onRequestClose:closeDetail});
     close?.focus();
+    try{
+      const r=await fetch(sourceUrl(href),{cache:'no-store'});
+      if(!r.ok)throw new Error('게시판 본문을 불러오지 못했습니다.');
+      frame.srcdoc=sanitizeSource(await r.text(),href);
+    }catch(e){
+      frame.srcdoc='<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;padding:24px;color:#26323d}p{line-height:1.6}</style><p>게시판 본문을 불러오지 못했습니다.</p>';
+      console.error('web1 board detail load',e);
+    }
   }
   document.addEventListener('click',e=>{
     const card=e.target.closest?.('[data-web1-board-href]');
