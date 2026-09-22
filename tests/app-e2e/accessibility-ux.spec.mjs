@@ -18,7 +18,12 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveG
     if(path==='/auth/v1/token')return ok({access_token:'a11y-access',refresh_token:'a11y-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
-    if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/google-calendar'){
+      const action=url.searchParams.get('action'),body=(()=>{try{return req.postDataJSON()}catch{return {}}})();
+      if(req.method()==='POST'&&body?.action==='create-event'){if(eventSaveGate)await eventSaveGate;if(failEventSave)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'일정 저장 실패'})});return ok({ok:true,event:{id:'g-new',title:body.title}})}
+      if(action==='events')return ok({events:[],eventColors:{}});
+      return ok({connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}],colors:{},events:[],eventColors:{}});
+    }
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -182,6 +187,7 @@ test('saving exposes busy and polite status semantics, then releases them on suc
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('접근성 일정');
   await page.locator('#eventStart').fill('2026-09-18T10:00');
+  await page.locator('#eventEnd').fill('2026-09-18T11:00');
   const save=page.locator('#saveEventBtn');
   await save.click();
   try{
@@ -204,6 +210,7 @@ test('failed save releases busy state and announces the error',async({page})=>{
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('실패 일정');
   await page.locator('#eventStart').fill('2026-09-18T11:00');
+  await page.locator('#eventEnd').fill('2026-09-18T12:00');
   const save=page.locator('#saveEventBtn');
   await save.click();
   try{

@@ -5,7 +5,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'mobile-user',email:'mobile@example.org',user_metadata:{display_name:'모바일 QA'}};
 const workspace={id:'mobile-workspace',slug:'mobile',name:'공공기관사업팀 Workspace'};
 const tasks=Array.from({length:8},(_,i)=>({id:`task-${i+1}`,workspace_id:workspace.id,title:`모바일 QA 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`2026-09-${String(14+i).padStart(2,'0')}T09:00:00Z`,created_at:'2026-09-13T00:00:00Z'}));
-const events=Array.from({length:5},(_,i)=>({id:`event-${i+1}`,workspace_id:workspace.id,title:`9월 13일 일정 ${i+1}`,event_type:'meeting',start_at:`2026-09-13T${String(1+i).padStart(2,'0')}:00:00Z`,end_at:`2026-09-13T${String(2+i).padStart(2,'0')}:00:00Z`,calendar_scope:'team',created_by:user.id,color_hex:'#24496f'}));
+const events=Array.from({length:5},(_,i)=>({id:`event-${i+1}`,title:`9월 13일 일정 ${i+1}`,start:`2026-09-13T${String(1+i).padStart(2,'0')}:00:00Z`,end:`2026-09-13T${String(2+i).padStart(2,'0')}:00:00Z`,calendarId:'primary',source:'google',color:'#4285f4'}));
 
 async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
@@ -14,7 +14,11 @@ async function mockApp(page){
     if(path==='/auth/v1/token')return ok({access_token:'mobile-access',refresh_token:'mobile-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
-    if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/google-calendar'){
+      const action=url.searchParams.get('action');
+      if(action==='events')return ok({events,eventColors:{}});
+      return ok({connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}],colors:{},events,eventColors:{}});
+    }
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -22,7 +26,7 @@ async function mockApp(page){
     if(path==='/rest/v1/app_workspaces')return ok([workspace]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'모바일 QA'}]);
     if(path==='/rest/v1/app_tasks')return ok(tasks);
-    if(path==='/rest/v1/app_events')return ok(events);
+    if(path==='/rest/v1/app_events')return ok([]);
     if(path==='/rest/v1/app_spaces')return ok([]);
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});
