@@ -29,13 +29,13 @@ test('startup assets are discovered from the document head without changing auth
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=74" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=74" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=75" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=75" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=186','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=187','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=2','./team.js?v=32','./home-dashboard-v2.js?v=7'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=186')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=187')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
   expect(loader).toContain("import('./team.js?v=32')");
@@ -49,15 +49,17 @@ test('authenticated home commits before non-critical feature bundle', async ({ p
   expect(response.ok()).toBeTruthy();
   const source=await response.text();
   const usable=source.indexOf('window.__KPTU_MARK_APP_UI_READY__?.({usable:homeResult?.ok===true})');
-  const deferred=source.indexOf('defer(()=>loadFeatures()');
+  const deferred=source.indexOf('defer(()=>loadBackground()');
   expect(source).toContain('const homeResult=await window.__KPTU_HOME_READY__');
   expect(source).not.toContain('await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])');
   const router=read('app/app-router.js');
   expect(router).toContain('authenticatedShellReady()');
   expect(router).toContain('appReady()||authenticatedShellReady()');
   expect(source).toContain('await window.__KPTU_START_TEAM_DATA__()');
+  expect(source).toContain("if(view==='tasks')");
+  expect(source).toContain("if(view==='calendar')");
   expect(read('app/home-dashboard-v2.js')).toContain('resolveReady?.({ok:false})');
-  expect(read('app/app.js')).toContain("mark(usable?'homeUsable':'uiReadyOnly')");
+  expect(read('app/app.js')).toContain("directRoute?'routeUsable':'homeUsable'");
   expect(usable).toBeGreaterThan(0);
   expect(deferred).toBeGreaterThan(usable);
   const criticalAwaitedImports=source.split('\n').filter(line=>/^  await import\(/.test(line));
@@ -66,9 +68,9 @@ test('authenticated home commits before non-critical feature bundle', async ({ p
   }
 });
 
-test('direct feature URLs wait for the feature bundle and failures remain visible', async ({ page }) => {
+test('direct feature URLs wait only for their route modules and failures remain visible', async ({ page }) => {
   const source=await (await page.request.get(loaderUrl)).text();
-  expect(source).toContain("if(requested&&requested!=='home')await loadFeatures()");
+  expect(source).toContain("if(requested!=='home')await loadRoute(requested)");
   expect(source).toContain("box.id='deferredFeatureError'");
   expect(source).toContain("setAttribute('role','alert')");
   expect(source).toContain('이 기능을 불러오지 못했습니다.');
@@ -108,7 +110,7 @@ test('feature navigation waits for deferred readiness and bootstrap loads access
   expect(source).toContain('#appView [data-hdv-goto]');
   expect(source).toContain('#appView [data-hdv-project]');
   expect(source).toContain('#newTaskBtn');
-  expect(source).toContain("loadFeatures().then(()=>{status.remove()");
+  expect(source).toContain("loadRoute(view).then(()=>{status.remove()");
   expect(source).toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])");
 });
