@@ -413,14 +413,10 @@ test('V3 includes legacy child work areas under a V3 parent without changing the
   await expect(page.locator('#ps3-tasks')).toContainText('발제 원고 취합');
 });
 
-test('V3 keeps the testimony child canonical and excludes private import snapshots from active lists',async({page})=>{
+test('V3 project detail stays separate from the Web1-backed board',async({page})=>{
   const state=baseState();
   state.spaces[1].metadata.source_draft_id='page-child';
-  state.pages=[
-    {id:'page-child',space_id:'main-1',title:'국회토론회 현장증언을 찾습니다',slug:'web1-two-person-testimony-draft',summary:'증언 모집',body:'보존할 비공개 원문',status:'draft',visibility:'private',updated_at:'2026-09-20T10:00:00Z',metadata:{web1_trial_import:true,web1_source_id:'2in1/field-testimony-1002/index.html',web1_parent_source_id:'2in1/index.html'}},
-    {id:'page-parent',space_id:'main-1',title:'위험업무 2인1조 법제화 사업 현황',slug:'web1-two-person-overview-draft',summary:'사업현황',body:'보존할 상위 원문',status:'draft',visibility:'private',updated_at:'2026-09-19T10:00:00Z',metadata:{web1_trial_import:true,web1_source_id:'2in1/index.html'}},
-    {id:'page-notice',space_id:'main-1',title:'독립 현장 공지',slug:'standalone-notice',summary:'독립 공지 요약',body:'독립 공지 본문',status:'published',visibility:'public',updated_at:'2026-09-18T10:00:00Z',metadata:{}}
-  ];
+  state.pages=[{id:'page-notice',space_id:'main-1',title:'독립 현장 공지',slug:'standalone-notice',summary:'독립 공지 요약',body:'독립 공지 본문',status:'published',visibility:'public',updated_at:'2026-09-18T10:00:00Z',metadata:{}}];
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
@@ -430,58 +426,26 @@ test('V3 keeps the testimony child canonical and excludes private import snapsho
   await expect(page.locator('#ps3Body')).not.toContainText('독립 현장 공지');
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await page.locator('[data-view="pages"]').click();
-  await expect(page.locator('#pageList .page-card')).toHaveCount(1);
-  await expect(page.locator('#pageList')).toContainText('독립 현장 공지');
-  await page.goto('http://127.0.0.1:8123/app/?view=pages&page=page-child');
-  await expect(page.locator('#pageInlineViewer')).toBeVisible();
-  await expect(page.locator('#pivSheet')).toContainText('보존할 비공개 원문');
+  await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
+  await expect(page.locator('#web1BoardActive')).not.toContainText('독립 현장 공지');
 });
 
-test('board rows keep publication prominent and actions in a compact disclosure at four widths',async({page})=>{
+test('Web1-backed board stays compact and excludes dedicated library and press sections',async({page})=>{
   const state=baseState();
-  state.pages=[{id:'page-notice',space_id:'main-1',title:'독립 현장 공지',slug:'standalone-notice',summary:'한 줄로 읽는 공지 요약',body:'공지 본문',status:'published',visibility:'public',updated_at:'2026-09-18T10:00:00Z',metadata:{}}];
   await mockApp(page,state);
   await page.setViewportSize({width:1440,height:900});
   await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
   await page.locator('[data-view="pages"]').click();
-  const card=page.locator('#pageList .page-card').first();
-  await expect(card).toBeVisible();
-  await expect(card.locator('[data-page-visibility]')).toHaveText('공개');
-  await expect(card.locator('.page-row-menu summary')).toBeVisible();
-  await expect(card.locator('[data-edit-page]')).toBeHidden();
+  await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
+  await expect(page.locator('#web1BoardActive')).toContainText('민자철도 사업 현황');
+  await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');
+  await expect(page.locator('#web1BoardActive')).not.toContainText('자료실');
   for(const width of [1440,768,390,360]){
     await page.setViewportSize({width,height:900});
-    const layout=await page.evaluate(()=>{
-      const rect=selector=>document.querySelector(selector).getBoundingClientRect();
-      return {cardHeight:rect('#pageList .page-card').height,searchY:rect('#pageSearch').y,filterY:rect('#pageFilter').y,overflow:document.documentElement.scrollWidth-window.innerWidth};
-    });
-    expect(layout.cardHeight).toBeLessThan(width<=650?110:85);
-    if(width>=768)expect(Math.abs(layout.searchY-layout.filterY)).toBeLessThan(2);
-    expect(layout.overflow).toBeLessThanOrEqual(1);
+    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
   }
-  await card.locator('.page-row-menu summary').click();
-  await expect(page.locator('#pageInlineViewer')).toBeHidden();
-  await expect(card.locator('[data-edit-page]')).toBeVisible();
-  await expect(card.locator('[data-page-select-delete]')).toBeVisible();
-  await page.evaluate(()=>{window.__copiedPageUrl='';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.__copiedPageUrl=value}}})});
-  await card.locator('[data-copy-page]').click();
-  await expect.poll(()=>page.evaluate(()=>window.__copiedPageUrl)).toContain('/p/?slug=standalone-notice');
-  await card.locator('[data-page-visibility-action]').click();
-  await expect(page.locator('#editorModal')).toBeVisible();
-  await expect(page.locator('#pageVisibility')).toHaveValue('public');
-  await page.locator('[data-close="editorModal"]').first().click();
-  await card.locator('.page-row-menu summary').click();
-  await card.locator('.page-row-menu summary').focus();
-  await page.keyboard.press('Enter');
-  await expect(page.locator('#pageInlineViewer')).toBeHidden();
-  await page.keyboard.press('Enter');
-  await card.locator('h3').click();
-  await expect(page.locator('#pageInlineViewer')).toBeVisible();
-  await expect(page.locator('#pivSheet')).toContainText('공지 본문');
-  await page.locator('[data-piv-back]').click();
-  await card.locator('.page-row-open').focus();
-  await page.keyboard.press('Enter');
-  await expect(page.locator('#pageInlineViewer')).toBeVisible();
+  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('href',/^https:\/\/work\.bokdoong\.com\//);
 });
 
 test('V3 completion changes status without deleting the project',async({page})=>{

@@ -44,29 +44,31 @@ jobs:
 
       - name: Check recursive app dependency graph
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re,sys
-          root=Path('app'); queue=['app.js']; active=set(); missing=[]
-          patterns=[r"import\(['\"]([^'\"]+\.js(?:\?[^'\"]*)?)['\"]\)",r"(?:from|import)\s*['\"]([^'\"]+\.js(?:\?[^'\"]*)?)['\"]",r"serviceWorker\.register\(['\"]([^'\"]+\.js(?:\?[^'\"]*)?)['\"]"]
-          while queue:
-            name=queue.pop(0)
-            if name in active: continue
-            path=root/name
-            if not path.exists(): missing.append(name); continue
-            active.add(name); text=path.read_text(encoding='utf-8')
-            refs=[]
-            for pat in patterns: refs.extend(re.findall(pat,text))
-            for ref in refs:
-              rel=ref.split('?',1)[0]
-              if rel.startswith('./'):
-                child=Path(rel[2:]).name
-                if not (root/child).exists(): missing.append(f'{name} -> {ref}')
-                elif child not in active: queue.append(child)
-          if missing:
-            print('Missing recursive dependencies:'); print('\n'.join(missing)); sys.exit(1)
-          print('Active JS modules:',len(active)); print('\n'.join(sorted(active)))
-          PY
+          node <<'NODE'
+          const fs=require('fs');
+          const text=fs.readFileSync('app/loader-v2.js','utf8');
+          const keys=[
+            'const authenticated=await window.KPTURuntime.session.ensure()',
+            "import('./team.js?v=32')",'await window.__KPTU_TEAM_READY__',
+            "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
+            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=9')",'await window.__KPTU_TASK_LAYOUT_READY__',
+            "import('./web1-board.js?v=1')",
+            "import('./meeting-round-detail.js?v=9')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
+            "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
+            "import('./calendar-plus.js?v=5')",'await window.__KPTU_CALENDAR_PLUS_READY__',
+            "import('./calendar-persistence.js?v=10')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
+            "import('./calendar-interactions-v2.js?v=3')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
+            "import('./calendar-mobile-ui.js?v=3')",'await window.__KPTU_CALENDAR_MOBILE_UI_READY__',
+            "import('./calendar-day-overflow.js?v=2')",'await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',
+            'window.__KPTU_MARK_APP_UI_READY__?.()'
+          ];
+          const pos=keys.map(key=>text.indexOf(key));
+          const missing=keys.filter((_,i)=>pos[i]<0);
+          if(missing.length)throw new Error('missing authenticated readiness marker: '+missing.join(', '));
+          if(pos.some((value,i)=>i>0&&value<=pos[i-1]))throw new Error('authenticated readiness ordering is invalid: '+JSON.stringify(pos));
+          const login=fs.readFileSync('app/login/index.html','utf8');
+          if(login.includes('id="appView"'))throw new Error('dedicated login page must not contain workspace shell');
+          NODE
 
       - name: Check public and authenticated app boundaries
         run: |
@@ -100,7 +102,7 @@ jobs:
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
           grep -q "critical.css?v=1" app/index.html
-          grep -q "styles.css?v=35" app/loader-v2.js
+          grep -q "styles.css?v=37" app/loader-v2.js
           grep -q "ensureFeatureStyles" app/loader-v2.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
@@ -112,7 +114,7 @@ jobs:
           grep -q "public-workspace.js?v=10" app/loader-v2.js
           grep -q "home-dashboard-v2.js?v=7" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
-          grep -q "team.js?v=31" app/loader-v2.js
+          grep -q "team.js?v=32" app/loader-v2.js
           grep -q "project-system-v3.js?v=13" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
@@ -126,16 +128,7 @@ jobs:
           test ! -f app/library-public-toggle.js
           if grep -Eq "home-task-controls|home-task.css|library-public-toggle" app/loader-v2.js app/styles.css; then echo 'retired home/library decorator returned'; exit 1; fi
           grep -q "photo-room.js?v=4" app/loader-v2.js
-          grep -q "page-list-controller.js?v=6" app/loader-v2.js
-          grep -q "__KPTU_PAGE_LIST_READY__" app/loader-v2.js
-          grep -q "page-save-controller.js?v=4" app/loader-v2.js
-          grep -q "__KPTU_PAGE_SAVE_READY__" app/loader-v2.js
-          grep -q "page-builder.js?v=3" app/loader-v2.js
-          grep -q "__KPTU_PAGE_BUILDER_READY__" app/loader-v2.js
-          grep -q "page-management.js?v=4" app/loader-v2.js
-          grep -q "__KPTU_PAGE_MANAGEMENT_READY__" app/loader-v2.js
-          grep -q "page-inline-viewer-v2.js?v=4" app/loader-v2.js
-          grep -q "__KPTU_PAGE_INLINE_VIEWER_READY__" app/loader-v2.js
+          grep -q "web1-board.js?v=1" app/loader-v2.js
           grep -q "meeting-round-detail.js?v=9" app/loader-v2.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
@@ -175,10 +168,10 @@ jobs:
           grep -q "taskProjectOptions(true)" app/team.js
           grep -q "data-mrd-meeting" app/team.js
           grep -q "/functions/v1/meeting-files" app/team.js
-          grep -q "function renderPages(){window.KPTUPageList?.render?.()}" app/team.js
-          grep -q "data-board-project" app/page-list-controller.js
-          grep -q "parent_id,status,sort_order,project_type,current_phase" app/page-list-controller.js
-          grep -q "__KPTU_SYNC_TEAM_PAGES__" app/team.js
+          grep -q "function renderPages(){window.KPTUWeb1Board?.render?.()}" app/team.js
+          grep -q "main_project_archive_state" app/web1-board.js
+          grep -q "work.bokdoong.com/2in1/" app/web1-board.js
+          if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
 
           grep -q "app_public_workspace_index" app/public-workspace.js
           grep -q "app_public_workspace_index" app/public-workspace-extras.js
@@ -195,35 +188,8 @@ jobs:
           if grep -q "createElement('link')" app/team.js; then echo 'team css must stay static'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-dashboard-v2.js app/photo-room.js app/notification-center-ui.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
           if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js app/notification-center-ui.js; then echo 'core UI bypassed shared runtime session'; exit 1; fi
-          if grep -q "location.reload" app/photo-room.js app/page-save-controller.js app/page-builder.js; then echo 'feature returned to full-page reload'; exit 1; fi
+          if grep -q "location.reload" app/photo-room.js; then echo 'feature returned to full-page reload'; exit 1; fi
 
-          python3 - <<'PY'
-          from pathlib import Path
-          text=Path('app/loader-v2.js').read_text(encoding='utf-8')
-          keys=[
-            'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=31')",'await window.__KPTU_TEAM_READY__',
-            "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
-            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=9')",'await window.__KPTU_TASK_LAYOUT_READY__',
-            "import('./page-list-controller.js?v=6')",'await window.__KPTU_PAGE_LIST_READY__',
-            "import('./page-save-controller.js?v=4')",'await window.__KPTU_PAGE_SAVE_READY__',
-            "import('./page-builder.js?v=3')",'await window.__KPTU_PAGE_BUILDER_READY__',
-            "import('./page-management.js?v=4')",'await window.__KPTU_PAGE_MANAGEMENT_READY__',
-            "import('./page-inline-viewer-v2.js?v=4')",'await window.__KPTU_PAGE_INLINE_VIEWER_READY__',
-            "import('./meeting-round-detail.js?v=9')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
-            "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
-            "import('./calendar-plus.js?v=5')",'await window.__KPTU_CALENDAR_PLUS_READY__',
-            "import('./calendar-persistence.js?v=10')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
-            "import('./calendar-interactions-v2.js?v=3')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
-            "import('./calendar-mobile-ui.js?v=3')",'await window.__KPTU_CALENDAR_MOBILE_UI_READY__',
-            "import('./calendar-day-overflow.js?v=2')",'await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',
-            'window.__KPTU_MARK_APP_UI_READY__?.()'
-          ]
-          pos=[text.index(x) for x in keys]
-          if pos!=sorted(pos): raise SystemExit('authenticated readiness ordering is invalid')
-          login=Path('app/login/index.html').read_text(encoding='utf-8')
-          if 'id="appView"' in login: raise SystemExit('dedicated login page must not contain workspace shell')
-          PY
 
       - name: Check Design System 1.0 invariants
         run: |
@@ -336,44 +302,34 @@ jobs:
           if grep -q "MutationObserver" app/notification-center-ui.js; then echo 'notification UI returned to mutation correction'; exit 1; fi
           if grep -q "setInterval" app/notification-center-ui.js; then echo 'notification polling returned'; exit 1; fi
 
-      - name: Check page core and builder invariants
+      - name: Check Web1-backed board invariants
         run: |
           set -e
-          grep -q "PB_TEMPLATES" app/page-builder.js
-          grep -q "page_design" app/page-builder.js
-          grep -q "addEventListener('click',interceptOpen,true)" app/page-save-controller.js
-          grep -q "kptu:page-editor-opened" app/page-save-controller.js
-          grep -q "addEventListener('kptu:page-editor-opened'" app/page-builder.js
-          grep -q "__KPTU_PAGE_BUILDER_READY__" app/page-builder.js
-          grep -q "/functions/v1/page-ai-draft" app/page-builder.js
-          grep -q "/functions/v1/document-ai-index" app/page-builder.js
-          grep -q "/functions/v1/library-files" app/page-builder.js
-          grep -q "app_save_page_v2" app/page-save-controller.js
-          grep -q "바로가기" app/page-shortcut.js
-          for f in app/page-list-controller.js app/page-save-controller.js app/page-builder.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js; do
-            if grep -q "MutationObserver\|createElement('style')\|createElement(\"style\")\|location.reload\|setTimeout(" "$f"; then echo "$f returned to delayed page correction"; exit 1; fi
-          done
-
+          grep -q "위험업무 2인1조 법제화" app/web1-board.js
+          grep -q "공공기관 인력확충" app/web1-board.js
+          grep -q "민자철도 사업 현황" app/web1-board.js
+          grep -q "궤도협의회" app/web1-board.js
+          grep -q "산별전환 업무 현황" app/web1-board.js
+          grep -q "main_project_archive_state" app/web1-board.js
+          if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
+          if grep -Eq "MutationObserver|location.reload|setTimeout\\(" app/web1-board.js; then echo 'Web1 board returned to correction or polling code'; exit 1; fi
+          if grep -Eq "page-list-controller.js|page-save-controller.js|page-builder.js|page-shortcut.js|page-management.js|page-inline-viewer-v2.js" app/loader-v2.js; then echo 'retired page management returned to authenticated loader'; exit 1; fi
       - name: Check security-sensitive client boundaries
         run: |
           set -e
-          grep -q "KPTUCapabilities" app/page-save-controller.js
-          grep -q "KPTURuntime" app/page-builder.js
           if grep -Eq "service_role|SUPABASE_SERVICE_ROLE|Authorization:.*service" app/*.js; then echo 'service-role material must never ship to client'; exit 1; fi
-          if grep -Eq "localStorage|kptu_collab_session_v1" app/page-save-controller.js app/page-builder.js app/notification-center-ui.js app/photo-room.js; then echo 'feature module bypassed shared runtime session'; exit 1; fi
-
+          if grep -Eq "localStorage|kptu_collab_session_v1" app/notification-center-ui.js app/photo-room.js app/web1-board.js; then echo 'feature module bypassed shared runtime session'; exit 1; fi
       - name: Check retained non-project feature invariants
         run: |
           set -e
           grep -q "task-workflow.js?v=6" app/loader-v2.js
-          grep -q "page-builder.js?v=3" app/loader-v2.js
+          grep -q "web1-board.js?v=1" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=6" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
-          grep -q "PB_TEMPLATES" app/page-builder.js
-          grep -q "page_design" app/page-builder.js
+          grep -q "위험업무 2인1조 법제화" app/web1-board.js
+          grep -q "산별전환 업무 현황" app/web1-board.js
           grep -q "완료된 할 일" app/task-layout.js
-          grep -q "바로가기" app/page-shortcut.js
           if grep -q "task-title-ui.js\|project-create-submit.js\|task-personal-due.js" app/loader-v2.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
       - name: Static HTTP smoke test
@@ -384,7 +340,7 @@ jobs:
           sleep 1
           for path in \
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js app/public-workspace.js \
-            app/page-builder.js app/page-builder.css app/page-list-controller.js app/page-save-controller.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js app/page-core.css app/compact-list.css \
+            app/web1-board.js app/web1-board.css app/page-core.css app/compact-list.css \
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css app/notification-center-ui.js app/notification-center-ui.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \

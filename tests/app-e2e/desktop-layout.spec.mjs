@@ -108,17 +108,10 @@ test('selected view survives refresh and page cards open inside the 게시판 ta
   await expect(page.locator('[data-view="calendar"]')).toHaveClass(/active/);
 
   await page.locator('[data-view="pages"]').click();
-  await expect(page.locator('#pageList')).toContainText('데스크톱 게시글');
-  const card=page.locator('#pageList .page-card').filter({hasText:'데스크톱 게시글'});
-  await expect(card).toHaveAttribute('data-inline-page','page-1');
-  await card.locator('h3').click();
-  await expect(page.locator('#pageInlineViewer')).toBeVisible();
-  await expect(page.locator('#pivSheet h1')).toHaveText('데스크톱 게시글');
-  await expect(page.locator('#pivSheet .piv-summary')).toHaveText('게시 탭 내부 미리보기');
-  await expect(page.locator('#pivSheet .piv-body')).toContainText('게시글 본문입니다.');
-  await expect(page.locator('[data-piv-external]')).toHaveAttribute('href',/\/p\/desktop-page\//);
-  await expect(page.locator('#pivFrame')).toHaveCount(0);
+  await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
+  await expect(page.locator('#web1BoardActive')).toContainText('산별전환 업무 현황');
+  await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');
+  await expect(page.locator('#web1BoardActive')).not.toContainText('자료실');
+  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('href',/^https:\/\/work\.bokdoong\.com\//);
   await expect(page).toHaveURL(/view=pages/);
-  await expect(page).toHaveURL(/page=page-1/);
-  await expect(page.locator('#pageList')).toBeHidden();
 });

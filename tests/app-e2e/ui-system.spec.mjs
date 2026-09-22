@@ -67,7 +67,6 @@ test('top-level action buttons share one compact size and mobile content reaches
   heights.push(await buttonHeight(page,'projects','#newProjectBtn'));
   heights.push(await buttonHeight(page,'library','#newDocumentBtn'));
   heights.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
-  heights.push(await buttonHeight(page,'pages','#newPageBtn'));
 
   expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(.5);
   for(const height of heights)expect(height).toBeCloseTo(36,0);

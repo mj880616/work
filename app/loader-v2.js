@@ -55,7 +55,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=31')
+    import('./team.js?v=32')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -71,7 +71,7 @@
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='./styles.css?v=35';link.dataset.kptuFeatureStyles='1';
+    link.rel='stylesheet';link.href='./styles.css?v=37';link.dataset.kptuFeatureStyles='1';
     link.onload=()=>resolve();link.onerror=()=>resolve();
     document.head.appendChild(link);
   }));
@@ -93,15 +93,8 @@
     await import('./task-layout.js?v=9'); await window.__KPTU_TASK_LAYOUT_READY__;
     await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=3'),import('./library-upload.js?v=9')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
-    await import('./page-list-controller.js?v=6'); await window.__KPTU_PAGE_LIST_READY__;
-    await import('./page-save-controller.js?v=4'); await window.__KPTU_PAGE_SAVE_READY__;
-    const loadPageBuilder=async detail=>{window.removeEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);await import('./page-builder.js?v=3');await window.__KPTU_PAGE_BUILDER_READY__;await window.KPTUPageBuilder?.open?.(detail||{})};
-    const lazyPageBuilderOpen=e=>loadPageBuilder(e.detail).catch(showFeatureError);
-    window.addEventListener('kptu:page-editor-opened',lazyPageBuilderOpen);
-    await import('./page-shortcut.js?v=2'); await window.__KPTU_PAGE_SHORTCUT_READY__;
-    await import('./page-management.js?v=4'); await window.__KPTU_PAGE_MANAGEMENT_READY__;
+    await import('./web1-board.js?v=1');
     await import('./media-workflow.js?v=2'); await window.__KPTU_MEDIA_WORKFLOW_READY__;
-    await import('./page-inline-viewer-v2.js?v=4'); await window.__KPTU_PAGE_INLINE_VIEWER_READY__;
     await import('./meeting-round-detail.js?v=9'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
@@ -119,7 +112,7 @@
   })().catch(err=>{featurePromise=null;showFeatureError(err);throw err}));
   window.KPTUDeferredFeatures={load:loadFeatures};
   document.addEventListener('click',event=>{
-    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn,#newPageBtn,[data-edit-page]');
+    const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn');
     if(!control||featuresReady)return;
     const view=control.dataset.view||control.dataset.goto||control.dataset.ccView;
     if(view==='home')return;

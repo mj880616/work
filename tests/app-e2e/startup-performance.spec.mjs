@@ -29,16 +29,16 @@ test('startup assets are discovered from the document head without changing auth
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=70" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=70" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=72" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=72" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=182','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
-    './calendar-return-bridge.js?v=2','./team.js?v=31','./home-dashboard-v2.js?v=7'
+    './loader-v2.js?v=184','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './calendar-return-bridge.js?v=2','./team.js?v=32','./home-dashboard-v2.js?v=7'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=182')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=184')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
-  expect(loader).toContain("import('./team.js?v=31')");
+  expect(loader).toContain("import('./team.js?v=32')");
   expect(loader).toContain("import('./google-tasks.js?v=5')");
   expect(loader).toContain("if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return");
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
@@ -87,10 +87,13 @@ test('home reuses authenticated boot context and guards stale-session commits', 
   expect(team).toContain("showOnly('authView')");
 });
 
-test('page builder and AI modules remain lazy or background-only', async ({ page }) => {
+test('retired page editors stay out of the authenticated loader while media and AI features remain available', async ({ page }) => {
   const source=await (await page.request.get(loaderUrl)).text();
-  expect(source).toContain("addEventListener('kptu:page-editor-opened',lazyPageBuilderOpen)");
-  expect(source).toContain('await window.__KPTU_PAGE_BUILDER_READY__');
+  for(const retired of ['./page-list-controller.js','./page-save-controller.js','./page-builder.js','./page-shortcut.js','./page-management.js','./page-inline-viewer-v2.js']){
+    expect(source).not.toContain(retired);
+  }
+  expect(source).toContain("import('./web1-board.js?v=1')");
+  expect(source).toContain("import('./media-workflow.js?v=2')");
   for(const modulePath of ['./workplace-ai-report.js','./workflow-ai-v3.js']){
     expect(source.indexOf(modulePath)).toBeGreaterThan(source.indexOf("startup?.mark('allInitialModulesComplete')"));
   }
