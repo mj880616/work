@@ -130,6 +130,16 @@
     <details id="web1BoardArchivedWrap" class="w1b-archive hidden"><summary>지나간 업무 · 사업</summary><div id="web1BoardArchived" class="w1b-grid"></div></details>
   </section>
 
+  <div id="web1BoardDetailModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="web1BoardDetailTitle">
+    <div class="modal-card w1b-detail-card">
+      <div class="w1b-detail-head">
+        <h2 id="web1BoardDetailTitle">게시판</h2>
+        <button class="mini" type="button" data-close-web1-board aria-label="게시판 상세 닫기">닫기</button>
+      </div>
+      <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="게시판 상세" loading="eager"></iframe>
+    </div>
+  </div>
+
   <section id="teamView" class="view-panel hidden">
     <div class="section-head"><div><h2>산하조직</h2><p>담당 조직의 정보와 현황을 관리합니다.</p></div></div>
   </section>
