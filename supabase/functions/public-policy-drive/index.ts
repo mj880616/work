@@ -1,7 +1,7 @@
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const DRIVE_APP_URL = 'https://desk.bokdoong.com/work/app/?view=library';
-const CALENDAR_APP_URL = 'https://mj880616.github.io/work/app/';
+const CALENDAR_APP_URL = 'https://desk.bokdoong.com/work/app/';
 const CALLBACK_URL = `${SB}/functions/v1/public-policy-drive/callback`;
 const ALLOWED_ORIGINS = new Set([
   'https://mj880616.github.io',
@@ -143,6 +143,12 @@ function driveRedirect(result: 'connected' | 'error', reason?: string) {
   if (reason) u.searchParams.set('reason', reason);
   return u.toString();
 }
+function calendarRedirect(result: 'connected' | 'error') {
+  const u = new URL(CALENDAR_APP_URL);
+  u.searchParams.set('view', 'calendar');
+  u.searchParams.set('google', result);
+  return u.toString();
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
@@ -172,7 +178,7 @@ Deno.serve(async (req) => {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const isDriveState = !!state?.startsWith('drive.');
-  if (!code || !state) return Response.redirect(isDriveState ? driveRedirect('error', 'missing_oauth_params') : `${CALENDAR_APP_URL}?google=error`, 302);
+  if (!code || !state) return Response.redirect(isDriveState ? driveRedirect('error', 'missing_oauth_params') : calendarRedirect('error'), 302);
 
   try {
     const stateHash = await sha256(state);
@@ -180,7 +186,7 @@ Deno.serve(async (req) => {
       `app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=*`
     );
     if (!Array.isArray(rows) || !rows.length) {
-      return Response.redirect(isDriveState ? driveRedirect('error', 'invalid_state') : `${CALENDAR_APP_URL}?google=error`, 302);
+      return Response.redirect(isDriveState ? driveRedirect('error', 'invalid_state') : calendarRedirect('error'), 302);
     }
 
     const row = rows[0];
@@ -201,7 +207,7 @@ Deno.serve(async (req) => {
     if (!tokenRes.ok) {
       console.error(await tokenRes.text());
       await serviceDelete(`app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`).catch(() => {});
-      return Response.redirect(isDriveState ? driveRedirect('error', 'token_exchange_failed') : `${CALENDAR_APP_URL}?google=error`, 302);
+      return Response.redirect(isDriveState ? driveRedirect('error', 'token_exchange_failed') : calendarRedirect('error'), 302);
     }
 
     const tokens = await tokenRes.json();
@@ -282,9 +288,9 @@ Deno.serve(async (req) => {
     await serviceDelete(
       `app_google_oauth_states?state_hash=eq.${encodeURIComponent(stateHash)}`
     );
-    return Response.redirect(`${CALENDAR_APP_URL}?google=connected`, 302);
+    return Response.redirect(calendarRedirect('connected'), 302);
   } catch (e) {
     console.error(e);
-    return Response.redirect(isDriveState ? driveRedirect('error', 'callback_failed') : `${CALENDAR_APP_URL}?google=error`, 302);
+    return Response.redirect(isDriveState ? driveRedirect('error', 'callback_failed') : calendarRedirect('error'), 302);
   }
 });

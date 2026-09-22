@@ -98,9 +98,9 @@
     await import('./meeting-round-detail.js?v=9'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
-    await import('./calendar-plus.js?v=5'); await window.__KPTU_CALENDAR_PLUS_READY__;
+    await import('./calendar-plus.js?v=6'); await window.__KPTU_CALENDAR_PLUS_READY__;
     await import('./calendar-persistence.js?v=10'); await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
-    await import('./calendar-interactions-v2.js?v=3'); await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
+    await import('./calendar-interactions-v2.js?v=4'); await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
     await import('./calendar-mobile-ui.js?v=3'); await window.__KPTU_CALENDAR_MOBILE_UI_READY__;
     await import('./calendar-day-overflow.js?v=2'); await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__;
     await import('./suborganizations.js?v=3'); await window.__KPTU_SUBORGANIZATIONS_READY__;
