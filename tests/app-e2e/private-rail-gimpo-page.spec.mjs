@@ -45,7 +45,7 @@ test('9호선 투쟁 허브는 임단투·행감·언론현장 대응을 연결�
 test('9호선 1단계 행감 하위페이지는 독립 문서·상위 복귀·편집 인쇄 구조를 제공한다', async () => {
   const html = await read('p/line9-publicization-audit/index.html');
   expect(html).toContain('name="kptu-page-slug" content="line9-publicization-audit"');
-  expect(html).toContain('<title>9호선 1단계 서울시 행정사무감사 대응</title>');
+  expect(html).toContain('<title>9호선 공영화·안전인력 서울시의회·행정사무감사 대응</title>');
   expect(html).toContain('← 9호선 공영화 및 안전인력 확충 투쟁');
   expect(html).toContain('id="editPageBtn"');
   expect(html).toContain('id="printPageBtn"');
@@ -98,10 +98,10 @@ test('국회토론회와 국감 페이지의 사업현황 돌아가기 버튼은
   expect(questionTools).toContain('bar.append(back,stat,edit,cancel,print)');
 });
 
-test('국감 페이지는 제목 뒤에 기존 편집 도구를 배치하고 공통 Web1 헤더를 넣지 않는다', async () => {
+test('국감 페이지는 제목 앞에 기존 편집 도구를 배치하고 공통 Web1 헤더를 넣지 않는다', async () => {
   const html = await read('private-rail/question-0912/index.html');
   const questionTools = await read('assets/private-rail-question-tools.js');
   expect(html).not.toContain('/work/app/web1-toolbar.js');
   expect(html).toContain('class="hero"');
-  expect(questionTools).toContain('hero.after(bar)');
+  expect(questionTools).toContain('hero.before(bar)');
 });
