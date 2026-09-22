@@ -59,7 +59,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await page.locator('#pressArchiveList .w1p-item').first().click();
   await expect(page.locator('#pressDetailModal')).toBeVisible();
   await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/원본 보도자료 본문/);
-  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/https:\\/\\/work\\.bokdoong\\.com\\/work\\/press\\/2026-09-22-public-institution-workforce-joint-action\\//);
+  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/https:\/\/work\.bokdoong\.com\/work\/press\/2026-09-22-public-institution-workforce-joint-action\//);
   await expect(page.locator('#pressDetailFrame')).toHaveAttribute('sandbox',/allow-scripts/);
   await page.locator('[data-close-press]').click();
   await expect(page.locator('#pressDetailModal')).toHaveClass(/hidden/);
