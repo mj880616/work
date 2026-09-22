@@ -1,14 +1,14 @@
 (()=>{
 'use strict';
 if(window.KPTUWeb1Press)return;
-const ARCHIVE='/work/press/archive.json';
+const ARCHIVE=new URL('../press/archive.json',location.href).href;
 const WEB1='https://work.bokdoong.com/press/';
 const typeLabel={statement:'성명',release:'보도자료',request:'취재요청'};
 let items=[],type='all',loaded=false,bound=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const el=id=>document.getElementById(id);
 function internalUrl(href){
-  return new URL(href,new URL('/work/press/',location.origin)).href;
+  return new URL(href,new URL('../press/',location.href)).href;
 }
 function filtered(){
   const q=(el('pressSearch')?.value||'').trim().toLowerCase();
