@@ -27,7 +27,7 @@
     if(document.getElementById('privateRailQuestionToolsStyle'))return;
     const s=document.createElement('style');s.id='privateRailQuestionToolsStyle';
     s.textContent=`
-      .private-rail-printbar{display:flex!important;justify-content:flex-start!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important;margin:12px 0 -4px!important}
+      .private-rail-printbar{display:flex!important;justify-content:flex-start!important;align-items:center!important;gap:7px!important;flex-wrap:wrap!important;margin:0 0 12px!important}
       .private-rail-printbtn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:34px}
       .private-rail-question-back,.private-rail-question-edit,.private-rail-question-cancel{background:#fff!important;color:#294b69!important;border-color:#c7d3dd!important;box-shadow:none!important}
       .private-rail-question-back{margin-right:auto!important}
@@ -68,7 +68,7 @@
     const edit=document.createElement('button');edit.type='button';edit.id='privateRailQuestionEdit';edit.className='private-rail-printbtn private-rail-question-edit';edit.textContent=state.editing?'저장':'수정';edit.addEventListener('click',toggleEdit);
     const cancel=document.createElement('button');cancel.type='button';cancel.id='privateRailQuestionCancel';cancel.className='private-rail-printbtn private-rail-question-cancel';cancel.textContent='취소';cancel.addEventListener('click',cancelEdit);
     const print=document.createElement('button');print.type='button';print.className='private-rail-printbtn';print.textContent='인쇄';print.addEventListener('click',()=>window.print());
-    bar.append(back,stat,edit,cancel,print);hero.after(bar);
+    bar.append(back,stat,edit,cancel,print);hero.before(bar);
     if(state.editing){bar.classList.add('editing');status('수정 중 · 화면의 문구를 직접 수정한 뒤 저장');}
   }
 
