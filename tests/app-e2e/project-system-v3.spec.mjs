@@ -445,7 +445,7 @@ test('Web1-backed board stays compact and excludes dedicated library and press s
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   }
-  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('href',/^https:\/\/work\.bokdoong\.com\//);
+  await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);
 });
 
 test('V3 completion changes status without deleting the project',async({page})=>{

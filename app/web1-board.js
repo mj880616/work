@@ -11,7 +11,7 @@
   ];
   let state=new Map(),loaded=false;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const card=x=>`<a class="w1b-card" href="${esc(x.href)}"><div class="w1b-card-top"><span class="badge">${esc(x.badge)}</span><span class="w1b-open">웹1 열기 ↗</span></div><h3>${esc(x.title)}</h3><p>${esc(x.description)}</p></a>`;
+  const card=x=>`<button class="w1b-card" type="button" data-web1-board-href="${esc(x.href)}" data-web1-board-title="${esc(x.title)}"><div class="w1b-card-top"><span class="badge">${esc(x.badge)}</span><span class="w1b-open">내용 보기</span></div><h3>${esc(x.title)}</h3><p>${esc(x.description)}</p></button>`;
   function render(){
     const host=document.querySelector('#pagesView');
     const active=document.querySelector('#web1BoardActive');
@@ -24,6 +24,38 @@
     archivedWrap.classList.toggle('hidden',!zz.length);
     host.dataset.web1BoardReady='1';
   }
+  let detailTrigger=null;
+  function closeDetail(){
+    const modal=document.querySelector('#web1BoardDetailModal');
+    const frame=document.querySelector('#web1BoardDetailFrame');
+    if(!modal)return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden','true');
+    if(frame)frame.src='about:blank';
+    window.KPTUA11y?.dialog.deactivate(modal,{restoreFocus:true,fallbackFocus:'#pagesView h2'});
+    detailTrigger=null;
+  }
+  function openDetail(href,title){
+    const modal=document.querySelector('#web1BoardDetailModal');
+    const frame=document.querySelector('#web1BoardDetailFrame');
+    const heading=document.querySelector('#web1BoardDetailTitle');
+    if(!modal||!frame)return;
+    detailTrigger=document.activeElement;
+    if(heading)heading.textContent=title||'게시판';
+    frame.title=(title||'게시판')+' 본문';
+    frame.src=href;
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden','false');
+    const close=modal.querySelector('[data-close-web1-board]');
+    window.KPTUA11y?.dialog.activate(modal,{trigger:detailTrigger,initialFocus:close,onRequestClose:closeDetail});
+    close?.focus();
+  }
+  document.addEventListener('click',e=>{
+    const card=e.target.closest?.('[data-web1-board-href]');
+    if(card){e.preventDefault();openDetail(card.dataset.web1BoardHref,card.dataset.web1BoardTitle);return}
+    if(e.target.closest?.('[data-close-web1-board]'))closeDetail();
+  });
+  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.querySelector('#web1BoardDetailModal')?.classList.contains('hidden'))closeDetail()});
   async function load(){
     if(loaded){render();return}
     loaded=true;
@@ -33,7 +65,7 @@
     }catch(e){console.warn('web1 board archive state unavailable',e)}
     render();
   }
-  window.KPTUWeb1Board={render:load};
+  window.KPTUWeb1Board={render:load,openDetail,closeDetail};
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view==='pages')load()});
   load();
 })();
