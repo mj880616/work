@@ -22,6 +22,11 @@ async function installMock(page){
 
 test('authenticated board mirrors Web1 business pages and excludes library and press',async({page})=>{
   await installMock(page);
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({
+    status:200,
+    contentType:'text/html; charset=utf-8',
+    body:'<!doctype html><html><head><script src="/work/app/web1-admin-auth.js?v=2"></script></head><body><main id="rawBoardBody">원본 게시판 본문</main></body></html>'
+  }));
   const target='http://127.0.0.1:8123/app/?view=pages';
   await page.goto('http://127.0.0.1:8123/app/login/?return='+encodeURIComponent(target));
   await page.locator('#emailAuthToggle').click();
@@ -49,7 +54,10 @@ test('authenticated board mirrors Web1 business pages and excludes library and p
 
   await page.locator('#web1BoardActive .w1b-card').first().click();
   await expect(page.locator('#web1BoardDetailModal')).toBeVisible();
-  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('src','https://work.bokdoong.com/work/2in1/');
+  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('srcdoc',/원본 게시판 본문/);
+  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('srcdoc',/https:\/\/work\.bokdoong\.com\/work\/2in1\//);
+  await expect(page.locator('#web1BoardDetailFrame')).not.toHaveAttribute('srcdoc',/web1-admin-auth/);
+  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('sandbox',/allow-scripts/);
   await expect(page.locator('#pagesView')).toBeVisible();
   await page.locator('[data-close-web1-board]').click();
   await expect(page.locator('#web1BoardDetailModal')).toHaveClass(/hidden/);
