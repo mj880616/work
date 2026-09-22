@@ -87,13 +87,14 @@ test('home reuses authenticated boot context and guards stale-session commits', 
   expect(team).toContain("showOnly('authView')");
 });
 
-test('retired page editors stay out of the authenticated loader while media and AI features remain available', async ({ page }) => {
+test('retired page editors and media drafting workflow stay out while the Web1 press archive remains available', async ({ page }) => {
   const source=await (await page.request.get(loaderUrl)).text();
   for(const retired of ['./page-list-controller.js','./page-save-controller.js','./page-builder.js','./page-shortcut.js','./page-management.js','./page-inline-viewer-v2.js']){
     expect(source).not.toContain(retired);
   }
   expect(source).toContain("import('./web1-board.js?v=1')");
-  expect(source).toContain("import('./media-workflow.js?v=2')");
+  expect(source).not.toContain("import('./media-workflow.js");
+  expect(source).toContain("import('./web1-press.js?v=1')");
   for(const modulePath of ['./workplace-ai-report.js','./workflow-ai-v3.js']){
     expect(source.indexOf(modulePath)).toBeGreaterThan(source.indexOf("startup?.mark('allInitialModulesComplete')"));
   }

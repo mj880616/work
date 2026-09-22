@@ -63,7 +63,7 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
 
   await page.locator('.app-nav [data-view="media"]').click();
   await expect(page.locator('#mediaView')).toBeVisible();
-  await expect(page.locator('#mediaCaseList')).toContainText('현장 사건');
+  await expect(page.locator('#pressArchiveList')).toContainText('공공기관 인력감축 없다더니');
   await expect(page.locator('.app-nav [data-view="media"]')).toHaveAttribute('aria-current','page');
   await page.reload();
   await expect(page.locator('#mediaView')).toBeVisible({timeout:20000});
