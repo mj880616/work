@@ -87,10 +87,12 @@ test('home reuses authenticated boot context and guards stale-session commits', 
   expect(team).toContain("showOnly('authView')");
 });
 
-test('page builder and AI modules remain lazy or background-only', async ({ page }) => {
+test('retired page and media editors stay out of the authenticated loader while AI reports remain background-only', async ({ page }) => {
   const source=await (await page.request.get(loaderUrl)).text();
-  expect(source).toContain("addEventListener('kptu:page-editor-opened',lazyPageBuilderOpen)");
-  expect(source).toContain('await window.__KPTU_PAGE_BUILDER_READY__');
+  for(const retired of ['./page-list-controller.js','./page-save-controller.js','./page-builder.js','./page-shortcut.js','./page-management.js','./page-inline-viewer-v2.js','./media-workflow.js']){
+    expect(source).not.toContain(retired);
+  }
+  expect(source).toContain("import('./web1-board.js?v=1')");
   for(const modulePath of ['./workplace-ai-report.js','./workflow-ai-v3.js']){
     expect(source.indexOf(modulePath)).toBeGreaterThan(source.indexOf("startup?.mark('allInitialModulesComplete')"));
   }
