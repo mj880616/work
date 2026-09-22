@@ -4,6 +4,16 @@
   "items": [
     {
       "year": 2026,
+      "date": "2026-09-22",
+      "display_date": "09.22",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "“사람이 있어야 안전과 공공서비스를 지킨다” 공공운수노조, 공공기관 인력확충 촉구 1박2일 공동투쟁 마무리",
+      "publisher": "민주노총 공공운수노조",
+      "href": "./2026-09-22-public-institution-workforce-joint-action/"
+    },
+    {
+      "year": 2026,
       "date": "2026-09-14",
       "display_date": "09.14",
       "type": "release",
