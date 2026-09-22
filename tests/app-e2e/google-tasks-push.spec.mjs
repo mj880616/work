@@ -38,7 +38,36 @@ test('Google Tasks remains separate from the app task list',async({page})=>{
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
-  await expect(page.locator('#gtTaskSection')).toContainText('읽기 전용');
+  await expect(page.locator('#gtTaskSection')).toContainText('직접 동기화');
+});
+
+
+test('Google Tasks can be created, edited, completed, reopened and deleted',async({page})=>{
+  await mock(page);
+  const calls=[];
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const req=route.request(),u=new URL(req.url()),action=u.searchParams.get('action'),body=req.method()==='GET'?{}:JSON.parse(req.postData()||'{}');
+    const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
+    if(action==='status')return ok({connected:true,authorized:true});
+    if(action==='lists')return ok({lists:[{id:'l1',title:'업무'}]});
+    if(action==='tasks')return ok({tasks:[{id:'g1',title:'Google QA 할 일',taskListId:'l1',taskListTitle:'업무',due:null,notes:'메모',status:'needsAction',source:'google-task'}],needs_reconnect:false});
+    calls.push({action,body});return ok({ok:true});
+  });
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await page.locator('[data-gt-add]').click();
+  await page.locator('#gtEditTitle').fill('새 Google 할 일');
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>calls.some(x=>x.action==='create'&&x.body.title==='새 Google 할 일')).toBeTruthy();
+  await page.locator('[data-gt-edit="g1"]').click();
+  await page.locator('#gtEditTitle').fill('수정된 Google 할 일');
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>calls.some(x=>x.action==='update'&&x.body.title==='수정된 Google 할 일')).toBeTruthy();
+  await page.locator('[data-gt-toggle="g1"]').click();
+  await expect.poll(()=>calls.some(x=>x.action==='toggle'&&x.body.completed===true)).toBeTruthy();
+  await page.locator('[data-gt-edit="g1"]').click();
+  page.once('dialog',d=>d.accept());
+  await page.locator('#gtDeleteBtn').click();
+  await expect.poll(()=>calls.some(x=>x.action==='delete')).toBeTruthy();
 });
 
 
@@ -55,7 +84,7 @@ test('Google Tasks missing scope shows an explicit reconnect action',async({page
   await login(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
-  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 읽기 권한이 없습니다');
+  await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없습니다');
   await expect(page.locator('[data-gt-connect]')).toHaveText('Google 할 일 권한 다시 연결');
 });
 
