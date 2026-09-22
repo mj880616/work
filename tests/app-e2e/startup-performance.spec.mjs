@@ -29,13 +29,13 @@ test('startup assets are discovered from the document head without changing auth
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=72" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=72" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=73" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=73" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=184','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=185','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=2','./team.js?v=32','./home-dashboard-v2.js?v=7'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=184')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=185')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
   expect(loader).toContain("import('./team.js?v=32')");
@@ -50,7 +50,8 @@ test('authenticated home commits before non-critical feature bundle', async ({ p
   const source=await response.text();
   const usable=source.indexOf('window.__KPTU_MARK_APP_UI_READY__?.({usable:homeResult?.ok===true})');
   const deferred=source.indexOf('defer(()=>loadFeatures()');
-  expect(source).toContain('const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])');
+  expect(source).toContain('const homeResult=await window.__KPTU_HOME_READY__');
+  expect(source).not.toContain('await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])');
   const router=read('app/app-router.js');
   expect(router).toContain('authenticatedShellReady()');
   expect(router).toContain('appReady()||authenticatedShellReady()');
@@ -108,7 +109,8 @@ test('feature navigation waits for deferred readiness and bootstrap loads access
   expect(source).toContain('#appView [data-hdv-project]');
   expect(source).toContain('#newTaskBtn');
   expect(source).toContain("loadFeatures().then(()=>{status.remove()");
-  expect(source).toContain("const [homeResult]=await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])");
+  expect(source).toContain("const homeResult=await window.__KPTU_HOME_READY__");
+  expect(source).not.toContain("await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])");
 });
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
