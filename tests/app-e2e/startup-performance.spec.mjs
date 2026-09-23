@@ -29,13 +29,13 @@ test('startup assets are discovered from the document head without changing auth
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=84" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=84" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=85" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=85" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=196','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=197','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=3','./team.js?v=33','./home-dashboard-v2.js?v=8'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=196')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=197')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
   expect(loader).toContain("import('./team.js?v=33')");
@@ -95,7 +95,7 @@ test('retired page editors and media drafting workflow stay out while the Web1 p
   for(const retired of ['./page-list-controller.js','./page-save-controller.js','./page-builder.js','./page-shortcut.js','./page-management.js','./page-inline-viewer-v2.js']){
     expect(source).not.toContain(retired);
   }
-  expect(source).toContain("import('./web1-board.js?v=2')");
+  expect(source).toContain("import('./web1-board.js?v=3')");
   expect(source).not.toContain("import('./media-workflow.js");
   expect(source).toContain("import('./web1-press.js?v=2')");
   for(const modulePath of ['./workplace-ai-report.js','./workflow-ai-v3.js']){
