@@ -59,7 +59,6 @@ button{cursor:pointer}
 .shell{min-height:100vh;min-height:100dvh}
 .topbar{height:62px;padding:0 max(18px,env(safe-area-inset-left));display:flex;align-items:center;justify-content:space-between;background:var(--kptu-surface);border-bottom:1px solid var(--kptu-border);position:sticky;top:0;z-index:20}
 .brand{display:flex;align-items:center;gap:var(--kptu-space-2);color:var(--kptu-ink);text-decoration:none;font-weight:800;white-space:nowrap;flex:0 0 auto}
-.brand .leaf{width:28px;height:28px;border-radius:var(--kptu-radius-md);background:#93a28d;color:#fff;display:grid;place-items:center;font-size:20px}
 .brand-icon{width:34px;height:34px;display:block;object-fit:cover;border-radius:9px;flex:0 0 auto}
 .brand b{font-size:11px;color:var(--kptu-link);background:var(--kptu-primary-soft);padding:3px 7px;border-radius:var(--kptu-radius-pill)}
 .top-actions{display:flex;gap:var(--kptu-space-2);align-items:center}
