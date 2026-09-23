@@ -17,13 +17,13 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=9">
 <link rel="preload" as="style" href="./desktop-ui.css?v=7">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=192">
+<link rel="modulepreload" href="./loader-v2.js?v=193">
 <link rel="modulepreload" href="./runtime-client.js?v=3">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=4">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
 <link rel="modulepreload" href="./team.js?v=32">
 <link rel="modulepreload" href="./home-dashboard-v2.js?v=7">
-<script src="./app.js?v=80" defer></script>
+<script src="./app.js?v=81" defer></script>
 </head>
 <body>
 <div class="shell">
@@ -136,7 +136,7 @@
         <h2 id="web1BoardDetailTitle">게시판</h2>
         <button class="mini" type="button" data-close-web1-board aria-label="게시판 상세 닫기">닫기</button>
       </div>
-      <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="게시판 상세" loading="eager"></iframe>
+      <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="게시판 상세" loading="eager" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>
     </div>
   </div>
 
