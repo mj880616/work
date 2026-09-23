@@ -15,6 +15,8 @@
     window.__visibilityCalls=[];
     window.__documentActionError=null;
     window.__driveReconnectCalls=[];
+    window.__libraryUploadMode='timeout';
+    window.__libraryUploadCalls=[];
     window.__libraryDocs=[{id:'doc-1',workspace_id:'workspace-1',title:'내부 자료',category:'정책자료',source:'테스트',visibility:'workspace',tags:[],drive_url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html'}];
     window.addEventListener('kptu:documents-changed',()=>window.__documentsChanged++);
     window.KPTURuntime={
@@ -35,6 +37,13 @@
             const d=window.__libraryDocs.find(x=>x.id===opts.body.document_id);
             if(d)d.visibility=opts.body.visibility;
             return {ok:true,document:{id:opts.body.document_id,visibility:opts.body.visibility}};
+          }
+          const file=opts.body?.get?.('file');
+          window.__libraryUploadCalls.push(file?.name||'');
+          if(window.__libraryUploadMode==='success')return {ok:true,document:{id:'uploaded-'+window.__libraryUploadCalls.length,project_id:null}};
+          if(window.__libraryUploadMode==='partial'){
+            if(file?.name==='fail.pdf')throw new Error('테스트 업로드 실패');
+            return {ok:true,document:{id:'uploaded-'+window.__libraryUploadCalls.length,project_id:null}};
           }
           await new Promise(resolve=>{window.__releaseLibraryUpload=resolve});
           const e=new Error('요청 시간이 초과되었습니다. 다시 시도해 주세요.');e.code='timeout';e.retryable=true;throw e;
