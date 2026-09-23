@@ -24,7 +24,7 @@
       api:async(path,opts={})=>{
         if(path==='/auth/v1/user')return {id:window.__fixtureUserId};
         if(path.startsWith('/rest/v1/app_workspace_members'))return [{workspace_id:window.__fixtureUserId==='user-1'?'workspace-1':'workspace-2'}];
-        if(path.startsWith('/rest/v1/app_spaces'))return window.__fixtureUserId==='user-1'?[{id:'main-1',name:'공공기관 인력확충',parent_id:null,status:'active'},{id:'space-1',name:'세부 대응',parent_id:'main-1',status:'active'}]:[];
+        if(path.startsWith('/rest/v1/app_spaces'))return window.__fixtureUserId==='user-1'?[{id:'main-1',name:'공공기관 인력확충',parent_id:null,status:'active',metadata:{project_system:'v2',management_version:2}},{id:'space-1',name:'세부 대응',parent_id:'main-1',status:'active',metadata:{project_system:'v2',management_version:2}},{id:'legacy-hidden',name:'옛 업무공간',parent_id:null,status:'active',metadata:{}}]:[];
         if(path==='/rest/v1/app_tasks'&&opts.method==='POST'){
           const row={id:'new-'+(rows.length+1),...(opts.body||{})};rows.push(row);return [row];
         }
