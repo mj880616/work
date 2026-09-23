@@ -47,6 +47,29 @@ test('new manual task is saved by the canonical task renderer',async({page})=>{
   await expect(page.locator('#taskModal')).toHaveClass(/hidden/);
 });
 
+test('new task can target no project, a top-level project, or a child project',async({page})=>{
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await expect.poll(()=>page.evaluate(()=>typeof window.KPTUTaskLayout?.openCreate)).toBe('function');
+
+  await page.evaluate(()=>window.KPTUTaskLayout.openCreate('main-1'));
+  await expect(page.locator('#taskModal')).toBeVisible();
+  await expect(page.locator('#taskProject')).toHaveValue('main-1');
+  const values=await page.locator('#taskProject option').evaluateAll(options=>options.map(o=>o.value));
+  expect(values).toEqual(['','main-1','space-1']);
+  await expect(page.locator('#taskProject')).not.toContainText('옛 업무공간');
+  await expect(page.locator('#taskProject option[value="space-1"]')).toContainText('↳');
+
+  await page.locator('#taskTitle').fill('상위 프로젝트 직접 할 일');
+  await page.locator('#saveTaskBtn').click();
+  await expect(page.locator('#taskList')).toContainText('상위 프로젝트 직접 할 일');
+  await expect(page.locator('#taskList')).toContainText('공공기관 인력확충');
+
+  await page.evaluate(()=>window.KPTUTaskLayout.openCreate(''));
+  await expect(page.locator('#taskProject')).toHaveValue('');
+  await page.locator('#taskProject').selectOption('space-1');
+  await expect(page.locator('#taskProject')).toHaveValue('space-1');
+});
+
 test('390px task rows prioritize two-line information and keep actions in a menu',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');

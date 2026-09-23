@@ -247,6 +247,21 @@ test('progress items are added directly by title and existing progress data stay
   expect(row.phase).toBe('in_progress');
 });
 
+test('top-level project creates a task directly on the current project',async({page})=>{
+  const state=baseState();
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+  await page.locator('[data-ps3-global="task"]').click();
+  await expect(page.locator('#taskModal')).toBeVisible();
+  await expect(page.locator('#taskProject')).toHaveValue('main-1');
+  const values=await page.locator('#taskProject option').evaluateAll(options=>options.map(o=>o.value));
+  expect(values).toEqual(expect.arrayContaining(['','main-1','child-1']));
+  await page.locator('#taskTitle').fill('상위 프로젝트 직접 연결 업무');
+  await page.locator('#saveTaskBtn').click();
+  await expect.poll(()=>state.tasks.some(x=>x.title==='상위 프로젝트 직접 연결 업무'&&x.project_id==='main-1')).toBe(true);
+});
+
 test('V3 mobile project creation, detail scrolling and linked document remain usable',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const state=baseState();
