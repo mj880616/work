@@ -286,7 +286,8 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await page.locator('#ps3WsTitle').fill('모바일 QA 진행상황');
   await page.locator('#ps3WsSave').click();
   await expect.poll(()=>state.workstreams.some(x=>x.title==='모바일 QA 진행상황')).toBe(true);
-  await page.locator('[data-ps3-add-progress]').click();
+  const mobileProgress=state.workstreams.find(x=>x.title==='모바일 QA 진행상황');
+  await page.locator(`[data-ps3-progress-ws="${mobileProgress.id}"]`).click();
   await expect(page.locator('#ps3ProgressModal')).toBeVisible();
   await page.locator('#ps3ProgressSummary').fill('모바일 QA 현재 상황');
   await page.locator('#ps3ProgressNext').fill('다음 현장 확인');
