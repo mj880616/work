@@ -11,7 +11,7 @@ function runBridge(script, locationInput) {
     hash: locationInput.hash || '',
     replace(value) { replaced = value; }
   };
-  const context = { URL, URLSearchParams, location };
+  const context = { URL, URLSearchParams, location, READ_APP };
   vm.runInNewContext(script, context);
   return replaced;
 }
