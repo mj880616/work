@@ -188,7 +188,8 @@ jobs:
           grep -q "#web1BoardDetailModal .w1b-detail-frame" app/web1-board.css
           grep -q "if(!forced||document.querySelector('#startupDiagCopy'))return;" app/app.js
           if grep -q "(!forced&&!slow)" app/app.js; then echo 'startup diagnostics returned to automatic slow-load UI'; exit 1; fi
-          grep -q "work.bokdoong.com/work/2in1/" app/web1-board.js
+          grep -q "const WORK_ORIGIN='https://work.bokdoong.com'" app/web1-board.js
+          grep -q "/work/2in1/" app/web1-board.js
           grep -q "https://raw.githubusercontent.com/mj880616/work/main/" app/web1-board.js
           grep -q 'sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads"' app/index.html
           if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
