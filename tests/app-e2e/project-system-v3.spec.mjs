@@ -247,6 +247,77 @@ test('progress items are added directly by title and existing progress data stay
   expect(row.phase).toBe('in_progress');
 });
 
+test('progress cards prioritize title status latest update next step and record count',async({page})=>{
+  const state=baseState();
+  state.progress.unshift({
+    id:'pr-2',project_id:'main-1',workstream_id:'ws-1',
+    summary:'국토부 회신을 반영해 토론회 쟁점을 다시 정리함',
+    next_step:'현장 조직 의견을 취합해 최종 요구안을 확정',
+    status_label:'진행',effective_on:'2026-09-20',created_at:now()
+  });
+  state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20});
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+
+  const card=page.locator('[data-ps3-progress-card="ws-1"]');
+  await expect(card.locator('h4')).toHaveText('정책·제도 대응');
+  await expect(card.locator('.ps3-progress-count')).toHaveText('기록 2');
+  await expect(card.locator('.ps3-progress-meta')).toContainText('진행');
+  await expect(card.locator('.ps3-progress-meta')).toContainText('최근');
+  await expect(card.locator('.ps3-progress-current')).toContainText('국토부 회신을 반영해 토론회 쟁점을 다시 정리함');
+  await expect(card.locator('.ps3-progress-next')).toContainText('현장 조직 의견을 취합해 최종 요구안을 확정');
+  await expect(card.locator('[data-ps3-edit-ws]')).toHaveText('항목 수정');
+  await expect(card.locator('[data-ps3-progress-ws]')).toHaveText('진행상황 업데이트');
+
+  const emptyCard=page.locator('[data-ps3-progress-card="ws-2"]');
+  await expect(emptyCard.locator('.ps3-progress-count')).toHaveText('기록 0');
+  await expect(emptyCard.locator('.ps3-progress-empty')).toContainText('아직 기록이 없습니다.');
+  await expect(emptyCard.locator('[data-ps3-progress-ws]')).toBeVisible();
+});
+
+test('progress cards keep a two-column desktop layout and a readable single-column mobile layout',async({page})=>{
+  const state=baseState();
+  state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응과 매우 긴 진행상황 제목',description:'산하조직별 의견과 현장 조건을 함께 확인하는 중',phase:'consultation',sort_order:20});
+  state.progress[0].summary='국토부 후속협의 준비와 운영기준 쟁점 정리를 동시에 진행하고 있으며 현장 의견을 반영 중';
+  state.progress[0].next_step='토론회 전까지 산하조직 의견을 취합하고 최종 질의와 요구안을 확정';
+  await mockApp(page,state);
+  await page.setViewportSize({width:1280,height:900});
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+
+  const desktop=await page.evaluate(()=>{
+    const grid=document.querySelector('#ps3-progress .ps3-ws-grid');
+    const cards=[...grid.querySelectorAll('.ps3-progress-card')];
+    const r=el=>el.getBoundingClientRect();
+    return {grid:r(grid).width,cards:cards.map(x=>r(x).width),columns:getComputedStyle(grid).gridTemplateColumns};
+  });
+  expect(desktop.cards).toHaveLength(2);
+  expect(desktop.cards[0]).toBeLessThan(desktop.grid*.7);
+  expect(desktop.columns.split(' ').length).toBe(2);
+
+  for(const width of [360,390,412,430]){
+    await page.setViewportSize({width,height:844});
+    const mobile=await page.evaluate(()=>{
+      const grid=document.querySelector('#ps3-progress .ps3-ws-grid');
+      const cards=[...grid.querySelectorAll('.ps3-progress-card')];
+      const r=el=>el.getBoundingClientRect();
+      return {
+        overflow:document.documentElement.scrollWidth-window.innerWidth,
+        grid:r(grid).width,
+        cards:cards.map(x=>({width:r(x).width,overflow:x.scrollWidth-x.clientWidth})),
+        columns:getComputedStyle(grid).gridTemplateColumns
+      };
+    });
+    expect(mobile.overflow,`page overflow at ${width}px`).toBeLessThanOrEqual(1);
+    expect(mobile.columns.split(' ').length,`columns at ${width}px`).toBe(1);
+    for(const card of mobile.cards){
+      expect(card.width,`card width at ${width}px`).toBeGreaterThan(mobile.grid*.95);
+      expect(card.overflow,`card overflow at ${width}px`).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
 test('top-level project creates a task directly on the current project',async({page})=>{
   const state=baseState();
   await mockApp(page,state);
