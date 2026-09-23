@@ -55,7 +55,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=32')
+    import('./team.js?v=33')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -85,12 +85,12 @@
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
     await ensureFeatureStyles();
     await window.__KPTU_START_TEAM_DATA__();
-    await import('./project-system-v3.js?v=14');
+    await import('./project-system-v3.js?v=15');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./due-date-calendar.js?v=1')]);
     await import('./page-design-core.js?v=4');
     await import('./task-workflow.js?v=6'); await window.__KPTU_TASK_WORKFLOW_READY__;
     await import('./task-row-view.js?v=1');
-    await import('./task-layout.js?v=9'); await window.__KPTU_TASK_LAYOUT_READY__;
+    await import('./task-layout.js?v=10'); await window.__KPTU_TASK_LAYOUT_READY__;
     await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=4'),import('./library-upload.js?v=11')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
     await import('./web1-board.js?v=2');
