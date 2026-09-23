@@ -96,7 +96,7 @@ export default {
       if (incoming.pathname === '/favicon.ico') responseHeaders.set('Content-Type', 'image/x-icon');
     }
     // HTML and unversioned assets must revalidate so deployments stay current.
-    // Versioned Web2 assets are immutable in both browser and edge caches.
+    // Versioned Web2 assets use immutable browser and edge delivery.
     responseHeaders.set(
       'Cache-Control',
       versionedAsset ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate'
