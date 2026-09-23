@@ -56,6 +56,7 @@ test('new task can target no project, a top-level project, or a child project',a
   await expect(page.locator('#taskProject')).toHaveValue('main-1');
   const values=await page.locator('#taskProject option').evaluateAll(options=>options.map(o=>o.value));
   expect(values).toEqual(['','main-1','space-1']);
+  await expect(page.locator('#taskProject')).not.toContainText('옛 업무공간');
   await expect(page.locator('#taskProject option[value="space-1"]')).toContainText('↳');
 
   await page.locator('#taskTitle').fill('상위 프로젝트 직접 할 일');
