@@ -120,7 +120,8 @@ jobs:
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
           grep -q "task-row-view.js?v=1" app/loader-v2.js
           grep -q "task-layout.js?v=9" app/loader-v2.js
-          grep -q "google-tasks.js?v=6" app/loader-v2.js\n          grep -q "library-upload.js?v=11" app/loader-v2.js
+          grep -q "google-tasks.js?v=6" app/loader-v2.js
+          grep -q "library-upload.js?v=11" app/loader-v2.js
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js; then echo 'removed personal view module was loaded'; exit 1; fi
           test ! -f app/home-task-controls.js
@@ -151,7 +152,8 @@ jobs:
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           grep -q "notification-center-ui.css?v=2" app/styles.css
           grep -q "task-layout.css?v=4" app/styles.css
-          grep -q "google-tasks.css?v=3" app/styles.css\n          grep -q "library-upload.css?v=1" app/styles.css
+          grep -q "google-tasks.css?v=3" app/styles.css
+          grep -q "library-upload.css?v=1" app/styles.css
           grep -q "meeting-ui.css?v=6" app/styles.css
           grep -q "calendar-ui.css?v=2" app/styles.css
           grep -q "page-core.css?v=7" app/styles.css
@@ -184,7 +186,7 @@ jobs:
           if grep -q "team.js" app/app.js; then echo 'workspace modules bypass session boundary'; exit 1; fi
           if grep -Eq "task-child-project-guard.js|task-status-state.js|task-assignment-visibility.js|meeting-assignee-picker.js|meeting-file-route.js|calendar-defaults.js|page-editor-fix.js|page-inline-viewer.js" app/loader-v2.js; then echo 'legacy correction module returned'; exit 1; fi
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/library-upload.js; then echo 'core readiness returned to mutation polling'; exit 1; fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/page-builder.js; then echo 'core styles returned to runtime injection'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/page-builder.js app/library-upload.js; then echo 'core styles returned to runtime injection'; exit 1; fi
           if grep -q "createElement('link')" app/team.js; then echo 'team css must stay static'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-dashboard-v2.js app/photo-room.js app/notification-center-ui.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
           if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js app/notification-center-ui.js; then echo 'core UI bypassed shared runtime session'; exit 1; fi
