@@ -79,3 +79,47 @@ test('Web2 board opens all five business pages from the canonical Pages origin a
     await expect(page.locator('#pagesView')).toBeVisible();
   }
 });
+
+
+test('mobile Web1 board detail is a full-screen reader without duplicate visible heading',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await mockApp(page);
+  await page.route('https://mj880616.github.io/work/**',route=>route.fulfill({
+    status:200,
+    contentType:'text/html; charset=utf-8',
+    body:'<!doctype html><html><body><main id="embeddedBoard">mobile board</main></body></html>'
+  }));
+  await signIn(page);
+  await page.locator('.app-nav [data-view="pages"]').click();
+  await page.locator('[data-web1-board-title="위험업무 2인1조 법제화"]').click();
+
+  const modal=page.locator('#web1BoardDetailModal');
+  const card=page.locator('#web1BoardDetailModal .w1b-detail-card');
+  const head=page.locator('#web1BoardDetailModal .w1b-detail-head');
+  const frame=page.locator('#web1BoardDetailFrame');
+
+  await expect(modal).toBeVisible();
+  const metrics=await page.evaluate(()=>{
+    const modal=document.querySelector('#web1BoardDetailModal');
+    const card=document.querySelector('#web1BoardDetailModal .w1b-detail-card');
+    const head=document.querySelector('#web1BoardDetailModal .w1b-detail-head');
+    const title=document.querySelector('#web1BoardDetailTitle');
+    const frame=document.querySelector('#web1BoardDetailFrame');
+    const rect=el=>el.getBoundingClientRect();
+    return {
+      viewport:{width:innerWidth,height:innerHeight},
+      modal:rect(modal),card:rect(card),head:rect(head),frame:rect(frame),
+      titleDisplay:getComputedStyle(title).display,
+      titleWidth:rect(title).width,
+      overflow:document.documentElement.scrollWidth-innerWidth
+    };
+  });
+  expect(metrics.card.width).toBeGreaterThanOrEqual(389);
+  expect(metrics.card.height/metrics.viewport.height).toBeGreaterThanOrEqual(.95);
+  expect(metrics.card.top).toBeLessThanOrEqual(16);
+  expect(metrics.frame.height/metrics.viewport.height).toBeGreaterThanOrEqual(.88);
+  expect(metrics.titleWidth).toBeLessThanOrEqual(1);
+  expect(metrics.overflow).toBeLessThanOrEqual(1);
+  await expect(head.locator('[data-close-web1-board]')).toBeVisible();
+  await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toContainText('mobile board');
+});

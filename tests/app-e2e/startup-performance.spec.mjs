@@ -29,13 +29,13 @@ test('startup assets are discovered from the document head without changing auth
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=83" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=83" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=84" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=84" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=195','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=196','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=3','./team.js?v=33','./home-dashboard-v2.js?v=8'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=195')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=196')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
   expect(loader).toContain("import('./team.js?v=33')");
@@ -58,6 +58,8 @@ test('authenticated home commits before non-critical feature bundle', async ({ p
   expect(source).toContain('await window.__KPTU_START_TEAM_DATA__()');
   expect(read('app/home-dashboard-v2.js')).toContain('resolveReady?.({ok:false})');
   expect(read('app/app.js')).toContain("mark(usable?'homeUsable':'uiReadyOnly')");
+  expect(read('app/app.js')).toContain("if(!forced||document.querySelector('#startupDiagCopy'))return;");
+  expect(read('app/app.js')).not.toContain("(!forced&&!slow)");
   expect(usable).toBeGreaterThan(0);
   expect(deferred).toBeGreaterThan(usable);
   const criticalAwaitedImports=source.split('\n').filter(line=>/^  await import\(/.test(line));

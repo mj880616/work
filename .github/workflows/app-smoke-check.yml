@@ -102,7 +102,7 @@ jobs:
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
           grep -q "critical.css?v=1" app/index.html
-          grep -q "styles.css?v=41" app/loader-v2.js
+          grep -q "styles.css?v=42" app/loader-v2.js
           grep -q "ensureFeatureStyles" app/loader-v2.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
@@ -178,6 +178,12 @@ jobs:
           grep -q "/functions/v1/meeting-files" app/team.js
           grep -q "function renderPages(){window.KPTUWeb1Board?.render?.()}" app/team.js
           grep -q "main_project_archive_state" app/web1-board.js
+          grep -q "web1-board.css?v=2" app/styles.css
+          grep -q "#web1BoardDetailModal .w1b-detail-card" app/web1-board.css
+          grep -q "height:100dvh" app/web1-board.css
+          grep -q "#web1BoardDetailModal .w1b-detail-frame" app/web1-board.css
+          grep -q "if(!forced||document.querySelector('#startupDiagCopy'))return;" app/app.js
+          if grep -q "(!forced&&!slow)" app/app.js; then echo 'startup diagnostics returned to automatic slow-load UI'; exit 1; fi
           grep -q "work.bokdoong.com/work/2in1/" app/web1-board.js
           grep -q "https://mj880616.github.io/work/" app/web1-board.js
           grep -q 'sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"' app/index.html
