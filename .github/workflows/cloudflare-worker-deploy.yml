@@ -65,30 +65,20 @@ jobs:
           wait_for_match() {
             local local_path="$1"
             local remote_url="$2"
-            local expected=""
-            local actual=""
-            local ready=false
-
+            local expected
+            local actual
             expected="$(sha256sum "$local_path" | cut -d ' ' -f1)"
             for attempt in {1..60}; do
-              actual="$(curl --silent --fail --location --compressed \
-                --connect-timeout 5 --max-time 10 \
-                --header 'Cache-Control: no-cache' \
-                "$remote_url?deploy=$GITHUB_SHA&attempt=$attempt" \
-                | sha256sum | cut -d ' ' -f1 || true)"
+              actual="$(curl --silent --fail --location --compressed --connect-timeout 5 --max-time 10 --header 'Cache-Control: no-cache' "$remote_url?deploy=$GITHUB_SHA&attempt=$attempt" | sha256sum | cut -d ' ' -f1 || true)"
               if [[ "$actual" == "$expected" ]]; then
-                ready=true
                 echo "OK  GitHub Pages $local_path matches this commit"
-                break
+                return 0
               fi
               echo "WAIT ($attempt/60)  GitHub Pages $local_path"
               sleep 5
             done
-
-            if [[ "$ready" != true ]]; then
-              echo "FAIL  GitHub Pages $local_path did not match this commit"
-              exit 1
-            fi
+            echo "FAIL  GitHub Pages $local_path did not match this commit"
+            return 1
           }
 
           wait_for_match app/index.html https://mj880616.github.io/work/app/index.html
@@ -237,42 +227,7 @@ jobs:
             'https://desk.bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn3'
           do
             headers="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --dump-header - --output /dev/null "$url")"
-            if ! printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^cache-control: public, max-age=31536000, immutable
-
-          # These are stable URLs whose contents change on GitHub Pages deploys.
-          # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
-          for url in \
-            https://bokdoong.com/ \
-            https://work.bokdoong.com/work/assets/web1-design-lite.css \
-            https://desk.bokdoong.com/work/app/sw.js?v=2 \
-            https://read.bokdoong.com/read-think-write/src/app-entry.js \
-            https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js
-          do
-            headers="$(curl \
-              --silent \
-              --show-error \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --header "User-Agent: $USER_AGENT" \
-              --dump-header - \
-              --output /dev/null \
-              "$url")"
-            if ! printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^cache-control: no-cache, must-revalidate$'; then
-              echo "FAIL  cache policy $url"
-              exit 1
-            fi
-            echo "OK  cache policy $url"
-          done
-
-          for url in \
-            https://mj880616.github.io/work/ \
-            https://mj880616.github.io/work/app/ \
-            https://mj880616.github.io/read-think-write/ \
-            https://mj880616.github.io/work/personal/arsenal-match-archive/
-          do
-            check_200 "$url" "text/html"
-          done
-; then
+            if ! grep -qi 'cache-control: public, max-age=31536000, immutable' <<< "$headers"; then
               echo "FAIL  immutable cache policy $url"
               exit 1
             fi
@@ -280,47 +235,13 @@ jobs:
           done
 
           missing_url="https://desk.bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA"
+          missing_code="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --output /dev/null --write-out '%{http_code}' "$missing_url" || true)"
           missing_headers="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --dump-header - --output /dev/null "$missing_url" || true)"
-          if ! printf '%s\n' "$missing_headers" | tr -d '\r' | grep -q '^HTTP/.* 404'; then
+          if [[ "$missing_code" != "404" ]]; then
             echo "FAIL  missing asset did not return 404"
             exit 1
           fi
-          if ! printf '%s\n' "$missing_headers" | tr -d '\r' | grep -qi '^cache-control: no-cache, must-revalidate
-
-          # These are stable URLs whose contents change on GitHub Pages deploys.
-          # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
-          for url in \
-            https://bokdoong.com/ \
-            https://work.bokdoong.com/work/assets/web1-design-lite.css \
-            https://desk.bokdoong.com/work/app/sw.js?v=2 \
-            https://read.bokdoong.com/read-think-write/src/app-entry.js \
-            https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js
-          do
-            headers="$(curl \
-              --silent \
-              --show-error \
-              --connect-timeout 10 \
-              --max-time 30 \
-              --header "User-Agent: $USER_AGENT" \
-              --dump-header - \
-              --output /dev/null \
-              "$url")"
-            if ! printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^cache-control: no-cache, must-revalidate$'; then
-              echo "FAIL  cache policy $url"
-              exit 1
-            fi
-            echo "OK  cache policy $url"
-          done
-
-          for url in \
-            https://mj880616.github.io/work/ \
-            https://mj880616.github.io/work/app/ \
-            https://mj880616.github.io/read-think-write/ \
-            https://mj880616.github.io/work/personal/arsenal-match-archive/
-          do
-            check_200 "$url" "text/html"
-          done
-; then
+          if ! grep -qi 'cache-control: no-cache, must-revalidate' <<< "$missing_headers"; then
             echo "FAIL  missing versioned asset can be browser-cached"
             exit 1
           fi
