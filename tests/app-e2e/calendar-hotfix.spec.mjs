@@ -15,7 +15,7 @@ test('calendar hotfix removes stale local calendar UI and returns OAuth to Web2'
   expect(callback).toContain("const CALENDAR_APP_URL = 'https://desk.bokdoong.com/work/app/';");
   expect(callback).toContain("u.searchParams.set('view', 'calendar')");
   expect(callback).toContain("u.searchParams.set('google', result)");
-  expect(callback).toContain("if (state?.startsWith('android.')) u.searchParams.set('native', 'android')");
+  expect(callback).toContain("if (state?.split('.').includes('android')) u.searchParams.set('native', 'android')");
   expect(bridge).toContain("params.get('native')==='android'");
   expect(bridge).not.toContain("/Android/i.test(navigator.userAgent)");
 
