@@ -53,17 +53,27 @@
 .ps3-summary{display:grid;grid-template-columns:110px minmax(0,1fr);gap:var(--kptu-space-1) var(--kptu-space-3);margin-top:var(--kptu-space-3);font-size:11px}
 .ps3-summary b{color:var(--kptu-muted)}
 .ps3-summary p{margin:0;white-space:pre-wrap}
-.ps3-ws-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-.ps3-ws{border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-2);background:var(--kptu-surface-subtle)}
-.ps3-ws-top{display:flex;justify-content:space-between;gap:var(--kptu-space-2)}
-.ps3-ws h4{margin:2px 0 0;font-size:13px}
-.ps3-ws>p{font-size:10px;color:var(--kptu-muted);margin:3px 0}
-.ps3-phase{background:var(--kptu-info-soft);color:var(--kptu-info)}
-.ps3-latest{border-top:1px solid var(--kptu-border);padding-top:var(--kptu-space-1);margin-top:var(--kptu-space-1)}
-.ps3-latest b{font-size:10.5px}
-.ps3-latest p{margin:2px 0;font-size:10.5px;line-height:1.35}
-.ps3-latest small{display:inline-block;margin-right:var(--kptu-space-2);font-size:9px;color:var(--kptu-muted)}
-.ps3-update-btn{margin-top:var(--kptu-space-1)}
+.ps3-ws-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--kptu-space-3)}
+.ps3-ws{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-4);background:var(--kptu-surface);display:flex;flex-direction:column;gap:var(--kptu-space-3)}
+.ps3-progress-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--kptu-space-3);min-width:0}
+.ps3-progress-heading{min-width:0;flex:1}
+.ps3-progress-title-row{display:flex;align-items:flex-start;gap:var(--kptu-space-2);min-width:0}
+.ps3-progress-title-row h4{min-width:0;flex:1;margin:0;font-size:14px;line-height:1.4;font-weight:800;overflow-wrap:anywhere}
+.ps3-progress-count{flex:0 0 auto;font-size:9.5px;line-height:1.4;color:var(--kptu-faint);white-space:nowrap;padding-top:2px}
+.ps3-progress-meta{display:flex;align-items:center;gap:var(--kptu-space-2);flex-wrap:wrap;margin-top:5px;font-size:10px;color:var(--kptu-muted)}
+.ps3-phase{display:inline-flex;align-items:center;min-height:22px;padding:0 7px;border-radius:var(--kptu-radius-pill);background:var(--kptu-info-soft);color:var(--kptu-info);font-size:9.5px;font-weight:800}
+.ps3-progress-edit{flex:0 0 auto}
+.ps3-progress-description{margin:-2px 0 0!important;font-size:10.5px!important;line-height:1.5!important;color:var(--kptu-muted)!important;overflow-wrap:anywhere}
+.ps3-progress-current,.ps3-progress-next{min-width:0;padding:var(--kptu-space-3);border-radius:var(--kptu-radius-md)}
+.ps3-progress-current{background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border)}
+.ps3-progress-next{background:var(--kptu-primary-soft)}
+.ps3-progress-label{display:block;margin-bottom:4px;font-size:9.5px;font-weight:800;color:var(--kptu-muted)}
+.ps3-progress-current p,.ps3-progress-next p{margin:0;font-size:11.5px;line-height:1.55;color:var(--kptu-ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.ps3-progress-next .ps3-progress-label{color:var(--kptu-primary)}
+.ps3-progress-empty{display:grid;gap:3px;padding:var(--kptu-space-3);border:1px dashed var(--kptu-border-strong);border-radius:var(--kptu-radius-md);color:var(--kptu-muted)}
+.ps3-progress-empty b{font-size:11px;color:var(--kptu-ink)}
+.ps3-progress-empty span{font-size:10px;line-height:1.45}
+.ps3-update-btn{width:100%;min-height:34px;margin-top:auto}
 .ps3-ws .ps3-empty{padding:4px 0}
 .ps3-list{display:grid;gap:2px}
 .ps3-row{display:flex;justify-content:space-between;gap:var(--kptu-space-3);padding:9px 0;border-top:1px solid var(--kptu-border)}
@@ -146,6 +156,12 @@
   .ps3-summary{grid-template-columns:1fr}
   .ps3-summary b{margin-top:var(--kptu-space-1)}
   .ps3-ws-grid,.ps3-doc-grid{grid-template-columns:1fr}
+  .ps3-ws{padding:var(--kptu-space-3);gap:var(--kptu-space-2)}
+  .ps3-progress-card-head{gap:var(--kptu-space-2)}
+  .ps3-progress-title-row{display:block}
+  .ps3-progress-count{display:block;margin-top:3px;padding-top:0}
+  .ps3-progress-current,.ps3-progress-next{padding:var(--kptu-space-3)}
+  .ps3-progress-current p,.ps3-progress-next p{font-size:11px}
   .ps3-detail-head{align-items:flex-start;flex-direction:column}
   .ps3-section-head{align-items:flex-start}
   .ps3-section-head>.ps3-actions{justify-content:flex-start}

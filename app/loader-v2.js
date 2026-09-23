@@ -71,7 +71,7 @@
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='./styles.css?v=42';link.dataset.kptuFeatureStyles='1';
+    link.rel='stylesheet';link.href='./styles.css?v=43';link.dataset.kptuFeatureStyles='1';
     link.onload=()=>resolve();link.onerror=()=>resolve();
     document.head.appendChild(link);
   }));
@@ -85,7 +85,7 @@
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
     await ensureFeatureStyles();
     await window.__KPTU_START_TEAM_DATA__();
-    await import('./project-system-v3.js?v=15');
+    await import('./project-system-v3.js?v=16');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./due-date-calendar.js?v=1')]);
     await import('./page-design-core.js?v=4');
     await import('./task-workflow.js?v=6'); await window.__KPTU_TASK_WORKFLOW_READY__;
