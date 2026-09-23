@@ -134,6 +134,41 @@ test('project list loads and its heading uses available width at desktop, tablet
   }
 });
 
+
+test('project owner UI stays inside 360 390 412 and 430px viewports',async({page})=>{
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  for(const width of [360,390,412,430]){
+    await page.setViewportSize({width,height:844});
+    await page.locator('#newProjectBtn').click();
+    await expect(page.locator('#ps3CreateModal')).toBeVisible();
+    let overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+    expect(overflow,`create modal at ${width}px`).toBeLessThanOrEqual(1);
+    await page.locator('[data-ps3-close="ps3CreateModal"]').click();
+    await page.locator('[data-ps3-project="main-1"]').first().click();
+    await expect(page.locator('#ps3DetailModal')).toBeVisible();
+    overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+    expect(overflow,`detail at ${width}px`).toBeLessThanOrEqual(1);
+    await page.locator('[data-ps3-add-ws]').click();
+    await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
+    overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+    expect(overflow,`progress modal at ${width}px`).toBeLessThanOrEqual(1);
+    await page.locator('[data-ps3-close="ps3WorkstreamModal"]').click();
+    await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  }
+});
+
+test('project renderer clears user A data before rendering user B projects',async({page})=>{
+  const state=baseState();
+  state.spaces.push({id:'user-2-project',workspace_id:'workspace-1',name:'B 사용자 프로젝트',description:'B 전용',parent_id:null,status:'active',visibility:'public',owner_id:'user-2',sort_order:40,metadata:{project_system:'v2',management_version:2}});
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  await expect(page.locator('#projectGrid')).toContainText('민자철도 정책·조직사업');
+  await expect(page.locator('#projectGrid')).not.toContainText('B 사용자 프로젝트');
+  state.user={id:'user-2',email:'b@example.org',user_metadata:{display_name:'B 사용자'}};
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:session-changed')));
+  await expect(page.locator('#projectGrid')).toContainText('B 사용자 프로젝트');
+  await expect(page.locator('#projectGrid')).not.toContainText('민자철도 정책·조직사업');
+});
+
 test('project detail omits removed content, linked-post and collaboration features',async({page})=>{
   const state=baseState();
   state.sections=[{id:'section-legacy',project_id:'main-1',title:'기존 사업 콘텐츠',sort_order:10}];
