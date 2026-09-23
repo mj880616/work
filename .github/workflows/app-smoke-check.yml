@@ -40,7 +40,7 @@ jobs:
         run: node --test tests/meeting-draft-parser.test.mjs
 
       - name: Check domain routing and service worker registration
-        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs
+        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs
 
       - name: Check recursive app dependency graph
         run: |
