@@ -16,7 +16,6 @@
   const dt=v=>{if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?null:d};
   const dateLabel=v=>{const d=dt(v);return d?d.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',weekday:'short'}):'일정 미정'};
   const phaseLabel=v=>({preparation:'준비',in_progress:'진행',consultation:'협의',execution:'실행',follow_up:'후속조치',done:'종료'}[v]||v||'진행');
-  const typeLabel=v=>({ongoing:'상시사업·산업관리',campaign:'의제 사업',event:'행사·집중사업',knowledge:'자료·지식',blank:'프로젝트'}[v]||'프로젝트');
 
   async function api(path,opts={}){if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,opts)}
   async function context(epoch){
@@ -57,9 +56,8 @@
     window.__KPTU_STARTUP__?.mark('shellReady');
   }
   function projectRow(p){
-    const kind=p.project_type||p.metadata?.project_type||'blank';
     const phase=p.current_phase||p.metadata?.current_phase||'in_progress';
-    const meta=[typeLabel(kind),phaseLabel(phase),p.end_on?'종료 '+dateLabel(p.end_on):null].filter(Boolean).join(' · ');
+    const meta=[phaseLabel(phase),p.end_on?'종료 '+dateLabel(p.end_on):null].filter(Boolean).join(' · ');
     return `<button class="hdv-row hdv-project" type="button" data-hdv-project="${esc(p.id)}"><div class="hdv-main"><b>${esc(p.name||'이름 없는 프로젝트')}</b><small>${esc(meta)}</small></div></button>`;
   }
   function taskRow(t,names){
@@ -86,7 +84,7 @@
       const wid=encodeURIComponent(activeContext.workspaceId),uid=encodeURIComponent(activeContext.userId);
       window.__KPTU_STARTUP__?.mark('homeDataStart');
       const [spaceRows,milestoneRows,taskRows,documentRows]=await Promise.all([
-        api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&status=neq.archived&select=id,name,parent_id,status,metadata,project_type,current_phase,start_on,end_on,updated_at,is_legacy_snapshot'),
+        api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&owner_id=eq.'+uid+'&status=neq.archived&select=id,name,parent_id,status,metadata,current_phase,start_on,end_on,updated_at,is_legacy_snapshot'),
         api('/rest/v1/app_project_milestones?select=id,project_id,title,status,start_at,end_at,updated_at&order=start_at.asc.nullslast&limit=100'),
         api('/rest/v1/app_tasks?workspace_id=eq.'+wid+'&assignee_id=eq.'+uid+'&status=neq.done&select=id,title,project_id,status,priority,due_at,updated_at&order=due_at.asc.nullslast,updated_at.desc&limit=20'),
         api('/rest/v1/app_documents?workspace_id=eq.'+wid+'&select=id,title,project_id,category,source,document_date,created_at,updated_at&order=updated_at.desc&limit=20')
