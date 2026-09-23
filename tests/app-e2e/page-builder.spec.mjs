@@ -20,8 +20,17 @@ async function installMock(page){
   });
 }
 
+async function mockBoardSource(page){
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({
+    status:200,
+    contentType:'text/plain; charset=utf-8',
+    body:'<!doctype html><html><body><main id="boardSourceFixture">repo source</main></body></html>'
+  }));
+}
+
 test('authenticated board mirrors Web1 business pages and excludes library and press',async({page})=>{
   await installMock(page);
+  await mockBoardSource(page);
   const target='http://127.0.0.1:8123/app/?view=pages';
   await page.goto('http://127.0.0.1:8123/app/login/?return='+encodeURIComponent(target));
   await page.locator('#emailAuthToggle').click();
@@ -49,7 +58,9 @@ test('authenticated board mirrors Web1 business pages and excludes library and p
 
   await page.locator('#web1BoardActive .w1b-card').first().click();
   await expect(page.locator('#web1BoardDetailModal')).toBeVisible();
-  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('src','https://mj880616.github.io/work/2in1/');
+  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('src','about:blank');
+  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('data-web1-board-source','2in1/index.html');
+  await expect.poll(async()=>await page.locator('#web1BoardDetailFrame').getAttribute('srcdoc')).toContain('<base href="https://work.bokdoong.com/work/2in1/">');
   await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('data-web1-board-canonical','https://work.bokdoong.com/work/2in1/');
   await expect(page.locator('#pagesView')).toBeVisible();
   await page.locator('[data-close-web1-board]').click();

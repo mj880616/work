@@ -6,11 +6,11 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app='http://127.0.0.1:8123/app/';
 const user={id:'board-user',email:'board@example.org',user_metadata:{display_name:'게시판 QA'}};
 const cases=[
-  {title:'위험업무 2인1조 법제화',repo:'2in1/index.html',canonical:'https://work.bokdoong.com/work/2in1/',embed:'https://mj880616.github.io/work/2in1/'},
-  {title:'공공기관 인력확충',repo:'workforce/index.html',canonical:'https://work.bokdoong.com/work/workforce/',embed:'https://mj880616.github.io/work/workforce/'},
-  {title:'민자철도 사업 현황',repo:'private-rail/index.html',canonical:'https://work.bokdoong.com/work/private-rail/',embed:'https://mj880616.github.io/work/private-rail/'},
-  {title:'궤도협의회',repo:'rail-council/index.html',canonical:'https://work.bokdoong.com/work/rail-council/',embed:'https://mj880616.github.io/work/rail-council/'},
-  {title:'산별전환 업무 현황',repo:'sanbyeol/index.html',canonical:'https://work.bokdoong.com/work/sanbyeol/',embed:'https://mj880616.github.io/work/sanbyeol/'}
+  {title:'위험업무 2인1조 법제화',repo:'2in1/index.html',canonical:'https://work.bokdoong.com/work/2in1/',source:'2in1/index.html'},
+  {title:'공공기관 인력확충',repo:'workforce/index.html',canonical:'https://work.bokdoong.com/work/workforce/',source:'workforce/index.html'},
+  {title:'민자철도 사업 현황',repo:'private-rail/index.html',canonical:'https://work.bokdoong.com/work/private-rail/',source:'private-rail/index.html'},
+  {title:'궤도협의회',repo:'rail-council/index.html',canonical:'https://work.bokdoong.com/work/rail-council/',source:'rail-council/index.html'},
+  {title:'산별전환 업무 현황',repo:'sanbyeol/index.html',canonical:'https://work.bokdoong.com/work/sanbyeol/',source:'sanbyeol/index.html'}
 ];
 
 async function mockApp(page){
@@ -44,14 +44,15 @@ test('all five Web1 board cards point to deployed repository pages',async()=>{
   for(const item of cases)expect(existsSync(item.repo),item.repo).toBeTruthy();
 });
 
-test('Web2 board opens all five business pages from the canonical Pages origin and returns to the list',async({page})=>{
+test('Web2 board renders all five business pages from repository HTML source and returns to the list',async({page})=>{
   await mockApp(page);
-  await page.route('https://mj880616.github.io/work/**',async route=>{
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',async route=>{
     const url=new URL(route.request().url());
+    const source=decodeURIComponent(url.pathname.split('/main/')[1]||'');
     await route.fulfill({
       status:200,
-      contentType:'text/html; charset=utf-8',
-      body:'<!doctype html><html><body><main id="embeddedBoard">embedded '+url.pathname+'</main></body></html>'
+      contentType:'text/plain; charset=utf-8',
+      body:'<!doctype html><html><head><title>fixture</title></head><body><main id="embeddedBoard">source '+source+'</main></body></html>'
     });
   });
   await signIn(page);
@@ -62,31 +63,34 @@ test('Web2 board opens all five business pages from the canonical Pages origin a
   const modal=page.locator('#web1BoardDetailModal');
   const frame=page.locator('#web1BoardDetailFrame');
   await expect(frame).toHaveAttribute('sandbox',/allow-scripts/);
-  await expect(frame).toHaveAttribute('sandbox',/allow-same-origin/);
+  await expect(frame).not.toHaveAttribute('sandbox',/allow-same-origin/);
+  await expect(frame).toHaveAttribute('sandbox',/allow-popups-to-escape-sandbox/);
 
   for(const item of cases){
     const card=page.locator('[data-web1-board-title="'+item.title+'"]');
     await expect(card).toHaveAttribute('data-web1-board-href',item.canonical);
-    await expect(card).toHaveAttribute('data-web1-board-embed',item.embed);
+    await expect(card).toHaveAttribute('data-web1-board-source',item.source);
     await card.click();
     await expect(modal).toBeVisible();
-    await expect(frame).toHaveAttribute('src',item.embed);
+    await expect(frame).toHaveAttribute('src','about:blank');
     await expect(frame).toHaveAttribute('data-web1-board-canonical',item.canonical);
-    await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toContainText(new URL(item.embed).pathname);
+    await expect(frame).toHaveAttribute('data-web1-board-source',item.source);
+    await expect.poll(async()=>await frame.getAttribute('srcdoc')).toContain('<base href="'+item.canonical+'">');
+    await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toContainText(item.source);
     await page.locator('[data-close-web1-board]').click();
     await expect(modal).toHaveClass(/hidden/);
     await expect(frame).toHaveAttribute('src','about:blank');
+    await expect(frame).not.toHaveAttribute('srcdoc',/.+/);
     await expect(page.locator('#pagesView')).toBeVisible();
   }
 });
 
-
 test('mobile Web1 board detail is a full-screen reader without duplicate visible heading',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
-  await page.route('https://mj880616.github.io/work/**',route=>route.fulfill({
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({
     status:200,
-    contentType:'text/html; charset=utf-8',
+    contentType:'text/plain; charset=utf-8',
     body:'<!doctype html><html><body><main id="embeddedBoard">mobile board</main></body></html>'
   }));
   await signIn(page);
@@ -122,4 +126,38 @@ test('mobile Web1 board detail is a full-screen reader without duplicate visible
   expect(metrics.overflow).toBeLessThanOrEqual(1);
   await expect(head.locator('[data-close-web1-board]')).toBeVisible();
   await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toContainText('mobile board');
+});
+
+
+test('Web1 board internal links stay in the reader and load the linked repository file',async({page})=>{
+  await mockApp(page);
+  const requested=[];
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',async route=>{
+    const url=new URL(route.request().url());
+    const source=decodeURIComponent(url.pathname.split('/main/')[1]||'');
+    requested.push(source);
+    const body=source==='2in1/index.html'
+      ? '<!doctype html><html><body><a id="childLink" href="./field-testimony-1002/">하위 페이지</a></body></html>'
+      : '<!doctype html><html><body><main id="nestedBoard">하위 원문</main></body></html>';
+    await route.fulfill({status:200,contentType:'text/plain; charset=utf-8',body});
+  });
+  await signIn(page);
+  await page.locator('.app-nav [data-view="pages"]').click();
+  await page.locator('[data-web1-board-title="위험업무 2인1조 법제화"]').click();
+  await page.frameLocator('#web1BoardDetailFrame').locator('#childLink').click();
+  await expect(page.frameLocator('#web1BoardDetailFrame').locator('#nestedBoard')).toContainText('하위 원문');
+  expect(requested).toContain('2in1/index.html');
+  expect(requested).toContain('2in1/field-testimony-1002/index.html');
+});
+
+test('Web1 board source failure shows a controlled reader error instead of a browser Not Found page',async({page})=>{
+  await mockApp(page);
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({status:404,body:'missing'}));
+  await signIn(page);
+  await page.locator('.app-nav [data-view="pages"]').click();
+  await page.locator('[data-web1-board-title="공공기관 인력확충"]').click();
+  const doc=page.frameLocator('#web1BoardDetailFrame');
+  await expect(doc.locator('body')).toContainText('본문을 불러오지 못했습니다.');
+  await expect(doc.locator('body')).not.toContainText('Not Found');
+  await expect(doc.locator('a')).toHaveAttribute('href','https://work.bokdoong.com/work/workforce/');
 });
