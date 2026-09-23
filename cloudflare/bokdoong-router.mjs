@@ -76,7 +76,7 @@ export default {
       method: request.method,
       headers,
       redirect: 'manual',
-      cache: edgeCacheable ? 'default' : 'no-store'
+      ...(edgeCacheable ? {} : { cache: 'no-store' })
     });
     const upstream = await fetch(
       upstreamRequest,
