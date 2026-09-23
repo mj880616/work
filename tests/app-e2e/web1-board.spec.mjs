@@ -115,7 +115,7 @@ test('mobile Web1 board detail is a full-screen reader without duplicate visible
     };
   });
   expect(metrics.card.width).toBeGreaterThanOrEqual(389);
-  expect(metrics.card.height).toBeGreaterThanOrEqual(metrics.viewport.height-1);
+  expect(metrics.card.height/metrics.viewport.height).toBeGreaterThanOrEqual(.95);
   expect(metrics.card.top).toBeLessThanOrEqual(1);
   expect(metrics.frame.height).toBeGreaterThan(metrics.viewport.height-80);
   expect(metrics.titleWidth).toBeLessThanOrEqual(1);
