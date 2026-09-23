@@ -4,14 +4,12 @@
   window.__KPTU_PUBLIC_WORKSPACE__=true;
   const rt=window.KPTURuntime;
   if(!rt?.api)return;
-  const state={spaces:[],tasks:[],pages:[],documents:[],events:[]};
+  const state={pages:[],documents:[],events:[]};
   const PUBLIC_VIEWS=new Set(['home','calendar','tasks','library','meetings','pages','team']);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=v=>v?new Date(v).toLocaleDateString('ko-KR'):'';
   const fmtDateTime=v=>v?new Date(v).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   const eventLabel={meeting:'회의',press:'기자회견',rally:'집회',field:'현장',deadline:'마감',education:'교육',other:'기타'};
-  const taskLabel={todo:'할 일',doing:'진행',done:'완료',blocked:'막힘'};
-  const priorityLabel={urgent:'긴급',high:'높음',normal:'보통',low:'낮음'};
 
   function loginUrl(){return window.KPTUAuth.loginUrl(location.href)}
   function normalizePublicRoute(){
@@ -60,29 +58,10 @@ function renderLockedViews(){
       const heading={tasks:'할 일',meetings:'회의 결과',team:'팀'}[view]||view;panel.innerHTML=`<div class="section-head"><div><h2>${heading}</h2><p>메뉴는 공개되며 실제 데이터는 열람권한에 따라 표시됩니다.</p></div></div>${gateMarkup(title,description)}`;
     }
   }
-  const children=id=>state.spaces.filter(x=>x.parent_id===id);
-  const tasks=id=>state.tasks.filter(x=>x.project_id===id);
-  const pages=id=>state.pages.filter(x=>x.space_id===id);
   function renderCalendar(){
     const view=document.getElementById('calendarView');if(!view)return;
     const rows=[...state.events].sort((a,b)=>new Date(a.start_at)-new Date(b.start_at));
     view.innerHTML=`<div class="section-head"><div><h2>공동 일정</h2><p>팀 일정 중 외부 공개에 필요한 기본 정보만 읽기 전용으로 표시합니다.</p></div></div><div class="public-visibility-note">개인 일정·Google 일정·상세 메모·참석자 정보는 비로그인 사용자에게 노출하지 않습니다.</div><div class="card-list public-calendar-list">${rows.length?rows.map(e=>`<article class="item-card"><div><span class="badge">${esc(eventLabel[e.event_type]||e.event_type||'일정')}</span><h3>${esc(e.title)}</h3><p>${fmtDateTime(e.start_at)}${e.end_at?' ~ '+fmtDateTime(e.end_at):''}</p></div></article>`).join(''):'<div class="empty">공개된 공동 일정이 없습니다.</div>'}</div>`;
-  }
-  function renderProjects(){
-    const grid=document.getElementById('projectGrid');if(!grid)return;
-    const tops=state.spaces.filter(x=>x.status!=='archived');
-    const head=document.querySelector('#projectsView .section-head p');if(head)head.textContent='전체 공개로 설정된 프로젝트와 공개 가능한 업무만 표시됩니다.';
-    grid.innerHTML=tops.length?tops.map(p=>`<button class="project-card" data-public-project="${esc(p.slug)}" type="button"><span class="badge">공개</span><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="public-project-meta"><span>공개 프로젝트</span></div></button>`).join(''):'<div class="empty">현재 공개된 프로젝트가 없습니다.</div>';
-  }
-  function ensureModal(){
-    if(document.getElementById('publicProjectModal'))return;
-    document.body.insertAdjacentHTML('beforeend','<div id="publicProjectModal" class="modal hidden" aria-hidden="true"><div class="modal-card medium-card"><div class="modal-head"><div><div class="eyebrow">PUBLIC PROJECT · READ ONLY</div><h2 id="publicProjectTitle"></h2><p id="publicProjectDescription" class="muted"></p></div><button id="publicProjectClose" class="icon-btn" type="button">×</button></div><div id="publicProjectBody" class="public-project-detail"></div></div></div>');
-    document.getElementById('publicProjectClose').onclick=()=>document.getElementById('publicProjectModal').classList.add('hidden');
-  }
-  function taskRows(rows){return rows.length?rows.map(t=>`<div class="public-project-task"><b>${esc(t.title)}</b><span>${esc(taskLabel[t.status]||t.status||'')} · 우선순위 ${esc(priorityLabel[t.priority]||t.priority||'보통')}</span>${t.due_at?`<small>기한 ${fmt(t.due_at)}</small>`:''}</div>`).join(''):'<div class="empty compact">연결된 공개 할 일이 없습니다.</div>'}
-  function openProject(slug){
-    if(!/^project-[0-9a-f]{32}$/.test(String(slug||'')))return;
-    location.href='../p/?slug='+encodeURIComponent(slug);
   }
   function renderPages(){
     const view=document.getElementById('pagesView');if(!view)return;
@@ -122,8 +101,6 @@ function renderLockedViews(){
   }
   async function load(){
     const data=await rt.api('/rest/v1/rpc/app_public_workspace_index',{method:'POST',body:{},auth:false});
-    state.spaces=[];
-    state.tasks=[];
     state.pages=Array.isArray(data?.pages)?data.pages:[];
     state.documents=Array.isArray(data?.documents)?data.documents:[];
     state.events=[];
