@@ -7,8 +7,8 @@ self.addEventListener('push',event=>{
   const title=data.title||'공공기관사업팀 Workspace';
   const options={
     body:data.body||'',
-    icon:'./app-icon.svg?v=20260913-3',
-    badge:'./app-icon.svg?v=20260913-3',
+    icon:'./app-icon.svg?v=20260924-unicorn2',
+    badge:'./app-icon.svg?v=20260924-unicorn2',
     tag:data.tag||'kptu-workspace',
     renotify:true,
     data:{url:data.url||'/work/app/'}

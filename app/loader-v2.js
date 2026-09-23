@@ -17,7 +17,7 @@
     import('./session-resilience.js?v=6'),
     import('./auth-service.js?v=1'),
     import('./capabilities.js?v=2'),
-    import('./pwa.js?v=3')
+    import('./pwa.js?v=4')
   ]);
 
   startup?.mark('sessionCheckStart');

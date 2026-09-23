@@ -112,6 +112,12 @@ jobs:
           grep -q "workspacePrefetchStart" app/loader-v2.js
           grep -q "prefetched?.ok?prefetched.rows" app/team.js
           grep -q "public-workspace.js?v=11" app/loader-v2.js
+          grep -q "pwa.js?v=4" app/loader-v2.js
+          grep -q 'class="brand-icon" src="./app-icon.svg?v=20260924-unicorn2"' app/index.html
+          grep -q 'rel="manifest" href="./windows-manifest.json?v=4"' app/index.html
+          if grep -q 'class="leaf"' app/index.html; then echo 'green first-paint brand placeholder returned'; exit 1; fi
+          if grep -Eq "favicon|apple-touch-icon|createElement\\('link'\\)" app/pwa.js; then echo 'PWA bootstrap returned to late icon mutation'; exit 1; fi
+          if grep -R -q "20260913-3" app/index.html app/pwa.js app/windows-manifest.json app/sw.js; then echo 'stale Web2 icon version returned'; exit 1; fi
           grep -q "home-dashboard-v2.js?v=8" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
           grep -q "team.js?v=33" app/loader-v2.js
