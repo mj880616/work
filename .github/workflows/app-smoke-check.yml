@@ -49,9 +49,9 @@ jobs:
           const text=fs.readFileSync('app/loader-v2.js','utf8');
           const keys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=32')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=33')",'await window.__KPTU_TEAM_READY__',
             "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
-            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=9')",'await window.__KPTU_TASK_LAYOUT_READY__',
+            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=10')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./web1-board.js?v=2')",
             "import('./meeting-round-detail.js?v=9')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
             "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
@@ -114,12 +114,12 @@ jobs:
           grep -q "public-workspace.js?v=11" app/loader-v2.js
           grep -q "home-dashboard-v2.js?v=8" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
-          grep -q "team.js?v=32" app/loader-v2.js
-          grep -q "project-system-v3.js?v=14" app/loader-v2.js
+          grep -q "team.js?v=33" app/loader-v2.js
+          grep -q "project-system-v3.js?v=15" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
           grep -q "task-row-view.js?v=1" app/loader-v2.js
-          grep -q "task-layout.js?v=9" app/loader-v2.js
+          grep -q "task-layout.js?v=10" app/loader-v2.js
           grep -q "google-tasks.js?v=6" app/loader-v2.js
           grep -q "library-upload.js?v=11" app/loader-v2.js
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
@@ -166,8 +166,13 @@ jobs:
           if grep -Eq "teamManageTop|ccMessageTop|userBadge" app/topbar-actions.js; then echo 'removed personal or message action returned to the topbar'; exit 1; fi
 
           grep -q "function taskProjectOptions" app/team.js
-          grep -q "x.status!=='archived'&&x.parent_id" app/team.js
+          grep -q "spaces.filter(x=>x.status!=='archived')" app/team.js
+          if grep -q "x.status!=='archived'&&x.parent_id" app/team.js; then echo 'task project picker returned to child-only filtering'; exit 1; fi
           grep -q "taskProjectOptions(true)" app/team.js
+          grep -q "function openCreate(projectId='')" app/task-layout.js
+          grep -q "window.KPTUTaskLayout={openTask,openCreate}" app/task-layout.js
+          grep -q "KPTUTaskLayout?.openCreate" app/project-system-v3.js
+          if grep -q "할 일은 하위 프로젝트에 연결됩니다" app/project-system-v3.js; then echo 'top-level project task guard returned'; exit 1; fi
           grep -q "data-mrd-meeting" app/team.js
           grep -q "/functions/v1/meeting-files" app/team.js
           grep -q "function renderPages(){window.KPTUWeb1Board?.render?.()}" app/team.js
