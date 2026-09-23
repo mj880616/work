@@ -8,10 +8,10 @@
 .ps3-project-card>p{margin:0;color:var(--kptu-muted);font-size:12px;line-height:1.55;min-height:37px}
 .ps3-card-top,.ps3-card-meta{display:flex;justify-content:space-between;gap:var(--kptu-space-2);align-items:center}
 .ps3-card-meta{margin-top:var(--kptu-space-3);font-size:10px;color:var(--kptu-faint)}
-.ps3-kind,.ps3-type,.ps3-phase{display:inline-flex;align-items:center;border-radius:var(--kptu-radius-pill);padding:3px 7px;font-size:9px;font-weight:700}
+.ps3-kind,.ps3-phase,.ps3-status{display:inline-flex;align-items:center;border-radius:var(--kptu-radius-pill);padding:3px 7px;font-size:9px;font-weight:700}
 .ps3-kind.main{background:var(--kptu-info-soft);color:var(--kptu-info)}
 .ps3-kind.child{background:#f3f0f7;color:var(--kptu-accent)}
-.ps3-type{background:var(--kptu-primary-soft);color:var(--kptu-muted)}
+.ps3-status.done{background:var(--kptu-success-soft);color:var(--kptu-success)}
 .ps3-child-list{display:grid;gap:var(--kptu-space-1);margin-top:var(--kptu-space-3);padding-top:var(--kptu-space-3);border-top:1px solid var(--kptu-border)}
 .ps3-child-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:center;width:100%;border:0;background:var(--kptu-surface-subtle);border-radius:var(--kptu-radius-md);padding:var(--kptu-space-2) 9px;text-align:left;color:var(--kptu-ink)}
 .ps3-child-row b{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -118,20 +118,9 @@
 .ps3-content-fields{display:grid;gap:6px}
 .ps3-content-field-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:5px}
 .ps3-save-state{font-size:10px;color:var(--kptu-muted)}
-.ps3-public [data-ps3-public-status]{display:inline-block;margin-left:5px;border-radius:var(--kptu-radius-pill);padding:2px 7px;background:var(--kptu-info-soft);color:var(--kptu-info);font-size:10px;vertical-align:middle}
-.ps3-public-summary-edit{display:flex;align-items:flex-end;gap:8px;margin:8px 0}
-.ps3-public-summary-edit label{flex:1;min-width:0;font-size:10px;color:var(--kptu-muted)}
-.ps3-public-summary-edit textarea{width:100%;margin:4px 0 0}
-.ps3-public [data-ps3-preview-panel]{border-top:1px solid var(--kptu-border);padding-top:10px;margin-top:8px;font-size:11px}
-.ps3-public [data-ps3-preview-panel][hidden]{display:none}
-.ps3-public-preview-block{padding:8px 0;border-bottom:1px solid var(--kptu-border)}
 .ps3-modal-actions{display:flex;justify-content:space-between;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
 .ps3-danger{color:var(--kptu-danger)!important}
 .ps3-danger-btn{background:var(--kptu-danger)!important;border-color:var(--kptu-danger)!important;color:#fff!important}
-.ps3-person{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:var(--kptu-space-2);align-items:center;padding:7px 0;border-bottom:1px solid var(--kptu-border)}
-.ps3-person label{margin:0;display:flex;flex-direction:row;align-items:center;gap:var(--kptu-space-2)}
-.ps3-person input{width:auto;min-height:0}
-.ps3-person select{padding:7px 8px}
 .ps3-archive-list{display:grid;gap:3px}
 .ps3-archive-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;padding:var(--kptu-space-3) 0;border-top:1px solid var(--kptu-border)}
 .ps3-archive-row:first-child{border-top:0}
@@ -155,16 +144,7 @@
   .ps3-project-toolbar{justify-content:flex-end}
 }
 
-.ps3-type-control{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:end}
-.ps3-type-control select{min-width:0}
-.ps3-type-list{display:grid;gap:2px;max-height:260px;overflow:auto;margin-bottom:var(--kptu-space-3)}
-.ps3-type-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--kptu-border)}
-.ps3-type-row:last-child{border-bottom:0}
-.ps3-type-row b{display:block;font-size:11px}
-.ps3-type-row small{display:block;margin-top:2px;color:var(--kptu-muted);font-size:9.5px}
 @media(max-width:760px){
-  .ps3-type-control{grid-template-columns:1fr}
-  .ps3-type-control .mini{justify-self:start}
 }
 
 .ps3-memo-form{display:grid;gap:6px;margin:8px 0 12px}
