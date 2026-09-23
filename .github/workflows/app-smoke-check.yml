@@ -178,6 +178,8 @@ jobs:
           if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
 
           grep -q "app_public_workspace_index" app/public-workspace.js
+          if grep -Eq "data-public-project|app_public_project|renderProjects\\(|openProject\\(" app/public-workspace.js; then echo 'anonymous project renderer returned'; exit 1; fi
+          if grep -q "app_public_project" p/public-post.js; then echo 'public project URL RPC returned'; exit 1; fi
           grep -q "app_public_workspace_index" app/public-workspace-extras.js
           if grep -Eq "app_public_projects_snapshot|app_public_workspace_snapshot" app/public-workspace.js app/public-workspace-extras.js; then echo 'anonymous workspace client returned to a broad snapshot'; exit 1; fi
           grep -q "auth-service.js" app/login/index.html
@@ -256,7 +258,7 @@ jobs:
           set -e
           grep -q 'id="newProjectBtn"' app/index.html
           grep -q "data-ps3-delete-project" app/project-system-v3.js
-          grep -q "owner_id=eq.\\${encodeURIComponent(user.id)}" app/project-system-v3.js
+          grep -q 'owner_id=eq.${encodeURIComponent(user.id)}' app/project-system-v3.js
           grep -q "+ 진행상황 추가" app/project-system-v3.js
           if grep -Eq "ps3CreateType|ps3CreateVisibility|ps3AccessModal|ps3TypeModal|data-ps3-access|ps3ManageTypes" app/project-system-v3.js; then echo 'removed project type/access UI returned'; exit 1; fi
           if grep -q "bindPublication();" app/project-system-v3.js; then echo 'project publication execution path returned'; exit 1; fi
