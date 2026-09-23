@@ -41,10 +41,7 @@ begin
     raise exception 'project publication management remains executable';
   end if;
 
-  select pg_get_functiondef(p.oid) into v_index
-  from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-  where n.nspname='public' and p.proname='app_public_workspace_index';
-  if position('''projects'',''[]''::jsonb' in v_index)=0 then
+  if coalesce(jsonb_array_length(public.app_public_workspace_index()->'projects'),-1) <> 0 then
     raise exception 'public workspace index still contains project discovery';
   end if;
 end
