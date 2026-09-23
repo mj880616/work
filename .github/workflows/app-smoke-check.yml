@@ -52,7 +52,7 @@ jobs:
             "import('./team.js?v=32')",'await window.__KPTU_TEAM_READY__',
             "import('./task-workflow.js?v=6')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-row-view.js?v=1')","import('./task-layout.js?v=9')",'await window.__KPTU_TASK_LAYOUT_READY__',
-            "import('./web1-board.js?v=1')",
+            "import('./web1-board.js?v=2')",
             "import('./meeting-round-detail.js?v=9')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
             "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
             "import('./calendar-plus.js?v=6')",'await window.__KPTU_CALENDAR_PLUS_READY__',
@@ -129,7 +129,7 @@ jobs:
           test ! -f app/library-public-toggle.js
           if grep -Eq "home-task-controls|home-task.css|library-public-toggle" app/loader-v2.js app/styles.css; then echo 'retired home/library decorator returned'; exit 1; fi
           grep -q "photo-room.js?v=4" app/loader-v2.js
-          grep -q "web1-board.js?v=1" app/loader-v2.js
+          grep -q "web1-board.js?v=2" app/loader-v2.js
           grep -q "meeting-round-detail.js?v=9" app/loader-v2.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
@@ -173,6 +173,8 @@ jobs:
           grep -q "function renderPages(){window.KPTUWeb1Board?.render?.()}" app/team.js
           grep -q "main_project_archive_state" app/web1-board.js
           grep -q "work.bokdoong.com/work/2in1/" app/web1-board.js
+          grep -q "https://mj880616.github.io/work/" app/web1-board.js
+          grep -q 'sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-downloads"' app/index.html
           if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
 
           grep -q "app_public_workspace_index" app/public-workspace.js
@@ -325,7 +327,7 @@ jobs:
         run: |
           set -e
           grep -q "task-workflow.js?v=6" app/loader-v2.js
-          grep -q "web1-board.js?v=1" app/loader-v2.js
+          grep -q "web1-board.js?v=2" app/loader-v2.js
           grep -q "workflow-ai-v3.js?v=6" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
