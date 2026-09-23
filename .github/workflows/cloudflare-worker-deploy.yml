@@ -71,7 +71,11 @@ jobs:
 
             expected="$(sha256sum "$local_path" | cut -d ' ' -f1)"
             for attempt in {1..60}; do
-              actual="$(curl --silent --fail --location --compressed                 --connect-timeout 5 --max-time 10                 --header 'Cache-Control: no-cache'                 "$remote_url?deploy=$GITHUB_SHA&attempt=$attempt"                 | sha256sum | cut -d ' ' -f1 || true)"
+              actual="$(curl --silent --fail --location --compressed \
+                --connect-timeout 5 --max-time 10 \
+                --header 'Cache-Control: no-cache' \
+                "$remote_url?deploy=$GITHUB_SHA&attempt=$attempt" \
+                | sha256sum | cut -d ' ' -f1 || true)"
               if [[ "$actual" == "$expected" ]]; then
                 ready=true
                 echo "OK  GitHub Pages $local_path matches this commit"
@@ -234,6 +238,7 @@ jobs:
           do
             headers="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --dump-header - --output /dev/null "$url")"
             if ! printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^cache-control: public, max-age=31536000, immutable
+
           # These are stable URLs whose contents change on GitHub Pages deploys.
           # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
           for url in \
@@ -281,6 +286,7 @@ jobs:
             exit 1
           fi
           if ! printf '%s\n' "$missing_headers" | tr -d '\r' | grep -qi '^cache-control: no-cache, must-revalidate
+
           # These are stable URLs whose contents change on GitHub Pages deploys.
           # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
           for url in \
