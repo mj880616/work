@@ -220,8 +220,105 @@ jobs:
           check_200 'https://read.bokdoong.com/favicon.ico'
           check_200 'https://arsenal.bokdoong.com/favicon.ico'
           check_200 'https://desk.bokdoong.com/work/app/sw.js?v=2'
+          check_200 'https://desk.bokdoong.com/work/app/app.js?v=87'
+          check_200 'https://desk.bokdoong.com/work/app/loader-v2.js?v=199'
+          check_200 'https://desk.bokdoong.com/work/app/pwa.js?v=5'
+          check_200 'https://desk.bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn3'
           check_icon 'https://bokdoong.com/favicon.png' 'image/png'
           check_icon 'https://bokdoong.com/favicon.ico' 'image/x-icon'
+
+          for url in \
+            'https://desk.bokdoong.com/work/app/app.js?v=87' \
+            'https://desk.bokdoong.com/work/app/loader-v2.js?v=199' \
+            'https://desk.bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn3'
+          do
+            headers="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --dump-header - --output /dev/null "$url")"
+            if ! printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^cache-control: public, max-age=31536000, immutable
+          # These are stable URLs whose contents change on GitHub Pages deploys.
+          # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
+          for url in \
+            https://bokdoong.com/ \
+            https://work.bokdoong.com/work/assets/web1-design-lite.css \
+            https://desk.bokdoong.com/work/app/sw.js?v=2 \
+            https://read.bokdoong.com/read-think-write/src/app-entry.js \
+            https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js
+          do
+            headers="$(curl \
+              --silent \
+              --show-error \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --header "User-Agent: $USER_AGENT" \
+              --dump-header - \
+              --output /dev/null \
+              "$url")"
+            if ! printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^cache-control: no-cache, must-revalidate$'; then
+              echo "FAIL  cache policy $url"
+              exit 1
+            fi
+            echo "OK  cache policy $url"
+          done
+
+          for url in \
+            https://mj880616.github.io/work/ \
+            https://mj880616.github.io/work/app/ \
+            https://mj880616.github.io/read-think-write/ \
+            https://mj880616.github.io/work/personal/arsenal-match-archive/
+          do
+            check_200 "$url" "text/html"
+          done
+; then
+              echo "FAIL  immutable cache policy $url"
+              exit 1
+            fi
+            echo "OK  immutable cache policy $url"
+          done
+
+          missing_url="https://desk.bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA"
+          missing_headers="$(curl --silent --show-error --connect-timeout 10 --max-time 30 --dump-header - --output /dev/null "$missing_url" || true)"
+          if ! printf '%s\n' "$missing_headers" | tr -d '\r' | grep -q '^HTTP/.* 404'; then
+            echo "FAIL  missing asset did not return 404"
+            exit 1
+          fi
+          if ! printf '%s\n' "$missing_headers" | tr -d '\r' | grep -qi '^cache-control: no-cache, must-revalidate
+          # These are stable URLs whose contents change on GitHub Pages deploys.
+          # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
+          for url in \
+            https://bokdoong.com/ \
+            https://work.bokdoong.com/work/assets/web1-design-lite.css \
+            https://desk.bokdoong.com/work/app/sw.js?v=2 \
+            https://read.bokdoong.com/read-think-write/src/app-entry.js \
+            https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js
+          do
+            headers="$(curl \
+              --silent \
+              --show-error \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --header "User-Agent: $USER_AGENT" \
+              --dump-header - \
+              --output /dev/null \
+              "$url")"
+            if ! printf '%s\n' "$headers" | tr -d '\r' | grep -qi '^cache-control: no-cache, must-revalidate$'; then
+              echo "FAIL  cache policy $url"
+              exit 1
+            fi
+            echo "OK  cache policy $url"
+          done
+
+          for url in \
+            https://mj880616.github.io/work/ \
+            https://mj880616.github.io/work/app/ \
+            https://mj880616.github.io/read-think-write/ \
+            https://mj880616.github.io/work/personal/arsenal-match-archive/
+          do
+            check_200 "$url" "text/html"
+          done
+; then
+            echo "FAIL  missing versioned asset can be browser-cached"
+            exit 1
+          fi
+          echo "OK  missing versioned asset is non-cacheable"
 
           # These are stable URLs whose contents change on GitHub Pages deploys.
           # Fail the deploy verification if Cloudflare starts giving browsers a TTL.
