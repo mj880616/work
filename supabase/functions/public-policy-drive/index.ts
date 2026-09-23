@@ -147,8 +147,14 @@ function calendarRedirect(result: 'connected' | 'error', state?: string | null) 
   const u = new URL(CALENDAR_APP_URL);
   u.searchParams.set('view', 'calendar');
   u.searchParams.set('google', result);
-  if (state?.startsWith('android.')) u.searchParams.set('native', 'android');
+  if (state?.split('.').includes('android')) u.searchParams.set('native', 'android');
   return u.toString();
+}
+
+function oauthKind(state: string | null) {
+  if (state?.startsWith('drive.')) return 'drive';
+  if (state?.startsWith('tasks.')) return 'tasks';
+  return 'calendar';
 }
 
 Deno.serve(async (req) => {
@@ -178,7 +184,7 @@ Deno.serve(async (req) => {
 
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  const isDriveState = !!state?.startsWith('drive.');
+  const isDriveState = oauthKind(state) === 'drive';
   if (!code || !state) return Response.redirect(isDriveState ? driveRedirect('error', 'missing_oauth_params') : calendarRedirect('error', state), 302);
 
   try {
