@@ -166,7 +166,8 @@ jobs:
           if grep -Eq "teamManageTop|ccMessageTop|userBadge" app/topbar-actions.js; then echo 'removed personal or message action returned to the topbar'; exit 1; fi
 
           grep -q "function taskProjectOptions" app/team.js
-          grep -q "spaces.filter(x=>x.status!=='archived')" app/team.js
+          grep -q "function taskProjectRows" app/team.js
+          grep -q "metadata?.project_system==='v2'" app/team.js
           if grep -q "x.status!=='archived'&&x.parent_id" app/team.js; then echo 'task project picker returned to child-only filtering'; exit 1; fi
           grep -q "taskProjectOptions(true)" app/team.js
           grep -q "function openCreate(projectId='')" app/task-layout.js
