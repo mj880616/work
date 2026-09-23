@@ -1,5 +1,18 @@
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const SESSION_KEY='kptu_collab_session_v1';
+const READ_APP='https://read.bokdoong.com/';
+
+function forwardReadPkceCallback(){
+  const params=new URLSearchParams(location.search);
+  if(!params.get('code') || location.hash.includes('access_token=')) return false;
+  const target=new URL(READ_APP);
+  target.search=location.search;
+  target.hash=location.hash;
+  location.replace(target.href);
+  return true;
+}
+
+forwardReadPkceCallback();
 
 function decodeJwt(token){
   try{
