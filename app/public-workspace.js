@@ -4,14 +4,12 @@
   window.__KPTU_PUBLIC_WORKSPACE__=true;
   const rt=window.KPTURuntime;
   if(!rt?.api)return;
-  const state={spaces:[],tasks:[],pages:[],documents:[],events:[]};
-  const PUBLIC_VIEWS=new Set(['home','calendar','tasks','projects','library','meetings','pages','team']);
+  const state={pages:[],documents:[],events:[]};
+  const PUBLIC_VIEWS=new Set(['home','calendar','tasks','library','meetings','pages','team']);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmt=v=>v?new Date(v).toLocaleDateString('ko-KR'):'';
   const fmtDateTime=v=>v?new Date(v).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   const eventLabel={meeting:'회의',press:'기자회견',rally:'집회',field:'현장',deadline:'마감',education:'교육',other:'기타'};
-  const taskLabel={todo:'할 일',doing:'진행',done:'완료',blocked:'막힘'};
-  const priorityLabel={urgent:'긴급',high:'높음',normal:'보통',low:'낮음'};
 
   function loginUrl(){return window.KPTUAuth.loginUrl(location.href)}
   function normalizePublicRoute(){
@@ -31,29 +29,27 @@
     let login=document.getElementById('publicLoginBtn');
     if(!login){login=document.createElement('button');login.id='publicLoginBtn';login.type='button';login.className='secondary';login.textContent='로그인';login.onclick=()=>location.href=loginUrl();document.querySelector('.top-actions')?.appendChild(login)}
     document.querySelectorAll('.app-nav [data-view]').forEach(btn=>btn.classList.remove('public-hidden'));
-    document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.remove('public-hidden'));
+    document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.remove('public-hidden'));document.querySelector('.app-nav [data-view="projects"]')?.classList.add('public-hidden');document.getElementById('projectsView')?.classList.add('public-hidden');
     ['quickInviteBtn','quickTaskBtn','newEventBtn','homeAddEvent','newTaskBtn','newDocumentBtn','newMeetingBtn','newPageBtn','inviteBtn','newGroupBtn','newProjectBtn'].forEach(id=>document.getElementById(id)?.classList.add('public-hidden'));
     document.querySelectorAll('.admin-only').forEach(x=>x.classList.add('public-hidden'));
   }
   function gateMarkup(title,description){return `<div class="public-access-gate"><div class="public-lock" aria-hidden="true">🔒</div><h3>${esc(title)}</h3><p>${esc(description)}</p><a class="primary" href="${esc(loginUrl())}">로그인해서 보기</a></div>`}
   function renderHome(){
     const view=document.getElementById('homeView');if(!view)return;
-    const topProjects=state.spaces.filter(s=>s.status!=='archived').slice(0,5);
     const now=Date.now()-86400000;
     const upcoming=[...state.events].filter(e=>new Date(e.start_at).getTime()>=now).sort((a,b)=>new Date(a.start_at)-new Date(b.start_at)).slice(0,5);
     const board=[...state.pages].sort((a,b)=>new Date(b.updated_at||b.published_at||0)-new Date(a.updated_at||a.published_at||0)).slice(0,5);
     const docs=[...state.documents].sort((a,b)=>new Date(b.updated_at||b.document_date||0)-new Date(a.updated_at||a.document_date||0)).slice(0,5);
     const empty=text=>`<div class="hdv-empty">${esc(text)}</div>`;
-    view.innerHTML=`<div class="public-home-intro"><div class="section-head"><div><h2>공개 업무</h2><p>외부 공개로 지정된 프로젝트·게시·자료만 표시합니다.</p></div></div><div class="dashboard-grid home-dashboard-current public-home-grid">
-      <article class="panel hdv-panel"><div class="panel-head"><div><h2>프로젝트</h2><p>공개 프로젝트 ${topProjects.length}개</p></div><button class="mini" type="button" data-goto="projects">전체</button></div><div class="hdv-list">${topProjects.length?topProjects.map(p=>`<button class="hdv-row" type="button" data-public-project="${esc(p.slug)}"><div class="hdv-main"><b>${esc(p.name)}</b><small>${esc(p.description||'공개 프로젝트')}</small></div></button>`).join(''):empty('현재 공개된 프로젝트가 없습니다.')}</div></article>
+    view.innerHTML=`<div class="public-home-intro"><div class="section-head"><div><h2>공개 업무</h2><p>외부 공개로 지정된 게시·자료만 표시합니다.</p></div></div><div class="dashboard-grid home-dashboard-current public-home-grid">
       <article class="panel hdv-panel"><div class="panel-head"><div><h2>다가오는 주요 일정</h2><p>공개 팀 일정 중 가까운 일정</p></div><button class="mini" type="button" data-goto="calendar">전체</button></div><div class="hdv-list">${upcoming.length?upcoming.map(e=>`<button class="hdv-row" type="button" data-goto="calendar"><span class="hdv-date">${esc(fmt(e.start_at))}</span><div class="hdv-main"><b>${esc(e.title)}</b><small>${esc(eventLabel[e.event_type]||e.event_type||'일정')}</small></div></button>`).join(''):empty('다가오는 공개 일정이 없습니다.')}</div></article>
       <article class="panel hdv-panel"><div class="panel-head"><div><h2>게시판</h2><p>최근 공개 게시</p></div><button class="mini" type="button" data-goto="pages">전체</button></div><div class="hdv-list">${board.length?board.map(p=>`<a class="hdv-row public-home-link" href="../p/${encodeURIComponent(p.slug)}/"><div class="hdv-main"><b>${esc(p.title)}</b><small>${esc(p.summary||'공개 게시')}</small></div><span class="hdv-meta">${esc(fmt(p.updated_at||p.published_at))}</span></a>`).join(''):empty('현재 공개된 게시가 없습니다.')}</div></article>
       <article class="panel hdv-panel"><div class="panel-head"><div><h2>자료실</h2><p>최근 공개 자료</p></div><button class="mini" type="button" data-goto="library">전체</button></div><div class="hdv-list">${docs.length?docs.map(d=>`<button class="hdv-row" type="button" data-goto="library"><div class="hdv-main"><b>${esc(d.title||d.file_name||'자료')}</b><small>${esc([d.category,d.source].filter(Boolean).join(' · ')||'공개 자료')}</small></div><span class="hdv-meta">${esc(fmt(d.document_date||d.updated_at))}</span></button>`).join(''):empty('현재 공개된 자료가 없습니다.')}</div></article>
-    </div><div class="public-home-note">할 일은 독립 목록으로 공개하지 않고 공개 프로젝트 상세에서 필요한 진행상황만 표시합니다. 개인 일정·Google 일정·회의결과·팀 정보는 공개하지 않습니다.</div></div>`;
+    </div><div class="public-home-note">프로젝트·할 일·개인 일정·Google 일정·회의결과·팀 정보는 공개하지 않습니다.</div></div>`;
   }
-  function renderLockedViews(){
+function renderLockedViews(){
     const configs={
-      tasks:['할 일은 로그인 후 열람할 수 있습니다.','공개 프로젝트에 연결된 일부 업무는 해당 프로젝트 상세에서만 진행상황으로 표시합니다.'],
+      tasks:['할 일은 로그인 후 열람할 수 있습니다.','할 일은 외부에 공개하지 않습니다.'],
       meetings:['회의 결과는 로그인 후 열람할 수 있습니다.','회의에는 아직 항목별 외부 공개범위가 없으므로 제목과 회의내용을 외부에 노출하지 않습니다.'],
       team:['팀 정보는 로그인 후 열람할 수 있습니다.','구성원·권한·그룹 정보는 업무자료와 별도의 내부 정보로 취급합니다.']
     };
@@ -62,29 +58,10 @@
       const heading={tasks:'할 일',meetings:'회의 결과',team:'팀'}[view]||view;panel.innerHTML=`<div class="section-head"><div><h2>${heading}</h2><p>메뉴는 공개되며 실제 데이터는 열람권한에 따라 표시됩니다.</p></div></div>${gateMarkup(title,description)}`;
     }
   }
-  const children=id=>state.spaces.filter(x=>x.parent_id===id);
-  const tasks=id=>state.tasks.filter(x=>x.project_id===id);
-  const pages=id=>state.pages.filter(x=>x.space_id===id);
   function renderCalendar(){
     const view=document.getElementById('calendarView');if(!view)return;
     const rows=[...state.events].sort((a,b)=>new Date(a.start_at)-new Date(b.start_at));
     view.innerHTML=`<div class="section-head"><div><h2>공동 일정</h2><p>팀 일정 중 외부 공개에 필요한 기본 정보만 읽기 전용으로 표시합니다.</p></div></div><div class="public-visibility-note">개인 일정·Google 일정·상세 메모·참석자 정보는 비로그인 사용자에게 노출하지 않습니다.</div><div class="card-list public-calendar-list">${rows.length?rows.map(e=>`<article class="item-card"><div><span class="badge">${esc(eventLabel[e.event_type]||e.event_type||'일정')}</span><h3>${esc(e.title)}</h3><p>${fmtDateTime(e.start_at)}${e.end_at?' ~ '+fmtDateTime(e.end_at):''}</p></div></article>`).join(''):'<div class="empty">공개된 공동 일정이 없습니다.</div>'}</div>`;
-  }
-  function renderProjects(){
-    const grid=document.getElementById('projectGrid');if(!grid)return;
-    const tops=state.spaces.filter(x=>x.status!=='archived');
-    const head=document.querySelector('#projectsView .section-head p');if(head)head.textContent='전체 공개로 설정된 프로젝트와 공개 가능한 업무만 표시됩니다.';
-    grid.innerHTML=tops.length?tops.map(p=>`<button class="project-card" data-public-project="${esc(p.slug)}" type="button"><span class="badge">공개</span><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="public-project-meta"><span>공개 프로젝트</span></div></button>`).join(''):'<div class="empty">현재 공개된 프로젝트가 없습니다.</div>';
-  }
-  function ensureModal(){
-    if(document.getElementById('publicProjectModal'))return;
-    document.body.insertAdjacentHTML('beforeend','<div id="publicProjectModal" class="modal hidden" aria-hidden="true"><div class="modal-card medium-card"><div class="modal-head"><div><div class="eyebrow">PUBLIC PROJECT · READ ONLY</div><h2 id="publicProjectTitle"></h2><p id="publicProjectDescription" class="muted"></p></div><button id="publicProjectClose" class="icon-btn" type="button">×</button></div><div id="publicProjectBody" class="public-project-detail"></div></div></div>');
-    document.getElementById('publicProjectClose').onclick=()=>document.getElementById('publicProjectModal').classList.add('hidden');
-  }
-  function taskRows(rows){return rows.length?rows.map(t=>`<div class="public-project-task"><b>${esc(t.title)}</b><span>${esc(taskLabel[t.status]||t.status||'')} · 우선순위 ${esc(priorityLabel[t.priority]||t.priority||'보통')}</span>${t.due_at?`<small>기한 ${fmt(t.due_at)}</small>`:''}</div>`).join(''):'<div class="empty compact">연결된 공개 할 일이 없습니다.</div>'}
-  function openProject(slug){
-    if(!/^project-[0-9a-f]{32}$/.test(String(slug||'')))return;
-    location.href='../p/?slug='+encodeURIComponent(slug);
   }
   function renderPages(){
     const view=document.getElementById('pagesView');if(!view)return;
@@ -124,8 +101,6 @@
   }
   async function load(){
     const data=await rt.api('/rest/v1/rpc/app_public_workspace_index',{method:'POST',body:{},auth:false});
-    state.spaces=Array.isArray(data?.projects)?data.projects:[];
-    state.tasks=[];
     state.pages=Array.isArray(data?.pages)?data.pages:[];
     state.documents=Array.isArray(data?.documents)?data.documents:[];
     state.events=[];
@@ -133,10 +108,9 @@
   async function init(){
     const initialView=normalizePublicRoute();
     showApp();
-    document.addEventListener('click',e=>{const p=e.target.closest?.('[data-public-project]');if(p){e.preventDefault();openProject(p.dataset.publicProject)}},true);
-    try{
+        try{
       await load();
-      renderHome();renderLockedViews();renderCalendar();renderProjects();renderPages();renderLibrary();
+      renderHome();renderLockedViews();renderCalendar();renderPages();renderLibrary();
       window.KPTURouter?.go?.(initialView,{source:'public',updateUrl:false,scroll:false});
     }catch(err){
       console.error(err);

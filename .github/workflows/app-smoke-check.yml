@@ -102,7 +102,7 @@ jobs:
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
           grep -q "critical.css?v=1" app/index.html
-          grep -q "styles.css?v=40" app/loader-v2.js
+          grep -q "styles.css?v=41" app/loader-v2.js
           grep -q "ensureFeatureStyles" app/loader-v2.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
@@ -111,11 +111,11 @@ jobs:
           grep -q "__KPTU_BOOT_MEMBERSHIP_PROMISE__" app/loader-v2.js
           grep -q "workspacePrefetchStart" app/loader-v2.js
           grep -q "prefetched?.ok?prefetched.rows" app/team.js
-          grep -q "public-workspace.js?v=10" app/loader-v2.js
-          grep -q "home-dashboard-v2.js?v=7" app/loader-v2.js
+          grep -q "public-workspace.js?v=11" app/loader-v2.js
+          grep -q "home-dashboard-v2.js?v=8" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
           grep -q "team.js?v=32" app/loader-v2.js
-          grep -q "project-system-v3.js?v=13" app/loader-v2.js
+          grep -q "project-system-v3.js?v=14" app/loader-v2.js
           grep -q "task-workflow.js?v=6" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
           grep -q "task-row-view.js?v=1" app/loader-v2.js
@@ -158,7 +158,7 @@ jobs:
           grep -q "calendar-ui.css?v=2" app/styles.css
           grep -q "page-core.css?v=7" app/styles.css
           grep -q "page-builder.css?v=2" app/styles.css
-          grep -q "project-system-v3.css?v=11" app/styles.css
+          grep -q "project-system-v3.css?v=12" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -q ".top-actions #logoutBtn" app/topbar-actions.css
@@ -178,6 +178,8 @@ jobs:
           if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
 
           grep -q "app_public_workspace_index" app/public-workspace.js
+          if grep -Eq "data-public-project|app_public_project|renderProjects\\(|openProject\\(" app/public-workspace.js; then echo 'anonymous project renderer returned'; exit 1; fi
+          if grep -q "app_public_project" p/public-post.js; then echo 'public project URL RPC returned'; exit 1; fi
           grep -q "app_public_workspace_index" app/public-workspace-extras.js
           if grep -Eq "app_public_projects_snapshot|app_public_workspace_snapshot" app/public-workspace.js app/public-workspace-extras.js; then echo 'anonymous workspace client returned to a broad snapshot'; exit 1; fi
           grep -q "auth-service.js" app/login/index.html
@@ -256,6 +258,12 @@ jobs:
           set -e
           grep -q 'id="newProjectBtn"' app/index.html
           grep -q "data-ps3-delete-project" app/project-system-v3.js
+          grep -q 'owner_id=eq.${encodeURIComponent(user.id)}' app/project-system-v3.js
+          grep -q "+ 진행상황 추가" app/project-system-v3.js
+          if grep -Eq "ps3CreateType|ps3CreateVisibility|ps3AccessModal|ps3TypeModal|data-ps3-access|ps3ManageTypes" app/project-system-v3.js; then echo 'removed project type/access UI returned'; exit 1; fi
+          if grep -q "bindPublication();" app/project-system-v3.js; then echo 'project publication execution path returned'; exit 1; fi
+          grep -q "projects','\\[\\]'::jsonb" supabase/migrations/20260923074619_web2_project_owner_only.sql
+          grep -q "using (owner_id = (select auth.uid()))" supabase/migrations/20260923074619_web2_project_owner_only.sql
           grep -q "data-ps3-edit-project" app/project-system-v3.js
           grep -q "data-ps3-archive-project" app/project-system-v3.js
           grep -q "data-ps3-restore" app/project-system-v3.js

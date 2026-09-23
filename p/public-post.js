@@ -31,14 +31,14 @@
     const slug=document.querySelector('meta[name="kptu-page-slug"]')?.content?.trim()||new URLSearchParams(location.search).get('slug');
     if(!slug||!(/^[a-z0-9][a-z0-9-]{0,99}$/.test(slug)))return error();
     const projectSlug=/^project-[0-9a-f]{32}$/.test(slug);
-    const response=await fetch(SB+'/rest/v1/rpc/'+(projectSlug?'app_public_project':'app_public_post'),{
+    if(projectSlug)return error();
+    const response=await fetch(SB+'/rest/v1/rpc/app_public_post',{
       method:'POST',cache:'no-store',
       headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},
       body:JSON.stringify({p_slug:slug})
     });
     if(!response.ok)return error();
     const rows=await response.json();
-    if(projectSlug){if(!rows||typeof rows!=='object'||Array.isArray(rows)||!rows.title)return error();renderProject(rows);return}
     const post=Array.isArray(rows)?rows[0]:null;
     if(!post)return error();
     const design=post.page_design||{};
