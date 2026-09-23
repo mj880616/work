@@ -5,9 +5,11 @@ import router from '../../cloudflare/bokdoong-router.mjs';
 
 async function request(url, { method = 'GET', upstream = new Response('ok'), headers = {} } = {}) {
   const calls = [];
+  const fetchInits = [];
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input) => {
+  globalThis.fetch = async (input, init) => {
     calls.push(input);
+    fetchInits.push(init);
     return upstream;
   };
   try {
@@ -15,7 +17,7 @@ async function request(url, { method = 'GET', upstream = new Response('ok'), hea
       method,
       headers: { Cookie: 'session=private', Authorization: 'Bearer private', ...headers }
     }));
-    return { response, calls };
+    return { response, calls, fetchInits };
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -107,16 +109,21 @@ test('unversioned proxied pages and assets bypass Cloudflare cache and revalidat
 });
 
 
-test('desk versioned static assets are reusable without network revalidation', async () => {
+test('desk versioned static assets are reusable in browser and Cloudflare edge caches', async () => {
   for (const url of [
     'https://desk.bokdoong.com/work/app/app.js?v=58',
     'https://desk.bokdoong.com/work/app/loader-v2.js?v=170',
-    'https://desk.bokdoong.com/work/app/styles.css?v=31'
+    'https://desk.bokdoong.com/work/app/styles.css?v=31',
+    'https://desk.bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn2'
   ]) {
-    const { response } = await request(url, {
+    const { response, calls, fetchInits } = await request(url, {
       upstream: new Response('versioned asset', { headers: { 'Cache-Control': 'max-age=0' } })
     });
     assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
+    assert.equal(calls[0].cache, 'default', url);
+    assert.equal(fetchInits[0]?.cf?.cacheEverything, true, url);
+    assert.equal(fetchInits[0]?.cf?.cacheTtlByStatus?.['200-299'], 31536000, url);
+    assert.equal(fetchInits[0]?.cf?.cacheTtlByStatus?.['404'], 0, url);
   }
   const serviceWorker = await request('https://desk.bokdoong.com/work/app/sw.js?v=2', {
     upstream: new Response('service worker', { headers: { 'Cache-Control': 'max-age=0' } })
@@ -127,6 +134,22 @@ test('desk versioned static assets are reusable without network revalidation', a
     upstream: new Response('<!doctype html>', { headers: { 'Cache-Control': 'max-age=0' } })
   });
   assert.equal(html.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+});
+
+test('conditional or range requests bypass the immutable edge-cache path', async () => {
+  const conditional = await request('https://desk.bokdoong.com/work/app/app.js?v=86', {
+    headers: { 'If-None-Match': '"old"' },
+    upstream: new Response(null, { status: 304, headers: { ETag: '"current"' } })
+  });
+  assert.equal(conditional.calls[0].cache, 'no-store');
+  assert.equal(conditional.fetchInits[0], undefined);
+
+  const range = await request('https://desk.bokdoong.com/work/app/app.js?v=86', {
+    headers: { Range: 'bytes=0-3' },
+    upstream: new Response('data', { status: 206, headers: { 'Content-Range': 'bytes 0-3/10' } })
+  });
+  assert.equal(range.calls[0].cache, 'no-store');
+  assert.equal(range.fetchInits[0], undefined);
 });
 
 test('conditional and range requests retain HTTP semantics while revalidating', async () => {
