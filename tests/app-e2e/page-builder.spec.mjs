@@ -49,7 +49,8 @@ test('authenticated board mirrors Web1 business pages and excludes library and p
 
   await page.locator('#web1BoardActive .w1b-card').first().click();
   await expect(page.locator('#web1BoardDetailModal')).toBeVisible();
-  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('src','https://work.bokdoong.com/work/2in1/');
+  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('src','https://mj880616.github.io/work/2in1/');
+  await expect(page.locator('#web1BoardDetailFrame')).toHaveAttribute('data-web1-board-canonical','https://work.bokdoong.com/work/2in1/');
   await expect(page.locator('#pagesView')).toBeVisible();
   await page.locator('[data-close-web1-board]').click();
   await expect(page.locator('#web1BoardDetailModal')).toHaveClass(/hidden/);
