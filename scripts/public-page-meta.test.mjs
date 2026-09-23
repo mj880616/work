@@ -29,7 +29,7 @@ test('real generic template has managed metadata markers and stays noindex',()=>
   assert.match(shell,/<link rel="canonical" href="https:\/\/mj880616.github.io\/work\/p\/bus-strike-publicness-internal-archive-202609\/">/);
   assert.match(shell,/<meta property="og:title"/);
   assert.match(shell,/<meta name="twitter:title"/);
-  assert.match(shell,/src="\.\.\/public-post\.js\?v=2"/);
+  assert.match(shell,/src="\.\.\/public-post\.js\?v=3"/);
 });
 
 function runGeneratorWithSyntheticFetch(status=200){
