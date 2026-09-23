@@ -65,29 +65,27 @@ test('legacy seventh public URL resolves through the shared shell without a hard
   await expect(page.locator('#paper h1')).toHaveText('기존 공개 글');
 });
 
-test('project public view uses the same shell and only whitelisted blocks',async({page})=>{
+test('legacy public project URL uses the existing not-found UI without calling a project RPC',async({page})=>{
   const calls=[];
   await page.route(`${SB}/**`,route=>{
-    const request=route.request();calls.push({path:new URL(request.url()).pathname,body:request.postDataJSON()});
-    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({title:'산별전환',summary:'공개 개요',blocks:[
-      {section:'현황',title:'현재 상황',type:'text',content:{text:'현장 논의 진행'}},
-      {section:'현황',title:'조직별 상태',type:'table',content:{columns:['조직','상태'],rows:[['철도','논의'],['지하철','교육']]}},
-      {section:'자료',title:'링크',type:'links',content:{items:[{label:'자료',url:'javascript:alert(1)',note:'주의'}]}}
-    ]})});
+    calls.push(new URL(route.request().url()).pathname);
+    return route.fulfill({status:500,contentType:'application/json',body:'{}'});
   });
-  await page.goto(`${BASE}/p/?slug=project-123456781234123412341234567890ab`);
-  await expect(page.locator('#paper h1')).toHaveText('산별전환');
-  await expect(page.locator('#paper')).toContainText('현장 논의 진행');
-  await expect(page.locator('#paper table')).toContainText('지하철');
-  await expect(page.locator('#paper a[href^="javascript:"]')).toHaveCount(0);
-  expect(calls).toEqual([{path:'/rest/v1/rpc/app_public_project',body:{p_slug:'project-123456781234123412341234567890ab'}}]);
-});
-
-test('unpublished project yields no content on its original URL',async({page})=>{
-  await page.route(`${SB}/rest/v1/rpc/app_public_project`,route=>route.fulfill({status:200,contentType:'application/json',body:'null'}));
   await page.goto(`${BASE}/p/?slug=project-123456781234123412341234567890ab`);
   await expect(page.locator('#paper')).toContainText('공개된 게시글을 찾을 수 없습니다.');
   await expect(page.locator('#paper h1')).toHaveCount(0);
+  expect(calls).toEqual([]);
+});
+
+test('ordinary public posts still use app_public_post after project publication is retired',async({page})=>{
+  const calls=[];
+  await page.route(`${SB}/rest/v1/rpc/app_public_post`,route=>{
+    calls.push(route.request().postDataJSON());
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{title:'계속 공개되는 글',summary:'요약',body:'본문',page_design:{}}])});
+  });
+  await page.goto(`${BASE}/p/?slug=still-public`);
+  await expect(page.locator('#paper h1')).toHaveText('계속 공개되는 글');
+  expect(calls).toEqual([{p_slug:'still-public'}]);
 });
 
 test('public post migrations constrain rows and remove legacy anonymous paths',()=>{
@@ -104,4 +102,9 @@ test('public post migrations constrain rows and remove legacy anonymous paths',(
   expect(cutover).toContain('drop policy if exists app_pages_public_read');
   expect(cutover).toContain('revoke execute on function public.app_public_projects_snapshot() from anon');
   expect(cutover).toContain('revoke execute on function public.app_public_workspace_snapshot() from anon');
+  const ownerOnly=readFileSync(new URL('../../supabase/migrations/20260923074619_web2_project_owner_only.sql',import.meta.url),'utf8');
+  expect(ownerOnly).toContain("'projects','[]'::jsonb");
+  expect(ownerOnly).toContain('revoke execute on function public.app_public_project(text) from public,anon,authenticated');
+  expect(ownerOnly).toContain('create policy app_spaces_scoped_read');
+  expect(ownerOnly).toContain('using (owner_id = (select auth.uid()))');
 });
