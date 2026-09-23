@@ -17,8 +17,10 @@ test('anonymous workspace shell stays hidden until the public home is ready', as
   await page.locator('#appView').waitFor({ state: 'attached', timeout: 10000 });
 
   const favicon = await page.locator('link[rel="icon"]').getAttribute('href');
-  expect(favicon).toMatch(/^\.\/app-icon\.svg\?v=[\w-]+$/);
-  await expect(page.locator('.brand .brand-icon')).toHaveCount(0);
+  expect(favicon).toBe('./app-icon.svg?v=20260924-unicorn2');
+  await expect(page.locator('.brand .brand-icon')).toHaveCount(1);
+  await expect(page.locator('.brand .brand-icon')).toHaveAttribute('src','./app-icon.svg?v=20260924-unicorn2');
+  await expect(page.locator('.brand .leaf')).toHaveCount(0);
 
   const legacyAuthDisplay = await page.locator('#authView').evaluate(el => getComputedStyle(el).display);
   expect(legacyAuthDisplay).toBe('none');
