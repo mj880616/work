@@ -285,6 +285,7 @@ test('progress cards keep a two-column desktop layout and a readable single-colu
   await page.setViewportSize({width:1280,height:900});
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
+  await expect(page.locator('#ps3-progress')).toBeVisible();
 
   const desktop=await page.evaluate(()=>{
     const grid=document.querySelector('#ps3-progress .ps3-ws-grid');
