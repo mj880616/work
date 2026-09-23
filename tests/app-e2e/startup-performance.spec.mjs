@@ -10,17 +10,17 @@ test('Web2 first paint uses the final icon without a green placeholder or late f
   const pwa=read('app/pwa.js');
   const manifest=read('app/windows-manifest.json');
   const sw=read('app/sw.js');
-  const icon='./app-icon.svg?v=20260924-unicorn2';
+  const icon='./app-icon.svg?v=20260924-unicorn3';
   expect(html).toContain(`rel="icon" href="${icon}"`);
   expect(html).toContain(`rel="apple-touch-icon" href="${icon}"`);
-  expect(html).toContain('rel="manifest" href="./windows-manifest.json?v=4"');
+  expect(html).toContain('rel="manifest" href="./windows-manifest.json?v=5"');
   expect(html).toContain(`class="brand-icon" src="${icon}"`);
   expect(html).not.toContain('class="leaf"');
   expect(pwa).not.toContain('favicon');
   expect(pwa).not.toContain('apple-touch-icon');
   expect(pwa).not.toContain('createElement(\'link\')');
-  expect(manifest).toContain('20260924-unicorn2');
-  expect(sw).toContain('20260924-unicorn2');
+  expect(manifest).toContain('20260924-unicorn3');
+  expect(sw).toContain('20260924-unicorn3');
   for(const source of [html,pwa,manifest,sw])expect(source).not.toContain('20260913-3');
 });
 
@@ -48,13 +48,13 @@ test('startup assets are discovered from the document head without changing auth
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=86" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=86" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=87" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=87" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=198','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=199','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=3','./team.js?v=33','./home-dashboard-v2.js?v=8'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=198')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=199')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
   expect(loader).toContain("import('./team.js?v=33')");

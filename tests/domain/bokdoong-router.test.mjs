@@ -136,6 +136,16 @@ test('desk versioned static assets are reusable in browser and Cloudflare edge c
   assert.equal(html.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
 });
 
+test('failed versioned Web2 assets never receive immutable browser caching', async () => {
+  for (const status of [404, 500]) {
+    const { response } = await request('https://desk.bokdoong.com/work/app/app.js?v=poison-check', {
+      upstream: new Response('missing', { status, headers: { 'Cache-Control': 'max-age=31536000' } })
+    });
+    assert.equal(response.status, status);
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+  }
+});
+
 test('conditional or range requests bypass the immutable edge-cache path', async () => {
   const conditional = await request('https://desk.bokdoong.com/work/app/app.js?v=86', {
     headers: { 'If-None-Match': '"old"' },
