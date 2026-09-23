@@ -2,16 +2,17 @@
   'use strict';
   if(window.KPTUWeb1Board)return;
   const rt=window.KPTURuntime;
+  const PAGES='https://mj880616.github.io/work/';
   const items=[
-    {key:'2in1',title:'위험업무 2인1조 법제화',description:'법안 보완 · 노동부 대응 · 국회토론회 · 국정감사 · 궤도 공동투쟁',badge:'진행 중',href:'https://work.bokdoong.com/work/2in1/'},
-    {key:'workforce',title:'공공기관 인력확충',description:'증원 연계 2% 인력감축 방침 철회와 안전·공공서비스 인력 확충 대응',badge:'당면 대응',href:'https://work.bokdoong.com/work/workforce/'},
-    {key:'private-rail',title:'민자철도 사업 현황',description:'공영화 · 운영기준 · 사업장별 임단투 · 민간철도·지하철 부실운영 방지법 진행 현황',badge:'현장 공유',href:'https://work.bokdoong.com/work/private-rail/'},
-    {key:'rail-council',title:'궤도협의회',description:'철도·지하철 공동투쟁 · 확대간부수련회 · 산별전환 등 궤도 공동사업',badge:'궤도 공동사업',href:'https://work.bokdoong.com/work/rail-council/'},
-    {key:'sanbyeol',title:'산별전환 업무 현황',description:'철도 · 지하철 · 국토정보공사 등 조직별 교육·간담회·의결 경과와 교육 피드백',badge:'중앙 사무처',href:'https://work.bokdoong.com/work/sanbyeol/'}
+    {key:'2in1',title:'위험업무 2인1조 법제화',description:'법안 보완 · 노동부 대응 · 국회토론회 · 국정감사 · 궤도 공동투쟁',badge:'진행 중',href:'https://work.bokdoong.com/work/2in1/',embed:PAGES+'2in1/'},
+    {key:'workforce',title:'공공기관 인력확충',description:'증원 연계 2% 인력감축 방침 철회와 안전·공공서비스 인력 확충 대응',badge:'당면 대응',href:'https://work.bokdoong.com/work/workforce/',embed:PAGES+'workforce/'},
+    {key:'private-rail',title:'민자철도 사업 현황',description:'공영화 · 운영기준 · 사업장별 임단투 · 민간철도·지하철 부실운영 방지법 진행 현황',badge:'현장 공유',href:'https://work.bokdoong.com/work/private-rail/',embed:PAGES+'private-rail/'},
+    {key:'rail-council',title:'궤도협의회',description:'철도·지하철 공동투쟁 · 확대간부수련회 · 산별전환 등 궤도 공동사업',badge:'궤도 공동사업',href:'https://work.bokdoong.com/work/rail-council/',embed:PAGES+'rail-council/'},
+    {key:'sanbyeol',title:'산별전환 업무 현황',description:'철도 · 지하철 · 국토정보공사 등 조직별 교육·간담회·의결 경과와 교육 피드백',badge:'중앙 사무처',href:'https://work.bokdoong.com/work/sanbyeol/',embed:PAGES+'sanbyeol/'}
   ];
   let state=new Map(),loaded=false;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const card=x=>`<button class="w1b-card" type="button" data-web1-board-href="${esc(x.href)}" data-web1-board-title="${esc(x.title)}"><div class="w1b-card-top"><span class="badge">${esc(x.badge)}</span><span class="w1b-open">내용 보기</span></div><h3>${esc(x.title)}</h3><p>${esc(x.description)}</p></button>`;
+  const card=x=>`<button class="w1b-card" type="button" data-web1-board-href="${esc(x.href)}" data-web1-board-embed="${esc(x.embed)}" data-web1-board-title="${esc(x.title)}"><div class="w1b-card-top"><span class="badge">${esc(x.badge)}</span><span class="w1b-open">내용 보기</span></div><h3>${esc(x.title)}</h3><p>${esc(x.description)}</p></button>`;
   function render(){
     const host=document.querySelector('#pagesView');
     const active=document.querySelector('#web1BoardActive');
@@ -31,11 +32,11 @@
     if(!modal)return;
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden','true');
-    if(frame)frame.src='about:blank';
+    if(frame){frame.src='about:blank';delete frame.dataset.web1BoardCanonical}
     window.KPTUA11y?.dialog.deactivate(modal,{restoreFocus:true,fallbackFocus:'#pagesView h2'});
     detailTrigger=null;
   }
-  function openDetail(href,title){
+  function openDetail(embedHref,title,canonicalHref=''){
     const modal=document.querySelector('#web1BoardDetailModal');
     const frame=document.querySelector('#web1BoardDetailFrame');
     const heading=document.querySelector('#web1BoardDetailTitle');
@@ -43,7 +44,8 @@
     detailTrigger=document.activeElement;
     if(heading)heading.textContent=title||'게시판';
     frame.title=(title||'게시판')+' 본문';
-    frame.src=href;
+    frame.dataset.web1BoardCanonical=canonicalHref||embedHref;
+    frame.src=embedHref;
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden','false');
     const close=modal.querySelector('[data-close-web1-board]');
@@ -52,7 +54,7 @@
   }
   document.addEventListener('click',e=>{
     const card=e.target.closest?.('[data-web1-board-href]');
-    if(card){e.preventDefault();openDetail(card.dataset.web1BoardHref,card.dataset.web1BoardTitle);return}
+    if(card){e.preventDefault();openDetail(card.dataset.web1BoardEmbed||card.dataset.web1BoardHref,card.dataset.web1BoardTitle,card.dataset.web1BoardHref);return}
     if(e.target.closest?.('[data-close-web1-board]'))closeDetail();
   });
   window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!document.querySelector('#web1BoardDetailModal')?.classList.contains('hidden'))closeDetail()});
