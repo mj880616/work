@@ -47,19 +47,22 @@ test('anonymous app entry uses the narrow public index and gates internal work',
   await expect(page.locator('#authView')).toBeHidden();
   await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop')).toHaveCount(0);
 
-  for(const view of ['home','calendar','tasks','projects','library','meetings','pages']){
+  for(const view of ['home','calendar','tasks','library','meetings','pages']){
     await expect(page.locator(`.app-nav [data-view="${view}"]`)).toBeVisible();
   }
+  await expect(page.locator('.app-nav [data-view="projects"]')).toBeHidden();
+  await expect(page.locator('#projectsView')).toBeHidden();
   await expect(page.locator('#teamManageTop')).toHaveCount(0);
   await expect(page.locator('#pagesMediaEntry')).toHaveCount(0);
   await expect.poll(()=>calls.index).toBeGreaterThanOrEqual(1);
   expect(calls.broadSnapshots).toBe(0);
   expect(errors).toEqual([]);
   await expect(page.locator('#homeView')).toContainText('공개 업무');
-  for(const label of ['프로젝트','다가오는 주요 일정','게시판','자료실']){
+  for(const label of ['다가오는 주요 일정','게시판','자료실']){
     await expect(page.locator('#homeView')).toContainText(label);
   }
-  await expect(page.locator('#homeView .panel')).toHaveCount(4);
+  await expect(page.locator('#homeView')).not.toContainText('공개 프로젝트');
+  await expect(page.locator('#homeView .panel')).toHaveCount(3);
   await expect(page.locator('#homeView')).not.toContainText('INTERNAL_EVENT_BODY');
   await expect(page.locator('.app-nav [data-view="pages"]')).toHaveText('게시판');
 
@@ -74,14 +77,11 @@ test('anonymous app entry uses the narrow public index and gates internal work',
   await expect(page.locator('#calendarView')).not.toContainText('INTERNAL_EVENT_BODY');
   await expect(page.locator('#calendarView')).not.toContainText('INTERNAL_ATTENDEE');
 
-  await page.locator('.app-nav [data-view="projects"]').click();
-  await expect(page.locator('#projectGrid')).toContainText('공개 프로젝트');
-  await expect(page.locator('#projectGrid')).not.toContainText('비공개 프로젝트');
-  await page.locator('#projectGrid [data-public-project="project-123456781234123412341234567890ab"]').click();
-  await expect(page).toHaveURL(`${BASE}/p/?slug=project-123456781234123412341234567890ab`);
-  await expect(page.locator('#paper')).toContainText('공개 진행상황');
-  await expect(page.locator('#paper')).not.toContainText('INTERNAL_NOTE');
-  expect(calls.projectSlugs).toEqual(['project-123456781234123412341234567890ab']);
+  await page.goto(`${BASE}/app/?view=projects`);
+  await expect(page).toHaveURL(`${BASE}/app/`);
+  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('.app-nav [data-view="projects"]')).toBeHidden();
+  expect(calls.projectSlugs).toEqual([]);
   await page.goto(`${BASE}/app/?view=library`);
 
   await page.locator('.app-nav [data-view="library"]').click();
