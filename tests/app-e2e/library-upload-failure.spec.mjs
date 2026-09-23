@@ -69,7 +69,10 @@ test('mobile library upload opens the native file picker from the visible tap ta
   await zone.click();
   const fileChooser=await chooser;
   await fileChooser.setFiles({name:'mobile-upload.pdf',mimeType:'application/pdf',buffer:Buffer.from('pdf')});
-  await expect(page.locator('#librarySelectedFile')).toHaveText('mobile-upload.pdf');
+  const selected=page.locator('[data-lu-upload-file]');
+  await expect(selected).toHaveCount(1);
+  await expect(selected.first()).toContainText('mobile-upload.pdf');
+  await expect(selected.first().locator('[data-lu-upload-state]')).toHaveText('선택됨');
 });
 
 
