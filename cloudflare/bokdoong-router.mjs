@@ -97,9 +97,10 @@ export default {
     }
     // HTML and unversioned assets must revalidate so deployments stay current.
     // Versioned Web2 assets use immutable browser and edge delivery.
+    const immutableAsset = versionedAsset && upstream.ok;
     responseHeaders.set(
       'Cache-Control',
-      versionedAsset ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate'
+      immutableAsset ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate'
     );
     const location = responseHeaders.get('Location');
     if (location) {
