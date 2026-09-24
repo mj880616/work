@@ -142,7 +142,7 @@
       brand.addEventListener('click',e=>{
         if(!appReady())return;
         e.preventDefault();
-        go('home',{source:'brand'});
+        go('calendar',{source:'brand'});
       });
     }
     if(api.current)syncNavigationState(api.current);
