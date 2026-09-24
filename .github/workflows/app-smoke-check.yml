@@ -49,15 +49,15 @@ jobs:
           const text=fs.readFileSync('app/loader-v2.js','utf8');
           const keys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=36')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=37')",'await window.__KPTU_TEAM_READY__',
             "import('./task-workflow.js?v=8')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-row-view.js?v=1')","import('./task-layout.js?v=12')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./web1-board.js?v=3')",
             "import('./meeting-round-detail.js?v=11')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
             "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
-            "import('./calendar-plus.js?v=6')",'await window.__KPTU_CALENDAR_PLUS_READY__',
+            "import('./calendar-plus.js?v=7')",'await window.__KPTU_CALENDAR_PLUS_READY__',
             "import('./calendar-persistence.js?v=11')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
-            "import('./calendar-interactions-v2.js?v=4')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
+            "import('./calendar-interactions-v2.js?v=5')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
             "import('./calendar-mobile-ui.js?v=3')",'await window.__KPTU_CALENDAR_MOBILE_UI_READY__',
             "import('./calendar-day-overflow.js?v=2')",'await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',
             'window.__KPTU_MARK_APP_UI_READY__?.()'
@@ -122,8 +122,8 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           grep -q "home-dashboard-v2.js?v=8" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
-          grep -q "team.js?v=36" app/loader-v2.js
-          grep -q "project-system-v3.js?v=18" app/loader-v2.js
+          grep -q "team.js?v=37" app/loader-v2.js
+          grep -q "project-system-v3.js?v=19" app/loader-v2.js
           grep -q "task-workflow.js?v=8" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
           grep -q "task-row-view.js?v=1" app/loader-v2.js
@@ -143,11 +143,11 @@ jobs:
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
           grep -q "__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js
-          grep -q "calendar-plus.js?v=6" app/loader-v2.js
+          grep -q "calendar-plus.js?v=7" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_PLUS_READY__" app/loader-v2.js
           grep -q "calendar-persistence.js?v=11" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/loader-v2.js
-          grep -q "calendar-interactions-v2.js?v=4" app/loader-v2.js
+          grep -q "calendar-interactions-v2.js?v=5" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/loader-v2.js
           grep -q "calendar-mobile-ui.js?v=3" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/loader-v2.js

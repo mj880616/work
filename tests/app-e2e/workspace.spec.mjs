@@ -70,6 +70,7 @@ async function installSupabaseMock(page, state) {
       }
     }
     if (path === '/rest/v1/app_event_attendees') return ok([]);
+    if (path === '/rest/v1/app_event_suborganizations') return ok([]);
 
     if (path === '/rest/v1/app_tasks') {
       if (method === 'GET') return ok(state.tasks);
@@ -191,9 +192,23 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('[data-view="calendar"]').click();
   await expect(page.locator('#calendarView')).toBeVisible();
   await page.locator('#newEventBtn').click();
-  await page.locator('#eventTitle').fill('E2E 일정');
-  await page.locator('#eventStart').fill('2026-09-14T10:00');
-  await page.locator('#eventEnd').fill('2026-09-14T11:00');
+  await page.locator('#eventTitle').fill('E2E Web2 일정');
+  await page.locator('#eventStartDate').fill('2026-09-14');
+  await page.locator('#eventStartTime').fill('10:00');
+  await page.locator('#eventEndDate').fill('2026-09-14');
+  await page.locator('#eventEndTime').fill('11:00');
+  await page.locator('#saveEventBtn').click();
+  await expect.poll(() => state.events.length).toBe(1);
+  expect(state.events[0].calendar_scope).toBe('personal');
+  await expect(page.locator('.cm-app')).toContainText('E2E Web2 일정');
+
+  await page.locator('#newEventBtn').click();
+  await page.locator('#eventTitle').fill('E2E Google 일정');
+  await page.locator('#eventTarget').selectOption('google');
+  await page.locator('#eventStartDate').fill('2026-09-15');
+  await page.locator('#eventStartTime').fill('10:00');
+  await page.locator('#eventEndDate').fill('2026-09-15');
+  await page.locator('#eventEndTime').fill('11:00');
   await page.locator('#saveEventBtn').click();
   await expect.poll(() => state.googleEvents.length).toBe(1);
 
