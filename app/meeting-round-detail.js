@@ -26,7 +26,7 @@ async function mrdOpenMeeting(id){
     const [mr,docs,tasks]=await Promise.all([
       mrdApi('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(id)+'&select=*&limit=1'),
       mrdApi('/rest/v1/app_documents?meeting_id=eq.'+encodeURIComponent(id)+'&select=*&order=created_at.asc'),
-      mrdApi('/rest/v1/app_tasks?source_type=eq.meeting&source_id=eq.'+encodeURIComponent(id)+'&select=*&order=created_at.asc')
+      mrdApi('/rest/v1/app_tasks?source_type=eq.meeting&source_id=eq.'+encodeURIComponent(id)+'&assignee_id=eq.'+encodeURIComponent(mrdUser.id)+'&select=*&order=created_at.asc')
     ]);
     if(epoch!==mrdRequestEpoch)return;
     const m=mr?.[0];if(!m)throw new Error('회의를 찾을 수 없습니다.');
