@@ -28,11 +28,16 @@ jobs:
           set -e
           test -f app/workplace-detail.js
           test -f app/workplace-detail.css
-          grep -q "workplace-detail.css?v=2" app/styles.css
-          grep -q "workplace-detail.js?v=4" app/loader-v2.js
+          grep -q "workplace-detail.css?v=3" app/styles.css
+          grep -q "workplace-detail.js?v=5" app/loader-v2.js
           grep -q "data-wd-close" app/workplace-detail.js
           grep -q "data-wd-item-edit" app/workplace-detail.js
           grep -q "data-wd-time-edit" app/workplace-detail.js
+          grep -q "id=\"wdUpdateCurrent\"" app/workplace-detail.js
+          grep -q "id=\"wdBasicView\"" app/workplace-detail.js
+          if grep -q "wdDeleteOrg" app/workplace-detail.js; then
+            echo 'organization delete returned to normal detail'; exit 1
+          fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/workplace-detail.js; then
             echo 'workplace detail returned to dynamic style injection'; exit 1
           fi

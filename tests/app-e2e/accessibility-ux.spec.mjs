@@ -225,15 +225,14 @@ test('failed save releases busy state and announces the error',async({page})=>{
   await expect(save).not.toHaveAttribute('aria-busy','true');
 });
 
-test('assigned organization toolbar and compact rows expose clear names',async({page})=>{
+test('assigned organization list and compact rows expose clear names without retired filters',async({page})=>{
   await boot(page,{width:1024,height:768});
   await page.locator('.app-nav [data-view="team"]').click();
-  await expect(page.locator('label[for="sofSearch"]')).toHaveText('담당조직 검색');
-  await expect(page.locator('#sofAssignee,#sofMine,#sofUnassigned')).toHaveCount(0);
-  await expect(page.locator('label[for="sofCouncil"]')).toHaveText('협의회 필터');
-  await expect(page.locator('label[for="sofType"]')).toHaveText('조직유형 필터');
+  await expect(page.locator('#sofToolbar,#sofSearch,#sofCouncil,#sofType,#sofAssignee,#sofMine,#sofUnassigned')).toHaveCount(0);
+  await expect(page.locator('#soOrgCount')).toContainText('담당조직');
   const row=page.locator('[data-so-org="a11y-org-1"]');
   await expect(row).toHaveAttribute('aria-label','철도노조 상세 열기');
+  await expect(row).toHaveAttribute('role','button');
   await expect(row.locator('[data-so-delete],[data-so-edit],[data-so-assign]')).toHaveCount(0);
 });
 

@@ -1,8 +1,0 @@
-.sof-tools{display:grid;grid-template-columns:minmax(180px,1.6fr) repeat(2,minmax(120px,.7fr));gap:8px;margin:0 0 8px}
-.sof-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 6px;font-size:10.5px;color:var(--kptu-muted)}
-.sof-reset{border:0;background:transparent;color:var(--kptu-info);font-size:10.5px;cursor:pointer;padding:2px 0}
-.sof-type{display:inline-flex;padding:2px 6px;border-radius:var(--kptu-radius-pill);background:var(--kptu-primary-soft);color:var(--kptu-muted);font-size:9px;font-weight:800;white-space:nowrap}
-.sof-no-results{padding:16px;text-align:center;color:var(--kptu-muted);border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-lg)}
-.sof-hidden{display:none!important}
-@media(max-width:760px){.sof-tools{grid-template-columns:1fr 1fr}.sof-tools .sof-search{grid-column:1/-1}}
-@media(max-width:520px){.sof-tools{grid-template-columns:1fr}.sof-tools .sof-search{grid-column:auto}.sof-meta{margin-bottom:4px}}
