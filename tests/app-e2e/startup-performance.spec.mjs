@@ -48,16 +48,16 @@ test('startup assets are discovered from the document head without changing auth
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
   const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=98" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=98" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=99" defer></script>');
+  expect(body).not.toContain('<script src="./app.js?v=99" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=210','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
-    './calendar-return-bridge.js?v=3','./team.js?v=38','./home-dashboard-v2.js?v=8'
+    './loader-v2.js?v=211','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
+    './calendar-return-bridge.js?v=3','./team.js?v=39','./home-dashboard-v2.js?v=8'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=210')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=211')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
-  expect(loader).toContain("import('./team.js?v=38')");
+  expect(loader).toContain("import('./team.js?v=39')");
   expect(loader).toContain("import('./google-tasks.js?v=7')");
   expect(loader).toContain("if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return");
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
