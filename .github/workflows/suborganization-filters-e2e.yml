@@ -10,6 +10,7 @@ on:
       - 'app/workplace-detail.css'
       - 'app/profile-workplace-sync.js'
       - 'app/loader-v2.js'
+      - 'app/view-loader.js'
       - 'app/styles.css'
       - 'app/myspace-return.js'
       - 'app/my-work.html'
@@ -25,6 +26,7 @@ on:
       - 'app/workplace-detail.css'
       - 'app/profile-workplace-sync.js'
       - 'app/loader-v2.js'
+      - 'app/view-loader.js'
       - 'app/styles.css'
       - 'app/myspace-return.js'
       - 'app/my-work.html'
@@ -49,12 +51,12 @@ jobs:
           test ! -f app/suborganization-filters.js
           test ! -f app/suborganization-filters.css
           test ! -f app/suborganization-planned-assignee.js
-          grep -q "suborganizations.js?v=6" app/loader-v2.js
-          grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/loader-v2.js
-          grep -q "workplace-detail.js?v=5" app/loader-v2.js
+          grep -q "suborganizations.js?v=7" app/view-loader.js
+          grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/view-loader.js
+          grep -q "workplace-detail.js?v=6" app/view-loader.js
           grep -q "suborganizations.css?v=5" app/styles.css
           grep -q "workplace-detail.css?v=3" app/styles.css
-          if grep -q "suborganization-filters.js" app/loader-v2.js; then echo 'removed assigned-organization filter module returned'; exit 1; fi
+          if grep -q "suborganization-filters.js" app/loader-v2.js app/view-loader.js; then echo 'removed assigned-organization filter module returned'; exit 1; fi
           if grep -q "suborganization-filters.css" app/styles.css; then echo 'removed assigned-organization filter styles returned'; exit 1; fi
           grep -q "default_assignee_name" app/suborganizations.js
           grep -q "sofEditType" app/suborganizations.js
