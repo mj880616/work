@@ -27,7 +27,7 @@ async function calendar(){
     module('./calendar-interactions-v2.js?v=6','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=4','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__'),
-    module('./suborganizations.js?v=6','__KPTU_SUBORGANIZATIONS_READY__'),
+    module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__'),
     module('./calendar-health.js?v=3'),
     module('./google-calendar-return-status.js?v=1')
   ]);
@@ -36,7 +36,7 @@ async function calendar(){
 }
 async function tasks(){
   await module('./task-row-view.js?v=1');
-  await module('./task-layout.js?v=12','__KPTU_TASK_LAYOUT_READY__');
+  await module('./task-layout.js?v=13','__KPTU_TASK_LAYOUT_READY__');
   await module('./google-tasks.js?v=7');
   return {ok:true}
 }
@@ -46,18 +46,18 @@ async function projects(){
     module('./public-page-links.js?v=1'),
     module('./due-date-calendar.js?v=1')
   ]);
-  await module('./project-system-v3.js?v=19','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=20','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
   await team('library');
-  await module('./library-upload.js?v=11','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=12','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
   await team('meetings');
-  await module('./task-workflow.js?v=8','__KPTU_TASK_WORKFLOW_READY__');
-  await module('./meeting-round-detail.js?v=11','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
+  await module('./meeting-round-detail.js?v=12','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){
@@ -73,18 +73,18 @@ async function pages(){
   return {ok:true}
 }
 async function organizations(){
-  await module('./suborganizations.js?v=6','__KPTU_SUBORGANIZATIONS_READY__');
-  await module('./workplace-detail.js?v=5');
+  await module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__');
+  await module('./workplace-detail.js?v=6');
   import('./workplace-ai-report.js?v=2').catch(console.error);
   return {ok:true}
 }
 async function photos(){
   await team('calendar');
-  await module('./photo-room.js?v=5','__KPTU_PHOTO_ROOM_READY__');
+  await module('./photo-room.js?v=6','__KPTU_PHOTO_ROOM_READY__');
   return {ok:true}
 }
 async function notifications(){
-  await module('./notification-center-ui.js?v=6','__KPTU_NOTIFICATION_CENTER_READY__');
+  await module('./notification-center-ui.js?v=7','__KPTU_NOTIFICATION_CENTER_READY__');
   return {ok:true}
 }
 
