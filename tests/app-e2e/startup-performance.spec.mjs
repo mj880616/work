@@ -47,17 +47,17 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=109" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=110" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=221','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
-    './calendar-return-bridge.js?v=3','./team.js?v=41'
+    './loader-v2.js?v=222','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
+    './calendar-return-bridge.js?v=3','./team.js?v=42'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=221')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=222')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
-  expect(loader).toContain("import('./team.js?v=41')");
-  expect(loader).toContain("import('./view-loader.js?v=6')");
+  expect(loader).toContain("import('./team.js?v=42')");
+  expect(loader).toContain("import('./view-loader.js?v=7')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
 });
@@ -85,12 +85,12 @@ test('startup loads only requested route CSS before showing the shell', async ()
 test('requested route is resolved before view-specific feature loading', async () => {
   const source=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
-  expect(source).toContain("const rawRequested=params.get('view')||(params.get('project')?'projects':'home')");
+  expect(source).toContain("const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar')");
   expect(source).toContain("result=await viewLoader.load(requested)");
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
-  expect(viewLoader).toContain("const loaders={home,calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos,notifications}");
+  expect(viewLoader).toContain("const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos,notifications}");
 });
 
 test('direct feature URLs load one requested view and keep failures visible', async () => {
@@ -103,16 +103,13 @@ test('direct feature URLs load one requested view and keep failures visible', as
   expect(source).not.toContain("await loadFeatures()");
 });
 
-test('home and feature modules reuse authenticated boot context', async () => {
-  const home=read('app/home-dashboard-v2.js');
+test('feature modules reuse authenticated boot context', async () => {
   const team=read('app/team.js');
   const runtime=read('app/runtime-client.js');
   expect(team).toContain("user=userFromSession()||await getUser()");
   expect(team).toContain("workspace:app_workspaces(id,slug,name)");
   expect(team).toContain("window.KPTURuntime?.context?.set?.(window.__KPTU_BOOT_CONTEXT__)");
   expect(runtime).toContain("context:{read:contextRead,set:contextSet,clear:contextClear}");
-  expect(home).toContain('window.__KPTU_BOOT_CONTEXT__');
-  expect(home).toContain('if(epoch!==renderEpoch)return');
 });
 
 test('route manifest keeps retired modules out and Web1 views isolated', async () => {
@@ -191,21 +188,21 @@ async function loginWithMock(page,{delayGroups=false}={}){
   await page.waitForFunction(()=>typeof window.__KPTU_STARTUP__?.marks?.homeUsable==='number');
 }
 
-test('home shortcut waits for deferred feature data on first click',async({page})=>{
+test('tab navigation waits for deferred feature data on first click',async({page})=>{
   await loginWithMock(page,{delayGroups:true});
-  await page.locator('#hdvTaskPanel [data-hdv-goto]').click();
+  await page.locator('#appView .app-nav [data-view="tasks"]').click();
   await expect(page.locator('#deferredFeatureStatus')).toBeVisible();
   await expect(page.locator('#tasksView')).toBeVisible({timeout:15000});
   await expect(page.locator('#deferredFeatureStatus')).toHaveCount(0);
 });
 
-test('deferred module failure leaves home usable and shows an alert',async({page})=>{
+test('deferred module failure leaves calendar usable and shows an alert',async({page})=>{
   await page.route('**/app/project-system-v3.js*',route=>route.abort());
   await loginWithMock(page);
   await page.locator('#appView .app-nav [data-view="projects"]').click();
   await expect(page.locator('#deferredFeatureError')).toHaveAttribute('role','alert');
   await expect(page.locator('#deferredFeatureError')).toContainText('이 기능을 불러오지 못했습니다.');
-  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#calendarView')).toBeVisible();
 });
 
 
