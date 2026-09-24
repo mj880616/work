@@ -193,7 +193,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#calendarView')).toBeVisible();
   await expect(page.locator('#googleCalendarPanel')).toBeVisible();
   expect(await page.locator('#googleCalendarPanel').evaluate(el=>el.open)).toBe(false);
-  expect(await page.locator('#calendarUpcoming').evaluate(el=>el.open)).toBe(false);
+  await expect(page.locator('#calendarUpcoming,#upcomingEvents')).toHaveCount(0);
   const addSize=await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().width);
   expect(addSize).toBeLessThanOrEqual(44);
   await page.locator('#newEventBtn').click();
