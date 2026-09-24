@@ -32,7 +32,7 @@ async function instrument(context,requestedView){
   await context.addInitScript(view=>{
     const metric=window.__P6_BENCHMARK__={
       requestedView:view,topbarMs:null,shellMs:null,homeDataMs:null,homeUsableMs:null,
-      requestedViewMs:null,allModulesMs:null,initialImports:null,initialApiRequests:null,
+      requestedShellMs:null,requestedViewMs:null,requestedReadyMarkMs:null,allModulesMs:null,initialImports:null,initialApiRequests:null,
       apiByPath:{},featureImports:[]
     };
     const snapshot=()=>{
@@ -51,6 +51,7 @@ async function instrument(context,requestedView){
     const visible=el=>!!el&&!el.classList.contains('hidden')&&getComputedStyle(el).visibility==='visible'&&getComputedStyle(el).display!=='none';
     window.addEventListener('kptu:startup-mark',event=>{
       if(event.detail?.name==='allInitialModulesComplete')metric.allModulesMs=performance.now();
+      if(event.detail?.name==='requestedViewReady')metric.requestedReadyMarkMs=performance.now();
     });
     const timer=setInterval(()=>{
       const now=performance.now(),app=document.querySelector('#appView'),nav=app?.querySelector('.app-nav');
@@ -59,7 +60,8 @@ async function instrument(context,requestedView){
       if(metric.homeDataMs===null&&document.querySelector('#hdvProjects')?.children.length)metric.homeDataMs=now;
       if(metric.homeUsableMs===null&&metric.homeDataMs!==null&&visible(app))metric.homeUsableMs=now;
       const target=document.querySelector('#'+view+'View');
-      if(metric.requestedViewMs===null&&visible(app)&&visible(target)){
+      if(metric.requestedShellMs===null&&visible(app)&&visible(target))metric.requestedShellMs=now;
+      if(metric.requestedViewMs===null&&visible(app)&&visible(target)&&app?.classList.contains('kptu-ui-ready')){
         metric.requestedViewMs=now;snapshot();clearInterval(timer);
       }
     },5);
@@ -68,7 +70,6 @@ async function instrument(context,requestedView){
 
 async function waitForStartup(page){
   await page.waitForFunction(()=>typeof window.__P6_BENCHMARK__?.requestedViewMs==='number',null,{timeout:30000});
-  await page.waitForFunction(()=>typeof window.__P6_BENCHMARK__?.allModulesMs==='number',null,{timeout:5000}).catch(()=>{});
   return page.evaluate(()=>window.__P6_BENCHMARK__);
 }
 
@@ -101,7 +102,7 @@ function median(rows,key){
 const browser=await chromium.launch({headless:true});
 const results={
   environment:'GitHub Actions ubuntu-latest, Chromium/Playwright 1.55.0, mocked Supabase responses, 0ms artificial API latency',
-  baselineCommit:'3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c',
+  baselineCommit:'1b6f502dae5c558550649a368eab086b62f274bb',
   routes,viewports,samples:{}
 };
 try{
@@ -119,7 +120,7 @@ try{
           warm.push(await warmLoad(page,base,view));
           await context.close();
         }
-        const keys=['topbarMs','shellMs','homeDataMs','homeUsableMs','requestedViewMs','allModulesMs','initialImports','initialApiRequests'];
+        const keys=['topbarMs','shellMs','homeDataMs','homeUsableMs','requestedShellMs','requestedViewMs','requestedReadyMarkMs','allModulesMs','initialImports','initialApiRequests'];
         const medianCold={},medianWarm={};
         for(const key of keys){medianCold[key]=median(cold,key);medianWarm[key]=median(warm,key)}
         results.samples[label][viewportName][view]={cold,warm,medianCold,medianWarm};
