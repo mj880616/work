@@ -8,8 +8,8 @@
 <link rel="icon" href="./app-icon.svg?v=20260924-unicorn3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260924-unicorn3">
 <link rel="manifest" href="./windows-manifest.json?v=5">
-<link rel="stylesheet" href="./critical.css?v=1">
-<link rel="preload" as="style" href="./base-ui.css?v=5">
+<link rel="stylesheet" href="./critical.css?v=2">
+<link rel="preload" as="style" href="./base-ui.css?v=6">
 <link rel="preload" as="style" href="./static-gates.css?v=2">
 <link rel="preload" as="style" href="./topbar-actions.css?v=6">
 <link rel="preload" as="style" href="./team.css?v=2">
@@ -18,12 +18,12 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=9">
 <link rel="preload" as="style" href="./desktop-ui.css?v=7">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=221">
+<link rel="modulepreload" href="./loader-v2.js?v=222">
 <link rel="modulepreload" href="./runtime-client.js?v=4">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=4">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<link rel="modulepreload" href="./team.js?v=41">
-<script src="./app.js?v=109" defer></script>
+<link rel="modulepreload" href="./team.js?v=42">
+<script src="./app.js?v=110" defer></script>
 </head>
 <body>
 <div class="shell">
@@ -60,7 +60,6 @@
 </section>
 <section id="appView" class="app-view hidden">
   <nav class="app-nav">
-    <button class="nav-btn active" data-view="home" type="button">홈</button>
     <button class="nav-btn" data-view="calendar" type="button">일정</button>
     <button class="nav-btn" data-view="tasks" type="button">할 일</button>
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
@@ -71,59 +70,39 @@
     <button class="nav-btn" data-view="team" type="button">담당조직</button>
   </nav>
 
-  <section id="homeView" class="view-panel">
-    <div class="stat-grid">
-      <button class="stat-card" data-goto="calendar"><span>오늘 일정</span><b id="statToday">0</b></button>
-      <button class="stat-card" data-goto="tasks"><span>내 할 일</span><b id="statMyTasks">0</b></button>
-      <button class="stat-card" data-goto="projects"><span>프로젝트</span><b id="statProjects">0</b></button>
-      <button class="stat-card" data-goto="home"><span>새 알림</span><b id="statUnread">0</b></button>
-    </div>
-    <div class="dashboard-grid home-dashboard-current">
-      <article class="panel hidden home-dashboard-deprecated" aria-hidden="true"><div class="panel-head"><div><h2>오늘 누가 어디에</h2><p>수락한 팀원 기준 일정 현황</p></div><button id="homeAddEvent" class="mini" type="button">+ 일정</button></div><div id="todayList" class="stack-list"></div></article>
-      <article class="panel"><div class="panel-head"><div><h2>내 할 일</h2><p>완료되지 않은 업무</p></div><button class="mini" data-goto="tasks" type="button">전체</button></div><div id="myTaskMini" class="stack-list"></div></article>
-      <article class="panel hidden home-dashboard-deprecated" aria-hidden="true"><div class="panel-head"><div><h2>알림</h2><p>일정 초대·업무 배정</p></div></div><div id="notifList" class="stack-list"></div></article>
-      <article class="panel hidden home-dashboard-deprecated" aria-hidden="true"><div class="panel-head"><div><h2>이번 주 업무 취합</h2><p>일정·할 일·프로젝트 업데이트를 복사용 텍스트로 정리</p></div></div><button id="weeklyCopyBtn" class="secondary wide" type="button">이번 주 업무 요약 복사</button><div id="weeklyPreview" class="weekly-preview"></div></article>
-    </div>
-  </section>
-
   <section id="calendarView" class="view-panel hidden">
-    <div class="section-head calendar-section-head"><div><h2>일정</h2><p>Web2와 Google Calendar 일정을 함께 봅니다.</p></div></div>
     <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록">+</button></div>
     <div id="calendarGrid" class="calendar-grid" aria-label="월간 일정"></div>
   </section>
 
   <section id="tasksView" class="view-panel hidden">
-    <div class="section-head"><div><h2>할 일</h2><p>회의 결과와 프로젝트 업무를 담당자별로 관리합니다.</p></div><button id="newTaskBtn" class="primary" type="button">+ 할 일 추가</button></div>
+    <div class="section-head actions-only"><button id="newTaskBtn" class="primary" type="button">+ 할 일 추가</button></div>
     <div id="taskList" class="card-list"></div>
   </section>
 
   <section id="projectsView" class="view-panel hidden">
-    <div class="section-head"><div><h2>프로젝트</h2><p>사업별 현황·하위 프로젝트·할 일·의견·자료를 한곳에서 봅니다.</p></div><button id="newProjectBtn" class="primary" type="button">+ 프로젝트 만들기</button></div>
+    <div class="section-head actions-only"><button id="newProjectBtn" class="primary" type="button">+ 프로젝트 만들기</button></div>
     <div id="projectGrid" class="project-grid"></div>
   </section>
 
   <section id="libraryView" class="view-panel hidden">
-    <div class="section-head"><div><h2>자료실</h2><p>정부·국회·정책·교섭·교육 자료를 축적하고 검색합니다.</p></div><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div>
+    <div class="section-head actions-only"><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div>
     <div class="toolbar"><label class="a11y-only" for="documentSearch">자료 검색</label><input id="documentSearch" class="search" type="search" placeholder="제목·출처·태그 검색"><label class="a11y-only" for="documentProject">프로젝트 필터</label><select id="documentProject"><option value="all">전체 프로젝트</option></select></div>
     <div id="documentList" class="card-list"></div>
   </section>
 
   <section id="mediaView" class="view-panel hidden">
-    <div class="section-head"><div><h2>성명·보도자료</h2><p>Web1에 보존한 성명·보도자료·취재요청을 날짜순으로 확인합니다.</p></div></div>
-    <p class="w1p-intro">자료실과 분리된 언론자료 아카이브입니다. 제목·날짜·발행주체·본문은 Web1의 자체 보존본을 기준으로 표시합니다.</p>
     <div class="w1p-tools"><label class="a11y-only" for="pressSearch">언론자료 검색</label><input id="pressSearch" class="search" type="search" placeholder="제목·발행주체 검색"><div class="w1p-filters" aria-label="자료 유형"><button class="w1p-filter active" data-press-type="all" type="button">전체</button><button class="w1p-filter" data-press-type="statement" type="button">성명</button><button class="w1p-filter" data-press-type="release" type="button">보도자료</button><button class="w1p-filter" data-press-type="request" type="button">취재요청</button></div></div>
     <div id="pressArchiveList"></div><div id="pressArchiveEmpty" class="empty hidden">조건에 맞는 자료가 없습니다.</div>
   </section>
 
   <section id="meetingsView" class="view-panel hidden">
-    <div class="section-head"><div><h2>회의 결과</h2><p>논의·결정·역할분담을 기록하고 할 일로 연결합니다.</p></div><button id="newMeetingBtn" class="primary" type="button">+ 회의 결과</button></div>
+    <div class="section-head actions-only"><button id="newMeetingBtn" class="primary" type="button">+ 회의 결과</button></div>
     <div class="toolbar meeting-toolbar"><label class="a11y-only" for="meetingTypeFilter">회의유형</label><select id="meetingTypeFilter"><option value="all">회의유형 전체</option></select></div>
     <div id="meetingList" class="card-list meeting-list"></div>
   </section>
 
   <section id="pagesView" class="view-panel hidden">
-    <div class="section-head"><div><h2>게시판</h2><p>웹1에서 관리하는 사업 페이지를 그대로 모아봅니다.</p></div></div>
-    <p class="w1b-intro">자료실과 성명·보도자료는 각각 별도 탭에서 관리하며 이 게시판에서는 제외합니다.</p>
     <div id="web1BoardActive" class="w1b-grid"></div>
     <details id="web1BoardArchivedWrap" class="w1b-archive hidden"><summary>지나간 업무 · 사업</summary><div id="web1BoardArchived" class="w1b-grid"></div></details>
   </section>
@@ -138,9 +117,7 @@
     </div>
   </div>
 
-  <section id="teamView" class="view-panel hidden">
-    <div class="section-head"><div><h2>담당조직</h2><p>내가 담당하는 조직의 정보와 현황을 관리합니다.</p></div></div>
-  </section>
+  <section id="teamView" class="view-panel hidden"></section>
 </section>
 </main>
 </div>
