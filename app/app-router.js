@@ -140,15 +140,15 @@
       const view=control.dataset.view||control.dataset.goto;
       if(view)go(view,{source:'delegated'});
     });
-    const brand=document.querySelector('.topbar .brand');
-    if(brand&&brand.dataset.coreHomeBound!=='1'){
+    document.querySelectorAll('[data-core-brand]').forEach(brand=>{
+      if(brand.dataset.coreHomeBound==='1')return;
       brand.dataset.coreHomeBound='1';
       brand.addEventListener('click',e=>{
         if(!appReady())return;
         e.preventDefault();
         go(publicHomeAvailable()?'home':'calendar',{source:'brand'});
       });
-    }
+    });
     if(api.current)syncNavigationState(api.current);
     if(appReady())handleUiReady();
   }
