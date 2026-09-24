@@ -1,5 +1,10 @@
 .app-nav{display:flex;gap:var(--kptu-space-1);overflow-x:auto;padding:var(--kptu-space-1);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);margin:0 0 var(--kptu-space-4);scrollbar-width:none}
 .sidebar-brand,.sidebar-spacer,.sidebar-utility{display:none}
+body.kptu-workspace-shell .topbar{display:none!important}
+@media(max-width:1023px){
+  body.kptu-workspace-shell main{padding-top:8px}
+  #appView>.app-nav #sidebarLogoutBtn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:40px;border:0;background:transparent;color:var(--kptu-muted);padding:9px 10px;border-radius:var(--kptu-radius-md);font-size:12.5px;font-weight:700;white-space:nowrap}
+}
 .app-nav::-webkit-scrollbar{display:none}
 .nav-btn{border:0;background:transparent;color:var(--kptu-muted);font-weight:700;padding:9px 12px;border-radius:var(--kptu-radius-md);white-space:nowrap}
 .nav-btn.active{background:var(--kptu-primary);color:#fff}
