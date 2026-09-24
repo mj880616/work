@@ -200,7 +200,8 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('[data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();
   await expect(page.locator('#taskList')).toContainText('내 할 일');
-  await expect(page.locator('#taskList')).toContainText('팀에서 부여된 할 일');
+  await expect(page.locator('#taskList .tl-task-section')).toHaveCount(1);
+  await expect(page.locator('#taskList')).not.toContainText('팀에서 부여된 할 일');
   await page.locator('#newTaskBtn').click();
   await page.locator('#taskTitle').fill('E2E 할 일');
   await page.locator('#saveTaskBtn').click();
