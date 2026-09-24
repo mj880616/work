@@ -51,13 +51,13 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=41')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=4')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=5')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
           if(missingLoader.length)throw new Error('missing route-first startup marker: '+missingLoader.join(', '));
           const viewKeys=[
-            "module('./calendar-month-view.js?v=2'","__KPTU_CALENDAR_MONTH_VIEW_READY__",
+            "module('./calendar-month-view.js?v=3'","__KPTU_CALENDAR_MONTH_VIEW_READY__",
             "module('./task-workflow.js?v=9'","__KPTU_TASK_WORKFLOW_READY__",
             "module('./task-row-view.js?v=1'","module('./task-layout.js?v=13'","__KPTU_TASK_LAYOUT_READY__",
             "module('./web1-board.js?v=3'",
@@ -111,7 +111,7 @@ jobs:
           if grep -q "styles.css?v=51" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
-          grep -q "calendar-ui.css?v=5" app/view-loader.js
+          grep -q "calendar-ui.css?v=6" app/view-loader.js
           grep -q "task-layout.css?v=4" app/view-loader.js
           grep -q "project-system-v3.css?v=13" app/view-loader.js
           grep -q "library-upload.css?v=1" app/view-loader.js
@@ -178,7 +178,7 @@ jobs:
           grep -q "google-tasks.css?v=4" app/styles.css
           grep -q "library-upload.css?v=1" app/styles.css
           grep -q "meeting-ui.css?v=8" app/styles.css
-          grep -q "calendar-ui.css?v=5" app/styles.css
+          grep -q "calendar-ui.css?v=6" app/styles.css
           grep -q "page-core.css?v=7" app/styles.css
           grep -q "page-builder.css?v=2" app/styles.css
           grep -q "project-system-v3.css?v=13" app/styles.css
@@ -291,13 +291,13 @@ jobs:
           set -e
           grep -q "window.KPTUCalendarMonthView={render,visibleRange,setNavigate" app/calendar-month-view.js
           grep -q "window.__KPTU_CALENDAR_MONTH_VIEW_READY__" app/calendar-month-view.js
-          grep -q "calendar-month-view.js?v=2" app/view-loader.js
+          grep -q "calendar-month-view.js?v=3" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MONTH_VIEW_READY__" app/view-loader.js
           grep -q "KPTUCalendarMonthView?.render?.(" app/team.js
           grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
           grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js
-          grep -q "calendar-ui.css?v=5" app/styles.css
+          grep -q "calendar-ui.css?v=6" app/styles.css
           grep -q "id=\"googleCalendarPanel\"" app/team.js
           grep -q "visualViewport" app/calendar-month-view.js
           grep -q "cmvLaneSlots" app/calendar-month-view.js
