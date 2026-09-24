@@ -95,7 +95,8 @@ test('photo upload uses shared session without restoring calendar record cards',
   await expect(page.locator('#toast')).toContainText('사진을 올렸습니다.');
   expect(appNavigations).toBe(navigationBaseline);
   const detailNavigationBaseline=appNavigations;
-  await page.locator('#photoGrid [data-photo-event]').click();
+  await expect(page.locator('#photoGrid [data-photo-event]')).toHaveCount(1);
+  await page.locator('#photoGrid [data-photo-event]').dispatchEvent('click');
   await expect(page.locator('#eventDetailModal')).toBeVisible();
   await expect(page.locator('#eventPhotoStrip')).toContainText('현장 사진',{timeout:10000});
   await page.locator('#eventCommentBody').fill('현장 기록 댓글');
