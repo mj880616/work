@@ -72,7 +72,7 @@ test('router restores deep links only after explicit app-ui-ready and preserves 
   await expect(page.locator('#tasksView')).not.toHaveClass(/\bhidden\b/);
   expect(await page.evaluate(() => window.KPTURouter.current)).toBe('tasks');
 
-  await page.locator('.topbar .brand').click();
+  await page.locator('.sidebar-brand').click();
   await expect(page.locator('#calendarView')).not.toHaveClass(/\bhidden\b/);
   await expect(page).not.toHaveURL(/[?&]view=/);
   expect(await page.evaluate(() => window.KPTURouter.current)).toBe('calendar');
