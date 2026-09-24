@@ -65,7 +65,7 @@
     grid.style.setProperty('--cmv-grid-height',height+'px');
     grid.dataset.cmvViewportHeight=String(height);
     const actualHead=head?.getBoundingClientRect().height||headHeight;
-    const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead-border)/weeks);
+    const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead)/weeks);
     const slots=Math.max(2,Math.floor((rowHeight-eventTop-1)/laneStep));
     grid.dataset.cmvLaneSlots=String(slots);
     return {height,rowHeight,slots};
