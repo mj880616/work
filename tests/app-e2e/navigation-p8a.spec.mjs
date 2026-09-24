@@ -3,7 +3,7 @@ import {loginEntry} from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app='http://127.0.0.1:8123/app/';
-const views=['home','calendar','tasks','projects','library','meetings','media','pages','team'];
+const views=['calendar','tasks','projects','library','meetings','media','pages','team'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 
@@ -75,13 +75,13 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   await expect(page.locator('#publicLoginBtn')).toBeVisible({timeout:20000});
 });
 
-test('removed personal deep links return home while photo and media links remain reachable',async({page})=>{
+test('removed personal deep links return to calendar while photo and media links remain reachable',async({page})=>{
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
   for(const view of ['profile','messages','myspace']){
     await page.goto(app+'?view='+view);
-    await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
+    await expect(page.locator('#calendarView')).toBeVisible({timeout:20000});
     await expect(page.locator('#'+view+'View')).toHaveCount(0);
   }
   await page.goto(app+'?view=media');
