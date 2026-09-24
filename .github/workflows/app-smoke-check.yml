@@ -49,7 +49,7 @@ jobs:
           const text=fs.readFileSync('app/loader-v2.js','utf8');
           const keys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=34')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=35')",'await window.__KPTU_TEAM_READY__',
             "import('./task-workflow.js?v=7')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-row-view.js?v=1')","import('./task-layout.js?v=10')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./web1-board.js?v=3')",
