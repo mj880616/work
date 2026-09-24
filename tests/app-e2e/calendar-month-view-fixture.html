@@ -7,8 +7,13 @@
 <link rel="stylesheet" href="/app/team.css">
 <link rel="stylesheet" href="/app/calendar-ui.css">
 <title>Month View Fixture</title>
+<style>
+  .fixture-top{height:170px}
+  @media(min-width:761px){.fixture-top{height:150px}}
+</style>
 </head>
 <body>
+<div class="fixture-top" aria-hidden="true"></div>
 <div id="calendarGrid" class="calendar-grid"></div>
 <div id="toast" class="toast hidden"></div>
 <script>
