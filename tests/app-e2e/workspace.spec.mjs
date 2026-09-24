@@ -265,7 +265,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await expect(page.locator('[data-view="messages"],#messagesView,[data-cc-view="messages"]')).toHaveCount(0);
 
-  await page.locator('#ccNotifTop').click();
+  await page.locator('#ccNotifSidebar').click();
   await expect(page.locator('#notificationsView')).toBeVisible();
   await expect(page.locator('[data-ncu-project-response="accept"]')).toBeVisible();
   await page.locator('[data-ncu-project-response="accept"]').click();

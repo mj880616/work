@@ -11,7 +11,7 @@
   await Promise.all([
     import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
-    import('./app-router.js?v=10'),
+    import('./app-router.js?v=11'),
     import('./accessibility-dialog.js?v=1'),
     import('./native-back-guard.js?v=2'),
     import('./session-resilience.js?v=6'),
@@ -54,7 +54,7 @@
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
-    import('./topbar-actions.js?v=6'),
+    import('./topbar-actions.js?v=8'),
     import('./team.js?v=42')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;

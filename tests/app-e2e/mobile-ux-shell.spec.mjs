@@ -138,8 +138,18 @@ test('mobile shell and event modal stay inside 360/390/412/430px viewports',asyn
     await page.waitForTimeout(50);
     const shell=await page.evaluate(()=>{
       const rect=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom}};
-      return {topbar:rect(document.querySelector('.topbar')),nav:rect(document.querySelector('.app-nav')),viewport:{width:innerWidth,height:innerHeight}};
+      return {
+        topbar:rect(document.querySelector('.topbar')),
+        nav:rect(document.querySelector('.app-nav')),
+        topbarDisplay:getComputedStyle(document.querySelector('.topbar')).display,
+        sidebarBrandDisplay:getComputedStyle(document.querySelector('.sidebar-brand')).display,
+        sidebarLogoutDisplay:getComputedStyle(document.querySelector('#sidebarLogoutBtn')).display,
+        viewport:{width:innerWidth,height:innerHeight}
+      };
     });
+    expect(shell.topbarDisplay).not.toBe('none');
+    expect(shell.sidebarBrandDisplay).toBe('none');
+    expect(shell.sidebarLogoutDisplay).toBe('none');
     expect(shell.topbar.left).toBeGreaterThanOrEqual(-1);
     expect(shell.topbar.right).toBeLessThanOrEqual(width+1);
     expect(shell.nav.left).toBeGreaterThanOrEqual(-1);

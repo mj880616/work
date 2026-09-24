@@ -1,4 +1,5 @@
 .app-nav{display:flex;gap:var(--kptu-space-1);overflow-x:auto;padding:var(--kptu-space-1);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);margin:0 0 var(--kptu-space-4);scrollbar-width:none}
+.sidebar-brand,.sidebar-spacer,.sidebar-utility{display:none}
 .app-nav::-webkit-scrollbar{display:none}
 .nav-btn{border:0;background:transparent;color:var(--kptu-muted);font-weight:700;padding:9px 12px;border-radius:var(--kptu-radius-md);white-space:nowrap}
 .nav-btn.active{background:var(--kptu-primary);color:#fff}
