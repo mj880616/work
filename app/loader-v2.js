@@ -84,6 +84,7 @@
   };
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
     await ensureFeatureStyles();
+    await import('./calendar-month-view.js?v=1'); await window.__KPTU_CALENDAR_MONTH_VIEW_READY__;
     await window.__KPTU_START_TEAM_DATA__();
     await import('./project-system-v3.js?v=19');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./due-date-calendar.js?v=1')]);
