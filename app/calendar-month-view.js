@@ -48,7 +48,7 @@
   }
   function viewportLayout(grid,weeks,head){
     const headHeight=cssPx(grid,'--cmv-head-height',23),minWeek=cssPx(grid,'--cmv-min-week-height',58);
-    const eventTop=cssPx(grid,'--cmv-event-top',23),laneStep=cssPx(grid,'--cmv-lane-step',14);
+    const dateHeaderHeight=cssPx(grid,'--cmv-date-header-height',23),laneStep=cssPx(grid,'--cmv-lane-step',14);
     const style=getComputedStyle(grid);
     const border=(parseFloat(style.borderTopWidth)||0)+(parseFloat(style.borderBottomWidth)||0);
     const minGrid=Math.ceil(headHeight+minWeek*weeks+border);
@@ -66,9 +66,9 @@
     grid.dataset.cmvViewportHeight=String(height);
     const actualHead=head?.getBoundingClientRect().height||headHeight;
     const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead)/weeks);
-    const slots=Math.max(2,Math.floor((rowHeight-eventTop-1)/laneStep));
+    const slots=Math.max(2,Math.floor((rowHeight-dateHeaderHeight-1)/laneStep));
     grid.dataset.cmvLaneSlots=String(slots);
-    return {height,rowHeight,slots};
+    return {height,rowHeight,slots,dateHeaderHeight};
   }
   function laneCap(laneCount,slots){
     return laneCount>slots?Math.max(1,slots-1):slots;
