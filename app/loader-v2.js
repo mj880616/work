@@ -71,7 +71,7 @@
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='./styles.css?v=46';link.dataset.kptuFeatureStyles='1';
+    link.rel='stylesheet';link.href='./styles.css?v=47';link.dataset.kptuFeatureStyles='1';
     link.onload=()=>resolve();link.onerror=()=>resolve();
     document.head.appendChild(link);
   }));
@@ -104,7 +104,7 @@
     await import('./calendar-mobile-ui.js?v=3'); await window.__KPTU_CALENDAR_MOBILE_UI_READY__;
     await import('./calendar-day-overflow.js?v=2'); await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__;
     await import('./suborganizations.js?v=5'); await window.__KPTU_SUBORGANIZATIONS_READY__;
-    await Promise.all([import('./google-tasks.js?v=6'),import('./push-notifications-ui.js?v=4'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
+    await Promise.all([import('./google-tasks.js?v=7'),import('./push-notifications-ui.js?v=4'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
     featuresReady=true;
     startup?.mark('allInitialModulesComplete');
     import('./workplace-ai-report.js?v=2').catch(showFeatureError);

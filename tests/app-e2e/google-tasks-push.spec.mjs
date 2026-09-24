@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -38,7 +39,45 @@ test('Google Tasks remains separate from the app task list',async({page})=>{
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
-  await expect(page.locator('#gtTaskSection')).toContainText('직접 동기화');
+  await expect(page.locator('#gtTaskSection')).toContainText('최근 3일');
+});
+
+test('Google Tasks shows pending first and only completions from the last three days',async({page})=>{
+  await mock(page);
+  const recent=new Date(Date.now()-24*60*60*1000).toISOString();
+  const old=new Date(Date.now()-5*24*60*60*1000).toISOString();
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');
+    const body=action==='status'?{connected:true,authorized:true}:{tasks:[
+      {id:'recent-done',title:'최근 완료',taskListId:'l1',taskListTitle:'업무',status:'completed',completed:recent,source:'google-task'},
+      {id:'old-done',title:'오래된 완료',taskListId:'l1',taskListTitle:'업무',status:'completed',completed:old,source:'google-task'},
+      {id:'pending',title:'미완료 우선',taskListId:'l1',taskListTitle:'업무',status:'needsAction',source:'google-task'}
+    ],needs_reconnect:false};
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+  });
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  const rows=page.locator('#gtTaskSection .gt-row');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('미완료 우선');
+  await expect(rows.nth(1)).toContainText('최근 완료');
+  await expect(page.locator('#gtTaskSection')).not.toContainText('오래된 완료');
+  await expect(page.locator('[data-gt-show-completed]')).toHaveCount(0);
+  expect(Number(await rows.nth(1).evaluate(el=>getComputedStyle(el).opacity))).toBeLessThan(0.7);
+  const edge=readFileSync('supabase/functions/google-tasks/index.ts','utf8');
+  expect(edge).toContain("completedMin:new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
+});
+
+test('Google Tasks layout fits supported mobile widths',async({page})=>{
+  await mock(page);await login(page);
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
+  for(const width of [360,390,412,430]){
+    await page.setViewportSize({width,height:800});
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+    const section=await page.locator('#gtTaskSection').boundingBox();
+    expect(section?.width||0).toBeLessThanOrEqual(width);
+    await expect(page.locator('#gtTaskSection .gt-actions .mini')).toHaveCount(2);
+  }
 });
 
 
