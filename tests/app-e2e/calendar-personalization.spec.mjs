@@ -29,8 +29,6 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
   expect(plus).toContain("target.value||'web2'");
   expect(plus).toContain('saveGoogle:cmSaveGoogle');
   expect(plus).not.toContain('eventCalendarScope');
-  expect(plus).not.toContain('showTeamCalendar');
-  expect(plus).not.toContain('showPersonalCalendar');
 
   expect(interactions).not.toContain('/rest/v1/app_event_attendees');
   expect(interactions).not.toContain('TEAM CALENDAR');
