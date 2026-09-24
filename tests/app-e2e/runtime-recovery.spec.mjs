@@ -95,6 +95,50 @@ test('concurrent identical mutations are single-flight by default',async({page})
   expect(result).toEqual([[{id:'project-1'}],[{id:'project-1'}]]);
 });
 
+test('concurrent authenticated GET requests share one in-flight request but do not become a response cache',async({page})=>{
+  let calls=0;
+  await page.route(`${SB}/rest/v1/dedupe`,async route=>{
+    calls++;
+    await new Promise(resolve=>setTimeout(resolve,80));
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({call:calls})});
+  });
+  await loadRuntime(page,liveSession());
+  const first=await page.evaluate(async()=>{
+    const [a,b]=await Promise.all([
+      window.KPTURuntime.api('/rest/v1/dedupe'),
+      window.KPTURuntime.api('/rest/v1/dedupe')
+    ]);
+    return {a,b};
+  });
+  expect(calls).toBe(1);
+  expect(first.a).toEqual(first.b);
+  await page.evaluate(()=>window.KPTURuntime.api('/rest/v1/dedupe'));
+  expect(calls).toBe(2);
+});
+
+test('GET single-flight and boot context are isolated when the signed-in user changes',async({page})=>{
+  let calls=0;
+  await page.route(`${SB}/rest/v1/session-scope`,async route=>{
+    calls++;
+    await new Promise(resolve=>setTimeout(resolve,60));
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({call:calls})});
+  });
+  await loadRuntime(page,liveSession());
+  const result=await page.evaluate(async()=>{
+    const rt=window.KPTURuntime;
+    rt.context.set({user:rt.session.read().user,membership:{role:'owner'},workspace:{id:'workspace-a'}});
+    const first=rt.api('/rest/v1/session-scope');
+    rt.session.write({access_token:'access-2',refresh_token:'refresh-2',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-2',email:'two@example.org'}});
+    const contextAfterSwitch=rt.context.read();
+    const second=rt.api('/rest/v1/session-scope');
+    await Promise.all([first,second]);
+    return {contextAfterSwitch,epoch:rt.session.epoch()};
+  });
+  expect(result.contextAfterSwitch).toBeNull();
+  expect(result.epoch).toBeGreaterThan(0);
+  expect(calls).toBe(2);
+});
+
 test('library mutations use the shared runtime recovery transport',async()=>{
   const source=readFileSync('app/library-upload.js','utf8');
   expect(source).toContain("if(window.KPTURuntime?.api)return window.KPTURuntime.api(path,{method,body,prefer})");
