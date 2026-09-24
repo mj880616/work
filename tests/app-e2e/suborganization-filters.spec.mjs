@@ -26,7 +26,7 @@ test('담당조직 탭은 검색·협의회·유형 필터 없이 내 담당조�
 test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일 렌더러만 사용한다',async()=>{
   const loader=readFileSync('app/loader-v2.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(loader).toContain("suborganizations.js?v=5");
+  expect(loader).toContain("suborganizations.js?v=6");
   expect(loader).toContain("workplace-detail.js?v=5");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(styles).toContain("suborganizations.css?v=5");
