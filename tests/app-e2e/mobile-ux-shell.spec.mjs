@@ -5,7 +5,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'mobile-user',email:'mobile@example.org',user_metadata:{display_name:'모바일 QA'}};
 const workspace={id:'mobile-workspace',slug:'mobile',name:'공공기관사업팀 Workspace'};
 const tasks=Array.from({length:8},(_,i)=>({id:`task-${i+1}`,workspace_id:workspace.id,title:`모바일 QA 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`2026-09-${String(14+i).padStart(2,'0')}T09:00:00Z`,created_at:'2026-09-13T00:00:00Z'}));
-const events=Array.from({length:5},(_,i)=>({id:`event-${i+1}`,title:`9월 13일 일정 ${i+1}`,start:`2026-09-13T${String(1+i).padStart(2,'0')}:00:00Z`,end:`2026-09-13T${String(2+i).padStart(2,'0')}:00:00Z`,calendarId:'primary',source:'google',color:'#4285f4'}));
+const events=Array.from({length:12},(_,i)=>({id:`event-${i+1}`,title:`9월 13일 일정 ${i+1}`,start:`2026-09-13T${String(1+i).padStart(2,'0')}:00:00Z`,end:`2026-09-13T${String(2+i).padStart(2,'0')}:00:00Z`,calendarId:'primary',source:'google',color:'#4285f4'}));
 
 async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
@@ -112,10 +112,12 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await page.locator('[data-view="calendar"]').click();
   const more=page.locator('.kptu-day-more').first();
   await expect(more).toBeVisible({timeout:10000});
+  const busyWeek=page.locator('.cal-cell[data-date="2026-09-13"]').locator('..').locator('..');
+  expect(await busyWeek.locator('.cmv-event').count()).toBeGreaterThan(4);
   await expect(more).toHaveText(/^\+\d+$/);
   await more.click();
   await expect(page.locator('#calendarDayModal')).toBeVisible();
-  await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(5);
+  await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(12);
   const agendaSafe=await page.evaluate(()=>{
     const card=document.querySelector('#calendarDayModal .modal-card').getBoundingClientRect();
     return {cardBottom:card.bottom,viewportBottom:innerHeight};
