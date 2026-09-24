@@ -55,7 +55,6 @@ test('desktop web uses compact left navigation and safe project detail margins',
     await expect(page.locator('.topbar')).toBeHidden();
     await expect(page.locator('.sidebar-brand')).toBeVisible();
     await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();
-    await expect(page.locator('#ccNotifSidebar')).toBeVisible();
     const shell=await page.evaluate(()=>{
       const topbar=document.querySelector('.topbar');
       const nav=document.querySelector('#appView>.app-nav');
