@@ -46,7 +46,7 @@ async function buttonHeight(page,view,selector){
   return button.evaluate(el=>el.getBoundingClientRect().height);
 }
 
-test('top-level action buttons share one compact size and mobile content reaches the viewport bottom',async({page})=>{
+test('calendar uses a smaller add control while other top-level actions stay consistent and mobile content reaches the viewport bottom',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
@@ -61,8 +61,10 @@ test('top-level action buttons share one compact size and mobile content reaches
   await expect(page.locator('[data-hta-expand]')).toHaveCount(0);
   await expect(page.locator('#htaStyle')).toHaveCount(0);
 
+  const calendarAdd=await buttonHeight(page,'calendar','#newEventBtn');
+  expect(calendarAdd).toBeLessThanOrEqual(32);
+
   const heights=[];
-  heights.push(await buttonHeight(page,'calendar','#newEventBtn'));
   heights.push(await buttonHeight(page,'tasks','#newTaskBtn'));
   heights.push(await buttonHeight(page,'projects','#newProjectBtn'));
   heights.push(await buttonHeight(page,'library','#newDocumentBtn'));
