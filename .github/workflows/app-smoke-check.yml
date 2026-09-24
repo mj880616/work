@@ -46,27 +46,32 @@ jobs:
         run: |
           node <<'NODE'
           const fs=require('fs');
-          const text=fs.readFileSync('app/loader-v2.js','utf8');
-          const keys=[
+          const loader=fs.readFileSync('app/loader-v2.js','utf8');
+          const views=fs.readFileSync('app/view-loader.js','utf8');
+          const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=39')",'await window.__KPTU_TEAM_READY__',
-            "import('./calendar-month-view.js?v=2')",'await window.__KPTU_CALENDAR_MONTH_VIEW_READY__',
-            "import('./task-workflow.js?v=8')",'await window.__KPTU_TASK_WORKFLOW_READY__',
-            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=12')",'await window.__KPTU_TASK_LAYOUT_READY__',
-            "import('./web1-board.js?v=3')",
-            "import('./meeting-round-detail.js?v=11')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
-            "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
-            "import('./calendar-plus.js?v=8')",'await window.__KPTU_CALENDAR_PLUS_READY__',
-            "import('./calendar-persistence.js?v=12')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
-            "import('./calendar-interactions-v2.js?v=6')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
-            "import('./calendar-mobile-ui.js?v=4')",'await window.__KPTU_CALENDAR_MOBILE_UI_READY__',
-            "import('./calendar-day-overflow.js?v=3')",'await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',
-            'window.__KPTU_MARK_APP_UI_READY__?.()'
+            "import('./team.js?v=40')",'await window.__KPTU_TEAM_READY__',
+            "import('./view-loader.js?v=1')",'result=await viewLoader.load(requested)',
+            'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
-          const pos=keys.map(key=>text.indexOf(key));
-          const missing=keys.filter((_,i)=>pos[i]<0);
-          if(missing.length)throw new Error('missing authenticated readiness marker: '+missing.join(', '));
-          if(pos.some((value,i)=>i>0&&value<=pos[i-1]))throw new Error('authenticated readiness ordering is invalid: '+JSON.stringify(pos));
+          const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
+          if(missingLoader.length)throw new Error('missing route-first startup marker: '+missingLoader.join(', '));
+          const viewKeys=[
+            "module('./calendar-month-view.js?v=2'","__KPTU_CALENDAR_MONTH_VIEW_READY__",
+            "module('./task-workflow.js?v=9'","__KPTU_TASK_WORKFLOW_READY__",
+            "module('./task-row-view.js?v=1'","module('./task-layout.js?v=13'","__KPTU_TASK_LAYOUT_READY__",
+            "module('./web1-board.js?v=3'",
+            "module('./meeting-round-detail.js?v=12'","__KPTU_MEETING_ROUND_DETAIL_READY__",
+            "module('./notification-center-ui.js?v=7'","__KPTU_NOTIFICATION_CENTER_READY__",
+            "module('./calendar-plus.js?v=8'","__KPTU_CALENDAR_PLUS_READY__",
+            "module('./calendar-persistence.js?v=12'","__KPTU_CALENDAR_PERSISTENCE_READY__",
+            "module('./calendar-interactions-v2.js?v=6'","__KPTU_CALENDAR_INTERACTIONS_READY__",
+            "module('./calendar-mobile-ui.js?v=4'","__KPTU_CALENDAR_MOBILE_UI_READY__",
+            "module('./calendar-day-overflow.js?v=3'","__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
+          ];
+          const missingViews=viewKeys.filter(key=>!views.includes(key));
+          if(missingViews.length)throw new Error('missing view dependency marker: '+missingViews.join(', '));
+          if(loader.includes("import('./google-tasks.js"))throw new Error('route-agnostic loader must not import task-only integration');
           const login=fs.readFileSync('app/login/index.html','utf8');
           if(login.includes('id="appView"'))throw new Error('dedicated login page must not contain workspace shell');
           NODE
