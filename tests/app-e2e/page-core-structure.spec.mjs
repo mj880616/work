@@ -5,11 +5,12 @@ const read=path=>readFileSync(path,'utf8');
 
 test('authenticated board uses Web1 source without loading retired page management modules',async()=>{
   const loader=read('app/loader-v2.js');
+  const views=read('app/view-loader.js');
   const team=read('app/team.js');
   const board=read('app/web1-board.js');
   const index=read('app/index.html');
 
-  expect(loader).toContain("import('./web1-board.js?v=3')");
+  expect(views).toContain("module('./web1-board.js?v=3'");
   for(const retired of [
     'page-list-controller.js',
     'page-save-controller.js',
@@ -17,7 +18,7 @@ test('authenticated board uses Web1 source without loading retired page manageme
     'page-shortcut.js',
     'page-management.js',
     'page-inline-viewer-v2.js'
-  ])expect(loader).not.toContain(retired);
+  ]){expect(loader).not.toContain(retired);expect(views).not.toContain(retired)}
 
   expect(team).toContain('function renderPages(){window.KPTUWeb1Board?.render?.()}');
   expect(index).toContain('id="web1BoardActive"');
