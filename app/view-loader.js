@@ -1,9 +1,43 @@
 (()=>{
 'use strict';
 if(window.KPTUViewLoader)return;
-const flights=new Map(),loaded=new Set();
+const flights=new Map(),loaded=new Set(),styleFlights=new Map();
 const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
 const background=promise=>Promise.resolve(promise).catch(err=>console.warn('background feature load',err));
+
+function style(path){
+  const href=new URL(path,location.href).href;
+  const existing=[...document.querySelectorAll('link[rel="stylesheet"]')].find(link=>link.href===href);
+  if(existing)return Promise.resolve(true);
+  if(styleFlights.has(href))return styleFlights.get(href);
+  const flight=new Promise(resolve=>{
+    const link=document.createElement('link');
+    link.rel='stylesheet';link.href=path;link.dataset.kptuViewStyle='1';
+    link.onload=()=>resolve(true);
+    link.onerror=()=>resolve(false);
+    document.head.appendChild(link);
+  }).finally(()=>styleFlights.delete(href));
+  styleFlights.set(href,flight);
+  return flight
+}
+const routeStyles={
+  home:[],
+  calendar:['./calendar-ui.css?v=5'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
+  projects:['./project-system-v3.css?v=13','./forum-flow-polish.css?v=1'],
+  library:['./library-upload.css?v=1','./compact-list.css?v=2'],
+  meetings:['./meeting-ui.css?v=8'],
+  media:['./web1-press.css?v=1'],
+  pages:['./web1-board.css?v=2'],
+  team:['./suborganizations.css?v=5','./workplace-detail.css?v=3'],
+  photos:['./photo-room.css?v=2'],
+  notifications:['./notification-center-ui.css?v=2']
+};
+async function prepare(view){
+  const key=normalize(view);
+  await Promise.all((routeStyles[key]||[]).map(style));
+  return key
+}
 
 async function module(path,readyName){
   await import(path);
@@ -32,7 +66,7 @@ async function calendar(){
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=12','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
-  background(module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__'));
+  background(style('./suborganizations.css?v=5').then(()=>module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   background(google.then(()=>module('./calendar-health.js?v=4')));
   defer(()=>load('photos').catch(()=>{}),{timeout:1200});
@@ -97,7 +131,7 @@ function load(view){
   const key=normalize(view);
   if(loaded.has(key))return Promise.resolve({ok:true,view:key,cached:true});
   if(flights.has(key))return flights.get(key);
-  const flight=Promise.resolve().then(()=>loaders[key]()).then(result=>{
+  const flight=Promise.resolve().then(()=>prepare(key)).then(()=>loaders[key]()).then(result=>{
     loaded.add(key);
     window.dispatchEvent(new CustomEvent('kptu:view-loader-ready',{detail:{view:key}}));
     return {...(result||{ok:true}),view:key}
@@ -109,5 +143,5 @@ async function loadAll(){
   for(const view of ['calendar','tasks','projects','library','meetings','media','pages','team'])await load(view);
   return true
 }
-window.KPTUViewLoader={load,loadAll,normalize,isLoaded:view=>loaded.has(normalize(view))};
+window.KPTUViewLoader={load,loadAll,prepare,normalize,isLoaded:view=>loaded.has(normalize(view))};
 })();
