@@ -109,6 +109,12 @@ async function loadForView(view){
  return flight
 }
 window.__KPTU_START_TEAM_VIEW__=view=>loadForView(view);
+window.KPTUTeamData={
+  spaces:()=>spaces,
+  events:()=>events,
+  meetings:()=>meetings,
+  documents:()=>documents
+};
 window.__KPTU_SYNC_TEAM_PAGES__=rows=>{if(Array.isArray(rows))pages=rows};
 window.__KPTU_EVENT_PROJECT_OPTIONS__=()=>projectOptions(true);
 function renderAll(){fillSelects();renderHome();renderCalendar();renderDocuments();renderMeetings();renderPages()}
