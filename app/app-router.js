@@ -32,7 +32,7 @@
   function syncUrl(view,{replace=false}={}){
     if(!viewExists(view))return;
     const u=new URL(location.href);
-    if(view==='home')u.searchParams.delete(VIEW_PARAM);
+    if(view==='calendar')u.searchParams.delete(VIEW_PARAM);
     else u.searchParams.set(VIEW_PARAM,view);
     const next=u.pathname+(u.search||'')+u.hash;
     const current=location.pathname+location.search+location.hash;
