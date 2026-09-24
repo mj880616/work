@@ -157,10 +157,12 @@
     grid.dataset.cmvSwipe='1';
     grid.addEventListener('touchstart',e=>{
       if(e.touches?.length!==1||e.target.closest('.cal-event,.kptu-day-more,input,select,textarea,a')){touchStart=null;return}
+      e.stopPropagation();
       const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY};
     },{passive:true});
     grid.addEventListener('touchend',e=>{
       if(!touchStart||!e.changedTouches?.length)return;
+      e.stopPropagation();
       const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;touchStart=null;
       if(Math.abs(dx)<55||Math.abs(dy)>45||Math.abs(dx)<Math.abs(dy)*1.4)return;
       suppressUntil=Date.now()+350;
