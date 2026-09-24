@@ -212,7 +212,8 @@ test('startup diagnostics keep only timing metadata and debug UI is opt-in',asyn
   expect(sample).toBeTruthy();
   expect(sample.outcome).toBe('home-usable');
   expect(sample.totalMs).toBeGreaterThan(0);
-  expect(sample.requests.map(x=>x.name)).toEqual(expect.arrayContaining(['workspace-member','projects','milestones','tasks','documents']));
+  expect(sample.requests.map(x=>x.name)).toEqual(expect.arrayContaining(['workspace-member','projects','app_events']));
+  expect(sample.requests.map(x=>x.name)).not.toEqual(expect.arrayContaining(['tasks','documents']));
   const serialized=JSON.stringify(sample);
   expect(serialized).not.toContain('p6-flow-user');
   expect(serialized).not.toContain('p6-flow-access');
