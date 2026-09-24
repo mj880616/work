@@ -47,17 +47,17 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=102" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=103" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=214','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=215','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=3','./team.js?v=40'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=214')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=215')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
   expect(loader).toContain("import('./team.js?v=40')");
-  expect(loader).toContain("import('./view-loader.js?v=1')");
+  expect(loader).toContain("import('./view-loader.js?v=2')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
 });
@@ -81,6 +81,42 @@ test('direct feature URLs load one requested view and keep failures visible', as
   expect(source).toContain("setAttribute('role','alert')");
   expect(source).not.toContain("await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("await loadFeatures()");
+});
+
+test('calendar health no longer owns a Google status request', async () => {
+  const health=read('app/calendar-health.js');
+  const persistence=read('app/calendar-persistence.js');
+  expect(health).not.toContain('/functions/v1/google-calendar?action=status');
+  expect(health).toContain('window.KPTUCalendarHealth={render:renderCalendarHealth}');
+  expect(persistence).toContain("queueMicrotask(()=>cpStatus())");
+  expect(persistence).toContain("if(!document.querySelector('#calendarView')?.classList.contains('hidden'))cpStatus()");
+});
+
+test('project direct route does not start unrelated external integrations or home queries',async({page})=>{
+  const user={id:'route-project-user',email:'route@example.org',user_metadata:{display_name:'Route QA'}};
+  const workspace={id:'route-project-workspace',slug:'route',name:'웹2'};
+  const session={access_token:'route-access',refresh_token:'route-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user};
+  await page.addInitScript(s=>localStorage.setItem('kptu_collab_session_v1',JSON.stringify(s)),session);
+  const seen=[];
+  await page.route(SB+'/**',async route=>{
+    const u=new URL(route.request().url()),path=u.pathname;
+    seen.push(path+u.search);
+    const data=path==='/rest/v1/app_workspace_members'&&u.searchParams.has('user_id')?[{workspace_id:workspace.id,user_id:user.id,role:'owner',workspace}]:
+      path==='/rest/v1/app_workspace_members'?[{workspace_id:workspace.id,user_id:user.id,role:'owner'}]:
+      path==='/rest/v1/app_profiles'?[{user_id:user.id,display_name:'Route QA'}]:
+      path.startsWith('/rest/v1/')?[]:{};
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await page.goto('http://127.0.0.1:8123/app/?view=projects');
+  await expect(page.locator('#projectsView')).toBeVisible({timeout:15000});
+  await page.waitForFunction(()=>document.documentElement.classList.contains('kptu-project-v3-ready'));
+  const external=seen.filter(x=>/\/functions\/v1\/(google-calendar|google-tasks|push-notifications|event-media)/.test(x));
+  expect(external).toEqual([]);
+  expect(seen.some(x=>x.startsWith('/rest/v1/app_project_milestones'))).toBeFalsy();
+  expect(seen.some(x=>x.startsWith('/rest/v1/app_tasks'))).toBeFalsy();
+  expect(seen.some(x=>x.startsWith('/rest/v1/app_documents'))).toBeFalsy();
+  expect(seen.filter(x=>x.startsWith('/auth/v1/user'))).toHaveLength(0);
+  expect(seen.filter(x=>x.startsWith('/rest/v1/app_workspace_members?user_id=eq.'))).toHaveLength(1);
 });
 
 test('home and feature modules reuse authenticated boot context', async () => {
