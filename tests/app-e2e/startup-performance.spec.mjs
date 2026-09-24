@@ -20,7 +20,8 @@ test('Web2 first paint uses the final icon without a green placeholder or late f
   expect(pwa).not.toContain('apple-touch-icon');
   expect(pwa).not.toContain('createElement(\'link\')');
   expect(manifest).toContain('20260924-unicorn3');
-  expect(sw).toContain('20260924-unicorn3');
+  expect(sw).not.toContain("addEventListener('push'");
+  expect(sw).not.toContain("addEventListener('notificationclick'");
   for(const source of [html,pwa,manifest,sw])expect(source).not.toContain('20260913-3');
 });
 
@@ -57,6 +58,7 @@ test('startup preloads only route-agnostic core assets', async () => {
   expect(head).not.toContain('home-dashboard-v2.js');
   expect(read('app/app.js')).toContain("import('./loader-v2.js?v=225')");
   const loader=read('app/loader-v2.js');
+  const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
   expect(loader).toContain("import('./team.js?v=44')");
   expect(loader).toContain("import('./view-loader.js?v=8')");
