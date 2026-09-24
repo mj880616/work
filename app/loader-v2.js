@@ -55,7 +55,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=36')
+    import('./team.js?v=37')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -85,7 +85,7 @@
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
     await ensureFeatureStyles();
     await window.__KPTU_START_TEAM_DATA__();
-    await import('./project-system-v3.js?v=18');
+    await import('./project-system-v3.js?v=19');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./due-date-calendar.js?v=1')]);
     await import('./page-design-core.js?v=4');
     await import('./task-workflow.js?v=8'); await window.__KPTU_TASK_WORKFLOW_READY__;
@@ -98,12 +98,12 @@
     await import('./meeting-round-detail.js?v=11'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
-    await import('./calendar-plus.js?v=6'); await window.__KPTU_CALENDAR_PLUS_READY__;
+    await import('./calendar-plus.js?v=7'); await window.__KPTU_CALENDAR_PLUS_READY__;
     await import('./calendar-persistence.js?v=11'); await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
-    await import('./calendar-interactions-v2.js?v=4'); await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
+    await import('./calendar-interactions-v2.js?v=5'); await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
     await import('./calendar-mobile-ui.js?v=3'); await window.__KPTU_CALENDAR_MOBILE_UI_READY__;
     await import('./calendar-day-overflow.js?v=2'); await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__;
-    await import('./suborganizations.js?v=5'); await window.__KPTU_SUBORGANIZATIONS_READY__;
+    await import('./suborganizations.js?v=6'); await window.__KPTU_SUBORGANIZATIONS_READY__;
     await Promise.all([import('./google-tasks.js?v=7'),import('./push-notifications-ui.js?v=4'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
     featuresReady=true;
     startup?.mark('allInitialModulesComplete');
