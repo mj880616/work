@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/app/base-ui.css">
+<link rel="stylesheet" href="/app/team.css">
+<link rel="stylesheet" href="/app/calendar-ui.css">
+<title>Month View Fixture</title>
+</head>
+<body>
+<div id="calendarGrid" class="calendar-grid"></div>
+<div id="toast" class="toast hidden"></div>
+<script>
+  window.__navDelta=0;
+  window.__KPTU_CALENDAR_MOVE_MONTH__=delta=>{window.__navDelta=delta};
+  window.KPTUA11y={dialog:{activate:()=>{},deactivate:()=>{}}};
+</script>
+<script src="/app/calendar-month-view.js"></script>
+<script src="/app/calendar-day-overflow.js"></script>
+<script>
+  window.__appEvents=[
+    {id:'app-1',title:'Web2 긴 일정 제목이 셀 너비를 넘는 경우 말줄임 확인',start_at:'2026-09-03T09:00:00+09:00',end_at:'2026-09-03T10:00:00+09:00',color_hex:'#7656a8',project_id:null},
+    {id:'app-all',title:'Web2 종일',start_at:'2026-09-10T00:00:00+09:00',end_at:'2026-09-11T00:00:00+09:00',color_hex:'#7656a8',project_id:null}
+  ];
+  window.__googleState={colors:{'cal-a':'#4285f4','cal-b':'#0b8043'},calendars:[{id:'cal-a',backgroundColor:'#4285f4'},{id:'cal-b',backgroundColor:'#0b8043'}]};
+  window.__googleEvents=[
+    {id:'multi',source:'google',calendarId:'cal-a',title:'주 경계 멀티데이',start:'2026-09-25',end:'2026-09-29',allDay:true,color:null},
+    {id:'recurring',source:'google',calendarId:'cal-b',title:'반복 일정',start:'2026-09-17T09:00:00+09:00',end:'2026-09-17T10:00:00+09:00',allDay:false,color:null},
+    ...Array.from({length:7},(_,i)=>({id:'busy-'+i,source:'google',calendarId:i%2?'cal-a':'cal-b',title:'바쁜날 '+(i+1),start:'2026-09-03T'+String(11+i).padStart(2,'0')+':00:00+09:00',end:'2026-09-03T'+String(12+i).padStart(2,'0')+':00:00+09:00',allDay:false,color:null}))
+  ];
+  window.renderMonth=(year=2026,month=8)=>window.KPTUCalendarMonthView.render({year,month,appEvents:window.__appEvents,googleEvents:window.__googleEvents,googleState:window.__googleState});
+  window.renderMonth();
+</script>
+</body>
+</html>
