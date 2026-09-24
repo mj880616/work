@@ -46,6 +46,8 @@ jobs:
           set -e
           test -f app/suborganizations.css
           test -f app/workplace-detail.css
+          test ! -f app/suborganization-filters.js
+          test ! -f app/suborganization-filters.css
           test ! -f app/suborganization-planned-assignee.js
           grep -q "suborganizations.js?v=5" app/loader-v2.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/loader-v2.js
