@@ -66,13 +66,13 @@ async function projects(){
     module('./public-page-links.js?v=1'),
     module('./due-date-calendar.js?v=1')
   ]);
-  await module('./project-system-v3.js?v=20','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=21','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
   await styles(['./library-upload.css?v=1']);
   await team('library');
-  await module('./library-upload.js?v=12','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=13','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
