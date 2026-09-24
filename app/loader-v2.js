@@ -55,7 +55,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=38')
+    import('./team.js?v=39')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -71,7 +71,7 @@
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='./styles.css?v=48';link.dataset.kptuFeatureStyles='1';
+    link.rel='stylesheet';link.href='./styles.css?v=49';link.dataset.kptuFeatureStyles='1';
     link.onload=()=>resolve();link.onerror=()=>resolve();
     document.head.appendChild(link);
   }));
@@ -84,7 +84,7 @@
   };
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
     await ensureFeatureStyles();
-    await import('./calendar-month-view.js?v=1'); await window.__KPTU_CALENDAR_MONTH_VIEW_READY__;
+    await import('./calendar-month-view.js?v=2'); await window.__KPTU_CALENDAR_MONTH_VIEW_READY__;
     await window.__KPTU_START_TEAM_DATA__();
     await import('./project-system-v3.js?v=19');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./due-date-calendar.js?v=1')]);
