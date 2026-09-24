@@ -93,7 +93,6 @@ test('new meeting stores raw result exactly and creates linked follow-up tasks w
   await page.locator('#meetingNotes').fill(special);
   const action=page.locator('.meeting-action-row').first();
   await action.locator('.meeting-action-title').fill('후속 자료 정리');
-  await action.locator('.meeting-action-assignee').selectOption('user-1');
   await action.locator('.meeting-action-due').fill('2026-09-25');
   await page.locator('#meetingFiles').setInputFiles([
     {name:'자료1.txt',mimeType:'text/plain',buffer:Buffer.from('one')},
@@ -110,7 +109,7 @@ test('new meeting stores raw result exactly and creates linked follow-up tasks w
   expect(s.meetings[0].location).toBeUndefined();
   expect(s.meetings[0].attendee_count).toBeUndefined();
   expect(s.meetings[0].project_id).toBe('main-1');
-  expect(s.tasks[0]).toMatchObject({title:'후속 자료 정리',project_id:'main-1',source_type:'meeting',source_id:'meeting-1'});
+  expect(s.tasks[0]).toMatchObject({title:'후속 자료 정리',project_id:'main-1',assignee_id:'user-1',source_type:'meeting',source_id:'meeting-1'});
 });
 
 test('meeting AI frontend execution path is retired while legacy AI implementation and backend functions stay in the repository',async()=>{
