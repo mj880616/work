@@ -2,6 +2,8 @@
 'use strict';
 if(window.KPTUViewLoader)return;
 const flights=new Map(),loaded=new Set();
+const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
+const background=promise=>Promise.resolve(promise).catch(err=>console.warn('background feature load',err));
 
 async function module(path,readyName){
   await import(path);
@@ -23,16 +25,16 @@ async function calendar(){
   await team('calendar');
   await Promise.all([
     module('./calendar-plus.js?v=8','__KPTU_CALENDAR_PLUS_READY__'),
-    module('./calendar-persistence.js?v=12','__KPTU_CALENDAR_PERSISTENCE_READY__'),
     module('./calendar-interactions-v2.js?v=6','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=4','__KPTU_CALENDAR_MOBILE_UI_READY__'),
-    module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__'),
-    module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__'),
-    module('./calendar-health.js?v=3'),
-    module('./google-calendar-return-status.js?v=1')
+    module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
-  const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
+  const google=module('./calendar-persistence.js?v=12','__KPTU_CALENDAR_PERSISTENCE_READY__');
+  background(google);
+  background(module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__'));
+  background(module('./google-calendar-return-status.js?v=1'));
+  background(google.then(()=>module('./calendar-health.js?v=4')));
   defer(()=>load('photos').catch(()=>{}),{timeout:1200});
   return {ok:true}
 }
@@ -53,13 +55,13 @@ async function projects(){
 }
 async function library(){
   await team('library');
-  await module('./library-upload.js?v=12','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=13','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
-  await module('./meeting-round-detail.js?v=12','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=13','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){
@@ -67,11 +69,7 @@ async function media(){
   return {ok:true}
 }
 async function pages(){
-  await team('pages');
-  await Promise.all([
-    module('./page-design-core.js?v=4'),
-    module('./web1-board.js?v=3')
-  ]);
+  await module('./web1-board.js?v=3');
   return {ok:true}
 }
 async function organizations(){
