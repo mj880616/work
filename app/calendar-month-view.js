@@ -175,5 +175,6 @@
   if(mq760.addEventListener)mq760.addEventListener('change',rerender);else mq760.addListener?.(rerender);
 
   window.KPTUCalendarMonthView={render,visibleRange,setNavigate,suppressClick,dayEvents:date=>last?dayEvents([...(last.appEvents||[]).map(normalizeApp),...(last.googleEvents||[]).map(ev=>normalizeGoogle(ev,last.googleState||{}))],date):[]};
+  if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);
   window.__KPTU_CALENDAR_MONTH_VIEW_READY__=Promise.resolve(true);
 })();
