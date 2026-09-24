@@ -7,6 +7,7 @@ const notificationButtons=[...document.querySelectorAll('[data-kptu-notification
 if(!logoutButtons.length)return;
 logoutButtons.forEach(button=>button.addEventListener('click',()=>window.KPTUTeamAuth?.logout?.()));
 const show=state=>{
+  document.body.classList.toggle('kptu-workspace-shell',state==='workspace');
   logoutButtons.forEach(button=>button.classList.toggle('hidden',state!=='workspace'&&state!=='bootstrap'));
   notificationButtons.forEach(button=>button.classList.toggle('hidden',state!=='workspace'));
 };
