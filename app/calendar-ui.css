@@ -16,6 +16,7 @@
 .google-bar .secondary{min-height:32px;padding:5px 9px;font-size:11px}
 .google-cal-list{background:transparent;border:0;border-radius:var(--kptu-radius-sm);padding:3px 0 7px;margin:0;display:flex;gap:6px 10px;align-items:center;flex-wrap:wrap}
 .google-cal-list>b{width:100%;font-size:10px;color:var(--kptu-muted)}
+.google-cal-list #saveGooglePrefs:disabled{opacity:.55}
 .toggle-line{display:flex;flex-direction:row;align-items:center;gap:4px;margin:0;font-size:10px;min-width:0}
 .toggle-line input{width:auto;min-height:0}
 .toggle-line span{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
