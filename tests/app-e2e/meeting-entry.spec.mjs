@@ -201,6 +201,7 @@ test('closing a meeting during a delayed follow-up save does not reopen its deta
 test('meeting UI has one direct render path and no active meeting AI execution path',async()=>{
   const html=read('app/index.html');
   const loader=read('app/loader-v2.js');
+  const views=read('app/view-loader.js');
   const workflow=read('app/task-workflow.js');
   const detail=read('app/meeting-round-detail.js');
   const team=read('app/team.js');
@@ -212,8 +213,8 @@ test('meeting UI has one direct render path and no active meeting AI execution p
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain('task-workflow.js?v=8');
-  expect(loader).toContain('meeting-round-detail.js?v=11');
+  expect(views).toContain('task-workflow.js?v=9');
+  expect(views).toContain('meeting-round-detail.js?v=12');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
