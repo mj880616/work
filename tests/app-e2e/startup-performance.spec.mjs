@@ -47,19 +47,39 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=106" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=107" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=218','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=219','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=3','./team.js?v=41'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=218')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=219')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
   expect(loader).toContain("import('./team.js?v=41')");
-  expect(loader).toContain("import('./view-loader.js?v=3')");
+  expect(loader).toContain("import('./view-loader.js?v=4')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
+});
+
+test('startup loads only requested route CSS before showing the shell', async () => {
+  const loader=read('app/loader-v2.js');
+  const views=read('app/view-loader.js');
+  expect(loader).toContain('await viewLoader.prepare(requested)');
+  expect(loader).not.toContain('ensureFeatureStyles');
+  expect(loader).not.toContain("styles.css?v=51");
+  for(const asset of [
+    './calendar-ui.css?v=5',
+    './task-layout.css?v=4',
+    './google-tasks.css?v=4',
+    './project-system-v3.css?v=13',
+    './library-upload.css?v=1',
+    './meeting-ui.css?v=8',
+    './web1-press.css?v=1',
+    './web1-board.css?v=2',
+    './suborganizations.css?v=5',
+    './workplace-detail.css?v=3'
+  ]) expect(views).toContain(asset);
 });
 
 test('requested route is resolved before view-specific feature loading', async () => {
