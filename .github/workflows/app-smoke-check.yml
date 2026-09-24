@@ -49,11 +49,11 @@ jobs:
           const text=fs.readFileSync('app/loader-v2.js','utf8');
           const keys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=35')",'await window.__KPTU_TEAM_READY__',
-            "import('./task-workflow.js?v=7')",'await window.__KPTU_TASK_WORKFLOW_READY__',
-            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=11')",'await window.__KPTU_TASK_LAYOUT_READY__',
+            "import('./team.js?v=36')",'await window.__KPTU_TEAM_READY__',
+            "import('./task-workflow.js?v=8')",'await window.__KPTU_TASK_WORKFLOW_READY__',
+            "import('./task-row-view.js?v=1')","import('./task-layout.js?v=12')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./web1-board.js?v=3')",
-            "import('./meeting-round-detail.js?v=10')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
+            "import('./meeting-round-detail.js?v=11')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
             "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
             "import('./calendar-plus.js?v=6')",'await window.__KPTU_CALENDAR_PLUS_READY__',
             "import('./calendar-persistence.js?v=10')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
@@ -102,7 +102,7 @@ jobs:
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
           grep -q "critical.css?v=1" app/index.html
-          grep -q "styles.css?v=45" app/loader-v2.js
+          grep -q "styles.css?v=46" app/loader-v2.js
           grep -q "ensureFeatureStyles" app/loader-v2.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
@@ -122,12 +122,12 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           grep -q "home-dashboard-v2.js?v=8" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
-          grep -q "team.js?v=35" app/loader-v2.js
-          grep -q "project-system-v3.js?v=17" app/loader-v2.js
-          grep -q "task-workflow.js?v=7" app/loader-v2.js
+          grep -q "team.js?v=36" app/loader-v2.js
+          grep -q "project-system-v3.js?v=18" app/loader-v2.js
+          grep -q "task-workflow.js?v=8" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
           grep -q "task-row-view.js?v=1" app/loader-v2.js
-          grep -q "task-layout.js?v=11" app/loader-v2.js
+          grep -q "task-layout.js?v=12" app/loader-v2.js
           grep -q "google-tasks.js?v=6" app/loader-v2.js
           grep -q "library-upload.js?v=11" app/loader-v2.js
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/loader-v2.js
@@ -138,7 +138,7 @@ jobs:
           if grep -Eq "home-task-controls|home-task.css|library-public-toggle" app/loader-v2.js app/styles.css; then echo 'retired home/library decorator returned'; exit 1; fi
           grep -q "photo-room.js?v=4" app/loader-v2.js
           grep -q "web1-board.js?v=3" app/loader-v2.js
-          grep -q "meeting-round-detail.js?v=10" app/loader-v2.js
+          grep -q "meeting-round-detail.js?v=11" app/loader-v2.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/loader-v2.js
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
@@ -162,7 +162,7 @@ jobs:
           grep -q "task-layout.css?v=4" app/styles.css
           grep -q "google-tasks.css?v=3" app/styles.css
           grep -q "library-upload.css?v=1" app/styles.css
-          grep -q "meeting-ui.css?v=7" app/styles.css
+          grep -q "meeting-ui.css?v=8" app/styles.css
           grep -q "calendar-ui.css?v=2" app/styles.css
           grep -q "page-core.css?v=7" app/styles.css
           grep -q "page-builder.css?v=2" app/styles.css
@@ -174,6 +174,8 @@ jobs:
           if grep -Eq "teamManageTop|ccMessageTop|userBadge" app/topbar-actions.js; then echo 'removed personal or message action returned to the topbar'; exit 1; fi
 
           if grep -Eq "function taskProjectOptions|function taskProjectRows|function openTaskModal|saveTaskBtn.*saveTask|dataset\.taskToggle" app/team.js; then echo 'legacy task ownership returned to team.js'; exit 1; fi
+          if grep -Eq "teamAssigned|팀에서 부여된 할 일|팀에서 부여 · 회의|내가 추가" app/task-layout.js; then echo 'team assignment task concept returned'; exit 1; fi
+          if grep -Eq "meeting-action-assignee|mrdTaskAssignee|MRD_TEAM|mrdMemberOptions" app/task-workflow.js app/meeting-round-detail.js app/index.html; then echo 'meeting assignee selector returned'; exit 1; fi
           grep -q "function openCreate(projectId='')" app/task-layout.js
           grep -q "function projectOptions(selected='')" app/task-layout.js
           grep -q "metadata?.project_system==='v2'" app/task-layout.js
@@ -374,7 +376,7 @@ jobs:
       - name: Check retained non-project feature invariants
         run: |
           set -e
-          grep -q "task-workflow.js?v=7" app/loader-v2.js
+          grep -q "task-workflow.js?v=8" app/loader-v2.js
           grep -q "web1-board.js?v=3" app/loader-v2.js
           test -f app/workflow-ai-v3.js
           if grep -q "workflow-ai-v3.js" app/loader-v2.js; then echo 'retired meeting AI workflow returned to active loader'; exit 1; fi

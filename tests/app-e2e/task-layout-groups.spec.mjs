@@ -1,28 +1,24 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-test('task screen renders directly into taskList and separates task origins',async({page})=>{
+test('task screen renders one personal task list with pending count',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
   const sections=page.locator('#taskList .tl-task-section');
-  await expect(sections).toHaveCount(2);
+  await expect(sections).toHaveCount(1);
   await expect(page.locator('#tlTaskSections')).toHaveCount(0);
   await expect(page.locator('#taskList')).toHaveClass(/tl-task-list/);
 
-  const mine=sections.nth(0),team=sections.nth(1);
+  const mine=sections.first();
   await expect(mine.locator('.tl-section-head h3')).toHaveText('내 할 일');
-  await expect(mine.locator('.tl-section-head span')).toHaveText('2건');
-  await expect(team.locator('.tl-section-head h3')).toHaveText('팀에서 부여된 할 일');
-  await expect(team.locator('.tl-section-head span')).toHaveText('1건');
-
+  await expect(mine.locator('.tl-section-head span')).toHaveText('1건');
   await expect(mine.locator('.tl-incomplete')).toHaveAttribute('open','');
   await expect(mine.locator('.tl-incomplete summary b')).toHaveText('1');
-  await expect(mine.locator('.tl-completed summary b')).toHaveText('1');
-  await expect(team.locator('.tl-incomplete summary b')).toHaveText('0');
-  await expect(team.locator('.tl-completed summary b')).toHaveText('1');
-  await expect(team).toContainText('회의에서 부여된 할 일');
-  await expect(team.locator('.tl-origin')).toContainText('팀에서 부여 · 회의');
+  await expect(mine.locator('.tl-completed summary b')).toHaveText('2');
+  await expect(mine).toContainText('회의 후속 할 일');
+  await expect(mine.locator('.tl-origin')).toHaveCount(0);
+  await expect(page.locator('#taskList')).not.toContainText('팀에서 부여된 할 일');
+  await expect(page.locator('#taskList')).not.toContainText('내가 추가');
 });
-
 test('completed open state is retained without a mutation observer',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
   const mine=page.locator('#taskList .tl-task-section').filter({hasText:'내 할 일'}).first();
@@ -33,7 +29,7 @@ test('completed open state is retained without a mutation observer',async({page}
   await completed.locator('[data-tl-toggle="self-done"]').click();
 
   await expect(mine.locator('.tl-completed')).toHaveAttribute('open','');
-  await expect(mine.locator('.tl-completed summary b')).toHaveText('0');
+  await expect(mine.locator('.tl-completed summary b')).toHaveText('1');
   await expect(mine.locator('.tl-incomplete summary b')).toHaveText('2');
   await expect(mine.locator('.tl-incomplete')).toContainText('내가 완료한 프로젝트 할 일');
 });
@@ -137,7 +133,7 @@ test('checkbox reverses completion and delete keeps confirmation',async({page})=
 
 test('detail offers completion and hides delete for tasks created by others',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
-  const completed=page.locator('#taskList [data-tl-section="assigned"] .tl-completed');
+  const completed=page.locator('#taskList [data-tl-section="mine"] .tl-completed');
   await completed.locator('summary').click();
   const team=completed.locator('[data-tl-task-row="team-one"]');
   await team.locator('[data-tl-menu]').click();
@@ -199,6 +195,10 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   const index=readFileSync(new URL('../../app/index.html',import.meta.url),'utf8');
   const loader=readFileSync(new URL('../../app/loader-v2.js',import.meta.url),'utf8');
   const app=readFileSync(new URL('../../app/app.js',import.meta.url),'utf8');
+  const layout=readFileSync(new URL('../../app/task-layout.js',import.meta.url),'utf8');
+  const workflow=readFileSync(new URL('../../app/task-workflow.js',import.meta.url),'utf8');
+  const meeting=readFileSync(new URL('../../app/meeting-round-detail.js',import.meta.url),'utf8');
+  const project=readFileSync(new URL('../../app/project-system-v3.js',import.meta.url),'utf8');
 
   expect(team).not.toContain('async function saveTask(){');
   expect(team).not.toContain("$('#saveTaskBtn').onclick=saveTask");
@@ -208,9 +208,17 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
 
   expect(index).not.toContain('id="taskScope"');
   expect(index).not.toContain('id="taskStatus"');
-  expect(index).toContain('./team.js?v=35');
-  expect(index).toContain('./loader-v2.js?v=205');
-  expect(index).toContain('./app.js?v=93');
-  expect(loader).toContain("import('./team.js?v=35')");
-  expect(app).toContain("import('./loader-v2.js?v=205')");
+  expect(index).not.toContain('id="taskAssignee"');
+  expect(layout).not.toContain('teamAssigned');
+  expect(layout).not.toContain('팀에서 부여된 할 일');
+  expect(layout).not.toContain('내가 추가');
+  expect(workflow).not.toContain('meeting-action-assignee');
+  expect(meeting).not.toContain('mrdTaskAssignee');
+  expect(meeting).toContain("assignee_id=eq.'+encodeURIComponent(mrdUser.id)");
+  expect(project).toContain('assignee_id=eq.${encodeURIComponent(user.id)}');
+  expect(index).toContain('./team.js?v=36');
+  expect(index).toContain('./loader-v2.js?v=206');
+  expect(index).toContain('./app.js?v=94');
+  expect(loader).toContain("import('./team.js?v=36')");
+  expect(app).toContain("import('./loader-v2.js?v=206')");
 });

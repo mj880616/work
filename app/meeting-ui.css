@@ -4,9 +4,9 @@
 .meeting-materials-block label span{color:var(--kptu-muted);font-size:11px}
 .meeting-action-head{display:flex;gap:var(--kptu-space-3);justify-content:space-between;align-items:flex-start;margin-bottom:var(--kptu-space-3)}
 .meeting-action-head p{margin:var(--kptu-space-1) 0 0;color:var(--kptu-muted);font-size:12px;line-height:1.45}
-.meeting-action-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(120px,1fr) 132px auto;gap:var(--kptu-space-2);margin:var(--kptu-space-2) 0}
-.meeting-action-row input,.meeting-action-row select{min-width:0;margin:0}
-.meeting-action-row select,.mrd-task-form select{min-height:var(--kptu-control-height);height:var(--kptu-control-height);padding:0 var(--kptu-space-3)}
+.meeting-action-row{display:grid;grid-template-columns:minmax(0,1fr) 132px auto;gap:var(--kptu-space-2);margin:var(--kptu-space-2) 0}
+.meeting-action-row input{min-width:0;margin:0}
+.mrd-task-form select{min-height:var(--kptu-control-height);height:var(--kptu-control-height);padding:0 var(--kptu-space-3)}
 .meeting-action-remove{border:1px solid var(--kptu-border);background:var(--kptu-surface-subtle);border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);font-weight:700;color:var(--kptu-muted);min-height:var(--kptu-control-height)}
 .meeting-material-links{margin-top:var(--kptu-space-3);padding-top:var(--kptu-space-2);border-top:1px solid var(--kptu-border)}
 .meeting-round-meta{font-size:12px;font-weight:700;color:var(--kptu-muted);margin-bottom:6px}
@@ -27,7 +27,7 @@
 .mrd-section-head p{margin:var(--kptu-space-1) 0 0;color:var(--kptu-muted);font-size:12px}
 .mrd-add-task,.mrd-upload-label{width:auto;min-height:var(--kptu-control-height);padding:0 var(--kptu-space-3);white-space:nowrap}
 .mrd-upload-label{cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
-.mrd-task-form{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(150px,.9fr) 190px auto;gap:var(--kptu-space-2);align-items:end;margin:var(--kptu-space-3) 0;padding:var(--kptu-space-3);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle)}
+.mrd-task-form{display:grid;grid-template-columns:minmax(0,1fr) 190px auto;gap:var(--kptu-space-2);align-items:end;margin:var(--kptu-space-3) 0;padding:var(--kptu-space-3);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle)}
 .mrd-task-form>label{margin:0}
 .mrd-task-form select,.mrd-task-form input[type="date"]{width:100%;min-width:0;min-height:var(--kptu-control-height);height:var(--kptu-control-height)}
 .mrd-task-form-actions{display:flex;gap:6px}
@@ -51,15 +51,14 @@
 #meetingRoundDetailModal .meeting-round-detail-card .mrd-task-form-actions button,#meetingRoundDetailModal .meeting-round-detail-card .mrd-editor-actions button,#meetingRoundDetailModal .meeting-round-detail-card .icon-btn{flex:none}
 #meetingRoundDetailModal .mrd-followup-section .mrd-section-head{margin-bottom:var(--kptu-space-3)}
 #meetingRoundDetailModal #mrdTasks{margin-top:0}
-#meetingRoundDetailModal .mrd-task-form>label:nth-of-type(2),#meetingRoundDetailModal .mrd-task-form>label:nth-of-type(3){min-width:0;width:100%}
+#meetingRoundDetailModal .mrd-task-form>label:nth-of-type(2){min-width:0;width:100%}
 @media(max-width:760px){
-  .meeting-action-row{grid-template-columns:1fr 1fr}
+  .meeting-action-row{grid-template-columns:minmax(0,1fr) auto}
   .meeting-action-title{grid-column:1/-1}
   .meeting-round-detail-card{padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(92px + env(safe-area-inset-bottom))!important}
   .mrd-task-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--kptu-space-2);row-gap:var(--kptu-space-2)}
   .mrd-task-form>label:first-child{grid-column:1/-1}
-  .mrd-task-form>label:nth-of-type(2){grid-column:1/2}
-  .mrd-task-form>label:nth-of-type(3){grid-column:2/3}
+  .mrd-task-form>label:nth-of-type(2){grid-column:1/-1}
   .mrd-task-form-actions{grid-column:1/-1}
   .mrd-task-form-actions button{flex:1}
   .mrd-task-row{align-items:flex-start}

@@ -55,7 +55,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=35')
+    import('./team.js?v=36')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -71,7 +71,7 @@
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='./styles.css?v=45';link.dataset.kptuFeatureStyles='1';
+    link.rel='stylesheet';link.href='./styles.css?v=46';link.dataset.kptuFeatureStyles='1';
     link.onload=()=>resolve();link.onerror=()=>resolve();
     document.head.appendChild(link);
   }));
@@ -85,17 +85,17 @@
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
     await ensureFeatureStyles();
     await window.__KPTU_START_TEAM_DATA__();
-    await import('./project-system-v3.js?v=17');
+    await import('./project-system-v3.js?v=18');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./due-date-calendar.js?v=1')]);
     await import('./page-design-core.js?v=4');
-    await import('./task-workflow.js?v=7'); await window.__KPTU_TASK_WORKFLOW_READY__;
+    await import('./task-workflow.js?v=8'); await window.__KPTU_TASK_WORKFLOW_READY__;
     await import('./task-row-view.js?v=1');
-    await import('./task-layout.js?v=11'); await window.__KPTU_TASK_LAYOUT_READY__;
+    await import('./task-layout.js?v=12'); await window.__KPTU_TASK_LAYOUT_READY__;
     await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=5'),import('./library-upload.js?v=11')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
     await import('./web1-board.js?v=3');
     await import('./web1-press.js?v=2'); await window.__KPTU_WEB1_PRESS_READY__;
-    await import('./meeting-round-detail.js?v=10'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
+    await import('./meeting-round-detail.js?v=11'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     await import('./google-calendar-return-status.js?v=1');
     await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
     await import('./calendar-plus.js?v=6'); await window.__KPTU_CALENDAR_PLUS_READY__;

@@ -63,6 +63,7 @@ test('meeting create modal exposes only the simplified final fields and the cano
   for(const id of ['meetingTitle','meetingAt','meetingProject','meetingSeriesName','meetingRoundNo','meetingTranscript','meetingNotes','meetingFiles','meetingActionList'])await expect(page.locator('#'+id)).toBeAttached();
   await expect(page.locator('#meetingFiles')).toHaveAttribute('multiple','');
   await expect(page.locator('.meeting-action-row')).toHaveCount(1);
+  await expect(page.locator('.meeting-action-assignee,#mrdTaskAssignee,#taskAssignee')).toHaveCount(0);
   await expect(page.locator('#meetingAutoClassify,#meetingDecisions,#wfMeetingLocation,#wfMeetingAttendees')).toHaveCount(0);
   await expect(page.locator('#meetingProject option[value="main"]')).toHaveCount(1);
   await expect(page.locator('#meetingProject option[value="child"]')).toHaveCount(1);
@@ -188,7 +189,6 @@ test('closing a meeting during a delayed follow-up save does not reopen its deta
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
   await page.locator('#mrdAddTask').click();
   await page.locator('#mrdTaskTitle').fill('후속 자료 정리');
-  await page.locator('#mrdTaskAssignee').selectOption('meeting-user');
   await page.locator('#mrdTaskSave').click();
   await expect.poll(()=>posted).toBe(true);
   await page.locator('#mrdClose').click();
@@ -212,8 +212,8 @@ test('meeting UI has one direct render path and no active meeting AI execution p
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain('task-workflow.js?v=7');
-  expect(loader).toContain('meeting-round-detail.js?v=10');
+  expect(loader).toContain('task-workflow.js?v=8');
+  expect(loader).toContain('meeting-round-detail.js?v=11');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
@@ -222,5 +222,5 @@ test('meeting UI has one direct render path and no active meeting AI execution p
   expect(team).toContain('transcript_text:transcript');
   expect(team).toContain("/functions/v1/meeting-files");
   expect(files).toContain('file.size>100*1024*1024');
-  expect(css).toContain("meeting-ui.css?v=7");
+  expect(css).toContain("meeting-ui.css?v=8");
 });
