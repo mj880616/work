@@ -1,4 +1,4 @@
-# Web2 Production Development Rules
+# Production Development Rules (Web1 and Web2)
 
 This repository is used for a real production service. All changes must be implemented and reviewed to production-ready standards.
 
@@ -25,16 +25,23 @@ When a shared permission or data model changes, review all features that use the
 - Minimize unrelated structural changes.
 - Preserve existing security invariants while adding functionality.
 
-## Confirmed Web2 product structure
+## Confirmed product boundary
 
-Web2 is the public-agency project team's shared operational database and status board, not a personal task application. Preserve the links among projects, owners, schedules, follow-up tasks, meetings, and documents, and keep handover and low administrative overhead in mind.
+The user's latest explicit product decision overrides older documents, code comments, and legacy behavior. See `CLAUDE.md` for the full current-versus-target description.
+
+- **Web2 (`app/`, `desk.bokdoong.com`) is a fully private, personal work system used only by the signed-in user.** Projects, tasks, schedules, meetings, library documents, and Google Calendar/Tasks integration are all authenticated-only. It is not a shared team database or a multi-user collaboration product.
+- **Web1 (repository root pages, `work.bokdoong.com`) is the public channel** for content that must be published or shared by link: statements and press releases, public posts, public policy and project materials, and pages sent to outside readers.
+- Anonymous visitors must not receive Web2 work data or Web2 work screens. The target unauthenticated Web2 experience is a route to login only. Public projects, a public work home, and anonymous Web2 datasets are not product concepts.
+- Existing anonymous Web2 paths (for example `app/public-workspace.js`, `app/public-workspace-extras.js`, and the `app_public_workspace_index` RPC) are leftovers of the previous structure. They are not requirements to preserve or extend; remove them only in a scoped change that follows the rules below.
+- Solve external-sharing needs through Web1. Never relax Web2 authentication, RLS, grants, or Edge Function checks to share content externally.
+- Keep simplifying Web2 toward a single-user, owner-only structure while preserving the links among projects, schedules, follow-up tasks, meetings, and documents. Removing a legacy public path must narrow access; it must never widen it.
+
+## Web2 implementation invariants
 
 - A UI region has one state owner and one final renderer. Do not repair competing renderers with delayed overwrites, broad `MutationObserver` decorators, or `display:none` patches.
-- Prefer the startup order session check → public or authenticated path selection → required data/modules → one final UI reveal.
-- Anonymous users may receive only the minimum public dataset allowed by trusted DB/RLS/RPC/server policy. Standalone tasks, personal schedules, Google Calendar, and personal work are authenticated-only.
-- The anonymous home contains projects, upcoming major schedules, board posts, and the library. The authenticated home contains projects, tasks, upcoming major schedules, and the library. The authenticated schedule panel continues to use project milestones until a separate product decision changes it.
+- Prefer the startup order session check → authenticated path (or redirect to login) → required data/modules → one final UI reveal.
 - Child-project navigation stays in the hierarchy area above the title and separate from edit, visibility, archive, and delete actions. Preserve native keyboard-accessible disclosure behavior and keep child creation inside that navigation.
-- Document visibility remains `public`, `workspace`, or `private`. Project-linked and meeting documents default to internal. Public publication requires explicit confirmation and successful Google Drive permission synchronization before Web2 exposes the item; unpublishing must also revoke Drive access.
+- Stored document visibility values are currently `public`, `workspace`, and `private`. Project-linked and meeting documents default to internal (non-public). Until a reviewed change retires Web2 public documents, any public publication still requires explicit confirmation and successful Google Drive permission synchronization before the item is exposed, and unpublishing must also revoke Drive access. New external publication belongs in Web1.
 
 Do not independently change Supabase schemas, RLS, existing data, visibility policy, URL structure, or Edge Function authentication boundaries. Record a proposal instead. Do not add product features or redesign the application as part of stabilization work.
 
