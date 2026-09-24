@@ -66,7 +66,7 @@ async function calendar(){
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=12','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
-  background(style('./suborganizations.css?v=5').then(()=>module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__')));
+  background(style('./suborganizations.css?v=5').then(()=>module('./suborganizations.js?v=8','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   background(google.then(()=>module('./calendar-health.js?v=4')));
   defer(()=>load('photos').catch(()=>{}),{timeout:1200});
@@ -84,7 +84,7 @@ async function projects(){
     module('./public-page-links.js?v=1'),
     module('./due-date-calendar.js?v=1')
   ]);
-  await module('./project-system-v3.js?v=21','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=22','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
@@ -107,7 +107,7 @@ async function pages(){
   return {ok:true}
 }
 async function organizations(){
-  await module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__');
+  await module('./suborganizations.js?v=8','__KPTU_SUBORGANIZATIONS_READY__');
   await module('./workplace-detail.js?v=6');
   import('./workplace-ai-report.js?v=2').catch(console.error);
   return {ok:true}
