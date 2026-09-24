@@ -28,6 +28,10 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
   expect(index).toContain('calendar-toolbar-add');
   expect(index).not.toContain('class="primary" type="button">+ 일정 등록</button>');
   expect(team).toContain('id="googleCalendarPanel"');
+  expect(index).not.toContain('calendarUpcoming');
+  expect(index).not.toContain('upcomingEvents');
+  expect(team).not.toContain('function eventCard(');
+  expect(team).not.toContain('upcomingEvents');
   expect(team).toContain('window.__KPTU_RELOAD_APP_EVENTS__=async()=>');
 
   expect(plus).toContain("target.value||'web2'");
@@ -49,7 +53,6 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
 test('personal calendar keeps legacy data compatibility without schema removal',()=>{
   const team=read('app/team.js');
   const interactions=read('app/calendar-interactions-v2.js');
-  expect(team).toContain('EVENT_LABEL[e.event_type]||e.event_type');
   expect(interactions).toContain('calendar_scope,color_hex,project_id,created_by');
   expect(team).not.toContain("method:'POST',body:ids.map(user_id=>({event_id:ev.id");
 });
