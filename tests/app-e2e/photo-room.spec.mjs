@@ -65,7 +65,7 @@ async function signIn(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
 }
 
-test('photo upload uses shared session and refreshes schedule records without reloading the app',async({page})=>{
+test('photo upload uses shared session without restoring calendar record cards',async({page})=>{
   test.setTimeout(60000);
   uploaded=false;uploadRequest=null;
   comments=[];documents=[];
