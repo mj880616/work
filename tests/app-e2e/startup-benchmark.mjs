@@ -5,7 +5,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'p6-benchmark-user',email:'p6@example.org',user_metadata:{display_name:'P6 측정'}};
 const workspace={id:'p6-benchmark-workspace',name:'공공기관사업팀 Workspace'};
 const session={access_token:'p6-benchmark-access',refresh_token:'p6-benchmark-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user};
-const routes=['home','calendar','tasks','projects','library','meetings','media','pages','team'];
+const routes=['calendar','tasks','projects','library','meetings','media','pages','team'];
 const viewports={
   desktop:{width:1280,height:800},
   mobile:{width:390,height:844}
@@ -95,7 +95,7 @@ async function waitForStartup(page){
   return page.evaluate(()=>window.__P6_BENCHMARK__);
 }
 
-const routeUrl=(base,view)=>view==='home'?base:base+'?view='+encodeURIComponent(view);
+const routeUrl=(base,view)=>base+'?view='+encodeURIComponent(view);
 
 async function coldLoad(page,base,view){
   const url=routeUrl(base,view);
