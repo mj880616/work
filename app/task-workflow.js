@@ -1,7 +1,7 @@
 let twUser=null,twBound=false;
 const twRuntime=()=>window.KPTURuntime;
 async function twApi(path,options={}){const rt=twRuntime();if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,options)}
-async function twLoadContext(){try{twUser=await twApi('/auth/v1/user');return Boolean(twUser?.id)}catch{return false}}
+async function twLoadContext(){const rt=twRuntime(),shared=rt?.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id){twUser=shared.user;return true}try{twUser=await twApi('/auth/v1/user');return Boolean(twUser?.id)}catch{return false}}
 function twActionRow(){const row=document.createElement('div');row.className='meeting-action-row';row.innerHTML=`<input class="meeting-action-title" type="text" placeholder="후속 할 일"><input class="meeting-action-due" type="date"><button class="meeting-action-remove" type="button">삭제</button>`;row.querySelector('.meeting-action-remove').onclick=()=>row.remove();return row}
 function twResetMeetingActions(){const list=document.querySelector('#meetingActionList');if(!list)return;list.innerHTML='';list.appendChild(twActionRow())}
 function twResetMeetingExtras(){const s=document.querySelector('#meetingSeriesName'),r=document.querySelector('#meetingRoundNo'),f=document.querySelector('#meetingFiles');if(s)s.value='';if(r)r.value='';if(f)f.value='';twResetMeetingActions()}
