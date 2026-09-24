@@ -7,6 +7,7 @@ const STATUS_LABEL={draft:'초안',review:'검토중',published:'게시',archive
 const TASK_LABEL={todo:'할 일',doing:'진행',done:'완료',blocked:'막힘'};
 let session=null,user=null,membership=null,workspace=null,authMode='signin';
 let members=[],profiles=[],spaces=[],groups=[],pages=[],events=[],tasks=[],meetings=[],documents=[],notifications=[];
+const teamViewFlights=new Map(),teamViewLoaded=new Set();
 let editingPage=null,monthCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1),documentVisibilityTouched=false;
 let googleState={connected:null,enabled:false,selected:[],calendars:[],events:[],email:null};
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -71,6 +72,43 @@ async function loadAll(){const wid=workspace.id;[members,profiles,spaces,groups,
  api('/rest/v1/app_documents?workspace_id=eq.'+wid+'&select=*&order=document_date.desc.nullslast,created_at.desc'),
  api('/rest/v1/app_notifications?user_id=eq.'+user.id+'&select=*&order=created_at.desc&limit=30')
 ])}
+async function loadForView(view){
+ if(!workspace?.id)return false;
+ if(teamViewLoaded.has(view))return true;
+ if(teamViewFlights.has(view))return teamViewFlights.get(view);
+ const wid=workspace.id;
+ const flight=(async()=>{
+   if(view==='calendar'){
+     [spaces,events]=await Promise.all([
+       api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&select=*&order=sort_order.asc,created_at.asc'),
+       api('/rest/v1/app_events?workspace_id=eq.'+wid+'&select=*&order=start_at.asc')
+     ]);
+     fillSelects();renderCalendar();
+   }else if(view==='library'){
+     spaces=await api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&select=*&order=sort_order.asc,created_at.asc');
+     fillSelects();
+   }else if(view==='meetings'){
+     [spaces,meetings,documents]=await Promise.all([
+       api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&select=*&order=sort_order.asc,created_at.asc'),
+       api('/rest/v1/app_meetings?workspace_id=eq.'+wid+'&select=*&order=meeting_at.desc'),
+       api('/rest/v1/app_documents?workspace_id=eq.'+wid+'&select=*&order=document_date.desc.nullslast,created_at.desc')
+     ]);
+     fillSelects();renderMeetings();
+   }else if(view==='pages'){
+     [spaces,groups,pages]=await Promise.all([
+       api('/rest/v1/app_spaces?workspace_id=eq.'+wid+'&select=*&order=sort_order.asc,created_at.asc'),
+       api('/rest/v1/app_groups?workspace_id=eq.'+wid+'&select=*&order=name.asc'),
+       api('/rest/v1/app_pages?workspace_id=eq.'+wid+'&select=id,space_id,slug,title,summary,visibility,status,owner_id,legacy_path,published_at,created_at,updated_at&order=updated_at.desc')
+     ]);
+     fillSelects();renderPages();
+   }
+   teamViewLoaded.add(view);
+   return true;
+ })().finally(()=>teamViewFlights.delete(view));
+ teamViewFlights.set(view,flight);
+ return flight
+}
+window.__KPTU_START_TEAM_VIEW__=view=>loadForView(view);
 window.__KPTU_SYNC_TEAM_PAGES__=rows=>{if(Array.isArray(rows))pages=rows};
 window.__KPTU_EVENT_PROJECT_OPTIONS__=()=>projectOptions(true);
 function renderAll(){fillSelects();renderHome();renderCalendar();renderDocuments();renderMeetings();renderPages()}
