@@ -11,7 +11,8 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
   const suborg=read('app/suborganizations.js');
   const projects=read('app/project-system-v3.js');
 
-  expect(index).toContain('<h2>일정</h2>');
+  expect(index).not.toContain('<h2>일정</h2>');
+  expect(index).toContain('class="calendar-toolbar"');
   expect(index).not.toContain('<h2>공동 일정</h2>');
   expect(index).not.toContain('일정과 참석자를 함께 관리');
   expect(index).toContain('id="eventTarget"');
