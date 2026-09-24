@@ -66,26 +66,19 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 
-  await expect(page.locator('#hdvTaskPanel')).toBeVisible({timeout:10000});
-  await expect(page.locator('#hdvTasks .hdv-row')).toHaveCount(6);
-  await expect(page.locator('#hdvTasks')).toContainText('모바일 QA 할 일 1');
-  await expect(page.locator('[data-hta-expand]')).toHaveCount(0);
+  await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
 
-  const motion=await gesture(page,'#homeView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
+  const motion=await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
   expect(motion).toContain('translate3d');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
-  await expect(page.locator('#calendarView')).toBeVisible();
-  await expect.poll(()=>page.locator('#calendarView').evaluate(el=>el.style.transform||'')).toBe('');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
+  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect.poll(()=>page.locator('#tasksView').evaluate(el=>el.style.transform||'')).toBe('');
 
-  await page.locator('[data-view="home"]').click();
-  const vertical=await gesture(page,'#homeView',[{x:220,y:300},{x:214,y:390},{x:210,y:510}]);
+  const vertical=await gesture(page,'#tasksView',[{x:220,y:300},{x:214,y:390},{x:210,y:510}]);
   expect(vertical).toBe('');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('home');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
 
-  await page.locator('#hdvMilestonePanel [data-hdv-goto="calendar"]').evaluate(el=>{
-    const ev=(type,p,key='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,key,{value:[{clientX:p.x,clientY:p.y}]});el.dispatchEvent(e)};
-    ev('touchstart',{x:330,y:360});ev('touchmove',{x:210,y:362});ev('touchend',{x:90,y:364},'changedTouches');
-  });
+  await page.locator('[data-view="calendar"]').click();
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
   await page.waitForTimeout(240);
 
@@ -101,7 +94,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await expect(page.locator('#eventModal')).toBeHidden();
   await expect(page.locator('#calendarView')).toBeVisible();
   await page.goBack();
-  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#tasksView')).toBeVisible();
 
   const before=await page.evaluate(()=>window.KPTURouter?.current);
   const navBox=await page.locator('.app-nav').boundingBox();
