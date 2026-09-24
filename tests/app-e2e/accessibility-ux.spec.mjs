@@ -262,8 +262,8 @@ test('suborganization edit dialog exposes semantics, Escape close, and trigger r
 test('solo shell keeps logout accessible without a personal profile entry',async({page})=>{
   await boot(page,{width:1024,height:768});
   await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop')).toHaveCount(0);
-  await expect(page.locator('#logoutBtn')).toBeVisible();
-  await expect(page.locator('#logoutBtn')).toHaveAccessibleName('로그아웃');
+  await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();
+  await expect(page.locator('#sidebarLogoutBtn')).toHaveAccessibleName('로그아웃');
 });
 
 test('symbol-only controls have accessible names',async({page})=>{
