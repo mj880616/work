@@ -53,7 +53,7 @@ jobs:
       - name: Start baseline main app server
         run: |
           mkdir -p /tmp/kptu-p6-main
-          git archive 3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c | tar -x -C /tmp/kptu-p6-main
+          git archive 1b6f502dae5c558550649a368eab086b62f274bb | tar -x -C /tmp/kptu-p6-main
           (cd /tmp/kptu-p6-main && python3 -m http.server 8124 >/tmp/kptu-p6-main-http.log 2>&1 &)
           for i in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8124/app/ >/dev/null; then exit 0; fi
