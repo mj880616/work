@@ -60,7 +60,7 @@
       const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0;
       const available=Math.floor(viewportBottom-grid.getBoundingClientRect().top-safeBottom);
       height=Math.max(minGrid,available);
-      if(!mq760.matches)height=Math.min(height,Math.max(minGrid,Math.floor(viewportHeight*.72)));
+      if(!mq760.matches)height=Math.min(height,Math.max(minGrid,Math.floor(viewportHeight*.82)));
     }
     grid.style.setProperty('--cmv-grid-height',height+'px');
     grid.dataset.cmvViewportHeight=String(height);
