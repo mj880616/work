@@ -131,3 +131,39 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   });
   expect(agendaSafe.cardBottom).toBeLessThanOrEqual(agendaSafe.viewportBottom+1);
 });
+
+
+test('mobile shell and event modal stay inside 360/390/412/430px viewports',async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width:390,height:844});
+  await mockApp(page);
+  await page.goto('http://127.0.0.1:8123/app/');
+  await signIn(page);
+
+  for(const width of [360,390,412,430]){
+    await page.setViewportSize({width,height:844});
+    await page.waitForTimeout(50);
+    const shell=await page.evaluate(()=>{
+      const rect=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom}};
+      return {topbar:rect(document.querySelector('.topbar')),nav:rect(document.querySelector('.app-nav')),viewport:{width:innerWidth,height:innerHeight}};
+    });
+    expect(shell.topbar.left).toBeGreaterThanOrEqual(-1);
+    expect(shell.topbar.right).toBeLessThanOrEqual(width+1);
+    expect(shell.nav.left).toBeGreaterThanOrEqual(-1);
+    expect(shell.nav.right).toBeLessThanOrEqual(width+1);
+
+    await page.locator('[data-view="calendar"]').click();
+    await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
+    await page.locator('#newEventBtn').click();
+    await expect(page.locator('#eventModal')).toBeVisible();
+    const modal=await page.evaluate(()=>{
+      const r=document.querySelector('#eventModal .modal-card').getBoundingClientRect();
+      return {left:r.left,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight};
+    });
+    expect(modal.left).toBeGreaterThanOrEqual(-1);
+    expect(modal.right).toBeLessThanOrEqual(width+1);
+    expect(modal.bottom).toBeLessThanOrEqual(modal.height+1);
+    await page.goBack();
+    await expect(page.locator('#eventModal')).toBeHidden();
+  }
+});

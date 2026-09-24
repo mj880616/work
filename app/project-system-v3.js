@@ -47,12 +47,9 @@ async function context(epoch=projectEpoch){
     nextMembership=ms?.[0]||null;nextWid=nextMembership?.workspace_id||null;
   }
   if(!nextWid)return false;
-  const [nextMembers,nextProfiles]=await Promise.all([
-    api(`/rest/v1/app_workspace_members?workspace_id=eq.${nextWid}&select=workspace_id,user_id,role,created_at`),
-    api('/rest/v1/app_profiles?select=user_id,display_name')
-  ]);
+  const nextProfiles=await api('/rest/v1/app_profiles?select=user_id,display_name');
   if(epoch!==projectEpoch)return false;
-  user=nextUser;membership=nextMembership;wid=nextWid;members=nextMembers||[];profiles=nextProfiles||[];
+  user=nextUser;membership=nextMembership;wid=nextWid;members=[];profiles=nextProfiles||[];
   return true
 }
 async function loadProjects(epoch=projectEpoch){

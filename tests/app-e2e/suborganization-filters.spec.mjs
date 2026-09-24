@@ -27,7 +27,7 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=7");
+  expect(views).toContain("suborganizations.js?v=8");
   expect(views).toContain("workplace-detail.js?v=6");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
