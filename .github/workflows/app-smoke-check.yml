@@ -173,12 +173,10 @@ jobs:
           grep -q "logout.addEventListener" app/topbar-actions.js
           if grep -Eq "teamManageTop|ccMessageTop|userBadge" app/topbar-actions.js; then echo 'removed personal or message action returned to the topbar'; exit 1; fi
 
-          grep -q "function taskProjectOptions" app/team.js
-          grep -q "function taskProjectRows" app/team.js
-          grep -q "metadata?.project_system==='v2'" app/team.js
-          if grep -q "x.status!=='archived'&&x.parent_id" app/team.js; then echo 'task project picker returned to child-only filtering'; exit 1; fi
-          grep -q "taskProjectOptions(true)" app/team.js
+          if grep -Eq "function taskProjectOptions|function taskProjectRows|function openTaskModal|saveTaskBtn.*saveTask|dataset\.taskToggle" app/team.js; then echo 'legacy task ownership returned to team.js'; exit 1; fi
           grep -q "function openCreate(projectId='')" app/task-layout.js
+          grep -q "function projectOptions(selected='')" app/task-layout.js
+          grep -q "metadata?.project_system==='v2'" app/task-layout.js
           grep -q "window.KPTUTaskLayout={openTask,openCreate}" app/task-layout.js
           grep -q "KPTUTaskLayout?.openCreate" app/project-system-v3.js
           if grep -q "할 일은 하위 프로젝트에 연결됩니다" app/project-system-v3.js; then echo 'top-level project task guard returned'; exit 1; fi
