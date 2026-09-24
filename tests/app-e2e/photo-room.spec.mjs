@@ -77,7 +77,9 @@ test('photo upload uses shared session without restoring calendar record cards',
   await signIn(page);
 
   await page.locator('[data-view="calendar"]').click();
-  await page.locator('#eventRecordList [data-event-detail]').click();
+  await expect(page.locator('#eventRecordSection')).toHaveCount(0);
+  await expect(page.locator('#eventRecordList')).toHaveCount(0);
+  await page.evaluate(()=>window.KPTURouter.go('photos'));
   await expect(page.locator('#eventDetailModal')).toBeVisible();
   await expect(page.locator('#eventPhotoStrip')).toContainText('사진이 없습니다.');
   await page.locator('#eventPhotoUpload').click();
