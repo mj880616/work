@@ -90,7 +90,7 @@
     await import('./page-design-core.js?v=4');
     await import('./task-workflow.js?v=7'); await window.__KPTU_TASK_WORKFLOW_READY__;
     await import('./task-row-view.js?v=1');
-    await import('./task-layout.js?v=10'); await window.__KPTU_TASK_LAYOUT_READY__;
+    await import('./task-layout.js?v=11'); await window.__KPTU_TASK_LAYOUT_READY__;
     await Promise.all([import('./photo-room.js?v=4'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=5'),import('./library-upload.js?v=11')]);
     await window.__KPTU_PHOTO_ROOM_READY__;
     await import('./web1-board.js?v=3');
