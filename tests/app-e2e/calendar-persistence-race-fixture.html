@@ -2,7 +2,6 @@
 <html lang="ko">
 <head><meta charset="utf-8"><title>Calendar persistence race fixture</title></head>
 <body>
-  <input id="showGoogleCalendar" type="checkbox" checked>
   <div id="googleCalendarControls"></div>
   <div id="googleCalendarList">
     <label><input type="checkbox" data-google-cal="cal-a" checked> A</label>
@@ -12,16 +11,33 @@
   <div id="monthTitle">2026년 9월</div>
   <div id="calendarGrid"></div>
   <script>
+    for(let i=0;i<42;i++){const cell=document.createElement('div');cell.className='cal-cell';document.querySelector('#calendarGrid').appendChild(cell)}
+    window.__session={user:{id:'user-a'}};
     window.__preferenceCalls=0;
+    window.__eventCalls=0;
+    window.__eventDelay=0;
+    window.__eventRanges=[];
     window.__serverPrefs={calendar_ids:['cal-a'],calendar_colors:{},enabled:true};
+    window.__allEvents=[
+      {id:'a-all-day',source:'google',calendarId:'cal-a',title:'A all-day',start:'2026-09-03',end:'2026-09-04',allDay:true,color:'#4285f4'},
+      {id:'a-timed',source:'google',calendarId:'cal-a',title:'A timed',start:'2026-09-10T09:00:00+09:00',end:'2026-09-10T10:00:00+09:00',allDay:false,color:'#4285f4'},
+      {id:'a-recurring-1',recurringEventId:'series-a',source:'google',calendarId:'cal-a',title:'A recurring',start:'2026-09-17T09:00:00+09:00',end:'2026-09-17T10:00:00+09:00',allDay:false,color:'#4285f4'},
+      {id:'b-timed',source:'google',calendarId:'cal-b',title:'B timed',start:'2026-09-11T11:00:00+09:00',end:'2026-09-11T12:00:00+09:00',allDay:false,color:'#0b8043'}
+    ];
     window.__KPTU_RENDER_GOOGLE_CONTROLS__=()=>{};
     window.KPTURuntime={
       config:{url:'https://calendar.test'},
-      session:{ensure:async()=>true},
+      session:{ensure:async()=>!!window.__session,read:()=>window.__session},
       api:async(url,{method='GET',body=null}={})=>{
         const u=new URL(url,location.href),action=u.searchParams.get('action')||'';
-        if(action==='status')return {connected:true,enabled:true,selected:['cal-a'],colors:{},calendars:[{id:'cal-a',backgroundColor:'#4285f4'},{id:'cal-b',backgroundColor:'#4285f4'}]};
-        if(action==='events')return {events:[],eventColors:{}};
+        if(action==='status')return {connected:true,enabled:true,selected:[...window.__serverPrefs.calendar_ids],colors:{},calendars:[{id:'cal-a',backgroundColor:'#4285f4'},{id:'cal-b',backgroundColor:'#0b8043'}]};
+        if(action==='events'){
+          window.__eventCalls++;
+          window.__eventRanges.push({timeMin:u.searchParams.get('timeMin'),timeMax:u.searchParams.get('timeMax')});
+          if(window.__eventDelay)await new Promise(r=>setTimeout(r,window.__eventDelay));
+          const selected=new Set(window.__serverPrefs.calendar_ids);
+          return {events:window.__allEvents.filter(e=>selected.has(e.calendarId)),eventColors:{}};
+        }
         if(method==='POST'&&body?.action==='preferences'){
           const call=++window.__preferenceCalls;
           await new Promise(r=>setTimeout(r,call===1?180:20));
