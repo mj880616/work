@@ -137,7 +137,7 @@ jobs:
           test ! -f app/home-task.css
           test ! -f app/library-public-toggle.js
           if grep -Eq "home-task-controls|home-task.css|library-public-toggle" app/loader-v2.js app/styles.css; then echo 'retired home/library decorator returned'; exit 1; fi
-          grep -q "photo-room.js?v=4" app/loader-v2.js
+          grep -q "photo-room.js?v=5" app/loader-v2.js
           grep -q "web1-board.js?v=3" app/loader-v2.js
           grep -q "meeting-round-detail.js?v=11" app/loader-v2.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/loader-v2.js
@@ -228,6 +228,7 @@ jobs:
           if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-dashboard-v2.js app/photo-room.js app/notification-center-ui.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
           if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js app/notification-center-ui.js; then echo 'core UI bypassed shared runtime session'; exit 1; fi
           if grep -q "location.reload" app/photo-room.js; then echo 'feature returned to full-page reload'; exit 1; fi
+          if grep -Eq "eventRecordSection|eventRecordList|renderRecordList|일정 기록" app/photo-room.js; then echo 'calendar schedule record section returned'; exit 1; fi
 
 
       - name: Check Design System 1.0 invariants

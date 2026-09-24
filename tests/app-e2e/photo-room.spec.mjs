@@ -65,7 +65,7 @@ async function signIn(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
 }
 
-test('photo upload uses shared session and refreshes schedule records without reloading the app',async({page})=>{
+test('photo upload uses shared session without restoring calendar record cards',async({page})=>{
   test.setTimeout(60000);
   uploaded=false;uploadRequest=null;
   comments=[];documents=[];
@@ -77,10 +77,12 @@ test('photo upload uses shared session and refreshes schedule records without re
   await signIn(page);
 
   await page.locator('[data-view="calendar"]').click();
-  await page.locator('#eventRecordList [data-event-detail]').click();
-  await expect(page.locator('#eventDetailModal')).toBeVisible();
-  await expect(page.locator('#eventPhotoStrip')).toContainText('사진이 없습니다.');
-  await page.locator('#eventPhotoUpload').click();
+  await expect(page.locator('#eventRecordSection')).toHaveCount(0);
+  await expect(page.locator('#eventRecordList')).toHaveCount(0);
+  await expect(page.locator('#photosView')).toHaveCount(1);
+  await page.locator('#photosView').evaluate(el=>el.classList.remove('hidden'));
+  await expect(page.locator('#photosView')).toBeVisible();
+  await page.locator('#photoUploadOpen').click();
   await expect(page.locator('#photoUploadModal')).toBeVisible();
   await expect(page.locator('#photoEvent')).toContainText('인력확충 기자회견');
   await page.locator('#photoCaption').fill('현장 사진');
@@ -90,8 +92,13 @@ test('photo upload uses shared session and refreshes schedule records without re
   await page.locator('#photoUploadBtn').click();
 
   await expect(page.locator('#photoUploadModal')).toBeHidden({timeout:10000});
-  await expect(page.locator('#eventPhotoStrip')).toContainText('현장 사진',{timeout:10000});
   await expect(page.locator('#toast')).toContainText('사진을 올렸습니다.');
+  expect(appNavigations).toBe(navigationBaseline);
+  const detailNavigationBaseline=appNavigations;
+  await expect(page.locator('#photoGrid [data-photo-event]')).toHaveCount(1);
+  await page.locator('#photoGrid [data-photo-event]').dispatchEvent('click');
+  await expect(page.locator('#eventDetailModal')).toBeVisible();
+  await expect(page.locator('#eventPhotoStrip')).toContainText('현장 사진',{timeout:10000});
   await page.locator('#eventCommentBody').fill('현장 기록 댓글');
   await page.locator('#addEventComment').click();
   await expect(page.locator('#eventComments')).toContainText('현장 기록 댓글');
@@ -102,5 +109,5 @@ test('photo upload uses shared session and refreshes schedule records without re
   await expect(page.locator('#eventDocuments a')).toHaveAttribute('href','https://example.org/record');
   expect(uploadRequest?.authorization).toBe('Bearer photo-access');
   expect(uploadRequest?.contentType).toContain('multipart/form-data');
-  expect(appNavigations).toBe(navigationBaseline);
+  expect(appNavigations).toBe(detailNavigationBaseline);
 });

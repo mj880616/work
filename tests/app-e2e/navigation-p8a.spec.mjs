@@ -90,7 +90,7 @@ test('removed personal deep links return home while photo and media links remain
   await expect(page.locator('#photosView')).toBeVisible({timeout:20000});
   await page.locator('#photosCalendarEntry').click();
   await expect(page.locator('#calendarView')).toBeVisible();
-  await expect(page.locator('#eventRecordList [data-event-detail]')).toHaveCount(1);
+  await expect(page.locator('#eventRecordSection,#eventRecordList')).toHaveCount(0);
 });
 
 for(const width of [390,360]){
