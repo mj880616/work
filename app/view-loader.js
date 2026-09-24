@@ -23,12 +23,12 @@ async function calendar(){
   await team('calendar');
   await Promise.all([
     module('./calendar-plus.js?v=8','__KPTU_CALENDAR_PLUS_READY__'),
-    module('./calendar-persistence.js?v=12','__KPTU_CALENDAR_PERSISTENCE_READY__'),
+    module('./calendar-persistence.js?v=13','__KPTU_CALENDAR_PERSISTENCE_READY__'),
     module('./calendar-interactions-v2.js?v=6','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=4','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__'),
     module('./suborganizations.js?v=7','__KPTU_SUBORGANIZATIONS_READY__'),
-    module('./calendar-health.js?v=3'),
+    module('./calendar-health.js?v=4'),
     module('./google-calendar-return-status.js?v=1')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
