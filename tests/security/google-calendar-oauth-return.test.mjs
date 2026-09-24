@@ -12,6 +12,11 @@ test('calendar OAuth state is namespaced independently from Tasks and keeps the 
   assert.match(calendar, /redirect_uri:CALLBACK/);
 });
 
+test('calendar event creation targets the calendar id supplied by the client', () => {
+  assert.match(calendar, /const calendarId=String\(body\.calendar_id\|\|'primary'\)/);
+  assert.match(calendar, /calendars\/\$\{encodeURIComponent\(calendarId\)\}\/events/);
+});
+
 test('calendar callback preserves the canonical calendar view for success and failure', () => {
   assert.match(callback, /function calendarRedirect\(result: 'connected' \| 'error'/);
   assert.match(callback, /u\.searchParams\.set\('view', 'calendar'\)/);
