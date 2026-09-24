@@ -8,6 +8,7 @@ on:
       - 'app/workplace-detail.css'
       - 'app/styles.css'
       - 'app/loader-v2.js'
+      - 'app/view-loader.js'
       - '.github/workflows/workplace-detail-static-check.yml'
   pull_request:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - 'app/workplace-detail.css'
       - 'app/styles.css'
       - 'app/loader-v2.js'
+      - 'app/view-loader.js'
       - '.github/workflows/workplace-detail-static-check.yml'
 
 jobs:
@@ -29,7 +31,7 @@ jobs:
           test -f app/workplace-detail.js
           test -f app/workplace-detail.css
           grep -q "workplace-detail.css?v=3" app/styles.css
-          grep -q "workplace-detail.js?v=5" app/loader-v2.js
+          grep -q "workplace-detail.js?v=6" app/view-loader.js
           grep -q "data-wd-close" app/workplace-detail.js
           grep -q "data-wd-item-edit" app/workplace-detail.js
           grep -q "data-wd-time-edit" app/workplace-detail.js

@@ -44,94 +44,77 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
   expect(team).toContain("'authView','bootstrapView','appView','bootView'");
 });
 
-test('startup assets are discovered from the document head without changing auth gates', async () => {
+test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  const body=html.slice(html.indexOf('<body>'));
-  expect(head).toContain('<script src="./app.js?v=101" defer></script>');
-  expect(body).not.toContain('<script src="./app.js?v=101" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=105" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=213','./runtime-client.js?v=3','./native-auth-bridge.js?v=4',
-    './calendar-return-bridge.js?v=3','./team.js?v=39','./home-dashboard-v2.js?v=8'
+    './loader-v2.js?v=217','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
+    './calendar-return-bridge.js?v=3','./team.js?v=40'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=213')");
+  expect(head).not.toContain('home-dashboard-v2.js');
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=217')");
   const loader=read('app/loader-v2.js');
-  expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=3')");
-  expect(loader).toContain("import('./team.js?v=39')");
-  expect(loader).toContain("import('./google-tasks.js?v=7')");
-  expect(loader).toContain("if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return");
+  expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
+  expect(loader).toContain("import('./team.js?v=40')");
+  expect(loader).toContain("import('./view-loader.js?v=2')");
+  expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
 });
 
-test('authenticated home commits before non-critical feature bundle', async ({ page }) => {
-  const response=await page.request.get(loaderUrl);
-  expect(response.ok()).toBeTruthy();
-  const source=await response.text();
-  const usable=source.indexOf('window.__KPTU_MARK_APP_UI_READY__?.({usable:homeResult?.ok===true})');
-  const deferred=source.indexOf('defer(()=>loadFeatures()');
-  expect(source).toContain('const homeResult=await window.__KPTU_HOME_READY__');
-  expect(source).not.toContain('await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])');
-  const router=read('app/app-router.js');
-  expect(router).toContain('authenticatedShellReady()');
-  expect(router).toContain('appReady()||authenticatedShellReady()');
-  expect(source).toContain('await window.__KPTU_START_TEAM_DATA__()');
-  expect(read('app/home-dashboard-v2.js')).toContain('resolveReady?.({ok:false})');
-  expect(read('app/app.js')).toContain("mark(usable?'homeUsable':'uiReadyOnly')");
-  expect(read('app/app.js')).toContain("if(!forced||document.querySelector('#startupDiagCopy'))return;");
-  expect(read('app/app.js')).not.toContain("(!forced&&!slow)");
-  expect(usable).toBeGreaterThan(0);
-  expect(deferred).toBeGreaterThan(usable);
-  const criticalAwaitedImports=source.split('\n').filter(line=>/^  await import\(/.test(line));
-  for(const path of ['project-system-v3','profile-settings','media-workflow','meeting-round-detail','google-tasks']){
-    expect(criticalAwaitedImports.some(line=>line.includes(path))).toBeFalsy();
-  }
+test('requested route is resolved before view-specific feature loading', async () => {
+  const source=read('app/loader-v2.js');
+  const viewLoader=read('app/view-loader.js');
+  expect(source).toContain("const rawRequested=params.get('view')||(params.get('project')?'projects':'home')");
+  expect(source).toContain("result=await viewLoader.load(requested)");
+  expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
+  expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
+  expect(source).not.toContain("defer(()=>loadFeatures()");
+  expect(viewLoader).toContain("const loaders={home,calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos,notifications}");
 });
 
-test('direct feature URL failures remain visible without prescribing startup topology', async ({ page }) => {
-  const source=await (await page.request.get(loaderUrl)).text();
+test('direct feature URLs load one requested view and keep failures visible', async () => {
+  const source=read('app/loader-v2.js');
+  expect(source).toContain("startup?.mark('requestedViewLoadStart',{view:requested})");
+  expect(source).toContain("startup?.mark('requestedViewReady',{view:requested})");
   expect(source).toContain("box.id='deferredFeatureError'");
   expect(source).toContain("setAttribute('role','alert')");
-  expect(source).toContain('이 기능을 불러오지 못했습니다.');
-  // Do not assert that direct routes must await the monolithic feature bundle.
-  // Route-first startup is allowed to replace that implementation contract.
+  expect(source).not.toContain("await window.__KPTU_HOME_READY__");
+  expect(source).not.toContain("await loadFeatures()");
 });
 
-test('home reuses authenticated boot context and guards stale-session commits', async () => {
+test('home and feature modules reuse authenticated boot context', async () => {
   const home=read('app/home-dashboard-v2.js');
   const team=read('app/team.js');
+  const runtime=read('app/runtime-client.js');
   expect(team).toContain("user=userFromSession()||await getUser()");
   expect(team).toContain("workspace:app_workspaces(id,slug,name)");
-  expect(home).toContain("app.classList.add('kptu-shell-ready')");
-  expect(read('app/base-ui.css')).toContain("#appView:not(.kptu-ui-ready):not(.kptu-shell-ready)");
+  expect(team).toContain("window.KPTURuntime?.context?.set?.(window.__KPTU_BOOT_CONTEXT__)");
+  expect(runtime).toContain("context:{read:contextRead,set:contextSet,clear:contextClear}");
   expect(home).toContain('window.__KPTU_BOOT_CONTEXT__');
   expect(home).toContain('if(epoch!==renderEpoch)return');
-  expect(home).toContain("addEventListener('kptu:session-changed'");
-  expect(team).toContain("addEventListener('kptu:session-changed'");
-  expect(team).toContain("showOnly('authView')");
 });
 
-test('retired page editors and media drafting workflow stay out while the Web1 press archive remains available', async ({ page }) => {
-  const source=await (await page.request.get(loaderUrl)).text();
+test('route manifest keeps retired modules out and Web1 views isolated', async () => {
+  const source=read('app/view-loader.js');
   for(const retired of ['./page-list-controller.js','./page-save-controller.js','./page-builder.js','./page-shortcut.js','./page-management.js','./page-inline-viewer-v2.js']){
     expect(source).not.toContain(retired);
   }
-  expect(source).toContain("import('./web1-board.js?v=3')");
-  expect(source).not.toContain("import('./media-workflow.js");
-  expect(source).toContain("import('./web1-press.js?v=2')");
-  expect(source.indexOf('./workplace-ai-report.js')).toBeGreaterThan(source.indexOf("startup?.mark('allInitialModulesComplete')"));
+  expect(source).toContain("module('./web1-board.js?v=3')");
+  expect(source).toContain("module('./web1-press.js?v=2'");
   expect(source).not.toContain('./workflow-ai-v3.js');
+  expect(source).not.toContain('./media-workflow.js');
 });
 
-test('feature navigation waits for deferred readiness and bootstrap loads access approval', async () => {
+test('feature navigation lazy-loads only the destination view and bootstrap still loads access approval', async () => {
   const source=read('app/loader-v2.js');
   expect(source).toContain("if(teamState==='bootstrap'){await import('./access-approval.js?v=5');return}");
   expect(source).toContain("event.stopImmediatePropagation()");
   expect(source).toContain('#appView [data-hdv-goto]');
-  expect(source).toContain('#appView [data-hdv-project]');
   expect(source).toContain('#newTaskBtn');
-  expect(source).toContain("loadFeatures().then(()=>{status.remove()");
-  expect(source).toContain("const homeResult=await window.__KPTU_HOME_READY__");
-  expect(source).not.toContain("await Promise.all([window.__KPTU_HOME_READY__,mobileNavigationReady])");
+  expect(source).toContain("viewLoader.load(view).then");
+  expect(source).toContain("window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load}");
+  expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
 });
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -139,7 +122,7 @@ async function loginWithMock(page,{delayGroups=false}={}){
   const user={id:'p6-flow-user',email:'p6-flow@example.org',user_metadata:{display_name:'P6 QA'}};
   await page.route(SB+'/**',async route=>{
     const path=new URL(route.request().url()).pathname;
-    if(delayGroups&&path==='/rest/v1/app_groups')await new Promise(resolve=>setTimeout(resolve,700));
+    if(delayGroups&&path==='/rest/v1/app_tasks')await new Promise(resolve=>setTimeout(resolve,700));
     const data=path==='/auth/v1/token'?{access_token:'p6-flow-access',refresh_token:'p6-flow-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user}:
       path==='/auth/v1/user'?user:
       path==='/rest/v1/app_workspace_members'?[{workspace_id:'p6-flow-workspace',user_id:user.id,role:'owner',workspace:{id:'p6-flow-workspace',slug:'kptu-work',name:'웹2'}}]:

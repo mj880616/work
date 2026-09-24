@@ -8,15 +8,16 @@ const read=path=>readFileSync(resolve(here,'../..',path),'utf8');
 
 test('project view has one active renderer and no legacy overlay chain', async () => {
   const loader=read('app/loader-v2.js');
+  const views=read('app/view-loader.js');
   const html=read('app/index.html');
   const team=read('app/team.js');
-  expect(loader).toContain("project-system-v3.js");
+  expect(views).toContain("project-system-v3.js?v=21");
   for(const legacy of [
     'project-system-v2.js','project-hide-legacy.js','project-files.js','project-delete.js',
     'project-modal-polish.js','project-modal-scroll-lock.js','project-access.js',
     'project-update-actions.js','project-task-link.js','project-v2.js','project-operating-model.js',
     'project-templates.js','project-deeplink.js','project-archive.js','project-suborganization-links.js'
-  ]) expect(loader).not.toContain(legacy);
+  ]) {expect(loader).not.toContain(legacy);expect(views).not.toContain(legacy)}
   expect(html).not.toContain('id="projectModal"');
   expect(html).not.toContain('id="projectCreateModal"');
   expect(team).not.toContain('renderProjects');

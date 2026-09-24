@@ -8,6 +8,7 @@ on:
       - 'app/notification-center-ui.css'
       - 'app/profile-settings.js'
       - 'app/loader-v2.js'
+      - 'app/view-loader.js'
       - 'app/styles.css'
       - '.github/workflows/collaboration-ownership-check.yml'
   pull_request:
@@ -17,6 +18,7 @@ on:
       - 'app/notification-center-ui.css'
       - 'app/profile-settings.js'
       - 'app/loader-v2.js'
+      - 'app/view-loader.js'
       - 'app/styles.css'
       - '.github/workflows/collaboration-ownership-check.yml'
 
@@ -29,8 +31,8 @@ jobs:
         run: |
           set -e
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
-          grep -q "notification-center-ui.js?v=6" app/loader-v2.js
-          grep -q "await window.__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js
+          grep -q "notification-center-ui.js?v=7" app/view-loader.js
+          grep -q "__KPTU_NOTIFICATION_CENTER_READY__" app/view-loader.js
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           grep -q "notification-center-ui.css?v=2" app/styles.css
           grep -q "window.__KPTU_NOTIFICATION_CENTER_READY__" app/notification-center-ui.js

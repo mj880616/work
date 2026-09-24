@@ -31,7 +31,7 @@ async function mockApi(context,{latencyMs=0}={}){
 async function instrument(context,requestedView){
   await context.addInitScript(view=>{
     const metric=window.__P6_BENCHMARK__={
-      requestedView:view,topbarMs:null,shellMs:null,homeDataMs:null,homeUsableMs:null,
+      requestedView:view,topbarMs:null,shellMs:null,requestedShellMs:null,homeDataMs:null,homeUsableMs:null,
       requestedViewMs:null,allModulesMs:null,initialImports:null,initialApiRequests:null,
       apiByPath:{},featureImports:[]
     };
@@ -51,6 +51,16 @@ async function instrument(context,requestedView){
     const visible=el=>!!el&&!el.classList.contains('hidden')&&getComputedStyle(el).visibility==='visible'&&getComputedStyle(el).display!=='none';
     window.addEventListener('kptu:startup-mark',event=>{
       if(event.detail?.name==='allInitialModulesComplete')metric.allModulesMs=performance.now();
+      if(event.detail?.name==='requestedViewReady'&&metric.requestedViewMs===null){
+        metric.requestedViewMs=performance.now();snapshot();
+      }
+    });
+    window.addEventListener('kptu:app-ui-ready',()=>{
+      if(metric.requestedViewMs!==null)return;
+      requestAnimationFrame(()=>{
+        const app=document.querySelector('#appView'),target=document.querySelector('#'+view+'View');
+        if(visible(app)&&visible(target)){metric.requestedViewMs=performance.now();snapshot()}
+      });
     });
     const timer=setInterval(()=>{
       const now=performance.now(),app=document.querySelector('#appView'),nav=app?.querySelector('.app-nav');
@@ -59,16 +69,14 @@ async function instrument(context,requestedView){
       if(metric.homeDataMs===null&&document.querySelector('#hdvProjects')?.children.length)metric.homeDataMs=now;
       if(metric.homeUsableMs===null&&metric.homeDataMs!==null&&visible(app))metric.homeUsableMs=now;
       const target=document.querySelector('#'+view+'View');
-      if(metric.requestedViewMs===null&&visible(app)&&visible(target)){
-        metric.requestedViewMs=now;snapshot();clearInterval(timer);
-      }
+      if(metric.requestedShellMs===null&&visible(app)&&visible(target))metric.requestedShellMs=now;
+      if(metric.requestedViewMs!==null)clearInterval(timer);
     },5);
   },requestedView);
 }
 
 async function waitForStartup(page){
   await page.waitForFunction(()=>typeof window.__P6_BENCHMARK__?.requestedViewMs==='number',null,{timeout:30000});
-  await page.waitForFunction(()=>typeof window.__P6_BENCHMARK__?.allModulesMs==='number',null,{timeout:5000}).catch(()=>{});
   return page.evaluate(()=>window.__P6_BENCHMARK__);
 }
 
@@ -119,7 +127,7 @@ try{
           warm.push(await warmLoad(page,base,view));
           await context.close();
         }
-        const keys=['topbarMs','shellMs','homeDataMs','homeUsableMs','requestedViewMs','allModulesMs','initialImports','initialApiRequests'];
+        const keys=['topbarMs','shellMs','requestedShellMs','homeDataMs','homeUsableMs','requestedViewMs','allModulesMs','initialImports','initialApiRequests'];
         const medianCold={},medianWarm={};
         for(const key of keys){medianCold[key]=median(cold,key);medianWarm[key]=median(warm,key)}
         results.samples[label][viewportName][view]={cold,warm,medianCold,medianWarm};
