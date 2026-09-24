@@ -1,6 +1,5 @@
 const mq=window.matchMedia('(max-width:760px)');
 const mobileLabels={
-  newEventBtn:['+ 일정','+ 일정 등록'],
   newTaskBtn:['+ 할 일','+ 할 일 추가'],
   newDocumentBtn:['+ 자료','+ 자료 등록'],
   newMeetingBtn:['+ 회의','+ 회의 결과'],

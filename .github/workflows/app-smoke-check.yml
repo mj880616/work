@@ -49,17 +49,18 @@ jobs:
           const text=fs.readFileSync('app/loader-v2.js','utf8');
           const keys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=37')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=38')",'await window.__KPTU_TEAM_READY__',
+            "import('./calendar-month-view.js?v=1')",'await window.__KPTU_CALENDAR_MONTH_VIEW_READY__',
             "import('./task-workflow.js?v=8')",'await window.__KPTU_TASK_WORKFLOW_READY__',
             "import('./task-row-view.js?v=1')","import('./task-layout.js?v=12')",'await window.__KPTU_TASK_LAYOUT_READY__',
             "import('./web1-board.js?v=3')",
             "import('./meeting-round-detail.js?v=11')",'await window.__KPTU_MEETING_ROUND_DETAIL_READY__',
             "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
-            "import('./calendar-plus.js?v=7')",'await window.__KPTU_CALENDAR_PLUS_READY__',
-            "import('./calendar-persistence.js?v=11')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
-            "import('./calendar-interactions-v2.js?v=5')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
-            "import('./calendar-mobile-ui.js?v=3')",'await window.__KPTU_CALENDAR_MOBILE_UI_READY__',
-            "import('./calendar-day-overflow.js?v=2')",'await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',
+            "import('./calendar-plus.js?v=8')",'await window.__KPTU_CALENDAR_PLUS_READY__',
+            "import('./calendar-persistence.js?v=12')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
+            "import('./calendar-interactions-v2.js?v=6')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
+            "import('./calendar-mobile-ui.js?v=4')",'await window.__KPTU_CALENDAR_MOBILE_UI_READY__',
+            "import('./calendar-day-overflow.js?v=3')",'await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',
             'window.__KPTU_MARK_APP_UI_READY__?.()'
           ];
           const pos=keys.map(key=>text.indexOf(key));
@@ -82,7 +83,7 @@ jobs:
             app/task-workflow.js app/task-row-view.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/page-builder.js app/page-builder.css \
             app/page-list-controller.js app/page-save-controller.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js app/page-core.css app/compact-list.css \
             app/project-system-v3.js app/project-system-v3.css \
-            app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
+            app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
             app/workflow-ai-v3.js app/workplace-ai-report.js app/photo-room.js \
             app/access-approval.css app/meeting-ui.css app/photo-room.css p/index.html; do
             test -f "$f"
@@ -102,7 +103,7 @@ jobs:
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
           grep -q "critical.css?v=1" app/index.html
-          grep -q "styles.css?v=47" app/loader-v2.js
+          grep -q "styles.css?v=48" app/loader-v2.js
           grep -q "ensureFeatureStyles" app/loader-v2.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
@@ -122,7 +123,7 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           grep -q "home-dashboard-v2.js?v=8" app/loader-v2.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
-          grep -q "team.js?v=37" app/loader-v2.js
+          grep -q "team.js?v=38" app/loader-v2.js
           grep -q "project-system-v3.js?v=19" app/loader-v2.js
           grep -q "task-workflow.js?v=8" app/loader-v2.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/loader-v2.js
@@ -143,15 +144,15 @@ jobs:
           if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
           grep -q "notification-center-ui.js?v=6" app/loader-v2.js
           grep -q "__KPTU_NOTIFICATION_CENTER_READY__" app/loader-v2.js
-          grep -q "calendar-plus.js?v=7" app/loader-v2.js
+          grep -q "calendar-plus.js?v=8" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_PLUS_READY__" app/loader-v2.js
-          grep -q "calendar-persistence.js?v=11" app/loader-v2.js
+          grep -q "calendar-persistence.js?v=12" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/loader-v2.js
-          grep -q "calendar-interactions-v2.js?v=5" app/loader-v2.js
+          grep -q "calendar-interactions-v2.js?v=6" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/loader-v2.js
-          grep -q "calendar-mobile-ui.js?v=3" app/loader-v2.js
+          grep -q "calendar-mobile-ui.js?v=4" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/loader-v2.js
-          grep -q "calendar-day-overflow.js?v=2" app/loader-v2.js
+          grep -q "calendar-day-overflow.js?v=3" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/loader-v2.js
 
           grep -q "topbar-actions.css?v=6" app/styles.css
@@ -163,7 +164,7 @@ jobs:
           grep -q "google-tasks.css?v=4" app/styles.css
           grep -q "library-upload.css?v=1" app/styles.css
           grep -q "meeting-ui.css?v=8" app/styles.css
-          grep -q "calendar-ui.css?v=2" app/styles.css
+          grep -q "calendar-ui.css?v=3" app/styles.css
           grep -q "page-core.css?v=7" app/styles.css
           grep -q "page-builder.css?v=2" app/styles.css
           grep -q "project-system-v3.css?v=13" app/styles.css
@@ -273,17 +274,22 @@ jobs:
       - name: Check calendar explicit-render invariants
         run: |
           set -e
-          grep -q "window.KPTUCalendarPlus={paint:" app/calendar-plus.js
+          grep -q "window.KPTUCalendarMonthView={render,visibleRange,setNavigate" app/calendar-month-view.js
+          grep -q "window.__KPTU_CALENDAR_MONTH_VIEW_READY__" app/calendar-month-view.js
+          grep -q "calendar-month-view.js?v=1" app/loader-v2.js
+          grep -q "__KPTU_CALENDAR_MONTH_VIEW_READY__" app/loader-v2.js
+          grep -q "KPTUCalendarMonthView?.render?.(" app/team.js
+          grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
-          grep -q "window.KPTUCalendarDayOverflow={apply}" app/calendar-day-overflow.js
-          grep -q "KPTUCalendarPlus?.paint?.()" app/team.js
-          grep -q "KPTUCalendarPersistence?.paint?.()" app/team.js
-          grep -q "KPTUCalendarDayOverflow?.apply?.()" app/team.js
-          grep -q "calendar-ui.css?v=2" app/styles.css
-          if grep -q "MutationObserver" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js app/calendar-interactions-v2.js; then echo 'calendar returned to DOM mutation correction'; exit 1; fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js app/calendar-interactions-v2.js; then echo 'calendar styles returned to runtime injection'; exit 1; fi
-          if grep -Eq "setTimeout\([^,]+,(20|25|40|120|150|180|250|350|400)\)" app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js; then echo 'calendar returned to delayed render correction'; exit 1; fi
-          if grep -q "dayEvents.slice" app/team.js; then echo 'team.js returned to painting event cards before calendar painters'; exit 1; fi
+          grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js
+          grep -q "calendar-ui.css?v=3" app/styles.css
+          grep -q "id=\"googleCalendarPanel\"" app/team.js
+          grep -q "id=\"calendarUpcoming\"" app/index.html
+          if grep -q "paintAppEvents" app/team.js; then echo 'team.js returned to a competing app-event painter'; exit 1; fi
+          if grep -q "grid.querySelectorAll('.cal-event.google')" app/calendar-persistence.js; then echo 'Google persistence returned to direct DOM painting'; exit 1; fi
+          if grep -q "MutationObserver" app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js app/calendar-interactions-v2.js; then echo 'calendar returned to DOM mutation correction'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js app/calendar-interactions-v2.js; then echo 'calendar styles returned to runtime injection'; exit 1; fi
+          if grep -Eq "setTimeout\([^,]+,(20|25|40|120|150|180|250|350|400)\)" app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-day-overflow.js app/calendar-mobile-ui.js; then echo 'calendar returned to delayed render correction'; exit 1; fi
 
       - name: Check project single-render invariants
         run: |
@@ -398,7 +404,7 @@ jobs:
             app/web1-board.js app/web1-board.css app/page-core.css app/compact-list.css \
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css app/notification-center-ui.js app/notification-center-ui.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/library-upload.js app/library-upload.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
-            app/task-workflow.js app/meeting-round-detail.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
+            app/task-workflow.js app/meeting-round-detail.js app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
             app/styles.css app/access-approval.css app/meeting-ui.css app/calendar-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done

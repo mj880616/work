@@ -75,7 +75,7 @@ Android OAuth 복귀 경로는 별도 기능 수정과 섞지 않음. 인증 UI 
 
 ### 업무 기능
 
-- 일정: `calendar-*`
+- 일정: `calendar-month-view.js`가 월간 DOM의 단일 renderer이며 `team.js`의 Web2 일정 상태와 `calendar-persistence.js`의 Google 일정 상태를 정규화해 함께 표시함. `calendar-persistence.js`는 Google 선택·조회·stale-response 방어만 담당하고 월간 DOM을 직접 그리지 않음. 나머지 `calendar-*`는 생성·편집·OAuth 복귀·날짜 상세 등 명시적 보조 기능을 담당함.
 - 할 일: `task-*`
 - 프로젝트: `project-*`
 - 회의: `meeting-*`

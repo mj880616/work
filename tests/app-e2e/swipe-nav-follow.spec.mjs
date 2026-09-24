@@ -72,7 +72,7 @@ test('active top menu follows swipe navigation and remains visible',async({page}
   await expect.poll(()=>page.evaluate(()=>document.querySelector('.app-nav')?.scrollLeft||0)).toBeLessThan(4);
 });
 
-test('calendar horizontal swipe works from toolbar, date cells and Google options',async({page})=>{
+test('calendar date-cell swipe changes month while surrounding areas keep app navigation',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
   await login(page);
@@ -88,8 +88,10 @@ test('calendar horizontal swipe works from toolbar, date cells and Google option
 
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
   await expect(page.locator('#calendarView')).toBeVisible();
-  await swipe(page,'#calendarGrid .cal-cell:nth-of-type(11)','right');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('home');
+  const gridMonthBefore=await page.locator('#monthTitle').textContent();
+  await swipe(page,'#calendarGrid .cal-cell[data-date]','right');
+  await expect.poll(()=>page.locator('#monthTitle').textContent()).not.toBe(gridMonthBefore);
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
 
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
   await page.evaluate(()=>{

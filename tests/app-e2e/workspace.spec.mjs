@@ -191,6 +191,11 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await page.locator('[data-view="calendar"]').click();
   await expect(page.locator('#calendarView')).toBeVisible();
+  await expect(page.locator('#googleCalendarPanel')).toBeVisible();
+  expect(await page.locator('#googleCalendarPanel').evaluate(el=>el.open)).toBe(false);
+  expect(await page.locator('#calendarUpcoming').evaluate(el=>el.open)).toBe(false);
+  const addSize=await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().width);
+  expect(addSize).toBeLessThanOrEqual(44);
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('E2E Web2 일정');
   await page.locator('#eventStartDate').fill('2026-09-14');
@@ -211,6 +216,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('#eventEndTime').fill('11:00');
   await page.locator('#saveEventBtn').click();
   await expect.poll(() => state.googleEvents.length).toBe(1);
+  await expect(page.locator('.cp-event')).toContainText('E2E Google 일정');
 
   await page.locator('[data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();
