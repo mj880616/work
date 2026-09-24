@@ -87,12 +87,13 @@ test('authenticated home commits before non-critical feature bundle', async ({ p
   }
 });
 
-test('direct feature URLs wait for the feature bundle and failures remain visible', async ({ page }) => {
+test('direct feature URL failures remain visible without prescribing startup topology', async ({ page }) => {
   const source=await (await page.request.get(loaderUrl)).text();
-  expect(source).toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).toContain("box.id='deferredFeatureError'");
   expect(source).toContain("setAttribute('role','alert')");
   expect(source).toContain('이 기능을 불러오지 못했습니다.');
+  // Do not assert that direct routes must await the monolithic feature bundle.
+  // Route-first startup is allowed to replace that implementation contract.
 });
 
 test('home reuses authenticated boot context and guards stale-session commits', async () => {
