@@ -26,7 +26,9 @@ test('Web2 first paint uses the final icon without a green placeholder or late f
 
 test('shell has a single visible Web2 brand and no duplicate workspace heading',async()=>{
   const html=read('app/index.html');
-  expect((html.match(/<span>웹2<\/span>/g)||[]).length).toBe(1);
+  expect((html.match(/data-core-brand/g)||[]).length).toBe(2);
+  expect(html).toContain('class="brand" data-core-brand');
+  expect(html).toContain('class="sidebar-brand" data-core-brand');
   expect(html).not.toContain('class="workspace-head"');
   expect(html).not.toContain('id="workspaceName"');
 });
@@ -47,13 +49,13 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=110" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=111" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=222','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=223','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=3','./team.js?v=42'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=222')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=223')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
   expect(loader).toContain("import('./team.js?v=42')");
