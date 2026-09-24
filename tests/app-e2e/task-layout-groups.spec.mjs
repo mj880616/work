@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 test('task screen renders directly into taskList and separates task origins',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
@@ -190,4 +191,26 @@ test('logout discards a stale project task response',async({page})=>{
   });
   await expect(page.locator('#taskModal')).toBeHidden();
   await expect(page.locator('#taskList')).toBeEmpty();
+});
+
+
+test('task mutations have one canonical owner and obsolete task filters stay removed',async()=>{
+  const team=readFileSync(new URL('../../app/team.js',import.meta.url),'utf8');
+  const index=readFileSync(new URL('../../app/index.html',import.meta.url),'utf8');
+  const loader=readFileSync(new URL('../../app/loader-v2.js',import.meta.url),'utf8');
+  const app=readFileSync(new URL('../../app/app.js',import.meta.url),'utf8');
+
+  expect(team).not.toContain('async function saveTask(){');
+  expect(team).not.toContain("$('#saveTaskBtn').onclick=saveTask");
+  expect(team).not.toContain('dataset.taskToggle');
+  expect(team).not.toContain("$('#taskProject').innerHTML");
+  expect(team).not.toContain("$('#taskAssignee').innerHTML");
+
+  expect(index).not.toContain('id="taskScope"');
+  expect(index).not.toContain('id="taskStatus"');
+  expect(index).toContain('./team.js?v=35');
+  expect(index).toContain('./loader-v2.js?v=205');
+  expect(index).toContain('./app.js?v=93');
+  expect(loader).toContain("import('./team.js?v=35')");
+  expect(app).toContain("import('./loader-v2.js?v=205')");
 });

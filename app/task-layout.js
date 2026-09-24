@@ -42,7 +42,6 @@ function openCreate(projectId=''){
   }
   $('#taskTitle')?.focus()
 }
-function ensureToolbarLabels(){const pairs=[['taskScope','할 일 범위'],['taskStatus','할 일 상태']];for(const [id,text] of pairs){const control=$('#'+id);if(!control||document.querySelector(`label[for="${id}"]`))continue;const label=document.createElement('label');label.className='sr-only';label.htmlFor=id;label.textContent=text;control.before(label)}}
 function openEdit(id,focus='title'){const t=tasks.find(x=>x.id===id);if(!t)return;setMode(t);ensureProjectOption(t.project_id);const vals={taskTitle:t.title||'',taskAssignee:t.assignee_id||userId,taskProject:t.project_id||'',taskDue:dateValue(t.due_at),taskPriority:t.priority||'normal',taskDescription:t.description||'',taskNote:t.note||''};Object.entries(vals).forEach(([id,v])=>{const e=$('#'+id);if(e)e.value=v});const m=$('#taskModal');if(m){m.classList.remove('hidden');m.classList.toggle('from-project',!$('#ps3DetailModal')?.classList.contains('hidden'));m.setAttribute('aria-hidden','false');window.KPTUA11y?.dialog.activate(m,{trigger:document.activeElement,initialFocus:focus==='note'?'#taskNote':'#taskTitle',onRequestClose:closeModal})}$('#'+(focus==='note'?'taskNote':'taskTitle'))?.focus()}
 function payload(){return{title:$('#taskTitle')?.value.trim()||'',project_id:$('#taskProject')?.value||null,assignee_id:editing?.assignee_id||userId,due_at:$('#taskDue')?.value?new Date($('#taskDue').value).toISOString():null,priority:$('#taskPriority')?.value||'normal',description:$('#taskDescription')?.value.trim()||null,note:$('#taskNote')?.value.trim()||null}}
 function changed(id=null){window.dispatchEvent(new CustomEvent('kptu:tasks-changed',{detail:{source:'task-layout',task_id:id}}))}
@@ -54,7 +53,7 @@ function openMenu(trigger){const menu=trigger.parentElement.querySelector('[data
 function install(){
   if(installed)return;
   const r=root(),btn=$('#saveTaskBtn');if(!r||!btn)return;
-  installed=true;ensureToolbarLabels();
+  installed=true;
   document.querySelector('#taskTarget')?.closest('label')?.remove();
   document.querySelectorAll('.meeting-action-target').forEach(x=>x.remove());
   btn.onclick=saveTask;
@@ -64,7 +63,7 @@ function install(){
   document.addEventListener('focusin',e=>{const menu=r.querySelector('[data-tl-menu-items]:not([hidden])');if(menu&&!menu.parentElement.contains(e.target))closeMenu()});
   document.addEventListener('toggle',e=>{const d=e.target?.closest?.('#taskList details[data-tl-state]');if(d)openState.set(d.dataset.tlState,d.open)},true);
   document.addEventListener('click',e=>{
-    if(e.target.closest?.('#quickTaskBtn,#newTaskBtn')){setMode(null);$('#taskModal')?.classList.toggle('from-project',!$('#ps3DetailModal')?.classList.contains('hidden'));return}
+    if(e.target.closest?.('#quickTaskBtn,#newTaskBtn')){e.preventDefault();openCreate('');return}
     if(e.target.closest?.('[data-close="taskModal"]')&&editing){e.preventDefault();e.stopImmediatePropagation();closeModal();return}
     const menu=e.target.closest?.('[data-tl-menu]');if(menu){e.preventDefault();openMenu(menu);return}
     const edit=e.target.closest?.('[data-tl-menu-edit]');if(edit){e.preventDefault();closeMenu(true);openEdit(edit.dataset.tlMenuEdit);return}
