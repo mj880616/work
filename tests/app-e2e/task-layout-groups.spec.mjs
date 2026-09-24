@@ -195,6 +195,10 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   const index=readFileSync(new URL('../../app/index.html',import.meta.url),'utf8');
   const loader=readFileSync(new URL('../../app/loader-v2.js',import.meta.url),'utf8');
   const app=readFileSync(new URL('../../app/app.js',import.meta.url),'utf8');
+  const layout=readFileSync(new URL('../../app/task-layout.js',import.meta.url),'utf8');
+  const workflow=readFileSync(new URL('../../app/task-workflow.js',import.meta.url),'utf8');
+  const meeting=readFileSync(new URL('../../app/meeting-round-detail.js',import.meta.url),'utf8');
+  const project=readFileSync(new URL('../../app/project-system-v3.js',import.meta.url),'utf8');
 
   expect(team).not.toContain('async function saveTask(){');
   expect(team).not.toContain("$('#saveTaskBtn').onclick=saveTask");
@@ -204,6 +208,14 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
 
   expect(index).not.toContain('id="taskScope"');
   expect(index).not.toContain('id="taskStatus"');
+  expect(index).not.toContain('id="taskAssignee"');
+  expect(layout).not.toContain('teamAssigned');
+  expect(layout).not.toContain('팀에서 부여된 할 일');
+  expect(layout).not.toContain('내가 추가');
+  expect(workflow).not.toContain('meeting-action-assignee');
+  expect(meeting).not.toContain('mrdTaskAssignee');
+  expect(meeting).toContain("assignee_id=eq.'+encodeURIComponent(mrdUser.id)");
+  expect(project).toContain('assignee_id=eq.${encodeURIComponent(user.id)}');
   expect(index).toContain('./team.js?v=36');
   expect(index).toContain('./loader-v2.js?v=206');
   expect(index).toContain('./app.js?v=94');
