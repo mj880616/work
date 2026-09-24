@@ -80,9 +80,8 @@ test('photo upload uses shared session without restoring calendar record cards',
   await expect(page.locator('#eventRecordSection')).toHaveCount(0);
   await expect(page.locator('#eventRecordList')).toHaveCount(0);
   await page.evaluate(()=>window.KPTURouter.go('photos'));
-  await expect(page.locator('#eventDetailModal')).toBeVisible();
-  await expect(page.locator('#eventPhotoStrip')).toContainText('사진이 없습니다.');
-  await page.locator('#eventPhotoUpload').click();
+  await expect(page.locator('#photosView')).toBeVisible();
+  await page.locator('#photoUploadOpen').click();
   await expect(page.locator('#photoUploadModal')).toBeVisible();
   await expect(page.locator('#photoEvent')).toContainText('인력확충 기자회견');
   await page.locator('#photoCaption').fill('현장 사진');
