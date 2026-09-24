@@ -85,7 +85,7 @@
   const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
     await ensureFeatureStyles();
     await window.__KPTU_START_TEAM_DATA__();
-    await import('./project-system-v3.js?v=17');
+    await import('./project-system-v3.js?v=18');
     await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./due-date-calendar.js?v=1')]);
     await import('./page-design-core.js?v=4');
     await import('./task-workflow.js?v=8'); await window.__KPTU_TASK_WORKFLOW_READY__;
