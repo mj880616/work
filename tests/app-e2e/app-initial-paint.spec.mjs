@@ -100,3 +100,32 @@ test('legacy home URL normalizes to the calendar default without leaving a broke
   await expect(page).not.toHaveURL(/[?&]view=home(?:&|$)/);
   expect(await page.evaluate(() => window.KPTURouter.current)).toBe('calendar');
 });
+
+
+test('authenticated deep link survives a full page reload', async ({ page }) => {
+  await page.route('**/app/app.js*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: ''
+  }));
+
+  const bootRouter = async suffix => {
+    await page.addScriptTag({ url: `http://127.0.0.1:8123/app/app-router.js?${suffix}` });
+    await page.waitForFunction(() => typeof window.KPTURouter?.go === 'function');
+    await page.evaluate(() => {
+      const app = document.querySelector('#appView');
+      app?.classList.remove('hidden');
+      app?.classList.add('kptu-ui-ready');
+      window.dispatchEvent(new Event('kptu:app-ui-ready'));
+    });
+  };
+
+  await page.goto('http://127.0.0.1:8123/app/?view=meetings', { waitUntil: 'domcontentloaded' });
+  await bootRouter('reload-e2e=1');
+  await expect(page.locator('#meetingsView')).not.toHaveClass(/\\bhidden\\b/);
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await bootRouter('reload-e2e=2');
+  await expect(page.locator('#meetingsView')).not.toHaveClass(/\\bhidden\\b/);
+  await expect(page).toHaveURL(/\\?view=meetings(?:&|$)/);
+});
