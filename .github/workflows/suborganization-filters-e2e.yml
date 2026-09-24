@@ -1,4 +1,4 @@
-name: Suborganization filters E2E
+name: Assigned organization E2E
 
 on:
   pull_request:
@@ -6,8 +6,8 @@ on:
     paths:
       - 'app/suborganizations.js'
       - 'app/suborganizations.css'
-      - 'app/suborganization-filters.js'
-      - 'app/suborganization-filters.css'
+      - 'app/workplace-detail.js'
+      - 'app/workplace-detail.css'
       - 'app/profile-workplace-sync.js'
       - 'app/loader-v2.js'
       - 'app/styles.css'
@@ -21,8 +21,8 @@ on:
     paths:
       - 'app/suborganizations.js'
       - 'app/suborganizations.css'
-      - 'app/suborganization-filters.js'
-      - 'app/suborganization-filters.css'
+      - 'app/workplace-detail.js'
+      - 'app/workplace-detail.css'
       - 'app/profile-workplace-sync.js'
       - 'app/loader-v2.js'
       - 'app/styles.css'
@@ -33,7 +33,7 @@ on:
       - '.github/workflows/suborganization-filters-e2e.yml'
 
 jobs:
-  suborganization-filters:
+  assigned-organizations:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -41,31 +41,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Check single-render invariants
+      - name: Check assigned organization invariants
         run: |
           set -e
           test -f app/suborganizations.css
-          test -f app/suborganization-filters.css
+          test -f app/workplace-detail.css
           test ! -f app/suborganization-planned-assignee.js
-          grep -q "suborganizations.js?v=4" app/loader-v2.js
+          grep -q "suborganizations.js?v=5" app/loader-v2.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/loader-v2.js
-          grep -q "suborganization-filters.js?v=5" app/loader-v2.js
-          grep -q "__KPTU_SUBORGANIZATION_FILTERS_READY__" app/loader-v2.js
-          grep -q "suborganizations.css?v=4" app/styles.css
-          grep -q "suborganization-filters.css?v=3" app/styles.css
+          grep -q "workplace-detail.js?v=5" app/loader-v2.js
+          grep -q "suborganizations.css?v=5" app/styles.css
+          grep -q "workplace-detail.css?v=3" app/styles.css
+          if grep -q "suborganization-filters.js" app/loader-v2.js; then echo 'removed assigned-organization filter module returned'; exit 1; fi
+          if grep -q "suborganization-filters.css" app/styles.css; then echo 'removed assigned-organization filter styles returned'; exit 1; fi
           grep -q "default_assignee_name" app/suborganizations.js
           grep -q "sofEditType" app/suborganizations.js
-          grep -q "<h3>담당조직</h3>" app/suborganizations.js
+          grep -q "id=\"soOrgCount\"" app/suborganizations.js
           grep -q "const mine=myOrganizations()" app/suborganizations.js
-          grep -q "id=\"wdDeleteOrg\"" app/workplace-detail.js
-          if grep -q "MutationObserver" app/suborganizations.js app/suborganization-filters.js app/profile-workplace-sync.js; then
-            echo 'suborganization UI returned to DOM mutation polling'; exit 1
+          grep -q "id=\"wdUpdateCurrent\"" app/workplace-detail.js
+          grep -q "id=\"wdBasicView\"" app/workplace-detail.js
+          if grep -q "wdDeleteOrg" app/workplace-detail.js; then echo 'organization delete returned to normal detail'; exit 1; fi
+          if grep -q "MutationObserver" app/suborganizations.js app/workplace-detail.js app/profile-workplace-sync.js; then
+            echo 'assigned organization UI returned to DOM mutation polling'; exit 1
           fi
-          if grep -Eq "localStorage|SO_SESSION|kptu_collab_session_v1" app/suborganizations.js; then
-            echo 'suborganizations bypassed shared runtime session handling'; exit 1
+          if grep -Eq "localStorage|SO_SESSION|kptu_collab_session_v1" app/suborganizations.js app/workplace-detail.js; then
+            echo 'assigned organization UI bypassed shared runtime session handling'; exit 1
           fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/suborganizations.js app/suborganization-filters.js; then
-            echo 'suborganization styles returned to dynamic injection'; exit 1
+          if grep -q "createElement('style')\|createElement(\"style\")" app/suborganizations.js app/workplace-detail.js; then
+            echo 'assigned organization styles returned to dynamic injection'; exit 1
           fi
       - name: Install Playwright
         run: |
