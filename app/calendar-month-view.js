@@ -189,11 +189,15 @@
     grid.addEventListener('touchend',e=>{
       if(!touchStart||!e.changedTouches?.length)return;
       e.stopPropagation();
-      const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;touchStart=null;
-      if(Math.abs(dx)<55||Math.abs(dy)>45||Math.abs(dx)<Math.abs(dy)*1.4)return;
-      suppressUntil=Date.now()+350;
-      navigate?.(dx<0?1:-1);
+      const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y,ax=Math.abs(dx),ay=Math.abs(dy);touchStart=null;
+      if(ax>=55&&ay<=45&&ax>=ay*1.4){
+        suppressUntil=Date.now()+350;
+        navigate?.(dx<0?1:-1);
+        return;
+      }
+      if(ax>12||ay>12)suppressUntil=Date.now()+350;
     },{passive:true});
+    grid.addEventListener('touchcancel',()=>{touchStart=null},{passive:true});
   }
   function setNavigate(fn){navigate=typeof fn==='function'?fn:null;bindSwipe()}
   function suppressClick(){return Date.now()<suppressUntil}

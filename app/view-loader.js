@@ -55,11 +55,11 @@ async function home(){
   return ready&&typeof ready.then==='function'?await ready:{ok:true}
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=3','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-month-view.js?v=4','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await team('calendar');
   await Promise.all([
     module('./calendar-plus.js?v=8','__KPTU_CALENDAR_PLUS_READY__'),
-    module('./calendar-interactions-v2.js?v=6','__KPTU_CALENDAR_INTERACTIONS_READY__'),
+    module('./calendar-interactions-v2.js?v=7','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=4','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
