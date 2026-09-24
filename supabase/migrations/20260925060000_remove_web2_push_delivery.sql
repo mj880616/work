@@ -2,6 +2,7 @@
 -- app_notifications remains temporarily because legacy collaboration RPCs still reference it.
 
 drop trigger if exists trg_app_push_task_assignment on public.app_notifications;
+drop trigger if exists trg_app_push_direct_message on public.app_direct_messages;
 drop function if exists private.app_dispatch_push();
 
 drop table if exists public.app_push_native_tokens;
