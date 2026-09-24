@@ -5,7 +5,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'p6-benchmark-user',email:'p6@example.org',user_metadata:{display_name:'P6 측정'}};
 const workspace={id:'p6-benchmark-workspace',name:'공공기관사업팀 Workspace'};
 const session={access_token:'p6-benchmark-access',refresh_token:'p6-benchmark-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user};
-const routes=['home','calendar','tasks','projects','library'];
+const routes=['home','calendar','tasks','projects','library','meetings','media','pages','team'];
 const viewports={
   desktop:{width:1280,height:800},
   mobile:{width:390,height:844}
@@ -32,18 +32,33 @@ async function instrument(context,requestedView){
   await context.addInitScript(view=>{
     const metric=window.__P6_BENCHMARK__={
       requestedView:view,topbarMs:null,shellMs:null,requestedShellMs:null,homeDataMs:null,homeUsableMs:null,
-      requestedViewMs:null,allModulesMs:null,initialImports:null,initialApiRequests:null,
-      apiByPath:{},featureImports:[]
+      requestedViewMs:null,allModulesMs:null,initialImports:null,initialCssRequests:null,initialApiRequests:null,
+      restRequests:null,edgeFunctionRequests:null,authUserRequests:null,membershipRequests:null,
+      googleCalendarRequests:null,googleTasksRequests:null,eventMediaRequests:null,
+      notificationRestRequests:null,pushNotificationRequests:null,
+      apiByPath:{},featureImports:[],cssResources:[]
     };
     const snapshot=()=>{
       const resources=performance.getEntriesByType('resource');
       const scripts=resources.filter(r=>/\/app\/[^?#]+\.js(?:\?|$)/.test(r.name)).map(r=>r.name);
+      const css=resources.filter(r=>/\/app\/[^?#]+\.css(?:\?|$)/.test(r.name)).map(r=>r.name);
       metric.featureImports=[...new Set(scripts)];
+      metric.cssResources=[...new Set(css)];
       metric.initialImports=metric.featureImports.length;
+      metric.initialCssRequests=metric.cssResources.length;
       const api=resources.filter(r=>r.name.startsWith('https://xmlkxfjeagycwttklxjw.supabase.co/'));
+      const apiUrls=api.map(r=>new URL(r.name));
       metric.initialApiRequests=api.length;
-      for(const r of api){
-        const u=new URL(r.name);
+      metric.restRequests=apiUrls.filter(u=>u.pathname.startsWith('/rest/v1/')).length;
+      metric.edgeFunctionRequests=apiUrls.filter(u=>u.pathname.startsWith('/functions/v1/')).length;
+      metric.authUserRequests=apiUrls.filter(u=>u.pathname==='/auth/v1/user').length;
+      metric.membershipRequests=apiUrls.filter(u=>u.pathname==='/rest/v1/app_workspace_members').length;
+      metric.googleCalendarRequests=apiUrls.filter(u=>u.pathname==='/functions/v1/google-calendar').length;
+      metric.googleTasksRequests=apiUrls.filter(u=>u.pathname==='/functions/v1/google-tasks').length;
+      metric.eventMediaRequests=apiUrls.filter(u=>u.pathname==='/functions/v1/event-media').length;
+      metric.notificationRestRequests=apiUrls.filter(u=>u.pathname==='/rest/v1/app_notifications').length;
+      metric.pushNotificationRequests=apiUrls.filter(u=>u.pathname==='/functions/v1/push-notifications').length;
+      for(const u of apiUrls){
         const key=u.pathname+(u.searchParams.get('action')?('?action='+u.searchParams.get('action')):'');
         metric.apiByPath[key]=(metric.apiByPath[key]||0)+1;
       }
@@ -110,6 +125,8 @@ const browser=await chromium.launch({headless:true});
 const results={
   environment:'GitHub Actions ubuntu-latest, Chromium/Playwright 1.55.0, mocked Supabase responses, 0ms artificial API latency',
   baselineCommit:'3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c',
+  benchmarkVersion:2,
+  measurementBoundary:'requested view usable',
   routes,viewports,samples:{}
 };
 try{
@@ -127,13 +144,34 @@ try{
           warm.push(await warmLoad(page,base,view));
           await context.close();
         }
-        const keys=['topbarMs','shellMs','requestedShellMs','homeDataMs','homeUsableMs','requestedViewMs','allModulesMs','initialImports','initialApiRequests'];
+        const keys=['topbarMs','shellMs','requestedShellMs','homeDataMs','homeUsableMs','requestedViewMs','allModulesMs',
+          'initialImports','initialCssRequests','initialApiRequests','restRequests','edgeFunctionRequests',
+          'authUserRequests','membershipRequests','googleCalendarRequests','googleTasksRequests','eventMediaRequests',
+          'notificationRestRequests','pushNotificationRequests'];
         const medianCold={},medianWarm={};
         for(const key of keys){medianCold[key]=median(cold,key);medianWarm[key]=median(warm,key)}
         results.samples[label][viewportName][view]={cold,warm,medianCold,medianWarm};
       }
     }
   }
+  const failures=[];
+  for(const [viewportName,views] of Object.entries(results.samples.after)){
+    for(const [view,loads] of Object.entries(views)){
+      for(const mode of ['cold','warm']){
+        for(const [sampleIndex,row] of loads[mode].entries()){
+          const prefix=viewportName+'/'+view+'/'+mode+'#'+(sampleIndex+1);
+          if(row.authUserRequests>1)failures.push(prefix+': /auth/v1/user='+row.authUserRequests);
+          if(row.membershipRequests>1)failures.push(prefix+': membership='+row.membershipRequests);
+          if(view!=='calendar'&&row.googleCalendarRequests!==0)failures.push(prefix+': unexpected google-calendar='+row.googleCalendarRequests);
+          if(view!=='tasks'&&row.googleTasksRequests!==0)failures.push(prefix+': unexpected google-tasks='+row.googleTasksRequests);
+          if(row.eventMediaRequests!==0)failures.push(prefix+': event-media='+row.eventMediaRequests);
+          if(row.pushNotificationRequests!==0)failures.push(prefix+': push-notifications='+row.pushNotificationRequests);
+        }
+      }
+    }
+  }
+  results.validation={passed:failures.length===0,failures};
   writeFileSync('/tmp/p6-startup-measurement.json',JSON.stringify(results,null,2));
   console.log('P6_STARTUP_BENCHMARK '+JSON.stringify(results));
+  if(failures.length)throw new Error('startup request contract failed: '+failures.join('; '));
 }finally{await browser.close()}
