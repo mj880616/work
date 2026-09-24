@@ -88,10 +88,10 @@
   </section>
 
   <section id="calendarView" class="view-panel hidden">
-    <div class="section-head"><div><h2>일정</h2><p>내 Web2 일정과 Google Calendar 일정을 한곳에서 관리합니다.</p></div><button id="newEventBtn" class="primary" type="button">+ 일정 등록</button></div>
-    <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button></div>
-    <div id="calendarGrid" class="calendar-grid"></div>
-    <div class="section-head sub"><div><h3>다가오는 일정</h3></div></div><div id="upcomingEvents" class="card-list"></div>
+    <div class="section-head calendar-section-head"><div><h2>일정</h2><p>Web2와 Google Calendar 일정을 함께 봅니다.</p></div></div>
+    <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록">+</button></div>
+    <div id="calendarGrid" class="calendar-grid" aria-label="월간 일정"></div>
+    <details id="calendarUpcoming" class="calendar-upcoming"><summary>다가오는 일정</summary><div id="upcomingEvents" class="card-list"></div></details>
   </section>
 
   <section id="tasksView" class="view-panel hidden">
