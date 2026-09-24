@@ -299,7 +299,11 @@ jobs:
           grep -q "data-ps3-archive-project" app/project-system-v3.js
           grep -q "data-ps3-restore" app/project-system-v3.js
           grep -q "data-ps3-edit-milestone" app/project-system-v3.js
-          grep -q "ps3MilestoneDelete" app/project-system-v3.js\n          grep -q "ps3MilestoneGoogle" app/project-system-v3.js\n          grep -q "createLinkedMilestoneEvent" app/project-system-v3.js\n          grep -q "calendar_id:googleCalendar" app/project-system-v3.js\n          grep -q "event_id:event?.id||null" app/project-system-v3.js
+          grep -q "ps3MilestoneDelete" app/project-system-v3.js
+          grep -q "ps3MilestoneGoogle" app/project-system-v3.js
+          grep -q "createLinkedMilestoneEvent" app/project-system-v3.js
+          grep -q "calendar_id:googleCalendar" app/project-system-v3.js
+          grep -Fq "event_id:event?.id||null" app/project-system-v3.js
           grep -q "data-ps3-library" app/project-system-v3.js
           grep -q "ps3-parent-link" app/project-system-v3.js
           grep -q "ps3-child-menu" app/project-system-v3.js
