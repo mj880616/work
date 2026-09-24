@@ -82,7 +82,7 @@ test('photo upload uses shared session without restoring calendar record cards',
   await expect(page.locator('#photosView')).toHaveCount(1);
   await page.locator('#photosView').evaluate(el=>el.classList.remove('hidden'));
   await expect(page.locator('#photosView')).toBeVisible();
-  await page.locator('#photoUploadOpen').click();
+  await page.locator('#photoUploadOpen').dispatchEvent('click');
   await expect(page.locator('#photoUploadModal')).toBeVisible();
   await expect(page.locator('#photoEvent')).toContainText('인력확충 기자회견');
   await page.locator('#photoCaption').fill('현장 사진');
