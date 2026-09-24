@@ -41,6 +41,7 @@ async function login(page){
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
+  await expect(page.locator('body')).toHaveClass(/kptu-workspace-shell/,{timeout:10000});
 }
 
 test('desktop web uses compact left navigation and safe project detail margins',async({page})=>{
