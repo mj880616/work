@@ -26,15 +26,15 @@
 .cp-cal-msg{margin:1px 0 5px;padding:4px 7px;border-radius:var(--kptu-radius-sm);background:var(--kptu-info-soft);color:var(--kptu-info);font-size:9px}
 .cp-cal-msg.error{background:var(--kptu-danger-soft);color:var(--kptu-danger)}
 
-.calendar-grid{display:block;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);overflow:hidden;touch-action:pan-y}
-.cmv-head-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--kptu-surface)}
-.cal-head{text-align:center;padding:4px 1px;background:transparent;font-size:10px;font-weight:700;color:var(--kptu-muted);border-right:1px solid var(--kptu-border)}
+.calendar-grid{--cmv-head-height:23px;--cmv-event-top:23px;--cmv-lane-step:14px;--cmv-min-week-height:58px;display:flex;flex-direction:column;height:var(--cmv-grid-height,auto);box-sizing:border-box;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);overflow:hidden;touch-action:pan-y}
+.cmv-head-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));flex:0 0 var(--cmv-head-height);height:var(--cmv-head-height);background:var(--kptu-surface)}
+.cal-head{display:grid;place-items:center;text-align:center;padding:0 1px;background:transparent;font-size:10px;font-weight:700;color:var(--kptu-muted);border-right:1px solid var(--kptu-border)}
 .cal-head:last-child{border-right:0}
 .cal-head.sunday{color:var(--kptu-danger)}
 .cal-head.saturday{color:var(--kptu-link)}
-.cmv-weeks{display:block}
-.cmv-week{position:relative;min-height:calc(31px + var(--cmv-lanes) * 14px);border-top:1px solid var(--kptu-border)}
-.cmv-week-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));min-height:calc(31px + var(--cmv-lanes) * 14px)}
+.cmv-weeks{display:grid;grid-template-rows:repeat(var(--cmv-week-count),minmax(var(--cmv-min-week-height),1fr));flex:1 1 auto;min-height:0}
+.cmv-week{position:relative;min-height:var(--cmv-min-week-height);height:100%;border-top:1px solid var(--kptu-border)}
+.cmv-week-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));min-height:var(--cmv-min-week-height);height:100%}
 .cal-cell{min-width:0;min-height:0;padding:2px 2px;border:0;border-right:1px solid var(--kptu-border);background:var(--kptu-surface);color:var(--kptu-ink);text-align:left;overflow:hidden;cursor:pointer}
 .cal-cell:last-child{border-right:0}
 .cal-cell.other{background:var(--kptu-surface-subtle);color:var(--kptu-faint)}
@@ -44,7 +44,7 @@
 .cal-cell.today .cal-day{background:var(--kptu-primary);color:#fff;border-radius:var(--kptu-radius-pill)}
 .cal-cell.other.today{background:var(--kptu-surface-subtle)}
 
-.cmv-week-events{position:absolute;left:0;right:0;top:23px;bottom:1px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:13px;row-gap:1px;align-content:start;pointer-events:none;padding:0 1px}
+.cmv-week-events{position:absolute;left:0;right:0;top:var(--cmv-event-top);bottom:1px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:calc(var(--cmv-lane-step) - 1px);row-gap:1px;align-content:start;pointer-events:none;padding:0 1px}
 .cal-event.cmv-event{pointer-events:auto;display:flex;align-items:center;min-width:0;height:13px;line-height:13px;margin:0 1px;padding:0 3px;border:0;border-radius:var(--kptu-radius-sm);font-size:8.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cal-event.cmv-event.cmv-continues-left{margin-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
 .cal-event.cmv-event.cmv-continues-right{margin-right:0;border-top-right-radius:0;border-bottom-right-radius:0}
@@ -52,14 +52,6 @@
 .cmv-event-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-event.cmv-event:active{transform:scale(.99)}
 .kptu-day-more{pointer-events:auto;align-self:start;width:auto;min-width:0;height:12px;border:0;background:transparent;color:var(--kptu-link);font-size:8px;font-weight:800;text-align:left;padding:0 2px;cursor:pointer;overflow:hidden}
-
-.calendar-upcoming{margin-top:7px;border-top:1px solid var(--kptu-border);padding-top:4px}
-.calendar-upcoming>summary{cursor:pointer;font-size:11px;font-weight:800;color:var(--kptu-muted);padding:4px 0;list-style:none}
-.calendar-upcoming>summary::-webkit-details-marker{display:none}
-.calendar-upcoming .card-list{margin-top:4px}
-.calendar-upcoming .item-card{padding:8px 10px;border-radius:var(--kptu-radius-md)}
-.calendar-upcoming .item-card h3{font-size:12px;margin:1px 0}
-.calendar-upcoming .item-card p,.calendar-upcoming .item-card small{font-size:10px}
 
 .kptu-day-list{display:grid;gap:5px}
 .kptu-day-list .cal-event{display:flex!important;align-items:center;width:100%;min-height:34px;margin:0!important;padding:7px 9px!important;font-size:11px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;border:0;border-radius:var(--kptu-radius-md)!important;text-align:left}
@@ -85,6 +77,7 @@
 @media(max-width:760px){
   #calendarView>.calendar-section-head{margin-bottom:0}
   #calendarView>.calendar-section-head p{display:none}
+  #appView #calendarView.view-panel{padding-bottom:env(safe-area-inset-bottom)!important}
   #calendarView .calendar-grid{margin-left:-12px;margin-right:-12px;border-left:0;border-right:0}
   .calendar-toolbar{margin-top:0;margin-bottom:5px}
   .calendar-toolbar #monthTitle{font-size:15px;min-width:86px}
@@ -92,13 +85,10 @@
   .calendar-google-panel>summary{min-height:27px}
   .google-cal-list{gap:5px 8px;padding-bottom:5px}
   .toggle-line span{max-width:118px}
-  .cmv-week{min-height:calc(31px + var(--cmv-lanes) * 14px)}
-  .cmv-week-days{min-height:calc(31px + var(--cmv-lanes) * 14px)}
   .cal-cell{padding-left:1px;padding-right:1px}
   .cal-day{width:19px;height:19px;font-size:9.5px}
   .cal-event.cmv-event{margin-left:1px;margin-right:1px;padding-left:2px;padding-right:2px;font-size:8px}
   .cmv-event-time{font-size:7px}
-  .calendar-upcoming{margin-top:5px}
   .view-panel>.section-head{align-items:flex-start;gap:var(--kptu-space-2)}
   .view-panel>.section-head>div:first-child{min-width:0;flex:1}
   .view-panel>.section-head>.primary,.view-panel>.section-head>.secondary{flex:0 0 auto;width:auto;min-width:0;white-space:nowrap;margin-top:1px}
