@@ -79,6 +79,7 @@
   #calendarView>.calendar-section-head p{display:none}
   main:has(#calendarView:not(.hidden)){padding-bottom:0!important}
   #appView #calendarView.view-panel{padding-bottom:env(safe-area-inset-bottom)!important}
+  #calendarView:not(.hidden)::after{content:'';display:block;height:clamp(64px,10svh,96px);pointer-events:none}
   #calendarView .calendar-grid{margin-left:-12px;margin-right:-12px;border-left:0;border-right:0}
   .calendar-toolbar{margin-top:0;margin-bottom:5px}
   .calendar-toolbar #monthTitle{font-size:15px;min-width:86px}

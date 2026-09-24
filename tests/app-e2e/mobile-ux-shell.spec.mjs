@@ -110,6 +110,13 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   expect(await page.evaluate(()=>window.KPTURouter?.current)).toBe(before);
 
   await page.locator('[data-view="calendar"]').click();
+  const scrollRoom=await page.evaluate(()=>{
+    const view=document.querySelector('#calendarView');
+    const runway=parseFloat(getComputedStyle(view,'::after').height)||0;
+    return {runway,scrollHeight:document.documentElement.scrollHeight,viewport:innerHeight};
+  });
+  expect(scrollRoom.runway).toBeGreaterThanOrEqual(56);
+  expect(scrollRoom.scrollHeight-scrollRoom.viewport).toBeGreaterThan(40);
   const more=page.locator('.kptu-day-more').first();
   await expect(more).toBeVisible({timeout:10000});
   const busyWeek=page.locator('.cal-cell[data-date="2026-09-13"]').locator('..').locator('..');
