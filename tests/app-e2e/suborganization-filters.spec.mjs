@@ -41,7 +41,7 @@ test('담당조직 상세는 현재 상황 업데이트를 최상단 주 액션�
   await expect(page.locator('#wdUpdateCurrent')).toBeVisible();
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
   const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll('.wd-sec')].map(sec=>sec.querySelector('h3')?.textContent?.trim()));
-  expect(order).toEqual(['최근 상황·메모','기본 정보','협의회·사업단','연도별 타임라인']);
+  expect(order).toEqual(['최근 상황/메모','기본 정보','협의회·사업단','연도별 타임라인']);
   const positions=await page.locator('#wdModal .wd-card').evaluate(card=>({
     action:card.querySelector('#wdUpdateCurrent').getBoundingClientRect().top,
     first:card.querySelector('#wdRecent').getBoundingClientRect().top
