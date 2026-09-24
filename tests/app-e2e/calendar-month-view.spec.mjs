@@ -45,6 +45,89 @@ test('overflow indicator opens the full day schedule instead of growing the date
   await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(8);
 });
 
+test('empty date space opens the existing create flow with the clicked date',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url);
+  const cell=page.locator('.cal-cell[data-date="2026-09-25"]');
+  await cell.click({position:{x:10,y:55}});
+  await expect(page.locator('#eventModal')).toBeVisible();
+  await expect(page.locator('#eventStartDate')).toHaveValue('2026-09-25');
+  await expect(page.locator('#eventEndDate')).toHaveValue('2026-09-25');
+  await expect(page.locator('#eventStartTime')).toHaveValue('09:00');
+  await expect(page.locator('#eventEndTime')).toHaveValue('10:00');
+});
+
+test('adjacent-month cells pass their actual data-date into the create flow',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url);
+  await page.locator('.cal-cell[data-date="2026-08-30"]').click({position:{x:10,y:45}});
+  await expect(page.locator('#eventModal')).toBeVisible();
+  await expect(page.locator('#eventStartDate')).toHaveValue('2026-08-30');
+  await expect(page.locator('#eventEndDate')).toHaveValue('2026-08-30');
+});
+
+test('event bars and overflow never fall through to blank-cell creation',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url);
+
+  await page.locator('.cm-app[data-app-event="app-1"]').click();
+  await expect(page.locator('#ciAppModal')).toBeVisible();
+  await expect(page.locator('#eventModal')).toBeHidden();
+  await page.locator('#ciAppClose').click();
+
+  await page.locator('[data-google-event="multi"]').first().click();
+  await expect(page.locator('#ciGoogleModal')).toBeVisible();
+  await expect(page.locator('#eventModal')).toBeHidden();
+  await page.locator('#ciGoogleClose').click();
+
+  const more=page.locator('.kptu-day-more').first();
+  await more.click();
+  await expect(page.locator('#calendarDayModal')).toBeVisible();
+  await expect(page.locator('#eventModal')).toBeHidden();
+});
+
+test('Android-style tap creates an event while swipe and scroll gestures suppress the following click',async({browser})=>{
+  const context=await browser.newContext({
+    viewport:{width:390,height:844},
+    isMobile:true,
+    hasTouch:true,
+    userAgent:'Mozilla/5.0 (Linux; Android 16; Mobile) AppleWebKit/537.36 Chrome/140 Mobile Safari/537.36'
+  });
+  const page=await context.newPage();
+  await page.goto(url);
+
+  const tapCell=page.locator('.cal-cell[data-date="2026-09-06"]');
+  await tapCell.tap({position:{x:12,y:50}});
+  await expect(page.locator('#eventModal')).toBeVisible();
+  await expect(page.locator('#eventStartDate')).toHaveValue('2026-09-06');
+
+  await page.evaluate(()=>{const m=document.querySelector('#eventModal');m.classList.add('hidden');m.setAttribute('aria-hidden','true')});
+  await page.locator('#calendarGrid').evaluate(el=>{
+    const fire=(type,x,y,key='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,key,{value:[{clientX:x,clientY:y}]});el.dispatchEvent(e)};
+    fire('touchstart',330,360);fire('touchend',90,365,'changedTouches');
+  });
+  await page.locator('.cal-cell[data-date="2026-09-06"]').dispatchEvent('click');
+  await expect(page.locator('#eventModal')).toBeHidden();
+  await expect.poll(()=>page.evaluate(()=>window.__navDelta)).toBe(1);
+
+  await page.waitForTimeout(400);
+  await page.locator('#calendarGrid').evaluate(el=>{
+    const cell=el.querySelector('.cal-cell[data-date="2026-09-06"]');
+    const fire=(type,x,y,key='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,key,{value:[{clientX:x,clientY:y}]});cell.dispatchEvent(e)};
+    fire('touchstart',180,280);fire('touchend',182,345,'changedTouches');
+  });
+  await page.locator('.cal-cell[data-date="2026-09-06"]').dispatchEvent('click');
+  await expect(page.locator('#eventModal')).toBeHidden();
+
+  await context.close();
+});
+
+test('plus button still opens the same creation UI',async({page})=>{
+  await page.goto(url);
+  await page.locator('#newEventBtn').click();
+  await expect(page.locator('#eventModal')).toBeVisible();
+});
+
 test('horizontal swipe changes month while vertical movement does not',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
