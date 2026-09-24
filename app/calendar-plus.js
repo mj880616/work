@@ -3,7 +3,7 @@ const CM_FALLBACK_EVENT_COLORS=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b
 let cmGoogle=null;
 function cmHexRgb(hex){const h=String(hex||'').replace('#','');if(!/^[0-9a-f]{6}$/i.test(h))return null;return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
 function cmColorDistance(a,b){const x=cmHexRgb(a),y=cmHexRgb(b);return x&&y?(x[0]-y[0])**2+(x[1]-y[1])**2+(x[2]-y[2])**2:Number.POSITIVE_INFINITY}
-function cmColorPalette(state=cmGoogle||window.__KPTU_GOOGLE_STATE__){
+function cmColorPalette(state=window.__KPTU_GOOGLE_STATE__||cmGoogle){
   const rows=Object.entries(state?.eventColors||{}).filter(([,v])=>/^#[0-9a-f]{6}$/i.test(String(v?.background||''))).sort(([a],[b])=>(Number(a)||0)-(Number(b)||0)).map(([id,v])=>({id:String(id),hex:String(v.background).toLowerCase(),foreground:v.foreground||'#fff'}));
   return rows.length?rows:CM_FALLBACK_EVENT_COLORS.map(hex=>({id:null,hex,foreground:'#fff'}))
 }
