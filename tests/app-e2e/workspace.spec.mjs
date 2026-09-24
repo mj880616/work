@@ -216,6 +216,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('#eventEndTime').fill('11:00');
   await page.locator('#saveEventBtn').click();
   await expect.poll(() => state.googleEvents.length).toBe(1);
+  await expect(page.locator('.cp-event')).toContainText('E2E Google 일정');
 
   await page.locator('[data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();
