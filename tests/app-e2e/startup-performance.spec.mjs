@@ -106,6 +106,35 @@ test('route manifest keeps retired modules out and Web1 views isolated', async (
   expect(source).not.toContain('./media-workflow.js');
 });
 
+test('calendar and Web1 board startup exclude non-critical integrations and duplicate project reads', async () => {
+  const views=read('app/view-loader.js');
+  const team=read('app/team.js');
+  const library=read('app/library-upload.js');
+  const meetings=read('app/meeting-round-detail.js');
+  const health=read('app/calendar-health.js');
+
+  const calendarStart=views.indexOf('async function calendar()');
+  const tasksStart=views.indexOf('async function tasks()');
+  const calendarBlock=views.slice(calendarStart,tasksStart);
+  expect(calendarBlock).toContain("background(google)");
+  expect(calendarBlock).toContain("background(module('./suborganizations.js?v=7'");
+  expect(calendarBlock).toContain("google.then(()=>module('./calendar-health.js?v=4'))");
+  expect(calendarBlock.indexOf("return {ok:true}")).toBeGreaterThan(calendarBlock.indexOf("background(google)"));
+  expect(health).toContain("window.__KPTU_GOOGLE_STATE__");
+  expect(health).toContain("cached&&typeof cached.connected==='boolean'?cached");
+
+  const pagesStart=views.indexOf('async function pages()');
+  const organizationsStart=views.indexOf('async function organizations()');
+  const pagesBlock=views.slice(pagesStart,organizationsStart);
+  expect(pagesBlock).toContain("module('./web1-board.js?v=3')");
+  expect(pagesBlock).not.toContain("team('pages')");
+  expect(pagesBlock).not.toContain('page-design-core');
+
+  expect(team).toContain('window.KPTUTeamData={');
+  expect(library).toContain('window.KPTUTeamData?.spaces?.()');
+  expect(meetings).toContain('window.KPTUTeamData?.spaces?.()');
+});
+
 test('feature navigation lazy-loads only the destination view and bootstrap still loads access approval', async () => {
   const source=read('app/loader-v2.js');
   expect(source).toContain("if(teamState==='bootstrap'){await import('./access-approval.js?v=5');return}");
