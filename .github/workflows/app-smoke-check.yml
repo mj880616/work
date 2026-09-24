@@ -51,7 +51,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=41')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=3')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=4')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -108,8 +108,17 @@ jobs:
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
           grep -q "critical.css?v=1" app/index.html
-          grep -q "styles.css?v=51" app/loader-v2.js
-          grep -q "ensureFeatureStyles" app/loader-v2.js
+          if grep -q "styles.css?v=51" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
+          if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
+          grep -q "viewLoader.prepare(requested)" app/loader-v2.js
+          grep -q "calendar-ui.css?v=5" app/view-loader.js
+          grep -q "task-layout.css?v=4" app/view-loader.js
+          grep -q "project-system-v3.css?v=13" app/view-loader.js
+          grep -q "library-upload.css?v=1" app/view-loader.js
+          grep -q "meeting-ui.css?v=8" app/view-loader.js
+          grep -q "web1-press.css?v=1" app/view-loader.js
+          grep -q "web1-board.css?v=2" app/view-loader.js
+          grep -q "suborganizations.css?v=5" app/view-loader.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
           grep -q "capabilities.js?v=2" app/loader-v2.js
