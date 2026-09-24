@@ -49,6 +49,40 @@ test('desktop web uses compact left navigation and safe project detail margins',
   await page.goto('http://127.0.0.1:8123/app/');
   await login(page);
 
+  for(const width of [1280,1440,1920]){
+    await page.setViewportSize({width,height:900});
+    await expect(page.locator('.topbar')).toBeHidden();
+    await expect(page.locator('.sidebar-brand')).toBeVisible();
+    await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();
+    await expect(page.locator('#ccNotifSidebar')).toBeVisible();
+    const shell=await page.evaluate(()=>{
+      const topbar=document.querySelector('.topbar');
+      const nav=document.querySelector('#appView>.app-nav');
+      const brand=document.querySelector('.sidebar-brand');
+      const logout=document.querySelector('#sidebarLogoutBtn');
+      const view=document.querySelector('#calendarView');
+      const rect=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
+      return {
+        topbarDisplay:getComputedStyle(topbar).display,
+        topbarHeight:topbar.getBoundingClientRect().height,
+        nav:rect(nav),
+        brand:rect(brand),
+        logout:rect(logout),
+        view:rect(view),
+        mainPaddingTop:parseFloat(getComputedStyle(document.querySelector('main')).paddingTop)
+      };
+    });
+    expect(shell.topbarDisplay).toBe('none');
+    expect(shell.topbarHeight).toBe(0);
+    expect(shell.mainPaddingTop).toBeLessThanOrEqual(12);
+    expect(shell.nav.top).toBeLessThanOrEqual(14);
+    expect(shell.brand.top).toBeLessThanOrEqual(24);
+    expect(shell.view.top).toBeLessThanOrEqual(14);
+    expect(shell.logout.bottom).toBeGreaterThan(840);
+    expect(shell.nav.bottom).toBeLessThanOrEqual(900);
+  }
+  await page.setViewportSize({width:1440,height:900});
+
   const desktop=await page.locator('#appView').evaluate(el=>{
     const app=getComputedStyle(el);
     const navEl=el.querySelector(':scope > .app-nav');
