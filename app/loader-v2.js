@@ -11,7 +11,7 @@
   await Promise.all([
     import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
-    import('./app-router.js?v=7'),
+    import('./app-router.js?v=8'),
     import('./accessibility-dialog.js?v=1'),
     import('./native-back-guard.js?v=1'),
     import('./session-resilience.js?v=6'),
@@ -94,7 +94,7 @@
   const app=document.querySelector('#appView');
   if(staticShellViews.has(requested)){
     app?.classList.add('kptu-shell-ready');
-    window.KPTURouter?.go?.(requested,{scroll:false,source:'startup',updateUrl:false});
+    window.KPTURouter?.go?.(requested,{scroll:false,source:'startup',updateUrl:false,allowUnloaded:true});
     startup?.mark('requestedShellVisible',{view:requested});
   }
 
