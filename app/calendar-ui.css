@@ -64,8 +64,8 @@
 .calendar-color-field{display:grid;gap:6px;margin:8px 0}
 .calendar-color-label{font-size:11px;font-weight:700;color:var(--kptu-ink)}
 .calendar-color-presets{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
-.calendar-color-swatch{box-sizing:border-box;width:34px;height:34px;min-width:34px;min-height:34px;padding:0;border:2px solid transparent;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(38,50,61,.14);cursor:pointer}
-.calendar-color-swatch.selected{border-color:var(--kptu-ink);box-shadow:inset 0 0 0 2px var(--kptu-surface)}
+.calendar-color-swatch{box-sizing:border-box;width:34px;height:34px;min-width:34px;min-height:34px;padding:0;border:2px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-pill);cursor:pointer}
+.calendar-color-swatch.selected{border:3px solid var(--kptu-ink)}
 .calendar-color-swatch:focus-visible{outline:3px solid var(--kptu-link);outline-offset:2px}
 
 .ci-card{width:min(100%,500px);border-top:4px solid var(--kptu-info)}
