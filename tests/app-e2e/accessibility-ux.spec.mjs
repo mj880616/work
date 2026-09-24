@@ -187,8 +187,10 @@ test('saving exposes busy and polite status semantics, then releases them on suc
   await page.locator('.app-nav [data-view="calendar"]').click();
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('접근성 일정');
-  await page.locator('#eventStart').fill('2026-09-18T10:00');
-  await page.locator('#eventEnd').fill('2026-09-18T11:00');
+  await page.locator('#eventStartDate').fill('2026-09-18');
+  await page.locator('#eventStartTime').fill('10:00');
+  await page.locator('#eventEndDate').fill('2026-09-18');
+  await page.locator('#eventEndTime').fill('11:00');
   const save=page.locator('#saveEventBtn');
   await save.click();
   try{
@@ -210,8 +212,10 @@ test('failed save releases busy state and announces the error',async({page})=>{
   await page.locator('.app-nav [data-view="calendar"]').click();
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('실패 일정');
-  await page.locator('#eventStart').fill('2026-09-18T11:00');
-  await page.locator('#eventEnd').fill('2026-09-18T12:00');
+  await page.locator('#eventStartDate').fill('2026-09-18');
+  await page.locator('#eventStartTime').fill('11:00');
+  await page.locator('#eventEndDate').fill('2026-09-18');
+  await page.locator('#eventEndTime').fill('12:00');
   const save=page.locator('#saveEventBtn');
   await save.click();
   try{
