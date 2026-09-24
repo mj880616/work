@@ -58,7 +58,7 @@ jobs:
             "import('./notification-center-ui.js?v=6')",'await window.__KPTU_NOTIFICATION_CENTER_READY__',
             "import('./calendar-plus.js?v=8')",'await window.__KPTU_CALENDAR_PLUS_READY__',
             "import('./calendar-persistence.js?v=12')",'await window.__KPTU_CALENDAR_PERSISTENCE_READY__',
-            "import('./calendar-interactions-v2.js?v=5')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
+            "import('./calendar-interactions-v2.js?v=6')",'await window.__KPTU_CALENDAR_INTERACTIONS_READY__',
             "import('./calendar-mobile-ui.js?v=4')",'await window.__KPTU_CALENDAR_MOBILE_UI_READY__',
             "import('./calendar-day-overflow.js?v=3')",'await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__',
             'window.__KPTU_MARK_APP_UI_READY__?.()'
@@ -148,7 +148,7 @@ jobs:
           grep -q "__KPTU_CALENDAR_PLUS_READY__" app/loader-v2.js
           grep -q "calendar-persistence.js?v=12" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/loader-v2.js
-          grep -q "calendar-interactions-v2.js?v=5" app/loader-v2.js
+          grep -q "calendar-interactions-v2.js?v=6" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/loader-v2.js
           grep -q "calendar-mobile-ui.js?v=4" app/loader-v2.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/loader-v2.js
