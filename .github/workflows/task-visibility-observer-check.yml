@@ -30,7 +30,9 @@ jobs:
           fi
           grep -q "assignee_id=eq." app/task-layout.js
           grep -q "r.innerHTML=group('mine'" app/task-layout.js
-          grep -q "group('assigned'" app/task-layout.js
+          if grep -q "group('assigned'" app/task-layout.js; then
+            echo 'team-assigned task group returned'; exit 1
+          fi
           if grep -q "MutationObserver" app/task-layout.js; then
             echo 'task renderer returned to DOM mutation correction'; exit 1
           fi
