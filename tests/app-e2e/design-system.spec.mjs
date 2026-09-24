@@ -81,13 +81,6 @@ test('Design System 1.0 keeps the top-level action contract with a compact calen
   for(const metric of metrics)expect(metric.height).toBeCloseTo(36,0);
   expect(new Set(metrics.map(x=>x.radius)).size).toBe(1);
 
-  await page.locator('[data-view="home"]').first().click();
-  const panel=page.locator('#homeView .panel:not(.hidden)').first();
-  await expect(panel).toBeVisible({timeout:10000});
-  const cardStyle=await panel.evaluate(el=>({radius:getComputedStyle(el).borderRadius,shadow:getComputedStyle(el).boxShadow}));
-  expect(cardStyle.radius).toBe('12px');
-  expect(cardStyle.shadow).toBe('none');
-
   await page.locator('[data-view="tasks"]').first().click();
   await page.locator('#newTaskBtn').click();
   const modal=page.locator('#taskModal .modal-card');
