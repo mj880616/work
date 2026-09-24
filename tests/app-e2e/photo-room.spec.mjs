@@ -93,6 +93,7 @@ test('photo upload uses shared session without restoring calendar record cards',
 
   await expect(page.locator('#photoUploadModal')).toBeHidden({timeout:10000});
   await expect(page.locator('#toast')).toContainText('사진을 올렸습니다.');
+  await page.evaluate(()=>window.KPTURouter.go('photos'));
   await page.locator('#photoGrid [data-photo-event]').click();
   await expect(page.locator('#eventDetailModal')).toBeVisible();
   await expect(page.locator('#eventPhotoStrip')).toContainText('현장 사진',{timeout:10000});
