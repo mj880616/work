@@ -37,11 +37,15 @@ function urlFor(id){const u=new URL(location.href);u.searchParams.set('project',
 function clearUrl(){const u=new URL(location.href);u.searchParams.delete('project');history.replaceState({},'',u.pathname+u.search+u.hash)}
 async function context(epoch=projectEpoch){
   if(!(await rt.session.ensure()))return false;
-  const nextUser=await api('/auth/v1/user');
-  if(epoch!==projectEpoch||!nextUser?.id)return false;
-  const ms=await api(`/rest/v1/app_workspace_members?user_id=eq.${nextUser.id}&select=workspace_id,role&limit=1`);
-  if(epoch!==projectEpoch)return false;
-  const nextMembership=ms?.[0]||null,nextWid=nextMembership?.workspace_id||null;
+  const shared=rt.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
+  let nextUser=shared?.user||null,nextMembership=shared?.membership||null,nextWid=shared?.workspace?.id||nextMembership?.workspace_id||null;
+  if(!nextUser?.id||!nextWid){
+    nextUser=await api('/auth/v1/user');
+    if(epoch!==projectEpoch||!nextUser?.id)return false;
+    const ms=await api(`/rest/v1/app_workspace_members?user_id=eq.${nextUser.id}&select=workspace_id,role&limit=1`);
+    if(epoch!==projectEpoch)return false;
+    nextMembership=ms?.[0]||null;nextWid=nextMembership?.workspace_id||null;
+  }
   if(!nextWid)return false;
   const [nextMembers,nextProfiles]=await Promise.all([
     api(`/rest/v1/app_workspace_members?workspace_id=eq.${nextWid}&select=workspace_id,user_id,role,created_at`),

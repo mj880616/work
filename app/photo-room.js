@@ -35,6 +35,8 @@ function closeModal(id){const m=$('#'+id);if(m){m.classList.add('hidden');m.setA
 async function getContext(){
   if(!rt?.session||!(await rt.session.ensure()))return false;
   try{
+    const shared=rt.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
+    if(shared?.user?.id&&shared?.workspace?.id){user=shared.user;workspaceId=shared.workspace.id;return true}
     user=await api('/auth/v1/user');
     const ms=await api('/rest/v1/app_workspace_members?user_id=eq.'+encodeURIComponent(user.id)+'&select=workspace_id&limit=1');
     if(!ms?.length)return false;
