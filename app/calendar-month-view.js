@@ -1,9 +1,8 @@
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
-  const mq430=window.matchMedia('(max-width:430px)');
   const mq760=window.matchMedia('(max-width:760px)');
-  let last=null,navigate=null,touchStart=null,suppressUntil=0;
+  let last=null,navigate=null,touchStart=null,suppressUntil=0,resizeFrame=0;
 
   const pad=n=>String(n).padStart(2,'0');
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -43,10 +42,36 @@
     const start=dateOnly(ev.start),allDay=!!ev.allDay||/^\d{4}-\d{2}-\d{2}$/.test(String(ev.start||'')),endRaw=ev.end?dateOnly(ev.end):new Date(start),color=googleColor(ev,state);
     return {key:'google:'+ev.calendarId+':'+ev.id,id:ev.id,source:'google',calendarId:ev.calendarId||'primary',title:ev.title||'(제목 없음)',start,end:inclusiveEnd(start,endRaw,allDay),allDay,color,text:textColor(color),raw:ev};
   }
-  function laneCap(weeks){
-    if(mq430.matches)return weeks===5?4:3;
-    if(mq760.matches)return 4;
-    return 6;
+  function cssPx(el,name,fallback){
+    const value=parseFloat(getComputedStyle(el).getPropertyValue(name));
+    return Number.isFinite(value)?value:fallback;
+  }
+  function viewportLayout(grid,weeks,head){
+    const headHeight=cssPx(grid,'--cmv-head-height',23),minWeek=cssPx(grid,'--cmv-min-week-height',58);
+    const eventTop=cssPx(grid,'--cmv-event-top',23),laneStep=cssPx(grid,'--cmv-lane-step',14);
+    const style=getComputedStyle(grid);
+    const border=(parseFloat(style.borderTopWidth)||0)+(parseFloat(style.borderBottomWidth)||0);
+    const minGrid=Math.ceil(headHeight+minWeek*weeks+border);
+    const view=grid.closest('#calendarView');
+    let height=minGrid;
+    if(!view||!view.classList.contains('hidden')){
+      const vv=window.visualViewport,viewportHeight=vv?.height||document.documentElement.clientHeight||window.innerHeight;
+      const viewportBottom=(vv?.offsetTop||0)+viewportHeight;
+      const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0;
+      const available=Math.floor(viewportBottom-grid.getBoundingClientRect().top-safeBottom);
+      height=Math.max(minGrid,available);
+      if(!mq760.matches)height=Math.min(height,Math.max(minGrid,Math.floor(viewportHeight*.72)));
+    }
+    grid.style.setProperty('--cmv-grid-height',height+'px');
+    grid.dataset.cmvViewportHeight=String(height);
+    const actualHead=head?.getBoundingClientRect().height||headHeight;
+    const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead-border)/weeks);
+    const slots=Math.max(2,Math.floor((rowHeight-eventTop-1)/laneStep));
+    grid.dataset.cmvLaneSlots=String(slots);
+    return {height,rowHeight,slots};
+  }
+  function laneCap(laneCount,slots){
+    return laneCount>slots?Math.max(1,slots-1):slots;
   }
   function eventSort(a,b){
     const am=dayDiff(a.end,a.start)>0?0:1,bm=dayDiff(b.end,b.start)>0?0:1;
@@ -107,7 +132,7 @@
   function render(options){
     last=options;
     const grid=document.querySelector('#calendarGrid');if(!grid)return false;
-    const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month),lanes=laneCap(range.weeks);
+    const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
     const events=[
       ...(options.appEvents||[]).map(normalizeApp),
       ...(options.googleEvents||[]).map(ev=>normalizeGoogle(ev,options.googleState||{}))
@@ -116,15 +141,16 @@
     grid.replaceChildren();
     grid.dataset.monthView='1';
     grid.style.setProperty('--cmv-week-count',String(range.weeks));
-    grid.style.setProperty('--cmv-lanes',String(lanes));
 
     const heads=document.createElement('div');heads.className='cmv-head-row';
     ['일','월','화','수','목','금','토'].forEach((name,i)=>{const h=document.createElement('div');h.className='cal-head'+(i===0?' sunday':i===6?' saturday':'');h.textContent=name;heads.appendChild(h)});
     grid.appendChild(heads);
+    const layout=viewportLayout(grid,range.weeks,heads);
 
     const weeksBox=document.createElement('div');weeksBox.className='cmv-weeks';
     weeks.forEach(week=>{
-      const wrap=document.createElement('div');wrap.className='cmv-week';
+      const lanes=laneCap(week.laneCount,layout.slots);
+      const wrap=document.createElement('div');wrap.className='cmv-week';wrap.dataset.weekStart=key(week.start);wrap.dataset.laneCap=String(lanes);wrap.dataset.laneCount=String(week.laneCount);
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
         const date=new Date(week.start);date.setDate(week.start.getDate()+i);
@@ -173,8 +199,15 @@
   function suppressClick(){return Date.now()<suppressUntil}
   document.addEventListener('click',e=>{if(suppressClick()&&e.target.closest?.('#calendarGrid')){e.preventDefault();e.stopImmediatePropagation()}},true);
   const rerender=()=>{if(last)render(last);bindSwipe()};
-  if(mq430.addEventListener)mq430.addEventListener('change',rerender);else mq430.addListener?.(rerender);
-  if(mq760.addEventListener)mq760.addEventListener('change',rerender);else mq760.addListener?.(rerender);
+  const scheduleRerender=()=>{
+    if(!last||document.querySelector('#calendarView')?.classList.contains('hidden'))return;
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame=requestAnimationFrame(rerender);
+  };
+  if(mq760.addEventListener)mq760.addEventListener('change',scheduleRerender);else mq760.addListener?.(scheduleRerender);
+  window.addEventListener('resize',scheduleRerender,{passive:true});
+  window.visualViewport?.addEventListener('resize',scheduleRerender,{passive:true});
+  document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')scheduleRerender()},true);
 
   window.KPTUCalendarMonthView={render,visibleRange,setNavigate,suppressClick,dayEvents:date=>last?dayEvents([...(last.appEvents||[]).map(normalizeApp),...(last.googleEvents||[]).map(ev=>normalizeGoogle(ev,last.googleState||{}))],date):[]};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);
