@@ -204,9 +204,9 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
 
   expect(index).not.toContain('id="taskScope"');
   expect(index).not.toContain('id="taskStatus"');
-  expect(index).toContain('./team.js?v=35');
-  expect(index).toContain('./loader-v2.js?v=205');
-  expect(index).toContain('./app.js?v=93');
-  expect(loader).toContain("import('./team.js?v=35')");
-  expect(app).toContain("import('./loader-v2.js?v=205')");
+  expect(index).toContain('./team.js?v=36');
+  expect(index).toContain('./loader-v2.js?v=206');
+  expect(index).toContain('./app.js?v=94');
+  expect(loader).toContain("import('./team.js?v=36')");
+  expect(app).toContain("import('./loader-v2.js?v=206')");
 });
