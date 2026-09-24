@@ -138,7 +138,7 @@ jobs:
           grep -q "home-dashboard-v2.js?v=8" app/view-loader.js
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
           grep -q "team.js?v=41" app/loader-v2.js
-          grep -q "project-system-v3.js?v=21" app/view-loader.js
+          grep -q "project-system-v3.js?v=22" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "task-row-view.js?v=1" app/view-loader.js
