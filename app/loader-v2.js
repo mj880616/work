@@ -77,7 +77,7 @@
   await import('./view-loader.js?v=6');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
-  const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
+  const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');
   const requested=viewLoader.normalize(rawRequested);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
