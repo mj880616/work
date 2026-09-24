@@ -22,7 +22,7 @@ function style(path){
 }
 const routeStyles={
   home:[],
-  calendar:['./calendar-ui.css?v=5'],
+  calendar:['./calendar-ui.css?v=6'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
   projects:['./project-system-v3.css?v=13','./forum-flow-polish.css?v=1'],
   library:['./library-upload.css?v=1','./compact-list.css?v=2'],
@@ -55,7 +55,7 @@ async function home(){
   return ready&&typeof ready.then==='function'?await ready:{ok:true}
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=2','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-month-view.js?v=3','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await team('calendar');
   await Promise.all([
     module('./calendar-plus.js?v=8','__KPTU_CALENDAR_PLUS_READY__'),

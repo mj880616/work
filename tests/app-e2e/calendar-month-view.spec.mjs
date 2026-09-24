@@ -101,6 +101,58 @@ test('five and six week months divide the same available height naturally',async
   expect(Math.abs(fiveGrid-sixGrid)).toBeLessThanOrEqual(2);
 });
 
+test('date headers and event lanes stay pinned to the top when week rows grow',async({page})=>{
+  const measure=async()=>page.evaluate(()=>{
+    const cell=document.querySelector('.cal-cell[data-date="2026-09-03"]');
+    const week=cell?.closest('.cmv-week');
+    const day=cell?.querySelector('.cal-day');
+    const layer=week?.querySelector('.cmv-week-events');
+    const event=week?.querySelector('.cmv-event');
+    const grid=document.querySelector('#calendarGrid');
+    if(!cell||!week||!day||!layer||!event||!grid)return null;
+    const cb=cell.getBoundingClientRect(),wb=week.getBoundingClientRect(),db=day.getBoundingClientRect(),lb=layer.getBoundingClientRect(),eb=event.getBoundingClientRect();
+    return {weekHeight:wb.height,dayTop:db.top-cb.top,dayBottom:db.bottom-wb.top,layerTop:lb.top-wb.top,eventTop:eb.top-wb.top,dateHeaderHeight:parseFloat(getComputedStyle(grid).getPropertyValue('--cmv-date-header-height'))||0};
+  });
+
+  await page.setViewportSize({width:390,height:640});
+  await page.goto(url);
+  const short=await measure();
+  expect(short).not.toBeNull();
+  expect(short.dayTop).toBeLessThanOrEqual(4);
+  expect(short.layerTop).toBeGreaterThanOrEqual(short.dayBottom-1);
+  expect(Math.abs(short.layerTop-short.dateHeaderHeight)).toBeLessThanOrEqual(2);
+  expect(Math.abs(short.eventTop-short.layerTop)).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({width:390,height:844});
+  await expect.poll(async()=>Number(await page.locator('#calendarGrid').getAttribute('data-cmv-viewport-height'))).toBeGreaterThan(400);
+  const tall=await measure();
+  expect(tall.weekHeight).toBeGreaterThan(short.weekHeight+20);
+  expect(Math.abs(tall.dayTop-short.dayTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(tall.layerTop-short.layerTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(tall.eventTop-short.eventTop)).toBeLessThanOrEqual(1);
+});
+
+test('five and six week months keep date headers above the shared event area',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url);
+  for(const [year,month,weeks] of [[2026,8,5],[2026,7,6]]){
+    await page.evaluate(([y,m])=>window.renderMonth(y,m),[year,month]);
+    await expect(page.locator('.cmv-week')).toHaveCount(weeks);
+    const metrics=await page.evaluate(()=>[...document.querySelectorAll('.cmv-week')].map(week=>{
+      const wb=week.getBoundingClientRect(),layer=week.querySelector('.cmv-week-events'),lb=layer.getBoundingClientRect();
+      const dayOffsets=[...week.querySelectorAll('.cal-cell')].map(cell=>{
+        const cb=cell.getBoundingClientRect(),db=cell.querySelector('.cal-day').getBoundingClientRect();
+        return {top:db.top-cb.top,bottom:db.bottom-wb.top};
+      });
+      return {layerTop:lb.top-wb.top,dayOffsets};
+    }));
+    for(const row of metrics){
+      expect(Math.max(...row.dayOffsets.map(x=>x.top))).toBeLessThanOrEqual(4);
+      expect(row.layerTop).toBeGreaterThanOrEqual(Math.max(...row.dayOffsets.map(x=>x.bottom))-1);
+    }
+  }
+});
+
 test('taller viewport exposes more schedules before overflow',async({page})=>{
   await page.setViewportSize({width:390,height:640});
   await page.goto(url);
