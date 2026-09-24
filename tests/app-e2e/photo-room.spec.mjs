@@ -76,6 +76,7 @@ test('photo upload uses shared session without restoring calendar record cards',
   await page.locator('[data-view="calendar"]').click();
   await expect(page.locator('#eventRecordSection')).toHaveCount(0);
   await expect(page.locator('#eventRecordList')).toHaveCount(0);
+  await page.evaluate(()=>window.KPTUViewLoader?.load?.('photos'));
   await expect(page.locator('#photosView')).toHaveCount(1);
   await page.locator('#photosView').evaluate(el=>el.classList.remove('hidden'));
   await expect(page.locator('#photosView')).toBeVisible();
