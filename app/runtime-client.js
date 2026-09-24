@@ -7,7 +7,10 @@
     timeoutMs:15000
   };
   let refreshPromise=null;
+  let sessionEpoch=0;
+  let bootContext=null;
   const mutationFlights=new Map();
+  const getFlights=new Map();
 
   class RuntimeError extends Error{
     constructor(message,{status=0,code='request_failed',retryable=false,cause=null}={}){
@@ -23,12 +26,28 @@
   function read(){
     try{return JSON.parse(localStorage.getItem(config.sessionKey)||'null')}catch{return null}
   }
+  function sessionOwner(value=read()){return value?.user?.id||''}
   function write(value){
+    const beforeOwner=sessionOwner();
+    const afterOwner=value?.user?.id||'';
     if(value)localStorage.setItem(config.sessionKey,JSON.stringify(value));
     else localStorage.removeItem(config.sessionKey);
-    window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:value||null}}));
+    if(beforeOwner!==afterOwner){
+      sessionEpoch+=1;
+      getFlights.clear();
+      bootContext=null;
+    }
+    window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:value||null,epoch:sessionEpoch}}));
     return value||null;
   }
+  function contextRead(){return bootContext}
+  function contextSet(next){
+    const owner=sessionOwner();
+    if(!next?.user?.id||!next?.workspace?.id||next.user.id!==owner)return null;
+    bootContext={user:next.user,membership:next.membership||null,workspace:next.workspace};
+    return bootContext;
+  }
+  function contextClear(){bootContext=null;return null}
   function timeoutError(cause){
     return new RuntimeError('요청 시간이 초과되었습니다. 다시 시도해 주세요.',{code:'timeout',retryable:true,cause});
   }
@@ -80,6 +99,12 @@
       return JSON.stringify(parts);
     }
     try{return JSON.stringify(body)}catch{return null}
+  }
+  function getKey(path,{method='GET',auth=true,headers={}}={}){
+    const verb=String(method||'GET').toUpperCase();
+    if(verb!=='GET')return null;
+    const headerKey=JSON.stringify(Object.entries(headers||{}).sort(([a],[b])=>a.localeCompare(b)));
+    return [sessionEpoch,path,auth?'auth':'anon',headerKey].join('\n');
   }
   function mutationKey(path,{method='GET',body=null,prefer='',auth=true,headers={}}={}){
     const verb=String(method||'GET').toUpperCase();
@@ -177,20 +202,26 @@
     return data;
   }
   async function api(path,options={}){
-    const key=options.singleFlight===false?null:mutationKey(path,options);
-    if(key&&mutationFlights.has(key))return mutationFlights.get(key);
+    const dedupe=options.singleFlight!==false;
+    const getFlightKey=dedupe?getKey(path,options):null;
+    if(getFlightKey&&getFlights.has(getFlightKey))return getFlights.get(getFlightKey);
+    const mutationFlightKey=dedupe?mutationKey(path,options):null;
+    if(mutationFlightKey&&mutationFlights.has(mutationFlightKey))return mutationFlights.get(mutationFlightKey);
     const flight=apiRequest(path,options);
-    if(!key)return flight;
-    mutationFlights.set(key,flight);
+    const map=getFlightKey?getFlights:(mutationFlightKey?mutationFlights:null);
+    const key=getFlightKey||mutationFlightKey;
+    if(!map||!key)return flight;
+    map.set(key,flight);
     try{return await flight}
-    finally{if(mutationFlights.get(key)===flight)mutationFlights.delete(key)}
+    finally{if(map.get(key)===flight)map.delete(key)}
   }
 
   window.KPTURuntime={
-    version:'1.2.1',
+    version:'1.3.0',
     config,
     RuntimeError,
-    session:{read,write,refresh,ensure},
+    session:{read,write,refresh,ensure,epoch:()=>sessionEpoch},
+    context:{read:contextRead,set:contextSet,clear:contextClear},
     api
   };
 })();
