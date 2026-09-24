@@ -132,7 +132,6 @@
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js?v=1').catch(()=>{});
   const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
-  defer(()=>import('./push-notifications-ui.js?v=4').catch(()=>{}),{timeout:2500});
   await mobileNavigationReady;
 })().catch(err=>{
   console.error(err);
