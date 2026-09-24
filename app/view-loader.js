@@ -29,8 +29,7 @@ const routeStyles={
   media:['./web1-press.css?v=1'],
   pages:['./web1-board.css?v=2'],
   team:['./suborganizations.css?v=5','./workplace-detail.css?v=3'],
-  photos:['./photo-room.css?v=2'],
-  notifications:['./notification-center-ui.css?v=2']
+  photos:['./photo-room.css?v=2']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -111,12 +110,7 @@ async function photos(){
   await module('./photo-room.js?v=6','__KPTU_PHOTO_ROOM_READY__');
   return {ok:true}
 }
-async function notifications(){
-  await module('./notification-center-ui.js?v=7','__KPTU_NOTIFICATION_CENTER_READY__');
-  return {ok:true}
-}
-
-const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos,notifications};
+const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos};
 function normalize(view){
   if(view==='home'||view==='profile'||view==='messages'||view==='myspace')return 'calendar';
   return loaders[view]?view:'calendar'
