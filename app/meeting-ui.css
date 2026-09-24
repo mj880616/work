@@ -15,6 +15,9 @@
 .meeting-round-detail-card{max-width:900px}
 .mrd-result-section{padding-bottom:var(--kptu-space-4);border-bottom:1px solid var(--kptu-border)}
 .mrd-result-section h3,.mrd-followup-section h3{margin:0 0 var(--kptu-space-3)}
+.mrd-special-section{margin-top:var(--kptu-space-4);padding-top:var(--kptu-space-4);border-top:1px solid var(--kptu-border)}
+.mrd-special-section h3{margin:0 0 var(--kptu-space-3)}
+.mrd-special-text{padding:var(--kptu-space-3);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
 .mrd-result-text{min-height:72px;padding:var(--kptu-space-4);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle)}
 .mrd-text{white-space:pre-wrap;line-height:1.65;color:var(--kptu-ink)}
 .mrd-followup-section{margin-top:var(--kptu-space-4)}
