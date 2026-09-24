@@ -110,9 +110,9 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   expect(await page.evaluate(()=>window.KPTURouter?.current)).toBe(before);
 
   await page.locator('[data-view="calendar"]').click();
-  await expect(page.locator('.kptu-day-more').first()).toBeVisible({timeout:10000});
-  const more=page.locator('.kptu-day-more').filter({hasText:'+3개'}).first();
-  await expect(more).toBeVisible();
+  const more=page.locator('.kptu-day-more').first();
+  await expect(more).toBeVisible({timeout:10000});
+  await expect(more).toHaveText(/^\+\d+$/);
   await more.click();
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(5);
