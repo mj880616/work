@@ -55,7 +55,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=8'),
-    import('./team.js?v=42')
+    import('./team.js?v=43')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
