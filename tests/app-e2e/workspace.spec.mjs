@@ -235,6 +235,8 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#meetingsView')).toBeVisible();
   await page.locator('#newMeetingBtn').click();
   await page.locator('#meetingTitle').fill('E2E 회의');
+  await page.locator('#meetingAt').fill('2026-09-24T11:00');
+  await page.locator('#meetingTranscript').fill('E2E 회의 결과 원문');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(() => state.meetings.length).toBeGreaterThan(0);
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
