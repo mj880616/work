@@ -103,7 +103,7 @@ jobs:
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
           grep -q "critical.css?v=1" app/index.html
-          grep -q "styles.css?v=49" app/loader-v2.js
+          grep -q "styles.css?v=50" app/loader-v2.js
           grep -q "ensureFeatureStyles" app/loader-v2.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
@@ -164,7 +164,7 @@ jobs:
           grep -q "google-tasks.css?v=4" app/styles.css
           grep -q "library-upload.css?v=1" app/styles.css
           grep -q "meeting-ui.css?v=8" app/styles.css
-          grep -q "calendar-ui.css?v=4" app/styles.css
+          grep -q "calendar-ui.css?v=5" app/styles.css
           grep -q "page-core.css?v=7" app/styles.css
           grep -q "page-builder.css?v=2" app/styles.css
           grep -q "project-system-v3.css?v=13" app/styles.css
@@ -283,10 +283,12 @@ jobs:
           grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
           grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js
-          grep -q "calendar-ui.css?v=4" app/styles.css
+          grep -q "calendar-ui.css?v=5" app/styles.css
           grep -q "id=\"googleCalendarPanel\"" app/team.js
           grep -q "visualViewport" app/calendar-month-view.js
           grep -q "cmvLaneSlots" app/calendar-month-view.js
+          grep -q "calendarView:not(.hidden)::after" app/calendar-ui.css
+          grep -q "10svh" app/calendar-ui.css
           if grep -Eq "calendarUpcoming|upcomingEvents|calendar-upcoming" app/index.html app/team.js app/calendar-ui.css; then echo 'retired calendar auxiliary list returned'; exit 1; fi
           if grep -q "paintAppEvents" app/team.js; then echo 'team.js returned to a competing app-event painter'; exit 1; fi
           if grep -q "grid.querySelectorAll('.cal-event.google')" app/calendar-persistence.js; then echo 'Google persistence returned to direct DOM painting'; exit 1; fi
