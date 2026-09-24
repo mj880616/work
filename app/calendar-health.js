@@ -20,7 +20,8 @@ async function refreshCalendarStatus(){
   if(!rt?.session||!rt?.api||!(await rt.session.ensure()))return;
   installCalendarCompactStyle();
   try{
-    const d=await rt.api('/functions/v1/google-calendar?action=status');
+    const cached=window.__KPTU_GOOGLE_STATE__;
+    const d=cached&&typeof cached.connected==='boolean'?cached:await rt.api('/functions/v1/google-calendar?action=status');
     if(d?.error)return;
     const btn=document.querySelector('#googleConnectBtn');
     const label=document.querySelector('#googleAccountLabel');
