@@ -217,8 +217,8 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   expect(meeting).toContain("assignee_id=eq.'+encodeURIComponent(mrdUser.id)");
   expect(project).toContain('assignee_id=eq.${encodeURIComponent(user.id)}');
   expect(index).toContain('./team.js?v=36');
-  expect(index).toContain('./loader-v2.js?v=207');
-  expect(index).toContain('./app.js?v=95');
+  expect(index).toContain('./loader-v2.js?v=208');
+  expect(index).toContain('./app.js?v=96');
   expect(loader).toContain("import('./team.js?v=36')");
-  expect(app).toContain("import('./loader-v2.js?v=207')");
+  expect(app).toContain("import('./loader-v2.js?v=208')");
 });
