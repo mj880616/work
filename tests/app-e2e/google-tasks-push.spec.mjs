@@ -17,7 +17,6 @@ async function mock(page){
     if(p==='/rest/v1/app_spaces')return ok([]);
     if(p==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,calendars:[],events:[]});
     if(p==='/functions/v1/google-tasks')return ok({tasks:[{id:'g1',title:'Google QA 할 일',taskListTitle:'업무',due:null,notes:'',source:'google-task'}],needs_reconnect:false});
-    if(p==='/functions/v1/push-notifications')return ok({enabled:false,count:0,public_key:'qa'});
     if(p.startsWith('/rest/v1/')||p.startsWith('/functions/v1/'))return ok([]);
     return ok({});
   });

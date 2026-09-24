@@ -2,7 +2,6 @@
 @media (min-width:1024px){
   html,body{background:var(--kptu-bg)}
   body{overflow-y:scroll}
-  body.kptu-workspace-shell .topbar{display:none}
   main{max-width:1600px;margin:0 auto;padding:12px 32px 76px}
 
   #appView.app-view{display:grid;grid-template-columns:220px minmax(0,1fr);column-gap:28px;align-items:start}

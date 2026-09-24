@@ -19,7 +19,6 @@ async function mockApp(page){
       if(action==='events')return ok({events,eventColors:{}});
       return ok({connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}],colors:{},events,eventColors:{}});
     }
-    if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email}]);
@@ -147,11 +146,9 @@ test('mobile shell and event modal stay inside 360/390/412/430px viewports',asyn
         viewport:{width:innerWidth,height:innerHeight}
       };
     });
-    expect(shell.topbarDisplay).not.toBe('none');
+    expect(shell.topbarDisplay).toBe('none');
     expect(shell.sidebarBrandDisplay).toBe('none');
-    expect(shell.sidebarLogoutDisplay).toBe('none');
-    expect(shell.topbar.left).toBeGreaterThanOrEqual(-1);
-    expect(shell.topbar.right).toBeLessThanOrEqual(width+1);
+    expect(shell.sidebarLogoutDisplay).not.toBe('none');
     expect(shell.nav.left).toBeGreaterThanOrEqual(-1);
     expect(shell.nav.right).toBeLessThanOrEqual(width+1);
 

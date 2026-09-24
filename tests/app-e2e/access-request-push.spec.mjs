@@ -14,7 +14,6 @@ async function mock(page, role) {
       path === '/rest/v1/app_access_requests' ? [{id: 'req-1', user_id: 'new-user', status: 'pending'}] :
       path === '/functions/v1/google-calendar' ? {connected: false, enabled: false, calendars: [], events: []} :
       path === '/functions/v1/google-tasks' ? {tasks: [], needs_reconnect: false} :
-      path === '/functions/v1/push-notifications' ? {enabled: false, web_enabled: false, native_enabled: false, public_key: 'qa'} :
       path.startsWith('/rest/v1/') || path.startsWith('/functions/v1/') ? [] : {};
     return route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(data)});
   });

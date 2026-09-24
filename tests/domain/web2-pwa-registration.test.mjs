@@ -34,7 +34,7 @@ function runPwa(readyState) {
 
 test('Web2 registers its scoped service worker when the deferred module loads after window load', () => {
   const { registrations, loadHandlers } = runPwa('complete');
-  assert.deepEqual(registrations, [{ script: './sw.js?v=2', scope: './' }]);
+  assert.deepEqual(registrations, [{ script: './sw.js?v=3', scope: './' }]);
   assert.equal(loadHandlers.length, 0);
 });
 
@@ -43,5 +43,5 @@ test('Web2 waits for window load when the PWA module runs earlier', () => {
   assert.equal(registrations.length, 0);
   assert.equal(loadHandlers.length, 1);
   loadHandlers[0]();
-  assert.deepEqual(registrations, [{ script: './sw.js?v=2', scope: './' }]);
+  assert.deepEqual(registrations, [{ script: './sw.js?v=3', scope: './' }]);
 });

@@ -127,18 +127,6 @@ async function installSupabaseMock(page, state) {
       }
     }
 
-    if (path === '/rest/v1/app_notifications') {
-      if (method === 'GET') return ok(state.notifications);
-      if (method === 'PATCH') {
-        const id = (url.searchParams.get('id') || '').replace(/^eq\./, '');
-        const related = (url.searchParams.get('related_id') || '').replace(/^eq\./, '');
-        state.notifications.forEach(n => {
-          if ((id && n.id === id) || (related && n.related_id === related)) Object.assign(n, body || {});
-        });
-        return ok([]);
-      }
-    }
-
     if (path === '/rest/v1/app_direct_messages') {
       if (method === 'GET') return ok(state.directMessages);
       if (method === 'POST') {
@@ -173,8 +161,8 @@ test('login and core workspace flows remain usable', async ({ page }) => {
     spaces: [{ id: 'space-1', workspace_id: 'workspace-1', name: '기존 프로젝트', parent_id: null, status: 'active', owner_id: 'user-1', visibility: 'team', sort_order: 10, created_at: now() }],
     pages: [{ id: 'page-1', workspace_id: 'workspace-1', space_id: 'space-1', slug: 'e2e-page', title: 'E2E 게시글', summary: '공개 게시글', visibility: 'public', status: 'published', owner_id: 'user-1', published_at: now(), created_at: now(), updated_at: now() }],
     events: [], googleEvents: [], tasks: [], meetings: [], documents: [], directMessages: [],
-    projectInvites: [{ id: 'invite-1', project_id: 'space-1', user_id: 'user-1', role: 'edit', status: 'pending', created_at: now() }],
-    notifications: [{ id: 'notif-1', user_id: 'user-1', kind: 'project_invite', related_id: 'invite-1', title: '프로젝트 초대', body: '기존 프로젝트에 초대되었습니다.', created_at: now(), read_at: null }]
+    projectInvites: [{ id: 'invite-1', project_id: 'space-1', user_id: 'user-1', role: 'edit', status: 'pending', created_at: now() }]
+
   };
 
   await installSupabaseMock(page, state);
@@ -265,10 +253,5 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await expect(page.locator('[data-view="messages"],#messagesView,[data-cc-view="messages"]')).toHaveCount(0);
 
-  await page.locator('#ccNotifSidebar').click();
-  await expect(page.locator('#notificationsView')).toBeVisible();
-  await expect(page.locator('[data-ncu-project-response="accept"]')).toBeVisible();
-  await page.locator('[data-ncu-project-response="accept"]').click();
-  await expect.poll(() => state.projectInvites[0].status).toBe('accepted');
-  await expect(page.locator('#ncuList')).toContainText('수락함');
+  await expect(page.locator('#ccNotifTop,#ccNotifSidebar,#notificationsView,[data-kptu-notifications]')).toHaveCount(0);
 });

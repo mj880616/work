@@ -1,25 +1,17 @@
-name: Notification ownership check
+name: Notification removal check
 
 on:
   push:
     branches: [main]
     paths:
-      - 'app/notification-center-ui.js'
-      - 'app/notification-center-ui.css'
-      - 'app/profile-settings.js'
-      - 'app/loader-v2.js'
-      - 'app/view-loader.js'
-      - 'app/styles.css'
+      - 'app/**'
+      - 'android-app/**'
       - '.github/workflows/collaboration-ownership-check.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'app/notification-center-ui.js'
-      - 'app/notification-center-ui.css'
-      - 'app/profile-settings.js'
-      - 'app/loader-v2.js'
-      - 'app/view-loader.js'
-      - 'app/styles.css'
+      - 'app/**'
+      - 'android-app/**'
       - '.github/workflows/collaboration-ownership-check.yml'
 
 jobs:
@@ -27,27 +19,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check notification ownership boundary
+      - name: Check notification and push removal
+        shell: bash
         run: |
-          set -e
-          if grep -q 'mobile-dock.js' app/loader-v2.js; then echo 'obsolete personal dock returned'; exit 1; fi
-          grep -q "notification-center-ui.js?v=7" app/view-loader.js
-          grep -q "__KPTU_NOTIFICATION_CENTER_READY__" app/view-loader.js
-          if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
-          grep -q "notification-center-ui.css?v=2" app/styles.css
-          grep -q "window.__KPTU_NOTIFICATION_CENTER_READY__" app/notification-center-ui.js
-          grep -q "id=\"psLogout\"" app/profile-settings.js
-          if grep -Eq "ps-profile-grid|ncuLogout|logoutBtn|installLogout" app/notification-center-ui.js; then
-            echo 'notification module crossed into profile ownership'; exit 1
+          set -euo pipefail
+          test ! -e app/notification-center-ui.js
+          test ! -e app/notification-center-ui.css
+          test ! -e app/push-notifications-ui.js
+          test ! -e android-app/app/src/main/java/kr/or/kptu/work/KptuFirebaseMessagingService.java
+          test ! -e android-app/app/src/main/res/drawable/ic_notification.xml
+          if grep -Eq 'ccNotif|data-kptu-notifications|notificationsView|notification-center-ui|push-notifications-ui' app/index.html app/loader-v2.js app/view-loader.js app/styles.css app/team.js; then
+            echo 'notification UI/runtime returned'; exit 1
           fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/notification-center-ui.js; then
-            echo 'dynamic notification styles returned'; exit 1
+          if grep -Eq 'FirebaseMessaging|FirebaseApp|KPTUNativePush|POST_NOTIFICATIONS|MESSAGING_EVENT|firebase-messaging' android-app/app/src/main/java/kr/or/kptu/work/MainActivity.java android-app/app/src/main/AndroidManifest.xml android-app/app/build.gradle; then
+            echo 'Android push integration returned'; exit 1
           fi
-          if grep -q "MutationObserver" app/notification-center-ui.js; then
-            echo 'notification DOM observer returned'; exit 1
+          if grep -Eq "addEventListener\('push'|addEventListener\('notificationclick'" app/sw.js; then
+            echo 'service worker push handler returned'; exit 1
           fi
-          if grep -q "setInterval" app/notification-center-ui.js; then
-            echo 'notification polling returned'; exit 1
-          fi
-          node --check app/notification-center-ui.js
-          node --check app/profile-settings.js

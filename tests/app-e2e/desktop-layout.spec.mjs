@@ -41,6 +41,7 @@ async function login(page){
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
+  await expect(page.locator('body')).toHaveClass(/kptu-workspace-shell/,{timeout:10000});
 }
 
 test('desktop web uses compact left navigation and safe project detail margins',async({page})=>{
@@ -54,7 +55,6 @@ test('desktop web uses compact left navigation and safe project detail margins',
     await expect(page.locator('.topbar')).toBeHidden();
     await expect(page.locator('.sidebar-brand')).toBeVisible();
     await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();
-    await expect(page.locator('#ccNotifSidebar')).toBeVisible();
     const shell=await page.evaluate(()=>{
       const topbar=document.querySelector('.topbar');
       const nav=document.querySelector('#appView>.app-nav');

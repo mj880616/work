@@ -20,7 +20,8 @@ test('Web2 first paint uses the final icon without a green placeholder or late f
   expect(pwa).not.toContain('apple-touch-icon');
   expect(pwa).not.toContain('createElement(\'link\')');
   expect(manifest).toContain('20260924-unicorn3');
-  expect(sw).toContain('20260924-unicorn3');
+  expect(sw).not.toContain("addEventListener('push'");
+  expect(sw).not.toContain("addEventListener('notificationclick'");
   for(const source of [html,pwa,manifest,sw])expect(source).not.toContain('20260913-3');
 });
 
@@ -49,18 +50,21 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=111" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=113" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=223','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
-    './calendar-return-bridge.js?v=3','./team.js?v=42'
+    './loader-v2.js?v=225','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
+    './calendar-return-bridge.js?v=3','./team.js?v=44'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=223')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=225')");
   const loader=read('app/loader-v2.js');
+  const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
-  expect(loader).toContain("import('./team.js?v=42')");
-  expect(loader).toContain("import('./view-loader.js?v=7')");
+  expect(loader).toContain("import('./team.js?v=44')");
+  expect(loader).toContain("import('./view-loader.js?v=8')");
   expect(loader).not.toContain("import('./google-tasks.js");
+  expect(loader).not.toContain("push-notifications-ui.js");
+  expect(viewLoader).not.toContain('notification-center-ui');
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
 });
 
@@ -92,7 +96,7 @@ test('requested route is resolved before view-specific feature loading', async (
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
-  expect(viewLoader).toContain("const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos,notifications}");
+  expect(viewLoader).toContain("const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos}");
 });
 
 test('direct feature URLs load one requested view and keep failures visible', async () => {
@@ -177,7 +181,6 @@ async function loginWithMock(page,{delayGroups=false}={}){
       path==='/rest/v1/app_workspaces'?[{id:'p6-flow-workspace',name:'웹2'}]:
       path==='/rest/v1/app_profiles'?[{user_id:user.id,display_name:'P6 QA'}]:
       path==='/functions/v1/google-calendar'?{connected:false,enabled:false,selected:[],calendars:[],events:[]}:
-      path==='/functions/v1/push-notifications'?{enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'}:
       path.startsWith('/rest/v1/')?[]:{};
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   });
