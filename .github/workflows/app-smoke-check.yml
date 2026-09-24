@@ -238,7 +238,7 @@ jobs:
           import re,sys
           managed={
             'team.css','team-member-overview.css','team-profile-view.css','team-member-management.css',
-            'profile-settings.css','workplace-detail.css','suborganizations.css','suborganization-filters.css',
+            'profile-settings.css','workplace-detail.css','suborganizations.css',
             'access-approval.css','notification-center-ui.css',
             'photo-room.css','public-workspace.css','topbar-actions.css','calendar-ui.css','task-layout.css',
             'google-tasks.css','library-upload.css','project-system-v3.css','meeting-ui.css','page-core.css','page-builder.css',
