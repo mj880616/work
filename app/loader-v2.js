@@ -11,9 +11,9 @@
   await Promise.all([
     import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
-    import('./app-router.js?v=9'),
+    import('./app-router.js?v=10'),
     import('./accessibility-dialog.js?v=1'),
-    import('./native-back-guard.js?v=1'),
+    import('./native-back-guard.js?v=2'),
     import('./session-resilience.js?v=6'),
     import('./auth-service.js?v=1'),
     import('./capabilities.js?v=2'),
@@ -55,7 +55,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=41')
+    import('./team.js?v=42')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -74,14 +74,14 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=6');
+  await import('./view-loader.js?v=7');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
-  const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
+  const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');
   const requested=viewLoader.normalize(rawRequested);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
-  const staticShellViews=new Set(['home','calendar','tasks','projects','library','meetings','media','pages','team']);
+  const staticShellViews=new Set(['calendar','tasks','projects','library','meetings','media','pages','team']);
   await viewLoader.prepare(requested);
   const app=document.querySelector('#appView');
   if(staticShellViews.has(requested)){

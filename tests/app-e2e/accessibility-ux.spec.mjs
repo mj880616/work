@@ -70,7 +70,7 @@ test('active navigation exposes aria-current',async({page})=>{
   await boot(page,{width:1024,height:768});
   await page.locator('.app-nav [data-view="tasks"]').click();
   await expect(page.locator('.app-nav [data-view="tasks"]')).toHaveAttribute('aria-current','page');
-  await expect(page.locator('.app-nav [data-view="home"]')).not.toHaveAttribute('aria-current');
+  await expect(page.locator('.app-nav [data-view="calendar"]')).not.toHaveAttribute('aria-current');
 });
 
 test('task grouping, month controls, and destructive task actions expose clear names',async({page})=>{
@@ -281,7 +281,7 @@ for(const viewport of [
 ]){
   test(`core views do not overflow at ${viewport.width}`,async({page})=>{
     await boot(page,viewport);
-    for(const view of ['home','calendar','tasks','projects','library','meetings','media','pages','team']){
+    for(const view of ['calendar','tasks','projects','library','meetings','media','pages','team']){
       await page.locator(`.app-nav [data-view="${view}"]`).click();
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
       expect(overflow,view).toBeLessThanOrEqual(1);

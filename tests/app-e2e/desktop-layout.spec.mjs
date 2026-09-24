@@ -62,11 +62,6 @@ test('desktop web uses compact left navigation and safe project detail margins',
   expect(desktop.navPosition).toBe('sticky');
   expect(desktop.navWidth).toBeLessThanOrEqual(160);
   expect(desktop.mainMaxWidth).toBe('1720px');
-  await expect(page.locator('#hdvTaskPanel')).toBeVisible();
-  await expect(page.locator('#hdvTasks')).toContainText('메인에서 바로 처리할 할 일');
-  await expect(page.locator('#hdvTasks [data-hdv-goto="tasks"]')).toHaveCount(1);
-  await expect(page.locator('#myTaskMini')).toHaveCount(0);
-
   await page.locator('[data-view="projects"]').click();
   await expect(page.locator('#projectsView')).toBeVisible();
 
@@ -101,7 +96,7 @@ test('selected view survives refresh and page cards open inside the 게시판 ta
 
   await page.locator('[data-view="calendar"]').click();
   await expect(page.locator('#calendarView')).toBeVisible();
-  await expect(page).toHaveURL(/view=calendar/);
+  await expect(page).toHaveURL('http://127.0.0.1:8123/app/');
   await page.reload();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});

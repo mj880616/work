@@ -21,7 +21,6 @@ function style(path){
   return flight
 }
 const routeStyles={
-  home:[],
   calendar:['./calendar-ui.css?v=6'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
   projects:['./project-system-v3.css?v=13','./forum-flow-polish.css?v=1'],
@@ -48,11 +47,6 @@ async function module(path,readyName){
 async function team(view){
   const fn=window.__KPTU_START_TEAM_VIEW__;
   if(typeof fn==='function')await fn(view);
-}
-async function home(){
-  await module('./home-dashboard-v2.js?v=8');
-  const ready=window.__KPTU_HOME_READY__;
-  return ready&&typeof ready.then==='function'?await ready:{ok:true}
 }
 async function calendar(){
   await module('./calendar-month-view.js?v=4','__KPTU_CALENDAR_MONTH_VIEW_READY__');
@@ -122,10 +116,10 @@ async function notifications(){
   return {ok:true}
 }
 
-const loaders={home,calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos,notifications};
+const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos,notifications};
 function normalize(view){
-  if(view==='profile'||view==='messages'||view==='myspace')return 'home';
-  return loaders[view]?view:'home'
+  if(view==='home'||view==='profile'||view==='messages'||view==='myspace')return 'calendar';
+  return loaders[view]?view:'calendar'
 }
 function load(view){
   const key=normalize(view);

@@ -43,9 +43,9 @@
           return true;
         }
       }
-      if(now&&now!=='home'&&document.getElementById('homeView')){
-        router?.go?.('home',{source:'native-back-guard',replaceUrl:true});
-        current='home';
+      if(now&&now!=='calendar'&&document.getElementById('calendarView')){
+        router?.go?.('calendar',{source:'native-back-guard',replaceUrl:true});
+        current='calendar';
         return true;
       }
       return true;

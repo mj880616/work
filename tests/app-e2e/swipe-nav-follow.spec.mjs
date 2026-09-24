@@ -67,8 +67,8 @@ test('active top menu follows swipe navigation and remains visible',async({page}
     return (nav.scrollWidth<=nav.clientWidth+1||nav.scrollLeft>0)&&a.left>=n.left-1&&a.right<=n.right+1;
   })).toBe(true);
 
-  await page.evaluate(()=>window.KPTURouter.go('home',{source:'swipe'}));
-  await expect(page.locator('#homeView')).toBeVisible();
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'swipe'}));
+  await expect(page.locator('#calendarView')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>document.querySelector('.app-nav')?.scrollLeft||0)).toBeLessThan(4);
 });
 

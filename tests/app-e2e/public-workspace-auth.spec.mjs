@@ -47,7 +47,8 @@ test('anonymous app entry uses the narrow public index and gates internal work',
   await expect(page.locator('#authView')).toBeHidden();
   await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop')).toHaveCount(0);
 
-  for(const view of ['home','calendar','tasks','library','meetings','pages']){
+  await expect(page.locator('.app-nav [data-view="home"]')).toHaveCount(0);
+  for(const view of ['calendar','tasks','library','meetings','pages']){
     await expect(page.locator(`.app-nav [data-view="${view}"]`)).toBeVisible();
   }
   await expect(page.locator('.app-nav [data-view="projects"]')).toBeHidden();

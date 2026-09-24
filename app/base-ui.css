@@ -123,6 +123,7 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .empty,.state-empty,.state-error,.state-loading{padding:var(--kptu-space-6);border:1px dashed var(--kptu-border-strong);border-radius:var(--kptu-radius-lg);text-align:center;color:var(--kptu-muted);background:var(--kptu-surface)}
 .state-error{color:var(--kptu-danger);background:var(--kptu-danger-soft)}
 .section-head,.panel-head{display:flex;justify-content:space-between;align-items:center;gap:var(--kptu-space-3);margin-bottom:var(--kptu-space-4)}
+.section-head.actions-only{justify-content:flex-end;margin-bottom:var(--kptu-space-3)}
 .section-head h2,.panel-head h2{margin:0;font-size:20px;line-height:1.35;font-weight:800}
 .section-head h3,.panel-head h3{margin:0;font-size:15px;line-height:1.4;font-weight:700}
 .section-head p,.panel-head p{margin:var(--kptu-space-1) 0 0;color:var(--kptu-muted);font-size:13px}

@@ -54,13 +54,6 @@ test('calendar uses a smaller add control while other top-level actions stay con
   await signIn(page);
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 
-  await page.locator('[data-view="home"]').first().click();
-  await expect(page.locator('#hdvTaskPanel')).toBeVisible({timeout:10000});
-  await expect(page.locator('#hdvTasks .hdv-row')).toHaveCount(6);
-  await expect(page.locator('#hdvTasks')).toContainText('UI 점검 할 일 1');
-  await expect(page.locator('[data-hta-expand]')).toHaveCount(0);
-  await expect(page.locator('#htaStyle')).toHaveCount(0);
-
   const calendarAdd=await buttonHeight(page,'calendar','#newEventBtn');
   expect(calendarAdd).toBeLessThanOrEqual(32);
 

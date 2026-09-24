@@ -50,8 +50,8 @@ jobs:
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=41')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=6')",'result=await viewLoader.load(requested)',
+            "import('./team.js?v=42')",'await window.__KPTU_TEAM_READY__',
+            "import('./view-loader.js?v=7')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -107,7 +107,7 @@ jobs:
           grep -q 'id="authView"' app/index.html
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
-          grep -q "critical.css?v=1" app/index.html
+          grep -q "critical.css?v=2" app/index.html
           if grep -q "styles.css?v=51" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
@@ -135,9 +135,9 @@ jobs:
           if grep -R -q "20260913-3" app/index.html app/pwa.js app/windows-manifest.json app/sw.js; then echo 'stale Web2 icon version returned'; exit 1; fi
           if grep -R -q "20260924-unicorn2" app/index.html app/windows-manifest.json app/sw.js; then echo 'poisoned Web2 icon URL returned'; exit 1; fi
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
-          grep -q "home-dashboard-v2.js?v=8" app/view-loader.js
+          if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=6" app/loader-v2.js
-          grep -q "team.js?v=41" app/loader-v2.js
+          grep -q "team.js?v=42" app/loader-v2.js
           grep -q "project-system-v3.js?v=22" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js

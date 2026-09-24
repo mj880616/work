@@ -2,7 +2,7 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
-  const NAV_ALIAS={messages:'home',profile:'home',photos:'calendar',myspace:'home',notifications:'home'};
+  const NAV_ALIAS={messages:'calendar',profile:'calendar',photos:'calendar',myspace:'calendar'};
   let bound=false;
 
   function appReady(){
@@ -20,18 +20,23 @@
     return !!view&&!!document.getElementById(view+'View');
   }
 
+  function publicHomeAvailable(){
+    return document.body?.classList.contains('kptu-public-workspace')&&viewExists('home');
+  }
+
   function viewFromUrl(){
     const params=new URLSearchParams(location.search);
     const requested=params.get(VIEW_PARAM);
+    if(requested==='home')return publicHomeAvailable()?'home':viewExists('calendar')?'calendar':null;
     if(viewExists(requested))return requested;
     if(params.get('project')&&viewExists('projects'))return 'projects';
-    return viewExists('home')?'home':null;
+    return publicHomeAvailable()?'home':viewExists('calendar')?'calendar':null;
   }
 
   function syncUrl(view,{replace=false}={}){
     if(!viewExists(view))return;
     const u=new URL(location.href);
-    if(view==='home')u.searchParams.delete(VIEW_PARAM);
+    if(view==='calendar'||(view==='home'&&publicHomeAvailable()))u.searchParams.delete(VIEW_PARAM);
     else u.searchParams.set(VIEW_PARAM,view);
     const next=u.pathname+(u.search||'')+u.hash;
     const current=location.pathname+location.search+location.hash;
@@ -141,7 +146,7 @@
       brand.addEventListener('click',e=>{
         if(!appReady())return;
         e.preventDefault();
-        go('home',{source:'brand'});
+        go(publicHomeAvailable()?'home':'calendar',{source:'brand'});
       });
     }
     if(api.current)syncNavigationState(api.current);
