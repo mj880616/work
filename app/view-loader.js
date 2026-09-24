@@ -21,7 +21,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  calendar:['./calendar-ui.css?v=6'],
+  calendar:['./calendar-ui.css?v=7'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
   projects:['./project-system-v3.css?v=13','./forum-flow-polish.css?v=1'],
   library:['./library-upload.css?v=1','./compact-list.css?v=2'],
@@ -48,11 +48,11 @@ async function team(view){
   if(typeof fn==='function')await fn(view);
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=4','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-month-view.js?v=5','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await team('calendar');
+  await module('./calendar-plus.js?v=9','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
-    module('./calendar-plus.js?v=8','__KPTU_CALENDAR_PLUS_READY__'),
-    module('./calendar-interactions-v2.js?v=7','__KPTU_CALENDAR_INTERACTIONS_READY__'),
+    module('./calendar-interactions-v2.js?v=8','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=4','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
