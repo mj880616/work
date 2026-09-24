@@ -47,17 +47,17 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=107" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=108" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=219','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=220','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=3','./team.js?v=41'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=219')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=220')");
   const loader=read('app/loader-v2.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
   expect(loader).toContain("import('./team.js?v=41')");
-  expect(loader).toContain("import('./view-loader.js?v=4')");
+  expect(loader).toContain("import('./view-loader.js?v=5')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader.indexOf('await runtimeReady')).toBeLessThan(loader.indexOf("const authenticated=await window.KPTURuntime.session.ensure()"));
 });
@@ -69,7 +69,7 @@ test('startup loads only requested route CSS before showing the shell', async ()
   expect(loader).not.toContain('ensureFeatureStyles');
   expect(loader).not.toContain("styles.css?v=51");
   for(const asset of [
-    './calendar-ui.css?v=5',
+    './calendar-ui.css?v=6',
     './task-layout.css?v=4',
     './google-tasks.css?v=4',
     './project-system-v3.css?v=13',
