@@ -64,7 +64,7 @@
   await Promise.all([
     ensureCoreStyles(),
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=40')
+    import('./team.js?v=41')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -83,7 +83,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=3');
+  await import('./view-loader.js?v=4');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
@@ -139,6 +139,7 @@
   }
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js?v=1').catch(()=>{});
+  import('./push-notifications-ui.js?v=4').catch(err=>console.warn('push notification background init failed',err));
   await mobileNavigationReady;
 })().catch(err=>{
   console.error(err);
