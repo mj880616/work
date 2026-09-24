@@ -1,7 +1,7 @@
 (async()=>{
   const startup=window.__KPTU_STARTUP__;
   startup?.mark('loaderStart');
-  const runtimeReady=import('./runtime-client.js?v=3');
+  const runtimeReady=import('./runtime-client.js?v=4');
   await Promise.all([
     import('./native-auth-bridge.js?v=4'),
     import('./calendar-return-bridge.js?v=3')
@@ -31,7 +31,7 @@
     }
     await import('./public-workspace.js?v=11');
     await import('./mobile-swipe-navigation.js?v=4');
-    startup?.mark('allInitialModulesComplete');
+    startup?.mark('publicModulesComplete');
     return;
   }
 
@@ -55,7 +55,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=6'),
-    import('./team.js?v=39')
+    import('./team.js?v=40')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -63,78 +63,83 @@
   if(teamState==='bootstrap'){await import('./access-approval.js?v=5');return}
   if(teamState!=='workspace')return;
 
-  const context=window.__KPTU_BOOT_CONTEXT__;
+  const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  startup?.mark('routeResolved',{route:'authenticated'});
+
   const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=4').catch(err=>{console.error('mobile navigation load failed',err);return null});
   let featureStylesPromise=null;
   const ensureFeatureStyles=()=>featureStylesPromise||(featureStylesPromise=new Promise(resolve=>{
     if(document.querySelector('link[data-kptu-feature-styles]')){resolve();return}
     const link=document.createElement('link');
-    link.rel='stylesheet';link.href='./styles.css?v=50';link.dataset.kptuFeatureStyles='1';
+    link.rel='stylesheet';link.href='./styles.css?v=51';link.dataset.kptuFeatureStyles='1';
     link.onload=()=>resolve();link.onerror=()=>resolve();
     document.head.appendChild(link);
   }));
-  let featurePromise=null,featuresReady=false;
   const showFeatureError=err=>{
-    console.error('deferred feature load failed',err);
+    console.error('view feature load failed',err);
     let box=document.querySelector('#deferredFeatureError');
     if(!box){box=document.createElement('div');box.id='deferredFeatureError';box.className='notice';box.setAttribute('role','alert');document.querySelector('#appView .app-nav')?.after(box)}
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
-  const loadFeatures=()=>featurePromise||(featurePromise=(async()=>{
-    await ensureFeatureStyles();
-    await import('./calendar-month-view.js?v=2'); await window.__KPTU_CALENDAR_MONTH_VIEW_READY__;
-    await window.__KPTU_START_TEAM_DATA__();
-    await import('./project-system-v3.js?v=19');
-    await Promise.all([import('./forum-flow-polish.js?v=2'),import('./public-page-links.js?v=1'),import('./due-date-calendar.js?v=1')]);
-    await import('./page-design-core.js?v=4');
-    await import('./task-workflow.js?v=8'); await window.__KPTU_TASK_WORKFLOW_READY__;
-    await import('./task-row-view.js?v=1');
-    await import('./task-layout.js?v=12'); await window.__KPTU_TASK_LAYOUT_READY__;
-    await Promise.all([import('./photo-room.js?v=5'),import('./password-reset.js?v=2'),import('./calendar-health.js?v=3'),import('./workplace-detail.js?v=5'),import('./library-upload.js?v=11')]);
-    await window.__KPTU_PHOTO_ROOM_READY__;
-    await import('./web1-board.js?v=3');
-    await import('./web1-press.js?v=2'); await window.__KPTU_WEB1_PRESS_READY__;
-    await import('./meeting-round-detail.js?v=11'); await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
-    await import('./google-calendar-return-status.js?v=1');
-    await import('./notification-center-ui.js?v=6'); await window.__KPTU_NOTIFICATION_CENTER_READY__;
-    await import('./calendar-plus.js?v=8'); await window.__KPTU_CALENDAR_PLUS_READY__;
-    await import('./calendar-persistence.js?v=12'); await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
-    await import('./calendar-interactions-v2.js?v=6'); await window.__KPTU_CALENDAR_INTERACTIONS_READY__;
-    await import('./calendar-mobile-ui.js?v=4'); await window.__KPTU_CALENDAR_MOBILE_UI_READY__;
-    await import('./calendar-day-overflow.js?v=3'); await window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__;
-    await import('./suborganizations.js?v=6'); await window.__KPTU_SUBORGANIZATIONS_READY__;
-    await Promise.all([import('./google-tasks.js?v=7'),import('./push-notifications-ui.js?v=4'),import('./mobile-modal-history.js?v=1'),import('./mobile-swipe-navigation.js?v=4')]);
-    featuresReady=true;
-    startup?.mark('allInitialModulesComplete');
-    import('./workplace-ai-report.js?v=2').catch(showFeatureError);
-  })().catch(err=>{featurePromise=null;showFeatureError(err);throw err}));
-  window.KPTUDeferredFeatures={load:loadFeatures};
+
+  await import('./view-loader.js?v=1');
+  const viewLoader=window.KPTUViewLoader;
+  const params=new URLSearchParams(location.search);
+  const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
+  const requested=viewLoader.normalize(rawRequested);
+  startup?.mark('routeResolved',{route:'authenticated',view:requested});
+
+  const staticShellViews=new Set(['home','calendar','tasks','projects','library','meetings','media','pages','team']);
+  await ensureFeatureStyles();
+  const app=document.querySelector('#appView');
+  if(staticShellViews.has(requested)){
+    app?.classList.add('kptu-shell-ready');
+    window.KPTURouter?.go?.(requested,{scroll:false,source:'startup',updateUrl:false});
+    startup?.mark('requestedShellVisible',{view:requested});
+  }
+
+  const controlView=control=>{
+    const explicit=control?.dataset?.view||control?.dataset?.goto||control?.dataset?.hdvGoto;
+    if(explicit)return viewLoader.normalize(explicit);
+    if(control?.id==='quickTaskBtn'||control?.id==='newTaskBtn')return 'tasks';
+    if(control?.id==='newEventBtn')return 'calendar';
+    if(control?.id==='newDocumentBtn')return 'library';
+    if(control?.id==='newMeetingBtn')return 'meetings';
+    if(control?.id==='newProjectBtn')return 'projects';
+    return null;
+  };
   document.addEventListener('click',event=>{
     const control=event.target.closest?.('#appView [data-view],#appView [data-goto],#appView [data-hdv-goto],#appView [data-hdv-project],#quickTaskBtn,#newTaskBtn,#newEventBtn,#newDocumentBtn,#newMeetingBtn,#newProjectBtn');
-    if(!control||featuresReady)return;
-    const view=control.dataset.view||control.dataset.goto||control.dataset.ccView;
-    if(view==='home')return;
+    const view=controlView(control);
+    if(!control||!view||viewLoader.isLoaded(view))return;
     event.preventDefault();event.stopImmediatePropagation();
     let status=document.querySelector('#deferredFeatureStatus');
     if(!status){status=document.createElement('div');status.id='deferredFeatureStatus';status.className='notice';status.setAttribute('role','status');document.querySelector('#appView .app-nav')?.after(status)}
     status.textContent='기능을 불러오는 중입니다…';
-    loadFeatures().then(()=>{status.remove();if(view)window.KPTURouter?.go?.(view,{source:'delegated'});else control.click()}).catch(()=>status.remove());
+    viewLoader.load(view).then(()=>{
+      status.remove();
+      if(control.dataset?.view||control.dataset?.goto||control.dataset?.hdvGoto)window.KPTURouter?.go?.(view,{source:'delegated'});
+      else control.click();
+    }).catch(err=>{status.remove();showFeatureError(err)});
   },true);
 
-  startup?.mark('homeRendererStart');
-  await import('./home-dashboard-v2.js?v=8');
-  startup?.mark('homeRendererReady');
-  const homeResult=await window.__KPTU_HOME_READY__;
-
-  const requested=new URLSearchParams(location.search).get('view');
-  if(requested&&requested!=='home')await loadFeatures();
-  window.__KPTU_MARK_APP_UI_READY__?.({usable:homeResult?.ok===true});
-  if(!requested||requested==='home'){
-    const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
-    defer(()=>loadFeatures().catch(()=>{}),{timeout:2500});
+  window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load};
+  startup?.mark('requestedViewLoadStart',{view:requested});
+  let result={ok:false,view:requested};
+  try{
+    result=await viewLoader.load(requested);
+    if(!staticShellViews.has(requested)){
+      app?.classList.add('kptu-shell-ready');
+      window.KPTURouter?.go?.(requested,{scroll:false,source:'startup',updateUrl:false});
+    }
+    startup?.mark('requestedViewReady',{view:requested});
+  }catch(err){
+    showFeatureError(err);
+    startup?.mark('requestedViewFailed',{view:requested});
   }
+  window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
+  import('./mobile-modal-history.js?v=1').catch(()=>{});
+  await mobileNavigationReady;
 })().catch(err=>{
   console.error(err);
   window.__KPTU_MARK_APP_UI_READY__?.();
