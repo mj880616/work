@@ -23,9 +23,10 @@
   function viewFromUrl(){
     const params=new URLSearchParams(location.search);
     const requested=params.get(VIEW_PARAM);
+    if(requested==='home'&&viewExists('calendar'))return 'calendar';
     if(viewExists(requested))return requested;
     if(params.get('project')&&viewExists('projects'))return 'projects';
-    return viewExists('home')?'home':null;
+    return viewExists('calendar')?'calendar':null;
   }
 
   function syncUrl(view,{replace=false}={}){
