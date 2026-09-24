@@ -13,7 +13,16 @@ async function mockApp(page,state){
     if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
-    if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/google-calendar'){
+      const action=url.searchParams.get('action')||body?.action||'status';
+      if(method==='POST'){
+        state.googleCalls=state.googleCalls||[];
+        state.googleCalls.push(body||{});
+        return ok({ok:true,event:{id:`google-${state.googleCalls.length}`,calendarId:body?.calendar_id||'primary'}});
+      }
+      if(action==='events')return ok({events:[],colors:state.googleStatus?.colors||{},eventColors:{}});
+      return ok(state.googleStatus||{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    }
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path==='/rest/v1/rpc/app_project_publication_state')return ok(state.publication?.[body?.p_project]||{published:false,public_summary:null,blocks:[]});
     if(path==='/rest/v1/rpc/app_set_project_block_publication'){
@@ -105,7 +114,7 @@ function baseState(){return{
   progress:[{id:'pr-1',project_id:'main-1',workstream_id:'ws-1',summary:'국토부 후속협의 준비',next_step:'9.29 토론회',status_label:'진행',effective_on:'2026-09-15',created_at:now()}],
   milestones:[{id:'mile-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',milestone_type:'policy',status:'planned',start_at:'2026-09-29T05:00:00Z',notes:'국토부·TS 참석'}],
   docs:[{id:'doc-1',project_id:'main-1',title:'민자철도 국토부 요구자료 답변',category:'정부자료',source:'국토교통부',document_date:'2026-09-14',tags:['민자철도','운영기준'],description:'인청 요구자료',drive_url:'https://example.org/doc'}],
-  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],spaceMembers:[],sections:[],blocks:[],publication:{}
+  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],spaceMembers:[],sections:[],blocks:[],publication:{},googleStatus:{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}},googleCalls:[]
 }}
 
 test('project list loads and its heading uses available width at desktop, tablet and phone sizes',async({page})=>{
@@ -148,6 +157,12 @@ test('project owner UI stays inside 360 390 412 and 430px viewports',async({page
     await expect(page.locator('#ps3DetailModal')).toBeVisible();
     overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
     expect(overflow,`detail at ${width}px`).toBeLessThanOrEqual(1);
+    await page.locator('[data-ps3-add-milestone]').click();
+    await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
+    overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+    expect(overflow,`milestone modal at ${width}px`).toBeLessThanOrEqual(1);
+    await expect(page.locator('#ps3MilestoneGoogle')).toBeVisible();
+    await page.locator('[data-ps3-close="ps3MilestoneModal"]').click();
     await page.locator('[data-ps3-add-ws]').click();
     await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
     overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
@@ -228,6 +243,63 @@ test('project creation omits type and visibility controls and starts with zero p
   await expect(page.locator('[data-ps3-access],[data-ps3-publish-project],#ps3-public')).toHaveCount(0);
 });
 
+
+test('project milestone stays usable without Google and links to the existing local event model',async({page})=>{
+  const state=baseState();
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
+  await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('');
+  await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('미연결');
+  await page.locator('#ps3MilestoneTitle').fill('로컬 프로젝트 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-02T14:00');
+  await page.locator('#ps3MilestoneSave').click();
+
+  await expect.poll(()=>state.milestones.some(x=>x.title==='로컬 프로젝트 일정')).toBe(true);
+  const milestone=state.milestones.find(x=>x.title==='로컬 프로젝트 일정');
+  const event=state.events.find(x=>x.id===milestone.event_id);
+  expect(event).toBeTruthy();
+  expect(event.project_id).toBe('main-1');
+  expect(event.title).toBe('로컬 프로젝트 일정');
+  expect(state.googleCalls).toHaveLength(0);
+});
+
+test('project milestone sends the explicitly selected writable Google calendar id to create-event',async({page})=>{
+  const state=baseState();
+  state.googleStatus={
+    connected:true,enabled:true,selected:['team-cal'],colors:{},eventColors:{},
+    calendars:[
+      {id:'owner@example.org',summary:'개인 일정',primary:true,accessRole:'owner',backgroundColor:'#4285f4'},
+      {id:'team-cal',summary:'공공기관사업팀',primary:false,accessRole:'writer',backgroundColor:'#336699'},
+      {id:'read-only',summary:'읽기 전용',primary:false,accessRole:'reader',backgroundColor:'#999999'}
+    ]
+  };
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await expect(page.locator('#ps3MilestoneGoogle')).toBeEnabled();
+  await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('team-cal');
+  await expect(page.locator('#ps3MilestoneGoogle option[value="read-only"]')).toHaveCount(0);
+  await page.locator('#ps3MilestoneGoogle').selectOption('owner@example.org');
+  await page.locator('#ps3MilestoneTitle').fill('Google 세부 캘린더 지정 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+  await page.locator('#ps3MilestoneNotes').fill('선택 캘린더 전달 검증');
+  await page.locator('#ps3MilestoneSave').click();
+
+  await expect.poll(()=>state.googleCalls.length).toBe(1);
+  expect(state.googleCalls[0]).toMatchObject({
+    action:'create-event',
+    calendar_id:'owner@example.org',
+    title:'Google 세부 캘린더 지정 일정',
+    memo:'선택 캘린더 전달 검증'
+  });
+  const milestone=state.milestones.find(x=>x.title==='Google 세부 캘린더 지정 일정');
+  expect(milestone?.event_id).toBeTruthy();
+  expect(state.events.find(x=>x.id===milestone.event_id)?.project_id).toBe('main-1');
+});
 
 test('progress items are added directly by title and existing progress data stays usable',async({page})=>{
   const state=baseState();
