@@ -32,6 +32,8 @@ async function calendar(){
     module('./google-calendar-return-status.js?v=1')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
+  const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
+  defer(()=>load('photos').catch(()=>{}),{timeout:1200});
   return {ok:true}
 }
 async function tasks(){
@@ -46,7 +48,7 @@ async function projects(){
     module('./public-page-links.js?v=1'),
     module('./due-date-calendar.js?v=1')
   ]);
-  await module('./project-system-v3.js?v=20','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=21','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
