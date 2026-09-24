@@ -14,35 +14,24 @@ function installCalendarCompactStyle(){
   @media(max-width:650px){#googleConnectBtn{min-height:38px!important;height:38px!important;padding:0 12px!important;font-size:13px!important}#googleAccountLabel{max-width:145px}}
   `;document.head.appendChild(st);
 }
-
-async function refreshCalendarStatus(){
-  const rt=window.KPTURuntime;
-  if(!rt?.session||!rt?.api||!(await rt.session.ensure()))return;
+function renderCalendarHealth(d=window.__KPTU_GOOGLE_STATE__||{}){
   installCalendarCompactStyle();
-  try{
-    const d=await rt.api('/functions/v1/google-calendar?action=status');
-    if(d?.error)return;
-    const btn=document.querySelector('#googleConnectBtn');
-    const label=document.querySelector('#googleAccountLabel');
-    const toggle=document.querySelector('#showGoogleCalendar');
-    if(d.connected){
-      if(btn)btn.textContent='Google 설정';
-      if(label)label.textContent=d.email||'연결됨';
-      if(toggle)toggle.checked=!!d.enabled;
+  const btn=document.querySelector('#googleConnectBtn'),label=document.querySelector('#googleAccountLabel');
+  if(d.connected){
+    if(btn)btn.textContent='Google 설정';
+    if(label)label.textContent=d.email||'연결됨';
+  }
+  document.querySelector('#googleCalendarWarning')?.remove();
+  if(d.warning){
+    const bar=document.querySelector('#googleCalendarControls');
+    if(bar){
+      const w=document.createElement('div');w.id='googleCalendarWarning';
+      w.innerHTML=`${calendarWarningText(d.warning)}<a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=793069713813" target="_blank" rel="noopener">API 켜기</a>`;
+      bar.appendChild(w);
     }
-    document.querySelector('#googleCalendarWarning')?.remove();
-    if(d.warning){
-      const bar=document.querySelector('#googleCalendarControls');
-      if(bar){
-        const w=document.createElement('div');w.id='googleCalendarWarning';
-        w.innerHTML=`${calendarWarningText(d.warning)}<a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=793069713813" target="_blank" rel="noopener">API 켜기</a>`;
-        bar.appendChild(w);
-      }
-    }
-  }catch(_){ }
+  }
 }
-
 installCalendarCompactStyle();
-setTimeout(refreshCalendarStatus,500);
-window.addEventListener('focus',()=>setTimeout(refreshCalendarStatus,250));
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(refreshCalendarStatus,250)});
+window.KPTUCalendarHealth={render:renderCalendarHealth};
+renderCalendarHealth();
+window.addEventListener('kptu:google-calendar-state',()=>renderCalendarHealth());
