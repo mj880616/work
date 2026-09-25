@@ -336,7 +336,9 @@ jobs:
           grep -q "ps3MilestoneGoogle" app/project-system-v3.js
           grep -q "createLinkedMilestoneEvent" app/project-system-v3.js
           grep -q "calendar_id:calendarId" app/project-system-v3.js
-          grep -Fq "event_id:event?.id||null" app/project-system-v3.js
+          grep -Fq "event_id:event.id" app/project-system-v3.js
+          grep -Fq "google_event_id:googleEvent.id" app/project-system-v3.js
+          if grep -q "Web2에만 저장" app/project-system-v3.js; then echo 'project milestone Web2-only fallback returned'; exit 1; fi
           grep -q "data-ps3-library" app/project-system-v3.js
           grep -q "ps3-parent-link" app/project-system-v3.js
           grep -q "ps3-child-menu" app/project-system-v3.js
