@@ -21,7 +21,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  calendar:['./calendar-ui.css?v=7'],
+  calendar:['./calendar-ui.css?v=8'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
   projects:['./project-system-v3.css?v=13','./forum-flow-polish.css?v=1'],
   library:['./library-upload.css?v=1','./compact-list.css?v=2'],
@@ -48,7 +48,7 @@ async function team(view){
   if(typeof fn==='function')await fn(view);
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=5','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-month-view.js?v=6','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await team('calendar');
   await module('./calendar-plus.js?v=9','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([

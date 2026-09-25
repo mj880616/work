@@ -60,7 +60,7 @@ test('empty date space opens the existing create flow with the clicked date',asy
 test('adjacent-month cells pass their actual data-date into the create flow',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
-  await page.locator('.cal-cell[data-date="2026-08-30"]').click({position:{x:10,y:45}});
+  await page.locator('.cal-cell[data-date="2026-08-30"]').click();
   await expect(page.locator('#eventModal')).toBeVisible();
   await expect(page.locator('#eventStartDate')).toHaveValue('2026-08-30');
   await expect(page.locator('#eventEndDate')).toHaveValue('2026-08-30');
@@ -267,22 +267,155 @@ test('empty month remains clean and long titles keep ellipsis behavior',async({p
   await expect(page.locator('.kptu-day-more')).toHaveCount(0);
 });
 
-test('desktop month view is viewport-based but capped to avoid oversized rows',async({page})=>{
-  await page.setViewportSize({width:1280,height:1000});
+test('desktop month view keeps a viewport-sized minimum without imposing a maximum height',async({page})=>{
+  await page.setViewportSize({width:1280,height:600});
   await page.goto(url);
-  const metrics=await page.locator('#calendarGrid').evaluate(el=>({height:el.getBoundingClientRect().height,viewport:innerHeight}));
-  expect(metrics.height).toBeLessThanOrEqual(metrics.viewport*.82+2);
-  expect(metrics.height).toBeGreaterThan(300);
+  await page.evaluate(()=>window.renderDensityFixture({dateCounts:{}}));
+  const quietHeight=await page.locator('#calendarGrid').evaluate(el=>el.getBoundingClientRect().height);
+  await page.evaluate(()=>window.renderDensityFixture({dateCounts:{
+    '2026-09-10':1,
+    '2026-09-17':3,
+    '2026-09-24':7,
+    '2026-09-30':12
+  }}));
+  const metrics=await page.evaluate(()=>{
+    const grid=document.querySelector('#calendarGrid'),weeks=[...document.querySelectorAll('.cmv-week')];
+    return {
+      gridHeight:grid.getBoundingClientRect().height,
+      quietHeight:0,
+      viewportHeight:innerHeight,
+      documentHeight:document.documentElement.scrollHeight,
+      gridOverflow:getComputedStyle(grid).overflowY,
+      weekMetrics:weeks.map(week=>{
+        const box=week.getBoundingClientRect(),events=[...week.querySelectorAll('.cmv-event')],cells=[...week.querySelectorAll('.cal-cell')];
+        return {
+          height:box.height,
+          laneCount:Number(week.dataset.laneCount),
+          visibleEvents:events.length,
+          more:week.querySelectorAll('.kptu-day-more').length,
+          lastBottom:events.length?events.at(-1).getBoundingClientRect().bottom:null,
+          bottom:box.bottom,
+          cellHeights:cells.map(cell=>cell.getBoundingClientRect().height),
+          overflow:getComputedStyle(week).overflowY
+        };
+      })
+    };
+  });
+  metrics.quietHeight=quietHeight;
+  expect(metrics.weekMetrics.map(row=>row.laneCount)).toEqual([0,1,3,7,12]);
+  expect(metrics.weekMetrics.map(row=>row.visibleEvents)).toEqual([0,1,3,7,12]);
+  expect(metrics.weekMetrics.every(row=>row.more===0)).toBe(true);
+  expect(metrics.weekMetrics.every(row=>Math.max(...row.cellHeights)-Math.min(...row.cellHeights)<=1)).toBe(true);
+  expect(metrics.weekMetrics.filter(row=>row.lastBottom!==null).every(row=>row.lastBottom<=row.bottom+1)).toBe(true);
+  expect(metrics.weekMetrics[4].height).toBeGreaterThan(metrics.weekMetrics[3].height);
+  expect(metrics.weekMetrics[3].height).toBeGreaterThan(metrics.weekMetrics[1].height);
+  expect(metrics.gridHeight).toBeGreaterThan(metrics.quietHeight);
+  expect(metrics.documentHeight).toBeGreaterThan(metrics.viewportHeight);
+  expect(metrics.gridOverflow).not.toBe('auto');
+  expect(metrics.gridOverflow).not.toBe('scroll');
+  expect(metrics.weekMetrics.every(row=>row.overflow!=='auto'&&row.overflow!=='scroll')).toBe(true);
+});
+
+test('desktop renders every lane at 1280, 1440 and 1920 pixels without nested scrolling',async({page})=>{
+  for(const width of [1280,1440,1920]){
+    await page.setViewportSize({width,height:800});
+    await page.goto(url);
+    await page.evaluate(()=>window.renderDensityFixture({dateCounts:{'2026-09-03':12}}));
+    const metrics=await page.locator('.cmv-week').first().evaluate(week=>{
+      const box=week.getBoundingClientRect(),events=[...week.querySelectorAll('.cmv-event')],grid=document.querySelector('#calendarGrid');
+      return {
+        laneCount:Number(week.dataset.laneCount),
+        visibleEvents:events.length,
+        more:week.querySelectorAll('.kptu-day-more').length,
+        lastBottom:events.at(-1).getBoundingClientRect().bottom,
+        weekBottom:box.bottom,
+        documentHeight:document.documentElement.scrollHeight,
+        viewportHeight:innerHeight,
+        gridScrollHeight:grid.scrollHeight,
+        gridClientHeight:grid.clientHeight
+      };
+    });
+    expect(metrics.laneCount).toBe(12);
+    expect(metrics.visibleEvents).toBe(12);
+    expect(metrics.more).toBe(0);
+    expect(metrics.lastBottom).toBeLessThanOrEqual(metrics.weekBottom+1);
+    expect(metrics.documentHeight).toBeGreaterThan(metrics.viewportHeight);
+    expect(metrics.gridScrollHeight).toBeLessThanOrEqual(metrics.gridClientHeight+1);
+  }
+});
+
+test('desktop dense rows work in five-week and six-week months',async({page})=>{
+  await page.setViewportSize({width:1440,height:800});
+  await page.goto(url);
+  for(const scenario of [
+    {year:2026,month:8,date:'2026-09-03',weeks:5},
+    {year:2026,month:7,date:'2026-08-13',weeks:6}
+  ]){
+    await page.evaluate(value=>window.renderDensityFixture({year:value.year,month:value.month,dateCounts:{[value.date]:12}}),scenario);
+    await expect(page.locator('.cmv-week')).toHaveCount(scenario.weeks);
+    await expect(page.locator('.cmv-event')).toHaveCount(12);
+    await expect(page.locator('.kptu-day-more')).toHaveCount(0);
+    const contained=await page.locator('.cmv-event').last().evaluate(event=>event.getBoundingClientRect().bottom<=event.closest('.cmv-week').getBoundingClientRect().bottom+1);
+    expect(contained).toBe(true);
+  }
+});
+
+test('desktop mixed multi-day and single-day events preserve spans, lanes and hit areas',async({page})=>{
+  await page.setViewportSize({width:1440,height:800});
+  await page.goto(url);
+  await page.evaluate(()=>window.renderDensityFixture({
+    dateCounts:{'2026-09-09':10},
+    googleEvents:[
+      {id:'span-a',source:'google',calendarId:'cal-a',title:'월-목',start:'2026-09-07',end:'2026-09-11',allDay:true,color:null},
+      {id:'span-b',source:'google',calendarId:'cal-b',title:'화-금',start:'2026-09-08',end:'2026-09-12',allDay:true,color:null},
+      {id:'boundary',source:'google',calendarId:'cal-a',title:'주 경계',start:'2026-09-12',end:'2026-09-15',allDay:true,color:null}
+    ]
+  }));
+  const boundary=page.locator('[data-google-event="boundary"]');
+  await expect(boundary).toHaveCount(2);
+  await expect(boundary.first()).toHaveClass(/cmv-continues-right/);
+  await expect(boundary.nth(1)).toHaveClass(/cmv-continues-left/);
+  expect(await page.locator('[data-google-event="span-a"]').evaluate(event=>event.style.gridColumn)).toContain('span 4');
+  expect(await page.locator('[data-google-event="span-b"]').evaluate(event=>event.style.gridColumn)).toContain('span 4');
+  const metrics=await page.locator('.cmv-week').nth(1).evaluate(week=>{
+    const events=[...week.querySelectorAll('.cmv-event')],box=week.getBoundingClientRect();
+    const overlap=events.some((left,index)=>events.slice(index+1).some(right=>{
+      const a=left.getBoundingClientRect(),b=right.getBoundingClientRect();
+      return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+    }));
+    return {
+      laneCount:Number(week.dataset.laneCount),
+      visibleEvents:events.length,
+      allInside:events.every(event=>event.getBoundingClientRect().bottom<=box.bottom+1),
+      allClickable:events.every(event=>getComputedStyle(event).pointerEvents==='auto'),
+      overlap
+    };
+  });
+  expect(metrics.visibleEvents).toBe(metrics.laneCount+1);
+  expect(metrics.allInside).toBe(true);
+  expect(metrics.allClickable).toBe(true);
+  expect(metrics.overlap).toBe(false);
+
+  await page.locator('.cmv-week').nth(1).locator('.cm-app').last().click();
+  await expect(page.locator('#ciAppModal')).toBeVisible();
+  await expect(page.locator('#eventModal')).toBeHidden();
+  await page.locator('#ciAppClose').click();
+
+  await page.locator('[data-google-event="span-b"]').click();
+  await expect(page.locator('#ciGoogleModal')).toBeVisible();
+  await expect(page.locator('#eventModal')).toBeHidden();
+  await page.locator('#ciGoogleClose').click();
+
+  await page.locator('.cal-cell[data-date="2026-09-13"]').click({position:{x:20,y:70}});
+  await expect(page.locator('#eventModal')).toBeVisible();
+  await expect(page.locator('#eventStartDate')).toHaveValue('2026-09-13');
 });
 
 test('desktop month view enlarges typography, bars and lane capacity across supported widths',async({page})=>{
   for(const viewport of [{width:1280,height:800},{width:1440,height:900},{width:1920,height:1080}]){
     await page.setViewportSize(viewport);
     await page.goto(url);
-    await page.evaluate(()=>{
-      const grid=document.querySelector('#calendarGrid'),view=document.createElement('section');
-      view.id='calendarView';grid.before(view);view.appendChild(grid);window.renderMonth();
-    });
+    await page.evaluate(()=>window.renderMonth());
     const metrics=await page.locator('#calendarGrid').evaluate(el=>{
       const event=el.querySelector('.cmv-event'),day=el.querySelector('.cal-day'),head=el.querySelector('.cal-head'),time=el.querySelector('.cmv-event-time');
       const css=getComputedStyle(el),eb=getComputedStyle(event),db=getComputedStyle(day),hb=getComputedStyle(head),tb=getComputedStyle(time);
