@@ -18,7 +18,11 @@ async function mockApp(page,state){
       if(method==='POST'){
         state.googleCalls=state.googleCalls||[];
         state.googleCalls.push(body||{});
-        return ok({ok:true,event:{id:`google-${state.googleCalls.length}`,calendarId:body?.calendar_id||'primary'}});
+        if(state.googleFailures?.[action])return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:state.googleFailures[action])});
+        if(action==='delete-event')return ok({ok:true});
+        if(action==='update-event')return ok({ok:true,event:{id:body?.event_id,calendarId:body?.calendar_id||'primary'}});
+        const createCount=state.googleCalls.filter(x=>x.action==='create-event').length;
+        return ok({ok:true,event:{id:`google-${createCount}`,calendarId:body?.calendar_id||'primary'}});
       }
       if(action==='events')return ok({events:[],colors:state.googleStatus?.colors||{},eventColors:{}});
       return ok(state.googleStatus||{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
@@ -74,6 +78,7 @@ async function mockApp(page,state){
     if(table('app_project_blocks',state.blocks||[]))return;
     if(table('app_project_workstreams',state.workstreams))return;
     if(table('app_project_progress_updates',state.progress))return;
+    if(path==='/rest/v1/app_project_milestones'&&method==='POST'&&state.failMilestoneCreate)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'forced milestone create failure'})});
     if(table('app_project_milestones',state.milestones))return;
     if(table('app_project_decisions',state.decisions))return;
     if(table('app_project_comments',state.comments))return;
@@ -244,29 +249,27 @@ test('project creation omits type and visibility controls and starts with zero p
 });
 
 
-test('project milestone stays usable without Google and links to the existing local event model',async({page})=>{
-  const state=baseState();
+test('project milestone modal is simplified and disconnected Google blocks new records',async({page})=>{
+  const state=baseState(),beforeMilestones=state.milestones.length,beforeEvents=state.events.length;
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
   await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
-  await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('');
-  await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('미연결');
-  await page.locator('#ps3MilestoneTitle').fill('로컬 프로젝트 일정');
+  await expect(page.locator('#ps3MilestoneTitle,#ps3MilestoneAt,#ps3MilestoneGoogle,#ps3MilestoneNotes')).toHaveCount(4);
+  await expect(page.locator('#ps3MilestoneType,#ps3MilestoneStatusValue,#ps3MilestoneWs')).toHaveCount(0);
+  await expect(page.locator('#ps3MilestoneModal')).not.toContainText('Web2에만 저장');
+  await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('연결');
+  await page.locator('#ps3MilestoneTitle').fill('Google 필수 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-02T14:00');
   await page.locator('#ps3MilestoneSave').click();
-
-  await expect.poll(()=>state.milestones.some(x=>x.title==='로컬 프로젝트 일정')).toBe(true);
-  const milestone=state.milestones.find(x=>x.title==='로컬 프로젝트 일정');
-  const event=state.events.find(x=>x.id===milestone.event_id);
-  expect(event).toBeTruthy();
-  expect(event.project_id).toBe('main-1');
-  expect(event.title).toBe('로컬 프로젝트 일정');
+  await expect(page.locator('#ps3MilestoneState')).toContainText('Google');
+  expect(state.milestones).toHaveLength(beforeMilestones);
+  expect(state.events).toHaveLength(beforeEvents);
   expect(state.googleCalls).toHaveLength(0);
 });
 
-test('project milestone sends the explicitly selected writable Google calendar id to create-event',async({page})=>{
+test('project milestone creates Google first and stores exact linkage on the current project',async({page})=>{
   const state=baseState();
   state.googleStatus={
     connected:true,enabled:true,selected:['team-cal'],colors:{},eventColors:{},
@@ -283,22 +286,115 @@ test('project milestone sends the explicitly selected writable Google calendar i
   await expect(page.locator('#ps3MilestoneGoogle')).toBeEnabled();
   await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('team-cal');
   await expect(page.locator('#ps3MilestoneGoogle option[value="read-only"]')).toHaveCount(0);
-  await page.locator('#ps3MilestoneGoogle').selectOption('owner@example.org');
-  await page.locator('#ps3MilestoneTitle').fill('Google 세부 캘린더 지정 일정');
+  await page.locator('#ps3MilestoneTitle').fill('Google 필수 프로젝트 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
-  await page.locator('#ps3MilestoneNotes').fill('선택 캘린더 전달 검증');
+  await page.locator('#ps3MilestoneNotes').fill('연결 식별자 검증');
   await page.locator('#ps3MilestoneSave').click();
 
-  await expect.poll(()=>state.googleCalls.length).toBe(1);
-  expect(state.googleCalls[0]).toMatchObject({
-    action:'create-event',
-    calendar_id:'owner@example.org',
-    title:'Google 세부 캘린더 지정 일정',
-    memo:'선택 캘린더 전달 검증'
-  });
-  const milestone=state.milestones.find(x=>x.title==='Google 세부 캘린더 지정 일정');
-  expect(milestone?.event_id).toBeTruthy();
+  await expect.poll(()=>state.googleCalls.filter(x=>x.action==='create-event').length).toBe(1);
+  const call=state.googleCalls.find(x=>x.action==='create-event');
+  expect(call).toMatchObject({calendar_id:'team-cal',title:'Google 필수 프로젝트 일정',memo:'연결 식별자 검증'});
+  const milestone=state.milestones.find(x=>x.title==='Google 필수 프로젝트 일정');
+  expect(milestone).toMatchObject({project_id:'main-1',workstream_id:null,milestone_type:'action',status:'planned',google_calendar_id:'team-cal',google_event_id:'google-1'});
+  expect(milestone.event_id).toBeTruthy();
   expect(state.events.find(x=>x.id===milestone.event_id)?.project_id).toBe('main-1');
+});
+
+test('child project milestone links to the exact open child project',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],colors:{},eventColors:{},calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}]};
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=child-1');
+  await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await page.locator('#ps3MilestoneTitle').fill('하위 프로젝트 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-03T10:00');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect.poll(()=>state.milestones.some(x=>x.title==='하위 프로젝트 일정')).toBe(true);
+  const milestone=state.milestones.find(x=>x.title==='하위 프로젝트 일정');
+  expect(milestone.project_id).toBe('child-1');
+  expect(state.events.find(x=>x.id===milestone.event_id)?.project_id).toBe('child-1');
+});
+
+test('Google create failure leaves no Web2-only project record',async({page})=>{
+  const state=baseState(),beforeMilestones=state.milestones.length,beforeEvents=state.events.length;
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],colors:{},eventColors:{},calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}]};
+  state.googleFailures={'create-event':'forced google create failure'};
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await page.locator('#ps3MilestoneTitle').fill('실패 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-04T10:00');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('Google event 생성 실패');
+  expect(state.milestones).toHaveLength(beforeMilestones);
+  expect(state.events).toHaveLength(beforeEvents);
+});
+
+test('local milestone failure rolls back the just-created Google event and local event',async({page})=>{
+  const state=baseState(),beforeMilestones=state.milestones.length,beforeEvents=state.events.length;
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],colors:{},eventColors:{},calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}]};
+  state.failMilestoneCreate=true;
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await page.locator('#ps3MilestoneTitle').fill('로컬 실패 rollback');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-05T10:00');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('생성된 기록은 남기지 않았습니다');
+  expect(state.googleCalls.map(x=>x.action)).toEqual(['create-event','delete-event']);
+  expect(state.milestones).toHaveLength(beforeMilestones);
+  expect(state.events).toHaveLength(beforeEvents);
+});
+
+test('Google-linked project milestone updates and deletes by stored Google identifiers',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['team-cal'],colors:{},eventColors:{},calendars:[{id:'team-cal',summary:'공공기관사업팀',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}]};
+  state.events=[{id:'event-linked',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,created_by:'user-1',body:'국토부·TS 참석',calendar_scope:'personal'}];
+  state.milestones[0]={...state.milestones[0],event_id:'event-linked',google_calendar_id:'team-cal',google_event_id:'google-existing'};
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await expect(page.locator('#ps3MilestoneGoogle')).toBeDisabled();
+  await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('team-cal');
+  await page.locator('#ps3MilestoneTitle').fill('수정된 국회토론회');
+  await page.locator('#ps3MilestoneAt').fill('2026-09-29T16:00');
+  await page.locator('#ps3MilestoneNotes').fill('수정 메모');
+  await page.locator('#ps3MilestoneSave').click();
+
+  await expect.poll(()=>state.googleCalls.some(x=>x.action==='update-event')).toBe(true);
+  const update=state.googleCalls.find(x=>x.action==='update-event');
+  expect(update).toMatchObject({calendar_id:'team-cal',event_id:'google-existing',title:'수정된 국회토론회'});
+  expect(state.milestones[0]).toMatchObject({milestone_type:'policy',status:'planned',workstream_id:'ws-1',google_calendar_id:'team-cal',google_event_id:'google-existing'});
+  expect(state.events[0].title).toBe('수정된 국회토론회');
+
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  page.once('dialog',d=>d.accept());
+  await page.locator('#ps3MilestoneDelete').click();
+  await expect.poll(()=>state.milestones.some(x=>x.id==='mile-1')).toBe(false);
+  expect(state.events.some(x=>x.id==='event-linked')).toBe(false);
+  expect(state.googleCalls.some(x=>x.action==='delete-event'&&x.calendar_id==='team-cal'&&x.event_id==='google-existing')).toBe(true);
+});
+
+test('legacy Web2-only milestone remains legacy and preserves hidden values on edit',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],colors:{},eventColors:{},calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}]};
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await expect(page.locator('#ps3MilestoneGoogle')).toBeDisabled();
+  await expect(page.locator('#ps3MilestoneGoogle')).toContainText('기존 Web2 일정');
+  await page.locator('#ps3MilestoneTitle').fill('기존 일정 수정');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect.poll(()=>state.milestones[0].title).toBe('기존 일정 수정');
+  expect(state.milestones[0]).toMatchObject({milestone_type:'policy',status:'planned',workstream_id:'ws-1'});
+  expect(state.milestones[0].google_event_id).toBeUndefined();
+  expect(state.googleCalls).toHaveLength(0);
 });
 
 test('progress items are added directly by title and existing progress data stays usable',async({page})=>{
