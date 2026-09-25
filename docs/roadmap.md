@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `5b0e239` (Merge pull request #292)
+- 기준 main SHA: `e7b8c89` (Merge pull request #293)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -17,7 +17,7 @@
 
 - Web2: 개인 비공개 업무 도구. 공개·공유 경로를 두지 않는다.
 - Web1: 외부 공개 채널.
-- RTW: Web2와 분리된 별도 제품.
+- RTW(읽생기): Web2와 분리된 별도 제품.
 
 ## 작업 표
 
@@ -60,7 +60,8 @@
 | 31 | collaboration dead code/API/CSS 정리 | 대기 | | app/project-archive.js 미사용 파일 제거 포함 |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
 | 15b | 프로젝트 파일 업로드(project-files.js) 실패 처리 정규화 | 대기 | | 순서 미정 |
-| Web1-1 | 공개 페이지 메타 생성기: 빈 조회 시 기존 메타 보존 (#202 재작업) | 대기 | | 다음 작업 |
+| Web1-1 | 공개 페이지 메타 생성기: 빈 조회 시 기존 메타 보존 (#202 재작업) | 진행중 | #294 | withdrawn 목록으로 비공개 전환 명시, 빈 조회는 보존+실패. 9/22 빈 조회 원인 미확정(로컬 조사 보류). #202는 merge 후 close |
+| Web1-2 | p/bus-strike-publicness-internal-archive-202609 셸 상태 확인 | 대기 | | manifest 밖, 제목 '공유 게시글' |
 
 ### 별도 트랙: RTW
 
