@@ -213,7 +213,12 @@ SQL
   psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$task13_fingerprint" \
     > "$ci_root/task13-after.hash" 2> "$ci_root/task13-after.err"
   cmp -s "$ci_root/task13-before.hash" "$ci_root/task13-after.hash" || {
-    echo 'TASK13_ROLLBACK_FAILED: authorization fingerprint changed' >&2; exit 1;
+    task13_drift_components="$(awk -F= '
+      NR==FNR { before[$1]=$2; next }
+      !($1 in before) || before[$1] != $2 { print $1 }
+    ' "$ci_root/task13-before.hash" "$ci_root/task13-after.hash" | paste -sd, -)"
+    echo "TASK13_ROLLBACK_FAILED: changed components=${task13_drift_components:-unknown}" >&2
+    exit 1;
   }
   echo 'TASK13_ROLLBACK_PASSED'
 
