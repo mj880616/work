@@ -206,6 +206,30 @@ do $$ begin
   end if;
 end $$;
 do $$ begin
+  if not exists (
+    select 1 from public.app_workspace_members wm
+    where wm.workspace_id = current_setting('app.authz_workspace')::uuid
+      and wm.user_id = auth.uid()
+      and wm.role = 'owner'
+  ) then
+    raise exception 'owner self-membership is not visible';
+  end if;
+end $$;
+do $$ begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    join pg_catalog.pg_roles r on r.oid = p.proowner
+    where n.nspname = 'private'
+      and p.proname = 'app_is_workspace_owner'
+      and p.prosecdef
+      and r.rolname = 'postgres'
+  ) then
+    raise exception 'owner helper lost its definer owner';
+  end if;
+end $$;
+do $$ begin
   if not private.app_is_workspace_owner(current_setting('app.authz_workspace')::uuid) then
     raise exception 'owner helper rejected the sole owner fixture';
   end if;
