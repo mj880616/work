@@ -164,12 +164,20 @@ if [[ "${WEB2_TASK13:-0}" == 1 ]]; then
     psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
 select check_name
 from (values
+  ('authenticated_accept_invite', 'authenticated', 'public.app_accept_invite(text)'),
+  ('authenticated_claim_owner', 'authenticated', 'public.app_claim_owner(text,text)'),
+  ('authenticated_request_access', 'authenticated', 'public.app_request_workspace_access(text)'),
+  ('authenticated_respond_invitation', 'authenticated', 'public.app_respond_project_invitation(uuid,boolean)'),
+  ('authenticated_workspace_snapshot', 'authenticated', 'public.app_public_workspace_snapshot()'),
   ('anon_workspace_index', 'anon', 'public.app_public_workspace_index()'),
   ('authenticated_open_share', 'authenticated', 'public.app_open_share(text)'),
   ('authenticated_save_page', 'authenticated', 'public.app_save_page_v2(uuid,uuid,uuid,text,text,text,text,text,text)'),
   ('anon_private_owner_helper', 'anon', 'private.app_is_workspace_admin(uuid)')
 ) as checks(check_name, role_name, function_signature)
 where has_function_privilege(role_name, function_signature, 'EXECUTE')
+union all
+select 'anon_public_post_missing'
+where not has_function_privilege('anon', 'public.app_public_post(text)', 'EXECUTE')
 order by check_name;
 SQL
   } 2> "$ci_root/task13-execute-diagnostic.err")" || {
