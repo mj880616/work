@@ -54,6 +54,43 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포, Cloudflare 설�
 - 완료보고: 원인 / 변경 내용 / 검증·CI 결과 / 남은 위험 / 브랜치·PR·배포 상태.
 - 요청과 구현이 다르면 차이를 명시한다.
 
+## 세션 구분
+
+- 웹 세션: 코드·문서·테스트 작업. Supabase 접근 없음.
+- 로컬 세션: 사용자 PC. Supabase MCP(production read-only)와 supabase CLI 사용 가능.
+- production 조회·배포·적용은 로컬 세션에서만 한다. 웹 세션에서 필요해지면 추측하지 말고 중단·보고한다.
+- 웹 세션에 production 토큰을 등록하도록 제안하지 않는다.
+
+## Edge Function 배포
+
+- 로컬 세션, manual mode에서만 한다.
+- 배포 전 functions list로 현재 버전·verify_jwt·시각을 기록한다.
+- 함수 이름을 반드시 지정한다. `--prune` 금지.
+- 현재 production 함수는 verify_jwt=false이며 함수 코드에서 인증한다. 저장소에 `config.toml`이 없으므로 `--no-verify-jwt`를 빠뜨리면 설정이 바뀐다. 배포 전 대상 함수의 현재 verify_jwt 값을 확인하고 같은 값을 유지한다.
+- Docker 없이 배포할 때 `--use-api`를 사용한다.
+- 배포 명령과 복구 명령(이전 commit 코드를 같은 옵션으로 재배포)을 제시하고 실행 직전에 멈춘다.
+- 배포 후 버전 증가, 비로그인 요청 401, OPTIONS/CORS를 데이터 생성 없이 확인한다.
+- CLI가 만든 `supabase/.temp`는 커밋하지 않는다.
+
+## 완료보고 양식
+
+아래 순서를 고정한다. 해당 없으면 "해당 없음"으로 적는다.
+
+1. 세션(로컬/웹)
+2. 시작·최종 SHA, branch, PR
+3. 원인(사실/추정 구분)
+4. 변경 파일 요약
+5. 실행한 테스트와 결과(기존 실패는 clean main 재현 여부)
+6. CI 결과(gh 없으면 GitHub API)
+7. DB·production 영향(적용 순서·복구·정지 지점)
+8. 사용자 확인 필요 항목
+9. 남은 위험
+10. 범위 밖 발견사항
+11. roadmap 갱신
+12. merge 상태
+
+- 문서 전용 PR은 CI 대상 아님을 완료 기준으로 인정한다.
+
 ## 참고 문서
 
 - `docs/roadmap.md`: Web2 개발 작업 원장. 작업 순서·상태·PR 번호.
