@@ -2,10 +2,6 @@
 do $test$
 declare
   v_read text;
-  v_view text;
-  v_edit text;
-  v_manage text;
-  v_index text;
 begin
   select qual into v_read
   from pg_policies
@@ -18,7 +14,15 @@ begin
   if position('visibility' in v_read)>0 or position('app_space_members' in v_read)>0 then
     raise exception 'legacy visibility/member read path remains: %',v_read;
   end if;
+end
+$test$;
 
+do $test$
+declare
+  v_view text;
+  v_edit text;
+  v_manage text;
+begin
   select pg_get_functiondef(p.oid) into v_view
   from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='private' and p.proname='app_can_view_space';
@@ -32,7 +36,11 @@ begin
   if position('owner_id' in v_view)=0 or position('owner_id' in v_edit)=0 or position('owner_id' in v_manage)=0 then
     raise exception 'project trusted-layer helper is not owner-only';
   end if;
+end
+$test$;
 
+do $test$
+begin
   if has_function_privilege('anon','public.app_public_project(text)','EXECUTE')
      or has_function_privilege('authenticated','public.app_public_project(text)','EXECUTE') then
     raise exception 'legacy public project RPC remains executable';
@@ -40,7 +48,11 @@ begin
   if has_function_privilege('authenticated','public.app_project_publication_state(uuid)','EXECUTE') then
     raise exception 'project publication management remains executable';
   end if;
+end
+$test$;
 
+do $test$
+begin
   if coalesce(jsonb_array_length(public.app_public_workspace_index()->'projects'),-1) <> 0 then
     raise exception 'public workspace index still contains project discovery';
   end if;
