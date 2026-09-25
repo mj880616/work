@@ -12,7 +12,7 @@
   @media(min-width:761px){.fixture-top{height:150px}}
 </style>
 </head>
-<body>
+<body class="kptu-workspace-shell">
 <div class="fixture-top" aria-hidden="true"></div>
 <button id="newEventBtn" type="button" style="position:fixed;top:2px;left:2px;z-index:50">+ 일정</button>
 <div id="eventModal" class="hidden" aria-hidden="true">
@@ -24,9 +24,13 @@
   <input id="eventEndDate" type="date">
   <input id="eventEndTime" type="time">
 </div>
-<section id="calendarView" class="view-panel">
-  <div id="calendarGrid" class="calendar-grid"></div>
-</section>
+<main>
+  <div id="appView" class="kptu-ui-ready">
+    <section id="calendarView" class="view-panel">
+      <div id="calendarGrid" class="calendar-grid"></div>
+    </section>
+  </div>
+</main>
 <div id="toast" class="toast hidden"></div>
 <script>
   window.__navDelta=0;

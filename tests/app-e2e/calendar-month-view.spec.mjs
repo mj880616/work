@@ -60,7 +60,7 @@ test('empty date space opens the existing create flow with the clicked date',asy
 test('adjacent-month cells pass their actual data-date into the create flow',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
-  await page.locator('.cal-cell[data-date="2026-08-30"]').click({position:{x:10,y:45}});
+  await page.locator('.cal-cell[data-date="2026-08-30"]').click();
   await expect(page.locator('#eventModal')).toBeVisible();
   await expect(page.locator('#eventStartDate')).toHaveValue('2026-08-30');
   await expect(page.locator('#eventEndDate')).toHaveValue('2026-08-30');
