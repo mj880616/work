@@ -3,6 +3,8 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
 
+test.use({timezoneId:'Asia/Seoul'});
+
 const BASE='http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const here=dirname(fileURLToPath(import.meta.url));
@@ -30,6 +32,7 @@ async function mock(page){
     ]);
     if(path==='/rest/v1/app_meetings'){
       if(method==='PATCH')return ok([{id:meeting.id}]);
+      if(method==='POST')return ok([{...meeting,id:'meeting-new'}]);
       return ok([meeting]);
     }
     if(path==='/rest/v1/app_tasks')return ok([]);
@@ -56,33 +59,120 @@ async function signIn(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
 }
 
-test('meeting create modal exposes only the simplified final fields and the canonical save owner',async({page})=>{
+test('meeting create modal exposes the task 9 fields only',async({page})=>{
   await signIn(page);
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
-  for(const id of ['meetingTitle','meetingAt','meetingProject','meetingSeriesName','meetingRoundNo','meetingTranscript','meetingNotes','meetingFiles','meetingActionList'])await expect(page.locator('#'+id)).toBeAttached();
+  for(const id of ['meetingTitle','meetingRoundNo','meetingAt','meetingProject','meetingTranscript','meetingNotes','meetingFiles','meetingActionList'])await expect(page.locator('#'+id)).toBeAttached();
+  await expect(page.locator('#meetingSeriesName')).toHaveCount(0);
+  await expect(page.locator('#meetingModal legend')).toHaveText(['기본정보','회의 결과','첨부·후속']);
   await expect(page.locator('#meetingFiles')).toHaveAttribute('multiple','');
   await expect(page.locator('.meeting-action-row')).toHaveCount(1);
   await expect(page.locator('.meeting-action-assignee,#mrdTaskAssignee,#taskAssignee')).toHaveCount(0);
   await expect(page.locator('#meetingAutoClassify,#meetingDecisions,#wfMeetingLocation,#wfMeetingAttendees')).toHaveCount(0);
-  await expect(page.locator('#meetingProject option[value="main"]')).toHaveCount(1);
-  await expect(page.locator('#meetingProject option[value="child"]')).toHaveCount(1);
-  const saveOwner=await page.locator('#saveMeetingBtn').evaluate(el=>String(el.onclick||''));
-  expect(saveOwner).toContain('meetingTranscript');
-  expect(saveOwner).not.toContain('wfMeetingLocation');
-  expect(saveOwner).not.toContain('meetingDecisions');
+  await expect(page.locator('#meetingProject option[value="main"]')).toHaveText('메인');
+  await expect(page.locator('#meetingProject option[value="child"]')).toContainText('↳');
 });
 
-test('meeting list is compact and filters by meeting type',async({page})=>{
+test('new meeting stores one canonical meeting name and links follow-up work to the current user',async({page})=>{
+  await signIn(page);
+  let savedMeeting=null,savedTasks=null;
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    const req=route.request();
+    if(req.method()==='POST'){
+      savedMeeting=req.postDataJSON();
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{...savedMeeting,id:'meeting-new'}])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
+  });
+  await page.route(`${SB}/rest/v1/app_tasks**`,async route=>{
+    if(route.request().method()==='POST')savedTasks=route.request().postDataJSON();
+    return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+  });
+
+  await page.locator('#newMeetingBtn').click();
+  await page.locator('#meetingTitle').fill('궤도협의회 집행위원회');
+  await page.locator('#meetingRoundNo').fill('8');
+  await page.locator('#meetingAt').fill('2026-09-25T14:00');
+  await page.locator('#meetingProject').selectOption('child');
+  const raw='  첫 줄\n둘째 줄\n마지막 줄  ';
+  await page.locator('#meetingTranscript').fill(raw);
+  await page.locator('#meetingNotes').fill('특이사항\n둘째 줄');
+  await page.locator('.meeting-action-row .meeting-action-title').fill('결과 공유');
+  await page.locator('.meeting-action-row .meeting-action-due').fill('2026-09-30');
+  await page.locator('#saveMeetingBtn').click();
+
+  await expect.poll(()=>savedMeeting).not.toBeNull();
+  expect(savedMeeting.title).toBe('궤도협의회 집행위원회');
+  expect(savedMeeting.series_name).toBe('궤도협의회 집행위원회');
+  expect(savedMeeting.round_no).toBe(8);
+  expect(savedMeeting.project_id).toBe('child');
+  expect(savedMeeting.meeting_at).toBe('2026-09-25T05:00:00.000Z');
+  expect(savedMeeting.transcript_text).toBe(raw);
+  expect(savedMeeting.notes).toBe('특이사항\n둘째 줄');
+  expect(savedMeeting).not.toHaveProperty('decisions');
+
+  await expect.poll(()=>savedTasks).not.toBeNull();
+  expect(savedTasks).toHaveLength(1);
+  expect(savedTasks[0]).toMatchObject({
+    project_id:'child',
+    title:'결과 공유',
+    assignee_id:'meeting-user',
+    source_type:'meeting',
+    source_id:'meeting-new',
+    created_by:'meeting-user'
+  });
+});
+
+test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
   await expect(page.locator('#meetingTypeFilter')).toBeVisible();
-  await expect(page.locator('#meetingTypeFilter option')).toContainText(['회의유형 전체','궤도협의회','유형 미지정']);
+  await expect(page.locator('#meetingTypeFilter option')).toContainText(['회의명 전체','궤도협의회','회의명 미지정']);
   await page.locator('#meetingTypeFilter').selectOption({label:'궤도협의회'});
-  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
-  await expect(page.locator('#meetingList .meeting-list-row')).toContainText('접근성 회의');
-  await expect(page.locator('#meetingList .meeting-list-row')).not.toContainText('과거 회의실');
-  const box=await page.locator('#meetingList .meeting-list-row').boundingBox();
+  const row=page.locator('#meetingList .meeting-list-row');
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('h3')).toHaveText('궤도협의회');
+  await expect(row.locator('.badge')).toHaveCount(0);
+  await expect(row.locator('p')).toContainText('1차');
+  await expect(row).not.toContainText('과거 회의실');
+  const box=await row.boundingBox();
   expect(box.height).toBeLessThanOrEqual(90);
+});
+
+test('meeting list filters title-only and series-only legacy rows by the displayed meeting name',async({page})=>{
+  await signIn(page);
+  const rows=[
+    {...meeting,id:'title-only',title:'제목만 회의',series_name:null,round_no:null},
+    {...meeting,id:'series-only',title:'',series_name:'계열명만 회의',round_no:2},
+    {...meeting,id:'different',title:'33차 기존 제목',series_name:'기존 회의 계열',round_no:33}
+  ];
+  await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)}));
+  await page.reload();
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  await expect(page.locator('#meetingList h3')).toHaveText(['제목만 회의','계열명만 회의','기존 회의 계열']);
+  await page.locator('#meetingTypeFilter').selectOption({label:'제목만 회의'});
+  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
+  await expect(page.locator('#meetingList .meeting-list-row p')).not.toContainText('차');
+});
+
+test('meeting detail shows one canonical heading while retaining a distinct legacy title in metadata',async({page})=>{
+  await signIn(page);
+  const trigger=page.locator('[data-mrd-meeting="meeting-1"]');
+  await trigger.click();
+  await expect(page.locator('#mrdTitle')).toHaveText('궤도협의회');
+  await expect(page.locator('#mrdMeta')).toContainText('기존 제목: 접근성 회의');
+  await expect(page.locator('#mrdMeta')).toContainText('1차');
+  await expect(page.locator('#mrdMeta')).not.toContainText('궤도협의회');
+});
+
+test('meeting detail does not repeat a new meeting name when title and series name are equal',async({page})=>{
+  await signIn(page);
+  const fresh={...meeting,title:'궤도협의회 집행위원회',series_name:'궤도협의회 집행위원회',round_no:8};
+  await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([fresh])}));
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await expect(page.locator('#mrdTitle')).toHaveText('궤도협의회 집행위원회');
+  await expect(page.locator('#mrdMeta')).not.toContainText('궤도협의회 집행위원회');
+  await expect(page.locator('#mrdMeta')).toContainText('8차');
 });
 
 test('meeting detail dialog exposes semantics, Escape close, and trigger focus restore',async({page})=>{
@@ -102,7 +192,7 @@ test('meeting detail dialog exposes semantics, Escape close, and trigger focus r
   await expect(trigger).toBeFocused();
 });
 
-test('meeting detail prioritizes raw result, hides legacy fields, and preserves raw line breaks on edit',async({page})=>{
+test('meeting edit preserves legacy name fields when the user does not rename the meeting',async({page})=>{
   await signIn(page);
   let saved=null;
   await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
@@ -115,11 +205,11 @@ test('meeting detail prioritizes raw result, hides legacy fields, and preserves 
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
   await expect(page.locator('#mrdResult')).toHaveText('원문 첫 줄\n원문 둘째 줄');
   await expect(page.locator('#mrdSpecialSection')).toBeVisible();
-  await expect(page.locator('#mrdSpecial')).toHaveText('특이사항 기록');
-  await expect(page.locator('#mrdAiDraft')).toHaveCount(0);
   await page.locator('#mrdEdit').click();
-  await expect(page.locator('#mrdEditLocation,#mrdEditAttendees,#mrdEditDecisions')).toHaveCount(0);
-  await expect(page.locator('#mrdEditTranscript')).toHaveValue('원문 첫 줄\n원문 둘째 줄');
+  await expect(page.locator('#mrdEditSeries')).toHaveCount(0);
+  await expect(page.locator('#mrdEditTitle')).toHaveValue('궤도협의회');
+  await expect(page.locator('#mrdEditAt')).toHaveValue('2026-09-17T19:00');
+  await expect(page.locator('#mrdEditProject option[value="child"]')).toContainText('↳');
   const raw='  수정 원문 첫 줄\n둘째 줄\n마지막 줄  ';
   await page.locator('#mrdEditTranscript').fill(raw);
   await page.locator('#mrdEditNotes').fill('수정 특이사항\n둘째 줄');
@@ -127,9 +217,49 @@ test('meeting detail prioritizes raw result, hides legacy fields, and preserves 
   await expect.poll(()=>saved).not.toBeNull();
   expect(saved.transcript_text).toBe(raw);
   expect(saved.notes).toBe('수정 특이사항\n둘째 줄');
+  expect(saved.meeting_at).toBe('2026-09-17T10:00:00.000Z');
+  expect(saved).not.toHaveProperty('title');
+  expect(saved).not.toHaveProperty('series_name');
   expect(saved).not.toHaveProperty('decisions');
   expect(saved).not.toHaveProperty('location');
   expect(saved).not.toHaveProperty('attendee_count');
+});
+
+test('renaming a legacy meeting normalizes title and series_name to the one user-visible name',async({page})=>{
+  await signIn(page);
+  let saved=null;
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    if(route.request().method()==='PATCH'){
+      saved=route.request().postDataJSON();
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:meeting.id}])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await page.locator('#mrdEdit').click();
+  await page.locator('#mrdEditTitle').fill('궤도협의회 집행위원회');
+  await page.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>saved).not.toBeNull();
+  expect(saved.title).toBe('궤도협의회 집행위원회');
+  expect(saved.series_name).toBe('궤도협의회 집행위원회');
+});
+
+test('round number remains optional on edit',async({page})=>{
+  await signIn(page);
+  let saved=null;
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    if(route.request().method()==='PATCH'){
+      saved=route.request().postDataJSON();
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:meeting.id}])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await page.locator('#mrdEdit').click();
+  await page.locator('#mrdEditRound').fill('');
+  await page.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>saved).not.toBeNull();
+  expect(saved.round_no).toBeNull();
 });
 
 test('empty special notes stay hidden in meeting detail',async({page})=>{
@@ -198,7 +328,7 @@ test('closing a meeting during a delayed follow-up save does not reopen its deta
   await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('aria-hidden','true');
 });
 
-test('meeting UI has one direct render path and no active meeting AI execution path',async()=>{
+test('meeting integration keeps project auto-selection and one direct render path',async()=>{
   const html=read('app/index.html');
   const loader=read('app/loader-v2.js');
   const views=read('app/view-loader.js');
@@ -206,22 +336,29 @@ test('meeting UI has one direct render path and no active meeting AI execution p
   const detail=read('app/meeting-round-detail.js');
   const team=read('app/team.js');
   const css=read('app/styles.css');
+  const project=read('app/project-system-v3.js');
   const files=read('supabase/functions/meeting-files/index.ts');
 
-  for(const id of ['meetingSeriesName','meetingRoundNo','meetingTranscript','meetingNotes','meetingFiles','meetingActionList','addMeetingAction','meetingTypeFilter'])expect(html).toContain(`id="${id}"`);
-  for(const id of ['meetingAutoClassify','meetingDecisions','wfMeetingLocation','wfMeetingAttendees'])expect(html).not.toContain(`id="${id}"`);
+  for(const id of ['meetingRoundNo','meetingTranscript','meetingNotes','meetingFiles','meetingActionList','addMeetingAction','meetingTypeFilter'])expect(html).toContain(`id="${id}"`);
+  for(const id of ['meetingSeriesName','meetingAutoClassify','meetingDecisions','wfMeetingLocation','wfMeetingAttendees'])expect(html).not.toContain(`id="${id}"`);
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
+  expect(loader).toContain("import('./team.js?v=46')");
   expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=13');
+  expect(views).toContain('meeting-round-detail.js?v=14');
+  expect(views).toContain('meeting-ui.css?v=9');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
   expect(detail).not.toContain("document.createElement('style')");
+  expect(detail).not.toContain('mrdEditSeries');
   expect(detail).not.toContain('mrdAiDraft');
+  expect(team).toContain('series_name:title');
   expect(team).toContain('transcript_text:transcript');
   expect(team).toContain("/functions/v1/meeting-files");
+  expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingProject']");
+  expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
-  expect(css).toContain("meeting-ui.css?v=8");
+  expect(css).toContain("meeting-ui.css?v=9");
 });
