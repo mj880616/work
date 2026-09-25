@@ -54,10 +54,18 @@ insert into auth.users(id) values
 select set_config('app.authz_owner', '12000000-0000-4000-8000-000000000001', true);
 select set_config('app.authz_admin', '12000000-0000-4000-8000-000000000002', true);
 select set_config('app.authz_non_member', '12000000-0000-4000-8000-000000000003', true);
-select set_config('app.authz_workspace', '12a00000-0000-4000-8000-000000000001', true);
+select set_config(
+  'app.authz_workspace',
+  coalesce(
+    (select id::text from public.app_workspaces where slug='kptu-work' limit 1),
+    '12a00000-0000-4000-8000-000000000001'
+  ),
+  true
+);
 
 insert into public.app_workspaces(id, slug, name)
-values (current_setting('app.authz_workspace')::uuid, 'kptu-work', 'TASK 12A MATRIX');
+values (current_setting('app.authz_workspace')::uuid, 'kptu-work', 'TASK 12A MATRIX')
+on conflict (slug) do nothing;
 
 -- The production role-normalization trigger rewrites new non-allowlisted roles.
 -- Disable only that trigger while creating the legacy admin / sole-owner actors;
@@ -121,7 +129,8 @@ insert into public.app_profile_report_projects(id, user_id, name) values
   ('12a53000-0000-4000-8000-000000000001', current_setting('app.authz_owner')::uuid, 'OWNER REPORT PROJECT');
 
 insert into public.app_ai_workspace_settings(workspace_id)
-values (current_setting('app.authz_workspace')::uuid);
+values (current_setting('app.authz_workspace')::uuid)
+on conflict (workspace_id) do nothing;
 insert into public.app_ai_conversations(id, workspace_id, owner_id, title) values
   ('12a60000-0000-4000-8000-000000000001', current_setting('app.authz_workspace')::uuid, current_setting('app.authz_owner')::uuid, 'OWNER AI');
 insert into public.app_ai_messages(id, conversation_id, owner_id, role, content) values
@@ -138,7 +147,8 @@ insert into public.app_pages(id, workspace_id, slug, title, body, visibility, st
   ('12a80000-0000-4000-8000-000000000001', current_setting('app.authz_workspace')::uuid, 'task12a-public', 'OWNER PUBLIC PAGE', 'PUBLIC BODY', 'public', 'published', current_setting('app.authz_owner')::uuid, now()),
   ('12a80000-0000-4000-8000-000000000002', current_setting('app.authz_workspace')::uuid, 'gimpo-publicization', 'OWNER UNLISTED PAGE', 'UNLISTED BODY', 'unlisted', 'published', current_setting('app.authz_owner')::uuid, now()),
   ('12a80000-0000-4000-8000-000000000003', current_setting('app.authz_workspace')::uuid, 'task12a-workspace', 'OWNER WORKSPACE PAGE', 'WORKSPACE BODY', 'workspace', 'published', current_setting('app.authz_owner')::uuid, now()),
-  ('12a80000-0000-4000-8000-000000000004', current_setting('app.authz_workspace')::uuid, 'task12a-private', 'OWNER PRIVATE PAGE', 'PRIVATE BODY', 'private', 'published', current_setting('app.authz_owner')::uuid, now());
+  ('12a80000-0000-4000-8000-000000000004', current_setting('app.authz_workspace')::uuid, 'task12a-private', 'OWNER PRIVATE PAGE', 'PRIVATE BODY', 'private', 'published', current_setting('app.authz_owner')::uuid, now())
+on conflict (workspace_id, slug) do nothing;
 insert into public.app_share_links(id,page_id,token_hash,expires_at,created_by) values
   ('12a81000-0000-4000-8000-000000000001','12a80000-0000-4000-8000-000000000004',encode(extensions.digest('task12a-share'::bytea,'sha256'),'hex'),now()+interval '1 day',current_setting('app.authz_owner')::uuid);
 
@@ -147,7 +157,7 @@ set local role anon;
 insert into authz_sole_owner_results values
   ('anon', 'pages', pg_temp.authz_probe_count('select count(*) from public.app_pages where slug like ''task12a-%'' or slug=''gimpo-publicization''')),
   ('anon', 'documents', pg_temp.authz_probe_count('select count(*) from public.app_documents where id::text like ''eeeeeeee-%'''));
-select pg_temp.authz_expect_no_write('anon page insert', $$insert into public.app_pages(workspace_id,slug,title,owner_id) values ('12a00000-0000-4000-8000-000000000001','task12a-anon-write','DENIED','12000000-0000-4000-8000-000000000003')$$);
+select pg_temp.authz_expect_no_write('anon page insert', $$insert into public.app_pages(workspace_id,slug,title,owner_id) values (current_setting('app.authz_workspace')::uuid,'task12a-anon-write','DENIED','12000000-0000-4000-8000-000000000003')$$);
 do $$
 begin
   if (select count(*) from public.app_public_post('task12a-public')) <> 1 then raise exception 'public page projection missing'; end if;
@@ -166,9 +176,9 @@ insert into authz_sole_owner_results values
   ('non_member', 'events', pg_temp.authz_probe_count('select count(*) from public.app_events where id::text like ''12a3%''')),
   ('non_member', 'organizations', pg_temp.authz_probe_count('select count(*) from public.app_suborganizations where id=''12a40000-0000-4000-8000-000000000001''')),
   ('non_member', 'profiles', pg_temp.authz_probe_count('select count(*) from public.app_profiles where user_id=''12000000-0000-4000-8000-000000000001''')),
-  ('non_member', 'ai', pg_temp.authz_probe_count('select count(*) from public.app_ai_workspace_settings where workspace_id=''12a00000-0000-4000-8000-000000000001''')),
+  ('non_member', 'ai', pg_temp.authz_probe_count('select count(*) from public.app_ai_workspace_settings where workspace_id=current_setting(''app.authz_workspace'')::uuid')),
   ('non_member', 'tasks', pg_temp.authz_probe_count('select count(*) from public.app_tasks where id=''12a70000-0000-4000-8000-000000000001'''));
-select pg_temp.authz_expect_no_write('non-member meeting insert', $$insert into public.app_meetings(workspace_id,title,created_by) values ('12a00000-0000-4000-8000-000000000001','DENIED','12000000-0000-4000-8000-000000000003')$$);
+select pg_temp.authz_expect_no_write('non-member meeting insert', $$insert into public.app_meetings(workspace_id,title,created_by) values (current_setting('app.authz_workspace')::uuid,'DENIED','12000000-0000-4000-8000-000000000003')$$);
 reset role;
 
 -- Existing non-owner admin: self bootstrap only, no owner rows or mutations.
@@ -181,20 +191,20 @@ insert into authz_sole_owner_results values
   ('admin', 'event_children', pg_temp.authz_probe_count('select (select count(*) from public.app_event_comments where event_id=''12a30000-0000-4000-8000-000000000001'') + (select count(*) from public.app_event_photos where event_id=''12a30000-0000-4000-8000-000000000001'')')),
   ('admin', 'organizations', pg_temp.authz_probe_count('select count(*) from public.app_suborganizations where id=''12a40000-0000-4000-8000-000000000001''')),
   ('admin', 'profiles', pg_temp.authz_probe_count('select count(*) from public.app_profiles where user_id=''12000000-0000-4000-8000-000000000001''')),
-  ('admin', 'ai', pg_temp.authz_probe_count('select count(*) from public.app_ai_workspace_settings where workspace_id=''12a00000-0000-4000-8000-000000000001''')),
+  ('admin', 'ai', pg_temp.authz_probe_count('select count(*) from public.app_ai_workspace_settings where workspace_id=current_setting(''app.authz_workspace'')::uuid')),
   ('admin', 'tasks', pg_temp.authz_probe_count('select count(*) from public.app_tasks where id=''12a70000-0000-4000-8000-000000000001''')),
   ('admin', 'direct_messages', pg_temp.authz_probe_count('select count(*) from public.app_direct_messages where id=''12a71000-0000-4000-8000-000000000001''')),
-  ('admin', 'self_membership', pg_temp.authz_probe_count('select count(*) from public.app_workspace_members where workspace_id=''12a00000-0000-4000-8000-000000000001''')),
+  ('admin', 'self_membership', pg_temp.authz_probe_count('select count(*) from public.app_workspace_members where workspace_id=current_setting(''app.authz_workspace'')::uuid')),
   ('admin', 'self_profile', pg_temp.authz_probe_count('select count(*) from public.app_profiles where user_id=auth.uid()'));
 select pg_temp.authz_expect_no_write('admin meeting update', $$update public.app_meetings set title='DENIED' where id='12a10000-0000-4000-8000-000000000001'$$);
 select pg_temp.authz_expect_no_write('admin document delete', $$delete from public.app_documents where id='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee2'$$);
-select pg_temp.authz_expect_no_write('admin team event insert', $$insert into public.app_events(workspace_id,title,start_at,created_by,calendar_scope) values ('12a00000-0000-4000-8000-000000000001','DENIED',now(),'12000000-0000-4000-8000-000000000002','team')$$);
-select pg_temp.authz_expect_no_write('admin AI settings update', $$update public.app_ai_workspace_settings set daily_request_limit=999 where workspace_id='12a00000-0000-4000-8000-000000000001'$$);
+select pg_temp.authz_expect_no_write('admin team event insert', $$insert into public.app_events(workspace_id,title,start_at,created_by,calendar_scope) values (current_setting('app.authz_workspace')::uuid,'DENIED',now(),'12000000-0000-4000-8000-000000000002','team')$$);
+select pg_temp.authz_expect_no_write('admin AI settings update', $$update public.app_ai_workspace_settings set daily_request_limit=999 where workspace_id=current_setting('app.authz_workspace')::uuid$$);
 select pg_temp.authz_expect_no_write('admin owner profile update', $$update public.app_profiles set job_title='DENIED' where user_id='12000000-0000-4000-8000-000000000001'$$);
 select pg_temp.authz_expect_no_write('admin task delete', $$delete from public.app_tasks where id='12a70000-0000-4000-8000-000000000001'$$);
 select pg_temp.authz_expect_no_write('admin create invite', $$select public.app_create_invite('viewer',null,now()+interval '1 day')$$);
 select pg_temp.authz_expect_no_write('admin member role RPC', $$select public.app_set_workspace_member_role('12000000-0000-4000-8000-000000000003','viewer')$$);
-select pg_temp.authz_expect_no_write('admin save page RPC', $$select public.app_save_page_v2(null,'12a00000-0000-4000-8000-000000000001',null,'DENIED','task12a-admin-write','','','draft','private')$$);
+select pg_temp.authz_expect_no_write('admin save page RPC', $$select public.app_save_page_v2(null,current_setting('app.authz_workspace')::uuid,null,'DENIED','task12a-admin-write','','','draft','private')$$);
 select pg_temp.authz_expect_no_write('admin event RPC', $$select public.app_update_event_body('12a30000-0000-4000-8000-000000000001','DENIED')$$);
 select pg_temp.authz_expect_no_write('admin delete pages RPC', $$select public.app_delete_pages(array['12a80000-0000-4000-8000-000000000004'::uuid])$$);
 do $$
@@ -247,7 +257,7 @@ insert into authz_sole_owner_results values
   ('owner', 'events', pg_temp.authz_probe_count('select count(*) from public.app_events where id::text like ''12a3%''')),
   ('owner', 'organizations', pg_temp.authz_probe_count('select count(*) from public.app_suborganizations where id=''12a40000-0000-4000-8000-000000000001''')),
   ('owner', 'profiles', pg_temp.authz_probe_count('select count(*) from public.app_profiles where user_id=''12000000-0000-4000-8000-000000000001''')),
-  ('owner', 'ai', pg_temp.authz_probe_count('select count(*) from public.app_ai_workspace_settings where workspace_id=''12a00000-0000-4000-8000-000000000001''')),
+  ('owner', 'ai', pg_temp.authz_probe_count('select count(*) from public.app_ai_workspace_settings where workspace_id=current_setting(''app.authz_workspace'')::uuid')),
   ('owner', 'tasks', pg_temp.authz_probe_count('select count(*) from public.app_tasks where id=''12a70000-0000-4000-8000-000000000001'''));
 insert into public.app_meetings(id,workspace_id,title,created_by)
 values('12afffff-0000-4000-8000-000000000001',current_setting('app.authz_workspace')::uuid,'OWNER CRUD',auth.uid());
