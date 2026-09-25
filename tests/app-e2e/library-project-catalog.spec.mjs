@@ -48,6 +48,9 @@ async function mockApp(page,state){
     if(path==='/functions/v1/library-files'){
       const raw=(req.postDataBuffer()||Buffer.from('')).toString('utf8');
       const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;
+      state.uploadAttempts?.push(field('project_id'));
+      const failure=state.uploadFailures?.shift();
+      if(failure)return route.fulfill({status:failure.status,contentType:'application/json',body:JSON.stringify(failure.body)});
       const row={id:`upload-${state.uploads.length+1}`,workspace_id:'workspace-1',project_id:field('project_id'),title:field('title')||'업로드',category:'기타',tags:[],created_at:now()};
       state.uploads.push(row);state.docs.push(row);
       return ok({ok:true,document:row});
@@ -175,6 +178,61 @@ test('upload sends the exact selected parent or child project id and rejects sta
   await expect(page.locator('#documentStatus')).toContainText('프로젝트를 다시 선택');
   await expect(page.locator('#docProject')).toHaveValue('');
   expect(state.uploads).toHaveLength(2);
+});
+
+test('real runtime maps structured upload failures, keeps completed child uploads and retries only the failure on phones',async({page})=>{
+  const state=baseState();
+  state.uploadAttempts=[];
+  state.uploadFailures=[null,{status:424,body:{error:'Google Drive 토큰 갱신에 실패했습니다. Google Drive 연결이 만료됐으니 다시 연결해 주세요.',message:'Google Drive 토큰 갱신에 실패했습니다. Google Drive 연결이 만료됐으니 다시 연결해 주세요.',code:'drive_auth_expired',stage:'drive_token',retryable:false}}];
+  await mockApp(page,state);await page.setViewportSize({width:360,height:780});
+  await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  page.on('dialog',dialog=>dialog.dismiss());
+  await page.locator('#newDocumentBtn').click();
+  await page.locator('#libraryFileInput').setInputFiles([
+    {name:'child-first-'+'공공기관_기능개혁_대응_회의자료_최종본_'.repeat(3)+'.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')},
+    {name:'child-second.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 second')}
+  ]);
+  await page.locator('#docProject').selectOption('child-a1');
+  await page.locator('#saveDocumentBtn').click();
+  const status=page.locator('#documentStatus');
+  await expect(status).toContainText('1개 완료 · 1개 미완료. Google Drive 연결이 만료됐습니다. 다시 연결한 뒤 시도해 주세요.');
+  await expect(status).toHaveAttribute('role','alert');
+  await expect(page.locator('#saveDocumentBtn')).toBeEnabled();
+  await expect(page.locator('#documentModal')).toBeVisible();
+  expect(await page.locator('[data-lu-upload-state]').allTextContents()).toEqual(['완료','실패 · 다시 시도']);
+  expect(state.uploads.map(x=>x.project_id)).toEqual(['child-a1']);
+  await expect(page.locator('[data-lu-document="upload-1"]')).toHaveCount(1);
+  for(const width of [360,390,412,430]){
+    await page.setViewportSize({width,height:800});
+    await expect(status).toBeInViewport({ratio:0.5});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth),`overflow at ${width}px`).toBeLessThanOrEqual(0);
+    const clipped=await page.evaluate(()=>{const list=document.querySelector('#librarySelectedFiles').getBoundingClientRect();return [...document.querySelectorAll('[data-lu-upload-state]')].filter(el=>el.getBoundingClientRect().right>list.right+0.5).length});
+    expect(clipped,`file states clipped at ${width}px`).toBe(0);
+  }
+
+  await page.locator('#saveDocumentBtn').click();
+  await expect(page.locator('#documentModal')).toBeHidden();
+  expect(state.uploadAttempts).toEqual(['child-a1','child-a1','child-a1']);
+  expect(state.uploads.map(x=>x.project_id)).toEqual(['child-a1','child-a1']);
+});
+
+test('server-side missing project maps to the stale project message and refreshes the selector',async({page})=>{
+  const state=baseState();
+  state.uploadFailures=[{status:404,body:{error:'프로젝트를 찾을 수 없습니다.',message:'프로젝트를 찾을 수 없습니다.',code:'project_not_found',stage:'project',retryable:false}}];
+  await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
+  await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.locator('#newDocumentBtn').click();
+  await page.locator('#libraryFileInput').setInputFiles({name:'parent.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')});
+  await page.locator('#docProject').selectOption('top-b');
+  state.spaces=state.spaces.map(x=>x.id==='top-b'?{...x,status:'archived'}:x);
+  await page.locator('#saveDocumentBtn').click();
+  await expect(page.locator('#documentStatus')).toHaveText('선택한 프로젝트를 더 이상 사용할 수 없습니다. 프로젝트를 다시 선택해 주세요.');
+  await expect(page.locator('#docProject')).toHaveValue('');
+  await expect(page.locator('#docProject option[value="top-b"]')).toHaveCount(0);
+  await expect(page.locator('#documentModal')).toBeVisible();
+  expect(state.uploads).toHaveLength(0);
 });
 
 test('metadata edit keeps archived links and moves documents between parent, child and none',async({page})=>{
