@@ -280,6 +280,16 @@ test('new project milestone UI has only title time Google calendar and memo, and
   expect(state.googleCalls).toHaveLength(0);
 });
 
+test('new project milestone distinguishes Google reconnect requirement',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:false,calendars:[],warning:'Google 재인증이 필요합니다.'};
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await expect(page.locator('#ps3MilestoneGoogle')).toContainText('재연결 필요');
+  await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('재연결이 필요');
+  await expect(page.locator('#ps3MilestoneSave')).toBeDisabled();
+});
+
 test('new project milestone creates Google first, stores linkage, and excludes read-only calendars',async({page})=>{
   const state=baseState();
   state.googleStatus={
