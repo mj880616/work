@@ -320,7 +320,8 @@ jobs:
           set -e
           grep -q 'id="newProjectBtn"' app/index.html
           grep -q "data-ps3-delete-project" app/project-system-v3.js
-          grep -q 'owner_id=eq.${encodeURIComponent(user.id)}' app/project-system-v3.js
+          grep -q 'owner_id=eq.${encodeURIComponent(userId)}' app/project-catalog.js
+          grep -q 'catalog.fetchSpaces(wid,user.id)' app/project-system-v3.js
           grep -q "+ 진행상황 추가" app/project-system-v3.js
           grep -q "data-ps3-progress-card" app/project-system-v3.js
           grep -q "ps3-progress-current" app/project-system-v3.js
