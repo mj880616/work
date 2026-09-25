@@ -27,6 +27,10 @@
     try{return JSON.parse(localStorage.getItem(config.sessionKey)||'null')}catch{return null}
   }
   function sessionOwner(value=read()){return value?.user?.id||''}
+  function matchesSessionSnapshot(expected){
+    const latest=read();
+    return !!latest&&latest.access_token===expected?.access_token&&latest.refresh_token===expected?.refresh_token;
+  }
   function write(value){
     const beforeOwner=sessionOwner();
     const afterOwner=value?.user?.id||'';
@@ -130,13 +134,14 @@
         const data=await responseData(r);
         if(!r.ok){
           if([400,401,403].includes(r.status)){
-            write(null);
+            if(matchesSessionSnapshot(current))write(null);
             return false;
           }
           throw new RuntimeError(responseMessage(data,r.status),{status:r.status,code:'session_refresh_failed',retryable:retryableStatus(r.status)});
         }
         const next=data||{};
         next.expires_at=next.expires_at||Math.floor(Date.now()/1000)+(next.expires_in||3600);
+        if(!matchesSessionSnapshot(current))return false;
         write(next);
         return next;
       }catch(e){
@@ -217,7 +222,7 @@
   }
 
   window.KPTURuntime={
-    version:'1.3.0',
+    version:'1.3.1',
     config,
     RuntimeError,
     session:{read,write,refresh,ensure,epoch:()=>sessionEpoch},

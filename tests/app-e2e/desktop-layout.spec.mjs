@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -32,8 +33,7 @@ async function installMock(page){
 }
 
 async function login(page){
-  const returnTo=page.url().startsWith('http://127.0.0.1:8123/app/')?page.url():'http://127.0.0.1:8123/app/';
-  await page.goto(`http://127.0.0.1:8123/app/login/?return=${encodeURIComponent(returnTo)}`);
+  await enterLogin(page);
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('desktop@example.org');

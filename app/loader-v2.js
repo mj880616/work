@@ -1,7 +1,7 @@
 (async()=>{
   const startup=window.__KPTU_STARTUP__;
   startup?.mark('loaderStart');
-  const runtimeReady=import('./runtime-client.js?v=4');
+  const runtimeReady=import('./runtime-client.js?v=5');
   await Promise.all([
     import('./native-auth-bridge.js?v=4'),
     import('./calendar-return-bridge.js?v=3')
@@ -11,34 +11,93 @@
   await Promise.all([
     import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
-    import('./app-router.js?v=11'),
-    import('./accessibility-dialog.js?v=1'),
-    import('./native-back-guard.js?v=2'),
-    import('./session-resilience.js?v=6'),
-    import('./auth-service.js?v=1'),
-    import('./capabilities.js?v=2'),
-    import('./pwa.js?v=6')
+    import('./auth-service.js?v=1')
   ]);
 
+  const lockPrivateUi=()=>{
+    document.body?.classList.add('kptu-session-pending');
+    document.body?.classList.remove('kptu-workspace-shell','kptu-public-workspace');
+    for(const id of ['appView','bootstrapView','bootView']){
+      const el=document.getElementById(id);
+      if(!el)continue;
+      el.classList.add('hidden');
+      el.setAttribute('aria-hidden','true');
+      el.inert=true;
+      if(id!=='bootView'){
+        el.replaceChildren();
+        el.remove();
+      }
+    }
+    document.querySelectorAll('.modal,[role="dialog"]').forEach(el=>{
+      el.classList.add('hidden');
+      el.setAttribute('aria-hidden','true');
+      el.inert=true;
+    });
+    window.KPTURuntime.context?.clear?.();
+    window.__KPTU_RESET_PRIVATE_STATE__?.();
+    window.__KPTU_BOOT_CONTEXT__=null;
+    delete window.__KPTU_BOOT_MEMBERSHIP_PROMISE__;
+    delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
+  };
+  const loginUrl=()=>window.KPTUAuth.loginUrl(location.href);
+  const redirectToLogin=()=>{
+    lockPrivateUi();
+    location.replace(loginUrl());
+  };
+  const sessionOwner=value=>{
+    if(value?.user?.id)return value.user.id;
+    try{
+      const part=String(value?.access_token||'').split('.')[1];
+      if(!part)return '';
+      const normalized=part.replace(/-/g,'+').replace(/_/g,'/');
+      return JSON.parse(atob(normalized+'='.repeat((4-normalized.length%4)%4)))?.sub||'';
+    }catch{return ''}
+  };
+  window.KPTUAuthGate={lock:lockPrivateUi,loginUrl,redirect:redirectToLogin};
+
   startup?.mark('sessionCheckStart');
-  const authenticated=await window.KPTURuntime.session.ensure();
+  const authenticated=await window.KPTURuntime.session.ensure().catch(()=>false);
   startup?.mark('sessionCheckComplete',{authenticated});
   if(!authenticated){
-    startup?.mark('routeResolved',{route:'public'});
-    if(new URLSearchParams(location.search).has('invite')){
-      location.replace(window.KPTUAuth.loginUrl(location.href));
-      return;
-    }
-    await import('./public-workspace.js?v=11');
-    await import('./mobile-swipe-navigation.js?v=4');
-    startup?.mark('publicModulesComplete');
+    startup?.mark('routeResolved',{route:'login'});
+    redirectToLogin();
     return;
   }
 
   const bootSession=window.KPTURuntime.session.read();
+  const bootOwner=sessionOwner(bootSession);
+  const handleIdentityChange=next=>{
+    const nextOwner=sessionOwner(next);
+    if(next&&nextOwner&&nextOwner===bootOwner)return;
+    lockPrivateUi();
+    if(next&&nextOwner)location.reload();
+    else location.replace(loginUrl());
+  };
+  window.addEventListener('kptu:session-changed',event=>handleIdentityChange(event.detail?.session||null));
+  window.addEventListener('storage',event=>{
+    if(event.key!==window.KPTURuntime.config.sessionKey)return;
+    handleIdentityChange(window.KPTURuntime.session.read());
+  });
+  window.addEventListener('pageshow',async event=>{
+    if(!event.persisted)return;
+    lockPrivateUi();
+    const valid=await window.KPTURuntime.session.ensure().catch(()=>false);
+    if(!valid){location.replace(loginUrl());return}
+    location.reload();
+  });
+  await Promise.all([
+    import('./app-router.js?v=12'),
+    import('./accessibility-dialog.js?v=1'),
+    import('./native-back-guard.js?v=2'),
+    import('./session-resilience.js?v=6'),
+    import('./capabilities.js?v=3'),
+    import('./pwa.js?v=6')
+  ]);
+  document.body?.classList.remove('kptu-session-pending');
   const bootView=document.querySelector('#bootView');
   if(bootView){
     ['authView','bootstrapView','appView'].forEach(id=>document.querySelector('#'+id)?.classList.add('hidden'));
+    bootView.inert=false;
     bootView.classList.remove('hidden');
     bootView.setAttribute('aria-hidden','false');
     startup?.mark('authenticatedShellVisible');
@@ -55,7 +114,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=10'),
-    import('./team.js?v=46')
+    import('./team.js?v=47')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -135,6 +194,7 @@
   await mobileNavigationReady;
 })().catch(err=>{
   console.error(err);
+  document.body?.classList.remove('kptu-session-pending');
   window.__KPTU_MARK_APP_UI_READY__?.();
   document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
 });

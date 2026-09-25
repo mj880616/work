@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginEntry } from './helpers/login-entry.mjs';
+import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'a11y-user',email:'a11y@example.org',user_metadata:{display_name:'접근성 QA'}};
@@ -49,7 +49,7 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveG
 }
 
 async function signIn(page){
-  await page.goto(loginEntry(page.url()));
+  await enterLogin(page);
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);

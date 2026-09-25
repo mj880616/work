@@ -72,7 +72,9 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#pagesMediaEntry')).toHaveCount(0);
   await page.locator('#sidebarLogoutBtn').click();
-  await expect(page.locator('#publicLoginBtn')).toBeVisible({timeout:20000});
+  await expect(page).toHaveURL(/\/app\/login\//,{timeout:20000});
+  await expect(page.locator('.login-shell')).toBeVisible();
+  await expect(page.locator('#appView')).toHaveCount(0);
 });
 
 test('removed personal deep links return to calendar while photo and media links remain reachable',async({page})=>{

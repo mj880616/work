@@ -1,4 +1,4 @@
-name: Public workspace auth E2E
+name: Web2 anonymous auth gate E2E
 
 on:
   pull_request:
@@ -15,25 +15,25 @@ on:
       - '.github/workflows/public-workspace-auth-e2e.yml'
 
 jobs:
-  public-workspace-auth:
+  anonymous-auth-gate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Install Playwright
         run: |
           npm install --no-save @playwright/test@1.55.0
           npx playwright install --with-deps chromium
       - name: Start static app server
         run: |
-          python3 -m http.server 8123 >/tmp/kptu-public-auth-http.log 2>&1 &
+          python3 -m http.server 8123 >/tmp/kptu-auth-gate-http.log 2>&1 &
           for i in $(seq 1 20); do
             if curl --fail --silent http://127.0.0.1:8123/app/ >/dev/null; then exit 0; fi
             sleep 0.5
           done
-          cat /tmp/kptu-public-auth-http.log
+          cat /tmp/kptu-auth-gate-http.log
           exit 1
-      - name: Run public workspace auth flow
+      - name: Run Web2 anonymous auth gate flow
         run: npx playwright test tests/app-e2e/public-workspace-auth.spec.mjs --browser=chromium --workers=1 --reporter=line

@@ -11,7 +11,6 @@
   function goBack(){location.replace(destination())}
   async function init(){
     if(invite)$('#inviteNotice').classList.remove('hidden');
-    $('#publicBackLink').href=returnTo;
     if(await window.KPTURuntime.session.ensure()){goBack();return}
     $('#emailAuthToggle').onclick=()=>{$('#emailAuthPanel').classList.remove('hidden');$('#emailAuthToggle').classList.add('hidden');$('#authEmail').focus()};
     document.querySelectorAll('[data-auth-tab]').forEach(b=>b.onclick=()=>setMode(b.dataset.authTab));
