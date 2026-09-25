@@ -54,6 +54,7 @@ test('workspace Drive gates upload, token minting, and token redemption by exact
 
 test('library, meeting, page AI, and event media reject every non-owner role', () => {
   const library = read('library-files');
+  assert.match(library, /import \{ HwpxReader, hwpToText \} from ['"]npm:@ssabrojs\/hwpxjs['"]/);
   assert.match(library, /workspaceFor[\s\S]*?wm\?\.role!==['"]owner['"]/);
   assert.match(library, /canEditProject[\s\S]*?wm\?\.role!==['"]owner['"]/);
 
