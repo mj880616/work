@@ -98,6 +98,8 @@ test('Task 12A SQL actor matrix covers all four actors and mandatory regressions
     'organization affiliation fixture must use a production-valid kind');
   assert.doesNotMatch(matrix,/app_org_affiliation_tags[\s\S]{0,300}['"]union['"]/i,
     'organization affiliation fixture must not use the rejected legacy kind');
+  assert.match(matrix,/insert\s+into\s+public\.app_tasks\([^)]*assignee_id[^)]*\)\s*values[\s\S]*?current_setting\('app\.authz_owner'\)::uuid/i,
+    'task fixture must assign the projectless task to a workspace member');
   assert.match(workflow,/supabase\/tests\/authz_sole_owner\.sql/,'CI must require the Task 12A actor matrix');
 });
 

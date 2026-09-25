@@ -122,8 +122,8 @@ insert into public.app_ai_messages(id, conversation_id, owner_id, role, content)
 insert into public.app_ai_daily_usage(workspace_id, user_id, day, requests) values
   (current_setting('app.authz_workspace')::uuid, current_setting('app.authz_owner')::uuid, current_date, 1);
 
-insert into public.app_tasks(id, workspace_id, title, created_by, source_type, source_id) values
-  ('12a70000-0000-4000-8000-000000000001', current_setting('app.authz_workspace')::uuid, 'OWNER PROJECTLESS TASK', current_setting('app.authz_owner')::uuid, 'meeting', '12a10000-0000-4000-8000-000000000001');
+insert into public.app_tasks(id, workspace_id, title, created_by, assignee_id, source_type, source_id) values
+  ('12a70000-0000-4000-8000-000000000001', current_setting('app.authz_workspace')::uuid, 'OWNER PROJECTLESS TASK', current_setting('app.authz_owner')::uuid, current_setting('app.authz_owner')::uuid, 'meeting', '12a10000-0000-4000-8000-000000000001');
 insert into public.app_direct_messages(id, workspace_id, sender_id, recipient_id, body) values
   ('12a71000-0000-4000-8000-000000000001', current_setting('app.authz_workspace')::uuid, current_setting('app.authz_owner')::uuid, current_setting('app.authz_admin')::uuid, 'OWNER PRIVATE MESSAGE');
 
