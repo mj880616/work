@@ -340,7 +340,7 @@ jobs:
           grep -q "deleteGoogleMilestone" app/project-system-v3.js
           grep -q "google_calendar_id:calendarId" app/project-system-v3.js
           grep -q "google_event_id:googleEvent.id" app/project-system-v3.js
-          grep -q "app_project_milestones_google_linkage_pair_chk" supabase/migrations/20260925022056_add_project_milestone_google_linkage.sql
+          grep -q "app_project_milestones_google_linkage_pair_chk" supabase/migrations/20260925032810_add_project_milestone_google_linkage.sql
           if grep -q "Web2에만 저장" app/project-system-v3.js; then echo 'project milestone Web2-only fallback returned'; exit 1; fi
           if grep -Eq 'ps3MilestoneType|ps3MilestoneStatusValue|ps3MilestoneWs' app/project-system-v3.js; then echo 'retired project milestone inputs returned'; exit 1; fi
           grep -q "data-ps3-library" app/project-system-v3.js
