@@ -8,16 +8,18 @@
 .library-picker-mobile{display:none}
 .library-picker-button{font-weight:800}
 .library-file-input{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;opacity:0!important;pointer-events:none!important}
-.library-selected-files{display:grid;gap:6px;margin-top:10px}
+.library-selected-files{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-top:10px}
 .library-selected-file{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
-.library-selected-file-main{min-width:0}
+.library-selected-file-main{min-width:0;flex:1 1 auto}
 .library-selected-file b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--kptu-ink)}
 .library-selected-file small{display:block;margin-top:2px;color:var(--kptu-faint);font-size:10.5px}
-.library-upload-state{flex:none;font-size:11px;font-weight:700;color:var(--kptu-muted)}
+.library-upload-state{flex:none;max-width:50%;text-align:right;font-size:11px;font-weight:700;color:var(--kptu-muted)}
 .library-selected-file.uploading .library-upload-state{color:var(--kptu-link)}
 .library-selected-file.success .library-upload-state{color:var(--kptu-success)}
 .library-selected-file.error{border-color:var(--kptu-danger);background:var(--kptu-danger-soft)}
 .library-selected-file.error .library-upload-state{color:var(--kptu-danger)}
+.library-selected-file.unknown{border-color:var(--kptu-warning);background:var(--kptu-warning-soft)}
+.library-selected-file.unknown .library-upload-state{color:var(--kptu-warning)}
 .library-multi-note{font-size:10.5px;color:var(--kptu-muted);line-height:1.4}
 .library-manage-list{display:grid;gap:8px;max-height:55vh;overflow:auto}
 .library-manage-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg)}
