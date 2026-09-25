@@ -10,6 +10,12 @@ async function mockApp(page,state){
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
     const body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
+    const forcedFailure=(bucket,key)=>{
+      const value=bucket?.[key];
+      if(!value)return null;
+      if(typeof value==='number'){if(value<=0)return null;bucket[key]=value-1;return key+' forced failure'}
+      return typeof value==='string'?value:key+' forced failure'
+    };
     if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
@@ -17,8 +23,14 @@ async function mockApp(page,state){
       const action=url.searchParams.get('action')||body?.action||'status';
       if(method==='POST'){
         state.googleCalls=state.googleCalls||[];
+        state.callOrder=state.callOrder||[];
         state.googleCalls.push(body||{});
-        return ok({ok:true,event:{id:`google-${state.googleCalls.length}`,calendarId:body?.calendar_id||'primary'}});
+        state.callOrder.push('google:'+action);
+        const failure=forcedFailure(state.googleFailures,action);
+        if(failure)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:failure})});
+        if(action==='delete-event')return ok({ok:true});
+        const id=action==='update-event'?(body?.event_id||'google-updated'):`google-${state.googleCalls.filter(x=>x.action==='create-event').length}`;
+        return ok({ok:true,event:{id,calendarId:body?.calendar_id||'primary'}});
       }
       if(action==='events')return ok({events:[],colors:state.googleStatus?.colors||{},eventColors:{}});
       return ok(state.googleStatus||{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
@@ -61,6 +73,11 @@ async function mockApp(page,state){
     }
     const table=(name,arr,key='project_id')=>{
       if(path!==`/rest/v1/${name}`)return false;
+      state.restCalls=state.restCalls||[];state.callOrder=state.callOrder||[];
+      state.restCalls.push({name,method,body:body?structuredClone(body):body});
+      state.callOrder.push(name+':'+method);
+      const failure=forcedFailure(state.restFailures,name+':'+method);
+      if(failure){route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:failure})});return true}
       const pid=eq(url,key),id=eq(url,'id');
       if(method==='GET')return ok(arr.filter(x=>(!pid||x[key]===pid)&&(!id||x.id===id)));
       if(method==='POST'){const rows=(Array.isArray(body)?body:[body]).map((x,i)=>({...x,id:x.id||`${name}-${arr.length+i+1}`,created_at:now(),updated_at:now()}));arr.push(...rows);return ok(rows)}
@@ -114,7 +131,8 @@ function baseState(){return{
   progress:[{id:'pr-1',project_id:'main-1',workstream_id:'ws-1',summary:'국토부 후속협의 준비',next_step:'9.29 토론회',status_label:'진행',effective_on:'2026-09-15',created_at:now()}],
   milestones:[{id:'mile-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',milestone_type:'policy',status:'planned',start_at:'2026-09-29T05:00:00Z',notes:'국토부·TS 참석'}],
   docs:[{id:'doc-1',project_id:'main-1',title:'민자철도 국토부 요구자료 답변',category:'정부자료',source:'국토교통부',document_date:'2026-09-14',tags:['민자철도','운영기준'],description:'인청 요구자료',drive_url:'https://example.org/doc'}],
-  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],spaceMembers:[],sections:[],blocks:[],publication:{},googleStatus:{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}},googleCalls:[]
+  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],spaceMembers:[],sections:[],blocks:[],publication:{},
+  googleStatus:{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}},googleCalls:[],googleFailures:{},restFailures:{},restCalls:[],callOrder:[]
 }}
 
 test('project list loads and its heading uses available width at desktop, tablet and phone sizes',async({page})=>{
@@ -244,29 +262,35 @@ test('project creation omits type and visibility controls and starts with zero p
 });
 
 
-test('project milestone stays usable without Google and links to the existing local event model',async({page})=>{
+test('new project milestone UI has only title time Google calendar and memo, and blocks save without Google',async({page})=>{
   const state=baseState();
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
   await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
-  await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('');
-  await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('미연결');
-  await page.locator('#ps3MilestoneTitle').fill('로컬 프로젝트 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-10-02T14:00');
-  await page.locator('#ps3MilestoneSave').click();
-
-  await expect.poll(()=>state.milestones.some(x=>x.title==='로컬 프로젝트 일정')).toBe(true);
-  const milestone=state.milestones.find(x=>x.title==='로컬 프로젝트 일정');
-  const event=state.events.find(x=>x.id===milestone.event_id);
-  expect(event).toBeTruthy();
-  expect(event.project_id).toBe('main-1');
-  expect(event.title).toBe('로컬 프로젝트 일정');
+  await expect(page.locator('#ps3MilestoneModal label')).toHaveCount(4);
+  await expect(page.locator('#ps3MilestoneTitle,#ps3MilestoneAt,#ps3MilestoneGoogle,#ps3MilestoneNotes')).toHaveCount(4);
+  await expect(page.locator('#ps3MilestoneType,#ps3MilestoneStatusValue,#ps3MilestoneWs')).toHaveCount(0);
+  await expect(page.locator('#ps3MilestoneModal')).not.toContainText('Web2에만 저장');
+  await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('Google Calendar 연결');
+  await expect(page.locator('#ps3MilestoneSave')).toBeDisabled();
+  expect(state.milestones).toHaveLength(1);
+  expect(state.events).toHaveLength(0);
   expect(state.googleCalls).toHaveLength(0);
 });
 
-test('project milestone sends the explicitly selected writable Google calendar id to create-event',async({page})=>{
+test('new project milestone distinguishes Google reconnect requirement',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:false,calendars:[],warning:'Google 재인증이 필요합니다.'};
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await expect(page.locator('#ps3MilestoneGoogle')).toContainText('재연결 필요');
+  await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('재연결이 필요');
+  await expect(page.locator('#ps3MilestoneSave')).toBeDisabled();
+});
+
+test('new project milestone creates Google first, stores linkage, and excludes read-only calendars',async({page})=>{
   const state=baseState();
   state.googleStatus={
     connected:true,enabled:true,selected:['team-cal'],colors:{},eventColors:{},
@@ -289,16 +313,184 @@ test('project milestone sends the explicitly selected writable Google calendar i
   await page.locator('#ps3MilestoneNotes').fill('선택 캘린더 전달 검증');
   await page.locator('#ps3MilestoneSave').click();
 
-  await expect.poll(()=>state.googleCalls.length).toBe(1);
-  expect(state.googleCalls[0]).toMatchObject({
-    action:'create-event',
-    calendar_id:'owner@example.org',
-    title:'Google 세부 캘린더 지정 일정',
-    memo:'선택 캘린더 전달 검증'
-  });
+  await expect.poll(()=>state.milestones.some(x=>x.title==='Google 세부 캘린더 지정 일정')).toBe(true);
   const milestone=state.milestones.find(x=>x.title==='Google 세부 캘린더 지정 일정');
-  expect(milestone?.event_id).toBeTruthy();
-  expect(state.events.find(x=>x.id===milestone.event_id)?.project_id).toBe('main-1');
+  expect(milestone.google_calendar_id).toBe('owner@example.org');
+  expect(milestone.google_event_id).toBeTruthy();
+  expect(milestone.project_id).toBe('main-1');
+  expect(milestone.milestone_type).toBe('action');
+  expect(milestone.status).toBe('planned');
+  const event=state.events.find(x=>x.id===milestone.event_id);
+  expect(event?.project_id).toBe('main-1');
+  const googleCreate=state.googleCalls.find(x=>x.action==='create-event');
+  expect(googleCreate).toMatchObject({calendar_id:'owner@example.org',title:'Google 세부 캘린더 지정 일정',memo:'선택 캘린더 전달 검증'});
+  expect(new Date(googleCreate.end_iso).getTime()-new Date(googleCreate.start_iso).getTime()).toBe(60*60*1000);
+  expect(state.callOrder.indexOf('google:create-event')).toBeLessThan(state.callOrder.indexOf('app_events:POST'));
+  expect(state.callOrder.indexOf('app_events:POST')).toBeLessThan(state.callOrder.indexOf('app_project_milestones:POST'));
+});
+
+test('Google create failure leaves no Web2-only project milestone',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  state.googleFailures['create-event']='Google create failed';
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await page.locator('#ps3MilestoneTitle').fill('실패 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('Google create failed');
+  expect(state.milestones.filter(x=>x.title==='실패 일정')).toHaveLength(0);
+  expect(state.events.filter(x=>x.title==='실패 일정')).toHaveLength(0);
+  expect(state.callOrder).not.toContain('app_events:POST');
+});
+
+test('local milestone failure rolls back the local event and newly created Google event',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  state.restFailures['app_project_milestones:POST']=1;
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await page.locator('#ps3MilestoneTitle').fill('롤백 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('되돌렸습니다');
+  expect(state.milestones.filter(x=>x.title==='롤백 일정')).toHaveLength(0);
+  expect(state.events.filter(x=>x.title==='롤백 일정')).toHaveLength(0);
+  expect(state.googleCalls.map(x=>x.action)).toEqual(expect.arrayContaining(['create-event','delete-event']));
+});
+
+test('child project milestone uses the exact current child project id',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await page.locator('#ps3MilestoneTitle').fill('하위 프로젝트 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-03T09:00');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect.poll(()=>state.milestones.some(x=>x.title==='하위 프로젝트 일정')).toBe(true);
+  const milestone=state.milestones.find(x=>x.title==='하위 프로젝트 일정');
+  expect(milestone.project_id).toBe('child-1');
+  expect(state.events.find(x=>x.id===milestone.event_id)?.project_id).toBe('child-1');
+});
+
+test('legacy unlinked milestone edit preserves hidden fields and does not create a Google event',async({page})=>{
+  const state=baseState();
+  state.milestones[0].event_id='legacy-event';
+  state.events.push({id:'legacy-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('기존 미연동');
+  await page.locator('#ps3MilestoneTitle').fill('레거시 일정 제목 수정');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect.poll(()=>state.milestones[0].title).toBe('레거시 일정 제목 수정');
+  expect(state.milestones[0].milestone_type).toBe('policy');
+  expect(state.milestones[0].status).toBe('planned');
+  expect(state.milestones[0].workstream_id).toBe('ws-1');
+  expect(state.googleCalls).toHaveLength(0);
+});
+
+test('linked milestone update uses stored Google ids and keeps Web2 event in sync',async({page})=>{
+  const state=baseState();
+  Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
+  state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('primary');
+  await page.locator('#ps3MilestoneTitle').fill('연동 일정 수정');
+  await page.locator('#ps3MilestoneAt').fill('2026-09-30T16:00');
+  await page.locator('#ps3MilestoneNotes').fill('수정 메모');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect.poll(()=>state.milestones[0].title).toBe('연동 일정 수정');
+  expect(state.googleCalls[0]).toMatchObject({action:'update-event',calendar_id:'primary',event_id:'google-existing',title:'연동 일정 수정',memo:'수정 메모'});
+  expect(state.events.find(x=>x.id==='local-event')?.title).toBe('연동 일정 수정');
+  expect(state.milestones[0].milestone_type).toBe('policy');
+  expect(state.milestones[0].workstream_id).toBe('ws-1');
+});
+
+test('linked milestone local update failure restores Google and local state',async({page})=>{
+  const state=baseState();
+  Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
+  state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  state.restFailures['app_project_milestones:PATCH']=1;
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await page.locator('#ps3MilestoneTitle').fill('저장 실패 수정안');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('되돌렸습니다');
+  expect(state.milestones[0].title).toBe('9.29 국회토론회');
+  expect(state.events[0].title).toBe('9.29 국회토론회');
+  expect(state.googleCalls.filter(x=>x.action==='update-event')).toHaveLength(2);
+  expect(state.googleCalls.at(-1)).toMatchObject({event_id:'google-existing',title:'9.29 국회토론회'});
+});
+
+test('linked milestone delete uses stored Google ids and removes both local records',async({page})=>{
+  const state=baseState();
+  Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
+  state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  page.once('dialog',d=>d.accept());
+  await page.locator('#ps3MilestoneDelete').click();
+  await expect.poll(()=>state.milestones.some(x=>x.id==='mile-1')).toBe(false);
+  expect(state.events.some(x=>x.id==='local-event')).toBe(false);
+  expect(state.googleCalls.find(x=>x.action==='delete-event')).toMatchObject({calendar_id:'primary',event_id:'google-existing'});
+});
+
+test('linked milestone local delete failure restores Google linkage and milestone',async({page})=>{
+  const state=baseState();
+  Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
+  state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  state.restFailures['app_events:DELETE']=1;
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  page.once('dialog',d=>d.accept());
+  await page.locator('#ps3MilestoneDelete').click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('복원했습니다');
+  const restored=state.milestones.find(x=>x.id==='mile-1');
+  expect(restored).toBeTruthy();
+  expect(restored.google_calendar_id).toBe('primary');
+  expect(restored.google_event_id).not.toBe('google-existing');
+  expect(state.events.some(x=>x.id==='local-event')).toBe(true);
+  expect(state.googleCalls.map(x=>x.action)).toEqual(expect.arrayContaining(['delete-event','create-event']));
+});
+
+test('rollback failure reports possible Google and Web2 inconsistency with the Google event id in console data',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  state.restFailures['app_project_milestones:POST']=1;
+  state.googleFailures['delete-event']='forced Google rollback failure';
+  const errors=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-add-milestone]').click();
+  await page.locator('#ps3MilestoneTitle').fill('rollback 실패 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+  await page.locator('#ps3MilestoneSave').click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('불일치');
+  await expect.poll(()=>errors.some(x=>x.includes('project milestone rollback failed'))).toBe(true);
+  expect(state.milestones.filter(x=>x.title==='rollback 실패 일정')).toHaveLength(0);
+  expect(state.events.filter(x=>x.title==='rollback 실패 일정')).toHaveLength(0);
+  expect(state.googleCalls.find(x=>x.action==='create-event')?.calendar_id).toBe('primary');
+});
+
+test.describe('project milestone Korea timezone',()=>{
+  test.use({timezoneId:'Asia/Seoul'});
+  test('datetime-local is sent to Google as the matching UTC instant with one-hour duration',async({page})=>{
+    const state=baseState();
+    state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+    await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+    await page.locator('[data-ps3-add-milestone]').click();
+    await page.locator('#ps3MilestoneTitle').fill('한국시간 검증 일정');
+    await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+    await page.locator('#ps3MilestoneSave').click();
+    const create=state.googleCalls.find(x=>x.action==='create-event');
+    expect(create.start_iso).toBe('2026-10-02T06:00:00.000Z');
+    expect(create.end_iso).toBe('2026-10-02T07:00:00.000Z');
+  });
 });
 
 test('progress items are added directly by title and existing progress data stays usable',async({page})=>{
@@ -409,6 +601,7 @@ test('top-level project creates a task directly on the current project',async({p
 test('V3 mobile project creation, detail scrolling and linked document remain usable',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   const errors=[];
   page.on('pageerror',error=>errors.push(String(error)));
   await mockApp(page,state);
