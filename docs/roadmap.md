@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-25
-- 기준 main SHA: `7c1da16` (Merge pull request #289)
+- 기준 main SHA: `ed41d76` (Merge pull request #290)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -40,7 +40,7 @@
 | 13 | Web2 공개·공유 경로 제거 | 완료 | #286·#287 | |
 | 14 | 자료실 프로젝트 선택을 canonical 프로젝트 목록과 동기화 | 완료 | #288 | |
 | 일정 UX-1 | 데스크톱 캘린더 주 높이 동적 조정 | 완료 | #285 | |
-| 15 | 자료실 upload failure normalization | 진행중 | | |
+| 15 | 자료실 upload failure normalization | 진행중 | #291 | merge 후 library-files Edge 수동 배포 필요 |
 | 일정 성능-1 | Google Calendar 로딩 최적화 | 대기 | | |
 | 16 | 프로젝트 진행상황 UI 압축 | 대기 | | |
 | 17 | 주요 화면 정보밀도 정리 | 대기 | | |
