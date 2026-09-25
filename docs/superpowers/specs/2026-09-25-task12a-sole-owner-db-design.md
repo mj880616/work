@@ -45,7 +45,7 @@ Private helper and trigger functions must not retain accidental `PUBLIC`/`anon` 
 
 Before DDL, save the exact production RLS flags, policies, table grants, function definitions, and function grants for every changed object. Generate the migration filename using the pinned Supabase CLI version used by the repository workflow; do not invent a timestamp. The forward migration is transactional and replaces policies atomically. The rollback file is generated from the live pre-change snapshot and restores the exact effective production policy/grant state.
 
-The forward migration and rollback must both be rehearsed on a disposable Supabase development branch created from project `xmlkxfjeagycwttklxjw`. Production is changed only after branch tests, PR CI, review, merge, and a final drift check.
+The forward migration and rollback must both be rehearsed without a paid Supabase branch. The protected GitHub Actions workflow extracts the production schema read-only, verifies its reviewed hash, and loads it into a disposable local Supabase stack inside the runner. Production is changed only after this no-cost rehearsal, PR CI, review, merge, and a final drift check.
 
 ## Verification
 

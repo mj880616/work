@@ -4,7 +4,7 @@
 
 **Goal:** Enforce the Web2 sole-owner boundary in production PostgreSQL/RLS/RPC while preserving owner CRUD and the Web1 public projection.
 
-**Architecture:** Reuse the unique existing workspace `owner` membership as the authorization source, add narrowly scoped private owner helpers, and atomically replace only production policies/grants proven broader than the target. Keep public delivery behind `app_public_post`, rehearse forward and rollback SQL on a disposable Supabase branch, then merge and apply the reviewed migration to production.
+**Architecture:** Reuse the unique existing workspace `owner` membership as the authorization source, add narrowly scoped private owner helpers, and atomically replace only production policies/grants proven broader than the target. Keep public delivery behind `app_public_post`; rehearse forward and rollback SQL in a no-cost disposable local Supabase stack populated from a reviewed production schema-only dump inside protected GitHub Actions; then merge and apply the reviewed migration to production.
 
 **Tech Stack:** PostgreSQL 17, Supabase RLS/RPC/Migrations, Supabase CLI 2.84.2, Node.js 24 static regressions, SQL rollback-only actor tests, GitHub Actions.
 
@@ -18,7 +18,7 @@
 - Do not hard-code the owner UUID or add a new ownership table/column system.
 - Do not modify Edge Functions, Storage, RTW, Google integrations, Auth users, membership rows, existing data, visibility values, collaboration schemas, or Task 13 paths.
 - Keep `app_public_post` operational; do not drop or reconnect `app_public_workspace_index`.
-- Every mutation test runs on a disposable branch or inside an explicit transaction that rolls back.
+- Every mutation test runs on a disposable local stack or inside an explicit transaction that rolls back.
 - Forward and rollback SQL must be derived from the same fresh production snapshot.
 
 ## Review Focus
@@ -192,42 +192,48 @@ Run both Node suites from Task 3 and confirm zero failures.
 
 Commit with message `fix: gate task 12a database RPC paths to owner`.
 
-### Task 5: Rehearse migration and rollback on a disposable Supabase branch
+### Task 5: Rehearse migration and rollback on a no-cost disposable local Supabase stack
 
 **Files:**
-- Modify only if a test defect is found: migration, rollback, or existing Task 12A tests.
+- Modify: `.github/workflows/web2-one-shot-schema-authz.yml`
+- Restore and narrow: the existing `supabase/local-verify/` harness from repository commit `1ef96d680725d65c891b67cb6fb64f36cc4737af`
+- Modify only if a test defect is found: migration, rollback, or Task 12A tests.
 
 **Interfaces:**
-- Consumes: reviewed forward/rollback SQL and project branch created from `xmlkxfjeagycwttklxjw`.
-- Produces: database-executed evidence before production.
+- Consumes: reviewed forward/rollback SQL and a protected read-only schema dump from `xmlkxfjeagycwttklxjw`.
+- Produces: database-executed evidence before production without creating a billable Supabase branch.
 
-- [ ] **Step 1: Obtain explicit hourly-cost confirmation**
+- [ ] **Step 1: Add a failing workflow-integrity test**
 
-Confirm the displayed branch rate `$0.01344/hour`, call the cost-confirmation API, then create `task12a-sole-owner-db`. Do not create the branch without that confirmation.
+Assert that every script called by `web2-one-shot-schema-authz.yml` exists, that the verify phase uses Supabase CLI `2.84.2`, and that a Task 12A verification mode applies the generated migration, runs `authz_sole_owner.sql`, applies rollback, compares the pre-change fingerprint, reapplies, and reruns the actor matrix. Run the test and confirm RED because `bootstrap-ci.sh` is absent on `main`.
 
-- [ ] **Step 2: Verify branch lineage and migration history**
+- [ ] **Step 2: Restore the existing disposable-stack harness**
 
-Wait until the branch is healthy; confirm it derives from production and its migration list matches production before the new version.
+Restore only the files transitively required by `bootstrap-ci.sh` from commit `1ef96d680725d65c891b67cb6fb64f36cc4737af`. Do not import that branch's migrations, application code, Edge Function changes, or transition-specific production changes.
 
-- [ ] **Step 3: Apply the forward migration**
+- [ ] **Step 3: Add a focused Task 12A mode**
 
-Apply the exact migration SQL to the disposable branch. Run security and performance advisors; treat new security findings as failures.
+After the reviewed schema-only dump is loaded into the runner-local Supabase stack, create four synthetic Auth actors, apply the exact generated migration, and execute `authz_sole_owner.sql` plus existing project/public SQL regressions. Keep production connection variables unset before the local stack starts and refuse any non-loopback local API or DB URL.
 
-- [ ] **Step 4: Run the SQL actor matrix and Web1 projection checks**
+- [ ] **Step 4: Rehearse rollback and reapply**
 
-Execute `authz_sole_owner.sql` and the existing project/public snapshot SQL checks. Expected: unauthorized actors see/write zero owner-private rows; owner CRUD and public projection pass.
+Apply the exact rollback, compare policy/grant/function fingerprints with the pre-migration local baseline, reapply the forward migration, and rerun the actor matrix. Expected: unauthorized actors see/write zero owner-private rows; owner CRUD and public projection pass both before and after rollback/reapply.
 
-- [ ] **Step 5: Rehearse rollback and reapply**
+- [ ] **Step 5: Make the workflow available to the feature branch safely**
 
-Apply the exact rollback, compare policy/grant/function fingerprints with the Task 1 snapshot, then reapply the forward migration and rerun the actor matrix.
+Keep the workflow manual and protected by the `web2-schema-verification` environment. Permit same-repository feature-branch dispatch, validate the checked-out commit SHA, and never upload or persist the raw production schema dump.
 
-- [ ] **Step 6: Delete the disposable branch**
+- [ ] **Step 6: Run the workflow-integrity test GREEN**
 
-After capturing non-sensitive pass/fail evidence, delete the Supabase branch to stop hourly billing.
+Run the focused Node test and the full security suite. Expected: zero failures and no missing harness dependency.
 
-- [ ] **Step 7: Commit any evidence-driven corrections**
+- [ ] **Step 7: Push the feature branch and dispatch inspect then verify**
 
-If the rehearsal required code changes, repeat Tasks 3-5 and commit with a specific fix message. Do not stack a second migration for a pre-merge defect.
+Push the branch, run `inspect`, review the printed schema hash and safe findings, then run `verify` with that exact hash on the same branch SHA. The workflow must destroy runner-local schema files and the local stack in `always()` cleanup.
+
+- [ ] **Step 8: Commit evidence-driven corrections**
+
+If the rehearsal exposes a defect, fix the existing migration/rollback/tests, repeat inspect and verify, and commit with a specific message. Do not add a second pre-merge migration.
 
 ### Task 6: PR, CI, merge, and production application
 
@@ -242,9 +248,9 @@ If the rehearsal required code changes, repeat Tasks 3-5 and commit with a speci
 
 Re-run all Node security/domain tests, JavaScript syntax checks, relevant Playwright owner/public/anonymous-gate suites, migration/rollback fingerprint checks, and confirm `git diff origin/main...HEAD` contains no Edge/Storage/RTW/Google changes.
 
-- [ ] **Step 2: Push and open the 12A PR**
+- [ ] **Step 2: Open the 12A PR**
 
-Push `security/task12a-sole-owner-db`, open a PR against `main`, attach it to the task, and include start SHA, exact object list, rollback path, actor matrix, Web1 projection, exclusions, and the explicit remaining service-role P1.
+Open a PR from `security/task12a-sole-owner-db` against `main`, attach it to the task, and include start SHA, exact object list, rollback path, actor matrix, Web1 projection, no-cost disposable-stack run, exclusions, and the explicit remaining service-role P1.
 
 - [ ] **Step 3: Wait for every required CI check**
 
