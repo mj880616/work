@@ -50,19 +50,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=118" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=119" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=230','./runtime-client.js?v=5','./native-auth-bridge.js?v=4',
+    './loader-v2.js?v=231','./runtime-client.js?v=5','./native-auth-bridge.js?v=4',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=230')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=231')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=5')");
-  expect(loader).toContain("import('./team.js?v=48')");
-  expect(loader).toContain("import('./view-loader.js?v=10')");
+  expect(loader).toContain("import('./team.js?v=49')");
+  expect(loader).toContain("import('./view-loader.js?v=11')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -155,7 +155,8 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   expect(pagesBlock).not.toContain('page-design-core');
 
   expect(team).toContain('window.KPTUTeamData={');
-  expect(library).toContain('window.KPTUTeamData?.spaces?.()');
+  expect(library).toContain('window.KPTUProjectCatalog');
+  expect(library).not.toContain('/rest/v1/app_spaces');
   expect(meetings).toContain('window.KPTUTeamData?.spaces?.()');
 });
 

@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const rt=window.KPTURuntime;if(!rt)return;
+const rt=window.KPTURuntime,catalog=window.KPTUProjectCatalog;if(!rt||!catalog)return;
 const api=(p,o={})=>rt.api(p,o),$=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=v=>v?new Date(v).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
@@ -12,11 +12,9 @@ const MILESTONE_EVENT_TYPE={action:'other',meeting:'meeting',policy:'other',dead
 const MODULES=[['progress','진행상황'],['milestones','주요 일정'],['tasks','할 일'],['documents','자료']];
 const CONTENT_TYPES={text:'글',status:'현황',metrics:'지표',table:'표',timeline:'흐름·경과',links:'링크'};
 let user=null,membership=null,wid=null,members=[],profiles=[],spaces=[],projects=[],current=null,detail=null,editingProject=null,editingMilestone=null,editingWs=null,editingMemo=null,docFilter='all',docQuery='',lastSpacesKey='',detailEpoch=0,projectEpoch=0,googleCalendarState=null;
-const isV3=p=>p?.metadata?.project_system==='v2'||Number(p?.metadata?.management_version)===2;
-const active=()=>projects.filter(p=>p.status!=='archived');
-const archived=()=>projects.filter(p=>p.status==='archived');
-const tops=()=>active().filter(p=>!p.parent_id||!projects.some(parent=>parent.id===p.parent_id));
-const kids=p=>active().filter(x=>x.parent_id===p.id);
+const archived=()=>catalog.archived(projects);
+const tops=()=>catalog.tops(projects);
+const kids=p=>catalog.kids(projects,p);
 const parent=p=>p?.parent_id?projects.find(x=>x.id===p.parent_id):null;
 const nameOf=id=>profiles.find(x=>x.user_id===id)?.display_name||id?.slice(0,8)||'팀원';
 const canManage=p=>p?.owner_id===user?.id;
@@ -147,16 +145,10 @@ async function context(epoch=projectEpoch){
 }
 async function loadProjects(epoch=projectEpoch){
   if(!wid||!user?.id)return projects;
-  const rows=await api(`/rest/v1/app_spaces?workspace_id=eq.${encodeURIComponent(wid)}&owner_id=eq.${encodeURIComponent(user.id)}&select=*&order=sort_order.asc,created_at.asc`);
+  const rows=await catalog.fetchSpaces(wid,user.id);
   if(epoch!==projectEpoch)return projects;
   spaces=rows||[];
-  const included=new Set(spaces.filter(isV3).map(x=>x.id));
-  let changed=true;
-  while(changed){
-    changed=false;
-    for(const p of spaces)if(p.parent_id&&included.has(p.parent_id)&&!included.has(p.id)){included.add(p.id);changed=true}
-  }
-  projects=spaces.filter(p=>included.has(p.id));
+  projects=catalog.publish({workspaceId:wid,userId:user.id,spaces}).projects;
   return projects
 }
 function enabled(d,key){return !d.modules.length||d.modules.some(m=>m.module_key===key)}
