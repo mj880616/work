@@ -77,7 +77,7 @@ async function projects(){
     module('./public-page-links.js?v=1'),
     module('./due-date-calendar.js?v=1')
   ]);
-  await module('./project-system-v3.js?v=22','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=23','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
