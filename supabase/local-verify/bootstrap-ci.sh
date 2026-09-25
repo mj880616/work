@@ -160,6 +160,26 @@ if [[ "${WEB2_TASK13:-0}" == 1 ]]; then
   }
 
   apply_task13_migration forward
+  unexpected_task13_execute="$({
+    psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+select check_name
+from (values
+  ('anon_workspace_index', 'anon', 'public.app_public_workspace_index()'),
+  ('authenticated_open_share', 'authenticated', 'public.app_open_share(text)'),
+  ('authenticated_save_page', 'authenticated', 'public.app_save_page_v2(uuid,uuid,uuid,text,text,text,text,text,text)'),
+  ('anon_private_owner_helper', 'anon', 'private.app_is_workspace_admin(uuid)')
+) as checks(check_name, role_name, function_signature)
+where has_function_privilege(role_name, function_signature, 'EXECUTE')
+order by check_name;
+SQL
+  } 2> "$ci_root/task13-execute-diagnostic.err")" || {
+    echo 'TASK13_EXECUTE_DIAGNOSTIC_FAILED: SQL output withheld' >&2; exit 1;
+  }
+  if [[ -n "$unexpected_task13_execute" ]]; then
+    echo "TASK13_EXECUTE_REVOKE_FAILED=$unexpected_task13_execute" >&2
+    exit 1
+  fi
+  echo 'TASK13_EXECUTE_REVOKE_PASSED'
   run_task13_test forward
   psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
     -f "$task13_rollback" > "$ci_root/task13-rollback.log" 2>&1 || {
