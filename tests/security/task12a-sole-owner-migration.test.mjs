@@ -46,12 +46,21 @@ test('Task 12A forward and rollback SQL are paired, bounded, and reversible',()=
 
   const policies=declarations(files.migration,'policy');
   assert.ok(policies.length>0,'migration must create at least one reviewed owner-only policy');
-  const rollbackPolicies=new Set(declarations(files.rollback,'policy'));
-  for(const policy of policies) assert.ok(rollbackPolicies.has(policy),`rollback does not restore ${policy}`);
+  for(const policy of policies){
+    const [table,name]=policy.split('.');
+    const escapedTable=table.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    const escapedName=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    assert.match(files.rollback,new RegExp(`drop\\s+policy\\s+if\\s+exists\\s+"?${escapedName}"?\\s+on\\s+(?:public\\.)?"?${escapedTable}"?`,'i'),`rollback does not remove ${policy}`);
+  }
 
   const functions=declarations(files.migration,'function');
-  const rollbackFunctions=new Set(declarations(files.rollback,'function'));
-  for(const fn of functions) assert.ok(rollbackFunctions.has(fn),`rollback does not restore ${fn}`);
+  const rollbackFunctions=new Set(declarations(files.rollback,'function').map(fn=>fn.replace(/\(.*/,'')));
+  for(const fn of functions){
+    const identity=fn.replace(/\(.*/, '');
+    const [schema,name]=identity.split('.');
+    const dropped=new RegExp(`drop\\s+function\\s+if\\s+exists\\s+"?${schema}"?\\."?${name}"?\\s*\\(`,'i').test(files.rollback);
+    assert.ok(dropped||rollbackFunctions.has(identity),`rollback does not restore or remove ${fn}`);
+  }
 });
 
 test('Task 12A SQL stays inside the DB/RLS/RPC scope',()=>{

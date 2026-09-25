@@ -2,6 +2,41 @@ begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
+drop policy if exists task12a_owner_all on public.app_ai_conversations;
+drop policy if exists task12a_owner_all on public.app_ai_daily_usage;
+drop policy if exists task12a_owner_all on public.app_ai_messages;
+drop policy if exists task12a_owner_all on public.app_ai_workspace_settings;
+drop policy if exists task12a_owner_all on public.app_direct_messages;
+drop policy if exists task12a_owner_all on public.app_document_ai_index;
+drop policy if exists task12a_owner_all on public.app_document_chunks;
+drop policy if exists task12a_owner_all on public.app_documents;
+drop policy if exists task12a_owner_all on public.app_event_attendees;
+drop policy if exists task12a_owner_all on public.app_event_comments;
+drop policy if exists task12a_owner_all on public.app_event_photos;
+drop policy if exists task12a_owner_all on public.app_event_suborganizations;
+drop policy if exists task12a_owner_all on public.app_events;
+drop policy if exists task12a_owner_all on public.app_invites;
+drop policy if exists task12a_owner_all on public.app_meetings;
+drop policy if exists task12a_owner_all on public.app_org_affiliation_tags;
+drop policy if exists task12a_owner_all on public.app_pages;
+drop policy if exists task12a_owner_all on public.app_profile_report_projects;
+drop policy if exists task12a_owner_all on public.app_profile_weekly_reports;
+drop policy if exists task12a_owner_all on public.app_profile_workplace_statuses;
+drop policy if exists task12a_owner_all on public.app_profile_workplaces;
+drop policy if exists task12a_owner_all on public.app_profiles;
+drop policy if exists task12a_profile_self_select on public.app_profiles;
+drop policy if exists task12a_owner_all on public.app_suborganization_affiliations;
+drop policy if exists task12a_owner_all on public.app_suborganization_assignees;
+drop policy if exists task12a_owner_all on public.app_suborganization_status_items;
+drop policy if exists task12a_owner_all on public.app_suborganization_timeline;
+drop policy if exists task12a_owner_all on public.app_suborganization_updates;
+drop policy if exists task12a_owner_all on public.app_suborganization_weekly_reports;
+drop policy if exists task12a_owner_all on public.app_suborganizations;
+drop policy if exists task12a_owner_all on public.app_tasks;
+drop policy if exists task12a_owner_all on public.app_workspace_members;
+drop policy if exists task12a_member_self_select on public.app_workspace_members;
+drop policy if exists task12a_owner_all on public.app_workspaces;
+
 -- Restore app_ai_conversations
 alter table public."app_ai_conversations" enable row level security;
 alter table public."app_ai_conversations" no force row level security;
@@ -189,6 +224,15 @@ create policy "app_events_scoped_update" on public."app_events" for update to "a
 revoke all privileges on table public."app_events" from PUBLIC, anon, authenticated, service_role;
 grant DELETE, INSERT, MAINTAIN, SELECT, UPDATE on table public."app_events" to "authenticated";
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."app_events" to "service_role";
+
+-- Restore app_invites
+alter table public."app_invites" enable row level security;
+alter table public."app_invites" no force row level security;
+drop policy if exists "app_invites_admin_read" on public."app_invites";
+create policy "app_invites_admin_read" on public."app_invites" for select to "authenticated" using (private.app_is_workspace_admin(workspace_id));
+revoke all privileges on table public."app_invites" from PUBLIC, anon, authenticated, service_role;
+grant SELECT on table public."app_invites" to "authenticated";
+grant DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."app_invites" to "service_role";
 
 -- Restore app_meetings
 alter table public."app_meetings" enable row level security;
@@ -508,5 +552,13 @@ create policy "app_workspaces_member_read" on public."app_workspaces" for select
 revoke all privileges on table public."app_workspaces" from PUBLIC, anon, authenticated, service_role;
 grant SELECT on table public."app_workspaces" to "authenticated";
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."app_workspaces" to "service_role";
+
+drop function if exists private.app_is_owner_conversation(uuid);
+drop function if exists private.app_is_owner_workplace(uuid);
+drop function if exists private.app_is_owner_profile(uuid);
+drop function if exists private.app_is_owner_organization(uuid);
+drop function if exists private.app_is_owner_event(uuid);
+drop function if exists private.app_is_owner_document(uuid);
+drop function if exists private.app_is_workspace_owner(uuid);
 
 commit;
