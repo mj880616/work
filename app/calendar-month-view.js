@@ -2,6 +2,7 @@
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
   const mq760=window.matchMedia('(max-width:760px)');
+  const mq1024=window.matchMedia('(min-width:1024px)');
   let last=null,navigate=null,touchStart=null,suppressUntil=0,resizeFrame=0;
 
   const pad=n=>String(n).padStart(2,'0');
@@ -149,7 +150,7 @@
 
     const weeksBox=document.createElement('div');weeksBox.className='cmv-weeks';
     weeks.forEach(week=>{
-      const lanes=laneCap(week.laneCount,layout.slots);
+      const lanes=mq1024.matches?week.laneCount:laneCap(week.laneCount,layout.slots);
       const wrap=document.createElement('div');wrap.className='cmv-week';wrap.dataset.weekStart=key(week.start);wrap.dataset.laneCap=String(lanes);wrap.dataset.laneCount=String(week.laneCount);
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){

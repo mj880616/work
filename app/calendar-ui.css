@@ -82,7 +82,11 @@
   #calendarView .calendar-toolbar{max-width:none;min-height:44px;gap:10px;margin:0 0 10px}
   #calendarView .calendar-toolbar #monthTitle{font-size:clamp(20px,1.3vw,24px);min-width:150px}
   #calendarView #prevMonthBtn,#calendarView #nextMonthBtn{width:38px;height:38px;min-width:38px;padding:0;font-size:24px;line-height:1}
-  #calendarView .calendar-grid{--cmv-head-height:clamp(32px,2.1vw,38px);--cmv-date-header-height:clamp(32px,2.1vw,38px);--cmv-lane-step:clamp(20px,1.4vw,24px);--cmv-min-week-height:clamp(88px,7vw,112px);min-height:0}
+  #calendarView .calendar-grid{--cmv-head-height:clamp(32px,2.1vw,38px);--cmv-date-header-height:clamp(32px,2.1vw,38px);--cmv-lane-step:clamp(20px,1.4vw,24px);--cmv-min-week-height:clamp(88px,7vw,112px);height:auto;min-height:var(--cmv-grid-height,0)}
+  #calendarView .cmv-weeks{display:flex;flex:1 0 auto;flex-direction:column;min-height:auto}
+  #calendarView .cmv-week{display:grid;flex:1 0 auto;height:auto}
+  #calendarView .cmv-week-days{grid-area:1/1;height:auto}
+  #calendarView .cmv-week-events{grid-area:1/1;position:relative;inset:auto;margin-top:var(--cmv-date-header-height)}
   #calendarView .cal-head{font-size:clamp(12px,.8vw,14px)}
   #calendarView .cal-cell{padding:4px 5px}
   #calendarView .cal-day{width:clamp(25px,1.8vw,30px);height:clamp(25px,1.8vw,30px);margin:1px 0 2px 1px;font-size:clamp(12px,.82vw,14px)}

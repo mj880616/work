@@ -24,7 +24,9 @@
   <input id="eventEndDate" type="date">
   <input id="eventEndTime" type="time">
 </div>
-<div id="calendarGrid" class="calendar-grid"></div>
+<section id="calendarView" class="view-panel">
+  <div id="calendarGrid" class="calendar-grid"></div>
+</section>
 <div id="toast" class="toast hidden"></div>
 <script>
   window.__navDelta=0;
@@ -54,7 +56,35 @@
     ...Array.from({length:7},(_,i)=>({id:'busy-'+i,source:'google',calendarId:i%2?'cal-a':'cal-b',title:'바쁜날 '+(i+1),start:'2026-09-03T'+String(11+i).padStart(2,'0')+':00:00+09:00',end:'2026-09-03T'+String(12+i).padStart(2,'0')+':00:00+09:00',allDay:false,color:null}))
   ];
   window.renderMonth=(year=2026,month=8)=>window.KPTUCalendarMonthView.render({year,month,appEvents:window.__appEvents,googleEvents:window.__googleEvents,googleState:window.__googleState});
-  window.renderMonth();
+  window.renderDensityFixture=({year=2026,month=8,dateCounts={},googleEvents=[]}={})=>{
+    let sequence=0;
+    const appEvents=[];
+    Object.entries(dateCounts).forEach(([date,count])=>{
+      for(let index=0;index<count;index++){
+        const startMinutes=9*60+index*15,endMinutes=startMinutes+10;
+        const time=minutes=>`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}:00+09:00`;
+        appEvents.push({id:`density-${sequence++}`,title:`밀도 일정 ${index+1}`,start_at:`${date}T${time(startMinutes)}`,end_at:`${date}T${time(endMinutes)}`,color_hex:'#7656a8',project_id:null});
+      }
+    });
+    return window.KPTUCalendarMonthView.render({year,month,appEvents,googleEvents,googleState:window.__googleState});
+  };
+  const fixtureScenario=new URLSearchParams(location.search).get('scenario');
+  if(fixtureScenario==='density'){
+    window.renderDensityFixture({dateCounts:{'2026-09-10':1,'2026-09-17':3,'2026-09-24':7,'2026-09-30':12}});
+  }else if(fixtureScenario==='six-week'){
+    window.renderDensityFixture({year:2026,month:7,dateCounts:{'2026-08-13':12}});
+  }else if(fixtureScenario==='mixed'){
+    window.renderDensityFixture({
+      dateCounts:{'2026-09-09':10},
+      googleEvents:[
+        {id:'span-a',source:'google',calendarId:'cal-a',title:'월-목',start:'2026-09-07',end:'2026-09-11',allDay:true,color:null},
+        {id:'span-b',source:'google',calendarId:'cal-b',title:'화-금',start:'2026-09-08',end:'2026-09-12',allDay:true,color:null},
+        {id:'boundary',source:'google',calendarId:'cal-a',title:'주 경계',start:'2026-09-12',end:'2026-09-15',allDay:true,color:null}
+      ]
+    });
+  }else{
+    window.renderMonth();
+  }
 </script>
 </body>
 </html>
