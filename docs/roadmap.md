@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `30f50d2` (Merge pull request #291)
+- 기준 main SHA: `5b0e239` (Merge pull request #292)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -32,7 +32,7 @@
 | 5 | 데스크톱 topbar 제거, shell 동작을 sidebar로 통합 | 완료 | #271 | |
 | 6 | 데스크톱 캘린더 확대, 일정 색상 preset | 완료 | #274 | |
 | 7 | Google Tasks 오늘~6일 후 표시 | 완료 | #275 | |
-| 8 | 프로젝트 마일스톤 Google 일관성 | 완료 | #277·#278 | #276(별도 안, open)은 미merge |
+| 8 | 프로젝트 마일스톤 Google 일관성 | 완료 | #277·#278 | #276은 #277·#278로 대체되어 close됨 |
 | 9 | 회의 입력 구조 단순화 | 완료 | #279 | |
 | 10 | Web2/Web1/RTW 보안·권한 전수감사 | 완료 | | |
 | 11 | 비로그인 Web2 시작 차단 | 완료 | #280 | |
@@ -57,9 +57,10 @@
 | 28 | workspace_members/role 체계 제거 | 대기 | | |
 | 29 | Tasks assignment schema 정리 | 대기 | | |
 | 30 | 보조 Auth 계정 제거 | 대기 | | |
-| 31 | collaboration dead code/API/CSS 정리 | 대기 | | |
+| 31 | collaboration dead code/API/CSS 정리 | 대기 | | app/project-archive.js 미사용 파일 제거 포함 |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
 | 15b | 프로젝트 파일 업로드(project-files.js) 실패 처리 정규화 | 대기 | | 순서 미정 |
+| Web1-1 | 공개 페이지 메타 생성기: 빈 조회 시 기존 메타 보존 (#202 재작업) | 대기 | | 다음 작업 |
 
 ### 별도 트랙: RTW
 
@@ -77,6 +78,7 @@ Task 32 착수 전 모두 완료한다.
 | --- | --- |
 | CLAUDE.md 신설 | #289 |
 | CLAUDE.md 세션 구분·Edge 배포·완료보고 양식 추가, Task 15 완료 기록 | #292 |
+| AGENTS.md 제품 구조 섹션을 현재 방향(Web2 sole-owner 비공개·Web1 공개 채널·RTW 분리)으로 재작성 (#273 대체) | #293 |
 
 ## 갱신 규칙
 
