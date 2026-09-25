@@ -1,5 +1,5 @@
 import {readFileSync} from 'node:fs';
-import {createHash} from 'node:crypto';
+import {canonicalSchemaHash} from './schema-hash.mjs';
 
 const file = process.argv[2];
 if (!file) throw new Error('A temporary schema-only dump path is required');
@@ -32,7 +32,7 @@ if (findings.length) {
   }
   process.exitCode = 1;
 } else {
-  const digest = createHash('sha256').update(sql).digest('hex');
+  const digest = canonicalSchemaHash(sql);
   console.log(`Schema-only scan found no recognized row or credential patterns; SHA-256 ${digest}`);
   console.log('Manual review of function bodies, defaults, owners, grants, and dependencies remains required.');
 }

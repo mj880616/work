@@ -37,3 +37,13 @@ test('Task 12A local mode rehearses forward, actor matrix, rollback, fingerprint
   assert.match(script,/unset PGHOST PGPORT PGUSER PGDATABASE PGPASSWORD PGOPTIONS PGSSLMODE PGSSLROOTCERT/,'production connection variables must be cleared before local startup');
   assert.match(script,/127\.0\.0\.1|localhost/,'local endpoints must be loopback-only');
 });
+
+test('Task 12A inspect and verify use the same canonical schema hash',()=>{
+  const scanner=readFileSync(new URL('supabase/local-verify/scan-schema.mjs',ROOT),'utf8');
+  assert.match(scanner,/import\s*\{canonicalSchemaHash\}\s*from\s*['"]\.\/schema-hash\.mjs['"]/,
+    'inspect must share the canonical hash implementation used by verify');
+  assert.match(scanner,/canonicalSchemaHash\(sql\)/,
+    'inspect must print the canonical hash that verify compares');
+  assert.doesNotMatch(scanner,/createHash\(['"]sha256['"]\)\.update\(sql\)/,
+    'inspect must not hash the raw pg_dump restriction key');
+});
