@@ -1,3 +1,7 @@
+.meeting-entry-section{min-width:0;margin:0 0 var(--kptu-space-4);padding:0;border:0}
+.meeting-entry-section legend{width:100%;margin:0 0 var(--kptu-space-3);padding:0 0 var(--kptu-space-2);border-bottom:1px solid var(--kptu-border);font-size:12px;font-weight:800;color:var(--kptu-muted)}
+.meeting-entry-section>label,.meeting-entry-section>.two-col{margin-bottom:var(--kptu-space-3)}
+.meeting-entry-section>.two-col>label{margin-bottom:0}
 .task-workflow-note{padding:9px 11px;margin:0 0 var(--kptu-space-3);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:12px}
 .meeting-materials-block{padding:var(--kptu-space-3);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle);margin:var(--kptu-space-3) 0}
 .meeting-materials-block p{margin:var(--kptu-space-1) 0 0;color:var(--kptu-muted);font-size:12px}

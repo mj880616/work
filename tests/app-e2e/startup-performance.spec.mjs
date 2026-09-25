@@ -53,14 +53,14 @@ test('startup preloads only route-agnostic core assets', async () => {
   expect(head).toContain('<script src="./app.js?v=114" defer></script>');
   for(const asset of [
     './loader-v2.js?v=226','./runtime-client.js?v=4','./native-auth-bridge.js?v=4',
-    './calendar-return-bridge.js?v=3','./team.js?v=45'
+    './calendar-return-bridge.js?v=3','./team.js?v=46'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('home-dashboard-v2.js');
   expect(read('app/app.js')).toContain("import('./loader-v2.js?v=226')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=4')");
-  expect(loader).toContain("import('./team.js?v=45')");
+  expect(loader).toContain("import('./team.js?v=46')");
   expect(loader).toContain("import('./view-loader.js?v=9')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
@@ -80,7 +80,7 @@ test('startup loads only requested route CSS before showing the shell', async ()
     './google-tasks.css?v=4',
     './project-system-v3.css?v=13',
     './library-upload.css?v=1',
-    './meeting-ui.css?v=8',
+    './meeting-ui.css?v=9',
     './web1-press.css?v=1',
     './web1-board.css?v=2',
     './suborganizations.css?v=5',
