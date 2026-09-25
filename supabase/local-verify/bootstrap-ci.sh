@@ -217,6 +217,7 @@ SQL
       NR==FNR { before[$1]=$2; next }
       !($1 in before) || before[$1] != $2 { print $1 }
     ' "$ci_root/task13-before.hash" "$ci_root/task13-after.hash" | paste -sd, -)"
+    echo "::error title=Task 13 rollback drift::changed components=${task13_drift_components:-unknown}" >&2
     echo "TASK13_ROLLBACK_FAILED: changed components=${task13_drift_components:-unknown}" >&2
     exit 1;
   }
