@@ -1,6 +1,6 @@
 # Web2 개발 작업 원장 (Roadmap)
 
-- 최종 갱신일: 2026-09-25
+- 최종 갱신일: 2026-09-26
 - 기준 main SHA: `30f50d2` (Merge pull request #291)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
