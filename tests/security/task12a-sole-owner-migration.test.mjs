@@ -116,6 +116,11 @@ test('Task 12A gates active database RPC bypasses while preserving the Web1 proj
     'app_public_workspace_snapshot\\s*\\(\\)'
   ]) assert.match(migration,new RegExp(`revoke\\s+execute\\s+on\\s+function\\s+public\\.${signature}\\s+from\\s+authenticated`,'i'),`missing authenticated revoke for ${signature}`);
 
+  for(const signature of [
+    'app_public_project\\s*\\(text\\)','app_public_projects_snapshot\\s*\\(\\)',
+    'app_project_publication_state\\s*\\(uuid\\)'
+  ]) assert.match(migration,new RegExp(`revoke\\s+execute\\s+on\\s+function\\s+public\\.${signature}\\s+from\\s+PUBLIC\\s*,\\s*anon\\s*,\\s*authenticated`,'i'),`missing restored-baseline-safe revoke for ${signature}`);
+
   assert.doesNotMatch(migration,/create\s+or\s+replace\s+function\s+public\.app_public_post\s*\(/i,'Web1 public projection body must stay unchanged');
   assert.doesNotMatch(migration,/revoke\s+execute\s+on\s+function\s+public\.app_public_post/i,'Web1 public projection grants must stay unchanged');
   assert.doesNotMatch(migration,/revoke\s+execute\s+on\s+function\s+public\.app_public_workspace_index/i,'public index grant must stay unchanged');

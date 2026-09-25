@@ -408,4 +408,11 @@ revoke execute on function public.app_request_workspace_access(text) from authen
 revoke execute on function public.app_respond_project_invitation(uuid,boolean) from authenticated;
 revoke execute on function public.app_public_workspace_snapshot() from authenticated;
 
+-- Reassert the already-deployed project-publication boundary explicitly.
+-- A schema-only restore can otherwise inherit PostgreSQL's default PUBLIC
+-- function EXECUTE before the production object ACL is reconstructed.
+revoke execute on function public.app_public_project(text) from PUBLIC, anon, authenticated;
+revoke execute on function public.app_public_projects_snapshot() from PUBLIC, anon, authenticated;
+revoke execute on function public.app_project_publication_state(uuid) from PUBLIC, anon, authenticated;
+
 commit;
