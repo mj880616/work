@@ -39,7 +39,6 @@
 - `notification-center-ui.js`
 - `calendar-persistence.js`
 - `task-workflow.js`
-- `project-access.js`
 - `meeting-round-detail.js`
 
 일정·할 일·프로젝트·회의 핵심 보조 모듈에 남아 있던 별도 세션 저장·refresh token 갱신 로직을 제거함. 여러 모듈이 동시에 refresh token을 사용해 각각 세션을 갱신하지 않도록 `runtime-client.js` 안에서 하나의 refresh promise를 공유함.
@@ -94,7 +93,7 @@ Android OAuth 복귀 경로는 별도 기능 수정과 섞지 않음. 인증 UI 
 
 ## 6. 비활성 파일 격리
 
-현재 진입 경로에서 로드되지 않는 과거 보정 모듈 15개를 삭제하지 않고 `app/legacy/`로 이동함.
+현재 진입 경로에서 로드되지 않는 과거 보정 모듈은 `app/legacy/`로 격리함. Task 13에서 공개 페이지와 프로젝트 공유를 되살릴 수 있던 격리 모듈은 제거함.
 
 - `calendar-app-edit-ui.js`
 - `calendar-create-live-title.js`

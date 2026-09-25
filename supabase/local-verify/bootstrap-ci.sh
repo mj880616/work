@@ -131,6 +131,54 @@ fi
 echo 'ADMIN_DEFAULT_ACL_APPLY_PASSED'
 echo 'BASELINE_APPLY_PASSED'
 
+if [[ "${WEB2_TASK13:-0}" == 1 ]]; then
+  task13_migration=20260925143746_task13_web2_private_boundary.sql
+  task13_fingerprint="$repo_root/supabase/local-verify/task13-fingerprint.sql"
+  task13_rollback="$repo_root/scripts/sql/rollback/$task13_migration"
+
+  psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$task13_fingerprint" \
+    > "$ci_root/task13-before.hash" 2> "$ci_root/task13-before.err"
+
+  apply_task13_migration() {
+    local phase="$1" path="$repo_root/supabase/migrations/$task13_migration"
+    psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+      -f "$path" > "$ci_root/task13-${phase}-migration.log" 2>&1 || {
+        node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" MIGRATION "$path" "$ci_root/task13-${phase}-migration.log"
+        echo "TASK13_MIGRATION_FAILED: $phase; SQL output withheld" >&2; exit 1;
+      }
+  }
+  run_task13_test() {
+    local phase="$1"
+    for sql_test in authz_sole_owner.sql authz_task13_private_boundary.sql; do
+      local path="$repo_root/supabase/tests/$sql_test"
+      psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+        -f "$path" > "$ci_root/task13-${phase}-${sql_test}.log" 2>&1 || {
+          node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" AUTHORIZATION_SQL "$path" "$ci_root/task13-${phase}-${sql_test}.log"
+          echo "TASK13_ACTOR_MATRIX_FAILED: $phase/$sql_test; SQL output withheld" >&2; exit 1;
+        }
+    done
+  }
+
+  apply_task13_migration forward
+  run_task13_test forward
+  psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+    -f "$task13_rollback" > "$ci_root/task13-rollback.log" 2>&1 || {
+      node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" ROLLBACK "$task13_rollback" "$ci_root/task13-rollback.log"
+      echo 'TASK13_ROLLBACK_FAILED: SQL output withheld' >&2; exit 1;
+    }
+  psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$task13_fingerprint" \
+    > "$ci_root/task13-after.hash" 2> "$ci_root/task13-after.err"
+  cmp -s "$ci_root/task13-before.hash" "$ci_root/task13-after.hash" || {
+    echo 'TASK13_ROLLBACK_FAILED: authorization fingerprint changed' >&2; exit 1;
+  }
+  echo 'TASK13_ROLLBACK_PASSED'
+
+  apply_task13_migration reapply
+  run_task13_test reapply
+  echo 'TASK13_REAPPLY_PASSED'
+  exit 0
+fi
+
 if [[ "${WEB2_TASK12A:-0}" == 1 ]]; then
   task12a_migration=20260925084844_task12a_sole_owner_db.sql
   fingerprint="$repo_root/supabase/local-verify/task12a-fingerprint.sql"

@@ -6,13 +6,12 @@
   <section id="libraryView"><div class="section-head"></div><input id="documentSearch"><select id="documentProject"><option value="all">전체</option></select><div id="documentList"></div></section>
   <div id="documentModal"><div class="modal-card">
     <label>자료명<input id="docTitle"></label>
-    <input id="docCategory"><input id="docSource"><input id="docDate"><input id="docTags"><select id="docProject"><option value="">없음</option></select><select id="docVisibility"><option value="workspace" selected>팀 내부</option><option value="public">외부 공개</option><option value="private">나만 보기</option></select><textarea id="docDescription"></textarea>
+    <input id="docCategory"><input id="docSource"><input id="docDate"><input id="docTags"><select id="docProject"><option value="">없음</option></select><textarea id="docDescription"></textarea>
     <button id="saveDocumentBtn" type="button">등록</button><div id="documentStatus"></div>
   </div></div>
   <script>
     window.__documentsChanged=0;
     window.__releaseLibraryUpload=null;
-    window.__visibilityCalls=[];
     window.__documentActionError=null;
     window.__driveReconnectCalls=[];
     window.__libraryUploadMode='timeout';
@@ -32,12 +31,6 @@
           return {url:location.origin+location.pathname+'#drive-auth'};
         }
         if(path==='/functions/v1/library-files'){
-          if(opts.body?.action==='set-visibility'){
-            window.__visibilityCalls.push(opts.body);
-            const d=window.__libraryDocs.find(x=>x.id===opts.body.document_id);
-            if(d)d.visibility=opts.body.visibility;
-            return {ok:true,document:{id:opts.body.document_id,visibility:opts.body.visibility}};
-          }
           const file=opts.body?.get?.('file');
           window.__libraryUploadCalls.push(file?.name||'');
           if(window.__libraryUploadMode==='success')return {ok:true,document:{id:'uploaded-'+window.__libraryUploadCalls.length,project_id:null}};

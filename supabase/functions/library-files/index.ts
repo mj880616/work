@@ -16,48 +16,6 @@ async function ensureRoot(workspaceId:string,token:string){const {data:s}=await 
 async function ensureLibrary(workspaceId:string,token:string){const {data:s}=await admin.from('app_drive_settings').select('library_folder_id').eq('workspace_id',workspaceId).maybeSingle();if(s?.library_folder_id)return s.library_folder_id;const root=await ensureRoot(workspaceId,token);const r=await fetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({name:'자료실',mimeType:'application/vnd.google-apps.folder',parents:[root]})});const d=await r.json();if(!r.ok||!d.id)throw new Error(d.error?.message||'자료실 폴더 생성 실패');await admin.from('app_drive_settings').upsert({workspace_id:workspaceId,library_folder_id:d.id,updated_at:new Date().toISOString()});return d.id}
 async function upload(file:File,folder:string,token:string){const init=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,webViewLink,size',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':file.type||'application/octet-stream','X-Upload-Content-Length':String(file.size)},body:JSON.stringify({name:file.name,parents:[folder]})});if(!init.ok)throw new Error(await init.text());const loc=init.headers.get('location');if(!loc)throw new Error('Drive 업로드 주소를 받지 못했습니다.');const up=await fetch(loc,{method:'PUT',headers:{'Content-Type':file.type||'application/octet-stream','Content-Length':String(file.size)},body:file});const d=await up.json();if(!up.ok)throw new Error(d.error?.message||'Drive 업로드 실패');return d}
 
-async function setDrivePublic(fileId:string,makePublic:boolean,token:string){
-  if(makePublic){
-    const r=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true&sendNotificationEmail=false`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({type:'anyone',role:'reader',allowFileDiscovery:false})});
-    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error?.message||'Drive 공개 권한 설정 실패')}
-    return;
-  }
-  const list=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true&fields=permissions(id,type,role)`,{headers:{Authorization:`Bearer ${token}`}});
-  const d=await list.json();if(!list.ok)throw new Error(d.error?.message||'Drive 권한 조회 실패');
-  for(const p of d.permissions||[]){
-    if(p.type==='anyone'){
-      const del=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions/${encodeURIComponent(p.id)}?supportsAllDrives=true`,{method:'DELETE',headers:{Authorization:`Bearer ${token}`}});
-      if(!del.ok&&del.status!==404)throw new Error('Drive 공개 권한 해제 실패');
-    }
-  }
-}
-function driveFileId(value:string|null|undefined){
-  const s=String(value||'').trim();
-  if(!s)return null;
-  const patterns=[
-    /\/file\/d\/([A-Za-z0-9_-]+)/,
-    /\/(?:document|spreadsheets|presentation)\/d\/([A-Za-z0-9_-]+)/,
-    /[?&]id=([A-Za-z0-9_-]+)/
-  ];
-  for(const re of patterns){const m=s.match(re);if(m?.[1])return m[1]}
-  return null;
-}
-async function setDocumentVisibility(user:any,documentId:string,visibility:string){
-  if(!['public','workspace','private'].includes(visibility))throw new Error('지원하지 않는 공개범위입니다.');
-  const wm=await workspaceFor(user.id);
-  const {data:doc,error}=await admin.from('app_documents').select('id,workspace_id,project_id,uploaded_by,file_id,drive_url,visibility').eq('id',documentId).maybeSingle();
-  if(error||!doc||doc.workspace_id!==wm.workspace_id)throw new Error('자료를 찾을 수 없습니다.');
-  if(doc.project_id)await canEditProject(user.id,doc.project_id);
-  else if(doc.uploaded_by!==user.id&&!['owner','admin','editor'].includes(wm.role))throw new Error('자료 공개범위를 변경할 권한이 없습니다.');
-  const managedFileId=doc.file_id||driveFileId(doc.drive_url);
-  if(managedFileId){
-    const token=await driveToken();
-    await setDrivePublic(managedFileId,visibility==='public',token);
-  }
-  const {data:updated,error:updateError}=await admin.from('app_documents').update({visibility,updated_at:new Date().toISOString()}).eq('id',documentId).select('id,visibility').single();
-  if(updateError)throw updateError;
-  return updated;
-}
 function ext(name:string){const m=name.toLowerCase().match(/\.([a-z0-9]+)$/);return m?.[1]||''}
 function baseName(name:string){return String(name||'').replace(/\.[^.]+$/,'').trim()}
 function tidyFileTitle(name:string){
@@ -117,15 +75,7 @@ Deno.serve(async(req:Request)=>{
   try{
     const user=await getUser(req);
     if(req.method!=='POST')return json({error:'POST only'},405);
-    if((req.headers.get('content-type')||'').includes('application/json')){
-      const payload=await req.json();
-      if(payload?.action==='set-visibility'){
-        const documentId=String(payload.document_id||'').trim();
-        if(!documentId)return json({error:'자료 ID가 필요합니다.'},400);
-        return json({ok:true,document:await setDocumentVisibility(user,documentId,String(payload.visibility||''))});
-      }
-      return json({error:'지원하지 않는 작업입니다.'},400);
-    }
+    if((req.headers.get('content-type')||'').includes('application/json'))return json({error:'지원하지 않는 작업입니다.'},400);
     const form=await req.formData(),file=form.get('file');
     if(!(file instanceof File))return json({error:'파일을 선택해 주세요.'},400);
     if(file.size<=0)return json({error:'빈 파일은 업로드할 수 없습니다.'},400);
@@ -169,19 +119,14 @@ Deno.serve(async(req:Request)=>{
     const description=val('description')||null;
     const tagInput=val('tags');
     const tags=tagInput?tagInput.split(',').map(x=>x.trim()).filter(Boolean):auto.tags;
-    const requestedVisibility=val('visibility');
-    if(requestedVisibility&&!['public','workspace','private'].includes(requestedVisibility))throw new Error('지원하지 않는 공개범위입니다.');
-    const visibility=requestedVisibility||'workspace';
-
     const token=await driveToken();
     const folder=await ensureLibrary(wm.workspace_id,token);
     const df=await upload(file,folder,token);
-    if(visibility==='public')await setDrivePublic(df.id,true,token);
     const classificationNote=meetingId?'회의자료 자동등록':titleSource==='content'?'파일명 단서 부족 · 본문 기반 제목 추출 및 자동분류':titleSource==='filename'?'파일명 정돈 및 메타정보 기반 자동분류':'사용자 입력 제목 · 메타정보 자동분류';
     const {data:doc,error}=await admin.from('app_documents').insert({
       workspace_id:wm.workspace_id,project_id:projectId,meeting_id:meetingId,title,category,source:source||null,document_date:documentDate||null,description,tags,
       drive_url:df.webViewLink||`https://drive.google.com/file/d/${df.id}/view`,file_id:df.id,file_name:file.name,mime_type:file.type||df.mimeType||'application/octet-stream',file_size:file.size,
-      visibility,uploaded_by:user.id,auto_classified:!userTitle,classification_note:classificationNote
+      visibility:'private',uploaded_by:user.id,auto_classified:!userTitle,classification_note:classificationNote
     }).select('*').single();
     if(error)throw error;
     return json({ok:true,document:doc,auto:{title,category,source,tags,document_date:documentDate,project_id:projectId,meeting_id:meetingId,title_source:titleSource}});

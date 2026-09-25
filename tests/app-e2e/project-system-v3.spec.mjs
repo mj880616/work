@@ -36,25 +36,6 @@ async function mockApp(page,state){
       return ok(state.googleStatus||{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     }
     if(path.startsWith('/functions/v1/'))return ok({});
-    if(path==='/rest/v1/rpc/app_project_publication_state')return ok(state.publication?.[body?.p_project]||{published:false,public_summary:null,blocks:[]});
-    if(path==='/rest/v1/rpc/app_set_project_block_publication'){
-      const row=state.blocks.find(x=>x.id===body?.p_block);if(!row||body.p_publish&&!body.p_confirm)return ok(false);
-      const pub=state.publication[row.project_id]||={published:false,public_summary:null,blocks:[]};
-      const entry=pub.blocks.find(x=>x.id===row.id);
-      if(entry)Object.assign(entry,{published:body.p_publish,public_order:body.p_order??entry.public_order});
-      else pub.blocks.push({id:row.id,published:body.p_publish,public_order:body.p_order??row.sort_order});
-      return ok(true);
-    }
-    if(path==='/rest/v1/rpc/app_set_project_publication'){
-      const pub=state.publication[body?.p_project]||={published:false,public_summary:null,blocks:[]};
-      if(body.p_publish&&!pub.published&&!body.p_confirm)return ok(false);
-      pub.published=body.p_publish;pub.public_summary=body.p_summary;return ok(true);
-    }
-    if(path==='/rest/v1/rpc/app_move_project_public_block'){
-      const pub=Object.values(state.publication).find(x=>x.blocks.some(b=>b.id===body?.p_block));if(!pub)return ok(false);
-      const rows=pub.blocks.filter(x=>x.published).sort((a,b)=>a.public_order-b.public_order),index=rows.findIndex(x=>x.id===body.p_block),target=rows[index+body.p_direction];
-      if(!target)return ok(false);[rows[index].public_order,target.public_order]=[target.public_order,rows[index].public_order];return ok(true);
-    }
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:state.workspace.id,user_id:state.user.id,role:'owner',created_at:now()}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'프로젝트 관리자'}]);
@@ -131,7 +112,7 @@ function baseState(){return{
   progress:[{id:'pr-1',project_id:'main-1',workstream_id:'ws-1',summary:'국토부 후속협의 준비',next_step:'9.29 토론회',status_label:'진행',effective_on:'2026-09-15',created_at:now()}],
   milestones:[{id:'mile-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',milestone_type:'policy',status:'planned',start_at:'2026-09-29T05:00:00Z',notes:'국토부·TS 참석'}],
   docs:[{id:'doc-1',project_id:'main-1',title:'민자철도 국토부 요구자료 답변',category:'정부자료',source:'국토교통부',document_date:'2026-09-14',tags:['민자철도','운영기준'],description:'인청 요구자료',drive_url:'https://example.org/doc'}],
-  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],spaceMembers:[],sections:[],blocks:[],publication:{},
+  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],spaceMembers:[],sections:[],blocks:[],
   googleStatus:{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}},googleCalls:[],googleFailures:{},restFailures:{},restCalls:[],callOrder:[]
 }}
 

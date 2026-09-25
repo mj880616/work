@@ -74,7 +74,6 @@ async function tasks(){
 async function projects(){
   await Promise.all([
     module('./forum-flow-polish.js?v=2'),
-    module('./public-page-links.js?v=1'),
     module('./due-date-calendar.js?v=1')
   ]);
   await module('./project-system-v3.js?v=22','__KPTU_PROJECT_V3_READY__');

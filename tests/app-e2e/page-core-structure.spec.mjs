@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read=path=>readFileSync(path,'utf8');
 
@@ -18,7 +18,11 @@ test('authenticated board uses Web1 source without loading retired page manageme
     'page-shortcut.js',
     'page-management.js',
     'page-inline-viewer-v2.js'
-  ]){expect(loader).not.toContain(retired);expect(views).not.toContain(retired)}
+  ]){
+    expect(loader).not.toContain(retired);
+    expect(views).not.toContain(retired);
+    expect(existsSync(`app/${retired}`)).toBe(false);
+  }
 
   expect(team).toContain('function renderPages(){window.KPTUWeb1Board?.render?.()}');
   expect(index).toContain('id="web1BoardActive"');

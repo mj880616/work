@@ -62,11 +62,3 @@ begin
   end if;
 end
 $test$;
-
-do $test$
-begin
-  if coalesce(jsonb_array_length(public.app_public_workspace_index()->'projects'),-1) <> 0 then
-    raise exception 'public workspace index still contains project discovery';
-  end if;
-end
-$test$;

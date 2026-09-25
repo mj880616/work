@@ -16,7 +16,7 @@
 
   const lockPrivateUi=()=>{
     document.body?.classList.add('kptu-session-pending');
-    document.body?.classList.remove('kptu-workspace-shell','kptu-public-workspace');
+    document.body?.classList.remove('kptu-workspace-shell');
     for(const id of ['appView','bootstrapView','bootView']){
       const el=document.getElementById(id);
       if(!el)continue;

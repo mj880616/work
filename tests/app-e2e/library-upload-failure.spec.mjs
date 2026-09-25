@@ -20,15 +20,12 @@ test('library upload timeout stays isolated in the upload form and releases busy
 });
 
 
-test('library visibility toggle uses the canonical visibility action',async({page})=>{
+test('library cards expose no public or workspace visibility control',async({page})=>{
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
   const card=page.locator('[data-lu-document="doc-1"]');
-  await expect(card).toContainText('팀 내부',{timeout:3000});
-  await expect(card.locator('[data-lu-toggle-public]')).toHaveText('외부 공개');
-  page.once('dialog',dialog=>dialog.accept());
-  await card.locator('[data-lu-toggle-public]').click();
-  await expect(card).toContainText('외부 공개');
-  await expect.poll(()=>page.evaluate(()=>window.__visibilityCalls.at(-1))).toEqual({action:'set-visibility',document_id:'doc-1',visibility:'public'});
+  await expect(card).toBeVisible({timeout:3000});
+  await expect(card.locator('[data-lu-toggle-public],[data-lu-set-visibility]')).toHaveCount(0);
+  await expect(card).not.toContainText(/외부 공개|팀 내부|나만 보기/);
 });
 
 test('library secondary action does not open its card, while card body opens the document',async({page})=>{

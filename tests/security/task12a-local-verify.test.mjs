@@ -20,7 +20,8 @@ test('Task 12A no-cost workflow has every local verification dependency',()=>{
   assert.match(workflow,/version:\s*2\.84\.2/,'workflow must pin the reviewed Supabase CLI');
   assert.match(workflow,/refs\/heads\/security\/task12a-sole-owner-db/,'feature branch dispatch must be explicit');
   assert.match(workflow,/EXPECTED_COMMIT_SHA/,'verify must bind to the reviewed feature-branch commit');
-  assert.match(workflow,/WEB2_TASK12A:\s*'1'/,'workflow must select the focused Task 12A mode');
+  assert.match(workflow,/WEB2_TASK12A:[^\n]*task12a-sole-owner-db/,
+    'workflow must select the focused Task 12A mode on the Task 12A branch');
 });
 
 test('Task 12A local mode rehearses forward, actor matrix, rollback, fingerprint, and reapply',()=>{
