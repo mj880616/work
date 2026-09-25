@@ -13,9 +13,15 @@ with target_functions(signature) as (
     ('public.app_open_share(text)'),
     ('public.app_save_page_v2(uuid,uuid,uuid,text,text,text,text,text,text)')
 ), function_state as (
-  select t.signature, p.proacl
+  select
+    t.signature,
+    pg_get_userbyid(a.grantor) as grantor,
+    case when a.grantee=0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end as grantee,
+    a.privilege_type,
+    a.is_grantable
   from target_functions t
   join pg_proc p on p.oid=t.signature::regprocedure
+  cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
 ), trigger_state as (
   select n.nspname, c.relname, t.tgname, pg_get_triggerdef(t.oid) as definition
   from pg_trigger t
@@ -29,7 +35,10 @@ with target_functions(signature) as (
   from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='private' and p.proname='app_enforce_web2_private_visibility'
 )
-select 'functions=' || md5(coalesce((select jsonb_agg(to_jsonb(f) order by signature)::text from function_state f),'[]'))
+select 'functions=' || md5(coalesce((
+  select jsonb_agg(to_jsonb(f) order by signature,grantor,grantee,privilege_type,is_grantable)::text
+  from function_state f
+),'[]'))
 union all
 select 'triggers=' || md5(coalesce((select jsonb_agg(to_jsonb(t) order by nspname,relname,tgname)::text from trigger_state t),'[]'))
 union all
