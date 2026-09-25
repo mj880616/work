@@ -30,6 +30,7 @@ test('Task 12A local mode rehearses forward, actor matrix, rollback, fingerprint
     'authz_sole_owner.sql',
     'authz_project_owner_only.sql',
     'task12a-fingerprint.sql',
+    'TASK12A_BASELINE_NORMALIZED',
     'cmp -s',
     'TASK12A_ROLLBACK_PASSED',
     'TASK12A_REAPPLY_PASSED'

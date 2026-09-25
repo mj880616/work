@@ -134,6 +134,17 @@ echo 'BASELINE_APPLY_PASSED'
 if [[ "${WEB2_TASK12A:-0}" == 1 ]]; then
   task12a_migration=20260925084844_task12a_sole_owner_db.sql
   fingerprint="$repo_root/supabase/local-verify/task12a-fingerprint.sql"
+  rollback_path="$repo_root/scripts/sql/rollback/$task12a_migration"
+
+  # A blank local Supabase stack contributes default anon/authenticated ACLs
+  # that are absent from the hosted production snapshot. Normalize the
+  # disposable baseline with the reviewed rollback before fingerprinting it.
+  psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+    -f "$rollback_path" > "$ci_root/task12a-baseline-normalize.log" 2>&1 || {
+      node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" ROLLBACK "$rollback_path" "$ci_root/task12a-baseline-normalize.log"
+      echo 'TASK12A_BASELINE_NORMALIZE_FAILED: SQL output withheld' >&2; exit 1;
+    }
+  echo 'TASK12A_BASELINE_NORMALIZED'
 
   psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$fingerprint" \
     > "$ci_root/task12a-before.hash" 2> "$ci_root/task12a-before.err"
@@ -159,7 +170,6 @@ if [[ "${WEB2_TASK12A:-0}" == 1 ]]; then
 
   apply_local_migration
   run_task12a_tests forward
-  rollback_path="$repo_root/scripts/sql/rollback/$task12a_migration"
   psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
     -f "$rollback_path" > "$ci_root/task12a-rollback.log" 2>&1 || {
       node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" ROLLBACK "$rollback_path" "$ci_root/task12a-rollback.log"
