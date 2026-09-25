@@ -49,9 +49,10 @@ test('meeting AI reads and mutations stay in the caller RLS scope', () => {
   assert.match(ingest, /userDb\.from\(['"]app_documents['"]\)\.update/);
 });
 
-test('meeting file upload uses project editor roles and caller RLS for document insert', () => {
+test('meeting file upload requires the sole workspace owner and keeps caller RLS for document insert', () => {
   const source = read('meeting-files');
-  assert.match(source, /\['edit','manage'\]\.includes\(m\.role\)/);
+  assert.match(source, /if\(role!==['"]owner['"]\)throw new MeetingAuthError\(403,['"]RESOURCE_FORBIDDEN['"]\)/);
+  assert.doesNotMatch(source, /if\(meeting\.project_id&&!\(await canEditProject/);
   assert.match(source, /userDb\.from\(['"]app_meetings['"]\)/);
   assert.match(source, /userDb\.from\(['"]app_documents['"]\)\.insert/);
   assert.doesNotMatch(source, /admin\.from\(['"]app_documents['"]\)\.insert/);
