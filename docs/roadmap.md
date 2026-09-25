@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
-- 최종 갱신일: 2026-09-25
-- 기준 main SHA: `ed41d76` (Merge pull request #290)
+- 최종 갱신일: 2026-09-26
+- 기준 main SHA: `30f50d2` (Merge pull request #291)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -40,7 +40,7 @@
 | 13 | Web2 공개·공유 경로 제거 | 완료 | #286·#287 | |
 | 14 | 자료실 프로젝트 선택을 canonical 프로젝트 목록과 동기화 | 완료 | #288 | |
 | 일정 UX-1 | 데스크톱 캘린더 주 높이 동적 조정 | 완료 | #285 | |
-| 15 | 자료실 upload failure normalization | 진행중 | #291 | merge 후 library-files Edge 수동 배포 필요 |
+| 15 | 자료실 upload failure normalization | 완료 | #291 | library-files Edge v13 배포 2026-09-26, 실사용 업로드 확인 |
 | 일정 성능-1 | Google Calendar 로딩 최적화 | 대기 | | |
 | 16 | 프로젝트 진행상황 UI 압축 | 대기 | | |
 | 17 | 주요 화면 정보밀도 정리 | 대기 | | |
@@ -49,7 +49,7 @@
 | 20 | signup/invite/access/FIRST ADMIN UI 제거 | 대기 | | |
 | 21 | Tasks 협업 active code 제거 | 대기 | | |
 | 22 | Events attendee/invite active code 제거 | 대기 | | |
-| 23 | Projects member/invitation active code 제거 | 대기 | | |
+| 23 | Projects member/invitation active code 제거 | 대기 | | Edge canEditProject의 보관 프로젝트 서버 거부 포함 |
 | 24 | 담당조직 canonical 구조 통합 | 대기 | | |
 | 25 | team-ai → 개인 업무 AI 전환 | 대기 | | |
 | 26 | collaboration DB/RPC/trigger 감사 | 대기 | | |
@@ -59,6 +59,7 @@
 | 30 | 보조 Auth 계정 제거 | 대기 | | |
 | 31 | collaboration dead code/API/CSS 정리 | 대기 | | |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
+| 15b | 프로젝트 파일 업로드(project-files.js) 실패 처리 정규화 | 대기 | | 순서 미정 |
 
 ### 별도 트랙: RTW
 
@@ -75,6 +76,7 @@ Task 32 착수 전 모두 완료한다.
 | 내용 | PR |
 | --- | --- |
 | CLAUDE.md 신설 | #289 |
+| CLAUDE.md 세션 구분·Edge 배포·완료보고 양식 추가, Task 15 완료 기록 | #292 |
 
 ## 갱신 규칙
 
