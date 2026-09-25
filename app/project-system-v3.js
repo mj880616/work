@@ -26,11 +26,103 @@ function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;t.classLi
 async function googleCalendarCall(action,{method='GET',body=null,params=null}={}){if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await api(u.toString(),{method,body});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
 async function googleCalendarStatus(){const cached=window.__KPTU_GOOGLE_STATE__;if(cached&&typeof cached.connected==='boolean'&&Array.isArray(cached.calendars)){googleCalendarState=cached;return cached}try{googleCalendarState=await googleCalendarCall('status');window.__KPTU_GOOGLE_STATE__={...(window.__KPTU_GOOGLE_STATE__||{}),...(googleCalendarState||{})};return googleCalendarState}catch{googleCalendarState=null;return null}}
 const writableGoogleCalendars=s=>(s?.calendars||[]).filter(x=>['owner','writer'].includes(x.accessRole||''));
-async function prepareMilestoneGoogle(editing=false){const sel=$('#ps3MilestoneGoogle'),hint=$('#ps3MilestoneGoogleHint');if(!sel)return;sel.disabled=true;sel.innerHTML='<option value="">Web2에만 저장</option>';if(editing){if(hint)hint.textContent='기존 주요 일정 수정 시 Google 일정을 새로 만들지 않습니다.';return}if(hint)hint.textContent='Google Calendar 연결 상태를 확인하는 중…';const s=await googleCalendarStatus();if(!s?.connected){if(hint)hint.textContent='Google Calendar 미연결 · Web2 일정으로 저장됩니다.';return}const rows=writableGoogleCalendars(s);if(!rows.length){if(hint)hint.textContent='쓰기 가능한 Google 캘린더가 없어 Web2 일정으로 저장됩니다.';return}sel.insertAdjacentHTML('beforeend',rows.map(x=>`<option value="${esc(x.id)}">${esc(x.summary||x.id)}${x.primary?' (기본)':''}</option>`).join(''));sel.disabled=false;const selected=new Set(s.selected||[]),preferred=rows.find(x=>selected.has(x.id)||(x.primary&&selected.has('primary')))||rows.find(x=>x.primary)||rows[0];if(preferred)sel.value=preferred.id;if(hint)hint.textContent='선택한 Google 세부 캘린더에도 1회 생성합니다.'}
-function milestoneEventPayload(body){return{workspace_id:wid,project_id:current.id,workstream_id:body.workstream_id||null,title:body.title,description:body.notes||null,event_type:MILESTONE_EVENT_TYPE[body.milestone_type]||'other',start_at:body.start_at,end_at:body.end_at||null,location:null,created_by:user.id,body:body.notes||'',calendar_scope:'personal'}}
-async function createLinkedMilestoneEvent(body){if(!body.start_at)return null;const rows=await api('/rest/v1/app_events',{method:'POST',body:milestoneEventPayload(body),prefer:'return=representation'});return rows?.[0]||null}
-async function syncLinkedMilestoneEvent(eventId,body){if(!eventId||!body.start_at)return;const payload=milestoneEventPayload(body);delete payload.workspace_id;delete payload.created_by;await api(`/rest/v1/app_events?id=eq.${encodeURIComponent(eventId)}`,{method:'PATCH',body:{...payload,updated_at:new Date().toISOString()}})}
-async function createGoogleMilestone(calendarId,body){if(!calendarId)return null;if(!body.start_at)throw new Error('Google Calendar에 저장하려면 일시를 입력해 주세요.');const start=new Date(body.start_at),end=new Date(start.getTime()+60*60*1000);return googleCalendarCall('',{method:'POST',body:{action:'create-event',calendar_id:calendarId,title:body.title,memo:body.notes||'',location:'',all_day:false,start_iso:start.toISOString(),end_iso:end.toISOString()}})}
+const milestoneGoogleLinked=m=>!!(m?.google_calendar_id&&m?.google_event_id);
+function milestoneVisibleBody(){
+  const value=$('#ps3MilestoneAt').value;
+  return {title:$('#ps3MilestoneTitle').value.trim(),start_at:value?new Date(value).toISOString():null,end_at:null,notes:$('#ps3MilestoneNotes').value.trim()||null}
+}
+function milestoneFullBody(visible,source=null){return{workstream_id:source?.workstream_id||null,title:visible.title,milestone_type:source?.milestone_type||'action',status:source?.status||'planned',start_at:visible.start_at,end_at:visible.end_at||null,notes:visible.notes||null}}
+function milestoneRestorePayload(row,googleEventId=row?.google_event_id){
+  const out={};
+  for(const key of ['id','project_id','workstream_id','title','milestone_type','status','start_at','end_at','notes','event_id','child_project_id','sort_order','created_by','google_calendar_id'])if(row?.[key]!==undefined)out[key]=row[key];
+  out.google_event_id=googleEventId||null;
+  return out
+}
+async function prepareMilestoneGoogle(milestone=null){
+  const sel=$('#ps3MilestoneGoogle'),hint=$('#ps3MilestoneGoogleHint'),save=$('#ps3MilestoneSave');
+  if(!sel)return;
+  sel.disabled=true;sel.innerHTML='';
+  if(milestone){
+    if(milestoneGoogleLinked(milestone)){
+      const s=await googleCalendarStatus(),rows=writableGoogleCalendars(s),current=rows.find(x=>x.id===milestone.google_calendar_id);
+      sel.innerHTML='<option value="'+esc(milestone.google_calendar_id)+'">'+esc(current?.summary||milestone.google_calendar_id)+'</option>';
+      sel.value=milestone.google_calendar_id;
+      if(hint)hint.textContent='이 일정은 Google Calendar와 연결되어 있습니다. 캘린더 이동 없이 같은 일정으로 수정됩니다.';
+    }else{
+      sel.innerHTML='<option value="">Google 연결 없음</option>';
+      if(hint)hint.textContent='기존 미연동 일정입니다. 수정해도 Google 일정을 새로 만들지 않습니다.';
+    }
+    if(save)save.disabled=false;
+    return
+  }
+  if(save)save.disabled=true;
+  sel.innerHTML='<option value="">Google Calendar 확인 중…</option>';
+  if(hint)hint.textContent='Google Calendar 연결 상태를 확인하는 중…';
+  const s=await googleCalendarStatus();
+  if(!s?.connected){
+    sel.innerHTML='<option value="">Google Calendar 연결 필요</option>';
+    if(hint)hint.textContent='신규 프로젝트 일정은 Google Calendar 연결 후 저장할 수 있습니다.';
+    return
+  }
+  const rows=writableGoogleCalendars(s);
+  if(!rows.length){
+    sel.innerHTML='<option value="">쓰기 가능한 캘린더 없음</option>';
+    if(hint)hint.textContent=s.warning?'Google Calendar 재연결이 필요합니다: '+s.warning:'쓰기 가능한 Google 세부캘린더가 없습니다.';
+    return
+  }
+  sel.innerHTML=rows.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.summary||x.id)+(x.primary?' (기본)':'')+'</option>').join('');
+  const selected=new Set(s.selected||[]),preferred=rows.find(x=>selected.has(x.id)||(x.primary&&selected.has('primary')))||rows.find(x=>x.primary)||rows[0];
+  if(preferred)sel.value=preferred.id;
+  sel.disabled=false;
+  if(save)save.disabled=!sel.value;
+  if(hint)hint.textContent='신규 프로젝트 일정은 선택한 Google 세부캘린더와 Web2에 함께 저장됩니다.'
+}
+function milestoneEventPayload(body,eventId=null){
+  const payload={workspace_id:wid,project_id:current.id,workstream_id:body.workstream_id||null,title:body.title,description:body.notes||null,event_type:MILESTONE_EVENT_TYPE[body.milestone_type]||'other',start_at:body.start_at,end_at:body.end_at||null,location:null,created_by:user.id,body:body.notes||'',calendar_scope:'personal'};
+  if(eventId)payload.id=eventId;
+  return payload
+}
+async function createLinkedMilestoneEvent(body,eventId=null){
+  if(!body.start_at)throw new Error('프로젝트 일정의 일시를 입력해 주세요.');
+  const rows=await api('/rest/v1/app_events',{method:'POST',body:milestoneEventPayload(body,eventId),prefer:'return=representation'});
+  const row=rows?.[0];
+  if(!row?.id)throw new Error('Web2 일정 저장 결과를 확인하지 못했습니다.');
+  return row
+}
+async function syncLinkedMilestoneEvent(eventId,body){
+  if(!eventId||!body.start_at)return;
+  const payload=milestoneEventPayload(body);delete payload.workspace_id;delete payload.created_by;
+  await api('/rest/v1/app_events?id=eq.'+encodeURIComponent(eventId),{method:'PATCH',body:{...payload,updated_at:new Date().toISOString()}})
+}
+async function deleteLinkedMilestoneEvent(eventId){if(eventId)await api('/rest/v1/app_events?id=eq.'+encodeURIComponent(eventId),{method:'DELETE'})}
+function googleMilestonePayload(action,calendarId,eventId,body){
+  if(!body.start_at)throw new Error('Google Calendar에 저장하려면 일시를 입력해 주세요.');
+  const start=new Date(body.start_at),end=new Date(start.getTime()+60*60*1000);
+  return {action,calendar_id:calendarId,...(eventId?{event_id:eventId}:{}),title:body.title,memo:body.notes||'',location:'',all_day:false,start_iso:start.toISOString(),end_iso:end.toISOString()}
+}
+async function createGoogleMilestone(calendarId,body){
+  const result=await googleCalendarCall('',{method:'POST',body:googleMilestonePayload('create-event',calendarId,null,body)});
+  if(!result?.event?.id)throw new Error('Google Calendar가 생성한 일정 ID를 확인하지 못했습니다.');
+  return result.event
+}
+async function updateGoogleMilestone(calendarId,eventId,body){
+  if(!calendarId||!eventId)throw new Error('Google Calendar 연결 식별자가 없습니다.');
+  const result=await googleCalendarCall('',{method:'POST',body:googleMilestonePayload('update-event',calendarId,eventId,body)});
+  if(!result?.event?.id)throw new Error('Google Calendar 수정 결과를 확인하지 못했습니다.');
+  return result.event
+}
+async function deleteGoogleMilestone(calendarId,eventId){
+  if(!calendarId||!eventId)throw new Error('Google Calendar 연결 식별자가 없습니다.');
+  return googleCalendarCall('',{method:'POST',body:{action:'delete-event',calendar_id:calendarId,event_id:eventId}})
+}
+async function reloadMilestoneCalendars(){
+  if(window.__KPTU_RELOAD_GOOGLE_EVENTS__)await window.__KPTU_RELOAD_GOOGLE_EVENTS__();
+  window.dispatchEvent(new CustomEvent('kptu:calendar-changed',{detail:{source:'project-milestone'}}))
+}
+function rollbackMessage(stage,error,link={}){
+  console.error('project milestone rollback failed',{stage,calendarId:link.calendarId||null,eventId:link.eventId||null,error});
+  return stage+' 되돌리기에도 실패해 Google Calendar와 Web2가 불일치할 수 있습니다. 일정을 직접 확인해 주세요.'
+}
 function openModal(id,{trigger=document.activeElement,initialFocus=null}={}){const m=$('#'+id);if(!m)return;const wasHidden=m.classList.contains('hidden');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');if(wasHidden)window.KPTUA11y?.dialog.activate(m,{trigger,initialFocus:initialFocus||MODAL_FOCUS[id]||null,onRequestClose:()=>m.querySelector(`[data-ps3-close="${id}"]`)?.click()})}
 function closeModal(id){const m=$('#'+id);if(!m)return;m.classList.add('hidden');m.setAttribute('aria-hidden','true');window.KPTUA11y?.dialog.deactivate(m,{restoreFocus:true,fallbackFocus:id==='ps3DetailModal'?'#newProjectBtn':null})}
 function urlFor(id){const u=new URL(location.href);u.searchParams.set('project',id);return u.pathname+u.search+u.hash}
@@ -74,7 +166,7 @@ function ensureUi(){if($('#ps3DetailModal'))return;document.body.insertAdjacentH
 <div id="ps3CreateModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3CreateHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">PROJECT</div><h2 id="ps3CreateHeading">프로젝트 만들기</h2></div><button class="icon-btn" data-ps3-close="ps3CreateModal" type="button" aria-label="닫기">×</button></div><label>프로젝트명<input id="ps3CreateName"></label><label>목표·설명<textarea id="ps3CreateObjective" rows="4"></textarea></label><label>상위 프로젝트<select id="ps3CreateParent"></select></label><div class="two-col"><label>시작일<input id="ps3CreateStart" type="date"></label><label>종료일<input id="ps3CreateEnd" type="date"></label></div><button id="ps3CreateSave" class="primary wide">저장</button><div id="ps3CreateStatus" class="status"></div></div></div>
 <div id="ps3WorkstreamModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3WorkstreamHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">진행상황</div><h2 id="ps3WorkstreamHeading">진행상황 추가</h2></div><button class="icon-btn" data-ps3-close="ps3WorkstreamModal" aria-label="닫기">×</button></div><label>진행상황 제목<input id="ps3WsTitle" maxlength="160"></label><div class="ps3-modal-actions"><button id="ps3WsDelete" class="ghost ps3-danger hidden">삭제</button><button id="ps3WsSave" class="primary">저장</button></div><div id="ps3WsState" class="status"></div></div></div>
 <div id="ps3ProgressModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3ProgressHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">진행 기록</div><h2 id="ps3ProgressHeading">진척상황 기록</h2></div><button class="icon-btn" data-ps3-close="ps3ProgressModal" aria-label="닫기">×</button></div><label>영역<select id="ps3ProgressWs"></select></label><div class="two-col"><label>단계<select id="ps3ProgressPhase">${Object.entries(PHASE).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><label>기준일<input id="ps3ProgressDate" type="date"></label></div><label>현재 상황<textarea id="ps3ProgressSummary" rows="4"></textarea></label><label>다음 단계<textarea id="ps3ProgressNext" rows="3"></textarea></label><button id="ps3ProgressSave" class="primary wide">저장</button><div id="ps3ProgressState" class="status"></div></div></div>
-<div id="ps3MilestoneModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3MilestoneHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">주요 일정</div><h2 id="ps3MilestoneHeading">주요 일정 추가</h2></div><button class="icon-btn" data-ps3-close="ps3MilestoneModal" aria-label="닫기">×</button></div><label>제목<input id="ps3MilestoneTitle"></label><div class="two-col"><label>유형<select id="ps3MilestoneType">${Object.entries(MTYPE).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><label>상태<select id="ps3MilestoneStatusValue"><option value="planned">예정</option><option value="in_progress">진행</option><option value="done">완료</option><option value="cancelled">취소</option></select></label></div><label>일시<input id="ps3MilestoneAt" type="datetime-local"></label><label>연결 영역<select id="ps3MilestoneWs"></select></label><label>Google 캘린더<select id="ps3MilestoneGoogle"><option value="">Web2에만 저장</option></select><small id="ps3MilestoneGoogleHint" class="muted">연결된 Google Calendar가 있으면 세부 캘린더를 선택할 수 있습니다.</small></label><label>메모<textarea id="ps3MilestoneNotes" rows="3"></textarea></label><div class="ps3-modal-actions"><button id="ps3MilestoneDelete" class="ghost ps3-danger hidden">삭제</button><button id="ps3MilestoneSave" class="primary">저장</button></div><div id="ps3MilestoneState" class="status"></div></div></div>
+<div id="ps3MilestoneModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3MilestoneHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">주요 일정</div><h2 id="ps3MilestoneHeading">주요 일정 추가</h2></div><button class="icon-btn" data-ps3-close="ps3MilestoneModal" aria-label="닫기">×</button></div><label>제목<input id="ps3MilestoneTitle"></label><label>일시<input id="ps3MilestoneAt" type="datetime-local"></label><label>Google 세부캘린더<select id="ps3MilestoneGoogle"></select><small id="ps3MilestoneGoogleHint" class="muted"></small></label><label>메모<textarea id="ps3MilestoneNotes" rows="3"></textarea></label><div class="ps3-modal-actions"><button id="ps3MilestoneDelete" class="ghost ps3-danger hidden">삭제</button><button id="ps3MilestoneSave" class="primary">저장</button></div><div id="ps3MilestoneState" class="status"></div></div></div>
 <div id="ps3DeleteModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3DeleteHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">DELETE PROJECT</div><h2 id="ps3DeleteHeading">프로젝트 삭제</h2></div><button class="icon-btn" data-ps3-close="ps3DeleteModal" aria-label="닫기">×</button></div><div id="ps3DeleteMessage" class="notice"></div><p class="muted">연결된 할 일·일정·회의·자료·게시물은 삭제하지 않고 프로젝트 연결만 해제함. 프로젝트 전용 진행기록·주요 일정·의견은 함께 삭제됨.</p><button id="ps3DeleteConfirm" class="primary wide ps3-danger-btn">삭제</button><div id="ps3DeleteState" class="status"></div></div></div>
 <div id="ps3ArchiveModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3ArchiveHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">ARCHIVED PROJECTS</div><h2 id="ps3ArchiveHeading">보관한 프로젝트</h2></div><button class="icon-btn" data-ps3-close="ps3ArchiveModal" aria-label="닫기">×</button></div><p class="muted">삭제하지 않고 목록에서만 숨긴 프로젝트입니다.</p><div id="ps3ArchiveList" class="ps3-archive-list"></div></div></div>`)}
 async function renderGrid(){
@@ -186,9 +278,108 @@ async function saveWs(){const title=$('#ps3WsTitle').value.trim(),st=$('#ps3WsSt
 async function delWs(){if(!editingWs||!confirm(`“${editingWs.title}” 진행상황을 삭제할까요?`))return;await api(`/rest/v1/app_project_workstreams?id=eq.${editingWs.id}`,{method:'DELETE'});closeModal('ps3WorkstreamModal');await refreshDetail()}
 function openProgress(id=''){if(!detail.workstreams.length){toast('먼저 진행상황을 추가하세요.');return}$('#ps3ProgressWs').innerHTML=wsOptions(detail,false);$('#ps3ProgressWs').value=id||detail.workstreams[0].id;const ws=detail.workstreams.find(x=>x.id===$('#ps3ProgressWs').value);$('#ps3ProgressPhase').value=ws?.phase||'in_progress';$('#ps3ProgressDate').value=new Date().toISOString().slice(0,10);$('#ps3ProgressSummary').value='';$('#ps3ProgressNext').value='';$('#ps3ProgressState').textContent='';openModal('ps3ProgressModal')}
 async function saveProgress(){const id=$('#ps3ProgressWs').value,sum=$('#ps3ProgressSummary').value.trim(),phase=$('#ps3ProgressPhase').value,st=$('#ps3ProgressState');if(!id||!sum){st.textContent='영역과 현재 상황을 입력해 주세요.';return}try{await api('/rest/v1/app_project_progress_updates',{method:'POST',body:{project_id:current.id,workstream_id:id,author_id:user.id,status_label:PHASE[phase]||phase,summary:sum,next_step:$('#ps3ProgressNext').value.trim()||null,effective_on:$('#ps3ProgressDate').value,metadata:{}}});await api(`/rest/v1/app_project_workstreams?id=eq.${id}`,{method:'PATCH',body:{phase}});closeModal('ps3ProgressModal');await refreshDetail()}catch(e){st.textContent=e.message||String(e)}}
-function openMilestone(id=''){editingMilestone=id?detail.milestones.find(x=>x.id===id):null;$('#ps3MilestoneHeading').textContent=editingMilestone?'주요 일정 수정':'주요 일정 추가';$('#ps3MilestoneTitle').value=editingMilestone?.title||'';$('#ps3MilestoneType').value=editingMilestone?.milestone_type||'action';$('#ps3MilestoneStatusValue').value=editingMilestone?.status||'planned';$('#ps3MilestoneAt').value=localInput(editingMilestone?.start_at);$('#ps3MilestoneWs').innerHTML=wsOptions(detail,true);$('#ps3MilestoneWs').value=editingMilestone?.workstream_id||'';$('#ps3MilestoneNotes').value=editingMilestone?.notes||'';$('#ps3MilestoneDelete').classList.toggle('hidden',!editingMilestone);$('#ps3MilestoneState').textContent='';openModal('ps3MilestoneModal');prepareMilestoneGoogle(!!editingMilestone).catch(()=>{})}
-async function saveMilestone(){const title=$('#ps3MilestoneTitle').value.trim(),st=$('#ps3MilestoneState');if(!title){st.textContent='제목을 입력해 주세요.';return}const body={workstream_id:$('#ps3MilestoneWs').value||null,title,milestone_type:$('#ps3MilestoneType').value,status:$('#ps3MilestoneStatusValue').value,start_at:$('#ps3MilestoneAt').value?new Date($('#ps3MilestoneAt').value).toISOString():null,end_at:null,notes:$('#ps3MilestoneNotes').value.trim()||null},googleCalendar=!editingMilestone?($('#ps3MilestoneGoogle').value||''):'';if(editingMilestone?.event_id&&!body.start_at){st.textContent='연결된 일정은 일시를 비울 수 없습니다.';return}if(googleCalendar&&!body.start_at){st.textContent='Google Calendar에 저장하려면 일시를 입력해 주세요.';return}try{if(editingMilestone){await api(`/rest/v1/app_project_milestones?id=eq.${editingMilestone.id}`,{method:'PATCH',body});if(editingMilestone.event_id)await syncLinkedMilestoneEvent(editingMilestone.event_id,body);else if(body.start_at){const event=await createLinkedMilestoneEvent(body);if(event?.id)await api(`/rest/v1/app_project_milestones?id=eq.${editingMilestone.id}`,{method:'PATCH',body:{event_id:event.id}})}closeModal('ps3MilestoneModal');await refreshDetail();toast('주요 일정을 수정했습니다.');return}let event=null;try{event=await createLinkedMilestoneEvent(body);await api('/rest/v1/app_project_milestones',{method:'POST',body:{project_id:current.id,...body,event_id:event?.id||null,child_project_id:null,sort_order:(detail.milestones.length+1)*10,created_by:user.id}})}catch(e){if(event?.id)try{await api(`/rest/v1/app_events?id=eq.${encodeURIComponent(event.id)}`,{method:'DELETE'})}catch{}throw e}let googleError=null;if(googleCalendar)try{await createGoogleMilestone(googleCalendar,body)}catch(e){googleError=e}closeModal('ps3MilestoneModal');await refreshDetail();toast(googleError?`Web2에는 저장했지만 Google Calendar 저장에 실패했습니다: ${googleError.message||googleError}`:'주요 일정을 추가했습니다.')}catch(e){st.textContent=e.message||String(e)}}
-async function delMilestone(){if(!editingMilestone||!confirm(`“${editingMilestone.title}” 주요 일정을 삭제할까요?`))return;const eventId=editingMilestone.event_id||null;await api(`/rest/v1/app_project_milestones?id=eq.${editingMilestone.id}`,{method:'DELETE'});if(eventId)await api(`/rest/v1/app_events?id=eq.${encodeURIComponent(eventId)}`,{method:'DELETE'});closeModal('ps3MilestoneModal');await refreshDetail();toast('주요 일정을 삭제했습니다.')}
+function openMilestone(id=''){
+  editingMilestone=id?detail.milestones.find(x=>x.id===id):null;
+  $('#ps3MilestoneHeading').textContent=editingMilestone?'주요 일정 수정':'주요 일정 추가';
+  $('#ps3MilestoneTitle').value=editingMilestone?.title||'';
+  $('#ps3MilestoneAt').value=localInput(editingMilestone?.start_at);
+  $('#ps3MilestoneNotes').value=editingMilestone?.notes||'';
+  $('#ps3MilestoneDelete').classList.toggle('hidden',!editingMilestone);
+  $('#ps3MilestoneState').textContent='';
+  openModal('ps3MilestoneModal');
+  prepareMilestoneGoogle(editingMilestone).catch(e=>{$('#ps3MilestoneGoogleHint').textContent=e.message||String(e)})
+}
+async function restoreMilestoneSnapshot(snapshot,googleEventId=snapshot?.google_event_id){
+  const payload=milestoneRestorePayload(snapshot,googleEventId);
+  return api('/rest/v1/app_project_milestones?on_conflict=id',{method:'POST',body:payload,prefer:'resolution=merge-duplicates,return=representation'})
+}
+async function saveExistingMilestone(visible){
+  const previousVisible={title:editingMilestone.title,start_at:editingMilestone.start_at||null,end_at:editingMilestone.end_at||null,notes:editingMilestone.notes||null};
+  const nextFull=milestoneFullBody(visible,editingMilestone),previousFull=milestoneFullBody(previousVisible,editingMilestone);
+  if(editingMilestone.event_id&&!visible.start_at)throw new Error('연결된 일정은 일시를 비울 수 없습니다.');
+  if(milestoneGoogleLinked(editingMilestone)){
+    const calendarId=editingMilestone.google_calendar_id,eventId=editingMilestone.google_event_id;
+    await updateGoogleMilestone(calendarId,eventId,nextFull);
+    try{
+      await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(editingMilestone.id),{method:'PATCH',body:visible});
+      if(editingMilestone.event_id)await syncLinkedMilestoneEvent(editingMilestone.event_id,nextFull)
+    }catch(localError){
+      const rollbackErrors=[];
+      try{await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(editingMilestone.id),{method:'PATCH',body:previousVisible})}catch(e){rollbackErrors.push(['Web2 주요 일정',e])}
+      if(editingMilestone.event_id)try{await syncLinkedMilestoneEvent(editingMilestone.event_id,previousFull)}catch(e){rollbackErrors.push(['Web2 연결 일정',e])}
+      try{await updateGoogleMilestone(calendarId,eventId,previousFull)}catch(e){rollbackErrors.push(['Google Calendar',e])}
+      if(rollbackErrors.length)throw new Error(rollbackErrors.map(([stage,e])=>rollbackMessage(stage,e,{calendarId,eventId})).join(' '));
+      throw new Error('Web2 저장에 실패해 Google Calendar 변경을 되돌렸습니다: '+(localError.message||localError))
+    }
+    return
+  }
+  try{
+    await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(editingMilestone.id),{method:'PATCH',body:visible});
+    if(editingMilestone.event_id)await syncLinkedMilestoneEvent(editingMilestone.event_id,nextFull)
+  }catch(localError){
+    try{await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(editingMilestone.id),{method:'PATCH',body:previousVisible})}catch(e){console.error('legacy milestone rollback failed',{milestoneId:editingMilestone.id,error:e})}
+    if(editingMilestone.event_id)try{await syncLinkedMilestoneEvent(editingMilestone.event_id,previousFull)}catch(e){console.error('legacy milestone event rollback failed',{eventId:editingMilestone.event_id,error:e})}
+    throw localError
+  }
+}
+async function saveNewMilestone(visible){
+  const calendarId=$('#ps3MilestoneGoogle').value||'';
+  if(!calendarId)throw new Error('Google Calendar 연결과 쓰기 가능한 세부캘린더 선택이 필요합니다.');
+  if(!visible.start_at)throw new Error('일시를 입력해 주세요.');
+  const body=milestoneFullBody(visible),googleEvent=await createGoogleMilestone(calendarId,body);
+  const localEventId=crypto.randomUUID(),milestoneId=crypto.randomUUID();
+  try{
+    await createLinkedMilestoneEvent(body,localEventId);
+    const rows=await api('/rest/v1/app_project_milestones',{method:'POST',body:{id:milestoneId,project_id:current.id,...body,event_id:localEventId,child_project_id:null,sort_order:(detail.milestones.length+1)*10,created_by:user.id,google_calendar_id:calendarId,google_event_id:googleEvent.id},prefer:'return=representation'});
+    if(!rows?.[0]?.id)throw new Error('Web2 주요 일정 저장 결과를 확인하지 못했습니다.')
+  }catch(localError){
+    const rollbackErrors=[];
+    try{await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(milestoneId),{method:'DELETE'})}catch(e){rollbackErrors.push(['Web2 주요 일정',e])}
+    try{await deleteLinkedMilestoneEvent(localEventId)}catch(e){rollbackErrors.push(['Web2 연결 일정',e])}
+    try{await deleteGoogleMilestone(calendarId,googleEvent.id)}catch(e){rollbackErrors.push(['Google Calendar',e])}
+    if(rollbackErrors.length)throw new Error((localError.message||localError)+' '+rollbackErrors.map(([stage,e])=>rollbackMessage(stage,e,{calendarId,eventId:googleEvent.id})).join(' '));
+    throw new Error('Web2 저장에 실패해 생성한 Google Calendar 일정을 되돌렸습니다: '+(localError.message||localError))
+  }
+}
+async function saveMilestone(){
+  const st=$('#ps3MilestoneState'),button=$('#ps3MilestoneSave'),visible=milestoneVisibleBody();
+  if(!visible.title){st.textContent='제목을 입력해 주세요.';return}
+  button.disabled=true;st.textContent='저장 중…';
+  try{
+    if(editingMilestone)await saveExistingMilestone(visible);else await saveNewMilestone(visible);
+    closeModal('ps3MilestoneModal');
+    await refreshDetail();
+    if(milestoneGoogleLinked(editingMilestone)||!editingMilestone)await reloadMilestoneCalendars();
+    toast(editingMilestone?'주요 일정을 수정했습니다.':'주요 일정을 추가했습니다.')
+  }catch(e){st.textContent=e.message||String(e)}
+  finally{if(document.body.contains(button))button.disabled=!editingMilestone&&!$('#ps3MilestoneGoogle')?.value}
+}
+async function delMilestone(){
+  if(!editingMilestone||!confirm('“'+editingMilestone.title+'” 주요 일정을 삭제할까요?'))return;
+  const snapshot={...editingMilestone},eventId=snapshot.event_id||null,linked=milestoneGoogleLinked(snapshot),calendarId=snapshot.google_calendar_id,googleEventId=snapshot.google_event_id;
+  const st=$('#ps3MilestoneState'),button=$('#ps3MilestoneDelete');button.disabled=true;st.textContent='삭제 중…';
+  if(linked){
+    const body=milestoneFullBody({title:snapshot.title,start_at:snapshot.start_at||null,end_at:snapshot.end_at||null,notes:snapshot.notes||null},snapshot);
+    try{
+      await deleteGoogleMilestone(calendarId,googleEventId);
+      try{
+        await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(snapshot.id),{method:'DELETE'});
+        if(eventId)await deleteLinkedMilestoneEvent(eventId)
+      }catch(localError){
+        let restored=null;
+        try{restored=await createGoogleMilestone(calendarId,body)}catch(e){throw new Error((localError.message||localError)+' '+rollbackMessage('Google Calendar',e,{calendarId,eventId:googleEventId}))}
+        try{await restoreMilestoneSnapshot(snapshot,restored.id)}catch(e){throw new Error((localError.message||localError)+' '+rollbackMessage('Web2 주요 일정',e,{calendarId,eventId:restored.id}))}
+        throw new Error('Web2 삭제에 실패해 Google Calendar 일정을 복원했습니다: '+(localError.message||localError))
+      }
+    }catch(e){st.textContent=e.message||String(e);button.disabled=false;return}
+  }else{
+    try{
+      await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(snapshot.id),{method:'DELETE'});
+      if(eventId)try{await deleteLinkedMilestoneEvent(eventId)}catch(localError){try{await restoreMilestoneSnapshot(snapshot)}catch(e){console.error('legacy milestone restore failed',{milestoneId:snapshot.id,error:e})}throw localError}
+    }catch(e){st.textContent=e.message||String(e);button.disabled=false;return}
+  }
+  closeModal('ps3MilestoneModal');await refreshDetail();if(linked)await reloadMilestoneCalendars();toast('주요 일정을 삭제했습니다.')
+}
 async function ensureFeature(view){const loader=window.KPTUViewLoader;if(loader?.isLoaded?.(view))return true;if(loader?.load){try{await loader.load(view);return true}catch(e){console.error('project feature load failed',view,e);return false}}return false}
 async function openProjectTask(id){if(!window.KPTUTaskLayout?.openTask&&!(await ensureFeature('tasks')))return toast('할 일 기능을 불러오지 못했습니다.');return window.KPTUTaskLayout?.openTask?.(id)}
 async function openGlobal(kind){if(!current)return;if(kind==='task'){if(!window.KPTUTaskLayout?.openCreate&&!(await ensureFeature('tasks')))return toast('할 일 기능을 불러오지 못했습니다.');window.KPTUTaskLayout?.openCreate?.(current.id);return}const target={document:['library','newDocumentBtn','docProject'],meeting:['meetings','newMeetingBtn','meetingProject'],page:['pages','newPageBtn','pageSpace']}[kind];if(!target)return;const [view,buttonId,selectId]=target;if(!(await ensureFeature(view)))return toast('기능을 불러오지 못했습니다.');const project={id:current.id,name:current.name};$('#'+buttonId)?.click();queueMicrotask(()=>{const s=$('#'+selectId);if(!s)return;if(![...s.options].some(o=>o.value===project.id))s.add(new Option(project.name,project.id));s.value=project.id;if(kind==='document')s.dispatchEvent(new Event('change',{bubbles:true}))})}
