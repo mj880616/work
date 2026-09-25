@@ -42,9 +42,10 @@ with target_tables(table_name) as (
   join pg_catalog.pg_namespace n on n.oid=p.pronamespace
   join target_functions t on t.schema_name=n.nspname and t.function_name=p.proname
 )
-select md5(jsonb_build_object(
-  'tables',(select coalesce(jsonb_agg(to_jsonb(s) order by relname),'[]'::jsonb) from table_state s),
-  'policies',(select coalesce(jsonb_agg(to_jsonb(p) order by tablename,policyname,cmd),'[]'::jsonb) from policies p),
-  'grants',(select coalesce(jsonb_agg(to_jsonb(g) order by table_name,grantee,privilege_type),'[]'::jsonb) from grants g),
-  'functions',(select coalesce(jsonb_agg(to_jsonb(f) order by nspname,proname,args),'[]'::jsonb) from functions f)
-)::text);
+select 'tables=' || md5((select coalesce(jsonb_agg(to_jsonb(s) order by relname),'[]'::jsonb) from table_state s)::text)
+union all
+select 'policies=' || md5((select coalesce(jsonb_agg(to_jsonb(p) order by tablename,policyname,cmd),'[]'::jsonb) from policies p)::text)
+union all
+select 'grants=' || md5((select coalesce(jsonb_agg(to_jsonb(g) order by table_name,grantee,privilege_type),'[]'::jsonb) from grants g)::text)
+union all
+select 'functions=' || md5((select coalesce(jsonb_agg(to_jsonb(f) order by nspname,proname,args),'[]'::jsonb) from functions f)::text);

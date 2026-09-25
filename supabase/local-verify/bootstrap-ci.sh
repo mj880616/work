@@ -168,6 +168,14 @@ if [[ "${WEB2_TASK12A:-0}" == 1 ]]; then
   psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$fingerprint" \
     > "$ci_root/task12a-after.hash" 2> "$ci_root/task12a-after.err"
   cmp -s "$ci_root/task12a-before.hash" "$ci_root/task12a-after.hash" || {
+    changed_components=''
+    while IFS='=' read -r component before_hash; do
+      after_hash="$(awk -F= -v key="$component" '$1 == key { print $2 }' "$ci_root/task12a-after.hash")"
+      if [[ "$before_hash" != "$after_hash" ]]; then
+        changed_components="${changed_components}${changed_components:+,}${component}"
+      fi
+    done < "$ci_root/task12a-before.hash"
+    echo "TASK12A_ROLLBACK_CHANGED_COMPONENTS=${changed_components:-unknown}" >&2
     echo 'TASK12A_ROLLBACK_FAILED: authorization fingerprint changed' >&2; exit 1;
   }
   echo 'TASK12A_ROLLBACK_PASSED'
