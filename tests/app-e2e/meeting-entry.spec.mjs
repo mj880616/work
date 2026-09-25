@@ -124,6 +124,37 @@ test('new meeting stores one canonical meeting name and links follow-up work to 
   });
 });
 
+test('meeting material upload attempts every selected file and reports partial failure without deleting the meeting',async({page})=>{
+  await signIn(page);
+  let meetingSaved=false,uploadCount=0;
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    if(route.request().method()==='POST'){
+      meetingSaved=true;
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{...meeting,id:'meeting-files'}])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
+  });
+  await page.route(`${SB}/functions/v1/meeting-files**`,async route=>{
+    uploadCount++;
+    if(uploadCount===2)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'upload failed'})});
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({id:'doc-1'})});
+  });
+
+  await page.locator('#newMeetingBtn').click();
+  await page.locator('#meetingTitle').fill('자료 첨부 회의');
+  await page.locator('#meetingAt').fill('2026-09-25T14:00');
+  await page.locator('#meetingTranscript').fill('회의 결과 원문');
+  await page.locator('#meetingFiles').setInputFiles([
+    {name:'자료1.txt',mimeType:'text/plain',buffer:Buffer.from('one')},
+    {name:'자료2.txt',mimeType:'text/plain',buffer:Buffer.from('two')}
+  ]);
+  await page.locator('#saveMeetingBtn').click();
+
+  await expect.poll(()=>meetingSaved).toBe(true);
+  await expect.poll(()=>uploadCount).toBe(2);
+  await expect(page.locator('#toast')).toContainText('회의 결과는 저장했습니다. 회의자료 1개 저장 · 1개 실패');
+});
+
 test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
   await expect(page.locator('#meetingTypeFilter')).toBeVisible();
