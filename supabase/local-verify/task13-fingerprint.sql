@@ -15,7 +15,6 @@ with target_functions(signature) as (
 ), function_state as (
   select
     t.signature,
-    pg_get_userbyid(a.grantor) as grantor,
     case when a.grantee=0 then 'PUBLIC' else pg_get_userbyid(a.grantee) end as grantee,
     a.privilege_type,
     a.is_grantable
@@ -36,7 +35,11 @@ with target_functions(signature) as (
   where n.nspname='private' and p.proname='app_enforce_web2_private_visibility'
 )
 select 'functions=' || md5(coalesce((
-  select jsonb_agg(to_jsonb(f) order by signature,grantor,grantee,privilege_type,is_grantable)::text
+  -- Compare effective EXECUTE semantics. GRANT after a schema-only restore can
+  -- legitimately record a different grantor while preserving the same
+  -- non-grantable privilege set; grantor identity does not change who can call
+  -- these functions and is therefore not part of the rollback contract.
+  select jsonb_agg(to_jsonb(f) order by signature,grantee,privilege_type,is_grantable)::text
   from function_state f
 ),'[]'))
 union all
