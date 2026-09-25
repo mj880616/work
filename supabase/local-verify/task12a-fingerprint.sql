@@ -9,6 +9,8 @@ with target_tables(table_name) as (
     ('app_suborganization_assignees'),('app_suborganization_status_items'),('app_suborganization_timeline'),
     ('app_suborganization_updates'),('app_suborganization_weekly_reports'),('app_suborganizations'),
     ('app_tasks'),('app_workspace_members'),('app_workspaces')
+), target_grantees(grantee) as (
+  values ('PUBLIC'),('anon'),('authenticated'),('service_role')
 ), target_functions(schema_name,function_name) as (
   values
     ('private','app_is_workspace_admin'),
@@ -46,10 +48,10 @@ select 'tables=' || md5((select coalesce(jsonb_agg(to_jsonb(s) order by relname)
 union all
 select 'policies=' || md5((select coalesce(jsonb_agg(to_jsonb(p) order by tablename,policyname,cmd),'[]'::jsonb) from policies p)::text)
 union all
-select 'grant.' || t.table_name || '=' || md5((
+select 'grant.' || t.table_name || '.' || r.grantee || '=' || md5((
   select coalesce(jsonb_agg(to_jsonb(g) order by grantee,privilege_type),'[]'::jsonb)
-  from grants g where g.table_name=t.table_name
+  from grants g where g.table_name=t.table_name and g.grantee=r.grantee
 )::text)
-from target_tables t
+from target_tables t cross join target_grantees r
 union all
 select 'functions=' || md5((select coalesce(jsonb_agg(to_jsonb(f) order by nspname,proname,args),'[]'::jsonb) from functions f)::text);
