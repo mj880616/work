@@ -18,16 +18,14 @@ const required = [
   /create\s+table\s+public\.app_meetings\b/i,
   /create\s+table\s+public\.app_tasks\b/i,
   /create\s+table\s+public\.app_project_updates\b/i,
+  /create\s+table\s+public\.app_project_publications\b/i,
   /create\s+table\s+public\.app_ai_workspace_settings\b/i,
   /create\s+table\s+public\.public_policy_drive_config\b/i,
+  /create\s+(?:or\s+replace\s+)?function\s+public\.app_public_post\b/i,
   /create\s+(?:or\s+replace\s+)?function\s+private\.app_can_edit_space\b/i,
 ];
 if (required.some(pattern => !pattern.test(sql))) {
   throw new Error('Baseline lacks a required Web2 schema object');
-}
-if (/create\s+(?:or\s+replace\s+)?function\s+public\.app_public_post\b/i.test(sql)
-    || /create\s+table\s+public\.app_project_publications\b/i.test(sql)) {
-  throw new Error('Baseline already includes a pending publication migration');
 }
 
 // This guard catches obvious data/credential inclusion. Human review of the

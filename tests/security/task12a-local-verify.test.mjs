@@ -47,3 +47,13 @@ test('Task 12A inspect and verify use the same canonical schema hash',()=>{
   assert.doesNotMatch(scanner,/createHash\(['"]sha256['"]\)\.update\(sql\)/,
     'inspect must not hash the raw pg_dump restriction key');
 });
+
+test('Task 12A baseline accepts the deployed Web1 public projection',()=>{
+  const checker=readFileSync(new URL('supabase/local-verify/check-baseline.mjs',ROOT),'utf8');
+  assert.doesNotMatch(checker,/Baseline already includes a pending publication migration/,
+    'deployed public projection objects must not be treated as pending');
+  assert.match(checker,/app_public_post/,
+    'baseline must require the deployed single-post projection');
+  assert.match(checker,/app_project_publications/,
+    'baseline must require the deployed public-project schema used by Web1 regressions');
+});
