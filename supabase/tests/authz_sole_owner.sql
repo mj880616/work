@@ -208,26 +208,39 @@ insert into authz_sole_owner_results values
   ('owner', 'profiles', pg_temp.authz_probe_count('select count(*) from public.app_profiles where user_id=''12000000-0000-4000-8000-000000000001''')),
   ('owner', 'ai', pg_temp.authz_probe_count('select count(*) from public.app_ai_workspace_settings where workspace_id=''12a00000-0000-4000-8000-000000000001''')),
   ('owner', 'tasks', pg_temp.authz_probe_count('select count(*) from public.app_tasks where id=''12a70000-0000-4000-8000-000000000001'''));
+insert into public.app_meetings(id,workspace_id,title,created_by)
+values('12afffff-0000-4000-8000-000000000001',current_setting('app.authz_workspace')::uuid,'OWNER CRUD',auth.uid());
+update public.app_meetings set title='OWNER CRUD UPDATED' where id='12afffff-0000-4000-8000-000000000001';
+do $$ begin
+  if not exists(select 1 from public.app_meetings where id='12afffff-0000-4000-8000-000000000001' and title='OWNER CRUD UPDATED') then
+    raise exception 'owner meeting update failed';
+  end if;
+end $$;
+delete from public.app_meetings where id='12afffff-0000-4000-8000-000000000001';
+do $$ begin
+  if exists(select 1 from public.app_meetings where id='12afffff-0000-4000-8000-000000000001') then
+    raise exception 'owner meeting delete failed';
+  end if;
+end $$;
+do $$ begin
+  if not public.app_can_edit_page_rpc('12a80000-0000-4000-8000-000000000004') then raise exception 'owner page edit RPC failed'; end if;
+end $$;
+do $$ begin
+  if (select count(*) from public.app_open_share('task12a-share')) <> 1 then raise exception 'owner share RPC failed'; end if;
+end $$;
+do $$ begin
+  if not public.app_update_event_body('12a30000-0000-4000-8000-000000000001','OWNER RPC UPDATED') then raise exception 'owner event RPC failed'; end if;
+end $$;
 do $$
 declare
-  v_id uuid := '12afffff-0000-4000-8000-000000000001';
   v_page public.app_pages;
 begin
-  insert into public.app_meetings(id,workspace_id,title,created_by)
-  values(v_id,current_setting('app.authz_workspace')::uuid,'OWNER CRUD',auth.uid());
-  update public.app_meetings set title='OWNER CRUD UPDATED' where id=v_id;
-  if not found then raise exception 'owner meeting update failed'; end if;
-  delete from public.app_meetings where id=v_id;
-  if not found then raise exception 'owner meeting delete failed'; end if;
-  if not public.app_can_edit_page_rpc('12a80000-0000-4000-8000-000000000004') then raise exception 'owner page edit RPC failed'; end if;
-  if (select count(*) from public.app_open_share('task12a-share')) <> 1 then raise exception 'owner share RPC failed'; end if;
-  if not public.app_update_event_body('12a30000-0000-4000-8000-000000000001','OWNER RPC UPDATED') then raise exception 'owner event RPC failed'; end if;
   v_page := public.app_save_page_v2(null,current_setting('app.authz_workspace')::uuid,null,'OWNER RPC PAGE','task12a-owner-rpc','','','draft','private');
   if v_page.id is null then raise exception 'owner page save RPC failed'; end if;
   if public.app_delete_pages(array[v_page.id]) <> 1 then raise exception 'owner page delete RPC failed'; end if;
-  perform public.app_set_workspace_member_role(current_setting('app.authz_admin')::uuid,'viewer');
-  perform public.app_set_workspace_member_role(current_setting('app.authz_admin')::uuid,'admin');
 end $$;
+select public.app_set_workspace_member_role(current_setting('app.authz_admin')::uuid,'viewer');
+select public.app_set_workspace_member_role(current_setting('app.authz_admin')::uuid,'admin');
 reset role;
 
 do $$
