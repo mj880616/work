@@ -14,6 +14,10 @@ on:
         description: 'SHA-256 printed by the clean inspect run; required for verify'
         required: false
         type: string
+      expected_commit:
+        description: 'Full feature-branch commit SHA reviewed before verify'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -24,7 +28,7 @@ concurrency:
 
 jobs:
   schema-authz:
-    if: github.repository == 'mj880616/work' && github.ref == 'refs/heads/main'
+    if: github.repository == 'mj880616/work' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/security/task12a-sole-owner-db')
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     environment: web2-schema-verification
@@ -35,6 +39,7 @@ jobs:
       PGDATABASE: ${{ vars.WEB2_SCHEMA_PGDATABASE }}
       VERIFICATION_PHASE: ${{ inputs.phase }}
       EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+      EXPECTED_COMMIT_SHA: ${{ inputs.expected_commit }}
       PGOPTIONS: '-c default_transaction_read_only=on'
       PGSSLMODE: verify-full
       PGSSLROOTCERT: /out/prod-ca-2021.crt
@@ -56,6 +61,12 @@ jobs:
           if test "$VERIFICATION_PHASE" = verify; then
             [[ "$EXPECTED_SHA256" =~ ^[a-f0-9]{64}$ ]] || {
               echo 'The reviewed SHA-256 is required for verify' >&2; exit 1;
+            }
+            [[ "$EXPECTED_COMMIT_SHA" =~ ^[a-f0-9]{40}$ ]] || {
+              echo 'The reviewed feature-branch commit SHA is required for verify' >&2; exit 1;
+            }
+            test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT_SHA" || {
+              echo 'Checked-out commit differs from the reviewed commit' >&2; exit 1;
             }
           fi
       - name: Read only public/private schema into temporary runner storage
@@ -109,6 +120,7 @@ jobs:
         env:
           WEB2_BASELINE_FILE: ${{ runner.temp }}/web2-schema.raw.sql
           WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
+          WEB2_TASK12A: '1'
         run: |
           set -euo pipefail
           node --test tests/security/*.test.mjs

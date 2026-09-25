@@ -43,6 +43,7 @@ jobs:
             supabase/tests/authz_project_invitations.sql
             supabase/tests/authz_event_body_rpc.sql
             supabase/tests/authz_public_snapshot.sql
+            supabase/tests/authz_sole_owner.sql
           )
           for file in "${required[@]}"; do
             test -s "$file" || { echo "missing security regression: $file"; exit 1; }
