@@ -59,9 +59,16 @@ select set_config('app.authz_workspace', '12a00000-0000-4000-8000-000000000001',
 insert into public.app_workspaces(id, slug, name)
 values (current_setting('app.authz_workspace')::uuid, 'kptu-work', 'TASK 12A MATRIX');
 
+-- The production role-normalization trigger rewrites new non-allowlisted roles.
+-- Disable only that trigger while creating the legacy admin / sole-owner actors;
+-- this disposable fixture transaction is rolled back in full below.
+alter table public.app_workspace_members
+  disable trigger trg_app_enforce_workspace_member_role;
 insert into public.app_workspace_members(workspace_id, user_id, role) values
   (current_setting('app.authz_workspace')::uuid, current_setting('app.authz_owner')::uuid, 'owner'),
   (current_setting('app.authz_workspace')::uuid, current_setting('app.authz_admin')::uuid, 'admin');
+alter table public.app_workspace_members
+  enable trigger trg_app_enforce_workspace_member_role;
 
 insert into public.app_profiles(user_id, display_name, job_title) values
   (current_setting('app.authz_owner')::uuid, 'TASK 12A OWNER', 'owner'),
