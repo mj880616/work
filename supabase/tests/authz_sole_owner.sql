@@ -200,6 +200,16 @@ reset role;
 -- Sole owner: all representative direct paths stay readable and writable.
 select set_config('request.jwt.claim.sub', current_setting('app.authz_owner'), true);
 set local role authenticated;
+do $$ begin
+  if auth.uid() is distinct from current_setting('app.authz_owner')::uuid then
+    raise exception 'owner JWT fixture was not applied';
+  end if;
+end $$;
+do $$ begin
+  if not private.app_is_workspace_owner(current_setting('app.authz_workspace')::uuid) then
+    raise exception 'owner helper rejected the sole owner fixture';
+  end if;
+end $$;
 insert into authz_sole_owner_results values
   ('owner', 'meetings', pg_temp.authz_probe_count('select count(*) from public.app_meetings where id=''12a10000-0000-4000-8000-000000000001''')),
   ('owner', 'documents', pg_temp.authz_probe_count('select count(*) from public.app_documents where id::text like ''eeeeeeee-%''')),
