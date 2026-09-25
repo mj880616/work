@@ -50,8 +50,8 @@ jobs:
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=48')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=10')",'result=await viewLoader.load(requested)',
+            "import('./team.js?v=49')",'await window.__KPTU_TEAM_READY__',
+            "import('./view-loader.js?v=11')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -85,7 +85,7 @@ jobs:
             app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
             app/profile-settings.js app/profile-settings.css \
             app/task-workflow.js app/task-row-view.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/compact-list.css \
-            app/project-system-v3.js app/project-system-v3.css \
+            app/project-system-v3.js app/project-system-v3.css app/project-catalog.js \
             app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
             app/workflow-ai-v3.js app/workplace-ai-report.js app/photo-room.js \
             app/access-approval.css app/meeting-ui.css app/photo-room.css p/index.html; do
@@ -136,14 +136,15 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=10" app/loader-v2.js
-          grep -q "team.js?v=48" app/loader-v2.js
-          grep -q "project-system-v3.js?v=22" app/view-loader.js
+          grep -q "team.js?v=49" app/loader-v2.js
+          grep -q "project-system-v3.js?v=23" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "task-row-view.js?v=1" app/view-loader.js
           grep -q "task-layout.js?v=13" app/view-loader.js
           grep -q "google-tasks.js?v=7" app/view-loader.js
-          grep -q "library-upload.js?v=13" app/view-loader.js
+          grep -q "library-upload.js?v=14" app/view-loader.js
+          grep -q "project-catalog.js?v=1" app/view-loader.js
           grep -q "__KPTU_TASK_LAYOUT_READY__" app/view-loader.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
           test ! -f app/home-task-controls.js
@@ -319,7 +320,8 @@ jobs:
           set -e
           grep -q 'id="newProjectBtn"' app/index.html
           grep -q "data-ps3-delete-project" app/project-system-v3.js
-          grep -q 'owner_id=eq.${encodeURIComponent(user.id)}' app/project-system-v3.js
+          grep -q 'owner_id=eq.${encodeURIComponent(userId)}' app/project-catalog.js
+          grep -q 'catalog.fetchSpaces(wid,user.id)' app/project-system-v3.js
           grep -q "+ 진행상황 추가" app/project-system-v3.js
           grep -q "data-ps3-progress-card" app/project-system-v3.js
           grep -q "ps3-progress-current" app/project-system-v3.js

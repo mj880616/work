@@ -76,12 +76,14 @@ async function projects(){
     module('./forum-flow-polish.js?v=2'),
     module('./due-date-calendar.js?v=1')
   ]);
-  await module('./project-system-v3.js?v=22','__KPTU_PROJECT_V3_READY__');
+  await module('./project-catalog.js?v=1');
+  await module('./project-system-v3.js?v=23','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
   await team('library');
-  await module('./library-upload.js?v=13','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./project-catalog.js?v=1');
+  await module('./library-upload.js?v=14','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
