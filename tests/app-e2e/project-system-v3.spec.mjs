@@ -440,6 +440,25 @@ test('linked milestone delete uses stored Google ids and removes both local reco
   expect(state.googleCalls.find(x=>x.action==='delete-event')).toMatchObject({calendar_id:'primary',event_id:'google-existing'});
 });
 
+test('linked milestone local delete failure restores Google linkage and milestone',async({page})=>{
+  const state=baseState();
+  Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
+  state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  state.restFailures['app_events:DELETE']=1;
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  page.once('dialog',d=>d.accept());
+  await page.locator('#ps3MilestoneDelete').click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('복원했습니다');
+  const restored=state.milestones.find(x=>x.id==='mile-1');
+  expect(restored).toBeTruthy();
+  expect(restored.google_calendar_id).toBe('primary');
+  expect(restored.google_event_id).not.toBe('google-existing');
+  expect(state.events.some(x=>x.id==='local-event')).toBe(true);
+  expect(state.googleCalls.map(x=>x.action)).toEqual(expect.arrayContaining(['delete-event','create-event']));
+});
+
 test('rollback failure reports possible Google and Web2 inconsistency with the Google event id in console data',async({page})=>{
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
