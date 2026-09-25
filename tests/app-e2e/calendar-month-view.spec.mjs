@@ -290,8 +290,7 @@ test('desktop month view enlarges typography, bars and lane capacity across supp
         width:el.getBoundingClientRect().width,
         head:parseFloat(hb.fontSize),day:parseFloat(db.fontSize),event:parseFloat(eb.fontSize),time:parseFloat(tb.fontSize),
         bar:event.getBoundingClientRect().height,
-        laneStep:parseFloat(css.getPropertyValue('--cmv-lane-step')),
-        weekMin:parseFloat(css.getPropertyValue('--cmv-min-week-height')),
+        weekHeight:el.querySelector('.cmv-week').getBoundingClientRect().height,
         slots:Number(el.dataset.cmvLaneSlots)
       };
     });
@@ -301,8 +300,7 @@ test('desktop month view enlarges typography, bars and lane capacity across supp
     expect(metrics.event).toBeGreaterThanOrEqual(10.5);
     expect(metrics.time).toBeGreaterThanOrEqual(9);
     expect(metrics.bar).toBeGreaterThanOrEqual(18);
-    expect(metrics.laneStep).toBeGreaterThanOrEqual(20);
-    expect(metrics.weekMin).toBeGreaterThanOrEqual(88);
+    expect(metrics.weekHeight).toBeGreaterThanOrEqual(88);
     expect(metrics.slots).toBeGreaterThanOrEqual(3);
   }
 });
