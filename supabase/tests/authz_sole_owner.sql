@@ -90,7 +90,8 @@ insert into public.app_event_comments(id, event_id, author_id, body) values
 insert into public.app_event_photos(id, event_id, uploaded_by, storage_path, thumb_path) values
   ('12a32000-0000-4000-8000-000000000001', '12a30000-0000-4000-8000-000000000001', current_setting('app.authz_owner')::uuid, 'task12a/photo', 'task12a/thumb');
 insert into public.app_event_attendees(event_id, user_id, status) values
-  ('12a30000-0000-4000-8000-000000000001', current_setting('app.authz_owner')::uuid, 'accepted');
+  ('12a30000-0000-4000-8000-000000000001', current_setting('app.authz_owner')::uuid, 'accepted')
+on conflict do nothing;
 
 insert into public.app_suborganizations(id, workspace_id, name, created_by) values
   ('12a40000-0000-4000-8000-000000000001', current_setting('app.authz_workspace')::uuid, 'OWNER ORGANIZATION', current_setting('app.authz_owner')::uuid);

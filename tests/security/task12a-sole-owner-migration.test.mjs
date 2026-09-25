@@ -92,6 +92,8 @@ test('Task 12A SQL actor matrix covers all four actors and mandatory regressions
   assert.match(matrix,/public-doc-eeeeeeeeeeee/i,'public document projection regression is required');
   assert.match(matrix,/gimpo-publicization/i,'allowed unlisted projection regression is required');
   assert.match(matrix,/OWNER CRUD UPDATED/i,'owner CRUD regression is required');
+  assert.match(matrix,/insert\s+into\s+public\.app_event_attendees[\s\S]*?on\s+conflict\s+do\s+nothing/i,
+    'event attendee fixture must tolerate the production organizer trigger');
   assert.match(workflow,/supabase\/tests\/authz_sole_owner\.sql/,'CI must require the Task 12A actor matrix');
 });
 
