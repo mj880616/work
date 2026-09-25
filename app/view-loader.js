@@ -25,7 +25,7 @@ const routeStyles={
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
   projects:['./project-system-v3.css?v=13','./forum-flow-polish.css?v=1'],
   library:['./library-upload.css?v=1','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=8'],
+  meetings:['./meeting-ui.css?v=9'],
   media:['./web1-press.css?v=1'],
   pages:['./web1-board.css?v=2'],
   team:['./suborganizations.css?v=5','./workplace-detail.css?v=3'],
@@ -88,7 +88,7 @@ async function library(){
 async function meetings(){
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
-  await module('./meeting-round-detail.js?v=13','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=14','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){
