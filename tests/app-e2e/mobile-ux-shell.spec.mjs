@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginEntry } from './helpers/login-entry.mjs';
+import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'mobile-user',email:'mobile@example.org',user_metadata:{display_name:'모바일 QA'}};
@@ -33,13 +33,14 @@ async function mockApp(page){
 }
 
 async function signIn(page){
-  await page.goto(loginEntry(page.url()));
+  await enterLogin(page);
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('mobile@example.org');
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await expect(page.locator('body')).toHaveClass(/kptu-workspace-shell/,{timeout:10000});
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 }
 

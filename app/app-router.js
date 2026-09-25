@@ -7,36 +7,34 @@
 
   function appReady(){
     const app=document.querySelector('#appView');
-    return !!app&&!app.classList.contains('hidden')&&app.classList.contains('kptu-ui-ready');
+    return authenticatedShellReady()&&app.classList.contains('kptu-ui-ready');
   }
 
   function authenticatedShellReady(){
     const app=document.querySelector('#appView');
-    const context=window.__KPTU_BOOT_CONTEXT__;
-    return !!app&&!app.classList.contains('hidden')&&!!context?.user?.id&&!!context?.workspace?.id;
+    const context=window.KPTURuntime?.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
+    const signedIn=!!window.KPTURuntime?.session?.read?.()?.access_token;
+    return signedIn&&!!app&&!app.classList.contains('hidden')&&!app.inert&&!!context?.user?.id&&!!context?.workspace?.id;
   }
 
   function viewExists(view){
     return !!view&&!!document.getElementById(view+'View');
   }
 
-  function publicHomeAvailable(){
-    return document.body?.classList.contains('kptu-public-workspace')&&viewExists('home');
-  }
-
   function viewFromUrl(){
+    if(!authenticatedShellReady())return null;
     const params=new URLSearchParams(location.search);
     const requested=params.get(VIEW_PARAM);
-    if(requested==='home')return publicHomeAvailable()?'home':viewExists('calendar')?'calendar':null;
+    if(requested==='home')return viewExists('calendar')?'calendar':null;
     if(viewExists(requested))return requested;
     if(params.get('project')&&viewExists('projects'))return 'projects';
-    return publicHomeAvailable()?'home':viewExists('calendar')?'calendar':null;
+    return viewExists('calendar')?'calendar':null;
   }
 
   function syncUrl(view,{replace=false}={}){
-    if(!viewExists(view))return;
+    if(!authenticatedShellReady()||!viewExists(view))return;
     const u=new URL(location.href);
-    if(view==='calendar'||(view==='home'&&publicHomeAvailable()))u.searchParams.delete(VIEW_PARAM);
+    if(view==='calendar')u.searchParams.delete(VIEW_PARAM);
     else u.searchParams.set(VIEW_PARAM,view);
     const next=u.pathname+(u.search||'')+u.hash;
     const current=location.pathname+location.search+location.hash;
@@ -75,7 +73,7 @@
   }
 
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false}={}){
-    if(!view)return false;
+    if(!view||!authenticatedShellReady())return false;
     const lazy=window.KPTUViewLoader;
     if(!allowUnloaded&&lazy?.isLoaded&&!lazy.isLoaded(view)){
       lazy.load(view).then(()=>go(view,{scroll,source:'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true})).catch(err=>console.error('view lazy load',view,err));
@@ -146,7 +144,7 @@
       brand.addEventListener('click',e=>{
         if(!appReady())return;
         e.preventDefault();
-        go(publicHomeAvailable()?'home':'calendar',{source:'brand'});
+        go('calendar',{source:'brand'});
       });
     });
     if(api.current)syncNavigationState(api.current);

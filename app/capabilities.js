@@ -12,14 +12,14 @@
   function setContext(next={}){context={...context,...next}}
   function can(action,resource={}){
     switch(action){
-      case 'project.read': return signedIn()||resource.visibility==='public';
+      case 'project.read': return signedIn();
       case 'project.create': return canWriteWorkspace();
       case 'project.edit': return canWriteWorkspace()&&resource.can_edit!==false;
-      case 'page.read': return signedIn()||(resource.status==='published'&&['public','unlisted'].includes(resource.visibility));
+      case 'page.read': return signedIn();
       case 'page.create': return canWriteWorkspace();
       case 'page.edit': return canWriteWorkspace()&&resource.can_edit!==false;
       case 'task.read':
-        if(resource.project_id)return signedIn()||resource.project_public===true;
+        if(resource.project_id)return signedIn();
         return signedIn()&&!!userId()&&resource.assignee_id===userId();
       case 'task.edit':
         if(resource.project_id)return canWriteWorkspace()&&resource.can_edit!==false;

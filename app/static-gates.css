@@ -1,1 +1,2 @@
 body:not(.myspace-allowed) #myspaceView{display:none!important}
+body.kptu-session-pending>.shell{visibility:hidden}

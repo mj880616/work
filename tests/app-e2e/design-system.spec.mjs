@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginEntry } from './helpers/login-entry.mjs';
+import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
@@ -28,7 +28,7 @@ async function mockApp(page){
 }
 
 async function signIn(page){
-  await page.goto(loginEntry(page.url()));
+  await enterLogin(page);
   await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);

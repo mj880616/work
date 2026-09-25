@@ -76,6 +76,42 @@ test('transient refresh failure preserves session and reports retryable session 
   expect(result).toMatchObject({ok:false,code:'session_refresh_failed',retryable:true,hasSession:true});
 });
 
+test('delayed refresh cannot restore a session cleared by another tab',async({page})=>{
+  let releaseRefresh,refreshCalls=0;
+  const released=new Promise(resolve=>{releaseRefresh=resolve});
+  await page.route(`${SB}/auth/v1/token?grant_type=refresh_token`,async route=>{
+    refreshCalls++;
+    await released;
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'stale-access',refresh_token:'stale-refresh',expires_in:3600})});
+  });
+  await loadRuntime(page,{...expiredSession(),user:{id:'user-1'}});
+  await page.evaluate(()=>{window.__pendingRefresh=window.KPTURuntime.session.refresh()});
+  await expect.poll(()=>refreshCalls).toBe(1);
+  await page.evaluate(()=>window.KPTURuntime.session.write(null));
+  releaseRefresh();
+  const result=await page.evaluate(async()=>({refresh:await window.__pendingRefresh,session:window.KPTURuntime.session.read()}));
+  expect(result).toEqual({refresh:false,session:null});
+});
+
+test('delayed refresh cannot overwrite a different account selected in another tab',async({page})=>{
+  let releaseRefresh,refreshCalls=0;
+  const released=new Promise(resolve=>{releaseRefresh=resolve});
+  await page.route(`${SB}/auth/v1/token?grant_type=refresh_token`,async route=>{
+    refreshCalls++;
+    await released;
+    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({access_token:'stale-access',refresh_token:'stale-refresh',expires_in:3600,user:{id:'user-1'}})});
+  });
+  await loadRuntime(page,{...expiredSession(),user:{id:'user-1'}});
+  await page.evaluate(()=>{window.__pendingRefresh=window.KPTURuntime.session.refresh()});
+  await expect.poll(()=>refreshCalls).toBe(1);
+  const replacement={access_token:'account-b-access',refresh_token:'account-b-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-2'}};
+  await page.evaluate(value=>window.KPTURuntime.session.write(value),replacement);
+  releaseRefresh();
+  const result=await page.evaluate(async()=>({refresh:await window.__pendingRefresh,session:window.KPTURuntime.session.read()}));
+  expect(result.refresh).toBe(false);
+  expect(result.session).toEqual(replacement);
+});
+
 test('concurrent identical mutations are single-flight by default',async({page})=>{
   let mutationCalls=0;
   await page.route(`${SB}/rest/v1/app_spaces`,async route=>{

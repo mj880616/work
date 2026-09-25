@@ -70,6 +70,7 @@ jobs:
               'tests/app-e2e/public-page-editor-fixture.html':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-page-editor-live.spec.mjs':[r'kptu_public_editor_session_v1',r'kptu_collab_session_v1'],
               'tests/app-e2e/public-page-password-recovery.spec.mjs':[r'kptu_public_editor_session_v1'],
+              'tests/app-e2e/public-workspace-auth.spec.mjs':[r'\blocalStorage\b'],
               'tests/security/web1-admin-auth-redirect.test.mjs':[r'\bsessionStorage\b',r'\blocalStorage\b'],
           }
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginEntry } from './helpers/login-entry.mjs';
+import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -106,7 +106,7 @@ async function mockApp(page,state){
 }
 
 async function signIn(page){
-  await page.goto(loginEntry(page.url()));
+  await enterLogin(page);
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('owner@example.org');
   await page.locator('#authPassword').fill('password123');
