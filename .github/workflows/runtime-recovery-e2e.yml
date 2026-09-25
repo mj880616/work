@@ -4,11 +4,9 @@ on:
   push:
     paths:
       - 'app/runtime-client.js'
-      - 'app/page-save-controller.js'
       - 'app/library-upload.js'
       - 'app/calendar-persistence.js'
       - 'tests/app-e2e/runtime-client-fixture.html'
-      - 'tests/app-e2e/page-save-singleflight-fixture.html'
       - 'tests/app-e2e/runtime-recovery.spec.mjs'
       - 'tests/app-e2e/calendar-persistence-race-fixture.html'
       - 'tests/app-e2e/calendar-persistence-race.spec.mjs'
@@ -20,11 +18,9 @@ on:
       - main
     paths:
       - 'app/runtime-client.js'
-      - 'app/page-save-controller.js'
       - 'app/library-upload.js'
       - 'app/calendar-persistence.js'
       - 'tests/app-e2e/runtime-client-fixture.html'
-      - 'tests/app-e2e/page-save-singleflight-fixture.html'
       - 'tests/app-e2e/runtime-recovery.spec.mjs'
       - 'tests/app-e2e/calendar-persistence-race-fixture.html'
       - 'tests/app-e2e/calendar-persistence-race.spec.mjs'

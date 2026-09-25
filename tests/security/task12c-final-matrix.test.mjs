@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const ROOT = new URL('../../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, ROOT), 'utf8');
@@ -46,12 +46,12 @@ test('Task 12C keeps every audited service-role Edge path behind exact owner mem
 });
 
 test('Task 12C preserves Web1 public projections while Web2 anonymous access stays login-gated', () => {
-  const publicWorkspace = read('app/public-workspace.js');
   const loader = read('app/loader-v2.js');
   const migration = read('supabase/migrations/20260925084844_task12a_sole_owner_db.sql');
+  const publicPost = read('p/public-post.js');
 
-  assert.match(publicWorkspace, /app_public_workspace_index/);
-  assert.match(publicWorkspace, /auth\s*:\s*false/);
+  assert.equal(existsSync(new URL('app/public-workspace.js', ROOT)), false);
+  assert.match(publicPost, /rpc\/app_public_post/);
   assert.doesNotMatch(migration, /revoke\s+execute\s+on\s+function\s+public\.app_public_(?:post|workspace_index)/i);
   assert.match(loader, /if\(!authenticated\)\s*\{[\s\S]*?redirectToLogin\(\);[\s\S]*?return;/);
   assert.ok(loader.indexOf("import('./app-router.js") > loader.indexOf('if(!authenticated)'));

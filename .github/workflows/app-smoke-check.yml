@@ -80,12 +80,11 @@ jobs:
           set -e
           for f in \
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
-            app/auth-service.js app/capabilities.js app/public-workspace.js app/login/index.html app/login/login.js \
+            app/auth-service.js app/capabilities.js app/login/index.html app/login/login.js \
             app/team.js app/topbar-actions.js app/topbar-actions.css \
             app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
             app/profile-settings.js app/profile-settings.css \
-            app/task-workflow.js app/task-row-view.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/page-builder.js app/page-builder.css \
-            app/page-list-controller.js app/page-save-controller.js app/page-shortcut.js app/page-management.js app/page-inline-viewer-v2.js app/page-core.css app/compact-list.css \
+            app/task-workflow.js app/task-row-view.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/compact-list.css \
             app/project-system-v3.js app/project-system-v3.css \
             app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
             app/workflow-ai-v3.js app/workplace-ai-report.js app/photo-room.js \
@@ -180,8 +179,7 @@ jobs:
           grep -q "library-upload.css?v=1" app/styles.css
           grep -q "meeting-ui.css?v=9" app/styles.css
           grep -q "calendar-ui.css?v=8" app/styles.css
-          grep -q "page-core.css?v=7" app/styles.css
-          grep -q "page-builder.css?v=2" app/styles.css
+          if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
           grep -q "project-system-v3.css?v=13" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
@@ -225,12 +223,12 @@ jobs:
           grep -q 'sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads"' app/index.html
           if grep -Eq "public-policy|/press/" app/web1-board.js; then echo 'library or press leaked into Web1 board'; exit 1; fi
 
-          grep -q "app_public_workspace_index" app/public-workspace.js
-          if grep -Eq "data-public-project|app_public_project|renderProjects\\(|openProject\\(" app/public-workspace.js; then echo 'anonymous project renderer returned'; exit 1; fi
+          test ! -e app/public-workspace.js
+          test ! -e app/public-workspace-extras.js
+          test ! -e app/public-workspace.css
+          test ! -e app/public-page-links.js
           if grep -q "app_public_project" p/public-post.js; then echo 'public project URL RPC returned'; exit 1; fi
-          grep -q "app_public_workspace_index" app/public-workspace-extras.js
-          if grep -Eq "app_public_projects_snapshot|app_public_workspace_snapshot" app/public-workspace.js app/public-workspace-extras.js; then echo 'anonymous workspace client returned to a broad snapshot'; exit 1; fi
-          if grep -q "public-workspace.js" app/loader-v2.js; then echo 'anonymous Web2 boot returned to the public workspace'; exit 1; fi
+          if grep -REq "public-workspace|public-page-links|app_public_workspace_index" app/loader-v2.js app/app-router.js app/view-loader.js app/app.js; then echo 'Web2 runtime returned to a public workspace path'; exit 1; fi
           if grep -Eq "publicHomeAvailable|kptu-public-workspace" app/app-router.js; then echo 'router returned to an anonymous Web2 route'; exit 1; fi
           if grep -Eq "resource.visibility==='public'|resource.project_public===true" app/capabilities.js; then echo 'Web2 capability returned to an anonymous read fallback'; exit 1; fi
           grep -q "route:'login'" app/loader-v2.js
@@ -244,7 +242,7 @@ jobs:
           if grep -q "team.js" app/app.js; then echo 'workspace modules bypass session boundary'; exit 1; fi
           if grep -Eq "task-child-project-guard.js|task-status-state.js|task-assignment-visibility.js|meeting-assignee-picker.js|meeting-file-route.js|calendar-defaults.js|page-editor-fix.js|page-inline-viewer.js" app/loader-v2.js; then echo 'legacy correction module returned'; exit 1; fi
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/library-upload.js; then echo 'core readiness returned to mutation polling'; exit 1; fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/page-builder.js app/library-upload.js; then echo 'core styles returned to runtime injection'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/library-upload.js; then echo 'core styles returned to runtime injection'; exit 1; fi
           if grep -q "createElement('link')" app/team.js; then echo 'team css must stay static'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-dashboard-v2.js app/photo-room.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
           if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js; then echo 'core UI bypassed shared runtime session'; exit 1; fi
@@ -270,9 +268,8 @@ jobs:
             'team.css','team-member-overview.css','team-profile-view.css','team-member-management.css',
             'profile-settings.css','workplace-detail.css','suborganizations.css',
             'access-approval.css',
-            'photo-room.css','public-workspace.css','topbar-actions.css','calendar-ui.css','task-layout.css',
-            'google-tasks.css','library-upload.css','project-system-v3.css','meeting-ui.css','page-core.css','page-builder.css',
-            'page-editor-static.css'
+            'photo-room.css','topbar-actions.css','calendar-ui.css','task-layout.css',
+            'google-tasks.css','library-upload.css','project-system-v3.css','meeting-ui.css'
           }
           # Exact feature exception: calendar event source marker uses an inset shadow, not card elevation.
           shadow_allow={('calendar-ui.css','inset 3px 0 rgba(255,255,255,.22)')}
@@ -431,8 +428,8 @@ jobs:
           trap 'kill $SERVER_PID' EXIT
           sleep 1
           for path in \
-            app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js app/public-workspace.js \
-            app/web1-board.js app/web1-board.css app/page-core.css app/compact-list.css \
+            app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js \
+            app/web1-board.js app/web1-board.css app/compact-list.css \
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/library-upload.js app/library-upload.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \

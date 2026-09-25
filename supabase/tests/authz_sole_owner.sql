@@ -205,12 +205,11 @@ select pg_temp.authz_expect_no_write('admin task delete', $$delete from public.a
 select pg_temp.authz_expect_no_write('admin create invite', $$select public.app_create_invite('viewer',null,now()+interval '1 day')$$);
 select pg_temp.authz_expect_no_write('admin member role RPC', $$select public.app_set_workspace_member_role('12000000-0000-4000-8000-000000000003','viewer')$$);
 select pg_temp.authz_expect_no_write('admin save page RPC', $$select public.app_save_page_v2(null,current_setting('app.authz_workspace')::uuid,null,'DENIED','task12a-admin-write','','','draft','private')$$);
+select pg_temp.authz_expect_no_write('admin open share RPC', $$select * from public.app_open_share('task12a-share')$$);
 select pg_temp.authz_expect_no_write('admin event RPC', $$select public.app_update_event_body('12a30000-0000-4000-8000-000000000001','DENIED')$$);
 select pg_temp.authz_expect_no_write('admin delete pages RPC', $$select public.app_delete_pages(array['12a80000-0000-4000-8000-000000000004'::uuid])$$);
-do $$
-begin
+do $$ begin
   if public.app_can_edit_page_rpc('12a80000-0000-4000-8000-000000000004') then raise exception 'admin page edit RPC bypass'; end if;
-  if (select count(*) from public.app_open_share('task12a-share')) <> 0 then raise exception 'admin share RPC bypass'; end if;
 end $$;
 reset role;
 
@@ -276,20 +275,11 @@ end $$;
 do $$ begin
   if not public.app_can_edit_page_rpc('12a80000-0000-4000-8000-000000000004') then raise exception 'owner page edit RPC failed'; end if;
 end $$;
-do $$ begin
-  if (select count(*) from public.app_open_share('task12a-share')) <> 1 then raise exception 'owner share RPC failed'; end if;
-end $$;
+select pg_temp.authz_expect_no_write('owner open share RPC retired', $$select * from public.app_open_share('task12a-share')$$);
 do $$ begin
   if not public.app_update_event_body('12a30000-0000-4000-8000-000000000001','OWNER RPC UPDATED') then raise exception 'owner event RPC failed'; end if;
 end $$;
-do $$
-declare
-  v_page public.app_pages;
-begin
-  v_page := public.app_save_page_v2(null,current_setting('app.authz_workspace')::uuid,null,'OWNER RPC PAGE','task12a-owner-rpc','','','draft','private');
-  if v_page.id is null then raise exception 'owner page save RPC failed'; end if;
-  if public.app_delete_pages(array[v_page.id]) <> 1 then raise exception 'owner page delete RPC failed'; end if;
-end $$;
+select pg_temp.authz_expect_no_write('owner page save RPC retired', $$select public.app_save_page_v2(null,current_setting('app.authz_workspace')::uuid,null,'OWNER RPC PAGE','task12a-owner-rpc','','','draft','private')$$);
 select public.app_set_workspace_member_role(current_setting('app.authz_admin')::uuid,'viewer');
 select public.app_set_workspace_member_role(current_setting('app.authz_admin')::uuid,'admin');
 reset role;
@@ -303,9 +293,13 @@ begin
      or has_function_privilege('authenticated','public.app_public_workspace_snapshot()','EXECUTE') then
     raise exception 'retired collaboration RPC remains executable by authenticated';
   end if;
-  if not has_function_privilege('anon','public.app_public_post(text)','EXECUTE')
-     or not has_function_privilege('anon','public.app_public_workspace_index()','EXECUTE') then
-    raise exception 'Web1 public projection execute grant changed';
+  if not has_function_privilege('anon','public.app_public_post(text)','EXECUTE') then
+    raise exception 'Web1 public post execute grant changed';
+  end if;
+  if has_function_privilege('anon','public.app_public_workspace_index()','EXECUTE')
+     or has_function_privilege('authenticated','public.app_open_share(text)','EXECUTE')
+     or has_function_privilege('authenticated','public.app_save_page_v2(uuid,uuid,uuid,text,text,text,text,text,text)','EXECUTE') then
+    raise exception 'Task 13 retired Web2 RPC remains executable';
   end if;
   if has_function_privilege('anon','private.app_is_workspace_admin(uuid)','EXECUTE') then
     raise exception 'private owner helper remains executable by anon';

@@ -101,6 +101,8 @@ test('photo upload uses shared session without restoring calendar record cards',
   await page.locator('#addEventDocument').click();
   await expect(page.locator('#eventDocuments')).toContainText('현장 자료');
   await expect(page.locator('#eventDocuments a')).toHaveAttribute('href','https://example.org/record');
+  expect(documents).toHaveLength(1);
+  expect(documents[0].visibility).toBe('private');
   expect(uploadRequest?.authorization).toBe('Bearer photo-access');
   expect(uploadRequest?.contentType).toContain('multipart/form-data');
 });

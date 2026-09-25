@@ -131,6 +131,118 @@ fi
 echo 'ADMIN_DEFAULT_ACL_APPLY_PASSED'
 echo 'BASELINE_APPLY_PASSED'
 
+if [[ "${WEB2_TASK13:-0}" == 1 ]]; then
+  task13_migration=20260925143746_task13_web2_private_boundary.sql
+  task13_fingerprint="$repo_root/supabase/local-verify/task13-fingerprint.sql"
+  task13_rollback="$repo_root/scripts/sql/rollback/$task13_migration"
+
+  # The hosted schema grants these retired Task 12 entry points only to
+  # service_role. A schema-only restore into a fresh local stack can recreate
+  # the local postgres default PUBLIC function ACL before the per-object ACL is
+  # replayed. Normalize the disposable copy to the reviewed hosted ACL so the
+  # actor matrix tests the production authorization boundary.
+  psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 <<'SQL'
+revoke execute on function public.app_accept_invite(text) from PUBLIC, anon, authenticated;
+revoke execute on function public.app_claim_owner(text,text) from PUBLIC, anon, authenticated;
+revoke execute on function public.app_request_workspace_access(text) from PUBLIC, anon, authenticated;
+revoke execute on function public.app_respond_project_invitation(uuid,boolean) from PUBLIC, anon, authenticated;
+grant execute on function public.app_accept_invite(text) to service_role;
+grant execute on function public.app_claim_owner(text,text) to service_role;
+grant execute on function public.app_request_workspace_access(text) to service_role;
+grant execute on function public.app_respond_project_invitation(uuid,boolean) to service_role;
+SQL
+
+  # The same local default ACL also broadens every Task 13 target during a
+  # schema-only restore, although the hosted catalog has the narrower grants
+  # recorded in the reviewed rollback. Normalize the disposable copy to that
+  # exact pre-migration state before taking the rollback fingerprint.
+  psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 \
+    -f "$task13_rollback" > "$ci_root/task13-baseline-normalize.log" 2>&1 || {
+      node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" ROLLBACK \
+        "$task13_rollback" "$ci_root/task13-baseline-normalize.log"
+      echo 'TASK13_BASELINE_NORMALIZE_FAILED: SQL output withheld' >&2; exit 1;
+    }
+
+  psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$task13_fingerprint" \
+    > "$ci_root/task13-before.hash" 2> "$ci_root/task13-before.err"
+
+  apply_task13_migration() {
+    local phase="$1" path="$repo_root/supabase/migrations/$task13_migration"
+    psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+      -f "$path" > "$ci_root/task13-${phase}-migration.log" 2>&1 || {
+        node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" MIGRATION "$path" "$ci_root/task13-${phase}-migration.log"
+        echo "TASK13_MIGRATION_FAILED: $phase; SQL output withheld" >&2; exit 1;
+      }
+  }
+  run_task13_test() {
+    local phase="$1"
+    for sql_test in authz_sole_owner.sql authz_task13_private_boundary.sql; do
+      local path="$repo_root/supabase/tests/$sql_test"
+      psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+        -f "$path" > "$ci_root/task13-${phase}-${sql_test}.log" 2>&1 || {
+          node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" AUTHORIZATION_SQL "$path" "$ci_root/task13-${phase}-${sql_test}.log"
+          echo "TASK13_ACTOR_MATRIX_FAILED: $phase/$sql_test; SQL output withheld" >&2; exit 1;
+        }
+    done
+  }
+
+  apply_task13_migration forward
+  unexpected_task13_execute="$({
+    psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+select check_name
+from (values
+  ('authenticated_accept_invite', 'authenticated', 'public.app_accept_invite(text)'),
+  ('authenticated_claim_owner', 'authenticated', 'public.app_claim_owner(text,text)'),
+  ('authenticated_request_access', 'authenticated', 'public.app_request_workspace_access(text)'),
+  ('authenticated_respond_invitation', 'authenticated', 'public.app_respond_project_invitation(uuid,boolean)'),
+  ('authenticated_workspace_snapshot', 'authenticated', 'public.app_public_workspace_snapshot()'),
+  ('anon_workspace_index', 'anon', 'public.app_public_workspace_index()'),
+  ('authenticated_open_share', 'authenticated', 'public.app_open_share(text)'),
+  ('authenticated_save_page', 'authenticated', 'public.app_save_page_v2(uuid,uuid,uuid,text,text,text,text,text,text)'),
+  ('anon_private_owner_helper', 'anon', 'private.app_is_workspace_admin(uuid)')
+) as checks(check_name, role_name, function_signature)
+where has_function_privilege(role_name, function_signature, 'EXECUTE')
+union all
+select 'anon_public_post_missing'
+where not has_function_privilege('anon', 'public.app_public_post(text)', 'EXECUTE')
+order by check_name;
+SQL
+  } 2> "$ci_root/task13-execute-diagnostic.err")" || {
+    echo 'TASK13_EXECUTE_DIAGNOSTIC_FAILED: SQL output withheld' >&2; exit 1;
+  }
+  if [[ -n "$unexpected_task13_execute" ]]; then
+    echo "TASK13_EXECUTE_REVOKE_FAILED=$unexpected_task13_execute" >&2
+    exit 1
+  fi
+  echo 'TASK13_EXECUTE_REVOKE_PASSED'
+  run_task13_test forward
+  psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v SHOW_CONTEXT=never \
+    -f "$task13_rollback" > "$ci_root/task13-rollback.log" 2>&1 || {
+      node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" ROLLBACK "$task13_rollback" "$ci_root/task13-rollback.log"
+      echo 'TASK13_ROLLBACK_FAILED: SQL output withheld' >&2; exit 1;
+    }
+  psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$task13_fingerprint" \
+    > "$ci_root/task13-after.hash" 2> "$ci_root/task13-after.err"
+  cmp -s "$ci_root/task13-before.hash" "$ci_root/task13-after.hash" || {
+    task13_drift_components="$(awk -F= '
+      NR==FNR { before[$1]=$2; next }
+      !($1 in before) || before[$1] != $2 { print $1 }
+    ' "$ci_root/task13-before.hash" "$ci_root/task13-after.hash" | paste -sd, -)"
+    task13_before_functions="$(grep '^function:' "$ci_root/task13-before.hash" | paste -sd';' -)"
+    task13_after_functions="$(grep '^function:' "$ci_root/task13-after.hash" | paste -sd';' -)"
+    echo "::error title=Task 13 rollback drift::changed components=${task13_drift_components:-unknown}" >&2
+    echo "::error title=Task 13 rollback grants::before=${task13_before_functions}; after=${task13_after_functions}" >&2
+    echo "TASK13_ROLLBACK_FAILED: changed components=${task13_drift_components:-unknown}" >&2
+    exit 1;
+  }
+  echo 'TASK13_ROLLBACK_PASSED'
+
+  apply_task13_migration reapply
+  run_task13_test reapply
+  echo 'TASK13_REAPPLY_PASSED'
+  exit 0
+fi
+
 if [[ "${WEB2_TASK12A:-0}" == 1 ]]; then
   task12a_migration=20260925084844_task12a_sole_owner_db.sql
   fingerprint="$repo_root/supabase/local-verify/task12a-fingerprint.sql"

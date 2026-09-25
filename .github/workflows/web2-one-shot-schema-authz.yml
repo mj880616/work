@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   schema-authz:
-    if: github.repository == 'mj880616/work' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/security/task12a-sole-owner-db')
+    if: github.repository == 'mj880616/work' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/security/task12a-sole-owner-db' || github.ref == 'refs/heads/chore/task13-remove-web2-public-sharing')
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     environment: web2-schema-verification
@@ -120,7 +120,8 @@ jobs:
         env:
           WEB2_BASELINE_FILE: ${{ runner.temp }}/web2-schema.raw.sql
           WEB2_BASELINE_SHA256: ${{ inputs.expected_sha256 }}
-          WEB2_TASK12A: '1'
+          WEB2_TASK12A: ${{ github.ref == 'refs/heads/security/task12a-sole-owner-db' && '1' || '0' }}
+          WEB2_TASK13: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/chore/task13-remove-web2-public-sharing') && '1' || '0' }}
         run: |
           set -euo pipefail
           node --test tests/security/*.test.mjs
