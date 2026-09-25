@@ -41,10 +41,22 @@ $test$;
 
 do $test$
 begin
-  if has_function_privilege('anon','public.app_public_project(text)','EXECUTE')
-     or has_function_privilege('authenticated','public.app_public_project(text)','EXECUTE') then
-    raise exception 'legacy public project RPC remains executable';
+  if has_function_privilege('anon','public.app_public_project(text)','EXECUTE') then
+    raise exception 'legacy public project RPC remains executable by anon';
   end if;
+end
+$test$;
+
+do $test$
+begin
+  if has_function_privilege('authenticated','public.app_public_project(text)','EXECUTE') then
+    raise exception 'legacy public project RPC remains executable by authenticated';
+  end if;
+end
+$test$;
+
+do $test$
+begin
   if has_function_privilege('authenticated','public.app_project_publication_state(uuid)','EXECUTE') then
     raise exception 'project publication management remains executable';
   end if;
