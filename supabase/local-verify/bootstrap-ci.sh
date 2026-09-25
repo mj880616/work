@@ -152,6 +152,17 @@ grant execute on function public.app_request_workspace_access(text) to service_r
 grant execute on function public.app_respond_project_invitation(uuid,boolean) to service_role;
 SQL
 
+  # The same local default ACL also broadens every Task 13 target during a
+  # schema-only restore, although the hosted catalog has the narrower grants
+  # recorded in the reviewed rollback. Normalize the disposable copy to that
+  # exact pre-migration state before taking the rollback fingerprint.
+  psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 \
+    -f "$task13_rollback" > "$ci_root/task13-baseline-normalize.log" 2>&1 || {
+      node "$repo_root/supabase/local-verify/analyze-sql-failure.mjs" ROLLBACK \
+        "$task13_rollback" "$ci_root/task13-baseline-normalize.log"
+      echo 'TASK13_BASELINE_NORMALIZE_FAILED: SQL output withheld' >&2; exit 1;
+    }
+
   psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$task13_fingerprint" \
     > "$ci_root/task13-before.hash" 2> "$ci_root/task13-before.err"
 
