@@ -94,3 +94,21 @@ test('Task 12A SQL actor matrix covers all four actors and mandatory regressions
   assert.match(matrix,/OWNER CRUD UPDATED/i,'owner CRUD regression is required');
   assert.match(workflow,/supabase\/tests\/authz_sole_owner\.sql/,'CI must require the Task 12A actor matrix');
 });
+
+test('Task 12A gates active database RPC bypasses while preserving the Web1 projection',()=>{
+  const {migration}=task12aFiles();
+  for(const fn of [
+    'app_can_edit_page_rpc','app_create_invite','app_delete_pages',
+    'app_open_share','app_save_page_v2','app_set_workspace_member_role','app_update_event_body'
+  ]) assert.match(migration,new RegExp(`create\\s+or\\s+replace\\s+function\\s+public\\.${fn}\\s*\\(`,'i'),`missing owner gate for ${fn}`);
+
+  for(const signature of [
+    'app_accept_invite\\s*\\(text\\)','app_claim_owner\\s*\\(text\\s*,\\s*text\\)',
+    'app_request_workspace_access\\s*\\(text\\)','app_respond_project_invitation\\s*\\(uuid\\s*,\\s*boolean\\)',
+    'app_public_workspace_snapshot\\s*\\(\\)'
+  ]) assert.match(migration,new RegExp(`revoke\\s+execute\\s+on\\s+function\\s+public\\.${signature}\\s+from\\s+authenticated`,'i'),`missing authenticated revoke for ${signature}`);
+
+  assert.doesNotMatch(migration,/create\s+or\s+replace\s+function\s+public\.app_public_post\s*\(/i,'Web1 public projection body must stay unchanged');
+  assert.doesNotMatch(migration,/revoke\s+execute\s+on\s+function\s+public\.app_public_post/i,'Web1 public projection grants must stay unchanged');
+  assert.doesNotMatch(migration,/revoke\s+execute\s+on\s+function\s+public\.app_public_workspace_index/i,'public index grant must stay unchanged');
+});

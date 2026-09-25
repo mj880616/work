@@ -131,6 +131,8 @@ insert into public.app_pages(id, workspace_id, slug, title, body, visibility, st
   ('12a80000-0000-4000-8000-000000000002', current_setting('app.authz_workspace')::uuid, 'gimpo-publicization', 'OWNER UNLISTED PAGE', 'UNLISTED BODY', 'unlisted', 'published', current_setting('app.authz_owner')::uuid, now()),
   ('12a80000-0000-4000-8000-000000000003', current_setting('app.authz_workspace')::uuid, 'task12a-workspace', 'OWNER WORKSPACE PAGE', 'WORKSPACE BODY', 'workspace', 'published', current_setting('app.authz_owner')::uuid, now()),
   ('12a80000-0000-4000-8000-000000000004', current_setting('app.authz_workspace')::uuid, 'task12a-private', 'OWNER PRIVATE PAGE', 'PRIVATE BODY', 'private', 'published', current_setting('app.authz_owner')::uuid, now());
+insert into public.app_share_links(id,page_id,token_hash,expires_at,created_by) values
+  ('12a81000-0000-4000-8000-000000000001','12a80000-0000-4000-8000-000000000004',encode(extensions.digest('task12a-share'::bytea,'sha256'),'hex'),now()+interval '1 day',current_setting('app.authz_owner')::uuid);
 
 -- Anonymous: no direct base-table access, but the narrow public projection remains.
 set local role anon;
@@ -182,6 +184,16 @@ select pg_temp.authz_expect_no_write('admin team event insert', $$insert into pu
 select pg_temp.authz_expect_no_write('admin AI settings update', $$update public.app_ai_workspace_settings set daily_request_limit=999 where workspace_id='12a00000-0000-4000-8000-000000000001'$$);
 select pg_temp.authz_expect_no_write('admin owner profile update', $$update public.app_profiles set job_title='DENIED' where user_id='12000000-0000-4000-8000-000000000001'$$);
 select pg_temp.authz_expect_no_write('admin task delete', $$delete from public.app_tasks where id='12a70000-0000-4000-8000-000000000001'$$);
+select pg_temp.authz_expect_no_write('admin create invite', $$select public.app_create_invite('viewer',null,now()+interval '1 day')$$);
+select pg_temp.authz_expect_no_write('admin member role RPC', $$select public.app_set_workspace_member_role('12000000-0000-4000-8000-000000000003','viewer')$$);
+select pg_temp.authz_expect_no_write('admin save page RPC', $$select public.app_save_page_v2(null,'12a00000-0000-4000-8000-000000000001',null,'DENIED','task12a-admin-write','','','draft','private')$$);
+select pg_temp.authz_expect_no_write('admin event RPC', $$select public.app_update_event_body('12a30000-0000-4000-8000-000000000001','DENIED')$$);
+select pg_temp.authz_expect_no_write('admin delete pages RPC', $$select public.app_delete_pages(array['12a80000-0000-4000-8000-000000000004'::uuid])$$);
+do $$
+begin
+  if public.app_can_edit_page_rpc('12a80000-0000-4000-8000-000000000004') then raise exception 'admin page edit RPC bypass'; end if;
+  if (select count(*) from public.app_open_share('task12a-share')) <> 0 then raise exception 'admin share RPC bypass'; end if;
+end $$;
 reset role;
 
 -- Sole owner: all representative direct paths stay readable and writable.
@@ -198,6 +210,7 @@ insert into authz_sole_owner_results values
 do $$
 declare
   v_id uuid := '12afffff-0000-4000-8000-000000000001';
+  v_page public.app_pages;
 begin
   insert into public.app_meetings(id,workspace_id,title,created_by)
   values(v_id,current_setting('app.authz_workspace')::uuid,'OWNER CRUD',auth.uid());
@@ -205,8 +218,34 @@ begin
   if not found then raise exception 'owner meeting update failed'; end if;
   delete from public.app_meetings where id=v_id;
   if not found then raise exception 'owner meeting delete failed'; end if;
+  if not public.app_can_edit_page_rpc('12a80000-0000-4000-8000-000000000004') then raise exception 'owner page edit RPC failed'; end if;
+  if (select count(*) from public.app_open_share('task12a-share')) <> 1 then raise exception 'owner share RPC failed'; end if;
+  if not public.app_update_event_body('12a30000-0000-4000-8000-000000000001','OWNER RPC UPDATED') then raise exception 'owner event RPC failed'; end if;
+  v_page := public.app_save_page_v2(null,current_setting('app.authz_workspace')::uuid,null,'OWNER RPC PAGE','task12a-owner-rpc','','','draft','private');
+  if v_page.id is null then raise exception 'owner page save RPC failed'; end if;
+  if public.app_delete_pages(array[v_page.id]) <> 1 then raise exception 'owner page delete RPC failed'; end if;
+  perform public.app_set_workspace_member_role(current_setting('app.authz_admin')::uuid,'viewer');
+  perform public.app_set_workspace_member_role(current_setting('app.authz_admin')::uuid,'admin');
 end $$;
 reset role;
+
+do $$
+begin
+  if has_function_privilege('authenticated','public.app_accept_invite(text)','EXECUTE')
+     or has_function_privilege('authenticated','public.app_claim_owner(text,text)','EXECUTE')
+     or has_function_privilege('authenticated','public.app_request_workspace_access(text)','EXECUTE')
+     or has_function_privilege('authenticated','public.app_respond_project_invitation(uuid,boolean)','EXECUTE')
+     or has_function_privilege('authenticated','public.app_public_workspace_snapshot()','EXECUTE') then
+    raise exception 'retired collaboration RPC remains executable by authenticated';
+  end if;
+  if not has_function_privilege('anon','public.app_public_post(text)','EXECUTE')
+     or not has_function_privilege('anon','public.app_public_workspace_index()','EXECUTE') then
+    raise exception 'Web1 public projection execute grant changed';
+  end if;
+  if has_function_privilege('anon','private.app_is_workspace_admin(uuid)','EXECUTE') then
+    raise exception 'private owner helper remains executable by anon';
+  end if;
+end $$;
 
 do $$
 declare

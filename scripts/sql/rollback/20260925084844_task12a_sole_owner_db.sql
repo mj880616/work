@@ -553,6 +553,205 @@ revoke all privileges on table public."app_workspaces" from PUBLIC, anon, authen
 grant SELECT on table public."app_workspaces" to "authenticated";
 grant DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE on table public."app_workspaces" to "service_role";
 
+create or replace function private.app_is_workspace_admin(p_workspace uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select coalesce(private.app_role_rank((select m.role from public.app_workspace_members m where m.workspace_id=p_workspace and m.user_id=auth.uid())) >= 40, false)
+$$;
+revoke all on function private.app_is_workspace_admin(uuid) from PUBLIC, anon, authenticated, service_role;
+grant execute on function private.app_is_workspace_admin(uuid) to anon, authenticated;
+
+create or replace function public.app_can_edit_page_rpc(p_page uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, private
+as $$
+  select private.app_can_edit_page(p_page)
+$$;
+
+create or replace function public.app_create_invite(
+  p_role text default 'viewer'::text,
+  p_group uuid default null::uuid,
+  p_expires_at timestamptz default (now() + interval '7 days')
+)
+returns text
+language plpgsql
+security definer
+set search_path = pg_catalog, public, extensions
+as $$
+declare v_workspace uuid; v_token text;
+begin
+  select m.workspace_id into v_workspace
+  from public.app_workspace_members m
+  where m.user_id=auth.uid() and m.role in ('owner','admin')
+  order by case m.role when 'owner' then 1 else 2 end limit 1;
+  if v_workspace is null then raise exception 'admin permission required'; end if;
+  if p_role not in ('editor','author','viewer') then raise exception 'invalid role'; end if;
+  if p_group is not null and not exists(select 1 from public.app_groups g where g.id=p_group and g.workspace_id=v_workspace) then raise exception 'invalid group'; end if;
+  v_token := encode(extensions.gen_random_bytes(24),'hex');
+  insert into public.app_invites(workspace_id,group_id,token_hash,role,expires_at,created_by)
+  values(v_workspace,p_group,encode(extensions.digest(v_token::bytea,'sha256'),'hex'),p_role,p_expires_at,auth.uid());
+  return v_token;
+end
+$$;
+
+create or replace function public.app_delete_pages(p_page_ids uuid[])
+returns integer
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  requested_count integer;
+  existing_count integer;
+  deleted_count integer;
+begin
+  if p_page_ids is null or cardinality(p_page_ids)=0 then
+    return 0;
+  end if;
+  select count(distinct x) into requested_count from unnest(p_page_ids) x;
+  select count(*) into existing_count from public.app_pages p where p.id=any(p_page_ids);
+  if existing_count <> requested_count then raise exception '삭제할 페이지를 찾을 수 없습니다.'; end if;
+  if exists (
+    select 1 from public.app_pages p
+    where p.id=any(p_page_ids) and not private.app_can_manage_page(p.id)
+  ) then raise exception '삭제 권한이 없는 페이지가 포함되어 있습니다.'; end if;
+  delete from public.app_pages p where p.id=any(p_page_ids);
+  get diagnostics deleted_count = row_count;
+  return deleted_count;
+end
+$$;
+
+create or replace function public.app_open_share(p_token text)
+returns table(id uuid, slug text, title text, summary text, body text, content_format text, updated_at timestamptz)
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, extensions
+as $$
+  select p.id,p.slug,p.title,p.summary,p.body,p.content_format,p.updated_at
+  from public.app_share_links s join public.app_pages p on p.id=s.page_id
+  where s.token_hash=encode(extensions.digest(p_token::bytea,'sha256'),'hex')
+    and s.revoked_at is null and (s.expires_at is null or s.expires_at>now())
+  limit 1
+$$;
+
+create or replace function public.app_save_page_v2(
+  p_id uuid, p_workspace uuid, p_space uuid, p_title text, p_slug text,
+  p_summary text, p_body text, p_status text, p_visibility text
+)
+returns app_pages
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_role text;
+  v_page public.app_pages;
+begin
+  if v_uid is null then raise exception '로그인이 필요합니다.'; end if;
+  select role into v_role from public.app_workspace_members where workspace_id=p_workspace and user_id=v_uid;
+  if private.app_role_rank(v_role) < 20 then raise exception '페이지 작성 권한이 없습니다.'; end if;
+  if p_title is null or btrim(p_title)='' then raise exception '제목을 입력해 주세요.'; end if;
+  if p_slug is null or p_slug !~ '^[a-z0-9][a-z0-9-]*$' then raise exception '공유 URL 이름은 영문 소문자, 숫자, 하이픈만 사용할 수 있습니다.'; end if;
+  if p_status not in ('draft','review','published','archived') then raise exception '게시 상태가 올바르지 않습니다.'; end if;
+  if p_visibility not in ('public','unlisted','workspace','groups','private') then raise exception '공개 범위가 올바르지 않습니다.'; end if;
+  if p_space is not null then
+    if not exists(select 1 from public.app_spaces s where s.id=p_space and s.workspace_id=p_workspace) then raise exception '프로젝트가 올바르지 않습니다.'; end if;
+    if not private.app_can_edit_space(p_space) then raise exception '해당 프로젝트에 페이지를 작성할 권한이 없습니다.'; end if;
+  end if;
+  if p_id is null then
+    insert into public.app_pages(workspace_id,space_id,slug,title,summary,body,content_format,visibility,status,owner_id,published_at)
+    values(p_workspace,p_space,p_slug,btrim(p_title),nullif(btrim(coalesce(p_summary,'')),''),coalesce(p_body,''),'markdown',p_visibility,p_status,v_uid,case when p_status='published' then now() else null end)
+    returning * into v_page;
+  else
+    if not private.app_can_edit_page(p_id) then raise exception '페이지 수정 권한이 없습니다.'; end if;
+    update public.app_pages
+       set space_id=p_space, slug=p_slug, title=btrim(p_title), summary=nullif(btrim(coalesce(p_summary,'')),''), body=coalesce(p_body,''), content_format='markdown', visibility=p_visibility, status=p_status,
+           published_at=case when p_status='published' then coalesce(published_at,now()) else published_at end
+     where id=p_id and workspace_id=p_workspace
+     returning * into v_page;
+    if v_page.id is null then raise exception '페이지를 찾을 수 없습니다.'; end if;
+  end if;
+  return v_page;
+exception when unique_violation then
+  raise exception '같은 공유 URL 이름이 이미 사용 중입니다. 다른 이름을 입력해 주세요.';
+end
+$$;
+
+create or replace function public.app_set_workspace_member_role(p_user uuid, p_role text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, private, pg_temp
+as $$
+declare
+  v_actor uuid := auth.uid();
+  v_workspace uuid;
+  v_actor_role text;
+  v_target_role text;
+begin
+  select workspace_id, role into v_workspace, v_actor_role
+  from public.app_workspace_members
+  where user_id = v_actor
+  order by created_at asc limit 1;
+  if v_workspace is null or v_actor_role not in ('owner','admin') then raise exception '구성원 관리 권한이 없습니다.'; end if;
+  select role into v_target_role from public.app_workspace_members
+  where workspace_id = v_workspace and user_id = p_user;
+  if v_target_role is null then raise exception '해당 구성원을 찾을 수 없습니다.'; end if;
+  if p_user = v_actor then raise exception '본인 권한은 변경할 수 없습니다.'; end if;
+  if v_target_role = 'owner' then raise exception '소유자 권한은 변경할 수 없습니다.'; end if;
+  if p_role not in ('admin','editor','author','viewer') then raise exception '변경할 수 없는 권한입니다.'; end if;
+  if v_actor_role = 'admin' and (v_target_role = 'admin' or p_role = 'admin') then raise exception '관리자 지정·해제는 소유자만 할 수 있습니다.'; end if;
+  update public.app_workspace_members set role = p_role
+  where workspace_id = v_workspace and user_id = p_user;
+  return jsonb_build_object('ok',true,'role',p_role);
+end
+$$;
+
+create or replace function public.app_update_event_body(p_event uuid, p_body text)
+returns boolean
+language plpgsql
+security definer
+set search_path = pg_catalog, public, private
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_workspace uuid;
+  v_project uuid;
+  v_scope text;
+  v_created_by uuid;
+begin
+  if v_uid is null then raise exception 'authentication required'; end if;
+  select e.workspace_id, e.project_id, e.calendar_scope, e.created_by
+    into v_workspace, v_project, v_scope, v_created_by
+  from public.app_events e where e.id = p_event;
+  if v_workspace is null then raise exception 'not allowed'; end if;
+  if not (
+    (v_scope = 'personal' and v_created_by = v_uid)
+    or (v_scope = 'team' and (
+      (v_project is null and (v_created_by = v_uid or private.app_role_rank(private.app_workspace_role(v_workspace)) >= 30))
+      or (v_project is not null and (v_created_by = v_uid or private.app_can_edit_space(v_project)))
+    ))
+  ) then raise exception 'not allowed'; end if;
+  update public.app_events set body = coalesce(p_body,''), updated_at = now() where id = p_event;
+  return true;
+end
+$$;
+
+grant execute on function public.app_accept_invite(text) to authenticated;
+grant execute on function public.app_claim_owner(text,text) to authenticated;
+grant execute on function public.app_request_workspace_access(text) to authenticated;
+grant execute on function public.app_respond_project_invitation(uuid,boolean) to authenticated;
+grant execute on function public.app_public_workspace_snapshot() to authenticated;
+
 drop function if exists private.app_is_owner_conversation(uuid);
 drop function if exists private.app_is_owner_workplace(uuid);
 drop function if exists private.app_is_owner_profile(uuid);
