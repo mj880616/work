@@ -22,8 +22,10 @@ test('generated slug shell loads the shared renderer and uses fixed metadata slu
 
 test('all seven reviewed legacy URLs retain a fixed shell or generic redirect',()=>{
   const manifest=JSON.parse(readFileSync(new URL('../../p/.custom-page-shells.json',import.meta.url),'utf8'));
-  expect(manifest.slugs).toHaveLength(6);
-  for(const slug of manifest.slugs){
+  const reviewed=[...manifest.slugs,...manifest.withdrawn];
+  expect(reviewed).toHaveLength(6);
+  expect(new Set(reviewed).size).toBe(6);
+  for(const slug of reviewed){
     const shell=readFileSync(new URL(`../../p/${slug}/index.html`,import.meta.url),'utf8');
     expect(shell).toContain(`<meta name="kptu-page-slug" content="${slug}">`);
     expect(shell).toContain('PUBLIC_PAGE_META_START');
