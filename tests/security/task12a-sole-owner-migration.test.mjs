@@ -66,3 +66,22 @@ test('Task 12A SQL stays inside the DB/RLS/RPC scope',()=>{
   assert.match(snapshot,/20260925032810/,'snapshot must record the pre-change production migration head');
   assert.match(snapshot,/p\.proname\s+not\s+like\s+'app\\_google\\_%'/i,'snapshot must exclude Google functions');
 });
+
+test('Task 12A SQL actor matrix covers all four actors and mandatory regressions',()=>{
+  const matrix=readFileSync(new URL('supabase/tests/authz_sole_owner.sql',ROOT),'utf8');
+  const workflow=readFileSync(new URL('.github/workflows/authz-security-check.yml',ROOT),'utf8');
+
+  assert.match(matrix,/^begin\s*;/im,'actor matrix must be transactional');
+  assert.match(matrix,/^rollback\s*;/im,'actor matrix must roll back every fixture');
+  for(const actor of ['anon','non_member','admin','owner']){
+    assert.match(matrix,new RegExp(`['\"]${actor}['\"]`),`missing ${actor} actor`);
+  }
+  for(const surface of ['meetings','documents','events','organizations','profiles','ai','tasks']){
+    assert.match(matrix,new RegExp(`['\"]${surface}['\"]`),`missing ${surface} matrix surface`);
+  }
+  assert.match(matrix,/app_public_post\('task12a-public'\)/i,'public page projection regression is required');
+  assert.match(matrix,/public-doc-eeeeeeeeeeee/i,'public document projection regression is required');
+  assert.match(matrix,/gimpo-publicization/i,'allowed unlisted projection regression is required');
+  assert.match(matrix,/OWNER CRUD UPDATED/i,'owner CRUD regression is required');
+  assert.match(workflow,/supabase\/tests\/authz_sole_owner\.sql/,'CI must require the Task 12A actor matrix');
+});
