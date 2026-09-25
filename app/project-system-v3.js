@@ -24,7 +24,7 @@ const canEdit=p=>canManage(p);
 const MODAL_FOCUS={ps3DetailModal:'[data-ps3-close="ps3DetailModal"]',ps3CreateModal:'#ps3CreateName',ps3WorkstreamModal:'#ps3WsTitle',ps3MilestoneModal:'#ps3MilestoneTitle'};
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),2400)}
 async function googleCalendarCall(action,{method='GET',body=null,params=null}={}){if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await api(u.toString(),{method,body});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
-async function googleCalendarStatus(){const cached=window.__KPTU_GOOGLE_STATE__;if(cached&&typeof cached.connected==='boolean'&&Array.isArray(cached.calendars)){googleCalendarState=cached;return cached}try{googleCalendarState=await googleCalendarCall('status');window.__KPTU_GOOGLE_STATE__={...(window.__KPTU_GOOGLE_STATE__||{}),...(googleCalendarState||{})};return googleCalendarState}catch{googleCalendarState=null;return null}}
+async function googleCalendarStatus(){const cached=window.__KPTU_GOOGLE_STATE__;if(cached&&typeof cached.connected==='boolean'&&Array.isArray(cached.calendars)){googleCalendarState=cached;return cached}try{googleCalendarState=await googleCalendarCall('status');window.__KPTU_GOOGLE_STATE__={...(window.__KPTU_GOOGLE_STATE__||{}),...(googleCalendarState||{})};return googleCalendarState}catch(e){googleCalendarState={connected:false,calendars:[],warning:e?.message||String(e)};return googleCalendarState}}
 const writableGoogleCalendars=s=>(s?.calendars||[]).filter(x=>['owner','writer'].includes(x.accessRole||''));
 const milestoneGoogleLinked=m=>!!(m?.google_calendar_id&&m?.google_event_id);
 function milestoneVisibleBody(){
@@ -60,8 +60,9 @@ async function prepareMilestoneGoogle(milestone=null){
   if(hint)hint.textContent='Google Calendar 연결 상태를 확인하는 중…';
   const s=await googleCalendarStatus();
   if(!s?.connected){
-    sel.innerHTML='<option value="">Google Calendar 연결 필요</option>';
-    if(hint)hint.textContent='신규 프로젝트 일정은 Google Calendar 연결 후 저장할 수 있습니다.';
+    const reconnect=!!s?.warning;
+    sel.innerHTML='<option value="">'+(reconnect?'Google Calendar 재연결 필요':'Google Calendar 연결 필요')+'</option>';
+    if(hint)hint.textContent=reconnect?'Google Calendar 재연결이 필요합니다: '+s.warning:'신규 프로젝트 일정은 Google Calendar 연결 후 저장할 수 있습니다.';
     return
   }
   const rows=writableGoogleCalendars(s);
