@@ -94,6 +94,10 @@ test('Task 12A SQL actor matrix covers all four actors and mandatory regressions
   assert.match(matrix,/OWNER CRUD UPDATED/i,'owner CRUD regression is required');
   assert.match(matrix,/insert\s+into\s+public\.app_event_attendees[\s\S]*?on\s+conflict\s+do\s+nothing/i,
     'event attendee fixture must tolerate the production organizer trigger');
+  assert.match(matrix,/insert\s+into\s+public\.app_org_affiliation_tags[\s\S]*?['"](?:council|taskforce)['"]/i,
+    'organization affiliation fixture must use a production-valid kind');
+  assert.doesNotMatch(matrix,/app_org_affiliation_tags[\s\S]{0,300}['"]union['"]/i,
+    'organization affiliation fixture must not use the rejected legacy kind');
   assert.match(workflow,/supabase\/tests\/authz_sole_owner\.sql/,'CI must require the Task 12A actor matrix');
 });
 

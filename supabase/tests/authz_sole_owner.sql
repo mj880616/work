@@ -98,7 +98,7 @@ insert into public.app_suborganizations(id, workspace_id, name, created_by) valu
 insert into public.app_event_suborganizations(event_id, organization_id, created_by) values
   ('12a30000-0000-4000-8000-000000000001', '12a40000-0000-4000-8000-000000000001', current_setting('app.authz_owner')::uuid);
 insert into public.app_org_affiliation_tags(id, workspace_id, name, kind, created_by) values
-  ('12a41000-0000-4000-8000-000000000001', current_setting('app.authz_workspace')::uuid, 'OWNER TAG', 'union', current_setting('app.authz_owner')::uuid);
+  ('12a41000-0000-4000-8000-000000000001', current_setting('app.authz_workspace')::uuid, 'OWNER TAG', 'council', current_setting('app.authz_owner')::uuid);
 insert into public.app_suborganization_updates(id, organization_id, raw_text, created_by) values
   ('12a42000-0000-4000-8000-000000000001', '12a40000-0000-4000-8000-000000000001', 'OWNER UPDATE', current_setting('app.authz_owner')::uuid);
 insert into public.app_suborganization_weekly_reports(id, organization_id, week_of, created_by) values
