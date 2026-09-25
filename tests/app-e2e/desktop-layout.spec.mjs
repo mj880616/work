@@ -95,9 +95,10 @@ test('desktop web uses compact left navigation and safe project detail margins',
   expect(desktop.navDirection).toBe('column');
   expect(desktop.navPosition).toBe('sticky');
   expect(desktop.navWidth).toBeLessThanOrEqual(160);
-  expect(desktop.mainMaxWidth).toBe('1720px');
+  expect(desktop.mainMaxWidth).toBe('1920px');
   await page.locator('[data-view="projects"]').click();
   await expect(page.locator('#projectsView')).toBeVisible();
+  expect(await page.locator('main').evaluate(el=>getComputedStyle(el).maxWidth)).toBe('1720px');
 
   await page.evaluate(()=>{
     const modal=document.createElement('div');

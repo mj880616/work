@@ -271,6 +271,79 @@ test('desktop month view is viewport-based but capped to avoid oversized rows',a
   await page.setViewportSize({width:1280,height:1000});
   await page.goto(url);
   const metrics=await page.locator('#calendarGrid').evaluate(el=>({height:el.getBoundingClientRect().height,viewport:innerHeight}));
-  expect(metrics.height).toBeLessThanOrEqual(metrics.viewport*.72+2);
+  expect(metrics.height).toBeLessThanOrEqual(metrics.viewport*.82+2);
   expect(metrics.height).toBeGreaterThan(300);
+});
+
+test('desktop month view enlarges typography, bars and lane capacity across supported widths',async({page})=>{
+  for(const viewport of [{width:1280,height:800},{width:1440,height:900},{width:1920,height:1080}]){
+    await page.setViewportSize(viewport);
+    await page.goto(url);
+    await page.evaluate(()=>{
+      const grid=document.querySelector('#calendarGrid'),view=document.createElement('section');
+      view.id='calendarView';grid.before(view);view.appendChild(grid);window.renderMonth();
+    });
+    const metrics=await page.locator('#calendarGrid').evaluate(el=>{
+      const event=el.querySelector('.cmv-event'),day=el.querySelector('.cal-day'),head=el.querySelector('.cal-head'),time=el.querySelector('.cmv-event-time');
+      const css=getComputedStyle(el),eb=getComputedStyle(event),db=getComputedStyle(day),hb=getComputedStyle(head),tb=getComputedStyle(time);
+      return {
+        width:el.getBoundingClientRect().width,
+        head:parseFloat(hb.fontSize),day:parseFloat(db.fontSize),event:parseFloat(eb.fontSize),time:parseFloat(tb.fontSize),
+        bar:event.getBoundingClientRect().height,
+        weekHeight:el.querySelector('.cmv-week').getBoundingClientRect().height,
+        slots:Number(el.dataset.cmvLaneSlots)
+      };
+    });
+    expect(metrics.width).toBeGreaterThan(viewport.width*.9);
+    expect(metrics.head).toBeGreaterThanOrEqual(12);
+    expect(metrics.day).toBeGreaterThanOrEqual(12);
+    expect(metrics.event).toBeGreaterThanOrEqual(10.5);
+    expect(metrics.time).toBeGreaterThanOrEqual(9);
+    expect(metrics.bar).toBeGreaterThanOrEqual(18);
+    expect(metrics.weekHeight).toBeGreaterThanOrEqual(88);
+    expect(metrics.slots).toBeGreaterThanOrEqual(3);
+  }
+});
+
+test('mobile month density remains unchanged at 360, 390, 412 and 430 pixels',async({page})=>{
+  for(const width of [360,390,412,430]){
+    await page.setViewportSize({width,height:844});
+    await page.goto(url);
+    const metrics=await page.locator('#calendarGrid').evaluate(el=>{
+      const event=el.querySelector('.cmv-event'),day=el.querySelector('.cal-day'),time=el.querySelector('.cmv-event-time'),css=getComputedStyle(el);
+      return {laneStep:parseFloat(css.getPropertyValue('--cmv-lane-step')),bar:event.getBoundingClientRect().height,day:parseFloat(getComputedStyle(day).fontSize),event:parseFloat(getComputedStyle(event).fontSize),time:parseFloat(getComputedStyle(time).fontSize)};
+    });
+    expect(metrics.laneStep).toBe(14);
+    expect(metrics.bar).toBeLessThanOrEqual(13.5);
+    expect(metrics.day).toBeLessThanOrEqual(10);
+    expect(metrics.event).toBeLessThanOrEqual(8.5);
+    expect(metrics.time).toBeLessThanOrEqual(7.5);
+  }
+});
+
+test('event color presets use Google event colorIds and remain keyboard-focusable',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto(url);
+  await page.evaluate(()=>{
+    window.__KPTU_GOOGLE_STATE__={eventColors:{
+      '1':{background:'#a4bdfc',foreground:'#1d1d1d'},
+      '2':{background:'#7ae7bf',foreground:'#1d1d1d'},
+      '11':{background:'#dc2127',foreground:'#ffffff'}
+    }};
+    const box=document.createElement('div');box.id='presetFixture';document.body.appendChild(box);
+    window.KPTUCalendarColors.render(box,{value:'#dc2127',colorId:'11',touched:false,label:'테스트 일정 색상'});
+  });
+  const swatches=page.locator('#presetFixture .calendar-color-swatch');
+  await expect(swatches).toHaveCount(3);
+  await expect(swatches.nth(2)).toHaveAttribute('aria-checked','true');
+  await expect(swatches.nth(2)).toHaveAttribute('data-color-id','11');
+  await swatches.first().focus();
+  await swatches.first().press('ArrowRight');
+  const selected=await page.evaluate(()=>window.KPTUCalendarColors.value('#presetFixture'));
+  expect(selected.touched).toBe(true);
+  expect(selected.id).toBe('2');
+  expect(selected.hex).toBe('#7ae7bf');
+  const touchSize=await swatches.first().evaluate(el=>({w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height}));
+  expect(touchSize.w).toBeGreaterThanOrEqual(40);
+  expect(touchSize.h).toBeGreaterThanOrEqual(40);
 });
