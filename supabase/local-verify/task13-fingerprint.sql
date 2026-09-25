@@ -36,7 +36,10 @@ with target_functions(signature) as (
 ), fingerprints as (
   select
     'function:' || signature as component,
-    md5(jsonb_agg(to_jsonb(f) - 'signature' order by grantee,privilege_type,is_grantable)::text) as fingerprint
+    string_agg(
+      grantee || ':' || privilege_type || ':' || is_grantable::text,
+      ',' order by grantee,privilege_type,is_grantable
+    ) as fingerprint
   from function_state f
   group by signature
   union all
