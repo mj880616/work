@@ -9,6 +9,7 @@ test('Task 12A no-cost workflow has every local verification dependency',()=>{
   const required=[
     'supabase/local-verify/bootstrap-ci.sh',
     'supabase/local-verify/check-baseline.mjs',
+    'supabase/local-verify/schema-hash.mjs',
     'supabase/local-verify/compat-default-acl.mjs',
     'supabase/local-verify/diagnose-start.mjs',
     'supabase/local-verify/analyze-baseline.mjs',
