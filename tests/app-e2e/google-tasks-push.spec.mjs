@@ -3,12 +3,14 @@ import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const localDateKey=(offset=0,base=new Date())=>{const d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+offset);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
+const googleDue=(offset=0,base=new Date())=>`${localDateKey(offset,base)}T00:00:00.000Z`;
 
 async function mock(page){
   await page.route(`${SB}/**`,async route=>{
     const u=new URL(route.request().url()),p=u.pathname;
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
-    if(p==='/auth/v1/token')return ok({access_token:'qa',refresh_token:'qa',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'qa-user',email:'qa@example.org',user_metadata:{display_name:'QA'}}});
+    if(p==='/auth/v1/token')return ok({access_token:'qa',refresh_token:'qa',expires_in:3600,expires_at:4102444800,user:{id:'qa-user',email:'qa@example.org',user_metadata:{display_name:'QA'}}});
     if(p==='/auth/v1/user')return ok({id:'qa-user',email:'qa@example.org',user_metadata:{display_name:'QA'}});
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-user',role:'owner'}]);
     if(p==='/rest/v1/app_workspaces')return ok([{id:'qa-ws',name:'QA Workspace'}]);
@@ -16,7 +18,7 @@ async function mock(page){
     if(p==='/rest/v1/app_tasks')return ok([]);
     if(p==='/rest/v1/app_spaces')return ok([]);
     if(p==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,calendars:[],events:[]});
-    if(p==='/functions/v1/google-tasks')return ok({tasks:[{id:'g1',title:'Google QA 할 일',taskListTitle:'업무',due:null,notes:'',source:'google-task'}],needs_reconnect:false});
+    if(p==='/functions/v1/google-tasks')return ok({tasks:[{id:'g1',title:'Google QA 할 일',taskListTitle:'업무',due:googleDue(0),notes:'',status:'needsAction',source:'google-task'}],needs_reconnect:false});
     if(p.startsWith('/rest/v1/')||p.startsWith('/functions/v1/'))return ok([]);
     return ok({});
   });
@@ -38,6 +40,7 @@ test('Google Tasks remains separate from the app task list',async({page})=>{
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
+  await expect(page.locator('#gtTaskSection')).toContainText('오늘부터 7일');
   await expect(page.locator('#gtTaskSection')).toContainText('최근 3일');
 });
 
@@ -48,9 +51,9 @@ test('Google Tasks shows pending first and only completions from the last three 
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const action=new URL(route.request().url()).searchParams.get('action');
     const body=action==='status'?{connected:true,authorized:true}:{tasks:[
-      {id:'recent-done',title:'최근 완료',taskListId:'l1',taskListTitle:'업무',status:'completed',completed:recent,source:'google-task'},
-      {id:'old-done',title:'오래된 완료',taskListId:'l1',taskListTitle:'업무',status:'completed',completed:old,source:'google-task'},
-      {id:'pending',title:'미완료 우선',taskListId:'l1',taskListTitle:'업무',status:'needsAction',source:'google-task'}
+      {id:'recent-done',title:'최근 완료',taskListId:'l1',taskListTitle:'업무',due:googleDue(0),status:'completed',completed:recent,source:'google-task'},
+      {id:'old-done',title:'오래된 완료',taskListId:'l1',taskListTitle:'업무',due:googleDue(0),status:'completed',completed:old,source:'google-task'},
+      {id:'pending',title:'미완료 우선',taskListId:'l1',taskListTitle:'업무',due:googleDue(1),status:'needsAction',source:'google-task'}
     ],needs_reconnect:false};
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
   });
@@ -64,6 +67,40 @@ test('Google Tasks shows pending first and only completions from the last three 
   expect(Number(await rows.nth(1).evaluate(el=>getComputedStyle(el).opacity))).toBeLessThan(0.7);
   const edge=readFileSync('supabase/functions/google-tasks/index.ts','utf8');
   expect(edge).toContain("completedMin:new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
+});
+
+test('Google Tasks shows only local today through +6 days across a year boundary',async({browser})=>{
+  const context=await browser.newContext({timezoneId:'Asia/Seoul'});
+  const page=await context.newPage();
+  await page.clock.setFixedTime(new Date('2026-12-31T14:30:00.000Z'));
+  await mock(page);
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');
+    const body=action==='status'?{connected:true,authorized:true}:{tasks:[
+      {id:'yesterday',title:'어제',taskListId:'l1',taskListTitle:'업무',due:'2026-12-30T00:00:00.000Z',status:'needsAction',source:'google-task'},
+      {id:'today',title:'오늘',taskListId:'l1',taskListTitle:'업무',due:'2026-12-31T00:00:00.000Z',status:'needsAction',source:'google-task'},
+      {id:'tomorrow',title:'내일',taskListId:'l1',taskListTitle:'업무',due:'2027-01-01T00:00:00.000Z',status:'needsAction',source:'google-task'},
+      {id:'plus6',title:'+6일',taskListId:'l1',taskListTitle:'업무',due:'2027-01-06T00:00:00.000Z',status:'needsAction',source:'google-task'},
+      {id:'plus7',title:'+7일',taskListId:'l1',taskListTitle:'업무',due:'2027-01-07T00:00:00.000Z',status:'needsAction',source:'google-task'},
+      {id:'no-due',title:'기한 미정',taskListId:'l1',taskListTitle:'업무',due:null,status:'needsAction',source:'google-task'},
+      {id:'recent-done-in',title:'범위 내 최근 완료',taskListId:'l1',taskListTitle:'업무',due:'2027-01-01T00:00:00.000Z',status:'completed',completed:'2026-12-31T13:30:00.000Z',source:'google-task'},
+      {id:'recent-done-out',title:'범위 밖 최근 완료',taskListId:'l1',taskListTitle:'업무',due:'2027-01-07T00:00:00.000Z',status:'completed',completed:'2026-12-31T13:30:00.000Z',source:'google-task'}
+    ],needs_reconnect:false};
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+  });
+  await login(page);
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  const section=page.locator('#gtTaskSection');
+  await expect(section).toContainText('오늘');
+  await expect(section).toContainText('내일');
+  await expect(section).toContainText('+6일');
+  await expect(section).toContainText('범위 내 최근 완료');
+  await expect(section).not.toContainText('어제');
+  await expect(section).not.toContainText('+7일');
+  await expect(section).not.toContainText('기한 미정');
+  await expect(section).not.toContainText('범위 밖 최근 완료');
+  await expect(section.locator('.gt-row')).toHaveCount(4);
+  await context.close();
 });
 
 test('Google Tasks layout fits supported mobile widths',async({page})=>{
@@ -88,7 +125,7 @@ test('Google Tasks can be created, edited, completed, reopened and deleted',asyn
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
     if(action==='status')return ok({connected:true,authorized:true});
     if(action==='lists')return ok({lists:[{id:'l1',title:'업무'}]});
-    if(action==='tasks')return ok({tasks:[{id:'g1',title:'Google QA 할 일',taskListId:'l1',taskListTitle:'업무',due:null,notes:'메모',status:'needsAction',source:'google-task'}],needs_reconnect:false});
+    if(action==='tasks')return ok({tasks:[{id:'g1',title:'Google QA 할 일',taskListId:'l1',taskListTitle:'업무',due:googleDue(0),notes:'메모',status:'needsAction',source:'google-task'}],needs_reconnect:false});
     calls.push({action,body});return ok({ok:true});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
@@ -138,9 +175,9 @@ test('direct A-to-B session switch discards a stale Google Tasks response',async
     if(auth==='Bearer token-a'){
       aRequestStarted=true;
       await new Promise(resolve=>{releaseA=resolve});
-      return ok({tasks:[{id:'a-private',title:'A의 비공개 Google 할 일',taskListTitle:'A 목록',source:'google-task'}],needs_reconnect:false});
+      return ok({tasks:[{id:'a-private',title:'A의 비공개 Google 할 일',taskListTitle:'A 목록',due:googleDue(0),status:'needsAction',source:'google-task'}],needs_reconnect:false});
     }
-    return ok({tasks:[{id:'b-private',title:'B의 Google 할 일',taskListTitle:'B 목록',source:'google-task'}],needs_reconnect:false});
+    return ok({tasks:[{id:'b-private',title:'B의 Google 할 일',taskListTitle:'B 목록',due:googleDue(0),status:'needsAction',source:'google-task'}],needs_reconnect:false});
   });
   await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-a',refresh_token:'token-a',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-a'}}));
   await expect.poll(()=>aRequestStarted).toBeTruthy();
