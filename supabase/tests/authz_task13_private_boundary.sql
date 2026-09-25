@@ -59,7 +59,7 @@ begin
       '{"display_name":"Task 13 local owner"}'::jsonb, now(), now()
     );
     insert into public.app_workspaces(id,slug,name)
-    values ('13000000-0000-4000-8000-000000000011','task13-local','Task 13 local');
+    values ('13000000-0000-4000-8000-000000000011','kptu-work','Task 13 local');
     alter table public.app_workspace_members
       disable trigger trg_app_enforce_workspace_member_role;
     insert into public.app_workspace_members(workspace_id,user_id,role)
