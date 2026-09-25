@@ -46,6 +46,10 @@ select 'tables=' || md5((select coalesce(jsonb_agg(to_jsonb(s) order by relname)
 union all
 select 'policies=' || md5((select coalesce(jsonb_agg(to_jsonb(p) order by tablename,policyname,cmd),'[]'::jsonb) from policies p)::text)
 union all
-select 'grants=' || md5((select coalesce(jsonb_agg(to_jsonb(g) order by table_name,grantee,privilege_type),'[]'::jsonb) from grants g)::text)
+select 'grant.' || t.table_name || '=' || md5((
+  select coalesce(jsonb_agg(to_jsonb(g) order by grantee,privilege_type),'[]'::jsonb)
+  from grants g where g.table_name=t.table_name
+)::text)
+from target_tables t
 union all
 select 'functions=' || md5((select coalesce(jsonb_agg(to_jsonb(f) order by nspname,proname,args),'[]'::jsonb) from functions f)::text);
