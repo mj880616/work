@@ -87,7 +87,6 @@ test('new meeting stores raw result exactly and creates linked follow-up tasks w
   await page.locator('#meetingTitle').fill('회의 단순화 검증');
   await page.locator('#meetingAt').fill('2026-09-24T11:00');
   await page.locator('#meetingProject').selectOption('main-1');
-  await page.locator('#meetingSeriesName').fill('궤도협의회 집행위원회');
   await page.locator('#meetingRoundNo').fill('9');
   await page.locator('#meetingTranscript').fill(raw);
   await page.locator('#meetingNotes').fill(special);
@@ -109,6 +108,9 @@ test('new meeting stores raw result exactly and creates linked follow-up tasks w
   expect(s.meetings[0].location).toBeUndefined();
   expect(s.meetings[0].attendee_count).toBeUndefined();
   expect(s.meetings[0].project_id).toBe('main-1');
+  expect(s.meetings[0].title).toBe('회의 단순화 검증');
+  expect(s.meetings[0].series_name).toBe('회의 단순화 검증');
+  expect(s.meetings[0].round_no).toBe(9);
   expect(s.tasks[0]).toMatchObject({title:'후속 자료 정리',project_id:'main-1',assignee_id:'user-1',source_type:'meeting',source_id:'meeting-1'});
 });
 
