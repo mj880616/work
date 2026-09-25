@@ -33,16 +33,21 @@ with target_functions(signature) as (
   select p.oid::regprocedure::text as signature, pg_get_functiondef(p.oid) as definition
   from pg_proc p join pg_namespace n on n.oid=p.pronamespace
   where n.nspname='private' and p.proname='app_enforce_web2_private_visibility'
-)
-select 'functions=' || md5(coalesce((
-  -- Compare effective EXECUTE semantics. GRANT after a schema-only restore can
-  -- legitimately record a different grantor while preserving the same
-  -- non-grantable privilege set; grantor identity does not change who can call
-  -- these functions and is therefore not part of the rollback contract.
-  select jsonb_agg(to_jsonb(f) order by signature,grantee,privilege_type,is_grantable)::text
+), fingerprints as (
+  select
+    'function:' || signature as component,
+    md5(jsonb_agg(to_jsonb(f) - 'signature' order by grantee,privilege_type,is_grantable)::text) as fingerprint
   from function_state f
-),'[]'))
-union all
-select 'triggers=' || md5(coalesce((select jsonb_agg(to_jsonb(t) order by nspname,relname,tgname)::text from trigger_state t),'[]'))
-union all
-select 'helper=' || md5(coalesce((select jsonb_agg(to_jsonb(h) order by signature)::text from helper_state h),'[]'));
+  group by signature
+  union all
+  select 'triggers', md5(coalesce((select jsonb_agg(to_jsonb(t) order by nspname,relname,tgname)::text from trigger_state t),'[]'))
+  union all
+  select 'helper', md5(coalesce((select jsonb_agg(to_jsonb(h) order by signature)::text from helper_state h),'[]'))
+)
+-- Compare effective EXECUTE semantics per function. GRANT after a schema-only
+-- restore can legitimately record a different grantor while preserving the
+-- same non-grantable privilege set; grantor identity does not change who can
+-- call these functions and is therefore not part of the rollback contract.
+select component || '=' || fingerprint
+from fingerprints
+order by component;
