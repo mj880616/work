@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync,mkdtempSync,mkdirSync,cpSync,rmSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,cpSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -32,19 +32,23 @@ test('real generic template has managed metadata markers and stays noindex',()=>
   assert.match(shell,/src="\.\.\/public-post\.js\?v=3"/);
 });
 
-function runGeneratorWithSyntheticFetch(status=200){
+// Runs the real generator in a temp copy of the reviewed shells. `overrides`
+// maps a slug to a synthetic {status,body} response for that slug only.
+function runGeneratorWithSyntheticFetch(status=200,{overrides={},manifest=null}={}){
   const dir=mkdtempSync(path.join(tmpdir(),'web2-public-meta-'));
   try{
     mkdirSync(path.join(dir,'p'),{recursive:true});
     cpSync(path.join(ROOT,'p','index.html'),path.join(dir,'p','index.html'));
-    cpSync(path.join(ROOT,'p','.custom-page-shells.json'),path.join(dir,'p','.custom-page-shells.json'));
-    const slugs=JSON.parse(readFileSync(path.join(ROOT,'p','.custom-page-shells.json'),'utf8')).slugs;
+    const reviewed=JSON.parse(readFileSync(path.join(ROOT,'p','.custom-page-shells.json'),'utf8'));
+    const used=manifest||reviewed;
+    writeFileSync(path.join(dir,'p','.custom-page-shells.json'),JSON.stringify(used));
+    const slugs=[...reviewed.slugs,...reviewed.withdrawn];
     for(const slug of slugs){
       mkdirSync(path.join(dir,'p',slug),{recursive:true});
       cpSync(path.join(ROOT,'p',slug,'index.html'),path.join(dir,'p',slug,'index.html'));
     }
     const before=slugs.map(slug=>readFileSync(path.join(dir,'p',slug,'index.html'),'utf8'));
-    const source=`globalThis.fetch=async(_url,options)=>{const slug=JSON.parse(options.body).p_slug;return new Response(${status}===200?JSON.stringify([{title:'합성 '+slug,summary:'합성 요약',indexable:false,page_design:{}}]):JSON.stringify({code:'PGRST202'}),{status:${status},headers:{'Content-Type':'application/json'}})};await import(${JSON.stringify(new URL('./generate-public-pages.mjs',import.meta.url).href)});`;
+    const source=`const overrides=${JSON.stringify(overrides)};globalThis.fetch=async(_url,options)=>{const slug=JSON.parse(options.body).p_slug;const o=overrides[slug];if(o)return new Response(JSON.stringify(o.body),{status:o.status,headers:{'Content-Type':'application/json'}});return new Response(${status}===200?JSON.stringify([{title:'합성 '+slug,summary:'합성 요약',indexable:false,page_design:{}}]):JSON.stringify({code:'PGRST202'}),{status:${status},headers:{'Content-Type':'application/json'}})};await import(${JSON.stringify(new URL('./generate-public-pages.mjs',import.meta.url).href)});`;
     const result=spawnSync(process.execPath,['--input-type=module','-e',source],{cwd:dir,encoding:'utf8'});
     const after=slugs.map(slug=>readFileSync(path.join(dir,'p',slug,'index.html'),'utf8'));
     return {result,slugs,before,after};
@@ -70,6 +74,72 @@ test('pre-migration missing RPC preserves all six existing public shells',()=>{
 test('metadata generation still fails on server errors',()=>{
   const {result,before,after}=runGeneratorWithSyntheticFetch(503);
   assert.notEqual(result.status,0);
+  assert.deepEqual(after,before);
+});
+
+test('empty lookup for a live page keeps its shell unchanged and exits 1',()=>{
+  const {result,slugs,before,after}=runGeneratorWithSyntheticFetch(200,{overrides:{'line9-publicization':{status:200,body:[]}}});
+  assert.equal(result.status,1,result.stderr);
+  assert.match(result.stderr,/no row for live page line9-publicization/);
+  for(const [index,slug] of slugs.entries()){
+    if(slug==='line9-publicization'){
+      assert.equal(after[index],before[index]);
+      assert.doesNotMatch(after[index],/<title>공유 게시글<\/title>/);
+    }else{
+      assert.match(after[index],new RegExp(`<title>합성 ${slug}</title>`));
+    }
+  }
+});
+
+test('empty lookup for every live page changes no shell and exits 1',()=>{
+  const overrides=Object.fromEntries(JSON.parse(readFileSync(path.join(ROOT,'p','.custom-page-shells.json'),'utf8')).slugs.map(slug=>[slug,{status:200,body:[]}]));
+  const {result,before,after}=runGeneratorWithSyntheticFetch(200,{overrides});
+  assert.equal(result.status,1,result.stderr);
+  assert.deepEqual(after,before);
+});
+
+test('withdrawn page gets neutral noindex metadata regardless of the RPC row',()=>{
+  const reviewed=JSON.parse(readFileSync(path.join(ROOT,'p','.custom-page-shells.json'),'utf8'));
+  const all=[...reviewed.slugs,...reviewed.withdrawn];
+  const target='gimpo-publicization-audit';
+  const manifest={slugs:all.filter(slug=>slug!==target),withdrawn:[target]};
+  const {result,slugs,after}=runGeneratorWithSyntheticFetch(200,{manifest});
+  assert.equal(result.status,0,result.stderr);
+  const html=after[slugs.indexOf(target)];
+  assert.match(html,/<title>공유 게시글<\/title>/);
+  assert.match(html,/<meta name="robots" content="noindex,nofollow">/);
+  assert.match(html,/<meta property="og:title" content="공유 게시글">/);
+  assert.doesNotMatch(html,/content="합성/);
+  assert.match(html,new RegExp(`<meta name="kptu-page-slug" content="${target}">`));
+  for(const [index,slug] of slugs.entries()){
+    if(slug!==target)assert.match(after[index],new RegExp(`<title>합성 ${slug}</title>`));
+  }
+});
+
+test('manifest must list six unique reviewed slugs across live and withdrawn',()=>{
+  const reviewed=JSON.parse(readFileSync(path.join(ROOT,'p','.custom-page-shells.json'),'utf8'));
+  const all=[...reviewed.slugs,...reviewed.withdrawn];
+  for(const manifest of [
+    {slugs:all},
+    {slugs:all.slice(1),withdrawn:[all[1]]},
+    {slugs:all.slice(0,5),withdrawn:[]},
+    {slugs:all,withdrawn:[all[0]]}
+  ]){
+    const {result,before,after}=runGeneratorWithSyntheticFetch(200,{manifest});
+    assert.notEqual(result.status,0);
+    assert.match(result.stderr,/Invalid reviewed custom public page manifest/);
+    assert.deepEqual(after,before);
+  }
+});
+
+test('a later missing RPC leaves earlier live shells unchanged',()=>{
+  const reviewed=JSON.parse(readFileSync(path.join(ROOT,'p','.custom-page-shells.json'),'utf8'));
+  // Slugs before the 404 return rows; the old loop wrote them before stopping.
+  const middle=reviewed.slugs[3];
+  const {result,before,after}=runGeneratorWithSyntheticFetch(200,{overrides:{
+    [middle]:{status:404,body:{code:'PGRST202'}}
+  }});
+  assert.equal(result.status,0,result.stderr);
   assert.deepEqual(after,before);
 });
 
