@@ -18,7 +18,7 @@ async function mockApp(page,state){
       if(method==='POST'){
         state.googleCalls=state.googleCalls||[];
         state.googleCalls.push(body||{});
-        if(state.googleFailures?.[action])return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:state.googleFailures[action])});
+        if(state.googleFailures?.[action])return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:state.googleFailures[action]})});
         if(action==='delete-event')return ok({ok:true});
         if(action==='update-event')return ok({ok:true,event:{id:body?.event_id,calendarId:body?.calendar_id||'primary'}});
         const createCount=state.googleCalls.filter(x=>x.action==='create-event').length;
