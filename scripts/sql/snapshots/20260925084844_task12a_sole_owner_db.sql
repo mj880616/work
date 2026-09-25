@@ -2,7 +2,7 @@
 -- Captured target: xmlkxfjeagycwttklxjw / kptu-shared-checklists.
 -- Captured latest production migration before change: 20260925032810.
 -- This file is read-only. Save its result before applying the paired migration.
- 
+
 -- CAPTURED PRODUCTION STATE (2026-09-25, before Task 12A)
 -- app_ai_conversations: rls=true force=false
 -- policy app_ai_conversations_self_delete | DELETE | roles=["public"] | using="(owner_id = auth.uid())" | check=null
@@ -181,7 +181,7 @@
 -- policy app_workspaces_member_read | SELECT | roles=["authenticated"] | using="private.app_is_workspace_member(id)" | check=null
 -- grants [{"grantee":"authenticated","grantable":false,"privilege":"SELECT"},{"grantee":"service_role","grantable":false,"privilege":"DELETE"},{"grantee":"service_role","grantable":false,"privilege":"INSERT"},{"grantee":"service_role","grantable":false,"privilege":"MAINTAIN"},{"grantee":"service_role","grantable":false,"privilege":"REFERENCES"},{"grantee":"service_role","grantable":false,"privilege":"SELECT"},{"grantee":"service_role","grantable":false,"privilege":"TRIGGER"},{"grantee":"service_role","grantable":false,"privilege":"TRUNCATE"},{"grantee":"service_role","grantable":false,"privilege":"UPDATE"}]
 -- END CAPTURED PRODUCTION STATE
- 
+
 -- CAPTURED WEB2 FUNCTION STATE (definitions remain queryable below)
 -- function private.app_can_edit_page(p_page uuid) | definer=true | settings=["search_path=pg_catalog, public"] | acl="{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres}" | anon=true | authenticated=true | service_role=false | definition_md5=7470e924528d888ea1fa179558b276c6
 -- function private.app_can_edit_space(p_space uuid) | definer=true | settings=["search_path=pg_catalog, public"] | acl="{=X/postgres,postgres=X/postgres,authenticated=X/postgres}" | anon=true | authenticated=true | service_role=true | definition_md5=19fbe8fdb834672bca771c0f87d7ee00
