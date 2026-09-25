@@ -10,6 +10,9 @@ Claude Code 세션용 개발 규칙 요약. 운영 서비스 저장소이며 `ma
 - 작업 브랜치 → 커밋 → PR. `main`에 직접 push하지 않는다. merge는 사용자 승인 후에만 한다.
 - 사용자의 미커밋 변경을 덮어쓰거나 지우지 않는다. 관련 없는 변경을 한 작업에 섞지 않는다.
 - 과거 대화와 현재 저장소가 다르면 저장소와 실행 결과를 따른다.
+- 개발 작업 원장은 `docs/roadmap.md`다. 새 작업은 원장에 행을 추가한 뒤 시작한다.
+- 작업 PR은 원장의 해당 행 상태·PR 번호를 같은 PR에서 갱신한다.
+- 공개 저장소이므로 원장·문서에 이메일, 계정명, 키, 토큰, 개인정보를 쓰지 않는다.
 
 ## 조사와 수정
 
@@ -53,6 +56,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포, Cloudflare 설�
 
 ## 참고 문서
 
+- `docs/roadmap.md`: Web2 개발 작업 원장. 작업 순서·상태·PR 번호.
 - `app/ARCHITECTURE.md`: Web2 앱 진입 경로, 모듈 로딩, 화면 전환 소유권 구조.
 - `docs/bokdoong-domain.md`: bokdoong.com 도메인 연결과 호스트·경로 운영 설계.
 - `docs/web2-expand-deploy-verify-contract.md`: Web2 공개 경로 변경의 Expand → Deploy → Verify → Contract 배포 순서.
