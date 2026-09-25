@@ -78,7 +78,7 @@ Task 32 착수 전 모두 완료한다.
 | --- | --- |
 | CLAUDE.md 신설 | #289 |
 | CLAUDE.md 세션 구분·Edge 배포·완료보고 양식 추가, Task 15 완료 기록 | #292 |
-| AGENTS.md 제품 구조 섹션을 현재 방향(Web2 sole-owner 비공개·Web1 공개 채널·RTW 분리)으로 재작성 (#273 대체) | |
+| AGENTS.md 제품 구조 섹션을 현재 방향(Web2 sole-owner 비공개·Web1 공개 채널·RTW 분리)으로 재작성 (#273 대체) | #293 |
 
 ## 갱신 규칙
 
