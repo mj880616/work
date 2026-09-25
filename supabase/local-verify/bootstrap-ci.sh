@@ -136,6 +136,22 @@ if [[ "${WEB2_TASK13:-0}" == 1 ]]; then
   task13_fingerprint="$repo_root/supabase/local-verify/task13-fingerprint.sql"
   task13_rollback="$repo_root/scripts/sql/rollback/$task13_migration"
 
+  # The hosted schema grants these retired Task 12 entry points only to
+  # service_role. A schema-only restore into a fresh local stack can recreate
+  # the local postgres default PUBLIC function ACL before the per-object ACL is
+  # replayed. Normalize the disposable copy to the reviewed hosted ACL so the
+  # actor matrix tests the production authorization boundary.
+  psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 <<'SQL'
+revoke execute on function public.app_accept_invite(text) from PUBLIC, anon, authenticated;
+revoke execute on function public.app_claim_owner(text,text) from PUBLIC, anon, authenticated;
+revoke execute on function public.app_request_workspace_access(text) from PUBLIC, anon, authenticated;
+revoke execute on function public.app_respond_project_invitation(uuid,boolean) from PUBLIC, anon, authenticated;
+grant execute on function public.app_accept_invite(text) to service_role;
+grant execute on function public.app_claim_owner(text,text) to service_role;
+grant execute on function public.app_request_workspace_access(text) to service_role;
+grant execute on function public.app_respond_project_invitation(uuid,boolean) to service_role;
+SQL
+
   psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -f "$task13_fingerprint" \
     > "$ci_root/task13-before.hash" 2> "$ci_root/task13-before.err"
 
