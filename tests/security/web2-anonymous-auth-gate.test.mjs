@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync} from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 
@@ -57,4 +57,15 @@ test('authenticated workspace initialization errors remain recoverable',()=>{
   assert.match(team,/showWorkspaceError\(\)/);
   assert.match(team,/bootRetryBtn/);
   assert.match(team,/bootLogoutBtn/);
+});
+
+test('Web2 client contains no account creation or membership mutation paths, including inactive files',()=>{
+  const root=new URL('../../app/',import.meta.url);
+  for(const path of readdirSync(root,{recursive:true})){
+    if(!/\.(js|html)$/.test(path))continue;
+    const source=readFileSync(new URL(path.replaceAll('\\','/'),root),'utf8');
+    assert.doesNotMatch(source,/\/auth\/v1\/signup|\bsignUp\b|app_(?:accept_invite|claim_owner|request_workspace_access|join_default_team|approve_access_request|reject_access_request|create_invite|set_workspace_member_role)|FIRST ADMIN/,path);
+  }
+  assert.doesNotMatch(loader,/access-approval/);
+  assert.match(loader,/if\(teamState!=='workspace'\)return;/);
 });

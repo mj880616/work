@@ -24,8 +24,8 @@ test('anonymous workspace shell stays hidden until the dedicated login is ready'
 
   await page.goto('http://127.0.0.1:8123/app/', { waitUntil: 'commit' });
   await expect.poll(() => appRequested, { timeout: 10000 }).toBeTruthy();
-  await page.locator('#authView').waitFor({ state: 'attached', timeout: 10000 });
   await page.locator('#appView').waitFor({ state: 'attached', timeout: 10000 });
+  await expect(page.locator('#authView')).toHaveCount(0);
 
   const favicon = await page.locator('link[rel="icon"]').getAttribute('href');
   expect(favicon).toBe('./app-icon.svg?v=20260924-unicorn3');
@@ -33,8 +33,6 @@ test('anonymous workspace shell stays hidden until the dedicated login is ready'
   await expect(page.locator('.brand .brand-icon')).toHaveAttribute('src','./app-icon.svg?v=20260924-unicorn3');
   await expect(page.locator('.brand .leaf')).toHaveCount(0);
 
-  const legacyAuthDisplay = await page.locator('#authView').evaluate(el => getComputedStyle(el).display);
-  expect(legacyAuthDisplay).toBe('none');
 
   await page.evaluate(() => document.querySelector('#appView')?.classList.remove('hidden'));
   const beforeReady = await page.locator('#appView').evaluate(el => getComputedStyle(el).visibility);

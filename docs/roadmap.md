@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
-- 최종 갱신일: 2026-09-26
-- 기준 main SHA: `a3666fb` (#322)
+- 최종 갱신일: 2026-09-27
+- 기준 main SHA: `2b14a5b` (#324)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -98,12 +98,15 @@
 | ENV-6b | 원본 없는 Edge Function 원본 확보 + 계정-1 사후 검증 | 완료 | #321 | 기준 `9e273e2`. [문서](web2-env6b-edge-source.md). 조회·내려받기만(배포·삭제·DB 쓰기 없음). 17개 내려받음: work 9·read-think-write 3 커밋(읽생기 #88), 비밀값이 박힌 공개 페이지 함수 5개(rail-1007-plan·rail-declaration-comments·rail-declaration-content·press-conference-files·joint-struggle-files)는 커밋 안 함(사용자 PC 보관). 함수별 verify_jwt를 문서 2.2에 기록. 판정 확정: 삭제 8·유지 9. 계정-1 사후 값 일치, 할 일 57 vs 58은 문서 1.1. 읽생기 #88. 발견사항(기록만): 원본 없던 공개 페이지 함수 6개 모두 verify_jwt=false(Origin·4자리 비밀번호·공개 업로드 키로만 막음), rtw-owner-claim 9/17~18 약 1,540회 집중 호출(이후 0회) |
 | ENV-6c | 삭제 목록 함수 삭제(사용자 대시보드 실행) + 게시판 시험 페이지 정리 | 완료 | #322 | 기준 `a93cc40`. PR merge 후 사용자가 대시보드에서 함수 8개 삭제. 이 PR: `kptu-probe/` 시험 페이지와 `.github/workflows/kptu-board-probe.yml` 삭제(다른 곳에서 불러오거나 링크하지 않음, 캐시 버전 변경 대상 없음). 함수 원본 `supabase/functions/kptu-board-probe/`는 되돌리기용으로 유지. 삭제 대상: ENV-6b 문서 3.1의 8개(push-notifications·rtw-owner-claim·rtw-owner-setup·rail-1007-page·rail-1007-page-v2·pc0914-storage-test·pc-file-test·kptu-board-probe). 두 저장소 호출처 없음 확인. Edge 변경이라 정지 지점. 되돌리기는 저장소 원본을 같은 verify_jwt로 재배포. 사용자 대시보드 삭제 2026-09-26. ENV-7 조회로 삭제 8개 없음·남은 함수 30개·유지 9개 존재 확인(ENV-6b 문서 5.1) |
 | ENV-7 | Codex 병행 준비 | 완료 | #323 | Codex CLI 조회 전용 연결 시험 통과 2026-09-26(사용자 확인). #323 main 반영 확인. AGENTS.md 규칙 단일화, 도구별 경계·캐시 버전 규칙 정리. production 함수별 verify_jwt는 [ENV-6b 문서](web2-env6b-edge-source.md) 5절. 비밀값은 저장소·Codex 웹 환경에 넣지 않음 |
-| SEC-1 | auth-handoff 보안 점검 | 진행중 | #324 | 코드·migration 후보·동시성 테스트 구현. **DB 적용·Edge 배포 대기**. v2 nonce 1회 소비, 원문 OAuth fallback 제거, CORS/no-store, 캐시 전파. PostgreSQL 17.6 동시 20건: nonce 1개·refresh 1회. [검증·운영 정지 지점](web2-sec1-auth-handoff.md). Draft 유지·운영 적용/merge 금지 |
-| 20 | signup/invite/access/FIRST ADMIN UI 제거 | 대기 | | 묶음B. 조사 문서 1.2. 화면만(가입 탭·초대 안내·FIRST ADMIN·접근요청 화면·access-approval.js·가입 요청 가로채기, 비활성 구성원 관리 파일, 관련 테스트). Auth 가입 설정은 읽생기 공유라 바꾸지 않음 |
-| 22 | Events attendee/invite active code 제거 | 대기 | | 묶음B. 조사 문서 1.4. 일정 저장 시 참석자 행을 만드는 트리거(trg_app_add_event_creator_attendee) 삭제 포함(DB 변경, 정지 지점) |
-| 23 | Projects member/invitation active code 제거 | 대기 | | 묶음B. 조사 문서 1.5. Edge canEditProject의 보관 프로젝트 서버 거부 포함. meeting-files·meeting-ai-draft·library-files의 app_space_members·구성원 역할 조회 제거(Edge 배포, 정지 지점) |
+| SEC-1 | auth-handoff 보안 점검 | 완료 | #324 | 운영 DB·Edge 적용 완료(사용자 확인). 2026-09-27 read-only 재확인: migration `20260926154120`·`sec1_auth_handoff_once` 기록 존재, auth-handoff v4·verify_jwt=false·배포 소스와 main 원문 일치. v2 nonce 1회 소비, 원문 OAuth fallback 제거. Android 실물 검증 보류(앱 미사용). [기존 준비·검증 기록](web2-sec1-auth-handoff.md)은 적용 전 시점이며 현재 상태는 이 행과 migration-history.md를 따른다 |
+| 20 | signup/invite/access/FIRST ADMIN UI 제거 | 진행중 | | 묶음B PR 1(이 PR). 가입·초대·접근요청·관리자 지정 화면과 클라이언트 코드 제거. 비구성원은 접근 거부 안내와 로그아웃만 표시. Auth 가입 설정·RLS·Edge·읽생기 로그인은 변경하지 않음. DB 후속은 20-DB |
+| 22 | Events attendee/invite active code 제거 | 대기 | | 묶음B PR 2 예정. PR 1(Task 20) merge 후 새 세션에서 화면·클라이언트 코드·테스트 제거 및 DB 후속 계획만 진행. 참석자 자동 생성 트리거·표는 22-DB·Edge에서 별도 처리 |
+| 23 | Projects member/invitation active code 제거 | 대기 | | 묶음B PR 2 예정. PR 1(Task 20) merge 후 새 세션에서 화면·클라이언트 코드·테스트 제거 및 Edge·DB 후속 계획만 진행. 보관 프로젝트 서버 거부·구성원 역할 조회 정리는 23-DB·Edge에서 별도 처리 |
+| 20-DB | 가입·초대·접근요청·역할 지정 DB 후속 정리 | 대기 | | 27·28과 함께 처리. Task 20은 화면·클라이언트 제거만. RPC·표·트리거는 유지하며 소유자 제한과 기존 실행권한 회수는 그대로. 공유 Auth·읽생기 영향 사전 확인, snapshot·rollback·사용자 승인 후 별도 적용 |
+| 22-DB·Edge | 일정 참석자 자동 생성·조회 후속 제거 | 대기 | | PR 2에서 계획·SQL 초안·복구안 작성. `trg_app_add_event_creator_attendee`·생성 함수·`app_event_attendees`, `team-ai` 참석자 조회 의존. Edge 조회 제거 검증 → 트리거/함수 → 의존성 감사 후 표 순서 검토. 실행은 별도 승인, Claude Code 로컬만 |
+| 23-DB·Edge | 프로젝트 구성원·초대 DB/Edge 후속 제거 | 대기 | | PR 2에서 계획·SQL 초안·복구안 작성. `meeting-files`·`meeting-ai-draft`·`library-files` 구성원/역할 조회와 보관 프로젝트 서버 거부, `app_space_members`·`app_project_invitations`·관련 함수/정책/트리거. Edge 배포·DB 적용은 별도 승인, Claude Code 로컬만 |
 | ENV-4 | 캐시 버전 누락 자동검사 | 대기 | | 묶음B(별도 PR). 파일 수정 시 로더 캐시 버전(`?v=`) 올림 누락을 CI가 잡는 검사 추가: #309에서 `view-loader.js` 버전 누락으로 배포 후 옛 화면이 남은 사례(#310에서 수정). `.github/workflows/suborganization-filters-e2e.yml`이 없는 파일 `app/profile-workplace-sync.js`를 grep으로 검사함(경고만 나고 실패하지 않아 검사가 무의미) |
-| TASK-구현 | 화면별 할 일 추가를 Google Tasks로, 연결 안 된 할 일 모음, 목록 개수 기준 변경 | 대기 | | 묶음C. TASK-설계 뒤. 조사 문서 3절. 첫 단계로 Google 할 일 미표시 원인 확인(같은 계정인데 Web2에 안 보임). 조사문서 5절 8번 로그인 복귀 주소 문제와 관련 가능. 할 일 화면 57건 vs DB 58건 차이 확인 결과 반영(ENV-6b 문서 1.1: 화면은 본인 담당 할 일을 거르지 않고 전부 표시, 차이 1건은 계정-1 A단계에서 본인에게 옮긴 회의 후속 할 일, 새로고침 후 58건 확인, 문제 없음) |
+| TASK-구현 | 화면별 할 일 추가를 Google Tasks로, 연결 안 된 할 일 모음, 목록 개수 기준 변경 | 대기 | | 묶음C. TASK-설계 뒤. 조사 문서 3절. Google 할 일 칸에 완료된 것만 보이고 미완료는 안 보임. 연결·권한 정상, 표시·조회 조건 문제로 추정. 이 증상부터 재현. 할 일 화면 57건 vs DB 58건 차이 확인 결과 반영(ENV-6b 문서 1.1: 화면은 본인 담당 할 일을 거르지 않고 전부 표시, 차이 1건은 계정-1 A단계에서 본인에게 옮긴 회의 후속 할 일, 새로고침 후 58건 확인, 문제 없음) |
 | 21 | Tasks 협업 active code 제거 | 대기 | | 묶음C. 범위 변경: Web2 할 일 기능 전체 제거. TASK-설계 결과를 따른다. 기존 할 일 데이터는 보관 없이 삭제(사용자 확인). 조사 문서 1.9 |
 | 일정 인증-1 | google-calendar 인증 실패 응답 400→401 정리 | 대기 | | 묶음C. Google Tasks 단일화로 중요도 상향(할 일 원본이 Google 인증에 의존). google-tasks도 같은 400 응답이라 함께 정리(조사 문서 3.6) |
 | 25 | team-ai → 개인 업무 AI 전환 | 대기 | | 인박스·주간 정리 버튼·자동요약·보고서 양식 포함, 배치는 묶음A 결과 후 결정. 주간 정리 시 회의·면담 메모의 후속조치(결정·담당·기한·다음 확인) 빠짐 표시 포함. 설계 근거는 조사 문서 4절. team-ai 메시지 저장 오류(DB-1 신규) 포함 |
@@ -134,6 +137,13 @@
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
 
 비고: migration 버전 불일치 3건(enable_multiuser_personal_spaces, add_free_beta_controls, add_beta_access_status_rpc)은 RTW 작업(RTW-1~3) 소관이다. 읽생기 저장소 파일과 production 기록의 버전이 다르다. 대응은 [docs/migration-history.md](migration-history.md).
+
+## 사용자 할 일
+
+- Task 20 PR 검토·merge 결정. 현재 진행중이며 merge하지 않았다.
+- Task 20 merge 후 새 세션에서 PR 2(22·23 화면·클라이언트 제거와 후속 계획)를 시작한다.
+- Android 0.1.13 설치는 할 일에서 제외한다(앱 미사용). 이름-1의 APK 설명은 과거 변경 기록이며 설치 요청이 아니다. SEC-1 Android 실물 검증은 보류한다.
+- DB·Edge 후속은 별도 승인 전 실행하지 않는다.
 
 ## 기타 문서 PR
 
