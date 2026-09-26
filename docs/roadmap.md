@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `1712050` (Merge pull request #296)
+- 기준 main SHA: `d187ffb` (Merge pull request #297)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -65,8 +65,8 @@
 | Web1-2 | p/bus-strike-publicness-internal-archive-202609 셸 상태 확인 | 종료 | | 대상 글이 production app_pages·app_page_revisions에 없음(로컬 read-only 조회로 확인). anon app_public_post 빈 결과로 이미 링크 공개 종료 상태. 원본 없음, 복구하지 않기로 소유자 결정. 흔적 정리는 Web1-3 |
 | Web1-3 | bus-strike-publicness-internal-archive-202609 흔적 정리 | 대기 | | 범위: app_public_post allowlist에서 slug 제거(migration 필요, 적용 직전 정지), redirect 셸 처리 방침 결정, E2E 7번째 redirect 검사와 supabase/tests/authz_* 의 7행 가정 수정. 위험: 같은 slug로 새 글이 생기면 allowlist 때문에 자동 링크 공개됨 |
 | Web1-4 | app_delete_pages RPC 제거 (9/22 빈 조회 원인 경로 차단) | 완료 | #296 | 2026-09-26 SQL Editor 적용, 로컬 사후 검증 통과. schema_migrations 기록 없음(ENV-2에서 정리) |
-| ENV-1 | gh CLI 설치·로그인 | 대기 | | 사용자 작업 |
-| ENV-2 | migration 기록 불일치 정리 | 대기 | | SQL Editor·직접 적용분(add_resource_delete_rpc, Task 12A·13, Web1-4 등)과 저장소 migration 버전 대조. 정리 전 supabase db push 금지. Task 26 전 필수 |
+| ENV-1 | gh CLI 설치·로그인 | 완료 | | 2026-09-26 로컬 세션에서 gh 로그인 확인 |
+| ENV-2 | migration 기록 불일치 정리 | 완료 | #298 | 방침 확정: 공유 DB이므로 db push·migration repair 영구 금지, 불일치는 대응표로 관리, 이후 적용 SQL에 기록 1행 insert. 대응표 [docs/migration-history.md](migration-history.md) |
 | ENV-3 | migration 시험 환경 결정 | 대기 | | Docker 도입 또는 PGlite 표준화 |
 | ENV-4 | 브랜치 정리 | 대기 | | merge·close된 브랜치 대상. 급하지 않음 |
 | DB-1 | 반복 DB 오류 조사 | 대기 | | app_workspace_members.email 없는 열 조회, app_project_publication_state 권한 거부 |
@@ -75,6 +75,8 @@
 ### 별도 트랙: RTW
 
 Task 32 착수 전 모두 완료한다.
+
+비고: migration 버전 불일치 3건(enable_multiuser_personal_spaces, add_free_beta_controls, add_beta_access_status_rpc)은 RTW 트랙 소관이다. 읽생기 저장소 파일과 production 기록의 버전이 다르다. 대응은 [docs/migration-history.md](migration-history.md).
 
 | 번호 | 작업명 | 상태 | PR | 비고(의존관계) |
 | --- | --- | --- | --- | --- |
@@ -91,6 +93,7 @@ Task 32 착수 전 모두 완료한다.
 | AGENTS.md 제품 구조 섹션을 현재 방향(Web2 sole-owner 비공개·Web1 공개 채널·RTW 분리)으로 재작성 (#273 대체) | #293 |
 | roadmap 갱신: Web1-1 완료, Web1-2 종료, Web1-3 등록, 상태값 '종료' 정의 추가 | #295 |
 | roadmap 갱신: Web1-4 완료, ENV-1~4·DB-1~2 등록, Task 31 비고 추가. CLAUDE.md production DB 적용 절차 추가 | #297 |
+| ENV-2 방침 확정: migration-history.md 신설, CLAUDE.md db push·repair 영구 금지·적용 확인 절차 추가, ENV-1·ENV-2 완료 | #298 |
 
 ## 갱신 규칙
 

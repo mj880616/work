@@ -65,8 +65,11 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포, Cloudflare 설�
 
 - 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
 - AI가 apply_migration 등 쓰기 도구로 production DB를 직접 변경하지 않는다.
-- supabase db push는 ENV-2 완료 전 금지.
+- supabase db push·migration repair는 영구 금지. production DB를 읽생기 저장소와 공유한다(`docs/migration-history.md`).
 - migration마다 rollback SQL과 snapshot을 함께 두고, 적용 SQL은 main 파일 원문으로 제시(화면 출력 잘림 주의).
+- 적용 SQL은 `commit;` 직전에 `supabase_migrations.schema_migrations` 기록 1행 insert를 포함한다. version·name은 저장소 파일 이름과 같게 한다.
+- DB 변경을 요청할 때 사용자에게 일상어 3줄을 먼저 제시한다: 무엇이 바뀌나 / 잘못되면 어떤 일이 생기나 / 되돌리는 방법.
+- 사용자에게 확인받을 3가지: 커맨드센터 실행 승인, SQL 끝이 `commit;`인지, 실행 결과 Success.
 
 ## 지시서 표시
 
@@ -109,6 +112,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포, Cloudflare 설�
 ## 참고 문서
 
 - `docs/roadmap.md`: Web2 개발 작업 원장. 작업 순서·상태·PR 번호.
+- `docs/migration-history.md`: 저장소 migration 파일과 production 기록의 대응표.
 - `app/ARCHITECTURE.md`: Web2 앱 진입 경로, 모듈 로딩, 화면 전환 소유권 구조.
 - `docs/bokdoong-domain.md`: bokdoong.com 도메인 연결과 호스트·경로 운영 설계.
 - `docs/web2-expand-deploy-verify-contract.md`: Web2 공개 경로 변경의 Expand → Deploy → Verify → Contract 배포 순서.
