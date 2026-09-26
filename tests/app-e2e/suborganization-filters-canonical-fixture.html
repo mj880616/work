@@ -10,6 +10,8 @@ const orgs=[
  {id:'org-consumer',workspace_id:'ws-1',name:'한국소비자원지부',aliases:['소비자원'],description:'소비자 정책',organization_type:'중앙공공기관',default_assignee_name:'한소영',created_by:'user-me',active:true}
 ];
 const updates=[{id:'up-old',organization_id:'org-rail',raw_text:'지난주 지부장 통화: 인력 요구안 확정',detail_text:null,occurred_at:'2026-09-20T01:00:00Z'}];
+const memos=[{id:'memo-1',organization_id:'org-rail',title:'최근 교섭',body:'정책교섭 자료 취합 중',sort_order:0,created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-22T00:00:00Z'}];
+window.__deletes=[];window.__failDelete=false;window.__deleteNoRows=false;
 window.__updatePosts=[];window.__updateClock=Date.parse('2026-09-26T00:00:00Z');window.__failUpdateSave=false;
 let assignments=[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
 window.__patches=[];
@@ -27,7 +29,16 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
    const id=decodeURIComponent(path.match(/id=eq\.([^&]+)/)?.[1]||'');
    return orgs.filter(x=>x.id===id);
  }
- if(path.startsWith('/rest/v1/app_suborganization_status_items?organization_id=eq.'))return [{id:'memo-1',organization_id:'org-rail',title:'최근 교섭',body:'정책교섭 자료 취합 중',sort_order:0,created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-22T00:00:00Z'}];
+ if(path.startsWith('/rest/v1/app_suborganization_status_items?organization_id=eq.'))return memos.slice();
+ if(opt.method==='DELETE'&&(path.startsWith('/rest/v1/app_suborganization_updates?id=eq.')||path.startsWith('/rest/v1/app_suborganization_status_items?id=eq.'))){
+   window.__deletes.push({path,prefer:opt.prefer||''});
+   if(window.__failDelete)throw new Error('네트워크 오류');
+   if(window.__deleteNoRows)return [];
+   const id=decodeURIComponent(path.match(/[?&]id=eq\.([^&]+)/)?.[1]||''),org=decodeURIComponent(path.match(/organization_id=eq\.([^&]+)/)?.[1]||'');
+   const list=path.includes('app_suborganization_updates')?updates:memos,idx=list.findIndex(x=>x.id===id&&x.organization_id===org);
+   if(idx<0)return [];
+   list.splice(idx,1);return [{id}];
+ }
  if(path.startsWith('/rest/v1/app_suborganization_timeline?organization_id=eq.'))return [{id:'time-1',organization_id:'org-rail',event_year:2026,event_date:'2026-09-15',category:'회의',title:'정책교섭 담당자회의',summary:'자료 제출 현황 확인',occurrence_count:1,sort_order:0}];
  if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&path.includes('user_id=eq.user-me'))return [{user_id:'user-me'}];
  if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&path.includes('user_id=eq.user-viewer'))return [];

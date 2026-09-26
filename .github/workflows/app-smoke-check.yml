@@ -51,7 +51,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=51')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=17')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=18')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
