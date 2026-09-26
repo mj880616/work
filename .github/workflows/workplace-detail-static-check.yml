@@ -6,6 +6,7 @@ on:
     paths:
       - 'app/workplace-detail.js'
       - 'app/workplace-detail.css'
+      - 'app/workplace-ai-report.js'
       - 'app/styles.css'
       - 'app/loader-v2.js'
       - 'app/view-loader.js'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'app/workplace-detail.js'
       - 'app/workplace-detail.css'
+      - 'app/workplace-ai-report.js'
       - 'app/styles.css'
       - 'app/loader-v2.js'
       - 'app/view-loader.js'
@@ -30,12 +32,19 @@ jobs:
           set -e
           test -f app/workplace-detail.js
           test -f app/workplace-detail.css
-          grep -q "workplace-detail.css?v=3" app/styles.css
-          grep -q "workplace-detail.js?v=6" app/view-loader.js
+          grep -q "workplace-detail.css?v=4" app/styles.css
+          grep -q "workplace-detail.js?v=7" app/view-loader.js
           grep -q "data-wd-close" app/workplace-detail.js
-          grep -q "data-wd-item-edit" app/workplace-detail.js
           grep -q "data-wd-time-edit" app/workplace-detail.js
-          grep -q "id=\"wdUpdateCurrent\"" app/workplace-detail.js
+          grep -q "id=\"wdInboxText\"" app/workplace-detail.js
+          grep -q "id=\"wdInboxSave\"" app/workplace-detail.js
+          grep -q "workplace-ai-report.js?v=3" app/view-loader.js
+          if grep -Eq "wdUpdateCurrent|wdCurrentModal|wdAddItem|wdItemModal" app/workplace-detail.js; then
+            echo 'removed current-status/memo input returned to workplace detail'; exit 1
+          fi
+          if grep -Eq "warRaw|warSaveRaw" app/workplace-ai-report.js; then
+            echo 'duplicate raw update input returned to AI report'; exit 1
+          fi
           grep -q "id=\"wdBasicView\"" app/workplace-detail.js
           if grep -q "wdDeleteOrg" app/workplace-detail.js; then
             echo 'organization delete returned to normal detail'; exit 1
@@ -50,3 +59,4 @@ jobs:
             echo 'workplace detail bypassed shared runtime session'; exit 1
           fi
           node --check app/workplace-detail.js
+          node --check app/workplace-ai-report.js

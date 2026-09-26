@@ -85,7 +85,7 @@ test('startup loads only requested route CSS before showing the shell', async ()
     './web1-press.css?v=1',
     './web1-board.css?v=2',
     './suborganizations.css?v=5',
-    './workplace-detail.css?v=3'
+    './workplace-detail.css?v=4'
   ]) expect(views).toContain(asset);
 });
 

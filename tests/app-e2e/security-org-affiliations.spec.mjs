@@ -103,6 +103,7 @@ test('organization detail shows representative contact, system update time, and 
   await page.evaluate(()=>{const b=document.createElement('button');b.id='openOrgE2E';b.dataset.psWorkplaceOrg='org-1';document.body.appendChild(b)});
   await page.locator('#openOrgE2E').click();
   await expect(page.locator('#wdModal')).toBeVisible();
+  await page.locator('#wdMore > summary').click();
   await expect(page.locator('label:has-text("대표자 연락처")')).toContainText('대표자 연락처');
   await expect(page.locator('#wdContact')).toHaveValue('010-1234-5678');
   await expect(page.locator('#wdUpdated')).not.toHaveText('-');

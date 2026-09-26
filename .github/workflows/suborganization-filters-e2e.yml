@@ -8,6 +8,7 @@ on:
       - 'app/suborganizations.css'
       - 'app/workplace-detail.js'
       - 'app/workplace-detail.css'
+      - 'app/workplace-ai-report.js'
       - 'app/profile-workplace-sync.js'
       - 'app/loader-v2.js'
       - 'app/view-loader.js'
@@ -24,6 +25,7 @@ on:
       - 'app/suborganizations.css'
       - 'app/workplace-detail.js'
       - 'app/workplace-detail.css'
+      - 'app/workplace-ai-report.js'
       - 'app/profile-workplace-sync.js'
       - 'app/loader-v2.js'
       - 'app/view-loader.js'
@@ -53,16 +55,17 @@ jobs:
           test ! -f app/suborganization-planned-assignee.js
           grep -q "suborganizations.js?v=8" app/view-loader.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/view-loader.js
-          grep -q "workplace-detail.js?v=6" app/view-loader.js
+          grep -q "workplace-detail.js?v=7" app/view-loader.js
           grep -q "suborganizations.css?v=5" app/styles.css
-          grep -q "workplace-detail.css?v=3" app/styles.css
+          grep -q "workplace-detail.css?v=4" app/styles.css
           if grep -q "suborganization-filters.js" app/loader-v2.js app/view-loader.js; then echo 'removed assigned-organization filter module returned'; exit 1; fi
           if grep -q "suborganization-filters.css" app/styles.css; then echo 'removed assigned-organization filter styles returned'; exit 1; fi
           grep -q "default_assignee_name" app/suborganizations.js
           grep -q "sofEditType" app/suborganizations.js
           grep -q "id=\"soOrgCount\"" app/suborganizations.js
           grep -q "const mine=myOrganizations()" app/suborganizations.js
-          grep -q "id=\"wdUpdateCurrent\"" app/workplace-detail.js
+          grep -q "id=\"wdInboxSave\"" app/workplace-detail.js
+          if grep -Eq "wdUpdateCurrent|wdAddItem" app/workplace-detail.js; then echo 'removed current-status/memo input returned'; exit 1; fi
           grep -q "id=\"wdBasicView\"" app/workplace-detail.js
           if grep -q "wdDeleteOrg" app/workplace-detail.js; then echo 'organization delete returned to normal detail'; exit 1; fi
           if grep -q "MutationObserver" app/suborganizations.js app/workplace-detail.js app/profile-workplace-sync.js; then
