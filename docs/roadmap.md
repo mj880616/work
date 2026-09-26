@@ -37,6 +37,8 @@
 - 2026-09-26 공개 페이지 편집 비밀번호는 현행 유지한다(사용자 판단: 피해 작음). 비밀번호가 든 함수 5개 원본은 사용자 PC 백업에만 보관하고 저장소에 올리지 않는다.
 - 2026-09-26 게시판 수집 시험 페이지(`kptu-probe/`)와 수집 시험 작업(`kptu-board-probe.yml`)을 삭제한다(ENV-6c).
 - 2026-09-26 도구: Claude Code와 Codex를 병행한다. 도구 전환은 작업 사이에서만 한다. 초기에는 배포·DB 변경은 Claude Code, 화면·문서 작업은 Codex도 가능. 준비는 ENV-7.
+- 2026-09-26 Codex PC는 workspace-write로 운영한다(작업 폴더 밖 쓰기·네트워크는 승인 필요). 사용자 PC 설정에서 danger-full-access를 바꿈(ENV-7).
+- 2026-09-26 Edge Function 삭제 후보: `document-ai-index`(Web2, 앱 코드 호출 없음, 보안 테스트에서만 참조). 다음 Edge 정리 때 삭제한다. 삭제는 정지 지점이며 되돌리기는 저장소 원본을 verify_jwt=true로 재배포([ENV-6b 문서](web2-env6b-edge-source.md) 5절).
 
 디자인 전면 개선(2026-09-26 결정, 작업 표 "디자인" 행)
 
