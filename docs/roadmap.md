@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `fbf4a3a` (Merge pull request #298)
+- 기준 main SHA: `e98bbd9` (Merge pull request #299)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -42,7 +42,7 @@
 | 14 | 자료실 프로젝트 선택을 canonical 프로젝트 목록과 동기화 | 완료 | #288 | |
 | 일정 UX-1 | 데스크톱 캘린더 주 높이 동적 조정 | 완료 | #285 | |
 | 15 | 자료실 upload failure normalization | 완료 | #291 | library-files Edge v13 배포 2026-09-26, 실사용 업로드 확인 |
-| 일정 성능-1 | Google Calendar 로딩 최적화 | 진행중 | #299 | 기준 `fbf4a3a`. 클라이언트 범위만(status 캐시·포커스 최소화·월 재방문 캐시). 캘린더별 events 병렬화·colors 1회는 Edge 변경 필요로 미포함 |
+| 일정 성능-1 | Google Calendar 로딩 최적화 | 완료 | #299 | 기준 `fbf4a3a`. 클라이언트 범위만(status 캐시·포커스 최소화·월 재방문 캐시). 캘린더별 events 병렬화·colors 1회는 Edge 변경 필요로 미포함(일정 성능-2). 2026-09-26 실사용 확인 |
 | 16 | 프로젝트 진행상황 UI 압축 | 대기 | | |
 | 17 | 주요 화면 정보밀도 정리 | 대기 | | |
 | 18 | 담당조직 자유입력 Inbox | 대기 | | |
@@ -71,6 +71,7 @@
 | ENV-4 | 브랜치 정리 | 대기 | | merge·close된 브랜치 대상. 급하지 않음 |
 | DB-1 | 반복 DB 오류 조사 | 대기 | | app_workspace_members.email 없는 열 조회, app_project_publication_state 권한 거부 |
 | DB-2 | 삭제 시 수정 이력 보존 설계 | 대기 | | 페이지 삭제 시 app_page_revisions cascade 삭제, 다른 삭제 경로 포함. 보류 가능 |
+| 일정 성능-2 | google-calendar Edge 로딩 최적화 | 진행중 | | 순서: 일정 성능-1 다음. 기준 `e98bbd9`. events 캘린더별 병렬(동시 4)·일부 실패 시 성공분+warning, colors 팔레트 isolate 메모리 캐시(30분). 코드만, Edge 배포는 로컬 세션 별도 |
 
 ### 별도 트랙: RTW
 
