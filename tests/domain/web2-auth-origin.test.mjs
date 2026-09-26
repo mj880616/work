@@ -7,17 +7,20 @@ import vm from 'node:vm';
 const root = resolve(import.meta.dirname, '../..');
 
 for (const origin of ['https://mj880616.github.io', 'https://desk.bokdoong.com']) {
-  test(`email confirmation stays on ${origin}`, async () => {
-    const html = readFileSync(resolve(root, 'app/index.html'), 'utf8');
-    const script = html.match(/<script>(\(\(\)=>\{const f=window\.fetch[\s\S]*?)<\/script>/)?.[1];
-    assert.ok(script, 'signup redirect hook exists');
+  test(`login API retains password sign-in without account creation on ${origin}`, async () => {
+    const source = readFileSync(resolve(root, 'app/auth-service.js'), 'utf8');
     const calls = [];
-    const window = { fetch: async url => { calls.push(url); return {}; } };
-    const context = vm.createContext({ window, location: { origin, href: `${origin}/work/app/` }, URL });
-    vm.runInContext(script, context);
-    await window.fetch('https://xmlkxfjeagycwttklxjw.supabase.co/auth/v1/signup');
-    const redirect = new URL(calls[0]).searchParams.get('redirect_to');
-    assert.equal(redirect, `${origin}/work/app/confirmed.html`);
+    const window = {KPTURuntime: {config: {url: 'https://example.test', key: 'synthetic'}, session: {write() {}}}};
+    const context = vm.createContext({window, location: {origin, pathname: '/work/app/'}, URL, fetch: async (url, init) => {
+      calls.push({url, body: JSON.parse(init.body)});
+      return {ok: true, json: async () => ({access_token: 'synthetic'})};
+    }});
+    vm.runInContext(source, context);
+    assert.equal(window.KPTUAuth.signUp, undefined);
+    await window.KPTUAuth.signIn('test@example.test', 'synthetic-password');
+    assert.equal(calls[0].url, 'https://example.test/auth/v1/token?grant_type=password');
+    assert.equal(calls[0].body.email, 'test@example.test');
+    assert.equal(window.KPTUAuth.safeReturn(`${origin}/work/app/?view=tasks`), `${origin}/work/app/?view=tasks`);
   });
 
   test(`password recovery stays on ${origin}`, async () => {

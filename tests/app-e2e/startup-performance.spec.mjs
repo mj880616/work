@@ -44,24 +44,24 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
   expect(loader).toContain("mark('membershipCheckStart')");
   expect(loader).toContain("mark('membershipCheckComplete')");
   const team=read('app/team.js');
-  expect(team).toContain("'authView','bootstrapView','appView','bootView'");
+  expect(team).toContain("'accessDeniedView','appView','bootView'");
 });
 
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=127" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=128" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=239','./runtime-client.js?v=5','./native-auth-bridge.js?v=5',
+    './loader-v2.js?v=240','./runtime-client.js?v=5','./native-auth-bridge.js?v=5',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=239')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=240')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=5')");
-  expect(loader).toContain("import('./team.js?v=51')");
+  expect(loader).toContain("import('./team.js?v=52')");
   expect(loader).toContain("import('./view-loader.js?v=18')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
@@ -160,9 +160,10 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   expect(meetings).toContain('window.KPTUTeamData?.spaces?.()');
 });
 
-test('feature navigation lazy-loads only the destination view and bootstrap still loads access approval', async () => {
+test('feature navigation lazy-loads only the destination view and nonmembers stop before feature loading', async () => {
   const source=read('app/loader-v2.js');
-  expect(source).toContain("if(teamState==='bootstrap'){await import('./access-approval.js?v=5');return}");
+  expect(source).toContain("if(teamState!=='workspace')return;");
+  expect(source).not.toContain("access-approval.js");
   expect(source).toContain("event.stopImmediatePropagation()");
   expect(source).toContain('#appView [data-hdv-goto]');
   expect(source).toContain('#newTaskBtn');

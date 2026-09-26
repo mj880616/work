@@ -1,18 +1,20 @@
-name: Team member overview E2E
+name: Web2 membership removal E2E
 on:
   pull_request:
     branches: [main]
     paths:
-      - 'app/team-member-overview*.js'
-      - 'app/team-member-management.js'
-      - 'tests/app-e2e/team-member-*'
+      - 'app/**'
+      - 'tests/app-e2e/nonmember-access.spec.mjs'
+      - 'tests/app-e2e/access-request-push.spec.mjs'
+      - 'tests/app-e2e/solo-shell.spec.mjs'
       - '.github/workflows/team-member-overview-e2e.yml'
   push:
     branches: [main]
     paths:
-      - 'app/team-member-overview*.js'
-      - 'app/team-member-management.js'
-      - 'tests/app-e2e/team-member-*'
+      - 'app/**'
+      - 'tests/app-e2e/nonmember-access.spec.mjs'
+      - 'tests/app-e2e/access-request-push.spec.mjs'
+      - 'tests/app-e2e/solo-shell.spec.mjs'
       - '.github/workflows/team-member-overview-e2e.yml'
 jobs:
   e2e:
@@ -26,4 +28,5 @@ jobs:
       - run: npm install --no-save @playwright/test@1.55.0
       - run: npx playwright install --with-deps chromium
       - run: python3 -m http.server 8123 >/tmp/http.log 2>&1 &
-      - run: npx playwright test tests/app-e2e/team-member-overview.spec.mjs tests/app-e2e/team-member-management.spec.mjs --browser=chromium --workers=1 --reporter=line
+      - run: node --test tests/domain/web2-auth-origin.test.mjs
+      - run: npx playwright test tests/app-e2e/nonmember-access.spec.mjs tests/app-e2e/access-request-push.spec.mjs tests/app-e2e/solo-shell.spec.mjs --browser=chromium --workers=1 --reporter=line

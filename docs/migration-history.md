@@ -14,13 +14,13 @@
 
 ## 대조 결과 요약
 
-### ENV-2 이후 미적용 후보
+### ENV-2 이후 적용 기록
 
 | 저장소 파일 | production 상태 | 비고 |
 | --- | --- | --- |
-| `20260926154120_sec1_auth_handoff_once.sql` | 미적용·기록 없음 (2026-09-27 KST read-only 조회) | SEC-1 #324 Draft. 로컬 PostgreSQL 권한/동시성/rollback 검증. DB 적용·Edge 배포 대기 |
+| `20260926154120_sec1_auth_handoff_once.sql` | 적용 완료·기록 존재 (2026-09-27 KST Task 20 read-only 재확인) | version `20260926154120`, name `sec1_auth_handoff_once` 일치. SEC-1 #324 운영 DB·Edge 적용 완료(사용자 확인). auth-handoff v4·verify_jwt=false, 배포 소스와 저장소 원문 일치. Android 실물 검증 보류. 이 세션은 조회만 수행 |
 
-아래 ENV-2 집계는 당시 조사값이며 위 신규 후보를 소급 포함하지 않는다.
+아래 ENV-2 집계는 당시 조사값이며 위 후속 적용을 소급 포함하지 않는다.
 
 | 분류 | 건수 |
 | --- | --- |

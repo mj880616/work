@@ -50,7 +50,7 @@ jobs:
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=51')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=52')",'await window.__KPTU_TEAM_READY__',
             "import('./view-loader.js?v=18')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
@@ -82,13 +82,12 @@ jobs:
             app/index.html app/app.js app/loader-v2.js app/app-router.js app/runtime-client.js \
             app/auth-service.js app/capabilities.js app/login/index.html app/login/login.js \
             app/team.js app/topbar-actions.js app/topbar-actions.css \
-            app/team-member-overview.js app/team-member-overview.css app/team-profile-view.js app/team-profile-view.css app/team-member-management.js app/team-member-management.css \
             app/profile-settings.js app/profile-settings.css \
             app/task-workflow.js app/task-row-view.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/compact-list.css \
             app/project-system-v3.js app/project-system-v3.css app/project-catalog.js \
             app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
             app/workflow-ai-v3.js app/workplace-ai-report.js app/photo-room.js \
-            app/access-approval.css app/meeting-ui.css app/photo-room.css p/index.html; do
+            app/meeting-ui.css app/photo-room.css p/index.html; do
             test -f "$f"
           done
           test -d app/legacy
@@ -102,10 +101,10 @@ jobs:
           test ! -f app/task-assignment-visibility.js
 
           grep -q 'id="appView"' app/index.html
-          grep -q 'id="authView"' app/index.html
+          grep -q 'id="accessDeniedView"' app/index.html
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
-          grep -q "critical.css?v=6" app/index.html
+          grep -q "critical.css?v=7" app/index.html
           if grep -q "styles.css?v=51" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
@@ -135,8 +134,8 @@ jobs:
           if grep -R -q "20260924-unicorn2" app/index.html app/windows-manifest.json app/sw.js; then echo 'poisoned Web2 icon URL returned'; exit 1; fi
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
-          grep -q "topbar-actions.js?v=10" app/loader-v2.js
-          grep -q "team.js?v=51" app/loader-v2.js
+          grep -q "topbar-actions.js?v=11" app/loader-v2.js
+          grep -q "team.js?v=52" app/loader-v2.js
           grep -q "project-system-v3.js?v=25" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
@@ -245,7 +244,7 @@ jobs:
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/library-upload.js; then echo 'core readiness returned to mutation polling'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/library-upload.js; then echo 'core styles returned to runtime injection'; exit 1; fi
           if grep -q "createElement('link')" app/team.js; then echo 'team css must stay static'; exit 1; fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/access-approval.js app/home-dashboard-v2.js app/photo-room.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/home-dashboard-v2.js app/photo-room.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
           if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js; then echo 'core UI bypassed shared runtime session'; exit 1; fi
           if grep -q "location.reload" app/photo-room.js; then echo 'feature returned to full-page reload'; exit 1; fi
           if grep -Eq "eventRecordSection|eventRecordList|renderRecordList|일정 기록" app/photo-room.js; then echo 'calendar schedule record section returned'; exit 1; fi
@@ -266,9 +265,8 @@ jobs:
           from pathlib import Path
           import re,sys
           managed={
-            'team.css','team-member-overview.css','team-profile-view.css','team-member-management.css',
+            'team.css',
             'profile-settings.css','workplace-detail.css','suborganizations.css',
-            'access-approval.css',
             'photo-room.css','topbar-actions.css','calendar-ui.css','task-layout.css',
             'google-tasks.css','library-upload.css','project-system-v3.css','meeting-ui.css'
           }
@@ -441,6 +439,6 @@ jobs:
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css \
             app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/library-upload.js app/library-upload.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
-            app/styles.css app/access-approval.css app/meeting-ui.css app/calendar-ui.css app/photo-room.css p/; do
+            app/styles.css app/meeting-ui.css app/calendar-ui.css app/photo-room.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done

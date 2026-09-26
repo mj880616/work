@@ -53,12 +53,12 @@
 - `calendar-return-bridge.js`
 - `auth-handoff-client.js`
 - `auth-bootstrap.js`
-- `auth-ui.js`
 - `auth-login-fallback.js`
 - `session-resilience.js`
-- `member-default-role.js`
 
 Android OAuth 복귀 경로는 별도 기능 수정과 섞지 않음. 인증 UI 변경 시 Android WebView와 일반 브라우저 흐름을 각각 확인함.
+
+Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구성원 화면을 제거했다. 전용 `login/`은 로그인만 제공하며, 구성원 조회 결과가 비어 있으면 `team.js`가 `accessDeniedView`(접근 거부·로그아웃)를 표시한다. loader는 `denied` 상태에서 기능 모듈을 불러오지 않는다. 서버 권한은 기존 RLS·Edge가 계속 확인한다.
 
 ### 기본 셸
 

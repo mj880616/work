@@ -8,20 +8,19 @@
 <link rel="icon" href="./app-icon.svg?v=20260924-unicorn3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260924-unicorn3">
 <link rel="manifest" href="./windows-manifest.json?v=6">
-<link rel="stylesheet" href="./critical.css?v=6">
+<link rel="stylesheet" href="./critical.css?v=7">
 <link rel="preload" as="style" href="./base-ui.css?v=6">
 <link rel="preload" as="style" href="./static-gates.css?v=3">
 <link rel="preload" as="style" href="./topbar-actions.css?v=8">
 <link rel="preload" as="style" href="./team.css?v=4">
-<link rel="preload" as="style" href="./access-approval.css?v=3">
 <link rel="preload" as="style" href="./workspace-ui.css?v=9">
 <link rel="preload" as="style" href="./desktop-ui.css?v=10">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=239">
+<link rel="modulepreload" href="./loader-v2.js?v=240">
 <link rel="modulepreload" href="./runtime-client.js?v=5">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=127" defer></script>
+<script src="./app.js?v=128" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -30,32 +29,14 @@
   <div class="top-actions"><button id="logoutBtn" class="ghost hidden" type="button" data-kptu-logout>로그아웃</button></div>
 </header>
 <main>
-<section id="authView" class="auth-wrap hidden" aria-hidden="true">
-  <div class="auth-card">
-    <h1>개인 업무와 자료를<br>한 공간에서 관리합니다.</h1>
-    <p>일정·할 일·프로젝트·자료·회의결과를 비공개로 관리합니다.</p>
-    <div id="inviteNotice" class="notice hidden">초대 링크가 확인되었습니다. 로그인하거나 계정을 만든 뒤 자동으로 팀에 참여합니다.</div>
-    <div class="auth-tabs"><button class="tab active" data-auth-tab="signin" type="button">로그인</button><button class="tab" data-auth-tab="signup" type="button">계정 만들기</button></div>
-    <form id="authForm">
-      <label>이메일<input id="authEmail" type="email" autocomplete="email" required></label>
-      <label>비밀번호<input id="authPassword" type="password" minlength="8" autocomplete="current-password" required></label>
-      <label id="displayNameRow" class="hidden">이름<input id="authDisplayName" type="text" maxlength="50" autocomplete="name"></label>
-      <button id="authSubmit" class="primary wide" type="submit">로그인</button>
-    </form>
-    <div id="authStatus" class="status"></div>
-  </div>
-</section>
 <section id="bootView" class="center-card hidden" aria-hidden="true" aria-live="polite">
   <div class="eyebrow">WEB2</div><h2>업무 공간을 확인하고 있습니다.</h2>
   <p>로그인 상태와 접근 권한을 확인한 뒤 바로 화면을 엽니다.</p>
   <div id="bootErrorActions" class="hidden"><button id="bootRetryBtn" class="primary" type="button">다시 시도</button> <button id="bootLogoutBtn" class="ghost" type="button">로그아웃</button></div>
 </section>
-<section id="bootstrapView" class="center-card hidden">
-  <div class="eyebrow">FIRST ADMIN</div><h2>첫 관리자 등록</h2>
-  <p>최초 1회용 관리자 코드를 입력하면 이 계정이 관리자로 등록됩니다.</p>
-  <label>표시 이름<input id="bootstrapName" type="text" maxlength="50"></label>
-  <label>관리자 등록 코드<input id="bootstrapCode" type="password" autocomplete="off"></label>
-  <button id="bootstrapBtn" class="primary" type="button">관리자로 시작</button><div id="bootstrapStatus" class="status"></div>
+<section id="accessDeniedView" class="center-card hidden" aria-hidden="true">
+  <h2 role="alert">접근 권한이 없습니다</h2>
+  <button id="accessDeniedLogoutBtn" class="ghost" type="button">로그아웃</button>
 </section>
 <section id="appView" class="app-view hidden">
   <nav class="app-nav">
@@ -137,6 +118,5 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script>(()=>{const f=window.fetch.bind(window);window.fetch=(input,init)=>{try{if(typeof input==='string'&&input.includes('/auth/v1/signup')){const u=new URL(input,location.href);if(!u.searchParams.has('redirect_to'))u.searchParams.set('redirect_to',new URL('/work/app/confirmed.html',location.origin).href);input=u.toString()}}catch(_){}return f(input,init)}})();</script>
 
 </body></html>
