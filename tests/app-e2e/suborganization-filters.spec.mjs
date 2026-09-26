@@ -28,7 +28,7 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
   expect(views).toContain("suborganizations.js?v=8");
-  expect(views).toContain("workplace-detail.js?v=7");
+  expect(views).toContain("workplace-detail.js?v=8");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
   expect(styles).toContain("suborganizations.css?v=5");
@@ -113,7 +113,8 @@ test('이미 저장된 요약·메모는 접힌 칸에서 읽기 전용으로 �
   await expect(page.locator('#wdYearSummary')).toHaveText('산별전환과 안전인력 사업 추진');
   await expect(page.locator('#wdItems')).toContainText('최근 교섭');
   await expect(page.locator('#wdItems')).toContainText('정책교섭 자료 취합 중');
-  await expect(page.locator('#wdItems button')).toHaveCount(0);
+  await expect(page.locator('#wdItems button')).toHaveCount(1);
+  await expect(page.locator('#wdItems button')).toHaveText('삭제');
   await expect(page.locator('#wdRecent textarea,#wdRecent input')).toHaveCount(0);
   await expect(page.locator('#wdMore #warGenerate')).toBeVisible();
   await expect(page.locator('#wdMore #warTimeline')).toBeVisible();
@@ -131,6 +132,89 @@ test('편집 권한이 없으면 입력칸과 저장 버튼이 보이지 않고 
   await expect(page.locator('#wdInboxSave')).toBeHidden();
   await page.locator('#wdInboxSave').evaluate(b=>b.click());
   expect(await page.evaluate(()=>window.__updatePosts.length)).toBe(0);
+});
+
+test('기록 삭제는 확인 후 해당 항목만 지우고, 취소하면 요청 없이 그대로 둔다',async({page})=>{
+  await openRail(page);
+  await page.locator('#wdInboxText').fill('삭제할 기록');
+  await page.locator('#wdInboxSave').click();
+  const rows=page.locator('#wdUpdates .wd-log-row');
+  await expect(rows).toHaveCount(2);
+  let asked='';
+  page.once('dialog',d=>{asked=d.message();d.dismiss()});
+  await rows.nth(0).getByRole('button',{name:'기록 삭제'}).click();
+  expect(asked).toBe('이 기록을 삭제할까요?');
+  await expect(rows).toHaveCount(2);
+  expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
+  page.once('dialog',d=>d.accept());
+  await rows.nth(0).getByRole('button',{name:'기록 삭제'}).click();
+  await expect(rows).toHaveCount(1);
+  await expect(rows.nth(0).locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
+  await expect(page.locator('#toast')).toHaveText('기록을 삭제했습니다.');
+  const deletes=await page.evaluate(()=>window.__deletes);
+  expect(deletes).toEqual([{path:'/rest/v1/app_suborganization_updates?id=eq.up-2&organization_id=eq.org-rail&select=id',prefer:'return=representation'}]);
+});
+
+test('예전 메모는 읽기 전용이고 확인 후 삭제만 할 수 있다',async({page})=>{
+  await openRail(page);
+  await page.locator('#wdMore > summary').click();
+  const memo=page.locator('#wdItems .wd-row');
+  await expect(memo).toHaveCount(1);
+  page.once('dialog',d=>d.dismiss());
+  await memo.getByRole('button',{name:'메모 삭제'}).click();
+  await expect(memo).toHaveCount(1);
+  expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
+  let asked='';
+  page.once('dialog',d=>{asked=d.message();d.accept()});
+  await memo.getByRole('button',{name:'메모 삭제'}).click();
+  expect(asked).toBe('이 메모를 삭제할까요?');
+  await expect(page.locator('#wdItems')).toHaveText('이전 메모 없음');
+  await expect(page.locator('#toast')).toHaveText('메모를 삭제했습니다.');
+  const deletes=await page.evaluate(()=>window.__deletes);
+  expect(deletes).toEqual([{path:'/rest/v1/app_suborganization_status_items?id=eq.memo-1&organization_id=eq.org-rail&select=id',prefer:'return=representation'}]);
+  await expect(page.locator('#wdMonthSummary')).toHaveText('9월 정책교섭과 인력대응 진행 중');
+  await expect(page.locator('#wdYearSummary')).toHaveText('산별전환과 안전인력 사업 추진');
+  await expect(page.locator('#wdMonthSummary button,#wdYearSummary button')).toHaveCount(0);
+});
+
+test('삭제 요청이 실패하거나 지워진 행이 없으면 항목을 그대로 두고 안내한다',async({page})=>{
+  await openRail(page);
+  page.on('dialog',d=>d.accept());
+  const row=page.locator('#wdUpdates .wd-log-row');
+  const del=row.getByRole('button',{name:'기록 삭제'});
+  await page.evaluate(()=>{window.__failDelete=true});
+  await del.click();
+  await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 네트워크 오류');
+  await expect(row).toHaveCount(1);
+  await expect(del).toBeEnabled();
+  await page.evaluate(()=>{window.__failDelete=false;window.__deleteNoRows=true});
+  await del.click();
+  await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 권한이 없거나 이미 없는 항목입니다.');
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
+  await page.locator('#wdMore > summary').click();
+  await page.locator('#wdItems').getByRole('button',{name:'메모 삭제'}).click();
+  await expect(page.locator('#toast')).toHaveText('메모를 삭제하지 못했습니다. 권한이 없거나 이미 없는 항목입니다.');
+  await expect(page.locator('#wdItems .wd-row')).toHaveCount(1);
+  expect(await page.evaluate(()=>window.__deletes.length)).toBe(3);
+});
+
+test('편집 권한이 없으면 기록·메모 삭제 버튼이 없고 삭제 요청도 보내지 않는다',async({page})=>{
+  await openAssigned(page,'?role=viewer');
+  await page.evaluate(()=>{const b=document.createElement('button');b.id='openRailE2E';b.dataset.psWorkplaceOrg='org-rail';document.body.appendChild(b)});
+  await page.locator('#openRailE2E').click();
+  await expect(page.locator('#wdUpdates')).toContainText('지난주 지부장 통화');
+  await page.locator('#wdMore > summary').click();
+  await expect(page.locator('#wdItems')).toContainText('최근 교섭');
+  await expect(page.locator('#wdUpdates button,#wdItems button')).toHaveCount(0);
+  await expect(page.locator('[data-wd-up-del],[data-wd-memo-del]')).toHaveCount(0);
+  let dialogs=0;
+  page.on('dialog',d=>{dialogs++;d.accept()});
+  await page.evaluate(async()=>{await wdDelUpdate('up-old');await wdDelMemo('memo-1')});
+  expect(dialogs).toBe(0);
+  expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
+  await expect(page.locator('#wdUpdates .wd-log-row')).toHaveCount(1);
+  await expect(page.locator('#wdItems .wd-row')).toHaveCount(1);
 });
 
 test('기본정보는 읽기전용으로 시작하고 수정 버튼을 눌러야 입력 폼이 열린다',async({page})=>{
