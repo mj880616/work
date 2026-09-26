@@ -90,7 +90,7 @@ Task 32 착수 전 모두 완료한다.
 | CLAUDE.md 세션 구분·Edge 배포·완료보고 양식 추가, Task 15 완료 기록 | #292 |
 | AGENTS.md 제품 구조 섹션을 현재 방향(Web2 sole-owner 비공개·Web1 공개 채널·RTW 분리)으로 재작성 (#273 대체) | #293 |
 | roadmap 갱신: Web1-1 완료, Web1-2 종료, Web1-3 등록, 상태값 '종료' 정의 추가 | #295 |
-| roadmap 갱신: Web1-4 완료, ENV-1~4·DB-1~2 등록, Task 31 비고 추가. CLAUDE.md production DB 적용 절차 추가 | |
+| roadmap 갱신: Web1-4 완료, ENV-1~4·DB-1~2 등록, Task 31 비고 추가. CLAUDE.md production DB 적용 절차 추가 | #297 |
 
 ## 갱신 규칙
 
