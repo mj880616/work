@@ -43,6 +43,8 @@
 
 ### 2.2 verify_jwt 기록 (다음 배포 때 값을 바꾸지 않기 위한 기준)
 
+원본 없던 17개만 담은 당시 기록이다. **production 함수 전체의 현재 값은 5절 표가 기준이다.**
+
 저장소에는 `config.toml`이 없다. 기존처럼 문서에 함수별 현재 값을 적는다. 배포할 때는 이 값을 그대로 유지한다: `false`면 `--no-verify-jwt`를 붙이고, `true`면 붙이지 않는다. 시각은 KST, 2026-09-26 `functions list` 기준.
 
 | 이름 | 제품 | 버전 | 마지막 배포 | verify_jwt | 저장소 | SHA-256(앞 16자) |
@@ -128,3 +130,51 @@
 1. 원본 없던 공개 페이지 함수 6개는 모두 verify_jwt=false이고, 로그인 대신 Origin 확인·4자리 비밀번호·공개 업로드 키로 막는다. Origin은 브라우저 밖에서 쉽게 꾸밀 수 있다. 3개 함수의 비밀번호가 같은 4자리 값이며 시도 횟수 제한이 없다.
 2. `rtw-owner-claim`이 9/17~18에 약 1,540회(하루 최대 1,275회) 호출됐다. 코드는 로그인 사용자 확인 후 소유자 여부만 돌려주는 가벼운 함수라, 당시 읽생기 화면의 반복 호출로 보인다(추정). 9/18 22:17 이후 0회.
 3. `auth-handoff`: 봉인 키를 service role 키에서 만든다. 봉인 토큰은 5분 동안 몇 번이든 쓸 수 있다(1회용 확인 없음). CORS가 모든 Origin 허용. 조사 문서 3.4의 보안 검토 권장과 같다.
+
+## 5. production 함수 전체 verify_jwt (ENV-7, 배포 때 기준표)
+
+- 조회: 2026-09-26, 로컬 세션, `npx.cmd supabase functions list --project-ref <ref> -o json`(조회만). 모두 `ACTIVE`.
+- 합계 **30개**: verify_jwt `true` **8개**, `false` **22개**. "production 함수는 모두 false"가 아니다.
+- 배포할 때 대상 함수의 값을 이 표와 직전 `functions list`로 확인하고 그대로 유지한다. `false`면 `--no-verify-jwt`를 붙이고, `true`면 붙이지 않는다. 배포 뒤 값이 바뀌면 이 표를 같은 PR에서 고친다.
+- `false`인 Web2 함수는 함수 코드에서 로그인 사용자를 확인한다. `false`인 Web1 공개 페이지 함수는 로그인 없이 비밀번호·Origin 확인으로 막는다(결정사항, 4절 1번).
+
+| # | 이름 | 제품 | 버전 | 마지막 배포(KST) | verify_jwt | 원본 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | `auth-handoff` | Web2(안드로이드 로그인 전달) | v3 | 09-12 09:13 | false | work |
+| 2 | `document-actions` | Web2 | v4 | 09-25 20:58 | **true** | work |
+| 3 | `document-ai-index` | Web2 | v3 | 09-16 15:44 | **true** | work |
+| 4 | `event-media` | Web2 | v5 | 09-25 20:58 | false | work |
+| 5 | `google-calendar` | Web2 | v14 | 09-26 11:55 | false | work |
+| 6 | `google-tasks` | Web2 | v6 | 09-24 18:07 | false | work |
+| 7 | `library-files` | Web2 | v13 | 09-26 07:09 | false | work |
+| 8 | `meeting-ai-draft` | Web2 | v7 | 09-25 20:58 | **true** | work |
+| 9 | `meeting-ai-ingest` | Web2 | v7 | 09-21 04:50 | **true** | work |
+| 10 | `meeting-files` | Web2 | v7 | 09-26 01:58 | false | work |
+| 11 | `page-ai-draft` | Web2 | v5 | 09-25 20:58 | **true** | work |
+| 12 | `team-ai` | Web2 | v5 | 09-22 07:34 | false | work |
+| 13 | `workspace-drive` | Web2 | v6 | 09-26 01:58 | false | work |
+| 14 | `public-page-edit` | Web1 | v6 | 09-20 17:16 | false | work |
+| 15 | `public-policy-drive` | Web1 | v15 | 09-23 10:09 | false | work |
+| 16 | `pc0921-board` | Web1 공개 페이지 | v23 | 09-21 14:56 | false | work |
+| 17 | `pc0914-checklist` | Web1 공개 페이지 | v4 | 09-11 15:41 | false | work |
+| 18 | `joint-struggle-files` | Web1 공개 페이지 | v3 | 09-12 23:08 | false | 사용자 PC 보관(2.3) |
+| 19 | `press-conference-files` | Web1 공개 페이지 | v4 | 09-14 08:49 | false | 사용자 PC 보관(2.3) |
+| 20 | `rail-1007-plan` | Web1 공개 페이지 | v6 | 09-13 06:27 | false | 사용자 PC 보관(2.3) |
+| 21 | `rail-declaration-comments` | Web1 공개 페이지 | v3 | 09-11 03:57 | false | 사용자 PC 보관(2.3) |
+| 22 | `rail-declaration-content` | Web1 공개 페이지 | v4 | 09-11 04:10 | false | 사용자 PC 보관(2.3) |
+| 23 | `wedding-mc-shared` | 개인 공개 페이지 | v2 | 09-13 22:25 | false | work |
+| 24 | `rtw-ai-read` | 읽생기 | v7 | 09-21 04:41 | **true** | read-think-write |
+| 25 | `rtw-beta-status` | 읽생기 | v1 | 09-21 13:35 | false | read-think-write |
+| 26 | `rtw-claim-personal-owner` | 읽생기 | v2 | 09-18 23:23 | false | read-think-write |
+| 27 | `rtw-delete-account` | 읽생기 | v4 | 09-26 12:24 | **true** | read-think-write |
+| 28 | `rtw-personal-write` | 읽생기 | v2 | 09-18 23:29 | false | read-think-write |
+| 29 | `rtw-recommend` | 읽생기 | v8 | 09-21 04:41 | false | read-think-write |
+| 30 | `rtw-url-import` | 읽생기 | v8 | 09-21 04:36 | **true** | read-think-write |
+
+### 5.1 ENV-6c 삭제 결과 확인
+
+- ENV-6c 삭제 대상 8개(`push-notifications`·`rtw-owner-claim`·`rtw-owner-setup`·`rail-1007-page`·`rail-1007-page-v2`·`pc0914-storage-test`·`pc-file-test`·`kptu-board-probe`)는 목록에 **없다**.
+- 남은 함수는 **30개**(삭제 전 38개 − 8개).
+- 3.2 유지 목록 9개는 모두 있고, 버전·배포 시각이 2.2와 같다(삭제 작업 중 바뀌지 않음).
+- 원장 ENV-7 행의 "true 10개 포함"(삭제 전 기준 메모)과 계산이 1개 다르다: 지금 true 8개 + 삭제된 true 3개(`push-notifications`·`pc0914-storage-test`·`pc-file-test`) = 11개. 당시 목록 원본이 없어 어느 쪽이 맞는지 확인할 수 없다(추정: 메모 때 셈 차이). 현재 값은 이 표가 기준이다.
+- 삭제된 8개의 원본은 되돌리기용으로 저장소에 남아 있다(work 6개 `supabase/functions/`, read-think-write 2개). 되돌릴 때는 2.2의 값으로 재배포한다.
