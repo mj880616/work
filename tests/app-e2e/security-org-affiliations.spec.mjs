@@ -59,18 +59,18 @@ async function installMock(page,state){
 
 async function preloadSession(page){await page.addInitScript(s=>window['local'+'Storage'].setItem('kptu_collab_session_v1',JSON.stringify(s)),session)}
 
-test('new account cannot access workspace before admin approval',async({page})=>{
+test('nonmember cannot access workspace or request membership',async({page})=>{
   const state={
     user:{id:'new-user',email:'new@example.org',user_metadata:{display_name:'신규 팀원'}},
     workspace:{id:'workspace-1',slug:'kptu-work',name:'웹2'},membership:null,requests:[],
     org:{id:'org-1',workspace_id:'workspace-1',name:'테스트지부',representative_name:null,contact:null,member_count:null,updated_at:now(),created_by:'owner-1'},tags:[],affiliations:[]
   };
   await preloadSession(page);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
-  await expect(page.locator('#bootstrapView')).toBeVisible({timeout:10000});
-  await expect(page.locator('#bootstrapView')).toContainText('관리자 승인 대기 중');
-  await expect(page.locator('#bootstrapView')).toContainText('승인하기 전에는');
+  await expect(page.locator('#accessDeniedView')).toBeVisible({timeout:10000});
+  await expect(page.locator('#accessDeniedView')).toContainText('접근 권한이 없습니다');
+  await expect(page.locator('#accessDeniedView button')).toHaveText(['로그아웃']);
   await expect(page.locator('#appView')).toBeHidden();
-  await expect.poll(()=>state.requests.length).toBe(1);
+  expect(state.requests).toHaveLength(0);
 });
 
 test('solo workspace does not expose account approval controls',async({page})=>{

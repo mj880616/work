@@ -12,13 +12,13 @@
   await import('./auth-handoff-client.js?v=2');
   await Promise.all([
     import('./auth-bootstrap.js?v=1'),
-    import('./auth-service.js?v=1')
+    import('./auth-service.js?v=2')
   ]);
 
   const lockPrivateUi=()=>{
     document.body?.classList.add('kptu-session-pending');
     document.body?.classList.remove('kptu-workspace-shell');
-    for(const id of ['appView','bootstrapView','bootView']){
+    for(const id of ['appView','accessDeniedView','bootView']){
       const el=document.getElementById(id);
       if(!el)continue;
       el.classList.add('hidden');
@@ -97,7 +97,7 @@
   document.body?.classList.remove('kptu-session-pending');
   const bootView=document.querySelector('#bootView');
   if(bootView){
-    ['authView','bootstrapView','appView'].forEach(id=>document.querySelector('#'+id)?.classList.add('hidden'));
+    ['accessDeniedView','appView'].forEach(id=>document.querySelector('#'+id)?.classList.add('hidden'));
     bootView.inert=false;
     bootView.classList.remove('hidden');
     bootView.setAttribute('aria-hidden','false');
@@ -114,13 +114,12 @@
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
-    import('./topbar-actions.js?v=10'),
-    import('./team.js?v=51')
+    import('./topbar-actions.js?v=11'),
+    import('./team.js?v=52')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
   delete window.__KPTU_BOOT_MEMBERSHIP_PROMISE__;
-  if(teamState==='bootstrap'){await import('./access-approval.js?v=5');return}
   if(teamState!=='workspace')return;
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
