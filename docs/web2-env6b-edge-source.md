@@ -121,7 +121,7 @@
 
 - 절차는 조사 문서 3.5절: 함수 이름을 지정한 `supabase functions delete <이름>`, 로컬 세션 manual mode, 또는 사용자가 Supabase 대시보드에서 직접. 삭제 후 요청하면 404인지 확인.
 - 되돌리기: 이 저장소·read-think-write에 커밋한 원본으로 같은 이름, 2.2의 verify_jwt 값 그대로 재배포.
-- `kptu-probe/` 시험 페이지와 `.github/workflows/kptu-board-probe.yml`(함수를 부르지 않고 직접 게시판을 읽는 수동 실행 작업)을 함께 정리할지 사용자 결정 필요.
+- `kptu-probe/` 시험 페이지와 `.github/workflows/kptu-board-probe.yml`(함수를 부르지 않고 직접 게시판을 읽는 수동 실행 작업): 사용자 결정으로 삭제(ENV-6c PR에서 제거).
 
 ## 4. 발견사항 (기록만, 고치지 않음)
 
