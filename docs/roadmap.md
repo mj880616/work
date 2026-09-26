@@ -99,7 +99,7 @@
 | ENV-6c | 삭제 목록 함수 삭제(사용자 대시보드 실행) + 게시판 시험 페이지 정리 | 완료 | #322 | 기준 `a93cc40`. PR merge 후 사용자가 대시보드에서 함수 8개 삭제. 이 PR: `kptu-probe/` 시험 페이지와 `.github/workflows/kptu-board-probe.yml` 삭제(다른 곳에서 불러오거나 링크하지 않음, 캐시 버전 변경 대상 없음). 함수 원본 `supabase/functions/kptu-board-probe/`는 되돌리기용으로 유지. 삭제 대상: ENV-6b 문서 3.1의 8개(push-notifications·rtw-owner-claim·rtw-owner-setup·rail-1007-page·rail-1007-page-v2·pc0914-storage-test·pc-file-test·kptu-board-probe). 두 저장소 호출처 없음 확인. Edge 변경이라 정지 지점. 되돌리기는 저장소 원본을 같은 verify_jwt로 재배포. 사용자 대시보드 삭제 2026-09-26. ENV-7 조회로 삭제 8개 없음·남은 함수 30개·유지 9개 존재 확인(ENV-6b 문서 5.1) |
 | ENV-7 | Codex 병행 준비 | 완료 | #323 | Codex CLI 조회 전용 연결 시험 통과 2026-09-26(사용자 확인). #323 main 반영 확인. AGENTS.md 규칙 단일화, 도구별 경계·캐시 버전 규칙 정리. production 함수별 verify_jwt는 [ENV-6b 문서](web2-env6b-edge-source.md) 5절. 비밀값은 저장소·Codex 웹 환경에 넣지 않음 |
 | SEC-1 | auth-handoff 보안 점검 | 완료 | #324 | 운영 DB·Edge 적용 완료(사용자 확인). 2026-09-27 read-only 재확인: migration `20260926154120`·`sec1_auth_handoff_once` 기록 존재, auth-handoff v4·verify_jwt=false·배포 소스와 main 원문 일치. v2 nonce 1회 소비, 원문 OAuth fallback 제거. Android 실물 검증 보류(앱 미사용). [기존 준비·검증 기록](web2-sec1-auth-handoff.md)은 적용 전 시점이며 현재 상태는 이 행과 migration-history.md를 따른다 |
-| 20 | signup/invite/access/FIRST ADMIN UI 제거 | 진행중 | | 묶음B PR 1(이 PR). 가입·초대·접근요청·관리자 지정 화면과 클라이언트 코드 제거. 비구성원은 접근 거부 안내와 로그아웃만 표시. Auth 가입 설정·RLS·Edge·읽생기 로그인은 변경하지 않음. DB 후속은 20-DB |
+| 20 | signup/invite/access/FIRST ADMIN UI 제거 | 진행중 | #325 | 묶음B PR 1(이 PR). 가입·초대·접근요청·관리자 지정 화면과 클라이언트 코드 제거. 비구성원은 접근 거부 안내와 로그아웃만 표시. Auth 가입 설정·RLS·Edge·읽생기 로그인은 변경하지 않음. DB 후속은 20-DB |
 | 22 | Events attendee/invite active code 제거 | 대기 | | 묶음B PR 2 예정. PR 1(Task 20) merge 후 새 세션에서 화면·클라이언트 코드·테스트 제거 및 DB 후속 계획만 진행. 참석자 자동 생성 트리거·표는 22-DB·Edge에서 별도 처리 |
 | 23 | Projects member/invitation active code 제거 | 대기 | | 묶음B PR 2 예정. PR 1(Task 20) merge 후 새 세션에서 화면·클라이언트 코드·테스트 제거 및 Edge·DB 후속 계획만 진행. 보관 프로젝트 서버 거부·구성원 역할 조회 정리는 23-DB·Edge에서 별도 처리 |
 | 20-DB | 가입·초대·접근요청·역할 지정 DB 후속 정리 | 대기 | | 27·28과 함께 처리. Task 20은 화면·클라이언트 제거만. RPC·표·트리거는 유지하며 소유자 제한과 기존 실행권한 회수는 그대로. 공유 Auth·읽생기 영향 사전 확인, snapshot·rollback·사용자 승인 후 별도 적용 |
@@ -140,7 +140,7 @@
 
 ## 사용자 할 일
 
-- Task 20 PR 검토·merge 결정. 현재 진행중이며 merge하지 않았다.
+- Task 20 #325 PR 검토·merge 결정. 현재 진행중이며 merge하지 않았다.
 - Task 20 merge 후 새 세션에서 PR 2(22·23 화면·클라이언트 제거와 후속 계획)를 시작한다.
 - Android 0.1.13 설치는 할 일에서 제외한다(앱 미사용). 이름-1의 APK 설명은 과거 변경 기록이며 설치 요청이 아니다. SEC-1 Android 실물 검증은 보류한다.
 - DB·Edge 후속은 별도 승인 전 실행하지 않는다.
