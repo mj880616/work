@@ -749,6 +749,7 @@ test('project list is one bordered two-line list with collapsible child rows and
     {id:'child-task-done',project_id:'child-1',title:'장소 확정',status:'done',assignee_id:'user-1'},
     {id:'arch-task',project_id:'arch-1',title:'결과 정리',status:'todo',assignee_id:'user-1'}
   );
+  state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   const list=page.locator('#projectGrid .ps3-plist');
   await expect(list).toHaveCount(1);
@@ -757,7 +758,8 @@ test('project list is one bordered two-line list with collapsible child rows and
   await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관함');
   const main=list.locator('[data-ps3-row="main-1"]');
   await expect(main.locator('.ps3-prow-name')).toHaveText('민자철도 정책·조직사업');
-  await expect(main.locator('.ps3-prow-meta')).toHaveText('할 일 1 · 자료 1');
+  // Top-row counts include child projects: own 1 task + 1 doc, child 1 open task + 1 doc.
+  await expect(main.locator('.ps3-prow-meta')).toHaveText('할 일 2 · 자료 2');
   await expect(list).not.toContainText('상위 프로젝트');
   await expect(list).not.toContainText('민자철도 안전·인력 제도개선');
   await expect(list).not.toContainText('표시되지 않는 설명');
