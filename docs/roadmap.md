@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `9c5666d` (Merge pull request #300)
+- 기준 main SHA: `100f97d` (Merge pull request #301)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -49,8 +49,8 @@
 | ENV-1 | gh CLI 설치·로그인 | 완료 | | 2026-09-26 로컬 세션에서 gh 로그인 확인 |
 | ENV-2 | migration 기록 불일치 정리 | 완료 | #298 | 방침 확정: 공유 DB이므로 db push·migration repair 영구 금지, 불일치는 대응표로 관리, 이후 적용 SQL에 기록 1행 insert. 대응표 [docs/migration-history.md](migration-history.md) |
 | 일정 성능-2 | google-calendar Edge 로딩 최적화 | 완료 | #300 | google-calendar v14 배포 2026-09-26, 실사용 확인 |
-| RTW-1 | 계정삭제 shared auth 위험 | 대기 | | 상태 확인 후 필요 시 수정, 최우선. Task 32 전 완료 |
-| RTW-2 | beta RLS owner 격리 | 대기 | | 상태 확인 후 필요 시 수정, 최우선. Task 32 전 완료 |
+| RTW-1 | 계정삭제 shared auth 위험 | 완료 | | 읽생기 #83, rtw-delete-account v4 배포 2026-09-26(verify_jwt=true 유지). Web2 계정은 읽생기 데이터만 삭제, 일반 사용자는 계정까지 삭제. 실계정 탈퇴 시험은 RTW-출시준비에서 |
+| RTW-2 | beta RLS owner 격리 | 완료 | | 2026-09-26 조회, owner 조건 정책으로 이미 해결 |
 | 16 | 프로젝트 진행상황 UI 압축 | 대기 | | |
 | 15b | 프로젝트 파일 업로드(project-files.js) 실패 처리 정규화 | 대기 | | |
 | 17 | 주요 화면 정보밀도 정리 | 대기 | | |
@@ -72,7 +72,9 @@
 | 30 | 보조 Auth 계정 제거 | 대기 | | |
 | 31 | collaboration dead code/API/CSS 정리 | 대기 | | app/project-archive.js 미사용 파일 제거 포함. task12a-fingerprint.sql의 app_delete_pages 잔존 정리 |
 | Web1-3 | bus-strike-publicness-internal-archive-202609 흔적 정리 | 대기 | | 범위: app_public_post allowlist에서 slug 제거(migration 필요, 적용 직전 정지), redirect 셸 처리 방침 결정, E2E 7번째 redirect 검사와 supabase/tests/authz_* 의 7행 가정 수정. 위험: 같은 slug로 새 글이 생기면 allowlist 때문에 자동 링크 공개됨 |
-| RTW-3 | rtw-personal-write secret/권한 점검 | 대기 | | Task 32 전 완료 |
+| RTW-분리 | 읽생기 별도 Supabase 프로젝트 분리 결정 (플레이스토어 출시 전) | 대기 | | 무료 요금제 제약 조사 포함 |
+| RTW-출시준비 | 플레이 정책 대응: 웹 탈퇴 요청 링크, 테스트 계정으로 탈퇴 실동작 확인 | 대기 | | Web2 확인 테이블 4개 한계 검토 포함 |
+| RTW-3 | rtw-personal-write secret/권한 점검 | 대기 | | Task 32 전 완료. rtw_* 5개 테이블 anon GRANT 흔적 정리 |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
 | ENV-4 | 브랜치 정리 | 대기 | | 수시. merge·close된 브랜치 대상. 급하지 않음 |
 | 일정 인증-1 | google-calendar 인증 실패 응답 400→401 정리 | 대기 | | 우선순위 낮음 |
