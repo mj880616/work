@@ -23,7 +23,7 @@ function style(path){
 const routeStyles={
   calendar:['./calendar-ui.css?v=8'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
-  projects:['./project-system-v3.css?v=14','./forum-flow-polish.css?v=1'],
+  projects:['./project-system-v3.css?v=15','./forum-flow-polish.css?v=1'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
   meetings:['./meeting-ui.css?v=9'],
   media:['./web1-press.css?v=1'],
@@ -53,7 +53,7 @@ async function calendar(){
   await module('./calendar-plus.js?v=9','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
     module('./calendar-interactions-v2.js?v=8','__KPTU_CALENDAR_INTERACTIONS_READY__'),
-    module('./calendar-mobile-ui.js?v=4','__KPTU_CALENDAR_MOBILE_UI_READY__'),
+    module('./calendar-mobile-ui.js?v=5','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
@@ -77,7 +77,7 @@ async function projects(){
     module('./due-date-calendar.js?v=1')
   ]);
   await module('./project-catalog.js?v=1');
-  await module('./project-system-v3.js?v=24','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=25','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
