@@ -38,7 +38,7 @@ Web2 (`app/`) is a private personal work system used only by its single signed-i
 - Collaboration structures (workspace members and roles, invites, project invitations, event attendees, task assignment) still exist in the database but are scheduled for removal in roadmap Tasks 19–31 (`docs/roadmap.md`). Do not build new features on them.
 - Startup order: session check → authenticated path or redirect to login → required data/modules → one final UI reveal.
 - A UI region has one state owner and one final renderer. Do not repair competing renderers with delayed overwrites, broad `MutationObserver` decorators, or `display:none` patches.
-- Child-project navigation stays in the hierarchy area above the title and separate from edit, archive, and delete actions. Preserve native keyboard-accessible disclosure behavior and keep child creation inside that navigation.
+- In project detail, the parent link stays in the hierarchy area above the title, and child-project navigation is the child-project list in the detail body (Task 16). Both stay separate from the ⋯ menu that holds complete, edit, archive, and delete. Keep child creation inside the child-project list, and keep native keyboard-accessible disclosure (`<details>`) for the ⋯ menu, progress history, and folded sections.
 
 Do not independently change Supabase schemas, RLS, existing data, visibility policy, URL structure, or Edge Function authentication boundaries. Record a proposal instead. Do not add product features or redesign the application as part of stabilization work.
 

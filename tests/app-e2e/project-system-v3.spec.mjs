@@ -59,8 +59,8 @@ async function mockApp(page,state){
       state.callOrder.push(name+':'+method);
       const failure=forcedFailure(state.restFailures,name+':'+method);
       if(failure){route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:failure})});return true}
-      const pid=eq(url,key),id=eq(url,'id');
-      if(method==='GET')return ok(arr.filter(x=>(!pid||x[key]===pid)&&(!id||x.id===id)));
+      const raw=String(url.searchParams.get(key)||''),inList=raw.startsWith('in.(')?raw.slice(4,-1).split(',').map(decodeURIComponent):null,pid=inList?'':eq(url,key),id=eq(url,'id');
+      if(method==='GET')return ok(arr.filter(x=>(!pid||x[key]===pid)&&(!inList||inList.includes(x[key]))&&(!id||x.id===id)));
       if(method==='POST'){const rows=(Array.isArray(body)?body:[body]).map((x,i)=>({...x,id:x.id||`${name}-${arr.length+i+1}`,created_at:now(),updated_at:now()}));arr.push(...rows);return ok(rows)}
       if(method==='PATCH'){const targets=id?arr.filter(x=>x.id===id):arr.filter(x=>!pid||x[key]===pid);targets.forEach(x=>Object.assign(x,body||{}));return ok([])}
       if(method==='DELETE'){if(id){const i=arr.findIndex(x=>x.id===id);if(i>=0)arr.splice(i,1)}return ok([])}
@@ -93,6 +93,17 @@ async function signIn(page){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+}
+async function openFold(page,id){
+  const fold=page.locator('#'+id);
+  await expect(fold).toBeVisible();
+  if(await fold.getAttribute('open')===null)await fold.locator(':scope > summary').click();
+  await expect(fold).toHaveAttribute('open','');
+}
+async function openMenu(page){
+  const menu=page.locator('#ps3Menu .ps3-more');
+  if(await menu.getAttribute('open')===null)await menu.locator(':scope > summary').click();
+  await expect(menu).toHaveAttribute('open','');
 }
 function baseState(){return{
   user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'프로젝트 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'공공기관사업팀 Workspace'},
@@ -156,7 +167,7 @@ test('project owner UI stays inside 360 390 412 and 430px viewports',async({page
     await expect(page.locator('#ps3DetailModal')).toBeVisible();
     overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
     expect(overflow,`detail at ${width}px`).toBeLessThanOrEqual(1);
-    await page.locator('[data-ps3-add-milestone]').click();
+    await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
     await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
     overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
     expect(overflow,`milestone modal at ${width}px`).toBeLessThanOrEqual(1);
@@ -195,7 +206,7 @@ test('project detail omits removed content, linked-post and collaboration featur
   await expect(page.locator('#ps3-collaboration')).toHaveCount(0);
   await expect(page.locator('#ps3-overview')).toHaveCount(0);
   await expect(page.locator('#ps3-decisions')).toHaveCount(0);
-  await expect(page.locator('[data-ps3-nav="ps3-content"],[data-ps3-nav="ps3-pages"],[data-ps3-nav="ps3-collaboration"],[data-ps3-nav="ps3-overview"],[data-ps3-nav="ps3-decisions"]')).toHaveCount(0);
+  await expect(page.locator('.ps3-nav,[data-ps3-nav]')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('사업 콘텐츠·현황');
   await expect(page.locator('#ps3Body')).not.toContainText('기존 연결 게시글');
   await expect(page.locator('#ps3-memos')).toContainText('기존 협업 메모');
@@ -206,6 +217,8 @@ test('project memo supports add edit and delete',async({page})=>{
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3-overview,#ps3-decisions')).toHaveCount(0);
   await expect(page.locator('#ps3-memos')).toBeVisible();
+  await expect(page.locator('#ps3-memos')).not.toHaveAttribute('open','');
+  await openFold(page,'ps3-memos');
   await page.locator('#ps3MemoBody').fill('첫 메모');
   await page.locator('[data-ps3-memo-save]').click();
   await expect.poll(()=>state.comments.some(x=>x.body==='첫 메모')).toBe(true);
@@ -214,6 +227,7 @@ test('project memo supports add edit and delete',async({page})=>{
   await page.locator('#ps3MemoBody').fill('수정 메모');
   await page.locator('[data-ps3-memo-save]').click();
   await expect.poll(()=>state.comments.find(x=>x.id===memo.id)?.body).toBe('수정 메모');
+  await expect(page.locator('#ps3-memos')).toHaveAttribute('open','');
   page.once('dialog',d=>d.accept());
   await page.locator(`[data-ps3-delete-memo="${memo.id}"]`).click();
   await expect.poll(()=>state.comments.some(x=>x.id===memo.id)).toBe(false);
@@ -248,7 +262,7 @@ test('new project milestone UI has only title time Google calendar and memo, and
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
-  await page.locator('[data-ps3-add-milestone]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
   await expect(page.locator('#ps3MilestoneModal label')).toHaveCount(4);
   await expect(page.locator('#ps3MilestoneTitle,#ps3MilestoneAt,#ps3MilestoneGoogle,#ps3MilestoneNotes')).toHaveCount(4);
@@ -265,7 +279,7 @@ test('new project milestone distinguishes Google reconnect requirement',async({p
   const state=baseState();
   state.googleStatus={connected:false,calendars:[],warning:'Google 재인증이 필요합니다.'};
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-add-milestone]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneGoogle')).toContainText('재연결 필요');
   await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('재연결이 필요');
   await expect(page.locator('#ps3MilestoneSave')).toBeDisabled();
@@ -284,7 +298,7 @@ test('new project milestone creates Google first, stores linkage, and excludes r
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
-  await page.locator('[data-ps3-add-milestone]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneGoogle')).toBeEnabled();
   await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('team-cal');
   await expect(page.locator('#ps3MilestoneGoogle option[value="read-only"]')).toHaveCount(0);
@@ -315,7 +329,7 @@ test('Google create failure leaves no Web2-only project milestone',async({page})
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   state.googleFailures['create-event']='Google create failed';
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-add-milestone]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('실패 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
   await page.locator('#ps3MilestoneSave').click();
@@ -330,7 +344,7 @@ test('local milestone failure rolls back the local event and newly created Googl
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   state.restFailures['app_project_milestones:POST']=1;
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-add-milestone]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('롤백 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
   await page.locator('#ps3MilestoneSave').click();
@@ -344,7 +358,7 @@ test('child project milestone uses the exact current child project id',async({pa
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
-  await page.locator('[data-ps3-add-milestone]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('하위 프로젝트 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-03T09:00');
   await page.locator('#ps3MilestoneSave').click();
@@ -360,7 +374,7 @@ test('legacy unlinked milestone edit preserves hidden fields and does not create
   state.events.push({id:'legacy-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('기존 미연동');
   await page.locator('#ps3MilestoneTitle').fill('레거시 일정 제목 수정');
   await page.locator('#ps3MilestoneSave').click();
@@ -377,7 +391,7 @@ test('linked milestone update uses stored Google ids and keeps Web2 event in syn
   state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('primary');
   await page.locator('#ps3MilestoneTitle').fill('연동 일정 수정');
   await page.locator('#ps3MilestoneAt').fill('2026-09-30T16:00');
@@ -397,7 +411,7 @@ test('linked milestone local update failure restores Google and local state',asy
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   state.restFailures['app_project_milestones:PATCH']=1;
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await page.locator('#ps3MilestoneTitle').fill('저장 실패 수정안');
   await page.locator('#ps3MilestoneSave').click();
   await expect(page.locator('#ps3MilestoneState')).toContainText('되돌렸습니다');
@@ -413,7 +427,7 @@ test('linked milestone delete uses stored Google ids and removes both local reco
   state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   page.once('dialog',d=>d.accept());
   await page.locator('#ps3MilestoneDelete').click();
   await expect.poll(()=>state.milestones.some(x=>x.id==='mile-1')).toBe(false);
@@ -428,7 +442,7 @@ test('linked milestone local delete failure restores Google linkage and mileston
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   state.restFailures['app_events:DELETE']=1;
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   page.once('dialog',d=>d.accept());
   await page.locator('#ps3MilestoneDelete').click();
   await expect(page.locator('#ps3MilestoneState')).toContainText('복원했습니다');
@@ -447,7 +461,7 @@ test('rollback failure reports possible Google and Web2 inconsistency with the G
   state.googleFailures['delete-event']='forced Google rollback failure';
   const errors=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-add-milestone]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('rollback 실패 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
   await page.locator('#ps3MilestoneSave').click();
@@ -464,7 +478,7 @@ test.describe('project milestone Korea timezone',()=>{
     const state=baseState();
     state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
     await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-    await page.locator('[data-ps3-add-milestone]').click();
+    await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
     await page.locator('#ps3MilestoneTitle').fill('한국시간 검증 일정');
     await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
     await page.locator('#ps3MilestoneSave').click();
@@ -492,7 +506,7 @@ test('progress items are added directly by title and existing progress data stay
   expect(row.phase).toBe('in_progress');
 });
 
-test('progress cards prioritize title status latest update next step and record count',async({page})=>{
+test('progress list shows status and title, then the latest record and date on one line',async({page})=>{
   const state=baseState();
   state.progress.unshift({
     id:'pr-2',project_id:'main-1',workstream_id:'ws-1',
@@ -505,63 +519,112 @@ test('progress cards prioritize title status latest update next step and record 
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
 
-  const card=page.locator('[data-ps3-progress-card="ws-1"]');
-  await expect(card.locator('h4')).toHaveText('정책·제도 대응');
-  await expect(card.locator('.ps3-progress-count')).toHaveText('기록 2');
-  await expect(card.locator('.ps3-progress-meta')).toContainText('진행');
-  await expect(card.locator('.ps3-progress-meta')).toContainText('최근');
-  await expect(card.locator('.ps3-progress-current')).toContainText('국토부 회신을 반영해 토론회 쟁점을 다시 정리함');
-  await expect(card.locator('.ps3-progress-next')).toContainText('현장 조직 의견을 취합해 최종 요구안을 확정');
-  await expect(card.locator('[data-ps3-edit-ws]')).toHaveText('항목 수정');
-  await expect(card.locator('[data-ps3-progress-ws]')).toHaveText('진행상황 업데이트');
+  const item=page.locator('[data-ps3-progress-item="ws-1"]');
+  await expect(item.locator('.ps3-pg-line1 .ps3-phase')).toHaveText('진행');
+  await expect(item.locator('.ps3-pg-title')).toHaveText('정책·제도 대응');
+  await expect(item.locator('.ps3-pg-count')).toHaveText('2');
+  await expect(item.locator('.ps3-pg-summary')).toHaveText('국토부 회신을 반영해 토론회 쟁점을 다시 정리함');
+  await expect(item.locator('.ps3-pg-line2 time')).toHaveText('9.20');
+  await expect(item).not.toHaveAttribute('open','');
+  await expect(page.locator('#ps3-progress .ps3-progress-empty,#ps3Body .ps3-empty')).toHaveCount(0);
+  await expect(page.locator('#ps3-progress .ps3-section-head [data-ps3-add-ws]')).toHaveText('+ 추가');
 
-  const emptyCard=page.locator('[data-ps3-progress-card="ws-2"]');
-  await expect(emptyCard.locator('.ps3-progress-count')).toHaveText('기록 0');
-  await expect(emptyCard.locator('.ps3-progress-empty')).toContainText('아직 기록이 없습니다.');
-  await expect(emptyCard.locator('[data-ps3-progress-ws]')).toBeVisible();
+  await item.locator(':scope > summary').click();
+  await expect(item).toHaveAttribute('open','');
+  await expect(item.locator('.ps3-pg-record')).toHaveCount(2);
+  await expect(item.locator('.ps3-pg-history')).toContainText('국토부 후속협의 준비');
+  await expect(item.locator('.ps3-pg-history')).toContainText('다음: 현장 조직 의견을 취합해 최종 요구안을 확정');
+  await expect(item.locator('[data-ps3-edit-ws]')).toHaveText('항목 수정');
+  await item.locator('[data-ps3-progress-ws="ws-1"]').click();
+  await expect(page.locator('#ps3ProgressModal')).toBeVisible();
+  await expect(page.locator('#ps3ProgressWs')).toHaveValue('ws-1');
+  await page.locator('#ps3ProgressSummary').fill('모달 경로 기록');
+  await page.locator('#ps3ProgressSave').click();
+  await expect.poll(()=>state.progress.some(x=>x.summary==='모달 경로 기록'&&x.workstream_id==='ws-1')).toBe(true);
+  await expect(item).toHaveAttribute('open','');
+
+  const empty=page.locator('[data-ps3-progress-item="ws-2"]');
+  await expect(empty.locator('.ps3-phase')).toHaveText('준비');
+  await expect(empty.locator('[data-ps3-quick-progress="ws-2"] input')).toBeVisible();
+  await expect(empty.locator('[data-ps3-progress-ws]')).toHaveCount(0);
 });
 
-test('progress cards keep a two-column desktop layout and a readable single-column mobile layout',async({page})=>{
+test('first progress record is saved inline through the existing progress path',async({page})=>{
   const state=baseState();
-  state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응과 매우 긴 진행상황 제목',description:'산하조직별 의견과 현장 조건을 함께 확인하는 중',phase:'consultation',sort_order:20});
-  state.progress[0].summary='국토부 후속협의 준비와 운영기준 쟁점 정리를 동시에 진행하고 있으며 현장 의견을 반영 중';
-  state.progress[0].next_step='토론회 전까지 산하조직 의견을 취합하고 최종 질의와 요구안을 확정';
+  state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20});
+  await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await signIn(page);
+  const form=page.locator('[data-ps3-quick-progress="ws-2"]');
+  await form.locator('button[type="submit"]').click();
+  expect(state.progress.filter(x=>x.workstream_id==='ws-2')).toHaveLength(0);
+  await form.locator('input').fill('산하조직 의견 1차 취합');
+  await form.locator('input').press('Enter');
+  await expect.poll(()=>state.progress.find(x=>x.workstream_id==='ws-2')?.summary).toBe('산하조직 의견 1차 취합');
+  const saved=state.progress.find(x=>x.workstream_id==='ws-2');
+  expect(saved).toMatchObject({project_id:'main-1',author_id:'user-1',status_label:'준비',next_step:null,metadata:{}});
+  expect(saved.effective_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(state.restCalls.filter(x=>x.name==='app_project_workstreams'&&x.method==='PATCH')).toHaveLength(0);
+  const item=page.locator('[data-ps3-progress-item="ws-2"]');
+  await expect(item.locator('.ps3-pg-summary')).toHaveText('산하조직 의견 1차 취합');
+  await expect(page.locator('[data-ps3-quick-progress="ws-2"]')).toHaveCount(0);
+});
+
+test('project detail keeps one summary-first column at desktop and phone widths',async({page})=>{
+  const state=baseState();
+  state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응과 매우 긴 진행상황 제목이 한 줄을 넘는 경우',description:null,phase:'consultation',sort_order:20});
+  state.progress[0].summary='국토부 후속협의 준비와 운영기준 쟁점 정리를 동시에 진행하고 있으며 현장 의견을 반영 중인 매우 긴 기록';
+  state.spaces[0].metadata.objective='민자철도 안전·인력 제도개선을 위한 정책·조직사업의 목표 설명이 길어져도 한 줄로 줄여 보여 준다';
   await mockApp(page,state);
   await page.setViewportSize({width:1280,height:900});
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
   await expect(page.locator('#ps3-progress')).toBeVisible();
-
-  const desktop=await page.evaluate(()=>{
-    const grid=document.querySelector('#ps3-progress .ps3-ws-grid');
-    const cards=[...grid.querySelectorAll('.ps3-progress-card')];
-    const r=el=>el.getBoundingClientRect();
-    return {grid:r(grid).width,cards:cards.map(x=>r(x).width),columns:getComputedStyle(grid).gridTemplateColumns};
-  });
-  expect(desktop.cards).toHaveLength(2);
-  expect(desktop.cards[0]).toBeLessThan(desktop.grid*.7);
-  expect(desktop.columns.split(' ').length).toBe(2);
-
-  for(const width of [360,390,412,430]){
+  const order=await page.locator('#ps3Body').evaluate(body=>[...body.children].map(x=>x.id||x.className));
+  expect(order).toEqual(['ps3-quick','ps3-children','ps3-progress','ps3-tasks','ps3-documents','ps3-milestones','ps3-memos']);
+  await expect(page.locator('#ps3-milestones')).not.toHaveAttribute('open','');
+  await expect(page.locator('#ps3-memos')).not.toHaveAttribute('open','');
+  await expect(page.locator('#ps3Body .ps3-section-head p,#ps3Body .ps3-empty,#ps3Body .ps3-detail-head')).toHaveCount(0);
+  await expect(page.locator('.ps3-quick [data-ps3-global="task"]')).toHaveText('할 일 추가');
+  await expect(page.locator('.ps3-quick [data-ps3-global="document"]')).toHaveText('자료 올리기');
+  for(const width of [1280,360,390,412,430]){
     await page.setViewportSize({width,height:844});
-    const mobile=await page.evaluate(()=>{
-      const grid=document.querySelector('#ps3-progress .ps3-ws-grid');
-      const cards=[...grid.querySelectorAll('.ps3-progress-card')];
+    const layout=await page.evaluate(()=>{
       const r=el=>el.getBoundingClientRect();
+      const list=document.querySelector('#ps3-progress .ps3-pg-list');
+      const objective=document.querySelector('#ps3Objective');
+      const summary=document.querySelector('[data-ps3-progress-item="ws-1"] .ps3-pg-summary');
       return {
         overflow:document.documentElement.scrollWidth-window.innerWidth,
-        grid:r(grid).width,
-        cards:cards.map(x=>({width:r(x).width,overflow:x.scrollWidth-x.clientWidth})),
-        columns:getComputedStyle(grid).gridTemplateColumns
+        list:r(list).width,
+        items:[...list.children].map(x=>({width:r(x).width,overflow:x.scrollWidth-x.clientWidth})),
+        objectiveLines:Math.round(r(objective).height/parseFloat(getComputedStyle(objective).lineHeight)),
+        summaryTall:r(summary).height>parseFloat(getComputedStyle(summary).fontSize)*2,
+        sections:[...document.querySelectorAll('#ps3Body>section,#ps3Body>details')].map(x=>Math.round(r(x).width))
       };
     });
-    expect(mobile.overflow,`page overflow at ${width}px`).toBeLessThanOrEqual(1);
-    expect(mobile.columns.split(' ').length,`columns at ${width}px`).toBe(1);
-    for(const card of mobile.cards){
-      expect(card.width,`card width at ${width}px`).toBeGreaterThan(mobile.grid*.95);
-      expect(card.overflow,`card overflow at ${width}px`).toBeLessThanOrEqual(1);
+    expect(layout.overflow,`page overflow at ${width}px`).toBeLessThanOrEqual(1);
+    expect(layout.objectiveLines,`objective lines at ${width}px`).toBe(1);
+    expect(layout.summaryTall,`latest record wraps at ${width}px`).toBe(false);
+    for(const item of layout.items){
+      expect(item.width,`progress item width at ${width}px`).toBeGreaterThan(layout.list*.95);
+      expect(item.overflow,`progress item overflow at ${width}px`).toBeLessThanOrEqual(1);
     }
+    expect(new Set(layout.sections).size,`single column at ${width}px`).toBe(1);
   }
+});
+
+test('key schedule status is shown in Korean inside the collapsed bottom section',async({page})=>{
+  const state=baseState();
+  state.milestones.push({id:'mile-2',project_id:'main-1',title:'완료된 일정',milestone_type:'action',status:'done',start_at:'2026-09-10T05:00:00Z'});
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await expect(page.locator('#ps3-milestones > summary')).toContainText('주요 일정');
+  await expect(page.locator('#ps3-milestones > summary .ps3-count')).toHaveText('2');
+  await openFold(page,'ps3-milestones');
+  await expect(page.locator('#ps3-milestones')).toContainText('예정');
+  await expect(page.locator('#ps3-milestones')).toContainText('완료');
+  await expect(page.locator('#ps3-milestones')).not.toContainText('planned');
+  await expect(page.locator('#ps3-milestones')).not.toContainText('done');
 });
 
 test('top-level project creates a task directly on the current project',async({page})=>{
@@ -599,15 +662,9 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   const created=state.spaces.find(x=>x.name==='QA 자동검사 프로젝트');
   expect(created?.metadata?.project_system).toBe('v2');
   await expect(page.locator('#ps3Title')).toHaveText('QA 자동검사 프로젝트');
-  const scroll=await page.locator('#ps3DetailModal .ps3-detail-card').evaluate(el=>{
-    el.scrollTop=el.scrollHeight;
-    return {top:el.scrollTop,height:el.clientHeight,total:el.scrollHeight};
-  });
-  expect(scroll.total).toBeGreaterThan(scroll.height);
-  expect(scroll.top).toBeGreaterThan(0);
   const width=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   expect(width).toBeLessThanOrEqual(1);
-  await page.locator('[data-ps3-add-milestone]').click();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
   await page.locator('#ps3MilestoneTitle').fill('모바일 QA 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-09-29T10:00');
@@ -620,19 +677,26 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await page.locator('#ps3WsSave').click();
   await expect.poll(()=>state.workstreams.some(x=>x.title==='모바일 QA 진행상황')).toBe(true);
   const mobileProgress=state.workstreams.find(x=>x.title==='모바일 QA 진행상황');
-  await page.locator(`[data-ps3-progress-ws="${mobileProgress.id}"]`).click();
-  await expect(page.locator('#ps3ProgressModal')).toBeVisible();
-  await page.locator('#ps3ProgressSummary').fill('모바일 QA 현재 상황');
-  await page.locator('#ps3ProgressNext').fill('다음 현장 확인');
-  await page.locator('#ps3ProgressSave').click();
-  await expect.poll(()=>state.progress.some(x=>x.summary==='모바일 QA 현재 상황')).toBe(true);
+  const quick=page.locator(`[data-ps3-quick-progress="${mobileProgress.id}"]`);
+  await quick.locator('input').fill('모바일 QA 현재 상황');
+  await quick.locator('button[type="submit"]').click();
+  await expect.poll(()=>state.progress.some(x=>x.summary==='모바일 QA 현재 상황'&&x.workstream_id===mobileProgress.id)).toBe(true);
+  await expect(page.locator(`[data-ps3-progress-item="${mobileProgress.id}"] .ps3-pg-summary`)).toHaveText('모바일 QA 현재 상황');
+  await openFold(page,'ps3-milestones');
+  await openFold(page,'ps3-memos');
+  const scroll=await page.locator('#ps3DetailModal .ps3-detail-card').evaluate(el=>{
+    el.scrollTop=el.scrollHeight;
+    return {top:el.scrollTop,height:el.clientHeight,total:el.scrollHeight};
+  });
+  expect(scroll.total).toBeGreaterThan(scroll.height);
+  expect(scroll.top).toBeGreaterThan(0);
   await page.locator('[data-ps3-global="document"]').click();
   await expect(page.locator('#documentModal')).toBeVisible();
   await expect(page.locator('#docProject')).toHaveValue(created.id);
   await page.locator('[data-close="documentModal"]').first().click();
   await expect(page.locator('[data-ps3-global="page"]')).toHaveCount(0);
-  await page.locator('#ps3Hierarchy .ps3-child-menu summary').click();
-  await page.locator('[data-ps3-child]').click();
+  await expect(page.locator('#ps3Hierarchy')).toBeEmpty();
+  await page.locator('#ps3-children [data-ps3-child]').click();
   await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await expect(page.locator('#ps3CreateParent')).toHaveValue(created.id);
   await page.locator('[data-ps3-close="ps3CreateModal"]').click();
@@ -641,23 +705,33 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   expect(errors).toEqual([]);
 });
 
-test('V3 uses a compact child-project menu and child returns to parent',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+test('V3 lists child projects with counts in the body and child returns to parent',async({page})=>{
+  const state=baseState();
+  state.tasks.push(
+    {id:'child-task-open',project_id:'child-1',title:'발제 취합',status:'todo',assignee_id:'user-1'},
+    {id:'child-task-done',project_id:'child-1',title:'장소 확정',status:'done',assignee_id:'user-1'}
+  );
+  state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   await expect(page.locator('[data-ps3-project="main-1"]')).toBeVisible();
   await expect(page.locator('#projectGrid [data-project]')).toHaveCount(0);
   await page.locator('[data-ps3-project="main-1"]').first().click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  await expect(page.locator('#ps3Kicker,#ps3Body .ps3-detail-meta')).toHaveCount(0);
+  await expect(page.locator('#ps3Kicker,#ps3Body .ps3-detail-meta,.ps3-child-menu')).toHaveCount(0);
   await expect(page.locator('#ps3DetailModal .ps3-modal-head')).not.toContainText('상시사업·산업관리');
   await expect(page.locator('#ps3DetailModal .ps3-modal-head')).not.toContainText('PROJECT');
-  await expect(page.locator('#ps3Body .ps3-detail-head')).not.toContainText('기간 ·');
-  await expect(page.locator('#ps3Body .ps3-detail-head')).not.toContainText('진행 영역 ·');
-  await expect(page.locator('#ps3Hierarchy .ps3-child-menu')).toBeVisible();
-  await expect(page.locator('.ps3-actions .ps3-child-menu')).toHaveCount(0);
-  await expect(page.locator('.ps3-child-section')).toHaveCount(0);
-  await page.locator('.ps3-child-menu summary').click();
-  await page.locator('.ps3-child-menu [data-ps3-project="child-1"]').click();
-  await expect(page.locator('#ps3Hierarchy')).toContainText('하위 프로젝트');
+  await expect(page.locator('#ps3Hierarchy')).toBeEmpty();
+  const children=page.locator('#ps3-children');
+  await expect(children.locator('.ps3-section-head')).toContainText('하위 프로젝트 1');
+  const row=children.locator('[data-ps3-project="child-1"]');
+  await expect(row).toContainText('9.29 민자철도 국회토론회');
+  await expect(row).toContainText('할 일 1 · 자료 1');
+  await expect(children.locator('[data-ps3-edit-project],[data-ps3-archive-project],[data-ps3-delete-project]')).toHaveCount(0);
+  const countCall=state.restCalls.find(x=>x.name==='app_tasks'&&x.method==='GET');
+  expect(countCall).toBeTruthy();
+  await row.click();
+  await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');
+  await expect(page.locator('#ps3-children')).toHaveCount(0);
   await expect(page.locator('.ps3-parent-link')).toContainText('민자철도 정책·조직사업');
   await page.locator('.ps3-parent-link').click();
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
@@ -694,6 +768,7 @@ test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',
   await expect(page.locator('#ps3WorkstreamModal')).toHaveClass(/hidden/);
   await expect(wsTrigger).toBeFocused();
 
+  await openFold(page,'ps3-milestones');
   const milestoneTrigger=page.locator('[data-ps3-add-milestone]');
   await milestoneTrigger.focus();await milestoneTrigger.click();
   await expect(page.locator('#ps3MilestoneTitle')).toBeFocused();
@@ -702,15 +777,32 @@ test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',
   await expect(milestoneTrigger).toBeFocused();
 });
 
-test('V3 child project details use native keyboard disclosure behavior',async({page})=>{
+test('V3 more menu and progress items use native keyboard disclosure behavior',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   await page.locator('[data-ps3-project="main-1"]').first().click();
-  const details=page.locator('.ps3-child-menu'),summary=details.locator('summary');
+  const menu=page.locator('#ps3Menu .ps3-more'),summary=menu.locator(':scope > summary');
+  await expect(summary).toHaveAttribute('aria-label','프로젝트 관리 메뉴');
+  await expect(menu.locator('[data-ps3-toggle-done]')).toBeHidden();
   await summary.focus();
   await page.keyboard.press('Enter');
-  await expect(details).toHaveAttribute('open','');
+  await expect(menu).toHaveAttribute('open','');
+  await expect(menu.locator('.ps3-more-panel button')).toHaveText(['완료','수정','보관','삭제']);
   await page.keyboard.press('Tab');
-  await expect(details.locator('[data-ps3-project="child-1"]')).toBeFocused();
+  await expect(menu.locator('[data-ps3-toggle-done]')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).not.toHaveAttribute('open','');
+  await expect(summary).toBeFocused();
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await summary.click();
+  await expect(menu).toHaveAttribute('open','');
+  await page.locator('#ps3Title').click();
+  await expect(menu).not.toHaveAttribute('open','');
+  const item=page.locator('[data-ps3-progress-item="ws-1"]'),itemSummary=item.locator(':scope > summary');
+  await itemSummary.focus();
+  await page.keyboard.press('Enter');
+  await expect(item).toHaveAttribute('open','');
+  await page.keyboard.press('Tab');
+  await expect(item.locator('[data-ps3-progress-ws="ws-1"]')).toBeFocused();
 });
 
 test('V3 creates and edits a project with the same final renderer',async({page})=>{
@@ -722,6 +814,7 @@ test('V3 creates and edits a project with the same final renderer',async({page})
   expect(made.visibility).toBe('private');
   expect(state.workstreams.filter(x=>x.project_id===made.id)).toHaveLength(0);
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await openMenu(page);
   await page.locator('[data-ps3-edit-project]').click();
   await expect(page.locator('#ps3CreateHeading')).toHaveText('프로젝트 수정');
   await page.locator('#ps3CreateName').fill('인력확충 공동투쟁');
@@ -731,22 +824,37 @@ test('V3 creates and edits a project with the same final renderer',async({page})
   await expect(page.locator('#ps3Title')).toHaveText('인력확충 공동투쟁');
 });
 
-test('V3 edits and deletes a key schedule and filters project documents',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+test('V3 edits and deletes a key schedule and shows the three most recent documents',async({page})=>{
+  const state=baseState();
+  state.docs.push(
+    {id:'doc-2',project_id:'main-1',title:'토론회 발제문',category:'정책자료',document_date:'2026-09-13'},
+    {id:'doc-3',project_id:'main-1',title:'현장 설문 결과',category:'현장자료',document_date:'2026-09-12'},
+    {id:'doc-4',project_id:'main-1',title:'지난 회의록',category:'회의',document_date:'2026-09-01'}
+  );
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
-  await page.locator('[data-ps3-edit-milestone="mile-1"]').click();await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
   await page.locator('#ps3MilestoneTitle').fill('9.29 민자철도 국회토론회 확정');await page.locator('#ps3MilestoneSave').click();
   await expect.poll(()=>state.milestones[0].title).toBe('9.29 민자철도 국회토론회 확정');
+  await expect(page.locator('#ps3-milestones')).toHaveAttribute('open','');
   await page.locator('[data-ps3-edit-milestone="mile-1"]').click();page.once('dialog',d=>d.accept());await page.locator('#ps3MilestoneDelete').click();
   await expect.poll(()=>state.milestones.length).toBe(0);
-  await expect(page.locator('#ps3-documents')).toContainText('민자철도 국토부 요구자료 답변');
-  await page.locator('[data-ps3-doc-filter="정부자료"]').click();await expect(page.locator('.ps3-doc-card')).toHaveCount(1);
-  await page.locator('#ps3DocSearch').fill('없는자료');await expect(page.locator('.ps3-doc-card')).toHaveCount(0);
+  const docs=page.locator('#ps3-documents');
+  await expect(docs.locator('.ps3-section-head .ps3-count')).toHaveText('4');
+  await expect(docs.locator('.ps3-doc-row')).toHaveCount(3);
+  await expect(docs).toContainText('민자철도 국토부 요구자료 답변');
+  await expect(docs).not.toContainText('지난 회의록');
+  await expect(docs.locator('#ps3DocSearch,[data-ps3-doc-filter]')).toHaveCount(0);
+  await expect(docs.locator('a[href="https://example.org/doc"]')).toHaveText('열기');
+  await docs.locator('[data-ps3-library]').click();
+  await expect(page.locator('#ps3DetailModal')).toBeHidden();
+  await expect(page.locator('#libraryView')).toBeVisible();
 });
 
 test('V3 archives and restores without returning to a legacy project screen',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await expect(page.locator('[data-ps3-archive-project]')).toBeVisible({timeout:10000});
+  await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
+  await openMenu(page);
   page.once('dialog',d=>d.accept());await page.locator('[data-ps3-archive-project]').click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('archived');
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
@@ -760,7 +868,9 @@ test('V3 archives and restores without returning to a legacy project screen',asy
 
 test('V3 exposes project delete in final renderer',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await expect(page.locator('[data-ps3-delete-project]')).toBeVisible({timeout:10000});
+  await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
+  await openMenu(page);
+  await expect(page.locator('[data-ps3-delete-project]')).toBeVisible();
   await page.locator('[data-ps3-delete-project]').click();await expect(page.locator('#ps3DeleteModal')).toBeVisible();
   await page.locator('#ps3DeleteConfirm').click();await expect.poll(()=>state.spaces.some(x=>x.id==='main-1')).toBeFalsy();
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
@@ -770,9 +880,8 @@ test('V3 includes legacy child work areas under a V3 parent without changing the
   const state=baseState();state.spaces.push({id:'legacy-child',workspace_id:'workspace-1',parent_id:'main-1',name:'국회토론회 준비',slug:'old-child',owner_id:'user-1',status:'active',visibility:'team',metadata:{legacy_snapshot:true}});
   state.tasks.push({id:'legacy-task',project_id:'legacy-child',title:'발제 원고 취합',status:'todo'});
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('.ps3-child-menu summary').click();
-  await expect(page.locator('.ps3-child-menu [data-ps3-project="legacy-child"]')).toBeVisible();
-  await page.locator('.ps3-child-menu [data-ps3-project="legacy-child"]').click();
+  await expect(page.locator('#ps3-children [data-ps3-project="legacy-child"]')).toBeVisible();
+  await page.locator('#ps3-children [data-ps3-project="legacy-child"]').click();
   await expect(page.locator('#ps3Title')).toHaveText('국회토론회 준비');
   await expect(page.locator('#ps3-tasks')).toContainText('발제 원고 취합');
 });
@@ -801,8 +910,7 @@ test('V3 project detail stays separate from the Web1-backed board',async({page})
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
-  await page.locator('.ps3-child-menu summary').click();
-  await expect(page.locator('.ps3-child-menu [data-ps3-project="child-1"]')).toBeVisible();
+  await expect(page.locator('#ps3-children [data-ps3-project="child-1"]')).toBeVisible();
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('독립 현장 공지');
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
@@ -831,11 +939,13 @@ test('Web1-backed board stays compact and excludes dedicated library and press s
 
 test('V3 completion changes status without deleting the project',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  const control=page.locator('[data-ps3-toggle-done]');await expect(control).toHaveText('완료');
+  const control=page.locator('[data-ps3-toggle-done]');
+  await openMenu(page);await expect(control).toHaveText('완료');
   await control.click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('done');
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
-  await expect(control).toHaveText('완료 취소');
+  await expect(page.locator('#ps3Menu .ps3-more')).not.toHaveAttribute('open','');
+  await openMenu(page);await expect(control).toHaveText('완료 취소');
   await control.click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('active');
 });

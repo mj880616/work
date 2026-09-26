@@ -11,7 +11,7 @@ test('project view has one active renderer and no legacy overlay chain', async (
   const views=read('app/view-loader.js');
   const html=read('app/index.html');
   const team=read('app/team.js');
-  expect(views).toContain("project-system-v3.js?v=23");
+  expect(views).toContain("project-system-v3.js?v=24");
   for(const legacy of [
     'project-system-v2.js','project-hide-legacy.js','project-files.js','project-delete.js',
     'project-modal-polish.js','project-modal-scroll-lock.js','project-access.js',
@@ -36,10 +36,14 @@ test('project V3 includes the complete management actions in its own renderer', 
   expect(src).toContain('ps3MilestoneDelete');
   expect(src).toContain('data-ps3-library');
   expect(src).toContain('ps3-parent-link');
-  expect(src).toContain('ps3-child-menu');
   expect(src).toContain("$('#ps3Hierarchy').innerHTML");
-  expect(src).not.toContain('<div class="ps3-actions">${!par?childMenu');
-  expect(src).toContain('data-ps3-doc-filter');
+  expect(src).toContain('id="ps3-children"');
+  expect(src).toContain('data-ps3-child');
+  expect(src).toContain('ps3-more');
+  expect(src).toContain('data-ps3-quick-progress');
+  expect(src).not.toContain('ps3-child-menu');
+  expect(src).not.toContain('data-ps3-doc-filter');
+  expect(src).not.toContain('data-ps3-nav');
   expect(src).not.toContain('ps3-child-section');
 });
 
