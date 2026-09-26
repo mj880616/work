@@ -72,6 +72,10 @@ jobs:
               'tests/app-e2e/public-page-password-recovery.spec.mjs':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-workspace-auth.spec.mjs':[r'\blocalStorage\b'],
               'tests/security/web1-admin-auth-redirect.test.mjs':[r'\bsessionStorage\b',r'\blocalStorage\b'],
+              # SEC-1 synthetic session adapter and a read-only assertion that
+              # failed handoffs never persist a session. No application grant.
+              'tests/security/auth-handoff-browser.test.mjs':[r'^\s*localStorage:\s*\{'],
+              'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
           }
 
           active_hits=[]; legacy_hits=[]; violations=[]

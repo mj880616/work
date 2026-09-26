@@ -5,6 +5,7 @@ on:
     paths:
       - 'supabase/**'
       - 'tests/security/**'
+      - 'tests/auth-handoff/**'
       - '.github/workflows/authz-security-check.yml'
   pull_request:
     branches:
@@ -12,10 +13,26 @@ on:
     paths:
       - 'supabase/**'
       - 'tests/security/**'
+      - 'tests/auth-handoff/**'
       - '.github/workflows/authz-security-check.yml'
   workflow_dispatch:
 
 jobs:
+  auth-handoff-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install locked isolated PostgreSQL test dependencies
+        working-directory: tests/auth-handoff
+        run: npm ci --no-audit --no-fund
+      - name: Verify single consumption across 20 real PostgreSQL connections
+        working-directory: tests/auth-handoff
+        run: npm test
+
   static-authz-regression:
     runs-on: ubuntu-latest
     timeout-minutes: 5
