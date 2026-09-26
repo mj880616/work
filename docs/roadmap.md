@@ -71,7 +71,7 @@
 | ENV-4 | 브랜치 정리 | 대기 | | merge·close된 브랜치 대상. 급하지 않음 |
 | DB-1 | 반복 DB 오류 조사 | 대기 | | app_workspace_members.email 없는 열 조회, app_project_publication_state 권한 거부 |
 | DB-2 | 삭제 시 수정 이력 보존 설계 | 대기 | | 페이지 삭제 시 app_page_revisions cascade 삭제, 다른 삭제 경로 포함. 보류 가능 |
-| 일정 성능-2 | google-calendar Edge 로딩 최적화 | 진행중 | | 순서: 일정 성능-1 다음. 기준 `e98bbd9`. events 캘린더별 병렬(동시 4)·일부 실패 시 성공분+warning, colors 팔레트 isolate 메모리 캐시(30분). 코드만, Edge 배포는 로컬 세션 별도 |
+| 일정 성능-2 | google-calendar Edge 로딩 최적화 | 진행중 | #300 | 순서: 일정 성능-1 다음. 기준 `e98bbd9`. events 캘린더별 병렬(동시 4)·일부 실패 시 성공분+warning, colors 팔레트 isolate 메모리 캐시(30분). 코드만, Edge 배포는 로컬 세션 별도 |
 
 ### 별도 트랙: RTW
 
