@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `5a9e55c` (Merge pull request #310)
+- 기준 main SHA: `99512a1` (Merge pull request #312)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -59,7 +59,7 @@
 | 조직-1 | 조직 상세 소속 칩에서 종류 접두어(협의회 · / 사업단 · ) 제거 | 완료 | #308 | 기준 `a2bd0e4`. UI만(DB·Edge 변경 없음). app/workplace-detail.js wdRenderAff() 칩에 이름만 표시, 협의회/사업단 구분은 기존 taskforce 칩 스타일 유지. 2026-09-26 실사용(휴대폰) 확인 |
 | 18 | 담당조직 자유입력 Inbox | 완료 | #309·#310 | 기준 `e6d607d`. UI만(DB·Edge 변경 없음). 조직 상세 맨 위 입력칸 하나 + 저장, 기존 `app_suborganization_updates` 저장 경로(workplace-ai-report.js "업데이트 추가"와 같은 요청)를 workplace-detail.js로 옮겨 최신순 "기록"으로 표시. "현재 상황 업데이트"·"+ 메모" 입력 제거, 기존 요약·메모는 접힌 칸 "기본 정보 · 소속 · 이전 요약"에서 읽기 전용, AI 초안 버튼도 그 칸으로 이동. canEdit 확인 유지. 배포 후 휴대폰에서 옛 화면 유지: `view-loader.js?v=16` 등 상위 로더 버전을 올리지 않아 edge·브라우저가 1년 immutable 캐시로 옛 로더를 계속 사용(후속 PR에서 view-loader v17·loader-v2 v237·app.js v125로 올림). 2026-09-26 실사용(휴대폰) 확인 |
 | 18b | 담당조직 기록·메모 삭제 | 진행중 | #315 | 기준 `99512a1`. UI만(DB·Edge 변경 없음). app/workplace-detail.js "기록"(`app_suborganization_updates`) 각 항목과 접힌 칸 예전 메모(`app_suborganization_status_items`) 각 항목에 삭제 버튼. 메모는 계속 읽기 전용, 삭제만 추가. 확인 1회, `id`+`organization_id` 조건 DELETE에 `return=representation`으로 지워진 행을 받아 0행·오류면 항목 유지 + 안내. canEdit 없으면 버튼 없음, 서버 권한은 기존 RLS(task12a_owner_all) 그대로. 최근 1달/올해 요약은 대상 아님. 캐시: workplace-detail v8·view-loader v18·loader-v2 v238·app.js v126 |
-| 로그인-1 | 로그인 화면 "공공기관사업팀 · WORKSPACE" 문구 제거 | 진행중 | #311 | 기준 `0a7850b`. UI만(DB·Edge·인증 흐름 변경 없음). app/login/index.html 상단 header 줄 제거, 탭 제목 "로그인". 로그인 전 다른 화면의 같은 문구는 고치지 않고 PR에 위치만 보고. 캐시 버전 올림 대상 없음: 바뀐 파일은 HTML(`?v=` 없음, 라우터가 no-cache)이고 JS·CSS·로더 변경 없음 |
+| 로그인-1 | 로그인 화면 "공공기관사업팀 · WORKSPACE" 문구 제거 | 완료 | #311 | 기준 `0a7850b`. UI만(DB·Edge·인증 흐름 변경 없음). app/login/index.html 상단 header 줄 제거, 탭 제목 "로그인". 로그인 전 다른 화면의 같은 문구는 고치지 않고 PR에 위치만 보고. 캐시 버전 올림 대상 없음: 바뀐 파일은 HTML(`?v=` 없음, 라우터가 no-cache)이고 JS·CSS·로더 변경 없음. 2026-09-26 실사용(휴대폰) 확인 |
 | 19 | 단일사용자 전환 전 snapshot | 대기 | | 26의 조사와 DB-1 포함. 화면·코드·DB 전체 목록 |
 | DB-1 | 반복 DB 오류 조사 | 대기 | | 19에 흡수. app_workspace_members.email 없는 열 조회, app_project_publication_state 권한 거부 |
 | 20 | signup/invite/access/FIRST ADMIN UI 제거 | 대기 | | |
@@ -81,8 +81,10 @@
 | RTW-출시준비 | 플레이 정책 대응: 웹 탈퇴 요청 링크, 테스트 계정으로 탈퇴 실동작 확인 | 대기 | | Web2 확인 테이블 4개 한계 검토 포함 |
 | RTW-3 | rtw-personal-write secret/권한 점검 | 대기 | | Task 32 전 완료. rtw_* 5개 테이블 anon GRANT 흔적 정리 |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
-| ENV-4 | 브랜치 정리 | 대기 | | 수시. merge·close된 브랜치 대상. 급하지 않음 |
+| ENV-4 | 브랜치 정리 | 대기 | | 수시. merge·close된 브랜치 대상. 급하지 않음. 파일 수정 시 로더 캐시 버전(`?v=`) 올림 누락을 CI가 잡는 검사 추가(대기): #309에서 `view-loader.js` 버전 누락으로 배포 후 옛 화면이 남은 사례(#310에서 수정) |
 | 일정 인증-1 | google-calendar 인증 실패 응답 400→401 정리 | 대기 | | 우선순위 낮음 |
+| ENV-5 | 불안정 E2E 측정형 테스트 안정화 | 대기 | | 수시. 코드 변경과 무관하게 CI에서 가끔 실패: `calendar-google-loading.spec.mjs:77`(응답 시간 한도 600ms·200ms), `calendar-month-view.spec.mjs:187`(창 크기 변경 직후 배치 측정). 여러 테스트를 병렬로 돌릴 때 간헐 실패하는 로그인 세션 전환(`public-workspace-auth.spec.mjs`), Web1 게시판(`web1-board.spec.mjs`)도 포함. 2026-09-26 #310 CI에서 각 1회 실패, 재실행·로컬 반복은 통과. 테스트 삭제·건너뛰기 없이 대기 조건·한도를 원인에 맞게 고침 |
+| 이름-2 | 서비스 소개·개인정보처리방침 페이지 이름 변경, 구글 앱 이름 변경 | 대기 | | 구글 앱 이름 변경은 사용자가 Google 설정 화면에서 직접 하는 작업 포함 |
 
 비고: migration 버전 불일치 3건(enable_multiuser_personal_spaces, add_free_beta_controls, add_beta_access_status_rpc)은 RTW 작업(RTW-1~3) 소관이다. 읽생기 저장소 파일과 production 기록의 버전이 다르다. 대응은 [docs/migration-history.md](migration-history.md).
 
@@ -99,6 +101,7 @@
 | roadmap 작업 표를 진행 순서로 재배열(RTW-1·2 최우선, DB-1은 19 흡수, DB-2는 26 결정, ENV-4 수시), 일정 인증-1 등록 | #301 |
 | roadmap 갱신: RTW-1·RTW-2 완료, RTW-분리·RTW-출시준비 등록, RTW-3 비고 추가 | #303 |
 | roadmap 갱신: 15b 종료(대상 파일 비활성), 17b-1 완료 | #307 |
+| roadmap 갱신: ENV-5(불안정 E2E 테스트) 등록, 로그인-1 완료, ENV-4 로더 캐시 버전 검사 기록, 이름-2 등록 | #314 |
 
 ## 갱신 규칙
 
