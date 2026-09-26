@@ -1,25 +1,23 @@
 (()=>{
 'use strict';
 const rt=window.KPTURuntime;if(!rt)return;
-let user=null,workspaceId=null,workspaceRole=null,projects=[],organizations=[],links=[],spaceRoles=new Map(),assignedOrgs=new Set();
+let user=null,workspaceId=null,workspaceRole=null,projects=[],organizations=[],links=[],assignedOrgs=new Set();
 let currentProjectId=null,currentOrgId=null,manageMode=null,manageTarget=null,refreshBusy=false,scheduled=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const api=(p,o={})=>rt.api(p,o);
 const isV2=p=>p?.metadata?.project_system==='v2'||Number(p?.metadata?.management_version)===2;
-const projectRoleRank=r=>({manage:30,edit:20,view:10}[r]||0);
 function toast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),2300)}
 async function context(){if(!(await rt.session.ensure()))return false;user=await api('/auth/v1/user');const ms=await api(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id,role&limit=1`);if(!ms?.length)return false;workspaceId=ms[0].workspace_id;workspaceRole=ms[0].role;return true}
-async function loadCatalog(){if(!workspaceId&&!await context())return false;const [ps,os,ls,sms,as]=await Promise.all([
+async function loadCatalog(){if(!workspaceId&&!await context())return false;const [ps,os,ls,as]=await Promise.all([
   api(`/rest/v1/app_spaces?workspace_id=eq.${workspaceId}&select=id,workspace_id,parent_id,name,status,metadata,owner_id,created_by,visibility&order=sort_order.asc,created_at.asc`),
   api(`/rest/v1/app_suborganizations?workspace_id=eq.${workspaceId}&active=eq.true&select=id,workspace_id,name,aliases,created_by,active&order=name.asc`),
   api('/rest/v1/app_project_suborganizations?select=project_id,organization_id,created_by,created_at'),
-  api(`/rest/v1/app_space_members?user_id=eq.${user.id}&select=project_id,role`),
   api(`/rest/v1/app_suborganization_assignees?user_id=eq.${user.id}&select=organization_id`)
 ]);
   projects=(ps||[]).filter(isV2).filter(x=>x.status!=='archived');organizations=os||[];links=ls||[];
-  spaceRoles=new Map((sms||[]).map(x=>[x.project_id,x.role]));assignedOrgs=new Set((as||[]).map(x=>x.organization_id));return true
+  assignedOrgs=new Set((as||[]).map(x=>x.organization_id));return true
 }
-function canManageProject(p){return !!p&&(['owner','admin'].includes(workspaceRole)||p.owner_id===user?.id||projectRoleRank(spaceRoles.get(p.id))>=20)}
+function canManageProject(p){return !!p&&p.owner_id===user?.id}
 function canManageOrg(o){return !!o&&(['owner','admin'].includes(workspaceRole)||o.created_by===user?.id||assignedOrgs.has(o.id))}
 function linkedOrgs(projectId){const ids=new Set(links.filter(x=>x.project_id===projectId).map(x=>x.organization_id));return organizations.filter(x=>ids.has(x.id))}
 function linkedProjects(orgId){const ids=new Set(links.filter(x=>x.organization_id===orgId).map(x=>x.project_id));return projects.filter(x=>ids.has(x.id))}

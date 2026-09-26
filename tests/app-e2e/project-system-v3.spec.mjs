@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
+watchRetiredCollaboration(test);
 import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -40,12 +42,7 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:state.workspace.id,user_id:state.user.id,role:'owner',created_at:now()}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'프로젝트 관리자'}]);
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
-    if(path==='/rest/v1/app_space_members'){
-      const pid=eq(url,'project_id');
-      if(method==='GET')return ok(state.spaceMembers.filter(x=>!pid||x.project_id===pid));
-      if(method==='DELETE'){state.spaceMembers=state.spaceMembers.filter(x=>x.project_id!==pid);return ok([])}
-      if(method==='POST'){const rows=Array.isArray(body)?body:[body];state.spaceMembers.push(...rows);return ok(rows)}
-    }
+
     if(path==='/rest/v1/app_spaces'){
       if(method==='GET'){const id=eq(url,'id'),owner=eq(url,'owner_id');let rows=id?state.spaces.filter(x=>x.id===id):state.spaces;rows=rows.filter(x=>!owner||x.owner_id===owner);return ok(rows)}
       if(method==='POST'){const row={...(body||{}),id:`project-${state.spaces.length+1}`,created_at:now(),updated_at:now()};state.spaces.push(row);return ok([row])}
@@ -80,7 +77,7 @@ async function mockApp(page,state){
     if(table('app_meetings',state.meetings))return;
     if(table('app_documents',state.docs))return;
     if(table('app_pages',state.pages,'space_id'))return;
-    if(path==='/rest/v1/app_event_attendees'||path==='/rest/v1/app_groups'||path==='/rest/v1/app_notifications')return ok([]);
+    if(path==='/rest/v1/app_groups'||path==='/rest/v1/app_notifications')return ok([]);
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});
   });
@@ -123,7 +120,7 @@ function baseState(){return{
   progress:[{id:'pr-1',project_id:'main-1',workstream_id:'ws-1',summary:'국토부 후속협의 준비',next_step:'9.29 토론회',status_label:'진행',effective_on:'2026-09-15',created_at:now()}],
   milestones:[{id:'mile-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',milestone_type:'policy',status:'planned',start_at:'2026-09-29T05:00:00Z',notes:'국토부·TS 참석'}],
   docs:[{id:'doc-1',project_id:'main-1',title:'민자철도 국토부 요구자료 답변',category:'정부자료',source:'국토교통부',document_date:'2026-09-14',tags:['민자철도','운영기준'],description:'인청 요구자료',drive_url:'https://example.org/doc'}],
-  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],spaceMembers:[],sections:[],blocks:[],
+  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],sections:[],blocks:[],
   googleStatus:{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}},googleCalls:[],googleFailures:{},restFailures:{},restCalls:[],callOrder:[]
 }}
 

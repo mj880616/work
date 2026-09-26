@@ -153,11 +153,8 @@
     if(!currentProjectId||!(await rt.session.ensure())){btn.classList.add('hidden');return}
     try{
       currentUser=await api('/auth/v1/user');
-      const [projects,members]=await Promise.all([
-        api(`/rest/v1/app_spaces?id=eq.${encodeURIComponent(currentProjectId)}&select=id,owner_id&limit=1`),
-        api(`/rest/v1/app_space_members?project_id=eq.${encodeURIComponent(currentProjectId)}&user_id=eq.${currentUser.id}&select=role&limit=1`)
-      ]);
-      canEdit=projects?.[0]?.owner_id===currentUser.id||['edit','manage'].includes(members?.[0]?.role);
+      const projects=await api(`/rest/v1/app_spaces?id=eq.${encodeURIComponent(currentProjectId)}&select=id,owner_id&limit=1`);
+      canEdit=projects?.[0]?.owner_id===currentUser.id;
       btn.classList.toggle('hidden',!canEdit);
     }catch(_){btn.classList.add('hidden')}
   }

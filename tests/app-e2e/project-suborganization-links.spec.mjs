@@ -64,3 +64,36 @@ test('link UI stays within mobile viewport',async({page})=>{
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth);
   expect(overflow).toBeFalsy();
 });
+
+test('project owner manages links without loading project membership',async({page})=>{
+  await page.goto(base);
+  await page.click('#openProject');
+  await expect(page.locator('#polManageProject')).toBeVisible();
+  await page.click('#polManageProject');
+  await page.check('#polChoices input[value="org-b"]');
+  await page.click('#polSave');
+  await expect.poll(()=>page.evaluate(()=>window.__state.links.filter(x=>x.project_id==='p1').length)).toBe(2);
+  expect(await page.evaluate(()=>window.__state.calls.filter(x=>x.path.includes('/app_space_members')))).toEqual([]);
+});
+
+for(const owner of [true,false]){
+  test('legacy template controls require project ownership: '+owner,async({page})=>{
+    await page.goto(base+'?project=p1');
+    await expect(page.locator('[data-pol-org-detail]')).toBeVisible();
+    await page.evaluate(({owner})=>{
+      window.__templateCalls=[];
+      window.KPTURuntime.api=async path=>{
+        window.__templateCalls.push(path);
+        if(path==='/auth/v1/user')return {id:'u1'};
+        if(path.startsWith('/rest/v1/app_spaces?'))return [{id:'p1',owner_id:owner?'u1':'u2'}];
+        throw new Error('Unexpected template request: '+path);
+      };
+      document.body.insertAdjacentHTML('beforeend','<button id="pvAddSection">섹션 추가</button>');
+    },{owner});
+    await page.addScriptTag({path:'app/project-templates.js'});
+    await expect.poll(()=>page.evaluate(()=>window.__templateCalls.some(x=>x.startsWith('/rest/v1/app_spaces?')))).toBe(true);
+    if(owner)await expect(page.locator('#pvtOpen')).toBeVisible();
+    else await expect(page.locator('#pvtOpen')).toBeHidden();
+    expect(await page.evaluate(()=>window.__templateCalls.filter(x=>x.includes('/app_space_members')))).toEqual([]);
+  });
+}
