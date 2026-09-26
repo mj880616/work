@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `e7b8c89` (Merge pull request #293)
+- 기준 main SHA: `f4afd6e` (Merge pull request #294)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -12,6 +12,7 @@
 | 진행중 | 작업 branch 또는 PR이 열려 있고 작업 중 |
 | 대기 | 순서가 정해졌으나 아직 시작하지 않음 |
 | 보류 | 결정·선행조건 부족으로 중단. 비고에 사유를 적는다 |
+| 종료 | 작업 없이 닫음(대상 없음·소유자 결정 등). 비고에 사유를 적는다 |
 
 ## 제품 방향
 
@@ -60,8 +61,9 @@
 | 31 | collaboration dead code/API/CSS 정리 | 대기 | | app/project-archive.js 미사용 파일 제거 포함 |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
 | 15b | 프로젝트 파일 업로드(project-files.js) 실패 처리 정규화 | 대기 | | 순서 미정 |
-| Web1-1 | 공개 페이지 메타 생성기: 빈 조회 시 기존 메타 보존 (#202 재작업) | 진행중 | #294 | withdrawn 목록으로 비공개 전환 명시, 빈 조회는 보존+실패. 9/22 빈 조회 원인 미확정(로컬 조사 보류). #202는 merge 후 close |
-| Web1-2 | p/bus-strike-publicness-internal-archive-202609 셸 상태 확인 | 대기 | | manifest 밖, 제목 '공유 게시글' |
+| Web1-1 | 공개 페이지 메타 생성기: 빈 조회 시 기존 메타 보존 (#202 재작업) | 완료 | #294 | withdrawn 목록으로 비공개 전환 명시, 빈 조회는 보존+실패. 9/22 빈 조회 원인 미확정, 로컬 조사 예정. #202는 merge 후 close |
+| Web1-2 | p/bus-strike-publicness-internal-archive-202609 셸 상태 확인 | 종료 | | 대상 글이 production app_pages·app_page_revisions에 없음(로컬 read-only 조회로 확인). anon app_public_post 빈 결과로 이미 링크 공개 종료 상태. 원본 없음, 복구하지 않기로 소유자 결정. 흔적 정리는 Web1-3 |
+| Web1-3 | bus-strike-publicness-internal-archive-202609 흔적 정리 | 대기 | | 범위: app_public_post allowlist에서 slug 제거(migration 필요, 적용 직전 정지), redirect 셸 처리 방침 결정, E2E 7번째 redirect 검사와 supabase/tests/authz_* 의 7행 가정 수정. 위험: 같은 slug로 새 글이 생기면 allowlist 때문에 자동 링크 공개됨 |
 
 ### 별도 트랙: RTW
 
