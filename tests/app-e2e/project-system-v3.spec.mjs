@@ -1020,8 +1020,10 @@ test('V3 completion changes status without deleting the project',async({page})=>
   await control.click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('done');
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+  // Wait for the detail re-render that follows the status change before reopening its menu.
+  await expect(control).toHaveText('완료 취소');
   await expect(page.locator('#ps3Menu .ps3-more')).not.toHaveAttribute('open','');
-  await openMenu(page);await expect(control).toHaveText('완료 취소');
+  await openMenu(page);
   await control.click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('active');
 });
