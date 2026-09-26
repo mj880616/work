@@ -48,7 +48,7 @@
 | Web1-4 | app_delete_pages RPC 제거 (9/22 빈 조회 원인 경로 차단) | 완료 | #296 | 2026-09-26 SQL Editor 적용, 로컬 사후 검증 통과. schema_migrations 기록 없음(ENV-2에서 정리) |
 | ENV-1 | gh CLI 설치·로그인 | 완료 | | 2026-09-26 로컬 세션에서 gh 로그인 확인 |
 | ENV-2 | migration 기록 불일치 정리 | 완료 | #298 | 방침 확정: 공유 DB이므로 db push·migration repair 영구 금지, 불일치는 대응표로 관리, 이후 적용 SQL에 기록 1행 insert. 대응표 [docs/migration-history.md](migration-history.md) |
-| 일정 성능-2 | google-calendar Edge 로딩 최적화 | 진행중 | #300 | 순서: 일정 성능-1 다음. 기준 `e98bbd9`. events 캘린더별 병렬(동시 4)·일부 실패 시 성공분+warning, colors 팔레트 isolate 메모리 캐시(30분). 코드만, Edge 배포는 로컬 세션 별도. google-calendar v14 배포 2026-09-26, 실사용 확인 대기 |
+| 일정 성능-2 | google-calendar Edge 로딩 최적화 | 완료 | #300 | google-calendar v14 배포 2026-09-26, 실사용 확인 |
 | RTW-1 | 계정삭제 shared auth 위험 | 대기 | | 상태 확인 후 필요 시 수정, 최우선. Task 32 전 완료 |
 | RTW-2 | beta RLS owner 격리 | 대기 | | 상태 확인 후 필요 시 수정, 최우선. Task 32 전 완료 |
 | 16 | 프로젝트 진행상황 UI 압축 | 대기 | | |
