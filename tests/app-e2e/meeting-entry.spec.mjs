@@ -167,8 +167,115 @@ test('meeting list uses canonical meeting names without title-series duplication
   await expect(row.locator('p')).toContainText('1차');
   await expect(row).not.toContainText('과거 회의실');
   const box=await row.boundingBox();
-  expect(box.height).toBeLessThanOrEqual(90);
+  expect(box.height).toBeLessThanOrEqual(60);
 });
+
+const stripe=row=>row.evaluate(el=>getComputedStyle(el).borderLeftColor);
+const rgb=hex=>`rgb(${[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', ')})`;
+
+const neutral=page=>page.evaluate(()=>{const probe=document.createElement('i');probe.style.color='var(--kptu-border-strong)';document.body.append(probe);const c=getComputedStyle(probe).color;probe.remove();return c});
+const palette=()=>JSON.parse(read('app/team.js').match(/const MEETING_COLORS=(\[[^\]]+\])/)[1].replace(/'/g,'"'));
+async function showMeetings(page,rows,docs=[]){
+  await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)}));
+  await page.route(`${SB}/rest/v1/app_documents**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(docs)}));
+  await page.reload();
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
+}
+
+test('meeting names get palette colors in order of first appearance and keep them after reload',async({page})=>{
+  await signIn(page);
+  const P=palette();
+  // API order is newest first; colors follow the oldest meeting of each name.
+  const rows=[
+    {...meeting,id:'a3',title:'궤도협의회',series_name:'궤도협의회',round_no:3,meeting_at:'2026-09-20T01:00:00Z'},
+    {...meeting,id:'c1',title:'안전위원회',series_name:'안전위원회',round_no:1,meeting_at:'2026-09-19T01:00:00Z'},
+    {...meeting,id:'b1',title:'노사협의회',series_name:'노사협의회',round_no:1,meeting_at:'2026-09-18T01:00:00Z'},
+    {...meeting,id:'a2',title:'  궤도협의회 ',series_name:null,round_no:2,meeting_at:'2026-09-17T01:00:00Z'},
+    {...meeting,id:'none',title:'',series_name:null,round_no:null,meeting_at:'2026-09-16T01:00:00Z'},
+    {...meeting,id:'a1',title:'궤도협의회',series_name:'궤도협의회',round_no:1,meeting_at:'2026-09-15T01:00:00Z'}
+  ];
+  await showMeetings(page,rows,[{id:'d1',workspace_id:'meeting-ws',meeting_id:'a3',title:'자료'}]);
+  const byId=id=>page.locator(`#meetingList [data-mrd-meeting="${id}"]`);
+  const expected={a1:P[0],a2:P[0],a3:P[0],b1:P[1],c1:P[2]};
+  const check=async()=>{for(const [id,hex] of Object.entries(expected))expect(await stripe(byId(id)),id).toBe(rgb(hex))};
+  await check();
+  expect(new Set([P[0],P[1],P[2]]).size).toBe(3);
+  expect(await byId('a1').evaluate(el=>getComputedStyle(el).borderLeftWidth)).toBe('4px');
+  expect(await stripe(byId('none'))).toBe(await neutral(page));
+  // Second line: round · date · materials only.
+  await expect(byId('a3').locator('p')).toHaveText(/^3차 · .+ · 자료 1개$/);
+  await expect(byId('a3').locator('p')).not.toContainText('메인');
+  // Filtering does not reassign colors.
+  await page.locator('#meetingTypeFilter').selectOption({label:'안전위원회'});
+  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
+  expect(await stripe(byId('c1'))).toBe(rgb(P[2]));
+  await page.reload();
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  await page.locator('#meetingTypeFilter').selectOption('all');
+  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
+  await check();
+});
+
+test('meeting names beyond the palette get the neutral stripe instead of reusing a color',async({page})=>{
+  await signIn(page);
+  const P=palette();
+  const rows=Array.from({length:P.length+2},(_,i)=>({...meeting,id:'n'+i,title:'회의'+(i+1),series_name:'회의'+(i+1),round_no:null,meeting_at:new Date(Date.UTC(2026,0,1+i)).toISOString()})).reverse();
+  await showMeetings(page,rows);
+  const colors=[];
+  for(let i=0;i<rows.length;i++)colors.push(await stripe(page.locator(`#meetingList [data-mrd-meeting="n${i}"]`)));
+  expect(colors.slice(0,P.length)).toEqual(P.map(rgb));
+  expect(new Set(colors.slice(0,P.length)).size).toBe(P.length);
+  const gray=await neutral(page);
+  expect(colors.slice(P.length)).toEqual([gray,gray]);
+});
+
+test('meeting palette has 12 distinct non-red colors visible on light and dark surfaces',async()=>{
+  const P=palette();
+  expect(P).toHaveLength(12);
+  expect(new Set(P).size).toBe(12);
+  const lin=c=>{c/=255;return c<=.03928?c/12.92:((c+.055)/1.055)**2.4};
+  const parts=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+  const lum=hex=>{const [r,g,b]=parts(hex).map(lin);return .2126*r+.7152*g+.0722*b};
+  const contrast=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+  const hue=hex=>{const [r,g,b]=parts(hex).map(v=>v/255),max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;if(!d)return null;const h=max===r?((g-b)/d)%6:max===g?(b-r)/d+2:(r-g)/d+4;return (h*60+360)%360};
+  const lab=hex=>{const [r,g,b]=parts(hex).map(lin),f=t=>t>.008856?Math.cbrt(t):7.787*t+16/116,x=(r*.4124+g*.3576+b*.1805)/.95047,y=r*.2126+g*.7152+b*.0722,z=(r*.0193+g*.1192+b*.9505)/1.08883;return [116*f(y)-16,500*(f(x)-f(y)),200*(f(y)-f(z))]};
+  const dE=(a,b)=>{const A=lab(a),B=lab(b);return Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2])};
+  for(const color of P){
+    const h=hue(color);
+    expect(h,color).not.toBeNull();
+    expect(h>=40&&h<=320,`${color} hue ${h}`).toBe(true);
+    expect(contrast(color,'#ffffff'),color).toBeGreaterThanOrEqual(3);
+    expect(contrast(color,'#1f2933'),color).toBeGreaterThanOrEqual(3);
+    expect(contrast(color,'#121212'),color).toBeGreaterThanOrEqual(3);
+    expect(dE(color,'#cfd6dc'),`${color} vs neutral`).toBeGreaterThan(30);
+  }
+  for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++)expect(dE(P[i],P[j]),`${P[i]} ${P[j]}`).toBeGreaterThanOrEqual(20);
+});
+
+for(const width of [320,360,390,768,1280]){
+  test(`meeting filter and add button share one row at ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:800});
+    await signIn(page);
+    const bar=page.locator('#meetingsView .meeting-toolbar');
+    const select=page.locator('#meetingTypeFilter'),button=page.locator('#newMeetingBtn');
+    await expect(button).toBeVisible();
+    const [b,s,btn]=await Promise.all([bar.boundingBox(),select.boundingBox(),button.boundingBox()]);
+    expect(btn.height).toBeCloseTo(36,0);
+    expect(s.height).toBeCloseTo(btn.height,0);
+    expect(Math.abs(s.y-btn.y)).toBeLessThanOrEqual(.5);
+    expect(s.x).toBeCloseTo(b.x,0);
+    expect(btn.x+btn.width).toBeCloseTo(b.x+b.width,0);
+    expect(btn.x-(s.x+s.width)).toBeCloseTo(8,0);
+    expect(b.height).toBeCloseTo(36,0);
+    expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
+    const row=page.locator('#meetingList .meeting-list-row').first();
+    const fit=await row.evaluate(el=>{const main=el.querySelector('.meeting-list-main').getBoundingClientRect(),box=el.getBoundingClientRect(),cs=getComputedStyle(el);return {row:box.height,content:main.height+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+parseFloat(cs.borderBottomWidth)}});
+    expect(Math.abs(fit.row-fit.content)).toBeLessThanOrEqual(1);
+    expect(fit.row).toBeLessThanOrEqual(56);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  });
+}
 
 test('meeting list filters title-only and series-only legacy rows by the displayed meeting name',async({page})=>{
   await signIn(page);
@@ -375,10 +482,10 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=50')");
+  expect(loader).toContain("import('./team.js?v=51')");
   expect(views).toContain('task-workflow.js?v=9');
   expect(views).toContain('meeting-round-detail.js?v=14');
-  expect(views).toContain('meeting-ui.css?v=9');
+  expect(views).toContain('meeting-ui.css?v=10');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
@@ -391,5 +498,5 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingProject']");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
-  expect(css).toContain("meeting-ui.css?v=9");
+  expect(css).toContain("meeting-ui.css?v=10");
 });
