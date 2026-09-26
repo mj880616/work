@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `e6d607d` (Merge pull request #308)
+- 기준 main SHA: `5a9e55c` (Merge pull request #310)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -57,7 +57,7 @@
 | 17b | 나머지 주요 화면 목록 정보밀도 정리 | 대기 | | 17a 형식 기준 |
 | 17b-1 | 회의 목록 정리 | 완료 | #306 | 기준 `5b1b96a`. UI만(DB·Edge 변경 없음). 회의명별 왼쪽 색 띠: 회의명이 처음 등장한 순서(가장 이른 회의 일시)대로 12색 팔레트 차례 배정, 서로 다른 회의명은 같은 색 없음, 12개 초과분과 회의명 없음은 회색 띠. 두 줄(회의명 / 차수·날짜·자료, 프로젝트명 제외), 회의명 필터와 "+ 회의 결과" 한 줄. 2026-09-26 실사용(휴대폰) 확인 |
 | 조직-1 | 조직 상세 소속 칩에서 종류 접두어(협의회 · / 사업단 · ) 제거 | 완료 | #308 | 기준 `a2bd0e4`. UI만(DB·Edge 변경 없음). app/workplace-detail.js wdRenderAff() 칩에 이름만 표시, 협의회/사업단 구분은 기존 taskforce 칩 스타일 유지. 2026-09-26 실사용(휴대폰) 확인 |
-| 18 | 담당조직 자유입력 Inbox | 진행중 | #309·#310 | 기준 `e6d607d`. UI만(DB·Edge 변경 없음). 조직 상세 맨 위 입력칸 하나 + 저장, 기존 `app_suborganization_updates` 저장 경로(workplace-ai-report.js "업데이트 추가"와 같은 요청)를 workplace-detail.js로 옮겨 최신순 "기록"으로 표시. "현재 상황 업데이트"·"+ 메모" 입력 제거, 기존 요약·메모는 접힌 칸 "기본 정보 · 소속 · 이전 요약"에서 읽기 전용, AI 초안 버튼도 그 칸으로 이동. canEdit 확인 유지. 배포 후 휴대폰에서 옛 화면 유지: `view-loader.js?v=16` 등 상위 로더 버전을 올리지 않아 edge·브라우저가 1년 immutable 캐시로 옛 로더를 계속 사용(후속 PR에서 view-loader v17·loader-v2 v237·app.js v125로 올림) |
+| 18 | 담당조직 자유입력 Inbox | 완료 | #309·#310 | 기준 `e6d607d`. UI만(DB·Edge 변경 없음). 조직 상세 맨 위 입력칸 하나 + 저장, 기존 `app_suborganization_updates` 저장 경로(workplace-ai-report.js "업데이트 추가"와 같은 요청)를 workplace-detail.js로 옮겨 최신순 "기록"으로 표시. "현재 상황 업데이트"·"+ 메모" 입력 제거, 기존 요약·메모는 접힌 칸 "기본 정보 · 소속 · 이전 요약"에서 읽기 전용, AI 초안 버튼도 그 칸으로 이동. canEdit 확인 유지. 배포 후 휴대폰에서 옛 화면 유지: `view-loader.js?v=16` 등 상위 로더 버전을 올리지 않아 edge·브라우저가 1년 immutable 캐시로 옛 로더를 계속 사용(후속 PR에서 view-loader v17·loader-v2 v237·app.js v125로 올림). 2026-09-26 실사용(휴대폰) 확인 |
 | 로그인-1 | 로그인 화면 "공공기관사업팀 · WORKSPACE" 문구 제거 | 진행중 | #311 | 기준 `0a7850b`. UI만(DB·Edge·인증 흐름 변경 없음). app/login/index.html 상단 header 줄 제거, 탭 제목 "로그인". 로그인 전 다른 화면의 같은 문구는 고치지 않고 PR에 위치만 보고. 캐시 버전 올림 대상 없음: 바뀐 파일은 HTML(`?v=` 없음, 라우터가 no-cache)이고 JS·CSS·로더 변경 없음 |
 | 19 | 단일사용자 전환 전 snapshot | 대기 | | 26의 조사와 DB-1 포함. 화면·코드·DB 전체 목록 |
 | DB-1 | 반복 DB 오류 조사 | 대기 | | 19에 흡수. app_workspace_members.email 없는 열 조회, app_project_publication_state 권한 거부 |
