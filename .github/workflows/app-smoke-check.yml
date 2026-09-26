@@ -51,7 +51,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=50')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=14')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=15')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -65,7 +65,7 @@ jobs:
             "module('./calendar-plus.js?v=9'","__KPTU_CALENDAR_PLUS_READY__",
             "module('./calendar-persistence.js?v=13'","__KPTU_CALENDAR_PERSISTENCE_READY__",
             "module('./calendar-interactions-v2.js?v=8'","__KPTU_CALENDAR_INTERACTIONS_READY__",
-            "module('./calendar-mobile-ui.js?v=4'","__KPTU_CALENDAR_MOBILE_UI_READY__",
+            "module('./calendar-mobile-ui.js?v=5'","__KPTU_CALENDAR_MOBILE_UI_READY__",
             "module('./calendar-day-overflow.js?v=3'","__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
           ];
           const missingViews=viewKeys.filter(key=>!views.includes(key));
@@ -111,7 +111,7 @@ jobs:
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
           grep -q "calendar-ui.css?v=8" app/view-loader.js
           grep -q "task-layout.css?v=4" app/view-loader.js
-          grep -q "project-system-v3.css?v=14" app/view-loader.js
+          grep -q "project-system-v3.css?v=15" app/view-loader.js
           grep -q "library-upload.css?v=2" app/view-loader.js
           grep -q "meeting-ui.css?v=9" app/view-loader.js
           grep -q "web1-press.css?v=1" app/view-loader.js
@@ -137,7 +137,7 @@ jobs:
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=10" app/loader-v2.js
           grep -q "team.js?v=50" app/loader-v2.js
-          grep -q "project-system-v3.js?v=24" app/view-loader.js
+          grep -q "project-system-v3.js?v=25" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "task-row-view.js?v=1" app/view-loader.js
@@ -166,7 +166,7 @@ jobs:
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/view-loader.js
           grep -q "calendar-interactions-v2.js?v=8" app/view-loader.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/view-loader.js
-          grep -q "calendar-mobile-ui.js?v=4" app/view-loader.js
+          grep -q "calendar-mobile-ui.js?v=5" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/view-loader.js
           grep -q "calendar-day-overflow.js?v=3" app/view-loader.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/view-loader.js
@@ -181,7 +181,7 @@ jobs:
           grep -q "meeting-ui.css?v=9" app/styles.css
           grep -q "calendar-ui.css?v=8" app/styles.css
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
-          grep -q "project-system-v3.css?v=14" app/styles.css
+          grep -q "project-system-v3.css?v=15" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -Fq "[data-kptu-logout]" app/topbar-actions.css
@@ -352,6 +352,9 @@ jobs:
           grep -q "data-ps3-library" app/project-system-v3.js
           grep -q "ps3-parent-link" app/project-system-v3.js
           grep -q 'id="ps3-children"' app/project-system-v3.js
+          grep -q "data-ps3-kids-toggle" app/project-system-v3.js
+          grep -q ".ps3-plist" app/project-system-v3.css
+          if grep -Eq "ps3-project-card|ps3-kind|ps3-archive-row" app/project-system-v3.js app/project-system-v3.css; then echo 'project list card layout returned'; exit 1; fi
           grep -q "ps3-more" app/project-system-v3.js
           grep -q "d.docs.slice(0,3)" app/project-system-v3.js
           if grep -Eq "data-ps3-nav|data-ps3-doc-filter|ps3DocSearch" app/project-system-v3.js; then echo 'removed project chip row or document filter returned'; exit 1; fi

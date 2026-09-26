@@ -135,14 +135,14 @@ test('project list loads and its heading uses available width at desktop, tablet
   await signIn(page);
   await page.locator('[data-view="projects"]').click();
   await expect(page.locator('#projectsView')).toBeVisible();
-  await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-project-card')).toHaveCount(1);
+  await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(1);
   for(const width of [1440,768,390,360]){
     await page.setViewportSize({width,height:900});
     const layout=await page.evaluate(()=>{
       const head=document.querySelector('#projectsView .section-head');
       const title=head.firstElementChild;
       const grid=document.querySelector('#projectGrid');
-      const card=grid.querySelector('.ps3-project-card');
+      const card=grid.querySelector('.ps3-prow');
       const rect=element=>element.getBoundingClientRect();
       return {title:rect(title).width,card:rect(card).width,overflow:document.documentElement.scrollWidth-window.innerWidth,ready:grid.dataset.ps3Ready};
     });
@@ -737,6 +737,82 @@ test('V3 lists child projects with counts in the body and child returns to paren
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
 });
 
+test('project list is one bordered two-line list with collapsible child rows and the archive uses the same rows',async({page})=>{
+  const state=baseState();
+  state.spaces.push(
+    {id:'main-2',workspace_id:'workspace-1',name:'자회사 임금교섭',description:'설명 문구',parent_id:null,status:'active',visibility:'restricted',owner_id:'user-1',sort_order:30,metadata:{project_system:'v2',management_version:2,objective:'표시되지 않는 설명',start_on:'2026-08-01'}},
+    {id:'arch-1',workspace_id:'workspace-1',name:'지난 캠페인',description:'',parent_id:null,status:'archived',visibility:'restricted',owner_id:'user-1',sort_order:40,metadata:{project_system:'v2',management_version:2,objective:'보관 설명'}}
+  );
+  state.tasks.push(
+    {id:'main-task-open',project_id:'main-1',title:'요구안 정리',status:'todo',assignee_id:'user-1'},
+    {id:'child-task-open',project_id:'child-1',title:'발제 취합',status:'todo',assignee_id:'user-1'},
+    {id:'child-task-done',project_id:'child-1',title:'장소 확정',status:'done',assignee_id:'user-1'},
+    {id:'arch-task',project_id:'arch-1',title:'결과 정리',status:'todo',assignee_id:'user-1'}
+  );
+  state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  const list=page.locator('#projectGrid .ps3-plist');
+  await expect(list).toHaveCount(1);
+  await expect(list.locator('.ps3-prow')).toHaveCount(2);
+  await expect(page.locator('#newProjectBtn')).toHaveText('+ 프로젝트');
+  await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관함');
+  const main=list.locator('[data-ps3-row="main-1"]');
+  await expect(main.locator('.ps3-prow-name')).toHaveText('민자철도 정책·조직사업');
+  // Top-row counts include child projects: own 1 task + 1 doc, child 1 open task + 1 doc.
+  await expect(main.locator('.ps3-prow-meta')).toHaveText('할 일 2 · 자료 2');
+  await expect(list).not.toContainText('상위 프로젝트');
+  await expect(list).not.toContainText('민자철도 안전·인력 제도개선');
+  await expect(list).not.toContainText('표시되지 않는 설명');
+  await expect(list).not.toContainText('2026-09-01');
+  await expect(list.locator('[data-ps3-row="main-2"] .ps3-prow-meta')).toHaveText('할 일 0 · 자료 0');
+  await expect(list.locator('[data-ps3-kids-toggle="main-2"]')).toHaveCount(0);
+  const countCall=state.restCalls.find(x=>x.name==='app_tasks'&&x.method==='GET');
+  expect(countCall).toBeTruthy();
+  const toggle=main.locator('[data-ps3-kids-toggle="main-1"]');
+  const child=main.locator('[data-ps3-project="child-1"]');
+  await expect(toggle).toContainText('하위 1');
+  await expect(toggle).toHaveAttribute('aria-expanded','false');
+  await expect(child).toBeHidden();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded','true');
+  await expect(child).toBeVisible();
+  await expect(child).toContainText('9.29 민자철도 국회토론회');
+  await expect(child.locator('small')).toHaveText('할 일 1');
+  await expect(child).not.toContainText('하위 프로젝트');
+  await expect(page.locator('#ps3DetailModal')).toBeHidden();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded','false');
+  await expect(child).toBeHidden();
+  await toggle.press('Enter');
+  await expect(child).toBeVisible();
+  await child.click();
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');
+  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  await expect(page.locator('#ps3DetailModal')).toBeHidden();
+  await main.locator('.ps3-prow-main').click();
+  await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  for(const [width,height] of [[360,780],[390,844],[412,900],[430,932],[1440,900]]){
+    await page.setViewportSize({width,height});
+    const box=await main.locator('.ps3-prow-head').boundingBox();
+    const t=await toggle.boundingBox();
+    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+    expect(overflow,`list at ${width}px`).toBeLessThanOrEqual(1);
+    expect(box.height,`row height at ${width}px`).toBeLessThan(80);
+    expect(t.x+t.width,`toggle inside row at ${width}px`).toBeLessThanOrEqual(box.x+box.width+1);
+  }
+  await page.locator('#ps3ArchiveBtn').click();
+  const archive=page.locator('#ps3ArchiveList');
+  await expect(archive.locator('.ps3-plist .ps3-prow')).toHaveCount(1);
+  const arch=archive.locator('[data-ps3-row="arch-1"]');
+  await expect(arch.locator('.ps3-prow-name')).toHaveText('지난 캠페인');
+  await expect(arch.locator('.ps3-prow-meta')).toHaveText('할 일 1 · 자료 0');
+  await expect(archive).not.toContainText('상위 프로젝트');
+  await expect(archive).not.toContainText('보관 설명');
+  await expect(arch.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
+});
+
 test('V3 generated dialogs expose consistent accessibility semantics',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   for(const id of ['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3DeleteModal','ps3ArchiveModal']){
@@ -944,8 +1020,10 @@ test('V3 completion changes status without deleting the project',async({page})=>
   await control.click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('done');
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+  // Wait for the detail re-render that follows the status change before reopening its menu.
+  await expect(control).toHaveText('완료 취소');
   await expect(page.locator('#ps3Menu .ps3-more')).not.toHaveAttribute('open','');
-  await openMenu(page);await expect(control).toHaveText('완료 취소');
+  await openMenu(page);
   await control.click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('active');
 });

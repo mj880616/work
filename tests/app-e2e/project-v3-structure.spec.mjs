@@ -11,7 +11,7 @@ test('project view has one active renderer and no legacy overlay chain', async (
   const views=read('app/view-loader.js');
   const html=read('app/index.html');
   const team=read('app/team.js');
-  expect(views).toContain("project-system-v3.js?v=24");
+  expect(views).toContain("project-system-v3.js?v=25");
   for(const legacy of [
     'project-system-v2.js','project-hide-legacy.js','project-files.js','project-delete.js',
     'project-modal-polish.js','project-modal-scroll-lock.js','project-access.js',

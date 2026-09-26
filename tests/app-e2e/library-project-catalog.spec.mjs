@@ -143,7 +143,7 @@ test('project screen and library expose the same active project set in the same 
   await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
   await page.evaluate(()=>{window.__spaceEvents=[];window.addEventListener('kptu:project-spaces-updated',e=>window.__spaceEvents.push(e.detail))});
   await page.locator('#appView .app-nav [data-view="projects"]').click();
-  await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-project-card')).toHaveCount(3);
+  await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(3);
   const grid=await page.locator('#projectGrid').evaluate(g=>[...g.querySelectorAll('[data-ps3-project]')].map(x=>x.dataset.ps3Project));
   expect(grid).toEqual(EXPECTED.map(([id])=>id));
   // Existing event contract is unchanged: payload.spaces stays the owner-scoped app_spaces rows that team.js consumes.
@@ -290,7 +290,7 @@ test('project create, rename and archive refresh library selectors without reloa
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
   await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
   await page.locator('#appView .app-nav [data-view="projects"]').click();
-  await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-project-card')).toHaveCount(3);
+  await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(3);
 
   await page.locator('#newProjectBtn').click();
   await page.locator('#ps3CreateName').fill('신규 하위 프로젝트');
