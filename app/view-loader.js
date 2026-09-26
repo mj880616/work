@@ -28,7 +28,7 @@ const routeStyles={
   meetings:['./meeting-ui.css?v=10'],
   media:['./web1-press.css?v=1'],
   pages:['./web1-board.css?v=2'],
-  team:['./suborganizations.css?v=5','./workplace-detail.css?v=3'],
+  team:['./suborganizations.css?v=5','./workplace-detail.css?v=4'],
   photos:['./photo-room.css?v=2']
 };
 async function prepare(view){
@@ -102,8 +102,8 @@ async function pages(){
 }
 async function organizations(){
   await module('./suborganizations.js?v=8','__KPTU_SUBORGANIZATIONS_READY__');
-  await module('./workplace-detail.js?v=6');
-  import('./workplace-ai-report.js?v=2').catch(console.error);
+  await module('./workplace-detail.js?v=7');
+  import('./workplace-ai-report.js?v=3').catch(console.error);
   return {ok:true}
 }
 async function photos(){

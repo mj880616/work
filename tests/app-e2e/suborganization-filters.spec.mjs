@@ -28,48 +28,115 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
   expect(views).toContain("suborganizations.js?v=8");
-  expect(views).toContain("workplace-detail.js?v=6");
+  expect(views).toContain("workplace-detail.js?v=7");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
   expect(styles).toContain("suborganizations.css?v=5");
-  expect(styles).toContain("workplace-detail.css?v=3");
+  expect(styles).toContain("workplace-detail.css?v=4");
   expect(styles).not.toContain('suborganization-filters.css');
 });
 
-test('담당조직 상세는 현재 상황 업데이트를 최상단 주 액션으로 두고 실무 순서대로 배치한다',async({page})=>{
-  await openAssigned(page);
+async function openRail(page,suffix=''){
+  await openAssigned(page,suffix);
   await page.locator('[data-so-org="org-rail"]').click();
   await expect(page.locator('#wdModal')).toBeVisible();
-  await expect(page.locator('#wdUpdateCurrent')).toBeVisible();
+  await expect(page.locator('#wdUpdates')).toContainText('지난주 지부장 통화');
+}
+
+test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버튼이고 예전 입력 경로는 없다',async({page})=>{
+  await openRail(page);
+  await expect(page.locator('#wdTitle')).toHaveText('전국철도노동조합');
+  await expect(page.locator('#wdInboxText')).toBeVisible();
+  await expect(page.locator('#wdInboxText')).toHaveAttribute('placeholder','통화·회의·교섭 내용을 그냥 적으세요');
+  await expect(page.locator('#wdInboxSave')).toHaveText('저장');
+  await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible')).toHaveCount(1);
+  await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
-  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll('.wd-sec')].map(sec=>sec.querySelector('h3')?.textContent?.trim()));
-  expect(order).toEqual(['최근 상황/메모','기본 정보','협의회·사업단','연도별 타임라인']);
-  const positions=await page.locator('#wdModal .wd-card').evaluate(card=>({
-    action:card.querySelector('#wdUpdateCurrent').getBoundingClientRect().top,
-    first:card.querySelector('#wdRecent').getBoundingClientRect().top
+  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.querySelector('h3')?.textContent?.trim()));
+  expect(order).toEqual(['기록','연도별 타임라인','기본 정보 · 소속 · 이전 요약']);
+  const pos=await page.locator('#wdModal .wd-card').evaluate(card=>({
+    title:card.querySelector('#wdTitle').getBoundingClientRect().top,
+    input:card.querySelector('#wdInboxText').getBoundingClientRect().top,
+    log:card.querySelector('#wdLog').getBoundingClientRect().top
   }));
-  expect(positions.action).toBeLessThan(positions.first);
-  await expect(page.locator('#wdMonthSummary')).toContainText('9월 정책교섭과 인력대응 진행 중');
-  await expect(page.locator('#wdItems')).toContainText('최근 교섭');
+  expect(pos.title).toBeLessThan(pos.input);
+  expect(pos.input).toBeLessThan(pos.log);
+  await expect(page.locator('#wdMore')).not.toHaveAttribute('open','');
 });
 
-test('현재 상황 업데이트는 기존 요약 데이터를 재사용해 바로 저장한다',async({page})=>{
-  await openAssigned(page);
-  await page.locator('[data-so-org="org-rail"]').click();
-  await page.locator('#wdUpdateCurrent').click();
-  await expect(page.locator('#wdCurrentModal')).toBeVisible();
-  await expect(page.locator('#wdMonth')).toHaveValue('9월 정책교섭과 인력대응 진행 중');
-  await page.locator('#wdMonth').fill('청와대 면담 후 인력 요구 후속 대응 중');
-  await page.locator('#wdCurrentSave').click();
-  await expect(page.locator('#wdCurrentModal')).toBeHidden();
-  await expect(page.locator('#wdMonthSummary')).toHaveText('청와대 면담 후 인력 요구 후속 대응 중');
-  const patch=await page.evaluate(()=>window.__patches.find(x=>x.body?.recent_month_summary));
-  expect(patch?.body?.recent_month_summary).toBe('청와대 면담 후 인력 요구 후속 대응 중');
+test('저장하면 날짜·시간과 함께 기록 맨 위에 쌓이고 입력칸이 비워진다',async({page})=>{
+  await openRail(page);
+  await page.locator('#wdInboxText').fill('오늘 지부장 통화. 사측 12명, 노조 20명 요구.');
+  await page.locator('#wdInboxSave').click();
+  await expect(page.locator('#wdInboxText')).toHaveValue('');
+  await expect(page.locator('#wdInboxState')).toHaveText('저장했습니다.');
+  await page.locator('#wdInboxText').fill('다음주 화요일 교섭 예정');
+  await page.locator('#wdInboxText').press('Control+Enter');
+  await expect(page.locator('#wdInboxText')).toHaveValue('');
+  const rows=page.locator('#wdUpdates .wd-log-row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0).locator('p')).toHaveText('다음주 화요일 교섭 예정');
+  await expect(rows.nth(1).locator('p')).toHaveText('오늘 지부장 통화. 사측 12명, 노조 20명 요구.');
+  await expect(rows.nth(2).locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
+  await expect(rows.nth(0).locator('small')).toHaveText(/2026\. 9\. 26\..*\d{1,2}:\d{2}/);
+  const posts=await page.evaluate(()=>window.__updatePosts);
+  expect(posts).toEqual([
+    {organization_id:'org-rail',raw_text:'오늘 지부장 통화. 사측 12명, 노조 20명 요구.',created_by:'user-me'},
+    {organization_id:'org-rail',raw_text:'다음주 화요일 교섭 예정',created_by:'user-me'}
+  ]);
+  expect(await page.evaluate(()=>window.__patches.length)).toBe(0);
+});
+
+test('빈칸·공백만 있으면 저장하지 않고, 저장 실패 시 입력 내용을 지우지 않는다',async({page})=>{
+  await openRail(page);
+  await page.locator('#wdInboxSave').click();
+  await expect(page.locator('#wdInboxState')).toHaveText('내용을 입력해 주세요.');
+  await page.locator('#wdInboxText').fill('   \n  ');
+  await page.locator('#wdInboxSave').click();
+  await expect(page.locator('#wdInboxState')).toHaveText('내용을 입력해 주세요.');
+  expect(await page.evaluate(()=>window.__updatePosts.length)).toBe(0);
+  await expect(page.locator('#wdUpdates .wd-log-row')).toHaveCount(1);
+  await page.evaluate(()=>{window.__failUpdateSave=true});
+  await page.locator('#wdInboxText').fill('저장 실패 시험');
+  await page.locator('#wdInboxSave').click();
+  await expect(page.locator('#wdInboxState')).toHaveText('기록 저장 실패');
+  await expect(page.locator('#wdInboxText')).toHaveValue('저장 실패 시험');
+  await expect(page.locator('#wdUpdates .wd-log-row')).toHaveCount(1);
+});
+
+test('이미 저장된 요약·메모는 접힌 칸에서 읽기 전용으로 보이고 AI 초안 버튼도 그 안에 있다',async({page})=>{
+  await openRail(page);
+  await expect(page.locator('#wdMonthSummary')).toBeHidden();
+  await expect(page.locator('#warGenerate')).toBeHidden();
+  await page.locator('#wdMore > summary').click();
+  await expect(page.locator('#wdMonthSummary')).toHaveText('9월 정책교섭과 인력대응 진행 중');
+  await expect(page.locator('#wdYearSummary')).toHaveText('산별전환과 안전인력 사업 추진');
+  await expect(page.locator('#wdItems')).toContainText('최근 교섭');
+  await expect(page.locator('#wdItems')).toContainText('정책교섭 자료 취합 중');
+  await expect(page.locator('#wdItems button')).toHaveCount(0);
+  await expect(page.locator('#wdRecent textarea,#wdRecent input')).toHaveCount(0);
+  await expect(page.locator('#wdMore #warGenerate')).toBeVisible();
+  await expect(page.locator('#wdMore #warTimeline')).toBeVisible();
+  await expect(page.locator('#wdMore #wdBasicView')).toBeVisible();
+  await expect(page.locator('#wdMore #wdAffChips')).toContainText('궤도협의회');
+});
+
+test('편집 권한이 없으면 입력칸과 저장 버튼이 보이지 않고 저장 요청도 없다',async({page})=>{
+  await openAssigned(page,'?role=viewer');
+  await page.evaluate(()=>{const b=document.createElement('button');b.id='openRailE2E';b.dataset.psWorkplaceOrg='org-rail';document.body.appendChild(b)});
+  await page.locator('#openRailE2E').click();
+  await expect(page.locator('#wdModal')).toBeVisible();
+  await expect(page.locator('#wdUpdates')).toContainText('지난주 지부장 통화');
+  await expect(page.locator('#wdInbox')).toBeHidden();
+  await expect(page.locator('#wdInboxSave')).toBeHidden();
+  await page.locator('#wdInboxSave').evaluate(b=>b.click());
+  expect(await page.evaluate(()=>window.__updatePosts.length)).toBe(0);
 });
 
 test('기본정보는 읽기전용으로 시작하고 수정 버튼을 눌러야 입력 폼이 열린다',async({page})=>{
   await openAssigned(page);
   await page.locator('[data-so-org="org-rail"]').click();
+  await page.locator('#wdMore > summary').click();
   await expect(page.locator('#wdBasicView')).toBeVisible();
   await expect(page.locator('#wdBasicForm')).toBeHidden();
   await expect(page.locator('#wdBasicView')).toContainText('김철도');
@@ -88,7 +155,7 @@ test('일반 상세에서 조직 삭제 실행 경로가 제거되고 데이터 
   expect(detail).not.toContain('id="wdDeleteOrg"');
   expect(detail).not.toContain('function wdDeleteOrg');
   expect(detail).not.toContain("addEventListener('click',wdDeleteOrg)");
-  expect(detail).toContain('id="wdUpdateCurrent"');
+  expect(detail).toContain('id="wdInboxSave"');
   expect(detail).toContain('id="wdBasicView"');
 });
 
