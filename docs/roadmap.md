@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `806591e` (Merge pull request #318)
+- 기준 main SHA: `8532bcb` (#319)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -24,6 +24,12 @@
 ## 결정사항
 
 - 2026-09-26 할 일: 할 일 원본은 Google Tasks(목록 1개)로 단일화한다. Web2 자체 할 일 기능은 제거 예정이다. Web2는 할 일↔프로젝트·회의·담당조직 연결 정보만 보관한다. 구조는 TASK-설계, 구현은 TASK-구현, 기존 기능 제거는 21·29에서 한다. 기존 Web2 할 일 데이터는 보관 없이 삭제한다(사용자 확인).
+- 2026-09-26 할 일 목록: Google 기본 목록 "내 할 일" 하나를 쓴다(묶음A 조사 문서 3.2 선택지 A).
+- 2026-09-26 기존 할 일: Web2 할 일 58건(미완료 2건 포함)은 보관 없이 삭제한다. 미완료 2건도 따로 옮기지 않는다.
+- 2026-09-26 연결 표: 할 일 연결과 메모 연결은 표 하나(묶음A 조사 문서 4.4 통합안 `app_record_links`)로 한다.
+- 2026-09-26 팀 AI 기록 저장 오류(DB-1에서 새로 찾은 `app_ai_messages` usage 오류)는 따로 고치지 않고 25에서 처리한다.
+- 2026-09-26 AI 제공사: 25에서 비교해 결정한다. 그전까지 현재 제공사를 유지한다.
+- 2026-09-26 계정: 본인 외 계정 3개(보조 관리자 1, 비구성원 2)는 모두 본인 소유이며 전부 삭제한다. 대기 중 접근 요청 1건은 거절 후 삭제한다. 준비는 계정-1.
 
 디자인 전면 개선(2026-09-26 결정, 작업 표 "디자인" 행)
 
@@ -36,7 +42,7 @@
 
 ## 작업 표
 
-완료·종료 행 아래의 진행중·대기 행은 위에서부터 순서대로 진행한다. 묶음 순서: 묶음A(19·TASK-설계·DB-1·인박스 조사, 문서 PR 1개) → 묶음B(20·22·23 + ENV-4, ENV-4는 별도 PR) → 묶음C(TASK-구현·21·일정 인증-1) → 25 개인 업무 AI → 후보 행(순서 미정) → 31-1 → 디자인(D-1~D-6, 17b-2 통합) → 이후 DB 정리(26+DB-2, 27~30) → 24 → 31-2 → 이름-2 → ENV-3 → ENV-5 → Web1-3 → RTW → 32. DB-2는 26에서 결정한다. PR 칸은 `git log` 또는 GitHub PR 목록으로 확인된 번호만 적는다. 확인되지 않은 칸은 비워 둔다.
+완료·종료 행 아래의 진행중·대기 행은 위에서부터 순서대로 진행한다. 묶음 순서: 묶음A(19·TASK-설계·DB-1·인박스 조사, 문서 PR 1개) → 계정-1·ENV-6 → 묶음B(20·22·23 + ENV-4, ENV-4는 별도 PR) → 묶음C(TASK-구현·21·일정 인증-1) → 25 개인 업무 AI → 후보 행(순서 미정) → 31-1 → 디자인(D-1~D-6, 17b-2 통합) → 이후 DB 정리(26+DB-2, 27~30) → 24 → 31-2 → 이름-2 → ENV-3 → ENV-5 → Web1-3 → RTW → 32. DB-2는 26에서 결정한다. PR 칸은 `git log` 또는 GitHub PR 목록으로 확인된 번호만 적는다. 확인되지 않은 칸은 비워 둔다.
 
 | 번호 | 작업명 | 상태 | PR | 비고(의존관계) |
 | --- | --- | --- | --- | --- |
@@ -74,15 +80,17 @@
 | 18b | 담당조직 기록·메모 삭제 | 완료 | #315 | 기준 `99512a1`. UI만(DB·Edge 변경 없음). app/workplace-detail.js "기록"(`app_suborganization_updates`) 각 항목과 접힌 칸 예전 메모(`app_suborganization_status_items`) 각 항목에 삭제 버튼. 메모는 계속 읽기 전용, 삭제만 추가. 확인 1회, `id`+`organization_id` 조건 DELETE에 `return=representation`으로 지워진 행을 받아 0행·오류면 항목 유지 + 안내. canEdit 없으면 버튼 없음, 서버 권한은 기존 RLS(task12a_owner_all) 그대로. 최근 1달/올해 요약은 대상 아님. 캐시: workplace-detail v8·view-loader v18·loader-v2 v238·app.js v126. 2026-09-26 merge(`c28f76b`). 2026-09-26 실사용(휴대폰) 확인: 삭제 동작, 확인창 취소 시 삭제 안 됨 |
 | 이름-1 | 앱 내부 "공공기관사업팀 Workspace"·"공공기관사업팀" 이름을 "웹2"로 교체 | 완료 | #318 | 기준 `c28f76b`. UI 문구·안드로이드 앱 이름만(DB·Edge 변경 없음). app/windows-manifest.json name·short_name·description, app/brand-logo.js 로고 대체 글자, app/legacy/startup-speed.js 기본값, app/ARCHITECTURE.md 제목, tests/app-e2e 모의 workspace 이름, 안드로이드 android:label·versionCode 14·versionName 0.1.13(MainActivity APP_VERSION·빌드 artifact 이름 함께). 제외: workspace/index.html·workspace/privacy/index.html(이름-2), supabase/functions 드라이브 폴더 이름, 원장 과거 기록. 캐시: index.html의 `windows-manifest.json?v=5`→`v6`. brand-logo.js·legacy/startup-speed.js는 어느 로더도 불러오지 않아 올릴 로더 버전 없음. 안드로이드 앱 이름은 새 APK 설치 후 반영 |
 | 로그인-1 | 로그인 화면 "공공기관사업팀 · WORKSPACE" 문구 제거 | 완료 | #311 | 기준 `0a7850b`. UI만(DB·Edge·인증 흐름 변경 없음). app/login/index.html 상단 header 줄 제거, 탭 제목 "로그인". 로그인 전 다른 화면의 같은 문구는 고치지 않고 PR에 위치만 보고. 캐시 버전 올림 대상 없음: 바뀐 파일은 HTML(`?v=` 없음, 라우터가 no-cache)이고 JS·CSS·로더 변경 없음. 2026-09-26 실사용(휴대폰) 확인 |
-| 19 | 단일사용자 전환 전 snapshot (묶음A) | 진행중 | #319 | 기준 `806591e`. [조사 문서](web2-bundle-a-investigation.md) 1절. 26의 조사 겸함. 화면·코드·테스트·DB·Edge 전체 목록, 제거 담당 작업(20~31) 배정, 읽생기 공유 요소 표시. 조사만(코드·DB·Edge 변경 없음) |
-| TASK-설계 | Google Tasks 연결 구조 설계 | 진행중 | #319 | 묶음A. 조사 문서 3절. 설계만(코드·DB 변경 없음). 결정사항: 할 일 원본은 Google Tasks(목록 1개), Web2는 할 일↔프로젝트·회의·담당조직 연결 정보만 보관. 기존 google-tasks Edge·Google 연결 재사용, 새 권한 범위 없음. 연결 표는 SQL 초안만 |
-| DB-1 | 반복 DB 오류 조사 | 진행중 | #319 | 19에 흡수. 조사 문서 2절. 두 오류 모두 원인 코드 제거로 이미 멈춤: `email` 열 조회는 task-workflow.js(#250에서 제거, 마지막 발생 9/24), app_project_publication_state 호출은 project-system-v3.js(#226에서 제거, 마지막 발생 9/23). 새로 찾은 진행형 오류: team-ai 대화 메시지 저장 실패(usage NOT NULL), 25에서 처리 |
-| 인박스 조사 | 업무 인박스 구조 조사(메모 → 분류 제안 → 확정 → 보고서) | 진행중 | #319 | 묶음A. 조사 문서 4절. 구현 금지. 연결 표·필드, 새 표 필요 여부(메모 원문 1개 + 연결 1개 최소안), AI 제안 상태, 자동요약 결합, Google 원본 시 보관 범위, 25 전환안 |
+| 19 | 단일사용자 전환 전 snapshot (묶음A) | 완료 | #319 | 기준 `806591e`. [조사 문서](web2-bundle-a-investigation.md) 1절. 26의 조사 겸함. 화면·코드·테스트·DB·Edge 전체 목록, 제거 담당 작업(20~31) 배정, 읽생기 공유 요소 표시. 조사만(코드·DB·Edge 변경 없음) |
+| TASK-설계 | Google Tasks 연결 구조 설계 | 완료 | #319 | 묶음A. 조사 문서 3절. 설계만(코드·DB 변경 없음). 결정사항: 할 일 원본은 Google Tasks(목록 1개), Web2는 할 일↔프로젝트·회의·담당조직 연결 정보만 보관. 기존 google-tasks Edge·Google 연결 재사용, 새 권한 범위 없음. 연결 표는 SQL 초안만 |
+| DB-1 | 반복 DB 오류 조사 | 완료 | #319 | 19에 흡수. 조사 문서 2절. 두 오류 모두 원인 코드 제거로 이미 멈춤: `email` 열 조회는 task-workflow.js(#250에서 제거, 마지막 발생 9/24), app_project_publication_state 호출은 project-system-v3.js(#226에서 제거, 마지막 발생 9/23). 새로 찾은 진행형 오류: team-ai 대화 메시지 저장 실패(usage NOT NULL), 25에서 처리 |
+| 인박스 조사 | 업무 인박스 구조 조사(메모 → 분류 제안 → 확정 → 보고서) | 완료 | #319 | 묶음A. 조사 문서 4절. 구현 금지. 연결 표·필드, 새 표 필요 여부(메모 원문 1개 + 연결 1개 최소안), AI 제안 상태, 자동요약 결합, Google 원본 시 보관 범위, 25 전환안 |
+| 계정-1 | 본인 외 계정 3개 삭제 준비 | 진행중 | | 기준 `8532bcb`. [조사 문서](web2-account1-env6-investigation.md) 1절. 조회·준비만(DB 쓰기·계정 삭제 없음). 삭제 대상 3개 모두 옮길 업무 자료·읽생기 자료 없음. 비구성원 계정 1개에 배정된 할 일 1건 때문에 계정 삭제가 트리거에 막힘 → 담당자를 본인으로 바꾼 뒤 삭제. 접근 요청 거절 후 삭제, Google 연결 정보 삭제 SQL 초안. 적용은 사용자가 SQL Editor·Supabase 화면에서 직접(정지 지점). 30의 계정 삭제를 앞당겨 처리 |
+| ENV-6 | 저장소에 원본 없는 Edge Function 점검 | 진행중 | | 조사 문서 3절. 조회만(삭제·배포 없음). 배포 38개 중 17개가 두 저장소 원본·이력에 없음. 원본 복구 필요 8(auth-handoff·rtw-beta-status·공개 페이지 함수 6), 사용자 결정 2(wedding-mc-shared·kptu-board-probe), 삭제 후보 7(push-notifications·rtw-owner-claim·rtw-owner-setup·rail-1007-page·rail-1007-page-v2·pc0914-storage-test·pc-file-test). 복구·삭제는 별도 작업(Edge 변경, 정지 지점) |
 | 20 | signup/invite/access/FIRST ADMIN UI 제거 | 대기 | | 묶음B. 조사 문서 1.2. 화면만(가입 탭·초대 안내·FIRST ADMIN·접근요청 화면·access-approval.js·가입 요청 가로채기, 비활성 구성원 관리 파일, 관련 테스트). Auth 가입 설정은 읽생기 공유라 바꾸지 않음 |
 | 22 | Events attendee/invite active code 제거 | 대기 | | 묶음B. 조사 문서 1.4. 일정 저장 시 참석자 행을 만드는 트리거(trg_app_add_event_creator_attendee) 삭제 포함(DB 변경, 정지 지점) |
 | 23 | Projects member/invitation active code 제거 | 대기 | | 묶음B. 조사 문서 1.5. Edge canEditProject의 보관 프로젝트 서버 거부 포함. meeting-files·meeting-ai-draft·library-files의 app_space_members·구성원 역할 조회 제거(Edge 배포, 정지 지점) |
 | ENV-4 | 캐시 버전 누락 자동검사 | 대기 | | 묶음B(별도 PR). 파일 수정 시 로더 캐시 버전(`?v=`) 올림 누락을 CI가 잡는 검사 추가: #309에서 `view-loader.js` 버전 누락으로 배포 후 옛 화면이 남은 사례(#310에서 수정). `.github/workflows/suborganization-filters-e2e.yml`이 없는 파일 `app/profile-workplace-sync.js`를 grep으로 검사함(경고만 나고 실패하지 않아 검사가 무의미) |
-| TASK-구현 | 화면별 할 일 추가를 Google Tasks로, 연결 안 된 할 일 모음, 목록 개수 기준 변경 | 대기 | | 묶음C. TASK-설계 뒤. 조사 문서 3절 |
+| TASK-구현 | 화면별 할 일 추가를 Google Tasks로, 연결 안 된 할 일 모음, 목록 개수 기준 변경 | 대기 | | 묶음C. TASK-설계 뒤. 조사 문서 3절. 첫 단계로 Google 할 일 미표시 원인 확인(같은 계정인데 Web2에 안 보임). 조사문서 5절 8번 로그인 복귀 주소 문제와 관련 가능 |
 | 21 | Tasks 협업 active code 제거 | 대기 | | 묶음C. 범위 변경: Web2 할 일 기능 전체 제거. TASK-설계 결과를 따른다. 기존 할 일 데이터는 보관 없이 삭제(사용자 확인). 조사 문서 1.9 |
 | 일정 인증-1 | google-calendar 인증 실패 응답 400→401 정리 | 대기 | | 묶음C. Google Tasks 단일화로 중요도 상향(할 일 원본이 Google 인증에 의존). google-tasks도 같은 400 응답이라 함께 정리(조사 문서 3.6) |
 | 25 | team-ai → 개인 업무 AI 전환 | 대기 | | 인박스·주간 정리 버튼·자동요약·보고서 양식 포함, 배치는 묶음A 결과 후 결정. 주간 정리 시 회의·면담 메모의 후속조치(결정·담당·기한·다음 확인) 빠짐 표시 포함. 설계 근거는 조사 문서 4절. team-ai 메시지 저장 오류(DB-1 신규) 포함 |
@@ -92,15 +100,15 @@
 | 후보-4 | 쌓인 기록 기반 질문 답변(원문 링크 포함) | 대기 | | 후보, 순서 미정(25 이후) |
 | 후보-5 | 회의 전 "이번에 결정할 것" 한 줄 입력과 회의 후 결과 비교 | 대기 | | 후보, 순서 미정(25 이후) |
 | 후보-6 | 주간 정리 시 사례 후보 표시 → 장기기억 DB 쓰기요청으로 제출 | 대기 | | 후보, 순서 미정(장기기억 연결 이후). Web2에 사례 별도 저장 금지 |
-| 31-1 | collaboration dead code·CSS 정리(코드·CSS분) | 대기 | | 31을 둘로 나눔. app/project-archive.js 등 비활성 파일(조사 문서 1.1)과 smoke·fixture 참조, CSS |
+| 31-1 | collaboration dead code·CSS 정리(코드·CSS분) | 대기 | | 31을 둘로 나눔. app/project-archive.js 등 비활성 파일(조사 문서 1.1)과 smoke·fixture 참조, CSS. 묶음A 조사 문서 5절 7번: app/ARCHITECTURE.md가 설명하는 없는 파일 notification-center-ui.js·프로젝트 초대 수락 E2E 정리 |
 | 디자인 | 디자인 전면 개선(D-1~D-6: 전수검사→기준→공통부품→화면적용→넓은화면 목록+상세→덧칠정리·자동검사) | 대기 | | 17b-2(17b 나머지 목록 정리) 통합. 화면 폭 3단계·목록 형식·메뉴 배치·홈 신설(이번 주 탭 대체, 선행 TASK-구현·25)·홈 빠른 입력칸·달력 보기 전환은 결정사항 "디자인 전면 개선"을 따른다 |
 | 17b | 나머지 주요 화면 목록 정보밀도 정리 | 대기 | | 17a 형식 기준. 17b-1 이후 나머지(17b-2)는 디자인 전면 개선에 통합 |
 | 26 | collaboration DB/RPC/trigger 감사 | 대기 | | 19 결과 재확인 + DB-2 결정. 조사 문서 1절 표가 대상 목록 |
 | DB-2 | 삭제 시 수정 이력 보존 설계 | 대기 | | 26에서 결정. 페이지 삭제 시 app_page_revisions cascade 삭제, 다른 삭제 경로 포함. 보류 가능 |
-| 27 | 확인된 collaboration DB/RPC/trigger 제거 | 대기 | | |
+| 27 | 확인된 collaboration DB/RPC/trigger 제거 | 대기 | | 묶음A 조사 문서 5절 4번(app_workspace_members 역할 트리거의 고정 이메일)은 27~29에서 처리 |
 | 28 | workspace_members/role 체계 제거 | 대기 | | app_workspace_members 역할 트리거의 고정 계정, app_spaces_create 역할 등급 정책 포함. 읽생기 탈퇴 판정이 이 표를 쓰므로 읽생기 쪽 선행 확인(조사 문서 1.10) |
 | 29 | Tasks assignment schema 정리 | 대기 | | 범위 변경: Web2 할 일 기능 전체 제거에 맞춘 schema 정리. TASK-설계 결과를 따른다. 기존 할 일 데이터는 보관 없이 삭제(사용자 확인) |
-| 30 | 보조 Auth 계정 제거 | 대기 | | 조사 문서 1.8. 보조 관리자 1, 비구성원 2(1명은 Google 캘린더 연결 행 남음). Auth는 읽생기와 공유, 계정 삭제는 사용자 결정 후 직접 |
+| 30 | 보조 Auth 계정 제거 | 대기 | | 계정 삭제는 계정-1로 앞당김(계정-1 적용 뒤 이 행은 남은 확인만). 조사 문서 1.8. 보조 관리자 1, 비구성원 2(1명은 Google 캘린더 연결 행 남음). Auth는 읽생기와 공유, 계정 삭제는 사용자 결정 후 직접 |
 | 24 | 담당조직 canonical 구조 통합 | 대기 | | 조사 문서 1.6. 담당조직 3중 저장(app_suborganization_assignees·app_profile_workplaces·default_assignee_name)과 동기화 트리거 3개 |
 | 31-2 | collaboration dead code/API 정리(나머지) | 대기 | | task12a-fingerprint.sql의 app_delete_pages 잔존 정리, DB 정리 뒤 남는 API·테스트 참조 |
 | 이름-2 | 서비스 소개·개인정보처리방침 페이지 이름 변경, 구글 앱 이름 변경 | 대기 | | 구글 앱 이름 변경은 사용자가 Google 설정 화면에서 직접 하는 작업 포함. 공개 페이지(press/, p/*, private-rail/ 등) 푸터·og:site_name의 '공공기관사업팀' 포함 |
@@ -108,7 +116,7 @@
 | ENV-5 | 불안정 E2E 측정형 테스트 안정화 | 대기 | | 수시. 코드 변경과 무관하게 CI에서 가끔 실패: `calendar-google-loading.spec.mjs:77`(응답 시간 한도 600ms·200ms), `calendar-month-view.spec.mjs:187`(창 크기 변경 직후 배치 측정). 여러 테스트를 병렬로 돌릴 때 간헐 실패하는 로그인 세션 전환(`public-workspace-auth.spec.mjs`), Web1 게시판(`web1-board.spec.mjs`)도 포함. 2026-09-26 #310 CI에서 각 1회 실패, 재실행·로컬 반복은 통과. 테스트 삭제·건너뛰기 없이 대기 조건·한도를 원인에 맞게 고침 |
 | Web1-3 | bus-strike-publicness-internal-archive-202609 흔적 정리 | 대기 | | 범위: app_public_post allowlist에서 slug 제거(migration 필요, 적용 직전 정지), redirect 셸 처리 방침 결정, E2E 7번째 redirect 검사와 supabase/tests/authz_* 의 7행 가정 수정. 위험: 같은 slug로 새 글이 생기면 allowlist 때문에 자동 링크 공개됨 |
 | RTW-분리 | 읽생기 별도 Supabase 프로젝트 분리 결정 (플레이스토어 출시 전) | 대기 | | 무료 요금제 제약 조사 포함 |
-| RTW-출시준비 | 플레이 정책 대응: 웹 탈퇴 요청 링크, 테스트 계정으로 탈퇴 실동작 확인 | 대기 | | Web2 확인 테이블 4개 한계 검토 포함 |
+| RTW-출시준비 | 플레이 정책 대응: 웹 탈퇴 요청 링크, 테스트 계정으로 탈퇴 실동작 확인 | 대기 | | Web2 확인 테이블 4개 한계 검토 포함. 묶음A 조사 문서 5절 6번: `DELETE /auth/v1/user/identities/<id>` 404 반복(9/25~26 11회, Web2 코드에 호출 없음) 읽생기 쪽 확인 |
 | RTW-3 | rtw-personal-write secret/권한 점검 | 대기 | | Task 32 전 완료. rtw_* 5개 테이블 anon GRANT 흔적 정리 |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
 
