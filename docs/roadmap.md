@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `100f97d` (Merge pull request #301)
+- 기준 main SHA: `36ccc28` (Merge pull request #303)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -51,7 +51,7 @@
 | 일정 성능-2 | google-calendar Edge 로딩 최적화 | 완료 | #300 | google-calendar v14 배포 2026-09-26, 실사용 확인 |
 | RTW-1 | 계정삭제 shared auth 위험 | 완료 | | 읽생기 #83, rtw-delete-account v4 배포 2026-09-26(verify_jwt=true 유지). Web2 계정은 읽생기 데이터만 삭제, 일반 사용자는 계정까지 삭제. 실계정 탈퇴 시험은 RTW-출시준비에서 |
 | RTW-2 | beta RLS owner 격리 | 완료 | | 2026-09-26 조회, owner 조건 정책으로 이미 해결 |
-| 16 | 프로젝트 진행상황 UI 압축 | 대기 | | |
+| 16 | 프로젝트 상세 화면 요약형 재구성(진행상황 UI 압축 포함) | 진행중 | #304 | 기준 `36ccc28`. UI만(DB·Edge 변경 없음). 제목+⋯ 메뉴, 할 일·자료 바로 추가, 하위 프로젝트·진행상황 목록 우선, 주요 일정·메모 접힘 |
 | 15b | 프로젝트 파일 업로드(project-files.js) 실패 처리 정규화 | 대기 | | |
 | 17 | 주요 화면 정보밀도 정리 | 대기 | | |
 | 18 | 담당조직 자유입력 Inbox | 대기 | | |

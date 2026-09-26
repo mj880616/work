@@ -302,6 +302,7 @@ test('project create, rename and archive refresh library selectors without reloa
   expect(values.map(o=>o.value)).toEqual(['','top-a','child-a1','child-a2','top-b','child-b1',created.id,'orphan-1']);
   expect(values.find(o=>o.value===created.id).text).toBe('　↳ 신규 하위 프로젝트');
 
+  await page.locator('#ps3Menu .ps3-more > summary').click();
   await page.locator('[data-ps3-edit-project]').click();
   await page.locator('#ps3CreateName').fill('이름 바뀐 하위 프로젝트');
   await page.locator('#ps3CreateSave').click();
@@ -309,6 +310,7 @@ test('project create, rename and archive refresh library selectors without reloa
   values=await optionsOf(page,'#documentProject');
   expect(values.find(o=>o.value===created.id).text).toBe('　↳ 이름 바뀐 하위 프로젝트');
 
+  await page.locator('#ps3Menu .ps3-more > summary').click();
   await page.locator('[data-ps3-archive-project]').click();
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
   await page.waitForFunction(id=>![...document.querySelector('#docProject').options].some(o=>o.value===id),created.id);
