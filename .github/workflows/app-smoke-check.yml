@@ -50,8 +50,8 @@ jobs:
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=50')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=15')",'result=await viewLoader.load(requested)',
+            "import('./team.js?v=51')",'await window.__KPTU_TEAM_READY__',
+            "import('./view-loader.js?v=16')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -113,7 +113,7 @@ jobs:
           grep -q "task-layout.css?v=4" app/view-loader.js
           grep -q "project-system-v3.css?v=15" app/view-loader.js
           grep -q "library-upload.css?v=2" app/view-loader.js
-          grep -q "meeting-ui.css?v=9" app/view-loader.js
+          grep -q "meeting-ui.css?v=10" app/view-loader.js
           grep -q "web1-press.css?v=1" app/view-loader.js
           grep -q "web1-board.css?v=2" app/view-loader.js
           grep -q "suborganizations.css?v=5" app/view-loader.js
@@ -136,7 +136,7 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=10" app/loader-v2.js
-          grep -q "team.js?v=50" app/loader-v2.js
+          grep -q "team.js?v=51" app/loader-v2.js
           grep -q "project-system-v3.js?v=25" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
@@ -178,7 +178,7 @@ jobs:
           grep -q "task-layout.css?v=4" app/styles.css
           grep -q "google-tasks.css?v=4" app/styles.css
           grep -q "library-upload.css?v=2" app/styles.css
-          grep -q "meeting-ui.css?v=9" app/styles.css
+          grep -q "meeting-ui.css?v=10" app/styles.css
           grep -q "calendar-ui.css?v=8" app/styles.css
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
           grep -q "project-system-v3.css?v=15" app/styles.css

@@ -25,7 +25,7 @@ const routeStyles={
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
   projects:['./project-system-v3.css?v=15','./forum-flow-polish.css?v=1'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=9'],
+  meetings:['./meeting-ui.css?v=10'],
   media:['./web1-press.css?v=1'],
   pages:['./web1-board.css?v=2'],
   team:['./suborganizations.css?v=5','./workplace-detail.css?v=3'],
