@@ -2,7 +2,7 @@
   const leaf=document.querySelector('.brand .leaf');
   if(!leaf)return;
   const iconUrl='./app-icon.svg?v=20260913-3';
-  leaf.innerHTML=`<img src="${iconUrl}" alt="공공기관사업팀 Workspace"><span class="kptu-brand-fallback" aria-hidden="true">공공</span>`;
+  leaf.innerHTML=`<img src="${iconUrl}" alt="웹2"><span class="kptu-brand-fallback" aria-hidden="true">웹2</span>`;
   leaf.classList.add('kptu-brand-mark');
   const img=leaf.querySelector('img');
   if(img){

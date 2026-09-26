@@ -10,7 +10,7 @@ async function mockWorkspace(page) {
     const data = path === '/auth/v1/token' ? {access_token: 'solo-access', refresh_token: 'solo-refresh', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600} :
       path === '/auth/v1/user' ? person :
       path === '/rest/v1/app_workspace_members' ? [{workspace_id: 'solo-workspace', user_id: person.id, role: 'owner'}] :
-      path === '/rest/v1/app_workspaces' ? [{id: 'solo-workspace', name: '공공기관사업팀 Workspace'}] :
+      path === '/rest/v1/app_workspaces' ? [{id: 'solo-workspace', name: '웹2'}] :
       path === '/rest/v1/app_profiles' ? [{user_id: person.id, display_name: '김명진'}] :
       path === '/functions/v1/google-calendar' ? {connected: false, enabled: false, selected: [], calendars: [], events: []} :
       path === '/functions/v1/push-notifications' ? {enabled: false, web_enabled: false, native_enabled: false, public_key: 'qa'} :

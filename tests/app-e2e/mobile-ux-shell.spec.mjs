@@ -3,7 +3,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'mobile-user',email:'mobile@example.org',user_metadata:{display_name:'모바일 QA'}};
-const workspace={id:'mobile-workspace',slug:'mobile',name:'공공기관사업팀 Workspace'};
+const workspace={id:'mobile-workspace',slug:'mobile',name:'웹2'};
 const tasks=Array.from({length:8},(_,i)=>({id:`task-${i+1}`,workspace_id:workspace.id,title:`모바일 QA 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`2026-09-${String(14+i).padStart(2,'0')}T09:00:00Z`,created_at:'2026-09-13T00:00:00Z'}));
 const events=Array.from({length:12},(_,i)=>({id:`event-${i+1}`,title:`9월 13일 일정 ${i+1}`,start:`2026-09-13T${String(1+i).padStart(2,'0')}:00:00Z`,end:`2026-09-13T${String(2+i).padStart(2,'0')}:00:00Z`,calendarId:'primary',source:'google',color:'#4285f4'}));
 

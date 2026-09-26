@@ -3,7 +3,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'photo-user',email:'photo@example.org',user_metadata:{display_name:'포토 QA'}};
-const workspace={id:'photo-workspace',slug:'photo-workspace',name:'공공기관사업팀 Workspace'};
+const workspace={id:'photo-workspace',slug:'photo-workspace',name:'웹2'};
 const event={id:'event-1',workspace_id:workspace.id,title:'인력확충 기자회견',start_at:'2026-09-15T11:00:00+09:00',event_type:'press',location:'국회 앞',body:'',description:'',project_id:null};
 const pixel='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlKx8sAAAAASUVORK5CYII=';
 let uploaded=false;
