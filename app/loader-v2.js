@@ -3,13 +3,14 @@
   startup?.mark('loaderStart');
   const runtimeReady=import('./runtime-client.js?v=5');
   await Promise.all([
-    import('./native-auth-bridge.js?v=4'),
+    import('./native-auth-bridge.js?v=5'),
     import('./calendar-return-bridge.js?v=3')
   ]);
   if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return;
   await runtimeReady;
+  // Scrub/finish a handoff before OAuth bootstrap can inspect mixed URL input.
+  await import('./auth-handoff-client.js?v=2');
   await Promise.all([
-    import('./auth-handoff-client.js?v=1'),
     import('./auth-bootstrap.js?v=1'),
     import('./auth-service.js?v=1')
   ]);

@@ -1,4 +1,4 @@
--- Review copy of supabase/migrations/20260926154120_sec1_auth_handoff_once.sql.
+-- CANDIDATE ONLY: production execution requires a separate approved local procedure.
 begin;
 
 -- Existing service_role has no USAGE on private. Keep its schema privileges

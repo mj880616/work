@@ -1,0 +1,15 @@
+{
+  "name": "sec1-isolated-postgres-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test postgres.test.mjs" },
+  "devDependencies": { "embedded-postgres": "17.6.0-beta.15", "pg": "8.16.3" },
+  "overrides": {
+    "@embedded-postgres/windows-x64": "17.6.0-beta.15",
+    "@embedded-postgres/linux-x64": "17.6.0-beta.15"
+  },
+  "allowScripts": {
+    "@embedded-postgres/windows-x64@17.6.0-beta.15": true,
+    "@embedded-postgres/linux-x64@17.6.0-beta.15": true
+  }
+}
