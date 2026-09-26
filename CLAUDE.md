@@ -65,6 +65,16 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포, Cloudflare 설�
 
 - 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
 - AI가 apply_migration 등 쓰기 도구로 production DB를 직접 변경하지 않는다.
+- supabase db push는 ENV-2 완료 전 금지.
+- migration마다 rollback SQL과 snapshot을 함께 두고, 적용 SQL은 main 파일 원문으로 제시(화면 출력 잘림 주의).
+
+## 지시서 표시
+
+- 지시서 맨 위에 "📱 폰 가능" 또는 "💻 PC 로컬 필요". 💻 작업은 웹 세션이면 즉시 중단.
+
+## 토큰 취급
+
+- 토큰·키 값을 명령어 인자에 넣지 않는다. gh가 있으면 gh를 우선 사용한다.
 
 ## Edge Function 배포
 
