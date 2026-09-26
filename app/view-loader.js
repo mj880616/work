@@ -57,7 +57,7 @@ async function calendar(){
     module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
-  const google=module('./calendar-persistence.js?v=12','__KPTU_CALENDAR_PERSISTENCE_READY__');
+  const google=module('./calendar-persistence.js?v=13','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
   background(style('./suborganizations.css?v=5').then(()=>module('./suborganizations.js?v=8','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
