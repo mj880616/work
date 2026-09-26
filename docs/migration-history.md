@@ -10,7 +10,7 @@
   어느 저장소의 `supabase/migrations/`도 production 기록 전체를 담지 않으므로 `supabase db push`는 구조적으로 쓸 수 없다.
 - `supabase db push`와 `supabase migration repair`는 영구 금지한다.
 - 저장소 파일 이름과 production 기록 버전을 소급해서 맞추지 않는다. 불일치는 이 문서의 대응표로 관리한다.
-- 앞으로의 적용은 `CLAUDE.md`의 "production DB 적용" 절차를 따르고, 적용 SQL 안에서 기록 1행을 저장소 파일과 같은 버전으로 insert한다.
+- 앞으로의 적용은 `AGENTS.md` 7절 "production DB 적용" 절차를 따르고, 적용 SQL 안에서 기록 1행을 저장소 파일과 같은 버전으로 insert한다.
 
 ## 대조 결과 요약
 
