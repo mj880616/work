@@ -4,7 +4,7 @@
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
-        android:label="공공기관사업팀"
+        android:label="웹2"
         android:icon="@drawable/app_icon"
         android:roundIcon="@drawable/app_icon"
         android:theme="@style/AppTheme">

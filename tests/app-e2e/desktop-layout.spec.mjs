@@ -23,7 +23,7 @@ async function installMock(page){
       return ok([{workspace_id:'workspace-1',user_id:'desktop-user',role:'owner',email:'desktop@example.org'}]);
     }
     if(path==='/rest/v1/app_profiles') return ok([{user_id:'desktop-user',display_name:'데스크톱 사용자',job_title:'국장'}]);
-    if(path==='/rest/v1/app_workspaces') return ok([{id:'workspace-1',slug:'public-institutions',name:'공공기관사업팀 Workspace'}]);
+    if(path==='/rest/v1/app_workspaces') return ok([{id:'workspace-1',slug:'public-institutions',name:'웹2'}]);
     if(path==='/rest/v1/app_spaces') return ok([{id:'space-1',workspace_id:'workspace-1',name:'반응형 프로젝트',parent_id:null,status:'active',owner_id:'desktop-user',visibility:'team',sort_order:10}]);
     if(path==='/rest/v1/app_pages') return ok([pageRow]);
     if(path==='/rest/v1/app_tasks') return ok([taskRow]);

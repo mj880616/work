@@ -3,7 +3,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
-const workspace={id:'design-system-workspace',slug:'design-system',name:'공공기관사업팀 Workspace'};
+const workspace={id:'design-system-workspace',slug:'design-system',name:'웹2'};
 
 async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{

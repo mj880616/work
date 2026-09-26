@@ -3,7 +3,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'ui-system-user',email:'ui-system@example.org',user_metadata:{display_name:'UI QA'}};
-const workspace={id:'ui-system-workspace',slug:'ui-system',name:'공공기관사업팀 Workspace'};
+const workspace={id:'ui-system-workspace',slug:'ui-system',name:'웹2'};
 const tasks=Array.from({length:24},(_,i)=>({id:`ui-task-${i+1}`,workspace_id:workspace.id,title:`UI 점검 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`2026-09-${String(15+(i%10)).padStart(2,'0')}T09:00:00Z`,created_at:'2026-09-14T00:00:00Z'}));
 
 async function mockApp(page){
