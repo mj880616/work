@@ -61,6 +61,11 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포, Cloudflare 설�
 - production 조회·배포·적용은 로컬 세션에서만 한다. 웹 세션에서 필요해지면 추측하지 말고 중단·보고한다.
 - 웹 세션에 production 토큰을 등록하도록 제안하지 않는다.
 
+## production DB 적용
+
+- 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
+- AI가 apply_migration 등 쓰기 도구로 production DB를 직접 변경하지 않는다.
+
 ## Edge Function 배포
 
 - 로컬 세션, manual mode에서만 한다.
