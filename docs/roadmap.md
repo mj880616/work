@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `8532bcb` (#319)
+- 기준 main SHA: `9e273e2` (#320)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -30,6 +30,9 @@
 - 2026-09-26 팀 AI 기록 저장 오류(DB-1에서 새로 찾은 `app_ai_messages` usage 오류)는 따로 고치지 않고 25에서 처리한다.
 - 2026-09-26 AI 제공사: 25에서 비교해 결정한다. 그전까지 현재 제공사를 유지한다.
 - 2026-09-26 계정: 본인 외 계정 3개(보조 관리자 1, 비구성원 2)는 모두 본인 소유이며 전부 삭제한다. 대기 중 접근 요청 1건은 거절 후 삭제한다. 준비는 계정-1.
+- 2026-09-26 Edge Function 정리 기준: Web1 것은 유지, Web2 찌꺼기는 삭제. 공개 페이지 함수 6개(9/14 기자회견, 9/21 공동투쟁, 수련회 선언, 10/7 대의원)는 Web1 공개 페이지라 유지.
+- 2026-09-26 `wedding-mc-shared` 유지.
+- 2026-09-26 `kptu-board-probe` 삭제.
 
 디자인 전면 개선(2026-09-26 결정, 작업 표 "디자인" 행)
 
@@ -42,7 +45,7 @@
 
 ## 작업 표
 
-완료·종료 행 아래의 진행중·대기 행은 위에서부터 순서대로 진행한다. 묶음 순서: 묶음A(19·TASK-설계·DB-1·인박스 조사, 문서 PR 1개) → 계정-1·ENV-6 → 묶음B(20·22·23 + ENV-4, ENV-4는 별도 PR) → 묶음C(TASK-구현·21·일정 인증-1) → 25 개인 업무 AI → 후보 행(순서 미정) → 31-1 → 디자인(D-1~D-6, 17b-2 통합) → 이후 DB 정리(26+DB-2, 27~30) → 24 → 31-2 → 이름-2 → ENV-3 → ENV-5 → Web1-3 → RTW → 32. DB-2는 26에서 결정한다. PR 칸은 `git log` 또는 GitHub PR 목록으로 확인된 번호만 적는다. 확인되지 않은 칸은 비워 둔다.
+완료·종료 행 아래의 진행중·대기 행은 위에서부터 순서대로 진행한다. 묶음 순서: 묶음A(19·TASK-설계·DB-1·인박스 조사, 문서 PR 1개) → 계정-1·ENV-6(후속 ENV-6b·ENV-6c) → 묶음B(20·22·23 + ENV-4, ENV-4는 별도 PR) → 묶음C(TASK-구현·21·일정 인증-1) → 25 개인 업무 AI → 후보 행(순서 미정) → 31-1 → 디자인(D-1~D-6, 17b-2 통합) → 이후 DB 정리(26+DB-2, 27~30) → 24 → 31-2 → 이름-2 → ENV-3 → ENV-5 → Web1-3 → RTW → 32. DB-2는 26에서 결정한다. PR 칸은 `git log` 또는 GitHub PR 목록으로 확인된 번호만 적는다. 확인되지 않은 칸은 비워 둔다.
 
 | 번호 | 작업명 | 상태 | PR | 비고(의존관계) |
 | --- | --- | --- | --- | --- |
@@ -84,13 +87,15 @@
 | TASK-설계 | Google Tasks 연결 구조 설계 | 완료 | #319 | 묶음A. 조사 문서 3절. 설계만(코드·DB 변경 없음). 결정사항: 할 일 원본은 Google Tasks(목록 1개), Web2는 할 일↔프로젝트·회의·담당조직 연결 정보만 보관. 기존 google-tasks Edge·Google 연결 재사용, 새 권한 범위 없음. 연결 표는 SQL 초안만 |
 | DB-1 | 반복 DB 오류 조사 | 완료 | #319 | 19에 흡수. 조사 문서 2절. 두 오류 모두 원인 코드 제거로 이미 멈춤: `email` 열 조회는 task-workflow.js(#250에서 제거, 마지막 발생 9/24), app_project_publication_state 호출은 project-system-v3.js(#226에서 제거, 마지막 발생 9/23). 새로 찾은 진행형 오류: team-ai 대화 메시지 저장 실패(usage NOT NULL), 25에서 처리 |
 | 인박스 조사 | 업무 인박스 구조 조사(메모 → 분류 제안 → 확정 → 보고서) | 완료 | #319 | 묶음A. 조사 문서 4절. 구현 금지. 연결 표·필드, 새 표 필요 여부(메모 원문 1개 + 연결 1개 최소안), AI 제안 상태, 자동요약 결합, Google 원본 시 보관 범위, 25 전환안 |
-| 계정-1 | 본인 외 계정 3개 삭제 준비 | 진행중 | #320 | 기준 `8532bcb`. [조사 문서](web2-account1-env6-investigation.md) 1절. 조회·준비만(DB 쓰기·계정 삭제 없음). 삭제 대상 3개 모두 옮길 업무 자료·읽생기 자료 없음. 비구성원 계정 1개에 배정된 할 일 1건 때문에 계정 삭제가 트리거에 막힘 → 담당자를 본인으로 바꾼 뒤 삭제. 접근 요청 거절 후 삭제, Google 연결 정보 삭제 SQL 초안. 적용은 사용자가 SQL Editor·Supabase 화면에서 직접(정지 지점). 30의 계정 삭제를 앞당겨 처리 |
-| ENV-6 | 저장소에 원본 없는 Edge Function 점검 | 진행중 | #320 | 조사 문서 3절. 조회만(삭제·배포 없음). 배포 38개 중 17개가 두 저장소 원본·이력에 없음. 원본 복구 필요 8(auth-handoff·rtw-beta-status·공개 페이지 함수 6), 사용자 결정 2(wedding-mc-shared·kptu-board-probe), 삭제 후보 7(push-notifications·rtw-owner-claim·rtw-owner-setup·rail-1007-page·rail-1007-page-v2·pc0914-storage-test·pc-file-test). 복구·삭제는 별도 작업(Edge 변경, 정지 지점) |
+| 계정-1 | 본인 외 계정 3개 삭제 준비 | 완료 | #320 | 기준 `8532bcb`. 사용자 실행 2026-09-26(1~6단계, 사후 확인 기대값 일치, 로컬 read-only 재확인은 ENV-6b). [조사 문서](web2-account1-env6-investigation.md) 1절. 조회·준비만(DB 쓰기·계정 삭제 없음). 삭제 대상 3개 모두 옮길 업무 자료·읽생기 자료 없음. 비구성원 계정 1개에 배정된 할 일 1건 때문에 계정 삭제가 트리거에 막힘 → 담당자를 본인으로 바꾼 뒤 삭제. 접근 요청 거절 후 삭제, Google 연결 정보 삭제 SQL 초안. 적용은 사용자가 SQL Editor·Supabase 화면에서 직접(정지 지점). 30의 계정 삭제를 앞당겨 처리 |
+| ENV-6 | 저장소에 원본 없는 Edge Function 점검 | 완료 | #320 | 조사 문서 3절. 조회만(삭제·배포 없음). 배포 38개 중 17개가 두 저장소 원본·이력에 없음. 원본 복구 필요 8(auth-handoff·rtw-beta-status·공개 페이지 함수 6), 사용자 결정 2(wedding-mc-shared·kptu-board-probe), 삭제 후보 7(push-notifications·rtw-owner-claim·rtw-owner-setup·rail-1007-page·rail-1007-page-v2·pc0914-storage-test·pc-file-test). 복구·삭제는 별도 작업(Edge 변경, 정지 지점) |
+| ENV-6b | 원본 없는 Edge Function 원본 확보 + 계정-1 사후 검증 | 진행중 | | 기준 `9e273e2`. [문서](web2-env6b-edge-source.md). 조회·내려받기만(배포·삭제·DB 쓰기 없음). 17개 내려받음: work 9·read-think-write 3 커밋, 비밀값이 박힌 공개 페이지 함수 5개(rail-1007-plan·rail-declaration-comments·rail-declaration-content·press-conference-files·joint-struggle-files)는 커밋 안 함(사용자 PC 보관). 함수별 verify_jwt를 문서 2.2에 기록. 판정 확정: 삭제 8·유지 9. 계정-1 사후 값 일치, 할 일 57 vs 58은 문서 1.1. 발견사항(기록만): 원본 없던 공개 페이지 함수 6개 모두 verify_jwt=false(Origin·4자리 비밀번호·공개 업로드 키로만 막음), rtw-owner-claim 9/17~18 약 1,540회 집중 호출(이후 0회) |
+| ENV-6c | 삭제 목록 함수 삭제(사용자 대시보드 실행) | 대기 | | ENV-6b 문서 3.1의 8개: push-notifications·rtw-owner-claim·rtw-owner-setup·rail-1007-page·rail-1007-page-v2·pc0914-storage-test·pc-file-test·kptu-board-probe. 두 저장소 호출처 없음 확인(kptu-board-probe만 시험 페이지 kptu-probe/가 부름). Edge 변경이라 정지 지점. 되돌리기는 저장소 원본을 같은 verify_jwt로 재배포 |
 | 20 | signup/invite/access/FIRST ADMIN UI 제거 | 대기 | | 묶음B. 조사 문서 1.2. 화면만(가입 탭·초대 안내·FIRST ADMIN·접근요청 화면·access-approval.js·가입 요청 가로채기, 비활성 구성원 관리 파일, 관련 테스트). Auth 가입 설정은 읽생기 공유라 바꾸지 않음 |
 | 22 | Events attendee/invite active code 제거 | 대기 | | 묶음B. 조사 문서 1.4. 일정 저장 시 참석자 행을 만드는 트리거(trg_app_add_event_creator_attendee) 삭제 포함(DB 변경, 정지 지점) |
 | 23 | Projects member/invitation active code 제거 | 대기 | | 묶음B. 조사 문서 1.5. Edge canEditProject의 보관 프로젝트 서버 거부 포함. meeting-files·meeting-ai-draft·library-files의 app_space_members·구성원 역할 조회 제거(Edge 배포, 정지 지점) |
 | ENV-4 | 캐시 버전 누락 자동검사 | 대기 | | 묶음B(별도 PR). 파일 수정 시 로더 캐시 버전(`?v=`) 올림 누락을 CI가 잡는 검사 추가: #309에서 `view-loader.js` 버전 누락으로 배포 후 옛 화면이 남은 사례(#310에서 수정). `.github/workflows/suborganization-filters-e2e.yml`이 없는 파일 `app/profile-workplace-sync.js`를 grep으로 검사함(경고만 나고 실패하지 않아 검사가 무의미) |
-| TASK-구현 | 화면별 할 일 추가를 Google Tasks로, 연결 안 된 할 일 모음, 목록 개수 기준 변경 | 대기 | | 묶음C. TASK-설계 뒤. 조사 문서 3절. 첫 단계로 Google 할 일 미표시 원인 확인(같은 계정인데 Web2에 안 보임). 조사문서 5절 8번 로그인 복귀 주소 문제와 관련 가능 |
+| TASK-구현 | 화면별 할 일 추가를 Google Tasks로, 연결 안 된 할 일 모음, 목록 개수 기준 변경 | 대기 | | 묶음C. TASK-설계 뒤. 조사 문서 3절. 첫 단계로 Google 할 일 미표시 원인 확인(같은 계정인데 Web2에 안 보임). 조사문서 5절 8번 로그인 복귀 주소 문제와 관련 가능. 할 일 화면 57건 vs DB 58건 차이 확인 결과 반영(ENV-6b 문서 1.1: 화면은 본인 담당 할 일을 거르지 않고 전부 표시, 차이 1건은 계정-1 A단계에서 본인에게 옮긴 회의 후속 할 일, 새로 고침 후 58건 확인 필요) |
 | 21 | Tasks 협업 active code 제거 | 대기 | | 묶음C. 범위 변경: Web2 할 일 기능 전체 제거. TASK-설계 결과를 따른다. 기존 할 일 데이터는 보관 없이 삭제(사용자 확인). 조사 문서 1.9 |
 | 일정 인증-1 | google-calendar 인증 실패 응답 400→401 정리 | 대기 | | 묶음C. Google Tasks 단일화로 중요도 상향(할 일 원본이 Google 인증에 의존). google-tasks도 같은 400 응답이라 함께 정리(조사 문서 3.6) |
 | 25 | team-ai → 개인 업무 AI 전환 | 대기 | | 인박스·주간 정리 버튼·자동요약·보고서 양식 포함, 배치는 묶음A 결과 후 결정. 주간 정리 시 회의·면담 메모의 후속조치(결정·담당·기한·다음 확인) 빠짐 표시 포함. 설계 근거는 조사 문서 4절. team-ai 메시지 저장 오류(DB-1 신규) 포함 |
