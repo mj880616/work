@@ -82,6 +82,7 @@
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
 | ENV-4 | 브랜치 정리 | 대기 | | 수시. merge·close된 브랜치 대상. 급하지 않음 |
 | 일정 인증-1 | google-calendar 인증 실패 응답 400→401 정리 | 대기 | | 우선순위 낮음 |
+| ENV-5 | 불안정 E2E 측정형 테스트 안정화 | 대기 | | 수시. 코드 변경과 무관하게 CI에서 가끔 실패: `calendar-google-loading.spec.mjs:77`(응답 시간 한도 600ms·200ms), `calendar-month-view.spec.mjs:187`(창 크기 변경 직후 배치 측정). 2026-09-26 #310 CI에서 각 1회 실패, 재실행·로컬 반복은 통과. 테스트 삭제·건너뛰기 없이 대기 조건·한도를 원인에 맞게 고침 |
 
 비고: migration 버전 불일치 3건(enable_multiuser_personal_spaces, add_free_beta_controls, add_beta_access_status_rpc)은 RTW 작업(RTW-1~3) 소관이다. 읽생기 저장소 파일과 production 기록의 버전이 다르다. 대응은 [docs/migration-history.md](migration-history.md).
 
@@ -98,6 +99,7 @@
 | roadmap 작업 표를 진행 순서로 재배열(RTW-1·2 최우선, DB-1은 19 흡수, DB-2는 26 결정, ENV-4 수시), 일정 인증-1 등록 | #301 |
 | roadmap 갱신: RTW-1·RTW-2 완료, RTW-분리·RTW-출시준비 등록, RTW-3 비고 추가 | #303 |
 | roadmap 갱신: 15b 종료(대상 파일 비활성), 17b-1 완료 | #307 |
+| roadmap 갱신: ENV-5(불안정 E2E 테스트) 등록 | |
 
 ## 갱신 규칙
 
