@@ -76,7 +76,7 @@
 #meetingsView .meeting-toolbar select{flex:1 1 auto;width:auto;min-width:0;height:var(--kptu-control-height);padding-top:0;padding-bottom:0}
 #meetingsView .meeting-toolbar #newMeetingBtn{flex:0 0 auto;width:auto;height:var(--kptu-control-height);white-space:nowrap}
 #meetingList.meeting-list{display:grid;grid-template-columns:1fr;gap:0;border-top:1px solid var(--kptu-border)}
-#meetingList .meeting-list-row{min-height:0;margin:0;padding:8px 12px 8px 10px;border:0;border-left:4px solid var(--meeting-color,var(--kptu-border-strong));border-bottom:1px solid var(--kptu-border);border-radius:0;box-shadow:none;background:var(--kptu-surface);align-items:center}
+#meetingList .meeting-list-row{min-height:0;margin:0;padding:8px 12px 8px 10px;border:0;border-left:4px solid var(--meeting-color,var(--kptu-border-strong));border-bottom:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-shadow:none;background:var(--kptu-surface);align-items:center}
 #meetingList .meeting-list-row:hover{background:var(--kptu-surface-subtle)}
 #meetingList .meeting-list-main{min-width:0;width:100%}
 #meetingList .meeting-list-title{display:flex;align-items:center;gap:8px;min-width:0}
