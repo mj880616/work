@@ -1,7 +1,7 @@
 # Web2 개발 작업 원장 (Roadmap)
 
 - 최종 갱신일: 2026-09-26
-- 기준 main SHA: `99512a1` (Merge pull request #312)
+- 기준 main SHA: `c28f76b` (Merge pull request #315)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
 상태값 정의
@@ -19,6 +19,11 @@
 - Web2: 개인 비공개 업무 도구. 공개·공유 경로를 두지 않는다.
 - Web1: 외부 공개 채널.
 - RTW(읽생기): Web2와 분리된 별도 제품.
+
+## 결정사항
+
+- 2026-09-26 할 일: 할 일 원본은 Google Tasks(목록 1개)로 단일화한다. Web2 자체 할 일 기능은 제거 예정이다. Web2는 할 일↔프로젝트·회의·담당조직 연결 정보만 보관한다. 구조는 TASK-설계, 구현은 TASK-구현, 기존 기능 제거는 21·29에서 한다. 기존 Web2 할 일 데이터는 보관 없이 삭제한다(사용자 확인).
+- 2026-09-26 일정 탭: 유지한다. "이번 주 업무" 화면(공공운수노조 캘린더 + 이번 주 마감 Google Tasks + 회의)으로 전환하며, 디자인 전면 개선에 포함한다.
 
 ## 작업 표
 
@@ -54,16 +59,19 @@
 | 16 | 프로젝트 상세 화면 요약형 재구성(진행상황 UI 압축 포함) | 완료 | #304 | 기준 `36ccc28`. UI만(DB·Edge 변경 없음). 제목+⋯ 메뉴, 할 일·자료 바로 추가, 하위 프로젝트·진행상황 목록 우선, 주요 일정·메모 접힘. 2026-09-26 실사용 확인 |
 | 15b | 프로젝트 파일 업로드(project-files.js) 실패 처리 정규화 | 종료 | | 기준 `a2bd0e4`. 대상 없음: `project-files.js`는 어느 진입 경로에서도 로드되지 않는 비활성 파일(`loader-v2.js`·`view-loader.js` 미포함, app-smoke-check·project-v3-structure 검사가 재로드를 막음, 붙는 `#projectModal`도 없음). 현재 프로젝트 자료 추가는 자료실 업로드(`library-upload.js`, 프로젝트 미리 선택)로 가며 Task 15 실패 처리를 이미 거침. 코드 변경 없이 소유자 결정으로 종료 |
 | 17a | 프로젝트 목록 화면 요약형 | 완료 | #305 | 기준 `05019e9`. UI만(DB·Edge 변경 없음). 테두리 목록 하나, 상위 프로젝트 2줄(이름 / 하위 포함 할 일·자료 합계 + 하위 N ▾ 접힘), 보관함 같은 형식. 개수는 16의 in.(...) 조회 재사용. 2026-09-26 실사용(휴대폰) 확인 |
-| 17b | 나머지 주요 화면 목록 정보밀도 정리 | 대기 | | 17a 형식 기준 |
+| 17b | 나머지 주요 화면 목록 정보밀도 정리 | 대기 | | 17a 형식 기준. 17b-1 이후 나머지(17b-2)는 디자인 전면 개선에 통합 |
 | 17b-1 | 회의 목록 정리 | 완료 | #306 | 기준 `5b1b96a`. UI만(DB·Edge 변경 없음). 회의명별 왼쪽 색 띠: 회의명이 처음 등장한 순서(가장 이른 회의 일시)대로 12색 팔레트 차례 배정, 서로 다른 회의명은 같은 색 없음, 12개 초과분과 회의명 없음은 회색 띠. 두 줄(회의명 / 차수·날짜·자료, 프로젝트명 제외), 회의명 필터와 "+ 회의 결과" 한 줄. 2026-09-26 실사용(휴대폰) 확인 |
 | 조직-1 | 조직 상세 소속 칩에서 종류 접두어(협의회 · / 사업단 · ) 제거 | 완료 | #308 | 기준 `a2bd0e4`. UI만(DB·Edge 변경 없음). app/workplace-detail.js wdRenderAff() 칩에 이름만 표시, 협의회/사업단 구분은 기존 taskforce 칩 스타일 유지. 2026-09-26 실사용(휴대폰) 확인 |
 | 18 | 담당조직 자유입력 Inbox | 완료 | #309·#310 | 기준 `e6d607d`. UI만(DB·Edge 변경 없음). 조직 상세 맨 위 입력칸 하나 + 저장, 기존 `app_suborganization_updates` 저장 경로(workplace-ai-report.js "업데이트 추가"와 같은 요청)를 workplace-detail.js로 옮겨 최신순 "기록"으로 표시. "현재 상황 업데이트"·"+ 메모" 입력 제거, 기존 요약·메모는 접힌 칸 "기본 정보 · 소속 · 이전 요약"에서 읽기 전용, AI 초안 버튼도 그 칸으로 이동. canEdit 확인 유지. 배포 후 휴대폰에서 옛 화면 유지: `view-loader.js?v=16` 등 상위 로더 버전을 올리지 않아 edge·브라우저가 1년 immutable 캐시로 옛 로더를 계속 사용(후속 PR에서 view-loader v17·loader-v2 v237·app.js v125로 올림). 2026-09-26 실사용(휴대폰) 확인 |
-| 18b | 담당조직 기록·메모 삭제 | 진행중 | #315 | 기준 `99512a1`. UI만(DB·Edge 변경 없음). app/workplace-detail.js "기록"(`app_suborganization_updates`) 각 항목과 접힌 칸 예전 메모(`app_suborganization_status_items`) 각 항목에 삭제 버튼. 메모는 계속 읽기 전용, 삭제만 추가. 확인 1회, `id`+`organization_id` 조건 DELETE에 `return=representation`으로 지워진 행을 받아 0행·오류면 항목 유지 + 안내. canEdit 없으면 버튼 없음, 서버 권한은 기존 RLS(task12a_owner_all) 그대로. 최근 1달/올해 요약은 대상 아님. 캐시: workplace-detail v8·view-loader v18·loader-v2 v238·app.js v126 |
+| 18b | 담당조직 기록·메모 삭제 | 완료 | #315 | 기준 `99512a1`. UI만(DB·Edge 변경 없음). app/workplace-detail.js "기록"(`app_suborganization_updates`) 각 항목과 접힌 칸 예전 메모(`app_suborganization_status_items`) 각 항목에 삭제 버튼. 메모는 계속 읽기 전용, 삭제만 추가. 확인 1회, `id`+`organization_id` 조건 DELETE에 `return=representation`으로 지워진 행을 받아 0행·오류면 항목 유지 + 안내. canEdit 없으면 버튼 없음, 서버 권한은 기존 RLS(task12a_owner_all) 그대로. 최근 1달/올해 요약은 대상 아님. 캐시: workplace-detail v8·view-loader v18·loader-v2 v238·app.js v126. 2026-09-26 merge(`c28f76b`). 2026-09-26 실사용(휴대폰) 확인: 삭제 동작, 확인창 취소 시 삭제 안 됨 |
+| 이름-1 | 앱 내부 "공공기관사업팀 Workspace"·"공공기관사업팀" 이름을 "웹2"로 교체 | 진행중 | | 기준 `c28f76b`. UI 문구·안드로이드 앱 이름만(DB·Edge 변경 없음). app/windows-manifest.json name·short_name·description, app/brand-logo.js 로고 대체 글자, app/legacy/startup-speed.js 기본값, app/ARCHITECTURE.md 제목, tests/app-e2e 모의 workspace 이름, 안드로이드 android:label·versionCode 14·versionName 0.1.13(MainActivity APP_VERSION·빌드 artifact 이름 함께). 제외: workspace/index.html·workspace/privacy/index.html(이름-2), supabase/functions 드라이브 폴더 이름, 원장 과거 기록. 캐시: index.html의 `windows-manifest.json?v=5`→`v6`. brand-logo.js·legacy/startup-speed.js는 어느 로더도 불러오지 않아 올릴 로더 버전 없음. 안드로이드 앱 이름은 새 APK 설치 후 반영 |
 | 로그인-1 | 로그인 화면 "공공기관사업팀 · WORKSPACE" 문구 제거 | 완료 | #311 | 기준 `0a7850b`. UI만(DB·Edge·인증 흐름 변경 없음). app/login/index.html 상단 header 줄 제거, 탭 제목 "로그인". 로그인 전 다른 화면의 같은 문구는 고치지 않고 PR에 위치만 보고. 캐시 버전 올림 대상 없음: 바뀐 파일은 HTML(`?v=` 없음, 라우터가 no-cache)이고 JS·CSS·로더 변경 없음. 2026-09-26 실사용(휴대폰) 확인 |
 | 19 | 단일사용자 전환 전 snapshot | 대기 | | 26의 조사와 DB-1 포함. 화면·코드·DB 전체 목록 |
 | DB-1 | 반복 DB 오류 조사 | 대기 | | 19에 흡수. app_workspace_members.email 없는 열 조회, app_project_publication_state 권한 거부 |
+| TASK-설계 | Google Tasks 연결 구조 설계 | 대기 | | 19와 함께 진행. 설계만(코드·DB 변경 없음). 결정사항: 할 일 원본은 Google Tasks(목록 1개), Web2는 할 일↔프로젝트·회의·담당조직 연결 정보만 보관 |
+| TASK-구현 | 화면별 할 일 추가를 Google Tasks로, 연결 안 된 할 일 모음, 목록 개수 기준 변경 | 대기 | | TASK-설계 뒤 |
 | 20 | signup/invite/access/FIRST ADMIN UI 제거 | 대기 | | |
-| 21 | Tasks 협업 active code 제거 | 대기 | | |
+| 21 | Tasks 협업 active code 제거 | 대기 | | 범위 변경: Web2 할 일 기능 전체 제거. TASK-설계 결과를 따른다. 기존 할 일 데이터는 보관 없이 삭제(사용자 확인) |
 | 22 | Events attendee/invite active code 제거 | 대기 | | |
 | 23 | Projects member/invitation active code 제거 | 대기 | | Edge canEditProject의 보관 프로젝트 서버 거부 포함 |
 | 24 | 담당조직 canonical 구조 통합 | 대기 | | |
@@ -73,16 +81,17 @@
 | DB-2 | 삭제 시 수정 이력 보존 설계 | 대기 | | 26에서 결정. 페이지 삭제 시 app_page_revisions cascade 삭제, 다른 삭제 경로 포함. 보류 가능 |
 | 27 | 확인된 collaboration DB/RPC/trigger 제거 | 대기 | | |
 | 28 | workspace_members/role 체계 제거 | 대기 | | |
-| 29 | Tasks assignment schema 정리 | 대기 | | |
+| 29 | Tasks assignment schema 정리 | 대기 | | 범위 변경: Web2 할 일 기능 전체 제거에 맞춘 schema 정리. TASK-설계 결과를 따른다. 기존 할 일 데이터는 보관 없이 삭제(사용자 확인) |
 | 30 | 보조 Auth 계정 제거 | 대기 | | |
 | 31 | collaboration dead code/API/CSS 정리 | 대기 | | app/project-archive.js 미사용 파일 제거 포함. task12a-fingerprint.sql의 app_delete_pages 잔존 정리 |
+| 디자인 | 디자인 전면 개선(D-1~D-6: 전수검사→기준→공통부품→화면적용→넓은화면 목록+상세→덧칠정리·자동검사) | 대기 | | 17b-2(17b 나머지 목록 정리) 통합. 일정 탭 "이번 주 업무" 화면 전환(공공운수노조 캘린더 + 이번 주 마감 Google Tasks + 회의) 포함 |
 | Web1-3 | bus-strike-publicness-internal-archive-202609 흔적 정리 | 대기 | | 범위: app_public_post allowlist에서 slug 제거(migration 필요, 적용 직전 정지), redirect 셸 처리 방침 결정, E2E 7번째 redirect 검사와 supabase/tests/authz_* 의 7행 가정 수정. 위험: 같은 slug로 새 글이 생기면 allowlist 때문에 자동 링크 공개됨 |
 | RTW-분리 | 읽생기 별도 Supabase 프로젝트 분리 결정 (플레이스토어 출시 전) | 대기 | | 무료 요금제 제약 조사 포함 |
 | RTW-출시준비 | 플레이 정책 대응: 웹 탈퇴 요청 링크, 테스트 계정으로 탈퇴 실동작 확인 | 대기 | | Web2 확인 테이블 4개 한계 검토 포함 |
 | RTW-3 | rtw-personal-write secret/권한 점검 | 대기 | | Task 32 전 완료. rtw_* 5개 테이블 anon GRANT 흔적 정리 |
 | 32 | 전체 최종 회귀검증 | 대기 | | RTW-1~3 완료 후 착수 |
-| ENV-4 | 브랜치 정리 | 대기 | | 수시. merge·close된 브랜치 대상. 급하지 않음. 파일 수정 시 로더 캐시 버전(`?v=`) 올림 누락을 CI가 잡는 검사 추가(대기): #309에서 `view-loader.js` 버전 누락으로 배포 후 옛 화면이 남은 사례(#310에서 수정) |
-| 일정 인증-1 | google-calendar 인증 실패 응답 400→401 정리 | 대기 | | 우선순위 낮음 |
+| ENV-4 | 브랜치 정리 | 대기 | | 수시. merge·close된 브랜치 대상. 급하지 않음. 파일 수정 시 로더 캐시 버전(`?v=`) 올림 누락을 CI가 잡는 검사 추가(대기): #309에서 `view-loader.js` 버전 누락으로 배포 후 옛 화면이 남은 사례(#310에서 수정). `.github/workflows/suborganization-filters-e2e.yml`이 없는 파일 `app/profile-workplace-sync.js`를 grep으로 검사함(경고만 나고 실패하지 않아 검사가 무의미) |
+| 일정 인증-1 | google-calendar 인증 실패 응답 400→401 정리 | 대기 | | Google Tasks 단일화로 중요도 상향(할 일 원본이 Google 인증에 의존) |
 | ENV-5 | 불안정 E2E 측정형 테스트 안정화 | 대기 | | 수시. 코드 변경과 무관하게 CI에서 가끔 실패: `calendar-google-loading.spec.mjs:77`(응답 시간 한도 600ms·200ms), `calendar-month-view.spec.mjs:187`(창 크기 변경 직후 배치 측정). 여러 테스트를 병렬로 돌릴 때 간헐 실패하는 로그인 세션 전환(`public-workspace-auth.spec.mjs`), Web1 게시판(`web1-board.spec.mjs`)도 포함. 2026-09-26 #310 CI에서 각 1회 실패, 재실행·로컬 반복은 통과. 테스트 삭제·건너뛰기 없이 대기 조건·한도를 원인에 맞게 고침 |
 | 이름-2 | 서비스 소개·개인정보처리방침 페이지 이름 변경, 구글 앱 이름 변경 | 대기 | | 구글 앱 이름 변경은 사용자가 Google 설정 화면에서 직접 하는 작업 포함 |
 

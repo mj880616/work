@@ -23,7 +23,7 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final String HOME = "https://mj880616.github.io/work/app/";
     private static final String INTERNAL_HOST = "mj880616.github.io";
-    private static final String APP_VERSION = "0.1.12";
+    private static final String APP_VERSION = "0.1.13";
     private boolean backDispatchPending = false;
     private Object platformBackCallback;
 

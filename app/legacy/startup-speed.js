@@ -17,7 +17,7 @@ function ssShowCachedShell(){
 function ssCapture(){
   const app=document.querySelector('#appView'),role=document.querySelector('#workspaceRole'),badge=document.querySelector('#userBadge');
   if(!app||app.classList.contains('hidden')||!role?.textContent.trim())return false;
-  try{localStorage.setItem(SS_CACHE,JSON.stringify({workspaceName:document.querySelector('#workspaceName')?.textContent||'공공기관사업팀 Workspace',workspaceRole:role.textContent,userBadge:badge?.textContent||'',savedAt:Date.now()}))}catch{}
+  try{localStorage.setItem(SS_CACHE,JSON.stringify({workspaceName:document.querySelector('#workspaceName')?.textContent||'웹2',workspaceRole:role.textContent,userBadge:badge?.textContent||'',savedAt:Date.now()}))}catch{}
   return true;
 }
 ssShowCachedShell();

@@ -3,7 +3,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'a11y-user',email:'a11y@example.org',user_metadata:{display_name:'접근성 QA'}};
-const workspace={id:'a11y-workspace',slug:'a11y',name:'공공기관사업팀 Workspace'};
+const workspace={id:'a11y-workspace',slug:'a11y',name:'웹2'};
 const tasks=[{id:'a11y-task-1',workspace_id:workspace.id,title:'접근성 점검 할 일',assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:null,created_at:'2026-09-17T00:00:00Z'}];
 const orgs=[{id:'a11y-org-1',workspace_id:workspace.id,name:'철도노조',aliases:['철도'],description:'철도 산하조직',organization_type:'철도·도시철도',default_assignee_name:null,active:true,created_by:user.id}];
 

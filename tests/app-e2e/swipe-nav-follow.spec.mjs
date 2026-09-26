@@ -5,7 +5,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
 async function mockApp(page){
   const user={id:'nav-user',email:'nav@example.org',user_metadata:{display_name:'메뉴 QA'}};
-  const workspace={id:'nav-workspace',name:'공공기관사업팀 Workspace'};
+  const workspace={id:'nav-workspace',name:'웹2'};
   await page.route(`${SB}/**`,async route=>{
     const u=new URL(route.request().url()),p=u.pathname;
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});

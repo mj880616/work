@@ -13,7 +13,7 @@ test('Web2 first paint uses the final icon without a green placeholder or late f
   const icon='./app-icon.svg?v=20260924-unicorn3';
   expect(html).toContain(`rel="icon" href="${icon}"`);
   expect(html).toContain(`rel="apple-touch-icon" href="${icon}"`);
-  expect(html).toContain('rel="manifest" href="./windows-manifest.json?v=5"');
+  expect(html).toContain('rel="manifest" href="./windows-manifest.json?v=6"');
   expect(html).toContain(`class="brand-icon" src="${icon}"`);
   expect(html).not.toContain('class="leaf"');
   expect(pwa).not.toContain('favicon');
