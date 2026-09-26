@@ -92,6 +92,7 @@
 | roadmap 갱신: Web1-4 완료, ENV-1~4·DB-1~2 등록, Task 31 비고 추가. CLAUDE.md production DB 적용 절차 추가 | #297 |
 | ENV-2 방침 확정: migration-history.md 신설, CLAUDE.md db push·repair 영구 금지·적용 확인 절차 추가, ENV-1·ENV-2 완료 | #298 |
 | roadmap 작업 표를 진행 순서로 재배열(RTW-1·2 최우선, DB-1은 19 흡수, DB-2는 26 결정, ENV-4 수시), 일정 인증-1 등록 | #301 |
+| roadmap 갱신: RTW-1·RTW-2 완료, RTW-분리·RTW-출시준비 등록, RTW-3 비고 추가 | #303 |
 
 ## 갱신 규칙
 
