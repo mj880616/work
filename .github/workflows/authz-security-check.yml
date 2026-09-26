@@ -45,6 +45,7 @@ jobs:
             supabase/tests/authz_public_snapshot.sql
             supabase/tests/authz_sole_owner.sql
             supabase/tests/authz_task13_private_boundary.sql
+            supabase/tests/authz_web1_4_delete_pages_removed.sql
           )
           for file in "${required[@]}"; do
             test -s "$file" || { echo "missing security regression: $file"; exit 1; }

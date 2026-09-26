@@ -207,7 +207,12 @@ select pg_temp.authz_expect_no_write('admin member role RPC', $$select public.ap
 select pg_temp.authz_expect_no_write('admin save page RPC', $$select public.app_save_page_v2(null,current_setting('app.authz_workspace')::uuid,null,'DENIED','task12a-admin-write','','','draft','private')$$);
 select pg_temp.authz_expect_no_write('admin open share RPC', $$select * from public.app_open_share('task12a-share')$$);
 select pg_temp.authz_expect_no_write('admin event RPC', $$select public.app_update_event_body('12a30000-0000-4000-8000-000000000001','DENIED')$$);
-select pg_temp.authz_expect_no_write('admin delete pages RPC', $$select public.app_delete_pages(array['12a80000-0000-4000-8000-000000000004'::uuid])$$);
+-- Web1-4 drops app_delete_pages; probe it only while a pre-Web1-4 schema has it.
+do $$ begin
+  if to_regprocedure('public.app_delete_pages(uuid[])') is not null then
+    perform pg_temp.authz_expect_no_write('admin delete pages RPC', $sql$select public.app_delete_pages(array['12a80000-0000-4000-8000-000000000004'::uuid])$sql$);
+  end if;
+end $$;
 do $$ begin
   if public.app_can_edit_page_rpc('12a80000-0000-4000-8000-000000000004') then raise exception 'admin page edit RPC bypass'; end if;
 end $$;
