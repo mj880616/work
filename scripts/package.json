@@ -1,0 +1,11 @@
+{
+  "name": "work-ci-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test check-loader-cache.test.mjs"
+  },
+  "devDependencies": {
+    "acorn": "8.15.0"
+  }
+}

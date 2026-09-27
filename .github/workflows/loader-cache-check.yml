@@ -1,0 +1,32 @@
+name: Loader cache version check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  loader-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install locked checker parser
+        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+      - name: Test cache checker
+        run: node --test scripts/check-loader-cache.test.mjs
+      - name: Check PR loader cache versions
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          BASE=$(git merge-base "$PR_BASE" "$PR_HEAD")
+          node scripts/check-loader-cache.mjs --base "$BASE" --head "$PR_HEAD"
