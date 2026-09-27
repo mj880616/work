@@ -40,7 +40,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await signIn(page);
   await page.locator('.app-nav [data-view="media"]').click();
   await expect(page.locator('#mediaView')).toBeVisible();
-  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(38);
+  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(39);
   await expect(page.locator('#mediaView')).toContainText('공공기관 인력감축 없다더니');
   await expect(page.locator('#newMediaCaseBtn,#mediaCaseList,#mediaStatusFilter,#pressArchiveSource')).toHaveCount(0);
   await expect(page.locator('#mediaView')).not.toContainText('사건 팩트시트');
@@ -59,7 +59,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await page.locator('#pressArchiveList .w1p-item').first().click();
   await expect(page.locator('#pressDetailModal')).toBeVisible();
   await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/원본 보도자료 본문/);
-  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/https:\/\/work\.bokdoong\.com\/work\/press\/2026-09-22-public-institution-workforce-joint-action\//);
+  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/https:\/\/work\.bokdoong\.com\/work\/press\/2026-09-28-private-rail-forum-request\//);
   await expect(page.locator('#pressDetailFrame')).toHaveAttribute('sandbox',/allow-scripts/);
   await page.locator('[data-close-press]').click();
   await expect(page.locator('#pressDetailModal')).toHaveClass(/hidden/);

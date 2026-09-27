@@ -4,6 +4,16 @@
   "items": [
     {
       "year": 2026,
+      "date": "2026-09-28",
+      "display_date": "09.28",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "민자철도 20년, 공공성과 안전은 어디에?…공공운수노조·윤종오 의원 국회토론회 개최",
+      "publisher": "민주노총 공공운수노조",
+      "href": "./2026-09-28-private-rail-forum-request/"
+    },
+    {
+      "year": 2026,
       "date": "2026-09-22",
       "display_date": "09.22",
       "type": "release",
