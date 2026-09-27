@@ -19,6 +19,7 @@
 | 저장소 파일 | production 상태 | 비고 |
 | --- | --- | --- |
 | `20260926154120_sec1_auth_handoff_once.sql` | 적용 완료·기록 존재 (2026-09-27 KST Task 20 read-only 재확인) | version `20260926154120`, name `sec1_auth_handoff_once` 일치. SEC-1 #324 운영 DB·Edge 적용 완료(사용자 확인). auth-handoff v4·verify_jwt=false, 배포 소스와 저장소 원문 일치. Android 실물 검증 보류. 이 세션은 조회만 수행 |
+| `20260927103344_task_impl2_notes_record_links.sql` | 미적용·기록 없음 (2026-09-27 read-only 확인) | TASK-구현 PR 2. `app_notes`·`app_record_links` 생성. 적용 절차·되돌리기는 `docs/web2-task-impl2-db.md`. 적용되면 이 행을 고친다 |
 
 아래 ENV-2 집계는 당시 조사값이며 위 후속 적용을 소급 포함하지 않는다.
 
