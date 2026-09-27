@@ -151,13 +151,48 @@ test('expired session refresh failure reaches login without private API calls',a
 test('direct session owner switch reloads without retaining the previous private DOM',async({page})=>{
   await mockSignedIn(page);
   await signIn(page,APP+'?view=projects');
-  // The visible shell precedes authenticated bootstrap; switch an initialized private workspace.
+  // Exercise the initialized workspace; the separate pending-feature test covers earlier switching.
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
   await page.locator('#projectsView').evaluate(node=>node.insertAdjacentHTML('beforeend','<div id="privateSentinel">USER_ONE_PRIVATE</div>'));
   await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'second-access',refresh_token:'second-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'u2',email:'second@example.org'}})).catch(()=>null);
   await expect.poll(()=>page.evaluate(()=>window.__KPTU_BOOT_CONTEXT__?.user?.id||'').catch(()=>''),{timeout:20000}).toBe('u2');
   await expect(page.locator('#privateSentinel')).toHaveCount(0);
   await expect(page.locator('#appView')).toBeVisible({timeout:20000});
+});
+
+test('owner switch while project features are still loading clears the old shell before reload',async({page})=>{
+  await mockSignedIn(page);
+  let releaseFeature,featureRequested=false,taskRequests=0;
+  const featureGate=new Promise(resolve=>{releaseFeature=resolve});
+  await page.route('**/app/google-tasks.js*',async route=>{
+    featureRequested=true;
+    await featureGate;
+    await route.continue();
+  });
+  page.on('request',request=>{
+    if(new URL(request.url()).pathname==='/functions/v1/google-tasks')taskRequests++;
+  });
+  await signIn(page,APP+'?view=projects');
+  await expect.poll(()=>featureRequested).toBe(true);
+  await expect(page.locator('#appView')).toHaveClass(/kptu-shell-ready/);
+  await expect(page.locator('#appView')).not.toHaveClass(/kptu-ui-ready/);
+  expect(await page.evaluate(()=>window.__KPTU_BOOT_CONTEXT__?.user?.id==='u1')).toBe(true);
+  const navigation=page.waitForEvent('framenavigated',frame=>frame===page.mainFrame());
+  await page.evaluate(()=>{
+    const app=document.querySelector('#appView');
+    app.insertAdjacentHTML('beforeend','<div id="privateSentinel"></div>');
+    window.KPTURuntime.session.write({access_token:'second-access',refresh_token:'second-refresh',expires_at:4102444800,user:{id:'u2'}});
+    sessionStorage.setItem('qa-owner-gate',JSON.stringify({
+      disconnected:!app.isConnected,sentinelRemoved:!document.querySelector('#privateSentinel'),contextCleared:!window.__KPTU_BOOT_CONTEXT__
+    }));
+  });
+  await navigation;
+  releaseFeature();
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+  expect(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('qa-owner-gate')))).toEqual({disconnected:true,sentinelRemoved:true,contextCleared:true});
+  expect(await page.evaluate(()=>window.__KPTU_BOOT_CONTEXT__?.user?.id==='u2')).toBe(true);
+  await expect(page.locator('#privateSentinel')).toHaveCount(0);
+  expect(taskRequests).toBe(0);
 });
 
 test('logout in another tab locks the current private UI and returns it to login',async({browser})=>{
