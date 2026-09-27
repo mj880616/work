@@ -7,6 +7,8 @@ import { stripTypeScriptTypes } from 'node:module';
 // The mock follows the list filters the handler relies on: showCompleted=false drops completed tasks,
 // showHidden gates hidden tasks, completedMin keeps only tasks completed at or after it (pending tasks have
 // no completion date, so they are dropped), dueMin/dueMax bound the due date, and maxResults/pageToken page through the list.
+// Google does not document how dueMin/dueMax compare, so the mock can apply several readings (dueCompare) and the
+// due-window tests must hold under all of them (묶음C-3: a task due on the last day was dropped in production).
 // Regression for 묶음C-1 (pending tasks behind many completed ones) and 묶음C-2 (due window, bounded parallel reads,
 // combined status+tasks request, count-only timing log). No network calls.
 const SOURCE = stripTypeScriptTypes(
@@ -19,11 +21,22 @@ const NOW = Date.parse('2026-09-27T03:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
 const iso = ms => new Date(ms).toISOString();
 
+// Readings of dueMin/dueMax: exact timestamps (inclusive), bounds cut to their UTC date (inclusive or exclusive), and
+// exclusive date bounds taken in Korean time (the account time zone). Each takes the due and the bound in ms.
+const dayStart = ms => Math.floor(ms / DAY) * DAY;
+const KST = 9 * 60 * 60 * 1000;
+const DUE_COMPARE = {
+  exact: { min: (d, b) => d >= b, max: (d, b) => d <= b },
+  dateInclusive: { min: (d, b) => d >= dayStart(b), max: (d, b) => d <= dayStart(b) },
+  dateExclusive: { min: (d, b) => d > dayStart(b), max: (d, b) => d < dayStart(b) },
+  kstDateExclusive: { min: (d, b) => d > dayStart(b + KST), max: (d, b) => d < dayStart(b + KST) }
+};
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function harness(lists, { connection = 'ok', scope = 'openid https://www.googleapis.com/auth/tasks', delay = 0, now = NOW } = {}) {
+function harness(lists, { connection = 'ok', scope = 'openid https://www.googleapis.com/auth/tasks', delay = 0, now = NOW, dueCompare = 'exact' } = {}) {
   const calls = [], logs = [];
   let inFlight = 0, maxInFlight = 0, tokeninfo = 0;
   const admin = {
@@ -59,8 +72,9 @@ function harness(lists, { connection = 'ok', scope = 'openid https://www.googlea
         if (q.get('showCompleted') === 'false' && t.status === 'completed') return false;
         if (t.hidden && q.get('showHidden') !== 'true') return false;
         if (completedMin !== null && !(t.completed && Date.parse(t.completed) >= completedMin)) return false;
-        if (dueMin !== null && !(t.due && Date.parse(t.due) >= dueMin)) return false;
-        if (dueMax !== null && !(t.due && Date.parse(t.due) <= dueMax)) return false;
+        if ((dueMin !== null || dueMax !== null) && !t.due) return false;
+        if (dueMin !== null && !DUE_COMPARE[dueCompare].min(Date.parse(t.due), dueMin)) return false;
+        if (dueMax !== null && !DUE_COMPARE[dueCompare].max(Date.parse(t.due), dueMax)) return false;
         return true;
       });
       const start = Number(q.get('pageToken') || 0), size = Number(q.get('maxResults') || 20);
@@ -140,8 +154,8 @@ test('tasks: pending query carries the Korean-time 7-day due window; overdue, un
   const { body } = await listTasks(h);
   assert.deepEqual(body.tasks.map(t => t.id).sort(), ['last', 'today']);
   const pendingCall = h.calls.find(c => c.showCompleted === 'false');
-  assert.equal(pendingCall.dueMin, '2026-09-26T23:59:59.000Z');
-  assert.equal(pendingCall.dueMax, '2026-10-03T23:59:59.000Z');
+  assert.equal(pendingCall.dueMin, '2026-09-26T00:00:00.000Z', 'one day wider than the first day');
+  assert.equal(pendingCall.dueMax, '2026-10-05T00:00:00.000Z', 'one day wider than the last day');
   assert.ok(h.calls.filter(c => c.completedMin).every(c => c.dueMin === null && c.dueMax === null), 'recent completed query keeps its 3-day rule only');
 });
 
@@ -151,9 +165,30 @@ test('tasks: the due window follows the Korean date, not the UTC date', async ()
   const { body } = await listTasks(h);
   assert.deepEqual(body.tasks.map(t => t.id), ['sep28']);
   const pendingCall = h.calls.find(c => c.showCompleted === 'false');
-  assert.equal(pendingCall.dueMin, '2026-09-27T23:59:59.000Z');
-  assert.equal(pendingCall.dueMax, '2026-10-04T23:59:59.000Z');
+  assert.equal(pendingCall.dueMin, '2026-09-27T00:00:00.000Z');
+  assert.equal(pendingCall.dueMax, '2026-10-06T00:00:00.000Z');
 });
+
+for (const dueCompare of Object.keys(DUE_COMPARE)) {
+  test(`tasks: due window keeps the first and last day and drops the day before and after (Google comparison: ${dueCompare})`, async () => {
+    // Today in Korea is 2026-09-27; the window is 09-27..10-03, both ends included.
+    const tasks = [-2, -1, 0, 1, 5, 6, 7, 8].map(d => pending('d' + d, d));
+    const h = harness([{ id: 'default', title: '내 할 일', tasks }], { dueCompare });
+    const { body } = await listTasks(h);
+    assert.deepEqual(body.tasks.map(t => t.id), ['d0', 'd1', 'd5', 'd6']);
+    assert.equal(body.tasks.at(-1).due, '2026-10-03T00:00:00.000Z', 'the last day (10-03) is returned');
+  });
+
+  test(`tasks: due window moves at Korean midnight (Google comparison: ${dueCompare})`, async () => {
+    const tasks = [-1, 0, 6, 7].map(d => pending('d' + d, d));
+    // 09-27 23:59:59 in Korea: window 09-27..10-03.
+    const before = await listTasks(harness([{ id: 'default', title: '내 할 일', tasks }], { dueCompare, now: Date.parse('2026-09-27T14:59:59.000Z') }));
+    assert.deepEqual(before.body.tasks.map(t => t.id), ['d0', 'd6']);
+    // 09-28 00:00 in Korea: window 09-28..10-04.
+    const after = await listTasks(harness([{ id: 'default', title: '내 할 일', tasks }], { dueCompare, now: Date.parse('2026-09-27T15:00:00.000Z') }));
+    assert.deepEqual(after.body.tasks.map(t => t.id), ['d6', 'd7']);
+  });
+}
 
 test('tasks: list reads run in parallel with at most 4 Google requests in flight', async () => {
   const lists = Array.from({ length: 5 }, (_, i) => ({ id: 'l' + i, title: 'list ' + i, tasks: [pending('p' + i, 1), done('d' + i, 1)] }));
