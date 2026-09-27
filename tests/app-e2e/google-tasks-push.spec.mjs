@@ -276,3 +276,84 @@ test('Google Tasks client detects Android app and checks authorization before ta
   expect(source).toContain('/KPTUAndroid/i.test(navigator.userAgent)');
   expect(source).toContain("params.get('native')==='android'");
 });
+
+// TASK-구현 PR 4: the editor saves to "내 할 일" only and chooses any number of project and organization links.
+async function mockLinkTargets(page){
+  await page.route(`${SB}/rest/v1/app_spaces**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([
+    {id:'p1',workspace_id:'qa-ws',owner_id:'qa-user',name:'민자철도',parent_id:null,status:'active',sort_order:1,metadata:{project_system:'v2'}},
+    {id:'p2',workspace_id:'qa-ws',owner_id:'qa-user',name:'국회토론회',parent_id:'p1',status:'active',sort_order:2,metadata:{project_system:'v2'}},
+    {id:'p3',workspace_id:'qa-ws',owner_id:'qa-user',name:'지난 캠페인',parent_id:null,status:'archived',sort_order:3,metadata:{project_system:'v2'}}
+  ])}));
+  await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'o1',name:'서울지부'}])}));
+}
+
+test('Google Tasks editor has no list choice and saves chosen links',async({page})=>{
+  await mock(page);await mockLinkTargets(page);
+  const calls=[];
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const req=route.request(),u=new URL(req.url()),action=u.searchParams.get('action'),body=req.method()==='GET'?{}:JSON.parse(req.postData()||'{}');
+    const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
+    calls.push({action,body,query:Object.fromEntries(u.searchParams)});
+    if(action==='overview')return ok({connected:true,authorized:true,needs_reconnect:false,tasks:[gt('g1',googleDue(0),{taskListId:'@default',taskListTitle:'내 할 일'})]});
+    if(action==='links')return ok({links:[{project_id:'p1',organization_id:null,status:'confirmed'},{project_id:'p3',organization_id:null,status:'confirmed'}]});
+    return ok({ok:true,task:gt('g1',googleDue(0)),links:[]});
+  });
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('#gtTaskSection')).toContainText('"내 할 일" 목록만 보입니다');
+  await page.locator('[data-gt-add]').click();
+  await expect(page.locator('#gtEditList')).toHaveCount(0);
+  await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toContainText('"내 할 일" 목록에 저장');
+  const links=page.locator('#gtEditLinkBody');
+  await expect(links.locator('[data-gt-link]')).toHaveCount(3);
+  await expect(links.locator('input[value="p:p3"]')).toHaveCount(0);
+  await page.locator('#gtEditTitle').fill('연결 없는 할 일');
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
+  expect(calls.find(x=>x.action==='create').body.task_list_id).toBeUndefined();
+  await page.locator('[data-gt-add]').click();
+  await page.locator('#gtEditTitle').fill('연결 둘');
+  await links.locator('input[value="p:p2"]').check();
+  await links.locator('input[value="o:o1"]').check();
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>calls.filter(x=>x.action==='create')[1]?.body?.links).toEqual([{project_id:'p2'},{organization_id:'o1'}]);
+  await page.locator('[data-gt-edit="g1"]').click();
+  await expect(links.locator('input[value="p:p1"]')).toBeChecked();
+  await links.locator('input[value="p:p1"]').uncheck();
+  await links.locator('input[value="o:o1"]').check();
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>calls.find(x=>x.action==='unlink')?.body?.links).toEqual([{project_id:'p1'}]);
+  expect(calls.find(x=>x.action==='link')?.body).toEqual(expect.objectContaining({task_id:'g1',links:[{organization_id:'o1'}]}));
+  // The archived project link is not offered, so it is neither removed nor re-added.
+  expect(JSON.stringify(calls.filter(x=>x.action==='link'||x.action==='unlink').map(x=>x.body))).not.toContain('p3');
+  expect(calls.some(x=>x.action==='lists')).toBeFalsy();
+});
+
+test('unlinked Google tasks load only when their folded section opens',async({page})=>{
+  await mock(page);await mockLinkTargets(page);
+  const calls=[];
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');calls.push(action);
+    const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x)});
+    if(action==='overview')return ok({connected:true,authorized:true,needs_reconnect:false,tasks:[gt('g1',googleDue(0))]});
+    if(action==='unlinked')return ok({tasks:[gt('free-undated',null,{title:'기한 없는 할 일'}),gt('free-late',googleDue(20),{title:'한참 뒤 할 일'})]});
+    if(action==='links')return ok({links:[]});
+    return ok({ok:true});
+  });
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('#gtTaskSection')).toContainText('g1');
+  const fold=page.locator('#gtUnlinked');
+  await expect(fold).not.toHaveAttribute('open','');
+  expect(calls).not.toContain('unlinked');
+  await fold.locator('summary').click();
+  await expect(page.locator('#gtUnlinkedBody [data-gt-unlinked-task]')).toHaveCount(2);
+  await expect(fold.locator('[data-gt-unlinked-count]')).toHaveText('2');
+  await expect(page.locator('#gtUnlinkedBody')).toContainText('기한 미정');
+  await page.locator('[data-gt-unlinked-link="free-undated"]').click();
+  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await expect(page.locator('#gtEditTitle')).toHaveValue('기한 없는 할 일');
+  await expect(page.locator('#gtEditLinkBody input[value="p:p1"]')).toBeFocused();
+  for(const width of [360,1280]){
+    await page.setViewportSize({width,height:800});
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+  }
+});
