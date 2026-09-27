@@ -8,7 +8,7 @@
 .gt-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--kptu-space-2);align-items:center;border-top:1px solid var(--kptu-border);padding:var(--kptu-space-2) 3px;min-height:48px}
 .gt-row.pending .gt-main b{font-weight:750}.gt-row.completed{opacity:.5}.gt-row.completed .gt-main b{text-decoration:line-through;font-weight:600}
 /* The check is drawn in CSS, centred in the circle; pending and completed share one size and position. */
-#gtTaskSection .gt-check{position:relative;box-sizing:border-box;flex:none;width:22px;height:22px;min-width:22px;min-height:22px;padding:0;margin:0;border:2px solid var(--kptu-success);border-radius:50%;background:var(--kptu-surface);font-size:0;line-height:0;cursor:pointer}
+#gtTaskSection .gt-check{position:relative;box-sizing:border-box;flex:none;width:22px;height:22px;min-width:22px;min-height:22px;padding:0;margin:0;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);font-size:0;line-height:0;cursor:pointer}
 #gtTaskSection .gt-row.completed .gt-check{background:var(--kptu-success)}
 #gtTaskSection .gt-row.completed .gt-check::after{content:'';position:absolute;left:50%;top:50%;box-sizing:border-box;width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:translate(-50%,-62%) rotate(45deg)}
 .gt-main{min-width:0;border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer}
