@@ -3,8 +3,26 @@ import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const localDateKey=(offset=0,base=new Date())=>{const d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+offset);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
-const googleDue=(offset=0,base=new Date())=>`${localDateKey(offset,base)}T00:00:00.000Z`;
+// The app judges due dates in Korean time (묶음C-4), so fixtures use the Korean date too.
+const kstDateKey=(offset=0,now=Date.now())=>new Date(now+9*60*60*1000+offset*24*60*60*1000).toISOString().slice(0,10);
+const googleDue=(offset=0)=>`${kstDateKey(offset)}T00:00:00.000Z`;
+const gt=(id,due,extra={})=>({id,title:id,taskListId:'l1',taskListTitle:'업무',due,status:'needsAction',source:'google-task',...extra});
+
+// Opens the task view at a fixed time in the given device time zone and returns the rendered Google Tasks rows.
+async function renderedRows(browser,{timezoneId,now,tasks}){
+  const context=await browser.newContext({timezoneId});
+  const page=await context.newPage();
+  await page.clock.setFixedTime(new Date(now));
+  await mock(page);
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,needs_reconnect:false,tasks})}));
+  await login(page);
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('#gtTaskBody.gt-list')).toBeVisible({timeout:10000});
+  const ids=sel=>page.locator(sel).evaluateAll(els=>els.map(el=>el.dataset.googleTask));
+  const result={overdue:await ids('#gtTaskBody [data-gt-overdue] .gt-row'),rest:await ids('#gtTaskBody > .gt-row'),head:await page.locator('#gtOverdueHead').allTextContents(),overdueClass:await ids('#gtTaskBody .gt-row.overdue')};
+  await context.close();
+  return result;
+}
 
 async function mock(page){
   await page.route(`${SB}/**`,async route=>{
@@ -69,38 +87,44 @@ test('Google Tasks shows pending first and only completions from the last three 
   expect(edge).toContain("completedMin=new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
 });
 
-test('Google Tasks shows only local today through +6 days across a year boundary',async({browser})=>{
-  const context=await browser.newContext({timezoneId:'Asia/Seoul'});
-  const page=await context.newPage();
-  await page.clock.setFixedTime(new Date('2026-12-31T14:30:00.000Z'));
-  await mock(page);
-  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
-    const action=new URL(route.request().url()).searchParams.get('action');
-    const body=action==='status'?{connected:true,authorized:true}:{tasks:[
-      {id:'yesterday',title:'어제',taskListId:'l1',taskListTitle:'업무',due:'2026-12-30T00:00:00.000Z',status:'needsAction',source:'google-task'},
-      {id:'today',title:'오늘',taskListId:'l1',taskListTitle:'업무',due:'2026-12-31T00:00:00.000Z',status:'needsAction',source:'google-task'},
-      {id:'tomorrow',title:'내일',taskListId:'l1',taskListTitle:'업무',due:'2027-01-01T00:00:00.000Z',status:'needsAction',source:'google-task'},
-      {id:'plus6',title:'+6일',taskListId:'l1',taskListTitle:'업무',due:'2027-01-06T00:00:00.000Z',status:'needsAction',source:'google-task'},
-      {id:'plus7',title:'+7일',taskListId:'l1',taskListTitle:'업무',due:'2027-01-07T00:00:00.000Z',status:'needsAction',source:'google-task'},
-      {id:'no-due',title:'기한 미정',taskListId:'l1',taskListTitle:'업무',due:null,status:'needsAction',source:'google-task'},
-      {id:'recent-done-in',title:'범위 내 최근 완료',taskListId:'l1',taskListTitle:'업무',due:'2027-01-01T00:00:00.000Z',status:'completed',completed:'2026-12-31T13:30:00.000Z',source:'google-task'},
-      {id:'recent-done-out',title:'범위 밖 최근 완료',taskListId:'l1',taskListTitle:'업무',due:'2027-01-07T00:00:00.000Z',status:'completed',completed:'2026-12-31T13:30:00.000Z',source:'google-task'}
-    ],needs_reconnect:false};
-    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
-  });
-  await login(page);
-  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  const section=page.locator('#gtTaskSection');
-  await expect(section).toContainText('오늘');
-  await expect(section).toContainText('내일');
-  await expect(section).toContainText('+6일');
-  await expect(section).toContainText('범위 내 최근 완료');
-  await expect(section).not.toContainText('어제');
-  await expect(section).not.toContainText('+7일');
-  await expect(section).not.toContainText('기한 미정');
-  await expect(section).not.toContainText('범위 밖 최근 완료');
-  await expect(section.locator('.gt-row')).toHaveCount(4);
-  await context.close();
+test('Google Tasks shows overdue first, then Korean today through +6 days, across a year boundary',async({browser})=>{
+  // 2026-12-31 23:30 in Korea.
+  const r=await renderedRows(browser,{timezoneId:'Asia/Seoul',now:'2026-12-31T14:30:00.000Z',tasks:[
+    gt('yesterday','2026-12-30T00:00:00.000Z'),
+    gt('minus30','2026-12-01T00:00:00.000Z'),
+    gt('plus6','2027-01-06T00:00:00.000Z'),
+    gt('today','2026-12-31T00:00:00.000Z'),
+    gt('tomorrow','2027-01-01T00:00:00.000Z'),
+    gt('plus7','2027-01-07T00:00:00.000Z'),
+    gt('no-due',null),
+    gt('recent-done-in','2027-01-01T00:00:00.000Z',{status:'completed',completed:'2026-12-31T13:30:00.000Z'}),
+    gt('recent-done-out','2027-01-07T00:00:00.000Z',{status:'completed',completed:'2026-12-31T13:30:00.000Z'}),
+    gt('recent-done-overdue','2026-12-30T00:00:00.000Z',{status:'completed',completed:'2026-12-31T13:30:00.000Z'})
+  ]});
+  expect(r.head).toEqual(['기한 지남 2']);
+  expect(r.overdue).toEqual(['minus30','yesterday']);
+  expect(r.overdueClass).toEqual(['minus30','yesterday']);
+  expect(r.rest).toEqual(['today','tomorrow','plus6','recent-done-in']);
+});
+
+test('Google Tasks moves the overdue line at Korean midnight whatever the device time zone',async({browser})=>{
+  const tasks=[gt('d-1','2026-09-26T00:00:00.000Z'),gt('d0','2026-09-27T00:00:00.000Z'),gt('d6','2026-10-03T00:00:00.000Z'),gt('d7','2026-10-04T00:00:00.000Z'),gt('undated',null)];
+  // 09-27 23:59:59 in Korea (09-27 07:59 in Los Angeles).
+  const before=await renderedRows(browser,{timezoneId:'America/Los_Angeles',now:'2026-09-27T14:59:59.000Z',tasks});
+  expect(before.overdue).toEqual(['d-1']);
+  expect(before.rest).toEqual(['d0','d6']);
+  // 09-28 00:00 in Korea, still 09-27 in Los Angeles.
+  const after=await renderedRows(browser,{timezoneId:'America/Los_Angeles',now:'2026-09-27T15:00:00.000Z',tasks});
+  expect(after.head).toEqual(['기한 지남 2']);
+  expect(after.overdue).toEqual(['d-1','d0']);
+  expect(after.rest).toEqual(['d6','d7']);
+});
+
+test('Google Tasks without overdue items shows no overdue group',async({browser})=>{
+  const r=await renderedRows(browser,{timezoneId:'Asia/Seoul',now:'2026-09-27T03:00:00.000Z',tasks:[gt('d0','2026-09-27T00:00:00.000Z')]});
+  expect(r.head).toEqual([]);
+  expect(r.overdue).toEqual([]);
+  expect(r.rest).toEqual(['d0']);
 });
 
 test('Google Tasks layout fits supported mobile widths',async({page})=>{

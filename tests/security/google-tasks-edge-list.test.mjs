@@ -9,8 +9,8 @@ import { stripTypeScriptTypes } from 'node:module';
 // no completion date, so they are dropped), dueMin/dueMax bound the due date, and maxResults/pageToken page through the list.
 // Google does not document how dueMin/dueMax compare, so the mock can apply several readings (dueCompare) and the
 // due-window tests must hold under all of them (묶음C-3: a task due on the last day was dropped in production).
-// Regression for 묶음C-1 (pending tasks behind many completed ones) and 묶음C-2 (due window, bounded parallel reads,
-// combined status+tasks request, count-only timing log). No network calls.
+// Regression for 묶음C-1 (pending tasks behind many completed ones), 묶음C-2 (due window, bounded parallel reads,
+// combined status+tasks request, count-only timing log) and 묶음C-4 (overdue pending tasks are kept). No network calls.
 const SOURCE = stripTypeScriptTypes(
   readFileSync(new URL('../../supabase/functions/google-tasks/index.ts', import.meta.url), 'utf8')
     .replace(/^import .*$/gm, ''),
@@ -148,45 +148,52 @@ test('tasks: every task list is still read and tagged with its list', async () =
   assert.equal(body.needs_reconnect, false);
 });
 
-test('tasks: pending query carries the Korean-time 7-day due window; overdue, undated and later tasks are not requested', async () => {
-  const tasks = [pending('today', 0), pending('last', 6), pending('late', 7), pending('overdue', -1), { id: 'undated', title: 'undated', status: 'needsAction' }];
+test('tasks: pending query has no lower due bound and ends one day past the Korean-time last day; undated and later tasks are dropped', async () => {
+  const tasks = [pending('today', 0), pending('last', 6), pending('late', 7), pending('overdue', -1), pending('overdue-30', -30), { id: 'undated', title: 'undated', status: 'needsAction' }];
   const h = harness([{ id: 'default', title: '내 할 일', tasks }]);
   const { body } = await listTasks(h);
-  assert.deepEqual(body.tasks.map(t => t.id).sort(), ['last', 'today']);
+  assert.deepEqual(body.tasks.map(t => t.id), ['overdue-30', 'overdue', 'today', 'last'], 'overdue first, oldest due first');
   const pendingCall = h.calls.find(c => c.showCompleted === 'false');
-  assert.equal(pendingCall.dueMin, '2026-09-26T00:00:00.000Z', 'one day wider than the first day');
+  assert.equal(pendingCall.dueMin, null, 'overdue tasks are requested');
   assert.equal(pendingCall.dueMax, '2026-10-05T00:00:00.000Z', 'one day wider than the last day');
   assert.ok(h.calls.filter(c => c.completedMin).every(c => c.dueMin === null && c.dueMax === null), 'recent completed query keeps its 3-day rule only');
 });
 
 test('tasks: the due window follows the Korean date, not the UTC date', async () => {
   // 2026-09-27 16:30 UTC is already 2026-09-28 01:30 in Korea.
-  const h = harness([{ id: 'default', title: '내 할 일', tasks: [pending('sep27', 0), pending('sep28', 1)] }], { now: Date.parse('2026-09-27T16:30:00.000Z') });
+  // 10-04 is +6 days in Korea (kept); 10-05 is +7 days in Korea (dropped).
+  const h = harness([{ id: 'default', title: '내 할 일', tasks: [pending('sep27', 0), pending('sep28', 1), pending('oct04', 7), pending('oct05', 8)] }], { now: Date.parse('2026-09-27T16:30:00.000Z') });
   const { body } = await listTasks(h);
-  assert.deepEqual(body.tasks.map(t => t.id), ['sep28']);
+  assert.deepEqual(body.tasks.map(t => t.id), ['sep27', 'sep28', 'oct04'], '09-27 is overdue in Korea and still returned');
   const pendingCall = h.calls.find(c => c.showCompleted === 'false');
-  assert.equal(pendingCall.dueMin, '2026-09-27T00:00:00.000Z');
+  assert.equal(pendingCall.dueMin, null);
   assert.equal(pendingCall.dueMax, '2026-10-06T00:00:00.000Z');
+  assert.equal(JSON.parse(h.logs[0]).overdue, 1);
 });
 
 for (const dueCompare of Object.keys(DUE_COMPARE)) {
-  test(`tasks: due window keeps the first and last day and drops the day before and after (Google comparison: ${dueCompare})`, async () => {
-    // Today in Korea is 2026-09-27; the window is 09-27..10-03, both ends included.
-    const tasks = [-2, -1, 0, 1, 5, 6, 7, 8].map(d => pending('d' + d, d));
+  test(`tasks: overdue days and the 7-day window up to the last day are kept; later days are dropped (Google comparison: ${dueCompare})`, async () => {
+    // Today in Korea is 2026-09-27; overdue tasks and 09-27..10-03 (last day included) are kept.
+    const tasks = [-30, -2, -1, 0, 1, 5, 6, 7, 8].map(d => pending('d' + d, d));
     const h = harness([{ id: 'default', title: '내 할 일', tasks }], { dueCompare });
     const { body } = await listTasks(h);
-    assert.deepEqual(body.tasks.map(t => t.id), ['d0', 'd1', 'd5', 'd6']);
+    assert.deepEqual(body.tasks.map(t => t.id), ['d-30', 'd-2', 'd-1', 'd0', 'd1', 'd5', 'd6']);
+    assert.equal(JSON.parse(h.logs[0]).overdue, 3);
     assert.equal(body.tasks.at(-1).due, '2026-10-03T00:00:00.000Z', 'the last day (10-03) is returned');
   });
 
   test(`tasks: due window moves at Korean midnight (Google comparison: ${dueCompare})`, async () => {
     const tasks = [-1, 0, 6, 7].map(d => pending('d' + d, d));
-    // 09-27 23:59:59 in Korea: window 09-27..10-03.
-    const before = await listTasks(harness([{ id: 'default', title: '내 할 일', tasks }], { dueCompare, now: Date.parse('2026-09-27T14:59:59.000Z') }));
-    assert.deepEqual(before.body.tasks.map(t => t.id), ['d0', 'd6']);
-    // 09-28 00:00 in Korea: window 09-28..10-04.
-    const after = await listTasks(harness([{ id: 'default', title: '내 할 일', tasks }], { dueCompare, now: Date.parse('2026-09-27T15:00:00.000Z') }));
-    assert.deepEqual(after.body.tasks.map(t => t.id), ['d6', 'd7']);
+    // 09-27 23:59:59 in Korea: overdue up to 09-26, window 09-27..10-03.
+    const beforeH = harness([{ id: 'default', title: '내 할 일', tasks }], { dueCompare, now: Date.parse('2026-09-27T14:59:59.000Z') });
+    const before = await listTasks(beforeH);
+    assert.deepEqual(before.body.tasks.map(t => t.id), ['d-1', 'd0', 'd6']);
+    assert.equal(JSON.parse(beforeH.logs[0]).overdue, 1);
+    // 09-28 00:00 in Korea: 09-27 becomes overdue, window 09-28..10-04.
+    const afterH = harness([{ id: 'default', title: '내 할 일', tasks }], { dueCompare, now: Date.parse('2026-09-27T15:00:00.000Z') });
+    const after = await listTasks(afterH);
+    assert.deepEqual(after.body.tasks.map(t => t.id), ['d-1', 'd0', 'd6', 'd7']);
+    assert.equal(JSON.parse(afterH.logs[0]).overdue, 2);
   });
 }
 
@@ -212,7 +219,8 @@ test('overview: one request returns connection state and tasks; timing log has c
   assert.equal(h.tokeninfo, 1);
   assert.equal(h.logs.length, 1);
   const log = JSON.parse(h.logs[0]);
-  assert.deepEqual(Object.keys(log).sort(), ['action', 'fn', 'google_requests', 'lists', 'ms']);
+  assert.deepEqual(Object.keys(log).sort(), ['action', 'fn', 'google_requests', 'lists', 'ms', 'overdue']);
+  assert.equal(log.overdue, 0);
   assert.equal(log.action, 'overview');
   assert.equal(log.lists, 1);
   assert.equal(log.google_requests, 4, 'lists + pending + completed + tokeninfo');
