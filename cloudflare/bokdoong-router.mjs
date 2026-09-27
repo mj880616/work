@@ -22,12 +22,6 @@ function upstreamPath(host, path) {
   return path;
 }
 
-function readDocumentRecovery(incoming, path) {
-  const recovery = new URL(SERVICES['read.bokdoong.com'].root, incoming);
-  recovery.searchParams.set('redirect', path);
-  return Response.redirect(recovery.href, 302);
-}
-
 export default {
   async fetch(request) {
     const incoming = new URL(request.url);
@@ -60,13 +54,7 @@ export default {
       incoming.hostname = 'work.bokdoong.com';
       return Response.redirect(incoming.href, 302);
     }
-    if (!allowedPath(host, incoming.pathname)) {
-      if (host === 'read.bokdoong.com' && request.method === 'GET' &&
-          (request.headers.get('Sec-Fetch-Dest') === 'document' || request.headers.get('Accept')?.includes('text/html'))) {
-        return readDocumentRecovery(incoming, incoming.pathname + incoming.search);
-      }
-      return new Response('Not found', { status: 404 });
-    }
+    if (!allowedPath(host, incoming.pathname)) return new Response('Not found', { status: 404 });
 
     const originUrl = new URL(upstreamPath(host, incoming.pathname), PAGES_ORIGIN);
     originUrl.search = incoming.search;
@@ -98,7 +86,9 @@ export default {
     );
     if (host === 'read.bokdoong.com' && incoming.pathname !== SERVICES[host].root && upstream.status === 404 &&
         (request.headers.get('Sec-Fetch-Dest') === 'document' || request.headers.get('Accept')?.includes('text/html'))) {
-      return readDocumentRecovery(incoming, incoming.pathname.slice('/read-think-write'.length) + incoming.search);
+      const recovery = new URL(SERVICES[host].root, incoming);
+      recovery.searchParams.set('redirect', incoming.pathname.slice('/read-think-write'.length) + incoming.search);
+      return Response.redirect(recovery.href, 302);
     }
     const responseHeaders = new Headers(upstream.headers);
     if (host === 'bokdoong.com' && upstream.ok) {
