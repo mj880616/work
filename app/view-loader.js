@@ -22,7 +22,7 @@ function style(path){
 }
 const routeStyles={
   calendar:['./calendar-ui.css?v=8'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=4'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=6'],
   projects:['./project-system-v3.css?v=15','./forum-flow-polish.css?v=1'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
   meetings:['./meeting-ui.css?v=10'],
@@ -68,7 +68,7 @@ async function calendar(){
 async function tasks(){
   await module('./task-row-view.js?v=1');
   await module('./task-layout.js?v=13','__KPTU_TASK_LAYOUT_READY__');
-  await module('./google-tasks.js?v=8');
+  await module('./google-tasks.js?v=10');
   return {ok:true}
 }
 async function projects(){

@@ -3,11 +3,13 @@ import { loginEntry } from './helpers/login-entry.mjs';
 
 // 묶음C-2: Google Tasks loads with one combined request, shows this device's last result first while a fresh copy
 // loads, keeps the last result when a refresh fails, drops the cache on sign-out or owner change, and still works
-// against the older google-tasks Edge that has no action=overview.
+// against the older google-tasks Edge that has no action=overview. 묶음C-4: the cache moved to v2 (results include
+// overdue tasks), so a v1 copy is ignored and removed.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const CACHE_KEY='kptu_owner_cache:google-tasks-v1:qa-user';
-const localDateKey=(offset=0,base=new Date())=>{const d=new Date(base.getFullYear(),base.getMonth(),base.getDate()+offset);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`};
-const googleDue=(offset=0)=>`${localDateKey(offset)}T00:00:00.000Z`;
+const CACHE_KEY='kptu_owner_cache:google-tasks-v2:qa-user',OLD_CACHE_KEY='kptu_owner_cache:google-tasks-v1:qa-user';
+// The app judges due dates in Korean time, so fixtures use the Korean date too.
+const kstDateKey=(offset=0,now=Date.now())=>new Date(now+9*60*60*1000+offset*24*60*60*1000).toISOString().slice(0,10);
+const googleDue=(offset=0)=>`${kstDateKey(offset)}T00:00:00.000Z`;
 const task=(id,title)=>({id,title,taskListId:'l1',taskListTitle:'업무',due:googleDue(0),notes:'',status:'needsAction',source:'google-task'});
 
 async function mockBase(page){
@@ -116,10 +118,39 @@ test('sign-out and owner change remove the cached Google Tasks; another owner ne
   await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-b',refresh_token:'token-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-b'}}));
   await expect(page.locator('#gtTaskSection')).toContainText('B의 할 일');
   await expect(page.locator('#gtTaskSection')).not.toContainText('QA의 할 일');
-  await expect.poll(()=>storageKeys(page)).toEqual(['kptu_owner_cache:google-tasks-v1:user-b']);
+  await expect.poll(()=>storageKeys(page)).toEqual(['kptu_owner_cache:google-tasks-v2:user-b']);
   // Sign-out: every owner cache is dropped.
   await page.evaluate(()=>window.KPTURuntime.session.write(null));
   await expect.poll(()=>storageKeys(page)).toEqual([]);
+});
+
+test('a cached copy from before 묶음C-4 (v1) is never shown and is removed',async({page})=>{
+  await mockBase(page);
+  let release=()=>{},holding=false;
+  await mockTasks(page,async action=>{
+    if(action!=='overview')return {status:500,body:{error:'unexpected'}};
+    holding=true;await new Promise(r=>{release=r});
+    return {body:{connected:true,authorized:true,needs_reconnect:false,tasks:[task('n1','새 결과'),{...task('o1','밀린 할 일'),due:googleDue(-3)}]}};
+  });
+  await page.addInitScript(([k,v])=>{if(!sessionStorage.getItem('qa-seeded')){localStorage.setItem(k,v);sessionStorage.setItem('qa-seeded','1')}},[OLD_CACHE_KEY,JSON.stringify({owner:'qa-user',savedAt:Date.now(),tasks:[task('v1','옛 사본 결과')]})]);
+  await login(page);await openTasks(page);
+  await expect.poll(()=>holding).toBeTruthy();
+  await expect(page.locator('#gtTaskBody')).toContainText('불러오는 중');
+  await expect(page.locator('#gtTaskSection')).not.toContainText('옛 사본 결과');
+  await expect.poll(()=>page.evaluate(k=>localStorage.getItem(k),OLD_CACHE_KEY)).toBeNull();
+  release();
+  await expect(page.locator('#gtTaskSection')).toContainText('새 결과');
+  await expect(page.locator('#gtOverdueHead')).toHaveText('기한 지남 1');
+  expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['n1','o1']);
+});
+
+test('the current google-tasks Edge (v9, no overdue tasks) still renders without an overdue group or error',async({page})=>{
+  await mockBase(page);
+  await mockTasks(page,action=>action==='overview'?{body:{connected:true,authorized:true,needs_reconnect:false,email:null,tasks:[task('t1','오늘 할 일'),{...task('t2','6일 뒤'),due:googleDue(6)}]}}:{status:500,body:{error:'unexpected'}});
+  await login(page);await openTasks(page);
+  await expect(page.locator('#gtTaskSection .gt-row')).toHaveCount(2);
+  await expect(page.locator('#gtOverdueHead')).toHaveCount(0);
+  await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('');
 });
 
 test('a token refresh for the same owner keeps the cache',async({page})=>{
