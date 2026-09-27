@@ -174,7 +174,7 @@ test('Google Tasks layout fits supported mobile widths',async({page})=>{
     const section=await page.locator('#gtTaskSection').boundingBox();
     expect(section?.width||0).toBeLessThanOrEqual(width);
     await expect(page.locator('#newTaskBtn')).toBeVisible();
-    await expect(page.locator('#gtTaskSection [data-gt-refresh]')).toBeVisible();
+    await expect(page.locator('#gtTaskSection').getByRole('button',{name:'새로고침',exact:true})).toHaveCount(0);
     await expect(page.locator('[data-gt-add]')).toHaveCount(0);
   }
 });
@@ -291,14 +291,25 @@ async function mockLinkTargets(page){
     {id:'p3',workspace_id:'qa-ws',owner_id:'qa-user',name:'지난 캠페인',parent_id:null,status:'archived',sort_order:3,metadata:{project_system:'v2'}}
   ])}));
   await page.route(`${SB}/rest/v1/app_suborganization_assignees**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([
-    {organization_id:'o1'},{organization_id:'o2'},{organization_id:'o3'},{organization_id:'o4'}
+    ...Array.from({length:15},(_,i)=>({organization_id:'o'+(i+1)}))
   ])}));
   await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([
     {id:'o0',name:'담당 아닌 조직'},
-    {id:'o1',name:'서울교통공사노조'},
-    {id:'o2',name:'철도노조'},
-    {id:'o3',name:'가나다조직'},
-    {id:'o4',name:'아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'}
+    {id:'o15',name:'아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'},
+    {id:'o14',name:'가나다조직'},
+    {id:'o13',name:'공항철도지부'},
+    {id:'o12',name:'지티엑스에이운영지부'},
+    {id:'o11',name:'신분당선지부'},
+    {id:'o10',name:'서해선지부'},
+    {id:'o9',name:'용인경전철지부'},
+    {id:'o8',name:'김포도시철도지부'},
+    {id:'o7',name:'서울교통공사9호선지부'},
+    {id:'o6',name:'메트로9호선노동조합'},
+    {id:'o5',name:'인천교통공사노동조합'},
+    {id:'o4',name:'대구교통공사노동조합'},
+    {id:'o3',name:'부산지하철노동조합'},
+    {id:'o1',name:'서울교통공사노동조합'},
+    {id:'o2',name:'전국철도노동조합'}
   ])}));
 }
 
@@ -319,11 +330,11 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await expect(page.locator('#gtEditList')).toHaveCount(0);
   await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toContainText('"내 할 일" 목록에 저장');
   const links=page.locator('#gtEditLinkBody');
-  await expect(links.locator('[data-gt-link]')).toHaveCount(6);
+  await expect(links.locator('[data-gt-link]')).toHaveCount(17);
   await expect(links.locator('input[value="p:p3"]')).toHaveCount(0);
   await expect(links.locator('input[value="o:o0"]')).toHaveCount(0);
   await expect(links.locator('.gt-link-group').last().locator('span')).toHaveText([
-    '철도노조','서울교통공사노조','가나다조직','아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'
+    '전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','가나다조직','아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'
   ]);
   await page.locator('#gtEditTitle').fill('연결 없는 할 일');
   await page.locator('#gtSaveBtn').click();
@@ -351,7 +362,7 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await expect(page.locator('[data-gt-add]')).toHaveCount(0);
   // Saving closes the editor; reopen it before measuring the visible link options.
   await page.locator('[data-gt-edit="g1"]').click();
-  await expect(links.locator('[data-gt-link]')).toHaveCount(6);
+  await expect(links.locator('[data-gt-link]')).toHaveCount(17);
   for(const width of [360,1280]){
     await page.setViewportSize({width,height:800});
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
@@ -405,4 +416,15 @@ test('unlinked Google tasks load only when their folded section opens',async({pa
     await page.setViewportSize({width,height:800});
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
   }
+});
+
+// A single-character mismatch must be observable without logging names or user data.
+test('Google Tasks editor warns by count when an assigned organization misses the name order',async({page})=>{
+  await mock(page);await mockLinkTargets(page);
+  await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'o2',name:'전국철도노동조합 '},{id:'o1',name:'서울교통공사노동조합'}])}));
+  const warnings=[];page.on('console',msg=>{if(msg.type()==='warning')warnings.push(msg.text())});
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await page.locator('#newTaskBtn').click();
+  await expect(page.locator('#gtEditLinkBody [aria-label="조직"] [data-gt-link]')).toHaveCount(2);
+  await expect.poll(()=>warnings.filter(x=>x.startsWith('[Google Tasks] 조직 순서표 미등록:'))).toEqual(['[Google Tasks] 조직 순서표 미등록: 1개. 이름 일치 여부를 확인하세요.']);
 });

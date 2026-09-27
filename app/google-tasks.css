@@ -1,6 +1,6 @@
 #gtTaskSection{border-color:var(--kptu-border);margin-top:var(--kptu-space-4)}
 .gt-head{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);flex-wrap:wrap}
-.gt-head-left,.gt-actions{display:flex;align-items:center;gap:var(--kptu-space-2)}
+.gt-head-left{display:flex;align-items:center;gap:var(--kptu-space-2);flex-wrap:wrap;min-width:0}
 .gt-head-left h3{margin:0;font-size:17px}
 .gt-source{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:var(--kptu-radius-sm);background:var(--kptu-success-soft);color:var(--kptu-success);font-size:10px;font-weight:700}
 .gt-note{font-size:10px;color:var(--kptu-muted);font-weight:600}
@@ -33,7 +33,7 @@
 .gt-meta{display:flex;gap:var(--kptu-space-2);align-items:center;margin-top:3px;font-size:10px;color:var(--kptu-muted);min-width:0}.gt-meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gt-group-head{margin:0;padding:var(--kptu-space-2) 3px 4px;font-size:12px;font-weight:750;color:var(--kptu-danger)}
 .gt-overdue{border-bottom:2px solid var(--kptu-border-strong)}.gt-overdue+.gt-row{border-top:0}.gt-row.overdue .gt-due{color:var(--kptu-danger);font-weight:700}
-.gt-connect{margin-top:var(--kptu-space-2)}.gt-status{padding:var(--kptu-space-3) 3px;color:var(--kptu-muted);font-size:11px}.gt-reconnect{border-color:var(--kptu-border-strong);color:var(--kptu-success)}.gt-refresh{font-size:10px}
+.gt-connect{margin-top:var(--kptu-space-2)}.gt-status{padding:var(--kptu-space-3) 3px;color:var(--kptu-muted);font-size:11px}.gt-reconnect{border-color:var(--kptu-border-strong);color:var(--kptu-success)}.gt-retry{margin-left:8px;min-height:34px}.gt-sync{display:inline-flex;align-items:center;flex-wrap:wrap}
 .gt-modal-actions{display:flex;justify-content:flex-end;gap:8px;align-items:center}.gt-modal-actions .tl-danger{margin-right:auto}
 /* TASK-구현 PR 4: list scope note, link choices in the editor, unlinked section, project-linked rows and the link picker. */
 .gt-scope-note{margin:var(--kptu-space-1) 0 0;font-size:11px;line-height:1.45;color:var(--kptu-muted)}
@@ -53,4 +53,4 @@
 div.gt-main{cursor:default}
 .gt-linked-msg{padding:4px 3px;font-size:11px}.gt-linked-msg:empty{display:none}
 :is(#gtTaskModal,#gtPickModal):not(.hidden){z-index:60}
-@media(max-width:760px){.gt-head{align-items:flex-start}.gt-row{padding:7px 2px}.gt-main b{font-size:12.5px}.gt-note{display:none}.gt-actions{width:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.gt-actions .mini{width:100%;min-height:34px;padding-inline:8px}.gt-meta{gap:6px}.gt-meta span:last-child{max-width:42%}}
+@media(max-width:760px){.gt-head{align-items:flex-start}.gt-row{padding:7px 2px}.gt-main b{font-size:12.5px}.gt-note:not(.gt-sync){display:none}.gt-meta{gap:6px}.gt-meta span:last-child{max-width:42%}}

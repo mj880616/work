@@ -141,7 +141,7 @@ test('a list load that answers with the old state does not undo a tap made durin
   // 1) Load starts (old state captured), tap saves and finishes, then the old load answers.
   holdLoad=gate();const first=holdLoad;
   const before=calls.overview;
-  await page.locator('[data-gt-refresh]').click();
+  await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
   await expect.poll(()=>calls.overview).toBe(before+1);
   await row(page,'a').locator('[data-gt-toggle]').click();
   await expect.poll(()=>calls.toggles.length).toBe(1);
@@ -153,7 +153,7 @@ test('a list load that answers with the old state does not undo a tap made durin
   holdSave=true;
   await row(page,'b').locator('[data-gt-toggle]').click();
   await expect(row(page,'b')).toHaveClass(/completed/);
-  await page.locator('[data-gt-refresh]').click();
+  await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
   await expect.poll(()=>calls.overview).toBe(before+2);
   await page.waitForTimeout(300);
   await expect(row(page,'b')).toHaveClass(/completed/);
@@ -161,7 +161,7 @@ test('a list load that answers with the old state does not undo a tap made durin
   await expect.poll(()=>calls.toggles.length).toBe(2);
   await expect(row(page,'b')).toHaveClass(/completed/);
   // A later load reflects Google as usual.
-  await page.locator('[data-gt-refresh]').click();
+  await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
   await expect.poll(()=>calls.overview).toBe(before+3);
   await expect(row(page,'a')).toHaveClass(/completed/);
   await expect(row(page,'b')).toHaveClass(/completed/);
