@@ -160,6 +160,7 @@
 | ENV-9 | 이 PC의 git HTTPS·curl 차단 | 대기 | | 2026-09-27 TASK-구현 PR 4에서 발견. 사용자 PC에서 git HTTPS(`libcurl-4.dll` 불러오기 실패)와 curl이 Windows 보안 정책에 막힘. 우회: 원격 작업은 gh(API)로 하고, main 커밋은 API 정보로 로컬에 같은 SHA로 재구성. 원인 확인·해제 여부 결정 필요 |
 | ENV-8 | CI·배포 범위 정리 | 대기 | | 끼워 넣기 가능(저장소 변경만). ① scripts·docs·tests 등 개발용 폴더가 공개 사이트(GitHub Pages)에 함께 배포되는지 점검 ② 로더 검사 제외 경로 `android/`·`windows/`를 실제 폴더명 `android-app/`·`windows-app/`에 맞춤 ③ `suborganization-filters-e2e.yml` 등 permissions 미명시 워크플로에 읽기 권한 고정 |
 | Web1-3 | bus-strike-publicness-internal-archive-202609 흔적 정리 | 대기 | | 범위: app_public_post allowlist에서 slug 제거(migration 필요, 적용 직전 정지), redirect 셸 처리 방침 결정, E2E 7번째 redirect 검사와 supabase/tests/authz_* 의 7행 가정 수정. 위험: 같은 slug로 새 글이 생기면 allowlist 때문에 자동 링크 공개됨 |
+| RTW-새로고침 | read 호스트의 짧은 화면 주소 문서 요청 복구 | 진행중 | | 기준 `ee77c150`. Worker의 read GET 문서 요청만 기존 접두사 진입점으로 302 복구. 원래 경로·쿼리 보존, 자원·다른 호스트 유지. main 병합 시 Worker 자동 운영 배포. PR 생성 후 정지 |
 | RTW-분리 | 읽생기 별도 Supabase 프로젝트 분리 결정 (플레이스토어 출시 전) | 대기 | | 무료 요금제 제약 조사 포함 |
 | RTW-출시준비 | 플레이 정책 대응: 웹 탈퇴 요청 링크, 테스트 계정으로 탈퇴 실동작 확인 | 대기 | | Web2 확인 테이블 4개 한계 검토 포함. 묶음A 조사 문서 5절 6번: `DELETE /auth/v1/user/identities/<id>` 404 반복(9/25~26 11회, Web2 코드에 호출 없음) 읽생기 쪽 확인 |
 | RTW-3 | rtw-personal-write secret/권한 점검 | 대기 | | Task 32 전 완료. rtw_* 5개 테이블 anon GRANT 흔적 정리 |

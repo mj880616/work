@@ -241,6 +241,96 @@ test('read document deep links recover through the app root without an upstream 
   assert.equal(asset.response.status, 404);
 });
 
+test('read root retains its existing redirect and query', async () => {
+  const { response, calls } = await request('https://read.bokdoong.com/?a=1&b=2', {
+    headers: { Accept: 'text/html' }
+  });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('Location'), 'https://read.bokdoong.com/read-think-write/?a=1&b=2');
+  assert.equal(calls.length, 0);
+});
+
+for (const path of [
+  '/notes/',
+  '/notes/?a=1&b=2',
+  '/notes/one/two/',
+  '/없는-화면/한글/?검색=책 읽기&기호=%26%3D%23%2B&literal=+',
+  '/notes/a%2Fb/%25/?next=%2Fnotes%2F%3Fa%3D1',
+  '/unknown-screen/'
+]) {
+  test(`read short document ${path} recovers once with the full path and query`, async () => {
+    for (const headers of [{ 'Sec-Fetch-Dest': 'document' }, { Accept: 'text/html,application/xhtml+xml' }]) {
+      const { response, calls } = await request(`https://read.bokdoong.com${path}`, { headers });
+      assert.equal(response.status, 302);
+      assert.equal(calls.length, 0, 'short document must not request an upstream missing page');
+      const location = new URL(response.headers.get('Location'));
+      const original = new URL(`https://read.bokdoong.com${path}`);
+      assert.equal(location.origin, original.origin);
+      assert.equal(location.pathname, '/read-think-write/');
+      assert.equal(location.searchParams.get('redirect'), original.pathname + original.search);
+      assert.equal(await response.text(), '', 'do not serve HTML at a short path');
+      if (path === '/notes/?a=1&b=2') {
+        assert.equal(location.search, '?redirect=%2Fnotes%2F%3Fa%3D1%26b%3D2');
+      }
+      const shell = await request(location.href, {
+        headers, upstream: new Response('app shell', { headers: { 'Content-Type': 'text/html' } })
+      });
+      assert.equal(shell.response.status, 200);
+      assert.equal(shell.response.headers.get('Location'), null, 'app shell must not redirect back');
+      assert.equal(shell.calls.length, 1);
+      assert.equal(shell.calls[0].url, `https://mj880616.github.io/read-think-write/${location.search}`);
+      assert.equal(await shell.response.text(), 'app shell');
+    }
+  });
+}
+
+test('read short non-document requests and non-GET methods retain their rejection', async () => {
+  for (const [path, method, headers, status] of [
+    ['/src/styles.xxx.css', 'GET', { 'Sec-Fetch-Dest': 'style', Accept: 'text/css,*/*;q=0.1' }, 404],
+    ['/src/missing.js', 'GET', { 'Sec-Fetch-Dest': 'script', Accept: '*/*' }, 404],
+    ['/missing.png', 'GET', { 'Sec-Fetch-Dest': 'image', Accept: 'image/*' }, 404],
+    ['/notes/', 'GET', { Accept: 'application/json' }, 404],
+    ['/notes/', 'GET', {}, 404],
+    ['/notes/', 'HEAD', { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' }, 404],
+    ['/notes/', 'POST', { Accept: 'text/html' }, 405]
+  ]) {
+    const { response, calls } = await request(`https://read.bokdoong.com${path}`, { method, headers });
+    assert.equal(response.status, status, `${method} ${path}`);
+    assert.equal(response.headers.get('Location'), null);
+    assert.equal(calls.length, 0);
+  }
+});
+
+test('read prefixed documents and missing assets preserve their upstream behavior', async () => {
+  const page = await request('https://read.bokdoong.com/read-think-write/existing/?a=1', {
+    headers: { Accept: 'text/html' }, upstream: new Response('existing document')
+  });
+  assert.equal(page.response.status, 200);
+  assert.equal(page.response.headers.get('Location'), null);
+  assert.equal(page.calls[0].url, 'https://mj880616.github.io/read-think-write/existing/?a=1');
+  for (const path of ['/read-think-write/', '/read-think-write/src/missing.css']) {
+    const { response, calls } = await request(`https://read.bokdoong.com${path}`, {
+      headers: { Accept: path.endsWith('.css') ? 'text/css' : 'text/html' },
+      upstream: new Response('missing', { status: 404 })
+    });
+    assert.equal(response.status, 404);
+    assert.equal(response.headers.get('Location'), null);
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+    assert.equal(calls.length, 1);
+  }
+});
+
+test('short document recovery does not extend to other hosts', async () => {
+  for (const host of ['bokdoong.com', 'work.bokdoong.com', 'desk.bokdoong.com', 'arsenal.bokdoong.com', 'unknown.bokdoong.com']) {
+    const { response, calls } = await request(`https://${host}/notes/?a=1`, {
+      headers: { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' }
+    });
+    assert.equal(response.status, 404, host);
+    assert.equal(response.headers.get('Location'), null, host);
+    assert.equal(calls.length, 0, host);
+  }
+});
+
 test('read and Arsenal favicon requests do not return 404 or reach unrelated origins', async () => {
   for (const host of ['read', 'arsenal']) {
     const { response, calls } = await request(`https://${host}.bokdoong.com/favicon.ico`);
