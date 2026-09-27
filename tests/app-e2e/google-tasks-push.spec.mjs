@@ -284,7 +284,16 @@ async function mockLinkTargets(page){
     {id:'p2',workspace_id:'qa-ws',owner_id:'qa-user',name:'국회토론회',parent_id:'p1',status:'active',sort_order:2,metadata:{project_system:'v2'}},
     {id:'p3',workspace_id:'qa-ws',owner_id:'qa-user',name:'지난 캠페인',parent_id:null,status:'archived',sort_order:3,metadata:{project_system:'v2'}}
   ])}));
-  await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'o1',name:'서울지부'}])}));
+  await page.route(`${SB}/rest/v1/app_suborganization_assignees**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([
+    {organization_id:'o1'},{organization_id:'o2'},{organization_id:'o3'},{organization_id:'o4'}
+  ])}));
+  await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([
+    {id:'o0',name:'담당 아닌 조직'},
+    {id:'o1',name:'서울교통공사노조'},
+    {id:'o2',name:'철도노조'},
+    {id:'o3',name:'가나다조직'},
+    {id:'o4',name:'아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'}
+  ])}));
 }
 
 test('Google Tasks editor has no list choice and saves chosen links',async({page})=>{
@@ -295,22 +304,26 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
     calls.push({action,body,query:Object.fromEntries(u.searchParams)});
     if(action==='overview')return ok({connected:true,authorized:true,needs_reconnect:false,tasks:[gt('g1',googleDue(0),{taskListId:'@default',taskListTitle:'내 할 일'})]});
-    if(action==='links')return ok({links:[{project_id:'p1',organization_id:null,status:'confirmed'},{project_id:'p3',organization_id:null,status:'confirmed'}]});
+    if(action==='links')return ok({links:[{project_id:'p1',organization_id:null,status:'confirmed'},{project_id:'p3',organization_id:null,status:'confirmed'},{project_id:null,organization_id:'o0',status:'confirmed'}]});
     return ok({ok:true,task:gt('g1',googleDue(0)),links:[]});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toContainText('"내 할 일" 목록만 보입니다');
-  await page.locator('[data-gt-add]').click();
+  await page.locator('#newTaskBtn').click();
   await expect(page.locator('#gtEditList')).toHaveCount(0);
   await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toContainText('"내 할 일" 목록에 저장');
   const links=page.locator('#gtEditLinkBody');
-  await expect(links.locator('[data-gt-link]')).toHaveCount(3);
+  await expect(links.locator('[data-gt-link]')).toHaveCount(6);
   await expect(links.locator('input[value="p:p3"]')).toHaveCount(0);
+  await expect(links.locator('input[value="o:o0"]')).toHaveCount(0);
+  await expect(links.locator('.gt-link-group').last().locator('span')).toHaveText([
+    '철도노조','서울교통공사노조','가나다조직','아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'
+  ]);
   await page.locator('#gtEditTitle').fill('연결 없는 할 일');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
   expect(calls.find(x=>x.action==='create').body.task_list_id).toBeUndefined();
-  await page.locator('[data-gt-add]').click();
+  await page.locator('#newTaskBtn').click();
   await page.locator('#gtEditTitle').fill('연결 둘');
   await links.locator('input[value="p:p2"]').check();
   await links.locator('input[value="o:o1"]').check();
@@ -324,8 +337,32 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await expect.poll(()=>calls.find(x=>x.action==='unlink')?.body?.links).toEqual([{project_id:'p1'}]);
   expect(calls.find(x=>x.action==='link')?.body).toEqual(expect.objectContaining({task_id:'g1',links:[{organization_id:'o1'}]}));
   // The archived project link is not offered, so it is neither removed nor re-added.
-  expect(JSON.stringify(calls.filter(x=>x.action==='link'||x.action==='unlink').map(x=>x.body))).not.toContain('p3');
+  const linkChanges=JSON.stringify(calls.filter(x=>x.action==='link'||x.action==='unlink').map(x=>x.body));
+  expect(linkChanges).not.toContain('p3');
+  expect(linkChanges).not.toContain('o0');
   expect(calls.some(x=>x.action==='lists')).toBeFalsy();
+  await expect(page.locator('#taskList')).toBeEmpty();
+  await expect(page.locator('[data-gt-add]')).toHaveCount(0);
+  for(const width of [360,1280]){
+    await page.setViewportSize({width,height:800});
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+    const option=links.locator('label.gt-link-opt').last();
+    const [checkBox,textBox]=await Promise.all([option.locator('input').boundingBox(),option.locator('span').boundingBox()]);
+    expect(textBox.x).toBeGreaterThan(checkBox.x);
+  }
+});
+
+test('Google Tasks editor shows a short message when no organizations are assigned',async({page})=>{
+  await mock(page);
+  await page.route(`${SB}/rest/v1/app_spaces**`,route=>route.fulfill({status:200,contentType:'application/json',body:'[]'}));
+  await page.route(`${SB}/rest/v1/app_suborganization_assignees**`,route=>route.fulfill({status:200,contentType:'application/json',body:'[]'}));
+  await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'not-mine',name:'담당 아닌 조직'}])}));
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,needs_reconnect:false,tasks:[]})}));
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await page.locator('#newTaskBtn').click();
+  const organizations=page.locator('#gtEditLinkBody [role="group"][aria-label="조직"]');
+  await expect(organizations).toContainText('담당 조직이 없습니다.');
+  await expect(organizations.locator('[data-gt-link]')).toHaveCount(0);
 });
 
 test('unlinked Google tasks load only when their folded section opens',async({page})=>{
