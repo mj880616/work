@@ -178,18 +178,18 @@ test('owner switch while project features are still loading clears the old shell
   await expect(page.locator('#appView')).not.toHaveClass(/kptu-ui-ready/);
   expect(await page.evaluate(()=>window.__KPTU_BOOT_CONTEXT__?.user?.id==='u1')).toBe(true);
   const navigation=page.waitForEvent('framenavigated',frame=>frame===page.mainFrame());
-  await page.evaluate(()=>{
+  const cleared=await page.evaluate(()=>{
     const app=document.querySelector('#appView');
     app.insertAdjacentHTML('beforeend','<div id="privateSentinel"></div>');
     window.KPTURuntime.session.write({access_token:'second-access',refresh_token:'second-refresh',expires_at:4102444800,user:{id:'u2'}});
-    sessionStorage.setItem('qa-owner-gate',JSON.stringify({
+    return {
       disconnected:!app.isConnected,sentinelRemoved:!document.querySelector('#privateSentinel'),contextCleared:!window.__KPTU_BOOT_CONTEXT__
-    }));
+    };
   });
   await navigation;
   releaseFeature();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
-  expect(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('qa-owner-gate')))).toEqual({disconnected:true,sentinelRemoved:true,contextCleared:true});
+  expect(cleared).toEqual({disconnected:true,sentinelRemoved:true,contextCleared:true});
   expect(await page.evaluate(()=>window.__KPTU_BOOT_CONTEXT__?.user?.id==='u2')).toBe(true);
   await expect(page.locator('#privateSentinel')).toHaveCount(0);
   expect(taskRequests).toBe(0);
