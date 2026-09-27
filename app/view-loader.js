@@ -22,8 +22,8 @@ function style(path){
 }
 const routeStyles={
   calendar:['./calendar-ui.css?v=8'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=9'],
-  projects:['./project-system-v3.css?v=15','./forum-flow-polish.css?v=1','./google-tasks.css?v=9'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=10'],
+  projects:['./project-system-v3.css?v=15','./forum-flow-polish.css?v=1','./google-tasks.css?v=10'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
   meetings:['./meeting-ui.css?v=10'],
   media:['./web1-press.css?v=1'],

@@ -16,10 +16,10 @@ async function installSupabaseMock(page, state) {
     const ok = data => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data ?? null) });
 
     if (path === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password') {
-      return ok({ access_token: 'e2e-access', refresh_token: 'e2e-refresh', expires_in: 3600, expires_at: Math.floor(Date.now()/1000)+3600, token_type: 'bearer' });
+      return ok({ access_token: 'e2e-access', refresh_token: 'e2e-refresh', expires_in: 3600, expires_at: Math.floor(Date.now()/1000)+3600, token_type: 'bearer', user: state.user });
     }
     if (path === '/auth/v1/token' && url.searchParams.get('grant_type') === 'refresh_token') {
-      return ok({ access_token: 'e2e-access-2', refresh_token: 'e2e-refresh-2', expires_in: 3600, expires_at: Math.floor(Date.now()/1000)+3600, token_type: 'bearer' });
+      return ok({ access_token: 'e2e-access-2', refresh_token: 'e2e-refresh-2', expires_in: 3600, expires_at: Math.floor(Date.now()/1000)+3600, token_type: 'bearer', user: state.user });
     }
     if (path === '/auth/v1/user') return ok(state.user);
     if (path === '/auth/v1/logout') return ok({});
@@ -33,6 +33,20 @@ async function installSupabaseMock(page, state) {
       }
       if (action === 'events') return ok({ events: state.googleEvents||[], eventColors: {} });
       return ok({ connected: true, enabled: true, selected: ['primary'], calendars: [{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}], colors: {} });
+    }
+    if (path === '/functions/v1/google-tasks') {
+      const action=url.searchParams.get('action');
+      if (action === 'create') {
+        const row={id:`google-task-${state.tasks.length+1}`,title:body.title,due:body.due,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일'};
+        state.tasks.push(row);
+        return ok({ok:true,task:row});
+      }
+      if (action === 'toggle') {
+        const row=state.tasks.find(task=>task.id===body.task_id);
+        Object.assign(row,{status:body.completed?'completed':'needsAction',completed:body.completed?now():null});
+        return ok({ok:true,task:row});
+      }
+      return ok({connected:true,authorized:true,tasks:state.tasks,links:[]});
     }
     if (path.startsWith('/functions/v1/')) return ok({});
 
@@ -67,28 +81,6 @@ async function installSupabaseMock(page, state) {
       }
     }
     if (path === '/rest/v1/app_event_suborganizations') return ok([]);
-
-    if (path === '/rest/v1/app_tasks') {
-      if (method === 'GET') return ok(state.tasks);
-      if (method === 'POST') {
-        const rows = Array.isArray(body) ? body : [body || {}];
-        const created = rows.map(x => ({ ...x, id: `task-${state.tasks.length + 1}`, assignment_status: x.assignment_status || 'accepted', created_at: now(), updated_at: now() }));
-        state.tasks.push(...created);
-        return ok(created);
-      }
-      if (method === 'PATCH') {
-        const id = (url.searchParams.get('id') || '').replace(/^eq\./, '');
-        const row = state.tasks.find(x => x.id === id);
-        if (row) Object.assign(row, body || {});
-        return ok([]);
-      }
-      if (method === 'DELETE') {
-        const id = (url.searchParams.get('id') || '').replace(/^eq\./, '');
-        const idx = state.tasks.findIndex(x => x.id === id);
-        if (idx >= 0) state.tasks.splice(idx, 1);
-        return ok([]);
-      }
-    }
 
     if (path === '/rest/v1/app_meetings') {
       if (method === 'GET') return ok(state.meetings);
@@ -126,6 +118,8 @@ async function installSupabaseMock(page, state) {
 }
 
 test('login and core workspace flows remain usable', async ({ page }) => {
+  const legacyTaskRequests=[];
+  page.on('request',req=>{if(new URL(req.url()).pathname==='/rest/v1/app_tasks')legacyTaskRequests.push(req.method())});
   const state = {
     user: { id: 'user-1', email: 'e2e@example.org', user_metadata: { display_name: 'E2E 사용자' } },
     workspace: { id: 'workspace-1', slug: 'public-institutions', name: '웹2' },
@@ -190,18 +184,20 @@ test('login and core workspace flows remain usable', async ({ page }) => {
 
   await page.locator('[data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();
-  await expect(page.locator('#taskList')).toContainText('내 할 일');
-  await expect(page.locator('#taskList .tl-task-section')).toHaveCount(1);
-  await expect(page.locator('#taskList')).not.toContainText('팀에서 부여된 할 일');
+  await expect(page.locator('#taskList')).toBeEmpty();
+  await expect(page.locator('#gtTaskSection')).toBeVisible();
   await page.locator('#newTaskBtn').click();
-  await page.locator('#taskTitle').fill('E2E 할 일');
-  await page.locator('#saveTaskBtn').click();
-  await expect.poll(() => state.tasks.length).toBeGreaterThan(0);
-  await expect(page.locator('.tl-task-section').first()).toContainText('E2E 할 일');
-  await expect(page.locator('.tl-task-section').first().locator('.tl-completed')).not.toHaveAttribute('open', '');
-  await page.locator('.tl-task-section').first().locator('[data-tl-toggle]').click();
-  await expect.poll(() => state.tasks[0].status).toBe('done');
-  await expect(page.locator('.tl-task-section').first().locator('.tl-completed summary')).toContainText('완료된 할 일');
+  await page.locator('#gtEditTitle').fill('E2E 할 일');
+  await page.locator('#gtEditDue').fill(new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10));
+  await page.locator('#gtSaveBtn').click();
+  const task=page.locator('#gtTaskBody [data-google-task="google-task-1"]');
+  await expect(task).toContainText('E2E 할 일');
+  await expect(task).toHaveClass(/pending/);
+  await task.locator('[data-gt-toggle]').click();
+  await expect(task).toHaveClass(/completed/);
+  await expect.poll(() => state.tasks[0].status).toBe('completed');
+  // Only the task screen has retired this API; meeting follow-ups still use it.
+  expect(legacyTaskRequests).toEqual([]);
 
   await expect(page.locator('#userBadge,#profileView,#teamManageTop')).toHaveCount(0);
   await page.locator('.app-nav [data-view="team"]').click();

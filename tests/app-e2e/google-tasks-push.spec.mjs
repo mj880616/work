@@ -173,7 +173,9 @@ test('Google Tasks layout fits supported mobile widths',async({page})=>{
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
     const section=await page.locator('#gtTaskSection').boundingBox();
     expect(section?.width||0).toBeLessThanOrEqual(width);
-    await expect(page.locator('#gtTaskSection .gt-actions .mini')).toHaveCount(2);
+    await expect(page.locator('#newTaskBtn')).toBeVisible();
+    await expect(page.locator('#gtTaskSection [data-gt-refresh]')).toBeVisible();
+    await expect(page.locator('[data-gt-add]')).toHaveCount(0);
   }
 });
 
@@ -192,7 +194,7 @@ test('Google Tasks can be created, edited, completed, reopened and deleted',asyn
     calls.push({action,body});return ok({ok:true});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('[data-gt-add]').click();
+  await page.locator('#newTaskBtn').click();
   await page.locator('#gtEditTitle').fill('새 Google 할 일');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.some(x=>x.action==='create'&&x.body.title==='새 Google 할 일')).toBeTruthy();
@@ -202,6 +204,10 @@ test('Google Tasks can be created, edited, completed, reopened and deleted',asyn
   await expect.poll(()=>calls.some(x=>x.action==='update'&&x.body.title==='수정된 Google 할 일')).toBeTruthy();
   await page.locator('[data-gt-toggle="g1"]').click();
   await expect.poll(()=>calls.some(x=>x.action==='toggle'&&x.body.completed===true)).toBeTruthy();
+  await expect(page.locator('[data-google-task="g1"]')).toHaveClass(/completed/);
+  await page.locator('[data-gt-toggle="g1"]').click();
+  await expect.poll(()=>calls.some(x=>x.action==='toggle'&&x.body.completed===false)).toBeTruthy();
+  await expect(page.locator('[data-google-task="g1"]')).toHaveClass(/pending/);
   await page.locator('[data-gt-edit="g1"]').click();
   page.once('dialog',d=>d.accept());
   await page.locator('#gtDeleteBtn').click();
@@ -343,12 +349,18 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   expect(calls.some(x=>x.action==='lists')).toBeFalsy();
   await expect(page.locator('#taskList')).toBeEmpty();
   await expect(page.locator('[data-gt-add]')).toHaveCount(0);
+  // Saving closes the editor; reopen it before measuring the visible link options.
+  await page.locator('[data-gt-edit="g1"]').click();
+  await expect(links.locator('[data-gt-link]')).toHaveCount(6);
   for(const width of [360,1280]){
     await page.setViewportSize({width,height:800});
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
     const option=links.locator('label.gt-link-opt').last();
     const [checkBox,textBox]=await Promise.all([option.locator('input').boundingBox(),option.locator('span').boundingBox()]);
+    expect(checkBox).not.toBeNull();
+    expect(textBox).not.toBeNull();
     expect(textBox.x).toBeGreaterThan(checkBox.x);
+    expect(textBox.x+textBox.width).toBeLessThanOrEqual(width);
   }
 });
 

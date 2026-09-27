@@ -4,7 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'a11y-user',email:'a11y@example.org',user_metadata:{display_name:'접근성 QA'}};
 const workspace={id:'a11y-workspace',slug:'a11y',name:'웹2'};
-const tasks=[{id:'a11y-task-1',workspace_id:workspace.id,title:'접근성 점검 할 일',assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:null,created_at:'2026-09-17T00:00:00Z'}];
+const tasks=[{id:'a11y-task-1',title:'접근성 점검 할 일',taskListId:'@default',taskListTitle:'내 할 일',status:'needsAction',due:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10)+'T00:00:00.000Z'}];
 const orgs=[{id:'a11y-org-1',workspace_id:workspace.id,name:'철도노조',aliases:['철도'],description:'철도 산하조직',organization_type:'철도·도시철도',default_assignee_name:null,active:true,created_by:user.id}];
 
 function deferred(){let resolve;const promise=new Promise(r=>{resolve=r});return {promise,resolve}}
@@ -15,7 +15,7 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveG
     const url=new URL(req.url());
     const path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'a11y-access',refresh_token:'a11y-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'a11y-access',refresh_token:'a11y-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
@@ -25,6 +25,7 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveG
       return ok({connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}],colors:{},events:[],eventColors:{}});
     }
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
+    if(path==='/functions/v1/google-tasks')return ok({connected:true,authorized:true,tasks,links:[]});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email}]);
@@ -34,7 +35,6 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveG
       return ok([]);
     }
     if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'접근성 QA',job_title:'국장'}]);
-    if(path==='/rest/v1/app_tasks')return ok(tasks);
     if(path==='/rest/v1/app_suborganizations')return req.method()==='GET'?ok(orgs):ok([]);
     if(path==='/rest/v1/app_suborganization_assignees')return ok([{organization_id:'a11y-org-1',user_id:user.id,assigned_by:user.id,created_at:'2026-09-17T00:00:00Z'}]);
     if(path==='/rest/v1/app_events'&&req.method()==='POST'){
@@ -78,8 +78,13 @@ test('task grouping, month controls, and destructive task actions expose clear n
   await page.locator('.app-nav [data-view="tasks"]').click();
   await expect(page.locator('#taskScope')).toHaveCount(0);
   await expect(page.locator('#taskStatus')).toHaveCount(0);
-  await expect(page.locator('#taskList [data-tl-section="mine"] .tl-section-head h3')).toHaveText('내 할 일');
-  await expect(page.locator('[data-tl-delete="a11y-task-1"]')).toHaveAttribute('aria-label','접근성 점검 할 일 삭제');
+  await expect(page.locator('#taskList')).toBeEmpty();
+  await expect(page.locator('#gtTaskSection h3')).toHaveText('Google 할 일');
+  await page.locator('[data-gt-edit="a11y-task-1"]').click();
+  await expect(page.locator('#gtTaskModal')).toHaveAccessibleName('Google 할 일 수정');
+  await expect(page.locator('#gtEditTitle')).toHaveValue('접근성 점검 할 일');
+  await expect(page.locator('#gtDeleteBtn')).toHaveAccessibleName('삭제');
+  await page.keyboard.press('Escape');
   await page.locator('.app-nav [data-view="calendar"]').click();
   await expect(page.locator('.calendar-toolbar')).toHaveAttribute('role','group');
   await expect(page.locator('.calendar-toolbar')).toHaveAttribute('aria-labelledby','monthTitle');
@@ -120,14 +125,14 @@ test('task dialog exposes semantics, closes on Escape, and restores trigger focu
   const trigger=page.locator('#newTaskBtn');
   await trigger.focus();
   await trigger.click();
-  const modal=page.locator('#taskModal');
+  const modal=page.locator('#gtTaskModal');
   await expect(modal).toBeVisible();
   await expect(modal).toHaveAttribute('role','dialog');
   await expect(modal).toHaveAttribute('aria-modal','true');
   const labelledby=await modal.getAttribute('aria-labelledby');
   expect(labelledby).toBeTruthy();
   await expect(page.locator('#'+labelledby)).toBeVisible();
-  await expect(page.locator('#taskTitle')).toBeFocused();
+  await expect(page.locator('#gtEditTitle')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(modal).toHaveClass(/hidden/);
   await expect(trigger).toBeFocused();
@@ -137,9 +142,9 @@ test('task dialog wraps keyboard focus within the dialog',async({page})=>{
   await boot(page,{width:1024,height:768});
   await page.locator('.app-nav [data-view="tasks"]').click();
   await page.locator('#newTaskBtn').click();
-  const modal=page.locator('#taskModal');
-  const first=modal.locator('[data-close="taskModal"]');
-  const last=page.locator('#saveTaskBtn');
+  const modal=page.locator('#gtTaskModal');
+  const first=modal.locator('[data-gt-close]');
+  const last=page.locator('#gtSaveBtn');
   await first.focus();
   await page.keyboard.press('Shift+Tab');
   await expect(last).toBeFocused();
@@ -151,8 +156,8 @@ test('task dialog wraps keyboard focus within the dialog',async({page})=>{
 test('task detail stays inside a 390px mobile viewport',async({page})=>{
   await boot(page,{width:390,height:844});
   await page.locator('.app-nav [data-view="tasks"]').click();
-  await page.locator('[data-tl-task-row="a11y-task-1"] .tl-task-main').click();
-  const modal=page.locator('#taskModal');
+  await page.locator('[data-gt-edit="a11y-task-1"]').click();
+  const modal=page.locator('#gtTaskModal');
   await expect(modal).toBeVisible();
   const bounds=await modal.locator('.modal-card').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,viewportWidth:innerWidth,viewportHeight:innerHeight,scrollWidth:document.documentElement.scrollWidth}});
   expect(bounds.left).toBeGreaterThanOrEqual(0);
