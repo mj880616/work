@@ -215,10 +215,12 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   expect(workflow).not.toContain('meeting-action-assignee');
   expect(meeting).not.toContain('mrdTaskAssignee');
   expect(meeting).toContain("assignee_id=eq.'+encodeURIComponent(mrdUser.id)");
-  expect(project).toContain('assignee_id=eq.${encodeURIComponent(user.id)}');
+  // TASK-구현 PR 4: the project screen shows linked Google tasks and counts them from app_record_links, not app_tasks.
+  expect(project).not.toContain('/rest/v1/app_tasks?project_id=${');
+  expect(project).toContain('/rest/v1/app_record_links?project_id=');
   expect(index).not.toContain('rel="modulepreload" href="./team.js');
-  expect(index).toContain('./loader-v2.js?v=245');
-  expect(index).toContain('./app.js?v=133');
+  expect(index).toContain('./loader-v2.js?v=246');
+  expect(index).toContain('./app.js?v=134');
   expect(loader).toContain("import('./team.js?v=52')");
-  expect(app).toContain("import('./loader-v2.js?v=245')");
+  expect(app).toContain("import('./loader-v2.js?v=246')");
 });

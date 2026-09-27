@@ -18,7 +18,8 @@ async function mockApp(page,state){
       if(typeof value==='number'){if(value<=0)return null;bucket[key]=value-1;return key+' forced failure'}
       return typeof value==='string'?value:key+' forced failure'
     };
-    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    // sessionUser: the token carries the user like a real Supabase response; Google task code reads the owner from the session.
+    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,...(state.sessionUser?{user:state.user}:{})});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
@@ -36,6 +37,21 @@ async function mockApp(page,state){
       }
       if(action==='events')return ok({events:[],colors:state.googleStatus?.colors||{},eventColors:{}});
       return ok(state.googleStatus||{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    }
+    if(path==='/functions/v1/google-tasks'){
+      const action=url.searchParams.get('action')||body?.action,taskId=body?.task_id||url.searchParams.get('task_id');
+      state.gtCalls.push({action,body:body?structuredClone(body):null,query:Object.fromEntries(url.searchParams)});
+      const linkRow=(id,t)=>({google_task_id:id,project_id:t.project_id||null,organization_id:t.organization_id||null,status:'confirmed',task_completed:state.gtasks.find(x=>x.id===id)?.status==='completed'});
+      const linksOf=id=>state.links.filter(x=>x.google_task_id===id).map(x=>({project_id:x.project_id||null,organization_id:x.organization_id||null,status:x.status||'confirmed',report_kind:null}));
+      if(action==='linked'){const pid=url.searchParams.get('project_id'),ids=new Set(state.links.filter(x=>x.project_id===pid).map(x=>x.google_task_id));return ok({tasks:state.gtasks.filter(t=>ids.has(t.id)),removed:0})}
+      if(action==='unlinked'){const linked=new Set(state.links.map(x=>x.google_task_id));return ok({tasks:state.gtasks.filter(t=>t.status!=='completed'&&!linked.has(t.id))})}
+      if(action==='links')return ok({links:linksOf(taskId)});
+      if(action==='link'){for(const t of body.links||[])state.links.push(linkRow(taskId,t));return ok({ok:true,links:linksOf(taskId)})}
+      if(action==='unlink'){for(const t of body.links||[])state.links=state.links.filter(x=>!(x.google_task_id===taskId&&(t.project_id?x.project_id===t.project_id:x.organization_id===t.organization_id)));return ok({ok:true,links:linksOf(taskId)})}
+      if(action==='create'){const task={id:'g-new-'+(state.gtasks.length+1),title:body.title,notes:body.notes||'',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'};state.gtasks.push(task);for(const t of body.links||[])state.links.push(linkRow(task.id,t));return ok({ok:true,task,links:linksOf(task.id)})}
+      if(action==='toggle'){const task=state.gtasks.find(x=>x.id===taskId);if(state.gtToggleFail)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Google Tasks 요청 실패'})});Object.assign(task,{status:body.completed?'completed':'needsAction',completed:body.completed?now():null});return ok({ok:true,task})}
+      if(action==='update'){const task=state.gtasks.find(x=>x.id===taskId);Object.assign(task,{title:body.title,notes:body.notes});return ok({ok:true,task})}
+      return ok({connected:true,authorized:true,needs_reconnect:false,tasks:[]});
     }
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -73,6 +89,8 @@ async function mockApp(page,state){
     if(table('app_project_decisions',state.decisions))return;
     if(table('app_project_comments',state.comments))return;
     if(table('app_tasks',state.tasks))return;
+    // Project task counts read the completion copy of linked Google tasks (TASK-구현 PR 4).
+    if(table('app_record_links',state.links.filter(x=>url.searchParams.get('task_completed')!=='eq.false'||x.task_completed===false)))return;
     if(table('app_events',state.events))return;
     if(table('app_meetings',state.meetings))return;
     if(table('app_documents',state.docs))return;
@@ -120,7 +138,7 @@ function baseState(){return{
   progress:[{id:'pr-1',project_id:'main-1',workstream_id:'ws-1',summary:'국토부 후속협의 준비',next_step:'9.29 토론회',status_label:'진행',effective_on:'2026-09-15',created_at:now()}],
   milestones:[{id:'mile-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',milestone_type:'policy',status:'planned',start_at:'2026-09-29T05:00:00Z',notes:'국토부·TS 참석'}],
   docs:[{id:'doc-1',project_id:'main-1',title:'민자철도 국토부 요구자료 답변',category:'정부자료',source:'국토교통부',document_date:'2026-09-14',tags:['민자철도','운영기준'],description:'인청 요구자료',drive_url:'https://example.org/doc'}],
-  decisions:[],comments:[],tasks:[],events:[],meetings:[],pages:[],sections:[],blocks:[],
+  decisions:[],comments:[],tasks:[],gtasks:[],links:[],gtCalls:[],sessionUser:false,events:[],meetings:[],pages:[],sections:[],blocks:[],
   googleStatus:{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}},googleCalls:[],googleFailures:{},restFailures:{},restCalls:[],callOrder:[]
 }}
 
@@ -625,18 +643,23 @@ test('key schedule status is shown in Korean inside the collapsed bottom section
 });
 
 test('top-level project creates a task directly on the current project',async({page})=>{
-  const state=baseState();
+  const state=baseState();state.sessionUser=true;
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');
   await signIn(page);
   await page.locator('[data-ps3-global="task"]').click();
-  await expect(page.locator('#taskModal')).toBeVisible();
-  await expect(page.locator('#taskProject')).toHaveValue('main-1');
-  const values=await page.locator('#taskProject option').evaluateAll(options=>options.map(o=>o.value));
-  expect(values).toEqual(expect.arrayContaining(['','main-1','child-1']));
-  await page.locator('#taskTitle').fill('상위 프로젝트 직접 연결 업무');
-  await page.locator('#saveTaskBtn').click();
-  await expect.poll(()=>state.tasks.some(x=>x.title==='상위 프로젝트 직접 연결 업무'&&x.project_id==='main-1')).toBe(true);
+  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toContainText('내 할 일');
+  await expect(page.locator('#gtEditList')).toHaveCount(0);
+  await expect(page.locator('#gtEditLinkBody input[value="p:main-1"]')).toBeChecked();
+  await expect(page.locator('#gtEditLinkBody input[value="p:child-1"]')).not.toBeChecked();
+  await page.locator('#gtEditTitle').fill('상위 프로젝트 직접 연결 업무');
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>state.gtCalls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'상위 프로젝트 직접 연결 업무',links:[{project_id:'main-1'}]}));
+  await expect(page.locator('#gtTaskModal')).toBeHidden();
+  await expect(page.locator('#ps3-tasks [data-ps3-gtasks]')).toContainText('상위 프로젝트 직접 연결 업무');
+  await expect(page.locator('#ps3-tasks [data-ps3-task-count]')).toHaveText('1');
+  expect(state.tasks).toEqual([]);
 });
 
 test('V3 mobile project creation, detail scrolling and linked document remain usable',async({page})=>{
@@ -704,10 +727,12 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
 
 test('V3 lists child projects with counts in the body and child returns to parent',async({page})=>{
   const state=baseState();
-  state.tasks.push(
-    {id:'child-task-open',project_id:'child-1',title:'발제 취합',status:'todo',assignee_id:'user-1'},
-    {id:'child-task-done',project_id:'child-1',title:'장소 확정',status:'done',assignee_id:'user-1'}
+  state.links.push(
+    {google_task_id:'g-child-open',project_id:'child-1',status:'confirmed',task_completed:false},
+    {google_task_id:'g-child-done',project_id:'child-1',status:'confirmed',task_completed:true}
   );
+  // A Web2 task no longer counts.
+  state.tasks.push({id:'child-task-open',project_id:'child-1',title:'발제 취합',status:'todo',assignee_id:'user-1'});
   state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   await expect(page.locator('[data-ps3-project="main-1"]')).toBeVisible();
@@ -724,8 +749,8 @@ test('V3 lists child projects with counts in the body and child returns to paren
   await expect(row).toContainText('9.29 민자철도 국회토론회');
   await expect(row).toContainText('할 일 1 · 자료 1');
   await expect(children.locator('[data-ps3-edit-project],[data-ps3-archive-project],[data-ps3-delete-project]')).toHaveCount(0);
-  const countCall=state.restCalls.find(x=>x.name==='app_tasks'&&x.method==='GET');
-  expect(countCall).toBeTruthy();
+  expect(state.restCalls.some(x=>x.name==='app_record_links'&&x.method==='GET')).toBeTruthy();
+  expect(state.restCalls.some(x=>x.name==='app_tasks')).toBeFalsy();
   await row.click();
   await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');
   await expect(page.locator('#ps3-children')).toHaveCount(0);
@@ -740,11 +765,11 @@ test('project list is one bordered two-line list with collapsible child rows and
     {id:'main-2',workspace_id:'workspace-1',name:'자회사 임금교섭',description:'설명 문구',parent_id:null,status:'active',visibility:'restricted',owner_id:'user-1',sort_order:30,metadata:{project_system:'v2',management_version:2,objective:'표시되지 않는 설명',start_on:'2026-08-01'}},
     {id:'arch-1',workspace_id:'workspace-1',name:'지난 캠페인',description:'',parent_id:null,status:'archived',visibility:'restricted',owner_id:'user-1',sort_order:40,metadata:{project_system:'v2',management_version:2,objective:'보관 설명'}}
   );
-  state.tasks.push(
-    {id:'main-task-open',project_id:'main-1',title:'요구안 정리',status:'todo',assignee_id:'user-1'},
-    {id:'child-task-open',project_id:'child-1',title:'발제 취합',status:'todo',assignee_id:'user-1'},
-    {id:'child-task-done',project_id:'child-1',title:'장소 확정',status:'done',assignee_id:'user-1'},
-    {id:'arch-task',project_id:'arch-1',title:'결과 정리',status:'todo',assignee_id:'user-1'}
+  state.links.push(
+    {google_task_id:'g-main-open',project_id:'main-1',status:'confirmed',task_completed:false},
+    {google_task_id:'g-child-open',project_id:'child-1',status:'confirmed',task_completed:false},
+    {google_task_id:'g-child-done',project_id:'child-1',status:'confirmed',task_completed:true},
+    {google_task_id:'g-arch',project_id:'arch-1',status:'confirmed',task_completed:false}
   );
   state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
@@ -763,8 +788,9 @@ test('project list is one bordered two-line list with collapsible child rows and
   await expect(list).not.toContainText('2026-09-01');
   await expect(list.locator('[data-ps3-row="main-2"] .ps3-prow-meta')).toHaveText('할 일 0 · 자료 0');
   await expect(list.locator('[data-ps3-kids-toggle="main-2"]')).toHaveCount(0);
-  const countCall=state.restCalls.find(x=>x.name==='app_tasks'&&x.method==='GET');
+  const countCall=state.restCalls.find(x=>x.name==='app_record_links'&&x.method==='GET');
   expect(countCall).toBeTruthy();
+  expect(state.gtCalls).toEqual([]);
   const toggle=main.locator('[data-ps3-kids-toggle="main-1"]');
   const child=main.locator('[data-ps3-project="child-1"]');
   await expect(toggle).toContainText('하위 1');
@@ -950,8 +976,9 @@ test('V3 exposes project delete in final renderer',async({page})=>{
 });
 
 test('V3 includes legacy child work areas under a V3 parent without changing their IDs',async({page})=>{
-  const state=baseState();state.spaces.push({id:'legacy-child',workspace_id:'workspace-1',parent_id:'main-1',name:'국회토론회 준비',slug:'old-child',owner_id:'user-1',status:'active',visibility:'team',metadata:{legacy_snapshot:true}});
-  state.tasks.push({id:'legacy-task',project_id:'legacy-child',title:'발제 원고 취합',status:'todo'});
+  const state=baseState();state.sessionUser=true;state.spaces.push({id:'legacy-child',workspace_id:'workspace-1',parent_id:'main-1',name:'국회토론회 준비',slug:'old-child',owner_id:'user-1',status:'active',visibility:'team',metadata:{legacy_snapshot:true}});
+  state.gtasks.push({id:'legacy-g',title:'발제 원고 취합',status:'needsAction',due:null,taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'});
+  state.links.push({google_task_id:'legacy-g',project_id:'legacy-child',status:'confirmed',task_completed:false});
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3-children [data-ps3-project="legacy-child"]')).toBeVisible();
   await page.locator('#ps3-children [data-ps3-project="legacy-child"]').click();
@@ -1025,13 +1052,65 @@ test('V3 completion changes status without deleting the project',async({page})=>
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('active');
 });
 
-test('V3 project task opens the shared task editor with its note',async({page})=>{
-  const state=baseState();state.tasks.push({id:'task-1',workspace_id:'workspace-1',project_id:'child-1',title:'자료 정리',description:'초안 작성',note:'공유 전 확인',assignee_id:'user-1',created_by:'user-1',status:'todo',priority:'normal',source_type:'manual'});
+test('V3 project task section completes, edits and unlinks linked Google tasks',async({page})=>{
+  const state=baseState();state.sessionUser=true;
+  state.gtasks.push({id:'g1',title:'자료 정리',notes:'공유 전 확인',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'});
+  state.links.push({google_task_id:'g1',project_id:'child-1',status:'confirmed',task_completed:false});
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
-  await page.locator('[data-ps3-task="task-1"]').click();
-  await expect(page.locator('#taskModal')).toBeVisible();
-  await expect(page.locator('#taskTitle')).toHaveValue('자료 정리');
-  await expect(page.locator('#taskNote')).toHaveValue('공유 전 확인');
-  await page.locator('#taskModalToggle').click();
-  await expect.poll(()=>state.tasks.find(x=>x.id==='task-1')?.status).toBe('done');
+  const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
+  await expect(panel.locator('[data-google-task="g1"]')).toContainText('자료 정리');
+  await expect(page.locator('#ps3-tasks [data-ps3-task-count]')).toHaveText('1');
+  expect(state.gtCalls.filter(x=>x.action==='linked').map(x=>x.query.project_id)).toEqual(['child-1']);
+  await panel.locator('[data-gt-linked-toggle="g1"]').click();
+  await expect(panel.locator('[data-google-task="g1"]')).toHaveClass(/completed/);
+  await expect.poll(()=>state.gtCalls.find(x=>x.action==='toggle')?.body?.completed).toBe(true);
+  await expect(page.locator('#ps3-tasks [data-ps3-task-count]')).toHaveText('0');
+  await panel.locator('[data-gt-linked-edit="g1"]').click();
+  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await expect(page.locator('#gtEditTitle')).toHaveValue('자료 정리');
+  await expect(page.locator('#gtEditNotes')).toHaveValue('공유 전 확인');
+  await expect(page.locator('#gtEditLinkBody input[value="p:child-1"]')).toBeChecked();
+  await page.locator('#gtTaskModal [data-gt-close]').click();
+  await expect(page.locator('#gtTaskModal')).toBeHidden();
+  await panel.locator('[data-gt-linked-unlink="g1"]').click();
+  await expect.poll(()=>state.gtCalls.find(x=>x.action==='unlink')?.body).toEqual(expect.objectContaining({task_id:'g1',links:[{project_id:'child-1'}]}));
+  await expect(panel).toContainText('연결된 Google 할 일이 없습니다.');
+  expect(state.tasks).toEqual([]);
+});
+
+test('V3 project task section rolls back a failed completion',async({page})=>{
+  const state=baseState();state.sessionUser=true;state.gtToggleFail=true;
+  state.gtasks.push({id:'g1',title:'자료 정리',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'});
+  state.links.push({google_task_id:'g1',project_id:'child-1',status:'confirmed',task_completed:false});
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
+  const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
+  await panel.locator('[data-gt-linked-toggle="g1"]').click();
+  await expect(panel.locator('[data-gt-linked-msg]')).toContainText('완료를 저장하지 못해 되돌렸습니다');
+  await expect(panel.locator('[data-google-task="g1"]')).toHaveClass(/pending/);
+});
+
+test('V3 project links an existing unlinked Google task',async({page})=>{
+  const state=baseState();state.sessionUser=true;
+  state.gtasks.push(
+    {id:'g-free',title:'연결 안 된 할 일',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'},
+    {id:'g-other',title:'다른 프로젝트 할 일',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'}
+  );
+  state.links.push({google_task_id:'g-other',project_id:'main-1',status:'confirmed',task_completed:false});
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
+  const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
+  await expect(panel).toContainText('연결된 Google 할 일이 없습니다.');
+  await page.locator('[data-ps3-gtask-link]').click();
+  const picker=page.locator('#gtPickModal');
+  await expect(picker).toBeVisible();
+  await expect(picker.locator('[data-gt-pick]')).toHaveCount(1);
+  await picker.locator('[data-gt-pick="g-free"]').click();
+  await expect.poll(()=>state.gtCalls.find(x=>x.action==='link')?.body).toEqual(expect.objectContaining({task_id:'g-free',links:[{project_id:'child-1'}]}));
+  await expect(picker.locator('[data-gt-pick="g-free"]')).toHaveText('연결됨');
+  await expect(panel).toContainText('연결 안 된 할 일');
+  await picker.locator('[data-gt-pick-close]').click();
+  await expect(picker).toBeHidden();
+  for(const width of [360,1280]){
+    await page.setViewportSize({width,height:800});
+    await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+  }
 });

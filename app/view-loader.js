@@ -22,8 +22,8 @@ function style(path){
 }
 const routeStyles={
   calendar:['./calendar-ui.css?v=8'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=7'],
-  projects:['./project-system-v3.css?v=15','./forum-flow-polish.css?v=1'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=8'],
+  projects:['./project-system-v3.css?v=15','./forum-flow-polish.css?v=1','./google-tasks.css?v=8'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
   meetings:['./meeting-ui.css?v=10'],
   media:['./web1-press.css?v=1'],
@@ -68,7 +68,8 @@ async function calendar(){
 async function tasks(){
   await module('./task-row-view.js?v=1');
   await module('./task-layout.js?v=13','__KPTU_TASK_LAYOUT_READY__');
-  await module('./google-tasks.js?v=12');
+  await module('./project-catalog.js?v=1');
+  await module('./google-tasks.js?v=13');
   return {ok:true}
 }
 async function projects(){
@@ -77,7 +78,9 @@ async function projects(){
     module('./due-date-calendar.js?v=1')
   ]);
   await module('./project-catalog.js?v=1');
-  await module('./project-system-v3.js?v=25','__KPTU_PROJECT_V3_READY__');
+  // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
+  await module('./google-tasks.js?v=13');
+  await module('./project-system-v3.js?v=26','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){

@@ -8,9 +8,9 @@
 .gt-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--kptu-space-2);align-items:center;border-top:1px solid var(--kptu-border);padding:var(--kptu-space-2) 3px;min-height:48px}
 .gt-row.pending .gt-main b{font-weight:750}.gt-row.completed{opacity:.5}.gt-row.completed .gt-main b{text-decoration:line-through;font-weight:600}
 /* The check is drawn in CSS, centred in the circle; pending and completed share one size and position. */
-#gtTaskSection .gt-check{position:relative;box-sizing:border-box;flex:none;width:22px;height:22px;min-width:22px;min-height:22px;padding:0;margin:0;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);font-size:0;line-height:0;cursor:pointer}
-#gtTaskSection .gt-row.completed .gt-check{background:var(--kptu-success)}
-#gtTaskSection .gt-row.completed .gt-check::after,#gtTaskSection .gt-row.gt-anim-off .gt-check::after{content:'';position:absolute;left:50%;top:50%;box-sizing:border-box;width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:translate(-50%,-62%) rotate(45deg)}
+:is(#gtTaskSection,.gt-linked) .gt-check{position:relative;box-sizing:border-box;flex:none;width:22px;height:22px;min-width:22px;min-height:22px;padding:0;margin:0;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);font-size:0;line-height:0;cursor:pointer}
+:is(#gtTaskSection,.gt-linked) .gt-row.completed .gt-check{background:var(--kptu-success)}
+:is(#gtTaskSection,.gt-linked) .gt-row.completed .gt-check::after,#gtTaskSection .gt-row.gt-anim-off .gt-check::after{content:'';position:absolute;left:50%;top:50%;box-sizing:border-box;width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:translate(-50%,-62%) rotate(45deg)}
 /* Tap effect (PR 1-보완): the circle fills and the check draws (short leg, then long leg), the title is struck, then the row fades
    before it moves; gt-anim-off plays the same in reverse. --gt-t is a negative delay set by google-tasks.js so a re-render continues
    an effect instead of restarting it. Timings match SETTLE_MS and ARRIVE_MS there. */
@@ -35,4 +35,22 @@
 .gt-overdue{border-bottom:2px solid var(--kptu-border-strong)}.gt-overdue+.gt-row{border-top:0}.gt-row.overdue .gt-due{color:var(--kptu-danger);font-weight:700}
 .gt-connect{margin-top:var(--kptu-space-2)}.gt-status{padding:var(--kptu-space-3) 3px;color:var(--kptu-muted);font-size:11px}.gt-reconnect{border-color:var(--kptu-border-strong);color:var(--kptu-success)}.gt-refresh{font-size:10px}
 .gt-modal-actions{display:flex;justify-content:flex-end;gap:8px;align-items:center}.gt-modal-actions .tl-danger{margin-right:auto}
+/* TASK-구현 PR 4: list scope note, link choices in the editor, unlinked section, project-linked rows and the link picker. */
+.gt-scope-note{margin:var(--kptu-space-1) 0 0;font-size:11px;line-height:1.45;color:var(--kptu-muted)}
+.gt-muted{color:var(--kptu-muted);font-size:11px}.gt-error{color:var(--kptu-danger)}
+.gt-links{min-width:0;margin:var(--kptu-space-2) 0;padding:var(--kptu-space-2);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
+.gt-links legend{padding:0 4px;font-size:12px;font-weight:700}.gt-links legend small{font-weight:500;color:var(--kptu-muted)}
+.gt-link-body{display:grid;gap:var(--kptu-space-2);max-height:min(240px,40vh);overflow:auto}
+.gt-link-group{display:grid;gap:2px;min-width:0}.gt-link-group>b{font-size:11px;color:var(--kptu-muted)}
+.gt-links .gt-link-opt{display:flex;align-items:center;gap:8px;min-height:40px;margin:0;font-size:13px;font-weight:500;cursor:pointer}
+.gt-links .gt-link-opt input{flex:none;width:18px;height:18px;min-height:0;margin:0}
+.gt-link-opt span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt-unlinked{margin-top:var(--kptu-space-3);padding-top:var(--kptu-space-2);border-top:1px solid var(--kptu-border)}
+.gt-unlinked>summary{display:flex;align-items:center;gap:6px;min-height:40px;font-size:13px;font-weight:700;cursor:pointer}
+.gt-unlinked-count{color:var(--kptu-muted);font-weight:600}
+.gt-row.gt-side-row{grid-template-columns:minmax(0,1fr) auto}
+.gt-linked .gt-row.gt-side-row{grid-template-columns:auto minmax(0,1fr) auto}
+div.gt-main{cursor:default}
+.gt-linked-msg{padding:4px 3px;font-size:11px}.gt-linked-msg:empty{display:none}
+:is(#gtTaskModal,#gtPickModal):not(.hidden){z-index:60}
 @media(max-width:760px){.gt-head{align-items:flex-start}.gt-row{padding:7px 2px}.gt-main b{font-size:12.5px}.gt-note{display:none}.gt-actions{width:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.gt-actions .mini{width:100%;min-height:34px;padding-inline:8px}.gt-meta{gap:6px}.gt-meta span:last-child{max-width:42%}}
