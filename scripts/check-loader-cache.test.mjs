@@ -52,6 +52,19 @@ test('every remaining reference must change, including duplicate preloads', () =
   assert.equal(result.errors.length, 1);
   assert.match(result.errors[0], /app\/loader\.js.*app\/index\.html/);
 });
+test('moving a reference to a new loader cannot reuse an old cached URL', () => {
+  const base = { 'old.html': '<script src="./dep.js?v=1"></script>', 'dep.js': 'old();' };
+  const head = { 'new.html': '<script src="./dep.js?v=1"></script>', 'dep.js': 'newer();' };
+  assert.match(checkCacheVersions(base, head).errors[0], /dep\.js.*new\.html/);
+});
+test('bumping to a version already used by another page still fails', () => {
+  const base = {
+    'a.html': '<script src="./dep.js?v=1"></script>',
+    'b.html': '<script src="./dep.js?v=2"></script>',
+    'dep.js': 'old();',
+  };
+  assert.match(run({ 'dep.js': 'newer();', 'a.html': base['b.html'], 'b.html': '' }, base).errors[0], /dep\.js.*a\.html/);
+});
 test('Web1 root URLs and transitive script assignments are checked', () => {
   const base = {
     'index.html': '<script src="/work/assets/main.js?v=abc"></script>',

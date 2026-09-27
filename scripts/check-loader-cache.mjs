@@ -74,11 +74,13 @@ export function checkCacheVersions(base, head) {
   const before = graph(base), after = graph(head);
   const changed = new Set([...Object.keys(base), ...Object.keys(head)]
     .filter(file => normalized(base[file]) !== normalized(head[file])));
-  const oldVersions = new Map();
+  const oldVersions = new Map(), oldTargetVersions = new Map();
   for (const edge of before.edges) {
     const key = `${edge.parent}\0${edge.target}`;
     if (!oldVersions.has(key)) oldVersions.set(key, new Set());
     oldVersions.get(key).add(edge.version);
+    if (!oldTargetVersions.has(edge.target)) oldTargetVersions.set(edge.target, new Set());
+    oldTargetVersions.get(edge.target).add(edge.version);
   }
   const errors = new Set();
   for (const edge of after.edges) {
@@ -88,9 +90,10 @@ export function checkCacheVersions(base, head) {
       continue;
     }
     const previous = oldVersions.get(`${edge.parent}\0${edge.target}`);
-    // A new URL has no old cached bytes. Existing unversioned URLs have no v policy.
-    if (!previous || (edge.version === null && [...previous].every(v => v === null))) continue;
-    if (!edge.version || previous.has(edge.version)) {
+    // A moved reference can still hit the same old URL in the browser cache.
+    // Existing unversioned URLs have no v policy unless this pair removed v.
+    if (edge.version === null && (!previous || [...previous].every(v => v === null))) continue;
+    if (!edge.version || oldTargetVersions.get(edge.target)?.has(edge.version)) {
       errors.add(`${edge.target} 파일을 고쳤지만 ${edge.parent}의 ${edge.raw} 캐시 버전이 갱신되지 않았습니다. 이 파일을 불러오는 모든 곳의 ?v= 값을 새 값으로 바꾸고 상위 로더 버전도 올려 주세요.`);
     }
   }
