@@ -24,12 +24,12 @@ async function mockBase(page){
 }
 
 // Google state lives in `google`; overview answers from it unless a test holds or overrides the answer.
-async function openTasks(browser,{onToggle,onOverview}={}){
-  const context=await browser.newContext({timezoneId:'Asia/Seoul'});
+async function openTasks(browser,{onToggle,onOverview,reducedMotion='no-preference',extra={}}={}){
+  const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(NOW));
   await mockBase(page);
-  const google={a:gt('a','2026-09-27T00:00:00.000Z'),b:gt('b','2026-09-28T00:00:00.000Z')};
+  const google={a:gt('a','2026-09-27T00:00:00.000Z'),b:gt('b','2026-09-28T00:00:00.000Z'),...extra};
   const calls={overview:0,toggles:[]};
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const req=route.request(),action=new URL(req.url()).searchParams.get('action');
@@ -165,5 +165,108 @@ test('a list load that answers with the old state does not undo a tap made durin
   await expect.poll(()=>calls.overview).toBe(before+3);
   await expect(row(page,'a')).toHaveClass(/completed/);
   await expect(row(page,'b')).toHaveClass(/completed/);
+  await context.close();
+});
+
+// TASK-구현 PR 1-보완: the tapped row changes in place first (check drawn, title struck), then fades and moves.
+const order=page=>page.locator('#gtTaskBody .gt-row').evaluateAll(rs=>rs.map(r=>r.dataset.googleTask));
+const effectClasses=page=>page.locator('#gtTaskBody .gt-row').evaluateAll(rs=>rs.flatMap(r=>[...r.classList].filter(c=>/^gt-(settle|anim-)/.test(c))));
+
+test('completing shows the check and strike in place for a moment, then the row fades and moves to the completed part',async({browser})=>{
+  const hold=gate();
+  const {context,page,calls}=await openTasks(browser,{onToggle:async(route,b,google)=>{
+    await hold.wait;
+    google.a={...google.a,status:'completed',completed:NOW};
+    return ok(route,{ok:true,task:google.a});
+  }});
+  expect(await order(page)).toEqual(['a','b']);
+  const started=Date.now();
+  await row(page,'a').locator('[data-gt-toggle]').click();
+  // In place: circle filled, check drawn, title struck, still first. The save already started.
+  await expect(row(page,'a')).toHaveClass(/completed/);
+  await expect(row(page,'a')).toHaveClass(/gt-settle/);
+  await expect(row(page,'a')).toHaveClass(/gt-anim-on/);
+  expect(await order(page)).toEqual(['a','b']);
+  expect(calls.toggles).toHaveLength(1);
+  const look=await row(page,'a').evaluate(r=>({check:getComputedStyle(r.querySelector('.gt-check'),'::after').content,strike:getComputedStyle(r.querySelector('.gt-main b')).textDecorationLine,animations:r.getAnimations({subtree:true}).map(a=>a.animationName).sort()}));
+  expect(look.check).toBe('""');
+  expect(look.strike).toBe('line-through');
+  expect(look.animations).toEqual(expect.arrayContaining(['gt-draw','gt-fill','gt-settle','gt-strike']));
+  // Then it moves below the pending task, not before the effect has been shown.
+  await expect.poll(()=>order(page),{timeout:3000}).toEqual(['b','a']);
+  expect(Date.now()-started).toBeGreaterThanOrEqual(600);
+  await expect(row(page,'a')).not.toHaveClass(/gt-settle/);
+  await expect(row(page,'a')).toHaveClass(/completed/);
+  hold.open();
+  await expect.poll(()=>page.evaluate(()=>document.querySelector('#gtTaskSection [data-gt-sync]').textContent)).toBe('');
+  expect(await order(page)).toEqual(['b','a']);
+  expect(calls.toggles).toHaveLength(1);
+  await context.close();
+});
+
+test('a tap during the effect stops it and shows the new state at once',async({browser})=>{
+  const {context,page,calls}=await openTasks(browser);
+  const toggle=()=>row(page,'a').locator('[data-gt-toggle]').click();
+  await toggle();
+  await expect(row(page,'a')).toHaveClass(/gt-settle/);
+  await toggle();
+  await expect(row(page,'a')).toHaveClass(/pending/);
+  expect(await effectClasses(page)).toEqual([]);
+  expect(await order(page)).toEqual(['a','b']);
+  await page.waitForTimeout(1200);
+  expect(await order(page)).toEqual(['a','b']);
+  await expect(row(page,'a')).toHaveClass(/pending/);
+  expect(await effectClasses(page)).toEqual([]);
+  await expect.poll(()=>calls.toggles.map(x=>x.completed)).toEqual([true,false]);
+  await context.close();
+});
+
+test('a save that fails after the row moved shows the row going back to where it was',async({browser})=>{
+  const hold=gate();
+  const {context,page}=await openTasks(browser,{onToggle:async route=>{await hold.wait;return ok(route,{error:'Google 저장 실패'},500)}});
+  await row(page,'a').locator('[data-gt-toggle]').click();
+  await expect.poll(()=>order(page),{timeout:3000}).toEqual(['b','a']);
+  hold.open();
+  // Unchecked in the completed part first, then back to its place above b.
+  await expect(row(page,'a')).toHaveClass(/gt-anim-off/);
+  await expect(row(page,'a')).toHaveClass(/pending/);
+  expect(await order(page)).toEqual(['b','a']);
+  await expect.poll(()=>order(page),{timeout:3000}).toEqual(['a','b']);
+  await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('완료를 저장하지 못해 되돌렸습니다');
+  await expect(row(page,'a')).not.toHaveClass(/gt-settle/);
+  await context.close();
+});
+
+test('a save that fails during the effect unchecks the row in place',async({browser})=>{
+  const {context,page}=await openTasks(browser,{onToggle:route=>ok(route,{error:'Google 저장 실패'},500)});
+  await row(page,'a').locator('[data-gt-toggle]').click();
+  await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('완료를 저장하지 못해 되돌렸습니다');
+  await expect(row(page,'a')).toHaveClass(/pending/);
+  await page.waitForTimeout(1200);
+  expect(await order(page)).toEqual(['a','b']);
+  await expect(row(page,'a')).toHaveClass(/pending/);
+  await context.close();
+});
+
+test('reopening a task outside the shown dates plays the effect and then leaves the list',async({browser})=>{
+  const {context,page,calls}=await openTasks(browser,{extra:{c:gt('c','2026-10-20T00:00:00.000Z',{status:'completed',completed:NOW})}});
+  await expect(row(page,'c')).toHaveClass(/completed/);
+  await row(page,'c').locator('[data-gt-toggle]').click();
+  await expect(row(page,'c')).toHaveClass(/pending/);
+  await expect(row(page,'c')).toHaveClass(/gt-anim-off/);
+  await expect(row(page,'c')).toHaveClass(/gt-settle/);
+  expect(calls.toggles.map(x=>x.completed)).toEqual([false]);
+  await expect(row(page,'c')).toHaveCount(0,{timeout:3000});
+  expect(await order(page)).toEqual(['a','b']);
+  await context.close();
+});
+
+test('with reduced motion the row moves at once without the effect',async({browser})=>{
+  const {context,page}=await openTasks(browser,{reducedMotion:'reduce'});
+  await row(page,'a').locator('[data-gt-toggle]').click();
+  expect(await order(page)).toEqual(['b','a']);
+  await expect(row(page,'a')).toHaveClass(/completed/);
+  expect(await effectClasses(page)).toEqual([]);
+  expect(await row(page,'a').evaluate(r=>r.getAnimations({subtree:true}).length)).toBe(0);
   await context.close();
 });
