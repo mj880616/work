@@ -28,6 +28,8 @@
 
 기본 권한 때문에 계획 초안의 `revoke all ... from anon` + `grant ... to authenticated`만으로는 authenticated에 TRUNCATE·REFERENCES·TRIGGER가 남는다. 그래서 `public, anon, authenticated`에서 모두 걷어 낸 뒤 네 가지(select·insert·update·delete)만 다시 준다. 계획의 권한 목록과 같은 결과이고 권한을 넓히지 않는다. service_role은 다른 Web2 표와 같이 기본값을 그대로 둔다.
 
+`app_record_links` 쓰기 조건(with check)은 계획 원문 조건(소유자, 프로젝트·조직이 같은 workspace)에 하나를 더했다: 메모를 연결할 때 그 메모가 연결과 같은 workspace이고 그 소유자의 것이어야 한다. 기존 조건은 그대로다. 사후 확인 기대값(정책 수·제약·색인·권한)은 바뀌지 않는다.
+
 ## 3. 적용 순서
 
 1. PR 2를 main에 merge한다(적용 SQL은 main 파일 원문으로 실행한다. AGENTS.md 7절).
@@ -105,4 +107,4 @@ select to_regclass('public.app_notes') as notes,
 ## 5. 시험 결과
 
 - 로컬 PC(Windows ARM64)는 `embedded-postgres`가 지원하지 않아 실행하지 못했다. 같은 시험을 CI `auth-handoff-postgres`(ubuntu, PostgreSQL 17.6 임시 클러스터)에서 실행한다.
-- 시험 내용: 호스팅 기본 권한 재현 → 적용 → RLS·권한(anon·PUBLIC 없음, authenticated 네 가지만, TRUNCATE 거부) → 소유자 연결(할 일 하나를 프로젝트 2개·조직 1개에, 메모 연결) → 미완료 개수 조회 → 제약(출처·대상 1개, 목록·완료 사본 짝, status·report_kind 값, 중복, 메모 길이) → 비소유자·비로그인 읽기 0건·쓰기 거부 → 다른 workspace 프로젝트·조직 연결 거부 → 프로젝트·조직·메모 삭제 시 연결 삭제 → 되돌리기(두 표와 기록 1행만 삭제, 다른 기록 유지) → 재적용.
+- 시험 내용: 호스팅 기본 권한 재현 → 적용 → RLS·권한(anon·PUBLIC 없음, authenticated 네 가지만, TRUNCATE 거부) → 소유자 연결(할 일 하나를 프로젝트 2개·조직 1개에, 메모 연결) → 미완료 개수 조회 → 제약(출처·대상 1개, 목록·완료 사본 짝, status·report_kind 값, 중복, 메모 길이) → 비소유자·비로그인 읽기 0건·쓰기 거부 → 다른 workspace 프로젝트·조직 연결 거부 → 다른 workspace 메모 연결·기존 연결의 메모 바꿔치기 거부(같은 workspace 메모는 허용) → 프로젝트·조직·메모 삭제 시 연결 삭제 → 되돌리기(두 표와 기록 1행만 삭제, 다른 기록 유지) → 재적용.

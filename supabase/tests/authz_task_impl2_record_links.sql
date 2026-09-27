@@ -35,7 +35,9 @@ begin
   if not exists (select 1 from pg_policy where polrelid = 'public.app_record_links'::regclass
       and polname = 'record_links_owner_all'
       and pg_get_expr(polqual, polrelid) like '%app_is_workspace_owner(workspace_id)%'
-      and pg_get_expr(polwithcheck, polrelid) like '%app_space_in_workspace(project_id, workspace_id)%') then
+      and pg_get_expr(polwithcheck, polrelid) like '%app_space_in_workspace(project_id, workspace_id)%'
+      and pg_get_expr(polwithcheck, polrelid) like '%app_notes n%'
+      and pg_get_expr(polwithcheck, polrelid) like '%app_is_workspace_owner(n.workspace_id)%') then
     raise exception 'app_record_links owner policy missing';
   end if;
 end

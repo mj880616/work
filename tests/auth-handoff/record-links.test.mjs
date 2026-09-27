@@ -213,6 +213,29 @@ test('TASK-impl PR 2 notes/record links: grants, owner RLS, constraints, rollbac
       }
     });
 
+    await t.test('a note from another workspace cannot be linked', async () => {
+      const NOTE_B = '24000000-0000-4000-8000-000000000002';
+      const NOTE_A = '24000000-0000-4000-8000-000000000003';
+      await pool.query(`insert into public.app_notes(id, workspace_id, raw_text) values ('${NOTE_B}', '${WS_B}', 'x'), ('${NOTE_A}', '${WS_A}', 'x')`);
+      try {
+        // Owner of A links B's note under A's workspace and A's project/organization.
+        await assert.rejects(as('authenticated', OWNER, link('note_id, project_id', `'${NOTE_B}', '${PROJECT_A}'`)), { code: '42501' });
+        await assert.rejects(as('authenticated', OWNER, link('note_id, organization_id', `'${NOTE_B}', '${ORG_A}'`)), { code: '42501' });
+        // Owner of B links A's note under B's workspace and B's project.
+        await assert.rejects(as('authenticated', STRANGER, `insert into public.app_record_links(workspace_id, note_id, project_id)
+          values ('${WS_B}', '${NOTE_A}', '${PROJECT_B}')`), { code: '42501' });
+        // Moving an existing A link onto B's note is rejected as well.
+        await assert.rejects(asOwner(async c => {
+          await c.query(link('note_id, project_id', `'${NOTE_A}', '${PROJECT_A}'`));
+          await c.query(`update public.app_record_links set note_id = '${NOTE_B}' where note_id = '${NOTE_A}'`);
+        }), { code: '42501' });
+        // Same-workspace note still links.
+        assert.equal((await as('authenticated', OWNER, link('note_id, project_id', `'${NOTE_A}', '${PROJECT_A}'`))).rowCount, 1);
+      } finally {
+        await pool.query('delete from public.app_record_links; delete from public.app_notes');
+      }
+    });
+
     await t.test('deleting a project, organization or note removes its links', async () => {
       const client = await pool.connect();
       try {
