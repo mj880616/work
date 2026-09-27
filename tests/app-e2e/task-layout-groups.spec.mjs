@@ -194,6 +194,7 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   const team=readFileSync(new URL('../../app/team.js',import.meta.url),'utf8');
   const index=readFileSync(new URL('../../app/index.html',import.meta.url),'utf8');
   const loader=readFileSync(new URL('../../app/loader-v2.js',import.meta.url),'utf8');
+  const views=readFileSync(new URL('../../app/view-loader.js',import.meta.url),'utf8');
   const app=readFileSync(new URL('../../app/app.js',import.meta.url),'utf8');
   const layout=readFileSync(new URL('../../app/task-layout.js',import.meta.url),'utf8');
   const workflow=readFileSync(new URL('../../app/task-workflow.js',import.meta.url),'utf8');
@@ -215,12 +216,15 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   expect(workflow).not.toContain('meeting-action-assignee');
   expect(meeting).not.toContain('mrdTaskAssignee');
   expect(meeting).toContain("assignee_id=eq.'+encodeURIComponent(mrdUser.id)");
+  expect(views).not.toContain("module('./task-layout.js");
+  expect(views).toContain("module('./task-workflow.js?v=9'");
+  expect(views).toContain("module('./meeting-round-detail.js?v=14'");
   // TASK-구현 PR 4: the project screen shows linked Google tasks and counts them from app_record_links, not app_tasks.
   expect(project).not.toContain('/rest/v1/app_tasks?project_id=${');
   expect(project).toContain('/rest/v1/app_record_links?project_id=');
   expect(index).not.toContain('rel="modulepreload" href="./team.js');
-  expect(index).toContain('./loader-v2.js?v=246');
-  expect(index).toContain('./app.js?v=134');
+  expect(index).toContain('./loader-v2.js?v=248');
+  expect(index).toContain('./app.js?v=136');
   expect(loader).toContain("import('./team.js?v=52')");
-  expect(app).toContain("import('./loader-v2.js?v=246')");
+  expect(app).toContain("import('./loader-v2.js?v=248')");
 });

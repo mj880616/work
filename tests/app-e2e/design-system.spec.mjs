@@ -10,7 +10,7 @@ async function mockApp(page){
     const url=new URL(route.request().url());
     const path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'design-access',refresh_token:'design-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'design-access',refresh_token:'design-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
@@ -83,7 +83,7 @@ test('Design System 1.0 keeps the top-level action contract with a compact calen
 
   await page.locator('[data-view="tasks"]').first().click();
   await page.locator('#newTaskBtn').click();
-  const modal=page.locator('#taskModal .modal-card');
+  const modal=page.locator('#gtTaskModal .modal-card');
   await expect(modal).toBeVisible();
   expect(await modal.evaluate(el=>getComputedStyle(el).borderRadius)).toBe('12px');
 });

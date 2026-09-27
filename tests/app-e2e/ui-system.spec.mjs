@@ -4,7 +4,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'ui-system-user',email:'ui-system@example.org',user_metadata:{display_name:'UI QA'}};
 const workspace={id:'ui-system-workspace',slug:'ui-system',name:'웹2'};
-const tasks=Array.from({length:24},(_,i)=>({id:`ui-task-${i+1}`,workspace_id:workspace.id,title:`UI 점검 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`2026-09-${String(15+(i%10)).padStart(2,'0')}T09:00:00Z`,created_at:'2026-09-14T00:00:00Z'}));
+const tasks=Array.from({length:24},(_,i)=>({id:`ui-task-${i+1}`,title:`UI 점검 할 일 ${i+1}`,taskListId:'@default',taskListTitle:'내 할 일',status:'needsAction',due:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10)+'T00:00:00.000Z'}));
 
 async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
@@ -12,17 +12,17 @@ async function mockApp(page){
     const url=new URL(req.url());
     const path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'ui-access',refresh_token:'ui-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'ui-access',refresh_token:'ui-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
+    if(path==='/functions/v1/google-tasks')return ok({connected:true,authorized:true,tasks});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email}]);
     if(path==='/rest/v1/app_workspaces')return ok([workspace]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'UI QA'}]);
-    if(path==='/rest/v1/app_tasks')return ok(tasks);
     if(path==='/rest/v1/app_spaces')return ok([]);
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});
@@ -67,15 +67,15 @@ test('calendar uses a smaller add control while other top-level actions stay con
   for(const height of heights)expect(height).toBeCloseTo(36,0);
 
   await page.locator('[data-view="tasks"]').first().click();
-  const rows=page.locator('#taskList .tl-task-row');
+  const rows=page.locator('#gtTaskBody .gt-row');
   await expect(rows).toHaveCount(24,{timeout:10000});
   await page.evaluate(()=>{
-    const items=document.querySelectorAll('#taskList .tl-task-row');
+    const items=document.querySelectorAll('#gtTaskBody .gt-row');
     items[items.length-1]?.scrollIntoView({block:'end'});
   });
   await page.waitForTimeout(80);
   const clearance=await page.evaluate(()=>{
-    const items=document.querySelectorAll('#taskList .tl-task-row');
+    const items=document.querySelectorAll('#gtTaskBody .gt-row');
     const item=items[items.length-1]?.getBoundingClientRect();
     return item?{itemBottom:item.bottom,viewportBottom:innerHeight,scrollY:window.scrollY,docHeight:document.documentElement.scrollHeight}:null;
   });
