@@ -194,7 +194,8 @@ jobs:
           grep -q "function projectOptions(selected='')" app/task-layout.js
           grep -q "metadata?.project_system==='v2'" app/task-layout.js
           grep -q "window.KPTUTaskLayout={openTask,openCreate}" app/task-layout.js
-          grep -q "KPTUTaskLayout?.openCreate" app/project-system-v3.js
+          # Project task add creates a Google task linked to the project (TASK-구현 PR 4).
+          grep -q "g.openEditor(null,{links:\[{project_id:current.id}\]})" app/project-system-v3.js
           if grep -q "할 일은 하위 프로젝트에 연결됩니다" app/project-system-v3.js; then echo 'top-level project task guard returned'; exit 1; fi
           grep -q "data-mrd-meeting" app/team.js
           grep -q "/functions/v1/meeting-files" app/team.js
