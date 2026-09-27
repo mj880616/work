@@ -3,20 +3,13 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tokenizer } from 'acorn';
 
 const sourceFile = /\.(?:html|js|mjs|css)$/i;
 const textFile = /\.(?:html|js|mjs|css|json|svg|md|ya?ml)$/i;
 // These directories contain tooling/fixtures, not deployed page entry points.
 const nonEntry = /^(?:tests|docs|scripts|node_modules|android|windows|supabase|cloudflare|\.github)\/|^app\/legacy\//;
 const normalized = value => typeof value === 'string' ? value.replace(/\r\n/g, '\n') : value;
-
-// Keep strings intact while discarding comments (including commented-out imports).
-// This is a static literal reader, not a JavaScript evaluator. See docs for limits.
-function withoutComments(source, html = false) {
-  if (html) source = source.replace(/<!--[\s\S]*?-->/g, '');
-  return source.replace(/"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|`(?:\\[\s\S]|[^`\\])*`|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/g,
-    token => token.startsWith('/') ? '' : token);
-}
 
 function localReference(raw, parent) {
   raw = raw.replaceAll('&amp;', '&');
@@ -32,9 +25,9 @@ function localReference(raw, parent) {
 
 function references(parent, source) {
   if (!sourceFile.test(parent)) return [];
-  const clean = withoutComments(source, parent.endsWith('.html'));
   const values = [];
   if (parent.endsWith('.html')) {
+    const clean = source.replace(/<!--[\s\S]*?-->/g, '');
     // Resource tags only: normal page links are not cache dependencies.
     for (const tag of clean.matchAll(/<(?:script|link|img|source)\b[^>]*>/gi)) {
       for (const attr of tag[0].matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)) values.push(attr[1]);
@@ -42,21 +35,22 @@ function references(parent, source) {
     for (const script of clean.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
       values.push(...literalValues(script[1]));
     }
+  } else if (parent.endsWith('.css')) {
+    const clean = source.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const url of clean.matchAll(/url\(\s*["']?([^\s'"()]+)["']?\s*\)|@import\s+["']([^"']+)["']/gi)) values.push(url[1] || url[2]);
   } else {
-    values.push(...literalValues(clean));
-    if (parent.endsWith('.css')) {
-      for (const url of clean.matchAll(/url\(\s*([^\s'"()]+)\s*\)/gi)) values.push(url[1]);
-    }
+    values.push(...literalValues(source));
   }
   return values.map(raw => localReference(raw, parent)).filter(Boolean);
 }
 
 function literalValues(source) {
   const values = [];
-  for (const match of source.matchAll(/(["'`])((?:\\[\s\S]|(?!\1)[^\\])*)\1/g)) {
-    values.push(match[2]);
+  for (const token of tokenizer(source, { ecmaVersion: 'latest', sourceType: 'module' })) {
+    if (!['string', 'template'].includes(token.type.label)) continue;
+    values.push(token.value);
     // Resource tags assembled inside HTML template strings.
-    for (const attr of match[2].matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)) values.push(attr[1]);
+    for (const attr of token.value.matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)) values.push(attr[1]);
   }
   return values;
 }

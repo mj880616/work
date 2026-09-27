@@ -73,6 +73,18 @@ test('CSS imports in login styles are checked through their parent', () => {
   };
   assert.match(run({ 'app/tasks.css': 'body{color:red}' }, base).errors[0], /app\/tasks\.css.*app\/styles\.css/);
 });
+test('Web1 regex quotes do not hide subsequent script loads', () => {
+  // Reduced from assets/press-0914-tools.js escapeHtml + dynamic script load.
+  const base = {
+    'index.html': '<script src="/work/assets/tools.js?v=1"></script>',
+    'assets/tools.js': `const escapeHtml=s=>s.replace(/[&<>"']/g,c=>c);
+      s.src='/work/assets/file-dropzone.js?v=20260914-3';`,
+    'assets/file-dropzone.js': 'old();',
+  };
+  const result = run({ 'assets/file-dropzone.js': 'newer();' }, base);
+  assert.equal(result.errors.length, 1);
+  assert.match(result.errors[0], /assets\/file-dropzone\.js.*assets\/tools\.js/);
+});
 test('comments and external URL lookalikes do not activate local files', () => {
   const base = { ...baseline, 'app/views.js': `// import('./inactive.js?v=1');
     /* import('./inactive.js?v=2') */

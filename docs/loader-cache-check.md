@@ -18,6 +18,7 @@
 ## 실행
 
 ```sh
+npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
 node --test scripts/check-loader-cache.test.mjs
 node scripts/check-loader-cache.mjs --base origin/main
 node scripts/check-loader-cache.mjs --base <merge-base-SHA> --head <PR-head-SHA>
@@ -25,12 +26,12 @@ node scripts/check-loader-cache.mjs --base <merge-base-SHA> --head <PR-head-SHA>
 
 `--head` 생략 시 작업 폴더(미커밋 파일 포함)를 검사한다. 종료 코드: 통과 0, 누락 1, 잘못된 SHA·실행 오류 2. Windows CRLF 차이만으로 텍스트 파일이 바뀌었다고 판단하지 않는다.
 
-CI는 모든 main 대상 PR에서 실행한다(경로 필터 없음). `contents: read`, checkout 인증정보 보관 안 함, 비밀값·외부 패키지 설치 없음. PR 제목이나 브랜치명을 셸 코드로 삽입하지 않고 SHA를 환경변수로 받는다.
+CI는 모든 main 대상 PR에서 실행한다(경로 필터 없음). `contents: read`, checkout 인증정보 보관 안 함, 비밀값 없음. JS 문자열은 Acorn 토큰 분석기로 읽어 정규식·주석·템플릿을 구분한다. 검사 전용 의존성은 `scripts/package-lock.json`에 고정하고 설치 스크립트를 비활성화한다. 운영 앱 의존성은 바뀌지 않는다. PR 제목이나 브랜치명을 셸 코드로 삽입하지 않고 SHA를 환경변수로 받는다.
 
 ## 한계와 후속 점검
 
 - 정적 문자열 검사이며 브라우저 실행 분석기가 아니다. 실행 조건이 꺼진 분기라도 도달 가능한 파일 안에 경로 문자열이 있으면 보수적으로 포함하므로 과검사할 수 있다. 주석은 제외한다.
-- 변수 조합·보간으로 만드는 파일명/버전, 복잡한 JavaScript 문법, `<base>`로 상대경로를 바꾸는 새 로더 구조는 자동 추론하지 않는다. 로더 표현 방식 변경 시 검사와 테스트도 함께 갱신해야 한다.
+- 변수 조합·보간으로 만드는 파일명/버전, `<base>`로 상대경로를 바꾸는 새 로더 구조는 자동 추론하지 않는다. 로더 표현 방식 변경 시 검사와 테스트도 함께 갱신해야 한다. JS 토큰 분석 오류는 검사 실패로 처리한다.
 - 외부 절대 URL, 서비스워커 내부 캐시, 기존부터 `?v=`가 없는 참조는 버전 갱신 검사의 범위 밖이다. 기존 서로 다른 버전을 일괄 통일하는 검사가 아니다. 새 `v`를 다른 과거 PR에서 사용한 적 있는지는 검사하지 않는다.
 - HTTP 캐시 헤더·실제 배포·로그인 사용자 동작은 검증하지 않는다. CI 통과가 배포 완료를 뜻하지 않는다.
 

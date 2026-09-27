@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install locked checker parser
+        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
       - name: Test cache checker
         run: node --test scripts/check-loader-cache.test.mjs
       - name: Check PR loader cache versions
