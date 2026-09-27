@@ -66,7 +66,7 @@ test('Google Tasks shows pending first and only completions from the last three 
   await expect(page.locator('[data-gt-show-completed]')).toHaveCount(0);
   expect(Number(await rows.nth(1).evaluate(el=>getComputedStyle(el).opacity))).toBeLessThan(0.7);
   const edge=readFileSync('supabase/functions/google-tasks/index.ts','utf8');
-  expect(edge).toContain("completedMin:new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
+  expect(edge).toContain("completedMin=new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
 });
 
 test('Google Tasks shows only local today through +6 days across a year boundary',async({browser})=>{

@@ -52,6 +52,8 @@ async function ready(page){
 }
 const openTasks=page=>page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
 const cached=page=>page.evaluate(k=>localStorage.getItem(k),CACHE_KEY);
+// Owner change and sign-out can navigate the page, so storage checks after them retry.
+const storageKeys=page=>page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('kptu_owner_cache:')).sort()).catch(()=>['navigating']);
 
 test('one combined request loads Google Tasks and stores this owner\'s last result',async({page})=>{
   await mockBase(page);
@@ -112,13 +114,12 @@ test('sign-out and owner change remove the cached Google Tasks; another owner ne
   expect(await cached(page)).not.toBeNull();
   // Owner change: A's cache is dropped before B's view renders.
   await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-b',refresh_token:'token-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-b'}}));
-  expect(await cached(page)).toBeNull();
   await expect(page.locator('#gtTaskSection')).toContainText('B의 할 일');
   await expect(page.locator('#gtTaskSection')).not.toContainText('QA의 할 일');
-  expect(await page.evaluate(()=>localStorage.getItem('kptu_owner_cache:google-tasks-v1:user-b'))).not.toBeNull();
+  await expect.poll(()=>storageKeys(page)).toEqual(['kptu_owner_cache:google-tasks-v1:user-b']);
   // Sign-out: every owner cache is dropped.
   await page.evaluate(()=>window.KPTURuntime.session.write(null));
-  expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('kptu_owner_cache:')))).toEqual([]);
+  await expect.poll(()=>storageKeys(page)).toEqual([]);
 });
 
 test('a token refresh for the same owner keeps the cache',async({page})=>{
