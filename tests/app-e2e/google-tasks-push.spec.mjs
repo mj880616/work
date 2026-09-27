@@ -123,9 +123,11 @@ test('Google Tasks can be created, edited, completed, reopened and deleted',asyn
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const req=route.request(),u=new URL(req.url()),action=u.searchParams.get('action'),body=req.method()==='GET'?{}:JSON.parse(req.postData()||'{}');
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
+    const listed=[{id:'g1',title:'Google QA 할 일',taskListId:'l1',taskListTitle:'업무',due:googleDue(0),notes:'메모',status:'needsAction',source:'google-task'}];
     if(action==='status')return ok({connected:true,authorized:true});
     if(action==='lists')return ok({lists:[{id:'l1',title:'업무'}]});
-    if(action==='tasks')return ok({tasks:[{id:'g1',title:'Google QA 할 일',taskListId:'l1',taskListTitle:'업무',due:googleDue(0),notes:'메모',status:'needsAction',source:'google-task'}],needs_reconnect:false});
+    if(action==='overview')return ok({connected:true,authorized:true,needs_reconnect:false,tasks:listed});
+    if(action==='tasks')return ok({tasks:listed,needs_reconnect:false});
     calls.push({action,body});return ok({ok:true});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));

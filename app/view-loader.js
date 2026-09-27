@@ -68,7 +68,7 @@ async function calendar(){
 async function tasks(){
   await module('./task-row-view.js?v=1');
   await module('./task-layout.js?v=13','__KPTU_TASK_LAYOUT_READY__');
-  await module('./google-tasks.js?v=7');
+  await module('./google-tasks.js?v=8');
   return {ok:true}
 }
 async function projects(){
