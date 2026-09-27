@@ -9,7 +9,6 @@ on:
       - 'app/workplace-detail.js'
       - 'app/workplace-detail.css'
       - 'app/workplace-ai-report.js'
-      - 'app/profile-workplace-sync.js'
       - 'app/loader-v2.js'
       - 'app/view-loader.js'
       - 'app/styles.css'
@@ -26,7 +25,6 @@ on:
       - 'app/workplace-detail.js'
       - 'app/workplace-detail.css'
       - 'app/workplace-ai-report.js'
-      - 'app/profile-workplace-sync.js'
       - 'app/loader-v2.js'
       - 'app/view-loader.js'
       - 'app/styles.css'
@@ -68,7 +66,7 @@ jobs:
           if grep -Eq "wdUpdateCurrent|wdAddItem" app/workplace-detail.js; then echo 'removed current-status/memo input returned'; exit 1; fi
           grep -q "id=\"wdBasicView\"" app/workplace-detail.js
           if grep -q "wdDeleteOrg" app/workplace-detail.js; then echo 'organization delete returned to normal detail'; exit 1; fi
-          if grep -q "MutationObserver" app/suborganizations.js app/workplace-detail.js app/profile-workplace-sync.js; then
+          if grep -q "MutationObserver" app/suborganizations.js app/workplace-detail.js; then
             echo 'assigned organization UI returned to DOM mutation polling'; exit 1
           fi
           if grep -Eq "localStorage|SO_SESSION|kptu_collab_session_v1" app/suborganizations.js app/workplace-detail.js; then
