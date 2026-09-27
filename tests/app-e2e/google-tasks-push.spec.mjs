@@ -87,7 +87,7 @@ test('Google Tasks shows pending first and only completions from the last three 
   expect(edge).toContain("completedMin=new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
 });
 
-test('Google Tasks shows overdue first, then Korean today through +6 days, across a year boundary',async({browser})=>{
+test('Google Tasks shows overdue first, then Korean today through +6 days, then recent completions whatever their due date, across a year boundary',async({browser})=>{
   // 2026-12-31 23:30 in Korea.
   const r=await renderedRows(browser,{timezoneId:'Asia/Seoul',now:'2026-12-31T14:30:00.000Z',tasks:[
     gt('yesterday','2026-12-30T00:00:00.000Z'),
@@ -97,14 +97,19 @@ test('Google Tasks shows overdue first, then Korean today through +6 days, acros
     gt('tomorrow','2027-01-01T00:00:00.000Z'),
     gt('plus7','2027-01-07T00:00:00.000Z'),
     gt('no-due',null),
+    // Completed in the last 3 days: shown in the completed part whatever the due date (2026-09-27 decision), newest completion first.
     gt('recent-done-in','2027-01-01T00:00:00.000Z',{status:'completed',completed:'2026-12-31T13:30:00.000Z'}),
-    gt('recent-done-out','2027-01-07T00:00:00.000Z',{status:'completed',completed:'2026-12-31T13:30:00.000Z'}),
-    gt('recent-done-overdue','2026-12-30T00:00:00.000Z',{status:'completed',completed:'2026-12-31T13:30:00.000Z'})
+    gt('recent-done-out','2027-01-07T00:00:00.000Z',{status:'completed',completed:'2026-12-31T12:30:00.000Z'}),
+    gt('recent-done-overdue','2026-12-01T00:00:00.000Z',{status:'completed',completed:'2026-12-31T11:30:00.000Z'}),
+    gt('recent-done-undated',null,{status:'completed',completed:'2026-12-29T15:00:00.000Z'}),
+    // Completed more than 3 days ago: hidden even with a due date inside the window.
+    gt('old-done-overdue','2026-12-20T00:00:00.000Z',{status:'completed',completed:'2026-12-28T14:00:00.000Z'}),
+    gt('old-done-in','2027-01-01T00:00:00.000Z',{status:'completed',completed:'2026-12-27T14:30:00.000Z'})
   ]});
   expect(r.head).toEqual(['기한 지남 2']);
   expect(r.overdue).toEqual(['minus30','yesterday']);
   expect(r.overdueClass).toEqual(['minus30','yesterday']);
-  expect(r.rest).toEqual(['today','tomorrow','plus6','recent-done-in']);
+  expect(r.rest).toEqual(['today','tomorrow','plus6','recent-done-in','recent-done-out','recent-done-overdue','recent-done-undated']);
 });
 
 test('Google Tasks moves the overdue line at Korean midnight whatever the device time zone',async({browser})=>{
@@ -118,6 +123,38 @@ test('Google Tasks moves the overdue line at Korean midnight whatever the device
   expect(after.head).toEqual(['기한 지남 2']);
   expect(after.overdue).toEqual(['d-1','d0']);
   expect(after.rest).toEqual(['d6','d7']);
+});
+
+test('completing an overdue Google task moves it from the overdue group to the completed part',async({browser})=>{
+  const context=await browser.newContext({timezoneId:'Asia/Seoul'});
+  const page=await context.newPage();
+  await page.clock.setFixedTime(new Date('2026-09-27T03:00:00.000Z'));
+  await mock(page);
+  const task=gt('late','2026-09-20T00:00:00.000Z',{title:'밀린 할 일'});
+  const toggles=[];
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const req=route.request(),action=new URL(req.url()).searchParams.get('action');
+    if(action==='toggle'){const b=JSON.parse(req.postData()||'{}');toggles.push(b);Object.assign(task,b.completed?{status:'completed',completed:'2026-09-27T03:00:00.000Z'}:{status:'needsAction',completed:null});return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task})});}
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,needs_reconnect:false,tasks:[task,gt('today','2026-09-27T00:00:00.000Z')]})});
+  });
+  await login(page);
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('#gtOverdueHead')).toHaveText('기한 지남 1');
+  // The check is drawn in CSS inside the circle: no glyph that can spill out, same circle for pending and completed.
+  const check=id=>page.locator(`[data-gt-toggle="${id}"]`).evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {w:r.width,h:r.height,text:el.textContent,after:a.content,left:a.left,top:a.top,pos:a.position,bg:getComputedStyle(el).backgroundColor}});
+  const pendingCheck=await check('late');
+  expect(pendingCheck).toMatchObject({w:22,h:22,text:'',after:'none'});
+  await page.locator('[data-gt-overdue] [data-gt-toggle="late"]').click();
+  await expect(page.locator('#gtOverdueHead')).toHaveCount(0);
+  const row=page.locator('#gtTaskBody > .gt-row.completed[data-google-task="late"]');
+  await expect(row).toBeVisible();
+  await expect(row).toContainText('밀린 할 일');
+  const doneCheck=await check('late');
+  // 22px circle with a 2px border: the check is anchored at 9px of the 18px inner box, i.e. the centre of the circle.
+  expect(doneCheck).toMatchObject({w:22,h:22,text:'',after:'""',left:'9px',top:'9px',pos:'absolute'});
+  expect(doneCheck.bg).not.toBe(pendingCheck.bg);
+  expect(toggles).toEqual([expect.objectContaining({action:'toggle',task_id:'late',completed:true})]);
+  await context.close();
 });
 
 test('Google Tasks without overdue items shows no overdue group',async({browser})=>{
