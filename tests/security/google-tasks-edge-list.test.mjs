@@ -10,7 +10,8 @@ import { stripTypeScriptTypes } from 'node:module';
 // Google does not document how dueMin/dueMax compare, so the mock can apply several readings (dueCompare) and the
 // due-window tests must hold under all of them (묶음C-3: a task due on the last day was dropped in production).
 // Regression for 묶음C-1 (pending tasks behind many completed ones), 묶음C-2 (due window, bounded parallel reads,
-// combined status+tasks request, count-only timing log) and 묶음C-4 (overdue pending tasks are kept). No network calls.
+// combined status+tasks request, count-only timing log), 묶음C-4 (overdue pending tasks are kept) and TASK-구현 PR 3
+// (only the default list is read, with no list lookup). No network calls.
 const SOURCE = stripTypeScriptTypes(
   readFileSync(new URL('../../supabase/functions/google-tasks/index.ts', import.meta.url), 'utf8')
     .replace(/^import .*$/gm, ''),
@@ -37,7 +38,7 @@ function json(data, status = 200) {
 }
 
 function harness(lists, { connection = 'ok', scope = 'openid https://www.googleapis.com/auth/tasks', delay = 0, now = NOW, dueCompare = 'exact' } = {}) {
-  const calls = [], logs = [];
+  const calls = [], logs = [], linkReads = [];
   let inFlight = 0, maxInFlight = 0, tokeninfo = 0;
   const admin = {
     auth: { getUser: async token => token === 'token-a' ? { data: { user: { id: 'user-a' } }, error: null } : { data: { user: null }, error: { message: 'invalid JWT' } } },
@@ -54,6 +55,14 @@ function harness(lists, { connection = 'ok', scope = 'openid https://www.googlea
       return b;
     }
   };
+  // Caller-JWT client for task links. It holds no links, so an overview only reads it.
+  const userDb = {
+    from: table => {
+      if (table !== 'app_record_links') throw new Error('unexpected user table ' + table);
+      const b = { select: () => b, in: (_, ids) => { linkReads.push(ids.length); return b; }, then: (ok, fail) => Promise.resolve({ data: [], error: null }).then(ok, fail) };
+      return b;
+    }
+  };
   const fetchMock = async url => {
     const u = new URL(String(url));
     if (u.hostname === 'oauth2.googleapis.com' && u.pathname === '/tokeninfo') { tokeninfo++; return json({ scope }); }
@@ -63,7 +72,8 @@ function harness(lists, { connection = 'ok', scope = 'openid https://www.googlea
       if (u.pathname === '/tasks/v1/users/@me/lists') return json({ items: lists.map(l => ({ id: l.id, title: l.title })) });
       const m = u.pathname.match(/^\/tasks\/v1\/lists\/([^/]+)\/tasks$/);
       if (!m) throw new Error('unexpected fetch ' + url);
-      const list = lists.find(l => l.id === decodeURIComponent(m[1]));
+      const listId = decodeURIComponent(m[1]);
+      const list = listId === '@default' ? lists[0] : lists.find(l => l.id === listId);
       const q = u.searchParams;
       calls.push({ list: list.id, showCompleted: q.get('showCompleted'), completedMin: q.get('completedMin'), dueMin: q.get('dueMin'), dueMax: q.get('dueMax'), pageToken: q.get('pageToken') });
       const completedMin = q.get('completedMin') ? Date.parse(q.get('completedMin')) : null;
@@ -84,7 +94,7 @@ function harness(lists, { connection = 'ok', scope = 'openid https://www.googlea
   };
   let handler = null;
   const Deno = {
-    env: { get: key => ({ SUPABASE_URL: 'https://sb.example', SUPABASE_SERVICE_ROLE_KEY: 'service' }[key]) },
+    env: { get: key => ({ SUPABASE_URL: 'https://sb.example', SUPABASE_SERVICE_ROLE_KEY: 'service', SUPABASE_ANON_KEY: 'anon' }[key]) },
     serve: fn => { handler = fn; }
   };
   class FakeDate extends Date {
@@ -92,8 +102,8 @@ function harness(lists, { connection = 'ok', scope = 'openid https://www.googlea
     static now() { return now; }
   }
   const consoleMock = { log: (...a) => logs.push(a.join(' ')), error: () => {}, warn: () => {} };
-  new Function('Deno', 'createClient', 'fetch', 'Date', 'console', SOURCE)(Deno, () => admin, fetchMock, FakeDate, consoleMock);
-  return { handler, calls, logs, get maxInFlight() { return maxInFlight; }, get tokeninfo() { return tokeninfo; } };
+  new Function('Deno', 'createClient', 'fetch', 'Date', 'console', SOURCE)(Deno, (_url, key) => key === 'service' ? admin : userDb, fetchMock, FakeDate, consoleMock);
+  return { handler, calls, logs, linkReads, get maxInFlight() { return maxInFlight; }, get tokeninfo() { return tokeninfo; } };
 }
 
 async function call(h, action = 'tasks') {
@@ -138,13 +148,15 @@ test('tasks: pending tasks spanning more than one page are all returned', async 
   assert.equal(h.calls.filter(c => !c.completedMin).length, 2, 'pending query read two pages');
 });
 
-test('tasks: every task list is still read and tagged with its list', async () => {
+test('tasks: only the default list is read, without a list lookup; other lists are ignored', async () => {
   const h = harness([
     { id: 'default', title: '내 할 일', tasks: [pending('a-1'), done('a-2', 1)] },
     { id: 'other', title: '다른 목록', tasks: [pending('b-1')] }
   ]);
   const { body } = await listTasks(h);
-  assert.deepEqual(body.tasks.map(t => [t.id, t.taskListId]).sort(), [['a-1', 'default'], ['a-2', 'default'], ['b-1', 'other']]);
+  assert.deepEqual(body.tasks.map(t => [t.id, t.taskListId, t.taskListTitle]).sort(), [['a-1', '@default', '내 할 일'], ['a-2', '@default', '내 할 일']]);
+  assert.ok(h.calls.every(c => c.list === 'default'), 'no other list is read');
+  assert.equal(h.calls.length, 2, 'one pending and one completed read');
   assert.equal(body.needs_reconnect, false);
 });
 
@@ -197,15 +209,12 @@ for (const dueCompare of Object.keys(DUE_COMPARE)) {
   });
 }
 
-test('tasks: list reads run in parallel with at most 4 Google requests in flight', async () => {
-  const lists = Array.from({ length: 5 }, (_, i) => ({ id: 'l' + i, title: 'list ' + i, tasks: [pending('p' + i, 1), done('d' + i, 1)] }));
-  const h = harness(lists, { delay: 20 });
+test('tasks: the pending and completed reads of the default list run in parallel', async () => {
+  const h = harness([{ id: 'default', title: '내 할 일', tasks: [pending('p', 1), done('d', 1)] }, { id: 'other', title: 'other', tasks: [pending('x', 1)] }], { delay: 20 });
   const { body } = await listTasks(h);
-  assert.equal(body.tasks.length, 10);
-  assert.equal(h.calls.length, 10, 'one pending and one completed read per list');
-  assert.ok(h.maxInFlight > 1, 'reads overlap');
-  assert.ok(h.maxInFlight <= 4, 'bounded parallelism');
-  assert.deepEqual(body.tasks.slice(0, 5).map(t => t.status), Array(5).fill('needsAction'));
+  assert.deepEqual(body.tasks.map(t => t.id), ['p', 'd']);
+  assert.equal(h.calls.length, 2);
+  assert.equal(h.maxInFlight, 2, 'reads overlap');
 });
 
 test('overview: one request returns connection state and tasks; timing log has counts only', async () => {
@@ -223,7 +232,8 @@ test('overview: one request returns connection state and tasks; timing log has c
   assert.equal(log.overdue, 0);
   assert.equal(log.action, 'overview');
   assert.equal(log.lists, 1);
-  assert.equal(log.google_requests, 4, 'lists + pending + completed + tokeninfo');
+  assert.equal(log.google_requests, 3, 'pending + completed + tokeninfo, no list lookup');
+  assert.deepEqual(h.linkReads, [2], 'returned tasks are checked against their links once');
   assert.doesNotMatch(h.logs[0], /secret|google-a|token-a|example\.test/);
 });
 
