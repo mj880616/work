@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
 
 // TASK-구현 PR 1: completing or reopening a Google task shows at once and saves in the background.
+// The device copy of the last result is checked in google-tasks-cache.spec.mjs.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const NOW='2026-09-27T03:00:00.000Z';
 const gt=(id,due,extra={})=>({id,title:id,taskListId:'l1',taskListTitle:'업무',due,status:'needsAction',completed:null,source:'google-task',...extra});
@@ -56,7 +57,6 @@ async function openTasks(browser,{onToggle,onOverview}={}){
 }
 
 const row=(page,id)=>page.locator(`#gtTaskBody .gt-row[data-google-task="${id}"]`);
-const cached=page=>page.evaluate(()=>{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k.includes('google-tasks-v2:'))return JSON.parse(localStorage.getItem(k)).tasks.map(t=>`${t.id}:${t.status}`)}return null});
 
 test('completing a Google task shows at once, saves in the background and does not reload the list',async({browser})=>{
   const hold=gate();
@@ -71,7 +71,6 @@ test('completing a Google task shows at once, saves in the background and does n
   await expect(row(page,'a')).toHaveClass(/completed/);
   await expect(row(page,'a').locator('[data-gt-toggle]')).toHaveAttribute('aria-label','완료 취소');
   expect(calls.toggles).toEqual([expect.objectContaining({action:'toggle',task_id:'a',task_list_id:'l1',completed:true})]);
-  expect(await cached(page)).toEqual(expect.arrayContaining(['a:completed','b:needsAction']));
   hold.open();
   await expect.poll(()=>page.evaluate(()=>document.querySelector('#gtTaskSection [data-gt-sync]').textContent)).toBe('');
   await page.waitForTimeout(300);
@@ -89,7 +88,6 @@ test('a failed save puts the task back and says so',async({browser})=>{
   await expect(sync).toHaveAttribute('role','status');
   await expect(row(page,'a')).toHaveClass(/pending/);
   await expect(row(page,'a')).not.toHaveClass(/completed/);
-  expect(await cached(page)).toEqual(expect.arrayContaining(['a:needsAction']));
   await context.close();
 });
 

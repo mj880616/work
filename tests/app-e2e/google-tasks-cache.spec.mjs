@@ -4,7 +4,8 @@ import { loginEntry } from './helpers/login-entry.mjs';
 // 묶음C-2: Google Tasks loads with one combined request, shows this device's last result first while a fresh copy
 // loads, keeps the last result when a refresh fails, drops the cache on sign-out or owner change, and still works
 // against the older google-tasks Edge that has no action=overview. 묶음C-4: the cache moved to v2 (results include
-// overdue tasks), so a v1 copy is ignored and removed.
+// overdue tasks), so a v1 copy is ignored and removed. TASK-구현 PR 1: a tap on complete updates the copy at once and a
+// failed save puts it back.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const CACHE_KEY='kptu_owner_cache:google-tasks-v2:qa-user',OLD_CACHE_KEY='kptu_owner_cache:google-tasks-v1:qa-user';
 // The app judges due dates in Korean time, so fixtures use the Korean date too.
@@ -185,4 +186,28 @@ test('older Edge reconnect states still show the reconnect action',async({page})
   await expect(page.locator('#gtTaskSection')).toContainText('Google Tasks 수정 권한이 없습니다');
   await expect(page.locator('[data-gt-connect]')).toHaveText('Google 할 일 권한 다시 연결');
   expect(await cached(page)).toBeNull();
+});
+
+test('completing a task updates the stored last result at once and a failed save puts it back',async({page})=>{
+  await mockBase(page);
+  let release=()=>{},fail=false;
+  await mockTasks(page,async action=>{
+    if(action==='overview')return {body:{connected:true,authorized:true,needs_reconnect:false,tasks:[task('t1','완료할 일')]}};
+    if(action!=='toggle')return {status:500,body:{error:'unexpected '+action}};
+    if(fail)return {status:500,body:{error:'Google 저장 실패'}};
+    await new Promise(r=>{release=r});
+    return {body:{ok:true,task:{...task('t1','완료할 일'),status:'completed',completed:new Date().toISOString()}}};
+  });
+  await login(page);await openTasks(page);
+  const statusOf=async()=>(JSON.parse(await cached(page))?.tasks||[]).map(t=>t.id+':'+t.status);
+  await expect.poll(statusOf).toEqual(['t1:needsAction']);
+  await page.locator('[data-gt-toggle="t1"]').click();
+  // Updated before Google answers.
+  await expect.poll(statusOf).toEqual(['t1:completed']);
+  release();
+  await expect.poll(statusOf).toEqual(['t1:completed']);
+  fail=true;
+  await page.locator('[data-gt-toggle="t1"]').click();
+  await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('완료 취소를 저장하지 못해 되돌렸습니다');
+  await expect.poll(statusOf).toEqual(['t1:completed']);
 });
