@@ -27,6 +27,13 @@
     try{return JSON.parse(localStorage.getItem(config.sessionKey)||'null')}catch{return null}
   }
   function sessionOwner(value=read()){return value?.user?.id||''}
+  // Per-owner display caches ("<prefix><name>:<owner id>") are dropped when the signed-in owner changes or signs out.
+  const OWNER_CACHE_PREFIX='kptu_owner_cache:';
+  function clearOwnerCaches(keepOwner=''){
+    try{
+      for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith(OWNER_CACHE_PREFIX)&&!(keepOwner&&k.endsWith(':'+keepOwner)))localStorage.removeItem(k)}
+    }catch{}
+  }
   function matchesSessionSnapshot(expected){
     const latest=read();
     return !!latest&&latest.access_token===expected?.access_token&&latest.refresh_token===expected?.refresh_token;
@@ -37,6 +44,7 @@
     if(value)localStorage.setItem(config.sessionKey,JSON.stringify(value));
     else localStorage.removeItem(config.sessionKey);
     if(beforeOwner!==afterOwner){
+      clearOwnerCaches(afterOwner);
       sessionEpoch+=1;
       getFlights.clear();
       bootContext=null;
@@ -226,6 +234,7 @@
     config,
     RuntimeError,
     session:{read,write,refresh,ensure,epoch:()=>sessionEpoch},
+    ownerCache:{prefix:OWNER_CACHE_PREFIX,clear:clearOwnerCaches},
     context:{read:contextRead,set:contextSet,clear:contextClear},
     api
   };
