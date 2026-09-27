@@ -64,7 +64,7 @@ test('one combined request loads Google Tasks and stores this owner\'s last resu
   await login(page);await openTasks(page);
   await expect(page.locator('#gtTaskSection')).toContainText('첫 결과');
   await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('');
-  expect(calls.length).toBeGreaterThanOrEqual(1);
+  expect(calls).toEqual(['overview']);
   expect(calls.every(a=>a==='overview')).toBeTruthy();
   expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t1']);
 });
@@ -92,18 +92,37 @@ test('reopening shows the last result first, marks the refresh, then replaces it
   expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t2']);
 });
 
-test('a failed refresh keeps the last result and says so',async({page})=>{
-  await mockBase(page);
-  let fail=false;
-  await mockTasks(page,action=>fail?{status:500,body:{error:'Google Tasks 요청 실패'}}:action==='overview'?{body:{connected:true,authorized:true,needs_reconnect:false,tasks:[task('t1','남아야 할 결과')]}}:{status:500,body:{error:'unexpected'}});
-  await login(page);await openTasks(page);
-  await expect(page.locator('#gtTaskSection')).toContainText('남아야 할 결과');
-  fail=true;
-  await page.locator('[data-gt-refresh]').click();
-  await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('새로 받지 못했습니다 · 직전 결과 표시 중');
-  await expect(page.locator('#gtTaskSection')).toContainText('남아야 할 결과');
-  expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t1']);
-});
+for(const failure of ['overview','session readiness']){
+  test(`a failed ${failure} refresh keeps the cached result and mobile retry replaces it`,async({page})=>{
+    await page.setViewportSize({width:360,height:800});
+    await mockBase(page);
+    let fail=false,version=1;
+    const calls=await mockTasks(page,action=>fail?{status:500,body:{error:'upstream unavailable'}}:action==='overview'?{body:{connected:true,authorized:true,needs_reconnect:false,tasks:[task('t'+version,'fixture')]}}:{status:500,body:{error:'unexpected'}});
+    await login(page);await openTasks(page);
+    await expect(page.locator('#gtTaskBody [data-google-task="t1"]')).toBeVisible();
+    if(failure==='overview')fail=true;
+    else await page.evaluate(()=>{
+      const session=window.KPTURuntime.session,ensure=session.ensure;
+      session.ensure=async()=>{throw new Error('session readiness unavailable')};
+      window.__qaRestoreEnsure=()=>{session.ensure=ensure};
+    });
+    await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
+    await expect(page.locator('#gtTaskSection [data-gt-sync]')).toContainText('새로 받지 못했습니다 · 직전 결과 표시 중');
+    await expect(page.locator('#gtTaskBody [data-google-task="t1"]')).toBeVisible();
+    expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t1']);
+    const retry=page.getByRole('button',{name:'다시 시도',exact:true});
+    await expect(retry).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+    fail=false;version=2;
+    if(failure==='session readiness')await page.evaluate(()=>window.__qaRestoreEnsure());
+    await retry.click();
+    await expect(page.locator('#gtTaskBody [data-google-task="t2"]')).toBeVisible();
+    await expect(page.locator('#gtTaskBody [data-google-task="t1"]')).toHaveCount(0);
+    await expect(retry).toHaveCount(0);
+    expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t2']);
+    expect(calls).toEqual(failure==='overview'?['overview','overview','overview']:['overview','overview']);
+  });
+}
 
 test('sign-out and owner change remove the cached Google Tasks; another owner never sees them',async({page})=>{
   await mockBase(page);
@@ -174,7 +193,7 @@ test('older google-tasks Edge without action=overview falls back to status and t
   await login(page);await openTasks(page);
   await expect(page.locator('#gtTaskSection')).toContainText('옛 Edge 결과');
   await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('');
-  await page.locator('[data-gt-refresh]').click();
+  await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
   await expect.poll(()=>calls.filter(a=>a==='tasks').length).toBeGreaterThanOrEqual(2);
   expect(calls.filter(a=>a==='overview').length).toBe(1);
 });
@@ -210,4 +229,60 @@ test('completing a task updates the stored last result at once and a failed save
   await page.locator('[data-gt-toggle="t1"]').click();
   await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('완료 취소를 저장하지 못해 되돌렸습니다');
   await expect.poll(statusOf).toEqual(['t1:completed']);
+});
+
+
+test('each task-view visit refreshes once and reentry shares the in-flight load including session readiness',async({page})=>{
+  await mockBase(page);
+  let release=()=>{};
+  const held=new Promise(resolve=>{release=resolve});
+  let hold=true;
+  const calls=await mockTasks(page,async action=>{
+    if(hold)await held;
+    return {body:{connected:true,authorized:true,needs_reconnect:false,tasks:[task('t1','fixture')]}};
+  });
+  await login(page);
+  // Load the real module while the calendar is visible; hold the real session readiness boundary.
+  await page.evaluate(async()=>{
+    await window.KPTUViewLoader.load('tasks');
+    const session=window.KPTURuntime.session,ensure=session.ensure;
+    let unblock;const ready=new Promise(resolve=>{unblock=resolve});
+    window.__qaEnsureCount=0;
+    session.ensure=async(...args)=>{window.__qaEnsureCount++;await ready;return ensure(...args)};
+    window.__qaReleaseSession=()=>{session.ensure=ensure;unblock()};
+    window.KPTURouter.go('tasks',{source:'qa'});
+    window.KPTURouter.go('calendar',{source:'qa'});
+    window.KPTURouter.go('tasks',{source:'qa'});
+  });
+  expect(calls).toEqual([]);
+  expect(await page.evaluate(()=>window.__qaEnsureCount)).toBe(1);
+  await page.evaluate(()=>window.__qaReleaseSession());
+  await expect.poll(()=>calls.length).toBeGreaterThan(0);
+  await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
+  hold=false;release();
+  await expect(page.locator('#gtTaskBody .gt-row')).toHaveCount(1);
+  expect(calls).toEqual(['overview']);
+  await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
+  await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('');
+  await expect.poll(()=>calls.length).toBe(2);
+  expect(calls).toEqual(['overview','overview']);
+});
+
+test('initial task load failure offers a short accessible retry at mobile width and clears it after success',async({page})=>{
+  await page.setViewportSize({width:360,height:800});
+  await mockBase(page);
+  let fail=true;
+  const calls=await mockTasks(page,()=>fail?{status:500,body:{error:'upstream unavailable'}}:{body:{connected:true,authorized:true,needs_reconnect:false,tasks:[task('t1','fixture')]}});
+  await login(page);await openTasks(page);
+  await expect(page.locator('#gtTaskBody')).toContainText('Google 할 일을 불러오지 못했습니다.');
+  const retry=page.getByRole('button',{name:'다시 시도',exact:true});
+  await expect(retry).toBeVisible();
+  await expect(page.getByRole('button',{name:'새로고침',exact:true})).toHaveCount(0);
+  await expect(page.locator('#newTaskBtn')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
+  expect(calls).toEqual(['overview']);
+  fail=false;await retry.click();
+  await expect(page.locator('#gtTaskBody .gt-row')).toHaveCount(1);
+  await expect(retry).toHaveCount(0);
+  expect(calls).toEqual(['overview','overview']);
 });

@@ -151,6 +151,8 @@ test('expired session refresh failure reaches login without private API calls',a
 test('direct session owner switch reloads without retaining the previous private DOM',async({page})=>{
   await mockSignedIn(page);
   await signIn(page,APP+'?view=projects');
+  // The visible shell precedes authenticated bootstrap; switch an initialized private workspace.
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
   await page.locator('#projectsView').evaluate(node=>node.insertAdjacentHTML('beforeend','<div id="privateSentinel">USER_ONE_PRIVATE</div>'));
   await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'second-access',refresh_token:'second-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'u2',email:'second@example.org'}})).catch(()=>null);
   await expect.poll(()=>page.evaluate(()=>window.__KPTU_BOOT_CONTEXT__?.user?.id||'').catch(()=>''),{timeout:20000}).toBe('u2');
