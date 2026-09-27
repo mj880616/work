@@ -137,3 +137,23 @@ test('CLI compares real Git revisions, working tree, and fails for invalid base'
   git('add', '.'); git('commit', '-qm', 'complete bumps');
   assert.equal(invoke('--base', base, '--head', 'HEAD').status, 0);
 });
+
+test('working-tree CLI removes old entry points after staged HTML rename', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'loader-cache-rename-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
+  git('init', '-q');
+  git('config', 'user.name', 'Cache test');
+  git('config', 'user.email', 'cache-test@example.invalid');
+  const html = '<p>Unchanged page content</p>\n'.repeat(30) + '<script src="./dep.js?v=1"></script>';
+  writeFileSync(join(dir, 'old.html'), html);
+  writeFileSync(join(dir, 'dep.js'), 'old();');
+  git('add', '.'); git('commit', '-qm', 'base');
+  git('mv', 'old.html', 'new.html');
+  writeFileSync(join(dir, 'new.html'), html.replace('v=1', 'v=2'));
+  writeFileSync(join(dir, 'dep.js'), 'newer();');
+  git('add', '.');
+  const cli = fileURLToPath(new URL('./check-loader-cache.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [cli, '--base', 'HEAD'], { cwd: dir, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+});

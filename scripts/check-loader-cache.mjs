@@ -126,7 +126,7 @@ function workingFiles(base, ref) {
   const files = { ...base };
   // Let Git apply checkout filters when finding modifications (CRLF, attributes).
   const paths = [
-    ...git(['diff', '--name-only', '-z', ref, '--'], { encoding: 'utf8' }).split('\0'),
+    ...git(['diff', '--no-renames', '--name-only', '-z', ref, '--'], { encoding: 'utf8' }).split('\0'),
     ...git(['ls-files', '-z', '--others', '--exclude-standard'], { encoding: 'utf8' }).split('\0'),
   ].filter(Boolean);
   for (const file of new Set(paths)) {
