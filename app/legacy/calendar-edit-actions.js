@@ -61,7 +61,6 @@ async function eaDeleteApp(){
   const b=document.querySelector('#caeDelete');if(b)b.disabled=true;
   eaSetStatus('#caeStatus','일정 삭제 중…');
   try{
-    try{await eaRest('/rest/v1/app_event_attendees?event_id=eq.'+encodeURIComponent(eaAppId),{method:'DELETE'})}catch(_){}
     await eaRest('/rest/v1/app_events?id=eq.'+encodeURIComponent(eaAppId),{method:'DELETE'});
     eaClose('#caeModal');eaAppId=null;
     await window.__KPTU_RELOAD_APP_EVENTS__?.();

@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
+watchRetiredCollaboration(test);
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -34,11 +36,7 @@ async function installSupabaseMock(page, state) {
     }
     if (path.startsWith('/functions/v1/')) return ok({});
 
-    if (path === '/rest/v1/rpc/app_respond_project_invitation') {
-      const invite = state.projectInvites.find(x => x.id === body?.p_invitation);
-      if (invite) invite.status = body?.p_accept ? 'accepted' : 'declined';
-      return ok(null);
-    }
+
     if (path.startsWith('/rest/v1/rpc/')) return ok(null);
 
     if (path === '/rest/v1/app_workspace_members') {
@@ -59,7 +57,6 @@ async function installSupabaseMock(page, state) {
       }
       if (method === 'PATCH') return ok([]);
     }
-    if (path === '/rest/v1/app_space_members') return ok([]);
 
     if (path === '/rest/v1/app_events') {
       if (method === 'GET') return ok(state.events);
@@ -69,7 +66,6 @@ async function installSupabaseMock(page, state) {
         return ok([row]);
       }
     }
-    if (path === '/rest/v1/app_event_attendees') return ok([]);
     if (path === '/rest/v1/app_event_suborganizations') return ok([]);
 
     if (path === '/rest/v1/app_tasks') {
@@ -112,20 +108,7 @@ async function installSupabaseMock(page, state) {
     if (path === '/rest/v1/app_project_checkitems') return ok([]);
     if (path === '/rest/v1/app_project_comments') return ok([]);
 
-    if (path === '/rest/v1/app_project_invitations') {
-      if (method === 'GET') return ok(state.projectInvites);
-      if (method === 'POST') {
-        const rows = Array.isArray(body) ? body : [body || {}];
-        rows.forEach(x => state.projectInvites.push({ ...x, id: `invite-${state.projectInvites.length + 1}`, created_at: now() }));
-        return ok(rows);
-      }
-      if (method === 'PATCH') {
-        const id = (url.searchParams.get('id') || '').replace(/^eq\./, '');
-        const row = state.projectInvites.find(x => x.id === id);
-        if (row) Object.assign(row, body || {});
-        return ok([]);
-      }
-    }
+
 
     if (path === '/rest/v1/app_direct_messages') {
       if (method === 'GET') return ok(state.directMessages);
@@ -161,7 +144,6 @@ test('login and core workspace flows remain usable', async ({ page }) => {
     spaces: [{ id: 'space-1', workspace_id: 'workspace-1', name: '기존 프로젝트', parent_id: null, status: 'active', owner_id: 'user-1', visibility: 'team', sort_order: 10, created_at: now() }],
     pages: [{ id: 'page-1', workspace_id: 'workspace-1', space_id: 'space-1', slug: 'e2e-page', title: 'E2E 게시글', summary: '공개 게시글', visibility: 'public', status: 'published', owner_id: 'user-1', published_at: now(), created_at: now(), updated_at: now() }],
     events: [], googleEvents: [], tasks: [], meetings: [], documents: [], directMessages: [],
-    projectInvites: [{ id: 'invite-1', project_id: 'space-1', user_id: 'user-1', role: 'edit', status: 'pending', created_at: now() }]
 
   };
 

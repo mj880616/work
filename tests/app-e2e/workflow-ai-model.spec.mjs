@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
+watchRetiredCollaboration(test);
 import { readFileSync, existsSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 
@@ -43,7 +45,7 @@ async function mockApp(page,state){
       return ok(state.tasks);
     }
     if(path==='/rest/v1/app_documents')return ok([]);
-    if(path==='/rest/v1/app_events'||path==='/rest/v1/app_event_attendees'||path==='/rest/v1/app_groups'||path==='/rest/v1/app_notifications'||path==='/rest/v1/app_space_members')return ok([]);
+    if(path==='/rest/v1/app_events'||path==='/rest/v1/app_groups'||path==='/rest/v1/app_notifications')return ok([]);
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});
   });
