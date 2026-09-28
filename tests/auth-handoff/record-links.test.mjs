@@ -13,6 +13,9 @@ import pg from 'pg';
 
 const migration = await readFile(new URL('../../supabase/migrations/20260927103344_task_impl2_notes_record_links.sql', import.meta.url), 'utf8');
 const rollback = await readFile(new URL('../../docs/web2-task-impl2-rollback.sql', import.meta.url), 'utf8');
+const meetingMigration = await readFile(new URL('../../supabase/migrations/20260928123601_task_meeting_followup_record_links.sql', import.meta.url), 'utf8');
+const meetingRollback = await readFile(new URL('../../docs/web2-task-meeting-followup-rollback.sql', import.meta.url), 'utf8');
+const meetingAuthz = await readFile(new URL('../../supabase/tests/authz_task_impl2_record_links.sql', import.meta.url), 'utf8');
 for (const name of Object.keys(process.env)) if (name.startsWith('PG')) delete process.env[name];
 
 const OWNER = '20000000-0000-4000-8000-000000000001';
@@ -24,6 +27,8 @@ const PROJECT_A2 = '22000000-0000-4000-8000-000000000002';
 const PROJECT_B = '22000000-0000-4000-8000-000000000003';
 const ORG_A = '23000000-0000-4000-8000-000000000001';
 const ORG_B = '23000000-0000-4000-8000-000000000002';
+const MEETING_A = '25000000-0000-4000-8000-000000000001';
+const MEETING_B = '25000000-0000-4000-8000-000000000002';
 
 const fixture = `
   create role anon nologin;
@@ -36,13 +41,15 @@ const fixture = `
   create schema supabase_migrations;
   create table supabase_migrations.schema_migrations(version text primary key, statements text[], name text);
   create schema auth;
+  create table auth.users(id uuid primary key);
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to anon, authenticated;
-  create table public.app_workspaces(id uuid primary key);
+  create table public.app_workspaces(id uuid primary key, slug text, name text);
   create table public.app_workspace_members(workspace_id uuid references public.app_workspaces(id), user_id uuid, role text);
   create table public.app_spaces(id uuid primary key, workspace_id uuid not null references public.app_workspaces(id));
-  create table public.app_suborganizations(id uuid primary key, workspace_id uuid not null references public.app_workspaces(id));
+  create table public.app_suborganizations(id uuid primary key, workspace_id uuid not null references public.app_workspaces(id), name text, created_by uuid);
+  create table public.app_meetings(id uuid primary key, workspace_id uuid not null references public.app_workspaces(id), title text, created_by uuid);
   create schema private;
   grant usage on schema private to authenticated, service_role;
   -- Same bodies as production (checked read-only 2026-09-27).
@@ -54,8 +61,14 @@ const fixture = `
     language sql stable security definer set search_path = pg_catalog, public as $$
     select p_space is null or exists (select 1 from public.app_spaces s
       where s.id = p_space and s.workspace_id = p_workspace) $$;
+  create function private.app_meeting_in_workspace(p_meeting uuid, p_workspace uuid) returns boolean
+    language sql stable security definer set search_path = pg_catalog, public as $$
+    select p_meeting is null or exists (select 1 from public.app_meetings m
+      where m.id = p_meeting and m.workspace_id = p_workspace) $$;
   revoke all on function private.app_is_workspace_owner(uuid), private.app_space_in_workspace(uuid,uuid) from public;
   grant execute on function private.app_is_workspace_owner(uuid), private.app_space_in_workspace(uuid,uuid) to authenticated, service_role;
+  revoke all on function private.app_meeting_in_workspace(uuid,uuid) from public;
+  grant execute on function private.app_meeting_in_workspace(uuid,uuid) to authenticated, service_role;
   alter table public.app_suborganizations enable row level security;
   create policy task12a_owner_all on public.app_suborganizations for all to authenticated
     using (private.app_is_workspace_owner(workspace_id)) with check (private.app_is_workspace_owner(workspace_id));
@@ -64,6 +77,7 @@ const fixture = `
   insert into public.app_workspace_members values ('${WS_A}', '${OWNER}', 'owner'), ('${WS_B}', '${STRANGER}', 'owner');
   insert into public.app_spaces values ('${PROJECT_A}', '${WS_A}'), ('${PROJECT_A2}', '${WS_A}'), ('${PROJECT_B}', '${WS_B}');
   insert into public.app_suborganizations values ('${ORG_A}', '${WS_A}'), ('${ORG_B}', '${WS_B}');
+  insert into public.app_meetings values ('${MEETING_A}', '${WS_A}'), ('${MEETING_B}', '${WS_B}');
 `;
 
 test('TASK-impl PR 2 notes/record links: grants, owner RLS, constraints, rollback and reapply', { timeout: 90000 }, async t => {
@@ -249,6 +263,42 @@ test('TASK-impl PR 2 notes/record links: grants, owner RLS, constraints, rollbac
         await client.query(`delete from public.app_notes where id = '${note}'`);
         assert.equal((await client.query('select count(*)::int as n from public.app_record_links')).rows[0].n, 0);
       } finally { await client.query('rollback'); client.release(); }
+    });
+
+    await t.test('meeting migration preserves old links, enforces owner and target rules, and rolls back', async () => {
+      await pool.query(taskTo('before-meeting', PROJECT_A));
+      await pool.query(meetingMigration);
+      const prior = await pool.query(`select meeting_id from public.app_record_links where google_task_id = 'before-meeting'`);
+      assert.equal(prior.rowCount, 1);
+      assert.equal(prior.rows[0].meeting_id, null);
+      assert.equal((await pool.query(`select count(*)::int as n from supabase_migrations.schema_migrations
+        where version = '20260928123601' and name = 'task_meeting_followup_record_links'`)).rows[0].n, 1);
+      await pool.query(meetingAuthz);
+      assert.equal((await as('authenticated', OWNER, taskTo('owner-meeting', MEETING_A, 'meeting_id'))).rowCount, 1);
+      assert.equal((await as('authenticated', STRANGER, `insert into public.app_record_links
+        (workspace_id, google_task_id, google_tasklist_id, task_completed, meeting_id)
+        values ('${WS_B}', 'other-owner-meeting', '@default', false, '${MEETING_B}')`)).rowCount, 1);
+      await assert.rejects(as('authenticated', OWNER, taskTo('cross-meeting', MEETING_B, 'meeting_id')), { code: '42501' });
+      await assert.rejects(as('authenticated', OWNER, link('google_task_id, google_tasklist_id, task_completed, project_id, meeting_id',
+        `'two-targets', '@default', false, '${PROJECT_A}', '${MEETING_A}'`)), { code: '23514' });
+      await assert.rejects(asOwner(async c => {
+        await c.query(taskTo('duplicate-meeting', MEETING_A, 'meeting_id'));
+        await c.query(taskTo('duplicate-meeting', MEETING_A, 'meeting_id'));
+      }), { code: '23505' });
+      await pool.query(taskTo('visible-meeting', MEETING_A, 'meeting_id'));
+      assert.equal((await as('authenticated', STRANGER, `select * from public.app_record_links where google_task_id = 'visible-meeting'`)).rowCount, 0);
+      assert.equal((await as('authenticated', STRANGER, `update public.app_record_links set task_completed = true
+        where google_task_id = 'visible-meeting'`)).rowCount, 0);
+      await assert.rejects(as('authenticated', STRANGER, taskTo('wrong-owner', MEETING_A, 'meeting_id')), { code: '42501' });
+      await pool.query(meetingRollback);
+      assert.equal((await pool.query(`select count(*)::int as n from public.app_record_links
+        where google_task_id = 'before-meeting'`)).rows[0].n, 1);
+      assert.equal((await pool.query(`select count(*)::int as n from public.app_record_links
+        where google_task_id = 'visible-meeting'`)).rows[0].n, 0);
+      assert.equal((await pool.query(`select count(*)::int as n from supabase_migrations.schema_migrations
+        where version = '20260928123601'`)).rows[0].n, 0);
+      assert.equal((await pool.query(`select to_regclass('public.app_record_links_meeting_idx') as meeting_idx`)).rows[0].meeting_idx, null);
+      await pool.query('delete from public.app_record_links');
     });
 
     await t.test('migration record; rollback removes only the two tables and its record; reapply works', async () => {
