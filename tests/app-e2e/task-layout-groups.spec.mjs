@@ -216,7 +216,8 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   expect(layout).not.toContain('내가 추가');
   expect(workflow).not.toContain('meeting-action-assignee');
   expect(meeting).not.toContain('mrdTaskAssignee');
-  expect(meeting).toContain("mrdTaskEndpoint('linked')+'&meeting_id='+encodeURIComponent(id)");
+  expect(meeting).toContain('await window.KPTUGoogleTasks?.waitForPendingToggles?.()');
+  expect(meeting).toContain("mrdTaskEndpoint('linked')+'&meeting_id='+encodeURIComponent(meetingId)");
   expect(meeting).not.toContain('/rest/v1/app_tasks');
   expect(views).not.toContain("module('./task-layout.js");
   expect(views).toContain("module('./task-workflow.js?v=9'");
