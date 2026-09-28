@@ -18,6 +18,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const iso = ms => new Date(ms).toISOString();
 const P1 = '11111111-1111-4111-8111-111111111111', P2 = '22222222-2222-4222-8222-222222222222';
 const O1 = '33333333-3333-4333-8333-333333333333', PX = '44444444-4444-4444-8444-444444444444', OX = '55555555-5555-4555-8555-555555555555';
+const M1 = '66666666-6666-4666-8666-666666666666', M2 = '77777777-7777-4777-8777-777777777777', MX = '88888888-8888-4888-8888-888888888888';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
@@ -28,7 +29,8 @@ function harness({ tasks = [], links = [], connection = 'ok', failLinkUpdate = f
   const state = {
     spaces: [{ id: P1, workspace_id: 'ws-a' }, { id: P2, workspace_id: 'ws-a' }, { id: PX, workspace_id: 'ws-b' }],
     orgs: [{ id: O1, workspace_id: 'ws-a' }, { id: OX, workspace_id: 'ws-b' }],
-    links: links.map((l, i) => ({ id: 'seed-' + i, workspace_id: 'ws-a', google_tasklist_id: '@default', note_id: null, project_id: null, organization_id: null, status: 'confirmed', report_kind: null, task_checked_at: null, ...l }))
+    meetings: [{ id: M1, workspace_id: 'ws-a' }, { id: M2, workspace_id: 'ws-a' }, { id: MX, workspace_id: 'ws-b' }],
+    links: links.map((l, i) => ({ id: 'seed-' + i, workspace_id: 'ws-a', google_tasklist_id: '@default', note_id: null, project_id: null, organization_id: null, meeting_id: null, status: 'confirmed', report_kind: null, task_checked_at: null, ...l }))
   };
   const googleCalls = [], logs = [];
   let nextId = 1;
@@ -50,7 +52,7 @@ function harness({ tasks = [], links = [], connection = 'ok', failLinkUpdate = f
   // Caller-JWT client: rows are visible only in workspaces the caller owns (private.app_is_workspace_owner).
   const userDb = authorization => {
     const owned = new Set(authorization === 'Bearer token-a' ? ['ws-a'] : []);
-    const rowsOf = table => ({ app_spaces: state.spaces, app_suborganizations: state.orgs, app_record_links: state.links }[table]);
+    const rowsOf = table => ({ app_spaces: state.spaces, app_suborganizations: state.orgs, app_meetings: state.meetings, app_record_links: state.links }[table]);
     return {
       from: table => {
         if (!rowsOf(table)) throw new Error('unexpected user table ' + table);
@@ -59,13 +61,13 @@ function harness({ tasks = [], links = [], connection = 'ok', failLinkUpdate = f
         const run = () => {
           const rows = rowsOf(table);
           if (q.op === 'insert') {
-            const r = { id: 'link-' + nextId++, note_id: null, status: 'confirmed', report_kind: null, ...q.row };
+            const r = { id: 'link-' + nextId++, note_id: null, meeting_id: null, status: 'confirmed', report_kind: null, ...q.row };
             const sameWs = (list, id) => id == null || list.some(x => x.id === id && x.workspace_id === r.workspace_id);
-            if (!owned.has(r.workspace_id) || !sameWs(state.spaces, r.project_id) || !sameWs(state.orgs, r.organization_id)) {
+            if (!owned.has(r.workspace_id) || !sameWs(state.spaces, r.project_id) || !sameWs(state.orgs, r.organization_id) || !sameWs(state.meetings, r.meeting_id)) {
               return { data: null, error: { code: '42501', message: 'new row violates row-level security policy' } };
             }
-            if ([r.project_id, r.organization_id].filter(v => v != null).length !== 1) return { data: null, error: { code: '23514', message: 'one target' } };
-            const key = x => [x.google_task_id, x.note_id, x.project_id, x.organization_id].join('|');
+            if ([r.project_id, r.organization_id, r.meeting_id].filter(v => v != null).length !== 1) return { data: null, error: { code: '23514', message: 'one target' } };
+            const key = x => [x.google_task_id, x.note_id, x.project_id, x.organization_id, x.meeting_id].join('|');
             if (rows.some(x => key(x) === key(r))) return { data: null, error: { code: '23505', message: 'duplicate key' } };
             rows.push(r);
             return { data: null, error: null };
@@ -80,11 +82,11 @@ function harness({ tasks = [], links = [], connection = 'ok', failLinkUpdate = f
             rows.splice(0, rows.length, ...keep);
             return { data: null, error: null };
           }
-          const found = rows.filter(match).map(r => ({ ...r }));
+          const found = rows.filter(match).map(r => q.cols && q.cols !== '*' ? Object.fromEntries(q.cols.split(',').map(k => [k, r[k]])) : { ...r });
           return { data: q.single ? found[0] || null : found, error: null };
         };
         const b = {
-          select: () => b,
+          select: cols => { q.cols = cols; return b; },
           insert: row => { q.op = 'insert'; q.row = row; return b; },
           update: values => { q.op = 'update'; q.values = values; return b; },
           delete: () => { q.op = 'delete'; return b; },
@@ -357,4 +359,129 @@ test('link actions reject a missing or invalid login before reading links or Goo
   }
   assert.equal(h.googleCalls.length, 0);
   assert.equal(h.state.links.length, 1);
+});
+
+test('meeting targets: reject malformed or mixed target rows before Google or link changes', async () => {
+  for (const target of [{ meeting_id: 'bad' }, { meeting_id: {} }, { meeting_id: M1, project_id: P1 }, { meeting_id: M1, organization_id: O1 }]) {
+    const h = harness({ tasks: [pending('a')] });
+    for (const action of ['create', 'link', 'unlink']) {
+      assert.equal((await h.post(action, { task_id: 'a', links: [target] })).status, 400);
+    }
+    assert.equal((await h.get('linked', target)).status, 400);
+    assert.equal(h.googleCalls.length, 0);
+    assert.equal(h.state.links.length, 0);
+  }
+});
+
+test('meeting targets: caller JWT rejects foreign or missing meetings before create/link', async () => {
+  for (const action of ['create', 'link']) {
+    for (const meeting_id of [MX, '99999999-9999-4999-8999-999999999999']) {
+      const h = harness({ tasks: [pending('a')] });
+      const r = await h.post(action, { task_id: 'a', workspace_id: 'ws-a', links: [{ project_id: P1 }, { meeting_id, workspace_id: 'ws-a' }] });
+      assert.equal(r.status, 400);
+      assert.match(r.body.error, /찾을 수 없습니다/);
+      assert.equal(h.googleCalls.length, 0);
+      assert.equal(h.state.links.length, 0);
+    }
+  }
+});
+
+test('create/link: save project and meeting as separate rows, deduplicate, and return separate meeting_links', async () => {
+  for (const action of ['create', 'link']) {
+    const h = harness({ tasks: [done('a', 30)] });
+    const r = await h.post(action, { task_id: 'a', links: [{ project_id: P1 }, { meeting_id: M1 }, { meeting_id: M1 }] });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.link_error, undefined);
+    assert.equal(h.state.links.length, 2);
+    assert.ok(h.state.links.every(l => l.workspace_id === 'ws-a' && l.task_completed === (action === 'link')));
+    assert.deepEqual(r.body.links, [{ project_id: P1, organization_id: null, meeting_id: null, status: 'confirmed', report_kind: null }]);
+    assert.deepEqual(r.body.meeting_links, [{ project_id: null, organization_id: null, meeting_id: M1, status: 'confirmed', report_kind: null }]);
+    const id = action === 'create' ? r.body.task.id : 'a';
+    assert.equal((await h.post('link', { task_id: id, links: [{ meeting_id: M1 }] })).status, 200);
+    assert.equal(h.state.links.length, 2);
+  }
+});
+
+test('linked meeting: all completion dates and due dates, confirmed only, cleanup and sync across targets', async () => {
+  const h = harness({
+    tasks: [pending('undated'), pending('future', '2027-12-01T00:00:00.000Z'), done('old', 365), { ...done('hidden', 90), hidden: true }, { id: 'no-date', status: 'completed' }, { ...pending('deleted'), deleted: true }, pending('suggested'), pending('other')],
+    links: [
+      ...['undated', 'future', 'old', 'hidden', 'no-date', 'deleted', 'gone'].map(google_task_id => ({ google_task_id, meeting_id: M1, task_completed: false })),
+      { google_task_id: 'old', project_id: P1, task_completed: false },
+      { google_task_id: 'gone', project_id: P1 },
+      { google_task_id: 'gone', organization_id: O1 },
+      { google_task_id: 'suggested', meeting_id: M1, status: 'suggested' },
+      { google_task_id: 'other', meeting_id: M2 }
+    ]
+  });
+  const r = await h.get('linked', { meeting_id: M1 });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.tasks.map(t => t.id).sort(), ['future', 'hidden', 'no-date', 'old', 'undated']);
+  assert.equal(r.body.removed, 2);
+  assert.ok(!h.state.links.some(l => ['gone', 'deleted'].includes(l.google_task_id)));
+  assert.ok(h.state.links.filter(l => l.google_task_id === 'old').every(l => l.task_completed));
+  assert.equal(h.googleCalls.length, 7);
+  const project = await h.get('linked', { project_id: P1 });
+  assert.deepEqual(project.body.tasks, [], 'old completion remains excluded for a legacy project request');
+});
+
+test('linked/unlink meeting: foreign workspace is not readable or removable', async () => {
+  const h = harness({ tasks: [pending('a')], links: [{ google_task_id: 'a', meeting_id: MX, workspace_id: 'ws-b' }] });
+  const read = await h.get('linked', { meeting_id: MX });
+  assert.equal(read.status, 200);
+  assert.deepEqual(read.body.tasks, []);
+  assert.equal(h.googleCalls.length, 0);
+  const removed = await h.post('unlink', { task_id: 'a', links: [{ meeting_id: MX }] });
+  assert.equal(removed.status, 200);
+  assert.deepEqual(removed.body.meeting_links, []);
+  assert.equal(h.state.links.length, 1);
+});
+
+test('unlinked: meeting-only and suggested-project tasks remain; confirmed project/organization tasks do not', async () => {
+  const h = harness({
+    tasks: ['meeting-only', 'project', 'org', 'suggested-project'].map(id => pending(id)),
+    links: [
+      ...['meeting-only', 'project', 'org', 'suggested-project'].map(google_task_id => ({ google_task_id, meeting_id: M1 })),
+      { google_task_id: 'project', project_id: P1 }, { google_task_id: 'org', organization_id: O1 },
+      { google_task_id: 'suggested-project', project_id: P1, status: 'suggested' }
+    ]
+  });
+  const r = await h.get('unlinked');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.tasks.map(t => t.id).sort(), ['meeting-only', 'suggested-project']);
+});
+
+test('legacy editor: returned links generate no phantom organization and old unlink preserves meeting rows', async () => {
+  // Execute the actual legacy key converters: a meeting row here would become "o:".
+  const app = readFileSync(new URL('../../app/google-tasks.js', import.meta.url), 'utf8');
+  const converters = app.match(/^const linkKey=.*\r?\nconst keyLink=.*$/m)?.[0];
+  assert.ok(converters);
+  const { linkKey, keyLink } = new Function(converters + ';return {linkKey,keyLink};')();
+  const h = harness({ connection: 'none', links: [{ google_task_id: 'a', project_id: P1 }, { google_task_id: 'a', meeting_id: M1 }, { google_task_id: 'a', meeting_id: M2 }] });
+  const r = await h.get('links', { task_id: 'a' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.links.map(linkKey), ['p:' + P1]);
+  assert.deepEqual(r.body.meeting_links.map(l => l.meeting_id), [M1, M2]);
+  assert.equal(r.body.links[0].meeting_id, null);
+  const old = await h.post('unlink', { task_id: 'a', links: r.body.links.map(linkKey).map(keyLink) });
+  assert.equal(old.status, 200);
+  assert.deepEqual(old.body.links, []);
+  assert.equal(old.body.meeting_links.length, 2);
+  const meeting = await h.post('unlink', { task_id: 'a', links: [{ meeting_id: M1 }] });
+  assert.equal(meeting.status, 200);
+  assert.deepEqual(meeting.body.meeting_links.map(l => l.meeting_id), [M2]);
+  assert.equal(h.googleCalls.length, 0);
+});
+
+test('meeting actions reject missing/invalid JWT; completion and deletion include meeting rows', async () => {
+  const h = harness({ tasks: [pending('a')], links: [{ google_task_id: 'a', meeting_id: M1, task_completed: false }] });
+  for (const action of ['create', 'link', 'unlink', 'linked', 'links']) {
+    for (const token of ['', 'forged']) assert.notEqual((await h.post(action, { task_id: 'a', meeting_id: M1, links: [{ meeting_id: M1 }] }, token)).status, 200);
+  }
+  assert.equal(h.googleCalls.length, 0);
+  assert.equal(h.state.links.length, 1);
+  assert.equal((await h.post('toggle', { task_id: 'a', completed: true })).status, 200);
+  assert.equal(h.state.links[0].task_completed, true);
+  assert.equal((await h.post('delete', { task_id: 'a' })).status, 200);
+  assert.equal(h.state.links.length, 0);
 });
