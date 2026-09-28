@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
+const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||`${TEST_ORIGIN}`;
 
-const loaderUrl='http://127.0.0.1:8123/app/loader-v2.js?p6-startup-contract=1';
+const loaderUrl=`${TEST_ORIGIN}/app/loader-v2.js?p6-startup-contract=1`;
 const read=path=>readFileSync(path,'utf8');
 
 test('Web2 first paint uses the final icon without a green placeholder or late favicon rewrite',async()=>{
@@ -50,19 +51,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=141" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=142" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=253','./runtime-client.js?v=6','./native-auth-bridge.js?v=5',
+    './loader-v2.js?v=254','./runtime-client.js?v=6','./native-auth-bridge.js?v=5',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=253')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=254')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=6')");
-  expect(loader).toContain("import('./team.js?v=52')");
-  expect(loader).toContain("import('./view-loader.js?v=31')");
+  expect(loader).toContain("import('./team.js?v=53')");
+  expect(loader).toContain("import('./view-loader.js?v=32')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -78,7 +79,7 @@ test('startup loads only requested route CSS before showing the shell', async ()
   for(const asset of [
     './calendar-ui.css?v=9',
     './task-layout.css?v=4',
-    './google-tasks.css?v=13',
+    './google-tasks.css?v=14',
     './project-system-v3.css?v=17',
     './library-upload.css?v=2',
     './meeting-ui.css?v=10',
@@ -187,12 +188,12 @@ async function loginWithMock(page,{delayGroups=false}={}){
       path.startsWith('/rest/v1/')?[]:{};
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   });
-  await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
+  await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);
   await page.locator('#authPassword').fill('test-password-value');
   await page.locator('#authSubmit').click();
-  await page.waitForURL('http://127.0.0.1:8123/app/');
+  await page.waitForURL(`${TEST_ORIGIN}/app/`);
   await page.waitForFunction(()=>typeof window.__KPTU_STARTUP__?.marks?.homeUsable==='number');
 }
 
@@ -227,7 +228,7 @@ test('startup diagnostics keep only timing metadata and debug UI is opt-in',asyn
   expect(serialized).not.toContain('p6-flow-access');
   await expect(page.locator('#startupDiagCopy')).toHaveCount(0);
 
-  await page.goto('http://127.0.0.1:8123/app/?startup-debug=1');
+  await page.goto(`${TEST_ORIGIN}/app/?startup-debug=1`);
   await page.waitForFunction(()=>typeof window.__KPTU_STARTUP__?.marks?.homeUsable==='number');
   await expect(page.locator('#startupDiagCopy')).toBeVisible();
 });

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
+const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||`${TEST_ORIGIN}`;
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // The app judges due dates in Korean time (묶음C-4), so fixtures use the Korean date too.
@@ -43,7 +44,7 @@ async function mock(page){
 }
 
 async function login(page){
-  await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
+  await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
   await page.locator('#authPassword').fill('password123');

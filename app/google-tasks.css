@@ -72,3 +72,11 @@ div.gt-main{cursor:default}
 .gt-linked-msg{padding:4px 3px;font-size:11px}.gt-linked-msg:empty{display:none}
 :is(#gtTaskModal,#gtPickModal):not(.hidden){z-index:60}
 @media(max-width:760px){.gt-head{align-items:flex-start}.gt-row{padding:7px 2px}.gt-main b{font-size:12.5px}.gt-note:not(.gt-sync){display:none}.gt-meta{gap:6px}.gt-meta span:last-child{max-width:42%}}
+#mrdTasks .gt-row{grid-template-columns:44px minmax(0,1fr) auto;gap:var(--kptu-space-2)}
+#mrdTasks .gt-check{width:44px;height:44px;min-width:44px;min-height:44px;border:0;background:transparent}
+#mrdTasks .gt-row.completed .gt-check{background:transparent}
+#mrdTasks .gt-check::before{content:'';position:absolute;box-sizing:border-box;width:22px;height:22px;left:11px;top:11px;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface)}
+#mrdTasks .gt-row.completed .gt-check::before{background:var(--kptu-success)}
+#mrdTasks .gt-row.completed .gt-check::after{left:22px}
+#mrdTasks .gt-row.pending .mrd-task-main b{font-weight:750}
+#mrdTasks .gt-row.completed .mrd-task-main b{text-decoration:line-through;font-weight:600}
