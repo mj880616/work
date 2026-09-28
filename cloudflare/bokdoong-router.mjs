@@ -2,7 +2,6 @@ const PAGES_ORIGIN = 'https://mj880616.github.io';
 const SERVICES = Object.freeze({
   'work.bokdoong.com': { root: '/work/', prefix: '/work/' },
   'desk.bokdoong.com': { root: '/work/app/', prefix: '/work/app/' },
-  'read.bokdoong.com': { root: '/read-think-write/', prefix: '/read-think-write/' },
   'arsenal.bokdoong.com': {
     root: '/work/personal/arsenal-match-archive/',
     prefix: '/work/personal/arsenal-match-archive/'
@@ -34,10 +33,8 @@ export default {
       incoming.protocol = 'https:';
       return Response.redirect(incoming.href, 301);
     }
-    if (incoming.pathname === '/favicon.ico' && (host === 'read.bokdoong.com' || host === 'arsenal.bokdoong.com')) {
-      const mark = host === 'read.bokdoong.com' ? 'R' : 'A';
-      const color = host === 'read.bokdoong.com' ? '#315d50' : '#a5232a';
-      const icon = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${color}"/><text x="16" y="23" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="22" font-weight="700">${mark}</text></svg>`;
+    if (incoming.pathname === '/favicon.ico' && host === 'arsenal.bokdoong.com') {
+      const icon = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#a5232a"/><text x="16" y="23" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="22" font-weight="700">A</text></svg>';
       return new Response(request.method === 'HEAD' ? null : icon, {
         headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=86400' }
       });
@@ -84,12 +81,6 @@ export default {
         ? { cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': 31536000, '404': 0, '500-599': 0 } } }
         : undefined
     );
-    if (host === 'read.bokdoong.com' && incoming.pathname !== SERVICES[host].root && upstream.status === 404 &&
-        (request.headers.get('Sec-Fetch-Dest') === 'document' || request.headers.get('Accept')?.includes('text/html'))) {
-      const recovery = new URL(SERVICES[host].root, incoming);
-      recovery.searchParams.set('redirect', incoming.pathname.slice('/read-think-write'.length) + incoming.search);
-      return Response.redirect(recovery.href, 302);
-    }
     const responseHeaders = new Headers(upstream.headers);
     if (host === 'bokdoong.com' && upstream.ok) {
       if (incoming.pathname === '/favicon.png') responseHeaders.set('Content-Type', 'image/png');

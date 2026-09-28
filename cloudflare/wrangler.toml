@@ -17,9 +17,5 @@ pattern = "desk.bokdoong.com"
 custom_domain = true
 
 [[routes]]
-pattern = "read.bokdoong.com"
-custom_domain = true
-
-[[routes]]
 pattern = "arsenal.bokdoong.com"
 custom_domain = true
