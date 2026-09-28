@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
+const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 // TASK-구현 PR 1: completing or reopening a Google task shows at once and saves in the background.
 // The device copy of the last result is checked in google-tasks-cache.spec.mjs.
@@ -44,7 +45,7 @@ async function openTasks(browser,{onToggle,onOverview,reducedMotion='no-preferen
     if(onOverview)return onOverview(route,snapshot,calls.overview);
     return ok(route,{connected:true,authorized:true,needs_reconnect:false,tasks:snapshot});
   });
-  await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
+  await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
   await page.locator('#authPassword').fill('password123');

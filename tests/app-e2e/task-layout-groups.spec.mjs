@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 test('task screen renders one personal task list with pending count',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   const sections=page.locator('#taskList .tl-task-section');
   await expect(sections).toHaveCount(1);
   await expect(page.locator('#tlTaskSections')).toHaveCount(0);
@@ -20,7 +21,7 @@ test('task screen renders one personal task list with pending count',async({page
   await expect(page.locator('#taskList')).not.toContainText('내가 추가');
 });
 test('completed open state is retained without a mutation observer',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   const mine=page.locator('#taskList .tl-task-section').filter({hasText:'내 할 일'}).first();
   const completed=mine.locator('.tl-completed');
 
@@ -35,7 +36,7 @@ test('completed open state is retained without a mutation observer',async({page}
 });
 
 test('new manual task is saved by the canonical task renderer',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   await page.locator('#taskModal').evaluate(el=>{el.classList.remove('hidden');el.setAttribute('aria-hidden','false')});
   await page.locator('#taskTitle').fill('새 할 일');
   await page.locator('#taskProject').selectOption('space-1');
@@ -45,7 +46,7 @@ test('new manual task is saved by the canonical task renderer',async({page})=>{
 });
 
 test('new task can target no project, a top-level project, or a child project',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTUTaskLayout?.openCreate)).toBe('function');
 
   await page.evaluate(()=>window.KPTUTaskLayout.openCreate('main-1'));
@@ -69,7 +70,7 @@ test('new task can target no project, a top-level project, or a child project',a
 
 test('390px task rows prioritize two-line information and keep actions in a menu',async({page})=>{
   await page.setViewportSize({width:390,height:844});
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   const row=page.locator('[data-tl-task-row="self-open"]');
   await expect(row.locator('[data-tl-toggle]')).toHaveAttribute('type','checkbox');
   await expect(row.locator('[data-tl-menu]')).toBeVisible();
@@ -112,7 +113,7 @@ test('390px task rows prioritize two-line information and keep actions in a menu
 });
 
 test('checkbox reverses completion and delete keeps confirmation',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   const row=page.locator('[data-tl-task-row="self-open"]');
   await row.locator('[data-tl-toggle]').click();
   const completed=page.locator('#taskList .tl-task-section').first().locator('.tl-completed');
@@ -132,7 +133,7 @@ test('checkbox reverses completion and delete keeps confirmation',async({page})=
 });
 
 test('detail offers completion and hides delete for tasks created by others',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   const completed=page.locator('#taskList [data-tl-section="mine"] .tl-completed');
   await completed.locator('summary').click();
   const team=completed.locator('[data-tl-task-row="team-one"]');
@@ -148,7 +149,7 @@ test('detail offers completion and hides delete for tasks created by others',asy
 });
 
 test('a denied task update leaves completion and note unchanged',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   await page.evaluate(()=>{window.__denyTaskPatch=true});
   const row=page.locator('[data-tl-task-row="self-open"]');
   page.once('dialog',dialog=>dialog.accept());
@@ -162,7 +163,7 @@ test('a denied task update leaves completion and note unchanged',async({page})=>
 });
 
 test('direct A-to-B session switch discards a stale project task response',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   await expect(page.locator('#taskList')).toContainText('내가 완료한 프로젝트 할 일');
   await page.evaluate(()=>{window.KPTUTaskLayout.openTask('pending-project')});
   await expect.poll(()=>page.evaluate(()=>Boolean(window.__resolvePendingProjectTask))).toBeTruthy();
@@ -177,7 +178,7 @@ test('direct A-to-B session switch discards a stale project task response',async
 });
 
 test('logout discards a stale project task response',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/task-layout-fixture.html');
+  await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);
   await expect(page.locator('#taskList')).toContainText('내가 완료한 프로젝트 할 일');
   await page.evaluate(()=>{window.KPTUTaskLayout.openTask('pending-project')});
   await expect.poll(()=>page.evaluate(()=>Boolean(window.__resolvePendingProjectTask))).toBeTruthy();
@@ -215,16 +216,17 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   expect(layout).not.toContain('내가 추가');
   expect(workflow).not.toContain('meeting-action-assignee');
   expect(meeting).not.toContain('mrdTaskAssignee');
-  expect(meeting).toContain("assignee_id=eq.'+encodeURIComponent(mrdUser.id)");
+  expect(meeting).toContain("mrdTaskEndpoint('linked')+'&meeting_id='+encodeURIComponent(id)");
+  expect(meeting).not.toContain('/rest/v1/app_tasks');
   expect(views).not.toContain("module('./task-layout.js");
   expect(views).toContain("module('./task-workflow.js?v=9'");
-  expect(views).toContain("module('./meeting-round-detail.js?v=14'");
+  expect(views).toContain("module('./meeting-round-detail.js?v=15'");
   // TASK-구현 PR 4: the project screen shows linked Google tasks and counts them from app_record_links, not app_tasks.
   expect(project).not.toContain('/rest/v1/app_tasks?project_id=${');
   expect(project).toContain('/rest/v1/app_record_links?project_id=');
   expect(index).not.toContain('rel="modulepreload" href="./team.js');
-  expect(index).toContain('./loader-v2.js?v=253');
-  expect(index).toContain('./app.js?v=141');
-  expect(loader).toContain("import('./team.js?v=52')");
-  expect(app).toContain("import('./loader-v2.js?v=253')");
+  expect(index).toContain('./loader-v2.js?v=254');
+  expect(index).toContain('./app.js?v=142');
+  expect(loader).toContain("import('./team.js?v=53')");
+  expect(app).toContain("import('./loader-v2.js?v=254')");
 });

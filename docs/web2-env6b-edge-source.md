@@ -145,7 +145,7 @@
 | 3 | `document-ai-index` | Web2 | v3 | 09-16 15:44 | **true** | work |
 | 4 | `event-media` | Web2 | v5 | 09-25 20:58 | false | work |
 | 5 | `google-calendar` | Web2 | v14 | 09-26 11:55 | false | work |
-| 6 | `google-tasks` | Web2 | v6 | 09-24 18:07 | false | work |
+| 6 | `google-tasks` | Web2 | v12 | 09-28 22:48 KST | false | work |
 | 7 | `library-files` | Web2 | v13 | 09-26 07:09 | false | work |
 | 8 | `meeting-ai-draft` | Web2 | v7 | 09-25 20:58 | **true** | work |
 | 9 | `meeting-ai-ingest` | Web2 | v7 | 09-21 04:50 | **true** | work |

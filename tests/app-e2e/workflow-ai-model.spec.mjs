@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const now=()=>new Date().toISOString();
 
 async function mockApp(page,state){
@@ -17,7 +18,10 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
-    if(path==='/functions/v1/google-tasks')return ok({tasks:[],needs_reconnect:false});
+    if(path==='/functions/v1/google-tasks'){
+      if(url.searchParams.get('action')==='create'){state.googleCreates.push(body);return ok({ok:true,task:{id:'google-followup'}})}
+      return ok({tasks:[],needs_reconnect:false});
+    }
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path==='/functions/v1/meeting-files'&&method==='POST'){state.fileUploads++;return ok({ok:true,document:{id:`doc-${state.fileUploads}`}})}
     if(path.startsWith('/functions/v1/'))return ok({});
@@ -38,6 +42,7 @@ async function mockApp(page,state){
     }
     if(path==='/rest/v1/app_tasks'){
       if(method==='POST'){
+        state.appTaskWrites++;
         const list=Array.isArray(body)?body:[body],made=[];
         for(const item of list){const row={...(item||{}),id:`task-${state.tasks.length+1}`,created_at:now(),updated_at:now(),assignment_status:'accepted'};state.tasks.push(row);made.push(row)}
         return ok(made);
@@ -52,7 +57,7 @@ async function mockApp(page,state){
 }
 
 async function signIn(page){
-  await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
+  await page.goto(loginEntry(`${BASE}/app/`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('member@example.org');
   await page.locator('#authPassword').fill('password123');
@@ -68,11 +73,11 @@ function state(){
       {id:'main-1',workspace_id:'workspace-1',name:'상위 프로젝트',parent_id:null,status:'active',owner_id:'user-1',metadata:{project_system:'v2'},sort_order:10},
       {id:'child-1',workspace_id:'workspace-1',name:'하위 프로젝트',parent_id:'main-1',status:'active',owner_id:'user-1',metadata:{project_system:'v2'},sort_order:20}
     ],
-    meetings:[],tasks:[],fileUploads:0
+    meetings:[],tasks:[],googleCreates:[],appTaskWrites:0,fileUploads:0
   };
 }
 
-test('new meeting stores raw result exactly and creates linked follow-up tasks without AI preprocessing',async({page})=>{
+test('new meeting stores raw result exactly and creates linked Google follow-up without AI preprocessing',async({page})=>{
   const s=state();
   await mockApp(page,s);
   await signIn(page);
@@ -102,7 +107,7 @@ test('new meeting stores raw result exactly and creates linked follow-up tasks w
   await page.locator('#saveMeetingBtn').click();
 
   await expect.poll(()=>s.meetings.length).toBe(1);
-  await expect.poll(()=>s.tasks.length).toBe(1);
+  await expect.poll(()=>s.googleCreates.length).toBe(1);
   await expect.poll(()=>s.fileUploads).toBe(2);
   expect(s.meetings[0].transcript_text).toBe(raw);
   expect(s.meetings[0].notes).toBe(special);
@@ -113,7 +118,8 @@ test('new meeting stores raw result exactly and creates linked follow-up tasks w
   expect(s.meetings[0].title).toBe('회의 단순화 검증');
   expect(s.meetings[0].series_name).toBe('회의 단순화 검증');
   expect(s.meetings[0].round_no).toBe(9);
-  expect(s.tasks[0]).toMatchObject({title:'후속 자료 정리',project_id:'main-1',assignee_id:'user-1',source_type:'meeting',source_id:'meeting-1'});
+  expect(s.googleCreates[0]).toMatchObject({action:'create',title:'후속 자료 정리',due:'2026-09-25',notes:'',links:[{meeting_id:'meeting-1'},{project_id:'main-1'}]});
+  expect(s.appTaskWrites).toBe(0);
 });
 
 test('meeting AI frontend execution path is retired while legacy AI implementation and backend functions stay in the repository',async()=>{
