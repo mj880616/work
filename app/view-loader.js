@@ -23,7 +23,7 @@ function style(path){
 const routeStyles={
   calendar:['./calendar-ui.css?v=9'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=13'],
-  projects:['./project-system-v3.css?v=16','./forum-flow-polish.css?v=1','./google-tasks.css?v=13'],
+  projects:['./project-system-v3.css?v=17','./forum-flow-polish.css?v=1','./google-tasks.css?v=13'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
   meetings:['./meeting-ui.css?v=10'],
   media:['./web1-press.css?v=1'],
@@ -78,7 +78,7 @@ async function projects(){
   await module('./project-catalog.js?v=1');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await module('./google-tasks.js?v=17');
-  await module('./project-system-v3.js?v=27','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=28','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){

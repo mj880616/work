@@ -123,12 +123,33 @@ for(const width of [390,1440]){
     });
     test('project list card keeps archive and add action after redraw',async({page})=>{
       await openApp(page,'projects');
-      const opts={card:'#projectGrid .ps3-plist',head:'.add-list-head',button:'#newProjectBtn',title:'h2'};
-      await assertInHeader(page,opts);
-      await expect(page.locator('#projectsView>.section-head #ps3ArchiveBtn')).toBeVisible();
+      const card='#projectGrid .ps3-plist',head='.add-list-head',title='h2';
+      const checkActions=async()=>{
+        await assertInHeader(page,{card,head,button:'#ps3ArchiveBtn',title});
+        await assertInHeader(page,{card,head,button:'#newProjectBtn',title});
+        const actions=page.locator(`${card} ${head} .ps3-project-toolbar`);
+        await expect(actions.locator('button')).toHaveCount(2);
+        expect(await actions.locator('button').evaluateAll(buttons=>buttons.map(button=>button.id))).toEqual(['ps3ArchiveBtn','newProjectBtn']);
+        const archive=await page.locator('#ps3ArchiveBtn').boundingBox();
+        const add=await page.locator('#newProjectBtn').boundingBox();
+        expect(archive.width).toBeGreaterThanOrEqual(44);
+        expect(archive.height).toBeGreaterThanOrEqual(44);
+        expect(add.width).toBeGreaterThanOrEqual(44);
+        expect(add.height).toBeGreaterThanOrEqual(44);
+        expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
+        expect(Math.abs(archive.y-add.y)).toBeLessThanOrEqual(1);
+      };
+      await checkActions();
+      await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관함');
+      await expect(page.locator('#newProjectBtn')).toHaveText('+ 프로젝트');
+      await page.locator(`${card} ${head} h2`).evaluate(el=>el.textContent='매우 긴 프로젝트 목록 카드 제목을 반복해서 표시하는 화면 배치 확인용 제목');
+      await checkActions();
+      await page.locator('#ps3ArchiveBtn').click();
+      await expect(page.locator('#ps3ArchiveModal')).toBeVisible();
+      await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();
       await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'placement-test'}));
       await page.evaluate(()=>window.KPTURouter.go('projects',{source:'placement-test'}));
-      await assertInHeader(page,opts);
+      await checkActions();
       await page.locator('#newProjectBtn').click();
       await expect(page.locator('#ps3CreateModal')).toBeVisible();
     });

@@ -46,7 +46,7 @@ async function buttonHeight(page,view,selector){
   return button.evaluate(el=>el.getBoundingClientRect().height);
 }
 
-test('calendar uses a 44px add target while other top-level actions stay consistent and mobile content reaches the viewport bottom',async({page})=>{
+test('calendar and project use 44px add targets while compact actions stay consistent and mobile content reaches the viewport bottom',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
@@ -59,7 +59,8 @@ test('calendar uses a 44px add target while other top-level actions stay consist
 
   const heights=[];
   heights.push(await buttonHeight(page,'tasks','#newTaskBtn'));
-  heights.push(await buttonHeight(page,'projects','#newProjectBtn'));
+  const projectAdd=await buttonHeight(page,'projects','#newProjectBtn');
+  expect(projectAdd).toBeGreaterThanOrEqual(44);
   heights.push(await buttonHeight(page,'library','#newDocumentBtn'));
   heights.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
 

@@ -182,10 +182,11 @@ async function renderGrid(){
   if(epoch!==projectEpoch)return;
   const rows=tops(),listed=rows.flatMap(p=>[p,...kids(p)]);
   grid.dataset.ps3Ready='1';
-  const add=$('#newProjectBtn'),toolbar=$('#projectsView .ps3-project-toolbar');
-  if(add&&grid.contains(add))toolbar?.append(add);
-  grid.innerHTML=`<div class="ps3-plist"><div class="add-list-head"><h2>프로젝트</h2></div>${rows.length?rows.map(p=>listRowHtml(p,kids(p))).join(''):'<div class="empty">프로젝트가 없습니다.</div>'}</div>`;
-  if(add)grid.querySelector('.add-list-head')?.append(add);
+  const add=$('#newProjectBtn'),archiveBtn=$('#ps3ArchiveBtn');
+  grid.innerHTML=`<div class="ps3-plist"><div class="add-list-head"><h2>프로젝트</h2><div class="ps3-project-toolbar"></div></div>${rows.length?rows.map(p=>listRowHtml(p,kids(p))).join(''):'<div class="empty">프로젝트가 없습니다.</div>'}</div>`;
+  const actions=grid.querySelector('.add-list-head .ps3-project-toolbar');
+  if(archiveBtn)actions.append(archiveBtn);
+  if(add)actions.append(add);
   const key=JSON.stringify(spaces.map(p=>[p.id,p.name,p.parent_id,p.status,p.updated_at]));
   if(key!==lastSpacesKey){lastSpacesKey=key;window.dispatchEvent(new CustomEvent('kptu:project-spaces-updated',{detail:{workspaceId:wid,userId:user.id,spaces}}))}
   // Counts fill in afterwards; callers (e.g. a status change followed by refreshDetail) must not wait on them.
@@ -413,7 +414,7 @@ function resetProjectSession(){
   current=null;detail=null;editingProject=null;editingMilestone=null;editingWs=null;editingMemo=null;googleCalendarState=null;
   lastSpacesKey='';expandedTops.clear();listCounts=null;
   document.querySelectorAll('#ps3DetailModal,#ps3CreateModal,#ps3WorkstreamModal,#ps3ProgressModal,#ps3MilestoneModal,#ps3DeleteModal,#ps3ArchiveModal').forEach(m=>{m.classList.add('hidden');m.setAttribute('aria-hidden','true')});
-  const grid=$('#projectGrid');if(grid){const add=$('#newProjectBtn');if(add&&grid.contains(add))$('#projectsView .ps3-project-toolbar')?.append(add);grid.dataset.ps3Ready='0';grid.innerHTML=''}
+  const grid=$('#projectGrid');if(grid){const toolbar=$('#projectsView>.section-head .ps3-project-toolbar');for(const button of [$('#ps3ArchiveBtn'),$('#newProjectBtn')])if(button&&grid.contains(button))toolbar?.append(button);grid.dataset.ps3Ready='0';grid.innerHTML=''}
   clearUrl()
 }
 async function handleProjectSessionChange(){
