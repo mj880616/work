@@ -206,8 +206,9 @@ test('date headers and event lanes stay pinned to the top when week rows grow',a
   expect(Math.abs(short.layerTop-short.dateHeaderHeight)).toBeLessThanOrEqual(2);
   expect(Math.abs(short.eventTop-short.layerTop)).toBeLessThanOrEqual(1);
 
+  const shortGridHeight=Number(await page.locator('#calendarGrid').getAttribute('data-cmv-viewport-height'));
   await page.setViewportSize({width:390,height:844});
-  await expect.poll(async()=>Number(await page.locator('#calendarGrid').getAttribute('data-cmv-viewport-height'))).toBeGreaterThan(400);
+  await expect.poll(async()=>Number(await page.locator('#calendarGrid').getAttribute('data-cmv-viewport-height'))).toBeGreaterThan(shortGridHeight);
   const tall=await measure();
   expect(tall.weekHeight).toBeGreaterThan(short.weekHeight+20);
   expect(Math.abs(tall.dayTop-short.dayTop)).toBeLessThanOrEqual(1);
