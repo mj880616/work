@@ -2,7 +2,6 @@
 'use strict';
 if(window.KPTUViewLoader)return;
 const flights=new Map(),loaded=new Set(),styleFlights=new Map();
-const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
 const background=promise=>Promise.resolve(promise).catch(err=>console.warn('background feature load',err));
 
 function style(path){
@@ -28,8 +27,7 @@ const routeStyles={
   meetings:['./meeting-ui.css?v=10'],
   media:['./web1-press.css?v=1'],
   pages:['./web1-board.css?v=2'],
-  team:['./suborganizations.css?v=5','./workplace-detail.css?v=4'],
-  photos:['./photo-room.css?v=2']
+  team:['./suborganizations.css?v=5','./workplace-detail.css?v=4']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -62,7 +60,6 @@ async function calendar(){
   background(style('./suborganizations.css?v=5').then(()=>module('./suborganizations.js?v=8','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   background(google.then(()=>module('./calendar-health.js?v=4')));
-  defer(()=>load('photos').catch(()=>{}),{timeout:1200});
   return {ok:true}
 }
 async function tasks(){
@@ -107,12 +104,7 @@ async function organizations(){
   import('./workplace-ai-report.js?v=3').catch(console.error);
   return {ok:true}
 }
-async function photos(){
-  await team('calendar');
-  await module('./photo-room.js?v=6','__KPTU_PHOTO_ROOM_READY__');
-  return {ok:true}
-}
-const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations,photos};
+const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations};
 function normalize(view){
   if(view==='home'||view==='profile'||view==='messages'||view==='myspace')return 'calendar';
   return loaders[view]?view:'calendar'

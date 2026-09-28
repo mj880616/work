@@ -2,7 +2,7 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
-  const NAV_ALIAS={messages:'calendar',profile:'calendar',photos:'calendar',myspace:'calendar'};
+  const NAV_ALIAS={messages:'calendar',profile:'calendar',myspace:'calendar'};
   let bound=false;
 
   function appReady(){

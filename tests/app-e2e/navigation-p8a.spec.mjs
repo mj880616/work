@@ -77,7 +77,7 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   await expect(page.locator('#appView')).toHaveCount(0);
 });
 
-test('removed personal deep links return to calendar while photo and media links remain reachable',async({page})=>{
+test('removed personal and photo deep links return to calendar while media links remain reachable',async({page})=>{
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
@@ -89,9 +89,9 @@ test('removed personal deep links return to calendar while photo and media links
   await page.goto(app+'?view=media');
   await expect(page.locator('#mediaView')).toBeVisible({timeout:20000});
   await page.goto(app+'?view=photos');
-  await expect(page.locator('#photosView')).toBeVisible({timeout:20000});
-  await page.locator('#photosCalendarEntry').click();
-  await expect(page.locator('#calendarView')).toBeVisible();
+  await expect(page.locator('#calendarView')).toBeVisible({timeout:20000});
+  await expect(page.locator('#photosView')).toHaveCount(0);
+  await expect.poll(()=>new URL(page.url()).searchParams.has('view')).toBe(false);
   await expect(page.locator('#eventRecordSection,#eventRecordList')).toHaveCount(0);
 });
 

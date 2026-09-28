@@ -51,7 +51,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=52')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=30')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=31')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -85,8 +85,8 @@ jobs:
             app/task-workflow.js app/task-row-view.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/compact-list.css \
             app/project-system-v3.js app/project-system-v3.css app/project-catalog.js \
             app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
-            app/workflow-ai-v3.js app/workplace-ai-report.js app/photo-room.js \
-            app/meeting-ui.css app/photo-room.css p/index.html; do
+            app/workflow-ai-v3.js app/workplace-ai-report.js \
+            app/meeting-ui.css p/index.html; do
             test -f "$f"
           done
           test -d app/legacy
@@ -146,7 +146,10 @@ jobs:
           test ! -f app/home-task.css
           test ! -f app/library-public-toggle.js
           if grep -Eq "home-task-controls|home-task.css|library-public-toggle" app/loader-v2.js app/view-loader.js app/styles.css; then echo 'retired home/library decorator returned'; exit 1; fi
-          grep -q "photo-room.js?v=6" app/view-loader.js
+          # 포토룸 삭제 상태 유지(TASK-포토룸삭제 1단계): 전용 파일과 로더·라우터·스타일 연결이 돌아오면 실패.
+          test ! -f app/photo-room.js
+          test ! -f app/photo-room.css
+          if grep -Eq "photo-room|__KPTU_PHOTO_ROOM|photos" app/loader-v2.js app/view-loader.js app/app-router.js app/styles.css app/index.html; then echo 'retired photo room returned'; exit 1; fi
           grep -q "web1-board.js?v=3" app/view-loader.js
           grep -q "meeting-round-detail.js?v=14" app/view-loader.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/view-loader.js
@@ -241,10 +244,7 @@ jobs:
           if grep -q "MutationObserver" app/loader-v2.js app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/library-upload.js; then echo 'core readiness returned to mutation polling'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/topbar-actions.js app/task-workflow.js app/meeting-round-detail.js app/library-upload.js; then echo 'core styles returned to runtime injection'; exit 1; fi
           if grep -q "createElement('link')" app/team.js; then echo 'team css must stay static'; exit 1; fi
-          if grep -q "createElement('style')\|createElement(\"style\")" app/home-dashboard-v2.js app/photo-room.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
-          if grep -q "localStorage\|SESSION_KEY\|kptu_collab_session_v1" app/photo-room.js; then echo 'core UI bypassed shared runtime session'; exit 1; fi
-          if grep -q "location.reload" app/photo-room.js; then echo 'feature returned to full-page reload'; exit 1; fi
-          if grep -Eq "eventRecordSection|eventRecordList|renderRecordList|일정 기록" app/photo-room.js; then echo 'calendar schedule record section returned'; exit 1; fi
+          if grep -q "createElement('style')\|createElement(\"style\")" app/home-dashboard-v2.js; then echo 'core UI returned to dynamic style injection'; exit 1; fi
 
 
       - name: Check Design System 1.0 invariants
@@ -264,7 +264,7 @@ jobs:
           managed={
             'team.css',
             'profile-settings.css','workplace-detail.css','suborganizations.css',
-            'photo-room.css','topbar-actions.css','calendar-ui.css','task-layout.css',
+            'topbar-actions.css','calendar-ui.css','task-layout.css',
             'google-tasks.css','library-upload.css','project-system-v3.css','meeting-ui.css'
           }
           # Exact feature exception: calendar event source marker uses an inset shadow, not card elevation.
@@ -409,7 +409,7 @@ jobs:
         run: |
           set -e
           if grep -Eq "service_role|SUPABASE_SERVICE_ROLE|Authorization:.*service" app/*.js; then echo 'service-role material must never ship to client'; exit 1; fi
-          if grep -Eq "localStorage|kptu_collab_session_v1" app/photo-room.js app/web1-board.js; then echo 'feature module bypassed shared runtime session'; exit 1; fi
+          if grep -Eq "localStorage|kptu_collab_session_v1" app/web1-board.js; then echo 'feature module bypassed shared runtime session'; exit 1; fi
       - name: Check retained non-project feature invariants
         run: |
           set -e
@@ -434,8 +434,8 @@ jobs:
             app/ app/login/ app/app.js app/loader-v2.js app/auth-service.js app/capabilities.js \
             app/web1-board.js app/web1-board.css app/compact-list.css \
             app/topbar-actions.js app/topbar-actions.css app/profile-settings.js app/profile-settings.css \
-            app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/library-upload.js app/library-upload.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js app/photo-room.js \
+            app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/library-upload.js app/library-upload.css app/project-system-v3.js app/project-system-v3.css app/workflow-ai-v3.js \
             app/task-workflow.js app/meeting-round-detail.js app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js \
-            app/styles.css app/meeting-ui.css app/calendar-ui.css app/photo-room.css p/; do
+            app/styles.css app/meeting-ui.css app/calendar-ui.css p/; do
             curl --fail --silent "http://127.0.0.1:8123/$path" >/dev/null
           done

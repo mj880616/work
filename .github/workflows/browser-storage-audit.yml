@@ -66,7 +66,6 @@ jobs:
               'app/google-tasks.js':[r'gtCacheKey\('],
               'app/public-page-auth.js':[r'config[.]sessionKey'],
               'app/web1-admin-auth.js':[r'cfg[.]sessionKey',r'oauthReturnKey'],
-              'app/photo-room.js':[r'SESSION_KEY'],
               'app/password-reset.js':[r'SESSION_KEY'],
               'tests/app-e2e/public-page-editor-fixture.html':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-page-editor-live.spec.mjs':[r'kptu_public_editor_session_v1',r'kptu_collab_session_v1'],
