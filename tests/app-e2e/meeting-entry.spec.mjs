@@ -126,6 +126,64 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
   expect(legacyWrites).toBe(0);
 });
 
+test('repeated meeting save submits one meeting and one Google follow-up',async({page})=>{
+  await signIn(page);
+  let meetingPosts=0,taskCreates=0,release;
+  const held=new Promise(resolve=>{release=resolve});
+  await page.route(`${SB}/rest/v1/app_meetings**`,async route=>{
+    if(route.request().method()==='POST'){
+      meetingPosts++;
+      await held;
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{...route.request().postDataJSON(),id:'meeting-once'}])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+  });
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
+    if(new URL(route.request().url()).searchParams.get('action')==='create')taskCreates++;
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:{id:'google-once'}})});
+  });
+  await page.locator('#newMeetingBtn').click();
+  await page.locator('#meetingTitle').fill('중복 방지 회의');
+  await page.locator('#meetingAt').fill('2026-09-29T09:00');
+  await page.locator('#meetingTranscript').fill('결과');
+  await page.locator('.meeting-action-title').fill('후속');
+  await page.locator('#saveMeetingBtn').evaluate(button=>{button.click();button.click()});
+  await expect.poll(()=>meetingPosts).toBeGreaterThanOrEqual(1);
+  await page.waitForTimeout(150);
+  const busy=await page.locator('#saveMeetingBtn').evaluate(button=>({disabled:button.disabled,text:button.textContent.trim()}));
+  release();
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  await expect.poll(()=>taskCreates).toBeGreaterThanOrEqual(1);
+  expect(meetingPosts).toBe(1);
+  expect(taskCreates).toBe(1);
+  expect(busy).toEqual({disabled:true,text:'저장 중…'});
+});
+
+test('failed meeting create restores its save button for a retry',async({page})=>{
+  await signIn(page);
+  let posts=0;
+  await page.route(`${SB}/rest/v1/app_meetings**`,route=>{
+    if(route.request().method()==='POST'){
+      posts++;
+      return route.fulfill(posts===1
+        ?{status:503,contentType:'application/json',body:JSON.stringify({message:'잠시 후 다시 시도해 주세요.'})}
+        :{status:200,contentType:'application/json',body:JSON.stringify([{...route.request().postDataJSON(),id:'meeting-retry'}])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+  });
+  await page.locator('#newMeetingBtn').click();
+  await page.locator('#meetingTitle').fill('재시도 회의');
+  await page.locator('#meetingAt').fill('2026-09-29T09:00');
+  await page.locator('#meetingTranscript').fill('결과');
+  await page.locator('#saveMeetingBtn').click();
+  await expect(page.locator('#meetingStatus')).toHaveClass(/error/);
+  await expect(page.locator('#saveMeetingBtn')).toBeEnabled();
+  await expect(page.locator('#saveMeetingBtn')).toHaveText('회의 결과 저장');
+  await page.locator('#saveMeetingBtn').click();
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  expect(posts).toBe(2);
+});
+
 test('a Google follow-up failure leaves the saved meeting available without another create attempt',async({page})=>{
   await signIn(page);
   let creates=0,stored=null;
@@ -491,6 +549,77 @@ test('closing a meeting during a delayed follow-up save does not reopen its deta
   await expect(page.locator('#meetingRoundDetailModal')).toHaveAttribute('aria-hidden','true');
 });
 
+test('repeated meeting follow-up save sends one Google create',async({page})=>{
+  await signIn(page);
+  let creates=0,release;
+  const held=new Promise(resolve=>{release=resolve}),tasks=[];
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');
+    if(action==='linked')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks})});
+    if(action==='create'){
+      creates++;
+      await held;
+      tasks.push({id:'google-once',taskListId:'@default',title:route.request().postDataJSON().title,status:'needsAction'});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await page.locator('#mrdAddTask').click();
+  await page.locator('#mrdTaskTitle').fill('후속');
+  await page.locator('#mrdTaskSave').click();
+  await expect.poll(()=>creates).toBeGreaterThanOrEqual(1);
+  await page.locator('#mrdTaskCancel').click();
+  await page.locator('#mrdAddTask').click();
+  await page.locator('#mrdTaskTitle').fill('후속 변경');
+  await expect(page.locator('#mrdTaskSave')).toBeDisabled();
+  await page.locator('#mrdTaskSave').evaluate(button=>button.click());
+  await page.waitForTimeout(150);
+  const createsBeforeRelease=creates;
+  release();
+  await expect(page.locator('#mrdTasks [data-mrd-task="google-once"]')).toHaveCount(1);
+  await page.waitForTimeout(300);
+  expect(createsBeforeRelease).toBe(1);
+  expect(creates).toBe(1);
+});
+
+test('meeting detail waits for a task screen completion and rereads it on reopening',async({page})=>{
+  await signIn(page);
+  const due=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10)+'T00:00:00Z';
+  let status='needsAction',toggleStarted=false,linkedReads=0,release;
+  const held=new Promise(resolve=>{release=resolve});
+  const task=()=>({id:'meeting-follow-up',taskListId:'@default',taskListTitle:'내 할 일',title:'후속',status,due,completed:status==='completed'?new Date().toISOString():null});
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');
+    if(action==='overview')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[task()]})});
+    if(action==='linked'){linkedReads++;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[task()]})})}
+    if(action==='toggle'){
+      toggleStarted=true;
+      await held;
+      status='completed';
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:task()})});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:'{}'});
+  });
+  await page.locator('.app-nav [data-view="tasks"]').click();
+  await expect(page.locator('#gtTaskBody [data-google-task="meeting-follow-up"]')).toBeVisible();
+  await page.locator('#gtTaskBody [data-gt-toggle="meeting-follow-up"]').click();
+  await expect.poll(()=>toggleStarted).toBe(true);
+  await expect(page.locator('#gtTaskBody [data-google-task="meeting-follow-up"]')).toHaveClass(/completed/);
+  await page.locator('.app-nav [data-view="meetings"]').click();
+  linkedReads=0;
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await page.waitForTimeout(150);
+  const readsBeforeSave=linkedReads;
+  release();
+  await expect(page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]')).toHaveClass(/completed/);
+  expect(readsBeforeSave).toBe(0);
+  await page.locator('#mrdClose').click();
+  const previousReads=linkedReads;
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await expect(page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]')).toHaveClass(/completed/);
+  expect(linkedReads).toBeGreaterThan(previousReads);
+});
+
 test('meeting detail keeps completed Google follow-ups and supports create, edit, toggle, and confirmed delete without app_tasks',async({page})=>{
   await signIn(page);
   const tasks=[{id:'old-done',taskListId:'@default',title:'완료된 항목',due:'2025-01-01T00:00:00Z',notes:'기존 메모',status:'completed',completed:'2025-01-02T00:00:00Z'}];
@@ -620,9 +749,9 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=53')");
+  expect(loader).toContain("import('./team.js?v=54')");
   expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=15');
+  expect(views).toContain('meeting-round-detail.js?v=16');
   expect(views).toContain('meeting-ui.css?v=10');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");

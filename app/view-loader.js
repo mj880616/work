@@ -64,7 +64,7 @@ async function calendar(){
 }
 async function tasks(){
   await module('./project-catalog.js?v=1');
-  await module('./google-tasks.js?v=18');
+  await module('./google-tasks.js?v=19');
   return {ok:true}
 }
 async function projects(){
@@ -74,7 +74,7 @@ async function projects(){
   ]);
   await module('./project-catalog.js?v=1');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
-  await module('./google-tasks.js?v=18');
+  await module('./google-tasks.js?v=19');
   await module('./project-system-v3.js?v=28','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
@@ -87,7 +87,7 @@ async function library(){
 async function meetings(){
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
-  await module('./meeting-round-detail.js?v=15','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=16','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){
