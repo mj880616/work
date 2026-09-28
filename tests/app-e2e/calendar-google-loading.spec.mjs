@@ -77,8 +77,10 @@ async function openCalendar(page,state){await boot(page,state);await page.locato
 test('Google Calendar 요청 수·시간 측정 (첫 진입·월 이동·포커스 복귀)',async({page})=>{
   test.setTimeout(90000);
   const state=newState(),m={};
+  // Calendar 초기화의 status 요청은 앱 화면이 보이기 전에 시작할 수도 있다.
+  let mark=state.log.length;
   await boot(page,state);
-  let mark=state.log.length,t=Date.now();
+  let t=Date.now();
   await page.locator('[data-view="calendar"]').click();
   await googleVisible(page,'0');m.firstEntryMs=Date.now()-t;
   await quiet(page,state);m.firstEntry=summary(state.log,mark);
