@@ -254,19 +254,21 @@ test('meeting palette has 12 distinct non-red colors visible on light and dark s
 });
 
 for(const width of [320,360,390,768,1280]){
-  test(`meeting filter and add button share one row at ${width}px`,async({page})=>{
+  test(`meeting filter stays usable and add button sits in the list card at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:800});
     await signIn(page);
     const bar=page.locator('#meetingsView .meeting-toolbar');
     const select=page.locator('#meetingTypeFilter'),button=page.locator('#newMeetingBtn');
     await expect(button).toBeVisible();
-    const [b,s,btn]=await Promise.all([bar.boundingBox(),select.boundingBox(),button.boundingBox()]);
+    const head=page.locator('#meetingsListCard .add-list-head');
+    const [b,s,h,btn]=await Promise.all([bar.boundingBox(),select.boundingBox(),head.boundingBox(),button.boundingBox()]);
     expect(btn.height).toBeCloseTo(36,0);
     expect(s.height).toBeCloseTo(btn.height,0);
-    expect(Math.abs(s.y-btn.y)).toBeLessThanOrEqual(.5);
     expect(s.x).toBeCloseTo(b.x,0);
-    expect(btn.x+btn.width).toBeCloseTo(b.x+b.width,0);
-    expect(btn.x-(s.x+s.width)).toBeCloseTo(8,0);
+    expect(s.width).toBeCloseTo(b.width,0);
+    expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0);
+    expect(btn.y).toBeGreaterThanOrEqual(h.y);
+    expect(btn.y+btn.height).toBeLessThanOrEqual(h.y+h.height);
     expect(b.height).toBeCloseTo(36,0);
     expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
     const row=page.locator('#meetingList .meeting-list-row').first();

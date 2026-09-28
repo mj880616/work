@@ -8,19 +8,19 @@
 <link rel="icon" href="./app-icon.svg?v=20260924-unicorn3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260924-unicorn3">
 <link rel="manifest" href="./windows-manifest.json?v=6">
-<link rel="stylesheet" href="./critical.css?v=7">
+<link rel="stylesheet" href="./critical.css?v=8">
 <link rel="preload" as="style" href="./base-ui.css?v=6">
 <link rel="preload" as="style" href="./static-gates.css?v=3">
 <link rel="preload" as="style" href="./topbar-actions.css?v=8">
-<link rel="preload" as="style" href="./team.css?v=4">
+<link rel="preload" as="style" href="./team.css?v=5">
 <link rel="preload" as="style" href="./workspace-ui.css?v=9">
 <link rel="preload" as="style" href="./desktop-ui.css?v=10">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=250">
+<link rel="modulepreload" href="./loader-v2.js?v=251">
 <link rel="modulepreload" href="./runtime-client.js?v=6">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=138" defer></script>
+<script src="./app.js?v=139" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -56,8 +56,10 @@
   <section id="homeView" class="view-panel hidden"></section>
 
   <section id="calendarView" class="view-panel hidden">
-    <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록">+</button></div>
-    <div id="calendarGrid" class="calendar-grid" aria-label="월간 일정"></div>
+    <div id="calendarCard" class="calendar-card">
+      <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
+      <div id="calendarGrid" class="calendar-grid" aria-label="월간 일정"></div>
+    </div>
   </section>
 
   <section id="tasksView" class="view-panel hidden">
@@ -71,9 +73,9 @@
   </section>
 
   <section id="libraryView" class="view-panel hidden">
-    <div class="section-head actions-only"><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div>
+    <div class="section-head actions-only"></div>
     <div class="toolbar"><label class="a11y-only" for="documentSearch">자료 검색</label><input id="documentSearch" class="search" type="search" placeholder="제목·출처·태그 검색"><label class="a11y-only" for="documentProject">프로젝트 필터</label><select id="documentProject"><option value="all">전체 프로젝트</option></select></div>
-    <div id="documentList" class="card-list"></div>
+    <section id="libraryListCard" class="add-list-card"><div class="add-list-head"><h2>자료실</h2><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div><div id="documentList" class="card-list"></div></section>
   </section>
 
   <section id="mediaView" class="view-panel hidden">
@@ -82,8 +84,8 @@
   </section>
 
   <section id="meetingsView" class="view-panel hidden">
-    <div class="toolbar meeting-toolbar"><label class="a11y-only" for="meetingTypeFilter">회의명</label><select id="meetingTypeFilter"><option value="all">회의명 전체</option></select><button id="newMeetingBtn" class="primary" type="button">+ 회의 결과</button></div>
-    <div id="meetingList" class="card-list meeting-list"></div>
+    <div class="toolbar meeting-toolbar"><label class="a11y-only" for="meetingTypeFilter">회의명</label><select id="meetingTypeFilter"><option value="all">회의명 전체</option></select></div>
+    <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2>회의 결과</h2><button id="newMeetingBtn" class="primary" type="button">+ 회의 결과</button></div><div id="meetingList" class="card-list meeting-list"></div></section>
   </section>
 
   <section id="pagesView" class="view-panel hidden">

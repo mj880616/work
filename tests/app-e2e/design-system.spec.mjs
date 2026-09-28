@@ -69,7 +69,7 @@ test('Design System 1.0 keeps the top-level action contract with a compact calen
   for(const name of tokenNames)expect(values[name],name).not.toBe('');
 
   const calendarAction=await actionMetrics(page,'calendar','#newEventBtn');
-  expect(calendarAction.height).toBeLessThanOrEqual(32);
+  expect(calendarAction.height).toBeGreaterThanOrEqual(44);
 
   const actions=[
     ['tasks','#newTaskBtn'],['projects','#newProjectBtn'],
