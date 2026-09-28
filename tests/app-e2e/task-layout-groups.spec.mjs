@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||`${TEST_ORIGIN}`;
+const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 test('task screen renders one personal task list with pending count',async({page})=>{
   await page.goto(`${TEST_ORIGIN}/tests/app-e2e/task-layout-fixture.html`);

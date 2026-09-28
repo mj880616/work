@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
-const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||`${TEST_ORIGIN}`;
+const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // The app judges due dates in Korean time (묶음C-4), so fixtures use the Korean date too.

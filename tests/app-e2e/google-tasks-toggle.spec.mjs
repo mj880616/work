@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
-const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||`${TEST_ORIGIN}`;
+const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 // TASK-구현 PR 1: completing or reopening a Google task shows at once and saves in the background.
 // The device copy of the last result is checked in google-tasks-cache.spec.mjs.
