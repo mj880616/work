@@ -191,7 +191,6 @@ jobs:
             https://bokdoong.com/ \
             https://work.bokdoong.com/ \
             https://desk.bokdoong.com/ \
-            https://read.bokdoong.com/ \
             https://arsenal.bokdoong.com/
           do
             check_200 "$url" "text/html"
@@ -201,17 +200,11 @@ jobs:
             bokdoong.com \
             work.bokdoong.com \
             desk.bokdoong.com \
-            read.bokdoong.com \
             arsenal.bokdoong.com
           do
             check_https_upgrade "$host"
           done
 
-          check_200 \
-            'https://read.bokdoong.com/read-think-write/records/?tab=recent' \
-            'text/html'
-
-          check_200 'https://read.bokdoong.com/favicon.ico'
           check_200 'https://arsenal.bokdoong.com/favicon.ico'
           check_200 'https://desk.bokdoong.com/work/app/sw.js?v=2'
           check_200 'https://desk.bokdoong.com/work/app/app.js?v=87'
@@ -253,7 +246,6 @@ jobs:
             https://bokdoong.com/ \
             https://work.bokdoong.com/work/assets/web1-design-lite.css \
             https://desk.bokdoong.com/work/app/sw.js?v=2 \
-            https://read.bokdoong.com/read-think-write/src/app-entry.js \
             https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/matches.js
           do
             headers="$(curl \
@@ -275,7 +267,6 @@ jobs:
           for url in \
             https://mj880616.github.io/work/ \
             https://mj880616.github.io/work/app/ \
-            https://mj880616.github.io/read-think-write/ \
             https://mj880616.github.io/work/personal/arsenal-match-archive/
           do
             check_200 "$url" "text/html"
