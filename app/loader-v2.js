@@ -87,7 +87,7 @@
     location.reload();
   });
   await Promise.all([
-    import('./app-router.js?v=12'),
+    import('./app-router.js?v=13'),
     import('./accessibility-dialog.js?v=1'),
     import('./native-back-guard.js?v=2'),
     import('./session-resilience.js?v=6'),
@@ -133,7 +133,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=30');
+  await import('./view-loader.js?v=31');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');

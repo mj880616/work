@@ -44,14 +44,13 @@ test('active Web2 UI has no publication, visibility, group-share, or public-link
 });
 
 test('every active Web2 document creation path writes private visibility', () => {
-  const photoRoom = read('app/photo-room.js');
   const library = read('supabase/functions/library-files/index.ts');
   const projectFiles = read('supabase/functions/workspace-drive/index.ts');
   const meetingFiles = read('supabase/functions/meeting-files/index.ts');
 
   assert.doesNotMatch(library, /setDrivePublic|set-visibility|\['public','workspace','private'\]|visibility==='public'/);
-  assert.match(photoRoom, /app_documents[\s\S]*?visibility:'private'/);
-  assert.doesNotMatch(photoRoom, /visibility:'workspace'/);
+  // The photo room document path was removed (TASK-포토룸삭제 1단계); it must not come back as an unreviewed creation path.
+  assert.equal(exists('app/photo-room.js'), false);
   assert.match(library, /visibility:'private'/);
   assert.match(projectFiles, /visibility:'private'/);
   assert.match(meetingFiles, /visibility:'private'/);
