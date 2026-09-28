@@ -141,17 +141,17 @@ test('completing an overdue Google task moves it from the overdue group to the c
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtOverdueHead')).toHaveText('기한 지남 1');
   // The check is drawn in CSS inside the circle: no glyph that can spill out, same circle for pending and completed.
-  const check=id=>page.locator(`[data-gt-toggle="${id}"]`).evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {w:r.width,h:r.height,text:el.textContent,after:a.content,left:a.left,top:a.top,pos:a.position,bg:getComputedStyle(el).backgroundColor}});
+  const check=id=>page.locator(`[data-gt-toggle="${id}"]`).evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after'),circle=getComputedStyle(el,'::before');return {w:r.width,h:r.height,text:el.textContent,after:a.content,left:a.left,top:a.top,pos:a.position,bg:circle.backgroundColor,circle:{w:circle.width,h:circle.height,left:circle.left,top:circle.top}}});
   const pendingCheck=await check('late');
-  expect(pendingCheck).toMatchObject({w:22,h:22,text:'',after:'none'});
+  expect(pendingCheck).toMatchObject({w:44,h:44,text:'',after:'none',circle:{w:'22px',h:'22px',left:'11px',top:'11px'}});
   await page.locator('[data-gt-overdue] [data-gt-toggle="late"]').click();
   await expect(page.locator('#gtOverdueHead')).toHaveCount(0);
   const row=page.locator('#gtTaskBody > .gt-row.completed[data-google-task="late"]');
   await expect(row).toBeVisible();
   await expect(row).toContainText('밀린 할 일');
   const doneCheck=await check('late');
-  // 22px circle with a 2px border: the check is anchored at 9px of the 18px inner box, i.e. the centre of the circle.
-  expect(doneCheck).toMatchObject({w:22,h:22,text:'',after:'""',left:'9px',top:'9px',pos:'absolute'});
+  // The visible circle stays 22px, centred in the 44px tap target; the check is centred in that target.
+  expect(doneCheck).toMatchObject({w:44,h:44,text:'',after:'""',left:'22px',top:'22px',pos:'absolute',circle:{w:'22px',h:'22px',left:'11px',top:'11px'}});
   expect(doneCheck.bg).not.toBe(pendingCheck.bg);
   expect(toggles).toEqual([expect.objectContaining({action:'toggle',task_id:'late',completed:true})]);
   await context.close();
