@@ -159,7 +159,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   expect(await page.locator('#googleCalendarPanel').evaluate(el=>el.open)).toBe(false);
   await expect(page.locator('#calendarUpcoming,#upcomingEvents')).toHaveCount(0);
   const addSize=await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().width);
-  expect(addSize).toBeLessThanOrEqual(44);
+  expect(addSize).toBeGreaterThanOrEqual(44);
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('E2E Web2 일정');
   await page.locator('#eventStartDate').fill('2026-09-14');
