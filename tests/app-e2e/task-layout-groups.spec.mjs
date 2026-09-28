@@ -216,17 +216,18 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   expect(layout).not.toContain('내가 추가');
   expect(workflow).not.toContain('meeting-action-assignee');
   expect(meeting).not.toContain('mrdTaskAssignee');
-  expect(meeting).toContain("mrdTaskEndpoint('linked')+'&meeting_id='+encodeURIComponent(id)");
+  expect(meeting).toContain('await window.KPTUGoogleTasks?.waitForPendingToggles?.()');
+  expect(meeting).toContain("mrdTaskEndpoint('linked')+'&meeting_id='+encodeURIComponent(meetingId)");
   expect(meeting).not.toContain('/rest/v1/app_tasks');
   expect(views).not.toContain("module('./task-layout.js");
   expect(views).toContain("module('./task-workflow.js?v=9'");
-  expect(views).toContain("module('./meeting-round-detail.js?v=15'");
+  expect(views).toContain("module('./meeting-round-detail.js?v=16'");
   // TASK-구현 PR 4: the project screen shows linked Google tasks and counts them from app_record_links, not app_tasks.
   expect(project).not.toContain('/rest/v1/app_tasks?project_id=${');
   expect(project).toContain('/rest/v1/app_record_links?project_id=');
   expect(index).not.toContain('rel="modulepreload" href="./team.js');
-  expect(index).toContain('./loader-v2.js?v=254');
-  expect(index).toContain('./app.js?v=142');
-  expect(loader).toContain("import('./team.js?v=53')");
-  expect(app).toContain("import('./loader-v2.js?v=254')");
+  expect(index).toContain('./loader-v2.js?v=255');
+  expect(index).toContain('./app.js?v=143');
+  expect(loader).toContain("import('./team.js?v=54')");
+  expect(app).toContain("import('./loader-v2.js?v=255')");
 });

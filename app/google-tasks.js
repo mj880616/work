@@ -151,6 +151,6 @@ async function boot(){section();ensureModal();const add=document.querySelector('
   // The project view loads this module too (PR 4), so the task list is read only while the task view is shown; the route hook reads it on each visit.
   if(tasksViewShown())await load(false)}
 // Used by the project detail (TASK-구현 PR 4).
-window.KPTUGoogleTasks={openEditor:(task=null,opts={})=>openEditor(task,opts),mountLinked,openLinkPicker};
+window.KPTUGoogleTasks={openEditor:(task=null,opts={})=>openEditor(task,opts),mountLinked,openLinkPicker,waitForPendingToggles:()=>Promise.allSettled([...pendingToggles.values()].map(p=>p.saving).filter(Boolean))};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>boot().catch(console.error),{once:true});else boot().catch(console.error);
 })();
