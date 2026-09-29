@@ -9,8 +9,7 @@ import { createServer } from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
 
-// Point at #359 during the RED run, then at its replacement migration.
-const migration = await readFile(new URL('../../supabase/migrations/20260929072329_task29_delete_app_tasks_rows.sql', import.meta.url), 'utf8');
+const migration = await readFile(new URL('../../supabase/migrations/20260929081500_task29_block_writes_delete_app_tasks_rows.sql', import.meta.url), 'utf8');
 const NEW_VERSION = '20260929081500';
 const NEW_NAME = 'task29_block_writes_delete_app_tasks_rows';
 for (const name of Object.keys(process.env)) if (name.startsWith('PG')) delete process.env[name];
