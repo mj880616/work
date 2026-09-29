@@ -45,12 +45,16 @@ async function team(view){
   const fn=window.__KPTU_START_TEAM_VIEW__;
   if(typeof fn==='function')await fn(view);
 }
+async function projectCatalog(){
+  await module('./project-catalog.js?v=2');
+}
 async function calendar(){
   await module('./calendar-month-view.js?v=6','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await projectCatalog();
   await team('calendar');
   await module('./calendar-plus.js?v=9','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
-    module('./calendar-interactions-v2.js?v=8','__KPTU_CALENDAR_INTERACTIONS_READY__'),
+    module('./calendar-interactions-v2.js?v=9','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=5','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=3','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
@@ -63,7 +67,7 @@ async function calendar(){
   return {ok:true}
 }
 async function tasks(){
-  await module('./project-catalog.js?v=1');
+  await module('./project-catalog.js?v=2');
   await module('./google-tasks.js?v=20');
   return {ok:true}
 }
@@ -72,7 +76,7 @@ async function projects(){
     module('./forum-flow-polish.js?v=2'),
     module('./due-date-calendar.js?v=1')
   ]);
-  await module('./project-catalog.js?v=1');
+  await module('./project-catalog.js?v=2');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await module('./google-tasks.js?v=20');
   await module('./project-system-v3.js?v=28','__KPTU_PROJECT_V3_READY__');
@@ -80,14 +84,15 @@ async function projects(){
 }
 async function library(){
   await team('library');
-  await module('./project-catalog.js?v=1');
+  await module('./project-catalog.js?v=2');
   await module('./library-upload.js?v=15','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
+  await projectCatalog();
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
-  await module('./meeting-round-detail.js?v=16','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=17','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){

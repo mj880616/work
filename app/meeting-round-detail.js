@@ -13,7 +13,7 @@ async function mrdReadTasks(meetingId){
 }
 function mrdCanEdit(m){return !!m&&(m.created_by===mrdUser?.id||['owner','admin','editor'].includes(mrdRole))}
 function mrdCanDelete(m){return !!m&&(m.created_by===mrdUser?.id||['owner','admin'].includes(mrdRole))}
-function mrdProjectOptions(selected=''){return '<option value="">프로젝트 없음</option>'+mrdProjects.filter(p=>p.status!=='archived').map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${mrdEsc(p.parent_id?'↳ ':'')}${mrdEsc(p.name)}</option>`).join('')}
+function mrdProjectOptions(selected=''){return window.KPTUProjectCatalog?.options(selected)||'<option value="">프로젝트 없음</option>'}
 function mrdMeetingName(m){return String(m?.series_name||m?.title||'').trim()}
 function mrdLegacyTitle(m){const name=mrdMeetingName(m),title=String(m?.title||'').trim();return title&&name&&title!==name?title:''}
 function mrdResultText(m){if(m?.transcript_text!=null&&String(m.transcript_text).length)return String(m.transcript_text);if(String(m?.decisions||'').trim())return `[기존 회의결과 기록]\n${m.decisions}`;return '기록 없음'}

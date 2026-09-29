@@ -24,6 +24,7 @@ function tree(projects){
   return out
 }
 const label=(name,depth)=>depth>0?'　'.repeat(depth)+'↳ '+name:name;
+const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let state={workspaceId:null,userId:null,spaces:[],projects:[],loaded:false},key='',epoch=0,version=0,flight=null;
 function publish({workspaceId,userId,spaces}){
@@ -66,7 +67,13 @@ function describe(id){
   if(space)return {kind:'legacy',id,name:space.name||'',project:space};
   return {kind:'missing',id,name:''}
 }
+function options(selected='',includeBlank=true){
+  const rows=tree(state.projects);
+  const current=selected?describe(selected):null;
+  const retained=current&&current.kind!=='active'?`<option value="${escape(selected)}" selected disabled>[현재 연결·선택 불가] ${escape(current.name||selected)}</option>`:'';
+  return (includeBlank?'<option value="">프로젝트 없음</option>':'')+retained+rows.map(({project,depth})=>`<option value="${escape(project.id)}"${project.id===selected?' selected':''}>${escape(label(project.name||'이름 없는 프로젝트',depth))}</option>`).join('')
+}
 function reset(){epoch+=1;flight=null;key='';state={workspaceId:null,userId:null,spaces:[],projects:[],loaded:false}}
 window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(next&&next===state.userId)return;reset()});
-window.KPTUProjectCatalog={isProject,select,active,archived,tops,kids,tree,label,publish,fetchSpaces,load,snapshot,describe,reset};
+window.KPTUProjectCatalog={isProject,select,active,archived,tops,kids,tree,label,options,publish,fetchSpaces,load,snapshot,describe,reset};
 })();
