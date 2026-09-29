@@ -39,6 +39,9 @@ jobs:
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
 
+      - name: Check removed team AI app path
+        run: node --test tests/security/team-ai-app-removed.test.mjs
+
       - name: Check domain routing and service worker registration
         run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs
 
@@ -51,7 +54,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=55')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=35')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=36')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -85,7 +88,7 @@ jobs:
             app/task-workflow.js app/task-row-view.js app/task-layout.js app/task-layout.css app/google-tasks.js app/google-tasks.css app/meeting-round-detail.js app/compact-list.css \
             app/project-system-v3.js app/project-system-v3.css app/project-catalog.js \
             app/calendar-month-view.js app/calendar-plus.js app/calendar-persistence.js app/calendar-interactions-v2.js app/calendar-mobile-ui.js app/calendar-day-overflow.js app/calendar-ui.css \
-            app/workflow-ai-v3.js app/workplace-ai-report.js \
+            app/workflow-ai-v3.js app/workplace-report.js \
             app/meeting-ui.css p/index.html; do
             test -f "$f"
           done

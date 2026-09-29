@@ -11,6 +11,8 @@ const orgs=[
 ];
 const updates=[{id:'up-old',organization_id:'org-rail',raw_text:'지난주 지부장 통화: 인력 요구안 확정',detail_text:null,occurred_at:'2026-09-20T01:00:00Z'}];
 const memos=[{id:'memo-1',organization_id:'org-rail',title:'최근 교섭',body:'정책교섭 자료 취합 중',sort_order:0,created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-22T00:00:00Z'}];
+const reports=[{id:'report-1',organization_id:'org-rail',week_of:'2026-09-21',summary:'E2E 주간보고',detail:'E2E 상세',status:'draft'}];
+window.__teamAiCalls=0;window.__reportPatches=[];
 window.__deletes=[];window.__failDelete=false;window.__deleteNoRows=false;
 window.__updatePosts=[];window.__updateClock=Date.parse('2026-09-26T00:00:00Z');window.__failUpdateSave=false;
 let assignments=[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
@@ -20,6 +22,7 @@ let releaseOrgSave,releaseAssigneeSave;
 window.__orgSaveGate=new Promise(r=>releaseOrgSave=r);window.__assigneeSaveGate=new Promise(r=>releaseAssigneeSave=r);
 window.__releaseOrgSave=()=>releaseOrgSave();window.__releaseAssigneeSave=()=>releaseAssigneeSave();
 window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
+ if(path==='/functions/v1/team-ai'){window.__teamAiCalls++;throw new Error('retired team-ai call')}
  if(path==='/auth/v1/user')return {id:fixtureUser,user_metadata:{display_name:fixtureRole==='viewer'?'열람자':'김명진'}};
  if(path.startsWith('/rest/v1/app_workspace_members?user_id='))return [{workspace_id:'ws-1',role:fixtureRole}];
  if(path.startsWith('/rest/v1/app_workspace_members?workspace_id='))return [{user_id:'user-me',role:'owner'},{user_id:'user-other',role:'editor'},{user_id:'user-viewer',role:'viewer'}];
@@ -63,10 +66,15 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
    const id=decodeURIComponent(path.match(/organization_id=eq\.([^&]+)/)?.[1]||'');
    return updates.filter(x=>x.organization_id===id).sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at));
  }
- if(path.startsWith('/rest/v1/app_suborganization_weekly_reports?organization_id=eq.'))return [];
+ if(path.startsWith('/rest/v1/app_suborganization_weekly_reports?organization_id=eq.'))return reports.slice();
+ if(path.startsWith('/rest/v1/app_suborganization_weekly_reports?id=eq.')&&opt.method==='PATCH'){
+   const id=decodeURIComponent(path.match(/id=eq\.([^&]+)/)?.[1]||'');
+   const report=reports.find(x=>x.id===id);if(report)Object.assign(report,opt.body);
+   window.__reportPatches.push({id,body:opt.body});return null;
+ }
  return [];
 }};
 </script>
 <script src="/app/accessibility-dialog.js"></script>
-<script src="/app/suborganizations.js"></script><script src="/app/workplace-detail.js"></script><script src="/app/workplace-ai-report.js"></script>
+<script src="/app/suborganizations.js"></script><script src="/app/workplace-detail.js"></script><script src="/app/workplace-report.js"></script>
 </body></html>
