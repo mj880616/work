@@ -106,8 +106,10 @@ function harness(lists, { connection = 'ok', scope = 'openid https://www.googlea
   return { handler, calls, logs, linkReads, get maxInFlight() { return maxInFlight; }, get tokeninfo() { return tokeninfo; } };
 }
 
-async function call(h, action = 'tasks') {
-  const response = await h.handler(new Request('https://sb.example/functions/v1/google-tasks?action=' + action, { headers: { Authorization: 'Bearer token-a' } }));
+async function call(h, action = 'tasks', params = {}) {
+  const url = new URL('https://sb.example/functions/v1/google-tasks?action=' + action);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  const response = await h.handler(new Request(url, { headers: { Authorization: 'Bearer token-a' } }));
   return { status: response.status, body: await response.json() };
 }
 const listTasks = h => call(h, 'tasks');
@@ -169,6 +171,42 @@ test('tasks: pending query has no lower due bound and ends one day past the Kore
   assert.equal(pendingCall.dueMin, null, 'overdue tasks are requested');
   assert.equal(pendingCall.dueMax, '2026-10-05T00:00:00.000Z', 'one day wider than the last day');
   assert.ok(h.calls.filter(c => c.completedMin).every(c => c.dueMin === null && c.dueMax === null), 'recent completed query keeps its 3-day rule only');
+});
+
+test('overview: default scope stays within the old due window while pending_scope=all includes every pending due range', async () => {
+  const tasks = [pending('overdue', -1), pending('today', 0), pending('last', 6), pending('later', 7), pending('far', 40), { id: 'undated', title: 'undated', status: 'needsAction' }, done('recent', 1), done('old', 5)];
+  const legacy = harness([{ id: 'default', title: 'default', tasks }]);
+  const legacyResult = await call(legacy, 'overview');
+  assert.deepEqual(legacyResult.body.tasks.map(t => t.id), ['overdue', 'today', 'last', 'recent']);
+  assert.equal(legacyResult.body.pending_scope, undefined, 'old response fields do not change');
+  assert.ok(legacy.calls.find(c => c.showCompleted === 'false').dueMax);
+  const unknown = await call(harness([{ id: 'default', title: 'default', tasks }]), 'overview', { pending_scope: 'unknown' });
+  assert.deepEqual(unknown.body.tasks.map(t => t.id), legacyResult.body.tasks.map(t => t.id), 'unknown options do not widen the old scope');
+
+  const all = harness([{ id: 'default', title: 'default', tasks }]);
+  const allResult = await call(all, 'overview', { pending_scope: 'all' });
+  assert.equal(allResult.status, 200);
+  assert.deepEqual(allResult.body.tasks.map(t => t.id), ['overdue', 'today', 'last', 'later', 'far', 'undated', 'recent']);
+  assert.equal(allResult.body.pending_scope, 'all', 'new apps can detect the expanded range');
+  assert.deepEqual(Object.keys(allResult.body).filter(key => key !== 'pending_scope').sort(), Object.keys(legacyResult.body).sort(), 'old response fields stay compatible');
+  const pendingCall = all.calls.find(c => c.showCompleted === 'false');
+  assert.equal(pendingCall.dueMin, null);
+  assert.equal(pendingCall.dueMax, null);
+  assert.ok(all.calls.filter(c => c.completedMin).every(c => c.dueMin === null && c.dueMax === null));
+  assert.equal(JSON.parse(all.logs[0]).overdue, 1, 'undated pending tasks are not overdue');
+});
+
+test('tasks: pending_scope=all pages through undated and later pending tasks without changing recent completed filtering', async () => {
+  const tasks = [...Array.from({ length: 120 }, (_, i) => pending(`later-${i}`, 7 + i)), ...Array.from({ length: 31 }, (_, i) => ({ id: `undated-${i}`, title: `undated-${i}`, status: 'needsAction' })), done('recent', 1), done('old', 5)];
+  const h = harness([{ id: 'default', title: 'default', tasks }]);
+  const { status, body } = await call(h, 'tasks', { pending_scope: 'all' });
+  assert.equal(status, 200);
+  assert.equal(body.tasks.filter(t => t.status === 'needsAction').length, 151);
+  assert.deepEqual(body.tasks.filter(t => t.status === 'completed').map(t => t.id), ['recent']);
+  assert.equal(h.calls.filter(c => c.showCompleted === 'false').length, 2, 'pending query reads every page');
+  assert.ok(h.calls.filter(c => c.showCompleted === 'false').every(c => c.dueMax === null));
+  assert.equal(body.pending_scope, 'all');
+  assert.deepEqual(Object.keys(body).sort(), ['needs_reconnect', 'pending_scope', 'tasks']);
 });
 
 test('tasks: the due window follows the Korean date, not the UTC date', async () => {
@@ -250,8 +288,10 @@ test('overview: not connected and missing Tasks write scope return the same stat
 
 test('overview: an unauthenticated request is rejected without reaching Google', async () => {
   const h = harness([{ id: 'default', title: '내 할 일', tasks: [pending('a', 1)] }]);
-  const response = await h.handler(new Request('https://sb.example/functions/v1/google-tasks?action=overview'));
-  assert.equal(response.status, 400);
+  for (const scope of ['', '&pending_scope=all']) {
+    const response = await h.handler(new Request('https://sb.example/functions/v1/google-tasks?action=overview' + scope));
+    assert.equal(response.status, 400);
+  }
   assert.equal(h.calls.length + h.tokeninfo, 0);
 });
 
