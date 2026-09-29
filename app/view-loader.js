@@ -105,8 +105,8 @@ async function pages(){
 }
 async function organizations(){
   await module('./suborganizations.js?v=8','__KPTU_SUBORGANIZATIONS_READY__');
-  await module('./workplace-detail.js?v=8');
-  import('./workplace-ai-report.js?v=3').catch(console.error);
+  await module('./workplace-detail.js?v=9');
+  import('./workplace-report.js?v=1').catch(console.error);
   return {ok:true}
 }
 const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations};

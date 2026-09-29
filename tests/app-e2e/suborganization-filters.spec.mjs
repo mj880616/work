@@ -28,7 +28,7 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
   expect(views).toContain("suborganizations.js?v=8");
-  expect(views).toContain("workplace-detail.js?v=8");
+  expect(views).toContain("workplace-detail.js?v=9");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
   expect(styles).toContain("suborganizations.css?v=5");
@@ -104,10 +104,9 @@ test('빈칸·공백만 있으면 저장하지 않고, 저장 실패 시 입력 
   await expect(page.locator('#wdUpdates .wd-log-row')).toHaveCount(1);
 });
 
-test('이미 저장된 요약·메모는 접힌 칸에서 읽기 전용으로 보이고 AI 초안 버튼도 그 안에 있다',async({page})=>{
+test('이미 저장된 요약·메모는 유지하고 팀 AI 초안 버튼은 없다',async({page})=>{
   await openRail(page);
   await expect(page.locator('#wdMonthSummary')).toBeHidden();
-  await expect(page.locator('#warGenerate')).toBeHidden();
   await page.locator('#wdMore > summary').click();
   await expect(page.locator('#wdMonthSummary')).toHaveText('9월 정책교섭과 인력대응 진행 중');
   await expect(page.locator('#wdYearSummary')).toHaveText('산별전환과 안전인력 사업 추진');
@@ -116,10 +115,31 @@ test('이미 저장된 요약·메모는 접힌 칸에서 읽기 전용으로 �
   await expect(page.locator('#wdItems button')).toHaveCount(1);
   await expect(page.locator('#wdItems button')).toHaveText('삭제');
   await expect(page.locator('#wdRecent textarea,#wdRecent input')).toHaveCount(0);
-  await expect(page.locator('#wdMore #warGenerate')).toBeVisible();
-  await expect(page.locator('#wdMore #warTimeline')).toBeVisible();
+  await expect(page.locator('#wdMore #warGenerate,#wdMore #warTimeline')).toHaveCount(0);
+  await expect(page.locator('#wdMore #warReports')).toBeVisible();
+  await expect(page.locator('#wdMore #warReports .war-report')).toHaveCount(1);
+  expect(await page.evaluate(()=>window.__teamAiCalls)).toBe(0);
   await expect(page.locator('#wdMore #wdBasicView')).toBeVisible();
   await expect(page.locator('#wdMore #wdAffChips')).toContainText('궤도협의회');
+});
+
+test('기존 주간보고는 AI 없이 열고 수정하며 타임라인 수동 입력을 유지한다',async({page})=>{
+  await openRail(page);
+  await page.locator('#wdMore > summary').click();
+  await page.locator('#warReports [data-war-detail="report-1"]').click();
+  await expect(page.locator('#warDraftModal')).toBeVisible();
+  await expect(page.locator('#warSummary')).toHaveValue('E2E 주간보고');
+  await page.locator('#warSummary').fill('수정한 E2E 주간보고');
+  await page.locator('#warSaveDraft').click();
+  await expect(page.locator('#warReports')).toContainText('수정한 E2E 주간보고');
+  const patches=await page.evaluate(()=>window.__reportPatches);
+  expect(patches).toHaveLength(1);
+  expect(patches[0].id).toBe('report-1');
+  expect(patches[0].body).not.toHaveProperty('ai_draft');
+  expect(await page.evaluate(()=>window.__teamAiCalls)).toBe(0);
+  await page.locator('#warDraftClose').click();
+  await page.locator('#wdTime > summary').click();
+  await expect(page.locator('#wdAddTime')).toBeVisible();
 });
 
 test('편집 권한이 없으면 입력칸과 저장 버튼이 보이지 않고 저장 요청도 없다',async({page})=>{
