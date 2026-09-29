@@ -454,6 +454,21 @@ test('task screen requests all pending and an old response without the marker ke
   await expect(page.locator('#gtTaskBody [data-gt-later] .gt-row')).toHaveCount(0);
 });
 
+test('task rows appear before the separate link badge read completes',async({page})=>{
+  await mock(page);
+  let release,linkStarted=false;
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[gt('pending',googleDue(0))]})}));
+  await page.route(`${SB}/rest/v1/app_record_links**`,async route=>{
+    linkStarted=true;await new Promise(resolve=>{release=resolve});
+    return route.fulfill({status:200,contentType:'application/json',body:'[]'});
+  });
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect.poll(()=>linkStarted).toBe(true);
+  await expect(page.locator('[data-gt-week] [data-google-task="pending"]')).toBeVisible();
+  release();
+  await expect(page.locator('[data-google-task="pending"] .gt-unlinked-badge')).toHaveText('연결 안 됨');
+});
+
 test('completed group folds on every visit and counts a newly completed task after the effect',async({page})=>{
   await mock(page);
   const recent=new Date().toISOString(),items=[gt('pending',googleDue(0)),gt('done',googleDue(-8),{status:'completed',completed:recent})];

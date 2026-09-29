@@ -2,7 +2,7 @@
 'use strict';
 if(window.__KPTU_GOOGLE_TASKS__)return;
 window.__KPTU_GOOGLE_TASKS__=true;
-const rt=window.KPTURuntime;const RECENT_COMPLETED_MS=3*24*60*60*1000;let loadingEpoch=-1,lastTasks=[],cacheOwnerId='',shownOwner='',fetchedOwner='',overviewUnsupported=false,allPendingConfirmed=false,sessionEpoch=0,editing=null,editorSaving=false,toggleSeq=0;const pendingToggles=new Map(),savedToggles=new Map(),settling=new Map(),arriving=new Map(),pendingDeletes=new Map(),deletedTombstones=new Set();
+const rt=window.KPTURuntime;const RECENT_COMPLETED_MS=3*24*60*60*1000;let loadingEpoch=-1,loadSeq=0,lastTasks=[],cacheOwnerId='',shownOwner='',fetchedOwner='',overviewUnsupported=false,allPendingConfirmed=false,sessionEpoch=0,editing=null,editorSaving=false,toggleSeq=0;const pendingToggles=new Map(),savedToggles=new Map(),settling=new Map(),arriving=new Map(),pendingDeletes=new Map(),deletedTombstones=new Set();
 // Web2 reads and creates tasks in the Google default list ("내 할 일") only (TASK-구현 PR 3), so the editor has no list choice (PR 4).
 const SCOPE_NOTE='Google "내 할 일" 목록만 보입니다. 다른 목록의 할 일은 나오지 않고, 다른 목록으로 옮긴 할 일은 연결이 끊길 수 있습니다.';
 // Links (TASK-구현 PR 4): a task may be linked to any number of projects and organizations (up to the Edge limit), or to none.
@@ -95,6 +95,7 @@ async function readUnlinkedIds(tasks){const ids=tasks.map(t=>t.id).filter(Boolea
 async function load(force=false){
   const epoch=sessionEpoch;
   if(loadingEpoch===epoch)return;
+  const seq=++loadSeq;
   const sec=section();if(!sec)return;
   loadingEpoch=epoch;
   let owner=currentOwner(),prev=!!owner&&shownOwner===owner;
@@ -116,18 +117,18 @@ async function load(force=false){
     }
     if(d?.error)throw new Error(d.error);
     const fresh=d?.tasks||[];for(const id of deletedTombstones)if(!fresh.some(t=>t.id===id))deletedTombstones.delete(id);
-    let unlinked=null;try{unlinked=await readUnlinkedIds(fresh)}catch{setSync('연결 표시를 확인하지 못했습니다.',true)}
-    if(!stillCurrent(epoch,owner))return;
     allPendingConfirmed=d?.pending_scope==='all';
-    lastTasks=keepDeletingTasks(mergeToggles(fresh.filter(t=>!deletedTombstones.has(t.id)).map(t=>({...t,unlinked:unlinked?.has(t.id)===true})),since));cacheOwnerId=owner;shownOwner=owner;fetchedOwner=owner;
-    cacheWrite(owner,lastTasks);if(unlinked)setSync('');renderTasks(lastTasks)
+    lastTasks=keepDeletingTasks(mergeToggles(fresh.filter(t=>!deletedTombstones.has(t.id)).map(t=>({...t,unlinked:false})),since));cacheOwnerId=owner;shownOwner=owner;fetchedOwner=owner;
+    cacheWrite(owner,lastTasks);setSync('');renderTasks(lastTasks);
+    if(loadSeq===seq)loadingEpoch=-1;
+    try{const unlinked=await readUnlinkedIds(fresh);if(seq!==loadSeq||!stillCurrent(epoch,owner))return;lastTasks=lastTasks.map(t=>({...t,unlinked:unlinked.has(t.id)}));cacheWrite(owner,lastTasks);renderTasks(lastTasks)}catch{if(seq===loadSeq&&stillCurrent(epoch,owner))setSync('연결 표시를 확인하지 못했습니다.',true)}
   }catch(e){
-    if(!stillCurrent(epoch,owner))return;
+    if(seq!==loadSeq||!stillCurrent(epoch,owner))return;
     const msg=String(e?.message||e);
     if(/연결되지|재인증|TASKS_SCOPE_REQUIRED|권한/i.test(msg)){shownOwner='';fetchedOwner='';cacheDrop(owner);setSync('');renderConnect(msg)}
     else if(prev)setSync('새로 받지 못했습니다 · 직전 결과 표시 중',true,true);
     else renderError('Google 할 일을 불러오지 못했습니다.',true)
-  }finally{if(loadingEpoch===epoch)loadingEpoch=-1}
+  }finally{if(seq===loadSeq)loadingEpoch=-1}
 }
 // Tasks linked to one project (plan 4.1-5, decision 3): every pending one and those completed in the last 3 days, which the Edge reads
 // from Google by id. A result is reused for a minute, so re-rendering the project detail does not ask Google again.

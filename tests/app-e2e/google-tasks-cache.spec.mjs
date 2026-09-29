@@ -362,7 +362,7 @@ for(const phase of ['readiness','overview'])for(const transition of ['switch','l
       if(phase==='readiness')await page.evaluate(()=>window.__releaseReadiness());
       else{
         gates.previous.release();
-        await expect.poll(async()=>(await stats(page)).settled).toBe(finish==='current first'?2:1);
+        await expect.poll(async()=>(await stats(page)).settled).toBe(finish==='current first'?3:1);
       }
       await drain(page);
     };
