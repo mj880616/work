@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const APP=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const user={id:'ui-system-user',email:'ui-system@example.org',user_metadata:{display_name:'UI QA'}};
 const workspace={id:'ui-system-workspace',slug:'ui-system',name:'웹2'};
 const tasks=Array.from({length:24},(_,i)=>({id:`ui-task-${i+1}`,title:`UI 점검 할 일 ${i+1}`,taskListId:'@default',taskListTitle:'내 할 일',status:'needsAction',due:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10)+'T00:00:00.000Z'}));
@@ -50,7 +51,7 @@ test('calendar and project use 44px add targets while compact actions stay consi
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(`${APP}/app/`);
   await signIn(page);
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 
@@ -70,9 +71,10 @@ test('calendar and project use 44px add targets while compact actions stay consi
   await page.locator('[data-view="tasks"]').first().click();
   const rows=page.locator('#gtTaskBody .gt-row');
   await expect(rows).toHaveCount(24,{timeout:10000});
+  await expect(rows.last().locator('.gt-unlinked-badge')).toHaveText('연결 안 됨');
   await page.evaluate(()=>{
     const items=document.querySelectorAll('#gtTaskBody .gt-row');
-    items[items.length-1]?.scrollIntoView({block:'end'});
+    items[items.length-1]?.scrollIntoView({block:'end',behavior:'instant'});
   });
   await page.waitForTimeout(80);
   const clearance=await page.evaluate(()=>{

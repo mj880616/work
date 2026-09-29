@@ -683,9 +683,8 @@ test('Google editor displays and retains meeting links while a meeting-only task
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
     const action=new URL(route.request().url()).searchParams.get('action');
     actions.push(action);
-    if(action==='overview')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[task]})});
+    if(action==='overview')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[task,{...task,id:'meeting-only'}]})});
     if(action==='links')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({links:[{project_id:'main',status:'confirmed'}],meeting_links:[{meeting_id:'meeting-1',status:'confirmed'}]})});
-    if(action==='unlinked')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[{...task,id:'meeting-only'}]})});
     if(action==='update')update=route.request().postDataJSON();
     if(action==='link'||action==='unlink'){linkChanges++;if(action==='unlink')unlinkBody=route.request().postDataJSON()}
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task})});
@@ -705,8 +704,9 @@ test('Google editor displays and retains meeting links while a meeting-only task
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>unlinkBody).not.toBeNull();
   expect(unlinkBody.links).toEqual([{project_id:'main'}]);
-  await page.locator('#gtUnlinked summary').click();
-  await expect(page.locator('#gtUnlinkedBody [data-gt-unlinked-task="meeting-only"]')).toBeVisible();
+  await expect(page.locator('#gtUnlinked')).toHaveCount(0);
+  await expect(page.locator('#gtTaskBody [data-google-task="meeting-only"] .gt-unlinked-badge')).toHaveText('연결 안 됨');
+  expect(actions).not.toContain('unlinked');
 });
 
 test('changing a meeting project leaves existing Google follow-up links untouched',async({page})=>{

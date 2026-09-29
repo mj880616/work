@@ -18,7 +18,7 @@
 /* Tap effect (PR 1-보완): the circle fills and the check draws (short leg, then long leg), the title is struck, then the row fades
    before it moves; gt-anim-off plays the same in reverse. --gt-t is a negative delay set by google-tasks.js so a re-render continues
    an effect instead of restarting it. Timings match SETTLE_MS and ARRIVE_MS there. */
-#gtTaskSection .gt-row.gt-settle{opacity:1;animation:gt-settle 800ms ease-in var(--gt-t,0ms) both}
+#gtTaskSection .gt-row.gt-settle{opacity:1;animation:gt-settle 600ms ease-in var(--gt-t,0ms) both}
 #gtTaskSection .gt-row.gt-arrive{animation:gt-arrive 200ms ease-out var(--gt-t,0ms) both}
 #gtTaskSection .gt-row.gt-anim-on .gt-check{animation:gt-fill 160ms ease-out var(--gt-t,0ms) both}
 #gtTaskSection .gt-row.gt-anim-on .gt-check::after{animation:gt-draw 260ms ease-out calc(var(--gt-t,0ms) + 100ms) both}
@@ -48,12 +48,19 @@
 @media(prefers-reduced-motion:reduce){#gtTaskBody .gt-row .gt-check::before{animation:none!important}}
 .gt-main{min-width:0;border:0;background:transparent;text-align:left;padding:0;color:inherit;cursor:pointer}
 .gt-main b{display:block;font-size:13px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt-unlinked-badge{display:inline-block;margin-top:2px;padding:1px 5px;border-radius:var(--kptu-radius-sm);background:var(--kptu-border);color:var(--kptu-muted);font-size:10px;line-height:1.4}
 .gt-meta{display:flex;gap:var(--kptu-space-2);align-items:center;margin-top:3px;font-size:10px;color:var(--kptu-muted);min-width:0}.gt-meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gt-group-head{margin:0;padding:var(--kptu-space-2) 3px 4px;font-size:12px;font-weight:750;color:var(--kptu-danger)}
-.gt-overdue{border-bottom:2px solid var(--kptu-border-strong)}.gt-overdue+.gt-row{border-top:0}.gt-row.overdue .gt-due{color:var(--kptu-danger);font-weight:700}
+.gt-group{min-width:0;border-bottom:1px solid var(--kptu-border)}
+.gt-group-head{margin:0;padding:var(--kptu-space-2) 3px 4px;font-size:12px;font-weight:750;color:var(--kptu-muted)}
+.gt-overdue .gt-group-head,.gt-row.overdue .gt-due{color:var(--kptu-danger);font-weight:700}
+#gtCompleted>summary{display:flex;align-items:center;gap:5px;min-height:44px;cursor:pointer;list-style:none}
+#gtCompleted>summary::-webkit-details-marker{display:none}
+#gtCompleted .gt-disclosure{display:inline-block;transition:transform 160ms}
+#gtCompleted[open] .gt-disclosure{transform:rotate(90deg)}
+@media(prefers-reduced-motion:reduce){#gtCompleted .gt-disclosure{transition:none}}
 .gt-connect{margin-top:var(--kptu-space-2)}.gt-status{padding:var(--kptu-space-3) 3px;color:var(--kptu-muted);font-size:11px}.gt-reconnect{border-color:var(--kptu-border-strong);color:var(--kptu-success)}.gt-retry{margin-left:8px;min-height:34px}.gt-sync{display:inline-flex;align-items:center;flex-wrap:wrap}
 .gt-modal-actions{display:flex;justify-content:flex-end;gap:8px;align-items:center}.gt-modal-actions .tl-danger{margin-right:auto}
-/* TASK-구현 PR 4: list scope note, link choices in the editor, unlinked section, project-linked rows and the link picker. */
+/* TASK-구현 PR 4: list scope note, link choices in the editor, project-linked rows and the link picker. */
 .gt-scope-note{margin:var(--kptu-space-1) 0 0;font-size:11px;line-height:1.45;color:var(--kptu-muted)}
 .gt-muted{color:var(--kptu-muted);font-size:11px}.gt-error{color:var(--kptu-danger)}
 .gt-links{min-width:0;margin:var(--kptu-space-2) 0;padding:var(--kptu-space-2);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
@@ -63,9 +70,6 @@
 .gt-links .gt-link-opt{display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;gap:8px;min-width:0;min-height:40px;margin:0;text-align:left;font-size:13px;font-weight:500;cursor:pointer}
 .gt-links .gt-link-opt input{flex:none;width:18px;height:18px;min-height:0;margin:0}
 .gt-link-opt span{min-width:0;overflow-wrap:anywhere;white-space:normal;line-height:1.4}
-.gt-unlinked{margin-top:var(--kptu-space-3);padding-top:var(--kptu-space-2);border-top:1px solid var(--kptu-border)}
-.gt-unlinked>summary{display:flex;align-items:center;gap:6px;min-height:40px;font-size:13px;font-weight:700;cursor:pointer}
-.gt-unlinked-count{color:var(--kptu-muted);font-weight:600}
 .gt-row.gt-side-row{grid-template-columns:minmax(0,1fr) auto}
 .gt-linked .gt-row.gt-side-row{grid-template-columns:auto minmax(0,1fr) auto}
 div.gt-main{cursor:default}

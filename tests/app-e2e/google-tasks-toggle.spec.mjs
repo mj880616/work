@@ -252,6 +252,7 @@ test('a save that fails during the effect unchecks the row in place',async({brow
 test('reopening a task outside the shown dates plays the effect and then leaves the list',async({browser})=>{
   const {context,page,calls}=await openTasks(browser,{extra:{c:gt('c','2026-10-20T00:00:00.000Z',{status:'completed',completed:NOW})}});
   await expect(row(page,'c')).toHaveClass(/completed/);
+  await page.locator('#gtCompleted summary').click();
   await row(page,'c').locator('[data-gt-toggle]').click();
   await expect(row(page,'c')).toHaveClass(/pending/);
   await expect(row(page,'c')).toHaveClass(/gt-anim-off/);

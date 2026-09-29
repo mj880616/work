@@ -50,6 +50,7 @@ async function openTasks(browser,{onDelete,onOverview,onToggle,reducedMotion='no
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(row(page,'a')).toBeVisible({timeout:10000});
+  await page.locator('#gtCompleted summary').click();
   return {context,page,google,calls};
 }
 
