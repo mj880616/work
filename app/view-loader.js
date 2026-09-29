@@ -79,7 +79,7 @@ async function projects(){
   await module('./project-catalog.js?v=2');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await module('./google-tasks.js?v=20');
-  await module('./project-system-v3.js?v=28','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=29','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
