@@ -32,6 +32,16 @@ select role_name,
 from (values ('authenticated'), ('anon')) as roles(role_name)
 order by role_name;
 
+select policyname, cmd, roles
+from pg_catalog.pg_policies
+where schemaname = 'public' and tablename = 'app_tasks'
+order by policyname;
+
+select tgname as trigger_name
+from pg_catalog.pg_trigger
+where tgrelid = 'public.app_tasks'::regclass and not tgisinternal
+order by tgname;
+
 select 'app_meetings' as table_name, count(*) as row_count from public.app_meetings
 union all select 'app_record_links', count(*) from public.app_record_links
 union all select 'app_spaces', count(*) from public.app_spaces
