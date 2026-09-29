@@ -4,6 +4,16 @@
   "items": [
     {
       "year": 2026,
+      "date": "2026-09-29",
+      "display_date": "09.29",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "“서류상 안전체계와 실제 현장은 달랐다”",
+      "publisher": "민주노총 공공운수노조",
+      "href": "./2026-09-29-private-rail-forum-followup/"
+    },
+    {
+      "year": 2026,
       "date": "2026-09-28",
       "display_date": "09.28",
       "type": "request",
