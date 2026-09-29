@@ -15,12 +15,12 @@ async function renderedRows(browser,{timezoneId,now,tasks}){
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(now));
   await mock(page);
-  await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,needs_reconnect:false,tasks})}));
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,needs_reconnect:false,pending_scope:'all',tasks})}));
   await login(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskBody.gt-list')).toBeVisible({timeout:10000});
   const ids=sel=>page.locator(sel).evaluateAll(els=>els.map(el=>el.dataset.googleTask));
-  const result={overdue:await ids('#gtTaskBody [data-gt-overdue] .gt-row'),rest:await ids('#gtTaskBody > .gt-row'),head:await page.locator('#gtOverdueHead').allTextContents(),overdueClass:await ids('#gtTaskBody .gt-row.overdue')};
+  const result={overdue:await ids('#gtTaskBody [data-gt-overdue] .gt-row'),week:await ids('#gtTaskBody [data-gt-week] .gt-row'),later:await ids('#gtTaskBody [data-gt-later] .gt-row'),undated:await ids('#gtTaskBody [data-gt-undated] .gt-row'),completed:await ids('#gtCompleted .gt-row'),head:await page.locator('#gt-overdue-head').allTextContents(),overdueClass:await ids('#gtTaskBody .gt-row.overdue')};
   await context.close();
   return result;
 }
@@ -59,7 +59,7 @@ test('Google Tasks remains separate from the app task list',async({page})=>{
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
-  await expect(page.locator('#gtTaskSection')).toContainText('오늘부터 7일');
+  await expect(page.locator('#gtTaskSection')).toContainText('모든 미완료');
   await expect(page.locator('#gtTaskSection')).toContainText('최근 3일');
 });
 
@@ -110,7 +110,10 @@ test('Google Tasks shows overdue first, then Korean today through +6 days, then 
   expect(r.head).toEqual(['기한 지남 2']);
   expect(r.overdue).toEqual(['minus30','yesterday']);
   expect(r.overdueClass).toEqual(['minus30','yesterday']);
-  expect(r.rest).toEqual(['today','tomorrow','plus6','recent-done-in','recent-done-out','recent-done-overdue','recent-done-undated']);
+  expect(r.week).toEqual(['today','tomorrow','plus6']);
+  expect(r.later).toEqual(['plus7']);
+  expect(r.undated).toEqual(['no-due']);
+  expect(r.completed).toEqual(['recent-done-in','recent-done-out','recent-done-overdue','recent-done-undated']);
 });
 
 test('Google Tasks moves the overdue line at Korean midnight whatever the device time zone',async({browser})=>{
@@ -118,12 +121,15 @@ test('Google Tasks moves the overdue line at Korean midnight whatever the device
   // 09-27 23:59:59 in Korea (09-27 07:59 in Los Angeles).
   const before=await renderedRows(browser,{timezoneId:'America/Los_Angeles',now:'2026-09-27T14:59:59.000Z',tasks});
   expect(before.overdue).toEqual(['d-1']);
-  expect(before.rest).toEqual(['d0','d6']);
+  expect(before.week).toEqual(['d0','d6']);
+  expect(before.later).toEqual(['d7']);
+  expect(before.undated).toEqual(['undated']);
   // 09-28 00:00 in Korea, still 09-27 in Los Angeles.
   const after=await renderedRows(browser,{timezoneId:'America/Los_Angeles',now:'2026-09-27T15:00:00.000Z',tasks});
   expect(after.head).toEqual(['기한 지남 2']);
   expect(after.overdue).toEqual(['d-1','d0']);
-  expect(after.rest).toEqual(['d6','d7']);
+  expect(after.week).toEqual(['d6','d7']);
+  expect(after.later).toEqual([]);
 });
 
 test('completing an overdue Google task moves it from the overdue group to the completed part',async({browser})=>{
@@ -140,14 +146,16 @@ test('completing an overdue Google task moves it from the overdue group to the c
   });
   await login(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await expect(page.locator('#gtOverdueHead')).toHaveText('기한 지남 1');
+  await expect(page.locator('#gt-overdue-head')).toHaveText('기한 지남 1');
   // The check is drawn in CSS inside the circle: no glyph that can spill out, same circle for pending and completed.
   const check=id=>page.locator(`[data-gt-toggle="${id}"]`).evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after'),circle=getComputedStyle(el,'::before');return {w:r.width,h:r.height,text:el.textContent,after:a.content,left:a.left,top:a.top,pos:a.position,bg:circle.backgroundColor,circle:{w:circle.width,h:circle.height,left:circle.left,top:circle.top}}});
   const pendingCheck=await check('late');
   expect(pendingCheck).toMatchObject({w:44,h:44,text:'',after:'none',circle:{w:'22px',h:'22px',left:'11px',top:'11px'}});
   await page.locator('[data-gt-overdue] [data-gt-toggle="late"]').click();
-  await expect(page.locator('#gtOverdueHead')).toHaveCount(0);
-  const row=page.locator('#gtTaskBody > .gt-row.completed[data-google-task="late"]');
+  await expect(page.locator('#gt-overdue-head')).toHaveText('기한 지남 0');
+  await expect(page.locator('#gtCompleted summary')).toContainText('완료 1');
+  await page.locator('#gtCompleted summary').click();
+  const row=page.locator('#gtCompleted .gt-row.completed[data-google-task="late"]');
   await expect(row).toBeVisible();
   await expect(row).toContainText('밀린 할 일');
   const doneCheck=await check('late');
@@ -160,9 +168,9 @@ test('completing an overdue Google task moves it from the overdue group to the c
 
 test('Google Tasks without overdue items shows no overdue group',async({browser})=>{
   const r=await renderedRows(browser,{timezoneId:'Asia/Seoul',now:'2026-09-27T03:00:00.000Z',tasks:[gt('d0','2026-09-27T00:00:00.000Z')]});
-  expect(r.head).toEqual([]);
+  expect(r.head).toEqual(['기한 지남 0']);
   expect(r.overdue).toEqual([]);
-  expect(r.rest).toEqual(['d0']);
+  expect(r.week).toEqual(['d0']);
 });
 
 test('Google Tasks layout fits supported mobile widths',async({page})=>{
@@ -389,30 +397,32 @@ test('Google Tasks editor shows a short message when no organizations are assign
   await expect(organizations.locator('[data-gt-link]')).toHaveCount(0);
 });
 
-test('unlinked Google tasks load only when their folded section opens',async({page})=>{
+test('unlinked badge uses confirmed project and organization links without a separate unlinked section',async({page})=>{
   await mock(page);await mockLinkTargets(page);
   const calls=[];
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const action=new URL(route.request().url()).searchParams.get('action');calls.push(action);
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x)});
-    if(action==='overview')return ok({connected:true,authorized:true,needs_reconnect:false,tasks:[gt('g1',googleDue(0))]});
-    if(action==='unlinked')return ok({tasks:[gt('free-undated',null,{title:'기한 없는 할 일'}),gt('free-late',googleDue(20),{title:'한참 뒤 할 일'})]});
+    if(action==='overview')return ok({connected:true,authorized:true,needs_reconnect:false,pending_scope:'all',tasks:[gt('g1',googleDue(0)),gt('free-undated',null),gt('free-late',googleDue(20)),gt('meeting-only',googleDue(1))]});
     if(action==='links')return ok({links:[]});
     return ok({ok:true});
   });
+  await page.route(`${SB}/rest/v1/app_record_links**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([
+    {google_task_id:'g1',project_id:'p1',organization_id:null,status:'confirmed'},
+    {google_task_id:'meeting-only',project_id:null,organization_id:null,meeting_id:'m1',status:'confirmed'}
+  ])}));
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await expect(page.locator('#gtTaskSection')).toContainText('g1');
-  const fold=page.locator('#gtUnlinked');
-  await expect(fold).not.toHaveAttribute('open','');
+  await expect(page.locator('#gtTaskBody [data-google-task="free-undated"]')).toBeVisible();
+  await expect(page.locator('#gtTaskBody [data-google-task="free-late"]')).toBeVisible();
+  await expect(page.locator('#gtUnlinked')).toHaveCount(0);
   expect(calls).not.toContain('unlinked');
-  await fold.locator('summary').click();
-  await expect(page.locator('#gtUnlinkedBody [data-gt-unlinked-task]')).toHaveCount(2);
-  await expect(fold.locator('[data-gt-unlinked-count]')).toHaveText('2');
-  await expect(page.locator('#gtUnlinkedBody')).toContainText('기한 미정');
-  await page.locator('[data-gt-unlinked-link="free-undated"]').click();
+  await expect(page.locator('[data-google-task="g1"] .gt-unlinked-badge')).toHaveCount(0);
+  for(const id of ['free-undated','free-late','meeting-only'])await expect(page.locator(`[data-google-task="${id}"] .gt-unlinked-badge`)).toHaveText('연결 안 됨');
+  await expect(page.locator('#gtTaskBody [data-gt-unlinked-link]')).toHaveCount(0);
+  await page.locator('[data-google-task="free-undated"] [data-gt-edit]').click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
-  await expect(page.locator('#gtEditTitle')).toHaveValue('기한 없는 할 일');
-  await expect(page.locator('#gtEditLinkBody input[value="p:p1"]')).toBeFocused();
+  await expect(page.locator('#gtEditTitle')).toHaveValue('free-undated');
+  await expect(page.locator('#gtEditLinkBody input[value="p:p1"]')).toBeVisible();
   for(const width of [360,1280]){
     await page.setViewportSize({width,height:800});
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
@@ -428,4 +438,68 @@ test('Google Tasks editor warns by count when an assigned organization misses th
   await page.locator('#newTaskBtn').click();
   await expect(page.locator('#gtEditLinkBody [aria-label="조직"] [data-gt-link]')).toHaveCount(2);
   await expect.poll(()=>warnings.filter(x=>x.startsWith('[Google Tasks] 조직 순서표 미등록:'))).toEqual(['[Google Tasks] 조직 순서표 미등록: 1개. 이름 일치 여부를 확인하세요.']);
+});
+
+test('task screen requests all pending and an old response without the marker keeps the prior window',async({page})=>{
+  await mock(page);
+  const scopes=[];
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
+    const url=new URL(route.request().url());scopes.push(url.searchParams.get('pending_scope'));
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[gt('today',googleDue(0)),gt('later',googleDue(7)),gt('undated',null)]})});
+  });
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('[data-gt-week] [data-google-task="today"]')).toBeVisible();
+  expect(scopes).toContain('all');
+  await expect(page.locator('[data-google-task="later"],[data-google-task="undated"]')).toHaveCount(0);
+  await expect(page.locator('#gtTaskBody [data-gt-later] .gt-row')).toHaveCount(0);
+});
+
+test('completed group folds on every visit and counts a newly completed task after the effect',async({page})=>{
+  await mock(page);
+  const recent=new Date().toISOString(),items=[gt('pending',googleDue(0)),gt('done',googleDue(-8),{status:'completed',completed:recent})];
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');
+    if(action==='toggle'){
+      const body=route.request().postDataJSON(),task=items.find(t=>t.id===body.task_id);
+      Object.assign(task,{status:body.completed?'completed':'needsAction',completed:body.completed?new Date().toISOString():null});
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task})});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:items})});
+  });
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  const fold=page.locator('#gtCompleted');
+  await expect(fold.locator('summary')).toContainText('완료 1');
+  await expect(fold).not.toHaveAttribute('open','');
+  await fold.locator('summary').click();
+  await expect(fold.locator('[data-google-task="done"]')).toBeVisible();
+  await fold.locator('summary').click();
+  await expect(fold).not.toHaveAttribute('open','');
+  await page.locator('[data-gt-toggle="pending"]').click();
+  await expect(fold.locator('summary')).toContainText('완료 2',{timeout:3000});
+  await expect(fold).not.toHaveAttribute('open','');
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(fold).not.toHaveAttribute('open','');
+});
+
+test('editor save reentry sends one create request',async({page})=>{
+  await mock(page);await mockLinkTargets(page);
+  let saves=0,release;
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');
+    if(action==='create'){
+      saves++;await new Promise(resolve=>{release=resolve});
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:gt('created',googleDue(0))})});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[]})});
+  });
+  await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await page.locator('#newTaskBtn').click();
+  await page.locator('#gtEditTitle').fill('QA');
+  await page.evaluate(()=>{const save=document.querySelector('#gtSaveBtn').onclick;save();save()});
+  await expect.poll(()=>saves).toBe(1);
+  await expect(page.locator('#gtSaveBtn')).toBeDisabled();
+  release();
+  await expect(page.locator('#gtTaskModal')).toBeHidden();
+  expect(saves).toBe(1);
 });

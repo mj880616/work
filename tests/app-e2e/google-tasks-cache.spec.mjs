@@ -7,6 +7,7 @@ import { loginEntry } from './helpers/login-entry.mjs';
 // overdue tasks), so a v1 copy is ignored and removed. TASK-구현 PR 1: a tap on complete updates the copy at once and a
 // failed save puts it back.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const CACHE_KEY='kptu_owner_cache:google-tasks-v2:qa-user',OLD_CACHE_KEY='kptu_owner_cache:google-tasks-v1:qa-user';
 // The app judges due dates in Korean time, so fixtures use the Korean date too.
 const kstDateKey=(offset=0,now=Date.now())=>new Date(now+9*60*60*1000+offset*24*60*60*1000).toISOString().slice(0,10);
@@ -41,7 +42,7 @@ async function mockTasks(page,handler){
 }
 
 async function login(page){
-  await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
+  await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
   await page.locator('#authPassword').fill('password123');
@@ -160,7 +161,7 @@ test('a cached copy from before 묶음C-4 (v1) is never shown and is removed',as
   await expect.poll(()=>page.evaluate(k=>localStorage.getItem(k),OLD_CACHE_KEY)).toBeNull();
   release();
   await expect(page.locator('#gtTaskSection')).toContainText('새 결과');
-  await expect(page.locator('#gtOverdueHead')).toHaveText('기한 지남 1');
+  await expect(page.locator('#gt-overdue-head')).toHaveText('기한 지남 1');
   expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['n1','o1']);
 });
 
@@ -169,7 +170,7 @@ test('the current google-tasks Edge (v9, no overdue tasks) still renders without
   await mockTasks(page,action=>action==='overview'?{body:{connected:true,authorized:true,needs_reconnect:false,email:null,tasks:[task('t1','오늘 할 일'),{...task('t2','6일 뒤'),due:googleDue(6)}]}}:{status:500,body:{error:'unexpected'}});
   await login(page);await openTasks(page);
   await expect(page.locator('#gtTaskSection .gt-row')).toHaveCount(2);
-  await expect(page.locator('#gtOverdueHead')).toHaveCount(0);
+  await expect(page.locator('#gt-overdue-head')).toHaveText('기한 지남 0');
   await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('');
 });
 
@@ -287,7 +288,7 @@ test('initial task load failure offers a short accessible retry at mobile width 
   expect(calls).toEqual(['overview','overview']);
 });
 
-const BASE='http://127.0.0.1:8123';
+const BASE=TEST_ORIGIN;
 const gate=()=>{let release;const promise=new Promise(resolve=>{release=resolve});return {promise,release}};
 
 // Keep one document alive to exercise the module's own session epoch. The full-shell
@@ -297,6 +298,7 @@ async function start(page,phase){
   const requests={previous:0,current:0},gates={previous:gate(),current:gate()};
   await page.route(`${SB}/**`,async route=>{
     const request=route.request(),url=new URL(request.url());
+    if(url.pathname==='/rest/v1/app_record_links')return route.fulfill({json:[]});
     if(url.pathname!=='/functions/v1/google-tasks'||url.searchParams.get('action')!=='overview'){
       return route.fulfill({status:500,json:{error:'unexpected fixture request'}});
     }
@@ -395,7 +397,7 @@ for(const phase of ['readiness','overview'])for(const transition of ['switch','l
     expect(final.staleRows).toBe(0);
     expect(final.documentId).toBe(documentId);
     expect(final.ensures).toBe(2);
-    expect(final.apiCalls).toBe(expectedCalls);
+    expect(final.apiCalls).toBe(expectedCalls+1); // One owner-scoped link read after the current overview.
     expect(requests).toEqual({previous:phase==='overview'?1:0,current:1});
     expect(await page.evaluate(owner=>{
       const keys=Object.keys(localStorage).filter(key=>key.startsWith('kptu_owner_cache:'));
