@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 
+const pressCount=JSON.parse(readFileSync(new URL('../../press/archive.json',import.meta.url),'utf8')).items.length;
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app='http://127.0.0.1:8123/app/';
 const user={id:'press-user',email:'press@example.org',user_metadata:{display_name:'언론자료 QA'}};
@@ -40,7 +42,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await signIn(page);
   await page.locator('.app-nav [data-view="media"]').click();
   await expect(page.locator('#mediaView')).toBeVisible();
-  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(39);
+  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(pressCount);
   await expect(page.locator('#mediaView')).toContainText('공공기관 인력감축 없다더니');
   await expect(page.locator('#newMediaCaseBtn,#mediaCaseList,#mediaStatusFilter,#pressArchiveSource')).toHaveCount(0);
   await expect(page.locator('#mediaView')).not.toContainText('사건 팩트시트');
@@ -56,10 +58,12 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(2);
 
   await page.locator('#pressSearch').fill('');
-  await page.locator('#pressArchiveList .w1p-item').first().click();
+  const firstPressItem=page.locator('#pressArchiveList .w1p-item').first();
+  const firstPressHref=await firstPressItem.getAttribute('data-press-href');
+  await firstPressItem.click();
   await expect(page.locator('#pressDetailModal')).toBeVisible();
   await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/원본 보도자료 본문/);
-  await expect(page.locator('#pressDetailFrame')).toHaveAttribute('srcdoc',/https:\/\/work\.bokdoong\.com\/work\/press\/2026-09-28-private-rail-forum-request\//);
+  expect(await page.locator('#pressDetailFrame').getAttribute('srcdoc')).toContain(new URL(firstPressHref,'https://work.bokdoong.com/work/press/').href);
   await expect(page.locator('#pressDetailFrame')).toHaveAttribute('sandbox',/allow-scripts/);
   await page.locator('[data-close-press]').click();
   await expect(page.locator('#pressDetailModal')).toHaveClass(/hidden/);
