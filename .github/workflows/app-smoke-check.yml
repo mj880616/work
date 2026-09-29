@@ -42,6 +42,9 @@ jobs:
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs
 
+      - name: Check loaded app has no app_tasks writes
+        run: node --test tests/security/app-tasks-loaded-writes.test.mjs
+
       - name: Check domain routing and service worker registration
         run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs
 
@@ -54,7 +57,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=55')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=36')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=37')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -138,7 +141,7 @@ jobs:
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=11" app/loader-v2.js
           grep -q "team.js?v=55" app/loader-v2.js
-          grep -q "project-system-v3.js?v=28" app/view-loader.js
+          grep -q "project-system-v3.js?v=29" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "google-tasks.js?v=20" app/view-loader.js
