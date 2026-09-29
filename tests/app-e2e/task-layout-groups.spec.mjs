@@ -221,13 +221,13 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   expect(meeting).not.toContain('/rest/v1/app_tasks');
   expect(views).not.toContain("module('./task-layout.js");
   expect(views).toContain("module('./task-workflow.js?v=9'");
-  expect(views).toContain("module('./meeting-round-detail.js?v=16'");
+  expect(views).toContain("module('./meeting-round-detail.js?v=17'");
   // TASK-구현 PR 4: the project screen shows linked Google tasks and counts them from app_record_links, not app_tasks.
   expect(project).not.toContain('/rest/v1/app_tasks?project_id=${');
   expect(project).toContain('/rest/v1/app_record_links?project_id=');
   expect(index).not.toContain('rel="modulepreload" href="./team.js');
-  expect(index).toContain('./loader-v2.js?v=256');
-  expect(index).toContain('./app.js?v=144');
-  expect(loader).toContain("import('./team.js?v=54')");
-  expect(app).toContain("import('./loader-v2.js?v=256')");
+  expect(index).toContain('./loader-v2.js?v=257');
+  expect(index).toContain('./app.js?v=145');
+  expect(loader).toContain("import('./team.js?v=55')");
+  expect(app).toContain("import('./loader-v2.js?v=257')");
 });
