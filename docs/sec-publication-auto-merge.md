@@ -35,6 +35,8 @@ Pages는 현재 legacy 브랜치 빌드다. [GitHub 문서](https://docs.github.
 
 이 문서와 PR은 저장소 설정을 바꾸지 않는다. 적용 시 GitHub 화면에서 아래 순서대로 진행한다.
 
+[GitHub의 공개 저장소 `pull_request_target` 기본 정책](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target)은 2026-11-02부터 차단 시행 예정이다. 설정 적용 전 **Settings → Actions → Policies → Policy insights**에서 이 두 워크플로가 차단 대상인지 확인한다. 차단 대상이면 `pull_request_target` 허용 정책은 별도 검토·승인 후 적용해야 한다. 허용하지 않으면 필수 관문과 자동 예약이 실행되지 않아 게시 PR이 멈추며, 이 상태를 우회하려고 필수 검사나 ruleset을 끄지 않는다.
+
 1. 이 PR의 merge와 `main` 반영, `publication-gate` 검사 이름을 확인한다.
 2. **Settings → Rules → Rulesets → New branch ruleset**: 이름 `Main PR gate`; Active; 대상 `main`; Bypass list 비움(관리자 포함); Require a pull request before merging(승인 수 0); Require status checks to pass의 `publication-gate`(GitHub Actions 앱, 확인한 integration ID 15368); Block force pushes; Restrict deletions. Require branches to be up to date는 끈다(기준 main이 바뀌어도 게시 PR 자동 merge가 멈추지 않게 함). Merge commit 허용, merge queue·linear history는 켜지 않는다. 저장된 규칙은 `docs/main-pr-gate-ruleset.json`과 대조한다.
 3. Ruleset이 Active이고 우회자가 없는지 확인한 다음 **Settings → General → Pull Requests → Allow auto-merge**를 켠다. **Allow merge commits**도 켜져 있어야 한다.
