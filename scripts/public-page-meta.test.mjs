@@ -34,7 +34,7 @@ test('real generic template has managed metadata markers and stays noindex',()=>
 
 // Runs the real generator in a temp copy of the reviewed shells. `overrides`
 // maps a slug to a synthetic {status,body} response for that slug only.
-function runGeneratorWithSyntheticFetch(status=200,{overrides={},manifest=null}={}){
+function runGeneratorWithSyntheticFetch(status=200,{overrides={},manifest=null,checkOnly=false}={}){
   const dir=mkdtempSync(path.join(tmpdir(),'web2-public-meta-'));
   try{
     mkdirSync(path.join(dir,'p'),{recursive:true});
@@ -49,7 +49,7 @@ function runGeneratorWithSyntheticFetch(status=200,{overrides={},manifest=null}=
     }
     const before=slugs.map(slug=>readFileSync(path.join(dir,'p',slug,'index.html'),'utf8'));
     const source=`const overrides=${JSON.stringify(overrides)};globalThis.fetch=async(_url,options)=>{const slug=JSON.parse(options.body).p_slug;const o=overrides[slug];if(o)return new Response(JSON.stringify(o.body),{status:o.status,headers:{'Content-Type':'application/json'}});return new Response(${status}===200?JSON.stringify([{title:'합성 '+slug,summary:'합성 요약',indexable:false,page_design:{}}]):JSON.stringify({code:'PGRST202'}),{status:${status},headers:{'Content-Type':'application/json'}})};await import(${JSON.stringify(new URL('./generate-public-pages.mjs',import.meta.url).href)});`;
-    const result=spawnSync(process.execPath,['--input-type=module','-e',source],{cwd:dir,encoding:'utf8'});
+    const result=spawnSync(process.execPath,['--input-type=module','-e',source,...(checkOnly?['--','--check']:[])],{cwd:dir,encoding:'utf8'});
     const after=slugs.map(slug=>readFileSync(path.join(dir,'p',slug,'index.html'),'utf8'));
     return {result,slugs,before,after};
   }finally{rmSync(dir,{recursive:true,force:true})}
@@ -68,6 +68,20 @@ test('actual generator refreshes six legacy shells from synthetic public rows',(
 test('pre-migration missing RPC preserves all six existing public shells',()=>{
   const {result,before,after}=runGeneratorWithSyntheticFetch(404);
   assert.equal(result.status,0,result.stderr);
+  assert.deepEqual(after,before);
+});
+
+test('read-only check fails when the public post lookup is unavailable',()=>{
+  const {result,before,after}=runGeneratorWithSyntheticFetch(404,{checkOnly:true});
+  assert.notEqual(result.status,0);
+  assert.match(result.stderr,/lookup is unavailable/);
+  assert.deepEqual(after,before);
+});
+
+test('read-only check reports stale metadata without writing shells',()=>{
+  const {result,before,after}=runGeneratorWithSyntheticFetch(200,{checkOnly:true});
+  assert.notEqual(result.status,0);
+  assert.match(result.stderr,/metadata shell\(s\) differ/);
   assert.deepEqual(after,before);
 });
 

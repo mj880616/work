@@ -1,8 +1,15 @@
 # Web1 고정 공개 페이지 내리기 (withdrawn)
 
 `p/.custom-page-shells.json`에 등록된 6개 고정 셸(`p/<slug>/index.html`)의 메타데이터는
-`scripts/generate-public-pages.mjs`가 `app_public_post` 조회 결과로 갱신한다
-(`sync-public-page-meta.yml`).
+`scripts/generate-public-pages.mjs`가 `app_public_post` 조회 결과로 갱신한다.
+갱신은 로컬 작업 브랜치에서 수동으로 실행해 일반 PR로 올린다.
+`sync-public-page-meta.yml`은 PR과 수동 실행에서 조회 결과와 파일의 일치 여부만 검사한다.
+예약 실행·main push·자동 커밋은 없다. 조회·네트워크 오류는 검사 실패로 기록하며,
+이 검사는 필수 검사로 지정하지 않는다.
+
+수동 갱신 명령: `node scripts/generate-public-pages.mjs`
+
+실행 뒤 `git diff -- p`로 생성 결과를 확인하고 변경된 셸을 일반 PR에 포함한다.
 
 ## 생성기 규칙
 
@@ -15,10 +22,11 @@
 
 ## 페이지를 내리는 순서
 
-1. PR로 해당 slug를 `slugs`에서 `withdrawn`으로 옮긴다. merge 후 동기화가 돌면 셸 메타가 중립으로 바뀐다.
-2. 그다음 DB에서 해당 페이지를 비공개로 전환한다. 전환 방법·권한은 기존 경계를 따르며, production 변경은 로컬 세션에서만 한다.
+1. 작업 브랜치에서 해당 slug를 `slugs`에서 `withdrawn`으로 옮기고 생성기를 실행한다. 주소 목록과 중립 메타가 적용된 셸을 같은 PR로 올린다.
+2. PR merge와 Pages 게시가 끝난 뒤 공개 URL의 미리보기 메타가 중립인지 확인한다.
+3. 그다음 DB에서 해당 페이지를 비공개로 전환한다. 전환 방법·권한은 기존 경계를 따르며, production 변경은 로컬 세션에서만 한다.
 
-순서를 거꾸로 하면 DB 전환부터 PR merge까지 동기화가 매번 종료코드 1로 실패하고,
+순서를 거꾸로 하면 DB 전환부터 PR merge까지 생성기가 빈 조회로 종료코드 1을 반환하고,
 그동안 공개 HTML에 제목·요약이 남는다.
 
 ## 주의

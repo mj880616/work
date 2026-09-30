@@ -8,6 +8,8 @@ const CUSTOM_MANIFEST_PATH=path.join(ROOT,'p','.custom-page-shells.json');
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const SITE='https://mj880616.github.io/work';
+const CHECK_ONLY=process.argv.includes('--check');
+const normalizedLines=value=>value.replaceAll('\r\n','\n');
 
 // Only the six reviewed legacy URLs have dedicated shells. New public posts
 // use /p/?slug=... and never require an anonymous list endpoint.
@@ -61,6 +63,7 @@ for(const slug of active){
 }
 
 if(awaitingPrepare){
+  if(CHECK_ONLY)throw new Error('Public post lookup is unavailable; metadata cannot be verified');
   // Before the additive prepare migration, preserve reviewed shells instead of
   // querying the broad anonymous page list or replacing live metadata.
   for(const slug of custom){
@@ -72,16 +75,21 @@ if(awaitingPrepare){
   }
   console.log('public post RPC not deployed yet; preserved six reviewed metadata shells');
 }else{
+  let stale=0;
   for(const page of [...pages,...withdrawn.map(neutral)]){
     const file=path.join(ROOT,'p',page.slug,'index.html');
     const existing=await fs.readFile(file,'utf8');
     const html=renderManagedShell(template,existing,page,{site:SITE,preserveExisting:true});
-    if(html!==existing)await fs.writeFile(file,html,'utf8');
+    if(normalizedLines(html)!==normalizedLines(existing)){
+      if(CHECK_ONLY)stale++;
+      else await fs.writeFile(file,html,'utf8');
+    }
   }
   for(const slug of empty){
     console.error('public post lookup returned no row for live page '+slug+
       '; kept existing metadata. Restore the page, or list it under "withdrawn" in p/.custom-page-shells.json.');
   }
   console.log('synced metadata for '+pages.length+' live and '+withdrawn.length+' withdrawn reviewed public URLs');
+  if(CHECK_ONLY&&stale)throw new Error(stale+' reviewed metadata shell(s) differ from the current public post lookup');
   if(empty.length)process.exitCode=1;
 }
