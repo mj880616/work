@@ -61,3 +61,4 @@
 </div></section>
 </main><script src="/work/assets/rich-copy.js?v=1"></script>
 <script>(()=>{const q=document.getElementById('pressSearch'),buttons=[...document.querySelectorAll('.filter')],items=[...document.querySelectorAll('.item')],groups=[...document.querySelectorAll('.year-group')],empty=document.getElementById('noResult');let type='all';function apply(){const term=q.value.trim().toLowerCase();let visible=0;items.forEach(item=>{const show=(type==='all'||item.dataset.type===type)&&(!term||item.textContent.toLowerCase().includes(term));item.hidden=!show;if(show)visible++});groups.forEach(g=>g.hidden=![...g.querySelectorAll('.item')].some(x=>!x.hidden));empty.style.display=visible?'none':'block'}buttons.forEach(b=>b.onclick=()=>{type=b.dataset.type;buttons.forEach(x=>x.classList.toggle('active',x===b));apply()});q.addEventListener('input',apply)})();</script></body></html>
+<!-- SEC publication gate probe A; close without merge. -->
