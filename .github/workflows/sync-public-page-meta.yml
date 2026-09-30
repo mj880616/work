@@ -1,30 +1,18 @@
 name: Sync public page metadata
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'p/index.html'
-      - 'p/public-post.js'
-      - 'scripts/generate-public-pages.mjs'
-      - 'scripts/public-page-meta.mjs'
-      - 'scripts/public-page-meta.test.mjs'
-      - '.github/workflows/sync-public-page-meta.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'p/index.html'
-      - 'p/public-post.js'
+      - 'p/**'
       - 'scripts/generate-public-pages.mjs'
       - 'scripts/public-page-meta.mjs'
       - 'scripts/public-page-meta.test.mjs'
       - '.github/workflows/sync-public-page-meta.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: sync-public-page-meta
@@ -36,25 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Test metadata shell rules
         run: node --test scripts/public-page-meta.test.mjs
-      - name: Generate metadata shells
-        run: node scripts/generate-public-pages.mjs
-      - name: Commit changes
-        if: github.event_name != 'pull_request'
-        shell: bash
+      - name: Compare metadata shells with the current public post lookup
+        run: node scripts/generate-public-pages.mjs --check
+      - name: Require reviewed metadata to match the lookup
         run: |
-          git add -A p
-          if git diff --cached --quiet; then
-            echo "No public page metadata changes"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore: sync public page metadata"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          git diff --exit-code -- p
+          test -z "$(git status --porcelain -- p)"

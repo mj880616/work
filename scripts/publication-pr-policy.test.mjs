@@ -18,7 +18,7 @@ test('publication decisions use base-controlled pull_request_target workflows', 
     assert.doesNotMatch(source, /\n\s+pull_request:/);
   }
   assert.match(workflow('publication-gate.yml'), /  content-check:\s*\n[\s\S]*?permissions:\s*\n\s+contents: read/);
-  assert.match(workflow('publication-gate.yml'), /  publication-gate:\s*\n\s+needs: \[classify, content-check\]\s*\n\s+if: always\(\)/);
+  assert.match(workflow('publication-gate.yml'), /  publication-gate:\s*\n\s+needs: \[classify, content-check\]\s*\n\s+if: always\(\) &&/);
   const reserve = workflow('publication-auto-merge.yml');
   assert.match(reserve, /Repository auto-merge is not enabled; no reservation made\.[\s\S]*?exit 0/);
   assert.match(reserve, /ruleset is not ready; no reservation made\.[\s\S]*?exit 0/);
