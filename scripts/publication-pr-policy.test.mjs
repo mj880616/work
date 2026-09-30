@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import {
   classifyPublicationPaths,
@@ -6,6 +8,21 @@ import {
   readPullRequestSnapshot,
   verifyNecessaryChecks,
 } from './publication-pr-policy.mjs';
+
+const workflow = name => readFileSync(fileURLToPath(new URL(`../.github/workflows/${name}`, import.meta.url)), 'utf8');
+
+test('publication decisions use base-controlled pull_request_target workflows', () => {
+  for (const name of ['publication-auto-merge.yml', 'publication-gate.yml']) {
+    const source = workflow(name);
+    assert.match(source, /\bon:\s*\n\s+pull_request_target:/);
+    assert.doesNotMatch(source, /\n\s+pull_request:/);
+  }
+  assert.match(workflow('publication-gate.yml'), /  content-check:\s*\n[\s\S]*?permissions:\s*\n\s+contents: read/);
+  assert.match(workflow('publication-gate.yml'), /  publication-gate:\s*\n\s+needs: \[classify, content-check\]\s*\n\s+if: always\(\)/);
+  const reserve = workflow('publication-auto-merge.yml');
+  assert.match(reserve, /Repository auto-merge is not enabled; no reservation made\.[\s\S]*?exit 0/);
+  assert.match(reserve, /ruleset is not ready; no reservation made\.[\s\S]*?exit 0/);
+});
 
 test('only the established press content paths qualify', () => {
   const paths = [
@@ -25,12 +42,20 @@ test('test, CSS, script, unrelated and malformed paths all block publication cla
     'press/statement-checklist/index.html',
     'press/2026-09-29-article/../script.js',
     'app/index.html',
+    '.github/workflows/publication-gate.yml',
+    '.github/CODEOWNERS',
   ];
   assert.deepEqual(classifyPublicationPaths(['press/archive.json', ...outside]), {
     publication: false,
     outside,
   });
   assert.equal(classifyPublicationPaths([]).publication, false);
+});
+
+test('every sampled .github path blocks automatic publication merge even beside allowed content', () => {
+  for (const path of ['.github/workflows/publication-gate.yml', '.github/workflows/new.yml', '.github/actions/check/action.yml', '.github/CODEOWNERS']) {
+    assert.equal(classifyPublicationPaths(['press/archive.json', path]).publication, false, path);
+  }
 });
 
 test('automatic merge is limited to owner-authored branches in this repository', () => {

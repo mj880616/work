@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, join, sep } from 'node:path';
 import { test } from 'node:test';
 
@@ -25,4 +25,19 @@ test('archive entries resolve to local pages and the newest is listed on the pre
     assert.ok(existsSync(page), `missing archive page: ${item.href}`);
   }
   assert.ok(hub.includes(`href="${archive.items[0].href}"`), 'newest archive item is missing from press hub');
+});
+
+test('press pages have no Web1 upload input requiring the main-push dropzone workflow', () => {
+  const pages = [];
+  const visit = directory => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) visit(path);
+      else if (entry.isFile() && entry.name.endsWith('.html')) pages.push(path);
+    }
+  };
+  visit(pressRoot);
+  for (const page of pages) {
+    assert.doesNotMatch(readFileSync(page, 'utf8'), /\btype\s*=\s*\\?["']file\\?["']/i, `file upload input in ${page}`);
+  }
 });

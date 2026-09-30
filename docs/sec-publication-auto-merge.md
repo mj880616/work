@@ -21,9 +21,11 @@
 
 `press/press-archive.css`, 다른 `press/` 코드, 테스트, 문서, `app/**`, `supabase/**`, `cloudflare/**`, 워크플로는 허용하지 않는다. #356·#342와 같이 테스트 파일이 섞인 PR은 수동 검토 대상이고, #358의 경로 조합은 자동 merge 후보가 된다. 테스트를 허용하면 검사를 바꾼 PR이 자신의 검사를 통과시킬 수 있어 제외한다. 경로 검사는 게시 문안의 정확성·저작권·개인정보 여부를 판단하지 않는다. `press/index.html`의 기존 inline script도 경로만으로는 구분되지 않으므로 이 파일의 변경 내용을 만드는 주체를 제한해야 한다.
 
-`Publication gate`의 `publication-gate` job은 모든 `main` PR에서 실행된다. GitHub PR Files API 전체 페이지와 `changed_files` 수를 대조하고, head SHA가 바뀌면 실패한다. 게시 후보면 고정된 정적 아카이브 검사와 `web1-press.spec.mjs` Playwright 검사를 실행하고, 기존 `loader-cache` 및 HTML이 바뀐 경우 `audit` 검사까지 성공했는지 기다린다. 그 외에는 분류 결과를 남기고 성공한다. 이전에 예약한 auto-merge가 있는 일반 PR은 예약 해제를 확인한 뒤 성공한다. 첫 도입 PR에 한해 시작 `main`에 정책 파일이 없으므로 후보 정책 파일로 관문을 실행한다. 이후에는 `main`의 정책 파일만 실행하며, 누락되면 실패한다.
+`Publication gate`는 `pull_request_target`에서 **기준 `main`의 워크플로와 정책 스크립트**를 실행한다. `classify`가 GitHub PR Files API 전체 페이지와 `changed_files` 수를 대조하며, head SHA가 바뀌면 실패한다. 게시 후보의 정적 아카이브 검사와 `web1-press.spec.mjs` Playwright 검사는 후보 코드를 checkout하는 별도 `content-check` job에서 실행한다. 이 job의 토큰은 `contents:read`뿐이고 checkout 자격 증명을 저장하지 않는다. 필수 `publication-gate` job은 기준 정책만 실행하며, 분류·후보 검사 결과와 기존 `loader-cache` 및 HTML 변경 시 `audit` 성공을 확인한다. 일반 PR에 이전 auto-merge 예약이 있으면 해제를 기다린다. #362 자체는 시작 `main`에 이 워크플로가 없으므로 새 `pull_request_target` 관문을 실행할 수 없으며, 사람이 변경 파일과 기존 CI를 확인한 뒤 수동 merge해야 한다. 후보 브랜치의 정책 스크립트를 실행하는 최초 도입 예외는 제거했다.
 
-`Publication auto merge`는 기본 브랜치에서만 읽는 `pull_request_target` 워크플로다. `opened`·`synchronize`·`reopened`마다 API로 파일 전체를 재분류한다. 작성자가 저장소 소유자이고 동일 저장소 브랜치이며 draft가 아닌 경우에만, 활성 `Main PR gate` ruleset과 저장소 auto-merge 허용을 확인하고 `--auto --merge --match-head-commit`으로 merge commit을 예약한다. 허용 목록 밖 파일이 추가되거나 draft가 되면 이전 예약을 해제한다. fork 및 소유자가 아닌 작성자의 PR에는 merge 예약·해제를 하지 않는다. 쓰기 권한은 예약 job에 `contents:write`, `pull-requests:write`만 준다.
+`Publication auto merge`는 기본 브랜치에서만 읽는 `pull_request_target` 워크플로다. `opened`·`synchronize`·`reopened`마다 API로 파일 전체를 재분류한다. 작성자가 저장소 소유자이고 동일 저장소 브랜치이며 draft가 아닌 경우에만, 활성 `Main PR gate` ruleset과 저장소 auto-merge 허용을 확인하고 `--auto --merge --match-head-commit`으로 merge commit을 예약한다. `.github/**`를 포함한 허용 목록 밖 파일이 추가되거나 draft가 되면 이전 예약을 해제한다. fork 및 소유자가 아닌 작성자의 PR에는 merge 예약·해제를 하지 않는다. 쓰기 권한은 예약 job에 `contents:write`, `pull-requests:write`만 준다. 저장소 auto-merge가 꺼져 있거나 활성 ruleset이 아직 없으면 예약 없이 성공 종료하며, `build-pages`도 건너뛴다.
+
+`Apply Web1 file dropzones`는 `main` push 또는 수동 실행 시 Web1 HTML 중 파일 업로드 입력이 있는 페이지에 helper 태그를 삽입하고, 변경이 있으면 `main`에 직접 커밋·push한다. 현재 `press/**` HTML에는 파일 업로드 입력이 없고 첨부는 다운로드 링크다. 게시 후보의 `publication-content.test.mjs`가 모든 `press/**/*.html`에서 업로드 입력이 없는지 확인하므로 자동 merge 경로에 이 워크플로의 명시 실행은 필요 없다. 활성 `Main PR gate`는 직접 push를 막으므로 이 워크플로를 임의로 호출해 게시 후 파일을 고치는 방식도 쓰지 않는다. 다른 `main` push 워크플로 중 `Sync public page metadata`는 `p/**` 메타데이터용이고 `press/**`를 트리거 경로로 쓰지 않는다. 나머지 `main` push 검사는 게시 파일을 수정하지 않거나 게시 경로를 대상으로 하지 않는다. Pages 게시에는 아래 명시적 빌드 API가 필요하다.
 
 GitHub ruleset 조회 API는 ruleset 수정 권한이 없는 토큰에 우회자 목록을 반환하지 않는다. 예약 job은 최소 권한을 유지하므로 우회자 없음은 설정 적용자가 GitHub 화면·관리자 API에서 확인해야 한다.
 
@@ -36,7 +38,7 @@ Pages는 현재 legacy 브랜치 빌드다. [GitHub 문서](https://docs.github.
 1. 이 PR의 merge와 `main` 반영, `publication-gate` 검사 이름을 확인한다.
 2. **Settings → Rules → Rulesets → New branch ruleset**: 이름 `Main PR gate`; Active; 대상 `main`; Bypass list 비움(관리자 포함); Require a pull request before merging(승인 수 0); Require status checks to pass의 `publication-gate`(GitHub Actions 앱, 확인한 integration ID 15368); Block force pushes; Restrict deletions. Require branches to be up to date는 끈다(기준 main이 바뀌어도 게시 PR 자동 merge가 멈추지 않게 함). Merge commit 허용, merge queue·linear history는 켜지 않는다. 저장된 규칙은 `docs/main-pr-gate-ruleset.json`과 대조한다.
 3. Ruleset이 Active이고 우회자가 없는지 확인한 다음 **Settings → General → Pull Requests → Allow auto-merge**를 켠다. **Allow merge commits**도 켜져 있어야 한다.
-4. 그 후 ChatGPT GitHub 쓰기를 다시 켜는 경우 대상은 이 저장소만 선택한다. PR 생성에 필요한 저장소 권한은 Contents read/write(브랜치·파일)와 Pull requests read/write(PR 생성), Metadata read다. Administration, Workflows, Pages, Actions, Secrets, Environments 권한은 부여하지 않는다. GitHub App 권한 구성이 이 조합을 지원하지 않으면 승인 전에 실제 요청 권한을 다시 검토한다. ChatGPT PR이 소유자 계정 명의가 아닌 경우 자동 merge 대상이 되지 않으므로 작성자 형태를 시험 PR에서 확인한다.
+4. 그 후 ChatGPT GitHub 쓰기를 다시 켜는 경우 대상은 이 저장소만 선택한다. GitHub 화면에서 **계정 프로필 → Settings → Applications → Installed GitHub Apps → ChatGPT → Configure** 순서로 열고, Repository access가 **Only select repositories → 이 저장소**인지 확인한다. 같은 화면의 Repository permissions를 펼쳐 **Workflows 쓰기 권한 없음**을 필수 조건으로 확인한다. PR 생성에 필요한 권한은 Contents read/write(브랜치·파일), Pull requests read/write(PR 생성), Metadata read이며 Administration, Workflows, Pages, Actions, Secrets, Environments 권한은 부여하지 않는다. 권한 변경 요청이 보이면 승인 전에 Workflows가 추가되지 않았는지 다시 확인한다. GitHub App 권한 구성이 이 조합을 지원하지 않으면 쓰기를 켜지 말고 실제 요청 권한을 재검토한다. ChatGPT PR이 소유자 계정 명의가 아닌 경우 자동 merge 대상이 되지 않으므로 작성자 형태를 시험 PR에서 확인한다.
 
 CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh api -X POST repos/mj880616/work/rulesets --input docs/main-pr-gate-ruleset.json`을 실행하고 반환된 ruleset ID를 기록한다. 이어 `gh api -X PATCH repos/mj880616/work -F allow_auto_merge=true`를 실행한다. 설정 적용 직전에 현재 ruleset·기존 보호·auto-merge 값을 다시 조회해야 한다. 이 명령은 이번 PR에서 실행하지 않는다.
 
@@ -48,10 +50,11 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 2. 게시 PR에 `docs/` 파일을 뒤늦게 추가하는 별도 시험 PR에서는 auto-merge 예약이 해제되고 관문이 예약 해제를 기다린 뒤 성공하는지 확인한다. 이 PR은 게시하지 않고 수동으로 닫는다.
 3. fork·소유자 외 작성자 PR에서는 예약 job이 쓰기 동작을 하지 않는지 확인한다. ChatGPT가 만든 PR의 실제 작성자·head 저장소를 확인한다.
 
-설정 적용 전에는 자동 merge와 Pages 재빌드의 실제 동작을 검증할 수 없다. 이 PR의 CI는 워크플로 문법과 관문, 정책 테스트를 확인한다.
+설정 적용 전에는 자동 merge와 Pages 재빌드의 실제 동작을 검증할 수 없다. `allow_auto_merge=false`와 ruleset 부재 상태에서 새 예약 job은 성공 종료하고 Pages job은 실행하지 않는다. #362의 기존 `pull_request` 검사 결과는 수정 후 `pull_request_target` 관문을 검증하지 못하므로, 설정을 켜기 전에 merge 후 새 시험 PR에서 관문 job의 출처·head SHA·결과를 확인한다.
 
 ## 남은 위험
 
+- 개인 저장소의 필수 검사 설정은 GitHub Actions 앱과 **검사 이름**을 지정하지만 워크플로 파일 경로를 고정하지 않는다. PR이 `.github/**`를 바꾸면 후보 브랜치의 다른 `pull_request` 워크플로가 같은 이름의 검사를 만들 수 있다. 중복 검사 이름은 병합 판정을 모호하게 할 수 있다. 기준 브랜치의 `pull_request_target` 관문, `.github/**` 자동 merge 제외, ChatGPT 앱 Workflows 쓰기 금지로 자동 경로를 좁히지만, 소유자 또는 다른 쓰기 권한자가 워크플로를 바꾼 PR을 만드는 상황까지 저장소 내부 설정만으로 완전히 막지는 못한다. **`.github/**` 변경 PR은 사람이 diff와 실제 검사 run의 워크플로 경로·기준 ref를 확인한 뒤 수동 merge**한다. 조직·기업 규칙에서 제공하는 required workflow는 개인 저장소의 이번 설정에 포함되지 않는다.
 - 경로 검사만으로 본문 품질이나 `press/index.html` inline script의 의미를 검증하지 못한다. 좁은 경로 허용과 소유자 PR 제한을 함께 적용한다.
 - GitHub에서 검사·예약 해제 이벤트가 지연되면 자동 merge가 늦어질 수 있다. 일반 PR 관문은 이전 예약이 없어질 때까지 대기해 잘못된 자동 merge를 막는다.
 - Pages API 요청·빌드는 merge 뒤 작업이다. 빌드가 실패하면 merge는 되돌아가지 않고 실패 workflow에서 운영자가 재빌드·복구를 판단한다.

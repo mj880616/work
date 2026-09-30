@@ -1,36 +1,31 @@
 name: Publication gate
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened]
 
-permissions:
-  checks: read
-  contents: read
-  pull-requests: read
+permissions: {}
 
 concurrency:
   group: publication-gate-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  publication-gate:
+  classify:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      publication: ${{ steps.classify.outputs.publication }}
+      trusted_author: ${{ steps.classify.outputs.trusted_author }}
     steps:
       - name: Check out trusted base policy
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
-          path: trusted
-          persist-credentials: false
-      - name: Check out candidate
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: candidate
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -41,48 +36,35 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          BOOTSTRAP_BASE_SHA: 74b8578c8d63597f652b973e714d9d9e61e45464
-          CURRENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          if [[ -f trusted/scripts/publication-pr-policy.mjs ]]; then
-            node trusted/scripts/publication-pr-policy.mjs classify
-          elif [[ "$CURRENT_BASE_SHA" == "$BOOTSTRAP_BASE_SHA" ]]; then
-            # The first PR introduces this file while auto-merge is disabled.
-            node candidate/scripts/publication-pr-policy.mjs classify
-          else
-            echo 'Trusted publication policy is missing.' >&2
-            exit 1
-          fi
-      - name: Wait until an earlier auto-merge reservation is removed
-        if: steps.classify.outputs.publication != 'true' && steps.classify.outputs.trusted_author == 'true'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          BOOTSTRAP_BASE_SHA: 74b8578c8d63597f652b973e714d9d9e61e45464
-          CURRENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          if [[ -f trusted/scripts/publication-pr-policy.mjs ]]; then
-            node trusted/scripts/publication-pr-policy.mjs wait-disabled
-          elif [[ "$CURRENT_BASE_SHA" == "$BOOTSTRAP_BASE_SHA" ]]; then
-            node candidate/scripts/publication-pr-policy.mjs wait-disabled
-          else
-            exit 1
-          fi
+        run: node scripts/publication-pr-policy.mjs classify
+
+  content-check:
+    needs: classify
+    if: needs.classify.outputs.publication == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Check out candidate with a read-only token
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: Check press archive paths and newest listing
-        if: steps.classify.outputs.publication == 'true'
         working-directory: candidate
         run: node --test scripts/publication-content.test.mjs
       - name: Install press browser test
-        if: steps.classify.outputs.publication == 'true'
         working-directory: candidate
         run: |
           npm install --no-save --no-package-lock @playwright/test@1.55.0
           npx playwright install --with-deps chromium
       - name: Start local press test server
-        if: steps.classify.outputs.publication == 'true'
         working-directory: candidate
         run: |
           set -euo pipefail
@@ -94,13 +76,46 @@ jobs:
           cat /tmp/publication-http.log
           exit 1
       - name: Run Web1 press integration browser test
-        if: steps.classify.outputs.publication == 'true'
         working-directory: candidate
         run: npx playwright test tests/app-e2e/web1-press.spec.mjs --browser=chromium --workers=1 --reporter=line
-      - name: Wait for existing cache and HTML audit checks
-        if: steps.classify.outputs.publication == 'true'
+
+  publication-gate:
+    needs: [classify, content-check]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      checks: read
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Require trusted classification and candidate check result
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          PUBLICATION: ${{ needs.classify.outputs.publication }}
+          CONTENT_RESULT: ${{ needs.content-check.result }}
+        run: |
+          test "$CLASSIFY_RESULT" = success
+          if [[ "$PUBLICATION" == true ]]; then test "$CONTENT_RESULT" = success; fi
+      - name: Check out trusted base policy only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Wait until an earlier auto-merge reservation is removed
+        if: needs.classify.outputs.publication != 'true' && needs.classify.outputs.trusted_author == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node trusted/scripts/publication-pr-policy.mjs wait-checks
+        run: node scripts/publication-pr-policy.mjs wait-disabled
+      - name: Wait for existing cache and HTML audit checks
+        if: needs.classify.outputs.publication == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/publication-pr-policy.mjs wait-checks
