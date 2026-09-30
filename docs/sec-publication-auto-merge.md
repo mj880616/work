@@ -25,22 +25,56 @@
 
 `Publication auto merge`는 기본 브랜치에서만 읽는 `pull_request_target` 워크플로다. `opened`·`synchronize`·`reopened`마다 API로 파일 전체를 재분류한다. 작성자가 저장소 소유자이고 동일 저장소 브랜치이며 draft가 아닌 경우에만, 활성 `Main PR gate` ruleset과 저장소 auto-merge 허용을 확인하고 `--auto --merge --match-head-commit`으로 merge commit을 예약한다. `.github/**`를 포함한 허용 목록 밖 파일이 추가되거나 draft가 되면 이전 예약을 해제한다. fork 및 소유자가 아닌 작성자의 PR에는 merge 예약·해제를 하지 않는다. 쓰기 권한은 예약 job에 `contents:write`, `pull-requests:write`만 준다. 저장소 auto-merge가 꺼져 있거나 활성 ruleset이 아직 없으면 예약 없이 성공 종료하며, `build-pages`도 건너뛴다.
 
-`Apply Web1 file dropzones`는 `main` push 또는 수동 실행 시 Web1 HTML 중 파일 업로드 입력이 있는 페이지에 helper 태그를 삽입하고, 변경이 있으면 `main`에 직접 커밋·push한다. 현재 `press/**` HTML에는 파일 업로드 입력이 없고 첨부는 다운로드 링크다. 게시 후보의 `publication-content.test.mjs`가 모든 `press/**/*.html`에서 업로드 입력이 없는지 확인하므로 자동 merge 경로에 이 워크플로의 명시 실행은 필요 없다. 활성 `Main PR gate`는 직접 push를 막으므로 이 워크플로를 임의로 호출해 게시 후 파일을 고치는 방식도 쓰지 않는다. 다른 `main` push 워크플로 중 `Sync public page metadata`는 `p/**` 메타데이터용이고 `press/**`를 트리거 경로로 쓰지 않는다. 나머지 `main` push 검사는 게시 파일을 수정하지 않거나 게시 경로를 대상으로 하지 않는다. Pages 게시에는 아래 명시적 빌드 API가 필요하다.
+`Check Web1 file dropzones`는 모든 `main` 대상 PR에서 읽기 전용으로 추적 중인 Web1 HTML을 검사한다. 파일 업로드 입력이 있는데 `/work/assets/file-dropzone.js` helper가 빠졌으면 실패하고, 누락 파일과 추가할 태그를 로그로 안내한다. 브랜치 파일을 고쳐 PR을 다시 올려야 한다. 과거 `Apply Web1 file dropzones`가 `main`에 직접 만든 커밋은 2026-09-13 13:36 UTC의 `de091ceb` 1건(HTML 2개 수정)이다. 이제 `main` 직접 push와 `workflow_dispatch`를 제거한다. 현재 `press/**` HTML에는 업로드 입력이 없고 첨부는 다운로드 링크다. 게시 후보의 `publication-content.test.mjs`도 `press/**/*.html`의 업로드 입력을 금지하므로 두 검사는 충돌하지 않는다. 게시 허용 목록에는 검사 스크립트나 워크플로가 없어서 이 파일을 바꾼 PR은 자동 예약 대상도 아니다. Pages 게시에는 아래 명시적 빌드 API가 필요하다.
 
 GitHub ruleset 조회 API는 ruleset 수정 권한이 없는 토큰에 우회자 목록을 반환하지 않는다. 예약 job은 최소 권한을 유지하므로 우회자 없음은 설정 적용자가 GitHub 화면·관리자 API에서 확인해야 한다.
 
 Pages는 현재 legacy 브랜치 빌드다. [GitHub 문서](https://docs.github.com/en/actions/concepts/security/github_token)에 따르면 `GITHUB_TOKEN`으로 만든 커밋은 Pages 빌드를 트리거하지 않는다. 따라서 별도 `build-pages` job이 해당 head의 merge를 확인한 뒤 [Pages 빌드 API](https://docs.github.com/en/rest/pages/pages#request-a-github-pages-build)를 호출하고 빌드 완료와 `main` SHA를 확인한다. 이 job만 `pages:write`를 갖는다. Pages 실패 시 workflow가 실패하며 운영자가 확인해야 한다.
 
+## Actions 이벤트 정책 조사 (2026-09-30)
+
+[GitHub 발표](https://github.blog/changelog/2026-09-17-workflow-execution-protections-in-github-actions-generally-available/)와 [보안 문서](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target)에 따르면, 적용 가능한 이벤트 정책이 없는 공개 저장소의 `pull_request_target` 기본 차단은 현재 평가 모드이고 2026-11-02에 시행된다. [설정 문서](https://docs.github.com/en/actions/how-tos/administer/control-workflow-execution)는 개인 계정의 공개 저장소 관리자도 저장소 단위 workflow execution protections를 쓸 수 있다고 명시한다. 이벤트·actor 허용 목록은 함께 적용되며 워크플로 경로별 대상 지정이 가능하다. 개인 계정 화면의 새 정책 Enforcement는 `Active`·`Disabled`만 제공한다. 사용자 지정 정책의 `Evaluate`는 GitHub Enterprise Cloud 전용이다. 현재 저장소의 정책 조회 API `GET /repos/mj880616/work/actions/policies`는 0건을 반환하며, GitHub 화면도 정책 0건을 표시한다. `Policy insights`는 Enterprise 안내만 표시해 이 저장소의 두 실행이 차단 예정인지 개별 기록을 확인할 수 없었다. 이는 기본 차단 적용 대상이라는 공식 규칙과 구분한다.
+
+적용안: **Settings → Actions → Policies → New policy**에서 `publication-gate.yml`과 `publication-auto-merge.yml` 두 경로만 지정한다. `Restrict events`는 `pull_request_target`만, `Restrict actors`는 사용자 `mj880616`만 허용하고 `Active`로 저장한다. [REST API](https://docs.github.com/en/rest/actions/policies)의 `POST /repos/mj880616/work/actions/policies`로도 저장소 정책을 만들 수 있다. 이 정책은 두 워크플로에만 적용하며 일반 `pull_request`·`push` CI를 막지 않는다. `workflow_dispatch`를 제한하려면 그 이벤트를 쓰는 민감한 워크플로 경로를 별도 정책으로 지정하고 소유자만 허용한다. 전체 워크플로에 소유자 제한을 걸면 다른 정상 CI 실행도 막으므로 사용하지 않는다.
+
+API 적용 시 제안 본문(이번 PR에서는 실행하지 않음, 사용자 ID는 공개 API에서 확인한 `172895968`):
+
+```json
+{
+  "name": "Owner-only publication pull_request_target",
+  "enforcement": "active",
+  "conditions": {
+    "workflow_path": {
+      "include": [".github/workflows/publication-gate.yml", ".github/workflows/publication-auto-merge.yml"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {"type": "restrict_action_events", "parameters": {"allowed_events": ["pull_request_target"]}},
+    {"type": "restrict_actions_actors", "parameters": {"allowed_actors": [{"id": 172895968, "type": "User"}]}}
+  ]
+}
+```
+
+현재 자동 예약 스크립트는 PR 작성자가 `mj880616`이고 같은 저장소 브랜치일 때만 후보로 인정한다. 이번까지 조회한 PR의 작성자는 소유자였지만, **ChatGPT가 앞으로 만든 PR의 `actor`·PR 작성자·head 저장소는 미확인**이다. GitHub App 또는 bot으로 기록되면 소유자 전용 정책에서 관문 자체가 막힐 수 있고, 정책에 bot을 추가하더라도 기존 작성자 조건 때문에 자동 예약 대상이 아니다. 따라서 ChatGPT actor를 추측해 정책에 허용하지 않는다. 권한을 다시 켜기 전에 별도 무해한 PR로 실제 `actor`와 작성자를 확인하고, 필요하면 정책과 관문을 별도 검토한다. `Workflows` 쓰기 권한은 부여하지 않는다.
+
+## 설정 전 관문 실동작 시험 (2026-09-30)
+
+- [시험 A #363](https://github.com/mj880616/work/pull/363): `press/index.html`의 화면에 보이지 않는 주석 1줄만 변경. [Publication gate run 36670238890](https://github.com/mj880616/work/actions/runs/36670238890)에서 `publication=true`, `autoEligible=true`, `content-check`·`publication-gate` 성공. [Auto merge run 36670239077](https://github.com/mj880616/work/actions/runs/36670239077)의 `reserve`는 설정 부재로 예약 없이 성공, `build-pages` 건너뜀. PR API `auto_merge=null` 확인.
+- [시험 B #364](https://github.com/mj880616/work/pull/364): 허용 목록 밖 `docs/sec-publication-probe-b.md` 한 파일만 변경. [Publication gate run 36670305552](https://github.com/mj880616/work/actions/runs/36670305552)에서 `publication=false`, `outside`가 해당 문서 1개, `content-check` 건너뜀, `publication-gate` 성공. [Auto merge run 36670305582](https://github.com/mj880616/work/actions/runs/36670305582)의 `reserve` 성공·예약 없음, `build-pages` 건너뜀. PR API `auto_merge=null` 확인.
+- 두 PR 모두 검사 종료 후 merge 없이 닫고 원격·로컬 시험 브랜치를 삭제했다. 정책이 아직 없으므로 이 결과는 기본 평가 모드에서의 관문 동작만 증명한다. **Active 정책 적용 뒤 같은 A·B 시험을 반복해 actor 허용과 이벤트 허용을 확인해야 한다.**
+
 ## 설정 적용: 이 PR merge 이후 별도 승인
 
 이 문서와 PR은 저장소 설정을 바꾸지 않는다. 적용 시 GitHub 화면에서 아래 순서대로 진행한다.
 
-[GitHub의 공개 저장소 `pull_request_target` 기본 정책](https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target)은 2026-11-02부터 차단 시행 예정이다. 설정 적용 전 **Settings → Actions → Policies → Policy insights**에서 이 두 워크플로가 차단 대상인지 확인한다. 차단 대상이면 `pull_request_target` 허용 정책은 별도 검토·승인 후 적용해야 한다. 허용하지 않으면 필수 관문과 자동 예약이 실행되지 않아 게시 PR이 멈추며, 이 상태를 우회하려고 필수 검사나 ruleset을 끄지 않는다.
-
-1. 이 PR의 merge와 `main` 반영, `publication-gate` 검사 이름을 확인한다.
-2. **Settings → Rules → Rulesets → New branch ruleset**: 이름 `Main PR gate`; Active; 대상 `main`; Bypass list 비움(관리자 포함); Require a pull request before merging(승인 수 0); Require status checks to pass의 `publication-gate`(GitHub Actions 앱, 확인한 integration ID 15368); Block force pushes; Restrict deletions. Require branches to be up to date는 끈다(기준 main이 바뀌어도 게시 PR 자동 merge가 멈추지 않게 함). Merge commit 허용, merge queue·linear history는 켜지 않는다. 저장된 규칙은 `docs/main-pr-gate-ruleset.json`과 대조한다.
-3. Ruleset이 Active이고 우회자가 없는지 확인한 다음 **Settings → General → Pull Requests → Allow auto-merge**를 켠다. **Allow merge commits**도 켜져 있어야 한다.
-4. 그 후 ChatGPT GitHub 쓰기를 다시 켜는 경우 대상은 이 저장소만 선택한다. GitHub 화면에서 **계정 프로필 → Settings → Applications → Installed GitHub Apps → ChatGPT → Configure** 순서로 열고, Repository access가 **Only select repositories → 이 저장소**인지 확인한다. 같은 화면의 Repository permissions를 펼쳐 **Workflows 쓰기 권한 없음**을 필수 조건으로 확인한다. PR 생성에 필요한 권한은 Contents read/write(브랜치·파일), Pull requests read/write(PR 생성), Metadata read이며 Administration, Workflows, Pages, Actions, Secrets, Environments 권한은 부여하지 않는다. 권한 변경 요청이 보이면 승인 전에 Workflows가 추가되지 않았는지 다시 확인한다. GitHub App 권한 구성이 이 조합을 지원하지 않으면 쓰기를 켜지 말고 실제 요청 권한을 재검토한다. ChatGPT PR이 소유자 계정 명의가 아닌 경우 자동 merge 대상이 되지 않으므로 작성자 형태를 시험 PR에서 확인한다.
+0. 이 PR을 검토해 승인한 뒤 merge하고, 변경된 첨부칸 검사와 `publication-gate`가 `main`에 반영됐는지 확인한다. 복구: 새 워크플로·스크립트 변경만 별도 PR로 되돌린다.
+1. **Actions 이벤트 정책**: Settings → Actions → Policies → New policy → 두 publication 워크플로 경로 선택 → Restrict events=`pull_request_target` → Restrict actors=`mj880616` → Enforcement=`Active`로 저장한다. Policies 화면과 `GET /repos/mj880616/work/actions/policies`에서 두 경로·두 규칙을 재확인한다. 복구: 정책을 Disabled로 바꾸거나 삭제한다. 그러면 기본 차단 시점 이후 관문도 막힐 수 있으므로 동시에 게시 자동화를 중지하고 원인을 해결한다.
+2. **정책 시험**: 소유자의 같은 저장소 브랜치로 아래 A·B 시험 PR을 열어 `Publication gate` 실행 출처와 결론, `Publication auto merge` 예약 없음, Pages 건너뜀을 확인한다. 다른 actor의 PR은 정책 차단 가능성을 별도 확인한다. 실패하면 ruleset을 적용하지 않고 정책 경로·actor·이벤트를 바로잡는다. 복구: 시험 PR을 닫고 브랜치를 삭제한다.
+3. **main ruleset**: Settings → Rules → Rulesets → New branch ruleset → 이름 `Main PR gate`; Active; 대상 `main`; Bypass list 비움(관리자 포함); Require a pull request before merging(승인 수 0); Require status checks to pass의 `publication-gate`(GitHub Actions 앱, 확인한 integration ID 15368); Block force pushes; Restrict deletions. Require branches to be up to date는 끈다(기준 main이 바뀌어도 게시 PR 자동 merge가 멈추지 않게 함). Merge commit 허용, merge queue·linear history는 켜지 않는다. 저장 뒤 `docs/main-pr-gate-ruleset.json`과 대조하고 PR이 필수 검사 없이 merge되지 않는지 확인한다. 복구: 긴급 시 Enforcement Disabled로 바꾸고 직접 push 보호가 사라진 상태를 인지한다.
+4. **Allow auto-merge**: Settings → General → Pull Requests → Allow auto-merge 활성화. Allow merge commits도 켜져 있는지 확인한다. 저장소 API `allow_auto_merge=true` 확인. 복구: 예약된 PR마다 Disable auto-merge, 이어 저장소 Allow auto-merge 해제.
+5. **자동 게시 시험 PR**: 소유자·같은 저장소 브랜치의 실제 게시 문안 PR로 자동 merge 예약, 필수 검사 성공, merge commit, `build-pages`의 완료·SHA·공개 URL을 확인한다. 실패 시 새 예약을 해제하고, 이미 merge됐다면 변경을 되돌리는 PR과 Pages 재빌드를 검토한다.
+6. **ChatGPT PR 권한**: 계정 프로필 → Settings → Applications → Installed GitHub Apps → ChatGPT → Configure에서 Repository access를 Only select repositories → 이 저장소로 제한한다. Repository permissions에서 **Workflows 쓰기 없음**을 확인한다. PR 생성에는 Contents read/write, Pull requests read/write, Metadata read가 필요하며 Administration, Workflows, Pages, Actions, Secrets, Environments 권한은 부여하지 않는다. 권한 구성이 이를 지원하지 않으면 활성화하지 않는다. 무해한 PR로 실제 actor·작성자·head 저장소와 관문 실행 여부를 확인한다. 복구: 앱의 저장소 접근을 제거하고 열린 자동 merge 예약을 해제한다.
 
 CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh api -X POST repos/mj880616/work/rulesets --input docs/main-pr-gate-ruleset.json`을 실행하고 반환된 ruleset ID를 기록한다. 이어 `gh api -X PATCH repos/mj880616/work -F allow_auto_merge=true`를 실행한다. 설정 적용 직전에 현재 ruleset·기존 보호·auto-merge 값을 다시 조회해야 한다. 이 명령은 이번 PR에서 실행하지 않는다.
 
@@ -113,7 +147,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 | `team-member-overview-e2e.yml` | PR, push main | `app/**`, `tests/app-e2e/nonmember-access.spec.mjs`, `tests/app-e2e/access-request-push.spec.mjs`, `tests/app-e2e/solo-shell.spec.mjs`, 자신 |
 | `update-2in1-labor-meeting-0911.yml` | 수동 | 없음 |
 | `update-2in1-labor-meeting-0913.yml` | push * | 자신 |
-| `web1-file-dropzone.yml` | push main, 수동 | 없음. 모든 main push에서 실행 |
+| `web1-file-dropzone.yml` | PR | 없음. 모든 main 대상 PR에서 읽기 전용 검사 |
 | `web1-password-recovery-check.yml` | PR | `app/public-page-auth.js`, `app/public-page-editor.js`, `tests/app-e2e/public-page-password-recovery.spec.mjs`, 자신 |
 | `web2-one-shot-schema-authz.yml` | 수동 | 없음 |
 | `workplace-detail-static-check.yml` | PR, push main | `app/workplace-detail.js`, `app/workplace-detail.css`, `app/workplace-report.js`, `app/styles.css`, `app/loader-v2.js`, `app/view-loader.js`, 자신 |

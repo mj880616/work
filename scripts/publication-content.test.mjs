@@ -27,7 +27,7 @@ test('archive entries resolve to local pages and the newest is listed on the pre
   assert.ok(hub.includes(`href="${archive.items[0].href}"`), 'newest archive item is missing from press hub');
 });
 
-test('press pages have no Web1 upload input requiring the main-push dropzone workflow', () => {
+test('press pages have no Web1 upload input outside the PR dropzone check', () => {
   const pages = [];
   const visit = directory => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
