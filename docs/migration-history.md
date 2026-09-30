@@ -20,6 +20,8 @@
 | --- | --- | --- |
 | `20260926154120_sec1_auth_handoff_once.sql` | 적용 완료·기록 존재 (2026-09-27 KST Task 20 read-only 재확인) | version `20260926154120`, name `sec1_auth_handoff_once` 일치. SEC-1 #324 운영 DB·Edge 적용 완료(사용자 확인). auth-handoff v4·verify_jwt=false, 배포 소스와 저장소 원문 일치. Android 실물 검증 보류. 이 세션은 조회만 수행 |
 | `20260927103344_task_impl2_notes_record_links.sql` | 적용 완료·기록 존재 (2026-09-27 운영 적용, read-only 사후 확인) | TASK-구현 PR 2(#335, main `7f13105e`). `app_notes`·`app_record_links` 생성. version `20260927103344`, name `task_impl2_notes_record_links` 일치. 사후 확인 전 항목 일치(RLS 켜짐, 정책 각 1개, anon 권한 없음, authenticated select·insert·update·delete, 행 0). 적용 절차·되돌리기는 `docs/web2-task-impl2-db.md` |
+| `20260929081500_task29_block_writes_delete_app_tasks_rows.sql` | 적용 완료(사용자 보고, 2026-09-29 SQL Editor) | TASK-29 #360·#361 merge 뒤 새 쿼리 창에서 적용. 사용자 보고 사후 확인: `app_tasks` 0행, `authenticated` SELECT만 허용, migration 기록 1행. 첫 실행은 편집기에 남아 있던 옛 쿼리가 실행되어 이 migration이 미적용이었고, 당시 운영 변화 없음 확인 후 새 쿼리 창에서 재실행. 이 문서 갱신 세션은 DB를 재조회하지 않았다. |
+| `20260929072329_task29_delete_app_tasks_rows.sql` | 미적용 | #359의 구 파일은 #360에서 저장소에서 제거하고 `20260929081500`으로 대체. 사용자 보고 기준 production 기록 없음. |
 
 아래 ENV-2 집계는 당시 조사값이며 위 후속 적용을 소급 포함하지 않는다.
 

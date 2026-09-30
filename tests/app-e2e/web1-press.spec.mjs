@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 
-const pressCount=JSON.parse(readFileSync(new URL('../../press/archive.json',import.meta.url),'utf8')).items.length;
+const pressItems=JSON.parse(readFileSync(new URL('../../press/archive.json',import.meta.url),'utf8')).items;
+const pressCount=pressItems.length;
+const statementCount=pressItems.filter(item=>item.type==='statement').length;
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app='http://127.0.0.1:8123/app/';
 const user={id:'press-user',email:'press@example.org',user_metadata:{display_name:'언론자료 QA'}};
@@ -49,7 +51,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
   await expect(page.locator('#mediaView')).not.toContainText('배포 전 QA');
 
   await page.locator('[data-press-type="statement"]').click();
-  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(13);
+  await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(statementCount);
   await expect(page.locator('#pressArchiveList')).toContainText('민자철도는 실패했다');
   await expect(page.locator('#pressArchiveList')).not.toContainText('청년일자리 늘린다더니');
 

@@ -1,0 +1,137 @@
+name: Publication auto merge
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: publication-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  reserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      armed: ${{ steps.reserve.outputs.armed }}
+    steps:
+      - name: Check out trusted base policy only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Reclassify the complete current PR file list
+        id: classify
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/publication-pr-policy.mjs classify
+      - name: Remove an old reservation when scope expands
+        if: steps.classify.outputs.trusted_author == 'true' && steps.classify.outputs.auto_eligible != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [[ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.auto_merge != null')" == true ]]; then
+            gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --disable-auto
+          fi
+      - name: Reserve merge commit only under the active main gate ruleset
+        id: reserve
+        if: steps.classify.outputs.auto_eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$(gh api "repos/$GITHUB_REPOSITORY" --jq '.allow_auto_merge')" != true ]]; then
+            echo 'Repository auto-merge is not enabled; no reservation made.' >&2
+            exit 0
+          fi
+          ruleset_id="$(gh api "repos/$GITHUB_REPOSITORY/rulesets" --jq '.[] | select(.name == "Main PR gate" and .enforcement == "active") | .id')"
+          if [[ ! "$ruleset_id" =~ ^[0-9]+$ ]]; then
+            echo 'Active Main PR gate ruleset is not ready; no reservation made.' >&2
+            exit 0
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/rulesets/$ruleset_id" | jq -e '
+            .target == "branch" and
+            ((.conditions.ref_name.include // []) | index("refs/heads/main") != null) and
+            ([.rules[] | select(.type == "pull_request")] | length == 1) and
+            ([.rules[] | select(.type == "required_status_checks") |
+              .parameters.required_status_checks[]? |
+              select(.context == "publication-gate" and .integration_id == 15368)] | length == 1)
+          ' >/dev/null
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --merge --match-head-commit "$EXPECTED_HEAD_SHA"
+          echo 'armed=true' >> "$GITHUB_OUTPUT"
+
+  build-pages:
+    needs: reserve
+    if: needs.reserve.outputs.armed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: read
+      pages: write
+    steps:
+      - name: Wait for this exact PR head to merge
+        id: merged
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..120}; do
+            pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
+            head="$(jq -r '.head.sha' <<< "$pr")"
+            merged_at="$(jq -r '.merged_at // empty' <<< "$pr")"
+            merge_sha="$(jq -r '.merge_commit_sha // empty' <<< "$pr")"
+            if [[ "$head" != "$EXPECTED_HEAD_SHA" ]]; then
+              echo 'PR head changed; the newer workflow run owns publishing.' >&2
+              exit 1
+            fi
+            if [[ -n "$merged_at" && -n "$merge_sha" ]]; then
+              echo "merge_sha=$merge_sha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo 'PR did not merge within 60 minutes.' >&2
+          exit 1
+      - name: Explicitly request and verify the legacy Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          previous_url="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest" --jq '.url')"
+          gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" --jq '{status,url}'
+          for attempt in {1..120}; do
+            build="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest")"
+            build_url="$(jq -r '.url // empty' <<< "$build")"
+            build_sha="$(jq -r '.commit // empty' <<< "$build")"
+            status="$(jq -r '.status // empty' <<< "$build")"
+            if [[ "$build_url" != "$previous_url" && "$build_sha" == "$main_sha" && "$status" == built ]]; then
+              echo "Pages built from main $main_sha ($build_url)"
+              exit 0
+            fi
+            if [[ "$build_url" != "$previous_url" && "$build_sha" == "$main_sha" && "$status" == errored ]]; then
+              echo 'Pages build failed.' >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo 'Pages did not report a completed build for this main SHA.' >&2
+          exit 1
