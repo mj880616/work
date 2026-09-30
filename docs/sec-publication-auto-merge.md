@@ -56,7 +56,7 @@ API 적용 시 제안 본문(이번 PR에서는 실행하지 않음, 사용자 I
 }
 ```
 
-현재 자동 예약 스크립트는 PR 작성자가 `mj880616`이고 같은 저장소 브랜치일 때만 후보로 인정한다. 이번까지 조회한 PR의 작성자는 소유자였지만, **ChatGPT가 앞으로 만든 PR의 `actor`·PR 작성자·head 저장소는 미확인**이다. GitHub App 또는 bot으로 기록되면 소유자 전용 정책에서 관문 자체가 막힐 수 있고, 정책에 bot을 추가하더라도 기존 작성자 조건 때문에 자동 예약 대상이 아니다. 따라서 ChatGPT actor를 추측해 정책에 허용하지 않는다. 권한을 다시 켜기 전에 별도 무해한 PR로 실제 `actor`와 작성자를 확인하고, 필요하면 정책과 관문을 별도 검토한다. `Workflows` 쓰기 권한은 부여하지 않는다.
+현재 자동 예약 스크립트는 PR 작성자가 `mj880616`이고 같은 저장소 브랜치일 때만 후보로 인정한다. 시험 PR A·B의 워크플로 `actor`와 `triggering_actor`는 모두 `mj880616`이었다. **ChatGPT가 앞으로 만든 PR의 `actor`·PR 작성자·head 저장소는 미확인**이다. [GitHub App 인증 문서](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-with-a-github-app-on-behalf-of-a-user)에 따르면 사용자 대신 인증하면 활동이 사용자에게 귀속되므로 이 방식이면 소유자 actor가 예상된다. App 설치 토큰 방식이면 App/bot actor가 예상되며, 소유자 전용 정책에서 관문 자체가 막힐 수 있다. 정책에 bot을 추가하더라도 PR 작성자가 bot이면 기존 작성자 조건 때문에 자동 예약 대상이 아니다. 따라서 ChatGPT actor를 추측해 정책에 허용하지 않는다. 권한을 다시 켜기 전에 별도 무해한 PR로 실제 `actor`와 작성자를 확인하고, 필요하면 정책과 관문을 별도 검토한다. `Workflows` 쓰기 권한은 부여하지 않는다.
 
 ## 설정 전 관문 실동작 시험 (2026-09-30)
 
