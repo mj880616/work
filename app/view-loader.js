@@ -52,6 +52,14 @@ async function projectCatalog(){
 async function organizationOrder(){
   await module('./organization-order.js?v=1');
 }
+// Resolves once the app shell has been revealed (kptu-ui-ready) and one frame has been painted after it.
+function afterReveal(){
+  return new Promise(resolve=>{
+    const next=()=>requestAnimationFrame(()=>setTimeout(resolve,0));
+    if(document.querySelector('#appView')?.classList.contains('kptu-ui-ready'))return next();
+    window.addEventListener('kptu:app-ui-ready',next,{once:true});
+  });
+}
 async function calendar(){
   await module('./calendar-month-view.js?v=7','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await projectCatalog();
@@ -67,9 +75,10 @@ async function calendar(){
   background(google);
   background(style('./suborganizations.css?v=6').then(organizationOrder).then(()=>module('./suborganizations.js?v=9','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
-  // Google tasks by due date (CAL-할일) come after the first render and never hold it: the task editor's style and modules,
-  // then the calendar's task list. The task view and project/organization details load the same google-tasks.js.
-  background(Promise.all([style('./google-tasks.css?v=16'),organizationOrder()]).then(()=>module('./google-tasks.js?v=22')).then(()=>module('./calendar-tasks.js?v=1')));
+  // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
+  // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
+  // google-tasks.js.
+  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=16'),organizationOrder()])).then(()=>module('./google-tasks.js?v=22')).then(()=>module('./calendar-tasks.js?v=1')));
   background(google.then(()=>module('./calendar-health.js?v=4')));
   return {ok:true}
 }
