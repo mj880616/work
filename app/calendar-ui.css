@@ -59,9 +59,9 @@
 .kptu-day-list .cmv-day-time{flex:0 0 38px;font-size:9px;font-weight:800;opacity:.9}
 .kptu-day-list .cmv-day-title{font-weight:700}
 /* Google tasks by due date (CAL-할일): an outlined chip with a completion circle, unlike the filled event bars. */
-.cal-event.cmv-task{background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:inset 0 0 0 1px var(--kptu-border-strong)}
+.cal-event.cmv-task{box-sizing:border-box;background:var(--kptu-surface);color:var(--kptu-ink);border:1px solid var(--kptu-border-strong)}
 .cmv-task-mark{flex:0 0 auto;display:inline-grid;place-items:center;width:1em;height:1em;margin-right:2px;border:1px solid currentColor;border-radius:var(--kptu-radius-pill);font-size:inherit;line-height:1;box-sizing:border-box}
-.cal-event.cmv-task-overdue{box-shadow:inset 0 0 0 1px var(--kptu-danger)}
+.cal-event.cmv-task-overdue{border-color:var(--kptu-danger)}
 .cal-event.cmv-task-overdue .cmv-task-mark{color:var(--kptu-danger)}
 .cal-event.cmv-task-done{opacity:.55}
 .cal-event.cmv-task-done .cmv-event-title{text-decoration:line-through}
