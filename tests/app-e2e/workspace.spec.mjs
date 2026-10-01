@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { calendarToday } from './helpers/calendar-today.mjs';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
 watchRetiredCollaboration(test);
+test.use({ timezoneId: 'Asia/Seoul' });
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -16,10 +18,10 @@ async function installSupabaseMock(page, state) {
     const ok = data => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data ?? null) });
 
     if (path === '/auth/v1/token' && url.searchParams.get('grant_type') === 'password') {
-      return ok({ access_token: 'e2e-access', refresh_token: 'e2e-refresh', expires_in: 3600, expires_at: Math.floor(Date.now()/1000)+3600, token_type: 'bearer', user: state.user });
+      return ok({ access_token: 'e2e-access', refresh_token: 'e2e-refresh', expires_in: 3600, expires_at: Math.floor(await page.evaluate(() => Date.now())/1000)+3600, token_type: 'bearer', user: state.user });
     }
     if (path === '/auth/v1/token' && url.searchParams.get('grant_type') === 'refresh_token') {
-      return ok({ access_token: 'e2e-access-2', refresh_token: 'e2e-refresh-2', expires_in: 3600, expires_at: Math.floor(Date.now()/1000)+3600, token_type: 'bearer', user: state.user });
+      return ok({ access_token: 'e2e-access-2', refresh_token: 'e2e-refresh-2', expires_in: 3600, expires_at: Math.floor(await page.evaluate(() => Date.now())/1000)+3600, token_type: 'bearer', user: state.user });
     }
     if (path === '/auth/v1/user') return ok(state.user);
     if (path === '/auth/v1/logout') return ok({});
@@ -118,6 +120,7 @@ async function installSupabaseMock(page, state) {
 }
 
 test('login and core workspace flows remain usable', async ({ page }) => {
+  const today=await calendarToday(page);
   const legacyTaskRequests=[];
   page.on('request',req=>{if(new URL(req.url()).pathname==='/rest/v1/app_tasks')legacyTaskRequests.push(req.method())});
   const state = {
@@ -162,9 +165,9 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   expect(addSize).toBeGreaterThanOrEqual(44);
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('E2E Web2 일정');
-  await page.locator('#eventStartDate').fill('2026-09-14');
+  await page.locator('#eventStartDate').fill(today);
   await page.locator('#eventStartTime').fill('10:00');
-  await page.locator('#eventEndDate').fill('2026-09-14');
+  await page.locator('#eventEndDate').fill(today);
   await page.locator('#eventEndTime').fill('11:00');
   await page.locator('#saveEventBtn').click();
   await expect.poll(() => state.events.length).toBe(1);
@@ -174,9 +177,9 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('E2E Google 일정');
   await page.locator('#eventTarget').selectOption('google');
-  await page.locator('#eventStartDate').fill('2026-09-15');
+  await page.locator('#eventStartDate').fill(today);
   await page.locator('#eventStartTime').fill('10:00');
-  await page.locator('#eventEndDate').fill('2026-09-15');
+  await page.locator('#eventEndDate').fill(today);
   await page.locator('#eventEndTime').fill('11:00');
   await page.locator('#saveEventBtn').click();
   await expect.poll(() => state.googleEvents.length).toBe(1);
@@ -188,7 +191,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#gtTaskSection')).toBeVisible();
   await page.locator('#newTaskBtn').click();
   await page.locator('#gtEditTitle').fill('E2E 할 일');
-  await page.locator('#gtEditDue').fill(new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10));
+  await page.locator('#gtEditDue').fill(today);
   await page.locator('#gtSaveBtn').click();
   const task=page.locator('#gtTaskBody [data-google-task="google-task-1"]');
   await expect(task).toContainText('E2E 할 일');
@@ -223,7 +226,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#meetingsView')).toBeVisible();
   await page.locator('#newMeetingBtn').click();
   await page.locator('#meetingTitle').fill('E2E 회의');
-  await page.locator('#meetingAt').fill('2026-09-24T11:00');
+  await page.locator('#meetingAt').fill(`${today}T11:00`);
   await page.locator('#meetingTranscript').fill('E2E 회의 결과 원문');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(() => state.meetings.length).toBeGreaterThan(0);
