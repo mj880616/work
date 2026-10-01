@@ -14,6 +14,7 @@
 ## 생성기 규칙
 
 - `slugs`: 공개 중인 페이지. 조회 결과로 제목·요약·robots를 갱신한다.
+- `private-rail-forum-0929-prep`: 공개 링크를 유지하면서 검색만 차단하므로 조회 결과가 indexable이어도 robots는 `noindex,nofollow`로 갱신한다.
 - `withdrawn`: 내린 페이지. 조회 결과와 무관하게 중립 메타(`공유 게시글`, `noindex,nofollow`)로 기록한다.
 - 두 목록 합계는 6개이며 중복을 허용하지 않는다.
 - `slugs`의 페이지가 빈 결과를 돌려주면 그 셸은 건드리지 않고, 이유를 로그에 남기고 종료코드 1로 끝난다.

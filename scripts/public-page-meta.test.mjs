@@ -32,6 +32,20 @@ test('real generic template has managed metadata markers and stays noindex',()=>
   assert.match(shell,/src="\.\.\/public-post\.js\?v=3"/);
 });
 
+test('every private rail HTML entry has a noindex directive',()=>{
+  for(const file of [
+    'private-rail/index.html',
+    'private-rail/page.html',
+    'private-rail/org.html',
+    'private-rail/forum-0929/index.html',
+    'private-rail/question-0912/index.html',
+    'p/private-rail-forum-0929-prep/index.html'
+  ]){
+    const html=readFileSync(path.join(ROOT,file),'utf8');
+    assert.match(html,/<meta\s+name="robots"\s+content="noindex(?:[,\w-]*)?"\s*\/?\s*>/i,file);
+  }
+});
+
 // Runs the real generator in a temp copy of the reviewed shells. `overrides`
 // maps a slug to a synthetic {status,body} response for that slug only.
 function runGeneratorWithSyntheticFetch(status=200,{overrides={},manifest=null,checkOnly=false}={}){
@@ -63,6 +77,17 @@ test('actual generator refreshes six legacy shells from synthetic public rows',(
     assert.match(after[index],new RegExp(`<title>합성 ${slug}</title>`));
     assert.match(after[index],/<meta name="robots" content="noindex,nofollow">/);
   }
+});
+
+test('private rail forum stays noindex when the public lookup says indexable',()=>{
+  const slug='private-rail-forum-0929-prep';
+  const {result,slugs,after}=runGeneratorWithSyntheticFetch(200,{overrides:{
+    [slug]:{status:200,body:[{title:'토론회 준비',summary:'공유 문서',indexable:true,page_design:{}}]}
+  }});
+  assert.equal(result.status,0,result.stderr);
+  const html=after[slugs.indexOf(slug)];
+  assert.match(html,/<title>토론회 준비<\/title>/);
+  assert.match(html,/<meta name="robots" content="noindex,nofollow">/);
 });
 
 test('pre-migration missing RPC preserves all six existing public shells',()=>{
