@@ -59,7 +59,10 @@ for(const slug of active){
     empty.push(slug);
     continue;
   }
-  pages.push({slug,title:post.title,summary:post.summary,visibility:post.indexable===false?'unlisted':'public',metadata:{page_design:post.page_design||{}}});
+  // This shared forum URL remains available by link, but its reviewed shell
+  // must stay out of search even while the public post lookup is indexable.
+  const noindex=slug==='private-rail-forum-0929-prep'||post.indexable===false;
+  pages.push({slug,title:post.title,summary:post.summary,visibility:noindex?'unlisted':'public',metadata:{page_design:post.page_design||{}}});
 }
 
 if(awaitingPrepare){

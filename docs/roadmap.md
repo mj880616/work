@@ -107,6 +107,7 @@
 | Web1-1 | 공개 페이지 메타 생성기: 빈 조회 시 기존 메타 보존 (#202 재작업) | 완료 | #294 | withdrawn 목록으로 비공개 전환 명시, 빈 조회는 보존+실패. 원인 확정: 9/21 22:29 UTC 페이지 관리자 일괄 삭제 후 수동 복구. #202는 merge 후 close |
 | Web1-2 | p/bus-strike-publicness-internal-archive-202609 셸 상태 확인 | 종료 | | 대상 글이 production app_pages·app_page_revisions에 없음(로컬 read-only 조회로 확인). anon app_public_post 빈 결과로 이미 링크 공개 종료 상태. 원본 없음, 복구하지 않기로 소유자 결정. 흔적 정리는 Web1-3 |
 | Web1-4 | app_delete_pages RPC 제거 (9/22 빈 조회 원인 경로 차단) | 완료 | #296 | 2026-09-26 SQL Editor 적용, 로컬 사후 검증 통과. schema_migrations 기록 없음(ENV-2에서 정리) |
+| private-rail-1a | 민자철도 공유 페이지 검색 노출 차단 | 진행중 | | `private-rail/` HTML 및 `/p/private-rail-forum-0929-prep/` 검색 차단. 링크 공유와 본문은 유지. 미사용 `org-status.js`와 전용 테스트 정리. 조직 현황 기본값·서버 변경은 제외. |
 | ENV-1 | gh CLI 설치·로그인 | 완료 | | 2026-09-26 로컬 세션에서 gh 로그인 확인 |
 | ENV-2 | migration 기록 불일치 정리 | 완료 | #298 | 방침 확정: 공유 DB이므로 db push·migration repair 영구 금지, 불일치는 대응표로 관리, 이후 적용 SQL에 기록 1행 insert. 대응표 [docs/migration-history.md](migration-history.md) |
 | 일정 성능-2 | google-calendar Edge 로딩 최적화 | 완료 | #300 | google-calendar v14 배포 2026-09-26, 실사용 확인 |
