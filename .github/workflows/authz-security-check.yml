@@ -6,7 +6,9 @@ on:
       - 'supabase/**'
       - 'tests/security/**'
       - 'tests/auth-handoff/**'
-      - '.github/workflows/authz-security-check.yml'
+      - '.github/workflows/**'
+      - 'scripts/publication-pr-policy.mjs'
+      - 'docs/main-pr-gate-ruleset.json'
   pull_request:
     branches:
       - main
@@ -14,7 +16,9 @@ on:
       - 'supabase/**'
       - 'tests/security/**'
       - 'tests/auth-handoff/**'
-      - '.github/workflows/authz-security-check.yml'
+      - '.github/workflows/**'
+      - 'scripts/publication-pr-policy.mjs'
+      - 'docs/main-pr-gate-ruleset.json'
   workflow_dispatch:
 
 jobs:

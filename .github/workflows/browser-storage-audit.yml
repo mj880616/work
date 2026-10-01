@@ -13,7 +13,6 @@ on:
       - '.github/workflows/browser-storage-audit.yml'
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, edited]
     paths:
       - '**/*.html'
       - '**/*.js'
@@ -26,7 +25,6 @@ on:
 
 jobs:
   audit:
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

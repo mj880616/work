@@ -7,9 +7,9 @@ import {
   isTrustedPublicationAuthor,
   readPullRequestSnapshot,
   verifyNecessaryChecks,
-} from './publication-pr-policy.mjs';
+} from '../../scripts/publication-pr-policy.mjs';
 
-const workflow = name => readFileSync(fileURLToPath(new URL(`../.github/workflows/${name}`, import.meta.url)), 'utf8');
+const workflow = name => readFileSync(fileURLToPath(new URL(`../../.github/workflows/${name}`, import.meta.url)), 'utf8');
 
 test('publication decisions use base-controlled pull_request_target workflows', () => {
   for (const name of ['publication-auto-merge.yml', 'publication-gate.yml']) {
@@ -18,7 +18,7 @@ test('publication decisions use base-controlled pull_request_target workflows', 
     assert.doesNotMatch(source, /\n\s+pull_request:/);
   }
   assert.match(workflow('publication-gate.yml'), /  content-check:\s*\n[\s\S]*?permissions:\s*\n\s+contents: read/);
-  assert.match(workflow('publication-gate.yml'), /  publication-gate:\s*\n\s+needs: \[classify, content-check\]\s*\n\s+if: always\(\) &&/);
+  assert.match(workflow('publication-gate.yml'), /  publication-gate:\s*\n\s+needs: \[classify, content-check\]\s*\n\s+if: always\(\)\s*\n/);
   const reserve = workflow('publication-auto-merge.yml');
   assert.match(reserve, /Repository auto-merge is not enabled; no reservation made\.[\s\S]*?exit 0/);
   assert.match(reserve, /node scripts\/publication-pr-policy\.mjs ruleset-ready/);

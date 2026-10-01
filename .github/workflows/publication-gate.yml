@@ -3,17 +3,16 @@ name: Publication gate
 on:
   pull_request_target:
     branches: [main]
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened]
 
 permissions: {}
 
 concurrency:
-  group: publication-gate-${{ github.event.pull_request.number }}-${{ github.event.action == 'edited' && github.event.changes.base == null && 'description' || 'decision' }}
+  group: publication-gate-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   classify:
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -82,7 +81,7 @@ jobs:
 
   publication-gate:
     needs: [classify, content-check]
-    if: always() && (github.event.action != 'edited' || github.event.changes.base != null)
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
