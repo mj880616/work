@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
 watchRetiredCollaboration(test);
 import { enterLogin } from './helpers/login-entry.mjs';
+import { calendarToday, addCalendarDays } from './helpers/calendar-today.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -19,7 +20,7 @@ async function mockApp(page,state){
       return typeof value==='string'?value:key+' forced failure'
     };
     // sessionUser: the token carries the user like a real Supabase response; Google task code reads the owner from the session.
-    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,...(state.sessionUser?{user:state.user}:{})});
+    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(()=>Date.now())/1000)+3600,...(state.sessionUser?{user:state.user}:{})});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
@@ -905,6 +906,8 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
 });
 
 test('V3 creates and edits a project with the same final renderer',async({page})=>{
+  // 기본 시작일은 오늘이다(앱은 UTC 날짜를 쓰지만 정오 시계에서는 한국 날짜와 같다). 종료일을 고정 날짜로 두면 그 날짜가 지난 뒤 시작일보다 앞서게 된다.
+  const today=await calendarToday(page);
   const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
   await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await page.locator('#ps3CreateName').fill('인력확충 투쟁');await page.locator('#ps3CreateObjective').fill('안전·공공서비스 인력확충');await page.locator('#ps3CreateSave').click();
@@ -917,9 +920,13 @@ test('V3 creates and edits a project with the same final renderer',async({page})
   await page.locator('[data-ps3-edit-project]').click();
   await expect(page.locator('#ps3CreateHeading')).toHaveText('프로젝트 수정');
   await page.locator('#ps3CreateName').fill('인력확충 공동투쟁');
-  await page.locator('#ps3CreateEnd').fill('2026-10-24');
+  const end=addCalendarDays(today,23);
+  await page.locator('#ps3CreateEnd').fill(end);
   await page.locator('#ps3CreateSave').click();
   await expect.poll(()=>state.spaces.find(x=>x.id===made.id)?.name).toBe('인력확충 공동투쟁');
+  const saved=state.spaces.find(x=>x.id===made.id).metadata;
+  expect(saved.start_on).toBe(today);
+  expect(saved.end_on).toBe(end);
   await expect(page.locator('#ps3Title')).toHaveText('인력확충 공동투쟁');
 });
 

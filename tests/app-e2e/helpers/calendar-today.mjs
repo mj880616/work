@@ -13,3 +13,9 @@ export async function calendarToday(page) {
   await page.clock.install({ time: new Date(noon) });
   return today;
 }
+
+// Shift a YYYY-MM-DD calendar date by whole days without involving a time zone.
+export function addCalendarDays(date, days) {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}

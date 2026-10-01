@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {calendarToday} from './helpers/calendar-today.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -14,13 +15,15 @@ const spaces=[
   {id:'other-owner',name:'다른 소유자 공간',owner_id:'another-user',status:'active',parent_id:null,metadata:{project_system:'v2'},sort_order:6}
 ].map(row=>({...row,workspace_id:workspace}));
 const meeting={id:'selection-meeting',workspace_id:workspace,project_id:'legacy',title:'테스트 회의',series_name:'테스트 회의',meeting_at:'2026-09-29T01:00:00Z',transcript_text:'테스트 원문',created_by:owner};
-const event={id:'selection-event',workspace_id:workspace,project_id:'legacy',title:'테스트 일정',start_at:new Date(Date.now()+3600000).toISOString(),end_at:new Date(Date.now()+7200000).toISOString(),calendar_scope:'team',created_by:owner};
+// 한국 시간 오늘 13~14시. 월말 밤에도 다음 달로 넘어가지 않는다(시계는 calendarToday가 오늘 정오로 맞춘다).
+const eventOn=today=>({id:'selection-event',workspace_id:workspace,project_id:'legacy',title:'테스트 일정',start_at:new Date(`${today}T13:00:00+09:00`).toISOString(),end_at:new Date(`${today}T14:00:00+09:00`).toISOString(),calendar_scope:'team',created_by:owner});
 
 async function signIn(page,view,writes){
+  const event=eventOn(await calendarToday(page));
   await page.route(`${SB}/**`,async route=>{
     const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method();
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'selection-access',refresh_token:'selection-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:{id:owner}});
+    if(path==='/auth/v1/token')return ok({access_token:'selection-access',refresh_token:'selection-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(()=>Date.now())/1000)+3600,user:{id:owner}});
     if(path==='/auth/v1/user')return ok({id:owner,email:'selection@example.org'});
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace,user_id:owner,role:'owner',workspace:{id:workspace,name:'Test Workspace'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:workspace,name:'Test Workspace'}]);
