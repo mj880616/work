@@ -173,7 +173,7 @@ test('a list load that answers with the old state does not undo a tap made durin
 const order=page=>page.locator('#gtTaskBody .gt-row').evaluateAll(rs=>rs.map(r=>r.dataset.googleTask));
 const effectClasses=page=>page.locator('#gtTaskBody .gt-row').evaluateAll(rs=>rs.flatMap(r=>[...r.classList].filter(c=>/^gt-(settle|anim-)/.test(c))));
 
-test('completing shows the check and strike in place for a moment, then the row fades and moves to the completed part',async({browser})=>{
+test('completing keeps the checked and struck row in place for three seconds, then moves it',async({browser})=>{
   const hold=gate();
   const {context,page,calls}=await openTasks(browser,{onToggle:async(route,b,google)=>{
     await hold.wait;
@@ -193,9 +193,11 @@ test('completing shows the check and strike in place for a moment, then the row 
   expect(look.check).toBe('""');
   expect(look.strike).toBe('line-through');
   expect(look.animations).toEqual(expect.arrayContaining(['gt-draw','gt-fill','gt-settle','gt-strike']));
-  // Then it moves below the pending task, not before the effect has been shown.
-  await expect.poll(()=>order(page),{timeout:3000}).toEqual(['b','a']);
-  expect(Date.now()-started).toBeGreaterThanOrEqual(600);
+  await page.waitForTimeout(2200);
+  expect(await order(page)).toEqual(['a','b']);
+  await expect(row(page,'a')).toBeVisible();
+  await expect.poll(()=>order(page),{timeout:2500}).toEqual(['b','a']);
+  expect(Date.now()-started).toBeGreaterThanOrEqual(3000);
   await expect(row(page,'a')).not.toHaveClass(/gt-settle/);
   await expect(row(page,'a')).toHaveClass(/completed/);
   hold.open();
@@ -226,7 +228,7 @@ test('a save that fails after the row moved shows the row going back to where it
   const hold=gate();
   const {context,page}=await openTasks(browser,{onToggle:async route=>{await hold.wait;return ok(route,{error:'Google 저장 실패'},500)}});
   await row(page,'a').locator('[data-gt-toggle]').click();
-  await expect.poll(()=>order(page),{timeout:3000}).toEqual(['b','a']);
+  await expect.poll(()=>order(page),{timeout:4500}).toEqual(['b','a']);
   hold.open();
   // Unchecked in the completed part first, then back to its place above b.
   await expect(row(page,'a')).toHaveClass(/gt-anim-off/);
@@ -263,12 +265,69 @@ test('reopening a task outside the shown dates plays the effect and then leaves 
   await context.close();
 });
 
-test('with reduced motion the row moves at once without the effect',async({browser})=>{
+test('with reduced motion the row stays for three seconds without animation',async({browser})=>{
   const {context,page}=await openTasks(browser,{reducedMotion:'reduce'});
   await row(page,'a').locator('[data-gt-toggle]').click();
-  expect(await order(page)).toEqual(['b','a']);
+  expect(await order(page)).toEqual(['a','b']);
   await expect(row(page,'a')).toHaveClass(/completed/);
-  expect(await effectClasses(page)).toEqual([]);
   expect(await row(page,'a').evaluate(r=>r.getAnimations({subtree:true}).length)).toBe(0);
+  await expect.poll(()=>order(page),{timeout:4500}).toEqual(['b','a']);
+  await context.close();
+});
+
+test('a linked task can be reopened during its first save',async({browser})=>{
+  const hold=gate();
+  const {context,page,calls}=await openTasks(browser,{onToggle:async(route,b,google)=>{
+    if(b.completed)await hold.wait;
+    google[b.task_id]={...google[b.task_id],status:b.completed?'completed':'needsAction',completed:b.completed?NOW:null};
+    return ok(route,{ok:true,task:google[b.task_id]});
+  }});
+  await page.route(`${SB}/functions/v1/google-tasks?action=linked**`,route=>ok(route,{tasks:[gt('a','2026-09-27T00:00:00.000Z')]}));
+  await page.evaluate(()=>{const box=document.createElement('div');box.id='linkedTest';document.body.append(box);window.KPTUGoogleTasks.mountLinked(box,{project_id:'project-1'})});
+  const linked=page.locator('#linkedTest [data-google-task="a"]');
+  await expect(linked).toBeVisible();
+  await linked.locator('[data-gt-linked-toggle]').click();
+  await expect(linked).toHaveClass(/completed/);
+  await linked.locator('[data-gt-linked-toggle]').click();
+  await expect(linked).toHaveClass(/pending/);
+  hold.open();
+  await expect.poll(()=>calls.toggles.map(x=>x.completed)).toEqual([true,false]);
+  await context.close();
+});
+
+test('consecutive completions keep independent three second timers',async({browser})=>{
+  const {context,page,calls}=await openTasks(browser);
+  await row(page,'a').locator('[data-gt-toggle]').click();
+  await page.waitForTimeout(1400);
+  await row(page,'b').locator('[data-gt-toggle]').click();
+  expect(calls.toggles.map(x=>x.task_id)).toEqual(['a','b']);
+  await expect.poll(()=>order(page),{timeout:2500}).toEqual(['b','a']);
+  await expect(row(page,'b')).toHaveClass(/completed/);
+  await expect(page.locator('#gtTaskBody [data-gt-week] [data-google-task="b"]')).toBeVisible();
+  await expect.poll(()=>page.locator('#gtCompleted [data-google-task]').count(),{timeout:2500}).toBe(2);
+  await context.close();
+});
+
+test('leaving during the three second display keeps the saved completion',async({browser})=>{
+  const {context,page,google}=await openTasks(browser);
+  await row(page,'a').locator('[data-gt-toggle]').click();
+  await expect(row(page,'a')).toHaveClass(/completed/);
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
+  await expect.poll(()=>google.a.status).toBe('completed');
+  await page.waitForTimeout(3100);
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(page.locator('#gtCompleted [data-google-task="a"]')).toHaveClass(/completed/);
+  await context.close();
+});
+
+test('a failed linked save restores the row and announces the error',async({browser})=>{
+  const {context,page}=await openTasks(browser,{onToggle:route=>ok(route,{error:'Google 저장 실패'},500)});
+  await page.route(`${SB}/functions/v1/google-tasks?action=linked**`,route=>ok(route,{tasks:[gt('a','2026-09-27T00:00:00.000Z')]}));
+  await page.evaluate(()=>{const box=document.createElement('div');box.id='linkedTest';document.body.append(box);window.KPTUGoogleTasks.mountLinked(box,{project_id:'project-1'})});
+  const linked=page.locator('#linkedTest [data-google-task="a"]');
+  await expect(linked).toBeVisible();
+  await linked.locator('[data-gt-linked-toggle]').click();
+  await expect(linked).toHaveClass(/pending/);
+  await expect(page.locator('#linkedTest [data-gt-linked-msg]')).toContainText('완료를 저장하지 못해 되돌렸습니다');
   await context.close();
 });
