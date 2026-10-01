@@ -1121,3 +1121,108 @@ test('V3 project links an existing unlinked Google task',async({page})=>{
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
   }
 });
+
+async function saveProbe(page,table){
+  const probe={count:0,hold:true,fail:false,waiters:[]};
+  probe.release=()=>{probe.hold=false;probe.waiters.splice(0).forEach(resolve=>resolve())};
+  await page.route(`${SB}/rest/v1/${table}**`,async route=>{
+    if(route.request().method()!=='POST')return route.fallback();
+    probe.count++;
+    if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
+    if(probe.fail){probe.fail=false;return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'임시 저장 실패'})})}
+    return route.fallback();
+  });
+  return probe;
+}
+
+test('saveWs creates once during repeated clicks and retries after failure',async({page})=>{
+  const state=baseState();await mockApp(page,state);
+  const probe=await saveProbe(page,'app_project_workstreams');
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-add-ws]').click();
+  await page.locator('#ps3WsTitle').fill('저장 잠금 영역');
+  const button=page.locator('#ps3WsSave');
+  await button.click();await expect.poll(()=>probe.count).toBe(1);
+  await expect(button).toBeDisabled();await button.dispatchEvent('click');
+  await page.waitForTimeout(150);expect(probe.count).toBe(1);
+  probe.release();await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
+  await page.locator('[data-ps3-add-ws]').click();
+  await page.locator('#ps3WsTitle').fill('다시 시도 영역');
+  probe.fail=true;await button.click();
+  await expect(page.locator('#ps3WsState')).toContainText('임시 저장 실패');
+  await expect(button).toBeEnabled();await button.click();
+  await expect.poll(()=>probe.count).toBe(3);
+  expect(state.workstreams.filter(x=>x.title==='저장 잠금 영역')).toHaveLength(1);
+});
+
+test('saveProgress creates once during repeated clicks and retries after failure',async({page})=>{
+  const state=baseState();await mockApp(page,state);
+  const probe=await saveProbe(page,'app_project_progress_updates');
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-progress-item="ws-1"] summary').click();
+  await page.locator('[data-ps3-progress-ws="ws-1"]').click();
+  await page.locator('#ps3ProgressSummary').fill('잠금 검증 기록');
+  const button=page.locator('#ps3ProgressSave');
+  await button.click();await expect.poll(()=>probe.count).toBe(1);
+  await expect(button).toBeDisabled();await button.dispatchEvent('click');
+  await page.waitForTimeout(150);expect(probe.count).toBe(1);
+  probe.release();await expect(page.locator('#ps3ProgressModal')).toBeHidden();
+  await page.locator('[data-ps3-progress-ws="ws-1"]').click();
+  await page.locator('#ps3ProgressSummary').fill('다시 시도 기록');
+  probe.fail=true;await button.click();
+  await expect(page.locator('#ps3ProgressState')).toContainText('임시 저장 실패');
+  await expect(button).toBeEnabled();await button.click();
+  await expect.poll(()=>probe.count).toBe(3);
+  expect(state.progress.filter(x=>x.summary==='잠금 검증 기록')).toHaveLength(1);
+});
+
+test('saveMemo creates once during repeated clicks and retries after failure',async({page})=>{
+  const state=baseState();await mockApp(page,state);
+  const probe=await saveProbe(page,'app_project_comments');
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await openFold(page,'ps3-memos');await page.locator('#ps3MemoBody').fill('잠금 검증');
+  const button=page.locator('[data-ps3-memo-save]');
+  await button.click();await expect.poll(()=>probe.count).toBe(1);
+  await expect(button).toBeDisabled();await button.dispatchEvent('click');
+  await page.waitForTimeout(150);expect(probe.count).toBe(1);
+  probe.release();await expect.poll(()=>state.comments.filter(x=>x.body==='잠금 검증').length).toBe(1);
+  await page.locator('#ps3MemoBody').fill('다시 시도');
+  probe.fail=true;await button.click();
+  await expect(page.locator('#ps3MemoState')).toContainText('임시 저장 실패');
+  await expect(button).toBeEnabled();await button.click();
+  await expect.poll(()=>probe.count).toBe(3);
+});
+
+test('saveMilestone creates one Google request during repeated clicks and retries after failure',async({page})=>{
+  const state=baseState();
+  state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
+  await mockApp(page,state);
+  const probe={count:0,hold:true,fail:false,waiters:[]};
+  probe.release=()=>{probe.hold=false;probe.waiters.splice(0).forEach(resolve=>resolve())};
+  await page.route(`${SB}/functions/v1/google-calendar**`,async route=>{
+    const body=route.request().postDataJSON?.();
+    if(route.request().method()!=='POST'||body?.action!=='create-event')return route.fallback();
+    probe.count++;
+    if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
+    if(probe.fail){probe.fail=false;return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'임시 저장 실패'})})}
+    return route.fallback();
+  });
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
+  await expect(page.locator('#ps3MilestoneSave')).toBeEnabled();
+  await page.locator('#ps3MilestoneTitle').fill('잠금 검증 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-02T10:00');
+  const button=page.locator('#ps3MilestoneSave');
+  await button.click();await expect.poll(()=>probe.count).toBe(1);
+  await expect(button).toBeDisabled();await button.dispatchEvent('click');
+  await page.waitForTimeout(150);expect(probe.count).toBe(1);
+  probe.release();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();
+  await page.locator('[data-ps3-add-milestone]').click();
+  await page.locator('#ps3MilestoneTitle').fill('다시 시도 일정');
+  await page.locator('#ps3MilestoneAt').fill('2026-10-03T10:00');
+  await expect(button).toBeEnabled();
+  probe.fail=true;await button.click();
+  await expect(page.locator('#ps3MilestoneState')).toContainText('임시 저장 실패');
+  await expect(button).toBeEnabled();await button.click();
+  await expect.poll(()=>probe.count).toBe(3);
+});

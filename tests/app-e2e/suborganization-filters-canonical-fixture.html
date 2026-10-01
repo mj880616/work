@@ -38,6 +38,17 @@ let releaseOrgSave,releaseAssigneeSave;
 window.__orgSaveGate=new Promise(r=>releaseOrgSave=r);window.__assigneeSaveGate=new Promise(r=>releaseAssigneeSave=r);
 window.__releaseOrgSave=()=>releaseOrgSave();window.__releaseAssigneeSave=()=>releaseAssigneeSave();
 window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
+ const probe=window.__saveLockProbe;
+ if(probe&&path.split('?')[0]===`/rest/v1/${probe.table}`&&opt.method===probe.method){
+   probe.count++;
+   if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
+   if(probe.fail){probe.fail=false;throw new Error('임시 저장 실패')}
+   if(probe.table==='app_suborganizations'&&opt.method==='POST'){
+     const row={id:'org-new-'+probe.count,...opt.body};orgs.push(row);return [row]
+   }
+   if(probe.table==='app_org_affiliation_tags')return [{id:'tag-new-'+probe.count}];
+   if(probe.table==='app_suborganization_timeline'||probe.table==='app_suborganization_affiliations')return [];
+ }
  if(path==='/functions/v1/team-ai'){window.__teamAiCalls++;throw new Error('retired team-ai call')}
  if(path==='/auth/v1/user')return {id:fixtureUser,user_metadata:{display_name:fixtureRole==='viewer'?'열람자':'김명진'}};
  if(path.startsWith('/rest/v1/app_workspace_members?user_id='))return [{workspace_id:'ws-1',role:fixtureRole}];

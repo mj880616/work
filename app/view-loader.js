@@ -73,7 +73,7 @@ async function calendar(){
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=13','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
-  background(style('./suborganizations.css?v=6').then(organizationOrder).then(()=>module('./suborganizations.js?v=9','__KPTU_SUBORGANIZATIONS_READY__')));
+  background(style('./suborganizations.css?v=6').then(organizationOrder).then(()=>module('./suborganizations.js?v=10','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
@@ -97,7 +97,7 @@ async function projects(){
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=23');
-  await module('./project-system-v3.js?v=29','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=30','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
@@ -124,11 +124,11 @@ async function pages(){
 }
 async function organizations(){
   await organizationOrder();
-  await module('./suborganizations.js?v=9','__KPTU_SUBORGANIZATIONS_READY__');
+  await module('./suborganizations.js?v=10','__KPTU_SUBORGANIZATIONS_READY__');
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
   await module('./project-catalog.js?v=2');
   await module('./google-tasks.js?v=23');
-  await module('./workplace-detail.js?v=10');
+  await module('./workplace-detail.js?v=11');
   import('./workplace-report.js?v=1').catch(console.error);
   return {ok:true}
 }
