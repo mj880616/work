@@ -99,6 +99,15 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 
 설정 적용 전에는 자동 merge와 Pages 재빌드의 실제 동작을 검증할 수 없다. `allow_auto_merge=false`이면 예약 job은 성공 종료하고, 조건을 만족하는 ruleset이 없으면 예약 job은 실패한다. 두 경우 모두 Pages job은 실행하지 않는다. #362의 기존 `pull_request` 검사 결과는 수정 후 `pull_request_target` 관문을 검증하지 못하므로, 설정을 켜기 전에 merge 후 새 시험 PR에서 관문 job의 출처·head SHA·결과를 확인한다.
 
+## 게시 방법: Claude Code `/게시반영` (2026-10-01)
+
+자동게시 재시험(#372~#375)을 통과한 뒤 게시는 Claude Code 로컬의 `/게시반영` 명령으로 한다. 명령 원문은 `.claude/commands/게시반영.md`다. ChatGPT의 PR 권한 재허용은 당분간 보류한다(위 설정 6단계와 actor 확인 조건은 재허용할 때 그대로 적용).
+
+- 사용: `/게시반영` 뒤에 종류·날짜·제목·본문(또는 기존 페이지 수정 요청)과 첨부 PC 경로를 붙인다. 앞에 `연습`을 쓰면 브랜치·커밋·PR 없이 로컬 파일만 만들어 보여 준다.
+- press/ 새 글: 최근 글 형식으로 날짜 디렉터리·`archive.json`·`press/index.html`을 만들고 PR을 연다. 변경이 위 허용 목록뿐이면 자동 예약·merge·Pages 빌드·공개 주소 200까지 확인하고 보고한다.
+- 기존 Web1 페이지 갱신 등 허용 목록 밖 변경: PR과 검사 통과까지만 하고 "커맨드센터 확인 후 merge 필요"로 멈춘다.
+- 제목·본문·날짜는 고치지 않는다. 오탈자 의심과 빠진 정보는 보고·질문으로 처리한다. 수동 merge·`--admin`은 쓰지 않는다.
+
 ## 남은 위험
 
 - 개인 저장소의 필수 검사 설정은 GitHub Actions 앱과 **검사 이름**을 지정하지만 워크플로 파일 경로를 고정하지 않는다. PR이 `.github/**`를 바꾸면 후보 브랜치의 다른 `pull_request` 워크플로가 같은 이름의 검사를 만들 수 있다. 중복 검사 이름은 병합 판정을 모호하게 할 수 있다. 기준 브랜치의 `pull_request_target` 관문, `.github/**` 자동 merge 제외, ChatGPT 앱 Workflows 쓰기 금지로 자동 경로를 좁히지만, 소유자 또는 다른 쓰기 권한자가 워크플로를 바꾼 PR을 만드는 상황까지 저장소 내부 설정만으로 완전히 막지는 못한다. **`.github/**` 변경 PR은 사람이 diff와 실제 검사 run의 워크플로 경로·기준 ref를 확인한 뒤 수동 merge**한다. 조직·기업 규칙에서 제공하는 required workflow는 개인 저장소의 이번 설정에 포함되지 않는다. 2026-10-01 확인: `pull_request` 워크플로는 PR head의 파일로 실행되므로, PR이 `on: pull_request` 워크플로를 새로 넣어 job 이름을 `publication-gate`·`dropzone`으로 만들 수 있다. 이 job은 같은 GitHub Actions 앱(15368)의 검사로 기록된다. `web1-file-dropzone.yml` 자체를 고쳐 `dropzone`을 무력화할 수도 있다. #370에서 같은 이름의 최신 실행이 이전 실패를 덮는 것을 확인했다. 자동 merge 경로에서는 `.github/**`가 섞이면 새 예약을 하지 않고, 기존 예약은 `synchronize` 때 `reserve`가 해제한다. 다만 push 직후부터 해제까지 짧은 경합 구간이 있다. 소유자 PR만 예약 대상이고 외부 앱에 Workflows 쓰기를 주지 않아 GitHub가 워크플로 파일 push를 거부하는 것이 이 구간의 보완책이다.
