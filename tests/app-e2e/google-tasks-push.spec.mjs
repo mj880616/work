@@ -496,7 +496,10 @@ test('completed group folds on every visit and counts a newly completed task aft
   await fold.locator('summary').click();
   await expect(fold).not.toHaveAttribute('open','');
   await page.locator('[data-gt-toggle="pending"]').click();
-  await expect(fold.locator('summary')).toContainText('완료 2',{timeout:3000});
+  await expect(page.locator('[data-gt-week] [data-google-task="pending"]')).toHaveClass(/completed/);
+  await page.waitForTimeout(1000);
+  await expect(fold.locator('summary')).toContainText('완료 1');
+  await expect(fold.locator('summary')).toContainText('완료 2',{timeout:4000});
   await expect(fold).not.toHaveAttribute('open','');
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
