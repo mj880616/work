@@ -1,17 +1,20 @@
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
+import { calendarToday } from './helpers/calendar-today.mjs';
+
+test.use({ timezoneId: 'Asia/Seoul' });
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'mobile-user',email:'mobile@example.org',user_metadata:{display_name:'모바일 QA'}};
 const workspace={id:'mobile-workspace',slug:'mobile',name:'웹2'};
-const tasks=Array.from({length:8},(_,i)=>({id:`task-${i+1}`,workspace_id:workspace.id,title:`모바일 QA 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`2026-09-${String(14+i).padStart(2,'0')}T09:00:00Z`,created_at:'2026-09-13T00:00:00Z'}));
-const events=Array.from({length:12},(_,i)=>({id:`event-${i+1}`,title:`9월 13일 일정 ${i+1}`,start:`2026-09-13T${String(1+i).padStart(2,'0')}:00:00Z`,end:`2026-09-13T${String(2+i).padStart(2,'0')}:00:00Z`,calendarId:'primary',source:'google',color:'#4285f4'}));
-
 async function mockApp(page){
+  const today=await calendarToday(page);
+  const tasks=Array.from({length:8},(_,i)=>({id:`task-${i+1}`,workspace_id:workspace.id,title:`모바일 QA 할 일 ${i+1}`,assignee_id:user.id,created_by:user.id,status:'todo',assignment_status:'accepted',priority:'normal',project_id:null,due_at:`${today}T18:00:00+09:00`,created_at:`${today}T09:00:00+09:00`}));
+  const events=Array.from({length:12},(_,i)=>({id:`event-${i+1}`,title:`오늘 일정 ${i+1}`,start:`${today}T${String(10+i).padStart(2,'0')}:00:00+09:00`,end:`${today}T${String(11+i).padStart(2,'0')}:00:00+09:00`,calendarId:'primary',source:'google',color:'#4285f4'}));
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'mobile-access',refresh_token:'mobile-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'mobile-access',refresh_token:'mobile-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(() => Date.now())/1000)+3600});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
@@ -30,6 +33,7 @@ async function mockApp(page){
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});
   });
+  return today;
 }
 
 async function signIn(page){
@@ -62,7 +66,7 @@ async function gesture(page,selector,points){
 test('mobile navigation, animated full-area swipe, safe area, back behavior and busy day UI',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
-  await mockApp(page);
+  const today=await mockApp(page);
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
 
@@ -112,7 +116,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   expect(scrollRoom.scrollHeight-scrollRoom.viewport).toBeGreaterThan(40);
   const more=page.locator('.kptu-day-more').first();
   await expect(more).toBeVisible({timeout:10000});
-  const busyWeek=page.locator('.cal-cell[data-date="2026-09-13"]').locator('..').locator('..');
+  const busyWeek=page.locator(`.cal-cell[data-date="${today}"]`).locator('..').locator('..');
   expect(await busyWeek.locator('.cmv-event').count()).toBeGreaterThan(4);
   await expect(more).toHaveText(/^\+\d+$/);
   await more.click();
