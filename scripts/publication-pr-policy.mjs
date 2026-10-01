@@ -64,6 +64,61 @@ export async function readPullRequestSnapshot({ repository, number, expectedHead
   return { pr, paths };
 }
 
+export const MAIN_REQUIRED_CHECKS = ['publication-gate', 'dropzone'];
+const GITHUB_ACTIONS_APP_ID = 15368;
+
+// Judges a ruleset by what it enforces, not by its name. Bypass actors are only
+// returned to tokens that can edit rulesets; when hidden they are reported as a
+// warning and must be confirmed with an administrator API read.
+export function evaluateMainRuleset(ruleset, defaultBranch) {
+  const problems = [];
+  const warnings = [];
+  if (defaultBranch !== 'main') problems.push(`default branch is ${defaultBranch}, not main`);
+  if (ruleset?.target !== 'branch') problems.push('target is not branch');
+  if (ruleset?.enforcement !== 'active') problems.push(`enforcement is ${ruleset?.enforcement}`);
+  const include = ruleset?.conditions?.ref_name?.include ?? [];
+  const exclude = ruleset?.conditions?.ref_name?.exclude ?? [];
+  if (!include.some(ref => ref === '~DEFAULT_BRANCH' || ref === 'refs/heads/main')) problems.push('does not target main');
+  if (exclude.length > 0) problems.push('has branch exclusions');
+  if (Array.isArray(ruleset?.bypass_actors)) {
+    if (ruleset.bypass_actors.length > 0) problems.push('has bypass actors');
+  } else {
+    warnings.push('bypass actors are not visible to this token');
+  }
+  if (ruleset?.current_user_can_bypass !== undefined && ruleset.current_user_can_bypass !== 'never') {
+    problems.push('workflow token can bypass');
+  }
+  const rules = Array.isArray(ruleset?.rules) ? ruleset.rules : [];
+  for (const type of ['deletion', 'non_fast_forward', 'pull_request']) {
+    if (!rules.some(rule => rule?.type === type)) problems.push(`missing ${type} rule`);
+  }
+  const checks = rules
+    .filter(rule => rule?.type === 'required_status_checks')
+    .flatMap(rule => rule.parameters?.required_status_checks ?? []);
+  for (const context of MAIN_REQUIRED_CHECKS) {
+    if (!checks.some(check => check?.context === context && check?.integration_id === GITHUB_ACTIONS_APP_ID)) {
+      problems.push(`missing required check ${context}`);
+    }
+  }
+  return { ready: problems.length === 0, problems, warnings };
+}
+
+export async function findReadyMainRuleset({ repository, token, fetchImpl = fetch }) {
+  const root = `https://api.github.com/repos/${repository}`;
+  const repo = await requestJson(root, token, fetchImpl);
+  const list = await requestJson(`${root}/rulesets?per_page=100`, token, fetchImpl);
+  if (!Array.isArray(list)) throw new Error('Ruleset inventory is invalid');
+  const rejected = [];
+  for (const summary of list) {
+    if (!Number.isSafeInteger(summary?.id)) throw new Error('Ruleset id is invalid');
+    const ruleset = await requestJson(`${root}/rulesets/${summary.id}`, token, fetchImpl);
+    const result = evaluateMainRuleset(ruleset, repo.default_branch);
+    if (result.ready) return { id: ruleset.id, name: ruleset.name, warnings: result.warnings, rejected };
+    rejected.push({ id: ruleset.id, name: ruleset.name, problems: result.problems });
+  }
+  return { id: null, rejected };
+}
+
 export async function verifyNecessaryChecks({ repository, head, token, htmlChanged, maxAttempts = 20, fetchImpl = fetch }) {
   const required = htmlChanged ? ['loader-cache', 'audit'] : ['loader-cache'];
   const url = `https://api.github.com/repos/${repository}/commits/${head}/check-runs?per_page=100`;
@@ -72,6 +127,8 @@ export async function verifyNecessaryChecks({ repository, head, token, htmlChang
     if (!Array.isArray(data.check_runs)) throw new Error('Check run inventory is invalid');
     const latest = new Map();
     for (const run of data.check_runs) {
+      // A title or body edit records a skipped run; it must not hide the real result.
+      if (run.conclusion === 'skipped') continue;
       if (!latest.has(run.name) || run.id > latest.get(run.name).id) latest.set(run.name, run);
     }
     for (const name of required) {
@@ -109,6 +166,17 @@ async function main() {
     const { paths } = await readPullRequestSnapshot({ repository, number, expectedHead, token });
     if (!classifyPublicationPaths(paths).publication) throw new Error('PR is no longer publication-only');
     await verifyNecessaryChecks({ repository, head: expectedHead, token, htmlChanged: paths.some(path => path.endsWith('.html')) });
+    return;
+  }
+
+  if (mode === 'ruleset-ready') {
+    const found = await findReadyMainRuleset({ repository, token });
+    for (const { id, name, problems } of found.rejected) {
+      console.log(`Ruleset ${id} (${name}) not accepted: ${problems.join('; ')}`);
+    }
+    if (found.id === null) throw new Error('No active ruleset protects main with the publication gate; no reservation made.');
+    for (const warning of found.warnings) console.log(`::warning::Ruleset ${found.id}: ${warning}`);
+    console.log(`Main ruleset ${found.id} (${found.name}) meets the publication requirements.`);
     return;
   }
 

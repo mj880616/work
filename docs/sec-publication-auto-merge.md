@@ -23,11 +23,13 @@
 
 `Publication gate`는 `pull_request_target`에서 **기준 `main`의 워크플로와 정책 스크립트**를 실행한다. `classify`가 GitHub PR Files API 전체 페이지와 `changed_files` 수를 대조하며, head SHA가 바뀌면 실패한다. 게시 후보의 정적 아카이브 검사와 `web1-press.spec.mjs` Playwright 검사는 후보 코드를 checkout하는 별도 `content-check` job에서 실행한다. 이 job의 토큰은 `contents:read`뿐이고 checkout 자격 증명을 저장하지 않는다. 필수 `publication-gate` job은 기준 정책만 실행하며, 분류·후보 검사 결과와 기존 `loader-cache` 및 HTML 변경 시 `audit` 성공을 확인한다. 일반 PR에 이전 auto-merge 예약이 있으면 해제를 기다린다. #362 자체는 시작 `main`에 이 워크플로가 없으므로 새 `pull_request_target` 관문을 실행할 수 없으며, 사람이 변경 파일과 기존 CI를 확인한 뒤 수동 merge해야 한다. 후보 브랜치의 정책 스크립트를 실행하는 최초 도입 예외는 제거했다.
 
-`Publication auto merge`는 기본 브랜치에서만 읽는 `pull_request_target` 워크플로다. `opened`·`synchronize`·`reopened`마다 API로 파일 전체를 재분류한다. 작성자가 저장소 소유자이고 동일 저장소 브랜치이며 draft가 아닌 경우에만, 활성 `Main PR gate` ruleset과 저장소 auto-merge 허용을 확인하고 `--auto --merge --match-head-commit`으로 merge commit을 예약한다. `.github/**`를 포함한 허용 목록 밖 파일이 추가되거나 draft가 되면 이전 예약을 해제한다. fork 및 소유자가 아닌 작성자의 PR에는 merge 예약·해제를 하지 않는다. 쓰기 권한은 예약 job에 `contents:write`, `pull-requests:write`만 준다. 저장소 auto-merge가 꺼져 있거나 활성 ruleset이 아직 없으면 예약 없이 성공 종료하며, `build-pages`도 건너뛴다.
+`Publication auto merge`는 기본 브랜치에서만 읽는 `pull_request_target` 워크플로다. `opened`·`synchronize`·`reopened`마다 API로 파일 전체를 재분류한다. 작성자가 저장소 소유자이고 동일 저장소 브랜치이며 draft가 아닌 경우에만, `main`을 보호하는 ruleset과 저장소 auto-merge 허용을 확인하고 `--auto --merge --match-head-commit`으로 merge commit을 예약한다. ruleset은 이름이 아니라 내용으로 확인한다(`scripts/publication-pr-policy.mjs ruleset-ready`): 기본 브랜치가 `main`이고, ruleset이 branch 대상·Active이며 include에 `~DEFAULT_BRANCH` 또는 `refs/heads/main`이 있고 exclude가 없으며, 우회자가 없고, 삭제 금지·강제 push 금지·PR 필수 규칙과 GitHub Actions(15368)의 `publication-gate`·`dropzone` 필수 검사가 모두 있어야 한다. 우회자 목록은 ruleset 수정 권한이 없는 토큰에 반환되지 않으므로, 목록이 보이면 비어 있어야 하고 보이지 않으면 경고만 남긴다(아래 참고). 조건을 만족하는 ruleset이 없으면 예약하지 않고 `reserve` job을 **실패**로 끝내 거부 이유를 로그에 남긴다. `reserve`는 ruleset 필수 검사가 아니므로 다른 PR merge를 막지 않는다. `.github/**`를 포함한 허용 목록 밖 파일이 추가되거나 draft가 되면 이전 예약을 해제한다. fork 및 소유자가 아닌 작성자의 PR에는 merge 예약·해제를 하지 않는다. 쓰기 권한은 예약 job에 `contents:write`, `pull-requests:write`만 준다. 저장소 auto-merge가 꺼져 있으면(긴급 중지) 예약 없이 성공 종료하며, `build-pages`도 건너뛴다.
+
+`main` 대상으로 base를 바꾼 PR(`edited` 중 `changes.base`가 있는 경우)에서는 관문이 기다리는 `loader-cache`(`loader-cache-check.yml`)와 `audit`(`browser-storage-audit.yml`)도 다시 실행된다. 이 두 검사는 `pull_request_target`이 아니라 `pull_request` 워크플로다. 제목·본문만 바뀐 `edited`에서는 job이 건너뛰어지고, 관문의 검사 대기는 건너뛴(skipped) 실행을 무시하고 실제 실행 결과를 본다.
 
 `Check Web1 file dropzones`는 모든 `main` 대상 PR에서 읽기 전용으로 추적 중인 Web1 HTML을 검사한다. 파일 업로드 입력이 있는데 `/work/assets/file-dropzone.js` helper가 빠졌으면 실패하고, 누락 파일과 추가할 태그를 로그로 안내한다. 브랜치 파일을 고쳐 PR을 다시 올려야 한다. 과거 `Apply Web1 file dropzones`가 `main`에 직접 만든 커밋은 2026-09-13 13:36 UTC의 `de091ceb` 1건(HTML 2개 수정)이다. 이제 `main` 직접 push와 `workflow_dispatch`를 제거한다. 현재 `press/**` HTML에는 업로드 입력이 없고 첨부는 다운로드 링크다. 게시 후보의 `publication-content.test.mjs`도 `press/**/*.html`의 업로드 입력을 금지하므로 두 검사는 충돌하지 않는다. 게시 허용 목록에는 검사 스크립트나 워크플로가 없어서 이 파일을 바꾼 PR은 자동 예약 대상도 아니다. Pages 게시에는 아래 명시적 빌드 API가 필요하다.
 
-GitHub ruleset 조회 API는 ruleset 수정 권한이 없는 토큰에 우회자 목록을 반환하지 않는다. 예약 job은 최소 권한을 유지하므로 우회자 없음은 설정 적용자가 GitHub 화면·관리자 API에서 확인해야 한다.
+GitHub ruleset 조회 API는 ruleset 수정 권한이 없는 토큰에 우회자 목록(`bypass_actors`)과 `current_user_can_bypass`를 반환하지 않는다(2026-10-01 비인증 조회로 재확인). 예약 job은 최소 권한을 유지하므로 우회자 없음은 설정 적용자가 GitHub 화면·관리자 API에서 확인해야 한다. 예약 job은 이 필드가 보이면 빈 목록·`never`를 요구하고, 보이지 않으면 경고로 남긴다.
 
 Pages는 현재 legacy 브랜치 빌드다. [GitHub 문서](https://docs.github.com/en/actions/concepts/security/github_token)에 따르면 `GITHUB_TOKEN`으로 만든 커밋은 Pages 빌드를 트리거하지 않는다. 따라서 별도 `build-pages` job이 해당 head의 merge를 확인한 뒤 [Pages 빌드 API](https://docs.github.com/en/rest/pages/pages#request-a-github-pages-build)를 호출하고 빌드 완료와 `main` SHA를 확인한다. 이 job만 `pages:write`를 갖는다. Pages 실패 시 workflow가 실패하며 운영자가 확인해야 한다.
 
@@ -78,7 +80,14 @@ API 적용 시 제안 본문(이번 PR에서는 실행하지 않음, 사용자 I
 
 CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh api -X POST repos/mj880616/work/rulesets --input docs/main-pr-gate-ruleset.json`을 실행하고 반환된 ruleset ID를 기록한다. 이어 `gh api -X PATCH repos/mj880616/work -F allow_auto_merge=true`를 실행한다. 설정 적용 직전에 현재 ruleset·기존 보호·auto-merge 값을 다시 조회해야 한다. 이 명령은 이번 PR에서 실행하지 않는다.
 
-긴급 중지: PR 화면의 **Disable auto-merge**로 예약된 게시 PR을 해제하고, **Settings → General → Pull Requests**에서 Allow auto-merge를 끈다. 보호 규칙 자체가 운영을 막는 긴급 상황은 사용자가 **Settings → Rules → Rulesets → Main PR gate → Edit → Enforcement: Disabled**로 일시 해제할 수 있다. 이때 `main` 직접 push 보호도 사라지므로 작업 후 Active로 되돌린다. API 복구는 기록한 ruleset ID에 `PUT /repos/mj880616/work/rulesets/{id}`로 `enforcement=disabled`를 설정하거나, `PATCH /repos/mj880616/work`에 `allow_auto_merge=false`를 보낸다. 기존 자동 merge 예약은 PR별로 해제 여부를 확인한다.
+실제 적용(2026-10-01 확인): ruleset 이름은 위 3단계의 `Main PR gate`가 아니라 **`main-protect`(ID 24278798)**, 대상은 `refs/heads/main`이 아니라 `~DEFAULT_BRANCH`(기본 브랜치 `main`)이며, 필수 검사에 `dropzone`이 추가됐다. `docs/main-pr-gate-ruleset.json`은 이 실제 값으로 맞췄다. Actions 정책은 `publication-pr-target`(ID 6065), `allow_auto_merge=true`.
+
+긴급 중지:
+
+1. 예약된 게시 PR마다 PR 화면 하단의 **Disable auto-merge**를 누른다. CLI는 `gh pr merge <번호> --disable-auto`.
+2. **Settings → General → Pull Requests → Allow auto-merge** 체크를 해제한다. API는 `PATCH /repos/mj880616/work`에 `allow_auto_merge=false`. 이후 게시 PR은 예약 없이 `reserve`가 성공 종료한다.
+3. 보호 규칙 자체가 운영을 막는 경우에만 **Settings → Rules → Rulesets → `main-protect` → Enforcement status: Disabled → Save changes**로 일시 해제한다. 이때 `main` 직접 push·삭제 보호와 필수 검사가 모두 사라지고, 게시 PR의 `reserve`는 ruleset 미준비로 실패한다. 작업 후 Active로 되돌린다. API는 `PUT /repos/mj880616/work/rulesets/24278798`에 `enforcement=disabled`.
+4. 기존 자동 merge 예약은 PR별로 `gh pr view <번호> --json autoMergeRequest`로 해제 여부를 확인한다.
 
 ## 설정 후 실제 시험 계획
 
@@ -86,7 +95,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 2. 게시 PR에 `docs/` 파일을 뒤늦게 추가하는 별도 시험 PR에서는 auto-merge 예약이 해제되고 관문이 예약 해제를 기다린 뒤 성공하는지 확인한다. 이 PR은 게시하지 않고 수동으로 닫는다.
 3. fork·소유자 외 작성자 PR에서는 예약 job이 쓰기 동작을 하지 않는지 확인한다. ChatGPT가 만든 PR의 실제 작성자·head 저장소를 확인한다.
 
-설정 적용 전에는 자동 merge와 Pages 재빌드의 실제 동작을 검증할 수 없다. `allow_auto_merge=false`와 ruleset 부재 상태에서 새 예약 job은 성공 종료하고 Pages job은 실행하지 않는다. #362의 기존 `pull_request` 검사 결과는 수정 후 `pull_request_target` 관문을 검증하지 못하므로, 설정을 켜기 전에 merge 후 새 시험 PR에서 관문 job의 출처·head SHA·결과를 확인한다.
+설정 적용 전에는 자동 merge와 Pages 재빌드의 실제 동작을 검증할 수 없다. `allow_auto_merge=false`이면 예약 job은 성공 종료하고, 조건을 만족하는 ruleset이 없으면 예약 job은 실패한다. 두 경우 모두 Pages job은 실행하지 않는다. #362의 기존 `pull_request` 검사 결과는 수정 후 `pull_request_target` 관문을 검증하지 못하므로, 설정을 켜기 전에 merge 후 새 시험 PR에서 관문 job의 출처·head SHA·결과를 확인한다.
 
 ## 남은 위험
 
