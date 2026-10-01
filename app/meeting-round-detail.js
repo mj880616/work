@@ -1,4 +1,4 @@
-let mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrdCurrent=null,mrdTasks=[],mrdEditingTask=null,mrdRequestEpoch=0,mrdSavingTask=false,mrdSavingEdit=false;
+let mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrdCurrent=null,mrdTasks=[],mrdEditingTask=null,mrdRequestEpoch=0,mrdSavingTask=false,mrdSavingEdit=false;const mrdTaskToggleSeq=new Map();
 async function mrdApi(path,options={}){const rt=window.KPTURuntime;if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,options)}
 function mrdEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function mrdFmt(v){return v?new Date(v).toLocaleString('ko-KR',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}
@@ -25,7 +25,30 @@ function mrdResetTaskForm(){mrdEditingTask=null;const f=document.querySelector('
 function mrdOpenTaskForm(task=null){if(!mrdCurrent||!mrdCanEdit(mrdCurrent))return;mrdEditingTask=task;const f=document.querySelector('#mrdTaskForm');f?.classList.remove('hidden');document.querySelector('#mrdTaskTitle').value=task?.title||'';document.querySelector('#mrdTaskDue').value=mrdDueDateValue(task?.due);document.querySelector('#mrdTaskSave').textContent=task?'수정 저장':'등록';const st=document.querySelector('#mrdTaskStatus');st.textContent='';st.className='status';queueMicrotask(()=>document.querySelector('#mrdTaskTitle')?.focus())}
 function mrdRenderTasks(){const box=document.querySelector('#mrdTasks');if(!box)return;box.innerHTML=mrdTasks.length?mrdTasks.map(t=>`<div class="gt-row gt-side-row ${t.status==='completed'?'completed':'pending'}" data-mrd-task="${mrdEsc(t.id)}"><button class="gt-check" type="button" data-mrd-task-toggle="${mrdEsc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button><div class="mrd-task-main"><b>${mrdEsc(t.title||'제목 없음')}</b>${t.due?`<small>기한 : ${mrdEsc(mrdDueDateValue(t.due))}</small>`:''}</div>${mrdCanEdit(mrdCurrent)?`<div class="mrd-task-actions"><button class="mini" type="button" data-mrd-task-edit="${mrdEsc(t.id)}">수정</button><button class="mini danger" type="button" data-mrd-task-delete="${mrdEsc(t.id)}">삭제</button></div>`:''}</div>`).join(''):'<div class="empty compact">후속 할 일이 없습니다.</div>';document.querySelector('#mrdAddTask')?.classList.toggle('hidden',!mrdCanEdit(mrdCurrent))}
 async function mrdSaveTask(){if(mrdSavingTask||!mrdCurrent)return;const meeting=mrdCurrent,task=mrdEditingTask,epoch=mrdRequestEpoch;const title=document.querySelector('#mrdTaskTitle')?.value.trim()||'',due=document.querySelector('#mrdTaskDue')?.value||'',st=document.querySelector('#mrdTaskStatus'),btn=document.querySelector('#mrdTaskSave');if(!title){st.textContent='할 일을 입력해 주세요.';st.className='status error';return}mrdSavingTask=true;btn.disabled=true;st.textContent=task?'수정 중…':'등록 중…';st.className='status';const stillCurrent=()=>epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id;try{const action=task?'update':'create',body=task?{action,task_id:task.id,task_list_id:task.taskListId||null,title,due:due||null,notes:task.notes||''}:{action,title,due:due||null,notes:'',links:mrdTaskLinks(meeting)};const result=await mrdApi(mrdTaskEndpoint(action),{method:'POST',body});if(result?.link_error)throw new Error('Google 할 일은 만들었지만 회의 연결을 저장하지 못했습니다.');window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(!stillCurrent())return;mrdResetTaskForm();await mrdOpenMeeting(meeting.id)}catch(e){if(stillCurrent()){st.textContent=e.message||String(e);st.className='status error'}}finally{mrdSavingTask=false;btn.disabled=false}}
-async function mrdTaskClick(e){const eb=e.target.closest('[data-mrd-task-edit]');if(eb){const t=mrdTasks.find(x=>x.id===eb.dataset.mrdTaskEdit);if(t)mrdOpenTaskForm(t);return}const tb=e.target.closest('[data-mrd-task-toggle]');if(tb){const t=mrdTasks.find(x=>x.id===tb.dataset.mrdTaskToggle),meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting)return;tb.disabled=true;try{await mrdApi(mrdTaskEndpoint('toggle'),{method:'POST',body:{action:'toggle',task_id:t.id,task_list_id:t.taskListId||null,completed:t.status!=='completed'}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdOpenMeeting(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){alert(err.message||String(err));tb.disabled=false}}return}const db=e.target.closest('[data-mrd-task-delete]');if(db){const t=mrdTasks.find(x=>x.id===db.dataset.mrdTaskDelete),meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting||!confirm(`“${t.title}” Google 할 일을 삭제할까요?`))return;db.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdOpenMeeting(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){alert(err.message||String(err));db.disabled=false}}}}
+async function mrdTaskClick(e){
+  const eb=e.target.closest('[data-mrd-task-edit]');
+  if(eb){const t=mrdTasks.find(x=>x.id===eb.dataset.mrdTaskEdit);if(t)mrdOpenTaskForm(t);return}
+  const tb=e.target.closest('[data-mrd-task-toggle]');
+  if(tb){
+    const t=mrdTasks.find(x=>x.id===tb.dataset.mrdTaskToggle),meeting=mrdCurrent,epoch=mrdRequestEpoch,g=window.KPTUGoogleTasks;
+    if(!t||!meeting||!g?.toggleTask)return;
+    const want=t.status!=='completed',seq=(mrdTaskToggleSeq.get(t.id)||0)+1;
+    mrdTaskToggleSeq.set(t.id,seq);
+    mrdTasks=mrdTasks.map(x=>x.id===t.id?{...x,status:want?'completed':'needsAction',completed:want?new Date().toISOString():null}:x);
+    mrdRenderTasks();
+    try{
+      await g.toggleTask(t);
+      if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==meeting.id||mrdTaskToggleSeq.get(t.id)!==seq)return;
+      await mrdOpenMeeting(meeting.id);
+      const saved=mrdTasks.find(x=>x.id===t.id);
+      if(saved&&(saved.status==='completed')!==want)alert(want?'완료를 저장하지 못해 되돌렸습니다':'완료 취소를 저장하지 못해 되돌렸습니다');
+      else window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));
+    }catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)alert(err.message||String(err))}
+    return;
+  }
+  const db=e.target.closest('[data-mrd-task-delete]');
+  if(db){const t=mrdTasks.find(x=>x.id===db.dataset.mrdTaskDelete),meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting||!confirm(`“${t.title}” Google 할 일을 삭제할까요?`))return;db.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdOpenMeeting(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){alert(err.message||String(err));db.disabled=false}}}
+}
 async function mrdDownload(id){try{const d=await mrdApi('/functions/v1/workspace-drive?action=download-token',{method:'POST',body:{document_id:id}});location.href=d.url}catch(e){alert(e.message)}}
 async function mrdOpenMeeting(id){
   const epoch=++mrdRequestEpoch;

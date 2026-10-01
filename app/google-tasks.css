@@ -19,6 +19,7 @@
    before it moves; gt-anim-off plays the same in reverse. --gt-t is a negative delay set by google-tasks.js so a re-render continues
    an effect instead of restarting it. Timings match SETTLE_MS and ARRIVE_MS there. */
 #gtTaskSection .gt-row.gt-settle{opacity:1;animation:gt-settle 600ms ease-in var(--gt-t,0ms) both}
+#gtTaskSection .gt-row.gt-settle.gt-anim-on{animation-duration:3000ms}
 #gtTaskSection .gt-row.gt-arrive{animation:gt-arrive 200ms ease-out var(--gt-t,0ms) both}
 #gtTaskSection .gt-row.gt-anim-on .gt-check{animation:gt-fill 160ms ease-out var(--gt-t,0ms) both}
 #gtTaskSection .gt-row.gt-anim-on .gt-check::after{animation:gt-draw 260ms ease-out calc(var(--gt-t,0ms) + 100ms) both}
@@ -26,7 +27,7 @@
 #gtTaskSection .gt-row.gt-anim-off .gt-check{animation:gt-fill 160ms ease-in calc(var(--gt-t,0ms) + 160ms) reverse both}
 #gtTaskSection .gt-row.gt-anim-off .gt-check::after{animation:gt-draw 220ms ease-in var(--gt-t,0ms) reverse both}
 #gtTaskSection .gt-row.gt-anim-off .gt-main b{text-decoration:line-through;animation:gt-strike 260ms ease-in var(--gt-t,0ms) reverse both}
-@keyframes gt-settle{0%,75%{opacity:1}100%{opacity:0}}
+@keyframes gt-settle{0%,95%{opacity:1}100%{opacity:0}}
 @keyframes gt-arrive{from{opacity:0}}
 @keyframes gt-fill{from{background:var(--kptu-surface)}to{background:var(--kptu-success)}}
 @keyframes gt-draw{0%{clip-path:inset(calc(100% - 2px) 100% 0 0)}40%{clip-path:inset(calc(100% - 2px) 0 0 0)}100%{clip-path:inset(0)}}

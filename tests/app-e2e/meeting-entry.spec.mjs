@@ -620,6 +620,51 @@ test('meeting detail waits for a task screen completion and rereads it on reopen
   expect(linkedReads).toBeGreaterThan(previousReads);
 });
 
+test('meeting detail can undo a completion while the immediate Google save is in flight',async({page})=>{
+  await signIn(page);
+  let status='needsAction',release;
+  const held=new Promise(resolve=>{release=resolve}),toggles=[];
+  const task=()=>({id:'meeting-follow-up',taskListId:'@default',title:'시험 후속',status,completed:status==='completed'?new Date().toISOString():null});
+  await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');
+    if(action==='linked')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[task()]})});
+    if(action==='toggle'){
+      const body=route.request().postDataJSON();toggles.push(body.completed);
+      if(body.completed)await held;
+      status=body.completed?'completed':'needsAction';
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:task()})});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[task()]})});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  const row=page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]');
+  await expect(row).toBeVisible();
+  await row.locator('[data-mrd-task-toggle]').click();
+  await expect(row).toHaveClass(/completed/);
+  await row.locator('[data-mrd-task-toggle]').click();
+  await expect(row).toHaveClass(/pending/);
+  release();
+  await expect.poll(()=>toggles).toEqual([true,false]);
+});
+
+test('meeting detail restores a failed completion and alerts the user',async({page})=>{
+  await signIn(page);
+  const task={id:'meeting-follow-up',taskListId:'@default',title:'시험 후속',status:'needsAction',completed:null};
+  await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
+    const action=new URL(route.request().url()).searchParams.get('action');
+    return route.fulfill({status:action==='toggle'?500:200,contentType:'application/json',body:JSON.stringify(action==='linked'?{tasks:[task]}:action==='toggle'?{error:'Google 저장 실패'}:{connected:true,authorized:true,tasks:[task]})});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  const row=page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]');
+  await expect(row).toBeVisible();
+  const dialog=page.waitForEvent('dialog');
+  await row.locator('[data-mrd-task-toggle]').click();
+  const alert=await dialog;
+  expect(alert.message()).toContain('완료를 저장하지 못해 되돌렸습니다');
+  await alert.dismiss();
+  await expect(row).toHaveClass(/pending/);
+});
+
 test('meeting detail keeps completed Google follow-ups and supports create, edit, toggle, and confirmed delete without app_tasks',async({page})=>{
   await signIn(page);
   const tasks=[{id:'old-done',taskListId:'@default',title:'완료된 항목',due:'2025-01-01T00:00:00Z',notes:'기존 메모',status:'completed',completed:'2025-01-02T00:00:00Z'}];
@@ -751,7 +796,7 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('workflow-ai-v3.js');
   expect(loader).toContain("import('./team.js?v=56')");
   expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=18');
+  expect(views).toContain('meeting-round-detail.js?v=19');
   expect(views).toContain('meeting-ui.css?v=10');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
