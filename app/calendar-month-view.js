@@ -4,6 +4,9 @@
   const mq760=window.matchMedia('(max-width:760px)');
   const mq1024=window.matchMedia('(min-width:1024px)');
   let last=null,navigate=null,touchStart=null,suppressUntil=0,resizeFrame=0;
+  // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks(); it is kept apart from
+  // the Web2 and Google event options that team.js passes to render(), so removing Web2 events does not touch it.
+  let tasks=[],tasksSig='';
 
   const pad=n=>String(n).padStart(2,'0');
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -75,6 +78,8 @@
     return laneCount>slots?Math.max(1,slots-1):slots;
   }
   function eventSort(a,b){
+    const at=a.source==='task'?1:0,bt=b.source==='task'?1:0;
+    if(at!==bt)return at-bt;
     const am=dayDiff(a.end,a.start)>0?0:1,bm=dayDiff(b.end,b.start)>0?0:1;
     if(am!==bm)return am-bm;
     if(a.allDay!==b.allDay)return a.allDay?-1:1;
@@ -106,12 +111,37 @@
     }
     return result;
   }
+  // t.date is the date part of the Google due value (YYYY-MM-DD), used as it is, so no time zone can move it to another day.
+  function normalizeTask(t){
+    const start=dateOnly(t.date);
+    return {key:'task:'+t.id,id:t.id,source:'task',title:t.title||'(제목 없음)',start,end:new Date(start),allDay:true,done:!!t.done,overdue:!!t.overdue};
+  }
+  function taskLabel(ev){
+    return '할 일: '+ev.title+(ev.done?', 완료':ev.overdue?', 기한 지남':'');
+  }
+  // A task is drawn as an outlined chip with a completion circle, unlike the filled event bars; a completed one is struck and faded.
+  function taskButton(ev,className){
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='cal-event cmv-task '+className+(ev.done?' cmv-task-done':ev.overdue?' cmv-task-overdue':'');
+    b.dataset.calendarTask=ev.id;
+    b.innerHTML=`<span class="cmv-task-mark" aria-hidden="true">${ev.done?'✓':''}</span><span class="cmv-event-title">${esc(ev.title)}</span>`;
+    const label=taskLabel(ev);
+    b.title=label;b.setAttribute('aria-label',label);
+    return b;
+  }
   function timeLabel(ev){
     if(ev.allDay)return '';
     return `${pad(ev.start.getHours())}:${pad(ev.start.getMinutes())}`;
   }
   function eventButton(seg){
-    const ev=seg.ev,b=document.createElement('button');
+    const ev=seg.ev;
+    if(ev.source==='task'){
+      const t=taskButton(ev,'cmv-event');
+      t.style.gridColumn=`${seg.startCol+1} / span 1`;t.style.gridRow=String(seg.lane+1);
+      return t;
+    }
+    const b=document.createElement('button');
     b.type='button';
     b.className='cal-event cmv-event '+(ev.source==='google'?'google cp-event':'cm-app')+(seg.continuesLeft?' cmv-continues-left':'')+(seg.continuesRight?' cmv-continues-right':'');
     b.dataset.cmvEvent=ev.key;
@@ -130,14 +160,18 @@
     const s=dayStart(date),e=new Date(s);e.setHours(23,59,59,999);
     return events.filter(ev=>ev.start<=e&&ev.end>=s).sort(eventSort);
   }
+  function allEvents(options){
+    return [
+      ...(options.appEvents||[]).map(normalizeApp),
+      ...(options.googleEvents||[]).map(ev=>normalizeGoogle(ev,options.googleState||{})),
+      ...tasks.map(normalizeTask)
+    ].filter(ev=>Number.isFinite(ev.start.getTime())&&Number.isFinite(ev.end.getTime()));
+  }
   function render(options){
     last=options;
     const grid=document.querySelector('#calendarGrid');if(!grid)return false;
     const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
-    const events=[
-      ...(options.appEvents||[]).map(normalizeApp),
-      ...(options.googleEvents||[]).map(ev=>normalizeGoogle(ev,options.googleState||{}))
-    ].filter(ev=>Number.isFinite(ev.start.getTime())&&Number.isFinite(ev.end.getTime()));
+    const events=allEvents(options);
     const weeks=segmentWeeks(events,range);
     grid.replaceChildren();
     grid.dataset.monthView='1';
@@ -204,6 +238,16 @@
   function suppressClick(){return Date.now()<suppressUntil}
   document.addEventListener('click',e=>{if(suppressClick()&&e.target.closest?.('#calendarGrid')){e.preventDefault();e.stopImmediatePropagation()}},true);
   const rerender=()=>{if(last)render(last);bindSwipe()};
+  // Unchanged tasks (e.g. a fresh copy equal to this device's copy) do not redraw. While the calendar is hidden the list is only
+  // kept; team.js redraws the calendar when it is shown again.
+  function setTasks(list){
+    const next=(Array.isArray(list)?list:[]).filter(t=>t&&t.id&&/^\d{4}-\d{2}-\d{2}$/.test(String(t.date||'')));
+    const sig=JSON.stringify(next.map(t=>[t.id,t.title||'',t.date,!!t.done,!!t.overdue]));
+    if(sig===tasksSig)return false;
+    tasks=next;tasksSig=sig;
+    if(last&&!document.querySelector('#calendarView')?.classList.contains('hidden'))render(last);
+    return true;
+  }
   const scheduleRerender=()=>{
     if(!last||document.querySelector('#calendarView')?.classList.contains('hidden'))return;
     cancelAnimationFrame(resizeFrame);
@@ -214,7 +258,7 @@
   window.visualViewport?.addEventListener('resize',scheduleRerender,{passive:true});
   document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')scheduleRerender()},true);
 
-  window.KPTUCalendarMonthView={render,visibleRange,setNavigate,suppressClick,dayEvents:date=>last?dayEvents([...(last.appEvents||[]).map(normalizeApp),...(last.googleEvents||[]).map(ev=>normalizeGoogle(ev,last.googleState||{}))],date):[]};
+  window.KPTUCalendarMonthView={render,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[]};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);
   window.__KPTU_CALENDAR_MONTH_VIEW_READY__=Promise.resolve(true);
 })();

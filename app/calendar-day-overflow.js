@@ -9,6 +9,8 @@
     document.body.insertAdjacentHTML('beforeend','<div id="calendarDayModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="calendarDayTitle"><div class="modal-card small-card kptu-day-card"><div class="modal-head"><div><div class="eyebrow">DAY SCHEDULE</div><h2 id="calendarDayTitle">일정</h2></div><button class="icon-btn" data-close="calendarDayModal" type="button" aria-label="닫기">×</button></div><div id="calendarDayList" class="kptu-day-list"></div></div></div>');
   }
   function eventRow(ev){
+    // Google tasks (CAL-할일) keep the month view's task chip; calendar-tasks.js opens the task editor for them.
+    if(ev.source==='task'){const t=window.KPTUCalendarMonthView?.taskButton?.(ev,'cmv-day-event');if(t)return t}
     const b=document.createElement('button');b.type='button';b.className='cal-event cmv-day-event '+(ev.source==='google'?'google cp-event':'cm-app');
     if(ev.source==='google'){b.dataset.googleEvent=ev.id;b.dataset.googleCalendar=ev.calendarId||'primary'}else b.dataset.appEvent=ev.id;
     b.style.background=ev.color||'#7656a8';b.style.color=ev.text||'#fff';
