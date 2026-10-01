@@ -158,11 +158,11 @@ test('status: calendarList and palette in parallel, palette from cache on the ne
   assert.equal(h.calls.google.filter(c => c.path.endsWith('/calendarList')).length, 2);
 });
 
-test('auth: missing or invalid session is rejected before any DB lookup, cache use, or Google call', async () => {
+test('auth: missing or invalid session is rejected with 401 before any DB lookup, cache use, or Google call', async () => {
   const h = harness();
   for (const token of ['', 'forged-token']) {
     const { status, body } = await get(h, 'events', { token });
-    assert.equal(status, 400);
+    assert.equal(status, 401);
     assert.match(body.error, token ? /로그인 세션을 확인할 수 없습니다/ : /로그인이 필요합니다/);
   }
   assert.deepEqual(h.calls.connectionLookups, []);
