@@ -21,13 +21,13 @@ function style(path){
 }
 const routeStyles={
   calendar:['./calendar-ui.css?v=9'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=15'],
-  projects:['./project-system-v3.css?v=17','./forum-flow-polish.css?v=1','./google-tasks.css?v=15'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=16'],
+  projects:['./project-system-v3.css?v=17','./forum-flow-polish.css?v=1','./google-tasks.css?v=16'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=10','./google-tasks.css?v=15'],
+  meetings:['./meeting-ui.css?v=10','./google-tasks.css?v=16'],
   media:['./web1-press.css?v=1'],
   pages:['./web1-board.css?v=2'],
-  team:['./suborganizations.css?v=5','./workplace-detail.css?v=4']
+  team:['./suborganizations.css?v=6','./workplace-detail.css?v=5','./google-tasks.css?v=16']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -48,6 +48,10 @@ async function team(view){
 async function projectCatalog(){
   await module('./project-catalog.js?v=2');
 }
+// Shared organization order (TASK-조직순서) for the organization list, checks and the Google task editor.
+async function organizationOrder(){
+  await module('./organization-order.js?v=1');
+}
 async function calendar(){
   await module('./calendar-month-view.js?v=6','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await projectCatalog();
@@ -61,14 +65,15 @@ async function calendar(){
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=13','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
-  background(style('./suborganizations.css?v=5').then(()=>module('./suborganizations.js?v=8','__KPTU_SUBORGANIZATIONS_READY__')));
+  background(style('./suborganizations.css?v=6').then(organizationOrder).then(()=>module('./suborganizations.js?v=9','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   background(google.then(()=>module('./calendar-health.js?v=4')));
   return {ok:true}
 }
 async function tasks(){
   await module('./project-catalog.js?v=2');
-  await module('./google-tasks.js?v=20');
+  await organizationOrder();
+  await module('./google-tasks.js?v=21');
   return {ok:true}
 }
 async function projects(){
@@ -78,7 +83,8 @@ async function projects(){
   ]);
   await module('./project-catalog.js?v=2');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
-  await module('./google-tasks.js?v=20');
+  await organizationOrder();
+  await module('./google-tasks.js?v=21');
   await module('./project-system-v3.js?v=29','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
@@ -104,8 +110,12 @@ async function pages(){
   return {ok:true}
 }
 async function organizations(){
-  await module('./suborganizations.js?v=8','__KPTU_SUBORGANIZATIONS_READY__');
-  await module('./workplace-detail.js?v=9');
+  await organizationOrder();
+  await module('./suborganizations.js?v=9','__KPTU_SUBORGANIZATIONS_READY__');
+  // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
+  await module('./project-catalog.js?v=2');
+  await module('./google-tasks.js?v=21');
+  await module('./workplace-detail.js?v=10');
   import('./workplace-report.js?v=1').catch(console.error);
   return {ok:true}
 }

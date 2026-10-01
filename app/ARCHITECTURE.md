@@ -73,6 +73,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 
 - `notification-center-ui.js`: 전용 알림 화면
 - `suborganizations.js`, `suborganization-planned-assignee.js`: 산하조직 영역
+- `organization-order.js`: 담당조직 공통 순서·묶음(TASK-조직순서)의 유일한 정의. 담당조직 목록, 일정 등록·수정의 담당조직 체크, Google 할 일 편집창의 조직 선택이 이 모듈을 쓴다. 조직 상세의 연결된 할 일은 `google-tasks.js`가 그린다(TASK-조직상세).
 
 ### 업무 기능
 

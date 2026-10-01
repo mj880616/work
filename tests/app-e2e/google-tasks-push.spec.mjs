@@ -342,9 +342,15 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await expect(links.locator('[data-gt-link]')).toHaveCount(17);
   await expect(links.locator('input[value="p:p3"]')).toHaveCount(0);
   await expect(links.locator('input[value="o:o0"]')).toHaveCount(0);
+  // TASK-조직순서: the shared order, a thin line between groups, and organizations outside the 13 last in 가나다 order.
   await expect(links.locator('.gt-link-group').last().locator('span')).toHaveText([
-    '전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','가나다조직','아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'
+    '전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부','가나다조직','아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'
   ]);
+  expect(await links.locator('.gt-link-group').last().evaluate(group=>[...group.children].slice(1).map(el=>el.classList.contains('gt-org-sep')?'|':el.textContent.slice(0,4)))).toEqual([
+    '전국철도','|','서울교통','부산지하','대구교통','인천교통','|','서해선지','신분당선','지티엑스','공항철도','|','메트로9','서울교통','|','김포도시','용인경전','|','가나다조','아주 긴'
+  ]);
+  await expect(links.locator('.gt-link-group').first().locator('.gt-org-sep')).toHaveCount(0);
+  await expect(links.locator('.gt-org-sep').first()).toHaveAttribute('aria-hidden','true');
   await page.locator('#gtEditTitle').fill('연결 없는 할 일');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
