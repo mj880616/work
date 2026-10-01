@@ -2,41 +2,18 @@ name: Publication auto merge
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, edited]
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 permissions: {}
 
 concurrency:
-  group: publication-auto-merge-${{ github.event.pull_request.number }}-${{ github.event.action == 'edited' && github.event.changes.base == null && 'description' || 'decision' }}
+  group: publication-auto-merge-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  cancel-departed-main:
-    if: github.event.action == 'edited' && github.event.changes.base.ref.from == 'main' && github.event.pull_request.base.ref != 'main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Remove a reservation only if the PR still targets another branch
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
-          if [[ "$(jq -r '.head.sha' <<< "$pr")" != "$EXPECTED_HEAD_SHA" ]]; then
-            echo 'PR head changed; a newer event owns the reservation.' >&2
-            exit 0
-          fi
-          if [[ "$(jq -r '.base.ref' <<< "$pr")" != main && "$(jq -r '.auto_merge != null' <<< "$pr")" == true ]]; then
-            gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --disable-auto
-          fi
-
   reserve:
-    if: github.event.pull_request.base.ref == 'main' && (github.event.action != 'edited' || github.event.changes.base != null)
+    if: github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -70,7 +47,12 @@ jobs:
           if [[ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.auto_merge != null')" == true ]]; then
             gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --disable-auto
           fi
-      - name: Reserve merge commit only under the active main gate ruleset
+      - name: Require a main ruleset that enforces the publication gate
+        if: steps.classify.outputs.auto_eligible == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/publication-pr-policy.mjs ruleset-ready
+      - name: Reserve merge commit only under the confirmed main ruleset
         id: reserve
         if: steps.classify.outputs.auto_eligible == 'true'
         env:
@@ -83,19 +65,6 @@ jobs:
             echo 'Repository auto-merge is not enabled; no reservation made.' >&2
             exit 0
           fi
-          ruleset_id="$(gh api "repos/$GITHUB_REPOSITORY/rulesets" --jq '.[] | select(.name == "Main PR gate" and .enforcement == "active") | .id')"
-          if [[ ! "$ruleset_id" =~ ^[0-9]+$ ]]; then
-            echo 'Active Main PR gate ruleset is not ready; no reservation made.' >&2
-            exit 0
-          fi
-          gh api "repos/$GITHUB_REPOSITORY/rulesets/$ruleset_id" | jq -e '
-            .target == "branch" and
-            ((.conditions.ref_name.include // []) | index("refs/heads/main") != null) and
-            ([.rules[] | select(.type == "pull_request")] | length == 1) and
-            ([.rules[] | select(.type == "required_status_checks") |
-              .parameters.required_status_checks[]? |
-              select(.context == "publication-gate" and .integration_id == 15368)] | length == 1)
-          ' >/dev/null
           pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
           if [[ "$(jq -r '.head.sha' <<< "$pr")" != "$EXPECTED_HEAD_SHA" || "$(jq -r '.base.ref' <<< "$pr")" != main ]]; then
             echo 'PR head or base changed; no reservation made.' >&2

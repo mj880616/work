@@ -1,11 +1,11 @@
 {
-  "name": "Main PR gate",
+  "name": "main-protect",
   "target": "branch",
   "enforcement": "active",
   "bypass_actors": [],
   "conditions": {
     "ref_name": {
-      "include": ["refs/heads/main"],
+      "include": ["~DEFAULT_BRANCH"],
       "exclude": []
     }
   },
@@ -15,19 +15,24 @@
     {
       "type": "pull_request",
       "parameters": {
+        "required_approving_review_count": 0,
         "dismiss_stale_reviews_on_push": false,
+        "required_reviewers": [],
         "require_code_owner_review": false,
         "require_last_push_approval": false,
-        "required_approving_review_count": 0,
-        "required_review_thread_resolution": false
+        "required_review_thread_resolution": false,
+        "require_extra_approval_for_unattributed_changes": false,
+        "allowed_merge_methods": ["merge", "squash", "rebase"]
       }
     },
     {
       "type": "required_status_checks",
       "parameters": {
         "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": true,
         "required_status_checks": [
-          { "context": "publication-gate", "integration_id": 15368 }
+          { "context": "publication-gate", "integration_id": 15368 },
+          { "context": "dropzone", "integration_id": 15368 }
         ]
       }
     }
