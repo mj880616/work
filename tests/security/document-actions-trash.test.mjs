@@ -64,9 +64,26 @@ test('already trashed file removes only the library record', async () => {
   assert.equal(recordDeletes(h.calls).length, 2);
 });
 
-test('Drive lookup failure leaves the library record', async () => {
+test('missing Drive file at lookup removes the library record without Drive DELETE', async () => {
   const h = harness({ getStatus: 404 });
-  assert.equal((await h.send()).status, 400);
+  assert.equal((await h.send()).status, 200);
+  assert.deepEqual(drive(h.calls).map(c => c.method), ['GET']);
+  assert.equal(drive(h.calls).filter(c => c.method === 'DELETE').length, 0);
+  assert.equal(recordDeletes(h.calls).length, 2);
+});
+
+test('missing Drive file at trash move removes the library record', async () => {
+  const h = harness({ patchStatus: 404 });
+  assert.equal((await h.send()).status, 200);
+  assert.deepEqual(drive(h.calls).map(c => c.method), ['GET', 'PATCH']);
+  assert.equal(recordDeletes(h.calls).length, 2);
+});
+
+for (const getStatus of [500, 403]) test(`Drive lookup ${getStatus} leaves the library record`, async () => {
+  const h = harness({ getStatus });
+  const result = await h.send();
+  assert.equal(result.status, 400);
+  assert.match(result.body.error, /상태를 확인하지 못했습니다/);
   assert.equal(recordDeletes(h.calls).length, 0);
 });
 

@@ -80,15 +80,14 @@ async function deleteDocument(userId: string, documentId: string) {
     const token = await driveAccessToken();
     const fileUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(doc.file_id)}`;
     const current = await fetch(`${fileUrl}?fields=trashed`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!current.ok) throw new Error('Google Drive 파일 상태를 확인하지 못했습니다.');
-    const state = await current.json();
-    if (!state.trashed) {
+    if (!current.ok && current.status !== 404) throw new Error('Google Drive 파일 상태를 확인하지 못했습니다.');
+    if (current.ok && !(await current.json()).trashed) {
       const dr = await fetch(fileUrl, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ trashed: true }),
       });
-      if (!dr.ok) throw new Error('Google Drive 휴지통 이동에 실패했습니다.');
+      if (!dr.ok && dr.status !== 404) throw new Error('Google Drive 휴지통 이동에 실패했습니다.');
     }
   }
 
