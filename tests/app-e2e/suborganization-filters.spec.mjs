@@ -27,12 +27,12 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=8");
-  expect(views).toContain("workplace-detail.js?v=9");
+  expect(views).toContain("suborganizations.js?v=9");
+  expect(views).toContain("workplace-detail.js?v=10");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
-  expect(styles).toContain("suborganizations.css?v=5");
-  expect(styles).toContain("workplace-detail.css?v=4");
+  expect(styles).toContain("suborganizations.css?v=6");
+  expect(styles).toContain("workplace-detail.css?v=5");
   expect(styles).not.toContain('suborganization-filters.css');
 });
 
@@ -52,15 +52,17 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible')).toHaveCount(1);
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
-  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.querySelector('h3')?.textContent?.trim()));
-  expect(order).toEqual(['기록','연도별 타임라인','기본 정보 · 소속 · 이전 요약']);
+  const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.querySelector('h3')?.firstChild?.textContent?.trim()));
+  expect(order).toEqual(['할 일','기록','연도별 타임라인','기본 정보 · 소속 · 이전 요약']);
   const pos=await page.locator('#wdModal .wd-card').evaluate(card=>({
     title:card.querySelector('#wdTitle').getBoundingClientRect().top,
     input:card.querySelector('#wdInboxText').getBoundingClientRect().top,
+    tasks:card.querySelector('#wdTasks').getBoundingClientRect().top,
     log:card.querySelector('#wdLog').getBoundingClientRect().top
   }));
   expect(pos.title).toBeLessThan(pos.input);
-  expect(pos.input).toBeLessThan(pos.log);
+  expect(pos.input).toBeLessThan(pos.tasks);
+  expect(pos.tasks).toBeLessThan(pos.log);
   await expect(page.locator('#wdMore')).not.toHaveAttribute('open','');
 });
 
@@ -284,4 +286,86 @@ test('360 390 412 430px에서 담당조직 목록과 상세가 가로 넘침 없
     const card=await page.locator('#wdModal .wd-card').evaluate(el=>el.getBoundingClientRect().width);
     expect(card,`detail width at ${width}px`).toBeLessThanOrEqual(width);
   }
+});
+
+// TASK-조직순서: the list and both event checks use the shared order, with a thin line between groups.
+const ORDERED=['전국철도노동조합','|','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','|','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','|','메트로9호선노동조합','서울교통공사9호선지부','|','김포도시철도지부','용인경전철지부','|'];
+const sequence=(page,selector,item)=>page.locator(selector).evaluate((box,item)=>[...box.children].map(el=>el.classList.contains('so-org-sep')?'|':el.querySelector(item)?.firstChild?.textContent?.trim()),item);
+
+test('담당조직 목록은 정한 13개 순서와 묶음 구분선, 그 밖은 가나다순으로 표시한다',async({page})=>{
+  for(const width of [412,1280]){
+    await page.setViewportSize({width,height:900});
+    await openAssigned(page,'?orgs=order');
+    expect(await sequence(page,'#soOrganizationList','h4')).toEqual([...ORDERED,'국민연금지부','궤도협의회','한국소비자원지부']);
+    await expect(page.locator('#soOrgCount')).toHaveText('16개 담당조직');
+    await expect(page.locator('#soOrganizationList .so-org-sep').first()).toHaveAttribute('aria-hidden','true');
+    // The card before a line drops its own border so the group line reads as one thin line.
+    const line=await page.locator('#soOrganizationList').evaluate(box=>{const sep=box.querySelector('.so-org-sep'),prev=sep.previousElementSibling;return {line:getComputedStyle(sep).borderTopWidth,prev:getComputedStyle(prev).borderBottomWidth,height:sep.getBoundingClientRect().height}});
+    expect(line).toEqual({line:'1px',prev:'0px',height:1});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),`list overflow at ${width}px`).toBeLessThanOrEqual(1);
+    await page.locator('[data-so-org="ord-5"]').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#wdModal')).toBeVisible();
+  }
+});
+
+test('일정 등록의 담당조직 체크는 같은 순서·구분선이고 궤도협의회는 고를 수 없다',async({page})=>{
+  for(const width of [412,1280]){
+    await page.setViewportSize({width,height:900});
+    await openAssigned(page,'?orgs=order');
+    await page.evaluate(()=>{const m=document.querySelector('#eventModal');m.classList.remove('hidden')});
+    expect(await sequence(page,'#soEventOrgChecks .so-org-checks','span')).toEqual([...ORDERED,'국민연금지부','한국소비자원지부']);
+    await expect(page.locator('#soEventOrgChecks')).not.toContainText('궤도협의회');
+    // The line spans the whole row in the two-column layout too.
+    const spans=await page.locator('#soEventOrgChecks .so-org-checks').evaluate(box=>{const sep=box.querySelector('.so-org-sep');return Math.round(sep.getBoundingClientRect().width)===Math.round(box.getBoundingClientRect().width)});
+    expect(spans).toBe(true);
+    await page.locator('[data-event-org="ord-12"]').check();
+    expect(await page.evaluate(()=>window.__KPTU_SELECTED_EVENT_ORGS__())).toEqual(['ord-12']);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),`checks overflow at ${width}px`).toBeLessThanOrEqual(1);
+  }
+});
+
+test('일정 수정의 담당조직 체크는 같은 순서이고 이미 연결된 궤도협의회는 지우지 않고 남긴다',async({page})=>{
+  await openAssigned(page,'?orgs=order');
+  await page.evaluate(()=>document.querySelector('#ciAppModal').classList.remove('hidden'));
+  await page.locator('#openAppEventE2E').evaluate(b=>b.click());
+  const box='#soEditEventOrgChecks .so-org-checks';
+  await expect(page.locator(box)).toBeVisible();
+  expect(await sequence(page,box,'span')).toEqual([...ORDERED,'가나다 다른 담당','국민연금지부','궤도협의회','한국소비자원지부']);
+  await expect(page.locator('[data-edit-event-org="ord-14"]')).toBeChecked();
+});
+
+// TASK-조직상세: the organization detail shows the Google tasks linked to it and links more from there.
+test('담당조직 상세는 연결된 할 일을 보여 주고 이 조직으로 할 일 추가·기존 할 일 연결을 연다',async({page})=>{
+  await openRail(page);
+  await expect(page.locator('#wdTasks h3')).toHaveText('할 일 2');
+  await expect(page.locator('#wdTaskBody [data-google-task]')).toHaveCount(2);
+  expect(await page.evaluate(()=>window.__gtCalls)).toEqual([{action:'mount',target:{organization_id:'org-rail'},boxId:'wdTaskBody'}]);
+  await page.locator('#wdTaskAdd').click();
+  await page.locator('#wdTaskLink').click();
+  expect((await page.evaluate(()=>window.__gtCalls)).slice(1)).toEqual([
+    {action:'editor',task:null,opts:{links:[{organization_id:'org-rail'}]}},
+    {action:'picker',target:{organization_id:'org-rail'}}
+  ]);
+  // Closing empties the box, so a closed detail is not refreshed; opening again mounts a fresh box.
+  await page.locator('[data-wd-close="wdModal"]').click();
+  await expect(page.locator('#wdTaskBody')).toBeEmpty();
+  await expect(page.locator('#wdTasks [data-wd-task-count]')).toBeHidden();
+  await page.locator('[data-so-org="org-rail"]').click();
+  await expect(page.locator('#wdTaskBody [data-google-task]')).toHaveCount(2);
+  expect((await page.evaluate(()=>window.__gtCalls)).filter(x=>x.action==='mount')).toHaveLength(2);
+});
+
+test('담당조직 상세의 할 일 칸은 편집 권한이 없으면 추가·연결 버튼이 없고, 기능을 못 불러오면 안내한다',async({page})=>{
+  await openAssigned(page,'?role=viewer');
+  await page.evaluate(()=>{const b=document.createElement('button');b.id='openRailE2E';b.dataset.psWorkplaceOrg='org-rail';document.body.appendChild(b)});
+  await page.locator('#openRailE2E').click();
+  await expect(page.locator('#wdTaskBody [data-google-task]')).toHaveCount(2);
+  await expect(page.locator('#wdTaskAdd')).toBeHidden();
+  await expect(page.locator('#wdTaskLink')).toBeHidden();
+  await page.locator('#wdTaskAdd').evaluate(b=>b.click());
+  expect((await page.evaluate(()=>window.__gtCalls)).filter(x=>x.action!=='mount')).toEqual([]);
+  await openAssigned(page,'?gtasks=none');
+  await page.locator('[data-so-org="org-rail"]').click();
+  await expect(page.locator('#wdTaskBody')).toHaveText('Google 할 일 기능을 불러오지 못했습니다.');
 });

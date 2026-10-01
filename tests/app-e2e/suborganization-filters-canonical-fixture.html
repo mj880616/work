@@ -1,21 +1,37 @@
 <!doctype html><html><head><meta charset="utf-8"><title>suborganization canonical fixture</title><link rel="stylesheet" href="/app/base-ui.css"><link rel="stylesheet" href="/app/suborganizations.css"><link rel="stylesheet" href="/app/workplace-detail.css"><style>.hidden{display:none}</style></head><body>
 <section id="teamView"></section>
 <div id="eventModal" class="modal hidden"><div class="modal-card"><label>설명<textarea id="eventDescription"></textarea></label><button id="saveEventBtn" type="button">저장</button></div></div>
+<div id="ciAppModal" class="modal hidden"><div class="modal-card"><label>설명<textarea id="ciAppDescription"></textarea></label><button id="ciAppSave" type="button">저장</button></div></div>
+<button id="openAppEventE2E" class="hidden" type="button" data-app-event="ev-keep">일정 수정</button>
 <div id="toast" class="hidden"></div>
 <script>
-const fixtureRole=new URLSearchParams(location.search).get('role')||'owner';
+const fixtureParams=new URLSearchParams(location.search);
+const fixtureRole=fixtureParams.get('role')||'owner';
 const fixtureUser=fixtureRole==='viewer'?'user-viewer':'user-me';
 const orgs=[
  {id:'org-rail',workspace_id:'ws-1',name:'전국철도노동조합',aliases:['철도노조'],description:'철도 담당조직',organization_type:'철도·도시철도',default_assignee_name:'김명진',representative_name:'김철도',contact:'010-0000-0000',member_count:12000,recent_month_summary:'9월 정책교섭과 인력대응 진행 중',year_summary:'산별전환과 안전인력 사업 추진',created_by:'user-me',updated_at:'2026-09-23T00:00:00Z',active:true},
  {id:'org-consumer',workspace_id:'ws-1',name:'한국소비자원지부',aliases:['소비자원'],description:'소비자 정책',organization_type:'중앙공공기관',default_assignee_name:'한소영',created_by:'user-me',active:true}
 ];
+// TASK-조직순서: ?orgs=order gives the 13 decided organizations in a scrambled (name) order, two others and the old space
+// name 궤도협의회, all assigned to me, plus one organization that is not mine.
+const orderNames=['공항철도지부','용인경전철지부','서울교통공사9호선지부','인천교통공사노동조합','신분당선지부','전국철도노동조합','메트로9호선노동조합','부산지하철노동조합','김포도시철도지부','서해선지부','대구교통공사노동조합','지티엑스에이운영지부','서울교통공사노동조합','한국소비자원지부','궤도협의회','국민연금지부'];
+if(fixtureParams.get('orgs')==='order'){
+ orgs.splice(0,orgs.length,...orderNames.map((name,i)=>({id:'ord-'+i,workspace_id:'ws-1',name,organization_type:'미분류',default_assignee_name:null,created_by:'user-me',active:true})),{id:'ord-other',workspace_id:'ws-1',name:'가나다 다른 담당',organization_type:'미분류',default_assignee_name:null,created_by:'user-me',active:true});
+}
+// TASK-조직상세: a stand-in for google-tasks.js that records what the organization detail asks for. ?gtasks=none leaves it out.
+window.__gtCalls=[];
+if(fixtureParams.get('gtasks')!=='none')window.KPTUGoogleTasks={
+ mountLinked(box,target,opts={}){window.__gtCalls.push({action:'mount',target,boxId:box.id});box.className='gt-linked gt-list';box.innerHTML='<div class="gt-row pending" data-google-task="linked-1"><b>연결된 할 일</b></div><div class="gt-row pending" data-google-task="linked-2"><b>두 번째 할 일</b></div>';opts.onCount?.(2)},
+ openEditor(task,opts){window.__gtCalls.push({action:'editor',task,opts})},
+ openLinkPicker(target){window.__gtCalls.push({action:'picker',target})}
+};
 const updates=[{id:'up-old',organization_id:'org-rail',raw_text:'지난주 지부장 통화: 인력 요구안 확정',detail_text:null,occurred_at:'2026-09-20T01:00:00Z'}];
 const memos=[{id:'memo-1',organization_id:'org-rail',title:'최근 교섭',body:'정책교섭 자료 취합 중',sort_order:0,created_at:'2026-09-20T00:00:00Z',updated_at:'2026-09-22T00:00:00Z'}];
 const reports=[{id:'report-1',organization_id:'org-rail',week_of:'2026-09-21',summary:'E2E 주간보고',detail:'E2E 상세',status:'draft'}];
 window.__teamAiCalls=0;window.__reportPatches=[];
 window.__deletes=[];window.__failDelete=false;window.__deleteNoRows=false;
 window.__updatePosts=[];window.__updateClock=Date.parse('2026-09-26T00:00:00Z');window.__failUpdateSave=false;
-let assignments=[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
+let assignments=fixtureParams.get('orgs')==='order'?orgs.filter(o=>o.id!=='ord-other').map(o=>({organization_id:o.id,user_id:'user-me',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'})):[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
 window.__patches=[];
 window.__holdOrgSave=false;window.__failOrgSave=false;window.__holdAssigneeSave=false;
 let releaseOrgSave,releaseAssigneeSave;
@@ -56,6 +72,8 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
  if(path.startsWith('/rest/v1/app_profile_workplaces?organization_id=eq.')&&opt.method==='PATCH')return null;
  if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&opt.method==='DELETE'){if(window.__holdAssigneeSave)await window.__assigneeSaveGate;assignments=assignments.filter(x=>!path.includes(x.organization_id));return null}
  if(path==='/rest/v1/app_suborganization_assignees'&&opt.method==='POST'){assignments.push(...(Array.isArray(opt.body)?opt.body:[opt.body]));return null}
+ // The event being edited is already linked to the old space name, which the picker must keep (TASK-조직순서).
+ if(path.startsWith('/rest/v1/app_event_suborganizations?event_id=eq.ev-keep'))return fixtureParams.get('orgs')==='order'?[{organization_id:'ord-14'}]:[];
  if(path.startsWith('/rest/v1/app_event_suborganizations'))return [];
  if(path==='/rest/v1/app_suborganization_updates'&&opt.method==='POST'){
    if(window.__failUpdateSave)throw new Error('기록 저장 실패');
@@ -76,5 +94,6 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
 }};
 </script>
 <script src="/app/accessibility-dialog.js"></script>
+<script src="/app/organization-order.js"></script>
 <script src="/app/suborganizations.js"></script><script src="/app/workplace-detail.js"></script><script src="/app/workplace-report.js"></script>
 </body></html>
