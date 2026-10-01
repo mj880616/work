@@ -286,11 +286,11 @@ test('overview: not connected and missing Tasks write scope return the same stat
   assert.deepEqual(readonly.body.tasks, []);
 });
 
-test('overview: an unauthenticated request is rejected without reaching Google', async () => {
+test('overview: an unauthenticated request is rejected with 401 without reaching Google', async () => {
   const h = harness([{ id: 'default', title: '내 할 일', tasks: [pending('a', 1)] }]);
   for (const scope of ['', '&pending_scope=all']) {
     const response = await h.handler(new Request('https://sb.example/functions/v1/google-tasks?action=overview' + scope));
-    assert.equal(response.status, 400);
+    assert.equal(response.status, 401);
   }
   assert.equal(h.calls.length + h.tokeninfo, 0);
 });
