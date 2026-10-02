@@ -77,7 +77,7 @@
 
   async function pfDelete(id){
     const d=pfRows.find(x=>x.id===id);if(!d)return;
-    if(!confirm(`“${d.file_name||d.title}” 파일을 삭제할까요?\nGoogle Drive 원본과 자료실 기록이 함께 삭제됩니다.`))return;
+    if(!confirm(`“${d.file_name||d.title}” 파일을 삭제할까요?\nDrive 휴지통으로 이동합니다. Drive 휴지통에서 30일 안에 복구할 수 있습니다.`))return;
     const st=document.querySelector('#projectFileStatus');
     try{
       if(st){st.textContent='삭제 중…';st.className='status'}

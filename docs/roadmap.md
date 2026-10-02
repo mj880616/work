@@ -83,6 +83,12 @@
 
 발견사항(2026-10-01, #381): ENV-5 관련 E2E 불안정 요인 3건. `ui-system.spec.mjs:77-86`은 고정 80ms 대기로 가끔 실패한다. `project-selection.spec.mjs:17`은 현재+1시간을 써서 월말에 실패할 위험이 있다. `project-system-v3.spec.mjs:920`은 종료일이 고정돼 있다. 또 [ENV-6b 문서](web2-env6b-edge-source.md) 5절 표의 google-tasks가 v12로 적혀 있으나 운영은 v13이다(2026-10-01 `functions list`).
 
+발견사항(2026-10-01, LIB-삭제휴지통 조사): 회의 녹취 원문 7건이 Web2 DB에 있다(녹취 원본은 Drive 원칙). 자료실 문제 해결 뒤 이전을 검토한다.
+발견사항(2026-10-01, LIB-삭제휴지통 조사): 앱 시작 시 `team.js`가 프로필 전체를 조회한다. 운영 조회상 다른 사람 행은 0이라 현재 위험은 없으며, 공유 기능 전 31-1에서 보완한다.
+발견사항(2026-10-01, LIB-삭제휴지통 조사): `private-rail` 공개 페이지가 서버값 없이 `org-data.js`의 9/17 기본값으로 표시된다. 저장소 비공개 검토와 함께 다룬다.
+발견사항(2026-10-01, LIB-삭제휴지통 조사): 조직·프로젝트·회의를 삭제 후 재생성하면 번호가 바뀌어 Drive 원장 연결이 끊긴다(원장 운영 메모).
+발견사항(2026-10-01, LIB-삭제휴지통 조사): `private-rail` 아래 `/p/` 페이지를 새로 만들 때 생성기가 경로 단위 검색 차단을 하도록 변경하는 작업을 후보로 둔다.
+
 발견사항(2026-10-01, #384·#385): 프로젝트 날짜 처리 — 프로젝트 만들기의 기본 시작일이 UTC 날짜라 한국 시간 0~9시에는 전날로 채워지고, 저장할 때 시작일·종료일 순서 검사가 없다.
 
 | 번호 | 작업명 | 상태 | PR | 비고(의존관계) |
@@ -178,7 +184,8 @@
 | TASK-완료지연 | 할 일 완료 후 3초 동안 줄 그은 채 남기기 | 완료 | #387 | 완료는 즉시 저장하고, 3초 동안 원래 위치에서 줄 그어 표시한다. 그 안에 다시 누르면 미완료로 저장한다. 할 일·조직·프로젝트·회의 상세 완료 체크에 적용한다. 현재 홈은 달력이라 별도 할 일 체크 목록이 없다. 달력은 수정 창만 열므로 제외(2026-10-01 결정). #387 merge `bbd48a66e57bfaec7a08e4116dcc942af2adf910`, 2026-10-01 폰 확인 완료. 회의 상세 포함은 사용자 결정에 따라 반영. |
 | ME-보관함 | 개인 문서 비공개 보관함 | 대기(Web2 개발 종료 후) | | Web2 내부와 Supabase 비공개 저장공간, 본인만 읽기. 문서 단위 보기 공유는 후속으로 두고 구조만 선반영한다. 분류 5개 고정·시리즈·보관 처리. 공개 저장소 press/·p/ 게시 금지. 착수 전 DB·RLS·Storage 정책 포함 조사 필수. |
 | 문서-약속예외-1 | 원본 위치 문서에 약속 추적 예외 추가 | 완료 | #388 | Drive 업무·장기기억 원장에 약속(COM)의 이행상태·후속확인일 원본을 두는 예외를 문서화한다. 코드·DB·설정 변경 없음. |
-| TASK-저장잠금-2 | 새로 만드는 저장의 재진입 방지 | 진행중 | #390 | #383과 같은 저장 중 잠금 적용. 대상: `project-system-v3.js` saveNewSection·saveNewBlock·saveMilestone(신규)·saveWs(신규)·saveProgress·saveMemo(신규), `suborganizations.js` saveOrg(신규)·saveAssignees, `workplace-detail.js` wdSaveTime(신규)·wdCreateAffTag·wdSaveAff. 확인: saveAssignees·wdSaveAff는 삭제 후 연결 POST가 겹칠 수 있어 포함. 발견: saveNewSection·saveNewBlock은 현재 콘텐츠 UI와 이벤트 연결이 없어 화면 E2E 불가(사용자 결정: 잠금만 적용). 원장 목록 밖의 saveProject(프로젝트 신규)는 이번 범위 밖. 고치는 저장과 캘린더 저장 잠금은 제외. |
+| TASK-저장잠금-2 | 새로 만드는 저장의 재진입 방지 | 완료 | #390 | #390 merge `8bf84a606c984e370bb200e4f8ea33cef310723e`, 2026-10-01 폰 확인. #383과 같은 저장 중 잠금 적용. 대상: `project-system-v3.js` saveNewSection·saveNewBlock·saveMilestone(신규)·saveWs(신규)·saveProgress·saveMemo(신규), `suborganizations.js` saveOrg(신규)·saveAssignees, `workplace-detail.js` wdSaveTime(신규)·wdCreateAffTag·wdSaveAff. 확인: saveAssignees·wdSaveAff는 삭제 후 연결 POST가 겹칠 수 있어 포함. 발견: saveNewSection·saveNewBlock은 현재 콘텐츠 UI와 이벤트 연결이 없어 화면 E2E 불가(사용자 결정: 잠금만 적용). 31-1에서 saveNewSection·saveNewBlock의 기능 유지 또는 삭제를 판단한다. 원장 목록 밖의 saveProject(프로젝트 신규)는 이번 범위 밖. 고치는 저장과 캘린더 저장 잠금은 제외. |
+| LIB-삭제휴지통 | 자료실 삭제 시 Drive 휴지통 이동 | 진행중 | #393 | `document-actions`에서 휴지통 이동 성공 뒤 자료실 기록 삭제. 기존 영구 삭제 경로와 확인 창 문구를 수정하고 모의 응답 테스트를 추가한다. Edge 배포·운영 확인은 별도 로컬 단계. |
 | CAL-웹2일정삭제 | Web2 자체 일정 개념 삭제·Google 캘린더 단일화 | 대기 | | 29 뒤. 일정 등록·수정의 저장 위치를 Google 세부 캘린더 선택으로 바꾸고 기본값은 공공운수노조로 한다. 캘린더별 켜고 끄기는 유지한다. TASK-포토룸삭제 2단계(사진 일정)를 통합한다. 착수 전 기존 Web2 일정 수·앞으로 남은 일정, 프로젝트 주요 일정과의 관계, Google 일정의 프로젝트 연결 필요 여부, 일정 표의 다른 사용처를 조사한다. DB·사진 삭제는 별도 승인 절차를 따른다. #379에서 발견한 일정 수정 창의 조직 91개 표시도 여기서 해소한다. 일정 저장 잠금(cmSaveGoogle, ciSaveApp, ciSaveGoogle)도 이 작업에서 처리. 10/1 조회 기준 app_events 0행 |
 | TASK-팀AI삭제 | 기존 팀 AI 전체 제거 | 1단계 완료(main `ba6572f`, 2026-09-29 15:52; 폰 1~3 정상) | #357 | 1단계: 조직 상세의 주간보고·타임라인 AI 초안과 비활성 프로젝트 초안의 `team-ai` 앱 호출 제거. 저장된 주간보고 열람·수정과 타임라인 수동 관리는 유지(폰: 조직 상세 AI 버튼 없음, 주간보고 유지, 타임라인 수동 추가·삭제 정상). 2단계는 옛 AI 전체 정리로 범위를 넓혀 감사: `team-ai` 외 `meeting-ai-draft`·`meeting-ai-ingest`·`page-ai-draft`·`document-ai-index`는 앱 호출 없음·비활성. `OPENAI_API_KEY`·`app_ai_workspace_settings`·`app_ai_daily_usage`는 공용이므로 25 결정 뒤 처리. 후보 DB `app_ai_conversations`·`app_ai_messages`와 함수 `private.app_is_owner_conversation(uuid)`·관련 정책·기록은 별도 감사. 실제 삭제 전 의존성·데이터·복구 경로를 별도 감사하고 승인받는다. `OPENAI_API_KEY`는 다른 5개 Edge도 사용하므로 해당 기능 유지가 필요하면 비밀값은 삭제할 수 없다. |
 | 25 | 홈 AI 채팅창 신규 | 대기 | | 1차 묻고 찾기(원문 링크)·오늘 브리핑 → 2차 보고서 초안(업무보고형 복붙) → 3차 말로 입력(확인 후 저장) → 마지막 자료 내용 질문. 원문 링크를 제시하고 AI 단독 저장·삭제를 금지한다. 전송 범위를 최소화하고 월 사용료 상한을 둔다. 착수 전 AI 회사, 대화 기록 저장 여부, 상한 금액을 결정한다. TASK-팀AI삭제와 별개로 새로 설계한다. 기존 다른 AI 참고: 회의 초안 `meeting-ai-ingest`·`meeting-ai-draft`(회의 UI 경로는 비활성), 자료 업로드·색인 `library-files`·`document-ai-index`(자료실 업로드는 활성, 색인 Edge의 직접 호출은 앱에 없음), 페이지 초안 `page-ai-draft`(앱 호출 없음). 기존 조직 주간보고·타임라인 AI 초안은 TASK-팀AI삭제 1단계에서 제거한다. |
