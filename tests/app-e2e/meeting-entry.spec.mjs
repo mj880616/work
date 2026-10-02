@@ -263,10 +263,9 @@ async function showMeetings(page,rows,docs=[]){
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
 }
 
-test('meeting names get palette colors in order of first appearance and keep them after reload',async({page})=>{
+test('meeting names keep colors after reload and after older meetings are added',async({page})=>{
   await signIn(page);
   const P=palette();
-  // API order is newest first; colors follow the oldest meeting of each name.
   const rows=[
     {...meeting,id:'a3',title:'궤도협의회',series_name:'궤도협의회',round_no:3,meeting_at:'2026-09-20T01:00:00Z'},
     {...meeting,id:'c1',title:'안전위원회',series_name:'안전위원회',round_no:1,meeting_at:'2026-09-19T01:00:00Z'},
@@ -277,10 +276,11 @@ test('meeting names get palette colors in order of first appearance and keep the
   ];
   await showMeetings(page,rows,[{id:'d1',workspace_id:'meeting-ws',meeting_id:'a3',title:'자료'}]);
   const byId=id=>page.locator(`#meetingList [data-mrd-meeting="${id}"]`);
-  const expected={a1:P[0],a2:P[0],a3:P[0],b1:P[1],c1:P[2]};
-  const check=async()=>{for(const [id,hex] of Object.entries(expected))expect(await stripe(byId(id)),id).toBe(rgb(hex))};
-  await check();
-  expect(new Set([P[0],P[1],P[2]]).size).toBe(3);
+  const original={};
+  for(const id of ['a1','a2','a3','b1','c1'])original[id]=await stripe(byId(id));
+  expect(original.a1).toBe(original.a2);
+  expect(original.a2).toBe(original.a3);
+  for(const color of Object.values(original))expect(P.map(rgb)).toContain(color);
   expect(await byId('a1').evaluate(el=>getComputedStyle(el).borderLeftWidth)).toBe('4px');
   expect(await stripe(byId('none'))).toBe(await neutral(page));
   // Second line: round · date · materials only.
@@ -289,25 +289,78 @@ test('meeting names get palette colors in order of first appearance and keep the
   // Filtering does not reassign colors.
   await page.locator('#meetingTypeFilter').selectOption({label:'안전위원회'});
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
-  expect(await stripe(byId('c1'))).toBe(rgb(P[2]));
+  expect(await stripe(byId('c1'))).toBe(original.c1);
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await page.locator('#meetingTypeFilter').selectOption('all');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
-  await check();
+  for(const [id,color] of Object.entries(original))expect(await stripe(byId(id)),id).toBe(color);
+  await showMeetings(page,[...rows,{...meeting,id:'older',title:'새 과거 회의',series_name:'새 과거 회의',meeting_at:'2020-01-01T01:00:00Z'}]);
+  for(const [id,color] of Object.entries(original))expect(await stripe(byId(id)),id).toBe(color);
+  let savedRows=[...rows,{...meeting,id:'older',title:'새 과거 회의',series_name:'새 과거 회의',meeting_at:'2020-01-01T01:00:00Z'}];
+  await page.route(`${SB}/rest/v1/app_meetings**`,route=>{
+    if(route.request().method()==='POST'){
+      const added={...route.request().postDataJSON(),id:'added'};
+      savedRows=[added,...savedRows];
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([added])});
+    }
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(savedRows)});
+  });
+  await page.locator('#newMeetingBtn').click();
+  await page.locator('#meetingTitle').fill('궤도협의회');
+  await page.locator('#meetingAt').fill('2026-10-03T10:00');
+  await page.locator('#meetingTranscript').fill('모의 결과');
+  await page.locator('#saveMeetingBtn').click();
+  await expect(byId('added')).toBeVisible();
+  expect(await stripe(byId('added'))).toBe(original.a1);
+  for(const [id,color] of Object.entries(original))expect(await stripe(byId(id)),id).toBe(color);
 });
 
-test('meeting names beyond the palette get the neutral stripe instead of reusing a color',async({page})=>{
+test('all named meetings use the palette and normalized names share a color',async({page})=>{
   await signIn(page);
   const P=palette();
   const rows=Array.from({length:P.length+2},(_,i)=>({...meeting,id:'n'+i,title:'회의'+(i+1),series_name:'회의'+(i+1),round_no:null,meeting_at:new Date(Date.UTC(2026,0,1+i)).toISOString()})).reverse();
+  rows.push({...meeting,id:'normalized-a',title:'  Alpha   Team  ',series_name:null},{...meeting,id:'normalized-b',title:'alpha team',series_name:null});
   await showMeetings(page,rows);
   const colors=[];
-  for(let i=0;i<rows.length;i++)colors.push(await stripe(page.locator(`#meetingList [data-mrd-meeting="n${i}"]`)));
-  expect(colors.slice(0,P.length)).toEqual(P.map(rgb));
-  expect(new Set(colors.slice(0,P.length)).size).toBe(P.length);
-  const gray=await neutral(page);
-  expect(colors.slice(P.length)).toEqual([gray,gray]);
+  for(let i=0;i<P.length+2;i++)colors.push(await stripe(page.locator(`#meetingList [data-mrd-meeting="n${i}"]`)));
+  for(const color of colors)expect(P.map(rgb)).toContain(color);
+  expect(await stripe(page.locator('[data-mrd-meeting="normalized-a"]'))).toBe(await stripe(page.locator('[data-mrd-meeting="normalized-b"]')));
+});
+
+test('new meeting suggests the next round from loaded names without extra requests and respects manual edits',async({page})=>{
+  await signIn(page);
+  const rows=[
+    {...meeting,id:'round-2',series_name:' Alpha  Team ',round_no:2},
+    {...meeting,id:'round-7',series_name:'alpha team',round_no:7},
+    {...meeting,id:'round-none',series_name:'ALPHA TEAM',round_no:null},
+    {...meeting,id:'other',series_name:'다른 회의',round_no:null}
+  ];
+  await showMeetings(page,rows);
+  let requests=0;
+  page.on('request',request=>{if(request.url().startsWith(SB))requests++});
+  await page.locator('#newMeetingBtn').click();
+  expect(requests).toBe(0);
+  const title=page.locator('#meetingTitle'),round=page.locator('#meetingRoundNo');
+  await title.fill(' alpha   team ');
+  await expect(round).toHaveValue('8');
+  await title.fill('다른 회의');
+  await expect(round).toHaveValue('');
+  await title.fill('없는 회의');
+  await expect(round).toHaveValue('');
+  await title.fill('ALPHA TEAM');
+  await expect(round).toHaveValue('8');
+  await round.fill('14');
+  await title.fill('다른 회의');
+  await expect(round).toHaveValue('14');
+  await round.fill('');
+  await title.fill('alpha team');
+  await expect(round).toHaveValue('');
+  await page.locator('#meetingModal [data-close]').click();
+  await page.locator('#newMeetingBtn').click();
+  await title.fill('alpha team');
+  await expect(round).toHaveValue('8');
+  expect(requests).toBe(0);
 });
 
 test('meeting palette has 12 distinct non-red colors visible on light and dark surfaces',async()=>{
@@ -794,7 +847,7 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=58')");
+  expect(loader).toContain("import('./team.js?v=59')");
   expect(views).toContain('task-workflow.js?v=9');
   expect(views).toContain('meeting-round-detail.js?v=19');
   expect(views).toContain('meeting-ui.css?v=10');
