@@ -163,20 +163,11 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#calendarUpcoming,#upcomingEvents')).toHaveCount(0);
   const addSize=await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().width);
   expect(addSize).toBeGreaterThanOrEqual(44);
-  await page.locator('#newEventBtn').click();
-  await page.locator('#eventTitle').fill('E2E Web2 일정');
-  await page.locator('#eventStartDate').fill(today);
-  await page.locator('#eventStartTime').fill('10:00');
-  await page.locator('#eventEndDate').fill(today);
-  await page.locator('#eventEndTime').fill('11:00');
-  await page.locator('#saveEventBtn').click();
-  await expect.poll(() => state.events.length).toBe(1);
-  expect(state.events[0].calendar_scope).toBe('personal');
-  await expect(page.locator('.cm-app')).toContainText('E2E Web2 일정');
+  await expect(page.locator('#eventTarget,#eventProject')).toHaveCount(0);
+  expect(state.events).toHaveLength(0);
 
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('E2E Google 일정');
-  await page.locator('#eventTarget').selectOption('google');
   await page.locator('#eventStartDate').fill(today);
   await page.locator('#eventStartTime').fill('10:00');
   await page.locator('#eventEndDate').fill(today);
@@ -184,6 +175,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('#saveEventBtn').click();
   await expect.poll(() => state.googleEvents.length).toBe(1);
   await expect(page.locator('.cp-event')).toContainText('E2E Google 일정');
+  expect(state.events).toHaveLength(0);
 
   await page.locator('[data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();

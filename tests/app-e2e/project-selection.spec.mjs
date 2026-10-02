@@ -34,6 +34,7 @@ async function signIn(page,view,writes){
       return ok([meeting]);
     }
     if(path==='/rest/v1/app_events'){
+      writes.eventReads=(writes.eventReads||0)+1;
       if(method==='PATCH'){writes.event=request.postDataJSON();return ok([])}
       return ok([event]);
     }
@@ -63,7 +64,7 @@ async function expectCanonical(select){
   for(const id of ['legacy','archived','hidden-child','other-owner'])await expect(select.locator(`option[value="${id}"]`)).toHaveCount(0);
 }
 
-test('new meeting and event use the project catalog tree',async({page})=>{
+test('new meeting uses the project catalog tree while calendar has no project selector',async({page})=>{
   await signIn(page,'meetings',{});
   await page.locator('#newMeetingBtn').click();
   await expectCanonical(page.locator('#meetingProject'));
@@ -71,7 +72,7 @@ test('new meeting and event use the project catalog tree',async({page})=>{
   await page.locator('[data-view="calendar"]').click();
   await expect(page.locator('#calendarView')).toBeVisible();
   await page.locator('#newEventBtn').click();
-  await expectCanonical(page.locator('#eventProject'));
+  await expect(page.locator('#eventProject')).toHaveCount(0);
 });
 
 test('meeting edit retains an excluded project unless changed',async({page})=>{
@@ -87,13 +88,9 @@ test('meeting edit retains an excluded project unless changed',async({page})=>{
   await expect.poll(()=>writes.meeting?.project_id).toBe('legacy');
 });
 
-test('event edit retains an excluded project unless changed',async({page})=>{
+test('calendar never reads Web2 events or opens its edit dialog',async({page})=>{
   const writes={};await signIn(page,'calendar',writes);
-  await page.locator('.cm-app[data-app-event="selection-event"]').first().click();
-  const select=page.locator('#ciAppProject');
-  await expect(select).toHaveValue('legacy');
-  await expect(select.locator('option[value="legacy"]')).toHaveAttribute('disabled','');
-  await expect(select.locator('option[value="legacy"]')).toContainText('이전 공간');
-  await page.locator('#ciAppSave').click();
-  await expect.poll(()=>writes.event?.project_id).toBe('legacy');
+  await expect(page.locator('.cm-app,#ciAppModal')).toHaveCount(0);
+  expect(writes.eventReads||0).toBe(0);
+  expect(writes.event).toBeUndefined();
 });
