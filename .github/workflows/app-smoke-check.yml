@@ -56,8 +56,8 @@ jobs:
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=59')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=46')",'result=await viewLoader.load(requested)',
+            "import('./team.js?v=60')",'await window.__KPTU_TEAM_READY__',
+            "import('./view-loader.js?v=47')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -66,7 +66,7 @@ jobs:
             "module('./calendar-month-view.js?v=9'","__KPTU_CALENDAR_MONTH_VIEW_READY__",
             "module('./task-workflow.js?v=9'","__KPTU_TASK_WORKFLOW_READY__",
             "module('./web1-board.js?v=3'",
-            "module('./meeting-round-detail.js?v=19'","__KPTU_MEETING_ROUND_DETAIL_READY__",
+            "module('./meeting-round-detail.js?v=20'","__KPTU_MEETING_ROUND_DETAIL_READY__",
             "module('./calendar-plus.js?v=10'","__KPTU_CALENDAR_PLUS_READY__",
             "module('./calendar-persistence.js?v=13'","__KPTU_CALENDAR_PERSISTENCE_READY__",
             "module('./calendar-interactions-v2.js?v=10'","__KPTU_CALENDAR_INTERACTIONS_READY__",
@@ -140,7 +140,7 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=11" app/loader-v2.js
-          grep -q "team.js?v=59" app/loader-v2.js
+          grep -q "team.js?v=60" app/loader-v2.js
           grep -q "project-system-v3.js?v=32" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
@@ -157,7 +157,7 @@ jobs:
           test ! -f app/photo-room.css
           if grep -Eq "photo-room|__KPTU_PHOTO_ROOM|photos" app/loader-v2.js app/view-loader.js app/app-router.js app/styles.css app/index.html; then echo 'retired photo room returned'; exit 1; fi
           grep -q "web1-board.js?v=3" app/view-loader.js
-          grep -q "meeting-round-detail.js?v=19" app/view-loader.js
+          grep -q "meeting-round-detail.js?v=20" app/view-loader.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/view-loader.js
           if grep -q 'mobile-dock.js' app/loader-v2.js app/view-loader.js; then echo 'obsolete personal dock returned'; exit 1; fi
           if grep -Eq "notification-center-ui|__KPTU_NOTIFICATION_CENTER_READY__|push-notifications-ui" app/loader-v2.js app/view-loader.js app/styles.css; then echo 'notification runtime returned'; exit 1; fi
