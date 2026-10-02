@@ -4,6 +4,7 @@
   const mq760=window.matchMedia('(max-width:760px)');
   const mq1024=window.matchMedia('(min-width:1024px)');
   let last=null,navigate=null,touchStart=null,suppressUntil=0,resizeFrame=0;
+  let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
   let tasks=[],tasksSig='';
 
@@ -53,10 +54,10 @@
     const view=grid.closest('#calendarView');
     let height=minGrid;
     if(!view||!view.classList.contains('hidden')){
-      const vv=window.visualViewport,viewportHeight=vv?.height||document.documentElement.clientHeight||window.innerHeight;
-      const viewportBottom=(vv?.offsetTop||0)+viewportHeight;
+      // Pinch zoom changes the visual viewport, not the layout space available to the grid.
+      const viewportHeight=document.documentElement.clientHeight||window.innerHeight||window.visualViewport?.height||0;
       const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0;
-      const available=Math.floor(viewportBottom-grid.getBoundingClientRect().top-safeBottom);
+      const available=Math.floor(viewportHeight-grid.getBoundingClientRect().top-safeBottom);
       height=Math.max(minGrid,available);
       if(!mq760.matches)height=Math.min(height,Math.max(minGrid,Math.floor(viewportHeight*.82)));
     }
@@ -162,6 +163,7 @@
   function render(options){
     last=options;
     const grid=document.querySelector('#calendarGrid');if(!grid)return false;
+    layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
     const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
     const events=allEvents(options);
     const weeks=segmentWeeks(events,range);
@@ -242,13 +244,16 @@
   }
   const scheduleRerender=()=>{
     if(!last||document.querySelector('#calendarView')?.classList.contains('hidden'))return;
+    const next={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
+    if(next.width===layoutSize.width&&next.height===layoutSize.height)return;
+    layoutSize=next;
     cancelAnimationFrame(resizeFrame);
     resizeFrame=requestAnimationFrame(rerender);
   };
-  if(mq760.addEventListener)mq760.addEventListener('change',scheduleRerender);else mq760.addListener?.(scheduleRerender);
   window.addEventListener('resize',scheduleRerender,{passive:true});
-  window.visualViewport?.addEventListener('resize',scheduleRerender,{passive:true});
-  document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')scheduleRerender()},true);
+  const forceRerender=()=>{if(last&&!document.querySelector('#calendarView')?.classList.contains('hidden')){cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(rerender)}};
+  if(mq760.addEventListener)mq760.addEventListener('change',forceRerender);else mq760.addListener?.(forceRerender);
+  document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')forceRerender()},true);
 
   window.KPTUCalendarMonthView={render,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[]};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);
