@@ -23,7 +23,7 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
   expect(team).not.toContain("api('/rest/v1/app_event_attendees");
   expect(team).not.toContain('eventAttendees');
   expect(team).not.toContain('dataset.eventResponse');
-  expect(team).toContain("calendar_scope:'personal'");
+  expect(team).not.toContain('/rest/v1/app_events');
   expect(team).not.toContain('function paintAppEvents()');
   expect(team).toContain('KPTUCalendarMonthView?.render?.(');
   expect(index).toContain('calendar-toolbar-add');

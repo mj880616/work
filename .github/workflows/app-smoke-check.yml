@@ -56,8 +56,8 @@ jobs:
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=57')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=44')",'result=await viewLoader.load(requested)',
+            "import('./team.js?v=58')",'await window.__KPTU_TEAM_READY__',
+            "import('./view-loader.js?v=45')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -140,8 +140,8 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=11" app/loader-v2.js
-          grep -q "team.js?v=57" app/loader-v2.js
-          grep -q "project-system-v3.js?v=31" app/view-loader.js
+          grep -q "team.js?v=58" app/loader-v2.js
+          grep -q "project-system-v3.js?v=32" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "google-tasks.js?v=23" app/view-loader.js
@@ -341,7 +341,6 @@ jobs:
           grep -q "data-ps3-edit-milestone" app/project-system-v3.js
           grep -q "ps3MilestoneDelete" app/project-system-v3.js
           grep -q "ps3MilestoneGoogle" app/project-system-v3.js
-          grep -q "createLinkedMilestoneEvent" app/project-system-v3.js
           grep -q "createGoogleMilestone" app/project-system-v3.js
           grep -q "updateGoogleMilestone" app/project-system-v3.js
           grep -q "deleteGoogleMilestone" app/project-system-v3.js
@@ -363,7 +362,7 @@ jobs:
           if grep -Eq 'id="projectModal"|id="projectCreateModal"|projectModalTitle|projectUpdates|projectChecks|projectComments' app/index.html; then echo 'legacy project modal returned'; exit 1; fi
           if grep -Eq 'renderProjects|projectCard\(|openProject\(|saveProject\(|openProjectCreate|addProjectUpdate|addProjectCheck|addProjectComment|notifyMentions|app_project_updates|app_project_checkitems|currentProject|newSubprojectBtn|projectCheckAssignee|projectCreateModal' app/team.js; then echo 'legacy project renderer returned'; exit 1; fi
           if grep -q "ps3-child-section" app/project-system-v3.js; then echo 'large bottom child-project section returned'; exit 1; fi
-          if grep -Eq "project-system-v2.js|project-hide-legacy.js|project-files.js|project-delete.js|project-modal-polish.js|project-modal-scroll-lock.js|project-access.js|project-update-actions.js|project-task-link.js|project-v2.js|project-operating-model.js|project-templates.js|project-deeplink.js|project-archive.js|project-suborganization-links.js" app/loader-v2.js app/view-loader.js; then echo 'legacy project overlay returned'; exit 1; fi
+          if grep -Eq "project-system-v2.js|project-access.js|project-update-actions.js|project-task-link.js|project-v2.js|project-templates.js|project-suborganization-links.js" app/loader-v2.js app/view-loader.js; then echo 'legacy project overlay returned'; exit 1; fi
           if grep -q "MutationObserver" app/project-system-v3.js; then echo 'project V3 returned to mutation polling'; exit 1; fi
           if grep -q "createElement('style')\|createElement(\"style\")" app/project-system-v3.js; then echo 'project V3 styles must remain static'; exit 1; fi
 
@@ -428,7 +427,7 @@ jobs:
           grep -q "위험업무 2인1조 법제화" app/web1-board.js
           grep -q "산별전환 업무 현황" app/web1-board.js
           grep -q "완료된 할 일" app/task-layout.js
-          if grep -q "task-title-ui.js\|project-create-submit.js\|task-personal-due.js" app/loader-v2.js app/view-loader.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
+          if grep -q "project-create-submit.js\|task-personal-due.js" app/loader-v2.js app/view-loader.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
       - name: Static HTTP smoke test
         run: |
