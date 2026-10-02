@@ -55,7 +55,6 @@ TASK-팀AI삭제 1단계에서 조직 상세의 주간보고·타임라인 AI �
 - `calendar-return-bridge.js`
 - `auth-handoff-client.js`
 - `auth-bootstrap.js`
-- `auth-login-fallback.js`
 - `session-resilience.js`
 
 Android OAuth 복귀 경로는 별도 기능 수정과 섞지 않음. 인증 UI 변경 시 Android WebView와 일반 브라우저 흐름을 각각 확인함.
@@ -81,7 +80,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 - 할 일: `task-*`
 - 프로젝트: `project-*`
 - 회의: `meeting-*`
-- 자료실: `library-upload.js` (`project-files.js`는 현재 앱 진입 경로에서 불러오지 않음)
+- 자료실: `library-upload.js`
 - 게시/현장공유: `page-editor-fix.js`
 
 ## 5. 알림 모듈 안정화
@@ -98,15 +97,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 
 현재 진입 경로에서 로드되지 않는 과거 보정 모듈은 `app/legacy/`로 격리함. Task 13에서 공개 페이지와 프로젝트 공유를 되살릴 수 있던 격리 모듈은 제거함.
 
-- `calendar-app-edit-ui.js`
-- `calendar-create-live-title.js`
-- `calendar-date-create.js`
-- `calendar-edit-actions.js`
-- `calendar-event-edit.js`
-- `calendar-google-fast-edit.js`
-- `calendar-observer-stability.js`
 - `editable-page.js`
-- `google-color-palette.js`
 - `home-task-actions.js`
 - `meeting-detail-patches.js`
 - `page-preview-tools.js`

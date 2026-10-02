@@ -8,7 +8,6 @@ const date=v=>v?new Date(v).toLocaleDateString('ko-KR'):'미정';
 const localInput=v=>{if(!v)return'';const d=new Date(v),off=d.getTimezoneOffset();return new Date(d.getTime()-off*60000).toISOString().slice(0,16)};
 const PHASE={preparation:'준비',in_progress:'진행',consultation:'협의',execution:'실행',follow_up:'후속조치',done:'종료'};
 const MTYPE={action:'행동·사업',meeting:'협의·회의',policy:'정책·국회',deadline:'마감',result:'성과·결과'};
-const MILESTONE_EVENT_TYPE={action:'other',meeting:'meeting',policy:'other',deadline:'deadline',result:'other'};
 const MODULES=[['progress','진행상황'],['milestones','주요 일정'],['tasks','할 일'],['documents','자료']];
 const MSTATUS={planned:'예정',scheduled:'예정',confirmed:'확정',in_progress:'진행',done:'완료',completed:'완료',postponed:'연기',cancelled:'취소',canceled:'취소'};
 const mstatus=v=>MSTATUS[v||'planned']||v;
@@ -79,24 +78,6 @@ async function prepareMilestoneGoogle(milestone=null){
   if(save)save.disabled=!sel.value;
   if(hint)hint.textContent='신규 프로젝트 일정은 선택한 Google 세부캘린더와 프로젝트 주요 일정에 저장됩니다.'
 }
-function milestoneEventPayload(body,eventId=null){
-  const payload={workspace_id:wid,project_id:current.id,workstream_id:body.workstream_id||null,title:body.title,description:body.notes||null,event_type:MILESTONE_EVENT_TYPE[body.milestone_type]||'other',start_at:body.start_at,end_at:body.end_at||null,location:null,created_by:user.id,body:body.notes||'',calendar_scope:'personal'};
-  if(eventId)payload.id=eventId;
-  return payload
-}
-async function createLinkedMilestoneEvent(body,eventId=null){
-  if(!body.start_at)throw new Error('프로젝트 일정의 일시를 입력해 주세요.');
-  const rows=await api('/rest/v1/app_events',{method:'POST',body:milestoneEventPayload(body,eventId),prefer:'return=representation'});
-  const row=rows?.[0];
-  if(!row?.id)throw new Error('Web2 일정 저장 결과를 확인하지 못했습니다.');
-  return row
-}
-async function syncLinkedMilestoneEvent(eventId,body){
-  if(!eventId||!body.start_at)return;
-  const payload=milestoneEventPayload(body);delete payload.workspace_id;delete payload.created_by;
-  await api('/rest/v1/app_events?id=eq.'+encodeURIComponent(eventId),{method:'PATCH',body:{...payload,updated_at:new Date().toISOString()}})
-}
-async function deleteLinkedMilestoneEvent(eventId){if(eventId)await api('/rest/v1/app_events?id=eq.'+encodeURIComponent(eventId),{method:'DELETE'})}
 function googleMilestonePayload(action,calendarId,eventId,body){
   if(!body.start_at)throw new Error('Google Calendar에 저장하려면 일시를 입력해 주세요.');
   const start=new Date(body.start_at),end=new Date(start.getTime()+60*60*1000);
@@ -391,7 +372,7 @@ function editMemo(id){const memo=detail?.memos?.find(x=>x.id===id&&x.author_id==
 async function saveMemo(){if(!current)return;const button=$('[data-ps3-memo-save]'),creating=!editingMemo;if(creating&&button.dataset.saving==='1')return;const i=$('#ps3MemoBody'),body=i?.value.trim(),st=$('#ps3MemoState');if(!body){if(st){st.textContent='메모를 입력해 주세요.';st.className='status error'}return}if(creating){button.dataset.saving='1';button.disabled=true}try{if(st){st.textContent='저장 중…';st.className='status'};if(editingMemo)await api(`/rest/v1/app_project_comments?id=eq.${editingMemo.id}&author_id=eq.${user.id}`,{method:'PATCH',body:{body,updated_at:new Date().toISOString()}});else await api('/rest/v1/app_project_comments',{method:'POST',body:{project_id:current.id,author_id:user.id,body}});editingMemo=null;await refreshDetail();toast('메모를 저장했습니다.')}catch(e){if(st){st.textContent=e.message||String(e);st.className='status error'}}finally{if(creating){button.dataset.saving='0';button.disabled=false}}}
 async function deleteMemo(id){const memo=detail?.memos?.find(x=>x.id===id);if(!memo||!(memo.author_id===user?.id||canManage(current)))return;if(!confirm('이 메모를 삭제할까요?'))return;try{await api(`/rest/v1/app_project_comments?id=eq.${id}`,{method:'DELETE'});if(editingMemo?.id===id)editingMemo=null;await refreshDetail();toast('메모를 삭제했습니다.')}catch(e){toast(e.message||String(e))}}
 function openDelete(){const ch=kids(current);$('#ps3DeleteMessage').innerHTML=`<b>${esc(current.name)}</b><br>${current.parent_id?'하위 프로젝트':'프로젝트'}를 삭제합니다.${ch.length?` 하위 프로젝트 <b>${ch.length}개</b>도 함께 삭제됩니다.`:''}`;$('#ps3DeleteState').textContent='';openModal('ps3DeleteModal')}
-async function unlink(id){await Promise.all([api(`/rest/v1/app_events?project_id=eq.${id}`,{method:'PATCH',body:{project_id:null}}),api(`/rest/v1/app_meetings?project_id=eq.${id}`,{method:'PATCH',body:{project_id:null}}),api(`/rest/v1/app_documents?project_id=eq.${id}`,{method:'PATCH',body:{project_id:null}}),api(`/rest/v1/app_pages?space_id=eq.${id}`,{method:'PATCH',body:{space_id:null}})])}
+async function unlink(id){await Promise.all([api(`/rest/v1/app_meetings?project_id=eq.${id}`,{method:'PATCH',body:{project_id:null}}),api(`/rest/v1/app_documents?project_id=eq.${id}`,{method:'PATCH',body:{project_id:null}}),api(`/rest/v1/app_pages?space_id=eq.${id}`,{method:'PATCH',body:{space_id:null}})])}
 async function deleteProject(){const st=$('#ps3DeleteState');st.textContent='삭제 중…';try{for(const id of [...kids(current).map(x=>x.id),current.id])await unlink(id);await api(`/rest/v1/app_spaces?id=eq.${current.id}`,{method:'DELETE'});closeModal('ps3DeleteModal');closeModal('ps3DetailModal');current=detail=null;clearUrl();await renderGrid();toast('프로젝트를 삭제했습니다.')}catch(e){st.textContent=e.message||String(e);st.className='status error'}}
 async function archiveProject(){if(!current)return;const ch=kids(current);const note=ch.length?`\n하위 프로젝트 ${ch.length}개는 함께 숨겨지고 상위 프로젝트를 복구하면 다시 표시됩니다.`:'';if(!confirm(`“${current.name}” 프로젝트를 보관할까요?${note}`))return;await api(`/rest/v1/app_spaces?id=eq.${current.id}`,{method:'PATCH',body:{status:'archived',updated_at:new Date().toISOString()}});closeModal('ps3DetailModal');clearUrl();current=detail=null;await renderGrid();toast('프로젝트를 보관했습니다.')}
 async function toggleProjectDone(){if(!current||!canManage(current))return;const next=current.status==='done'?'active':'done';try{await api(`/rest/v1/app_spaces?id=eq.${encodeURIComponent(current.id)}`,{method:'PATCH',body:{status:next,updated_at:new Date().toISOString()}});await renderGrid();await refreshDetail();toast(next==='done'?'프로젝트를 완료했습니다.':'프로젝트를 다시 진행합니다.')}catch(e){console.error('project status update failed',e);toast('프로젝트 상태를 변경하지 못했습니다.')}}
