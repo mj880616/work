@@ -18,11 +18,11 @@ test('six-week month expands to 42 cells without a separate renderer',async({pag
   await expect(page.locator('.cal-cell')).toHaveCount(42);
 });
 
-test('Web2 and Google schedules share the same month renderer and preserve colors',async({page})=>{
+test('Google schedules preserve colors in the month renderer',async({page})=>{
   await page.goto(url);
-  await expect(page.locator('.cm-app[data-app-event="app-1"]')).toHaveCount(1);
+  await expect(page.locator('.cp-event[data-google-event="app-1"]')).toHaveCount(1);
   await expect(page.locator('.cp-event[data-google-event="recurring"]')).toHaveCount(1);
-  expect(await page.locator('.cm-app[data-app-event="app-1"]').evaluate(el=>el.style.background)).not.toBe('');
+  expect(await page.locator('.cp-event[data-google-event="app-1"]').evaluate(el=>el.style.background)).not.toBe('');
   expect(await page.locator('.cp-event[data-google-event="recurring"]').evaluate(el=>el.style.background)).not.toBe('');
 });
 
@@ -70,10 +70,10 @@ test('event bars and overflow never fall through to blank-cell creation',async({
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
 
-  await page.locator('.cm-app[data-app-event="app-1"]').click();
-  await expect(page.locator('#ciAppModal')).toBeVisible();
+  await page.locator('.cp-event[data-google-event="app-1"]').click();
+  await expect(page.locator('#ciGoogleModal')).toBeVisible();
   await expect(page.locator('#eventModal')).toBeHidden();
-  await page.locator('#ciAppClose').click();
+  await page.locator('#ciGoogleClose').click();
 
   await page.locator('[data-google-event="multi"]').first().click();
   await expect(page.locator('#ciGoogleModal')).toBeVisible();
@@ -256,7 +256,7 @@ test('taller viewport exposes more schedules before overflow',async({page})=>{
 test('empty month remains clean and long titles keep ellipsis behavior',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
-  const title=page.locator('.cm-app[data-app-event="app-1"] .cmv-event-title');
+  const title=page.locator('.cp-event[data-google-event="app-1"] .cmv-event-title');
   await expect(title).toBeVisible();
   const style=await title.evaluate(el=>({overflow:getComputedStyle(el).overflow,textOverflow:getComputedStyle(el).textOverflow,whiteSpace:getComputedStyle(el).whiteSpace}));
   expect(style.overflow).toBe('hidden');
@@ -397,10 +397,10 @@ test('desktop mixed multi-day and single-day events preserve spans, lanes and hi
   expect(metrics.allClickable).toBe(true);
   expect(metrics.overlap).toBe(false);
 
-  await page.locator('.cmv-week').nth(1).locator('.cm-app').last().click();
-  await expect(page.locator('#ciAppModal')).toBeVisible();
+  await page.locator('.cmv-week').nth(1).locator('.cp-event').last().click();
+  await expect(page.locator('#ciGoogleModal')).toBeVisible();
   await expect(page.locator('#eventModal')).toBeHidden();
-  await page.locator('#ciAppClose').click();
+  await page.locator('#ciGoogleClose').click();
 
   await page.locator('[data-google-event="span-b"]').click();
   await expect(page.locator('#ciGoogleModal')).toBeVisible();

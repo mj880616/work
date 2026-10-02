@@ -15,9 +15,9 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
   expect(index).toContain('class="calendar-toolbar"');
   expect(index).not.toContain('<h2>공동 일정</h2>');
   expect(index).not.toContain('일정과 참석자를 함께 관리');
-  expect(index).toContain('id="eventTarget"');
+  expect(index).not.toContain('id="eventTarget"');
   expect(index).toContain('id="eventAllDay"');
-  expect(index).toContain('id="eventProject"');
+  expect(index).not.toContain('id="eventProject"');
   expect(index).toContain('id="eventGoogleCalendar"');
 
   expect(team).not.toContain("api('/rest/v1/app_event_attendees");
@@ -33,9 +33,9 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
   expect(index).not.toContain('upcomingEvents');
   expect(team).not.toContain('function eventCard(');
   expect(team).not.toContain('upcomingEvents');
-  expect(team).toContain('window.__KPTU_RELOAD_APP_EVENTS__=async()=>');
+  expect(team).not.toContain('window.__KPTU_RELOAD_APP_EVENTS__=async()=>');
 
-  expect(plus).toContain("target.value||'web2'");
+  expect(plus).not.toContain("target.value||'web2'");
   expect(plus).toContain('saveGoogle:cmSaveGoogle');
   expect(plus).not.toContain('eventCalendarScope');
 
@@ -43,17 +43,17 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
   expect(interactions).not.toContain('TEAM CALENDAR');
   expect(interactions).not.toContain('PERSONAL CALENDAR');
   expect(interactions).not.toContain('ciAppType');
-  expect(interactions).toContain('id="ciAppAllDay"');
-  expect(interactions).toContain('id="ciAppProject"');
+  expect(interactions).not.toContain('id="ciAppAllDay"');
+  expect(interactions).not.toContain('id="ciAppProject"');
 
   expect(suborg).toContain('window.__KPTU_SYNC_EVENT_ORGS__');
   expect(suborg).not.toContain('eventCalendarScope');
-  expect(projects).toContain("calendar_scope:'personal'");
+  expect(projects).toContain('google_calendar_id:calendarId');
 });
 
 test('personal calendar keeps legacy data compatibility without schema removal',()=>{
   const team=read('app/team.js');
   const interactions=read('app/calendar-interactions-v2.js');
-  expect(interactions).toContain('calendar_scope,color_hex,project_id,created_by');
+  expect(interactions).not.toContain('/rest/v1/app_events');
   expect(team).not.toContain("method:'POST',body:ids.map(user_id=>({event_id:ev.id");
 });

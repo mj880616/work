@@ -77,11 +77,11 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 
 ### 업무 기능
 
-- 일정: `calendar-month-view.js`가 월간 DOM의 단일 renderer이며 `team.js`의 Web2 일정 상태와 `calendar-persistence.js`의 Google 일정 상태를 정규화해 함께 표시함. `calendar-persistence.js`는 Google 선택·조회·stale-response 방어만 담당하고 월간 DOM을 직접 그리지 않음. 나머지 `calendar-*`는 생성·편집·OAuth 복귀·날짜 상세 등 명시적 보조 기능을 담당함.
+- 일정: `calendar-month-view.js`가 월간 DOM의 단일 renderer이며 `calendar-persistence.js`의 Google 일정과 Google 할 일을 표시함. `calendar-persistence.js`는 Google 선택·조회·stale-response 방어만 담당하고 월간 DOM을 직접 그리지 않음. 새 일정·수정은 Google 캘린더에 저장하며, 프로젝트 주요 일정은 `app_project_milestones`의 제목·날짜와 Google 연결 ID로 프로젝트 화면에도 표시함. 나머지 `calendar-*`는 생성·편집·OAuth 복귀·날짜 상세 등 명시적 보조 기능을 담당함.
 - 할 일: `task-*`
 - 프로젝트: `project-*`
 - 회의: `meeting-*`
-- 자료실: `library-upload.js`, `project-files.js`
+- 자료실: `library-upload.js` (`project-files.js`는 현재 앱 진입 경로에서 불러오지 않음)
 - 게시/현장공유: `page-editor-fix.js`
 
 ## 5. 알림 모듈 안정화

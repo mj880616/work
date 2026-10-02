@@ -22,7 +22,7 @@ test('calendar hotfix removes stale local calendar UI and returns OAuth to Web2'
   expect(interactions).not.toContain('id="ciGoogleColor" type="color"');
   expect(plus).toContain('window.KPTUCalendarColors=');
   expect(plus).toContain('state?.eventColors');
-  expect(team).toContain("KPTUCalendarColors?.value?.($('#eventWeb2Color'))");
+  expect(team).not.toContain('eventWeb2Color');
   expect(interactions).toContain("if(color?.touched)body.color_hex=color.hex");
   expect(calendarEdge).toContain('nearestColorId');
   expect(calendarEdge).toContain('payload.colorId=id');
@@ -33,8 +33,8 @@ test('calendar hotfix removes stale local calendar UI and returns OAuth to Web2'
   expect(callback).toContain("if (state?.split('.').includes('android')) u.searchParams.set('native', 'android')");
   expect(bridge).toContain("params.get('native')==='android'");
   expect(bridge).not.toContain("/Android/i.test(navigator.userAgent)");
-  expect(index).toContain('./loader-v2.js?v=265');
-  expect(index).toContain('./app.js?v=153');
+  expect(index).toContain('./loader-v2.js?v=266');
+  expect(index).toContain('./app.js?v=154');
   expect(views).toContain("module('./calendar-persistence.js?v=13'");
   expect(views).not.toContain("calendar-persistence.js?v=10");
   expect(persistence).not.toContain('showGoogleCalendar');

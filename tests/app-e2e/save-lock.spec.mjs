@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 
 test.use({timezoneId:'Asia/Seoul'});
 
-// TASK-저장잠금: 자료 등록(saveDocument)·Web2 일정 저장(saveEvent)·회의 수정 저장(mrdSaveEdit)은
+// TASK-저장잠금: 자료 등록(saveDocument)·Google 일정 저장(cmSaveGoogle)·회의 수정 저장(mrdSaveEdit)은
 // 저장 중 두 번 눌러도 서버 요청이 한 번만 가고, 실패한 뒤에는 다시 저장할 수 있어야 한다.
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -13,7 +13,7 @@ const meeting={
 
 // writes[kind]: 서버에 도착한 저장 요청 수. hold가 true면 release() 전까지 응답을 미룬다. failNext면 다음 저장 1번을 500으로 돌려준다.
 async function mock(page){
-  const state={writes:{event:0,document:0,meeting:0},hold:false,failNext:false,waiters:[]};
+  const state={writes:{event:0,googleEdit:0,document:0,meeting:0},hold:false,failNext:false,waiters:[],googleEvents:[],eventReads:0};
   state.release=()=>{state.hold=false;for(const w of state.waiters.splice(0))w()};
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),path=new URL(req.url()).pathname,method=req.method();
@@ -30,13 +30,13 @@ async function mock(page){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'lock-ws',user_id:'lock-user',role:'owner',email:'lock@example.org',workspace:{id:'lock-ws',name:'QA Workspace'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'lock-ws',name:'QA Workspace'}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:'lock-user',display_name:'잠금 QA'}]);
-    if(path==='/rest/v1/app_events'&&method==='POST')return write('event',[{id:'event-new',title:'잠금 일정'}]);
+    if(path==='/rest/v1/app_events'){state.eventReads++;return ok([])}
     if(path==='/rest/v1/app_documents'&&method==='POST')return write('document',[{id:'document-new',title:'잠금 자료'}]);
     if(path==='/rest/v1/app_meetings'){
       if(method==='PATCH')return write('meeting',[{id:meeting.id}]);
       return ok([meeting]);
     }
-    if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[]});
+    if(path==='/functions/v1/google-calendar'){const action=new URL(req.url()).searchParams.get('action');const body=method==='POST'?req.postDataJSON():null;if(action==='events')return ok({events:state.googleEvents,eventColors:{}});if(body?.action==='create-event'){const result=await write('event',{ok:true,event:{id:'google-new',calendarId:body.calendar_id,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false}});if(!state.failNext)state.googleEvents=[{id:'google-new',calendarId:body.calendar_id,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false}];return result}if(body?.action==='update-event')return write('googleEdit',{ok:true,event:{id:body.event_id,calendarId:body.calendar_id}});return ok({connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'},{id:'union',summary:'공공운수노조',accessRole:'writer'}],events:state.googleEvents,eventColors:{}})}
     if(path==='/functions/v1/google-tasks')return ok({tasks:[],needs_reconnect:false});
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -113,15 +113,47 @@ async function openMeetingEdit(page){
   await expect(page.locator('#mrdSaveEdit')).toBeVisible();
 }
 
-test('Web2 event save sends one request on double press and unlocks after failure',async({page})=>{
+test('Google event save sends one request on double press and unlocks after failure',async({page})=>{
   const state=await signIn(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
+  expect(state.eventReads).toBe(0);
   await openEvent(page);
+  await expect(page.locator('#eventGoogleCalendar')).toHaveValue('union');
   await pressTwiceWhileSaving(page,state,'#saveEventBtn','event','저장');
   await expect(page.locator('#eventModal')).toBeHidden();
   await openEvent(page);
   await failThenRetry(page,state,'#saveEventBtn','event','저장','#eventStatus');
   await expect(page.locator('#eventModal')).toBeHidden();
+});
+
+test('Google event edit sends one request on double press and unlocks after failure',async({page})=>{
+  const state=await signIn(page,'calendar');
+  await openEvent(page);
+  await page.locator('#saveEventBtn').click();
+  await expect(page.locator('.cp-event[data-google-event="google-new"]')).toBeVisible();
+  await page.locator('.cp-event[data-google-event="google-new"]').click();
+  await expect(page.locator('#ciGoogleModal')).toBeVisible();
+  await pressTwiceWhileSaving(page,state,'#ciGoogleSave','googleEdit','변경사항 저장');
+  await expect(page.locator('#ciGoogleModal')).toBeHidden();
+  await page.locator('.cp-event[data-google-event="google-new"]').click();
+  await failThenRetry(page,state,'#ciGoogleSave','googleEdit','변경사항 저장','#ciGoogleStatus');
+  await expect(page.locator('#ciGoogleModal')).toBeHidden();
+});
+
+test('calendar name fallback keeps the selected writable Google calendar',async({page})=>{
+  await signIn(page,'calendar');
+  const calendars=[
+    {id:'primary',summary:'기본',primary:true,accessRole:'owner'},
+    {id:'union-a',summary:'공공운수노조',accessRole:'writer'},
+    {id:'union-b',summary:'공공운수노조',accessRole:'writer'}
+  ];
+  await page.evaluate(rows=>{window.__KPTU_GOOGLE_STATE__={connected:true,selected:['primary'],calendars:rows,eventColors:{}}},calendars);
+  await page.locator('#newEventBtn').click();
+  await expect(page.locator('#eventGoogleCalendar')).toHaveValue('primary');
+  await page.locator('#eventModal [data-close]').click();
+  await page.evaluate(rows=>{window.__KPTU_GOOGLE_STATE__={connected:true,selected:['primary'],calendars:rows,eventColors:{}}},calendars.slice(0,1));
+  await page.locator('#newEventBtn').click();
+  await expect(page.locator('#eventGoogleCalendar')).toHaveValue('primary');
 });
 
 test('document save sends one request on double press and unlocks after failure',async({page})=>{

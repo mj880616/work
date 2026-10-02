@@ -126,7 +126,6 @@ test('일정 생성 직후에는 캐시와 포커스 제한을 무시하고 새�
   const mark=state.log.length,day=new Date(new Date().getFullYear(),new Date().getMonth(),20),ymd=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-20`;
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('새 Google 일정');
-  await page.locator('#eventTarget').selectOption('google');
   await page.locator('#eventStartDate').fill(ymd);
   await page.locator('#eventStartTime').fill('10:00');
   await page.locator('#eventEndDate').fill(ymd);

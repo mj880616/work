@@ -4,8 +4,7 @@
   const mq760=window.matchMedia('(max-width:760px)');
   const mq1024=window.matchMedia('(min-width:1024px)');
   let last=null,navigate=null,touchStart=null,suppressUntil=0,resizeFrame=0;
-  // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks(); it is kept apart from
-  // the Web2 and Google event options that team.js passes to render(), so removing Web2 events does not touch it.
+  // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
   let tasks=[],tasksSig='';
 
   const pad=n=>String(n).padStart(2,'0');
@@ -36,11 +35,6 @@
   function googleColor(ev,state){
     const cal=state?.calendars?.find(x=>x.id===ev.calendarId);
     return ev.color||state?.colors?.[ev.calendarId]||cal?.backgroundColor||'#4285f4';
-  }
-  function normalizeApp(ev){
-    const start=dateOnly(ev.start_at),endRaw=ev.end_at?dateOnly(ev.end_at):new Date(start);
-    const allDay=!!ev.end_at&&!start.getHours()&&!start.getMinutes()&&!endRaw.getHours()&&!endRaw.getMinutes()&&endRaw>start;
-    return {key:'web2:'+ev.id,id:ev.id,source:'web2',title:ev.title||'(제목 없음)',start,end:inclusiveEnd(start,endRaw,allDay),allDay,color:ev.color_hex||'#7656a8',text:'#fff',projectId:ev.project_id||null,raw:ev};
   }
   function normalizeGoogle(ev,state){
     const start=dateOnly(ev.start),allDay=!!ev.allDay||/^\d{4}-\d{2}-\d{2}$/.test(String(ev.start||'')),endRaw=ev.end?dateOnly(ev.end):new Date(start),color=googleColor(ev,state);
@@ -143,10 +137,9 @@
     }
     const b=document.createElement('button');
     b.type='button';
-    b.className='cal-event cmv-event '+(ev.source==='google'?'google cp-event':'cm-app')+(seg.continuesLeft?' cmv-continues-left':'')+(seg.continuesRight?' cmv-continues-right':'');
+    b.className='cal-event cmv-event '+'google cp-event'+(seg.continuesLeft?' cmv-continues-left':'')+(seg.continuesRight?' cmv-continues-right':'');
     b.dataset.cmvEvent=ev.key;
-    if(ev.source==='google'){b.dataset.googleEvent=ev.id;b.dataset.googleCalendar=ev.calendarId}
-    else b.dataset.appEvent=ev.id;
+    b.dataset.googleEvent=ev.id;b.dataset.googleCalendar=ev.calendarId;
     b.style.gridColumn=`${seg.startCol+1} / span ${seg.span}`;
     b.style.gridRow=String(seg.lane+1);
     b.style.background=ev.color;b.style.color=ev.text;
@@ -162,7 +155,6 @@
   }
   function allEvents(options){
     return [
-      ...(options.appEvents||[]).map(normalizeApp),
       ...(options.googleEvents||[]).map(ev=>normalizeGoogle(ev,options.googleState||{})),
       ...tasks.map(normalizeTask)
     ].filter(ev=>Number.isFinite(ev.start.getTime())&&Number.isFinite(ev.end.getTime()));

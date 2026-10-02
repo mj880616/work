@@ -27,7 +27,7 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=10");
+  expect(views).toContain("suborganizations.js?v=11");
   expect(views).toContain("workplace-detail.js?v=11");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
@@ -325,14 +325,14 @@ test('일정 등록의 담당조직 체크는 같은 순서·구분선이고 궤
   }
 });
 
-test('일정 수정의 담당조직 체크는 같은 순서이고 이미 연결된 궤도협의회는 지우지 않고 남긴다',async({page})=>{
+test('Google 일정 수정은 내 담당조직만 표시하고 기존 숨은 연결을 보존한다',async({page})=>{
   await openAssigned(page,'?orgs=order');
-  await page.evaluate(()=>document.querySelector('#ciAppModal').classList.remove('hidden'));
-  await page.locator('#openAppEventE2E').evaluate(b=>b.click());
-  const box='#soEditEventOrgChecks .so-org-checks';
+  await page.evaluate(()=>{document.querySelector('#ciGoogleModal').classList.remove('hidden');window.__KPTU_EDIT_GOOGLE_ORGS__(['ord-other'])});
+  const box='#soGoogleEditOrgChecks .so-org-checks';
   await expect(page.locator(box)).toBeVisible();
-  expect(await sequence(page,box,'span')).toEqual([...ORDERED,'가나다 다른 담당','국민연금지부','궤도협의회','한국소비자원지부']);
-  await expect(page.locator('[data-edit-event-org="ord-14"]')).toBeChecked();
+  expect(await sequence(page,box,'span')).toEqual([...ORDERED,'국민연금지부','한국소비자원지부']);
+  await expect(page.locator(box)).not.toContainText('가나다 다른 담당');
+  expect(await page.evaluate(()=>window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__())).toEqual(['ord-other']);
 });
 
 // TASK-조직상세: the organization detail shows the Google tasks linked to it and links more from there.
