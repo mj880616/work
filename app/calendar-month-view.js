@@ -55,7 +55,7 @@
     let height=minGrid;
     if(!view||!view.classList.contains('hidden')){
       // Pinch zoom changes the visual viewport, not the layout space available to the grid.
-      const viewportHeight=document.documentElement.clientHeight||window.innerHeight;
+      const viewportHeight=document.documentElement.clientHeight||window.innerHeight||window.visualViewport?.height||0;
       const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0;
       const available=Math.floor(viewportHeight-grid.getBoundingClientRect().top-safeBottom);
       height=Math.max(minGrid,available);
