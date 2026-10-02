@@ -253,6 +253,39 @@ test('taller viewport exposes more schedules before overflow',async({page})=>{
   expect(tallMore).toBeLessThan(shortMore);
 });
 
+test('pinch zoom preserves mobile month lanes without opening a dimming overlay, while a real resize recalculates',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:412,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1});
+  const page=await context.newPage();
+  const cdp=await context.newCDPSession(page);
+  try{
+    await page.goto(url);
+    const metrics=()=>page.evaluate(()=>({
+      scale:visualViewport?.scale,
+      visualHeight:visualViewport?.height,
+      layoutHeight:document.documentElement.clientHeight,
+      gridHeight:Number(document.querySelector('#calendarGrid').dataset.cmvViewportHeight),
+      lanes:[...document.querySelectorAll('.cmv-week')].map(week=>({cap:Number(week.dataset.laneCap),more:[...week.querySelectorAll('.kptu-day-more')].map(el=>el.textContent)})),
+      visibleModals:[...document.querySelectorAll('.modal:not(.hidden)')].map(el=>el.id)
+    }));
+    const before=await metrics();
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});
+    await expect.poll(async()=>(await metrics()).scale).toBeGreaterThan(1);
+    const zoomed=await metrics();
+    expect(zoomed.visualHeight).toBeLessThan(before.visualHeight);
+    expect(zoomed.lanes).toEqual(before.lanes);
+    expect(zoomed.visibleModals).toEqual([]);
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
+    await page.setViewportSize({width:412,height:640});
+    await expect.poll(async()=>(await metrics()).gridHeight).toBeLessThan(before.gridHeight);
+    expect((await metrics()).lanes).not.toEqual(before.lanes);
+    await page.evaluate(()=>{window.__monthWeekBeforeWidthChange=document.querySelector('.cmv-week')});
+    await page.setViewportSize({width:390,height:640});
+    await expect.poll(()=>page.evaluate(()=>window.__monthWeekBeforeWidthChange!==document.querySelector('.cmv-week'))).toBe(true);
+  }finally{
+    await context.close();
+  }
+});
+
 test('empty month remains clean and long titles keep ellipsis behavior',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
