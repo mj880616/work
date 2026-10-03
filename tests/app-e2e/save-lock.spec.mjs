@@ -12,7 +12,7 @@ const meeting={
 };
 
 // writes[kind]: 서버에 도착한 저장 요청 수. hold가 true면 release() 전까지 응답을 미룬다. failNext면 다음 저장 1번을 500으로 돌려준다.
-async function mock(page){
+async function mock(page,{calendars=[{id:'primary',summary:'기본',primary:true,accessRole:'owner'},{id:'union',summary:'공공운수노조',accessRole:'writer'}]}={}){
   const state={writes:{event:0,googleEdit:0,document:0,meeting:0},hold:false,failNext:false,waiters:[],googleEvents:[],eventReads:0};
   state.release=()=>{state.hold=false;for(const w of state.waiters.splice(0))w()};
   await page.route(`${SB}/**`,async route=>{
@@ -36,7 +36,7 @@ async function mock(page){
       if(method==='PATCH')return write('meeting',[{id:meeting.id}]);
       return ok([meeting]);
     }
-    if(path==='/functions/v1/google-calendar'){const action=new URL(req.url()).searchParams.get('action');const body=method==='POST'?req.postDataJSON():null;if(action==='events')return ok({events:state.googleEvents,eventColors:{}});if(body?.action==='create-event'){const result=await write('event',{ok:true,event:{id:'google-new',calendarId:body.calendar_id,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false}});if(!state.failNext)state.googleEvents=[{id:'google-new',calendarId:body.calendar_id,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false}];return result}if(body?.action==='update-event')return write('googleEdit',{ok:true,event:{id:body.event_id,calendarId:body.calendar_id}});return ok({connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'},{id:'union',summary:'공공운수노조',accessRole:'writer'}],events:state.googleEvents,eventColors:{}})}
+    if(path==='/functions/v1/google-calendar'){const action=new URL(req.url()).searchParams.get('action');const body=method==='POST'?req.postDataJSON():null;if(action==='events')return ok({events:state.googleEvents,eventColors:{}});if(body?.action==='create-event'){const result=await write('event',{ok:true,event:{id:'google-new',calendarId:body.calendar_id,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false}});if(!state.failNext)state.googleEvents=[{id:'google-new',calendarId:body.calendar_id,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false}];return result}if(body?.action==='update-event')return write('googleEdit',{ok:true,event:{id:body.event_id,calendarId:body.calendar_id}});return ok({connected:true,enabled:true,selected:['primary'],calendars,events:state.googleEvents,eventColors:{}})}
     if(path==='/functions/v1/google-tasks')return ok({tasks:[],needs_reconnect:false});
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -46,8 +46,8 @@ async function mock(page){
   return state;
 }
 
-async function signIn(page,view){
-  const state=await mock(page);
+async function signIn(page,view,options){
+  const state=await mock(page,options);
   const returnTo=`${BASE}/app/?view=${view}`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
   await page.locator('#emailAuthToggle').click();
@@ -55,6 +55,11 @@ async function signIn(page,view){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+  if(view==='calendar'){
+    // UI 공개만으로는 초기 status/events 조회가 끝났다고 볼 수 없다.
+    await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_CALENDAR_PERSISTENCE_READY__)).toBe(true);
+    await page.evaluate(()=>window.__KPTU_CALENDAR_PERSISTENCE_READY__);
+  }
   return state;
 }
 
@@ -140,21 +145,20 @@ test('Google event edit sends one request on double press and unlocks after fail
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
 });
 
-test('calendar name fallback keeps the selected writable Google calendar',async({page})=>{
-  await signIn(page,'calendar');
-  const calendars=[
-    {id:'primary',summary:'기본',primary:true,accessRole:'owner'},
-    {id:'union-a',summary:'공공운수노조',accessRole:'writer'},
-    {id:'union-b',summary:'공공운수노조',accessRole:'writer'}
-  ];
-  await page.evaluate(rows=>{window.__KPTU_GOOGLE_STATE__={connected:true,selected:['primary'],calendars:rows,eventColors:{}}},calendars);
-  await page.locator('#newEventBtn').click();
-  await expect(page.locator('#eventGoogleCalendar')).toHaveValue('primary');
-  await page.locator('#eventModal [data-close]').click();
-  await page.evaluate(rows=>{window.__KPTU_GOOGLE_STATE__={connected:true,selected:['primary'],calendars:rows,eventColors:{}}},calendars.slice(0,1));
-  await page.locator('#newEventBtn').click();
-  await expect(page.locator('#eventGoogleCalendar')).toHaveValue('primary');
-});
+// 목록은 전역에 직접 주입하지 않고 모든 status 응답에서 동일하게 제공한다.
+// 늦은 status/events 응답이 다른 목록으로 되돌리는 경쟁을 없앤다.
+for(const namedCount of [2,0]){
+  test(`calendar name fallback keeps the selected writable Google calendar (${namedCount} named calendars)`,async({page})=>{
+    const calendars=[
+      {id:'primary',summary:'기본',primary:true,accessRole:'owner'},
+      ...Array.from({length:namedCount},(_,i)=>({id:`union-${i}`,summary:'공공운수노조',accessRole:'writer'}))
+    ];
+    await signIn(page,'calendar',{calendars});
+    await page.locator('#newEventBtn').click();
+    await expect(page.locator('#eventGoogleCalendar option')).toHaveCount(calendars.length);
+    await expect(page.locator('#eventGoogleCalendar')).toHaveValue('primary');
+  });
+}
 
 test('document save sends one request on double press and unlocks after failure',async({page})=>{
   const state=await signIn(page,'library');

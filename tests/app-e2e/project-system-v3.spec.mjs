@@ -514,6 +514,7 @@ test('progress items are added directly by title and existing progress data stay
   await page.locator('[data-ps3-add-ws]').click();
   await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
   await expect(page.locator('#ps3WorkstreamHeading')).toHaveText('진행상황 추가');
+  await expect(page.locator('#ps3WsPhase')).toHaveValue('in_progress');
   await page.locator('#ps3WsTitle').fill('국토부 후속협의');
   await page.locator('#ps3WsSave').click();
   await expect.poll(()=>state.workstreams.some(x=>x.title==='국토부 후속협의')).toBe(true);
@@ -521,6 +522,45 @@ test('progress items are added directly by title and existing progress data stay
   const row=state.workstreams.find(x=>x.title==='국토부 후속협의');
   expect(row.description).toBeNull();
   expect(row.phase).toBe('in_progress');
+});
+
+test('new progress item saves the selected phase and updates its chip',async({page})=>{
+  const state=baseState();await mockApp(page,state);
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.locator('[data-ps3-add-ws]').click();
+  await page.locator('#ps3WsTitle').fill('선택 단계 확인');
+  await expect(page.locator('#ps3WsPhase option')).toHaveText(['준비','진행','협의','실행','후속조치','종료']);
+  await page.locator('#ps3WsPhase').selectOption('consultation');
+  await page.locator('#ps3WsSave').click();
+  await expect.poll(()=>state.workstreams.find(x=>x.title==='선택 단계 확인')?.phase).toBe('consultation');
+  const saved=state.workstreams.find(x=>x.title==='선택 단계 확인');
+  await expect(page.locator(`[data-ps3-progress-item="${saved.id}"] .ps3-phase`)).toHaveText('협의');
+});
+
+test('recorded progress item has a visible edit action that saves title and phase once',async({page})=>{
+  const state=baseState();state.workstreams[0].phase='preparation';await mockApp(page,state);
+  const probe=await saveProbe(page,'app_project_workstreams','PATCH');
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  const item=page.locator('[data-ps3-progress-item="ws-1"]');
+  const edit=item.locator(':scope > summary [data-ps3-edit-ws]');
+  await expect(edit).toBeVisible();
+  await edit.click();
+  await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
+  await expect(item).not.toHaveAttribute('open','');
+  await expect(page.locator('#ps3WsPhase')).toHaveValue('preparation');
+  await page.locator('#ps3WsTitle').fill('수정한 진행상황');
+  await page.locator('#ps3WsPhase').selectOption('execution');
+  const button=page.locator('#ps3WsSave');
+  await button.click();await expect.poll(()=>probe.count).toBe(1);
+  await expect(button).toBeDisabled();await button.dispatchEvent('click');
+  await page.waitForTimeout(150);expect(probe.count).toBe(1);
+  probe.release();
+  await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
+  await expect(item.locator('.ps3-pg-title')).toHaveText('수정한 진행상황');
+  await expect(item.locator('.ps3-phase')).toHaveText('실행');
+  expect(state.restCalls.filter(x=>x.name==='app_project_workstreams'&&x.method==='PATCH')).toEqual([
+    expect.objectContaining({body:{title:'수정한 진행상황',phase:'execution'}})
+  ]);
 });
 
 test('progress list shows status and title, then the latest record and date on one line',async({page})=>{
@@ -551,7 +591,7 @@ test('progress list shows status and title, then the latest record and date on o
   await expect(item.locator('.ps3-pg-record')).toHaveCount(2);
   await expect(item.locator('.ps3-pg-history')).toContainText('국토부 후속협의 준비');
   await expect(item.locator('.ps3-pg-history')).toContainText('다음: 현장 조직 의견을 취합해 최종 요구안을 확정');
-  await expect(item.locator('[data-ps3-edit-ws]')).toHaveText('항목 수정');
+  await expect(item.locator(':scope > summary [data-ps3-edit-ws]')).toHaveText('수정');
   await item.locator('[data-ps3-progress-ws="ws-1"]').click();
   await expect(page.locator('#ps3ProgressModal')).toBeVisible();
   await expect(page.locator('#ps3ProgressWs')).toHaveValue('ws-1');
@@ -903,6 +943,8 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
   await page.keyboard.press('Enter');
   await expect(item).toHaveAttribute('open','');
   await page.keyboard.press('Tab');
+  await expect(item.locator(':scope > summary [data-ps3-edit-ws]')).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(item.locator('[data-ps3-progress-ws="ws-1"]')).toBeFocused();
 });
 
@@ -1123,11 +1165,11 @@ test('V3 project links an existing unlinked Google task',async({page})=>{
   }
 });
 
-async function saveProbe(page,table){
+async function saveProbe(page,table,method='POST'){
   const probe={count:0,hold:true,fail:false,waiters:[]};
   probe.release=()=>{probe.hold=false;probe.waiters.splice(0).forEach(resolve=>resolve())};
   await page.route(`${SB}/rest/v1/${table}**`,async route=>{
-    if(route.request().method()!=='POST')return route.fallback();
+    if(route.request().method()!==method)return route.fallback();
     probe.count++;
     if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
     if(probe.fail){probe.fail=false;return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'임시 저장 실패'})})}
