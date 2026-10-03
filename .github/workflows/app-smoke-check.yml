@@ -56,7 +56,7 @@ jobs:
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./team.js?v=60')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=61')",'await window.__KPTU_TEAM_READY__',
             "import('./view-loader.js?v=48')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
@@ -109,7 +109,7 @@ jobs:
           grep -q 'id="accessDeniedView"' app/index.html
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
-          grep -q "critical.css?v=8" app/index.html
+          grep -q "critical.css?v=9" app/index.html
           if grep -q "styles.css?v=51" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
@@ -140,7 +140,7 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=11" app/loader-v2.js
-          grep -q "team.js?v=60" app/loader-v2.js
+          grep -q "team.js?v=61" app/loader-v2.js
           grep -q "project-system-v3.js?v=33" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
@@ -175,7 +175,7 @@ jobs:
           grep -q "calendar-day-overflow.js?v=4" app/view-loader.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/view-loader.js
 
-          grep -q "topbar-actions.css?v=8" app/styles.css
+          grep -q "topbar-actions.css?v=9" app/styles.css
           grep -q "team.css?v=5" app/styles.css
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi

@@ -170,8 +170,9 @@
     if((current.expires_at||0)<Math.floor(Date.now()/1000)+60)return !!(await refresh());
     return true;
   }
-  async function apiRequest(path,{method='GET',body=null,prefer='',auth=true,headers={},timeoutMs=config.timeoutMs}={}){
-    if(auth&&!(await ensure()))throw sessionRequired();
+  async function apiRequest(path,{method='GET',body=null,prefer='',auth=true,headers={},timeoutMs=config.timeoutMs,refreshSession=true}={}){
+    if(auth&&refreshSession&&!(await ensure()))throw sessionRequired();
+    const requestEpoch=sessionEpoch;
     const url=path.startsWith('http')?path:config.url+path;
     const requestBody=body===null?null:(body instanceof FormData?body:JSON.stringify(body));
 
@@ -194,7 +195,7 @@
     }
 
     let r=await request();
-    if(auth&&r.status===401){
+    if(auth&&refreshSession&&r.status===401){
       const refreshed=await refresh();
       if(!refreshed)throw sessionRequired();
       r=await request();
@@ -211,6 +212,14 @@
         code:'http_'+r.status,
         retryable:retryableStatus(r.status)
       });
+    }
+    // Publish only successful write metadata, never source text or response content.
+    // Subscribers cannot change the original save result. Ignore stale-account writes.
+    if(auth&&requestEpoch===sessionEpoch&&['POST','PUT','PATCH','DELETE'].includes(method.toUpperCase())&&data?.ok!==false&&!data?.error&&!(prefer.includes('return=representation')&&Array.isArray(data)&&!data.length)){
+      const rows=body instanceof FormData?[]:(Array.isArray(body)?body:[body]);
+      const fields=[...new Set(rows.flatMap(row=>row&&typeof row==='object'?Object.keys(row):[]))];
+      const linked=(body instanceof FormData&&!!body.get('project_id'))||!!data?.document?.project_id||rows.some(row=>row?.project_id||row?.links?.some(link=>link.project_id))||data?.links?.some?.(link=>link.project_id);
+      try{window.dispatchEvent(new CustomEvent('kptu:api-saved',{detail:{path,method:method.toUpperCase(),fields,action:body?.action||'',projectLinked:!!linked,epoch:requestEpoch}}))}catch{}
     }
     return data;
   }
