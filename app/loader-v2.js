@@ -1,7 +1,7 @@
 (async()=>{
   const startup=window.__KPTU_STARTUP__;
   startup?.mark('loaderStart');
-  const runtimeReady=import('./runtime-client.js?v=6');
+  const runtimeReady=import('./runtime-client.js?v=7');
   await Promise.all([
     import('./native-auth-bridge.js?v=5'),
     import('./calendar-return-bridge.js?v=3')
@@ -115,7 +115,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=11'),
-    import('./team.js?v=60')
+    import('./team.js?v=61')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -124,6 +124,7 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
+  await import('./drive-summary.js?v=1');
 
   const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=4').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{
