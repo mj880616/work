@@ -137,6 +137,7 @@
 - 합계 **30개**: verify_jwt `true` **8개**, `false` **22개**. "production 함수는 모두 false"가 아니다.
 - 배포할 때 대상 함수의 값을 이 표와 직전 `functions list`로 확인하고 그대로 유지한다. `false`면 `--no-verify-jwt`를 붙이고, `true`면 붙이지 않는다. 배포 뒤 값이 바뀌면 이 표를 같은 PR에서 고친다.
 - `false`인 Web2 함수는 함수 코드에서 로그인 사용자를 확인한다. `false`인 Web1 공개 페이지 함수는 로그인 없이 비밀번호·Origin 확인으로 막는다(결정사항, 4절 1번).
+- DRV-요약 PR 1(2026-10-03)의 `drive-summary`는 **미배포 신규 함수**다. 아래 31행은 배포 계획이며 위 production 30개 합계에 포함하지 않는다. 예약 호출은 JWT 없이 비밀 헤더를 쓰므로 `verify_jwt=false`를 선택한다. 함수 내부에서 사용자 JWT를 Auth 서버로 검증하고 `kptu-work` 소유자 역할을 확인하거나, `x-drive-summary-cron-secret`을 `DRIVE_SUMMARY_CRON_SECRET`과 SHA-256 고정 길이 비교한다. 비밀값 미설정·불일치·비소유자는 거절한다.
 
 | # | 이름 | 제품 | 버전 | 마지막 배포(KST) | verify_jwt | 원본 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -170,6 +171,7 @@
 | 28 | `rtw-personal-write` | 읽생기 | v2 | 09-18 23:29 | false | read-think-write |
 | 29 | `rtw-recommend` | 읽생기 | v8 | 09-21 04:41 | false | read-think-write |
 | 30 | `rtw-url-import` | 읽생기 | v8 | 09-21 04:36 | **true** | read-think-write |
+| 31 (계획) | `drive-summary` | Web2(Drive 읽기용 사본) | 미배포 | 미배포 | false | work (DRV-요약 PR 1) |
 
 ### 5.1 ENV-6c 삭제 결과 확인
 
