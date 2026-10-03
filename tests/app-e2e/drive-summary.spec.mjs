@@ -1,8 +1,10 @@
 import {test,expect} from '@playwright/test';
 
+test.use({timezoneId:'UTC'});
+
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const success={ok:true,updated_at:'2026-10-03T03:27:00Z',documents:{org:'https://docs.google.com/document/d/mock-org/edit',project:'https://docs.google.com/document/d/mock-project/edit'}};
+const success={ok:true,updated_at:'2026-10-03T04:06:00Z',documents:{org:'https://docs.google.com/document/d/mock-org/edit',project:'https://docs.google.com/document/d/mock-project/edit'}};
 
 async function setup(page,{role='owner',reply=success,status=200,hold=false,saveStatus=200}={}){
   const calls=[],errors=[];let release;
@@ -33,6 +35,27 @@ async function save(page,table='app_suborganization_updates',body={raw_text:'moc
     document.querySelector('#saveStatus').textContent='저장했습니다.';
   },{table,body,method});
 }
+async function expectSingleLine(locator){
+  await expect(locator).toBeVisible();
+  const layout=await locator.evaluate(el=>{
+    const range=document.createRange();range.selectNodeContents(el);
+    const lines=[...range.getClientRects()].filter(rect=>rect.width>0);
+    const box=el.getBoundingClientRect(),parent=el.parentElement.getBoundingClientRect();
+    return {lines:lines.length,left:Math.min(...lines.map(rect=>rect.left)),right:Math.max(...lines.map(rect=>rect.right)),boxLeft:box.left,boxRight:box.right,parentLeft:parent.left,parentRight:parent.right};
+  });
+  expect(layout.lines).toBe(1);expect(layout.left).toBeGreaterThanOrEqual(layout.boxLeft);expect(layout.right).toBeLessThanOrEqual(layout.boxRight);
+  expect(layout.left).toBeGreaterThanOrEqual(layout.parentLeft);expect(layout.right).toBeLessThanOrEqual(layout.parentRight);
+}
+
+for(const [updated_at,expected] of [
+  ['2026-01-01T15:05:09Z','갱신 1/2 00:05'],
+  ['2026-10-03T14:59:59Z','갱신 10/3 23:59'],
+  ['2026-10-03T15:00:00Z','갱신 10/4 00:00']
+])test(`timestamp uses Seoul date and 24-hour time for ${updated_at}`,async({page})=>{
+  await setup(page,{reply:{...success,updated_at}});await manual(page);
+  await expect(page.locator('.drive-summary-time')).toHaveText(expected);
+});
+
 async function manual(page){await page.getByText('계정', {exact:true}).click();await page.getByRole('button',{name:'Drive 사본 지금 갱신'}).click()}
 
 test('one successful save waits four seconds and posts without a body',async({page})=>{
@@ -48,7 +71,7 @@ test('a burst of successful saves is debounced into one call',async({page})=>{
 test('saves during a request queue exactly one subsequent call',async({page})=>{
   const {calls,release}=await setup(page,{hold:true});await save(page);await page.clock.fastForward(4000);await expect.poll(()=>calls.length).toBe(1);
   await save(page);await save(page);await page.clock.fastForward(6000);expect(calls).toHaveLength(1);release();
-  await expect.poll(()=>calls.length).toBe(2);await expect(page.locator('[data-drive-summary-status]').first()).toContainText('갱신됨');
+  await expect.poll(()=>calls.length).toBe(2);await expect(page.locator('[data-drive-summary-status]').first()).toContainText('갱신 10/3 13:06');
   await page.clock.fastForward(5000);expect(calls).toHaveLength(2);
 });
 for(const status of [401,403,502])test(`summary failure ${status} preserves save success and session without console errors`,async({page})=>{
@@ -63,17 +86,17 @@ for(const role of ['admin','viewer',null])test(`non-owner ${role} has no automat
 });
 test('manual refresh locks repeated clicks and shows timestamp and two links',async({page})=>{
   const {calls,release}=await setup(page,{hold:true});await manual(page);await expect.poll(()=>calls.length).toBe(1);
-  const button=page.getByRole('button',{name:'갱신 중…'});await expect(button).toBeDisabled();await button.evaluate(el=>el.click());expect(calls).toHaveLength(1);release();
-  await expect(page.locator('[data-drive-summary-status]')).toContainText('갱신됨');await expect(page.locator('[data-drive-summary-status]')).toContainText('2026. 10. 3.');
-  await expect(page.getByRole('link',{name:'조직 사본'})).toHaveAttribute('href',success.documents.org);
-  await expect(page.getByRole('link',{name:'프로젝트 사본'})).toHaveAttribute('href',success.documents.project);
+  const button=page.getByRole('button',{name:'Drive 사본 지금 갱신'});await expect(button).toHaveText('갱신 중…');await expect(button).toBeDisabled();await button.evaluate(el=>el.click());expect(calls).toHaveLength(1);release();
+  await expect(page.locator('[data-drive-summary-status]')).toContainText('갱신 10/3 13:06');await expect(page.locator('[data-drive-summary-status]')).toHaveText('갱신 10/3 13:06조직 · 프로젝트');
+  await expect(page.getByRole('link',{name:'조직'})).toHaveAttribute('href',success.documents.org);
+  await expect(page.getByRole('link',{name:'프로젝트'})).toHaveAttribute('href',success.documents.project);
 });
 test('manual failure displays only the safe stage code',async({page})=>{
   await setup(page,{status:502,reply:{ok:false,error:'DRIVE_PERMISSION_CHECK_FAILED',documents:success.documents,private_detail:'never render'}});await manual(page);
   await expect(page.locator('[data-drive-summary-status]')).toHaveText('DRIVE_PERMISSION_CHECK_FAILED');await expect(page.getByRole('link')).toHaveCount(0);
 });
 test('manual refresh replaces a pending automatic refresh',async({page})=>{
-  const {calls}=await setup(page);await save(page);await manual(page);await expect(page.locator('[data-drive-summary-status]')).toContainText('갱신됨');
+  const {calls}=await setup(page);await save(page);await manual(page);await expect(page.locator('[data-drive-summary-status]')).toContainText('갱신 10/3 13:06');
   await page.clock.fastForward(5000);expect(calls).toHaveLength(1);
 });
 test('failed source save never schedules a refresh',async({page})=>{
@@ -118,7 +141,7 @@ test('unlinked URL document creation does not refresh',async({page})=>{
 });
 test('a summary response delayed beyond fifteen seconds remains locked and succeeds',async({page})=>{
   const {calls,release}=await setup(page,{hold:true});await manual(page);await expect.poll(()=>calls.length).toBe(1);await page.clock.fastForward(20000);
-  await expect(page.getByRole('button',{name:'갱신 중…'})).toBeDisabled();expect(calls).toHaveLength(1);release();await expect(page.locator('[data-drive-summary-status]')).toContainText('갱신됨');
+  const button=page.getByRole('button',{name:'Drive 사본 지금 갱신'});await expect(button).toHaveText('갱신 중…');await expect(button).toBeDisabled();expect(calls).toHaveLength(1);release();await expect(page.locator('[data-drive-summary-status]')).toContainText('갱신 10/3 13:06');
 });
 test('meeting attachment inherits its project from the successful server response',async({page})=>{
   const {calls}=await setup(page);
@@ -156,5 +179,23 @@ for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,9
   const menu=page.locator('#appView>.app-nav [data-drive-summary-menu]');
   await menu.locator('summary').click();const button=menu.locator('[data-drive-summary-refresh]');await expect(button).toBeVisible();
   const box=await button.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
-  await button.click();await expect(menu.locator('[data-drive-summary-status]')).toContainText('갱신됨');expect(calls).toBe(lateUpload?3:2);
+  await expect(button).toHaveText('사본 갱신');
+  await expect(button).toHaveAttribute('aria-label','Drive 사본 지금 갱신');
+  await expect(button).toHaveAttribute('title','Drive 사본 지금 갱신');
+  await expectSingleLine(button);
+  await button.click();await expect(menu.locator('[data-drive-summary-status]')).toContainText('갱신 10/3 13:06');expect(calls).toBe(lateUpload?3:2);
+  await expectSingleLine(menu.locator('.drive-summary-time'));
+  const links=menu.getByRole('link');await expect(links).toHaveCount(2);
+  for(const [i,kind] of ['org','project'].entries()){
+    await expect(links.nth(i)).toHaveAttribute('href',success.documents[kind]);
+    await expect(links.nth(i)).toHaveAttribute('target','_blank');
+    await expect(links.nth(i)).toHaveAttribute('rel','noopener noreferrer');
+  }
+  const orgBox=await links.nth(0).boundingBox(),projectBox=await links.nth(1).boundingBox();
+  expect(orgBox.y).toBe(projectBox.y);expect(projectBox.x).toBeGreaterThan(orgBox.x+orgBox.width);
+  await page.route(`${SB}/functions/v1/drive-summary`,route=>route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'DRIVE_PERMISSION_CHECK_FAILED'})}));
+  await button.click();const status=menu.locator('[data-drive-summary-status]');
+  await expect(status).toHaveText('DRIVE_PERMISSION_CHECK_FAILED');
+  const layout=await status.evaluate(el=>({width:el.clientWidth,scrollWidth:el.scrollWidth,wordBreak:getComputedStyle(el).wordBreak}));
+  expect(layout.wordBreak).toBe('keep-all');expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width);
 });
