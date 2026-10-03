@@ -129,7 +129,6 @@ test('meeting attachment inherits its project from the successful server respons
 for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,900,true]])test(`actual app meeting save and account menu work at ${width}px with late attachment ${lateUpload}`,async({page})=>{
   await page.setViewportSize({width,height});let calls=0;const meetings=[];
   let releaseUpload,uploadStarted=false;const uploadGate=new Promise(resolve=>releaseUpload=resolve);
-  await page.addInitScript(()=>localStorage.setItem('kptu_collab_session_v1',JSON.stringify({user:{id:'mock-owner'},access_token:'mock-access',expires_at:Math.floor(Date.now()/1000)+3600})));
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
@@ -144,6 +143,8 @@ for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,9
     if(path==='/functions/v1/google-tasks')return ok({tasks:[],links:[],connected:true});
     return ok([]);
   });
+  await page.goto(`${BASE}/tests/app-e2e/runtime-client-fixture.html`);
+  await page.evaluate(()=>window.KPTURuntime.session.write({user:{id:'mock-owner'},access_token:'mock-access',expires_at:Math.floor(Date.now()/1000)+3600}));
   await page.goto(`${BASE}/app/?view=meetings`);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   await page.clock.install();await page.locator('#newMeetingBtn').click();
   if(await page.locator('#meetingNameSelect').isVisible())await page.locator('#meetingNameSelect').selectOption('__other__');await page.locator('#meetingTitle').fill('Mock meeting');
