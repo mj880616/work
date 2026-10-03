@@ -124,7 +124,7 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  await import('./drive-summary.js?v=1');
+  await import('./drive-summary.js?v=2');
 
   const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=4').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{

@@ -49,17 +49,25 @@
   }
   function render(){
     for(const button of document.querySelectorAll('[data-drive-summary-refresh]')){
-      button.disabled=!!flight;button.textContent=flight?'갱신 중…':'Drive 사본 지금 갱신';
+      button.disabled=!!flight;button.textContent=flight?'갱신 중…':'사본 갱신';
       button.setAttribute('aria-busy',String(!!flight));
     }
     for(const status of document.querySelectorAll('[data-drive-summary-status]')){
       status.replaceChildren();
       if(!result)continue;
-      if(!result.ok){status.textContent=result.error;continue}
-      status.textContent='갱신됨 · '+new Date(result.updated_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+' (KST)';
-      for(const [kind,label] of [['org','조직 사본'],['project','프로젝트 사본']]){
-        const link=document.createElement('a');link.href=result.documents[kind];link.textContent=label;link.target='_blank';link.rel='noopener noreferrer';status.append(document.createTextNode(' '),link);
+      if(!result.ok){
+        const words=result.error.split('_');
+        words.forEach((word,index)=>{status.append(document.createTextNode(word+(index<words.length-1?'_':'')));if(index<words.length-1)status.append(document.createElement('wbr'))});
+        continue;
       }
+      const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(result.updated_at)).map(part=>[part.type,part.value]));
+      const time=document.createElement('span');time.className='drive-summary-time';time.textContent=`갱신 ${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`;
+      const links=document.createElement('div');links.className='drive-summary-links';
+      for(const [kind,label] of [['org','조직'],['project','프로젝트']]){
+        if(links.childNodes.length)links.append(document.createTextNode(' · '));
+        const link=document.createElement('a');link.href=result.documents[kind];link.textContent=label;link.target='_blank';link.rel='noopener noreferrer';links.append(link);
+      }
+      status.append(time,links);
     }
   }
   async function run(manual=false){
@@ -96,6 +104,7 @@
       const summary=document.createElement('summary');summary.textContent='계정';
       const panel=document.createElement('div');panel.className='drive-summary-panel';
       const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.driveSummaryRefresh='';button.addEventListener('click',()=>void run(true));
+      button.setAttribute('aria-label','Drive 사본 지금 갱신');button.title='Drive 사본 지금 갱신';
       const status=document.createElement('div');status.dataset.driveSummaryStatus='';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
       panel.append(button,status);menu.append(summary,panel);logout.before(menu);
     }
