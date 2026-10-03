@@ -58,6 +58,7 @@ async function signIn(page){
   await expect(page.locator('#meetingsView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
 }
+async function fillMeetingName(page,name){const select=page.locator('#meetingNameSelect');if(await select.isVisible())await select.selectOption('__other__');await page.locator('#meetingTitle').fill(name)}
 
 test('meeting create modal exposes the task 9 fields only',async({page})=>{
   await signIn(page);
@@ -95,7 +96,7 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
   });
 
   await page.locator('#newMeetingBtn').click();
-  await page.locator('#meetingTitle').fill('궤도협의회 집행위원회');
+  await fillMeetingName(page,'궤도협의회 집행위원회');
   await page.locator('#meetingRoundNo').fill('8');
   await page.locator('#meetingAt').fill('2026-09-25T14:00');
   await page.locator('#meetingProject').selectOption('child');
@@ -143,7 +144,7 @@ test('repeated meeting save submits one meeting and one Google follow-up',async(
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:{id:'google-once'}})});
   });
   await page.locator('#newMeetingBtn').click();
-  await page.locator('#meetingTitle').fill('중복 방지 회의');
+  await fillMeetingName(page,'중복 방지 회의');
   await page.locator('#meetingAt').fill('2026-09-29T09:00');
   await page.locator('#meetingTranscript').fill('결과');
   await page.locator('.meeting-action-title').fill('후속');
@@ -172,7 +173,7 @@ test('failed meeting create restores its save button for a retry',async({page})=
     return route.fulfill({status:200,contentType:'application/json',body:'[]'});
   });
   await page.locator('#newMeetingBtn').click();
-  await page.locator('#meetingTitle').fill('재시도 회의');
+  await fillMeetingName(page,'재시도 회의');
   await page.locator('#meetingAt').fill('2026-09-29T09:00');
   await page.locator('#meetingTranscript').fill('결과');
   await page.locator('#saveMeetingBtn').click();
@@ -193,7 +194,7 @@ test('a Google follow-up failure leaves the saved meeting available without anot
   });
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'Google 저장 실패'})}));
   await page.locator('#newMeetingBtn').click();
-  await page.locator('#meetingTitle').fill('새 회의');
+  await fillMeetingName(page,'새 회의');
   await page.locator('#meetingAt').fill('2026-09-25T14:00');
   await page.locator('#meetingTranscript').fill('회의 결과');
   await page.locator('.meeting-action-title').fill('후속');
@@ -221,7 +222,7 @@ test('meeting material upload attempts every selected file and reports partial f
   });
 
   await page.locator('#newMeetingBtn').click();
-  await page.locator('#meetingTitle').fill('자료 첨부 회의');
+  await fillMeetingName(page,'자료 첨부 회의');
   await page.locator('#meetingAt').fill('2026-09-25T14:00');
   await page.locator('#meetingTranscript').fill('회의 결과 원문');
   await page.locator('#meetingFiles').setInputFiles([
@@ -307,7 +308,7 @@ test('meeting names keep colors after reload and after older meetings are added'
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(savedRows)});
   });
   await page.locator('#newMeetingBtn').click();
-  await page.locator('#meetingTitle').fill('궤도협의회');
+  await page.locator('#meetingNameSelect').selectOption({label:'궤도협의회'});
   await page.locator('#meetingAt').fill('2026-10-03T10:00');
   await page.locator('#meetingTranscript').fill('모의 결과');
   await page.locator('#saveMeetingBtn').click();
@@ -341,26 +342,83 @@ test('new meeting suggests the next round from loaded names without extra reques
   page.on('request',request=>{if(request.url().startsWith(SB))requests++});
   await page.locator('#newMeetingBtn').click();
   expect(requests).toBe(0);
-  const title=page.locator('#meetingTitle'),round=page.locator('#meetingRoundNo');
-  await title.fill(' alpha   team ');
+  const title=page.locator('#meetingTitle'),round=page.locator('#meetingRoundNo'),select=page.locator('#meetingNameSelect');
+  await select.selectOption('Alpha  Team');
   await expect(round).toHaveValue('8');
-  await title.fill('다른 회의');
+  await select.selectOption({label:'다른 회의'});
   await expect(round).toHaveValue('');
+  await select.selectOption('__other__');
   await title.fill('없는 회의');
   await expect(round).toHaveValue('');
-  await title.fill('ALPHA TEAM');
+  await title.fill('ALPHATEAM');
+  await expect(page.locator('#meetingNameMatch')).toContainText('같은 회의가 있습니다');
+  await page.locator('#meetingNameUseMatch').click();
   await expect(round).toHaveValue('8');
   await round.fill('14');
-  await title.fill('다른 회의');
+  await select.selectOption({label:'다른 회의'});
   await expect(round).toHaveValue('14');
   await round.fill('');
+  await select.selectOption('__other__');
   await title.fill('alpha team');
   await expect(round).toHaveValue('');
   await page.locator('#meetingModal [data-close]').click();
   await page.locator('#newMeetingBtn').click();
-  await title.fill('alpha team');
+  await select.selectOption('Alpha  Team');
   await expect(round).toHaveValue('8');
   expect(requests).toBe(0);
+});
+
+test('name choices group whitespace variants by latest spelling and suggest their shared round without requests',async({page})=>{
+  await signIn(page);
+  const rows=[
+    {...meeting,id:'recent',series_name:'주간 회의',round_no:4,meeting_at:'2026-10-02T01:00:00Z'},
+    {...meeting,id:'second',series_name:'월간회의',round_no:2,meeting_at:'2026-10-01T01:00:00Z'},
+    {...meeting,id:'old',series_name:'주간회의',round_no:7,meeting_at:'2026-09-01T01:00:00Z'}
+  ];
+  await showMeetings(page,rows);
+  expect(await stripe(page.locator('[data-mrd-meeting="recent"]'))).toBe(await stripe(page.locator('[data-mrd-meeting="old"]')));
+  let requests=0;page.on('request',request=>{if(request.url().startsWith(SB))requests++});
+  await page.locator('#newMeetingBtn').click();
+  await expect(page.locator('#meetingNameSelect option')).toHaveText(['회의명 선택','주간 회의','월간회의','기타(직접 입력)']);
+  await page.locator('#meetingNameSelect').selectOption({label:'주간 회의'});
+  await expect(page.locator('#meetingRoundNo')).toHaveValue('8');
+  await expect(page.locator('#meetingTitle')).toHaveValue('주간 회의');
+  expect(requests).toBe(0);
+});
+
+test('custom name match offers the recent spelling and choosing it fills the round',async({page})=>{
+  await signIn(page);
+  await showMeetings(page,[{...meeting,series_name:'주간 회의',round_no:3}]);
+  await page.locator('#newMeetingBtn').click();
+  await page.locator('#meetingNameSelect').selectOption('__other__');
+  await page.locator('#meetingTitle').fill(' 주간회의 ');
+  await expect(page.locator('#meetingNameMatch')).toContainText('같은 회의가 있습니다: 주간 회의');
+  await page.locator('#meetingNameUseMatch').click();
+  await expect(page.locator('#meetingNameSelect')).toHaveValue('주간 회의');
+  await expect(page.locator('#meetingRoundNo')).toHaveValue('4');
+});
+
+test('empty meeting list opens a visible custom name input',async({page})=>{
+  await signIn(page);await showMeetings(page,[]);
+  await page.locator('#newMeetingBtn').click();
+  await expect(page.locator('#meetingTitle')).toBeVisible();
+});
+
+test('edit can replace a meeting name with an existing choice',async({page})=>{
+  await signIn(page);
+  const rows=[meeting,{...meeting,id:'other-name',series_name:'통일할 회의',title:'통일할 회의',meeting_at:'2026-09-18T10:00:00Z'}];
+  await showMeetings(page,rows);
+  let saved=null;
+  await page.route(`${SB}/rest/v1/app_meetings**`,route=>{
+    if(route.request().method()==='PATCH'){saved=route.request().postDataJSON();return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:meeting.id}])})}
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)});
+  });
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await page.locator('#mrdEdit').click();
+  await page.locator('#mrdEditNameSelect').selectOption({label:'통일할 회의'});
+  await page.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>saved).not.toBeNull();
+  expect(saved.title).toBe('통일할 회의');expect(saved.series_name).toBe('통일할 회의');
 });
 
 test('meeting palette has 12 distinct non-red colors visible on light and dark surfaces',async()=>{
@@ -510,6 +568,7 @@ test('renaming a legacy meeting normalizes title and series_name to the one user
   });
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
   await page.locator('#mrdEdit').click();
+  await page.locator('#mrdEditNameSelect').selectOption('__other__');
   await page.locator('#mrdEditTitle').fill('궤도협의회 집행위원회');
   await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>saved).not.toBeNull();
@@ -847,9 +906,9 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=59')");
+  expect(loader).toContain("import('./team.js?v=60')");
   expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=19');
+  expect(views).toContain('meeting-round-detail.js?v=20');
   expect(views).toContain('meeting-ui.css?v=10');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
