@@ -97,7 +97,7 @@ async function projects(){
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=23');
-  await module('./project-system-v3.js?v=32','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=33','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
