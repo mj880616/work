@@ -34,6 +34,8 @@
   window.KPTUCalendarDayOverflow={apply,open};
   document.addEventListener('click',event=>{
     if(!event.target.closest?.('#calendarDayList .cal-event'))return;
+    // The task handler closes this list and waits for its history traversal before opening the editor.
+    if(event.target.closest('[data-calendar-task]'))return;
     const modal=document.querySelector('#calendarDayModal');modal?.classList.add('hidden');modal?.setAttribute('aria-hidden','true');
   });
   window.__KPTU_CALENDAR_DAY_OVERFLOW_READY__=Promise.resolve(true);

@@ -134,7 +134,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=49');
+  await import('./view-loader.js?v=50');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');
@@ -190,7 +190,7 @@
     startup?.mark('requestedViewFailed',{view:requested});
   }
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
-  import('./mobile-modal-history.js?v=1').catch(()=>{});
+  import('./mobile-modal-history.js?v=2').catch(()=>{});
   const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
   await mobileNavigationReady;
 })().catch(err=>{

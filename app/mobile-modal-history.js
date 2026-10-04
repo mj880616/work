@@ -23,6 +23,19 @@
     }
   }
 
+  // Consume the old overlay entry before showing its successor. A microtask runs
+  // after every popstate listener has handled the traversal, without a timer.
+  function closeThen(modal,openNext){
+    const waitForBack=mq.matches&&modal?.dataset.kptuHistoryOpen==='1'&&history.state?.kptuOverlay===modal.id;
+    if(waitForBack)window.addEventListener('popstate',()=>queueMicrotask(openNext),{once:true});
+    modal?.classList.add('hidden');
+    modal?.setAttribute('aria-hidden','true');
+    window.KPTUA11y?.dialog.deactivate?.(modal,{restoreFocus:false});
+    if(modal)sync(modal);
+    if(!waitForBack)openNext();
+  }
+  window.KPTUMobileModalHistory={closeThen};
+
   function watch(modal){
     if(!modal||watched.has(modal))return;
     watched.add(modal);

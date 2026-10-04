@@ -47,13 +47,22 @@ function schedule(delay=FETCH_DELAY_MS,force=false){
   clearTimeout(timer);
   timer=setTimeout(()=>{if(shown()&&(force||Date.now()-fetchedAt>=REFRESH_MIN_MS))refresh()},delay);
 }
-function open(id){const t=tasks.find(x=>x.id===id);if(t)api()?.openEditor?.(t)}
+function open(id,dayModal){
+  const t=tasks.find(x=>x.id===id);if(!t)return;
+  const show=()=>api()?.openEditor?.(t);
+  if(dayModal&&window.KPTUMobileModalHistory)window.KPTUMobileModalHistory.closeThen(dayModal,show);
+  else{
+    dayModal?.classList.add('hidden');dayModal?.setAttribute('aria-hidden','true');
+    if(dayModal)window.KPTUA11y?.dialog.deactivate?.(dayModal,{restoreFocus:false});
+    show();
+  }
+}
 function boot(){
   owner=currentOwner();
   document.addEventListener('click',e=>{
     const b=e.target.closest?.('[data-calendar-task]');
     if(!b||window.KPTUCalendarMonthView?.suppressClick?.())return;
-    e.preventDefault();open(b.dataset.calendarTask);
+    e.preventDefault();open(b.dataset.calendarTask,b.closest('#calendarDayModal'));
   });
   window.KPTURouter?.on?.('calendar',()=>{applyCopy();schedule()});
   // A save or delete from the task editor (opened here or elsewhere) is read again at once while the calendar is shown.
