@@ -36,15 +36,21 @@ async function save(page,table='app_suborganization_updates',body={raw_text:'moc
   },{table,body,method});
 }
 async function expectSingleLine(locator){
-  await expect(locator).toBeVisible();
-  const layout=await locator.evaluate(el=>{
-    const range=document.createRange();range.selectNodeContents(el);
-    const lines=[...range.getClientRects()].filter(rect=>rect.width>0);
-    const box=el.getBoundingClientRect(),parent=el.parentElement.getBoundingClientRect();
-    return {lines:lines.length,left:Math.min(...lines.map(rect=>rect.left)),right:Math.max(...lines.map(rect=>rect.right)),boxLeft:box.left,boxRight:box.right,parentLeft:parent.left,parentRight:parent.right};
-  });
-  expect(layout.lines).toBe(1);expect(layout.left).toBeGreaterThanOrEqual(layout.boxLeft);expect(layout.right).toBeLessThanOrEqual(layout.boxRight);
-  expect(layout.left).toBeGreaterThanOrEqual(layout.parentLeft);expect(layout.right).toBeLessThanOrEqual(layout.parentRight);
+  // Refresh replaces the timestamp; resolve the locator again on every attempt.
+  await expect(async()=>{
+    await expect(locator).toBeVisible();
+    const layout=await locator.evaluate(el=>{
+      const parentElement=el.parentElement;
+      if(!el.isConnected||!parentElement)return null;
+      const range=document.createRange();range.selectNodeContents(el);
+      const lines=[...range.getClientRects()].filter(rect=>rect.width>0);
+      const box=el.getBoundingClientRect(),parent=parentElement.getBoundingClientRect();
+      return {lines:lines.length,left:Math.min(...lines.map(rect=>rect.left)),right:Math.max(...lines.map(rect=>rect.right)),boxLeft:box.left,boxRight:box.right,parentLeft:parent.left,parentRight:parent.right};
+    });
+    expect(layout,'the measured element must still be attached').not.toBeNull();
+    expect(layout.lines).toBe(1);expect(layout.left).toBeGreaterThanOrEqual(layout.boxLeft);expect(layout.right).toBeLessThanOrEqual(layout.boxRight);
+    expect(layout.left).toBeGreaterThanOrEqual(layout.parentLeft);expect(layout.right).toBeLessThanOrEqual(layout.parentRight);
+  }).toPass({timeout:5000});
 }
 
 for(const [updated_at,expected] of [
