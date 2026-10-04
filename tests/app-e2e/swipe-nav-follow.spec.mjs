@@ -49,8 +49,169 @@ async function swipe(page,selector,direction='left'){
     fire('touchmove',startX+(endX-startX)*.55);
     fire('touchend',endX,'changedTouches');
   },direction);
-  await page.waitForTimeout(260);
+  await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);
 }
+
+// Exercise the real touch handlers; API calls are mocked only at the network boundary.
+async function touchSequence(page,selector,{dx=-170,dy=2,phase='all',count=1}={}){
+  return page.locator(selector).first().evaluate((el,{dx,dy,phase,count})=>{
+    const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+    const fire=(type,px,py)=>{
+      const event=new Event(type,{bubbles:true,cancelable:true});
+      const points=Array.from({length:count},(_,i)=>({clientX:px+i*10,clientY:py}));
+      Object.defineProperty(event,type==='touchend'?'changedTouches':'touches',{value:points});
+      el.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    if(phase==='all'||phase==='start')fire('touchstart',x,y);
+    let prevented=false;
+    if(phase==='all'||phase==='move')prevented=fire('touchmove',x+dx,y+dy);
+    const panel=el.closest('.view-panel'),transform=panel?.style.transform||'';
+    if(phase==='all'||phase==='end')fire('touchend',x+dx,y+dy);
+    return {prevented,transform};
+  },{dx,dy,phase,count});
+}
+
+async function setScale(page,scale){
+  await page.evaluate(scale=>{
+    Object.defineProperty(window.visualViewport,'scale',{configurable:true,get:()=>scale});
+    window.visualViewport.dispatchEvent(new Event('resize'));
+  },scale);
+}
+
+async function openMobileApp(page){
+  await page.setViewportSize({width:390,height:844});
+  await mockApp(page);
+  await login(page);
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
+  await expect(page.locator('#calendarGrid .cal-cell').first()).toBeVisible();
+}
+
+// Removing the zoom guard must cause prevention, a panel transform or a route/month change.
+test('zoomed calendar, tasks and projects release both pan axes and restore normal swipes',async({page})=>{
+  await openMobileApp(page);
+  await page.clock.install();
+  const monthBefore=await page.locator('#monthTitle').textContent();
+  await setScale(page,2);
+  for(const [view,selector] of [['calendar','.calendar-toolbar'],['calendar','#calendarGrid .cal-cell'],['tasks','#tasksView'],['projects','#projectsView']]){
+    await page.evaluate(view=>window.KPTURouter.go(view,{source:'test'}),view);
+    await expect(page.locator(selector).first()).toBeVisible();
+    expect(await page.locator(selector).first().evaluate(el=>getComputedStyle(el).touchAction)).toBe('auto');
+    for(const direction of [{dx:-170},{dx:170},{dx:0,dy:100},{dx:0,dy:-100}]){
+      expect(await touchSequence(page,selector,direction)).toEqual({prevented:false,transform:''});
+      // Drain the existing swipe animation timers without a wall-clock sleep.
+      await page.clock.fastForward(1000);
+      expect(await page.evaluate(()=>window.KPTURouter.current)).toBe(view);
+      expect(await page.locator('#monthTitle').textContent()).toBe(monthBefore);
+    }
+  }
+  await setScale(page,1);
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
+  const motion=await touchSequence(page,'.calendar-toolbar');
+  expect(motion.prevented).toBe(true);
+  expect(motion.transform).toContain('translate3d');
+  await page.clock.fastForward(1000);
+  await expect(page.locator('#tasksView')).toBeVisible();
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
+  await touchSequence(page,'#calendarGrid .cal-cell');
+  await expect.poll(()=>page.locator('#monthTitle').textContent()).not.toBe(monthBefore);
+});
+
+test('normal scale tolerates small errors and allows pinch zoom without taking vertical scroll',async({page})=>{
+  await openMobileApp(page);
+  await setScale(page,1.005);
+  expect(await page.locator('.calendar-toolbar').evaluate(el=>getComputedStyle(el).touchAction)).toBe('pan-y pinch-zoom');
+  expect(await page.locator('#calendarGrid').evaluate(el=>getComputedStyle(el).touchAction)).toBe('pan-y pinch-zoom');
+  expect(await touchSequence(page,'.calendar-toolbar',{dx:2,dy:100})).toEqual({prevented:false,transform:''});
+  const motion=await touchSequence(page,'.calendar-toolbar');
+  expect(motion.prevented).toBe(true);
+  await expect(page.locator('#tasksView')).toBeVisible();
+});
+
+test('zoom and a second finger cancel active swipes before movement, release and queued navigation',async({page})=>{
+  await openMobileApp(page);
+  // Load the destination first so a wrongly queued route cannot hide behind lazy loading.
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'test'}));
+  await expect(page.locator('#tasksView')).toBeVisible();
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
+  await expect(page.locator('#calendarView')).toBeVisible();
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now()+1000));
+  const monthBefore=await page.locator('#monthTitle').textContent();
+  for(const selector of ['.calendar-toolbar','#calendarGrid .cal-cell']){
+    for(const phase of ['move','end']){
+      await touchSequence(page,selector,{phase:'start'});
+      if(phase==='end')await touchSequence(page,selector,{phase:'move'});
+      await setScale(page,2);
+      expect(await touchSequence(page,selector,{phase})).toEqual({prevented:false,transform:''});
+      await page.clock.fastForward(1000);
+      expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
+      expect(await page.locator('#monthTitle').textContent()).toBe(monthBefore);
+      await setScale(page,1);
+    }
+    await touchSequence(page,selector,{phase:'start'});
+    await touchSequence(page,selector,{phase:'start',count:2});
+    expect(await touchSequence(page,selector,{phase:'move'})).toEqual({prevented:false,transform:''});
+    await touchSequence(page,selector,{phase:'end'});
+    await page.clock.fastForward(1000);
+    expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
+    expect(await page.locator('#monthTitle').textContent()).toBe(monthBefore);
+  }
+  expect((await touchSequence(page,'.calendar-toolbar')).prevented).toBe(true);
+  await setScale(page,2);
+  await page.clock.fastForward(1000);
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
+  await setScale(page,1);
+  expect((await touchSequence(page,'.calendar-toolbar')).prevented).toBe(true);
+  await setScale(page,2);
+  await setScale(page,1);
+  await page.clock.fastForward(1000);
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
+  expect((await touchSequence(page,'.calendar-toolbar')).prevented).toBe(true);
+  await touchSequence(page,'.calendar-toolbar',{phase:'start',count:2});
+  await page.clock.fastForward(1000);
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
+  const prevented=await page.locator('.calendar-toolbar').evaluate(el=>{
+    const r=el.getBoundingClientRect(),y=r.top+r.height/2;
+    const fire=(type,x)=>{
+      const e=new Event(type,{bubbles:true,cancelable:true});
+      Object.defineProperty(e,type==='touchend'?'changedTouches':'touches',{value:[{clientX:x,clientY:y}]});
+      el.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    const results=[];
+    for(let i=0;i<2;i++){
+      fire('touchstart',300);results.push(fire('touchmove',200));fire('touchend',130);
+    }
+    for(const scale of [2,1]){
+      Object.defineProperty(visualViewport,'scale',{configurable:true,get:()=>scale});
+      visualViewport.dispatchEvent(new Event('resize'));
+    }
+    return results;
+  });
+  expect(prevented).toEqual([true,true]);
+  await page.clock.fastForward(1000);
+  expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
+});
+
+test('Chromium page scale releases calendar touch action and restores it after zoom out',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:412,height:844},isMobile:true,hasTouch:true});
+  const page=await context.newPage();
+  try{
+    await mockApp(page);
+    await login(page);
+    await expect(page.locator('#calendarGrid')).toBeVisible();
+    const cdp=await context.newCDPSession(page);
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});
+    await expect.poll(()=>page.evaluate(()=>visualViewport.scale)).toBeGreaterThan(1.01);
+    await expect.poll(()=>page.locator('#calendarGrid').evaluate(el=>getComputedStyle(el).touchAction)).toBe('auto');
+    expect(await touchSequence(page,'.calendar-toolbar')).toEqual({prevented:false,transform:''});
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
+    await expect.poll(()=>page.locator('#calendarGrid').evaluate(el=>getComputedStyle(el).touchAction)).toBe('pan-y pinch-zoom');
+    expect((await touchSequence(page,'.calendar-toolbar')).prevented).toBe(true);
+    await expect(page.locator('#tasksView')).toBeVisible();
+  }finally{await context.close()}
+});
 
 test('active top menu follows swipe navigation and remains visible',async({page})=>{
   await page.setViewportSize({width:390,height:844});

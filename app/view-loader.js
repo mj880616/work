@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  calendar:['./calendar-ui.css?v=11'],
+  calendar:['./calendar-ui.css?v=12'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=17'],
   projects:['./project-system-v3.css?v=17','./forum-flow-polish.css?v=1','./google-tasks.css?v=17'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
@@ -61,7 +61,7 @@ function afterReveal(){
   });
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=9','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-month-view.js?v=10','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await projectCatalog();
   await team('calendar');
   await module('./calendar-plus.js?v=10','__KPTU_CALENDAR_PLUS_READY__');
