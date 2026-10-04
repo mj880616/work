@@ -60,7 +60,11 @@ test('the +N list shares pending and completed task styles',async({page})=>{
   await expectPending(taskChip(page,'overflow-pending','#calendarDayList'));
   // The existing day-list task button has weight 400; preserve it rather than imposing the month chip's 700.
   await expectDone(taskChip(page,'overflow-done','#calendarDayList'),'400');
-  // CAL-수정창닫힘: the existing mobile popstate race after a day-list task click is a separate task.
-  // This test keeps day-list styling checks; month-chip editor clicks are still covered above.
+  await page.evaluate(()=>{window.qaModalPops=0;window.addEventListener('popstate',()=>window.qaModalPops++)});
+  await taskChip(page,'overflow-pending','#calendarDayList').click();
+  await expect.poll(()=>page.evaluate(()=>window.qaModalPops)).toBe(1);
+  await expect(page.locator('#calendarDayModal')).toBeHidden();
+  await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await expect(page.locator('#gtTaskHeading')).toHaveText('Google 할 일 수정');
   expect(calls.some(c=>c.action==='toggle')).toBeFalsy();
 });

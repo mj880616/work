@@ -66,9 +66,9 @@ async function calendar(){
   await team('calendar');
   await module('./calendar-plus.js?v=10','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
-    module('./calendar-interactions-v2.js?v=10','__KPTU_CALENDAR_INTERACTIONS_READY__'),
+    module('./calendar-interactions-v2.js?v=11','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=5','__KPTU_CALENDAR_MOBILE_UI_READY__'),
-    module('./calendar-day-overflow.js?v=4','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
+    module('./calendar-day-overflow.js?v=5','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=13','__KPTU_CALENDAR_PERSISTENCE_READY__');
@@ -78,7 +78,7 @@ async function calendar(){
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
   // google-tasks.js.
-  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=17'),organizationOrder()])).then(()=>module('./google-tasks.js?v=23')).then(()=>module('./calendar-tasks.js?v=1')));
+  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=17'),organizationOrder()])).then(()=>module('./google-tasks.js?v=23')).then(()=>module('./calendar-tasks.js?v=2')));
   background(google.then(()=>module('./calendar-health.js?v=4')));
   return {ok:true}
 }
