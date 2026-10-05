@@ -60,7 +60,7 @@ async function boot(page){
 async function view(page,name){await page.locator('.app-nav [data-view="'+name+'"]').click();await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
 async function baseline(page){
  const cache=new Map();
- await page.route('http://127.0.0.1:8123/app/**',route=>{
+ await page.route(/^http:\/\/127\.0\.0\.1:8123\/(?:app|press)\//,route=>{
   let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
   if(!/\.(css|js|html)$/.test(path))return route.continue();
   if(!cache.has(path))cache.set(path,execFileSync('git',['show',BASE+':'+path],{encoding:'utf8'}));
