@@ -17,7 +17,7 @@
 
 ## 시각
 
-- 글자 크기는 4단계, 색은 남색 1종·회색·의미색, 모서리는 2단계로 정리한다.
+- 글자 크기는 4단계, 기본 색은 오트밀·올리브와 회색·의미색, 모서리는 2단계로 정리한다(2026-10-05 D-2 확정).
 - 회의 색 띠와 캘린더 일정 색은 유지한다. D-캘린더색 변경안은 취소했다.
 
 ## 시안 1: 홈, 접힘 폭
@@ -59,3 +59,49 @@
 - 게시판 카드 내용.
 - 조직 상세의 전체 화면 여부, 할 일 칸 위치, 목록의 미완료 개수.
 - 최근 3개 조직을 중복 표시할지.
+
+## D-2 확정 (2026-10-05)
+
+- 기본 테마는 오트밀·올리브. 남색, 크림·테라코타, 모래·갈색을 기기별로 선택한다. 네 테마의 모든 색 값 원본은 `app/theme-tokens.css`이며 D-3a에서 아래 값 그대로 적용한다.
+
+```css
+:root,[data-theme="olive"]{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-hover:#4d5a2c;--kptu-primary-ink:#47532a;
+  --kptu-primary-soft:#eef0e1;--kptu-on-primary:#ffffff;--kptu-link:#47532a;
+}
+[data-theme="navy"]{
+  --kptu-bg:#f5f6f7;--kptu-surface:#ffffff;--kptu-surface-subtle:#f8f9fa;
+  --kptu-ink:#1f2933;--kptu-muted:#66727f;--kptu-faint:#8a949e;
+  --kptu-border:#dfe4e8;--kptu-border-strong:#c9d1d8;
+  --kptu-primary:#263f5f;--kptu-primary-hover:#1f354f;--kptu-primary-ink:#355f86;
+  --kptu-primary-soft:#eef4f8;--kptu-on-primary:#ffffff;--kptu-link:#355f86;
+}
+[data-theme="terracotta"]{
+  --kptu-bg:#f7f2ea;--kptu-surface:#fffdf9;--kptu-surface-subtle:#fbf7f1;
+  --kptu-ink:#2b2521;--kptu-muted:#7a6d61;--kptu-faint:#95897c;
+  --kptu-border:#eadfd1;--kptu-border-strong:#d9c9b5;
+  --kptu-primary:#a8582a;--kptu-primary-hover:#934b22;--kptu-primary-ink:#7f3f1b;
+  --kptu-primary-soft:#f8e9dc;--kptu-on-primary:#ffffff;--kptu-link:#7f3f1b;
+}
+[data-theme="sand"]{
+  --kptu-bg:#f6f1e7;--kptu-surface:#fffcf6;--kptu-surface-subtle:#faf6ee;
+  --kptu-ink:#2e2924;--kptu-muted:#776c60;--kptu-faint:#938878;
+  --kptu-border:#e8dfcf;--kptu-border-strong:#d6c8b0;
+  --kptu-primary:#4a3d33;--kptu-primary-hover:#3c3129;--kptu-primary-ink:#7a5012;
+  --kptu-primary-soft:#f6ead1;--kptu-on-primary:#fffaf2;--kptu-link:#7a5012;
+}
+:root{
+  --kptu-danger:#b42318;--kptu-danger-soft:#fdecea;
+  --kptu-text-title:20px;--kptu-text-subtitle:16px;--kptu-text-body:14px;--kptu-text-meta:12px;
+  --kptu-touch-target:44px;
+}
+```
+
+- 글자 크기: 제목 20px, 부제목 16px, 본문 14px, 정보 12px. 버튼 보이는 높이 36px, 누르는 범위 최소 44px(D-3c 적용).
+- `--kptu-faint`는 안내 문구·비활성 전용이며, 12px 이하 정보 글자는 대비를 위해 `--kptu-muted`를 사용한다.
+- 의미 색 danger는 테마와 무관하게 `#b42318`, 연한 바탕 `#fdecea`로 고정한다. success·warning·info는 이번에 변경하지 않는다.
+- D-3a 화면 색은 로그아웃 옆 버튼과 작은 선택 창으로 제공한다. 폐기한 내 프로필은 복원하지 않고 D-4의 ☰ 메뉴 구현 때 이동한다.
+- D-시안묶음-1 임시 선택: 게시판 카드 390px B·760/1440px A, D-day 칩 B, 추가 문구 현재 유지. 새 색감 위에서 재확인한다.

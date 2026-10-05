@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ko">
 <head>
+<script data-kptu-theme-bootstrap>(()=>{let theme='olive';try{const value=localStorage.getItem('kptu-theme');if(['olive','navy','terracotta','sand'].includes(value))theme=value}catch{}document.documentElement.setAttribute('data-theme',theme)})();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>웹2</title>
@@ -8,19 +9,19 @@
 <link rel="icon" href="./app-icon.svg?v=20260924-unicorn3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260924-unicorn3">
 <link rel="manifest" href="./windows-manifest.json?v=6">
-<link rel="stylesheet" href="./critical.css?v=10">
+<link rel="stylesheet" href="./critical.css?v=12">
 <link rel="preload" as="style" href="./base-ui.css?v=6">
 <link rel="preload" as="style" href="./static-gates.css?v=3">
-<link rel="preload" as="style" href="./topbar-actions.css?v=10">
+<link rel="preload" as="style" href="./topbar-actions.css?v=12">
 <link rel="preload" as="style" href="./team.css?v=5">
 <link rel="preload" as="style" href="./workspace-ui.css?v=9">
 <link rel="preload" as="style" href="./desktop-ui.css?v=10">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=280">
+<link rel="modulepreload" href="./loader-v2.js?v=281">
 <link rel="modulepreload" href="./runtime-client.js?v=7">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=168" defer></script>
+<script src="./app.js?v=169" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -50,6 +51,7 @@
     <button class="nav-btn" data-view="pages" type="button">게시판</button>
     <button class="nav-btn" data-view="team" type="button">담당조직</button>
     <div class="sidebar-spacer" aria-hidden="true"></div>
+    <button id="sidebarThemeBtn" class="sidebar-utility hidden" data-theme-open type="button" aria-label="화면 색 선택" aria-haspopup="dialog" aria-controls="themeModal">화면 색</button>
     <button id="sidebarLogoutBtn" class="sidebar-utility hidden" type="button" data-kptu-logout>로그아웃</button>
   </nav>
 
@@ -121,4 +123,13 @@
 <div id="toast" class="toast hidden"></div>
 
 
+<div id="themeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="themeTitle" aria-hidden="true" data-kptu-history-all="1">
+  <div class="modal-card theme-panel">
+    <div class="modal-head"><h2 id="themeTitle">화면 색</h2><button class="ghost" data-close="themeModal" type="button" aria-label="화면 색 선택 창 닫기">닫기</button></div>
+    <div class="theme-choices"><button type="button" data-theme-choice="olive" aria-label="오트밀·올리브(기본)" aria-pressed="false"><span class="theme-swatch" data-theme="olive" aria-hidden="true"><i></i><i></i></span><span>오트밀·올리브(기본)</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
+<button type="button" data-theme-choice="navy" aria-label="남색" aria-pressed="false"><span class="theme-swatch" data-theme="navy" aria-hidden="true"><i></i><i></i></span><span>남색</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
+<button type="button" data-theme-choice="terracotta" aria-label="크림·테라코타" aria-pressed="false"><span class="theme-swatch" data-theme="terracotta" aria-hidden="true"><i></i><i></i></span><span>크림·테라코타</span><span class="theme-selected" aria-hidden="true">선택됨</span></button>
+<button type="button" data-theme-choice="sand" aria-label="모래·갈색" aria-pressed="false"><span class="theme-swatch" data-theme="sand" aria-hidden="true"><i></i><i></i></span><span>모래·갈색</span><span class="theme-selected" aria-hidden="true">선택됨</span></button></div>
+  </div>
+</div>
 </body></html>

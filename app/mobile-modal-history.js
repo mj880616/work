@@ -3,10 +3,11 @@
   window.__KPTU_MOBILE_MODAL_HISTORY__=true;
   const mq=window.matchMedia('(max-width:760px)');
   const watched=new WeakSet();
+  const tracks=modal=>mq.matches||modal?.dataset.kptuHistoryAll==='1';
   const isVisible=el=>!!el&&!el.classList.contains('hidden')&&getComputedStyle(el).display!=='none';
 
   function sync(modal){
-    if(!mq.matches||!modal.id)return;
+    if(!tracks(modal)||!modal.id)return;
     const open=isVisible(modal),tracked=modal.dataset.kptuHistoryOpen==='1';
     if(open&&!tracked){
       modal.dataset.kptuHistoryOpen='1';
@@ -26,7 +27,7 @@
   // Consume the old overlay entry before showing its successor. A microtask runs
   // after every popstate listener has handled the traversal, without a timer.
   function closeThen(modal,openNext){
-    const waitForBack=mq.matches&&modal?.dataset.kptuHistoryOpen==='1'&&history.state?.kptuOverlay===modal.id;
+    const waitForBack=tracks(modal)&&modal?.dataset.kptuHistoryOpen==='1'&&history.state?.kptuOverlay===modal.id;
     if(waitForBack)window.addEventListener('popstate',()=>queueMicrotask(openNext),{once:true});
     modal?.classList.add('hidden');
     modal?.setAttribute('aria-hidden','true');
@@ -48,8 +49,7 @@
   new MutationObserver(attach).observe(document.body,{childList:true,subtree:true});
 
   window.addEventListener('popstate',event=>{
-    if(!mq.matches)return;
-    const open=[...document.querySelectorAll('.modal')].filter(m=>isVisible(m)&&m.dataset.kptuHistoryOpen==='1').pop();
+    const open=[...document.querySelectorAll('.modal')].filter(m=>tracks(m)&&isVisible(m)&&m.dataset.kptuHistoryOpen==='1').pop();
     if(!open||event.state?.kptuOverlay===open.id)return;
     open.dataset.kptuHistoryClosing='pop';
     const button=open.querySelector(`[data-close="${open.id}"],[data-pm2-close="${open.id}"]`);

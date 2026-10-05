@@ -47,6 +47,12 @@ jobs:
           # or a truly device-local UI preference. User-created/shared content must
           # always be persisted to the server.
           allowed={
+              # 화면 색은 기기에만 두는 화면 설정이며 사용자 내용이 아님.
+              'app/index.html':[r"'kptu-theme'"],
+              'app/login/index.html':[r"'kptu-theme'"],
+              'app/topbar-actions.js':[r"'kptu-theme'"],
+              'tests/theme-bootstrap.test.mjs':[r'\bTHEME_STORAGE_KEY\b'],
+              'tests/app-e2e/theme.spec.mjs':[r'\bTHEME_STORAGE_KEY\b'],
               'index.html':[r'AUTH_KEY',r'AUTH_SESSION_KEY'],
               'app/task-project-routing.js':[r'TPR_SESSION'],
               'app/auth-handoff-client.js':[r'AH_SESSION'],

@@ -7,8 +7,8 @@ test.use({timezoneId:'Asia/Seoul'});
 
 async function expectPending(chip){
   await expect(chip).toHaveCSS('background-color','rgb(238, 244, 248)');
-  await expect(chip).toHaveCSS('color','rgb(53, 95, 134)');
-  await expect(chip).toHaveCSS('border-top-color','rgb(53, 95, 134)');
+  await expect(chip).toHaveCSS('color','rgb(71, 83, 42)');
+  await expect(chip).toHaveCSS('border-top-color','rgb(71, 83, 42)');
   await expect(chip).toHaveCSS('border-top-width','1px');
   await expect(chip).toHaveCSS('border-top-style','solid');
   await expect(chip).toHaveCSS('font-weight','800');
@@ -19,9 +19,9 @@ async function expectPending(chip){
 }
 
 async function expectDone(chip,weight='700'){
-  await expect(chip).toHaveCSS('background-color','rgb(255, 255, 255)');
-  await expect(chip).toHaveCSS('color','rgb(31, 41, 51)');
-  await expect(chip).toHaveCSS('border-top-color','rgb(207, 214, 220)');
+  await expect(chip).toHaveCSS('background-color','rgb(255, 254, 250)');
+  await expect(chip).toHaveCSS('color','rgb(42, 42, 35)');
+  await expect(chip).toHaveCSS('border-top-color','rgb(207, 200, 182)');
   await expect(chip).toHaveCSS('font-weight',weight);
   await expect(chip).toHaveCSS('opacity','0.55');
   await expect(chip.locator('.cmv-event-title')).toHaveCSS('text-decoration-line','line-through');
@@ -36,10 +36,10 @@ for(const width of [390,1280]){
     await expectDone(taskChip(page,'done'));
     const overdue=taskChip(page,'overdue');
     await expect(overdue).toHaveCSS('background-color','rgb(238, 244, 248)');
-    await expect(overdue).toHaveCSS('color','rgb(53, 95, 134)');
+    await expect(overdue).toHaveCSS('color','rgb(71, 83, 42)');
     await expect(overdue).toHaveCSS('font-weight','800');
-    await expect(overdue).toHaveCSS('border-top-color','rgb(154, 64, 72)');
-    await expect(overdue.locator('.cmv-task-mark')).toHaveCSS('color','rgb(154, 64, 72)');
+    await expect(overdue).toHaveCSS('border-top-color','rgb(180, 35, 24)');
+    await expect(overdue.locator('.cmv-task-mark')).toHaveCSS('color','rgb(180, 35, 24)');
     await expect(overdue).toHaveAttribute('aria-label',/기한 지남$/);
     for(const [i,color] of BLUE_COLORS.entries()){
       const rgb=color.slice(1).match(/../g).map(x=>parseInt(x,16));

@@ -114,7 +114,7 @@
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
-    import('./topbar-actions.js?v=11'),
+    import('./topbar-actions.js?v=12'),
     import('./team.js?v=61')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
@@ -190,7 +190,7 @@
     startup?.mark('requestedViewFailed',{view:requested});
   }
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
-  import('./mobile-modal-history.js?v=2').catch(()=>{});
+  import('./mobile-modal-history.js?v=3').catch(()=>{});
   const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
   await mobileNavigationReady;
 })().catch(err=>{
