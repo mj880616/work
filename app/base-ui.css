@@ -76,7 +76,7 @@ main{max-width:1120px;margin:0 auto;padding:34px 20px 80px}
 .tab.active{background:var(--kptu-surface);color:var(--kptu-primary);box-shadow:0 1px 4px rgba(20,33,48,.07)}
 label{display:flex;flex-direction:column;gap:var(--kptu-space-2);font-size:12px;font-weight:700;color:var(--kptu-muted);margin:var(--kptu-space-3) 0}
 input,select,textarea{width:100%;min-height:var(--kptu-control-height);border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);padding:8px var(--kptu-space-3);outline:none}
-input:focus,select:focus,textarea:focus{border-color:var(--kptu-info);box-shadow:0 0 0 3px var(--kptu-primary-soft)}
+input:focus,select:focus,textarea:focus{border-color:var(--kptu-primary-ink);box-shadow:0 0 0 3px var(--kptu-primary-soft)}
 textarea{resize:vertical}
 .primary,.secondary,.ghost,.danger,.mini{min-height:var(--kptu-control-height);border:1px solid transparent;border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);display:inline-flex;align-items:center;justify-content:center;gap:var(--kptu-space-1);font-size:12px;font-weight:700;line-height:1;white-space:nowrap;text-decoration:none}
 .mini{min-height:var(--kptu-action-compact-height);font-size:11px;padding:0 var(--kptu-space-2);background:var(--kptu-surface);color:var(--kptu-muted);border-color:var(--kptu-border)}
@@ -171,3 +171,14 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
   .body-editor{min-height:300px}
   .modal-foot{position:sticky;bottom:0;background:var(--kptu-surface);padding-bottom:calc(4px + env(safe-area-inset-bottom))}
 }
+
+/* Keep painted bounds unchanged; the transparent pseudo-element belongs to the button. */
+:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn){position:relative;scroll-margin:6px}
+:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn)::after{content:"";position:absolute;inset:min(0px,calc((100% - 44px)/2));min-width:44px;min-height:44px}
+/* Compact adjacent actions cannot safely share a 44px target without moving layout. */
+:where(.card-actions,.head-actions,.page-card-foot,.side-actions,.auth-tabs,.compact-entry-actions,.ps3-row-actions,.ps3-page-actions,.meeting-file-actions,.mrd-task-actions,.ps3-pg-quick) :is(.mini,.icon-btn)::after{content:none}
+/* Calendar cells have their own interaction contract. */
+.calendar-grid button::after,.cmv-grid button::after{content:none}
+
+/* The connection button sits directly below the calendar disclosure. */
+#googleConnectBtn::after{content:none}

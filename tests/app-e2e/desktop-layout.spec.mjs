@@ -54,12 +54,12 @@ test('desktop web uses compact left navigation and safe project detail margins',
     await page.setViewportSize({width,height:900});
     await expect(page.locator('.topbar')).toBeHidden();
     await expect(page.locator('.sidebar-brand')).toBeVisible();
-    await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();
+    await expect(page.locator('#appView>.app-nav [data-account-open]')).toBeVisible();
     const shell=await page.evaluate(()=>{
       const topbar=document.querySelector('.topbar');
       const nav=document.querySelector('#appView>.app-nav');
       const brand=document.querySelector('.sidebar-brand');
-      const logout=document.querySelector('#sidebarLogoutBtn');
+      const logout=document.querySelector('#appView>.app-nav [data-account-open]');
       const view=document.querySelector('#calendarView');
       const rect=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
       return {

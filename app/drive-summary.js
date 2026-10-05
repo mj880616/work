@@ -96,17 +96,14 @@
   function syncMenus(){
     if(!owner()){
       clearTimer();dirty=false;manualPending=false;result=null;generation++;
-      document.querySelectorAll('[data-drive-summary-menu]').forEach(menu=>menu.remove());return;
+      document.querySelectorAll('[data-account-drive-slot]').forEach(slot=>slot.replaceChildren());return;
     }
-    for(const logout of document.querySelectorAll('[data-kptu-logout]')){
-      if(logout.parentElement.querySelector('[data-drive-summary-menu]'))continue;
-      const menu=document.createElement('details');menu.className='drive-summary-menu';menu.dataset.driveSummaryMenu='';
-      const summary=document.createElement('summary');summary.textContent='계정';
-      const panel=document.createElement('div');panel.className='drive-summary-panel';
-      const button=document.createElement('button');button.type='button';button.className='secondary';button.dataset.driveSummaryRefresh='';button.addEventListener('click',()=>void run(true));
+    for(const slot of document.querySelectorAll('[data-account-drive-slot]')){
+      if(slot.childNodes.length)continue;
+      const button=document.createElement('button');button.type='button';button.className='account-action';button.dataset.driveSummaryRefresh='';button.addEventListener('click',()=>void run(true));
       button.setAttribute('aria-label','Drive 사본 지금 갱신');button.title='Drive 사본 지금 갱신';
       const status=document.createElement('div');status.dataset.driveSummaryStatus='';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
-      panel.append(button,status);menu.append(summary,panel);logout.before(menu);
+      slot.append(button,status);
     }
     render();
   }
@@ -116,5 +113,6 @@
   window.addEventListener('kptu:documents-changed',event=>{if(event.detail?.project_id)schedule()});
   window.addEventListener('kptu:team-ready',syncMenus);
   window.addEventListener('kptu:session-changed',syncMenus);
+  window.addEventListener('kptu:account-ready',syncMenus);
   syncMenus();
 })();
