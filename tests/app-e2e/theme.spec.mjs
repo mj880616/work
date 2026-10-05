@@ -155,7 +155,7 @@ test('390px menu end shows theme button and scrolling does not switch views',asy
 for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)){
  test('D-3b route colors '+theme+' at '+width,async({page})=>{
   await page.setViewportSize({width,height:900});
-  await page.addInitScript(theme=>localStorage.setItem('kptu-theme',theme),theme);
+  await page.addInitScript(({theme,THEME_STORAGE_KEY})=>localStorage.setItem(THEME_STORAGE_KEY,theme),{theme,THEME_STORAGE_KEY});
   await mockApp(page,{spaces:[{id:'theme-project',workspace_id:workspace.id,name:'Theme fixture',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2},visibility:'private'}]});
   await page.route('https://raw.githubusercontent.com/**',route=>route.fulfill({status:200,body:'<p>Fixture</p>'}));
   await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
