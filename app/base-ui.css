@@ -182,3 +182,10 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 
 /* The connection button sits directly below the calendar disclosure. */
 #googleConnectBtn::after{content:none}
+
+/* List role typography: keep shared primitives and all dialogs at their existing sizes. */
+:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) button:is(.primary,.secondary){font-size:var(--kptu-text-body)}
+:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) button.mini{font-size:var(--kptu-text-meta)}
+:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) :is(.updated,.muted,.empty.compact){font-size:var(--kptu-text-meta)}
+:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) .empty:not(.compact){font-size:var(--kptu-text-body)}
+#pagesView .badge{font-size:var(--kptu-text-meta)}

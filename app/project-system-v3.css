@@ -10,8 +10,8 @@
 button.ps3-prow-main{cursor:pointer}
 button.ps3-prow-main:hover,.ps3-kid-row:is(button):hover{background:var(--kptu-surface-subtle)}
 .ps3-prow-line1{display:flex;gap:var(--kptu-space-2);align-items:center;min-width:0}
-.ps3-prow-name{min-width:0;font-size:14px;line-height:1.4;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ps3-prow-meta{min-width:0;min-height:16px;font-size:11.5px;line-height:1.4;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps3-prow-name{min-width:0;font-size:14px;line-height:1.4;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#projectsView .ps3-prow-name{font-size:var(--kptu-text-subtitle)}
+.ps3-prow-meta{min-width:0;min-height:16px;font-size:11.5px;line-height:1.4;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#projectsView .ps3-prow-meta{font-size:var(--kptu-text-meta)}
 .ps3-prow-head:has(.ps3-prow-toggle) .ps3-prow-meta{padding-right:76px}
 .ps3-prow-toggle{grid-column:2;grid-row:2;z-index:1;min-height:32px;margin:0 var(--kptu-space-1) 2px 0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-link);padding:0 var(--kptu-space-2);font-size:11.5px;font-weight:700;white-space:nowrap;cursor:pointer}
 .ps3-prow-toggle:hover{background:var(--kptu-surface-subtle)}

@@ -465,7 +465,8 @@ for(const width of [320,360,390,768,1280]){
     const row=page.locator('#meetingList .meeting-list-row').first();
     const fit=await row.evaluate(el=>{const main=el.querySelector('.meeting-list-main').getBoundingClientRect(),box=el.getBoundingClientRect(),cs=getComputedStyle(el);return {row:box.height,content:main.height+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+parseFloat(cs.borderBottomWidth)}});
     expect(Math.abs(fit.row-fit.content)).toBeLessThanOrEqual(1);
-    expect(fit.row).toBeLessThanOrEqual(56);
+    // D-3d: 16px title + 12px metadata, with the existing line-height, padding and border.
+    expect(fit.row).toBeCloseTo(16*1.35+12*1.4+2+16+1,0);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 }
@@ -909,7 +910,7 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).toContain("import('./team.js?v=61')");
   expect(views).toContain('task-workflow.js?v=9');
   expect(views).toContain('meeting-round-detail.js?v=20');
-  expect(views).toContain('meeting-ui.css?v=10');
+  expect(views).toContain('meeting-ui.css?v=11');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
@@ -922,5 +923,5 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingProject']");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
-  expect(css).toContain("meeting-ui.css?v=10");
+  expect(css).toContain("meeting-ui.css?v=11");
 });
