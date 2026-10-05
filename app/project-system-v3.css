@@ -171,15 +171,15 @@ button.ps3-kid-row{cursor:pointer}
 .ps3-child-link>span{color:var(--kptu-faint)}
 .ps3-child-link:hover{background:var(--kptu-surface-subtle)}
 .ps3-pg-item{min-width:0;border-top:1px solid var(--kptu-border);padding:var(--kptu-space-2) 0}
-.ps3-pg-item>summary{list-style:none;display:grid;gap:3px;cursor:pointer;min-width:0}
-.ps3-pg-item>summary::-webkit-details-marker{display:none}
+.ps3-pg-details>summary{list-style:none;display:grid;gap:3px;cursor:pointer;min-width:0}
+.ps3-pg-details>summary::-webkit-details-marker{display:none}
 .ps3-pg-line1{display:flex;align-items:center;gap:6px;min-width:0}
 .ps3-pg-title{flex:1 1 auto;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps3-pg-count{flex:0 0 auto;font-size:11px;color:var(--kptu-faint)}
 .ps3-pg-line2{display:flex;gap:var(--kptu-space-2);min-width:0;font-size:12px;color:var(--kptu-muted)}
 .ps3-pg-summary{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps3-pg-line2 time{flex:0 0 auto;color:var(--kptu-faint)}
-.ps3-pg-item[open] .ps3-pg-line2{display:none}
+.ps3-pg-details>summary{min-height:var(--kptu-touch-target);align-items:center}
 .ps3-pg-quick{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-top:6px}
 .ps3-pg-quick input{margin:0;min-width:0;min-height:36px}
 .ps3-pg-quick .mini{min-height:36px}
@@ -196,4 +196,8 @@ button.ps3-kid-row{cursor:pointer}
 .ps3-fold[open]>summary::after{transform:rotate(180deg)}
 .ps3-fold-body{margin-top:var(--kptu-space-2)}
 .ps3-fold-actions{display:flex;justify-content:flex-end}
-.ps3-pg-item>summary:focus-visible,.ps3-fold>summary:focus-visible,.ps3-child-link:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.ps3-pg-details>summary:focus-visible,.ps3-fold>summary:focus-visible,.ps3-child-link:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+
+.ps3-pg-record{min-width:0}
+.ps3-pg-record .ps3-text-btn{min-width:var(--kptu-touch-target);min-height:var(--kptu-touch-target)}
+.ps3-pg-editor input{min-width:0;width:100%;margin:0}
