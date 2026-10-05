@@ -57,7 +57,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=61')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=58')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=59')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -109,18 +109,18 @@ jobs:
           grep -q 'id="accessDeniedView"' app/index.html
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
-          grep -q "critical.css?v=17" app/index.html
+          grep -q "critical.css?v=18" app/index.html
           if grep -q "styles.css?v=51" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
-          grep -q "calendar-ui.css?v=15" app/view-loader.js
+          grep -q "calendar-ui.css?v=16" app/view-loader.js
           grep -q "task-layout.css?v=4" app/view-loader.js
-          grep -q "project-system-v3.css?v=19" app/view-loader.js
+          grep -q "project-system-v3.css?v=20" app/view-loader.js
           grep -q "library-upload.css?v=2" app/view-loader.js
-          grep -q "meeting-ui.css?v=11" app/view-loader.js
-          grep -q "web1-press.css?v=3" app/view-loader.js
+          grep -q "meeting-ui.css?v=12" app/view-loader.js
+          grep -q "web1-press.css?v=4" app/view-loader.js
           grep -q "web1-board.css?v=4" app/view-loader.js
-          grep -q "suborganizations.css?v=7" app/view-loader.js
+          grep -q "suborganizations.css?v=8" app/view-loader.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
           grep -q "capabilities.js?v=3" app/loader-v2.js
@@ -180,12 +180,12 @@ jobs:
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           grep -q "task-layout.css?v=4" app/styles.css
-          grep -q "google-tasks.css?v=18" app/styles.css
+          grep -q "google-tasks.css?v=19" app/styles.css
           grep -q "library-upload.css?v=2" app/styles.css
-          grep -q "meeting-ui.css?v=11" app/styles.css
-          grep -q "calendar-ui.css?v=15" app/styles.css
+          grep -q "meeting-ui.css?v=12" app/styles.css
+          grep -q "calendar-ui.css?v=16" app/styles.css
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
-          grep -q "project-system-v3.css?v=19" app/styles.css
+          grep -q "project-system-v3.css?v=20" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -Fq "[data-kptu-logout]" app/topbar-actions.css
@@ -303,7 +303,7 @@ jobs:
           grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
           grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js
-          grep -q "calendar-ui.css?v=15" app/styles.css
+          grep -q "calendar-ui.css?v=16" app/styles.css
           grep -q "id=\"googleCalendarPanel\"" app/team.js
           grep -q "visualViewport" app/calendar-month-view.js
           grep -q "cmvLaneSlots" app/calendar-month-view.js

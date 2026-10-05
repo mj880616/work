@@ -47,11 +47,11 @@ async function signIn(page){
 import {execFileSync} from 'node:child_process';
 const BASE='248451a0afab043321620d168ec9610451e8bbeb';
 const samples={
- projects:[['.add-list-head h2',20],['.ps3-prow-name',16],['.ps3-prow-meta',12],['button.primary',14]],
- meetings:[['.add-list-head h2',20],['.meeting-list-title h3',16],['.meeting-list-row p',12],['button.primary',14]],
- media:[['.w1p-title',16],['.w1p-year>h3',16],['.w1p-filter',14],['.w1p-date',12],['.w1p-tag',12],['.w1p-publisher',12]],
+ projects:[['.add-list-head h2',20],['.ps3-prow-name',16],['.ps3-prow-meta',12],['button.primary',12]],
+ meetings:[['.add-list-head h2',20],['.meeting-list-title h3',16],['.meeting-list-row p',12],['button.primary',12]],
+ media:[['.w1p-title',16],['.w1p-year>h3',16],['.w1p-filter',12],['.w1p-date',12],['.w1p-tag',12],['.w1p-publisher',12]],
  pages:[['.w1b-card h3',16],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
- team:[['.so-card h4',16],['button.secondary',14],['.muted',12]]
+ team:[['.so-card h4',16],['button.secondary',12],['.muted',12]]
 };
 async function boot(page){
  await mockApp(page,{spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});

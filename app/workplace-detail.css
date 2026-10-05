@@ -1,5 +1,5 @@
 .wd-card{max-height:94dvh;overflow:auto}
-.wd-inbox{padding:0 0 12px}.wd-inbox textarea{width:100%;min-height:96px;margin:0;resize:vertical;font-size:14px;line-height:1.5}.wd-inbox-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:7px}.wd-inbox-actions .status{flex:1;min-width:0;margin:0}.wd-inbox-actions .primary{min-width:88px;min-height:42px}
+.wd-inbox{padding:0 0 12px}.wd-inbox textarea{width:100%;min-height:96px;margin:0;resize:vertical;font-size:14px;line-height:1.5}.wd-inbox-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:7px}.wd-inbox-actions .status{flex:1;min-width:0;margin:0}.wd-inbox-actions .primary{min-width:88px;min-height:36px}
 .wd-sec{padding:14px 0;border-top:1px solid var(--kptu-border)}.wd-sec:first-of-type{border-top:0}
 .wd-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:9px}.wd-head h3,.wd-sec summary h3{margin:0;font-size:15px}.wd-head h4{margin:0;font-size:13px}.wd-sub{padding:12px 0 0;margin-top:12px;border-top:1px solid var(--kptu-border)}.wd-log-row small{display:block;margin:0 0 3px}.wd-log-row p{color:var(--kptu-ink);font-size:12px}.wd-head small,.wd-sec summary small{color:var(--kptu-muted);font-size:10px}
 .wd-updated{margin:9px 0 0;color:var(--kptu-faint);font-size:10px}.wd-updated b{color:var(--kptu-muted)}

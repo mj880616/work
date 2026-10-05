@@ -11,7 +11,7 @@
 .meeting-action-row{display:grid;grid-template-columns:minmax(0,1fr) 132px auto;gap:var(--kptu-space-2);margin:var(--kptu-space-2) 0}
 .meeting-action-row input{min-width:0;margin:0}
 .mrd-task-form select{min-height:var(--kptu-control-height);height:var(--kptu-control-height);padding:0 var(--kptu-space-3)}
-.meeting-action-remove{border:1px solid var(--kptu-border);background:var(--kptu-surface-subtle);border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);font-weight:700;color:var(--kptu-muted);min-height:var(--kptu-control-height)}
+.meeting-action-remove{height:var(--kptu-control-height);align-self:center;font-size:var(--kptu-text-meta);border:1px solid var(--kptu-border);background:var(--kptu-surface-subtle);border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);font-weight:700;color:var(--kptu-muted);min-height:var(--kptu-control-height)}
 .meeting-material-links{margin-top:var(--kptu-space-3);padding-top:var(--kptu-space-2);border-top:1px solid var(--kptu-border)}
 .meeting-round-meta{font-size:12px;font-weight:700;color:var(--kptu-muted);margin-bottom:6px}
 .meeting-file-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}

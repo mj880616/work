@@ -77,7 +77,7 @@ test('Design System 1.0 keeps the top-level action contract with a compact calen
   ];
   const metrics=[];
   for(const [view,selector] of actions)metrics.push(await actionMetrics(page,view,selector));
-  expect(metrics[1].height).toBeGreaterThanOrEqual(44);
+  expect(metrics[1].height).toBe(36);
   const compact=[metrics[0],metrics[2],metrics[3]];
   expect(new Set(compact.map(x=>Math.round(x.height))).size).toBe(1);
   for(const metric of compact)expect(metric.height).toBeCloseTo(36,0);

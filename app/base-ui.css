@@ -173,8 +173,8 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 }
 
 /* Keep painted bounds unchanged; the transparent pseudo-element belongs to the button. */
-:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn){position:relative;scroll-margin:6px}
-:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn)::after{content:"";position:absolute;inset:min(0px,calc((100% - 44px)/2));min-width:44px;min-height:44px}
+:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn,.gt-undo-item button){position:relative;scroll-margin:6px}
+:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn,.gt-undo-item button)::after{content:"";position:absolute;inset:min(0px,calc((100% - 44px)/2));min-width:44px;min-height:44px}
 /* Compact adjacent actions cannot safely share a 44px target without moving layout. */
 :where(.card-actions,.head-actions,.page-card-foot,.side-actions,.auth-tabs,.compact-entry-actions,.ps3-row-actions,.ps3-page-actions,.meeting-file-actions,.mrd-task-actions,.ps3-pg-quick) :is(.mini,.icon-btn)::after{content:none}
 /* Calendar cells have their own interaction contract. */
@@ -183,8 +183,8 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 /* The connection button sits directly below the calendar disclosure. */
 #googleConnectBtn::after{content:none}
 
-/* List role typography: keep shared primitives and all dialogs at their existing sizes. */
-:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) button:is(.primary,.secondary){font-size:var(--kptu-text-body)}
+/* List role typography. Text action buttons share the task-tab size ceiling. */
+:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) button:is(.primary,.secondary):not(.mini){font-size:var(--kptu-text-meta)}
 :is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) button.mini{font-size:var(--kptu-text-meta)}
 :is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) :is(.updated,.muted,.empty.compact){font-size:var(--kptu-text-meta)}
 :is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) .empty:not(.compact){font-size:var(--kptu-text-body)}
