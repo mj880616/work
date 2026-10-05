@@ -76,8 +76,8 @@ async function mockApp(page,state){
       const raw=String(url.searchParams.get(key)||''),inList=raw.startsWith('in.(')?raw.slice(4,-1).split(',').map(decodeURIComponent):null,pid=inList?'':eq(url,key),id=eq(url,'id');
       if(method==='GET')return ok(arr.filter(x=>(!pid||x[key]===pid)&&(!inList||inList.includes(x[key]))&&(!id||x.id===id)));
       if(method==='POST'){const rows=(Array.isArray(body)?body:[body]).map((x,i)=>({...x,id:x.id||`${name}-${arr.length+i+1}`,created_at:now(),updated_at:now()}));for(const row of rows){const existing=url.searchParams.get('on_conflict')==='id'?arr.find(x=>x.id===row.id):null;if(existing)Object.assign(existing,row);else arr.push(row)}return ok(rows)}
-      if(method==='PATCH'){const targets=id?arr.filter(x=>x.id===id):arr.filter(x=>!pid||x[key]===pid);targets.forEach(x=>Object.assign(x,body||{}));return ok([])}
-      if(method==='DELETE'){if(id){const i=arr.findIndex(x=>x.id===id);if(i>=0)arr.splice(i,1)}return ok([])}
+      if(method==='PATCH'){const targets=id?arr.filter(x=>x.id===id):arr.filter(x=>!pid||x[key]===pid);targets.forEach(x=>Object.assign(x,body||{}));return ok(req.headers()['prefer']?.includes('return=representation')?targets:[])}
+      if(method==='DELETE'){const removed=[];if(id){const i=arr.findIndex(x=>x.id===id);if(i>=0)removed.push(...arr.splice(i,1))}return ok(req.headers()['prefer']?.includes('return=representation')?removed:[])}
       return ok([]);
     };
     if(table('app_project_templates',state.projectTypes||[],'workspace_id'))return;
@@ -542,11 +542,11 @@ test('recorded progress item has a visible edit action that saves title and phas
   const probe=await saveProbe(page,'app_project_workstreams','PATCH');
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
   const item=page.locator('[data-ps3-progress-item="ws-1"]');
-  const edit=item.locator(':scope > summary [data-ps3-edit-ws]');
+  const edit=item.locator('[data-ps3-edit-ws]');
   await expect(edit).toBeVisible();
   await edit.click();
   await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
-  await expect(item).not.toHaveAttribute('open','');
+  await expect(item.locator('details')).not.toHaveAttribute('open','');
   await expect(page.locator('#ps3WsPhase')).toHaveValue('preparation');
   await page.locator('#ps3WsTitle').fill('수정한 진행상황');
   await page.locator('#ps3WsPhase').selectOption('execution');
@@ -582,23 +582,22 @@ test('progress list shows status and title, then the latest record and date on o
   await expect(item.locator('.ps3-pg-count')).toHaveText('2');
   await expect(item.locator('.ps3-pg-summary')).toHaveText('국토부 회신을 반영해 토론회 쟁점을 다시 정리함');
   await expect(item.locator('.ps3-pg-line2 time')).toHaveText('9.20');
-  await expect(item).not.toHaveAttribute('open','');
+  await expect(item.locator('details')).not.toHaveAttribute('open','');
   await expect(page.locator('#ps3-progress .ps3-progress-empty,#ps3Body .ps3-empty')).toHaveCount(0);
   await expect(page.locator('#ps3-progress .ps3-section-head [data-ps3-add-ws]')).toHaveText('+ 추가');
 
-  await item.locator(':scope > summary').click();
-  await expect(item).toHaveAttribute('open','');
+  await item.locator('details > summary').click();
+  await expect(item.locator('details')).toHaveAttribute('open','');
   await expect(item.locator('.ps3-pg-record')).toHaveCount(2);
   await expect(item.locator('.ps3-pg-history')).toContainText('국토부 후속협의 준비');
   await expect(item.locator('.ps3-pg-history')).toContainText('다음: 현장 조직 의견을 취합해 최종 요구안을 확정');
-  await expect(item.locator(':scope > summary [data-ps3-edit-ws]')).toHaveText('수정');
-  await item.locator('[data-ps3-progress-ws="ws-1"]').click();
-  await expect(page.locator('#ps3ProgressModal')).toBeVisible();
-  await expect(page.locator('#ps3ProgressWs')).toHaveValue('ws-1');
-  await page.locator('#ps3ProgressSummary').fill('모달 경로 기록');
-  await page.locator('#ps3ProgressSave').click();
-  await expect.poll(()=>state.progress.some(x=>x.summary==='모달 경로 기록'&&x.workstream_id==='ws-1')).toBe(true);
-  await expect(item).toHaveAttribute('open','');
+  await expect(item.locator('[data-ps3-edit-ws]')).toHaveText('수정');
+  await expect(item.locator('[data-ps3-progress-ws]')).toHaveCount(0);
+  const quick=item.locator('[data-ps3-quick-progress] input');
+  await expect(quick).toBeVisible();await quick.fill('상시 입력칸 기록');await quick.press('Enter');
+  await expect(item.locator('.ps3-pg-count')).toHaveText('3');
+  await expect(item.locator('details')).toHaveAttribute('open','');
+  await expect(quick).toBeVisible();
 
   const empty=page.locator('[data-ps3-progress-item="ws-2"]');
   await expect(empty.locator('.ps3-phase')).toHaveText('준비');
@@ -624,7 +623,7 @@ test('first progress record is saved inline through the existing progress path',
   expect(state.restCalls.filter(x=>x.name==='app_project_workstreams'&&x.method==='PATCH')).toHaveLength(0);
   const item=page.locator('[data-ps3-progress-item="ws-2"]');
   await expect(item.locator('.ps3-pg-summary')).toHaveText('산하조직 의견 1차 취합');
-  await expect(page.locator('[data-ps3-quick-progress="ws-2"]')).toHaveCount(0);
+  await expect(page.locator('[data-ps3-quick-progress="ws-2"] input')).toBeVisible();
 });
 
 test('project detail keeps one summary-first column at desktop and phone widths',async({page})=>{
@@ -938,14 +937,12 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
   await expect(menu).toHaveAttribute('open','');
   await page.locator('#ps3Title').click();
   await expect(menu).not.toHaveAttribute('open','');
-  const item=page.locator('[data-ps3-progress-item="ws-1"]'),itemSummary=item.locator(':scope > summary');
-  await itemSummary.focus();
-  await page.keyboard.press('Enter');
-  await expect(item).toHaveAttribute('open','');
-  await page.keyboard.press('Tab');
-  await expect(item.locator(':scope > summary [data-ps3-edit-ws]')).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(item.locator('[data-ps3-progress-ws="ws-1"]')).toBeFocused();
+  const item=page.locator('[data-ps3-progress-item="ws-1"]'),itemSummary=item.locator('details > summary');
+  await itemSummary.focus();await page.keyboard.press('Enter');
+  await expect(item.locator('details')).toHaveAttribute('open','');
+  await page.keyboard.press('Tab');await expect(item.locator('[data-ps3-edit-record]')).toBeFocused();
+  await page.keyboard.press('Tab');await expect(item.locator('[data-ps3-delete-record]')).toBeFocused();
+
 });
 
 test('V3 creates and edits a project with the same final renderer',async({page})=>{
@@ -1198,24 +1195,17 @@ test('saveWs creates once during repeated clicks and retries after failure',asyn
   expect(state.workstreams.filter(x=>x.title==='저장 잠금 영역')).toHaveLength(1);
 });
 
-test('saveProgress creates once during repeated clicks and retries after failure',async({page})=>{
+test('saveQuickProgress creates once during repeated submits and retries after failure',async({page})=>{
   const state=baseState();await mockApp(page,state);
   const probe=await saveProbe(page,'app_project_progress_updates');
   await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
-  await page.locator('[data-ps3-progress-item="ws-1"] summary').click();
-  await page.locator('[data-ps3-progress-ws="ws-1"]').click();
-  await page.locator('#ps3ProgressSummary').fill('잠금 검증 기록');
-  const button=page.locator('#ps3ProgressSave');
-  await button.click();await expect.poll(()=>probe.count).toBe(1);
-  await expect(button).toBeDisabled();await button.dispatchEvent('click');
-  await page.waitForTimeout(150);expect(probe.count).toBe(1);
-  probe.release();await expect(page.locator('#ps3ProgressModal')).toBeHidden();
-  await page.locator('[data-ps3-progress-ws="ws-1"]').click();
-  await page.locator('#ps3ProgressSummary').fill('다시 시도 기록');
-  probe.fail=true;await button.click();
-  await expect(page.locator('#ps3ProgressState')).toContainText('임시 저장 실패');
-  await expect(button).toBeEnabled();await button.click();
-  await expect.poll(()=>probe.count).toBe(3);
+  const form=page.locator('[data-ps3-quick-progress="ws-1"]'),button=form.locator('button');
+  await form.locator('input').fill('잠금 검증 기록');await button.click();await expect.poll(()=>probe.count).toBe(1);
+  await expect(button).toBeDisabled();await form.dispatchEvent('submit');
+  expect(probe.count).toBe(1);probe.release();await expect(page.locator('#toast')).toHaveText('진행상황을 기록했습니다.');await expect(button).toBeEnabled();await expect(form.locator('input')).toHaveValue('');
+  await form.locator('input').fill('다시 시도 기록');probe.fail=true;await button.click();
+  await expect(page.locator('#toast')).toContainText('저장 실패');await expect(button).toBeEnabled();await button.click();
+  await expect.poll(()=>probe.count).toBe(3);await expect(form.locator('input')).toHaveValue('');
   expect(state.progress.filter(x=>x.summary==='잠금 검증 기록')).toHaveLength(1);
 });
 
@@ -1268,4 +1258,122 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
   await expect(page.locator('#ps3MilestoneState')).toContainText('임시 저장 실패');
   await expect(button).toBeEnabled();await button.click();
   await expect.poll(()=>probe.count).toBe(3);
+});
+
+// PRJ-progress: real UI with REST mocked at the network boundary.
+async function openRecords(page,state){
+  await mockApp(page,state);
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  const item=page.locator('[data-ps3-progress-item="ws-1"]');
+  await expect(item.locator('[data-ps3-quick-progress] input')).toBeVisible();
+  await item.locator('summary').click();
+  return item;
+}
+test('PRJ records stay editable while quick input stays visible and touch targets fit 390px',async({page})=>{
+  const state=baseState(),item=await openRecords(page,state);
+  const record=item.locator('[data-ps3-record="pr-1"]');
+  await expect(record.getByRole('button',{name:'수정',exact:true})).toBeVisible();
+  await expect(record.getByRole('button',{name:'삭제',exact:true})).toBeVisible();
+  await expect(item.locator('[data-ps3-progress-ws]')).toHaveCount(0);
+  for(const width of [390,1280]){
+    await page.setViewportSize({width,height:844});
+    const layout=await record.evaluate(el=>({buttons:[...el.querySelectorAll('button')].map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height})),overflow:document.documentElement.scrollWidth-innerWidth}));
+    expect(layout.overflow).toBeLessThanOrEqual(1);
+    for(const b of layout.buttons){expect(b.w).toBeGreaterThanOrEqual(44);expect(b.h).toBeGreaterThanOrEqual(44)}
+  }
+  const input=item.locator('[data-ps3-quick-progress] input');await input.fill('추가 기록');await input.press('Enter');
+  await expect(item.locator('.ps3-pg-count')).toHaveText('2');await expect(input).toBeVisible();
+  await expect(item.locator('.ps3-pg-record')).toHaveCount(2);
+});
+test('PRJ record edit cancels or saves only summary and preserves date and other fields',async({page})=>{
+  const state=baseState(),before=structuredClone(state.progress[0]),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
+  await record.getByRole('button',{name:'수정',exact:true}).click();
+  const form=record.locator('form[data-ps3-edit-record]');await expect(form.locator('input')).toHaveValue(before.summary);
+  await form.locator('input').fill('취소할 글');await form.getByRole('button',{name:'취소',exact:true}).click();
+  await expect(record.locator('p').first()).toHaveText(before.summary);
+  await record.getByRole('button',{name:'수정',exact:true}).click();await form.locator('input').fill('수정한 기록');
+  const request=page.waitForRequest(r=>r.method()==='PATCH'&&r.url().includes('app_project_progress_updates'));
+  await form.getByRole('button',{name:'저장',exact:true}).click();const req=await request;
+  expect(new URL(req.url()).searchParams.get('id')).toBe('eq.pr-1');expect(req.postDataJSON()).toEqual({summary:'수정한 기록'});expect(req.headers().prefer).toBe('return=representation');
+  await expect(record.locator('p').first()).toHaveText('수정한 기록');await expect(item.locator('.ps3-pg-summary')).toHaveText('수정한 기록');
+  expect(state.progress[0]).toEqual({...before,summary:'수정한 기록'});
+});
+test('PRJ record deletion confirms once, cancel sends nothing, success removes row and count',async({page})=>{
+  const state=baseState();state.progress.unshift({...state.progress[0],id:'pr-2',summary:'최근 기록',effective_on:'2026-10-01'});
+  const item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-2"]');
+  page.once('dialog',d=>d.dismiss());await record.getByRole('button',{name:'삭제',exact:true}).click();
+  await expect(record).toBeVisible();expect(state.restCalls.filter(x=>x.name==='app_project_progress_updates'&&x.method==='DELETE')).toHaveLength(0);
+  page.once('dialog',d=>d.accept());const request=page.waitForRequest(r=>r.method()==='DELETE'&&r.url().includes('app_project_progress_updates'));
+  await record.getByRole('button',{name:'삭제',exact:true}).click();const req=await request;
+  expect(new URL(req.url()).searchParams.get('id')).toBe('eq.pr-2');expect(req.headers().prefer).toBe('return=representation');
+  await expect(record).toHaveCount(0);await expect(item.locator('.ps3-pg-count')).toHaveText('1');
+  await expect(item.locator('.ps3-pg-summary')).toHaveText('국토부 후속협의 준비');
+});
+for(const method of ['PATCH','DELETE'])for(const status of [403,200])test(`PRJ ${method} ${status===403?'permission denied':'zero rows'} restores original record`,async({page})=>{
+  const state=baseState(),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
+  await page.route(`${SB}/rest/v1/app_project_progress_updates?**`,async route=>{
+    if(route.request().method()!==method)return route.fallback();
+    return route.fulfill({status,contentType:'application/json',body:JSON.stringify(status===403?{message:'forbidden'}:[])});
+  });
+  if(method==='PATCH'){
+    await record.getByRole('button',{name:'수정',exact:true}).click();await record.locator('input').fill('저장 실패 글');await record.getByRole('button',{name:'저장',exact:true}).click();
+  }else{page.once('dialog',d=>d.accept());await record.getByRole('button',{name:'삭제',exact:true}).click()}
+  await expect(page.locator('#toast')).toHaveText(method==='PATCH'?'수정 실패':'삭제 실패');
+  await expect(record.locator('form[data-ps3-edit-record]')).toHaveCount(0);await expect(record.locator('p').first()).toHaveText('국토부 후속협의 준비');
+  await expect(record.getByRole('button',{name:'수정',exact:true})).toBeEnabled();await expect(item.locator('.ps3-pg-count')).toHaveText('1');
+});
+test('PRJ dirty record asks before closing project and keeps draft when discard is cancelled',async({page})=>{
+  const item=await openRecords(page,baseState()),record=item.locator('[data-ps3-record="pr-1"]');
+  await record.getByRole('button',{name:'수정',exact:true}).click();await record.locator('input').fill('未保存');
+  let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  expect(message).toContain('저장하지 않은 프로젝트 내용');await expect(record.locator('input')).toHaveValue('未保存');
+  page.once('dialog',d=>d.accept());await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden();
+});
+
+test('PRJ quick save unlocks while another record draft is dirty and preserves that draft',async({page})=>{
+  const state=baseState(),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
+  await record.getByRole('button',{name:'수정',exact:true}).click();await record.locator('input').fill('수정 초안');
+  const quick=item.locator('[data-ps3-quick-progress]');await quick.locator('input').fill('동시에 추가 기록');await quick.locator('button').click();
+  await expect(page.locator('#toast')).toHaveText('진행상황을 기록했습니다.');await expect(quick.locator('button')).toBeEnabled();
+  await expect(quick.locator('input')).toHaveValue('');await expect(record.locator('input')).toHaveValue('수정 초안');
+  await record.getByRole('button',{name:'취소',exact:true}).click();
+  // A subsequent normal save refreshes all records without losing or duplicating the earlier save.
+  await quick.locator('input').fill('다음 기록');await quick.locator('button').click();await expect(item.locator('.ps3-pg-count')).toHaveText('3');
+  expect(state.progress.filter(x=>x.summary==='동시에 추가 기록')).toHaveLength(1);
+});
+test('PRJ last record deletion leaves quick input visible',async({page})=>{
+  const state=baseState(),item=await openRecords(page,state);page.once('dialog',d=>d.accept());
+  await item.getByRole('button',{name:'삭제',exact:true}).click();await expect(item.locator('.ps3-pg-record')).toHaveCount(0);
+  await expect(item.locator('details')).toHaveCount(0);await expect(item.locator('[data-ps3-quick-progress] input')).toBeVisible();
+});
+
+test('PRJ pending delete cannot be displaced by a task refresh',async({page})=>{
+  const state=baseState(),item=await openRecords(page,state),probe=await saveProbe(page,'app_project_progress_updates','DELETE');
+  page.once('dialog',d=>d.accept());await item.getByRole('button',{name:'삭제',exact:true}).click();await expect.poll(()=>probe.count).toBe(1);
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:tasks-changed')));
+  const quick=item.locator('[data-ps3-quick-progress]');await quick.locator('input').fill('삭제 대기 중 기록');await quick.locator('button').click();
+  // Success toast is emitted only after refreshDetail resolves; it is the ordering barrier.
+  await expect(page.locator('#toast')).toHaveText('진행상황을 기록했습니다.');
+  await expect(item.getByRole('button',{name:'삭제',exact:true})).toBeDisabled();
+  probe.release();await expect(item.locator('[data-ps3-record="pr-1"]')).toHaveCount(0);await expect(item.locator('.ps3-pg-count')).toHaveText('1');await expect(item.locator('[data-ps3-quick-progress] input')).toBeVisible();
+});
+for(const destination of ['library','back'])test(`PRJ dirty record confirms before ${destination} navigation`,async({page})=>{
+  const item=await openRecords(page,baseState()),record=item.locator('[data-ps3-record="pr-1"]');
+  await record.getByRole('button',{name:'수정',exact:true}).click();await record.locator('input').fill('이동 전 초안');
+  let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
+  if(destination==='library'){await page.locator('[data-ps3-library]').click()}
+  else{await page.evaluate(()=>{history.replaceState({},'', '/app/');history.pushState({project:'main-1'},'', '/app/?project=main-1')});await page.goBack()}
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();expect(message).toContain('저장하지 않은 프로젝트 내용');await expect(record.locator('input')).toHaveValue('이동 전 초안');
+});
+
+test('PRJ nested modal back preserves a pending delete result',async({page})=>{
+  const state=baseState(),item=await openRecords(page,state),probe=await saveProbe(page,'app_project_progress_updates','DELETE');
+  page.once('dialog',d=>d.accept());await item.getByRole('button',{name:'삭제',exact:true}).click();await expect.poll(()=>probe.count).toBe(1);
+  await item.locator('[data-ps3-edit-ws]').click();await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
+  await page.goBack();await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
+  const quick=item.locator('[data-ps3-quick-progress]');await quick.locator('input').fill('뒤로가기 경합 기록');await quick.locator('button').click();
+  await expect(page.locator('#toast')).toHaveText('진행상황을 기록했습니다.');
+  await expect(item.getByRole('button',{name:'삭제',exact:true})).toBeDisabled();probe.release();
+  await expect(item.locator('[data-ps3-record="pr-1"]')).toHaveCount(0);await expect(item.locator('.ps3-pg-count')).toHaveText('1');
 });
