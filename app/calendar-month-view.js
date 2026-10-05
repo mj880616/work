@@ -3,10 +3,7 @@
   const DAY_MS=86400000;
   const mq760=window.matchMedia('(max-width:760px)');
   const mq1024=window.matchMedia('(min-width:1024px)');
-  let last=null,navigate=null,touchStart=null,suppressUntil=0,resizeFrame=0;
-  // Match mobile menu gestures: ignore at most 1% browser scale rounding noise.
-  const isZoomed=()=> (window.visualViewport?.scale||1)>1.01;
-  window.visualViewport?.addEventListener('resize',()=>{if(isZoomed())touchStart=null});
+  let last=null,touchStart=null,suppressUntil=0,resizeFrame=0;
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
   let tasks=[],tasksSig='';
@@ -167,6 +164,7 @@
   function render(options){
     last=options;
     const grid=document.querySelector('#calendarGrid');if(!grid)return false;
+    bindTouchGuard();
     layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
     const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
     const events=allEvents(options);
@@ -211,33 +209,38 @@
     window.__KPTU_MONTH_VIEW_RANGE__={start:new Date(range.start),end:new Date(range.end),weeks:range.weeks,days:range.days};
     return true;
   }
-  function bindSwipe(){
-    const grid=document.querySelector('#calendarGrid');if(!grid||grid.dataset.cmvSwipe==='1')return;
-    grid.dataset.cmvSwipe='1';
+  // Menu gestures belong to mobile-swipe-navigation.js. Only guard the release click here,
+  // including events and overflow, without consuming touch events or restricting browser pan.
+  function bindTouchGuard(){
+    const grid=document.querySelector('#calendarGrid');if(!grid||grid.dataset.cmvTouchGuard==='1')return;
+    grid.dataset.cmvTouchGuard='1';
     grid.addEventListener('touchstart',e=>{
-      if(isZoomed()||e.touches?.length!==1||e.target.closest('.cal-event,.kptu-day-more,input,select,textarea,a')){touchStart=null;return}
-      e.stopPropagation();
-      const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY};
+      if(e.touches?.length!==1){touchStart=null;return}
+      const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY,moved:false};
     },{passive:true});
-    grid.addEventListener('touchmove',e=>{if(isZoomed()||e.touches?.length!==1)touchStart=null},{passive:true});
+    grid.addEventListener('touchmove',e=>{
+      if(e.touches?.length!==1){touchStart=null;return}
+      if(!touchStart)return;
+      const t=e.touches[0];
+      if(Math.abs(t.clientX-touchStart.x)>12||Math.abs(t.clientY-touchStart.y)>12)touchStart.moved=true;
+    },{passive:true});
     grid.addEventListener('touchend',e=>{
-      if(isZoomed()||e.touches?.length){touchStart=null;return}
+      if(e.touches?.length){touchStart=null;return}
       if(!touchStart||!e.changedTouches?.length)return;
-      e.stopPropagation();
-      const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y,ax=Math.abs(dx),ay=Math.abs(dy);touchStart=null;
-      if(ax>=55&&ay<=45&&ax>=ay*1.4){
-        suppressUntil=Date.now()+350;
-        navigate?.(dx<0?1:-1);
-        return;
-      }
-      if(ax>12||ay>12)suppressUntil=Date.now()+350;
+      const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;
+      if(touchStart.moved||Math.abs(dx)>12||Math.abs(dy)>12)suppressUntil=Date.now()+350;
+      touchStart=null;
     },{passive:true});
-    grid.addEventListener('touchcancel',()=>{touchStart=null},{passive:true});
+    grid.addEventListener('touchcancel',()=>{
+      if(touchStart?.moved)suppressUntil=Date.now()+350;
+      touchStart=null;
+    },{passive:true});
   }
-  function setNavigate(fn){navigate=typeof fn==='function'?fn:null;bindSwipe()}
+  // Compatibility with team.js: month navigation is disabled; buttons own month changes.
+  function setNavigate(){bindTouchGuard()}
   function suppressClick(){return Date.now()<suppressUntil}
   document.addEventListener('click',e=>{if(suppressClick()&&e.target.closest?.('#calendarGrid')){e.preventDefault();e.stopImmediatePropagation()}},true);
-  const rerender=()=>{if(last)render(last);bindSwipe()};
+  const rerender=()=>{if(last)render(last);bindTouchGuard()};
   // Unchanged tasks (e.g. a fresh copy equal to this device's copy) do not redraw. While the calendar is hidden the list is only
   // kept; team.js redraws the calendar when it is shown again.
   function setTasks(list){

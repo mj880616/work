@@ -53,13 +53,14 @@ async function swipe(page,selector,direction='left'){
 }
 
 // Exercise the real touch handlers; API calls are mocked only at the network boundary.
-async function touchSequence(page,selector,{dx=-170,dy=2,phase='all',count=1}={}){
-  return page.locator(selector).first().evaluate((el,{dx,dy,phase,count})=>{
+async function touchSequence(page,selector,{dx=-170,dy=2,phase='all',count=1,releaseClick=false}={}){
+  return page.locator(selector).first().evaluate((el,{dx,dy,phase,count,releaseClick})=>{
     const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
     const fire=(type,px,py)=>{
       const event=new Event(type,{bubbles:true,cancelable:true});
       const points=Array.from({length:count},(_,i)=>({clientX:px+i*10,clientY:py}));
-      Object.defineProperty(event,type==='touchend'?'changedTouches':'touches',{value:points});
+      Object.defineProperty(event,'touches',{value:type==='touchend'?[]:points});
+      Object.defineProperty(event,'changedTouches',{value:points});
       el.dispatchEvent(event);
       return event.defaultPrevented;
     };
@@ -68,8 +69,9 @@ async function touchSequence(page,selector,{dx=-170,dy=2,phase='all',count=1}={}
     if(phase==='all'||phase==='move')prevented=fire('touchmove',x+dx,y+dy);
     const panel=el.closest('.view-panel'),transform=panel?.style.transform||'';
     if(phase==='all'||phase==='end')fire('touchend',x+dx,y+dy);
+    if(releaseClick)el.click();
     return {prevented,transform};
-  },{dx,dy,phase,count});
+  },{dx,dy,phase,count,releaseClick});
 }
 
 async function setScale(page,scale){
@@ -114,7 +116,9 @@ test('zoomed calendar, tasks and projects release both pan axes and restore norm
   await expect(page.locator('#tasksView')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
   await touchSequence(page,'#calendarGrid .cal-cell');
-  await expect.poll(()=>page.locator('#monthTitle').textContent()).not.toBe(monthBefore);
+  await page.clock.fastForward(1000);
+  await expect(page.locator('#tasksView')).toBeVisible();
+  expect(await page.locator('#monthTitle').textContent()).toBe(monthBefore);
 });
 
 test('normal scale tolerates small errors and allows pinch zoom without taking vertical scroll',async({page})=>{
@@ -233,33 +237,74 @@ test('active top menu follows swipe navigation and remains visible',async({page}
   await expect.poll(()=>page.evaluate(()=>document.querySelector('.app-nav')?.scrollLeft||0)).toBeLessThan(4);
 });
 
-test('calendar date-cell swipe changes month while surrounding areas keep app navigation',async({page})=>{
-  await page.setViewportSize({width:390,height:844});
-  await mockApp(page);
-  await login(page);
-
-  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
-  await expect(page.locator('#calendarView')).toBeVisible();
-  const monthBefore=await page.locator('#monthTitle').textContent();
+test('calendar date cells, events and overflow use menu swipes and the first-menu boundary without changing month',async({page})=>{
+  await openMobileApp(page);
+  await expect.poll(()=>page.evaluate(()=>KPTUViewLoader.isLoaded('calendar'))).toBe(true);
+  const before=await page.locator('#monthTitle').textContent();
   await page.locator('#nextMonthBtn').click();
-  await expect.poll(()=>page.locator('#monthTitle').textContent()).not.toBe(monthBefore);
-
-  await swipe(page,'.calendar-toolbar','left');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
-
-  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
-  await expect(page.locator('#calendarView')).toBeVisible();
-  const gridMonthBefore=await page.locator('#monthTitle').textContent();
-  await swipe(page,'#calendarGrid .cal-cell[data-date]','right');
-  await expect.poll(()=>page.locator('#monthTitle').textContent()).not.toBe(gridMonthBefore);
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
-
-  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
+  await expect(page.locator('#monthTitle')).not.toHaveText(before);
+  await page.locator('#prevMonthBtn').click();
+  await expect(page.locator('#monthTitle')).toHaveText(before);
   await page.evaluate(()=>{
-    const list=document.querySelector('#googleCalendarList');
-    list.classList.remove('hidden');
-    list.innerHTML='<b>표시할 Google 캘린더</b><label class="toggle-line"><input type="checkbox"> 테스트 캘린더</label>';
+    const date=document.querySelector('.cal-cell:not(.other)').dataset.date;
+    const events=Array.from({length:12},(_,i)=>({id:'swipe-'+i,calendarId:'qa',title:'QA',start:date+'T09:00:00+09:00',end:date+'T10:00:00+09:00',source:'google'}));
+    window.__KPTU_SYNC_GOOGLE_EVENTS__(events);
   });
+  await expect(page.locator('.cp-event').first()).toBeVisible();
+  await expect(page.locator('.kptu-day-more').first()).toBeVisible();
+  for(const selector of ['#calendarGrid .cal-cell','.cp-event','.kptu-day-more']){
+    await setScale(page,2);
+    expect(await page.locator(selector).first().evaluate(el=>getComputedStyle(el).touchAction)).toBe('auto');
+    for(const dx of [-170,170]){
+      expect(await touchSequence(page,selector,{dx,releaseClick:true})).toEqual({prevented:false,transform:''});
+      expect(await page.evaluate(()=>KPTURouter.current)).toBe('calendar');
+      await expect(page.locator('#monthTitle')).toHaveText(before);
+      await expect(page.locator('.modal:not(.hidden)')).toHaveCount(0);
+    }
+    await setScale(page,1);
+  }
+  for(const selector of ['#calendarGrid .cal-cell','.cp-event','.kptu-day-more'])for(const [dx,destination] of [[-170,'tasks'],[170,'calendar']]){
+    await page.evaluate(()=>KPTURouter.go('calendar',{source:'test'}));
+    await expect(page.locator(selector).first()).toBeVisible();
+    await touchSequence(page,selector,{dx,releaseClick:true});
+    await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe(destination);
+    await expect(page.locator('#'+destination+'View')).toBeVisible();
+    await expect(page.locator('#monthTitle')).toHaveText(before);
+    await expect(page.locator('.modal:not(.hidden)')).toHaveCount(0);
+    await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);
+  }
+});
+
+test('760px enables menu swipes and 761px touch width has no menu or month swipe',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:761,height:844},hasTouch:true});
+  const page=await context.newPage();
+  try{
+    await openMobileApp(page);
+    await page.clock.install();
+    const before=await page.locator('#monthTitle').textContent();
+    for(const width of [761,820]){
+      await page.setViewportSize({width,height:844});
+      expect(await touchSequence(page,'#calendarGrid .cal-cell')).toEqual({prevented:false,transform:''});
+      await page.clock.fastForward(1000);
+      expect(await page.evaluate(()=>KPTURouter.current)).toBe('calendar');
+      await expect(page.locator('#monthTitle')).toHaveText(before);
+    }
+    await page.setViewportSize({width:760,height:844});
+    expect((await touchSequence(page,'#calendarGrid .cal-cell')).prevented).toBe(true);
+    await page.clock.fastForward(1000);
+    await expect(page.locator('#tasksView')).toBeVisible();
+    await expect(page.locator('#monthTitle')).toHaveText(before);
+  }finally{await context.close()}
+});
+
+test('calendar toolbar and Google calendar list retain menu swipes',async({page})=>{
+  await openMobileApp(page);
+  const before=await page.locator('#monthTitle').textContent();
+  await swipe(page,'.calendar-toolbar','left');
+  await expect(page.locator('#tasksView')).toBeVisible();
+  await page.evaluate(()=>KPTURouter.go('calendar',{source:'test'}));
+  await page.evaluate(()=>{const list=document.querySelector('#googleCalendarList');list.classList.remove('hidden');list.innerHTML='<b>QA</b><label><input type="checkbox">QA</label>';});
   await swipe(page,'#googleCalendarList','left');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
+  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#monthTitle')).toHaveText(before);
 });
