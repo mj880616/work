@@ -51,19 +51,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=173" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=174" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=285','./runtime-client.js?v=7','./native-auth-bridge.js?v=5',
+    './loader-v2.js?v=286','./runtime-client.js?v=7','./native-auth-bridge.js?v=5',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=285')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=286')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=7')");
   expect(loader).toContain("import('./team.js?v=61')");
-  expect(loader).toContain("import('./view-loader.js?v=57')");
+  expect(loader).toContain("import('./view-loader.js?v=58')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -80,12 +80,12 @@ test('startup loads only requested route CSS before showing the shell', async ()
     './calendar-ui.css?v=15',
     './task-layout.css?v=4',
     './google-tasks.css?v=18',
-    './project-system-v3.css?v=18',
+    './project-system-v3.css?v=19',
     './library-upload.css?v=2',
-    './meeting-ui.css?v=10',
-    './web1-press.css?v=2',
-    './web1-board.css?v=3',
-    './suborganizations.css?v=6',
+    './meeting-ui.css?v=11',
+    './web1-press.css?v=3',
+    './web1-board.css?v=4',
+    './suborganizations.css?v=7',
     './workplace-detail.css?v=5'
   ]) expect(views).toContain(asset);
 });
@@ -142,7 +142,7 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   const tasksStart=views.indexOf('async function tasks()');
   const calendarBlock=views.slice(calendarStart,tasksStart);
   expect(calendarBlock).toContain("background(google)");
-  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=6').then(organizationOrder).then(()=>module('./suborganizations.js?v=11'");
+  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=7').then(organizationOrder).then(()=>module('./suborganizations.js?v=11'");
   expect(calendarBlock).toContain("google.then(()=>module('./calendar-health.js?v=5'))");
   expect(calendarBlock.indexOf("return {ok:true}")).toBeGreaterThan(calendarBlock.indexOf("background(google)"));
   expect(health).toContain("window.__KPTU_GOOGLE_STATE__");
