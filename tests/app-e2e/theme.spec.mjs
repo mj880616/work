@@ -310,3 +310,52 @@ test('D-3c crowded compact actions retain their own click areas',async({page})=>
  const targets=await page.locator('body>div button.mini').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el,'::after').content));
  expect(targets).toHaveLength(22);expect(targets.every(content=>content==='none')).toBe(true);
 });
+
+// Account placement is anchored to its trigger, including browsers without Popover API.
+for(const width of [390,1440])for(const nativePopover of [true,false]){
+ test('D-3c account anchored placement and dismissal '+width+' popover='+nativePopover,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  if(!nativePopover)await page.addInitScript(()=>{
+   for(const name of ['showPopover','hidePopover','togglePopover','popover'])delete HTMLElement.prototype[name];
+  });
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+  const nav=page.locator('#appView>.app-nav'),account=nav.locator('[data-account-open]'),panel=page.locator('#sidebarAccountPanel');
+  const open=async()=>{
+   if(width===390)await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);
+   await account.click();await expect(panel).toBeVisible();
+   await expect(account).toHaveAttribute('aria-expanded','true');
+   await expect.poll(()=>panel.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);
+   const geometry=await page.evaluate(()=>{
+    const t=document.querySelector('.app-nav [data-account-open]').getBoundingClientRect(),p=document.querySelector('#sidebarAccountPanel').getBoundingClientRect(),n=document.querySelector('#appView>.app-nav');
+    const b=n.getBoundingClientRect(),s=getComputedStyle(n);
+    return {button:{top:t.top,bottom:t.bottom,right:t.right},panel:{left:p.left,right:p.right,top:p.top,bottom:p.bottom},inside:{left:b.left+parseFloat(s.borderLeftWidth)+parseFloat(s.paddingLeft),right:b.right-parseFloat(s.borderRightWidth)-parseFloat(s.paddingRight)}};
+   });
+   expect(geometry.panel.left).toBeGreaterThanOrEqual(12);
+   expect(geometry.panel.right).toBeLessThanOrEqual(width-12);
+   expect(geometry.panel.top).toBeGreaterThanOrEqual(12);
+   expect(geometry.panel.bottom).toBeLessThanOrEqual(888);
+   if(width===390){
+    expect(Math.abs(geometry.panel.right-geometry.button.right)).toBeLessThanOrEqual(2);
+    expect(geometry.panel.top).toBeGreaterThanOrEqual(geometry.button.bottom);
+   }else{
+    expect(geometry.panel.bottom).toBeLessThanOrEqual(geometry.button.top);
+    expect(geometry.panel.left).toBeGreaterThanOrEqual(geometry.inside.left-1);
+    expect(geometry.panel.right).toBeLessThanOrEqual(geometry.inside.right+1);
+    expect(Math.abs(geometry.panel.left-geometry.inside.left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.panel.right-geometry.inside.right)).toBeLessThanOrEqual(1);
+   }
+  };
+  for(const close of ['outside','Escape','back']){
+   await open();
+   if(close==='outside')await page.mouse.click(width-12,500);
+   else if(close==='Escape')await page.keyboard.press('Escape');
+   else await page.goBack();
+   await expect(panel).toBeHidden();await expect(account).toHaveAttribute('aria-expanded','false');
+   await expect.poll(()=>page.evaluate(()=>history.state?.kptuAccount||null)).toBe(null);
+  }
+  await open();await panel.locator('[data-theme-open]').click();await expect(page.locator('#themeModal')).toBeVisible();
+  await page.keyboard.press('Escape');await expect(page.locator('#themeModal')).toBeHidden();await expect(account).toBeFocused();
+  expect(errors).toEqual([]);
+ });
+}

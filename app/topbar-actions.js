@@ -12,33 +12,54 @@ const accounts=logoutButtons.map(logout=>{
   const trigger=document.createElement('button');trigger.type='button';trigger.className='account-trigger';trigger.dataset.accountOpen='';
   trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-controls',id);
   trigger.innerHTML='계정 <span aria-hidden="true">▾</span>';
-  const panel=document.createElement('div');panel.id=id;panel.className='account-panel';panel.setAttribute('role','group');panel.setAttribute('aria-label','계정');panel.setAttribute('popover','manual');
+  const panel=document.createElement('div');panel.id=id;panel.className='account-panel';panel.setAttribute('role','group');panel.setAttribute('aria-label','계정');panel.hidden=true;
+  let nativePopover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;
+  if(nativePopover)panel.setAttribute('popover','manual');
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
   const slot=document.createElement('div');slot.dataset.accountDriveSlot='';
   logout.before(host);host.append(trigger);panel.append(theme,slot,logout);document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,theme};
+  return {host,trigger,panel,theme,nativePopover};
 });
 let activeAccount=null;
 function closeAccount(then,fromBack=false){
   const account=activeAccount;if(!account){then?.();return}
-  activeAccount=null;account.panel.hidePopover();account.trigger.setAttribute('aria-expanded','false');account.trigger.querySelector('span').textContent='▾';
+  activeAccount=null;if(account.nativePopover)account.panel.hidePopover();account.panel.hidden=true;account.trigger.setAttribute('aria-expanded','false');account.trigger.querySelector('span').textContent='▾';
   const finish=()=>queueMicrotask(()=>{if(then)then();else if(account.trigger.getClientRects().length)account.trigger.focus({preventScroll:true})});
   if(!fromBack&&history.state?.kptuAccount===account.panel.id){window.addEventListener('popstate',finish,{once:true});history.back()}
   else finish();
 }
 function positionAccount(){
   if(!activeAccount)return;
-  const {trigger,panel}=activeAccount,rect=trigger.getBoundingClientRect(),height=panel.getBoundingClientRect().height;
-  panel.style.top=Math.max(12,Math.min(rect.bottom+8,innerHeight-height-12))+'px';
+  const {trigger,panel}=activeAccount,rect=trigger.getBoundingClientRect();
+  const nav=trigger.closest('.app-nav'),desktop=innerWidth>=1024&&nav;
+  const margin=12,gap=8;
+  let width=Math.min(300,innerWidth-margin*2),left;
+  if(desktop){
+    const bounds=nav.getBoundingClientRect(),style=getComputedStyle(nav);
+    left=bounds.left+parseFloat(style.borderLeftWidth)+parseFloat(style.paddingLeft);
+    const right=bounds.right-parseFloat(style.borderRightWidth)-parseFloat(style.paddingRight);
+    width=Math.min(right-left,innerWidth-margin*2);
+  }else left=rect.right-width;
+  panel.style.width=width+'px';
+  panel.style.left=Math.max(margin,Math.min(left,innerWidth-width-margin))+'px';
+  // Constrain the height on the chosen side before measuring; never cover the trigger.
+  panel.style.maxHeight=Math.max(0,desktop?rect.top-gap-margin:innerHeight-rect.bottom-gap-margin)+'px';
+  const height=panel.getBoundingClientRect().height;
+  panel.style.top=(desktop?Math.max(margin,rect.top-gap-height):rect.bottom+gap)+'px';
 }
 const panelResize=new ResizeObserver(positionAccount);
 accounts.forEach(account=>{
   panelResize.observe(account.panel);
+  account.trigger.closest('.app-nav')?.addEventListener('scroll',positionAccount);
   account.trigger.addEventListener('click',()=>{
     if(activeAccount){closeAccount();return}
-    activeAccount=account;account.panel.showPopover();positionAccount();account.theme.focus({preventScroll:true});
+    activeAccount=account;account.panel.hidden=false;
+    if(account.nativePopover){
+      try{account.panel.showPopover()}catch{account.nativePopover=false;account.panel.removeAttribute('popover')}
+    }
+    positionAccount();account.theme.focus({preventScroll:true});
     account.trigger.setAttribute('aria-expanded','true');account.trigger.querySelector('span').textContent='▴';
     history.pushState({...history.state,kptuAccount:account.panel.id},'',location.href);
   });

@@ -109,7 +109,7 @@ jobs:
           grep -q 'id="accessDeniedView"' app/index.html
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
-          grep -q "critical.css?v=15" app/index.html
+          grep -q "critical.css?v=16" app/index.html
           if grep -q "styles.css?v=51" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
@@ -139,7 +139,7 @@ jobs:
           if grep -R -q "20260924-unicorn2" app/index.html app/windows-manifest.json app/sw.js; then echo 'poisoned Web2 icon URL returned'; exit 1; fi
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
-          grep -q "topbar-actions.js?v=13" app/loader-v2.js
+          grep -q "topbar-actions.js?v=14" app/loader-v2.js
           grep -q "team.js?v=61" app/loader-v2.js
           grep -q "project-system-v3.js?v=33" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
@@ -175,7 +175,7 @@ jobs:
           grep -q "calendar-day-overflow.js?v=7" app/view-loader.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/view-loader.js
 
-          grep -q "topbar-actions.css?v=13" app/styles.css
+          grep -q "topbar-actions.css?v=14" app/styles.css
           grep -q "team.css?v=6" app/styles.css
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
