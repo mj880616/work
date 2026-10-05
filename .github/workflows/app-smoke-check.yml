@@ -57,13 +57,13 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=61')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=53')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=54')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
           if(missingLoader.length)throw new Error('missing route-first startup marker: '+missingLoader.join(', '));
           const viewKeys=[
-            "module('./calendar-month-view.js?v=11'","__KPTU_CALENDAR_MONTH_VIEW_READY__",
+            "module('./calendar-month-view.js?v=12'","__KPTU_CALENDAR_MONTH_VIEW_READY__",
             "module('./task-workflow.js?v=9'","__KPTU_TASK_WORKFLOW_READY__",
             "module('./web1-board.js?v=3'",
             "module('./meeting-round-detail.js?v=20'","__KPTU_MEETING_ROUND_DETAIL_READY__",
@@ -297,7 +297,7 @@ jobs:
           set -e
           grep -q "window.KPTUCalendarMonthView={render,visibleRange,setNavigate" app/calendar-month-view.js
           grep -q "window.__KPTU_CALENDAR_MONTH_VIEW_READY__" app/calendar-month-view.js
-          grep -q "calendar-month-view.js?v=11" app/view-loader.js
+          grep -q "calendar-month-view.js?v=12" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MONTH_VIEW_READY__" app/view-loader.js
           grep -q "KPTUCalendarMonthView?.render?.(" app/team.js
           grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js

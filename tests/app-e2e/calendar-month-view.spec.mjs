@@ -108,9 +108,9 @@ test('Android-style tap creates an event while swipe and scroll gestures suppres
   });
   await page.locator('.cal-cell[data-date="2026-09-06"]').dispatchEvent('click');
   await expect(page.locator('#eventModal')).toBeHidden();
-  await expect.poll(()=>page.evaluate(()=>window.__navDelta)).toBe(1);
+  await expect.poll(()=>page.evaluate(()=>window.__navDelta)).toBe(0);
 
-  await page.waitForTimeout(400);
+  await expect.poll(()=>page.evaluate(()=>window.KPTUCalendarMonthView.suppressClick())).toBe(false);
   await page.locator('#calendarGrid').evaluate(el=>{
     const cell=el.querySelector('.cal-cell[data-date="2026-09-06"]');
     const fire=(type,x,y,key='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,key,{value:[{clientX:x,clientY:y}]});cell.dispatchEvent(e)};
@@ -128,14 +128,14 @@ test('plus button still opens the same creation UI',async({page})=>{
   await expect(page.locator('#eventModal')).toBeVisible();
 });
 
-test('horizontal swipe changes month while vertical movement does not',async({page})=>{
+test('horizontal month-threshold swipe never changes month and vertical movement does not',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
   await page.locator('#calendarGrid').evaluate(el=>{
     const fire=(type,x,y,key='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,key,{value:[{clientX:x,clientY:y}]});el.dispatchEvent(e)};
     fire('touchstart',330,360);fire('touchend',90,365,'changedTouches');
   });
-  await expect.poll(()=>page.evaluate(()=>window.__navDelta)).toBe(1);
+  await expect.poll(()=>page.evaluate(()=>window.__navDelta)).toBe(0);
   await page.evaluate(()=>window.__navDelta=0);
   await page.locator('#calendarGrid').evaluate(el=>{
     const fire=(type,x,y,key='touches')=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,key,{value:[{clientX:x,clientY:y}]});el.dispatchEvent(e)};
@@ -513,4 +513,53 @@ test('event color presets use Google event colorIds and remain keyboard-focusabl
   const touchSize=await swatches.first().evaluate(el=>({w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height}));
   expect(touchSize.w).toBeGreaterThanOrEqual(40);
   expect(touchSize.h).toBeGreaterThanOrEqual(40);
+});
+
+for(const [name,selector] of [['date','.cal-cell[data-date="2026-09-06"]'],['event','.cp-event[data-google-event="app-1"]'],['overflow','.kptu-day-more']]){
+  test(`${name} swipe and scroll block the release click but allow the next tap`,async({page})=>{
+    await page.setViewportSize({width:390,height:844});await page.goto(url);
+    for(const [dx,dy] of [[-170,2],[170,2],[2,100]]){
+      const prevented=await page.locator(selector).first().evaluate((el,[dx,dy])=>{
+        const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+        const fire=(type,px,py)=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,'touches',{value:type==='touchend'?[]:[{clientX:px,clientY:py}]});Object.defineProperty(e,'changedTouches',{value:[{clientX:px,clientY:py}]});el.dispatchEvent(e);return e.defaultPrevented};
+        fire('touchstart',x,y);const prevented=fire('touchmove',x+dx,y+dy);fire('touchend',x+dx,y+dy);el.click();return prevented;
+      },[dx,dy]);
+      expect(prevented).toBe(false);
+      await expect(page.locator('#eventModal')).toBeHidden();
+      await expect(page.locator('#ciGoogleModal')).toBeHidden();
+      await expect(page.locator('#calendarDayModal')).toBeHidden();
+      expect(await page.evaluate(()=>window.__navDelta)).toBe(0);
+      await expect.poll(()=>page.evaluate(()=>window.KPTUCalendarMonthView.suppressClick())).toBe(false);
+    }
+    await page.locator(selector).first().click();
+    await expect(page.locator(name==='date'?'#eventModal':name==='event'?'#ciGoogleModal':'#calendarDayModal')).toBeVisible();
+  });
+}
+
+test('the old 55px month threshold is disabled in both directions',async({page})=>{
+  await page.setViewportSize({width:390,height:844});await page.goto(url);
+  for(const dx of [-55,55,-56,56]){
+    await page.locator('.cal-cell').first().evaluate((el,dx)=>{
+      const fire=(type,x)=>{const e=new Event(type,{bubbles:true,cancelable:true});Object.defineProperty(e,'touches',{value:type==='touchend'?[]:[{clientX:x,clientY:300}]});Object.defineProperty(e,'changedTouches',{value:[{clientX:x,clientY:300}]});el.dispatchEvent(e)};
+      fire('touchstart',200);fire('touchmove',200+dx);fire('touchend',200+dx);
+    },dx);
+    expect(await page.evaluate(()=>window.__navDelta)).toBe(0);
+  }
+});
+
+test('native vertical touch scroll remains available over calendar date cells',async({browser})=>{
+  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  const page=await context.newPage();
+  try{
+    await page.goto(url);
+    await page.evaluate(()=>{const spacer=document.createElement('div');spacer.style.height='1000px';document.body.appendChild(spacer)});
+    const point=await page.locator('.cal-cell').nth(4).evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height*.8}});
+    const cdp=await context.newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+    for(const dy of [40,90,160])await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x,y:point.y-dy}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(0);
+    expect(await page.evaluate(()=>window.__navDelta)).toBe(0);
+    await expect(page.locator('#eventModal')).toBeHidden();
+  }finally{await context.close()}
 });
