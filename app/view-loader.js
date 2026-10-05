@@ -20,14 +20,14 @@ function style(path){
   return flight
 }
 const routeStyles={
-  calendar:['./calendar-ui.css?v=15'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=18'],
-  projects:['./project-system-v3.css?v=19','./forum-flow-polish.css?v=2','./google-tasks.css?v=18'],
+  calendar:['./calendar-ui.css?v=16'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=19'],
+  projects:['./project-system-v3.css?v=20','./forum-flow-polish.css?v=2','./google-tasks.css?v=19'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=11','./google-tasks.css?v=18'],
-  media:['./web1-press.css?v=3'],
+  meetings:['./meeting-ui.css?v=12','./google-tasks.css?v=19'],
+  media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=4'],
-  team:['./suborganizations.css?v=7','./workplace-detail.css?v=5','./google-tasks.css?v=18']
+  team:['./suborganizations.css?v=8','./workplace-detail.css?v=6','./google-tasks.css?v=19']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -73,13 +73,13 @@ async function calendar(){
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=13','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
-  background(style('./suborganizations.css?v=7').then(organizationOrder).then(()=>module('./suborganizations.js?v=11','__KPTU_SUBORGANIZATIONS_READY__')));
+  background(style('./suborganizations.css?v=8').then(organizationOrder).then(()=>module('./suborganizations.js?v=11','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
   // google-tasks.js.
-  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=18'),organizationOrder()])).then(()=>module('./google-tasks.js?v=25')).then(()=>module('./calendar-tasks.js?v=2')));
-  background(google.then(()=>module('./calendar-health.js?v=5')));
+  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=19'),organizationOrder()])).then(()=>module('./google-tasks.js?v=25')).then(()=>module('./calendar-tasks.js?v=2')));
+  background(google.then(()=>module('./calendar-health.js?v=6')));
   return {ok:true}
 }
 async function tasks(){

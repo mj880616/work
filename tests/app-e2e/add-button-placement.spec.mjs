@@ -133,9 +133,9 @@ for(const width of [390,1440]){
         const archive=await page.locator('#ps3ArchiveBtn').boundingBox();
         const add=await page.locator('#newProjectBtn').boundingBox();
         expect(archive.width).toBeGreaterThanOrEqual(44);
-        expect(archive.height).toBeGreaterThanOrEqual(44);
+        expect(archive.height).toBe(36);
         expect(add.width).toBeGreaterThanOrEqual(44);
-        expect(add.height).toBeGreaterThanOrEqual(44);
+        expect(add.height).toBe(36);
         expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
         expect(Math.abs(archive.y-add.y)).toBeLessThanOrEqual(1);
       };

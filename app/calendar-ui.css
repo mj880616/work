@@ -83,7 +83,7 @@
 .ci-card{width:min(100%,500px);border-top:4px solid var(--kptu-info)}
 .ci-actions{display:grid;grid-template-columns:auto 1fr;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
 .ci-actions .primary{width:auto}
-.ci-delete{min-height:var(--kptu-control-height);border:1px solid var(--kptu-danger);background:var(--kptu-surface);color:var(--kptu-danger);border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);font-weight:700}
+.ci-delete{font-size:var(--kptu-text-meta);min-height:var(--kptu-control-height);border:1px solid var(--kptu-danger);background:var(--kptu-surface);color:var(--kptu-danger);border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);font-weight:700}
 .ci-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--kptu-space-2)}
 .ci-all{display:flex;flex-direction:row;gap:var(--kptu-space-2);align-items:center}
 .ci-all input{width:auto;min-height:0}
