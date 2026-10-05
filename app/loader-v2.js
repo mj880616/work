@@ -126,7 +126,7 @@
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
   await import('./drive-summary.js?v=2');
 
-  const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=5').catch(err=>{console.error('mobile navigation load failed',err);return null});
+  const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=6').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{
     console.error('view feature load failed',err);
     let box=document.querySelector('#deferredFeatureError');
@@ -134,7 +134,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=54');
+  await import('./view-loader.js?v=55');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');

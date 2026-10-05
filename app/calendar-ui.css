@@ -109,6 +109,14 @@
 }
 
 @media(max-width:760px){
+  #calendarView .calendar-grid{--cmv-date-header-height:32px}
+  #calendarView .cal-cell{position:relative;border-right:0}
+  #calendarView .cal-cell::after{content:'';position:absolute;right:0;top:0;bottom:0;border-right:1px solid var(--kptu-border);pointer-events:none}
+  #calendarView .cal-cell:last-child::after{display:none}
+  .cmv-date-list,.cmv-date-create{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+  .cmv-date-list{top:0;height:var(--cmv-date-header-height);padding:2px 1px;text-align:left;display:flex;align-items:flex-start}
+  .cmv-date-create{top:var(--cmv-date-header-height);bottom:0;padding:0}
+  .cmv-date-list:focus-visible,.cmv-date-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
   .calendar-toolbar-add{width:44px;padding:0;font-size:18px}
   .calendar-add-label{display:none}
   #calendarView .calendar-card .calendar-grid{margin-left:0;margin-right:0;border-left:1px solid var(--kptu-border);border-right:1px solid var(--kptu-border)}
