@@ -26,6 +26,11 @@ test('only approved exclusions skip colors',()=>{
 // base-ui.css의 rgba(18,26,35,.46)는 창 뒤 반투명 바탕이다.
 // page-design-core.js/public-page-editor.js는 사용자 콘텐츠 색이므로 검사 제외를 유지한다.
 // base-ui.css의 #f3f0f7 보라 바탕은 지시서의 유지 대상이다.
-// 판단 필요: native-auth-bridge.js/calendar-return-bridge.js는 head를 교체한 독립 문서,
-// web1-board.js/web1-press.js는 srcdoc iframe, public-page-auth.js는 로더 참조가 없는
-// 독립 공개 인증 UI여서 테마 변수가 없다. 표 밖 색 및 다른 그림자는 그대로 센다.
+// D-3b 사용자 결정: 아래 색은 의도된 예외이며 검사 개수에는 계속 포함한다.
+// native-auth-bridge.js/calendar-return-bridge.js: 테마 파일이 닿지 않는 독립 문서.
+// public-page-auth.js: 앱 로더가 불러오지 않는 공개 인증 화면.
+// web1-board.js:18·19/web1-press.js:61: 별도 srcdoc iframe 문서 안 글자.
+// app.js:56 진단 버튼 그림자, base-ui.css:76 작은 버튼 그림자: 기존 모양 유지.
+// project-suborganization-links.js/project-task-link.js/project-templates.js/
+// project-update-actions.js/task-notes.js: 현재 앱 로더가 불러오지 않는 모듈.
+// 사용처 확인 후 제거 여부는 D-6에서 판단하며 이번에는 색을 유지한다.

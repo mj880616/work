@@ -79,7 +79,7 @@ async function calendar(){
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
   // google-tasks.js.
   background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=18'),organizationOrder()])).then(()=>module('./google-tasks.js?v=25')).then(()=>module('./calendar-tasks.js?v=2')));
-  background(google.then(()=>module('./calendar-health.js?v=4')));
+  background(google.then(()=>module('./calendar-health.js?v=5')));
   return {ok:true}
 }
 async function tasks(){

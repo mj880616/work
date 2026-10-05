@@ -191,3 +191,22 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
   }
  });
 }
+
+for(const theme of Object.keys(primary)){
+ test('D-3b followup toast warning and focus colors '+theme,async({page})=>{
+  const {readFileSync}=await import('node:fs');
+  const warningStyle=readFileSync('app/calendar-health.js','utf8').match(/st.textContent=`([\s\S]*?)`/)[1];
+  await page.addInitScript(({theme,THEME_STORAGE_KEY})=>localStorage.setItem(THEME_STORAGE_KEY,theme),{theme,THEME_STORAGE_KEY});
+  await page.goto('http://127.0.0.1:8123/app/login/');
+  await page.addStyleTag({content:warningStyle});
+  await page.evaluate(()=>{const host=document.createElement('div');host.innerHTML='<div class="toast" id="followupToast">Fixture</div><div id="googleCalendarWarning">Fixture <a href="#">Link</a></div><input id="followupFocus">';document.body.append(host)});
+  const token=async name=>page.evaluate(name=>{const probe=document.createElement('i');probe.style.color='var('+name+')';document.body.append(probe);const color=getComputedStyle(probe).color;probe.remove();return color},name);
+  await expect(page.locator('#followupToast')).toHaveCSS('background-color',await token('--kptu-ink'));
+  await expect(page.locator('#followupToast')).toHaveCSS('color',await token('--kptu-surface'));
+  await expect(page.locator('#googleCalendarWarning')).toHaveCSS('background-color',await token('--kptu-warning-soft'));
+  await expect(page.locator('#googleCalendarWarning')).toHaveCSS('color',await token('--kptu-warning'));
+  await expect(page.locator('#googleCalendarWarning a')).toHaveCSS('color',await token('--kptu-link'));
+  await page.locator('#followupFocus').focus();
+  await expect(page.locator('#followupFocus')).toHaveCSS('box-shadow',(await token('--kptu-primary-soft'))+' 0px 0px 0px 3px');
+ });
+}
