@@ -14,7 +14,7 @@
   #appView>.app-nav .sidebar-utility+.sidebar-utility{margin-top:2px}
   #appView>.app-nav .nav-btn{width:100%;min-height:40px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);padding:9px 10px;text-align:left;font-size:13px;font-weight:700;line-height:1.25;transition:background .14s ease,color .14s ease}
   #appView>.app-nav .nav-btn:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary)}
-  #appView>.app-nav .nav-btn.active{background:var(--kptu-primary);color:#fff;box-shadow:none}
+  #appView>.app-nav .nav-btn.active{background:var(--kptu-primary);color:var(--kptu-on-primary);box-shadow:none}
 
   #appView>.view-panel{grid-column:2;grid-row:1;min-width:0}
   #appView>.view-panel:not(.hidden){display:block}

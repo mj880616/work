@@ -5,7 +5,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
 const workspace={id:'design-system-workspace',slug:'design-system',name:'웹2'};
 
-async function mockApp(page){
+async function mockApp(page,{spaces=[]}={}){
   await page.route(`${SB}/**`,async route=>{
     const url=new URL(route.request().url());
     const path=url.pathname;
@@ -21,7 +21,7 @@ async function mockApp(page){
     if(path==='/rest/v1/app_workspaces')return ok([workspace]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'Design QA'}]);
     if(path==='/rest/v1/app_tasks')return ok([]);
-    if(path==='/rest/v1/app_spaces')return ok([]);
+    if(path==='/rest/v1/app_spaces')return ok(spaces);
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});
   });
@@ -150,3 +150,44 @@ test('390px menu end shows theme button and scrolling does not switch views',asy
  await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);await page.locator('#sidebarThemeBtn').click();await expect(page.locator('#themeModal')).toBeVisible();
  expect(await page.evaluate(()=>window.themeNavigationCalls)).toEqual([]);
 });
+
+// D-3b: computed colors on the actual eight routes, including a populated project detail.
+for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)){
+ test('D-3b route colors '+theme+' at '+width,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await page.addInitScript(theme=>localStorage.setItem('kptu-theme',theme),theme);
+  await mockApp(page,{spaces:[{id:'theme-project',workspace_id:workspace.id,name:'Theme fixture',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2},visibility:'private'}]});
+  await page.route('https://raw.githubusercontent.com/**',route=>route.fulfill({status:200,body:'<p>Fixture</p>'}));
+  await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+  const rgb=hex=>'rgb('+hex.slice(1).match(/../g).map(v=>parseInt(v,16)).join(', ')+')';
+  const surface={olive:'#fffefa',navy:'#ffffff',terracotta:'#fffdf9',sand:'#fffcf6'};
+  const matches=async(selector,property,hex)=>{
+   const element=page.locator(selector).first();await expect(element).toBeVisible();
+   await expect.poll(()=>element.evaluate((el,property)=>getComputedStyle(el)[property],property)).toBe(rgb(hex));
+  };
+  for(const [view,selector,property,expected] of [
+   ['calendar','#calendarCard','backgroundColor',surface[theme]],
+   ['tasks','#newTaskBtn','backgroundColor',color],
+   ['projects','#newProjectBtn','backgroundColor',color],
+   ['library','#libraryListCard','backgroundColor',surface[theme]],
+   ['meetings','#newMeetingBtn','backgroundColor',color],
+   ['media','.w1p-filter.active','backgroundColor',color],
+   ['pages','.w1b-card','backgroundColor',surface[theme]],
+   ['team','#soAddOrg','backgroundColor',surface[theme]]
+  ]){
+   await page.locator('.app-nav [data-view="'+view+'"]').click();
+   await expect(page.locator('#'+view+'View')).toBeVisible();
+   await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
+   expect(await readPrimary(page)).toBe(color);
+   await matches('.app-nav .nav-btn.active','backgroundColor',color);
+   await matches(selector,property,expected);
+   if(view==='projects'){
+    await page.locator('[data-ps3-project="theme-project"]').first().click();
+    await matches('#ps3DetailModal .modal-card','backgroundColor',surface[theme]);
+    expect(await readPrimary(page)).toBe(color);
+    await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+    await expect(page.locator('#ps3DetailModal')).toBeHidden();
+   }
+  }
+ });
+}

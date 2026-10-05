@@ -105,7 +105,7 @@ button.ps3-kid-row{cursor:pointer}
 .ps3-public-preview-block{padding:8px 0;border-bottom:1px solid var(--kptu-border)}
 .ps3-modal-actions{display:flex;justify-content:space-between;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
 .ps3-danger{color:var(--kptu-danger)!important}
-.ps3-danger-btn{background:var(--kptu-danger)!important;border-color:var(--kptu-danger)!important;color:#fff!important}
+.ps3-danger-btn{background:var(--kptu-danger)!important;border-color:var(--kptu-danger)!important;color:var(--kptu-on-primary)!important}
 .ps3-person{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:var(--kptu-space-2);align-items:center;padding:7px 0;border-bottom:1px solid var(--kptu-border)}
 .ps3-person label{margin:0;display:flex;flex-direction:row;align-items:center;gap:var(--kptu-space-2)}
 .ps3-person input{width:auto;min-height:0}

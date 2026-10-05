@@ -22,7 +22,7 @@ function install(){
   document.querySelector('#warFinalize').onclick=()=>saveReport(true);
   const style=document.createElement('style');
   style.id='warStyle';
-  style.textContent='.war-report{border:1px solid #e3e8ec;border-radius:10px;padding:9px;margin-top:7px;background:#fbfcfd}.war-report small{color:#788590}.war-report p{white-space:pre-wrap;margin:5px 0 0;font-size:11px;line-height:1.5}.war-report button{margin-top:6px}';
+  style.textContent='.war-report{border:1px solid var(--kptu-border);border-radius:10px;padding:9px;margin-top:7px;background:var(--kptu-surface-subtle)}.war-report small{color:var(--kptu-muted)}.war-report p{white-space:pre-wrap;margin:5px 0 0;font-size:11px;line-height:1.5}.war-report button{margin-top:6px}';
   document.head.appendChild(style);
 }
 

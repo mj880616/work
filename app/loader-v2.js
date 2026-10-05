@@ -134,7 +134,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=55');
+  await import('./view-loader.js?v=56');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');
@@ -197,5 +197,5 @@
   console.error(err);
   document.body?.classList.remove('kptu-session-pending');
   window.__KPTU_MARK_APP_UI_READY__?.();
-  document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
+  document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:var(--kptu-danger)">앱 초기화 오류: '+String(err.message||err)+'</pre>');
 });

@@ -53,7 +53,7 @@
     if(!forced||document.querySelector('#startupDiagCopy'))return;
     const b=document.createElement('button');
     b.id='startupDiagCopy';b.type='button';b.textContent='로딩 기록 복사';
-    b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:9999;padding:8px 10px;border:1px solid #cfd6dc;border-radius:8px;background:#fff;color:#263f5f;font:700 12px sans-serif;box-shadow:0 4px 16px rgba(20,33,48,.12)';
+    b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:9999;padding:8px 10px;border:1px solid var(--kptu-border-strong);border-radius:8px;background:var(--kptu-surface);color:var(--kptu-primary-ink);font:700 12px sans-serif;box-shadow:0 4px 16px rgba(20,33,48,.12)';
     b.onclick=async()=>{try{await window.KPTUStartupDiagnostics.copy();b.textContent='복사됨'}catch{b.textContent='복사 실패'}};
     document.body.appendChild(b);
   }
@@ -64,8 +64,8 @@
     window.dispatchEvent(new Event('kptu:app-ui-ready'));
     maybeDebugButton();
   };
-  import('./loader-v2.js?v=281').catch(err=>{
+  import('./loader-v2.js?v=282').catch(err=>{
     console.error(err);startup.finalize('error');window.__KPTU_MARK_APP_UI_READY__?.();
-    document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:#a33b45">앱 초기화 오류: '+String(err.message||err)+'</pre>');
+    document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:var(--kptu-danger)">앱 초기화 오류: '+String(err.message||err)+'</pre>');
   });
 })();
