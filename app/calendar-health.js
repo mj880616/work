@@ -9,8 +9,8 @@ function installCalendarCompactStyle(){
   #googleCalendarControls{align-items:center!important;gap:10px!important;flex-wrap:wrap!important}
   #googleConnectBtn{width:auto!important;min-width:0!important;min-height:40px!important;height:40px!important;padding:0 14px!important;font-size:14px!important;line-height:1!important;white-space:nowrap!important;flex:0 0 auto!important}
   #googleAccountLabel{font-size:12px!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px}
-  #googleCalendarWarning{width:100%;margin-top:2px;padding:9px 11px;border-radius:10px;background:#fff4e5;color:#79550b;font-size:12px;line-height:1.45}
-  #googleCalendarWarning a{display:inline-block;margin-left:6px;color:#315f91;font-weight:750;text-decoration:none;white-space:nowrap}
+  #googleCalendarWarning{width:100%;margin-top:2px;padding:9px 11px;border-radius:10px;background:var(--kptu-warning-soft);color:var(--kptu-warning);font-size:12px;line-height:1.45}
+  #googleCalendarWarning a{display:inline-block;margin-left:6px;color:var(--kptu-link);font-weight:750;text-decoration:none;white-space:nowrap}
   @media(max-width:650px){#googleConnectBtn{min-height:38px!important;height:38px!important;padding:0 12px!important;font-size:13px!important}#googleAccountLabel{max-width:145px}}
   `;document.head.appendChild(st);
 }

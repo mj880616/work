@@ -38,7 +38,7 @@ jobs:
           grep -q "data-wd-time-edit" app/workplace-detail.js
           grep -q "id=\"wdInboxText\"" app/workplace-detail.js
           grep -q "id=\"wdInboxSave\"" app/workplace-detail.js
-          grep -q "workplace-report.js?v=1" app/view-loader.js
+          grep -q "workplace-report.js?v=2" app/view-loader.js
           if grep -Eq "wdUpdateCurrent|wdCurrentModal|wdAddItem|wdItemModal" app/workplace-detail.js; then
             echo 'removed current-status/memo input returned to workplace detail'; exit 1
           fi

@@ -20,14 +20,14 @@ function style(path){
   return flight
 }
 const routeStyles={
-  calendar:['./calendar-ui.css?v=14'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=17'],
-  projects:['./project-system-v3.css?v=17','./forum-flow-polish.css?v=1','./google-tasks.css?v=17'],
+  calendar:['./calendar-ui.css?v=15'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=18'],
+  projects:['./project-system-v3.css?v=18','./forum-flow-polish.css?v=2','./google-tasks.css?v=18'],
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=10','./google-tasks.css?v=17'],
-  media:['./web1-press.css?v=1'],
-  pages:['./web1-board.css?v=2'],
-  team:['./suborganizations.css?v=6','./workplace-detail.css?v=5','./google-tasks.css?v=17']
+  meetings:['./meeting-ui.css?v=10','./google-tasks.css?v=18'],
+  media:['./web1-press.css?v=2'],
+  pages:['./web1-board.css?v=3'],
+  team:['./suborganizations.css?v=6','./workplace-detail.css?v=5','./google-tasks.css?v=18']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -78,14 +78,14 @@ async function calendar(){
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
   // google-tasks.js.
-  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=17'),organizationOrder()])).then(()=>module('./google-tasks.js?v=24')).then(()=>module('./calendar-tasks.js?v=2')));
-  background(google.then(()=>module('./calendar-health.js?v=4')));
+  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=18'),organizationOrder()])).then(()=>module('./google-tasks.js?v=25')).then(()=>module('./calendar-tasks.js?v=2')));
+  background(google.then(()=>module('./calendar-health.js?v=5')));
   return {ok:true}
 }
 async function tasks(){
   await module('./project-catalog.js?v=2');
   await organizationOrder();
-  await module('./google-tasks.js?v=24');
+  await module('./google-tasks.js?v=25');
   return {ok:true}
 }
 async function projects(){
@@ -96,7 +96,7 @@ async function projects(){
   await module('./project-catalog.js?v=2');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
-  await module('./google-tasks.js?v=24');
+  await module('./google-tasks.js?v=25');
   await module('./project-system-v3.js?v=33','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
@@ -110,7 +110,7 @@ async function meetings(){
   await projectCatalog();
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
-  await module('./google-tasks.js?v=24');
+  await module('./google-tasks.js?v=25');
   await module('./meeting-round-detail.js?v=20','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
@@ -127,9 +127,9 @@ async function organizations(){
   await module('./suborganizations.js?v=11','__KPTU_SUBORGANIZATIONS_READY__');
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
   await module('./project-catalog.js?v=2');
-  await module('./google-tasks.js?v=24');
+  await module('./google-tasks.js?v=25');
   await module('./workplace-detail.js?v=11');
-  import('./workplace-report.js?v=1').catch(console.error);
+  import('./workplace-report.js?v=2').catch(console.error);
   return {ok:true}
 }
 const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations};

@@ -42,7 +42,7 @@
 .cal-cell:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 .cal-day{display:grid;place-items:center;flex:0 0 auto;width:20px;height:20px;margin:0 0 1px 1px;font-size:10px;font-weight:700;line-height:1}
 .cal-cell.today{background:var(--kptu-surface)}
-.cal-cell.today .cal-day{background:var(--kptu-primary);color:#fff;border-radius:var(--kptu-radius-pill)}
+.cal-cell.today .cal-day{background:var(--kptu-primary);color:var(--kptu-on-primary);border-radius:var(--kptu-radius-pill)}
 .cal-cell.other.today{background:var(--kptu-surface-subtle)}
 
 .cmv-week-events{position:absolute;left:0;right:0;top:var(--cmv-date-header-height);bottom:1px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:calc(var(--cmv-lane-step) - 1px);row-gap:1px;align-content:start;pointer-events:none;padding:0 1px}

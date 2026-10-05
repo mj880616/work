@@ -7,7 +7,7 @@ body.kptu-workspace-shell .topbar{display:none!important}
 }
 .app-nav::-webkit-scrollbar{display:none}
 .nav-btn{border:0;background:transparent;color:var(--kptu-muted);font-weight:700;padding:9px 12px;border-radius:var(--kptu-radius-md);white-space:nowrap}
-.nav-btn.active{background:var(--kptu-primary);color:#fff}
+.nav-btn.active{background:var(--kptu-primary);color:var(--kptu-on-primary)}
 .view-panel{min-height:360px}
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--kptu-space-3);margin-bottom:var(--kptu-space-3)}
 .stat-card{background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-4);text-align:left;color:var(--kptu-ink)}

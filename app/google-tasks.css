@@ -14,7 +14,7 @@
 /* The check is drawn in CSS, centred in the circle; pending and completed share one size and position. */
 :is(#gtTaskSection,.gt-linked) .gt-check{position:relative;box-sizing:border-box;flex:none;width:22px;height:22px;min-width:22px;min-height:22px;padding:0;margin:0;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);font-size:0;line-height:0;cursor:pointer}
 :is(#gtTaskSection,.gt-linked) .gt-row.completed .gt-check{background:var(--kptu-success)}
-:is(#gtTaskSection,.gt-linked) .gt-row.completed .gt-check::after,#gtTaskSection .gt-row.gt-anim-off .gt-check::after{content:'';position:absolute;left:50%;top:50%;box-sizing:border-box;width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:translate(-50%,-62%) rotate(45deg)}
+:is(#gtTaskSection,.gt-linked) .gt-row.completed .gt-check::after,#gtTaskSection .gt-row.gt-anim-off .gt-check::after{content:'';position:absolute;left:50%;top:50%;box-sizing:border-box;width:6px;height:10px;border:solid var(--kptu-on-primary);border-width:0 2px 2px 0;transform:translate(-50%,-62%) rotate(45deg)}
 /* Tap effect (PR 1-보완): the circle fills and the check draws (short leg, then long leg), the title is struck, then the row fades
    before it moves; gt-anim-off plays the same in reverse. --gt-t is a negative delay set by google-tasks.js so a re-render continues
    an effect instead of restarting it. Timings match SETTLE_MS and ARRIVE_MS there. */
