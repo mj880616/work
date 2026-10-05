@@ -10,3 +10,21 @@
 @media(min-width:760px){#appView>.app-nav .drive-summary-menu{width:100%}#appView>.app-nav .drive-summary-panel{position:static;width:100%;box-sizing:border-box}}
 @media(max-width:759px){#appView>.app-nav .drive-summary-panel{position:fixed;top:60px;left:12px;right:12px;width:auto;max-height:70dvh;overflow:auto}#appView>.app-nav .drive-summary-menu>summary{white-space:nowrap;min-height:40px;box-sizing:border-box}}
 @media(max-width:700px){.top-actions{gap:5px!important}.top-actions [data-kptu-logout]{padding:0 var(--kptu-space-2)!important;font-size:11px!important}}
+
+[data-theme-open].hidden{display:none!important}
+#appView>.app-nav #sidebarThemeBtn{min-height:var(--kptu-touch-target);min-width:var(--kptu-touch-target)}
+.theme-panel{padding:var(--kptu-space-4);width:min(360px,calc(100vw - 24px));max-width:100%;box-sizing:border-box}
+#themeModal{place-items:center;padding:12px}
+.theme-panel .modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.theme-panel h2{font-size:var(--kptu-text-title);margin:0}
+.theme-panel [data-close]{min-height:var(--kptu-touch-target);min-width:var(--kptu-touch-target)}
+.theme-choices{display:grid;gap:8px;margin-top:12px}
+.theme-choices button{display:flex;align-items:center;gap:10px;width:100%;min-height:var(--kptu-touch-target);padding:8px 10px;text-align:left;color:var(--kptu-ink);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
+.theme-choices button[aria-pressed="true"]{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
+.theme-swatch{display:flex;gap:4px;flex-shrink:0}
+.theme-swatch i{display:block;width:18px;height:18px;border-radius:50%;border:1px solid var(--kptu-border-strong);background:var(--kptu-bg)}
+.theme-swatch i+i{background:var(--kptu-primary)}
+.theme-selected{margin-left:auto;color:var(--kptu-muted);font-size:var(--kptu-text-meta);visibility:hidden;white-space:nowrap}
+[aria-pressed="true"] .theme-selected{visibility:visible}
+
+@media(max-width:1023px){#appView>.app-nav #sidebarThemeBtn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;white-space:nowrap;min-height:var(--kptu-touch-target)}}
