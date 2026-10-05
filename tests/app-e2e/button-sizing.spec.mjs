@@ -51,12 +51,12 @@ async function boot(page,tasks=[],calendarEvents=[]){
  await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
 }
 async function view(page,name){await page.locator('.app-nav [data-view="'+name+'"]').click();await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
-async function baseline(page){
+async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
  const cache=new Map();
  await page.route(/^http:\/\/127\.0\.0\.1:8123\/(?:app|press)\//,route=>{
   let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
   if(!/\.(css|js|html)$/.test(path))return route.continue();
-  if(!cache.has(path))cache.set(path,execFileSync('git',['show','3824ca580ddcc1ba50154b45cf220c6e73742627:'+path],{encoding:'utf8'}));
+  if(!cache.has(path))cache.set(path,execFileSync('git',['show',ref+':'+path],{encoding:'utf8'}));
   const contentType=path.endsWith('.css')?'text/css':path.endsWith('.js')?'text/javascript':'text/html';
   return route.fulfill({status:200,contentType,body:cache.get(path)});
  });
@@ -74,11 +74,46 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
   for(const selector of selectors){await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
- for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn','#newEventBtn'],library:['#newDocumentBtn','[data-lu-download]','[data-lu-edit]','[data-lu-delete]'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
+ for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn','[data-lu-download]','[data-lu-edit]','[data-lu-delete]'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
   for(const selector of selectors)expect(await size(page.locator(selector).first()),selector).toEqual(await size(original.locator(selector).first()));
  }
  await original.close();
+});
+
+for(const width of [390,760,761,1440])test('calendar add paints 36px with a real 44px target and unchanged month arrows '+width,async({page,browser},testInfo)=>{
+ await page.setViewportSize({width,height:900});await boot(page);await view(page,'calendar');
+ const button=page.locator('#newEventBtn');await expect(button).toBeVisible();
+ const painted=await size(button),rect=await button.boundingBox();
+ expect(painted.height).toBeGreaterThanOrEqual(35);expect(painted.height).toBeLessThanOrEqual(37);
+ expect(painted.font).toBe('12px');expect(painted.radius).toBe('8px');
+ expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width<=760?'+':'+ 일정 등록');
+ if(width<=760){expect(rect.width).toBeGreaterThanOrEqual(35);expect(rect.width).toBeLessThanOrEqual(37);}
+ else{expect(painted.paddingLeft).toBe('12px');expect(painted.paddingRight).toBe('12px');}
+ const original=await browser.newPage({viewport:{width,height:900}});
+ await baseline(original,'8d9a30626b11c0826def8393cefdf65934489d2f');await boot(original);await view(original,'calendar');
+ for(const selector of ['#prevMonthBtn','#nextMonthBtn']){
+  expect(await size(page.locator(selector))).toEqual(await size(original.locator(selector)));
+  expect((await page.locator(selector).boundingBox()).width).toBe((await original.locator(selector).boundingBox()).width);
+ }
+ const before=await size(original.locator('#newEventBtn'));
+ for(const property of ['weight','color','background'])expect(painted[property]).toBe(before[property]);
+ await original.close();
+ const target=await button.evaluate(el=>{
+  const r=el.getBoundingClientRect(),s=getComputedStyle(el),p=getComputedStyle(el,'::after');
+  const x=r.x+parseFloat(s.borderLeftWidth)+parseFloat(p.left),y=r.y+parseFloat(s.borderTopWidth)+parseFloat(p.top),w=parseFloat(p.width),h=parseFloat(p.height);
+  const points=[[x+1,y+h/2],[x+w-1,y+h/2],[x+w/2,y+1],[x+w/2,y+h-1]];
+  return {w,h,points,hits:points.map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)};
+ });
+ expect(target.w).toBeGreaterThanOrEqual(44);expect(target.h).toBeGreaterThanOrEqual(44);
+ expect(target.hits).toEqual([true,true,true,true]);
+ await page.screenshot({path:testInfo.outputPath('calendar-'+width+'.png')});
+ await testInfo.attach('calendar bounds',{body:JSON.stringify({width,painted,rect,target}),contentType:'application/json'});
+ for(const [x,y]of target.points){
+  await page.mouse.click(x,y);await expect(page.locator('#eventModal')).toBeVisible();
+  await page.locator('#eventModal [data-close="eventModal"]').click();await expect(page.locator('#eventModal')).toBeHidden();
+ }
+ await button.focus();await page.keyboard.press('Enter');await expect(page.locator('#eventModal')).toBeVisible();
 });
 for(const width of [390,1440])test('D-button real painted and pointer bounds in project toolbar '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'projects');

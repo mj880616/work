@@ -47,7 +47,7 @@ async function buttonHeight(page,view,selector){
   return button.evaluate(el=>el.getBoundingClientRect().height);
 }
 
-test('calendar keeps its 44px action while text actions use 36px and mobile content reaches the viewport bottom',async({page})=>{
+test('calendar and text actions use 36px and mobile content reaches the viewport bottom',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
@@ -56,7 +56,7 @@ test('calendar keeps its 44px action while text actions use 36px and mobile cont
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 
   const calendarAdd=await buttonHeight(page,'calendar','#newEventBtn');
-  expect(calendarAdd).toBeGreaterThanOrEqual(44);
+  expect(calendarAdd).toBeCloseTo(36,0);
 
   const heights=[];
   heights.push(await buttonHeight(page,'tasks','#newTaskBtn'));
