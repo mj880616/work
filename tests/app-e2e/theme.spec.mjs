@@ -38,13 +38,14 @@ async function signIn(page){
 }
 
 
+const THEME_STORAGE_KEY='kptu-theme';
 const primary={olive:'#5c6a35',navy:'#263f5f',terracotta:'#a8582a',sand:'#4a3d33'};
 const readPrimary=page=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary').trim());
 for(const stored of [null,'olive','navy','terracotta','sand','invalid']){
  test('first paint and reload retain '+stored,async({page})=>{
-  await page.addInitScript(value=>{if(value===null)localStorage.removeItem('kptu-theme');else localStorage.setItem('kptu-theme',value);
+  await page.addInitScript(({value,THEME_STORAGE_KEY})=>{if(value===null)localStorage.removeItem(THEME_STORAGE_KEY);else localStorage.setItem(THEME_STORAGE_KEY,value);
    window.firstThemeFrame=new Promise(resolve=>requestAnimationFrame(()=>resolve(getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary').trim())));
-  },stored);
+  },{value:stored,THEME_STORAGE_KEY});
   await page.goto('http://127.0.0.1:8123/app/login/');
   const expected=primary[stored]||primary.olive;
   expect(await page.evaluate(()=>window.firstThemeFrame)).toBe(expected);
@@ -57,9 +58,9 @@ for(const stored of [null,'olive','navy','terracotta','sand','invalid']){
   expect(await readPrimary(page)).toBe(expected);
  });
 }
-test('blocked localStorage starts olive without theme errors',async({page})=>{
+test('blocked theme storage starts olive without theme errors',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>Object.defineProperty(window,'localStorage',{get(){throw Error('storage blocked')}}));
+ await page.addInitScript(THEME_STORAGE_KEY=>Object.defineProperty(window,'localStorage',{get(){throw Error(THEME_STORAGE_KEY+' storage blocked')}}),THEME_STORAGE_KEY);
  await page.goto('http://127.0.0.1:8123/app/login/');
  expect(await readPrimary(page)).toBe(primary.olive);
  expect(errors.filter(x=>x.includes('storage blocked'))).toEqual([]);
@@ -79,7 +80,7 @@ for(const width of [390,1440]){
    expect(await option.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
    await option.click();expect(await readPrimary(page)).toBe(color);
    await expect(option).toHaveAttribute('aria-pressed','true');
-   expect(await page.evaluate(()=>localStorage.getItem('kptu-theme'))).toBe(theme);
+   expect(await page.evaluate(THEME_STORAGE_KEY=>localStorage.getItem(THEME_STORAGE_KEY),THEME_STORAGE_KEY)).toBe(theme);
    expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
    await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await expect(trigger).toBeFocused();

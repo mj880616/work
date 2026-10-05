@@ -22,7 +22,7 @@
 .theme-choices button{display:flex;align-items:center;gap:10px;width:100%;min-height:var(--kptu-touch-target);padding:8px 10px;text-align:left;color:var(--kptu-ink);background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
 .theme-choices button[aria-pressed="true"]{border-color:var(--kptu-primary);background:var(--kptu-primary-soft)}
 .theme-swatch{display:flex;gap:4px;flex-shrink:0}
-.theme-swatch i{display:block;width:18px;height:18px;border-radius:50%;border:1px solid var(--kptu-border-strong);background:var(--kptu-bg)}
+.theme-swatch i{display:block;width:18px;height:18px;border-radius:var(--kptu-radius-pill);border:1px solid var(--kptu-border-strong);background:var(--kptu-bg)}
 .theme-swatch i+i{background:var(--kptu-primary)}
 .theme-selected{margin-left:auto;color:var(--kptu-muted);font-size:var(--kptu-text-meta);visibility:hidden;white-space:nowrap}
 [aria-pressed="true"] .theme-selected{visibility:visible}
