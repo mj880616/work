@@ -2,11 +2,30 @@
   if(window.__KPTU_MOBILE_SWIPE_NAV__)return;
   window.__KPTU_MOBILE_SWIPE_NAV__=true;
   const mq=window.matchMedia('(max-width:760px)');
-  let gesture=null,suppressClickUntil=0;
+  let gesture=null,pendingNavigation=null,suppressClickUntil=0;
+  // Allow 1% rounding noise around the browser's original pinch scale.
+  const isZoomed=()=> (window.visualViewport?.scale||1)>1.01;
+  function cancelGesture(){
+    if(gesture)resetPanel(gesture.panel,false);
+    gesture=null;
+    if(pendingNavigation){
+      clearTimeout(pendingNavigation.timer);
+      resetPanel(pendingNavigation.panel,false);
+      pendingNavigation=null;
+      suppressClickUntil=0;
+    }
+  }
+  function syncTouchAction(){
+    const zoomed=isZoomed();
+    document.documentElement.style.setProperty('--kptu-swipe-touch-action',zoomed?'auto':'pan-y pinch-zoom');
+    if(zoomed)cancelGesture();
+  }
+  window.visualViewport?.addEventListener('resize',syncTouchAction);
+  syncTouchAction();
 
   const style=document.createElement('style');
   style.id='kptuSwipeStyle';
-  style.textContent=`@media(max-width:760px){#appView .view-panel{touch-action:pan-y}#calendarView .calendar-toolbar,#calendarView .google-bar,#calendarView .google-cal-list,#calendarView .calendar-grid,#calendarView .cal-cell,#calendarView .cal-event,#calendarView .kptu-day-more{touch-action:pan-y}.kptu-swipe-panel{will-change:transform,opacity}.kptu-swipe-animate{transition:transform .18s cubic-bezier(.2,.72,.2,1),opacity .18s ease}}`;
+  style.textContent=`@media(max-width:760px){#appView .view-panel{touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}#calendarView .calendar-toolbar,#calendarView .google-bar,#calendarView .google-cal-list,#calendarView .calendar-grid,#calendarView .cal-cell,#calendarView .cal-event,#calendarView .kptu-day-more{touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}.kptu-swipe-panel{will-change:transform,opacity}.kptu-swipe-animate{transition:transform .18s cubic-bezier(.2,.72,.2,1),opacity .18s ease}}`;
   document.head.appendChild(style);
 
   function orderedViews(){
@@ -64,6 +83,7 @@
   }
 
   function navigate(g,dx){
+    if(pendingNavigation)cancelGesture();
     const views=orderedViews();
     const current=window.KPTURouter?.current||window.KPTURouter?.detect?.()||g.panel.id.replace(/View$/,'');
     const idx=views.indexOf(current);if(idx<0){resetPanel(g.panel);return false}
@@ -75,19 +95,23 @@
     g.panel.style.transform=`translate3d(${dir*Math.min(width*.28,120)}px,0,0)`;
     g.panel.style.opacity='.45';
     suppressClickUntil=Date.now()+220;
-    setTimeout(()=>{
+    const timer=setTimeout(()=>{
+      pendingNavigation=null;
       resetPanel(g.panel,false);
+      if(isZoomed())return;
       const next=views[nextIndex];
       window.KPTURouter?.go?.(next,{source:'swipe',scroll:false});
       const incoming=document.getElementById(next+'View');
       enterPanel(incoming,dir<0?Math.min(width*.18,72):-Math.min(width*.18,72));
       window.scrollTo({top:0,behavior:'instant'});
     },115);
+    pendingNavigation={timer,panel:g.panel};
     return true;
   }
 
   document.addEventListener('touchstart',event=>{
-    if(!mq.matches||event.touches.length!==1||document.querySelector('.modal:not(.hidden)'))return;
+    if(isZoomed()||event.touches.length!==1){cancelGesture();return}
+    if(!mq.matches||document.querySelector('.modal:not(.hidden)'))return;
     const panel=visiblePanel(event.target);if(!panel||blockedTarget(event.target))return;
     const t=event.touches[0];if(!inSwipeArea(t.clientY,panel))return;
     gesture={x:t.clientX,y:t.clientY,lastX:t.clientX,lastY:t.clientY,time:performance.now(),panel,axis:null,moved:false};
@@ -95,7 +119,8 @@
   },{passive:true});
 
   document.addEventListener('touchmove',event=>{
-    if(!gesture||!mq.matches||event.touches.length!==1)return;
+    if(isZoomed()||event.touches.length!==1){cancelGesture();return}
+    if(!gesture||!mq.matches)return;
     const t=event.touches[0],dx=t.clientX-gesture.x,dy=t.clientY-gesture.y;
     gesture.lastX=t.clientX;gesture.lastY=t.clientY;
     if(!gesture.axis&&Math.max(Math.abs(dx),Math.abs(dy))>=10)gesture.axis=Math.abs(dx)>Math.abs(dy)*1.05?'x':'y';
@@ -111,6 +136,7 @@
   },{passive:false});
 
   function finish(event,cancelled=false){
+    if(isZoomed()){cancelGesture();return}
     if(!gesture)return;
     const g=gesture;gesture=null;
     if(g.axis!=='x'||!g.moved){resetPanel(g.panel,false);return}
@@ -122,5 +148,5 @@
   }
   document.addEventListener('touchend',event=>finish(event,false),{passive:true});
   document.addEventListener('touchcancel',event=>finish(event,true),{passive:true});
-  document.addEventListener('click',event=>{if(Date.now()<suppressClickUntil){event.preventDefault();event.stopImmediatePropagation()}},true);
+  document.addEventListener('click',event=>{if(!isZoomed()&&Date.now()<suppressClickUntil){event.preventDefault();event.stopImmediatePropagation()}},true);
 })();

@@ -4,6 +4,9 @@
   const mq760=window.matchMedia('(max-width:760px)');
   const mq1024=window.matchMedia('(min-width:1024px)');
   let last=null,navigate=null,touchStart=null,suppressUntil=0,resizeFrame=0;
+  // Match mobile menu gestures: ignore at most 1% browser scale rounding noise.
+  const isZoomed=()=> (window.visualViewport?.scale||1)>1.01;
+  window.visualViewport?.addEventListener('resize',()=>{if(isZoomed())touchStart=null});
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
   let tasks=[],tasksSig='';
@@ -211,11 +214,13 @@
     const grid=document.querySelector('#calendarGrid');if(!grid||grid.dataset.cmvSwipe==='1')return;
     grid.dataset.cmvSwipe='1';
     grid.addEventListener('touchstart',e=>{
-      if(e.touches?.length!==1||e.target.closest('.cal-event,.kptu-day-more,input,select,textarea,a')){touchStart=null;return}
+      if(isZoomed()||e.touches?.length!==1||e.target.closest('.cal-event,.kptu-day-more,input,select,textarea,a')){touchStart=null;return}
       e.stopPropagation();
       const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY};
     },{passive:true});
+    grid.addEventListener('touchmove',e=>{if(isZoomed()||e.touches?.length!==1)touchStart=null},{passive:true});
     grid.addEventListener('touchend',e=>{
+      if(isZoomed()||e.touches?.length){touchStart=null;return}
       if(!touchStart||!e.changedTouches?.length)return;
       e.stopPropagation();
       const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y,ax=Math.abs(dx),ay=Math.abs(dy);touchStart=null;
