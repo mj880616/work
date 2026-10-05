@@ -3,6 +3,8 @@
   const DAY_MS=86400000;
   const mq760=window.matchMedia('(max-width:760px)');
   const mq1024=window.matchMedia('(min-width:1024px)');
+  // Navigation is optional during startup; retain the same 12px click protection if its import fails.
+  const tapSlop=()=>window.KPTUMobileSwipeNavigation?.tapSlop??12;
   let last=null,touchStart=null,suppressUntil=0,resizeFrame=0;
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
@@ -65,12 +67,12 @@
     grid.dataset.cmvViewportHeight=String(height);
     const actualHead=head?.getBoundingClientRect().height||headHeight;
     const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead)/weeks);
-    const slots=Math.max(2,Math.floor((rowHeight-dateHeaderHeight-1)/laneStep));
+    const slots=Math.max(mq760.matches?1:2,Math.floor((rowHeight-dateHeaderHeight-1)/laneStep));
     grid.dataset.cmvLaneSlots=String(slots);
     return {height,rowHeight,slots,dateHeaderHeight};
   }
   function laneCap(laneCount,slots){
-    return laneCount>slots?Math.max(1,slots-1):slots;
+    return laneCount>slots?Math.max(mq760.matches?0:1,slots-1):slots;
   }
   function eventSort(a,b){
     const at=a.source==='task'?1:0,bt=b.source==='task'?1:0;
@@ -185,10 +187,20 @@
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
         const date=new Date(week.start);date.setDate(week.start.getDate()+i);
-        const dkey=key(date),cell=document.createElement('button');
-        cell.type='button';cell.className='cal-cell'+(date.getMonth()===month?'':' other')+(dkey===key(new Date())?' today':'');
+        const dkey=key(date),cell=document.createElement(mq760.matches?'div':'button');
+        if(!mq760.matches)cell.type='button';
+        cell.className='cal-cell'+(date.getMonth()===month?'':' other')+(dkey===key(new Date())?' today':'');
         cell.dataset.date=dkey;cell.setAttribute('aria-label',date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
-        const day=document.createElement('span');day.className='cal-day';day.textContent=String(date.getDate());cell.appendChild(day);dayGrid.appendChild(cell);
+        const day=document.createElement('span');day.className='cal-day';day.textContent=String(date.getDate());
+        if(mq760.matches){
+          const create=document.createElement('button');create.type='button';create.className='cmv-date-create';create.setAttribute('aria-label',cell.getAttribute('aria-label'));
+          const list=document.createElement('button');list.type='button';list.className='cmv-date-list';list.dataset.date=dkey;
+          list.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 목록 보기`);
+          list.appendChild(day);
+          list.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
+          cell.removeAttribute('aria-label');cell.append(create,list);
+        }else cell.appendChild(day);
+        dayGrid.appendChild(cell);
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';
       const hidden=Array(7).fill(0);
@@ -222,13 +234,15 @@
       if(e.touches?.length!==1){touchStart=null;return}
       if(!touchStart)return;
       const t=e.touches[0];
-      if(Math.abs(t.clientX-touchStart.x)>12||Math.abs(t.clientY-touchStart.y)>12)touchStart.moved=true;
+      const slop=tapSlop();
+      if(Math.abs(t.clientX-touchStart.x)>slop||Math.abs(t.clientY-touchStart.y)>slop)touchStart.moved=true;
     },{passive:true});
     grid.addEventListener('touchend',e=>{
       if(e.touches?.length){touchStart=null;return}
       if(!touchStart||!e.changedTouches?.length)return;
       const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;
-      if(touchStart.moved||Math.abs(dx)>12||Math.abs(dy)>12)suppressUntil=Date.now()+350;
+      const slop=tapSlop();
+      if(touchStart.moved||Math.abs(dx)>slop||Math.abs(dy)>slop)suppressUntil=Date.now()+350;
       touchStart=null;
     },{passive:true});
     grid.addEventListener('touchcancel',()=>{

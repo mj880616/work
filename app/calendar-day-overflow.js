@@ -25,7 +25,7 @@
     title.textContent=date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});
     list.replaceChildren();
     events.forEach(ev=>list.appendChild(eventRow(ev)));
-    if(!events.length)list.innerHTML='<div class="empty compact">등록된 일정이 없습니다.</div>';
+    if(!events.length)list.innerHTML='<div class="empty compact">일정 없음</div>';
     const modal=document.querySelector('#calendarDayModal');modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog.activate?.(modal,{trigger:document.activeElement,initialFocus:'#calendarDayList .cal-event',onRequestClose:()=>{modal.classList.add('hidden');modal.setAttribute('aria-hidden','true')}});
   }

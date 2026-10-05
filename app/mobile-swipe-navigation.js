@@ -1,6 +1,9 @@
 (()=>{
   if(window.__KPTU_MOBILE_SWIPE_NAV__)return;
   window.__KPTU_MOBILE_SWIPE_NAV__=true;
+  // Shared with the calendar release-click guard: up to 12px per axis is still a tap.
+  const tapSlop=12;
+  window.KPTUMobileSwipeNavigation={tapSlop};
   const mq=window.matchMedia('(max-width:760px)');
   let gesture=null,pendingNavigation=null,suppressClickUntil=0;
   // Allow 1% rounding noise around the browser's original pinch scale.
@@ -123,7 +126,7 @@
     if(!gesture||!mq.matches)return;
     const t=event.touches[0],dx=t.clientX-gesture.x,dy=t.clientY-gesture.y;
     gesture.lastX=t.clientX;gesture.lastY=t.clientY;
-    if(!gesture.axis&&Math.max(Math.abs(dx),Math.abs(dy))>=10)gesture.axis=Math.abs(dx)>Math.abs(dy)*1.05?'x':'y';
+    if(!gesture.axis&&Math.max(Math.abs(dx),Math.abs(dy))>tapSlop)gesture.axis=Math.abs(dx)>Math.abs(dy)*1.05?'x':'y';
     if(gesture.axis==='y'){resetPanel(gesture.panel,false);gesture=null;return}
     if(gesture.axis!=='x')return;
     event.preventDefault();gesture.moved=true;
