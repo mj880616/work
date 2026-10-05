@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openEmphasisFixture, taskChip, BLUE_COLORS } from './helpers/calendar-task-emphasis.mjs';
 
+import { expectGoogleDisplay } from './helpers/calendar-google-display.mjs';
+
 test.use({timezoneId:'Asia/Seoul'});
 
 async function expectPending(chip){
@@ -41,7 +43,9 @@ for(const width of [390,1280]){
     await expect(overdue).toHaveAttribute('aria-label',/기한 지남$/);
     for(const [i,color] of BLUE_COLORS.entries()){
       const rgb=color.slice(1).match(/../g).map(x=>parseInt(x,16));
-      await expect(page.locator(`#calendarGrid [data-google-event="blue-${i}"]`)).toHaveCSS('background-color',`rgb(${rgb.join(', ')})`);
+      const chip=page.locator(`#calendarGrid [data-google-event="blue-${i}"]`);
+      expect(await chip.evaluate(el=>el.style.backgroundColor)).toBe(`rgb(${rgb.join(', ')})`);
+      await expectGoogleDisplay(chip,{stripe:width>=1024?4:0,tint:width>=1024?.08:.15});
     }
     await taskChip(page,'pending').click();
     await expect(page.locator('#gtTaskModal')).toBeVisible();

@@ -140,3 +140,22 @@
   .ci-card{padding:var(--kptu-space-4)}
   .ci-actions{grid-template-columns:1fr 1.7fr}
 }
+
+/* CAL-cell-polish: A in narrow month cells, C in PC cells and day lists. */
+.cal-event.google.cp-event{
+  background:color-mix(in srgb,var(--cmv-google-source) 15%,white)!important;
+  color:color-mix(in srgb,var(--cmv-google-source) 45%,black)!important;
+  font-weight:400;
+}
+.kptu-day-list .google.cp-event{
+  background:color-mix(in srgb,var(--cmv-google-source) 8%,white)!important;
+  border-left:4px solid var(--cmv-google-source);
+}
+.kptu-day-list .google.cp-event .cmv-day-title,
+.kptu-day-list .google.cp-event .cmv-day-time{font-weight:400}
+@media(min-width:1024px){
+  #calendarView .google.cp-event{
+    background:color-mix(in srgb,var(--cmv-google-source) 8%,white)!important;
+    border-left:4px solid var(--cmv-google-source);
+  }
+}

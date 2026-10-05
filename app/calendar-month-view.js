@@ -147,6 +147,7 @@
     b.style.gridColumn=`${seg.startCol+1} / span ${seg.span}`;
     b.style.gridRow=String(seg.lane+1);
     b.style.background=ev.color;b.style.color=ev.text;
+    if(ev.source==='google')b.style.setProperty('--cmv-google-source',ev.color||'#4285f4');
     const tm=timeLabel(ev),label=(tm?tm+' ':'')+ev.title;
     b.innerHTML=(tm?`<span class="cmv-event-time">${esc(tm)}</span>`:'')+`<span class="cmv-event-title">${esc(ev.title)}</span>`;
     b.title=label;
