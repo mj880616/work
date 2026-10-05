@@ -5,7 +5,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
 const workspace={id:'design-system-workspace',slug:'design-system',name:'웹2'};
 
-async function mockApp(page,{spaces=[]}={}){
+async function mockApp(page,{spaces=[],tasks=[]}={}){
   await page.route(`${SB}/**`,async route=>{
     const url=new URL(route.request().url());
     const path=url.pathname;
@@ -14,6 +14,7 @@ async function mockApp(page,{spaces=[]}={}){
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+    if(path==='/functions/v1/google-tasks')return ok({connected:true,authorized:true,pending_scope:"all",tasks});
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -35,6 +36,7 @@ async function signIn(page){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
 }
 
 
@@ -70,12 +72,14 @@ for(const width of [390,1440]){
   await page.setViewportSize({width,height:900});await mockApp(page);
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  const account=page.locator('#appView>.app-nav [data-account-open]');
   const trigger=page.locator('#sidebarThemeBtn');
-  await expect(trigger).toBeVisible();
-  expect(await trigger.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+  const openTheme=async()=>{await account.click();await trigger.click()};
+  await expect(account).toBeVisible();
+  expect(await account.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
   const dialog=page.getByRole('dialog',{name:'화면 색'});
   for(const [theme,color] of Object.entries(primary)){
-   await trigger.click();await expect(dialog).toBeVisible();
+   await openTheme();await expect(dialog).toBeVisible();
    const option=dialog.locator('[data-theme-choice="'+theme+'"]');
    expect(await option.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
    await option.click();expect(await readPrimary(page)).toBe(color);
@@ -83,14 +87,14 @@ for(const width of [390,1440]){
    expect(await page.evaluate(THEME_STORAGE_KEY=>localStorage.getItem(THEME_STORAGE_KEY),THEME_STORAGE_KEY)).toBe(theme);
    expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-   await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await expect(trigger).toBeFocused();
+   await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await expect(account).toBeFocused();
    await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe(null);
   }
   await page.locator('[data-view="tasks"]').first().click();expect(await readPrimary(page)).toBe(primary.sand);
-  await page.reload();await expect(trigger).toBeVisible();expect(await readPrimary(page)).toBe(primary.sand);
-  await trigger.click();await expect(dialog).toBeVisible();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('themeModal');
+  await page.reload();await expect(account).toBeVisible();expect(await readPrimary(page)).toBe(primary.sand);
+  await openTheme();await expect(dialog).toBeVisible();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('themeModal');
   await page.goBack();await expect(dialog).toBeHidden();expect(await readPrimary(page)).toBe(primary.sand);
-  await trigger.click();await expect(dialog).toBeVisible();await page.locator('#themeModal').click({position:{x:4,y:4}});await expect(dialog).toBeHidden();
+  await openTheme();await expect(dialog).toBeVisible();await page.locator('#themeModal').click({position:{x:4,y:4}});await expect(dialog).toBeHidden();
   await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe(null);
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:team-ready',{detail:{state:'auth'}})));
   for(const button of await page.locator('[data-theme-open]').all())await expect(button).toBeHidden();
@@ -109,34 +113,36 @@ test('blocked theme write still applies and does not save profile',async({page})
  const writes=[];page.on('request',r=>{if(r.url().includes('/rest/v1/')&&r.method()!=='GET')writes.push(r.url())});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.evaluate(()=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='kptu-theme')throw Error('theme write blocked');return original.call(this,key,value)}});
- await page.locator('#sidebarThemeBtn').click();await page.locator('[data-theme-choice="navy"]').click();
+ await page.locator('#appView>.app-nav [data-account-open]').click();await page.locator('#sidebarThemeBtn').click();await page.locator('[data-theme-choice="navy"]').click();
  expect(await readPrimary(page)).toBe(primary.navy);expect(errors).toEqual([]);expect(writes).toEqual([]);
 });
 
 test('theme returns focus after project history listeners run',async({page})=>{
  await page.setViewportSize({width:1440,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
  await page.locator('[data-view="projects"]').first().click();await expect(page.locator('#newProjectBtn')).toBeVisible();
+ const account=page.locator('#appView>.app-nav [data-account-open]');
  const trigger=page.locator('#sidebarThemeBtn');
+ const openTheme=async()=>{await account.click();await trigger.click()};
  for(const close of ['Escape','outside','back','button']){
-  await trigger.click();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('themeModal');
+  await openTheme();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('themeModal');
   if(close==='Escape')await page.keyboard.press('Escape');
   else if(close==='outside')await page.locator('#themeModal').click({position:{x:4,y:4}});
   else if(close==='back')await page.goBack();
   else await page.getByRole('button',{name:'화면 색 선택 창 닫기'}).click();
   await expect(page.locator('#themeModal')).toBeHidden();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe(null);
-  await expect(trigger).toBeFocused();
+  await expect(account).toBeFocused();
  }
 });
 
-test('390px menu end shows theme button and scrolling does not switch views',async({page})=>{
+test('390px menu end shows account panel and scrolling does not switch views',async({page})=>{
  await page.setViewportSize({width:390,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
  const nav=page.locator('#appView>.app-nav');
  await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);
- const metrics=await nav.evaluate(el=>{const n=el.getBoundingClientRect(),t=el.querySelector('#sidebarThemeBtn').getBoundingClientRect(),l=el.querySelector('#sidebarLogoutBtn').getBoundingClientRect();return {navLeft:n.left,navRight:n.right,themeLeft:t.left,themeRight:t.right,themeWidth:t.width,themeHeight:t.height,logoutRight:l.right,adjacent:el.querySelector('#sidebarThemeBtn').nextElementSibling.id,topbar:getComputedStyle(document.querySelector('.topbar')).display}});
- expect(metrics.adjacent).toBe('sidebarLogoutBtn');expect(metrics.topbar).toBe('none');
- expect(metrics.themeLeft).toBeGreaterThanOrEqual(metrics.navLeft);expect(metrics.themeRight).toBeLessThanOrEqual(metrics.navRight);expect(metrics.logoutRight).toBeLessThanOrEqual(metrics.navRight);
- expect(metrics.themeWidth).toBeGreaterThanOrEqual(44);expect(metrics.themeHeight).toBeGreaterThanOrEqual(44);
+ const account=nav.locator('[data-account-open]');
+ const metrics=await account.evaluate(el=>{const t=el.getBoundingClientRect(),n=el.closest('nav').getBoundingClientRect();return {left:t.left,right:t.right,navLeft:n.left,navRight:n.right}});
+ expect(metrics.left).toBeGreaterThanOrEqual(metrics.navLeft);expect(metrics.right).toBeLessThanOrEqual(metrics.navRight);
+ await expect(page.locator('#sidebarThemeBtn')).toBeHidden();await expect(page.locator('#sidebarLogoutBtn')).toBeHidden();
  await expect.poll(()=>page.evaluate(()=>window.__KPTU_MOBILE_SWIPE_NAV__)).toBe(true);
  await page.evaluate(()=>{window.themeNavigationCalls=[];const original=window.KPTURouter.go;window.KPTURouter.go=function(...args){window.themeNavigationCalls.push(args);return original.apply(this,args)}});
  const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
@@ -147,7 +153,13 @@ test('390px menu end shows theme button and scrolling does not switch views',asy
  await expect.poll(()=>nav.evaluate(el=>el.scrollLeft)).toBeLessThan(before);
  await expect(page.locator('#calendarView')).toBeVisible();await expect(page.locator('#themeModal')).toBeHidden();
  expect(await page.evaluate(()=>window.themeNavigationCalls)).toEqual([]);
- await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);await page.locator('#sidebarThemeBtn').click();await expect(page.locator('#themeModal')).toBeVisible();
+ await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);
+ await account.click();const panel=page.locator('#sidebarAccountPanel');await expect(panel).toBeVisible();
+ const pb=await panel.boundingBox();expect(pb.x).toBeGreaterThanOrEqual(0);expect(pb.x+pb.width).toBeLessThanOrEqual(390);
+ await page.mouse.click(380,500);await expect(panel).toBeHidden();
+ await expect.poll(()=>page.evaluate(()=>history.state?.kptuAccount||null)).toBe(null);
+ await account.click();await page.goBack();await expect(panel).toBeHidden();
+ await account.click();await page.locator('#sidebarThemeBtn').click();await expect(page.locator('#themeModal')).toBeVisible();
  expect(await page.evaluate(()=>window.themeNavigationCalls)).toEqual([]);
 });
 
@@ -176,7 +188,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['team','#soAddOrg','backgroundColor',surface[theme]]
   ]){
    await page.locator('.app-nav [data-view="'+view+'"]').click();
-   await expect(page.locator('#'+view+'View')).toBeVisible();
+   await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
    await matches('.app-nav .nav-btn.active','backgroundColor',color);
@@ -207,6 +219,143 @@ for(const theme of Object.keys(primary)){
   await expect(page.locator('#googleCalendarWarning')).toHaveCSS('color',await token('--kptu-warning'));
   await expect(page.locator('#googleCalendarWarning a')).toHaveCSS('color',await token('--kptu-link'));
   await page.locator('#followupFocus').focus();
+  await expect(page.locator('#followupFocus')).toHaveCSS('border-color',await token('--kptu-primary-ink'));
   await expect(page.locator('#followupFocus')).toHaveCSS('box-shadow',(await token('--kptu-primary-soft'))+' 0px 0px 0px 3px');
+ });
+}
+
+for(const width of [390,1440])test('D-3c shell owns account and orders its actions '+width,async({page})=>{
+ await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ const nav=page.locator('#appView>.app-nav'),account=nav.locator('[data-account-open]');
+ await expect(account).toBeVisible();
+ await expect(nav.locator(':scope > [data-theme-open], :scope > [data-kptu-logout]')).toHaveCount(0);
+ await account.click();
+ const panel=page.locator('#sidebarAccountPanel');await expect(panel).toBeVisible();
+ expect(await panel.locator('button').allTextContents()).toEqual(['화면 색','로그아웃']);
+ await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(account).toBeFocused();
+ await account.click();await page.goBack();await expect(panel).toBeHidden();
+});
+
+for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer targets '+width,async({page})=>{
+ await page.setViewportSize({width,height:900});await mockApp(page,{tasks:[{id:'pointer-task',title:'Fixture',status:'needsAction',taskListTitle:'Fixture'}]});await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ const check=async(selector,painted)=>{
+  const button=page.locator(selector);await expect(button).toBeVisible();await button.scrollIntoViewIfNeeded();
+  const bounds=await button.evaluate(el=>{
+   const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),style=getComputedStyle(el);
+   const active=p.content!=='none';const left=active?r.left+parseFloat(style.borderLeftWidth)+parseFloat(p.left):r.left,top=active?r.top+parseFloat(style.borderTopWidth)+parseFloat(p.top):r.top;
+   const width=active?parseFloat(p.width):r.width,height=active?parseFloat(p.height):r.height;
+   return {paintedHeight:r.height,width,height,debug:{left,top,viewport:innerHeight,r:{top:r.top,bottom:r.bottom},disabled:el.disabled},hits:[[left+1,top+height/2],[left+width-1,top+height/2],[left+width/2,top+1],[left+width/2,top+height-1]].map(([x,y])=>{const hit=document.elementFromPoint(x,y);return {same:hit?.closest('button')===el,tag:hit?.tagName,id:hit?.id,cls:hit?.className}})};
+  });
+  expect(bounds.paintedHeight).toBe(painted);expect(bounds.width).toBeGreaterThanOrEqual(44);expect(bounds.height).toBeGreaterThanOrEqual(44);expect(bounds.hits.every(hit=>hit.same),selector+' '+JSON.stringify(bounds)).toBe(true);
+ };
+ await check('#prevMonthBtn',width===1440?38:32);await check('#nextMonthBtn',width===1440?38:32);await check('#newEventBtn',44);
+ await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
+ await check('#eventModal .icon-btn',32);await check('#saveEventBtn',36);
+ const close=page.locator('#eventModal .icon-btn');await close.scrollIntoViewIfNeeded();const r=await close.boundingBox();
+ await page.mouse.click(r.x+r.width/2,r.y-4);await expect(page.locator('#eventModal')).toBeHidden();
+ await page.locator('[data-view="tasks"]').first().click();await expect(page.locator('#gtTaskBody .gt-delete')).toBeVisible();await check('#gtTaskBody .gt-delete',44);
+});
+
+for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacent controls '+width,async({page})=>{
+ await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ for(const view of ['calendar','tasks','projects','meetings','library','media','pages','team']){
+  await page.locator('[data-view="'+view+'"]').first().click();await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
+  const overlaps=await page.evaluate(()=>{
+   const visible=el=>el.checkVisibility({checkVisibilityCSS:true});
+   const controls=[...document.querySelectorAll('button,input,select,textarea,a[href],summary')].filter(visible);
+   const rect=el=>{
+    const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),s=getComputedStyle(el);
+    if(el.matches('button:is(.primary,.secondary,.ghost,.danger,.mini,.icon-btn)')&&p.content!=='none'){
+     const left=r.left+parseFloat(s.borderLeftWidth)+parseFloat(p.left),top=r.top+parseFloat(s.borderTopWidth)+parseFloat(p.top);
+     return {left,top,right:left+parseFloat(p.width),bottom:top+parseFloat(p.height)};
+    }return r;
+   };
+   const buttons=controls.filter(el=>el.matches('button:is(.primary,.secondary,.ghost,.danger,.mini,.icon-btn)')&&getComputedStyle(el,'::after').content!=='none');
+   const result=[];
+   for(const button of buttons)for(const other of controls){
+    if(button===other||button.contains(other)||other.contains(button))continue;
+    const a=rect(button),b=rect(other);
+    if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>0.5&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>0.5)result.push([button.id||button.className,other.id||other.className]);
+   }return result;
+  });expect(overlaps,view).toEqual([]);
+ }
+});
+
+for(const width of [390,1440])test('D-3c outside navigation keeps its route and one back entry '+width,async({page})=>{
+ await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.locator('[data-view="tasks"]').first().click();await expect(page.locator('#tasksView')).toBeVisible();
+ await page.locator('[data-view="calendar"]').first().click();await expect(page.locator('#calendarView')).toBeVisible();
+ const account=page.locator('#appView>.app-nav [data-account-open]');await account.click();
+ await page.locator('[data-view="tasks"]').first().click();await expect(page.locator('#sidebarAccountPanel')).toBeHidden();
+ await expect.poll(()=>page.evaluate(()=>history.state?.kptuAccount||null)).toBe(null);
+ await expect(page.locator('#tasksView')).toBeVisible();await expect(page).toHaveURL(/view=tasks/);
+ await page.goBack();await expect(page.locator('#calendarView')).toBeVisible();
+});
+
+for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account matches menu typography '+width,async({page})=>{
+ await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ const styles=await page.evaluate(()=>{
+  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="tasks"]')),account=getComputedStyle(document.querySelector('.app-nav [data-account-open]'));
+  const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
+ });expect(styles.account).toEqual(styles.nav);
+});
+
+test('D-3c crowded compact actions retain their own click areas',async({page})=>{
+ await page.goto('http://127.0.0.1:8123/app/login/');
+ await page.evaluate(()=>{
+  for(const cls of ['card-actions','head-actions','page-card-foot','side-actions','auth-tabs','compact-entry-actions','ps3-row-actions','ps3-page-actions','meeting-file-actions','mrd-task-actions','ps3-pg-quick']){
+   const row=document.createElement('div');row.className=cls;row.innerHTML='<button class="mini">열기</button><button class="mini">수정</button>';document.body.append(row);
+  }
+ });
+ const targets=await page.locator('body>div button.mini').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el,'::after').content));
+ expect(targets).toHaveLength(22);expect(targets.every(content=>content==='none')).toBe(true);
+});
+
+// Account placement is anchored to its trigger, including browsers without Popover API.
+for(const width of [390,1440])for(const nativePopover of [true,false]){
+ test('D-3c account anchored placement and dismissal '+width+' popover='+nativePopover,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  if(!nativePopover)await page.addInitScript(()=>{
+   for(const name of ['showPopover','hidePopover','togglePopover','popover'])delete HTMLElement.prototype[name];
+  });
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+  const nav=page.locator('#appView>.app-nav'),account=nav.locator('[data-account-open]'),panel=page.locator('#sidebarAccountPanel');
+  const open=async()=>{
+   if(width===390)await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);
+   await account.click();await expect(panel).toBeVisible();
+   await expect(account).toHaveAttribute('aria-expanded','true');
+   await expect.poll(()=>panel.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);
+   const geometry=await page.evaluate(()=>{
+    const t=document.querySelector('.app-nav [data-account-open]').getBoundingClientRect(),p=document.querySelector('#sidebarAccountPanel').getBoundingClientRect(),n=document.querySelector('#appView>.app-nav');
+    const b=n.getBoundingClientRect(),s=getComputedStyle(n);
+    return {button:{top:t.top,bottom:t.bottom,right:t.right},panel:{left:p.left,right:p.right,top:p.top,bottom:p.bottom},inside:{left:b.left+parseFloat(s.borderLeftWidth)+parseFloat(s.paddingLeft),right:b.right-parseFloat(s.borderRightWidth)-parseFloat(s.paddingRight)}};
+   });
+   expect(geometry.panel.left).toBeGreaterThanOrEqual(12);
+   expect(geometry.panel.right).toBeLessThanOrEqual(width-12);
+   expect(geometry.panel.top).toBeGreaterThanOrEqual(12);
+   expect(geometry.panel.bottom).toBeLessThanOrEqual(888);
+   if(width===390){
+    expect(Math.abs(geometry.panel.right-geometry.button.right)).toBeLessThanOrEqual(2);
+    expect(geometry.panel.top).toBeGreaterThanOrEqual(geometry.button.bottom);
+   }else{
+    expect(geometry.panel.bottom).toBeLessThanOrEqual(geometry.button.top);
+    expect(geometry.panel.left).toBeGreaterThanOrEqual(geometry.inside.left-1);
+    expect(geometry.panel.right).toBeLessThanOrEqual(geometry.inside.right+1);
+    expect(Math.abs(geometry.panel.left-geometry.inside.left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.panel.right-geometry.inside.right)).toBeLessThanOrEqual(1);
+   }
+  };
+  for(const close of ['outside','Escape','back']){
+   await open();
+   if(close==='outside')await page.mouse.click(width-12,500);
+   else if(close==='Escape')await page.keyboard.press('Escape');
+   else await page.goBack();
+   await expect(panel).toBeHidden();await expect(account).toHaveAttribute('aria-expanded','false');
+   await expect.poll(()=>page.evaluate(()=>history.state?.kptuAccount||null)).toBe(null);
+  }
+  await open();await panel.locator('[data-theme-open]').click();await expect(page.locator('#themeModal')).toBeVisible();
+  await page.keyboard.press('Escape');await expect(page.locator('#themeModal')).toBeHidden();await expect(account).toBeFocused();
+  expect(errors).toEqual([]);
  });
 }

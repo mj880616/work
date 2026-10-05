@@ -124,6 +124,7 @@ test('logout clears the session and back or forward cannot restore private DOM',
   await page.locator('.app-nav [data-view="tasks"]').click();
   await expect(page.locator('#tasksView')).toBeVisible();
   await page.locator('#tasksView').evaluate(node=>node.insertAdjacentHTML('beforeend','<div id="privateSentinel">PRIVATE_SENTINEL</div>'));
+  await page.locator('#appView>.app-nav [data-account-open]').click();
   await page.locator('#sidebarLogoutBtn').click();
   await expect(page).toHaveURL(/\/app\/login\//,{timeout:20000});
   expect(await page.evaluate(key=>localStorage.getItem(key),SESSION_KEY)).toBeNull();

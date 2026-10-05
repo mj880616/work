@@ -59,6 +59,7 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   await expect(nav).toHaveCount(views.length);
   expect(await nav.evaluateAll(nodes=>nodes.map(node=>node.dataset.view))).toEqual(views);
   await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop,#pagesMediaEntry')).toHaveCount(0);
+  await page.locator('#appView>.app-nav [data-account-open]').click();
   await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();
 
   await page.locator('.app-nav [data-view="media"]').click();
@@ -71,6 +72,7 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   await page.locator('.app-nav [data-view="pages"]').click();
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#pagesMediaEntry')).toHaveCount(0);
+  await page.locator('#appView>.app-nav [data-account-open]').click();
   await page.locator('#sidebarLogoutBtn').click();
   await expect(page).toHaveURL(/\/app\/login\//,{timeout:20000});
   await expect(page.locator('.login-shell')).toBeVisible();

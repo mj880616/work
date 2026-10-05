@@ -114,7 +114,7 @@
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
-    import('./topbar-actions.js?v=12'),
+    import('./topbar-actions.js?v=14'),
     import('./team.js?v=61')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
@@ -124,7 +124,7 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  await import('./drive-summary.js?v=2');
+  await import('./drive-summary.js?v=3');
 
   const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=6').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{

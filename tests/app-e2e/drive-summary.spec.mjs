@@ -62,7 +62,7 @@ for(const [updated_at,expected] of [
   await expect(page.locator('.drive-summary-time')).toHaveText(expected);
 });
 
-async function manual(page){await page.getByText('계정', {exact:true}).click();await page.getByRole('button',{name:'Drive 사본 지금 갱신'}).click()}
+async function manual(page){if(!await page.locator('.account-panel').evaluate(el=>el.matches(':popover-open')))await page.locator('[data-account-open]').click();await page.getByRole('button',{name:'Drive 사본 지금 갱신'}).click()}
 
 test('one successful save waits four seconds and posts without a body',async({page})=>{
   const {calls}=await setup(page);await save(page);await page.clock.fastForward(3999);expect(calls).toHaveLength(0);
@@ -182,15 +182,23 @@ for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,9
   await page.locator('#saveMeetingBtn').click();
   if(lateUpload){await expect.poll(()=>uploadStarted).toBe(true);await page.clock.fastForward(4000);await expect.poll(()=>calls).toBe(1);await expect(page.locator('[data-drive-summary-refresh]').first()).toBeEnabled();releaseUpload()}
   await expect(page.locator('#toast')).toContainText(lateUpload?'회의 결과와 자료 1개를 저장했습니다.':'회의 결과를 저장했습니다.');await page.clock.fastForward(4000);await expect.poll(()=>calls).toBe(lateUpload?2:1);
-  const menu=page.locator('#appView>.app-nav [data-drive-summary-menu]');
-  await menu.locator('summary').click();const button=menu.locator('[data-drive-summary-refresh]');await expect(button).toBeVisible();
+  const menu=page.locator('#sidebarAccountPanel');
+  await page.locator('#appView>.app-nav [data-account-open]').click();const button=menu.locator('[data-drive-summary-refresh]');await expect(button).toBeVisible();
   const box=await button.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
+  expect(await menu.locator('button').allTextContents()).toEqual(['화면 색','사본 갱신','로그아웃']);
   await expect(button).toHaveText('사본 갱신');
   await expect(button).toHaveAttribute('aria-label','Drive 사본 지금 갱신');
   await expect(button).toHaveAttribute('title','Drive 사본 지금 갱신');
   await expectSingleLine(button);
   await button.click();await expect(menu.locator('[data-drive-summary-status]')).toContainText('갱신 10/3 13:06');expect(calls).toBe(lateUpload?3:2);
   await expectSingleLine(menu.locator('.drive-summary-time'));
+  await expect.poll(()=>menu.evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight-11)).toBe(true);
+  await expect.poll(()=>menu.evaluate(el=>{
+    const panel=el.getBoundingClientRect(),trigger=document.querySelector('#appView>.app-nav [data-account-open]').getBoundingClientRect();
+    const nav=document.querySelector('#appView>.app-nav'),bounds=nav.getBoundingClientRect(),style=getComputedStyle(nav);
+    if(innerWidth<1024)return Math.abs(panel.right-trigger.right)<=2&&panel.top>=trigger.bottom&&panel.right<=innerWidth-12;
+    return panel.bottom<=trigger.top&&panel.left>=bounds.left+parseFloat(style.paddingLeft)+parseFloat(style.borderLeftWidth)-1&&panel.right<=bounds.right-parseFloat(style.paddingRight)-parseFloat(style.borderRightWidth)+1;
+  })).toBe(true);
   const links=menu.getByRole('link');await expect(links).toHaveCount(2);
   for(const [i,kind] of ['org','project'].entries()){
     await expect(links.nth(i)).toHaveAttribute('href',success.documents[kind]);
