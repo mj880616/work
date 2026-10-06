@@ -11,6 +11,7 @@ on:
       - 'p/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
+      - 'tests/home-read-model.test.mjs'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
     branches: [main]
@@ -22,6 +23,7 @@ on:
       - 'p/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
+      - 'tests/home-read-model.test.mjs'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
 
@@ -38,6 +40,9 @@ jobs:
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
+
+      - name: Check home KST day and week boundaries
+        run: node --test tests/home-read-model.test.mjs
 
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs
