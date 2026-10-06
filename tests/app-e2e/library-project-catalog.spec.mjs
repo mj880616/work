@@ -128,13 +128,11 @@ test('library selectors match the canonical project hierarchy on direct entry wi
   ]);
   for(const hidden of ['child-a3','child-c1','other-owner'])expect(filter.some(o=>o.value===hidden)).toBe(false);
 
-  const badge=id=>page.locator(`[data-lu-document="${id}"] .badges .badge`).nth(1);
-  await expect(badge('doc-a')).toHaveText('공공기관 기능개혁 대응');
-  await expect(badge('doc-a1')).toHaveText('국토부 대응');
-  await expect(badge('doc-archived')).toHaveText('[보관됨] 보관된 상위');
-  await expect(badge('doc-legacy')).toHaveText('[이전 공간] 기존 일반 공간');
-  await expect(badge('doc-missing')).toHaveText('[확인할 수 없는 프로젝트]');
-  await expect(page.locator('[data-lu-document="doc-none"] .badges .badge')).toHaveCount(1);
+  // Project relationships remain in the canonical filter and metadata editor;
+  // the approved library row shows only date and category.
+  await expect(page.locator('#documentList .badges')).toHaveCount(0);
+  await expect(page.locator('[data-lu-document="doc-a"] .lu-row-meta')).toHaveText('정부자료');
+  await expect(page.locator('[data-lu-document="doc-a1"] .lu-row-meta')).toHaveText('정책자료');
 });
 
 test('project screen and library expose the same active project set in the same order',async({page})=>{
@@ -239,7 +237,7 @@ test('metadata edit keeps archived links and moves documents between parent, chi
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
   await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
-  const edit=async id=>{await page.locator(`[data-lu-edit="${id}"]`).click();await expect(page.locator('#libraryEditModal')).toBeVisible()};
+  const edit=async id=>{await page.locator(`[data-lu-menu="${id}"]`).click();await page.locator(`[data-lu-edit="${id}"]`).click();await expect(page.locator('#libraryEditModal')).toBeVisible()};
   const save=async()=>{await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden()};
 
   await edit('doc-archived');

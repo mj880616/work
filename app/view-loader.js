@@ -23,7 +23,7 @@ const routeStyles={
   calendar:['./calendar-ui.css?v=17'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=19'],
   projects:['./project-system-v3.css?v=21','./forum-flow-polish.css?v=2','./google-tasks.css?v=19'],
-  library:['./library-upload.css?v=2','./compact-list.css?v=2'],
+  library:['./library-upload.css?v=4','./compact-list.css?v=2'],
   meetings:['./meeting-ui.css?v=12','./google-tasks.css?v=19'],
   media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=5'],
@@ -103,7 +103,7 @@ async function projects(){
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=2');
-  await module('./library-upload.js?v=17','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=18','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){

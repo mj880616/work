@@ -74,7 +74,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
   for(const selector of selectors){await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
- for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn','[data-lu-download]','[data-lu-edit]','[data-lu-delete]'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
+ for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
   for(const selector of selectors)expect(await size(page.locator(selector).first()),selector).toEqual(await size(original.locator(selector).first()));
  }
