@@ -129,7 +129,7 @@ async function organizations(){
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
   await module('./project-catalog.js?v=2');
   await module('./google-tasks.js?v=27');
-  await module('./workplace-detail.js?v=13');
+  await module('./workplace-detail.js?v=14');
   import('./workplace-report.js?v=2').catch(console.error);
   return {ok:true}
 }

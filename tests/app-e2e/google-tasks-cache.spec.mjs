@@ -343,7 +343,7 @@ async function start(page,phase){
     }).observe(document.querySelector('#tasksView'),{subtree:true,childList:true});
   },phase);
   await page.addScriptTag({url:`${BASE}/app/app-router.js`});
-  await page.addScriptTag({url:`${BASE}/app/google-tasks.js`});
+  await page.addScriptTag({type:'module',url:`${BASE}/app/google-tasks.js`});
   const documentId=await page.evaluate(()=>window.__race.documentId);
   await page.evaluate(()=>window.KPTURouter.go('tasks'));
   if(phase==='overview')await expect.poll(()=>requests.previous).toBe(1);
