@@ -209,7 +209,8 @@ test('library secondary action does not open its card, while card body opens the
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
   const card=page.locator('[data-lu-document="doc-1"]');
   await expect(card).toHaveAttribute('role','button');
-  await card.locator('[data-lu-edit]').click();
+  await card.locator('[data-lu-menu]').click();
+  await page.locator('[data-lu-edit="doc-1"]').click();
   await expect(page.locator('#libraryEditModal')).toBeVisible();
   await expect(page).toHaveURL(/library-upload-failure-fixture\.html$/);
   await page.locator('#libraryEditClose').click();
@@ -222,6 +223,7 @@ test('revoked Google Drive token starts reconnect through the canonical function
   await page.evaluate(()=>{window.__documentActionError='Token has been expired or revoked.'});
   const dialogs=[];
   page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+  await page.locator('[data-lu-menu="doc-1"]').click();
   await page.locator('[data-lu-delete="doc-1"]').click();
   await expect.poll(()=>dialogs.length).toBe(2);
   expect(dialogs[1]).toContain('Google Drive 연결이 만료됐습니다');

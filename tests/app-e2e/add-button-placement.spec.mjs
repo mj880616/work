@@ -73,7 +73,8 @@ for(const width of [390,1440]){
     test('library list card keeps add action and opens the same form',async({page})=>{
       await openApp(page,'library');
       await assertInHeader(page,{card:'#libraryListCard',head:'.add-list-head',button:'#newDocumentBtn',title:'h2'});
-      await expect(page.locator('#libraryView>.section-head #manageLibraryBtn')).toBeVisible();
+      await expect(page.locator('#libraryListCard .add-list-head #manageLibraryBtn')).toBeVisible();
+      await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
       await page.locator('#newDocumentBtn').click();
       await expect(page.locator('#documentModal')).toBeVisible();
     });

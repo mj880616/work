@@ -18,11 +18,11 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=9">
 <link rel="preload" as="style" href="./desktop-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=291">
+<link rel="modulepreload" href="./loader-v2.js?v=292">
 <link rel="modulepreload" href="./runtime-client.js?v=7">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=179" defer></script>
+<script src="./app.js?v=180" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -75,9 +75,8 @@
   </section>
 
   <section id="libraryView" class="view-panel hidden">
-    <div class="section-head actions-only"></div>
     <div class="toolbar"><label class="a11y-only" for="documentSearch">자료 검색</label><input id="documentSearch" class="search" type="search" placeholder="제목·출처·태그 검색"><label class="a11y-only" for="documentProject">프로젝트 필터</label><select id="documentProject"><option value="all">전체 프로젝트</option></select></div>
-    <section id="libraryListCard" class="add-list-card"><div class="add-list-head"><h2>자료실</h2><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div><div id="documentList" class="card-list"></div></section>
+    <section id="libraryListCard" class="add-list-card"><div class="add-list-head"><h2>자료실</h2><div class="lu-head-actions"><button id="manageLibraryBtn" class="secondary" type="button">분류 수정</button><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div></div><div id="documentList" class="card-list"></div></section>
   </section>
 
   <section id="mediaView" class="view-panel hidden">
