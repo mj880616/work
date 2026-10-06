@@ -94,14 +94,14 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
  await original.close();
 });
 
-for(const width of [390,1440])test('D-3d archived project and input dialog retain main styles '+width,async({page,browser})=>{
+for(const width of [390,1440])test('D-3e archive and input roles preserve other main styles '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'projects');
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);await view(original,'projects');
  for(const p of [page,original]){await p.locator('#ps3ArchiveBtn').click();await expect(p.locator('#ps3ArchiveModal')).toBeVisible();}
  const properties=['fontSize','fontWeight','lineHeight','color','minHeight','whiteSpace','overflow','textOverflow'];
  for(const selector of ['#ps3ArchiveList .ps3-prow-name','#ps3ArchiveList .ps3-prow-meta','#ps3ArchiveModal h2','#ps3ArchiveModal button.mini','#eventModal input','#ps3CreateModal .modal-head h2','#ps3CreateSave']){
   const styles=async p=>p.locator(selector).first().evaluate((el,keys)=>{const s=getComputedStyle(el);return keys.map(k=>s[k])},properties);
-  expect(await styles(page),selector).toEqual(await styles(original));
+  const before=await styles(original);if(selector==='#ps3ArchiveList .ps3-prow-meta'){before[0]='12px';before[2]='16.8px'}if(selector==='#eventModal input'){before[0]='14px';before[2]='21.7px'}expect(await styles(page),selector).toEqual(before);
  }
  await original.close();
 });

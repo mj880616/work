@@ -940,8 +940,9 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
   const item=page.locator('[data-ps3-progress-item="ws-1"]'),itemSummary=item.locator('details > summary');
   await itemSummary.focus();await page.keyboard.press('Enter');
   await expect(item.locator('details')).toHaveAttribute('open','');
-  await page.keyboard.press('Tab');await expect(item.locator('[data-ps3-edit-record]')).toBeFocused();
-  await page.keyboard.press('Tab');await expect(item.locator('[data-ps3-delete-record]')).toBeFocused();
+  await page.keyboard.press('Tab');await expect(item.locator('[data-ps3-record-menu]')).toBeFocused();
+  await page.keyboard.press('Enter');await expect(page.locator('#ps3RecordMenu button').first()).toBeFocused();
+  await page.keyboard.press('Tab');await expect(page.locator('#ps3RecordMenu button').last()).toBeFocused();
 
 });
 
@@ -1273,14 +1274,13 @@ async function openRecords(page,state){
 test('PRJ records stay editable while quick input stays visible and touch targets fit 390px',async({page})=>{
   const state=baseState(),item=await openRecords(page,state);
   const record=item.locator('[data-ps3-record="pr-1"]');
-  await expect(record.getByRole('button',{name:'수정',exact:true})).toBeVisible();
-  await expect(record.getByRole('button',{name:'삭제',exact:true})).toBeVisible();
+  await expect(record.locator('[data-ps3-record-menu]')).toBeVisible();
   await expect(item.locator('[data-ps3-progress-ws]')).toHaveCount(0);
   for(const width of [390,1280]){
     await page.setViewportSize({width,height:844});
     const layout=await record.evaluate(el=>({buttons:[...el.querySelectorAll('button')].map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height})),overflow:document.documentElement.scrollWidth-innerWidth}));
     expect(layout.overflow).toBeLessThanOrEqual(1);
-    for(const b of layout.buttons){expect(b.w).toBeGreaterThanOrEqual(44);expect(b.h).toBeGreaterThanOrEqual(44)}
+    for(const b of layout.buttons){expect(b.w).toBe(32);expect(b.h).toBe(32)}
   }
   const input=item.locator('[data-ps3-quick-progress] input');await input.fill('추가 기록');await input.press('Enter');
   await expect(item.locator('.ps3-pg-count')).toHaveText('2');await expect(input).toBeVisible();
@@ -1288,11 +1288,11 @@ test('PRJ records stay editable while quick input stays visible and touch target
 });
 test('PRJ record edit cancels or saves only summary and preserves date and other fields',async({page})=>{
   const state=baseState(),before=structuredClone(state.progress[0]),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
-  await record.getByRole('button',{name:'수정',exact:true}).click();
+  await recordAction(page,record,'수정');
   const form=record.locator('form[data-ps3-edit-record]');await expect(form.locator('input')).toHaveValue(before.summary);
   await form.locator('input').fill('취소할 글');await form.getByRole('button',{name:'취소',exact:true}).click();
   await expect(record.locator('p').first()).toHaveText(before.summary);
-  await record.getByRole('button',{name:'수정',exact:true}).click();await form.locator('input').fill('수정한 기록');
+  await recordAction(page,record,'수정');await form.locator('input').fill('수정한 기록');
   const request=page.waitForRequest(r=>r.method()==='PATCH'&&r.url().includes('app_project_progress_updates'));
   await form.getByRole('button',{name:'저장',exact:true}).click();const req=await request;
   expect(new URL(req.url()).searchParams.get('id')).toBe('eq.pr-1');expect(req.postDataJSON()).toEqual({summary:'수정한 기록'});expect(req.headers().prefer).toBe('return=representation');
@@ -1302,10 +1302,10 @@ test('PRJ record edit cancels or saves only summary and preserves date and other
 test('PRJ record deletion confirms once, cancel sends nothing, success removes row and count',async({page})=>{
   const state=baseState();state.progress.unshift({...state.progress[0],id:'pr-2',summary:'최근 기록',effective_on:'2026-10-01'});
   const item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-2"]');
-  page.once('dialog',d=>d.dismiss());await record.getByRole('button',{name:'삭제',exact:true}).click();
+  page.once('dialog',d=>d.dismiss());await recordAction(page,record,'삭제');
   await expect(record).toBeVisible();expect(state.restCalls.filter(x=>x.name==='app_project_progress_updates'&&x.method==='DELETE')).toHaveLength(0);
   page.once('dialog',d=>d.accept());const request=page.waitForRequest(r=>r.method()==='DELETE'&&r.url().includes('app_project_progress_updates'));
-  await record.getByRole('button',{name:'삭제',exact:true}).click();const req=await request;
+  await recordAction(page,record,'삭제');const req=await request;
   expect(new URL(req.url()).searchParams.get('id')).toBe('eq.pr-2');expect(req.headers().prefer).toBe('return=representation');
   await expect(record).toHaveCount(0);await expect(item.locator('.ps3-pg-count')).toHaveText('1');
   await expect(item.locator('.ps3-pg-summary')).toHaveText('국토부 후속협의 준비');
@@ -1317,15 +1317,15 @@ for(const method of ['PATCH','DELETE'])for(const status of [403,200])test(`PRJ $
     return route.fulfill({status,contentType:'application/json',body:JSON.stringify(status===403?{message:'forbidden'}:[])});
   });
   if(method==='PATCH'){
-    await record.getByRole('button',{name:'수정',exact:true}).click();await record.locator('input').fill('저장 실패 글');await record.getByRole('button',{name:'저장',exact:true}).click();
-  }else{page.once('dialog',d=>d.accept());await record.getByRole('button',{name:'삭제',exact:true}).click()}
+    await recordAction(page,record,'수정');await record.locator('input').fill('저장 실패 글');await record.getByRole('button',{name:'저장',exact:true}).click();
+  }else{page.once('dialog',d=>d.accept());await recordAction(page,record,'삭제')}
   await expect(page.locator('#toast')).toHaveText(method==='PATCH'?'수정 실패':'삭제 실패');
   await expect(record.locator('form[data-ps3-edit-record]')).toHaveCount(0);await expect(record.locator('p').first()).toHaveText('국토부 후속협의 준비');
-  await expect(record.getByRole('button',{name:'수정',exact:true})).toBeEnabled();await expect(item.locator('.ps3-pg-count')).toHaveText('1');
+  await expect(record.locator('[data-ps3-record-menu]')).toBeEnabled();await expect(item.locator('.ps3-pg-count')).toHaveText('1');
 });
 test('PRJ dirty record asks before closing project and keeps draft when discard is cancelled',async({page})=>{
   const item=await openRecords(page,baseState()),record=item.locator('[data-ps3-record="pr-1"]');
-  await record.getByRole('button',{name:'수정',exact:true}).click();await record.locator('input').fill('未保存');
+  await recordAction(page,record,'수정');await record.locator('input').fill('未保存');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   expect(message).toContain('저장하지 않은 프로젝트 내용');await expect(record.locator('input')).toHaveValue('未保存');
   page.once('dialog',d=>d.accept());await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden();
@@ -1333,7 +1333,7 @@ test('PRJ dirty record asks before closing project and keeps draft when discard 
 
 test('PRJ quick save unlocks while another record draft is dirty and preserves that draft',async({page})=>{
   const state=baseState(),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
-  await record.getByRole('button',{name:'수정',exact:true}).click();await record.locator('input').fill('수정 초안');
+  await recordAction(page,record,'수정');await record.locator('input').fill('수정 초안');
   const quick=item.locator('[data-ps3-quick-progress]');await quick.locator('input').fill('동시에 추가 기록');await quick.locator('button').click();
   await expect(page.locator('#toast')).toHaveText('진행상황을 기록했습니다.');await expect(quick.locator('button')).toBeEnabled();
   await expect(quick.locator('input')).toHaveValue('');await expect(record.locator('input')).toHaveValue('수정 초안');
@@ -1344,23 +1344,23 @@ test('PRJ quick save unlocks while another record draft is dirty and preserves t
 });
 test('PRJ last record deletion leaves quick input visible',async({page})=>{
   const state=baseState(),item=await openRecords(page,state);page.once('dialog',d=>d.accept());
-  await item.getByRole('button',{name:'삭제',exact:true}).click();await expect(item.locator('.ps3-pg-record')).toHaveCount(0);
+  await recordAction(page,item,'삭제');await expect(item.locator('.ps3-pg-record')).toHaveCount(0);
   await expect(item.locator('details')).toHaveCount(0);await expect(item.locator('[data-ps3-quick-progress] input')).toBeVisible();
 });
 
 test('PRJ pending delete cannot be displaced by a task refresh',async({page})=>{
   const state=baseState(),item=await openRecords(page,state),probe=await saveProbe(page,'app_project_progress_updates','DELETE');
-  page.once('dialog',d=>d.accept());await item.getByRole('button',{name:'삭제',exact:true}).click();await expect.poll(()=>probe.count).toBe(1);
+  page.once('dialog',d=>d.accept());await recordAction(page,item,'삭제');await expect.poll(()=>probe.count).toBe(1);
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:tasks-changed')));
   const quick=item.locator('[data-ps3-quick-progress]');await quick.locator('input').fill('삭제 대기 중 기록');await quick.locator('button').click();
   // Success toast is emitted only after refreshDetail resolves; it is the ordering barrier.
   await expect(page.locator('#toast')).toHaveText('진행상황을 기록했습니다.');
-  await expect(item.getByRole('button',{name:'삭제',exact:true})).toBeDisabled();
+  await expect(item.locator('[data-ps3-record="pr-1"] [data-ps3-record-menu]')).toBeDisabled();
   probe.release();await expect(item.locator('[data-ps3-record="pr-1"]')).toHaveCount(0);await expect(item.locator('.ps3-pg-count')).toHaveText('1');await expect(item.locator('[data-ps3-quick-progress] input')).toBeVisible();
 });
 for(const destination of ['library','back'])test(`PRJ dirty record confirms before ${destination} navigation`,async({page})=>{
   const item=await openRecords(page,baseState()),record=item.locator('[data-ps3-record="pr-1"]');
-  await record.getByRole('button',{name:'수정',exact:true}).click();await record.locator('input').fill('이동 전 초안');
+  await recordAction(page,record,'수정');await record.locator('input').fill('이동 전 초안');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   if(destination==='library'){await page.locator('[data-ps3-library]').click()}
   else{await page.evaluate(()=>{history.replaceState({},'', '/app/');history.pushState({project:'main-1'},'', '/app/?project=main-1')});await page.goBack()}
@@ -1369,11 +1369,30 @@ for(const destination of ['library','back'])test(`PRJ dirty record confirms befo
 
 test('PRJ nested modal back preserves a pending delete result',async({page})=>{
   const state=baseState(),item=await openRecords(page,state),probe=await saveProbe(page,'app_project_progress_updates','DELETE');
-  page.once('dialog',d=>d.accept());await item.getByRole('button',{name:'삭제',exact:true}).click();await expect.poll(()=>probe.count).toBe(1);
+  page.once('dialog',d=>d.accept());await recordAction(page,item,'삭제');await expect.poll(()=>probe.count).toBe(1);
   await item.locator('[data-ps3-edit-ws]').click();await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
   await page.goBack();await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();
   const quick=item.locator('[data-ps3-quick-progress]');await quick.locator('input').fill('뒤로가기 경합 기록');await quick.locator('button').click();
   await expect(page.locator('#toast')).toHaveText('진행상황을 기록했습니다.');
-  await expect(item.getByRole('button',{name:'삭제',exact:true})).toBeDisabled();probe.release();
+  await expect(item.locator('[data-ps3-record="pr-1"] [data-ps3-record-menu]')).toBeDisabled();probe.release();
   await expect(item.locator('[data-ps3-record="pr-1"]')).toHaveCount(0);await expect(item.locator('.ps3-pg-count')).toHaveText('1');
 });
+
+for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e record menu dismissal and targets ${width} fallback=${fallback}`,async({page})=>{
+  if(fallback)await page.addInitScript(()=>{HTMLElement.prototype.showPopover=undefined;HTMLElement.prototype.hidePopover=undefined});
+  await page.setViewportSize({width,height:900});const state=baseState();state.progress.push({...state.progress[0],id:'pr-2'});
+  const item=await openRecords(page,state);await page.setViewportSize({width,height:900});const trigger=item.locator('[data-ps3-record-menu="pr-1"]'),panel=page.locator('#ps3RecordMenu');
+  await expect(trigger).toBeVisible();
+  const geometry=await trigger.evaluate(b=>{const r=b.getBoundingClientRect(),p=getComputedStyle(b,'::after');return {w:r.width,h:r.height,inset:p.top,minW:p.minWidth,minH:p.minHeight}});
+  expect(page.viewportSize().width).toBe(width);expect(geometry).toEqual({w:32,h:32,inset:'-6px',minW:'44px',minH:'44px'});
+  const r=await trigger.boundingBox();await page.mouse.click(r.x+r.width/2,r.y-5);await expect(panel).toBeVisible();
+  await expect(panel.locator('button')).toHaveText(['수정','삭제']);
+  for(const button of await panel.locator('button').all())expect((await button.boundingBox()).height).toBe(44);
+  const rect=await panel.boundingBox();expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.x+rect.width).toBeLessThanOrEqual(width);
+  await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await trigger.click();await page.locator('#ps3Title').click();await expect(panel).toBeHidden();
+  await trigger.click();await item.locator('[data-ps3-record-menu="pr-2"]').click();await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(panel).toBeVisible();
+  await page.goBack();await expect(panel).toBeHidden();await expect(page.locator('#ps3DetailModal')).toBeVisible();
+});
+
+async function recordAction(page,row,name){await row.locator('[data-ps3-record-menu]').first().click();await page.locator('#ps3RecordMenu').getByRole('button',{name,exact:true}).click();}
