@@ -42,7 +42,7 @@ async function mockTasks(page,handler){
 }
 
 async function login(page){
-  await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
+  await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
   await page.locator('#authPassword').fill('password123');

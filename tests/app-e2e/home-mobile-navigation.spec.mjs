@@ -28,9 +28,9 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   const requests=[];page.on('request',r=>{if(r.url().startsWith(SB))requests.push(r.url())});
   await open(page);
   await expect(page.locator('#homeView')).toBeVisible();
-  await expect(page.locator('#homeView')).toContainText('준비 중');
+  await expect(page.locator('[data-home-card="calendar"]')).toContainText('Google 캘린더 연결');
   await expect(page.locator('[data-home-date]').first()).toHaveText(/\d+월 \d+일 [일월화수목금토]요일/);
-  expect(requests.some(u=>/app_tasks|google-tasks|google-calendar|app_project_milestones/.test(u))).toBe(false);
+  expect(requests.some(u=>/app_tasks/.test(u))).toBe(false);
   const mobile=width<=760;
   await expect(page.locator('.mobile-tabs')).toBeVisible({visible:mobile});
   await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:mobile});
@@ -62,14 +62,15 @@ test('drawer consumes history before navigation, theme and logout',async({page})
   await page.goBack();await expect(page.locator('#themeModal')).toBeHidden();await expect(drawer).toBeHidden();
   await trigger.click();await page.locator('#mobileMenu [data-kptu-logout]').click();await expect(page).toHaveURL(/\/app\/login\//);
 });
-test('default remains calendar; explicit home, retired routes, project and reload preserve addresses',async({page})=>{
-  await open(page,app);await expect(page.locator('#calendarView')).toBeVisible();
+test('default is home; explicit calendar, explicit home, retired routes, project and reload preserve addresses',async({page})=>{
+  await open(page,app);await expect(page.locator('#homeView')).toBeVisible();
+  await page.goto(app+'?view=calendar');await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);
   for(const view of ['home','profile','photos','team-ai']){
-    await page.goto(app+'?view='+view);await expect(page.locator('#homeView')).toBeVisible();await expect(page).toHaveURL(/view=home/);
+    await page.goto(app+'?view='+view);await expect(page.locator('#homeView')).toBeVisible();await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(view==='home'?'home':null);
   }
   await page.goto(app+'?project=missing');await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});await expect(page.locator('#projectsView')).toBeVisible();await expect(page).toHaveURL(/project=missing/);
   await page.locator('.sidebar-brand').click();await expect(page.locator('#homeView')).toBeVisible();await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});await expect(page.locator('#homeView')).toBeVisible();
-  await page.goto(app);await expect(page.locator('#calendarView')).toBeVisible();
+  await page.goto(app);await expect(page.locator('#homeView')).toBeVisible();
 });
 test('mobile safe area, notices, toast, modal and keyboard keep controls reachable',async({page})=>{
   await page.setViewportSize({width:390,height:844});
@@ -86,7 +87,7 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
   const notice=await page.locator('#versionNotice').boundingBox(),toast=await page.locator('#toast').boundingBox();
   expect(notice.y+notice.height).toBeLessThan(tabs.y);expect(toast.y+toast.height).toBeLessThan(notice.y);
   await page.locator('[data-version-dismiss]').click();
-  await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
+  await page.locator('.mobile-tabs [data-view="calendar"]').click();await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
   const stacking=await page.evaluate(()=>({modal:+getComputedStyle(document.querySelector('#eventModal')).zIndex,tabs:+getComputedStyle(document.querySelector('.mobile-tabs')).zIndex}));expect(stacking.modal).toBeGreaterThan(stacking.tabs);
   await page.locator('#eventTitle').focus();
   await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'))});
@@ -116,7 +117,7 @@ test('drawer media filters and moved Drive slot run their existing handlers once
   await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-account-drive-slot]')).toHaveCount(1);
   await page.locator('#mobileMenu [data-drive-summary-refresh]').click();await expect.poll(()=>posts).toBe(2);
 });
-test('native final return is home while browser default still opens calendar',async({page})=>{
+test('native final return and browser default both open home',async({page})=>{
   await open(page,app);
   await page.evaluate(async()=>{
     Object.defineProperty(navigator,'userAgent',{configurable:true,get:()=> 'KPTUAndroid QA'});
@@ -124,8 +125,8 @@ test('native final return is home while browser default still opens calendar',as
     await import('/app/native-back-guard.js?qa-native-home');
     window.KPTUNativeBack.handle();
   });
-  await expect(page.locator('#homeView')).toBeVisible();await expect(page).toHaveURL(/view=home/);
-  await page.goto(app);await expect(page.locator('#calendarView')).toBeVisible();
+  await expect(page.locator('#homeView')).toBeVisible();await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(null);
+  await page.goto(app);await expect(page.locator('#homeView')).toBeVisible();
 });
 test('swipes visit exactly the five bottom tabs with home and team boundaries',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
@@ -144,3 +145,19 @@ test('swipes visit exactly the five bottom tabs with home and team boundaries',a
   for(const view of tabs.slice(0,-1).reverse()){await swipe('right');await expect(page.locator('#'+view+'View')).toBeVisible();await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0)}
   await swipe('right');await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);expect(await page.evaluate(()=>KPTURouter.current)).toBe('home');
 });
+
+ test('mobile current view label and drawer close painted and touch sizes',async({page})=>{
+  await page.setViewportSize({width:390,height:844});await open(page,app);
+  await expect(page.locator('[data-mobile-view-name]')).toBeHidden();
+  await page.locator('.mobile-tabs [data-view="calendar"]').click();
+  await expect(page.locator('[data-mobile-view-name]')).toHaveText('일정');
+  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','16px');
+  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','700');
+  await page.locator('#mobileMenuOpen').click();
+  await expect(page.locator('.mobile-menu-head b')).toHaveText('메뉴');
+  const close=page.locator('[data-mobile-menu-close]');
+  const size=await close.evaluate(el=>{const r=el.getBoundingClientRect(),pseudo=getComputedStyle(el,'::before');return {w:r.width,h:r.height,left:pseudo.left,right:pseudo.right,top:pseudo.top,bottom:pseudo.bottom}});
+  expect(size).toEqual({w:32,h:32,left:'-6px',right:'-6px',top:'-6px',bottom:'-6px'});
+  const r=await close.boundingBox();await page.mouse.click(r.x-5,r.y+r.height/2);
+  await expect(page.locator('#mobileMenu')).toBeHidden();
+ });

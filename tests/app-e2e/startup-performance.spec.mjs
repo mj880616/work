@@ -52,19 +52,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=184" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=186" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=296','./runtime-client.js?v=7','./native-auth-bridge.js?v=5',
+    './loader-v2.js?v=298','./runtime-client.js?v=7','./native-auth-bridge.js?v=5',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=296')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=298')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=7')");
   expect(loader).toContain("import('./team.js?v=61')");
-  expect(loader).toContain("import('./view-loader.js?v=68')");
+  expect(loader).toContain("import('./view-loader.js?v=70')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -94,7 +94,7 @@ test('startup loads only requested route CSS before showing the shell', async ()
 test('requested route is resolved before view-specific feature loading', async () => {
   const source=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
-  expect(source).toContain("const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar')");
+  expect(source).toContain("const rawRequested=params.get('view')||(params.get('project')?'projects':'home')");
   expect(source).toContain("result=await viewLoader.load(requested)");
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
@@ -206,13 +206,13 @@ test('tab navigation waits for deferred feature data on first click',async({page
   await expect(page.locator('#deferredFeatureStatus')).toHaveCount(0);
 });
 
-test('deferred module failure leaves calendar usable and shows an alert',async({page})=>{
+test('deferred module failure leaves home usable and shows an alert',async({page})=>{
   await page.route('**/app/project-system-v3.js*',route=>route.abort());
   await loginWithMock(page);
   await clickView(page,'projects');
   await expect(page.locator('#deferredFeatureError')).toHaveAttribute('role','alert');
   await expect(page.locator('#deferredFeatureError')).toContainText('이 기능을 불러오지 못했습니다.');
-  await expect(page.locator('#calendarView')).toBeVisible();
+  await expect(page.locator('#homeView')).toBeVisible();
 });
 
 
@@ -222,7 +222,8 @@ test('startup diagnostics keep only timing metadata and debug UI is opt-in',asyn
   expect(sample).toBeTruthy();
   expect(sample.outcome).toBe('home-usable');
   expect(sample.totalMs).toBeGreaterThan(0);
-  expect(sample.requests.map(x=>x.name)).toEqual(expect.arrayContaining(['workspace-member','projects']));
+  expect(sample.requests.map(x=>x.name)).toContain('workspace-member');
+  // Home data is asynchronous; project requests can complete after shell diagnostics finalize.
   expect(sample.requests.map(x=>x.name)).not.toEqual(expect.arrayContaining(['tasks','documents','app_events']));
   const serialized=JSON.stringify(sample);
   expect(serialized).not.toContain('p6-flow-user');

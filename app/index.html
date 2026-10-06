@@ -9,20 +9,20 @@
 <link rel="icon" href="./app-icon.svg?v=20260924-unicorn3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260924-unicorn3">
 <link rel="manifest" href="./windows-manifest.json?v=6">
-<link rel="stylesheet" href="./critical.css?v=21">
+<link rel="stylesheet" href="./critical.css?v=22">
 <link rel="stylesheet" href="./version-notice.css?v=2">
 <link rel="preload" as="style" href="./base-ui.css?v=13">
 <link rel="preload" as="style" href="./static-gates.css?v=3">
-<link rel="preload" as="style" href="./topbar-actions.css?v=15">
+<link rel="preload" as="style" href="./topbar-actions.css?v=16">
 <link rel="preload" as="style" href="./team.css?v=7">
 <link rel="preload" as="style" href="./workspace-ui.css?v=10">
 <link rel="preload" as="style" href="./desktop-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=296">
+<link rel="modulepreload" href="./loader-v2.js?v=298">
 <link rel="modulepreload" href="./runtime-client.js?v=7">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=184" defer></script>
+<script src="./app.js?v=186" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -41,7 +41,7 @@
   <button id="accessDeniedLogoutBtn" class="ghost" type="button">로그아웃</button>
 </section>
 <section id="appView" class="app-view hidden">
-  <header class="mobile-shell-header"><time data-home-date></time><button id="mobileMenuOpen" type="button" aria-label="메뉴 열기" aria-controls="mobileMenu" aria-expanded="false">☰</button></header>
+  <header class="mobile-shell-header"><time data-home-date></time><span data-mobile-view-name hidden></span><button id="mobileMenuOpen" type="button" aria-label="메뉴 열기" aria-controls="mobileMenu" aria-expanded="false">☰</button></header>
   <nav class="app-nav">
     <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="웹2 홈으로 이동"><img src="./app-icon.svg?v=20260924-unicorn3" width="22" height="22" alt="" aria-hidden="true"><span>웹2</span></a>
     <button class="nav-btn" data-view="home" type="button">홈</button>
@@ -66,7 +66,7 @@
   </nav>
   <div id="mobileMenu" class="mobile-menu" hidden>
     <aside class="mobile-menu-panel" role="dialog" aria-modal="true" aria-label="메뉴" tabindex="-1">
-      <button type="button" data-mobile-menu-close aria-label="메뉴 닫기">닫기</button>
+      <div class="mobile-menu-head"><b>메뉴</b><button type="button" data-mobile-menu-close aria-label="메뉴 닫기">×</button></div>
       <nav aria-label="더 보기">
         <button type="button" data-view="meetings">회의</button>
         <button type="button" data-view="library">자료실</button>
@@ -78,7 +78,7 @@
     </aside>
   </div>
 
-  <section id="homeView" class="view-panel hidden"><h2 data-home-date></h2><p class="empty">준비 중</p></section>
+  <section id="homeView" class="view-panel hidden"><h2 data-home-date></h2><div class="home-quick-placeholder" aria-hidden="true"></div><div data-home-cards></div></section>
 
   <section id="calendarView" class="view-panel hidden">
     <div id="calendarCard" class="calendar-card">

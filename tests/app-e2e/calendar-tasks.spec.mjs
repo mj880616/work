@@ -43,7 +43,7 @@ async function setup(page,{now=NOW,handler}={}){
   return calls;
 }
 async function login(page){
-  await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
+  await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
   await page.locator('#authPassword').fill('password123');
@@ -151,7 +151,7 @@ test('this device\'s copy shows first and an equal fresh copy does not redraw',a
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskSection')).toContainText('다음 주 할 일');
   hold=true;
-  await page.goto(`${TEST_ORIGIN}/app/`);await ready(page);
+  await page.goto(`${TEST_ORIGIN}/app/?view=calendar`);await ready(page);
   await expect(chip(page,'p1')).toBeVisible();
   await page.evaluate(()=>{document.querySelector('[data-calendar-task="p1"]').dataset.qaMark='kept'});
   release();

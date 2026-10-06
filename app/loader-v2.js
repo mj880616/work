@@ -87,7 +87,7 @@
     location.reload();
   });
   await Promise.all([
-    import('./app-router.js?v=14'),
+    import('./app-router.js?v=15'),
     import('./accessibility-dialog.js?v=2'),
     import('./native-back-guard.js?v=3'),
     import('./session-resilience.js?v=6'),
@@ -114,7 +114,7 @@
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
-    import('./topbar-actions.js?v=15'),
+    import('./topbar-actions.js?v=16'),
     import('./team.js?v=61')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
@@ -134,10 +134,10 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=68');
+  await import('./view-loader.js?v=70');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
-  const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');
+  const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
   const requested=viewLoader.normalize(rawRequested);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 

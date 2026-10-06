@@ -68,7 +68,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   const today=await mockApp(page);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
   await signIn(page);
 
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
@@ -135,7 +135,7 @@ test('mobile shell and event modal stay inside 360/390/412/430px viewports',asyn
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
   await signIn(page);
 
   for(const width of [360,390,412,430]){

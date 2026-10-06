@@ -35,7 +35,7 @@ async function openApp(page,view){
     if(p.startsWith('/rest/v1/')||p.startsWith('/functions/v1/'))return ok(route,[]);
     return ok(route,{});
   });
-  await page.goto(loginEntry(`${BASE}/app/`));
+  await page.goto(loginEntry(`${BASE}/app/?view=calendar`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);
   await page.locator('#authPassword').fill('fixture-password');
@@ -153,7 +153,9 @@ for(const width of [390,1440]){
       await expect(page.locator('#ps3ArchiveModal')).toBeVisible();
       await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();
       await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'placement-test'}));
+      await expect(page.locator('#calendarView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('projects',{source:'placement-test'}));
+      await expect(page.locator('#projectsView')).toBeVisible();
       await checkActions();
       await page.locator('#newProjectBtn').click();
       await expect(page.locator('#ps3CreateModal')).toBeVisible();

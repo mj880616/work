@@ -45,7 +45,7 @@ async function openTasks(browser,{onToggle,onOverview,reducedMotion='no-preferen
     if(onOverview)return onOverview(route,snapshot,calls.overview);
     return ok(route,{connected:true,authorized:true,needs_reconnect:false,tasks:snapshot});
   });
-  await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
+  await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
   await page.locator('#authPassword').fill('password123');

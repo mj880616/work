@@ -40,7 +40,7 @@ async function fixture(page,{width=390,onToggle}={}){
     }
     return ok([]);
   });
-  await page.goto(loginEntry(ORIGIN+'/app/'));
+  await page.goto(loginEntry(ORIGIN+'/app/?view=calendar'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('qa@example.org');
   await page.locator('#authPassword').fill('password123');

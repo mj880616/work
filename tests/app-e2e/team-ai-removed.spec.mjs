@@ -40,7 +40,7 @@ test('old AI addresses return to the default screen without team-ai requests or 
   for(const oldView of ['ai','team-ai']){
     await page.goto(`${app}?view=${oldView}`);
     await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
-    await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('home');
+    await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(null);
     await page.waitForLoadState('networkidle');
     await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
   }

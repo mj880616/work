@@ -1,0 +1,131 @@
+{
+  "scope": "Local Chromium with mocked APIs only; no production access",
+  "base_sha": "40d6ff7a4598939f1b8088f03fb2bd743d76fee6",
+  "samples": [
+    {
+      "width": 390,
+      "shell_visible_ms": 571,
+      "all_cards_settled_ms": 1237,
+      "cards_ms": {
+        "updates": 631,
+        "dday": 634,
+        "tasks": 992,
+        "meetings": 993,
+        "calendar": 1237
+      },
+      "requests": 11,
+      "B": 1,
+      "M": 1,
+      "bound": 11,
+      "paths": [
+        {
+          "path": "/rest/v1/app_workspace_members",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_suborganizations",
+          "action": null
+        },
+        {
+          "path": "/functions/v1/google-calendar",
+          "action": "status"
+        },
+        {
+          "path": "/rest/v1/app_suborganization_assignees",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_suborganization_updates",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_spaces",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_project_milestones",
+          "action": null
+        },
+        {
+          "path": "/functions/v1/google-tasks",
+          "action": "overview"
+        },
+        {
+          "path": "/functions/v1/google-calendar",
+          "action": "events"
+        },
+        {
+          "path": "/rest/v1/app_record_links",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_meetings",
+          "action": null
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "shell_visible_ms": 454,
+      "all_cards_settled_ms": 1144,
+      "cards_ms": {
+        "updates": 508,
+        "dday": 516,
+        "tasks": 845,
+        "meetings": 846,
+        "calendar": 1144
+      },
+      "requests": 11,
+      "B": 1,
+      "M": 1,
+      "bound": 11,
+      "paths": [
+        {
+          "path": "/rest/v1/app_workspace_members",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_suborganizations",
+          "action": null
+        },
+        {
+          "path": "/functions/v1/google-calendar",
+          "action": "status"
+        },
+        {
+          "path": "/rest/v1/app_suborganization_assignees",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_spaces",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_suborganization_updates",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_project_milestones",
+          "action": null
+        },
+        {
+          "path": "/functions/v1/google-tasks",
+          "action": "overview"
+        },
+        {
+          "path": "/functions/v1/google-calendar",
+          "action": "events"
+        },
+        {
+          "path": "/rest/v1/app_record_links",
+          "action": null
+        },
+        {
+          "path": "/rest/v1/app_meetings",
+          "action": null
+        }
+      ]
+    }
+  ],
+  "google_response_delay_ms": 300
+}
