@@ -163,6 +163,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#calendarUpcoming,#upcomingEvents')).toHaveCount(0);
   const addSize=await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().width);
   expect(addSize).toBeGreaterThanOrEqual(44);
+  expect(await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().height)).toBe(36);
   await expect(page.locator('#eventTarget,#eventProject')).toHaveCount(0);
   expect(state.events).toHaveLength(0);
 

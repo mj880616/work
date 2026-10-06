@@ -91,8 +91,12 @@ for(const width of [390,1440]){
       await expect(button).toHaveAttribute('aria-label','일정 등록');
       expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width===390?'+':'+ 일정 등록');
       const box=await button.boundingBox();
-      expect(box.width).toBeGreaterThanOrEqual(44);
-      expect(box.height).toBeGreaterThanOrEqual(44);
+      if(width===390){
+        expect(box.width).toBeGreaterThanOrEqual(35);
+        expect(box.width).toBeLessThanOrEqual(37);
+      }
+      expect(box.height).toBeGreaterThanOrEqual(35);
+      expect(box.height).toBeLessThanOrEqual(37);
       await button.click();
       await expect(page.locator('#eventModal')).toBeVisible();
     });
