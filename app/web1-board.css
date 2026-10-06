@@ -1,11 +1,11 @@
 .w1b-intro{margin:0 0 14px;color:var(--muted);font-size:13px}
-.w1b-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.w1b-card{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--paper);color:inherit}
+.w1b-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.w1b-card{display:block;width:100%;font:inherit;text-align:left;cursor:pointer;border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--paper);color:inherit}
 .w1b-card:hover{box-shadow:var(--kptu-shadow-float);transform:translateY(-1px)}
-.w1b-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.w1b-card-top{display:none;align-items:center;justify-content:space-between;gap:10px}
 .w1b-open{font-size:11px;font-weight:800;color:var(--muted)}#pagesView .w1b-open{font-size:var(--kptu-text-meta)}
-.w1b-card h3{margin:10px 0 5px;font-size:17px}#pagesView .w1b-card h3{font-size:var(--kptu-text-subtitle)}
-.w1b-card p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}#pagesView .w1b-card p{font-size:var(--kptu-text-body)}
+.w1b-card h3{margin:0;font-size:17px}#pagesView .w1b-card h3{font-size:var(--kptu-text-subtitle)}
+.w1b-card p{display:none;margin:0;color:var(--muted);font-size:13px;line-height:1.55}#pagesView .w1b-card p{font-size:var(--kptu-text-body)}
 .w1b-archive{margin-top:22px}
 .w1b-archive summary{cursor:pointer;font-weight:800;margin-bottom:10px}
 .w1b-detail-card{width:min(1180px,calc(100vw - 28px));height:min(92vh,980px);padding:0;overflow:hidden;display:flex;flex-direction:column}
@@ -15,7 +15,6 @@
 
 @media(max-width:760px){
   .w1b-grid{grid-template-columns:1fr}
-  .w1b-card{padding:14px}
   #web1BoardDetailModal.modal{inset:0;padding:0;place-items:stretch;background:var(--paper)}
   #web1BoardDetailModal .w1b-detail-card{width:100vw;height:100dvh;max-width:none;max-height:100dvh;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden}
   #web1BoardDetailModal .w1b-detail-head{min-height:48px;justify-content:flex-end;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line)}

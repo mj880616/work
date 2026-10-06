@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -13,7 +14,7 @@ const cases=[
   {title:'산별전환 업무 현황',repo:'sanbyeol/index.html',canonical:'https://work.bokdoong.com/work/sanbyeol/',source:'sanbyeol/index.html'}
 ];
 
-async function mockApp(page){
+async function mockApp(page,{archived=[]}={}){
   await page.route(SB+'/**',async route=>{
     const path=new URL(route.request().url()).pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
@@ -23,7 +24,7 @@ async function mockApp(page){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'board-workspace',user_id:user.id,role:'owner',workspace:{id:'board-workspace',slug:'board',name:'웹2'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'board-workspace',name:'웹2'}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'게시판 QA'}]);
-    if(path==='/rest/v1/main_project_archive_state')return ok([]);
+    if(path==='/rest/v1/main_project_archive_state')return ok(archived.map(card_key=>({card_key,archived:true})));
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[]});
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -42,6 +43,62 @@ async function signIn(page){
 
 test('all five Web1 board cards point to deployed repository pages',async()=>{
   for(const item of cases)expect(existsSync(item.repo),item.repo).toBeTruthy();
+});
+
+for(const width of [390,1440])test('compact board cards show only their title and retain reader interaction '+width,async({page,browser})=>{
+  await page.setViewportSize({width,height:900});
+  const baseline=await browser.newPage({viewport:{width,height:900}});
+  const mainCSS=execFileSync('git',['show','589d7eee99eeaf88b4b87498d42842aa74d9f401:app/web1-board.css'],{encoding:'utf8'});
+  await baseline.route('**/app/web1-board.css?*',route=>route.fulfill({contentType:'text/css',body:mainCSS}));
+  for(const p of [page,baseline]){
+    await mockApp(p,{archived:['sanbyeol']});
+    await p.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({contentType:'text/plain; charset=utf-8',body:'<!doctype html><html><body><main id="embeddedBoard">board reader</main></body></html>'}));
+    await signIn(p);
+    await p.locator('.app-nav [data-view="pages"]').click();
+    await expect(p.locator('#pagesView')).toHaveAttribute('data-web1-board-ready','1');
+    await p.locator('#web1BoardArchivedWrap summary').click();
+  }
+  for(const item of cases){
+    const selector='[data-web1-board-title="'+item.title+'"]';
+    const card=page.locator(selector);
+    await expect(card.locator('h3')).toBeVisible();
+    await expect(card.locator('h3')).toHaveCSS('font-size','16px');
+    await expect(card.locator('h3')).toHaveCSS('margin','0px');
+    await expect(card.locator('.w1b-card-top')).toBeHidden();
+    await expect(card.locator('p')).toBeHidden();
+    await expect(card.locator('.w1b-open')).toBeHidden();
+    await expect(card).toHaveAccessibleName(item.title);
+    await expect(card).toMatchAriaSnapshot('- button "'+item.title+'"');
+    await expect(card).toHaveCSS('padding','14px 16px');
+    await expect(card).toHaveCSS('border-radius','12px');
+    expect((await card.boundingBox()).height).toBeLessThan((await baseline.locator(selector).boundingBox()).height);
+  }
+  for(const id of ['web1BoardActive','web1BoardArchived']){
+    const grid=page.locator('#'+id);
+    await expect(grid).toHaveCSS('gap','10px');
+    const columns=await grid.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length);
+    expect(columns).toBe(width===390?1:2);
+  }
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(0);
+  const modal=page.locator('#web1BoardDetailModal');
+  const first=page.locator('[data-web1-board-title="'+cases[0].title+'"]');
+  // Padding is part of the button's activation area, on touch and desktop alike.
+  if(width===390){await page.context().newCDPSession(page).then(async session=>{
+    const box=await first.boundingBox();
+    await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+4,y:box.y+4}]});
+    await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await session.detach();
+  });}else await first.click({position:{x:4,y:4}});
+  await expect(modal).toBeVisible();
+  await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toHaveText('board reader');
+  await page.locator('[data-close-web1-board]').click();
+  await expect(modal).toBeHidden();
+  await first.focus();await first.press('Enter');await expect(modal).toBeVisible();
+  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
+  const archived=page.locator('#web1BoardArchived .w1b-card');
+  await archived.click({position:{x:4,y:4}});await expect(modal).toBeVisible();
+  await page.locator('[data-close-web1-board]').click();await expect(modal).toBeHidden();
+  await baseline.close();
 });
 
 test('Web2 board renders all five business pages from repository HTML source and returns to the list',async({page})=>{
@@ -161,3 +218,30 @@ test('Web1 board source failure shows a controlled reader error instead of a bro
   await expect(doc.locator('body')).not.toContainText('Not Found');
   await expect(doc.locator('a')).toHaveAttribute('href','https://work.bokdoong.com/work/workforce/');
 });
+
+ test('mobile board Back matches clean main reader history',async({page,browser})=>{
+  await page.setViewportSize({width:390,height:900});
+  const original=await browser.newPage({viewport:{width:390,height:900}});
+  const cache=new Map();
+  await original.route(/^http:\/\/127\.0\.0\.1:8123\/app\//,route=>{
+    let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
+    if(!/\.(css|js|html)$/.test(path))return route.continue();
+    if(!cache.has(path))cache.set(path,execFileSync('git',['show','589d7eee99eeaf88b4b87498d42842aa74d9f401:'+path],{encoding:'utf8'}));
+    return route.fulfill({contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'text/javascript':'text/html',body:cache.get(path)});
+  });
+  for(const p of [original,page]){
+    await mockApp(p);
+    let release;const sourceReady=new Promise(resolve=>{release=resolve});
+    await p.route('https://raw.githubusercontent.com/mj880616/work/main/**',async route=>{await sourceReady;await route.fulfill({contentType:'text/plain; charset=utf-8',body:'<!doctype html><html><body><main id="embeddedBoard">board reader</main></body></html>'})});
+    await signIn(p);await p.locator('.app-nav [data-view="pages"]').click();
+    await p.locator('.w1b-card').first().click();
+    const modal=p.locator('#web1BoardDetailModal');
+    await expect(modal).toBeVisible();
+    await expect.poll(()=>p.evaluate(()=>history.state?.kptuOverlay)).toBe('web1BoardDetailModal');
+    await p.evaluate(()=>history.back());
+    await expect(modal).toBeHidden();
+    await expect(p.locator('#pagesView')).toBeVisible();
+    release();
+  }
+  await original.close();
+ });
