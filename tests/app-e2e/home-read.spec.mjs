@@ -415,3 +415,22 @@ test("home chips and update rows open the existing detail dialogs", async ({page
   await expect(page.locator('#wdModal')).toBeVisible();
   await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
 });
+
+test("phone home follows the supplied reference while desktop stays unchanged", async ({page}) => {
+  await page.setViewportSize({width:390,height:1000});await openHome(page);
+  const chips=page.locator('[data-home-card="dday"]');await expect(chips).toContainText('D-1');
+  await expect(chips).toHaveCSS('border-top-width','0px');
+  await expect(chips).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+  const update=page.locator('.home-update').first();await expect(update).toBeVisible();
+  const row=await update.evaluate(el=>[...el.children].map(e=>{const r=e.getBoundingClientRect();return {y:r.y+r.height/2}}));
+  expect(Math.max(...row.map(r=>r.y))-Math.min(...row.map(r=>r.y))).toBeLessThanOrEqual(2);
+  await expect(page.locator('.home-event').nth(1)).toHaveCSS('border-top-width','1px');
+  const check=page.locator('.home-task .gt-check').first();const b=await check.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);
+  for(const width of [390,760]) {
+    await page.setViewportSize({width,height:1000});await expect(chips).toHaveCSS('border-top-width','0px');
+    const chip=page.locator('.home-chip').first();const painted=await chip.evaluate(el=>{const p=getComputedStyle(el,'::before');return el.getBoundingClientRect().height-parseFloat(p.top)-parseFloat(p.bottom)});expect(painted).toBe(28);
+  }
+  await page.setViewportSize({width:761,height:1000});await expect(chips).toHaveCSS('border-top-width','1px');
+  await page.setViewportSize({width:1440,height:1000});await expect(chips).toHaveCSS('border-top-width','1px');
+  const desktop=await update.evaluate(el=>[...el.children].map(e=>e.getBoundingClientRect().top));expect(desktop[0]).toBeLessThan(desktop[1]);
+});

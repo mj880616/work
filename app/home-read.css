@@ -194,6 +194,58 @@
   align-self: center;
 }
 @media (max-width: 760px) {
+  [data-home-card="dday"] {
+    background: transparent;
+    border: 0;
+    padding: 0;
+  }
+  [data-home-card="dday"] header {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .home-chips { padding: 0; }
+  .home-chip {
+    position: relative;
+    isolation: isolate;
+    background: transparent;
+  }
+  .home-chip::before {
+    content: "";
+    position: absolute;
+    inset: 8px 0;
+    z-index: -1;
+    background: var(--kptu-primary-soft);
+    border-radius: var(--kptu-radius-pill);
+  }
+  .home-chip.urgent { background: transparent; }
+  .home-chip.urgent::before { background: var(--kptu-danger-soft); }
+  .home-event { min-height: 44px; }
+  .home-task { min-height: 64px; }
+  .home-event + .home-event,
+  .home-task + .home-task,
+  .home-update + .home-update { border-top: 1px solid var(--kptu-border); }
+  .home-task .gt-check::before { border-color: var(--kptu-border); }
+  .home-task.completed .gt-check::before { border-color: var(--kptu-success); }
+  .home-update {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+  }
+  .home-update strong {
+    max-width: 40%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    flex: 0 1 auto;
+    line-height: 1.5;
+  }
+  .home-update .home-title { flex: 1; }
+  .home-update time { flex: 0 0 auto; }
   #homeView {
     margin-left: 0;
     margin-right: 0;

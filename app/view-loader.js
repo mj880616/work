@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  home:['./home-read.css?v=1','./google-tasks.css?v=19'],
+  home:['./home-read.css?v=2','./google-tasks.css?v=19'],
   calendar:['./calendar-ui.css?v=17'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=19'],
   projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=19'],
