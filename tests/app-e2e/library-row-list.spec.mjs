@@ -97,7 +97,6 @@ async function signIn(page,target='http://127.0.0.1:8123/app/'){
 
 const MAIN='96eeb04a16fd93d532222795ada9c09baec9f323';
 async function boot(page,{width=390,main=false}={}){
-  await page.evaluate(()=>{try{localStorage.clear()}catch{}});
   await page.setViewportSize({width,height:900});
   if(main){const cache=new Map();await page.route(/^http:\/\/127\.0\.0\.1:8123\/app\//,route=>{
     let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
@@ -122,6 +121,11 @@ for(const width of [390,1440]){
   test('library rows show only compact fields, fit viewport and keep header actions '+width,async({page,browser})=>{
     await boot(page,{width});
     const rows=page.locator('.lu-row');await expect(rows).toHaveCount(10);
+    const kind=rows.first().locator('.lu-file-kind');
+    for(const [property,value]of [['width','36px'],['height','36px'],['border-radius','8px'],['font-size','11px']])await expect(kind).toHaveCSS(property,value);
+    await expect(rows.first()).toHaveCSS('gap','12px');await expect(rows.first()).toHaveCSS('padding','11px 2px');
+    await expect(rows.first().locator('.lu-row-title')).toHaveCSS('font-size','15px');
+    await expect(rows.first().locator('.lu-row-meta')).toHaveCSS('font-size','12px');
     expect(await rows.locator('.lu-file-kind').allTextContents()).toEqual(['HWP','PDF','XLS','DOC','PPT','파일','HWP','XLS','DOC','PPT']);
     await expect(rows.first().locator('.lu-row-meta')).toHaveText('10.06 · 정책자료');
     await expect(rows.nth(5).locator('.lu-row-meta')).toHaveText('정책자료');
@@ -161,9 +165,9 @@ for(const width of [390,1440]){
     const trigger=page.locator('.lu-more-trigger').first(),r=await trigger.boundingBox();expect(r.width).toBe(32);expect(r.height).toBe(32);
     await page.mouse.click(r.x-4,r.y+r.height/2);await expect(page.locator('.lu-more-panel')).toBeVisible();await expect(page).toHaveURL(url);
   });
-  test('library row click and Enter use the existing open path '+width,async({page})=>{
+  test('library row click and Enter use the existing open path '+width,async({page,browser})=>{
     await boot(page,{width});await page.locator('[data-lu-document="row-0"]').click();await expect(page).toHaveURL(/library-open-fixture/);
-    await boot(page,{width});await page.locator('[data-lu-document="row-0"]').focus();await page.keyboard.press('Enter');await expect(page).toHaveURL(/library-open-fixture/);
+    const keyboard=await browser.newPage();await boot(keyboard,{width});await keyboard.locator('[data-lu-document="row-0"]').focus();await keyboard.keyboard.press('Enter');await expect(keyboard).toHaveURL(/library-open-fixture/);await keyboard.close();
   });
   test('library menu keeps download, edit and confirmed trash deletion '+width,async({page})=>{
     const state=await boot(page,{width});

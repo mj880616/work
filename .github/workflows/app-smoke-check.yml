@@ -57,7 +57,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=61')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=64')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=65')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -116,7 +116,7 @@ jobs:
           grep -q "calendar-ui.css?v=17" app/view-loader.js
           grep -q "task-layout.css?v=4" app/view-loader.js
           grep -q "project-system-v3.css?v=21" app/view-loader.js
-          grep -q "library-upload.css?v=3" app/view-loader.js
+          grep -q "library-upload.css?v=4" app/view-loader.js
           grep -q "meeting-ui.css?v=12" app/view-loader.js
           grep -q "web1-press.css?v=4" app/view-loader.js
           grep -q "web1-board.css?v=5" app/view-loader.js
@@ -181,7 +181,7 @@ jobs:
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           grep -q "task-layout.css?v=4" app/styles.css
           grep -q "google-tasks.css?v=19" app/styles.css
-          grep -q "library-upload.css?v=3" app/styles.css
+          grep -q "library-upload.css?v=4" app/styles.css
           grep -q "meeting-ui.css?v=12" app/styles.css
           grep -q "calendar-ui.css?v=17" app/styles.css
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
