@@ -2,6 +2,36 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 const ready=page=>page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt);
 const start=page=>page.evaluate(()=>new Promise(resolve=>{addEventListener('kptu:home-ready',()=>resolve(),{once:true});KPTUHome.start();}));
+
+test('fresh events replace a different copy and record latest time while status is still pending',async({page})=>{
+ await openHome(page,{query:'?homeTiming=1'});await ready(page);
+ let release;const pending=new Promise(r=>release=r);
+ await page.route('**/functions/v1/google-calendar?action=status',async r=>{await pending;await r.fulfill({json:{connected:true,selected:['c']}});});
+ await page.route('**/functions/v1/google-calendar?action=events&**',r=>r.fulfill({json:{events:[{id:'changed',title:'QA latest',start:'2026-10-06T12:00:00+09:00',end:'2026-10-06T13:00:00+09:00',calendarId:'c'}]}}));
+ const refreshed=start(page);
+ try {
+  await expect(page.locator('[data-home-card="calendar"]')).toContainText('QA latest',{timeout:2000});
+  await expect(page.locator('[data-home-card="calendar"]')).not.toContainText('오전 일정');
+  await expect(page.locator('[data-home-timing]')).toContainText(/오늘 일정: 표시 \d+ms · 최신 \d+ms/);
+ } finally {release();await refreshed;}
+ await page.reload();await expect(page.locator('[data-home-card="calendar"]')).toContainText('QA latest');
+});
+
+test('a disconnected current status supersedes early events, including a later events completion',async({page})=>{
+ await openHome(page);await ready(page);
+ for(const slow of ['status','events']){
+  let release;const pending=new Promise(r=>release=r);
+  await page.route('**/functions/v1/google-calendar?action=status',async r=>{if(slow==='status')await pending;await r.fulfill({json:{connected:false}});});
+  await page.route('**/functions/v1/google-calendar?action=events&**',async r=>{if(slow==='events')await pending;await r.fulfill({json:{events:[{title:'QA new',start:'2026-10-06T12:00:00+09:00',end:'2026-10-06T13:00:00+09:00'}]}});});
+  const refreshed=start(page);
+  if(slow==='status')await expect(page.locator('[data-home-card="calendar"]')).toContainText('QA new');
+  else await expect(page.locator('[data-home-card="calendar"]')).toHaveAttribute('data-state','disconnected');
+  const response=page.waitForResponse(r=>r.url().includes('action='+slow));release();await response;await refreshed;
+  await expect(page.locator('[data-home-card="calendar"]')).toHaveAttribute('data-state','disconnected');
+  await expect(page.locator('[data-home-card="calendar"]')).not.toContainText('QA new');
+  await page.unroute('**/functions/v1/google-calendar?action=status');await page.unroute('**/functions/v1/google-calendar?action=events&**');
+ }
+});
 test('cold cached meeting controls wait for the task module and current task state',async({page})=>{
   await openHome(page);await ready(page);const errors=[];page.on('pageerror',e=>errors.push(e.message));
   let release;const pending=new Promise(r=>release=r);

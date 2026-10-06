@@ -53,3 +53,15 @@ Windows ARM64에서는 기존 embedded-postgres가 `Unsupported arch "arm64" for
 캐시: home-read.js 2→3, home-read.css 3→4, calendar-persistence.js 13→14, view-loader.js 72→73, loader-v2.js 300→301, app.js 188→189. 새 home-read-cache.js는 v1. 동일한 버전 계약만 테스트·smoke 기대값에 반영했고 검사 조건은 약화하지 않았다.
 
 실제 갤럭시 폴드·삼성 인터넷 전후 비교와 배포 확인은 사용자 확인 사항이다. 이 PR은 merge하지 않는다.
+
+
+## HOME-선택판 후속: 오늘 일정 최신 반영 (2026-10-07)
+
+로컬 모의 API에서 status 응답을 보류하고 사본과 다른 최신 events를 먼저 반환하면, 기존 HOME-속도 코드가 events 결과를 확보하고도 status를 기다리며 사본과 최신 …ms를 유지하는 것을 재현했다. 측정값만 누락된 것이 아니라 최신 일정 표시가 status 읽기에 묶인 경로다. 운영이나 삼성 인터넷 네트워크에는 접근하지 않아 실기기의 동일 원인 여부는 미확인이다.
+
+이미 연결을 확인한 재진입·유효 사본이 있는 경우, 인증된 events 최신 응답을 먼저 화면과 사본에 반영하고 그 시점의 최신 ms를 기록한다. status가 끝나면 최신 색을 다시 반영하며, 연결 해제·권한 오류·실패는 기존 상태 표시가 우선한다. status가 먼저 해제를 반환한 뒤 늦게 온 events는 해제 상태를 덮지 않는다. epoch·사용자 변경 검증도 유지한다. 사본 없는 첫 진입은 기존 status → events 경로다.
+
+새 E2E는 서로 다른 사본/최신 응답, 느린 status 앞의 최신 반영·ms 기록·재접속 사본, 두 응답 순서의 연결 해제 우선을 확인한다. 저장 경로·DB·RLS·Edge 변경은 없다.
+
+
+로컬 전체 브라우저 785개 병렬 검사에서는 디자인 토큰(--kptu-bg 빈 값)과 홈 사본 재접속 700ms 검사에 간헐 실패가 있었다. 시작 SHA `1c288d8b` clean main 사본에서도 동일 실패를 각각 병렬 5회 중 2회·3회 재현했다. 기준 사본의 앱 파일은 원문이며 시험 서버 포트만 8125로 바꿨다. 이번 범위에서는 검사 조건을 바꾸거나 테스트를 약화하지 않았다. Windows ARM64의 격리 PostgreSQL은 `Unsupported arch arm64 for platform win32`로 실행되지 않아 Linux CI 결과로 확인한다.
