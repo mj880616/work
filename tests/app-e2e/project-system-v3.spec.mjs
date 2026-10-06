@@ -1396,3 +1396,18 @@ for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e reco
 });
 
 async function recordAction(page,row,name){await row.locator('[data-ps3-record-menu]').first().click();await page.locator('#ps3RecordMenu').getByRole('button',{name,exact:true}).click();}
+
+for(const width of [390,1440])for(const [phase,label] of [['done','종료'],['follow_up','후속조치']])test(`D-3e follow-up long progress title keeps phase single line ${width} ${phase}`,async({page})=>{
+  const state=baseState();state.workstreams[0].phase=phase;state.workstreams[0].title='긴 제목 확인용 항목 '.repeat(12);
+  expect(state.workstreams[0].title.length).toBeGreaterThanOrEqual(40);
+  const item=await openRecords(page,state);await page.setViewportSize({width,height:900});
+  const badge=item.locator('.ps3-phase'),title=item.locator('.ps3-pg-title');await expect(badge).toHaveText(label);
+  const metrics=await item.evaluate(row=>{
+    const badge=row.querySelector('.ps3-phase'),title=row.querySelector('.ps3-pg-title'),s=getComputedStyle(badge),t=getComputedStyle(title);
+    const probe=document.createElement('span');probe.style.color='var(--kptu-info)';row.append(probe);const info=getComputedStyle(probe).color;probe.style.color='var(--kptu-muted)';const muted=getComputedStyle(probe).color;probe.remove();
+    return {height:badge.getBoundingClientRect().height,size:s.fontSize,nowrap:s.whiteSpace,flex:s.flex,color:s.color,info,countColor:getComputedStyle(row.querySelector('.ps3-pg-count')).color,muted,title:{width:title.clientWidth,scroll:title.scrollWidth,min:t.minWidth,overflow:t.overflow,ellipsis:t.textOverflow,nowrap:t.whiteSpace}};
+  });
+  expect(metrics.height).toBeGreaterThanOrEqual(21);expect(metrics.height).toBeLessThanOrEqual(24);
+  expect(metrics.size).toBe('12px');expect(metrics.nowrap).toBe('nowrap');expect(metrics.flex).toBe('0 0 auto');expect(metrics.color).toBe(metrics.info);expect(metrics.countColor).toBe(metrics.muted);
+  expect(metrics.title).toMatchObject({min:'0px',overflow:'hidden',ellipsis:'ellipsis',nowrap:'nowrap'});expect(metrics.title.scroll).toBeGreaterThan(metrics.title.width);
+});
