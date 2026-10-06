@@ -30,7 +30,7 @@ button.ps3-kid-row{cursor:pointer}
 .ps3-project-toolbar .ps3-toolbar-btn{padding:0 var(--kptu-space-3)}
 .ps3-plist .ps3-project-toolbar{flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;max-width:100%;margin-left:auto}
 .ps3-plist .ps3-project-toolbar button{min-height:36px;margin-left:0}
-.ps3-type,.ps3-phase{display:inline-flex;align-items:center;border-radius:var(--kptu-radius-pill);padding:3px 7px;font-size:9px;font-weight:700}
+.ps3-type,.ps3-phase{display:inline-flex;align-items:center;white-space:nowrap;flex:0 0 auto;border-radius:var(--kptu-radius-pill);padding:3px 7px;font-size:9px;font-weight:700}
 .ps3-type{background:var(--kptu-primary-soft);color:var(--kptu-muted)}
 .ps3-detail-card{width:min(1080px,96vw);max-height:94vh;overflow:auto;padding:var(--kptu-space-5)}
 .ps3-modal-head{position:sticky;top:-24px;z-index:3;background:var(--kptu-surface);padding-top:var(--kptu-space-1);border-bottom:1px solid var(--kptu-border);padding-bottom:var(--kptu-space-3)}
