@@ -140,3 +140,39 @@
 - 오른쪽 ⋯는 보이는 크기 32px·`--kptu-muted`, D-3c 방식의 누르는 범위 44px이다. 줄 클릭·Enter는 기존 자료 열기, ⋯는 메뉴만 연다. 다운로드·정보 수정·삭제는 ⋯ 안에서 기존 동작을 호출하며 삭제 확인·Drive 휴지통 흐름을 유지한다. 메뉴는 바깥 클릭·Esc·뒤로 가기로 닫히며 화면 안에 위치한다.
 - 출처·크기·요약은 목록에서 빼고 기존 자료 열기 경로와 정보 수정 데이터는 유지한다. 업로드·끌어놓기·분류 수정·검색·프로젝트 필터 동작은 변경하지 않는다.
 - 머리줄 오른쪽에 `[분류 수정][+ 자료]` 순서·간격 8px·D-버튼통일 크기를 적용한다. 맨 위 단독 `.section-head.actions-only` 줄을 없앤다. 검색칸·프로젝트 선택은 기존 간격 8px을 유지한다.
+
+
+## 2026-10-06 상세·입력 창 글자 역할 + 진행 기록 ⋯ (D-3e)
+
+사용자 지시서의 역할 표와 진행 기록 메뉴 B안을 적용한다. 글자 굵기와 본문·제목 색은 유지한다.
+
+| 역할 | 크기 | 색 |
+| --- | --- | --- |
+| 창·화면 제목(`.modal-head h2`, 상세 맨 위 이름) | `--kptu-text-title` 20px | 유지 |
+| 구역 제목(창 안 h3·묶음 제목) | `--kptu-text-subtitle` 16px | 유지 |
+| 본문·입력(설명·기록 내용, input·textarea·select) | `--kptu-text-body` 14px | 유지 |
+| 입력칸 이름(label) | `--kptu-text-meta` 12px | `--kptu-muted` |
+| 정보(날짜·작성자·개수·상태 꼬리표·small) | `--kptu-text-meta` 12px | `--kptu-muted` |
+| 안내문(빈칸 안내·도움말·비활성) | `--kptu-text-meta` 12px | `--kptu-faint` 허용 |
+| 글자 버튼 | D-버튼통일 그대로 | 유지 |
+
+- 대상 창 안의 텍스트는 최소 12px이다. 기존 9·9.5·10·10.5·11px 및 clamp 규칙에도 같은 기준을 적용한다. 안내·정보에 쓰이는 eyebrow, 상태·개수 칩, 파일 선택 안내도 포함한다. 오류·성공 안내의 기존 의미 색은 유지한다.
+- 공통 CSS 규칙은 아래 창 ID 안으로 한정한다. 목록 화면 5개, 자료실 목록, 할 일·일정 목록과 셸의 글자·색·굵기는 변경하지 않는다. iframe의 문서는 별도 문서이므로 바깥 틀의 CSS가 적용되지 않는다.
+- 프로젝트: `ps3DetailModal`, `ps3CreateModal`, `ps3WorkstreamModal`, `ps3ProgressModal`, `ps3MilestoneModal`, `ps3ArchiveModal`, `ps3DeleteModal`.
+- 회의: `meetingModal`, `meetingRoundDetailModal`, `wfMeetingAiModal`.
+- 담당조직: `wdModal`, `wdAffModal`, `wdTimeModal`, `soEditModal`, `soAssignModal`.
+- 성명·게시판: `pressDetailModal`, `web1BoardDetailModal`의 바깥 틀만.
+- 자료: `documentModal`, `libraryEditModal`, `libraryManageModal`.
+- 일정·할 일: `eventModal`, `ciGoogleModal`, `taskModal`, `gtTaskModal`, `gtPickModal`.
+- 화면 색: `themeModal`.
+- 추가 용도 확인: `warDraftModal`은 주간보고 수정 입력 창이므로 포함한다. `polManageModal`은 프로젝트·담당조직 연결 선택 및 저장 창이므로 포함하되 현재 앱 로더가 불러오지 않는 모듈을 되살리지 않는다. `pvtModal`은 프로젝트 템플릿 선택 갤러리이며 상세·입력 창이 아니므로 제외한다.
+- 제외: `calendarDayModal`, 상단·사이드·계정·기존 ⋯ 메뉴, 로그인·비밀번호 창, Web1 공개 화면, 완료된 목록 화면, 할 일·일정 목록, iframe 본문, 아이콘만 있는 버튼, 굵기. 파일 선택처럼 label 태그로 만든 글자 버튼은 D-버튼통일을 따른다. 버튼 안의 항목 이름처럼 역할이 애매한 글자는 기존 값을 유지한다.
+
+### 진행 기록 ⋯ — 2026-10-06 사용자 결정 B안
+
+- 진행상황 기록의 날짜 줄 오른쪽 끝에 ⋯ 하나를 둔다. 보이는 크기는 32×32px, 색은 `--kptu-muted`, D-3c 투명 확장 방식으로 누르는 범위는 44×44px이다. 읽기용 이름은 “진행 기록 관리”다.
+- 별도 수정·삭제 줄은 없앤다. 메뉴에는 수정·삭제 2개만 두고 항목 높이는 44px, 삭제 글자는 `--kptu-danger`를 쓴다. 인라인 편집 중의 저장·취소 줄은 유지한다.
+- 자료실·계정 메뉴와 같은 닫힘 순서를 프로젝트 모듈 안에서 구현한다. popover 미지원 시 fixed 메뉴, 화면 안 위치, 바깥 클릭·Esc·뒤로 가기로 닫힘, 다른 기록 ⋯ 열기 전에 앞 메뉴 이력 소비, 닫힌 뒤 기존 동작 실행을 적용한다. 키보드 Tab은 열린 메뉴 안의 두 항목 사이를 이동한다.
+- 다른 화면까지 공통 함수로 추출하지 않는다. 이번 대상만 변경해 자료실·계정 메뉴의 동작과 책임 범위를 유지한다.
+- 수정은 기존 인라인 편집기, 삭제는 기존 확인창과 `return=representation` 1행 검증 경로를 그대로 쓴다. 저장하지 않은 내용 확인, `data-saving` 잠금, 403·0행 실패 시 기록 복원을 유지한다.
+- 진행상황 항목 줄의 수정(workstream 수정)과 + 추가는 변경하지 않는다.
