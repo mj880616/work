@@ -61,7 +61,8 @@ test('cached cards paint silently before refresh and calendar status and events 
 test('first visit task rows appear before links; overlapping starts share the read',async({page})=>{
   const c=await openHome(page,{delays:{overview:1000,app_record_links:1200,status:1200,events:1200}});
   await expect.poll(()=>c.requests.filter(r=>r.action==='overview').length).toBe(1);
-  await page.evaluate(()=>{KPTUHome.start();dispatchEvent(new Event('focus'));dispatchEvent(new CustomEvent('kptu:tasks-changed'));dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));dispatchEvent(new Event('pageshow'));dispatchEvent(new CustomEvent('kptu:view-changed',{detail:{view:'home'}}));});
+  // Lifecycle entries share the read; mutation bursts now require the separate fresh-read regression.
+  await page.evaluate(()=>{KPTUHome.start();dispatchEvent(new Event('focus'));dispatchEvent(new Event('pageshow'));dispatchEvent(new CustomEvent('kptu:view-changed',{detail:{view:'home'}}));});
   await expect(page.locator('[data-home-card="tasks"]')).toContainText('오늘 항목',{timeout:1600});
   expect(c.requests.filter(r=>r.path.endsWith('app_record_links'))).toHaveLength(1);
   await ready(page);

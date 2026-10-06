@@ -11,7 +11,7 @@ async function orgs(page){
  await page.reload();await q(page).locator('[data-quick-mode="update"]').click();await q(page).locator('[data-quick-input]').fill('QA');
  await q(page).locator('[data-quick-org]').click();await expect(sheet(page)).toBeVisible();
 }
-for(const width of [390,1440])test(`organization chips fit, preserve order and 44px targets at ${width}`,async({page},info)=>{
+for(const width of [390,1440])test(`organization chips fit, preserve order and non-overlapping targets at ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:844});await openHome(page);await orgs(page);
  const recent=sheet(page).locator('[data-sheet-recent] button'),all=sheet(page).locator('[data-sheet-all] button');
  await expect(recent).toHaveCount(3);await expect(all).toHaveCount(13);
@@ -19,9 +19,11 @@ for(const width of [390,1440])test(`organization chips fit, preserve order and 4
  const content=sheet(page).locator('[data-sheet-content]');expect(await content.evaluate(el=>el.scrollHeight<=el.clientHeight)).toBe(true);
  await expect(all.first()).toHaveCSS('height','32px');await expect(all.first()).toHaveCSS('font-size','14px');
  const hit=await all.first().evaluate(el=>parseFloat(getComputedStyle(el,'::after').height));
- expect(hit).toBeGreaterThanOrEqual(44);
+ expect(hit).toBe(38);
+ const targets=await sheet(page).locator('.home-choice-chip').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el,'::after'),h=parseFloat(s.height),w=parseFloat(s.width);return {left:r.left+1+parseFloat(s.left),right:r.left+1+parseFloat(s.left)+w,top:r.top+r.height/2-h/2,bottom:r.top+r.height/2+h/2};}));
+ for(let i=0;i<targets.length;i++)for(let j=i+1;j<targets.length;j++){const a=targets[i],b=targets[j];expect(Math.max(a.left,b.left)>=Math.min(a.right,b.right)-.1||Math.max(a.top,b.top)>=Math.min(a.bottom,b.bottom)-.1).toBe(true);}
  await page.screenshot({path:info.outputPath(`org-sheet-${width}.png`),fullPage:false});
- const b=await all.filter({hasText:'서해선지부'}).boundingBox();await page.mouse.click(b.x+b.width/2,b.y-5);
+ const b=await all.filter({hasText:'서해선지부'}).boundingBox();await page.mouse.click(b.x+b.width/2,b.y-2);
  await expect(sheet(page)).toBeHidden();await expect(q(page).locator('[data-quick-org]')).toHaveText('서해선지부 ▾');await expect(q(page).locator('[data-quick-org]')).toHaveAccessibleName('조직: 서해선지부');await expect(q(page).locator('[data-quick-org]')).toBeFocused();
  await q(page).locator('[data-quick-org]').click();await expect(sheet(page).locator('[aria-pressed="true"]').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(sheet(page)).toBeHidden();

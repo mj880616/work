@@ -520,13 +520,14 @@ function trackTaskFlight(promise,run){
   const tracked=promise.finally(()=>{
     if(taskFlight!==tracked)return;
     taskFlight=null;
-    if(run===epoch&&tasksDirty){tasksDirty=false;void refreshTaskCards();}
+    if(run===epoch&&tasksDirty){tasksDirty=false;return refreshTaskCards();}
   });
   taskFlight=tracked;return tracked;
 }
-function refreshTaskCards({afterSave=false}={}){
+function refreshTaskCards(){
   if(!owner()||homeOwner!==owner())return Promise.resolve();
-  if(taskFlight){if(afterSave)tasksDirty=true;return taskFlight;}
+  // A mutation burst during a read needs one following fresh read, not the in-flight snapshot.
+  if(taskFlight){tasksDirty=true;return taskFlight;}
   const run=epoch;
   freshTaskRead=true;linksReady=false;meetingsReady=false;
   google?.invalidateAfterCreate();
@@ -601,6 +602,7 @@ window.addEventListener("kptu:google-tasks-changed", (event) => {
   if (window.KPTURouter.current !== "home") return;
   if (event.detail?.source === "toggle") {
     renderTasks();
+    if(taskFlight)void refreshTaskCards();
     return;
   }
   void refreshTaskCards();
@@ -618,7 +620,7 @@ window.addEventListener("kptu:api-saved", (event) => {
   }
 });
 async function refreshQuickTasks() {
-  await refreshTaskCards({afterSave:true});
+  await refreshTaskCards();
 }
 mountQuick({root,dependencies,refreshTasks:refreshQuickTasks,invalidateProjects:()=>flights.delete("projects"),esc});
 window.KPTUHome = { start:options=>{void start(options);}, metrics };

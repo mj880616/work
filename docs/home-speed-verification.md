@@ -65,3 +65,15 @@ Windows ARM64에서는 기존 embedded-postgres가 `Unsupported arch "arm64" for
 
 
 로컬 전체 브라우저 785개 병렬 검사에서는 디자인 토큰(--kptu-bg 빈 값)과 홈 사본 재접속 700ms 검사에 간헐 실패가 있었다. 시작 SHA `1c288d8b` clean main 사본에서도 동일 실패를 각각 병렬 5회 중 2회·3회 재현했다. 기준 사본의 앱 파일은 원문이며 시험 서버 포트만 8125로 바꿨다. 이번 범위에서는 검사 조건을 바꾸거나 테스트를 약화하지 않았다. Windows ARM64의 격리 PostgreSQL은 `Unsupported arch arm64 for platform win32`로 실행되지 않아 Linux CI 결과로 확인한다.
+
+## HOME-선택판 커맨드센터 후속 결정 (2026-10-06)
+
+초기 할 일 결과가 그려진 뒤에도 links/meetings 요청이 진행 중이면 taskFlight가 남아 있었다. 기존 refreshTaskCards는 일반 변경 이벤트를 이 요청에 합치고 tasksDirty를 남기지 않아, 이후 최신 읽기를 누락했다. 완료 source=toggle은 화면만 다시 그려 같은 누락 경로가 있었다. 초기 links 응답을 보류하는 E2E를 기준 main 앱 코드에 실행하면 추가 overview가 1회에서 늘지 않는 실패를 재현한다.
+
+진행 중 변경은 tasksDirty 하나로 합치고, 기존 요청 종료 시 최신 tasks·links·meetings 읽기 1회를 추가한다. 진행 중 요청을 기다리는 호출은 이 최신 조회까지 이어진다. 같은 요청 중 들어온 중복 이벤트는 추가 1회로 합쳐지며, 후속 조회 중 별개의 새 변경이 오면 그 요청 종료 후 최신 읽기를 예약한다. epoch·owner 변경 시 예약은 폐기한다. idle 완료는 기존 3초 settling과 화면 갱신만 유지한다. 새 E2E는 이벤트 묶음·실제 완료·빠른 입력 저장의 초기 요청 경쟁 상태, 총 overview/links 각 2회, 완료 3초 유지, 일정/업데이트 카드 재조회 없음과 최신 항목을 확인한다. 최근 조직 선택용 조회는 카드 갱신과 구분한다.
+
+첫 표시 1600ms 비교는 코드 수정 전 PR head `7ba0ca98`과 시작 main `1c288d8b`를 동일한 Chromium, workers=1, repeat-each=5, overview 1000ms·links/status/events 1200ms 합성 API 조건으로 순차 실행했다. main 5/5·PR 5/5 통과, 실패 0/5 대 0/5다. 이 표본에서 PR만 실패 증가한 근거는 없으며 선택판 모듈 로딩을 바꾸지 않았다. CI 환경과 실기기의 원인은 확정하지 않는다. 1600ms는 그대로 유지하고 TEST-간헐실패정리 행에 기록한다. 기존 테스트의 시작/포커스/페이지 재진입은 1회 공유를 검사하고, 이제 별개의 계약인 변경 이벤트는 새 E2E에서 후속 조회 1회를 검사한다.
+
+조직 칩의 투명 영역은 6px 간격의 절반인 바깥 3px까지만 확장한다(보이는 32px·실제 누름 38px). 390×844·1440px에서 전체 칩 쌍의 누름 영역이 겹치지 않으며 최근 3개+전체 13개가 스크롤 없이 들어오는 것을 검사한다. 닫기 버튼 44px과 프로젝트 행 40px은 유지한다. 사진 첨부는 사용자 결정으로 생략한다.
+
+이번 후속 로컬 집중 회귀 43개와 Node 291개 통과. 최종 전체 브라우저·보안·격리 PostgreSQL 등 CI 결과는 PR에 기록한다. 후속 캐시는 home-read.js 4→5, home-read.css 5→6, view-loader.js 74→75, loader-v2.js 302→303, app.js 190→191이다. DB·RLS·Edge·운영 접근·merge는 없다.
