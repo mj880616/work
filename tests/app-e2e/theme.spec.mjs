@@ -71,7 +71,7 @@ test('blocked theme storage starts olive without theme errors',async({page})=>{
 for(const width of [390,1440]){
  test('theme dialog selection, navigation and dismissal at '+width,async({page})=>{
   await page.setViewportSize({width,height:900});await mockApp(page);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
   await signIn(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   const account=accountButton(page);
   const trigger=page.locator(width<=760?'#mobileMenu [data-theme-open]':'#sidebarThemeBtn');
@@ -109,7 +109,7 @@ test('direct color guard and its regression cases pass',async()=>{
 
 test('blocked theme write still applies and does not save profile',async({page})=>{
  await page.setViewportSize({width:1440,height:900});await mockApp(page);
- await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
  const writes=[];page.on('request',r=>{if(r.url().includes('/rest/v1/')&&r.method()!=='GET')writes.push(r.url())});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -119,7 +119,7 @@ test('blocked theme write still applies and does not save profile',async({page})
 });
 
 test('theme returns focus after project history listeners run',async({page})=>{
- await page.setViewportSize({width:1440,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.setViewportSize({width:1440,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  await clickView(page,'projects');await expect(page.locator('#newProjectBtn')).toBeVisible();
  const account=accountButton(page);
  const trigger=page.locator('#sidebarThemeBtn');
@@ -136,7 +136,7 @@ test('theme returns focus after project history listeners run',async({page})=>{
 });
 
 test('390px drawer keeps account actions and dismissal without switching views',async({page})=>{
- await page.setViewportSize({width:390,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.setViewportSize({width:390,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  const account=accountButton(page),panel=page.locator('#mobileMenu');
  await expect(page.locator('#appView>.app-nav')).toBeHidden();
  for(const close of ['outside','back']){
@@ -156,7 +156,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
   await page.addInitScript(({theme,THEME_STORAGE_KEY})=>localStorage.setItem(THEME_STORAGE_KEY,theme),{theme,THEME_STORAGE_KEY});
   await mockApp(page,{spaces:[{id:'theme-project',workspace_id:workspace.id,name:'Theme fixture',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2},visibility:'private'}]});
   await page.route('https://raw.githubusercontent.com/**',route=>route.fulfill({status:200,body:'<p>Fixture</p>'}));
-  await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+  await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
   const rgb=hex=>'rgb('+hex.slice(1).match(/../g).map(v=>parseInt(v,16)).join(', ')+')';
   const surface={olive:'#fffefa',navy:'#ffffff',terracotta:'#fffdf9',sand:'#fffcf6'};
   const matches=async(selector,property,hex)=>{
@@ -211,7 +211,7 @@ for(const theme of Object.keys(primary)){
 }
 
 for(const width of [390,1440])test('D-3c shell owns account and orders its actions '+width,async({page})=>{
- await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  const nav=page.locator('#appView>.app-nav'),account=accountButton(page);
  await expect(account).toBeVisible();
  await expect(nav.locator(':scope > [data-theme-open], :scope > [data-kptu-logout]')).toHaveCount(0);
@@ -223,7 +223,7 @@ for(const width of [390,1440])test('D-3c shell owns account and orders its actio
 });
 
 for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer targets '+width,async({page})=>{
- await page.setViewportSize({width,height:900});await mockApp(page,{tasks:[{id:'pointer-task',title:'Fixture',status:'needsAction',taskListTitle:'Fixture'}]});await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.setViewportSize({width,height:900});await mockApp(page,{tasks:[{id:'pointer-task',title:'Fixture',status:'needsAction',taskListTitle:'Fixture'}]});await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  const check=async(selector,painted)=>{
   const button=page.locator(selector);await expect(button).toBeVisible();await button.scrollIntoViewIfNeeded();
   const bounds=await button.evaluate(el=>{
@@ -243,7 +243,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
 });
 
 for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacent controls '+width,async({page})=>{
- await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  for(const view of ['calendar','tasks','projects','meetings','library','media','pages','team']){
   await clickView(page,view);await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
   const overlaps=await page.evaluate(()=>{
@@ -268,7 +268,7 @@ for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacen
 });
 
 for(const width of [390,1440])test('D-3c outside navigation keeps its route and one back entry '+width,async({page})=>{
- await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  await clickView(page,'tasks');await expect(page.locator('#tasksView')).toBeVisible();
  await clickView(page,'calendar');await expect(page.locator('#calendarView')).toBeVisible();
  const account=accountButton(page);await account.click();
@@ -280,7 +280,7 @@ for(const width of [390,1440])test('D-3c outside navigation keeps its route and 
 });
 
 for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account matches menu typography '+width,async({page})=>{
- await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','14px');await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
   const nav=getComputedStyle(document.querySelector('.app-nav [data-view="tasks"]')),account=getComputedStyle(document.querySelector('.app-nav [data-account-open]'));
@@ -307,7 +307,7 @@ for(const width of [390,1440])for(const nativePopover of [true,false]){
    for(const name of ['showPopover','hidePopover','togglePopover','popover'])delete HTMLElement.prototype[name];
   });
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+  await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
   const nav=page.locator('#appView>.app-nav'),account=accountButton(page),panel=page.locator(width<=760?'#mobileMenu':'#sidebarAccountPanel');
   const open=async()=>{
    if(width<=760){await account.click();await expect(panel).toBeVisible();await expect(account).toHaveAttribute('aria-expanded','true');await expect.poll(async()=>{const box=await panel.locator('.mobile-menu-panel').boundingBox();return box.x+box.width}).toBe(width);expect((await panel.locator('.mobile-menu-panel').boundingBox()).width).toBe(260);return;}

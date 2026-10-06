@@ -58,7 +58,7 @@ async function installMock(page,state){
 
 async function boot(page,state){
   await installMock(page,state);
-  await page.goto(`${APP}login/?return=${encodeURIComponent(APP)}`);
+  await page.goto(`${APP}login/?return=${encodeURIComponent(APP+'?view=calendar')}`);
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('e2e@example.org');
   await page.locator('#authPassword').fill('password123');

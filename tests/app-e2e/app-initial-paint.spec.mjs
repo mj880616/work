@@ -85,7 +85,7 @@ test('router restores deep links only after explicit app-ui-ready and preserves 
 
   await page.locator('.sidebar-brand').click();
   await expect(page.locator('#homeView')).not.toHaveClass(/\bhidden\b/);
-  await expect(page).toHaveURL(/[?&]view=home/);
+  expect(new URL(page.url()).searchParams.get('view')).toBeNull();
   expect(await page.evaluate(() => window.KPTURouter.current)).toBe('home');
 });
 

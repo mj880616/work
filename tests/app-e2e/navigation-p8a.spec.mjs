@@ -94,7 +94,7 @@ test('removed personal and photo deep links return to home while media links rem
   await page.goto(app+'?view=photos');
   await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
   await expect(page.locator('#photosView')).toHaveCount(0);
-  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('home');
+  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBeNull();
   await expect(page.locator('#eventRecordSection,#eventRecordList')).toHaveCount(0);
 });
 

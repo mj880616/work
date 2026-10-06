@@ -23,7 +23,7 @@ async function mockApp(page){
 }
 
 async function login(page){
-  await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
+  await page.goto(loginEntry('http://127.0.0.1:8123/app/?view=calendar'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('nav@example.org');
   await page.locator('#authPassword').fill('password123');

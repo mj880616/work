@@ -70,6 +70,7 @@ mobileMenu?.querySelectorAll('[data-mobile-press]').forEach(button=>button.addEv
     await window.KPTUViewLoader.load('media');
     window.KPTURouter.go('media',{source:'delegated'});
     document.querySelector(`#mediaView [data-press-type="${button.dataset.mobilePress}"]`)?.click();
+    const name=document.querySelector('[data-mobile-view-name]');if(name)name.textContent=button.dataset.mobilePress==='release'?'보도자료':'성명';
   }catch(error){console.error('press menu navigation',error)}
 }));
 document.addEventListener('keydown',event=>{if(mobileOpen&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeMobile()}});
@@ -90,9 +91,11 @@ document.addEventListener('focusin',syncKeyboard);
 document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
 mobileQuery.addEventListener('change',syncMobile);
 window.addEventListener('resize',syncKeyboard);
+document.addEventListener('click',event=>{const type=event.target.closest?.('[data-press-type]')?.dataset.pressType;if(type&&window.KPTURouter?.current==='media'){const name=document.querySelector('[data-mobile-view-name]');if(name)name.textContent=type==='release'?'보도자료':'성명'}});
 window.addEventListener('kptu:view-changed',event=>{
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({calendar:'일정',tasks:'할 일',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',media:document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType==='release'?'보도자료':'성명',pages:'게시판'})[event.detail?.view]||''}
 });
 syncMobile();
 function closeAccount(then,fromBack=false){

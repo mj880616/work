@@ -26,7 +26,7 @@ async function boot(page,{connected=false}={}){
     else if(path.startsWith('/functions/'))data={connected:false,enabled:false,tasks:[],events:[],calendars:[]};
     return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
-  await page.goto(origin+'/app/login/?return='+encodeURIComponent(origin+'/app/'));
+  await page.goto(origin+'/app/login/?return='+encodeURIComponent(origin+'/app/?view=calendar'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);
   await page.locator('#authPassword').fill('password123');

@@ -28,13 +28,13 @@
     if(viewExists(requested))return requested;
     if(requested)return viewExists('home')?'home':null;
     if(params.get('project')&&viewExists('projects'))return 'projects';
-    return viewExists('calendar')?'calendar':null;
+    return viewExists('home')?'home':null;
   }
 
   function syncUrl(view,{replace=false}={}){
     if(!authenticatedShellReady()||!viewExists(view))return;
     const u=new URL(location.href);
-    if(view==='calendar')u.searchParams.delete(VIEW_PARAM);
+    if(view==='home'&&!u.searchParams.has('project'))u.searchParams.delete(VIEW_PARAM);
     else u.searchParams.set(VIEW_PARAM,view);
     const next=u.pathname+(u.search||'')+u.hash;
     const current=location.pathname+location.search+location.hash;

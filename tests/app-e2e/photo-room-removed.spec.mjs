@@ -42,7 +42,7 @@ function watchErrors(page){
 }
 
 async function signIn(page){
-  await page.goto(loginEntry(app));
+  await page.goto(loginEntry(app+'?view=calendar'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);
   await page.locator('#authPassword').fill('password123');
@@ -67,7 +67,7 @@ test('?view=photos opens home and replaces the retired view in the URL',async({p
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
   await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
   await expect(page.locator('#photosView')).toHaveCount(0);
-  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('home');
+  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(null);
   await page.waitForLoadState('networkidle');
   expect(seen.photoAssets).toEqual([]);
   expect(errors).toEqual([]);

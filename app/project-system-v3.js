@@ -473,4 +473,5 @@ async function handleProjectSessionChange(){
 }
 async function boot(){ensureUi();bind();window.addEventListener('kptu:session-changed',handleProjectSessionChange);if(!(await context(projectEpoch)))return false;await loadProjects();installProjectToolbar();const b=$('#newProjectBtn');if(b){b.textContent='+ 프로젝트';b.classList.add('ps3-toolbar-btn');b.onclick=e=>{e.preventDefault();e.stopImmediatePropagation();openCreate()}}await renderGrid();if(window.KPTURouter?.on)window.KPTURouter.on('projects',renderGrid);const id=new URLSearchParams(location.search).get('project');if(id&&projects.some(x=>x.id===id&&x.status!=='archived'))await openProject(id,false);document.documentElement.classList.add('kptu-project-v3-ready');return true}
 window.__KPTU_PROJECT_V3_READY__=boot().catch(err=>{console.error(err);return false});
+window.KPTUProjects={open:openProject};
 })();
