@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -83,7 +84,7 @@ test('Design System 1.0 keeps the 36px top-level action contract including calen
   for(const metric of compact)expect(metric.height).toBeCloseTo(36,0);
   expect(new Set(metrics.map(x=>x.radius)).size).toBe(1);
 
-  await page.locator('[data-view="tasks"]').first().click();
+  await clickView(page,'tasks');
   await page.locator('#newTaskBtn').click();
   const modal=page.locator('#gtTaskModal .modal-card');
   await expect(modal).toBeVisible();

@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
@@ -109,7 +110,7 @@ test('login does not load version checker',async({page})=>{
 
 test('project draft uses existing confirmDiscard; accepting reloads',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
-  await page.locator('[data-view="projects"]').click();
+  await clickView(page,'projects');
   await page.locator('[data-ps3-project="version-project"]').first().click();
   const field=page.locator('[data-ps3-quick-progress] input').first();await expect(field).toBeVisible();await field.fill('QA draft');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
@@ -150,7 +151,7 @@ test('same owner token refresh keeps deployment checks alive',async({page})=>{
 });
 
 async function openProject(page){
-  await page.locator('[data-view="projects"]').click();await page.locator('[data-ps3-project="version-project"]').first().click();
+  await clickView(page,'projects');await page.locator('[data-ps3-project="version-project"]').first().click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
 }
 test('folded project memo still confirms before reload',async({page})=>{
@@ -175,7 +176,7 @@ test('calendar color-only draft confirms before reload',async({page})=>{
   expect(d.message()).toContain('저장하지 않은 내용');await d.dismiss();await click;await expect(colors.nth(1)).toHaveAttribute('aria-checked','true');
 });
 test('file dropped into library upload confirms before reload',async({page})=>{
-  await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await page.locator('[data-view="library"]').click();await page.locator('#newDocumentBtn').click();
+  await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await clickView(page,'library');await page.locator('#newDocumentBtn').click();
   await page.locator('#libraryDropzone').evaluate(el=>{const data=new DataTransfer();data.items.add(new File(['QA'],'qa.txt',{type:'text/plain'}));el.dispatchEvent(new DragEvent('drop',{bubbles:true,dataTransfer:data}))});
   const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();const d=await dialog;
   expect(d.message()).toContain('저장하지 않은 내용');await d.dismiss();await click;
@@ -206,7 +207,7 @@ test('restoring original calendar color removes the unsaved draft',async({page})
 test('late-created task modal connects its last control to the notice in both directions',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/google-tasks**',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[],links:[]})}));
-  await page.locator('[data-view="tasks"]').click();await page.locator('#newTaskBtn').click();const last=page.locator('#gtSaveBtn');await expect(last).toBeEnabled();
+  await clickView(page,'tasks');await page.locator('#newTaskBtn').click();const last=page.locator('#gtSaveBtn');await expect(last).toBeEnabled();
   await page.locator('#gtTaskModal').evaluate(el=>document.body.appendChild(el));
   await last.focus();await last.press('Tab');await expect(notice(page).locator('[data-version-reload]')).toBeFocused();
   await notice(page).locator('[data-version-reload]').press('Shift+Tab');await expect(last).toBeFocused();

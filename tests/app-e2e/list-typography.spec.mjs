@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -57,7 +58,7 @@ async function boot(page){
  await mockApp(page,{spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
  await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
 }
-async function view(page,name){await page.locator('.app-nav [data-view="'+name+'"]').click();await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
+async function view(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
 async function baseline(page){
  const cache=new Map();
  await page.route(/^http:\/\/127\.0\.0\.1:8123\/(?:app|press)\//,route=>{

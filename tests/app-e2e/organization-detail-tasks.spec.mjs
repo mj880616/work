@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
 
@@ -56,7 +57,7 @@ async function openTeam(page,calls){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
-  await page.locator('.app-nav [data-view="team"]').click();
+  await clickView(page,'team');
   await expect(page.locator('#soOrganizationList .so-card')).toHaveCount(orgs.length,{timeout:10000});
 }
 const sequence=(locator,item)=>locator.evaluate((box,item)=>[...box.children].map(el=>el.classList.contains('so-org-sep')||el.classList.contains('gt-org-sep')?'|':el.querySelector(item)?.firstChild?.textContent?.trim()),item);

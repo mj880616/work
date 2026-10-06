@@ -87,9 +87,9 @@
     location.reload();
   });
   await Promise.all([
-    import('./app-router.js?v=13'),
+    import('./app-router.js?v=14'),
     import('./accessibility-dialog.js?v=2'),
-    import('./native-back-guard.js?v=2'),
+    import('./native-back-guard.js?v=3'),
     import('./session-resilience.js?v=6'),
     import('./capabilities.js?v=3'),
     import('./pwa.js?v=6')
@@ -114,7 +114,7 @@
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
-    import('./topbar-actions.js?v=14'),
+    import('./topbar-actions.js?v=15'),
     import('./team.js?v=61')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
@@ -126,7 +126,7 @@
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
   await import('./drive-summary.js?v=3');
 
-  const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=6').catch(err=>{console.error('mobile navigation load failed',err);return null});
+  const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=7').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{
     console.error('view feature load failed',err);
     let box=document.querySelector('#deferredFeatureError');
@@ -134,14 +134,14 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=67');
+  await import('./view-loader.js?v=68');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');
   const requested=viewLoader.normalize(rawRequested);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
-  const staticShellViews=new Set(['calendar','tasks','projects','library','meetings','media','pages','team']);
+  const staticShellViews=new Set(['home','calendar','tasks','projects','library','meetings','media','pages','team']);
   await viewLoader.prepare(requested);
   const app=document.querySelector('#appView');
   if(staticShellViews.has(requested)){

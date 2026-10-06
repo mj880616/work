@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
 watchRetiredCollaboration(test);
@@ -81,7 +82,7 @@ test('new meeting stores raw result exactly and creates linked Google follow-up 
   const s=state();
   await mockApp(page,s);
   await signIn(page);
-  await page.locator('[data-view="meetings"]').click();
+  await clickView(page,'meetings');
   await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
 

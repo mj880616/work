@@ -30,6 +30,7 @@
     const original=native.handle.bind(native);
     native.__kptuGuarded=true;
     native.handle=function(){
+      if(window.KPTUMobileMenu?.isOpen?.()){window.KPTUMobileMenu.close();return true}
       try{
         if(original())return true;
       }catch{}
@@ -43,9 +44,9 @@
           return true;
         }
       }
-      if(now&&now!=='calendar'&&document.getElementById('calendarView')){
-        router?.go?.('calendar',{source:'native-back-guard',replaceUrl:true});
-        current='calendar';
+      if(now&&now!=='home'&&document.getElementById('homeView')){
+        router?.go?.('home',{source:'native-back-guard',replaceUrl:true});
+        current='home';
         return true;
       }
       return true;

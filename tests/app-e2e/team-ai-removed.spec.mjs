@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 
@@ -38,12 +39,12 @@ test('old AI addresses return to the default screen without team-ai requests or 
 
   for(const oldView of ['ai','team-ai']){
     await page.goto(`${app}?view=${oldView}`);
-    await expect(page.locator('#calendarView')).toBeVisible({timeout:20000});
-    await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBeNull();
+    await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
+    await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('home');
     await page.waitForLoadState('networkidle');
     await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
   }
-  await page.locator('.app-nav [data-view="team"]').click();
+  await clickView(page,'team');
   await expect(page.locator('#teamView')).toBeVisible({timeout:20000});
   await expect.poll(()=>page.evaluate(()=>window.KPTUViewLoader.isLoaded('team'))).toBe(true);
   await expect(page.locator('#aiView,#teamAiView,#warGenerate,#warTimeline,[data-view="ai"],[data-goto="ai"],[data-view="team-ai"],[data-goto="team-ai"]')).toHaveCount(0);

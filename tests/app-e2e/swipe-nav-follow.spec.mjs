@@ -217,24 +217,14 @@ test('Chromium page scale releases calendar touch action and restores it after z
   }finally{await context.close()}
 });
 
-test('active top menu follows swipe navigation and remains visible',async({page})=>{
-  await page.setViewportSize({width:390,height:844});
-  await mockApp(page);
-  await login(page);
-
+test('active bottom tab follows swipes and auxiliary views leave tabs inactive',async({page})=>{
+  await openMobileApp(page);
   await page.evaluate(()=>window.KPTURouter.go('pages',{source:'swipe'}));
   await expect(page.locator('#pagesView')).toBeVisible();
-  await expect.poll(()=>page.evaluate(()=>{
-    const nav=document.querySelector('.app-nav');
-    const active=nav?.querySelector('.nav-btn.active');
-    if(!nav||!active)return false;
-    const n=nav.getBoundingClientRect(),a=active.getBoundingClientRect();
-    return (nav.scrollWidth<=nav.clientWidth+1||nav.scrollLeft>0)&&a.left>=n.left-1&&a.right<=n.right+1;
-  })).toBe(true);
-
+  await expect(page.locator('.mobile-tabs [aria-current]')).toHaveCount(0);
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'swipe'}));
-  await expect(page.locator('#calendarView')).toBeVisible();
-  await expect.poll(()=>page.evaluate(()=>document.querySelector('.app-nav')?.scrollLeft||0)).toBeLessThan(4);
+  await expect(page.locator('.mobile-tabs [data-view="calendar"]')).toHaveAttribute('aria-current','page');
+  const box=await page.locator('.mobile-tabs').boundingBox();expect(box.y+box.height).toBe(844);
 });
 
 test('calendar date cells, events and overflow use menu swipes and the first-menu boundary without changing month',async({page})=>{
@@ -263,7 +253,7 @@ test('calendar date cells, events and overflow use menu swipes and the first-men
     }
     await setScale(page,1);
   }
-  for(const selector of ['#calendarGrid .cal-cell','.cp-event','.kptu-day-more'])for(const [dx,destination] of [[-170,'tasks'],[170,'calendar']]){
+  for(const selector of ['#calendarGrid .cal-cell','.cp-event','.kptu-day-more'])for(const [dx,destination] of [[-170,'tasks'],[170,'home']]){
     await page.evaluate(()=>KPTURouter.go('calendar',{source:'test'}));
     await expect(page.locator(selector).first()).toBeVisible();
     await touchSequence(page,selector,{dx,releaseClick:true});

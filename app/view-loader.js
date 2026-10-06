@@ -132,10 +132,16 @@ async function organizations(){
   import('./workplace-report.js?v=2').catch(console.error);
   return {ok:true}
 }
-const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations};
+async function home(){
+  const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
+  document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
+  return {ok:true}
+}
+window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
+window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
+const loaders={home,calendar,tasks,projects,library,meetings,media,pages,team:organizations};
 function normalize(view){
-  if(view==='home'||view==='profile'||view==='messages'||view==='myspace')return 'calendar';
-  return loaders[view]?view:'calendar'
+  return loaders[view]?view:'home'
 }
 function load(view){
   const key=normalize(view);
@@ -150,7 +156,7 @@ function load(view){
   return flight
 }
 async function loadAll(){
-  for(const view of ['calendar','tasks','projects','library','meetings','media','pages','team'])await load(view);
+  for(const view of ['home','calendar','tasks','projects','library','meetings','media','pages','team'])await load(view);
   return true
 }
 window.KPTUViewLoader={load,loadAll,prepare,normalize,isLoaded:view=>loaded.has(normalize(view))};

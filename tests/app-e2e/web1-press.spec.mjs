@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
@@ -42,7 +43,7 @@ test('Web2 media tab reuses the self-hosted Web1 press archive without drafting 
     body:'<!doctype html><html><head><title>원본 보도자료</title></head><body><main id="rawPressBody">원본 보도자료 본문</main></body></html>'
   }));
   await signIn(page);
-  await page.locator('.app-nav [data-view="media"]').click();
+  await clickView(page,'media');
   await expect(page.locator('#mediaView')).toBeVisible();
   await expect(page.locator('#pressArchiveList .w1p-item')).toHaveCount(pressCount);
   await expect(page.locator('#mediaView')).toContainText('공공기관 인력감축 없다더니');

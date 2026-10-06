@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { writeFileSync } from 'node:fs';
 
@@ -72,7 +73,7 @@ async function quiet(page,state,ms=1500){let n=-1;while(n!==state.log.length||st
 // 앱 타이머는 그대로 두고 Date.now만 앞으로 옮겨 30초·5분 경과를 흉내 낸다.
 const advance=(page,ms)=>page.evaluate(ms=>{const base=Date.now.__base||Date.now,shift=(Date.now.__shift||0)+ms;Date.now=Object.assign(()=>base()+shift,{__base:base,__shift:shift})},ms);
 const focus=page=>page.evaluate(()=>{window.dispatchEvent(new Event('focus'));document.dispatchEvent(new Event('visibilitychange'))});
-async function openCalendar(page,state){await boot(page,state);await page.locator('[data-view="calendar"]').click();await googleVisible(page,'0');await quiet(page,state)}
+async function openCalendar(page,state){await boot(page,state);await clickView(page,'calendar');await googleVisible(page,'0');await quiet(page,state)}
 
 test('Google Calendar 요청 수·시간 측정 (첫 진입·월 이동·포커스 복귀)',async({page})=>{
   test.setTimeout(90000);
@@ -81,7 +82,7 @@ test('Google Calendar 요청 수·시간 측정 (첫 진입·월 이동·포커�
   let mark=state.log.length;
   await boot(page,state);
   let t=Date.now();
-  await page.locator('[data-view="calendar"]').click();
+  await clickView(page,'calendar');
   await googleVisible(page,'0');m.firstEntryMs=Date.now()-t;
   await quiet(page,state);m.firstEntry=summary(state.log,mark);
   expect(m.firstEntry.edge).toEqual(['status','events']);
@@ -188,7 +189,7 @@ test('빠른 월 이동에서 늦게 도착한 이전 달 응답이 현재 달�
 test('캘린더가 아닌 화면에서는 포커스 복귀 때 Google 요청을 하지 않는다',async({page})=>{
   const state=newState();
   await openCalendar(page,state);
-  await page.locator('[data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await expect(page.locator('#tasksView')).toBeVisible();
   await quiet(page,state);
   await advance(page,6*60*1000);

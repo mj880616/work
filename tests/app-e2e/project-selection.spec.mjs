@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {calendarToday} from './helpers/calendar-today.mjs';
 
@@ -69,7 +70,7 @@ test('new meeting uses the project catalog tree while calendar has no project se
   await page.locator('#newMeetingBtn').click();
   await expectCanonical(page.locator('#meetingProject'));
   await page.locator('#meetingModal [data-close]').click();
-  await page.locator('[data-view="calendar"]').click();
+  await clickView(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
   await page.locator('#newEventBtn').click();
   await expect(page.locator('#eventProject')).toHaveCount(0);

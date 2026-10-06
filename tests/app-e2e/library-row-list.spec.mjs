@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -145,7 +146,7 @@ for(const width of [390,1440]){
     const before=await browser.newPage();await boot(before,{width,main:true});
     expect((await rows.first().boundingBox()).height).toBeLessThan((await before.locator('[data-lu-document]').first().boundingBox()).height);
     // Compare the real neighboring renderer, including hover, with the same API data.
-    for(const p of [page,before]){await p.locator('.app-nav [data-view="meetings"]').click();await p.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(p.locator('#meetingList .meeting-list-row')).toBeVisible()}
+    for(const p of [page,before]){await clickView(p,'meetings');await p.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(p.locator('#meetingList .meeting-list-row')).toBeVisible()}
     const style=el=>el.evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['display','padding','border','borderRadius','boxShadow','backgroundColor','fontSize'].map(k=>[k,s[k]]))});
     expect(await style(page.locator('#meetingList .meeting-list-row'))).toEqual(await style(before.locator('#meetingList .meeting-list-row')));
     await page.locator('#meetingList .meeting-list-row').hover();await before.locator('#meetingList .meeting-list-row').hover();

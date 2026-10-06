@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -713,12 +714,12 @@ test('meeting detail waits for a task screen completion and rereads it on reopen
     }
     return route.fulfill({status:200,contentType:'application/json',body:'{}'});
   });
-  await page.locator('.app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await expect(page.locator('#gtTaskBody [data-google-task="meeting-follow-up"]')).toBeVisible();
   await page.locator('#gtTaskBody [data-gt-toggle="meeting-follow-up"]').click();
   await expect.poll(()=>toggleStarted).toBe(true);
   await expect(page.locator('#gtTaskBody [data-google-task="meeting-follow-up"]')).toHaveClass(/completed/);
-  await page.locator('.app-nav [data-view="meetings"]').click();
+  await clickView(page,'meetings');
   linkedReads=0;
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
   await page.waitForTimeout(150);
@@ -847,7 +848,7 @@ test('Google editor displays and retains meeting links while a meeting-only task
     if(action==='link'||action==='unlink'){linkChanges++;if(action==='unlink')unlinkBody=route.request().postDataJSON()}
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task})});
   });
-  await page.locator('.app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await expect.poll(()=>actions,{timeout:15000}).toContain('overview');
   await expect(page.locator('#gtTaskBody [data-google-task="linked-google"]')).toBeVisible({timeout:15000});
   await page.locator('[data-gt-edit="linked-google"]').click();

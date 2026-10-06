@@ -1,3 +1,4 @@
+import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 
 const BASE='http://127.0.0.1:8123';
@@ -121,11 +122,11 @@ test('dedicated login returns to the authenticated deep link',async({page})=>{
 test('logout clears the session and back or forward cannot restore private DOM',async({page})=>{
   await mockSignedIn(page);
   await signIn(page,APP);
-  await page.locator('.app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await expect(page.locator('#tasksView')).toBeVisible();
   await page.locator('#tasksView').evaluate(node=>node.insertAdjacentHTML('beforeend','<div id="privateSentinel">PRIVATE_SENTINEL</div>'));
-  await page.locator('#appView>.app-nav [data-account-open]').click();
-  await page.locator('#sidebarLogoutBtn').click();
+  await accountButton(page).click();
+  await page.locator('#mobileMenu:visible [data-kptu-logout],#sidebarAccountPanel:visible [data-kptu-logout]').click();
   await expect(page).toHaveURL(/\/app\/login\//,{timeout:20000});
   expect(await page.evaluate(key=>localStorage.getItem(key),SESSION_KEY)).toBeNull();
   await expect(page.locator('#privateSentinel,#appView')).toHaveCount(0);
