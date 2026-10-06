@@ -57,7 +57,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=61')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=62')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=63')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -119,7 +119,7 @@ jobs:
           grep -q "library-upload.css?v=2" app/view-loader.js
           grep -q "meeting-ui.css?v=12" app/view-loader.js
           grep -q "web1-press.css?v=4" app/view-loader.js
-          grep -q "web1-board.css?v=4" app/view-loader.js
+          grep -q "web1-board.css?v=5" app/view-loader.js
           grep -q "suborganizations.css?v=8" app/view-loader.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
@@ -217,7 +217,7 @@ jobs:
           grep -q "repoPathFromCanonical" app/web1-board.js
           grep -q "kptu:web1-board:navigate" app/web1-board.js
           if grep -q "mj880616.github.io/work/" app/web1-board.js; then echo 'Web1 board returned to Pages document iframe'; exit 1; fi
-          grep -q "web1-board.css?v=4" app/styles.css
+          grep -q "web1-board.css?v=5" app/styles.css
           grep -q "#web1BoardDetailModal .w1b-detail-card" app/web1-board.css
           grep -q "height:100dvh" app/web1-board.css
           grep -q "#web1BoardDetailModal .w1b-detail-frame" app/web1-board.css

@@ -26,7 +26,7 @@ const routeStyles={
   library:['./library-upload.css?v=2','./compact-list.css?v=2'],
   meetings:['./meeting-ui.css?v=12','./google-tasks.css?v=19'],
   media:['./web1-press.css?v=4'],
-  pages:['./web1-board.css?v=4'],
+  pages:['./web1-board.css?v=5'],
   team:['./suborganizations.css?v=8','./workplace-detail.css?v=6','./google-tasks.css?v=19']
 };
 async function prepare(view){
