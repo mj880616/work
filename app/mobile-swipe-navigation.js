@@ -33,20 +33,20 @@
 
   function orderedViews(){
     const out=[],seen=new Set();
-    const controls=[...document.querySelectorAll('.app-nav .nav-btn[data-view]')];
+    const controls=[...document.querySelectorAll('.mobile-tabs [data-view]')];
     for(const btn of controls){
       const view=btn.dataset.view;
       if(!view||seen.has(view))continue;
       const panel=document.getElementById(view+'View');
-      if(!panel||btn.classList.contains('hidden')||getComputedStyle(btn).display==='none')continue;
+      if(!panel)continue;
       seen.add(view);out.push(view);
     }
     if(out.length)return out;
-    return [...document.querySelectorAll('#appView .view-panel')].filter(p=>!p.dataset.swipeSkip).map(p=>p.id.replace(/View$/,''));
+    return ['home','calendar','tasks','projects','team'].filter(view=>document.getElementById(view+'View'));
   }
 
   function blockedTarget(target){
-    return !!target?.closest?.('.modal,.app-nav,[data-swipe-lock],.pm2-nav,.pv-nav,.cc-peer-list');
+    return !!target?.closest?.('.modal,.app-nav,.mobile-tabs,.mobile-menu,[data-swipe-lock],.pm2-nav,.pv-nav,.cc-peer-list');
   }
 
   function visiblePanel(target){

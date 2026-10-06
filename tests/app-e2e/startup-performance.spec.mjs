@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
@@ -51,19 +52,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=183" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=184" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=295','./runtime-client.js?v=7','./native-auth-bridge.js?v=5',
+    './loader-v2.js?v=296','./runtime-client.js?v=7','./native-auth-bridge.js?v=5',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=295')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=296')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=7')");
   expect(loader).toContain("import('./team.js?v=61')");
-  expect(loader).toContain("import('./view-loader.js?v=67')");
+  expect(loader).toContain("import('./view-loader.js?v=68')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -98,7 +99,7 @@ test('requested route is resolved before view-specific feature loading', async (
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
-  expect(viewLoader).toContain("const loaders={calendar,tasks,projects,library,meetings,media,pages,team:organizations}");
+  expect(viewLoader).toContain("const loaders={home,calendar,tasks,projects,library,meetings,media,pages,team:organizations}");
 });
 
 test('direct feature URLs load one requested view and keep failures visible', async () => {
@@ -199,7 +200,7 @@ async function loginWithMock(page,{delayGroups=false}={}){
 
 test('tab navigation waits for deferred feature data on first click',async({page})=>{
   await loginWithMock(page,{delayGroups:true});
-  await page.locator('#appView .app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await expect(page.locator('#deferredFeatureStatus')).toBeVisible();
   await expect(page.locator('#tasksView')).toBeVisible({timeout:15000});
   await expect(page.locator('#deferredFeatureStatus')).toHaveCount(0);
@@ -208,7 +209,7 @@ test('tab navigation waits for deferred feature data on first click',async({page
 test('deferred module failure leaves calendar usable and shows an alert',async({page})=>{
   await page.route('**/app/project-system-v3.js*',route=>route.abort());
   await loginWithMock(page);
-  await page.locator('#appView .app-nav [data-view="projects"]').click();
+  await clickView(page,'projects');
   await expect(page.locator('#deferredFeatureError')).toHaveAttribute('role','alert');
   await expect(page.locator('#deferredFeatureError')).toContainText('이 기능을 불러오지 못했습니다.');
   await expect(page.locator('#calendarView')).toBeVisible();

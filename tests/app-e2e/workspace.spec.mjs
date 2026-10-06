@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { calendarToday } from './helpers/calendar-today.mjs';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
@@ -156,7 +157,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
 
-  await page.locator('[data-view="calendar"]').click();
+  await clickView(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
   await expect(page.locator('#googleCalendarPanel')).toBeVisible();
   expect(await page.locator('#googleCalendarPanel').evaluate(el=>el.open)).toBe(false);
@@ -178,7 +179,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('.cp-event')).toContainText('E2E Google 일정');
   expect(state.events).toHaveLength(0);
 
-  await page.locator('[data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await expect(page.locator('#tasksView')).toBeVisible();
   await expect(page.locator('#taskList')).toBeEmpty();
   await expect(page.locator('#gtTaskSection')).toBeVisible();
@@ -196,17 +197,17 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   expect(legacyTaskRequests).toEqual([]);
 
   await expect(page.locator('#userBadge,#profileView,#teamManageTop')).toHaveCount(0);
-  await page.locator('.app-nav [data-view="team"]').click();
+  await clickView(page,'team');
   await expect(page.locator('#teamView')).toBeVisible();
   await expect(page.locator('#soOrganizationList')).toBeVisible();
 
-  await page.locator('[data-view="pages"]').click();
+  await clickView(page,'pages');
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).toContainText('공공기관 인력확충');
   await expect(page.locator('#web1BoardActive')).not.toContainText('E2E 게시글');
 
-  await page.locator('[data-view="projects"]').click();
+  await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();
   await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await page.locator('#ps3CreateName').fill('E2E 프로젝트');
@@ -215,7 +216,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
 
-  await page.locator('[data-view="meetings"]').click();
+  await clickView(page,'meetings');
   await expect(page.locator('#meetingsView')).toBeVisible();
   await page.locator('#newMeetingBtn').click();
   await page.locator('#meetingTitle').fill('E2E 회의');

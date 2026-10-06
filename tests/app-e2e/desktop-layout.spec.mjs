@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -96,7 +97,7 @@ test('desktop web uses compact left navigation and safe project detail margins',
   expect(desktop.navPosition).toBe('sticky');
   expect(desktop.navWidth).toBeLessThanOrEqual(160);
   expect(desktop.mainMaxWidth).toBe('1920px');
-  await page.locator('[data-view="projects"]').click();
+  await clickView(page,'projects');
   await expect(page.locator('#projectsView')).toBeVisible();
   expect(await page.locator('main').evaluate(el=>getComputedStyle(el).maxWidth)).toBe('1720px');
 
@@ -129,15 +130,15 @@ test('selected view survives refresh and page cards open inside the 게시판 ta
   await page.goto('http://127.0.0.1:8123/app/');
   await login(page);
 
-  await page.locator('[data-view="calendar"]').click();
+  await clickView(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
   await expect(page).toHaveURL('http://127.0.0.1:8123/app/');
   await page.reload();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
-  await expect(page.locator('[data-view="calendar"]')).toHaveClass(/active/);
+  await expect(page.locator('.app-nav [data-view="calendar"]')).toHaveClass(/active/);
 
-  await page.locator('[data-view="pages"]').click();
+  await clickView(page,'pages');
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).toContainText('산별전환 업무 현황');
   await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');

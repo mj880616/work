@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -41,13 +42,13 @@ async function signIn(page){
 }
 
 async function buttonHeight(page,view,selector){
-  await page.locator(`[data-view="${view}"]`).first().click();
+  await clickView(page,view);
   const button=page.locator(selector);
   await expect(button).toBeVisible({timeout:10000});
   return button.evaluate(el=>el.getBoundingClientRect().height);
 }
 
-test('calendar and text actions use 36px and mobile content reaches the viewport bottom',async({page})=>{
+test('calendar and text actions use 36px and mobile content stays above the bottom tabs',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
@@ -68,7 +69,7 @@ test('calendar and text actions use 36px and mobile content reaches the viewport
   expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(.5);
   for(const height of heights)expect(height).toBeCloseTo(36,0);
 
-  await page.locator('[data-view="tasks"]').first().click();
+  await clickView(page,'tasks');
   const rows=page.locator('#gtTaskBody .gt-row');
   await expect(rows).toHaveCount(24,{timeout:10000});
   await expect(rows.last().locator('.gt-unlinked-badge')).toHaveText('연결 안 됨');
@@ -80,9 +81,9 @@ test('calendar and text actions use 36px and mobile content reaches the viewport
   const clearance=await page.evaluate(()=>{
     const items=document.querySelectorAll('#gtTaskBody .gt-row');
     const item=items[items.length-1]?.getBoundingClientRect();
-    return item?{itemBottom:item.bottom,viewportBottom:innerHeight,scrollY:window.scrollY,docHeight:document.documentElement.scrollHeight}:null;
+    return item?{itemBottom:item.bottom,tabsTop:document.querySelector(".mobile-tabs").getBoundingClientRect().top,scrollY:window.scrollY,docHeight:document.documentElement.scrollHeight}:null;
   });
   expect(clearance).not.toBeNull();
-  expect(clearance.itemBottom).toBeLessThanOrEqual(clearance.viewportBottom-4);
+  expect(clearance.itemBottom).toBeLessThanOrEqual(clearance.tabsTop-4);
   expect(clearance.scrollY).toBeGreaterThan(0);
 });

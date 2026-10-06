@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -84,7 +85,7 @@ test('solo workspace does not expose account approval controls',async({page})=>{
   page.on('dialog',d=>d.accept());
   await preloadSession(page);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await page.locator('[data-view="team"]').click();
+  await clickView(page,'team');
   await expect(page.locator('#aaReviewSection')).toHaveCount(0);
   await expect(page.locator('[data-aa-approve="request-1"]')).toHaveCount(0);
   expect(state.requests[0].status).toBe('pending');

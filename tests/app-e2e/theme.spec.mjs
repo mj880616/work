@@ -1,3 +1,4 @@
+import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -72,8 +73,8 @@ for(const width of [390,1440]){
   await page.setViewportSize({width,height:900});await mockApp(page);
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
-  const account=page.locator('#appView>.app-nav [data-account-open]');
-  const trigger=page.locator('#sidebarThemeBtn');
+  const account=accountButton(page);
+  const trigger=page.locator(width<=760?'#mobileMenu [data-theme-open]':'#sidebarThemeBtn');
   const openTheme=async()=>{await account.click();await trigger.click()};
   await expect(account).toBeVisible();
   expect(await account.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
@@ -90,7 +91,7 @@ for(const width of [390,1440]){
    await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await expect(account).toBeFocused();
    await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe(null);
   }
-  await page.locator('[data-view="tasks"]').first().click();expect(await readPrimary(page)).toBe(primary.sand);
+  await clickView(page,'tasks');expect(await readPrimary(page)).toBe(primary.sand);
   await page.reload();await expect(account).toBeVisible();expect(await readPrimary(page)).toBe(primary.sand);
   await openTheme();await expect(dialog).toBeVisible();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('themeModal');
   await page.goBack();await expect(dialog).toBeHidden();expect(await readPrimary(page)).toBe(primary.sand);
@@ -113,14 +114,14 @@ test('blocked theme write still applies and does not save profile',async({page})
  const writes=[];page.on('request',r=>{if(r.url().includes('/rest/v1/')&&r.method()!=='GET')writes.push(r.url())});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.evaluate(()=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='kptu-theme')throw Error('theme write blocked');return original.call(this,key,value)}});
- await page.locator('#appView>.app-nav [data-account-open]').click();await page.locator('#sidebarThemeBtn').click();await page.locator('[data-theme-choice="navy"]').click();
+ await accountButton(page).click();await page.locator('#sidebarThemeBtn').click();await page.locator('[data-theme-choice="navy"]').click();
  expect(await readPrimary(page)).toBe(primary.navy);expect(errors).toEqual([]);expect(writes).toEqual([]);
 });
 
 test('theme returns focus after project history listeners run',async({page})=>{
  await page.setViewportSize({width:1440,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
- await page.locator('[data-view="projects"]').first().click();await expect(page.locator('#newProjectBtn')).toBeVisible();
- const account=page.locator('#appView>.app-nav [data-account-open]');
+ await clickView(page,'projects');await expect(page.locator('#newProjectBtn')).toBeVisible();
+ const account=accountButton(page);
  const trigger=page.locator('#sidebarThemeBtn');
  const openTheme=async()=>{await account.click();await trigger.click()};
  for(const close of ['Escape','outside','back','button']){
@@ -134,33 +135,18 @@ test('theme returns focus after project history listeners run',async({page})=>{
  }
 });
 
-test('390px menu end shows account panel and scrolling does not switch views',async({page})=>{
+test('390px drawer keeps account actions and dismissal without switching views',async({page})=>{
  await page.setViewportSize({width:390,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
- await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
- const nav=page.locator('#appView>.app-nav');
- await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);
- const account=nav.locator('[data-account-open]');
- const metrics=await account.evaluate(el=>{const t=el.getBoundingClientRect(),n=el.closest('nav').getBoundingClientRect();return {left:t.left,right:t.right,navLeft:n.left,navRight:n.right}});
- expect(metrics.left).toBeGreaterThanOrEqual(metrics.navLeft);expect(metrics.right).toBeLessThanOrEqual(metrics.navRight);
- await expect(page.locator('#sidebarThemeBtn')).toBeHidden();await expect(page.locator('#sidebarLogoutBtn')).toBeHidden();
- await expect.poll(()=>page.evaluate(()=>window.__KPTU_MOBILE_SWIPE_NAV__)).toBe(true);
- await page.evaluate(()=>{window.themeNavigationCalls=[];const original=window.KPTURouter.go;window.KPTURouter.go=function(...args){window.themeNavigationCalls.push(args);return original.apply(this,args)}});
- const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
- const box=await nav.boundingBox();const start={x:box.x+100,y:box.y+box.height/2};const before=await nav.evaluate(el=>el.scrollLeft);
- await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]});
- for(const dx of [40,80,120])await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:start.x+dx,y:start.y}]});
- await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
- await expect.poll(()=>nav.evaluate(el=>el.scrollLeft)).toBeLessThan(before);
- await expect(page.locator('#calendarView')).toBeVisible();await expect(page.locator('#themeModal')).toBeHidden();
- expect(await page.evaluate(()=>window.themeNavigationCalls)).toEqual([]);
- await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);
- await account.click();const panel=page.locator('#sidebarAccountPanel');await expect(panel).toBeVisible();
- const pb=await panel.boundingBox();expect(pb.x).toBeGreaterThanOrEqual(0);expect(pb.x+pb.width).toBeLessThanOrEqual(390);
- await page.mouse.click(380,500);await expect(panel).toBeHidden();
- await expect.poll(()=>page.evaluate(()=>history.state?.kptuAccount||null)).toBe(null);
- await account.click();await page.goBack();await expect(panel).toBeHidden();
- await account.click();await page.locator('#sidebarThemeBtn').click();await expect(page.locator('#themeModal')).toBeVisible();
- expect(await page.evaluate(()=>window.themeNavigationCalls)).toEqual([]);
+ const account=accountButton(page),panel=page.locator('#mobileMenu');
+ await expect(page.locator('#appView>.app-nav')).toBeHidden();
+ for(const close of ['outside','back']){
+  await account.click();await expect(panel).toBeVisible();
+  await expect.poll(async()=>{const pb=await panel.locator('.mobile-menu-panel').boundingBox();return pb.x+pb.width}).toBe(390);expect((await panel.locator('.mobile-menu-panel').boundingBox()).width).toBe(260);
+  if(close==='outside')await page.mouse.click(10,500);else await page.goBack();
+  await expect(panel).toBeHidden();await expect(page.locator('#calendarView')).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>history.state?.kptuMobileMenu||null)).toBe(null);
+ }
+ await account.click();await panel.locator('[data-theme-open]').click();await expect(page.locator('#themeModal')).toBeVisible();
 });
 
 // D-3b: computed colors on the actual eight routes, including a populated project detail.
@@ -187,11 +173,11 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['pages','.w1b-card','backgroundColor',surface[theme]],
    ['team','#soAddOrg','backgroundColor',surface[theme]]
   ]){
-   await page.locator('.app-nav [data-view="'+view+'"]').click();
+   await clickView(page,view);
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
-   await matches('.app-nav .nav-btn.active','backgroundColor',color);
+   if(width<=760){if(['calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',theme==='olive'?'#47532a':theme==='navy'?'#355f86':theme==='terracotta'?'#7f3f1b':'#7a5012');}else await matches('.app-nav .nav-btn.active','backgroundColor',color);
    await matches(selector,property,expected);
    if(view==='projects'){
     await page.locator('[data-ps3-project="theme-project"]').first().click();
@@ -226,12 +212,12 @@ for(const theme of Object.keys(primary)){
 
 for(const width of [390,1440])test('D-3c shell owns account and orders its actions '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
- const nav=page.locator('#appView>.app-nav'),account=nav.locator('[data-account-open]');
+ const nav=page.locator('#appView>.app-nav'),account=accountButton(page);
  await expect(account).toBeVisible();
  await expect(nav.locator(':scope > [data-theme-open], :scope > [data-kptu-logout]')).toHaveCount(0);
  await account.click();
- const panel=page.locator('#sidebarAccountPanel');await expect(panel).toBeVisible();
- expect(await panel.locator('button').allTextContents()).toEqual(['화면 색','로그아웃']);
+ const panel=page.locator(width<=760?'#mobileMenu':'#sidebarAccountPanel');await expect(panel).toBeVisible();
+ expect(await panel.locator(width<=760?'#mobileAccountGroup button':'button').allTextContents()).toEqual(['화면 색','로그아웃']);
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(account).toBeFocused();
  await account.click();await page.goBack();await expect(panel).toBeHidden();
 });
@@ -253,13 +239,13 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
  await check('#eventModal .icon-btn',32);await check('#saveEventBtn',36);
  const close=page.locator('#eventModal .icon-btn');await close.scrollIntoViewIfNeeded();const r=await close.boundingBox();
  await page.mouse.click(r.x+r.width/2,r.y-4);await expect(page.locator('#eventModal')).toBeHidden();
- await page.locator('[data-view="tasks"]').first().click();await expect(page.locator('#gtTaskBody .gt-delete')).toBeVisible();await check('#gtTaskBody .gt-delete',44);
+ await clickView(page,'tasks');await expect(page.locator('#gtTaskBody .gt-delete')).toBeVisible();await check('#gtTaskBody .gt-delete',44);
 });
 
 for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacent controls '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
  for(const view of ['calendar','tasks','projects','meetings','library','media','pages','team']){
-  await page.locator('[data-view="'+view+'"]').first().click();await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
+  await clickView(page,view);await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
   const overlaps=await page.evaluate(()=>{
    const visible=el=>el.checkVisibility({checkVisibilityCSS:true});
    const controls=[...document.querySelectorAll('button,input,select,textarea,a[href],summary')].filter(visible);
@@ -283,10 +269,11 @@ for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacen
 
 for(const width of [390,1440])test('D-3c outside navigation keeps its route and one back entry '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
- await page.locator('[data-view="tasks"]').first().click();await expect(page.locator('#tasksView')).toBeVisible();
- await page.locator('[data-view="calendar"]').first().click();await expect(page.locator('#calendarView')).toBeVisible();
- const account=page.locator('#appView>.app-nav [data-account-open]');await account.click();
- await page.locator('[data-view="tasks"]').first().click();await expect(page.locator('#sidebarAccountPanel')).toBeHidden();
+ await clickView(page,'tasks');await expect(page.locator('#tasksView')).toBeVisible();
+ await clickView(page,'calendar');await expect(page.locator('#calendarView')).toBeVisible();
+ const account=accountButton(page);await account.click();
+ if(width<=760){await page.mouse.click(10,500);await expect(page.locator('#mobileMenu')).toBeHidden();}
+ await clickView(page,'tasks');await expect(page.locator('#sidebarAccountPanel')).toBeHidden();
  await expect.poll(()=>page.evaluate(()=>history.state?.kptuAccount||null)).toBe(null);
  await expect(page.locator('#tasksView')).toBeVisible();await expect(page).toHaveURL(/view=tasks/);
  await page.goBack();await expect(page.locator('#calendarView')).toBeVisible();
@@ -294,6 +281,7 @@ for(const width of [390,1440])test('D-3c outside navigation keeps its route and 
 
 for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account matches menu typography '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','14px');await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
   const nav=getComputedStyle(document.querySelector('.app-nav [data-view="tasks"]')),account=getComputedStyle(document.querySelector('.app-nav [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
@@ -320,9 +308,9 @@ for(const width of [390,1440])for(const nativePopover of [true,false]){
   });
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await mockApp(page);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
-  const nav=page.locator('#appView>.app-nav'),account=nav.locator('[data-account-open]'),panel=page.locator('#sidebarAccountPanel');
+  const nav=page.locator('#appView>.app-nav'),account=accountButton(page),panel=page.locator(width<=760?'#mobileMenu':'#sidebarAccountPanel');
   const open=async()=>{
-   if(width===390)await nav.evaluate(el=>el.scrollLeft=el.scrollWidth);
+   if(width<=760){await account.click();await expect(panel).toBeVisible();await expect(account).toHaveAttribute('aria-expanded','true');await expect.poll(async()=>{const box=await panel.locator('.mobile-menu-panel').boundingBox();return box.x+box.width}).toBe(width);expect((await panel.locator('.mobile-menu-panel').boundingBox()).width).toBe(260);return;}
    await account.click();await expect(panel).toBeVisible();
    await expect(account).toHaveAttribute('aria-expanded','true');
    await expect.poll(()=>panel.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);
@@ -348,7 +336,7 @@ for(const width of [390,1440])for(const nativePopover of [true,false]){
   };
   for(const close of ['outside','Escape','back']){
    await open();
-   if(close==='outside')await page.mouse.click(width-12,500);
+   if(close==='outside')await page.mouse.click(width<=760?10:width-12,500);
    else if(close==='Escape')await page.keyboard.press('Escape');
    else await page.goBack();
    await expect(panel).toBeHidden();await expect(account).toHaveAttribute('aria-expanded','false');

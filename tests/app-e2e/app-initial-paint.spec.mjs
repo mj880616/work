@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
 async function installAuthenticatedRouterContext(page) {
@@ -73,7 +74,7 @@ test('router restores deep links only after explicit app-ui-ready and preserves 
   await expect(page.locator('#calendarView')).toHaveClass(/\bhidden\b/);
   expect(await page.evaluate(() => window.KPTURouter.current)).toBe('tasks');
 
-  await page.locator('.app-nav .nav-btn[data-view="projects"]').click();
+  await clickView(page,'projects');
   await expect(page).toHaveURL(/\?view=projects(?:&|$)/);
   await expect(page.locator('#projectsView')).not.toHaveClass(/\bhidden\b/);
 
@@ -83,12 +84,12 @@ test('router restores deep links only after explicit app-ui-ready and preserves 
   expect(await page.evaluate(() => window.KPTURouter.current)).toBe('tasks');
 
   await page.locator('.sidebar-brand').click();
-  await expect(page.locator('#calendarView')).not.toHaveClass(/\bhidden\b/);
-  await expect(page).not.toHaveURL(/[?&]view=/);
-  expect(await page.evaluate(() => window.KPTURouter.current)).toBe('calendar');
+  await expect(page.locator('#homeView')).not.toHaveClass(/\bhidden\b/);
+  await expect(page).toHaveURL(/[?&]view=home/);
+  expect(await page.evaluate(() => window.KPTURouter.current)).toBe('home');
 });
 
-test('legacy home URL normalizes to the calendar default without leaving a broken history entry', async ({ page }) => {
+test('explicit home URL opens home without leaving a broken history entry', async ({ page }) => {
   await page.route('**/app/app.js*', route => route.fulfill({
     status: 200,
     contentType: 'application/javascript',
@@ -107,9 +108,9 @@ test('legacy home URL normalizes to the calendar default without leaving a broke
     window.dispatchEvent(new Event('kptu:app-ui-ready'));
   });
 
-  await expect(page.locator('#calendarView')).not.toHaveClass(/\bhidden\b/);
-  await expect(page).not.toHaveURL(/[?&]view=home(?:&|$)/);
-  expect(await page.evaluate(() => window.KPTURouter.current)).toBe('calendar');
+  await expect(page.locator('#homeView')).not.toHaveClass(/\bhidden\b/);
+  await expect(page).toHaveURL(/[?&]view=home(?:&|$)/);
+  expect(await page.evaluate(() => window.KPTURouter.current)).toBe('home');
 });
 
 

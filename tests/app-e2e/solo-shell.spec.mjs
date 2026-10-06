@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import {test, expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 
@@ -29,7 +30,7 @@ for (const width of [1280, 768, 390, 360]) {
     await page.locator('#authPassword').fill('password123');
     await page.locator('#authSubmit').click();
     await expect(page.locator('#appView')).toBeVisible();
-    await page.locator('.app-nav [data-view="team"]').click();
+    await clickView(page,'team');
     await expect(page.locator('#teamView')).toBeVisible();
     await expect(page.locator('#soTeamSection')).toBeVisible();
     await expect(page.locator('#userBadge')).toHaveCount(0);

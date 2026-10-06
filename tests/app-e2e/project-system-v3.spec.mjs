@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
 watchRetiredCollaboration(test);
@@ -149,7 +150,7 @@ test('project list loads and its heading uses available width at desktop, tablet
   await page.setViewportSize({width:1440,height:900});
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
-  await page.locator('[data-view="projects"]').click();
+  await clickView(page,'projects');
   await expect(page.locator('#projectsView')).toBeVisible();
   await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(1);
   for(const width of [1440,768,390,360]){
@@ -171,7 +172,7 @@ test('project list loads and its heading uses available width at desktop, tablet
 
 
 test('project owner UI stays inside 360 390 412 and 430px viewports',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:844});
     await page.locator('#newProjectBtn').click();
@@ -201,7 +202,7 @@ test('project owner UI stays inside 360 390 412 and 430px viewports',async({page
 test('project renderer clears user A data before rendering user B projects',async({page})=>{
   const state=baseState();
   state.spaces.push({id:'user-2-project',workspace_id:'workspace-1',name:'B 사용자 프로젝트',description:'B 전용',parent_id:null,status:'active',visibility:'public',owner_id:'user-2',sort_order:40,metadata:{project_system:'v2',management_version:2}});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('#projectGrid')).toContainText('민자철도 정책·조직사업');
   await expect(page.locator('#projectGrid')).not.toContainText('B 사용자 프로젝트');
   state.user={id:'user-2',email:'b@example.org',user_metadata:{display_name:'B 사용자'}};
@@ -255,7 +256,7 @@ test('project creation omits type and visibility controls and starts with zero p
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
-  await page.locator('[data-view="projects"]').click();
+  await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();
   await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await expect(page.locator('#ps3CreateType,#ps3ManageTypes,#ps3CreateVisibility,#ps3TypeModal,#ps3AccessModal')).toHaveCount(0);
@@ -712,7 +713,7 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await mockApp(page,state);
   await page.goto('http://127.0.0.1:8123/app/');
   await signIn(page);
-  await page.locator('[data-view="projects"]').click();
+  await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();
   await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await page.locator('#ps3CreateName').fill('QA 자동검사 프로젝트');
@@ -775,7 +776,7 @@ test('V3 lists child projects with counts in the body and child returns to paren
   // A Web2 task no longer counts.
   state.tasks.push({id:'child-task-open',project_id:'child-1',title:'발제 취합',status:'todo',assignee_id:'user-1'});
   state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('[data-ps3-project="main-1"]')).toBeVisible();
   await expect(page.locator('#projectGrid [data-project]')).toHaveCount(0);
   await page.locator('[data-ps3-project="main-1"]').first().click();
@@ -813,7 +814,7 @@ test('project list is one bordered two-line list with collapsible child rows and
     {google_task_id:'g-arch',project_id:'arch-1',status:'confirmed',task_completed:false}
   );
   state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   const list=page.locator('#projectGrid .ps3-plist');
   await expect(list).toHaveCount(1);
   await expect(list.locator('.ps3-prow')).toHaveCount(2);
@@ -878,7 +879,7 @@ test('project list is one bordered two-line list with collapsible child rows and
 });
 
 test('V3 generated dialogs expose consistent accessibility semantics',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   for(const id of ['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3DeleteModal','ps3ArchiveModal']){
     const modal=page.locator('#'+id);
     await expect(modal).toHaveAttribute('role','dialog');
@@ -891,7 +892,7 @@ test('V3 generated dialogs expose consistent accessibility semantics',async({pag
 });
 
 test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   const card=page.locator('[data-ps3-project="main-1"]').first();
   await card.focus();await card.click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
@@ -918,7 +919,7 @@ test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',
 });
 
 test('V3 more menu and progress items use native keyboard disclosure behavior',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   await page.locator('[data-ps3-project="main-1"]').first().click();
   const menu=page.locator('#ps3Menu .ps3-more'),summary=menu.locator(':scope > summary');
   await expect(summary).toHaveAttribute('aria-label','프로젝트 관리 메뉴');
@@ -949,7 +950,7 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
 test('V3 creates and edits a project with the same final renderer',async({page})=>{
   // 기본 시작일은 오늘이다(앱은 UTC 날짜를 쓰지만 정오 시계에서는 한국 날짜와 같다). 종료일을 고정 날짜로 두면 그 날짜가 지난 뒤 시작일보다 앞서게 된다.
   const today=await calendarToday(page);
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await page.locator('#ps3CreateName').fill('인력확충 투쟁');await page.locator('#ps3CreateObjective').fill('안전·공공서비스 인력확충');await page.locator('#ps3CreateSave').click();
   await expect.poll(()=>state.spaces.some(x=>x.name==='인력확충 투쟁')).toBeTruthy();
@@ -1005,7 +1006,7 @@ test('V3 archives and restores without returning to a legacy project screen',asy
   page.once('dialog',d=>d.accept());await page.locator('[data-ps3-archive-project]').click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('archived');
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
-  await page.locator('.app-nav [data-view="projects"]').click();
+  await clickView(page,'projects');
   await page.locator('#ps3ArchiveBtn').click();
   await expect(page.locator('#ps3ArchiveModal')).toBeVisible();
   await expect(page.locator('[data-ps3-restore="main-1"]')).toBeVisible();
@@ -1038,7 +1039,7 @@ test('V3 includes legacy child work areas under a V3 parent without changing the
 test('V3 project list only shows projects owned by the signed-in user',async({page})=>{
   const state=baseState();
   state.spaces.push({id:'other-owner',workspace_id:'workspace-1',name:'다른 사용자 프로젝트',parent_id:null,status:'active',visibility:'public',owner_id:'user-2',sort_order:30,metadata:{project_system:'v2',management_version:2}});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('#projectGrid')).toContainText('민자철도 정책·조직사업');
   await expect(page.locator('#projectGrid')).not.toContainText('다른 사용자 프로젝트');
 });
@@ -1046,7 +1047,7 @@ test('V3 project list only shows projects owned by the signed-in user',async({pa
 test('V3 keeps an owned legacy child visible even when its parent is not returned',async({page})=>{
   const state=baseState();
   state.spaces=[{id:'legacy-child-owned',workspace_id:'workspace-1',parent_id:'hidden-parent',name:'소유한 기존 하위 프로젝트',owner_id:'user-1',status:'active',visibility:'team',metadata:{project_system:'v2',management_version:2}}];
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await page.locator('[data-view="projects"]').click();
+  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('#projectGrid')).toContainText('소유한 기존 하위 프로젝트');
   await expect(page.locator('[data-ps3-project="legacy-child-owned"]')).toBeVisible();
 });
@@ -1062,7 +1063,7 @@ test('V3 project detail stays separate from the Web1-backed board',async({page})
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('독립 현장 공지');
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
-  await page.locator('[data-view="pages"]').click();
+  await clickView(page,'pages');
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).not.toContainText('독립 현장 공지');
 });
@@ -1072,7 +1073,7 @@ test('Web1-backed board stays compact and excludes dedicated library and press s
   await mockApp(page,state);
   await page.setViewportSize({width:1440,height:900});
   await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
-  await page.locator('[data-view="pages"]').click();
+  await clickView(page,'pages');
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
   await expect(page.locator('#web1BoardActive')).toContainText('민자철도 사업 현황');
   await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');

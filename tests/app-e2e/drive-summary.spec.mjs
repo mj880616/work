@@ -1,3 +1,4 @@
+import {accountButton} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 
 test.use({timezoneId:'UTC'});
@@ -182,19 +183,22 @@ for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,9
   await page.locator('#saveMeetingBtn').click();
   if(lateUpload){await expect.poll(()=>uploadStarted).toBe(true);await page.clock.fastForward(4000);await expect.poll(()=>calls).toBe(1);await expect(page.locator('[data-drive-summary-refresh]').first()).toBeEnabled();releaseUpload()}
   await expect(page.locator('#toast')).toContainText(lateUpload?'회의 결과와 자료 1개를 저장했습니다.':'회의 결과를 저장했습니다.');await page.clock.fastForward(4000);await expect.poll(()=>calls).toBe(lateUpload?2:1);
-  const menu=page.locator('#sidebarAccountPanel');
-  await page.locator('#appView>.app-nav [data-account-open]').click();const button=menu.locator('[data-drive-summary-refresh]');await expect(button).toBeVisible();
+  const menu=page.locator(width<=760?'#mobileAccountGroup':'#sidebarAccountPanel');
+  await accountButton(page).click();if(width<=760)await page.clock.fastForward(250);const button=menu.locator('[data-drive-summary-refresh]');await expect(button).toBeVisible();
+  await expect.poll(async()=>{const r=await button.boundingBox();return r.x+r.width}).toBeLessThanOrEqual(width);
   const box=await button.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
   expect(await menu.locator('button').allTextContents()).toEqual(['화면 색','사본 갱신','로그아웃']);
   await expect(button).toHaveText('사본 갱신');
   await expect(button).toHaveAttribute('aria-label','Drive 사본 지금 갱신');
   await expect(button).toHaveAttribute('title','Drive 사본 지금 갱신');
   await expectSingleLine(button);
-  await button.click();await expect(menu.locator('[data-drive-summary-status]')).toContainText('갱신 10/3 13:06');expect(calls).toBe(lateUpload?3:2);
+  await button.click();if(width<=760){await expect(page.locator('#mobileMenu')).toBeHidden();await accountButton(page).click();await page.clock.fastForward(250);}
+  await expect(menu.locator('[data-drive-summary-status]')).toContainText('갱신 10/3 13:06');expect(calls).toBe(lateUpload?3:2);
   await expectSingleLine(menu.locator('.drive-summary-time'));
   await expect.poll(()=>menu.evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight-11)).toBe(true);
   await expect.poll(()=>menu.evaluate(el=>{
-    const panel=el.getBoundingClientRect(),trigger=document.querySelector('#appView>.app-nav [data-account-open]').getBoundingClientRect();
+    const panel=el.getBoundingClientRect();if(innerWidth<=760){const drawer=el.closest('.mobile-menu-panel').getBoundingClientRect();return drawer.width===260&&Math.abs(drawer.right-innerWidth)<1&&panel.right<=drawer.right;}
+    const trigger=document.querySelector('#appView>.app-nav [data-account-open]').getBoundingClientRect();
     const nav=document.querySelector('#appView>.app-nav'),bounds=nav.getBoundingClientRect(),style=getComputedStyle(nav);
     if(innerWidth<1024)return Math.abs(panel.right-trigger.right)<=2&&panel.top>=trigger.bottom&&panel.right<=innerWidth-12;
     return panel.bottom<=trigger.top&&panel.left>=bounds.left+parseFloat(style.paddingLeft)+parseFloat(style.borderLeftWidth)-1&&panel.right<=bounds.right-parseFloat(style.paddingRight)-parseFloat(style.borderRightWidth)+1;

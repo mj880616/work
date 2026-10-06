@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -68,14 +69,14 @@ async function boot(page,viewport,options={}){
 
 test('active navigation exposes aria-current',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await expect(page.locator('.app-nav [data-view="tasks"]')).toHaveAttribute('aria-current','page');
   await expect(page.locator('.app-nav [data-view="calendar"]')).not.toHaveAttribute('aria-current');
 });
 
 test('task grouping, month controls, and destructive task actions expose clear names',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await expect(page.locator('#taskScope')).toHaveCount(0);
   await expect(page.locator('#taskStatus')).toHaveCount(0);
   await expect(page.locator('#taskList')).toBeEmpty();
@@ -85,24 +86,24 @@ test('task grouping, month controls, and destructive task actions expose clear n
   await expect(page.locator('#gtEditTitle')).toHaveValue('접근성 점검 할 일');
   await expect(page.locator('#gtDeleteBtn')).toHaveAccessibleName('삭제');
   await page.keyboard.press('Escape');
-  await page.locator('.app-nav [data-view="calendar"]').click();
+  await clickView(page,'calendar');
   await expect(page.locator('.calendar-toolbar')).toHaveAttribute('role','group');
   await expect(page.locator('.calendar-toolbar')).toHaveAttribute('aria-labelledby','monthTitle');
 });
 
 test('library toolbar and Web1 board expose accessible navigation',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="library"]').click();
+  await clickView(page,'library');
   await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
   await expect(page.locator('label[for="documentProject"]')).toHaveCount(1);
-  await page.locator('.app-nav [data-view="pages"]').click();
+  await clickView(page,'pages');
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
   await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);
 });
 
 test('project creation dialog exposes semantics, keyboard close, and trigger restore',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="projects"]').click();
+  await clickView(page,'projects');
   const trigger=page.locator('#newProjectBtn');
   await trigger.focus();
   await trigger.click();
@@ -121,7 +122,7 @@ test('project creation dialog exposes semantics, keyboard close, and trigger res
 
 test('task dialog exposes semantics, closes on Escape, and restores trigger focus',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   const trigger=page.locator('#newTaskBtn');
   await trigger.focus();
   await trigger.click();
@@ -140,7 +141,7 @@ test('task dialog exposes semantics, closes on Escape, and restores trigger focu
 
 test('task dialog wraps keyboard focus within the dialog',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await page.locator('#newTaskBtn').click();
   const modal=page.locator('#gtTaskModal');
   const first=modal.locator('[data-gt-close]');
@@ -155,7 +156,7 @@ test('task dialog wraps keyboard focus within the dialog',async({page})=>{
 
 test('task detail stays inside a 390px mobile viewport',async({page})=>{
   await boot(page,{width:390,height:844});
-  await page.locator('.app-nav [data-view="tasks"]').click();
+  await clickView(page,'tasks');
   await page.locator('[data-gt-edit="a11y-task-1"]').click();
   const modal=page.locator('#gtTaskModal');
   await expect(modal).toBeVisible();
@@ -189,7 +190,7 @@ for(const c of [
 test('saving exposes busy and polite status semantics, then releases them on success',async({page})=>{
   const gate=deferred();
   await boot(page,{width:1024,height:768},{eventSaveGate:gate.promise});
-  await page.locator('.app-nav [data-view="calendar"]').click();
+  await clickView(page,'calendar');
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('접근성 일정');
   await page.locator('#eventStartDate').fill('2026-09-18');
@@ -214,7 +215,7 @@ test('saving exposes busy and polite status semantics, then releases them on suc
 test('failed save releases busy state and announces the error',async({page})=>{
   const gate=deferred();
   await boot(page,{width:1024,height:768},{eventSaveGate:gate.promise,failEventSave:true});
-  await page.locator('.app-nav [data-view="calendar"]').click();
+  await clickView(page,'calendar');
   await page.locator('#newEventBtn').click();
   await page.locator('#eventTitle').fill('실패 일정');
   await page.locator('#eventStartDate').fill('2026-09-18');
@@ -237,7 +238,7 @@ test('failed save releases busy state and announces the error',async({page})=>{
 
 test('assigned organization list and compact rows expose clear names without retired filters',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="team"]').click();
+  await clickView(page,'team');
   await expect(page.locator('#sofToolbar,#sofSearch,#sofCouncil,#sofType,#sofAssignee,#sofMine,#sofUnassigned')).toHaveCount(0);
   await expect(page.locator('#soOrgCount')).toContainText('담당조직');
   const row=page.locator('[data-so-org="a11y-org-1"]');
@@ -248,7 +249,7 @@ test('assigned organization list and compact rows expose clear names without ret
 
 test('suborganization edit dialog exposes semantics, Escape close, and trigger restore',async({page})=>{
   await boot(page,{width:1024,height:768});
-  await page.locator('.app-nav [data-view="team"]').click();
+  await clickView(page,'team');
   const trigger=page.locator('#soAddOrg');
   await trigger.focus();
   await trigger.click();
@@ -288,7 +289,7 @@ for(const viewport of [
   test(`core views do not overflow at ${viewport.width}`,async({page})=>{
     await boot(page,viewport);
     for(const view of ['calendar','tasks','projects','library','meetings','media','pages','team']){
-      await page.locator(`.app-nav [data-view="${view}"]`).click();
+      await clickView(page,view);
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
       expect(overflow,view).toBeLessThanOrEqual(1);
     }

@@ -39,10 +39,10 @@ html,body{min-height:100%;scroll-padding-bottom:24px}
   .hdv-main b{font-size:12px}
   .hdv-main small{font-size:10px}
 
-  html,body{scroll-padding-bottom:calc(24px + env(safe-area-inset-bottom))!important}
-  main{padding-bottom:calc(30px + env(safe-area-inset-bottom))!important}
+  html,body{scroll-padding-bottom:calc(var(--kptu-mobile-tab-height,0px) + 24px + env(safe-area-inset-bottom))!important}
+  main{padding-bottom:calc(var(--kptu-mobile-tab-height,0px) + 30px + env(safe-area-inset-bottom))!important}
   #appView .view-panel{padding-bottom:calc(22px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(22px + env(safe-area-inset-bottom))!important}
-  .toast{bottom:calc(8px + env(safe-area-inset-bottom))!important}
+  .toast{bottom:calc(var(--kptu-mobile-tab-height,0px) + 8px + env(safe-area-inset-bottom))!important}
   .modal:not([id^="pm2"]){padding:max(8px,env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom))!important;align-items:end!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch}
   .modal:not([id^="pm2"])>.modal-card{width:100%!important;max-height:calc(100dvh - 16px - env(safe-area-inset-bottom))!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;scroll-padding-bottom:24px!important;padding-bottom:24px!important}
   [id^="pm2"][id$="Modal"].modal{padding-bottom:calc(10px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(10px + env(safe-area-inset-bottom))!important}

@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -100,7 +101,7 @@ const EXPECTED=[
   ['orphan-1','고아 하위 프로젝트']
 ];
 async function gotoLibrary(page){
-  await page.locator('#appView .app-nav [data-view="library"]').click();
+  await clickView(page,'library');
   await expect(page.locator('#libraryView')).toBeVisible();
   await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
 }
@@ -140,7 +141,7 @@ test('project screen and library expose the same active project set in the same 
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
   await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
   await page.evaluate(()=>{window.__spaceEvents=[];window.addEventListener('kptu:project-spaces-updated',e=>window.__spaceEvents.push(e.detail))});
-  await page.locator('#appView .app-nav [data-view="projects"]').click();
+  await clickView(page,'projects');
   await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(3);
   const grid=await page.locator('#projectGrid').evaluate(g=>[...g.querySelectorAll('[data-ps3-project]')].map(x=>x.dataset.ps3Project));
   expect(grid).toEqual(EXPECTED.map(([id])=>id));
@@ -287,7 +288,7 @@ test('project create, rename and archive refresh library selectors without reloa
   page.on('dialog',d=>d.accept());
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
   await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
-  await page.locator('#appView .app-nav [data-view="projects"]').click();
+  await clickView(page,'projects');
   await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(3);
 
   await page.locator('#newProjectBtn').click();

@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { calendarToday } from './helpers/calendar-today.mjs';
@@ -82,7 +83,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   expect(vertical).toBe('');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
 
-  await page.locator('[data-view="calendar"]').click();
+  await clickView(page,'calendar');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
   await page.waitForTimeout(240);
 
@@ -101,12 +102,12 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await expect(page.locator('#tasksView')).toBeVisible();
 
   const before=await page.evaluate(()=>window.KPTURouter?.current);
-  const navBox=await page.locator('.app-nav').boundingBox();
-  await gesture(page,'.app-nav',[{x:330,y:navBox.y+10},{x:210,y:navBox.y+10},{x:80,y:navBox.y+10}]);
+  const navBox=await page.locator('.mobile-tabs').boundingBox();
+  await gesture(page,'.mobile-tabs',[{x:330,y:navBox.y+10},{x:210,y:navBox.y+10},{x:80,y:navBox.y+10}]);
   await page.waitForTimeout(220);
   expect(await page.evaluate(()=>window.KPTURouter?.current)).toBe(before);
 
-  await page.locator('[data-view="calendar"]').click();
+  await clickView(page,'calendar');
   const scrollRoom=await page.evaluate(()=>{
     const view=document.querySelector('#calendarView');
     const runway=parseFloat(getComputedStyle(view,'::after').height)||0;
@@ -144,7 +145,7 @@ test('mobile shell and event modal stay inside 360/390/412/430px viewports',asyn
       const rect=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom}};
       return {
         topbar:rect(document.querySelector('.topbar')),
-        nav:rect(document.querySelector('.app-nav')),
+        nav:rect(document.querySelector('.mobile-tabs')),
         topbarDisplay:getComputedStyle(document.querySelector('.topbar')).display,
         sidebarBrandDisplay:getComputedStyle(document.querySelector('.sidebar-brand')).display,
         sidebarLogoutDisplay:getComputedStyle(document.querySelector('#appView>.app-nav [data-account-open]')).display,
@@ -157,7 +158,7 @@ test('mobile shell and event modal stay inside 360/390/412/430px viewports',asyn
     expect(shell.nav.left).toBeGreaterThanOrEqual(-1);
     expect(shell.nav.right).toBeLessThanOrEqual(width+1);
 
-    await page.locator('[data-view="calendar"]').click();
+    await clickView(page,'calendar');
     await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
     await page.locator('#newEventBtn').click();
     await expect(page.locator('#eventModal')).toBeVisible();

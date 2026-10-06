@@ -2,7 +2,7 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
-  const NAV_ALIAS={messages:'calendar',profile:'calendar',myspace:'calendar'};
+  const NAV_ALIAS={messages:'home',profile:'home',myspace:'home'};
   let bound=false;
 
   function appReady(){
@@ -25,8 +25,8 @@
     if(!authenticatedShellReady())return null;
     const params=new URLSearchParams(location.search);
     const requested=params.get(VIEW_PARAM);
-    if(requested==='home')return viewExists('calendar')?'calendar':null;
     if(viewExists(requested))return requested;
+    if(requested)return viewExists('home')?'home':null;
     if(params.get('project')&&viewExists('projects'))return 'projects';
     return viewExists('calendar')?'calendar':null;
   }
@@ -64,7 +64,7 @@
   }
 
   function syncNavigationState(view){
-    document.querySelectorAll('.app-nav .nav-btn').forEach(btn=>{
+    document.querySelectorAll('.app-nav .nav-btn,.mobile-tabs [data-view],.mobile-menu-panel [data-view]').forEach(btn=>{
       const current=btn.dataset.view===(NAV_ALIAS[view]||view);
       btn.classList.toggle('active',current);
       if(current)btn.setAttribute('aria-current','page');
@@ -144,7 +144,7 @@
       brand.addEventListener('click',e=>{
         if(!appReady())return;
         e.preventDefault();
-        go('calendar',{source:'brand'});
+        go('home',{source:'brand'});
       });
     });
     if(api.current)syncNavigationState(api.current);

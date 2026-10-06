@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 
@@ -56,17 +57,18 @@ async function settleAfterCalendar(page){
   await page.waitForTimeout(2000);
 }
 
-test('?view=photos opens the calendar and drops the photos view from the URL',async({page})=>{
+test('?view=photos opens home and replaces the retired view in the URL',async({page})=>{
   test.setTimeout(60000);
   const errors=watchErrors(page);
   const seen=await mockApp(page);
   await signIn(page);
+  await page.waitForLoadState('networkidle');
   await page.goto(app+'?view=photos');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
-  await expect(page.locator('#calendarView')).toBeVisible({timeout:20000});
+  await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
   await expect(page.locator('#photosView')).toHaveCount(0);
-  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBeNull();
-  await settleAfterCalendar(page);
+  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('home');
+  await page.waitForLoadState('networkidle');
   expect(seen.photoAssets).toEqual([]);
   expect(errors).toEqual([]);
 });
@@ -77,12 +79,12 @@ test('entering the calendar requests no photo room files',async({page})=>{
   const seen=await mockApp(page);
   await signIn(page);
   await settleAfterCalendar(page);
-  await page.locator('[data-view="tasks"]').first().click();
-  await page.locator('[data-view="calendar"]').first().click();
+  await clickView(page,'tasks');
+  await clickView(page,'calendar');
   await settleAfterCalendar(page);
   expect(seen.photoAssets).toEqual([]);
   expect(seen.eventMedia).toBe(0);
-  expect(await page.evaluate(()=>window.KPTUViewLoader.normalize('photos'))).toBe('calendar');
+  expect(await page.evaluate(()=>window.KPTUViewLoader.normalize('photos'))).toBe('home');
   expect(errors).toEqual([]);
 });
 

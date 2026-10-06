@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -54,7 +55,7 @@ for(const width of [390,1440])test('compact board cards show only their title an
     await mockApp(p,{archived:['sanbyeol']});
     await p.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({contentType:'text/plain; charset=utf-8',body:'<!doctype html><html><body><main id="embeddedBoard">board reader</main></body></html>'}));
     await signIn(p);
-    await p.locator('.app-nav [data-view="pages"]').click();
+    await clickView(p,'pages');
     await expect(p.locator('#pagesView')).toHaveAttribute('data-web1-board-ready','1');
     await p.locator('#web1BoardArchivedWrap summary').click();
   }
@@ -113,7 +114,7 @@ test('Web2 board renders all five business pages from repository HTML source and
     });
   });
   await signIn(page);
-  await page.locator('.app-nav [data-view="pages"]').click();
+  await clickView(page,'pages');
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
 
@@ -151,7 +152,7 @@ test('mobile Web1 board detail is a full-screen reader without duplicate visible
     body:'<!doctype html><html><body><main id="embeddedBoard">mobile board</main></body></html>'
   }));
   await signIn(page);
-  await page.locator('.app-nav [data-view="pages"]').click();
+  await clickView(page,'pages');
   await page.locator('[data-web1-board-title="위험업무 2인1조 법제화"]').click();
 
   const modal=page.locator('#web1BoardDetailModal');
@@ -199,7 +200,7 @@ test('Web1 board internal links stay in the reader and load the linked repositor
     await route.fulfill({status:200,contentType:'text/plain; charset=utf-8',body});
   });
   await signIn(page);
-  await page.locator('.app-nav [data-view="pages"]').click();
+  await clickView(page,'pages');
   await page.locator('[data-web1-board-title="위험업무 2인1조 법제화"]').click();
   await page.frameLocator('#web1BoardDetailFrame').locator('#childLink').click();
   await expect(page.frameLocator('#web1BoardDetailFrame').locator('#nestedBoard')).toContainText('하위 원문');
@@ -211,7 +212,7 @@ test('Web1 board source failure shows a controlled reader error instead of a bro
   await mockApp(page);
   await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({status:404,body:'missing'}));
   await signIn(page);
-  await page.locator('.app-nav [data-view="pages"]').click();
+  await clickView(page,'pages');
   await page.locator('[data-web1-board-title="공공기관 인력확충"]').click();
   const doc=page.frameLocator('#web1BoardDetailFrame');
   await expect(doc.locator('body')).toContainText('본문을 불러오지 못했습니다.');
@@ -233,7 +234,7 @@ test('Web1 board source failure shows a controlled reader error instead of a bro
     await mockApp(p);
     let release;const sourceReady=new Promise(resolve=>{release=resolve});
     await p.route('https://raw.githubusercontent.com/mj880616/work/main/**',async route=>{await sourceReady;await route.fulfill({contentType:'text/plain; charset=utf-8',body:'<!doctype html><html><body><main id="embeddedBoard">board reader</main></body></html>'})});
-    await signIn(p);await p.locator('.app-nav [data-view="pages"]').click();
+    await signIn(p);await clickView(p,'pages');
     await p.locator('.w1b-card').first().click();
     const modal=p.locator('#web1BoardDetailModal');
     await expect(modal).toBeVisible();

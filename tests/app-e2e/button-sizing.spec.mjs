@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 
@@ -50,7 +51,7 @@ async function boot(page,tasks=[],calendarEvents=[]){
  await mockApp(page,{tasks,calendarEvents,spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
  await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
 }
-async function view(page,name){await page.locator('.app-nav [data-view="'+name+'"]').click();await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
+async function view(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
 async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
  const cache=new Map();
  await page.route(/^http:\/\/127\.0\.0\.1:8123\/(?:app|press)\//,route=>{
@@ -76,7 +77,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  }
  for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
-  for(const selector of selectors)expect(await size(page.locator(selector).first()),selector).toEqual(await size(original.locator(selector).first()));
+  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuOpen')).toHaveCSS('min-height','44px');}else for(const selector of selectors)expect(await size(page.locator(selector).first()),selector).toEqual(await size(original.locator(selector).first()));
  }
  await original.close();
 });

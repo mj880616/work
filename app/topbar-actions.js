@@ -23,7 +23,80 @@ const accounts=logoutButtons.map(logout=>{
   return {host,trigger,panel,theme,nativePopover};
 });
 let activeAccount=null;
+const mobileQuery=window.matchMedia('(max-width:760px)');
+const mobileMenu=document.querySelector('#mobileMenu'),mobileTrigger=document.querySelector('#mobileMenuOpen');
+const mobilePanel=mobileMenu?.querySelector('.mobile-menu-panel'),mobileGroup=document.querySelector('#mobileAccountGroup');
+const mobileAccount=accounts[0];
+let mobileOpen=false,mobileClosing=false;
+function closeMobile(then,fromBack=false){
+  if(!mobileOpen){then?.();return}
+  mobileOpen=false;mobileClosing=true;mobileMenu.hidden=true;mobileTrigger.setAttribute('aria-expanded','false');
+  window.KPTUA11y?.dialog.deactivate(mobilePanel,{restoreFocus:false});
+  const finish=()=>queueMicrotask(()=>{mobileClosing=false;if(mobileTrigger.getClientRects().length)mobileTrigger.focus({preventScroll:true});then?.()});
+  if(!fromBack&&history.state?.kptuMobileMenu){window.addEventListener('popstate',finish,{once:true});history.back()}else finish();
+}
+window.KPTUMobileMenu={isOpen:()=>mobileOpen,close:closeMobile};
+function syncMobile(){
+  if(!mobileGroup||!mobileAccount)return;
+  if(!mobileQuery.matches&&mobileOpen)closeMobile();
+  const target=mobileQuery.matches?mobileGroup:mobileAccount.panel;
+  if(mobileAccount.theme.parentElement!==target){
+    if(activeAccount)closeAccount();
+    target.append(mobileAccount.theme,mobileAccount.panel.querySelector('[data-account-drive-slot]')||mobileGroup.querySelector('[data-account-drive-slot]'),logoutButtons[0]);
+  }
+  syncKeyboard();
+}
+mobileTrigger?.addEventListener('click',()=>{
+  if(mobileClosing)return;
+  if(mobileOpen){closeMobile();return}
+  if(!mobileQuery.matches||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
+  mobileOpen=true;mobileMenu.hidden=false;mobileTrigger.setAttribute('aria-expanded','true');
+  history.pushState({...history.state,kptuMobileMenu:true},'',location.href);
+  window.KPTUA11y?.dialog.activate(mobilePanel,{trigger:mobileTrigger,initialFocus:'[data-mobile-menu-close]',onRequestClose:closeMobile});
+});
+// History is consumed before the existing router/feature/account handler sees the click.
+document.addEventListener('click',event=>{
+  if(!mobileOpen)return;
+  if(mobileTrigger.contains(event.target))return;
+  if(!mobilePanel.contains(event.target)||event.target.closest('[data-mobile-menu-close]')){
+    event.preventDefault();event.stopImmediatePropagation();closeMobile();return;
+  }
+  const button=event.target.closest('button,a[href]');if(!button||button.disabled)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  closeMobile(()=>{if(button.isConnected)button.click()});
+},true);
+mobileMenu?.querySelectorAll('[data-mobile-press]').forEach(button=>button.addEventListener('click',async()=>{
+  try{
+    await window.KPTUViewLoader.load('media');
+    window.KPTURouter.go('media',{source:'delegated'});
+    document.querySelector(`#mediaView [data-press-type="${button.dataset.mobilePress}"]`)?.click();
+  }catch(error){console.error('press menu navigation',error)}
+}));
+document.addEventListener('keydown',event=>{if(mobileOpen&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeMobile()}});
+window.addEventListener('popstate',event=>{if(mobileOpen&&!event.state?.kptuMobileMenu)closeMobile(null,true)});
+const editable=()=>document.activeElement?.matches('input:not([type="button"]):not([type="checkbox"]):not([type="radio"]),textarea,select,[contenteditable="true"]');
+let keyboardLayoutHeight=innerHeight;
+function syncKeyboard(){
+  const viewport=window.visualViewport;
+  const editing=editable();
+  if(!editing||!mobileQuery.matches)keyboardLayoutHeight=innerHeight;
+  // Zoom also shrinks the viewport: require an editable focus and a normal scale.
+  const keyboard=mobileQuery.matches&&editing&&(!viewport||(viewport.scale<=1.01&&Math.max(keyboardLayoutHeight,innerHeight)-viewport.height-viewport.offsetTop>120));
+  document.body.classList.toggle('kptu-mobile-keyboard',!!keyboard);
+}
+window.visualViewport?.addEventListener('resize',syncKeyboard);
+window.visualViewport?.addEventListener('scroll',syncKeyboard);
+document.addEventListener('focusin',syncKeyboard);
+document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
+mobileQuery.addEventListener('change',syncMobile);
+window.addEventListener('resize',syncKeyboard);
+window.addEventListener('kptu:view-changed',event=>{
+  const home=event.detail?.view==='home';
+  document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
+});
+syncMobile();
 function closeAccount(then,fromBack=false){
+  if(mobileOpen){closeMobile(then,fromBack);return}
   const account=activeAccount;if(!account){then?.();return}
   activeAccount=null;if(account.nativePopover)account.panel.hidePopover();account.panel.hidden=true;account.trigger.setAttribute('aria-expanded','false');account.trigger.querySelector('span').textContent='▾';
   const finish=()=>queueMicrotask(()=>{if(then)then();else if(account.trigger.getClientRects().length)account.trigger.focus({preventScroll:true})});
@@ -91,7 +164,7 @@ function closeTheme(){
 }
 themeButtons.forEach(button=>button.addEventListener('click',()=>closeAccount(()=>{
   const account=accounts.find(account=>account.theme===button);
-  const focusTrigger=account.trigger;
+  const focusTrigger=mobileQuery.matches?mobileTrigger:account.trigger;
   window.removeEventListener('popstate',restoreAfterBack);
   // Register after the current view's history listeners, and restore on traversal completion.
   restoreAfterBack=()=>queueMicrotask(()=>{
@@ -114,6 +187,7 @@ const show=state=>{
   logoutButtons.forEach(button=>button.classList.toggle('hidden',state!=='workspace'));
   accounts.forEach(account=>account.host.classList.toggle('hidden',state!=='workspace'));
   if(state!=='workspace')closeAccount();
+  if(state!=='workspace')closeMobile();
   if(state!=='workspace')closeTheme();
 };
 show(window.__KPTU_TEAM_READY_STATE__);
