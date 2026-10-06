@@ -10,7 +10,8 @@ async function boot(page,{connected=false}={}){
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**',route=>{
     const url=new URL(route.request().url()),path=url.pathname;
     let data=[];
-    if(path==='/auth/v1/user')data=user;
+    if(path==='/auth/v1/token')data={access_token:'qa',refresh_token:'qa-refresh',expires_in:86400,expires_at:Math.floor(Date.now()/1000)+86400,user};
+    else if(path==='/auth/v1/user')data=user;
     else if(path==='/rest/v1/app_workspace_members')data=[{workspace_id:workspace.id,user_id:user.id,role:'owner'}];
     else if(path==='/rest/v1/app_workspaces')data=[workspace];
     else if(path==='/rest/v1/app_profiles')data=[{user_id:user.id,display_name:'QA'}];
@@ -24,11 +25,11 @@ async function boot(page,{connected=false}={}){
     else if(path.startsWith('/functions/'))data={connected:false,enabled:false,tasks:[],events:[],calendars:[]};
     return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
-  await page.addInitScript(({user})=>{
-    if(window!==window.top)return;
-    localStorage.setItem('kptu_collab_session_v1',JSON.stringify({access_token:'qa',refresh_token:'qa-refresh',expires_at:Math.floor(Date.now()/1000)+86400,user}));
-  },{user});
-  await page.goto(origin+'/app/');
+  await page.goto(origin+'/app/login/?return='+encodeURIComponent(origin+'/app/'));
+  await page.locator('#emailAuthToggle').click();
+  await page.locator('#authEmail').fill(user.email);
+  await page.locator('#authPassword').fill('password123');
+  await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
 }
 async function visible(page){
