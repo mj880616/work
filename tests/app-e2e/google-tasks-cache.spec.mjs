@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { openHome } from './helpers/home-entry.mjs';
 
 // 묶음C-2: Google Tasks loads with one combined request, shows this device's last result first while a fresh copy
 // loads, keeps the last result when a refresh fails, drops the cache on sign-out or owner change, and still works
@@ -56,6 +57,22 @@ async function ready(page){
 }
 const openTasks=page=>page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
 const cached=page=>page.evaluate(k=>localStorage.getItem(k),CACHE_KEY);
+const HOME_CACHE_KEY='kptu_owner_cache:home-read-v1:home-test';
+for(const nextOwner of ['other-home-owner',''])test(`home display copy is cleared on ${nextOwner?'owner change':'logout'}`,async({page})=>{
+  const control=await openHome(page);await page.waitForFunction(()=>KPTUHome.metrics.readyAt);
+  const copy=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),HOME_CACHE_KEY);
+  expect(copy.owner).toBe('home-test');expect(copy.workspaceId).toBe('w');expect(copy.version).toBe(1);
+  expect(Object.keys(copy.cards.calendar.rows[0]).sort()).toEqual(['allDay','color','end','start','title']);
+  expect(copy.cards.tasks.tasks).toBeUndefined();
+  if(nextOwner)control.setUserId(nextOwner);
+  await page.evaluate(nextOwner=>{
+    const before=KPTURuntime.session.read();
+    KPTURuntime.session.write(nextOwner?{...before,user:{...before.user,id:nextOwner}}:null);
+  },nextOwner);
+  await expect.poll(()=>page.evaluate(k=>localStorage.getItem(k),HOME_CACHE_KEY).catch(()=>'navigating')).toBeNull();
+  if(nextOwner)await expect.poll(()=>page.evaluate(id=>JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:'+id)||'null')?.owner,nextOwner).catch(()=>'navigating')).toBe(nextOwner);
+  else await expect(page.locator('[data-home-card]')).toHaveCount(0);
+});
 // Owner change and sign-out can navigate the page, so storage checks after them retry.
 const storageKeys=page=>page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('kptu_owner_cache:')).sort()).catch(()=>['navigating']);
 

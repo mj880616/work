@@ -3,7 +3,7 @@ import { loginEntry } from './login-entry.mjs';
 const app='http://127.0.0.1:8123/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export async function openHome(
   page,
-  { delay = 0, fail = "", connected = true, calendarWarning = "" } = {},
+  { delay = 0, delays = {}, fail = "", connected = true, calendarWarning = "", query = "" } = {},
 ) {
   await page.clock.setFixedTime(new Date("2026-10-06T01:00:00Z"));
   const requests = [],
@@ -102,8 +102,8 @@ export async function openHome(
           workspace: { id: "w", name: "QA", slug: "kptu-work" },
         },
       ]);
-    if (delay && p.includes("/functions/"))
-      await new Promise((r) => setTimeout(r, delay));
+    const latency=delays[a] ?? delays[p.split('/').pop()] ?? (p.includes('/functions/')?delay:0);
+    if (latency) await new Promise((r) => setTimeout(r, latency));
     if (fail && p.endsWith(fail))
       return route.fulfill({
         status: 500,
@@ -183,7 +183,7 @@ export async function openHome(
       return ok([{ id: "m", series_name: "테스트 회의", title: "회차" }]);
     return ok(p.startsWith("/rest/") ? [] : {});
   });
-  await page.goto(loginEntry(app));
+  await page.goto(loginEntry(app+query));
   await page.locator("#emailAuthToggle").click();
   await page.locator("#authEmail").fill(user.email);
   await page.locator("#authPassword").fill("password123");
@@ -194,6 +194,10 @@ export async function openHome(
   return {
     requests,
     tasks,
+    links,
+    setUserId: value => { user.id=value; },
+    setConnected: value => { connected=value; },
+    setDelay: (key,value) => { delays[key]=value; },
     setFailure: (value) => {
       fail = value;
     },

@@ -26,7 +26,7 @@ function cpOnFocus(){if(!cpCalendarVisible())return;if(!cpStatusFresh())return c
 function cpDisconnected(){cpInvalidate();cpState={connected:false,enabled:false,selected:[],calendars:[],colors:{},eventColors:{},email:null};cpEvents=[];cpShownKey='';cpEventSeq++;cpSyncState();cpSyncEvents()}
 async function cpSetEnabled(){if(!cpState)return;cpState.enabled=true;const ok=await cpSave();if(!ok)throw new Error('Google Calendar 설정 저장에 실패했습니다.')}
 async function cpInit(){cpMessage('');await cpStatus();return true}
-window.KPTUCalendarPersistence={paint:cpPaint,decorate:cpDecorate,refresh:()=>cpLoadEvents(),status:()=>cpStatus({force:true}),setEnabled:cpSetEnabled,disconnected:cpDisconnected};
+window.KPTUCalendarPersistence={paint:cpPaint,decorate:cpDecorate,refresh:()=>cpLoadEvents(),status:()=>cpStatus({force:true}),setEnabled:cpSetEnabled,disconnected:cpDisconnected,peek:()=>cpOwner===cpSessionOwner()?{owner:cpOwner,status:cpState}:null};
 // 일정 생성·수정·삭제 직후 호출된다: 캐시와 진행 중 요청을 무시하고 새로 읽는다.
 window.__KPTU_RELOAD_GOOGLE_EVENTS__=()=>cpLoadEvents({force:true});
 window.__KPTU_CALENDAR_PERSISTENCE_READY__=cpInit().catch(e=>{console.warn('calendar persistence init',e);return false});

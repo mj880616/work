@@ -276,3 +276,4 @@
 .home-quick :disabled { cursor:wait; opacity:.65; }
 
 .home-quick [data-quick-project] { width:110px; }
+.home-timing { font-size:11px; color:var(--kptu-muted); line-height:1.5; }

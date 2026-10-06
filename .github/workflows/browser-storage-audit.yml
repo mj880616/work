@@ -48,6 +48,7 @@ jobs:
           # always be persisted to the server.
           allowed={
               'app/home-quick.js':[r"'kptu-home-quick-mode'"],
+              'app/home-read.js':[r"'home-read-v1:'"],
               # 화면 색은 기기에만 두는 화면 설정이며 사용자 내용이 아님.
               'app/index.html':[r"'kptu-theme'"],
               'app/login/index.html':[r"'kptu-theme'"],
