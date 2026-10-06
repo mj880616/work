@@ -88,7 +88,7 @@
   });
   await Promise.all([
     import('./app-router.js?v=13'),
-    import('./accessibility-dialog.js?v=1'),
+    import('./accessibility-dialog.js?v=2'),
     import('./native-back-guard.js?v=2'),
     import('./session-resilience.js?v=6'),
     import('./capabilities.js?v=3'),
@@ -134,7 +134,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=61');
+  await import('./view-loader.js?v=62');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'calendar');
@@ -189,6 +189,8 @@
     showFeatureError(err);
     startup?.mark('requestedViewFailed',{view:requested});
   }
+  const {startVersionNotice}=await import('./version-notice.js?v=1');
+  startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js?v=3').catch(()=>{});
   const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));

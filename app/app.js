@@ -1,4 +1,5 @@
 (()=>{
+  window.__KPTU_APP_SCRIPT_URL__=document.currentScript.src;
   const startedAt=performance.now(),requests=[];
   let finalized=false,latest=null;
   function endpointLabel(raw){
@@ -64,7 +65,7 @@
     window.dispatchEvent(new Event('kptu:app-ui-ready'));
     maybeDebugButton();
   };
-  import('./loader-v2.js?v=289').catch(err=>{
+  import('./loader-v2.js?v=290').catch(err=>{
     console.error(err);startup.finalize('error');window.__KPTU_MARK_APP_UI_READY__?.();
     document.body.insertAdjacentHTML('beforeend','<pre style="padding:16px;color:var(--kptu-danger)">앱 초기화 오류: '+String(err.message||err)+'</pre>');
   });

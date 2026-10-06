@@ -97,13 +97,13 @@ async function projects(){
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=25');
-  await module('./project-system-v3.js?v=34','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=35','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=2');
-  await module('./library-upload.js?v=16','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=17','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
