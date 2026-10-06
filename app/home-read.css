@@ -8,9 +8,6 @@
   flex-direction: column;
   gap: 12px;
 }
-.home-quick-placeholder {
-  height: 0;
-}
 .home-card {
   background: var(--kptu-surface);
   border: 1px solid var(--kptu-border);
@@ -55,6 +52,7 @@
   color: var(--kptu-primary-ink);
   font-size: 12px;
   min-height: 44px;
+  font-weight: 700;
   padding: 4px 0;
   text-align: left;
 }
@@ -223,12 +221,15 @@
   }
   .home-chip.urgent { background: transparent; }
   .home-chip.urgent::before { background: var(--kptu-danger-soft); }
-  .home-event { min-height: 44px; }
-  .home-task { min-height: 64px; }
+  .home-card header { min-height: 24px; }
+  .home-card header button { min-height: 24px; position: relative; }
+  .home-card header button::after { content: ""; position: absolute; inset: -10px 0; }
+  .home-event { min-height: 0; padding: 8px 0; }
+  .home-task { min-height: 0; padding: 8px 0; }
   .home-event + .home-event,
   .home-task + .home-task,
   .home-update + .home-update { border-top: 1px solid var(--kptu-border); }
-  .home-task .gt-check::before { border-color: var(--kptu-border); }
+  .home-task .gt-check::before { inset: 13px; border-color: var(--kptu-border); }
   .home-task.completed .gt-check::before { border-color: var(--kptu-success); }
   .home-update {
     display: flex;
@@ -253,3 +254,25 @@
     padding-right: 4px;
   }
 }
+.home-quick { background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:12px; padding:10px; margin-bottom:12px; display:grid; gap:8px; }
+.home-quick [data-quick-options][hidden],.home-quick [data-quick-task-options][hidden],.home-quick [data-quick-update-options][hidden] { display:none; }
+.home-quick button,.home-quick select { font-family:inherit; font-size:12px; cursor:pointer; }
+.home-quick-modes { display:flex; background:var(--kptu-surface-subtle); border-radius:var(--kptu-radius-pill); padding:2px; width:max-content; gap:0; }
+.home-quick-modes button { position:relative; height:30px; border:0; border-radius:var(--kptu-radius-pill); padding:0 12px; background:transparent; color:var(--kptu-muted); font-weight:700; }
+.home-quick-modes button[aria-pressed="true"] { background:var(--kptu-surface); color:var(--kptu-ink); }
+.home-quick-entry { display:flex; align-items:flex-start; gap:8px; }
+#homeView .home-quick [data-quick-input] { box-sizing:border-box; flex:1; min-width:0; width:100%; margin:0; padding:9px 10px; height:40px; min-height:40px; border:1px solid var(--kptu-border); border-radius:8px; font-family:inherit; font-size:14px; line-height:21px; color:var(--kptu-ink); background:var(--kptu-surface); resize:none; }
+#homeView .home-quick[data-mode="update"] [data-quick-input] { height:83px; min-height:83px; max-height:146px; }
+#homeView .home-quick .home-quick-save { box-sizing:border-box; position:relative; height:40px; min-height:40px; border:0; border-radius:8px; padding:0 12px; font-size:12px; font-weight:700; background:var(--kptu-primary); color:var(--kptu-on-primary); }
+.home-quick-save::after { content:"";position:absolute;inset:-2px 0; }
+.home-quick [data-quick-options] { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.home-quick [data-quick-task-options],.home-quick [data-quick-update-options] { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:0 0 auto; max-width:100%; }
+.home-quick [data-quick-options] button,.home-quick select { box-sizing:border-box; height:32px; min-height:32px; max-width:150px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-pill); padding:0 10px; color:var(--kptu-muted); background:var(--kptu-surface); margin:0; }
+.home-quick [data-quick-day][aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); font-weight:700; }
+.home-quick [data-quick-date] { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
+.home-quick small { margin-left:auto; font-size:12px; color:var(--kptu-muted); }
+.home-quick [data-quick-status] { font-size:12px; color:var(--kptu-danger); }
+.home-quick [data-quick-status]:empty { display:none; }
+.home-quick :disabled { cursor:wait; opacity:.65; }
+
+.home-quick [data-quick-project] { width:110px; }
