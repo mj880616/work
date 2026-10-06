@@ -4,12 +4,13 @@
   let active=null;
   const focusable='a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   const resolve=(modal,value)=>typeof value==='string'?modal.querySelector(value):value;
-  const items=modal=>[...modal.querySelectorAll(focusable)].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
+  const items=modal=>[...modal.querySelectorAll(focusable),...document.querySelectorAll('#versionNotice button')].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
 
   function activate(modal,{trigger=document.activeElement,initialFocus=null,onRequestClose=null}={}){
     if(!modal)return;
     state.set(modal,{trigger,onRequestClose});
     active=modal;
+    window.dispatchEvent(new CustomEvent('kptu:dialog-opened',{detail:{modal}}));
     const target=resolve(modal,initialFocus)||items(modal)[0]||modal;
     if(target===modal&&!modal.hasAttribute('tabindex'))modal.setAttribute('tabindex','-1');
     target.focus({preventScroll:true});
@@ -18,6 +19,7 @@
   function deactivate(modal,{restoreFocus=true,fallbackFocus=null}={}){
     if(!modal)return;
     const saved=state.get(modal);
+    window.dispatchEvent(new CustomEvent('kptu:dialog-closed',{detail:{modal}}));
     state.delete(modal);
     if(active===modal)active=null;
     if(!restoreFocus)return;
@@ -36,6 +38,12 @@
     const list=items(active);
     if(!list.length){e.preventDefault();active.focus();return}
     const first=list[0],last=list[list.length-1];
+    const noticeFirst=list.find(el=>el.closest('#versionNotice'));
+    const modalLast=list.filter(el=>active.contains(el)).at(-1);
+    if(noticeFirst&&modalLast){
+      if(!e.shiftKey&&document.activeElement===modalLast){e.preventDefault();noticeFirst.focus();return}
+      if(e.shiftKey&&document.activeElement===noticeFirst){e.preventDefault();modalLast.focus();return}
+    }
     if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
     else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
   });

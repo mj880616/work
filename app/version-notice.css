@@ -1,0 +1,4 @@
+#versionNotice{position:fixed;z-index:60;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));transform:translateX(-50%);box-sizing:border-box;width:min(560px,calc(100% - 24px));display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);font-size:14px}
+#versionNotice>span{flex:1;min-width:0;overflow-wrap:anywhere}
+#versionNotice>button{flex:0 0 auto;min-width:44px;min-height:44px;margin:0}
+body.kptu-version-notice-open .toast{bottom:calc(var(--kptu-version-notice-height,76px) + 24px + env(safe-area-inset-bottom))!important;max-width:calc(100% - 48px);box-sizing:border-box;overflow-wrap:anywhere}
