@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  home:['./home-read.css?v=3','./google-tasks.css?v=20'],
+  home:['./home-read.css?v=4','./google-tasks.css?v=20'],
   calendar:['./calendar-ui.css?v=17'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=20'],
   projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=20'],
@@ -72,7 +72,7 @@ async function calendar(){
     module('./calendar-day-overflow.js?v=7','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
-  const google=module('./calendar-persistence.js?v=13','__KPTU_CALENDAR_PERSISTENCE_READY__');
+  const google=module('./calendar-persistence.js?v=14','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
   background(style('./suborganizations.css?v=8').then(organizationOrder).then(()=>module('./suborganizations.js?v=11','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
@@ -138,7 +138,7 @@ async function home(){
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
   // Preserve the existing narrow-screen action labels when home is the first route.
   await module('./calendar-mobile-ui.js?v=5','__KPTU_CALENDAR_MOBILE_UI_READY__');
-  await module('./home-read.js?v=2');
+  await module('./home-read.js?v=3');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
