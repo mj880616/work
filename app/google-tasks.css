@@ -86,3 +86,6 @@ div.gt-main{cursor:default}
 #mrdTasks .gt-row.completed .gt-check::after{left:22px}
 #mrdTasks .gt-row.pending .mrd-task-main b{font-weight:750}
 #mrdTasks .gt-row.completed .mrd-task-main b{text-decoration:line-through;font-weight:600}
+[data-gt-unlinked-heading] { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+[data-gt-show-all] { position:relative; border:0; background:transparent; color:var(--kptu-primary-ink); line-height:20px; font-family:inherit; font-size:12px; font-weight:700; padding:0; margin-left:auto; cursor:pointer; }
+[data-gt-show-all]::after { content:''; position:absolute; top:50%; left:0; width:100%; min-width:44px; height:44px; transform:translateY(-50%); }

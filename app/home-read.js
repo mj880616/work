@@ -1,3 +1,4 @@
+import { mountQuick } from './home-quick.js?v=1';
 import {
   ranges,
   dayKey,
@@ -131,7 +132,7 @@ const dependencies = {
   google: () =>
     share("google", async () => {
       await import("./organization-order.js?v=1");
-      await import("./google-tasks.js?v=26");
+      await import("./google-tasks.js?v=27");
       google = window.KPTUGoogleTasks;
       return google;
     }),
@@ -191,7 +192,7 @@ function taskRows(rows, meeting = false) {
     })
     .join("");
 }
-function renderTasks() {
+function renderTasks({ includeMeetings = true } = {}) {
   if (taskStatus !== "ok" || !linksReady) return;
   const shown = shownTasks(),
     dueIds = new Set(dueTasks(shown.map((x) => x.place)).map((t) => t.id));
@@ -213,7 +214,7 @@ function renderTasks() {
           : ""),
       dueTasks(shown.map((x) => x.task)).length,
     );
-  if (!meetingsReady) return;
+  if (!meetingsReady || !includeMeetings) return;
   const ids = new Set(
       meetingTasks(
         shown.map((x) => x.place),
@@ -295,7 +296,7 @@ const loaders = {
       rows.length,
     );
   },
-  async tasks(run) {
+  async tasks(run, includeMeetings = true) {
     const g = await dependencies.google(),
       cached = g.peekTasks();
     guard(run);
@@ -320,7 +321,7 @@ const loaders = {
     links = ls;
     linksReady = true;
     tasksReady = true;
-    renderTasks();
+    renderTasks({includeMeetings});
   },
   async meetings(run) {
     const d = await dependencies.tasks();
@@ -530,5 +531,13 @@ window.addEventListener("kptu:api-saved", (event) => {
     void loadCard("updates");
   }
 });
+async function refreshQuickTasks() {
+  const run = epoch;
+  google?.invalidateAfterCreate();
+  freshTaskRead = true;
+  flights.delete("tasks"); flights.delete("links");
+  try { await loaders.tasks(run, false); } catch { if(run === epoch && owner()) failure("tasks"); }
+}
+mountQuick({root,dependencies,refreshTasks:refreshQuickTasks,invalidateProjects:()=>flights.delete("projects"),esc});
 window.KPTUHome = { start, metrics };
 start();
