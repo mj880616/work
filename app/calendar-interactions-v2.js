@@ -30,12 +30,13 @@ function ciPopulateGoogleCalendars(event){
   document.querySelector('#ciGoogleCalendarHint').textContent=event.recurring?'반복 일정은 Google 캘린더에서 옮겨 주세요':!rows.length?'쓰기 가능한 캘린더가 없습니다.':'';
 }
 async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
-  const seq=++ciGoogleOpenSeq,owner=ciRuntime().session.read()?.user?.id;
+  const seq=++ciGoogleOpenSeq,owner=window.KPTURuntime?.session?.read?.()?.user?.id;
   ciGoogleOwner=owner;
-  const active=()=>seq===ciGoogleOpenSeq&&owner===ciRuntime().session.read()?.user?.id&&!document.querySelector('#ciGoogleModal').classList.contains('hidden');
+  const active=()=>seq===ciGoogleOpenSeq&&owner===window.KPTURuntime?.session?.read?.()?.user?.id&&!document.querySelector('#ciGoogleModal').classList.contains('hidden');
   ciInject();ciGoogleCurrent=null;ciOpen('#ciGoogleModal');ciStatus('#ciGoogleStatus','Google 일정을 불러오는 중…');
   document.querySelector('#ciGoogleSave').disabled=true;document.querySelector('#ciGoogleDelete').disabled=true;document.querySelector('#ciGoogleCalendar').disabled=true;
   try{
+    ciRuntime();if(!owner)throw new Error('로그인이 필요합니다.');
     const cached=(window.__KPTU_GOOGLE_EVENTS__||[]).find(e=>e.id===eventId&&(!calendarId||e.calendarId===calendarId));
     let d,readFailed=false;
     try{d=!fresh&&cached&&typeof cached.recurring==='boolean'?{event:cached}:await ciGoogleCall('event',{params:{eventId,calendarId}})}catch(e){if(!fallback)throw e;d={event:fallback};readFailed=true}
