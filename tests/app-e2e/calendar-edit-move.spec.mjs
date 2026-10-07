@@ -90,3 +90,7 @@ test('desktop uses the same keyboard-accessible calendar selector',async({page})
   await page.setViewportSize({width:1280,height:900});await open(page);await edit(page);
   await expect(page.getByLabel('캘린더',{exact:true})).toHaveValue('source');await page.locator('#ciGoogleCalendar').focus();await page.keyboard.press('ArrowDown');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');
 });
+test('primary alias selects the named current calendar without a duplicate destination',async({page})=>{
+  await open(page);await page.evaluate(()=>{window.__KPTU_GOOGLE_EVENTS__[0].calendarId='primary';window.__KPTU_GOOGLE_STATE__.calendars[0].primary=true;document.querySelector('[data-google-event="move-event"]').dataset.googleCalendar='primary'});await edit(page);
+  await expect(page.locator('#ciGoogleCalendar')).toHaveValue('primary');expect(await page.locator('#ciGoogleCalendar option').evaluateAll(rows=>rows.map(r=>({value:r.value,disabled:r.disabled,label:r.textContent})))).toEqual([{value:'primary',disabled:false,label:'기존 캘린더 (기본)'},{value:'target',disabled:false,label:'새 캘린더'}]);
+});

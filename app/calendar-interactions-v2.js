@@ -20,9 +20,9 @@ function ciToggleGoogleTime(){const on=document.querySelector('#ciGoogleAllDay')
 function ciGoogleDisplayColor(e){const state=window.__KPTU_GOOGLE_STATE__||{},cal=state.calendars?.find(x=>x.id===e?.calendarId);return e?.color||state.colors?.[e?.calendarId]||cal?.backgroundColor||'#4285f4'}
 function ciPopulateGoogleCalendars(event){
   const sel=document.querySelector('#ciGoogleCalendar'),state=window.__KPTU_GOOGLE_STATE__||{};
-  const rows=(state.calendars||[]).filter(c=>['owner','writer'].includes(c.accessRole));
-  sel.replaceChildren(...rows.map(c=>new Option((c.summary||c.id)+(c.primary?' (기본)':''),c.id)));
-  if(!rows.some(c=>c.id===event.calendarId)){
+  const rows=(state.calendars||[]).filter(c=>['owner','writer'].includes(c.accessRole)).map(c=>({...c,choiceId:event.calendarId==='primary'&&c.primary?'primary':c.id}));
+  sel.replaceChildren(...rows.map(c=>new Option((c.summary||c.id)+(c.primary?' (기본)':''),c.choiceId)));
+  if(!rows.some(c=>c.choiceId===event.calendarId)){
     const current=state.calendars?.find(c=>c.id===event.calendarId),option=new Option(current?.summary||'현재 캘린더',event.calendarId);
     option.disabled=true;sel.prepend(option);
   }
