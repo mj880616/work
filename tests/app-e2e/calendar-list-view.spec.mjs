@@ -29,13 +29,13 @@ test('bottom loads another 14 days and navigation resets the range',async({page}
   await page.locator('#calendarTodayBtn').click();
   await expect(page.locator('.clv-day').first()).toHaveAttribute('data-date','2026-10-15');
 });
-for(const view of ['week','invalid'])test(`hidden or invalid ${view} falls back on phone`,async({page})=>{
+for(const view of ['invalid'])test(`saved ${view} falls back on phone`,async({page})=>{
   await open(page,360,view);
   await expect(page.locator('#calendarList')).toBeVisible();
 });
-test('chosen view survives reload; PC default stays month',async({page})=>{
+test('chosen view survives reload; PC defaults to week',async({page})=>{
   await open(page,1280);
-  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await expect(page.locator('#calendarWeek')).toBeVisible();
   await page.getByRole('button',{name:'목록',exact:true}).click();
   await expect(page.locator('#calendarList')).toBeVisible();
   await page.reload();

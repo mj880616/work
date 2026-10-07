@@ -66,6 +66,7 @@ jobs:
               'app/calendar-view.js':[r'\bSTORAGE_KEY\b'],
               'tests/app-e2e/calendar-task-toggle.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/calendar-list-view.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
+              'tests/app-e2e/calendar-week-view.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/modal-typography.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/calendar-tasks.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/swipe-nav-follow.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
