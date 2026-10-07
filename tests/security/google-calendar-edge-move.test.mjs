@@ -48,7 +48,7 @@ test('move checks permission then moves, updates RLS-scoped linkage and patches 
   const h=harness();const r=await h.post({target_calendar_id:'target'});
   assert.equal(r.status,200);assert.equal(r.body.event.calendarId,'target');assert.equal(r.body.event.id,'ev');
   assert.deepEqual(h.calls.filter(c=>c.method==='POST').map(c=>[c.path,c.query.destination]),[['/calendar/v3/calendars/source/events/ev/move','target']]);
-  const db=h.calls.find(c=>c.patch);assert.deepEqual(db.patch,{google_calendar_id:'target'});assert.equal(db.filters.google_calendar_id,'source');assert.equal(db.filters.google_event_id,'ev');
+  const db=h.calls.find(c=>c.patch);assert.deepEqual(db.patch,{google_calendar_id:'target'});assert.deepEqual(db.filters.google_calendar_id,['source']);assert.equal(db.filters.google_event_id,'ev');
   const patch=h.calls.find(c=>c.method==='PATCH');assert.equal(patch.path,'/calendar/v3/calendars/target/events/ev');assert.equal(patch.body.extendedProperties.private.kptu_suborg_ids,'["org-a"]');assert.equal(patch.body.extendedProperties.private.other,'keep');
   assert.ok(h.calls.indexOf(db)>h.calls.findIndex(c=>c.path?.endsWith('/move')));
 });
@@ -68,3 +68,9 @@ test('linkage failure still restores organization metadata',async()=>{const h=ha
 
 test('content failure preserves updated linkage and carried organization metadata',async()=>{const h=harness({contentsFail:true,dropPrivate:true});const r=await h.post({target_calendar_id:'target',organization_ids:['org-b']});assert.equal(r.body.failed_stage,'contents');assert.deepEqual(r.body.event.organizationIds,['org-b']);assert.ok(h.calls.some(c=>c.patch?.google_calendar_id==='target'));assert.equal(r.body.event.title,'Synthetic event')});
 test('invalid patch inputs are rejected before moving',async()=>{const h=harness();const r=await h.post({target_calendar_id:'target',start_date:''});assert.equal(r.status,400);assert.ok(!h.calls.some(c=>c.method==='POST'))});
+
+test('primary source alias reconciles milestones stored under the real calendar ID',async()=>{const h=harness({moreCalendars:[{id:'primary-real',primary:true,accessRole:'owner'}],linked:[{id:'milestone',google_calendar_id:'primary-real',google_event_id:'ev'}]});const r=await h.post({calendar_id:'primary',target_calendar_id:'target'});assert.equal(r.body.ok,true);for(const call of h.calls.filter(c=>c.table))assert.deepEqual(call.filters.google_calendar_id,['primary','primary-real']);assert.ok(h.calls.some(c=>c.patch?.google_calendar_id==='target'))});
+
+test('real primary source ID also reconciles historical primary aliases',async()=>{const h=harness({moreCalendars:[{id:'primary-real',primary:true,accessRole:'owner'}],linked:[{id:'milestone',google_calendar_id:'primary',google_event_id:'ev'}]});const r=await h.post({calendar_id:'primary-real',target_calendar_id:'target'});assert.equal(r.body.ok,true);for(const call of h.calls.filter(c=>c.table))assert.deepEqual(call.filters.google_calendar_id,['primary-real','primary'])});
+
+test('unresolved primary source alias stops before moving or changing linkage',async()=>{const h=harness();const r=await h.post({calendar_id:'primary',target_calendar_id:'target'});assert.equal(r.status,400);assert.ok(!h.calls.some(c=>c.method==='POST'||c.patch))});

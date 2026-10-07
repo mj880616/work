@@ -32,12 +32,15 @@ async function moveAndUpdateEvent(req:Request,token:string,calendarId:string,eve
   const calendars=await googleReq('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer',token);
   const target=(calendars.items||[]).find((c:any)=>c.id===targetId||(targetId==='primary'&&c.primary));
   if(!target||!['owner','writer'].includes(target.accessRole))throw new Error('쓰기 가능한 대상 캘린더를 선택해 주세요.');
+  const primary=(calendars.items||[]).find((c:any)=>c.primary);
+  if(calendarId==='primary'&&!primary?.id)throw new Error('현재 기본 캘린더를 확인하지 못했습니다. 캘린더는 옮기지 않았습니다.');
+  const sourceIds=[...new Set([calendarId,...((calendarId==='primary'||calendarId===primary?.id)?['primary',primary.id]:[])])];
   const eventUrl=(id:string)=>`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events/${encodeURIComponent(eventId)}`;
   const original=await googleReq(eventUrl(calendarId),token);
   if(original.recurringEventId||original.recurrence?.length)throw new Error('반복 일정은 Google 캘린더에서 옮겨 주세요.');
   if(original.eventType&&original.eventType!=='default')throw new Error('이 종류의 일정은 Google 캘린더에서 옮길 수 없습니다.');
   const caller=createClient(SUPABASE_URL,SERVICE_KEY,{auth:{persistSession:false},global:{headers:{Authorization:req.headers.get('Authorization')!}}});
-  const {data:linked,error:readError}=await caller.from('app_project_milestones').select('id,google_calendar_id,google_event_id').eq('google_calendar_id',calendarId).eq('google_event_id',eventId);
+  const {data:linked,error:readError}=await caller.from('app_project_milestones').select('id,google_calendar_id,google_event_id').in('google_calendar_id',sourceIds).eq('google_event_id',eventId);
   if(readError||!Array.isArray(linked))throw new Error('프로젝트 주요 일정 연결을 확인하지 못했습니다. 캘린더는 옮기지 않았습니다.');
   // Private properties belong to a calendar/event copy. Explicitly carry them to the
   // destination, including organization IDs when an older client omits that field.
@@ -47,7 +50,7 @@ async function moveAndUpdateEvent(req:Request,token:string,calendarId:string,eve
   try{
     if(linked.length){
       const ids=linked.map((row:any)=>row.id);
-      const {data:updated,error}=await caller.from('app_project_milestones').update({google_calendar_id:targetId}).eq('google_calendar_id',calendarId).eq('google_event_id',eventId).in('id',ids).select('id,google_calendar_id,google_event_id');
+      const {data:updated,error}=await caller.from('app_project_milestones').update({google_calendar_id:targetId}).in('google_calendar_id',sourceIds).eq('google_event_id',eventId).in('id',ids).select('id,google_calendar_id,google_event_id');
       if(error||!Array.isArray(updated)||updated.length!==ids.length||ids.some((id:string)=>!updated.some((row:any)=>row.id===id&&row.google_calendar_id===targetId&&row.google_event_id===eventId)))throw new Error('프로젝트 주요 일정 연결 저장 실패');
     }
   }catch{failures.push('milestone')}
