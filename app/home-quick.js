@@ -1,3 +1,4 @@
+import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
 import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=1';
 import { dayKey } from './home-read-model.js?v=1';
 
@@ -45,61 +46,23 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
       if(!projectChoices.some(x=>x.project.id===project))project='';
       orgChoices=order.withRecent(eligible,recent.map(r=>r.organization_id),3);
       if(!eligible.some(o=>o.id===organization))organization='';
-      paint();if(activeSheet)renderSheet();
+      paint();picker.render();
     })().catch(e=>{if(run===choiceEpoch){choicesFlight=null;status.textContent=e.message||'선택 목록을 불러오지 못했습니다.';}});
     return choicesFlight;
   }
   function expand(){expanded=true;paint();void choices();}
   input.addEventListener('focus',expand); input.addEventListener('input',()=>{expand();size();});
-  const sheet=document.createElement('dialog');sheet.className='home-choice-sheet';sheet.id='homeChoiceSheet';sheet.setAttribute('aria-labelledby','homeChoiceTitle');
-  sheet.innerHTML='<header><h2 id="homeChoiceTitle"></h2><button type="button" data-sheet-close aria-label="선택판 닫기">×</button></header><div data-sheet-content></div>';
-  document.body.append(sheet);
-  let activeSheet=null,sheetClosing=null,openEpoch=0;
-  const sheetContent=sheet.querySelector('[data-sheet-content]');
-  function renderSheet(){
-    const kind=activeSheet.kind,selected=kind==='org'?organization:project;
-    sheet.querySelector('h2').textContent=kind==='org'?'조직 선택':'프로젝트 선택';sheet.dataset.kind=kind;
-    const chip=o=>`<button type="button" class="home-choice-chip" data-sheet-value="${esc(o.id)}" aria-pressed="${o.id===selected}">${esc(o.name)}</button>`;
-    sheetContent.innerHTML=kind==='org'?`<p class="home-choice-label">최근</p><div class="home-choice-group" data-sheet-recent>${orgChoices.recent.map(chip).join('')}</div><p class="home-choice-label">전체</p><div data-sheet-all>${orgChoices.groups.filter(g=>g.length).map(g=>`<div class="home-choice-group">${g.map(chip).join('')}</div>`).join('')}</div>`:
-      [{project:{id:'',name:'프로젝트 없음'},depth:0},...projectChoices].map(x=>`<button type="button" class="home-choice-row" style="--home-choice-depth:${x.depth}" data-sheet-value="${esc(x.project.id)}" aria-pressed="${x.project.id===selected}" title="${esc(x.project.name)}">${esc(x.project.name)}</button>`).join('');
-    const focus=sheetContent.querySelector('[aria-pressed="true"]')||sheetContent.querySelector('button')||sheet.querySelector('[data-sheet-close]');
-    focus.focus({preventScroll:true});focus.scrollIntoView({block:'nearest'});
-  }
-  function closeSheet(fromBack=false){
-    openEpoch++;
-    const active=activeSheet;if(!active)return sheetClosing||Promise.resolve();
-    activeSheet=null;sheet.close();active.trigger.setAttribute('aria-expanded','false');
-    let release;const pending=new Promise(resolve=>{release=resolve;});sheetClosing=pending;
-    const finish=()=>queueMicrotask(()=>{if(sheetClosing===pending)sheetClosing=null;if(window.KPTURouter.current==='home'&&active.trigger.isConnected&&!active.trigger.hidden)active.trigger.focus({preventScroll:true});release();});
-    if(!fromBack&&history.state?.kptuHomeChoice===active.id){window.addEventListener('popstate',finish,{once:true});history.back();}else finish();
-    return pending;
-  }
-  async function openSheet(kind){
-    if(saving)return;
-    if(activeSheet||sheetClosing)await closeSheet();
-    const run=++openEpoch,owner=quickOwner;input.blur();await choices();
-    if(run!==openEpoch||owner!==quickOwner||saving||window.KPTURouter.current!=='home')return;
-    const trigger=kind==='org'?orgSelect:projectSelect,id=kind+'-'+run;
-    activeSheet={kind,trigger,id};history.pushState({...history.state,kptuHomeChoice:id},'',location.href);
-    trigger.setAttribute('aria-expanded','true');sheet.showModal();renderSheet();
-  }
+  const picker=createChoiceSheet({id:'homeChoiceSheet',titleId:'homeChoiceTitle',historyKey:'kptuHomeChoice',
+    canOpen:()=>!saving&&window.KPTURouter.current==='home',choices,
+    render:kind=>{
+      const selected=kind==='org'?organization:project;
+      const chip=o=>`<button type="button" class="home-choice-chip" data-sheet-value="${esc(o.id)}" aria-pressed="${o.id===selected}">${esc(o.name)}</button>`;
+      return {title:kind==='org'?'조직 선택':'프로젝트 선택',html:kind==='org'?`<p class="home-choice-label">최근</p><div class="home-choice-group" data-sheet-recent>${orgChoices.recent.map(chip).join('')}</div><p class="home-choice-label">전체</p><div data-sheet-all>${orgChoices.groups.filter(g=>g.length).map(g=>`<div class="home-choice-group">${g.map(chip).join('')}</div>`).join('')}</div>`:projectRows(projectChoices,selected,esc)};
+    },onSelect:(kind,value)=>{if(kind==='org')organization=value;else project=value;paint();}
+  });
+  const openSheet=kind=>picker.open(kind,kind==='org'?orgSelect:projectSelect);
+  const dismissForNavigation=()=>picker.dismiss();
   projectSelect.onclick=()=>void openSheet('project');orgSelect.onclick=()=>void openSheet('org');
-  sheet.querySelector('[data-sheet-close]').onclick=()=>void closeSheet();
-  sheet.addEventListener('cancel',e=>{e.preventDefault();void closeSheet();});
-  sheet.addEventListener('click',e=>{
-    const button=e.target.closest('[data-sheet-value]');
-    if(button&&activeSheet){if(activeSheet.kind==='org')organization=button.dataset.sheetValue;else project=button.dataset.sheetValue;paint();void closeSheet();return;}
-    if(e.target===sheet){const r=sheet.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)void closeSheet();}
-  });
-  sheet.addEventListener('keydown',e=>{
-    if(e.key!=='Tab')return;const buttons=[...sheet.querySelectorAll('button')],i=buttons.indexOf(document.activeElement);
-    if(e.shiftKey&&i===0){e.preventDefault();buttons.at(-1).focus();}else if(!e.shiftKey&&i===buttons.length-1){e.preventDefault();buttons[0].focus();}
-  });
-  window.addEventListener('popstate',e=>{if(activeSheet&&e.state?.kptuHomeChoice!==activeSheet.id)void closeSheet(true);});
-  function dismissForNavigation(){
-    if(activeSheet&&history.state?.kptuHomeChoice===activeSheet.id){const state={...history.state};delete state.kptuHomeChoice;history.replaceState(state,'',location.href);}
-    void closeSheet(true);
-  }
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='home')dismissForNavigation();});
   box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{
     if(saving)return;mode=b.dataset.quickMode;status.textContent='';
