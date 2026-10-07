@@ -199,12 +199,18 @@
 .cwv-today .cwv-date{color:var(--kptu-primary-ink);font-weight:700}
 @media(max-width:760px){.cwv-date{flex-basis:56px;width:56px}}
 
-/* D-4b③: reserve a separate footer, including the +N row above it. */
+/* FIX-월간일정숨김: +N and task count share the reserved footer, preserving every event slot. */
 #calendarView .cmv-has-tasks{--cmv-task-footer-height:44px;--cmv-min-week-height:92px}
-#calendarView .cmv-cell-tasks{position:relative}
-#calendarView .cmv-cell-tasks .cmv-date-create{bottom:44px}
+#calendarView .cmv-has-tasks .cal-cell{position:relative}
+#calendarView .cmv-has-tasks .cmv-date-create{bottom:44px}
 #calendarView .cmv-date-create-pc{position:absolute;inset:0 0 44px;width:100%;min-width:0;min-height:0;padding:4px 5px;background:transparent;border:0;color:inherit;text-align:left;display:flex;align-items:flex-start;border-radius:var(--kptu-radius-sm)}
 #calendarView .cmv-task-count{position:absolute;bottom:0;right:0;width:100%;height:44px;min-height:0;min-width:0;box-sizing:border-box;padding:0 3px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);font-size:12px;line-height:16px;text-align:right;white-space:nowrap;cursor:pointer;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
 #calendarView .cmv-task-count-overdue{color:var(--kptu-danger)}
+#calendarView .cmv-footer-more{position:absolute;left:0;bottom:0;width:100%;height:44px;min-height:0;box-sizing:border-box;padding:0 3px;font-size:12px;line-height:16px;border-radius:var(--kptu-radius-sm);white-space:nowrap;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+#calendarView .cmv-footer-both .cmv-footer-more,#calendarView .cmv-footer-both .cmv-task-count{width:50%;display:flex;flex-wrap:wrap;align-content:center;padding:0}
+#calendarView .cmv-footer-both .cmv-footer-more{justify-content:flex-start}
+#calendarView .cmv-footer-both .cmv-task-count{justify-content:flex-end}
+#calendarView .cmv-footer-more:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 #calendarView .cmv-task-count:focus-visible,#calendarView .cmv-date-create-pc:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
+@media(max-width:1023px){#calendarView .cmv-has-tasks .cmv-week-events{bottom:45px}}
 @media(min-width:1024px){#calendarView .cmv-has-tasks .cmv-week-events{margin-bottom:44px}}

@@ -31,8 +31,9 @@ for(const width of [360,1280]){
     const cap=Number(await week.getAttribute('data-lane-cap'));
     if(width<1024){await expect(week.locator('.kptu-day-more')).toHaveText('+'+(24-cap));}
     else await expect(week.locator('.kptu-day-more')).toHaveCount(0);
-    await page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count').scrollIntoViewIfNeeded();
-    const geometry=await page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count').evaluate(el=>{
+    // Preserve the existing 44px requirement for a single footer control. Shared targets are checked by calendar-month-event-footer.
+    await page.locator('.cal-cell[data-date="2026-10-10"] .cmv-task-count').scrollIntoViewIfNeeded();
+    const geometry=await page.locator('.cal-cell[data-date="2026-10-10"] .cmv-task-count').evaluate(el=>{
       const r=el.getBoundingClientRect(),cell=el.closest('.cal-cell'),week=el.closest('.cmv-week'),c=cell.getBoundingClientRect();
       const others=[cell.querySelector('.cal-day'),cell.querySelector('.cmv-date-create'),cell.querySelector('.cmv-date-list'),...week.querySelectorAll('.cmv-event,.kptu-day-more')].filter(Boolean);
       return {width:r.width,height:r.height,within:r.left>=c.left&&r.right<=c.right&&r.bottom<=c.bottom,
