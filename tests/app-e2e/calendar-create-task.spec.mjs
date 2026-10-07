@@ -68,3 +68,9 @@ test('desktop task registration keeps fields and shared project sheet usable',as
  await expect(page.getByLabel('날짜 (선택)',{exact:true})).toHaveValue('2026-10-06');await page.locator('#eventTaskProject').click();
  await page.locator('#eventProjectSheet').getByRole('button',{name:'프로젝트 없음',exact:true}).click();await expect(page.locator('#eventTaskProject')).toBeFocused();await expect(page.locator('#eventModal')).toBeVisible();
 });
+test('project button retains its transparent 44px target',async({page})=>{
+ await open(page);await page.locator('[data-event-mode="task"]').click();const b=page.locator('#eventTaskProject');
+ const point=await b.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top-2}});
+ expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('button')?.id,point)).toBe('eventTaskProject');
+ await page.mouse.click(point.x,point.y);await expect(page.locator('#eventProjectSheet')).toBeVisible();
+});
