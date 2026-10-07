@@ -12,12 +12,13 @@ function range(appendPage=false){if(view!=='list')return null;const end=new Date
 function render(next){
   options=next;
   const grid=document.querySelector('#calendarGrid'),list=document.querySelector('#calendarList');if(!grid||!list)return;
-  grid.classList.toggle('hidden',view!=='month');list.classList.toggle('hidden',view!=='list');
+  grid.classList.toggle('hidden',view!=='month');list.classList.toggle('hidden',view!=='list');grid.closest('#calendarView')?.classList.toggle('calendar-list-active',view==='list');
   document.querySelectorAll('[data-calendar-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.calendarView===view)));
   document.querySelector('#prevMonthBtn')?.setAttribute('aria-label',view==='list'?'이전 14일':'이전 달');document.querySelector('#nextMonthBtn')?.setAttribute('aria-label',view==='list'?'다음 14일':'다음 달');
   if(view==='month')return window.KPTUCalendarMonthView?.render(next);
   const end=new Date(start);end.setDate(end.getDate()+days-1);
-  document.querySelector('#monthTitle').textContent=`${start.getMonth()+1}월 ${start.getDate()}일 – ${end.getMonth()+1}월 ${end.getDate()}일`;
+  const sameMonth=start.getFullYear()===end.getFullYear()&&start.getMonth()===end.getMonth();
+  document.querySelector('#monthTitle').textContent=`${start.getMonth()+1}월 ${start.getDate()}일 – ${sameMonth?'':`${end.getMonth()+1}월 `}${end.getDate()}일`;
   renderList(next,{start,days,tasks,busy,error,more});
 }
 const paint=()=>window.__KPTU_RENDER_CALENDAR__?.();

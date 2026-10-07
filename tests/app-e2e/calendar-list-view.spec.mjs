@@ -126,3 +126,24 @@ test('list today and query boundaries agree with home in another browser timezon
   const context=await browser.newContext({timezoneId:'America/Los_Angeles',viewport:{width:360,height:844}}),page=await context.newPage();
   try{const {calls}=await openEmphasisFixture(page,{view:'default'});await expect(page.locator('.clv-day').first()).toHaveAttribute('data-date','2026-10-15');await expect(page.locator('.clv-day').first()).toContainText('오늘 · 10월 15일 목');await expect.poll(()=>calls.filter(c=>c.action==='events').length).toBeGreaterThan(0);expect(calls.find(c=>c.action==='events').min).toBe('2026-10-14T15:00:00.000Z')}finally{await context.close()}
 });
+
+test('360px list range title stays one line and matches month typography',async({page})=>{
+  await open(page);
+  const title=page.locator('#monthTitle');
+  const measure=()=>title.evaluate(el=>{const style=getComputedStyle(el);return {height:el.getBoundingClientRect().height,lineHeight:parseFloat(style.lineHeight),fontSize:style.fontSize,fontWeight:style.fontWeight,whiteSpace:style.whiteSpace,textOverflow:style.textOverflow}});
+  const first=await measure();
+  expect(Number.isFinite(first.lineHeight)).toBe(true);
+  expect(first.height).toBeLessThanOrEqual(first.lineHeight+0.5);
+  await expect(title).toHaveText('10월 15일 – 28일');
+  await page.locator('#nextMonthBtn').click();
+  await expect(title).toHaveText('10월 29일 – 11월 11일');
+  const across=await measure();
+  expect(across.height).toBeLessThanOrEqual(across.lineHeight+0.5);
+  expect(across.whiteSpace).toBe('nowrap');
+  expect(across.textOverflow).toBe('ellipsis');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(360);
+  await page.getByRole('button',{name:'월간',exact:true}).click();
+  const month=await measure();
+  expect(first.fontSize).toBe(month.fontSize);
+  expect(first.fontWeight).toBe(month.fontWeight);
+});

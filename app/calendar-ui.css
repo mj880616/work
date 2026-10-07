@@ -187,3 +187,5 @@
 
 .calendar-view-switch .mini,#calendarTodayBtn{font-size:12px;min-height:36px;padding:0 12px;border-radius:var(--kptu-radius-md)}
 #calendarTodayBtn{margin-left:6px}
+
+#calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
