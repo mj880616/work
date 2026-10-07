@@ -42,7 +42,10 @@ export async function openEmphasisFixture(page,{view="month",events=EVENTS}={}){
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-user',role:'owner'}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'qa-ws',name:'QA Workspace'}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:'qa-user',display_name:'QA'}]);
-    if(path==='/functions/v1/google-calendar')return ok({connected:true,enabled:true,calendars:[{id:'qa-cal',summary:'QA',backgroundColor:'#4285f4',accessRole:'owner'}],calendar_ids:['qa-cal'],events});
+    if(path==='/functions/v1/google-calendar'){
+      if(url.searchParams.get('action')==='event')return ok({event:events.find(e=>e.id===url.searchParams.get('eventId')&&e.calendarId===url.searchParams.get('calendarId')),eventColors:{}});
+      return ok({connected:true,enabled:true,calendars:[{id:'qa-cal',summary:'QA',backgroundColor:'#4285f4',accessRole:'owner'}],calendar_ids:['qa-cal'],events});
+    }
     if(path==='/functions/v1/google-tasks')return ok(url.searchParams.get('action')==='links'
       ?{links:[],meeting_links:[]}:{connected:true,authorized:true,needs_reconnect:false,tasks:TASKS,pending_scope:'all'});
     return ok([]);

@@ -62,7 +62,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=62')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=80')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=81')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -74,7 +74,7 @@ jobs:
             "module('./meeting-round-detail.js?v=20'","__KPTU_MEETING_ROUND_DETAIL_READY__",
             "module('./calendar-plus.js?v=10'","__KPTU_CALENDAR_PLUS_READY__",
             "module('./calendar-persistence.js?v=15'","__KPTU_CALENDAR_PERSISTENCE_READY__",
-            "module('./calendar-interactions-v2.js?v=13'","__KPTU_CALENDAR_INTERACTIONS_READY__",
+            "module('./calendar-interactions-v2.js?v=14'","__KPTU_CALENDAR_INTERACTIONS_READY__",
             "module('./calendar-mobile-ui.js?v=5'","__KPTU_CALENDAR_MOBILE_UI_READY__",
             "module('./calendar-day-overflow.js?v=8'","__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
           ];
@@ -173,7 +173,7 @@ jobs:
           grep -q "__KPTU_CALENDAR_PLUS_READY__" app/view-loader.js
           grep -q "calendar-persistence.js?v=15" app/view-loader.js
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/view-loader.js
-          grep -q "calendar-interactions-v2.js?v=13" app/view-loader.js
+          grep -q "calendar-interactions-v2.js?v=14" app/view-loader.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/view-loader.js
           grep -q "calendar-mobile-ui.js?v=5" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/view-loader.js
