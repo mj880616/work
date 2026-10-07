@@ -35,6 +35,8 @@ test('phone defaults to list; chosen week survives reload and has 56px dates',as
   await expect(page.locator('#calendarWeek')).toBeVisible();
   expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe('week');
   await page.reload();
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  await expect(page.locator('#calendarWeek')).toBeVisible();
   await expect(page.locator('.cwv-day')).toHaveCount(7);
   expect(await page.locator('.cwv-date').first().evaluate(el=>el.getBoundingClientRect().width)).toBe(56);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(360);
