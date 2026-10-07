@@ -18,11 +18,11 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=10">
 <link rel="preload" as="style" href="./desktop-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=303">
+<link rel="modulepreload" href="./loader-v2.js?v=304">
 <link rel="modulepreload" href="./runtime-client.js?v=7">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=191" defer></script>
+<script src="./app.js?v=192" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -82,7 +82,9 @@
 
   <section id="calendarView" class="view-panel hidden">
     <div id="calendarCard" class="calendar-card">
-      <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
+      <div class="calendar-view-switch" role="group" aria-label="일정 보기"><button type="button" class="mini" data-calendar-view="list">목록</button><button type="button" class="mini" data-calendar-view="month">월간</button></div>
+      <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="calendarTodayBtn" class="mini" type="button">오늘</button><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
+      <div id="calendarList" class="hidden" aria-label="목록 일정"></div>
       <div id="calendarGrid" class="calendar-grid" aria-label="월간 일정"></div>
     </div>
   </section>

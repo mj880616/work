@@ -1,5 +1,8 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
+
+// Existing month-view regressions choose month explicitly.
+test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
 import { enterLogin } from './helpers/login-entry.mjs';
 import { calendarToday } from './helpers/calendar-today.mjs';
 

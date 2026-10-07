@@ -36,7 +36,7 @@ test('the phone +N list uses C without compacting rows or changing task status m
   await page.locator('.kptu-day-more').first().click();await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayList')).toHaveCSS('gap','5px');
   const event=page.locator('#calendarDayList [data-google-event="app-1"]');await expectGoogleDisplay(event,{stripe:4,tint:.08});
-  await expect(event).toHaveCSS('height','34px');await expect(event.locator('.cmv-day-title')).toHaveCSS('font-weight','400');
+  await expect(event).toHaveCSS('min-height','44px');expect(await event.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);await expect(event).toHaveCSS('font-size','14px');await expect(event.locator('.cmv-day-title')).toHaveCSS('font-weight','400');
   await expect(event.locator('.cmv-day-time')).toHaveCSS('font-weight','400');
   const task=id=>page.locator('#calendarDayList [data-calendar-task="'+id+'"]');
   await expect(task('task-pending')).toHaveCSS('font-weight','800');await expect(task('task-pending')).toHaveCSS('border-left-width','1px');

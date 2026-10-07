@@ -25,7 +25,8 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
   expect(team).not.toContain('dataset.eventResponse');
   expect(team).not.toContain('/rest/v1/app_events');
   expect(team).not.toContain('function paintAppEvents()');
-  expect(team).toContain('KPTUCalendarMonthView?.render?.(');
+  expect(team).toContain('(window.KPTUCalendarView||window.KPTUCalendarMonthView)?.render?.(');
+  expect(read('app/calendar-view.js')).toContain('window.KPTUCalendarMonthView?.render(next)');
   expect(index).toContain('calendar-toolbar-add');
   expect(index).not.toContain('class="primary" type="button">+ 일정 등록</button>');
   expect(team).toContain('id="googleCalendarPanel"');
