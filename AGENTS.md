@@ -10,10 +10,10 @@
 | --- | --- | --- | --- |
 | Claude Code 로컬 | 사용자 PC | 코드·문서·테스트, Supabase MCP(production 조회 전용), supabase CLI, gh. production 조회·Edge 배포·DB 적용 절차 | 아래 금지 규칙 |
 | Claude Code 웹 | 클라우드 | 코드·문서·테스트 | Supabase·production 접근 |
-| Codex CLI(PC) | 사용자 PC | 코드·문서·테스트, Supabase MCP(조회 전용, 이 프로젝트만) | Edge 배포·삭제, DB 쓰기, supabase CLI로 production 변경 |
+| Codex CLI(PC) | 사용자 PC | 코드·문서·테스트, Supabase MCP(조회 전용, 이 프로젝트만), 커맨드센터에서 승인한 비밀값 없는 Edge 배포(§8) | 승인 없는 Edge 배포, Edge 삭제, DB 쓰기·migration·비밀값 변경, 허용된 Edge 배포 외 supabase CLI production 변경 |
 | Codex 웹 | 클라우드 | 📱 작업만(코드·문서·테스트) | DB·Edge·production 접근, 환경에 비밀값 저장 |
 
-- **배포·DB 변경 작업은 당분간 Claude Code 로컬에서만 한다.** Codex CLI는 조회까지만 한다.
+- **사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포는 Codex 로컬에서 `supabase login --no-browser` 일회용 로그인으로 허용한다. 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 계속 Claude Code 로컬 또는 대시보드.** DB 적용은 §7의 기존 절차와 영구 금지를 그대로 따른다.
 - 도구 전환은 작업 사이에서만 한다. 한 브랜치·PR을 두 도구가 동시에 고치지 않는다.
 - production 조회·배포·적용이 웹 세션(Claude Code 웹·Codex 웹)에서 필요해지면 추측하지 말고 중단·보고한다.
 - 웹 세션에 production 토큰을 등록하도록 제안하지 않는다.
@@ -109,15 +109,16 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - DB 변경을 요청할 때 사용자에게 일상어 3줄을 먼저 제시한다: 무엇이 바뀌나 / 잘못되면 어떤 일이 생기나 / 되돌리는 방법.
 - 사용자에게 확인받을 3가지: 커맨드센터 실행 승인, SQL 끝이 `commit;`인지, 실행 결과 Success.
 
-## 8. Edge Function 배포 (Claude Code 로컬만)
+## 8. Edge Function 배포 (Claude Code 로컬 / 커맨드센터 승인 시 Codex 로컬)
 
 - 로컬 세션, manual mode에서만 한다.
+- Codex 로컬은 사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포만 허용한다. `supabase login --no-browser`로 일회용 로그인하고 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 허용하지 않는다.
 - 배포 전 `functions list`로 현재 버전·verify_jwt·시각을 기록한다.
 - 함수 이름을 반드시 지정한다. `--prune` 금지.
 - **verify_jwt는 함수마다 다르다**(2026-09-26 기준 30개 중 true 8개, false 22개). 함수별 값은 `docs/web2-env6b-edge-source.md` 5절 표가 기준이다. 저장소에 `config.toml`이 없으므로 대상 함수의 현재 값을 확인하고 같은 값을 유지한다: `false`면 `--no-verify-jwt`를 붙이고, `true`면 붙이지 않는다. 값이 바뀌면 그 표를 같은 PR에서 고친다.
 - verify_jwt=false인 Web2 함수는 함수 코드에서 인증한다. Web1 공개 페이지 함수는 로그인 없이 비밀번호·Origin으로 막는 것이 의도된 구조다.
 - Docker 없이 배포할 때 `--use-api`를 사용한다.
-- 배포 명령과 복구 명령(이전 commit 코드를 같은 옵션으로 재배포)을 제시하고 실행 직전에 멈춘다.
+- 배포 명령과 복구 명령(이전 commit 코드를 같은 옵션으로 재배포)을 실행 직전에 제시한다. 사용자의 배포 승인 전에는 실행하지 않는다.
 - 배포 후 버전 증가, 비로그인 요청 401(verify_jwt 또는 코드 인증 대상 함수), OPTIONS/CORS를 데이터 생성 없이 확인한다.
 - CLI가 만든 `supabase/.temp`는 커밋하지 않는다.
 

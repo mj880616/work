@@ -68,7 +68,7 @@ async function calendar(){
   await team('calendar');
   await module('./calendar-plus.js?v=10','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
-    module('./calendar-interactions-v2.js?v=13','__KPTU_CALENDAR_INTERACTIONS_READY__'),
+    module('./calendar-interactions-v2.js?v=15','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=5','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=8','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);

@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 const SUPABASE_URL=Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON_KEY=Deno.env.get('SUPABASE_ANON_KEY')!;
 const admin=createClient(SUPABASE_URL,SERVICE_KEY,{auth:{persistSession:false}});
 const CALLBACK=`${SUPABASE_URL}/functions/v1/public-policy-drive/callback`;
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};
@@ -25,7 +26,55 @@ async function eventColors(token:string){if(eventColorsCache&&Date.now()-eventCo
 const EVENTS_CONCURRENCY=4;
 async function mapLimit<T,R>(items:T[],limit:number,fn:(x:T)=>Promise<R>){const out:R[]=new Array(items.length);let next=0;const worker=async()=>{while(next<items.length){const i=next++;out[i]=await fn(items[i])}};await Promise.all(Array.from({length:Math.min(limit,items.length)},worker));return out}
 const errText=(e:unknown)=>e instanceof Error?e.message:String(e);
-function normEvent(e:any,calendarId:string,colors:any){let organizationIds:string[]=[];try{organizationIds=JSON.parse(e.extendedProperties?.private?.kptu_suborg_ids||'[]')}catch{}return {id:e.id,title:e.summary||'(제목 없음)',start:e.start?.dateTime||e.start?.date,end:e.end?.dateTime||e.end?.date,allDay:!!e.start?.date,location:e.location||'',description:e.description||'',calendarId,colorId:e.colorId||null,color:e.colorId&&colors?.[e.colorId]?.background?colors[e.colorId].background:null,htmlLink:e.htmlLink||'',organizationIds:Array.isArray(organizationIds)?organizationIds:[],source:'google'}}
+function normEvent(e:any,calendarId:string,colors:any){let organizationIds:string[]=[];try{organizationIds=JSON.parse(e.extendedProperties?.private?.kptu_suborg_ids||'[]')}catch{}return {id:e.id,title:e.summary||'(제목 없음)',start:e.start?.dateTime||e.start?.date,end:e.end?.dateTime||e.end?.date,allDay:!!e.start?.date,location:e.location||'',description:e.description||'',calendarId,colorId:e.colorId||null,color:e.colorId&&colors?.[e.colorId]?.background?colors[e.colorId].background:null,htmlLink:e.htmlLink||'',organizationIds:Array.isArray(organizationIds)?organizationIds:[],recurring:!!(e.recurringEventId||e.recurrence?.length),source:'google'}}
+// Linkage reads/writes use the authenticated caller's JWT. The service client is only for
+// that caller's Google connection; never use it to bypass milestone/project RLS.
+async function moveAndUpdateEvent(req:Request,token:string,calendarId:string,eventId:string,targetId:string,patch:any){
+  const authorization=req.headers.get('Authorization')?.trim();
+  if(!authorization)throw authError('로그인이 필요합니다.');
+  const calendars=await googleReq('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer',token);
+  const target=(calendars.items||[]).find((c:any)=>c.id===targetId||(targetId==='primary'&&c.primary));
+  if(!target||!['owner','writer'].includes(target.accessRole))throw new Error('쓰기 가능한 대상 캘린더를 선택해 주세요.');
+  const primary=(calendars.items||[]).find((c:any)=>c.primary);
+  if(calendarId==='primary'&&!primary?.id)throw new Error('현재 기본 캘린더를 확인하지 못했습니다. 캘린더는 옮기지 않았습니다.');
+  const sourceIds=[...new Set([calendarId,...((calendarId==='primary'||calendarId===primary?.id)?['primary',primary.id]:[])])];
+  const eventUrl=(id:string)=>`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events/${encodeURIComponent(eventId)}`;
+  const original=await googleReq(eventUrl(calendarId),token);
+  if(original.recurringEventId||original.recurrence?.length)throw new Error('반복 일정은 Google 캘린더에서 옮겨 주세요.');
+  if(original.eventType&&original.eventType!=='default')throw new Error('이 종류의 일정은 Google 캘린더에서 옮길 수 없습니다.');
+  const caller=createClient(SUPABASE_URL,ANON_KEY,{auth:{persistSession:false},global:{headers:{Authorization:authorization}}});
+  const {data:linked,error:readError}=await caller.from('app_project_milestones').select('id,google_calendar_id,google_event_id').in('google_calendar_id',sourceIds).eq('google_event_id',eventId);
+  if(readError||!Array.isArray(linked))throw new Error('프로젝트 주요 일정 연결을 확인하지 못했습니다. 캘린더는 옮기지 않았습니다.');
+  // Private properties belong to a calendar/event copy. Explicitly carry them to the
+  // destination, including organization IDs when an older client omits that field.
+  patch.extendedProperties={...original.extendedProperties,...patch.extendedProperties,private:{...original.extendedProperties?.private,...patch.extendedProperties?.private}};
+  const moved=await googleReq(eventUrl(calendarId)+'/move?'+new URLSearchParams({destination:targetId}),token,'POST');
+  const failures:string[]=[];
+  try{
+    if(linked.length){
+      const ids=linked.map((row:any)=>row.id);
+      const {data:updated,error}=await caller.from('app_project_milestones').update({google_calendar_id:targetId}).in('google_calendar_id',sourceIds).eq('google_event_id',eventId).in('id',ids).select('id,google_calendar_id,google_event_id');
+      if(error||!Array.isArray(updated)||updated.length!==ids.length||ids.some((id:string)=>!updated.some((row:any)=>row.id===id&&row.google_calendar_id===targetId&&row.google_event_id===eventId)))throw new Error('프로젝트 주요 일정 연결 저장 실패');
+    }
+  }catch{failures.push('milestone')}
+  try{
+    // Independently restore private metadata even if the DB update failed.
+    await googleReq(eventUrl(targetId),token,'PATCH',{extendedProperties:patch.extendedProperties});
+  }catch{failures.push('organization')}
+  try{
+    if(failures.length)throw new Error('Move reconciliation failed');
+    const updated=await googleReq(eventUrl(targetId),token,'PATCH',patch);
+    return json({ok:true,moved:true,event:normEvent(updated,targetId,{})});
+  }catch{
+    let actual=moved;
+    try{actual=await googleReq(eventUrl(targetId),token)}catch{}
+    if(!failures.length)failures.push('contents');
+    const stage=failures.join(','),message='캘린더는 옮겨졌지만 '+failures.map(stage=>stage==='milestone'?'프로젝트 주요 일정 연결':stage==='organization'?'담당조직 연결':'일부 내용').join('·')+' 저장에 실패했습니다.'+(failures.includes('contents')?'':' 내용 수정은 적용하지 않았습니다.');
+    // HTTP 200 carries a structured partial result. A generic HTTP error would hide the
+    // actual destination from the runtime and tempt a retry against the old calendar.
+    return json({ok:false,moved:true,partial_failure:true,failed_stage:stage,message,event:normEvent(actual,targetId,{})});
+  }
+}
 function hexRgb(hex:string){const h=String(hex||'').replace('#','');if(!/^[0-9a-fA-F]{6}$/.test(h))return null;return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
 function nearestColorId(hex:string,colors:any){const rgb=hexRgb(hex);if(!rgb)return null;let best:any=null,score=Infinity;for(const [id,v] of Object.entries(colors||{})){const c=hexRgb((v as any).background);if(!c)continue;const s=(rgb[0]-c[0])**2+(rgb[1]-c[1])**2+(rgb[2]-c[2])**2;if(s<score){score=s;best=id}}return best}
 Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:cors});const url=new URL(req.url);try{const user=await getUser(req);const action=url.searchParams.get('action')||(req.method==='POST'?'post':'status');
@@ -37,6 +86,6 @@ if(req.method==='POST'){const body=await req.json().catch(()=>({}));
 if(body.action==='preferences'){const patch:any={updated_at:new Date().toISOString()};if(Array.isArray(body.calendar_ids))patch.calendar_ids=body.calendar_ids;if(typeof body.enabled==='boolean')patch.enabled=body.enabled;if(body.calendar_colors&&typeof body.calendar_colors==='object')patch.calendar_colors=body.calendar_colors;const {error}=await admin.from('app_google_calendar_connections').update(patch).eq('user_id',user.id);if(error)throw error;return json({ok:true})}
 if(body.action==='disconnect'){await admin.from('app_google_calendar_connections').delete().eq('user_id',user.id);return json({ok:true})}
 if(body.action==='create-event'){const c=await ensureAccess(user.id);const calendarId=String(body.calendar_id||'primary');const payload:any={summary:String(body.title||'').trim()||'(제목 없음)',description:String(body.memo||''),location:String(body.location||'')};if(Array.isArray(body.organization_ids))payload.extendedProperties={private:{kptu_suborg_ids:JSON.stringify(body.organization_ids.map(String))}};if(body.all_day){if(!body.start_date||!body.end_date)throw new Error('시작일과 종료일을 입력해 주세요.');const end=new Date(String(body.end_date)+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+1);payload.start={date:String(body.start_date)};payload.end={date:end.toISOString().slice(0,10)}}else{if(!body.start_iso||!body.end_iso)throw new Error('시작·종료 시간을 입력해 주세요.');payload.start={dateTime:String(body.start_iso)};payload.end={dateTime:String(body.end_iso)}}if(body.color_hex){const colors=await eventColors(c.access_token),id=nearestColorId(String(body.color_hex),colors);if(id)payload.colorId=id}const created=await googleReq(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,c.access_token,'POST',payload);return json({ok:true,event:normEvent(created,calendarId,{})})}
-if(body.action==='update-event'){const c=await ensureAccess(user.id);const calendarId=String(body.calendar_id||'primary'),eventId=String(body.event_id||'');if(!eventId)throw new Error('일정 ID가 없습니다.');const patch:any={summary:String(body.title||'').trim()||'(제목 없음)',description:String(body.memo||'')};if(Array.isArray(body.organization_ids))patch.extendedProperties={private:{kptu_suborg_ids:JSON.stringify(body.organization_ids.map(String))}};if(body.all_day){if(!body.start_date||!body.end_date)throw new Error('시작일과 종료일을 입력해 주세요.');const end=new Date(String(body.end_date)+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+1);patch.start={date:String(body.start_date)};patch.end={date:end.toISOString().slice(0,10)}}else{if(!body.start_iso||!body.end_iso)throw new Error('시작·종료 시간을 입력해 주세요.');patch.start={dateTime:String(body.start_iso)};patch.end={dateTime:String(body.end_iso)}}if(body.color_hex){const colors=await eventColors(c.access_token),id=nearestColorId(String(body.color_hex),colors);if(id)patch.colorId=id}const updated=await googleReq(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,c.access_token,'PATCH',patch);return json({ok:true,event:normEvent(updated,calendarId,{})})}
+if(body.action==='update-event'){const c=await ensureAccess(user.id);const calendarId=String(body.calendar_id||'primary'),eventId=String(body.event_id||'');if(!eventId)throw new Error('일정 ID가 없습니다.');const patch:any={summary:String(body.title||'').trim()||'(제목 없음)',description:String(body.memo||'')};if(Array.isArray(body.organization_ids))patch.extendedProperties={private:{kptu_suborg_ids:JSON.stringify(body.organization_ids.map(String))}};if(body.all_day){if(!body.start_date||!body.end_date)throw new Error('시작일과 종료일을 입력해 주세요.');const end=new Date(String(body.end_date)+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+1);patch.start={date:String(body.start_date)};patch.end={date:end.toISOString().slice(0,10)}}else{if(!body.start_iso||!body.end_iso)throw new Error('시작·종료 시간을 입력해 주세요.');patch.start={dateTime:String(body.start_iso)};patch.end={dateTime:String(body.end_iso)}}if(body.color_hex){const colors=await eventColors(c.access_token),id=nearestColorId(String(body.color_hex),colors);if(id)patch.colorId=id}const targetId=String(body.target_calendar_id||'').trim();if(targetId&&targetId!==calendarId)return await moveAndUpdateEvent(req,c.access_token,calendarId,eventId,targetId,patch);const updated=await googleReq(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,c.access_token,'PATCH',patch);return json({ok:true,event:normEvent(updated,calendarId,{})})}
 if(body.action==='delete-event'){const c=await ensureAccess(user.id);const calendarId=String(body.calendar_id||'primary'),eventId=String(body.event_id||'');if(!eventId)throw new Error('일정 ID가 없습니다.');await googleReq(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,c.access_token,'DELETE');return json({ok:true})}}
 return json({error:'Unknown action'},400)}catch(e){return json({error:e instanceof Error?e.message:String(e)},(e as any)?.authRequired?401:400)}});
