@@ -175,15 +175,15 @@
 .clv-day{margin:16px 0}
 .clv-date{font-size:12px;font-weight:700;color:var(--kptu-muted);margin:0 0 4px}
 .clv-today{color:var(--kptu-primary)}
-.clv-event,.clv-tasks,.clv-more{min-height:44px;width:100%;background:transparent;border:0;border-bottom:1px solid var(--kptu-border);border-radius:0;text-align:left;padding:8px 0;color:var(--kptu-ink)}
+.clv-event,.clv-tasks,.clv-more{min-height:44px;width:100%;background:transparent;border:0;border-bottom:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);text-align:left;padding:8px 0;color:var(--kptu-ink)}
 .clv-event{display:flex;align-items:center;gap:10px}
 .clv-time{font-size:12px;color:var(--kptu-muted);flex:0 0 42px}
-.clv-color{width:4px;height:18px;flex:0 0 4px;border-radius:2px}
+.clv-color{width:4px;height:18px;flex:0 0 4px;border-radius:var(--kptu-radius-sm)}
 .clv-title{font-size:14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
 .clv-empty,.clv-tasks,.clv-more{font-size:14px;color:var(--kptu-muted)}
 .clv-empty{padding:12px 0;min-height:44px;border-bottom:1px solid var(--kptu-border)}
 #calendarDayTasks h3{font-size:16px;font-weight:700;margin:16px 0 8px}
 #calendarDayEvents,#calendarDayTasks{display:grid;gap:8px}
 
-.calendar-view-switch .mini,#calendarTodayBtn{font-size:12px;min-height:36px;padding:0 12px;border-radius:8px}
+.calendar-view-switch .mini,#calendarTodayBtn{font-size:12px;min-height:36px;padding:0 12px;border-radius:var(--kptu-radius-md)}
 #calendarTodayBtn{margin-left:6px}
