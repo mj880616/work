@@ -3,7 +3,7 @@ import { loginEntry } from './login-entry.mjs';
 const app='http://127.0.0.1:8123/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export async function openHome(
   page,
-  { delay = 0, delays = {}, fail = "", connected = true, calendarWarning = "", query = "" } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "" } = {},
 ) {
   await page.clock.setFixedTime(new Date("2026-10-06T01:00:00Z"));
   const requests = [],
@@ -103,6 +103,7 @@ export async function openHome(
         },
       ]);
     const latency=delays[a] ?? delays[p.split('/').pop()] ?? (p.includes('/functions/')?delay:0);
+    await (holds[a] ?? holds[p.split('/').pop()]);
     if (latency) await new Promise((r) => setTimeout(r, latency));
     if (fail && p.endsWith(fail))
       return route.fulfill({

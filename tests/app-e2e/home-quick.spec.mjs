@@ -11,8 +11,8 @@ test('quick task starts folded and opens on focus',async({page})=>{
 });
 test('quick task KST midnight, project, IME, partial success and request lock',async({page})=>{
  const {requests}=await openHome(page); const q=quick(page),input=q.locator('[data-quick-input]');
- await input.fill('QA');await expect(q.locator('[data-quick-project] option[value="child"]')).toHaveCount(1);
- await q.locator('[data-quick-project]').selectOption('child');
+ await input.fill('QA');await q.locator('[data-quick-project]').click();
+ await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toBeFocused();
  await page.clock.setFixedTime(new Date('2026-10-06T15:00:00Z'));
  await q.getByRole('button',{name:'오늘',exact:true}).click();
  await q.getByRole('button',{name:'오늘',exact:true}).click();await expect(q.getByRole('button',{name:'오늘',exact:true})).toHaveAttribute('aria-pressed','false');
@@ -42,8 +42,8 @@ test('quick update requires org, preserves multiline, saves and refreshes update
  const {requests}=await openHome(page);const q=quick(page),input=q.locator('[data-quick-input]');
  await q.locator('[data-quick-mode="update"]').click();await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height','146px');await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
  await q.locator('[data-quick-mode="task"]').click();await expect(input).toHaveValue('첫 줄\n둘째 줄');await q.locator('[data-quick-mode="update"]').click();
- await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('조직');await expect(q.locator('[data-quick-org]')).toBeFocused();
- await q.locator('[data-quick-org]').selectOption('o');let fail=true,bodies=[];
+ await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('조직');await expect(page.getByRole('dialog')).toBeVisible();
+ await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await expect(q.locator('[data-quick-org]')).toBeFocused();let fail=true,bodies=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({status:fail?500:200,json:fail?{message:'QA error'}:[]});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('QA error');await expect(input).toHaveValue('첫 줄\n둘째 줄');
  fail=false;const before=requests.length;await q.locator('[data-quick-save]').click();await expect(input).toHaveValue('');expect(bodies[1]).toEqual({organization_id:'o',raw_text:'첫 줄\n둘째 줄',created_by:'home-test'});
@@ -56,9 +56,9 @@ test('recent three unique organizations precede common organization order',async
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:['a','b','c','d'].map(organization_id=>({organization_id}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:['e','c','c','a','d','b'].map(organization_id=>({organization_id,occurred_at:'2026-10-06'}))}));
  await page.reload();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').focus();
- await expect(q.locator('[data-quick-org] optgroup[label="최근 기록"] option')).toHaveCount(3);
- expect(await q.locator('[data-quick-org] optgroup[label="최근 기록"] option').evaluateAll(xs=>xs.map(x=>x.value))).toEqual(['c','a','d']);
- expect(await q.locator('[data-quick-org] option').evaluateAll(xs=>xs.map(x=>x.value))).not.toContain('e');
+ await q.locator('[data-quick-org]').click();await expect(page.locator('[data-sheet-recent] button')).toHaveCount(3);
+ expect(await page.locator('[data-sheet-recent] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).toEqual(['c','a','d']);
+ expect(await page.locator('[data-sheet-all] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).not.toContain('e');
 });
 test('mode memory failures default to task, reload guard detects hidden home draft',async({page})=>{
  await openHome(page);const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','update');
@@ -74,10 +74,10 @@ for(const width of [390,1440])test(`quick visual measurements and snapshot ${wid
  if(width===390){await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'));});await expect(page.locator('.mobile-tabs')).toBeHidden();const b=await q.locator('[data-quick-input]').boundingBox();expect(b.y+b.height).toBeLessThan(400);}
 });
 test('catalog changes clear a retired selection and refresh labels during the same visit',async({page})=>{
- await openHome(page);const q=quick(page);await q.locator('[data-quick-input]').fill('QA');await q.locator('[data-quick-project]').selectOption('child');
+ await openHome(page);const q=quick(page);await q.locator('[data-quick-input]').fill('QA');await q.locator('[data-quick-project]').click();await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toBeFocused();
  await page.evaluate(()=>{const cat=window.KPTUProjectCatalog,s=cat.snapshot();cat.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:s.spaces.map(p=>({...p,name:'QA renamed',status:p.id==='child'?'archived':p.status}))});});
- await expect(q.locator('[data-quick-project] option[value="child"]')).toHaveCount(0);await expect(q.locator('[data-quick-project]')).toHaveValue('');
- await expect(q.locator('[data-quick-project] option[value="p"]')).toHaveText('QA renamed');
+ await expect(q.locator('[data-quick-project]')).toHaveText('프로젝트 ▾');await q.locator('[data-quick-project]').click();
+ await expect(page.locator('[data-sheet-value="child"]')).toHaveCount(0);await expect(page.locator('[data-sheet-value="p"]')).toHaveText('QA renamed');await page.keyboard.press('Escape');await expect(q.locator('[data-quick-project]')).toBeFocused();
  const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'new'}}});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies[0].links).toEqual([]);
 });
@@ -126,6 +126,6 @@ test('recent organization paging finds three unique choices beyond repeated reco
    const url=new URL(r.request().url());if(!url.searchParams.has('created_by'))return r.fulfill({json:[]});
    const offset=Number(url.searchParams.get('offset'));offsets.push(offset);return r.fulfill({json:(offset===0?Array(100).fill('a'):['b','c']).map(organization_id=>({organization_id,occurred_at:'2026-10-06'}))});
  });
- await page.reload();const q=quick(page);await q.locator('[data-quick-input]').focus();
- await expect(q.locator('[data-quick-org] optgroup[label="최근 기록"] option')).toHaveCount(3);expect(offsets).toEqual([0,100]);
+ await page.reload();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await q.locator('[data-quick-input]').focus();
+ await q.locator('[data-quick-org]').click();await expect(page.locator('[data-sheet-recent] button')).toHaveCount(3);expect(offsets).toEqual([0,100]);
 });

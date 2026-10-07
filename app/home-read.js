@@ -1,4 +1,4 @@
-import { mountQuick } from './home-quick.js?v=1';
+import { mountQuick } from './home-quick.js?v=2';
 import { createHomeCache } from './home-read-cache.js?v=1';
 import {
   ranges,
@@ -339,9 +339,20 @@ const loaders = {
     const known=!!copies.calendar||(calendarState?.owner===owner()&&calendarState.status?.connected)||(fromCalendar?.owner===owner()&&fromCalendar.status?.connected);
     const r=ranges(),events=()=>share('events',()=>api(`/functions/v1/google-calendar?action=events&timeMin=${encodeURIComponent(new Date(r.start).toISOString())}&timeMax=${encodeURIComponent(new Date(r.end).toISOString())}`));
     // Attach a rejection handler immediately while the status check is still pending.
-    const early=known?events().then(value=>({value}),error=>({error})):null;
+    const applyEvents=(d,status)=>{
+      guard(run);
+      if(d?.connected===false||d?.needs_reconnect||d?.authorized===false||calendarAuthError(d?.warning||''))return disconnected('calendar');
+      if(d.warning)throw new Error(d.warning);
+      const rows=eventRows(d.events||[],status);
+      saveCopy('calendar',{day:dayKey(),rows});renderCalendar(rows);
+      metrics.refreshed.calendar=Math.round(performance.now()-metrics.shellAt);timing();
+    };
+    // A slow calendar-list status read must not hold a completed fresh events read behind the display copy.
+    // Events still authenticate server-side; the eventual status result can supersede this display.
+    let statusPending=true;
+    const early=known?events().then(value=>{if(statusPending)applyEvents(value,calendarState?.status||fromCalendar?.status||{});return {value};}).catch(error=>({error})):null;
     let status;
-    try{status=await dependencies.calendar();}catch(e){guard(run);if(calendarAuthError(e))return disconnected('calendar');throw e;}
+    try{status=await dependencies.calendar();}catch(e){guard(run);if(calendarAuthError(e))return disconnected('calendar');throw e;}finally{statusPending=false;}
     guard(run);
     calendarState={owner:owner(),status};
     if(!status?.connected||status.needs_reconnect||status.authorized===false)return disconnected('calendar');
@@ -349,10 +360,7 @@ const loaders = {
     try{const result=early?await early:{value:await events()};if(result.error)throw result.error;d=result.value;}
     catch(e){guard(run);if(calendarAuthError(e))return disconnected('calendar');throw e;}
     guard(run);
-    if(d?.connected===false||d?.needs_reconnect||d?.authorized===false||calendarAuthError(d?.warning||''))return disconnected('calendar');
-    if(d.warning)throw new Error(d.warning);
-    const rows=eventRows(d.events||[],status);
-    saveCopy('calendar',{day:dayKey(),rows});renderCalendar(rows);
+    applyEvents(d,status);
   },
   async tasks(run, includeMeetings = true) {
     const g = await dependencies.google(),
@@ -512,13 +520,14 @@ function trackTaskFlight(promise,run){
   const tracked=promise.finally(()=>{
     if(taskFlight!==tracked)return;
     taskFlight=null;
-    if(run===epoch&&tasksDirty){tasksDirty=false;void refreshTaskCards();}
+    if(run===epoch&&tasksDirty){tasksDirty=false;return refreshTaskCards();}
   });
   taskFlight=tracked;return tracked;
 }
-function refreshTaskCards({afterSave=false}={}){
+function refreshTaskCards(){
   if(!owner()||homeOwner!==owner())return Promise.resolve();
-  if(taskFlight){if(afterSave)tasksDirty=true;return taskFlight;}
+  // A mutation burst during a read needs one following fresh read, not the in-flight snapshot.
+  if(taskFlight){tasksDirty=true;return taskFlight;}
   const run=epoch;
   freshTaskRead=true;linksReady=false;meetingsReady=false;
   google?.invalidateAfterCreate();
@@ -593,6 +602,7 @@ window.addEventListener("kptu:google-tasks-changed", (event) => {
   if (window.KPTURouter.current !== "home") return;
   if (event.detail?.source === "toggle") {
     renderTasks();
+    if(taskFlight)void refreshTaskCards();
     return;
   }
   void refreshTaskCards();
@@ -610,7 +620,7 @@ window.addEventListener("kptu:api-saved", (event) => {
   }
 });
 async function refreshQuickTasks() {
-  await refreshTaskCards({afterSave:true});
+  await refreshTaskCards();
 }
 mountQuick({root,dependencies,refreshTasks:refreshQuickTasks,invalidateProjects:()=>flights.delete("projects"),esc});
 window.KPTUHome = { start:options=>{void start(options);}, metrics };
