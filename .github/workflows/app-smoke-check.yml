@@ -300,11 +300,14 @@ jobs:
       - name: Check calendar explicit-render invariants
         run: |
           set -e
-          grep -q "window.KPTUCalendarMonthView={render,visibleRange,setNavigate" app/calendar-month-view.js
+          grep -q "window.KPTUCalendarMonthView={render,googleColor,visibleRange,setNavigate" app/calendar-month-view.js
           grep -q "window.__KPTU_CALENDAR_MONTH_VIEW_READY__" app/calendar-month-view.js
           grep -q "calendar-month-view.js?v=14" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MONTH_VIEW_READY__" app/view-loader.js
-          grep -q "KPTUCalendarMonthView?.render?.(" app/team.js
+          grep -Fq "(window.KPTUCalendarView||window.KPTUCalendarMonthView)?.render?.(" app/team.js
+          grep -Fq "window.KPTUCalendarMonthView?.render(next)" app/calendar-view.js
+          grep -q "calendar-view.js?v=1" app/view-loader.js
+          grep -q "calendar-list-view.js?v=1" app/calendar-view.js
           grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
           grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js
