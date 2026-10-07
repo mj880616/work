@@ -11,13 +11,22 @@
 | Claude Code 로컬 | 사용자 PC | 코드·문서·테스트, Supabase MCP(production 조회 전용), supabase CLI, gh. production 조회·Edge 배포·DB 적용 절차 | 아래 금지 규칙 |
 | Claude Code 웹 | 클라우드 | 코드·문서·테스트 | Supabase·production 접근 |
 | Codex CLI(PC) | 사용자 PC | 코드·문서·테스트, Supabase MCP(조회 전용, 이 프로젝트만), 커맨드센터에서 승인한 비밀값 없는 Edge 배포(§8) | 승인 없는 Edge 배포, Edge 삭제, DB 쓰기·migration·비밀값 변경, 허용된 Edge 배포 외 supabase CLI production 변경 |
-| Codex 웹 | 클라우드 | 📱 작업만(코드·문서·테스트) | DB·Edge·production 접근, 환경에 비밀값 저장 |
+| Codex 웹 | 클라우드 | 📱 작업(코드·문서·테스트·PR 생성), 승인형 Edge 배포 workflow 파일 작성(§8) | 운영 비밀값·DB 쓰기·Supabase 로그인·production 접근, workflow 실행·승인 |
+| 사용자 승인형 Edge workflow | GitHub Actions `production-edge` | 커맨드센터 승인 → 사용자 `edge-function-deploy.yml` 수동 실행 → `production-edge` 승인 후 지정 함수 배포·검증(§8) | 자동 배포, Edge 삭제, DB migration·비밀값 변경 |
 
 - **사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포는 Codex 로컬에서 `supabase login --no-browser` 일회용 로그인으로 허용한다. 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 계속 Claude Code 로컬 또는 대시보드.** DB 적용은 §7의 기존 절차와 영구 금지를 그대로 따른다.
 - 도구 전환은 작업 사이에서만 한다. 한 브랜치·PR을 두 도구가 동시에 고치지 않는다.
 - production 조회·배포·적용이 웹 세션(Claude Code 웹·Codex 웹)에서 필요해지면 추측하지 말고 중단·보고한다.
 - 웹 세션에 production 토큰을 등록하도록 제안하지 않는다.
 - Windows에서 supabase CLI는 `npx.cmd supabase`로 실행한다.
+
+### 2026-10-20까지 임시
+
+- Codex 클라우드는 코드·문서·테스트·PR 생성만 허용한다. 운영 비밀값 취급·DB 쓰기·Supabase 로그인·운영 접속은 하지 않는다.
+- Edge 배포는 **커맨드센터 승인 → 사용자가 `edge-function-deploy` workflow 실행 → `production-edge` 승인** 순서로만 한다. 기존 Codex 로컬의 커맨드센터 승인 후 `supabase login --no-browser` 일회용 로그인 배포(§8 예외)는 계속 허용한다.
+- DB migration·비밀값 변경·Edge 삭제는 금지한다. 급하면 커맨드센터 승인 뒤 사용자가 대시보드에서 직접 처리한다. §7의 영구 금지는 유지한다.
+- 운영 토큰은 GitHub `production-edge` environment 비밀값 `SUPABASE_ACCESS_TOKEN`에만 두며, Codex 클라우드 환경에는 등록하지 않는다. 프로젝트는 같은 environment의 변수 `SUPABASE_PROJECT_REF`로 지정한다.
+- 기한이 지나면 이 절을 삭제하고 Supabase 토큰을 폐기한다. `production-edge` 비밀값도 삭제하고 workflow 유지 여부를 결정한다(`docs/roadmap.md`의 OPS-클라우드복귀).
 
 ### 지시서 표시
 
@@ -109,9 +118,13 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - DB 변경을 요청할 때 사용자에게 일상어 3줄을 먼저 제시한다: 무엇이 바뀌나 / 잘못되면 어떤 일이 생기나 / 되돌리는 방법.
 - 사용자에게 확인받을 3가지: 커맨드센터 실행 승인, SQL 끝이 `commit;`인지, 실행 결과 Success.
 
-## 8. Edge Function 배포 (Claude Code 로컬 / 커맨드센터 승인 시 Codex 로컬)
+## 8. Edge Function 배포 (Claude Code 로컬 / 커맨드센터 승인 시 Codex 로컬 / 사용자 승인형 workflow)
 
-- 로컬 세션, manual mode에서만 한다.
+- 로컬 세션 manual mode 또는 사용자 승인형 `.github/workflows/edge-function-deploy.yml`로만 한다. 2026-10-20까지는 §1 임시 규칙을 우선 적용하며, 기존 Codex 로컬 예외는 유지한다.
+- workflow 경로: 커맨드센터 승인 → 사용자가 수동 실행 → `production-edge` 승인. Codex 클라우드는 파일·PR만 준비하며 workflow를 실행하거나 environment를 승인하지 않는다. 승인자 설정은 사용자가 GitHub environment에서 관리한다.
+- workflow 입력 `function`은 기존 함수 폴더 이름(밑줄 시작·`_shared` 불가), `ref`는 배포할 커밋·브랜치(기본 `main`), `expect_unauth_401`은 기본 `true`다. 공개 함수에서만 `false`로 지정해 POST 검사를 생략한다. 배포 전 이전 운영 소스 SHA를 기록하며 되돌리기는 그 SHA를 `ref`에 넣어 같은 버튼·승인 절차로 재실행한다.
+- workflow는 지정 함수의 현재 version·verify_jwt·updated_at을 summary에 기록하고, 현재 verify_jwt를 유지하며 `--use-api`로 배포한다. 배포 후 버전 증가·JWT 정책 동일·비로그인 POST 401(검사 대상만)·OPTIONS 200을 확인한다. 검증 실패는 이미 실행된 배포를 자동 취소하지 않는다. `functions list`에는 이전 소스 SHA가 없으므로 이전 운영 소스 SHA는 승인 전에 따로 확인한다.
+- OPTIONS 검사 기준은 200으로 고정이다. 기존 함수 중 `drive-summary`·`public-page-edit`처럼 204를 반환하는 함수는 배포 후 검증에서 실패한다. 함수 응답·인증 경계를 이 workflow 작업에서 변경하지 않으며, 실행 승인 전에 이 제한을 확인한다.
 - Codex 로컬은 사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포만 허용한다. `supabase login --no-browser`로 일회용 로그인하고 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 허용하지 않는다.
 - 배포 전 `functions list`로 현재 버전·verify_jwt·시각을 기록한다.
 - 함수 이름을 반드시 지정한다. `--prune` 금지.
