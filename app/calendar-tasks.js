@@ -23,7 +23,7 @@ function forCalendar(list){
     return [{id:t.id,title:t.title||'제목 없음',date,done:t.status==='completed',overdue:g.isOverdue(t,now)}];
   });
 }
-function publish(list,at){tasks=list;tasksAt=at;window.KPTUCalendarMonthView?.setTasks?.(forCalendar(list))}
+function publish(list,at){tasks=list;tasksAt=at;window.KPTUCalendarMonthView?.setTasks?.(forCalendar(list));window.KPTUCalendarView?.setTasks?.(forCalendar(list))}
 // This device's copy, when it is newer than what the calendar shows (e.g. after completing a task in the task view).
 function applyCopy(){const copy=api()?.peekTasks?.();if(copy&&copy.owner===currentOwner()&&copy.savedAt>tasksAt)publish(copy.tasks,copy.savedAt)}
 function refresh(){

@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+
+// Existing month-view regressions choose month explicitly.
+test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
 import { loginEntry } from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -23,6 +26,7 @@ async function mockApp(page){
 }
 
 async function login(page){
+  await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
   await page.goto(loginEntry('http://127.0.0.1:8123/app/?view=calendar'));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill('nav@example.org');
@@ -202,6 +206,7 @@ test('Chromium page scale releases calendar touch action and restores it after z
   const context=await browser.newContext({viewport:{width:412,height:844},isMobile:true,hasTouch:true});
   const page=await context.newPage();
   try{
+    await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
     await mockApp(page);
     await login(page);
     await expect(page.locator('#calendarGrid')).toBeVisible();

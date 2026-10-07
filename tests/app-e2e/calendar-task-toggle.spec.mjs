@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+
+// Existing month-view regressions choose month explicitly.
+test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
 import { loginEntry } from './helpers/login-entry.mjs';
 
 const ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';

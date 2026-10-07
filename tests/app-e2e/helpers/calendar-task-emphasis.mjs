@@ -25,8 +25,9 @@ const EVENTS=[
     start:'2026-10-21',end:'2026-10-22',allDay:true,color:'#4285f4'}
 ];
 
-export async function openEmphasisFixture(page){
+export async function openEmphasisFixture(page,{view="month",events=EVENTS}={}){
   const calls=[],external=[];
+  if(view!=="default")await page.addInitScript(v=>{try{localStorage.setItem("kptu-calendar-view",v)}catch{}},view);
   await page.clock.setFixedTime(new Date(NOW));
   // Catch every remote request: all API responses are synthetic and no production request can leave the browser.
   await page.route('**/*',async route=>{
@@ -34,14 +35,14 @@ export async function openEmphasisFixture(page){
     if(url.origin===ORIGIN)return route.continue();
     const ok=body=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
     if(url.hostname!=='xmlkxfjeagycwttklxjw.supabase.co'){external.push(url.origin);return route.abort()}
-    calls.push({path,action:url.searchParams.get('action'),method:request.method()});
+    calls.push({path,action:url.searchParams.get('action'),method:request.method(),min:url.searchParams.get("timeMin"),max:url.searchParams.get("timeMax")});
     const user={id:'qa-user',email:'qa@example.org',user_metadata:{display_name:'QA'}};
     if(path==='/auth/v1/token')return ok({access_token:'qa',refresh_token:'qa',expires_in:3600,expires_at:4102444800,user});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-user',role:'owner'}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'qa-ws',name:'QA Workspace'}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:'qa-user',display_name:'QA'}]);
-    if(path==='/functions/v1/google-calendar')return ok({connected:true,enabled:true,calendars:[{id:'qa-cal',summary:'QA',backgroundColor:'#4285f4',accessRole:'owner'}],calendar_ids:['qa-cal'],events:EVENTS});
+    if(path==='/functions/v1/google-calendar')return ok({connected:true,enabled:true,calendars:[{id:'qa-cal',summary:'QA',backgroundColor:'#4285f4',accessRole:'owner'}],calendar_ids:['qa-cal'],events});
     if(path==='/functions/v1/google-tasks')return ok(url.searchParams.get('action')==='links'
       ?{links:[],meeting_links:[]}:{connected:true,authorized:true,needs_reconnect:false,tasks:TASKS,pending_scope:'all'});
     return ok([]);
@@ -52,8 +53,8 @@ export async function openEmphasisFixture(page){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
-  await expect(page.locator('#calendarGrid [data-calendar-task="pending"]')).toBeVisible();
-  await expect(page.locator('#calendarGrid [data-google-event="blue-0"]')).toBeVisible();
+  if(view==="month")await expect(page.locator('#calendarGrid [data-calendar-task="pending"]')).toBeVisible();
+  if(view==="month")await expect(page.locator('#calendarGrid [data-google-event="blue-0"]')).toBeVisible();
   return {calls,external};
 }
 

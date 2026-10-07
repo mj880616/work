@@ -1,5 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
+
+test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
 import { writeFileSync } from 'node:fs';
 
 // Google Calendar 로딩 성능 측정(mock). Google API는 Edge Function 내부에서 호출되므로

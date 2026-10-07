@@ -80,7 +80,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 
 - 홈: `home-read.js`가 읽기 칸의 유일한 renderer, `home-read-model.js`가 KST 날짜·주 경계와 선택 규칙을 소유한다. `/app/` 기본은 홈이며 일정은 `?view=calendar`이다. 날짜·메뉴 셸을 먼저 공개한 뒤 각 칸을 독립 조회하고, Google 목록·확정 연결·프로젝트 카탈로그·조직 목록은 공유한다. 완료 상태는 `google-tasks.js`의 toggleTask·3초 settling·기존 변경 이벤트를 쓴다. 빠른 입력은 D-4a ③ 범위다.
 
-- 일정: `calendar-month-view.js`가 월간 DOM의 단일 renderer이며 `calendar-persistence.js`의 Google 일정과 Google 할 일을 표시함. `calendar-persistence.js`는 Google 선택·조회·stale-response 방어만 담당하고 월간 DOM을 직접 그리지 않음. 새 일정·수정은 Google 캘린더에 저장하며, 프로젝트 주요 일정은 `app_project_milestones`의 제목·날짜와 Google 연결 ID로 프로젝트 화면에도 표시함. 나머지 `calendar-*`는 생성·편집·OAuth 복귀·날짜 상세 등 명시적 보조 기능을 담당함.
+- 일정: `calendar-view.js`가 보기 선택·목록 범위·추가 조회 상태를 소유하고 `calendar-list-view.js`가 목록 DOM을 단독으로 그린다. 목록의 날짜별 일정은 `home-read-model.js`의 KST·배타적 종료 기준을 재사용한다. 보기 범위는 `calendar-persistence.js`에 전달하며 Google 선택·캐시·stale-response 방어를 공유한다. `calendar-tasks.js`는 날짜 제한 없는 Google 목록을 두 renderer에 전달한다. `calendar-day-overflow.js`는 두 보기의 날짜 창을 공통으로 그린다. `calendar-month-view.js`가 월간 DOM의 단일 renderer이며 `calendar-persistence.js`의 Google 일정과 Google 할 일을 표시함. `calendar-persistence.js`는 Google 선택·조회·stale-response 방어만 담당하고 월간 DOM을 직접 그리지 않음. 새 일정·수정은 Google 캘린더에 저장하며, 프로젝트 주요 일정은 `app_project_milestones`의 제목·날짜와 Google 연결 ID로 프로젝트 화면에도 표시함. 나머지 `calendar-*`는 생성·편집·OAuth 복귀·날짜 상세 등 명시적 보조 기능을 담당함.
 - 할 일: `task-*`
 - 프로젝트: `project-*`
 - 회의: `meeting-*`

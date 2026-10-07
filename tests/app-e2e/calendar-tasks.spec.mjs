@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+
+// Existing month-view regressions choose month explicitly.
+test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
 import { loginEntry } from './helpers/login-entry.mjs';
 
 // CAL-할일: Google tasks on the month calendar by due date. Pending tasks sit on their due date (overdue ones too), tasks

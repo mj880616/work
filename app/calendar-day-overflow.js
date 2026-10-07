@@ -6,7 +6,7 @@
 
   function ensureModal(){
     if(document.querySelector('#calendarDayModal'))return;
-    document.body.insertAdjacentHTML('beforeend','<div id="calendarDayModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="calendarDayTitle"><div class="modal-card small-card kptu-day-card"><div class="modal-head"><div><div class="eyebrow">DAY SCHEDULE</div><h2 id="calendarDayTitle">일정</h2></div><button class="icon-btn" data-close="calendarDayModal" type="button" aria-label="닫기">×</button></div><div id="calendarDayList" class="kptu-day-list"></div></div></div>');
+    document.body.insertAdjacentHTML('beforeend','<div id="calendarDayModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="calendarDayTitle"><div class="modal-card small-card kptu-day-card"><div class="modal-head"><div><h2 id="calendarDayTitle">일정</h2></div><button class="icon-btn" data-close="calendarDayModal" type="button" aria-label="닫기">×</button></div><div id="calendarDayList" class="kptu-day-list"></div></div></div>');
   }
   function eventRow(ev){
     // Google tasks (CAL-할일) keep the month view's task chip; calendar-tasks.js opens the task editor for them.
@@ -24,7 +24,9 @@
     const list=document.querySelector('#calendarDayList'),title=document.querySelector('#calendarDayTitle');
     title.textContent=date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});
     list.replaceChildren();
-    events.forEach(ev=>list.appendChild(eventRow(ev)));
+    const schedules=events.filter(e=>e.source!=='task'),tasks=events.filter(e=>e.source==='task');
+    if(schedules.length){const section=document.createElement('section');section.id='calendarDayEvents';schedules.forEach(e=>section.append(eventRow(e)));list.append(section)}
+    if(tasks.length){const section=document.createElement('section');section.id='calendarDayTasks';const heading=document.createElement('h3');heading.textContent='할 일';section.append(heading);tasks.forEach(e=>section.append(eventRow(e)));list.append(section)}
     if(!events.length)list.innerHTML='<div class="empty compact">일정 없음</div>';
     const modal=document.querySelector('#calendarDayModal');modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog.activate?.(modal,{trigger:document.activeElement,initialFocus:'#calendarDayList .cal-event',onRequestClose:()=>{modal.classList.add('hidden');modal.setAttribute('aria-hidden','true')}});
