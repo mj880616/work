@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openEmphasisFixture, taskChip } from './helpers/calendar-task-emphasis.mjs';
+import { openEmphasisFixture, taskChip, openTaskDay } from './helpers/calendar-task-emphasis.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -9,7 +9,7 @@ async function openList(page,width){
   await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_MOBILE_MODAL_HISTORY__)).toBe(true);
   const calendarUrl=page.url();
   await page.evaluate(()=>{window.qaModalPops=0;window.addEventListener('popstate',()=>window.qaModalPops++)});
-  await page.getByRole('button',{name:/10월 21일 일정 \d+개 더 보기/}).click();
+  await page.locator('.cal-cell[data-date="2026-10-21"] .cmv-task-count').click();
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   if(width<=760)await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('calendarDayModal');
   return {...fixture,calendarUrl};
@@ -17,7 +17,7 @@ async function openList(page,width){
 
 for(const kind of ['task','google']){
   for(const width of [390,900]){
-    test(`+N ${kind} editor stays open after list history closes (${width}px)`,async({page})=>{
+    test(`task-count day list ${kind} editor stays open after list history closes (${width}px)`,async({page})=>{
       const {external,calendarUrl}=await openList(page,width);
       const selector=kind==='task'?'#gtTaskModal':'#ciGoogleModal';
       if(kind==='task')await taskChip(page,'overflow-pending','#calendarDayList').click();
@@ -49,6 +49,7 @@ test('normal mobile calendar task editor closes with one back and keeps the cale
   await page.setViewportSize({width:390,height:844});
   const {external}=await openEmphasisFixture(page);
   const calendarUrl=page.url();
+  await openTaskDay(page);
   await taskChip(page,'pending').click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('gtTaskModal');
@@ -78,7 +79,7 @@ test('normal desktop Google calendar editor opens and closes without history tra
 
 
 for(const kind of ['task','google']){
-  test(`+N ${kind} editor waits for the actual list history traversal`,async({page})=>{
+  test(`task-count day list ${kind} editor waits for the actual list history traversal`,async({page})=>{
     await openList(page,390);
     await page.evaluate(()=>{
       const back=history.back.bind(history);

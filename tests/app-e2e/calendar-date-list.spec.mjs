@@ -66,7 +66,7 @@ test('blank creates on its date; event and overflow retain their editors and lis
   await expect(page.locator('#ciGoogleSave')).toBeEnabled();
   await page.locator('#ciGoogleClose').click();
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
-  await page.getByRole('button',{name:/10월 21일 일정 \d+개 더 보기/}).click();
+  await page.locator('.cal-cell[data-date="2026-10-21"] .cmv-task-count').click();
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(19);
 });

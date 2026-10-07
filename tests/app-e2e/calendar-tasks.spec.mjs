@@ -57,21 +57,35 @@ async function ready(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
 }
-const chip=(page,id)=>page.locator(`#calendarGrid [data-calendar-task="${id}"]`);
-const cellOf=(page,id)=>chip(page,id).evaluate(el=>{
-  const week=el.closest('.cmv-week'),col=Number(getComputedStyle(el).gridColumnStart)-1;
-  return week.querySelectorAll('.cal-cell')[col].dataset.date;
-});
+const chip=(page,id)=>page.locator(`#calendarDayTasks [data-calendar-task="${id}"]`);
+const badge=(page,date)=>page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count`);
+const cellOf=(page,id)=>page.evaluate(id=>{
+  for(const cell of document.querySelectorAll('#calendarGrid .cal-cell')){
+    if(KPTUCalendarMonthView.dayEvents(cell.dataset.date).some(t=>t.source==='task'&&t.id===id))return cell.dataset.date;
+  }
+},id);
+async function openDay(page,date){
+  if(await page.locator('#calendarDayModal').isVisible()){
+    await page.locator('[data-close="calendarDayModal"]').click();
+    await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
+  }
+  await expect.poll(()=>page.evaluate(date=>KPTUCalendarMonthView.dayEvents(date).some(t=>t.source==='task'),date)).toBe(true);
+  if(await badge(page,date).count())await badge(page,date).click();
+  else await page.evaluate(date=>KPTUCalendarDayOverflow.open(new Date(date+'T12:00:00'),KPTUCalendarMonthView.dayEvents(date)),date);
+  await expect(page.locator('#calendarDayModal')).toBeVisible();
+}
 
 test('tasks sit on their due date: overdue stays, recent completed is struck and faded, undated is left out',async({page})=>{
   const calls=await setup(page,{handler:()=>({body:overview(FIXTURE)})});
   await login(page);
-  await expect(chip(page,'p1')).toBeVisible();
+  await expect(badge(page,'2026-10-20')).toBeVisible();
   expect(await cellOf(page,'p1')).toBe('2026-10-20');
   expect(await cellOf(page,'o1')).toBe('2026-10-10');
+  await openDay(page,'2026-10-10');
   await expect(chip(page,'o1')).toHaveClass(/cmv-task-overdue/);
   await expect(chip(page,'o1')).toHaveAttribute('aria-label','할 일: 지난 할 일, 기한 지남');
   expect(await cellOf(page,'c1')).toBe('2026-10-14');
+  await openDay(page,'2026-10-14');
   await expect(chip(page,'c1')).toHaveClass(/cmv-task-done/);
   await expect(chip(page,'c1')).toHaveAttribute('aria-label','할 일: 어제 끝낸 일, 완료');
   const look=await chip(page,'c1').evaluate(el=>({opacity:Number(getComputedStyle(el).opacity),line:getComputedStyle(el.querySelector('.cmv-event-title')).textDecorationLine}));
@@ -79,7 +93,8 @@ test('tasks sit on their due date: overdue stays, recent completed is struck and
   expect(look.line).toContain('line-through');
   await expect(chip(page,'c5')).toHaveCount(0);
   await expect(chip(page,'u1')).toHaveCount(0);
-  await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(3);
+  expect(await page.evaluate(()=>[...document.querySelectorAll('#calendarGrid .cal-cell')].flatMap(c=>KPTUCalendarMonthView.dayEvents(c.dataset.date)).filter(t=>t.source==='task').map(t=>t.id).sort())).toEqual(['c1','o1','p1']);
+  await openDay(page,'2026-10-20');
   // Told apart from events by shape and text, not only color: a completion circle and a "할 일" label.
   await expect(chip(page,'p1').locator('.cmv-task-mark')).toHaveCount(1);
   await expect(chip(page,'p1')).toHaveAttribute('aria-label','할 일: 다음 주 할 일');
@@ -90,6 +105,7 @@ test('tasks sit on their due date: overdue stays, recent completed is struck and
 test('tapping a task opens the existing Google task editor and does not complete it',async({page})=>{
   const calls=await setup(page,{handler:()=>({body:overview(FIXTURE)})});
   await login(page);
+  await openDay(page,'2026-10-20');
   await chip(page,'p1').click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtTaskHeading')).toHaveText('Google 할 일 수정');
@@ -106,10 +122,12 @@ test('saving from the editor opened on the calendar reads the tasks again',async
     return {body:overview(tasks)};
   }});
   await login(page);
+  await openDay(page,'2026-10-20');
   await chip(page,'p1').click();
   await page.locator('#gtEditTitle').fill('바꾼 제목');
   await page.locator('#gtSaveBtn').click();
   await expect(page.locator('#gtTaskModal')).toBeHidden();
+  await openDay(page,'2026-10-21');
   await expect(chip(page,'p1')).toHaveAttribute('aria-label','할 일: 바꾼 제목');
   expect(await cellOf(page,'p1')).toBe('2026-10-21');
   expect(calls.filter(c=>c.action==='overview')).toHaveLength(2);
@@ -143,7 +161,7 @@ test('the first calendar screen does not wait for tasks',async({page})=>{
   await expect.poll(()=>calls.length).toBe(1);
   await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(0);
   release();
-  await expect(chip(page,'p1')).toBeVisible();
+  await expect(badge(page,'2026-10-20')).toBeVisible();
 });
 
 test('this device\'s copy shows first and an equal fresh copy does not redraw',async({page})=>{
@@ -155,17 +173,20 @@ test('this device\'s copy shows first and an equal fresh copy does not redraw',a
   await expect(page.locator('#gtTaskSection')).toContainText('다음 주 할 일');
   hold=true;
   await page.goto(`${TEST_ORIGIN}/app/?view=calendar`);await ready(page);
-  await expect(chip(page,'p1')).toBeVisible();
-  await page.evaluate(()=>{document.querySelector('[data-calendar-task="p1"]').dataset.qaMark='kept'});
+  await expect(badge(page,'2026-10-20')).toBeVisible();
+  await page.evaluate(()=>{document.querySelector('.cal-cell[data-date="2026-10-20"] .cmv-task-count').dataset.qaMark='kept'});
   release();
   // Same data: the drawn chip stays (no redraw, no flicker).
   await page.waitForTimeout(300);
-  await expect(chip(page,'p1')).toHaveAttribute('data-qa-mark','kept');
+  await expect(badge(page,'2026-10-20')).toHaveAttribute('data-qa-mark','kept');
   // Changed data replaces it on the next read.
   hold=false;tasks=[gt('p1','새 제목','2026-10-20T00:00:00.000Z')];
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed')));
+  await expect(badge(page,'2026-10-20')).not.toHaveAttribute('data-qa-mark','kept');
+  await openDay(page,'2026-10-20');
   await expect(chip(page,'p1')).toHaveAttribute('aria-label','할 일: 새 제목');
-  await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(1);
+  await expect(page.locator('#calendarDayTasks [data-calendar-task]')).toHaveCount(1);
+  await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(0);
 });
 
 // Google stores a due date as midnight UTC of that date. The calendar uses its date part as it is, so neither Korean midnight
@@ -184,11 +205,14 @@ for(const [label,now,overdue14] of [
         gt('d15','15일 할 일','2026-10-15T00:00:00.000Z')
       ])})});
       await login(page);
+      await expect(badge(page,'2026-10-14')).toBeVisible();
+      await openDay(page,'2026-10-14');
       await expect(chip(page,'d14')).toBeVisible();
       expect(await cellOf(page,'d14')).toBe('2026-10-14');
       expect(await cellOf(page,'d15')).toBe('2026-10-15');
       if(overdue14)await expect(chip(page,'d14')).toHaveClass(/cmv-task-overdue/);
       else await expect(chip(page,'d14')).not.toHaveClass(/cmv-task-overdue/);
+      await openDay(page,'2026-10-15');
       await expect(chip(page,'d15')).not.toHaveClass(/cmv-task-overdue/);
       await context.close();
     });
