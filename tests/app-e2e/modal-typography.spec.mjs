@@ -70,8 +70,9 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original,'b9dbcaee0b8e92bd8d80334bf97999f561deef94');await boot(original);
  for(const name of ['projects','meetings','media','pages','team','tasks','calendar','library']){
   for(const p of [page,original])await view(p,name);
-  const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!e.closest('.calendar-view-switch,#calendarTodayBtn')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
+  const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!e.closest('.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task]')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
   expect(await snapshot(page),name).toEqual(await snapshot(original));
+
  }
  await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expect(page.locator('#ps3Title')).toHaveText('Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await page.locator('[data-ps3-close="ps3DetailModal"]').click();
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await audit(page,'meetingModal');await page.locator('#meetingModal').evaluate(el=>el.classList.add('hidden'));
@@ -108,4 +109,24 @@ for(const width of [390,1440])test('D-3e installed dialog templates use role siz
  },modalIds);
  expect(inventory.violations).toEqual([]);
  await testInfo.attach('dialog-inventory',{body:JSON.stringify({width,...inventory},null,2),contentType:'application/json'});
+});
+
+for(const width of [390,1440])test('D-4b month task style contract moves to retained day rows '+width,async({page,browser})=>{
+ await page.setViewportSize({width,height:900});await boot(page);await view(page,'calendar');
+   const dayOriginal=await browser.newPage({viewport:{width,height:900}});
+   await baseline(dayOriginal,'5c81cfd845ee9d08f9e337ce1d0cb378d20c4169');await boot(dayOriginal);await view(dayOriginal,'calendar');
+   for(const p of [page,dayOriginal]){
+    const date=new Date().toISOString().slice(0,10);
+    await expect.poll(()=>p.evaluate(date=>window.KPTUCalendarMonthView?.dayEvents(date).filter(e=>e.source==='task').length,date)).toBe(1);
+    await p.evaluate(date=>KPTUCalendarDayOverflow.open(new Date(date+'T12:00:00'),KPTUCalendarMonthView.dayEvents(date)),date);
+    await expect(p.locator('#calendarDayList [data-calendar-task="font-task"]')).toBeVisible();
+   }
+   const taskStyles=async p=>p.locator('#calendarDayList [data-calendar-task="font-task"]').evaluate(el=>[el,...el.querySelectorAll('*')].map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight,s.backgroundColor,s.borderColor,s.opacity,s.textDecorationLine]}));
+   expect(await taskStyles(page),'calendar day task').toEqual(await taskStyles(dayOriginal));
+   for(const p of [page,dayOriginal]){
+    await p.locator('[data-close="calendarDayModal"]').click();
+    await expect(p.locator('#calendarDayModal')).toBeHidden();
+    await expect.poll(()=>p.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
+   }
+   await dayOriginal.close();
 });
