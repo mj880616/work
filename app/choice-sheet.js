@@ -1,4 +1,4 @@
-// Shared native selection sheet, originally the home quick-input sheet (#428).
+// Shared native selection sheet, originally the home quick-input sheet (PR 428).
 export function projectRows(rows,selected,esc){
   return [{project:{id:'',name:'프로젝트 없음'},depth:0},...rows].map(x=>`<button type="button" class="home-choice-row" style="--home-choice-depth:${x.depth}" data-sheet-value="${esc(x.project.id)}" aria-pressed="${x.project.id===selected}" title="${esc(x.project.name)}">${esc(x.project.name)}</button>`).join('');
 }
