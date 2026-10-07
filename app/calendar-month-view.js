@@ -67,12 +67,13 @@
     grid.dataset.cmvViewportHeight=String(height);
     const actualHead=head?.getBoundingClientRect().height||headHeight;
     const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead)/weeks);
-    const slots=Math.max(mq760.matches?1:2,Math.floor((rowHeight-dateHeaderHeight-1)/laneStep));
+    const footer=cssPx(grid,'--cmv-task-footer-height',0);
+    const slots=Math.max(footer?1:mq760.matches?1:2,Math.floor((rowHeight-dateHeaderHeight-footer-1)/laneStep));
     grid.dataset.cmvLaneSlots=String(slots);
     return {height,rowHeight,slots,dateHeaderHeight};
   }
   function laneCap(laneCount,slots){
-    return laneCount>slots?Math.max(mq760.matches?0:1,slots-1):slots;
+    return laneCount>slots?Math.max(0,slots-1):slots;
   }
   function eventSort(a,b){
     const at=a.source==='task'?1:0,bt=b.source==='task'?1:0;
@@ -133,11 +134,6 @@
   }
   function eventButton(seg){
     const ev=seg.ev;
-    if(ev.source==='task'){
-      const t=taskButton(ev,'cmv-event');
-      t.style.gridColumn=`${seg.startCol+1} / span 1`;t.style.gridRow=String(seg.lane+1);
-      return t;
-    }
     const b=document.createElement('button');
     b.type='button';
     b.className='cal-event cmv-event '+'google cp-event'+(seg.continuesLeft?' cmv-continues-left':'')+(seg.continuesRight?' cmv-continues-right':'');
@@ -170,7 +166,10 @@
     layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
     const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
     const events=allEvents(options);
-    const weeks=segmentWeeks(events,range);
+    const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range);
+    const pendingByDate=new Map();
+    tasks.forEach(t=>{if(t.done||t.date<key(range.start)||t.date>=key(range.end))return;const group=pendingByDate.get(t.date)||[];group.push(t);pendingByDate.set(t.date,group)});
+    grid.classList.toggle('cmv-has-tasks',pendingByDate.size>0);
     grid.replaceChildren();
     grid.dataset.monthView='1';
     grid.style.setProperty('--cmv-week-count',String(range.weeks));
@@ -187,19 +186,30 @@
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
         const date=new Date(week.start);date.setDate(week.start.getDate()+i);
-        const dkey=key(date),cell=document.createElement(mq760.matches?'div':'button');
-        if(!mq760.matches)cell.type='button';
+        const dkey=key(date),pending=pendingByDate.get(dkey)||[],split=mq760.matches||pending.length>0,cell=document.createElement(split?'div':'button');
+        if(!split)cell.type='button';
         cell.className='cal-cell'+(date.getMonth()===month?'':' other')+(dkey===key(new Date())?' today':'');
         cell.dataset.date=dkey;cell.setAttribute('aria-label',date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
         const day=document.createElement('span');day.className='cal-day';day.textContent=String(date.getDate());
-        if(mq760.matches){
+        if(split){
           const create=document.createElement('button');create.type='button';create.className='cmv-date-create';create.setAttribute('aria-label',cell.getAttribute('aria-label'));
-          const list=document.createElement('button');list.type='button';list.className='cmv-date-list';list.dataset.date=dkey;
-          list.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 목록 보기`);
-          list.appendChild(day);
-          list.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
-          cell.removeAttribute('aria-label');cell.append(create,list);
+          if(mq760.matches){
+            const list=document.createElement('button');list.type='button';list.className='cmv-date-list';list.dataset.date=dkey;
+            list.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 목록 보기`);
+            list.appendChild(day);
+            list.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
+            cell.append(create,list);
+          }else{create.classList.add('cmv-date-create-pc');create.appendChild(day);cell.append(create)}
+          cell.removeAttribute('aria-label');
         }else cell.appendChild(day);
+        if(pending.length){
+          cell.classList.add('cmv-cell-tasks');
+          const count=document.createElement('button');count.type='button';count.className='cmv-task-count';
+          const overdue=pending.some(t=>t.overdue);count.classList.toggle('cmv-task-count-overdue',overdue);
+          count.textContent='☐'+pending.length;count.setAttribute('aria-label',`할 일 ${pending.length}개`+(overdue?', 기한 지남 포함':''));
+          count.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
+          cell.appendChild(count);
+        }
         dayGrid.appendChild(cell);
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';

@@ -21,7 +21,7 @@ function style(path){
 }
 const routeStyles={
   home:['./home-read.css?v=6','./google-tasks.css?v=20'],
-  calendar:['./calendar-ui.css?v=21'],
+  calendar:['./calendar-ui.css?v=22'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=20'],
   projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=20'],
   library:['./library-upload.css?v=4','./compact-list.css?v=2'],
@@ -62,13 +62,13 @@ function afterReveal(){
   });
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=14','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-month-view.js?v=15','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await module('./calendar-view.js?v=3');
   await projectCatalog();
   await team('calendar');
   await module('./calendar-plus.js?v=10','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
-    module('./calendar-interactions-v2.js?v=12','__KPTU_CALENDAR_INTERACTIONS_READY__'),
+    module('./calendar-interactions-v2.js?v=13','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=5','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=8','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);

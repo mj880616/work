@@ -60,7 +60,7 @@
 .kptu-day-list .cmv-day-title{font-weight:700}
 /* Google tasks by due date (CAL-할일): an outlined chip with a completion circle, unlike the filled event bars. */
 .cal-event.cmv-task{box-sizing:border-box;background:var(--kptu-surface);color:var(--kptu-ink);border:1px solid var(--kptu-border-strong)}
-/* CAL-할일강조 A: one pending style for month cells and the day list; overdue rules below retain their warning. */
+/* CAL-할일강조 A: pending style for the day list; overdue rules below retain their warning. */
 .cmv-task:not(.cmv-task-done){background:var(--kptu-info-soft);color:var(--kptu-link);border-color:var(--kptu-link);font-weight:800}
 .cmv-task-mark{flex:0 0 auto;display:inline-grid;place-items:center;width:1em;height:1em;margin-right:2px;border:1px solid currentColor;border-radius:var(--kptu-radius-pill);font-size:inherit;line-height:1;box-sizing:border-box}
 .cal-event.cmv-task-overdue{border-color:var(--kptu-danger)}
@@ -198,3 +198,13 @@
 .cwv-today{background:var(--kptu-primary-soft)}
 .cwv-today .cwv-date{color:var(--kptu-primary-ink);font-weight:700}
 @media(max-width:760px){.cwv-date{flex-basis:56px;width:56px}}
+
+/* D-4b③: reserve a separate footer, including the +N row above it. */
+#calendarView .cmv-has-tasks{--cmv-task-footer-height:44px;--cmv-min-week-height:92px}
+#calendarView .cmv-cell-tasks{position:relative}
+#calendarView .cmv-cell-tasks .cmv-date-create{bottom:44px}
+#calendarView .cmv-date-create-pc{position:absolute;inset:0 0 44px;width:100%;min-width:0;min-height:0;padding:4px 5px;background:transparent;border:0;color:inherit;text-align:left;display:flex;align-items:flex-start;border-radius:var(--kptu-radius-sm)}
+#calendarView .cmv-task-count{position:absolute;bottom:0;right:0;width:100%;height:44px;min-height:0;min-width:0;box-sizing:border-box;padding:0 3px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);font-size:12px;line-height:16px;text-align:right;white-space:nowrap;cursor:pointer;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+#calendarView .cmv-task-count-overdue{color:var(--kptu-danger)}
+#calendarView .cmv-task-count:focus-visible,#calendarView .cmv-date-create-pc:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
+@media(min-width:1024px){#calendarView .cmv-has-tasks .cmv-week-events{margin-bottom:44px}}

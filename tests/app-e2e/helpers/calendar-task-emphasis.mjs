@@ -53,11 +53,22 @@ export async function openEmphasisFixture(page,{view="month",events=EVENTS}={}){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
-  if(view==="month")await expect(page.locator('#calendarGrid [data-calendar-task="pending"]')).toBeVisible();
+  if(view==="month")await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
   if(view==="month")await expect(page.locator('#calendarGrid [data-google-event="blue-0"]')).toBeVisible();
   return {calls,external};
 }
 
-export function taskChip(page,id,root='#calendarGrid'){
+export function taskChip(page,id,root='#calendarDayList'){
   return page.locator(`${root} [data-calendar-task="${id}"]`);
+}
+
+export async function openTaskDay(page,date='2026-10-20'){
+  const modal=page.locator('#calendarDayModal');
+  if(await modal.isVisible()){
+    await page.locator('[data-close="calendarDayModal"]').click();
+    await expect(modal).toBeHidden();
+    await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
+  }
+  await page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count, .cmv-date-list[data-date="${date}"]`).first().click();
+  await expect(modal).toBeVisible();
 }

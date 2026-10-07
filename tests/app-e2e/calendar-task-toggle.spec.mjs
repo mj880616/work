@@ -49,19 +49,28 @@ async function fixture(page,{width=390,onToggle}={}){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
-  await expect(chip(page,'cell')).toBeVisible();
+  await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
   return {calls,external};
 }
-const chip=(page,id,root='#calendarGrid')=>page.locator(`${root} [data-calendar-task="${id}"]`);
+const chip=(page,id,root='#calendarDayList')=>page.locator(`${root} [data-calendar-task="${id}"]`);
 const toggles=calls=>calls.filter(c=>c.action==='toggle');
+async function showDay(page,id){
+  const date=id==='cell'?'2026-10-20':'2026-10-21';
+  if(await page.locator('#calendarDayModal').isVisible()){
+    await page.locator('[data-close="calendarDayModal"]').click();
+    await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
+  }
+  // Completed-only dates have no count. Use the existing mobile date route or desktop schedule +N equivalent data path.
+  if(await page.locator('.cmv-date-list').count())await page.locator(`.cmv-date-list[data-date="${date}"]`).click();
+  else if(await page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count`).count())await page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count`).click();
+  else await page.evaluate(date=>KPTUCalendarDayOverflow.open(new Date(date+'T12:00:00'),KPTUCalendarMonthView.dayEvents(date)),date);
+  await expect(page.locator('#calendarDayModal')).toBeVisible();
+}
 async function open(page,path){
   const id=path==='list'?'overflow':'cell';
-  if(path==='list'){
-    await page.getByRole('button',{name:/10월 21일 일정 \d+개 더 보기/}).click();
-    await expect(page.locator('#calendarDayModal')).toBeVisible();
-    await chip(page,id,'#calendarDayList').click();
-    await expect(page.locator('#calendarDayModal')).toBeHidden();
-  }else await chip(page,id).click();
+  await showDay(page,id);
+  await chip(page,id).click();
+  await expect(page.locator('#calendarDayModal')).toBeHidden();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   await expect(page.locator('#gtEditLinkBody [data-gt-link]')).toHaveCount(1);
   await expect(page.locator('#gtToggleBtn')).toBeEnabled();
@@ -79,18 +88,21 @@ for(const [path,width] of [['cell',1280],['cell',390],['list',390]]){
     expect(boxes.every(b=>b.left>=0&&b.right<=width)).toBe(true);
     await button.click();
     await expect(page.locator('#gtTaskModal')).toBeHidden();
-    await expect(chip(page,id)).toHaveClass(/cmv-task-done/);
     if(width<=760)await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
+    await showDay(page,id);
+    await expect(chip(page,id)).toHaveClass(/cmv-task-done/);
     await open(page,path);
     await expect(button).toHaveText('완료 취소');
     await button.click();
     await expect(page.locator('#gtTaskModal')).toBeHidden();
+    await showDay(page,id);
     await expect(chip(page,id)).not.toHaveClass(/cmv-task-done/);
     expect(toggles(calls).map(c=>c.body)).toEqual([
       {action:'toggle',task_id:id,task_list_id:'@default',task_list_title:'QA',completed:true},
       {action:'toggle',task_id:id,task_list_id:'@default',task_list_title:'QA',completed:false}
     ]);
     expect(calls.some(c=>['update','create','link','unlink'].includes(c.action))).toBe(false);
+    if(await page.locator('#calendarDayModal').isVisible()){await page.locator('[data-close="calendarDayModal"]').click();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined()}
     await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
     await expect(page.locator(`#gtTaskBody [data-google-task="${id}"]`)).toHaveClass(/pending/);
     await page.locator(`[data-gt-edit="${id}"]`).click();
@@ -99,6 +111,8 @@ for(const [path,width] of [['cell',1280],['cell',390],['list',390]]){
     await expect(page.locator('#gtTaskModal')).toBeHidden();
     await expect(page.locator(`#gtTaskBody [data-google-task="${id}"]`)).toHaveClass(/completed/);
     await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
+    await expect.poll(()=>page.evaluate(id=>KPTUCalendarMonthView.dayEvents(id==='cell'?'2026-10-20':'2026-10-21').find(t=>t.id===id)?.done,id)).toBe(true);
+    await showDay(page,id);
     await expect(chip(page,id)).toHaveClass(/cmv-task-done/);
     expect(external).toEqual([]);
   });
@@ -115,7 +129,7 @@ for(const field of ['title','due','notes','links']){
     await expect(page.locator('#gtEditStatus')).toContainText('먼저 저장');
     await expect(page.locator('#gtTaskModal')).toBeVisible();
     if(field==='links')await expect(input).not.toBeChecked();else await expect(input).toHaveValue(value);
-    await expect(chip(page,'cell')).not.toHaveClass(/cmv-task-done/);
+    expect(await page.evaluate(()=>KPTUCalendarMonthView.dayEvents('2026-10-20').find(t=>t.id==='cell').done)).toBe(false);
     expect(calls.filter(c=>['toggle','update','create','link','unlink'].includes(c.action))).toEqual([]);
     // Restoring the original draft allows toggling again.
     if(field==='links')await input.check();else await input.fill({title:'QA task',due:'2026-10-20',notes:'QA note'}[field]);
@@ -137,6 +151,7 @@ test('rapid double click sends one request and locks draft/actions until settled
   await expect(page.locator('#gtTaskModal')).toBeVisible();
   hold.release();
   await expect(page.locator('#gtTaskModal')).toBeHidden();
+  await showDay(page,'overflow');
   await expect(chip(page,'overflow')).toHaveClass(/cmv-task-done/);
   expect(toggles(calls)).toHaveLength(1);
 });
@@ -145,7 +160,7 @@ for(const completed of [false,true]){
   test(`failed toggle restores state, keeps editor and allows retry (completed=${completed})`,async({page})=>{
     const response=async()=>{};response.fail=false;
     const {calls}=await fixture(page,{onToggle:response});
-    if(completed){await open(page,'cell');await page.locator('#gtToggleBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();await expect(chip(page,'cell')).toHaveClass(/cmv-task-done/)}
+    if(completed){await open(page,'cell');await page.locator('#gtToggleBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();await showDay(page,'cell');await expect(chip(page,'cell')).toHaveClass(/cmv-task-done/)}
     response.fail=true;
     await open(page,'cell');
     await page.locator('#gtToggleBtn').click();
@@ -153,11 +168,12 @@ for(const completed of [false,true]){
     await expect(page.locator('#gtTaskModal')).toBeVisible();
     await expect(page.locator('#gtToggleBtn')).toBeEnabled();
     await expect(page.locator('#gtToggleBtn')).toHaveText(completed?'완료 취소':'완료');
-    if(completed)await expect(chip(page,'cell')).toHaveClass(/cmv-task-done/);else await expect(chip(page,'cell')).not.toHaveClass(/cmv-task-done/);
+    expect(await page.evaluate(()=>KPTUCalendarMonthView.dayEvents('2026-10-20').find(t=>t.id==='cell').done)).toBe(completed);
     await expect(page.locator('#gtEditTitle')).toHaveValue('QA task');
     response.fail=false;
     await page.locator('#gtToggleBtn').click();
     await expect(page.locator('#gtTaskModal')).toBeHidden();
+    await showDay(page,'cell');
     if(completed)await expect(chip(page,'cell')).not.toHaveClass(/cmv-task-done/);else await expect(chip(page,'cell')).toHaveClass(/cmv-task-done/);
     expect(toggles(calls)).toHaveLength(completed?3:2);
   });
@@ -180,12 +196,14 @@ for(const completed of [false,true]){
     const {calls}=await fixture(page,{onToggle:response});
     if(completed){
       response.fail=false;hold.release();await open(page,'cell');await page.locator('#gtToggleBtn').click();await expect(page.locator('#gtTaskModal')).toBeHidden();
+      await showDay(page,'cell');
       await expect(chip(page,'cell')).toHaveClass(/cmv-task-done/);
       response.fail=true;
     }
     const pending=gate();response.waiting=pending;
     // Keep the existing toggle method real; delay only its API response.
     await page.route('**/functions/v1/google-tasks?action=toggle',async route=>{await pending.wait;await route.fallback()});
+    if(await page.locator('#calendarDayModal').isVisible()){await page.locator('[data-close="calendarDayModal"]').click();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined()}
     await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
     const row=page.locator('#gtTaskBody [data-google-task="cell"]');
     if(completed)await page.locator('#gtCompleted summary').click();
