@@ -74,3 +74,15 @@ test('project button retains its transparent 44px target',async({page})=>{
  expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('button')?.id,point)).toBe('eventTaskProject');
  await page.mouse.click(point.x,point.y);await expect(page.locator('#eventProjectSheet')).toBeVisible();
 });
+test('360px project label stays on one line like the optional date label',async({page})=>{
+ await open(page);await page.locator('[data-event-mode="task"]').click();
+ await expect(page.locator('#eventDateLabel')).toHaveText('날짜 (선택)');
+ const label=await page.locator('#eventTaskOptions label').evaluate(el=>{
+  const button=el.querySelector('button'),range=document.createRange();
+  range.setStart(el,0);range.setEndBefore(button);
+  const project=range.getBoundingClientRect(),text=range.toString().trim();
+  return {text,height:project.height,dateHeight:document.getElementById('eventDateLabel').getBoundingClientRect().height,bottom:project.bottom,buttonTop:button.getBoundingClientRect().top};
+ });
+ expect(label.height).toBeGreaterThan(0);expect(label.height).toBeLessThanOrEqual(label.dateHeight+1);
+ expect(label.text).toBe('프로젝트 (선택)');expect(label.buttonTop).toBeGreaterThanOrEqual(label.bottom);
+});
