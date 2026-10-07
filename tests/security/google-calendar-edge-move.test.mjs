@@ -8,13 +8,14 @@ const event={id:'ev',summary:'Synthetic event',start:{date:'2026-10-15'},end:{da
 const request={action:'update-event',calendar_id:'source',event_id:'ev',title:'Changed',memo:'',all_day:true,start_date:'2026-10-15',end_date:'2026-10-15'};
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status});
 function harness(options={}){
-  const calls=[];let handler,current=structuredClone({...event,...options.event});
+  const calls=[],clients=[],connections=[];let handler,current=structuredClone({...event,...options.event});
   const linked=options.linked??[{id:'milestone',google_calendar_id:'source',google_event_id:'ev'}];
   const createClient=(_url,_key,config)=>{
     const scoped=config?.global?.headers?.Authorization;
+    clients.push({key:_key,authorization:scoped});
     return {auth:{getUser:async()=>({data:{user:{id:'user-a'}},error:null})},from:table=>{
       const filters={};let patch=null;
-      const builder={select:()=>builder,eq:(key,value)=>{filters[key]=value;return builder},in:(key,value)=>{filters[key]=value;return builder},update:value=>{patch=value;return builder},maybeSingle:async()=>({data:{access_token:'google-a',token_expires_at:new Date(Date.now()+3600000).toISOString()},error:null}),then:resolve=>{
+      const builder={select:()=>builder,eq:(key,value)=>{filters[key]=value;return builder},in:(key,value)=>{filters[key]=value;return builder},update:value=>{patch=value;return builder},maybeSingle:async()=>{connections.push(table);return {data:{access_token:'google-a',token_expires_at:new Date(Date.now()+3600000).toISOString()},error:null}},then:resolve=>{
         calls.push({table,scoped,filters:{...filters},patch});
         assert.equal(table,'app_project_milestones');assert.equal(scoped,'Bearer user-token','linkage queries must use caller JWT, never service-role authorization');
         if(patch)return resolve({data:options.zeroRows?[]:linked.map(row=>({...row,...patch})),error:options.linkFail?{message:'denied'}:null});
@@ -35,14 +36,25 @@ function harness(options={}){
     }
     throw new Error('Unexpected request '+raw);
   };
-  new Function('Deno','createClient','fetch',source)({env:{get:key=>({SUPABASE_URL:'https://sb.example',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service'}[key])},serve:fn=>handler=fn},createClient,fetchMock);
-  return {calls,post:async(extra={})=>{const response=await handler(new Request('https://sb.example/functions/v1/google-calendar',{method:'POST',headers:{Authorization:'Bearer user-token'},body:JSON.stringify({...request,...extra})}));return {status:response.status,body:await response.json()}}};
+  const move=new Function('Deno','createClient','fetch',source+'\nreturn moveAndUpdateEvent;')({env:{get:key=>({SUPABASE_URL:'https://sb.example',SUPABASE_SERVICE_ROLE_KEY:'synthetic-service',SUPABASE_ANON_KEY:'synthetic-public'}[key])},serve:fn=>handler=fn},createClient,fetchMock);
+  return {calls,clients,connections,moveWithoutAuthorization:()=>move(new Request('https://sb.example/functions/v1/google-calendar'),'google-a','source','ev','target',{}),post:async(extra={},authorization='Bearer user-token')=>{const response=await handler(new Request('https://sb.example/functions/v1/google-calendar',{method:'POST',headers:authorization?{Authorization:authorization}:{},body:JSON.stringify({...request,...extra})}));return {status:response.status,body:await response.json()}}};
 }
 
 for(const target of [undefined,'source'])test('unchanged target keeps the legacy PATCH path: '+target,async()=>{
   const h=harness();const r=await h.post(target?{target_calendar_id:target}:{});
   assert.equal(r.status,200);assert.equal(r.body.event.calendarId,'source');
   assert.deepEqual(h.calls.map(c=>[c.method,c.path]),[['PATCH','/calendar/v3/calendars/source/events/ev']]);
+});
+test('milestone caller uses the public anon key with the caller Authorization header',async()=>{
+  const h=harness();const r=await h.post({target_calendar_id:'target'});
+  assert.equal(r.body.ok,true);
+  assert.deepEqual(h.clients.filter(c=>c.authorization),[{key:'synthetic-public',authorization:'Bearer user-token'}]);
+});
+test('missing Authorization stops before connections, linkage queries and Google move',async()=>{
+  const h=harness();const r=await h.post({target_calendar_id:'target'},null);
+  assert.equal(r.status,401);assert.deepEqual(h.calls,[]);assert.deepEqual(h.connections,[]);
+  await assert.rejects(h.moveWithoutAuthorization,e=>e.authRequired===true);
+  assert.deepEqual(h.calls,[]);assert.deepEqual(h.connections,[]);assert.equal(h.clients.length,1);
 });
 test('move checks permission then moves, updates RLS-scoped linkage and patches private org metadata',async()=>{
   const h=harness();const r=await h.post({target_calendar_id:'target'});

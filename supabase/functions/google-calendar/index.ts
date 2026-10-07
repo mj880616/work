@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 const SUPABASE_URL=Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON_KEY=Deno.env.get('SUPABASE_ANON_KEY')!;
 const admin=createClient(SUPABASE_URL,SERVICE_KEY,{auth:{persistSession:false}});
 const CALLBACK=`${SUPABASE_URL}/functions/v1/public-policy-drive/callback`;
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};
@@ -29,6 +30,8 @@ function normEvent(e:any,calendarId:string,colors:any){let organizationIds:strin
 // Linkage reads/writes use the authenticated caller's JWT. The service client is only for
 // that caller's Google connection; never use it to bypass milestone/project RLS.
 async function moveAndUpdateEvent(req:Request,token:string,calendarId:string,eventId:string,targetId:string,patch:any){
+  const authorization=req.headers.get('Authorization')?.trim();
+  if(!authorization)throw authError('로그인이 필요합니다.');
   const calendars=await googleReq('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer',token);
   const target=(calendars.items||[]).find((c:any)=>c.id===targetId||(targetId==='primary'&&c.primary));
   if(!target||!['owner','writer'].includes(target.accessRole))throw new Error('쓰기 가능한 대상 캘린더를 선택해 주세요.');
@@ -39,7 +42,7 @@ async function moveAndUpdateEvent(req:Request,token:string,calendarId:string,eve
   const original=await googleReq(eventUrl(calendarId),token);
   if(original.recurringEventId||original.recurrence?.length)throw new Error('반복 일정은 Google 캘린더에서 옮겨 주세요.');
   if(original.eventType&&original.eventType!=='default')throw new Error('이 종류의 일정은 Google 캘린더에서 옮길 수 없습니다.');
-  const caller=createClient(SUPABASE_URL,SERVICE_KEY,{auth:{persistSession:false},global:{headers:{Authorization:req.headers.get('Authorization')!}}});
+  const caller=createClient(SUPABASE_URL,ANON_KEY,{auth:{persistSession:false},global:{headers:{Authorization:authorization}}});
   const {data:linked,error:readError}=await caller.from('app_project_milestones').select('id,google_calendar_id,google_event_id').in('google_calendar_id',sourceIds).eq('google_event_id',eventId);
   if(readError||!Array.isArray(linked))throw new Error('프로젝트 주요 일정 연결을 확인하지 못했습니다. 캘린더는 옮기지 않았습니다.');
   // Private properties belong to a calendar/event copy. Explicitly carry them to the
