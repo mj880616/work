@@ -189,3 +189,12 @@
 #calendarTodayBtn{margin-left:6px}
 
 #calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* D-4b week: seven growing day rows share list event/task styling. */
+#calendarWeek{width:100%}
+.cwv-day{display:flex;align-items:stretch;border-bottom:1px solid var(--kptu-border);min-height:44px}
+.cwv-date{flex:0 0 72px;width:72px;box-sizing:border-box;padding:12px 8px;margin:0;font-size:14px;color:var(--kptu-muted);font-weight:400}
+.cwv-items{flex:1;min-width:0}
+.cwv-today{background:var(--kptu-primary-soft)}
+.cwv-today .cwv-date{color:var(--kptu-primary-ink);font-weight:700}
+@media(max-width:760px){.cwv-date{flex-basis:56px;width:56px}}

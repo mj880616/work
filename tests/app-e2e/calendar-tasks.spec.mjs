@@ -178,6 +178,7 @@ for(const [label,now,overdue14] of [
     test(`due dates stay on their day ${label} (${timezoneId})`,async({browser})=>{
       const context=await browser.newContext({timezoneId});
       const page=await context.newPage();
+      await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
       await setup(page,{now:Date.parse(now),handler:()=>({body:overview([
         gt('d14','14일 할 일','2026-10-14T00:00:00.000Z'),
         gt('d15','15일 할 일','2026-10-15T00:00:00.000Z')
