@@ -74,3 +74,11 @@ layout viewport 자체가 줄어드는 브라우저는 기존 100dvh 제한 안�
 - 기존 로딩 문구 간헐 실패는 clean main에서도 재현되어 보고만 한다.
 - 다른 입력 창 후보는 0단계 표 아래 목록에만 남겼다.
 - DB·Supabase·Edge Function·Cloudflare·인증/권한 경계·운영 데이터 변경 없음.
+
+## PR #436 추가 수정: 카드 하단 틈
+
+- 기준 head d86c68a. 카드의 하단 padding 24px 때문에 footer 하단과 카드 하단이 테두리 포함 25px 떨어져 있었다. 360·1280 각각 네 창에서 새 경계 검사가 모두 실패해 재현했다.
+- 공통 .modal-action-footer에 하단 padding만큼 음수 bottom·margin-bottom을 적용하고, 같은 크기를 footer padding-bottom에 더해 바탕색이 카드 하단까지 이어지게 했다. safe-area 여백·키보드 고정 해제·버튼 모양·순서는 유지한다.
+- 기존 8개 폰/PC 창 검사에 최초 scrollTop=0에서 footer와 카드의 아래 경계 차이 ≤1px 검사를 추가했다. 마지막 입력 가림·오류·44px 누름 범위 검사는 그대로 유지한다.
+- CSS 캐시 체인(base-ui → critical/styles → index/login)과 app-smoke 버전 기대값을 갱신했다. 새 !important·localStorage 키 없음.
+- 추가 수정 로컬 검증: footer E2E 18/18(하단 경계 8조건 포함), app-smoke 정적/구조·node 17단계와 캐시 검사 단위 테스트 17개 통과(node 합계 55개). 캐시 의존 검사·git diff --check 통과. 추가 커밋의 전체 CI 결과는 PR #436에 기록한다. merge 없음.

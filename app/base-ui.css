@@ -209,7 +209,7 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 #gtPickModal .gt-linked-msg{font-size:var(--kptu-text-meta)!important}
 #web1BoardDetailModal .w1b-detail-head h2{font-size:var(--kptu-text-title)!important}
 
-/* CAL-버튼고정: normal flow reserves the footer's actual (including status) height. */
-.modal-action-footer{position:sticky;bottom:0;z-index:2;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);margin-top:var(--kptu-space-3);padding:var(--kptu-space-2) 0 calc(var(--kptu-space-1) + env(safe-area-inset-bottom))}
+/* CAL-버튼고정: reserve the footer height in flow; cover the shared 24px card bottom padding. */
+.modal-action-footer{position:sticky;bottom:calc(-1 * var(--kptu-space-5));z-index:2;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);margin-top:var(--kptu-space-3);margin-bottom:calc(-1 * var(--kptu-space-5));padding:var(--kptu-space-2) 0 calc(var(--kptu-space-5) + var(--kptu-space-1) + env(safe-area-inset-bottom))}
 .modal-action-footer>.status{margin:0 0 var(--kptu-space-2);overflow-wrap:anywhere}
 .modal-action-footer[data-keyboard-open]{position:static}

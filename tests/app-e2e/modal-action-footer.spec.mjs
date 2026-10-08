@@ -47,6 +47,8 @@ for(const width of [360,1280])for(const c of cases){
     await page.setViewportSize({width,height:640});await open(page,c);await top(page,c);
     await inViewport(page.locator('#'+c.save));
     const card=page.locator('#'+c.id+' .modal-card');
+    const cardAtTop=await card.boundingBox(),footerAtTop=await page.locator('#'+c.id+' .modal-action-footer').boundingBox();
+    expect(Math.abs((footerAtTop.y+footerAtTop.height)-(cardAtTop.y+cardAtTop.height))).toBeLessThanOrEqual(1);
     await card.evaluate(el=>el.scrollTop=el.scrollHeight);
     if(c.id==='gtTaskModal')await page.locator('#gtEditLinkBody').evaluate(el=>el.scrollTop=el.scrollHeight);
     const last=await page.locator(c.last).last().boundingBox(),footer=await page.locator('#'+c.id+' .modal-action-footer').boundingBox();
