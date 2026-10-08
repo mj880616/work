@@ -1,0 +1,164 @@
+name: Approved Edge Function deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      function:
+        description: Existing function folder under supabase/functions (no underscore prefix)
+        required: true
+        type: string
+      ref:
+        description: Commit SHA or branch to deploy; use the previously deployed SHA to roll back
+        required: true
+        type: string
+        default: main
+      expect_unauth_401:
+        description: Expect unauthenticated POST to return 401 (disable for public functions)
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-production-edge
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-edge
+    env:
+      FUNCTION_NAME: ${{ inputs.function }}
+      EXPECT_UNAUTH_401: ${{ inputs.expect_unauth_401 }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out requested deployment ref
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, same as cloudflare-worker-deploy.yml
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          [[ "$FUNCTION_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || { echo 'Invalid function name'; exit 1; }
+          [[ -f "supabase/functions/$FUNCTION_NAME/index.ts" ]] || { echo 'Function index.ts is missing'; exit 1; }
+          [[ ! -L supabase && ! -L supabase/functions && ! -L "supabase/functions/$FUNCTION_NAME" && ! -L "supabase/functions/$FUNCTION_NAME/index.ts" ]] || { echo 'Symlinked function paths are not allowed'; exit 1; }
+          [[ "$EXPECT_UNAUTH_401" == true || "$EXPECT_UNAUTH_401" == false ]] || { echo 'Invalid HTTP expectation'; exit 1; }
+
+      - name: Prepare isolated deployment config
+        run: |
+          set -euo pipefail
+          # Only function sources are copied; the selected ref's config and scripts are not executed.
+          deploy_dir="$(mktemp -d "$RUNNER_TEMP/edge-deploy.XXXXXX")"
+          mkdir -p "$deploy_dir/supabase"
+          cp -R supabase/functions "$deploy_dir/supabase/functions"
+          printf 'project_id = "edge-manual-deploy"\n' > "$deploy_dir/supabase/config.toml"
+          printf 'registry=https://registry.npmjs.org/\n' > "$deploy_dir/.npmrc"
+          printf 'DEPLOY_DIR=%s\n' "$deploy_dir" >> "$GITHUB_ENV"
+          printf 'NPM_CONFIG_USERCONFIG=%s/.npmrc\n' "$deploy_dir" >> "$GITHUB_ENV"
+          printf 'NPM_CONFIG_REGISTRY=https://registry.npmjs.org/\n' >> "$GITHUB_ENV"
+          printf 'DEPLOY_SHA=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Read before metadata
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SUPABASE_ACCESS_TOKEN" && "$SUPABASE_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]] || { echo 'Missing or invalid environment configuration'; exit 1; }
+          (cd "$DEPLOY_DIR" && npx --yes supabase@2.120.0 functions list --project-ref "$SUPABASE_PROJECT_REF" --workdir "$DEPLOY_DIR" --output json) > before-list.json
+
+      - name: Validate before metadata
+        run: |
+          set -euo pipefail
+          jq -e --arg slug "$FUNCTION_NAME" '
+            [.[] | select(.slug == $slug)] |
+            if length != 1 then error("Expected exactly one existing function") else .[0] end |
+            if (.version | type) != "number" or .version < 1 or (.version | floor) != .version
+              or (.verify_jwt | type) != "boolean"
+              or (.updated_at == null) or ((.updated_at | type) != "number" and (.updated_at | type) != "string")
+            then error("Invalid function metadata") else {version, verify_jwt, updated_at} end
+          ' before-list.json > before.json
+
+      - name: Record deployment plan
+        run: |
+          set -euo pipefail
+          {
+            printf '## Edge deployment: `%s`\n\nSelected source SHA: `%s`\n\n' "$FUNCTION_NAME" "$DEPLOY_SHA"
+            printf '| State | version | verify_jwt | updated_at |\n| --- | --- | --- | --- |\n'
+            jq -r '"| Before | \(.version) | \(.verify_jwt) | \(.updated_at) |"' before.json
+            printf '\nRollback: rerun this workflow for the same function with `ref` set to the previously deployed, verified commit SHA and the same HTTP expectation. The source SHA above is the requested deployment; functions list does not reveal the previous source SHA. Record the previous source SHA before approving.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy preserving JWT policy
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          verify_jwt="$(jq -r '.verify_jwt' before.json)"
+          printf 'project_id = "edge-manual-deploy"\n[functions.%s]\nverify_jwt = %s\n' "$FUNCTION_NAME" "$verify_jwt" > "$DEPLOY_DIR/supabase/config.toml"
+          options=()
+          if [[ "$verify_jwt" == false ]]; then options+=(--no-verify-jwt); fi
+          (cd "$DEPLOY_DIR" && npx --yes supabase@2.120.0 functions deploy "$FUNCTION_NAME" --project-ref "$SUPABASE_PROJECT_REF" --workdir "$DEPLOY_DIR" --use-api "${options[@]}")
+
+      - name: Read after metadata
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          (cd "$DEPLOY_DIR" && npx --yes supabase@2.120.0 functions list --project-ref "$SUPABASE_PROJECT_REF" --workdir "$DEPLOY_DIR" --output json) > after-list.json
+
+      - name: Validate after metadata
+        run: |
+          set -euo pipefail
+          jq -e --arg slug "$FUNCTION_NAME" --slurpfile before before.json '
+            [.[] | select(.slug == $slug)] |
+            if length != 1 then error("Expected exactly one deployed function") else .[0] end |
+            if (.version | type) != "number" or (.version | floor) != .version
+              or .version <= $before[0].version or .verify_jwt != $before[0].verify_jwt
+              or (.updated_at == null) or ((.updated_at | type) != "number" and (.updated_at | type) != "string")
+            then error("Version did not increase or JWT policy/metadata changed") else {version, verify_jwt, updated_at} end
+          ' after-list.json > after.json
+
+      - name: Verify unauthenticated HTTP
+        env:
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          endpoint="https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/$FUNCTION_NAME"
+          # No login, credentials, action or data fields. Public functions receive no POST.
+          if [[ "$EXPECT_UNAUTH_401" == true ]]; then
+            post_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 10 --max-time 30 --request POST --header 'Content-Type: application/json' --data '{}' "$endpoint")"
+            printf 'Unauthenticated POST: %s\n' "$post_status" >> "$GITHUB_STEP_SUMMARY"
+            [[ "$post_status" == 401 ]] || { echo 'Unauthenticated POST did not return 401'; exit 1; }
+          else
+            printf 'Unauthenticated POST: skipped (public function).\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          options_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --connect-timeout 10 --max-time 30 --request OPTIONS --header 'Origin: https://mj880616.github.io' --header 'Access-Control-Request-Method: POST' "$endpoint")"
+          printf 'OPTIONS: %s\n' "$options_status" >> "$GITHUB_STEP_SUMMARY"
+          [[ "$options_status" == 200 ]] || { echo 'OPTIONS did not return 200'; exit 1; }
+
+      - name: Report final metadata and outcome
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          {
+            printf '\n## Deployment outcome: %s\n\n' "$JOB_STATUS"
+            if [[ -s after-list.json ]]; then
+              printf '| State | version | verify_jwt | updated_at |\n| --- | --- | --- | --- |\n'
+              jq -r --arg slug "$FUNCTION_NAME" '.[] | select(.slug == $slug) | "| After (observed) | \(.version) | \(.verify_jwt) | \(.updated_at) |"' after-list.json
+            else
+              printf 'Post-deployment metadata unavailable; inspect the failed step before another deployment.\n'
+            fi
+            printf '\nA failed verification does not undo a deployment. Rollback uses the same button with the previously deployed source SHA; approval is required again.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
