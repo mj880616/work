@@ -217,8 +217,14 @@ function bindRecordMenu(){
   window.addEventListener('resize',positionRecordMenu);window.addEventListener('scroll',positionRecordMenu,true);new ResizeObserver(positionRecordMenu).observe(recordMenuPanel);
 }
 
-function progress(d){const rows=d.workstreams.map(ws=>{const updates=d.progress.filter(x=>x.workstream_id===ws.id),l=updates[0];
-  return `<div class="ps3-pg-item" data-ps3-progress-item="${esc(ws.id)}"><div class="ps3-pg-line1"><span class="ps3-phase">${esc(PHASE[ws.phase]||ws.phase||'진행')}</span><b class="ps3-pg-title">${esc(ws.title)}</b><button type="button" class="ps3-text-btn" data-ps3-edit-ws="${esc(ws.id)}" aria-label="진행상황 항목 수정: ${esc(ws.title)}">수정</button></div>${l?`<details class="ps3-pg-details" data-ps3-panel="progress-${esc(ws.id)}"><summary><span class="ps3-pg-line2"><span class="ps3-pg-summary">${esc(l.summary||'')}</span><time>${esc(day(l.effective_on))}</time><span class="ps3-pg-count" aria-label="기록 ${updates.length}개">${updates.length}</span></span></summary><div class="ps3-pg-history">${updates.map(u=>`<div class="ps3-pg-record" data-ps3-record="${esc(u.id)}">${progressRecord(u)}</div>`).join('')}</div></details>`:''}<form class="ps3-pg-quick" data-ps3-quick-progress="${esc(ws.id)}"><input type="text" maxlength="500" placeholder="현재 상황 한 줄 기록" aria-label="${esc(ws.title)} 현재 상황"><button type="submit" class="mini">저장</button></form></div>`});
+function progressHistory(updates,workstreamId){
+  if(!updates.length)return '';
+  const latest=updates[0],history=`<div class="ps3-pg-history">${updates.map(u=>`<div class="ps3-pg-record" data-ps3-record="${esc(u.id)}">${progressRecord(u)}</div>`).join('')}</div>`;
+  if(updates.length===1)return history;
+  return `<details class="ps3-pg-details" data-ps3-panel="progress-${esc(workstreamId)}"><summary><span class="ps3-pg-line2"><span class="ps3-pg-summary">${esc(latest.summary||'')}</span><time>${esc(day(latest.effective_on))}</time><span class="ps3-pg-count" aria-label="기록 ${updates.length}개">${updates.length}</span></span></summary>${history}</details>`;
+}
+function progress(d){const rows=d.workstreams.map(ws=>{const updates=d.progress.filter(x=>x.workstream_id===ws.id);
+  return `<div class="ps3-pg-item" data-ps3-progress-item="${esc(ws.id)}"><div class="ps3-pg-line1"><span class="ps3-phase">${esc(PHASE[ws.phase]||ws.phase||'진행')}</span><b class="ps3-pg-title">${esc(ws.title)}</b><button type="button" class="ps3-text-btn" data-ps3-edit-ws="${esc(ws.id)}" aria-label="진행상황 항목 수정: ${esc(ws.title)}">수정</button></div>${progressHistory(updates,ws.id)}<form class="ps3-pg-quick" data-ps3-quick-progress="${esc(ws.id)}"><input type="text" maxlength="500" placeholder="현재 상황 한 줄 기록" aria-label="${esc(ws.title)} 현재 상황"><button type="submit" class="mini">저장</button></form></div>`});
   return `<section class="ps3-section" id="ps3-progress"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'progress','진행상황'))}</h3><button type="button" class="ps3-text-btn" data-ps3-add-ws>+ 추가</button></div>${rows.length?`<div class="ps3-pg-list">${rows.join('')}</div>`:''}</section>`}
 function editProgressRecord(button){
   if(!canEdit(current))return;
@@ -230,7 +236,13 @@ function editProgressRecord(button){
 function resetProgressRecord(row){const u=detail?.progress.find(x=>x.id===row?.dataset.ps3Record);if(u&&row?.isConnected){row.dataset.saving='0';row.innerHTML=progressRecord(u)}}
 function updateProgressHeading(item,workstreamId){
   const updates=detail.progress.filter(x=>x.workstream_id===workstreamId),latest=updates[0];
-  if(!latest){item.querySelector('details')?.remove();return}
+  const panel=item.querySelector('.ps3-pg-details');
+  if(updates.length<2){
+    const history=item.querySelector('.ps3-pg-history');
+    if(panel)panel.replaceWith(history);
+    if(!latest)history?.remove();
+    return;
+  }
   const count=item.querySelector('.ps3-pg-count');count.textContent=updates.length;count.setAttribute('aria-label',`기록 ${updates.length}개`);
   item.querySelector('.ps3-pg-summary').textContent=latest.summary||'';item.querySelector('.ps3-pg-line2 time').textContent=day(latest.effective_on)
 }

@@ -78,9 +78,9 @@ test('week shares event ordering, exclusive ends, task links and existing dialog
   await page.locator('#nextMonthBtn').click();
   const dense=page.locator('.cwv-day[data-date="2026-10-20"]');
   await expect(dense.locator('.clv-event')).toHaveCount(16);
-  await expect(dense.locator('.clv-tasks')).toHaveText('할 일 2개 ›');
+  await expect(dense.locator('.clv-tasks')).toHaveText('할 일 1개 ›');
   expect(await dense.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThan(16*44);
-  await expect(page.locator('.cwv-day[data-date="2026-10-21"] .clv-tasks')).toHaveText('일정 없음 · 할 일 18개 ›');
+  await expect(page.locator('.cwv-day[data-date="2026-10-21"] .clv-tasks')).toHaveText('일정 없음 · 할 일 17개 ›');
   await page.locator('.cwv-day[data-date="2026-10-21"] .clv-tasks').click();
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayTasks [data-calendar-task]')).toHaveCount(18);

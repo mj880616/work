@@ -27,11 +27,11 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=12");
+  expect(views).toContain("suborganizations.js?v=13");
   expect(views).toContain("workplace-detail.js?v=14");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
-  expect(styles).toContain("suborganizations.css?v=8");
+  expect(styles).toContain("suborganizations.css?v=9");
   expect(styles).toContain("workplace-detail.css?v=6");
   expect(styles).not.toContain('suborganization-filters.css');
 });
@@ -290,7 +290,7 @@ test('360 390 412 430px에서 담당조직 목록과 상세가 가로 넘침 없
 
 // TASK-조직순서: the list and both event checks use the shared order, with a thin line between groups.
 const ORDERED=['전국철도노동조합','|','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','|','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','|','메트로9호선노동조합','서울교통공사9호선지부','|','김포도시철도지부','용인경전철지부','|'];
-const sequence=(page,selector,item)=>page.locator(selector).evaluate((box,item)=>[...box.children].map(el=>el.classList.contains('so-org-sep')?'|':el.querySelector(item)?.firstChild?.textContent?.trim()),item);
+const sequence=(page,selector,item)=>page.locator(selector).evaluate((box,item)=>[...box.querySelectorAll(':scope>.so-org-group')].flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll(item)].map(el=>el.firstChild?.textContent?.trim())]),item);
 
 test('담당조직 목록은 정한 13개 순서와 묶음 구분선, 그 밖은 가나다순으로 표시한다',async({page})=>{
   for(const width of [412,1280]){
@@ -298,10 +298,9 @@ test('담당조직 목록은 정한 13개 순서와 묶음 구분선, 그 밖은
     await openAssigned(page,'?orgs=order');
     expect(await sequence(page,'#soOrganizationList','h4')).toEqual([...ORDERED,'국민연금지부','궤도협의회','한국소비자원지부']);
     await expect(page.locator('#soOrgCount')).toHaveText('16개 담당조직');
-    await expect(page.locator('#soOrganizationList .so-org-sep').first()).toHaveAttribute('aria-hidden','true');
-    // The card before a line drops its own border so the group line reads as one thin line.
-    const line=await page.locator('#soOrganizationList').evaluate(box=>{const sep=box.querySelector('.so-org-sep'),prev=sep.previousElementSibling;return {line:getComputedStyle(sep).borderTopWidth,prev:getComputedStyle(prev).borderBottomWidth,height:sep.getBoundingClientRect().height}});
-    expect(line).toEqual({line:'1px',prev:'0px',height:1});
+    await expect(page.locator('#soOrganizationList>.so-org-group')).toHaveCount(6);
+    const groups=await page.locator('#soOrganizationList').evaluate(box=>({gap:getComputedStyle(box).gap,borders:[...box.children].map(g=>getComputedStyle(g).borderTopWidth)}));
+    expect(groups.gap).toBe('12px');expect(groups.borders).toEqual(Array(6).fill('1px'));
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),`list overflow at ${width}px`).toBeLessThanOrEqual(1);
     await page.locator('[data-so-org="ord-5"]').focus();
     await page.keyboard.press('Enter');
@@ -316,9 +315,7 @@ test('일정 등록의 담당조직 체크는 같은 순서·구분선이고 궤
     await page.evaluate(()=>{const m=document.querySelector('#eventModal');m.classList.remove('hidden')});
     expect(await sequence(page,'#soEventOrgChecks .so-org-checks','span')).toEqual([...ORDERED,'국민연금지부','한국소비자원지부']);
     await expect(page.locator('#soEventOrgChecks')).not.toContainText('궤도협의회');
-    // The line spans the whole row in the two-column layout too.
-    const spans=await page.locator('#soEventOrgChecks .so-org-checks').evaluate(box=>{const sep=box.querySelector('.so-org-sep');return Math.round(sep.getBoundingClientRect().width)===Math.round(box.getBoundingClientRect().width)});
-    expect(spans).toBe(true);
+    await expect(page.locator('#soEventOrgChecks .so-org-group')).toHaveCount(6);
     await page.locator('[data-event-org="ord-12"]').check();
     expect(await page.evaluate(()=>window.__KPTU_SELECTED_EVENT_ORGS__())).toEqual(['ord-12']);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),`checks overflow at ${width}px`).toBeLessThanOrEqual(1);

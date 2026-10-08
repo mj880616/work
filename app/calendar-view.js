@@ -1,6 +1,6 @@
-import {renderList,stopList} from './calendar-list-view.js?v=2';
-import {renderWeek} from './calendar-week-view.js?v=1';
-import {dayItems,calendarDateKey} from './calendar-day-items.js?v=1';
+import {renderList,stopList} from './calendar-list-view.js?v=3';
+import {renderWeek} from './calendar-week-view.js?v=2';
+import {dayItems,calendarDateKey} from './calendar-day-items.js?v=2';
 import {dayKey,ranges} from './home-read-model.js?v=1';
 // Owns view choice, list/week ranges and list pagination. Storage is local to this device/browser.
 const STORAGE_KEY='kptu-calendar-view';

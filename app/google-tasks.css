@@ -71,7 +71,9 @@
 .gt-links .gt-link-opt{display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;gap:8px;min-width:0;min-height:40px;margin:0;text-align:left;font-size:13px;font-weight:500;cursor:pointer}
 .gt-links .gt-link-opt input{flex:none;width:18px;height:18px;min-height:0;margin:0}
 .gt-link-opt span{min-width:0;overflow-wrap:anywhere;white-space:normal;line-height:1.4}
-.gt-org-sep{height:0;margin:3px 0;border-top:1px solid var(--kptu-border-strong)}
+.gt-org-group{display:grid;min-width:0;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
+.gt-link-group[aria-label="조직"]{gap:12px}
+.gt-org-group .gt-link-opt{min-height:44px;align-items:center;border:0;background:transparent}
 .gt-row.gt-side-row{grid-template-columns:minmax(0,1fr) auto}
 .gt-linked .gt-row.gt-side-row{grid-template-columns:auto minmax(0,1fr) auto}
 div.gt-main{cursor:default}

@@ -1,5 +1,5 @@
 import {dayKey} from './home-read-model.js?v=1';
-import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=1';
+import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=2';
 let focusKey=null;
 export function renderWeek(options,{start,tasks}){
   const box=document.querySelector('#calendarWeek');if(!box)return;
