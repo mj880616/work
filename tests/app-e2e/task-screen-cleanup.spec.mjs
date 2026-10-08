@@ -55,3 +55,14 @@ for(const dismiss of ['Escape','edit'])test(`late link lookup keeps open menu an
  if(dismiss==='Escape')await page.keyboard.press('Escape');else{await menu.getByRole('button',{name:'편집',exact:true}).click();await expect(page.locator('#gtTaskModal')).toBeVisible();await page.locator('[data-gt-close]').click();}
  await expect(menu).toBeHidden();await expect(trigger).toBeFocused();
 });
+
+test('a task removed during menu use closes without opening a blank editor',async({page})=>{
+ const tasks=[task('removed','2026-10-08')];await open(page,tasks);
+ await page.locator('[data-gt-menu="removed"]').click();tasks.splice(0);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await expect.poll(()=>page.evaluate(()=>window.KPTUGoogleTasks.peekTasks().tasks.length)).toBe(0);
+ await page.locator('#gtTaskMenu').getByRole('button',{name:'편집',exact:true}).click();
+ await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(page.locator('#gtTaskModal')).toBeHidden();
+ await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');await expect(page.locator('#newTaskBtn')).toBeFocused();expect(errors).toEqual([]);
+});
