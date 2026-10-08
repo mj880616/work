@@ -21,7 +21,7 @@ function style(path){
 }
 const routeStyles={
   home:['./choice-sheet.css?v=1','./home-read.css?v=7','./google-tasks.css?v=24'],
-  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=25'],
+  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=26'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=24'],
   projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=24'],
   library:['./library-upload.css?v=4','./compact-list.css?v=2'],
@@ -62,7 +62,7 @@ function afterReveal(){
   });
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=16','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-month-view.js?v=17','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await module('./calendar-view.js?v=4');
   await projectCatalog();
   await team('calendar');

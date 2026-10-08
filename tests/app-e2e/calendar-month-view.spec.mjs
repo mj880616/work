@@ -49,7 +49,7 @@ test('empty date space opens the existing create flow with the clicked date',asy
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
   const cell=page.locator('.cal-cell[data-date="2026-09-25"]');
-  await cell.click({position:{x:10,y:55}});
+  await cell.click({position:{x:10,y:110}});
   await expect(page.locator('#eventModal')).toBeVisible();
   await expect(page.locator('#eventStartDate')).toHaveValue('2026-09-25');
   await expect(page.locator('#eventEndDate')).toHaveValue('2026-09-25');
@@ -151,12 +151,13 @@ test('month view fills the remaining viewport at supported mobile widths',async(
     await expect(page.locator('.cal-cell')).toHaveCount(35);
     const size=await page.locator('#calendarGrid').evaluate(el=>{
       const box=el.getBoundingClientRect(),vv=window.visualViewport;
-      return {right:box.right,left:box.left,bottom:box.bottom,viewport:innerWidth,viewportBottom:(vv?.offsetTop||0)+(vv?.height||innerHeight),scroll:document.documentElement.scrollWidth};
+      return {right:box.right,left:box.left,bottom:box.bottom,top:box.top,height:box.height,viewport:innerWidth,viewportBottom:(vv?.offsetTop||0)+(vv?.height||innerHeight),scroll:document.documentElement.scrollWidth};
     });
     expect(size.left).toBeGreaterThanOrEqual(-13);
     expect(size.right).toBeLessThanOrEqual(size.viewport+13);
     expect(size.scroll).toBeLessThanOrEqual(size.viewport+1);
-    expect(Math.abs(size.viewportBottom-size.bottom)).toBeLessThanOrEqual(2);
+    expect(size.height).toBeCloseTo(Math.max(size.viewportBottom-size.top,23+5*132+2),0);
+    expect(size.bottom).toBeGreaterThanOrEqual(size.viewportBottom);
   }
 });
 
@@ -174,9 +175,10 @@ test('today is indicated on the date number instead of filling the whole cell',a
 test('five and six week months divide the same available height naturally',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto(url);
+  await page.evaluate(()=>KPTUCalendarMonthView.render({year:2026,month:8,googleEvents:[]}));
   const five=await page.locator('.cmv-week').first().evaluate(el=>el.getBoundingClientRect().height);
   const fiveGrid=await page.locator('#calendarGrid').evaluate(el=>el.getBoundingClientRect().height);
-  await page.evaluate(()=>window.renderMonth(2026,7));
+  await page.evaluate(()=>KPTUCalendarMonthView.render({year:2026,month:7,googleEvents:[]}));
   await expect(page.locator('.cmv-week')).toHaveCount(6);
   const six=await page.locator('.cmv-week').first().evaluate(el=>el.getBoundingClientRect().height);
   const sixGrid=await page.locator('#calendarGrid').evaluate(el=>el.getBoundingClientRect().height);
@@ -207,7 +209,7 @@ test('date headers and event lanes stay pinned to the top when week rows grow',a
   expect(Math.abs(short.eventTop-short.layerTop)).toBeLessThanOrEqual(1);
 
   const shortGridHeight=Number(await page.locator('#calendarGrid').getAttribute('data-cmv-viewport-height'));
-  await page.setViewportSize({width:390,height:844});
+  await page.setViewportSize({width:390,height:1000});
   await expect.poll(async()=>Number(await page.locator('#calendarGrid').getAttribute('data-cmv-viewport-height'))).toBeGreaterThan(shortGridHeight);
   const tall=await measure();
   expect(tall.weekHeight).toBeGreaterThan(short.weekHeight+20);
@@ -237,7 +239,7 @@ test('five and six week months keep date headers above the shared event area',as
   }
 });
 
-test('taller viewport exposes more schedules before overflow',async({page})=>{
+test('taller viewport grows rows while preserving three schedules and overflow',async({page})=>{
   await page.setViewportSize({width:390,height:640});
   await page.goto(url);
   const busyWeek=page.locator('.cmv-week').first();
@@ -245,16 +247,18 @@ test('taller viewport exposes more schedules before overflow',async({page})=>{
   const shortMore=Number((await busyWeek.locator('.kptu-day-more').first().textContent()).replace('+',''));
   const shortHeight=Number(await page.locator('#calendarGrid').getAttribute('data-cmv-viewport-height'));
 
-  await page.setViewportSize({width:390,height:844});
+  await page.setViewportSize({width:390,height:1000});
   await expect.poll(async()=>Number(await page.locator('#calendarGrid').getAttribute('data-cmv-viewport-height'))).toBeGreaterThan(shortHeight);
   const tallVisible=await page.locator('.cmv-week').first().locator('.cmv-event').count();
   const tallMore=Number((await page.locator('.cmv-week').first().locator('.kptu-day-more').first().textContent()).replace('+',''));
-  expect(tallVisible).toBeGreaterThan(shortVisible);
-  expect(tallMore).toBeLessThan(shortMore);
+  expect(shortVisible).toBe(3);
+  expect(tallVisible).toBe(3);
+  expect(shortMore).toBe(5);
+  expect(tallMore).toBe(5);
 });
 
 test('pinch zoom preserves mobile month lanes without opening a dimming overlay, while a real resize recalculates',async({browser})=>{
-  const context=await browser.newContext({viewport:{width:412,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:1});
+  const context=await browser.newContext({viewport:{width:412,height:1000},isMobile:true,hasTouch:true,deviceScaleFactor:1});
   const page=await context.newPage();
   const cdp=await context.newCDPSession(page);
   try{
@@ -277,7 +281,7 @@ test('pinch zoom preserves mobile month lanes without opening a dimming overlay,
     await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
     await page.setViewportSize({width:412,height:640});
     await expect.poll(async()=>(await metrics()).gridHeight).toBeLessThan(before.gridHeight);
-    expect((await metrics()).lanes).not.toEqual(before.lanes);
+    expect((await metrics()).lanes).toEqual(before.lanes);
     await page.evaluate(()=>{window.__monthWeekBeforeWidthChange=document.querySelector('.cmv-week')});
     await page.setViewportSize({width:390,height:640});
     await expect.poll(()=>page.evaluate(()=>window.__monthWeekBeforeWidthChange!==document.querySelector('.cmv-week'))).toBe(true);

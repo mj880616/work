@@ -7,8 +7,8 @@ for(const width of [360,1280]){
     await openEmphasisFixture(page);
     await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(0);
     const badge=date=>page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count`);
-    await expect(badge('2026-10-20')).toHaveText('☐1');
-    await expect(badge('2026-10-21')).toHaveText('☐17');
+    await expect(badge('2026-10-20')).toHaveText('✓1');
+    await expect(badge('2026-10-21')).toHaveText('✓17');
     await expect(badge('2026-10-20')).toHaveAccessibleName('할 일 1개');
     await expect(badge('2026-10-10')).toHaveAccessibleName('할 일 1개, 기한 지남 포함');
     await expect(badge('2026-10-10')).toHaveCSS('color','rgb(180, 35, 24)');
@@ -31,14 +31,16 @@ for(const width of [360,1280]){
     const cap=Number(await week.getAttribute('data-lane-cap'));
     if(width<1024){await expect(week.locator('.kptu-day-more')).toHaveText('+'+(24-cap));}
     else await expect(week.locator('.kptu-day-more')).toHaveCount(0);
-    // Preserve the existing 44px requirement for a single footer control. Shared targets are checked by calendar-month-event-footer.
-    await page.locator('.cal-cell[data-date="2026-10-10"] .cmv-task-count').scrollIntoViewIfNeeded();
-    const geometry=await page.locator('.cal-cell[data-date="2026-10-10"] .cmv-task-count').evaluate(el=>{
+    // Mobile has one date-row target; desktop has an independent 44px task target.
+    const marker=page.locator('.cal-cell[data-date="2026-10-10"] .cmv-task-count');
+    const target=width<=760?marker.locator('..'):marker;
+    await target.scrollIntoViewIfNeeded();
+    const geometry=await target.evaluate(el=>{
       const r=el.getBoundingClientRect(),cell=el.closest('.cal-cell'),week=el.closest('.cmv-week'),c=cell.getBoundingClientRect();
-      const others=[cell.querySelector('.cal-day'),cell.querySelector('.cmv-date-create'),cell.querySelector('.cmv-date-list'),...week.querySelectorAll('.cmv-event,.kptu-day-more')].filter(Boolean);
+      const others=[...week.querySelectorAll('.cmv-event,.kptu-day-more')];
       return {width:r.width,height:r.height,within:r.left>=c.left&&r.right<=c.right&&r.bottom<=c.bottom,
         overlaps:others.map(x=>{const b=x.getBoundingClientRect();return {name:x.className,overlap:r.left<b.right-.1&&r.right>b.left+.1&&r.top<b.bottom-.1&&r.bottom>b.top+.1}}),
-        hit:document.elementFromPoint(r.right-2,r.top+2)===el};
+        hit:el.contains(document.elementFromPoint(r.right-2,r.top+2))};
     });
     expect(geometry.height).toBe(44);expect(geometry.width).toBeGreaterThanOrEqual(44);
     expect(geometry.within).toBe(true);expect(geometry.overlaps.filter(x=>x.overlap)).toEqual([]);expect(geometry.hit).toBe(true);
@@ -62,7 +64,7 @@ test('supplied done and overdue flags control the marker across themes',async({p
     {id:'c',title:'QA',date:'2026-10-20',done:false,overdue:false}
   ]));
   const marker=page.locator('.cmv-task-count');
-  await expect(marker).toHaveText('☐2');await expect(marker).toHaveAccessibleName('할 일 2개, 기한 지남 포함');
+  await expect(marker).toHaveText('✓2');await expect(marker).toHaveAccessibleName('할 일 2개, 기한 지남 포함');
   for(const theme of ['olive','navy','terracotta','sand']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     expect(await marker.evaluate(el=>getComputedStyle(el).color)).toBe(await page.evaluate(()=>{

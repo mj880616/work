@@ -34,7 +34,7 @@ for(const [date,count] of [['2026-10-21',19],['2026-10-23',0]]){
   test(`number tap opens the full day list (${count?'busy':'empty'})`,async({page})=>{
     const {external}=await open(page);
     const button=dateButton(page,date);
-    await expect(button).toHaveAccessibleName(`${Number(date.slice(5,7))}월 ${Number(date.slice(8))}일 목록 보기`);
+    await expect(button).toHaveAccessibleName(`${Number(date.slice(5,7))}월 ${Number(date.slice(8))}일 목록 보기`+(count?', 할 일 17개':''));
     await button.click();
     await expect(page.locator('#calendarDayModal')).toBeVisible();
     await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(count);
@@ -199,17 +199,22 @@ test('short six-week mobile rows keep events and overflow inside their own dates
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/calendar-month-view-fixture.html');
   await page.evaluate(()=>window.renderDensityFixture({year:2026,month:7,dateCounts:{'2026-08-13':2}}));
   await expect(page.locator('.cmv-week')).toHaveCount(6);
-  const metrics=await page.locator('.cmv-week').evaluateAll(weeks=>weeks.flatMap(week=>{
-    const wb=week.getBoundingClientRect();
-    return [...week.querySelectorAll('.cmv-event,.kptu-day-more')].map(item=>{
-      const b=item.getBoundingClientRect(),hit=document.elementFromPoint(b.x+b.width/2,b.bottom-1);
-      return {bottom:b.bottom,weekBottom:wb.bottom,hitMatches:item.contains(hit)};
+  const items=page.locator('.cmv-event,.kptu-day-more');
+  expect(await items.count()).toBeGreaterThan(0);
+  for(const item of await items.all()){
+    await item.scrollIntoViewIfNeeded();
+    const m=await item.evaluate(item=>{
+      const b=item.getBoundingClientRect(),wb=item.closest('.cmv-week').getBoundingClientRect();
+      return {bottom:b.bottom,weekBottom:wb.bottom,hitMatches:item.contains(document.elementFromPoint(b.x+b.width/2,b.bottom-1))};
     });
-  }));
-  expect(metrics.length).toBeGreaterThan(0);
-  for(const m of metrics){expect(m.bottom).toBeLessThanOrEqual(m.weekBottom);expect(m.hitMatches).toBe(true)}
-  await expect(page.locator('.kptu-day-more')).toHaveText('+2');
+    expect(m.bottom).toBeLessThanOrEqual(m.weekBottom);expect(m.hitMatches).toBe(true);
+  }
+  await expect(page.locator('.cmv-event')).toHaveCount(2);
+  await expect(page.locator('.kptu-day-more')).toHaveCount(0);
+  await page.evaluate(()=>window.renderDensityFixture({year:2026,month:7,dateCounts:{'2026-08-13':4}}));
+  await expect(page.locator('.cmv-event')).toHaveCount(3);
+  await expect(page.locator('.kptu-day-more')).toHaveText('+1');
   await page.locator('.kptu-day-more').click();
   await expect(page.locator('#calendarDayTitle')).toContainText('8월 13일');
-  await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(2);
+  await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(4);
 });

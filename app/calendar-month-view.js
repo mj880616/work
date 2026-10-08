@@ -47,8 +47,12 @@
     const value=parseFloat(getComputedStyle(el).getPropertyValue(name));
     return Number.isFinite(value)?value:fallback;
   }
-  function viewportLayout(grid,weeks,head){
-    const headHeight=cssPx(grid,'--cmv-head-height',23),minWeek=cssPx(grid,'--cmv-min-week-height',58);
+  function viewportLayout(grid,weeks,head,maxLanes){
+    const header=cssPx(grid,'--cmv-date-header-height',44),step=cssPx(grid,'--cmv-lane-step',14);
+    // Keep three unchanged event rows and a separate 44px overflow target on phones.
+    const required=mq1024.matches?0:header+(mq760.matches?3:Math.min(1,maxLanes))*step+(maxLanes>(mq760.matches?3:1)?44:0)+2;
+    grid.style.setProperty('--cmv-content-week-height',required+'px');
+    const headHeight=cssPx(grid,'--cmv-head-height',23),minWeek=Math.max(required,cssPx(grid,'--cmv-min-week-height',58));
     const dateHeaderHeight=cssPx(grid,'--cmv-date-header-height',23),laneStep=cssPx(grid,'--cmv-lane-step',14);
     const style=getComputedStyle(grid);
     const border=(parseFloat(style.borderTopWidth)||0)+(parseFloat(style.borderBottomWidth)||0);
@@ -67,13 +71,13 @@
     grid.dataset.cmvViewportHeight=String(height);
     const actualHead=head?.getBoundingClientRect().height||headHeight;
     const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead)/weeks);
-    const footer=cssPx(grid,'--cmv-task-footer-height',0);
-    const slots=Math.max(footer?1:mq760.matches?1:2,Math.floor((rowHeight-dateHeaderHeight-footer-1)/laneStep));
+    const slots=Math.max(1,Math.floor((rowHeight-dateHeaderHeight-2)/laneStep));
     grid.dataset.cmvLaneSlots=String(slots);
-    return {height,rowHeight,slots,dateHeaderHeight};
+    return {height,rowHeight,slots,dateHeaderHeight,laneStep};
   }
-  function laneCap(laneCount,slots){
-    return laneCount>slots?Math.max(0,slots-1):slots;
+  function laneCap(laneCount,layout){
+    if(mq760.matches)return 3;
+    return laneCount>layout.slots?Math.max(1,Math.floor((layout.rowHeight-layout.dateHeaderHeight-44-2)/layout.laneStep)):layout.slots;
   }
   function eventSort(a,b){
     const at=a.source==='task'?1:0,bt=b.source==='task'?1:0;
@@ -108,6 +112,24 @@
       result.push({week:w,start:ws,segments,laneCount:lanes.length});
     }
     return result;
+  }
+  // Phones fill each date independently. Join adjacent pieces when an event stays in the same row.
+  function compactPhoneWeek(week){
+    const days=Array.from({length:7},(_,col)=>week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col));
+    const pieces=[];
+    for(const seg of week.segments){
+      let run=null;
+      for(let col=seg.startCol;col<=seg.endCol;col++){
+        const lane=days[col].indexOf(seg);
+        if(run&&run.lane===lane){run.endCol=col;run.span++}
+        else{
+          run={...seg,startCol:col,endCol:col,span:1,lane,continuesLeft:seg.continuesLeft||col>seg.startCol};
+          pieces.push(run);
+        }
+        run.continuesRight=seg.continuesRight||col<seg.endCol;
+      }
+    }
+    return {...week,segments:pieces,laneCount:Math.max(...days.map(day=>day.length))};
   }
   // t.date is the date part of the Google due value (YYYY-MM-DD), used as it is, so no time zone can move it to another day.
   function normalizeTask(t){
@@ -166,11 +188,10 @@
     layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
     const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
     const events=allEvents(options);
-    const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range);
+    const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range).map(week=>mq760.matches?compactPhoneWeek(week):week);
     const pendingByDate=new Map();
     tasks.forEach(t=>{if(t.done||t.date<key(range.start)||t.date>=key(range.end))return;const group=pendingByDate.get(t.date)||[];group.push(t);pendingByDate.set(t.date,group)});
-    const hasTaskFooter=pendingByDate.size>0;
-    grid.classList.toggle('cmv-has-tasks',hasTaskFooter);
+
     grid.replaceChildren();
     grid.dataset.monthView='1';
     grid.style.setProperty('--cmv-week-count',String(range.weeks));
@@ -178,16 +199,16 @@
     const heads=document.createElement('div');heads.className='cmv-head-row';
     ['일','월','화','수','목','금','토'].forEach((name,i)=>{const h=document.createElement('div');h.className='cal-head'+(i===0?' sunday':i===6?' saturday':'');h.textContent=name;heads.appendChild(h)});
     grid.appendChild(heads);
-    const layout=viewportLayout(grid,range.weeks,heads);
+    const layout=viewportLayout(grid,range.weeks,heads,Math.max(...weeks.map(w=>w.laneCount)));
 
     const weeksBox=document.createElement('div');weeksBox.className='cmv-weeks';
     weeks.forEach(week=>{
-      const lanes=mq1024.matches?week.laneCount:hasTaskFooter?Math.max(1,layout.slots):laneCap(week.laneCount,layout.slots);
+      const lanes=mq1024.matches?week.laneCount:laneCap(week.laneCount,layout);
       const wrap=document.createElement('div');wrap.className='cmv-week';wrap.dataset.weekStart=key(week.start);wrap.dataset.laneCap=String(lanes);wrap.dataset.laneCount=String(week.laneCount);
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
         const date=new Date(week.start);date.setDate(week.start.getDate()+i);
-        const dkey=key(date),pending=pendingByDate.get(dkey)||[],split=mq760.matches||hasTaskFooter,cell=document.createElement(split?'div':'button');
+        const dkey=key(date),pending=pendingByDate.get(dkey)||[],split=mq760.matches||pending.length>0,cell=document.createElement(split?'div':'button');
         if(!split)cell.type='button';
         cell.className='cal-cell'+(date.getMonth()===month?'':' other')+(dkey===key(new Date())?' today':'');
         cell.dataset.date=dkey;cell.setAttribute('aria-label',date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
@@ -205,11 +226,19 @@
         }else cell.appendChild(day);
         if(pending.length){
           cell.classList.add('cmv-cell-tasks');
-          const count=document.createElement('button');count.type='button';count.className='cmv-task-count';
+          const count=document.createElement(mq760.matches?'span':'button');
+          if(mq760.matches)count.setAttribute('role','img');else count.type='button';
+          count.className='cmv-task-count';
           const overdue=pending.some(t=>t.overdue);count.classList.toggle('cmv-task-count-overdue',overdue);
-          count.innerHTML=`<span>☐</span><span>${pending.length}</span>`;count.setAttribute('aria-label',`할 일 ${pending.length}개`+(overdue?', 기한 지남 포함':''));
-          count.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
-          cell.appendChild(count);
+          count.textContent=`✓${pending.length}`;count.setAttribute('aria-label',`할 일 ${pending.length}개`+(overdue?', 기한 지남 포함':''));
+          if(mq760.matches){
+            const list=cell.querySelector('.cmv-date-list');
+            list.setAttribute('aria-label',list.getAttribute('aria-label')+', '+count.getAttribute('aria-label'));
+            list.appendChild(count);
+          }else{
+            count.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
+            cell.appendChild(count);
+          }
         }
         dayGrid.appendChild(cell);
       }
@@ -222,15 +251,9 @@
       hidden.forEach((count,col)=>{
         if(!count)return;
         const date=new Date(week.start);date.setDate(week.start.getDate()+col);
-        const more=document.createElement('button');more.type='button';more.className='kptu-day-more';more.textContent=`+${count}`;more.style.gridColumn=String(col+1);more.style.gridRow=String(lanes+1);more.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 일정 ${count}개 더 보기`);
+        const more=document.createElement('button');more.type='button';more.className='kptu-day-more';more.dataset.date=key(date);more.textContent=`+${count}`;more.style.gridColumn=String(col+1);more.style.gridRow=String(lanes+1);more.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 일정 ${count}개 더 보기`);
         more.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
-        if(hasTaskFooter){
-          const cell=dayGrid.children[col];
-          more.innerHTML=`<span>+</span><span>${count}</span>`;
-          more.classList.add('cmv-footer-more');more.style.removeProperty('grid-column');more.style.removeProperty('grid-row');
-          cell.classList.toggle('cmv-footer-both',!!cell.querySelector('.cmv-task-count'));
-          cell.appendChild(more);
-        }else layer.appendChild(more);
+        layer.appendChild(more);
       });
       wrap.append(dayGrid,layer);weeksBox.appendChild(wrap);
     });
