@@ -1,3 +1,4 @@
+import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 const app='http://127.0.0.1:8123/app/';
@@ -109,4 +110,10 @@ test('focused controls stay reachable when crossing the phone and PC boundaries'
   await page.setViewportSize({width:761,height:844});await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='40px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
   await expect.poll(()=>page.locator('.app-nav [data-view="team"]').count()).toBe(0);await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu [data-view="team"]').focus();
   await page.setViewportSize({width:760,height:844});await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();await page.keyboard.press('Escape');await expect(page.locator('#mobileMenuOpen')).toBeFocused();
+});
+
+test('shared navigation helper reaches media from the row and from the drawer',async({page})=>{
+  await page.setViewportSize({width:820,height:844});await open(page);await clickView(page,'media');await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);
+  await clickView(page,'home');await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='40px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
+  await expect.poll(()=>page.locator('.app-nav [data-mobile-press="statement"]').count()).toBe(0);await clickView(page,'media');await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);await expect(page.locator('#mobileMenu')).toBeHidden();
 });

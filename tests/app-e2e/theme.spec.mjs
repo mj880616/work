@@ -283,7 +283,7 @@ for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account mat
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
  if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','14px');await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
-  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="tasks"]')),account=getComputedStyle(document.querySelector('.app-nav [data-account-open]'));
+  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="tasks"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-nav [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
  });expect(styles.account).toEqual(styles.nav);
 });
