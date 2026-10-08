@@ -88,7 +88,7 @@
   });
   await Promise.all([
     import('./app-router.js?v=15'),
-    import('./accessibility-dialog.js?v=3'),
+    import('./accessibility-dialog.js?v=4'),
     import('./native-back-guard.js?v=3'),
     import('./session-resilience.js?v=6'),
     import('./capabilities.js?v=3'),

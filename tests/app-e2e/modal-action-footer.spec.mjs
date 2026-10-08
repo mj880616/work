@@ -124,3 +124,12 @@ test('pinned calendar delete keeps confirmation and the existing request',async(
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
   expect(deleted).toEqual([{action:'delete-event',calendar_id:'c',event_id:'event'}]);
 });
+
+test('input auto-zoom still releases the footer when the visual keyboard opens',async({page})=>{
+  await page.setViewportSize({width:360,height:640});await open(page,cases[0]);
+  await page.locator('#eventDescription').focus();
+  await page.evaluate(()=>{Object.defineProperty(visualViewport,'scale',{configurable:true,value:1.2});Object.defineProperty(visualViewport,'height',{configurable:true,value:280});visualViewport.dispatchEvent(new Event('resize'));});
+  await expect(page.locator('#eventModal .modal-action-footer')).toHaveCSS('position','static');
+  await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,value:innerHeight/1.2});visualViewport.dispatchEvent(new Event('resize'));});
+  await expect(page.locator('#eventModal .modal-action-footer')).toHaveCSS('position','sticky');
+});

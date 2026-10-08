@@ -7,7 +7,8 @@
   const items=modal=>[...modal.querySelectorAll(focusable),...document.querySelectorAll('#versionNotice button')].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
 
   // A visual keyboard can shrink the visual viewport without resizing the layout.
-  // Release only the opted-in input footer; pinch zoom must not count as a keyboard.
+  // Compensate for zoom so iOS input auto-zoom still detects the keyboard,
+  // while pinch zoom alone does not count as a keyboard.
   let inputFooter=null;
   function syncInputFooter(){
     const focused=document.activeElement,modal=focused?.closest('.modal')||active;
@@ -17,8 +18,8 @@
     if(!footer)return;
     const viewport=window.visualViewport;
     const editing=modal.contains(focused)&&focused.matches('textarea,input:not([type="checkbox"]):not([type="radio"]),select');
-    footer.toggleAttribute('data-keyboard-open',innerWidth<=760&&editing&&(!viewport||viewport.scale===1)&&
-      (viewport?.height||innerHeight)<innerHeight-120);
+    footer.toggleAttribute('data-keyboard-open',innerWidth<=760&&editing&&
+      (viewport?viewport.height*viewport.scale:innerHeight)<innerHeight-120);
   }
   window.visualViewport?.addEventListener('resize',syncInputFooter);
   window.addEventListener('resize',syncInputFooter);

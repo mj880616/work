@@ -40,8 +40,9 @@ soEditModal·soAssignModal, libraryEditModal·libraryManageModal, warDraftModal.
 
 ## 검증 결과
 
-최종 로컬 관련 spec 95/95 통과 + 일정 수정 삭제 확인 spec 1/1 통과(합계 96).
-새 footer spec은 총 17개다.
+첫 최종 로컬 관련 spec 95/95 + 일정 수정 삭제 확인 1/1 통과(합계 96).
+이후 입력 자동 확대와 키보드가 함께 열린 경우를 추가했다. 해당 검사는 수정 전 실패했다.
+최종 관련 spec 97/97 통과. 새 footer spec은 총 18개다.
 
 - 새 E2E: 360·1280×640, 합성 담당조직 16개. 최초 저장·실제 저장 오류 노출, 마지막 입력/조직 항목 가림 없음, 버튼 44px 상하좌우 hit-test, 12px 이상 상태 문구 확인.
 - eventModal 할 일 모드 및 진행 중 상태·줄바꿈 오류, 네 창의 visualViewport 축소·복귀, 회전·닫기/재열기·pinch zoom 검증을 포함한다.
@@ -54,8 +55,9 @@ soEditModal·soAssignModal, libraryEditModal·libraryManageModal, warDraftModal.
 
 ## 키보드 대응과 제한
 
-폰 폭 760px 이하에서 입력/textarea/select에 포커스가 있고 visualViewport가
+폰 폭 760px 이하에서 입력/textarea/select에 포커스가 있고 visualViewport.height × scale이
 현재 layout viewport보다 120px 이상 작아지면 footer를 static으로 바꾼다.
+확대 배율을 보정해 iOS 입력 자동 확대와 키보드가 함께 열려도 고정을 푼다.
 포커스 이동·키보드 복귀 때 sticky로 돌아가며 다른 창·기기 확대에는 적용하지 않는다.
 layout viewport 자체가 줄어드는 브라우저는 기존 100dvh 제한 안에서 sticky를 유지한다.
 실제 iOS/Android 키보드·안전영역 실기기 검증은 클라우드에서 하지 못했다.
