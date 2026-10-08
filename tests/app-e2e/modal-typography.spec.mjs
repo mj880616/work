@@ -70,13 +70,25 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original,'b9dbcaee0b8e92bd8d80334bf97999f561deef94');await boot(original);
  for(const name of ['projects','meetings','media','pages','team','tasks','calendar','library']){
   for(const p of [page,original])await view(p,name);
-  // D-4c adds one heading. Verify all its computed styles against the retained week heading,
-  // then let today occupy the old combined heading position and compare every pre-existing text role to the unchanged D-3e baseline.
+  // Empty headings disappear; retained headings keep the established style.
+  // The changed task region gets explicit D-할일화면정리 roles below.
   if(name==='tasks'){
     const style=el=>{const s=getComputedStyle(el);return [el.tagName,el.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]};
-    expect(await page.locator('#gt-today-head').evaluate(style)).toEqual(await page.locator('#gt-week-head').evaluate(style));
+    expect(await page.locator('#gt-today-head').evaluate(style)).toEqual(await original.locator('#gt-week-head').evaluate(style));
+    await expect(page.locator('#gt-week-head')).toHaveCount(0);
+    await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
+    await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
+    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','14px');
+    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('-webkit-line-clamp','2');
+    await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
+    await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('color',await page.locator('[data-gt-count]').evaluate(el=>getComputedStyle(el).color));
+    expect(await page.locator('#newTaskBtn').evaluate(style)).toEqual(await original.locator('#newTaskBtn').evaluate(style));
+    for(const selector of ['[data-gt-info]','[data-gt-menu]']){
+      const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
+    }
+    await page.locator('[data-gt-info]').click();await audit(page,'gtScopeModal');await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveCSS('font-size','14px');await page.locator('[data-gt-scope-close]').click();
   }
-  const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task]')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
+  const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('#gtTaskSection,.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task]')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
   expect(await snapshot(page),name).toEqual(await snapshot(original));
 
  }
@@ -96,10 +108,11 @@ async function audit(page,id){
  for(const h2 of await modal.locator('.modal-head h2,.w1b-detail-head h2').all())await expect(h2).toHaveCSS('font-size','20px');
 }
 
-const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','pressDetailModal','web1BoardDetailModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','themeModal','warDraftModal','polManageModal'];
+const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','pressDetailModal','web1BoardDetailModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
 for(const width of [390,1440])test('D-3e installed dialog templates use role sizes '+width,async({page},testInfo)=>{
  await page.setViewportSize({width,height:900});await boot(page);
  for(const name of ['projects','meetings','team','library','tasks','calendar','media','pages'])await view(page,name);
+ await view(page,'tasks');await page.locator('[data-gt-info]').click();await page.locator('[data-gt-scope-close]').click();
  const inventory=await page.evaluate(ids=>{
   const result={present:[],notInstalled:[],counts:{},violations:[]};
   // Synchronous template measurement avoids adding overlay history entries while walking closed templates.
@@ -127,8 +140,13 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
     await p.evaluate(date=>KPTUCalendarDayOverflow.open(new Date(date+'T12:00:00'),KPTUCalendarMonthView.dayEvents(date)),date);
     await expect(p.locator('#calendarDayList [data-calendar-task="font-task"]')).toBeVisible();
    }
-   const taskStyles=async p=>p.locator('#calendarDayList [data-calendar-task="font-task"]').evaluate(el=>[el,...el.querySelectorAll('*')].map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight,s.backgroundColor,s.borderColor,s.opacity,s.textDecorationLine]}));
-   expect(await taskStyles(page),'calendar day task').toEqual(await taskStyles(dayOriginal));
+   // Compare every pre-existing task role unchanged, then check the added metadata role.
+   const taskStyles=async p=>p.locator('#calendarDayList [data-calendar-task="font-task"]').evaluate(el=>[el,el.querySelector('.cmv-task-mark'),el.querySelector('.cmv-event-title')].map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight,s.backgroundColor,s.borderColor,s.opacity,s.textDecorationLine]}));
+   expect(await taskStyles(page),'calendar day task retained roles').toEqual(await taskStyles(dayOriginal));
+   await expect(page.locator('#calendarDayTasks .gt-day-main')).toHaveCount(1);
+   await expect(page.locator('#calendarDayTasks .gt-meta')).toHaveCSS('font-size','12px');
+   await expect(page.locator('#calendarDayTasks .gt-due')).not.toBeEmpty();
+   await expect(page.locator('#calendarDayTasks')).not.toContainText('연결 안 됨');
    for(const p of [page,dayOriginal]){
     await p.locator('[data-close="calendarDayModal"]').click();
     await expect(p.locator('#calendarDayModal')).toBeHidden();

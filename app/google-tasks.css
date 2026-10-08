@@ -107,3 +107,5 @@ div.gt-main{cursor:default}
 #calendarDayTasks .gt-day-main{min-width:0;display:block;flex:1}
 #calendarDayTasks .cmv-event-title{display:block}
 #calendarDayTasks .cmv-task-overdue .gt-due{color:var(--kptu-danger)}
+
+#gtScopeModal .gt-scope-note{font-size:14px}
