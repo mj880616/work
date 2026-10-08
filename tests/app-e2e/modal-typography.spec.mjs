@@ -48,7 +48,9 @@ async function signIn(page){
 
 
 import {execFileSync} from 'node:child_process';
-async function boot(page,tasks=[{id:'font-task',title:'Typography QA task',notes:'Typography QA notes',due:new Date().toISOString(),status:'needsAction',taskListId:'@default',taskListTitle:'QA',source:'google-task'}],calendarEvents=[{id:'font-event',calendarId:'primary',title:'Typography QA event',start:new Date().toISOString().slice(0,10)+'T12:00:00+09:00',end:new Date().toISOString().slice(0,10)+'T13:00:00+09:00',color:'var(--kptu-primary)'}]){
+// The retained heading is Today in KST, including after 15:00 UTC.
+const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
+async function boot(page,tasks=[{id:'font-task',title:'Typography QA task',notes:'Typography QA notes',due:fixtureTaskDay(),status:'needsAction',taskListId:'@default',taskListTitle:'QA',source:'google-task'}],calendarEvents=[{id:'font-event',calendarId:'primary',title:'Typography QA event',start:new Date().toISOString().slice(0,10)+'T12:00:00+09:00',end:new Date().toISOString().slice(0,10)+'T13:00:00+09:00',color:'var(--kptu-primary)'}]){
  await mockApp(page,{tasks,calendarEvents,spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
  await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
 }
@@ -135,7 +137,7 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
    const dayOriginal=await browser.newPage({viewport:{width,height:900}});
    await baseline(dayOriginal,'5c81cfd845ee9d08f9e337ce1d0cb378d20c4169');await boot(dayOriginal);await view(dayOriginal,'calendar');
    for(const p of [page,dayOriginal]){
-    const date=new Date().toISOString().slice(0,10);
+    const date=fixtureTaskDay();
     await expect.poll(()=>p.evaluate(date=>window.KPTUCalendarMonthView?.dayEvents(date).filter(e=>e.source==='task').length,date)).toBe(1);
     await p.evaluate(date=>KPTUCalendarDayOverflow.open(new Date(date+'T12:00:00'),KPTUCalendarMonthView.dayEvents(date)),date);
     await expect(p.locator('#calendarDayList [data-calendar-task="font-task"]')).toBeVisible();
