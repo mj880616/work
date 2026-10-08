@@ -27,15 +27,15 @@
 .cp-cal-msg{margin:1px 0 5px;padding:4px 7px;border-radius:var(--kptu-radius-sm);background:var(--kptu-info-soft);color:var(--kptu-info);font-size:9px}
 .cp-cal-msg.error{background:var(--kptu-danger-soft);color:var(--kptu-danger)}
 
-.calendar-grid{--cmv-head-height:23px;--cmv-date-header-height:23px;--cmv-lane-step:14px;--cmv-min-week-height:58px;display:flex;flex-direction:column;height:var(--cmv-grid-height,auto);box-sizing:border-box;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);overflow:hidden;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+.calendar-grid{--cmv-head-height:23px;--cmv-date-header-height:44px;--cmv-lane-step:14px;--cmv-min-week-height:58px;display:flex;flex-direction:column;height:var(--cmv-grid-height,auto);box-sizing:border-box;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);overflow:hidden;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
 .cmv-head-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));flex:0 0 var(--cmv-head-height);height:var(--cmv-head-height);background:var(--kptu-surface)}
 .cal-head{display:grid;place-items:center;text-align:center;padding:0 1px;background:transparent;font-size:10px;font-weight:700;color:var(--kptu-muted);border-right:1px solid var(--kptu-border)}
 .cal-head:last-child{border-right:0}
 .cal-head.sunday{color:var(--kptu-danger)}
 .cal-head.saturday{color:var(--kptu-link)}
-.cmv-weeks{display:grid;grid-template-rows:repeat(var(--cmv-week-count),minmax(var(--cmv-min-week-height),1fr));flex:1 1 auto;min-height:0}
-.cmv-week{position:relative;min-height:var(--cmv-min-week-height);height:100%;border-top:1px solid var(--kptu-border)}
-.cmv-week-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));min-height:var(--cmv-min-week-height);height:100%}
+.cmv-weeks{display:grid;grid-template-rows:repeat(var(--cmv-week-count),minmax(max(var(--cmv-min-week-height),var(--cmv-content-week-height,0px)),1fr));flex:1 1 auto;min-height:0}
+.cmv-week{position:relative;min-height:max(var(--cmv-min-week-height),var(--cmv-content-week-height,0px));height:100%;border-top:1px solid var(--kptu-border)}
+.cmv-week-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));min-height:max(var(--cmv-min-week-height),var(--cmv-content-week-height,0px));height:100%}
 .cal-cell{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;min-width:0;min-height:0;padding:2px 2px;border:0;border-right:1px solid var(--kptu-border);background:var(--kptu-surface);color:var(--kptu-ink);text-align:left;overflow:hidden;cursor:pointer}
 .cal-cell:last-child{border-right:0}
 .cal-cell.other{background:var(--kptu-surface-subtle);color:var(--kptu-faint)}
@@ -45,14 +45,14 @@
 .cal-cell.today .cal-day{background:var(--kptu-primary);color:var(--kptu-on-primary);border-radius:var(--kptu-radius-pill)}
 .cal-cell.other.today{background:var(--kptu-surface-subtle)}
 
-.cmv-week-events{position:absolute;left:0;right:0;top:var(--cmv-date-header-height);bottom:1px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:calc(var(--cmv-lane-step) - 1px);row-gap:1px;align-content:start;pointer-events:none;padding:0 1px}
+.cmv-week-events{position:absolute;left:0;right:0;top:var(--cmv-date-header-height);bottom:1px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:calc(var(--cmv-lane-step) - 1px);row-gap:1px;align-content:start;pointer-events:none;padding:0}
 .cal-event.cmv-event{pointer-events:auto;display:flex;align-items:center;min-width:0;height:13px;line-height:13px;margin:0 1px;padding:0 3px;border:0;border-radius:var(--kptu-radius-sm);font-size:8.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cal-event.cmv-event.cmv-continues-left{margin-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
 .cal-event.cmv-event.cmv-continues-right{margin-right:0;border-top-right-radius:0;border-bottom-right-radius:0}
 .cmv-event-time{flex:0 0 auto;margin-right:2px;font-size:7.5px;opacity:.9}
 .cmv-event-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal-event.cmv-event:active{transform:scale(.99)}
-.kptu-day-more{pointer-events:auto;align-self:start;width:auto;min-width:0;height:12px;border:0;background:transparent;color:var(--kptu-link);font-size:8px;font-weight:800;text-align:left;padding:0 2px;cursor:pointer;overflow:hidden}
+.kptu-day-more{pointer-events:auto;align-self:start;width:auto;min-width:0;height:var(--cmv-more-height,44px);box-sizing:border-box;display:flex;align-items:flex-start;line-height:var(--cmv-more-line-height,18px);border:0;background:transparent;color:var(--kptu-link);font-size:var(--cmv-more-font-size,clamp(9.5px,.65vw,11px));font-weight:800;text-align:left;padding:0 2px;cursor:pointer;overflow:hidden}
 
 .kptu-day-list{display:grid;gap:5px}
 .kptu-day-list .cal-event{display:flex!important;align-items:center;width:100%;min-height:44px;margin:0!important;padding:7px 9px!important;font-size:14px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;border:0;border-radius:var(--kptu-radius-md)!important;text-align:left}
@@ -94,7 +94,7 @@
   #calendarView .calendar-toolbar{max-width:none;min-height:44px;gap:10px;margin:0 0 10px}
   #calendarView .calendar-toolbar #monthTitle{font-size:clamp(20px,1.3vw,24px);min-width:150px}
   #calendarView #prevMonthBtn,#calendarView #nextMonthBtn{width:38px;height:38px;min-width:38px;padding:0;font-size:24px;line-height:1}
-  #calendarView .calendar-grid{--cmv-head-height:clamp(32px,2.1vw,38px);--cmv-date-header-height:clamp(32px,2.1vw,38px);--cmv-lane-step:clamp(20px,1.4vw,24px);--cmv-min-week-height:clamp(88px,7vw,112px);height:auto;min-height:var(--cmv-grid-height,0)}
+  #calendarView .calendar-grid{--cmv-head-height:clamp(32px,2.1vw,38px);--cmv-date-header-height:44px;--cmv-lane-step:clamp(20px,1.4vw,24px);--cmv-min-week-height:clamp(88px,7vw,112px);height:auto;min-height:var(--cmv-grid-height,0)}
   #calendarView .cmv-weeks{display:flex;flex:1 0 auto;flex-direction:column;min-height:auto}
   #calendarView .cmv-week{display:grid;flex:1 0 auto;height:auto}
   #calendarView .cmv-week-days{grid-area:1/1;height:auto}
@@ -105,16 +105,17 @@
   #calendarView .cmv-week-events{padding:0 3px}
   #calendarView .cal-event.cmv-event{height:calc(var(--cmv-lane-step) - 2px);line-height:calc(var(--cmv-lane-step) - 2px);margin:0 2px;padding:0 clamp(4px,.5vw,7px);font-size:clamp(10.5px,.7vw,12.5px)}
   #calendarView .cmv-event-time{margin-right:4px;font-size:clamp(9px,.6vw,10.5px)}
-  #calendarView .kptu-day-more{height:calc(var(--cmv-lane-step) - 2px);font-size:clamp(9.5px,.65vw,11px);padding:0 5px}
+  #calendarView .kptu-day-more{height:calc(var(--cmv-lane-step) - 2px);padding:0 5px}
 }
 
 @media(max-width:760px){
-  #calendarView .calendar-grid{--cmv-date-header-height:32px}
+  #calendarView .calendar-grid{--cmv-date-header-height:44px;--cmv-more-font-size:12px;--cmv-more-line-height:18px;--cmv-more-height:18px}
   #calendarView .cal-cell{position:relative;border-right:0}
   #calendarView .cal-cell::after{content:'';position:absolute;right:0;top:0;bottom:0;border-right:1px solid var(--kptu-border);pointer-events:none}
   #calendarView .cal-cell:last-child::after{display:none}
   .cmv-date-list,.cmv-date-create{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
-  .cmv-date-list{top:0;height:var(--cmv-date-header-height);padding:2px 1px;text-align:left;display:flex;align-items:flex-start}
+  .cmv-date-list{top:0;height:var(--cmv-date-header-height);padding:2px 0;text-align:left;display:flex;align-items:flex-start}
+  .cmv-date-list .cal-day{flex-shrink:1;min-width:0}
   .cmv-date-create{top:var(--cmv-date-header-height);bottom:0;padding:0}
   .cmv-date-list:focus-visible,.cmv-date-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
   .calendar-toolbar-add{width:36px;padding:0}
@@ -199,21 +200,14 @@
 .cwv-today .cwv-date{color:var(--kptu-primary-ink);font-weight:700}
 @media(max-width:760px){.cwv-date{flex-basis:56px;width:56px}}
 
-/* FIX-월간일정숨김: +N and task count share the reserved footer, preserving every event slot. */
-#calendarView .cmv-has-tasks{--cmv-task-footer-height:44px;--cmv-min-week-height:92px}
-#calendarView .cmv-has-tasks .cal-cell{position:relative}
-#calendarView .cmv-has-tasks .cmv-date-create{bottom:44px}
-#calendarView .cmv-date-create-pc{position:absolute;inset:0 0 44px;width:100%;min-width:0;min-height:0;padding:4px 5px;background:transparent;border:0;color:inherit;text-align:left;display:flex;align-items:flex-start;border-radius:var(--kptu-radius-sm)}
-#calendarView .cmv-task-count{position:absolute;bottom:0;right:0;width:100%;height:44px;min-height:0;min-width:0;box-sizing:border-box;padding:0 3px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);font-size:12px;line-height:16px;text-align:right;white-space:nowrap;cursor:pointer;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+/* D-월간3줄: counts share the date header, never reserve an event footer. */
+#calendarView .cal-cell{position:relative}
+#calendarView .cmv-date-create-pc{position:absolute;inset:0;width:100%;min-width:0;min-height:0;padding:4px 5px;background:transparent;border:0;color:inherit;text-align:left;display:flex;align-items:flex-start;border-radius:var(--kptu-radius-sm);clip-path:polygon(0 0,calc(100% - 44px) 0,calc(100% - 44px) 44px,100% 44px,100% 100%,0 100%)}
+#calendarView .cmv-task-count{box-sizing:border-box;color:var(--kptu-muted);font-size:12px;line-height:16px;white-space:nowrap}
+#calendarView button.cmv-task-count{position:absolute;top:0;right:0;width:44px;height:44px;min-height:0;min-width:0;padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;text-align:center;cursor:pointer;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+#calendarView .cmv-date-list .cmv-task-count{margin-left:auto;margin-top:2px;pointer-events:none}
 #calendarView .cmv-task-count-overdue{color:var(--kptu-danger)}
-#calendarView .cmv-footer-more{position:absolute;left:0;bottom:0;width:100%;height:44px;min-height:0;box-sizing:border-box;padding:0 3px;font-size:12px;line-height:16px;border-radius:var(--kptu-radius-sm);white-space:nowrap;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
-#calendarView .cmv-footer-both .cmv-footer-more,#calendarView .cmv-footer-both .cmv-task-count{width:50%;display:flex;flex-wrap:wrap;align-content:center;padding:0}
-#calendarView .cmv-footer-both .cmv-footer-more{justify-content:flex-start}
-#calendarView .cmv-footer-both .cmv-task-count{justify-content:flex-end}
-#calendarView .cmv-footer-more:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 #calendarView .cmv-task-count:focus-visible,#calendarView .cmv-date-create-pc:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
-@media(max-width:1023px){#calendarView .cmv-has-tasks .cmv-week-events{bottom:45px}}
-@media(min-width:1024px){#calendarView .cmv-has-tasks .cmv-week-events{margin-bottom:44px}}
 
 /* Registration modes share title, date and notes; event-only fields retain their layout. */
 #eventModal [hidden] { display:none; }
