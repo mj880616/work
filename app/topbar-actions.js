@@ -39,7 +39,16 @@ const midItems=['home','calendar','tasks','projects','library','meetings'].map(v
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
 }));
-let midActive=false;
+let midActive=false,navigationFocus=null;
+// display:none may clear activeElement before resize/media-query callbacks.
+// Retain only a menu focus lost through hiding; explicit blur or another
+// focused control clears this reference.
+document.addEventListener('focusin',event=>{
+  if(event.target!==document.body)navigationFocus=homes.has(event.target)?event.target:null;
+});
+document.addEventListener('focusout',event=>{
+  if(event.target===navigationFocus&&event.target.getClientRects().length)navigationFocus=null;
+});
 function syncMenuLocation(){
   if(!midActive)return;
   const view=window.KPTURouter?.current||window.KPTURouter?.detect?.();
@@ -56,9 +65,13 @@ function syncMenuLocation(){
 }
 function syncMidNavigation(){
   if(!appNav||!drawerNav||!mobileTrigger)return;
-  const focus=document.activeElement;
+  const active=document.activeElement;
+  const focus=active===document.body&&navigationFocus&&!navigationFocus.getClientRects().length?navigationFocus:active;
   if(!midQuery.matches){
-    if(!midActive)return;
+    if(!midActive){
+      if(mobileQuery.matches&&homes.has(focus)&&!focus.getClientRects().length)mobileTrigger.focus({preventScroll:true});
+      return;
+    }
     midActive=false;
     homes.forEach((anchor,button)=>anchor.after(button));
     midItems.forEach(button=>{if(button.dataset.mobilePress){button.classList.remove('nav-btn','active');button.removeAttribute('aria-current')}});

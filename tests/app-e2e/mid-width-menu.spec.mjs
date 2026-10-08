@@ -117,3 +117,19 @@ test('shared navigation helper reaches media from the row and from the drawer',a
   await clickView(page,'home');await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='40px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
   await expect.poll(()=>page.locator('.app-nav [data-mobile-press="statement"]').count()).toBe(0);await clickView(page,'media');await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);await expect(page.locator('#mobileMenu')).toBeHidden();
 });
+
+test('phone breakpoint preserves focus when CSS hides the row before the layout handler',async({page})=>{
+  // Chromium versions differ in when display:none clears activeElement.
+  await page.addInitScript(()=>matchMedia('(max-width:760px)').addEventListener('change',event=>{
+    if(event.matches&&document.activeElement?.closest('.app-nav'))document.activeElement.blur();
+  }));
+  await page.setViewportSize({width:820,height:844});await open(page);
+  await page.locator('.app-nav [data-view="home"]').focus();await page.setViewportSize({width:760,height:844});await expect(page.locator('#mobileMenuOpen')).toBeFocused();
+});
+
+test('breakpoint recovery does not steal deliberate blur or content input focus',async({page})=>{
+  await page.setViewportSize({width:820,height:844});await open(page);
+  const home=page.locator('.app-nav [data-view="home"]'),trigger=page.locator('#mobileMenuOpen');
+  await home.focus();await home.evaluate(button=>button.blur());await page.setViewportSize({width:760,height:844});await expect(trigger).not.toBeFocused();
+  await page.setViewportSize({width:820,height:844});await expect(trigger).toBeVisible();await home.focus();const input=page.getByRole('textbox',{name:'빠른 입력'});await input.focus();await page.setViewportSize({width:760,height:844});await expect(input).toBeFocused();await expect(trigger).not.toBeFocused();
+});
