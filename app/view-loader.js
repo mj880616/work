@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  home:['./choice-sheet.css?v=1','./home-read.css?v=7','./google-tasks.css?v=24'],
+  home:['./choice-sheet.css?v=1','./home-read.css?v=8','./google-tasks.css?v=24'],
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=29'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=24'],
   projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=24'],
@@ -139,7 +139,7 @@ async function home(){
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
   // Preserve the existing narrow-screen action labels when home is the first route.
   await module('./calendar-mobile-ui.js?v=7','__KPTU_CALENDAR_MOBILE_UI_READY__');
-  await module('./home-read.js?v=9');
+  await module('./home-read.js?v=10');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});

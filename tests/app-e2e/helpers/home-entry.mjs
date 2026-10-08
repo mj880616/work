@@ -3,7 +3,7 @@ import { loginEntry } from './login-entry.mjs';
 const app='http://127.0.0.1:8123/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export async function openHome(
   page,
-  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "" } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true } = {},
 ) {
   await page.clock.setFixedTime(new Date("2026-10-06T01:00:00Z"));
   const requests = [],
@@ -157,7 +157,7 @@ export async function openHome(
       );
     if (p.endsWith("app_spaces")) return ok(projects);
     if (p.endsWith("app_project_milestones"))
-      return ok([
+      return ok(milestones ? [
         {
           id: "ms",
           project_id: "child",
@@ -165,7 +165,7 @@ export async function openHome(
           start_at: "2026-10-07",
           status: "planned",
         },
-      ]);
+      ] : []);
     if (p.endsWith("app_record_links")) return ok(links);
     if (p.endsWith("app_suborganizations"))
       return ok([{ id: "o", name: "테스트 조직", active: true }]);

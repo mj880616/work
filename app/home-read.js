@@ -96,13 +96,32 @@ const cards = {
   meetings: ["회의 후속", "meetings", "회의"],
   updates: ["이번 주 업데이트", "team", "담당조직"],
 };
+const desktopHome = window.matchMedia('(min-width:1024px)');
+function arrangeHome() {
+  const left = root.querySelector('[data-home-column="main"]'),
+    right = root.querySelector('[data-home-column="aside"]'),
+    dday = card('dday');
+  if (!left || !right || !dday) return;
+  const target = desktopHome.matches ? right : left,
+    before = card(desktopHome.matches ? 'updates' : 'calendar');
+  if (dday.parentElement === target) return;
+  const focused = dday.contains(document.activeElement) ? document.activeElement : null;
+  target.insertBefore(dday, before);
+  focused?.focus({ preventScroll: true });
+}
+desktopHome.addEventListener('change', arrangeHome);
 function shell() {
-  root.querySelector("[data-home-cards]").innerHTML = Object.entries(cards)
-    .map(
-      ([key, [title, view, label]]) =>
-        `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header><div data-home-body role="status">불러오는 중…</div></section>`,
-    )
-    .join("");
+  const host = root.querySelector('[data-home-cards]'),
+    quick = root.querySelector('[data-home-quick],.home-quick-placeholder'),
+    focused = quick?.contains(document.activeElement) ? document.activeElement : null;
+  const section = key => {
+    const [title, view, label] = cards[key];
+    return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header><div data-home-body role="status">불러오는 중…</div></section>`;
+  };
+  host.innerHTML = `<div data-home-column="main">${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${['dday','updates'].map(section).join('')}</div>`;
+  host.querySelector('[data-home-column="main"]').prepend(quick);
+  focused?.focus({ preventScroll: true });
+  arrangeHome();
   root.querySelector('[data-home-timing]')?.remove();
   if(new URLSearchParams(location.search).get('homeTiming')==='1'){
     const p=document.createElement('p');p.className='home-timing';p.dataset.homeTiming='';root.append(p);
@@ -596,7 +615,11 @@ window.addEventListener("kptu:session-changed", (event) => {
   projects = [];
   orgs = [];
   meetings = [];
-  root.querySelector("[data-home-cards]")?.replaceChildren();
+  const host = root.querySelector('[data-home-cards]');
+  // Keep the mounted input and its handlers when clearing another owner's cards.
+  const quick = root.querySelector('[data-home-quick]');
+  if (quick) host?.before(quick);
+  host?.replaceChildren();
 });
 window.addEventListener("kptu:google-tasks-changed", (event) => {
   if (window.KPTURouter.current !== "home") return;

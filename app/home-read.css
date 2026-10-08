@@ -3,7 +3,8 @@
   padding-right: 16px;
   box-sizing: border-box;
 }
-[data-home-cards] {
+[data-home-cards],
+[data-home-column] {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -254,7 +255,7 @@
     padding-right: 4px;
   }
 }
-.home-quick { background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:12px; padding:10px; margin-bottom:12px; display:grid; gap:8px; }
+.home-quick { min-width:0; background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:12px; padding:10px; margin-bottom:0; display:grid; gap:8px; }
 .home-quick [data-quick-options][hidden],.home-quick [data-quick-task-options][hidden],.home-quick [data-quick-update-options][hidden] { display:none; }
 .home-quick button,.home-quick select { font-family:inherit; font-size:12px; cursor:pointer; }
 .home-quick-modes { display:flex; background:var(--kptu-surface-subtle); border-radius:var(--kptu-radius-pill); padding:2px; width:max-content; gap:0; }
@@ -278,3 +279,14 @@
 .home-quick [data-quick-project] { width:110px; }
 .home-quick [data-quick-project],.home-quick [data-quick-org] { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-timing { font-size:11px; color:var(--kptu-muted); line-height:1.5; }
+
+/* Each column stacks independently; DOM order follows the active layout. */
+@media (min-width: 1024px) {
+  [data-home-cards] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 28vw, 380px);
+    gap: 16px;
+    align-items: start;
+  }
+  [data-home-column] { min-width: 0; }
+}
