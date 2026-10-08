@@ -47,6 +47,8 @@ for(const [width,height] of sizes){
             belowBars:bars.every(b=>b.bottom<=r.top+.1),hit:el.contains(document.elementFromPoint(r.x+r.width/2,r.bottom-1))};
         });
         console.log('overflow target',width,index,JSON.stringify(geometry));
+        await expect(more).toHaveCSS('font-size',width<=760?'12px':Math.min(11,Math.max(9.5,width*.0065))+'px');
+        await expect(more).toHaveCSS('font-weight','800');
         expect(geometry.height).toBe(44);expect(geometry.width).toBeGreaterThanOrEqual(44);
         expect(geometry.within).toBe(true);expect(geometry.overlap).toBe(false);expect(geometry.belowBars).toBe(true);expect(geometry.hit).toBe(true);
         await more.click();

@@ -92,3 +92,31 @@ test('phone fills each date even when a continuing event began in the fourth wee
   expect(counts).toEqual([{bars:3,more:'+1'},{bars:3,more:'+1'},{bars:3,more:'+1'},{bars:3,more:null},{bars:2,more:null},{bars:1,more:null},{bars:1,more:null}]);
   await expect(week.locator('[data-google-event="span-3"]')).not.toHaveCount(0);
 });
+
+for(const width of [360,390]){
+  test(`all month overflow uses one readable 12px style with and without tasks (${width}px)`,async({page})=>{
+    await page.setViewportSize({width,height:640});await openEmphasisFixture(page);
+    await page.evaluate(()=>{
+      KPTUCalendarMonthView.setTasks([{id:'p',title:'QA',date:'2026-10-20',done:false}]);
+      KPTUCalendarMonthView.render({year:2026,month:9,googleEvents:['2026-10-13','2026-10-20'].flatMap((date,j)=>Array.from({length:4},(_,i)=>({
+        id:`font-${j}-${i}`,calendarId:'qa-cal',title:'QA',start:date,end:date,allDay:true
+      })))});
+    });
+    await expect(page.locator('.cmv-week').filter({has:page.locator('.cal-cell[data-date="2026-10-13"]')}).locator('.cmv-task-count')).toHaveCount(0);
+    await expect(page.locator('.cmv-week').filter({has:page.locator('.cal-cell[data-date="2026-10-20"]')}).locator('.cmv-task-count')).toHaveCount(1);
+    const linkColor=await page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-link)';document.body.append(el);const color=getComputedStyle(el).color;el.remove();return color});
+    const markers=page.locator('.cmv-week-events .kptu-day-more');await expect(markers).toHaveCount(2);
+    for(const more of await markers.all()){
+      await more.scrollIntoViewIfNeeded();
+      await expect(more).toHaveText('+1');await expect(more).toHaveCSS('font-size','12px');
+      await expect(more).toHaveCSS('font-weight','800');await expect(more).toHaveCSS('color',linkColor);
+      const geometry=await more.evaluate(el=>{
+        const box=el.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(el);const text=range.getBoundingClientRect();
+        return {line:parseFloat(getComputedStyle(el).lineHeight),fits:text.left>=box.left&&text.right<=box.right&&text.top>=box.top&&text.bottom<=box.bottom,
+          hit:el.contains(document.elementFromPoint(box.x+box.width/2,box.bottom-1))};
+      });
+      expect(geometry.line).toBeGreaterThanOrEqual(17);expect(geometry.fits).toBe(true);expect(geometry.hit).toBe(true);
+    }
+    expect(await markers.evaluateAll(es=>es.map(el=>getComputedStyle(el).fontSize))).toEqual(['12px','12px']);
+  });
+}
