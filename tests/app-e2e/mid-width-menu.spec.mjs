@@ -23,7 +23,7 @@ async function open(page,url=app+'?view=home'){
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
-const order=['홈','일정','할 일','프로젝트','자료실','회의','성명','보도자료','게시판','담당조직'];
+const order=['홈','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직'];
 for(const width of [761,820,900,1023])for(const fontSize of [null,24])test(`mid menu is a reachable ordered prefix at ${width}px, font ${fontSize||'default'}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);
   const trigger=page.locator('#mobileMenuOpen');await expect(trigger).toBeVisible();
@@ -33,14 +33,17 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24])test(`mid 
     await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>nav.scrollWidth-nav.clientWidth)).toBeLessThanOrEqual(1);
   }
   const direct=page.locator('.app-nav .nav-btn:not(#mobileMenuOpen):visible');
-  const labels=await direct.allTextContents();expect(labels.length).toBeGreaterThan(0);expect(labels).toEqual(order.slice(0,labels.length));
+  const labels=await direct.allTextContents();if(width===761&&!fontSize)console.log('D5a 761px visible:',JSON.stringify(labels));expect(labels.length).toBeGreaterThan(0);expect(labels).toEqual(order.slice(0,labels.length));
   const layout=await page.locator('.app-nav').evaluate(nav=>{
     const items=[...nav.querySelectorAll('button')].filter(b=>b.getClientRects().length&&getComputedStyle(b).visibility!=='hidden');
     return {overflow:nav.scrollWidth-nav.clientWidth,documentOverflow:document.documentElement.scrollWidth-innerWidth,ys:items.map(b=>b.getBoundingClientRect().y),sizes:items.map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height})),last:items.at(-1).id};
   });
   expect(layout.overflow).toBeLessThanOrEqual(1);expect(layout.documentOverflow).toBeLessThanOrEqual(1);expect(new Set(layout.ys).size).toBe(1);expect(layout.last).toBe('mobileMenuOpen');
   for(const size of layout.sizes){expect(size.w).toBeGreaterThanOrEqual(44);expect(size.h).toBeGreaterThanOrEqual(44)}
+  await expect(page.locator('.app-nav [data-mobile-press]:visible')).toHaveCount(0);
   await trigger.click();
+  await expect(page.locator('#mobileMenu [data-mobile-press]:visible')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'성명·보도자료',exact:true})).toHaveCount(1);
   expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(order.slice(labels.length));
   await expect(page.locator('#mobileMenu [data-theme-open]')).toBeVisible();await expect(page.locator('#mobileMenu [data-kptu-logout]')).toBeVisible();
   await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
@@ -48,9 +51,9 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24])test(`mid 
     let item=page.locator('.app-nav').getByRole('button',{name:label,exact:true});
     if(!await item.count()){await trigger.click();item=page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true})}
     await item.click();await expect(page.locator('#mobileMenu')).toBeHidden();
-    const view=({'홈':'home','일정':'calendar','할 일':'tasks','프로젝트':'projects','자료실':'library','회의':'meetings','성명':'media','보도자료':'media','게시판':'pages','담당조직':'team'})[label];
+    const view=({'홈':'home','일정':'calendar','할 일':'tasks','프로젝트':'projects','자료실':'library','회의':'meetings','성명·보도자료':'media','게시판':'pages','담당조직':'team'})[label];
     await expect(page.locator('#'+view+'View')).toBeVisible();
-    if(['성명','보도자료'].includes(label))await expect(page.locator(`#mediaView [data-press-type="${label==='성명'?'statement':'release'}"]`)).toHaveClass(/active/);
+    if(label==='성명·보도자료')await expect(item).toHaveAttribute('aria-current','page');
   }
 });
 test('mid drawer close, back, focus trap, theme and current overflow location',async({page})=>{
@@ -86,20 +89,20 @@ test('resize and font changes repartition; phone and PC return to their original
   expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직']);await expect(page.locator('.app-nav [data-account-open]')).toBeVisible();
 });
 
-test('recalculation preserves keyboard focus and highlights the hidden media filter',async({page})=>{
+test('recalculation preserves keyboard focus and highlights the hidden combined media button',async({page})=>{
   await page.setViewportSize({width:820,height:844});await open(page);
   const home=page.locator('.app-nav [data-view="home"]');await home.focus();
   await page.setViewportSize({width:900,height:844});await expect(home).toBeFocused();
   const trigger=page.locator('#mobileMenuOpen');await trigger.focus();await page.setViewportSize({width:820,height:844});await expect(trigger).toBeFocused();
   await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='32px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
-  await expect.poll(()=>page.locator('.app-nav [data-mobile-press="release"]').count()).toBe(0);
-  await trigger.click();await page.locator('#mobileMenu [data-mobile-press="release"]').click();
+  await expect.poll(()=>page.locator('.app-nav [data-view="media"]').count()).toBe(0);
+  await trigger.click();await page.locator('#mobileMenu [data-view="media"]').click();
   await expect(page.locator('#mediaView')).toBeVisible();await expect(trigger).toHaveAttribute('aria-current','page');await trigger.click();
-  await expect(page.locator('#mobileMenu [data-mobile-press="release"]')).toHaveAttribute('aria-current','page');await expect(page.locator('[data-mobile-press="statement"]')).not.toHaveAttribute('aria-current','page');
-  await page.locator('#mobileMenu [data-mobile-press="release"]').focus();
+  await expect(page.locator('#mobileMenu [data-view="media"]')).toHaveAttribute('aria-current','page');for(const type of ['statement','release'])await expect(page.locator(`[data-mobile-press="${type}"]`)).not.toHaveAttribute('aria-current','page');
+  await page.locator('#mobileMenu [data-view="media"]').focus();
   await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='')});
-  await expect.poll(()=>page.locator('.app-nav [data-mobile-press="release"]').count()).toBe(1);await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
-  await expect(trigger).not.toHaveAttribute('aria-current','page');await expect(page.locator('.app-nav [data-mobile-press="release"]')).toHaveAttribute('aria-current','page');
+  await expect.poll(()=>page.locator('.app-nav [data-view="media"]').count()).toBe(1);await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
+  await expect(trigger).not.toHaveAttribute('aria-current','page');await expect(page.locator('.app-nav [data-view="media"]')).toHaveAttribute('aria-current','page');
   await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
 });
 
@@ -115,7 +118,7 @@ test('focused controls stay reachable when crossing the phone and PC boundaries'
 test('shared navigation helper reaches media from the row and from the drawer',async({page})=>{
   await page.setViewportSize({width:820,height:844});await open(page);await clickView(page,'media');await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);
   await clickView(page,'home');await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='40px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
-  await expect.poll(()=>page.locator('.app-nav [data-mobile-press="statement"]').count()).toBe(0);await clickView(page,'media');await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);await expect(page.locator('#mobileMenu')).toBeHidden();
+  await expect.poll(()=>page.locator('.app-nav [data-view="media"]').count()).toBe(0);await clickView(page,'media');await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);await expect(page.locator('#mobileMenu')).toBeHidden();
 });
 
 test('phone breakpoint preserves focus when CSS hides the row before the layout handler',async({page})=>{
@@ -132,4 +135,25 @@ test('breakpoint recovery does not steal deliberate blur or content input focus'
   const home=page.locator('.app-nav [data-view="home"]'),trigger=page.locator('#mobileMenuOpen');
   await home.focus();await home.evaluate(button=>button.blur());await page.setViewportSize({width:760,height:844});await expect(trigger).not.toBeFocused();
   await page.setViewportSize({width:820,height:844});await expect(trigger).toBeVisible();await home.focus();const input=page.getByRole('textbox',{name:'빠른 입력'});await input.focus();await page.setViewportSize({width:760,height:844});await expect(input).toBeFocused();await expect(trigger).not.toBeFocused();
+});
+
+for(const width of [761,820,900,1023])test(`combined media current location at ${width}px in row and drawer`,async({page})=>{
+  await page.setViewportSize({width,height:844});await open(page);await clickView(page,'media');
+  const media=page.locator('.app-nav [data-view="media"]'),trigger=page.locator('#mobileMenuOpen');
+  await expect(media).toHaveAttribute('aria-current','page');
+  for(const type of ['release','statement','all']){
+    await page.locator(`#mediaView [data-press-type="${type}"]`).click();await expect(media).toHaveAttribute('aria-current','page');
+  }
+  await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='40px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
+  await expect.poll(()=>media.count()).toBe(0);await expect(trigger).toHaveAttribute('aria-current','page');await trigger.click();
+  await expect(page.locator('#mobileMenu [data-view="media"]')).toHaveAttribute('aria-current','page');
+  await expect(page.locator('#mobileMenu [data-mobile-press]:visible')).toHaveCount(0);
+  await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
+});
+
+for(const label of ['회의','자료실','성명','보도자료','게시판'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
+  await page.setViewportSize({width:760,height:844});await open(page);
+  await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true}).focus();
+  await page.setViewportSize({width:820,height:844});await expect(page.locator('#mobileMenu')).toBeVisible();await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
+  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenuOpen')).toBeFocused();
 });

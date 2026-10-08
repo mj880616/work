@@ -32,19 +32,19 @@ let mobileOpen=false,mobileClosing=false;
 const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
-const combinedMedia=appNav?.querySelector('[data-view="media"]');
-const phoneOnly=[...drawerNav?.querySelectorAll('[data-view]')||[]];
-const midItems=['home','calendar','tasks','projects','library','meetings'].map(view=>appNav?.querySelector(`[data-view="${view}"]`))
-  .concat([...drawerNav?.querySelectorAll('[data-mobile-press]')||[]],['pages','team'].map(view=>appNav?.querySelector(`[data-view="${view}"]`))).filter(Boolean);
+const phoneOnly=[...drawerNav?.querySelectorAll('[data-view],[data-mobile-press]')||[]];
+const midItems=['home','calendar','tasks','projects','library','meetings','media','pages','team']
+  .map(view=>appNav?.querySelector(`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
 }));
+const navigationControls=new Set([...homes.keys(),...phoneOnly]);
 let midActive=false,navigationFocus=null;
 // display:none may clear activeElement before resize/media-query callbacks.
 // Retain only a menu focus lost through hiding; explicit blur or another
 // focused control clears this reference.
 document.addEventListener('focusin',event=>{
-  if(event.target!==document.body)navigationFocus=homes.has(event.target)?event.target:null;
+  if(event.target!==document.body)navigationFocus=navigationControls.has(event.target)?event.target:null;
 });
 document.addEventListener('focusout',event=>{
   if(event.target===navigationFocus&&event.target.getClientRects().length)navigationFocus=null;
@@ -52,10 +52,9 @@ document.addEventListener('focusout',event=>{
 function syncMenuLocation(){
   if(!midActive)return;
   const view=window.KPTURouter?.current||window.KPTURouter?.detect?.();
-  const type=document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType;
   let overflowCurrent=false;
   midItems.forEach(button=>{
-    const current=button.dataset.mobilePress?view==='media'&&(type==='release'?'release':'statement')===button.dataset.mobilePress:button.dataset.view===view;
+    const current=button.dataset.view===view;
     button.classList.toggle('active',current);
     if(current)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
     if(current&&button.parentElement===drawerNav)overflowCurrent=true;
@@ -74,8 +73,7 @@ function syncMidNavigation(){
     }
     midActive=false;
     homes.forEach((anchor,button)=>anchor.after(button));
-    midItems.forEach(button=>{if(button.dataset.mobilePress){button.classList.remove('nav-btn','active');button.removeAttribute('aria-current')}});
-    phoneOnly.forEach(button=>button.hidden=false);combinedMedia.hidden=false;
+    phoneOnly.forEach(button=>button.hidden=false);
     mobileTrigger.classList.remove('nav-btn','mid-menu-trigger','active');mobileTrigger.removeAttribute('aria-current');
     if(homes.has(focus)){
       const target=mobileOpen&&menuQuery.matches?mobilePanel.querySelector('[data-mobile-menu-close]')
@@ -84,7 +82,7 @@ function syncMidNavigation(){
     }
     return;
   }
-  midActive=true;combinedMedia.hidden=true;phoneOnly.forEach(button=>button.hidden=true);
+  midActive=true;phoneOnly.forEach(button=>button.hidden=true);
   mobileTrigger.classList.add('nav-btn','mid-menu-trigger');appNav.append(mobileTrigger);
   // Measure intrinsic widths in the real row before distributing its suffix.
   // All moves finish synchronously, before paint; no duplicate menu or storage.
@@ -102,6 +100,8 @@ function syncMidNavigation(){
     if(focus.parentElement===drawerNav&&!mobileOpen)mobileTrigger.focus({preventScroll:true});
     else if(focus.parentElement===appNav&&mobileOpen)mobilePanel.querySelector('[data-mobile-menu-close]')?.focus({preventScroll:true});
     else focus.focus({preventScroll:true});
+  }else if(phoneOnly.includes(focus)&&!focus.getClientRects().length){
+    (mobileOpen?mobilePanel.querySelector('[data-mobile-menu-close]'):mobileTrigger)?.focus({preventScroll:true});
   }else if(focus===mobileTrigger)mobileTrigger.focus({preventScroll:true});
   syncMenuLocation();
 }

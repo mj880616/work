@@ -1,7 +1,6 @@
 // Click the actual navigation at this width; also supports historical baseline pages.
 export function navigationButton(page,view){
-  const press=view==='media'?',.app-nav [data-mobile-press="statement"]:visible':'';
-  return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible${press}`);
+  return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible`);
 }
 export function accountButton(page){
   return page.locator('#appView>.app-nav [data-account-open]:visible,#mobileMenuOpen:visible');
@@ -14,14 +13,13 @@ export async function clickView(page,view){
   });
   const direct=navigationButton(page,view);
   if(await direct.count()){
-    const press=await direct.getAttribute('data-mobile-press');
     await direct.click();
-    if(press)await page.locator('#mediaView [data-press-type="all"]').click();
     return;
   }
   await accountButton(page).click();
-  if(view==='media'){
+  const drawerButton=page.locator(`#mobileMenu [data-view="${view}"]:visible`);
+  if(view==='media'&&!await drawerButton.count()){
     await page.locator('#mobileMenu [data-mobile-press="statement"]').click();
     await page.locator('#mediaView [data-press-type="all"]').click();
-  }else await page.locator(`#mobileMenu [data-view="${view}"]`).click();
+  }else await drawerButton.click();
 }
