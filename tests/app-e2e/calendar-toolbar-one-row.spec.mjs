@@ -15,7 +15,7 @@ for(const width of [360,390,686,1280])test(`toolbar one row, accessible icons an
   }
   // Do not seed storage on reload: the real selection must survive.
   await page.reload();await expect(page.locator('#calendarGrid')).toBeVisible();await expect(toolbar.locator('[data-calendar-view="month"]')).toHaveAttribute('aria-pressed','true');
-  const geometry=await toolbar.evaluate(el=>{const r=el.getBoundingClientRect(),children=[...el.children].map(e=>({name:e.id||e.className,...e.getBoundingClientRect().toJSON()}));return {width:r.width,left:r.left,right:r.right,children,overflow:document.documentElement.scrollWidth,remaining:r.width-children.reduce((s,c)=>s+c.width,0)}});
+  const geometry=await toolbar.evaluate(el=>{const r=el.getBoundingClientRect(),children=[...el.children].map(e=>({name:e.id||e.className,...e.getBoundingClientRect().toJSON()}));return {width:r.width,left:r.left,right:r.right,children,overflow:document.documentElement.scrollWidth,remaining:r.width-children.reduce((s,c)=>s+c.width,0)-parseFloat(getComputedStyle(el).columnGap)*(el.children.length-1)}});
   console.log('TOOLBAR',width,JSON.stringify(geometry));
   expect(geometry.overflow).toBe(width);for(const c of geometry.children){expect(c.left).toBeGreaterThanOrEqual(geometry.left-.5);expect(c.right).toBeLessThanOrEqual(geometry.right+.5);expect(c.height).toBeLessThanOrEqual(44)}
   const buttonCenters=await toolbar.locator('button').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2}));expect(Math.max(...buttonCenters)-Math.min(...buttonCenters)).toBeLessThan(1);

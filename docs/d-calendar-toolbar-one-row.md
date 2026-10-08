@@ -45,3 +45,5 @@
 - 캐시/시작 구조 정적17개 통과, JS 문법·diff 검사 통과. 캐시 변경은 index.html까지 전파하며 로그인 CSS entry도 갱신한다.
 - 전체 E2E는 클라우드에서 실행하지 않고 PR CI로 확인한다. 모든 브라우저 API는 합성 응답이며 운영 접근·DB/RLS/Edge 변경 없음.
 - 실제 폰/WebView와 PC 실기기 확인은 사용자 확인 항목이다. 360px의 남는1px은 측정한 Chromium 글꼴 기준이다.
+
+- 첫 PR CI의 Browser storage audit는 새 spec의 기존 보기 설정 읽기를 등록하지 않아 실패했다. 해당 spec의 `getItem('kptu-calendar-view')` 읽기만 좁게 등록하여 검사한다. 앱 저장/권한 정책 변경은 없다. 새 실측 로그의 remaining도 요소 합계와 간격을 모두 뺀 값으로 맞춘다.
