@@ -97,7 +97,7 @@ async function openMobileApp(page){
 test('zoomed calendar, tasks and projects release both pan axes and restore normal swipes',async({page})=>{
   await openMobileApp(page);
   await page.clock.install();
-  const monthBefore=await page.locator('#monthTitle').textContent();
+  const monthBefore=await page.locator('#monthTitle .calendar-title-full').textContent();
   await setScale(page,2);
   for(const [view,selector] of [['calendar','.calendar-toolbar'],['calendar','#calendarGrid .cal-cell'],['tasks','#tasksView'],['projects','#projectsView']]){
     await page.evaluate(view=>window.KPTURouter.go(view,{source:'test'}),view);
@@ -108,7 +108,7 @@ test('zoomed calendar, tasks and projects release both pan axes and restore norm
       // Drain the existing swipe animation timers without a wall-clock sleep.
       await page.clock.fastForward(1000);
       expect(await page.evaluate(()=>window.KPTURouter.current)).toBe(view);
-      expect(await page.locator('#monthTitle').textContent()).toBe(monthBefore);
+      expect(await page.locator('#monthTitle .calendar-title-full').textContent()).toBe(monthBefore);
     }
   }
   await setScale(page,1);
@@ -122,7 +122,7 @@ test('zoomed calendar, tasks and projects release both pan axes and restore norm
   await touchSequence(page,'#calendarGrid .cal-cell');
   await page.clock.fastForward(1000);
   await expect(page.locator('#tasksView')).toBeVisible();
-  expect(await page.locator('#monthTitle').textContent()).toBe(monthBefore);
+  expect(await page.locator('#monthTitle .calendar-title-full').textContent()).toBe(monthBefore);
 });
 
 test('normal scale tolerates small errors and allows pinch zoom without taking vertical scroll',async({page})=>{
@@ -145,7 +145,7 @@ test('zoom and a second finger cancel active swipes before movement, release and
   await expect(page.locator('#calendarView')).toBeVisible();
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now()+1000));
-  const monthBefore=await page.locator('#monthTitle').textContent();
+  const monthBefore=await page.locator('#monthTitle .calendar-title-full').textContent();
   for(const selector of ['.calendar-toolbar','#calendarGrid .cal-cell']){
     for(const phase of ['move','end']){
       await touchSequence(page,selector,{phase:'start'});
@@ -154,7 +154,7 @@ test('zoom and a second finger cancel active swipes before movement, release and
       expect(await touchSequence(page,selector,{phase})).toEqual({prevented:false,transform:''});
       await page.clock.fastForward(1000);
       expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
-      expect(await page.locator('#monthTitle').textContent()).toBe(monthBefore);
+      expect(await page.locator('#monthTitle .calendar-title-full').textContent()).toBe(monthBefore);
       await setScale(page,1);
     }
     await touchSequence(page,selector,{phase:'start'});
@@ -163,7 +163,7 @@ test('zoom and a second finger cancel active swipes before movement, release and
     await touchSequence(page,selector,{phase:'end'});
     await page.clock.fastForward(1000);
     expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
-    expect(await page.locator('#monthTitle').textContent()).toBe(monthBefore);
+    expect(await page.locator('#monthTitle .calendar-title-full').textContent()).toBe(monthBefore);
   }
   expect((await touchSequence(page,'.calendar-toolbar')).prevented).toBe(true);
   await setScale(page,2);
@@ -235,11 +235,11 @@ test('active bottom tab follows swipes and auxiliary views leave tabs inactive',
 test('calendar date cells, events and overflow use menu swipes and the first-menu boundary without changing month',async({page})=>{
   await openMobileApp(page);
   await expect.poll(()=>page.evaluate(()=>KPTUViewLoader.isLoaded('calendar'))).toBe(true);
-  const before=await page.locator('#monthTitle').textContent();
+  const before=await page.locator('#monthTitle .calendar-title-full').textContent();
   await page.locator('#nextMonthBtn').click();
-  await expect(page.locator('#monthTitle')).not.toHaveText(before);
+  await expect(page.locator('#monthTitle .calendar-title-full')).not.toHaveText(before);
   await page.locator('#prevMonthBtn').click();
-  await expect(page.locator('#monthTitle')).toHaveText(before);
+  await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText(before);
   await page.evaluate(()=>{
     const date=document.querySelector('.cal-cell:not(.other)').dataset.date;
     const events=Array.from({length:12},(_,i)=>({id:'swipe-'+i,calendarId:'qa',title:'QA',start:date+'T09:00:00+09:00',end:date+'T10:00:00+09:00',source:'google'}));
@@ -253,7 +253,7 @@ test('calendar date cells, events and overflow use menu swipes and the first-men
     for(const dx of [-170,170]){
       expect(await touchSequence(page,selector,{dx,releaseClick:true})).toEqual({prevented:false,transform:''});
       expect(await page.evaluate(()=>KPTURouter.current)).toBe('calendar');
-      await expect(page.locator('#monthTitle')).toHaveText(before);
+      await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText(before);
       await expect(page.locator('.modal:not(.hidden)')).toHaveCount(0);
     }
     await setScale(page,1);
@@ -264,7 +264,7 @@ test('calendar date cells, events and overflow use menu swipes and the first-men
     await touchSequence(page,selector,{dx,releaseClick:true});
     await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe(destination);
     await expect(page.locator('#'+destination+'View')).toBeVisible();
-    await expect(page.locator('#monthTitle')).toHaveText(before);
+    await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText(before);
     await expect(page.locator('.modal:not(.hidden)')).toHaveCount(0);
     await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);
   }
@@ -294,12 +294,12 @@ test('760px enables menu swipes and 761px touch width has no menu or month swipe
 
 test('calendar toolbar and Google calendar list retain menu swipes',async({page})=>{
   await openMobileApp(page);
-  const before=await page.locator('#monthTitle').textContent();
+  const before=await page.locator('#monthTitle .calendar-title-full').textContent();
   await swipe(page,'.calendar-toolbar','left');
   await expect(page.locator('#tasksView')).toBeVisible();
   await page.evaluate(()=>KPTURouter.go('calendar',{source:'test'}));
   await page.evaluate(()=>{const list=document.querySelector('#googleCalendarList');list.classList.remove('hidden');list.innerHTML='<b>QA</b><label><input type="checkbox">QA</label>';});
   await swipe(page,'#googleCalendarList','left');
   await expect(page.locator('#tasksView')).toBeVisible();
-  await expect(page.locator('#monthTitle')).toHaveText(before);
+  await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText(before);
 });

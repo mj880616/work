@@ -188,7 +188,7 @@
 
 .calendar-view-switch .mini{box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border-radius:var(--kptu-radius-md)}
 #calendarTodayBtn{font-size:12px;min-height:36px;padding:0 8px;border-radius:var(--kptu-radius-md)}
-#calendarTodayBtn{margin-left:0}
+#calendarTodayBtn{margin-left:6px}
 
 #calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -237,7 +237,11 @@
   .calendar-title-compact{display:inline-flex;position:relative;flex-direction:column;align-items:center}
   .calendar-title-year{position:absolute;bottom:100%;font-size:12px;line-height:14px;color:var(--kptu-muted);font-weight:400}
   .calendar-title-compact:has(.calendar-title-year){margin-top:14px}
-  #calendarView #prevMonthBtn,#calendarView #nextMonthBtn{box-sizing:border-box;width:28px;min-width:28px;padding:0}
-  #calendarView #calendarTodayBtn{box-sizing:border-box;width:36px;min-width:36px;padding:0}
+  #calendarView #prevMonthBtn,#calendarView #nextMonthBtn{box-sizing:border-box;width:16px;min-width:16px;padding:0}
+  /* Narrow paint keeps the existing 44px arrow targets over the noninteractive title. */
+  #calendarView #monthTitle{pointer-events:none}
+  #calendarView #nextMonthBtn{margin-right:17px}
+  #calendarView .calendar-toolbar-divider{margin-right:1px}
+  #calendarView #calendarTodayBtn{box-sizing:border-box;width:36px;min-width:36px;padding:0;margin-left:0}
   #calendarView .calendar-toolbar-add{box-sizing:border-box;width:36px;min-width:36px;padding:0}
 }

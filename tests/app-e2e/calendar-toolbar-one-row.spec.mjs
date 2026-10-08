@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
-for(const width of [360,390,686,1280])test(`toolbar one row, accessible icons and persistence at ${width}`,async({page})=>{
+for(const width of [360,390,686,760,761,1023,1280])test(`toolbar one row, accessible icons and persistence at ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await openEmphasisFixture(page,{view:'default'});
   const toolbar=page.locator('.calendar-toolbar');
   await expect(toolbar.locator('.calendar-view-switch')).toHaveCount(1);
@@ -15,9 +15,11 @@ for(const width of [360,390,686,1280])test(`toolbar one row, accessible icons an
   }
   // Do not seed storage on reload: the real selection must survive.
   await page.reload();await expect(page.locator('#calendarGrid')).toBeVisible();await expect(toolbar.locator('[data-calendar-view="month"]')).toHaveAttribute('aria-pressed','true');
-  const geometry=await toolbar.evaluate(el=>{const r=el.getBoundingClientRect(),children=[...el.children].map(e=>({name:e.id||e.className,...e.getBoundingClientRect().toJSON()}));return {width:r.width,left:r.left,right:r.right,children,overflow:document.documentElement.scrollWidth,remaining:r.width-children.reduce((s,c)=>s+c.width,0)-parseFloat(getComputedStyle(el).columnGap)*(el.children.length-1)}});
+  const geometry=await toolbar.evaluate(el=>{const r=el.getBoundingClientRect(),children=[...el.children].map(e=>({name:e.id||e.className,...e.getBoundingClientRect().toJSON()}));return {width:r.width,left:r.left,right:r.right,children,overflow:document.documentElement.scrollWidth,remaining:r.width-children.reduce((s,c)=>s+c.width,0)-parseFloat(getComputedStyle(el).columnGap)*(el.children.length-1)-[...el.children].filter(e=>e.id!=='newEventBtn').reduce((sum,e)=>sum+parseFloat(getComputedStyle(e).marginLeft)+parseFloat(getComputedStyle(e).marginRight),0)}});
   console.log('TOOLBAR',width,JSON.stringify(geometry));
   expect(geometry.overflow).toBe(width);for(const c of geometry.children){expect(c.left).toBeGreaterThanOrEqual(geometry.left-.5);expect(c.right).toBeLessThanOrEqual(geometry.right+.5);expect(c.height).toBeLessThanOrEqual(44)}
+  const targets=await toolbar.locator('button').evaluateAll(bs=>bs.map(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el),p=getComputedStyle(el,'::after'),active=p.content!=='none';const left=active?r.left+parseFloat(s.borderLeftWidth)+parseFloat(p.left):r.left,top=active?r.top+parseFloat(s.borderTopWidth)+parseFloat(p.top):r.top,w=active?parseFloat(p.width):r.width,h=active?parseFloat(p.height):r.height;return {name:el.id||el.dataset.calendarView,w,h,hits:[[left+1,top+h/2],[left+w-1,top+h/2],[left+w/2,top+1],[left+w/2,top+h-1]].map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)}}));
+  for(const target of targets){expect(target.w,target.name).toBeGreaterThanOrEqual(44);expect(target.h,target.name).toBeGreaterThanOrEqual(44);expect(target.hits,target.name).toEqual([true,true,true,true])}
   const buttonCenters=await toolbar.locator('button').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2}));expect(Math.max(...buttonCenters)-Math.min(...buttonCenters)).toBeLessThan(1);
   await expect(page.locator('#monthTitle')).toHaveAccessibleName('2026년 10월');
   if(width<=760)await expect(page.locator('.calendar-title-compact')).toHaveText('10월');
