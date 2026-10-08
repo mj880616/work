@@ -1,9 +1,9 @@
 // Click the actual navigation at this width; also supports historical baseline pages.
 export function navigationButton(page,view){
-  return page.locator(`.app-nav:visible [data-view="${view}"],.mobile-tabs:visible [data-view="${view}"]`);
+  return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible`);
 }
 export function accountButton(page){
-  return page.locator('#appView>.app-nav:visible [data-account-open],#mobileMenuOpen:visible');
+  return page.locator('#appView>.app-nav [data-account-open]:visible,#mobileMenuOpen:visible');
 }
 export async function clickView(page,view){
   await page.waitForFunction(()=>{

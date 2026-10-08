@@ -28,6 +28,79 @@ const mobileMenu=document.querySelector('#mobileMenu'),mobileTrigger=document.qu
 const mobilePanel=mobileMenu?.querySelector('.mobile-menu-panel'),mobileGroup=document.querySelector('#mobileAccountGroup');
 const mobileAccount=accounts[0];
 let mobileOpen=false,mobileClosing=false;
+// Mid-width navigation reuses the original controls and the mobile dialog.
+const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
+const menuQuery=window.matchMedia('(max-width:1023px)');
+const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
+const combinedMedia=appNav?.querySelector('[data-view="media"]');
+const phoneOnly=[...drawerNav?.querySelectorAll('[data-view]')||[]];
+const midItems=['home','calendar','tasks','projects','library','meetings'].map(view=>appNav?.querySelector(`[data-view="${view}"]`))
+  .concat([...drawerNav?.querySelectorAll('[data-mobile-press]')||[]],['pages','team'].map(view=>appNav?.querySelector(`[data-view="${view}"]`))).filter(Boolean);
+const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
+  const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
+}));
+let midActive=false;
+function syncMenuLocation(){
+  if(!midActive)return;
+  const view=window.KPTURouter?.current||window.KPTURouter?.detect?.();
+  const type=document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType;
+  let overflowCurrent=false;
+  midItems.forEach(button=>{
+    const current=button.dataset.mobilePress?view==='media'&&(type==='release'?'release':'statement')===button.dataset.mobilePress:button.dataset.view===view;
+    button.classList.toggle('active',current);
+    if(current)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
+    if(current&&button.parentElement===drawerNav)overflowCurrent=true;
+  });
+  mobileTrigger.classList.toggle('active',overflowCurrent);
+  if(overflowCurrent)mobileTrigger.setAttribute('aria-current','page');else mobileTrigger.removeAttribute('aria-current');
+}
+function syncMidNavigation(){
+  if(!appNav||!drawerNav||!mobileTrigger)return;
+  const focus=document.activeElement;
+  if(!midQuery.matches){
+    if(!midActive)return;
+    midActive=false;
+    homes.forEach((anchor,button)=>anchor.after(button));
+    midItems.forEach(button=>{if(button.dataset.mobilePress){button.classList.remove('nav-btn','active');button.removeAttribute('aria-current')}});
+    phoneOnly.forEach(button=>button.hidden=false);combinedMedia.hidden=false;
+    mobileTrigger.classList.remove('nav-btn','mid-menu-trigger','active');mobileTrigger.removeAttribute('aria-current');
+    if(homes.has(focus)){
+      const target=mobileOpen&&menuQuery.matches?mobilePanel.querySelector('[data-mobile-menu-close]')
+        :focus.getClientRects().length?focus:mobileQuery.matches?mobileTrigger:appNav.querySelector('.nav-btn.active')||midItems[0];
+      target?.focus({preventScroll:true});
+    }
+    return;
+  }
+  midActive=true;combinedMedia.hidden=true;phoneOnly.forEach(button=>button.hidden=true);
+  mobileTrigger.classList.add('nav-btn','mid-menu-trigger');appNav.append(mobileTrigger);
+  // Measure intrinsic widths in the real row before distributing its suffix.
+  // All moves finish synchronously, before paint; no duplicate menu or storage.
+  midItems.forEach(button=>{button.classList.add('nav-btn');appNav.insertBefore(button,mobileTrigger)});
+  const style=getComputedStyle(appNav),gap=parseFloat(style.columnGap)||0;
+  const available=appNav.clientWidth-(parseFloat(style.paddingLeft)||0)-(parseFloat(style.paddingRight)||0);
+  let used=mobileTrigger.getBoundingClientRect().width,count=0;
+  for(const button of midItems){
+    const width=button.getBoundingClientRect().width;
+    if(used+gap+width>available)break;
+    used+=gap+width;count++;
+  }
+  midItems.slice(count).forEach(button=>drawerNav.append(button));
+  if(midItems.includes(focus)){
+    if(focus.parentElement===drawerNav&&!mobileOpen)mobileTrigger.focus({preventScroll:true});
+    else if(focus.parentElement===appNav&&mobileOpen)mobilePanel.querySelector('[data-mobile-menu-close]')?.focus({preventScroll:true});
+    else focus.focus({preventScroll:true});
+  }else if(focus===mobileTrigger)mobileTrigger.focus({preventScroll:true});
+  syncMenuLocation();
+}
+const navResize=new ResizeObserver(syncMidNavigation);
+if(appNav)navResize.observe(appNav);
+midItems.forEach(button=>navResize.observe(button));
+if(mobileTrigger)navResize.observe(mobileTrigger);
+midQuery.addEventListener('change',syncMidNavigation);
+window.addEventListener('resize',syncMidNavigation);
+document.fonts?.ready.then(syncMidNavigation);
+document.fonts?.addEventListener('loadingdone',syncMidNavigation);
+
 function closeMobile(then,fromBack=false){
   if(!mobileOpen){then?.();return}
   mobileOpen=false;mobileClosing=true;mobileMenu.hidden=true;mobileTrigger.setAttribute('aria-expanded','false');
@@ -38,8 +111,8 @@ function closeMobile(then,fromBack=false){
 window.KPTUMobileMenu={isOpen:()=>mobileOpen,close:closeMobile};
 function syncMobile(){
   if(!mobileGroup||!mobileAccount)return;
-  if(!mobileQuery.matches&&mobileOpen)closeMobile();
-  const target=mobileQuery.matches?mobileGroup:mobileAccount.panel;
+  if(!menuQuery.matches&&mobileOpen)closeMobile();
+  const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==target){
     if(activeAccount)closeAccount();
     target.append(mobileAccount.theme,mobileAccount.panel.querySelector('[data-account-drive-slot]')||mobileGroup.querySelector('[data-account-drive-slot]'),logoutButtons[0]);
@@ -49,7 +122,7 @@ function syncMobile(){
 mobileTrigger?.addEventListener('click',()=>{
   if(mobileClosing)return;
   if(mobileOpen){closeMobile();return}
-  if(!mobileQuery.matches||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
+  if(!menuQuery.matches||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
   mobileOpen=true;mobileMenu.hidden=false;mobileTrigger.setAttribute('aria-expanded','true');
   history.pushState({...history.state,kptuMobileMenu:true},'',location.href);
   window.KPTUA11y?.dialog.activate(mobilePanel,{trigger:mobileTrigger,initialFocus:'[data-mobile-menu-close]',onRequestClose:closeMobile});
@@ -65,12 +138,13 @@ document.addEventListener('click',event=>{
   event.preventDefault();event.stopImmediatePropagation();
   closeMobile(()=>{if(button.isConnected)button.click()});
 },true);
-mobileMenu?.querySelectorAll('[data-mobile-press]').forEach(button=>button.addEventListener('click',async()=>{
+document.querySelectorAll('[data-mobile-press]').forEach(button=>button.addEventListener('click',async()=>{
   try{
     await window.KPTUViewLoader.load('media');
     window.KPTURouter.go('media',{source:'delegated'});
     document.querySelector(`#mediaView [data-press-type="${button.dataset.mobilePress}"]`)?.click();
     const name=document.querySelector('[data-mobile-view-name]');if(name)name.textContent=button.dataset.mobilePress==='release'?'보도자료':'성명';
+    syncMenuLocation();
   }catch(error){console.error('press menu navigation',error)}
 }));
 document.addEventListener('keydown',event=>{if(mobileOpen&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeMobile()}});
@@ -89,15 +163,17 @@ window.visualViewport?.addEventListener('resize',syncKeyboard);
 window.visualViewport?.addEventListener('scroll',syncKeyboard);
 document.addEventListener('focusin',syncKeyboard);
 document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
-mobileQuery.addEventListener('change',syncMobile);
+menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('resize',syncKeyboard);
-document.addEventListener('click',event=>{const type=event.target.closest?.('[data-press-type]')?.dataset.pressType;if(type&&window.KPTURouter?.current==='media'){const name=document.querySelector('[data-mobile-view-name]');if(name)name.textContent=type==='release'?'보도자료':'성명'}});
+document.addEventListener('click',event=>{syncMenuLocation();const type=event.target.closest?.('[data-press-type]')?.dataset.pressType;if(type&&window.KPTURouter?.current==='media'){const name=document.querySelector('[data-mobile-view-name]');if(name)name.textContent=type==='release'?'보도자료':'성명'}});
 window.addEventListener('kptu:view-changed',event=>{
+  syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
   const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({calendar:'일정',tasks:'할 일',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',media:document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType==='release'?'보도자료':'성명',pages:'게시판'})[event.detail?.view]||''}
 });
 syncMobile();
+syncMidNavigation();
 function closeAccount(then,fromBack=false){
   if(mobileOpen){closeMobile(then,fromBack);return}
   const account=activeAccount;if(!account){then?.();return}
@@ -167,7 +243,7 @@ function closeTheme(){
 }
 themeButtons.forEach(button=>button.addEventListener('click',()=>closeAccount(()=>{
   const account=accounts.find(account=>account.theme===button);
-  const focusTrigger=mobileQuery.matches?mobileTrigger:account.trigger;
+  const focusTrigger=menuQuery.matches?mobileTrigger:account.trigger;
   window.removeEventListener('popstate',restoreAfterBack);
   // Register after the current view's history listeners, and restore on traversal completion.
   restoreAfterBack=()=>queueMicrotask(()=>{
