@@ -24,7 +24,7 @@ async function open(page,url=app+'?view=home'){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 const order=['홈','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직'];
-for(const width of [761,820,900,1023])for(const fontSize of [null,24])test(`mid menu is a reachable ordered prefix at ${width}px, font ${fontSize||'default'}`,async({page})=>{
+for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`mid menu is a reachable ordered prefix at ${width}px, font ${fontSize||'default'}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);
   const trigger=page.locator('#mobileMenuOpen');await expect(trigger).toBeVisible();
   if(fontSize){
@@ -53,7 +53,7 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24])test(`mid 
     await item.click();await expect(page.locator('#mobileMenu')).toBeHidden();
     const view=({'홈':'home','일정':'calendar','할 일':'tasks','프로젝트':'projects','자료실':'library','회의':'meetings','성명·보도자료':'media','게시판':'pages','담당조직':'team'})[label];
     await expect(page.locator('#'+view+'View')).toBeVisible();
-    if(label==='성명·보도자료')await expect(item).toHaveAttribute('aria-current','page');
+    if(label==='성명·보도자료')await expect(page.locator('.app-nav [data-view="media"],#mobileMenu nav [data-view="media"]')).toHaveAttribute('aria-current','page');
   }
 });
 test('mid drawer close, back, focus trap, theme and current overflow location',async({page})=>{
