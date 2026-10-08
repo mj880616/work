@@ -71,12 +71,12 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
  for(const name of ['projects','meetings','media','pages','team','tasks','calendar','library']){
   for(const p of [page,original])await view(p,name);
   // D-4c adds one heading. Verify all its computed styles against the retained week heading,
-  // then compare every pre-existing text role to the unchanged D-3e baseline.
+  // then let today occupy the old combined heading position and compare every pre-existing text role to the unchanged D-3e baseline.
   if(name==='tasks'){
     const style=el=>{const s=getComputedStyle(el);return [el.tagName,el.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]};
     expect(await page.locator('#gt-today-head').evaluate(style)).toEqual(await page.locator('#gt-week-head').evaluate(style));
   }
-  const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>e.id!=='gt-today-head'&&!e.closest('.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task]')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
+  const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task]')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
   expect(await snapshot(page),name).toEqual(await snapshot(original));
 
  }

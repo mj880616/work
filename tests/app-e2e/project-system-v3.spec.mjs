@@ -547,7 +547,7 @@ test('recorded progress item has a visible edit action that saves title and phas
   await expect(edit).toBeVisible();
   await edit.click();
   await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();
-  await expect(item.locator('details')).not.toHaveAttribute('open','');
+  await expect(item.locator('details')).toHaveCount(0);await expect(item.locator('.ps3-pg-summary')).toHaveCount(0);await expect(item.locator('.ps3-pg-record')).toHaveCount(1);
   await expect(page.locator('#ps3WsPhase')).toHaveValue('preparation');
   await page.locator('#ps3WsTitle').fill('수정한 진행상황');
   await page.locator('#ps3WsPhase').selectOption('execution');
@@ -920,7 +920,7 @@ test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',
 });
 
 test('V3 more menu and progress items use native keyboard disclosure behavior',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  const state=baseState();state.progress.push({...state.progress[0],id:'keyboard-second'});await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
   await page.locator('[data-ps3-project="main-1"]').first().click();
   const menu=page.locator('#ps3Menu .ps3-more'),summary=menu.locator(':scope > summary');
   await expect(summary).toHaveAttribute('aria-label','프로젝트 관리 메뉴');
@@ -942,7 +942,7 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
   const item=page.locator('[data-ps3-progress-item="ws-1"]'),itemSummary=item.locator('details > summary');
   await itemSummary.focus();await page.keyboard.press('Enter');
   await expect(item.locator('details')).toHaveAttribute('open','');
-  await page.keyboard.press('Tab');await expect(item.locator('[data-ps3-record-menu]')).toBeFocused();
+  await page.keyboard.press('Tab');await expect(item.locator('[data-ps3-record-menu="pr-1"]')).toBeFocused();
   await page.keyboard.press('Enter');await expect(page.locator('#ps3RecordMenu button').first()).toBeFocused();
   await page.keyboard.press('Tab');await expect(page.locator('#ps3RecordMenu button').last()).toBeFocused();
 
