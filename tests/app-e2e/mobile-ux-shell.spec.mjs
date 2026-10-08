@@ -121,8 +121,9 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   const more=page.locator('.kptu-day-more').first();
   await expect(more).toBeVisible({timeout:10000});
   const busyWeek=page.locator(`.cal-cell[data-date="${today}"]`).locator('..').locator('..');
-  expect(await busyWeek.locator('.cmv-event').count()).toBe(3);
-  await expect(more).toHaveText('+9');
+  const slots=Number(await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots'));
+  expect(await busyWeek.locator('.cmv-event').count()).toBe(slots-1);
+  await expect(more).toHaveText('+'+(12-slots+1));
   await more.click();
   await expect(page.locator('#calendarDayModal')).toBeVisible();
   await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(12);

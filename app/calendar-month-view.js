@@ -49,8 +49,9 @@
   }
   function viewportLayout(grid,weeks,head,maxLanes){
     const header=cssPx(grid,'--cmv-date-header-height',44),step=cssPx(grid,'--cmv-lane-step',14);
-    // Keep three unchanged event rows and a separate 44px overflow target on phones.
-    const required=mq1024.matches?0:header+(mq760.matches?3:Math.min(1,maxLanes))*step+(maxLanes>(mq760.matches?3:1)?44:0)+2;
+    // Phones reserve three unchanged rows plus one thin overflow row, then fill the viewport.
+    const moreHeight=cssPx(grid,'--cmv-more-height',44);
+    const required=mq760.matches?header+3*step+moreHeight+2:mq1024.matches?0:header+Math.min(1,maxLanes)*step+(maxLanes>1?44:0)+2;
     grid.style.setProperty('--cmv-content-week-height',required+'px');
     const headHeight=cssPx(grid,'--cmv-head-height',23),minWeek=Math.max(required,cssPx(grid,'--cmv-min-week-height',58));
     const dateHeaderHeight=cssPx(grid,'--cmv-date-header-height',23),laneStep=cssPx(grid,'--cmv-lane-step',14);
@@ -63,7 +64,9 @@
       // Pinch zoom changes the visual viewport, not the layout space available to the grid.
       const viewportHeight=document.documentElement.clientHeight||window.innerHeight||window.visualViewport?.height||0;
       const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0;
-      const available=Math.floor(viewportHeight-grid.getBoundingClientRect().top-safeBottom);
+      // Page scrolling must not create extra slots when tasks or events trigger a rerender.
+      const gridTop=grid.getBoundingClientRect().top+(mq760.matches?window.scrollY:0);
+      const available=Math.floor(viewportHeight-gridTop-safeBottom);
       height=Math.max(minGrid,available);
       if(!mq760.matches)height=Math.min(height,Math.max(minGrid,Math.floor(viewportHeight*.82)));
     }
@@ -71,12 +74,12 @@
     grid.dataset.cmvViewportHeight=String(height);
     const actualHead=head?.getBoundingClientRect().height||headHeight;
     const rowHeight=Math.max(minWeek,(grid.clientHeight-actualHead)/weeks);
-    const slots=Math.max(1,Math.floor((rowHeight-dateHeaderHeight-2)/laneStep));
+    const slots=Math.max(1,Math.floor((rowHeight-dateHeaderHeight-2-(mq760.matches?Math.max(0,moreHeight-laneStep):0))/laneStep));
     grid.dataset.cmvLaneSlots=String(slots);
     return {height,rowHeight,slots,dateHeaderHeight,laneStep};
   }
   function laneCap(laneCount,layout){
-    if(mq760.matches)return 3;
+    if(mq760.matches)return laneCount>layout.slots?layout.slots-1:layout.slots;
     return laneCount>layout.slots?Math.max(1,Math.floor((layout.rowHeight-layout.dateHeaderHeight-44-2)/layout.laneStep)):layout.slots;
   }
   function eventSort(a,b){
@@ -244,14 +247,28 @@
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';
       const hidden=Array(7).fill(0);
+      const dayCaps=mq760.matches?Array.from({length:7},(_,col)=>laneCap(week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).length,layout)):Array(7).fill(lanes);
       week.segments.forEach(seg=>{
-        if(seg.lane<lanes){layer.appendChild(eventButton(seg));return}
-        for(let col=seg.startCol;col<=seg.endCol;col++)hidden[col]++;
+        if(!mq760.matches){
+          if(seg.lane<lanes)layer.appendChild(eventButton(seg));
+          else for(let col=seg.startCol;col<=seg.endCol;col++)hidden[col]++;
+          return;
+        }
+        // A busier neighbour must not reserve overflow on a date whose events all fit.
+        let run=null;
+        const appendRun=()=>{if(run)layer.appendChild(eventButton(run));run=null};
+        for(let col=seg.startCol;col<=seg.endCol;col++){
+          if(seg.lane>=dayCaps[col]){appendRun();hidden[col]++;continue}
+          if(run){run.endCol=col;run.span++}
+          else run={...seg,startCol:col,endCol:col,span:1,continuesLeft:seg.continuesLeft||col>seg.startCol};
+          run.continuesRight=seg.continuesRight||col<seg.endCol;
+        }
+        appendRun();
       });
       hidden.forEach((count,col)=>{
         if(!count)return;
         const date=new Date(week.start);date.setDate(week.start.getDate()+col);
-        const more=document.createElement('button');more.type='button';more.className='kptu-day-more';more.dataset.date=key(date);more.textContent=`+${count}`;more.style.gridColumn=String(col+1);more.style.gridRow=String(lanes+1);more.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 일정 ${count}개 더 보기`);
+        const more=document.createElement('button');more.type='button';more.className='kptu-day-more';more.dataset.date=key(date);more.textContent=`+${count}`;more.style.gridColumn=String(col+1);more.style.gridRow=String(dayCaps[col]+1);more.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 일정 ${count}개 더 보기`);
         more.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
         layer.appendChild(more);
       });

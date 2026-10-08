@@ -49,7 +49,7 @@ for(const [width,height] of sizes){
         console.log('overflow target',width,index,JSON.stringify(geometry));
         await expect(more).toHaveCSS('font-size',width<=760?'12px':Math.min(11,Math.max(9.5,width*.0065))+'px');
         await expect(more).toHaveCSS('font-weight','800');
-        expect(geometry.height).toBe(44);expect(geometry.width).toBeGreaterThanOrEqual(44);
+        expect(geometry.height).toBe(width<=760?18:44);expect(geometry.width).toBeGreaterThanOrEqual(44);
         expect(geometry.within).toBe(true);expect(geometry.overlap).toBe(false);expect(geometry.belowBars).toBe(true);expect(geometry.hit).toBe(true);
         await more.click();
         await expect(page.locator('#calendarDayModal')).toBeVisible();
@@ -68,12 +68,13 @@ for(const [width,height] of sizes){
         await closeDay(page);
       }
     }
-    const textOutside=await week.locator('.cmv-task-count,.kptu-day-more').evaluateAll(spans=>spans.filter(span=>{
+    const textOutside=await week.locator('.cmv-task-count,.kptu-day-more').evaluateAll(spans=>spans.map(span=>{
       const range=document.createRange();range.selectNodeContents(span);
       const text=range.getBoundingClientRect(),button=span.closest('button').getBoundingClientRect();
-      return text.left<button.left-.1||text.right>button.right+.1||text.top<button.top-.1||text.bottom>button.bottom+.1;
-    }).length);
-    expect(textOutside).toBe(0);
+      return {label:span.textContent,text:text.toJSON(),button:button.toJSON(),font:getComputedStyle(span).font,
+        outside:text.left<button.left-.1||text.right>button.right+.1||text.top<button.top-.1||text.bottom>button.bottom+.1};
+    }).filter(result=>result.outside));
+    expect(textOutside).toEqual([]);
     if(width<=760){
       // Wider system sans glyphs must also fit ✓17 beside the date number.
       const fontOverride=await page.addStyleTag({content:'.cmv-date-list{font-family:"DejaVu Sans",sans-serif}'});
@@ -99,15 +100,21 @@ for(const [width,height] of sizes){
     }
     // A single task must not change event capacity anywhere in the month.
     const oldCap=await week.getAttribute('data-lane-cap');
+    const oldSlots=await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots');
+    const oldWeekHeight=await week.evaluate(el=>el.getBoundingClientRect().height);
     await page.evaluate(()=>KPTUCalendarMonthView.setTasks([{id:'only-one',title:'QA',date:'2026-10-22',done:false}]));
     await expect(page.locator('.cmv-task-count')).toHaveCount(1);
     await expect(week).toHaveAttribute('data-lane-cap',oldCap);
+    if(width<=760){
+      await expect(page.locator('#calendarGrid')).toHaveAttribute('data-cmv-lane-slots',oldSlots);
+      expect(await week.evaluate(el=>el.getBoundingClientRect().height)).toBeCloseTo(oldWeekHeight,2);
+    }
     for(let index=0;index<4;index++)await expect(week.locator(`[data-google-event^="footer-${index}-"]`).first()).toBeVisible();
     await render(page,false);
     await expect(page.locator('#calendarGrid')).not.toHaveClass(/cmv-has-tasks/);
     await expect(page.locator('.cmv-task-count,.cmv-footer-more')).toHaveCount(0);
     const cap=Number(await week.getAttribute('data-lane-cap'));
-    expect(cap).toBe(width>=1024?24:width<=760?3:Math.max(1,Math.floor((await week.evaluate(el=>el.getBoundingClientRect().height)-44-44-2)/14)));
+    expect(cap).toBe(width>=1024?24:width<=760?Number(await page.locator('#calendarGrid').getAttribute('data-cmv-lane-slots'))-1:Math.max(1,Math.floor((await week.evaluate(el=>el.getBoundingClientRect().height)-44-44-2)/14)));
     if(width<1024)await expect(week.locator('.cmv-week-events > .kptu-day-more')).not.toHaveCount(0);
     expect(external).toEqual([]);
   });

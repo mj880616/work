@@ -212,9 +212,12 @@ test('short six-week mobile rows keep events and overflow inside their own dates
   await expect(page.locator('.cmv-event')).toHaveCount(2);
   await expect(page.locator('.kptu-day-more')).toHaveCount(0);
   await page.evaluate(()=>window.renderDensityFixture({year:2026,month:7,dateCounts:{'2026-08-13':4}}));
+  await expect(page.locator('.cmv-event')).toHaveCount(4);
+  await expect(page.locator('.kptu-day-more')).toHaveCount(0);
+  await page.evaluate(()=>window.renderDensityFixture({year:2026,month:7,dateCounts:{'2026-08-13':5}}));
   await expect(page.locator('.cmv-event')).toHaveCount(3);
-  await expect(page.locator('.kptu-day-more')).toHaveText('+1');
+  await expect(page.locator('.kptu-day-more')).toHaveText('+2');
   await page.locator('.kptu-day-more').click();
   await expect(page.locator('#calendarDayTitle')).toContainText('8월 13일');
-  await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(4);
+  await expect(page.locator('#calendarDayList .cal-event')).toHaveCount(5);
 });
