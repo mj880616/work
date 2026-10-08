@@ -74,6 +74,20 @@ for(const [width,height] of sizes){
       return text.left<button.left-.1||text.right>button.right+.1||text.top<button.top-.1||text.bottom>button.bottom+.1;
     }).length);
     expect(textOutside).toBe(0);
+    if(width<=760){
+      // Wider system sans glyphs must also fit ✓17 beside the date number.
+      const fontOverride=await page.addStyleTag({content:'.cmv-date-list{font-family:"DejaVu Sans",sans-serif}'});
+      const countGeometry=await week.locator('.cmv-task-count').evaluateAll(markers=>markers.map(marker=>{
+        const range=document.createRange();range.selectNodeContents(marker);
+        const text=range.getBoundingClientRect(),button=marker.closest('button').getBoundingClientRect();
+        const dateRange=document.createRange();dateRange.selectNodeContents(marker.previousSibling);
+        const date=dateRange.getBoundingClientRect();
+        return {fits:text.left>=button.left&&text.right<=button.right+.1&&text.top>=button.top&&text.bottom<=button.bottom,
+          distinct:date.right<=text.left};
+      }));
+      expect(countGeometry.every(g=>g.fits&&g.distinct)).toBe(true);
+      await fontOverride.evaluate(el=>el.remove());
+    }
     const clipped=await week.locator('.cmv-event').evaluateAll(elements=>elements.filter(el=>{
       const r=el.getBoundingClientRect(),w=el.closest('.cmv-week').getBoundingClientRect();
       return r.height<=0||r.top<w.top||r.bottom>w.bottom;

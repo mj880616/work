@@ -62,7 +62,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=62')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=92')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=93')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -118,7 +118,7 @@ jobs:
           if grep -q "styles.css?v=52" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
-          grep -q "calendar-ui.css?v=27" app/view-loader.js
+          grep -q "calendar-ui.css?v=28" app/view-loader.js
           grep -q "task-layout.css?v=4" app/view-loader.js
           grep -q "project-system-v3.css?v=23" app/view-loader.js
           grep -q "library-upload.css?v=4" app/view-loader.js
@@ -188,7 +188,7 @@ jobs:
           grep -q "google-tasks.css?v=24" app/styles.css
           grep -q "library-upload.css?v=4" app/styles.css
           grep -q "meeting-ui.css?v=12" app/styles.css
-          grep -q "calendar-ui.css?v=27" app/styles.css
+          grep -q "calendar-ui.css?v=28" app/styles.css
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
           grep -q "project-system-v3.css?v=23" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
@@ -311,7 +311,7 @@ jobs:
           grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
           grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js
-          grep -q "calendar-ui.css?v=27" app/styles.css
+          grep -q "calendar-ui.css?v=28" app/styles.css
           grep -q "id=\"googleCalendarPanel\"" app/team.js
           grep -q "visualViewport" app/calendar-month-view.js
           grep -q "cmvLaneSlots" app/calendar-month-view.js
