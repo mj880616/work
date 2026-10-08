@@ -20,15 +20,15 @@ function style(path){
   return flight
 }
 const routeStyles={
-  home:['./choice-sheet.css?v=1','./home-read.css?v=7','./google-tasks.css?v=22'],
+  home:['./choice-sheet.css?v=1','./home-read.css?v=7','./google-tasks.css?v=24'],
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=25'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=22'],
-  projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=22'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=24'],
+  projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=24'],
   library:['./library-upload.css?v=4','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=12','./google-tasks.css?v=22'],
+  meetings:['./meeting-ui.css?v=12','./google-tasks.css?v=24'],
   media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=5'],
-  team:['./suborganizations.css?v=9','./workplace-detail.css?v=6','./google-tasks.css?v=22']
+  team:['./suborganizations.css?v=9','./workplace-detail.css?v=6','./google-tasks.css?v=24']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -69,8 +69,8 @@ async function calendar(){
   await module('./calendar-plus.js?v=11','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
     module('./calendar-interactions-v2.js?v=17','__KPTU_CALENDAR_INTERACTIONS_READY__'),
-    module('./calendar-mobile-ui.js?v=5','__KPTU_CALENDAR_MOBILE_UI_READY__'),
-    module('./calendar-day-overflow.js?v=8','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
+    module('./calendar-mobile-ui.js?v=6','__KPTU_CALENDAR_MOBILE_UI_READY__'),
+    module('./calendar-day-overflow.js?v=9','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=15','__KPTU_CALENDAR_PERSISTENCE_READY__');
@@ -80,14 +80,14 @@ async function calendar(){
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
   // google-tasks.js.
-  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=22'),organizationOrder()])).then(()=>module('./google-tasks.js?v=29')).then(()=>module('./calendar-tasks.js?v=3')));
+  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=24'),organizationOrder()])).then(()=>module('./google-tasks.js?v=30')).then(()=>module('./calendar-tasks.js?v=3')));
   background(google.then(()=>module('./calendar-health.js?v=6')));
   return {ok:true}
 }
 async function tasks(){
   await module('./project-catalog.js?v=2');
   await organizationOrder();
-  await module('./google-tasks.js?v=29');
+  await module('./google-tasks.js?v=30');
   return {ok:true}
 }
 async function projects(){
@@ -98,8 +98,8 @@ async function projects(){
   await module('./project-catalog.js?v=2');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
-  await module('./google-tasks.js?v=29');
-  await module('./project-system-v3.js?v=38','__KPTU_PROJECT_V3_READY__');
+  await module('./google-tasks.js?v=30');
+  await module('./project-system-v3.js?v=39','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
@@ -112,7 +112,7 @@ async function meetings(){
   await projectCatalog();
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
-  await module('./google-tasks.js?v=29');
+  await module('./google-tasks.js?v=30');
   await module('./meeting-round-detail.js?v=20','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
@@ -129,7 +129,7 @@ async function organizations(){
   await module('./suborganizations.js?v=13','__KPTU_SUBORGANIZATIONS_READY__');
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
   await module('./project-catalog.js?v=2');
-  await module('./google-tasks.js?v=29');
+  await module('./google-tasks.js?v=30');
   await module('./workplace-detail.js?v=14');
   import('./workplace-report.js?v=2').catch(console.error);
   return {ok:true}
@@ -138,8 +138,8 @@ async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
   // Preserve the existing narrow-screen action labels when home is the first route.
-  await module('./calendar-mobile-ui.js?v=5','__KPTU_CALENDAR_MOBILE_UI_READY__');
-  await module('./home-read.js?v=8');
+  await module('./calendar-mobile-ui.js?v=6','__KPTU_CALENDAR_MOBILE_UI_READY__');
+  await module('./home-read.js?v=9');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});

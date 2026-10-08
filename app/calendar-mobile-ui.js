@@ -1,6 +1,6 @@
 const mq=window.matchMedia('(max-width:760px)');
 const mobileLabels={
-  newTaskBtn:['+ 할 일','+ 할 일 추가'],
+  newTaskBtn:['+ 할 일','+ 할 일'],
   newDocumentBtn:['+ 자료','+ 자료 등록'],
   newMeetingBtn:['+ 회의','+ 회의 결과'],
   newPageBtn:['+ 페이지','+ 새 페이지'],

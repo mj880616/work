@@ -121,8 +121,8 @@ for(const width of [390,1440]){
     });
     test('Google task card keeps add action and editor',async({page})=>{
       await openApp(page,'tasks');
-      await assertInHeader(page,{card:'#gtTaskSection',head:'.gt-head',button:'#newTaskBtn',title:'h3'});
-      await expect(page.locator('#newTaskBtn')).toHaveText(width===390?'+ 할 일':'+ 할 일 추가');
+      await assertInHeader(page,{card:'#gtTaskSection',head:'.gt-head',button:'#newTaskBtn',title:'[data-gt-count]'});
+      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
       await page.locator('#newTaskBtn').click();
       await expect(page.locator('#gtTaskModal')).toBeVisible();
     });

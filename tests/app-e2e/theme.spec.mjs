@@ -239,7 +239,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
  await check('#eventModal .icon-btn',32);await check('#saveEventBtn',36);
  const close=page.locator('#eventModal .icon-btn');await close.scrollIntoViewIfNeeded();const r=await close.boundingBox();
  await page.mouse.click(r.x+r.width/2,r.y-4);await expect(page.locator('#eventModal')).toBeHidden();
- await clickView(page,'tasks');await expect(page.locator('#gtTaskBody .gt-delete')).toBeVisible();await check('#gtTaskBody .gt-delete',44);
+ await clickView(page,'tasks');await expect(page.locator('#gtTaskBody .gt-menu-trigger')).toBeVisible();await check('#gtTaskBody .gt-menu-trigger',44);
 });
 
 for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacent controls '+width,async({page})=>{

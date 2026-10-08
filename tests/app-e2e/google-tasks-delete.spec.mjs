@@ -8,6 +8,8 @@ const task=(id,extra={})=>({id,title:id,taskListId:'l1',taskListTitle:'QA',due:'
 const ok=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
 const row=(page,id)=>page.locator(`#gtTaskBody [data-google-task="${id}"]`);
 
+async function deleteTask(page,id){await row(page,id).locator('[data-gt-menu]').click();await page.locator('#gtTaskMenu [data-gt-menu-action="delete"]').click();}
+
 async function openTasks(browser,{onDelete,onOverview,onToggle,reducedMotion='no-preference'}={}){
   const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion});
   const page=await context.newPage();
@@ -54,10 +56,10 @@ async function openTasks(browser,{onDelete,onOverview,onToggle,reducedMotion='no
   return {context,page,google,calls};
 }
 
-test('each pending and completed row has a separate reachable delete target',async({browser})=>{
+test('each pending and completed row has a separate reachable menu target',async({browser})=>{
   const {context,page}=await openTasks(browser);
   for(const id of ['a','c']){
-    const button=row(page,id).locator('[data-gt-delete]');
+    const button=row(page,id).locator('[data-gt-menu]');
     await expect(button).toBeVisible();
     const box=await button.boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(44);
@@ -70,7 +72,7 @@ test('each pending and completed row has a separate reachable delete target',asy
 
 test('undo restores the same place without sending a delete',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
-  await row(page,'b').locator('[data-gt-delete]').click();
+  await deleteTask(page,'b');
   await expect(row(page,'b')).toHaveCount(0);
   await page.locator('[data-gt-undo="b"]').click();
   await expect(row(page,'b')).toBeVisible();
@@ -82,7 +84,7 @@ test('undo restores the same place without sending a delete',async({browser})=>{
 
 test('five seconds commits only the selected completed task',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
-  await row(page,'c').locator('[data-gt-delete]').click();
+  await deleteTask(page,'c');
   await expect(row(page,'c')).toHaveCount(0);
   expect(calls.deletes).toHaveLength(0);
   await expect.poll(()=>calls.deletes.map(x=>x.task_id),{timeout:7000}).toEqual(['c']);
@@ -93,7 +95,7 @@ test('five seconds commits only the selected completed task',async({browser})=>{
 
 test('failed delete restores the row and shows a short error',async({browser})=>{
   const {context,page,calls}=await openTasks(browser,{onDelete:route=>ok(route,{error:'delete failed'},500)});
-  await row(page,'a').locator('[data-gt-delete]').click();
+  await deleteTask(page,'a');
   await expect(row(page,'a')).toHaveCount(0);
   await expect.poll(()=>calls.deletes.length,{timeout:7000}).toBe(1);
   await expect(row(page,'a')).toBeVisible();
@@ -103,8 +105,8 @@ test('failed delete restores the row and shows a short error',async({browser})=>
 
 test('consecutive deletions keep independent undo timers and row order',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
-  await row(page,'a').locator('[data-gt-delete]').click();
-  await row(page,'b').locator('[data-gt-delete]').click();
+  await deleteTask(page,'a');
+  await deleteTask(page,'b');
   await expect(row(page,'a')).toHaveCount(0);
   await expect(row(page,'b')).toHaveCount(0);
   await page.locator('[data-gt-undo="a"]').click();
@@ -118,7 +120,7 @@ test('delete during completion effect cannot reappear when the effect finishes',
   const {context,page,calls}=await openTasks(browser);
   await row(page,'a').locator('[data-gt-toggle]').click();
   await expect(row(page,'a')).toHaveClass(/gt-settle/);
-  await row(page,'a').locator('[data-gt-delete]').click();
+  await deleteTask(page,'a');
   await page.waitForTimeout(1000);
   await expect(row(page,'a')).toHaveCount(0);
   await expect.poll(()=>calls.deletes.map(x=>x.task_id),{timeout:7000}).toEqual(['a']);
@@ -127,7 +129,7 @@ test('delete during completion effect cannot reappear when the effect finishes',
 
 test('leaving the task view inside five seconds cancels deletion',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
-  await row(page,'a').locator('[data-gt-delete]').click();
+  await deleteTask(page,'a');
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
   await page.waitForTimeout(5200);
@@ -139,7 +141,7 @@ test('leaving the task view inside five seconds cancels deletion',async({browser
 
 test('closing the page inside five seconds sends no delete',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
-  await row(page,'a').locator('[data-gt-delete]').click();
+  await deleteTask(page,'a');
   await page.close();
   await new Promise(resolve=>setTimeout(resolve,5200));
   expect(calls.deletes).toHaveLength(0);
@@ -148,7 +150,7 @@ test('closing the page inside five seconds sends no delete',async({browser})=>{
 
 test('returning to the same tab restores a deletion cancelled while hidden',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
-  await row(page,'a').locator('[data-gt-delete]').click();
+  await deleteTask(page,'a');
   await page.evaluate(()=>{
     Object.defineProperty(document,'hidden',{configurable:true,value:true});
     document.dispatchEvent(new Event('visibilitychange'));
@@ -166,7 +168,7 @@ test('reduced motion keeps the controls and skips the completion animation',asyn
   await row(page,'a').locator('[data-gt-toggle]').click();
   await expect(row(page,'a')).toHaveClass(/completed/);
   await expect(row(page,'a')).not.toHaveClass(/gt-settle/);
-  await row(page,'a').locator('[data-gt-delete]').click();
+  await deleteTask(page,'a');
   await expect(row(page,'a')).toHaveCount(0);
   await page.locator('[data-gt-undo="a"]').click();
   await expect(row(page,'a')).toBeVisible();
@@ -175,7 +177,7 @@ test('reduced motion keeps the controls and skips the completion animation',asyn
 
 test('automatic refresh cannot resurrect a pending row or move its undo position',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
-  await row(page,'b').locator('[data-gt-delete]').click();
+  await deleteTask(page,'b');
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect.poll(()=>calls.overviews).toBeGreaterThanOrEqual(2);
   await expect(row(page,'b')).toHaveCount(0);
@@ -193,7 +195,7 @@ test('an overview started before deletion cannot resurrect the pending row',asyn
   }});
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await expect.poll(()=>calls.overviews).toBeGreaterThanOrEqual(2);
-  await row(page,'b').locator('[data-gt-delete]').click();
+  await deleteTask(page,'b');
   release();
   await expect(row(page,'b')).toHaveCount(0);
   await page.locator('[data-gt-undo="b"]').click();

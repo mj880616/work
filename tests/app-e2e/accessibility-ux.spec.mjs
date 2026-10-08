@@ -80,7 +80,7 @@ test('task grouping, month controls, and destructive task actions expose clear n
   await expect(page.locator('#taskScope')).toHaveCount(0);
   await expect(page.locator('#taskStatus')).toHaveCount(0);
   await expect(page.locator('#taskList')).toBeEmpty();
-  await expect(page.locator('#gtTaskSection h3')).toHaveText('Google 할 일');
+  await expect(page.locator('#gtTaskSection [data-gt-count]')).toHaveText(/할 일 \d+개/);
   await page.locator('[data-gt-edit="a11y-task-1"]').click();
   await expect(page.locator('#gtTaskModal')).toHaveAccessibleName('Google 할 일 수정');
   await expect(page.locator('#gtEditTitle')).toHaveValue('접근성 점검 할 일');
