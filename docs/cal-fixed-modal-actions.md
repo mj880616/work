@@ -3,7 +3,8 @@
 📱 폰 가능 · Codex 웹 · 2026-10-08
 
 기준 main: `dc317dbb0236942e8bf210f86b8a9692d437a658` (원격 fetch 확인).
-브랜치: `codex/cal-fixed-modal-actions`. 구현 전 조사 기록.
+브랜치: `codex/cal-fixed-modal-actions`. PR: [#436](https://github.com/mj880616/work/pull/436).
+0단계는 구현 전에 기록했다.
 
 ## 0단계 조사
 
@@ -34,7 +35,8 @@ soEditModal·soAssignModal, libraryEditModal·libraryManageModal, warDraftModal.
 - [x] footer를 normal flow에 유지해 자체 높이만큼 본문 끝 공간 예약. 버튼 모양·색·순서 및 조직 배치 유지.
 - [x] 기존 accessibility-dialog에서 폰 editable focus + visualViewport 축소를 확인해 data 속성으로 고정 해제. 닫기/키보드 복귀 시 정리.
 - [x] 캐시 의존 체인과 버전 검사 갱신, 원장 지시 항목 반영.
-- [ ] PR 생성, GitHub CI 확인 후 보고·정지. merge 없음.
+- [x] PR #436 생성·원장 반영.
+- [ ] 최종 head의 GitHub CI 확인 후 보고·정지. merge 없음.
 
 ## 검증 결과
 
@@ -70,4 +72,3 @@ layout viewport 자체가 줄어드는 브라우저는 기존 100dvh 제한 안�
 - 기존 로딩 문구 간헐 실패는 clean main에서도 재현되어 보고만 한다.
 - 다른 입력 창 후보는 0단계 표 아래 목록에만 남겼다.
 - DB·Supabase·Edge Function·Cloudflare·인증/권한 경계·운영 데이터 변경 없음.
-
