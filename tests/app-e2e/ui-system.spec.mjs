@@ -72,7 +72,7 @@ test('calendar and text actions use 36px and mobile content stays above the bott
   await clickView(page,'tasks');
   const rows=page.locator('#gtTaskBody .gt-row');
   await expect(rows).toHaveCount(24,{timeout:10000});
-  await expect(rows.last().locator('.gt-unlinked-badge')).toHaveText('연결 안 됨');
+  await expect(rows.last().locator('.gt-unlinked-badge')).toHaveCount(0);
   await page.evaluate(()=>{
     const items=document.querySelectorAll('#gtTaskBody .gt-row');
     items[items.length-1]?.scrollIntoView({block:'end',behavior:'instant'});

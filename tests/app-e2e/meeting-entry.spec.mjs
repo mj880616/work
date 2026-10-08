@@ -864,7 +864,7 @@ test('Google editor displays and retains meeting links while a meeting-only task
   await expect.poll(()=>unlinkBody).not.toBeNull();
   expect(unlinkBody.links).toEqual([{project_id:'main'}]);
   await expect(page.locator('#gtUnlinked')).toHaveCount(0);
-  await expect(page.locator('#gtTaskBody [data-google-task="meeting-only"] .gt-unlinked-badge')).toHaveText('연결 안 됨');
+  await expect(page.locator('#gtTaskBody [data-google-task="meeting-only"] .gt-unlinked-badge')).toHaveCount(0);
   expect(actions).not.toContain('unlinked');
 });
 

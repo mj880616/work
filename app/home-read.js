@@ -64,7 +64,7 @@ function preload(){
   if(!imports)imports={
     projects:import('./project-catalog.js?v=2'),
     order:import('./organization-order.js?v=1'),
-    google:import('./google-tasks.js?v=29'),
+    google:import('./google-tasks.js?v=30'),
   };
   Object.values(imports).forEach(p=>p.catch(()=>{}));
   return imports;

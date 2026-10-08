@@ -139,7 +139,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
 
 for(const width of [390,1440])test('D-button undo painted size and real 44px target '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await boot(page,[{id:'size-task',title:'Fixture task',taskListId:'l1',taskListTitle:'QA',status:'needsAction',due:null}]);await view(page,'tasks');
- await page.locator('#gtTaskBody [data-google-task="size-task"] .gt-delete').click();
+ await page.locator('#gtTaskBody [data-google-task="size-task"] [data-gt-menu]').click();await page.locator('#gtTaskMenu [data-gt-menu-action="delete"]').click();
  await standard(page,'[data-gt-undo="size-task"]');
  const el=page.locator('[data-gt-undo="size-task"]');await el.scrollIntoViewIfNeeded();
  const bounds=await el.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),x=r.x+parseFloat(p.left),y=r.y+parseFloat(p.top),w=parseFloat(p.width),h=parseFloat(p.height);return {w,h,hit:document.elementFromPoint(x+w/2,y+1)?.closest('button')===el}});

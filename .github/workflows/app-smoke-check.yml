@@ -62,7 +62,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=62')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=87')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=88')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -75,8 +75,8 @@ jobs:
             "module('./calendar-plus.js?v=11'","__KPTU_CALENDAR_PLUS_READY__",
             "module('./calendar-persistence.js?v=15'","__KPTU_CALENDAR_PERSISTENCE_READY__",
             "module('./calendar-interactions-v2.js?v=17'","__KPTU_CALENDAR_INTERACTIONS_READY__",
-            "module('./calendar-mobile-ui.js?v=5'","__KPTU_CALENDAR_MOBILE_UI_READY__",
-            "module('./calendar-day-overflow.js?v=8'","__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
+            "module('./calendar-mobile-ui.js?v=6'","__KPTU_CALENDAR_MOBILE_UI_READY__",
+            "module('./calendar-day-overflow.js?v=9'","__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
           ];
           const missingViews=viewKeys.filter(key=>!views.includes(key));
           if(missingViews.length)throw new Error('missing view dependency marker: '+missingViews.join(', '));
@@ -146,10 +146,10 @@ jobs:
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=16" app/loader-v2.js
           grep -q "team.js?v=62" app/loader-v2.js
-          grep -q "project-system-v3.js?v=38" app/view-loader.js
+          grep -q "project-system-v3.js?v=39" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
-          grep -q "google-tasks.js?v=29" app/view-loader.js
+          grep -q "google-tasks.js?v=30" app/view-loader.js
           grep -q "library-upload.js?v=18" app/view-loader.js
           grep -q "project-catalog.js?v=2" app/view-loader.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
@@ -175,9 +175,9 @@ jobs:
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/view-loader.js
           grep -q "calendar-interactions-v2.js?v=17" app/view-loader.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/view-loader.js
-          grep -q "calendar-mobile-ui.js?v=5" app/view-loader.js
+          grep -q "calendar-mobile-ui.js?v=6" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/view-loader.js
-          grep -q "calendar-day-overflow.js?v=8" app/view-loader.js
+          grep -q "calendar-day-overflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/view-loader.js
 
           grep -q "topbar-actions.css?v=16" app/styles.css
@@ -185,7 +185,7 @@ jobs:
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           grep -q "task-layout.css?v=4" app/styles.css
-          grep -q "google-tasks.css?v=22" app/styles.css
+          grep -q "google-tasks.css?v=23" app/styles.css
           grep -q "library-upload.css?v=4" app/styles.css
           grep -q "meeting-ui.css?v=12" app/styles.css
           grep -q "calendar-ui.css?v=25" app/styles.css

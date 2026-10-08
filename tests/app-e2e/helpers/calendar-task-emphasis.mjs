@@ -25,7 +25,7 @@ const EVENTS=[
     start:'2026-10-21',end:'2026-10-22',allDay:true,color:'#4285f4'}
 ];
 
-export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks=TASKS,now=NOW,orgs=[]}={}){
+export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks=TASKS,now=NOW,orgs=[],links=[],projects=[],onLinks=null}={}){
   const calls=[],external=[];
   if(view!=="default")await page.addInitScript(v=>{try{localStorage.setItem("kptu-calendar-view",v)}catch{}},view);
   await page.clock.setFixedTime(new Date(now));
@@ -42,6 +42,8 @@ export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-user',role:'owner'}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'qa-ws',name:'QA Workspace'}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:'qa-user',display_name:'QA'}]);
+    if(path==='/rest/v1/app_record_links'){if(onLinks)await onLinks();return ok(links);}
+    if(path==='/rest/v1/app_spaces')return ok(projects);
     if(path==='/rest/v1/app_suborganizations')return ok(orgs);
     if(path==='/rest/v1/app_suborganization_assignees')return ok(orgs.map(o=>({organization_id:o.id,user_id:user.id})));
     if(path==='/functions/v1/google-calendar'){

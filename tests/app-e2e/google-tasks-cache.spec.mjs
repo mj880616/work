@@ -187,7 +187,7 @@ test('the current google-tasks Edge (v9, no overdue tasks) still renders without
   await mockTasks(page,action=>action==='overview'?{body:{connected:true,authorized:true,needs_reconnect:false,email:null,tasks:[task('t1','오늘 할 일'),{...task('t2','6일 뒤'),due:googleDue(6)}]}}:{status:500,body:{error:'unexpected'}});
   await login(page);await openTasks(page);
   await expect(page.locator('#gtTaskSection .gt-row')).toHaveCount(2);
-  await expect(page.locator('#gt-overdue-head')).toHaveText('기한 지남 0');
+  await expect(page.locator('#gt-overdue-head')).toHaveCount(0);
   await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('');
 });
 
