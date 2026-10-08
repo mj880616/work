@@ -62,7 +62,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=62')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=84')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=85')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -74,7 +74,7 @@ jobs:
             "module('./meeting-round-detail.js?v=20'","__KPTU_MEETING_ROUND_DETAIL_READY__",
             "module('./calendar-plus.js?v=11'","__KPTU_CALENDAR_PLUS_READY__",
             "module('./calendar-persistence.js?v=15'","__KPTU_CALENDAR_PERSISTENCE_READY__",
-            "module('./calendar-interactions-v2.js?v=15'","__KPTU_CALENDAR_INTERACTIONS_READY__",
+            "module('./calendar-interactions-v2.js?v=16'","__KPTU_CALENDAR_INTERACTIONS_READY__",
             "module('./calendar-mobile-ui.js?v=5'","__KPTU_CALENDAR_MOBILE_UI_READY__",
             "module('./calendar-day-overflow.js?v=8'","__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
           ];
@@ -114,7 +114,7 @@ jobs:
           grep -q 'id="accessDeniedView"' app/index.html
           grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
-          grep -q "critical.css?v=22" app/index.html
+          grep -q "critical.css?v=24" app/index.html
           if grep -q "styles.css?v=52" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
@@ -149,7 +149,7 @@ jobs:
           grep -q "project-system-v3.js?v=37" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
-          grep -q "google-tasks.js?v=27" app/view-loader.js
+          grep -q "google-tasks.js?v=28" app/view-loader.js
           grep -q "library-upload.js?v=18" app/view-loader.js
           grep -q "project-catalog.js?v=2" app/view-loader.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
@@ -173,7 +173,7 @@ jobs:
           grep -q "__KPTU_CALENDAR_PLUS_READY__" app/view-loader.js
           grep -q "calendar-persistence.js?v=15" app/view-loader.js
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/view-loader.js
-          grep -q "calendar-interactions-v2.js?v=15" app/view-loader.js
+          grep -q "calendar-interactions-v2.js?v=16" app/view-loader.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/view-loader.js
           grep -q "calendar-mobile-ui.js?v=5" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/view-loader.js

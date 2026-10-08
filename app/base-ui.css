@@ -173,8 +173,8 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 }
 
 /* Keep painted bounds unchanged; the transparent pseudo-element belongs to the button. */
-:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn,.gt-undo-item button){position:relative;scroll-margin:6px}
-:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn,.gt-undo-item button)::after{content:"";position:absolute;inset:min(0px,calc((100% - 44px)/2));min-width:44px;min-height:44px}
+:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn,button.ci-delete,.gt-undo-item button){position:relative;scroll-margin:6px}
+:where(button.primary,button.secondary,button.ghost,button.danger,button.mini,button.icon-btn,button.ci-delete,.gt-undo-item button)::after{content:"";position:absolute;inset:min(0px,calc((100% - 44px)/2));min-width:44px;min-height:44px}
 /* Compact adjacent actions cannot safely share a 44px target without moving layout. */
 :where(.card-actions,.head-actions,.page-card-foot,.side-actions,.auth-tabs,.compact-entry-actions,.ps3-row-actions,.ps3-page-actions,.meeting-file-actions,.mrd-task-actions,.ps3-pg-quick) :is(.mini,.icon-btn)::after{content:none}
 /* Calendar cells have their own interaction contract. */
@@ -208,3 +208,8 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 #ps3CreateModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)!important}
 #gtPickModal .gt-linked-msg{font-size:var(--kptu-text-meta)!important}
 #web1BoardDetailModal .w1b-detail-head h2{font-size:var(--kptu-text-title)!important}
+
+/* CAL-버튼고정: reserve the footer height in flow; cover the shared 24px card bottom padding. */
+.modal-action-footer{position:sticky;bottom:calc(-1 * var(--kptu-space-5));z-index:2;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);margin-top:var(--kptu-space-3);margin-bottom:calc(-1 * var(--kptu-space-5));padding:var(--kptu-space-2) 0 calc(var(--kptu-space-5) + var(--kptu-space-1) + env(safe-area-inset-bottom))}
+.modal-action-footer>.status{margin:0 0 var(--kptu-space-2);overflow-wrap:anywhere}
+.modal-action-footer[data-keyboard-open]{position:static}

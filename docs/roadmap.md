@@ -233,8 +233,8 @@
 | D-4b② | 일정 화면 주간 보기 | 완료 | #430 | #430 merge 5c81cfd8, 2026-10-07 폰 확인 → 완료. 월~일 7줄 목록형, 7일 1회 조회. 목록·주간 날짜 항목 공용화, PC 기본 주간·폰 기본 목록. |
 | D-4b③ | 월간 칸 할 일 표시 정리 | 완료 | #431 | #431 merge 5c62075a, 2026-10-07 폰 확인 → 완료. 일정 전용 줄·+N, 미완료 개수 표시로 날짜 창 연결. |
 | CAL-캘린더이동 | 일정 수정 창 캘린더 이동 | 완료 | #433 | #433 merge 09955ce6, Edge 배포 version 17. 2026-10-07 사용자 폰에서 수정 저장·창 닫힘 확인. 캘린더 이동은 사용자 확인 결과를 받아 반영한다. 2026-10-07 사용자 폰에서 캘린더 이동 확인 → 완료 |
-| CAL-할일등록 | 일정 등록 창 할 일 모드 | PR 검토 대기 | #434 | 기준 main 09955ce6. 일정·할 일 칩, 제목·날짜 유지, 기존 createGoogleTask·홈 프로젝트 선택판 공용화, 저장 후 기존 변경 이벤트로 일정·홈 갱신. 앱만 변경. CI 통과 후 보고·정지, merge는 사용자 승인 후. |
-| CAL-버튼고정 | 일정·할 일 입력 창 버튼 고정 | 대기 | | CAL-할일등록 merge 후 최신 main에서 시작. eventModal·ciGoogleModal·taskModal·gtTaskModal 공통 방식, 앱만 변경. |
+| CAL-할일등록 | 일정 등록 창 할 일 모드 | 진행중 | #434 | #434 merge, 폰 확인 대기 |
+| CAL-버튼고정 | 일정·할 일 입력 창 버튼 고정 | 진행중 | #436 | 기준 main dc317db. eventModal·ciGoogleModal·taskModal·gtTaskModal 공통 footer, 상태 문구 함께 고정·키보드 visualViewport 축소 시 해제. 조직 배치 유지. 관련 E2E 97개 통과. #436 추가 수정: 카드 하단 24px 틈 보정, 폰360·PC1280×4창 하단 경계 ≤1px 검사 추가. 최종 CI 확인 후 보고·정지(merge 없음). [조사 보고](cal-fixed-modal-actions.md). |
 | D-4c | 오늘 일정·할 일 후속 정리 | 대기 | | 목록·주간 "할 일 N개"를 미완료만 세기(0개면 숨김, 기한 지남 빨강), ciGoogleModal 위 "GOOGLE CALENDAR" 영어 표시 삭제. |
 | FIX-월간일정숨김 | #431 회귀: 월간 일정 0줄 수정 | 완료 | #432 | 할 일 띠 왼쪽 +N·오른쪽 ☐N, 일정 슬롯 전부 사용·최소 1줄. merge·실기기 확인 대기. #432 merge eccafb36, 2026-10-07 폴드 펼침 10월 월간 정상 → 완료 |
 | TEST-간헐실패정리 | 760px 밀기·CSS 토큰 읽기 간헐 실패 조사 | 대기 | | 2026-10-06 D-4a 0단계 조사 보고: main에서도 재현, 5회 중 1회 수준, 원인 미확정, #423 무관. 기존 #414·#415 병렬 E2E 조사도 이 행에서 이어간다(CI 통과). #428 첫 할 일 표시 1600ms CI 실패도 추가: 같은 합성 API 지연·Chromium·workers=1 조건에서 시작 main 5/5, PR 수정 전 head 5/5 통과. 기준값은 유지하며 이 비교에서 PR만 실패가 늘어난 근거는 없음. 이번 PR에서는 테스트를 약화하지 않고 별도 조사로 남긴다. #430 첫 병렬 실행에서 계정 전환 테스트 간헐 실패(재실행 통과), Windows 로컬에서 테스트 서버 연결 대기열 부족으로 안전영역 CSS 요청 실패(대기열 확장 후 통과). 주간 재로드 폭 0px(main 10회 중 2회), #433·#432에 표시 대기 보강 |
@@ -264,7 +264,8 @@
 | RTW-우회로정리 | work에 남은 읽생기 로그인 복귀 우회로 제거 | 대기 | | 끼워 넣기 가능(저장소 변경만). `index.html`과 `app/auth-bootstrap.js`가 `?code=`가 있고 `access_token`이 없으면 read.bokdoong.com으로 넘김. code만 보고 출처를 가리지 않음. Supabase 허용 목록에 읽생기 주소가 모두 있어 정상 시에는 쓰이지 않음. 2026-09-28 읽생기가 Redirect URLs에서 `https://read.bokdoong.com/read-think-write/` 삭제(다른 항목·Site URL 변경 없음), 폰 read·work 로그인 정상. 제거 대상: 해당 코드, `tests/domain/read-oauth-return-bridge.test.mjs`, `docs/bokdoong-domain.md`의 잘못된 허용 주소, `personal/portal/index.html` 68행 파비콘의 `read.bokdoong.com/read-think-write/` 경로. Web2 자체 로그인 영향 확인 필수. |
 | ENV-9 | 이 PC의 git HTTPS·curl 차단 | 대기(해소 재확인 필요) | | 2026-09-27 TASK-구현 PR 4에서 발견. 당시 git HTTPS(`libcurl-4.dll` 불러오기 실패)와 curl이 Windows 보안 정책에 막힘. 2026-09-29 Codex 로컬에서 `git fetch`·`git push` 모두 동작 확인(#357); 지속 해소 여부는 재확인 필요. |
 | ENV-새버전알림 | 배포 뒤 열린 탭의 이전 코드 사용 안내 | 완료 | #419 | #419 merge `589d7ee`, 2026-10-06 폰 반영 확인(사용자 확인). 다음 배포 때 열린 탭 안내 실확인 완료(2026-10-06, 사용자 확인). 2026-09-29 폰 확인: 코드 배포 뒤 이미 열린 탭은 옛 코드를 계속 사용했고 탭을 새로 열어 해결했다. 새 버전 감지 시 새로고침을 안내하는 방안을 안드로이드 앱까지 포함해 설계한다. 끼워 넣기 가능. |
-| OPS-클라우드전환 | 승인형 Edge 배포 버튼 + 임시 운영 규칙 | 진행중 | 이 PR | 기준 main `09955ce6`. workflow_dispatch 전용·production-edge 승인·현재 verify_jwt 유지·배포 전후 기록. 파일·테스트·PR만 작업하며 merge·배포·Supabase 로그인·운영 접속 없음. |
+| OPS-클라우드전환 | 승인형 Edge 배포 버튼 + 임시 운영 규칙 | 완료 | #435 | #435 merge, 2026-10-08 승인형 workflow로 google-calendar 시험 배포 성공(version 17→18, POST 401, OPTIONS 200) → 완료 |
+| OPS-배포검사204 | Edge 배포 OPTIONS 검사 204 허용 | 대기 | | edge-function-deploy.yml의 OPTIONS 검사를 200 또는 204 허용으로 완화(drive-summary·public-page-edit 대비). |
 | OPS-클라우드복귀 | 임시 운영 규칙 종료·토큰 정리 | 대기 | | 2026-10-20: 임시 절 삭제, Supabase 토큰 폐기, production-edge 비밀값 삭제, edge-function-deploy workflow 유지 여부 결정. |
 | ENV-8 | CI·배포 범위 정리 | 대기 | | 끼워 넣기 가능(저장소 변경만). ① scripts·docs·tests 등 개발용 폴더가 공개 사이트(GitHub Pages)에 함께 배포되는지 점검 ② 로더 검사 제외 경로 `android/`·`windows/`를 실제 폴더명 `android-app/`·`windows-app/`에 맞춤 ③ `suborganization-filters-e2e.yml` 등 permissions 미명시 워크플로에 읽기 권한 고정 ④ `cloudflare-worker-deploy.yml`의 wrangler 버전 미고정(wrangler-action 기본 3.90.0 설치, 2026-09-28 #346 배포 로그) ⑤ 같은 워크플로 배포 뒤 점검이 옛 쿼리 버전(app.js v87, loader-v2 v199)을 확인함 ⑥ Actions의 Node 20 지원 종료 경고: `actions/checkout@v4`·`actions/setup-node@v4` 사용 워크플로(publication 관문 포함) 갱신 필요(`.github/**` 변경이므로 수동 merge 대상) ⑦ Pages가 merge마다 두 번 빌드되고 1회는 cancelled됨(2026-10-01 #374·#375 merge에서 `pages build and deployment` 1회 cancelled·1회 success, Pages API는 errored·built 각 1건; 브랜치 자동 빌드와 `build-pages`의 빌드 API 요청이 겹치는 것으로 추정). 발견사항: `browser-storage-audit.yml`에 없는 파일 `app/photo-upload-fix.js`의 예외가 남아 있음(TASK-포토룸삭제 1단계에서는 수정 안 함). Codex 로컬: 샌드박스가 push 연결을 막고 승인 요청이 과다함. worktree 위치와 네트워크 허용 범위를 정리 |
 | Web1-3 | bus-strike-publicness-internal-archive-202609 흔적 정리 | 대기 | | 범위: app_public_post allowlist에서 slug 제거(migration 필요, 적용 직전 정지), redirect 셸 처리 방침 결정, E2E 7번째 redirect 검사와 supabase/tests/authz_* 의 7행 가정 수정. 위험: 같은 slug로 새 글이 생기면 allowlist 때문에 자동 링크 공개됨 |
@@ -329,3 +330,5 @@ PC 정리 목록:
 - 발견사항(2026-10-07, CAL): 폰 월간 칸당 일정 최대 2줄(#431 할 일 띠 44px). 실사용 뒤 조정 검토.
 - 발견사항(2026-10-07, D-4b②): 해외 시간대 기기에서 일정 시간은 기기 시간대로, 목록 날짜 묶음은 KST로 계산됨(기존 월간과 같은 동작). 이번 PR에서는 수정하지 않음.
 - 발견사항(2026-10-07, D-4b②): 목록을 길게 불러온 뒤 화면에 돌아오면 불러온 전체 기간을 14일씩 순서대로 다시 조회함. 오늘 일정 속도 개선 때 검토하며 이번 PR에서는 수정하지 않음.
+
+- 발견사항(2026-10-07 #435, 사용자 확인): Codex 클라우드의 GitHub 커밋 도구가 응답 없이 멈춰도 실제로는 반영된 경우가 있음. 보고 전에 원격 브랜치·PR을 확인한다.
