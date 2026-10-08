@@ -69,7 +69,7 @@ async function calendar(){
   await module('./calendar-plus.js?v=11','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
     module('./calendar-interactions-v2.js?v=17','__KPTU_CALENDAR_INTERACTIONS_READY__'),
-    module('./calendar-mobile-ui.js?v=6','__KPTU_CALENDAR_MOBILE_UI_READY__'),
+    module('./calendar-mobile-ui.js?v=7','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=9','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
@@ -138,7 +138,7 @@ async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
   // Preserve the existing narrow-screen action labels when home is the first route.
-  await module('./calendar-mobile-ui.js?v=6','__KPTU_CALENDAR_MOBILE_UI_READY__');
+  await module('./calendar-mobile-ui.js?v=7','__KPTU_CALENDAR_MOBILE_UI_READY__');
   await module('./home-read.js?v=9');
   return {ok:true}
 }

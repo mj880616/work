@@ -10,7 +10,7 @@ const documentRow={id:'placement-document',workspace_id:workspace.id,project_id:
 const meeting={id:'placement-meeting',workspace_id:workspace.id,project_id:project.id,title:'Fixture meeting',meeting_at:'2026-09-28T09:00:00+09:00',created_by:user.id};
 const event={id:'placement-event',workspace_id:workspace.id,project_id:project.id,title:'Fixture event',start_at:'2026-09-28T09:00:00+09:00',end_at:'2026-09-28T10:00:00+09:00',created_by:user.id};
 const ok=(route,data)=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-async function openApp(page,view){
+async function openApp(page,view,{entryView='calendar'}={}){
   await page.route(`${SB}/**`,async route=>{
     const u=new URL(route.request().url()),p=u.pathname,action=u.searchParams.get('action');
     if(p==='/auth/v1/token')return ok(route,{access_token:'fixture',refresh_token:'fixture',expires_in:3600,expires_at:4102444800,user});
@@ -35,7 +35,7 @@ async function openApp(page,view){
     if(p.startsWith('/rest/v1/')||p.startsWith('/functions/v1/'))return ok(route,[]);
     return ok(route,{});
   });
-  await page.goto(loginEntry(`${BASE}/app/?view=calendar`));
+  await page.goto(loginEntry(`${BASE}/app/?view=${entryView}`));
   await page.locator('#emailAuthToggle').click();
   await page.locator('#authEmail').fill(user.email);
   await page.locator('#authPassword').fill('fixture-password');
@@ -118,6 +118,18 @@ for(const width of [390,1440]){
       await page.locator('#gtTaskModal [data-gt-close]').first().click();
       await page.locator('#ps3-documents [data-ps3-global="document"]').click();
       await expect(page.locator('#documentModal')).toBeVisible();
+    });
+    test('task add label is canonical on direct entry and refresh without calendar',async({page})=>{
+      const calendarUiRequests=[];
+      page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/calendar-mobile-ui.js'))calendarUiRequests.push(request.url())});
+      await openApp(page,'tasks',{entryView:'tasks'});
+      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+      expect(calendarUiRequests).toEqual([]);
+      await page.reload();
+      await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+      await expect(page.locator('#tasksView')).toBeVisible();
+      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+      expect(calendarUiRequests).toEqual([]);
     });
     test('Google task card keeps add action and editor',async({page})=>{
       await openApp(page,'tasks');
