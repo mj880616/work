@@ -10,7 +10,7 @@ export function dayItems(options,date,tasks){
   return [...events,...tasks.filter(t=>t.date===calendarDateKey(date)).map(t=>({...t,source:'task'}))];
 }
 export function appendDayRows(container,date,items){
-  const events=items.filter(e=>e.source==='google'),count=items.length-events.length;
+  const events=items.filter(e=>e.source==='google'),pending=items.filter(e=>e.source==='task'&&!e.done),count=pending.length;
   for(const ev of events){
     const row=document.createElement('button');row.type='button';row.className='clv-event cp-event';row.dataset.googleEvent=ev.id;row.dataset.googleCalendar=ev.calendarId||'primary';
     const time=document.createElement('span');time.className='clv-time';time.textContent=ev.allDay?'종일':pad(ev.start.getHours())+':'+pad(ev.start.getMinutes());
@@ -19,7 +19,7 @@ export function appendDayRows(container,date,items){
     row.append(time,stripe,title);container.append(row);
   }
   if(count){
-    const button=document.createElement('button');button.type='button';button.className='clv-tasks';button.textContent=(events.length?'':'일정 없음 · ')+`할 일 ${count}개 ›`;
+    const button=document.createElement('button');button.type='button';button.className='clv-tasks'+(pending.some(t=>t.overdue)?' clv-tasks-overdue':'');button.textContent=(events.length?'':'일정 없음 · ')+`할 일 ${count}개 ›`;
     button.addEventListener('click',()=>window.KPTUCalendarDayOverflow?.open(date,items));container.append(button);
   }else if(!events.length){const empty=document.createElement('div');empty.className='clv-empty';empty.textContent='일정 없음';container.append(empty)}
 }

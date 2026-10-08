@@ -225,3 +225,5 @@
 #eventTaskProject span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 .event-create-modes button::after { content:""; position:absolute; top:50%; left:0; right:0; height:44px; transform:translateY(-50%); }
+
+.clv-tasks.clv-tasks-overdue{color:var(--kptu-danger)}

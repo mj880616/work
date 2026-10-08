@@ -20,7 +20,7 @@ async function renderedRows(browser,{timezoneId,now,tasks}){
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskBody.gt-list')).toBeVisible({timeout:10000});
   const ids=sel=>page.locator(sel).evaluateAll(els=>els.map(el=>el.dataset.googleTask));
-  const result={overdue:await ids('#gtTaskBody [data-gt-overdue] .gt-row'),week:await ids('#gtTaskBody [data-gt-week] .gt-row'),later:await ids('#gtTaskBody [data-gt-later] .gt-row'),undated:await ids('#gtTaskBody [data-gt-undated] .gt-row'),completed:await ids('#gtCompleted .gt-row'),head:await page.locator('#gt-overdue-head').allTextContents(),overdueClass:await ids('#gtTaskBody .gt-row.overdue')};
+  const result={overdue:await ids('#gtTaskBody [data-gt-overdue] .gt-row'),today:await ids('#gtTaskBody [data-gt-today] .gt-row'),week:await ids('#gtTaskBody [data-gt-week] .gt-row'),later:await ids('#gtTaskBody [data-gt-later] .gt-row'),undated:await ids('#gtTaskBody [data-gt-undated] .gt-row'),completed:await ids('#gtCompleted .gt-row'),head:await page.locator('#gt-overdue-head').allTextContents(),overdueClass:await ids('#gtTaskBody .gt-row.overdue')};
   await context.close();
   return result;
 }
@@ -88,7 +88,7 @@ test('Google Tasks shows pending first and only completions from the last three 
   expect(edge).toContain("completedMin=new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
 });
 
-test('Google Tasks shows overdue first, then Korean today through +6 days, then recent completions whatever their due date, across a year boundary',async({browser})=>{
+test('Google Tasks shows overdue first, then Korean today, tomorrow through +7 days, then recent completions whatever their due date, across a year boundary',async({browser})=>{
   // 2026-12-31 23:30 in Korea.
   const r=await renderedRows(browser,{timezoneId:'Asia/Seoul',now:'2026-12-31T14:30:00.000Z',tasks:[
     gt('yesterday','2026-12-30T00:00:00.000Z'),
@@ -110,8 +110,9 @@ test('Google Tasks shows overdue first, then Korean today through +6 days, then 
   expect(r.head).toEqual(['기한 지남 2']);
   expect(r.overdue).toEqual(['minus30','yesterday']);
   expect(r.overdueClass).toEqual(['minus30','yesterday']);
-  expect(r.week).toEqual(['today','tomorrow','plus6']);
-  expect(r.later).toEqual(['plus7']);
+  expect(r.today).toEqual(['today']);
+  expect(r.week).toEqual(['tomorrow','plus6','plus7']);
+  expect(r.later).toEqual([]);
   expect(r.undated).toEqual(['no-due']);
   expect(r.completed).toEqual(['recent-done-in','recent-done-out','recent-done-overdue','recent-done-undated']);
 });
@@ -121,13 +122,15 @@ test('Google Tasks moves the overdue line at Korean midnight whatever the device
   // 09-27 23:59:59 in Korea (09-27 07:59 in Los Angeles).
   const before=await renderedRows(browser,{timezoneId:'America/Los_Angeles',now:'2026-09-27T14:59:59.000Z',tasks});
   expect(before.overdue).toEqual(['d-1']);
-  expect(before.week).toEqual(['d0','d6']);
-  expect(before.later).toEqual(['d7']);
+  expect(before.today).toEqual(['d0']);
+  expect(before.week).toEqual(['d6','d7']);
+  expect(before.later).toEqual([]);
   expect(before.undated).toEqual(['undated']);
   // 09-28 00:00 in Korea, still 09-27 in Los Angeles.
   const after=await renderedRows(browser,{timezoneId:'America/Los_Angeles',now:'2026-09-27T15:00:00.000Z',tasks});
   expect(after.head).toEqual(['기한 지남 2']);
   expect(after.overdue).toEqual(['d-1','d0']);
+  expect(after.today).toEqual([]);
   expect(after.week).toEqual(['d6','d7']);
   expect(after.later).toEqual([]);
 });
@@ -170,7 +173,8 @@ test('Google Tasks without overdue items shows no overdue group',async({browser}
   const r=await renderedRows(browser,{timezoneId:'Asia/Seoul',now:'2026-09-27T03:00:00.000Z',tasks:[gt('d0','2026-09-27T00:00:00.000Z')]});
   expect(r.head).toEqual(['기한 지남 0']);
   expect(r.overdue).toEqual([]);
-  expect(r.week).toEqual(['d0']);
+  expect(r.today).toEqual(['d0']);
+  expect(r.week).toEqual([]);
 });
 
 test('Google Tasks layout fits supported mobile widths',async({page})=>{
@@ -346,11 +350,11 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await expect(links.locator('.gt-link-group').last().locator('span')).toHaveText([
     '전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부','가나다조직','아주 긴 이름이 360픽셀 화면에서도 체크박스 아래로 내려가거나 가로로 넘치지 않아야 하는 담당 조직'
   ]);
-  expect(await links.locator('.gt-link-group').last().evaluate(group=>[...group.children].slice(1).map(el=>el.classList.contains('gt-org-sep')?'|':el.textContent.slice(0,4)))).toEqual([
+  expect(await links.locator('.gt-link-group').last().evaluate(group=>[...group.querySelectorAll('.gt-org-group')].flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll('label')].map(el=>el.textContent.slice(0,4))]))).toEqual([
     '전국철도','|','서울교통','부산지하','대구교통','인천교통','|','서해선지','신분당선','지티엑스','공항철도','|','메트로9','서울교통','|','김포도시','용인경전','|','가나다조','아주 긴'
   ]);
   await expect(links.locator('.gt-link-group').first().locator('.gt-org-sep')).toHaveCount(0);
-  await expect(links.locator('.gt-org-sep').first()).toHaveAttribute('aria-hidden','true');
+  await expect(links.locator('.gt-org-group')).toHaveCount(6);
   await page.locator('#gtEditTitle').fill('연결 없는 할 일');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
@@ -446,15 +450,15 @@ test('Google Tasks editor warns by count when an assigned organization misses th
   await expect.poll(()=>warnings.filter(x=>x.startsWith('[Google Tasks] 조직 순서표 미등록:'))).toEqual(['[Google Tasks] 조직 순서표 미등록: 1개. 이름 일치 여부를 확인하세요.']);
 });
 
-test('task screen requests all pending and an old response without the marker keeps the prior window',async({page})=>{
+test('task screen requests all pending and an old response without the marker keeps the dated window',async({page})=>{
   await mock(page);
   const scopes=[];
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
     const url=new URL(route.request().url());scopes.push(url.searchParams.get('pending_scope'));
-    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[gt('today',googleDue(0)),gt('later',googleDue(7)),gt('undated',null)]})});
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[gt('today',googleDue(0)),gt('later',googleDue(8)),gt('undated',null)]})});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await expect(page.locator('[data-gt-week] [data-google-task="today"]')).toBeVisible();
+  await expect(page.locator('[data-gt-today] [data-google-task="today"]')).toBeVisible();
   expect(scopes).toContain('all');
   await expect(page.locator('[data-google-task="later"],[data-google-task="undated"]')).toHaveCount(0);
   await expect(page.locator('#gtTaskBody [data-gt-later] .gt-row')).toHaveCount(0);
@@ -470,7 +474,7 @@ test('task rows appear before the separate link badge read completes',async({pag
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect.poll(()=>linkStarted).toBe(true);
-  await expect(page.locator('[data-gt-week] [data-google-task="pending"]')).toBeVisible();
+  await expect(page.locator('[data-gt-today] [data-google-task="pending"]')).toBeVisible();
   release();
   await expect(page.locator('[data-google-task="pending"] .gt-unlinked-badge')).toHaveText('연결 안 됨');
 });
@@ -496,7 +500,7 @@ test('completed group folds on every visit and counts a newly completed task aft
   await fold.locator('summary').click();
   await expect(fold).not.toHaveAttribute('open','');
   await page.locator('[data-gt-toggle="pending"]').click();
-  await expect(page.locator('[data-gt-week] [data-google-task="pending"]')).toHaveClass(/completed/);
+  await expect(page.locator('[data-gt-today] [data-google-task="pending"]')).toHaveClass(/completed/);
   await page.waitForTimeout(1000);
   await expect(fold.locator('summary')).toContainText('완료 1');
   await expect(fold.locator('summary')).toContainText('완료 2',{timeout:4000});

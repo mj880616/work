@@ -60,7 +60,7 @@ async function openTeam(page,calls){
   await clickView(page,'team');
   await expect(page.locator('#soOrganizationList .so-card')).toHaveCount(orgs.length,{timeout:10000});
 }
-const sequence=(locator,item)=>locator.evaluate((box,item)=>[...box.children].map(el=>el.classList.contains('so-org-sep')||el.classList.contains('gt-org-sep')?'|':el.querySelector(item)?.firstChild?.textContent?.trim()),item);
+const sequence=(locator,item)=>locator.evaluate((box,item)=>[...box.querySelectorAll(':scope>.so-org-group,:scope>.gt-org-group')].flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll(item)].map(el=>el.firstChild?.textContent?.trim())]),item);
 
 test('담당조직 상세에서 연결된 할 일을 보고, 이 조직으로 할 일을 추가하고, 기존 할 일을 연결한다',async({page})=>{
   const calls=[];
@@ -83,7 +83,7 @@ test('담당조직 상세에서 연결된 할 일을 보고, 이 조직으로 �
   expect(await editor.locator('#gtEditTitle').evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))})).toBe(true);
   await expect(page.locator('#gtEditTitle')).toBeFocused();
   const orgGroup=page.locator('#gtEditLinkBody [role="group"][aria-label="조직"]');
-  expect(await sequence(orgGroup,'span').then(x=>x.slice(1))).toEqual(ORDERED);
+  expect(await sequence(orgGroup,'span')).toEqual(ORDERED);
   await expect(orgGroup.locator(`input[value="o:${RAIL}"]`)).toBeChecked();
   await page.locator('#gtEditTitle').fill('조직에서 만든 할 일');
   await page.locator('#gtSaveBtn').click();

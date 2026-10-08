@@ -10,7 +10,7 @@ test('phone defaults to 14 date groups with empty days and separate tasks',async
   await expect(page.locator('.clv-day')).toHaveCount(14);
   await expect(page.locator('.clv-day').first()).toContainText('오늘 · 10월 15일 목');
   await expect(page.locator('.clv-day').first()).toContainText('일정 없음');
-  await expect(page.locator('.clv-day[data-date="2026-10-20"] .clv-tasks')).toHaveText('할 일 2개 ›');
+  await expect(page.locator('.clv-day[data-date="2026-10-20"] .clv-tasks')).toHaveText('할 일 1개 ›');
   await expect(page.locator('#calendarList [data-calendar-task]')).toHaveCount(0);
   await page.locator('.clv-day[data-date="2026-10-20"] .clv-tasks').click();
   await expect(page.locator('#calendarDayEvents .cal-event')).toHaveCount(1);
