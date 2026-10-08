@@ -35,6 +35,7 @@
 <script>
   window.__navDelta=0;
   window.__KPTU_CALENDAR_MOVE_MONTH__=delta=>{window.__navDelta=delta};
+  window.KPTURuntime={context:{read:()=>({})}};
   window.KPTUA11y={dialog:{activate:()=>{},deactivate:()=>{}}};
 </script>
 <script src="/app/mobile-swipe-navigation.js"></script>
@@ -47,7 +48,7 @@
     modal.setAttribute('aria-hidden','false');
   });
 </script>
-<script src="/app/calendar-plus.js"></script>
+<script type="module" src="/app/calendar-plus.js"></script>
 <script src="/app/calendar-interactions-v2.js"></script>
 <script>
   window.__googleState={colors:{'cal-a':'#4285f4','cal-b':'#0b8043'},calendars:[{id:'cal-a',backgroundColor:'#4285f4'},{id:'cal-b',backgroundColor:'#0b8043'}]};
