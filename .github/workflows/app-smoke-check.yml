@@ -12,6 +12,7 @@ on:
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/home-read-model.test.mjs'
+      - 'tests/english-labels.test.mjs'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
     branches: [main]
@@ -24,6 +25,7 @@ on:
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/home-read-model.test.mjs'
+      - 'tests/english-labels.test.mjs'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
 
@@ -44,6 +46,9 @@ jobs:
       - name: Check home KST day and week boundaries
         run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs
 
+      - name: Check English eyebrow cleanup
+        run: node --test tests/english-labels.test.mjs
+
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs
 
@@ -61,8 +66,9 @@ jobs:
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
+            "import('./action-labels.js?v=1')",
             "import('./team.js?v=62')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=95')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=96')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -71,11 +77,11 @@ jobs:
             "module('./calendar-month-view.js?v=18'","__KPTU_CALENDAR_MONTH_VIEW_READY__",
             "module('./task-workflow.js?v=9'","__KPTU_TASK_WORKFLOW_READY__",
             "module('./web1-board.js?v=3'",
-            "module('./meeting-round-detail.js?v=20'","__KPTU_MEETING_ROUND_DETAIL_READY__",
+            "module('./meeting-round-detail.js?v=21'","__KPTU_MEETING_ROUND_DETAIL_READY__",
             "module('./calendar-plus.js?v=11'","__KPTU_CALENDAR_PLUS_READY__",
             "module('./calendar-persistence.js?v=15'","__KPTU_CALENDAR_PERSISTENCE_READY__",
             "module('./calendar-interactions-v2.js?v=17'","__KPTU_CALENDAR_INTERACTIONS_READY__",
-            "module('./calendar-mobile-ui.js?v=7'","__KPTU_CALENDAR_MOBILE_UI_READY__",
+            "module('./calendar-mobile-ui.js?v=8'","__KPTU_CALENDAR_MOBILE_UI_READY__",
             "module('./calendar-day-overflow.js?v=9'","__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
           ];
           const missingViews=viewKeys.filter(key=>!views.includes(key));
@@ -146,11 +152,11 @@ jobs:
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=19" app/loader-v2.js
           grep -q "team.js?v=62" app/loader-v2.js
-          grep -q "project-system-v3.js?v=39" app/view-loader.js
+          grep -q "project-system-v3.js?v=40" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "google-tasks.js?v=30" app/view-loader.js
-          grep -q "library-upload.js?v=18" app/view-loader.js
+          grep -q "library-upload.js?v=19" app/view-loader.js
           grep -q "project-catalog.js?v=2" app/view-loader.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
           test ! -f app/home-task-controls.js
@@ -162,7 +168,7 @@ jobs:
           test ! -f app/photo-room.css
           if grep -Eq "photo-room|__KPTU_PHOTO_ROOM|photos" app/loader-v2.js app/view-loader.js app/app-router.js app/styles.css app/index.html; then echo 'retired photo room returned'; exit 1; fi
           grep -q "web1-board.js?v=3" app/view-loader.js
-          grep -q "meeting-round-detail.js?v=20" app/view-loader.js
+          grep -q "meeting-round-detail.js?v=21" app/view-loader.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/view-loader.js
           if grep -q 'mobile-dock.js' app/loader-v2.js app/view-loader.js; then echo 'obsolete personal dock returned'; exit 1; fi
           if grep -Eq "notification-center-ui|__KPTU_NOTIFICATION_CENTER_READY__|push-notifications-ui" app/loader-v2.js app/view-loader.js app/styles.css; then echo 'notification runtime returned'; exit 1; fi
@@ -175,7 +181,7 @@ jobs:
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/view-loader.js
           grep -q "calendar-interactions-v2.js?v=17" app/view-loader.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/view-loader.js
-          grep -q "calendar-mobile-ui.js?v=7" app/view-loader.js
+          grep -q "calendar-mobile-ui.js?v=8" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/view-loader.js
           grep -q "calendar-day-overflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/view-loader.js
