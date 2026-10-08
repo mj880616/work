@@ -68,12 +68,12 @@
 .gt-links legend{padding:0 4px;font-size:12px;font-weight:700}.gt-links legend small{font-weight:500;color:var(--kptu-muted)}
 .gt-link-body{display:grid;gap:var(--kptu-space-2);max-height:min(240px,40vh);overflow:auto}
 .gt-link-group{display:grid;justify-items:stretch;gap:2px;min-width:0;width:100%}.gt-link-group>b{font-size:11px;color:var(--kptu-muted)}
-.gt-links .gt-link-opt{display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;gap:8px;min-width:0;min-height:44px;margin:0;text-align:left;font-size:13px;font-weight:500;cursor:pointer}
+.gt-links .gt-link-opt{display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;gap:8px;min-width:0;min-height:40px;margin:0;text-align:left;font-size:13px;font-weight:500;cursor:pointer}
 .gt-links .gt-link-opt input{flex:none;width:18px;height:18px;min-height:0;margin:0}
 .gt-link-opt span{min-width:0;overflow-wrap:anywhere;white-space:normal;line-height:1.4}
 .gt-org-group{display:grid;min-width:0;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
 .gt-link-group[aria-label="조직"]{gap:12px}
-.gt-org-group .gt-link-opt{align-items:center;border:0;background:transparent}
+.gt-org-group .gt-link-opt{min-height:44px;align-items:center;border:0;background:transparent}
 .gt-row.gt-side-row{grid-template-columns:minmax(0,1fr) auto}
 .gt-linked .gt-row.gt-side-row{grid-template-columns:auto minmax(0,1fr) auto}
 div.gt-main{cursor:default}
