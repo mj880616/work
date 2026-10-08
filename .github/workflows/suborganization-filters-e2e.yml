@@ -51,9 +51,9 @@ jobs:
           test ! -f app/suborganization-filters.js
           test ! -f app/suborganization-filters.css
           test ! -f app/suborganization-planned-assignee.js
-          grep -q "suborganizations.js?v=13" app/view-loader.js
+          grep -q "suborganizations.js?v=14" app/view-loader.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/view-loader.js
-          grep -q "workplace-detail.js?v=14" app/view-loader.js
+          grep -q "workplace-detail.js?v=15" app/view-loader.js
           grep -q "suborganizations.css?v=9" app/styles.css
           grep -q "workplace-detail.css?v=6" app/styles.css
           if grep -q "suborganization-filters.js" app/loader-v2.js app/view-loader.js; then echo 'removed assigned-organization filter module returned'; exit 1; fi

@@ -52,19 +52,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=215" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=216" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=327','./runtime-client.js?v=7','./native-auth-bridge.js?v=5',
+    './loader-v2.js?v=328','./runtime-client.js?v=7','./native-auth-bridge.js?v=5',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=327')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=328')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=7')");
   expect(loader).toContain("import('./team.js?v=62')");
-  expect(loader).toContain("import('./view-loader.js?v=95')");
+  expect(loader).toContain("import('./view-loader.js?v=96')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -143,7 +143,7 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   const tasksStart=views.indexOf('async function tasks()');
   const calendarBlock=views.slice(calendarStart,tasksStart);
   expect(calendarBlock).toContain("background(google)");
-  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=9').then(organizationOrder).then(()=>module('./suborganizations.js?v=13'");
+  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=9').then(organizationOrder).then(()=>module('./suborganizations.js?v=14'");
   expect(calendarBlock).toContain("google.then(()=>module('./calendar-health.js?v=6'))");
   expect(calendarBlock.indexOf("return {ok:true}")).toBeGreaterThan(calendarBlock.indexOf("background(google)"));
   expect(health).toContain("window.__KPTU_GOOGLE_STATE__");

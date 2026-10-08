@@ -87,6 +87,7 @@
     location.reload();
   });
   await Promise.all([
+    import('./action-labels.js?v=1'),
     import('./app-router.js?v=15'),
     import('./accessibility-dialog.js?v=4'),
     import('./native-back-guard.js?v=3'),
@@ -134,7 +135,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=95');
+  await import('./view-loader.js?v=96');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
