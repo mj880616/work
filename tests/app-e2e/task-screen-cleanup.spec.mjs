@@ -27,11 +27,13 @@ for(const width of [360,1280]){
   await page.evaluate(()=>window.KPTURouter.go('calendar'));await page.locator('[data-date="2026-10-08"] .clv-tasks').first().click();await expect(page.locator('#calendarDayTasks .gt-project')).toContainText('아주 긴 연결 프로젝트 이름');await expect(page.locator('#calendarDayTasks')).not.toContainText('연결 안 됨');
  });
  test(`empty state and scope information ${width}`,async({page})=>{
-  await page.setViewportSize({width,height:844});await open(page,[]);
+  await page.setViewportSize({width,height:844});const tasks=[];await open(page,tasks);
   await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');
   if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-empty-360.png'});await expect(page.locator('#gtTaskBody .gt-group')).toHaveCount(0);await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+  await expect(page.locator('#gtTaskSection .gt-head-left')).toBeHidden();
   await expect(page.locator('#gtTaskSection .gt-scope-note')).toHaveCount(0);await expect(page.locator('#gtTaskSection')).not.toContainText('Google 할 일');
-  const info=page.getByRole('button',{name:'할 일 목록 안내',exact:true});const box=await info.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+  tasks.push(task('scope-info','2026-10-08'));await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  const info=page.getByRole('button',{name:'할 일 목록 안내',exact:true});await expect(info).toBeVisible();const box=await info.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
   await info.click();await expect(page.locator('#gtScopeModal')).toContainText('Google "내 할 일" 목록만 보입니다.');await page.locator('#gtScopeModal [data-gt-scope-close]').click();await expect(page.locator('#gtScopeModal')).toBeHidden();await expect(info).toBeFocused();
   await info.click();await page.goBack();await expect(page.locator('#gtScopeModal')).toBeHidden();await expect(info).toBeFocused();
  });
