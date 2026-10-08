@@ -101,11 +101,13 @@ div.gt-main{cursor:default}
 
 /* Only the task screen and calendar date dialog adopt D-할일화면정리 typography. */
 #gtTaskBody .gt-main b{font-size:14px;line-height:1.4;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-:is(#gtTaskBody,#calendarDayTasks) .gt-meta{display:flex;gap:0;min-width:0;font-size:12px;color:var(--kptu-muted)}
+:is(#gtTaskBody,#calendarDayTasks) .gt-meta{display:flex;gap:4px;min-width:0;font-size:12px;color:var(--kptu-muted)}
 :is(#gtTaskBody,#calendarDayTasks) .gt-meta .gt-due{flex:none;max-width:none}
 :is(#gtTaskBody,#calendarDayTasks) .gt-meta .gt-project{min-width:0;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--kptu-primary-ink)}
 #calendarDayTasks .gt-day-main{min-width:0;display:block;flex:1}
-#calendarDayTasks .cmv-event-title{display:block}
+#calendarDayTasks{min-width:0}
+#calendarDayTasks .cmv-task{min-width:0;max-width:100%}
+#calendarDayTasks .cmv-event-title{font-size:14px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 #calendarDayTasks .cmv-task-overdue .gt-due{color:var(--kptu-danger)}
 
 #gtScopeModal .gt-scope-note{font-size:14px}

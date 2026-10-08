@@ -62,7 +62,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./team.js?v=62')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=88')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=89')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -185,7 +185,7 @@ jobs:
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
           grep -q "task-layout.css?v=4" app/styles.css
-          grep -q "google-tasks.css?v=23" app/styles.css
+          grep -q "google-tasks.css?v=24" app/styles.css
           grep -q "library-upload.css?v=4" app/styles.css
           grep -q "meeting-ui.css?v=12" app/styles.css
           grep -q "calendar-ui.css?v=25" app/styles.css
