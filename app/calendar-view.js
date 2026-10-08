@@ -19,10 +19,15 @@ function render(next){
   if(view!=='list')stopList();
   document.querySelectorAll('[data-calendar-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.calendarView===view)));
   document.querySelector('#prevMonthBtn')?.setAttribute('aria-label',view==='list'?'이전 14일':view==='week'?'이전 주':'이전 달');document.querySelector('#nextMonthBtn')?.setAttribute('aria-label',view==='list'?'다음 14일':view==='week'?'다음 주':'다음 달');
-  if(view==='month')return window.KPTUCalendarMonthView?.render(next);
-  const first=view==='week'?weekStart:start,end=new Date(first);end.setDate(end.getDate()+(view==='week'?7:days)-1);
+  const first=view==='month'?new Date(next.year,next.month,1):view==='week'?weekStart:start,end=new Date(first);
+  if(view!=='month')end.setDate(end.getDate()+(view==='week'?7:days)-1);
   const sameMonth=first.getFullYear()===end.getFullYear()&&first.getMonth()===end.getMonth();
-  document.querySelector('#monthTitle').textContent=`${first.getMonth()+1}월 ${first.getDate()}일 – ${sameMonth?'':`${end.getMonth()+1}월 `}${end.getDate()}일`;
+  const full=view==='month'?`${first.getFullYear()}년 ${first.getMonth()+1}월`:`${first.getMonth()+1}월 ${first.getDate()}일 – ${sameMonth?'':`${end.getMonth()+1}월 `}${end.getDate()}일`;
+  const label=view==='month'?full:`${first.getFullYear()}년 ${first.getMonth()+1}월 ${first.getDate()}일 – ${sameMonth?'':`${end.getFullYear()}년 ${end.getMonth()+1}월 `}${end.getDate()}일`;
+  const title=document.querySelector('#monthTitle'),year=first.getFullYear()===today().getFullYear()?'':`<span class="calendar-title-year">${first.getFullYear()}</span>`;
+  title.setAttribute('aria-label',label);
+  title.innerHTML=`<span class="calendar-title-full" aria-hidden="true">${full}</span><span class="calendar-title-compact" aria-hidden="true">${year}<span class="calendar-title-month">${first.getMonth()+1}월</span></span>`;
+  if(view==='month')return window.KPTUCalendarMonthView?.render(next);
   if(view==='week')return renderWeek(next,{start:weekStart,tasks});
   renderList(next,{start,days,tasks,busy,error,more});
 }

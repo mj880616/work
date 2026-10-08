@@ -276,19 +276,19 @@ test('760px enables menu swipes and 761px touch width has no menu or month swipe
   try{
     await openMobileApp(page);
     await page.clock.install();
-    const before=await page.locator('#monthTitle').textContent();
+    const before=await page.locator('#monthTitle .calendar-title-full').textContent();
     for(const width of [761,820]){
       await page.setViewportSize({width,height:844});
       expect(await touchSequence(page,'#calendarGrid .cal-cell')).toEqual({prevented:false,transform:''});
       await page.clock.fastForward(1000);
       expect(await page.evaluate(()=>KPTURouter.current)).toBe('calendar');
-      await expect(page.locator('#monthTitle')).toHaveText(before);
+      await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText(before);
     }
     await page.setViewportSize({width:760,height:844});
     expect((await touchSequence(page,'#calendarGrid .cal-cell')).prevented).toBe(true);
     await page.clock.fastForward(1000);
     await expect(page.locator('#tasksView')).toBeVisible();
-    await expect(page.locator('#monthTitle')).toHaveText(before);
+    await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText(before);
   }finally{await context.close()}
 });
 

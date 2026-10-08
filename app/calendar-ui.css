@@ -170,7 +170,7 @@
 }
 
 /* D-4b list and shared day sections. Month cells keep their existing rules. */
-.calendar-view-switch{display:flex;gap:12px;margin-bottom:8px}
+.calendar-view-switch{display:flex;gap:0;margin:0;flex:none}
 .calendar-view-switch button[aria-pressed="true"]{background:var(--kptu-primary);color:var(--kptu-on-primary)}
 #calendarList{width:100%}
 .clv-day{margin:16px 0}
@@ -186,10 +186,11 @@
 #calendarDayTasks h3{font-size:16px;font-weight:700;margin:16px 0 8px}
 #calendarDayEvents,#calendarDayTasks{display:grid;gap:8px}
 
-.calendar-view-switch .mini,#calendarTodayBtn{font-size:12px;min-height:36px;padding:0 12px;border-radius:var(--kptu-radius-md)}
-#calendarTodayBtn{margin-left:6px}
+.calendar-view-switch .mini{box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border-radius:var(--kptu-radius-md)}
+#calendarTodayBtn{font-size:12px;min-height:36px;padding:0 8px;border-radius:var(--kptu-radius-md)}
+#calendarTodayBtn{margin-left:0}
 
-#calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* D-4b week: seven growing day rows share list event/task styling. */
 #calendarWeek{width:100%}
@@ -221,3 +222,22 @@
 .event-create-modes button::after { content:""; position:absolute; top:50%; left:0; right:0; height:44px; transform:translateY(-50%); }
 
 .clv-tasks.clv-tasks-overdue{color:var(--kptu-danger)}
+
+/* D-보기전환한줄: one toolbar; compact title leaves room for three 44px targets. */
+#calendarView .calendar-toolbar{flex-wrap:nowrap;max-width:none}
+#calendarView .calendar-toolbar>*{flex-shrink:0}
+.calendar-toolbar-divider{height:20px;width:0;border-left:1px solid var(--kptu-border)}
+.calendar-view-switch svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
+.calendar-title-compact{display:none}
+#calendarView .cmv-task-count svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px}
+@media(max-width:760px){
+  #calendarView .calendar-toolbar{gap:1px}
+  #calendarView .calendar-toolbar #monthTitle{min-width:0;flex:none;font-size:20px;line-height:24px;overflow:visible}
+  #calendarView .calendar-title-full{display:none}
+  .calendar-title-compact{display:inline-flex;position:relative;flex-direction:column;align-items:center}
+  .calendar-title-year{position:absolute;bottom:100%;font-size:12px;line-height:14px;color:var(--kptu-muted);font-weight:400}
+  .calendar-title-compact:has(.calendar-title-year){margin-top:14px}
+  #calendarView #prevMonthBtn,#calendarView #nextMonthBtn{box-sizing:border-box;width:28px;min-width:28px;padding:0}
+  #calendarView #calendarTodayBtn{box-sizing:border-box;width:36px;min-width:36px;padding:0}
+  #calendarView .calendar-toolbar-add{box-sizing:border-box;width:36px;min-width:36px;padding:0}
+}

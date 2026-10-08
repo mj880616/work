@@ -86,7 +86,7 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
  const selectors={calendar:['#monthTitle','#newEventBtn','#prevMonthBtn'],tasks:['#newTaskBtn','#gtTaskBody'],library:['#libraryListCard h2','#libraryListCard button'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']};
  for(const [name,selectorsForView]of Object.entries(selectors)){
   if(name!=='menu'){await view(page,name);await view(original,name);}
-  for(const selector of selectorsForView){await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#newEventBtn'?'12px':await fonts(original));}
+  for(const selector of selectorsForView){await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#newEventBtn'?'12px':selector==='#monthTitle'&&width<=760?'20px':await fonts(original));}
  }
  for(const p of [page,original])await p.goto('http://127.0.0.1:8123/press/');
  for(const selector of ['h1','.item h3','.date','.tag','.filter']){

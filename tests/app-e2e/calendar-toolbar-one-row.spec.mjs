@@ -1,0 +1,35 @@
+import {test,expect} from '@playwright/test';
+import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
+for(const width of [360,390,686,1280])test(`toolbar one row, accessible icons and persistence at ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:844});await openEmphasisFixture(page,{view:'default'});
+  const toolbar=page.locator('.calendar-toolbar');
+  await expect(toolbar.locator('.calendar-view-switch')).toHaveCount(1);
+  expect(await toolbar.evaluate(el=>[...el.children].map(e=>e.id||e.className))).toEqual(['prevMonthBtn','monthTitle','nextMonthBtn','calendarTodayBtn','calendar-toolbar-divider','calendar-view-switch','newEventBtn']);
+  for(const [view,name] of (width<=760?[['week','주간 보기'],['list','목록 보기'],['month','월간 보기']]:[['list','목록 보기'],['week','주간 보기'],['month','월간 보기']])){
+    const button=toolbar.getByRole('button',{name,exact:true});await expect(button).toBeVisible();await expect(button.locator('svg')).toHaveCount(1);
+    const rect=await button.boundingBox();expect(rect.width).toBeGreaterThanOrEqual(44);expect(rect.height).toBeGreaterThanOrEqual(44);
+    await button.click();await expect(button).toHaveAttribute('aria-pressed','true');
+    await expect(toolbar.locator('[data-calendar-view][aria-pressed="true"]')).toHaveCount(1);
+    const colors=await button.evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,stroke:getComputedStyle(el.querySelector('svg')).stroke}});expect(colors.background).toBe('rgb(92, 106, 53)');expect(colors.color).toBe('rgb(255, 255, 255)');expect(colors.stroke).toBe(colors.color);
+    expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe(view);
+  }
+  // Do not seed storage on reload: the real selection must survive.
+  await page.reload();await expect(page.locator('#calendarGrid')).toBeVisible();await expect(toolbar.locator('[data-calendar-view="month"]')).toHaveAttribute('aria-pressed','true');
+  const geometry=await toolbar.evaluate(el=>{const r=el.getBoundingClientRect(),children=[...el.children].map(e=>({name:e.id||e.className,...e.getBoundingClientRect().toJSON()}));return {width:r.width,left:r.left,right:r.right,children,overflow:document.documentElement.scrollWidth,remaining:r.width-children.reduce((s,c)=>s+c.width,0)}});
+  console.log('TOOLBAR',width,JSON.stringify(geometry));
+  expect(geometry.overflow).toBe(width);for(const c of geometry.children){expect(c.left).toBeGreaterThanOrEqual(geometry.left-.5);expect(c.right).toBeLessThanOrEqual(geometry.right+.5);expect(c.height).toBeLessThanOrEqual(44)}
+  const buttonCenters=await toolbar.locator('button').evaluateAll(bs=>bs.map(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2}));expect(Math.max(...buttonCenters)-Math.min(...buttonCenters)).toBeLessThan(1);
+  await expect(page.locator('#monthTitle')).toHaveAccessibleName('2026년 10월');
+  if(width<=760)await expect(page.locator('.calendar-title-compact')).toHaveText('10월');
+  const old=await page.locator('#monthTitle').getAttribute('aria-label');await page.locator('#nextMonthBtn').click();await expect(page.locator('#monthTitle')).not.toHaveAttribute('aria-label',old);await page.locator('#prevMonthBtn').click();await expect(page.locator('#monthTitle')).toHaveAttribute('aria-label',old);await page.locator('#calendarTodayBtn').click();await expect(page.locator('#monthTitle')).toHaveAttribute('aria-label',old);
+  await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
+});
+for(const view of ['month','week','list'])test(`compact ${view} title stacks another year without widening`,async({page})=>{
+  await page.setViewportSize({width:360,height:844});await openEmphasisFixture(page,{view:'default'});await page.locator(`[data-calendar-view="${view}"]`).click();
+  const compact=page.locator('.calendar-title-compact');await expect(compact).toHaveText('10월');
+  for(let i=0;i<(view==='month'?12:view==='week'?52:26);i++)await page.locator('#nextMonthBtn').click();
+  await expect(compact.locator('.calendar-title-year')).toHaveText('2027');await expect(compact.locator('.calendar-title-year')).toHaveCSS('font-size','12px');
+  await expect(page.locator('#monthTitle')).toHaveAccessibleName(/2027년/);
+  const g=await compact.evaluate(el=>({width:el.getBoundingClientRect().width,month:el.querySelector('.calendar-title-month').getBoundingClientRect().width,year:el.querySelector('.calendar-title-year').getBoundingClientRect().toJSON(),monthRect:el.querySelector('.calendar-title-month').getBoundingClientRect().toJSON()}));expect(g.width).toBeCloseTo(g.month,1);expect(g.year.bottom).toBeLessThanOrEqual(g.monthRect.top+.5);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(360);
+});

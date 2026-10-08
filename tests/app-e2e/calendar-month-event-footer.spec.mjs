@@ -61,7 +61,7 @@ for(const [width,height] of sizes){
         const target=width<=760?task.locator('..'):task;
         await expect(target).toHaveCSS('height','44px');
         expect(await target.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(44);
-        await expect(task).toHaveText('✓'+(index===3?17:1));
+        await expect(task).toHaveText(String(index===3?17:1));
         await task.click();await expect(page.locator('#calendarDayModal')).toBeVisible();
         await expect(page.locator('#calendarDayEvents .cal-event')).toHaveCount(total);
         await expect(page.locator('#calendarDayTasks .cal-event')).toHaveCount(index===3?17:1);
