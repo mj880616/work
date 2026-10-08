@@ -62,3 +62,15 @@
   .mobile-tabs button:focus-visible,#mobileMenuOpen:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
   body.kptu-mobile-keyboard .mobile-tabs{display:none}
 }
+
+/* D-5a: the ordered prefix and the existing mobile trigger share one row. */
+@media(min-width:761px) and (max-width:1023px){
+  #appView>.app-nav{flex-wrap:nowrap;overflow:visible;min-width:0}
+  #appView>.app-nav .nav-btn{flex:0 0 auto;min-width:44px;min-height:44px;font-size:14px}
+  #appView>.app-nav [hidden],#appView>.app-nav .account-menu{display:none}
+  #appView>.app-nav .mid-menu-trigger{margin-left:auto}
+  #appView>.app-nav .nav-btn:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+  .mobile-menu-panel [hidden]{display:none}
+  .mobile-menu-panel button[aria-current="page"]{background:var(--kptu-primary);color:var(--kptu-on-primary)}
+  .mobile-menu-panel button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+}

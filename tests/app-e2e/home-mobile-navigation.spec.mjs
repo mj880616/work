@@ -33,7 +33,7 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   expect(requests.some(u=>/app_tasks/.test(u))).toBe(false);
   const mobile=width<=760;
   await expect(page.locator('.mobile-tabs')).toBeVisible({visible:mobile});
-  await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:mobile});
+  await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:width<1024});
   await expect(page.locator('#appView>.app-nav')).toBeVisible({visible:!mobile});
   if(mobile){
     expect(await page.locator('.mobile-tabs [data-view]').evaluateAll(ns=>ns.map(n=>n.dataset.view))).toEqual(tabs);
@@ -42,7 +42,7 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
       const tab=page.locator(`.mobile-tabs [data-view="${view}"]`),r=await tab.boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
       await tab.click();await expect(page.locator('#'+view+'View')).toBeVisible();await expect(tab).toHaveAttribute('aria-current','page');
     }
-  }else expect(await page.locator('.app-nav .nav-btn').first().getAttribute('data-view')).toBe('home');
+  }else expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-view')).toBe('home');
 });
 test('drawer consumes history before navigation, theme and logout',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
