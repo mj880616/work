@@ -1,6 +1,6 @@
 # APP-게시판iframe: 본문 표시와 뒤로 가기 수정
 
-2026-10-09, Codex 클라우드. 착수 시 fetch한 origin/main은 `db81bf582d541f4b38028424837e80e77fb8fc4c`(#453 merge). 새 브랜치 `codex/app-board-iframe`, PR 번호와 최종 SHA의 CI는 PR 본문·댓글에 연결한다. merge하지 않는다.
+2026-10-09, Codex 클라우드. 착수 시 fetch한 origin/main은 `db81bf582d541f4b38028424837e80e77fb8fc4c`(#453 merge). 새 브랜치 `codex/app-board-iframe`, [PR #454](https://github.com/mj880616/work/pull/454). 최종 SHA의 CI는 PR 본문·댓글에 연결한다. merge하지 않는다.
 
 ## 근거와 원인
 
