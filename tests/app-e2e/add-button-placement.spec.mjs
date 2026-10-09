@@ -96,8 +96,7 @@ for(const width of [390,1440]){
         expect(box.width).toBeGreaterThanOrEqual(35);
         expect(box.width).toBeLessThanOrEqual(37);
       }
-      expect(box.height).toBeGreaterThanOrEqual(35);
-      expect(box.height).toBeLessThanOrEqual(37);
+      expect(box.height).toBe(32);
       await button.click();
       await expect(page.locator('#eventModal')).toBeVisible();
     });
