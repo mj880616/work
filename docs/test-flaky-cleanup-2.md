@@ -1,6 +1,6 @@
 # TEST-간헐실패정리 2차 조사
 
-📱 폰 가능 · Codex 클라우드 · 2026-10-09. 기준 origin/main `9f44ecd0edcdb978510377cf0165df99bda16206`(#452), branch `codex/test-flaky-cleanup-2`.
+📱 폰 가능 · Codex 클라우드 · 2026-10-09. 기준 origin/main `9f44ecd0edcdb978510377cf0165df99bda16206`(#452), branch `codex/test-flaky-cleanup-2`, [조사 PR #453](https://github.com/mj880616/work/pull/453).
 
 게시판의 실제 화면 문제와 본문 로드 후 뒤로 가기 문제를 재현했다. 사용자 지시의 “원인이 앱 코드 버그면 수정하지 말고 정지·보고”에 따라 테스트·앱 수정과 우선순위 2~5의 실행을 중단했다. 아래는 **조사 결과이며 안정화 완료 보고가 아니다**. 원장에 `APP-게시판iframe` 대기 작업으로 분리한다.
 
@@ -82,6 +82,6 @@ npx playwright test --config=/tmp/flaky-playwright.config.cjs \
 
 ## 변경과 검증 범위
 
-기존 테스트 변경 줄 **없음**, 앱 코드 변경 **없음**. 시간·크기 한도, 요청 응답 지연값, 재시도, 검사/skip, sandbox, DB·RLS·Edge·production은 변경하지 않았다. 문서·위 두 fixture 화면만 기록한다. 수정 후50회는 실행하지 않았으며 “0/50”으로 쓰지 않는다. 대상 spec 통과→전체 PR CI 통과라는 안정화 완료 기준은 미충족이다. 문서 PR의 CI 상태는 원장과 PR에 따로 기록한다.
+기존 테스트 변경 줄 **없음**, 앱 코드 변경 **없음**. 시간·크기 한도, 요청 응답 지연값, 재시도, 검사/skip, sandbox, DB·RLS·Edge·production은 변경하지 않았다. 문서·위 두 fixture 화면만 기록한다. 수정 후50회는 실행하지 않았으며 “0/50”으로 쓰지 않는다. 대상 spec 통과→전체 PR CI 통과라는 안정화 완료 기준은 미충족이다. 조사 PR #453 초안 `39380a9`의 CI는5개 success(loader-cache·dropzone·classify·publication-gate·reserve), 기존 조건에 따라 content-check·build-pages 잡2개 skipped였다. workflow/테스트 skip을 변경하지 않았고 앱 E2E는 문서 경로의 실행 대상이 아니다. PR 번호를 반영한 최종 SHA CI는 PR 본문·댓글에 확인 기록한다.
 
 작업 실행 증거는 클라우드 `/tmp/test-flaky-cleanup-2/`에 있다: `board-main-w1.json`·`board-main-w4.json`, 각 `.log`와 output 폴더의 실패 `trace.zip`·`video.webm`, `board-record-control.json`, `app-reader-diagnostic.jsonl`, `reader-history-diagnostic.json`, 별도 진단 스크립트. 환경 종료 뒤 이 임시 파일은 보존되지 않을 수 있어 핵심 수치·상태·화면은 이 문서에 남겼다. 로컬 전체 E2E·범위 밖 spec은 실행하지 않았다. merge하지 않는다.
