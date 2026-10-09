@@ -65,6 +65,8 @@ PR: [#443](https://github.com/mj880616/work/pull/443). 기준: `origin/main` 9e7
 
 ## D-6a 후속 처리
 
+PR: [#449](https://github.com/mj880616/work/pull/449).
+
 전체 저장소 사용처 확인 결과에 따라 `password-reset.js`·`project-suborganization-links.js`·`project-templates.js`와 다른 미로딩 모듈 3개를 삭제했다. `action-labels.js`는 실제 버튼 3개만 소유하며, 합성 DOM 검사도 이 3개로 맞췄다. 없는 버튼 3개의 부재 검사는 유지한다. `project-system-v3.js`의 도달 불가 page 분기도 삭제했다. `workflow-ai-v3.js`는 기존 결정대로 구현·서버 함수와 존재 검사를 보존하며, Web1 공개 페이지가 쓰는 `page-design-core.js`는 유지한다. 기존 Cloudflare 배포 workflow의 오래된 URL은 D-6c 대상으로 남긴다. 위 본문의 6개 매핑·보고만 기록은 #443 당시 결과다.
 
 D-6a 로컬 검증: Node 335개(삭제 파일 전용 6개 제거), 설치 Chromium 관련 45개(영어 표시 20·추가 버튼 14·프로젝트 구조 4·Web1 게시판 구조 1·AI 보존 3·캐시 기대값 3), smoke 19단계·browser-storage-audit·캐시·diff 검사 통과. 다른 색 기준값·로그인·app_tasks 쓰기 차단·미사용 버튼 부재·로더 재유입 방지 검사는 유지했다. 전체 브라우저 회귀는 PR CI에서 확인한다.
