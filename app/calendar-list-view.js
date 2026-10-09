@@ -1,5 +1,5 @@
 import {dayKey} from './home-read-model.js?v=1';
-import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=2';
+import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=3';
 let observer=null,focusKey=null;
 export function stopList(){observer?.disconnect()}
 export function renderList(options,{start,days,tasks,busy,error,more}){
