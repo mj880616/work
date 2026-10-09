@@ -111,3 +111,6 @@ div.gt-main{cursor:default}
 #calendarDayTasks .cmv-task-overdue .gt-due{color:var(--kptu-danger)}
 
 #gtScopeModal .gt-scope-note{font-size:14px}
+
+/* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
+#gtPickModal .gt-linked-msg{font-size:var(--kptu-text-meta)}

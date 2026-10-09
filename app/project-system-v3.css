@@ -198,3 +198,10 @@
 .ps3-record-menu button:hover{background:var(--kptu-surface-subtle)}
 .ps3-record-menu .ps3-record-danger{color:var(--kptu-danger)}
 .ps3-record-menu button:focus-visible,.ps3-record-trigger:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
+
+/* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
+#ps3DetailModal :is(.ps3-summary b,.ps3-stat-grid b,.ps3-row-main>b,.ps3-row-title b){font-size:var(--kptu-text-body)}
+#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective){font-size:var(--kptu-text-body)}
+#ps3DetailModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
+#ps3ArchiveModal .ps3-prow-meta{font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
+#ps3CreateModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
