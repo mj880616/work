@@ -21,7 +21,7 @@ function style(path){
 }
 const routeStyles={
   home:['./choice-sheet.css?v=1','./home-read.css?v=8','./google-tasks.css?v=24'],
-  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=31'],
+  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=32'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=24'],
   projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=24'],
   library:['./library-upload.css?v=4','./compact-list.css?v=2'],

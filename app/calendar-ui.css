@@ -170,7 +170,7 @@
 }
 
 /* D-4b list and shared day sections. Month cells keep their existing rules. */
-.calendar-view-switch{display:flex;gap:0;margin:0;flex:none}
+.calendar-view-switch{display:flex;align-items:center;gap:8px;margin:0;flex:none;height:32px;padding:0 4px;outline:1px solid var(--kptu-border);outline-offset:-1px;border-radius:var(--kptu-radius-md)}
 .calendar-view-switch button[aria-pressed="true"]{background:var(--kptu-primary);color:var(--kptu-on-primary)}
 #calendarList{width:100%}
 .clv-day{margin:16px 0}
@@ -186,7 +186,9 @@
 #calendarDayTasks h3{font-size:16px;font-weight:700;margin:16px 0 8px}
 #calendarDayEvents,#calendarDayTasks{display:grid;gap:8px}
 
-.calendar-view-switch .mini{box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border-radius:var(--kptu-radius-md)}
+.calendar-view-switch .mini{box-sizing:border-box;width:36px;height:32px;min-width:36px;min-height:32px;padding:0;border:0;border-radius:0;background:transparent}
+.calendar-view-switch .mini:first-child{border-radius:var(--kptu-radius-md) 0 0 var(--kptu-radius-md)}
+.calendar-view-switch .mini:last-child{border-radius:0 var(--kptu-radius-md) var(--kptu-radius-md) 0}
 #calendarTodayBtn{font-size:12px;min-height:36px;padding:0 8px;border-radius:var(--kptu-radius-md)}
 #calendarTodayBtn{margin-left:6px}
 
@@ -224,10 +226,13 @@
 .clv-tasks.clv-tasks-overdue{color:var(--kptu-danger)}
 
 /* D-보기전환한줄: one toolbar; compact title leaves room for three 44px targets. */
-#calendarView .calendar-toolbar{flex-wrap:nowrap;max-width:none}
+#calendarView .calendar-toolbar{flex-wrap:nowrap;max-width:none;min-height:32px;padding:8px 0;margin:0}
+#calendarView .calendar-toolbar button{height:32px;min-height:32px}
+#calendarView .calendar-toolbar button::after{inset:auto;left:min(0px,calc((100% - 44px)/2));top:calc(50% - 22px);width:max(100%,44px);height:44px}
+#calendarView #prevMonthBtn,#calendarView #nextMonthBtn{box-sizing:border-box;width:32px;min-width:32px;height:32px;min-height:32px;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:24px;line-height:1}
 #calendarView .calendar-toolbar>*{flex-shrink:0}
-.calendar-toolbar-divider{height:20px;width:0;border-left:1px solid var(--kptu-border)}
-.calendar-view-switch svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
+.calendar-toolbar-divider{height:20px;width:1px;box-sizing:border-box;margin:0 2px;border-left:1px solid var(--kptu-border)}
+.calendar-view-switch svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle}
 .calendar-title-compact{display:none}
 #calendarView .cmv-task-count svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px}
 @media(max-width:760px){
@@ -241,7 +246,6 @@
   /* Narrow paint keeps the existing 44px arrow targets over the noninteractive title. */
   #calendarView #monthTitle{pointer-events:none}
   #calendarView #nextMonthBtn{margin-right:17px}
-  #calendarView .calendar-toolbar-divider{margin-right:1px}
   #calendarView #calendarTodayBtn{box-sizing:border-box;width:36px;min-width:36px;padding:0;margin-left:0}
   #calendarView .calendar-toolbar-add{box-sizing:border-box;width:36px;min-width:36px;padding:0}
 }

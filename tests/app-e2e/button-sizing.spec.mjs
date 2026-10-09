@@ -64,6 +64,7 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
 }
 
 const listButtons={projects:['#ps3ArchiveBtn','#newProjectBtn'],calendar:['#googleConnectBtn'],meetings:['#newMeetingBtn'],team:['#soAddOrg'],media:['[data-press-type="all"]','[data-press-type="statement"]','[data-press-type="release"]','[data-press-type="request"]']};
+async function muted(page){return page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-muted)';document.body.append(el);const value=getComputedStyle(el).color;el.remove();return value})}
 async function size(el){return el.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {height:r.height,font:s.fontSize,paddingLeft:s.paddingLeft,paddingRight:s.paddingRight,radius:s.borderRadius,weight:s.fontWeight,color:s.color,background:s.backgroundColor}})}
 async function standard(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();await expect(el).toHaveCSS('font-size','12px');const s=await size(el);expect(s.height,selector).toBeGreaterThanOrEqual(35);expect(s.height,selector).toBeLessThanOrEqual(37);expect(s.paddingLeft).toBe('12px');expect(s.paddingRight).toBe('12px');if(!selector.includes('press-type'))expect(s.radius).toBe('8px');}
 for(const width of [390,1440])test('D-button list sizes and compact exclusions '+width,async({page,browser})=>{
@@ -77,16 +78,16 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  }
  for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
-  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuOpen')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());expect(await size(page.locator(selector).first()),selector).toEqual(name==='calendar'&&width<=760?{...before,paddingLeft:'0px',paddingRight:'0px'}:before);}
+  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuOpen')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());expect(await size(page.locator(selector).first()),selector).toEqual(name==='calendar'?{...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'}:before);}
  }
  await original.close();
 });
 
-for(const width of [390,760,761,1440])test('calendar add paints 36px with a real 44px target and unchanged month arrows '+width,async({page,browser},testInfo)=>{
+for(const width of [390,760,761,1440])test('calendar controls paint 32px with real 44px targets and borderless month arrows '+width,async({page,browser},testInfo)=>{
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'calendar');
  const button=page.locator('#newEventBtn');await expect(button).toBeVisible();
  const painted=await size(button),rect=await button.boundingBox();
- expect(painted.height).toBeGreaterThanOrEqual(35);expect(painted.height).toBeLessThanOrEqual(37);
+ expect(painted.height).toBe(32);
  expect(painted.font).toBe('12px');expect(painted.radius).toBe('8px');
  expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width<=760?'+':'+ 일정 등록');
  if(width<=760){expect(rect.width).toBeGreaterThanOrEqual(35);expect(rect.width).toBeLessThanOrEqual(37);}
@@ -95,8 +96,8 @@ for(const width of [390,760,761,1440])test('calendar add paints 36px with a real
  await baseline(original,'8d9a30626b11c0826def8393cefdf65934489d2f');await boot(original);await view(original,'calendar');
  for(const selector of ['#prevMonthBtn','#nextMonthBtn']){
   const before=await size(original.locator(selector));
-  expect(await size(page.locator(selector))).toEqual(width<=760?{...before,paddingLeft:'0px',paddingRight:'0px'}:before);
-  expect((await page.locator(selector).boundingBox()).width).toBe(width<=760?16:(await original.locator(selector).boundingBox()).width);
+  expect(await size(page.locator(selector))).toEqual({...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'});
+  expect((await page.locator(selector).boundingBox()).width).toBe(width<=760?16:32);
  }
  const before=await size(original.locator('#newEventBtn'));
  for(const property of ['weight','color','background'])expect(painted[property]).toBe(before[property]);

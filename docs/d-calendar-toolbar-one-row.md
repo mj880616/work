@@ -4,7 +4,7 @@
 
 모든 폭에서 보기 전환을 날짜 줄로 이동했다. 폰 제목은 시작 월만 표시하고 다른 해의 연도를 같은 자리 위에 쌓는다. 전체 월/범위는 화면 읽기 이름과 기존 월간 조회용 full span에 보존한다. 상태·저장·기본 보기·밀기·조회 범위 계산은 기존 경로를 유지한다. 월간 ✓N은 체크 SVG와 숫자로 표시한다.
 
-## 360px 실측
+## 2026-10-08 최초360px 실측
 
 | 요소 | 폭(px) |
 | --- | ---: |
@@ -54,3 +54,17 @@
 - `theme.spec.mjs`의44px 실제 hit/인접 겹침 검사는 수정하지 않는다. 새 toolbar spec에서도360·390·686·760·761·1023·1280px의 모든 날짜 줄 버튼 실제44px 범위 가장자리를 검사한다.
 
 - CI 수정 뒤 관련87개 통과. 리뷰에서 추가한761·1023px 검사로 다음/오늘 실제 누름 범위 충돌2개를 재현하고 기존 PC 오늘 여백6px을 복원했다(폰은 별도0px). 경계760px도 추가하며 기존 검사 약화 없이 최종 toolbar10개를 검사한다.
+
+## 2026-10-09 모양 보완 (같은 PR #444)
+
+시작 main2294697a·branch head e483ce9d 확인: main 변경 없음. 같은 브랜치에 보완하며 새 브랜치/PR 없음.
+
+- 모든 조작 보이는 높이32px, 날짜 줄48px(위8/아래8 padding). 무테 muted 화살표. 보기36px/아이콘16px/1.7 currentColor 선, 한 묶음 외곽선. 주간7열 막대와 월간 격자 구분. divider20×1px, 좌우2px 여백.
+- 360px 보이는 폭: 이전16·제목42·다음16·오늘36·구분선1·보기36/36/36·추가36px=255px. 묶음의 투명 누름 공간24px 포함 배치 합계279px, 간격6px·고정여백21px, 안쪽310px에서 남는4px. 모든 실제 누름 범위44px 이상이며 elementFromPoint 가장자리/쌍별 비겹침을 검사한다.
+- 이번 변경 spec: calendar-toolbar-one-row(32/36/16px·외곽선·여백·비겹침 추가, 기존 이름/활성/저장/새로고침/이동/모달/제목 동작 유지); button-sizing(추가32px·화살표32px/24px glyph/muted/무테 기대값, 기존 actual44px 클릭/키보드 유지); theme(날짜 줄 paint32px만 변경, actual44px/겹침 유지); list-typography(화살표24px); modal-typography(요청한 화살표 글꼴/색/행간만 정규화, 명시적24px 검사); calendar-hotfix/startup-performance/task-layout-groups(캐시 기대값만).
+- RED: 새36px 보기 기대값이 기존44px에서 실패. 초기 GREEN9/10에서 PC 화살표38px 우선 규칙을 발견·32px 수정 뒤 toolbar10개 통과. 초기 인접 검사에서는 잘못 입력한 muted 색 기대값이 실패하여 실제 기존 token으로 검사하도록 수정했다.
+- Node341개 통과. 실제360·686·1280 캡처로 모양 검토(커밋 제외). 데이터/동작 JS 및 월간 체크는 변경하지 않는다. cache chain calendar-ui32/styles69/view-loader99/loader331/app219까지 갱신.
+
+- 초기 캐시/시작 인접26개 중25개 통과·startup-performance의 `tab navigation waits for deferred feature data on first click` 1개 실패(로딩 표시 노드 미관측). clean main과 수정본에서 해당 검사는 각1개 재실행 통과했고 동작 코드를 수정하지 않았다. 타이밍 영향은 추정이며 최초 실패 원인은 확정하지 않는다.
+
+- 보완 최종: toolbar+button-sizing24개 통과(32px/44px/비겹침/아이콘/동작). 인접72개 초기66통과/6개 화살표 모양 기대값 실패는 위 token/높이 수정 뒤 button-sizing14개 재검사로 해결했다. 캐시/시작26개 검사에서는 같은 로딩 표시가 다시 실패했지만 startup-performance14개 전체를 별도 실행하여 통과했다. clean main도 올바른 checkout cwd에서 startup14개 통과. 초기 main 검사 도구의 cwd가 작업본이어서 캐시 기대값2개가 잘못 실패한 실행은 baseline 판정에서 제외했다. 모든 최초 실패를 기록하며 검사·동작을 완화하지 않는다.
