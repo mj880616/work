@@ -1,5 +1,6 @@
 # D-담당조직목록 조사·검증 (2026-10-09)
 
+- PR: [#446](https://github.com/mj880616/work/pull/446), merge 대기.
 - 시작: 원격 `origin/main` 재조회, `cdc677196e00e5064f44fb189bf989022f6ea2e9`(#445 merge). 기존 checkout `2294697a`는 사용하지 않고 새 `codex/d-team-list`에서 작업했다.
 - 원인(사실): 카드는 `organization-order.js`의 이름 기반 5묶음이고 줄 오른쪽은 별도 `organization_type`이다. 분류별 카드가 아니며, 마지막 두 묶음의 의미·명칭은 저장소에 없었다. 첫 조사 뒤 사용자 지시대로 정지했고, 2026-10-09 보완 지시에서 이름·구성이 확정됐다.
 
@@ -33,7 +34,7 @@
 ## 검증
 
 - Node: `node --test tests/*.test.mjs tests/security/*.test.mjs tests/domain/*.test.mjs scripts/*.test.mjs` — 341/341 통과.
-- Chromium: 관련 spec만 로컬 실행, 전체 E2E는 PR CI. 설치된 `/usr/bin/chromium`을 임시 설정으로 사용한다(운영·저장소 설정 변경 없음).
+- Chromium: 관련 spec 101/101 통과. 관련 spec만 로컬 실행, 전체 E2E는 PR CI. 설치된 `/usr/bin/chromium`을 임시 설정으로 사용한다(운영·저장소 설정 변경 없음).
 - 관련 spec: `team-list`, `organization-order`, `suborganization-filters`, `organization-detail-tasks`, `google-tasks-push`, `home-selection-sheet`, `d4c-polish`, `task-layout-groups`, `startup-performance`, `calendar-hotfix`.
 - 360·390·1280px: 이름·개수·그 외 숨김·유형 없음·✓N·날짜·빈 경우·danger·말줄임·넘침 없음·누름 높이·높이 맞춤·상세 열기. 조회 지연/실패, Google 연결 해제, 기록 500행 초과, 실제 모듈의 조직 수 대비 요청 수 포함.
 - 정적: 기존 smoke·담당조직·조직 상세·프로필 workflow의 Check/Validate 단계, `git diff --check`, JS 구문 검사, `check-loader-cache`.
