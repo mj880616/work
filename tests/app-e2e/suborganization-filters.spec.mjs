@@ -33,7 +33,7 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
   expect(styles).toContain("suborganizations.css?v=11");
-  expect(styles).toContain("workplace-detail.css?v=6");
+  expect(styles).toContain("workplace-detail.css?v=7");
   expect(styles).not.toContain('suborganization-filters.css');
 });
 

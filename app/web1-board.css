@@ -21,3 +21,6 @@
   #web1BoardDetailModal .w1b-detail-head h2{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   #web1BoardDetailModal .w1b-detail-frame{width:100%;height:auto;min-height:0;flex:1 1 0}
 }
+
+/* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
+#web1BoardDetailModal .w1b-detail-head h2{font-size:var(--kptu-text-title)}

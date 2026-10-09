@@ -20,15 +20,15 @@ function style(path){
   return flight
 }
 const routeStyles={
-  home:['./choice-sheet.css?v=1','./home-read.css?v=8','./google-tasks.css?v=24'],
+  home:['./choice-sheet.css?v=1','./home-read.css?v=8','./google-tasks.css?v=25'],
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=24'],
-  projects:['./project-system-v3.css?v=24','./forum-flow-polish.css?v=2','./google-tasks.css?v=24'],
-  library:['./library-upload.css?v=4','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=12','./google-tasks.css?v=24'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=25'],
+  projects:['./project-system-v3.css?v=25','./forum-flow-polish.css?v=2','./google-tasks.css?v=25'],
+  library:['./library-upload.css?v=5','./compact-list.css?v=2'],
+  meetings:['./meeting-ui.css?v=13','./google-tasks.css?v=25'],
   media:['./web1-press.css?v=4'],
-  pages:['./web1-board.css?v=5'],
-  team:['./suborganizations.css?v=11','./workplace-detail.css?v=6','./google-tasks.css?v=24']
+  pages:['./web1-board.css?v=6'],
+  team:['./suborganizations.css?v=11','./workplace-detail.css?v=7','./google-tasks.css?v=25']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -80,7 +80,7 @@ async function calendar(){
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
   // google-tasks.js.
-  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=24'),organizationOrder()])).then(()=>module('./google-tasks.js?v=30')).then(()=>module('./calendar-tasks.js?v=3')));
+  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=25'),organizationOrder()])).then(()=>module('./google-tasks.js?v=30')).then(()=>module('./calendar-tasks.js?v=3')));
   background(google.then(()=>module('./calendar-health.js?v=6')));
   return {ok:true}
 }
