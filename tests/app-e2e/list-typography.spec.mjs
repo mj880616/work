@@ -48,7 +48,7 @@ async function signIn(page){
 import {execFileSync} from 'node:child_process';
 const BASE='248451a0afab043321620d168ec9610451e8bbeb';
 const samples={
- projects:[['.add-list-head h2',20],['.ps3-prow-name',16],['.ps3-prow-meta',12],['button.primary',12]],
+ projects:[['.add-list-head [data-ps3-total]',12],['.ps3-prow-name',16],['.ps3-prow-meta',12],['button.primary',12]],
  meetings:[['.add-list-head h2',20],['.meeting-list-title h3',16],['.meeting-list-row p',12],['button.primary',12]],
  media:[['.w1p-title',16],['.w1p-year>h3',16],['.w1p-filter',12],['.w1p-date',12],['.w1p-tag',12],['.w1p-publisher',12]],
  pages:[['.w1b-card h3',16],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
@@ -102,7 +102,7 @@ for(const width of [390,1440])test('D-3e archive and input roles preserve other 
  const properties=['fontSize','fontWeight','lineHeight','color','minHeight','whiteSpace','overflow','textOverflow'];
  for(const selector of ['#ps3ArchiveList .ps3-prow-name','#ps3ArchiveList .ps3-prow-meta','#ps3ArchiveModal h2','#ps3ArchiveModal button.mini','#eventModal input','#ps3CreateModal .modal-head h2','#ps3CreateSave']){
   const styles=async p=>p.locator(selector).first().evaluate((el,keys)=>{const s=getComputedStyle(el);return keys.map(k=>s[k])},properties);
-  const before=await styles(original);if(selector==='#ps3ArchiveList .ps3-prow-meta'){before[0]='12px';before[2]='16.8px'}if(selector==='#eventModal input'){before[0]='14px';before[2]='21.7px'}expect(await styles(page),selector).toEqual(before);
+  const before=await styles(original);if(selector==='#ps3ArchiveList .ps3-prow-meta'){before[0]='12px';before[2]='16px';before[4]='auto';before[6]='visible';before[7]='clip'}if(selector==='#ps3ArchiveList .ps3-prow-name'){before[0]='16px';before[1]='750';before[2]='21.6px'}if(selector==='#eventModal input'){before[0]='14px';before[2]='21.7px'}expect(await styles(page),selector).toEqual(before);
  }
  await original.close();
 });

@@ -43,6 +43,7 @@ async function mockApp(page,state){
     if(path==='/functions/v1/google-tasks'){
       const action=url.searchParams.get('action')||body?.action,taskId=body?.task_id||url.searchParams.get('task_id');
       state.gtCalls.push({action,body:body?structuredClone(body):null,query:Object.fromEntries(url.searchParams)});
+      if(action==='overview'&&state.gtOverviewFail)return route.fulfill({status:500,contentType:'application/json',body:'{}'});
       const linkRow=(id,t)=>({google_task_id:id,project_id:t.project_id||null,organization_id:t.organization_id||null,status:'confirmed',task_completed:state.gtasks.find(x=>x.id===id)?.status==='completed'});
       const linksOf=id=>state.links.filter(x=>x.google_task_id===id).map(x=>({project_id:x.project_id||null,organization_id:x.organization_id||null,status:x.status||'confirmed',report_kind:null}));
       if(action==='linked'){const pid=url.searchParams.get('project_id'),ids=new Set(state.links.filter(x=>x.project_id===pid).map(x=>x.google_task_id));return ok({tasks:state.gtasks.filter(t=>ids.has(t.id)),removed:0})}
@@ -53,7 +54,7 @@ async function mockApp(page,state){
       if(action==='create'){const task={id:'g-new-'+(state.gtasks.length+1),title:body.title,notes:body.notes||'',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'};state.gtasks.push(task);for(const t of body.links||[])state.links.push(linkRow(task.id,t));return ok({ok:true,task,links:linksOf(task.id)})}
       if(action==='toggle'){const task=state.gtasks.find(x=>x.id===taskId);if(state.gtToggleFail)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Google Tasks 요청 실패'})});Object.assign(task,{status:body.completed?'completed':'needsAction',completed:body.completed?now():null});return ok({ok:true,task})}
       if(action==='update'){const task=state.gtasks.find(x=>x.id===taskId);Object.assign(task,{title:body.title,notes:body.notes});return ok({ok:true,task})}
-      return ok({connected:true,authorized:true,needs_reconnect:false,tasks:[]});
+      return ok({connected:true,authorized:true,needs_reconnect:false,tasks:state.gtasks,pending_scope:'all'});
     }
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -62,7 +63,19 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
 
     if(path==='/rest/v1/app_spaces'){
-      if(method==='GET'){const id=eq(url,'id'),owner=eq(url,'owner_id');let rows=id?state.spaces.filter(x=>x.id===id):state.spaces;rows=rows.filter(x=>!owner||x.owner_id===owner);return ok(rows)}
+      if(method==='GET'){
+        const id=url.searchParams.get('id')?.startsWith('eq.')?eq(url,'id'):'',owner=eq(url,'owner_id');let rows=id?state.spaces.filter(x=>x.id===id):state.spaces;rows=rows.filter(x=>!owner||x.owner_id===owner);
+        if(url.searchParams.get('select')?.includes('progress:')){
+          state.summaryQueries??=[];state.summaryQueries.push(Object.fromEntries(url.searchParams));
+          if(state.summaryDelay)await state.summaryDelay;
+          if(state.summaryFail)return route.fulfill({status:500,contentType:'application/json',body:'{}'});
+          const ids=url.searchParams.get('id').slice(4,-1).split(',');
+          return ok(rows.filter(x=>ids.includes(x.id)).map(x=>({id:x.id,
+            progress:state.progress.filter(u=>u.project_id===x.id).sort((a,b)=>String(b.effective_on).localeCompare(String(a.effective_on))||String(b.created_at).localeCompare(String(a.created_at))).slice(0,1),
+            milestones:state.milestones.filter(m=>m.project_id===x.id&&m.start_at>=url.searchParams.get('milestones.start_at').slice(4)&&!['done','completed','cancelled','canceled'].includes(m.status)).sort((a,b)=>a.start_at.localeCompare(b.start_at)).slice(0,1)})));
+        }
+        return ok(rows)
+      }
       if(method==='POST'){const row={...(body||{}),id:`project-${state.spaces.length+1}`,created_at:now(),updated_at:now()};state.spaces.push(row);return ok([row])}
       if(method==='PATCH'){const id=eq(url,'id'),row=state.spaces.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok([])}
       if(method==='DELETE'){const id=eq(url,'id');state.spaces=state.spaces.filter(x=>x.id!==id&&x.parent_id!==id);return ok([])}
@@ -802,81 +815,75 @@ test('V3 lists child projects with counts in the body and child returns to paren
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
 });
 
-test('project list is one bordered two-line list with collapsible child rows and the archive uses the same rows',async({page})=>{
-  const state=baseState();
-  state.spaces.push(
-    {id:'main-2',workspace_id:'workspace-1',name:'자회사 임금교섭',description:'설명 문구',parent_id:null,status:'active',visibility:'restricted',owner_id:'user-1',sort_order:30,metadata:{project_system:'v2',management_version:2,objective:'표시되지 않는 설명',start_on:'2026-08-01'}},
-    {id:'arch-1',workspace_id:'workspace-1',name:'지난 캠페인',description:'',parent_id:null,status:'archived',visibility:'restricted',owner_id:'user-1',sort_order:40,metadata:{project_system:'v2',management_version:2,objective:'보관 설명'}}
-  );
-  state.links.push(
-    {google_task_id:'g-main-open',project_id:'main-1',status:'confirmed',task_completed:false},
-    {google_task_id:'g-child-open',project_id:'child-1',status:'confirmed',task_completed:false},
-    {google_task_id:'g-child-done',project_id:'child-1',status:'confirmed',task_completed:true},
-    {google_task_id:'g-arch',project_id:'arch-1',status:'confirmed',task_completed:false}
-  );
-  state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
+for(const width of [360,390,1280])test(`D-project list header, hierarchy, metadata and navigation ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await page.clock.install({time:new Date('2026-10-09T03:00:00Z')});
+  const state=baseState();state.sessionUser=true;
+  state.spaces.push({...state.spaces[0],id:'main-2',name:'아주 긴 프로젝트 이름 '.repeat(30)}, {...state.spaces[0],id:'arch-1',name:'지난 캠페인',status:'archived'});
+  state.gtasks=[{id:'g-main',title:'밀린 할 일',status:'needsAction',due:'2026-10-08T00:00:00Z'},{id:'g-child',title:'오늘 할 일',status:'needsAction',due:'2026-10-09T00:00:00Z'},{id:'g-done',status:'completed'}];
+  state.links=[{google_task_id:'g-main',project_id:'main-1',status:'confirmed'}, {google_task_id:'g-main',project_id:'main-1',status:'confirmed'}, {google_task_id:'g-child',project_id:'child-1',status:'confirmed'}, {google_task_id:'g-done',project_id:'main-2',status:'confirmed'}, {google_task_id:'g-child',project_id:'main-2',status:'suggested'}];
+  state.milestones=[{id:'today',project_id:'main-1',title:'오늘',start_at:'2026-10-08T15:00:00Z',status:'planned'},{id:'future',project_id:'child-1',title:'다음',start_at:'2026-10-11T03:00:00Z',status:'planned'},{id:'done',project_id:'child-1',start_at:'2026-10-09T03:00:00Z',status:'done'},{id:'canceled',project_id:'child-1',start_at:'2026-10-09T03:00:00Z',status:'cancelled'},{id:'past',project_id:'main-2',start_at:'2026-10-08T03:00:00Z',status:'planned'}];
+  state.progress=[{project_id:'main-1',effective_on:'2026-10-08',created_at:now()},...Array.from({length:1200},(_,i)=>({project_id:'main-1',effective_on:'2026-10-07',created_at:String(i)})),{project_id:'child-1',effective_on:'2025-01-01',created_at:now()}];
   await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
-  const list=page.locator('#projectGrid .ps3-plist');
-  await expect(list).toHaveCount(1);
-  await expect(list.locator('.ps3-prow')).toHaveCount(2);
+  const list=page.locator('#projectGrid .ps3-plist'),main=list.locator('[data-ps3-project="main-1"]'),child=list.locator('[data-ps3-project="child-1"]');
+  await expect(list.locator('.add-list-head h2')).toHaveCount(0);
+  await expect(list.locator('[data-ps3-total]')).toHaveText('프로젝트 2개');
+  await expect(list.locator('[data-ps3-total]')).toHaveCSS('font-size','12px');
+  await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관 1');
+  await expect(page.locator('#ps3ArchiveBtn')).toHaveCSS('font-size','12px');
   await expect(page.locator('#newProjectBtn')).toHaveText('+ 프로젝트');
-  await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관함');
-  const main=list.locator('[data-ps3-row="main-1"]');
-  await expect(main.locator('.ps3-prow-name')).toHaveText('민자철도 정책·조직사업');
-  // Top-row counts include child projects: own 1 task + 1 doc, child 1 open task + 1 doc.
-  await expect(main.locator('.ps3-prow-meta')).toHaveText('할 일 2 · 자료 2');
-  await expect(list).not.toContainText('상위 프로젝트');
-  await expect(list).not.toContainText('민자철도 안전·인력 제도개선');
-  await expect(list).not.toContainText('표시되지 않는 설명');
-  await expect(list).not.toContainText('2026-09-01');
-  await expect(list.locator('[data-ps3-row="main-2"] .ps3-prow-meta')).toHaveText('할 일 0 · 자료 0');
-  await expect(list.locator('[data-ps3-kids-toggle="main-2"]')).toHaveCount(0);
-  const countCall=state.restCalls.find(x=>x.name==='app_record_links'&&x.method==='GET');
-  expect(countCall).toBeTruthy();
-  expect(state.gtCalls).toEqual([]);
-  const toggle=main.locator('[data-ps3-kids-toggle="main-1"]');
-  const child=main.locator('[data-ps3-project="child-1"]');
-  await expect(toggle).toContainText('하위 1');
-  await expect(toggle).toHaveAttribute('aria-expanded','false');
-  await expect(child).toBeHidden();
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-expanded','true');
-  await expect(child).toBeVisible();
-  await expect(child).toContainText('9.29 민자철도 국회토론회');
-  await expect(child.locator('small')).toHaveText('할 일 1');
-  await expect(child).not.toContainText('하위 프로젝트');
-  await expect(page.locator('#ps3DetailModal')).toBeHidden();
-  await toggle.click();
-  await expect(toggle).toHaveAttribute('aria-expanded','false');
-  await expect(child).toBeHidden();
-  await toggle.press('Enter');
-  await expect(child).toBeVisible();
-  await child.click();
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');
-  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
-  await expect(page.locator('#ps3DetailModal')).toBeHidden();
-  await main.locator('.ps3-prow-main').click();
-  await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
-  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
-  for(const [width,height] of [[360,780],[390,844],[412,900],[430,932],[1440,900]]){
-    await page.setViewportSize({width,height});
-    const box=await main.locator('.ps3-prow-head').boundingBox();
-    const t=await toggle.boundingBox();
-    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
-    expect(overflow,`list at ${width}px`).toBeLessThanOrEqual(1);
-    expect(box.height,`row height at ${width}px`).toBeLessThan(80);
-    expect(t.x+t.width,`toggle inside row at ${width}px`).toBeLessThanOrEqual(box.x+box.width+1);
+  await expect(list.locator('[data-ps3-kids-toggle]')).toHaveCount(0);
+  await expect(child).toBeVisible();await expect(list.locator('[data-ps3-child]')).toHaveCount(0);
+  await expect(main.locator('.ps3-prow-meta')).toHaveText('D-day110.8');
+  await expect(child.locator('.ps3-prow-meta')).toHaveText('D-211.1');
+  await expect(list.locator('[data-ps3-project="main-2"] .ps3-prow-meta')).toBeEmpty();
+  await expect(main.locator('.kptu-list-task-count')).toHaveAttribute('aria-label','미완료 할 일 1개, 기한 지남 포함');
+  await expect(child.locator('.kptu-list-task-count')).not.toHaveClass(/kptu-list-overdue/);
+  await expect(main.locator('svg path')).toHaveAttribute('d','m5 12 4 4L19 6');
+  await expect(list).not.toContainText('자료');await expect(list).not.toContainText('할 일 0');
+  for(const row of [main,child]){
+    const geometry=await row.evaluate(e=>({height:e.getBoundingClientRect().height,padding:getComputedStyle(e).paddingLeft,font:getComputedStyle(e.querySelector('.ps3-prow-meta')).fontSize}));
+    expect(geometry.height).toBeGreaterThanOrEqual(44);expect(geometry.font).toBe('12px');expect(parseInt(geometry.padding)).toBe(row===main?16:32);
   }
-  await page.locator('#ps3ArchiveBtn').click();
-  const archive=page.locator('#ps3ArchiveList');
-  await expect(archive.locator('.ps3-plist .ps3-prow')).toHaveCount(1);
-  const arch=archive.locator('[data-ps3-row="arch-1"]');
-  await expect(arch.locator('.ps3-prow-name')).toHaveText('지난 캠페인');
-  await expect(arch.locator('.ps3-prow-meta')).toHaveText('할 일 1 · 자료 0');
-  await expect(archive).not.toContainText('상위 프로젝트');
-  await expect(archive).not.toContainText('보관 설명');
-  await expect(arch.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
+  const clipped=await list.locator('[data-ps3-project="main-2"] .ps3-prow-name').evaluate(e=>({clipped:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow}));expect(clipped).toEqual({clipped:true,ellipsis:'ellipsis'});
+  const danger=await main.locator('.kptu-list-task-count').evaluate(e=>getComputedStyle(e).color);
+  expect(danger).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c}));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  expect(state.summaryQueries).toHaveLength(1);expect(state.summaryQueries[0]['progress.limit']).toBe('1');expect(state.summaryQueries[0]['milestones.limit']).toBe('1');expect(state.summaryQueries[0]['progress.order']).toBe('effective_on.desc,created_at.desc');
+  await child.press('Enter');await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  await page.locator('#ps3ArchiveBtn').click();await expect(page.locator('#ps3ArchiveModal')).toBeVisible();await expect(page.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
+});
+
+for(const extra of [0,200])test(`D-project requests stay constant with ${extra} extra projects`,async({page})=>{
+ const state=baseState();state.sessionUser=true;state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
+ state.spaces.push(...Array.from({length:extra},(_,i)=>({...state.spaces[0],id:'extra-'+i,name:'추가 '+i})));
+ await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?view=projects');await signIn(page);await expect(page.locator('#projectsView')).toBeVisible();
+ await expect(page.locator('[data-ps3-project="main-1"] .kptu-list-task-count')).toHaveText('1');
+ await expect.poll(()=>state.summaryQueries?.length).toBe(1);
+ expect(state.gtCalls.filter(x=>x.action==='overview')).toHaveLength(1);
+ expect(state.restCalls.filter(x=>x.name==='app_record_links')).toHaveLength(1);
+ expect(state.restCalls.filter(x=>x.name==='app_documents'||x.name==='app_project_progress_updates'||x.name==='app_project_milestones')).toHaveLength(0);
+ await expect(page.locator('#ps3ArchiveBtn')).toBeHidden();
+ await expect(page.locator('[data-ps3-total]')).toHaveText(`프로젝트 ${extra+1}개`);
+});
+test('D-project names appear before optional reads and survive failed metadata',async({page})=>{
+ const state=baseState();state.summaryFail=true;let release;state.summaryDelay=new Promise(r=>release=r);
+ await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+ await expect(page.locator('#projectGrid [data-ps3-project]')).toHaveCount(2);await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
+ release();await expect.poll(()=>state.summaryQueries?.length).toBe(1);
+ await page.locator('#projectGrid [data-ps3-project="main-1"]').click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+});
+
+for(const failure of ['tasks','dates','both'])test(`D-project ${failure} failure preserves names and other metadata`,async({page})=>{
+ const state=baseState();state.sessionUser=true;state.summaryFail=failure!=='tasks';state.gtOverviewFail=failure!=='dates';
+ state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
+ await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+ const main=page.locator('#projectGrid [data-ps3-project="main-1"]');
+ if(failure==='tasks')await expect(main.locator('time')).toHaveText('9.15');
+ if(failure==='dates')await expect(main.locator('.kptu-list-task-count')).toHaveText('1');
+ await expect(page.locator('#projectGrid [data-ps3-project]')).toHaveCount(2);
+ await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
 });
 
 test('V3 generated dialogs expose consistent accessibility semantics',async({page})=>{

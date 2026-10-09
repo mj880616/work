@@ -1,13 +1,9 @@
+@import url('./list-row.css?v=1');
 .so-team-section{margin-top:0;padding-top:0}
 .so-team-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .so-team-actions h3{margin:0;font-size:15px}.so-team-actions p{margin:2px 0 0;font-size:10.5px}
 .so-list{display:grid;gap:12px}
 .so-org-group{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
-.so-card{min-height:50px;padding:8px var(--kptu-space-4);border:0;border-bottom:1px solid var(--kptu-border);background:transparent;cursor:pointer;transition:background .12s ease}
-.so-card:last-child{border-bottom:0}.so-card:hover{background:var(--kptu-surface-subtle)}.so-card:focus-visible{outline:2px solid var(--kptu-focus-ring);outline-offset:2px}
-.so-card-main{display:grid;grid-template-columns:minmax(0,1fr) auto 24px;align-items:center;gap:8px;min-height:34px}
-.so-card h4{margin:0;min-width:0;font-size:13px;line-height:1.35;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#teamView .so-card h4{font-size:var(--kptu-text-subtitle)}
-.so-chevron{display:grid;place-items:center;color:var(--kptu-muted);font-size:20px;line-height:1}
 .so-card-actions,.so-assignees,.so-assignee-chips{display:none!important}
 .so-org-checks{display:grid;gap:12px;margin-top:7px}
 .so-org-checks .so-org-group{display:grid;grid-template-columns:1fr 1fr}
@@ -16,9 +12,7 @@
 .so-org-check small{display:none}
 .so-org-box{margin:10px 0;padding:11px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle)}.so-org-box>b{display:block;font-size:12px;margin-bottom:2px}.so-org-box>p{margin:0 0 6px;font-size:10px;color:var(--kptu-muted)}
 .so-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.so-admin-members{display:grid;gap:5px;margin-top:8px}.so-admin-member{display:flex!important;flex-direction:row!important;align-items:center!important;gap:7px!important;margin:0!important}.so-admin-member input{width:auto!important}
-@media(max-width:650px){.so-team-actions{align-items:center}.so-team-actions #soAddOrg{min-height:36px;padding:0 12px;font-size:var(--kptu-text-meta)}.so-org-checks .so-org-group{grid-template-columns:1fr}.so-card{min-height:48px;padding:7px var(--kptu-space-4)}.so-card-main{grid-template-columns:minmax(0,1fr) auto 20px}.so-card h4{font-size:12.5px}#teamView .so-card h4{font-size:var(--kptu-text-subtitle)}}
+@media(max-width:650px){.so-team-actions{align-items:center}.so-team-actions #soAddOrg{min-height:36px;padding:0 12px;font-size:var(--kptu-text-meta)}.so-org-checks .so-org-group{grid-template-columns:1fr}}
 #soOrganizationList>.so-org-group{border:0;border-radius:var(--kptu-radius-md);background:transparent}
 .so-group-heading{margin:0 0 6px;font-size:12px;line-height:18px;color:var(--kptu-muted)}
 .so-group-card{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
-.so-summary{display:flex;align-items:center;gap:8px;white-space:nowrap;color:var(--kptu-muted);font-size:12px;line-height:16px}
-.so-task-count{display:inline-flex;align-items:center;gap:2px}.so-task-count svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.so-task-count.so-overdue{color:var(--kptu-danger)}
