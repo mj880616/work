@@ -194,14 +194,25 @@
 
 #calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* D-4b week: seven growing day rows share list event/task styling. */
-#calendarWeek{width:100%}
-.cwv-day{display:flex;align-items:stretch;border-bottom:1px solid var(--kptu-border);min-height:44px}
-.cwv-date{flex:0 0 72px;width:72px;box-sizing:border-box;padding:12px 8px;margin:0;font-size:14px;color:var(--kptu-muted);font-weight:400}
-.cwv-items{flex:1;min-width:0}
+/* D-주간정리: Monday–Sunday columns with shared month bars below the header. */
+#calendarWeek{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));width:100%;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-sizing:border-box}
+.cwv-day{position:relative;min-width:0;border-right:1px solid var(--kptu-border)}
+.cwv-day:nth-child(7){border-right:0}
+.cwv-header{position:relative;height:44px;box-sizing:border-box;border-bottom:1px solid var(--kptu-border);padding-right:44px;display:flex;align-items:center}
+.cwv-date{min-width:0;white-space:nowrap;margin:0;padding:0 6px;font-size:12px;line-height:16px;color:var(--kptu-muted);font-weight:400}
+.cwv-items{position:relative;min-width:0;padding-top:var(--cwv-band-height,0px);min-height:320px;pointer-events:none}
+.cwv-items .clv-event{position:relative;pointer-events:auto;gap:4px;padding:8px 4px;box-sizing:border-box}
+.cwv-items .clv-time{flex-basis:36px}
+.cwv-items .clv-title{font-size:12px}
+.cwv-items .clv-color{display:none}
+.cwv-create{position:absolute;inset:44px 0 0;width:100%;min-width:44px;min-height:44px;border:0;background:transparent;border-radius:var(--kptu-radius-sm);cursor:pointer}
+.cwv-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 .cwv-today{background:var(--kptu-primary-soft)}
 .cwv-today .cwv-date{color:var(--kptu-primary-ink);font-weight:700}
-@media(max-width:760px){.cwv-date{flex-basis:56px;width:56px}}
+.cwv-bands{position:absolute;top:44px;left:0;right:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:44px;gap:4px 0;padding:2px 0;pointer-events:none}
+#calendarWeek .cal-event.cmv-event{box-sizing:border-box;height:44px;min-height:44px;line-height:16px;font-size:12px;padding:0 6px;margin:0 2px}
+#calendarWeek .cmv-event-time{font-size:12px}
+.calendar-view-switch button[hidden]{display:none}
 
 /* D-월간3줄: counts share the date header, never reserve an event footer. */
 #calendarView .cal-cell{position:relative}

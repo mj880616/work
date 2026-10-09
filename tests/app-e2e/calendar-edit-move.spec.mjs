@@ -51,6 +51,7 @@ test('current calendar is selected; only writable choices; unchanged save omits 
   expect(state.writes[0]).not.toHaveProperty('target_calendar_id');expect(state.writes[0].organization_ids).toEqual(['org-a']);
 });
 for(const view of ['list','week','month'])test('move persists destination color and editor across '+view,async({page})=>{
+  if(view==='week')await page.setViewportSize({width:1280,height:844});
   const state=await open(page,{view});await edit(page);await page.locator('#ciGoogleCalendar').selectOption('target');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();
   expect(state.writes[0]).toMatchObject({calendar_id:'source',event_id:'move-event',target_calendar_id:'target'});
   const root=view==='month'?'#calendarGrid':view==='week'?'#calendarWeek':'#calendarList';

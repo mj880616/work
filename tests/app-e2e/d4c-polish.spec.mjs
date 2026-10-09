@@ -23,13 +23,15 @@ for(const zone of ['Asia/Seoul','America/Los_Angeles'])for(const now of ['2026-1
 for(const width of [360,1280])for(const view of ['list','week'])test(`pending counts and retained done day rows ${width} ${view}`,async({page})=>{
   await page.setViewportSize({width,height:844});
   await openEmphasisFixture(page,{view,events:[],now:Date.parse('2026-10-08T03:00:00Z'),tasks:[task('late','2026-10-07'),task('late-done','2026-10-07','completed'),task('pending','2026-10-08'),task('done','2026-10-08','completed'),task('only-done','2026-10-09','completed')]});
-  const day=date=>page.locator(`[data-date="${date}"]`).filter({has:page.locator('.clv-tasks,.clv-empty')}).first();
-  const pending=day('2026-10-08').locator('.clv-tasks');await expect(pending).toHaveText('일정 없음 · 할 일 1개 ›');
-  await expect(day('2026-10-09').locator('.clv-tasks')).toHaveCount(0);await expect(day('2026-10-09')).toContainText('일정 없음');
+  const week=view==='week'&&width>=1024,control=week?'.cmv-task-count':'.clv-tasks';
+  const day=date=>page.locator(`${week?'#calendarWeek .cwv-day':'#calendarList .clv-day'}[data-date="${date}"]`);
+  const pending=day('2026-10-08').locator(control);await expect(pending).toHaveText(week?'1':'일정 없음 · 할 일 1개 ›');
+  await expect(day('2026-10-09').locator(control)).toHaveCount(0);
+  if(week){await expect(day('2026-10-09').locator('.cwv-items .clv-event')).toHaveCount(0);await expect(day('2026-10-09').locator('.cwv-create')).toBeVisible()}else await expect(day('2026-10-09')).toContainText('일정 없음');
   await pending.click();await expect(page.locator('#calendarDayTasks [data-calendar-task]')).toHaveCount(2);await expect(page.locator('#calendarDayTasks [data-calendar-task="done"]')).toHaveClass(/done/);
   await page.locator('[data-close="calendarDayModal"]').click();
-  if(view==='list')await page.locator('#prevMonthBtn').click();
-  const late=day('2026-10-07').locator('.clv-tasks');await expect(late).toHaveText('일정 없음 · 할 일 1개 ›');
+  if(!week)await page.locator('#prevMonthBtn').click();
+  const late=day('2026-10-07').locator(control);await expect(late).toHaveText(week?'1':'일정 없음 · 할 일 1개 ›');
   await expect.poll(()=>late.evaluate(el=>getComputedStyle(el).color)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const color=getComputedStyle(e).color;e.remove();return color}));
 });
 for(const width of [360,1280])test(`modal titles and organization group boxes ${width}`,async({page})=>{
