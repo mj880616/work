@@ -30,10 +30,12 @@ test('SEC-1 real PostgreSQL permissions, independent instances, concurrency and 
     postgresFlags: ['-h', '127.0.0.1', '-c', 'log_statement=none', '-c', 'log_min_error_statement=panic'],
     onLog: () => {}, onError: () => {} });
   let pool;
+  const clientEnds = [];
   try {
     await cluster.initialise();
     await cluster.start();
     pool = new pg.Pool({ host: '127.0.0.1', port, user: 'postgres', password, database: 'postgres', ssl: false, max: 24, connectionTimeoutMillis: 5000 });
+    pool.on('connect', client => clientEnds.push(new Promise(resolve => client.once('end', resolve))));
     await pool.query(`
       create role anon nologin;
       create role authenticated nologin;
@@ -155,7 +157,11 @@ test('SEC-1 real PostgreSQL permissions, independent instances, concurrency and 
       assert.equal((await asRole('service_role', query, [randomUUID(), SUBJECT, expiry()])).rows[0].consumed, true);
     });
   } finally {
-    if (pool) await pool.end();
+    if (pool) {
+      // pg-pool removes idle clients before their sockets finish closing.
+      await pool.end();
+      await Promise.all(clientEnds);
+    }
     await cluster.stop();
   }
 });
