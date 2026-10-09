@@ -12,9 +12,10 @@ const gt=(id,due,extra={})=>({id,title:id,taskListId:'@default',taskListTitle:'�
 const NAMES=['공항철도지부','용인경전철지부','서울교통공사9호선지부','인천교통공사노동조합','신분당선지부','전국철도노동조합','메트로9호선노동조합','부산지하철노동조합','김포도시철도지부','서해선지부','대구교통공사노동조합','지티엑스에이운영지부','서울교통공사노동조합','국민연금지부'];
 const orgs=NAMES.map((name,i)=>({id:'o'+i,workspace_id:'qa-ws',name,organization_type:'미분류',default_assignee_name:null,created_by:'qa-user',active:true,aliases:[]}));
 const RAIL='o5';
-const ORDERED=['전국철도노동조합','|','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','|','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','|','메트로9호선노동조합','서울교통공사9호선지부','|','김포도시철도지부','용인경전철지부','|','국민연금지부'];
+const ORDERED=['전국철도노동조합','|','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','|','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','|','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부','|','국민연금지부'];
 
 async function mock(page,calls){
+  const data=[...orgs,...Array.from({length:calls.extraOrganizations||0},(_,i)=>({...orgs[0],id:'extra-'+i,name:'기타 조직 '+i}))];
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),u=new URL(req.url()),p=u.pathname,q=u.search;
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
@@ -26,16 +27,19 @@ async function mock(page,calls){
     if(p==='/rest/v1/app_spaces')return ok([{id:'p1',workspace_id:'qa-ws',owner_id:'qa-user',name:'민자철도',parent_id:null,status:'active',sort_order:1,metadata:{project_system:'v2'}}]);
     if(p==='/rest/v1/app_suborganizations'){
       const id=u.searchParams.get('id')?.replace(/^eq\./,'');
-      return ok(id?orgs.filter(o=>o.id===id):orgs);
+      return ok(id?data.filter(o=>o.id===id):data);
     }
     if(p==='/rest/v1/app_suborganization_assignees'){
       if(u.searchParams.get('organization_id'))return ok([{user_id:'qa-user'}]);
-      if(u.searchParams.get('user_id'))return ok(orgs.map(o=>({organization_id:o.id})));
-      return ok(orgs.map(o=>({organization_id:o.id,user_id:'qa-user',assigned_by:'qa-user',created_at:'2026-09-15T00:00:00Z'})));
+      if(u.searchParams.get('user_id'))return ok(data.map(o=>({organization_id:o.id})));
+      return ok(data.map(o=>({organization_id:o.id,user_id:'qa-user',assigned_by:'qa-user',created_at:'2026-09-15T00:00:00Z'})));
     }
+    if(calls.summary&&p==='/rest/v1/app_record_links'){calls.push({action:'record-links',query:Object.fromEntries(u.searchParams)});return ok([{google_task_id:'summary-pending',organization_id:RAIL,status:'confirmed'},{google_task_id:'summary-done',organization_id:RAIL,status:'confirmed'}])}
+    if(calls.summary&&p==='/rest/v1/app_suborganization_updates'){calls.push({action:'updates',query:Object.fromEntries(u.searchParams)});return ok([{organization_id:RAIL,occurred_at:'2026-01-09T00:00:00Z',raw_text:'old'}])}
     if(p==='/functions/v1/google-tasks'){
       const action=u.searchParams.get('action'),body=req.method()==='GET'?{}:JSON.parse(req.postData()||'{}');
       calls.push({action,query:Object.fromEntries(u.searchParams),body});
+      if(calls.summary&&action==='overview')return ok({connected:true,authorized:true,pending_scope:'all',tasks:[gt('summary-pending',-1),gt('summary-done',0,{status:'completed',completed:new Date().toISOString()})]});
       if(action==='linked')return ok({tasks:[gt('org-pending',2),gt('org-undated',null),gt('org-done',0,{status:'completed',completed:new Date().toISOString()})]});
       if(action==='links')return ok({links:[],meeting_links:[]});
       if(action==='unlinked')return ok({tasks:[gt('free-1',3)]});
@@ -58,7 +62,7 @@ async function openTeam(page,calls){
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
   await clickView(page,'team');
-  await expect(page.locator('#soOrganizationList .so-card')).toHaveCount(orgs.length,{timeout:10000});
+  await expect(page.locator('#soOrganizationList .so-card')).toHaveCount(orgs.length+(calls.extraOrganizations||0),{timeout:10000});
 }
 const sequence=(locator,item)=>locator.evaluate((box,item)=>[...box.querySelectorAll(':scope>.so-org-group,:scope>.gt-org-group')].flatMap((g,i)=>[...(i?['|']:[]),...[...g.querySelectorAll(item)].map(el=>el.firstChild?.textContent?.trim())]),item);
 
@@ -124,4 +128,19 @@ test('담당조직 목록·상세·편집창은 412px와 1280px에서 가로로 
     await page.locator('#gtTaskModal [data-gt-close]').click();
     await page.locator('[data-wd-close="wdModal"]').click();
   }
+});
+
+for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 요청은 일괄이며 실제 모듈로 숫자를 채운다`,async({page})=>{
+  const calls=[];calls.summary=true;calls.extraOrganizations=extra;
+  await openTeam(page,calls);
+  const rail=page.locator(`[data-so-org="${RAIL}"]`);
+  await expect(rail.locator('.so-task-count')).toHaveText('1');
+  await expect(rail.locator('time')).toHaveText('1.9');
+  expect(calls.filter(c=>c.action==='linked')).toHaveLength(0);
+  // One home overview and one team overview; number of organizations does not change either bound.
+  expect(calls.filter(c=>c.action==='overview').length).toBeLessThanOrEqual(2);
+  expect(calls.filter(c=>c.action==='record-links').length).toBeLessThanOrEqual(3);
+  const reads=calls.filter(c=>c.action==='updates'&&c.query.select==='organization_id,occurred_at');
+  expect(reads).toHaveLength(1);
+  expect(reads[0].query.organization_id.split(',')).toHaveLength(orgs.length+extra);
 });

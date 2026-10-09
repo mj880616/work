@@ -63,7 +63,7 @@ function saveCopy(key,value){homeCache?.save(key,value);copies=homeCache?.read()
 function preload(){
   if(!imports)imports={
     projects:import('./project-catalog.js?v=2'),
-    order:import('./organization-order.js?v=1'),
+    order:import('./organization-order.js?v=2'),
     google:import('./google-tasks.js?v=30'),
   };
   Object.values(imports).forEach(p=>p.catch(()=>{}));

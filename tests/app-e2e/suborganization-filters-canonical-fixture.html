@@ -103,6 +103,15 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
  }
  return [];
 }};
+if(fixtureParams.has('teamstats')){
+ if(fixtureParams.has('knownonly')){orgs.splice(13);assignments=assignments.filter(a=>orgs.some(o=>o.id===a.organization_id))}
+ let release;const gate=new Promise(r=>release=r);window.__releaseTeamStats=release;
+ window.__teamStatsCalls={tasks:0,links:0,updates:0};
+ const tasks=[{id:'pending',status:'needsAction',due:'2026-01-01'},{id:'future',status:'needsAction',due:'2099-01-01'},{id:'done',status:'completed'}];
+ Object.assign(window.KPTUGoogleTasks,{peekTasks:()=>fixtureParams.has('cachedstats')?{owner:fixtureUser,tasks}:null,listTasks:async()=>{window.__teamStatsCalls.tasks++;await gate;if(['1','tasks'].includes(fixtureParams.get('statsfail')))throw new Error('offline');return {owner:fixtureUser,status:fixtureParams.has('disconnectedstats')?'disconnected':'ok',tasks}},readLinks:async()=>{window.__teamStatsCalls.links++;return [{google_task_id:'pending',organization_id:'ord-5',status:'confirmed'},{google_task_id:'pending',organization_id:'ord-5',status:'confirmed'},{google_task_id:'future',organization_id:'ord-5',status:'confirmed'},{google_task_id:'future',organization_id:'ord-7',status:'confirmed'},{google_task_id:'done',organization_id:'ord-5',status:'confirmed'},{google_task_id:'pending',organization_id:'ord-3',status:'suggested'}]},isOverdue:t=>t.status!=='completed'&&t.due<'2026-10-09'});
+ const oldApi=window.KPTURuntime.api;
+ window.KPTURuntime.api=async(path,opt)=>{if(path.includes('/app_suborganization_updates?organization_id=in.')){window.__teamStatsCalls.updates++;await gate;if(['1','updates'].includes(fixtureParams.get('statsfail')))throw new Error('offline');if(fixtureParams.has('historypages'))return path.includes('offset=0')?Array.from({length:500},()=>({organization_id:'ord-5',occurred_at:'2026-10-08T09:00:00Z'})):[{organization_id:'ord-7',occurred_at:'2025-01-01T00:00:00Z'}];return [{organization_id:'ord-5',occurred_at:'2026-10-08T09:00:00Z'},{organization_id:'ord-5',occurred_at:'2026-10-01T00:00:00Z'}]}return oldApi(path,opt)};
+}
 </script>
 <script src="/app/accessibility-dialog.js"></script>
 <script src="/app/organization-order.js"></script>

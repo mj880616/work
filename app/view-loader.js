@@ -28,7 +28,7 @@ const routeStyles={
   meetings:['./meeting-ui.css?v=12','./google-tasks.css?v=24'],
   media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=5'],
-  team:['./suborganizations.css?v=9','./workplace-detail.css?v=6','./google-tasks.css?v=24']
+  team:['./suborganizations.css?v=10','./workplace-detail.css?v=6','./google-tasks.css?v=24']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -51,7 +51,7 @@ async function projectCatalog(){
 }
 // Shared organization order (TASK-조직순서) for the organization list, checks and the Google task editor.
 async function organizationOrder(){
-  await module('./organization-order.js?v=1');
+  await module('./organization-order.js?v=2');
 }
 // Resolves once the app shell has been revealed (kptu-ui-ready) and one frame has been painted after it.
 function afterReveal(){
@@ -75,7 +75,7 @@ async function calendar(){
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=16','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
-  background(style('./suborganizations.css?v=9').then(organizationOrder).then(()=>module('./suborganizations.js?v=14','__KPTU_SUBORGANIZATIONS_READY__')));
+  background(style('./suborganizations.css?v=10').then(organizationOrder).then(()=>module('./suborganizations.js?v=15','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
@@ -126,7 +126,7 @@ async function pages(){
 }
 async function organizations(){
   await organizationOrder();
-  await module('./suborganizations.js?v=14','__KPTU_SUBORGANIZATIONS_READY__');
+  await module('./suborganizations.js?v=15','__KPTU_SUBORGANIZATIONS_READY__');
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
   await module('./project-catalog.js?v=2');
   await module('./google-tasks.js?v=30');
@@ -137,7 +137,7 @@ async function organizations(){
 async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
-  await module('./home-read.js?v=10');
+  await module('./home-read.js?v=11');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});

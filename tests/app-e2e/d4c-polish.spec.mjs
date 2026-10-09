@@ -51,7 +51,7 @@ for(const width of [360,1280])test(`modal titles and organization group boxes ${
   await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await groups('#gtEditLinkBody [aria-label="조직"]','.gt-org-group','label');await title('gtTaskModal');await page.locator('[data-gt-close]').click();
   await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'d4c-project'}));await title('gtPickModal');await page.locator('[data-gt-pick-close]').click();
   await page.evaluate(async()=>{await import('/app/task-layout.js');window.KPTUTaskLayout.openCreate()});await title('taskModal');await page.locator('[data-close="taskModal"]').click();
-  await page.evaluate(()=>window.KPTURouter.go('team'));await groups('#soOrganizationList','.so-org-group','.so-card');
+  await page.evaluate(()=>window.KPTURouter.go('team'));await groups('#soOrganizationList','.so-group-card','.so-card');
   async function title(id){
     await expect(page.locator('#'+id)).toBeVisible();await expect(page.locator('#'+id+' .modal-head .eyebrow')).toHaveCount(0);await expect(page.locator('#'+id+' h2')).toBeVisible();
     expect(await page.locator('#'+id+' h2').evaluate(el=>el.getBoundingClientRect().top-el.closest('.modal-head').getBoundingClientRect().top)).toBeLessThanOrEqual(1);
