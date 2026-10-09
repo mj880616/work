@@ -20,13 +20,15 @@
 - `project-system-v3.spec.mjs`: 큰 제목→상위 개수; 보관함→보관 N; 상위의 합산 할 일/자료와 0→각 줄 자기 할 일/일정/날짜 및 0 생략; 하위 숨김·토글→상시 표시·토글 없음. 상위/하위 상세·보관함·복구 버튼·44px·넘침 검사는 유지/강화. 360/390/1280px, 확정/미확정/완료/중복/기한 지남, KST 오늘, 일정 완료/취소/과거 제외, 오래된 최신 기록, 2/202 프로젝트 동일 요청 수, 지연/독립 실패 검사를 추가했다. mock은 실제 PostgREST 포함 관계 제한을 반영하고 Google overview에 실제 fixture 할 일을 반환한다.
 - `add-button-placement.spec.mjs`: 카드 h2→개수 span, 보관 글자 링크 44px 높이/너비와 36px 추가 버튼의 중심 정렬, 보관 fixture 1개. 카드 안 위치·겹침 없음·재그리기·보관/추가 열기 검사는 유지한다.
 - `list-typography.spec.mjs`: 프로젝트 카드 제목 20px→개수 12px. 보관 이름은 공용 줄의 16px/750/21.6px, metadata는 공용 12px/16px·grid 자동 높이·visible/clip. 다른 화면과 모달/입력의 기존 비교는 유지한다.
+- `button-sizing.spec.mjs`: 보관 버튼의 36px/secondary 기대값→44px 실제 영역·12px muted 글자 링크·투명 배경·padding/border 0. 보관 링크만 실제 rect로 네 모서리 hit-test; 추가 버튼의 기존 pseudo 영역 검사는 유지한다.
+- `modal-typography.spec.mjs`: 프로젝트 카드 h2→12px muted 개수 span, 보관 버튼→글자 링크, 프로젝트 이름→공용 16px/750/21.6px, 0 metadata→20px chevron. 담당조직은 공용 클래스명이 추가된 것만 기대값에 반영하며 기존 크기·굵기·색 비교를 유지한다.
 - `app-smoke-check`: 토글 존재→토글 금지, 하위 줄·개수·공용 클래스·per-parent limit 존재 검사를 추가한다. 기존 단일 renderer/관리 기능/권한 검사는 유지한다.
 - 캐시 기대값만: `project-v3-structure`, `calendar-hotfix`, `startup-performance`, `task-layout-groups`, `suborganization-filters`, `organization-order`와 두 workflow. `team-list`의 기대값·검사는 수정하지 않는다.
 
 ## 검증·제한
 
 - Node 341/341 통과: `node --test tests/*.test.mjs tests/security/*.test.mjs tests/domain/*.test.mjs scripts/*.test.mjs`.
-- 관련 Chromium **178/178 통과**: project-system-v3, project-v3-structure, team-list, suborganization-filters, startup-performance, calendar-hotfix, task-layout-groups, organization-order(148), add-button-placement/list-typography(20), d4c-polish(10). PR CI 결과는 PR에 기록한다. 클라우드에서는 관련 spec만 실행하며 전체 E2E는 PR CI가 실행한다. 설치된 `/usr/bin/chromium`, `/tmp` 임시 설정을 사용한다.
+- 관련 Chromium **198/198 통과**: project-system-v3, project-v3-structure, team-list, suborganization-filters, startup-performance, calendar-hotfix, task-layout-groups, organization-order(148), add-button-placement/list-typography(20), d4c-polish(10), button-sizing/modal-typography(20). 첫 전체 CI는 1009/1015 통과, 이 두 spec의 이전 디자인 기대값 6개 실패를 수정하고 관련 20개를 재검증했다. PR CI 결과는 PR에 기록한다. 클라우드에서는 관련 spec만 실행하며 전체 E2E는 PR CI가 실행한다. 설치된 `/usr/bin/chromium`, `/tmp` 임시 설정을 사용한다.
 - 정적: smoke/담당조직/조직 상세 workflow의 Check 단계, JS 구문 검사, `git diff --check`, 재귀 캐시 검사.
 - 캐시: project V3 JS v41/CSS v24, suborganizations JS v16/CSS v11, list-row CSS v1, view-loader v103, loader-v2 v335, app v223, styles v73(login 참조). index.html까지 전파한다.
 - DB·Edge·RLS·저장 키 변경 및 production 접근 없음. 포함 관계 SQL의 원래 FK DDL은 저장소에 없어 연결 발견 자체는 운영에 접속해 검증하지 않았다. 표준 PostgREST `!project_id` 구문을 사용하며 포함 관계 실패에도 이름·상세는 유지된다.
