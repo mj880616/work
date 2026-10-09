@@ -175,11 +175,10 @@ test('feature navigation lazy-loads only the destination view and nonmembers sto
 });
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-async function loginWithMock(page,{delayGroups=false}={}){
+async function loginWithMock(page){
   const user={id:'p6-flow-user',email:'p6-flow@example.org',user_metadata:{display_name:'P6 QA'}};
   await page.route(SB+'/**',async route=>{
     const path=new URL(route.request().url()).pathname;
-    if(delayGroups&&path==='/rest/v1/app_tasks')await new Promise(resolve=>setTimeout(resolve,700));
     const data=path==='/auth/v1/token'?{access_token:'p6-flow-access',refresh_token:'p6-flow-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user}:
       path==='/auth/v1/user'?user:
       path==='/rest/v1/app_workspace_members'?[{workspace_id:'p6-flow-workspace',user_id:user.id,role:'owner',workspace:{id:'p6-flow-workspace',slug:'kptu-work',name:'웹2'}}]:
@@ -199,9 +198,20 @@ async function loginWithMock(page,{delayGroups=false}={}){
 }
 
 test('tab navigation waits for deferred feature data on first click',async({page})=>{
-  await loginWithMock(page,{delayGroups:true});
-  await clickView(page,'tasks');
-  await expect(page.locator('#deferredFeatureStatus')).toBeVisible();
+  let release;
+  const pending=new Promise(resolve=>release=resolve);
+  // Home preloads this dependency in the background; the first task navigation awaits it.
+  // Keep it pending until the loading state is observed instead of racing a fixed delay.
+  await page.route('**/app/google-tasks.js?*',async route=>{await pending;await route.continue();});
+  try{
+    await loginWithMock(page);
+    await clickView(page,'tasks');
+    await expect(page.locator('#deferredFeatureStatus')).toBeVisible();
+    await expect(page.locator('#deferredFeatureStatus')).toHaveAttribute('role','status');
+    await expect(page.locator('#deferredFeatureStatus')).toHaveText('기능을 불러오는 중입니다…');
+    await expect(page.locator('#homeView')).toBeVisible();
+    await expect(page.locator('#tasksView')).toBeHidden();
+  }finally{release();}
   await expect(page.locator('#tasksView')).toBeVisible({timeout:15000});
   await expect(page.locator('#deferredFeatureStatus')).toHaveCount(0);
 });
