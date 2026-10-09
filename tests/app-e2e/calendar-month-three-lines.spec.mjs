@@ -24,7 +24,7 @@ for(const [width,height] of [[360,640],[360,844],[390,640],[390,844],[686,820]])
     expect(slots).toBeGreaterThanOrEqual(4);
     await expect(week.locator('.cmv-event')).toHaveCount(slots-1);
     await expect(week.locator('.kptu-day-more')).toHaveText('+'+(20-slots+1));
-    await expect(marker).toHaveText('✓1');await expect(marker).toHaveAccessibleName('할 일 1개');
+    await expect(marker).toHaveText('1');await expect(marker).toHaveAccessibleName('할 일 1개');
     await expect(marker).toHaveCSS('font-size','12px');expect(await marker.evaluate(el=>getComputedStyle(el).color)).toBe(await page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-muted)';document.body.append(el);const color=getComputedStyle(el).color;el.remove();return color}));
     await expect(cell.locator('button.cmv-task-count')).toHaveCount(0);
     await expect(page.locator('#calendarGrid button button')).toHaveCount(0);
@@ -45,7 +45,7 @@ for(const [width,height] of [[360,640],[360,844],[390,640],[390,844],[686,820]])
     expect(metrics.font).toEqual(Array(slots-1).fill('8px'));expect(metrics.line).toEqual(Array(slots-1).fill('13px'));
     expect(metrics.scroll).toBeLessThanOrEqual(metrics.viewport);
     const only=page.locator('.cal-cell[data-date="2026-10-23"]');
-    await expect(only.locator('.cmv-task-count')).toHaveText('✓1');
+    await expect(only.locator('.cmv-task-count')).toHaveText('1');
     await expect(only.locator('.cmv-task-count')).toHaveCSS('color','rgb(180, 35, 24)');
     await expect(page.locator('.cal-cell[data-date="2026-10-24"] .cmv-task-count')).toHaveCount(0);
     await number.click();await expect(page.locator('#calendarDayModal')).toBeVisible();
@@ -66,7 +66,7 @@ for(const width of [761,884,1280]){
   test(`desktop cell creates and ✓1 opens the day (${width}px)`,async({page})=>{
     await page.setViewportSize({width,height:844});await openEmphasisFixture(page);await renderFour(page);
     const cell=page.locator(`.cal-cell[data-date="${date}"]`),marker=cell.locator('button.cmv-task-count');
-    await expect(marker).toHaveText('✓1');await expect(marker).toHaveAccessibleName('할 일 1개');
+    await expect(marker).toHaveText('1');await expect(marker).toHaveAccessibleName('할 일 1개');
     const box=await marker.boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
     await cell.locator('.cal-day').click();await expect(page.locator('#eventModal')).toBeVisible();
     await expect(page.locator('#eventStartDate')).toHaveValue(date);

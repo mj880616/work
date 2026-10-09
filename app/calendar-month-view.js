@@ -233,7 +233,7 @@
           if(mq760.matches)count.setAttribute('role','img');else count.type='button';
           count.className='cmv-task-count';
           const overdue=pending.some(t=>t.overdue);count.classList.toggle('cmv-task-count-overdue',overdue);
-          count.textContent=`✓${pending.length}`;count.setAttribute('aria-label',`할 일 ${pending.length}개`+(overdue?', 기한 지남 포함':''));
+          count.innerHTML=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg><span>${pending.length}</span>`;count.setAttribute('aria-label',`할 일 ${pending.length}개`+(overdue?', 기한 지남 포함':''));
           if(mq760.matches){
             const list=cell.querySelector('.cmv-date-list');
             list.setAttribute('aria-label',list.getAttribute('aria-label')+', '+count.getAttribute('aria-label'));

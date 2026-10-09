@@ -234,7 +234,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
   });
   expect(bounds.paintedHeight).toBe(painted);expect(bounds.width).toBeGreaterThanOrEqual(44);expect(bounds.height).toBeGreaterThanOrEqual(44);expect(bounds.hits.every(hit=>hit.same),selector+' '+JSON.stringify(bounds)).toBe(true);
  };
- await check('#prevMonthBtn',width===1440?38:32);await check('#nextMonthBtn',width===1440?38:32);await check('#newEventBtn',36);
+ await check('#prevMonthBtn',32);await check('#nextMonthBtn',32);await check('#newEventBtn',32);
  await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
  await check('#eventModal .icon-btn',32);await check('#saveEventBtn',36);
  const close=page.locator('#eventModal .icon-btn');await close.scrollIntoViewIfNeeded();const r=await close.boundingBox();

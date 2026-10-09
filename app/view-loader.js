@@ -21,7 +21,7 @@ function style(path){
 }
 const routeStyles={
   home:['./choice-sheet.css?v=1','./home-read.css?v=8','./google-tasks.css?v=24'],
-  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=29'],
+  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=33'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=24'],
   projects:['./project-system-v3.css?v=23','./forum-flow-polish.css?v=2','./google-tasks.css?v=24'],
   library:['./library-upload.css?v=4','./compact-list.css?v=2'],
@@ -62,8 +62,8 @@ function afterReveal(){
   });
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=18','__KPTU_CALENDAR_MONTH_VIEW_READY__');
-  await module('./calendar-view.js?v=4');
+  await module('./calendar-month-view.js?v=19','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-view.js?v=5');
   await projectCatalog();
   await team('calendar');
   await module('./calendar-plus.js?v=11','__KPTU_CALENDAR_PLUS_READY__');
@@ -73,7 +73,7 @@ async function calendar(){
     module('./calendar-day-overflow.js?v=9','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
-  const google=module('./calendar-persistence.js?v=15','__KPTU_CALENDAR_PERSISTENCE_READY__');
+  const google=module('./calendar-persistence.js?v=16','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
   background(style('./suborganizations.css?v=9').then(organizationOrder).then(()=>module('./suborganizations.js?v=14','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));

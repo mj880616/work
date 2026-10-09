@@ -36,11 +36,11 @@ for(const view of ['invalid'])test(`saved ${view} falls back on phone`,async({pa
 test('chosen view survives reload; PC defaults to week',async({page})=>{
   await open(page,1280);
   await expect(page.locator('#calendarWeek')).toBeVisible();
-  await page.getByRole('button',{name:'목록',exact:true}).click();
+  await page.getByRole('button',{name:'목록 보기',exact:true}).click();
   await expect(page.locator('#calendarList')).toBeVisible();
   await page.reload();
   await expect(page.locator('#calendarList')).toBeVisible();
-  await page.getByRole('button',{name:'월간',exact:true}).click();
+  await page.getByRole('button',{name:'월간 보기',exact:true}).click();
   await page.reload();
   await expect(page.locator('#calendarGrid')).toBeVisible();
   expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe('month');
@@ -118,7 +118,7 @@ test('background task refresh keeps the focused list control',async({page})=>{
 test('storage denied still opens the phone default and permits switching',async({page})=>{
   await page.addInitScript(()=>{const get=Storage.prototype.getItem,set=Storage.prototype.setItem;Storage.prototype.getItem=function(key){if(key==='kptu-calendar-view')throw new Error('QA storage denied');return get.call(this,key)};Storage.prototype.setItem=function(key,value){if(key==='kptu-calendar-view')throw new Error('QA storage denied');return set.call(this,key,value)}});
   await open(page);await expect(page.locator('#calendarList')).toBeVisible();
-  await page.getByRole('button',{name:'월간',exact:true}).click();
+  await page.getByRole('button',{name:'월간 보기',exact:true}).click();
   await expect(page.locator('#calendarGrid')).toBeVisible();
 });
 
@@ -134,15 +134,17 @@ test('360px list range title stays one line and matches month typography',async(
   const first=await measure();
   expect(Number.isFinite(first.lineHeight)).toBe(true);
   expect(first.height).toBeLessThanOrEqual(first.lineHeight+0.5);
-  await expect(title).toHaveText('10월 15일 – 28일');
+  await expect(title.locator('.calendar-title-compact')).toHaveText('10월');
+  await expect(title).toHaveAccessibleName('2026년 10월 15일 – 28일');
   await page.locator('#nextMonthBtn').click();
-  await expect(title).toHaveText('10월 29일 – 11월 11일');
+  await expect(title.locator('.calendar-title-compact')).toHaveText('10월');
+  await expect(title).toHaveAccessibleName('2026년 10월 29일 – 2026년 11월 11일');
   const across=await measure();
   expect(across.height).toBeLessThanOrEqual(across.lineHeight+0.5);
   expect(across.whiteSpace).toBe('nowrap');
   expect(across.textOverflow).toBe('ellipsis');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(360);
-  await page.getByRole('button',{name:'월간',exact:true}).click();
+  await page.getByRole('button',{name:'월간 보기',exact:true}).click();
   const month=await measure();
   expect(first.fontSize).toBe(month.fontSize);
   expect(first.fontWeight).toBe(month.fontWeight);

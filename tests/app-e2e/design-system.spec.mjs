@@ -49,7 +49,7 @@ async function actionMetrics(page,view,selector){
   }));
 }
 
-test('Design System 1.0 keeps the 36px top-level action contract including calendar',async({page})=>{
+test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolbar',async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width:1024,height:900});
   await mockApp(page);
@@ -70,7 +70,7 @@ test('Design System 1.0 keeps the 36px top-level action contract including calen
   for(const name of tokenNames)expect(values[name],name).not.toBe('');
 
   const calendarAction=await actionMetrics(page,'calendar','#newEventBtn');
-  expect(calendarAction.height).toBeCloseTo(36,0);
+  expect(calendarAction.height).toBeCloseTo(32,0);
 
   const actions=[
     ['tasks','#newTaskBtn'],['projects','#newProjectBtn'],

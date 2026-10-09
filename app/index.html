@@ -18,11 +18,11 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=10">
 <link rel="preload" as="style" href="./desktop-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=328">
+<link rel="modulepreload" href="./loader-v2.js?v=332">
 <link rel="modulepreload" href="./runtime-client.js?v=7">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=216" defer></script>
+<script src="./app.js?v=220" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -82,8 +82,7 @@
 
   <section id="calendarView" class="view-panel hidden">
     <div id="calendarCard" class="calendar-card">
-      <div class="calendar-view-switch" role="group" aria-label="일정 보기"><button type="button" class="mini" data-calendar-view="list">목록</button><button type="button" class="mini" data-calendar-view="week">주간</button><button type="button" class="mini" data-calendar-view="month">월간</button></div>
-      <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="calendarTodayBtn" class="mini" type="button">오늘</button><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
+      <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="calendarTodayBtn" class="mini" type="button">오늘</button><span class="calendar-toolbar-divider" aria-hidden="true"></span><div class="calendar-view-switch" role="group" aria-label="일정 보기"><button type="button" class="mini" data-calendar-view="list" aria-label="목록 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><button type="button" class="mini" data-calendar-view="week" aria-label="주간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 7h21v10h-21zM4.5 7v10M7.5 7v10M10.5 7v10M13.5 7v10M16.5 7v10M19.5 7v10"/></svg></button><button type="button" class="mini" data-calendar-view="month" aria-label="월간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v16H4zM8 3v4m8-4v4M4 10h16M4 15h16M9 10v11M15 10v11"/></svg></button></div><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
       <div id="calendarList" class="hidden" aria-label="목록 일정"></div>
       <div id="calendarWeek" class="hidden" aria-label="주간 일정"></div>
       <div id="calendarGrid" class="calendar-grid" aria-label="월간 일정"></div>

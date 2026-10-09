@@ -7,8 +7,9 @@ for(const width of [360,1280]){
     await openEmphasisFixture(page);
     await expect(page.locator('#calendarGrid [data-calendar-task]')).toHaveCount(0);
     const badge=date=>page.locator(`.cal-cell[data-date="${date}"] .cmv-task-count`);
-    await expect(badge('2026-10-20')).toHaveText('✓1');
-    await expect(badge('2026-10-21')).toHaveText('✓17');
+    await expect(badge('2026-10-20')).toHaveText('1');
+    await expect(badge('2026-10-21')).toHaveText('17');
+    for(const date of ['2026-10-20','2026-10-21','2026-10-10']){await expect(badge(date).locator('svg')).toHaveCount(1);await expect(badge(date).locator('svg')).toHaveAttribute('aria-hidden','true');expect(await badge(date).locator('svg').evaluate(el=>getComputedStyle(el).stroke)).toBe(await badge(date).evaluate(el=>getComputedStyle(el).color));}
     await expect(badge('2026-10-20')).toHaveAccessibleName('할 일 1개');
     await expect(badge('2026-10-10')).toHaveAccessibleName('할 일 1개, 기한 지남 포함');
     await expect(badge('2026-10-10')).toHaveCSS('color','rgb(180, 35, 24)');
@@ -64,7 +65,7 @@ test('supplied done and overdue flags control the marker across themes',async({p
     {id:'c',title:'QA',date:'2026-10-20',done:false,overdue:false}
   ]));
   const marker=page.locator('.cmv-task-count');
-  await expect(marker).toHaveText('✓2');await expect(marker).toHaveAccessibleName('할 일 2개, 기한 지남 포함');
+  await expect(marker).toHaveText('2');await expect(marker).toHaveAccessibleName('할 일 2개, 기한 지남 포함');
   for(const theme of ['olive','navy','terracotta','sand']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     expect(await marker.evaluate(el=>getComputedStyle(el).color)).toBe(await page.evaluate(()=>{

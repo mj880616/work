@@ -13,7 +13,7 @@ test('PC default week has Monday through Sunday and one KST seven-day request',a
   await expect(page.locator('#calendarWeek')).toBeVisible();
   await expect(page.locator('.cwv-day')).toHaveCount(7);
   expect(await page.locator('.cwv-date').allTextContents()).toEqual(['월 12','화 13','수 14','목 15','금 16','토 17','일 18']);
-  await expect(page.locator('#monthTitle')).toHaveText('10월 12일 – 18일');
+  await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText('10월 12일 – 18일');
   await expect.poll(()=>calls.filter(c=>c.action==='events').length).toBe(1);
   const request=calls.find(c=>c.action==='events');
   expect(request.min).toBe('2026-10-11T15:00:00.000Z');
@@ -30,8 +30,8 @@ test('PC default week has Monday through Sunday and one KST seven-day request',a
 test('phone defaults to list; chosen week survives reload and has 56px dates',async({page})=>{
   await open(page,360);
   await expect(page.locator('#calendarList')).toBeVisible();
-  for(const name of ['목록','주간','월간'])await expect(page.getByRole('button',{name,exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'주간',exact:true}).click();
+  for(const name of ['목록 보기','주간 보기','월간 보기'])await expect(page.getByRole('button',{name,exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'주간 보기',exact:true}).click();
   await expect(page.locator('#calendarWeek')).toBeVisible();
   expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe('week');
   await page.reload();
@@ -52,7 +52,8 @@ test('week arrows move seven days, titles truncate across months and today reset
   await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-19');
   await expect.poll(()=>calls.filter(c=>c.action==='events').length).toBe(2);
   for(let i=0;i<3;i++)await page.locator('#prevMonthBtn').click();
-  await expect(page.locator('#monthTitle')).toHaveText('9월 28일 – 10월 4일');
+  await expect(page.locator('#monthTitle .calendar-title-compact')).toHaveText('9월');
+  await expect(page.locator('#monthTitle')).toHaveAccessibleName('2026년 9월 28일 – 2026년 10월 4일');
   const title=await page.locator('#monthTitle').evaluate(el=>({height:el.getBoundingClientRect().height,line:parseFloat(getComputedStyle(el).lineHeight),space:getComputedStyle(el).whiteSpace,overflow:getComputedStyle(el).textOverflow}));
   expect(title.height).toBeLessThanOrEqual(title.line+0.5);expect(title.space).toBe('nowrap');expect(title.overflow).toBe('ellipsis');
   await page.locator('#calendarTodayBtn').click();
