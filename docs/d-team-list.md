@@ -27,6 +27,7 @@
 - `suborganization-filters.spec.mjs`: 행의 유형 글자→없음 및 머리줄 “철도 · 1”; 목록·일정 체크 묶음 6→5; 9호선/김포 사이 경계 제거. 카드 테두리는 머리줄 아래 실제 카드에서 측정한다. 모듈 실패 검사는 비동기 import도 차단해 같은 오류 안내를 계속 검사한다.
 - `organization-detail-tasks.spec.mjs`: 같은 경계 1개 제거. 실제 Google 모듈의 조직 14/114개 요청 수 검사 추가.
 - `google-tasks-push.spec.mjs`: 같은 경계 1개 제거, 편집창 묶음 6→5. 13개 전체 이름 순서·선택 저장 검사는 유지.
+- `modal-typography.spec.mjs`: 390/1440px의 과거 목록 snapshot에서 분류 역할 한 개를 삭제하고, 이름 위 12px muted/400/18px 머리줄 역할을 정확히 추가한다. 분류 없음·“그 외 · 1” 텍스트를 별도로 검사하고 조직 이름·화살표·다른 화면·모달의 기존 글꼴 비교는 유지한다. 첫 PR CI 1005/1007의 실패 2건은 이 옛 기대값이었다.
 - `d4c-polish.spec.mjs`: 조직 목록의 카드 표면 측정 대상을 `.so-org-group`에서 `.so-group-card`로 변경. 흰 바탕·테두리·44px·행 배경 검사는 유지.
 - `drive-summary.test.mjs`: Edge 5묶음과 UI 4묶음의 관계(처음 3개 동일, 마지막 두 배열 합치기)를 정확히 검사하고 양쪽 전체 순서 동일성·미등록 정렬 검사를 유지.
 - 캐시 버전 기대값만 변경: `organization-order`, `suborganization-filters`, `startup-performance`, `calendar-hotfix`, `task-layout-groups` spec 및 `app-smoke-check`·`suborganization-filters-e2e` workflow. 조건·성능 한도·검사 수는 줄이지 않았다.
@@ -34,8 +35,8 @@
 ## 검증
 
 - Node: `node --test tests/*.test.mjs tests/security/*.test.mjs tests/domain/*.test.mjs scripts/*.test.mjs` — 341/341 통과.
-- Chromium: 관련 spec 101/101 통과. 관련 spec만 로컬 실행, 전체 E2E는 PR CI. 설치된 `/usr/bin/chromium`을 임시 설정으로 사용한다(운영·저장소 설정 변경 없음).
-- 관련 spec: `team-list`, `organization-order`, `suborganization-filters`, `organization-detail-tasks`, `google-tasks-push`, `home-selection-sheet`, `d4c-polish`, `task-layout-groups`, `startup-performance`, `calendar-hotfix`.
+- Chromium: 관련 spec 107/107 통과. 관련 spec만 로컬 실행, 전체 E2E는 PR CI. 설치된 `/usr/bin/chromium`을 임시 설정으로 사용한다(운영·저장소 설정 변경 없음).
+- 관련 spec: `team-list`, `organization-order`, `suborganization-filters`, `organization-detail-tasks`, `google-tasks-push`, `home-selection-sheet`, `d4c-polish`, `task-layout-groups`, `startup-performance`, `calendar-hotfix`, `modal-typography`.
 - 360·390·1280px: 이름·개수·그 외 숨김·유형 없음·✓N·날짜·빈 경우·danger·말줄임·넘침 없음·누름 높이·높이 맞춤·상세 열기. 조회 지연/실패, Google 연결 해제, 기록 500행 초과, 실제 모듈의 조직 수 대비 요청 수 포함.
 - 정적: 기존 smoke·담당조직·조직 상세·프로필 workflow의 Check/Validate 단계, `git diff --check`, JS 구문 검사, `check-loader-cache`.
 - 캐시: organization-order v2, suborganizations JS v15/CSS v10, home-read v11, view-loader v102, loader-v2 v334, app v222, styles v72(login 참조). index.html까지 전파.
