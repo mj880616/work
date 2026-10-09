@@ -31,7 +31,7 @@
   .library-dropzone{min-height:76px;padding:12px;border-style:solid}
   .library-picker-desktop{display:none}
   .library-picker-mobile{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-link)!important;font-size:12px!important}
-  .library-picker-hint{font-size:10.5px!important}
+  .library-picker-hint{font-size:var(--kptu-text-meta)!important}
   .library-selected-file{padding:9px 10px}
   .library-edit-grid{grid-template-columns:1fr}
 }
@@ -53,3 +53,6 @@
 .lu-more-panel button:hover,.lu-more-panel button:focus-visible{background:var(--kptu-primary-soft)}
 .lu-more-panel button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .lu-more-panel .lu-menu-danger{color:var(--kptu-danger)}
+
+/* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
+#documentModal .library-dropzone strong{font-size:var(--kptu-text-body)}

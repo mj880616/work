@@ -186,3 +186,72 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
    }
    await dayOriginal.close();
 });
+
+// D-6b compares the exact pre-cleanup main, independent of future origin/main movement.
+const d6bMain='23f5b87241a6a8b2db4f6bb552237ef4d41a3139';
+const d6bSource=path=>execFileSync('git',['show',d6bMain+':app/'+path],{encoding:'utf8'});
+const d6bSelectors=d6bSource('base-ui.css').split('\n').slice(194,210).map(line=>line.split('{')[0]);
+
+async function d6bPrepare(page,source){
+ await boot(page);
+ for(const name of ['projects','meetings','team','library','tasks','calendar','media','pages'])await view(page,name);
+ await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();
+ await page.locator('[data-ps3-project="type-project"]').first().click();
+ await expect(page.locator('#ps3DetailModal')).toBeVisible();
+ await expect(page.locator('#ps3Body [data-ps3-gtasks] .gt-row')).toHaveCount(1);
+ await page.evaluate(()=>KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));
+ await expect(page.locator('#gtPickModal')).toBeVisible();
+ // Render the retained but unloaded workflow markup without loading or executing its module.
+ const workflow=source('workflow-ai-v3.js');
+ const ai=workflow.match(/function installMeetingAi\(\).*?insertAdjacentHTML\('beforeend',`([^`]+)`/s)[1];
+ const rule=workflow.match(/<p id="wfTaskRule"[^>]+>[^<]+<\/p>/)[0];
+ await page.evaluate(({ai,rule})=>{
+  document.body.insertAdjacentHTML('beforeend',ai);document.querySelector('#taskModal').insertAdjacentHTML('beforeend',rule);
+  // Deferred/retained roles whose normal templates need additional API data, or no longer render.
+  // Same structural markup on both sides, including status variants overridden by D-3e metadata color.
+  const deferred={
+   ps3DetailModal:'<div class="ps3-summary"><b>목표</b></div><div class="ps3-stat-grid"><b>1</b><span>개수</span></div><div class="ps3-row-main"><b>제목</b></div><div class="ps3-row-title"><b>제목</b></div><div class="ps3-type-row"><b>유형</b><small>설명</small></div><p class="ps3-pg-next">다음</p><span class="ps3-pg-summary">진행</span><span class="badge published">완료</span>',
+   ps3CreateModal:'<div class="ps3-type-row"><b>유형</b><small>설명</small></div>',
+   wdModal:'<div class="wd-year">2026년</div><span class="wd-aff-chip taskforce">소속</span>',
+   documentModal:'<div class="library-selected-file error"><span class="library-upload-state">실패</span></div><div class="library-selected-file unknown"><span class="library-upload-state">확인</span></div>'
+  };
+  for(const [id,html] of Object.entries(deferred))document.getElementById(id).insertAdjacentHTML('beforeend',html);
+ },{ai,rule});
+}
+
+async function d6bSnapshot(page){
+ return page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].map(el=>{
+  const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color};
+ })})),d6bSelectors);
+}
+
+for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size and color '+width,async({page,browser},testInfo)=>{
+ const fs=await import('node:fs');
+ await page.setViewportSize({width,height:900});
+ const original=await browser.newPage({viewport:{width,height:900}});
+ try{
+  await baseline(original,d6bMain);
+  await d6bPrepare(original,d6bSource);await d6bPrepare(page,path=>fs.readFileSync('app/'+path,'utf8'));
+  const before=await d6bSnapshot(original),after=await d6bSnapshot(page);
+  expect(before).toHaveLength(16);
+  for(const row of before)expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
+  expect(after).toEqual(before);
+  await testInfo.attach('d6b-main-style-comparison',{body:JSON.stringify({main:d6bMain,width,before,after},null,2),contentType:'application/json'});
+ }finally{await original.close()}
+});
+
+test('D-6b keeps hide priorities and removes only dialog priorities',async()=>{
+ const fs=await import('node:fs'),css=fs.readFileSync('app/base-ui.css','utf8');
+ expect(css.match(/!important/g)).toHaveLength(4);
+ expect(css.split('\n').slice(54,57)).toEqual(d6bSource('base-ui.css').split('\n').slice(54,57));
+ const owners=['workspace-ui.css','project-system-v3.css','workplace-detail.css','library-upload.css','meeting-ui.css','google-tasks.css','web1-board.css'];
+ const owned=owners.map(path=>{
+  const current=fs.readFileSync('app/'+path,'utf8');
+  expect((current.match(/!important/g)||[]).length,path+' adds no priorities').toBe((d6bSource(path).match(/!important/g)||[]).length);
+  return current;
+ }).join('\n');
+ for(const selector of d6bSelectors){
+  const rule=owned.split('\n').find(line=>line.startsWith(selector+'{'));
+  expect(rule,selector+' stays explicit').toBeDefined();expect(rule).not.toContain('!important');
+ }
+});

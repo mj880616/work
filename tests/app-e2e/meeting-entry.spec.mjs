@@ -911,7 +911,7 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).toContain("import('./team.js?v=62')");
   expect(views).toContain('task-workflow.js?v=9');
   expect(views).toContain('meeting-round-detail.js?v=21');
-  expect(views).toContain('meeting-ui.css?v=12');
+  expect(views).toContain('meeting-ui.css?v=13');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
@@ -924,5 +924,5 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingProject']");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
-  expect(css).toContain("meeting-ui.css?v=12");
+  expect(css).toContain("meeting-ui.css?v=13");
 });
