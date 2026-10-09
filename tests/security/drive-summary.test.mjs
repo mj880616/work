@@ -178,7 +178,13 @@ function harness(options = {}) {
     const ctx = { window: {} };
     vm.runInNewContext(readFileSync(new URL('../../app/organization-order.js', import.meta.url), 'utf8'), ctx);
     const app = ctx.window.KPTUOrganizationOrder;
-    assert.equal(JSON.stringify(core.ORGANIZATION_GROUPS), JSON.stringify(app.GROUPS));
+    // D-담당조직목록 combines only the last two UI groups. The Edge uses these arrays solely for sorting;
+    // preserve and verify its deployed structure and the exact relationship to the four UI groups.
+    assert.equal(core.ORGANIZATION_GROUPS.length, 5);
+    assert.equal(app.GROUPS.length, 4);
+    const uiGroups = [...core.ORGANIZATION_GROUPS.slice(0, 3), core.ORGANIZATION_GROUPS.slice(3).flat()];
+    assert.equal(JSON.stringify(uiGroups), JSON.stringify(app.GROUPS));
+    assert.equal(JSON.stringify(core.ORGANIZATION_GROUPS.flat()), JSON.stringify(app.GROUPS.flat()));
     const rows = [...app.GROUPS.flat(), '가상', '나상', '', '궤도협의회'].map(name => ({ name })).reverse();
     assert.deepEqual(rows.slice().sort(core.compareOrganizations).map(r => r.name), Array.from(app.sort(rows), r => r.name));
   });

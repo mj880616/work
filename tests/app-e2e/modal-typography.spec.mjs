@@ -91,7 +91,18 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await page.locator('[data-gt-info]').click();await audit(page,'gtScopeModal');await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveCSS('font-size','14px');await page.locator('[data-gt-scope-close]').click();
   }
   const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('#gtTaskSection,.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task]')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);const title=e.closest('#monthTitle');if(title)return ['B','',e.id==='monthTitle'&&innerWidth<=760?'20px':s.fontSize,s.color,s.fontWeight,e.id==='monthTitle'&&innerWidth<=760?'24px':s.lineHeight];if(e.id==='prevMonthBtn'||e.id==='nextMonthBtn')return [e.tagName,e.className,'calendar-arrow','muted',s.fontWeight,'1'];return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
-  expect(await snapshot(page),name).toEqual(await snapshot(original));
+  const expected=await snapshot(original);
+  if(name==='team'){
+    // D-담당조직목록 intentionally replaces only the type role with a group heading above the retained name.
+    const typeIndex=expected.findIndex(row=>row[1]==='sof-type');expect(typeIndex).toBeGreaterThan(0);
+    expected.splice(typeIndex,1);
+    const nameIndex=expected.findIndex(row=>row[0]==='H4');expect(nameIndex).toBeGreaterThan(0);
+    const muted=await original.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-muted)';document.body.append(e);const color=getComputedStyle(e).color;e.remove();return color});
+    expected.splice(nameIndex,0,['DIV','so-group-heading','12px',muted,'400','18px']);
+    await expect(page.locator('#soOrganizationList .sof-type')).toHaveCount(0);
+    await expect(page.locator('#soOrganizationList .so-group-heading')).toHaveText('그 외 · 1');
+  }
+  expect(await snapshot(page),name).toEqual(expected);
   if(name==='calendar'){for(const id of ['prevMonthBtn','nextMonthBtn']){await expect(page.locator('#'+id)).toHaveCSS('font-size','24px');await expect(page.locator('#'+id)).toHaveCSS('line-height','24px');}}
   if(name==='calendar'&&width<=760){await expect(page.locator('#monthTitle')).toHaveCSS('font-size','20px');await expect(page.locator('#monthTitle')).toHaveCSS('line-height','24px');}
 

@@ -9,9 +9,9 @@ const GROUPS=Object.freeze([
   ['전국철도노동조합'],
   ['서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합'],
   ['서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부'],
-  ['메트로9호선노동조합','서울교통공사9호선지부'],
-  ['김포도시철도지부','용인경전철지부']
+  ['메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부']
 ].map(names=>Object.freeze(names)));
+const GROUP_NAMES=Object.freeze(['철도','지하철','민자철도','민간도시철도','그 외']);
 // Old spaces that are not offered for picking. Only pickers leave them out; their rows are not touched.
 const PICKER_EXCLUDED=Object.freeze(['궤도협의회']);
 // The home update input (not built yet) puts the organizations recorded most recently on top.
@@ -21,6 +21,7 @@ GROUPS.forEach((names,group)=>names.forEach((name,index)=>place.set(name,{group,
 const excluded=new Set(PICKER_EXCLUDED);
 const nameOf=o=>String(o?.name??'');
 const groupOf=o=>place.get(nameOf(o))?.group??GROUPS.length;
+const groupName=o=>GROUP_NAMES[groupOf(o)];
 function compare(a,b){
   const pa=place.get(nameOf(a)),pb=place.get(nameOf(b));
   if(pa&&pb)return pa.group-pb.group||pa.index-pb.index;
@@ -50,5 +51,5 @@ function withRecent(list,recentIds=[],limit=RECENT_LIMIT){
   }
   return {recent,groups:groups(list)}
 }
-window.KPTUOrganizationOrder=Object.freeze({GROUPS,PICKER_EXCLUDED,RECENT_LIMIT,compare,sort,groups,forPicker,unlisted,withRecent});
+window.KPTUOrganizationOrder=Object.freeze({GROUPS,GROUP_NAMES,groupName,PICKER_EXCLUDED,RECENT_LIMIT,compare,sort,groups,forPicker,unlisted,withRecent});
 })();

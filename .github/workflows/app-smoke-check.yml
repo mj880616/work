@@ -68,7 +68,7 @@ jobs:
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./action-labels.js?v=1')",
             "import('./team.js?v=62')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=101')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=102')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -131,7 +131,7 @@ jobs:
           grep -q "meeting-ui.css?v=12" app/view-loader.js
           grep -q "web1-press.css?v=4" app/view-loader.js
           grep -q "web1-board.css?v=5" app/view-loader.js
-          grep -q "suborganizations.css?v=9" app/view-loader.js
+          grep -q "suborganizations.css?v=10" app/view-loader.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
           grep -q "capabilities.js?v=3" app/loader-v2.js

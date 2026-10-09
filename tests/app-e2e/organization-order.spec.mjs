@@ -32,14 +32,13 @@ test('13 organizations follow the decided order whatever the input order',()=>{
   expect(names(input)).not.toEqual(ORDER);
 });
 
-test('groups break exactly at the five decided boundaries',()=>{
+test('groups break exactly at the four decided groups',()=>{
   const order=load();
   expect(order.groups(shuffled(known)).map(names)).toEqual([
     ['전국철도노동조합'],
     ['서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합'],
     ['서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부'],
-    ['메트로9호선노동조합','서울교통공사9호선지부'],
-    ['김포도시철도지부','용인경전철지부']
+    ['메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부']
   ]);
   // Groups with no organization leave no empty group, so screens never draw two lines in a row.
   expect(order.groups([org('용인경전철지부',1),org('전국철도노동조합',2),org('공항철도지부',3)]).map(names)).toEqual([
@@ -52,7 +51,7 @@ test('organizations outside the 13 come last in 가나다 order, in their own gr
   const order=load();
   const others=[org('한국소비자원지부',20),org('가축위생방역지원본부지부',21),org('국민연금지부',22),org('금화PSC지부',23)];
   const result=order.groups(shuffled([...others,...known]));
-  expect(result).toHaveLength(6);
+  expect(result).toHaveLength(5);
   expect(names(result.at(-1))).toEqual(['가축위생방역지원본부지부','국민연금지부','금화PSC지부','한국소비자원지부']);
   expect(names(result.flat()).slice(0,13)).toEqual(ORDER);
   // Matching is by exact name, as before: a name with an extra space is not one of the 13, and it is counted for the warning.
@@ -101,6 +100,15 @@ test('the decided order is defined in one place in the app',()=>{
   const views=readFileSync('app/view-loader.js','utf8');
   const block=name=>{const rest=views.slice(views.indexOf(`async function ${name}()`)),end=rest.search(/\r?\n\}\r?\n/);expect(end).toBeGreaterThan(0);return rest.slice(0,end)};
   for(const name of ['tasks','projects','organizations'])expect(block(name)).toContain('await organizationOrder()');
-  expect(block('calendar')).toContain("then(organizationOrder).then(()=>module('./suborganizations.js?v=14'");
-  expect(views).toContain("module('./organization-order.js?v=1')");
+  expect(block('calendar')).toContain("then(organizationOrder).then(()=>module('./suborganizations.js?v=15'");
+  expect(views).toContain("module('./organization-order.js?v=2')");
+});
+
+test('group names follow actual membership, including sparse and outside groups',()=>{
+  const order=load();
+  expect(order.GROUP_NAMES).toEqual(['철도','지하철','민자철도','민간도시철도','그 외']);
+  expect(order.groups(known).map(g=>order.groupName(g[0]))).toEqual(order.GROUP_NAMES.slice(0,4));
+  expect(order.groupName(org('용인경전철지부',1))).toBe('민간도시철도');
+  expect(order.groupName(org('다른 조직',2))).toBe('그 외');
+  expect(order.groups([]).map(g=>order.groupName(g[0]))).toEqual([]);
 });
