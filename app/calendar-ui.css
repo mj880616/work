@@ -170,7 +170,7 @@
 }
 
 /* D-4b list and shared day sections. Month cells keep their existing rules. */
-.calendar-view-switch{display:flex;align-items:center;gap:8px;margin:0;flex:none;height:32px;padding:0 4px;outline:1px solid var(--kptu-border);outline-offset:-1px;border-radius:var(--kptu-radius-md)}
+.calendar-view-switch{--kptu-radius-none:0px;display:flex;align-items:center;gap:8px;margin:0;flex:none;height:32px;padding:0 4px;outline:1px solid var(--kptu-border);outline-offset:-1px;border-radius:var(--kptu-radius-md)}
 .calendar-view-switch button[aria-pressed="true"]{background:var(--kptu-primary);color:var(--kptu-on-primary)}
 #calendarList{width:100%}
 .clv-day{margin:16px 0}
@@ -186,9 +186,9 @@
 #calendarDayTasks h3{font-size:16px;font-weight:700;margin:16px 0 8px}
 #calendarDayEvents,#calendarDayTasks{display:grid;gap:8px}
 
-.calendar-view-switch .mini{box-sizing:border-box;width:36px;height:32px;min-width:36px;min-height:32px;padding:0;border:0;border-radius:0;background:transparent}
-.calendar-view-switch .mini:first-child{border-radius:var(--kptu-radius-md) 0 0 var(--kptu-radius-md)}
-.calendar-view-switch .mini:last-child{border-radius:0 var(--kptu-radius-md) var(--kptu-radius-md) 0}
+.calendar-view-switch .mini{box-sizing:border-box;width:36px;height:32px;min-width:36px;min-height:32px;padding:0;border:0;border-radius:var(--kptu-radius-none);background:transparent}
+.calendar-view-switch .mini:first-child{border-radius:var(--kptu-radius-md) var(--kptu-radius-none) var(--kptu-radius-none) var(--kptu-radius-md)}
+.calendar-view-switch .mini:last-child{border-radius:var(--kptu-radius-none) var(--kptu-radius-md) var(--kptu-radius-md) var(--kptu-radius-none)}
 #calendarTodayBtn{font-size:12px;min-height:36px;padding:0 8px;border-radius:var(--kptu-radius-md)}
 #calendarTodayBtn{margin-left:6px}
 
