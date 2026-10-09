@@ -1,0 +1,75 @@
+{
+  "start_main": "db81bf582d541f4b38028424837e80e77fb8fc4c",
+  "baseline_report": "docs/test-flaky-cleanup-2.md (9f44ecd0 historical measurement, no re-investigation)",
+  "playwright": "1.55.0",
+  "chromium": "151.0.7922.173",
+  "node": "24.19.0",
+  "retries": 0,
+  "assertion_timeout_ms": 5000,
+  "test_timeout_ms": 30000,
+  "trace": "retain-on-failure",
+  "video": "retain-on-failure",
+  "repeat_each": 50,
+  "reports": {
+    "workers=1": {
+      "stats": {
+        "startTime": "2026-10-09T19:09:32.192Z",
+        "duration": 563955.445,
+        "expected": 300,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "tests": {
+        "Web2 board renders all five business pages from repository HTML source and returns to the list": {
+          "passed": 50
+        },
+        "Web1 board internal links stay in the reader and load the linked repository file": {
+          "passed": 50
+        },
+        "Web1 board source failure shows a controlled reader error instead of a browser Not Found page": {
+          "passed": 50
+        },
+        "loaded mobile board closes with one Back and keeps the list from home": {
+          "passed": 50
+        },
+        "loaded mobile board closes with one Back and keeps the list from pages": {
+          "passed": 50
+        },
+        "a late first board response cannot replace the next detail": {
+          "passed": 50
+        }
+      }
+    },
+    "workers=4": {
+      "stats": {
+        "startTime": "2026-10-09T19:03:00.077Z",
+        "duration": 386447.098,
+        "expected": 300,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "tests": {
+        "Web2 board renders all five business pages from repository HTML source and returns to the list": {
+          "passed": 50
+        },
+        "Web1 board internal links stay in the reader and load the linked repository file": {
+          "passed": 50
+        },
+        "Web1 board source failure shows a controlled reader error instead of a browser Not Found page": {
+          "passed": 50
+        },
+        "loaded mobile board closes with one Back and keeps the list from home": {
+          "passed": 50
+        },
+        "loaded mobile board closes with one Back and keeps the list from pages": {
+          "passed": 50
+        },
+        "a late first board response cannot replace the next detail": {
+          "passed": 50
+        }
+      }
+    }
+  }
+}
