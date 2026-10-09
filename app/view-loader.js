@@ -27,7 +27,7 @@ const routeStyles={
   library:['./library-upload.css?v=5','./compact-list.css?v=2'],
   meetings:['./meeting-ui.css?v=13','./google-tasks.css?v=25'],
   media:['./web1-press.css?v=4'],
-  pages:['./web1-board.css?v=6'],
+  pages:['./web1-board.css?v=7'],
   team:['./suborganizations.css?v=11','./workplace-detail.css?v=7','./google-tasks.css?v=25']
 };
 async function prepare(view){
@@ -121,7 +121,7 @@ async function media(){
   return {ok:true}
 }
 async function pages(){
-  await module('./web1-board.js?v=3');
+  await module('./web1-board.js?v=4');
   return {ok:true}
 }
 async function organizations(){

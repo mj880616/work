@@ -11,11 +11,10 @@
     {key:'rail-council',title:'궤도협의회',description:'철도·지하철 공동투쟁 · 확대간부수련회 · 산별전환 등 궤도 공동사업',badge:'궤도 공동사업',href:WORK_ORIGIN+'/work/rail-council/',source:'rail-council/index.html'},
     {key:'sanbyeol',title:'산별전환 업무 현황',description:'철도 · 지하철 · 국토정보공사 등 조직별 교육·간담회·의결 경과와 교육 피드백',badge:'중앙 사무처',href:WORK_ORIGIN+'/work/sanbyeol/',source:'sanbyeol/index.html'}
   ];
-  let state=new Map(),loaded=false,detailTrigger=null,detailEpoch=0;
+  let state=new Map(),loaded=false,detailTrigger=null,detailEpoch=0,pendingReader=null;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const card=x=>`<button class="w1b-card" type="button" data-web1-board-href="${esc(x.href)}" data-web1-board-source="${esc(x.source)}" data-web1-board-title="${esc(x.title)}"><div class="w1b-card-top"><span class="badge">${esc(x.badge)}</span><span class="w1b-open">내용 보기</span></div><h3>${esc(x.title)}</h3><p>${esc(x.description)}</p></button>`;
   const rawUrl=path=>RAW+path.split('/').map(encodeURIComponent).join('/')+'?_='+Date.now();
-  const loadingDoc=()=>`<!doctype html><html lang="ko"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;color:#66727f;padding:28px;margin:0}p{margin:0}</style><body><p>본문을 불러오는 중입니다…</p></body></html>`;
   const errorDoc=canonical=>`<!doctype html><html lang="ko"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;color:#1f2933;padding:28px;margin:0}p{color:#66727f;line-height:1.6}a{display:inline-block;margin-top:12px;color:#355f86;font-weight:700}</style><body><h2>본문을 불러오지 못했습니다.</h2><p>원본 파일을 불러오는 중 문제가 발생했습니다. 잠시 후 다시 시도하거나 Web1 원문을 열어 확인해 주세요.</p><a href="${esc(canonical)}" target="_blank" rel="noopener">Web1에서 열기</a></body></html>`;
   function injectReaderBridge(html,canonical){
     const base=`<base href="${esc(canonical)}">`;
@@ -47,34 +46,72 @@
     archivedWrap.classList.toggle('hidden',!zz.length);
     host.dataset.web1BoardReady='1'
   }
+  function discardPendingReader(){
+    pendingReader?.remove();
+    pendingReader=null
+  }
+  function replaceReader(html=null,canonicalHref='',sourcePath='',token=detailEpoch){
+    discardPendingReader();
+    const previous=document.querySelector('#web1BoardDetailFrame');
+    if(!previous)return;
+    // Configure the final document before attaching a fresh browsing context.
+    // Removing the old context also removes its child session history.
+    const frame=previous.cloneNode(false);
+    frame.removeAttribute('srcdoc');
+    frame.src='about:blank';
+    delete frame.dataset.web1BoardCanonical;
+    delete frame.dataset.web1BoardSource;
+    if(html!==null){
+      frame.srcdoc=html;
+      frame.dataset.web1BoardCanonical=canonicalHref;
+      frame.dataset.web1BoardSource=sourcePath;
+      frame.removeAttribute('id');
+      frame.classList.add('w1b-detail-pending');
+      frame.addEventListener('load',()=>{
+        if(pendingReader!==frame||token!==detailEpoch){frame.remove();return}
+        // Keep the sender alive through its click and the successor's document load.
+        // Publish in place: moving a loaded iframe would navigate it again.
+        previous.remove();
+        frame.id='web1BoardDetailFrame';
+        frame.classList.remove('w1b-detail-pending');
+        pendingReader=null;
+        showLoading(false)
+      },{once:true});
+      pendingReader=frame;
+      previous.after(frame);
+      return;
+    }
+    previous.replaceWith(frame);
+  }
+  function showLoading(loading){
+    document.querySelector('#web1BoardDetailStatus')?.classList.toggle('hidden',!loading);
+  }
   function closeDetail(){
     detailEpoch+=1;
     const modal=document.querySelector('#web1BoardDetailModal');
-    const frame=document.querySelector('#web1BoardDetailFrame');
     if(!modal)return;
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden','true');
-    if(frame){frame.removeAttribute('srcdoc');frame.src='about:blank';delete frame.dataset.web1BoardCanonical;delete frame.dataset.web1BoardSource}
+    replaceReader();
+    showLoading(false);
     window.KPTUA11y?.dialog.deactivate(modal,{restoreFocus:true,fallbackFocus:'#pagesView h2'});
     detailTrigger=null
   }
   async function loadIntoFrame(sourcePath,canonicalHref,token){
     const frame=document.querySelector('#web1BoardDetailFrame');
     if(!frame||token!==detailEpoch)return;
-    frame.src='about:blank';
-    frame.srcdoc=loadingDoc();
-    frame.dataset.web1BoardCanonical=canonicalHref;
-    frame.dataset.web1BoardSource=sourcePath;
+    discardPendingReader();
+    showLoading(true);
     try{
       const response=await fetch(rawUrl(sourcePath),{cache:'no-store',credentials:'omit',mode:'cors'});
       if(!response.ok)throw new Error('HTTP '+response.status);
       const html=await response.text();
       if(token!==detailEpoch)return;
-      frame.srcdoc=injectReaderBridge(html,canonicalHref)
+      replaceReader(injectReaderBridge(html,canonicalHref),canonicalHref,sourcePath,token)
     }catch(error){
-      console.error('Web1 board source load failed',sourcePath,error);
       if(token!==detailEpoch)return;
-      frame.srcdoc=errorDoc(canonicalHref)
+      console.error('Web1 board source load failed',sourcePath,error);
+      replaceReader(errorDoc(canonicalHref),canonicalHref,sourcePath,token)
     }
   }
   function openDetail(sourcePath,title,canonicalHref=''){
@@ -97,6 +134,17 @@
     const card=e.target.closest?.('[data-web1-board-href]');
     if(card){e.preventDefault();openDetail(card.dataset.web1BoardSource,card.dataset.web1BoardTitle,card.dataset.web1BoardHref);return}
     if(e.target.closest?.('[data-close-web1-board]'))closeDetail()
+  });
+  // Handle either import order: shared history may have already hidden the modal,
+  // or the board must close it using the shared "pop" marker (no extra Back).
+  window.addEventListener('popstate',event=>{
+    const modal=document.querySelector('#web1BoardDetailModal');
+    if(!detailTrigger||!modal)return;
+    if(modal.classList.contains('hidden')){closeDetail();return}
+    if(modal.dataset.kptuHistoryOpen==='1'&&event.state?.kptuOverlay!==modal.id){
+      modal.dataset.kptuHistoryClosing='pop';
+      closeDetail()
+    }
   });
   window.addEventListener('message',e=>{
     const frame=document.querySelector('#web1BoardDetailFrame');

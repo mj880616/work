@@ -10,7 +10,7 @@ test('authenticated board uses Web1 source without loading retired page manageme
   const board=read('app/web1-board.js');
   const index=read('app/index.html');
 
-  expect(views).toContain("module('./web1-board.js?v=3'");
+  expect(views).toContain("module('./web1-board.js?v=4'");
   for(const retired of [
     'page-list-controller.js',
     'page-save-controller.js',
@@ -40,7 +40,7 @@ test('authenticated board uses Web1 source without loading retired page manageme
   expect(board).not.toContain('/press/');
   expect(board).toContain('main_project_archive_state');
   expect(board).toContain('https://raw.githubusercontent.com/mj880616/work/main/');
-  expect(board).toContain('frame.srcdoc=injectReaderBridge');
+  expect(board).toContain('replaceReader(injectReaderBridge');
   expect(board).toContain('repoPathFromCanonical');
   expect(index).toContain('sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads"');
   expect(board).not.toContain('MutationObserver');
