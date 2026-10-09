@@ -62,7 +62,7 @@
 | `meeting-round-detail.js` | `view-loader.js` | 회의 후속 할 일 생성·수정·삭제(`source_type=meeting`) |
 | `team.js` | `loader-v2.js` | 전체 할 일 조회, 배정 저장 |
 | `app.js` | `index.html` | 요청 경로 `/app_tasks`를 화면 이름 `tasks`로 분류(캐시 무효화 용도) |
-| `workflow-ai-v3.js`, `home-dashboard-v2.js`, `task-notes.js`, `task-project-routing.js`, `project-task-link.js`, `legacy/home-task-actions.js`, `legacy/task-personal-due.js` | 어느 로더도 불러오지 않음(비활성) | 31 정리 대상 |
+| `workflow-ai-v3.js`, `home-dashboard-v2.js`, `task-notes.js`, `project-task-link.js` | 어느 로더도 불러오지 않음(비활성) | 31 정리 대상 |
 
 - Google 할 일: `google-tasks.js`는 `view-loader.js`가 불러온다. 할 일 탭 아래 "Google 할 일" 칸에서 쓴다.
 - Edge:

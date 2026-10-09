@@ -102,7 +102,6 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 현재 진입 경로에서 로드되지 않는 과거 보정 모듈은 `app/legacy/`로 격리함. Task 13에서 공개 페이지와 프로젝트 공유를 되살릴 수 있던 격리 모듈은 제거함.
 
 - `editable-page.js`
-- `home-task-actions.js`
 - `meeting-detail-patches.js`
 - `page-preview-tools.js`
 - `project-child-header.js`
