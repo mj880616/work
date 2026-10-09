@@ -11,7 +11,11 @@
 .w1b-detail-card{width:min(1180px,calc(100vw - 28px));height:min(92vh,980px);padding:0;overflow:hidden;display:flex;flex-direction:column}
 .w1b-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--paper)}
 .w1b-detail-head h2{margin:0;font-size:16px;line-height:1.35}
+.w1b-detail-body{position:relative;display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+.w1b-detail-status{position:absolute;inset:0;z-index:1;padding:28px;color:var(--muted);background:var(--paper)}
 .w1b-detail-frame{display:block;width:100%;min-width:0;min-height:0;flex:1 1 auto;border:0;background:var(--paper)}
+.w1b-detail-pending{position:absolute;inset:0;visibility:hidden}
+#web1BoardDetailModal .w1b-detail-frame.w1b-detail-pending{height:100%}
 
 @media(max-width:760px){
   .w1b-grid{grid-template-columns:1fr}

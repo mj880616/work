@@ -220,6 +220,91 @@ test('Web1 board source failure shows a controlled reader error instead of a bro
   await expect(doc.locator('a')).toHaveAttribute('href','https://work.bokdoong.com/work/workforce/');
 });
 
+for(const entry of ['home','pages'])test('loaded mobile board closes with one Back and keeps the list from '+entry,async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await mockApp(page);
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({
+    status:200,contentType:'text/plain; charset=utf-8',
+    body:'<!doctype html><html><body><main id="embeddedBoard">loaded mobile reader</main></body></html>'
+  }));
+  await signIn(page);
+  if(entry==='pages'){
+    await page.goto(app+'?view=pages');
+    await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+  }else await clickView(page,'pages');
+  const first=page.locator('[data-web1-board-title="'+cases[0].title+'"]');
+  await first.click();
+  await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toHaveText('loaded mobile reader');
+  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('web1BoardDetailModal');
+  await page.evaluate(()=>history.back());
+  await expect(page.locator('#web1BoardDetailModal')).toBeHidden();
+  await expect(page.locator('#pagesView')).toBeVisible();
+  await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
+  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
+  await expect(page.locator('#web1BoardDetailFrame')).not.toHaveAttribute('srcdoc',/.+/);
+  await expect(first).toBeFocused();
+});
+
+test('a late first board response cannot replace the next detail',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.addInitScript(({path})=>{
+    const originalFetch=window.fetch;
+    window.fetch=async(...args)=>{
+      const response=await originalFetch(...args);
+      if(String(args[0]).includes(path)){
+        const readText=response.text.bind(response);
+        response.text=async()=>{
+          const html=await readText();
+          // The caller's awaited text continuation runs before the second microtask.
+          queueMicrotask(()=>queueMicrotask(()=>{window.__boardFirstResponseConsumed=true}));
+          return html;
+        };
+      }
+      return response;
+    };
+  },{path:'/main/'+cases[0].source});
+  await mockApp(page);
+  const pending=new Map();
+  await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>{
+    const source=new URL(route.request().url()).pathname.split('/main/')[1];
+    pending.set(source,route);
+  });
+  await signIn(page);
+  await clickView(page,'pages');
+  const modal=page.locator('#web1BoardDetailModal');
+  const frame=page.locator('#web1BoardDetailFrame');
+  await page.locator('[data-web1-board-title="'+cases[0].title+'"]').click();
+  await expect.poll(()=>pending.has(cases[0].source)).toBe(true);
+  // A pending source has a visible status in the detail, without navigating a reader document.
+  await expect(modal.getByRole('status')).toHaveText('본문을 불러오는 중입니다…');
+  await expect(frame).not.toHaveAttribute('srcdoc',/.+/);
+  await page.locator('[data-close-web1-board]').click();
+  await expect(modal).toBeHidden();
+  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBeUndefined();
+  const second=page.locator('[data-web1-board-title="'+cases[1].title+'"]');
+  await second.click();
+  await expect.poll(()=>pending.has(cases[1].source)).toBe(true);
+  await pending.get(cases[1].source).fulfill({status:200,contentType:'text/plain; charset=utf-8',
+    body:'<!doctype html><html><body><main id="embeddedBoard">second detail</main></body></html>'});
+  await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toHaveText('second detail');
+  await expect(modal.getByRole('status')).toBeHidden();
+  const lateResponse=page.waitForResponse(r=>r.url().includes('/main/'+cases[0].source));
+  await pending.get(cases[0].source).fulfill({status:200,contentType:'text/plain; charset=utf-8',
+    body:'<!doctype html><html><body><main id="embeddedBoard">late first detail</main></body></html>'});
+  const response=await lateResponse;
+  await response.finished();
+  await response.body();
+  await expect.poll(()=>page.evaluate(()=>window.__boardFirstResponseConsumed)).toBe(true);
+  await expect(modal.locator('iframe')).toHaveCount(1);
+  await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toHaveText('second detail');
+  await expect(frame).toHaveAttribute('data-web1-board-canonical',cases[1].canonical);
+  await expect(frame).toHaveAttribute('data-web1-board-source',cases[1].source);
+  await expect(modal).toBeVisible();
+  await page.evaluate(()=>history.back());
+  await expect(modal).toBeHidden();
+  await expect(second).toBeFocused();
+});
+
  test('mobile board Back matches clean main reader history',async({page,browser})=>{
   await page.setViewportSize({width:390,height:900});
   const original=await browser.newPage({viewport:{width:390,height:900}});

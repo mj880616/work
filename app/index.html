@@ -18,11 +18,11 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=337">
+<link rel="modulepreload" href="./loader-v2.js?v=338">
 <link rel="modulepreload" href="./runtime-client.js?v=7">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=225" defer></script>
+<script src="./app.js?v=226" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -125,7 +125,10 @@
         <h2 id="web1BoardDetailTitle">게시판</h2>
         <button class="mini" type="button" data-close-web1-board aria-label="게시판 상세 닫기">닫기</button>
       </div>
-      <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="게시판 상세" loading="eager" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>
+      <div class="w1b-detail-body">
+        <div id="web1BoardDetailStatus" class="w1b-detail-status hidden" role="status">본문을 불러오는 중입니다…</div>
+        <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="게시판 상세" loading="eager" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>
+      </div>
     </div>
   </div>
 
