@@ -31,6 +31,4 @@ test('only approved exclusions skip colors',()=>{
 // public-page-auth.js: 앱 로더가 불러오지 않는 공개 인증 화면.
 // web1-board.js:18·19/web1-press.js:61: 별도 srcdoc iframe 문서 안 글자.
 // app.js:56 진단 버튼 그림자, base-ui.css:76 작은 버튼 그림자: 기존 모양 유지.
-// project-suborganization-links.js/project-task-link.js/project-templates.js/
-// project-update-actions.js/task-notes.js: 현재 앱 로더가 불러오지 않는 모듈.
-// 사용처 확인 후 제거 여부는 D-6에서 판단하며 이번에는 색을 유지한다.
+// D-6a: 미로딩 모듈 5개를 삭제하여 해당 색 예외도 제거했다.

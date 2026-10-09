@@ -250,6 +250,7 @@
 | FIX-월간일정숨김 | #431 회귀: 월간 일정 0줄 수정 | 완료 | #432 | 할 일 띠 왼쪽 +N·오른쪽 ☐N, 일정 슬롯 전부 사용·최소 1줄. merge·실기기 확인 대기. #432 merge eccafb36, 2026-10-07 폴드 펼침 10월 월간 정상 → 완료 |
 | TEST-간헐실패정리 | 첫 탭 로딩·홈 첫 할 일 관측 안정화, 나머지 간헐 실패 조사 | A·B 해결(PR) / 나머지 대기 | #448 | 2026-10-09 clean main `7cd9788a`, Playwright1.55·설치 Chromium151·재시도0. 수정 전 각20회: workers=1 A20/20·B0/20 실패, workers=4 A20/20·B9/20 실패. A: 미사용 app_tasks 700ms 지연으로 실제 의존성을 붙잡지 못한 로딩 표시 관측 경쟁; Google 할 일 모듈을 표시 확인까지 gate. B: 기본 텍스트 검사 마지막 관측879~911ms 뒤 표시를 놓침(실패 영상944ms에 오늘 항목 표시); 프레임 관측으로1600ms 유지. 보강 첫50회 B 링크 요청 기록 시점 경쟁 직렬·병렬 각1/50; 링크 응답 gate로 먼저 표시를 확인하고 완료 후 정확히1건 검사. 최종 A·B 각각 workers=1 0/50·workers=4 0/50 실패, #448로 해결. 앱·기준값·API 지연값·테스트 재시도 변경 없음. 나머지는 대기: workers=4 main 각10회 760px 밀기0/10·CSS 토큰0/10·직접 계정 전환0/10. 과거 주간 reload56px/0px 검사는 #445 구조 변경으로 제거돼 원본 실패율 측정 불가; 현재 대체 검사(narrow360 saved week → 목록 유지·reload)0/10, 과거 수치와 별도. |
 | D-3a | 디자인 기준: 색 값·테마 선택·직접 쓴 색 검사 | 완료 | #412 | #412 merge `26f0d01`, 2026-10-05 폰 확인(사용자 확인). 기본 오트밀·올리브, 남색·크림·테라코타·모래·갈색 선택. 기기 저장, 로그인·앱 초기 테마, 폰 기존 가로 메뉴·PC 사이드바의 로그아웃 옆 화면 색 버튼·선택 창(상단 헤더 복원 없음), 색 개수 기준선. 내 프로필 복원 없음. D-4에서 ☰ 메뉴를 만들 때 화면 색 버튼을 그 안으로 옮긴다. browser-storage-audit 허용 목록 추가는 커맨드센터 승인 예외(2026-10-05). D-시안묶음-1 임시 선택은 새 색감 위에서 재확인 예정: 게시판 카드(390px B, 760·1440px A), D-day 칩 B, 추가 문구 현재 유지. |
+| D-6a | 안 쓰는 코드·버튼 분기 제거 | 완료 대기 | | 기준 main `dda145303f4041e9c69ebe3e26a72fc6fd3e4e45`. 미로딩 파일 6개·없는 버튼 3개·도달 불가 page 분기 정리. workflow-ai-v3·Web1 page-design-core·legacy 유지. Node335·관련 Chromium45·smoke19·저장 정책·캐시 통과. PR CI 확인 후 merge 대기. |
 | D-3b | 직접 쓴 색 정리 | 완료 | #413 | #413 merge `afbe8d3`, 2026-10-05 폰 확인(사용자 확인). 총 89곳 치환(87색·그림자/링 2), 기준선 185→96. 기존 토큰 대체값, Google 상표·일정 원래 색/대비 글자, 회의 띠 12색, 창 뒤 반투명 바탕, 보라 바탕 유지. 사용자 콘텐츠 색·토큰 원본 제외 유지. 2026-10-05 사용자 판단 반영: toast·캘린더 경고·focus 링 6색 추가 치환. 독립 문서·공개 인증 화면·iframe 글자·진단/작은 버튼 그림자·미로딩 모듈 5개 남은 37곳은 의도된 예외로 확정. Web1 변경 파일 없음. |
 | D-3c | 계정 메뉴·누르는 범위·입력칸 테두리·번호 정리 | 완료 | #414 | #414 merge `248451a`, 2026-10-05 폰 확인(사용자 확인). 셸 공통 계정 메뉴, 보이는 크기를 유지하는 44px 누름 영역(밀집 예외 제외), primary-ink focus 테두리, static-gates 번호 통일. "화면 색 버튼이 튐" 발견사항은 이 PR로 처리됨. 글자 4단계는 D-3d로 분리. |
 | D-3d | 목록 화면 5개 글자 역할·성명 폰 목록 C2 | 완료 | #415 | #415 merge `3824ca5`, 2026-10-05 폰 확인(사용자 확인). 프로젝트·회의·성명·게시판·담당조직 목록만 역할 표 20·16·14·12px 토큰 적용. 성명 폰은 칩·날짜 위 줄, 전체 폭 제목 아래 줄, 발행 주체 숨김. 일정·할 일·자료실·상세·입력 창·메뉴 제외. |
@@ -266,7 +267,7 @@
 | 27 | 확인된 collaboration DB/RPC/trigger 제거 | 대기 | | 묶음A 조사 문서 5절 4번(app_workspace_members 역할 트리거의 고정 이메일)은 27~29에서 처리 |
 | 28 | workspace_members/role 체계 제거 | 대기 | | app_workspace_members 역할 트리거의 고정 계정, app_spaces_create 역할 등급 정책 포함. 읽생기 탈퇴 판정이 이 표를 쓰므로 읽생기 쪽 선행 확인(조사 문서 1.10) |
 | 29 | 옛 Web2 할 일 행 삭제·이후 schema 정리 | 완료(행 삭제·쓰기 차단 단계) | #359·#360·#361 | #360 migration과 #361 프로젝트 삭제의 `app_tasks` 수정 제거 merge. 2026-09-29 사용자가 SQL Editor에서 `20260929081500` 적용. 사용자 보고 사후 확인: `app_tasks` 0행, `authenticated` SELECT만 허용, migration 기록 1행, 모바일 웹·PC 정상. 첫 실행은 편집기에 남아 있던 옛 쿼리가 실행되어 migration 미적용(운영 변화 없음 확인) → 새 쿼리 창에서 재실행. `20260929072329`는 미적용·저장소에서 제거. 표·정책·트리거·함수 정리는 이후 DB 정리 범위. 프로젝트 삭제의 `Promise.all` 중간 실패 시 일부 연결만 풀리고 프로젝트가 남을 수 있는 문제는 후속 개선 필요. 이 원장 갱신 세션은 운영 DB를 재조회하지 않았다. |
-| 29-앱잔여참조 | `app_tasks` 앱 참조 정리(DB 표 삭제 전 선행) | 대기 | | `team.js`의 `loadAll`·`reload('tasks')` 읽기(쓰이지 않는 `renderWeeklyPreview`용), `app.js` 시작 성능 이름표, 비활성 `home-dashboard-v2.js`, `legacy/home-task-actions.js`, `legacy/task-personal-due.js`, `project-task-link.js`, `task-layout.js`, `task-notes.js`, `task-project-routing.js`, `workflow-ai-v3.js`, `task-layout.css` 감사·정리. 31-1과 합칠 수 있음. |
+| 29-앱잔여참조 | `app_tasks` 앱 참조 정리(DB 표 삭제 전 선행) | 대기 | | `team.js`의 `loadAll`·`reload('tasks')` 읽기(쓰이지 않는 `renderWeeklyPreview`용), `app.js` 시작 성능 이름표, 비활성 `home-dashboard-v2.js`, `legacy/home-task-actions.js`, `legacy/task-personal-due.js`, `task-layout.js`, `task-project-routing.js`, `workflow-ai-v3.js`, `task-layout.css` 감사·정리. 31-1과 합칠 수 있음. `project-task-link.js`·`task-notes.js`는 D-6a에서 삭제됨. |
 | 30 | 보조 Auth 계정 제거 | 대기 | | 계정 삭제는 계정-1로 앞당김(계정-1 적용 뒤 이 행은 남은 확인만). 조사 문서 1.8. 보조 관리자 1, 비구성원 2(1명은 Google 캘린더 연결 행 남음). Auth는 읽생기와 공유, 계정 삭제는 사용자 결정 후 직접 |
 | 24 | 담당조직 canonical 구조 통합 | 대기 | | 조사 문서 1.6. 담당조직 3중 저장(app_suborganization_assignees·app_profile_workplaces·default_assignee_name)과 동기화 트리거 3개 |
 | 31-2 | collaboration dead code/API 정리(나머지) | 대기 | | task12a-fingerprint.sql의 app_delete_pages 잔존 정리, DB 정리 뒤 남는 API·테스트 참조 |
@@ -321,7 +322,7 @@ PC 정리 목록:
 - 새 작업은 이 표에 행을 추가한 뒤 시작한다.
 - 공개 저장소다. 이메일, 계정명, 키, 토큰, 개인정보를 쓰지 않는다.
 
-- D-3b 후속 발견사항(2026-10-05, 사용자 결정): 현재 앱 로더가 불러오지 않는 `project-suborganization-links.js`, `project-task-link.js`, `project-templates.js`, `project-update-actions.js`, `task-notes.js`는 사용처 확인 후 D-6에서 제거 여부를 판단한다.
+- D-3b 후속 발견사항(2026-10-05, 사용자 결정): 현재 앱 로더가 불러오지 않는 `project-suborganization-links.js`, `project-task-link.js`, `project-templates.js`, `project-update-actions.js`, `task-notes.js`는 전체 저장소 사용처 확인 결과 미로딩으로 확정되어 D-6a에서 5개 모두 삭제했다. 해당 색 기준선 키·예외 주석도 제거했으며 다른 기준값은 유지했다.
 - D-6 정리 목록: #422로 !important 16개 추가, 정리 대상.
 
 - D-3c 결정(2026-10-05, 사용자 결정 B): 화면 색·Drive 사본 갱신·로그아웃을 앱 공통 "계정" 메뉴로 묶는다. D-4에서 ☰ 메뉴로 옮길 때 이 묶음을 그대로 가져간다.

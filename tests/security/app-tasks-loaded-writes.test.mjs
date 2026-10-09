@@ -66,7 +66,7 @@ test('app files reachable from the live loader do not write app_tasks',()=>{
   const loaded=loadedAppScripts();
   assert.ok(loaded.has('app/project-system-v3.js'));
   assert.ok(loaded.has('app/team.js'));
-  for(const inactive of ['task-layout.js','project-task-link.js','task-notes.js','workflow-ai-v3.js','legacy/home-task-actions.js']){
+  for(const inactive of ['task-layout.js','workflow-ai-v3.js','legacy/home-task-actions.js']){
     assert.ok(!loaded.has(`app/${inactive}`),`${inactive} is inactive`);
   }
   const violations=[...loaded].flatMap(path=>appTasksWrites(read(path)).map(line=>`${path}:${line}`));

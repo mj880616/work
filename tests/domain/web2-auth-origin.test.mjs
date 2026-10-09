@@ -22,29 +22,4 @@ for (const origin of ['https://mj880616.github.io', 'https://desk.bokdoong.com']
     assert.equal(calls[0].body.email, 'test@example.test');
     assert.equal(window.KPTUAuth.safeReturn(`${origin}/work/app/?view=tasks`), `${origin}/work/app/?view=tasks`);
   });
-
-  test(`password recovery stays on ${origin}`, async () => {
-    const source = readFileSync(resolve(root, 'app/password-reset.js'), 'utf8');
-    const calls = [];
-    const status = { textContent: '', className: '' };
-    const document = {
-      body: { insertAdjacentHTML() {} },
-      querySelector(selector) {
-        if (selector === '#recoverEmail') return { value: 'reader@example.com' };
-        if (selector === '#passwordResetStatus') return status;
-        return null;
-      }
-    };
-    const context = vm.createContext({
-      document,
-      location: { origin, pathname: '/work/app/', hash: '', search: '' },
-      URL,
-      URLSearchParams,
-      fetch: async url => { calls.push(url); return { ok: true, json: async () => ({}) }; }
-    });
-    vm.runInContext(source, context);
-    await vm.runInContext('sendRecovery()', context);
-    const redirect = new URL(calls[0]).searchParams.get('redirect_to');
-    assert.equal(redirect, `${origin}/work/app/`);
-  });
 }
