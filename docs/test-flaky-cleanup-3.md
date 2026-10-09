@@ -1,6 +1,6 @@
 # TEST-간헐실패정리 3차
 
-📱 폰 가능 · Codex 클라우드 · 2026-10-09. 기준 origin/main `dae741ea54da871dbf52962e4721f5317bd54cae`(#454), branch `codex/test-flaky-cleanup-3`.
+📱 폰 가능 · Codex 클라우드 · 2026-10-09. 기준 origin/main `dae741ea54da871dbf52962e4721f5317bd54cae`(#454), branch `codex/test-flaky-cleanup-3`, [PR #455](https://github.com/mj880616/work/pull/455).
 
 홈·Google 후보와 기존 대기 3개는 지정 main에서 재현되지 않아 수정하지 않았다. 실제 PostgreSQL 반복에서는 20연결 검사 이후 **테스트 정리 단계**의 실패를 재현했고, 연결 종료 완료를 기다린 뒤 임시 클러스터를 중지하도록 고쳤다. 앱 코드 변경 없음. #454에서 처리한 게시판 3개는 제외했다.
 
@@ -68,6 +68,8 @@ DB는 고정 `embedded-postgres`·`@embedded-postgres/linux-x64` `17.6.0-beta.15
 홈·Google의 CI 최초 실패 원인은 미확정이다. 이번 각40회 무실패는 향후 실패율 0을 보장하지 않는다. DB 준비 단계 연결 실패 때 barrier 정체/reset role 정리 문제와 포트 경쟁은 이번에 재현되지 않았다. 다른 DB 테스트 파일의 정리 코드는 이번 범위에서 고치지 않았다. 실기기·CI Chromium140에서의 동작을 설치 Chromium151 측정으로 대신하지 않는다.
 
 작업 증거는 `/tmp/test-flaky-cleanup-3/`의 `main-w1.json`·`main-w4.json`·`pending-w4.json`, `db-main.json`·`db-main-13.log`, `db-fixed.json`, 종료 진단 원본/수정 로그, `target-specs.json`·`target-specs-confirm.json`·`native-main.json`, 정적·Node 로그에 있다. 임시 파일은 환경 종료 뒤 보존되지 않을 수 있어 핵심 수치·실패 상태·원인·명령을 이 문서에 남긴다. 전체 저장소 E2E·production 접근은 실행하지 않았다. merge 금지.
+
+PR #455의 최초 head `1046997d653adbbae1b11ccf981293fdc3a4c2f2`에서 Authorization security(DB·정적 권한)·Browser storage audit·Loader cache·Web1 dropzone의 4개 자동 PR workflow가 모두 success였다. 마지막 PR 번호·원장 상태 반영 후 **최종 head CI는 PR 본문에서 별도로 확인**한다. 앱 E2E workflow는 이번 변경 경로(docs·auth-handoff test)에 해당하지 않아 실행 대상이 아니며, 위 로컬 파일 전체 실패를 PR CI 통과로 해소됐다고 쓰지 않는다.
 
 ## 재실행 명령
 
