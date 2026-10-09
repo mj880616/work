@@ -59,7 +59,6 @@ jobs:
               'app/task-project-routing.js':[r'TPR_SESSION'],
               'app/auth-handoff-client.js':[r'AH_SESSION'],
               'app/suborganization-planned-assignee.js':[r'PA_SESSION'],
-              'app/task-notes.js':[r'TN_SESSION'],
               'app/session-resilience.js':[r'SR_KEY'],
               'app/calendar-plus.js':[r'CM_PREF'],
               # D-4b: approved device-local view preference only; no user content.
@@ -78,7 +77,6 @@ jobs:
               'tests/app-e2e/helpers/calendar-task-emphasis.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'app/library-upload.js':[r'LU_SESSION'],
               'app/suborganizations.js':[r'SO_SESSION'],
-              'app/project-update-actions.js':[r'PUA_SESSION'],
               'app/photo-upload-fix.js':[r'PUF_SESSION'],
               'app/team.js':[r'SESSION_KEY'],
               'app/auth-bootstrap.js':[r'SESSION_KEY'],
@@ -88,7 +86,6 @@ jobs:
               'app/google-tasks.js':[r'gtCacheKey\('],
               'app/public-page-auth.js':[r'config[.]sessionKey'],
               'app/web1-admin-auth.js':[r'cfg[.]sessionKey',r'oauthReturnKey'],
-              'app/password-reset.js':[r'SESSION_KEY'],
               'tests/app-e2e/public-page-editor-fixture.html':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-page-editor-live.spec.mjs':[r'kptu_public_editor_session_v1',r'kptu_collab_session_v1'],
               'tests/app-e2e/public-page-password-recovery.spec.mjs':[r'kptu_public_editor_session_v1'],

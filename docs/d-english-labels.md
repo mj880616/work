@@ -39,10 +39,10 @@ PR: [#443](https://github.com/mj880616/work/pull/443). 기준: `origin/main` 9e7
 | --- | --- | --- | --- |
 | newDocumentBtn | + 자료 | + 자료 등록 | 자료실 |
 | newMeetingBtn | + 회의 | + 회의 결과 | 회의 |
-| newPageBtn | + 페이지 | + 새 페이지 | 화면에 없음 · 정리 대상 보고만 |
+| newPageBtn | + 페이지 | + 새 페이지 | D-6a에서 미사용 매핑 삭제 |
 | newProjectBtn | + 프로젝트 | + 프로젝트 | 프로젝트 |
-| inviteBtn | + 초대 | 구성원 초대 | 화면에 없음 · 정리 대상 보고만 |
-| newGroupBtn | + 그룹 | + 그룹 | 화면에 없음 · 정리 대상 보고만 |
+| inviteBtn | + 초대 | 구성원 초대 | D-6a에서 미사용 매핑 삭제 |
+| newGroupBtn | + 그룹 | + 그룹 | D-6a에서 미사용 매핑 삭제 |
 
 게시판은 Web1 자료를 읽는 기존 구조로 추가 버튼이 없다. 네 경로의 게시판 진입·새로고침에서도 이 버튼들을 복원하지 않는지 검사한다.
 
@@ -62,3 +62,11 @@ PR: [#443](https://github.com/mj880616/work/pull/443). 기준: `origin/main` 9e7
 범위 밖: 현재 없는 `newPageBtn`·`inviteBtn`·`newGroupBtn`, 로더 미사용 4개 파일(머리표 5곳), 기존 Cloudflare 배포 workflow의 오래된 앱 검사 URL은 정리 대상 보고만 한다. 미사용 파일의 표시 문구 외 기능·로딩은 바꾸지 않았다.
 
 사용자 확인: 실제 폰/WebView 표시 확인, PC 실기기 확인은 귀국 뒤. PR CI 확인 후 merge하지 않고 정지한다.
+
+## D-6a 후속 처리
+
+PR: [#449](https://github.com/mj880616/work/pull/449).
+
+전체 저장소 사용처 확인 결과에 따라 `password-reset.js`·`project-suborganization-links.js`·`project-templates.js`와 다른 미로딩 모듈 3개를 삭제했다. `action-labels.js`는 실제 버튼 3개만 소유하며, 합성 DOM 검사도 이 3개로 맞췄다. 없는 버튼 3개의 부재 검사는 유지한다. `project-system-v3.js`의 도달 불가 page 분기도 삭제했다. `workflow-ai-v3.js`는 기존 결정대로 구현·서버 함수와 존재 검사를 보존하며, Web1 공개 페이지가 쓰는 `page-design-core.js`는 유지한다. 기존 Cloudflare 배포 workflow의 오래된 URL은 D-6c 대상으로 남긴다. 위 본문의 6개 매핑·보고만 기록은 #443 당시 결과다.
+
+D-6a 로컬 검증: Node 335개(삭제 파일 전용 6개 제거), 설치 Chromium 관련 45개(영어 표시 20·추가 버튼 14·프로젝트 구조 4·Web1 게시판 구조 1·AI 보존 3·캐시 기대값 3), smoke 19단계·browser-storage-audit·캐시·diff 검사 통과. 다른 색 기준값·로그인·app_tasks 쓰기 차단·미사용 버튼 부재·로더 재유입 방지 검사는 유지했다. 전체 브라우저 회귀는 PR CI에서 확인한다.

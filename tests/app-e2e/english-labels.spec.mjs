@@ -79,11 +79,11 @@ test("login has its title without an English eyebrow",async({page})=>{
   await expect(page.locator(".auth-card h1")).toHaveText("Workspace 로그인");
 });
 
-test('all six label entries use the same width rule when their controls exist',async({page})=>{
-  const entries=[...Object.values(labels),['newPageBtn','+ 페이지','+ 새 페이지'],['inviteBtn','+ 초대','구성원 초대'],['newGroupBtn','+ 그룹','+ 그룹']];
+test('all remaining label entries use the same width rule when their controls exist',async({page})=>{
+  const entries=Object.values(labels);
   await page.route(BASE+'/label-fixture',route=>route.fulfill({contentType:'text/html',body:entries.map(([id])=>`<button id="${id}">fixture</button>`).join('')}));
   await page.setViewportSize({width:390,height:900});await page.goto(BASE+'/label-fixture');
-  await page.evaluate(()=>import('/app/action-labels.js?v=1'));
+  await page.evaluate(()=>import('/app/action-labels.js?v=2'));
   for(const width of [390,760,761,1280,390]){
     await page.setViewportSize({width,height:900});
     for(const [id,short,long] of entries)await expect(page.locator('#'+id)).toHaveText(width<=760?short:long);
