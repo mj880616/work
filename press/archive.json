@@ -4,6 +4,26 @@
   "items": [
     {
       "year": 2026,
+      "date": "2026-10-02",
+      "display_date": "10.02",
+      "type": "release",
+      "type_label": "보도자료",
+      "title": "혼자 일하다 숨진 노동자 10년간 3,884명",
+      "publisher": "민주노총 공공운수노조",
+      "href": "./2026-10-02-two-person-team-forum-followup/"
+    },
+    {
+      "year": 2026,
+      "date": "2026-10-01",
+      "display_date": "10.01",
+      "type": "request",
+      "type_label": "취재요청",
+      "title": "혼자 일하다 숨진 노동자 10년간 3,884명 위험업무 2인1조, 산안법에 어떻게 담을 것인가",
+      "publisher": "민주노총 공공운수노조",
+      "href": "./2026-10-01-two-person-team-forum-request/"
+    },
+    {
+      "year": 2026,
       "date": "2026-09-29",
       "display_date": "09.29",
       "type": "release",
