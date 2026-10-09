@@ -73,7 +73,12 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  for(const [name,selectors]of Object.entries(listButtons)){
   await view(page,name);await view(original,name);
   if(name==='calendar')for(const p of [page,original])await p.locator('.calendar-google-panel').evaluate(el=>el.open=true);
-  for(const selector of selectors){await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
+  for(const selector of selectors){
+   if(selector==='#ps3ArchiveBtn'){
+    const el=page.locator(selector);await expect(el).toHaveText('보관 1');const after=await size(el);
+    expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
+   }else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
+  }
   expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
  for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
@@ -122,7 +127,7 @@ for(const width of [390,1440])test('D-button real painted and pointer bounds in 
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'projects');
  for(const selector of ['#ps3ArchiveBtn','#newProjectBtn']){
   const el=page.locator(selector);await el.scrollIntoViewIfNeeded();
-  const target=await el.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el),p=getComputedStyle(el,'::after'),x=r.x+parseFloat(s.borderLeftWidth)+parseFloat(p.left),y=r.y+parseFloat(s.borderTopWidth)+parseFloat(p.top),w=parseFloat(p.width),h=parseFloat(p.height);return {w,h,hits:[[x+1,y+h/2],[x+w-1,y+h/2],[x+w/2,y+1],[x+w/2,y+h-1]].map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)}});
+  const target=await el.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el),p=getComputedStyle(el,'::after'),native=el.id==='ps3ArchiveBtn',x=native?r.x:r.x+parseFloat(s.borderLeftWidth)+parseFloat(p.left),y=native?r.y:r.y+parseFloat(s.borderTopWidth)+parseFloat(p.top),w=native?r.width:parseFloat(p.width),h=native?r.height:parseFloat(p.height);return {w,h,hits:[[x+1,y+h/2],[x+w-1,y+h/2],[x+w/2,y+1],[x+w/2,y+h-1]].map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)}});
   expect(target.w).toBeGreaterThanOrEqual(44);expect(target.h).toBeGreaterThanOrEqual(44);expect(target.hits).toEqual([true,true,true,true]);
  }
 });

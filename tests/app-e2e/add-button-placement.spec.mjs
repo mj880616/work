@@ -19,7 +19,7 @@ async function openApp(page,view,{entryView='calendar'}={}){
     if(p==='/rest/v1/app_workspace_members')return ok(route,[{workspace_id:workspace.id,user_id:user.id,role:'owner',workspace}]);
     if(p==='/rest/v1/app_workspaces')return ok(route,[workspace]);
     if(p==='/rest/v1/app_profiles')return ok(route,[{user_id:user.id,display_name:'Placement QA'}]);
-    if(p==='/rest/v1/app_spaces')return ok(route,[project]);
+    if(p==='/rest/v1/app_spaces')return ok(route,[project,{...project,id:'placement-archive',status:'archived'}]);
     if(p==='/rest/v1/app_documents')return ok(route,[documentRow]);
     if(p==='/rest/v1/app_meetings')return ok(route,[meeting]);
     if(p==='/rest/v1/app_events')return ok(route,[event]);
@@ -139,7 +139,7 @@ for(const width of [390,1440]){
     });
     test('project list card keeps archive and add action after redraw',async({page})=>{
       await openApp(page,'projects');
-      const card='#projectGrid .ps3-plist',head='.add-list-head',title='h2';
+      const card='#projectGrid .ps3-plist',head='.add-list-head',title='[data-ps3-total]';
       const checkActions=async()=>{
         await assertInHeader(page,{card,head,button:'#ps3ArchiveBtn',title});
         await assertInHeader(page,{card,head,button:'#newProjectBtn',title});
@@ -149,16 +149,17 @@ for(const width of [390,1440]){
         const archive=await page.locator('#ps3ArchiveBtn').boundingBox();
         const add=await page.locator('#newProjectBtn').boundingBox();
         expect(archive.width).toBeGreaterThanOrEqual(44);
-        expect(archive.height).toBe(36);
+        expect(archive.height).toBe(44);
         expect(add.width).toBeGreaterThanOrEqual(44);
         expect(add.height).toBe(36);
         expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
-        expect(Math.abs(archive.y-add.y)).toBeLessThanOrEqual(1);
+        expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
       };
       await checkActions();
-      await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관함');
+      await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관 1');
       await expect(page.locator('#newProjectBtn')).toHaveText('+ 프로젝트');
-      await page.locator(`${card} ${head} h2`).evaluate(el=>el.textContent='매우 긴 프로젝트 목록 카드 제목을 반복해서 표시하는 화면 배치 확인용 제목');
+      await expect(page.locator(`${card} ${head} h2`)).toHaveCount(0);
+      await expect(page.locator(`${card} ${head} [data-ps3-total]`)).toHaveText('프로젝트 1개');
       await checkActions();
       await page.locator('#ps3ArchiveBtn').click();
       await expect(page.locator('#ps3ArchiveModal')).toBeVisible();

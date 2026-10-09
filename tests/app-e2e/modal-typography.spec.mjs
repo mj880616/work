@@ -92,11 +92,28 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   }
   const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('#gtTaskSection,.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task]')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);const title=e.closest('#monthTitle');if(title)return ['B','',e.id==='monthTitle'&&innerWidth<=760?'20px':s.fontSize,s.color,s.fontWeight,e.id==='monthTitle'&&innerWidth<=760?'24px':s.lineHeight];if(e.id==='prevMonthBtn'||e.id==='nextMonthBtn')return [e.tagName,e.className,'calendar-arrow','muted',s.fontWeight,'1'];return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
   const expected=await snapshot(original);
+  if(name==='projects'){
+    // D-project-list changes exactly these retained list roles; other views and all dialog audits remain.
+    const muted=await original.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-muted)';document.body.append(e);const color=getComputedStyle(e).color;e.remove();return color});
+    const heading=expected.findIndex(row=>row[0]==='H2');expect(heading).toBe(0);
+    expected[heading]=['SPAN','muted','12px',muted,'400','18px'];
+    const archive=expected.findIndex(row=>row[1]==='secondary ps3-toolbar-btn');expect(archive).toBeGreaterThan(heading);
+    expected[archive]=['BUTTON','ps3-archive-link','12px',muted,'400','18.6px'];
+    const nameIndex=expected.findIndex(row=>row[1]==='ps3-prow-name');expect(nameIndex).toBeGreaterThan(archive);
+    expected[nameIndex]=['SPAN','ps3-prow-name kptu-list-name','16px',expected[nameIndex][3],'750','21.6px'];
+    const oldZero=expected.findIndex((row,i)=>i>nameIndex&&row[0]==='SPAN'&&row[1]==='');expect(oldZero).toBeGreaterThan(nameIndex);
+    expected[oldZero]=['SPAN','kptu-list-chevron','20px',muted,'400','20px'];
+    await expect(page.locator('#projectGrid .add-list-head h2')).toHaveCount(0);
+    await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
+    await expect(page.locator('#projectGrid .ps3-prow-meta')).toBeEmpty();
+  }
   if(name==='team'){
     // D-담당조직목록 intentionally replaces only the type role with a group heading above the retained name.
     const typeIndex=expected.findIndex(row=>row[1]==='sof-type');expect(typeIndex).toBeGreaterThan(0);
     expected.splice(typeIndex,1);
     const nameIndex=expected.findIndex(row=>row[0]==='H4');expect(nameIndex).toBeGreaterThan(0);
+    expected[nameIndex][1]='kptu-list-name';
+    const chevron=expected.findIndex(row=>row[1]==='so-chevron');expect(chevron).toBeGreaterThan(nameIndex);expected[chevron][1]='so-chevron kptu-list-chevron';
     const muted=await original.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-muted)';document.body.append(e);const color=getComputedStyle(e).color;e.remove();return color});
     expected.splice(nameIndex,0,['DIV','so-group-heading','12px',muted,'400','18px']);
     await expect(page.locator('#soOrganizationList .sof-type')).toHaveCount(0);
