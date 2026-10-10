@@ -8,6 +8,7 @@ on:
       - 'tests/auth-handoff/**'
       - '.github/workflows/**'
       - 'scripts/publication-pr-policy.mjs'
+      - 'scripts/ops/**'
       - 'docs/main-pr-gate-ruleset.json'
   pull_request:
     branches:
@@ -18,6 +19,7 @@ on:
       - 'tests/auth-handoff/**'
       - '.github/workflows/**'
       - 'scripts/publication-pr-policy.mjs'
+      - 'scripts/ops/**'
       - 'docs/main-pr-gate-ruleset.json'
   workflow_dispatch:
 
