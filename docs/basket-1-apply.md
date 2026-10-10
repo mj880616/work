@@ -6,7 +6,7 @@
 
 ## 범위와 정지 지점
 
-시작 `origin/main`: `cec93f25d1056f08fdc75cd8d6d8b269c09632fa`(#468), 2026-10-10 원격 fetch 확인. 브랜치 `codex/basket-1-db`. **클라우드는 SQL·문서·로컬 테스트·PR까지만 준비했고 운영 DB 접속·적용·Supabase 로그인은 하지 않았다. 운영 적용 직전 정지 상태다.** merge는 커맨드센터에서 결정한다.
+시작 `origin/main`: `cec93f25d1056f08fdc75cd8d6d8b269c09632fa`(#468), 2026-10-10 원격 fetch 확인. 브랜치 `codex/basket-1-db`, [PR #469](https://github.com/mj880616/work/pull/469). **클라우드는 SQL·문서·로컬 테스트·PR까지만 준비했고 운영 DB 접속·적용·Supabase 로그인은 하지 않았다. 운영 적용 직전 정지 상태다.** merge는 커맨드센터에서 결정한다.
 
 기준은 [AGENTS.md §6·§7·폰 경로 C](../AGENTS.md), [설계 3.1·4·8~11절](basket-design.md)이다. `rtw_*`와 관련 객체, Edge·화면·workflow, 기존 조직 기록 표를 바꾸지 않는다. `db push`·`migration repair`는 영구 금지다. BASKET-2는 이 DB의 운영 사후 판정 전 활성화하지 않는다.
 
@@ -148,4 +148,4 @@ on conflict on constraint app_record_links_unique do nothing;
 
 검증 결과(2026-10-10): 마지막 전체 로컬 DB 실행 **34/34**, 보안 정적/node **269/269**, `git diff --check` 및 새 테스트 JS 구문 검사 통과. BASKET-1 적용→rollback→재적용과 기존 Google 할 일/메모→회의·프로젝트·조직 연결 회귀 통과. 검토에서 찾은 JSONPath lax 중첩 배열 우회를 strict 최상위 객체 검사로 수정하고 중첩/혼합 배열·20개 상한 경계 재검증.
 
-범위 밖 관측: 전체 병렬 DB 테스트 중 기존 TASK-29와 record-links가 종료 시 `terminating connection due to administrator command`로 각각 실패한 실행이 있었다. 시작 SHA의 clean main 전체 DB suite도 4번째 실행에서 record-links의 같은 종료 오류를 재현했다(첫 3회 통과). 기존 테스트를 수정·삭제·건너뛰지 않았으며 마지막 전체 재실행은 통과했다. 새 BASKET-1 테스트는 pg client의 실제 end까지 기다린 뒤 임시 클러스터를 정지한다. CI 재발 가능성은 별도 위험으로 보고한다.
+범위 밖 관측: 전체 병렬 DB 테스트 중 기존 TASK-29와 record-links가 종료 시 `terminating connection due to administrator command`로 각각 실패한 실행이 있었다. 시작 SHA의 clean main 전체 DB suite도 4번째 실행에서 record-links의 같은 종료 오류를 재현했다(첫 3회 통과). TASK-29는 clean main 단독 30회 모두 통과해 그 파일의 단독 재현은 되지 않았다. 기존 테스트를 수정·삭제·건너뛰지 않았으며 마지막 전체 재실행은 통과했다. 새 BASKET-1 테스트는 pg client의 실제 end까지 기다린 뒤 임시 클러스터를 정지한다. CI 재발 가능성은 별도 위험으로 보고한다.
