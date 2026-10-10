@@ -14,11 +14,13 @@ const load = () => import(runner);
 const token = 'synthetic-secret-for-tests';
 const projectRef = 'abcdefghijklmnopqrst';
 
-test('DB workflow exposes only manual check/tx-probe, main, approved run, fixed permissions and concurrency', () => {
+test('DB workflow exposes only manual approved modes, main, fixed permissions and concurrency', () => {
   assert.match(source, /^on:\n  workflow_dispatch:/m);
   assert.doesNotMatch(source, /^  (push|schedule|pull_request|pull_request_target|workflow_call):/m);
-  assert.match(source, /options: \[check, tx-probe\]/);
-  assert.doesNotMatch(source, /dry-run|rollback:|apply:|inputs\.ref/);
+  assert.match(source, /options: \[check, tx-probe, dry-run, apply, rollback\]/);
+  assert.doesNotMatch(source, /inputs\.ref/);
+  assert.match(source, /version:[\s\S]*?required: false[\s\S]*?type: string/);
+  assert.equal([...source.matchAll(/DB_VERSION: \$\{\{ inputs\.version \}\}/g)].length, 2);
   assert.match(source, /permissions:\n  contents: read\n/);
   assert.doesNotMatch(source, /^\s+[\w-]+:\s*write\s*$/m);
   const plan = source.split('  plan:\n')[1].split('  run:\n')[0];
@@ -35,7 +37,7 @@ test('DB workflow exposes only manual check/tx-probe, main, approved run, fixed 
   assert.doesNotMatch(source, /set -x|upload-artifact|\$\{\{ inputs\.[^\n]*\n[^\n]*run:/);
 });
 
-test('only two modes, main dispatch and numeric run IDs are accepted; probe cannot target another schema/table', async () => {
+test('check/probe regression: main dispatch and numeric run IDs, no other probe schema/table', async () => {
   const { makePlan } = await load();
   for (const mode of ['check', 'tx-probe']) assert.equal(makePlan(mode, '12345', 'refs/heads/main').mode, mode);
   for (const mode of ['', 'apply', 'dry-run', 'rollback', 'CHECK', 'check;echo injected']) {

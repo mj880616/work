@@ -3,10 +3,11 @@
 const MAX_RESPONSE_BYTES = 65_536;
 
 export class DbQueryError extends Error {
-  constructor(kind, { status, divisionByZero = false } = {}) {
+  constructor(kind, { status, divisionByZero = false, sqlState } = {}) {
     super(`DB query failed (${kind}${status ? `, HTTP ${status}` : ''})`);
     this.name = 'DbQueryError';
     this.divisionByZero = divisionByZero;
+    this.sqlState = typeof sqlState === 'string' && /^[0-9A-Z]{5}$/.test(sqlState) ? sqlState : undefined;
   }
 }
 
@@ -54,7 +55,8 @@ export function createQueryClient({ token, projectRef, endpoint, timeoutMs = 30_
       const divisionByZero = sqlErrorStatus && errorObjects.some(error =>
         error && typeof error === 'object' && (error.code === '22012'
           || [error.error, error.message].some(value => typeof value === 'string' && /\bdivision by zero\b/i.test(value))));
-      throw new DbQueryError('API', { status: response.status, divisionByZero });
+      const sqlState = sqlErrorStatus ? errorObjects.find(error => error && typeof error.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code))?.code : undefined;
+      throw new DbQueryError('API', { status: response.status, divisionByZero, sqlState });
     }
     if (!Array.isArray(payload)) throw new DbQueryError('response shape');
     return payload;

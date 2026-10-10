@@ -1,12 +1,20 @@
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { createQueryClient, DbQueryError } from './db-query.mjs';
+import { prepareMigration, migrationSummary, sqlBlock } from './db-migration-plan.mjs';
+import { runMigrationPlan, buildBackup } from './db-migration-run.mjs';
 
-export function makePlan(mode, runId, ref) {
-  if (!['check', 'tx-probe'].includes(mode) || ref !== 'refs/heads/main'
+export function makePlan(mode, runId, ref, version = '', root = process.cwd()) {
+  if (!['check', 'tx-probe', 'dry-run', 'apply', 'rollback'].includes(mode) || ref !== 'refs/heads/main'
       || typeof runId !== 'string' || !/^[1-9][0-9]{0,19}$/.test(runId)) {
     throw new Error('Invalid mode, main ref or run ID');
   }
+  if (['dry-run', 'apply', 'rollback'].includes(mode)) {
+    const plan = prepareMigration({ mode, version, runId, root });
+    buildBackup(plan); // Reject oversized identifiers before environment approval.
+    return plan;
+  }
+  if (version !== '') throw new Error('Version must be blank for check/tx-probe');
   if (mode === 'check') return {
     mode, sql: { check: 'select version,name from supabase_migrations.schema_migrations order by version desc limit 3;' },
   };
@@ -20,6 +28,15 @@ export function makePlan(mode, runId, ref) {
 }
 
 export function planSummary(plan) {
+  if (['dry-run', 'apply', 'rollback'].includes(plan.mode)) {
+    let summary = migrationSummary(plan);
+    if (plan.mode !== 'dry-run') {
+      const backup = buildBackup(plan);
+      summary += '\n### 실행 직전 비공개 백업 (별도 요청; 실패하면 적용 안 함)\n\n' + sqlBlock(backup.sql);
+      if (backup.counts) summary += '\n백업 표 이름·행 수 확인 (읽기 전용):\n\n' + sqlBlock(backup.counts);
+    }
+    return summary;
+  }
   const explanation = plan.mode === 'check'
     ? '연결 확인: 최근 migration version/name을 최대 3행만 읽습니다. 쓰기는 없습니다.'
     : '빈 시험 표 1개로 rollback 및 중간 오류의 전체 취소를 시험합니다. 표가 남거나 확인이 불가능하면 같은 표만 정리하고 실패합니다.';
@@ -36,6 +53,7 @@ export function planSummary(plan) {
 }
 
 export async function runPlan(plan, query, { secretValues = [] } = {}) {
+  if (['dry-run', 'apply', 'rollback'].includes(plan.mode)) return runMigrationPlan(plan, query, { secretValues });
   if (plan.mode === 'check') {
     try {
       const rows = await query(plan.sql.check, { readOnly: true });
@@ -110,7 +128,7 @@ export function maskValue(value) {
 
 async function main() {
   const phase = process.argv[2];
-  const plan = makePlan(process.env.DB_MODE, process.env.GITHUB_RUN_ID, process.env.GITHUB_REF);
+  const plan = makePlan(process.env.DB_MODE, process.env.GITHUB_RUN_ID, process.env.GITHUB_REF, process.env.DB_VERSION ?? '');
   const summaryFile = process.env.GITHUB_STEP_SUMMARY;
   if (!summaryFile) throw new Error('Missing summary destination');
   if (phase === 'plan') {

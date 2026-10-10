@@ -1,14 +1,19 @@
-name: Approved DB connection and transaction probe
+name: Approved DB migration workflow
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'check: recent migration metadata; tx-probe: empty private table cancellation tests'
+        description: 'check/tx-probe or approved migration dry-run/apply/rollback'
         required: true
         type: choice
         default: check
-        options: [check, tx-probe]
+        options: [check, tx-probe, dry-run, apply, rollback]
+      version:
+        description: '14-digit migration version; leave blank for check/tx-probe'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -25,6 +30,7 @@ jobs:
       source_sha: ${{ steps.source.outputs.source_sha }}
     env:
       DB_MODE: ${{ inputs.mode }}
+      DB_VERSION: ${{ inputs.version }}
     steps:
       - name: Check out main
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -49,13 +55,14 @@ jobs:
     environment: production-edge
     env:
       DB_MODE: ${{ inputs.mode }}
+      DB_VERSION: ${{ inputs.version }}
     steps:
       - name: Check out the main SHA reviewed in plan
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ needs.plan.outputs.source_sha }}
           persist-credentials: false
-      - name: Run only the approved check or transaction probe
+      - name: Run only the approved DB mode
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
