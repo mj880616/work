@@ -67,7 +67,7 @@ jobs:
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./action-labels.js?v=2')",
-            "import('./team.js?v=62')",'await window.__KPTU_TEAM_READY__',
+            "import('./team.js?v=63')",'await window.__KPTU_TEAM_READY__',
             "import('./view-loader.js?v=106')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
@@ -151,7 +151,7 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=19" app/loader-v2.js
-          grep -q "team.js?v=62" app/loader-v2.js
+          grep -q "team.js?v=63" app/loader-v2.js
           grep -q "project-system-v3.js?v=42" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
@@ -446,7 +446,7 @@ jobs:
           grep -q "위험업무 2인1조 법제화" app/web1-board.js
           grep -q "산별전환 업무 현황" app/web1-board.js
           grep -q "완료된 할 일" app/task-layout.js
-          if grep -q "project-create-submit.js\|task-personal-due.js" app/loader-v2.js app/view-loader.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
+          if grep -q "project-create-submit.js\|legacy/" app/loader-v2.js app/view-loader.js; then echo 'duplicate legacy shim loaded'; exit 1; fi
 
       - name: Static HTTP smoke test
         run: |

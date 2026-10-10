@@ -56,7 +56,6 @@ jobs:
               'tests/theme-bootstrap.test.mjs':[r'\bTHEME_STORAGE_KEY\b'],
               'tests/app-e2e/theme.spec.mjs':[r'\bTHEME_STORAGE_KEY\b'],
               'index.html':[r'AUTH_KEY',r'AUTH_SESSION_KEY'],
-              'app/task-project-routing.js':[r'TPR_SESSION'],
               'app/auth-handoff-client.js':[r'AH_SESSION'],
               'app/suborganization-planned-assignee.js':[r'PA_SESSION'],
               'app/session-resilience.js':[r'SR_KEY'],
