@@ -12,6 +12,20 @@ on:
         required: true
         type: string
         default: main
+      first_deploy:
+        description: First deployment only; fail if this function already exists in production
+        required: true
+        type: boolean
+        default: false
+      verify_jwt:
+        description: Keep existing policy, or explicitly select true/false for a first deployment
+        required: true
+        type: choice
+        options:
+          - keep
+          - 'true'
+          - 'false'
+        default: keep
       expect_unauth_401:
         description: Expect unauthenticated POST to return 401 (disable for public functions)
         required: true
@@ -33,6 +47,8 @@ jobs:
     env:
       FUNCTION_NAME: ${{ inputs.function }}
       EXPECT_UNAUTH_401: ${{ inputs.expect_unauth_401 }}
+      FIRST_DEPLOY: ${{ inputs.first_deploy }}
+      VERIFY_JWT: ${{ inputs.verify_jwt }}
     defaults:
       run:
         shell: bash
@@ -50,6 +66,28 @@ jobs:
           [[ -f "supabase/functions/$FUNCTION_NAME/index.ts" ]] || { echo 'Function index.ts is missing'; exit 1; }
           [[ ! -L supabase && ! -L supabase/functions && ! -L "supabase/functions/$FUNCTION_NAME" && ! -L "supabase/functions/$FUNCTION_NAME/index.ts" ]] || { echo 'Symlinked function paths are not allowed'; exit 1; }
           [[ "$EXPECT_UNAUTH_401" == true || "$EXPECT_UNAUTH_401" == false ]] || { echo 'Invalid HTTP expectation'; exit 1; }
+          first_deploy="${FIRST_DEPLOY-false}"
+          jwt_policy="${VERIFY_JWT-keep}"
+          [[ "$first_deploy" == true || "$first_deploy" == false ]] || { echo 'Invalid first-deploy mode'; exit 1; }
+          if [[ "$first_deploy" == false ]]; then
+            [[ "$jwt_policy" == keep ]] || { echo 'Existing deployments require verify_jwt=keep'; exit 1; }
+          else
+            [[ "$jwt_policy" == true || "$jwt_policy" == false ]] || { echo 'First deployment requires explicit verify_jwt=true or false'; exit 1; }
+            # Read data only from the selected ref; never execute its scripts.
+            policy_doc=docs/web2-env6b-edge-source.md
+            [[ -f "$policy_doc" && ! -L docs && ! -L "$policy_doc" ]] || { echo 'JWT policy table is missing or symlinked'; exit 1; }
+            awk -F '|' -v slug="$FUNCTION_NAME" -v jwt="$jwt_policy" '
+              function clean(value) { gsub(/[`*]/, "", value); gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); return value }
+              /^[[:space:]]*(```|~~~)/ { fenced=!fenced; table=0; next }
+              fenced { next }
+              /^## 5[. ]/ { section=1; next }
+              /^## / || /^### / { section=0; table=0 }
+              section && !seen_table && clean($3) == "이름" && clean($7) == "verify_jwt" { table=1; seen_table=1; next }
+              table && $0 !~ /^\|/ { table=0 }
+              section && table && clean($3) == slug { count++; policy=clean($7) }
+              END { exit !(count == 1 && policy == jwt) }
+            ' "$policy_doc" || { echo 'First-deploy JWT policy must match exactly one row in section 5'; exit 1; }
+          fi
 
       - name: Prepare isolated deployment config
         run: |
@@ -77,6 +115,16 @@ jobs:
       - name: Validate before metadata
         run: |
           set -euo pipefail
+          if [[ "${FIRST_DEPLOY-false}" == true ]]; then
+            [[ "$VERIFY_JWT" == true || "$VERIFY_JWT" == false ]] || { echo 'Invalid first-deploy JWT policy'; exit 1; }
+            jq -e --arg slug "$FUNCTION_NAME" --argjson jwt "$VERIFY_JWT" '
+              if type != "array" then error("Invalid function list") else . end |
+              [.[] | select(.slug == $slug)] |
+              if length != 0 then error("First deployment requires zero existing functions")
+              else {version: null, verify_jwt: $jwt, updated_at: null} end
+            ' before-list.json > before.json
+            exit 0
+          fi
           jq -e --arg slug "$FUNCTION_NAME" '
             [.[] | select(.slug == $slug)] |
             if length != 1 then error("Expected exactly one existing function") else .[0] end |
@@ -93,7 +141,12 @@ jobs:
             printf '## Edge deployment: `%s`\n\nSelected source SHA: `%s`\n\n' "$FUNCTION_NAME" "$DEPLOY_SHA"
             printf '| State | version | verify_jwt | updated_at |\n| --- | --- | --- | --- |\n'
             jq -r '"| Before | \(.version) | \(.verify_jwt) | \(.updated_at) |"' before.json
-            printf '\nRollback: rerun this workflow for the same function with `ref` set to the previously deployed, verified commit SHA and the same HTTP expectation. The source SHA above is the requested deployment; functions list does not reveal the previous source SHA. Record the previous source SHA before approving.\n'
+            if [[ "${FIRST_DEPLOY-false}" == true ]]; then
+              printf '\nFirst deployment: no previous version. verify_jwt=%s (matched section 5).\n' "$VERIFY_JWT"
+              printf '되돌리기 = 화면이 아직 이 함수를 쓰지 않는 상태 유지, 필요 시 사용자가 대시보드에서 함수 삭제 판단.\n'
+            else
+              printf '\nRollback: rerun this workflow for the same function with `ref` set to the previously deployed, verified commit SHA and the same HTTP expectation. The source SHA above is the requested deployment; functions list does not reveal the previous source SHA. Record the previous source SHA before approving.\n'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy preserving JWT policy
@@ -119,6 +172,17 @@ jobs:
       - name: Validate after metadata
         run: |
           set -euo pipefail
+          if [[ "${FIRST_DEPLOY-false}" == true ]]; then
+            jq -e --arg slug "$FUNCTION_NAME" --argjson jwt "$VERIFY_JWT" '
+              [.[] | select(.slug == $slug)] |
+              if length != 1 then error("Expected exactly one newly deployed function") else .[0] end |
+              if (.version | type) != "number" or .version < 1 or (.version | floor) != .version
+                or .verify_jwt != $jwt
+                or (.updated_at == null) or ((.updated_at | type) != "number" and (.updated_at | type) != "string")
+              then error("Invalid first-deploy version or JWT policy/metadata") else {version, verify_jwt, updated_at} end
+            ' after-list.json > after.json
+            exit 0
+          fi
           jq -e --arg slug "$FUNCTION_NAME" --slurpfile before before.json '
             [.[] | select(.slug == $slug)] |
             if length != 1 then error("Expected exactly one deployed function") else .[0] end |
@@ -154,11 +218,20 @@ jobs:
           set -euo pipefail
           {
             printf '\n## Deployment outcome: %s\n\n' "$JOB_STATUS"
+            if [[ "${FIRST_DEPLOY-false}" == true ]]; then
+              printf '\n되돌리기 = 화면이 아직 이 함수를 쓰지 않는 상태 유지, 필요 시 사용자가 대시보드에서 함수 삭제 판단.\n'
+              if [[ "$JOB_STATUS" != success ]]; then
+                printf '수동 확인·삭제 판단 필요(Edge 삭제는 금지 규칙 → 사용자 대시보드). 자동 삭제하지 않음. 함수 존재·version·verify_jwt·HTTP 검사 결과를 확인하세요.\n'
+              fi
+            fi
             if [[ -s after-list.json ]]; then
               printf '| State | version | verify_jwt | updated_at |\n| --- | --- | --- | --- |\n'
               jq -r --arg slug "$FUNCTION_NAME" '.[] | select(.slug == $slug) | "| After (observed) | \(.version) | \(.verify_jwt) | \(.updated_at) |"' after-list.json
             else
               printf 'Post-deployment metadata unavailable; inspect the failed step before another deployment.\n'
             fi
-            printf '\nA failed verification does not undo a deployment. Rollback uses the same button with the previously deployed source SHA; approval is required again.\n'
+
+            if [[ "${FIRST_DEPLOY-false}" == false ]]; then
+              printf '\nA failed verification does not undo a deployment. Rollback uses the same button with the previously deployed source SHA; approval is required again.\n'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
