@@ -36,7 +36,50 @@ function luSetBusy(btn,value){if(!btn)return;btn.disabled=!!value;if(value)btn.s
 // 100MB 파일은 약 8분 10초. 공용 runtime의 15초 기본값은 다른 API에 그대로 둔다.
 const LU_MAX_FILE_BYTES=100*1024*1024;
 function luUploadTimeoutMs(file){return Math.min(600000,90000+Math.ceil((Number(file?.size)||0)/1048576)*4000)}
-async function luUploadRequest(fd,file){if(window.KPTURuntime?.api)return window.KPTURuntime.api('/functions/v1/library-files',{method:'POST',body:fd,timeoutMs:luUploadTimeoutMs(file)});return luApi('/functions/v1/library-files',{method:'POST',body:fd})}
+async function luUploadRequest(fd,file){
+  const runtime=window.KPTURuntime,path='/functions/v1/library-files';
+  const error=(message,options)=>runtime?.RuntimeError?new runtime.RuntimeError(message,options):Object.assign(new Error(message),{status:0,retryable:false,...options});
+  const sessionRequired=()=>error('로그인이 필요합니다.',{status:401,code:'session_required'});
+  if(!(await luEnsure()))throw sessionRequired();
+  const requestEpoch=runtime?.session?.epoch?.()??0,url=(runtime?.config?.url||LU_SB)+path;
+  async function request(){
+    const session=luRead();
+    if(!session?.access_token)throw sessionRequired();
+    const headers={apikey:runtime?.config?.key||LU_KEY,Authorization:'Bearer '+session.access_token};
+    const started=performance.now();
+    let timer;
+    // A/B: use the meeting upload's native fetch options. A deadline reports an
+    // unknown outcome without adding an AbortSignal or retrying the upload.
+    const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>reject(error('요청 시간이 초과되었습니다. 다시 시도해 주세요.',{code:'timeout',retryable:true})),luUploadTimeoutMs(file))});
+    try{
+      const response=await Promise.race([fetch(url,{method:'POST',headers,body:fd}),deadline]);
+      window.__KPTU_STARTUP__?.request?.(url,performance.now()-started,response.status);
+      return response;
+    }catch(cause){
+      window.__KPTU_STARTUP__?.request?.(url,performance.now()-started,0);
+      if(cause?.code==='timeout')throw cause;
+      if(cause?.name==='AbortError')throw error('요청 시간이 초과되었습니다. 다시 시도해 주세요.',{code:'timeout',retryable:true,cause});
+      throw error('네트워크 연결을 확인한 뒤 다시 시도해 주세요.',{code:'network_error',retryable:true,cause});
+    }finally{clearTimeout(timer)}
+  }
+  let response=await request();
+  // Keep the existing authenticated 401 recovery; network/timeout failures are
+  // never retried. Session refresh remains owned by the shared runtime.
+  if(response.status===401){
+    if(!(await runtime?.session?.refresh?.()))throw sessionRequired();
+    response=await request();
+    if(response.status===401){runtime.session.write(null);throw sessionRequired()}
+  }
+  const text=await response.text();
+  let data;try{data=text?JSON.parse(text):null}catch{data=text}
+  if(!response.ok)throw error(data?.message||data?.error_description||data?.hint||data?.error||('요청 실패 '+response.status),{status:response.status,code:'http_'+response.status,retryable:[408,425,429].includes(response.status)||response.status>=500});
+  // Match runtime save metadata and its stale-account guard; never publish
+  // file contents, titles, or response data in the shared notification.
+  if(requestEpoch===(runtime?.session?.epoch?.()??0)&&data?.ok!==false&&!data?.error){
+    try{window.dispatchEvent(new CustomEvent('kptu:api-saved',{detail:{path,method:'POST',fields:[],action:'',projectLinked:!!(fd.get('project_id')||data?.document?.project_id),epoch:requestEpoch}}))}catch{}
+  }
+  return data;
+}
 const LU_UPLOAD_FAILURES={
   unknown_timeout:{kind:'unknown',label:'결과 확인 필요',stop:true,message:'업로드 시간이 오래 걸려 결과를 확인하지 못했습니다. 자료실 목록에서 등록 여부를 확인한 뒤 다시 시도해 주세요.'},
   unknown_network:{kind:'unknown',label:'결과 확인 필요',stop:true,message:'네트워크 연결이 끊겨 업로드 결과를 확인하지 못했습니다. 네트워크 연결을 확인하고 자료실 목록에서 등록 여부를 확인한 뒤 다시 시도해 주세요.'},

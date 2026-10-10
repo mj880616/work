@@ -68,7 +68,7 @@ jobs:
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./action-labels.js?v=2')",
             "import('./team.js?v=63')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=107')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=108')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -156,7 +156,7 @@ jobs:
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "google-tasks.js?v=30" app/view-loader.js
-          grep -q "library-upload.js?v=20" app/view-loader.js
+          grep -q "library-upload.js?v=21" app/view-loader.js
           grep -q "project-catalog.js?v=2" app/view-loader.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
           test ! -f app/home-task-controls.js
