@@ -60,6 +60,7 @@ export function createBasketHandler(
     let stage = "auth";
     let savingNoteId = "";
     let workspaceId = "";
+    let saveFailureConfirmed = false;
     try {
       // Same Web2 authentication path as library-files: JWT verified by Supabase Auth, not decoded locally.
       const match = (req.headers.get("Authorization") || "").match(
@@ -179,8 +180,17 @@ export function createBasketHandler(
           attachments,
         })
           .select("id").single();
-      if (result.error) throw new UploadError(500, "note_save_failed", stage);
-      if (!result.data) throw new UploadError(409, "note_changed", stage);
+      if (result.error) {
+        // SQLSTATE is a completed DB rejection. Transport/5xx gateway errors may still commit later.
+        saveFailureConfirmed = /^[0-9A-Z]{5}$/.test(result.error.code || "") ||
+          (/^PGRST[0-9]+$/.test(result.error.code || "") &&
+            result.status >= 400 && result.status < 500);
+        throw new UploadError(500, "note_save_failed", stage);
+      }
+      if (!result.data) {
+        saveFailureConfirmed = result.status >= 200 && result.status < 300;
+        throw new UploadError(409, "note_changed", stage);
+      }
       saved = true;
       return json({ ok: true, note_id: result.data.id, attachments });
     } catch (error) {
@@ -206,7 +216,9 @@ export function createBasketHandler(
             });
           }
           // A partial external mutation is also ambiguous; retain all files for reconciliation.
-          if (uploaded.some((id) => ids.has(id))) throw new Error();
+          if (uploaded.some((id) => ids.has(id)) || !saveFailureConfirmed) {
+            throw new Error();
+          }
         } catch {
           log("note_save_result_unknown");
           return json({

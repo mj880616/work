@@ -51,6 +51,7 @@ test('BASKET-2 real approval dry-run, apply, guarded rollback and reapply preser
     };
     // Missing/incorrect workspace key and required unsupported columns fail before ALTER.
     for(const mutate of ['alter table public.app_drive_settings drop constraint app_drive_settings_pkey',
+      'alter table public.app_drive_settings drop constraint app_drive_settings_pkey; alter table public.app_drive_settings add unique(workspace_id) deferrable',
       'alter table public.app_drive_settings add column unsupported text not null default \'x\'; alter table public.app_drive_settings alter column unsupported drop default']){
       await pool.query('begin'); await pool.query(mutate);
       await assert.rejects(pool.query(plan('apply','12340').file.sql),/BASKET-2/); await pool.query('rollback');

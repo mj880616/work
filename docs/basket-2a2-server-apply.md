@@ -13,7 +13,7 @@ Migration: `20261010180000_basket2_drive_folder`.
 2. 기존 표 생성 정의는 저장소 migration·docs에 없다. 사용자가 짝
    [precheck](20261010180000_basket2_drive_folder.precheck.sql)와
    [snapshot](20261010180000_basket2_drive_folder.snapshot.sql)을 읽기 전용으로 실행·보관한다.
-   workspace_id UUID/NOT NULL·단일 unique 키=예, unsupported required columns=0,
+   workspace_id UUID/NOT NULL·단일 즉시 검사 unique 키=예, unsupported required columns=0,
    basket column/history=0, BASKET-1 prerequisite=1을 확인한다. 불일치는 중단한다.
    현재 나머지 열·owner·RLS·grant는 snapshot으로 확인하며 코드가 이를 새로 만들거나 바꾸지 않는다.
 3. [DB 승인 workflow](ops-db-workflow.md)에서 사용자 **dry-run**, version

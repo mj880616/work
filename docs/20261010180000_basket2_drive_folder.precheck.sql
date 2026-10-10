@@ -6,7 +6,7 @@ with attrs as (
 select 'settings table exists' as item, case when to_regclass('public.app_drive_settings') is not null then '예' else '아니오' end as value
 union all select 'workspace_id uuid required',case when exists(select 1 from attrs where attname='workspace_id' and atttypid='uuid'::regtype and attnotnull) then '예' else '아니오' end
 union all select 'workspace_id unique key',case when exists(select 1 from pg_index i join attrs a on a.attnum=i.indkey[0]
-  where i.indrelid=to_regclass('public.app_drive_settings') and a.attname='workspace_id' and i.indisunique and i.indisvalid and i.indnkeyatts=1 and i.indpred is null) then '예' else '아니오' end
+  where i.indrelid=to_regclass('public.app_drive_settings') and a.attname='workspace_id' and i.indisunique and i.indimmediate and i.indisvalid and i.indnkeyatts=1 and i.indpred is null) then '예' else '아니오' end
 union all select 'unsupported required columns (=0)',count(*)::text from attrs where attname<>'workspace_id' and attnotnull and attidentity='' and adbin is null
 union all select 'basket column count',count(*)::text from attrs where attname='basket_folder_id'
 union all select 'settings column count',count(*)::text from attrs

@@ -15,7 +15,7 @@ begin
      or not exists (select 1 from pg_index i join pg_attribute a
         on a.attrelid=i.indrelid and a.attnum=i.indkey[0]
         where i.indrelid=to_regclass('public.app_drive_settings') and a.attname='workspace_id'
-          and i.indisunique and i.indisvalid and i.indnkeyatts=1 and i.indpred is null)
+          and i.indisunique and i.indimmediate and i.indisvalid and i.indnkeyatts=1 and i.indpred is null)
      or exists (select 1 from pg_attribute a
         where a.attrelid=to_regclass('public.app_drive_settings') and a.attnum>0 and not a.attisdropped
           and a.attname<>'workspace_id' and a.attnotnull and a.attidentity=''

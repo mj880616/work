@@ -72,8 +72,9 @@ async function harness(options={}) {
         }
       }else if(table==='app_notes'||table==='app_drive_settings')data=match?data:null;
       data=data?structuredClone(data):null;
-      if(table==='app_notes' && mutation && options.saveLost)return {data:null,error:{message:'synthetic-secret'}};
-      return {data:single?data:(returning&&data?[data]:null),error:null};
+      if(table==='app_notes' && mutation && options.savePending){state.pendingNote=state.note;state.note=null;return {data:null,error:{code:'',message:'synthetic-secret'},status:0};}
+      if(table==='app_notes' && mutation && options.saveLost)return {data:null,error:{code:'',message:'synthetic-secret'},status:0};
+      return {data:single?data:(returning&&data?[data]:null),error:null,status:200};
     }
     return b;
   }};
@@ -190,4 +191,9 @@ test('OPTIONS and actual unauthenticated workflow JSON probe return expected sta
   const response=await h.handler(new Request('https://synthetic.invalid',{method:'OPTIONS'}));assert.equal(response.status,200);
   const probe=await h.handler(new Request('https://synthetic.invalid',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}));
   assert.equal(probe.status,401);assert.equal(h.calls.drive.length,0);
+}));
+test('negative readback after lost response cannot authorize DELETE before delayed DB commit',async()=>using({savePending:true},async h=>{
+  const r=await send(h);assert.equal(r.status,503);assert.equal(r.body.code,'note_save_result_unknown');
+  assert.equal(h.state.note,null);assert.equal(h.calls.drive.some(x=>x.method==='DELETE'),false);
+  h.state.note=h.state.pendingNote;assert.equal(h.state.note.id,r.body.note_id);assert.equal(h.state.note.attachments.length,1);
 }));
