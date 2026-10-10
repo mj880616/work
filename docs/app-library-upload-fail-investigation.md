@@ -163,3 +163,57 @@ URL·FormData의 차이는 기능별 계약이며 그대로 유지했다. CORS p
 - PR CI는 PR 본문·댓글의 최종 head SHA 기록으로 확인한다. 폰 판정 전에는 운영 해결 완료로 취급하지 않는다.
 
 PR: [#460](https://github.com/mj880616/work/pull/460), branch `codex/app-library-upload-fail`. 최종 head의 CI 결과는 PR 본문·댓글에 기록한다. merge하지 않는다.
+
+## 폰 진단 북마크
+
+📱 폰 경로 B. 원본은 `scripts/diag/library-upload-diag.js`, 한 줄 북마크는 `scripts/diag/library-upload-diag.bookmarklet.txt`다. 원격 `origin/main`을 새로 fetch한 시작 SHA는 `38a3217abf95b33c2c14434590b449676c9e3f08`(#465 merge)이다. Codex는 운영에 실행하지 않는다. 커맨드센터의 줄 단위 검토 후 사용자가 폰에서 실행하며, 상세 실행 절차는 커맨드센터가 안내한다.
+
+앱 모듈의 내부 선택 파일에는 접근할 수 없어 패널의 **파일 고르기**로 다시 선택한다(`multiple`). **진단 시작** 후 선택 순서대로 각 파일의 T0~T7을 하나씩 실행한다. 시험마다 60초 제한, 자동 재시도·세션 갱신 없음. 제한 초과나 닫기 때 현재 작업을 중단하고 이후 시험을 실행하지 않아 요청이 겹치지 않는다. T5 읽기 실패는 기록하고 T6만 미실행하며 T7은 계속한다. 환경 설정 오류는 요청 전 종료한다.
+
+| 시험 | 입력·기대 응답 | 목적 |
+| --- | --- | --- |
+| T0 | 로그인 세션 예/아니오, 앱 fetch 래퍼 예/아니오, 파일 이름 길이·크기·type·lastModified, 첫 1바이트 읽기 | 앱 환경·파일 제공자 읽기 확인. 래퍼 판별은 현재 `auth-bootstrap.js`의 `rawFetch`·`/auth/v1/user` 특징을 사용하며 다른 래퍼까지 판별하지 않는다. |
+| T1 | library-files: 파일 없이 무작위 project_id → 400 `file_missing` | 파일 본문과 무관한 인증·요청 경로 확인 |
+| T2 | library-files: 10바이트 생성 Blob, `diag.pdf` → 404 `project_not_found` | 작은 multipart 본문의 전송 기준 |
+| T3 | library-files: 선택 파일과 같은 크기의 생성 Blob, `diag.pdf` → 404 | 크기·업링크와 실제 파일 핸들 분리 |
+| T4 | library-files: 선택한 실제 File 그대로 → 404 | 핵심 재현. 헤더 이름 `apikey`, `Authorization`만 한 번 표시 |
+| T5 | library-files: 실제 파일 전체를 arrayBuffer로 읽어 만든 사본, 같은 이름·type → 404 | 원본 파일 핸들과 메모리 사본 비교. 읽기 실패는 요청 전 오류로 기록 |
+| T6 | library-files: T5 사본의 전송 이름만 `diag.pdf` → 404 | 파일명 영향 분리 |
+| T7 | meeting-files: T4와 같은 실제 File, 무작위 meeting_id → 403 | 같은 파일·다른 함수 비교 |
+
+모든 POST는 새 `crypto.randomUUID()`로 만든 project_id 또는 meeting_id를 반드시 포함한다(T1도 project_id 포함). 파일이 있으면 FormData의 첫 필드는 file이다. 실존 ID나 앱의 프로젝트·회의 선택값을 읽지 않는다. library-files는 `getUser → formData 전체 수신 → 파일 검사 → 없는 project_id의 404`, meeting-files는 `formData → 없는 meeting_id의 403`에서 Drive·DB 쓰기 전에 종료된다. **0바이트는 400, 100MB 초과는 413**으로 ID 검사보다 먼저 거절되어 기대 404/403의 예외다. 무작위 UUID는 존재 여부 조회로 확인하지 않으며 충돌 가능성은 극히 낮지만 수학적으로 0은 아니다.
+
+주소·apikey·세션은 `window.KPTURuntime`에서 읽고 앱과 같은 `window.fetch`를 호출한다. 두 함수 외 호출·인증 refresh·외부 스크립트·저장소/쿠키 쓰기는 없다. 진단 제한용 AbortController와 다른 주소 이동 방지용 `redirect: error`를 추가하므로 앱의 무제한 native fetch 옵션과 완전히 같지는 않다. 앱 fetch 래퍼가 바꾼 응답을 관측하며, 원본 서버 code가 래퍼에 의해 빠질 수 있다.
+
+### 결과 해석
+
+아래의 “성공”은 **기대 거절 응답을 브라우저가 받은 것**을 뜻한다. 업로드 생성 성공(2xx)을 뜻하지 않는다. 추정은 후속 확인의 방향이며 원인 확정이 아니다.
+
+| 결과 패턴 | 해석·다음 대조 |
+| --- | --- |
+| T1부터 응답 없이 실패 | 파일과 무관한 요청 자체·환경 문제 후보. 401이면 세션 만료 등 인증 문제를 먼저 확인 |
+| T2 성공·T3 실패 | 크기·업링크 문제 후보. 413과 시간 초과를 구분하고 생성 Blob 메모리 부족 가능성도 확인 |
+| T2 성공·T4 실패·T5 성공 | 선택 파일 핸들·파일 제공자 문제 후보 |
+| T4 실패·T5 실패·T6만 성공 | 파일 이름 문제 후보(T5 읽기 성공·POST 시도였는지 확인) |
+| T0 첫 바이트 실패 또는 T5 읽기 실패 | 파일 읽기/접근 문제 후보. T5 요청 미시도와 네트워크 실패를 구분 |
+| T7 성공·T4 실패 | library-files 쪽 경로·응답·전송 차이 후보 |
+| T1~T7 기대 응답 도착 | 이 진단 조건에서 전송 성공. 실제 앱 입력·기기 상태와 차이는 남음 |
+| 60초 제한 초과 | 이후 시험 중단. 서버가 본문을 받았는지는 별도 대조 필요 |
+
+표와 복사 결과는 시험별 시작 UTC(초)·소요 ms·브라우저 응답 도착·HTTP status·JSON code·오류 name/message/cause(name/message/code)를 포함한다. T0·T5에서 파일을 읽는 오류도 기록한다. 파일 이름 원문·응답 본문·헤더 값·토큰은 포함하지 않고, 오류나 code에 비밀값이 섞여도 출력 전에 가린다. 결과 복사가 실패하면 선택 가능한 textarea를 제공한다. 닫기는 패널과 현재 실행을 정리한다. 파일 제공자나 브라우저가 취소를 무시할 수 있어 제한 초과 뒤 늦은 응답은 결과를 바꾸지 않는다. 취소된 실제 작업이 끝날 때까지 페이지 전체 잠금이 남아 재선택·북마크 재실행으로도 요청을 겹칠 수 없다. T3는 최대 64KiB 초기 버퍼와 Blob 합성으로 생성하며 T5 전체 사본은 폰 메모리를 사용한다. 앱/OS 강제 종료는 60초 타이머로 막을 수 없다.
+
+### Invocations 대조
+
+커맨드센터가 사용자의 결과에서 파일 번호·T번호·시작 UTC·소요시간·함수 이름을 기준으로 library-files(T1~T6), meeting-files(T7)의 해당 구간을 대조한다. 패널의 새 무작위 ID는 요청별 대조 보조 정보이며 서버 로그에 ID가 있을 때만 매칭한다. OPTIONS와 POST를 따로 센다. preflight는 캐시될 수 있어 시험마다 OPTIONS가 생기지 않을 수 있다. 응답 도착 “아니오”는 브라우저가 응답을 받지 못했다는 뜻으로, POST 미생성이나 서버 미도착을 단정하지 않는다. POST가 있는데 브라우저는 실패하면 응답/CORS·전송 중단을 확인하고, OPTIONS만 있으면 preflight 이후 본문 전송을 확인한다. 요청 시작부터 본문 수신까지 시간이 걸릴 수 있으므로 UTC 시작~종료 주변을 함께 확인한다.
+
+원본과 북마크의 동일성·허용 경로·무작위 ID·금지 API 및 순차 전송/오류/비밀값 가림 검사는 `tests/security/library-upload-diag.test.mjs`에 있다. 재생성: `node scripts/diag/generate-library-upload-bookmarklet.mjs`, 동일성 검사: 같은 명령에 `--check`. 운영 원인은 사용자의 실기기 결과와 Invocations 대조 전까지 미확정이다.
+
+### 작성 검증
+
+- Node 전체 `node --test tests/*.test.mjs tests/security/*.test.mjs tests/domain/*.test.mjs scripts/*.test.mjs`: 378/378 통과(새 진단 검사 11개 포함), 실패·skip 0. 기준 main은 367/367 통과. 생성 스크립트 `--check` 통과.
+- 설치 Chromium 151.0.7922.173·Playwright 1.57.0, 로컬 교차 출처 HTTP 모의 서버만 호출했다. 원본 평가뿐 아니라 생성된 `javascript:` URL 자체를 실행했다. 390px·1280px에서 multiple 선택(작은 PDF·2.7MB, 한글·공백 파일명) 각각 T0~T7 16행·POST 14건·기대 응답 통과. 390px 응답 CORS 실패·redirect 거절 조건 각각 POST 7건·후속 시험 계속, redirect 목적지 호출 0건. 합계 POST 42건, 서버 최대 동시 요청 1건, 페이지 오류 0건. 헤더 값 제외 복사 fallback·닫기 확인. 임시 검증 소스/증거는 `/tmp/library-diag-browser.mjs`, `/tmp/library-diag-browser-evidence.json`에만 두었다.
+- Node에서 실제 선택 File 객체 보존·UUID 중복 없음·파일 읽기 실패·60초 제한·abort 무시 시 재선택/재열기 차단·늦은 요청 방지·비밀값 가림을 검사했다. 시험 제한은 테스트에서 타이머만 단축해 검증했다.
+- 최초 PR CI의 보안 검사에서 새 검사의 Acorn import가 `ERR_MODULE_NOT_FOUND`로 실패했다. 보안 workflow는 parser 설치 없이 실행하므로, 새 정적 검사를 Node 기본 구문 검사·소스/리터럴 경계 검사로 변경하고 의존성 미설치 상태의 11/11 통과를 확인했다. workflow는 변경하지 않았다.
+- 실제 Android 파일 제공자·운영 TLS·실기기 메모리·네트워크 및 삼성 인터넷은 이 검증으로 재현하지 못한다. 앱·Edge·DB·workflow·운영 변경 없음. 앱 로더가 이 파일을 불러오지 않아 캐시 버전 갱신은 해당 없음.
+
+진단 북마크 PR: [#466](https://github.com/mj880616/work/pull/466), branch `codex/app-library-upload-diag`. merge하지 않는다.
