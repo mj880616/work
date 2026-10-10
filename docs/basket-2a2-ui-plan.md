@@ -40,4 +40,5 @@
 - [x] 캐시 의존 체인·고정 버전 기대 갱신.
 - [x] 사용자 제공 DB 2차 apply·basket-files v1 배포 사실과 원장 진행중/대기 행 기록.
 - [x] 정적·Node·기존 자료실/회의/홈 관련 spec 실행. 서버/DB 테스트 실행 제외.
-- [ ] diff 검토·커밋·push 후 연결 GitHub PR 생성, CI 조회·12항목 보고. merge 없음.
+- [x] diff 검토·커밋·push 후 연결 GitHub PR #477 생성.
+- [ ] CI 조회·12항목 보고. merge 없음.
