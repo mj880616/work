@@ -12,7 +12,9 @@ const project={id:'upload-project',workspace_id:'upload-workspace',owner_id:user
 const fixture=`<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app/styles.css"><body>
 <section id="libraryView"><input id="documentSearch"><select id="documentProject"></select><div id="documentList"></div></section>
 <div id="documentModal"><div class="modal-card"><label>자료명<input id="docTitle"></label><input id="docCategory"><input id="docSource"><input id="docDate"><input id="docTags"><select id="docProject"></select><textarea id="docDescription"></textarea><button id="saveDocumentBtn" type="button">저장</button><div id="documentStatus"></div></div></div>
-<script src="/app/runtime-client.js"></script><script src="/app/project-catalog.js"></script><script src="/app/library-upload.js?BASELINE"></script></body></html>`;
+<script src="/app/runtime-client.js"></script>
+<script>KPTURuntime.session.write({access_token:'mock-access',refresh_token:'mock-refresh',expires_at:9999999999,user:{id:'upload-owner'}});</script>
+<script src="/app/project-catalog.js"></script><script src="/app/library-upload.js?BASELINE"></script></body></html>`;
 
 test.beforeAll(async()=>{
  api=createServer(async(req,res)=>{
@@ -61,7 +63,6 @@ async function open(page,{width,baseline=false,shortTimeout=false}={}){
  mode='success';requests=[];documents=[];pending=[];
  await page.setViewportSize({width,height:900});
  await page.addInitScript(({shortTimeout})=>{
-  localStorage.setItem('kptu_collab_session_v1',JSON.stringify({access_token:'mock-access',refresh_token:'mock-refresh',expires_at:9999999999,user:{id:'upload-owner'}}));
   window.__uploadOptions=[];window.__saved=[];window.__changed=0;window.__errors=[];window.__deadlines=[];window.__completed=0;
   window.addEventListener('kptu:api-saved',e=>window.__saved.push(e.detail));
   window.addEventListener('kptu:documents-changed',()=>window.__changed++);
@@ -94,7 +95,7 @@ for(const width of [390,1280])test.describe(`native library transport ${width}px
   expect(posts()[0].raw).toContain('한글 자료');expect(posts()[0].raw).toContain('설명 🙂');
   expect(posts()[0].headers['content-type']).toMatch(/^multipart\/form-data; boundary=/);
   expect(await page.evaluate(()=>window.__uploadOptions)).toEqual([{keys:['body','headers','method'],cache:null,signal:false,credentials:'same-origin',mode:'cors',keepalive:false,headers:['Authorization','apikey']}]);
-  expect(await page.evaluate(()=>window.__saved)).toEqual([{path:'/functions/v1/library-files',method:'POST',fields:[],action:'',projectLinked:true,epoch:0}]);
+  expect(await page.evaluate(()=>window.__saved)).toEqual([{path:'/functions/v1/library-files',method:'POST',fields:[],action:'',projectLinked:true,epoch:1}]);
   expect(await page.evaluate(()=>window.__changed)).toBe(1);
   expect(await page.evaluate(()=>window.__deadlines)).toEqual([94000]);
  });

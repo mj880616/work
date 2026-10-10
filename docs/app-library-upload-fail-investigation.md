@@ -158,6 +158,7 @@ URL·FormData의 차이는 기능별 계약이며 그대로 유지했다. CORS p
 - Node **360/360 통과**, fail/skip 0. `node --test tests/*.test.mjs tests/security/*.test.mjs tests/domain/*.test.mjs scripts/*.test.mjs`.
 - app-smoke의 정적 18단계·HTTP smoke 통과. 변경 전 코드에서 시작한 신규 fetch 옵션 검사 2개 실패를 확인했으며 최종 관련 spec은 모두 통과했다.
 - 캐시 기대값 spec·loader-cache 검사 통과. 운영 참조 383개 확인.
+- 최초 PR CI의 저장소 감사는 신규 fixture의 직접 세션 저장 1줄을 지적했다. fixture가 공용 `session.write`로 모의 로그인을 설정하도록 바꾸고 로그인으로 증가한 epoch=1을 정확히 검사한다. 감사 규칙 변경 없이 로컬 감사와 native HTTP 26/26 재검사 통과.
 - 별도 읽기 전용 리뷰: Critical/Important 발견 없음. 앱·테스트 임시 디버깅 코드 없음; 모의 서버·관측 wrapper는 테스트 파일에만 있다.
 - PR CI는 PR 본문·댓글의 최종 head SHA 기록으로 확인한다. 폰 판정 전에는 운영 해결 완료로 취급하지 않는다.
 
