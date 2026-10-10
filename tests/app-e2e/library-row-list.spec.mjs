@@ -214,84 +214,87 @@ test('library menu stays within a short viewport after scrolling and resizing',a
 });
 
 for(const width of [390,1280]){
-  test(`library hides only meeting-linked documents and counts filtered matches at ${width}px`,async({page})=>{
-    await page.setViewportSize({width,height:900});
-    const errors=[];
-    page.on('pageerror',error=>errors.push(error.message));
-    page.on('console',message=>{if(message.type()==='error')errors.push(message.text())});
-    const state=baseState();state.downloads=[];state.deletes=[];
-    const doc=(id,title,project_id,extra={})=>({id,title,project_id,workspace_id:'workspace-1',file_name:id+'.pdf',category:'정책자료',tags:[],created_at:now(),...extra});
-    state.docs=[
-      doc('ordinary-a','철도 일반 자료','top-a',{meeting_id:null}),
-      doc('category-only','철도 상집 자료','top-a',{category:'회의자료'}),
-      doc('ordinary-b','일반 별도 자료','top-b',{meeting_id:null}),
-      doc('meeting-a','철도 회의 연결 자료','top-a',{meeting_id:'meeting-1',category:'기타'}),
-      doc('meeting-b','철도 다른 회의 자료','top-b',{meeting_id:'meeting-2',category:'회의자료'})
-    ];
-    const documentQueries=[];
-    page.on('request',req=>{const url=new URL(req.url());if(url.pathname==='/rest/v1/app_documents')documentQueries.push(url.searchParams)});
-    await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-    await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-    const rows=page.locator('#documentList [data-lu-document]');
-    const toggle=page.getByRole('button',{name:'회의자료 2개 보기',exact:true});
-    await expect(rows).toHaveCount(3);
-    await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
-    await expect(page.locator('[data-lu-document="meeting-a"]')).toHaveCount(0);
-    await expect(toggle).toHaveAttribute('aria-expanded','false');
-    await expect(toggle).toHaveAttribute('aria-controls','documentList');
-    if(width===390)await toggle.tap();else await toggle.click();
-    await expect(rows).toHaveCount(5);
-    const hide=page.getByRole('button',{name:'회의자료 2개 숨기기',exact:true});
-    await expect(hide).toHaveAttribute('aria-expanded','true');
-    await hide.focus();await page.keyboard.press('Space');
-    await expect(rows).toHaveCount(3);
-    await expect(toggle).toBeFocused();
-    await page.locator('#documentProject').selectOption('top-a');
-    await page.locator('#documentSearch').fill('철도');
-    const filteredToggle=page.getByRole('button',{name:'회의자료 1개 보기',exact:true});
-    await expect(rows).toHaveCount(2);
-    await filteredToggle.focus();await page.keyboard.press('Enter');
-    await expect(rows).toHaveCount(3);
-    await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();
-    await expect(page.locator('[data-lu-document="meeting-b"]')).toHaveCount(0);
-    await page.locator('#documentSearch').fill('일반');
-    await expect(rows).toHaveCount(1);
-    await expect(page.getByRole('button',{name:/회의자료 \d+개/})).toHaveCount(0);
-    // Even a result containing only hidden documents must retain a way to reveal them.
-    await page.locator('#documentSearch').fill('회의 연결');
-    await expect(rows).toHaveCount(1);
-    await page.getByRole('button',{name:'회의자료 1개 숨기기',exact:true}).click();
-    await expect(rows).toHaveCount(0);
-    await expect(filteredToggle).toBeVisible();
-    await filteredToggle.click();await expect(rows).toHaveCount(1);
-    await page.locator('#documentSearch').fill('없음');
-    await expect(rows).toHaveCount(0);
-    await expect(page.getByRole('button',{name:/회의자료 \d+개/})).toHaveCount(0);
-    await page.locator('#documentSearch').fill('');
-    await page.locator('#documentProject').selectOption('all');
-    await expect(rows).toHaveCount(5);
-    // Management intentionally continues to show the complete loaded set.
-    await page.locator('#manageLibraryBtn').click();
-    await expect(page.locator('#libraryManageList [data-library-edit]')).toHaveCount(5);
-    await page.locator('#libraryManageClose').click();
-    const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));
-    const before=await storageKeys();
-    await page.getByRole('button',{name:'회의자료 2개 숨기기',exact:true}).click();
-    await toggle.click();
-    expect(await storageKeys()).toEqual(before);
-    // Actual router transitions, including API navigation, reset the in-memory preference.
-    await page.evaluate(()=>window.KPTURouter.go('home'));
-    await expect(page.locator('#homeView')).toBeVisible();
-    await page.evaluate(()=>window.KPTURouter.go('library'));
-    await expect(rows).toHaveCount(3);await expect(toggle).toHaveAttribute('aria-expanded','false');
-    await toggle.click();await expect(rows).toHaveCount(5);
-    await page.reload();
-    await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-    await expect(rows).toHaveCount(3);await expect(toggle).toHaveAttribute('aria-expanded','false');
-    expect(documentQueries.length).toBeGreaterThan(0);
-    for(const params of documentQueries)expect(params.has('meeting_id')).toBe(false);
-    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-    await page.screenshot({path:`/tmp/library-meeting-hidden-${width}.png`,fullPage:true});
-    expect(errors).toEqual([]);
+  test.describe(`meeting-linked disclosure at ${width}px`,()=>{
+    test.use({hasTouch:width===390});
+    test(`library hides only meeting-linked documents and counts filtered matches at ${width}px`,async({page})=>{
+      await page.setViewportSize({width,height:900});
+      const errors=[];
+      page.on('pageerror',error=>errors.push(error.message));
+      page.on('console',message=>{if(message.type()==='error')errors.push(message.text())});
+      const state=baseState();state.downloads=[];state.deletes=[];
+      const doc=(id,title,project_id,extra={})=>({id,title,project_id,workspace_id:'workspace-1',file_name:id+'.pdf',category:'정책자료',tags:[],created_at:now(),...extra});
+      state.docs=[
+        doc('ordinary-a','철도 일반 자료','top-a',{meeting_id:null}),
+        doc('category-only','철도 상집 자료','top-a',{category:'회의자료'}),
+        doc('ordinary-b','일반 별도 자료','top-b',{meeting_id:null}),
+        doc('meeting-a','철도 회의 연결 자료','top-a',{meeting_id:'meeting-1',category:'기타'}),
+        doc('meeting-b','철도 다른 회의 자료','top-b',{meeting_id:'meeting-2',category:'회의자료'})
+      ];
+      const documentQueries=[];
+      page.on('request',req=>{const url=new URL(req.url());if(url.pathname==='/rest/v1/app_documents')documentQueries.push(url.searchParams)});
+      await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+      await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
+      const rows=page.locator('#documentList [data-lu-document]');
+      const toggle=page.getByRole('button',{name:'회의자료 2개 보기',exact:true});
+      await expect(rows).toHaveCount(3);
+      await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
+      await expect(page.locator('[data-lu-document="meeting-a"]')).toHaveCount(0);
+      await expect(toggle).toHaveAttribute('aria-expanded','false');
+      await expect(toggle).toHaveAttribute('aria-controls','documentList');
+      if(width===390)await toggle.tap();else await toggle.click();
+      await expect(rows).toHaveCount(5);
+      const hide=page.getByRole('button',{name:'회의자료 2개 숨기기',exact:true});
+      await expect(hide).toHaveAttribute('aria-expanded','true');
+      await hide.focus();await page.keyboard.press('Space');
+      await expect(rows).toHaveCount(3);
+      await expect(toggle).toBeFocused();
+      await page.locator('#documentProject').selectOption('top-a');
+      await page.locator('#documentSearch').fill('철도');
+      const filteredToggle=page.getByRole('button',{name:'회의자료 1개 보기',exact:true});
+      await expect(rows).toHaveCount(2);
+      await filteredToggle.focus();await page.keyboard.press('Enter');
+      await expect(rows).toHaveCount(3);
+      await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();
+      await expect(page.locator('[data-lu-document="meeting-b"]')).toHaveCount(0);
+      await page.locator('#documentSearch').fill('일반');
+      await expect(rows).toHaveCount(1);
+      await expect(page.getByRole('button',{name:/회의자료 \d+개/})).toHaveCount(0);
+      // Even a result containing only hidden documents must retain a way to reveal them.
+      await page.locator('#documentSearch').fill('회의 연결');
+      await expect(rows).toHaveCount(1);
+      await page.getByRole('button',{name:'회의자료 1개 숨기기',exact:true}).click();
+      await expect(rows).toHaveCount(0);
+      await expect(filteredToggle).toBeVisible();
+      await filteredToggle.click();await expect(rows).toHaveCount(1);
+      await page.locator('#documentSearch').fill('없음');
+      await expect(rows).toHaveCount(0);
+      await expect(page.getByRole('button',{name:/회의자료 \d+개/})).toHaveCount(0);
+      await page.locator('#documentSearch').fill('');
+      await page.locator('#documentProject').selectOption('all');
+      await expect(rows).toHaveCount(5);
+      // Management intentionally continues to show the complete loaded set.
+      await page.locator('#manageLibraryBtn').click();
+      await expect(page.locator('#libraryManageList [data-library-edit]')).toHaveCount(5);
+      await page.locator('#libraryManageClose').click();
+      const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));
+      const before=await storageKeys();
+      await page.getByRole('button',{name:'회의자료 2개 숨기기',exact:true}).click();
+      await toggle.click();
+      expect(await storageKeys()).toEqual(before);
+      // Actual router transitions, including API navigation, reset the in-memory preference.
+      await page.evaluate(()=>window.KPTURouter.go('home'));
+      await expect(page.locator('#homeView')).toBeVisible();
+      await page.evaluate(()=>window.KPTURouter.go('library'));
+      await expect(rows).toHaveCount(3);await expect(toggle).toHaveAttribute('aria-expanded','false');
+      await toggle.click();await expect(rows).toHaveCount(5);
+      await page.reload();
+      await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
+      await expect(rows).toHaveCount(3);await expect(toggle).toHaveAttribute('aria-expanded','false');
+      expect(documentQueries.length).toBeGreaterThan(0);
+      for(const params of documentQueries)expect(params.has('meeting_id')).toBe(false);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await page.screenshot({path:`/tmp/library-meeting-hidden-${width}.png`,fullPage:true});
+      expect(errors).toEqual([]);
+    });
   });
 }
