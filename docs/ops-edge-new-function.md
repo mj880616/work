@@ -4,7 +4,7 @@
 
 ## 사용자 절차(폰)
 
-1. 커맨드센터에서 배포할 소스 SHA·함수 이름·JWT 정책·HTTP 기대값을 승인한다. 해당 SHA에 `supabase/functions/<함수>/index.ts`와 [ENV-6b 문서 5절](web2-env6b-edge-source.md#5-production-함수-전체-verify_jwt-env-7-배포-때-기준표)의 함수 행이 있어야 한다. 신규 행은 배포 대기로 표시하고, 운영 합계에는 배포 확인 전 포함하지 않는다. `basket-files` 행·코드는 후속 서버 PR에서 준비한다.
+1. 커맨드센터에서 배포할 소스 SHA·함수 이름·JWT 정책·HTTP 기대값을 승인한다. 해당 SHA에 `supabase/functions/<함수>/index.ts`와 [ENV-6b 문서 5절](web2-env6b-edge-source.md#5-production-함수-전체-verify_jwt-env-7-배포-때-기준표)의 함수 행이 있어야 한다. 신규 행은 배포 대기로 표시하고, 운영 합계에는 배포 확인 전 포함하지 않는다. `basket-files` 행·코드는 BASKET-2a-2 서버 PR에 준비했으며 [DB 확인 후 최초 배포](basket-2a2-server-apply.md) 순서를 따른다.
 2. GitHub Actions → Approved Edge Function deployment → Run workflow를 연다. workflow가 반영된 main에서 버튼을 열고 `function`에 승인된 이름, `ref`에 승인된 소스 SHA, `first_deploy=true`, `verify_jwt=true` 또는 `false`(5절 표와 동일)를 지정한다. `expect_unauth_401=true`를 유지하며 공개 함수에서만 승인된 `false`를 사용한다.
 3. 사용자가 Run workflow를 누르고 `production-edge` environment 승인을 진행한다. AI는 실행·승인하지 않는다.
 4. Summary에서 선택 소스 SHA, 최초 배포·JWT 정책, 생성된 함수의 version·verify_jwt·updated_at, POST 401(검사 대상만), OPTIONS 200/204를 확인한다. 정상 확인 뒤에 화면이 이 함수를 호출하는 후속 PR을 진행한다.
