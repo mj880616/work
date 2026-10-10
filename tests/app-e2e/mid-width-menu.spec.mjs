@@ -23,7 +23,7 @@ async function open(page,url=app+'?view=home'){
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
-const order=['홈','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직'];
+const order=['홈','바구니','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직'];
 for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`mid menu is a reachable ordered prefix at ${width}px, font ${fontSize||'default'}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);
   const trigger=page.locator('#mobileMenuOpen');await expect(trigger).toBeVisible();
@@ -51,7 +51,7 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`m
     let item=page.locator('.app-nav').getByRole('button',{name:label,exact:true});
     if(!await item.count()){await trigger.click();item=page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true})}
     await item.click();await expect(page.locator('#mobileMenu')).toBeHidden();
-    const view=({'홈':'home','일정':'calendar','할 일':'tasks','프로젝트':'projects','자료실':'library','회의':'meetings','성명·보도자료':'media','게시판':'pages','담당조직':'team'})[label];
+    const view=({'홈':'home','바구니':'basket','일정':'calendar','할 일':'tasks','프로젝트':'projects','자료실':'library','회의':'meetings','성명·보도자료':'media','게시판':'pages','담당조직':'team'})[label];
     await expect(page.locator('#'+view+'View')).toBeVisible();
     if(label==='성명·보도자료')await expect(page.locator('.app-nav [data-view="media"],#mobileMenu nav [data-view="media"]')).toHaveAttribute('aria-current','page');
   }
@@ -84,9 +84,9 @@ test('resize and font changes repartition; phone and PC return to their original
   const enlarged=await count();await page.setViewportSize({width:1023,height:844});await expect.poll(count).toBeGreaterThan(enlarged);
   await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='')});await expect.poll(count).toBe(normal);
   await page.setViewportSize({width:760,height:844});await expect(page.locator('.app-nav')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeVisible();await page.locator('#mobileMenuOpen').click();
-  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['회의','자료실','성명','보도자료','게시판']);await page.keyboard.press('Escape');
+  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['바구니','회의','자료실','성명','보도자료','게시판']);await page.keyboard.press('Escape');
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
-  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직']);await expect(page.locator('.app-nav [data-account-open]')).toBeVisible();
+  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직']);await expect(page.locator('.app-nav [data-account-open]')).toBeVisible();
 });
 
 test('recalculation preserves keyboard focus and highlights the hidden combined media button',async({page})=>{
@@ -151,7 +151,7 @@ for(const width of [761,820,900,1023])test(`combined media current location at $
   await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
 });
 
-for(const label of ['회의','자료실','성명','보도자료','게시판'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
+for(const label of ['바구니','회의','자료실','성명','보도자료','게시판'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
   await page.setViewportSize({width:760,height:844});await open(page);
   await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true}).focus();
   await page.setViewportSize({width:820,height:844});await expect(page.locator('#mobileMenu')).toBeVisible();await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();

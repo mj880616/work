@@ -80,6 +80,8 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 
 - 홈: `home-read.js`가 읽기 칸의 유일한 renderer, `home-read-model.js`가 KST 날짜·주 경계와 선택 규칙을 소유한다. `/app/` 기본은 홈이며 일정은 `?view=calendar`이다. 날짜·메뉴 셸을 먼저 공개한 뒤 각 칸을 독립 조회하고, Google 목록·확정 연결·프로젝트 카탈로그·조직 목록은 공유한다. 완료 상태는 `google-tasks.js`의 toggleTask·3초 settling·기존 변경 이벤트를 쓴다. 빠른 입력은 D-4a ③ 범위다.
 
+- 바구니: `basket.js`가 목록·상세·보기 선택의 유일한 renderer다. `basket-data.js`가 홈과 공유하는 글 검증·app_notes REST와 note_id 연결 조회·상태 계산을 소유한다. 원문·작성 중 글·보기 선택은 브라우저 영구 저장소에 두지 않으며, 목록 재진입 기본은 미분류다. 홈의 기존 모드 기억 키는 유지하고 저장된 모드가 없으면 바구니가 기본이다. 조직 업데이트는 BASKET-2b 전까지 기존 경로를 쓴다.
+
 - 일정: `calendar-view.js`가 보기 선택(list/week/month)·범위·목록 추가 조회·기기별 저장을 단독 소유한다. `calendar-list-view.js`는 목록 DOM·추가 조회 감지, `calendar-week-view.js`는 월~일 7줄 DOM, `calendar-month-view.js`는 월간 DOM의 유일한 renderer다. `calendar-day-items.js`의 날짜별 항목 계산·일정 줄·할 일 링크·포커스 복귀를 목록과 주간이 공유하며, `home-read-model.js`의 KST·배타적 종료·월요일 주 경계를 재사용한다. 주간은 KST 7일 범위 1회 조회하고 목록만 14일 분할·추가 조회한다. 범위는 `calendar-persistence.js`에 전달하며 Google 선택·캐시·owner/sequence 기반 stale-response 방어를 공유한다. `calendar-tasks.js`는 날짜 제한 없는 Google 목록을 모든 보기에 전달한다. `calendar-day-overflow.js`는 월간 날짜·+N과 목록·주간 할 일 링크의 공통 날짜 창을 그린다. persistence는 Google 선택·조회만 담당하며 DOM을 직접 그리지 않는다. 새 일정·수정은 기존 Google 저장 경로를 사용하고 프로젝트 주요 일정의 연결도 유지한다. 나머지 `calendar-*`는 생성·편집·OAuth 복귀·날짜 상세 등 명시적 보조 기능을 담당한다.
 - 할 일: `task-*`
 - 프로젝트: `project-*`

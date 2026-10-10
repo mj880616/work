@@ -87,6 +87,8 @@
 -- Execute as ONE transaction, with app input paused and both old/new tables locked.
 -- Before writes: reject source duplicates, missing mapping, invalid raw_text,
 -- and existing metadata ID matches whose workspace/text/timestamps differ.
+-- A안 결정(2026-10-10): raw_text + 빈 줄 + '상세: ' + detail_text, 20,000자 초과 시 이관 중단·보고
+-- BASKET-2b에서 감사·이관 승인 후 반영. 아래 detail_text 차단 guard와 초안은 계속 미실행.
 -- Insert only missing notes; never overwrite previously migrated/edited notes.
 do $draft$
 begin

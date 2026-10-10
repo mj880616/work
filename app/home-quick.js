@@ -1,22 +1,24 @@
 import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
 import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=1';
+import { createNote, validateNoteText } from './basket-data.js?v=1';
 import { dayKey } from './home-read-model.js?v=1';
 
 export function mountQuick({root, dependencies, refreshTasks, invalidateProjects, esc}) {
   const box=root.querySelector('.home-quick-placeholder');
   box.removeAttribute('aria-hidden'); box.className='home-quick'; box.dataset.homeQuick='';
   let quickOwner=window.KPTURuntime.context.read()?.user?.id;
-  let mode='task',saving=false,expanded=false,project='',organization='',due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
-  try { mode=window.localStorage.getItem('kptu-home-quick-mode')==='update'?'update':'task'; } catch {}
-  box.innerHTML=`<div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="task">할 일</button><button type="button" data-quick-mode="update">업데이트</button></div><div class="home-quick-entry"><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div><div data-quick-update-options hidden><button type="button" data-quick-org aria-label="조직" aria-haspopup="dialog" aria-expanded="false">조직 ▾</button></div><small data-quick-destination></small></div><div data-quick-status role="status"></div>`;
+  let mode='basket',saving=false,expanded=false,project='',organization='',due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
+  try { const saved=window.localStorage.getItem('kptu-home-quick-mode'); mode=['basket','task','update'].includes(saved)?saved:'basket'; } catch {}
+  box.innerHTML=`<div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><button type="button" data-quick-mode="update">업데이트</button></div><div class="home-quick-entry"><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea><button type="button" class="home-quick-save" data-quick-save>추가</button></div><label class="home-quick-ai" data-quick-basket-options><input type="checkbox" data-quick-ai-excluded> AI 제외</label><div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div><div data-quick-update-options hidden><button type="button" data-quick-org aria-label="조직" aria-haspopup="dialog" aria-expanded="false">조직 ▾</button></div><small data-quick-destination></small></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
   function size(){ input.style.height=''; if(mode==='update')input.style.height=Math.min(146,Math.max(83,input.scrollHeight+2))+'px'; }
   function paint(){
-    box.dataset.mode=mode; input.rows=mode==='task'?1:3; input.placeholder=mode==='task'?'할 일을 입력하세요':'담당조직 기록을 입력하세요';
+    box.dataset.mode=mode; input.rows=mode==='update'?3:1; input.placeholder=mode==='basket'?'메모를 입력하세요':mode==='task'?'할 일을 입력하세요':'담당조직 기록을 입력하세요';
+    box.querySelector('[data-quick-basket-options]').hidden=mode!=='basket';
     box.querySelectorAll('[data-quick-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quickMode===mode)));
     box.querySelector('[data-quick-task-options]').hidden=mode!=='task'; box.querySelector('[data-quick-update-options]').hidden=mode!=='update';
-    box.querySelector('[data-quick-destination]').textContent=mode==='task'?'→ Google 할 일':'→ 담당조직 기록';
-    options.hidden=!expanded;
+    box.querySelector('[data-quick-destination]').textContent=mode==='basket'?'→ 바구니':mode==='task'?'→ Google 할 일':'→ 담당조직 기록';
+    options.hidden=!expanded||mode==='basket';
     projectSelect.textContent=(projectChoices.find(x=>x.project.id===project)?.project.name||'프로젝트')+' ▾';
     orgSelect.textContent=(orgChoices.groups.flat().find(o=>o.id===organization)?.name||'조직')+' ▾';
     projectSelect.setAttribute('aria-label',project?'프로젝트: '+projectSelect.textContent.slice(0,-2):'프로젝트');
@@ -50,7 +52,7 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
     })().catch(e=>{if(run===choiceEpoch){choicesFlight=null;status.textContent=e.message||'선택 목록을 불러오지 못했습니다.';}});
     return choicesFlight;
   }
-  function expand(){expanded=true;paint();void choices();}
+  function expand(){expanded=true;paint();if(mode!=='basket')void choices();}
   input.addEventListener('focus',expand); input.addEventListener('input',()=>{expand();size();});
   const picker=createChoiceSheet({id:'homeChoiceSheet',titleId:'homeChoiceTitle',historyKey:'kptuHomeChoice',
     canOpen:()=>!saving&&window.KPTURouter.current==='home',choices,
@@ -66,8 +68,8 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='home')dismissForNavigation();});
   box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{
     if(saving)return;mode=b.dataset.quickMode;status.textContent='';
-    try{window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{mode='task';}
-    paint();if(expanded)void choices();
+    try{window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
+    paint();if(expanded&&mode!=='basket')void choices();
   });
   box.querySelectorAll('[data-quick-day]').forEach(b=>b.onclick=()=>{
     if(saving)return;const kind=b.dataset.quickDay;
@@ -77,16 +79,17 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
   });
   date.onchange=()=>{due=date.value;dateKind=due?'date':'';paint();};
   async function save(){
-    if(saving||!input.value.trim())return;
+    if(saving)return;
+    if(mode==='basket'){try{validateNoteText(input.value);}catch(e){status.textContent=e.message;return;}}else if(!input.value.trim())return;
     if(mode==='update'&&!organization){expand();await choices();status.textContent='조직을 선택해 주세요.';await openSheet('org');return;}
     const ctx=window.KPTURuntime.context.read(),owner=ctx?.user?.id;if(!owner)return;
-    const saveMode=mode,text=input.value.trim();saving=true;status.textContent='';
+    const saveMode=mode,text=mode==='basket'?input.value:input.value.trim();saving=true;status.textContent='';
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);
     try{
-      const result=saveMode==='task'?await createGoogleTask({title:text,due:due||null,links:project?[{project_id:project}]:[]}):await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner});
+      const result=saveMode==='basket'?await createNote({raw_text:text,ai_export_allowed:!box.querySelector('[data-quick-ai-excluded]').checked}):saveMode==='task'?await createGoogleTask({title:text,due:due||null,links:project?[{project_id:project}]:[]}):await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner});
       if(window.KPTURuntime.context.read()?.user?.id!==owner)return;
-      input.value='';expanded=false;paint();
-      const toast=document.querySelector('#toast');toast.textContent=saveMode==='task'&&result?.link_error?'할 일은 추가됨, 프로젝트 연결 실패':saveMode==='task'?'할 일을 추가했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
+      input.value='';box.querySelector('[data-quick-ai-excluded]').checked=false;expanded=false;paint();
+      const toast=document.querySelector('#toast');toast.textContent=saveMode==='task'&&result?.link_error?'할 일은 추가됨, 프로젝트 연결 실패':saveMode==='basket'?'바구니에 저장했습니다.':saveMode==='task'?'할 일을 추가했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
       if(saveMode==='task')void refreshTasks();else choicesFlight=null;
     }catch(e){if(window.KPTURuntime.context.read()?.user?.id===owner)status.textContent=e.message||'저장하지 못했습니다.';}
     finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);}
@@ -94,8 +97,8 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
   box.querySelector('[data-quick-save]').onclick=save;
   input.addEventListener('keydown',e=>{if(mode==='task'&&e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();void save();}});
   window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length)e.detail.otherDraft=true;});
-  window.addEventListener('kptu:session-changed',()=>{const nextOwner=window.KPTURuntime.context.read()?.user?.id;if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';due='';dateKind='';input.value='';expanded=false;paint();});
-  window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded)void choices();});
-  window.KPTURouter.on('home',()=>{choiceEpoch++;choicesFlight=null;if(expanded)void choices();});
+  window.addEventListener('kptu:session-changed',()=>{const nextOwner=window.KPTURuntime.context.read()?.user?.id;if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';due='';dateKind='';input.value='';box.querySelector('[data-quick-ai-excluded]').checked=false;expanded=false;paint();});
+  window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode!=='basket')void choices();});
+  window.KPTURouter.on('home',()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode!=='basket')void choices();});
   paint();
 }

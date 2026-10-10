@@ -3,14 +3,14 @@ import { openHome } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('[data-home-quick]');
 test('quick task starts folded and opens on focus',async({page})=>{
- await openHome(page); const q=page.locator('[data-home-quick]');
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click(); const q=page.locator('[data-home-quick]');
  await expect(q.locator('[data-quick-input]')).toBeVisible();
  await expect(q.locator('[data-quick-options]')).toBeHidden();
  await q.locator('[data-quick-input]').focus();
  await expect(q.locator('[data-quick-options]')).toBeVisible();
 });
 test('quick task KST midnight, project, IME, partial success and request lock',async({page})=>{
- const {requests}=await openHome(page); const q=quick(page),input=q.locator('[data-quick-input]');
+ const {requests}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await quick(page).locator('[data-quick-mode="task"]').click(); const q=quick(page),input=q.locator('[data-quick-input]');
  await input.fill('QA');await q.locator('[data-quick-project]').click();
  await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toBeFocused();
  await page.clock.setFixedTime(new Date('2026-10-06T15:00:00Z'));
@@ -29,7 +29,7 @@ test('quick task KST midnight, project, IME, partial success and request lock',a
  expect(requests.slice(before).filter(r=>r.path.includes('google-calendar')||r.path.includes('app_project_milestones')||r.path.includes('app_suborganization_updates'))).toHaveLength(0);
 });
 test('quick task none/today/custom due, Enter and failure retains content',async({page})=>{
- await openHome(page);const q=quick(page),input=q.locator('[data-quick-input]'),bodies=[];
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),input=q.locator('[data-quick-input]'),bodies=[];
  await page.route(SB+'/functions/v1/google-tasks?action=create',async r=>{bodies.push(r.request().postDataJSON());await r.fulfill({status:500,json:{message:'QA error'}});});
  await input.fill('QA');await input.press('Enter');await expect(q.locator('[data-quick-status]')).toContainText('QA error');expect(bodies[0].due).toBeNull();await expect(input).toHaveValue('QA');
  await page.clock.setFixedTime(new Date('2026-10-06T14:59:59Z'));await q.getByRole('button',{name:'오늘',exact:true}).click();await input.press('Enter');await expect.poll(()=>bodies.length).toBe(2);expect(bodies[1].due).toBe('2026-10-06');
@@ -39,7 +39,7 @@ test('quick task none/today/custom due, Enter and failure retains content',async
  await input.fill(' ');await input.press('Enter');expect(bodies).toHaveLength(3);
 });
 test('quick update requires org, preserves multiline, saves and refreshes updates only',async({page})=>{
- const {requests}=await openHome(page);const q=quick(page),input=q.locator('[data-quick-input]');
+ const {requests}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),input=q.locator('[data-quick-input]');
  await q.locator('[data-quick-mode="update"]').click();await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height','146px');await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
  await q.locator('[data-quick-mode="task"]').click();await expect(input).toHaveValue('첫 줄\n둘째 줄');await q.locator('[data-quick-mode="update"]').click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('조직');await expect(page.getByRole('dialog')).toBeVisible();
@@ -51,7 +51,7 @@ test('quick update requires org, preserves multiline, saves and refreshes update
  expect(requests.slice(before).filter(r=>r.action==='overview'||r.path.includes('google-calendar'))).toHaveLength(0);
 });
 test('recent three unique organizations precede common organization order',async({page})=>{
- await openHome(page);
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:['a','b','c','d','e'].map(id=>({id,name:'QA '+id,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:['a','b','c','d'].map(organization_id=>({organization_id}))}));
  await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>r.fulfill({json:['e','c','c','a','d','b'].map(organization_id=>({organization_id,occurred_at:'2026-10-06'}))}));
@@ -60,21 +60,21 @@ test('recent three unique organizations precede common organization order',async
  expect(await page.locator('[data-sheet-recent] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).toEqual(['c','a','d']);
  expect(await page.locator('[data-sheet-all] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).not.toContain('e');
 });
-test('mode memory failures default to task, reload guard detects hidden home draft',async({page})=>{
- await openHome(page);const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','update');
- await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('QA')};});await quick(page).locator('[data-quick-mode="task"]').click();await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');
+test('mode memory failures default to basket, reload guard detects hidden home draft',async({page})=>{
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','update');
+ await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('QA')};});await quick(page).locator('[data-quick-mode="task"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','update');
  await quick(page).locator('[data-quick-input]').fill('QA');expect(await page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);
- await page.addInitScript(()=>{const read=Storage.prototype.getItem;Storage.prototype.getItem=function(key){if(key==='kptu-home-quick-mode')throw Error('QA');return read.call(this,key);};});await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','task');
+ await page.addInitScript(()=>{const read=Storage.prototype.getItem;Storage.prototype.getItem=function(key){if(key==='kptu-home-quick-mode')throw Error('QA');return read.call(this,key);};});await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
 });
 for(const width of [390,1440])test(`quick visual measurements and snapshot ${width}`,async({page},info)=>{
- await page.setViewportSize({width,height:1000});await openHome(page);const q=quick(page);await q.locator('[data-quick-input]').fill('QA');
+ await page.setViewportSize({width,height:1000});await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');
  await expect(q.locator('[data-quick-input]')).toHaveCSS('height','40px');await expect(q.locator('[data-quick-save]')).toHaveCSS('height','40px');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});
  if(width===390){await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'));});await expect(page.locator('.mobile-tabs')).toBeHidden();const b=await q.locator('[data-quick-input]').boundingBox();expect(b.y+b.height).toBeLessThan(400);}
 });
 test('catalog changes clear a retired selection and refresh labels during the same visit',async({page})=>{
- await openHome(page);const q=quick(page);await q.locator('[data-quick-input]').fill('QA');await q.locator('[data-quick-project]').click();await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toBeFocused();
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');await q.locator('[data-quick-project]').click();await page.getByRole('dialog').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(q.locator('[data-quick-project]')).toBeFocused();
  await page.evaluate(()=>{const cat=window.KPTUProjectCatalog,s=cat.snapshot();cat.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:s.spaces.map(p=>({...p,name:'QA renamed',status:p.id==='child'?'archived':p.status}))});});
  await expect(q.locator('[data-quick-project]')).toHaveText('프로젝트 ▾');await q.locator('[data-quick-project]').click();
  await expect(page.locator('[data-sheet-value="child"]')).toHaveCount(0);await expect(page.locator('[data-sheet-value="p"]')).toHaveText('QA renamed');await page.keyboard.press('Escape');await expect(q.locator('[data-quick-project]')).toBeFocused();
@@ -82,7 +82,7 @@ test('catalog changes clear a retired selection and refresh labels during the sa
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies[0].links).toEqual([]);
 });
 test('stale post-save refresh cannot overwrite a restarted home',async({page})=>{
- await openHome(page);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route(SB+'/functions/v1/google-tasks?action=create',r=>r.fulfill({json:{task:{id:'new'}}}));
  let release,count=0;const pending=new Promise(r=>release=r);
  await page.route('**/functions/v1/google-tasks?action=overview*',async r=>{count++;if(count===1)await pending;return r.fulfill({json:{connected:true,authorized:true,pending_scope:'all',tasks:[]}});});
@@ -90,7 +90,7 @@ test('stale post-save refresh cannot overwrite a restarted home',async({page})=>
  await page.evaluate(()=>window.KPTUHome.start({freshTasks:true}));release();await expect(page.locator('[data-home-card="tasks"]')).toHaveAttribute('data-state','ready');expect(errors).toEqual([]);
 });
 test('stale post-save refresh after session loss has no detached-card error',async({page})=>{
- await openHome(page);const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route(SB+'/functions/v1/google-tasks?action=create',r=>r.fulfill({json:{task:{id:'new'}}}));
  let release,count=0;const pending=new Promise(r=>release=r);
  await page.route('**/functions/v1/google-tasks?action=overview*',async r=>{count++;await pending;return r.fulfill({json:{connected:true,authorized:true,pending_scope:'all',tasks:[]}});});
@@ -99,19 +99,19 @@ test('stale post-save refresh after session loss has no detached-card error',asy
  await expect(page.locator('[data-home-card="tasks"]')).toHaveCount(0);await expect(page).toHaveURL(/login/);expect(errors).toEqual([]);
 });
 test('organization detail retains the existing shared inbox save payload and failure draft',async({page})=>{
- await openHome(page);await page.locator('[data-home-org]').click();await expect(page.locator('#wdModal')).toBeVisible();
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await page.locator('[data-home-org]').click();await expect(page.locator('#wdModal')).toBeVisible();
  const bodies=[];let fail=true;await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({status:fail?500:200,json:fail?{message:'QA error'}:[]});});
  await page.locator('#wdInboxText').fill('첫 줄\n둘째 줄');await page.locator('#wdInboxSave').click();await expect(page.locator('#wdInboxState')).toContainText('QA error');await expect(page.locator('#wdInboxText')).toHaveValue('첫 줄\n둘째 줄');
  fail=false;await page.locator('#wdInboxSave').click();await expect(page.locator('#wdInboxText')).toHaveValue('');expect(bodies[1]).toEqual({organization_id:'o',raw_text:'첫 줄\n둘째 줄',created_by:'home-test'});
 });
 test('task screen saveEditor retains shared create title notes due and links',async({page})=>{
- await openHome(page);const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'new'}}});});
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'new'}}});});
  await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await page.locator('#newTaskBtn').click();await expect(page.locator('#gtTaskModal')).toBeVisible();
  await page.locator('#gtEditTitle').fill('QA');await page.locator('#gtEditNotes').fill('QA notes');await page.locator('#gtEditDue').fill('2026-10-09');await page.locator('[data-gt-link][value="p:child"]').check();await page.locator('#gtSaveBtn').click();
  await expect(page.locator('#gtTaskModal')).toBeHidden();expect(bodies[0]).toMatchObject({title:'QA',notes:'QA notes',due:'2026-10-09',links:[{project_id:'child'}]});
 });
 test('quick add and show-all link respond in the transparent 44px target',async({page})=>{
- await page.setViewportSize({width:390,height:1000});await openHome(page);const q=quick(page),bodies=[];
+ await page.setViewportSize({width:390,height:1000});await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),bodies=[];
  await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'new'}}});});
  await q.locator('[data-quick-input]').fill('QA');const add=await q.locator('[data-quick-save]').boundingBox();await page.mouse.click(add.x+add.width/2,add.y-1);
  await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies).toHaveLength(1);
@@ -119,7 +119,7 @@ test('quick add and show-all link respond in the transparent 44px target',async(
  const hit=await show.boundingBox();await page.mouse.click(hit.x+hit.width/2,hit.y+hit.height/2-21);await expect(show).toHaveCount(0);await expect(page.locator('[data-gt-overdue]')).toBeVisible();
 });
 test('recent organization paging finds three unique choices beyond repeated records',async({page})=>{
- await openHome(page);
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:['a','b','c'].map(id=>({id,name:'QA '+id,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:['a','b','c'].map(organization_id=>({organization_id}))}));
  const offsets=[];await page.route(SB+'/rest/v1/app_suborganization_updates?**',r=>{

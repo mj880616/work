@@ -18,11 +18,11 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=344">
+<link rel="modulepreload" href="./loader-v2.js?v=345">
 <link rel="modulepreload" href="./runtime-client.js?v=8">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=232" defer></script>
+<script src="./app.js?v=233" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -45,6 +45,7 @@
   <nav class="app-nav">
     <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="웹2 홈으로 이동"><img src="./app-icon.svg?v=20260924-unicorn3" width="22" height="22" alt="" aria-hidden="true"><span>웹2</span></a>
     <button class="nav-btn" data-view="home" type="button">홈</button>
+    <button class="nav-btn" data-view="basket" type="button">바구니</button>
     <button class="nav-btn" data-view="calendar" type="button">일정</button>
     <button class="nav-btn" data-view="tasks" type="button">할 일</button>
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
@@ -68,6 +69,7 @@
     <aside class="mobile-menu-panel" role="dialog" aria-modal="true" aria-label="메뉴" tabindex="-1">
       <div class="mobile-menu-head"><b>메뉴</b><button type="button" data-mobile-menu-close aria-label="메뉴 닫기">×</button></div>
       <nav aria-label="더 보기">
+        <button type="button" data-view="basket">바구니</button>
         <button type="button" data-view="meetings">회의</button>
         <button type="button" data-view="library">자료실</button>
         <button type="button" data-mobile-press="statement">성명</button>
@@ -79,6 +81,8 @@
   </div>
 
   <section id="homeView" class="view-panel hidden"><h2 data-home-date></h2><div class="home-quick-placeholder" aria-hidden="true"></div><div data-home-cards></div></section>
+
+  <section id="basketView" class="view-panel hidden"></section>
 
   <section id="calendarView" class="view-panel hidden">
     <div id="calendarCard" class="calendar-card">

@@ -12,7 +12,7 @@ async function orgs(page){
  await q(page).locator('[data-quick-org]').click();await expect(sheet(page)).toBeVisible();
 }
 for(const width of [390,1440])test(`organization chips fit, preserve order and non-overlapping targets at ${width}`,async({page},info)=>{
- await page.setViewportSize({width,height:844});await openHome(page);await orgs(page);
+ await page.setViewportSize({width,height:844});await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await orgs(page);
  const recent=sheet(page).locator('[data-sheet-recent] button'),all=sheet(page).locator('[data-sheet-all] button');
  await expect(recent).toHaveCount(3);await expect(all).toHaveCount(13);
  expect(await all.allTextContents()).toEqual(names);
@@ -29,7 +29,7 @@ for(const width of [390,1440])test(`organization chips fit, preserve order and n
  await page.keyboard.press('Escape');await expect(sheet(page)).toBeHidden();
 });
 test('close paths consume one history entry, focus is contained and project none clears selection',async({page})=>{
- await openHome(page);await q(page).locator('[data-quick-input]').fill('QA');
+ await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await q(page).locator('[data-quick-input]').fill('QA');
  const trigger=q(page).locator('[data-quick-project]');
  const before=await page.evaluate(()=>history.state);
  await trigger.click();await expect(sheet(page)).toBeVisible();await expect(sheet(page).getByRole('button',{name:'프로젝트 없음',exact:true})).toBeFocused();
@@ -46,7 +46,7 @@ test('close paths consume one history entry, focus is contained and project none
 });
 
 test('long projects scroll only inside the sheet and remain one-line with child indentation',async({page},info)=>{
- await page.setViewportSize({width:390,height:844});await openHome(page);
+ await page.setViewportSize({width:390,height:844});await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();
  await page.evaluate(()=>{const c=KPTUProjectCatalog,s=c.snapshot();c.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:[{...s.spaces[0],name:'QA 긴 프로젝트 이름 '.repeat(15)},...Array.from({length:30},(_,i)=>({id:'child-'+i,name:'QA 자식 '+i,parent_id:'p',owner_id:s.userId,status:'active'}))]});});
  await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();
  const content=sheet(page).locator('[data-sheet-content]'),parent=sheet(page).locator('[data-sheet-value="p"]'),child=sheet(page).locator('[data-sheet-value="child-0"]');
@@ -59,7 +59,7 @@ test('long projects scroll only inside the sheet and remain one-line with child 
 });
 
 test('routing while a sheet is open closes it without undoing navigation',async({page})=>{
- await openHome(page);await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();await expect(sheet(page)).toBeVisible();
+ await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();await expect(sheet(page)).toBeVisible();
  await page.evaluate(async()=>{await KPTUViewLoader.load('calendar');KPTURouter.go('calendar',{source:'delegated'});});
  await expect(sheet(page)).toBeHidden();await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);
  expect(await page.evaluate(()=>history.state?.kptuHomeChoice)).toBeUndefined();
