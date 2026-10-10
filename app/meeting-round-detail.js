@@ -121,17 +121,17 @@ async function mrdUploadSelected(){
   if(!id||!entries.length)return;
   if(entries.some(e=>e.file.size>100*1024*1024)){status.textContent='회의자료는 파일당 100MB까지 첨부할 수 있습니다.';status.className='status error';return}
   const stillCurrent=()=>epoch===mrdRequestEpoch&&mrdCurrent?.id===id;
-  let uploaded=0,failed=0;mrdUploading=true;mrdRenderSelectedFiles();status.textContent=`${entries.length}개 파일 업로드 중…`;status.className='status';
+  let uploaded=0,failed=0,readFailureMessage='';mrdUploading=true;mrdRenderSelectedFiles();status.textContent=`${entries.length}개 파일 업로드 중…`;status.className='status';
   try{
     for(const entry of entries){
       if(!stillCurrent())break;
       const f=entry.file;entry.kind='uploading';entry.label='업로드 중';mrdRenderSelectedFiles();
-      try{const fd=new FormData();fd.append('meeting_id',id);fd.append('file',f);await mrdApi('/functions/v1/meeting-files',{method:'POST',body:fd});uploaded++;entry.kind='success';entry.label='완료'}catch(err){failed++;entry.kind='error';entry.label='실패';console.warn('meeting material upload failed',f.name,err)}
+      let fd=null;try{fd=new FormData();fd.append('meeting_id',id);fd.append('file',await window.KPTURuntime.copyUploadFile(f));if(!stillCurrent())break;await mrdApi('/functions/v1/meeting-files',{method:'POST',body:fd});uploaded++;entry.kind='success';entry.label='완료'}catch(err){failed++;const readFailed=err?.code==='file_read_failed';if(readFailed)readFailureMessage=err.message;entry.kind='error';entry.label=readFailed?err.message:'실패';console.warn('meeting material upload failed',f.name,err)}finally{fd?.delete('file');fd=null}
       if(stillCurrent())mrdRenderSelectedFiles();
     }
     window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
     if(!stillCurrent())return;
-    status.textContent=failed?`회의자료 ${uploaded}개 저장 · ${failed}개 실패`:'업로드 완료';status.className=failed?'status error':'status ok';
+    status.textContent=failed?`회의자료 ${uploaded}개 저장 · ${failed}개 실패${readFailureMessage?' · '+readFailureMessage:''}`:'업로드 완료';status.className=failed?'status error':'status ok';
     await mrdRefreshMeetingList();
   }finally{mrdUploading=false;mrdRenderSelectedFiles()}
 }
