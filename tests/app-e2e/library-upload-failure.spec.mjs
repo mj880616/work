@@ -186,9 +186,9 @@ test('timeout in a multi-file batch stops before untried files and keeps the unk
 test('long failure text wraps inside the upload modal on narrow phones',async({page})=>{
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:800});
-    await openFixture(page,{'a.pdf':[{ok:true}],'b.pdf':[{code:'network_error'}]});
-    await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file('b-'+'매우긴파일명'.repeat(12)+'.pdf')]);
-    await page.evaluate(()=>{window.__libraryUploadPlan[document.querySelector('#libraryFileInput').files[1].name]=[{code:'network_error'}]});
+    const longName='b-'+'매우긴파일명'.repeat(12)+'.pdf';
+    await openFixture(page,{'a.pdf':[{ok:true}],[longName]:[{code:'network_error'}]});
+    await page.locator('#libraryFileInput').setInputFiles([file('a.pdf'),file(longName)]);
     await page.locator('#saveDocumentBtn').click();
     await expect(page.locator('#documentStatus')).toContainText('네트워크 연결이 끊겨');
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
