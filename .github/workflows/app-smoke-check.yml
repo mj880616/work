@@ -154,12 +154,12 @@ jobs:
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=19" app/loader-v2.js
-          grep -q "team.js?v=65" app/loader-v2.js
+          grep -q "team.js?v=66" app/loader-v2.js
           grep -q "project-system-v3.js?v=42" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "google-tasks.js?v=30" app/view-loader.js
-          grep -q "library-upload.js?v=23" app/view-loader.js
+          grep -q "library-upload.js?v=24" app/view-loader.js
           grep -q "project-catalog.js?v=2" app/view-loader.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
           test ! -f app/home-task-controls.js
@@ -171,7 +171,7 @@ jobs:
           test ! -f app/photo-room.css
           if grep -Eq "photo-room|__KPTU_PHOTO_ROOM|photos" app/loader-v2.js app/view-loader.js app/app-router.js app/styles.css app/index.html; then echo 'retired photo room returned'; exit 1; fi
           grep -q "web1-board.js?v=4" app/view-loader.js
-          grep -q "meeting-round-detail.js?v=23" app/view-loader.js
+          grep -q "meeting-round-detail.js?v=24" app/view-loader.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/view-loader.js
           if grep -q 'mobile-dock.js' app/loader-v2.js app/view-loader.js; then echo 'obsolete personal dock returned'; exit 1; fi
           if grep -Eq "notification-center-ui|__KPTU_NOTIFICATION_CENTER_READY__|push-notifications-ui" app/loader-v2.js app/view-loader.js app/styles.css; then echo 'notification runtime returned'; exit 1; fi
