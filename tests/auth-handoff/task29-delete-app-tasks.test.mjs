@@ -27,10 +27,12 @@ test('TASK-29 deletes only the audited 63 rows and blocks client writes', { time
     postgresFlags: ['-h', '127.0.0.1', '-c', 'log_statement=none', '-c', 'log_min_error_statement=panic'],
     onLog: () => {}, onError: () => {} });
   let pool;
+  const clientEnds = [];
   try {
     await cluster.initialise();
     await cluster.start();
     pool = new pg.Pool({ host: '127.0.0.1', port, user: 'postgres', password, database: 'postgres', ssl: false });
+    pool.on('connect', client => clientEnds.push(new Promise(done => client.once('end', done))));
     await pool.query(`
       create role anon nologin;
       create role authenticated nologin;
@@ -180,7 +182,7 @@ test('TASK-29 deletes only the audited 63 rows and blocks client writes', { time
       }
     });
   } finally {
-    if (pool) await pool.end();
+    if (pool) { await pool.end(); await Promise.all(clientEnds); }
     await cluster.stop();
   }
 });

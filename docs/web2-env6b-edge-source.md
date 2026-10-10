@@ -172,6 +172,12 @@
 | 29 | `rtw-recommend` | 읽생기 | v8 | 09-21 04:41 | false | read-think-write |
 | 30 | `rtw-url-import` | 읽생기 | v8 | 09-21 04:36 | **true** | read-think-write |
 | 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v1 | 10-03 12:27 | false | work (DRV-요약 PR 1) |
+| 신규 | `basket-files` | Web2(바구니 첨부) | 배포 대기 | 없음 | false | work (BASKET-2a-2 서버) |
+
+`basket-files`는 배포 대기이며 위 운영 31개 합계에 포함하지 않는다. 코드에서 로그인 JWT를
+Auth getUser로 검증하고 본인 owner workspace만 허용한다. DB 확인 뒤 승인형 workflow의
+`first_deploy=true`, `verify_jwt=false`, `expect_unauth_401=true`로 사용자가 최초 배포한다.
+순서는 [BASKET-2a-2 적용 안내](basket-2a2-server-apply.md) 참고. 이번 PR에서 배포·workflow 실행 없음.
 
 ### 5.1 ENV-6c 삭제 결과 확인
 
