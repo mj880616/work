@@ -160,3 +160,5 @@ URL·FormData의 차이는 기능별 계약이며 그대로 유지했다. CORS p
 - 캐시 기대값 spec·loader-cache 검사 통과. 운영 참조 383개 확인.
 - 별도 읽기 전용 리뷰: Critical/Important 발견 없음. 앱·테스트 임시 디버깅 코드 없음; 모의 서버·관측 wrapper는 테스트 파일에만 있다.
 - PR CI는 PR 본문·댓글의 최종 head SHA 기록으로 확인한다. 폰 판정 전에는 운영 해결 완료로 취급하지 않는다.
+
+PR: [#460](https://github.com/mj880616/work/pull/460), branch `codex/app-library-upload-fail`. 최종 head의 CI 결과는 PR 본문·댓글에 기록한다. merge하지 않는다.
