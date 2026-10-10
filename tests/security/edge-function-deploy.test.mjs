@@ -88,6 +88,8 @@ test('probe sends only empty unauthenticated POST when requested and always chec
   assert.match(code, /post_status" == 401/);
   assert.match(code, /--request OPTIONS/);
   assert.match(code, /options_status" == 200/);
+  assert.match(code, /\[\[ "\$options_status" == 200 \|\| "\$options_status" == 204 \]\] \|\| \{ echo 'OPTIONS did not return 200 or 204'; exit 1; \}/);
+  assert.ok(code.includes("printf 'OPTIONS: %s\\n' \"$options_status\" >> \"$GITHUB_STEP_SUMMARY\""));
   assert.doesNotMatch(code, /Authorization|apikey|--location/);
 });
 
@@ -111,15 +113,24 @@ test('HTTP verification handles success, public skip, wrong status and transport
   for (const [expect, post, options, transport, success, methods] of [
     ['true', '401', '200', 'false', true, ['POST', 'OPTIONS']],
     ['false', '200', '200', 'false', true, ['OPTIONS']],
+    ['true', '401', '204', 'false', true, ['POST', 'OPTIONS']],
+    ['false', '200', '204', 'false', true, ['OPTIONS']],
     ['true', '200', '200', 'false', false, ['POST']],
     ['true', '401', '403', 'false', false, ['POST', 'OPTIONS']],
+    ['true', '401', '404', 'false', false, ['POST', 'OPTIONS']],
+    ['true', '401', '500', 'false', false, ['POST', 'OPTIONS']],
     ['true', '401', '200', 'true', false, ['POST']],
   ]) {
     writeFileSync(join(cwd, 'call'), '');
+    writeFileSync(join(cwd, 'summary'), '');
     const result = shell('Verify unauthenticated HTTP', cwd, { PATH: `${bin}:${process.env.PATH}`, CALL_LOG: join(cwd, 'call'), GITHUB_STEP_SUMMARY: join(cwd, 'summary'), EXPECT_UNAUTH_401: expect, POST_STATUS: post, OPTIONS_STATUS: options, FAIL_TRANSPORT: transport, SUPABASE_PROJECT_REF: 'synthetic-project' });
     assert.equal(result.status === 0, success, result.stderr);
     const calls = readFileSync(join(cwd, 'call'), 'utf8');
     assert.deepEqual([...calls.matchAll(/--request (POST|OPTIONS)/g)].map(m => m[1]), methods);
     assert.doesNotMatch(calls, /Authorization|apikey/);
+    if (transport === 'false' && methods.includes('OPTIONS')) {
+      assert.ok(readFileSync(join(cwd, 'summary'), 'utf8').includes(`OPTIONS: ${options}\n`));
+      if (!success) assert.match(result.stdout, /OPTIONS did not return 200 or 204/);
+    }
   }
 }));
