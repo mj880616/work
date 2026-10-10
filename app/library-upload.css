@@ -56,3 +56,6 @@
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 #documentModal .library-dropzone strong{font-size:var(--kptu-text-body)}
+
+#libraryMeetingToggle{margin-top:var(--kptu-space-3)}
+#libraryMeetingToggle[hidden]{display:none}
