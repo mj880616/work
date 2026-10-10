@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { existsSync, readFileSync } from 'node:fs';
-import { parse } from '../../scripts/node_modules/acorn/dist/acorn.mjs';
 import vm from 'node:vm';
 import { webcrypto } from 'node:crypto';
 
@@ -15,34 +14,35 @@ test('reviewable diagnostic source and executable one-line bookmark are present 
   assert.match(bookmark, /^javascript:/);
   assert.equal(bookmark.includes('\n'), false);
   assert.equal(decodeURIComponent(bookmark.slice('javascript:'.length)), source.trim());
-  parse(source, { ecmaVersion: 'latest' });
+  new vm.Script(source);
 });
-
-function walk(node, visit) {
-  if (!node || typeof node !== 'object') return;
-  if (node.type) visit(node);
-  for (const value of Object.values(node)) {
-    if (Array.isArray(value)) value.forEach(child => walk(child, visit));
-    else if (value && typeof value === 'object') walk(value, visit);
-  }
-}
 
 test('static boundary: one fetch sink, fixed paths, random ID and no alternate network/storage sinks', () => {
   assert.ok(source, 'diagnostic source is missing');
-  const ast = parse(source, { ecmaVersion: 'latest' });
-  const calls = [];
-  const paths = [];
-  walk(ast, node => {
-    if (node.type === 'CallExpression' && ['Identifier', 'MemberExpression'].includes(node.callee.type)) calls.push(source.slice(node.callee.start, node.callee.end));
-    if (node.type === 'Literal' && typeof node.value === 'string' && node.value.startsWith('/functions/')) paths.push(node.value);
-    if (node.type === 'ImportExpression') assert.fail('external imports forbidden');
-    if (node.type === 'MemberExpression') {
-      const property = node.computed ? node.property.value : node.property.name;
-      assert.ok(!['cookie', 'innerHTML', 'outerHTML', 'src', 'href', 'sendBeacon', 'open', 'send', 'setItem', 'removeItem', 'clear'].includes(property), `forbidden sink: ${property}`);
-    }
-    if (node.type === 'Identifier') assert.ok(!['console', 'alert', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'eval', 'local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'importScripts'].includes(node.name), `forbidden API: ${node.name}`);
-  });
-  assert.equal(calls.filter(call => /(?:^|\.)fetch$/.test(call)).join(','), 'window.fetch');
+  new vm.Script(source);
+  // This workflow runs without npm install. Literal/source constraints plus
+  // native-API behavioral tests below require no optional parser dependency.
+  const code = source.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '');
+  const strings = code.match(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g) || [];
+  const tokens = code.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, "''");
+  assert.doesNotMatch(tokens, /\bimport\b|`/, 'imports and executable templates are forbidden');
+  const forbidden = ['console', 'alert', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'eval', 'Function', 'local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'importScripts'];
+  // Function.prototype.toString is a read-only fingerprint, not construction.
+  const inspected = tokens.replace('Function.prototype.toString.call(window.fetch)', '');
+  for (const name of forbidden) assert.doesNotMatch(inspected, new RegExp('\\b' + name + '\\b'), `forbidden API: ${name}`);
+  for (const property of ['cookie', 'innerHTML', 'outerHTML', 'src', 'href', 'sendBeacon', 'open', 'send', 'setItem', 'removeItem', 'clear']) {
+    assert.doesNotMatch(tokens, new RegExp('\\.\\s*' + property + '\\b'), `forbidden sink: ${property}`);
+    assert.ok(!strings.includes("'" + property + "'") && !strings.includes('"' + property + '"'), `computed sink: ${property}`);
+  }
+  const paths = strings.filter(value => /^['"]\/functions\//.test(value)).map(value => value.slice(1, -1));
+  assert.equal((tokens.match(/\bfetch\s*\(/g) || []).length, 1);
+  assert.equal((tokens.match(/window\.fetch\s*\(/g) || []).length, 1);
+  // No aliases or computed window network access. The only computed window
+  // property is the explicit non-secret diagnostic flight marker.
+  assert.equal((tokens.match(/\bfetch\b/g) || []).length, 2);
+  for (const property of tokens.matchAll(/window\s*\[([^\]]+)\]/g)) assert.equal(property[1], 'flightKey');
+  for (const property of tokens.matchAll(/window\.([A-Za-z_$][\w$]*)/g)) assert.ok(['fetch', 'crypto', 'KPTURuntime'].includes(property[1]));
+  for (const tag of code.matchAll(/element\('([^']+)'/g)) assert.ok(['section', 'h2', 'div', 'button', 'input', 'p', 'table', 'tr', 'thead', 'th', 'tbody', 'textarea', 'td'].includes(tag[1]), 'no external resource elements');
   assert.deepEqual(paths.sort(), ['/functions/v1/library-files', '/functions/v1/meeting-files']);
   assert.match(source, /body\.append\(idField, window\.crypto\.randomUUID\(\)\)/);
   assert.match(source, /window\.fetch\(url, \{ method: 'POST', headers, body, signal: controller\.signal, redirect: 'error' \}\)/);
@@ -51,7 +51,7 @@ test('static boundary: one fetch sink, fixed paths, random ID and no alternate n
   assert.match(source, /const idField = endpoint === 'library' \? 'project_id' : 'meeting_id'/);
   assert.match(source, /if \(name === undefined\) body\.append\('file', file\)/);
   assert.match(source, /else body\.append\('file', file, name\)/);
-  assert.equal(calls.filter(call => call === 'body.append').length, 3);
+  assert.equal((tokens.match(/(?<![.\w])body\.append\s*\(/g) || []).length, 3);
   assert.match(source, /Object\.keys\(headers\)/);
   assert.doesNotMatch(source, /JSON\.stringify\((?:headers|session|runtime|config)\)/);
   assert.doesNotMatch(source, /https?:\/\//);
