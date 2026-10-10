@@ -16,11 +16,11 @@ function savedRow(rows) {
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없습니다. 접근 권한을 확인해 주세요.');
   return rows[0];
 }
-export async function createNote({raw_text, ai_export_allowed = true}, rt = window.KPTURuntime) {
+export async function createNote({raw_text, ai_export_allowed}, rt = window.KPTURuntime) {
   validateNoteText(raw_text);
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
-  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, raw_text, ai_export_allowed}}));
+  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, raw_text, ...(ai_export_allowed === undefined ? {} : {ai_export_allowed})}}));
 }
 export async function updateNote(id, changes, rt = window.KPTURuntime) {
   const body = {updated_at:new Date().toISOString()};
@@ -39,7 +39,7 @@ async function pages(path, rt) {
 }
 export async function readBasket(rt = window.KPTURuntime) {
   const scope = `workspace_id=eq.${workspace(rt)}`;
-  const notes = await pages(`/rest/v1/app_notes?${scope}&select=id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed&order=occurred_at.desc,id.desc`, rt);
+  const notes = await pages(`/rest/v1/app_notes?${scope}&select=id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments&order=occurred_at.desc,id.desc`, rt);
   const links = [];
   // Read only links whose source is one of these notes, never task links.
   for (let start = 0; start < notes.length; start += PAGE_SIZE) {

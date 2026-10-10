@@ -1,4 +1,4 @@
-import { mountQuick } from './home-quick.js?v=4';
+import { mountQuick } from './home-quick.js?v=5';
 import { createHomeCache } from './home-read-cache.js?v=1';
 import {
   ranges,

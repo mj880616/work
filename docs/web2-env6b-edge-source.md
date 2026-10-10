@@ -134,7 +134,7 @@
 ## 5. production 함수 전체 verify_jwt (ENV-7, 배포 때 기준표)
 
 - 조회: 2026-09-26, 로컬 세션, `npx.cmd supabase functions list --project-ref <ref> -o json`(조회만). 모두 `ACTIVE`.
-- 합계 **31개**: verify_jwt `true` **8개**, `false` **23개**. "production 함수는 모두 false"가 아니다.
+- 기록 합계 **32개**: verify_jwt `true` **8개**, `false` **24개**(2026-10-10 사용자 basket-files v1 최초 배포 보고 반영; 이번 세션 운영 조회 없음). "production 함수는 모두 false"가 아니다.
 - 배포할 때 대상 함수의 값을 이 표와 직전 `functions list`로 확인하고 그대로 유지한다. `false`면 `--no-verify-jwt`를 붙이고, `true`면 붙이지 않는다. 배포 뒤 값이 바뀌면 이 표를 같은 PR에서 고친다.
 - `false`인 Web2 함수는 함수 코드에서 로그인 사용자를 확인한다. `false`인 Web1 공개 페이지 함수는 로그인 없이 비밀번호·Origin 확인으로 막는다(결정사항, 4절 1번).
 - DRV-요약 PR 1(#401 merge `85195bc`)의 `drive-summary`는 **배포 완료**다. 2026-10-03 12:27 KST에 v1, `verify_jwt=false`로 배포됐으며 아래 31행과 production 31개 합계에 포함한다(사용자 제공 배포·사후 점검 기록; 이 PR 2 세션의 production 조회 없음). 예약 호출은 JWT 없이 비밀 헤더를 쓰므로 `verify_jwt=false`를 선택한다. 함수 내부에서 사용자 JWT를 Auth 서버로 검증하고 `kptu-work` 소유자 역할을 확인하거나, `x-drive-summary-cron-secret`을 `DRIVE_SUMMARY_CRON_SECRET`과 SHA-256 고정 길이 비교한다. 비밀값 미설정·불일치·비소유자는 거절한다.
@@ -172,12 +172,13 @@
 | 29 | `rtw-recommend` | 읽생기 | v8 | 09-21 04:41 | false | read-think-write |
 | 30 | `rtw-url-import` | 읽생기 | v8 | 09-21 04:36 | **true** | read-think-write |
 | 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v1 | 10-03 12:27 | false | work (DRV-요약 PR 1) |
-| 신규 | `basket-files` | Web2(바구니 첨부) | 배포 대기 | 없음 | false | work (BASKET-2a-2 서버) |
+| 32 | `basket-files` | Web2(바구니 첨부) | v1 (배포 완료) | 2026-10-10 (사용자 보고) | false | work (b466910, #476) |
 
-`basket-files`는 배포 대기이며 위 운영 31개 합계에 포함하지 않는다. 코드에서 로그인 JWT를
-Auth getUser로 검증하고 본인 owner workspace만 허용한다. DB 확인 뒤 승인형 workflow의
-`first_deploy=true`, `verify_jwt=false`, `expect_unauth_401=true`로 사용자가 최초 배포한다.
-순서는 [BASKET-2a-2 적용 안내](basket-2a2-server-apply.md) 참고. 이번 PR에서 배포·workflow 실행 없음.
+`basket-files`는 2026-10-10 사용자 승인형 #475 신규 배포 경로로 최초 배포 완료했다.
+version 1, verify_jwt=false, 비로그인 POST 401, OPTIONS 200, source b466910.
+코드에서 로그인 JWT를 Auth getUser로 검증하고 본인 owner workspace만 허용한다.
+사용자 실행 보고 기준이며 이번 화면 PR에서 운영 조회·배포·workflow 실행은 없다.
+기존 운영 31개와 별도로 신규 1개를 기록했다. 기존 함수의 시점별 실측 수치는 유지한다.
 
 ### 5.1 ENV-6c 삭제 결과 확인
 
