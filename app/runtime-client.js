@@ -23,6 +23,17 @@
     }
   }
 
+  // Provider-backed File handles can fail only when fetch reads the body on Android.
+  // Make one in-memory copy immediately before upload; never cache copies here.
+  async function copyUploadFile(file){
+    try{
+      const buffer=await file.arrayBuffer();
+      return new File([buffer],file.name,{type:file.type,lastModified:file.lastModified});
+    }catch(cause){
+      throw new RuntimeError('파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.',{code:'file_read_failed',retryable:false,cause});
+    }
+  }
+
   function read(){
     try{return JSON.parse(localStorage.getItem(config.sessionKey)||'null')}catch{return null}
   }
@@ -242,6 +253,7 @@
     version:'1.3.1',
     config,
     RuntimeError,
+    copyUploadFile,
     session:{read,write,refresh,ensure,epoch:()=>sessionEpoch},
     ownerCache:{prefix:OWNER_CACHE_PREFIX,clear:clearOwnerCaches},
     context:{read:contextRead,set:contextSet,clear:contextClear},

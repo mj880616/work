@@ -194,3 +194,113 @@ for(const width of [390,1280]){
     expect(state.errors).toEqual([]);
   });
 }
+
+// These checks fail if any screen sends the provider-backed original, reads the
+// next file before the current request settles, or posts an unreadable file.
+async function observeSelectedFiles(page){
+  await page.addInitScript(()=>{
+    const originals=new Set(),nativeRead=File.prototype.arrayBuffer,nativeFetch=window.fetch;
+    window.__copyReads=[];window.__copyUploads=[];window.__copyFailName='';
+    document.addEventListener('change',event=>{
+      if(event.target.matches('input[type=file]'))for(const file of event.target.files)originals.add(file);
+    },true);
+    File.prototype.arrayBuffer=async function(){
+      if(originals.has(this)){
+        window.__copyReads.push(this.name);
+        if(this.name===window.__copyFailName)throw new DOMException('mock provider read failed','NotReadableError');
+      }
+      return nativeRead.call(this);
+    };
+    window.fetch=function(url,options){
+      if(/\/functions\/v1\/(library|meeting)-files$/.test(String(url))&&options?.body instanceof FormData){
+        const sent=options.body.get('file'),source=[...originals].find(file=>file.name===sent.name);
+        window.__copyUploads.push({isOriginal:originals.has(sent),name:sent.name,type:sent.type,lastModified:sent.lastModified,sourceModified:source.lastModified,size:sent.size,sourceSize:source.size});
+      }
+      return nativeFetch.apply(this,arguments);
+    };
+  });
+}
+async function openUploadScreen(page,screen){
+  if(screen==='library'){
+    await clickView(page,'library');
+    await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
+    await page.locator('#newDocumentBtn').click();
+    return {input:'#libraryFileInput',save:'#saveDocumentBtn',rows:'[data-lu-upload-file]',status:'#documentStatus'};
+  }
+  if(screen==='new meeting'){
+    await page.locator('#newMeetingBtn').click();
+    await page.locator('#meetingNameSelect').selectOption('__other__');
+    await page.locator('#meetingTitle').fill('사본 업로드 회의');
+    await page.locator('#meetingAt').fill('2026-10-10T10:00');
+    await page.locator('#meetingTranscript').fill('원문');
+    return {input:'#meetingFiles',save:'#saveMeetingBtn',rows:'#meetingSelectedFiles > div',status:'#toast'};
+  }
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
+  return {input:'#mrdFiles',save:'#mrdUpload',rows:'#mrdSelectedFiles > div',status:'#mrdStatus'};
+}
+const READ_ERROR='파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.';
+for(const width of [390,1280])for(const screen of ['library','new meeting','meeting detail']){
+  test(`memory copy: ${screen} sends metadata-preserving copies sequentially ${width}px`,async({page})=>{
+    await observeSelectedFiles(page);
+    const state=await boot(page,width),ui=await openUploadScreen(page,screen);
+    await page.locator(ui.input).setInputFiles([file('한글 자료.pdf'),file('second.pdf')]);
+    expect(await page.evaluate(()=>window.__copyReads)).toEqual([]);
+    state.hold=true;
+    await page.locator(ui.save).click();
+    await expect.poll(()=>state.uploads.length).toBe(1);
+    expect(await page.evaluate(()=>window.__copyReads)).toEqual(['한글 자료.pdf']);
+    state.hold=false;state.release();
+    await expect.poll(()=>state.uploads.length).toBe(2);
+    await expect(page.locator(ui.save)).toBeEnabled();
+    const sent=await page.evaluate(()=>window.__copyUploads);
+    expect(sent.map(file=>file.name)).toEqual(['한글 자료.pdf','second.pdf']);
+    for(const file of sent){
+      expect(file.isOriginal).toBe(false);
+      expect(file.type).toBe('application/pdf');
+      expect(file.lastModified).toBe(file.sourceModified);
+      expect(file.size).toBe(file.sourceSize);
+    }
+    expect(state.uploads[0].raw).toContain('Content-Type: application/pdf');
+    expect(state.uploads[0].raw).toContain('한글 자료.pdf');
+    expect(await page.evaluate(()=>window.__copyReads)).toEqual(['한글 자료.pdf','second.pdf']);
+    expect(state.errors).toEqual([]);
+  });
+  test(`memory copy: ${screen} read failure sends zero file requests ${width}px`,async({page})=>{
+    await observeSelectedFiles(page);
+    const state=await boot(page,width),ui=await openUploadScreen(page,screen);
+    await page.evaluate(()=>window.__copyFailName='unreadable.pdf');
+    await page.locator(ui.input).setInputFiles(file('unreadable.pdf'));
+    await page.locator(ui.save).click();
+    await expect(page.locator(ui.status)).toContainText(READ_ERROR);
+    await expect(page.locator(ui.rows)).toContainText(READ_ERROR);
+    await expect(page.locator(ui.save)).toBeEnabled();
+    expect(state.uploads).toEqual([]);
+    expect(await page.evaluate(()=>window.__copyUploads)).toEqual([]);
+    expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf']);
+    if(screen==='library'){
+      await page.locator(ui.save).click();
+      expect(state.uploads).toEqual([]);
+      expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf']);
+      await page.locator(ui.input).setInputFiles(file('reselected.pdf'));
+      await page.locator(ui.save).click();
+      await expect(page.locator('#documentModal')).toBeHidden();
+      expect(state.uploads).toHaveLength(1);
+    }
+    expect(state.errors).toEqual([]);
+  });
+  test(`memory copy: ${screen} skips only the unreadable file ${width}px`,async({page})=>{
+    await observeSelectedFiles(page);
+    const state=await boot(page,width),ui=await openUploadScreen(page,screen);
+    await page.evaluate(()=>window.__copyFailName='unreadable.pdf');
+    await page.locator(ui.input).setInputFiles([file('unreadable.pdf'),file('good.pdf')]);
+    await page.locator(ui.save).click();
+    await expect(page.locator(ui.status)).toContainText(READ_ERROR);
+    await expect(page.locator(ui.save)).toBeEnabled();
+    expect(state.uploads).toHaveLength(1);
+    expect(state.uploads[0].raw).toContain('good.pdf');
+    expect(state.uploads[0].raw).not.toContain('unreadable.pdf');
+    expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf','good.pdf']);
+    expect(state.errors).toEqual([]);
+  });
+}

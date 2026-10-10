@@ -217,3 +217,38 @@ PR: [#460](https://github.com/mj880616/work/pull/460), branch `codex/app-library
 - 실제 Android 파일 제공자·운영 TLS·실기기 메모리·네트워크 및 삼성 인터넷은 이 검증으로 재현하지 못한다. 앱·Edge·DB·workflow·운영 변경 없음. 앱 로더가 이 파일을 불러오지 않아 캐시 버전 갱신은 해당 없음.
 
 진단 북마크 PR: [#466](https://github.com/mj880616/work/pull/466), branch `codex/app-library-upload-diag`. merge하지 않는다.
+
+## 원인 확정·수정 — 2026-10-10
+
+### 폰 진단 사실
+
+사용자가 제공한 #466 실기기 결과와 서버 Invocations 대조: Android Chrome, 다운로드 폴더의 2.7MB PDF.
+
+- T0 첫 1바이트 읽기는 성공했다.
+- 선택한 File 원본을 FormData에 넣은 T4(library-files)·T7(meeting-files)는 약 0.5초에 `TypeError: Failed to fetch`로 끝났고 서버 POST는 각각 0건이었다.
+- 같은 File을 `arrayBuffer()`로 읽고 `new File([buffer], 원래 이름, {type, lastModified})`로 만든 사본은 T5·T6에서 정상 도착했다. 같은 크기의 생성 Blob(T3)도 도착했다. “도착”은 진단용 기대 거절 응답 수신을 뜻하며 운영 자료 생성은 아니다.
+
+확정된 실패 지점은 **선택 파일 원본을 요청 본문으로 직접 보내는 경로**다. 이 대조에서 네트워크·크기·이름·서버·인증은 원인이 아니다. Android 파일 제공자/Chrome 내부의 구체적인 결함 코드는 확인하지 않았으며 추정으로 단정하지 않는다. 이전의 회의자료 성공 제보와 원인 미확정 기록은 당시 조사 이력으로 보존하고, 현재 판정은 이 절을 기준으로 한다. Codex가 운영에 접속한 것은 아니다.
+
+### 수정 방식
+
+기준은 새로 fetch한 `origin/main`의 `d514d9203cf27ca7e6813ff6873f5724256c6f7a`(#466 merge), 브랜치는 `codex/upload-file-copy`다.
+
+공통 함수는 `app/runtime-client.js`의 `KPTURuntime.copyUploadFile`에 한 번만 둔다. 자료실·새 회의·회의 상세가 이미 이 런타임을 사용하고 먼저 로드하므로 별도 모듈/로딩 의존성 없이 재사용한다. 세 전송 루프에서 해당 파일을 보내기 직전에만 사본을 만들고 이름·type·lastModified를 유지한다. 사본/ArrayBuffer를 업로드 entry나 전역에 저장하지 않는다. 이전 파일 요청이 끝난 다음 파일을 읽는 순차 방식이며, 파일별 FormData의 file 참조도 finally에서 해제한다. 원본 선택 File은 기존 실패 표시·선택 취소 흐름에 필요한 기간만 유지한다. 브라우저가 전송 중 내부에 유지하는 본문과 실제 GC 시점은 앱이 제어하지 못한다.
+
+읽기 실패는 `file_read_failed`로 구분하고 **“파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.”**를 표시한다. 해당 파일의 업로드 요청은 0건이고 다음 파일은 계속 처리한다. 자료실은 `entry.retry=false`로 재선택 전 재전송을 막고, 회의자료는 기존 파일별 실패 표시·사용자 재시도 흐름을 따른다. 새 회의 결과 자체는 기존처럼 저장되며 자료 읽기 실패 문구를 결과 알림에도 남긴다. 원본 전송 fallback·자동 재시도는 추가하지 않는다.
+
+100MB 제한, 자료실 크기별 timeout 및 오류 분류, #460 native fetch 옵션과 기존 401 인증 회복은 유지한다. 서버 함수·Edge·DB·RLS·Cloudflare·workflow는 수정하지 않고 `scripts/diag`를 보존한다. 진단 북마크 사용 후 사용자 삭제 확인은 원장 SEC-보안정리에서 추적한다.
+
+캐시 버전은 runtime·세 모듈에서 상위 loader·app.js·index.html(modulepreload 포함)까지 올리고 기존 E2E의 버전 기대값을 함께 갱신한다. `app-smoke-check.yml`의 고정 버전 기대값은 workflow 변경 금지 때문에 유지하며, 결과와 충돌은 PR에 보고한다.
+
+### 수정 검증
+
+- Node: `node --test tests/*.test.mjs tests/security/*.test.mjs tests/domain/*.test.mjs scripts/*.test.mjs` **380/380 통과**, 실패·skip 0. 구현 전 기존 검사 378/378 통과. 새 공통 함수 검사 2개는 사본 객체의 독립성·동일 bytes/name/type/lastModified와 읽기 실패 code/message/retryable/cause를 확인한다.
+- 설치 Chromium 151.0.7922.173, Playwright 1.55.0, workers=1, retries=0. `material-selection-delete` **32/32 통과**(새 검사 18개 포함): 자료실·새 회의·회의 상세 각각 390/1280px에서 원본과 다른 File 전송, 이름·type·lastModified·크기 유지, 첫 요청 대기 중 다음 파일 읽기 0회, 읽기 실패 파일 POST 0건·정확한 문구·다음 정상 파일 계속 처리. 자료실 읽기 실패는 재선택 전 재전송 0회와 재선택 후 복구도 확인한다. 새 회의에서 부모 회의 저장은 기존대로 유지하며 “0건”은 파일 업로드 요청 기준이다.
+- 관련 기존 spec 10개 **156/156 통과**: `library-upload-failure`, `library-upload-transport`, `library-project-catalog`, `library-row-list`, `runtime-recovery`, `meeting-entry`, `startup-performance`, `task-layout-groups`, `calendar-hotfix`, `private-rail-forum-state`. 합계 Chromium **188/188 통과**. 기존 timeout·network·HTTP 오류 분류, native fetch 옵션·401 인증 회복·늦은 응답, 선택 취소·저장 잠금·자료 삭제·회의 회귀를 유지한다. 기존 검사를 삭제하거나 약화하지 않았다.
+- loader-cache 검사: 시작 SHA 대비 **20개 변경 파일, 운영 참조 385개 통과**. runtime의 직접 참조가 있는 `app/login/index.html`, `app/my-work.html`, `private-rail/forum-0929/index.html`도 캐시 값만 올렸다. 새 앱 의존성은 추가하지 않았다. `scripts/diag/generate-library-upload-bookmarklet.mjs --check` 통과, 진단 소스 변경 없음.
+- 기존 app-smoke 단계의 로컬 실행은 **20단계 중 18 통과·2 실패**(HTTP 34경로 포함). 실패는 `Check recursive app dependency graph`와 `Check public and authenticated app boundaries`의 옛 team/view-loader/library/meeting-detail 버전 고정값 때문이다. 같은 두 단계는 시작 SHA를 archive한 clean main에서 통과했다. 앱 캐시 상승으로 발생한 검사 기대값 충돌이며, workflow 변경 금지에 따라 우회·삭제·수정하지 않았다. PR CI에서도 별도 확인하고 merge 전 커맨드센터가 해결 여부를 판단해야 한다.
+- 실제 Android 파일 제공자·실기기 메모리·운영 전송은 모의 Chromium 검사로 재현하지 못한다. merge 후 같은 폰·PDF로 세 화면의 실제 도착을 확인해야 한다. 대용량은 한 파일의 ArrayBuffer와 사본, 브라우저 본문 처리 메모리를 추가로 사용하므로 최대치에서 메모리 부담은 남는다. 운영 DB·Edge·workflow 실행·merge는 하지 않았다.
+
+수정 PR: [#467](https://github.com/mj880616/work/pull/467), branch `codex/upload-file-copy`. workflow 고정 버전 검사 충돌이 남아 draft 상태이며 커맨드센터 확인 전 merge하지 않는다.
