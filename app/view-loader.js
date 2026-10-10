@@ -24,8 +24,8 @@ const routeStyles={
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=25'],
   projects:['./project-system-v3.css?v=25','./forum-flow-polish.css?v=2','./google-tasks.css?v=25'],
-  library:['./library-upload.css?v=7','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=13','./google-tasks.css?v=25'],
+  library:['./library-upload.css?v=8','./compact-list.css?v=2'],
+  meetings:['./meeting-ui.css?v=14','./google-tasks.css?v=25'],
   media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=7'],
   team:['./suborganizations.css?v=11','./workplace-detail.css?v=7','./google-tasks.css?v=25']
@@ -105,7 +105,7 @@ async function projects(){
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=2');
-  await module('./library-upload.js?v=22','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=23','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
@@ -113,7 +113,7 @@ async function meetings(){
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
   await module('./google-tasks.js?v=30');
-  await module('./meeting-round-detail.js?v=22','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=23','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){

@@ -11,6 +11,7 @@
 .library-selected-files{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-top:10px}
 .library-selected-file{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
 .library-selected-file-main{min-width:0;flex:1 1 auto}
+.library-selected-file .icon-btn{flex:0 0 auto}
 .library-selected-file b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--kptu-ink)}
 .library-selected-file small{display:block;margin-top:2px;color:var(--kptu-faint);font-size:10.5px}
 .library-upload-state{flex:none;max-width:50%;text-align:right;font-size:11px;font-weight:700;color:var(--kptu-muted)}

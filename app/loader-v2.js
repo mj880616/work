@@ -116,7 +116,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js?v=19'),
-    import('./team.js?v=64')
+    import('./team.js?v=65')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -135,7 +135,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=109');
+  await import('./view-loader.js?v=110');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'home');

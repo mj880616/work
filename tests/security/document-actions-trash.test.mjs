@@ -96,5 +96,8 @@ test('non-owner cannot touch Drive or remove a record', async () => {
 
 test('active library delete entry point explains the Drive trash retention period', () => {
   const code = readFileSync(new URL('../../app/library-upload.js', import.meta.url), 'utf8');
-  assert.match(code, /Drive 휴지통으로 이동합니다\. Drive 휴지통에서 30일 안에 복구할 수 있습니다\./);
+  const shared = readFileSync(new URL('../../app/document-delete.js', import.meta.url), 'utf8');
+  assert.match(code, /import\('\.\/document-delete\.js\?v=\d+'\)/);
+  assert.match(code, /await helper\.deleteDocument\(d,/);
+  assert.match(shared, /Drive 휴지통으로 이동합니다\. Drive 휴지통에서 30일 안에 복구할 수 있습니다\./);
 });
