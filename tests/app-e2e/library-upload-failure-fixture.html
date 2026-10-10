@@ -53,6 +53,25 @@
         return [];
       }
     };
+    // Keep the existing failure plans and assertions, but exercise the new
+    // native-fetch boundary as well as the baseline runtime API fixture.
+    const nativeFetch=window.fetch,nativeTimeout=window.setTimeout;
+    window.__lastUploadDeadline=null;
+    window.setTimeout=function(callback,ms,...args){
+      if(ms>=90000&&ms<=600000)window.__lastUploadDeadline=ms;
+      return nativeTimeout(callback,ms,...args);
+    };
+    window.fetch=async function(url,options={}){
+      if(!String(url).endsWith('/functions/v1/library-files'))return nativeFetch.apply(this,arguments);
+      try{
+        const data=await window.KPTURuntime.api('/functions/v1/library-files',{body:options.body,timeoutMs:window.__lastUploadDeadline});
+        return new Response(JSON.stringify(data),{status:200,headers:{'Content-Type':'application/json'}});
+      }catch(error){
+        if(error.code==='timeout')throw new DOMException('mock timeout','AbortError');
+        if(error.code==='network_error')throw new TypeError('mock network failure');
+        return new Response(JSON.stringify({message:error.message}),{status:error.status||500,headers:{'Content-Type':'application/json'}});
+      }
+    };
   </script>
   <script src="/app/project-catalog.js"></script>
   <script src="/app/library-upload.js"></script>

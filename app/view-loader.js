@@ -105,7 +105,7 @@ async function projects(){
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=2');
-  await module('./library-upload.js?v=20','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=21','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
