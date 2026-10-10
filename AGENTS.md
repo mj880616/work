@@ -152,7 +152,8 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 
 - 로컬 세션 manual mode 또는 사용자 승인형 `.github/workflows/edge-function-deploy.yml`로만 한다. 2026-10-20까지는 §1 임시 규칙을 우선 적용하며, 기존 Codex 로컬 예외는 유지한다.
 - workflow 경로: 커맨드센터 승인 → 사용자가 수동 실행 → `production-edge` 승인. Codex 클라우드는 파일·PR만 준비하며 workflow를 실행하거나 environment를 승인하지 않는다. 승인자 설정은 사용자가 GitHub environment에서 관리한다.
-- workflow 입력 `function`은 기존 함수 폴더 이름(밑줄 시작·`_shared` 불가), `ref`는 배포할 커밋·브랜치(기본 `main`), `expect_unauth_401`은 기본 `true`다. 공개 함수에서만 `false`로 지정해 POST 검사를 생략한다. 배포 전 이전 운영 소스 SHA를 기록하며 되돌리기는 그 SHA를 `ref`에 넣어 같은 버튼·승인 절차로 재실행한다.
+- workflow 입력 `function`은 기존 함수 폴더 이름(밑줄 시작·`_shared` 불가), `ref`는 배포할 커밋·브랜치(기본 `main`), `first_deploy`는 기본 `false`, `verify_jwt`는 `keep|true|false` 중 선택(기본 `keep`, 기존 배포는 `keep`만 허용), `expect_unauth_401`은 기본 `true`다. 공개 함수에서만 `false`로 지정해 POST 검사를 생략한다. 기존 함수는 배포 전 이전 운영 소스 SHA를 기록하며 되돌리기는 그 SHA를 `ref`에 넣어 같은 버튼·승인 절차로 재실행한다.
+- 신규 함수는 `first_deploy=true` + `verify_jwt` 명시(`true|false`) + `docs/web2-env6b-edge-source.md` 5절 표 사전 등록이 필요하다. 운영에 같은 이름이 없어야 하며 배포 후 정확히 1개·명시 JWT 정책·유효한 version·HTTP 검사를 확인한다. 이전 버전이 없으므로 되돌리기는 화면이 아직 이 함수를 쓰지 않는 상태 유지, 필요 시 사용자가 대시보드에서 함수 삭제 판단으로 안내하며 자동 삭제하지 않는다.
 - workflow는 지정 함수의 현재 version·verify_jwt·updated_at을 summary에 기록하고, 현재 verify_jwt를 유지하며 `--use-api`로 배포한다. 배포 후 버전 증가·JWT 정책 동일·비로그인 POST 401(검사 대상만)·OPTIONS 200 또는 204를 확인한다. 검증 실패는 이미 실행된 배포를 자동 취소하지 않는다. `functions list`에는 이전 소스 SHA가 없으므로 이전 운영 소스 SHA는 승인 전에 따로 확인한다.
 - OPTIONS 검사 기준은 200 또는 204다. 기존 함수 중 `drive-summary`·`public-page-edit`처럼 204를 반환하는 함수도 배포 후 OPTIONS 검증을 통과한다. 함수 응답·인증 경계는 이 workflow 작업에서 변경하지 않는다.
 - Codex 로컬은 사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포만 허용한다. `supabase login --no-browser`로 일회용 로그인하고 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 허용하지 않는다.

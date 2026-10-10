@@ -134,3 +134,121 @@ test('HTTP verification handles success, public skip, wrong status and transport
     }
   }
 }));
+
+const firstEnv = jwt => ({ FIRST_DEPLOY: 'true', VERIFY_JWT: jwt });
+function policyDoc(cwd, jwt = 'false') {
+  mkdirSync(join(cwd, 'docs'), { recursive: true });
+  writeFileSync(join(cwd, 'docs/web2-env6b-edge-source.md'), `## 5. production 함수 전체 verify_jwt\n\n| # | 이름 | 제품 | 버전 | 마지막 배포(KST) | verify_jwt | 원본 |\n| --- | --- | --- | --- | --- | --- | --- |\n| 1 | \`example\` | Web2 | 배포 대기 | 없음 | ${jwt} | work |\n\n### 5.1 other records\n`);
+}
+
+test('first-deploy inputs default off and keep; explicit policy is restricted to the new path', () => sandbox(cwd => {
+  assert.match(source, /first_deploy:[\s\S]*?type: boolean\n        default: false/);
+  assert.match(source, /verify_jwt:[\s\S]*?type: choice\n        options:\n          - keep\n          - 'true'\n          - 'false'\n        default: keep/);
+  policyDoc(cwd);
+  assert.equal(shell('Validate inputs', cwd, { FIRST_DEPLOY: 'false', VERIFY_JWT: 'keep' }).status, 0);
+  for (const jwt of ['true', 'false', 'invalid', '']) {
+    assert.notEqual(shell('Validate inputs', cwd, { FIRST_DEPLOY: 'false', VERIFY_JWT: jwt }).status, 0);
+  }
+  for (const jwt of ['true', 'false']) {
+    policyDoc(cwd, jwt);
+    assert.equal(shell('Validate inputs', cwd, firstEnv(jwt)).status, 0);
+  }
+  for (const env of [firstEnv('keep'), firstEnv('invalid'), { FIRST_DEPLOY: 'invalid', VERIFY_JWT: 'keep' }]) {
+    assert.notEqual(shell('Validate inputs', cwd, env).status, 0);
+  }
+  assert.notEqual(shell('Validate inputs', cwd, { ...firstEnv('false'), FUNCTION_NAME: 'missing' }).status, 0);
+}));
+
+test('new policy must match exactly one row in the section 5 deployment table', () => sandbox(cwd => {
+  const path = join(cwd, 'docs/web2-env6b-edge-source.md');
+  assert.notEqual(shell('Validate inputs', cwd, firstEnv('false')).status, 0);
+  policyDoc(cwd, '**true**');
+  assert.equal(shell('Validate inputs', cwd, firstEnv('true')).status, 0);
+  assert.notEqual(shell('Validate inputs', cwd, firstEnv('false')).status, 0);
+  const doc = readFileSync(path, 'utf8');
+  const row = doc.split('\n').find(line => line.includes('`example`'));
+  for (const bad of [
+    doc.replace('`example`', '`different`'),
+    doc.replace('## 5.', '## 2.'),
+    doc.replace(row, '').concat(`\n${row}\n`),
+    doc.replace(row, `${row}\n${row}`),
+    doc.replace('**true**', 'trueish'),
+    doc.replace('verify_jwt | 원본', 'other | 원본'),
+    doc.replace(row, '').replace('### 5.1', `${row}\n\n### 5.1`),
+    doc.replace(row, '').replace('### 5.1', `\`\`\`markdown\n${row}\n\`\`\`\n\n### 5.1`),
+    doc.replace(row, '').replace('### 5.1', doc.slice(doc.indexOf('| #'), doc.indexOf('### 5.1')) + '### 5.1'),
+    doc.replace('| #', '```markdown\n| #').replace('### 5.1', '```\n### 5.1'),
+  ]) {
+    writeFileSync(path, bad);
+    assert.notEqual(shell('Validate inputs', cwd, firstEnv('true')).status, 0, bad);
+  }
+}));
+
+test('first deployment requires zero existing functions and validates positive integer version and requested JWT afterward', () => sandbox(cwd => {
+  const valid = { slug: 'example', version: 1, verify_jwt: false, updated_at: 2 };
+  for (const jwt of [false, true]) {
+    const env = firstEnv(String(jwt));
+    writeFileSync(join(cwd, 'before-list.json'), JSON.stringify([{ ...valid, slug: 'other' }]));
+    assert.equal(shell('Validate before metadata', cwd, env).status, 0);
+    assert.equal(JSON.parse(readFileSync(join(cwd, 'before.json'), 'utf8')).verify_jwt, jwt);
+    for (const rows of [[valid], [valid, valid]]) {
+      writeFileSync(join(cwd, 'before-list.json'), JSON.stringify(rows));
+      assert.notEqual(shell('Validate before metadata', cwd, env).status, 0);
+    }
+    // Restore a successful plan before exercising post-deploy validation.
+    writeFileSync(join(cwd, 'before-list.json'), '[]');
+    assert.equal(shell('Validate before metadata', cwd, env).status, 0);
+    const record = { ...valid, verify_jwt: jwt };
+    for (const rows of [[record], [{ ...record, version: 4 }]]) {
+      writeFileSync(join(cwd, 'after-list.json'), JSON.stringify(rows));
+      assert.equal(shell('Validate after metadata', cwd, env).status, 0);
+    }
+    for (const rows of [[], [record, record], [{ ...record, verify_jwt: !jwt }], [{ ...record, verify_jwt: String(jwt) }], ...[0, -1, 1.5, null, '1'].map(version => [{ ...record, version }]), [{ ...record, updated_at: null }]]) {
+      writeFileSync(join(cwd, 'after-list.json'), JSON.stringify(rows));
+      assert.notEqual(shell('Validate after metadata', cwd, env).status, 0);
+    }
+  }
+}));
+
+test('first deployment fake CLI and HTTP path deploys one function with explicit policy without printing tokens', () => sandbox(cwd => {
+  const bin = join(cwd, 'bin'); mkdirSync(bin);
+  writeFileSync(join(bin, 'npx'), '#!/bin/bash\nprintf "%s\\n" "$*" >> "$CALL_LOG"\nif [[ "$*" == *"functions list"* ]]; then if [[ -f "$DEPLOY_DIR/deployed" ]]; then cat "$AFTER_FIXTURE"; else printf "[]"; fi; else touch "$DEPLOY_DIR/deployed"; fi\n', { mode: 0o755 });
+  writeFileSync(join(bin, 'curl'), '#!/bin/bash\nif [[ "$*" == *"--request POST"* ]]; then printf "401"; else printf "204"; fi\n', { mode: 0o755 });
+  for (const jwt of [false, true]) {
+    rmSync(join(cwd, 'deployed'), { force: true });
+    writeFileSync(join(cwd, 'call'), '');
+    writeFileSync(join(cwd, 'summary'), '');
+    policyDoc(cwd, String(jwt));
+    writeFileSync(join(cwd, 'after-fixture'), JSON.stringify([{ slug: 'example', version: 1, verify_jwt: jwt, updated_at: 2 }]));
+    const env = { ...firstEnv(String(jwt)), PATH: `${bin}:${process.env.PATH}`, DEPLOY_DIR: cwd, CALL_LOG: join(cwd, 'call'), AFTER_FIXTURE: join(cwd, 'after-fixture'), SUPABASE_ACCESS_TOKEN: 'synthetic-secret-never-print', SUPABASE_PROJECT_REF: 'a'.repeat(20), DEPLOY_SHA: 'synthetic-source', GITHUB_STEP_SUMMARY: join(cwd, 'summary'), JOB_STATUS: 'success' };
+    let output = '';
+    for (const step of ['Validate inputs', 'Read before metadata', 'Validate before metadata', 'Record deployment plan', 'Deploy preserving JWT policy', 'Read after metadata', 'Validate after metadata', 'Verify unauthenticated HTTP', 'Report final metadata and outcome']) {
+      const result = shell(step, cwd, env);
+      assert.equal(result.status, 0, `${step}: ${result.stderr}`);
+      output += result.stdout + result.stderr;
+    }
+    const calls = readFileSync(join(cwd, 'call'), 'utf8');
+    const deploy = calls.split('\n').filter(line => line.includes('functions deploy'));
+    assert.equal(deploy.length, 1);
+    assert.equal(deploy[0], `--yes supabase@2.120.0 functions deploy example --project-ref ${'a'.repeat(20)} --workdir ${cwd} --use-api${jwt ? '' : ' --no-verify-jwt'}`);
+    assert.match(readFileSync(join(cwd, 'supabase/config.toml'), 'utf8'), new RegExp(`verify_jwt = ${jwt}\\n`));
+    const summary = readFileSync(join(cwd, 'summary'), 'utf8');
+    assert.match(summary, /화면이 아직 이 함수를 쓰지 않는 상태 유지/);
+    assert.match(summary, /OPTIONS: 204/);
+    assert.doesNotMatch(output + calls + summary, /synthetic-secret-never-print/);
+  }
+}));
+
+test('first-deploy failure summary requires manual dashboard decision even without valid after metadata', () => sandbox(cwd => {
+  for (const rows of [null, [], [{ slug: 'example', version: 1, verify_jwt: true, updated_at: 2 }]]) {
+    rmSync(join(cwd, 'after-list.json'), { force: true });
+    if (rows) writeFileSync(join(cwd, 'after-list.json'), JSON.stringify(rows));
+    writeFileSync(join(cwd, 'summary'), '');
+    const result = shell('Report final metadata and outcome', cwd, { ...firstEnv('false'), JOB_STATUS: 'failure', GITHUB_STEP_SUMMARY: join(cwd, 'summary') });
+    assert.equal(result.status, 0, result.stderr);
+    const summary = readFileSync(join(cwd, 'summary'), 'utf8');
+    assert.match(summary, /수동 확인·삭제 판단 필요/);
+    assert.match(summary, /사용자 대시보드/);
+    assert.doesNotMatch(summary, /Rollback uses the same button/);
+  }
+}));
