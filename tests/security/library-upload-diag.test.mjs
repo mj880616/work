@@ -25,25 +25,36 @@ function assertStaticBoundary(source) {
   const code = source.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '');
   const strings = code.match(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g) || [];
   const tokens = code.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, "''");
+  assert.doesNotMatch(source, /\\(?:x|u|[0-7])/, 'raw encoded identifiers/URLs are forbidden');
   for (const literal of strings) assert.doesNotMatch(literal, /\\(?:x|u|[0-7])/, 'encoded identifiers/URLs are forbidden');
   assert.doesNotMatch(tokens, /\bimport\b|`/, 'imports and executable templates are forbidden');
   const forbidden = ['console', 'alert', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'eval', 'Function', 'local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'importScripts'];
   // Function.prototype.toString is a read-only fingerprint, not construction.
   const inspected = tokens.replace('Function.prototype.toString.call(window.fetch)', '');
-  for (const name of forbidden) assert.doesNotMatch(inspected, new RegExp('\\b' + name + '\\b'), `forbidden API: ${name}`);
+  const rawInspected = source.replace('Function.prototype.toString.call(window.fetch)', '');
+  for (const name of forbidden) {
+    const pattern = new RegExp('\\b' + name + '\\b');
+    // Inspect raw text too: strings containing comment delimiters must never
+    // be able to hide a forbidden API from the conservative source scan.
+    assert.doesNotMatch(rawInspected, pattern, `forbidden raw API: ${name}`);
+    assert.doesNotMatch(inspected, pattern, `forbidden API: ${name}`);
+  }
   for (const property of ['cookie', 'innerHTML', 'outerHTML', 'src', 'href', 'sendBeacon', 'open', 'send', 'setItem', 'removeItem', 'clear']) {
+    assert.doesNotMatch(source, new RegExp('\\.\\s*' + property + '\\b'), `forbidden raw sink: ${property}`);
     assert.doesNotMatch(tokens, new RegExp('\\.\\s*' + property + '\\b'), `forbidden sink: ${property}`);
     assert.ok(!strings.includes("'" + property + "'") && !strings.includes('"' + property + '"'), `computed sink: ${property}`);
   }
   const paths = strings.filter(value => /^['"]\/functions\//.test(value)).map(value => value.slice(1, -1));
   assert.equal((tokens.match(/\bfetch\s*\(/g) || []).length, 1);
   assert.equal((tokens.match(/window\.fetch\s*\(/g) || []).length, 1);
+  assert.equal((source.match(/window\.fetch\s*\(/g) || []).length, 1);
   // No aliases or computed window network access. The only computed window
   // property is the explicit non-secret diagnostic flight marker.
   assert.equal((tokens.match(/\bfetch\b/g) || []).length, 2);
   for (const property of tokens.matchAll(/window\s*\[([^\]]+)\]/g)) assert.equal(property[1], 'flightKey');
   for (const property of tokens.matchAll(/window\.([A-Za-z_$][\w$]*)/g)) assert.ok(['fetch', 'crypto', 'KPTURuntime'].includes(property[1]));
   assert.equal((tokens.match(/\bcreateElement\b/g) || []).length, 1);
+  assert.equal((source.match(/\bcreateElement\b/g) || []).length, 1);
   assert.match(code, /const node = document\.createElement\(tag\);/);
   assert.doesNotMatch(tokens, /\bdocument\s*\[/);
   assert.ok(!strings.includes("'createElement'") && !strings.includes('"createElement"'));
@@ -57,6 +68,7 @@ function assertStaticBoundary(source) {
   assert.match(source, /if \(name === undefined\) body\.append\('file', file\)/);
   assert.match(source, /else body\.append\('file', file, name\)/);
   assert.equal((tokens.match(/(?<![.\w])body\.append\s*\(/g) || []).length, 3);
+  assert.equal((source.match(/(?<![.\w])body\.append\s*\(/g) || []).length, 3);
   assert.match(source, /Object\.keys\(headers\)/);
   assert.doesNotMatch(source, /JSON\.stringify\((?:headers|session|runtime|config)\)/);
   assert.doesNotMatch(source, /https?:\/\//);
@@ -68,6 +80,7 @@ test('static boundary rejects alternate resource loads, escaped sinks and ID-les
   const mutants = [
     source + "\nconst resource=document.createElement('script');resource['\\x73rc']=window.KPTURuntime.config.url+'/diagnostic.js';document.body.append(resource);",
     source + "\nconst resource=element('div');resource['\\u0073rc']=window.KPTURuntime.config.url;",
+    source + "\nconst startMarker='/*';console.log(window.KPTURuntime.config.key);const endMarker='*/';",
     source.replace('document.createElement(tag)', "document.createElement('script')"),
     source.replace('body.append(idField, window.crypto.randomUUID());', '')
   ];
