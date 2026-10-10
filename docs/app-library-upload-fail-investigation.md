@@ -214,3 +214,5 @@ PR: [#460](https://github.com/mj880616/work/pull/460), branch `codex/app-library
 - 설치 Chromium 151.0.7922.173·Playwright 1.57.0, 로컬 교차 출처 HTTP 모의 서버만 호출했다. 원본 평가뿐 아니라 생성된 `javascript:` URL 자체를 실행했다. 390px·1280px에서 multiple 선택(작은 PDF·2.7MB, 한글·공백 파일명) 각각 T0~T7 16행·POST 14건·기대 응답 통과. 390px 응답 CORS 실패·redirect 거절 조건 각각 POST 7건·후속 시험 계속, redirect 목적지 호출 0건. 합계 POST 42건, 서버 최대 동시 요청 1건, 페이지 오류 0건. 헤더 값 제외 복사 fallback·닫기 확인. 임시 검증 소스/증거는 `/tmp/library-diag-browser.mjs`, `/tmp/library-diag-browser-evidence.json`에만 두었다.
 - Node에서 실제 선택 File 객체 보존·UUID 중복 없음·파일 읽기 실패·60초 제한·abort 무시 시 재선택/재열기 차단·늦은 요청 방지·비밀값 가림을 검사했다. 시험 제한은 테스트에서 타이머만 단축해 검증했다.
 - 실제 Android 파일 제공자·운영 TLS·실기기 메모리·네트워크 및 삼성 인터넷은 이 검증으로 재현하지 못한다. 앱·Edge·DB·workflow·운영 변경 없음. 앱 로더가 이 파일을 불러오지 않아 캐시 버전 갱신은 해당 없음.
+
+진단 북마크 PR: [#466](https://github.com/mj880616/work/pull/466), branch `codex/app-library-upload-diag`. merge하지 않는다.
