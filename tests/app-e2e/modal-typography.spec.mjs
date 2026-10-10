@@ -232,6 +232,10 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
  try{
   await baseline(original,d6bMain);
   await d6bPrepare(original,d6bSource);await d6bPrepare(page,path=>fs.readFileSync('app/'+path,'utf8'));
+  // Compare the new meeting field under both style sets, retaining every existing element.
+  // This keeps the full 16-rule comparison and also covers the added label/select.
+  const meetingField=await page.locator('#libraryEditMeeting').evaluate(el=>el.closest('label').outerHTML);
+  await original.locator('#libraryEditProject').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),meetingField);
   const before=await d6bSnapshot(original),after=await d6bSnapshot(page);
   expect(before).toHaveLength(16);
   for(const row of before)expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);

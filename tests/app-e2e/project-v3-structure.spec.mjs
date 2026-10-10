@@ -92,7 +92,8 @@ test('project screen and library share one canonical project catalog', async () 
   }
   expect(project).not.toContain('/rest/v1/app_spaces?workspace_id');
   expect(library).not.toContain('/rest/v1/app_spaces');
-  expect(library).not.toContain('KPTUTeamData');
+  // Reuse team meeting data for the editor, while keeping all project data in the catalog.
+  expect([...library.matchAll(/KPTUTeamData(?:\?\.|\.)(\w+)/g)].map(match=>match[1])).toEqual(['meetings']);
   // The library owns its project selectors and list; team.js must not compete as a second renderer.
   expect(team).not.toMatch(/\['eventProject','docProject'/);
   expect(team).not.toContain("$('#documentProject').innerHTML");

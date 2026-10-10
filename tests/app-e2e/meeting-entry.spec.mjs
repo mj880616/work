@@ -908,9 +908,9 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=63')");
+  expect(loader).toContain("import('./team.js?v=64')");
   expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=21');
+  expect(views).toContain('meeting-round-detail.js?v=22');
   expect(views).toContain('meeting-ui.css?v=13');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
