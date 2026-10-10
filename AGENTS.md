@@ -11,7 +11,7 @@
 | Claude Code 로컬 | 사용자 PC | 코드·문서·테스트, Supabase MCP(production 조회 전용), supabase CLI, gh. production 조회·Edge 배포·DB 적용 절차 | 아래 금지 규칙 |
 | Claude Code 웹 | 클라우드 | 코드·문서·테스트 | Supabase·production 접근 |
 | Codex CLI(PC) | 사용자 PC | 코드·문서·테스트, Supabase MCP(조회 전용, 이 프로젝트만), 커맨드센터에서 승인한 비밀값 없는 Edge 배포(§8) | 승인 없는 Edge 배포, Edge 삭제, DB 쓰기·migration·비밀값 변경, 허용된 Edge 배포 외 supabase CLI production 변경 |
-| Codex 웹 | 클라우드 | 📱 작업(코드·문서·테스트·PR 생성), 승인형 Edge 배포 workflow 파일 작성(§8) | 운영 비밀값·DB 쓰기·Supabase 로그인·production 접근, workflow 실행·승인 |
+| Codex 웹 | 클라우드 | 📱 작업(코드·문서·테스트·PR 생성), 폰 경로 진단 코드·확인 SQL 작성, 승인형 Edge 배포 workflow 파일 작성(§8) | 운영 비밀값·DB 쓰기·Supabase 로그인·production 접근, workflow 실행·승인 |
 | 사용자 승인형 Edge workflow | GitHub Actions `production-edge` | 커맨드센터 승인 → 사용자 `edge-function-deploy.yml` 수동 실행 → `production-edge` 승인 후 지정 함수 배포·검증(§8) | 자동 배포, Edge 삭제, DB migration·비밀값 변경 |
 
 - **사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포는 Codex 로컬에서 `supabase login --no-browser` 일회용 로그인으로 허용한다. 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 계속 Claude Code 로컬 또는 대시보드.** DB 적용은 §7의 기존 절차와 영구 금지를 그대로 따른다.
@@ -28,10 +28,37 @@
 - 운영 토큰은 GitHub `production-edge` environment 비밀값 `SUPABASE_ACCESS_TOKEN`에만 두며, Codex 클라우드 환경에는 등록하지 않는다. 프로젝트는 같은 environment의 변수 `SUPABASE_PROJECT_REF`로 지정한다.
 - 기한이 지나면 이 절을 삭제하고 Supabase 토큰을 폐기한다. `production-edge` 비밀값도 삭제하고 workflow 유지 여부를 결정한다(`docs/roadmap.md`의 OPS-클라우드복귀).
 
+### 폰 경로
+
+#### A. 원칙
+
+실기기 진단·DB 변경 확인·큰 화면 대조는 폰에서도 진행할 수 있다.
+AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로를 항상 둔다.
+운영 키는 AI 환경(웹 세션·Codex 클라우드)에 두지 않는다.
+
+#### B. 실기기 진단(폰 브라우저)
+
+- 주 방법은 직접 작성한 진단 북마크다. Codex가 작성 → 커맨드센터가 줄 단위 검토 → 사용자가 안드로이드 크롬에서 `desk.bokdoong.com`을 연 상태로 실행한다. 주소창에 북마크 이름을 입력한 뒤 추천 항목을 선택한다. 북마크 목록에서 누르면 실행되지 않는다.
+- 진단 코드는 토큰·로그인 정보의 화면 표시·외부 전송, Supabase·`desk.bokdoong.com` 외 주소 호출, 자료 생성·수정·삭제 요청을 금지한다. 서버가 Drive·DB 쓰기 전에 거절하는 요청만 사용한다.
+- 결과는 요청 도착 여부·HTTP status·오류 name/message를 표시하고, 필요 시 요청 헤더 이름 목록만 표시한다(값 제외). 대시보드 Invocations와 대조한다.
+- 보조 도구인 Eruda 등 외부 도구는 jsdelivr 고정 버전 + integrity(SRI) + crossorigin으로만 불러온다. `net::ERR` 코드는 보이지 않는다. 켠 뒤의 요청만 기록되므로 "페이지 열기 → 도구 켜기 → 재현" 순서로 진행한다.
+- 진단 후 북마크를 삭제한다. 로그인 정보 노출 위험은 사용자가 감수한다(2026-10-10 결정). 정리는 원장 SEC-보안정리 행에서 추적한다.
+
+#### C. DB 변경 폰 경로(§7 보완)
+
+- §7의 영구 금지·rollback·snapshot·schema_migrations 기록 규칙은 그대로 유지한다. §7의 일상어 3줄(무엇이 바뀌나 / 잘못되면 어떤 일이 생기나 / 되돌리는 방법)을 그대로 먼저 제시한다.
+- §7의 "로컬 세션 read-only 사전·사후 확인"은 폰에서 "커맨드센터가 준 읽기 전용 확인 SQL(select만)을 사용자가 SQL Editor에서 실행·결과 캡처"로 대신할 수 있다. 사전 snapshot 대조와 사후 판정은 커맨드센터가 캡처로 한다.
+- 사용자 실행은 4단계다: 새 쿼리 창(+)에 붙여 넣기 → 첫 줄·마지막 줄 `commit;`·대상 프로젝트 확인 → 실행 → 결과 캡처.
+- 폰 붙여넣기 잘림에 대비해 적용 SQL이 길면 각각 독립 실행 가능한 조각(조각마다 `begin;`…`commit;`)으로 나누고, 조각 사이마다 확인 SQL을 둔다. rollback SQL은 적용 전에 준비해 둔다.
+
+#### D. 큰 화면 대조 작업
+
+- 큰 화면 대조 작업도 폰으로 진행하고, 결과는 표·요약 페이지로 제공한다.
+
 ### 지시서 표시
 
-- 지시서 맨 위에 "📱 폰 가능" 또는 "💻 PC 로컬 필요"를 적는다.
-- 📱: 네 도구 모두 가능. 💻: 로컬 도구만 가능(배포·DB 변경은 Claude Code 로컬만). 💻 작업을 웹 세션에서 받으면 즉시 중단한다.
+- 지시서 맨 위에 "📱 폰 가능", "📱 폰 경로 B", "📱 폰 경로 C" 또는 "💻 PC 로컬 필요"를 적는다.
+- 📱 폰 가능: 네 도구 모두 가능. 위 B·C 경로로 할 수 있는 작업은 "📱 폰 경로 B" 또는 "📱 폰 경로 C"로 표시한다. 💻은 폰 경로가 없는 작업(예: Claude Code 로컬 전용 도구가 필요한 작업)에만 쓴다. 💻 작업을 웹 세션에서 받으면 즉시 중단한다.
 
 ## 2. 작업 흐름
 
@@ -124,7 +151,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - workflow 경로: 커맨드센터 승인 → 사용자가 수동 실행 → `production-edge` 승인. Codex 클라우드는 파일·PR만 준비하며 workflow를 실행하거나 environment를 승인하지 않는다. 승인자 설정은 사용자가 GitHub environment에서 관리한다.
 - workflow 입력 `function`은 기존 함수 폴더 이름(밑줄 시작·`_shared` 불가), `ref`는 배포할 커밋·브랜치(기본 `main`), `expect_unauth_401`은 기본 `true`다. 공개 함수에서만 `false`로 지정해 POST 검사를 생략한다. 배포 전 이전 운영 소스 SHA를 기록하며 되돌리기는 그 SHA를 `ref`에 넣어 같은 버튼·승인 절차로 재실행한다.
 - workflow는 지정 함수의 현재 version·verify_jwt·updated_at을 summary에 기록하고, 현재 verify_jwt를 유지하며 `--use-api`로 배포한다. 배포 후 버전 증가·JWT 정책 동일·비로그인 POST 401(검사 대상만)·OPTIONS 200을 확인한다. 검증 실패는 이미 실행된 배포를 자동 취소하지 않는다. `functions list`에는 이전 소스 SHA가 없으므로 이전 운영 소스 SHA는 승인 전에 따로 확인한다.
-- OPTIONS 검사 기준은 200 또는 204다. 기존 함수 중 `drive-summary`·`public-page-edit`처럼 204를 반환하는 함수도 배포 후 OPTIONS 검증을 통과한다. 함수 응답·인증 경계를 이 workflow 작업에서 변경하지 않으며, 실행 승인 전에 이 제한을 확인한다.
+- OPTIONS 검사 기준은 200 또는 204다. 기존 함수 중 `drive-summary`·`public-page-edit`처럼 204를 반환하는 함수도 배포 후 OPTIONS 검증을 통과한다. 함수 응답·인증 경계는 이 workflow 작업에서 변경하지 않는다.
 - Codex 로컬은 사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포만 허용한다. `supabase login --no-browser`로 일회용 로그인하고 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 허용하지 않는다.
 - 배포 전 `functions list`로 현재 버전·verify_jwt·시각을 기록한다.
 - 함수 이름을 반드시 지정한다. `--prune` 금지.
