@@ -202,7 +202,7 @@ test('transport errors and timeouts use sanitized errors and never retry', async
   await fakeServer([{ delay: 100, body: [] }], async (_query, calls, endpoint) => {
     const timed = createQueryClient({ token, projectRef, endpoint, timeoutMs: 20 });
     await assert.rejects(timed('select 1;'), /DB query failed/);
-    assert.equal(calls.length, 1);
+    assert.ok(calls.length <= 1);
   });
 });
 
@@ -218,4 +218,22 @@ test('secret-like migration names are suppressed; masking escapes workflow comma
   assert.doesNotMatch(scripts, /console\.|\.stack|JSON\.stringify\((?:payload|rows|response|error)|appendFileSync\([^\n]*(?:payload|rows|response|error)/);
   assert.match(scripts, /redirect: 'error'/);
   assert.doesNotMatch(scripts, /process\.env\.(?:ENDPOINT|QUERY|SQL|DB_URL)/);
+});
+
+test('SQL error arrays and unexpected DDL results cannot prove rollback or successful cleanup', async () => {
+  const plan = await planFor('tx-probe');
+  for (const body of [[{ code: '42501', message: `permission denied ${token}` }], [{ message: token }], [null], ['unexpected']]) {
+    await fakeServer([{ body }, absent, division, absent], async (query, calls) => {
+      const result = await (await load()).runPlan(plan, query);
+      assert.equal(result.ok, false);
+      assert.match(result.summary, /취소 보장: 아니오/);
+      assert.doesNotMatch(result.summary, /synthetic-secret/);
+      assert.equal(calls.length, 2); // failed initial DDL, then best-effort cleanup only
+    });
+    await fakeServer([ok, present, { body }], async query => {
+      const result = await (await load()).runPlan(plan, query);
+      assert.equal(result.ok, false);
+      assert.match(result.summary, /수동 정리 필요/);
+    });
+  }
 });

@@ -54,9 +54,15 @@ export async function runPlan(plan, query, { secretValues = [] } = {}) {
   let cancelled = false;
   let errorCancelled = false;
   let cleanup = '';
+  const ddl = async sql => {
+    const rows = await query(sql);
+    // These SQL batches contain no result-bearing successful statement. A
+    // nonempty payload cannot attest to successful DDL/ROLLBACK or cleanup.
+    if (rows.length !== 0) throw new Error('Unexpected DDL response');
+  };
   const removeProbe = async () => {
     try {
-      await query(plan.sql.cleanup);
+      await ddl(plan.sql.cleanup);
       cleanup = `시험 표 정리 요청: 성공 (\`${plan.probe}\`).\n`;
     } catch {
       cleanup = `수동 정리 필요: \`${plan.probe}\`. 정리 응답을 확인할 수 없습니다.\n`;
@@ -70,7 +76,7 @@ export async function runPlan(plan, query, { secretValues = [] } = {}) {
   const result = note => ({ ok: cancelled && errorCancelled, summary:
     `## 트랜잭션 시험\n\n취소 보장: ${cancelled ? '예' : '아니오'}\n\n오류 시 전체 취소: ${errorCancelled ? '예' : '아니오'}\n\n${note}\n\n${cleanup}` });
   try {
-    await query(plan.sql.cancel);
+    await ddl(plan.sql.cancel);
     cancelled = await absent();
   } catch {
     await removeProbe();

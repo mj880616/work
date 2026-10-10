@@ -46,7 +46,8 @@ export function createQueryClient({ token, projectRef, endpoint, timeoutMs = 30_
       throw new DbQueryError('transport or invalid JSON');
     }
     const errorObjects = Array.isArray(payload)
-      ? payload.filter(row => row && typeof row === 'object' && 'error' in row)
+      ? payload.filter(row => row && typeof row === 'object' && ('error' in row
+        || (typeof row.code === 'string' && /^[0-9A-Z]{5}$/.test(row.code) && typeof row.message === 'string')))
       : [payload];
     if (![200, 201].includes(response.status) || errorObjects.length) {
       const sqlErrorStatus = [200, 201, 400, 422, 500].includes(response.status);

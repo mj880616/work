@@ -64,6 +64,7 @@ select to_regclass('private.ops_tx_probe_<run_id>') is null as rolled_back;
 
 - **취소 보장: 예** — 요청1이 성공하고 요청2가 정확히 boolean `true` 1행을 반환.
 - **오류 시 전체 취소: 예** — 요청4에서 SQLSTATE `22012` 또는 `division by zero` SQL 오류를 확인하고 요청5가 정확히 boolean `true` 1행을 반환.
+- 취소·정리 SQL의 성공 응답은 반환 행이 없는 배열만 인정한다. 배열 안 SQL 오류(code/message 포함)나 예상 밖 결과도 실패다.
 - 일반 인증·서버·통신 오류, 잘못된 응답, 요청4의 예상 밖 성공은 통과 근거가 아니다. 미실행·미확인도 `아니오`로 표시하며 이유를 함께 적는다.
 - 두 판정 모두 `예`인 실행만 job 성공. 결과는 GitHub summary에 두 판정으로 표시한다.
 - 토큰·프로젝트 변수를 `::add-mask::`로 등록한다. 응답은 메모리에서만 파싱하며 요청 본문·응답·원문 오류·스택을 로그나 artifact에 저장하지 않는다. check의 migration 메타데이터 외 DB 데이터는 출력하지 않는다.
