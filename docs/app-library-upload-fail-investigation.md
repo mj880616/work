@@ -250,3 +250,5 @@ PR: [#460](https://github.com/mj880616/work/pull/460), branch `codex/app-library
 - loader-cache 검사: 시작 SHA 대비 **20개 변경 파일, 운영 참조 385개 통과**. runtime의 직접 참조가 있는 `app/login/index.html`, `app/my-work.html`, `private-rail/forum-0929/index.html`도 캐시 값만 올렸다. 새 앱 의존성은 추가하지 않았다. `scripts/diag/generate-library-upload-bookmarklet.mjs --check` 통과, 진단 소스 변경 없음.
 - 기존 app-smoke 단계의 로컬 실행은 **20단계 중 18 통과·2 실패**(HTTP 34경로 포함). 실패는 `Check recursive app dependency graph`와 `Check public and authenticated app boundaries`의 옛 team/view-loader/library/meeting-detail 버전 고정값 때문이다. 같은 두 단계는 시작 SHA를 archive한 clean main에서 통과했다. 앱 캐시 상승으로 발생한 검사 기대값 충돌이며, workflow 변경 금지에 따라 우회·삭제·수정하지 않았다. PR CI에서도 별도 확인하고 merge 전 커맨드센터가 해결 여부를 판단해야 한다.
 - 실제 Android 파일 제공자·실기기 메모리·운영 전송은 모의 Chromium 검사로 재현하지 못한다. merge 후 같은 폰·PDF로 세 화면의 실제 도착을 확인해야 한다. 대용량은 한 파일의 ArrayBuffer와 사본, 브라우저 본문 처리 메모리를 추가로 사용하므로 최대치에서 메모리 부담은 남는다. 운영 DB·Edge·workflow 실행·merge는 하지 않았다.
+
+수정 PR: [#467](https://github.com/mj880616/work/pull/467), branch `codex/upload-file-copy`. workflow 고정 버전 검사 충돌이 남아 draft 상태이며 커맨드센터 확인 전 merge하지 않는다.
