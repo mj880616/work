@@ -4,7 +4,7 @@ import {loginEntry} from './helpers/login-entry.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app='http://127.0.0.1:8123/app/';
-const views=['home','calendar','tasks','projects','library','meetings','media','pages','team'];
+const views=['home','basket','calendar','tasks','projects','library','meetings','media','pages','team'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 

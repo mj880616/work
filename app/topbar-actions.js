@@ -33,7 +33,7 @@ const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
 const phoneOnly=[...drawerNav?.querySelectorAll('[data-view],[data-mobile-press]')||[]];
-const midItems=['home','calendar','tasks','projects','library','meetings','media','pages','team']
+const midItems=['home','basket','calendar','tasks','projects','library','meetings','media','pages','team']
   .map(view=>appNav?.querySelector(`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
@@ -183,7 +183,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({calendar:'일정',tasks:'할 일',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',media:document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType==='release'?'보도자료':'성명',pages:'게시판'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'할 일',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',media:document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType==='release'?'보도자료':'성명',pages:'게시판'})[event.detail?.view]||''}
 });
 syncMobile();
 syncMidNavigation();

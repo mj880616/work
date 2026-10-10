@@ -290,3 +290,8 @@
   }
   [data-home-column] { min-width: 0; }
 }
+
+.home-quick [data-quick-basket-options][hidden] { display:none; }
+.home-quick-ai { display:flex; flex-direction:row; margin:0; align-items:center; gap:8px; min-height:44px; width:max-content; font-size:12px; }
+.home-quick-ai input { margin:0; width:20px; height:20px; }
+.home-quick .home-basket-link { min-height:44px; border:0; background:transparent; color:var(--kptu-primary-ink); text-align:right; }
