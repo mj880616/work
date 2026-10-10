@@ -25,6 +25,7 @@
 - Codex 클라우드는 코드·문서·테스트·PR 생성만 허용한다. 운영 비밀값 취급·DB 쓰기·Supabase 로그인·운영 접속은 하지 않는다.
 - Edge 배포는 **커맨드센터 승인 → 사용자가 `edge-function-deploy` workflow 실행 → `production-edge` 승인** 순서로만 한다. 기존 Codex 로컬의 커맨드센터 승인 후 `supabase login --no-browser` 일회용 로그인 배포(§8 예외)는 계속 허용한다.
 - DB migration·비밀값 변경·Edge 삭제는 금지한다. 급하면 커맨드센터 승인 뒤 사용자가 대시보드에서 직접 처리한다. §7의 영구 금지는 유지한다.
+- 아래 "폰 경로" C(커맨드센터 승인 → 사용자가 SQL Editor에서 직접 실행)는 위 DB migration 금지의 예외로 허용한다.
 - 운영 토큰은 GitHub `production-edge` environment 비밀값 `SUPABASE_ACCESS_TOKEN`에만 두며, Codex 클라우드 환경에는 등록하지 않는다. 프로젝트는 같은 environment의 변수 `SUPABASE_PROJECT_REF`로 지정한다.
 - 기한이 지나면 이 절을 삭제하고 Supabase 토큰을 폐기한다. `production-edge` 비밀값도 삭제하고 workflow 유지 여부를 결정한다(`docs/roadmap.md`의 OPS-클라우드복귀).
 
@@ -134,7 +135,7 @@ Web2 (`app/`) is a private personal work system used only by its single signed-i
 아래는 적용 직전에 멈추고, 적용 순서와 복구 경로를 보고한 뒤 승인을 받는다.
 DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudflare 설정 변경, production 데이터 변경.
 
-## 7. production DB 적용 (Claude Code 로컬만)
+## 7. production DB 적용 (Claude Code 로컬 또는 폰 경로 C)
 
 - 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
 - SQL Editor 적용은 항상 새 쿼리 창(+)에서 시작한다. 붙여 넣은 뒤 첫 줄·마지막 줄(`commit;`)·대상 프로젝트 ID를 확인하고 실행한다.
@@ -150,7 +151,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - 로컬 세션 manual mode 또는 사용자 승인형 `.github/workflows/edge-function-deploy.yml`로만 한다. 2026-10-20까지는 §1 임시 규칙을 우선 적용하며, 기존 Codex 로컬 예외는 유지한다.
 - workflow 경로: 커맨드센터 승인 → 사용자가 수동 실행 → `production-edge` 승인. Codex 클라우드는 파일·PR만 준비하며 workflow를 실행하거나 environment를 승인하지 않는다. 승인자 설정은 사용자가 GitHub environment에서 관리한다.
 - workflow 입력 `function`은 기존 함수 폴더 이름(밑줄 시작·`_shared` 불가), `ref`는 배포할 커밋·브랜치(기본 `main`), `expect_unauth_401`은 기본 `true`다. 공개 함수에서만 `false`로 지정해 POST 검사를 생략한다. 배포 전 이전 운영 소스 SHA를 기록하며 되돌리기는 그 SHA를 `ref`에 넣어 같은 버튼·승인 절차로 재실행한다.
-- workflow는 지정 함수의 현재 version·verify_jwt·updated_at을 summary에 기록하고, 현재 verify_jwt를 유지하며 `--use-api`로 배포한다. 배포 후 버전 증가·JWT 정책 동일·비로그인 POST 401(검사 대상만)·OPTIONS 200을 확인한다. 검증 실패는 이미 실행된 배포를 자동 취소하지 않는다. `functions list`에는 이전 소스 SHA가 없으므로 이전 운영 소스 SHA는 승인 전에 따로 확인한다.
+- workflow는 지정 함수의 현재 version·verify_jwt·updated_at을 summary에 기록하고, 현재 verify_jwt를 유지하며 `--use-api`로 배포한다. 배포 후 버전 증가·JWT 정책 동일·비로그인 POST 401(검사 대상만)·OPTIONS 200 또는 204를 확인한다. 검증 실패는 이미 실행된 배포를 자동 취소하지 않는다. `functions list`에는 이전 소스 SHA가 없으므로 이전 운영 소스 SHA는 승인 전에 따로 확인한다.
 - OPTIONS 검사 기준은 200 또는 204다. 기존 함수 중 `drive-summary`·`public-page-edit`처럼 204를 반환하는 함수도 배포 후 OPTIONS 검증을 통과한다. 함수 응답·인증 경계는 이 workflow 작업에서 변경하지 않는다.
 - Codex 로컬은 사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포만 허용한다. `supabase login --no-browser`로 일회용 로그인하고 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 허용하지 않는다.
 - 배포 전 `functions list`로 현재 버전·verify_jwt·시각을 기록한다.
