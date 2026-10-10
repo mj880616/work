@@ -17,7 +17,7 @@ test('reviewable diagnostic source and executable one-line bookmark are present 
   new vm.Script(source);
 });
 
-test('static boundary: one fetch sink, fixed paths, random ID and no alternate network/storage sinks', () => {
+function assertStaticBoundary(source) {
   assert.ok(source, 'diagnostic source is missing');
   new vm.Script(source);
   // This workflow runs without npm install. Literal/source constraints plus
@@ -25,6 +25,7 @@ test('static boundary: one fetch sink, fixed paths, random ID and no alternate n
   const code = source.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '');
   const strings = code.match(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g) || [];
   const tokens = code.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, "''");
+  for (const literal of strings) assert.doesNotMatch(literal, /\\(?:x|u|[0-7])/, 'encoded identifiers/URLs are forbidden');
   assert.doesNotMatch(tokens, /\bimport\b|`/, 'imports and executable templates are forbidden');
   const forbidden = ['console', 'alert', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'eval', 'Function', 'local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'importScripts'];
   // Function.prototype.toString is a read-only fingerprint, not construction.
@@ -42,6 +43,10 @@ test('static boundary: one fetch sink, fixed paths, random ID and no alternate n
   assert.equal((tokens.match(/\bfetch\b/g) || []).length, 2);
   for (const property of tokens.matchAll(/window\s*\[([^\]]+)\]/g)) assert.equal(property[1], 'flightKey');
   for (const property of tokens.matchAll(/window\.([A-Za-z_$][\w$]*)/g)) assert.ok(['fetch', 'crypto', 'KPTURuntime'].includes(property[1]));
+  assert.equal((tokens.match(/\bcreateElement\b/g) || []).length, 1);
+  assert.match(code, /const node = document\.createElement\(tag\);/);
+  assert.doesNotMatch(tokens, /\bdocument\s*\[/);
+  assert.ok(!strings.includes("'createElement'") && !strings.includes('"createElement"'));
   for (const tag of code.matchAll(/element\('([^']+)'/g)) assert.ok(['section', 'h2', 'div', 'button', 'input', 'p', 'table', 'tr', 'thead', 'th', 'tbody', 'textarea', 'td'].includes(tag[1]), 'no external resource elements');
   assert.deepEqual(paths.sort(), ['/functions/v1/library-files', '/functions/v1/meeting-files']);
   assert.match(source, /body\.append\(idField, window\.crypto\.randomUUID\(\)\)/);
@@ -56,6 +61,17 @@ test('static boundary: one fetch sink, fixed paths, random ID and no alternate n
   assert.doesNotMatch(source, /JSON\.stringify\((?:headers|session|runtime|config)\)/);
   assert.doesNotMatch(source, /https?:\/\//);
   assert.doesNotMatch(source, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+}
+
+test('static boundary rejects alternate resource loads, escaped sinks and ID-less upload paths', () => {
+  assertStaticBoundary(source);
+  const mutants = [
+    source + "\nconst resource=document.createElement('script');resource['\\x73rc']=window.KPTURuntime.config.url+'/diagnostic.js';document.body.append(resource);",
+    source + "\nconst resource=element('div');resource['\\u0073rc']=window.KPTURuntime.config.url;",
+    source.replace('document.createElement(tag)', "document.createElement('script')"),
+    source.replace('body.append(idField, window.crypto.randomUUID());', '')
+  ];
+  for (const mutant of mutants) assert.throws(() => assertStaticBoundary(mutant), 'static guard must reject dangerous edits');
 });
 
 // Browser adapters only: run the actual unmodified bookmark with native Node
