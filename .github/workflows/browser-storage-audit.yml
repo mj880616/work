@@ -95,6 +95,8 @@ jobs:
               'tests/security/auth-handoff-browser.test.mjs':[r'^\s*localStorage:\s*\{'],
               'tests/app-e2e/google-tasks-cache.spec.mjs':[r'\blocalStorage\b'],
               'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
+              # LIB: exact read-only assertion that disclosure never creates storage keys.
+              'tests/app-e2e/library-row-list.spec.mjs':[r'^\s*'+re.escape('const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));')+r'\s*$'],
           }
 
           active_hits=[]; legacy_hits=[]; violations=[]
