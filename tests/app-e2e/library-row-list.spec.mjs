@@ -75,10 +75,10 @@ async function mockApp(page,state){
       if(method==='POST'){const row={...(body||{}),id:`project-new-${state.spaces.length+1}`,created_at:now(),updated_at:now()};state.spaces.push(row);return ok([row])}
       if(method==='PATCH'){const id=eq(url,'id'),row=state.spaces.find(x=>x.id===id);if(row)Object.assign(row,body||{},{updated_at:now()});return ok([])}
     }
-    if(path==='/rest/v1/app_meetings')return ok([{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]);
+    if(path==='/rest/v1/app_meetings')return ok((state.meetings||[{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]).filter(m=>!eq(url,'id')||m.id===eq(url,'id')));
     if(path==='/rest/v1/app_documents'){
-      const id=eq(url,'id'),pid=eq(url,'project_id');
-      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)));
+      const id=eq(url,'id'),pid=eq(url,'project_id'),mid=eq(url,'meeting_id');
+      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)));
       if(method==='PATCH'){state.patches.push({id,body});const row=state.docs.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok([])}
     }
     if(path.startsWith('/rest/v1/'))return ok([]);
@@ -214,9 +214,9 @@ test('library menu stays within a short viewport after scrolling and resizing',a
 });
 
 for(const width of [390,1280]){
-  test.describe(`meeting-linked disclosure at ${width}px`,()=>{
+  test.describe(`meeting-linked views at ${width}px`,()=>{
     test.use({hasTouch:width===390});
-    test(`library hides only meeting-linked documents and counts filtered matches at ${width}px`,async({page})=>{
+    test(`library filters only by meeting_id with project and search at ${width}px`,async({page})=>{
       await page.setViewportSize({width,height:900});
       const errors=[];
       page.on('pageerror',error=>errors.push(error.message));
@@ -235,65 +235,133 @@ for(const width of [390,1280]){
       await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
       const rows=page.locator('#documentList [data-lu-document]');
-      const toggle=page.getByRole('button',{name:'회의자료 2개 보기',exact:true});
+      const view=page.getByRole('combobox',{name:'보기 선택',exact:true});
       await expect(rows).toHaveCount(3);
+      await expect(view).toHaveValue('general');
+      expect(await view.locator('option').allTextContents()).toEqual(['일반 자료','회의자료 포함','회의자료만']);
+      await expect(page.locator('#libraryViewFilter')).toHaveAttribute('aria-controls','documentList');
+      expect(await view.evaluate(el=>el.previousElementSibling.id)).toBe('documentProject');
       await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
       await expect(page.locator('[data-lu-document="meeting-a"]')).toHaveCount(0);
-      await expect(toggle).toHaveAttribute('aria-expanded','false');
-      await expect(toggle).toHaveAttribute('aria-controls','documentList');
-      if(width===390)await toggle.tap();else await toggle.click();
-      await expect(rows).toHaveCount(5);
-      const hide=page.getByRole('button',{name:'회의자료 2개 숨기기',exact:true});
-      await expect(hide).toHaveAttribute('aria-expanded','true');
-      await hide.focus();await page.keyboard.press('Space');
-      await expect(rows).toHaveCount(3);
-      await expect(toggle).toBeFocused();
+      await expect(page.locator('#libraryMeetingToggle')).toHaveCount(0);
+      if(width===390)await view.tap();else await view.click();
+      await page.keyboard.press('Escape');
+      await view.selectOption('all');await expect(rows).toHaveCount(5);
+      await view.focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
+      await expect(view).toHaveValue('meetings');await expect(rows).toHaveCount(2);
+      await expect(view).toBeFocused();
+      await expect(page.locator('[data-lu-document="category-only"]')).toHaveCount(0);
       await page.locator('#documentProject').selectOption('top-a');
       await page.locator('#documentSearch').fill('철도');
-      const filteredToggle=page.getByRole('button',{name:'회의자료 1개 보기',exact:true});
-      await expect(rows).toHaveCount(2);
-      await filteredToggle.focus();await page.keyboard.press('Enter');
-      await expect(rows).toHaveCount(3);
-      await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();
-      await expect(page.locator('[data-lu-document="meeting-b"]')).toHaveCount(0);
+      for(const [value,count] of [['general',2],['all',3],['meetings',1]]){
+        await view.selectOption(value);await expect(rows).toHaveCount(count);
+        await expect(page.locator('[data-lu-document="meeting-b"]')).toHaveCount(0);
+      }
       await page.locator('#documentSearch').fill('일반');
-      await expect(rows).toHaveCount(1);
-      await expect(page.getByRole('button',{name:/회의자료 \d+개/})).toHaveCount(0);
-      // Even a result containing only hidden documents must retain a way to reveal them.
+      await expect(rows).toHaveCount(0);
+      await view.selectOption('general');await expect(rows).toHaveCount(1);
+      // A result containing only linked documents remains reachable through the select.
       await page.locator('#documentSearch').fill('회의 연결');
-      await expect(rows).toHaveCount(1);
-      await page.getByRole('button',{name:'회의자료 1개 숨기기',exact:true}).click();
-      await expect(rows).toHaveCount(0);
-      await expect(filteredToggle).toBeVisible();
-      await filteredToggle.click();await expect(rows).toHaveCount(1);
-      await page.locator('#documentSearch').fill('없음');
-      await expect(rows).toHaveCount(0);
-      await expect(page.getByRole('button',{name:/회의자료 \d+개/})).toHaveCount(0);
-      await page.locator('#documentSearch').fill('');
-      await page.locator('#documentProject').selectOption('all');
-      await expect(rows).toHaveCount(5);
-      // Management intentionally continues to show the complete loaded set.
+      await expect(rows).toHaveCount(0);await expect(view).toBeVisible();
+      await view.selectOption('meetings');await expect(rows).toHaveCount(1);
+      await page.locator('#documentSearch').fill('없음');await expect(rows).toHaveCount(0);await expect(view).toBeVisible();
+      await page.locator('#documentSearch').fill('');await page.locator('#documentProject').selectOption('all');
+      await view.selectOption('all');await expect(rows).toHaveCount(5);
       await page.locator('#manageLibraryBtn').click();
       await expect(page.locator('#libraryManageList [data-library-edit]')).toHaveCount(5);
       await page.locator('#libraryManageClose').click();
       const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));
       const before=await storageKeys();
-      await page.getByRole('button',{name:'회의자료 2개 숨기기',exact:true}).click();
-      await toggle.click();
+      await view.selectOption('general');await view.selectOption('meetings');await view.selectOption('all');
       expect(await storageKeys()).toEqual(before);
-      // Actual router transitions, including API navigation, reset the in-memory preference.
-      await page.evaluate(()=>window.KPTURouter.go('home'));
-      await expect(page.locator('#homeView')).toBeVisible();
+      await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('library'));
-      await expect(rows).toHaveCount(3);await expect(toggle).toHaveAttribute('aria-expanded','false');
-      await toggle.click();await expect(rows).toHaveCount(5);
-      await page.reload();
-      await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await expect(rows).toHaveCount(3);await expect(toggle).toHaveAttribute('aria-expanded','false');
+      await expect(rows).toHaveCount(3);await expect(view).toHaveValue('general');
+      await view.selectOption('all');await expect(rows).toHaveCount(5);
+      await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
+      await expect(rows).toHaveCount(3);await expect(view).toHaveValue('general');
       expect(documentQueries.length).toBeGreaterThan(0);
       for(const params of documentQueries)expect(params.has('meeting_id')).toBe(false);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      await page.screenshot({path:`/tmp/library-meeting-hidden-${width}.png`,fullPage:true});
+      await page.screenshot({path:`/tmp/library-meeting-views-${width}.png`,fullPage:true});
+      expect(errors).toEqual([]);
+    });
+
+    test(`edit connects and unlinks a document and refreshes an open meeting at ${width}px`,async({page})=>{
+      await page.setViewportSize({width,height:900});
+      const errors=[],requests=[];
+      page.on('pageerror',error=>errors.push(error.message));
+      page.on('console',message=>{if(message.type()==='error')errors.push(message.text())});
+      page.on('request',req=>requests.push({url:req.url(),method:req.method()}));
+      const state=baseState();state.downloads=[];state.deletes=[];
+      state.meetings=[
+        {id:'older',workspace_id:'workspace-1',series_name:'정책 회의',title:'이전 제목',round_no:1,meeting_at:'2026-10-01T03:00:00Z',created_by:state.user.id},
+        {id:'recent',workspace_id:'workspace-1',series_name:'정책 회의',title:'정책 회의',round_no:2,meeting_at:'2026-10-09T03:00:00Z',project_id:'top-b',created_by:state.user.id}
+      ];
+      state.docs=state.docs.filter(d=>d.id==='doc-archived');
+      const original={...state.docs[0],meeting_id:null,auto_classified:true,classification_note:'자동분류 결과',file_id:'drive-original',file_name:'report.pdf',drive_url:'https://drive.google.com/file/d/drive-original/view'};
+      state.docs=[{...original}];
+      await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+      await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
+      const edit=async()=>{await page.locator('[data-lu-menu="doc-archived"]').click();await page.locator('[data-lu-edit="doc-archived"]').click();await expect(page.locator('#libraryEditModal')).toBeVisible();await expect(page.locator('#libraryEditMeeting option')).toHaveCount(3)};
+      await edit();
+      const meeting=page.getByRole('combobox',{name:'회의',exact:true});
+      await expect(meeting).toHaveValue('');
+      expect(await meeting.locator('option').evaluateAll(opts=>opts.map(o=>o.value))).toEqual(['','recent','older']);
+      const labels=await meeting.locator('option').allTextContents();
+      expect(labels[0]).toBe('연결 안 함');
+      const expected=await page.evaluate(m=>['정책 회의','2차',new Date(m.meeting_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})].join(' · '),state.meetings[1]);
+      expect(labels[1]).toBe(expected);
+      await page.screenshot({path:`/tmp/library-meeting-edit-modal-${width}.png`,fullPage:true});
+      await meeting.selectOption('recent');
+      await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden();
+      expect(state.patches.at(-1)).toMatchObject({id:'doc-archived',body:{meeting_id:'recent'}});
+      expect(Object.keys(state.patches.at(-1).body).sort()).toEqual(['meeting_id','updated_at']);
+      for(const key of ['project_id','title','category','source','file_id','file_name','drive_url','auto_classified','classification_note'])expect(state.docs[0][key]).toEqual(original[key]);
+      await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(0);
+      await page.locator('#libraryViewFilter').selectOption('meetings');await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
+      // Existing meeting query/data and display stay shared with the meeting screen.
+      await page.evaluate(()=>window.KPTURouter.go('meetings'));await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+      await page.locator('[data-mrd-meeting="recent"]').click();
+      await expect(page.locator('#mrdMaterials')).toContainText('report.pdf');
+      await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));
+      await page.locator('#libraryViewFilter').selectOption('meetings');await edit();
+      await expect(meeting).toHaveValue('recent');
+      await meeting.selectOption('');await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden();
+      expect(state.patches.at(-1).body.meeting_id).toBeNull();
+      await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(0);
+      await page.locator('#libraryViewFilter').selectOption('general');await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
+      await page.evaluate(()=>window.KPTURouter.go('meetings'));await page.locator('[data-mrd-meeting="recent"]').click();
+      await expect(page.locator('#mrdMaterials')).toContainText('등록된 회의자료가 없습니다.');
+      // Refresh the open material list through the same signal that the edit save emitted.
+      // It must leave an in-progress meeting editor intact.
+      await page.locator('#mrdEdit').click();await page.locator('#mrdEditTranscript').fill('작성 중 원문');
+      state.docs[0].meeting_id='recent';
+      await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
+      await expect(page.locator('#mrdMaterials')).toContainText('report.pdf');
+      await expect(page.locator('#mrdEditTranscript')).toHaveValue('작성 중 원문');
+      let releaseFirst,materialReads=0;
+      await page.route(`${SB}/rest/v1/app_documents?**`,async route=>{
+        if(!new URL(route.request().url()).searchParams.has('meeting_id'))return route.fallback();
+        materialReads++;
+        const snapshot=structuredClone(state.docs.filter(d=>d.meeting_id==='recent'));
+        if(materialReads===1)await new Promise(resolve=>{releaseFirst=resolve});
+        await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(snapshot)});
+      });
+      await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
+      await expect.poll(()=>typeof releaseFirst).toBe('function');
+      state.docs[0].meeting_id=null;
+      await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
+      releaseFirst();
+      await expect(page.locator('#mrdMaterials')).toContainText('등록된 회의자료가 없습니다.');
+      expect(materialReads).toBe(2);
+      await expect(page.locator('#mrdEditTranscript')).toHaveValue('작성 중 원문');
+      await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));
+      await expect(page.locator('#libraryViewFilter')).toHaveValue('general');await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
+      expect(state.docs[0].project_id).toBe('top-c');
+      expect(requests.filter(r=>r.method!=='GET'&&/functions\/v1\/(library-files|meeting-files|document-actions|drive-summary)/.test(r.url))).toEqual([]);
+      expect(requests.filter(r=>r.method==='GET'&&r.url.includes('/rest/v1/app_meetings?')&&!r.url.includes('id=eq.recent'))).toHaveLength(1);
+      await page.screenshot({path:`/tmp/library-meeting-edit-${width}.png`,fullPage:true});
       expect(errors).toEqual([]);
     });
   });

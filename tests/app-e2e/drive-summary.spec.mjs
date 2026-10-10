@@ -114,6 +114,12 @@ test('logout drops pending automatic refresh and prevents stale response renderi
   await page.evaluate(()=>window.KPTURuntime.session.write(null));release();await page.clock.fastForward(5000);
   expect(calls).toHaveLength(1);await expect(page.locator('[data-drive-summary-status]')).toHaveCount(0);
 });
+test('meeting-only document PATCH does not schedule a Drive summary',async({page})=>{
+  const {calls,errors}=await setup(page);
+  await save(page,'app_documents',{meeting_id:'mock-meeting',updated_at:'2026-10-10T00:00:00Z'},'PATCH');
+  await page.clock.fastForward(5000);
+  expect(calls).toHaveLength(0);expect(errors).toEqual([]);
+});
 const excluded=[['app_project_comments',{body:'mock memo'}],['app_suborganization_timeline',{title:'mock history'}],['app_suborganizations',{year_summary:'mock year'}],['app_meetings',{transcript_text:'mock transcript',notes:'mock notes'}],['app_profiles',{display_name:'mock profile'}],['app_project_blocks',{content:{text:'mock block'}}]];
 for(const [table,body] of excluded)test(`unrelated ${table} save makes no call`,async({page})=>{
   const {calls}=await setup(page);await save(page,table,body,'PATCH');await page.clock.fastForward(5000);expect(calls).toHaveLength(0);

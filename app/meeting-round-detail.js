@@ -50,6 +50,29 @@ async function mrdTaskClick(e){
   if(db){const t=mrdTasks.find(x=>x.id===db.dataset.mrdTaskDelete),meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting||!confirm(`“${t.title}” Google 할 일을 삭제할까요?`))return;db.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdOpenMeeting(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){alert(err.message||String(err));db.disabled=false}}}
 }
 async function mrdDownload(id){try{const d=await mrdApi('/functions/v1/workspace-drive?action=download-token',{method:'POST',body:{document_id:id}});location.href=d.url}catch(e){alert(e.message)}}
+function mrdRenderMaterials(docs){
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>`<div class="mrd-file-row"><div><b>${mrdEsc(d.file_name||d.title)}</b><small>${mrdEsc(d.title)}${d.file_size?' · '+Math.max(1,Math.round(d.file_size/1024))+'KB':''}</small></div><button class="mini" type="button" data-mrd-download="${d.id}">다운로드</button></div>`).join(''):'<div class="empty compact">등록된 회의자료가 없습니다.</div>';
+    document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload)});
+}
+let mrdMaterialsRefreshing=false,mrdMaterialsDirty=false;
+async function mrdRefreshMaterials(){
+  mrdMaterialsDirty=true;
+  if(mrdMaterialsRefreshing)return;
+  mrdMaterialsRefreshing=true;
+  try{
+    // A second change during the shared GET must get a fresh read after it settles.
+    while(mrdMaterialsDirty){
+      mrdMaterialsDirty=false;
+      const id=mrdCurrent?.id,epoch=mrdRequestEpoch;
+      if(!id)break;
+      try{
+        const docs=await mrdApi('/rest/v1/app_documents?meeting_id=eq.'+encodeURIComponent(id)+'&select=*&order=created_at.asc');
+        if(!mrdMaterialsDirty&&epoch===mrdRequestEpoch&&mrdCurrent?.id===id)mrdRenderMaterials(docs);
+      }catch(e){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===id){const st=document.querySelector('#mrdStatus');st.textContent=e.message||String(e);st.className='status error'}}
+    }
+  }finally{mrdMaterialsRefreshing=false}
+}
+window.addEventListener('kptu:documents-changed',mrdRefreshMaterials);
 async function mrdOpenMeeting(id){
   const epoch=++mrdRequestEpoch;
   try{
@@ -69,8 +92,7 @@ async function mrdOpenMeeting(id){
     document.querySelector('#mrdResult').textContent=mrdResultText(m);
     const special=String(m.notes||''),specialSection=document.querySelector('#mrdSpecialSection');specialSection.classList.toggle('hidden',!special.trim());document.querySelector('#mrdSpecial').textContent=special;
     mrdRenderTasks();
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>`<div class="mrd-file-row"><div><b>${mrdEsc(d.file_name||d.title)}</b><small>${mrdEsc(d.title)}${d.file_size?' · '+Math.max(1,Math.round(d.file_size/1024))+'KB':''}</small></div><button class="mini" type="button" data-mrd-download="${d.id}">다운로드</button></div>`).join(''):'<div class="empty compact">등록된 회의자료가 없습니다.</div>';
-    document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload)});
+    mrdRenderMaterials(docs);
     document.querySelector('#mrdEdit').classList.toggle('hidden',!mrdCanEdit(m));
     document.querySelector('#mrdDelete').classList.toggle('hidden',!mrdCanDelete(m));
     document.querySelector('#mrdStatus').textContent='';
