@@ -34,9 +34,11 @@ library-files의 공유 모듈 전환은 요청한 예외에 따라 후속 PR로
 검증 기록: 보안 Node 324/324, 인접 Node 118/118, 임시 Postgres 최종 36/36,
 Deno 2.9.6 타입 검사 통과. 신규 사전 검사와 phase2/Edge 회귀 32/32는 보안
 검사에 포함된다. Postgres 전체 중 기존 record-links 테스트가 종료 시 연결 오류로
-한 번 실패했고 재실행은 통과했다. clean main 별도 사본은 35/35로 실패 미재현;
-기존 종료 처리에는 connection end 대기가 없어 연관 가능성을 기록하되 원인은 확정하지 않았다.
-해당 기존 파일은 변경하지 않았다. `app/**`·`library-files` diff 없음 확인.
+실패했고 재실행은 통과했다. clean main 별도 사본 첫 실행은 35/35였지만 추가 확인에서
+기존 task29 테스트가 같은 오류로 실패(34/35). pg-pool 종료 후 소켓 종료 전에 cluster를
+중지하는 경합을 기존 postgres.test.mjs의 client end 대기 패턴과 대조했다.
+검증 안정화를 위해 record-links/task29 두 기존 fixture의 종료 대기만 보완하고
+검증 항목·제품 코드는 변경하지 않았다. `app/**`·`library-files` diff 없음 확인.
 DB 저장 응답 유실은 메모 readback으로 성공을 확인하거나 파일 유지·결과 불명으로
 보고하도록 추가했다. 확인되지 않은 저장을 실패로 단정해 파일을 삭제하지 않는다.
 최종 별도 검토의 중요 지적: 응답 유실 뒤 부정적인 재조회만으로는 늦은 commit을

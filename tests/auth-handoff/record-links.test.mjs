@@ -93,10 +93,12 @@ test('TASK-impl PR 2 notes/record links: grants, owner RLS, constraints, rollbac
     postgresFlags: ['-h', '127.0.0.1', '-c', 'log_statement=none', '-c', 'log_min_error_statement=panic'],
     onLog: () => {}, onError: () => {} });
   let pool;
+  const clientEnds = [];
   try {
     await cluster.initialise();
     await cluster.start();
     pool = new pg.Pool({ host: '127.0.0.1', port, user: 'postgres', password, database: 'postgres', ssl: false, max: 4 });
+    pool.on('connect', client => clientEnds.push(new Promise(done => client.once('end', done))));
     await pool.query(fixture);
     await pool.query(migration);
 
@@ -316,7 +318,7 @@ test('TASK-impl PR 2 notes/record links: grants, owner RLS, constraints, rollbac
       assert.equal((await as('authenticated', OWNER, taskTo('again', PROJECT_A))).rowCount, 1);
     });
   } finally {
-    if (pool) await pool.end();
+    if (pool) { await pool.end(); await Promise.all(clientEnds); }
     await cluster.stop();
   }
 });
