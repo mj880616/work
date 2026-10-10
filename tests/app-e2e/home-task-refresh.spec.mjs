@@ -16,6 +16,7 @@ for(const source of ['events','toggle','quick'])test(`initial pending links coal
    await expect(page.locator('[data-home-task="today"]')).toHaveClass(/completed/);
   }else{
    if(source==='quick'){
+    await page.locator('[data-quick-mode="task"]').click();
     await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{c.tasks.push({id:'queued',title:'QA queued',status:'needsAction',due:'2026-10-06'});return r.fulfill({json:{task:{id:'queued'}}});});
     await page.locator('[data-quick-input]').fill('QA queued');
     await page.locator('[data-quick-save]').click();
