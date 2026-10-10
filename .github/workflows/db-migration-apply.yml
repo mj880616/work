@@ -1,0 +1,62 @@
+name: Approved DB connection and transaction probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check: recent migration metadata; tx-probe: empty private table cancellation tests'
+        required: true
+        type: choice
+        default: check
+        options: [check, tx-probe]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-production-db
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+    env:
+      DB_MODE: ${{ inputs.mode }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Validate inputs and show full SQL before approval
+        run: node scripts/ops/db-workflow.mjs plan
+      - name: Record approved main source
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha="$(git rev-parse HEAD)"
+          printf 'source_sha=%s\n' "$source_sha" >> "$GITHUB_OUTPUT"
+          printf '\nMain source SHA: `%s`\n' "$source_sha" >> "$GITHUB_STEP_SUMMARY"
+
+  run:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production-edge
+    env:
+      DB_MODE: ${{ inputs.mode }}
+    steps:
+      - name: Check out the main SHA reviewed in plan
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.plan.outputs.source_sha }}
+          persist-credentials: false
+      - name: Run only the approved check or transaction probe
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: node scripts/ops/db-workflow.mjs run

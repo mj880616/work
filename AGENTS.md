@@ -12,6 +12,7 @@
 | Claude Code 웹 | 클라우드 | 코드·문서·테스트 | Supabase·production 접근 |
 | Codex CLI(PC) | 사용자 PC | 코드·문서·테스트, Supabase MCP(조회 전용, 이 프로젝트만), 커맨드센터에서 승인한 비밀값 없는 Edge 배포(§8) | 승인 없는 Edge 배포, Edge 삭제, DB 쓰기·migration·비밀값 변경, 허용된 Edge 배포 외 supabase CLI production 변경 |
 | Codex 웹 | 클라우드 | 📱 작업(코드·문서·테스트·PR 생성), 폰 경로 진단 코드·확인 SQL 작성, 승인형 Edge 배포 workflow 파일 작성(§8) | 운영 비밀값·DB 쓰기·Supabase 로그인·production 접근, workflow 실행·승인 |
+| 사용자 승인형 DB workflow(1단계: check·tx-probe만) | GitHub Actions `production-edge` | 커맨드센터 승인 → 사용자 `db-migration-apply.yml` 수동 실행(main 고정) → `production-edge` 승인 후 최근 migration 3행 조회 또는 빈 private 시험 표 취소·오류 시험 | DB 적용·dry-run·rollback, 자동 실행, 비밀값 변경, Codex·AI 실행·승인 |
 | 사용자 승인형 Edge workflow | GitHub Actions `production-edge` | 커맨드센터 승인 → 사용자 `edge-function-deploy.yml` 수동 실행 → `production-edge` 승인 후 지정 함수 배포·검증(§8) | 자동 배포, Edge 삭제, DB migration·비밀값 변경 |
 
 - **사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포는 Codex 로컬에서 `supabase login --no-browser` 일회용 로그인으로 허용한다. 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 계속 Claude Code 로컬 또는 대시보드.** DB 적용은 §7의 기존 절차와 영구 금지를 그대로 따른다.
@@ -27,7 +28,7 @@
 - DB migration·비밀값 변경·Edge 삭제는 금지한다. 급하면 커맨드센터 승인 뒤 사용자가 대시보드에서 직접 처리한다. §7의 영구 금지는 유지한다.
 - 아래 "폰 경로" C(커맨드센터 승인 → 사용자가 SQL Editor에서 직접 실행)는 위 DB migration 금지의 예외로 허용한다.
 - 운영 토큰은 GitHub `production-edge` environment 비밀값 `SUPABASE_ACCESS_TOKEN`에만 두며, Codex 클라우드 환경에는 등록하지 않는다. 프로젝트는 같은 environment의 변수 `SUPABASE_PROJECT_REF`로 지정한다.
-- 기한이 지나면 이 절을 삭제하고 Supabase 토큰을 폐기한다. `production-edge` 비밀값도 삭제하고 workflow 유지 여부를 결정한다(`docs/roadmap.md`의 OPS-클라우드복귀).
+- 기한이 지나면 임시 절 정리를 검토하되, Edge·DB 사용자 승인형 workflow용으로 GitHub `production-edge` 비밀값 `SUPABASE_ACCESS_TOKEN`과 변수 `SUPABASE_PROJECT_REF`를 유지한다(2026-10-10 사용자 결정, A안). 웹 세션·Codex 클라우드에 운영 토큰을 등록하는 금지는 그대로 유지한다(`docs/roadmap.md`의 OPS-클라우드복귀).
 
 ### 폰 경로
 
