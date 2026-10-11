@@ -1,3 +1,4 @@
+@import url("./quick-controls.css?v=1");
 #homeView {
   padding-left: 16px;
   padding-right: 16px;
@@ -258,9 +259,6 @@
 .home-quick { min-width:0; background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:12px; padding:10px; margin-bottom:0; display:grid; gap:8px; }
 .home-quick [data-quick-options][hidden],.home-quick [data-quick-task-options][hidden],.home-quick [data-quick-update-options][hidden] { display:none; }
 .home-quick button,.home-quick select { font-family:inherit; font-size:12px; cursor:pointer; }
-.home-quick-modes { display:flex; background:var(--kptu-surface-subtle); border-radius:var(--kptu-radius-pill); padding:2px; width:max-content; gap:0; }
-.home-quick-modes button { position:relative; height:30px; border:0; border-radius:var(--kptu-radius-pill); padding:0 12px; background:transparent; color:var(--kptu-muted); font-weight:700; }
-.home-quick-modes button[aria-pressed="true"] { background:var(--kptu-surface); color:var(--kptu-ink); }
 .home-quick-entry { display:flex; align-items:flex-start; gap:8px; }
 .home-quick-input-wrap { position:relative; display:flex; flex:1; min-width:0; }
 .home-quick [data-quick-file-picker] { position:absolute; left:1px; top:1px; }

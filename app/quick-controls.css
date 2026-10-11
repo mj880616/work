@@ -1,0 +1,4 @@
+/* Existing home quick-input controls, shared with list filters. */
+.home-quick-modes,.filter-chips { display:flex; background:var(--kptu-surface-subtle); border-radius:var(--kptu-radius-pill); padding:2px; width:max-content; gap:0; }
+.home-quick-modes button,.filter-chips button { position:relative; height:30px; border:0; border-radius:var(--kptu-radius-pill); padding:0 12px; background:transparent; color:var(--kptu-muted); font-weight:700; }
+.home-quick-modes button[aria-pressed="true"],.filter-chips button[aria-checked="true"] { background:var(--kptu-surface); color:var(--kptu-ink); }

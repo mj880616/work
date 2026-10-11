@@ -10,11 +10,11 @@ let api,assets,origin,apiOrigin,mode,requests,documents,pending;
 const user={id:'upload-owner',user_metadata:{display_name:'모의 소유자'}};
 const project={id:'upload-project',workspace_id:'upload-workspace',owner_id:user.id,name:'모의 프로젝트',status:'active',visibility:'private',metadata:{project_system:'v2',management_version:2}};
 const fixture=`<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/app/styles.css"><body>
-<section id="libraryView"><input id="documentSearch"><select id="documentProject"></select><div id="documentList"></div></section>
+<section id="libraryView"><input id="documentSearch"><div id="documentProject"></div><div id="documentList"></div></section>
 <div id="documentModal"><div class="modal-card"><label>자료명<input id="docTitle"></label><input id="docCategory"><input id="docSource"><input id="docDate"><input id="docTags"><select id="docProject"></select><textarea id="docDescription"></textarea><button id="saveDocumentBtn" type="button">저장</button><div id="documentStatus"></div></div></div>
 <script src="/app/runtime-client.js"></script>
 <script>KPTURuntime.session.write({access_token:'mock-access',refresh_token:'mock-refresh',expires_at:9999999999,user:{id:'upload-owner'}});</script>
-<script src="/app/project-catalog.js"></script><script src="/app/library-upload.js?BASELINE"></script></body></html>`;
+<script src="/app/project-catalog.js"></script><script type="module" src="/app/library-upload.js?BASELINE"></script></body></html>`;
 
 test.beforeAll(async()=>{
  api=createServer(async(req,res)=>{
@@ -51,6 +51,9 @@ test.beforeAll(async()=>{
   const url=new URL(req.url,'http://localhost'),path=url.pathname;
   try{
    let source=path==='/fixture'?fixture.replace('BASELINE',url.searchParams.has('baseline')?'baseline':'candidate'):path==='/app/library-upload.js'&&url.searchParams.has('baseline')?before:readFileSync('.'+path);
+   if(path==='/fixture'&&url.searchParams.has('baseline'))source=source.replace('<div id="documentProject"></div>','<select id="documentProject"></select>');
+   // Test-only instrumentation preserves error classification checks for module-scoped functions.
+   if(path==='/app/library-upload.js')source=String(source)+`;Object.defineProperty(window,'luUploadRequest',{get:()=>luUploadRequest,set:value=>{luUploadRequest=value}});`;
    if(path.endsWith('.js'))source=String(source).replaceAll('https://xmlkxfjeagycwttklxjw.supabase.co',apiOrigin);
    res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(source);
   }catch{res.statusCode=404;res.end()}

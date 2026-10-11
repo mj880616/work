@@ -1,3 +1,4 @@
+import {toMeetingISO} from './meeting-time.js?v=1';
 (()=>{
 'use strict';
 const rt=window.KPTURuntime;if(!rt)return;
@@ -100,7 +101,8 @@ async function classifyNewMeeting(){
   if(!transcript){if(status){status.textContent='회의 원문을 붙여넣어 주세요.';status.className='status error'};return}
   const projectId=document.querySelector('#meetingProject')?.value||null;
   const title=document.querySelector('#meetingTitle')?.value.trim()||'새 회의';
-  const meetingAt=document.querySelector('#meetingAt')?.value||new Date().toISOString();
+  const meetingInput=document.querySelector('#meetingAt')?.value;
+  const meetingAt=meetingInput?toMeetingISO(meetingInput):new Date().toISOString();
   const location=document.querySelector('#wfMeetingLocation')?.value.trim()||null;
   const attendeeRaw=document.querySelector('#wfMeetingAttendees')?.value;
   const attendeeCount=attendeeRaw===''||attendeeRaw==null?null:Number(attendeeRaw);
