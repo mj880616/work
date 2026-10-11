@@ -139,7 +139,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 ## 7. production DB 적용 (Claude Code 로컬 또는 폰 경로 C)
 
 - 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
-- 사용자 승인형 DB workflow: 커맨드센터 승인 → 사용자가 main에서 dry-run 실행·승인 → 결과 확인 → apply 실행·승인. 되돌리기는 rollback 모드. AI는 실행·승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지.
+- 사용자 승인형 DB workflow: 커맨드센터 승인 → 사용자가 main에서 dry-run 실행·승인 → 결과 확인 → apply 실행·승인. 되돌리기는 rollback 모드. AI는 실행·승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 함수는 SECURITY INVOKER·search_path 고정·authenticated 전용 실행권한(사전 revoke)만, 되돌리기는 짝 함수 정확한 서명 drop만.
 - SQL Editor 적용은 항상 새 쿼리 창(+)에서 시작한다. 붙여 넣은 뒤 첫 줄·마지막 줄(`commit;`)·대상 프로젝트 ID를 확인하고 실행한다.
 - AI가 apply_migration 등 쓰기 도구로 production DB를 직접 변경하지 않는다.
 - **`supabase db push`·`migration repair`는 영구 금지.** production DB를 읽생기 저장소와 공유한다(`docs/migration-history.md`).

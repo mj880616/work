@@ -95,9 +95,33 @@ select to_regclass('private.ops_tx_probe_<run_id>') is null as rolled_back;
 - symlink·여러 파일·파일 짝 불일치·비정상 식별자·큰 파일은 승인 전에 거부한다. plan에는 일상어 3줄, 파일 경로·SHA256·줄 수, 위험 검사 결과, 실행 SQL 전문, 사전·사후 SQL과 백업 SQL을 표시한다. run은 plan이 기록한 main SHA를 checkout해 같은 검사를 반복한다.
 - SQL 주석(중첩 포함), 문자열·dollar block을 구분해 검사한다. 대소문자·줄바꿈·주석으로 명령을 숨길 수 없다. 일반 SQL 파서가 아니라 보수적인 허용 범위다. 동적 EXECUTE/CALL/COPY, 실행형 DO(읽기 guard 외), 중간 트랜잭션 종료, 대소문자 구분/Unicode 이스케이프 식별자 등 지원 밖 문법은 거부한다.
 
-차단 목록(세 모드 공통): `drop table`, `drop schema`, `truncate`, 최상위 WHERE 없는 DELETE/UPDATE, `alter role`, `create/alter/drop extension`, `grant … to anon|public|authenticated`, 주석 외 `rtw_` 언급, 허용된 history INSERT/DELETE 외 `supabase_migrations` 쓰기. DROP CASCADE·RLS 비활성화·파일/외부 호출·동적 실행도 거부한다. 외래 키의 `ON DELETE CASCADE`는 DROP CASCADE와 구분한다.
+차단 목록(세 모드 공통): `drop table`, `drop schema`, `truncate`, 최상위 WHERE 없는 DELETE/UPDATE, `alter role`, `create/alter/drop extension`, 아래 예외 외 `grant … to anon|public|authenticated`, 주석 외 `rtw_` 언급, 허용된 history INSERT/DELETE 외 `supabase_migrations` 쓰기. DROP CASCADE·RLS 비활성화·파일/외부 호출(`dblink` 등)·동적 `EXECUTE`/CALL/COPY도 계속 거부한다. 권한 문법의 `GRANT/REVOKE EXECUTE`만 아래 조건에서 구분해 허용한다. 외래 키의 `ON DELETE CASCADE`는 DROP CASCADE와 구분한다.
 
-rollback 짝 파일의 허용 범위: `drop column`, `drop constraint`, `drop index public.<name>`, `alter policy`, 해당 version(선택적으로 같은 name)의 `schema_migrations` 한 행 DELETE. guard, timeout, lock, 제약 복원도 허용하지만 일반 자료 INSERT/UPDATE/DELETE·표 생성·새 권한 부여는 허용하지 않는다. BASKET-1 원문 rollback은 변경 없이 검사를 통과한다. 이 정적 검사는 정책 의미까지 증명하지 않으므로 권한·RLS 변경은 커맨드센터 검토 대상이다.
+### 제한된 함수 허용 (2026-10-11 사용자 결정 A안)
+
+apply/dry-run에서 다음 조건을 모두 검사하며, 지원 밖 문법·본문 추출 실패는 승인 전에 거부한다.
+
+1. `CREATE [OR REPLACE] FUNCTION public.<name>(...)` 또는 `private.<name>(...)`만 허용한다. 다른 스키마·`rtw_` 이름은 거부한다. 함수 이름·인자 형식까지 파싱해 overload별 서명을 기록한다. 함수명·인자 이름 등 식별자는 PostgreSQL의 이름 잘림을 피하도록 소문자 ASCII·63바이트 이하로 제한한다.
+2. 정의에 `SECURITY INVOKER`와 `SET search_path`를 각각 정확히 한 번 명시해야 한다. SECURITY 생략·DEFINER·search_path 생략·중복 설정·`FROM CURRENT`는 거부한다. search_path 허용 값은 **빈 문자열 `''`**, **`public, pg_temp`(이 순서)** 두 개뿐이다. `SET search_path = ...`와 `SET search_path TO ...`를 인정하며 주석·공백은 구분한다. 다른 값·한 문자열 `'public, pg_temp'`는 지원하지 않는다.
+3. `LANGUAGE sql` 또는 `plpgsql`만 허용한다. `AS $$...$$` 또는 `AS $tag$...$tag$` 본문 한 개만 추출한다. 문자열 본문·SQL 표준 BEGIN ATOMIC 본문·중첩 dollar block·닫히지 않은 구분자/문자열/주석은 거부한다. SQL 본문 마지막 세미콜론 생략은 인정한다. 본문에도 기존 위험 검사를 적용하며, 각 UPDATE/DELETE의 WHERE는 같은 명령의 최상위에 있어야 한다. 다른 명령·CTE 바깥의 WHERE로 대신할 수 없다. 본문 안 DDL·권한 변경·트랜잭션 종료·세션 SET·migration 기록 접근도 지원하지 않는다.
+4. `GRANT EXECUTE ON FUNCTION <signature> TO authenticated`만 허용한다. 같은 파일에서 해당 서명의 함수를 먼저 정의하고, 해당 정의 뒤·GRANT 전에 `REVOKE ALL`(또는 `EXECUTE`) `ON FUNCTION <signature> FROM public, anon`을 해야 한다. 두 역할의 revoke는 별도 명령으로 나눌 수 있으며 두 개 모두 필요하다. 명시적 GRANT가 없어도 PostgreSQL 기본 PUBLIC 실행권한이 남지 않도록 모든 생성 함수에 두 역할 revoke를 요구한다. 다른 함수·다른 overload·anon/public/service_role 등 다른 역할·여러 역할·ALL 권한·WITH GRANT OPTION·스키마 전체 함수 GRANT는 거부한다.
+5. `ALTER FUNCTION`, `COMMENT ON FUNCTION` 및 위 문법 외 함수 명령은 허용하지 않는다. 같은 서명을 한 파일에서 여러 번 정의하는 것도 거부한다. 정적 검사가 실제 운영의 기존 함수 본문·ACL·기본 권한·RLS를 증명하지는 않으므로 OR REPLACE와 권한은 커맨드센터에서 snapshot과 대조한다. OR REPLACE 뒤 함수 DROP은 이전 정의를 복원하지 않으므로 기존 함수 교체의 복구는 별도 승인과 snapshot 검토가 필요하다.
+
+서명 문법은 인자 이름(선택)·`IN`(선택)·아래 기본 자료형 및 `[]` 배열 한 겹으로 제한한다. 별칭은 PostgreSQL에서 같은 자료형인 경우만 정규화한다. OUT/INOUT/VARIADIC·DEFAULT·형식 길이/정밀도·사용자 정의 자료형·schema-qualified 자료형·RETURNS TABLE은 지원하지 않으며 거부한다. 반환은 같은 기본형(또는 `void`), 선택적 SETOF만 인정한다. LANGUAGE/SECURITY/SET/AS 외 선택 사항은 STABLE/IMMUTABLE/VOLATILE 중 하나와 STRICT뿐이다.
+
+자료형: `integer`(`int`, `int4`), `bigint`(`int8`), `smallint`(`int2`), `boolean`(`bool`), `text`, `uuid`, `json`, `jsonb`, `bytea`, `numeric`(`decimal`), `real`(`float4`), `double precision`(`float8`), `date`, `timestamp`(`timestamp without time zone`), `timestamptz`(`timestamp with time zone`).
+
+```sql
+create function public.ops_example(p_value integer) returns integer
+language sql security invoker set search_path = ''
+as $$select p_value + 1;$$;
+revoke all on function public.ops_example(integer) from public, anon;
+grant execute on function public.ops_example(integer) to authenticated;
+```
+
+위 조각만 단독 실행하지 않는다. 실제 migration은 begin/commit·일치하는 history INSERT·짝 rollback·snapshot·일상어 summary를 함께 준비해 사용자 승인 절차를 따른다. 예시 함수는 테스트 자료이며 이번 PR에서 운영 migration을 만들거나 실행하지 않는다.
+
+rollback 짝 파일의 허용 범위: `drop column`, `drop constraint`, `drop index public.<name>`, `alter policy`, 해당 version(선택적으로 같은 name)의 `schema_migrations` 한 행 DELETE. 추가로 **`DROP FUNCTION [IF EXISTS] <짝 migration에서 만든 정확한 서명>`**만 허용한다. 짝 migration 원문을 apply 규칙으로 다시 검증하고 추출한 스키마·함수명·인자 자료형과 대조한다. 짝 없는 함수·다른 overload·CASCADE·여러 함수 일괄 DROP·다른 함수 명령은 거부한다. guard, timeout, lock, 제약 복원도 허용하지만 일반 자료 INSERT/UPDATE/DELETE·표/함수 생성·새 권한 부여는 허용하지 않는다. BASKET-1·BASKET-2 원문 migration/rollback은 변경 없이 검사를 통과한다. 이 정적 검사는 정책 의미까지 증명하지 않으므로 권한·RLS 변경은 커맨드센터 검토 대상이다.
 
 ## summary.md 형식
 
@@ -122,7 +146,7 @@ rollback 짝 파일의 허용 범위: `drop column`, `drop constraint`, `drop in
 
 ## 백업과 정리
 
-apply/rollback 직전, SQL의 ALTER TABLE/UPDATE/DELETE가 대상으로 하는 public 표를 추출한다. 각 표를 `ops_backup."<version>_<table>_<run_id>"`로 CTAS 복사한다. 이름이 PostgreSQL 63바이트 제한을 넘으면 승인 전에 실패한다. 새 표/인덱스만 만드는 SQL 등에는 이 기준의 기존 표 백업이 없을 수 있다.
+apply/rollback 직전, SQL의 ALTER TABLE/UPDATE/DELETE가 대상으로 하는 public 표를 추출한다. 각 표를 `ops_backup."<version>_<table>_<run_id>"`로 CTAS 복사한다. 이름이 PostgreSQL 63바이트 제한을 넘으면 승인 전에 실패한다. 새 표/인덱스/함수만 만드는 SQL 등에는 이 기준의 기존 표 백업이 없을 수 있다. 함수 정의 본문은 이 시점에 호출하지 않으므로 백업 대상 표로 추출하지 않는다. 대상이 없으면 기존처럼 **“대상 public 표 없음”**을 summary에 표시하고 진행한다. 함수 본문·권한의 이전 상태는 별도 snapshot으로 준비한다.
 
 백업은 별도 begin/commit 요청 한 번이다. 스키마가 없으면 생성하고 PUBLIC·anon·authenticated의 스키마 권한을 명시적으로 revoke한다. 복사 표에도 같은 역할의 모든 권한을 revoke하여 기본 권한 상속을 차단한다. 백업 동안 원본에는 share lock을 잡는다. 표 이름·행 수만 summary에 표시하며 GitHub 로그·artifact에는 복사 데이터를 남기지 않는다. 백업 또는 행 수 확인이 실패하면 적용 요청을 보내지 않는다.
 
