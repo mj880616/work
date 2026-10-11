@@ -11,6 +11,8 @@ on:
       - 'p/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
+      - 'tests/basket-data.test.mjs'
+      - 'tests/basket-upload.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
       - '.github/workflows/app-smoke-check.yml'
@@ -24,6 +26,8 @@ on:
       - 'p/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
+      - 'tests/basket-data.test.mjs'
+      - 'tests/basket-upload.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
       - '.github/workflows/app-smoke-check.yml'
@@ -49,6 +53,9 @@ jobs:
       - name: Check home KST day and week boundaries
         run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs
 
+      - name: Check basket data and sequential file uploads
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs
+
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
 
@@ -71,7 +78,7 @@ jobs:
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./action-labels.js?v=2')",
             "import('./team.js?v=66')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=112')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=113')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));

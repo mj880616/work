@@ -19,13 +19,13 @@ test('archive wins, only confirmed note links count, all destinations remain vis
  assert.deepEqual(visibleNotes(notes,links,'archived').map(n=>n.id),['archived']);
 });
 const runtime=api=>({context:{read:()=>({workspace:{id:'w'},user:{id:'u'}})},api});
-test('create uses current workspace, preserves text, AI defaults included and no task endpoint',async()=>{
+test('create uses current workspace, preserves text, AI field omitted by default and no task endpoint',async()=>{
  const calls=[];const rt=runtime(async(path,options)=>{calls.push({path,options});return [{id:'n',...options.body}];});
  await createNote({raw_text:' 할일 메모\n ',ai_export_allowed:false},rt);
  assert.equal(calls.length,1);assert.equal(calls[0].path,'/rest/v1/app_notes');
  assert.deepEqual(calls[0].options.body,{workspace_id:'w',raw_text:' 할일 메모\n ',ai_export_allowed:false});
  assert.equal(calls[0].options.prefer,'return=representation');
- await createNote({raw_text:'메모'},rt);assert.equal(calls[1].options.body.ai_export_allowed,true);
+ await createNote({raw_text:'메모'},rt);assert.equal(Object.hasOwn(calls[1].options.body,'ai_export_allowed'),false);
 });
 test('patch updates timestamp, sends only allowed fields and requires an RLS-visible result',async()=>{
  let sent;const rt=runtime(async(path,options)=>{sent={path,options};return [{id:'n',...options.body}];});

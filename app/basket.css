@@ -10,9 +10,11 @@
 .basket-row time,.basket-destination,[data-basket-detail]>time { color:var(--kptu-muted); font-size:12px; }
 .basket-text-label { display:grid; gap:8px; margin:16px 0; }
 #basketView textarea { box-sizing:border-box; width:100%; min-height:240px; padding:12px; font:inherit; font-size:14px; font-weight:400; line-height:1.6; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; resize:vertical; white-space:pre-wrap; }
-.basket-ai { display:flex; flex-direction:row; margin:0; align-items:center; gap:8px; min-height:44px; width:max-content; }
-.basket-ai input { margin:0; width:20px; height:20px; }
 .basket-actions { margin-top:12px; }
 [data-basket-status],[data-basket-list-status] { overflow-wrap:anywhere; }
 #basketView :disabled { opacity:.65; cursor:wait; }
 #basketView :focus-visible { outline:2px solid var(--kptu-primary); outline-offset:3px; }
+
+[data-basket-attachments] { margin:12px 0; }
+[data-basket-attachments] a { display:inline-flex; align-items:center; min-height:44px; flex-shrink:0; font-size:12px; }
+#basketView .library-dropzone[aria-disabled="true"] { cursor:wait; opacity:.65; }
