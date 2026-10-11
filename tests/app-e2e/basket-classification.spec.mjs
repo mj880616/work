@@ -68,11 +68,12 @@ for(const width of [390,1280]){
   await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
   f.note.attachments=[{file_name:'합성 첨부.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-attachment',body:'BODY_SECRET',ocr:'OCR_SECRET'}];
   await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
+  const destinationReads=[];page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/app_spaces'))destinationReads.push(request.url());});
   await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');
   await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
   const copied=await page.evaluate(()=>window.__handoffWrites[0]);
-  for(const value of [f.note.raw_text,n,stamp,'현재 프로젝트','현재 조직','synthetic-attachment','application/pdf'])expect(copied).toContain(value);
-  expect(copied).not.toMatch(/BODY_SECRET|OCR_SECRET|google_task/);expect(f.rpc).toHaveLength(0);
+  for(const value of [f.note.raw_text,n,stamp,'현재 조직','synthetic-attachment','application/pdf'])expect(copied).toContain(value);
+  expect(copied).not.toMatch(/BODY_SECRET|OCR_SECRET|google_task|project|현재 프로젝트/);expect(f.rpc).toHaveLength(0);expect(destinationReads).toEqual([]);
   await page.screenshot({path:info.outputPath(`handoff-copied-${width}.png`),fullPage:true});
   await open(page);await page.screenshot({path:info.outputPath(`handoff-paste-${width}.png`),fullPage:true});
   for(const text of ['설명만','```json\n'+JSON.stringify(data())+'\n```\n```\n'+JSON.stringify(data())+'\n```']){
