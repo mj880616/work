@@ -38,7 +38,7 @@
 ## AGENTS.md §10 완료보고(12항목)
 
 1. **세션:** Codex 웹.
-2. **SHA·branch·PR:** 새 fetch 시작 `7dc60988796e722f326cd3212f88df8629bc3ae3`. branch `codex/basket-project-dest`. PR 번호·최종 SHA는 최종 PR 댓글에 기록.
+2. **SHA·branch·PR:** 새 fetch 시작 `7dc60988796e722f326cd3212f88df8629bc3ae3`. branch `codex/basket-project-dest`. [PR #502](https://github.com/mj880616/work/pull/502). 구현 SHA `22dffc416968def2115afa81952d823a58a15505`, 최종 SHA(원장 PR 번호 반영 포함)는 최종 PR 댓글에 기록.
 3. **원인:** 사실: #491(`d85e334`)에서 프로젝트 목록·카탈로그 로드·project 안내를 제거. 사용자 정정: “담당조직만”은 다른 조직 제외라는 뜻. 추정 원인 없음.
 4. **변경 파일:** 두 안내, 공용 카탈로그 추출·서버 분류 재사용, 캐시 로더·버전 기대/smoke, 회귀·합성 fixture/전문, README·원장·검토 기록. 파서·RPC·4a 동작 변경 없음.
 5. **테스트:** 위 검증 결과. 기존 실패/전체 브라우저 결과와 clean main 재현 여부는 최종 PR 댓글에 기록. 회귀 삭제·약화 없음.
