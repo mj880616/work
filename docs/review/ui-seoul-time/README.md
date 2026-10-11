@@ -62,6 +62,7 @@
 - 자동 CI는 PR 이벤트로 실행되는 검사만 확인한다. workflow 수동 실행 없음. 최종 SHA 전체 브라우저 결과 확인 전에는 완료로 보고하지 않는다.
 - smoke inline 블록 **13/13 통과**, JavaScript 문법·로컬 HTTP 자산 포함. 캐시 검사 `node scripts/check-loader-cache.mjs --base 74e54ae6043bc0dcf5f285d624ea22b8f16dbd61`: **423 참조 통과**. 공백 검사 통과.
 - 독립 리뷰에서 잘못된 종료값 필터의 예외를 발견해 실패 테스트 → 수정 → 통과를 확인했다. 날짜 문자열이 잘못된 경우도 포함한다. 범위 mock과 월/주/목록 끝값·자정 종료 검증을 강화했다.
+- 새 E2E를 실제 보기 버튼 선택으로 바꾼 뒤 준비 전 클릭 3건 실패를 확인했다. 앱 모듈 준비·선택 상태를 기다리고 월 DOM으로 조회 범위를 한정해 최신 재실행 18/18 통과했다. 앱 기능이나 기존 검사를 약화하지 않았다.
 
 ## 전후 캡처
 
@@ -81,7 +82,7 @@
 
 ## 캐시와 경계
 
-캐시 최종값: meeting-time2, home-read-model2, calendar-day-items4, calendar-list-view5, calendar-week-view4, calendar-month-view22, calendar-view7, calendar-plus12, calendar-interactions19, calendar-day-overflow10, calendar-persistence17, team68, project-system44, meeting-round-detail26, google-tasks31, due-date-calendar2, workplace-detail16, suborganizations17, home-read17, home-read-cache2, home-quick9, view-loader124, loader-v2 357, app245 → index.html. 버전 기대 테스트와 app-smoke-check 고정 문자열을 같은 값으로 맞췄다. 은퇴 AI 모듈은 로더 참조가 없어 자체 상위 버전이 없다.
+캐시 최종값: meeting-time2, home-read-model2, calendar-day-items4, calendar-list-view5, calendar-week-view4, calendar-month-view22, calendar-view7, calendar-plus12, calendar-interactions19, calendar-day-overflow10, calendar-persistence17, team68, project-system44, meeting-round-detail26, google-tasks31, due-date-calendar2, workplace-detail16, suborganizations17, home-read17, home-read-cache2, home-quick9, view-loader124, loader-v2 357, app245 → index.html. 버전 기대 테스트·app-smoke-check·담당조직/조직 상세 static 검사 고정 문자열을 같은 값으로 맞췄다. 초기 자동 CI의 저장소 감사는 새 E2E의 직접 보기 설정이 승인 목록 밖이어서 실패했다. 감사 규칙 변경 없이 실제 보기 버튼을 눌러 설정하도록 테스트를 수정했다. 조직 관련 두 검사도 옛 캐시 고정값 때문에 실패해 기대값만 갱신했다. 은퇴 AI 모듈은 로더 참조가 없어 자체 상위 버전이 없다.
 
 인증 게이트·API 엔드포인트·권한 검사·저장 필드·DB·RLS·Edge·drive-summary·서버·기존 데이터 변경 없음. 운영 접속·workflow 수동 실행·merge 없음. 한국 시간 고정은 이후 UI 입력에 적용되며 과거 기기 시간대로 잘못 저장한 행을 자동 교정하지 않는다. 복구는 이 파일 변경 PR을 되돌리는 파일 PR이며 DB 복구는 없다.
 

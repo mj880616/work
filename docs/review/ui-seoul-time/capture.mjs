@@ -12,7 +12,7 @@ for(const width of [390,1280]){
  await page.waitForFunction(()=>window.KPTUCalendarPersistence?.events?.()?.length||window.__KPTU_GOOGLE_EVENTS__?.length);
  await shot('month');
  await page.locator('#newEventBtn').click();await shot('new-event');await page.locator('[data-close="eventModal"]').click();
- await page.locator('[data-google-event="early"]').first().click();await page.locator('#ciGoogleSave').waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('#ciGoogleSave').disabled);await shot('edit-event');await page.locator('#ciGoogleClose').click();
+ await page.locator('#calendarGrid [data-google-event="early"]').first().click();await page.locator('#ciGoogleSave').waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('#ciGoogleSave').disabled);await shot('edit-event');await page.locator('#ciGoogleClose').click();
  await page.locator('[data-calendar-view="list"]').click();await page.locator('#calendarList .clv-event').first().waitFor();await shot('list');
  if(width===1280){await page.locator('[data-calendar-view="week"]').click();await page.locator('#calendarWeek .cwv-day').first().waitFor();await shot('week')}
  await page.evaluate(()=>window.KPTURouter.go('projects'));await page.locator('[data-ps3-project="top-a"]').click();await page.locator('#ps3-milestones summary').click();await shot('project');

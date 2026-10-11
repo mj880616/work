@@ -3,7 +3,6 @@ const BASE='http://127.0.0.1:8123',SB='https://xmlkxfjeagycwttklxjw.supabase.co'
 export async function openSeoulApp(page,{view='month',target=BASE+'/app/?view=calendar',now='2026-09-30T15:10:00Z'}={}){
   const base=new URL(target).origin;
   await page.clock.setFixedTime(new Date(now));
-  await page.addInitScript(view=>{if(window.top===window)localStorage.setItem('kptu-calendar-view',view)},view);
   const state=baseState();state.meetingWrites=[];state.meetings=[{id:'seoul-meeting',workspace_id:'workspace-1',title:'한국 회의',meeting_at:'2026-09-30T15:30:00Z',transcript_text:'합성 원문',created_by:state.user.id}];
   state.events=[
     {id:'exec',title:'본부 집행위',start:'2026-09-15T01:00:00Z',end:'2026-09-15T02:00:00Z'},
@@ -49,5 +48,11 @@ export async function openSeoulApp(page,{view='month',target=BASE+'/app/?view=ca
     }
     return route.fallback();
   });
-  await signIn(page,target);return state;
+  await signIn(page,target);
+  if(new URL(target).searchParams.get('view')==='calendar'){
+    await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('calendar')&&document.querySelector('#appView.kptu-ui-ready'));
+    await page.locator(`[data-calendar-view="${view}"]`).click();
+    await page.waitForFunction(view=>window.KPTUCalendarView?.current()===view,view);
+  }
+  return state;
 }
