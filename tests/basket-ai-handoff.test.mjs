@@ -23,10 +23,14 @@ test('handoff preserves original and only attachment name, type, Drive link; des
  const format=classificationFormat(now);const block=/```json\n([\s\S]*?)\n```/.exec(format)[1];
  const sample=JSON.parse(block);sample.items=proposal().items;assert.deepEqual(parseAIAnswer('사람 정리\n```json\n'+JSON.stringify(sample)+'\n```'),sample);
 });
-test('answer accepts exactly one supported fence and ignores outside markup',()=>{
+test('answer accepts raw copied JSON and exactly one supported fence, ignoring outside markup',()=>{
  const json=JSON.stringify(proposal());
+ for(const raw of [json,' \n\t'+json+'\r\n '])assert.deepEqual(parseAIAnswer(raw),proposal());
  for(const lang of ['json',''])assert.deepEqual(parseAIAnswer('<script>throw 1</script>\n```'+lang+'\n'+json+'\n```\n<img onerror=alert(1)>'),proposal());
- for(const answer of [json,'설명만','```json\n'+json+'\n```\n```\n'+json+'\n```','```json\n'+json+'\n```\n~~~json\n'+json+'\n~~~','```html\n'+json+'\n```','```json\n'+json])assert.throws(()=>parseAIAnswer(answer),/AI 답에서 복사용 블록만 넣어 주세요/);
+ for(const answer of ['설명만','설명\n'+json,json+'\n설명','[]','```json\n'+json+'\n```\n```\n'+json+'\n```','```json\n'+json+'\n```\n~~~json\n'+json+'\n~~~','```html\n'+json+'\n```','```json\n'+json])assert.throws(()=>parseAIAnswer(answer),/AI 답 전체나, 답 속 복사용 블록만 넣어 주세요/);
+});
+test('raw object-shaped prose is still rejected by the strict parser',()=>{
+ assert.throws(()=>parseAIAnswer('{}\n설명\n{}'),/복사용 블록의 내용이 맞지/);
 });
 test('stale handoff completion cannot release a new operation busy lock',async()=>{
  const previous=globalThis.window,listeners=new Map();let workspaceId='old',release,sharedBusy=false;
@@ -45,18 +49,20 @@ test('stale handoff completion cannot release a new operation busy lock',async()
 test('inner strict checks remain and public errors contain no developer vocabulary or arbitrary keys',()=>{
  const json=JSON.stringify(proposal());
  for(const bad of [json.replace('"schema_version":1','"schema_version":1,"schema_version":1'),json.replace(n,'bad-id'),json.replaceAll(stamp,'2026-02-30T00:00:00Z'),json.replace('project','unknown'),json.replace('"schema_version":1','"schema_version":2')]){
-  assert.throws(()=>parseAIAnswer('```json\n'+bad+'\n```'),e=>! /JSON|schema|UUID|workspace|행 \d|열 \d|unknown|bad-id/.test(e.message));
+  for(const input of [bad,'```json\n'+bad+'\n```'])assert.throws(()=>parseAIAnswer(input),e=>! /JSON|schema|UUID|workspace|행 \d|열 \d|unknown|bad-id/.test(e.message));
  }
- assert.throws(()=>parseAIAnswer('```json\n'+json+'\n```'+' '.repeat(1048576)),/글이 너무 길어요/);
+ for(const input of [json,'```json\n'+json+'\n```'])assert.throws(()=>parseAIAnswer(input+' '.repeat(1048576)),/글이 너무 길어요/);
  for(const message of Object.values(ERROR_TEXT))assert.doesNotMatch(message,/JSON|schema|UUID|workspace|\(행|4b|확정/);
 });
 test('wrapper retains item, destination, reason, depth and duplicate-key rejection',()=>{
- const fenced=value=>'```json\n'+JSON.stringify(value)+'\n```';
+ for(const fenced of [JSON.stringify,value=>'```json\n'+JSON.stringify(value)+'\n```']){
  let value=proposal();value.items=Array.from({length:101},()=>value.items[0]);assert.throws(()=>parseAIAnswer(fenced(value)),/100/);
+ value=proposal();value.items.push(value.items[0]);assert.throws(()=>parseAIAnswer(fenced(value)),/같은 메모가 두 번/);
  value=proposal();value.items[0].destinations=Array.from({length:21},()=>value.items[0].destinations[0]);assert.throws(()=>parseAIAnswer(fenced(value)),/20/);
  value=proposal();value.items[0].destinations[0].reason='가'.repeat(2001);assert.throws(()=>parseAIAnswer(fenced(value)),/2,000/);
  assert.throws(()=>parseAIAnswer('```json\n'+('['.repeat(10))+'0'+(']'.repeat(10))+'\n```'),/내용이 맞지/);
  assert.throws(()=>parseAIAnswer(fenced(proposal()).replace('"kind":"project"','"kind":"project","\\u006bind":"project"')),/내용이 맞지/);
+ }
 });
 test('destination read includes every scoped organization and never calls the project catalog',async()=>{
  const previous=globalThis.window;

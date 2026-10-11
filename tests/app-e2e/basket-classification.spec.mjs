@@ -28,7 +28,7 @@ for(const width of [390,1280]){
  test(`classification paste preview errors selected confirm and copy notification ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.locator('[data-classification-open]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-classification-input]')).toBeFocused();
  await page.screenshot({path:info.outputPath(`paste-${width}.png`),fullPage:true});
- await page.locator('[data-classification-input]').fill('説明\n'+JSON.stringify(data()));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toContainText('AI 답에서 복사용 블록만 넣어 주세요');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();
+ await page.locator('[data-classification-input]').fill('説明\n'+JSON.stringify(data()));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toContainText('AI 답 전체나, 답 속 복사용 블록만 넣어 주세요');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();
  f.note.updated_at='2026-10-11T01:02:03.123457Z';await preview(page);await expect(page.locator('[data-classification-note]')).toContainText('메모가 바뀌었어요');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);await page.screenshot({path:info.outputPath(`preview-error-${width}.png`),fullPage:true});
  f.note.updated_at=stamp;await preview(page);await expect(page.locator('[data-classification-note]')).toContainText(f.note.raw_text.trim());await expect(page.locator('[data-classification-note]')).toContainText('현재 프로젝트');await expect(page.locator('[data-classification-note]')).toContainText('아직 지원하지 않는 항목');await expect(page.locator('[data-classification-note] img,[data-classification-note] a')).toHaveCount(0);
  const check=page.locator('[data-classification-choice]:enabled').first();await check.focus();await page.keyboard.press('Space');await expect(check).toBeChecked();await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
@@ -78,7 +78,7 @@ for(const width of [390,1280]){
   await open(page);await page.screenshot({path:info.outputPath(`handoff-paste-${width}.png`),fullPage:true});
   for(const text of ['설명만','```json\n'+JSON.stringify(data())+'\n```\n```\n'+JSON.stringify(data())+'\n```']){
    await page.locator('[data-classification-input]').fill(text);await page.locator('[data-classification-preview]').click();
-   await expect(page.locator('[data-classification-status]')).toHaveText('AI 답에서 복사용 블록만 넣어 주세요');await expect(page.locator('[data-classification-note]')).toHaveCount(0);
+   await expect(page.locator('[data-classification-status]')).toHaveText('AI 답 전체나, 답 속 복사용 블록만 넣어 주세요');await expect(page.locator('[data-classification-note]')).toHaveCount(0);
   }
   const answer=data();answer.items[0].destinations=answer.items[0].destinations.slice(0,2);
   const full='<script>window.__outsideExecuted=true</script>\n<img src=x onerror="window.__outsideExecuted=true">\n메모 첫 줄 → 현재 프로젝트 · 관련 업무\n```json\n'+JSON.stringify(answer,null,2)+'\n```\n끝 설명';
@@ -126,3 +126,30 @@ test('AI handoff writes the complete text to the native Chromium clipboard',asyn
  const text=await page.evaluate(()=>navigator.clipboard.readText());expect(text).toContain(f.note.raw_text);expect(text.trim()).toMatch(new RegExp('organization · '+o+' · 현재 조직$'));
  expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
 });
+
+for(const width of [390,1280]){
+ test(`raw copied JSON, fenced block and full reply preview; failed status stays visible ${width}`,async({page},info)=>{
+  await page.setViewportSize({width,height:600});const f=await fixture(page);await open(page);
+  const json=JSON.stringify(data(),null,2),input=page.locator('[data-classification-input]'),check=page.locator('[data-classification-preview]'),status=page.locator('[data-classification-status]');
+  for(const text of [json,' \n'+json+'\n ','```json\n'+json+'\n```','짧은 설명\n```json\n'+json+'\n```\n끝 설명']){
+   await input.fill(text);await check.click();await expect(page.locator('[data-classification-note]')).toHaveCount(1);
+   await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(2);
+  }
+  for(const text of ['```json\n'+json+'\n```\n```json\n'+json+'\n```','```json\n'+json,'설명\n'+json,json+'\n설명']){
+   await input.fill(text);
+   // Put the button at the viewport bottom, with status below the fold.
+   await check.evaluate(el=>{for(let parent=el.parentElement;parent;parent=parent.parentElement){if(parent.scrollHeight>parent.clientHeight&&/auto|scroll/.test(getComputedStyle(parent).overflowY)){parent.scrollTop+=el.getBoundingClientRect().bottom-parent.getBoundingClientRect().bottom+2;return;}}window.scrollBy(0,el.getBoundingClientRect().bottom-innerHeight+2);});
+   await expect(check).toBeInViewport({ratio:1});await expect(status).not.toBeInViewport({ratio:1});await check.dispatchEvent('click');
+   await expect(status).toHaveText('AI 답 전체나, 답 속 복사용 블록만 넣어 주세요');
+   await expect(status).toBeInViewport({ratio:1});await expect(page.locator('[data-classification-note]')).toHaveCount(0);
+   await expect(page.locator('[data-classification-confirm]')).toBeDisabled();
+  }
+  await page.screenshot({path:info.outputPath(`raw-paste-error-${width}.png`)});
+  await input.fill(json);
+  await page.evaluate(()=>{const rt=window.KPTURuntime,api=rt.api;rt.api=async(path,...args)=>{if(path.includes('app_notes'))throw Error('synthetic read failure');return api(path,...args);};});
+  await check.evaluate(el=>{for(let parent=el.parentElement;parent;parent=parent.parentElement){if(parent.scrollHeight>parent.clientHeight&&/auto|scroll/.test(getComputedStyle(parent).overflowY)){parent.scrollTop+=el.getBoundingClientRect().bottom-parent.getBoundingClientRect().bottom+2;return;}}window.scrollBy(0,el.getBoundingClientRect().bottom-innerHeight+2);});
+  await expect(check).toBeInViewport({ratio:1});await expect(status).not.toBeInViewport({ratio:1});await check.dispatchEvent('click');
+  await expect(status).toHaveText('메모와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.');await expect(status).toBeInViewport({ratio:1});
+  expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
+ });
+}

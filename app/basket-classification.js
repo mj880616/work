@@ -15,8 +15,10 @@ export function parseAIAnswer(input) {
   // Only inspect fence structure outside the block. Prose is never rendered,
   // interpreted, or sent to the strict parser. Reject extra/unsupported fences.
   const fences=[...source.matchAll(/^[\t ]*```([^\r\n]*)\r?$/gm)];
-  if(/^[\t ]*~~~/m.test(source)||fences.length!==2||! /^(?:json)?[\t ]*$/i.test(fences[0][1])||! /^[\t ]*$/.test(fences[1][1]))throw Error('AI 답에서 복사용 블록만 넣어 주세요');
-  const block=source.slice(fences[0].index+fences[0][0].length,fences[1].index).trim();
+  const trimmed=source.trim(),raw=fences.length===0&&trimmed.startsWith('{')&&trimmed.endsWith('}');
+  if(/^[\t ]*~~~/m.test(source)||(!raw&&(fences.length!==2||! /^(?:json)?[\t ]*$/i.test(fences[0][1])||! /^[\t ]*$/.test(fences[1][1]))))throw Error('AI 답 전체나, 답 속 복사용 블록만 넣어 주세요');
+  // Code-block copy buttons omit the fences. Both forms use the same strict parser.
+  const block=raw?trimmed:source.slice(fences[0].index+fences[0][0].length,fences[1].index).trim();
   try{return parseClassification(block);}catch(error){
     const text=error.message;
     const limit=[['메모는 100개','메모는 100개까지 넣을 수 있어요.'],['메모당 목적지는 20개','메모 하나에 연결할 곳은 20개까지예요.'],['이유는 1~2,000자','연결 이유는 1~2,000자로 써 주세요.'],['문자열은 2,000자','한 항목의 글은 2,000자까지 넣을 수 있어요.'],['중복 메모 ID','같은 메모가 두 번 들어 있어요. AI에게 다시 정리해 달라고 해 주세요.']].find(([prefix])=>text.startsWith(prefix));

@@ -143,7 +143,7 @@ async function home(){
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
-async function basket(){ await module('./basket.js?v=9'); return {ok:true} }
+async function basket(){ await module('./basket.js?v=10'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations};
 function normalize(view){
   return loaders[view]?view:'home'
