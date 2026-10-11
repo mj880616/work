@@ -172,7 +172,7 @@ export function createDriveUpload(
       { headers: auth(token) },
     );
     if (r.status === 404) {
-      throw new UploadError(409, "drive_folder_invalid", "drive_folder");
+      throw new UploadError(409, "drive_folder_missing", "drive_folder");
     }
     if (!r.ok) throw unavailable("drive_folder");
     return await bodyJson(r);
@@ -185,8 +185,6 @@ export function createDriveUpload(
       .select("basket_folder_id")
       .eq("workspace_id", workspaceId).maybeSingle();
     if (error) throw unavailable("drive_settings");
-    const root = await folderInfo("root", token);
-    if (!validId(root.id)) throw unavailable("drive_folder");
     const verify = (
       f: {
         id?: unknown;
@@ -197,13 +195,22 @@ export function createDriveUpload(
         parents?: string[];
         permissions?: { type: string; role: string }[];
       },
+      atRoot: boolean,
     ) => {
+      if (f.permissions === undefined) {
+        throw new UploadError(
+          409,
+          "drive_folder_permissions_unavailable",
+          "drive_folder",
+        );
+      }
       if (
         !validId(f.id) || f.name !== "Web2 바구니" ||
         f.mimeType !== "application/vnd.google-apps.folder" ||
         f.ownedByMe !== true || f.trashed !== false ||
-        f.parents?.length !== 1 || f.parents[0] !== root.id ||
-        f.permissions?.length !== 1 || f.permissions[0].type !== "user" ||
+        !Array.isArray(f.parents) || f.parents.length !== 1 || !atRoot ||
+        !Array.isArray(f.permissions) || f.permissions.length !== 1 ||
+        f.permissions[0].type !== "user" ||
         f.permissions[0].role !== "owner"
       ) {
         throw new UploadError(
@@ -214,30 +221,57 @@ export function createDriveUpload(
       }
       return f.id;
     };
-    if (setting?.basket_folder_id) {
-      return verify(await folderInfo(setting.basket_folder_id, token));
-    }
+    // Root membership comes from the query, never GET /files/root (404 with drive.file).
     // Search own My Drive root only; never create permissions or adopt a shared folder.
-    const params = new URLSearchParams({
-      q: "name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false",
-      fields: `files(${fields})`,
-      pageSize: "100",
-      orderBy: "createdTime",
-    });
-    const listed = await driveFetch(
-      "drive_folder",
-      "https://www.googleapis.com/drive/v3/files?" + params,
-      { headers: auth(token) },
-    );
-    const found = await bodyJson(listed);
-    if (!listed.ok || !Array.isArray(found.files)) {
-      throw unavailable("drive_folder");
+    async function rootFolders() {
+      const params = new URLSearchParams({
+        q: "name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false",
+        fields: `nextPageToken,incompleteSearch,files(${fields})`,
+        pageSize: "100",
+        orderBy: "createdTime",
+      });
+      const folders = [];
+      const pages = new Set<string>();
+      while (true) {
+        const listed = await driveFetch(
+          "drive_folder",
+          "https://www.googleapis.com/drive/v3/files?" + params,
+          { headers: auth(token) },
+        );
+        const found = await bodyJson(listed);
+        if (
+          !listed.ok || !Array.isArray(found.files) || found.incompleteSearch
+        ) {
+          throw unavailable("drive_folder");
+        }
+        folders.push(...found.files);
+        if (!found.nextPageToken) return folders;
+        if (
+          typeof found.nextPageToken !== "string" ||
+          pages.has(found.nextPageToken)
+        ) throw unavailable("drive_folder");
+        pages.add(found.nextPageToken);
+        params.set("pageToken", found.nextPageToken);
+      }
     }
-    const id = found.files.length
-      ? verify(found.files[0])
+    async function verifyStoredFolder(id: string) {
+      const folder = await folderInfo(id, token);
+      const found = await rootFolders();
+      return verify(folder, folder.id === id && found.some((f) => f.id === id));
+    }
+    if (setting?.basket_folder_id) {
+      return await verifyStoredFolder(setting.basket_folder_id);
+    }
+    const found = await rootFolders();
+    const id = found.length
+      ? verify(found[0], true)
       : await createFolder("Web2 바구니", "root", token);
-    // Check Drive metadata even after creation. Never overwrite root/library settings.
-    if (!found.files.length) verify(await folderInfo(id, token));
+    // The POST with parents:['root'] returned this ID; verify its full metadata with explicit permissions.
+    // Never compare parents to a root metadata ID or overwrite root/library settings.
+    if (!found.length) {
+      const created = await folderInfo(id, token);
+      verify(created, created.id === id);
+    }
     if (!setting) {
       const { error } = await admin.from("app_drive_settings").upsert({
         workspace_id: workspaceId,
@@ -260,7 +294,7 @@ export function createDriveUpload(
     if (readError || !winner?.basket_folder_id) {
       throw unavailable("drive_settings");
     }
-    return verify(await folderInfo(winner.basket_folder_id, token));
+    return await verifyStoredFolder(winner.basket_folder_id);
   }
   return {
     driveToken,

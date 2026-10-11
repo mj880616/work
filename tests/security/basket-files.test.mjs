@@ -15,6 +15,13 @@ async function harness(options={}) {
   const state={settings:options.settings===undefined?{workspace_id:WS,basket_folder_id:'synthetic-folder'}:options.settings,
     note:options.note===undefined?null:structuredClone(options.note),folder:options.folder===undefined?defaultFolder():options.folder};
   if(state.settings)state.settings={basket_folder_id:null,...state.settings};
+  const appFiles=new Set([state.folder?.id,...(options.extraFolders||[]).map(f=>f.id)].filter(Boolean));
+  const metadata=(folder,url)=>{
+    const data=structuredClone(folder);
+    if(url.searchParams.get('fields')==='id')return {id:data.id};
+    if(options.omitPermissions || !url.searchParams.get('fields')?.includes('permissions'))delete data.permissions;
+    return data;
+  };
   let uploads=0;
   const server=createServer(async(req,res)=>{
     const chunks=[];for await(const c of req)chunks.push(c);
@@ -23,12 +30,31 @@ async function harness(options={}) {
     const send=(data,status=200,headers={})=>{res.writeHead(status,{'Content-Type':'application/json',...headers});res.end(JSON.stringify(data));};
     if(url.pathname==='/token')return send(options.tokenError?{error:'invalid_grant',error_description:'secret'}:{access_token:'synthetic-drive-token'},options.tokenError?400:200);
     if(req.method==='DELETE') {if(options.cleanupError)return send({error:'synthetic-secret'},500);res.writeHead(204);return res.end();}
-    if(url.pathname==='/drive/v3/files/root')return send({id:'synthetic-root'});
-    if(url.pathname==='/drive/v3/files' && req.method==='GET')return send({files:state.folder?[state.folder]:[]});
-    if(url.pathname.startsWith('/drive/v3/files/') && req.method==='GET')return send(state.folder||{},state.folder?200:404);
+    // drive.file cannot read root or files the app has not created/opened.
+    if(url.pathname==='/drive/v3/files/root')return send(options.driveFile?{error:'notFound'}:{id:'synthetic-root'},options.driveFile?404:200);
+    if(url.pathname==='/drive/v3/files' && req.method==='GET'){
+      if(options.searchError)return send({error:'synthetic-secret'},options.searchError);
+      const q=url.searchParams.get('q')||'';
+      const folders=[state.folder,...(options.extraFolders||[])].filter(f=>f &&
+        (!options.driveFile || appFiles.has(f.id)) &&
+        (!q.includes("name = 'Web2 바구니'") || f.name==='Web2 바구니') &&
+        (!q.includes("mimeType = 'application/vnd.google-apps.folder'") || f.mimeType==='application/vnd.google-apps.folder') &&
+        (!q.includes("'root' in parents") || f.parents?.includes('synthetic-root')) &&
+        (!q.includes("'me' in owners") || f.ownedByMe===true) &&
+        (!q.includes('trashed = false') || f.trashed===false));
+      const start=Number(url.searchParams.get('pageToken')||0), size=options.searchPageSize||100;
+      return send({files:folders.slice(start,start+size).map(f=>metadata(f,url)),
+        ...(start+size<folders.length?{nextPageToken:String(start+size)}:{})});
+    }
+    if(url.pathname.startsWith('/drive/v3/files/') && req.method==='GET'){
+      const id=decodeURIComponent(url.pathname.split('/').at(-1));
+      const folder=[state.folder,...(options.extraFolders||[])].find(f=>f?.id===id);
+      const accessible=folder && (!options.driveFile || appFiles.has(id));
+      return send(accessible?metadata(folder,url):{error:'notFound'},accessible?200:404);
+    }
     if(url.pathname==='/drive/v3/files' && req.method==='POST'){
       const meta=JSON.parse(bytes); assert.equal(meta.name,'Web2 바구니');assert.deepEqual(meta.parents,['root']);
-      state.folder=defaultFolder();return send(state.folder);
+      state.folder={...defaultFolder(),...options.createdFolder};appFiles.add(state.folder.id);return send(metadata(state.folder,url));
     }
     if(url.pathname==='/upload/drive/v3/files'){
       return send({},200,{location:options.badLocation||`https://www.googleapis.com/upload-session/${++uploads}`});
@@ -65,6 +91,7 @@ async function harness(options={}) {
           return {data:null,error:{message:'synthetic-secret',code:'XX000'}};
         if(table==='app_drive_settings'){
           if(mutation.kind==='upsert'){if(!state.settings || !ignore) state.settings={basket_folder_id:null,...state.settings,...mutation.payload};data=null;}
+          else if(options.settingWinner){state.settings={...state.settings,basket_folder_id:options.settingWinner};data=null;}
           else if(match){state.settings={...state.settings,...mutation.payload};data=state.settings;}else data=null;
         }else{
           if(mutation.kind==='insert') {state.note={id:NOTE,updated_at:'synthetic-t1',...mutation.payload};data=state.note;}
@@ -137,6 +164,81 @@ test('existing owned root folder discovered without duplicate creation; missing 
   assert.equal((await send(h)).status,200);assert.equal(h.state.settings.basket_folder_id,'synthetic-folder');
   assert.equal(h.calls.drive.filter(x=>x.method==='POST'&&x.path==='/drive/v3/files').length,0);
 }));
+test('drive.file: first JPG upload creates and stores folder; second upload reuses saved ID without root GET',async()=>using({
+  driveFile:true,settings:{workspace_id:WS,root_folder_id:'keep-root',library_folder_id:'keep-library'},folder:null,
+},async h=>{
+  const files=[new File([new Uint8Array(163*1024)],'phone.jpg',{type:'image/jpeg'})];
+  const first=await send(h,{files});assert.equal(first.status,200);
+  assert.equal(h.state.settings.basket_folder_id,'synthetic-folder');
+  assert.equal(h.state.settings.root_folder_id,'keep-root');assert.equal(h.state.settings.library_folder_id,'keep-library');
+  const second=await send(h,{files,fields:{note_id:first.body.note_id}});assert.equal(second.status,200);
+  assert.equal(h.state.note.attachments.length,2);assert.equal(h.state.note.attachments[0].size_bytes,163*1024);
+  assert.equal(h.calls.drive.filter(c=>c.method==='POST'&&c.path==='/drive/v3/files').length,1);
+  assert.equal(h.calls.drive.some(c=>c.path==='/drive/v3/files/root'),false);
+  assert.ok(h.calls.drive.some(c=>c.method==='GET'&&c.path==='/drive/v3/files/synthetic-folder'));
+}));
+test('drive.file: existing root search result is adopted without creating another folder',async()=>using({driveFile:true,settings:null},async h=>{
+  assert.equal((await send(h)).status,200);assert.equal(h.state.settings.basket_folder_id,'synthetic-folder');
+  assert.equal(h.calls.drive.some(c=>c.method==='POST'&&c.path==='/drive/v3/files'),false);
+  assert.equal(h.calls.drive.some(c=>c.path==='/drive/v3/files/root'),false);
+}));
+test('drive.file: moved, shared, trashed, renamed, non-owned and wrong-kind saved folders stop before upload',async()=>{
+  for(const change of [{parents:['other-parent']},{permissions:[{type:'user',role:'owner'},{type:'anyone',role:'reader'}]},
+    {trashed:true},{name:'other'},{ownedByMe:false},{mimeType:'text/plain'},{parents:['synthetic-root','other-parent']}])
+    await using({driveFile:true},async h=>{
+      const first=await send(h);assert.equal(first.status,200);const before=h.calls.writes.length;
+      Object.assign(h.state.folder,change);const r=await send(h,{fields:{note_id:first.body.note_id}});
+      assert.equal(r.status,409);assert.equal(r.body.code,'drive_folder_not_private_root');
+      assert.equal(h.calls.writes.length,before);assert.equal(h.state.note.attachments.length,1);
+      assert.ok(h.calls.logs.includes('drive_folder_not_private_root'));
+      assert.equal(h.calls.drive.filter(c=>c.path.startsWith('/upload-session/')).length,1);
+    });
+});
+test('drive.file: saved ID 404 has a distinct missing code and never creates a replacement',async()=>using({driveFile:true,folder:null},async h=>{
+  const r=await send(h);assert.equal(r.status,409);assert.equal(r.body.code,'drive_folder_missing');
+  assert.equal(r.body.stage,'drive_folder');assert.equal(r.body.retryable,false);
+  assert.ok(h.calls.logs.includes('drive_folder_missing'));assert.equal(h.calls.writes.length,0);
+  assert.equal(h.calls.drive.some(c=>c.method==='POST'&&c.path==='/drive/v3/files'),false);
+}));
+test('drive.file: folder search failures remain unavailable rather than invalid or missing',async()=>{
+  for(const searchError of [404,503])for(const settings of [null,{workspace_id:WS,basket_folder_id:'synthetic-folder'}])
+    await using({driveFile:true,searchError,settings},async h=>{
+      const r=await send(h);assert.equal(r.status,503);assert.equal(r.body.code,'drive_folder_failed');
+      assert.ok(h.calls.logs.includes('drive_folder_failed'));assert.equal(h.calls.writes.length,0);
+      assert.equal(h.calls.drive.some(c=>c.path.startsWith('/upload')),false);
+    });
+});
+test('drive.file: explicitly requested but omitted permissions fail closed on cached, searched and created folders',async()=>{
+  for(const options of [{},{settings:null},{settings:null,folder:null}])await using({driveFile:true,omitPermissions:true,...options},async h=>{
+    const r=await send(h);assert.equal(r.status,409);assert.equal(r.body.code,'drive_folder_permissions_unavailable');
+    assert.ok(h.calls.logs.includes('drive_folder_permissions_unavailable'));assert.equal(h.calls.writes.length,0);
+    assert.equal(h.calls.drive.some(c=>c.path.startsWith('/upload')),false);
+    const reads=h.calls.drive.filter(c=>c.method==='GET'&&c.path.startsWith('/drive/v3/files')&&c.path!=='/drive/v3/files/root');
+    assert.ok(reads.length);assert.ok(reads.every(c=>new URLSearchParams(c.query).get('fields').includes('permissions')));
+  });
+});
+test('drive.file: shared searched or newly created folders are not persisted or used',async()=>{
+  const permissions=[{type:'user',role:'owner'},{type:'user',role:'reader'}];
+  for(const options of [{folder:{...defaultFolder(),permissions}},{folder:null,createdFolder:{permissions}}])
+    await using({driveFile:true,settings:null,...options},async h=>{
+      const r=await send(h);assert.equal(r.status,409);assert.equal(r.body.code,'drive_folder_not_private_root');
+      assert.equal(h.calls.writes.length,0);assert.equal(h.calls.drive.some(c=>c.path.startsWith('/upload')),false);
+    });
+});
+test('drive.file: saved root folder on a later search page is recognized',async()=>using({
+  driveFile:true,folder:{...defaultFolder(),id:'other-folder'},extraFolders:[defaultFolder()],searchPageSize:1,
+},async h=>{
+  assert.equal((await send(h)).status,200);
+  assert.equal(h.calls.drive.filter(c=>c.method==='GET'&&c.path==='/drive/v3/files').length,2);
+}));
+test('drive.file: concurrent settings winner must also be in root search results',async()=>{
+  for(const parents of [['synthetic-root'],['other-parent']])await using({driveFile:true,settings:null,folder:null,
+    settingWinner:'winner-folder',extraFolders:[{...defaultFolder(),id:'winner-folder',parents}]},async h=>{
+    const r=await send(h);assert.equal(r.status,parents[0]==='synthetic-root'?200:409);
+    if(r.status===409){assert.equal(r.body.code,'drive_folder_not_private_root');assert.equal(h.calls.drive.some(c=>c.path.startsWith('/upload')),false);}
+    assert.equal(h.state.settings.basket_folder_id,'winner-folder');
+  });
+});
 test('shared, non-owned, moved or renamed cached folder is rejected',async()=>{
   for(const change of [{permissions:[{type:'anyone',role:'reader'}]},{ownedByMe:false},{parents:[]},
     {name:'other'},{trashed:true},{permissions:[{type:'user',role:'owner'},{type:'user',role:'reader'}]}])
