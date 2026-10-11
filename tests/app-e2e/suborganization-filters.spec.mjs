@@ -28,8 +28,8 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=16");
-  expect(views).toContain("workplace-detail.js?v=15");
+  expect(views).toContain("suborganizations.js?v=17");
+  expect(views).toContain("workplace-detail.js?v=16");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
   expect(styles).toContain("suborganizations.css?v=11");
@@ -233,7 +233,15 @@ test('편집 권한이 없으면 기록·메모 삭제 버튼이 없고 삭제 �
   await expect(page.locator('[data-wd-up-del],[data-wd-memo-del]')).toHaveCount(0);
   let dialogs=0;
   page.on('dialog',d=>{dialogs++;d.accept()});
-  await page.evaluate(async()=>{await wdDelUpdate('up-old');await wdDelMemo('memo-1')});
+  // Forge the real delete controls so both module-scoped handlers must reject the viewer.
+  await page.evaluate(()=>{
+    for(const [key,id] of [['wdUpDel','up-old'],['wdMemoDel','memo-1']]){
+      const button=document.createElement('button');button.id='forged-'+key;
+      button.dataset[key]=id;button.textContent='위조 삭제';document.querySelector('#wdModal .wd-card').appendChild(button);
+    }
+  });
+  await page.locator('#forged-wdUpDel').click();
+  await page.locator('#forged-wdMemoDel').click();
   expect(dialogs).toBe(0);
   expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
   await expect(page.locator('#wdUpdates .wd-log-row')).toHaveCount(1);

@@ -1,5 +1,6 @@
-import {dayKey} from './home-read-model.js?v=1';
-import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus,weekBands} from './calendar-day-items.js?v=3';
+import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js?v=2';
+import {dayKey} from './home-read-model.js?v=2';
+import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus,weekBands} from './calendar-day-items.js?v=4';
 let focusKey=null;
 // Sole owner of the week DOM; view/range state remains in calendar-view.js.
 export function renderWeek(options,{start,tasks}){
@@ -8,11 +9,11 @@ export function renderWeek(options,{start,tasks}){
   const {week,keys}=weekBands(options,start);
   box.style.setProperty('--cwv-band-height',`${week.laneCount*48}px`);
   for(let i=0;i<7;i++){
-    const date=new Date(start);date.setDate(date.getDate()+i);
+    const date=addSeoulDays(start,i);
     const section=document.createElement('section');section.className='cwv-day';section.dataset.date=calendarDateKey(date);
     if(section.dataset.date===dayKey())section.classList.add('cwv-today');
     const header=document.createElement('header');header.className='cwv-header';
-    const label=document.createElement('h3');label.className='cwv-date';label.textContent=`${['일','월','화','수','목','금','토'][date.getDay()]} ${date.getDate()}`;header.append(label);
+    const label=document.createElement('h3');label.className='cwv-date';label.textContent=`${['일','월','화','수','목','금','토'][seoulParts(date).weekday]} ${seoulParts(date).day}`;header.append(label);
     const items=dayItems(options,date,tasks),pending=items.filter(item=>item.source==='task'&&!item.done);
     if(pending.length){
       const count=document.createElement('button');count.type='button';count.className='cmv-task-count';
@@ -22,7 +23,7 @@ export function renderWeek(options,{start,tasks}){
       count.addEventListener('click',()=>window.KPTUCalendarDayOverflow?.open(date,items));header.append(count);
     }
     const create=document.createElement('button');create.type='button';create.className='cwv-create';
-    create.setAttribute('aria-label',date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
+    create.setAttribute('aria-label',formatSeoulTime(date,{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
     const rows=document.createElement('div');rows.className='cwv-items';
     const timed=items.filter(e=>e.source==='google'&&!keys.has('google:'+e.calendarId+':'+e.id)).sort((a,b)=>a.start-b.start||String(a.title).localeCompare(String(b.title),'ko'));
     if(timed.length)appendDayRows(rows,date,timed);
@@ -30,8 +31,8 @@ export function renderWeek(options,{start,tasks}){
   }
   const bands=document.createElement('div');bands.className='cwv-bands';
   for(const seg of week.segments){
-    const button=window.KPTUCalendarMonthView.eventButton({...seg,ev:{...seg.ev,start:seg.ev.displayStart}});
-    const date=new Date(start);date.setDate(date.getDate()+seg.startCol);button.dataset.date=calendarDateKey(date);
+    const button=window.KPTUCalendarMonthView.eventButton(seg);
+    const date=addSeoulDays(start,seg.startCol);button.dataset.date=calendarDateKey(date);
     bands.append(button);
   }
   box.append(bands);restoreDayFocus(box,focusKey);

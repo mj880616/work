@@ -2,7 +2,7 @@ import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
 import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=1';
 import { createNote, validateNoteText } from './basket-data.js?v=3';
 import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=4';
-import { dayKey } from './home-read-model.js?v=1';
+import { dayKey } from './home-read-model.js?v=2';
 
 export function mountQuick({root, dependencies, refreshTasks, invalidateProjects, esc}) {
   const box=root.querySelector('.home-quick-placeholder');

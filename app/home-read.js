@@ -1,5 +1,5 @@
-import { mountQuick } from './home-quick.js?v=8';
-import { createHomeCache } from './home-read-cache.js?v=1';
+import { mountQuick } from './home-quick.js?v=9';
+import { createHomeCache } from './home-read-cache.js?v=2';
 import {
   ranges,
   dayKey,
@@ -9,7 +9,7 @@ import {
   unlinkedTasks,
   meetingTasks,
   weekUpdates,
-} from "./home-read-model.js?v=1";
+} from "./home-read-model.js?v=2";
 const rt = window.KPTURuntime,
   root = document.querySelector("#homeView"),
   esc = (v) =>
@@ -64,7 +64,7 @@ function preload(){
   if(!imports)imports={
     projects:import('./project-catalog.js?v=2'),
     order:import('./organization-order.js?v=2'),
-    google:import('./google-tasks.js?v=30'),
+    google:import('./google-tasks.js?v=31'),
   };
   Object.values(imports).forEach(p=>p.catch(()=>{}));
   return imports;

@@ -1,3 +1,4 @@
+import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js?v=2';
 (()=>{
   if(window.__KPTU_CALENDAR_DAY_OVERFLOW__)return;
   window.__KPTU_CALENDAR_DAY_OVERFLOW__=true;
@@ -8,7 +9,7 @@
     if(document.querySelector('#calendarDayModal'))return;
     document.body.insertAdjacentHTML('beforeend','<div id="calendarDayModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="calendarDayTitle"><div class="modal-card small-card kptu-day-card"><div class="modal-head"><div><h2 id="calendarDayTitle">일정</h2></div><button class="icon-btn" data-close="calendarDayModal" type="button" aria-label="닫기">×</button></div><div id="calendarDayList" class="kptu-day-list"></div></div></div>');
   }
-  const taskDate=ev=>ev.date||ev.start?.toLocaleDateString('sv-SE')||'';
+  const taskDate=ev=>ev.date||(ev.start?seoulDateKey(ev.start):'');
   function eventRow(ev){
     // Google tasks (CAL-할일) keep the month view's task chip; calendar-tasks.js opens the task editor for them.
     if(ev.source==='task'){const t=window.KPTUCalendarMonthView?.taskButton?.(ev,'cmv-day-event');if(t){const main=document.createElement('span');main.className='gt-day-main';main.append(t.querySelector('.cmv-event-title'));main.insertAdjacentHTML('beforeend',window.KPTUGoogleTasks?.taskMeta?.({due:taskDate(ev)})||'');t.append(main);return t}}
@@ -16,7 +17,7 @@
     if(ev.source==='google'){b.dataset.googleEvent=ev.id;b.dataset.googleCalendar=ev.calendarId||'primary'}else b.dataset.appEvent=ev.id;
     b.style.background=ev.color||'#7656a8';b.style.color=ev.text||'#fff';
     if(ev.source==='google')b.style.setProperty('--cmv-google-source',ev.color||'#4285f4');
-    const time=ev.allDay?'종일':`${pad(ev.start.getHours())}:${pad(ev.start.getMinutes())}`;
+    const time=ev.allDay?'종일':seoulClock(ev.start);
     b.innerHTML=`<span class="cmv-day-time">${esc(time)}</span><span class="cmv-day-title">${esc(ev.title)}</span>`;
     b.setAttribute('aria-label',time+' '+ev.title);return b;
   }
@@ -25,7 +26,7 @@
     const seq=++openSeq,owner=window.KPTURuntime?.session?.read?.()?.user?.id;
     ensureModal();
     const list=document.querySelector('#calendarDayList'),title=document.querySelector('#calendarDayTitle');
-    title.textContent=date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'});
+    title.textContent=formatSeoulTime(date,{month:'long',day:'numeric',weekday:'long'});
     list.replaceChildren();
     const schedules=events.filter(e=>e.source!=='task'),tasks=events.filter(e=>e.source==='task');
     if(schedules.length){const section=document.createElement('section');section.id='calendarDayEvents';schedules.forEach(e=>section.append(eventRow(e)));list.append(section)}

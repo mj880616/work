@@ -48,9 +48,11 @@ async function signIn(page){
 
 
 import {execFileSync} from 'node:child_process';
-// The retained heading is Today in KST, including after 15:00 UTC.
-const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
-async function boot(page,tasks=[{id:'font-task',title:'Typography QA task',notes:'Typography QA notes',due:fixtureTaskDay(),status:'needsAction',taskListId:'@default',taskListTitle:'QA',source:'google-task'}],calendarEvents=[{id:'font-event',calendarId:'primary',title:'Typography QA event',start:new Date().toISOString().slice(0,10)+'T12:00:00+09:00',end:new Date().toISOString().slice(0,10)+'T13:00:00+09:00',color:'var(--kptu-primary)'}]){
+// Compare retained styles on the same calendar day in both the historical device-time app and KST app.
+const fixtureNow=new Date('2026-10-05T03:00:00Z');
+const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(fixtureNow);
+async function boot(page,tasks=[{id:'font-task',title:'Typography QA task',notes:'Typography QA notes',due:fixtureTaskDay(),status:'needsAction',taskListId:'@default',taskListTitle:'QA',source:'google-task'}],calendarEvents=[{id:'font-event',calendarId:'primary',title:'Typography QA event',start:fixtureTaskDay()+'T12:00:00+09:00',end:fixtureTaskDay()+'T13:00:00+09:00',color:'var(--kptu-primary)'}]){
+ await page.clock.setFixedTime(fixtureNow);
  await mockApp(page,{tasks,calendarEvents,spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
  await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
 }
@@ -76,7 +78,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   // The changed task region gets explicit D-할일화면정리 roles below.
   if(name==='tasks'){
     const style=el=>{const s=getComputedStyle(el);return [el.tagName,el.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]};
-    expect(await page.locator('#gt-today-head').evaluate(style)).toEqual(await original.locator('#gt-week-head').evaluate(style));
+    await expect(original.locator('#gt-week-head')).toBeVisible();
+    await expect.poll(()=>original.locator('#gt-week-head').evaluate(style)).toEqual(await page.locator('#gt-today-head').evaluate(style));
     await expect(page.locator('#gt-week-head')).toHaveCount(0);
     await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
     await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');

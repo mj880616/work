@@ -18,7 +18,7 @@
 
 ## 캐시
 
-`library-upload.js?v=26` → `view-loader.js?v=124` → `loader-v2.js?v=357` → `app.js?v=245` → `index.html`.
+`library-upload.js?v=26` → `view-loader.js?v=125` → `loader-v2.js?v=358` → `app.js?v=246` → `index.html`.
 
 버전 기대 테스트 3개와 app-smoke-check 고정 문자열을 함께 갱신했다. 캐시 검사 운영 참조 410개, Node 전체, 정적 smoke 및 로컬 HTTP smoke를 검증한다. 운영·DB/RLS·Edge·workflow 수동 실행·merge는 수행하지 않는다.
 
@@ -34,3 +34,7 @@
 | 회의자료만 | [캡처](meetings-390.png) | [캡처](meetings-1280.png) |
 
 사용자 폰 확인: 자료실의 자료 종류 알약이 2개인지, ‘회의자료만’을 누르면 회의 연결 자료만 나오는지 확인한다. PR merge와 실제 반영 후 확인하며 이번 작업은 PR 준비까지만 한다.
+
+## #498 반영 후속
+
+최신 main `f70a993ae8a32fa432ec8b69506126767e445350`을 같은 `codex/library-view-two` 브랜치에 merge했다(rebase·force push·새 PR 없음). 한국 시간 구현·테스트와 UI-한국시간 원장 행은 main 그대로 유지한다. 충돌한 smoke·원장·버전 기대 테스트 3개는 main의 한국 시간 관련 값·검사를 유지하고 두 알약의 라이브러리 참조 및 최종 캐시 연쇄만 맞췄다. main의 자료실25·view-loader124·loader-v2357·app245보다 각 한 단계 높은26·125·358·246을 사용한다. 충돌 파일별 표와 최종 SHA 검증 결과는 #497 후속 댓글에 기록한다.

@@ -1,5 +1,5 @@
 import {renderFilterChips} from './filter-chips.js?v=2';
-import {formatMeetingTime,toMeetingISO} from './meeting-time.js?v=1';
+import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js?v=2';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const SESSION_KEY='kptu_collab_session_v1';
@@ -11,12 +11,12 @@ const teamViewFlights=new Map(),teamViewLoaded=new Set();
 let meetingSavePending=false,documentSavePending=false;
 let meetingUploadEntries=[];
 window.addEventListener('kptu:before-reload',event=>{if(meetingUploadEntries.some(entry=>entry.kind!=='success')&&!document.querySelector('#meetingModal')?.classList.contains('hidden'))event.detail.otherDraft=true});
-let monthCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+let monthCursor=seoulDate(seoulParts().year,seoulParts().month);
 let googleState={connected:null,enabled:false,selected:[],calendars:[],events:[],email:null};
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 const fmt=formatMeetingTime;
-const dateKey=v=>{const d=new Date(v);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const dateKey=seoulDateKey;
 const todayKey=()=>dateKey(new Date());
 function setStatus(el,msg,type=''){if(!el)return;el.textContent=msg||'';el.className='status'+(type?' '+type:'');if(type==='error'){el.setAttribute('role','alert');el.removeAttribute('aria-live')}else{el.setAttribute('role','status');el.setAttribute('aria-live','polite')}}
 function setBusy(button,busy){if(!button)return;button.disabled=!!busy;if(busy)button.setAttribute('aria-busy','true');else button.removeAttribute('aria-busy')}
@@ -105,7 +105,7 @@ window.__KPTU_EVENT_PROJECT_OPTIONS__=selected=>projectOptions(true,selected);
 function renderAll(){fillSelects();renderHome();renderCalendar();renderDocuments();renderMeetings();renderPages()}
 function fillSelects(){const po=projectOptions(true);['meetingProject'].forEach(id=>{if($('#'+id))$('#'+id).innerHTML=po})}
 function renderHome(){}
-function renderCalendar(){const y=monthCursor.getFullYear(),m=monthCursor.getMonth();$('#monthTitle').textContent=`${y}년 ${m+1}월`;(window.KPTUCalendarView||window.KPTUCalendarMonthView)?.render?.({year:y,month:m,googleEvents:googleState.events,googleState});renderGoogleControls();window.KPTUCalendarDayOverflow?.apply?.()}
+function renderCalendar(){const y=seoulParts(monthCursor).year,m=seoulParts(monthCursor).month;$('#monthTitle').textContent=`${y}년 ${m+1}월`;(window.KPTUCalendarView||window.KPTUCalendarMonthView)?.render?.({year:y,month:m,googleEvents:googleState.events,googleState});renderGoogleControls();window.KPTUCalendarDayOverflow?.apply?.()}
 window.__KPTU_RENDER_CALENDAR__=renderCalendar
 function renderDocuments(){if(window.KPTULibrary?.render){window.KPTULibrary.render();return}const q=($('#documentSearch')?.value||'').trim().toLowerCase(),pid=$('#documentProject')?.value||'all';const rows=documents.filter(d=>(pid==='all'||d.project_id===pid)&&(!q||[d.title,d.source,d.category,(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));$('#documentList').innerHTML=rows.map(d=>`<article class="item-card"><div><div class="badges"><span class="badge">${esc(d.category)}</span>${d.project_id?`<span class="badge">${esc(projectName(d.project_id))}</span>`:''}</div><h3>${esc(d.title)}</h3><p>${esc(d.source||'출처 미기재')}${d.document_date?' · '+esc(d.document_date):''}</p>${d.description?`<small>${esc(d.description)}</small>`:''}</div>${d.drive_url?`<a class="mini" href="${esc(d.drive_url)}" target="_blank" rel="noopener">열기</a>`:''}</article>`).join('')||'<div class="empty">자료가 없습니다.</div>'}
 function meetingName(m){return String(m?.series_name||m?.title||'').trim()}
@@ -156,7 +156,7 @@ async function connectGoogle(){if(googleState.connected){const panel=$('#googleC
 async function saveGooglePrefs(){const ids=$('[data-google-cal]:checked').map(x=>x.dataset.googleCal);await googleCall('',{method:'POST',body:{action:'preferences',calendar_ids:ids,enabled:true}});googleState.selected=ids;googleState.enabled=true;await loadGoogleEvents();toast('Google 캘린더 표시 설정을 저장했습니다.')}
 async function disconnectGoogle(){await googleCall('',{method:'POST',body:{action:'disconnect'}});window.KPTUCalendarPersistence?.disconnected?.();googleState={connected:false,enabled:false,selected:[],calendars:[],events:[],email:null};renderCalendar();toast('Google Calendar 연결을 해제했습니다.')}
 function switchView(view){if(window.KPTURouter?.go){window.KPTURouter.go(view,{source:'team'});return}$('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===view));$('.view-panel').forEach(v=>v.classList.add('hidden'));$('#'+view+'View')?.classList.remove('hidden')}
-function openEventModal(){['eventTitle','eventLocation','eventDescription'].forEach(id=>{if($('#'+id))$('#'+id).value=''});const now=new Date(),finish=new Date(now.getTime()+3600000),date=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,time=d=>`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;if($('#eventAllDay'))$('#eventAllDay').checked=false;if($('#eventStartDate'))$('#eventStartDate').value=date(now);if($('#eventEndDate'))$('#eventEndDate').value=date(finish);if($('#eventStartTime'))$('#eventStartTime').value=time(now);if($('#eventEndTime'))$('#eventEndTime').value=time(finish);document.querySelectorAll('.event-time-row').forEach(x=>x.classList.remove('hidden'));setStatus($('#eventStatus'),'');openModal('eventModal',{initialFocus:'#eventTitle'});window.KPTUCalendarPlus?.prepareNewEvent?.()}
+function openEventModal(){['eventTitle','eventLocation','eventDescription'].forEach(id=>{if($('#'+id))$('#'+id).value=''});const now=new Date(),finish=new Date(now.getTime()+3600000),date=seoulDateKey,time=seoulClock;if($('#eventAllDay'))$('#eventAllDay').checked=false;if($('#eventStartDate'))$('#eventStartDate').value=date(now);if($('#eventEndDate'))$('#eventEndDate').value=date(finish);if($('#eventStartTime'))$('#eventStartTime').value=time(now);if($('#eventEndTime'))$('#eventEndTime').value=time(finish);document.querySelectorAll('.event-time-row').forEach(x=>x.classList.remove('hidden'));setStatus($('#eventStatus'),'');openModal('eventModal',{initialFocus:'#eventTitle'});window.KPTUCalendarPlus?.prepareNewEvent?.()}
 function openDocumentModal(){['docTitle','docCategory','docSource','docDate','docTags','docUrl','docDescription'].forEach(id=>{if($('#'+id))$('#'+id).value=''});openModal('documentModal',{initialFocus:'#docTitle'})}
 function openMeetingModal(){['meetingTitle','meetingAt','meetingNotes','meetingRoundNo','meetingTranscript'].forEach(id=>{if($('#'+id))$('#'+id).value=''});meetingRoundEdited=false;meetingUploadEntries=[];renderMeetingSelectedFiles();if($('#meetingFiles'))$('#meetingFiles').value='';$('#meetingProject').innerHTML=projectOptions(true);installMeetingNamePicker($('#meetingTitle'),'meeting');setupMeetingNamePicker($('#meetingNameSelect'),$('#meetingTitle'),$('#meetingNameMatch'),$('#meetingNameUseMatch'),{onChoose:suggestMeetingRound,onCustom:()=>{if(!meetingRoundEdited)$('#meetingRoundNo').value=''}});openModal('meetingModal',{initialFocus:meetingNameChoices().length?'#meetingNameSelect':'#meetingTitle'})}
 function bind(){
@@ -168,7 +168,7 @@ function bind(){
  $('#saveDocumentBtn').onclick=saveDocument;$('#saveMeetingBtn').onclick=saveMeeting;$('#meetingFiles').onchange=selectMeetingFiles;$('#meetingSelectedFiles').addEventListener('click',removeMeetingFile);
  if($('#pageSearch'))$('#pageSearch').oninput=renderPages;if($('#pageFilter'))$('#pageFilter').onchange=renderPages;$('#documentSearch').oninput=renderDocuments;
  window.addEventListener('kptu:project-spaces-updated',e=>{const d=e.detail;if(!workspace||!user||d?.workspaceId!==workspace.id||d.userId!==user.id||!Array.isArray(d.spaces))return;spaces=d.spaces;renderAll()});
- const moveMonth=delta=>{if(window.KPTUCalendarView?.move(delta))return;monthCursor=new Date(monthCursor.getFullYear(),monthCursor.getMonth()+delta,1);renderCalendar();window.KPTUCalendarPersistence?.refresh?.()};window.__KPTU_CALENDAR_TODAY__=()=>{monthCursor=new Date();renderCalendar();window.KPTUCalendarPersistence?.refresh?.()};window.__KPTU_CALENDAR_MOVE_MONTH__=moveMonth;$('#prevMonthBtn').onclick=()=>moveMonth(-1);$('#nextMonthBtn').onclick=()=>moveMonth(1);window.KPTUCalendarMonthView?.setNavigate?.(moveMonth);
+ const moveMonth=delta=>{if(window.KPTUCalendarView?.move(delta))return;monthCursor=seoulDate(seoulParts(monthCursor).year,seoulParts(monthCursor).month+delta);renderCalendar();window.KPTUCalendarPersistence?.refresh?.()};window.__KPTU_CALENDAR_TODAY__=()=>{monthCursor=new Date();renderCalendar();window.KPTUCalendarPersistence?.refresh?.()};window.__KPTU_CALENDAR_MOVE_MONTH__=moveMonth;$('#prevMonthBtn').onclick=()=>moveMonth(-1);$('#nextMonthBtn').onclick=()=>moveMonth(1);window.KPTUCalendarMonthView?.setNavigate?.(moveMonth);
  $('#googleConnectBtn').onclick=connectGoogle;
 }
 async function init(){enhanceDom();bind();session=window.__KPTU_AUTHENTICATED_BOOT_SESSION__||loadSession();if(!session){window.KPTUAuthGate?.redirect?.();return}try{await loadWorkspaceState()}catch(e){console.error('workspace init failed',e);if(await ensureSession()){showWorkspaceError();return 'error'}saveSession(null);window.KPTUAuthGate?.redirect?.();return 'error'}}
