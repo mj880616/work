@@ -1,4 +1,4 @@
-import { parseAIAnswer, readClassificationSnapshot, previewClassification, confirmLinks, ERROR_TEXT } from './basket-classification.js?v=3';
+import { parseAIAnswer, readClassificationSnapshot, previewClassification, confirmLinks, ERROR_TEXT } from './basket-classification.js?v=4';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBlocked}) {
   host.innerHTML=`<section data-classification-panel hidden aria-labelledby="basketClassificationTitle"><div class="basket-head"><h3 id="basketClassificationTitle">AI 정리 결과 넣기</h3><button type="button" class="quick-pill-button" data-classification-close>목록으로</button></div><label class="basket-text-label">AI가 준 복사용 블록(답 전체를 넣어도 됨)<textarea data-classification-input rows="12" spellcheck="false" placeholder="ChatGPT나 Claude의 답을 여기에 붙여 넣으세요."></textarea></label><p>지금 저장된 메모와 연결할 곳을 확인해요. 체크한 담당조직·프로젝트만 연결해요.</p><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-classification-preview>확인</button><button type="button" class="quick-pill-button quick-pill-primary" data-classification-confirm disabled>연결하기</button></div><p data-classification-status role="status" aria-live="polite"></p><div data-classification-rows></div></section>`;
@@ -16,10 +16,10 @@ export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBl
   async function inspect(){
     if(busy||isBlocked())return;const run=++epoch,owner=scope();busy=true;onBusy(true);missing=false;proposal=null;preview=[];rows.replaceChildren();status.textContent='확인 중…';controls();
     let parsed;
-    try{parsed=parseAIAnswer(input.value);}catch(e){status.textContent=e.message;busy=false;onBusy(false);controls();return;}
+    try{parsed=parseAIAnswer(input.value);}catch(e){status.textContent=e.message;busy=false;onBusy(false);controls();status.scrollIntoView({block:'nearest'});return;}
     try{const live=await readClassificationSnapshot(parsed);if(run!==epoch||owner!==scope())return;
       proposal=parsed;snapshot=live;preview=previewClassification(parsed,live);paint();status.textContent=`${preview.length}개 메모 · 연결할 곳을 골라 주세요.`;
-    }catch{if(run===epoch&&owner===scope())status.textContent='메모와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.';}
+    }catch{if(run===epoch&&owner===scope()){status.textContent='메모와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.';status.scrollIntoView({block:'nearest'});}}
     finally{if(run===epoch){busy=false;onBusy(false);controls();}}
   }
   async function confirm(){
