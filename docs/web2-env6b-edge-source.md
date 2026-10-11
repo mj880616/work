@@ -171,7 +171,7 @@
 | 28 | `rtw-personal-write` | 읽생기 | v2 | 09-18 23:29 | false | read-think-write |
 | 29 | `rtw-recommend` | 읽생기 | v8 | 09-21 04:41 | false | read-think-write |
 | 30 | `rtw-url-import` | 읽생기 | v8 | 09-21 04:36 | **true** | read-think-write |
-| 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v1 | 10-03 12:27 | false | work (DRV-요약 PR 1) |
+| 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v3 | 10-11 (사용자 보고) | false | work (63b5f43, #485; v2 출처 미기록) |
 | 32 | `basket-files` | Web2(바구니 첨부) | v2 (배포 완료) | 2026-10-11 (사용자 보고) | false | work (4bd2f71, #479) |
 
 `basket-files`는 2026-10-10 사용자 승인형 #475 신규 배포 경로로 최초 배포 완료했다.
