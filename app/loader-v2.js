@@ -125,7 +125,7 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  await import('./drive-summary.js?v=4');
+  await import('./drive-summary.js?v=5');
 
   const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=7').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{
@@ -135,7 +135,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=117');
+  await import('./view-loader.js?v=118');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'home');

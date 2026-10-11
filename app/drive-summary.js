@@ -35,6 +35,7 @@
       return ['update','toggle','delete'].includes(action)||(['create','link','unlink'].includes(action)&&saved.projectLinked);
     }
     if(path.pathname==='/functions/v1/basket-files')return true;
+    if(path.pathname==='/rest/v1/rpc/app_basket_confirm_links')return true;
     // These successful uploads/deletions change the project document count.
     return ['/functions/v1/library-files','/functions/v1/meeting-files'].includes(path.pathname)&&saved.projectLinked;
   }
