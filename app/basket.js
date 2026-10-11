@@ -1,6 +1,6 @@
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=2';
 
-import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=2';
+import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=3';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, busy = false, epoch = 0;
@@ -42,9 +42,9 @@ function openDetail(id) {
   // Keep the opened editor attached to this list snapshot until an explicit reload.
   ++epoch;
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
-  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div data-basket-attachments class="library-selected-files"></div><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions"><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-archive>보관</button></div><p data-basket-status role="status"></p>`;
+  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-editor"><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions"><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-archive>보관</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
-  pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',getBatch:()=>upload,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
+  pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
   paintDetailState(); detail.querySelector('[data-basket-text]').focus();
 }
 async function refresh() {
@@ -81,13 +81,13 @@ async function patch(changes, message) {
 }
 async function saveAttachments() {
   if(busy||!selected)return;
-  const batch=upload,id=selected.id,owner=scope();const isCurrent=()=>scope()===owner&&selected?.id===id&&upload===batch;
+  let batch=upload;const id=selected.id,owner=scope();const isCurrent=()=>scope()===owner&&selected?.id===id&&upload===batch;
   const status=detail.querySelector('[data-basket-status]');
   if(!batch.entries.length){status.textContent='파일을 선택해 주세요.';return;}
   // A read started before this write must not restore stale attachment counts.
   ++epoch;busy=true;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);pickerFiles.render();status.textContent='업로드 중…';
   const paint=()=>{if(!isCurrent())return;selected.attachments=batch.attachments;renderList();paintAttachments();pickerFiles.render();};
-  try{await uploadBatch(batch,{isCurrent,onChange:paint});if(isCurrent())status.textContent='첨부를 저장했습니다.';}
+  try{await uploadBatch(batch,{isCurrent,onChange:paint});if(isCurrent()){upload=batch=createUploadBatch(id,batch.attachments);status.textContent='첨부를 저장했습니다.';}}
   catch(e){if(isCurrent()){status.textContent=e.message;detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;}}
   finally{busy=false;if(isCurrent()){detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles.render();}}
 }

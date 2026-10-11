@@ -1,0 +1,20 @@
+{
+  "home": {
+    "cardHeight": 158,
+    "inputToLink": 4,
+    "input": {
+      "x": 27,
+      "y": 117,
+      "width": 281.90625,
+      "height": 46
+    },
+    "clip": {
+      "x": 28,
+      "y": 118,
+      "width": 44,
+      "height": 44
+    },
+    "paddingLeft": 46
+  },
+  "errors": []
+}
