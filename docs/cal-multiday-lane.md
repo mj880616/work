@@ -2,7 +2,7 @@
 
 📱 폰 가능 — Codex 웹·클라우드, 2026-10-11.
 
-시작은 새로 fetch한 `origin/main` `aadddb452aa0c934c3ff666c0433a9efbc61df58`(#477 merge), 브랜치는 `codex/cal-multiday-lane`이다.
+시작은 새로 fetch한 `origin/main` `aadddb452aa0c934c3ff666c0433a9efbc61df58`(#477 merge), 브랜치는 `codex/cal-multiday-lane`, PR은 [#480](https://github.com/mj880616/work/pull/480)이다.
 
 원인(확인된 사실): `app/calendar-month-view.js`의 `render()`가 주 단위 `segmentWeeks()` 결과에 폰 전용 `compactPhoneWeek()`를 다시 적용했다. 이 함수의 `days[col].indexOf(seg)`가 날짜마다 줄을 재배정해 앞 일정 종료 뒤 남은 날을 위로 올렸다. Como와 Dobiacco가 각각 2개 DOM 막대가 되는 증상을 재현했다. PC는 이 압축을 거치지 않았지만 기존 `eventSort()`는 종일 여부를 시작일보다 먼저 비교했다.
 
@@ -30,7 +30,7 @@
 - 수정 후 신규10/10: 위3개 일정의 DOM 개수·정확한 칸 범위·줄, 여러 날 시간 일정의 주 경계, 시작일/기간 정렬, 하루 일정 빈 줄, 조밀한 날짜 +N/전체 목록, 빈 낮은 줄을 둔 높은 줄의 +1/전체 목록/칸 안 배치. 390·1280px 모두 페이지·콘솔 오류0.
 - Node455/455: `tests/*.test.mjs tests/security/*.test.mjs tests/domain/*.test.mjs scripts/*.test.mjs`. DB 실행 테스트(`tests/auth-handoff`) 제외.
 - app-smoke-check의 정적·Node·HTTP 검사21개 모두 통과. cache checker에서 운영 참조393개 검사, `git diff --check` 통과.
-- 기존 달력99/99와 당시 신규8개를 합친 관련 배치107/107 통과(3.3분), 추가한 sparse2개를 포함한 신규10/10 별도 통과. 캐시 기대값 관련 startup14/14·task 소유권1/1 통과. 관련 고유 브라우저 검사124개 통과. 기존 실패 없음. 로컬 전체 E2E·DB 테스트는 사용자 지정 범위에 따라 실행하지 않았다. PR CI는 생성 후 별도로 확인한다.
+- 기존 달력99/99와 당시 신규8개를 합친 관련 배치107/107 통과(3.3분), 추가한 sparse2개를 포함한 신규10/10 별도 통과. 캐시 기대값 관련 startup14/14·task 소유권1/1 통과. 관련 고유 브라우저 검사124개 통과. 기존 실패 없음. 로컬 전체 E2E·DB 테스트는 사용자 지정 범위에 따라 실행하지 않았다. 최종 SHA의 PR CI 결과는 #480 댓글과 완료 보고에서 확인한다.
 - 독립 코드 리뷰: critical/important 없음. sparse 높은 줄 넘침 커버리지 제안을 신규 테스트에 반영했다.
 
 기존 달력 테스트를 삭제·약화하지 않았다. DB·production·권한·Edge·Cloudflare·서버 파일 변경과 운영 호출은 없다.
