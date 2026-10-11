@@ -3,7 +3,7 @@
 2026-10-11 사용자 결정에 따라 바구니를 AI에게 맡기는 목적지를 담당조직으로만 안내한다. 기존 프로젝트 제안을 붙여 넣는 파서·미리보기·확정 흐름은 호환용으로 유지한다.
 
 - 시작: 원격 `origin/main`을 다시 fetch한 `cc7ae1070fa4d690040e881dc03abc01be93fda8`(#490 merge).
-- 브랜치: `codex/basket-org-only`. PR 번호와 최종 SHA·자동 CI 결과는 PR 본문·댓글에 기록한다.
+- 브랜치: `codex/basket-org-only`. [#491](https://github.com/mj880616/work/pull/491). 최종 SHA·자동 CI 결과는 PR 본문·댓글에 기록한다.
 - 사본 바구니 절: 담당조직 ID·이름만, “담당조직 목록 (ID · 이름)”. 프로젝트 목록·기타 kind 안내·별도 요약 제안 문장을 제거한다.
 - 복사 글: “알맞은 담당조직으로 나눠 주세요”, `kind=organization` 안내와 예시만. `project-catalog` import/load 제거, 조직 페이지를 모두 읽은 뒤 세션·업무 공간을 다시 확인한다.
 - Edge 배포는 함수 디렉터리의 모듈을 묶으며 앱은 브라우저 캐시 그래프로 불러온다. 배포 경계를 넓히는 공용 모듈 경로를 새로 만들지 않고, 두 안내의 첫 부탁·형식 안내 전문이 정확히 같다는 실행 테스트로 문장을 고정했다.
@@ -26,7 +26,7 @@
 
 범위 밖 기존 실패: `tests/app-e2e/basket.spec.mjs` 90행 `session scope change clears basket content and prevents a delayed response from restoring it`. 전체 배치 1실패, 단독 workers=1/repeat-each=3에서 **시작 main 3/3 실패·현재 브랜치 3/3 실패**. 시작 SHA를 `git archive`로 별도 경로에 풀고 앱 소스는 그대로, 테스트 URL 포트만 8125로 바꿔 비교했다. 실패는 지연 응답의 `BASKET_STALE_PRIVATE`가 원 계정 UI에 남는 negative assertion이다. trace·영상 보존, 테스트 제외·assertion 약화·timeout/retry 변경 없음.
 
-사실: 테스트가 `context.set`으로 사용자 ID만 `different`로 바꾸지만 세션은 원 계정 그대로다. `runtime-client.js` 67~70행은 세션 소유자와 다른 ID를 거절해 context 변경이 성립하지 않는다. 이어지는 이벤트도 원 세션이므로 `basket.js`의 scope는 그대로다. 이는 실제 계정 전환을 재현하지 못하는 기존 테스트 설정이다. 추정: 지연 응답 처리와 부정 assertion 관측 순서에 따라 성공·실패가 갈릴 수 있다. 실제 다른 사용자의 운영 데이터 노출은 이 합성 테스트로 확인하지 않았다. 요청 범위 밖이므로 이번 PR에서 테스트·runtime·세션 흐름을 고치지 않았다.
+사실: 테스트가 `context.set`으로 사용자 ID만 `different`로 바꾸지만 세션은 원 계정 그대로다. `runtime-client.js` 67~70행은 세션 소유자와 다른 ID를 거절해 context 변경이 성립하지 않는다. 이어지는 이벤트도 원 세션이므로 `basket.js`의 scope는 그대로다. 이는 실제 계정 전환을 재현하지 못하는 기존 테스트 설정이다. 추정: 지연 응답 처리와 부정 assertion 관측 순서에 따라 성공·실패가 갈릴 수 있다. 실제 다른 사용자의 운영 데이터 노출은 이 합성 테스트로 확인하지 않았다. trace에서 행 개수 0 검사는 응답 처리 전에 통과하고, 본문 부정 검사는 처리 뒤 실패했다. 독립 리뷰의 VM 대조에서는 `context.set`이 null을 반환해 scope 유지·무효화 0회였고, 실제 `session.write()`로 owner를 바꾸면 context가 비워져 scope 무효화가 발생했다. 해당 실제 계정 전환 시나리오의 브라우저 회귀 검증은 별도 보완이 필요하다. 요청 범위 밖이므로 이번 PR에서 테스트·runtime·세션 흐름을 고치지 않았다.
 
 첫 브라우저 실행은 녹화용 ffmpeg의 Playwright 경로가 없어 `newPage` 전에 실패해 중단했다. 다운로드 주소는 환경 정책상 403이므로 시스템에 설치된 `/usr/bin/ffmpeg`를 연결한 뒤 같은 조건으로 다시 실행했다. 앱·테스트 assertion·timeout·retry 변경으로 우회하지 않았다.
 
