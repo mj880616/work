@@ -106,28 +106,210 @@ function historyInsert(ts, version, name) {
   if (history && code(history).some(v => !['array', '[', ']', ','].includes(v))) fail();
 }
 
-export function validateSQL(sql, { mode, version, name }) {
+// Keep the existing risk checks shared by ordinary statements and function
+// bodies. Privilege EXECUTE is parsed separately; dynamic EXECUTE stays here.
+function checkRisks(ts) {
+  const flattened = flat(ts); const c = code(flattened); const text = c.join(' ');
+  if (flattened.some(t => t.kind === 'quoted' && !/^[a-z_][a-z0-9_]*$/.test(t.value))
+      || /\bu &/.test(text)) fail();
+  if (flattened.some(t => /rtw_/i.test(t.value)) || /\b(drop (?:table|schema)|truncate|alter role|(?:create|alter|drop) extension)\b/.test(text)
+      || /\b(execute|call|copy|savepoint|release|reset|vacuum)\b/.test(text)
+      || /\b(?:disable|no force) row level security\b/.test(text)
+      || /\b(?:dblink\w*|lo_import|lo_export|pg_read_file|pg_read_binary_file|pg_ls_dir|set_config|nextval|setval)\b/.test(text)
+      || c.includes('cascade') && code(ts)[0] !== 'alter') fail();
+}
+
+const identifier = t => t && ['word', 'quoted'].includes(t.kind) && /^[a-z_][a-z0-9_]*$/.test(t.value) && t.value.length <= 63;
+const keyword = (t, value) => t?.kind === 'word' && t.value === value;
+const symbol = (t, value) => t?.kind === 'symbol' && t.value === value;
+const typeNames = new Map([
+  ['int', 'integer'], ['int4', 'integer'], ['integer', 'integer'], ['int8', 'bigint'], ['bigint', 'bigint'],
+  ['int2', 'smallint'], ['smallint', 'smallint'], ['bool', 'boolean'], ['boolean', 'boolean'],
+  ['text', 'text'], ['uuid', 'uuid'], ['json', 'json'], ['jsonb', 'jsonb'], ['bytea', 'bytea'],
+  ['numeric', 'numeric'], ['decimal', 'numeric'], ['real', 'real'], ['float4', 'real'],
+  ['double precision', 'double precision'], ['float8', 'double precision'], ['date', 'date'],
+  ['timestamp', 'timestamp'], ['timestamp without time zone', 'timestamp'],
+  ['timestamptz', 'timestamptz'], ['timestamp with time zone', 'timestamptz'], ['void', 'void'],
+]);
+function functionType(ts) {
+  if (!ts.length || ts.some(t => t.kind !== 'word' && !['[', ']'].includes(t.value))) fail();
+  let array = '';
+  if (symbol(ts.at(-2), '[') && symbol(ts.at(-1), ']')) { array = '[]'; ts = ts.slice(0, -2); }
+  const type = typeNames.get(ts.map(t => t.value).join(' '));
+  if (!type) fail();
+  return type + array;
+}
+function functionSignature(ts, start, declaration = false) {
+  if (!identifier(ts[start]) || !['public', 'private'].includes(ts[start].value)
+      || !symbol(ts[start + 1], '.') || !identifier(ts[start + 2])
+      || /rtw_/i.test(ts[start + 2].value) || !symbol(ts[start + 3], '(')) fail();
+  const args = []; let current = []; let i = start + 4;
+  for (; i < ts.length && !symbol(ts[i], ')'); i++) {
+    if (symbol(ts[i], ',')) { if (!current.length) fail(); args.push(current); current = []; }
+    else current.push(ts[i]);
+  }
+  if (!symbol(ts[i], ')') || !current.length && args.length) fail();
+  if (current.length) args.push(current);
+  const types = args.map(arg => {
+    if (arg[0]?.kind === 'word' && ['out', 'inout', 'variadic'].includes(arg[0].value)) fail();
+    if (declaration && keyword(arg[0], 'in')) arg = arg.slice(1);
+    // Only built-in types, optional IN and argument names; no defaults, OUT,
+    // variadics, typmods or user-defined types whose identity is ambiguous.
+    if (declaration && identifier(arg[0]) && !typeNames.has(arg.map(t => t.value).join(' '))) {
+      const rawType = arg.at(-1)?.value === ']' ? arg.slice(0, -2) : arg;
+      if (!typeNames.has(rawType.map(t => t.value).join(' '))) arg = arg.slice(1);
+    }
+    const type = functionType(arg);
+    if (type.startsWith('void')) fail();
+    return type;
+  });
+  return { signature: `${ts[start].value}.${ts[start + 2].value}(${types.join(',')})`, end: i + 1 };
+}
+
+function functionBody(block, language) {
+  const body = tokens(block.value);
+  if (!body.length || body.some(t => t.kind === 'block')) fail();
+  checkRisks(body);
+  const c = code(body);
+  // No nested DDL, privilege changes or transaction control. SET could undo
+  // the fixed search_path, and SQL-standard bodies are outside this grammar.
+  if (c.some(v => ['create', 'alter', 'drop', 'grant', 'revoke', 'commit', 'rollback', 'supabase_migrations'].includes(v))) fail();
+  for (let i = 0; i < c.length; i++) {
+    if (c[i] === 'set' && !(c[i - 3] === 'public' && c[i - 2] === '.'
+        && (c[i - 4] === 'update' || c[i - 4] === 'only' && c[i - 5] === 'update'))) fail();
+  }
+  // PostgreSQL SQL bodies may omit their final semicolon. PL/pgSQL bodies
+  // retain explicit statement boundaries; lexical failures still reject.
+  const terminated = language === 'sql' && !symbol(body.at(-1), ';')
+    ? [...body, { kind: 'symbol', value: ';' }] : body;
+  for (const statement of statements(terminated)) {
+    for (let i = 0; i < statement.length; i++) {
+      if (!keyword(statement[i], 'update') && !keyword(statement[i], 'delete')) continue;
+      // Stop at the enclosing CTE/subquery boundary, so an outer WHERE or a
+      // WHERE in another statement cannot authorize this mutation. RETURNING
+      // and LOOP also end a FOR-loop source before its first body statement.
+      let depth = 0; let end = i + 1;
+      for (; end < statement.length; end++) {
+        if (depth === 0 && statement[end].kind === 'word'
+            && ['returning', 'loop'].includes(statement[end].value)) break;
+        if (symbol(statement[end], '(')) depth++;
+        if (symbol(statement[end], ')') && --depth < 0) break;
+      }
+      const mutation = statement.slice(i, end);
+      if (!topWhere(mutation)) fail();
+      target(mutation); // The same supported public write targets as before.
+    }
+  }
+}
+
+function functionDefinition(ts) {
+  checkRisks(ts);
+  let start = 1;
+  if (keyword(ts[start], 'or') && keyword(ts[start + 1], 'replace')) start += 2;
+  if (!keyword(ts[start], 'function')) fail();
+  const parsed = functionSignature(ts, start + 1, true);
+  let i = parsed.end;
+  if (!keyword(ts[i++], 'returns')) fail();
+  if (keyword(ts[i], 'setof')) i++;
+  const beginType = i;
+  while (ts[i]?.kind === 'word' && !['language', 'security', 'set', 'as', 'stable', 'immutable', 'volatile', 'strict'].includes(ts[i].value)
+      || symbol(ts[i], '[') || symbol(ts[i], ']')) i++;
+  functionType(ts.slice(beginType, i));
+  const seen = new Set();
+  let language; let body;
+  while (i < ts.length) {
+    const option = ts[i++];
+    if (option.kind !== 'word' || seen.has(option.value)) fail();
+    seen.add(option.value);
+    if (option.value === 'language') {
+      if (ts[i]?.kind !== 'word' || !['sql', 'plpgsql'].includes(ts[i].value)) fail();
+      language = ts[i++].value;
+    } else if (option.value === 'security') {
+      if (!keyword(ts[i++], 'invoker')) fail();
+    } else if (option.value === 'set') {
+      if (!keyword(ts[i++], 'search_path') || !(symbol(ts[i], '=') || keyword(ts[i], 'to'))) fail();
+      i++;
+      if (ts[i]?.kind === 'string' && ts[i].value === '') i++;
+      else if (identifier(ts[i]) && ts[i].value === 'public' && symbol(ts[i + 1], ',')
+          && identifier(ts[i + 2]) && ts[i + 2].value === 'pg_temp') i += 3;
+      else fail();
+    } else if (option.value === 'as') {
+      if (ts[i]?.kind !== 'block') fail();
+      body = ts[i++];
+    } else if (!['stable', 'immutable', 'volatile', 'strict'].includes(option.value)) fail();
+  }
+  if (!['language', 'security', 'set', 'as'].every(v => seen.has(v))
+      || ['stable', 'immutable', 'volatile'].filter(v => seen.has(v)).length > 1) fail();
+  functionBody(body, language);
+  return parsed.signature;
+}
+
+function functionPrivilege(ts, functions) {
+  let i = 1;
+  if (!(keyword(ts[i], 'execute') || keyword(ts[0], 'revoke') && keyword(ts[i], 'all'))) fail();
+  i++;
+  if (keyword(ts[i - 1], 'all') && keyword(ts[i], 'privileges')) i++;
+  if (!keyword(ts[i++], 'on') || !keyword(ts[i++], 'function')) fail();
+  const parsed = functionSignature(ts, i);
+  const revoked = functions.get(parsed.signature);
+  if (!revoked) fail();
+  i = parsed.end;
+  if (keyword(ts[0], 'grant')) {
+    if (!keyword(ts[i++], 'to') || !identifier(ts[i]) || ts[i++].value !== 'authenticated'
+        || i !== ts.length || !revoked.has('public') || !revoked.has('anon')) fail();
+  } else {
+    if (!keyword(ts[i++], 'from')) fail();
+    const roles = [];
+    while (i < ts.length) {
+      if (!identifier(ts[i]) || !['public', 'anon'].includes(ts[i].value)) fail();
+      roles.push(ts[i++].value);
+      if (i < ts.length && (!symbol(ts[i++], ',') || i === ts.length)) fail();
+    }
+    if (!roles.length || new Set(roles).size !== roles.length) fail();
+    roles.forEach(role => revoked.add(role));
+  }
+}
+
+export function validateSQL(sql, { mode, version, name, migrationSQL }) {
   if (!modes.includes(mode) || !/^[0-9]{14}$/.test(version) || !/^[a-z0-9][a-z0-9_]{0,80}$/.test(name)) fail();
   const lines = sql.trimEnd().split(/\r?\n/);
   if (!/^begin;$/i.test(lines[0].trim()) || !/^commit;$/i.test(lines.at(-1).trim())) fail();
   const ss = statements(tokens(sql));
   if (ss[0]?.length !== 1 || ss[0][0].value !== 'begin' || ss.at(-1)?.length !== 1 || ss.at(-1)[0].value !== 'commit') fail();
   let inserts = 0; let deletes = 0;
-  const targets = new Set();
+  const targets = new Set(); const functions = new Map();
+  let pairedFunctions;
   for (const ts of ss.slice(1, -1)) {
-    const flattened = flat(ts); const c = code(flattened); const text = c.join(' ');
+    const flattened = flat(ts); const c = code(flattened);
+    const root = code(ts);
+    if (keyword(ts[0], 'create') && (keyword(ts[1], 'function') || keyword(ts[1], 'or'))) {
+      if (mode === 'rollback') fail();
+      const signature = functionDefinition(ts);
+      if (functions.has(signature)) fail();
+      functions.set(signature, new Set());
+      continue;
+    }
+    if (['grant', 'revoke'].includes(root[0]) && (root.some(v => ['function', 'functions'].includes(v)) || root[1] === 'execute')) {
+      if (mode === 'rollback') fail();
+      functionPrivilege(ts, functions);
+      continue;
+    }
+    if (keyword(ts[0], 'drop') && keyword(ts[1], 'function')) {
+      if (mode !== 'rollback' || typeof migrationSQL !== 'string') fail();
+      checkRisks(ts);
+      let start = 2;
+      if (keyword(ts[start], 'if') && keyword(ts[start + 1], 'exists')) start += 2;
+      const parsed = functionSignature(ts, start);
+      if (parsed.end !== ts.length) fail();
+      pairedFunctions ??= new Set(validateSQL(migrationSQL, { mode: 'apply', version, name }).functions);
+      if (!pairedFunctions.has(parsed.signature)) fail();
+      continue;
+    }
     // Case-sensitive / Unicode escaped identifiers cannot be normalized into
     // reliable backup targets. Reject this unsupported syntax, rather than
     // backing up a different table or overlooking an escaped role name.
-    if (flattened.some(t => t.kind === 'quoted' && !/^[a-z_][a-z0-9_]*$/.test(t.value))
-        || /\bu &/.test(text)) fail();
-    if (flattened.some(t => /rtw_/i.test(t.value)) || /\b(drop (?:table|schema)|truncate|alter role|(?:create|alter|drop) extension)\b/.test(text)
-        || /\b(execute|call|copy|savepoint|release|reset|vacuum)\b/.test(text)
-        || /\b(?:disable|no force) row level security\b/.test(text)
-        || /\b(?:dblink\w*|lo_import|lo_export|pg_read_file|pg_read_binary_file|pg_ls_dir|set_config|nextval|setval)\b/.test(text)
-        || c.includes('cascade') && code(ts)[0] !== 'alter') fail();
+    checkRisks(ts);
     if (c[0] === 'grant' && c.slice(c.indexOf('to') + 1).some(v => ['anon', 'public', 'authenticated'].includes(v))) fail();
-    const root = code(ts);
     if (!['set', 'lock', 'do', 'alter', 'create', 'insert', 'update', 'delete', 'drop', 'grant', 'revoke'].includes(root[0])) fail();
     if (root[0] === 'set' && !(root[1] === 'local' && ['lock_timeout', 'statement_timeout'].includes(root[2]))) fail();
     if (root[0] === 'do') {
@@ -161,8 +343,11 @@ export function validateSQL(sql, { mode, version, name }) {
     }
   }
   if (mode === 'rollback' ? deletes !== 1 || inserts !== 0 : inserts !== 1 || deletes !== 0) fail();
+  // CREATE defaults to PUBLIC EXECUTE even if there is no explicit GRANT.
+  // Every definition must therefore revoke both client entry paths.
+  if ([...functions.values()].some(roles => !roles.has('public') || !roles.has('anon'))) fail();
   if (targets.size > 16) fail();
-  return { targets: [...targets].sort(), risks: '통과: 차단 목록·기록 일치·트랜잭션 경계 확인' };
+  return { targets: [...targets].sort(), functions: [...functions.keys()].sort(), risks: '통과: 차단 목록·기록 일치·트랜잭션 경계 확인' };
 }
 
 export function toDryRun(sql) {
@@ -230,7 +415,7 @@ export function prepareMigration({ mode, version, runId, root }) {
   const rollbackPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.rollback\\.sql$`), mode === 'rollback');
   if (rollbackPath && rollbackPath !== `docs/${version}_${name}.rollback.sql`) fail();
   const file = mode === 'rollback' ? safeFile(root, rollbackPath) : migration;
-  const validation = validateSQL(file.sql, { mode, version, name });
+  const validation = validateSQL(file.sql, { mode, version, name, migrationSQL: migration.sql });
   const summaryPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.summary\\.md$`), true);
   if (summaryPath !== `docs/${version}_${name}.summary.md`) fail();
   const summaryFile = safeFile(root, summaryPath, 4096);
