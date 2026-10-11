@@ -1,6 +1,6 @@
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=2';
 
-import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=1';
+import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=2';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, busy = false, epoch = 0;

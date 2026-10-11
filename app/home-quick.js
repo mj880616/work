@@ -1,7 +1,7 @@
 import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
 import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=1';
 import { createNote, validateNoteText } from './basket-data.js?v=2';
-import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=1';
+import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=2';
 import { dayKey } from './home-read-model.js?v=1';
 
 export function mountQuick({root, dependencies, refreshTasks, invalidateProjects, esc}) {
@@ -94,6 +94,7 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
     try{
       const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,onChange:()=>{if(isCurrent())paint();}}):await createNote({raw_text:text})):saveMode==='task'?await createGoogleTask({title:text,due:due||null,links:project?[{project_id:project}]:[]}):await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner});
       if(!isCurrent())return;
+      if(saveMode==='basket'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
       input.value='';expanded=false;paint();
       const toast=document.querySelector('#toast');toast.textContent=saveMode==='task'&&result?.link_error?'할 일은 추가됨, 프로젝트 연결 실패':saveMode==='basket'?'바구니에 저장했습니다.':saveMode==='task'?'할 일을 추가했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
       if(saveMode==='task')void refreshTasks();else choicesFlight=null;

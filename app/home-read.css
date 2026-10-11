@@ -297,3 +297,4 @@
 .home-quick [data-quick-new-note],.home-quick [data-basket-remove] { min-height:44px; }
 .home-quick .library-file-block { margin-bottom:0; }
 .home-quick .library-dropzone[aria-disabled="true"] { cursor:wait; opacity:.65; }
+.home-quick[data-mode="basket"] [data-goto="basket"] { margin-top:-4px; }

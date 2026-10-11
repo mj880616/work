@@ -72,11 +72,14 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
   return {ok:true,note_id:batch.note_id,attachments:batch.attachments};
 }
 export function mountBasketPicker(host, {id, getBatch, isBusy, onChange = () => {}, onError}) {
-  host.classList.add('library-file-block');
-  host.innerHTML = `<input id="${id}" class="library-file-input" type="file" multiple><label class="library-dropzone" for="${id}" tabindex="0" aria-label="바구니 파일 여러 개 선택 또는 끌어놓기"><strong class="library-picker-desktop">파일을 여기로 끌어다 놓거나 클릭하세요</strong><span class="library-picker-mobile library-picker-button">+ 파일 추가</span><span class="library-picker-hint">파일당 100MiB · 메모당 20개까지</span></label><div class="library-selected-files" data-basket-files aria-live="polite"></div>`;
+  host.classList.add('library-file-block', 'basket-file-block');
+  host.innerHTML = `<input id="${id}" class="library-file-input" type="file" multiple><label class="library-dropzone" for="${id}" tabindex="0" aria-label="바구니 파일 여러 개 선택 또는 끌어놓기"><strong class="library-picker-desktop">파일을 여기로 끌어다 놓거나 클릭하세요</strong><span class="library-picker-mobile library-picker-button">📎 파일 추가</span><span class="library-picker-hint">파일당 100MiB · 20개까지</span></label><div class="library-selected-files" data-basket-files aria-live="polite"></div>`;
   const input = host.querySelector('input'), zone = host.querySelector('label'), rows = host.querySelector('[data-basket-files]');
+  let renderedBatch;
   function render() {
-    const batch = getBatch(); input.disabled = isBusy() || !!batch.blocked;
+    const batch = getBatch();
+    if (batch !== renderedBatch) { input.value = ''; renderedBatch = batch; }
+    input.disabled = isBusy() || !!batch.blocked;
     zone.setAttribute('aria-disabled', String(input.disabled)); zone.tabIndex = input.disabled ? -1 : 0;
     rows.innerHTML = batch.entries.map((entry, index) => `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
   }

@@ -1,0 +1,14 @@
+{
+  "home": {
+    "pickerHeight": 68,
+    "zoneHeight": 56,
+    "inputToLink": 80,
+    "background": "rgb(247, 245, 238)",
+    "padding": "6px"
+  },
+  "detail": {
+    "pickerHeight": 68,
+    "zoneHeight": 56
+  },
+  "errors": []
+}
