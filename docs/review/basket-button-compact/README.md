@@ -1,6 +1,6 @@
 # 📱 폰 가능 — BASKET-버튼정리 검증
 
-Codex 웹·클라우드, 화면 전용 파일·PR 작업. 원격 `origin/main`을 새로 fetch한 실제 시작 SHA는 `2837b9b051db61ee427cee0afff700009acc5420`(#492 merge)다. 브랜치 `codex/basket-button-compact`. PR·최종 SHA·자동 CI 결과는 PR과 완료 보고에서 기록한다. merge는 커맨드센터에서 판단한다.
+Codex 웹·클라우드, 화면 전용 파일·PR 작업. 원격 `origin/main`을 새로 fetch한 실제 시작 SHA는 `2837b9b051db61ee427cee0afff700009acc5420`(#492 merge)다. 브랜치 `codex/basket-button-compact`, 연결 GitHub 도구로 [PR #493](https://github.com/mj880616/work/pull/493) 생성. 최종 SHA·자동 CI 결과는 PR과 완료 보고에서 기록한다. merge는 커맨드센터에서 판단한다.
 
 기존 `#basketView button`은 모든 버튼을 최소 44px·본문 16px·8px 모서리로 그렸다. 홈 빠른 입력 모드는 30px·12px·알약 모서리였다. `home-quick.js`의 마크업은 그대로 두고 `home-read.css`의 모드 묶음·선택 상태·글자 링크 선언 네 개를 `app/quick-controls.css`로 옮겼다. 홈과 바구니 CSS가 같은 파일을 import한다. 홈 선택자·선언은 보존했다.
 
