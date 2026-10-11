@@ -1,11 +1,10 @@
-const DAY = 86400000,
-  KST = 9 * 3600000;
-export const dayKey = (now = Date.now()) =>
-  new Date(now + KST).toISOString().slice(0, 10);
+import {seoulDateKey,seoulParts} from './meeting-time.js?v=2';
+const DAY = 86400000;
+export const dayKey = (now = Date.now()) => seoulDateKey(now);
 export function ranges(now = Date.now()) {
   const today = dayKey(now),
     start = Date.parse(today + "T00:00:00+09:00");
-  const weekday = new Date(start + KST).getUTCDay(),
+  const weekday = seoulParts(start).weekday,
     monday = start - ((weekday + 6) % 7) * DAY;
   return {
     today,

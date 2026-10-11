@@ -1,4 +1,4 @@
-import {formatMeetingTime,meetingInputValue,toMeetingISO} from './meeting-time.js?v=1';
+import {formatMeetingTime,meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js?v=2';
 let mrdUploadEntries=[],mrdUploading=false;
 window.addEventListener('kptu:before-reload',event=>{if(mrdUploadEntries.some(entry=>entry.kind!=='success')&&!document.querySelector('#meetingRoundDetailModal')?.classList.contains('hidden'))event.detail.otherDraft=true});
 let mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrdCurrent=null,mrdTasks=[],mrdEditingTask=null,mrdRequestEpoch=0,mrdSavingTask=false,mrdSavingEdit=false;const mrdTaskToggleSeq=new Map();
@@ -6,7 +6,7 @@ async function mrdApi(path,options={}){const rt=window.KPTURuntime;if(!rt?.api)t
 function mrdEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 const mrdFmt=v=>formatMeetingTime(v,{year:'numeric'});
 const mrdDateValue=meetingInputValue;
-function mrdDueDateValue(v){if(!v)return'';const s=String(v),m=s.match(/^(\d{4}-\d{2}-\d{2})/);if(m)return m[1];const d=new Date(v);if(Number.isNaN(d.getTime()))return'';const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
+function mrdDueDateValue(v){if(!v)return'';const s=String(v),m=s.match(/^(\d{4}-\d{2}-\d{2})/);if(m)return m[1];const d=new Date(v);if(Number.isNaN(d.getTime()))return'';const p=n=>String(n).padStart(2,'0');return seoulDateKey(d)}
 const mrdTaskEndpoint=action=>'/functions/v1/google-tasks?action='+encodeURIComponent(action);
 const mrdTaskLinks=meeting=>[{meeting_id:meeting.id},...(meeting.project_id?[{project_id:meeting.project_id}]:[])];
 async function mrdReadTasks(meetingId){

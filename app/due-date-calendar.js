@@ -1,3 +1,4 @@
+import {seoulDateKey} from './meeting-time.js?v=2';
 (()=>{
   if(window.__KPTU_DUE_DATE_CALENDAR__)return;
   window.__KPTU_DUE_DATE_CALENDAR__=true;
@@ -10,7 +11,7 @@
     const d=new Date(v);
     if(Number.isNaN(d.getTime()))return '';
     const p=n=>String(n).padStart(2,'0');
-    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+    return seoulDateKey(d);
   }
 
   function isDueInput(el){

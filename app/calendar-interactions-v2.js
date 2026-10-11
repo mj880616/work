@@ -1,10 +1,11 @@
+import {seoulInputValue,seoulDateKey,seoulClock,seoulDayStart,addSeoulDays,seoulDate,toSeoulISO} from './meeting-time.js?v=2';
 let ciGoogleCurrent=null,ciGoogleSavePending=false,ciGoogleOpenSeq=0,ciGoogleReadySeq=0,ciGoogleOwner=null;
 function ciRuntime(){const rt=window.KPTURuntime;if(!rt?.session||!rt?.api)throw new Error('앱 런타임을 불러오지 못했습니다.');return rt}
 async function ciGoogleCall(action,{method='GET',body=null,params=null}={}){const rt=ciRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
 function ciPad(n){return String(n).padStart(2,'0')}
-function ciLocal(v){if(!v)return '';const d=new Date(v);return `${d.getFullYear()}-${ciPad(d.getMonth()+1)}-${ciPad(d.getDate())}T${ciPad(d.getHours())}:${ciPad(d.getMinutes())}`}
-function ciParts(v){const d=new Date(v);return {date:`${d.getFullYear()}-${ciPad(d.getMonth()+1)}-${ciPad(d.getDate())}`,time:`${ciPad(d.getHours())}:${ciPad(d.getMinutes())}`}}
-function ciMinusDay(v){const d=new Date(String(v)+'T00:00:00');d.setDate(d.getDate()-1);return `${d.getFullYear()}-${ciPad(d.getMonth()+1)}-${ciPad(d.getDate())}`}
+function ciLocal(v){return seoulInputValue(v)}
+function ciParts(v){return {date:seoulDateKey(v),time:seoulClock(v)}}
+function ciMinusDay(v){return seoulDateKey(addSeoulDays(seoulDayStart(v),-1))}
 function ciStatus(id,msg,err=false){const e=document.querySelector(id);if(e){e.textContent=msg||'';e.className='status'+(err?' error':'')}}
 function ciToast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(ciToast.t);ciToast.t=setTimeout(()=>t.classList.add('hidden'),2200)}
 function ciOpen(id){const m=document.querySelector(id);if(m){m.classList.remove('hidden');m.setAttribute('aria-hidden','false')}}
@@ -66,7 +67,7 @@ async function ciSaveGoogle(){
   const target=document.querySelector('#ciGoogleCalendar').value;
   if(!current.recurring&&target&&target!==current.calendarId)body.target_calendar_id=target;
   if(color?.touched)body.color_hex=color.hex;
-  if(!allDay){const st=document.querySelector('#ciGoogleStartTime').value,et=document.querySelector('#ciGoogleEndTime').value;if(!st||!et)return ciStatus('#ciGoogleStatus','시작 시간과 종료 시간을 입력해 주세요.',true);const s=new Date(startDate+'T'+st),e=new Date(endDate+'T'+et);if(e<=s)return ciStatus('#ciGoogleStatus','종료 시각은 시작 시각보다 뒤여야 합니다.',true);body.start_iso=s.toISOString();body.end_iso=e.toISOString()}
+  if(!allDay){const st=document.querySelector('#ciGoogleStartTime').value,et=document.querySelector('#ciGoogleEndTime').value;if(!st||!et)return ciStatus('#ciGoogleStatus','시작 시간과 종료 시간을 입력해 주세요.',true);const s=new Date(toSeoulISO(startDate+'T'+st)),e=new Date(toSeoulISO(endDate+'T'+et));if(e<=s)return ciStatus('#ciGoogleStatus','종료 시각은 시작 시각보다 뒤여야 합니다.',true);body.start_iso=s.toISOString();body.end_iso=e.toISOString()}
   body.organization_ids=window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__?.()||current.organizationIds||[];
   const b=document.querySelector('#ciGoogleSave'),label=b.textContent;
   ciGoogleSavePending=true;b.disabled=true;b.textContent='저장 중…';b.setAttribute('aria-busy','true');document.querySelector('#ciGoogleDelete').disabled=true;
@@ -91,7 +92,7 @@ async function ciSaveGoogle(){
   finally{ciGoogleSavePending=false;const ready=document.querySelector('#ciGoogleModal').classList.contains('hidden')||(!!ciGoogleCurrent&&ciGoogleReadySeq===ciGoogleOpenSeq&&ciGoogleOwner===ciRuntime().session.read()?.user?.id);b.disabled=!ready;b.textContent=label;b.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=!ready}
 }
 async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!confirm('이 Google 일정을 삭제할까요?'))return;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
-function ciClickedDate(cell){const m=String(cell?.dataset?.date||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;const d=new Date(+m[1],+m[2]-1,+m[3],9,0,0,0);return Number.isFinite(d.getTime())?d:null}
+function ciClickedDate(cell){const m=String(cell?.dataset?.date||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;const d=seoulDate(+m[1],+m[2]-1,+m[3],9);return Number.isFinite(d.getTime())?d:null}
 function ciCreateAt(d){const btn=document.querySelector('#newEventBtn');if(!btn)return;btn.click();const finish=new Date(d.getTime()+3600000),sp=ciParts(d),ep=ciParts(finish);const allDay=document.querySelector('#eventAllDay');if(allDay){allDay.checked=false;allDay.dispatchEvent(new Event('change',{bubbles:true}))}if(document.querySelector('#eventStartDate'))document.querySelector('#eventStartDate').value=sp.date;if(document.querySelector('#eventStartTime'))document.querySelector('#eventStartTime').value=sp.time;if(document.querySelector('#eventEndDate'))document.querySelector('#eventEndDate').value=ep.date;if(document.querySelector('#eventEndTime'))document.querySelector('#eventEndTime').value=ep.time;queueMicrotask(()=>document.querySelector('#eventTitle')?.focus())}
 ciInject();
 document.addEventListener('click',e=>{const g=e.target.closest?.('.cp-event[data-google-event]');if(g){e.preventDefault();e.stopImmediatePropagation();ciCloseDay(()=>ciOpenGoogle(g.dataset.googleEvent,g.dataset.googleCalendar));return}const cell=e.target.closest?.('#calendarGrid .cal-cell, #calendarWeek .cwv-day');if(!cell||window.KPTUCalendarMonthView?.suppressClick?.()||e.target.closest?.('.cal-event,.kptu-day-more,.cmv-date-list,.cmv-task-count,a,input,select,textarea'))return;const d=ciClickedDate(cell);if(d){e.preventDefault();e.stopPropagation();ciCreateAt(d)}},true);

@@ -1,3 +1,4 @@
+import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js?v=2';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
@@ -12,15 +13,14 @@
 
   const pad=n=>String(n).padStart(2,'0');
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const key=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const dateOnly=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?new Date(+m[1],+m[2]-1,+m[3],0,0,0,0):new Date(v)};
-  const dayStart=v=>{const d=v instanceof Date?new Date(v):dateOnly(v);d.setHours(0,0,0,0);return d};
+  const key=seoulDateKey;
+  const dateOnly=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?new Date(v+'T00:00:00+09:00'):new Date(v);
+  const dayStart=seoulDayStart;
   const dayDiff=(a,b)=>Math.round((dayStart(a)-dayStart(b))/DAY_MS);
   function visibleRange(year,month){
-    const first=new Date(year,month,1),start=new Date(first),days=new Date(year,month+1,0).getDate();
-    start.setDate(1-first.getDay());start.setHours(0,0,0,0);
-    const weeks=Math.max(5,Math.min(6,Math.ceil((first.getDay()+days)/7)));
-    const end=new Date(start);end.setDate(start.getDate()+weeks*7);
+    const first=seoulDate(year,month),weekday=seoulParts(first).weekday,start=addSeoulDays(first,-weekday),days=seoulParts(seoulDate(year,month+1,0)).day;
+    const weeks=Math.max(5,Math.min(6,Math.ceil((weekday+days)/7)));
+    const end=addSeoulDays(start,weeks*7);
     return {start,end,weeks,days:weeks*7};
   }
   function textColor(hex){
@@ -32,7 +32,9 @@
     if(!end)return new Date(start);
     const d=dateOnly(end);
     if(d<=start)return new Date(start);
-    if(allDay||(!d.getHours()&&!d.getMinutes()&&!d.getSeconds()&&!d.getMilliseconds()))return new Date(d.getTime()-1);
+    if(!Number.isFinite(d.getTime()))return d;
+    const p=seoulParts(d);
+    if(allDay||(!p.hour&&!p.minute&&!p.second&&!d.getUTCMilliseconds()))return new Date(d.getTime()-1);
     return d;
   }
   function googleColor(ev,state){
@@ -94,8 +96,8 @@
   function segmentWeeks(events,range){
     const result=[];
     for(let w=0;w<range.weeks;w++){
-      const ws=new Date(range.start);ws.setDate(range.start.getDate()+w*7);
-      const we=new Date(ws);we.setDate(ws.getDate()+6);we.setHours(23,59,59,999);
+      const ws=addSeoulDays(range.start,w*7);
+      const we=new Date(addSeoulDays(ws,7).getTime()-1);
       const segments=[];
       for(const ev of events){
         if(ev.end<ws||ev.start>we)continue;
@@ -144,7 +146,7 @@
   }
   function timeLabel(ev){
     if(ev.allDay)return '';
-    return `${pad(ev.start.getHours())}:${pad(ev.start.getMinutes())}`;
+    return seoulClock(ev.start);
   }
   function eventButton(seg){
     const ev=seg.ev;
@@ -164,7 +166,7 @@
     return b;
   }
   function dayEvents(events,date){
-    const s=dayStart(date),e=new Date(s);e.setHours(23,59,59,999);
+    const s=dayStart(date),e=new Date(addSeoulDays(s,1).getTime()-1);
     return events.filter(ev=>ev.start<=e&&ev.end>=s).sort(eventSort);
   }
   function allEvents(options){
@@ -199,17 +201,17 @@
       const wrap=document.createElement('div');wrap.className='cmv-week';wrap.dataset.weekStart=key(week.start);wrap.dataset.laneCap=String(lanes);wrap.dataset.laneCount=String(week.laneCount);
       const dayGrid=document.createElement('div');dayGrid.className='cmv-week-days';
       for(let i=0;i<7;i++){
-        const date=new Date(week.start);date.setDate(week.start.getDate()+i);
+        const date=addSeoulDays(week.start,i);
         const dkey=key(date),pending=pendingByDate.get(dkey)||[],split=mq760.matches||pending.length>0,cell=document.createElement(split?'div':'button');
         if(!split)cell.type='button';
-        cell.className='cal-cell'+(date.getMonth()===month?'':' other')+(dkey===key(new Date())?' today':'');
-        cell.dataset.date=dkey;cell.setAttribute('aria-label',date.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
-        const day=document.createElement('span');day.className='cal-day';day.textContent=String(date.getDate());
+        cell.className='cal-cell'+(seoulParts(date).month===month?'':' other')+(dkey===key(new Date())?' today':'');
+        cell.dataset.date=dkey;cell.setAttribute('aria-label',formatSeoulTime(date,{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
+        const day=document.createElement('span');day.className='cal-day';day.textContent=String(seoulParts(date).day);
         if(split){
           const create=document.createElement('button');create.type='button';create.className='cmv-date-create';create.setAttribute('aria-label',cell.getAttribute('aria-label'));
           if(mq760.matches){
             const list=document.createElement('button');list.type='button';list.className='cmv-date-list';list.dataset.date=dkey;
-            list.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 목록 보기`);
+            list.setAttribute('aria-label',`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 목록 보기`);
             list.appendChild(day);
             list.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
             cell.append(create,list);
@@ -256,8 +258,8 @@
       });
       hidden.forEach((count,col)=>{
         if(!count)return;
-        const date=new Date(week.start);date.setDate(week.start.getDate()+col);
-        const more=document.createElement('button');more.type='button';more.className='kptu-day-more';more.dataset.date=key(date);more.textContent=`+${count}`;more.style.gridColumn=String(col+1);more.style.gridRow=String(dayCaps[col]+1);more.setAttribute('aria-label',`${date.getMonth()+1}월 ${date.getDate()}일 일정 ${count}개 더 보기`);
+        const date=addSeoulDays(week.start,col);
+        const more=document.createElement('button');more.type='button';more.className='kptu-day-more';more.dataset.date=key(date);more.textContent=`+${count}`;more.style.gridColumn=String(col+1);more.style.gridRow=String(dayCaps[col]+1);more.setAttribute('aria-label',`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 일정 ${count}개 더 보기`);
         more.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.KPTUCalendarDayOverflow?.open?.(date,dayEvents(events,date))});
         layer.appendChild(more);
       });

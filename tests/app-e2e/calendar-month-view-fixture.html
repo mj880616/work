@@ -39,8 +39,8 @@
   window.KPTUA11y={dialog:{activate:()=>{},deactivate:()=>{}}};
 </script>
 <script src="/app/mobile-swipe-navigation.js"></script>
-<script src="/app/calendar-month-view.js"></script>
-<script src="/app/calendar-day-overflow.js"></script>
+
+
 <script>
   document.querySelector('#newEventBtn').addEventListener('click',()=>{
     const modal=document.querySelector('#eventModal');
@@ -49,8 +49,11 @@
   });
 </script>
 <script type="module" src="/app/calendar-plus.js"></script>
-<script src="/app/calendar-interactions-v2.js"></script>
-<script>
+
+<script type="module">
+  import '/app/calendar-month-view.js';
+  import '/app/calendar-day-overflow.js';
+  import '/app/calendar-interactions-v2.js';
   window.__googleState={colors:{'cal-a':'#4285f4','cal-b':'#0b8043'},calendars:[{id:'cal-a',backgroundColor:'#4285f4'},{id:'cal-b',backgroundColor:'#0b8043'}]};
   window.__googleEvents=[
     {id:'app-1',source:'google',calendarId:'cal-a',title:'Google 긴 일정 제목이 셀 너비를 넘는 경우 말줄임 확인',start:'2026-09-03T09:00:00+09:00',end:'2026-09-03T10:00:00+09:00',allDay:false,color:null},
