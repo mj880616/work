@@ -1,6 +1,6 @@
 # UI-한국시간 검토 자료
 
-📱 폰 가능 — Codex 웹. 시작 origin/main `74e54ae6043bc0dcf5f285d624ea22b8f16dbd61`(새 fetch로 확인, #496 포함). 브랜치 `codex/ui-seoul-time`. PR 번호와 최종 SHA·자동 CI 결과는 PR 완료보고 댓글에 기록한다.
+📱 폰 가능 — Codex 웹. 시작 origin/main `74e54ae6043bc0dcf5f285d624ea22b8f16dbd61`(새 fetch로 확인, #496 포함). 브랜치 `codex/ui-seoul-time`. [PR #498](https://github.com/mj880616/work/pull/498). 최종 SHA·자동 CI 결과는 PR 완료보고 댓글에 기록한다.
 
 2026-10-11 사용자 결정대로 Web2의 날짜·일시를 Asia/Seoul 기준으로 표시하고 입력한다. `meeting-time.js`를 확장했으며 기존 회의 함수는 같은 공용 구현의 별칭이다. 새 공용 모듈은 만들지 않았다. 날짜만 있는 종일 일정과 Google 할 일 기한은 날짜 문자열의 의미를 유지한다.
 
@@ -58,7 +58,7 @@
 - 시작 main Node: **513/513 통과**. 신규 테스트는 수정 전에 실패를 확인했다.
 - 전체 Node 명령: `node --test tests/*.test.mjs tests/domain/*.test.mjs tests/security/*.test.mjs scripts/*.test.mjs`. **520/520 통과**(서버 접속 없이 실행 가능한 전체 Node 단위·도메인·보안·scripts).
 - 신규 E2E **18/18 통과**: `ui-seoul-time.spec.mjs`, 기기 Asia/Seoul·Europe/Rome·America/Los_Angeles × 390/1280px. 날짜 칸·오늘·요일·00:30/23:30·종일·월 경계·자정 배타적 종료·정확한 월/주/목록 조회 범위·새 저장/재열기/수정 왕복·프로젝트 주요 일정/기록/오늘·회의·홈. 외부 요청 전부 합성 응답으로 처리, 정상 흐름 console/pageerror 0을 각 테스트에서 요구.
-- 전체 Chromium 회귀 **1,190건 실행 중**. 최종 결과와 실패 재현 여부는 완료보고에 갱신한다. 기존 테스트 삭제·약화 없음. classic-script fixture는 활성 앱과 같은 module 로딩으로 맞췄다.
+- 전체 Chromium 회귀 대상 **1,190건**. 최종 SHA의 전체 실행 결과와 실패 재현 여부는 [PR #498 Checks](https://github.com/mj880616/work/pull/498/checks)와 완료보고 댓글에 기록한다. 기존 테스트 삭제·약화 없음. classic-script fixture는 활성 앱과 같은 module 로딩으로 맞췄다.
 - 자동 CI는 PR 이벤트로 실행되는 검사만 확인한다. workflow 수동 실행 없음. 최종 SHA 전체 브라우저 결과 확인 전에는 완료로 보고하지 않는다.
 - smoke inline 블록 **13/13 통과**, JavaScript 문법·로컬 HTTP 자산 포함. 캐시 검사 `node scripts/check-loader-cache.mjs --base 74e54ae6043bc0dcf5f285d624ea22b8f16dbd61`: **423 참조 통과**. 공백 검사 통과.
 - 독립 리뷰에서 잘못된 종료값 필터의 예외를 발견해 실패 테스트 → 수정 → 통과를 확인했다. 날짜 문자열이 잘못된 경우도 포함한다. 범위 mock과 월/주/목록 끝값·자정 종료 검증을 강화했다.
