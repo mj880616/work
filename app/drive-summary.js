@@ -4,6 +4,7 @@
   const rt=window.KPTURuntime;
   const WAIT_MS=4000;
   const fields={
+    app_notes:['raw_text','occurred_at','updated_at','archived_at','ai_export_allowed','attachments'],
     app_suborganizations:['name','recent_month_summary'],
     app_suborganization_updates:['organization_id','raw_text','occurred_at'],
     app_spaces:['name','parent_id','status','sort_order','metadata'],
@@ -14,7 +15,7 @@
     app_record_links:['project_id','google_task_id','task_completed','status'],
     app_documents:['project_id']
   };
-  const stages=new Set(['METHOD_NOT_ALLOWED','SERVER_CONFIG_MISSING','UNAUTHORIZED','AUTH_UNAVAILABLE','WORKSPACE_UNAVAILABLE','FORBIDDEN','DB_READ_FAILED','DB_READ_LIMIT','DRIVE_CONFIG_MISSING','DRIVE_TOKEN_FAILED','DRIVE_DISCOVERY_FAILED','DRIVE_DUPLICATE_MARKERS','DRIVE_PERMISSION_CHECK_FAILED','DRIVE_PUBLIC_SHARING_FOUND','DRIVE_FOLDER_CREATE_FAILED','DRIVE_UPLOAD_FAILED','DRIVE_STATUS_WRITE_FAILED','SUMMARY_FAILED']);
+  const stages=new Set(['METHOD_NOT_ALLOWED','SERVER_CONFIG_MISSING','UNAUTHORIZED','AUTH_UNAVAILABLE','WORKSPACE_UNAVAILABLE','FORBIDDEN','DB_READ_FAILED','DB_READ_LIMIT','DRIVE_CONFIG_MISSING','DRIVE_TOKEN_FAILED','DRIVE_DISCOVERY_FAILED','DRIVE_DUPLICATE_MARKERS','DRIVE_PERMISSION_CHECK_FAILED','DRIVE_PUBLIC_SHARING_FOUND','DRIVE_FOLDER_CREATE_FAILED','DRIVE_UPLOAD_FAILED','DRIVE_STATUS_WRITE_FAILED','SUMMARY_FAILED','BASKET_ATTACHMENT_INVALID','BASKET_OUTPUT_LIMIT']);
   let timer=null,flight=null,dirty=false,manualPending=false,generation=0,result=null;
   function owner(){
     const c=rt.context.read(),s=rt.session.read();
@@ -33,6 +34,7 @@
       // update/toggle/delete synchronize or remove the DB completion/link copy.
       return ['update','toggle','delete'].includes(action)||(['create','link','unlink'].includes(action)&&saved.projectLinked);
     }
+    if(path.pathname==='/functions/v1/basket-files')return true;
     // These successful uploads/deletions change the project document count.
     return ['/functions/v1/library-files','/functions/v1/meeting-files'].includes(path.pathname)&&saved.projectLinked;
   }

@@ -62,6 +62,9 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
       if (!result?.ok || typeof result.note_id !== 'string' || !result.note_id || !Array.isArray(result.attachments) || (batch.note_id && result.note_id !== batch.note_id)) throw uploadError(UNKNOWN, 'note_save_result_unknown');
       batch.note_id = result.note_id; batch.attachments = result.attachments;
       entry.kind = 'success'; entry.label = '완료'; entry.file = {name:entry.file.name,size:entry.file.size};
+      // Multipart uses native fetch, so publish the same safe event as runtime.api
+      // only after response, note ID and current input session validation succeed.
+      try { globalThis.window?.dispatchEvent(new CustomEvent('kptu:api-saved', {detail:{path:'/functions/v1/basket-files',method:'POST',fields:['attachments'],action:'',projectLinked:false}})); } catch { /* A subscriber cannot turn a saved attachment into a failed upload. */ }
       onChange();
     } catch (e) {
       const error = failure(e); entry.kind = 'error'; entry.label = '실패';

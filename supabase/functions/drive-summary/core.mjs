@@ -1,4 +1,6 @@
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
+import { basketState, renderBasket, BASKET_LIMITS } from './basket.mjs';
+export { basketState, BASKET_LIMITS };
 const WORKSPACE = 'kptu-work';
 const DAY = 86400000, KST = 9 * 3600000, PAGE = 500;
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
@@ -38,7 +40,7 @@ export function kstWindow(now) {
 function kstText(value) {
   return new Date(new Date(value).getTime() + KST).toISOString().slice(0, 16).replace('T', ' ');
 }
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])).replace(/\r?\n/g, '<br>');
 }
 const paragraph = text => `<p>${escapeHtml(text)}</p>`;
@@ -91,7 +93,19 @@ export function renderDocuments(data, now) {
     project.push(paragraph(`${m.series_name || m.title || '회의'} · ${kstText(m.meeting_at)} (KST) · ${m.round_no == null ? '회차 미지정' : `${m.round_no}회차`} · ${names.get(m.project_id) || '연결 프로젝트 없음'}`));
   }
   if (!data.meetings.length) project.push(paragraph('최근 4주 회의 없음'));
-  return { org: wrap(TITLES.org, org), project: wrap(TITLES.project, project) };
+  const basket = renderBasket(data.notes || [], data.noteLinks || [], projects, data.organizations, now, window);
+  const orgHtml = wrap(TITLES.org, org);
+  const projectHtml = wrap(TITLES.project, [...project, basket.html]);
+  const overLimit = basket.overLimit || new TextEncoder().encode(projectHtml).length > BASKET_LIMITS.documentBytes;
+  if (!overLimit) return { org: orgHtml, project: projectHtml };
+  const notice = paragraph('대상 축소 필요: 바구니 출력 상한 초과. 이번 갱신의 바구니 원문은 내보내지 않았습니다. 이전 갱신 성공으로 처리하지 않습니다.');
+  let failureHtml = wrap(TITLES.project, [...project, basket.diagnostic]).replace('<body>\n', `<body>\n${notice}\n`);
+  // Even the pre-existing project sections can exceed the document budget.
+  // Publish a diagnostic copy, never a truncated set of originals.
+  if (new TextEncoder().encode(failureHtml).length > BASKET_LIMITS.documentBytes) {
+    failureHtml = wrap(TITLES.project, [paragraph('기존 프로젝트 절을 포함한 문서 크기가 상한을 넘었습니다.'), basket.diagnostic]).replace('<body>\n', `<body>\n${notice}\n`);
+  }
+  return { org: orgHtml, project: failureHtml, basketError: 'BASKET_OUTPUT_LIMIT' };
 }
 class SummaryError extends Error {
   constructor(code, status = 502) { super(code); this.status = status; }
@@ -168,7 +182,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
     const timeParams = (columns, scopeParams, column, start, end) => [
       ['select', columns], ...Object.entries(scopeParams), [column, `gte.${start}`], [column, `lte.${end}`],
     ];
-    const [organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings] = await Promise.all([
+    const [organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, notes, noteLinks, meetings] = await Promise.all([
       dbRows('app_suborganizations', { select: 'id,name,recent_month_summary', ...scope }),
       dbRows('app_suborganization_updates', timeParams('id,organization_id,raw_text,occurred_at,organization:app_suborganizations!organization_id!inner(workspace_id)', { 'organization.workspace_id': `eq.${workspaceId}` }, 'occurred_at', window.start, window.end)),
       dbRows('app_spaces', { select: 'id,parent_id,name,status,sort_order,project_system:metadata->>project_system,management_version:metadata->>management_version', ...scope }),
@@ -177,10 +191,12 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       dbRows('app_project_milestones', { select: projectSelect('id,project_id,title,start_at'), ...projectScope, start_at: `gte.${window.start}` }),
       dbRows('app_record_links', { select: 'id,project_id', ...scope, project_id: 'not.is.null', google_task_id: 'not.is.null', task_completed: 'eq.false', status: 'eq.confirmed' }),
       dbRows('app_documents', { select: 'id,project_id', ...scope, project_id: 'not.is.null' }),
+      dbRows('app_notes', { select: 'id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments', ...scope, archived_at: 'is.null', ai_export_allowed: 'eq.true', occurred_at: `lte.${window.end}` }),
+      dbRows('app_record_links', { select: 'id,note_id,status', ...scope, note_id: 'not.is.null' }),
       // Strict metadata allowlist: transcript_text/notes/decisions are never selected.
       dbRows('app_meetings', timeParams('id,series_name,title,meeting_at,round_no,project_id', scope, 'meeting_at', window.start, window.end)),
     ]);
-    return { organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings };
+    return { organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings, notes, noteLinks };
   }
   async function accessToken() {
     const configs = await dbRows('public_policy_drive_config', { select: 'google_client_id,google_client_secret,google_refresh_token', id: 'eq.1' });
@@ -262,12 +278,13 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       // Sequential uploads make partial failure explicit; last_success only after both + checks.
       for (const kind of ['org', 'project']) documents[kind] = await replaceDocument(token, folder, kind, html[kind]);
       await assertPrivate(token, folder.id);
+      if (html.basketError) throw new SummaryError(html.basketError);
       const updatedAt = at.toISOString(); // Matches the timestamp at the top of both copies.
       await recordStatus(token, folder, { last_success_at: updatedAt });
       return json({ ok: true, updated_at: updatedAt, documents });
     } catch (error) {
       // Only controlled stage codes leave the server. Upstream text may contain secrets/content.
-      const code = error instanceof SummaryError ? error.message : 'SUMMARY_FAILED';
+      const code = error instanceof SummaryError ? error.message : error?.message === 'BASKET_ATTACHMENT_INVALID' ? 'BASKET_ATTACHMENT_INVALID' : 'SUMMARY_FAILED';
       const status = error instanceof SummaryError ? error.status : 502;
       let failureRecorded = false;
       if (token && folder) {

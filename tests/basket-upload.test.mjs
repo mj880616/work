@@ -58,3 +58,14 @@ test('multipart text character preflight accounts for canonical CRLF before maki
  await assert.rejects(m.uploadBatch(b,{raw_text:'가'.repeat(19999)+'\n',rt:{copyUploadFile:async()=>copies++}}),/20,000/);assert.equal(copies,0);
  await m.uploadBatch(b,{raw_text:'가'.repeat(19998)+'\n',rt,request:async()=>({ok:true,note_id:'n',attachments:[]})});assert.equal(b.entries[0].kind,'success');
 });
+test('only validated current basket upload successes publish safe summary refresh metadata',async()=>{
+ const m=await mod,events=[];globalThis.window={dispatchEvent:event=>events.push(event.detail)};
+ try{
+  const b=await batch([file('one'),file('two')],'n');await m.uploadBatch(b,{rt,request:async()=>({ok:true,note_id:'n',attachments:[]})});
+  assert.equal(events.length,2);assert.deepEqual(events[0],{path:'/functions/v1/basket-files',method:'POST',fields:['attachments'],action:'',projectLinked:false});
+  for(const result of [{ok:false},{ok:true,note_id:'other',attachments:[]},{ok:true,note_id:'n'}])await assert.rejects(m.uploadBatch(await batch([file('private')],'n'),{rt,request:async()=>result}));
+  assert.equal(events.length,2);
+  let current=true;await assert.rejects(m.uploadBatch(await batch([file('private')],'n'),{rt,isCurrent:()=>current,request:async()=>{current=false;return {ok:true,note_id:'n',attachments:[]};}}));assert.equal(events.length,2);
+  window.dispatchEvent=()=>{throw Error('subscriber');};await m.uploadBatch(await batch([file('private')],'n'),{rt,request:async()=>({ok:true,note_id:'n',attachments:[]})});
+ }finally{delete globalThis.window;}
+});
