@@ -1,6 +1,6 @@
 # UI-필터알약 검토 자료
 
-📱 폰 가능 — Codex 웹·클라우드. 시작 `origin/main`: `2837b9b051db61ee427cee0afff700009acc5420`. 브랜치 `codex/ui-filter-chips`.
+📱 폰 가능 — Codex 웹·클라우드. 시작 `origin/main`: `2837b9b051db61ee427cee0afff700009acc5420`. 브랜치 `codex/ui-filter-chips`. [PR #494](https://github.com/mj880616/work/pull/494).
 
 회의명·자료 종류·프로젝트 목록 필터가 공용 `renderFilterChips`를 사용한다. 홈의 기존 30px·12px 알약 선언을 `quick-controls.css`로 옮겨 재사용했다. 알약 줄은 줄바꿈 없이 가로 스크롤되며 44px 터치 영역, radiogroup/aria-checked, 좌우·Home/End·Enter/Space, 포커스 표시와 선택 항목 자동 노출을 제공한다. 하위 프로젝트는 26px 작은 알약이며 터치 영역은 44px다.
 
