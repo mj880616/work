@@ -45,7 +45,7 @@ Migration version **`20261011180000`**, name **`basket4a_confirm_links`**.
 - 기존 plan 검사가 SELECT FOR UPDATE를 수정문으로 오인했다. 바로 앞 FOR가 있는 UPDATE만 행 잠금으로 구별하는 최소 수정과 회귀 테스트를 추가했다. 뒤에 실제 UPDATE/DELETE가 오면 각각 자신의 WHERE를 요구하는 기존 검사는 유지한다.
 - 설치된 `/usr/bin/chromium`, Playwright 1.55.0, 390/1280px. 바구니/첨부/Drive 사본과 버전 기대값을 포함한 관련 회귀 136/136. 마지막 화면 수정·추가 지연응답/터치 테스트 7/7도 별도 통과했다.
 - 정상/성공 흐름의 콘솔 오류·pageerror 0. 함수 없음 테스트는 404를 명시적으로 주입하므로 Chromium 자체 네트워크 콘솔 메시지 1개가 생긴다. 이를 숨기지 않고 정확히 예상한 404 한 개인지 검증한다. 앱 예외나 다른 콘솔 오류는 없다.
-- app JS 구문·`git diff --check`·actionlint·재귀 캐시 검사 통과. 캐시: basket.js 6, basket.css 4, 새 분류 모듈 1, drive-summary.js 5 → view-loader.js 118 → loader-v2.js 351 → app.js 239/index.html. 고정 버전 기대 테스트와 app-smoke-check.yml도 같은 PR에서 변경한다.
+- app JS 구문·`git diff --check`·actionlint·저장소 감사·재귀 캐시 검사 통과. 자동 CI 감사가 새 테스트의 직접 저장소 조회를 잡아 기존 바구니 테스트의 CDP 읽기 방식으로 바꿨고, 감사 허용 목록은 넓히지 않았다. 캐시: basket.js 6, basket.css 4, 새 분류 모듈 1, drive-summary.js 5 → view-loader.js 118 → loader-v2.js 351 → app.js 239/index.html. 고정 버전 기대 테스트와 app-smoke-check.yml도 같은 PR에서 변경한다.
 - 독립 리뷰 후 소유 프로젝트 필터·보관된 일반 부모·metadata 버전 문자열을 수정했다. 재리뷰 중요 지적 없음. 기존 테스트 삭제·약화 없음.
 
 CI 결과·최종 SHA·PR 번호는 PR과 채팅 완료 보고에서 기록한다. 원장 BASKET-4를 4a 진행중/4b 대기로 분리하고 OPS-DB함수허용은 #487 merge 완료로 정리한다.

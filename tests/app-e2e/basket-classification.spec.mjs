@@ -45,7 +45,7 @@ for(const width of [390,1280]){
 }
 test('classification input changes invalidate selection; session change clears private proposal and late preview',async({page})=>{
  const f=await fixture(page);await open(page);await preview(page);await page.locator('[data-classification-choice]:enabled').first().check();await page.locator('[data-classification-input]').fill('PRIVATE_PROPOSAL_DRAFT');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();await expect(page.locator('[data-classification-choice]')).toHaveCount(0);
- const stored=await page.evaluate(()=>JSON.stringify([Object.entries(localStorage),Object.entries(sessionStorage)]));expect(stored).not.toContain('PRIVATE_PROPOSAL_DRAFT');
+ const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:'http://127.0.0.1:8123',isLocalStorage}}))));expect(stored).not.toContain('PRIVATE_PROPOSAL_DRAFT');
  await page.evaluate(()=>{const rt=window.KPTURuntime,c=rt.context.read();rt.context.set({...c,user:{...c.user,id:'different'}});window.dispatchEvent(new CustomEvent('kptu:session-changed'));});await expect(page.locator('[data-classification-input]')).toHaveValue('');await expect(page.locator('[data-classification-panel]')).toBeHidden();expect(f.rpc).toHaveLength(0);
 });
 
