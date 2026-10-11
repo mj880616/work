@@ -1,6 +1,6 @@
 # BASKET-클립아이콘 검증
 
-📱 Codex 웹·클라우드. 시작 시 원격 `origin/main`을 새로 fetch했고 실제 시작 SHA는 `8bb8d717cb388ac6c99d810e70783284c974ffe1`(#482 merge)다. 작업 브랜치는 `codex/basket-clip-icon`이다. PR·CI·merge 상태는 [원장](../../roadmap.md)과 PR에서 추적한다.
+📱 Codex 웹·클라우드. 시작 시 원격 `origin/main`을 새로 fetch했고 실제 시작 SHA는 `8bb8d717cb388ac6c99d810e70783284c974ffe1`(#482 merge)다. 작업 브랜치는 `codex/basket-clip-icon`이며 [PR #483](https://github.com/mj880616/work/pull/483)을 연결 GitHub 도구로 생성했다. PR·CI·merge 상태는 [원장](../../roadmap.md)과 PR에서 추적한다.
 
 홈 바구니는 입력칸 안 왼쪽의 📎 버튼과 오른쪽의 기존 “추가” 버튼을 한 줄로 표시한다. 📎는 44×44px의 네이티브 버튼이며 접근 이름은 “파일 첨부”다. 키보드 Tab·Enter·Space와 터치로 같은 파일 선택기를 연다. 입력칸은 46px 높이와 왼쪽 46px 안쪽 여백으로 버튼 및 선택 개수 배지와 글자가 겹치지 않게 했다. 새 아이콘 이미지 파일 없이 기존 텍스트 이모지 방식을 쓴다.
 
