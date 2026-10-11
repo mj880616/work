@@ -1,6 +1,6 @@
 # 📱 폰 가능 — BASKET-4a 검토 기록 (파일·PR만)
 
-Codex 웹. 새로 fetch한 `origin/main` 시작 SHA는 `a9fb21ecc1dbddd0b0e78191e57f3474b9311ee0`(#487 merge)다. checkout은 깨끗했고 로컬·원격에 `codex/basket-4a`가 없어 이 SHA에서 새 브랜치를 만들었다. 기존 브랜치의 독자 커밋이나 미커밋 변경을 덮어쓰지 않았다.
+Codex 웹. [PR #488](https://github.com/mj880616/work/pull/488), branch `codex/basket-4a`. 새로 fetch한 `origin/main` 시작 SHA는 `a9fb21ecc1dbddd0b0e78191e57f3474b9311ee0`(#487 merge)다. checkout은 깨끗했고 로컬·원격에 `codex/basket-4a`가 없어 이 SHA에서 새 브랜치를 만들었다. 기존 브랜치의 독자 커밋이나 미커밋 변경을 덮어쓰지 않았다.
 
 바구니의 **분류안 붙여넣기 → 현재값 미리보기 → 체크한 조직·프로젝트만 확정**을 추가한다. 제안은 화면 메모리에만 두고 입력 변경 때 선택을 무효화한다. owner/workspace 변경 때 원문·제안·선택을 지우며 늦게 도착한 응답을 버린다. 자료실·Google 할 일·쓰기요청 후보는 **다음 단계에서 지원(4b)**으로 표시하고 선택할 수 없다. 요약 채택·진행기록 쓰기·조직 기록 이관·suggested 저장·자동 확정은 하지 않는다.
 
