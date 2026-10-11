@@ -1,3 +1,5 @@
+@import url('./quick-controls.css?v=1');
+
 #basketView { box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; }
 #basketView [hidden] { display:none; }
 #basketView button { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
@@ -11,6 +13,9 @@
 .basket-text-label { display:grid; gap:8px; margin:16px 0; }
 #basketView textarea { box-sizing:border-box; width:100%; min-height:240px; padding:12px; font:inherit; font-size:14px; font-weight:400; line-height:1.6; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; resize:vertical; white-space:pre-wrap; }
 .basket-actions { margin-top:12px; }
+.basket-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.basket-compact-actions { margin:7px 0; row-gap:14px; }
+#basketView .basket-filters { margin:7px 0; }
 [data-basket-status],[data-basket-list-status] { overflow-wrap:anywhere; }
 #basketView :disabled { opacity:.65; cursor:wait; }
 #basketView :focus-visible { outline:2px solid var(--kptu-primary); outline-offset:3px; }

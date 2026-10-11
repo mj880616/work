@@ -1,0 +1,12 @@
+/* Existing home quick-input controls, also used by the basket toolbar. */
+.home-quick-modes,#basketView .quick-mode-group { display:flex; background:var(--kptu-surface-subtle); border-radius:var(--kptu-radius-pill); padding:2px; width:max-content; gap:0; }
+.home-quick-modes button,#basketView .quick-pill-button { position:relative; height:30px; border:0; border-radius:var(--kptu-radius-pill); padding:0 12px; background:transparent; color:var(--kptu-muted); font-weight:700; }
+.home-quick-modes button[aria-pressed="true"],#basketView .quick-mode-group button[aria-pressed="true"] { background:var(--kptu-surface); color:var(--kptu-ink); }
+.home-quick .home-basket-link,#basketView .quick-text-link { min-height:44px; border:0; background:transparent; color:var(--kptu-primary-ink); text-align:right; }
+
+#basketView .quick-pill-button { min-height:30px; font-family:inherit; font-size:12px; background:var(--kptu-surface-subtle); }
+#basketView .quick-mode-group .quick-pill-button { background:transparent; }
+/* Retain a 44px target around the 30px painted pill, as in base-ui.css. */
+#basketView .quick-pill-button::after { content:""; position:absolute; left:0; right:0; top:calc(50% - 22px); height:44px; }
+#basketView .quick-pill-primary { background:var(--kptu-primary); color:var(--kptu-on-primary); }
+#basketView .quick-text-link { padding:1px 6px; border-radius:0; font-family:inherit; font-size:12px; }

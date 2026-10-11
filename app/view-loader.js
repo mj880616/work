@@ -20,8 +20,8 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=4','./library-upload.css?v=8','./basket-picker.css?v=2'],
-  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=12','./google-tasks.css?v=25'],
+  basket:['./basket.css?v=5','./library-upload.css?v=8','./basket-picker.css?v=2'],
+  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=13','./google-tasks.css?v=25'],
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=25'],
   projects:['./project-system-v3.css?v=25','./forum-flow-polish.css?v=2','./google-tasks.css?v=25'],
@@ -143,7 +143,7 @@ async function home(){
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
-async function basket(){ await module('./basket.js?v=8'); return {ok:true} }
+async function basket(){ await module('./basket.js?v=9'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations};
 function normalize(view){
   return loaders[view]?view:'home'
