@@ -20,11 +20,43 @@
 새 메모의 `ai_export_allowed`는 DB 기본 `true`, 기존 메모의 값은 보존한다.
 
 Drive 폴더는 내 Drive 최상위 이름이 정확히 **Web2 바구니**인 소유 폴더를
-찾거나 생성한다. 저장된 폴더도 이름·최상위 위치·소유자·휴지통·owner 단독 권한을
-매번 검증한다. 공유 권한을 생성하거나 기존 공유를 해제하지 않는다. 공유·이동·이름
-변경을 발견하면 409로 중단한다. 실제 폴더 ID는 DB 설정에만 저장한다.
+찾거나 생성한다. `drive.file` 범위에서 root 메타데이터 조회는 404가 될 수 있으므로
+`GET /drive/v3/files/root`를 호출하지 않는다. 최상위 위치는 아래 검색으로 확인한다.
+
+```text
+name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder'
+and 'root' in parents and 'me' in owners and trashed = false
+```
+
+저장된 `basket_folder_id`가 없으면 검색 결과의 첫 폴더를 검증해 사용한다.
+결과가 없으면 `parents:['root']`로 생성하고, 생성 응답에 포함된 ID의 메타데이터를
+조회해 검증한다. 검색 결과에 포함되거나 root 부모로 생성한 응답에 포함된 ID라는
+근거로 최상위를 판정하며, `parents` 값을 root ID와 비교하지 않는다.
+저장된 ID가 있으면 그 ID를 직접 조회해 검증하고, 위 검색 결과에 같은 ID가 있어야
+한다. 검색은 `nextPageToken`을 따라 끝까지 확인하므로 뒤 페이지의 폴더도 인정한다.
+
+이름·폴더 종류·내 소유(`ownedByMe=true`)·휴지통 아님·부모 정확히 1개·권한
+정확히 1개(`type=user`, `role=owner`)를 매번 검증한다. 검색과 메타데이터 조회의
+`fields`에 `permissions(type,role)`을 명시 요청하며, 실제 응답에서 빠지면 통과시키지
+않는다. 공유 권한을 생성하거나 기존 공유를 해제하지 않는다. 실제 폴더 ID는 DB
+설정에만 저장한다.
+
+| 상황 | HTTP / 오류 코드 |
+| --- | --- |
+| 공유·이동·이름/종류/소유/휴지통/부모 수/권한 검증 실패 또는 저장 ID가 최상위 검색에 없음 | 409 `drive_folder_not_private_root` |
+| 명시 요청한 권한 필드가 실제 응답에 없음 | 409 `drive_folder_permissions_unavailable` |
+| 저장 ID의 메타데이터 GET이 404 | 409 `drive_folder_missing` |
+| ID 형식이 잘못됨 | 409 `drive_folder_invalid` |
+| 검색 실패(404 포함)·불완전 검색·그 밖의 Drive 폴더 조회/생성 장애 | 503 `drive_folder_failed` (기존 unavailable) |
+
+실패 로그에는 해당 코드만 남기며 검증 실패 후 파일 업로드는 시작하지 않는다.
+`tests/security/basket-files.test.mjs`의 `driveFile` 모드는 root GET 404, 검색·생성,
+앱이 만든 파일만 GET 허용을 재현한다. 첫 JPG 업로드(163KiB) 생성·저장, 두 번째 업로드
+재사용, 이동·공유·휴지통·저장 ID 404·권한 생략·검색 장애를 실제 handler로 검증한다.
+
 설정 행 생성은 `ignoreDuplicates`, 칸 저장은 NULL 조건 갱신으로 기존 root/library
-칸을 보존한다. 동시 생성 시 최종 설정의 폴더를 검증해 사용한다. Drive 폴더 생성과
+칸을 보존한다. 동시 생성 시 최종 설정의 폴더도 직접 조회와 최상위 검색으로 검증해
+사용한다. Drive 폴더 생성과
 DB 저장은 별개이므로 장애·동시 생성 때 빈 폴더가 남을 수 있다. 자동 폴더 삭제는 하지 않는다.
 
 기존 메모 갱신은 workspace·ID·기존 `updated_at`·기존 JSON 첨부가 모두 같은 행만
