@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'supabase/**'
+      - 'app/project-catalog-model.mjs'
       - 'tests/security/**'
       - 'tests/auth-handoff/**'
       - '.github/workflows/**'
@@ -15,6 +16,7 @@ on:
       - main
     paths:
       - 'supabase/**'
+      - 'app/project-catalog-model.mjs'
       - 'tests/security/**'
       - 'tests/auth-handoff/**'
       - '.github/workflows/**'

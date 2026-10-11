@@ -72,8 +72,8 @@ for(const width of [390,1280]){
   await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');
   await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
   const copied=await page.evaluate(()=>window.__handoffWrites[0]);
-  for(const value of [f.note.raw_text,n,stamp,'현재 조직','synthetic-attachment','application/pdf'])expect(copied).toContain(value);
-  expect(copied).not.toMatch(/BODY_SECRET|OCR_SECRET|google_task|project|현재 프로젝트/);expect(f.rpc).toHaveLength(0);expect(destinationReads).toEqual([]);
+  for(const value of [f.note.raw_text,n,stamp,'현재 조직','현재 프로젝트','담당조직 목록 (ID · 이름)','프로젝트 목록 (ID · 이름)','synthetic-attachment','application/pdf'])expect(copied).toContain(value);
+  expect(copied).not.toMatch(/BODY_SECRET|OCR_SECRET|google_task|library|write_request_candidate/);expect(f.rpc).toHaveLength(0);expect(destinationReads).toHaveLength(1);expect(new URL(destinationReads[0]).searchParams.get('owner_id')).toBe('eq.home-test');
   await page.screenshot({path:info.outputPath(`handoff-copied-${width}.png`),fullPage:true});
   await open(page);await page.screenshot({path:info.outputPath(`handoff-paste-${width}.png`),fullPage:true});
   for(const text of ['설명만','```json\n'+JSON.stringify(data())+'\n```\n```\n'+JSON.stringify(data())+'\n```']){
@@ -90,6 +90,7 @@ for(const width of [390,1280]){
   expect(await page.evaluate(()=>window.__outsideExecuted)).toBeUndefined();await expect(page.locator('[data-classification-rows] script,[data-classification-rows] img')).toHaveCount(0);
   const choice=page.locator('[data-classification-choice]:enabled').first();await choice.scrollIntoViewIfNeeded();const box=await choice.boundingBox();await page.touchscreen.tap(box.x+box.width/2,box.y+box.height/2);
   await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toHaveText('1개 연결했어요 · 0개는 이미 연결돼 있어요');
+  expect(f.rpc[0].p_targets[0].kind).toBe('project');expect(f.links[0].project_id).toBe(p);
   await page.screenshot({path:info.outputPath(`handoff-connected-${width}.png`),fullPage:true});
   expect(await page.locator('[data-classification-host]').innerText()).not.toMatch(/JSON|schema|UUID|workspace|\(행 \d|열 \d|4b|확정/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
@@ -123,7 +124,7 @@ test('AI handoff writes the complete text to the native Chromium clipboard',asyn
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:'http://127.0.0.1:8123'});
  f.note.raw_text='합성 메모 첫 줄\n'+('긴 합성 본문 '.repeat(1000))+'\n합성 메모 마지막 줄';
  await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
- const text=await page.evaluate(()=>navigator.clipboard.readText());expect(text).toContain(f.note.raw_text);expect(text.trim()).toMatch(new RegExp('organization · '+o+' · 현재 조직$'));
+ const text=await page.evaluate(()=>navigator.clipboard.readText());expect(text).toContain(f.note.raw_text);expect(text).toContain('organization · '+o+' · 현재 조직');expect(text.trim()).toMatch(new RegExp('project · '+p+' · 현재 프로젝트$'));
  expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
 });
 
@@ -151,5 +152,39 @@ for(const width of [390,1280]){
   await expect(check).toBeInViewport({ratio:1});await expect(status).not.toBeInViewport({ratio:1});await check.dispatchEvent('click');
   await expect(status).toHaveText('메모와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.');await expect(status).toBeInViewport({ratio:1});
   expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
+ });
+}
+
+for(const width of [390,1280]){
+ test(`restored project hierarchy and owner organization list copy then project confirmation ${width}`,async({page},info)=>{
+  const {readFileSync}=await import('node:fs');
+  const synthetic=JSON.parse(readFileSync(new URL('../fixtures/basket-project-destinations.json',import.meta.url),'utf8'));
+  await page.setViewportSize({width,height:1000});const f=await fixture(page);
+  await page.clock.setFixedTime(new Date(synthetic.now));
+  await page.route(SB+'/rest/v1/app_spaces?**',r=>r.fulfill({json:synthetic.spaces.map(row=>({...row,workspace_id:'w',owner_id:'home-test'}))}));
+  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:synthetic.organizations.map(row=>({...row,workspace_id:'w'}))}));
+  let assignments=synthetic.assignees;
+  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:assignments}));
+  await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
+  for(const fallback of [false,true]){
+   if(fallback)assignments=[];
+   await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+   const text=await page.evaluate(()=>window.__handoffWrites.at(-1));
+   expect(text.match(/^project · /gm)).toHaveLength(6);
+   for(const row of synthetic.expected_projects)expect(text).toContain(`project · ${row.id} · ${row.name}`);
+   expect(text.match(/^organization · /gm)).toHaveLength(fallback?3:2);
+   expect(text.includes('담당조직이 지정되지 않아 전체 조직을 싣습니다')).toBe(fallback);
+   expect(text).not.toMatch(/합성 보관 상위|합성 숨김 하위|합성 완료 하위|합성 완료 표기|합성 순환|합성 비활성 조직/);
+   expect(text.indexOf('담당조직 목록')).toBeLessThan(text.indexOf('프로젝트 목록'));
+  }
+  assignments=synthetic.assignees;
+  const target=synthetic.expected_projects[1];
+  const reply={schema_version:1,copied_at:synthetic.now,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'project',target_id:target.id,reason:'합성 하위 일정 검토'}]}]};
+  await open(page);await page.locator('[data-classification-input]').fill(JSON.stringify(reply));await page.locator('[data-classification-preview]').click();
+  await expect(page.locator('[data-classification-note]')).toContainText('합성 하위 A');await page.locator('[data-classification-choice]:enabled').check();await page.locator('[data-classification-confirm]').click();
+  await expect(page.locator('[data-classification-status]')).toHaveText('1개 연결했어요 · 0개는 이미 연결돼 있어요');
+  expect(f.rpc[0].p_targets).toEqual(reply.items[0].destinations);expect(f.links[0].project_id).toBe(target.id);
+  await page.screenshot({path:info.outputPath(`project-restored-${width}.png`),fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
  });
 }

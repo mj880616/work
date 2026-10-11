@@ -48,7 +48,7 @@ async function team(view){
   if(typeof fn==='function')await fn(view);
 }
 async function projectCatalog(){
-  await module('./project-catalog.js?v=2');
+  await module('./project-catalog.js?v=3');
 }
 // Shared organization order (TASK-조직순서) for the organization list, checks and the Google task editor.
 async function organizationOrder(){
@@ -86,7 +86,7 @@ async function calendar(){
   return {ok:true}
 }
 async function tasks(){
-  await module('./project-catalog.js?v=2');
+  await module('./project-catalog.js?v=3');
   await organizationOrder();
   await module('./google-tasks.js?v=31');
   return {ok:true}
@@ -96,7 +96,7 @@ async function projects(){
     module('./forum-flow-polish.js?v=2'),
     module('./due-date-calendar.js?v=2')
   ]);
-  await module('./project-catalog.js?v=2');
+  await module('./project-catalog.js?v=3');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=31');
@@ -105,7 +105,7 @@ async function projects(){
 }
 async function library(){
   await team('library');
-  await module('./project-catalog.js?v=2');
+  await module('./project-catalog.js?v=3');
   await module('./library-upload.js?v=26','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
@@ -129,7 +129,7 @@ async function organizations(){
   await organizationOrder();
   await module('./suborganizations.js?v=17','__KPTU_SUBORGANIZATIONS_READY__');
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
-  await module('./project-catalog.js?v=2');
+  await module('./project-catalog.js?v=3');
   await module('./google-tasks.js?v=31');
   await module('./workplace-detail.js?v=16');
   import('./workplace-report.js?v=2').catch(console.error);
@@ -138,12 +138,12 @@ async function organizations(){
 async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
-  await module('./home-read.js?v=17');
+  await module('./home-read.js?v=18');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
-async function basket(){ await module('./basket.js?v=11'); return {ok:true} }
+async function basket(){ await module('./basket.js?v=12'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations};
 function normalize(view){
   return loaders[view]?view:'home'

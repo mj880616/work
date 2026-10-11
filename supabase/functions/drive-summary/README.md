@@ -43,8 +43,10 @@
 
 프로젝트 사본 끝에만 바구니를 붙인다. 서버가 `kptu-work` workspace·최근 4주 KST·기존 폴더를 결정한다. `archived_at IS NULL`, `ai_export_allowed=true`이고 확정/제안 연결이 없는 메모만 포함한다. 과거 미분류 건수만 표시한다. 저장된 제안은 원문 버전 열이 없으므로 모두 보수적으로 유효하게 취급하며 화면 `noteState`와 같은 기준이다. BASKET-4의 버전 검증·무효화와 처리 결과 writer를 구현하지 않는다.
 
-원문은 HTML escape만 하고 공백·개행을 보존한다. `<pre>` 첫 개행 제거를 방지하는 빈 span과 CR 문자 참조를 사용한다. 첨부는 파일명·MIME·byte 크기·검증된 Drive ID 링크만 출력하며 파일 읽기·OCR·AI 요청은 없다. 분류 목적지는 현재 선택 가능한 프로젝트 tree와 담당조직의 ID·이름만 제공한다. 7.2 JSON 기술 초안 `schema_version=1`과 제안 전용 지침을 함께 제공한다.
+원문은 HTML escape만 하고 공백·개행을 보존한다. `<pre>` 첫 개행 제거를 방지하는 빈 span과 CR 문자 참조를 사용한다. 첨부는 파일명·MIME·byte 크기·검증된 Drive ID 링크만 출력하며 파일 읽기·OCR·AI 요청은 없다. 분류 목적지는 `app/project-catalog-model.mjs`의 공용 분류·tree를 재사용한다. v2/management_version=2 프로젝트와 후손 중 화면에 보이는 tree에서 완료(done/completed)·보관을 제외하고, 하위 이름은 “상위 › 하위” 경로로 제공한다. 완료 상위의 미완료 하위는 유지하고 보관 상위의 후손·순환 계층은 화면과 같이 숨긴다. 담당조직은 #500의 내 담당 활성 조직·담당 0개 대체 문구를 유지하며 목적지 kind는 organization·project다. 7.2 JSON 기술 초안 `schema_version=1`과 제안 전용 지침을 함께 제공한다.
 
 상한: 메모 **100건**, 프로젝트 문서 전체 HTML **UTF-8 1 MiB**(정확한 상한 포함). 초과하면 바구니 본문 전체를 내보내지 않고 프로젝트 사본 상단에 **대상 축소 필요**를 표시한다. 기존 절이 단독으로 상한을 초과하면 해당 사본도 진단 문서로 대체한다. `BASKET_OUTPUT_LIMIT` 실패·`last_failure_at/summary`를 기록하고 `last_success_at`은 유지한다. 잘못된 첨부는 업로드 전 `BASKET_ATTACHMENT_INVALID`로 실패하며 민감 내용은 오류에 넣지 않는다. Drive 장애로 경고 문서/실패 기록 자체가 쓰이지 못할 때는 기존 실패 경로와 `failure_recorded=false`를 그대로 따른다.
 
 Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며 로그인 후 owner API 조회 결과의 정확한 메모만 연다. 갱신 호출은 payload 없이 유지한다. 상세 검토·가짜 데이터·운영 SHA 추정 근거: [검토 기록](../../../docs/basket-3-drive-copy.md).
+
+공용 모듈은 브라우저가 제공받는 `app/` 경로에 둔다. Edge 배포는 지정 ref의 저장소 전체 checkout에서 상대 import를 번들링해야 한다(Deno bundle로 검증). 파일·PR 준비만 했으며 운영 v5(source `8b91b60`)에서 재배포 전까지 사본 안내는 바뀌지 않는다.

@@ -14,7 +14,7 @@ const fixture=`<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="
 <div id="documentModal"><div class="modal-card"><label>자료명<input id="docTitle"></label><input id="docCategory"><input id="docSource"><input id="docDate"><input id="docTags"><select id="docProject"></select><textarea id="docDescription"></textarea><button id="saveDocumentBtn" type="button">저장</button><div id="documentStatus"></div></div></div>
 <script src="/app/runtime-client.js"></script>
 <script>KPTURuntime.session.write({access_token:'mock-access',refresh_token:'mock-refresh',expires_at:9999999999,user:{id:'upload-owner'}});</script>
-<script src="/app/project-catalog.js"></script><script type="module" src="/app/library-upload.js?BASELINE"></script></body></html>`;
+<script type="module" src="/app/project-catalog.js"></script><script type="module" src="/app/library-upload.js?BASELINE"></script></body></html>`;
 
 test.beforeAll(async()=>{
  api=createServer(async(req,res)=>{
@@ -55,7 +55,7 @@ test.beforeAll(async()=>{
    // Test-only instrumentation preserves error classification checks for module-scoped functions.
    if(path==='/app/library-upload.js')source=String(source)+`;Object.defineProperty(window,'luUploadRequest',{get:()=>luUploadRequest,set:value=>{luUploadRequest=value}});`;
    if(path.endsWith('.js'))source=String(source).replaceAll('https://xmlkxfjeagycwttklxjw.supabase.co',apiOrigin);
-   res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(source);
+   res.setHeader('Content-Type',/\.m?js$/.test(path)?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(source);
   }catch{res.statusCode=404;res.end()}
  });
  await new Promise(resolve=>assets.listen(0,'127.0.0.1',resolve));origin=`http://127.0.0.1:${assets.address().port}`;
