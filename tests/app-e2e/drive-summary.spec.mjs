@@ -252,3 +252,10 @@ test('real basket multipart uploader schedules after validated success only',asy
  });
  await page.clock.fastForward(4000);expect(calls).toHaveLength(1);
 });
+
+test('basket organization/project confirm RPC schedules existing server-decided copy refresh',async({page})=>{
+ const {calls,errors}=await setup(page);
+ await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',r=>r.fulfill({json:{ok:true,created:1,existing:0}}));
+ await page.evaluate(async()=>window.KPTURuntime.api('/rest/v1/rpc/app_basket_confirm_links',{method:'POST',body:{p_note_id:'00000000-0000-4000-8000-000000000001',p_note_updated_at:'2026-10-11T01:00:00Z',p_targets:[{kind:'organization',target_id:'00000000-0000-4000-8000-000000000002',reason:'근거'}]}}));
+ await page.clock.fastForward(4000);await expect.poll(()=>calls.length).toBe(1);expect(calls[0].body).toBeNull();expect(errors).toEqual([]);
+});

@@ -1,3 +1,4 @@
+import { mountClassification } from './basket-classification-ui.js?v=1';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=4';
@@ -11,8 +12,23 @@ const initialUrl = new URL(location.href);
 let requestedNote = initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><button type="button" data-goto="home">홈에서 입력</button></div><div data-basket-list><div class="basket-filters" role="group" aria-label="바구니 보기"><button type="button" data-basket-filter="unclassified">미분류</button><button type="button" data-basket-filter="all">전체</button><button type="button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-actions"><button type="button" data-classification-open>분류안 붙여넣기</button><button type="button" data-goto="home">홈에서 입력</button></div></div><div data-basket-list><div class="basket-filters" role="group" aria-label="바구니 보기"><button type="button" data-basket-filter="unclassified">미분류</button><button type="button" data-basket-filter="all">전체</button><button type="button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
+const classification = mountClassification(root.querySelector('[data-classification-host]'), {
+  isBlocked:()=>busy, onBusy:value=>{busy=value;if(value)++epoch;},
+  onOpen:()=>{closeDetail();if(selected)return false;list.hidden=true;return true;},
+  onClose:()=>{list.hidden=false;root.querySelector('[data-classification-open]').focus();},
+  onConfirmed:async(noteId,targets)=>{
+    for(const target of targets){const key=target.kind==='project'?'project_id':'organization_id';
+      if(!links.some(l=>l.note_id===noteId&&l[key]===target.target_id&&l.status==='confirmed'))
+        links.push({note_id:noteId,status:'confirmed',[key]:target.target_id,[target.kind]:{name:target.name}});
+    }
+    renderList();
+    const owner=scope();
+    try { const current=await readBasket();if(owner!==scope())return;notes=current.notes;links=current.links;renderList(); }
+    catch { return '연결은 확정됐습니다. 목록 새로고침은 다시 시도해 주세요.'; }
+  }
+});
 function renderList() {
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
   const visible = visibleNotes(notes, links, filter);
@@ -109,7 +125,8 @@ async function reloadDetail() {
 }
 root.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || busy) return;
-  if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
+  if (b.hasAttribute('data-classification-open')) classification.open();
+  else if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
   else if (b.hasAttribute('data-basket-filter')) { filter = b.dataset.basketFilter; renderList(); }
   else if (b.hasAttribute('data-basket-close')) closeDetail();
   else if (b.hasAttribute('data-basket-retry')) void refresh();
@@ -125,14 +142,14 @@ root.addEventListener('click', e => {
 root.addEventListener('keydown', e => { if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); closeDetail(); } });
 window.addEventListener('kptu:before-reload', e => {
   if (busy) e.preventDefault();
-  else if (dirty()) e.detail.otherDraft = true;
+  else if (dirty() || classification.hasDraft()) e.detail.otherDraft = true;
 });
 window.addEventListener('kptu:session-changed', () => {
   const next = scope(); if (next === currentScope) return;
   currentScope = next; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true}); renderList();
 });
 window.KPTURouter.on('basket', () => {
-  if (busy) return;
+  if (busy || classification.isOpen()) return;
   filter = 'unclassified'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty()) return;

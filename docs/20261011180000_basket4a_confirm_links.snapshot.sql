@@ -1,0 +1,6 @@
+-- Read-only aggregate snapshot; compare before/after separately. No source content.
+select 'notes rows' as item,count(*)::text as value from public.app_notes
+union all select 'links rows',count(*)::text from public.app_record_links
+union all select 'owner RLS/grants hash',md5(coalesce(string_agg(c.relname||':'||c.relrowsecurity::text||':'||coalesce(c.relacl::text,''),',' order by c.relname),'')) from pg_class c where c.oid in (to_regclass('public.app_notes'),to_regclass('public.app_record_links'))
+union all select 'policies hash',md5(coalesce(string_agg(polname||':'||polroles::text||':'||coalesce(pg_get_expr(polqual,polrelid),'')||':'||coalesce(pg_get_expr(polwithcheck,polrelid),''),',' order by polname),'')) from pg_policy where polrelid in(to_regclass('public.app_notes'),to_regclass('public.app_record_links'))
+union all select 'exact function definition',coalesce(pg_get_functiondef(to_regprocedure('public.app_basket_confirm_links(uuid,timestamptz,jsonb)')),'absent');

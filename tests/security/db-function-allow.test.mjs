@@ -158,3 +158,12 @@ test('BASKET-1 and BASKET-2 migration/rollback continue to pass unchanged', () =
     }
   }
 });
+
+test('SELECT FOR UPDATE row locks are allowed while following unbounded DML stays rejected',()=>{
+ const lock='begin perform n.id from public.app_notes n where n.id=p_value for update; return 1; end;';
+ accepted(`${definition({language:'plpgsql',body:lock})}\n${revoke()}\n${grant()}`);
+ for(const mutation of ['update public.app_notes set x=1;', 'delete from public.app_notes;']){
+   const body=lock.replace('return 1;',mutation+' return 1;');
+   rejected(`${definition({language:'plpgsql',body})}\n${revoke()}\n${grant()}`);
+ }
+});

@@ -21,3 +21,12 @@
 .basket-editor .basket-text-label { margin-bottom:0; }
 .basket-editor .basket-file-selection { margin-top:8px; }
 #basketView .basket-clip { padding:0; border:0; background:transparent; font-size:20px; }
+
+.basket-classification-note { border-top:1px solid var(--kptu-border); padding:16px 0; overflow-wrap:anywhere; }
+.basket-classification-original { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; margin:12px 0; }
+.basket-classification-target { display:flex; flex-direction:row; font-size:14px; font-weight:400; color:var(--kptu-ink); align-items:flex-start; gap:10px; min-height:44px; padding:10px 0; cursor:pointer; }
+.basket-classification-target input { flex-shrink:0; width:22px; height:22px; margin:2px 0; }
+.basket-classification-target>span { min-width:0; }
+.basket-classification-reason,.basket-classification-error { display:block; white-space:pre-wrap; margin-top:4px; }
+.basket-classification-error { color:var(--kptu-muted); }
+@media(max-width:600px) { .basket-head { flex-wrap:wrap; } }

@@ -185,6 +185,10 @@ function functionBody(block, language) {
   for (const statement of statements(terminated)) {
     for (let i = 0; i < statement.length; i++) {
       if (!keyword(statement[i], 'update') && !keyword(statement[i], 'delete')) continue;
+      // SELECT ... FOR UPDATE is a row lock, not DML. The FOR immediately
+      // preceding UPDATE is part of PostgreSQL's locking-clause grammar.
+      // Continue scanning: a later real UPDATE/DELETE still needs its own WHERE.
+      if (keyword(statement[i], 'update') && keyword(statement[i - 1], 'for')) continue;
       // Stop at the enclosing CTE/subquery boundary, so an outer WHERE or a
       // WHERE in another statement cannot authorize this mutation. RETURNING
       // and LOOP also end a FOR-loop source before its first body statement.
