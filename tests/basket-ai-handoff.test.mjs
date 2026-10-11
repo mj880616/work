@@ -71,7 +71,7 @@ test('destination read includes every scoped organization and never calls the pr
  const rt={context:{read:()=>({workspace:{id:'w'},user:{id:'u'}})},api:async path=>{
   paths.push(path);const url=new URL(path,'http://test');
   if(path.includes('app_notes'))return [note()];
-  if(path.includes('app_record_links'))return [];
+  if(path.includes('app_record_links')||path.includes('app_suborganization_assignees'))return [];
   if(path.includes('app_spaces'))return [
    {id:p,name:'가능한 프로젝트',metadata:{project_system:'v2'}},
    {id:'child',name:'하위 프로젝트',parent_id:p},
@@ -110,4 +110,58 @@ test('organization read cannot return a handoff after the workspace changes',asy
   return [];
  }};
  await assert.rejects(readHandoff(rt,now),/업무 공간이 바뀌었어요/);
+});
+
+const fallbackNotice='담당조직이 지정되지 않아 전체 조직을 싣습니다';
+for(const mode of ['two','zero','inactive-only','failure','malformed','later-page-failure']){
+ test(`handoff organization selection: ${mode}`,async()=>{
+  const orgs=[{id:'a',name:'합성 담당 A',active:true},{id:'b',name:'합성 담당 B',active:null},{id:'c',name:'합성 다른 조직',active:true,default_assignee_name:'합성 소유자'},{id:'d',name:'합성 비활성',active:false}];
+  const paths=[];
+  const rt={context:{read:()=>({workspace:{id:'w'},user:{id:'u'}})},api:async path=>{
+   paths.push(path);const q=new URL(path,'http://test').searchParams;
+   if(path.includes('app_notes'))return [note()];
+   if(path.includes('app_record_links'))return [];
+   if(path.includes('app_suborganization_assignees')){
+    assert.equal(q.get('user_id'),'eq.u');
+    if(mode==='failure')throw Error('private failure detail');
+    if(mode==='malformed')return {};
+    if(mode==='later-page-failure'){
+     if(q.get('offset')==='0')return Array.from({length:100},()=>({organization_id:'a'}));
+     throw Error('second page failure');
+    }
+    return mode==='two'?[{organization_id:'a'},{organization_id:'b'},{organization_id:'d'},{organization_id:'foreign'}]:mode==='inactive-only'?[{organization_id:'d'}]:[];
+   }
+   if(path.includes('app_suborganizations')){assert.equal(q.get('workspace_id'),'eq.w');assert.match(q.get('select'),/active/);return orgs;}
+   assert.fail(path);
+  }};
+  const text=await readHandoff(rt,now);
+  const listed=text.split('담당조직 목록 (ID · 이름)')[1];
+  for(const id of mode==='two'?['a','b']:['a','b','c'])assert.match(listed,new RegExp(`organization · ${id} ·`));
+  assert.doesNotMatch(listed,/organization · (d|foreign) ·|private failure detail/);
+  if(mode==='two'){assert.doesNotMatch(listed,/organization · c ·/);assert.ok(!text.includes(fallbackNotice));}
+  else{assert.ok(text.includes(fallbackNotice));assert.ok(text.indexOf(fallbackNotice)<text.indexOf('담당조직 목록'));}
+ });
+}
+test('handoff reads every assignment page rather than publishing partial assigned IDs',async()=>{
+ const rt={context:{read:()=>({workspace:{id:'w'},user:{id:'u'}})},api:async path=>{
+  if(path.includes('app_notes'))return [note()];
+  if(path.includes('app_record_links'))return [];
+  if(path.includes('app_suborganizations'))return [{id:'first',name:'합성 첫 조직',active:true},{id:'last',name:'합성 마지막 조직',active:true},{id:'other',name:'합성 다른 조직',active:true}];
+  if(path.includes('app_suborganization_assignees'))return new URL(path,'http://test').searchParams.get('offset')==='0'?Array.from({length:100},()=>({organization_id:'first'})):[{organization_id:'last'}];
+ }};
+ const text=await readHandoff(rt,now);assert.match(text,/합성 첫 조직/);assert.match(text,/합성 마지막 조직/);assert.doesNotMatch(text,/합성 다른 조직|전체 조직을 싣습니다/);
+});
+
+test('browser and Edge owner organization definitions agree, including zero active organizations',async()=>{
+ const {selectBasketOrganizations:browser}=await import('../app/basket-ai-handoff.js');
+ const {selectBasketOrganizations:edge}=await import('../supabase/functions/drive-summary/basket.mjs');
+ const orgs=[{id:'a',active:true},{id:'b',active:false},{id:'c',active:null},{id:'d'}];
+ for(const rows of [orgs,[],orgs.filter(o=>o.active===false)]){
+  for(const ids of [[],['a','c'],['b'],['foreign'],['d','a']]){
+   const assignees=ids.map(organization_id=>({organization_id}));
+   assert.deepEqual(browser(rows,assignees),edge(rows,assignees));
+   const expected=rows.filter(o=>o.active!==false&&ids.includes(o.id)),active=rows.filter(o=>o.active!==false);
+   assert.deepEqual(browser(rows,assignees),{organizations:expected.length?expected:active,fallback:expected.length===0});
+  }
+ }
 });
