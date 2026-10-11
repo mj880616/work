@@ -1,7 +1,7 @@
 # BASKET-AI맡기기 검토·완료 보고
 
 1. **세션**: Codex 웹·클라우드. 로컬 파일·정적 HTTP·합성 API만 사용.
-2. **시작·최종 SHA / branch / PR**: 실제 fetch 시작 `e0705ab30497b0bfc93a78b38882ff926906cc92`(#489). `codex/basket-ai-handoff`. 최종 SHA·PR 링크는 PR 본문과 마지막 검증 댓글에 기록한다(이 문서 자체가 커밋에 포함되므로 자기 SHA를 고정하지 않음).
+2. **시작·최종 SHA / branch / PR**: 실제 fetch 시작 `e0705ab30497b0bfc93a78b38882ff926906cc92`(#489). `codex/basket-ai-handoff`, [PR #490](https://github.com/mj880616/work/pull/490), 구현 SHA `6bbc57fa9b322b89b9b98549eb33a2f22cf70fab`. 최종 SHA는 PR 본문과 마지막 검증 댓글에 기록한다(이 문서 자체가 커밋에 포함되므로 자기 SHA를 고정하지 않음).
 3. **원인(사실)**: 기존 화면에는 외부 AI에게 줄 글을 통째로 복사하는 기능이 없었고, 파서는 답 전체의 설명을 허용하지 않았다. 화면은 기술 용어·파서 위치·서버 상세 오류를 직접 표시했다. 폰 Drive 부분 복사는 사용자 보고이며 이 세션에서 실기기 재현하지 않았다.
 4. **변경 파일**: `basket-ai-handoff.js` 복사 대상·글·조회·클립보드 대체 / `basket-classification.js` 공용 답 형식·답 전체 추출·화면 오류 사전 / `basket-classification-ui.js` 안전 표시 / `basket.js` 버튼·목록 표시. 기존 `parseClassification` 검사 규칙·`basket-data.js` 상태 판단은 유지. 로더→index 및 버전 기대 테스트·smoke 고정 버전 동시 변경. 테스트·원장·합성 예시·8장 캡처 추가.
 5. **실행한 테스트**: Node 516/516. 기존 엄격 파서+새 handoff 15/15 포함. 최종 Chromium은 분류·복사 14/14 + 인접 바구니·catalog 51/51 + 캐시 고정 3/3 = 68항목 통과. 긴 메모의 앞·뒤와 마지막 목적지를 실제 네이티브 클립보드에서도 검증. 최초 브라우저 48/52 통과·4실패: 상세 오류를 기대하던 기존 3개, 세션 이벤트에 session을 빠뜨려 로그인 이동 후 테스트 전역값을 잃은 신규 1개. 기존 실패로 돌리지 않았으며 정확한 일상어 기대값과 session 포함 이벤트로 수정. 강화한 기존 세션 검사 1개에서는 runtime.context.set이 다른 사용자 값을 거부한다는 사실도 드러나, 실제 context.clear로 비공개 초안 제거를 검사하도록 바로잡았고 최종 14개 모두 통과. 원문 유지·실패 후 상태·재시도·권한·RPC 검사는 보존. 검토 지적(낮은 catalog 버전·이전 작업의 busy 해제·추가 tilde 블록)도 보완. 새 busy/블록 검사는 수정 전 실패·수정 후 통과.
