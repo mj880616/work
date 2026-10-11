@@ -57,12 +57,15 @@
 
 - 시작 main Node: **513/513 통과**. 신규 테스트는 수정 전에 실패를 확인했다.
 - 전체 Node 명령: `node --test tests/*.test.mjs tests/domain/*.test.mjs tests/security/*.test.mjs scripts/*.test.mjs`. **520/520 통과**(서버 접속 없이 실행 가능한 전체 Node 단위·도메인·보안·scripts).
+- 별도 Node 패키지 `tests/auth-handoff`의 `npm test`도 **59/59 통과**. 기존 테스트가 생성·삭제하는 localhost 임시 PostgreSQL fixture만 사용했으며 기존 DB나 운영에 접속하지 않았다. 전체 Node 합계 **579/579**.
 - 신규 E2E **18/18 통과**: `ui-seoul-time.spec.mjs`, 기기 Asia/Seoul·Europe/Rome·America/Los_Angeles × 390/1280px. 날짜 칸·오늘·요일·00:30/23:30·종일·월 경계·자정 배타적 종료·정확한 월/주/목록 조회 범위·새 저장/재열기/수정 왕복·프로젝트 주요 일정/기록/오늘·회의·홈. 외부 요청 전부 합성 응답으로 처리, 정상 흐름 console/pageerror 0을 각 테스트에서 요구.
 - 전체 Chromium 회귀 대상 **1,190건**. 최종 SHA의 전체 실행 결과와 실패 재현 여부는 [PR #498 Checks](https://github.com/mj880616/work/pull/498/checks)와 완료보고 댓글에 기록한다. 기존 테스트 삭제·약화 없음. classic-script fixture는 활성 앱과 같은 module 로딩으로 맞췄다.
 - 자동 CI는 PR 이벤트로 실행되는 검사만 확인한다. workflow 수동 실행 없음. 최종 SHA 전체 브라우저 결과 확인 전에는 완료로 보고하지 않는다.
 - smoke inline 블록 **13/13 통과**, JavaScript 문법·로컬 HTTP 자산 포함. 캐시 검사 `node scripts/check-loader-cache.mjs --base 74e54ae6043bc0dcf5f285d624ea22b8f16dbd61`: **423 참조 통과**. 공백 검사 통과.
 - 독립 리뷰에서 잘못된 종료값 필터의 예외를 발견해 실패 테스트 → 수정 → 통과를 확인했다. 날짜 문자열이 잘못된 경우도 포함한다. 범위 mock과 월/주/목록 끝값·자정 종료 검증을 강화했다.
 - 새 E2E를 실제 보기 버튼 선택으로 바꾼 뒤 준비 전 클릭 3건 실패를 확인했다. 앱 모듈 준비·선택 상태를 기다리고 월 DOM으로 조회 범위를 한정해 최신 재실행 18/18 통과했다. 앱 기능이나 기존 검사를 약화하지 않았다.
+- 담당조직 권한 테스트의 전역 내부 함수 직접 호출은 모듈 로딩 전환 뒤 ReferenceError가 나므로 위조 삭제 버튼을 실제 이벤트 경로로 눌러 검사한다. 확인창·삭제 요청 0건과 원래 기록/메모 유지의 모든 기존 assertion을 유지한다. 앱에 테스트용 전역 함수를 추가하지 않았다.
+- 서체 비교는 실제 현재 시각 때문에 과거 기기 시간 앱과 한국 앱의 “오늘” 강조색이 달라졌다. 두 페이지와 합성 기한·일정을 같은 고정 날짜로 맞추고, 과거 페이지의 비동기 할 일 렌더가 끝난 뒤 같은 computed style 전 항목을 비교한다. 서체 9/9, 담당조직 21/21 재실행 통과. 로컬 병렬 실행의 Android 외부 프로토콜 실패는 시작 main의 동일 Chromium 단독 실행과 현재 코드 단독 실행 모두 통과해 앱 수정 없이 기록한다. 기존 서체/권한 assertion 삭제·약화 없음.
 
 ## 전후 캡처
 
