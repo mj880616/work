@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 test.use({ hasTouch: true });
-const reviewDir = 'docs/review/basket-home-compact';
+const reviewDir = 'docs/review/basket-clip-icon/compact-regression';
 for (const width of [390, 1280]) {
   test(`basket compact picker selection keyboard touch and desktop drop ${width}`, async ({ page }, info) => {
     const errors = [];
@@ -24,7 +24,7 @@ for (const width of [390, 1280]) {
     const q = page.locator('[data-home-quick]');
     const values = { home: await q.evaluate(el => {
       const picker = el.querySelector('[data-quick-file-picker]');
-      const zone = picker.querySelector('label');
+      const zone = picker.querySelector('[data-basket-clip]');
       const entry = el.querySelector('.home-quick-entry');
       const link = el.querySelector('[data-goto="basket"]');
       const style = getComputedStyle(picker);
@@ -37,7 +37,7 @@ for (const width of [390, 1280]) {
     }) };
     expect(values.home.pickerHeight).toBeLessThanOrEqual(width === 390 ? 44 : 80);
     expect(values.home.zoneHeight).toBeGreaterThanOrEqual(44);
-    expect(values.home.inputToLink).toBeLessThanOrEqual(width === 390 ? 60 : 96);
+    expect(values.home.inputToLink).toBeLessThanOrEqual(8);
     if (width === 390) {
       expect(values.home.background).toBe('rgba(0, 0, 0, 0)');
       expect(values.home.padding).toBe('0px');
@@ -49,7 +49,7 @@ for (const width of [390, 1280]) {
     const detail = page.locator('[data-basket-detail]');
     values.detail = await detail.locator('[data-basket-file-picker]').evaluate(el => ({
       pickerHeight: el.getBoundingClientRect().height,
-      zoneHeight: el.querySelector('label').getBoundingClientRect().height,
+      zoneHeight: el.querySelector('[data-basket-clip]').getBoundingClientRect().height,
     }));
     expect(values.detail.pickerHeight).toBeLessThanOrEqual(width === 390 ? 44 : 80);
     expect(values.detail.zoneHeight).toBeGreaterThanOrEqual(44);
@@ -61,32 +61,34 @@ for (const width of [390, 1280]) {
     if (capture) fs.writeFileSync(path.join(reviewDir, `after-${width}.json`), JSON.stringify(values, null, 2));
 
     async function verifySelection(root, name) {
-      const zone = root.locator('.library-dropzone');
-      await expect(root.locator('.library-picker-hint')).toHaveText('파일당 100MiB · 20개까지');
+      const zone = root.getByRole('button', { name: '파일 첨부', exact: true });
+      const target = name === 'home' ? root : root.locator('.basket-editor');
+      await expect(root.locator('[data-basket-hint]')).toBeHidden();
       if (width === 1280) {
-        await expect(zone).toHaveCSS('border-top-style', 'dashed');
+        await expect(target).not.toHaveClass(/basket-dragover/);
         const transfer = await page.evaluateHandle(() => {
           const dt = new DataTransfer();
           dt.items.add(new File(['fixture file'], '선택한 파일.txt', { type: 'text/plain' }));
           return dt;
         });
-        await zone.dispatchEvent('dragover', { dataTransfer: transfer });
-        await expect(zone).toHaveClass(/dragover/);
-        await zone.dispatchEvent('drop', { dataTransfer: transfer });
-        await expect(zone).not.toHaveClass(/dragover/);
+        await target.dispatchEvent('dragover', { dataTransfer: transfer });
+        await expect(target).toHaveClass(/basket-dragover/);
+        await expect(target).toHaveCSS('outline-style', 'dashed');
+        await target.dispatchEvent('drop', { dataTransfer: transfer });
+        await expect(target).not.toHaveClass(/basket-dragover/);
         await transfer.dispose();
       } else {
-        await expect(root.locator('.library-picker-mobile')).toHaveText('📎 파일 추가');
-        const button = await root.locator('.library-picker-mobile').boundingBox();
-        const hint = await root.locator('.library-picker-hint').boundingBox();
+        await expect(zone).toHaveAccessibleName('파일 첨부');
+        const button = await zone.boundingBox();
         expect(button.height).toBeGreaterThanOrEqual(44);
-        expect(Math.abs(button.y + button.height / 2 - hint.y - hint.height / 2)).toBeLessThan(1);
+        expect(button.width).toBeGreaterThanOrEqual(44);
         await zone.focus();
         await expect(zone).toBeFocused();
         const chooser = page.waitForEvent('filechooser');
         await zone.press('Space');
         await (await chooser).setFiles({ name: '선택한 파일.txt', mimeType: 'text/plain', buffer: Buffer.from('fixture file') });
       }
+      await expect(root.locator('[data-basket-hint]')).toHaveText('파일당 100MiB · 20개까지');
       const row = root.locator('[data-basket-file]');
       await expect(row).toHaveCount(1);
       await expect(row).toContainText('선택한 파일.txt');

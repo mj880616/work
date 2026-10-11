@@ -1,4 +1,4 @@
-// Basket-only sequencing. The library/meeting picker styles remain the shared visual pattern.
+// Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 바구니에서 확인 후 다시 시도하세요';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -71,36 +71,64 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
   }
   return {ok:true,note_id:batch.note_id,attachments:batch.attachments};
 }
-export function mountBasketPicker(host, {id, getBatch, isBusy, onChange = () => {}, onError}) {
-  host.classList.add('library-file-block', 'basket-file-block');
-  host.innerHTML = `<input id="${id}" class="library-file-input" type="file" multiple><label class="library-dropzone" for="${id}" tabindex="0" aria-label="바구니 파일 여러 개 선택 또는 끌어놓기"><strong class="library-picker-desktop">파일을 여기로 끌어다 놓거나 클릭하세요</strong><span class="library-picker-mobile library-picker-button">📎 파일 추가</span><span class="library-picker-hint">파일당 100MiB · 20개까지</span></label><div class="library-selected-files" data-basket-files aria-live="polite"></div>`;
-  const input = host.querySelector('input'), zone = host.querySelector('label'), rows = host.querySelector('[data-basket-files]');
+export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, isBusy, isActive = () => true, onChange = () => {}, onError}) {
+  host.classList.add('basket-clip-picker');
+  host.innerHTML = `<input id="${id}" class="library-file-input" type="file" multiple tabindex="-1" aria-hidden="true"><button type="button" class="basket-clip" data-basket-clip aria-label="파일 첨부" aria-controls="${id}"><span aria-hidden="true">📎</span><span class="basket-clip-count" data-basket-count aria-hidden="true" hidden></span></button>`;
+  filesHost.classList.add('basket-file-selection');
+  filesHost.innerHTML = `<small class="basket-file-hint" data-basket-hint hidden>파일당 100MiB · 20개까지</small><div class="library-selected-files" data-basket-files aria-live="polite"></div>`;
+  dropTarget.classList.add('basket-drop-target');
+  const input = host.querySelector('input'), clip = host.querySelector('button'), badge = host.querySelector('[data-basket-count]'), hint = filesHost.querySelector('[data-basket-hint]'), rows = filesHost.querySelector('[data-basket-files]');
   let renderedBatch;
+  let dragDepth = 0;
+  function clearDrag() { dragDepth = 0; dropTarget.classList.remove('basket-dragover'); }
   function render() {
     const batch = getBatch();
     if (batch !== renderedBatch) { input.value = ''; renderedBatch = batch; }
-    input.disabled = isBusy() || !!batch.blocked;
-    zone.setAttribute('aria-disabled', String(input.disabled)); zone.tabIndex = input.disabled ? -1 : 0;
+    input.disabled = isBusy() || !!batch.blocked || !isActive();
+    clip.disabled = input.disabled;
+    if (input.disabled) clearDrag();
+    badge.textContent = String(batch.entries.length); badge.hidden = !batch.entries.length;
+    hint.hidden = !batch.entries.length; filesHost.hidden = !batch.entries.length;
     rows.innerHTML = batch.entries.map((entry, index) => `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
   }
   function add(files) {
-    if (isBusy() || getBatch().blocked) return;
+    if (!isActive() || isBusy() || getBatch().blocked) return;
     const batch = getBatch(), old = batch.entries;
     batch.entries = [...old, ...Array.from(files || []).map(file => ({file,kind:'pending',label:'대기'}))];
     try { validateBatch(batch); } catch(e) { batch.entries = old; render(); onError(e.message); return; }
     input.value = ''; render(); onChange();
   }
   input.addEventListener('change', () => add(input.files));
-  zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!input.disabled) input.click(); } });
-  for (const type of ['dragenter','dragover']) zone.addEventListener(type, e => { e.preventDefault(); if (!input.disabled) zone.classList.add('dragover'); });
-  for (const type of ['dragleave','dragend']) zone.addEventListener(type, () => zone.classList.remove('dragover'));
-  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); add(e.dataTransfer?.files); });
+  // Native button activation covers touch, click, Enter and Space.
+  clip.addEventListener('click', () => { if (!input.disabled) input.click(); });
+  const fileDrag = e => Array.from(e.dataTransfer?.types || []).includes('Files');
+  dropTarget.addEventListener('dragenter', e => {
+    if (!isActive() || !fileDrag(e)) return;
+    e.preventDefault();
+    if (!input.disabled) { dragDepth++; dropTarget.classList.add('basket-dragover'); }
+  });
+  dropTarget.addEventListener('dragover', e => {
+    if (!isActive() || !fileDrag(e)) return;
+    e.preventDefault();
+    if (!input.disabled) { e.dataTransfer.dropEffect = 'copy'; dropTarget.classList.add('basket-dragover'); }
+  });
+  dropTarget.addEventListener('dragleave', e => {
+    if (!fileDrag(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) clearDrag();
+  });
+  dropTarget.addEventListener('dragend', clearDrag);
+  dropTarget.addEventListener('drop', e => {
+    clearDrag();
+    if (!isActive() || !fileDrag(e)) return;
+    e.preventDefault(); add(e.dataTransfer?.files);
+  });
   rows.addEventListener('click', e => {
     const b = e.target.closest('[data-basket-remove]'), batch = getBatch();
     if (!b || isBusy() || batch.blocked) return;
     const index = Number(b.dataset.basketRemove); if (batch.entries[index]?.kind === 'success') return;
     batch.entries.splice(index, 1); render(); onChange();
-    (rows.querySelectorAll('button')[Math.min(index, rows.querySelectorAll('button').length - 1)] || zone).focus();
+    (rows.querySelectorAll('button')[Math.min(index, rows.querySelectorAll('button').length - 1)] || clip).focus();
   });
   render(); return {render};
 }

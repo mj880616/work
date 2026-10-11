@@ -1,13 +1,13 @@
-/* Basket-only picker: reuse the library rows without changing library/meeting uploads. */
-.basket-file-block.library-file-block { padding:6px; margin:0; }
-.basket-file-block .library-dropzone { box-sizing:border-box; min-height:56px; margin:0; padding:8px; flex-direction:row; gap:8px; }
-.basket-file-block .library-picker-hint { white-space:nowrap; }
-.basket-file-block .library-selected-files { margin-top:6px; }
-.basket-file-block .library-selected-files:empty { display:none; margin:0; }
-@media (max-width:760px) {
-  .basket-file-block.library-file-block { padding:0; background:transparent; }
-  .basket-file-block .library-dropzone { min-height:44px; padding:0; border:0; background:transparent; justify-content:flex-start; text-align:left; }
-  .basket-file-block .library-picker-desktop { display:none; }
-  .basket-file-block .library-picker-mobile { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-height:44px; padding:0 10px; border:1px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); color:var(--kptu-link); font-size:12px; }
-  .basket-file-block .library-dropzone:focus-visible { outline:2px solid var(--kptu-info); outline-offset:2px; }
-}
+/* Basket-only clip controls; library/meeting upload styles stay unchanged. */
+.basket-clip-picker { position:relative; width:44px; height:44px; flex:0 0 44px; }
+.basket-clip-picker .basket-clip { box-sizing:border-box; position:relative; display:grid; place-items:center; width:44px; height:44px; min-width:44px; min-height:44px; margin:0; padding:0; border:0; border-radius:8px; background:transparent; color:var(--kptu-link); font:inherit; font-size:20px; cursor:pointer; }
+.basket-clip-picker .basket-clip:hover { background:var(--kptu-primary-soft); }
+.basket-clip-picker .basket-clip:focus-visible { outline:2px solid var(--kptu-info); outline-offset:-2px; }
+.basket-clip-count { position:absolute; top:2px; right:0; display:grid; place-items:center; min-width:16px; height:16px; padding:0 2px; border-radius:var(--kptu-radius-pill); background:var(--kptu-primary); color:var(--kptu-on-primary); font-size:10px; line-height:1; font-weight:700; }
+.basket-clip-picker [hidden],.basket-file-selection[hidden],.basket-file-selection [hidden] { display:none; }
+.basket-file-selection .basket-file-hint { display:block; margin:0 0 6px; color:var(--kptu-muted); font-size:11px; line-height:1.4; }
+.basket-file-selection .library-selected-files { margin:0; }
+.basket-file-selection .library-selected-files:empty { display:none; }
+.basket-drop-target { position:relative; }
+.basket-drop-target.basket-dragover { outline:2px dashed var(--kptu-info); outline-offset:2px; }
+.basket-drop-target.basket-dragover::after { content:'파일을 놓아 첨부'; position:absolute; top:4px; right:4px; padding:4px 8px; border-radius:var(--kptu-radius-md); background:var(--kptu-info-soft); color:var(--kptu-link); font-size:12px; pointer-events:none; }
