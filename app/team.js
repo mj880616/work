@@ -1,4 +1,4 @@
-import {renderFilterChips} from './filter-chips.js?v=1';
+import {renderFilterChips} from './filter-chips.js?v=2';
 import {formatMeetingTime,toMeetingISO} from './meeting-time.js?v=1';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';

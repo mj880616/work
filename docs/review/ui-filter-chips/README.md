@@ -25,7 +25,7 @@
 
 재현: `node docs/review/ui-filter-chips/capture.mjs after http://127.0.0.1:8123`. `@playwright/test`와 설치 Chromium을 사용한다. before는 시작 SHA를 별도 로컬 디렉터리로 펼친 정적 서버에서 같은 스크립트를 실행했다.
 
-## 검증과 캐시
+## 최초 구현 검증과 캐시 (2837b9b 기준)
 
 - Node: `node --test tests/*.test.mjs tests/domain/*.test.mjs tests/security/*.test.mjs scripts/*.test.mjs` **512/512 통과**. 회의 한국 시간 6건 포함. DB 연결이 필요한 테스트는 실행하지 않았다.
 - 신규 UI 6건: 두 폭의 필터 결과·가로 스크롤·자동 노출·키보드·터치·색점/색줄·상위/하위·검색, 세 기기 시간대의 표시/새 저장/수정 왕복, 프로젝트 상세→자료실 연결 통과.
@@ -39,8 +39,43 @@
 
 ## 병행 작업·운영 경계
 
-BASKET-버튼정리 #493과 `quick-controls.css`, `home-read.css`, `view-loader.js`, `loader-v2.js`, `app.js`, `index.html`, 버전 기대 테스트·smoke·원장이 겹친다. 새 공용 CSS는 홈·목록 필터 선언만 포함한다. #493의 바구니 기능 파일은 수정하지 않았다. 커밋 전 원격 main을 다시 fetch했으며 시작 SHA와 동일했다. 확인 당시 #493은 미병합이고 BASKET-붙여넣기수정의 공개 원격 브랜치·열린 PR은 확인되지 않았다. 이 작업 이후 병합 순서가 정해지면 뒤에 병합하는 PR의 공용 CSS·캐시를 먼저 병합된 main 기준으로 조정해야 한다.
+최초 구현 당시 BASKET-버튼정리 #493과 `quick-controls.css`, `home-read.css`, `view-loader.js`, `loader-v2.js`, `app.js`, `index.html`, 버전 기대 테스트·smoke·원장이 겹친다. 새 공용 CSS는 홈·목록 필터 선언만 포함한다. #493의 바구니 기능 파일은 수정하지 않았다. 커밋 전 원격 main을 다시 fetch했으며 시작 SHA와 동일했다. 확인 당시 #493은 미병합이고 BASKET-붙여넣기수정의 공개 원격 브랜치·열린 PR은 확인되지 않았다. 이 작업 이후 병합 순서가 정해지면 뒤에 병합하는 PR의 공용 CSS·캐시를 먼저 병합된 main 기준으로 조정해야 한다.
 
 운영 접속·DB·RLS·Edge·데이터 이관·workflow 수동 실행·merge 없음. 인증 게이트·권한 검사·API 엔드포인트·저장 데이터 구조를 변경하지 않았다. 앞으로 저장하거나 수정하는 회의의 일시 해석만 요청대로 한국 고정이다. 복구는 커맨드센터에서 이 PR을 되돌리는 파일 PR로 진행하며 DB 복구 작업은 없다.
 
 회의 밖 시간대 현황: 홈 날짜·주 범위·홈 일정 표시와 달력 목록 조회 범위는 한국 기준이다. 달력 월 배치·일정 입력과 일부 상세 시각은 기기의 Date/getHours와 local ISO 변환을 사용하는 기존 경로가 남아 있다. 프로젝트 주요 일정 입력·결정 기록 표시도 기존 기기 시간대 경로다. 이번 PR에서는 고치지 않았다. 프로젝트 `decisions()` 회의 이력 포맷을 한국 시간으로 맞췄지만 이 렌더러는 현재 상세 본문에서 호출되지 않는다.
+
+
+## #493 병합 후속 검증
+
+최신 main `ed1c85f3cb443c23fb95b2b70ba569811bc20373`(#493 merge)을 같은 `codex/ui-filter-chips` 브랜치에 merge했다. PR은 #494를 유지한다. 공용 CSS는 main의 `quick-pill-button`, `quick-mode-group`, `quick-pill-primary`, `quick-text-link`를 유지하고 필터가 앞의 두 클래스를 사용하도록 맞췄다. `home-quick-modes`, `home-basket-link`는 기존 홈 선택자로 유지한다. 필터 전용 클래스는 스크롤·포커스·색점·하위 크기만 맡으며 공용 44px 터치 영역을 중복 정의하지 않는다. #493의 바구니 ID 선택자·선언은 모두 유지했다.
+
+| 충돌 파일 | 해결 |
+| --- | --- |
+| `app/quick-controls.css` | main의 공용 클래스·바구니 선언을 기준으로 일반 필터 선택자와 `aria-checked` 선택 상태만 통합 |
+| `app/home-read.css` | main의 공용 CSS 분리와 #494의 중복 홈 링크 선언 제거를 함께 유지; main 대비 import 버전만 변경 |
+| `app/view-loader.js` | main의 basket CSS/JS와 #494의 필터·회의 모듈 참조를 함께 유지, 최종 캐시 버전 전파 |
+| `.github/workflows/app-smoke-check.yml` | 양쪽 검사 유지, 필터·한국 시간 자산과 최종 고정 버전 통합 |
+| `tests/app-e2e/startup-performance.spec.mjs` | 양쪽 시작 로딩 검사 유지, 최종 버전 기대값으로 통합 |
+| `tests/app-e2e/task-layout-groups.spec.mjs` | 양쪽 회귀 검사 유지, 최종 버전 기대값으로 통합 |
+
+main 대비 캐시를 각각 한 단계 올렸다: `quick-controls.css` 1→2, `home-read.css` 13→14, `basket.css` 5→6, `view-loader.js` 121→122, `loader-v2.js` 354→355, `app.js` 242→243 및 `index.html`. 필터 JS/CSS는 2, 회의·자료실 기능 모듈은 최초 #494의 main+1 버전을 유지한다. 버전 기대 테스트·smoke 고정 문자열을 같은 최종값으로 맞췄다.
+
+검증: Node **512/512**, 설치 Chromium 회귀 **258/258**(18 spec, #493 `basket-button-compact` 포함), 정적 smoke **12블록**, 로컬 HTTP **109자산**, 캐시 **410참조**, diff 공백·충돌 표시 검사 통과. 2단 작은 알약 26px·공용 터치 영역 44px의 실제 계산값 검사를 추가했다. 기존 테스트 삭제·약화 없음. 독립 리뷰에서 중요 지적 없음. 자동 전체 CI는 push 후 [같은 PR Checks](https://github.com/mj880616/work/pull/494/checks)에서 최종 SHA 결과를 확인한다.
+
+### main #493 대비 390/1280px 캡처
+
+같은 합성 데이터·고정 시각·설치 Chromium, 운영 요청을 모두 mock 처리했다. 홈은 카드 로드 완료 후 900px viewport를 비교하며 다른 화면은 전체 페이지 캡처다. 렌더링 조건과 캡처 순서는 양쪽에 동일하게 적용한다.
+
+| 화면 | 390px main | 390px #494 | 1280px main | 1280px #494 |
+| --- | --- | --- | --- | --- |
+| 회의 목록 | [전](main493-before/meetings-390.png) | [후](main493-after/meetings-390.png) | [전](main493-before/meetings-1280.png) | [후](main493-after/meetings-1280.png) |
+| 자료실 목록 | [전](main493-before/library-390.png) | [후](main493-after/library-390.png) | [전](main493-before/library-1280.png) | [후](main493-after/library-1280.png) |
+| 프로젝트 선택·2단 펼침 | [전](main493-before/project-390.png) | [후](main493-after/project-390.png) | [전](main493-before/project-1280.png) | [후](main493-after/project-1280.png) |
+| 홈 | [전](main493-before/home-390.png) | [후](main493-after/home-390.png) | [전](main493-before/home-1280.png) | [후](main493-after/home-1280.png) |
+| 바구니 목록 | [전](main493-before/basket-390.png) | [후](main493-after/basket-390.png) | [전](main493-before/basket-1280.png) | [후](main493-after/basket-1280.png) |
+| 바구니 분류 펼침 | [전](main493-before/basket-panel-390.png) | [후](main493-after/basket-panel-390.png) | [전](main493-before/basket-panel-1280.png) | [후](main493-after/basket-panel-1280.png) |
+
+홈·바구니 목록·바구니 분류 펼침의 RGB 픽셀 차이는 두 폭 모두 **0**이다([비교 JSON](main493-comparison.json)). 전후 console error/pageerror는 모두 **0**이다. 홈 로드 완료·network idle·폰트 준비를 기다리고 소프트웨어 렌더링을 사용한다. 초기 캡처의 이전 화면 전체 페이지 높이 영향·미완료 카드 로딩·둥근 테두리의 미세한 재페인트 차이를 제거하도록 두 서버에 같은 촬영 조건을 적용했다. 제품의 홈·바구니 모양을 수정하지 않았다.
+
+재현: main을 별도 디렉터리에 `git archive`로 펼쳐 8125 로컬 서버를 열고, 작업 브랜치를 8123에서 연 뒤 `node docs/review/ui-filter-chips/capture.mjs main493-before http://127.0.0.1:8125`, `node docs/review/ui-filter-chips/capture.mjs main493-after http://127.0.0.1:8123`를 실행한다. 운영·DB·Edge·수동 workflow 실행 없음. 원장의 BASKET-버튼정리 행은 완료(#493 merge ed1c85f), UI-필터알약 행은 진행중(#494)으로 함께 유지했다. main merge는 커맨드센터에 남긴다.

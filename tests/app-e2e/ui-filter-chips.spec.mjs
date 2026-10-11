@@ -28,6 +28,8 @@ for(const width of [390,1280])test(`공용 알약 필터·2단 프로젝트·키
   await view.locator('[data-filter-value="all"]').click();const project=page.locator('#documentProject');
   await project.locator('[data-filter-value="top-a"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(project.locator('.filter-chips-small')).toBeVisible();await expect(project.locator('.filter-chips-small').getByRole('radio')).toHaveText(['전체(이 프로젝트)','국토부 대응','산자부 대응']);
+  await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','26px');
+  expect(await project.locator('.filter-chips-small [role=radio]').first().evaluate(e=>getComputedStyle(e,'::after').height)).toBe('44px');
   await project.locator('[data-filter-value="child-a1"]').click();await expect(page.locator('.lu-row')).toHaveCount(2);
   await page.locator('#documentSearch').fill('회의');await expect(page.locator('.lu-row')).toHaveCount(1);
   await view.locator('[data-filter-value="general"]').click();await expect(page.locator('.lu-row')).toHaveCount(0);

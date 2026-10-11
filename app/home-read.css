@@ -1,4 +1,5 @@
-@import url("./quick-controls.css?v=1");
+@import url('./quick-controls.css?v=2');
+
 #homeView {
   padding-left: 16px;
   padding-right: 16px;
@@ -295,7 +296,6 @@
 }
 
 .home-quick [data-quick-basket-options][hidden] { display:none; }
-.home-quick .home-basket-link { min-height:44px; border:0; background:transparent; color:var(--kptu-primary-ink); text-align:right; }
 
 .home-quick [data-quick-new-note],.home-quick [data-basket-remove] { min-height:44px; }
 .home-quick[data-mode="basket"] [data-goto="basket"] { grid-row:3; margin-top:-4px; }

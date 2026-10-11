@@ -2,7 +2,7 @@
 export function renderFilterChips(host,{options,value='all',label,onChange,small=false,controls}={}){
   if(!host)return;
   const selected=options.some(o=>o.value===value)?value:options[0]?.value;
-  host.classList.add('filter-chips');host.classList.toggle('filter-chips-small',small);
+  host.classList.add('filter-chips','quick-mode-group');host.classList.toggle('filter-chips-small',small);
   host.setAttribute('role','radiogroup');host.setAttribute('aria-label',label);
   if(controls)host.setAttribute('aria-controls',controls);
   host.value=selected;host._filterChange=onChange;
@@ -10,7 +10,7 @@ export function renderFilterChips(host,{options,value='all',label,onChange,small
   if(host._filterSignature!==signature){
     const focused=host.contains(document.activeElement)?document.activeElement?.dataset.filterValue:null;
     host.replaceChildren(...options.map(o=>{
-      const button=document.createElement('button');button.type='button';button.setAttribute('role','radio');button.dataset.filterValue=o.value;
+      const button=document.createElement('button');button.type='button';button.className='quick-pill-button';button.setAttribute('role','radio');button.dataset.filterValue=o.value;
       if(o.color){const dot=document.createElement('span');dot.className='filter-chip-dot';dot.style.backgroundColor=o.color;dot.setAttribute('aria-hidden','true');button.append(dot)}
       button.append(document.createTextNode(o.label));return button;
     }));

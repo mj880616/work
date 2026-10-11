@@ -1,4 +1,4 @@
-import {renderFilterChips} from './filter-chips.js?v=1';
+import {renderFilterChips} from './filter-chips.js?v=2';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const LU_SESSION='kptu_collab_session_v1';
