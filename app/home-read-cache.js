@@ -1,4 +1,4 @@
-import {dayKey,ranges} from './home-read-model.js?v=1';
+import {dayKey,ranges} from './home-read-model.js?v=2';
 const MAX_BYTES=20*1024,MAX_AGE=7*86400000;
 const text=v=>typeof v==='string'?v:'';
 // Persist display projections only. Google Tasks keeps its own task-body copy.

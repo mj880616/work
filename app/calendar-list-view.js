@@ -1,5 +1,6 @@
-import {dayKey} from './home-read-model.js?v=1';
-import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=3';
+import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js?v=2';
+import {dayKey} from './home-read-model.js?v=2';
+import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=4';
 let observer=null,focusKey=null;
 export function stopList(){observer?.disconnect()}
 export function renderList(options,{start,days,tasks,busy,error,more}){
@@ -8,12 +9,12 @@ export function renderList(options,{start,days,tasks,busy,error,more}){
   focusKey=captureDayFocus(box,focusKey);
   box.replaceChildren();
   for(let i=0;i<days;i++){
-    const date=new Date(start);date.setDate(date.getDate()+i);
+    const date=addSeoulDays(start,i);
     const section=document.createElement('section');section.className='clv-day';section.dataset.date=calendarDateKey(date);
     const header=document.createElement('h3');header.className='clv-date';
     const today=section.dataset.date===dayKey();
     if(today)header.classList.add('clv-today');
-    header.textContent=(today?'오늘 · ':'')+`${date.getMonth()+1}월 ${date.getDate()}일 ${['일','월','화','수','목','금','토'][date.getDay()]}`;
+    header.textContent=(today?'오늘 · ':'')+`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 ${['일','월','화','수','목','금','토'][seoulParts(date).weekday]}`;
     section.append(header);
     appendDayRows(section,date,dayItems(options,date,tasks));
     box.append(section);

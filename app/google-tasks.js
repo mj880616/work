@@ -1,5 +1,6 @@
+import {formatSeoulTime} from './meeting-time.js?v=2';
 import { createAnchoredMenu } from './anchored-menu.js?v=1';
-import { dayKey } from './home-read-model.js?v=1';
+import { dayKey } from './home-read-model.js?v=2';
 import { createGoogleTask } from './quick-save.js?v=1';
 (()=>{
 'use strict';
@@ -26,11 +27,11 @@ const completedRecently=(task,now=Date.now())=>{if(task?.status!=='completed')re
 // Dates follow Korean time whatever the device time zone (same rule as the google-tasks Edge).
 const DAY_MS=24*60*60*1000;
 const kstDateKey=(offset=0,now=Date.now())=>dayKey(now+offset*DAY_MS);
-const dueDateKey=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);if(!m)return'';const y=Number(m[1]),mo=Number(m[2]),day=Number(m[3]),d=new Date(y,mo-1,day);return d.getFullYear()===y&&d.getMonth()===mo-1&&d.getDate()===day?m[0]:''};
+const dueDateKey=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);if(!m)return'';const y=Number(m[1]),mo=Number(m[2]),day=Number(m[3]),d=new Date(Date.UTC(y,mo-1,day));return d.getUTCFullYear()===y&&d.getUTCMonth()===mo-1&&d.getUTCDate()===day?m[0]:''};
 const inSevenDayWindow=(task,now=Date.now())=>{const key=dueDateKey(task?.due);return Boolean(key)&&key>kstDateKey(0,now)&&key<=kstDateKey(7,now)};
 const isOverdue=(task,now=Date.now())=>{if(task?.status==='completed')return false;const key=dueDateKey(task?.due);return Boolean(key)&&key<kstDateKey(0,now)};
 const byDue=(a,b)=>dueDateKey(a.due).localeCompare(dueDateKey(b.due));
-const due=v=>{const raw=dueDateKey(v);if(!raw)return'기한 미정';const [y,m,d]=raw.split('-').map(Number),local=new Date(y,m-1,d);return local.toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',weekday:'short'})};
+const due=v=>{const raw=dueDateKey(v);if(!raw)return'기한 미정';return formatSeoulTime(raw,{month:'numeric',day:'numeric',weekday:'short'})};
 let taskMenu=null,taskRenderPending=false;
 function section(){
   let sec=document.querySelector('#gtTaskSection');if(sec)return sec;
