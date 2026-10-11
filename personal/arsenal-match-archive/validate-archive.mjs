@@ -133,10 +133,11 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
   if (baselineMatches) {
     const recent = list => list.filter(match => match?.season === '2026-27');
     const baselineRecent = recent(baselineMatches);
+    const currentById = new Map(recent(matches).map(match => [match.id, match]));
     const scoringFields = new Set(['goals', 'goalsSource', 'goalsTimeSource']);
-    const comparableRecent = recent(matches).map((match, index) => {
-      const baseline = baselineRecent[index];
-      if (!baseline || baseline.id !== match.id) return match;
+    const comparableRecent = baselineRecent.map((baseline) => {
+      const match = currentById.get(baseline.id);
+      if (!match) return null;
       const comparable = Object.fromEntries(Object.entries(match).filter(([key]) =>
         !scoringFields.has(key) || Object.hasOwn(baseline, key)));
       if (match.id === '2026-09-15-ipswich-away-carabao') {
