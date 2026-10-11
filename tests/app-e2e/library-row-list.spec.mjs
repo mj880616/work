@@ -238,8 +238,9 @@ for(const width of [390,1280]){
       const rows=page.locator('#documentList [data-lu-document]');
       const view=page.getByRole('radiogroup',{name:'자료 종류',exact:true});
       await expect(rows).toHaveCount(3);
+      expect(await rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument))).toEqual(['ordinary-a','category-only','ordinary-b']);
       await expect(view).toHaveJSProperty('value','general');
-      expect(await view.getByRole('radio').allTextContents()).toEqual(['일반 자료','회의자료 포함','회의자료만']);
+      expect(await view.getByRole('radio').allTextContents()).toEqual(['일반 자료','회의자료만']);
       await expect(page.locator('#libraryViewFilter')).toHaveAttribute('aria-controls','documentList');
       expect(await view.evaluate(el=>el.previousElementSibling.id)).toBe('documentProject');
       await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
@@ -247,38 +248,39 @@ for(const width of [390,1280]){
       await expect(page.locator('#libraryMeetingToggle')).toHaveCount(0);
       if(width===390)await view.getByRole('radio',{name:'일반 자료',exact:true}).tap();else await view.getByRole('radio',{name:'일반 자료',exact:true}).click();
       await page.keyboard.press('Escape');
-      await selectFilter(page,'#libraryViewFilter','all');await expect(rows).toHaveCount(5);
-      await view.locator('[aria-checked=true]').focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('ArrowRight');await page.keyboard.press('Enter');
+      await view.locator('[aria-checked=true]').focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('Enter');
       await expect(view).toHaveJSProperty('value','meetings');await expect(rows).toHaveCount(2);
       await expect(view.locator('[aria-checked=true]')).toBeFocused();
+      expect(await rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument))).toEqual(['meeting-a','meeting-b']);
+      await page.screenshot({path:`/tmp/library-two-meetings-${width}.png`,fullPage:true});
       await expect(page.locator('[data-lu-document="category-only"]')).toHaveCount(0);
       await selectFilter(page,'#documentProject','top-a');
       await page.locator('#documentSearch').fill('철도');
-      for(const [value,count] of [['general',2],['all',3],['meetings',1]]){
+      for(const [value,count] of [['general',2],['meetings',1]]){
         await selectFilter(page,'#libraryViewFilter',value);await expect(rows).toHaveCount(count);
         await expect(page.locator('[data-lu-document="meeting-b"]')).toHaveCount(0);
       }
       await page.locator('#documentSearch').fill('일반');
       await expect(rows).toHaveCount(0);
       await selectFilter(page,'#libraryViewFilter','general');await expect(rows).toHaveCount(1);
-      // A result containing only linked documents remains reachable through the select.
+      // Meeting-linked documents remain reachable through the two-option filter.
       await page.locator('#documentSearch').fill('회의 연결');
       await expect(rows).toHaveCount(0);await expect(view).toBeVisible();
       await selectFilter(page,'#libraryViewFilter','meetings');await expect(rows).toHaveCount(1);
       await page.locator('#documentSearch').fill('없음');await expect(rows).toHaveCount(0);await expect(view).toBeVisible();
       await page.locator('#documentSearch').fill('');await selectFilter(page,'#documentProject','all');
-      await selectFilter(page,'#libraryViewFilter','all');await expect(rows).toHaveCount(5);
+      await expect(rows).toHaveCount(2);
       await page.locator('#manageLibraryBtn').click();
       await expect(page.locator('#libraryManageList [data-library-edit]')).toHaveCount(5);
       await page.locator('#libraryManageClose').click();
       const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));
       const before=await storageKeys();
-      await selectFilter(page,'#libraryViewFilter','general');await selectFilter(page,'#libraryViewFilter','meetings');await selectFilter(page,'#libraryViewFilter','all');
+      await selectFilter(page,'#libraryViewFilter','general');await selectFilter(page,'#libraryViewFilter','meetings');
       expect(await storageKeys()).toEqual(before);
       await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('library'));
       await expect(rows).toHaveCount(3);await expect(view).toHaveJSProperty('value','general');
-      await selectFilter(page,'#libraryViewFilter','all');await expect(rows).toHaveCount(5);
+      await selectFilter(page,'#libraryViewFilter','meetings');await expect(rows).toHaveCount(2);
       await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
       await expect(rows).toHaveCount(3);await expect(view).toHaveJSProperty('value','general');
       expect(documentQueries.length).toBeGreaterThan(0);
