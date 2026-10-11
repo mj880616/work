@@ -1,0 +1,74 @@
+{
+  "home": [
+    {
+      "id": "home-quick-modes",
+      "width": 178.75,
+      "height": 34,
+      "scrollWidth": 179,
+      "wrap": "nowrap",
+      "buttons": [
+        {
+          "label": "바구니",
+          "height": 30,
+          "targetHeight": "auto"
+        },
+        {
+          "label": "할 일",
+          "height": 30,
+          "targetHeight": "auto"
+        },
+        {
+          "label": "업데이트",
+          "height": 30,
+          "targetHeight": "auto"
+        }
+      ]
+    }
+  ],
+  "meetings": [
+    {
+      "id": "meetingTypeFilter",
+      "width": 366,
+      "height": 36,
+      "scrollWidth": 364,
+      "wrap": "nowrap",
+      "buttons": []
+    }
+  ],
+  "library": [
+    {
+      "id": "documentProject",
+      "width": 179,
+      "height": 44,
+      "scrollWidth": 177,
+      "wrap": "nowrap",
+      "buttons": []
+    },
+    {
+      "id": "libraryViewFilter",
+      "width": 179,
+      "height": 44,
+      "scrollWidth": 177,
+      "wrap": "nowrap",
+      "buttons": []
+    }
+  ],
+  "project": [
+    {
+      "id": "documentProject",
+      "width": 179,
+      "height": 44,
+      "scrollWidth": 177,
+      "wrap": "nowrap",
+      "buttons": []
+    },
+    {
+      "id": "libraryViewFilter",
+      "width": 179,
+      "height": 44,
+      "scrollWidth": 177,
+      "wrap": "nowrap",
+      "buttons": []
+    }
+  ]
+}

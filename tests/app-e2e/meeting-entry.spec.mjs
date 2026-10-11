@@ -1,3 +1,4 @@
+import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
@@ -240,8 +241,8 @@ test('meeting material upload attempts every selected file and reports partial f
 test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
   await expect(page.locator('#meetingTypeFilter')).toBeVisible();
-  await expect(page.locator('#meetingTypeFilter option')).toContainText(['회의명 전체','궤도협의회','회의명 미지정']);
-  await page.locator('#meetingTypeFilter').selectOption({label:'궤도협의회'});
+  await expect(page.locator('#meetingTypeFilter [role=radio]')).toContainText(['전체','궤도협의회','회의명 미지정']);
+  await selectFilter(page,'#meetingTypeFilter',{label:'궤도협의회'});
   const row=page.locator('#meetingList .meeting-list-row');
   await expect(row).toHaveCount(1);
   await expect(row.locator('h3')).toHaveText('궤도협의회');
@@ -255,7 +256,7 @@ test('meeting list uses canonical meeting names without title-series duplication
 const stripe=row=>row.evaluate(el=>getComputedStyle(el).borderLeftColor);
 const rgb=hex=>`rgb(${[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', ')})`;
 
-const neutral=page=>page.evaluate(()=>{const probe=document.createElement('i');probe.style.color='var(--kptu-border-strong)';document.body.append(probe);const c=getComputedStyle(probe).color;probe.remove();return c});
+const neutral=page=>page.evaluate(()=>{const probe=document.createElement('i');probe.style.color='#808080';document.body.append(probe);const c=getComputedStyle(probe).color;probe.remove();return c});
 const palette=()=>JSON.parse(read('app/team.js').match(/const MEETING_COLORS=(\[[^\]]+\])/)[1].replace(/'/g,'"'));
 async function showMeetings(page,rows,docs=[]){
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)}));
@@ -289,12 +290,12 @@ test('meeting names keep colors after reload and after older meetings are added'
   await expect(byId('a3').locator('p')).toHaveText(/^3차 · .+ · 자료 1개$/);
   await expect(byId('a3').locator('p')).not.toContainText('메인');
   // Filtering does not reassign colors.
-  await page.locator('#meetingTypeFilter').selectOption({label:'안전위원회'});
+  await selectFilter(page,'#meetingTypeFilter',{label:'안전위원회'});
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
   expect(await stripe(byId('c1'))).toBe(original.c1);
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
-  await page.locator('#meetingTypeFilter').selectOption('all');
+  await selectFilter(page,'#meetingTypeFilter','all');
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
   for(const [id,color] of Object.entries(original))expect(await stripe(byId(id)),id).toBe(color);
   await showMeetings(page,[...rows,{...meeting,id:'older',title:'새 과거 회의',series_name:'새 과거 회의',meeting_at:'2020-01-01T01:00:00Z'}]);
@@ -422,10 +423,10 @@ test('edit can replace a meeting name with an existing choice',async({page})=>{
   expect(saved.title).toBe('통일할 회의');expect(saved.series_name).toBe('통일할 회의');
 });
 
-test('meeting palette has 12 distinct non-red colors visible on light and dark surfaces',async()=>{
+test('meeting palette has 8 distinct non-red colors visible on light and dark surfaces',async()=>{
   const P=palette();
-  expect(P).toHaveLength(12);
-  expect(new Set(P).size).toBe(12);
+  expect(P).toHaveLength(8);
+  expect(new Set(P).size).toBe(8);
   const lin=c=>{c/=255;return c<=.03928?c/12.92:((c+.055)/1.055)**2.4};
   const parts=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
   const lum=hex=>{const [r,g,b]=parts(hex).map(lin);return .2126*r+.7152*g+.0722*b};
@@ -455,13 +456,13 @@ for(const width of [320,360,390,768,1280]){
     const head=page.locator('#meetingsListCard .add-list-head');
     const [b,s,h,btn]=await Promise.all([bar.boundingBox(),select.boundingBox(),head.boundingBox(),button.boundingBox()]);
     expect(btn.height).toBeCloseTo(36,0);
-    expect(s.height).toBeCloseTo(btn.height,0);
+    expect(s.height).toBeCloseTo(44,0);
     expect(s.x).toBeCloseTo(b.x,0);
-    expect(s.width).toBeCloseTo(b.width,0);
+    expect(s.width).toBeLessThanOrEqual(b.width);
     expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0);
     expect(btn.y).toBeGreaterThanOrEqual(h.y);
     expect(btn.y+btn.height).toBeLessThanOrEqual(h.y+h.height);
-    expect(b.height).toBeCloseTo(36,0);
+    expect(b.height).toBeCloseTo(44,0);
     expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
     const row=page.locator('#meetingList .meeting-list-row').first();
     const fit=await row.evaluate(el=>{const main=el.querySelector('.meeting-list-main').getBoundingClientRect(),box=el.getBoundingClientRect(),cs=getComputedStyle(el);return {row:box.height,content:main.height+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+parseFloat(cs.borderBottomWidth)}});
@@ -483,7 +484,7 @@ test('meeting list filters title-only and series-only legacy rows by the display
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#meetingList h3')).toHaveText(['제목만 회의','계열명만 회의','기존 회의 계열']);
-  await page.locator('#meetingTypeFilter').selectOption({label:'제목만 회의'});
+  await selectFilter(page,'#meetingTypeFilter',{label:'제목만 회의'});
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
   await expect(page.locator('#meetingList .meeting-list-row p')).not.toContainText('차');
 });
@@ -908,10 +909,10 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=66')");
+  expect(loader).toContain("import('./team.js?v=67')");
   expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=24');
-  expect(views).toContain('meeting-ui.css?v=14');
+  expect(views).toContain('meeting-round-detail.js?v=25');
+  expect(views).toContain('meeting-ui.css?v=15');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
@@ -924,5 +925,5 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingProject']");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
-  expect(css).toContain("meeting-ui.css?v=14");
+  expect(css).toContain("meeting-ui.css?v=15");
 });

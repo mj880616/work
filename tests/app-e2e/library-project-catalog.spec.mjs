@@ -1,3 +1,4 @@
+import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -91,7 +92,7 @@ async function signIn(page,target='http://127.0.0.1:8123/app/'){
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
-const optionsOf=(page,selector)=>page.locator(selector).evaluate(s=>[...s.options].map(o=>({value:o.value,text:o.text,stale:o.dataset.luStaleProject==='1'})));
+const optionsOf=filterOptions;
 const EXPECTED=[
   ['top-a','공공기관 기능개혁 대응'],
   ['child-a1','　↳ 국토부 대응'],
@@ -103,14 +104,14 @@ const EXPECTED=[
 async function gotoLibrary(page){
   await clickView(page,'library');
   await expect(page.locator('#libraryView')).toBeVisible();
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
 }
 
 test('library selectors match the canonical project hierarchy on direct entry without visiting projects',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
   await expect(page.locator('#libraryView')).toBeVisible();
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   expect(await page.evaluate(()=>!!window.__KPTU_PROJECT_V3_READY__)).toBe(false);
   expect(state.spaceReads.some(q=>q.includes('owner_id=eq.user-1'))).toBe(true);
 
@@ -122,7 +123,7 @@ test('library selectors match the canonical project hierarchy on direct entry wi
   await expect(page.locator('#docProject')).toHaveValue('');
 
   const filter=await optionsOf(page,'#documentProject');
-  expect(filter[0]).toEqual({value:'all',text:'전체 프로젝트',stale:false});
+  expect(filter[0]).toEqual({value:'all',text:'전체',stale:false});
   expect(filter.slice(1,1+EXPECTED.length).map(o=>[o.value,o.text])).toEqual(EXPECTED);
   expect(filter.slice(1+EXPECTED.length).map(o=>[o.value,o.text,o.stale])).toEqual([
     ['top-c','[보관됨] 보관된 상위',true],['legacy-1','[이전 공간] 기존 일반 공간',true],['gone-1','[확인할 수 없는 프로젝트]',true]
@@ -139,7 +140,7 @@ test('library selectors match the canonical project hierarchy on direct entry wi
 test('project screen and library expose the same active project set in the same order',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   await page.evaluate(()=>{window.__spaceEvents=[];window.addEventListener('kptu:project-spaces-updated',e=>window.__spaceEvents.push(e.detail))});
   await clickView(page,'projects');
   await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(3);
@@ -160,7 +161,7 @@ test('project screen and library expose the same active project set in the same 
 test('upload sends the exact selected parent or child project id and rejects stale ids',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   for(const pid of ['top-a','child-a2']){
     await page.locator('#newDocumentBtn').click();
     await page.locator('#libraryFileInput').setInputFiles({name:`${pid}.pdf`,mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')});
@@ -185,7 +186,7 @@ test('real runtime maps structured upload failures, keeps completed child upload
   state.uploadFailures=[null,{status:424,body:{error:'Google Drive 토큰 갱신에 실패했습니다. Google Drive 연결이 만료됐으니 다시 연결해 주세요.',message:'Google Drive 토큰 갱신에 실패했습니다. Google Drive 연결이 만료됐으니 다시 연결해 주세요.',code:'drive_auth_expired',stage:'drive_token',retryable:false}}];
   await mockApp(page,state);await page.setViewportSize({width:360,height:780});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   page.on('dialog',dialog=>dialog.dismiss());
   await page.locator('#newDocumentBtn').click();
   await page.locator('#libraryFileInput').setInputFiles([
@@ -221,7 +222,7 @@ test('server-side missing project maps to the stale project message and refreshe
   state.uploadFailures=[{status:404,body:{error:'프로젝트를 찾을 수 없습니다.',message:'프로젝트를 찾을 수 없습니다.',code:'project_not_found',stage:'project',retryable:false}}];
   await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   await page.locator('#newDocumentBtn').click();
   await page.locator('#libraryFileInput').setInputFiles({name:'parent.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')});
   await page.locator('#docProject').selectOption('top-b');
@@ -237,7 +238,7 @@ test('server-side missing project maps to the stale project message and refreshe
 test('metadata edit keeps archived links and moves documents between parent, child and none',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   const edit=async id=>{await page.locator(`[data-lu-menu="${id}"]`).click();await page.locator(`[data-lu-edit="${id}"]`).click();await expect(page.locator('#libraryEditModal')).toBeVisible()};
   const save=async()=>{await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden()};
 
@@ -270,16 +271,16 @@ test('metadata edit keeps archived links and moves documents between parent, chi
 test('project filter uses exact project matches and keeps unlinked and stale documents reachable',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   const shown=()=>page.locator('#documentList [data-lu-document]').evaluateAll(xs=>xs.map(x=>x.dataset.luDocument));
   await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(6);
-  await page.locator('#documentProject').selectOption('top-a');
+  await selectFilter(page,'#documentProject','top-a');
   expect(await shown()).toEqual(['doc-a']);
-  await page.locator('#documentProject').selectOption('child-a1');
+  await selectFilter(page,'#documentProject','child-a1');
   expect(await shown()).toEqual(['doc-a1']);
-  await page.locator('#documentProject').selectOption('top-c');
+  await selectFilter(page,'#documentProject','top-c');
   expect(await shown()).toEqual(['doc-archived']);
-  await page.locator('#documentProject').selectOption('all');
+  await selectFilter(page,'#documentProject','all');
   expect((await shown()).sort()).toEqual(['doc-a','doc-a1','doc-archived','doc-legacy','doc-missing','doc-none']);
 });
 
@@ -287,7 +288,7 @@ test('project create, rename and archive refresh library selectors without reloa
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   page.on('dialog',d=>d.accept());
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-  await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+  await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   await clickView(page,'projects');
   await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(3);
 
@@ -323,7 +324,7 @@ for(const width of [360,390,412,430]){
   test(`library selectors and modals stay inside a ${width}px viewport`,async({page})=>{
     const state=baseState();await mockApp(page,state);await page.setViewportSize({width,height:844});
     await signIn(page,'http://127.0.0.1:8123/app/?view=library');
-    await page.waitForFunction(()=>document.querySelector('#documentProject')?.options.length>1);
+    await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
     const overflow=()=>page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
     expect(await overflow()).toBeLessThanOrEqual(1);
     await expect(page.locator('#documentProject')).toBeVisible();

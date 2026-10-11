@@ -1,0 +1,62 @@
+[
+  {
+    "view": "home",
+    "width": 390,
+    "imageSize": [
+      390,
+      900
+    ],
+    "differentPixels": 0,
+    "maxChannelDifference": 0
+  },
+  {
+    "view": "home",
+    "width": 1280,
+    "imageSize": [
+      1280,
+      900
+    ],
+    "differentPixels": 0,
+    "maxChannelDifference": 0
+  },
+  {
+    "view": "basket",
+    "width": 390,
+    "imageSize": [
+      390,
+      900
+    ],
+    "differentPixels": 0,
+    "maxChannelDifference": 0
+  },
+  {
+    "view": "basket",
+    "width": 1280,
+    "imageSize": [
+      1280,
+      980
+    ],
+    "differentPixels": 0,
+    "maxChannelDifference": 0
+  },
+  {
+    "view": "basket-panel",
+    "width": 390,
+    "imageSize": [
+      390,
+      900
+    ],
+    "differentPixels": 0,
+    "maxChannelDifference": 0
+  },
+  {
+    "view": "basket-panel",
+    "width": 1280,
+    "imageSize": [
+      1280,
+      1193
+    ],
+    "differentPixels": 0,
+    "maxChannelDifference": 0
+  }
+]

@@ -1,0 +1,234 @@
+{
+  "home": [
+    {
+      "id": "home-quick-modes",
+      "width": 178.75,
+      "height": 34,
+      "scrollWidth": 179,
+      "wrap": "nowrap",
+      "buttons": [
+        {
+          "label": "바구니",
+          "height": 30,
+          "targetHeight": "auto"
+        },
+        {
+          "label": "할 일",
+          "height": 30,
+          "targetHeight": "auto"
+        },
+        {
+          "label": "업데이트",
+          "height": 30,
+          "targetHeight": "auto"
+        }
+      ]
+    }
+  ],
+  "meetings": [
+    {
+      "id": "meetingTypeFilter",
+      "width": 683.828125,
+      "height": 44,
+      "scrollWidth": 684,
+      "wrap": "nowrap",
+      "buttons": [
+        {
+          "label": "전체",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "궤도협의회",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "노사협의회",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "안전위원회",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "정책회의",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "현안회의",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "후속회의",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "회의명 미지정",
+          "height": 30,
+          "targetHeight": "44px"
+        }
+      ]
+    }
+  ],
+  "library": [
+    {
+      "id": "documentProject",
+      "width": 1048,
+      "height": 44,
+      "scrollWidth": 1048,
+      "wrap": "nowrap",
+      "buttons": [
+        {
+          "label": "전체",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "공공기관 기능개혁 대응",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "민자철도 정책 대응",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "고아 하위 프로젝트",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "[보관됨] 보관된 상위",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "[이전 공간] 기존 일반 공간",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "[확인할 수 없는 프로젝트]",
+          "height": 30,
+          "targetHeight": "44px"
+        }
+      ]
+    },
+    {
+      "id": "libraryViewFilter",
+      "width": 248.34375,
+      "height": 44,
+      "scrollWidth": 248,
+      "wrap": "nowrap",
+      "buttons": [
+        {
+          "label": "일반 자료",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "회의자료 포함",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "회의자료만",
+          "height": 30,
+          "targetHeight": "44px"
+        }
+      ]
+    }
+  ],
+  "project": [
+    {
+      "id": "documentProject",
+      "width": 1048,
+      "height": 92,
+      "scrollWidth": 1048,
+      "wrap": "nowrap",
+      "buttons": [
+        {
+          "label": "전체",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "공공기관 기능개혁 대응",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "민자철도 정책 대응",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "고아 하위 프로젝트",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "[보관됨] 보관된 상위",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "[이전 공간] 기존 일반 공간",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "[확인할 수 없는 프로젝트]",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "전체(이 프로젝트)",
+          "height": 26,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "국토부 대응",
+          "height": 26,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "산자부 대응",
+          "height": 26,
+          "targetHeight": "44px"
+        }
+      ]
+    },
+    {
+      "id": "libraryViewFilter",
+      "width": 248.34375,
+      "height": 44,
+      "scrollWidth": 248,
+      "wrap": "nowrap",
+      "buttons": [
+        {
+          "label": "일반 자료",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "회의자료 포함",
+          "height": 30,
+          "targetHeight": "44px"
+        },
+        {
+          "label": "회의자료만",
+          "height": 30,
+          "targetHeight": "44px"
+        }
+      ]
+    }
+  ]
+}

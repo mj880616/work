@@ -20,13 +20,13 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=5','./library-upload.css?v=8','./basket-picker.css?v=2'],
-  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=13','./google-tasks.css?v=25'],
+  basket:['./basket.css?v=6','./library-upload.css?v=8','./basket-picker.css?v=2'],
+  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=14','./google-tasks.css?v=25'],
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=25'],
   projects:['./project-system-v3.css?v=25','./forum-flow-polish.css?v=2','./google-tasks.css?v=25'],
-  library:['./library-upload.css?v=8','./compact-list.css?v=2'],
-  meetings:['./meeting-ui.css?v=14','./google-tasks.css?v=25'],
+  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2'],
+  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=25'],
   media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=7'],
   team:['./suborganizations.css?v=11','./workplace-detail.css?v=7','./google-tasks.css?v=25']
@@ -100,13 +100,13 @@ async function projects(){
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=30');
-  await module('./project-system-v3.js?v=42','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=43','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=2');
-  await module('./library-upload.js?v=24','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=25','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
@@ -114,7 +114,7 @@ async function meetings(){
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
   await module('./google-tasks.js?v=30');
-  await module('./meeting-round-detail.js?v=24','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=25','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){

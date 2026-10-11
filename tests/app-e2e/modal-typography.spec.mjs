@@ -90,7 +90,9 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     }
     await page.locator('[data-gt-info]').click();await audit(page,'gtScopeModal');await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveCSS('font-size','14px');await page.locator('[data-gt-scope-close]').click();
   }
-  const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('#gtTaskSection,.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task]')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);const title=e.closest('#monthTitle');if(title)return ['B','',e.id==='monthTitle'&&innerWidth<=760?'20px':s.fontSize,s.color,s.fontWeight,e.id==='monthTitle'&&innerWidth<=760?'24px':s.lineHeight];if(e.id==='prevMonthBtn'||e.id==='nextMonthBtn')return [e.tagName,e.className,'calendar-arrow','muted',s.fontWeight,'1'];return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
+  // UI-필터알약 replaces these list controls; compare their new roles with home below.
+  // Every retained list role and the unchanged modal audits still compare in full.
+  const snapshot=async p=>p.locator('#'+name+'View').evaluate(el=>[...el.querySelectorAll('*')].filter(e=>!(e.id==='gt-week-head'&&el.querySelector('#gt-today-head'))&&!e.closest('#gtTaskSection,.calendar-view-switch,#calendarTodayBtn,.cmv-task-count,[data-calendar-task],#meetingTypeFilter,label[for="meetingTypeFilter"],#documentProject,label[for="documentProject"],#libraryViewFilter')&&e.checkVisibility()&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())).map(e=>{const s=getComputedStyle(e);const title=e.closest('#monthTitle');if(title)return ['B','',e.id==='monthTitle'&&innerWidth<=760?'20px':s.fontSize,s.color,s.fontWeight,e.id==='monthTitle'&&innerWidth<=760?'24px':s.lineHeight];if(e.id==='prevMonthBtn'||e.id==='nextMonthBtn')return [e.tagName,e.className,'calendar-arrow','muted',s.fontWeight,'1'];return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]}));
   const expected=await snapshot(original);
   if(name==='projects'){
     // D-project-list changes exactly these retained list roles; other views and all dialog audits remain.
@@ -120,6 +122,20 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await expect(page.locator('#soOrganizationList .so-group-heading')).toHaveText('그 외 · 1');
   }
   expect(await snapshot(page),name).toEqual(expected);
+  if(name==='meetings'||name==='library'){
+    const groups=page.locator('#'+name+'View .filter-chips');
+    await expect(groups).toHaveCount(name==='meetings'?1:2);
+    const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.height,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
+    for(const group of await groups.all()){
+      await expect(group).toHaveAttribute('role','radiogroup');
+      await expect(group.locator('[role="radio"][aria-checked="true"]')).toHaveCount(1);
+      for(const radio of await group.getByRole('radio').all()){
+        const selected=await radio.getAttribute('aria-checked');
+        const home=page.locator(`.home-quick-modes button[aria-pressed="${selected}"]`).first();
+        expect(await radio.evaluate(style),name+' filter reuses home pill style').toEqual(await home.evaluate(style));
+      }
+    }
+  }
   if(name==='calendar'){for(const id of ['prevMonthBtn','nextMonthBtn']){await expect(page.locator('#'+id)).toHaveCSS('font-size','24px');await expect(page.locator('#'+id)).toHaveCSS('line-height','24px');}}
   if(name==='calendar'&&width<=760){await expect(page.locator('#monthTitle')).toHaveCSS('font-size','20px');await expect(page.locator('#monthTitle')).toHaveCSS('line-height','24px');}
 
