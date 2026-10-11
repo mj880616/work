@@ -38,8 +38,8 @@ for(const width of [390,1280]){
   if(width<761){await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu [data-view="basket"]').click();}else await page.locator('.app-nav [data-view="basket"]').click();
   await expect(page.locator('[data-basket-row]')).toHaveCount(2);await expect(page.locator('#basketView')).not.toContainText('AI 제외');
   await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(4);
-  await expect(page.locator('[data-basket-row="s"]')).toContainText('분류 제안됨');
-  const confirmed=page.locator('[data-basket-row="c"]');await expect(confirmed).toContainText('확정');await expect(confirmed).toContainText('테스트 프로젝트');await expect(confirmed).toContainText('테스트 조직');await expect(confirmed).toContainText('연결 대상 없음');
+  await expect(page.locator('[data-basket-row="s"]')).toContainText('정리 제안 있음');
+  const confirmed=page.locator('[data-basket-row="c"]');await expect(confirmed).toContainText('연결됨');await expect(confirmed).toContainText('테스트 프로젝트');await expect(confirmed).toContainText('테스트 조직');await expect(confirmed).toContainText('연결 대상 없음');
   await page.locator('[data-basket-row="new"]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-basket-text]')).toHaveValue(raw);const editor=await page.locator('[data-basket-text]').boundingBox();expect(editor.width).toBeGreaterThanOrEqual(width===1280?600:300);
   const revised=' 수정한 원문\n\n마지막  ';await page.locator('[data-basket-text]').fill(revised);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).toContainText('저장');expect(f.writes.at(-1).body.raw_text).toBe(revised);expect(f.writes.at(-1).body.updated_at).toBeTruthy();
   await expect(page.locator('[data-basket-ai-excluded]')).toHaveCount(0);expect(f.writes.at(-1).body).not.toHaveProperty('ai_export_allowed');expect(f.notes.find(n=>n.id==='n').ai_export_allowed).toBe(false);
@@ -62,13 +62,13 @@ for(const width of [390,1280]){
   f.setDenied(false);await input.fill('가'.repeat(20000));await q.locator('[data-quick-save]').click();await expect(input).toHaveValue('');
   await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-row="n"]').click();
   for(const text of [' \n ','가'.repeat(20001)]){const before=f.writes.length;await page.locator('[data-basket-text]').fill(text);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).not.toBeEmpty();expect(f.writes).toHaveLength(before);}
-  await page.locator('[data-basket-text]').fill(' 편집 실패\n ');f.setDenied(true);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).toContainText('RLS 거부');await expect(page.locator('[data-basket-text]')).toHaveValue(' 편집 실패\n ');
+  await page.locator('[data-basket-text]').fill(' 편집 실패\n ');f.setDenied(true);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).toHaveText('저장하지 못했어요. 다시 시도해 주세요.');await expect(page.locator('[data-basket-text]')).toHaveValue(' 편집 실패\n ');
   await expect(page.locator('[data-basket-ai-excluded]')).toHaveCount(0);expect(f.notes.find(n=>n.id==='n').ai_export_allowed).toBe(false);expect(f.writes.every(w=>!Object.hasOwn(w.body,'ai_export_allowed'))).toBe(true);
-  await page.locator('[data-basket-archive]').click();await expect(page.locator('[data-basket-status]')).toContainText('RLS 거부');await expect(page.locator('[data-basket-archive]')).toHaveText('보관');
-  f.setDenied(false);f.setEmpty(true);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).toContainText('확인');await expect(page.locator('[data-basket-text]')).toHaveValue(' 편집 실패\n ');
+  await page.locator('[data-basket-archive]').click();await expect(page.locator('[data-basket-status]')).toHaveText('저장하지 못했어요. 다시 시도해 주세요.');await expect(page.locator('[data-basket-archive]')).toHaveText('보관');
+  f.setDenied(false);f.setEmpty(true);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).toHaveText('저장하지 못했어요. 다시 시도해 주세요.');await expect(page.locator('[data-basket-text]')).toHaveValue(' 편집 실패\n ');
  });
 }
-test('basket links failure shows error and retry rather than false unclassified list',async({page})=>{const f=await fixture(page);f.setLinksDenied(true);await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status]')).toContainText('연결 조회 거부');await expect(page.locator('[data-basket-row]')).toHaveCount(0);f.setLinksDenied(false);await page.locator('[data-basket-retry]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(1);});
+test('basket links failure shows error and retry rather than false unclassified list',async({page})=>{const f=await fixture(page);f.setLinksDenied(true);await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status]')).toHaveText('메모를 불러오지 못했어요. 다시 시도해 주세요.');await expect(page.locator('[data-basket-row]')).toHaveCount(0);f.setLinksDenied(false);await page.locator('[data-basket-retry]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(1);});
 test('basket raw text and drafts never enter permanent browser storage',async({page})=>{await fixture(page);await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_DRAFT');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_UNSAVED');await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-row="new"]').click();await page.locator('[data-basket-text]').fill('BASKET_PRIVATE_EDIT');const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:'http://127.0.0.1:8123',isLocalStorage}}))));expect(stored).not.toContain('BASKET_PRIVATE');});
 test('basket direct URL and home return refresh new notes without saving view choice',async({page})=>{
  const f=await fixture(page);await page.goto('http://127.0.0.1:8123/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(1);
@@ -204,7 +204,7 @@ test('basket successful text save clears a native selection rejected by prefligh
 for(const width of [390,1280])test(`basket original link opens the exact suggested or archived note after owner reads ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);
  await page.goto('http://127.0.0.1:8123/app/?view=basket&note=s');
- await expect(page.locator('[data-basket-text]')).toHaveValue('제안 원문');await expect(page.locator('[data-basket-state]')).toContainText('분류 제안됨');
+ await expect(page.locator('[data-basket-text]')).toHaveValue('제안 원문');await expect(page.locator('[data-basket-state]')).toContainText('정리 제안 있음');
  await page.screenshot({path:info.outputPath(`basket3-suggested-${width}.png`),fullPage:true});
  await page.goto('http://127.0.0.1:8123/app/?view=basket&note=a');await expect(page.locator('[data-basket-text]')).toHaveValue(' 보관 원문\n ');
  await page.goto('http://127.0.0.1:8123/app/?view=basket&note=foreign');await expect(page.locator('[data-basket-list-status]')).toContainText('메모를 찾을 수 없습니다');expect(f.writes).toHaveLength(0);
