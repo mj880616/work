@@ -24,13 +24,17 @@ for(const width of [390,1280])test(`공용 알약 필터·2단 프로젝트·키
     expect(geometry).toEqual({height:30,touch:'44px',wrap:'nowrap',inside:true});
   }
   await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('library'));
-  const view=page.locator('#libraryViewFilter');for(const [v,count] of [['general',6],['all',7],['meetings',1]]){await view.locator(`[data-filter-value="${v}"]`).click();await expect(page.locator('.lu-row')).toHaveCount(count)}
-  await view.locator('[data-filter-value="all"]').click();const project=page.locator('#documentProject');
+  const view=page.locator('#libraryViewFilter');for(const [v,count] of [['general',6],['meetings',1]]){await view.locator(`[data-filter-value="${v}"]`).click();await expect(page.locator('.lu-row')).toHaveCount(count)}
+  await expect(view.getByRole('radio')).toHaveText(['일반 자료','회의자료만']);
+  await view.locator('[data-filter-value="general"]').click();const project=page.locator('#documentProject');
   await project.locator('[data-filter-value="top-a"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(project.locator('.filter-chips-small')).toBeVisible();await expect(project.locator('.filter-chips-small').getByRole('radio')).toHaveText(['전체(이 프로젝트)','국토부 대응','산자부 대응']);
   await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','26px');
   expect(await project.locator('.filter-chips-small [role=radio]').first().evaluate(e=>getComputedStyle(e,'::after').height)).toBe('44px');
-  await project.locator('[data-filter-value="child-a1"]').click();await expect(page.locator('.lu-row')).toHaveCount(2);
+  await project.locator('[data-filter-value="child-a1"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
+  await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();
+  await view.locator('[data-filter-value="meetings"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
+  await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
   await page.locator('#documentSearch').fill('회의');await expect(page.locator('.lu-row')).toHaveCount(1);
   await view.locator('[data-filter-value="general"]').click();await expect(page.locator('.lu-row')).toHaveCount(0);
   await page.locator('#documentSearch').fill('');await project.locator('[data-filter-value="all"]').click();await expect(project.locator('.filter-chips-small')).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(6);
@@ -44,7 +48,7 @@ for(const timezoneId of ['Europe/Rome','Asia/Seoul','UTC'])test.describe(timezon
 })});
 
 test('프로젝트 자료 전체 보기는 하위 알약과 같은 필터 결과로 이동',async({page})=>{
-  const s=chipState(),errors=[];page.on('pageerror',e=>errors.push(e.message));await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=projects');
+  const s=chipState(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=projects');
   await page.locator('[data-ps3-project="child-a1"]').first().click();await expect(page.locator('#ps3DetailModal')).toBeVisible();await page.locator('[data-ps3-library]').click();
-  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#documentProject')).toHaveJSProperty('value','child-a1');await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();expect(errors).toEqual([]);
+  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#libraryViewFilter')).toHaveJSProperty('value','general');await expect(page.locator('#libraryViewFilter').getByRole('radio')).toHaveText(['일반 자료','회의자료만']);await expect(page.locator('[data-lu-document="meeting-doc"]')).toHaveCount(0);await expect(page.locator('#documentProject')).toHaveJSProperty('value','child-a1');await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();expect(errors).toEqual([]);
 });
