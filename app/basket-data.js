@@ -58,7 +58,7 @@ export function noteState(note, links) {
     }
     return '연결 대상 없음';
   });
-  return {status:note.archived_at ? '보관' : confirmed.length ? '확정' : '미분류', destinations};
+  return {status:note.archived_at ? '보관' : confirmed.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
 }
 export function visibleNotes(notes, links, filter) {
   return notes.filter(n => filter === 'archived' ? !!n.archived_at : !n.archived_at && (filter === 'all' || noteState(n, links).status === '미분류'));

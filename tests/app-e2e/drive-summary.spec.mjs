@@ -223,3 +223,32 @@ for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,9
   const layout=await status.evaluate(el=>({width:el.clientWidth,scrollWidth:el.scrollWidth,wordBreak:getComputedStyle(el).wordBreak}));
   expect(layout.wordBreak).toBe('keep-all');expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width);
 });
+
+for(const [body,method] of [[{raw_text:'private basket text'},'POST'],[{raw_text:'edited'},'PATCH'],[{archived_at:'2026-10-11'},'PATCH'],[{archived_at:null},'PATCH'],[{attachments:[]},'PATCH'],[{ai_export_allowed:false},'PATCH']])test(`basket note ${Object.keys(body)[0]} ${JSON.stringify(body)} ${method} refreshes without payload`,async({page})=>{
+ const {calls}=await setup(page);await save(page,'app_notes',body,method);await page.clock.fastForward(4000);await expect.poll(()=>calls.length).toBe(1);expect(calls[0].body).toBeNull();
+});
+for(const saveStatus of [200,403])test(`basket file success ${saveStatus} controls refresh without project link`,async({page})=>{
+ const {calls}=await setup(page,{saveStatus});
+ await page.evaluate(async()=>{const body=new FormData();body.append('file',new Blob(['private file']),'fake.txt');body.append('note_id','n');try{await window.KPTURuntime.api('/functions/v1/basket-files',{method:'POST',body})}catch{}});
+ await page.clock.fastForward(4000);if(saveStatus===200)await expect.poll(()=>calls.length).toBe(1);else expect(calls).toHaveLength(0);
+});
+test('failed basket note save never refreshes',async({page})=>{
+ const {calls}=await setup(page,{saveStatus:403});await save(page,'app_notes').catch(()=>{});await page.clock.fastForward(4000);expect(calls).toHaveLength(0);
+});
+test('basket output limit is displayed as a controlled manual-refresh error',async({page})=>{
+ await setup(page,{status:502,reply:{error:'BASKET_OUTPUT_LIMIT'}});await manual(page);await expect(page.locator('[data-drive-summary-status]')).toHaveText('BASKET_OUTPUT_LIMIT');
+});
+test('real basket multipart uploader schedules after validated success only',async({page})=>{
+ const {calls}=await setup(page);
+ await page.route(SB+'/functions/v1/basket-files',r=>r.fulfill({json:{ok:true,note_id:'n',attachments:[]}}));
+ await page.evaluate(async()=>{
+  const {uploadBatch,createUploadBatch}=await import('/app/basket-upload.js');const batch=createUploadBatch('n');batch.entries=[{file:new File(['private file'],'private.txt',{type:'text/plain'}),kind:'pending'}];
+  await uploadBatch(batch);
+ });
+ await page.clock.fastForward(4000);await expect.poll(()=>calls.length).toBe(1);expect(calls[0].body).toBeNull();
+ await page.route(SB+'/functions/v1/basket-files',r=>r.fulfill({json:{ok:true,note_id:'other',attachments:[]}}));
+ await page.evaluate(async()=>{
+  const {uploadBatch,createUploadBatch}=await import('/app/basket-upload.js');const batch=createUploadBatch('n');batch.entries=[{file:new File(['private file'],'private.txt'),kind:'pending'}];try{await uploadBatch(batch)}catch{}
+ });
+ await page.clock.fastForward(4000);expect(calls).toHaveLength(1);
+});

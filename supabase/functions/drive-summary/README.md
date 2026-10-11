@@ -38,3 +38,13 @@
 - 사후 확인: 비로그인 POST 401, 비소유자/틀린 비밀값 거절, 소유자 호출 1회로 폴더·문서 2개 및 상단 시각 확인, 재호출 시 같은 문서 ID와 전체 교체 확인, 폴더·두 문서의 공개 공유 없음 확인. 예약 비밀값 설정 뒤 올바른 예약 경로도 확인한다.
 - 복구: Claude Code 로컬 별도 승인 후 대상 함수만 비활성화/삭제한다. 삭제 명령안은 `npx.cmd supabase functions delete drive-summary --project-ref <ref>`이다. 만들어진 읽기용 문서는 사용자가 Drive에서 삭제한다. DB 복구는 필요 없다.
 - 남은 위험: 여러 호출이 동시에 최초 생성/교체하면 중복 파일 또는 오래된 사본으로 덮어쓰기가 가능하다. DB lock/write는 이 PR에서 금지되어 추가하지 않았다. PR 2 호출 몰아주기와 PR 3 실행 겹침 방지로 줄이고, 표시 중복은 이 함수가 실패로 보고한다. Drive 공유 변경과 읽기 검사 사이에도 외부 변경 경합은 가능하다.
+
+## BASKET-3 (소스·검증, 운영 배포 없음)
+
+프로젝트 사본 끝에만 바구니를 붙인다. 서버가 `kptu-work` workspace·최근 4주 KST·기존 폴더를 결정한다. `archived_at IS NULL`, `ai_export_allowed=true`이고 확정/제안 연결이 없는 메모만 포함한다. 과거 미분류 건수만 표시한다. 저장된 제안은 원문 버전 열이 없으므로 모두 보수적으로 유효하게 취급하며 화면 `noteState`와 같은 기준이다. BASKET-4의 버전 검증·무효화와 처리 결과 writer를 구현하지 않는다.
+
+원문은 HTML escape만 하고 공백·개행을 보존한다. `<pre>` 첫 개행 제거를 방지하는 빈 span과 CR 문자 참조를 사용한다. 첨부는 파일명·MIME·byte 크기·검증된 Drive ID 링크만 출력하며 파일 읽기·OCR·AI 요청은 없다. 분류 목적지는 현재 선택 가능한 프로젝트 tree와 담당조직의 ID·이름만 제공한다. 7.2 JSON 기술 초안 `schema_version=1`과 제안 전용 지침을 함께 제공한다.
+
+상한: 메모 **100건**, 프로젝트 문서 전체 HTML **UTF-8 1 MiB**(정확한 상한 포함). 초과하면 바구니 본문 전체를 내보내지 않고 프로젝트 사본 상단에 **대상 축소 필요**를 표시한다. 기존 절이 단독으로 상한을 초과하면 해당 사본도 진단 문서로 대체한다. `BASKET_OUTPUT_LIMIT` 실패·`last_failure_at/summary`를 기록하고 `last_success_at`은 유지한다. 잘못된 첨부는 업로드 전 `BASKET_ATTACHMENT_INVALID`로 실패하며 민감 내용은 오류에 넣지 않는다. Drive 장애로 경고 문서/실패 기록 자체가 쓰이지 못할 때는 기존 실패 경로와 `failure_recorded=false`를 그대로 따른다.
+
+Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며 로그인 후 owner API 조회 결과의 정확한 메모만 연다. 갱신 호출은 payload 없이 유지한다. 상세 검토·가짜 데이터·운영 SHA 추정 근거: [검토 기록](../../../docs/basket-3-drive-copy.md).

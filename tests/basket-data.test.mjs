@@ -41,3 +41,9 @@ test('read pages notes and note-only links without silently truncating at REST r
  assert.ok(paths.filter(p=>p.includes('app_notes')).every(p=>p.includes('order=occurred_at.desc,id.desc')));
  assert.ok(paths.filter(p=>p.includes('app_record_links')).every(p=>p.includes('note_id=in.')&&p.includes('workspace_id=eq.w')));
 });
+
+test('persisted suggested links exclude notes from unclassified, confirmed wins',()=>{
+ const links=[{note_id:'n',status:'suggested',project_id:'p'}];
+ assert.equal(noteState({id:'n'},links).status,'분류 제안됨');
+ assert.deepEqual(visibleNotes([{id:'n'}],links,'unclassified'),[]);
+});

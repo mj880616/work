@@ -6,7 +6,7 @@ const quick=page=>page.locator('[data-home-quick]');
 async function fixture(page){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  const home=await openHome(page),writes=[];
- const notes=[{id:'a',raw_text:' 보관 원문\n ',occurred_at:'2026-10-06T03:00:00Z',archived_at:'2026-10-06',ai_export_allowed:true},{id:'c',raw_text:'확정 원문',occurred_at:'2026-10-06T02:00:00Z',ai_export_allowed:true},{id:'n',raw_text:' 첫 줄\n\n둘째 줄  ',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:false}];
+ const notes=[{id:'s',raw_text:'제안 원문',occurred_at:'2026-10-06T05:00:00Z',ai_export_allowed:true},{id:'a',raw_text:' 보관 원문\n ',occurred_at:'2026-10-06T03:00:00Z',archived_at:'2026-10-06',ai_export_allowed:true},{id:'c',raw_text:'확정 원문',occurred_at:'2026-10-06T02:00:00Z',ai_export_allowed:true},{id:'n',raw_text:' 첫 줄\n\n둘째 줄  ',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:false}];
  let denied=false,empty=false,linksDenied=false;
  await page.route(SB+'/rest/v1/app_notes**',async r=>{
   const req=r.request(),u=new URL(req.url());if(req.method()==='GET')return r.fulfill({json:notes.slice(Number(u.searchParams.get('offset')||0),Number(u.searchParams.get('offset')||0)+100)});
@@ -19,7 +19,7 @@ async function fixture(page){
  await page.route(SB+'/rest/v1/app_record_links?**',r=>{
   if(!new URL(r.request().url()).searchParams.has('note_id'))return r.fallback();
   if(linksDenied)return r.fulfill({status:403,json:{message:'연결 조회 거부'}});
-  return r.fulfill({json:[{note_id:'c',status:'confirmed',project_id:'p',project:{name:'테스트 프로젝트'}},{note_id:'c',status:'confirmed',organization_id:'o',organization:{name:'테스트 조직'}},{note_id:'c',status:'confirmed',document_id:'d',document:null},{note_id:'n',status:'suggested',project_id:'p',project:{name:'제안 프로젝트'}}]});
+  return r.fulfill({json:[{note_id:'c',status:'confirmed',project_id:'p',project:{name:'테스트 프로젝트'}},{note_id:'c',status:'confirmed',organization_id:'o',organization:{name:'테스트 조직'}},{note_id:'c',status:'confirmed',document_id:'d',document:null},{note_id:'s',status:'suggested',project_id:'p',project:{name:'제안 프로젝트'}}]});
  });
  return {...home,notes,writes,errors,setDenied:v=>denied=v,setEmpty:v=>empty=v,setLinksDenied:v=>linksDenied=v};
 }
@@ -37,7 +37,8 @@ for(const width of [390,1280]){
   await expect(q.locator('[data-quick-ai-excluded]')).toHaveCount(0);
   if(width<761){await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu [data-view="basket"]').click();}else await page.locator('.app-nav [data-view="basket"]').click();
   await expect(page.locator('[data-basket-row]')).toHaveCount(2);await expect(page.locator('#basketView')).not.toContainText('AI 제외');
-  await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(3);
+  await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(4);
+  await expect(page.locator('[data-basket-row="s"]')).toContainText('분류 제안됨');
   const confirmed=page.locator('[data-basket-row="c"]');await expect(confirmed).toContainText('확정');await expect(confirmed).toContainText('테스트 프로젝트');await expect(confirmed).toContainText('테스트 조직');await expect(confirmed).toContainText('연결 대상 없음');
   await page.locator('[data-basket-row="new"]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-basket-text]')).toHaveValue(raw);const editor=await page.locator('[data-basket-text]').boundingBox();expect(editor.width).toBeGreaterThanOrEqual(width===1280?600:300);
   const revised=' 수정한 원문\n\n마지막  ';await page.locator('[data-basket-text]').fill(revised);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).toContainText('저장');expect(f.writes.at(-1).body.raw_text).toBe(revised);expect(f.writes.at(-1).body.updated_at).toBeTruthy();
@@ -199,4 +200,12 @@ test('basket successful text save clears a native selection rejected by prefligh
  await file.setInputFiles({name:'empty.txt',mimeType:'text/plain',buffer:Buffer.alloc(0)});await expect(q.locator('[data-quick-status]')).toContainText('빈 파일');await expect(q.locator('[data-basket-file]')).toHaveCount(0);
  await q.locator('[data-quick-input]').fill('글만 저장');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(f.writes).toHaveLength(1);expect(u.calls).toHaveLength(0);
  expect(await file.evaluate(input=>({value:input.value,count:input.files.length}))).toEqual({value:'',count:0});await expect(q.locator('[data-quick-new-note]')).toBeHidden();expect(f.errors).toEqual([]);
+});
+for(const width of [390,1280])test(`basket original link opens the exact suggested or archived note after owner reads ${width}`,async({page},info)=>{
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);
+ await page.goto('http://127.0.0.1:8123/app/?view=basket&note=s');
+ await expect(page.locator('[data-basket-text]')).toHaveValue('제안 원문');await expect(page.locator('[data-basket-state]')).toContainText('분류 제안됨');
+ await page.screenshot({path:info.outputPath(`basket3-suggested-${width}.png`),fullPage:true});
+ await page.goto('http://127.0.0.1:8123/app/?view=basket&note=a');await expect(page.locator('[data-basket-text]')).toHaveValue(' 보관 원문\n ');
+ await page.goto('http://127.0.0.1:8123/app/?view=basket&note=foreign');await expect(page.locator('[data-basket-list-status]')).toContainText('메모를 찾을 수 없습니다');expect(f.writes).toHaveLength(0);
 });

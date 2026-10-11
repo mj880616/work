@@ -1,12 +1,14 @@
-import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=2';
+import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 
-import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=3';
+import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=4';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, busy = false, epoch = 0;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null;
 let currentScope = scope();
+const initialUrl = new URL(location.href);
+let requestedNote = initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
 root.innerHTML = `<div class="basket-head"><h2>바구니</h2><button type="button" data-goto="home">홈에서 입력</button></div><div data-basket-list><div class="basket-filters" role="group" aria-label="바구니 보기"><button type="button" data-basket-filter="unclassified">미분류</button><button type="button" data-basket-filter="all">전체</button><button type="button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div>`;
@@ -55,6 +57,11 @@ async function refresh() {
     const result = await readBasket();
     if (run !== epoch || owner !== scope()) return;
     notes = result.notes; links = result.links; renderList();
+    if (requestedNote) {
+      const id = requestedNote; requestedNote = null;
+      if (notes.some(note => note.id === id)) openDetail(id);
+      else listStatus.textContent = '메모를 찾을 수 없습니다. 접근 권한과 메모 ID를 확인해 주세요.';
+    }
   } catch (e) {
     if (run !== epoch || owner !== scope()) return;
     notes = []; links = []; root.querySelector('[data-basket-rows]').replaceChildren();
@@ -122,7 +129,7 @@ window.addEventListener('kptu:before-reload', e => {
 });
 window.addEventListener('kptu:session-changed', () => {
   const next = scope(); if (next === currentScope) return;
-  currentScope = next; epoch++; notes = []; links = []; closeDetail({focus:false,force:true}); renderList();
+  currentScope = next; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true}); renderList();
 });
 window.KPTURouter.on('basket', () => {
   if (busy) return;
