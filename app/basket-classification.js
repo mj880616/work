@@ -2,7 +2,27 @@
 export const CLASSIFICATION_LIMITS = Object.freeze({bytes:1048576, items:100, targets:20, reason:2000, depth:6});
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const kinds = new Set(['organization','project','library','write_request_candidate','google_task']);
-export const ERROR_TEXT = Object.freeze({NOTE_MISSING:'메모 없음 또는 접근 불가',NOTE_WORKSPACE:'메모가 다른 workspace에 있습니다.',NOTE_ARCHIVED:'보관된 메모입니다.',AI_EXCLUDED:'AI 제외 메모입니다.',NOTE_CHANGED:'원문 바뀜: 다시 분류해 주세요.',TARGET_MISSING:'목적지 없음 또는 접근 불가',TARGET_WORKSPACE:'목적지가 다른 workspace에 있습니다.',TARGET_UNSELECTABLE:'현재 선택할 수 없는 목적지입니다.',ALREADY_CONFIRMED:'이미 확정',NEXT_STAGE:'다음 단계에서 지원(4b)',FUNCTION_UNAVAILABLE:'확정 기능 준비 중',INVALID_TARGETS:'목적지 형식을 확인해 주세요.',INVALID_INPUT:'메모 ID와 시각을 확인해 주세요.',PERMISSION_DENIED:'접근 권한을 확인해 주세요.',SUGGESTED_EXISTS:'기존 제안 연결이 있습니다. 연결을 확인해 주세요.'});
+export const ERROR_TEXT = Object.freeze({NOTE_MISSING:'메모를 찾거나 열 수 없어요.',NOTE_WORKSPACE:'다른 업무 공간의 메모예요.',NOTE_ARCHIVED:'보관된 메모예요.',AI_EXCLUDED:'AI에게 맡기지 않기로 한 메모예요.',NOTE_CHANGED:'메모가 바뀌었어요. AI에게 다시 맡겨 주세요.',TARGET_MISSING:'연결할 곳을 찾거나 열 수 없어요.',TARGET_WORKSPACE:'다른 업무 공간에 있는 곳이에요.',TARGET_UNSELECTABLE:'지금은 선택할 수 없는 곳이에요.',ALREADY_CONFIRMED:'이미 연결됨',NEXT_STAGE:'아직 지원하지 않는 항목',FUNCTION_UNAVAILABLE:'연결 기능 준비 중',INVALID_TARGETS:'연결할 곳을 다시 확인해 주세요.',INVALID_INPUT:'메모 정보가 맞지 않아요. AI에게 다시 맡겨 주세요.',PERMISSION_DENIED:'이 내용을 열거나 연결할 권한이 없어요.',SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 현재 연결을 확인해 주세요.'});
+// The handoff instructions use the parser's limits and a canonical valid shape.
+// These keys belong in the copied AI instructions, never in screen errors.
+export function classificationFormat(now) {
+  const example={schema_version:1,copied_at:now.toISOString(),items:[]};
+  return `답은 다음 순서로 써 주세요.\n① 사람이 읽는 짧은 정리: 메모 첫 줄 → 목적지 이름 · 이유\n② 아래 문장을 그대로 써 주세요.\n아래 블록을 복사해서 바구니의 'AI 정리 결과 넣기'에 붙여 넣으세요\n③ 아래 형식의 json 코드 블록을 정확히 하나 써 주세요.\n사람이 읽는 정리와 블록이 다르면 블록이 기준입니다.\n\n\`\`\`json\n${JSON.stringify(example,null,2)}\n\`\`\`\nitems에 정리할 메모마다 {"note_id":"메모 ID", "note_updated_at":"메모의 updated_at", "destinations":[{"kind":"project", "target_id":"목적지 ID", "reason":"짧은 이유"}]}를 넣으세요.\nkind는 organization(담당조직) 또는 project(프로젝트)만 쓰세요. schema_version은 1, copied_at은 위 시각을 그대로 쓰세요. ID와 updated_at은 아래 목록의 값을 그대로 쓰세요.\n메모는 최대 ${CLASSIFICATION_LIMITS.items}개, 메모당 목적지는 최대 ${CLASSIFICATION_LIMITS.targets}개, 이유는 1~${CLASSIFICATION_LIMITS.reason}자, 블록은 최대 ${CLASSIFICATION_LIMITS.bytes}바이트입니다. 날짜는 시간대가 포함된 시각을 그대로 쓰고, 같은 메모나 같은 항목 이름을 중복해서 쓰지 마세요. 메모 본문은 답에 다시 싣지 마세요.`;
+}
+export function parseAIAnswer(input) {
+  const source=String(input);
+  if(new TextEncoder().encode(source).length>CLASSIFICATION_LIMITS.bytes)throw Error('글이 너무 길어요. 메모 100개 이내의 복사용 블록만 넣어 주세요.');
+  // Only inspect fence structure outside the block. Prose is never rendered,
+  // interpreted, or sent to the strict parser. Reject extra/unsupported fences.
+  const fences=[...source.matchAll(/^[\t ]*```([^\r\n]*)\r?$/gm)];
+  if(/^[\t ]*~~~/m.test(source)||fences.length!==2||! /^(?:json)?[\t ]*$/i.test(fences[0][1])||! /^[\t ]*$/.test(fences[1][1]))throw Error('AI 답에서 복사용 블록만 넣어 주세요');
+  const block=source.slice(fences[0].index+fences[0][0].length,fences[1].index).trim();
+  try{return parseClassification(block);}catch(error){
+    const text=error.message;
+    const limit=[['메모는 100개','메모는 100개까지 넣을 수 있어요.'],['메모당 목적지는 20개','메모 하나에 연결할 곳은 20개까지예요.'],['이유는 1~2,000자','연결 이유는 1~2,000자로 써 주세요.'],['문자열은 2,000자','한 항목의 글은 2,000자까지 넣을 수 있어요.'],['중복 메모 ID','같은 메모가 두 번 들어 있어요. AI에게 다시 정리해 달라고 해 주세요.']].find(([prefix])=>text.startsWith(prefix));
+    throw Error(limit?.[1]||'복사용 블록의 내용이 맞지 않아요. AI에게 같은 형식으로 다시 정리해 달라고 해 주세요.');
+  }
+}
 export function timestampKey(value) {
   if (typeof value !== 'string') return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}:\d{2})$/.exec(value);
@@ -90,7 +110,7 @@ export function previewClassification(proposal,{workspaceId,userId,notes,links,p
       const supported=['organization','project'].includes(target.kind), rows=target.kind==='organization'?organizations:projects;
       const destination=supported?rows.find(d=>d.id===target.target_id):null;
       const targetError=!supported?'NEXT_STAGE':!destination?'TARGET_MISSING':destination.workspace_id!==workspaceId?'TARGET_WORKSPACE':target.kind==='project'&&!visible.has(destination.id)?'TARGET_UNSELECTABLE':links.some(l=>l.note_id===item.note_id&&l.status==='confirmed'&&l[target.kind==='project'?'project_id':'organization_id']===target.target_id)?'ALREADY_CONFIRMED':null;
-      return {...target,name:destination?.name||target.kind,error:!supported?'NEXT_STAGE':error||targetError};
+      return {...target,name:destination?.name||'이름을 확인할 수 없어요.',error:!supported?'NEXT_STAGE':error||targetError};
     })};
   });
 }

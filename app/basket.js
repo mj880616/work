@@ -1,4 +1,5 @@
-import { mountClassification } from './basket-classification-ui.js?v=1';
+import { mountHandoff } from './basket-ai-handoff.js?v=1';
+import { mountClassification } from './basket-classification-ui.js?v=2';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=4';
@@ -12,8 +13,9 @@ const initialUrl = new URL(location.href);
 let requestedNote = initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-actions"><button type="button" data-classification-open>분류안 붙여넣기</button><button type="button" data-goto="home">홈에서 입력</button></div></div><div data-basket-list><div class="basket-filters" role="group" aria-label="바구니 보기"><button type="button" data-basket-filter="unclassified">미분류</button><button type="button" data-basket-filter="all">전체</button><button type="button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-actions"><button type="button" data-handoff-copy>AI에게 맡기기</button><button type="button" data-classification-open>AI 정리 결과 넣기</button><button type="button" data-goto="home">홈에서 입력</button></div></div><div data-handoff-host></div><div data-basket-list><div class="basket-filters" role="group" aria-label="바구니 보기"><button type="button" data-basket-filter="unclassified">미분류</button><button type="button" data-basket-filter="all">전체</button><button type="button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
+const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{isBlocked:()=>busy,onBusy:value=>{busy=value;root.querySelector('[data-handoff-copy]').disabled=value;}});
 const classification = mountClassification(root.querySelector('[data-classification-host]'), {
   isBlocked:()=>busy, onBusy:value=>{busy=value;if(value)++epoch;},
   onOpen:()=>{closeDetail();if(selected)return false;list.hidden=true;return true;},
@@ -26,15 +28,16 @@ const classification = mountClassification(root.querySelector('[data-classificat
     renderList();
     const owner=scope();
     try { const current=await readBasket();if(owner!==scope())return;notes=current.notes;links=current.links;renderList(); }
-    catch { return '연결은 확정됐습니다. 목록 새로고침은 다시 시도해 주세요.'; }
+    catch { return '연결했어요. 목록 새로고침은 다시 시도해 주세요.'; }
   }
 });
+const stateLabel=state=>({확정:'연결됨', '분류 제안됨':'정리 제안 있음'})[state]||state;
 function renderList() {
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
   const visible = visibleNotes(notes, links, filter);
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
     const state = noteState(note, links);
-    return `<button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><span class="basket-preview">${esc([...String(note.raw_text || '')].slice(0, 160).join(''))}</span><time>${esc(time(note))}</time><span>${state.status}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${state.destinations.map(d => `<span class="basket-destination">${esc(d)}</span>`).join('')}</button>`;
+    return `<button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><span class="basket-preview">${esc([...String(note.raw_text || '')].slice(0, 160).join(''))}</span><time>${esc(time(note))}</time><span>${stateLabel(state.status)}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${state.destinations.map(d => `<span class="basket-destination">${esc(d)}</span>`).join('')}</button>`;
   }).join('');
   listStatus.textContent = visible.length ? `${visible.length}개 메모` : '메모가 없습니다.';
 }
@@ -48,7 +51,7 @@ function closeDetail({focus = true, force = false} = {}) {
 function paintDetailState() {
   if (!selected) return;
   const state = noteState(selected, links);
-  detail.querySelector('[data-basket-state]').textContent = [state.status, ...state.destinations].join(' · ');
+  detail.querySelector('[data-basket-state]').textContent = [stateLabel(state.status), ...state.destinations].join(' · ');
   paintAttachments();
   detail.querySelector('[data-basket-archive]').textContent = selected.archived_at ? '보관 해제' : '보관';
 }
@@ -76,12 +79,12 @@ async function refresh() {
     if (requestedNote) {
       const id = requestedNote; requestedNote = null;
       if (notes.some(note => note.id === id)) openDetail(id);
-      else listStatus.textContent = '메모를 찾을 수 없습니다. 접근 권한과 메모 ID를 확인해 주세요.';
+      else listStatus.textContent = '메모를 찾을 수 없습니다. 접근 권한과 메모를 확인해 주세요.';
     }
   } catch (e) {
     if (run !== epoch || owner !== scope()) return;
     notes = []; links = []; root.querySelector('[data-basket-rows]').replaceChildren();
-    listStatus.textContent = e.message || '메모를 불러오지 못했습니다.';
+    listStatus.textContent = '메모를 불러오지 못했어요. 다시 시도해 주세요.';
     root.querySelector('[data-basket-retry]').hidden = false;
   }
 }
@@ -97,7 +100,7 @@ async function patch(changes, message) {
     renderList(); paintDetailState(); detail.querySelector('[data-basket-status]').textContent = message;
   } catch (e) {
     if (run !== epoch || owner !== scope()) return;
-    paintDetailState(); detail.querySelector('[data-basket-status]').textContent = e.message || '저장하지 못했습니다.';
+    paintDetailState(); detail.querySelector('[data-basket-status]').textContent = '저장하지 못했어요. 다시 시도해 주세요.';
   } finally {
     busy = false; detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = false);
   }
@@ -111,7 +114,7 @@ async function saveAttachments() {
   ++epoch;busy=true;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);pickerFiles.render();status.textContent='업로드 중…';
   const paint=()=>{if(!isCurrent())return;selected.attachments=batch.attachments;renderList();paintAttachments();pickerFiles.render();};
   try{await uploadBatch(batch,{isCurrent,onChange:paint});if(isCurrent()){upload=batch=createUploadBatch(id,batch.attachments);status.textContent='첨부를 저장했습니다.';}}
-  catch(e){if(isCurrent()){status.textContent=e.message;detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;}}
+  catch(e){if(isCurrent()){status.textContent='메모를 다시 불러오지 못했어요. 다시 시도해 주세요.';detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;}}
   finally{busy=false;if(isCurrent()){detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles.render();}}
 }
 async function reloadDetail() {
@@ -120,12 +123,13 @@ async function reloadDetail() {
   const id=selected.id,owner=scope(),run=++epoch;busy=true;
   detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);
   try{const result=await readBasket();if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;renderList();if(notes.some(n=>n.id===id))openDetail(id);else closeDetail({force:true});}
-  catch(e){if(run===epoch&&owner===scope())detail.querySelector('[data-basket-status]').textContent=e.message;}
+  catch(e){if(run===epoch&&owner===scope())detail.querySelector('[data-basket-status]').textContent='메모를 다시 불러오지 못했어요. 다시 시도해 주세요.';}
   finally{busy=false;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles?.render();}
 }
 root.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || busy) return;
-  if (b.hasAttribute('data-classification-open')) classification.open();
+  if (b.hasAttribute('data-handoff-copy')) void handoff.copy();
+  else if (b.hasAttribute('data-classification-open')) classification.open();
   else if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
   else if (b.hasAttribute('data-basket-filter')) { filter = b.dataset.basketFilter; renderList(); }
   else if (b.hasAttribute('data-basket-close')) closeDetail();

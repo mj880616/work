@@ -23,41 +23,105 @@ async function fixture(page){
  return {...f,note,links,rpc,errors,events,setMissing:v=>missing=v,setRejected:v=>rejected=v};
 }
 async function open(page){await page.locator('[data-classification-open]').click();await expect(page.locator('[data-classification-input]')).toBeFocused();}
-async function preview(page,proposal=data()){await page.locator('[data-classification-input]').fill(JSON.stringify(proposal,null,2));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-note]')).toHaveCount(proposal.items.length);}
+async function preview(page,proposal=data()){await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(proposal,null,2)+'\n```');await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-note]')).toHaveCount(proposal.items.length);}
 for(const width of [390,1280]){
  test(`classification paste preview errors selected confirm and copy notification ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.locator('[data-classification-open]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-classification-input]')).toBeFocused();
  await page.screenshot({path:info.outputPath(`paste-${width}.png`),fullPage:true});
- await page.locator('[data-classification-input]').fill('説明\n'+JSON.stringify(data()));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toContainText('행');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();
- f.note.updated_at='2026-10-11T01:02:03.123457Z';await preview(page);await expect(page.locator('[data-classification-note]')).toContainText('원문 바뀜');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);await page.screenshot({path:info.outputPath(`preview-error-${width}.png`),fullPage:true});
- f.note.updated_at=stamp;await preview(page);await expect(page.locator('[data-classification-note]')).toContainText(f.note.raw_text.trim());await expect(page.locator('[data-classification-note]')).toContainText('현재 프로젝트');await expect(page.locator('[data-classification-note]')).toContainText('다음 단계에서 지원(4b)');await expect(page.locator('[data-classification-note] img,[data-classification-note] a')).toHaveCount(0);
- const check=page.locator('[data-classification-choice]:enabled').first();await check.focus();await page.keyboard.press('Space');await expect(check).toBeChecked();await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('새로 확정 1');
- expect(f.rpc[0].p_targets).toHaveLength(1);expect(f.rpc[0].p_targets[0].kind).toBe('project');expect(Object.keys(f.rpc[0])).toEqual(['p_note_id','p_note_updated_at','p_targets']);await expect(page.locator('[data-basket-row]')).toHaveCount(0);await expect(page.locator('[data-classification-note]')).toContainText('이미 확정');
- await page.locator('[data-classification-close]').click();await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row]')).toContainText('확정');await expect(page.locator('[data-basket-row]')).toContainText('현재 프로젝트');await page.screenshot({path:info.outputPath(`confirmed-${width}.png`),fullPage:true});
+ await page.locator('[data-classification-input]').fill('説明\n'+JSON.stringify(data()));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toContainText('AI 답에서 복사용 블록만 넣어 주세요');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();
+ f.note.updated_at='2026-10-11T01:02:03.123457Z';await preview(page);await expect(page.locator('[data-classification-note]')).toContainText('메모가 바뀌었어요');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);await page.screenshot({path:info.outputPath(`preview-error-${width}.png`),fullPage:true});
+ f.note.updated_at=stamp;await preview(page);await expect(page.locator('[data-classification-note]')).toContainText(f.note.raw_text.trim());await expect(page.locator('[data-classification-note]')).toContainText('현재 프로젝트');await expect(page.locator('[data-classification-note]')).toContainText('아직 지원하지 않는 항목');await expect(page.locator('[data-classification-note] img,[data-classification-note] a')).toHaveCount(0);
+ const check=page.locator('[data-classification-choice]:enabled').first();await check.focus();await page.keyboard.press('Space');await expect(check).toBeChecked();await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
+ expect(f.rpc[0].p_targets).toHaveLength(1);expect(f.rpc[0].p_targets[0].kind).toBe('project');expect(Object.keys(f.rpc[0])).toEqual(['p_note_id','p_note_updated_at','p_targets']);await expect(page.locator('[data-basket-row]')).toHaveCount(0);await expect(page.locator('[data-classification-note]')).toContainText('이미 연결됨');
+ await page.locator('[data-classification-close]').click();await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row]')).toContainText('연결됨');await expect(page.locator('[data-basket-row]')).toContainText('현재 프로젝트');await page.screenshot({path:info.outputPath(`confirmed-${width}.png`),fullPage:true});
  expect(await page.evaluate(()=>window.__basketSaved.some(e=>e.path==='/rest/v1/rpc/app_basket_confirm_links'))).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
  });
  test(`classification function unavailable isolated and stale revalidation ${width}`,async({page})=>{
- await page.setViewportSize({width,height:1000});const f=await fixture(page);await open(page);await preview(page);f.setMissing(true);await page.locator('[data-classification-choice]:enabled').first().check();await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('확정 기능 준비 중');expect(f.links).toHaveLength(0);
- await page.locator('[data-classification-close]').click();await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.keyboard.press('Escape');await open(page);f.setMissing(false);await preview(page);await page.locator('[data-classification-choice]:enabled').first().check();f.setRejected('NOTE_CHANGED');await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('원문 바뀜');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);await open(page);await preview(page);f.setMissing(true);await page.locator('[data-classification-choice]:enabled').first().check();await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('연결 기능 준비 중');expect(f.links).toHaveLength(0);
+ await page.locator('[data-classification-close]').click();await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.keyboard.press('Escape');await open(page);f.setMissing(false);await preview(page);await page.locator('[data-classification-choice]:enabled').first().check();f.setRejected('NOTE_CHANGED');await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('메모가 바뀌었어요');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);
  expect(f.errors).toEqual(['Failed to load resource: the server responded with a status of 404 (Not Found)']);
  });
 }
-test('classification input changes invalidate selection; session change clears private proposal and late preview',async({page})=>{
+test('classification input changes invalidate selection; cleared session context removes private proposal',async({page})=>{
  const f=await fixture(page);await open(page);await preview(page);await page.locator('[data-classification-choice]:enabled').first().check();await page.locator('[data-classification-input]').fill('PRIVATE_PROPOSAL_DRAFT');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();await expect(page.locator('[data-classification-choice]')).toHaveCount(0);
  const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:'http://127.0.0.1:8123',isLocalStorage}}))));expect(stored).not.toContain('PRIVATE_PROPOSAL_DRAFT');
- await page.evaluate(()=>{const rt=window.KPTURuntime,c=rt.context.read();rt.context.set({...c,user:{...c.user,id:'different'}});window.dispatchEvent(new CustomEvent('kptu:session-changed'));});await expect(page.locator('[data-classification-input]')).toHaveValue('');await expect(page.locator('[data-classification-panel]')).toBeHidden();expect(f.rpc).toHaveLength(0);
+ await page.evaluate(()=>{const rt=window.KPTURuntime,c=rt.context.read();rt.context.clear();window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:rt.session.read()}}));});await expect(page.locator('[data-classification-input]')).toHaveValue('');await expect(page.locator('[data-classification-panel]')).toBeHidden();expect(f.rpc).toHaveLength(0);
 });
 
 test('classification pending preview cannot restore private content after workspace changes',async({page})=>{
  await fixture(page);await open(page);let release;const held=new Promise(r=>release=r);
  await page.route(SB+'/rest/v1/app_notes?**',async r=>{await held;await r.fallback();});
- await page.locator('[data-classification-input]').fill(JSON.stringify(data()));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-preview]')).toBeDisabled();
- await page.evaluate(()=>{const rt=window.KPTURuntime,c=rt.context.read();rt.context.set({...c,workspace:{...c.workspace,id:'other-workspace'}});window.dispatchEvent(new CustomEvent('kptu:session-changed'));});release();
+ await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(data())+'\n```');await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-preview]')).toBeDisabled();
+ await page.evaluate(()=>{const rt=window.KPTURuntime,c=rt.context.read();rt.context.set({...c,workspace:{...c.workspace,id:'other-workspace'}});window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:rt.session.read()}}));});release();
  await expect(page.locator('[data-classification-input]')).toHaveValue('');await expect(page.locator('[data-classification-note]')).toHaveCount(0);await expect(page.locator('[data-classification-panel]')).toBeHidden();
 });
 test('classification touch selection and busy duplicate press sends one confirmation',async({page})=>{
  await page.setViewportSize({width:390,height:1000});const f=await fixture(page);await open(page);await preview(page);const choice=page.locator('[data-classification-choice]:enabled').first();await choice.scrollIntoViewIfNeeded();const box=await choice.boundingBox();await page.touchscreen.tap(box.x+box.width/2,box.y+box.height/2);await expect(choice).toBeChecked();
  let release;const held=new Promise(r=>release=r);await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',async r=>{await held;await r.fallback();});
- await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-confirm]')).toBeDisabled();await page.locator('[data-classification-confirm]').dispatchEvent('click');release();await expect(page.locator('[data-classification-status]')).toContainText('새로 확정 1');expect(f.rpc).toHaveLength(1);expect(f.errors).toEqual([]);
+ await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-confirm]')).toBeDisabled();await page.locator('[data-classification-confirm]').dispatchEvent('click');release();await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');expect(f.rpc).toHaveLength(1);expect(f.errors).toEqual([]);
+});
+
+for(const width of [390,1280]){
+ test(`AI handoff copy full reply safe errors and connection ${width}`,async({page},info)=>{
+  await page.setViewportSize({width,height:1000});const f=await fixture(page);
+  await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+  f.note.attachments=[{file_name:'합성 첨부.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-attachment',body:'BODY_SECRET',ocr:'OCR_SECRET'}];
+  await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
+  await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');
+  await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+  const copied=await page.evaluate(()=>window.__handoffWrites[0]);
+  for(const value of [f.note.raw_text,n,stamp,'현재 프로젝트','현재 조직','synthetic-attachment','application/pdf'])expect(copied).toContain(value);
+  expect(copied).not.toMatch(/BODY_SECRET|OCR_SECRET|google_task/);expect(f.rpc).toHaveLength(0);
+  await page.screenshot({path:info.outputPath(`handoff-copied-${width}.png`),fullPage:true});
+  await open(page);await page.screenshot({path:info.outputPath(`handoff-paste-${width}.png`),fullPage:true});
+  for(const text of ['설명만','```json\n'+JSON.stringify(data())+'\n```\n```\n'+JSON.stringify(data())+'\n```']){
+   await page.locator('[data-classification-input]').fill(text);await page.locator('[data-classification-preview]').click();
+   await expect(page.locator('[data-classification-status]')).toHaveText('AI 답에서 복사용 블록만 넣어 주세요');await expect(page.locator('[data-classification-note]')).toHaveCount(0);
+  }
+  const answer=data();answer.items[0].destinations=answer.items[0].destinations.slice(0,2);
+  const full='<script>window.__outsideExecuted=true</script>\n<img src=x onerror="window.__outsideExecuted=true">\n메모 첫 줄 → 현재 프로젝트 · 관련 업무\n```json\n'+JSON.stringify(answer,null,2)+'\n```\n끝 설명';
+  f.note.updated_at='2026-10-11T01:02:03.123457Z';
+  await page.locator('[data-classification-input]').fill(full);await page.locator('[data-classification-preview]').click();
+  await expect(page.locator('[data-classification-note]')).toHaveCount(1);await expect(page.locator('.basket-classification-error')).toContainText(['메모가 바뀌었어요']);
+  await page.screenshot({path:info.outputPath(`handoff-error-${width}.png`),fullPage:true});
+  f.note.updated_at=stamp;await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(2);
+  expect(await page.evaluate(()=>window.__outsideExecuted)).toBeUndefined();await expect(page.locator('[data-classification-rows] script,[data-classification-rows] img')).toHaveCount(0);
+  const choice=page.locator('[data-classification-choice]:enabled').first();await choice.scrollIntoViewIfNeeded();const box=await choice.boundingBox();await page.touchscreen.tap(box.x+box.width/2,box.y+box.height/2);
+  await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toHaveText('1개 연결했어요 · 0개는 이미 연결돼 있어요');
+  await page.screenshot({path:info.outputPath(`handoff-connected-${width}.png`),fullPage:true});
+  expect(await page.locator('[data-classification-host]').innerText()).not.toMatch(/JSON|schema|UUID|workspace|\(행 \d|열 \d|4b|확정/);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
+ });
+ test(`AI handoff clipboard fallback and zero notes ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+  await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('permission denied');}}});});
+  await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('길게 눌러 전체 선택 → 복사');
+  const text=page.locator('[data-handoff-text]');await expect(text).toBeVisible();await expect(text).toHaveAttribute('readonly','');await expect(text).toBeFocused();expect(await text.inputValue()).toContain(f.note.raw_text);
+  expect(await text.evaluate(el=>el.selectionStart===0&&el.selectionEnd===el.value.length)).toBe(true);
+  f.note.ai_export_allowed=false;await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('맡길 메모가 없어요');await expect(text).toBeHidden();await expect(text).toHaveValue('');expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
+ });
+}
+test('AI handoff cannot copy or restore late private content after workspace changes',async({page})=>{
+ await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+ await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
+ let release;const held=new Promise(r=>release=r);await page.route(SB+'/rest/v1/app_notes?**',async r=>{await held;await r.fallback();});
+ await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-copy]')).toBeDisabled();
+ await page.evaluate(()=>{const rt=window.KPTURuntime,c=rt.context.read();rt.context.set({...c,workspace:{...c.workspace,id:'other-workspace'}});window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:rt.session.read()}}));});release();
+ await expect(page.locator('[data-handoff-copy]')).toBeEnabled();await expect(page.locator('[data-handoff-text]')).toHaveValue('');await expect(page.locator('[data-handoff-status]')).toBeEmpty();expect(await page.evaluate(()=>window.__handoffWrites)).toEqual([]);
+});
+test('classification hides arbitrary server diagnostics during preview and confirm',async({page})=>{
+ const f=await fixture(page);await open(page);
+ await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(data())+'\n```');
+ await page.evaluate(()=>{const rt=window.KPTURuntime,api=rt.api;rt.api=async(path,...args)=>{if(path.includes('app_notes'))throw Error('JSON schema UUID workspace (행 1, 열 1) SECRET');return api(path,...args);};});
+ await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toHaveText('메모와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.');
+ expect(await page.locator('[data-classification-status]').innerText()).not.toMatch(/JSON|schema|UUID|workspace|SECRET|행 1/);expect(f.errors).toEqual([]);
+});
+test('AI handoff writes the complete text to the native Chromium clipboard',async({page})=>{
+ await page.setViewportSize({width:390,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:'http://127.0.0.1:8123'});
+ f.note.raw_text='합성 메모 첫 줄\n'+('긴 합성 본문 '.repeat(1000))+'\n합성 메모 마지막 줄';
+ await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+ const text=await page.evaluate(()=>navigator.clipboard.readText());expect(text).toContain(f.note.raw_text);expect(text.trim()).toMatch(new RegExp('organization · '+o+' · 현재 조직$'));
+ expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
 });
