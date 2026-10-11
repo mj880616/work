@@ -1,4 +1,4 @@
-import { mountHandoff } from './basket-ai-handoff.js?v=3';
+import { mountHandoff } from './basket-ai-handoff.js?v=4';
 import { mountClassification } from './basket-classification-ui.js?v=5';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 

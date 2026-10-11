@@ -45,7 +45,9 @@ function harness(options = {}) {
       let rows = structuredClone(options.data?.[table] || fixture[table] || []).map(row => ({
         workspace_id: 'ws', project: { workspace_id: 'ws' }, organization: { workspace_id: 'ws' }, ...row,
       }));
-      if (table === 'app_workspace_members' && url.searchParams.get('user_id') !== 'eq.owner') rows = [];
+      if (table === 'app_workspace_members' && url.searchParams.has('user_id') && url.searchParams.get('user_id') !== 'eq.owner') rows = [];
+      if (options.failTable === table) return reply({message:'PRIVATE_READ_FAILURE'},503);
+      if (options.failAssignmentPage && table === 'app_suborganization_assignees' && Number(url.searchParams.get('offset')) > 0) return reply({},503);
       for (const [key, value] of url.searchParams) {
         const field = r => key.split('.').reduce((v, part) => v?.[part], r);
         if (value.startsWith('eq.')) rows = rows.filter(r => String(field(r)) === value.slice(3));
@@ -401,4 +403,48 @@ test('organization copy, project status and meetings match the starting main sna
  const actual=core.renderDocuments(data,now);
  const baseline=JSON.parse(readFileSync(new URL('../fixtures/drive-summary-outside-basket.json',import.meta.url),'utf8'));
  assert.deepEqual({org:actual.org,projectPrefix:actual.project.split('<h2>바구니</h2>')[0]},baseline);
+});
+
+const assignedOrgs=[{id:'a',name:'합성 담당 A',active:true},{id:'b',name:'합성 담당 B',active:null},{id:'c',name:'합성 다른 조직',active:true,default_assignee_name:'합성 소유자'},{id:'d',name:'합성 비활성',active:false}];
+for(const mode of ['two','zero','inactive-only','failure','owner-failure','later-page-failure']){
+ test(`Drive basket organization selection: ${mode}, owner JWT and cron agree`,async()=>{
+  for(const headers of [{Authorization:'Bearer valid-owner'},{'x-drive-summary-cron-secret':'right-secret'}]){
+   const assignees=mode==='two'?[{organization_id:'a',user_id:'owner'},{organization_id:'b',user_id:'owner'},{organization_id:'d',user_id:'owner'},{organization_id:'c',user_id:'other'},{organization_id:'c',user_id:'owner',organization:{workspace_id:'other'}}]:mode==='inactive-only'?[{organization_id:'d',user_id:'owner'}]:mode==='later-page-failure'?Array.from({length:501},()=>({organization_id:'a',user_id:'owner'})):[];
+   const h=harness({failTable:mode==='failure'?'app_suborganization_assignees':mode==='owner-failure'&&headers['x-drive-summary-cron-secret']?'app_workspace_members':undefined,failAssignmentPage:mode==='later-page-failure',data:{app_suborganizations:assignedOrgs,app_suborganization_assignees:assignees}});
+   assert.equal((await h.request(headers)).status,200);
+   const section=h.uploads[1].body.split('<h2>바구니</h2>')[1];
+   for(const id of mode==='two'?['a','b']:['a','b','c'])assert.match(section,new RegExp(`organization · ${id} ·`));
+   assert.doesNotMatch(section,/organization · d ·|PRIVATE_READ_FAILURE/);
+   const notice='담당조직이 지정되지 않아 전체 조직을 싣습니다';
+   if(mode==='two'){assert.doesNotMatch(section,/organization · c ·/);assert.ok(!section.includes(notice));}
+   else{assert.ok(section.includes(notice));assert.ok(section.indexOf(notice)<section.indexOf('담당조직 목록'));}
+   // The separate organization copy retains its pre-existing full report.
+   assert.match(h.uploads[0].body,/합성 다른 조직|합성 비활성/);
+   for(const c of h.calls.filter(c=>c.url.pathname.endsWith('/app_suborganization_assignees'))){
+    assert.equal(c.url.searchParams.get('user_id'),'eq.owner');
+    assert.equal(c.url.searchParams.get('organization.workspace_id'),'eq.ws');
+    assert.match(c.url.searchParams.get('select'),/organization:app_suborganizations!organization_id!inner\(workspace_id\)/);
+   }
+  }
+ });
+}
+
+test('cron cannot choose an arbitrary owner when the fixed workspace has zero or multiple owners',async()=>{
+ for(const members of [[],[{user_id:'owner',role:'owner'},{user_id:'other',role:'owner'}]]){
+  const h=harness({data:{app_workspace_members:members,app_suborganizations:assignedOrgs,app_suborganization_assignees:[{organization_id:'a',user_id:'owner'}]}});
+  assert.equal((await h.request({'x-drive-summary-cron-secret':'right-secret'})).status,200);
+  const section=h.uploads[1].body.split('<h2>바구니</h2>')[1];
+  assert.match(section,/담당조직이 지정되지 않아 전체 조직을 싣습니다/);assert.match(section,/organization · c ·/);assert.doesNotMatch(section,/organization · d ·/);
+  assert.ok(!h.calls.some(c=>c.url.pathname.endsWith('/app_suborganization_assignees')));
+  const q=h.calls.find(c=>c.url.pathname.endsWith('/app_workspace_members')).url.searchParams;
+  assert.equal(q.get('workspace_id'),'eq.ws');assert.equal(q.get('role'),'eq.owner');
+ }
+});
+test('Drive completes every owner assignment page before selecting guidance organizations',async()=>{
+ const assignments=[...Array.from({length:500},()=>({organization_id:'a',user_id:'owner'})),{organization_id:'b',user_id:'owner'}];
+ const h=harness({data:{app_suborganizations:assignedOrgs,app_suborganization_assignees:assignments}});
+ assert.equal((await h.request({Authorization:'Bearer valid-owner'},'POST',JSON.stringify({user_id:'other',organization_ids:['c'],workspace_id:'other'}))).status,200);
+ const section=h.uploads[1].body.split('<h2>바구니</h2>')[1];
+ assert.match(section,/organization · a ·/);assert.match(section,/organization · b ·/);assert.doesNotMatch(section,/organization · (c|d) ·|전체 조직을 싣습니다/);
+ assert.equal(h.calls.filter(c=>c.url.pathname.endsWith('/app_suborganization_assignees')).length,2);
 });
