@@ -63,7 +63,7 @@ function afterReveal(){
   });
 }
 async function calendar(){
-  await module('./calendar-month-view.js?v=20','__KPTU_CALENDAR_MONTH_VIEW_READY__');
+  await module('./calendar-month-view.js?v=21','__KPTU_CALENDAR_MONTH_VIEW_READY__');
   await module('./calendar-view.js?v=6');
   await projectCatalog();
   await team('calendar');

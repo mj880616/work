@@ -103,7 +103,14 @@
         const startCol=Math.max(0,dayDiff(segStart,ws)),endCol=Math.min(6,dayDiff(segEnd,ws));
         segments.push({ev,startCol,endCol,span:endCol-startCol+1,continuesLeft:ev.start<ws,continuesRight:ev.end>we});
       }
-      segments.sort((a,b)=>eventSort(a.ev,b.ev)||a.startCol-b.startCol||b.span-a.span);
+      // Reserve each multi-day event's entire clipped week before filling gaps with singles.
+      segments.sort((a,b)=>{
+        const ad=dayDiff(a.ev.end,a.ev.start),bd=dayDiff(b.ev.end,b.ev.start);
+        const am=ad>0,bm=bd>0;
+        if(am!==bm)return am?-1:1;
+        if(am){const start=dayDiff(a.ev.start,b.ev.start);if(start)return start;if(ad!==bd)return bd-ad}
+        return eventSort(a.ev,b.ev)||a.startCol-b.startCol||b.span-a.span;
+      });
       const lanes=[];
       for(const seg of segments){
         let lane=0;
@@ -115,24 +122,6 @@
       result.push({week:w,start:ws,segments,laneCount:lanes.length});
     }
     return result;
-  }
-  // Phones fill each date independently. Join adjacent pieces when an event stays in the same row.
-  function compactPhoneWeek(week){
-    const days=Array.from({length:7},(_,col)=>week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col));
-    const pieces=[];
-    for(const seg of week.segments){
-      let run=null;
-      for(let col=seg.startCol;col<=seg.endCol;col++){
-        const lane=days[col].indexOf(seg);
-        if(run&&run.lane===lane){run.endCol=col;run.span++}
-        else{
-          run={...seg,startCol:col,endCol:col,span:1,lane,continuesLeft:seg.continuesLeft||col>seg.startCol};
-          pieces.push(run);
-        }
-        run.continuesRight=seg.continuesRight||col<seg.endCol;
-      }
-    }
-    return {...week,segments:pieces,laneCount:Math.max(...days.map(day=>day.length))};
   }
   // t.date is the date part of the Google due value (YYYY-MM-DD), used as it is, so no time zone can move it to another day.
   function normalizeTask(t){
@@ -191,7 +180,7 @@
     layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
     const year=Number(options.year),month=Number(options.month),range=visibleRange(year,month);
     const events=allEvents(options);
-    const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range).map(week=>mq760.matches?compactPhoneWeek(week):week);
+    const weeks=segmentWeeks(events.filter(ev=>ev.source!=='task'),range);
     const pendingByDate=new Map();
     tasks.forEach(t=>{if(t.done||t.date<key(range.start)||t.date>=key(range.end))return;const group=pendingByDate.get(t.date)||[];group.push(t);pendingByDate.set(t.date,group)});
 
@@ -247,14 +236,14 @@
       }
       const layer=document.createElement('div');layer.className='cmv-week-events';
       const hidden=Array(7).fill(0);
-      const dayCaps=mq760.matches?Array.from({length:7},(_,col)=>laneCap(week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).length,layout)):Array(7).fill(lanes);
+      const dayCaps=mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
       week.segments.forEach(seg=>{
         if(!mq760.matches){
           if(seg.lane<lanes)layer.appendChild(eventButton(seg));
           else for(let col=seg.startCol;col<=seg.endCol;col++)hidden[col]++;
           return;
         }
-        // A busier neighbour must not reserve overflow on a date whose events all fit.
+        // Keep weekly lanes; only clip pieces hidden by this date's unchanged slot limit.
         let run=null;
         const appendRun=()=>{if(run)layer.appendChild(eventButton(run));run=null};
         for(let col=seg.startCol;col<=seg.endCol;col++){
