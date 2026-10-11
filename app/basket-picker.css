@@ -1,0 +1,13 @@
+/* Basket-only picker: reuse the library rows without changing library/meeting uploads. */
+.basket-file-block.library-file-block { padding:6px; margin:0; }
+.basket-file-block .library-dropzone { box-sizing:border-box; min-height:56px; margin:0; padding:8px; flex-direction:row; gap:8px; }
+.basket-file-block .library-picker-hint { white-space:nowrap; }
+.basket-file-block .library-selected-files { margin-top:6px; }
+.basket-file-block .library-selected-files:empty { display:none; margin:0; }
+@media (max-width:760px) {
+  .basket-file-block.library-file-block { padding:0; background:transparent; }
+  .basket-file-block .library-dropzone { min-height:44px; padding:0; border:0; background:transparent; justify-content:flex-start; text-align:left; }
+  .basket-file-block .library-picker-desktop { display:none; }
+  .basket-file-block .library-picker-mobile { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-height:44px; padding:0 10px; border:1px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); color:var(--kptu-link); font-size:12px; }
+  .basket-file-block .library-dropzone:focus-visible { outline:2px solid var(--kptu-info); outline-offset:2px; }
+}
