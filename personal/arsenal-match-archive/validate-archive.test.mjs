@@ -63,6 +63,15 @@ test('2026-27 mutation is rejected', () => {
   assert.match(auditArchive(data, { complete: false, baselineMatches: original }).errors.join(' '), /2026-27/);
 });
 
+test('new 2026-27 records can be prepended without mutating existing reviews', () => {
+  const data = copy();
+  const added = structuredClone(data.find(m => m.season === '2026-27'));
+  added.id = '2026-10-10-new-match';
+  added.date = '2026-10-10';
+  data.unshift(added);
+  assert.deepEqual(auditArchive(data, { complete: false, baselineMatches: original }).errors, []);
+});
+
 test('scoring links must use HTTPS in either season', () => {
   const data = copy();
   data.find(m => m.season === '2025-26').goalsSource = 'javascript:alert(1)';
