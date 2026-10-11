@@ -1,0 +1,26 @@
+{
+  "390": {
+    "size_before": [
+      390,
+      1024
+    ],
+    "size_after": [
+      390,
+      1024
+    ],
+    "different_pixels": 0,
+    "difference_bounds": null
+  },
+  "1280": {
+    "size_before": [
+      1280,
+      1485
+    ],
+    "size_after": [
+      1280,
+      1485
+    ],
+    "different_pixels": 0,
+    "difference_bounds": null
+  }
+}
