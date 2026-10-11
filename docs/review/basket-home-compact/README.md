@@ -1,6 +1,6 @@
 # BASKET-홈첨부칸축소 검증
 
-📱 Codex 웹·클라우드. `codex/basket-home-compact`, 시작 SHA `88ec5eac80c55d93fb2ad59072bf57f321c1a222`(#480). 원격 `origin/main`을 새로 fetch한 뒤 시작했다. PR·폰 확인은 [원장](../../roadmap.md)의 해당 행에서 추적한다.
+📱 Codex 웹·클라우드. `codex/basket-home-compact`, 시작 SHA `88ec5eac80c55d93fb2ad59072bf57f321c1a222`(#480). 원격 `origin/main`을 새로 fetch한 뒤 시작했다. [PR #482](https://github.com/mj880616/work/pull/482). 작업 중 들어온 원장 전용 #481의 main `88460ba4f3fcdb024af049476c811ab467d30daf`를 브랜치에 반영해 대기 행과 신규 행을 하나의 진행중 행으로 정리했다. 앱 소스 추가 변경은 없었다. PR·폰 확인은 [원장](../../roadmap.md)의 해당 행에서 추적한다.
 
 홈 빠른 입력과 바구니 메모 상세가 같은 선택기와 바구니 전용 CSS를 사용한다. 앱 모바일 기준 760px 이하에서는 44px 한 줄에 “📎 파일 추가”와 “파일당 100MiB · 20개까지”를 표시한다. 미선택 회색 배경·패딩·빈 목록 여백과 공통 label의 기본 위아래 12px 여백을 제거했다. PC 점선 드롭 영역은 112→56px, 내부 패딩은 16→8px, 바깥 패딩은 12→6px다. 홈 전체 보기 링크 위 간격은 8→4px다. 자료실·회의의 공통 CSS와 업로드 동작은 변경하지 않았다.
 
