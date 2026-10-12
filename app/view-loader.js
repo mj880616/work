@@ -21,7 +21,7 @@ function style(path){
 }
 const routeStyles={
   basket:['./basket.css?v=7','./library-upload.css?v=8','./basket-picker.css?v=2'],
-  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=15','./google-tasks.css?v=25'],
+  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=17','./google-tasks.css?v=25'],
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=25'],
   projects:['./project-system-v3.css?v=26','./forum-flow-polish.css?v=2','./google-tasks.css?v=25'],
@@ -138,7 +138,7 @@ async function organizations(){
 async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
-  await module('./home-read.js?v=21');
+  await module('./home-read.js?v=23');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});

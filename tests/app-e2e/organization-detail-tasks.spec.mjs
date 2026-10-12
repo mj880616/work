@@ -150,8 +150,8 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   const dateProjection='id,workspace_id,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at)';
   const homeReads=noteReads.filter(r=>r.query.select===homeProjection);
   const dateReads=noteReads.filter(r=>r.query.select===dateProjection);
-  expect(noteReads).toHaveLength(2*batchCount);
-  expect(homeReads).toHaveLength(batchCount);
+  expect(noteReads).toHaveLength(batchCount);
+  expect(homeReads).toHaveLength(0);
   expect(dateReads).toHaveLength(batchCount);
   const assertBatches=reads=>{
     const batches=reads.map(r=>r.query.organization_id.slice(4,-1).split(','));
@@ -159,15 +159,11 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
     expect(batches.flat()).toEqual(ids);
     for(const read of reads)expect(read.query.offset).toBe('0');
   };
-  assertBatches(homeReads);assertBatches(dateReads);
+  assertBatches(dateReads);
   for(const read of noteReads){
     expect(read.query).toEqual(expect.objectContaining({workspace_id:'eq.qa-ws',status:'eq.confirmed',note_id:'not.is.null',limit:'100'}));
     expect(read.query.organization_id).toMatch(/^in\./);
     expect(read.query['note.workspace_id']).toBe('eq.qa-ws');
-  }
-  for(const read of homeReads){
-    expect(read.noteWindow).toHaveLength(2);
-    expect(read.noteWindow[0]).toMatch(/^gte\./);expect(read.noteWindow[1]).toMatch(/^lt\./);
   }
   for(const read of dateReads){expect(read.noteWindow).toEqual([]);expect(read.query.select).not.toMatch(/raw_text|summary/);}
   const reads=calls.filter(c=>c.action==='updates'&&c.query.select==='organization_id,occurred_at');

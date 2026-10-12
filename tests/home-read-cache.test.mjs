@@ -8,27 +8,24 @@ function fixture(){
   const cache=createHomeCache({storage,keyPrefix:'kptu_owner_cache:home-read-v1:',context:()=>ctx});
   return {cache,values,setContext:v=>ctx=v};
 }
-test('home copy projects only approved display fields and truncates updates',()=>{
+test('home copy projects only approved display fields and drops retired counts',()=>{
   const {cache,values}=fixture();
   cache.save('calendar',{day:'2026-10-06',rows:[{title:'event',start:'2026-10-06',end:'2026-10-07',allDay:true,color:'var(--kptu-primary-ink)',description:'secret',location:'secret',attendees:['secret'],url:'secret'}]},now);
-  cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:Array.from({length:8},()=>({organization_id:'o',name:'org',date:'2026-10-06',text:'a'.repeat(120),raw_text:'secret',detail_text:'secret'}))},now);
   cache.save('tasks',{unlinkedCount:3,names:[{id:'t',names:['project']}],tasks:[{title:'duplicate'}]},now);
   const copy=JSON.parse(values.get('kptu_owner_cache:home-read-v1:one'));
   assert.deepEqual(Object.keys(copy).sort(),['cards','owner','savedAt','version','workspaceId']);
   assert.deepEqual(Object.keys(copy.cards.calendar.rows[0]).sort(),['allDay','color','end','start','title']);
-  assert.equal(copy.cards.updates.rows.length,5);assert.equal(copy.cards.updates.rows[0].text.length,80);
+  assert.deepEqual(copy.cards.tasks.names,[{id:'t',names:['project']}]);
+  assert.equal(copy.cards.tasks.unlinkedCount,undefined);
   assert.equal(JSON.stringify(copy).includes('secret'),false);
   assert.equal(JSON.stringify(copy).includes('duplicate'),false);
 });
-test('calendar expires at KST midnight and updates at Monday; independent card ages remain seven days',()=>{
+test('calendar expires at KST midnight; independent card ages remain seven days',()=>{
   const {cache}=fixture();
   cache.save('calendar',{day:'2026-10-06',rows:[]},now);
-  cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[]},now);
   cache.save('tasks',{unlinkedCount:0,names:[]},now);
   assert.ok(cache.read(now).calendar);
   assert.equal(cache.read(Date.parse('2026-10-06T15:00:00Z')).calendar,undefined);
-  assert.ok(cache.read(Date.parse('2026-10-11T14:59:59Z')).updates);
-  assert.equal(cache.read(Date.parse('2026-10-11T15:00:00Z')).updates,undefined);
   cache.save('dday',{rows:[]},now+6*86400000);
   assert.equal(cache.read(now+7*86400000).tasks,undefined);
   assert.ok(cache.read(now+7*86400000).dday);
@@ -57,36 +54,36 @@ test('invalid cached event dates are ignored without discarding the other valid 
   for(const dates of [{start:'bad-date',end:'2026-10-07'},{start:1,end:2}]){
     copy.cards.calendar={savedAt:now,day:'2026-10-06',rows:[{...dates,allDay:false,title:'bad',color:''}]};
     values.set(key,JSON.stringify(copy));
-    assert.equal(cache.read(now).calendar,undefined);assert.equal(cache.read(now).tasks.unlinkedCount,1);
+    assert.equal(cache.read(now).calendar,undefined);assert.deepEqual(cache.read(now).tasks.names,[]);
   }
 });
 
-test('basket display copy preserves only source id/type and approved bounded summary; old update copies remain readable',()=>{
+test('retired record copies are ignored on read and removed on the next valid save',()=>{
   const {cache,values}=fixture();
-  cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[
-    {organization_id:'o',name:'org',date:'2026-10-06',text:'🙂'.repeat(90),type:'basket',note_id:'n',raw_text:'private original',summary:'private full summary',link_id:'unneeded'},
-    {organization_id:'o',name:'org',date:'2026-10-06',text:'legacy update'},
-  ]},now);
-  const copy=cache.read(now).updates.rows;
-  assert.equal(copy[0].type,'basket');assert.equal(copy[0].note_id,'n');assert.equal([...copy[0].text].length,80);
-  assert.equal(copy[1].text,'legacy update');
-  const saved=[...values.values()][0];assert.equal(saved.includes('private'),false);assert.equal(saved.includes('unneeded'),false);
-  assert.equal(copy[1].type,undefined);
+  const key='kptu_owner_cache:home-read-v1:one';
+  values.set(key,JSON.stringify({version:1,owner:'one',workspaceId:'w',savedAt:now,cards:{
+    updates:{savedAt:now,week:'2026-10-04T15:00:00.000Z',rows:[{type:'basket',note_id:'n',text:'old record'}]},
+    tasks:{savedAt:now,unlinkedCount:3,names:[{id:'t',names:['project']}]},
+  }}));
+  assert.equal(cache.read(now).updates,undefined);
+  assert.deepEqual(cache.read(now).tasks,{savedAt:now,names:[{id:'t',names:['project']}]});
+  const old=values.get(key);
+  cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[]},now);
+  assert.equal(values.get(key),old);
+  cache.save('dday',{rows:[]},now);
+  const saved=JSON.parse(values.get(key));
+  assert.equal(saved.cards.updates,undefined);
+  assert.equal(saved.cards.tasks.unlinkedCount,undefined);
+  assert.deepEqual(saved.cards.tasks.names,[{id:'t',names:['project']}]);
 });
 
-test('NULL original excerpts keep the excerpt marker in the bounded owner display copy',()=>{
-  const {cache,values}=fixture();
-  cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[{organization_id:'o',name:'org',date:'2026-10-06',text:'😀'.repeat(81),type:'basket',note_id:'n',excerpt:true,raw_text:'must not persist'}]},now);
-  const row=cache.read(now).updates.rows[0];
-  assert.equal(row.excerpt,true);assert.equal([...row.text].length,80);
-  assert.equal([...values.values()][0].includes('must not persist'),false);
-});
-
-test('basket home projection preserves approved strings, distinguishes NULL, and limits raw code points',async()=>{
-  const {basketHomeText}=await import('../app/home-read-cache.js');
-  const summary=' \n'+ '승인😀'.repeat(35)+'\n ';
-  assert.deepEqual(basketHomeText({summary,raw_text:'원문'}),{text:summary});
-  assert.deepEqual(basketHomeText({summary:null,raw_text:'😀'.repeat(81)}),{text:'😀'.repeat(80),excerpt:true});
-  assert.deepEqual(basketHomeText({summary:null,raw_text:null}),{text:'원문을 확인해 주세요'});
-  assert.deepEqual(basketHomeText({summary:'',raw_text:'원문'}),{text:''});
+test('retired basket display projections never create storage even with approved summary or raw excerpts',()=>{
+  for(const row of [
+    {type:'basket',note_id:'n',text:'승인😀'.repeat(35),summary:'approved'},
+    {type:'basket',note_id:'n',text:'😀'.repeat(81),excerpt:true,raw_text:'must not persist'},
+  ]){
+    const {cache,values}=fixture();
+    cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[row]},now);
+    assert.deepEqual(cache.read(now),{});assert.equal(values.size,0);
+  }
 });

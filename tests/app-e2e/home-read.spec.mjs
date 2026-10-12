@@ -11,12 +11,8 @@ for (const width of [390, 1440])
     await page.setViewportSize({ width, height: 1000 });
     const { requests } = await openHome(page, { delay: 300 });
     await expect(page.locator("#homeView")).toBeVisible();
-    await expect(page.locator('[data-home-card="updates"]')).toContainText(
-      "이번 주 테스트 기록",
-    );
-    await expect(page.locator('[data-home-card="tasks"]')).toContainText(
-      "연결 안 된 할 일 3개",
-    );
+    await expect(page.locator('[data-home-card="updates"]')).toHaveCount(0);
+    await expect(page.locator('[data-home-unlinked]')).toHaveCount(0);
     await expect(page.locator('[data-home-card="meetings"]')).toContainText(
       "기한 없는 후속",
     );
@@ -35,11 +31,9 @@ for (const width of [390, 1440])
       (r) => r.path.includes("/rest/") || r.path.includes("/functions/"),
     );
     const basketRequests=requests.filter(r=>r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'));
-    expect(basketRequests).toHaveLength(1);
-    expect(basketRequests[0].query).toContain('status=eq.confirmed');
-    expect(basketRequests[0].query).toContain('organization_id=in.(o)');
-    expect(basketRequests[0].query).toContain('note.occurred_at=gte.');
-    expect(dataRequests.length-basketRequests.length).toBeLessThanOrEqual(11);
+    expect(basketRequests).toHaveLength(0);
+    expect(requests.filter(r=>r.path.endsWith('app_suborganization_updates'))).toHaveLength(0);
+    expect(dataRequests.length).toBeLessThanOrEqual(9);
     expect(requests.filter((r) => r.action === "overview")).toHaveLength(1);
     expect(
       requests.filter((r) => r.path.endsWith("app_record_links")&&!r.query.includes("note_id=not.is.null")),
@@ -66,16 +60,14 @@ test("card failure isolation and retry; no connection is separate", async ({
   await expect(page.locator('[data-home-card="tasks"]')).toContainText(
     "오늘 항목",
   );
-  await expect(page.locator('[data-home-card="updates"]')).toContainText(
-    "이번 주 테스트 기록",
-  );
+  await expect(page.locator('[data-home-card="updates"]')).toHaveCount(0);
   control.setFailure("");
   await page.locator('[data-home-retry="calendar"]').click();
   await expect(page.locator('[data-home-card="calendar"]')).toContainText(
     "오전 일정",
   );
 });
-test("home completion retains row 3s, task view and unlinked destination agree", async ({
+test("home completion retains row 3s and task view agrees", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 1000 });
@@ -90,10 +82,10 @@ test("home completion retains row 3s, task view and unlinked destination agree",
   await expect(card.locator('[data-home-task="today"]')).toHaveCount(0, {
     timeout: 6000,
   });
-  await page.locator("[data-home-unlinked]").click();
+  await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();
   await expect(page.locator("#tasksView")).toBeVisible();
   await expect(page.locator("#newTaskBtn")).toHaveText("+ 할 일");
-  await expect(page.locator("[data-gt-unlinked-heading]")).toBeVisible();
+  await expect(page.locator("[data-gt-overdue]")).toBeVisible();
   await expect(page.locator('[data-google-task="today"]')).toBeHidden();
   await expect(page.locator('[data-google-task="meeting"]')).toBeVisible();
 });
@@ -110,11 +102,9 @@ test("disconnected Google shows connection guidance separately", async ({
     "data-state",
     "disconnected",
   );
-  await expect(page.locator('[data-home-card="updates"]')).toContainText(
-    "이번 주 테스트 기록",
-  );
+  await expect(page.locator('[data-home-card="updates"]')).toHaveCount(0);
 });
-test("meeting-name failure remains isolated while tasks and updates succeed", async ({
+test("meeting-name failure remains isolated while tasks and calendar succeed", async ({
   page,
 }) => {
   const control = await openHome(page, { fail: "app_meetings" });
@@ -125,9 +115,7 @@ test("meeting-name failure remains isolated while tasks and updates succeed", as
   await expect(page.locator('[data-home-card="tasks"]')).toContainText(
     "오늘 항목",
   );
-  await expect(page.locator('[data-home-card="updates"]')).toContainText(
-    "이번 주 테스트 기록",
-  );
+  await expect(page.locator('[data-home-card="updates"]')).toHaveCount(0);
   control.setFailure("");
   await page.locator('[data-home-retry="meetings"]').click();
   await expect(page.locator('[data-home-card="meetings"]')).toContainText(
@@ -143,9 +131,7 @@ test("project-catalog failure does not block other cards", async ({ page }) => {
   await expect(page.locator('[data-home-card="tasks"]')).toContainText(
     "오늘 항목",
   );
-  await expect(page.locator('[data-home-card="updates"]')).toContainText(
-    "이번 주 테스트 기록",
-  );
+  await expect(page.locator('[data-home-card="updates"]')).toHaveCount(0);
 });
 
 test("same-owner session refresh preserves the home and subsequent toggles", async ({
@@ -205,10 +191,10 @@ test("existing mutation event refreshes home tasks and confirmed links", async (
   await expect(page.locator('[data-home-card="tasks"]')).toContainText(
     "신규 항목",
   );
-  await expect(page.locator("[data-home-unlinked]")).toContainText("4개");
+  await expect(page.locator("[data-home-unlinked]")).toHaveCount(0);
 });
 
-test("home chips and update rows open the existing detail dialogs", async ({page}) => {
+test("home chips open the existing project detail dialog", async ({page}) => {
   await page.setViewportSize({width:390,height:1000});await openHome(page);
   await page.locator('[data-home-project="child"]').click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
@@ -216,9 +202,6 @@ test("home chips and update rows open the existing detail dialogs", async ({page
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
   await expect(page.locator('#homeView')).toBeVisible();
-  await page.locator('[data-home-org="o"]').click();
-  await expect(page.locator('#wdModal')).toBeVisible();
-  await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
 });
 
 test("phone home follows the supplied reference while desktop stays unchanged", async ({page}) => {
@@ -226,9 +209,6 @@ test("phone home follows the supplied reference while desktop stays unchanged", 
   const chips=page.locator('[data-home-card="dday"]');await expect(chips).toContainText('D-1');
   await expect(chips).toHaveCSS('border-top-width','0px');
   await expect(chips).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
-  const update=page.locator('.home-update').first();await expect(update).toBeVisible();
-  const row=await update.evaluate(el=>[...el.children].map(e=>{const r=e.getBoundingClientRect();return {y:r.y+r.height/2}}));
-  expect(Math.max(...row.map(r=>r.y))-Math.min(...row.map(r=>r.y))).toBeLessThanOrEqual(2);
   await expect(page.locator('.home-event').nth(1)).toHaveCSS('border-top-width','1px');
   const check=page.locator('.home-task .gt-check').first();const b=await check.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);
   for(const width of [390,760]) {
@@ -237,5 +217,4 @@ test("phone home follows the supplied reference while desktop stays unchanged", 
   }
   await page.setViewportSize({width:761,height:1000});await expect(chips).toHaveCSS('border-top-width','1px');
   await page.setViewportSize({width:1440,height:1000});await expect(chips).toHaveCSS('border-top-width','1px');
-  const desktop=await update.evaluate(el=>[...el.children].map(e=>e.getBoundingClientRect().top));expect(desktop[0]).toBeLessThan(desktop[1]);
 });

@@ -7,7 +7,7 @@ for(const source of ['events','toggle','quick'])test(`initial pending links coal
  await expect(page.locator('[data-home-toggle="today"]')).toBeVisible();
  await expect.poll(()=>c.requests.filter(r=>r.path.endsWith('app_record_links')&&!r.query.includes('note_id=not.is.null')).length).toBe(1);
  await expect(page.locator('[data-home-card="calendar"]')).toHaveAttribute('data-state','ready');
- await expect(page.locator('[data-home-card="updates"]')).toHaveAttribute('data-state','ready');
+ await expect(page.locator('[data-home-card="updates"]')).toHaveCount(0);
  const untouched=()=>c.requests.filter(r=>r.path.includes('google-calendar')||(r.path.endsWith('app_suborganization_updates')&&!r.query.includes('created_by='))).length;
  const initialOtherReads=untouched();
  try {

@@ -9,7 +9,12 @@ for(const width of [390,1280])for(const view of ['home','tasks','team']){
     page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
     const {requests}=await openHome(page,{query:`?view=${view}`});
     await expect(page.locator(`#${view}View`)).toBeVisible();
-    if(view==='home')await expect(page.locator('[data-home-card="updates"]')).toContainText('이번 주 테스트 기록');
+    if(view==='home'){
+      await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt>0);
+      await expect(page.locator('[data-home-card="updates"],[data-home-unlinked]')).toHaveCount(0);
+      await expect(page.locator('[data-home-card="tasks"]')).toContainText('오늘 항목');
+      expect(requests.filter(r=>r.path.endsWith('app_suborganization_updates')||(r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null')))).toEqual([]);
+    }
     if(view==='tasks')await expect(page.locator('#gtTaskBody')).toContainText('오늘 항목');
     if(view==='team')await expect(page.locator('#soOrganizationList')).toContainText('테스트 조직');
     // Exercise the retained full-data entry point as well as normal route loading.
