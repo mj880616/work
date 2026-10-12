@@ -1,4 +1,4 @@
-import {validateLinkSummary} from './basket-link-records.js?v=1';
+import {validateLinkSummary} from './basket-link-records.js?v=2';
 import { parseAIAnswer, readClassificationSnapshot, previewClassification, confirmLinks, ERROR_TEXT } from './basket-classification.js?v=6';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBlocked}) {
@@ -67,7 +67,7 @@ export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBl
   rows.addEventListener('input',event=>{const key=event.target.dataset.classificationSummary;if(key!==undefined)drafts.set(key,event.target.value);});
   rows.addEventListener('change',event=>{const key=event.target.dataset.classificationChoice;if(key!==undefined){if(event.target.checked)checked.add(key);else checked.delete(key);controls();}});
   host.addEventListener('keydown',e=>{if(e.key==='Escape'&&!busy){e.preventDefault();close();}});
-  window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='basket'&&(busy||proposal||input.value||!panel.hidden))clear();});
+  window.addEventListener('kptu:view-changed',event=>{if(!event.detail?.retainBasketDraft&&event.detail?.view!=='basket'&&(busy||proposal||input.value||!panel.hidden))clear();});
   window.addEventListener('kptu:session-changed',()=>{const next=scope();if(next===currentScope)return;currentScope=next;clear();});
   return {open(){if(busy||isBlocked()||onOpen()===false)return;panel.hidden=false;input.focus();},isOpen:()=>!panel.hidden,hasDraft:()=>!!input.value,clear};
 }

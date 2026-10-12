@@ -22,13 +22,14 @@ export async function readRecordPages(path,rt=window.KPTURuntime){
     rows.push(...page);if(page.length<PAGE_SIZE)return rows;
   }
 }
-export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd}={},rt=window.KPTURuntime){
+export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,dateOnly=false}={},rt=window.KPTURuntime){
   const context=contextFor(rt),workspaceId=context?.workspace?.id;
   if(!context?.user?.id||!workspaceId)throw changed();
   if(kind&&!['organization','project'].includes(kind))throw Error('연결할 곳을 확인해 주세요.');
   if(targetIds&&!targetIds.length)return [];
   const owner=scope(rt),encode=encodeURIComponent,target=kind==='organization'?'organization_id':'project_id';
-  const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&status=eq.confirmed&note_id=not.is.null&or=(organization_id.not.is.null,project_id.not.is.null)&select=id,workspace_id,summary,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text)&order=id.asc`;
+  const fields=dateOnly?'id,workspace_id,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at)':'id,workspace_id,summary,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text)';
+  const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&status=eq.confirmed&note_id=not.is.null&or=(organization_id.not.is.null,project_id.not.is.null)&select=${fields}&order=id.asc`;
   const batches=targetIds?Array.from({length:Math.ceil(targetIds.length/PAGE_SIZE)},(_,i)=>targetIds.slice(i*PAGE_SIZE,(i+1)*PAGE_SIZE)):[null];
   const rows=[];
   for(const ids of batches){
@@ -40,7 +41,7 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd}=
       if(row.workspace_id!==workspaceId||row.status!=='confirmed'||!row.note_id||!note||note.workspace_id!==workspaceId||note.id!==row.note_id||(!row.organization_id&&!row.project_id))continue;
       if(linkId&&row.id!==linkId||kind&&!row[target]||targetIds&&!targetIds.includes(row[target]))continue;
       if(weekStart&&Date.parse(note.occurred_at)<Date.parse(weekStart)||weekEnd&&Date.parse(note.occurred_at)>=Date.parse(weekEnd))continue;
-      rows.push({id:row.id,summary:row.summary??null,note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,occurred_at:note.occurred_at,raw_text:note.raw_text,type:'basket'});
+      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,occurred_at:note.occurred_at,type:'basket'});
     }
   }
   return rows;

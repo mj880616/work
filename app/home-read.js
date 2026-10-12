@@ -1,6 +1,6 @@
-import { readLinkRecords, readRecordPages } from './basket-link-records.js?v=1';
+import { readLinkRecords, readRecordPages } from './basket-link-records.js?v=2';
 import { mountQuick } from './home-quick.js?v=10';
-import { createHomeCache } from './home-read-cache.js?v=3';
+import { createHomeCache, basketHomeText } from './home-read-cache.js?v=4';
 import {
   ranges,
   dayKey,
@@ -322,7 +322,7 @@ function renderCalendar(rows){
 function renderUpdates(rows){
   if(!rows.length)return empty('updates','이번 주 기록 없음');
   paint('updates',rows.map(u=>{
-    const contents=`<strong>${u.type==='basket'?'<small>바구니 연결</small> ':''}${esc(u.name)}</strong><span class="home-title">${esc(u.text)}</span><time>${Number(u.date.slice(5,7))}.${Number(u.date.slice(8,10))}</time>`;
+    const contents=`<strong>${u.type==='basket'?'<small>바구니 연결</small> ':''}${esc(u.name)}${u.excerpt?' <small>원문 발췌</small>':''}</strong><span class="home-title">${esc(u.text)}</span><time>${Number(u.date.slice(5,7))}.${Number(u.date.slice(8,10))}</time>`;
     return u.type==='basket'
       ? `<a class="home-update" data-home-note="${esc(u.note_id)}" href="?view=basket&amp;note=${encodeURIComponent(u.note_id)}">${contents}</a>`
       : `<button type="button" class="home-update" data-home-org="${esc(u.organization_id)}">${contents}</button>`;
@@ -464,7 +464,7 @@ const loaders = {
     ]);
     guard(run);
     const rows = weekUpdates([...up,...basket], os, as);
-    const copy=rows.map(u=>({organization_id:u.organization_id,name:os.find(o=>o.id===u.organization_id)?.name||'',date:dayKey(Date.parse(u.occurred_at)),text:[...String(u.type==='basket'?(u.summary||'요약 없음'):(u.raw_text||u.detail_text||''))].slice(0,80).join(''),...(u.type==='basket'?{type:'basket',note_id:u.note_id}:{})}));
+    const copy=rows.map(u=>({organization_id:u.organization_id,name:os.find(o=>o.id===u.organization_id)?.name||'',date:dayKey(Date.parse(u.occurred_at)),...(u.type==='basket'?basketHomeText(u):{text:[...String(u.raw_text||u.detail_text||'')].slice(0,80).join('')}),...(u.type==='basket'?{type:'basket',note_id:u.note_id}:{})}));
     saveCopy('updates',{week:r.weekStart,rows:copy});renderUpdates(copy);
   },
 };

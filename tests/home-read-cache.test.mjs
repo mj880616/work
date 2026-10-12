@@ -73,3 +73,20 @@ test('basket display copy preserves only source id/type and approved bounded sum
   const saved=[...values.values()][0];assert.equal(saved.includes('private'),false);assert.equal(saved.includes('unneeded'),false);
   assert.equal(copy[1].type,undefined);
 });
+
+test('NULL original excerpts keep the excerpt marker in the bounded owner display copy',()=>{
+  const {cache,values}=fixture();
+  cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[{organization_id:'o',name:'org',date:'2026-10-06',text:'😀'.repeat(81),type:'basket',note_id:'n',excerpt:true,raw_text:'must not persist'}]},now);
+  const row=cache.read(now).updates.rows[0];
+  assert.equal(row.excerpt,true);assert.equal([...row.text].length,80);
+  assert.equal([...values.values()][0].includes('must not persist'),false);
+});
+
+test('basket home projection preserves approved strings, distinguishes NULL, and limits raw code points',async()=>{
+  const {basketHomeText}=await import('../app/home-read-cache.js');
+  const summary=' \n'+ '승인😀'.repeat(35)+'\n ';
+  assert.deepEqual(basketHomeText({summary,raw_text:'원문'}),{text:summary});
+  assert.deepEqual(basketHomeText({summary:null,raw_text:'😀'.repeat(81)}),{text:'😀'.repeat(80),excerpt:true});
+  assert.deepEqual(basketHomeText({summary:null,raw_text:null}),{text:'원문을 확인해 주세요'});
+  assert.deepEqual(basketHomeText({summary:'',raw_text:'원문'}),{text:''});
+});

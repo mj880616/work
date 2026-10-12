@@ -35,7 +35,7 @@ async function mock(page,calls){
       if(u.searchParams.get('user_id'))return ok(paged(data.map(o=>({organization_id:o.id}))));
       return ok(paged(data.map(o=>({organization_id:o.id,user_id:'qa-user',assigned_by:'qa-user',created_at:'2026-09-15T00:00:00Z'}))));
     }
-    if(calls.summary&&p==='/rest/v1/app_record_links'){calls.push({action:'record-links',query:Object.fromEntries(u.searchParams)});return ok([{google_task_id:'summary-pending',organization_id:RAIL,status:'confirmed'},{google_task_id:'summary-done',organization_id:RAIL,status:'confirmed'}])}
+    if(calls.summary&&p==='/rest/v1/app_record_links'){calls.push({action:'record-links',query:Object.fromEntries(u.searchParams),noteWindow:u.searchParams.getAll('note.occurred_at')});return ok([{google_task_id:'summary-pending',organization_id:RAIL,status:'confirmed'},{google_task_id:'summary-done',organization_id:RAIL,status:'confirmed'}])}
     if(calls.summary&&p==='/rest/v1/app_suborganization_updates'){calls.push({action:'updates',query:Object.fromEntries(u.searchParams)});return ok([{organization_id:RAIL,occurred_at:'2026-01-09T00:00:00Z',raw_text:'old'}])}
     if(p==='/functions/v1/google-tasks'){
       const action=u.searchParams.get('action'),body=req.method()==='GET'?{}:JSON.parse(req.postData()||'{}');
@@ -144,13 +144,33 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   const noteReads=calls.filter(c=>c.action==='record-links'&&c.query.note_id==='not.is.null');
   const taskReads=calls.filter(c=>c.action==='record-links'&&c.query.note_id!=='not.is.null');
   expect(taskReads.length).toBeLessThanOrEqual(3);
-  expect(noteReads).toHaveLength(Math.ceil((orgs.length+extra)/100));
+  const ids=[...orgs.map(o=>o.id),...Array.from({length:extra},(_,i)=>'extra-'+i)];
+  const batchCount=Math.ceil(ids.length/100);
+  const homeProjection='id,workspace_id,summary,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text)';
+  const dateProjection='id,workspace_id,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at)';
+  const homeReads=noteReads.filter(r=>r.query.select===homeProjection);
+  const dateReads=noteReads.filter(r=>r.query.select===dateProjection);
+  expect(noteReads).toHaveLength(2*batchCount);
+  expect(homeReads).toHaveLength(batchCount);
+  expect(dateReads).toHaveLength(batchCount);
+  const assertBatches=reads=>{
+    const batches=reads.map(r=>r.query.organization_id.slice(4,-1).split(','));
+    expect(batches.map(b=>b.length)).toEqual(Array.from({length:batchCount},(_,i)=>Math.min(100,ids.length-i*100)));
+    expect(batches.flat()).toEqual(ids);
+    for(const read of reads)expect(read.query.offset).toBe('0');
+  };
+  assertBatches(homeReads);assertBatches(dateReads);
   for(const read of noteReads){
     expect(read.query).toEqual(expect.objectContaining({workspace_id:'eq.qa-ws',status:'eq.confirmed',note_id:'not.is.null',limit:'100'}));
     expect(read.query.organization_id).toMatch(/^in\./);
     expect(read.query['note.workspace_id']).toBe('eq.qa-ws');
   }
+  for(const read of homeReads){
+    expect(read.noteWindow).toHaveLength(2);
+    expect(read.noteWindow[0]).toMatch(/^gte\./);expect(read.noteWindow[1]).toMatch(/^lt\./);
+  }
+  for(const read of dateReads){expect(read.noteWindow).toEqual([]);expect(read.query.select).not.toMatch(/raw_text|summary/);}
   const reads=calls.filter(c=>c.action==='updates'&&c.query.select==='organization_id,occurred_at');
-  expect(reads).toHaveLength(1);
-  expect(reads[0].query.organization_id.split(',')).toHaveLength(orgs.length+extra);
+  expect(reads).toHaveLength(batchCount);assertBatches(reads);
+  for(const read of reads)expect(read.query.limit).toBe('500');
 });
