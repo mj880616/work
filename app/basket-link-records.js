@@ -2,7 +2,7 @@ import {formatSeoulTime} from './meeting-time.js?v=2';
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const contextFor=rt=>rt.context?.read?.()||globalThis.window?.__KPTU_BOOT_CONTEXT__||{};
+const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
 const scope=rt=>{const c=contextFor(rt);return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
 const changed=()=>new Error('업무 공간이나 로그인이 바뀌었어요. 다시 확인해 주세요.');
 // Match the applied PostgreSQL btrim character set, including NEL and BOM.

@@ -10,7 +10,7 @@ let wdUser=null,wdWorkspace=null,wdRole=null,wdOrg=null,wdItems=[],wdUpdates=[],
 const wdE=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const wdApi=(p,o={})=>wdRt.api(p,o);
 // Keep the existing session/auth fallback available when a shared boot context is not installed.
-const wdRecordRt={api:wdApi,context:{read:()=>wdRt.context?.read?.()||{user:wdUser,workspace:{id:wdWorkspace}}}};
+const wdRecordRt={api:wdApi,context:{read:()=>typeof wdRt.context?.read==='function'?(wdRt.context.read()||{}):{user:wdUser,workspace:{id:wdWorkspace}}}};
 function wdModal(id,on=true){const el=document.querySelector('#'+id);if(!el)return;el.classList.toggle('hidden',!on);el.setAttribute('aria-hidden',on?'false':'true')}
 function wdToast(s){const t=document.querySelector('#toast');if(!t)return;t.textContent=s;t.classList.remove('hidden');clearTimeout(wdToast.t);wdToast.t=setTimeout(()=>t.classList.add('hidden'),2200)}
 async function wdCtx(){const epoch=wdSessionEpoch;if(!wdRt||!(await wdRt.session.ensure())||epoch!==wdSessionEpoch)return false;const shared=wdRt.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){wdUser=shared.user;wdWorkspace=shared.workspace.id;wdRole=shared.membership?.role||null;return true}const user=await wdApi('/auth/v1/user');if(epoch!==wdSessionEpoch)return false;const m=await wdApi(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id,role&limit=1`);if(epoch!==wdSessionEpoch||!m?.length)return false;wdUser=user;wdWorkspace=m[0].workspace_id;wdRole=m[0].role;return true}

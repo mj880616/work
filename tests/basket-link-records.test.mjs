@@ -39,6 +39,13 @@ test('read failures and late cross-workspace responses never become empty succes
   let workspace='old';const rt={context:{read:()=>({user:{id:'owner'},workspace:{id:workspace}})},api:async()=>{workspace='new';return [];}};
   await assert.rejects(readLinkRecords({kind:'project',targetIds:['p']},rt),/바뀌/);
 });
+test('cleared explicit runtime context cannot fall back to a previous boot owner',async()=>{
+  const {readLinkRecords}=await import('../app/basket-link-records.js'),previous=globalThis.window;
+  const boot={user:{id:'owner'},workspace:{id:'workspace'}};let context=boot;
+  globalThis.window={__KPTU_BOOT_CONTEXT__:boot};
+  const rt={context:{read:()=>context},api:async()=>{context=null;return [];}};
+  try{await assert.rejects(readLinkRecords({kind:'organization',targetIds:['org']},rt),/바뀌/);await assert.rejects(readLinkRecords({kind:'organization',targetIds:['org']},rt),/바뀌/);}finally{globalThis.window=previous;}
+});
 test('update failures distinguish absence, permissions, missing feature and uncertain transport',async()=>{
   const {updateLinkSummary}=await import('../app/basket-link-records.js');
   for(const [error,code] of [[{status:404,message:'PGRST202'},'FUNCTION_UNAVAILABLE'],[{status:403},'PERMISSION_DENIED'],[{status:500},'RESULT_UNKNOWN']])assert.equal((await updateLinkSummary('link',null,'요약',rtFor(async()=>{throw error;}))).error,code);
