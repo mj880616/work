@@ -66,7 +66,7 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date()) {
   return buildHandoff(notes,window.KPTUProjectCatalog.basketProjects(catalog.projects),orgs.organizations,now,orgs.fallback);
 }
 export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{}},rt=window.KPTURuntime) {
-  host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><div data-handoff-fallback hidden><button type="button" class="quick-pill-button" data-handoff-retry>복사하기</button><button type="button" class="quick-pill-button" data-handoff-close>닫기</button><label class="basket-text-label">AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label></div>';
+  host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><div data-handoff-fallback hidden><button type="button" class="quick-pill-button quick-pill-primary" data-handoff-retry>복사하기</button><button type="button" class="quick-pill-button" data-handoff-close>닫기</button><label class="basket-text-label">AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label></div>';
   const status=host.querySelector('[role="status"]'),fallback=host.querySelector('[data-handoff-fallback]'),input=host.querySelector('textarea');
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let busy=false,epoch=0,currentScope=scope(),fallbackScope=null,fallbackText='';
@@ -80,7 +80,7 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{}},rt=window.KP
       // Prepared text needs no asynchronous reads: this call uses the new tap's activation.
       await navigator.clipboard.writeText(text);
       if(current()){clear();status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';onClose();}
-    }catch{if(current())status.textContent='길게 눌러 전체 선택 → 복사';}
+    }catch{if(current()){status.textContent='복사가 안 되면 길게 눌러 전체 선택 → 복사';input.focus();input.select();}}
     finally{if(current()){busy=false;onBusy(false);}}
   }
   host.addEventListener?.('click',event=>{
@@ -112,7 +112,7 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{}},rt=window.KP
       else{try{await navigator.clipboard.writeText(text);copied=true;}catch{}}
       if(!current())return;
       if(copied)status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';
-      else{input.value=text;fallbackText=text;fallbackScope=owner;fallback.hidden=false;status.textContent='길게 눌러 전체 선택 → 복사';input.focus();input.select();}
+      else{input.value=text;fallbackText=text;fallbackScope=owner;fallback.hidden=false;status.textContent="아래 '복사하기'를 눌러 주세요";input.focus();input.select();}
     }catch{if(current())status.textContent='맡길 메모를 준비하지 못했어요. 다시 눌러 주세요.';}
     finally{if(current()){busy=false;onBusy(false);}}
   }};

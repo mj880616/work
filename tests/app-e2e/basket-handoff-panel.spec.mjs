@@ -61,8 +61,19 @@ for(const width of [390,1280]){
  test(`handoff denied close replace navigation and private storage ${width}`,async({page},info)=>{
   const {note,errors}=await setup(page,width);await denied(page);await press(page);
   const text=page.locator('[data-handoff-text]'),close=page.locator('[data-handoff-close]');await expect(text).toBeVisible();await expect(text).toHaveAttribute('readonly','');await expect(text).toHaveValue(new RegExp(note.raw_text));
+  await expect(page.locator('[data-handoff-status]')).toHaveText("아래 '복사하기'를 눌러 주세요");
+  const retry=page.locator('[data-handoff-retry]');await expect(retry).toHaveClass(/quick-pill-primary/);
+  await expect(page.locator('[data-handoff-fallback] button')).toHaveText(['복사하기','닫기']);
   await page.screenshot({path:info.outputPath(`fallback-${width}.png`),fullPage:true});
-  await page.locator('[data-handoff-retry]').focus();await page.keyboard.press('Enter');await expect(text).toBeVisible();await expect(text).toHaveValue(new RegExp(note.raw_text));await expect(page.locator('[data-handoff-copy]')).toBeEnabled();await expect(page.locator('[data-handoff-status]')).toHaveText('길게 눌러 전체 선택 → 복사');
+  for(const action of ['keyboard','touch']){
+   // Collapse the first selection so retry must restore it, rather than inherit it.
+   await text.evaluate(el=>el.setSelectionRange(0,0));expect(await text.evaluate(el=>el.selectionStart===el.selectionEnd)).toBe(true);
+   if(action==='keyboard'){await retry.focus();await page.keyboard.press('Enter');}else await retry.tap();
+   await expect(text).toBeVisible();await expect(text).toHaveValue(new RegExp(note.raw_text));await expect(page.locator('[data-handoff-copy]')).toBeEnabled();
+   await expect(page.locator('[data-handoff-status]')).toHaveText('복사가 안 되면 길게 눌러 전체 선택 → 복사');
+   await expect(text).toBeFocused();expect(await text.evaluate(el=>el.selectionStart===0&&el.selectionEnd===el.value.length)).toBe(true);
+  }
+  await page.screenshot({path:info.outputPath(`retry-failed-${width}.png`),fullPage:true});
   await close.focus();await page.keyboard.press('Enter');await cleared(page);await expect(page.locator('[data-handoff-copy]')).toBeFocused();
   await press(page);await expect(text).toBeVisible();note.raw_text='합성 새 메모';
   let release;const held=new Promise(resolve=>release=resolve);await page.route(SB+'/rest/v1/app_notes?**',async r=>{await held;await r.fallback();});

@@ -98,7 +98,7 @@ for(const width of [390,1280]){
  test(`AI handoff clipboard fallback and zero notes ${width}`,async({page})=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
   await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('permission denied');}}});});
-  await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('길게 눌러 전체 선택 → 복사');
+  await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText("아래 '복사하기'를 눌러 주세요");
   const text=page.locator('[data-handoff-text]');await expect(text).toBeVisible();await expect(text).toHaveAttribute('readonly','');await expect(text).toBeFocused();expect(await text.inputValue()).toContain(f.note.raw_text);
   expect(await text.evaluate(el=>el.selectionStart===0&&el.selectionEnd===el.value.length)).toBe(true);
   f.note.ai_export_allowed=false;await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('맡길 메모가 없어요');await expect(text).toBeHidden();await expect(text).toHaveValue('');expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);

@@ -35,7 +35,8 @@
 | 화면 | 390px | 1280px |
 | --- | --- | --- |
 | 복사 성공 | [성공](success-390.png) | [성공](success-1280.png) |
-| 복사 거부·닫기 상자 | [대체 상자](fallback-390.png) | [대체 상자](fallback-1280.png) |
+| 복사 거부·복사하기/닫기 상자 | [대체 상자](fallback-390.png) | [대체 상자](fallback-1280.png) |
+| 복사하기 재실패·전체 선택 | [재실패](retry-failed-390.png) | [재실패](retry-failed-1280.png) |
 
 ## CI 후속 발견과 호환 보완
 
@@ -62,3 +63,16 @@ BASKET-사진글자(2026-10-12 승인, Google Drive OCR로 메모에 글 붙이�
 - 로컬 Lambda용140.0.7339.0에서 기본 권한은 두 descriptor 모두 prompt였다. focus=true·active=true·trusted=true의 plain-button writeText도 “Write permission denied”였다. clipboard-write만 명시하면 allowWithoutGesture=false는 granted, true는 denied이며 새 터치 쓰기는 성공했다. 따라서 미지정 권한을 조건부 허용으로 가정하지 않는다. CI의 기본 prompt 거부가 실패 원인이라는 해석은 이 진단과 일치하지만 폰 원인과는 구분한다.
 - 추가 native/model 테스트는 gestureWriteAllowed로 위 두 상태를 먼저 assertion한다. 전체 허용·새 동작에서만 허용·명시 거부를 따로 검증하고, 모델의 첫 거부→필수 새 터치→실제 복사·CRLF 보존·상자/글 비움은 유지한다. 앱에서 권한을 부여하거나 경계를 바꾸는 코드는 추가하지 않는다. Chromium151 최종 패널22/22, 별도 테스트 검토 지적 없음.
 - 초기 Lambda 실행의 single-process 옵션을 제거해 기본 터치/권한 probe와 native 조건부 복사2개를 실행할 수 있었다. Lambda 패널 전체는18/22(명시 거부2개가 override와 다르게 동작, getType 모델2개 timeout)여서 공식 CI의 대체 통과 근거로 세지 않는다. 전체 완료 판정은 최종 SHA의 공식 자동 CI로 한다.
+
+
+## CC 검토 보완(2026-10-12)
+
+- 같은 브랜치·PR #504에서 시작 SHA `6e25f900879763c2f882592bda94af56cb22fbc0`, 새 fetch main은 `b4c08cd7dc2ee5757146c8e77b9613caf995db1e`로 동일. CC는 코드 수정 없음.
+- 첫 자동 복사 실패 안내: “아래 '복사하기'를 눌러 주세요”. 복사하기에 기존 quick-pill-primary를 적용하고 버튼 순서 복사하기 → 닫기 유지.
+- 복사하기 재실패는 상자와 원문을 유지하고 “복사가 안 되면 길게 눌러 전체 선택 → 복사” 안내 뒤 textarea에 focus/select. 기존 epoch/scope current 검사 안에서만 처리하며 fallbackText 원문 문자열·CRLF 복사 유지.
+- 기존 거부 테스트390/1280에 기본 안내·강조 클래스·버튼 순서·키보드 Enter/실제 터치 재실패의 초점과 전체 선택을 추가. 미리 선택을 접어 이전 선택 상태로 통과하지 않도록 검증한다. 변경 전 기본 안내 RED2/2, 안내 변경 뒤 실제 focus 누락 RED2/2, 수정 후 패널22/22·관련46통과/2실패(인접 분류 테스트의 옛 안내 기대값). 해당 기대값만 요구대로 갱신해 최종 관련48/48(1.7분) 통과. ArrowLeft로 선택이 접히지 않아 사전 조건만 setSelectionRange(0,0)으로 조정했으며 실제 focus/select 검증은 유지했다. 기존 회귀22와 CRLF·늦은 결과 취소 유지, 테스트 삭제/약화 없음.
+- Node 전체547/547·로컬 smoke 모든 run·캐시425참조·구문/공백 통과. readHandoff/buildHandoff는 보완 시작 SHA와 동일. 별도 읽기 전용 리뷰 중요 지적 없음.
+- 캐시: handoff9 → basket17 → view-loader132 → loader-v2365 → app253 → index.html. 기대 테스트·smoke 동일 갱신.
+- 위 캡처6장을 현재 보완 코드의 합성 데이터로 교체/추가했다. 정상 콘솔 오류0·가로 넘침 없음.
+- BASKET-연결보기 대기(연결 요약 저장·수정, 조직·프로젝트·홈에 바구니 연결 기록 표시, 2026-10-12 사용자 요구)를 사진글자 앞에 등록. 사진글자는 연결보기 뒤·4b-1 앞. 이번에는 원장 등록만.
+- 최종 SHA의 자동 CI·전체 브라우저 결과는 PR의 12항목 댓글에 확정한다. 운영 접속·DB/RLS·Edge 배포·workflow 수동 실행·merge 없음.
