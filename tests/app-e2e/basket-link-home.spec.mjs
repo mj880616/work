@@ -1,3 +1,7 @@
+async function readHomeCache(page,key){
+ const cdp=await page.context().newCDPSession(page);
+ try{const {entries}=await cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:'http://127.0.0.1:8123',isLocalStorage:true}});const value=entries.find(([storedKey])=>storedKey===key)?.[1];return value?JSON.parse(value):null;}finally{await cdp.detach();}
+}
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -66,13 +70,13 @@ test('late linked-note reads cannot write cards or cache after workspace changes
  await page.evaluate(()=>dispatchEvent(new CustomEvent('kptu:basket-links-changed')));await expect.poll(()=>state.reads.filter(r=>r.table==='app_record_links').length).toBeGreaterThan(before);
  await page.evaluate(()=>{const c=KPTURuntime.context.read();KPTURuntime.context.set({...c,workspace:{...c.workspace,id:'other-workspace'}});});
  state.hold=null;release();await page.waitForTimeout(200);
- const cache=await page.evaluate(()=>JSON.parse(localStorage.getItem(KPTURuntime.ownerCache.prefix+'home-read-v1:home-test')));
+ const prefix=await page.evaluate(()=>KPTURuntime.ownerCache.prefix);const cache=await readHomeCache(page,prefix+'home-read-v1:home-test');
  expect(cache.workspaceId).toBe('w');
 });
 
 test('basket display cache restores approved summary and source route while the next read waits',async({page})=>{
  const state=await fixture(page);await expect(card(page)).toContainText('승인한 조직 요약');
- const cached=await page.evaluate(()=>JSON.parse(localStorage.getItem(KPTURuntime.ownerCache.prefix+'home-read-v1:home-test')).cards.updates.rows[0]);
+ const prefix=await page.evaluate(()=>KPTURuntime.ownerCache.prefix);const cached=(await readHomeCache(page,prefix+'home-read-v1:home-test')).cards.updates.rows[0];
  expect(cached).toMatchObject({type:'basket',note_id:'n',text:'승인한 조직 요약'});expect(cached).not.toHaveProperty('raw_text');
  let release;state.hold=new Promise(resolve=>release=resolve);
  try{await page.reload();await expect(card(page)).toContainText('승인한 조직 요약');await expect(card(page).locator('[data-home-note="n"]')).toHaveAttribute('href','?view=basket&note=n');}finally{state.hold=null;release();}
@@ -84,6 +88,6 @@ test('late linked records stay cleared when the signed-in owner changes',async({
  const cachePrefix=await page.evaluate(()=>KPTURuntime.ownerCache.prefix);
  await page.evaluate(()=>{const session=KPTURuntime.session.read();KPTURuntime.session.write({...session,user:{...session.user,id:'next-owner'}});});
  state.hold=null;release();await expect(page.locator('[data-home-card="updates"]')).toHaveCount(0);
- expect(await page.evaluate(prefix=>localStorage.getItem(prefix+'home-read-v1:home-test'),cachePrefix)).toBeNull();
- expect(await page.evaluate(prefix=>localStorage.getItem(prefix+'home-read-v1:next-owner'),cachePrefix)).toBeNull();
+ expect(await readHomeCache(page,cachePrefix+'home-read-v1:home-test')).toBeNull();
+ expect(await readHomeCache(page,cachePrefix+'home-read-v1:next-owner')).toBeNull();
 });

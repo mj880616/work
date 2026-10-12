@@ -26,11 +26,11 @@ reason의 의미는 기록 요약이다. 한 줄에 원문 날짜·요일·시�
 
 동작 테스트를 먼저 추가해 누락된 summary 전달/편집칸, Unicode/조회, 홈 투영·정렬, 상세 페이지/늦은 응답, 뒤로가기와 결과 불명 재조회 실패를 RED로 확인한 뒤 구현했다. 기존 테스트 삭제/약화 없음. 새 summary payload와 필요한 바구니 조회를 기존 테스트의 정확한 기대값에 추가했다.
 
-- 전체 Node **563/563** 통과(이 중 아래 로컬 PostgreSQL+브라우저 검증1개 포함). Deno PATH 누락으로 격리 검사5개가 처음 실패했으나 설치된 DENO_BIN을 명시한 동일 전체 실행이 성공했다. product/정책을 우회하지 않았다.
+- 전체 Node **563/563** 통과(이 중 아래 로컬 PostgreSQL+브라우저 검증1개 포함). Deno PATH 누락으로 격리 검사5개가 처음 실패했으나 설치된 DENO_BIN을 명시한 동일 전체 실행이 성공했다. product/정책을 우회하지 않았다. 초기 자동 CI에서 조직 정적 검사 두 개의 옛 버전 기대값과 새 홈 테스트의 직접 저장소 조회를 검출했다. 캐시 기대 문자열을 맞추고 새 테스트는 읽기 전용 Chromium DOMStorage 검사로 바꿔 기존 저장소 감사 정책 그대로 통과시켰다.
 - 기존 격리 PostgreSQL 연결보기/4a와 전체 auth-handoff **76/76** 통과. 운영 DB를 사용하지 않았다.
 - [실제 격리 PostgreSQL+Chromium CAS](review/basket-link-postgres-browser/README.md) **1/1** 통과. 두 독립 화면 NULL 충돌·초안/최신값·명시 확인 전 재요청0·보관/AI 제외·원문/문자열 보존을 실제 invoker SQL로 확인했다. 확인 게이트를 제거한 임시 검증 사본은 조기 재요청을 검출해 실패했다. 이 검사는 로컬 검증이며 자동 CI 브라우저와 구분한다.
 - 직접 실제 앱 조직/프로젝트/홈·보관 원문 390/1280 및 늦은 성공/불명 결과 갱신 통합 **4/4** 통과. [합성 캡처8장](review/basket-link-view-ui/README.md). 상세/홈/미리보기·#504 인접 회귀와 정상 흐름 콘솔0을 확인했다. 최종 전체 브라우저와 자동 CI 판정은 PR의 AGENTS.md 12항목 댓글에 기록한다.
-- 캐시를 index.html까지 연쇄 반영하고 버전 기대 tests/smoke를 함께 갱신했다. 정적 smoke13블록·430참조 캐시 검사·diff 검사 통과. 그 과정에서 변경된 달력/할 일/로그인 파일은 캐시 import 버전만 변경했다.
+- 캐시를 index.html까지 연쇄 반영하고 버전 기대 tests/smoke와 조직 정적 검사 두 workflow의 캐시 기대값만 함께 갱신했다. workflow 실행/권한/허용 정책은 변경하지 않았다. 정적 smoke13블록·430참조 캐시 검사·diff 검사 통과. 그 과정에서 변경된 달력/할 일/로그인 파일은 캐시 import 버전만 변경했다.
 - Deno check/lint·functions-only 격리 info/check/bundle·브라우저/Edge 전문 동일성 통과. 배포는 실행하지 않았다.
 
 ## Drive 조직 문서 최근4주 연결 요약 조사 · 구현 없음
