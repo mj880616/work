@@ -1,5 +1,5 @@
 import { mountHandoff } from './basket-ai-handoff.js?v=10';
-import { mountClassification } from './basket-classification-ui.js?v=8';
+import { mountClassification } from './basket-classification-ui.js?v=9';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=4';
@@ -8,7 +8,7 @@ const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, busy = false, epoch = 0;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
-let currentScope = scope(), editorAddress = null;
+let currentScope = scope(), retainedForTraversal = false;
 const initialUrl = new URL(location.href);
 let requestedNote = initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -53,7 +53,7 @@ function clearNoteAddress(){
 function closeDetail({focus = true, force = false, cleanAddress = true} = {}) {
   if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return;
   handoff.close();
-  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; editorAddress=null; selected = null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;
+  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
 }
 function paintDetailState() {
@@ -69,7 +69,6 @@ function paintAttachments() {
 function openDetail(id) {
   handoff.close();
   selected = notes.find(n => n.id === id); if (!selected) return;
-  editorAddress={url:location.href,state:history.state};
   // Keep the opened editor attached to this list snapshot until an explicit reload.
   ++epoch;
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
@@ -163,18 +162,25 @@ window.addEventListener('kptu:before-reload', e => {
 });
 window.addEventListener('kptu:session-changed', () => {
   const next = scope(); if (next === currentScope) return;
-  currentScope = next; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true,cleanAddress:false}); renderList();
+  currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true,cleanAddress:false}); renderList();
 });
 window.addEventListener('kptu:before-view-change',e=>{
+  if(retainedForTraversal&&((busy&&!handoffBusy)||dirty()||classification.isOpen()))e.detail.retainBasketDraft=true;
   if(window.KPTURouter.current!=='basket'||e.detail?.view==='basket')return;
-  if((busy&&!handoffBusy)||(dirty()&&!window.confirm('수정 중인 글을 버리고 다른 화면으로 갈까요?'))){
+  // Without a native entry position, honor the traversal and retain the draft
+  // in this mounted view. Never guess its direction or rewrite the destination.
+  if(e.detail?.source==='popstate'&&!e.detail.canRestoreHistory&&((busy&&!handoffBusy)||dirty())){
+    e.detail.retainBasketDraft=true;return;
+  }
+  const blockedBusy=busy&&!handoffBusy&&(!classification.isOpen()||e.detail?.source==='popstate');
+  if(blockedBusy||(dirty()&&!window.confirm('수정 중인 글을 버리고 다른 화면으로 갈까요?'))){
     e.preventDefault();
-    if(e.detail?.source==='popstate'&&editorAddress)history.replaceState(editorAddress.state,'',editorAddress.url);
   }
 });
 window.addEventListener('kptu:view-changed',e=>{
-  if(e.detail?.view==='basket')return;
-  clearNoteAddress();closeDetail({focus:false,force:true});
+  if(e.detail?.view==='basket'){retainedForTraversal=false;return;}
+  if(e.detail?.retainBasketDraft){retainedForTraversal=true;return;}
+  retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});
 });
 window.KPTURouter.on('basket', () => {
   if (busy || classification.isOpen()) return;

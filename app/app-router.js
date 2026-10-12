@@ -3,7 +3,24 @@
   const hooks=new Map();
   const VIEW_PARAM='view';
   const NAV_ALIAS={messages:'home',profile:'home',myspace:'home'};
-  let bound=false;
+  let bound=false,routeEntry=null,returningTo=null;
+
+  // Route ownership includes history entries made by menus and dialogs. Native
+  // entry positions let a declined traversal return without rewriting either entry.
+  function rememberRoute(){
+    if(returningTo||!authenticatedShellReady()||viewFromUrl()!==api.current)return;
+    const entry=window.navigation?.currentEntry;
+    if(entry&&Number.isInteger(entry.index))routeEntry={key:entry.key,index:entry.index};
+  }
+
+  function restoreRoutePosition(){
+    const entry=window.navigation?.currentEntry;
+    if(!routeEntry||!entry||!Number.isInteger(entry.index))return;
+    const delta=routeEntry.index-entry.index;
+    if(!delta)return;
+    returningTo=routeEntry.key;
+    history.go(delta);
+  }
 
   function appReady(){
     const app=document.querySelector('#appView');
@@ -73,25 +90,32 @@
   }
 
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false}={}){
-    if(!view||!authenticatedShellReady())return false;
+    if(!view||!authenticatedShellReady()||returningTo)return false;
     const lazy=window.KPTUViewLoader;
     if(!allowUnloaded&&lazy?.isLoaded&&!lazy.isLoaded(view)){
-      lazy.load(view).then(()=>go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true})).catch(err=>console.error('view lazy load',view,err));
+      const requestedEntry=window.navigation?.currentEntry?.key,requestedUrl=location.href;
+      lazy.load(view).then(()=>{
+        if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
+        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true});
+      }).catch(err=>console.error('view lazy load',view,err));
       return false;
     }
     const target=document.getElementById(view+'View');
     if(!target)return false;
-    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source}});
+    const entry=window.navigation?.currentEntry;
+    const canRestoreHistory=!!(routeEntry&&entry&&Number.isInteger(entry.index)&&routeEntry.index!==entry.index);
+    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory}});
     window.dispatchEvent(before);
-    if(before.defaultPrevented)return false;
+    if(before.defaultPrevented){if(source==='popstate')restoreRoutePosition();return false;}
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.toggle('hidden',panel!==target));
     syncNavigationState(view);
     api.current=view;
     const navBehavior=['restore','ready','session','popstate'].includes(source)?'auto':'smooth';
     requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:navBehavior}));
     if(updateUrl&&(appReady()||authenticatedShellReady()))syncUrl(view,{replace:replaceUrl||source==='api'});
+    rememberRoute();
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
-    const detail={view,source};
+    const detail={view,source,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{})};
     window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));
     for(const fn of hooks.get(view)||[]){
       try{fn(detail)}catch(err){console.error('view hook',view,err)}
@@ -108,6 +132,7 @@
     if(api.current===view&&target&&!target.classList.contains('hidden')){
       syncNavigationState(view);
       requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:'auto'}));
+      rememberRoute();
       return true;
     }
     return go(view,{scroll:false,source,updateUrl:false});
@@ -157,9 +182,13 @@
   const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible};
   window.KPTURouter=api;
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
-  window.addEventListener('popstate',()=>restoreFromUrl('popstate'));
+  window.navigation?.addEventListener('currententrychange',rememberRoute);
+  window.addEventListener('popstate',()=>{
+    if(returningTo&&window.navigation?.currentEntry?.key===returningTo){returningTo=null;rememberRoute();return;}
+    restoreFromUrl('popstate');
+  });
   window.addEventListener('kptu:session-changed',e=>{
-    if(!e.detail?.session){api.current=null;return}
+    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;return}
     if(appReady())restoreFromUrl('session');
   });
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});
