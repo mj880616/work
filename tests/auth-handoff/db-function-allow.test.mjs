@@ -38,9 +38,13 @@ test('function workflow: local PostgreSQL dry-run, authenticated-only execution 
       create table supabase_migrations.schema_migrations(version text primary key, name text, statements text[]);
       -- Reproduce both PostgreSQL PUBLIC and explicit anon default execution.
       alter default privileges grant execute on functions to anon;`);
-    const query = async sql => {
-      const result = await client.query(sql);
-      return Array.isArray(result) ? result.at(-1).rows : result.rows;
+    const query = async (sql, { readOnly = false } = {}) => {
+      try {
+        if (readOnly) await client.query('begin read only');
+        const result = await client.query(sql);
+        if (readOnly) await client.query('commit');
+        return Array.isArray(result) ? result.at(-1).rows : result.rows;
+      } catch (error) { await client.query('rollback'); throw error; }
     };
     let runId = 300;
     for (const schema of ['public', 'private']) for (const language of ['sql', 'plpgsql'])
@@ -52,12 +56,14 @@ test('function workflow: local PostgreSQL dry-run, authenticated-only execution 
           const rollbackSQL = wrap(`drop function if exists ${signature};`, true);
           const plan = mode => {
             const sql = mode === 'rollback' ? rollbackSQL : migrationSQL;
-            return { mode, version, name, runId: String(++runId), file: { sql }, checks: {},
+            const precheck = { sql: `select 'exact signature count' as item, count(*)::text as value from pg_proc where oid=to_regprocedure('${signature}');` };
+            return { mode, version, name, runId: String(++runId), file: { sql }, checks: mode === 'dry-run' ? { precheck } : {},
               ...validateSQL(sql, { mode, version, name, migrationSQL }) };
           };
           const lookup = async () => (await client.query('select to_regprocedure($1)::text as fn', [signature])).rows[0].fn;
           const dry = await runMigrationPlan(plan('dry-run'), query);
           assert.equal(dry.ok, true, dry.summary);
+          assert.equal(dry.verification, 'complete');
           assert.equal(await lookup(), null);
           const applied = await runMigrationPlan(plan('apply'), query);
           assert.equal(applied.ok, true, applied.summary);

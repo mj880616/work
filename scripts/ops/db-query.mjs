@@ -1,14 +1,29 @@
 // Management API transport shared by approved DB workflows. No packages, retries,
 // response files, or logging. The caller must approve SQL and constrain its output.
 const MAX_RESPONSE_BYTES = 65_536;
+const KINDS = new Set(['configuration', 'API', 'transport', 'invalid JSON', 'response limit', 'response shape', 'unknown']);
+const validStatus = status => Number.isInteger(status) && status >= 100 && status <= 599;
+const validSqlState = sqlState => typeof sqlState === 'string' && /^[0-9A-Z]{5}$/.test(sqlState);
 
 export class DbQueryError extends Error {
   constructor(kind, { status, divisionByZero = false, sqlState } = {}) {
-    super(`DB query failed (${kind}${status ? `, HTTP ${status}` : ''})`);
+    const safeKind = KINDS.has(kind) ? kind : 'unknown';
+    super(`DB query failed (${safeKind}${validStatus(status) ? `, HTTP ${status}` : ''})`);
     this.name = 'DbQueryError';
-    this.divisionByZero = divisionByZero;
-    this.sqlState = typeof sqlState === 'string' && /^[0-9A-Z]{5}$/.test(sqlState) ? sqlState : undefined;
+    this.kind = safeKind;
+    this.status = validStatus(status) ? status : undefined;
+    this.divisionByZero = divisionByZero === true;
+    this.sqlState = validSqlState(sqlState) ? sqlState : undefined;
   }
+}
+
+// Render only bounded internal metadata, never message/cause or response data.
+export function queryErrorSummary(error) {
+  const known = error instanceof DbQueryError;
+  const status = known && validStatus(error.status) ? `HTTP ${error.status}` : 'HTTP 상태 미확인';
+  const kind = known && KINDS.has(error.kind) ? error.kind : '응답 검증';
+  const sqlState = known && validSqlState(error.sqlState) ? ` · SQLSTATE ${error.sqlState}` : '';
+  return `${status} · ${kind}${sqlState}: DB 요청·응답 확인 실패. 원문 오류·SQL·데이터는 출력하지 않습니다.`;
 }
 
 export function createQueryClient({ token, projectRef, endpoint, timeoutMs = 30_000 }) {
@@ -36,15 +51,16 @@ export function createQueryClient({ token, projectRef, endpoint, timeoutMs = 30_
         size += value.byteLength;
         if (size > MAX_RESPONSE_BYTES) {
           await reader.cancel();
-          throw new DbQueryError('response limit');
+          throw new DbQueryError('response limit', { status: response.status });
         }
         chunks.push(value);
       }
-      payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      try { payload = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+      catch { throw new DbQueryError('invalid JSON', { status: response.status }); }
     } catch (error) {
       if (error instanceof DbQueryError) throw error;
       // Never retain a native error/cause: it can contain URLs, headers or data.
-      throw new DbQueryError('transport or invalid JSON');
+      throw new DbQueryError('transport', { status: response?.status });
     }
     const errorObjects = Array.isArray(payload)
       ? payload.filter(row => row && typeof row === 'object' && ('error' in row
@@ -58,7 +74,7 @@ export function createQueryClient({ token, projectRef, endpoint, timeoutMs = 30_
       const sqlState = sqlErrorStatus ? errorObjects.find(error => error && typeof error.code === 'string' && /^[0-9A-Z]{5}$/.test(error.code))?.code : undefined;
       throw new DbQueryError('API', { status: response.status, divisionByZero, sqlState });
     }
-    if (!Array.isArray(payload)) throw new DbQueryError('response shape');
+    if (!Array.isArray(payload)) throw new DbQueryError('response shape', { status: response.status });
     return payload;
   };
 }

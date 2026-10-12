@@ -9,7 +9,10 @@ test('BASKET-2 approval files pass risk checks and dry-run transformation', () =
     const plan = prepareMigration({mode, version, runId:'12345', root:process.cwd()});
     assert.deepEqual(plan.targets,['app_drive_settings']);
     assert.equal(plan.summaryLines.length,3);
-    assert.equal(plan.checks.postcheck.baselineNull,false);
+    if (mode === 'dry-run') {
+      assert.equal(plan.checks.postcheck,undefined);
+      assert.equal(plan.checks.precheck.baselineNull,false);
+    } else assert.equal(plan.checks.postcheck.baselineNull,false);
     assert.match(plan.checks.precheck.sql,/workspace_id/);
     if(mode !== 'rollback') {
       assert.match(toDryRun(plan.file.sql),/rollback;\s*$/);

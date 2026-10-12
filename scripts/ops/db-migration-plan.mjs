@@ -426,15 +426,24 @@ export function prepareMigration({ mode, version, runId, root }) {
   const summaryLines = summaryFile.sql.trim().split(/\r?\n/);
   if (summaryLines.length !== 3 || !['무엇이 바뀌나:', '잘못되면:', '되돌리는 법:'].every((prefix, i) => summaryLines[i].startsWith(prefix) && summaryLines[i].length > prefix.length)) fail();
   const checks = {};
-  for (const suffix of ['precheck', 'postcheck']) {
-    const checkPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.${suffix}\\.sql$`), false);
+  let manualSnapshotRequired = false;
+  const suffixes = mode === 'dry-run' ? ['precheck', 'postcheck', 'dry-run.postcheck'] : ['precheck', 'postcheck'];
+  for (const suffix of suffixes) {
+    // The mode-specific file must not count as a second apply postcheck.
+    const excludeDryRun = suffix === 'postcheck' ? '(?!.*\\.dry-run\\.postcheck\\.sql$)' : '';
+    const checkPath = choose(root, 'docs', new RegExp(`^${version}_${excludeDryRun}.*\\.${suffix.replaceAll('.', '\\.')}\\.sql$`), false);
     if (checkPath) {
       if (checkPath !== `docs/${version}_${name}.${suffix}.sql`) fail();
       const check = safeFile(root, checkPath, 65_536);
-      checks[suffix] = { ...check, ...checkSQL(check.sql) };
+      const checked = { ...check, ...checkSQL(check.sql) };
+      if (mode === 'dry-run' && suffix === 'postcheck') {
+        // Preserve the existing manual snapshot requirement without selecting
+        // or executing an applied-state check after rollback.
+        manualSnapshotRequired = checked.baselineNull;
+      } else checks[suffix === 'dry-run.postcheck' ? 'dryRunPostcheck' : suffix] = checked;
     }
   }
-  return { mode, version, name, runId, file, summaryFile, summaryLines, checks, ...validation };
+  return { mode, version, name, runId, file, summaryFile, summaryLines, checks, manualSnapshotRequired, ...validation };
 }
 
 export const escapeSummary = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('|', '&#124;').replaceAll('`', '&#96;');
@@ -447,6 +456,8 @@ export function migrationSummary(plan) {
   return `## DB ${plan.mode}: ${plan.version}\n\n${plan.summaryLines.map(escapeSummary).join('\n\n')}\n\n`
     + `파일: \`${plan.file.path}\`\n\nSHA256: \`${plan.file.sha256}\` · 줄 수: ${plan.file.lines}\n\n위험 검사: ${plan.risks}\n\n`
     + `요약 파일 SHA256: \`${plan.summaryFile.sha256}\`\n\n실행 SQL 전문:\n\n${sqlBlock(sql)}\n`
+    + (plan.mode === 'dry-run' ? 'dry-run은 precheck를 전후 같은 읽기 전용 SQL로 비교합니다. 집계가 없거나 baseline NULL이면 수동 snapshot 확인 필요이며 검증 미완료입니다. 적용용 postcheck는 실행하지 않습니다.\n\n' : '')
+    + (plan.mode === 'dry-run' && plan.manualSnapshotRequired ? '기존 postcheck의 baseline NULL: 수동 snapshot 확인 필요를 유지합니다. 적용용 SQL은 선택하거나 실행하지 않습니다.\n\n' : '')
     + Object.entries(plan.checks).map(([kind, file]) => `### ${kind} (읽기 전용)\n\n파일: \`${file.path}\` · SHA256: \`${file.sha256}\` · 줄 수: ${file.lines}\n\n`
       + (file.baselineNull ? 'baseline NULL: 실행하지 않고 수동 확인 필요로 표시합니다.\n\n' : '') + sqlBlock(file.sql)).join('\n');
 }
