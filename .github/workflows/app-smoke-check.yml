@@ -89,7 +89,7 @@ jobs:
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./action-labels.js?v=2')",
             "import('./team.js?v=68')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=133')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=134')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -173,7 +173,7 @@ jobs:
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=20" app/loader-v2.js
           grep -q "team.js?v=68" app/loader-v2.js
-          grep -q "project-system-v3.js?v=45" app/view-loader.js
+          grep -q "project-system-v3.js?v=46" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
           grep -q "google-tasks.js?v=32" app/view-loader.js

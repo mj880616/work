@@ -100,7 +100,7 @@ async function projects(){
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=32');
-  await module('./project-system-v3.js?v=45','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=46','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
@@ -131,7 +131,7 @@ async function organizations(){
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
   await module('./project-catalog.js?v=3');
   await module('./google-tasks.js?v=32');
-  await module('./workplace-detail.js?v=17');
+  await module('./workplace-detail.js?v=18');
   import('./workplace-report.js?v=2').catch(console.error);
   return {ok:true}
 }
