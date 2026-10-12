@@ -3,7 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00Z';
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='30000000-0000-4000-8000-000000000001';
 async function fixture(page){
- await openHome(page);const errors=[],calls=[],links=[],note={id:n,workspace_id:'w',occurred_at:stamp,updated_at:stamp,raw_text:'합성 원문 <script>만 표시</script>',ai_export_allowed:true,archived_at:null,attachments:[]};
+ const requests=[];page.on('request',request=>{const u=new URL(request.url());if(u.origin===SB)requests.push({path:u.pathname,query:u.search})});await openHome(page);const errors=[],calls=[],links=[],note={id:n,workspace_id:'w',occurred_at:stamp,updated_at:stamp,raw_text:'합성 원문 <script>만 표시</script>',ai_export_allowed:true,archived_at:null,attachments:[]};
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error')errors.push(e.text());});
  const tables={app_notes:[note],app_suborganizations:[{id:o,workspace_id:'w',name:'합성 한빛지부',active:true,created_by:'home-test'}],app_suborganization_assignees:[{organization_id:o,user_id:'home-test'}],app_spaces:[{id:p,workspace_id:'w',owner_id:'home-test',name:'합성 기자회견 준비',status:'active',metadata:{project_system:'v2'}}],app_suborganization_updates:[]};
  for(const [table,items] of Object.entries(tables))await page.route(SB+'/rest/v1/'+table+'?**',route=>{
@@ -23,7 +23,7 @@ async function fixture(page){
  await page.route(SB+'/rest/v1/rpc/app_basket_update_link_summary',route=>{
   const body=route.request().postDataJSON();calls.push(body);const row=links.find(row=>row.id===body.p_link_id);if(row.summary!==body.p_expected_summary)return route.fulfill({json:{ok:false,error:'SUMMARY_CHANGED'}});row.summary=body.p_summary;return route.fulfill({json:{ok:true}});
  });
- return {links,note,calls,errors};
+ return {links,note,calls,errors,requests};
 }
 async function connect(page,capture=null){
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);await page.locator('[data-classification-open]').click();
@@ -32,25 +32,35 @@ async function connect(page,capture=null){
  await page.locator('[data-classification-choice="0:0"]').check();await page.locator('[data-classification-choice="0:1"]').check();if(capture)await page.screenshot({path:capture,fullPage:true});await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('2개 연결했어요');
 }
 async function org(page){await page.evaluate(async id=>{await window.KPTUViewLoader.load('team');await window.KPTUWorkplace.open(id);},o);await expect(page.locator('#wdModal')).toBeVisible();}
-for(const width of [390,1280])test(`approved summaries flow through real app basket, organization, project, home and archived original ${width}`,async({page},info)=>{
+async function cleanHome(page,f){
+ await expect(page.locator('#homeView')).toBeVisible();
+ await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt>0);
+ await expect(page.locator('[data-home-card="updates"],[data-home-unlinked]')).toHaveCount(0);
+ const key=await page.evaluate(()=>KPTURuntime.ownerCache.prefix+'home-read-v1:home-test'),cdp=await page.context().newCDPSession(page);
+ let cache;try{const {entries}=await cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:new URL(page.url()).origin,isLocalStorage:true}});cache=JSON.parse(entries.find(([k])=>k===key)[1]);}finally{await cdp.detach();}
+ expect(cache.cards.updates).toBeUndefined();expect(cache.cards.tasks.unlinkedCount).toBeUndefined();
+ expect(await page.evaluate(()=>KPTUHome.metrics.requests.updates||KPTUHome.metrics.requests['basket-updates']||0)).toBe(0);
+}
+const homeRecords=reads=>reads.filter(r=>r.path.endsWith('app_suborganization_updates')||r.path.endsWith('app_notes')||(r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null')));
+for(const width of [390,1280])test(`approved summaries stay in organization and project records with a clean home and archived original ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);await connect(page,info.outputPath(`basket-summary-preview-${width}.png`));expect(f.calls[0].p_targets.map(t=>t.summary)).toEqual(['한빛지부, 10/20 기자회견 예정','기자회견 장소 협의 중']);
  await org(page);await expect(page.locator('#wdUpdates')).toContainText('한빛지부, 10/20 기자회견 예정');await expect(page.locator('#wdUpdates [data-wd-up-del]')).toHaveCount(0);await page.screenshot({path:info.outputPath(`basket-linked-organization-${width}.png`),fullPage:true});
  const row=page.locator('#wdUpdates [data-basket-link]');await row.getByRole('button',{name:'요약 수정'}).click();await row.locator('textarea').fill('한빛지부, 기자회견 취소 확인');await row.getByRole('button',{name:'저장',exact:true}).click();await expect(row).toContainText('한빛지부, 기자회견 취소 확인');
  await page.locator('[data-wd-close="wdModal"]').click();await page.evaluate(async id=>{await window.KPTUViewLoader.load('projects');await window.KPTUProjects.open(id);},p);await page.locator('#ps3BasketLinks > summary').click();await expect(page.locator('#ps3BasketLinks')).toContainText('기자회견 장소 협의 중');await expect(page.locator('[data-ps3-record]')).toHaveCount(0);await page.screenshot({path:info.outputPath(`basket-linked-project-${width}.png`),fullPage:true});await page.locator('[data-ps3-close="ps3DetailModal"]').click();
- await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('[data-home-card="updates"]')).toContainText('한빛지부, 기자회견 취소 확인');await expect(page.locator('[data-home-card="updates"]')).toContainText('바구니 연결');
+ const beforeHome=f.requests.length;await page.evaluate(()=>window.KPTURouter.go('home'));await cleanHome(page,f);expect(homeRecords(f.requests.slice(beforeHome))).toEqual([]);
  await page.screenshot({path:info.outputPath(`basket-linked-home-${width}.png`),fullPage:true});
  f.note.archived_at=stamp;f.note.ai_export_allowed=false;await org(page);await expect(page.locator('#wdUpdates')).toContainText('한빛지부, 기자회견 취소 확인');await page.locator('#wdUpdates').getByRole('link',{name:'원문 열기'}).click();await expect(page).toHaveURL(/view=basket&note=/);await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await expect(page.locator('[data-basket-archive]')).toHaveText('보관 해제');expect(f.errors).toEqual([]);
 });
-test('a summary saved after leaving detail refreshes the current home without restoring the old editor',async({page})=>{
+test('a summary saved after leaving detail keeps home clean and is retrievable from the organization without restoring the old editor',async({page})=>{
  const f=await fixture(page);await connect(page);await org(page);const row=page.locator('#wdUpdates [data-basket-link]');await row.getByRole('button',{name:'요약 수정'}).click();await row.locator('textarea').fill('늦게 저장된 승인 요약');
  let release;const held=new Promise(resolve=>release=resolve);await page.route(SB+'/rest/v1/rpc/app_basket_update_link_summary',async route=>{await held;await route.fallback();});await row.getByRole('button',{name:'저장',exact:true}).click();await expect(row.locator('textarea')).toBeDisabled();
- page.once('dialog',dialog=>dialog.accept());await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#wdModal')).toBeHidden();await expect(page.locator('[data-home-card="updates"]')).toContainText('한빛지부, 10/20 기자회견 예정');release();
- await expect(page.locator('[data-home-card="updates"]')).toContainText('늦게 저장된 승인 요약');await expect(page.locator('#wdModal')).toBeHidden();await expect(page.locator('[data-link-summary-form]')).toHaveCount(0);expect(f.calls.filter(c=>c.p_link_id)).toHaveLength(1);expect(f.errors).toEqual([]);
+ page.once('dialog',dialog=>dialog.accept());await page.evaluate(()=>{window.__lateSummaryEvents=0;addEventListener('kptu:basket-links-changed',()=>window.__lateSummaryEvents++);window.KPTURouter.go('home')});await expect(page.locator('#wdModal')).toBeHidden();await cleanHome(page,f);const before=f.requests.length;const saved=page.waitForResponse(r=>r.url().endsWith('/app_basket_update_link_summary'));release();await saved;await expect.poll(()=>page.evaluate(()=>window.__lateSummaryEvents)).toBe(1);
+ await expect.poll(()=>f.calls.filter(c=>c.p_link_id).length).toBe(1);await cleanHome(page,f);expect(homeRecords(f.requests.slice(before))).toEqual([]);await expect(page.locator('#wdModal')).toBeHidden();await expect(page.locator('[data-link-summary-form]')).toHaveCount(0);expect(f.calls.filter(c=>c.p_link_id)).toHaveLength(1);await org(page);await expect(page.locator('#wdUpdates')).toContainText('늦게 저장된 승인 요약');await expect(page.locator('[data-link-summary-form]')).toHaveCount(0);expect(f.errors).toEqual([]);
 });
 test('an uncertain save rechecks records even when navigation closes its pending recovery read',async({page})=>{
  const f=await fixture(page);await connect(page);await org(page);const row=page.locator('#wdUpdates [data-basket-link]');await row.getByRole('button',{name:'요약 수정'}).click();await row.locator('textarea').fill('통신 결과가 늦게 확인된 요약');
  await page.evaluate(()=>{const rt=KPTURuntime,api=rt.api;rt.api=async(path,...args)=>{if(path.endsWith('/app_basket_update_link_summary'))throw Error('synthetic uncertain response');return api(path,...args);};});
  let release,entered=false;const held=new Promise(resolve=>release=resolve);await page.route(SB+'/rest/v1/app_record_links?**',async route=>{if(new URL(route.request().url()).searchParams.has('id')){entered=true;await held;}await route.fallback();});
- await row.getByRole('button',{name:'저장',exact:true}).click();await expect.poll(()=>entered).toBe(true);page.once('dialog',dialog=>dialog.accept());await page.evaluate(()=>KPTURouter.go('home'));await expect(page.locator('[data-home-card="updates"]')).toContainText('한빛지부, 10/20 기자회견 예정');
- f.links.find(row=>row.organization_id===o).summary='통신 결과가 늦게 확인된 요약';release();await expect(page.locator('[data-home-card="updates"]')).toContainText('통신 결과가 늦게 확인된 요약');await expect(page.locator('#wdModal')).toBeHidden();expect(f.calls.filter(c=>c.p_link_id)).toHaveLength(0);expect(f.errors).toEqual([]);
+ await row.getByRole('button',{name:'저장',exact:true}).click();await expect.poll(()=>entered).toBe(true);page.once('dialog',dialog=>dialog.accept());await page.evaluate(()=>{window.__lateSummaryEvents=0;addEventListener('kptu:basket-links-changed',()=>window.__lateSummaryEvents++);KPTURouter.go('home')});await cleanHome(page,f);const before=f.requests.length;
+ f.links.find(row=>row.organization_id===o).summary='통신 결과가 늦게 확인된 요약';const recovered=page.waitForResponse(r=>{const u=new URL(r.url());return u.pathname.endsWith('/app_record_links')&&u.searchParams.has('id')});release();await recovered;await expect.poll(()=>page.evaluate(()=>window.__lateSummaryEvents)).toBe(1);await cleanHome(page,f);expect(homeRecords(f.requests.slice(before))).toEqual([]);await expect(page.locator('#wdModal')).toBeHidden();await expect(page.locator('[data-link-summary-form]')).toHaveCount(0);await org(page);await expect(page.locator('#wdUpdates')).toContainText('통신 결과가 늦게 확인된 요약');expect(f.calls.filter(c=>c.p_link_id)).toHaveLength(0);expect(f.errors).toEqual([]);
 });

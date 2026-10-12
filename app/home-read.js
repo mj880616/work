@@ -1,6 +1,6 @@
-import { readRecordPages } from './basket-link-records.js?v=1';
+import { readRecordPages } from './basket-link-records.js?v=2';
 import { mountQuick } from './home-quick.js?v=10';
-import { createHomeCache } from './home-read-cache.js?v=5';
+import { createHomeCache } from './home-read-cache.js?v=6';
 import {
   ranges,
   dayKey,

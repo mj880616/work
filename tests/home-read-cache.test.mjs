@@ -76,3 +76,14 @@ test('retired record copies are ignored on read and removed on the next valid sa
   assert.equal(saved.cards.tasks.unlinkedCount,undefined);
   assert.deepEqual(saved.cards.tasks.names,[{id:'t',names:['project']}]);
 });
+
+test('retired basket display projections never create storage even with approved summary or raw excerpts',()=>{
+  for(const row of [
+    {type:'basket',note_id:'n',text:'승인😀'.repeat(35),summary:'approved'},
+    {type:'basket',note_id:'n',text:'😀'.repeat(81),excerpt:true,raw_text:'must not persist'},
+  ]){
+    const {cache,values}=fixture();
+    cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[row]},now);
+    assert.deepEqual(cache.read(now),{});assert.equal(values.size,0);
+  }
+});

@@ -6,7 +6,7 @@ test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const noteId='10000000-0000-4000-8000-000000000001';
 const orgId='20000000-0000-4000-8000-000000000002';
-const stamp='2026-10-11T01:02:03.123456Z';
+const stamp='2026-10-06T00:02:03.123456Z';
 const measure=locator=>locator.evaluate(el=>{
   const b=el.getBoundingClientRect(),s=getComputedStyle(el),hit=getComputedStyle(el,'::after');
   return {height:b.height,width:b.width,x:b.x,y:b.y,fontSize:s.fontSize,borderRadius:s.borderRadius,
@@ -23,7 +23,9 @@ async function fixture(page){
     unexpected.push(route.request().url());return route.abort();
   });
   await openHome(page);
-  await page.clock.setFixedTime(new Date("2026-10-11T12:00:00Z"));
+  // Keep openHome's Oct 6 clock for the whole roundtrip. Advancing it after
+  // rendering would retire the Oct 7 milestone and change the aside width.
+  await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt>0);
   const notes=[{id:noteId,workspace_id:'w',raw_text:'합성 메모 · 담당조직에 연결할 내용',updated_at:stamp,occurred_at:stamp,ai_export_allowed:true,attachments:[]},
     {id:'archived',raw_text:'보관한 합성 메모',updated_at:stamp,occurred_at:stamp,archived_at:stamp,attachments:[]}];
   const links=[];
@@ -45,6 +47,7 @@ for(const width of [390,1280]){
   test(`basket controls match home pills with keyboard and expanded touch targets ${width}`,async({page},info)=>{
     await page.setViewportSize({width,height:1000});const f=await fixture(page);
     const quick=page.locator('.home-quick');
+    const quickBounds=await quick.boundingBox();
     const homeMode=await measure(quick.locator('[data-quick-mode="basket"]'));
     const homeLink=await measure(quick.locator('[data-goto="basket"]'));
     const homePrimary=await measure(quick.locator('[data-quick-save]'));
@@ -115,6 +118,7 @@ for(const width of [390,1280]){
     await page.locator('#basketView [data-goto="home"]').click();await expect(quick).toBeVisible();
     await page.mouse.move(0,0);await page.evaluate(()=>document.activeElement?.blur());
     await quick.screenshot({path:info.outputPath(`quick-return-${width}.png`)});
+    expect(await quick.boundingBox()).toEqual(quickBounds);
     expect(await quickContent()).toEqual(quickBefore);
     for(const [selector,original] of [['[data-quick-mode="basket"]',homeMode],['[data-goto="basket"]',homeLink]]){
       const returned=await measure(quick.locator(selector));

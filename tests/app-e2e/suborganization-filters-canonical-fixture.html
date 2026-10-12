@@ -37,7 +37,7 @@ window.__holdOrgSave=false;window.__failOrgSave=false;window.__holdAssigneeSave=
 let releaseOrgSave,releaseAssigneeSave;
 window.__orgSaveGate=new Promise(r=>releaseOrgSave=r);window.__assigneeSaveGate=new Promise(r=>releaseAssigneeSave=r);
 window.__releaseOrgSave=()=>releaseOrgSave();window.__releaseAssigneeSave=()=>releaseAssigneeSave();
-window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opt={})=>{
+window.KPTURuntime={context:{read:()=>({user:{id:fixtureUser},workspace:{id:'ws-1'},membership:{role:fixtureRole}})},session:{ensure:async()=>true},api:async(path,opt={})=>{
  const probe=window.__saveLockProbe;
  if(probe&&path.split('?')[0]===`/rest/v1/${probe.table}`&&opt.method===probe.method){
    probe.count++;

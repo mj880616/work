@@ -60,9 +60,22 @@ test('BASKET link summaries: real PostgreSQL validation, CAS, owner boundary and
  assert.equal((await pool.query("select count(*)::int n from information_schema.columns where table_schema='public' and table_name='app_record_links' and column_name='summary'")).rows[0].n,0);
  await pool.query('alter table public.app_notes enable row level security');
  const pre=(await pool.query(await read('docs/'+stem+'.precheck.sql'))).rows;for(const row of pre)assert.equal(row.value,'예',row.item);
- const execute=async sql=>{const result=await pool.query(sql);return Array.isArray(result)?result.at(-1).rows:result.rows;};
+ const calls=[];
+ const execute=async(sql,{readOnly=false}={})=>{calls.push({sql,readOnly});const client=await pool.connect();try{if(readOnly)await client.query('begin read only');const result=await client.query(sql);if(readOnly)await client.query('commit');return Array.isArray(result)?result.at(-1).rows:result.rows;}catch(error){await client.query('rollback');throw error;}finally{client.release();}};
  const plan=mode=>prepareMigration({mode,version,runId:'404',root:new URL('../../',import.meta.url).pathname});
  const dry=await runMigrationPlan(plan('dry-run'),execute);assert.equal(dry.ok,true,dry.summary);
+ assert.equal(dry.verification,'complete');
+ const dryPlan=plan('dry-run');
+ assert.equal(calls.filter(call=>call.sql===dryPlan.checks.precheck.sql&&call.readOnly).length,2);
+ assert.equal(calls.filter(call=>call.sql===dryPlan.checks.dryRunPostcheck.sql&&call.readOnly).length,1);
+ assert.equal(calls.some(call=>call.sql===(plan('apply')).checks.postcheck.sql),false);
+ assert.deepEqual((await pool.query("select proacl from pg_proc where oid='public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure")).rows,originalACL);
+ assert.deepEqual((await pool.query('select polname,pg_get_expr(polqual,polrelid) qual,pg_get_expr(polwithcheck,polrelid) chk from pg_policy order by polname')).rows,policies);
+ assert.equal((await pool.query("select to_regprocedure('public.app_basket_update_link_summary(uuid,text,text)') fn")).rows[0].fn,null);
+ assert.equal((await pool.query("select count(*)::int n from supabase_migrations.schema_migrations where version='20261012100000'")).rows[0].n,0);
+ // Each lost #506 prior-state invariant must be caught independently.
+ for(const change of ["create or replace function public.app_basket_confirm_links(p_note_id uuid,p_note_updated_at timestamptz,p_targets jsonb) returns jsonb language plpgsql security invoker set search_path='' as $$begin return '{}'::jsonb;end;$$;", "alter function public.app_basket_confirm_links(uuid,timestamptz,jsonb) set search_path=public;", "alter table public.app_record_links add column summary text;", "create function public.app_basket_update_link_summary(uuid,text,text) returns jsonb language sql as $$select '{}'::jsonb;$$;"]){
+ const client=await pool.connect();try{await client.query('begin');await client.query(change);const rows=(await client.query(dryPlan.checks.dryRunPostcheck.sql)).rows;assert.equal(rows.length,1);assert.equal(rows[0].ok,'아니오');}finally{await client.query('rollback');client.release();}}
  assert.equal((await pool.query("select pg_get_functiondef('public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure) def")).rows[0].def,priorDefinition);
  assert.equal((await pool.query("select count(*)::int n from information_schema.columns where table_schema='public' and table_name='app_record_links' and column_name='summary'")).rows[0].n,0);
  const applied=await runMigrationPlan(plan('apply'),execute);assert.equal(applied.ok,true,applied.summary);assert.match(applied.summary,/ops_backup.20261012100000_app_record_links_404/);assert.deepEqual(await legacyRows(),legacyBefore);for(const row of (await pool.query(await read('docs/'+stem+'.postcheck.sql'))).rows)assert.equal(row.ok,'예',row.item);

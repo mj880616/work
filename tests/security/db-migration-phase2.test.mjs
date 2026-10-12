@@ -4,6 +4,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, symlinkSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const version = '20261011120000';
 const name = 'notes_example';
@@ -108,10 +110,13 @@ test('real BASKET-1 migration/rollback, precheck and baseline postcheck can be p
     writeFileSync(join(root, `${folder}/${v}_${n}.${suffix}`), readFileSync(new URL(`../../${folder}/${v}_${n}.${suffix}`, import.meta.url)));
   }
   writeFileSync(join(root, `docs/${v}_${n}.summary.md`), summary);
-  for (const mode of ['apply', 'rollback']) {
+  for (const mode of ['apply', 'dry-run', 'rollback']) {
     const p = (await planner()).prepareMigration({ mode, version: v, runId, root });
     assert.deepEqual(p.targets, ['app_notes', 'app_record_links']);
-    assert.equal(p.checks.postcheck.baselineNull, true);
+    if (mode === 'dry-run') {
+      assert.equal(p.checks.postcheck, undefined);
+      assert.equal(p.manualSnapshotRequired, true);
+    } else assert.equal(p.checks.postcheck.baselineNull, true);
   }
 }));
 
@@ -171,8 +176,9 @@ async function fake(responses, fn) {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const { createQueryClient } = await import('../../scripts/ops/db-query.mjs');
-    const query = createQueryClient({ token: secret, projectRef: 'abcdefghijklmnopqrst', endpoint: `http://127.0.0.1:${server.address().port}` });
-    return await fn(query, calls);
+    const endpoint = `http://127.0.0.1:${server.address().port}`;
+    const query = createQueryClient({ token: secret, projectRef: 'abcdefghijklmnopqrst', endpoint });
+    return await fn(query, calls, endpoint);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 }
 const count = n => ({ body: [{ count: n }] });
@@ -183,7 +189,9 @@ test('dry-run executes once with rollback and verifies absence without backup or
   await fake([count(0), ok, count(0)], async (query, calls) => {
     const result = await (await runner()).runMigrationPlan(p, query);
     assert.equal(result.ok, true);
-    assert.match(result.summary, /dry-run: 성공/);
+    assert.match(result.summary, /dry-run SQL 취소: 완료/);
+    assert.equal(result.verification, 'incomplete');
+    assert.match(result.summary, /수동 snapshot 확인 필요/);
     assert.equal(calls.length, 3);
     assert.match(calls[1].query, /rollback;\n$/);
     assert.equal(calls[0].read_only, true);
@@ -229,16 +237,19 @@ test('backup errors, SQL errors and transport failure stop mutations without ret
   }
 }));
 
-test('precheck prints only bounded aggregate item/value; baseline NULL postcheck is skipped', async () => fixture(async ({ root, plan }) => {
+test('precheck prints bounded aggregate item/value; original baseline NULL preserves manual dry-run verification', async () => fixture(async ({ root, plan }) => {
   writeFileSync(join(root, `docs/${version}_${name}.precheck.sql`), "select 'row count' as item, count(*)::text as value from public.app_notes;");
   writeFileSync(join(root, `docs/${version}_${name}.postcheck.sql`), "with baseline(n) as (values(null::bigint)) select 'rows' as item, '예' as expected;");
   const p = await plan('dry-run');
-  await fake([count(0), { body: [{ item: 'row count', value: '2' }] }, ok, count(0)], async (query, calls) => {
+  await fake([count(0), { body: [{ item: 'row count', value: '2' }] }, ok, count(0), { body: [{ item: 'row count', value: '2' }] }], async (query, calls) => {
     const result = await (await runner()).runMigrationPlan(p, query);
     assert.equal(result.ok, true);
     assert.match(result.summary, /수동 확인 필요/);
-    assert.equal(calls.length, 4);
+    assert.equal(result.verification, 'incomplete');
+    assert.equal(calls.length, 5);
     assert.equal(calls[1].read_only, true);
+    assert.equal(calls[4].query, calls[1].query);
+    assert.equal(calls[4].read_only, true);
   });
   for (const body of [[{ item: 'rows', value: secret }], [{ item: 'rows', value: '2', raw: secret }], [{ item: 'rows', value: '1'.repeat(257) }]]) {
     await fake([count(0), { body }], async (query, calls) => {
@@ -269,13 +280,13 @@ test('invalid backup counts or mutation SQL/transport errors fail without retrie
   }
 }));
 
-test('postcheck only prints yes/no and a negative verdict fails after the one execution', async () => fixture(async ({ root, plan }) => {
+test('apply postcheck only prints yes/no and a negative verdict fails after the one execution', async () => fixture(async ({ root, plan }) => {
   writeFileSync(join(root, `docs/${version}_${name}.postcheck.sql`), "select 'structure' as item, true as ok;");
-  const p = await plan('dry-run');
-  for (const verdict of [true, false, secret]) await fake([count(0), ok, count(0), { body: [{ item: 'structure', ok: verdict }] }], async (query, calls) => {
+  const p = await plan('apply');
+  for (const verdict of [true, false, secret]) await fake([count(0), ok, { body: [{ table_name: `${version}_app_notes_${runId}`, row_count: '2' }] }, ok, count(1), { body: [{ item: 'structure', ok: verdict }] }], async (query, calls) => {
     const result = await (await runner()).runMigrationPlan(p, query);
-    assert.equal(result.ok, verdict === true); assert.equal(calls.length, 4);
-    assert.equal(calls[3].read_only, true);
+    assert.equal(result.ok, verdict === true); assert.equal(calls.length, 6);
+    assert.equal(calls[5].read_only, true);
     assert.doesNotMatch(result.summary, /synthetic-secret/);
     if (typeof verdict === 'boolean') assert.match(result.summary, verdict ? /예/ : /아니오/);
   });
@@ -294,9 +305,63 @@ test('a filled baseline never skips a postcheck because another expression conta
   assert.equal(checkSQL(basket).baselineNull, true);
   assert.equal(checkSQL(basket.replace('values (null::bigint,null::bigint,null::text,null::text)', "values (2::bigint,3::bigint,'1:hash'::text,'1:hash'::text)")).baselineNull, false);
   writeFileSync(join(root, `docs/${version}_${name}.postcheck.sql`), filled);
-  await fake([count(0), ok, count(0), { body: [{ item: 'check', ok: false }] }], async (query, calls) => {
-    const result = await (await runner()).runMigrationPlan(await plan('dry-run'), query);
-    assert.equal(result.ok, false); assert.equal(calls.length, 4);
+  await fake([count(0), ok, { body: [{ table_name: `${version}_app_notes_${runId}`, row_count: '2' }] }, ok, count(1), { body: [{ item: 'check', ok: false }] }], async (query, calls) => {
+    const result = await (await runner()).runMigrationPlan(await plan('apply'), query);
+    assert.equal(result.ok, false); assert.equal(calls.length, 6);
     assert.doesNotMatch(result.summary, /수동 확인 필요/);
+  });
+}));
+
+test('planner selects mode-specific dry-run postcheck with unchanged read-only validation and SHA/full SQL', async () => fixture(async ({ root, plan }) => {
+  const drySQL = "select 'prior function' as item, true as ok;";
+  writeFileSync(join(root, `docs/${version}_${name}.postcheck.sql`), "select 'applied' as item, true as ok;");
+  const dryPath = join(root, `docs/${version}_${name}.dry-run.postcheck.sql`);
+  writeFileSync(dryPath, drySQL);
+  const dry = await plan('dry-run');
+  assert.equal(dry.checks.postcheck, undefined);
+  assert.equal(dry.checks.dryRunPostcheck.sql, drySQL);
+  assert.match(dry.checks.dryRunPostcheck.sha256, /^[a-f0-9]{64}$/);
+  const { planSummary } = await import('../../scripts/ops/db-workflow.mjs');
+  assert.match(planSummary(dry), /dry-run.postcheck.sql/);
+  assert.match(planSummary(dry), /select 'prior function'/);
+  assert.doesNotMatch(planSummary(dry), /select 'applied'/);
+  assert.equal((await plan('apply')).checks.dryRunPostcheck, undefined);
+  for (const bad of ["select 1; delete from public.app_notes where true;", "select set_config('x','y',false);"]) {
+    writeFileSync(dryPath, bad);
+    await assert.rejects(plan('dry-run'));
+  }
+}));
+
+test('#506 stronger prior RPC body/path and absent summary/edit RPC checks remain selected for dry-run', async () => {
+  const root = new URL('../../', import.meta.url).pathname;
+  const { prepareMigration } = await planner();
+  const dry = prepareMigration({ mode: 'dry-run', version: '20261012100000', runId, root });
+  assert.ok(dry.checks.dryRunPostcheck, 'stronger dry-run check must be explicitly selected');
+  assert.match(dry.checks.dryRunPostcheck.sql, /975aff0e6331e41c0dfe7616b87ef252/);
+  assert.match(dry.checks.dryRunPostcheck.sql, /proconfig=array\['search_path=""'\]/);
+  assert.match(dry.checks.dryRunPostcheck.sql, /column_name='summary'/);
+  assert.match(dry.checks.dryRunPostcheck.sql, /app_basket_update_link_summary\(uuid,text,text\).*is null/);
+  assert.equal(dry.checks.postcheck, undefined);
+});
+
+test('CLI exits nonzero after successful dry-run SQL when prior-state verification is incomplete', async () => fixture(async ({ root }) => {
+  await fake([count(0), ok, count(0)], async (_query, calls, endpoint) => {
+    const bridge = join(root, 'local-http-only.mjs');
+    // Test-process-only bridge. Production has no endpoint env/CLI input.
+    writeFileSync(bridge, `const request = globalThis.fetch; globalThis.fetch = (_url, options) => request(${JSON.stringify(endpoint)}, options);`);
+    const summaryPath = join(root, 'summary.md');
+    const child = spawn(process.execPath, ['--import', bridge, fileURLToPath(new URL('../../scripts/ops/db-workflow.mjs', import.meta.url)), 'run'], {
+      cwd: root, env: { ...process.env, DB_MODE: 'dry-run', DB_VERSION: version, GITHUB_REF: 'refs/heads/main',
+        GITHUB_RUN_ID: runId, GITHUB_STEP_SUMMARY: summaryPath, SUPABASE_ACCESS_TOKEN: secret, SUPABASE_PROJECT_REF: 'abcdefghijklmnopqrst' },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let stderr = ''; child.stderr.on('data', chunk => { stderr += chunk; });
+    const status = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+    assert.equal(status, 1, stderr);
+    assert.equal(calls.length, 3);
+    const report = readFileSync(summaryPath, 'utf8');
+    assert.match(report, /dry-run SQL 취소: 완료/);
+    assert.match(report, /검증 미완료.*수동 snapshot/);
+    assert.doesNotMatch(report + stderr, /synthetic-secret|원래 상태 보존: 예/);
   });
 }));

@@ -1,5 +1,5 @@
 import { toDryRun, escapeSummary } from './db-migration-plan.mjs';
-import { DbQueryError } from './db-query.mjs';
+import { queryErrorSummary } from './db-query.mjs';
 
 export function buildBackup(plan) {
   const tables = plan.targets.map(source => {
@@ -27,13 +27,25 @@ const aggregate = value => typeof value === 'string' && value.length <= 128
       || /^\d{14}:[a-z0-9_]+(?: \/ \d{14}:[a-z0-9_]+){0,2}$/.test(value));
 const onlyKeys = (row, keys) => row && typeof row === 'object' && !Array.isArray(row)
   && Object.keys(row).length === keys.length && keys.every(key => Object.hasOwn(row, key));
-const errorSummary = error => error instanceof DbQueryError && error.sqlState
-  ? `SQLSTATE ${error.sqlState}: DB 요청 실패. 원문 오류·SQL·데이터는 출력하지 않습니다.`
-  : 'DB 요청·응답 확인 실패. 원문 오류·SQL·데이터는 출력하지 않습니다.';
+function observations(rows, secretValues) {
+  if (!Array.isArray(rows) || !rows.length || rows.length > 64) throw new Error('Invalid precheck size');
+  const result = new Map();
+  for (const row of rows) {
+    if (!onlyKeys(row, ['item', 'value']) || !aggregate(row.value)
+        || secretValues.some(secret => secret && row.value.includes(secret))) throw new Error('Unsafe precheck value');
+    safeLabel(row.item, secretValues);
+    if (result.has(row.item)) throw new Error('Duplicate check item');
+    result.set(row.item, row.value);
+  }
+  return result;
+}
 
 export async function runMigrationPlan(plan, query, { secretValues = [] } = {}) {
   const notes = [`## DB ${plan.mode}: ${plan.version}\n`];
   let executed = false;
+  let writeRequested = false;
+  let baseline;
+  let verification = 'incomplete';
   let phase = '사전 기록 확인';
   const historyCount = async (matchName = false) => {
     const rows = await query(`select count(*)::int as count from supabase_migrations.schema_migrations where version='${plan.version}'${matchName ? ` and name='${plan.name}'` : ''};`, { readOnly: true });
@@ -41,6 +53,7 @@ export async function runMigrationPlan(plan, query, { secretValues = [] } = {}) 
     return rows[0].count;
   };
   const ddl = async sql => {
+    writeRequested = true;
     const rows = await query(sql);
     if (rows.length !== 0) throw new Error('Unexpected write response');
   };
@@ -50,18 +63,16 @@ export async function runMigrationPlan(plan, query, { secretValues = [] } = {}) 
       notes.push('사전 기록 확인: 거부. 적용·시험은 미적용 version만, rollback은 해당 version/name 1행이 있어야 합니다.');
       return { ok: false, summary: notes.join('\n\n') + '\n' };
     }
-    if (plan.checks.precheck) {
+    if (plan.checks.precheck && !plan.checks.precheck.baselineNull) {
       phase = '사전 집계 확인';
       const rows = await query(plan.checks.precheck.sql, { readOnly: true });
-      if (!rows.length || rows.length > 64) throw new Error('Invalid precheck size');
       // Validate every row before emitting any: malformed responses cannot leak
       // earlier rows. Only operational counts/hashes/metadata are printable.
-      const lines = rows.map(row => {
-        if (!onlyKeys(row, ['item', 'value']) || !aggregate(row.value)
-            || secretValues.some(secret => secret && row.value.includes(secret))) throw new Error('Unsafe precheck value');
-        return `| ${safeLabel(row.item, secretValues)} | ${escapeSummary(row.value)} |`;
-      });
+      baseline = observations(rows, secretValues);
+      const lines = [...baseline].map(([item, value]) => `| ${safeLabel(item, secretValues)} | ${escapeSummary(value)} |`);
       notes.push('사전 집계:\n\n| item | value |\n| --- | --- |\n' + lines.join('\n'));
+    } else if (plan.checks.precheck?.baselineNull) {
+      notes.push('사전 집계: 수동 확인 필요 (baseline NULL). SQL을 실행하지 않았습니다.');
     }
     if (plan.mode !== 'dry-run') {
       phase = '백업';
@@ -84,16 +95,29 @@ export async function runMigrationPlan(plan, query, { secretValues = [] } = {}) 
     phase = '실행';
     executed = true;
     await ddl(plan.mode === 'dry-run' ? toDryRun(plan.file.sql) : plan.file.sql);
-    notes.push(`${plan.mode}: 성공`);
+    notes.push(plan.mode === 'dry-run' ? 'dry-run SQL 취소: 완료' : `${plan.mode}: 성공`);
     phase = '사후 기록 확인';
     const after = await historyCount(plan.mode === 'apply');
     if (after !== (plan.mode === 'apply' ? 1 : 0)) throw new Error('Unexpected post-history');
     notes.push('사후 migration 기록: 예');
-    if (plan.checks.postcheck) {
-      if (plan.checks.postcheck.baselineNull) notes.push('사후 검사: 수동 확인 필요 (baseline NULL). SQL을 실행하지 않았습니다.');
+    if (plan.mode === 'dry-run' && baseline) {
+      phase = 'dry-run 사전 집계 재확인';
+      const afterObservations = observations(await query(plan.checks.precheck.sql, { readOnly: true }), secretValues);
+      if (baseline.size !== afterObservations.size || [...baseline].some(([item, value]) => afterObservations.get(item) !== value)) {
+        throw new Error('Changed precheck observations');
+      }
+      verification = 'complete';
+      notes.push('사전 집계 관측값 보존: 예. DB 전체 자료의 동일성을 증명하지 않습니다.');
+    }
+    const postcheck = plan.mode === 'dry-run' ? plan.checks.dryRunPostcheck : plan.checks.postcheck;
+    if (postcheck) {
+      if (postcheck.baselineNull) {
+        verification = 'incomplete';
+        notes.push('사후 검사: 수동 확인 필요 (baseline NULL). SQL을 실행하지 않았습니다.');
+      }
       else {
-        phase = '사후 검사';
-        const rows = await query(plan.checks.postcheck.sql, { readOnly: true });
+        phase = plan.mode === 'dry-run' ? 'dry-run 원래 상태 검사' : '사후 검사';
+        const rows = await query(postcheck.sql, { readOnly: true });
         if (!rows.length || rows.length > 64) throw new Error('Invalid postcheck size');
         let passed = true;
         const lines = rows.map(row => {
@@ -103,13 +127,25 @@ export async function runMigrationPlan(plan, query, { secretValues = [] } = {}) 
           return `| ${safeLabel(row.item, secretValues)} | ${yes ? '예' : '아니오'} |`;
         });
         notes.push('사후 검사:\n\n| 항목 | 판정 |\n| --- | --- |\n' + lines.join('\n'));
-        if (!passed) return { ok: false, summary: notes.join('\n\n') + '\n\n사후 검사 실패. 이미 실행한 변경은 자동 취소하지 않습니다.\n' };
+        if (!passed) return { ok: false, summary: notes.join('\n\n') + (plan.mode === 'dry-run'
+          ? '\n\ndry-run 원래 상태 검사 실패. SQL 취소와 migration 기록 부재만 확인됐습니다. snapshot을 대조한 뒤 진행 여부를 결정하세요.\n'
+          : '\n\n사후 검사 실패. 이미 실행한 변경은 자동 취소하지 않습니다.\n') };
       }
+    }
+    if (plan.mode === 'dry-run') {
+      if (plan.manualSnapshotRequired) {
+        verification = 'incomplete';
+        notes.push('기존 baseline NULL: 수동 확인 필요. snapshot 대조 요구를 유지합니다.');
+      }
+      if (verification === 'incomplete') notes.push('dry-run 검증 미완료: 수동 snapshot 확인 필요. SQL 취소·migration 기록 부재와 원래 상태 검증은 별개입니다. 수동 대조 전 apply로 진행하지 마세요.');
+      else notes.push('dry-run 사후 검증: 완료. 관측한 집계·선택된 원래 상태 검사 범위만 확인했습니다.');
+      return { ok: true, verification, summary: notes.join('\n\n') + '\n' };
     }
     return { ok: true, summary: notes.join('\n\n') + '\n' };
   } catch (error) {
-    notes.push(`${phase}: 실패. ${errorSummary(error)}`);
-    notes.push(executed ? '요청을 자동 재시도하지 않습니다. 실행 결과를 커맨드센터에서 확인한 뒤 복구 여부를 결정하세요.' : '적용 요청을 보내지 않았습니다.');
+    notes.push(`${phase}: 실패. ${queryErrorSummary(error)}`);
+    notes.push(`쓰기 요청 전송: ${writeRequested ? '예' : '아니오'} · 실행 요청 전송: ${executed ? '예' : '아니오'}`);
+    notes.push(writeRequested ? '요청을 자동 재시도하지 않습니다. 쓰기 요청 결과를 커맨드센터에서 확인한 뒤 복구 여부를 결정하세요.' : '적용 요청을 보내지 않았습니다.');
     return { ok: false, summary: notes.join('\n\n') + '\n' };
   }
 }

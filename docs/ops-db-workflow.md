@@ -81,7 +81,7 @@ select to_regclass('private.ops_tx_probe_<run_id>') is null as rolled_back;
 2. 커맨드센터 실행 승인 뒤 GitHub 앱에서 저장소 Actions를 연다. 수동 실행·environment 승인 버튼이 보이지 않으면 폰 브라우저의 저장소 Actions를 사용한다(필요하면 데스크톱 사이트).
 3. **Approved DB migration workflow** → **Run workflow** → branch **main**, mode **check**, version 비움 → 실행. plan의 main SHA·SQL을 읽고 **Review deployments**에서 `production-edge`를 승인한다. 최근 기록을 커맨드센터와 확인한다.
 4. 새 변경의 migration·rollback·snapshot·summary·확인 SQL을 main에 준비하고 커맨드센터 승인을 받는다. mode **dry-run**, 새 변경의 **14자리 version**으로 실행한다. plan의 일상어 3줄·파일 경로·SHA256·SQL 끝 `rollback;`을 읽고 environment를 승인한다.
-5. dry-run 성공·사후 version 없음·사후 검사 결과를 커맨드센터에 전달한다. `수동 확인 필요`면 snapshot/baseline 대조를 별도로 끝낸다. 실패·불명확하면 apply로 넘어가지 않는다.
+5. dry-run SQL 취소 완료·사후 version 없음·사전 집계 관측값 비교·선택된 원래 상태 검사 결과를 커맨드센터에 전달한다. `검증 미완료`·`수동 확인 필요`면 job은 성공 처리하지 않으며 snapshot/baseline 대조를 별도로 끝낸다. 실패·불명확하면 apply로 넘어가지 않는다.
 6. 커맨드센터 적용 승인 후 **apply**와 같은 version으로 새 실행을 시작한다. 새 plan의 main SHA·파일 해시·원문 SQL 끝 `commit;`·백업 SQL을 다시 확인하고 environment를 승인한다. dry-run 이후 main 파일이 달라졌으면 새 파일로 dry-run부터 다시 한다.
 7. 적용 후 백업 표 이름/행 수·사후 기록·판정을 확인해 전달한다. 실패·응답 유실·수동 확인 필요 때 자동 재실행하지 않는다. 적용되었을 수 있으므로 커맨드센터가 먼저 상태를 판단한다.
 8. 되돌리기는 짝 rollback 파일을 커맨드센터에서 검토·승인한 뒤 **rollback**과 같은 version으로 실행·environment 승인한다. rollback도 직전 백업을 만든다. 새 칸 사용 등의 guard가 실패하면 데이터를 지워 통과시키지 않는다.
@@ -137,12 +137,14 @@ rollback 짝 파일의 허용 범위: `drop column`, `drop constraint`, `drop in
 
 ## 사전·사후 확인과 출력
 
-같은 이름의 `docs/<version>_<name>.precheck.sql`·`.postcheck.sql`은 선택 사항이다. 한 개의 SELECT 또는 WITH SELECT만 허용하며 `read_only: true`로 요청한다. 쓰기 CTE·여러 요청·위험 함수는 거부한다.
+같은 이름의 `docs/<version>_<name>.precheck.sql`·`.postcheck.sql`·`.dry-run.postcheck.sql`은 선택 사항이다. 한 개의 SELECT 또는 WITH SELECT만 허용하며 기존 검사를 그대로 거쳐 `read_only: true`로 요청한다. 쓰기 CTE·여러 요청·위험 함수는 거부한다. plan에는 해당 mode에서 선택한 확인 SQL의 경로·SHA256·전문을 표시한다.
 
-- precheck 결과는 정확히 `item`, `value` 두 칸, 최대 64행. item은 100자 이하, value는 128자 이하 집계 숫자·해시·예/아니오·최근 migration 메타데이터만 허용한다. 개인 자료·임의 텍스트·추가 칸은 출력 없이 실패한다. 길거나 NULL인 결과는 이 제한에 맞게 SQL을 설계한다.
-- postcheck는 item과 `ok`/`expected`/`value` 중 한 칸, 값은 boolean 또는 예/아니오만 허용한다. 아니오면 job 실패지만 이미 적용한 변경을 자동 취소하지 않는다.
-- baseline NULL을 쓰는 postcheck는 실행하지 않고 **수동 확인 필요**로 표시한다. precheck 값을 자동 주입하지 않는다. 커맨드센터가 snapshot·별도 승인된 읽기 SQL로 대조한다.
-- 오류는 가능한 경우 SQLSTATE 코드와 고정 문구만 표시한다. 원문 메시지·SQL·행 데이터는 출력하지 않는다. 원문 SQL을 표시하는 곳은 비밀값 없는 plan뿐이다. 요청 재시도·응답 artifact 저장은 없다.
+- precheck 결과는 정확히 `item`, `value` 두 칸, 1~64행이며 item 키는 중복될 수 없다. item은 100자 이하, value는 128자 이하 집계 숫자·해시·예/아니오·최근 migration 메타데이터만 허용한다. 개인 자료·임의 텍스트·추가 칸은 출력 없이 실패한다. 길거나 NULL인 결과는 이 제한에 맞게 SQL을 설계한다.
+- dry-run은 적용용 `.postcheck.sql`을 실행하지 않는다. SQL의 마지막 rollback과 사후 migration 기록 부재를 확인한 뒤, precheck를 같은 읽기 전용 SQL로 다시 실행하여 item 집합과 값을 비교한다. 행 순서는 무관하고 변경·추가·누락·중복은 실패다. **사전 집계 관측값 보존**만 확인하며 DB 전체 자료가 동일하다고 판정하지 않는다.
+- `.dry-run.postcheck.sql`이 있으면 집계 비교 뒤 원래 함수·스키마 등 추가 판정을 실행한다. item과 `ok`/`expected`/`value` 중 한 칸, 값은 boolean 또는 예/아니오만 허용한다. 아니오면 원래 상태 검사 실패다. SQL 취소 완료와 사후 검사 완료는 별개로 표시한다. BASKET link view `20261012100000`은 #506의 이전 RPC 본문 MD5·invoker·고정 search_path·summary 칸과 edit RPC 부재 검사를 이 파일에도 보존한다. 기존 apply postcheck는 그대로 유지한다.
+- apply와 rollback의 `.postcheck.sql` 선택·판정은 유지한다. postcheck는 item과 `ok`/`expected`/`value` 중 한 칸, 값은 boolean 또는 예/아니오만 허용한다. 아니오면 job 실패지만 이미 적용한 변경을 자동 취소하지 않는다. rollback은 기존 독립 mode 제약을 유지하며 이전 함수를 CREATE/OR REPLACE로 복원하는 #506 rollback은 버튼에서 지원하지 않는다. 해당 복구는 별도 승인된 SQL Editor 경로다.
+- baseline NULL인 선택된 확인 SQL은 실행하지 않고 **수동 확인 필요**로 표시한다. dry-run에서도 기존 적용용 postcheck의 baseline NULL은 정적 검사로 수동 snapshot 요구만 유지한다(SQL은 선택·실행하지 않음). dry-run 사전 집계가 없거나 NULL이면 SQL 취소·기록 부재는 확인해도 **검증 미완료**다. 내부 결과는 `ok: true, verification: 'incomplete'`로 SQL 수행 결과를 보존하지만 CLI는 exit 1이며 apply 준비 완료를 뜻하지 않는다. precheck 값을 자동 주입하지 않는다. 커맨드센터가 snapshot·별도 승인된 읽기 SQL로 대조한다.
+- migration/check/tx-probe/cleanup 오류는 관측한 HTTP 정수 상태(100~599), 고정 내부 종류, 검증된 SQLSTATE와 실행 단계만 표시한다. JSON 파싱 실패·64 KiB 응답 상한도 이미 받은 번호를 유지하며 관측하지 못한 번호는 **HTTP 상태 미확인**이다. HTTP 200에서도 API의 SQL 오류는 기존 규칙대로 실패한다. 번호로 commit·성공 여부를 판정하지 않는다. 쓰기 요청 전송과 migration 실행 요청 전송을 구분하며 결과 불명 시 커맨드센터 확인·복구 안내를 유지한다. 원문 메시지·cause·SQL·행 데이터·URL·헤더·토큰은 보존하거나 출력하지 않는다. 원문 SQL을 표시하는 곳은 비밀값 없는 plan뿐이다. 요청 재시도·자동 rollback·응답 artifact 저장은 없다.
 
 ## 백업과 정리
 

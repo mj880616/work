@@ -1,6 +1,6 @@
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { createQueryClient, DbQueryError } from './db-query.mjs';
+import { createQueryClient, DbQueryError, queryErrorSummary } from './db-query.mjs';
 import { prepareMigration, migrationSummary, sqlBlock } from './db-migration-plan.mjs';
 import { runMigrationPlan, buildBackup } from './db-migration-run.mjs';
 
@@ -65,13 +65,15 @@ export async function runPlan(plan, query, { secretValues = [] } = {}) {
       }
       return { ok: true, summary: '## 연결 확인: 성공\n\n| version | name |\n| --- | --- |\n'
         + rows.map(row => `| ${row.version} | ${row.name} |`).join('\n') + '\n' };
-    } catch {
-      return { ok: false, summary: '## 연결 확인: 실패\n\n응답·원문 오류는 출력하지 않습니다. environment 설정·토큰 권한 또는 응답 형식을 확인하세요.\n' };
+    } catch (error) {
+      return { ok: false, summary: `## 연결 확인: 실패\n\n${queryErrorSummary(error)}\n\n쓰기 요청 전송: 아니오. environment 설정·토큰 권한 또는 응답 형식을 확인하세요.\n` };
     }
   }
   let cancelled = false;
   let errorCancelled = false;
   let cleanup = '';
+  const failures = [];
+  let phase = '명시적 취소 요청';
   const ddl = async sql => {
     const rows = await query(sql);
     // These SQL batches contain no result-bearing successful statement. A
@@ -82,8 +84,8 @@ export async function runPlan(plan, query, { secretValues = [] } = {}) {
     try {
       await ddl(plan.sql.cleanup);
       cleanup = `시험 표 정리 요청: 성공 (\`${plan.probe}\`).\n`;
-    } catch {
-      cleanup = `수동 정리 필요: \`${plan.probe}\`. 정리 응답을 확인할 수 없습니다.\n`;
+    } catch (error) {
+      cleanup = `수동 정리 필요: \`${plan.probe}\`. 정리 응답을 확인할 수 없습니다. ${queryErrorSummary(error)}\n`;
     }
   };
   const absent = async () => {
@@ -92,11 +94,13 @@ export async function runPlan(plan, query, { secretValues = [] } = {}) {
     return rows[0].rolled_back;
   };
   const result = note => ({ ok: cancelled && errorCancelled, summary:
-    `## 트랜잭션 시험\n\n취소 보장: ${cancelled ? '예' : '아니오'}\n\n오류 시 전체 취소: ${errorCancelled ? '예' : '아니오'}\n\n${note}\n\n${cleanup}` });
+    `## 트랜잭션 시험\n\n취소 보장: ${cancelled ? '예' : '아니오'}\n\n오류 시 전체 취소: ${errorCancelled ? '예' : '아니오'}\n\n${note}\n\n시험 쓰기 요청 전송: 예. 요청을 자동 재시도하지 않습니다. 결과 불명 시 커맨드센터에서 시험 표와 정리 결과를 확인하세요.\n\n${failures.join('\n\n')}\n\n${cleanup}` });
   try {
     await ddl(plan.sql.cancel);
+    phase = '명시적 취소 후 표 없음 확인';
     cancelled = await absent();
-  } catch {
+  } catch (error) {
+    failures.push(`${phase}: 실패. ${queryErrorSummary(error)}`);
     await removeProbe();
     return result('첫 시험 요청 또는 확인 실패. 취소 여부 미확인; 2단계 진행 불가.');
   }
@@ -109,12 +113,14 @@ export async function runPlan(plan, query, { secretValues = [] } = {}) {
     await query(plan.sql.error);
   } catch (error) {
     expectedError = error instanceof DbQueryError && error.divisionByZero;
+    if (!expectedError) failures.push(`중간 오류 요청: 실패. ${queryErrorSummary(error)}`);
   }
   try {
     const tableAbsent = await absent();
     errorCancelled = expectedError && tableAbsent;
     if (!tableAbsent) await removeProbe();
-  } catch {
+  } catch (error) {
+    failures.push(`중간 오류 후 표 없음 확인: 실패. ${queryErrorSummary(error)}`);
     await removeProbe();
     return result('중간 오류 후 표 없음 확인 실패. 취소 여부 미확인; 2단계 진행 불가.');
   }
@@ -141,7 +147,7 @@ async function main() {
     const query = createQueryClient({ token, projectRef });
     const result = await runPlan(plan, query, { secretValues: [token, projectRef] });
     appendFileSync(summaryFile, result.summary);
-    process.exitCode = result.ok ? 0 : 1;
+    process.exitCode = result.ok && result.verification !== 'incomplete' ? 0 : 1;
   } else {
     throw new Error('Invalid phase');
   }

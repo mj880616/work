@@ -51,3 +51,11 @@ test('update failures distinguish absence, permissions, missing feature and unce
   for(const [error,code] of [[{status:404,message:'PGRST202'},'FUNCTION_UNAVAILABLE'],[{status:403},'PERMISSION_DENIED'],[{status:500},'RESULT_UNKNOWN']])assert.equal((await updateLinkSummary('link',null,'요약',rtFor(async()=>{throw error;}))).error,code);
   assert.equal((await updateLinkSummary('link',null,'요약',rtFor(async()=>({ok:false,error:'NOT_FOUND'})))).error,'NOT_FOUND');
 });
+
+test('organization date projection shares confirmed owner/workspace checks without reading original or summary',async()=>{
+ const {readLinkRecords}=await import('../app/basket-link-records.js'),calls=[];
+ const row={id:'l',workspace_id:'workspace',summary:'must not return',note_id:'n',organization_id:'org',status:'confirmed',note:{id:'n',workspace_id:'workspace',occurred_at:'2026-10-12T01:00:00Z',raw_text:'must not return'}};
+ const result=await readLinkRecords({kind:'organization',targetIds:['org'],dateOnly:true},rtFor(async path=>{calls.push(path);return [row,{...row,id:'foreign',workspace_id:'other'},{...row,id:'suggested',status:'suggested'}];}));
+ assert.equal(result.length,1);assert.equal(result[0].occurred_at,row.note.occurred_at);assert.equal(Object.hasOwn(result[0],'raw_text'),false);assert.equal(Object.hasOwn(result[0],'summary'),false);
+ const q=new URL(calls[0],'http://fixture').searchParams;assert.doesNotMatch(q.get('select'),/raw_text|summary/);assert.equal(q.get('workspace_id'),'eq.workspace');assert.equal(q.get('note.workspace_id'),'eq.workspace');assert.equal(q.get('status'),'eq.confirmed');assert.equal(q.get('note_id'),'not.is.null');
+});

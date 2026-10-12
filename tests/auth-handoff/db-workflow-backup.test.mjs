@@ -60,11 +60,14 @@ test('DB workflow: real dry-run/apply/rollback, private backup copies and revoke
     const rollback = `begin;\nalter table public.app_notes drop column example;\ndelete from supabase_migrations.schema_migrations where version='${version}' and name='${name}';\ncommit;\n`;
     const plan = (mode, runId) => {
       const sql = mode === 'rollback' ? rollback : apply;
-      return { mode, version, name, runId, file: { sql }, checks: {}, ...validateSQL(sql, { mode, version, name }) };
+      const precheck = { sql: "select 'rows' as item, count(*)::text as value from public.app_notes union all select 'example columns', count(*)::text from information_schema.columns where table_schema='public' and table_name='app_notes' and column_name='example';" };
+      return { mode, version, name, runId, file: { sql }, checks: mode === 'dry-run' ? { precheck } : {}, ...validateSQL(sql, { mode, version, name }) };
     };
     const hasColumn = async () => (await pool.query("select count(*)::int as n from information_schema.columns where table_schema='public' and table_name='app_notes' and column_name='example'")).rows[0].n;
     const dry = await runMigrationPlan(plan('dry-run', '12344'), query);
     assert.equal(dry.ok, true);
+    assert.equal(dry.verification, 'complete');
+    assert.match(dry.summary, /사전 집계 관측값 보존: 예/);
     assert.equal(await hasColumn(), 0);
     assert.equal((await pool.query('select count(*)::int as n from supabase_migrations.schema_migrations')).rows[0].n, 0);
     assert.equal((await pool.query("select count(*)::int as n from pg_tables where schemaname='ops_backup'")).rows[0].n, 0);
