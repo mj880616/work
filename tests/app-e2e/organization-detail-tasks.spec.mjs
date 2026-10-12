@@ -19,6 +19,7 @@ async function mock(page,calls){
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),u=new URL(req.url()),p=u.pathname,q=u.search;
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
+    const paged=rows=>{const offset=Number(u.searchParams.get('offset')||0),limit=u.searchParams.get('limit');return rows.slice(offset,limit===null?undefined:offset+Number(limit))};
     if(p==='/auth/v1/token')return ok({access_token:'qa',refresh_token:'qa',expires_in:3600,expires_at:4102444800,user});
     if(p==='/auth/v1/user')return ok(user);
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:'qa-ws',user_id:'qa-user',role:'owner',workspace:{id:'qa-ws',slug:'qa',name:'웹2'}}]);
@@ -27,12 +28,12 @@ async function mock(page,calls){
     if(p==='/rest/v1/app_spaces')return ok([{id:'p1',workspace_id:'qa-ws',owner_id:'qa-user',name:'민자철도',parent_id:null,status:'active',sort_order:1,metadata:{project_system:'v2'}}]);
     if(p==='/rest/v1/app_suborganizations'){
       const id=u.searchParams.get('id')?.replace(/^eq\./,'');
-      return ok(id?data.filter(o=>o.id===id):data);
+      return ok(paged(id?data.filter(o=>o.id===id):data));
     }
     if(p==='/rest/v1/app_suborganization_assignees'){
       if(u.searchParams.get('organization_id'))return ok([{user_id:'qa-user'}]);
-      if(u.searchParams.get('user_id'))return ok(data.map(o=>({organization_id:o.id})));
-      return ok(data.map(o=>({organization_id:o.id,user_id:'qa-user',assigned_by:'qa-user',created_at:'2026-09-15T00:00:00Z'})));
+      if(u.searchParams.get('user_id'))return ok(paged(data.map(o=>({organization_id:o.id}))));
+      return ok(paged(data.map(o=>({organization_id:o.id,user_id:'qa-user',assigned_by:'qa-user',created_at:'2026-09-15T00:00:00Z'}))));
     }
     if(calls.summary&&p==='/rest/v1/app_record_links'){calls.push({action:'record-links',query:Object.fromEntries(u.searchParams)});return ok([{google_task_id:'summary-pending',organization_id:RAIL,status:'confirmed'},{google_task_id:'summary-done',organization_id:RAIL,status:'confirmed'}])}
     if(calls.summary&&p==='/rest/v1/app_suborganization_updates'){calls.push({action:'updates',query:Object.fromEntries(u.searchParams)});return ok([{organization_id:RAIL,occurred_at:'2026-01-09T00:00:00Z',raw_text:'old'}])}
@@ -136,10 +137,19 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   const rail=page.locator(`[data-so-org="${RAIL}"]`);
   await expect(rail.locator('.so-task-count')).toHaveText('1');
   await expect(rail.locator('time')).toHaveText('1.9');
+  await page.waitForFunction(()=>window.KPTUHome?.metrics?.readyAt>0);
   expect(calls.filter(c=>c.action==='linked')).toHaveLength(0);
   // One home overview and one team overview; number of organizations does not change either bound.
   expect(calls.filter(c=>c.action==='overview').length).toBeLessThanOrEqual(2);
-  expect(calls.filter(c=>c.action==='record-links').length).toBeLessThanOrEqual(3);
+  const noteReads=calls.filter(c=>c.action==='record-links'&&c.query.note_id==='not.is.null');
+  const taskReads=calls.filter(c=>c.action==='record-links'&&c.query.note_id!=='not.is.null');
+  expect(taskReads.length).toBeLessThanOrEqual(3);
+  expect(noteReads).toHaveLength(Math.ceil((orgs.length+extra)/100));
+  for(const read of noteReads){
+    expect(read.query).toEqual(expect.objectContaining({workspace_id:'eq.qa-ws',status:'eq.confirmed',note_id:'not.is.null',limit:'100'}));
+    expect(read.query.organization_id).toMatch(/^in\./);
+    expect(read.query['note.workspace_id']).toBe('eq.qa-ws');
+  }
   const reads=calls.filter(c=>c.action==='updates'&&c.query.select==='organization_id,occurred_at');
   expect(reads).toHaveLength(1);
   expect(reads[0].query.organization_id.split(',')).toHaveLength(orgs.length+extra);
