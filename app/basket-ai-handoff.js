@@ -65,22 +65,39 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date()) {
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
   return buildHandoff(notes,window.KPTUProjectCatalog.basketProjects(catalog.projects),orgs.organizations,now,orgs.fallback);
 }
-export function mountHandoff(host,{isBlocked,onBusy},rt=window.KPTURuntime) {
-  host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><label class="basket-text-label" data-handoff-fallback hidden>AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label>';
-  const status=host.querySelector('[role="status"]'),fallback=host.querySelector('label'),input=host.querySelector('textarea');
+export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{}},rt=window.KPTURuntime) {
+  host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><div data-handoff-fallback hidden><button type="button" class="quick-pill-button" data-handoff-close>닫기</button><label class="basket-text-label">AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label></div>';
+  const status=host.querySelector('[role="status"]'),fallback=host.querySelector('[data-handoff-fallback]'),input=host.querySelector('textarea');
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let busy=false,epoch=0,currentScope=scope();
-  const clear=()=>{++epoch;status.textContent='';input.value='';fallback.hidden=true;};
-  window.addEventListener('kptu:session-changed',()=>{if(scope()!==currentScope){currentScope=scope();clear();busy=false;onBusy(false);}});
-  return {async copy(){
+  const clear=()=>{++epoch;status.textContent='';input.value='';fallback.hidden=true;if(busy){busy=false;onBusy(false);}};
+  host.addEventListener?.('click',event=>{if(event.target.closest('[data-handoff-close]')){clear();onClose();}});
+  window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='basket')clear();});
+  window.addEventListener('kptu:session-changed',()=>{if(scope()!==currentScope){currentScope=scope();clear();}});
+  return {close:clear,async copy(){
     if(busy||isBlocked())return;
     clear();const run=epoch,owner=scope();busy=true;onBusy(true);status.textContent='맡길 메모를 준비하고 있어요…';
     const current=()=>run===epoch&&owner===scope();
+    const prepared=readHandoff(rt);
+    let written=null;
+    // Start the browser write in the click stack, before any API reads finish.
+    // Reject empty/stale data so a cancelled read never replaces the clipboard.
+    if(typeof ClipboardItem==='function'&&typeof navigator.clipboard?.write==='function'){
+      const data=prepared.then(text=>{if(!current()||!text)throw Error('cancelled handoff');return new Blob([text],{type:'text/plain'});});
+      // Also handle data rejection if constructing/writing the item throws synchronously.
+      void data.catch(()=>{});
+      try{written=Promise.resolve(navigator.clipboard.write([new ClipboardItem({'text/plain':data})])).then(()=>true,()=>false);}
+      catch{written=Promise.resolve(false);}
+    }
     try{
-      const text=await readHandoff(rt);if(!current())return;
+      const text=await prepared;if(!current())return;
       if(!text){status.textContent='맡길 메모가 없어요';return;}
-      try{await navigator.clipboard.writeText(text);if(current())status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';}
-      catch{if(current()){input.value=text;fallback.hidden=false;status.textContent='길게 눌러 전체 선택 → 복사';input.focus();input.select();}}
+      let copied=false;
+      if(written)copied=await written;
+      else{try{await navigator.clipboard.writeText(text);copied=true;}catch{}}
+      if(!current())return;
+      if(copied)status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';
+      else{input.value=text;fallback.hidden=false;status.textContent='길게 눌러 전체 선택 → 복사';input.focus();input.select();}
     }catch{if(current())status.textContent='맡길 메모를 준비하지 못했어요. 다시 눌러 주세요.';}
     finally{if(current()){busy=false;onBusy(false);}}
   }};

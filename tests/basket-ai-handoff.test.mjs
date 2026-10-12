@@ -44,7 +44,7 @@ test('stale handoff completion cannot release a new operation busy lock',async()
  globalThis.window={addEventListener:(type,fn)=>listeners.set(type,fn),KPTUProjectCatalog:{load:async({workspaceId,userId})=>({workspaceId,userId,tree:[]})}};
  const rt={context:{read:()=>({workspace:{id:workspaceId},user:{id:'u'}})},api:async path=>path.includes('app_notes')?(await pending,[note()]):[]};
  const status={textContent:''},fallback={hidden:true},input={value:''};
- const host={set innerHTML(value){},querySelector:selector=>selector==='textarea'?input:selector==='label'?fallback:status};
+ const host={set innerHTML(value){},querySelector:selector=>selector==='textarea'?input:selector==='[data-handoff-fallback]'?fallback:status};
  try{
   const handoff=mountHandoff(host,{isBlocked:()=>sharedBusy,onBusy:value=>sharedBusy=value},rt),copy=handoff.copy();
   assert.equal(sharedBusy,true);workspaceId='new';listeners.get('kptu:session-changed')();
@@ -179,4 +179,41 @@ test('browser and Edge owner organization definitions agree, including zero acti
    assert.deepEqual(browser(rows,assignees),{organizations:expected.length?expected:active,fallback:expected.length===0});
   }
  }
+});
+
+// Browser APIs are mocked here only to control timing; readHandoff is the real reader.
+function handoffHarness({rows=[note()],hold=null}={}) {
+ const listeners=new Map(),clicks=new Map();let sharedBusy=false;
+ const rt={context:{read:()=>({workspace:{id:'w'},user:{id:'u'}})},api:async path=>path.includes('app_notes')?(hold&&await hold,rows):[]};
+ installCatalog(rt);window.addEventListener=(type,fn)=>listeners.set(type,fn);
+ const status={textContent:''},fallback={hidden:true},input={value:'',focus(){},select(){}};
+ const host={set innerHTML(value){},addEventListener:(type,fn)=>clicks.set(type,fn),querySelector:selector=>selector==='textarea'?input:selector==='[data-handoff-fallback]'?fallback:status};
+ const handoff=mountHandoff(host,{isBlocked:()=>sharedBusy,onBusy:value=>sharedBusy=value},rt);
+ return {handoff,status,fallback,input,listeners,rt,get busy(){return sharedBusy;}};
+}
+async function withPromiseClipboard(run){
+ const previous={window:globalThis.window,navigator:Object.getOwnPropertyDescriptor(globalThis,'navigator'),ClipboardItem:globalThis.ClipboardItem};
+ const items=[];
+ globalThis.ClipboardItem=class {constructor(data){this.data=data;}};
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{write:async entries=>{items.push(entries[0]);await entries[0].data['text/plain'];}}}});
+ try{await run(items);}finally{globalThis.window=previous.window;globalThis.ClipboardItem=previous.ClipboardItem;if(previous.navigator)Object.defineProperty(globalThis,'navigator',previous.navigator);else delete globalThis.navigator;}
+}
+test('starts clipboard write synchronously while private text is still being read',async()=>{
+ await withPromiseClipboard(async items=>{
+  let release;const held=new Promise(resolve=>release=resolve),h=handoffHarness({hold:held});
+  const copying=h.handoff.copy();assert.equal(items.length,1);assert.equal(h.busy,true);assert.equal(h.input.value,'');
+  release();await copying;assert.match(await (await items[0].data['text/plain']).text(),/첫 줄/);assert.match(h.status.textContent,/복사했어요/);assert.equal(h.fallback.hidden,true);assert.equal(h.busy,false);
+ });
+});
+test('empty basket rejects pending clipboard data without replacing the clipboard',async()=>{
+ await withPromiseClipboard(async items=>{
+  const h=handoffHarness({rows:[]});await h.handoff.copy();assert.equal(items.length,1);await assert.rejects(items[0].data['text/plain']);assert.equal(h.status.textContent,'맡길 메모가 없어요');assert.equal(h.input.value,'');
+ });
+});
+test('closing during a pending read rejects clipboard data and never restores private text',async()=>{
+ await withPromiseClipboard(async items=>{
+  let release;const held=new Promise(resolve=>release=resolve),h=handoffHarness({hold:held});
+  const copying=h.handoff.copy();h.handoff.close();assert.equal(h.busy,false);release();await copying;
+  await assert.rejects(items[0].data['text/plain']);assert.equal(h.input.value,'');assert.equal(h.status.textContent,'');assert.equal(h.fallback.hidden,true);
+ });
 });

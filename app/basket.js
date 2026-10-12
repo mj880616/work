@@ -1,4 +1,4 @@
-import { mountHandoff } from './basket-ai-handoff.js?v=5';
+import { mountHandoff } from './basket-ai-handoff.js?v=6';
 import { mountClassification } from './basket-classification-ui.js?v=6';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 
@@ -15,10 +15,10 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;',
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
 root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar"><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-handoff-copy>AI에게 맡기기</button><button type="button" class="quick-pill-button" data-classification-open>AI 정리 결과 넣기</button></div><button type="button" class="quick-text-link" data-goto="home">홈에서 입력 ›</button></div></div><div data-handoff-host></div><div data-basket-list><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류</button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
-const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{isBlocked:()=>busy,onBusy:value=>{busy=value;root.querySelector('[data-handoff-copy]').disabled=value;}});
+const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{isBlocked:()=>busy,onBusy:value=>{busy=value;root.querySelector('[data-handoff-copy]').disabled=value;},onClose:()=>root.querySelector('[data-handoff-copy]').focus()});
 const classification = mountClassification(root.querySelector('[data-classification-host]'), {
   isBlocked:()=>busy, onBusy:value=>{busy=value;if(value)++epoch;},
-  onOpen:()=>{closeDetail();if(selected)return false;list.hidden=true;return true;},
+  onOpen:()=>{handoff.close();closeDetail();if(selected)return false;list.hidden=true;return true;},
   onClose:()=>{list.hidden=false;root.querySelector('[data-classification-open]').focus();},
   onConfirmed:async(noteId,targets)=>{
     for(const target of targets){const key=target.kind==='project'?'project_id':'organization_id';
@@ -59,6 +59,7 @@ function paintAttachments() {
   detail.querySelector('[data-basket-attachments]').innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}</div>`;}).join('');
 }
 function openDetail(id) {
+  handoff.close();
   selected = notes.find(n => n.id === id); if (!selected) return;
   // Keep the opened editor attached to this list snapshot until an explicit reload.
   ++epoch;
@@ -127,11 +128,14 @@ async function reloadDetail() {
   finally{busy=false;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles?.render();}
 }
 root.addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b || busy) return;
+  const b = e.target.closest('button'); if (!b) return;
+  // Navigation cancels this handoff's read, but never releases another operation's lock.
+  if (b.matches('[data-basket-filter],[data-classification-open],[data-basket-row]')) handoff.close();
+  if (busy) return;
   if (b.hasAttribute('data-handoff-copy')) void handoff.copy();
   else if (b.hasAttribute('data-classification-open')) classification.open();
   else if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
-  else if (b.hasAttribute('data-basket-filter')) { filter = b.dataset.basketFilter; renderList(); }
+  else if (b.hasAttribute('data-basket-filter')) { handoff.close(); filter = b.dataset.basketFilter; renderList(); }
   else if (b.hasAttribute('data-basket-close')) closeDetail();
   else if (b.hasAttribute('data-basket-retry')) void refresh();
   else if (b.hasAttribute('data-basket-save')) {
