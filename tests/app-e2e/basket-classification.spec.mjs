@@ -24,6 +24,43 @@ async function fixture(page){
 }
 async function open(page){await page.locator('[data-classification-open]').click();await expect(page.locator('[data-classification-input]')).toBeFocused();}
 async function preview(page,proposal=data()){await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(proposal,null,2)+'\n```');await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-note]')).toHaveCount(proposal.items.length);}
+for(const width of [390,1280])test(`record summary editing is independent, preserved and explicitly submitted ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);await open(page);await preview(page);
+ const project=page.locator('[data-classification-summary="0:0"]'),org=page.locator('[data-classification-summary="0:1"]');
+ await expect(project).toHaveValue(data().items[0].destinations[0].reason);await expect(org).toHaveValue('조직 근거');
+ await project.fill('승인 프로젝트 😀');await org.fill('승인 조직 요약');
+ const choice=page.locator('[data-classification-choice="0:0"]');await choice.check();await choice.uncheck();await choice.check();await expect(project).toHaveValue('승인 프로젝트 😀');
+ await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
+ expect(f.rpc[0].p_targets[0]).toEqual({...data().items[0].destinations[0],summary:'승인 프로젝트 😀'});
+ await expect(org).toHaveValue('승인 조직 요약');await page.locator('[data-classification-choice="0:1"]').check();await page.locator('[data-classification-confirm]').click();
+ await expect.poll(()=>f.rpc.length).toBe(2);expect(f.rpc[1].p_targets[0].summary).toBe('승인 조직 요약');expect(f.errors).toEqual([]);
+});
+test('record summary validation counts code points, focuses invalid input and retains all drafts',async({page})=>{
+ const f=await fixture(page);await open(page);await preview(page);await page.locator('[data-classification-choice="0:0"]').check();await page.locator('[data-classification-choice="0:1"]').check();
+ const project=page.locator('[data-classification-summary="0:0"]'),org=page.locator('[data-classification-summary="0:1"]');await org.fill('다른 목적지 초안');
+ for(const value of ['', '\u0085\u00a0\u3000\ufeff', '😀'.repeat(2001)]){
+  await project.fill(value);await page.locator('[data-classification-confirm]').click();await expect(project).toBeFocused();expect(f.rpc).toHaveLength(0);await expect(org).toHaveValue('다른 목적지 초안');
+ }
+ await project.fill('😀'.repeat(2000));await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('2개 연결했어요');expect([...f.rpc[0].p_targets[0].summary]).toHaveLength(2000);expect(f.errors).toEqual([]);
+});
+test('record summary uncertain confirmation keeps draft and requires current-link recheck',async({page})=>{
+ const f=await fixture(page);await open(page);await preview(page);const org=page.locator('[data-classification-summary="0:1"]');await org.fill('통신 후 유지할 초안');await page.locator('[data-classification-choice="0:1"]').check();
+ await page.evaluate(()=>{const rt=window.KPTURuntime,api=rt.api;rt.api=async(path,...args)=>{if(path.endsWith('/app_basket_confirm_links'))throw Error('synthetic transport');return api(path,...args);};});
+ await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('결과를 확인하지 못했어요');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();
+ await page.locator('[data-classification-preview]').click();await expect(org).toHaveValue('통신 후 유지할 초안');expect(f.rpc).toHaveLength(0);
+});
+test('record summary mixed created and concurrently existing destinations display exact saved values',async({page})=>{
+ const f=await fixture(page);await open(page);await preview(page);await page.locator('[data-classification-summary="0:0"]').fill('새 프로젝트 요약');await page.locator('[data-classification-choice="0:0"]').check();await page.locator('[data-classification-choice="0:1"]').check();
+ f.links.push({note_id:n,status:'confirmed',organization_id:o,summary:'이미 저장된 조직 요약'});
+ await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',r=>{const body=r.request().postDataJSON();f.rpc.push(body);f.links.push({note_id:n,status:'confirmed',project_id:p,summary:body.p_targets.find(t=>t.kind==='project').summary});return r.fulfill({json:{ok:true,created:1,existing:1}});});
+ await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('1개는 이미 연결돼 있어요');await expect(page.locator('[data-classification-rows]')).toContainText('새 프로젝트 요약');await expect(page.locator('[data-classification-rows]')).toContainText('이미 저장된 조직 요약');expect(f.links[0].summary).toBe('이미 저장된 조직 요약');expect(f.rpc).toHaveLength(1);
+});
+test('record summary late confirmation cannot restore drafts after leaving basket and invalidates same-scope records',async({page})=>{
+ const f=await fixture(page);await open(page);await preview(page);await page.locator('[data-classification-summary="0:1"]').fill('승인 후 화면 전환');await page.locator('[data-classification-choice="0:1"]').check();
+ let release;const held=new Promise(resolve=>release=resolve);await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',async route=>{await held;await route.fallback();});
+ await page.evaluate(()=>{window.__linkRefreshCount=0;window.addEventListener('kptu:basket-links-changed',()=>window.__linkRefreshCount++);});await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-confirm]')).toBeDisabled();await page.evaluate(()=>KPTURouter.go('home'));
+ await expect(page.locator('[data-classification-input]')).toHaveValue('');await expect(page.locator('[data-classification-summary]')).toHaveCount(0);release();await expect.poll(()=>f.rpc.length).toBe(1);await expect.poll(()=>page.evaluate(()=>window.__linkRefreshCount)).toBeGreaterThan(0);await expect(page.locator('[data-classification-panel]')).toBeHidden();expect(f.errors).toEqual([]);
+});
 for(const width of [390,1280]){
  test(`classification paste preview errors selected confirm and copy notification ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.locator('[data-classification-open]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-classification-input]')).toBeFocused();
@@ -183,7 +220,7 @@ for(const width of [390,1280]){
   await open(page);await page.locator('[data-classification-input]').fill(JSON.stringify(reply));await page.locator('[data-classification-preview]').click();
   await expect(page.locator('[data-classification-note]')).toContainText('합성 하위 A');await page.locator('[data-classification-choice]:enabled').check();await page.locator('[data-classification-confirm]').click();
   await expect(page.locator('[data-classification-status]')).toHaveText('1개 연결했어요 · 0개는 이미 연결돼 있어요');
-  expect(f.rpc[0].p_targets).toEqual(reply.items[0].destinations);expect(f.links[0].project_id).toBe(target.id);
+  expect(f.rpc[0].p_targets).toEqual(reply.items[0].destinations.map(t=>({...t,summary:t.reason})));expect(f.links[0].project_id).toBe(target.id);
   await page.screenshot({path:info.outputPath(`project-restored-${width}.png`),fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
  });

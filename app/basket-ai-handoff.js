@@ -1,4 +1,4 @@
-import {classificationFormat} from './basket-classification.js?v=5';
+import {classificationFormat} from './basket-classification.js?v=6';
 import {readBasket} from './basket-data.js?v=3';
 
 // Basket guidance only: active + actual owner assignment, matching home weekUpdates.

@@ -103,7 +103,8 @@ export async function openHome(
         },
       ]);
     const latency=delays[a] ?? delays[p.split('/').pop()] ?? (p.includes('/functions/')?delay:0);
-    await (holds[a] ?? holds[p.split('/').pop()]);
+    const holdKey=p.endsWith('app_record_links')&&u.searchParams.get('note_id')==='not.is.null'?'basket-record-links':p.split('/').pop();
+    await (holds[a] ?? holds[holdKey]);
     if (latency) await new Promise((r) => setTimeout(r, latency));
     if (fail && p.endsWith(fail))
       return route.fulfill({

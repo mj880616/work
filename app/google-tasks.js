@@ -1,6 +1,6 @@
 import {formatSeoulTime} from './meeting-time.js?v=2';
 import { createAnchoredMenu } from './anchored-menu.js?v=1';
-import { dayKey } from './home-read-model.js?v=2';
+import { dayKey } from './home-read-model.js?v=3';
 import { createGoogleTask } from './quick-save.js?v=1';
 (()=>{
 'use strict';

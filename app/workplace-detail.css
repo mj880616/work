@@ -15,3 +15,14 @@
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 #wdModal .wd-year{font-size:var(--kptu-text-subtitle)}
+
+#wdUpdates .basket-link-record{min-width:0;max-width:100%;box-sizing:border-box;padding:10px;margin-top:7px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+#wdUpdates .basket-link-record small{color:var(--kptu-muted)}
+#wdUpdates .basket-link-record p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:7px 0}
+#wdUpdates .basket-link-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+#wdUpdates .basket-link-actions :is(button,a),#wdUpdates [data-link-summary-current],#wdUpdates [data-wd-link-retry]{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
+#wdUpdates [data-link-summary-form]{margin-top:10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
+#wdUpdates [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
+#wdUpdates :is(button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
+
+#wdUpdates .basket-link-actions a{color:var(--kptu-primary-ink);text-decoration:none}

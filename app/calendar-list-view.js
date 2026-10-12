@@ -1,6 +1,6 @@
 import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js?v=2';
-import {dayKey} from './home-read-model.js?v=2';
-import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=4';
+import {dayKey} from './home-read-model.js?v=3';
+import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=5';
 let observer=null,focusKey=null;
 export function stopList(){observer?.disconnect()}
 export function renderList(options,{start,days,tasks,busy,error,more}){

@@ -35,3 +35,6 @@
 .basket-classification-reason,.basket-classification-error { display:block; white-space:pre-wrap; margin-top:4px; }
 .basket-classification-error { color:var(--kptu-muted); }
 @media(max-width:600px) { .basket-head { flex-wrap:wrap; } }
+
+.basket-summary-label { margin-left:32px; margin-top:0; }
+#basketView .basket-summary-label textarea { width:100%; box-sizing:border-box; min-height:80px; }

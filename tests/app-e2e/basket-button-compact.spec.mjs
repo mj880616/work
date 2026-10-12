@@ -110,7 +110,7 @@ for(const width of [390,1280]){
     const connect=page.locator('[data-classification-confirm]');await connect.scrollIntoViewIfNeeded();const hit=await connect.boundingBox();
     await page.touchscreen.tap(hit.x+hit.width/2,hit.y-5);
     await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
-    expect(f.confirmations).toHaveLength(1);expect(f.confirmations[0].p_targets).toEqual([{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거'}]);
+    expect(f.confirmations).toHaveLength(1);expect(f.confirmations[0].p_targets).toEqual([{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거',summary:'담당조직 업무 근거'}]);
     await close.click();await all.click();await expect(page.locator(`[data-basket-row="${noteId}"]`)).toContainText('연결됨');
     await page.locator('#basketView [data-goto="home"]').click();await expect(quick).toBeVisible();
     await page.mouse.move(0,0);await page.evaluate(()=>document.activeElement?.blur());

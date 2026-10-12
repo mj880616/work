@@ -2,12 +2,12 @@
 export const CLASSIFICATION_LIMITS = Object.freeze({bytes:1048576, items:100, targets:20, reason:2000, depth:6});
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const kinds = new Set(['organization','project','library','write_request_candidate','google_task']);
-export const ERROR_TEXT = Object.freeze({NOTE_MISSING:'메모를 찾거나 열 수 없어요.',NOTE_WORKSPACE:'다른 업무 공간의 메모예요.',NOTE_ARCHIVED:'보관된 메모예요.',AI_EXCLUDED:'AI에게 맡기지 않기로 한 메모예요.',NOTE_CHANGED:'메모가 바뀌었어요. AI에게 다시 맡겨 주세요.',TARGET_MISSING:'연결할 곳을 찾거나 열 수 없어요.',TARGET_WORKSPACE:'다른 업무 공간에 있는 곳이에요.',TARGET_UNSELECTABLE:'지금은 선택할 수 없는 곳이에요.',ALREADY_CONFIRMED:'이미 연결됨',NEXT_STAGE:'아직 지원하지 않는 항목',FUNCTION_UNAVAILABLE:'연결 기능 준비 중',INVALID_TARGETS:'연결할 곳을 다시 확인해 주세요.',INVALID_INPUT:'메모 정보가 맞지 않아요. AI에게 다시 맡겨 주세요.',PERMISSION_DENIED:'이 내용을 열거나 연결할 권한이 없어요.',SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 현재 연결을 확인해 주세요.'});
+export const ERROR_TEXT = Object.freeze({RESULT_UNKNOWN:'결과를 확인하지 못했어요. 다시 확인을 눌러 현재 연결을 확인해 주세요.',NOTE_MISSING:'메모를 찾거나 열 수 없어요.',NOTE_WORKSPACE:'다른 업무 공간의 메모예요.',NOTE_ARCHIVED:'보관된 메모예요.',AI_EXCLUDED:'AI에게 맡기지 않기로 한 메모예요.',NOTE_CHANGED:'메모가 바뀌었어요. AI에게 다시 맡겨 주세요.',TARGET_MISSING:'연결할 곳을 찾거나 열 수 없어요.',TARGET_WORKSPACE:'다른 업무 공간에 있는 곳이에요.',TARGET_UNSELECTABLE:'지금은 선택할 수 없는 곳이에요.',ALREADY_CONFIRMED:'이미 연결됨',NEXT_STAGE:'아직 지원하지 않는 항목',FUNCTION_UNAVAILABLE:'연결 기능 준비 중',INVALID_TARGETS:'연결할 곳을 다시 확인해 주세요.',INVALID_INPUT:'메모 정보가 맞지 않아요. AI에게 다시 맡겨 주세요.',PERMISSION_DENIED:'이 내용을 열거나 연결할 권한이 없어요.',SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 현재 연결을 확인해 주세요.'});
 // The handoff instructions use the parser's limits and a canonical valid shape.
 // These keys belong in the copied AI instructions, never in screen errors.
 export function classificationFormat(now) {
   const example={schema_version:1,copied_at:now.toISOString(),items:[]};
-  return `답은 다음 순서로 써 주세요.\n① 사람이 읽는 짧은 정리: 메모 첫 줄 → 목적지 이름 · 이유\n② 아래 문장을 그대로 써 주세요.\n아래 블록을 복사해서 바구니의 'AI 정리 결과 넣기'에 붙여 넣으세요\n③ 아래 형식의 json 코드 블록을 정확히 하나 써 주세요.\n사람이 읽는 정리와 블록이 다르면 블록이 기준입니다.\n\n\`\`\`json\n${JSON.stringify(example,null,2)}\n\`\`\`\nproject는 {"kind":"project", "target_id":"프로젝트 ID", "reason":"짧은 이유"}로 제안하세요.\nitems에 정리할 메모마다 {"note_id":"메모 ID", "note_updated_at":"메모의 updated_at", "destinations":[{"kind":"organization", "target_id":"목적지 ID", "reason":"짧은 이유"}]}를 넣으세요.\nkind는 organization(담당조직), project(프로젝트) 두 종류만 쓰세요. schema_version은 1, copied_at은 위 시각을 그대로 쓰세요. ID와 updated_at은 아래 목록의 값을 그대로 쓰세요.\n메모는 최대 ${CLASSIFICATION_LIMITS.items}개, 메모당 목적지는 최대 ${CLASSIFICATION_LIMITS.targets}개, 이유는 1~${CLASSIFICATION_LIMITS.reason}자, 블록은 최대 ${CLASSIFICATION_LIMITS.bytes}바이트입니다. 날짜는 시간대가 포함된 시각을 그대로 쓰고, 같은 메모나 같은 항목 이름을 중복해서 쓰지 마세요. 메모 본문은 답에 다시 싣지 마세요.`;
+  return `답은 다음 순서로 써 주세요.\n① 사람이 읽는 짧은 정리: 메모 첫 줄 → 목적지 이름 · 기록 요약\n② 아래 문장을 그대로 써 주세요.\n아래 블록을 복사해서 바구니의 'AI 정리 결과 넣기'에 붙여 넣으세요\n③ 아래 형식의 json 코드 블록을 정확히 하나 써 주세요.\n사람이 읽는 정리와 블록이 다르면 블록이 기준입니다.\n\n\`\`\`json\n${JSON.stringify(example,null,2)}\n\`\`\`\nproject는 {"kind":"project", "target_id":"프로젝트 ID", "reason":"기록 요약"}로 제안하세요.\nitems에 정리할 메모마다 {"note_id":"메모 ID", "note_updated_at":"메모의 updated_at", "destinations":[{"kind":"organization", "target_id":"목적지 ID", "reason":"기록 요약"}]}를 넣으세요.\nkind는 organization(담당조직), project(프로젝트) 두 종류만 쓰세요. schema_version은 1, copied_at은 위 시각을 그대로 쓰세요. ID와 updated_at은 아래 목록의 값을 그대로 쓰세요.\nreason은 기록 요약입니다. 원문에 있는 핵심 내용을 한 줄로 짧게 정리하고, 날짜·요일·시간·장소·주체·대상·숫자와 진행 상태(예정·검토·확정·취소)를 그대로 보존하세요. 예정이나 검토를 확정으로 바꾸지 마세요. 원문에 없는 사실을 만들거나 추측하지 마세요. 원문에 없는 날짜·요일·시간·장소·주체·대상·숫자·상태는 추가하지 마세요. '내용 공유'나 '일정 및 장소 안내'처럼 구체적인 사실이 없는 말만 쓰지 마세요.\n합성 원문: 한빛지부 10/20 10:00 시청 앞 광장 기자회견 예정 참석30명\n좋은 기록 요약: 한빛지부, 10/20 10:00 시청 앞 광장 기자회견 예정, 참석 30명\n나쁜 기록 요약: 한빛지부 기자회견 일정 및 장소 안내\n나쁜 요약은 원문의 날짜·시간·장소·예정 상태·참석 인원을 빠뜨렸습니다. 합성 예의 사실은 아래 메모의 요약에 넣지 마세요.\n메모는 최대 ${CLASSIFICATION_LIMITS.items}개, 메모당 목적지는 최대 ${CLASSIFICATION_LIMITS.targets}개, 기록 요약은 1~${CLASSIFICATION_LIMITS.reason}자, 블록은 최대 ${CLASSIFICATION_LIMITS.bytes}바이트입니다. copied_at과 note_updated_at은 시간대가 포함된 시각을 그대로 쓰고, 같은 메모나 같은 항목 이름을 중복해서 쓰지 마세요. 메모 본문은 답에 다시 싣지 마세요.`;
 }
 export function parseAIAnswer(input) {
   const source=String(input);
@@ -112,7 +112,8 @@ export function previewClassification(proposal,{workspaceId,userId,notes,links,p
       const supported=['organization','project'].includes(target.kind), rows=target.kind==='organization'?organizations:projects;
       const destination=supported?rows.find(d=>d.id===target.target_id):null;
       const targetError=!supported?'NEXT_STAGE':!destination?'TARGET_MISSING':destination.workspace_id!==workspaceId?'TARGET_WORKSPACE':target.kind==='project'&&!visible.has(destination.id)?'TARGET_UNSELECTABLE':links.some(l=>l.note_id===item.note_id&&l.status==='confirmed'&&l[target.kind==='project'?'project_id':'organization_id']===target.target_id)?'ALREADY_CONFIRMED':null;
-      return {...target,name:destination?.name||'이름을 확인할 수 없어요.',error:!supported?'NEXT_STAGE':error||targetError};
+      const existing=links.find(l=>l.note_id===item.note_id&&l.status==='confirmed'&&l[target.kind==='project'?'project_id':'organization_id']===target.target_id);
+      return {...target,summary:existing?.summary??null,name:destination?.name||'이름을 확인할 수 없어요.',error:!supported?'NEXT_STAGE':error||targetError};
     })};
   });
 }
@@ -124,12 +125,12 @@ export async function readClassificationSnapshot(proposal,rt=window.KPTURuntime)
   // can be distinguished from a missing/inaccessible note without broad reads.
   const [notes,links,projects,organizations]=await Promise.all([
     ids?readPages(`/rest/v1/app_notes?id=in.(${ids})&select=id,workspace_id,raw_text,updated_at,archived_at,ai_export_allowed&order=id.asc`,rt):[],
-    ids?readPages(`/rest/v1/app_record_links?note_id=in.(${ids})&select=note_id,status,organization_id,project_id&order=id.asc`,rt):[],
+    ids?readPages(`/rest/v1/app_record_links?note_id=in.(${ids})&select=note_id,status,summary,organization_id,project_id&order=id.asc`,rt):[],
     readPages('/rest/v1/app_spaces?select=id,workspace_id,owner_id,name,parent_id,status,metadata&order=id.asc',rt),
     readPages('/rest/v1/app_suborganizations?select=id,workspace_id,name&order=id.asc',rt)
   ]);return {workspaceId,userId,notes,links,projects,organizations};
 }
 export async function confirmLinks(noteId,updatedAt,targets,rt=window.KPTURuntime) {
-  try{return await rt.api('/rest/v1/rpc/app_basket_confirm_links',{method:'POST',body:{p_note_id:noteId,p_note_updated_at:updatedAt,p_targets:targets.map(t=>({kind:t.kind,target_id:t.target_id,reason:t.reason}))}});}
+  try{return await rt.api('/rest/v1/rpc/app_basket_confirm_links',{method:'POST',body:{p_note_id:noteId,p_note_updated_at:updatedAt,p_targets:targets.map(t=>({kind:t.kind,target_id:t.target_id,reason:t.reason,...(Object.hasOwn(t,'summary')?{summary:t.summary}:{})}))}});}
   catch(error){if(error?.status===404||/PGRST202|Could not find the function|function .*app_basket_confirm_links.*does not exist/i.test(error?.message||''))return {ok:false,error:'FUNCTION_UNAVAILABLE',created:0,existing:0};throw error;}
 }

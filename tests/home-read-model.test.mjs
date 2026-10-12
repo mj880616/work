@@ -134,3 +134,35 @@ test("weekly updates only assigned active orgs, end exclusive, newest five", () 
     [6, 5, 4, 3, 2],
   );
 });
+
+test("mixed organization records take newest five together, preserving microseconds and stable id/type ties", () => {
+  const orgs = [{id:'o',active:true},{id:'inactive',active:false},{id:'unassigned',active:true}];
+  const row = (id,type,occurred_at,organization_id='o') => ({id,type,occurred_at,organization_id});
+  const rows = [
+    row('same','update','2026-10-06T01:00:00.000001Z'),
+    row('same','basket','2026-10-06T01:00:00.000001Z'),
+    row('z','basket','2026-10-06T01:00:00.000002Z'),
+    row('a','update','2026-10-06T01:00:00.000001Z'),
+    row('fifth','basket','2026-10-05T17:00:00Z'),
+    row('old','update','2026-10-05T16:00:00Z'),
+    row('end','basket','2026-10-11T15:00:00Z'),
+    row('inactive','basket','2026-10-07T01:00:00Z','inactive'),
+    row('unassigned','basket','2026-10-07T01:00:00Z','unassigned'),
+  ];
+  const selected = weekUpdates(rows,orgs,[{organization_id:'o'},{organization_id:'inactive'}],Date.parse('2026-10-06T01:00:00Z'));
+  assert.deepEqual(selected.map(r=>[r.id,r.type]),[['z','basket'],['a','update'],['same','basket'],['same','update'],['fifth','basket']]);
+  assert.deepEqual(weekUpdates(rows,orgs,[],Date.parse('2026-10-06T01:00:00Z')),[]);
+});
+test("mixed records use the note date at the KST Monday boundary, never link timestamps", () => {
+  const rows = [
+    {id:'start',type:'basket',organization_id:'o',occurred_at:'2026-10-04T15:00:00Z',confirmed_at:'2026-10-03T00:00:00Z'},
+    {id:'before',type:'basket',organization_id:'o',occurred_at:'2026-10-04T14:59:59.999999Z',confirmed_at:'2026-10-06T00:00:00Z'},
+    {id:'end',type:'basket',organization_id:'o',occurred_at:'2026-10-11T15:00:00Z'},
+  ];
+  assert.deepEqual(weekUpdates(rows,[{id:'o',active:true}],[{organization_id:'o'}],Date.parse('2026-10-06T00:00:00Z')).map(r=>r.id),['start']);
+});
+
+test('unknown active state is excluded even when an organization is assigned',()=>{
+ const rows=[{id:'unknown',organization_id:'unknown',occurred_at:'2026-10-06T01:00:00Z'},{id:'null',organization_id:'null',occurred_at:'2026-10-06T01:00:00Z'}];
+ assert.deepEqual(weekUpdates(rows,[{id:'unknown'},{id:'null',active:null}],[{organization_id:'unknown'},{organization_id:'null'}],Date.parse('2026-10-06T01:00:00Z')),[]);
+});

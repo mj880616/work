@@ -1,6 +1,6 @@
 import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js?v=2';
-import {dayKey} from './home-read-model.js?v=2';
-import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus,weekBands} from './calendar-day-items.js?v=4';
+import {dayKey} from './home-read-model.js?v=3';
+import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus,weekBands} from './calendar-day-items.js?v=5';
 let focusKey=null;
 // Sole owner of the week DOM; view/range state remains in calendar-view.js.
 export function renderWeek(options,{start,tasks}){
