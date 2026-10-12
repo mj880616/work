@@ -76,7 +76,7 @@
     if(!view||!authenticatedShellReady())return false;
     const lazy=window.KPTUViewLoader;
     if(!allowUnloaded&&lazy?.isLoaded&&!lazy.isLoaded(view)){
-      lazy.load(view).then(()=>go(view,{scroll,source:'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true})).catch(err=>console.error('view lazy load',view,err));
+      lazy.load(view).then(()=>go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true})).catch(err=>console.error('view lazy load',view,err));
       return false;
     }
     const target=document.getElementById(view+'View');

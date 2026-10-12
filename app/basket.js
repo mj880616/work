@@ -1,5 +1,5 @@
 import { mountHandoff } from './basket-ai-handoff.js?v=10';
-import { mountClassification } from './basket-classification-ui.js?v=7';
+import { mountClassification } from './basket-classification-ui.js?v=8';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=4';

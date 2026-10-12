@@ -56,7 +56,7 @@ async function readSummaries(){
  const updateRead=async()=>{
   // Reuse the owner/workspace-checked confirmed note reader. Both sources
   // must succeed before publishing a latest date; neither write time is used.
-  const {readLinkRecords}=await import('./basket-link-records.js?v=1');
+  const {readLinkRecords}=await import('./basket-link-records.js?v=2');
   const latest=new Map();
   const newer=row=>{const at=Date.parse(row.occurred_at);if(ids.includes(row.organization_id)&&Number.isFinite(at)&&(!latest.has(row.organization_id)||at>Date.parse(latest.get(row.organization_id))))latest.set(row.organization_id,row.occurred_at);};
   const legacy=async()=>{
@@ -70,7 +70,7 @@ async function readSummaries(){
     }
    }
   };
-  const [,basket]=await Promise.all([legacy(),readLinkRecords({kind:'organization',targetIds:ids},rt)]);
+  const [,basket]=await Promise.all([legacy(),readLinkRecords({kind:'organization',targetIds:ids,dateOnly:true},rt)]);
   basket.forEach(newer);
   if(!current())return;
   document.querySelectorAll('[data-so-summary]').forEach(box=>{box.querySelector('time')?.remove();const at=latest.get(box.dataset.soSummary);if(!at)return;const date=new Date(Date.parse(at)+9*3600000).toISOString().slice(0,10);box.insertAdjacentHTML('beforeend',`<time datetime="${esc(at)}" aria-label="최근 기록 ${date}">${Number(date.slice(5,7))}.${Number(date.slice(8,10))}</time>`)});

@@ -95,6 +95,11 @@ jobs:
               'tests/security/auth-handoff-browser.test.mjs':[r'^\s*localStorage:\s*\{'],
               'tests/app-e2e/google-tasks-cache.spec.mjs':[r'\blocalStorage\b'],
               'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
+              # BASKET-1a: exact read-only assertion of the existing bounded
+              # owner display copy. This permits no application storage writes.
+              'tests/app-e2e/basket-link-home.spec.mjs':[
+                  r'^\s*'+re.escape("const copies=await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.includes('home-read-v1:')).map(k=>localStorage.getItem(k)).join(''));")+r'\s*$',
+              ],
               # LIB: exact read-only assertion that disclosure never creates storage keys.
               'tests/app-e2e/library-row-list.spec.mjs':[r'^\s*'+re.escape('const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));')+r'\s*$'],
           }

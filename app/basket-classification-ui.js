@@ -1,4 +1,4 @@
-import {validateLinkSummary} from './basket-link-records.js?v=1';
+import {validateLinkSummary} from './basket-link-records.js?v=2';
 import { parseAIAnswer, readClassificationSnapshot, previewClassification, confirmLinks, ERROR_TEXT } from './basket-classification.js?v=6';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBlocked}) {

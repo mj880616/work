@@ -1,4 +1,4 @@
-import { readLinkRecords, readRecordPages } from './basket-link-records.js?v=1';
+import { readLinkRecords, readRecordPages } from './basket-link-records.js?v=2';
 import { mountQuick } from './home-quick.js?v=10';
 import { createHomeCache, basketHomeText } from './home-read-cache.js?v=4';
 import {

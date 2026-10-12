@@ -54,7 +54,7 @@ test('list batches all linked pages, excludes suggested/task/foreign links, and 
  f.links.push(...Array.from({length:105},(_,i)=>({id:'l'+i,workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:i===104?null:'승인'})));
  f.links.push({id:'suggested',workspace_id:'w',note_id:n,organization_id:o,status:'suggested'},{id:'foreign',workspace_id:'other',note_id:n,organization_id:o,status:'confirmed'},{id:'task',workspace_id:'w',note_id:null,organization_id:o,status:'confirmed',google_task_id:'today'});
  await team(page);await expect(page.locator('[data-so-summary] time')).toHaveText('10.12');await expect(page.locator('[data-so-summary] .so-task-count')).toHaveText('1');
- expect(f.linkReads.map(q=>q.offset)).toEqual(['0','100']);
+ expect(f.linkReads.map(q=>q.offset)).toEqual(['0','100']);for(const q of f.linkReads){expect(q.select).not.toMatch(/raw_text|summary/);}
  f.links.forEach(l=>{if(l.id.startsWith('l'))l.status='suggested';});await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));await expect(page.locator('[data-so-summary] time')).toHaveCount(0);await expect(page.locator('[data-so-summary] .so-task-count')).toHaveText('1');expect(f.errors).toEqual([]);
 });
 test('list takes the newest occurred_at of legacy and note and preserves read failure path',async({page})=>{
@@ -95,4 +95,11 @@ test('failed destination loading preserves note URL and the opened original',asy
  const f=await fixture(page);await page.goto('http://127.0.0.1:8123/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);const address=page.url();
  await page.evaluate(()=>{const load=KPTUViewLoader.load;KPTUViewLoader.load=view=>view==='tasks'?Promise.reject(Error('synthetic route load failure')):load(view);KPTURouter.go('tasks');});
  await expect.poll(()=>f.errors.some(e=>e.includes('synthetic route load failure'))).toBe(true);expect(page.url()).toBe(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);expect(f.errors).toHaveLength(1);
+});
+
+test('Back declined after lazy-loading an unopened target still restores note URL and text',async({page})=>{
+ const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await page.locator('[data-basket-filter="all"]').click();expect(await page.evaluate(()=>KPTUViewLoader.isLoaded('calendar'))).toBe(false);
+ await page.evaluate(id=>{history.replaceState({marker:'calendar'},'','?view=calendar&keep=yes#here');history.pushState({marker:'editor'},'','?view=basket&note='+id+'&keep=yes#here');},n);
+ await page.locator('[data-basket-row]').click();await page.locator('[data-basket-text]').fill('지연 뒤로가기 취소 원문');const address=page.url();let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.back());await expect.poll(()=>prompted).toBe(true);
+ await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('지연 뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);
 });
