@@ -81,6 +81,9 @@
     }
     const target=document.getElementById(view+'View');
     if(!target)return false;
+    const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source}});
+    window.dispatchEvent(before);
+    if(before.defaultPrevented)return false;
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.toggle('hidden',panel!==target));
     syncNavigationState(view);
     api.current=view;

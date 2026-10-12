@@ -37,7 +37,7 @@ test('home filters active assigned organizations and the KST note week before co
  const records=[linked('old','old','지난 주'),linked('end','end','다음 주'),linked('inactive','inactive','비활성 제외',{organization_id:'inactive'}),linked('unassigned','unassigned','미담당 제외',{organization_id:'unassigned'}),...Array.from({length:6},(_,i)=>linked('l'+i,'n'+i,i===5?null:'요약 '+i))];
  const notes=[noted('old','2026-10-04T14:59:59.999999Z'),noted('end','2026-10-11T15:00:00Z'),noted('inactive','2026-10-07T01:00:00Z'),noted('unassigned','2026-10-07T01:00:00Z'),...Array.from({length:6},(_,i)=>noted('n'+i,`2026-10-06T01:00:00.00000${i}Z`))];
  await fixture(page,{records,notes});
- await expect(card(page).locator('.home-update')).toHaveCount(5);await expect(card(page)).toContainText('요약 없음');await expect(card(page)).not.toContainText('기존 조직 기록');await expect(card(page)).not.toContainText('요약 0');
+ await expect(card(page).locator('.home-update')).toHaveCount(5);await expect(card(page)).toContainText('원문 발췌');await expect(card(page)).toContainText('원문 n5');await expect(card(page)).not.toContainText('기존 조직 기록');await expect(card(page)).not.toContainText('요약 0');
  for(const text of ['지난 주','다음 주','비활성 제외','미담당 제외'])await expect(card(page)).not.toContainText(text);
  expect(await card(page).locator('[data-home-note]').evaluateAll(rows=>rows.map(row=>row.dataset.homeNote))).toEqual(['n5','n4','n3','n2','n1']);
 });
@@ -90,4 +90,16 @@ test('late linked records stay cleared when the signed-in owner changes',async({
  state.hold=null;release();await expect(page.locator('[data-home-card="updates"]')).toHaveCount(0);
  expect(await readHomeCache(page,cachePrefix+'home-read-v1:home-test')).toBeNull();
  expect(await readHomeCache(page,cachePrefix+'home-read-v1:next-owner')).toBeNull();
+});
+
+for(const width of [390,1280])test(`home NULL summary uses 80 code points with excerpt marker and preserves approved text ${width}`,async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ await page.setViewportSize({width,height:900});const approved=' \n'+ '승인😀'.repeat(35)+'\n ';
+ const state=await fixture(page,{records:[linked('l','n',null),linked('s','s',approved),linked('empty','empty',null)],notes:[noted('n','2026-10-06T01:00:00Z',{raw_text:'😀'.repeat(80)+'잘라낼 글'}),noted('s','2026-10-06T02:00:00Z'),noted('empty','2026-10-06T03:00:00Z',{raw_text:null})],updates:[]});
+ const row=card(page).locator('[data-home-note="n"]');await expect(row).toContainText('원문 발췌');await expect(row.locator('.home-title')).toHaveText('😀'.repeat(80));
+ expect(await card(page).locator('[data-home-note="s"] .home-title').textContent()).toBe(approved);
+ await expect(card(page).locator('[data-home-note="empty"]')).toContainText('원문을 확인해 주세요');
+ expect(state.records[0].summary).toBeNull();
+ const copies=await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.includes('home-read-v1:')).map(k=>localStorage.getItem(k)).join(''));
+ expect(copies).not.toContain('잘라낼 글');expect(copies).toContain('"excerpt":true');expect(errors).toEqual([]);
 });

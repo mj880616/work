@@ -7,15 +7,15 @@ import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSi
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, busy = false, epoch = 0;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-let upload = createUploadBatch(), pickerFiles = null;
-let currentScope = scope();
+let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
+let currentScope = scope(), editorAddress = null;
 const initialUrl = new URL(location.href);
 let requestedNote = initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
 root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar"><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-handoff-copy>AI에게 맡기기</button><button type="button" class="quick-pill-button" data-classification-open>AI 정리 결과 넣기</button></div><button type="button" class="quick-text-link" data-goto="home">홈에서 입력 ›</button></div></div><div data-handoff-host></div><div data-basket-list><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류</button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
-const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{isBlocked:()=>busy,onBusy:value=>{busy=value;root.querySelector('[data-handoff-copy]').disabled=value;},onClose:()=>root.querySelector('[data-handoff-copy]').focus()});
+const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{isBlocked:()=>busy,onBusy:value=>{handoffBusy=value;busy=value;root.querySelector('[data-handoff-copy]').disabled=value;},onClose:()=>root.querySelector('[data-handoff-copy]').focus()});
 const classification = mountClassification(root.querySelector('[data-classification-host]'), {
   isBlocked:()=>busy, onBusy:value=>{busy=value;if(value)++epoch;},
   onOpen:()=>{handoff.close();closeDetail();if(selected)return false;list.hidden=true;return true;},
@@ -43,10 +43,17 @@ function renderList() {
 }
 const textDirty = () => selected && detail.querySelector('[data-basket-text]')?.value !== selected.raw_text.replace(/\r\n?/g, '\n');
 const dirty = () => textDirty() || upload.entries.some(e=>e.kind!=='success');
-function closeDetail({focus = true, force = false} = {}) {
+function clearNoteAddress(){
+  requestedNote=null;
+  const url=new URL(location.href);
+  if(!url.searchParams.has('note'))return;
+  url.searchParams.delete('note');
+  history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+}
+function closeDetail({focus = true, force = false, cleanAddress = true} = {}) {
   if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return;
   handoff.close();
-  const id = selected?.id; selected = null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;
+  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; editorAddress=null; selected = null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
 }
 function paintDetailState() {
@@ -62,6 +69,7 @@ function paintAttachments() {
 function openDetail(id) {
   handoff.close();
   selected = notes.find(n => n.id === id); if (!selected) return;
+  editorAddress={url:location.href,state:history.state};
   // Keep the opened editor attached to this list snapshot until an explicit reload.
   ++epoch;
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
@@ -155,7 +163,18 @@ window.addEventListener('kptu:before-reload', e => {
 });
 window.addEventListener('kptu:session-changed', () => {
   const next = scope(); if (next === currentScope) return;
-  currentScope = next; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true}); renderList();
+  currentScope = next; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true,cleanAddress:false}); renderList();
+});
+window.addEventListener('kptu:before-view-change',e=>{
+  if(window.KPTURouter.current!=='basket'||e.detail?.view==='basket')return;
+  if((busy&&!handoffBusy)||(dirty()&&!window.confirm('수정 중인 글을 버리고 다른 화면으로 갈까요?'))){
+    e.preventDefault();
+    if(e.detail?.source==='popstate'&&editorAddress)history.replaceState(editorAddress.state,'',editorAddress.url);
+  }
+});
+window.addEventListener('kptu:view-changed',e=>{
+  if(e.detail?.view==='basket')return;
+  clearNoteAddress();closeDetail({focus:false,force:true});
 });
 window.KPTURouter.on('basket', () => {
   if (busy || classification.isOpen()) return;
