@@ -4,7 +4,7 @@
 
 # 📱 폰 가능 · BASKET-연결보기 1차 DB 준비
 
-시작은 새 fetch한 origin/main `6accabd1eb1f520ef6c25a8fa9ce9f13be6d8a74`(#504 merge), branch `codex/basket-link-view-db`다. #505 문서 PR은 별도 승인 대기이며 이 PR이 승인·merge를 대신하지 않는다. #505가 main에 merge되면 이 branch에 main을 merge해 반영한다. rebase·force push하지 않는다.
+[DB 준비 PR #506](https://github.com/mj880616/work/pull/506). 시작은 새 fetch한 origin/main `6accabd1eb1f520ef6c25a8fa9ce9f13be6d8a74`(#504 merge), branch `codex/basket-link-view-db`다. #505 문서 PR은 별도 승인 대기이며 이 PR이 승인·merge를 대신하지 않는다. #505가 main에 merge되면 이 branch에 main을 merge해 반영한다. rebase·force push하지 않는다.
 
 ## 범위와 호환
 
