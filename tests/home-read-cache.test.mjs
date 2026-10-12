@@ -60,3 +60,16 @@ test('invalid cached event dates are ignored without discarding the other valid 
     assert.equal(cache.read(now).calendar,undefined);assert.equal(cache.read(now).tasks.unlinkedCount,1);
   }
 });
+
+test('basket display copy preserves only source id/type and approved bounded summary; old update copies remain readable',()=>{
+  const {cache,values}=fixture();
+  cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[
+    {organization_id:'o',name:'org',date:'2026-10-06',text:'🙂'.repeat(90),type:'basket',note_id:'n',raw_text:'private original',summary:'private full summary',link_id:'unneeded'},
+    {organization_id:'o',name:'org',date:'2026-10-06',text:'legacy update'},
+  ]},now);
+  const copy=cache.read(now).updates.rows;
+  assert.equal(copy[0].type,'basket');assert.equal(copy[0].note_id,'n');assert.equal([...copy[0].text].length,80);
+  assert.equal(copy[1].text,'legacy update');
+  const saved=[...values.values()][0];assert.equal(saved.includes('private'),false);assert.equal(saved.includes('unneeded'),false);
+  assert.equal(copy[1].type,undefined);
+});

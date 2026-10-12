@@ -205,3 +205,15 @@
 #ps3DetailModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
 #ps3ArchiveModal .ps3-prow-meta{font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 #ps3CreateModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
+.ps3-basket-links{margin-top:14px;min-width:0;max-width:100%}
+.ps3-basket-links>summary{cursor:pointer;min-height:44px;align-content:center;color:var(--kptu-muted)}
+.ps3-basket-links .basket-link-record{min-width:0;max-width:100%;box-sizing:border-box;padding:10px;margin-top:7px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+.ps3-basket-links .basket-link-record small{color:var(--kptu-muted)}
+.ps3-basket-links .basket-link-record p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:7px 0}
+.ps3-basket-links .basket-link-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ps3-basket-links .basket-link-actions :is(button,a),.ps3-basket-links [data-link-summary-current],.ps3-basket-links [data-ps3-basket-retry]{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
+.ps3-basket-links [data-link-summary-form]{margin-top:10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
+.ps3-basket-links [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
+.ps3-basket-links :is(summary,button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
+
+#ps3BasketLinks .basket-link-actions a{color:var(--kptu-primary-ink);text-decoration:none}

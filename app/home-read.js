@@ -1,5 +1,6 @@
-import { mountQuick } from './home-quick.js?v=9';
-import { createHomeCache } from './home-read-cache.js?v=2';
+import { readLinkRecords, readRecordPages } from './basket-link-records.js?v=1';
+import { mountQuick } from './home-quick.js?v=10';
+import { createHomeCache } from './home-read-cache.js?v=3';
 import {
   ranges,
   dayKey,
@@ -9,7 +10,7 @@ import {
   unlinkedTasks,
   meetingTasks,
   weekUpdates,
-} from "./home-read-model.js?v=2";
+} from "./home-read-model.js?v=3";
 const rt = window.KPTURuntime,
   root = document.querySelector("#homeView"),
   esc = (v) =>
@@ -38,6 +39,9 @@ let epoch = 0,
   meetingsReady = false,
   unsubscribe = null,
   homeOwner = "",
+  homeWorkspace = "",
+  updatesFlight = null,
+  updatesDirty = false,
   freshTaskRead = false,
   activeStart = null,
   taskFlight = null,
@@ -64,7 +68,7 @@ function preload(){
   if(!imports)imports={
     projects:import('./project-catalog.js?v=3'),
     order:import('./organization-order.js?v=2'),
-    google:import('./google-tasks.js?v=31'),
+    google:import('./google-tasks.js?v=32'),
   };
   Object.values(imports).forEach(p=>p.catch(()=>{}));
   return imports;
@@ -94,7 +98,7 @@ const cards = {
   calendar: ["오늘 일정", "calendar", "달력"],
   tasks: ["오늘·밀린 할 일", "tasks", "할 일"],
   meetings: ["회의 후속", "meetings", "회의"],
-  updates: ["이번 주 업데이트", "team", "담당조직"],
+  updates: ["이번 주 조직 기록", "team", "담당조직"],
 };
 const desktopHome = window.matchMedia('(min-width:1024px)');
 function arrangeHome() {
@@ -127,7 +131,7 @@ function shell() {
     const p=document.createElement('p');p.className='home-timing';p.dataset.homeTiming='';root.append(p);
   }
 }
-const requestKeys={dday:['projects','milestones'],calendar:['calendar','events'],tasks:['tasks','links'],meetings:['tasks','links','meetings'],updates:['orgs','assignments','updates']};
+const requestKeys={dday:['projects','milestones'],calendar:['calendar','events'],tasks:['tasks','links'],meetings:['tasks','links','meetings'],updates:['orgs','assignments','updates','basket-updates']};
 function timing(){
   const p=root.querySelector('[data-home-timing]');if(!p)return;
   p.textContent=Object.entries(cards).map(([key,[label]])=>`${label}: 표시 ${metrics.firstPaint[key]??'…'}ms · 최신 ${metrics.refreshed[key]??'…'}ms · 요청 ${requestKeys[key].reduce((n,k)=>n+(metrics.requests[k]||0),0)}회`).join(' / ')+` / 전체 요청 ${Object.values(metrics.requests).reduce((a,b)=>a+b,0)}회`;
@@ -178,15 +182,11 @@ const dependencies = {
     }),
   orgs: () =>
     share("orgs", () =>
-      api(
-        `/rest/v1/app_suborganizations?workspace_id=eq.${encodeURIComponent(workspace())}&active=eq.true&select=id,name,active`,
-      ),
+      readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encodeURIComponent(workspace())}&active=eq.true&select=id,name,active&order=id.asc`, {...rt,api}),
     ),
   assignments: () =>
     share("assignments", () =>
-      api(
-        `/rest/v1/app_suborganization_assignees?user_id=eq.${encodeURIComponent(owner())}&select=organization_id`,
-      ),
+      readRecordPages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encodeURIComponent(owner())}&select=organization_id&order=organization_id.asc`, {...rt,api}),
     ),
   google: () =>
     share("google", async () => {
@@ -321,7 +321,12 @@ function renderCalendar(rows){
 }
 function renderUpdates(rows){
   if(!rows.length)return empty('updates','이번 주 기록 없음');
-  paint('updates',rows.map(u=>`<button type="button" class="home-update" data-home-org="${esc(u.organization_id)}"><strong>${esc(u.name)}</strong><span class="home-title">${esc(u.text)}</span><time>${Number(u.date.slice(5,7))}.${Number(u.date.slice(8,10))}</time></button>`).join(''),rows.length);
+  paint('updates',rows.map(u=>{
+    const contents=`<strong>${u.type==='basket'?'<small>바구니 연결</small> ':''}${esc(u.name)}</strong><span class="home-title">${esc(u.text)}</span><time>${Number(u.date.slice(5,7))}.${Number(u.date.slice(8,10))}</time>`;
+    return u.type==='basket'
+      ? `<a class="home-update" data-home-note="${esc(u.note_id)}" href="?view=basket&amp;note=${encodeURIComponent(u.note_id)}">${contents}</a>`
+      : `<button type="button" class="home-update" data-home-org="${esc(u.organization_id)}">${contents}</button>`;
+  }).join(''),rows.length);
 }
 function restoreCopies(){
   if(copies.dday)renderDday(copies.dday.rows);
@@ -334,8 +339,9 @@ function restoreCopies(){
   }
 }
 const calendarAuthError=e=>Number(e?.status||0)===401||Number(e?.status||0)===403||/연결되지|재인증|권한|invalid_grant|unauthori[sz]ed|invalid.?credentials/i.test(String(e?.message||e));
+const current = run => run === epoch && !!owner() && owner() === homeOwner && workspace() === homeWorkspace;
 const guard = (run) => {
-  if (run !== epoch || !owner()) throw new Error("stale home read");
+  if (!current(run)) throw new Error("stale home read");
 };
 const loaders = {
   async dday(run) {
@@ -446,36 +452,56 @@ const loaders = {
         dependencies.assignments(),
       ]),
       ids = os
-        .filter((o) => as.some((a) => a.organization_id === o.id))
+        .filter((o) => o.active === true && as.some((a) => a.organization_id === o.id))
         .map((o) => o.id),
       r = ranges();
     guard(run);
     if (!ids.length) { saveCopy("updates",{week:r.weekStart,rows:[]}); return empty("updates", "이번 주 기록 없음"); }
-    const up = await share("updates", () =>
-        api(
-          `/rest/v1/app_suborganization_updates?organization_id=${list(ids)}&occurred_at=gte.${encodeURIComponent(r.weekStart)}&occurred_at=lt.${encodeURIComponent(r.weekEnd)}&select=id,organization_id,occurred_at,raw_text,detail_text&order=occurred_at.desc&limit=5`,
-        ),
-      ),
-      rows = weekUpdates(up, os, as);
+    const [up, basket] = await Promise.all([
+      share("updates", () => readRecordPages(
+        `/rest/v1/app_suborganization_updates?organization_id=${list(ids)}&occurred_at=gte.${encodeURIComponent(r.weekStart)}&occurred_at=lt.${encodeURIComponent(r.weekEnd)}&select=id,organization_id,occurred_at,raw_text,detail_text&order=occurred_at.desc,id.asc`, {...rt,api})),
+      share("basket-updates", () => readLinkRecords({kind:'organization',targetIds:ids,weekStart:r.weekStart,weekEnd:r.weekEnd}, {...rt, api:path=>{request('basket-updates');return rt.api(path);}})),
+    ]);
     guard(run);
-    const copy=rows.map(u=>({organization_id:u.organization_id,name:os.find(o=>o.id===u.organization_id)?.name||'',date:dayKey(Date.parse(u.occurred_at)),text:[...String(u.raw_text||u.detail_text||'')].slice(0,80).join('')}));
+    const rows = weekUpdates([...up,...basket], os, as);
+    const copy=rows.map(u=>({organization_id:u.organization_id,name:os.find(o=>o.id===u.organization_id)?.name||'',date:dayKey(Date.parse(u.occurred_at)),text:[...String(u.type==='basket'?(u.summary||'요약 없음'):(u.raw_text||u.detail_text||''))].slice(0,80).join(''),...(u.type==='basket'?{type:'basket',note_id:u.note_id}:{})}));
     saveCopy('updates',{week:r.weekStart,rows:copy});renderUpdates(copy);
   },
 };
-async function loadCard(key, run = epoch) {
+function refreshUpdates(){
+  if(!current(epoch))return Promise.resolve();
+  if(updatesFlight){updatesDirty=true;return updatesFlight;}
+  for(const key of ['updates','basket-updates','orgs','assignments'])flights.delete(key);
+  return loadCard('updates');
+}
+function loadCard(key, run = epoch) {
+  if(key==='updates'){
+    if(updatesFlight)return updatesFlight;
+    const tracked=readCard(key,run).finally(()=>{
+      if(updatesFlight!==tracked)return;
+      updatesFlight=null;
+      if(current(run)&&updatesDirty){updatesDirty=false;return refreshUpdates();}
+    });
+    updatesFlight=tracked;return tracked;
+  }
+  return readCard(key,run);
+}
+async function readCard(key, run = epoch) {
   try {
     await loaders[key](run);
   } catch {
-    if (run === epoch) { if(key==='tasks')taskStatus='failed';failure(key); }
+    if (current(run)) { if(key==='tasks')taskStatus='failed';failure(key); }
   } finally {
-    if(run===epoch){metrics.refreshed[key]=Math.round(performance.now()-metrics.shellAt);timing();}
+    if(current(run)){metrics.refreshed[key]=Math.round(performance.now()-metrics.shellAt);timing();}
   }
 }
 function start({ freshTasks = false } = {}) {
   if (!owner() || !workspace()) return;
-  if(homeOwner===owner()&&(activeStart||taskFlight))return activeStart||taskFlight;
+  if(homeOwner===owner()&&homeWorkspace===workspace()&&(activeStart||taskFlight))return activeStart||taskFlight;
   freshTaskRead = freshTasks;
   homeOwner = owner();
+  homeWorkspace = workspace();
+  updatesFlight = null;updatesDirty = false;
   epoch++;
   flights = new Map();
   taskStatus = "loading";
@@ -497,7 +523,7 @@ function start({ freshTasks = false } = {}) {
   dependencies
     .projects()
     .then((v) => {
-      if (run === epoch) {
+      if (current(run)) {
         projects = v;
         renderTasks();
       }
@@ -506,7 +532,7 @@ function start({ freshTasks = false } = {}) {
   dependencies
     .orgs()
     .then((v) => {
-      if (run === epoch) {
+      if (current(run)) {
         orgs = v;
         renderTasks();
       }
@@ -515,9 +541,9 @@ function start({ freshTasks = false } = {}) {
   dependencies
     .google()
     .then((g) => {
-      if (run === epoch)
+      if (current(run))
         unsubscribe = g.subscribe(() => {
-          if (run === epoch) renderTasks();
+          if (current(run)) renderTasks();
         });
     })
     .catch(() => {});
@@ -525,7 +551,7 @@ function start({ freshTasks = false } = {}) {
   trackTaskFlight(taskReads,run);
   const started=Promise.allSettled([taskReads,...['dday','calendar','updates'].map(key=>loadCard(key,run))]).then(
     () => {
-      if (run !== epoch) return;
+      if (!current(run)) return;
       metrics.readyAt = performance.now();
       window.dispatchEvent(
         new CustomEvent("kptu:home-ready", { detail: metrics }),
@@ -544,7 +570,7 @@ function trackTaskFlight(promise,run){
   taskFlight=tracked;return tracked;
 }
 function refreshTaskCards(){
-  if(!owner()||homeOwner!==owner())return Promise.resolve();
+  if(!current(epoch))return Promise.resolve();
   // A mutation burst during a read needs one following fresh read, not the in-flight snapshot.
   if(taskFlight){tasksDirty=true;return taskFlight;}
   const run=epoch;
@@ -564,6 +590,7 @@ root.addEventListener("click", async (event) => {
       flights.delete("events");
     }
     if(key==='tasks'||key==='meetings')return refreshTaskCards();
+    if(key==='updates')return refreshUpdates();
     await loadCard(key);
     return;
   }
@@ -604,8 +631,8 @@ window.addEventListener("focus", () => {
   if (window.KPTURouter.current === "home") start();
 });
 window.addEventListener("kptu:session-changed", (event) => {
-  if (event.detail?.session?.user?.id === homeOwner) return;
-  homeOwner = "";
+  if (event.detail?.session?.user?.id === homeOwner && workspace() === homeWorkspace) return;
+  homeOwner = "";homeWorkspace = "";updatesFlight=null;updatesDirty=false;
   epoch++;
   flights.clear();
   unsubscribe?.();
@@ -638,9 +665,11 @@ window.addEventListener("kptu:api-saved", (event) => {
   const path = event.detail?.path || "";
   if(path.includes('google-tasks')&&!path.includes('action=toggle')&&taskFlight)tasksDirty=true;
   if (path.includes("/app_suborganization_updates")) {
-    flights.delete("updates");
-    void loadCard("updates");
+    void refreshUpdates();
   }
+});
+window.addEventListener('kptu:basket-links-changed',()=>{
+  if(window.KPTURouter.current==='home')void refreshUpdates();
 });
 async function refreshQuickTasks() {
   await refreshTaskCards();

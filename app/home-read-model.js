@@ -89,11 +89,16 @@ export function meetingTasks(tasks, links) {
   );
   return tasks.filter((t) => t.status !== "completed" && ids.has(t.id));
 }
+// Date.parse keeps milliseconds; preserve PostgreSQL's additional microseconds for top-five ordering.
+const recordTime = value => {
+  const fraction = String(value || '').match(/\.(\d+)(?:Z|[+-]\d{2}:?\d{2})$/)?.[1] || '';
+  return Date.parse(value) * 1000 + Number(fraction.padEnd(6, '0').slice(3, 6));
+};
 export function weekUpdates(updates, orgs, assignees, now = Date.now()) {
   const assigned = new Set(assignees.map((a) => a.organization_id)),
     ids = new Set(
       orgs
-        .filter((o) => o.active !== false && assigned.has(o.id))
+        .filter((o) => o.active === true && assigned.has(o.id))
         .map((o) => o.id),
     ),
     r = ranges(now);
@@ -104,6 +109,8 @@ export function weekUpdates(updates, orgs, assignees, now = Date.now()) {
         Date.parse(u.occurred_at) >= Date.parse(r.weekStart) &&
         Date.parse(u.occurred_at) < Date.parse(r.weekEnd),
     )
-    .sort((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at))
+    .sort((a, b) => recordTime(b.occurred_at) - recordTime(a.occurred_at) ||
+      String(a.id).localeCompare(String(b.id)) ||
+      String(a.type || 'update').localeCompare(String(b.type || 'update')))
     .slice(0, 5);
 }

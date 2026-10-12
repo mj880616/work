@@ -65,7 +65,7 @@ jobs:
         run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-summary-guide.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
@@ -89,7 +89,7 @@ jobs:
             'const authenticated=await window.KPTURuntime.session.ensure()',
             "import('./action-labels.js?v=2')",
             "import('./team.js?v=68')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=132')",'result=await viewLoader.load(requested)',
+            "import('./view-loader.js?v=134')",'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
@@ -147,7 +147,7 @@ jobs:
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
           grep -q "calendar-ui.css?v=34" app/view-loader.js
           grep -q "task-layout.css?v=4" app/view-loader.js
-          grep -q "project-system-v3.css?v=25" app/view-loader.js
+          grep -q "project-system-v3.css?v=26" app/view-loader.js
           grep -q "library-upload.css?v=8" app/view-loader.js
           grep -q "meeting-ui.css?v=15" app/view-loader.js
           grep -q "web1-press.css?v=4" app/view-loader.js
@@ -173,10 +173,10 @@ jobs:
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "topbar-actions.js?v=20" app/loader-v2.js
           grep -q "team.js?v=68" app/loader-v2.js
-          grep -q "project-system-v3.js?v=44" app/view-loader.js
+          grep -q "project-system-v3.js?v=46" app/view-loader.js
           grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
-          grep -q "google-tasks.js?v=31" app/view-loader.js
+          grep -q "google-tasks.js?v=32" app/view-loader.js
           grep -q "library-upload.js?v=26" app/view-loader.js
           grep -q "project-catalog.js?v=3" app/view-loader.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
@@ -217,7 +217,7 @@ jobs:
           grep -q "meeting-ui.css?v=15" app/styles.css
           grep -q "calendar-ui.css?v=34" app/styles.css
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
-          grep -q "project-system-v3.css?v=25" app/styles.css
+          grep -q "project-system-v3.css?v=26" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -Fq "[data-kptu-logout]" app/topbar-actions.css
@@ -333,8 +333,8 @@ jobs:
           grep -q "__KPTU_CALENDAR_MONTH_VIEW_READY__" app/view-loader.js
           grep -Fq "(window.KPTUCalendarView||window.KPTUCalendarMonthView)?.render?.(" app/team.js
           grep -Fq "window.KPTUCalendarMonthView?.render(next)" app/calendar-view.js
-          grep -q "calendar-view.js?v=7" app/view-loader.js
-          grep -q "calendar-list-view.js?v=5" app/calendar-view.js
+          grep -q "calendar-view.js?v=8" app/view-loader.js
+          grep -q "calendar-list-view.js?v=6" app/calendar-view.js
           grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
           grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js

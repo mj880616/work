@@ -34,10 +34,15 @@ for (const width of [390, 1440])
     const dataRequests = requests.filter(
       (r) => r.path.includes("/rest/") || r.path.includes("/functions/"),
     );
-    expect(dataRequests.length).toBeLessThanOrEqual(11);
+    const basketRequests=requests.filter(r=>r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'));
+    expect(basketRequests).toHaveLength(1);
+    expect(basketRequests[0].query).toContain('status=eq.confirmed');
+    expect(basketRequests[0].query).toContain('organization_id=in.(o)');
+    expect(basketRequests[0].query).toContain('note.occurred_at=gte.');
+    expect(dataRequests.length-basketRequests.length).toBeLessThanOrEqual(11);
     expect(requests.filter((r) => r.action === "overview")).toHaveLength(1);
     expect(
-      requests.filter((r) => r.path.endsWith("app_record_links")),
+      requests.filter((r) => r.path.endsWith("app_record_links")&&!r.query.includes("note_id=not.is.null")),
     ).toHaveLength(1);
     expect(requests.some((r) => r.path.endsWith("app_tasks"))).toBe(false);
     const metrics = await page.evaluate(() => KPTUHome.metrics);

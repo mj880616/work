@@ -73,7 +73,7 @@ test('first visit task rows appear before links; overlapping starts share the re
     expect(await page.evaluate(()=>KPTUHome.metrics.readyAt)).toBe(0);
   }finally{release();}
   await ready(page);
-  expect(c.requests.filter(r=>r.path.endsWith('app_record_links'))).toHaveLength(1);
+  expect(c.requests.filter(r=>r.path.endsWith('app_record_links')&&!r.query.includes('note_id=not.is.null'))).toHaveLength(1);
   expect(c.requests.filter(r=>r.action==='overview')).toHaveLength(1);
   expect(c.requests.filter(r=>r.action==='status')).toHaveLength(1);
   expect(c.requests.filter(r=>r.action==='events')).toHaveLength(1);

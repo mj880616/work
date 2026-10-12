@@ -5,7 +5,7 @@ for(const source of ['events','toggle','quick'])test(`initial pending links coal
  let release;const pending=new Promise(r=>release=r);
  const c=await openHome(page,{holds:{app_record_links:pending}});
  await expect(page.locator('[data-home-toggle="today"]')).toBeVisible();
- await expect.poll(()=>c.requests.filter(r=>r.path.endsWith('app_record_links')).length).toBe(1);
+ await expect.poll(()=>c.requests.filter(r=>r.path.endsWith('app_record_links')&&!r.query.includes('note_id=not.is.null')).length).toBe(1);
  await expect(page.locator('[data-home-card="calendar"]')).toHaveAttribute('data-state','ready');
  await expect(page.locator('[data-home-card="updates"]')).toHaveAttribute('data-state','ready');
  const untouched=()=>c.requests.filter(r=>r.path.includes('google-calendar')||(r.path.endsWith('app_suborganization_updates')&&!r.query.includes('created_by='))).length;
@@ -33,7 +33,7 @@ for(const source of ['events','toggle','quick'])test(`initial pending links coal
   await page.clock.runFor(3001);
   await expect(page.locator('[data-home-task="today"]')).toHaveCount(0);
  }else await expect(page.locator('[data-home-card="tasks"]')).toContainText('QA queued');
- await expect.poll(()=>c.requests.filter(r=>r.path.endsWith('app_record_links')).length).toBe(2);
+ await expect.poll(()=>c.requests.filter(r=>r.path.endsWith('app_record_links')&&!r.query.includes('note_id=not.is.null')).length).toBe(2);
  if(source==='quick')await expect(page.locator('[data-quick-input]')).toHaveValue('');
  await expect.poll(()=>page.evaluate(()=>!!KPTUHome.metrics.readyAt)).toBe(true);
  expect(c.requests.filter(r=>r.action==='overview')).toHaveLength(2);

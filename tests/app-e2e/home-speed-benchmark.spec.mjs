@@ -23,7 +23,7 @@ test('measure home before and after with identical simulated device latency',asy
     const sample=async()=>{
       await page.waitForFunction(()=>KPTUHome.metrics.readyAt);
       const timing=await page.evaluate(()=>({first:homeMeasure.first,latest:Object.fromEntries(Object.entries(KPTUHome.metrics.cards).map(([k,v])=>[k,Math.round(v-homeMeasure.at)]))}));
-      return {...timing,requests:Object.fromEntries(['status','events','overview','links'].map(k=>[k,c.requests.filter(r=>k==='links'?r.path.endsWith('app_record_links'):r.action===k).length]))};
+      return {...timing,requests:Object.fromEntries(['status','events','overview','links'].map(k=>[k,c.requests.filter(r=>k==='links'?r.path.endsWith('app_record_links')&&!r.query.includes('note_id=not.is.null'):r.action===k).length]))};
     };
     result[version]={first:await sample()};c.requests.length=0;
     await page.evaluate(()=>{homeMeasure={at:performance.now(),first:{}};KPTUHome.start();});
