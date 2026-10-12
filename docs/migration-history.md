@@ -18,6 +18,7 @@
 
 | 저장소 파일 | production 상태 | 비고 |
 | --- | --- | --- |
+| `20261012100000_basket_link_view_db.sql` | 미적용(BASKET-연결보기 1차 파일·PR 준비, 2026-10-12) | nullable 연결 summary·기존 확정 서명/호출 호환·소유자 CAS 수정 RPC. 화면/Edge 없음. [사전/사후·snapshot·요약 보존 rollback·승인 버튼 제한](basket-link-view-db-review.md). dry-run/apply 지원, 기존 함수 복원을 금지하는 현 정책상 rollback 버튼은 거절되므로 사용자 SQL Editor 대안은 CC 검토 필요. 운영 미조회·미적용·수동 workflow 실행 없음. |
 | `20261011180000_basket4a_confirm_links.sql` | 미적용(BASKET-4a 파일·PR 준비, 2026-10-11) | 조직·프로젝트 선택 확정 RPC만 추가. SECURITY INVOKER·빈 search_path·public/anon revoke 뒤 authenticated 실행권한. 기존 owner RLS·표·원문 유지. [검토·사전/사후·snapshot·정확한 함수 rollback](basket-4a-review.md). 운영 조회·적용·workflow 실행 없음. |
 | `20261010180000_basket2_drive_folder.sql` | 적용 완료 (2026-10-10, 승인 버튼 apply, 2차 실행) | nullable `basket_folder_id text`만 추가, owner/RLS/grant 변경 없음. 기존 settings 생성 정의는 저장소에 없어 catalog precheck·snapshot 확인 필수. [승인 버튼 dry-run → apply → Edge 최초 배포 → 화면 순서](basket-2a2-server-apply.md). 사용자 실행: dry-run 성공 → apply 1차 사전 기록 확인 실패(요청 미전송) → 2차 성공. ops_backup.20261010180000_app_drive_settings_<run_id> 백업 생성, 사후 검사 모두 예. 이 기록은 사용자 보고 기준이며 이번 화면 PR에서 운영 조회·적용 없음. |
 | `20261010120000_basket1_notes_links.sql` | 적용 완료(사용자 보고, 2026-10-10 SQL Editor, 폰 경로 C; 사후 확인 13항목 모두 “예”) (BASKET-1) | version `20261010120000`, name `basket1_notes_links`. 메모 첨부/보관/AI 포함/metadata 및 자료 대상 확장. 로컬 적용→rollback→재적용 검증, 운영 조회·적용 없음. [폰 경로 C 안내·snapshot·rollback](basket-1-apply.md). 커맨드센터 승인·사용자 SQL Editor 실행 직전 정지. |

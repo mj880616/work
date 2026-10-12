@@ -1,0 +1,8 @@
+-- Read-only: every row must say 예; snapshot/function body comparison is separate.
+select '4a prerequisite' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261011180000' and name='basket4a_confirm_links')=1 then '예' else '아니오' end as value
+union all select 'exact confirm signature exists',case when to_regprocedure('public.app_basket_confirm_links(uuid,timestamptz,jsonb)') is not null then '예' else '아니오' end
+union all select 'summary absent',case when not exists(select 1 from information_schema.columns where table_schema='public' and table_name='app_record_links' and column_name='summary') then '예' else '아니오' end
+union all select 'edit RPC absent',case when to_regprocedure('public.app_basket_update_link_summary(uuid,text,text)') is null then '예' else '아니오' end
+union all select 'migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261012100000') then '예' else '아니오' end
+union all select 'owner RLS remains',case when (select count(*) from pg_class c join pg_policy p on p.polrelid=c.oid where c.relrowsecurity and ((c.oid=to_regclass('public.app_record_links') and p.polname='record_links_owner_all') or (c.oid=to_regclass('public.app_notes') and p.polname='notes_owner_all')))=2 then '예' else '아니오' end
+union all select '4a exact prior body',case when exists(select 1 from pg_proc where oid=to_regprocedure('public.app_basket_confirm_links(uuid,timestamptz,jsonb)') and md5(prosrc)='975aff0e6331e41c0dfe7616b87ef252' and not prosecdef and proconfig=array['search_path=""']) then '예' else '아니오' end;
