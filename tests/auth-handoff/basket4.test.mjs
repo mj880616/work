@@ -40,6 +40,12 @@ test('BASKET-4a approved plan + real PostgreSQL owner RLS, atomic confirmation a
  await pool.query(migration);const post=(await pool.query(await read('docs/'+stem+'.postcheck.sql'))).rows;for(const row of post)assert.equal(row.ok,'예',row.item);
  assert.deepEqual((await pool.query('select polname,pg_get_expr(polqual,polrelid) qual,pg_get_expr(polwithcheck,polrelid) chk from pg_policy order by polname')).rows,policies);
  });
+ await t.test('summary migration rollback restores 4a before every existing behavior regression',async()=>{
+ const definition=(await pool.query("select pg_get_functiondef('public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure) def")).rows[0].def;
+ await pool.query(await read('supabase/migrations/20261012100000_basket_link_view_db.sql'));
+ await pool.query(await read('docs/20261012100000_basket_link_view_db.rollback.sql'));
+ assert.equal((await pool.query("select pg_get_functiondef('public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure) def")).rows[0].def,definition);
+ });
  await t.test('only authenticated executes; stranger cannot see or confirm owner note',async()=>{
  await assert.rejects(call([target('project',PROJECT_A)],stamp,OWNER,'anon'),{code:'42501'});
  await assert.rejects(call([target('project',PROJECT_A)],stamp,OWNER,'public_probe'),{code:'42501'});
