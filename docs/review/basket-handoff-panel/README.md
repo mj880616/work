@@ -41,7 +41,8 @@
 
 - 초기 SHA `d44cf7a` 자동 전체 회귀는 1212/1214(24.1분). 신규 지연 복사390/1280 두 사례만 실패했고 기존1200과 나머지 새 사례는 통과했다. CI는 Chromium Headless Shell140.0.7339.16을 사용했다. 첫 write의 activation은 true였지만 deferred data 준비 뒤 NotAllowedError였다. 로컬 Chromium151에서는 같은 무권한 지연 프로브가 성공했다. 버전/빌드 차이의 세부 원인은 단정하지 않는다.
 - 사용자가 허용한 두 번째 탭 경로로 보완: 실패 상자의 복사하기 → 이미 준비된 글에 새 동작에서 writeText → 실제 복사 성공 시 상자/글 비움. 진짜 권한 거부에서는 그대로 수동 복사/닫기 가능하다.
-- 지연 자동 성공 테스트는 명시 clipboard-write 허용 사례로 유지하여 첫 write active=true/실제 내용/상자 미표시를 모두 확인한다. 무권한 실제 native 지연 사례를 별도로 추가해, 처음 성공하거나 준비된 글에 새 탭을 누른 뒤 실제 복사 완료를 반드시 확인한다. activation을 data 준비 뒤 검사하는 모델은 실제 writeText를 사용하며 첫 거부→필수 두 번째 터치→실제 클립보드 내용과 상자 비움을 검증한다. 기존 main1200 테스트는 삭제·약화하지 않았다.
+- Playwright clipboard-write 단독은 allowWithoutGesture=true 권한 조회가 denied인 것을 RED로 확인했다. 기존 실제 복사 테스트와 같은 clipboard-read/write 명시 허용으로 맞추고 실제 granted 상태를 먼저 assertion한다. 무권한 native/재검사 모델은 그대로 두어 보안 경계를 우회하지 않고 두 번째 동작으로 완료하는지 확인한다.
+- 지연 자동 성공 테스트는 명시 clipboard-read/write 허용 사례로 유지하여 첫 write active=true/실제 내용/상자 미표시를 모두 확인한다. 무권한 실제 native 지연 사례를 별도로 추가해, 처음 성공하거나 준비된 글에 새 탭을 누른 뒤 실제 복사 완료를 반드시 확인한다. activation을 data 준비 뒤 검사하는 모델은 실제 writeText를 사용하며 첫 거부→필수 두 번째 터치→실제 클립보드 내용과 상자 비움을 검증한다. 기존 main1200 테스트는 삭제·약화하지 않았다.
 - 후속 로컬 Node547/547·관련Chromium44/44. 최종 패널18/18 별도 통과. 결과를 PR 댓글에 기록한다. 권한 거부 때 복사하기 Enter를 눌러도 상자/글을 유지하는 assertion을 추가했다. 늦은 결과를 기다리는 CDP polling은 userGesture=false로 수행해 동작 만료를 가리지 않는다.
 - 두 번째 복사 원문 보존: textarea.value의 CRLF→LF 정규화가 실제 복사에 반영되는 RED를 추가로 재현했다. 원래 준비한 문자열을 handoff 메모리에만 유지하고 모든 clear에서 함께 비워, 실제 CRLF 복사 GREEN·최종 패널18/18·Node547/547을 확인했다. 추가 리뷰 중요 지적 없음.
 - 로컬 smoke 재실행·캐시425참조·문법/공백 통과. 추가 별도 리뷰 중요 지적 없음, 느린 준비 완료를 기다리라는 테스트 보완 반영.
