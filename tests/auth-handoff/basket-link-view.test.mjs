@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile} from 'node:fs/promises';
+import {mkdtemp,readFile,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {randomBytes} from 'node:crypto';
@@ -31,6 +31,7 @@ test('BASKET link summaries: real PostgreSQL validation, CAS, owner boundary and
  const note=(await pool.query(`insert into public.app_notes(workspace_id,raw_text,updated_at)values($1,E'  원문\n',$2) returning *`,[WS_A,'2026-10-11T01:02:03.123456Z'])).rows[0], stamp='2026-10-11T01:02:03.123456Z';
  const prior=await read('supabase/migrations/20261011180000_basket4a_confirm_links.sql');await pool.query(prior);
  const policies=(await pool.query('select polname,pg_get_expr(polqual,polrelid) qual,pg_get_expr(polwithcheck,polrelid) chk from pg_policy order by polname')).rows;
+ const originalACL=(await pool.query("select proacl from pg_proc where oid='public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure")).rows;
  const priorDefinition=(await pool.query("select pg_get_functiondef('public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure) def")).rows[0].def;
  const legacyNote=(await pool.query('insert into public.app_notes(workspace_id,raw_text)values($1,$2) returning id',[WS_A,'기존 메모'])).rows[0];
  await pool.query('insert into public.app_documents(id,workspace_id)values($1,$2)',[PROJECT_A2,WS_A]);
@@ -139,11 +140,68 @@ test('BASKET link summaries: real PostgreSQL validation, CAS, owner boundary and
  await pool.query("create policy synthetic_deny_org on public.app_record_links as restrictive for insert to authenticated with check(organization_id is null)");
  try{assert.equal((await call([target('project',PROJECT_A,'정상'),target('organization',ORG_A,'거절')])).error,'PERMISSION_DENIED');assert.equal((await links()).length,0);}finally{await pool.query('drop policy synthetic_deny_org on public.app_record_links');}
  });
+ let preservationIndex=0;
+ const preservation=async()=>{
+ const result=(await pool.query(await read('docs/'+stem+'.preserve.sql'))).rows[0];
+ const file=join(directory,'private-preservation-'+(++preservationIndex)+'.json');
+ await writeFile(file,JSON.stringify(result),{mode:0o600});
+ const reopened=JSON.parse(await readFile(file,'utf8'));
+ assert.deepEqual(JSON.parse(Buffer.from(reopened.preservation_hex,'hex').toString('utf8')),reopened.preservation_json);
+ return reopened;
+ };
+ const privateSQL=async(kind,backup)=>(await read('docs/'+stem+'.'+kind+'.sql')).replace('PASTE_VERIFIED_PRIVATE_HEX',backup.preservation_hex);
+ const resetTransaction=()=>pool.query('rollback');
+ await t.test('late edit commits while recovery waits for lock: refuses stale file and preserves new summary',async()=>{
+ await call([target('organization',ORG_A,'synthetic original')]);const [row]=await links(),backup=await preservation();
+ const writer=await pool.connect(),recovery=await pool.connect();let pending;
+ try{
+ await writer.query('begin');await writer.query('update public.app_record_links set summary=$1 where id=$2',['synthetic late edit',row.id]);
+ pending=recovery.query(await privateSQL('recovery',backup));const refused=assert.rejects(pending,/SUMMARY_PRESERVATION_CHANGED/);
+ let blocked=false;for(let i=0;i<100&&!blocked;i++){blocked=(await pool.query("select wait_event_type='Lock' blocked from pg_stat_activity where pid=$1",[recovery.processID])).rows[0]?.blocked;if(!blocked)await new Promise(r=>setTimeout(r,10));}
+ assert.equal(blocked,true);await writer.query('commit');await refused;await recovery.query('rollback');
+ assert.equal((await links())[0].summary,'synthetic late edit');
+ assert.notEqual((await pool.query("select to_regprocedure('public.app_basket_update_link_summary(uuid,text,text)') fn")).rows[0].fn,null);
+ }finally{await writer.query('rollback');await recovery.query('rollback');if(pending)await pending.catch(()=>{});writer.release();recovery.release();}
+ await clear();
+ });
+ await t.test('same count with changed text or relationship refuses recovery without clearing anything',async()=>{
+ await call([target('organization',ORG_A,'synthetic preserved')]);const [row]=await links(),backup=await preservation();
+ await pool.query('update public.app_record_links set summary=$1 where id=$2',['synthetic changed',row.id]);
+ await assert.rejects(pool.query(await privateSQL('recovery',backup)),/SUMMARY_PRESERVATION_CHANGED/);await resetTransaction();
+ assert.equal((await links())[0].summary,'synthetic changed');
+ await pool.query('update public.app_record_links set summary=$1,status=$2 where id=$3',['synthetic preserved','suggested',row.id]);
+ await assert.rejects(pool.query(await privateSQL('recovery',backup)),/SUMMARY_PRESERVATION_CHANGED/);await resetTransaction();
+ assert.equal((await links())[0].status,'suggested');assert.equal((await links())[0].summary,'synthetic preserved');await clear();
+ });
+ await t.test('added null-summary row and deleted row refuse full-row preservation mismatch',async()=>{
+ await call([target('organization',ORG_A,'synthetic preserved')]);const backup=await preservation();
+ await call([target('project',PROJECT_A)]);await assert.rejects(pool.query(await privateSQL('recovery',backup)),/SUMMARY_PRESERVATION_CHANGED/);await resetTransaction();
+ assert.equal((await links())[0].summary,'synthetic preserved');await clear();
+ await assert.rejects(pool.query(await privateSQL('recovery',backup)),/SUMMARY_PRESERVATION_CHANGED/);await resetTransaction();
+ });
+ await t.test('failure restoring old function rolls back summary clearing and every schema change',async()=>{
+ await call([target('organization',ORG_A,'synthetic preserved')]);const backup=await preservation(),before=await links();
+ const currentDefinition=(await pool.query("select pg_get_functiondef('public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure) def")).rows[0].def;
+ // PostgreSQL rejects changing an existing function argument name, after the clear and DROP.
+ const broken=(await privateSQL('recovery',backup)).replace('p_note_id uuid, p_note_updated_at','p_incompatible_name uuid, p_note_updated_at');
+ await assert.rejects(pool.query(broken),/cannot change name of input parameter/);await resetTransaction();
+ assert.deepEqual(await links(),before);
+ assert.equal((await pool.query("select pg_get_functiondef('public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure) def")).rows[0].def,currentDefinition);
+ for(const r of (await pool.query(await read('docs/'+stem+'.postcheck.sql'))).rows)assert.equal(r.ok,'예',r.item);
+ await clear();
+ });
  await t.test('rollback refuses summary loss; externally backed-up summaries allow exact prior restoration and 4a calls',async()=>{
  await call([target('organization',ORG_A,'보존 요약')]);const preserved=await links();
  const rollback=await read('docs/'+stem+'.rollback.sql');await assert.rejects(pool.query(rollback),/SUMMARY_BACKUP_REQUIRED/);await pool.query('rollback');
- const backup=preserved.map(r=>({id:r.id,summary:r.summary}));await pool.query('update public.app_record_links set summary=null where summary is not null');
- await pool.query(rollback);assert.deepEqual(await legacyRows(),legacyBefore);
+ const backup=await preservation();
+ const allBefore=backup.preservation_json.map(({summary,...row})=>row);
+ // Different SQL sessions/timezones must not change preservation equality.
+ await pool.query("set timezone='Asia/Seoul'");
+ await pool.query(await privateSQL('recovery',backup));
+ await pool.query("set timezone='UTC'");
+ const allAfter=(await preservation()).preservation_json.map(({summary,...row})=>row);
+ assert.deepEqual(allAfter,allBefore);
+ assert.deepEqual((await pool.query("select proacl from pg_proc where oid='public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure")).rows,originalACL);assert.deepEqual(await legacyRows(),legacyBefore);
  assert.equal((await pool.query("select pg_get_functiondef('public.app_basket_confirm_links(uuid,timestamptz,jsonb)'::regprocedure) def")).rows[0].def,priorDefinition);
  assert.equal((await pool.query("select to_regprocedure('public.app_basket_update_link_summary(uuid,text,text)') fn")).rows[0].fn,null);
  assert.deepEqual(await call([target('project',PROJECT_A),target('organization',ORG_A)]),{ok:true,created:1,existing:1});
@@ -151,7 +209,13 @@ test('BASKET link summaries: real PostgreSQL validation, CAS, owner boundary and
  assert.equal((await call([target('project',PROJECT_A)],'2026-10-11T01:02:03.123457Z')).error,'NOTE_CHANGED');
  assert.equal((await call([target('project',PROJECT_B)])).error,'TARGET_WORKSPACE');
  assert.deepEqual((await pool.query(await read('docs/20261011180000_basket4a_confirm_links.snapshot.sql'))).rows.filter(r=>['owner RLS/grants hash','policies hash'].includes(r.item)),invariant);
- await pool.query(migration);for(const r of backup)await pool.query('update public.app_record_links set summary=$1 where id=$2',[r.summary,r.id]);assert.equal((await links())[0].summary,'보존 요약');
+ await pool.query(migration);await pool.query(await privateSQL('restore',backup));assert.equal((await links())[0].summary,'보존 요약');
+ // Conditional replay never overwrites a later edit, a changed relationship or a deleted link.
+ await pool.query('update public.app_record_links set summary=$1 where id=$2',['synthetic later edit',preserved[0].id]);
+ await pool.query(await privateSQL('restore',backup));assert.equal((await links())[0].summary,'synthetic later edit');
+ await pool.query('update public.app_record_links set summary=null,status=$1 where id=$2',['suggested',preserved[0].id]);
+ await pool.query(await privateSQL('restore',backup));assert.equal((await links())[0].summary,null);
+ await clear();await pool.query(await privateSQL('restore',backup));assert.equal((await links()).length,0);
  });
  }finally{if(pool){await pool.end();await Promise.all(clientEnds);}await cluster.stop();}
 });

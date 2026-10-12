@@ -3,13 +3,13 @@ set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 lock table public.app_record_links in access exclusive mode;
 
--- STOP until the owner has exported and verified every non-null summary,
--- then explicitly cleared those values using the documented recovery steps.
+-- For an empty-summary rollback only. NEVER clear summaries in a prior
+-- transaction. With summaries, use the self-contained .recovery.sql instead.
 -- Never silently drop approved text. This guard is inside the same transaction.
 do $guard$
 begin
   if exists(select 1 from public.app_record_links where summary is not null) then
-    raise exception 'SUMMARY_BACKUP_REQUIRED: export, verify and clear summaries before rollback';
+    raise exception 'SUMMARY_BACKUP_REQUIRED: use verified private preservation and atomic recovery SQL';
   end if;
 end;
 $guard$;

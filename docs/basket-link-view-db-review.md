@@ -1,6 +1,6 @@
 무엇이 바뀌나: 연결마다 승인한 요약을 저장하고 나중에 고칠 서버 기능을 준비합니다. 이번에는 화면이 그대로입니다.
 잘못되면: 연결 확정이나 요약 수정이 거절될 수 있습니다. 적용 뒤 저장한 요약은 별도 보존 없이 칸을 제거하면 사라집니다.
-되돌리는 방법: 요약을 먼저 내보내 확인하고, 새 수정 함수와 요약 칸을 제거하면서 기존 확정 함수를 원래 정의로 복원합니다.
+되돌리는 방법: 요약을 비공개 파일로 보존·검증하고 잠금 뒤 현재 전체 행과 정확히 대조합니다. 일치할 때만 같은 transaction에서 요약 비우기·새 함수/칸 제거·기존 함수 복원을 실행합니다.
 
 # 📱 폰 가능 · BASKET-연결보기 1차 DB 준비
 
@@ -60,39 +60,34 @@ anon/PUBLIC은 함수 진입 전에 PostgreSQL 42501로 거절된다. 다른 소
 
 미병합 PR DB를 버튼으로 먼저 적용하지 않는다. 이번 Codex 웹 세션은 파일·테스트·PR·자동 CI 확인까지만 한다. 운영 접속·DB 적용·Edge 배포·workflow 수동 실행/재실행·승인·merge 없음.
 
-## 복구 · 사용자 SQL Editor 대안
+## 📱 폰 경로 C · 원자적 복구 / 사용자 SQL Editor 대안
 
-새 창(+)·대상 프로젝트·첫 줄 begin·마지막 줄 commit을 CC와 확인한 뒤 **사용자가 나중에** 실행한다. 요약 보존이 끝나기 전 rollback 금지. 실제 요약을 공개 저장소·PR·채팅·공개 Actions 로그/artifact에 올리지 않는다.
+무엇이 바뀌나: 검증한 비공개 파일과 잠금 뒤 현재 행 전체가 같을 때만 요약을 비우고 기존 4a 함수·스키마로 되돌린다.
+잘못되면: 파일과 현재 값이 다르거나 함수 복원이 실패하면 transaction 전체가 취소된다. 새 요약·새 스키마를 그대로 둔다.
+되돌리는 방법: 파일을 보존하고 원인을 확인한다. 정상 복구 뒤 요약이 다시 필요하면 별도 승인 재적용 후 조건부 복원 SQL을 쓴다.
 
-1. 요약 편집·연결 확정 입력을 멈추고 CC가 읽기 전용 snapshot을 확보한다.
-2. 사용자가 아래 SELECT를 **비공개 로컬 CSV/JSON**으로 내보낸다. 개행·Unicode·양끝 공백을 보존한다. apply의 사전 백업으로 대신하지 않는다.
+**이번 세션은 준비·격리 검증만 한다. 아래 운영 실행은 나중에 CC 검토·사용자 승인을 받은 사용자가 한다. rollback 버튼 제한은 그대로이며 workflow 정책을 넓히지 않는다.**
 
-   ```sql
-   select id, workspace_id, note_id, organization_id, project_id, meeting_id,
-          document_id, google_task_id, google_tasklist_id, status, summary
-   from public.app_record_links where summary is not null order by id;
-   ```
-
-3. `select count(*) from public.app_record_links where summary is not null;`과 파일 행 수·ID·전체 글을 대조하고 파일을 다시 읽을 수 있는지 확인한다. 안전한 파일 없이 다음 단계 금지.
-4. 파일을 보존하고 입력 중지를 유지한 채 사용자 새 SQL 창에서 값을 명시적으로 비운다. 요약 제거 작업이므로 CC 검토·사용자 실행이 필요하다.
+1. 요약 편집·연결 확정 입력을 멈추고 CC가 읽기 전용 snapshot을 확보한다. 입력 중지는 보조 조치이며, 이미 진행 중인 수정은 아래 잠금 뒤 정확한 대조로 잡는다.
+2. 사용자가 [preserve.sql](20261012100000_basket_link_view_db.preserve.sql) SELECT **전문**을 실행하고 결과 1행의 `preservation_json`·`preservation_hex` 두 값을 비공개 파일로 내보낸다. **NULL 요약 행을 포함한 app_record_links 전체 행·전체 칸**을 보존한다. 날짜 칸은 UTC로 정규화해 폰/SQL 세션 timezone 차이로 바뀌지 않는다. apply 사전 백업으로 대신하지 않는다.
+3. 파일을 다시 열어 JSON의 모든 ID·연결·요약 전문(개행·Unicode·양끝 공백 포함)을 확인한다. 건수만 대조하지 않는다. 저장한 hex를 아래 **읽기 전용 SELECT**에 넣어 다시 읽고 JSON과 정확히 같은지 대조한다. 잘림·불일치·파일 재읽기 실패면 중단한다. hex는 암호화가 아니며 JSON·실제 ID·요약·hex·값을 넣은 SQL 모두 비공개다. 공개 문서·PR·채팅·Actions 로그/artifact에 넣지 않는다.
 
    ```sql
-   begin;
-   set local lock_timeout = '5s';
-   lock table public.app_record_links in access exclusive mode;
-   update public.app_record_links set summary=null where summary is not null;
-   commit;
+   select convert_from(decode('PASTE_VERIFIED_PRIVATE_HEX','hex'),'UTF8')::jsonb
+     as private_preserved_rows;
    ```
 
-5. 곧바로 main의 `docs/20261012100000_basket_link_view_db.rollback.sql` **전문**을 사용자 새 창에서 실행한다. 새 요약이 생겼으면 SUMMARY_BACKUP_REQUIRED로 중단하고 보존 파일을 갱신한다. 칸 제거 전에 guard가 걸려 무음 손실을 막는다. 새 수정 함수 `app_basket_update_link_summary(uuid,text,text)`만 정확히 DROP하고, 기존 `app_basket_confirm_links(uuid,timestamptz,jsonb)`를 변경 전 4a 정의로 복원한다. 링크/메모/기존 4a 기록은 유지하고 새 version/name 기록만 삭제한다.
-6. CC가 summary/수정 RPC 없음·4a 함수 전문/EXECUTE 권한·행/출처/목적지/RLS 보존을 확인한다. 요약 보존 파일도 유지한다.
-7. 요약을 다시 서비스에 복구하려면 CC 검토 뒤 사용자가 migration을 재적용한다. 보존 파일을 매개변수로 읽는 로컬 절차 또는 별도 검토 SQL로 **동일 링크 ID·workspace·출처·목적지·status 일치, 현재 summary NULL**인 행에만 복원한다. 삭제/변경된 링크에는 강제로 쓰지 않는다. 복원 수·문자열 대조 뒤 편집을 연다.
+4. 사용자 폰에서 새 쿼리 창(+)을 열고 [recovery.sql](20261012100000_basket_link_view_db.recovery.sql) **전문**을 붙인다. 딱 한 곳의 `PASTE_VERIFIED_PRIVATE_HEX`를 검증한 파일의 **hex 값만**으로 바꾼다(따옴표/JSON/CSV 포장 제외). CC와 대상 프로젝트·첫 줄 `begin isolation level read committed;`·마지막 줄 `commit;`·파일 완전성을 확인하고 사용자가 실행한다. 붙여넣기가 길어도 **이 복구는 여러 transaction으로 나누지 않는다.** 폰에서 전문을 넣을 수 없으면 중단한다.
+5. SQL은 비공개 파일을 transaction 임시 표로 읽고 `ACCESS EXCLUSIVE` 잠금을 얻는다. **잠금 대기 중 늦은 수정이 commit해도 READ COMMITTED의 새 snapshot으로** 현재 전체 행·요약과 파일을 양방향 `EXCEPT`로 정확히 검사한다. 건수·hash만 비교하지 않는다. 추가/삭제/연결/상태/요약 어느 값이라도 다르면 `SUMMARY_PRESERVATION_CHANGED`로 중단하고 **어떤 요약도 비우지 않는다**. 파일을 새로 내보내 검증하고 CC가 재검토해야 하며, 오류를 무시해 강제 진행하지 않는다.
+6. 일치할 때만 같은 잠금·같은 transaction 안에서 요약 비우기 → 새 수정 함수 정확한 서명 DROP → 고정 4a 함수 전문 복원 → 새 제약/칸·새 version/name 기록 제거 → commit한다. 기존 함수 ACL·기존 연결 행은 보존한다. **함수 복원/칸 제거/기록 정리 어느 단계든 실패하면 요약 비우기도 취소된다.** 오류 시 같은 창에서 `rollback;`으로 실패 transaction을 끝내고 별도 SELECT로 요약·함수·스키마 보존을 확인한다. 비우기를 별도 실행하거나 rollback.sql을 앞뒤에 덧붙이지 않는다(begin/commit 중첩 없음).
+7. 정상 복구 후 CC가 summary/수정 RPC 없음·기존 4a 함수 전문과 ACL·연결 전체/RLS·기존 migration 기록 보존을 snapshot과 대조한다. 비공개 파일은 계속 보존한다. [rollback.sql](20261012100000_basket_link_view_db.rollback.sql)은 **요약이 하나도 없을 때의 독립 복구만** 허용하며, 요약이 있으면 guard로 거절한다. 사전에 값을 NULL로 만들어 이 guard를 우회하지 않는다.
+8. 요약을 다시 서비스에 복원할 때는 CC 검토·별도 사용자 승인으로 migration을 재적용한다. 새 창에 [restore.sql](20261012100000_basket_link_view_db.restore.sql) 전문과 같은 비공개 hex를 넣고 첫 줄·끝 줄·대상을 확인해 사용자가 실행한다. **현재 summary NULL + 동일 ID/workspace/출처/목적지/status 및 summary 외 전체 칸 일치**인 행에만 요약을 복원한다. 삭제·변경된 행이나 이미 새 요약이 있는 행은 덮어쓰지 않는다. `restored_count`, `preserved_summary_count`, `exact_restored_summary_count`와 비공개 문자열 대조로 복원을 확인한 뒤 편집을 연다. 제외 행은 CC가 검토하며 강제 쓰기·전체 백업 표 덮어쓰기·자동 재시도는 하지 않는다.
 
-요약을 비운 뒤 rollback이 실패하면 보존 파일을 유지한다. 칸이 남았는지 확인하고 같은 일치 조건으로 요약을 복원하거나 rollback을 재검토한다. 자동 재시도·전체 백업 표 덮어쓰기 금지. snapshot이 고정 4a 정의와 다르면 이 rollback을 실행하지 않고 CC가 실제 snapshot 복원 대안을 검토한다.
+snapshot이 고정 4a 정의와 다르면 이 복구를 실행하지 않고 CC가 실제 snapshot 복원 대안을 검토한다. 저장한 파일 자체를 잃으면 요약 복원이 불가능하다. 파일 검증과 사용자 SQL Editor 실행은 별도 승인 단계다.
 
 ## 검증 기록
 
-RED: 기존 4a에 summary를 보냈을 때 실제 PostgreSQL INVALID_TARGETS로 원하는 저장 결과와 불일치함을 확인했다. 신규 tests/auth-handoff/basket-link-view.test.mjs는 NULL·공백/길이/Unicode·중복 보존·수정·두 실제 세션 충돌·보관/AI 제외·소유자/업무공간/RLS·출처/상태/대상·원자성·요약 보존 guard·재적용 복원을 검사한다.
+RED: 기존 4a에 summary를 보냈을 때 실제 PostgreSQL INVALID_TARGETS로 원하는 저장 결과와 불일치함을 확인했다. 신규 tests/auth-handoff/basket-link-view.test.mjs는 NULL·공백/길이/Unicode·중복 보존·수정·두 실제 세션 충돌·보관/AI 제외·소유자/업무공간/RLS·출처/상태/대상·원자성·요약 보존 guard·잠금 대기 중 늦은 commit·같은 건수 내용 변경·전체 행 추가/삭제/연결 변경 거절·함수 복원 실패 원자성·비공개 파일 조건부 재적용 복원을 검사한다.
 
 기존 basket4.test.mjs 단언을 모두 유지하며, 새 migration → rollback → 이전 함수 전문 일치 확인 **뒤에 기존 4a 동작 전체**를 실행한다. 기존 Google 할 일·회의·자료 행도 실제 PostgreSQL로 보존을 확인한다.
 
