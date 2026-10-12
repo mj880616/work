@@ -58,7 +58,9 @@ async function swipe(page,selector,direction='left'){
 
 // Exercise the real touch handlers; API calls are mocked only at the network boundary.
 async function touchSequence(page,selector,{dx=-170,dy=2,phase='all',count=1,releaseClick=false}={}){
-  return page.locator(selector).first().evaluate((el,{dx,dy,phase,count,releaseClick})=>{
+  return page.evaluate(({selector,dx,dy,phase,count,releaseClick})=>{
+    const el=document.querySelector(selector);
+    if(!el)throw new Error('Missing touch target');
     const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
     const fire=(type,px,py)=>{
       const event=new Event(type,{bubbles:true,cancelable:true});
@@ -75,7 +77,7 @@ async function touchSequence(page,selector,{dx=-170,dy=2,phase='all',count=1,rel
     if(phase==='all'||phase==='end')fire('touchend',x+dx,y+dy);
     if(releaseClick)el.click();
     return {prevented,transform};
-  },{dx,dy,phase,count,releaseClick});
+  },{selector,dx,dy,phase,count,releaseClick});
 }
 
 async function setScale(page,scale){
