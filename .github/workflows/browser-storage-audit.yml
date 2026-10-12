@@ -94,6 +94,15 @@ jobs:
               # failed handoffs never persist a session. No application grant.
               'tests/security/auth-handoff-browser.test.mjs':[r'^\s*localStorage:\s*\{'],
               'tests/app-e2e/google-tasks-cache.spec.mjs':[r'\blocalStorage\b'],
+              # Synthetic stale-copy fixture only, scoped to the existing home-test display-cache key.
+              # This adds no application storage permission and permits no other key in this test file.
+              'tests/app-e2e/basket-link-home.spec.mjs':[
+                  r'^\s*'+re.escape(line)+r'\s*$' for line in (
+                      "const copy=JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:home-test'));",
+                      "localStorage.setItem('kptu_owner_cache:home-read-v1:home-test',JSON.stringify(copy));",
+                      "const cache=await page.evaluate(()=>JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:home-test')));",
+                  )
+              ],
               'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
               # LIB: exact read-only assertion that disclosure never creates storage keys.
               'tests/app-e2e/library-row-list.spec.mjs':[r'^\s*'+re.escape('const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));')+r'\s*$'],

@@ -34,15 +34,15 @@ for(const width of [390,1280])test(`record mutation events no longer reload home
 test('old weekly cache cannot restore retired cards and is pruned by current home reads',async({page})=>{
  await openHome(page);await ready(page);
  await page.evaluate(()=>{
-  const key=KPTURuntime.ownerCache.prefix+'home-read-v1:home-test',copy=JSON.parse(localStorage.getItem(key));
+  const copy=JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:home-test'));
   copy.cards.updates={savedAt:Date.now(),week:'2026-10-04T15:00:00.000Z',rows:[{organization_id:'o',name:'테스트 조직',date:'2026-10-06',text:'옛 조직 요약',type:'basket',note_id:'n'}]};
   copy.cards.tasks.unlinkedCount=3;
-  localStorage.setItem(key,JSON.stringify(copy));
+  localStorage.setItem('kptu_owner_cache:home-read-v1:home-test',JSON.stringify(copy));
  });
  await page.reload();await ready(page);
  await expect(page.locator('#homeView')).not.toContainText('옛 조직 요약');
  await expect(page.locator('[data-home-card="updates"],[data-home-unlinked]')).toHaveCount(0);
- const cache=await page.evaluate(()=>JSON.parse(localStorage.getItem(KPTURuntime.ownerCache.prefix+'home-read-v1:home-test')));
+ const cache=await page.evaluate(()=>JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:home-test')));
  expect(cache.cards.updates).toBeUndefined();expect(cache.cards.tasks.unlinkedCount).toBeUndefined();
  expect(cache.cards.tasks.names).toContainEqual({id:'overdue',names:['테스트 프로젝트']});
 });
