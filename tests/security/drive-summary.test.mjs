@@ -1,3 +1,4 @@
+import * as projectRules from '../../app/project-catalog-model.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -323,11 +324,11 @@ test('invalid Drive IDs fail closed and record controlled error without contents
   assert.doesNotMatch(JSON.stringify(h.patches),/private|evil/);
  }
 });
-test('destination catalog only exposes organization IDs and names',async()=>{
+test('destination catalog exposes only organization and active project IDs and names',async()=>{
  const h=harness({data:{app_notes:[],app_suborganizations:[{id:'org',name:'가상 조직',contact:'PRIVATE_CONTACT',recent_month_summary:'PRIVATE_SUMMARY'}],app_spaces:[...fixture.app_spaces,{id:'legacy',name:'PRIVATE_LEGACY'}]}});
  await h.request({Authorization:'Bearer valid-owner'});
  const section=h.uploads[1].body.split('<h2>바구니</h2>')[1];
- assert.match(section,/org.*가상 조직/);assert.doesNotMatch(section,/project ·|가상 하위 프로젝트|library|google_task|write_request_candidate/);assert.doesNotMatch(section,/PRIVATE_|recent_month_summary|status:/);
+ assert.match(section,/org.*가상 조직/);assert.match(section,/project · p · 가상 프로젝트/);assert.match(section,/project · child · 가상 프로젝트 › 가상 하위 프로젝트/);assert.doesNotMatch(section,/library|google_task|write_request_candidate/);assert.doesNotMatch(section,/PRIVATE_|recent_month_summary|status:/);
 });
 test('count and UTF-8 document limits publish explicit top notice and preserve last success',async()=>{
  for(const notes of [Array.from({length:101},(_,i)=>note('limit'+i)),Array.from({length:30},(_,i)=>note('bytes'+i,{raw_text:'가'.repeat(20000)}))]){
@@ -353,18 +354,18 @@ test('attachment filenames use Unicode character length like the DB constraint',
  assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);assert.ok(h.uploads[1].body.includes('😀'.repeat(251)+'.txt'));
 });
 
-test('basket omits every project while the existing project report remains unchanged',async()=>{
- const spaces=[...fixture.app_spaces,{id:'archived',name:'ARCHIVED_PARENT',project_system:'v2',status:'archived'},{id:'hidden',name:'HIDDEN_CHILD',parent_id:'archived',status:'active'},{id:'hiddenGrandchild',name:'HIDDEN_GRANDCHILD',parent_id:'hidden',status:'active'},{id:'archivedChild',name:'ARCHIVED_CHILD',parent_id:'p',status:'archived'}];
+test('basket reuses the catalog tree, excluding completed and archived projects; existing report stays unchanged',async()=>{
+ const spaces=[...fixture.app_spaces,{id:'done',name:'DONE_PROJECT',project_system:'v2',status:'done'},{id:'complete',name:'COMPLETED_PROJECT',management_version:2,status:'completed'},{id:'archived',name:'ARCHIVED_PARENT',project_system:'v2',status:'archived'},{id:'hidden',name:'HIDDEN_CHILD',parent_id:'archived',status:'active'},{id:'hiddenGrandchild',name:'HIDDEN_GRANDCHILD',parent_id:'hidden',status:'active'},{id:'archivedChild',name:'ARCHIVED_CHILD',parent_id:'p',status:'archived'}];
  const h=harness({data:{app_spaces:spaces}});await h.request({Authorization:'Bearer valid-owner'});
  const html=h.uploads[1].body,section=html.split('<h2>바구니</h2>')[1];
- assert.doesNotMatch(section,/ARCHIVED_|HIDDEN_/);assert.match(html.split('<h2>바구니</h2>')[0],/ARCHIVED_PARENT/);
- const context={window:{addEventListener(){}}};vm.runInNewContext(readFileSync(new URL('../../app/project-catalog.js',import.meta.url),'utf8'),context);
+ assert.doesNotMatch(section,/ARCHIVED_|HIDDEN_|DONE_PROJECT|COMPLETED_PROJECT/);assert.match(html.split('<h2>바구니</h2>')[0],/ARCHIVED_PARENT/);
+ const context={...projectRules,window:{addEventListener(){}}};vm.runInNewContext(readFileSync(new URL('../../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/,''),context);
  const expected=context.window.KPTUProjectCatalog.tree(spaces).map(row=>row.project.id);
- const catalog=Array.from(section.matchAll(/<p>project · ([^·]+) · /g),m=>m[1].trim());assert.deepEqual(catalog,[]);assert.ok(expected.includes('p'));assert.ok(expected.includes('child'));assert.match(html.split('<h2>바구니</h2>')[0],/가상 프로젝트|가상 하위 프로젝트/);
+ const catalog=Array.from(section.matchAll(/<p>project · ([^·]+) · /g),m=>m[1].trim());assert.deepEqual(catalog,expected.filter(id=>!['done','complete'].includes(id)));assert.match(section,/가상 프로젝트 › 가상 하위 프로젝트/);assert.ok(expected.includes('p'));assert.ok(expected.includes('child'));assert.match(html.split('<h2>바구니</h2>')[0],/가상 프로젝트|가상 하위 프로젝트/);
 });
 
 test('exact 100-note and 1MiB UTF-8 project limits are inclusive; the next byte fails',()=>{
- const data={organizations:[],organizationUpdates:[],projects:[],workstreams:[],progress:[],milestones:[],taskLinks:[],documents:[],meetings:[],noteLinks:[],notes:Array.from({length:100},(_,i)=>note('byte'+i,{raw_text:''}))};
+ const data={organizations:[],organizationUpdates:[],projects:[{id:'p',name:'합성 상한 프로젝트',project_system:'v2',status:'active'}],workstreams:[],progress:[],milestones:[],taskLinks:[],documents:[],meetings:[],noteLinks:[],notes:Array.from({length:100},(_,i)=>note('byte'+i,{raw_text:''}))};
  let rendered=core.renderDocuments(data,now);assert.equal(rendered.basketError,undefined);
  const encoder=new TextEncoder();let available=core.BASKET_LIMITS.documentBytes-encoder.encode(rendered.project).length;
  for(const n of data.notes){const bytes=Math.min(available,20000);n.raw_text='x'.repeat(bytes);available-=bytes;}
@@ -387,11 +388,11 @@ test('basket includes all organization pages; copy and Drive use identical every
  assert.match(section,/<h3>담당조직 목록 \(ID · 이름\)<\/h3>/);
  for(const org of orgs)assert.ok(section.includes(`organization · ${org.id} · ${org.name}`));
  assert.equal(h.calls.filter(c=>c.url.pathname.endsWith('app_suborganizations')).length,2);
- assert.doesNotMatch(section,/project ·|"project"|library|google_task|write_request_candidate|별도 제안/);
+ assert.match(section,/프로젝트 목록 \(ID · 이름\)/);assert.doesNotMatch(section,/library|google_task|write_request_candidate|별도 제안/);
  const guide=decodeHtml(section.split('<h3>제안 출력 안내</h3>')[1].split('<pre>')[1].split('</pre>')[0]);
  assert.equal(guide,classificationFormat(now));
  const intro=decodeHtml(section.split('<h3>제안 출력 안내</h3>')[1].split('<p>')[1].split('</p>')[0]);
- assert.equal(buildHandoff([],[],now).split('\n\n')[0],intro);
+ assert.equal(buildHandoff([],[],[],now).split('\n\n')[0],intro);
  const {parseAIAnswer}=await import('../../app/basket-classification.js');
  assert.deepEqual(parseAIAnswer(guide),{schema_version:1,copied_at:now.toISOString(),items:[]});
  const sample=JSON.parse(/```json\n([\s\S]*?)\n```/.exec(guide)[1]);
@@ -447,4 +448,31 @@ test('Drive completes every owner assignment page before selecting guidance orga
  const section=h.uploads[1].body.split('<h2>바구니</h2>')[1];
  assert.match(section,/organization · a ·/);assert.match(section,/organization · b ·/);assert.doesNotMatch(section,/organization · (c|d) ·|전체 조직을 싣습니다/);
  assert.equal(h.calls.filter(c=>c.url.pathname.endsWith('/app_suborganization_assignees')).length,2);
+});
+
+test('browser catalog and Drive guidance list the same six synthetic destinations and preserve assignment fallback',async()=>{
+ const synthetic=JSON.parse(readFileSync(new URL('../fixtures/basket-project-destinations.json',import.meta.url),'utf8'));
+ const {buildHandoff,selectBasketOrganizations}=await import('../../app/basket-ai-handoff.js');
+ const context={...projectRules,window:{addEventListener(){},dispatchEvent(){}},CustomEvent:class {}};
+ vm.runInNewContext(readFileSync(new URL('../../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/,''),context);
+ const catalog=context.window.KPTUProjectCatalog;
+ const snapshot=catalog.publish({workspaceId:'synthetic-workspace',userId:'synthetic-owner',spaces:synthetic.spaces});
+ const destinations=catalog.basketProjects(snapshot.projects);
+ assert.deepEqual(destinations,synthetic.expected_projects);
+ for(const assignments of [synthetic.assignees,[]]){
+  const selected=selectBasketOrganizations(synthetic.organizations,assignments);
+  const copy=buildHandoff(synthetic.notes,destinations,selected.organizations,new Date(synthetic.now),selected.fallback);
+  const data={organizations:synthetic.organizations,organizationAssignees:assignments,organizationUpdates:[],projects:synthetic.spaces.map(({metadata,...p})=>({...p,...metadata})),workstreams:[],progress:[],milestones:[],taskLinks:[],documents:[],meetings:[],notes:synthetic.notes,noteLinks:[]};
+  const rendered=core.renderDocuments(data,new Date(synthetic.now));assert.equal(rendered.basketError,undefined);
+  const basket=rendered.project.split('<h2>바구니</h2>')[1];
+  for(const [kind,expected] of [['project',synthetic.expected_projects],['organization',selected.organizations]]){
+   const actual=Array.from(basket.matchAll(new RegExp(`<p>${kind} · ([^·]+) · ([^<]+)</p>`,'g')),m=>({id:m[1].trim(),name:decodeHtml(m[2])}));
+   assert.deepEqual(actual,expected.map(({id,name})=>({id,name})));
+   for(const {id,name} of expected)assert.ok(copy.includes(`${kind} · ${id} · ${name}`));
+  }
+  for(const text of ['合成_PRIVATE','합성 완료 하위','합성 보관 상위','합성 숨김 하위','합성 옛 공간','합성 순환 A','합성 순환 B','합성 완료 표기']){assert.ok(!copy.includes(text));assert.ok(!basket.includes(text));}
+  assert.equal(copy.includes('담당조직이 지정되지 않아 전체 조직을 싣습니다'),selected.fallback);
+  assert.equal(basket.includes('담당조직이 지정되지 않아 전체 조직을 싣습니다'),selected.fallback);
+  assert.ok(copy.indexOf('담당조직 목록')<copy.indexOf('프로젝트 목록'));assert.ok(basket.indexOf('담당조직 목록')<basket.indexOf('프로젝트 목록'));
+ }
 });

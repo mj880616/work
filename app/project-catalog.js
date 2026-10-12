@@ -1,28 +1,8 @@
+import {isProject,select,active,archived,tops,kids,tree,basketProjects} from './project-catalog-model.mjs?v=1';
 (()=>{
 'use strict';
 if(window.KPTUProjectCatalog)return;
 // Canonical Web2 project catalog: one project rule and one hierarchy, shared by the project screen and the library.
-const isProject=p=>p?.metadata?.project_system==='v2'||Number(p?.metadata?.management_version)===2;
-function select(spaces){
-  const rows=Array.isArray(spaces)?spaces:[];
-  const included=new Set(rows.filter(isProject).map(x=>x.id));
-  let changed=true;
-  while(changed){
-    changed=false;
-    for(const p of rows)if(p.parent_id&&included.has(p.parent_id)&&!included.has(p.id)){included.add(p.id);changed=true}
-  }
-  return rows.filter(p=>included.has(p.id))
-}
-const active=projects=>projects.filter(p=>p.status!=='archived');
-const archived=projects=>projects.filter(p=>p.status==='archived');
-const tops=projects=>active(projects).filter(p=>!p.parent_id||!projects.some(parent=>parent.id===p.parent_id));
-const kids=(projects,p)=>active(projects).filter(x=>x.parent_id===p.id);
-function tree(projects){
-  const out=[],seen=new Set();
-  const walk=(p,depth)=>{if(seen.has(p.id))return;seen.add(p.id);out.push({project:p,depth});for(const c of kids(projects,p))walk(c,depth+1)};
-  for(const p of tops(projects))walk(p,0);
-  return out
-}
 const label=(name,depth)=>depth>0?'　'.repeat(depth)+'↳ '+name:name;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -75,5 +55,5 @@ function options(selected='',includeBlank=true){
 }
 function reset(){epoch+=1;flight=null;key='';state={workspaceId:null,userId:null,spaces:[],projects:[],loaded:false}}
 window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(next&&next===state.userId)return;reset()});
-window.KPTUProjectCatalog={isProject,select,active,archived,tops,kids,tree,label,options,publish,fetchSpaces,load,snapshot,describe,reset};
+window.KPTUProjectCatalog={isProject,select,active,archived,tops,kids,tree,basketProjects,label,options,publish,fetchSpaces,load,snapshot,describe,reset};
 })();

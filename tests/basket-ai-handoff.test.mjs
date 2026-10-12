@@ -1,8 +1,14 @@
+import * as projectRules from '../app/project-catalog-model.mjs';
 import test from 'node:test';
+import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {buildHandoff, selectHandoffNotes, readHandoff, mountHandoff} from '../app/basket-ai-handoff.js';
 import {parseAIAnswer, classificationFormat, ERROR_TEXT} from '../app/basket-classification.js';
+const installCatalog=rt=>{
+ globalThis.window={addEventListener(){},dispatchEvent(){},KPTURuntime:rt};
+ vm.runInNewContext(readFileSync(new URL('../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/,''),{...projectRules,window:globalThis.window,CustomEvent:class {}});
+};
 const now=new Date('2026-10-11T01:02:03.123Z'),stamp=now.toISOString();
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001';
 const note=(id=n,changes={})=>({id,raw_text:' 첫 줄\n둘째 줄 ',updated_at:stamp,occurred_at:stamp,ai_export_allowed:true,attachments:[],...changes});
@@ -17,9 +23,9 @@ test('export takes newest 100 notes with deterministic ID ordering',()=>{
 });
 test('handoff preserves original and only attachment name, type, Drive link; destinations and parser format round trip',()=>{
  const rows=[note(n,{attachments:[{file_name:'議事.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-drive',size_bytes:10,body:'ATTACHMENT_BODY',ocr:'OCR_SECRET'}]})];
- const text=buildHandoff(rows,[{id:n,name:'합성 담당조직'}],now);
- for(const required of [rows[0].raw_text,n,stamp,'議事.pdf','application/pdf','https://drive.google.com/file/d/synthetic-drive/view','합성 담당조직',"AI 정리 결과 넣기",'블록이 기준'])assert.ok(text.includes(required),required);
- for(const excluded of ['ATTACHMENT_BODY','OCR_SECRET','size_bytes','google_task','write_request_candidate','library','project','합성 프로젝트'])assert.ok(!text.includes(excluded),excluded);
+ const text=buildHandoff(rows,[{id:p,name:'합성 프로젝트'}],[{id:n,name:'합성 담당조직'}],now);
+ for(const required of [rows[0].raw_text,n,stamp,'議事.pdf','application/pdf','https://drive.google.com/file/d/synthetic-drive/view','합성 담당조직','합성 프로젝트','프로젝트 목록 (ID · 이름)',"AI 정리 결과 넣기",'블록이 기준'])assert.ok(text.includes(required),required);
+ for(const excluded of ['ATTACHMENT_BODY','OCR_SECRET','size_bytes','google_task','write_request_candidate','library',])assert.ok(!text.includes(excluded),excluded);
  const format=classificationFormat(now);const block=/```json\n([\s\S]*?)\n```/.exec(format)[1];
  const sample=JSON.parse(block);sample.items=proposal().items;assert.deepEqual(parseAIAnswer('사람 정리\n```json\n'+JSON.stringify(sample)+'\n```'),sample);
 });
@@ -64,9 +70,9 @@ test('wrapper retains item, destination, reason, depth and duplicate-key rejecti
  assert.throws(()=>parseAIAnswer(fenced(proposal()).replace('"kind":"project"','"kind":"project","\\u006bind":"project"')),/내용이 맞지/);
  }
 });
-test('destination read includes every scoped organization and never calls the project catalog',async()=>{
+test('destination read reuses owner-scoped catalog and includes only active visible projects',async()=>{
  const previous=globalThis.window;
- globalThis.window={addEventListener(){},dispatchEvent(){},KPTUProjectCatalog:{load(){assert.fail('project catalog must not be called');}}};
+
  const paths=[];
  const rt={context:{read:()=>({workspace:{id:'w'},user:{id:'u'}})},api:async path=>{
   paths.push(path);const url=new URL(path,'http://test');
@@ -77,25 +83,29 @@ test('destination read includes every scoped organization and never calls the pr
    {id:'child',name:'하위 프로젝트',parent_id:p},
    {id:'archive',name:'보관 프로젝트',status:'archived',metadata:{project_system:'v2'}},
    {id:'hidden-child',name:'보관 아래 숨김',parent_id:'archive'},
+   {id:'done',name:'완료 프로젝트',status:'done',metadata:{project_system:'v2'}},
+   {id:'completed',name:'완료 표기 프로젝트',status:'completed',metadata:{management_version:2}},
    {id:'legacy',name:'옛 공간'}];
   if(path.includes('app_suborganizations'))return url.searchParams.get('offset')==='0'?Array.from({length:100},(_,i)=>({id:'org'+i,name:'담당조직 '+i})):[{id:'org-last',name:'마지막 담당조직'}];
  }};
- globalThis.window.KPTURuntime=rt;
+ installCatalog(rt);
  try{
   const text=await readHandoff(rt,now);
   for(const label of ['담당조직 0','담당조직 99','마지막 담당조직'])assert.ok(text.includes(label));
-  for(const label of ['가능한 프로젝트','하위 프로젝트','보관 프로젝트','보관 아래 숨김','옛 공간'])assert.ok(!text.includes(label));
-  assert.ok(!paths.some(p=>new URL(p,'http://test').pathname.endsWith('/app_spaces')));
-  assert.doesNotMatch(readFileSync(new URL('../app/basket-ai-handoff.js',import.meta.url),'utf8'),/project-catalog|KPTUProjectCatalog/);
+  for(const label of ['가능한 프로젝트', '가능한 프로젝트 › 하위 프로젝트'])assert.ok(text.includes(label));
+  for(const label of ['완료 프로젝트','완료 표기 프로젝트','보관 프로젝트','보관 아래 숨김','옛 공간'])assert.ok(!text.includes(label));
+  const query=new URL(paths.find(p=>new URL(p,'http://test').pathname.endsWith('/app_spaces')),'http://test').searchParams;
+  assert.equal(query.get('owner_id'),'eq.u');assert.equal(query.get('workspace_id'),'eq.w');
+  assert.match(readFileSync(new URL('../app/basket-ai-handoff.js',import.meta.url),'utf8'),/KPTUProjectCatalog.load/);
   assert.ok(paths.filter(p=>p.includes('app_suborganizations')).every(p=>p.includes('workspace_id=eq.w')));
   paths.length=0;rt.api=async path=>{paths.push(path);return [];};assert.equal(await readHandoff(rt,now),'');assert.ok(!paths.some(p=>p.includes('app_spaces')||p.includes('app_suborganizations')));
  }finally{globalThis.window=previous;}
 });
 
-test('handoff example and organization proposal both round trip; legacy project replies remain accepted',()=>{
+test('handoff example and both organization and project proposals round trip',()=>{
  const format=classificationFormat(now);
- assert.doesNotMatch(format,/project|library|google_task|write_request_candidate/);
- assert.match(format,/kind는 organization\(담당조직\)만 쓰세요/);
+ assert.doesNotMatch(format,/library|google_task|write_request_candidate/);
+ assert.match(format,/kind는 organization\(담당조직\), project\(프로젝트\) 두 종류만 쓰세요/);
  assert.deepEqual(parseAIAnswer(format),{schema_version:1,copied_at:stamp,items:[]});
  const organization=proposal();organization.items[0].destinations[0].kind='organization';
  assert.deepEqual(parseAIAnswer('짧은 정리\n```json\n'+JSON.stringify(organization)+'\n```'),organization);
@@ -109,6 +119,7 @@ test('organization read cannot return a handoff after the workspace changes',asy
   if(path.includes('app_suborganizations')){workspaceId='other';return [{id:p,name:'조직'}];}
   return [];
  }};
+ installCatalog(rt);
  await assert.rejects(readHandoff(rt,now),/업무 공간이 바뀌었어요/);
 });
 
@@ -132,8 +143,10 @@ for(const mode of ['two','zero','inactive-only','failure','malformed','later-pag
     return mode==='two'?[{organization_id:'a'},{organization_id:'b'},{organization_id:'d'},{organization_id:'foreign'}]:mode==='inactive-only'?[{organization_id:'d'}]:[];
    }
    if(path.includes('app_suborganizations')){assert.equal(q.get('workspace_id'),'eq.w');assert.match(q.get('select'),/active/);return orgs;}
+   if(path.includes('app_spaces'))return [{id:p,name:'합성 프로젝트',metadata:{project_system:'v2'},status:'active'}];
    assert.fail(path);
   }};
+  installCatalog(rt);
   const text=await readHandoff(rt,now);
   const listed=text.split('담당조직 목록 (ID · 이름)')[1];
   for(const id of mode==='two'?['a','b']:['a','b','c'])assert.match(listed,new RegExp(`organization · ${id} ·`));
@@ -147,8 +160,10 @@ test('handoff reads every assignment page rather than publishing partial assigne
   if(path.includes('app_notes'))return [note()];
   if(path.includes('app_record_links'))return [];
   if(path.includes('app_suborganizations'))return [{id:'first',name:'합성 첫 조직',active:true},{id:'last',name:'합성 마지막 조직',active:true},{id:'other',name:'합성 다른 조직',active:true}];
+  if(path.includes('app_spaces'))return [];
   if(path.includes('app_suborganization_assignees'))return new URL(path,'http://test').searchParams.get('offset')==='0'?Array.from({length:100},()=>({organization_id:'first'})):[{organization_id:'last'}];
  }};
+ installCatalog(rt);
  const text=await readHandoff(rt,now);assert.match(text,/합성 첫 조직/);assert.match(text,/합성 마지막 조직/);assert.doesNotMatch(text,/합성 다른 조직|전체 조직을 싣습니다/);
 });
 

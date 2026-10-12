@@ -1,3 +1,4 @@
+import {select} from './project-catalog-model.mjs';
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
 import { basketState, renderBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
 export { basketState, BASKET_LIMITS };
@@ -62,14 +63,9 @@ export function renderDocuments(data, now) {
     org.push(...updates.map(u => paragraph(`${kstText(u.occurred_at)} (KST) · ${u.raw_text || ''}`)));
     if (!updates.length) org.push(paragraph('최근 4주 기록 없음'));
   }
-  // Same classification as app/project-catalog.js, using only two JSON scalar keys.
-  const included = new Set(data.projects.filter(p => p.project_system === 'v2' || Number(p.management_version) === 2).map(p => p.id));
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const p of data.projects) if (p.parent_id && included.has(p.parent_id) && !included.has(p.id)) { included.add(p.id); changed = true; }
-  }
-  const project = [], projects = data.projects.filter(p => included.has(p.id)).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || String(a.name).localeCompare(String(b.name), 'ko'));
+  // Reuse the screen catalog with only the two existing JSON scalar columns.
+  const project = [], projects = select(data.projects.map(p => ({...p, metadata: {project_system:p.project_system, management_version:p.management_version}})))
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || String(a.name).localeCompare(String(b.name), 'ko'));
   const names = new Map(projects.map(p => [p.id, p.name]));
   for (const p of projects) {
     project.push(heading(p.name), paragraph(`상태: ${p.status || '미지정'}${p.parent_id ? ` · 상위 프로젝트: ${names.get(p.parent_id) || '연결 없음'}` : ''}`));

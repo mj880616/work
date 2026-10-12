@@ -81,10 +81,11 @@ test('project screen and library share one canonical project catalog', async () 
   const team=read('app/team.js');
   const projectsBlock=views.slice(views.indexOf('async function projects()'),views.indexOf('async function library()'));
   const libraryBlock=views.slice(views.indexOf('async function library()'),views.indexOf('async function meetings()'));
-  for(const block of [projectsBlock,libraryBlock])expect(block.indexOf("module('./project-catalog.js?v=2')")).toBeGreaterThan(-1);
+  for(const block of [projectsBlock,libraryBlock])expect(block.indexOf("module('./project-catalog.js?v=3')")).toBeGreaterThan(-1);
   expect(projectsBlock.indexOf('project-catalog.js')).toBeLessThan(projectsBlock.indexOf('project-system-v3.js'));
   expect(libraryBlock.indexOf('project-catalog.js')).toBeLessThan(libraryBlock.indexOf('library-upload.js'));
-  expect(catalog).toContain("metadata?.project_system==='v2'");
+  expect(catalog).toContain("./project-catalog-model.mjs?v=1");
+  expect(read('app/project-catalog-model.mjs')).toContain("metadata?.project_system==='v2'");
   expect(catalog).toContain('owner_id=eq.');
   for(const source of [project,library]){
     expect(source).not.toContain("project_system==='v2'");

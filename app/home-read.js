@@ -62,7 +62,7 @@ try { homeCache = createHomeCache({storage:window.localStorage,keyPrefix:rt.owne
 function saveCopy(key,value){homeCache?.save(key,value);copies=homeCache?.read()||copies;}
 function preload(){
   if(!imports)imports={
-    projects:import('./project-catalog.js?v=2'),
+    projects:import('./project-catalog.js?v=3'),
     order:import('./organization-order.js?v=2'),
     google:import('./google-tasks.js?v=31'),
   };
