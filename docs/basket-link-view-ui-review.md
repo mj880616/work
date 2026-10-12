@@ -1,6 +1,6 @@
 # 📱 폰 가능 · BASKET-연결보기 2차 검토
 
-시작은 새 fetch한 origin/main `05f7840bea0f129b3c84dbf954a70668a56eda4a`(#505), 브랜치는 `codex/basket-link-view-ui`다. 관련 열린 PR 없음 확인 뒤 만들었다. 규칙 원문은 [AGENTS.md](../AGENTS.md)만 따른다.
+시작은 새 fetch한 origin/main `05f7840bea0f129b3c84dbf954a70668a56eda4a`(#505), 브랜치는 `codex/basket-link-view-ui`, 화면 PR은 [#507](https://github.com/mj880616/work/pull/507)이다. 관련 열린 PR 없음 확인 뒤 만들었다. 규칙 원문은 [AGENTS.md](../AGENTS.md)만 따른다.
 
 ## DB 전제와 범위
 
