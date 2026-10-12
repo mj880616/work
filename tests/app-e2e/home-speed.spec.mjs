@@ -47,13 +47,13 @@ test('cached cards paint silently before refresh and calendar status and events 
   await ready(page);c.requests.length=0;
   const refresh=start(page);
   await expect(page.locator('[data-home-card="calendar"]')).toContainText('오전 일정',{timeout:500});
-  await expect(page.locator('[data-home-unlinked]')).toContainText('3개',{timeout:500});
+  await expect(page.locator('[data-home-card="meetings"]')).toContainText('기한 없는 후속',{timeout:500});
   await expect(page.locator('#homeView')).not.toContainText('기기 사본');
   await expect.poll(()=>c.requests.filter(r=>['status','events'].includes(r.action)).length,{timeout:500}).toBe(2);
   await refresh;
   const metrics=await page.evaluate(()=>KPTUHome.metrics);
   expect(metrics.firstPaint.calendar).toBeLessThan(500);
-  expect(metrics.firstPaint.unlinked).toBeLessThan(500);
+  expect(metrics.firstPaint.meetings).toBeLessThan(500);
   expect(metrics.refreshed.calendar).toBeLessThan(1800);
   expect(c.requests.filter(r=>r.action==='overview')).toHaveLength(1);
   await expect(page.locator('[data-home-timing]')).toContainText('ms');
@@ -79,16 +79,14 @@ test('first visit task rows appear before links; overlapping starts share the re
   expect(c.requests.filter(r=>r.action==='events')).toHaveLength(1);
   await expect(page.locator('[data-home-timing]')).toHaveCount(0);
 });
-test('calendar copy survives reload but is ignored on next KST day; week copy expires on Monday',async({page})=>{
+test('calendar copy survives reload but is ignored on next KST day',async({page})=>{
   const c=await openHome(page);await ready(page);
-  c.setDelay('status',1200);c.setDelay('events',1200);c.setDelay('overview',1000);c.setDelay('app_suborganization_updates',1200);
+  c.setDelay('status',1200);c.setDelay('events',1200);c.setDelay('overview',1000);
   await page.reload();await expect(page.locator('[data-home-card="calendar"]')).toContainText('오전 일정',{timeout:700});
   await ready(page);
   await page.clock.setFixedTime(new Date('2026-10-06T15:00:00Z'));
   const next=start(page);
   await expect(page.locator('[data-home-card="calendar"]')).toContainText('불러오는 중',{timeout:500});await next;
-  await page.clock.setFixedTime(new Date('2026-10-11T15:00:00Z'));
-  const monday=start(page);await expect(page.locator('[data-home-card="updates"]')).toContainText('불러오는 중',{timeout:500});await monday;
 });
 test('latest failure is visible and does not replace the last successful copy',async({page})=>{
   const c=await openHome(page);await ready(page);c.setFailure('google-calendar');await start(page);
@@ -99,12 +97,12 @@ test('latest failure is visible and does not replace the last successful copy',a
   await expect(page.locator('[data-home-card="calendar"]')).toHaveAttribute('data-state','disconnected');
   await expect(page.locator('[data-home-card="tasks"]')).toHaveAttribute('data-state','disconnected');
 });
-test('fresh task event refreshes only task cards and preserves calendar and updates',async({page})=>{
+test('fresh task event refreshes only task cards and preserves calendar',async({page})=>{
   const c=await openHome(page);await ready(page);c.requests.length=0;
   c.tasks.push({id:'new',title:'새 항목',status:'needsAction',due:'2026-10-06'});
   await page.evaluate(()=>dispatchEvent(new CustomEvent('kptu:tasks-changed')));
   await expect(page.locator('[data-home-card="tasks"]')).toContainText('새 항목');
-  await expect(page.locator('[data-home-unlinked]')).toContainText('4개');
+  await expect(page.locator('[data-home-unlinked]')).toHaveCount(0);
   expect(c.requests.filter(r=>r.action==='status'||r.action==='events')).toHaveLength(0);
   expect(c.requests.filter(r=>r.path.endsWith('app_suborganization_updates'))).toHaveLength(0);
 });

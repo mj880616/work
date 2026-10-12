@@ -1,15 +1,13 @@
-import { readLinkRecords, readRecordPages } from './basket-link-records.js?v=1';
+import { readRecordPages } from './basket-link-records.js?v=1';
 import { mountQuick } from './home-quick.js?v=10';
-import { createHomeCache } from './home-read-cache.js?v=3';
+import { createHomeCache } from './home-read-cache.js?v=5';
 import {
   ranges,
   dayKey,
   milestoneChips,
   todayEvents,
   dueTasks,
-  unlinkedTasks,
   meetingTasks,
-  weekUpdates,
 } from "./home-read-model.js?v=3";
 const rt = window.KPTURuntime,
   root = document.querySelector("#homeView"),
@@ -40,8 +38,6 @@ let epoch = 0,
   unsubscribe = null,
   homeOwner = "",
   homeWorkspace = "",
-  updatesFlight = null,
-  updatesDirty = false,
   freshTaskRead = false,
   activeStart = null,
   taskFlight = null,
@@ -89,7 +85,7 @@ const share = (key, read) => {
 };
 function request(key){metrics.requests[key]=(metrics.requests[key]||0)+1;timing();}
 const api = (path) => {
-    const key=path.includes('google-calendar')?(path.includes('action=status')?'calendar':'events'):path.includes('app_project_milestones')?'milestones':path.includes('app_suborganization_assignees')?'assignments':path.includes('app_suborganization_updates')?'updates':path.includes('app_suborganizations')?'orgs':'meetings';
+    const key=path.includes('google-calendar')?(path.includes('action=status')?'calendar':'events'):path.includes('app_project_milestones')?'milestones':path.includes('app_suborganization_assignees')?'assignments':path.includes('app_suborganizations')?'orgs':'meetings';
     request(key);return rt.api(path);
   },
   list = (ids) => "in.(" + ids.map(encodeURIComponent).join(",") + ")";
@@ -98,7 +94,6 @@ const cards = {
   calendar: ["오늘 일정", "calendar", "달력"],
   tasks: ["오늘·밀린 할 일", "tasks", "할 일"],
   meetings: ["회의 후속", "meetings", "회의"],
-  updates: ["이번 주 조직 기록", "team", "담당조직"],
 };
 const desktopHome = window.matchMedia('(min-width:1024px)');
 function arrangeHome() {
@@ -107,7 +102,7 @@ function arrangeHome() {
     dday = card('dday');
   if (!left || !right || !dday) return;
   const target = desktopHome.matches ? right : left,
-    before = card(desktopHome.matches ? 'updates' : 'calendar');
+    before = desktopHome.matches ? null : card('calendar');
   if (dday.parentElement === target) return;
   const focused = dday.contains(document.activeElement) ? document.activeElement : null;
   target.insertBefore(dday, before);
@@ -122,7 +117,7 @@ function shell() {
     const [title, view, label] = cards[key];
     return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header><div data-home-body role="status">불러오는 중…</div></section>`;
   };
-  host.innerHTML = `<div data-home-column="main">${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${['dday','updates'].map(section).join('')}</div>`;
+  host.innerHTML = `<div data-home-column="main">${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}</div>`;
   host.querySelector('[data-home-column="main"]').prepend(quick);
   focused?.focus({ preventScroll: true });
   arrangeHome();
@@ -131,7 +126,7 @@ function shell() {
     const p=document.createElement('p');p.className='home-timing';p.dataset.homeTiming='';root.append(p);
   }
 }
-const requestKeys={dday:['projects','milestones'],calendar:['calendar','events'],tasks:['tasks','links'],meetings:['tasks','links','meetings'],updates:['orgs','assignments','updates','basket-updates']};
+const requestKeys={dday:['projects','milestones'],calendar:['calendar','events'],tasks:['tasks','links'],meetings:['tasks','links','meetings']};
 function timing(){
   const p=root.querySelector('[data-home-timing]');if(!p)return;
   p.textContent=Object.entries(cards).map(([key,[label]])=>`${label}: 표시 ${metrics.firstPaint[key]??'…'}ms · 최신 ${metrics.refreshed[key]??'…'}ms · 요청 ${requestKeys[key].reduce((n,k)=>n+(metrics.requests[k]||0),0)}회`).join(' / ')+` / 전체 요청 ${Object.values(metrics.requests).reduce((a,b)=>a+b,0)}회`;
@@ -261,24 +256,16 @@ function renderTasks({ includeMeetings = true } = {}) {
   const rows = shown
     .filter((x) => dueIds.has(x.place.id))
     .sort((a, b) => String(a.place.due).localeCompare(String(b.place.due)));
-  const n = linksReady ? unlinkedTasks(
-    shown.map((x) => x.task),
-    links,
-  ).length : copies.tasks?.unlinkedCount ?? (tasks.every(t=>typeof t.unlinked==='boolean')?tasks.filter(t=>t.status!=='completed'&&t.unlinked).length:null);
   if (tasksReady)
     paint(
       "tasks",
-      (rows.length
+      rows.length
         ? taskRows(rows)
-        : '<p class="home-status">오늘·밀린 할 일 없음</p>') +
-        (n
-          ? `<button type="button" class="home-unlinked" data-home-unlinked>연결 안 된 할 일 ${n}개 정리하기 ›</button>`
-          : ""),
+        : '<p class="home-status">오늘·밀린 할 일 없음</p>',
       dueTasks(shown.map((x) => x.task)).length,
     );
-  if(tasksReady&&n!==null){metrics.firstPaint.unlinked??=Math.round(performance.now()-metrics.shellAt);timing();}
   if(tasksReady)card('meetings')?.querySelectorAll('[data-home-toggle]').forEach(b=>{b.disabled=!google?.taskState(b.dataset.homeToggle)?.task;});
-  if(tasksReady&&linksReady)saveCopy('tasks',{unlinkedCount:n,names:tasks.map(t=>({id:t.id,names:links.filter(l=>l.google_task_id===t.id&&l.status==='confirmed').flatMap(l=>[projects.find(p=>p.id===l.project_id)?.name,orgs.find(o=>o.id===l.organization_id)?.name].filter(Boolean))}))});
+  if(tasksReady&&linksReady)saveCopy('tasks',{names:tasks.map(t=>({id:t.id,names:links.filter(l=>l.google_task_id===t.id&&l.status==='confirmed').flatMap(l=>[projects.find(p=>p.id===l.project_id)?.name,orgs.find(o=>o.id===l.organization_id)?.name].filter(Boolean))}))});
   if (!meetingsReady || !includeMeetings) return;
   const ids = new Set(
       meetingTasks(
@@ -319,19 +306,9 @@ function renderCalendar(rows){
     return `<div class="home-event"><time>${time}</time><i style="background:${color}" aria-hidden="true"></i><span class="home-title">${esc(e.title)}</span></div>`;
   }).join(''),rows.length);
 }
-function renderUpdates(rows){
-  if(!rows.length)return empty('updates','이번 주 기록 없음');
-  paint('updates',rows.map(u=>{
-    const contents=`<strong>${u.type==='basket'?'<small>바구니 연결</small> ':''}${esc(u.name)}</strong><span class="home-title">${esc(u.text)}</span><time>${Number(u.date.slice(5,7))}.${Number(u.date.slice(8,10))}</time>`;
-    return u.type==='basket'
-      ? `<a class="home-update" data-home-note="${esc(u.note_id)}" href="?view=basket&amp;note=${encodeURIComponent(u.note_id)}">${contents}</a>`
-      : `<button type="button" class="home-update" data-home-org="${esc(u.organization_id)}">${contents}</button>`;
-  }).join(''),rows.length);
-}
 function restoreCopies(){
   if(copies.dday)renderDday(copies.dday.rows);
   if(copies.calendar)renderCalendar(copies.calendar.rows);
-  if(copies.updates)renderUpdates(copies.updates.rows);
   if(copies.meetings){
     const rows=copies.meetings.rows;
     if(rows.length)paint('meetings',rows.map(r=>`<div class="home-task" data-home-task="${esc(r.id)}"><button type="button" class="gt-check" data-home-toggle="${esc(r.id)}" ${google?.taskState(r.id)?.task?'':'disabled'} aria-label="완료" aria-pressed="false"></button><div class="home-task-text"><div class="home-title">${esc(r.title)}</div><small>${esc(r.meetingName)}</small></div></div>`).join(''),rows.length);
@@ -446,47 +423,8 @@ const loaders = {
     meetingsReady = true;
     renderTasks();
   },
-  async updates(run) {
-    const [os, as] = await Promise.all([
-        dependencies.orgs(),
-        dependencies.assignments(),
-      ]),
-      ids = os
-        .filter((o) => o.active === true && as.some((a) => a.organization_id === o.id))
-        .map((o) => o.id),
-      r = ranges();
-    guard(run);
-    if (!ids.length) { saveCopy("updates",{week:r.weekStart,rows:[]}); return empty("updates", "이번 주 기록 없음"); }
-    const [up, basket] = await Promise.all([
-      share("updates", () => readRecordPages(
-        `/rest/v1/app_suborganization_updates?organization_id=${list(ids)}&occurred_at=gte.${encodeURIComponent(r.weekStart)}&occurred_at=lt.${encodeURIComponent(r.weekEnd)}&select=id,organization_id,occurred_at,raw_text,detail_text&order=occurred_at.desc,id.asc`, {...rt,api})),
-      share("basket-updates", () => readLinkRecords({kind:'organization',targetIds:ids,weekStart:r.weekStart,weekEnd:r.weekEnd}, {...rt, api:path=>{request('basket-updates');return rt.api(path);}})),
-    ]);
-    guard(run);
-    const rows = weekUpdates([...up,...basket], os, as);
-    const copy=rows.map(u=>({organization_id:u.organization_id,name:os.find(o=>o.id===u.organization_id)?.name||'',date:dayKey(Date.parse(u.occurred_at)),text:[...String(u.type==='basket'?(u.summary||'요약 없음'):(u.raw_text||u.detail_text||''))].slice(0,80).join(''),...(u.type==='basket'?{type:'basket',note_id:u.note_id}:{})}));
-    saveCopy('updates',{week:r.weekStart,rows:copy});renderUpdates(copy);
-  },
 };
-function refreshUpdates(){
-  if(!current(epoch))return Promise.resolve();
-  if(updatesFlight){updatesDirty=true;return updatesFlight;}
-  for(const key of ['updates','basket-updates','orgs','assignments'])flights.delete(key);
-  return loadCard('updates');
-}
-function loadCard(key, run = epoch) {
-  if(key==='updates'){
-    if(updatesFlight)return updatesFlight;
-    const tracked=readCard(key,run).finally(()=>{
-      if(updatesFlight!==tracked)return;
-      updatesFlight=null;
-      if(current(run)&&updatesDirty){updatesDirty=false;return refreshUpdates();}
-    });
-    updatesFlight=tracked;return tracked;
-  }
-  return readCard(key,run);
-}
-async function readCard(key, run = epoch) {
+async function loadCard(key, run = epoch) {
   try {
     await loaders[key](run);
   } catch {
@@ -501,7 +439,6 @@ function start({ freshTasks = false } = {}) {
   freshTaskRead = freshTasks;
   homeOwner = owner();
   homeWorkspace = workspace();
-  updatesFlight = null;updatesDirty = false;
   epoch++;
   flights = new Map();
   taskStatus = "loading";
@@ -519,7 +456,7 @@ function start({ freshTasks = false } = {}) {
   shell();
   restoreCopies();
   const run = epoch;
-  // Names enhance rows independently: a project/catalog failure does not prevent Google task rows or organization updates.
+  // Names enhance rows independently: a project/catalog failure does not prevent Google task rows.
   dependencies
     .projects()
     .then((v) => {
@@ -549,7 +486,7 @@ function start({ freshTasks = false } = {}) {
     .catch(() => {});
   const taskReads=Promise.allSettled(['tasks','meetings'].map(key=>loadCard(key,run)));
   trackTaskFlight(taskReads,run);
-  const started=Promise.allSettled([taskReads,...['dday','calendar','updates'].map(key=>loadCard(key,run))]).then(
+  const started=Promise.allSettled([taskReads,...['dday','calendar'].map(key=>loadCard(key,run))]).then(
     () => {
       if (!current(run)) return;
       metrics.readyAt = performance.now();
@@ -590,7 +527,6 @@ root.addEventListener("click", async (event) => {
       flights.delete("events");
     }
     if(key==='tasks'||key==='meetings')return refreshTaskCards();
-    if(key==='updates')return refreshUpdates();
     await loadCard(key);
     return;
   }
@@ -610,16 +546,9 @@ root.addEventListener("click", async (event) => {
     return;
   }
   try {
-    if (b.hasAttribute("data-home-unlinked")) {
-      await window.KPTUViewLoader.load("tasks");
-      window.KPTURouter.go("tasks", { source: "delegated" });
-      google.showUnlinked();
-    } else if (b.dataset.homeProject) {
+    if (b.dataset.homeProject) {
       await window.KPTUViewLoader.load("projects");
       await window.KPTUProjects.open(b.dataset.homeProject);
-    } else if (b.dataset.homeOrg) {
-      await window.KPTUViewLoader.load("team");
-      await window.KPTUWorkplace.open(b.dataset.homeOrg);
     }
   } catch {
     const c = b.closest("[data-home-card]");
@@ -632,7 +561,7 @@ window.addEventListener("focus", () => {
 });
 window.addEventListener("kptu:session-changed", (event) => {
   if (event.detail?.session?.user?.id === homeOwner && workspace() === homeWorkspace) return;
-  homeOwner = "";homeWorkspace = "";updatesFlight=null;updatesDirty=false;
+  homeOwner = "";homeWorkspace = "";
   epoch++;
   flights.clear();
   unsubscribe?.();
@@ -664,12 +593,6 @@ window.addEventListener("kptu:api-saved", (event) => {
   if (window.KPTURouter.current !== "home") return;
   const path = event.detail?.path || "";
   if(path.includes('google-tasks')&&!path.includes('action=toggle')&&taskFlight)tasksDirty=true;
-  if (path.includes("/app_suborganization_updates")) {
-    void refreshUpdates();
-  }
-});
-window.addEventListener('kptu:basket-links-changed',()=>{
-  if(window.KPTURouter.current==='home')void refreshUpdates();
 });
 async function refreshQuickTasks() {
   await refreshTaskCards();

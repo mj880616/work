@@ -23,10 +23,10 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
     await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt);
     const b=await boxes(page);
     const left=['quick','calendar','tasks','meetings'];
-    const right=milestones?['dday','updates']:['updates'];
-    const order=width>=1024?[...left,...right]:['quick',...(milestones?['dday']:[]),'calendar','tasks','meetings','updates'];
+    const right=milestones?['dday']:[];
+    const order=width>=1024?[...left,...right]:['quick',...(milestones?['dday']:[]),'calendar','tasks','meetings'];
     expect(await readingOrder(page)).toEqual(order);
-    if(width>=1024){
+    if(width>=1024&&milestones){
       const sidebar=b[right[0]];
       expect(sidebar.width).toBeGreaterThanOrEqual(320);
       expect(sidebar.width).toBeLessThanOrEqual(380);
@@ -37,13 +37,17 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
         expect(b[left[i]].x).toBe(b.quick.x);
         expect(b[left[i]].y-b[left[i-1]].bottom).toBeCloseTo(12,0);
       }
-      if(milestones)expect(b.updates.y-b.dday.bottom).toBeCloseTo(12,0);
-      expect(b.updates.bottom).toBeLessThan(b.meetings.bottom);
+      expect(b.dday.bottom).toBeLessThan(b.meetings.bottom);
     }else{
       for(let i=1;i<order.length;i++){
         expect(b[order[i]].x).toBe(b.quick.x);
         expect(b[order[i]].y).toBeGreaterThanOrEqual(b[order[i-1]].bottom);
       }
+    }
+    if(width>=1024&&!milestones){
+      await expect(page.locator('[data-home-column="aside"]')).toBeHidden();
+      const host=await page.locator('[data-home-cards]').boundingBox();
+      expect(b.quick.width).toBeCloseTo(host.width,0);
     }
     await noOverflow(page);
     await expect(page.locator('[data-home-card="dday"]')).toHaveCount(1);
@@ -62,10 +66,10 @@ test('home breakpoint moves the same D-day control and preserves input and focus
     expect(await chip.evaluate(el=>el===window.layoutChip)).toBe(true);
     await expect(page.locator('[data-quick-input]')).toHaveValue('유지할 입력');
     await noOverflow(page);
-    expect(await readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday','updates']:['quick','dday','calendar','tasks','meetings','updates']);
+    expect(await readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday']:['quick','dday','calendar','tasks','meetings']);
   }
 });
-for(const [card,view] of [['calendar','calendar'],['tasks','tasks'],['meetings','meetings'],['updates','team']]){
+for(const [card,view] of [['calendar','calendar'],['tasks','tasks'],['meetings','meetings']]){
   test(`desktop home ${card} arrow keeps its destination`,async({page})=>{
     await page.setViewportSize({width:1280,height:1000});await openHome(page);
     await page.locator(`[data-home-card="${card}"] [data-goto="${view}"]`).click();
