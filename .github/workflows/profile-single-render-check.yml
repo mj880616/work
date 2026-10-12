@@ -22,7 +22,7 @@ on:
 
 jobs:
   structure:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Check legacy profile fixture is excluded from the production shell
@@ -54,7 +54,7 @@ jobs:
           node --check app/profile-settings.js
 
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

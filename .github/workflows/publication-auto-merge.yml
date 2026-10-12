@@ -14,7 +14,7 @@ concurrency:
 jobs:
   reserve:
     if: github.event.pull_request.base.ref == 'main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
@@ -76,7 +76,7 @@ jobs:
   build-pages:
     needs: reserve
     if: needs.reserve.outputs.armed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
