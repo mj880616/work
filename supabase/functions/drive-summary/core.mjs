@@ -1,4 +1,4 @@
-import {select} from '../../../app/project-catalog-model.mjs';
+import {select} from './project-catalog-model.mjs';
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
 import { basketState, renderBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
 export { basketState, BASKET_LIMITS };

@@ -1,4 +1,4 @@
-import {basketProjects} from '../../../app/project-catalog-model.mjs';
+import {basketProjects} from './project-catalog-model.mjs';
 // Basket guidance only: active + actual owner assignment, matching home weekUpdates.
 // Keep browser/Edge deployment-local copies identical; regression tests compare them.
 export function selectBasketOrganizations(organizations, assignees) {

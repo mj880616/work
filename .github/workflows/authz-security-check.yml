@@ -5,7 +5,9 @@ on:
     paths:
       - 'supabase/**'
       - 'app/project-catalog-model.mjs'
+      - 'scripts/check-drive-summary-isolation.mjs'
       - 'tests/security/**'
+      - 'tests/edge-isolation/**'
       - 'tests/auth-handoff/**'
       - '.github/workflows/**'
       - 'scripts/publication-pr-policy.mjs'
@@ -17,7 +19,9 @@ on:
     paths:
       - 'supabase/**'
       - 'app/project-catalog-model.mjs'
+      - 'scripts/check-drive-summary-isolation.mjs'
       - 'tests/security/**'
+      - 'tests/edge-isolation/**'
       - 'tests/auth-handoff/**'
       - '.github/workflows/**'
       - 'scripts/publication-pr-policy.mjs'
@@ -51,8 +55,19 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install Deno for functions-only deployment regression
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.6
+
       - name: Verify trusted-layer authorization invariants
         run: node --test tests/security/*.test.mjs
+
+      - name: Test rejection of imports outside the deployment artifact
+        run: node --test tests/edge-isolation/*.test.mjs
+
+      - name: Check functions-only drive-summary deployment package
+        run: node scripts/check-drive-summary-isolation.mjs
 
       - name: Verify SQL authorization regression assets
         shell: bash
