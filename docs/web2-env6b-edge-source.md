@@ -171,7 +171,7 @@
 | 28 | `rtw-personal-write` | 읽생기 | v2 | 09-18 23:29 | false | read-think-write |
 | 29 | `rtw-recommend` | 읽생기 | v8 | 09-21 04:41 | false | read-think-write |
 | 30 | `rtw-url-import` | 읽생기 | v8 | 09-21 04:36 | **true** | read-think-write |
-| 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v5 | 10-11 (승인 버튼) | false | work (8b91b60, #500 BASKET-3-보완). 되돌리기 ref `d85e334`(v4 소스, #491). v2 출처 미기록 |
+| 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v6 | 10-12 (승인 버튼) | false | work (e1d7483, #502 BASKET-목적지복구). 되돌리기 ref `8b91b60`(v5 소스, #500). v2 출처 미기록 |
 | 32 | `basket-files` | Web2(바구니 첨부) | v2 (배포 완료) | 2026-10-11 (사용자 보고) | false | work (4bd2f71, #479) |
 
 `basket-files`는 2026-10-10 사용자 승인형 #475 신규 배포 경로로 최초 배포 완료했다.
