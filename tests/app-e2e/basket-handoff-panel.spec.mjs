@@ -65,8 +65,8 @@ for(const width of [390,1280]){
   await page.route(SB+'/rest/v1/app_notes?**',r=>r.fulfill({json:[note]}));
   for(const control of ['[data-basket-filter="all"]','[data-classification-open]','[data-basket-row]','[data-goto="home"]']){
    await page.locator(control).click();await cleared(page);
-   if(control.includes('classification'))await page.locator('[data-classification-close]').click();
-   if(control.includes('basket-row'))await page.locator('[data-basket-close]').click();
+   if(control.includes('classification')){await press(page);await expect(text).toBeVisible();await page.locator('[data-classification-close]').click();await cleared(page);}
+   if(control.includes('basket-row')){await press(page);await expect(text).toBeVisible();await page.locator('[data-basket-close]').click();await cleared(page);}
    if(control.includes('goto'))await page.evaluate(()=>window.KPTURouter.go('basket'));
    await press(page);await expect(text).toBeVisible();
   }
@@ -84,13 +84,15 @@ for(const width of [390,1280]){
  });
 }
 
-for(const width of [390,1280])for(const [control,target] of [
+for(const width of [390,1280])for(const [control,target,source] of [
  ['[data-basket-filter="all"]','[data-basket-filter="all"][aria-pressed="true"]'],
  ['[data-classification-open]','[data-classification-panel]'],
  ['[data-basket-row]','[data-basket-detail]'],
+ ['[data-classification-close]','[data-basket-list]','[data-classification-open]'],
+ ['[data-basket-close]','[data-basket-list]','[data-basket-row]'],
 ]){
  test(`handoff pending read cancelled by ${control} ${width}`,async({page})=>{
-  const {errors}=await setup(page,width);await denied(page);
+  const {errors}=await setup(page,width);await denied(page);if(source)await page.locator(source).click();
   // Await the real reader finishing as well as the HTTP response, to catch late UI restoration.
   await trackPrepared(page);
   let release;const held=new Promise(resolve=>release=resolve);await page.route(SB+'/rest/v1/app_notes?**',async r=>{await held;await r.fallback();});

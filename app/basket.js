@@ -19,7 +19,7 @@ const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{isBlocke
 const classification = mountClassification(root.querySelector('[data-classification-host]'), {
   isBlocked:()=>busy, onBusy:value=>{busy=value;if(value)++epoch;},
   onOpen:()=>{handoff.close();closeDetail();if(selected)return false;list.hidden=true;return true;},
-  onClose:()=>{list.hidden=false;root.querySelector('[data-classification-open]').focus();},
+  onClose:()=>{handoff.close();list.hidden=false;root.querySelector('[data-classification-open]').focus();},
   onConfirmed:async(noteId,targets)=>{
     for(const target of targets){const key=target.kind==='project'?'project_id':'organization_id';
       if(!links.some(l=>l.note_id===noteId&&l[key]===target.target_id&&l.status==='confirmed'))
@@ -45,6 +45,7 @@ const textDirty = () => selected && detail.querySelector('[data-basket-text]')?.
 const dirty = () => textDirty() || upload.entries.some(e=>e.kind!=='success');
 function closeDetail({focus = true, force = false} = {}) {
   if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return;
+  handoff.close();
   const id = selected?.id; selected = null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
 }
@@ -130,7 +131,7 @@ async function reloadDetail() {
 root.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   // Navigation cancels this handoff's read, but never releases another operation's lock.
-  if (b.matches('[data-basket-filter],[data-classification-open],[data-basket-row]')) handoff.close();
+  if (b.matches('[data-basket-filter],[data-classification-open],[data-basket-row],[data-basket-close]')) handoff.close();
   if (busy) return;
   if (b.hasAttribute('data-handoff-copy')) void handoff.copy();
   else if (b.hasAttribute('data-classification-open')) classification.open();
