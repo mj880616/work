@@ -100,10 +100,10 @@ for(const width of [390,1280])for(const [control,target] of [
 }
 
 for(const width of [390,1280])test(`handoff browser rechecks activation then prepared copy succeeds on second tap ${width}`,async({page})=>{
- const {note,errors}=await setup(page,width);await requireFreshGesture(page);
+ const {note,errors}=await setup(page,width);note.raw_text='합성 원문\r\n둘째 줄';await requireFreshGesture(page);
  await page.route(SB+'/rest/v1/app_notes?**',async r=>{await new Promise(resolve=>setTimeout(resolve,6100));await r.fallback();});
  await press(page);await new Promise(resolve=>setTimeout(resolve,6800));await settledCopy(page);
- await expect(page.locator('[data-handoff-text]')).toBeVisible();await expect(page.locator('[data-handoff-text]')).toHaveValue(new RegExp(note.raw_text));
+ await expect(page.locator('[data-handoff-text]')).toBeVisible();await expect(page.locator('[data-handoff-text]')).toHaveValue(new RegExp(note.raw_text.replace(/\r\n?/g,'\n')));
  const retry=page.locator('[data-handoff-retry]');await expect(retry).toBeVisible();await retry.tap();
  await expect(page.locator('[data-handoff-status]')).toContainText('복사했어요');await expect(page.locator('[data-handoff-fallback]')).toBeHidden();await expect(page.locator('[data-handoff-text]')).toHaveValue('');
  await page.context().grantPermissions(['clipboard-read']);expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(note.raw_text);expect(errors).toEqual([]);
