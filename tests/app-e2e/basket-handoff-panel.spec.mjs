@@ -18,6 +18,18 @@ async function denied(page){
  await cdp.send('Browser.setPermission',{permission:{name:'clipboard-read'},setting:'denied',browserContextId:targetInfo.browserContextId,origin:'http://127.0.0.1:8123'});
  await cdp.send('Browser.setPermission',{permission:{name:'clipboard-write'},setting:'denied',browserContextId:targetInfo.browserContextId,origin:'http://127.0.0.1:8123'});
 }
+async function settledCopy(page){
+ // CDP polling must not renew the gesture while deferred clipboard data is pending.
+ const cdp=await page.context().newCDPSession(page);
+ try{await expect.poll(async()=>{
+  const {result}=await cdp.send('Runtime.evaluate',{expression:"Boolean(document.querySelector('[data-handoff-status]')?.textContent.includes('복사했어요') || document.querySelector('[data-handoff-fallback]')?.hidden === false)",returnByValue:true,userGesture:false});
+  return result.value;
+ },{timeout:15000}).toBe(true);}finally{await cdp.detach();}
+}
+async function requireFreshGesture(page){
+ // A browser may check activation again when ClipboardItem's deferred data is ready.
+ await page.evaluate(()=>{const original=navigator.clipboard.writeText.bind(navigator.clipboard);navigator.clipboard.write=async items=>{const text=await (await items[0].getType('text/plain')).text();return original(text);};});
+}
 async function trackPrepared(page){
  await page.evaluate(()=>{const Original=ClipboardItem;window.__handoffPreparedSettled=false;window.ClipboardItem=class extends Original{constructor(data){super(data);Promise.resolve(data['text/plain']).then(()=>window.__handoffPreparedSettled=true,()=>window.__handoffPreparedSettled=true);}};});
 }
@@ -30,7 +42,7 @@ for(const width of [390,1280]){
   await page.screenshot({path:info.outputPath(`success-${width}.png`),fullPage:true});expect(errors).toEqual([]);
  });
  test(`handoff starts real clipboard before activation expires during slow reads ${width}`,async({page})=>{
-  const {note,errors}=await setup(page,width);
+  const {note,errors}=await setup(page,width);await page.context().grantPermissions(['clipboard-write']);
   await page.evaluate(()=>{window.__copyActivation=[];for(const method of ['write','writeText']){const original=navigator.clipboard[method].bind(navigator.clipboard);navigator.clipboard[method]=(...args)=>{const attempt={method,active:navigator.userActivation.isActive};window.__copyActivation.push(attempt);return original(...args).catch(error=>{attempt.error=error.name;throw error;});};}});
   await page.route(SB+'/rest/v1/app_notes?**',async r=>{await new Promise(resolve=>setTimeout(resolve,6100));await r.fallback();});
   await press(page);
@@ -44,6 +56,7 @@ for(const width of [390,1280]){
   const {note,errors}=await setup(page,width);await denied(page);await press(page);
   const text=page.locator('[data-handoff-text]'),close=page.locator('[data-handoff-close]');await expect(text).toBeVisible();await expect(text).toHaveAttribute('readonly','');await expect(text).toHaveValue(new RegExp(note.raw_text));
   await page.screenshot({path:info.outputPath(`fallback-${width}.png`),fullPage:true});
+  await page.locator('[data-handoff-retry]').focus();await page.keyboard.press('Enter');await expect(text).toBeVisible();await expect(text).toHaveValue(new RegExp(note.raw_text));await expect(page.locator('[data-handoff-copy]')).toBeEnabled();await expect(page.locator('[data-handoff-status]')).toHaveText('길게 눌러 전체 선택 → 복사');
   await close.focus();await page.keyboard.press('Enter');await cleared(page);await expect(page.locator('[data-handoff-copy]')).toBeFocused();
   await press(page);await expect(text).toBeVisible();note.raw_text='합성 새 메모';
   let release;const held=new Promise(resolve=>release=resolve);await page.route(SB+'/rest/v1/app_notes?**',async r=>{await held;await r.fallback();});
@@ -85,3 +98,22 @@ for(const width of [390,1280])for(const [control,target] of [
   await page.waitForFunction(()=>window.__handoffPreparedSettled);await cleared(page);await expect(page.locator('[data-handoff-copy]')).toBeEnabled();expect(errors).toEqual([]);
  });
 }
+
+for(const width of [390,1280])test(`handoff browser rechecks activation then prepared copy succeeds on second tap ${width}`,async({page})=>{
+ const {note,errors}=await setup(page,width);await requireFreshGesture(page);
+ await page.route(SB+'/rest/v1/app_notes?**',async r=>{await new Promise(resolve=>setTimeout(resolve,6100));await r.fallback();});
+ await press(page);await new Promise(resolve=>setTimeout(resolve,6800));await settledCopy(page);
+ await expect(page.locator('[data-handoff-text]')).toBeVisible();await expect(page.locator('[data-handoff-text]')).toHaveValue(new RegExp(note.raw_text));
+ const retry=page.locator('[data-handoff-retry]');await expect(retry).toBeVisible();await retry.tap();
+ await expect(page.locator('[data-handoff-status]')).toContainText('복사했어요');await expect(page.locator('[data-handoff-fallback]')).toBeHidden();await expect(page.locator('[data-handoff-text]')).toHaveValue('');
+ await page.context().grantPermissions(['clipboard-read']);expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(note.raw_text);expect(errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`handoff slow native clipboard completes with a fresh tap when needed ${width}`,async({page})=>{
+ const {note,errors}=await setup(page,width);
+ await page.route(SB+'/rest/v1/app_notes?**',async r=>{await new Promise(resolve=>setTimeout(resolve,6100));await r.fallback();});
+ await press(page);await new Promise(resolve=>setTimeout(resolve,6800));await settledCopy(page);
+ if(await page.locator('[data-handoff-fallback]').isVisible())await page.locator('[data-handoff-retry]').tap();
+ await expect(page.locator('[data-handoff-status]')).toContainText('복사했어요');await expect(page.locator('[data-handoff-text]')).toBeHidden();await expect(page.locator('[data-handoff-text]')).toHaveValue('');
+ await page.context().grantPermissions(['clipboard-read']);expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(note.raw_text);expect(errors).toEqual([]);
+});

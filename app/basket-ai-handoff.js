@@ -66,12 +66,27 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date()) {
   return buildHandoff(notes,window.KPTUProjectCatalog.basketProjects(catalog.projects),orgs.organizations,now,orgs.fallback);
 }
 export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{}},rt=window.KPTURuntime) {
-  host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><div data-handoff-fallback hidden><button type="button" class="quick-pill-button" data-handoff-close>닫기</button><label class="basket-text-label">AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label></div>';
+  host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><div data-handoff-fallback hidden><button type="button" class="quick-pill-button" data-handoff-retry>복사하기</button><button type="button" class="quick-pill-button" data-handoff-close>닫기</button><label class="basket-text-label">AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label></div>';
   const status=host.querySelector('[role="status"]'),fallback=host.querySelector('[data-handoff-fallback]'),input=host.querySelector('textarea');
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
-  let busy=false,epoch=0,currentScope=scope();
-  const clear=()=>{++epoch;status.textContent='';input.value='';fallback.hidden=true;if(busy){busy=false;onBusy(false);}};
-  host.addEventListener?.('click',event=>{if(event.target.closest('[data-handoff-close]')){clear();onClose();}});
+  let busy=false,epoch=0,currentScope=scope(),fallbackScope=null;
+  const clear=()=>{++epoch;status.textContent='';input.value='';fallback.hidden=true;fallbackScope=null;if(busy){busy=false;onBusy(false);}};
+  async function retryCopy(){
+    if(busy||isBlocked()||!input.value)return;
+    if(fallbackScope!==scope()){clear();return;}
+    const run=epoch,owner=scope(),text=input.value;busy=true;onBusy(true);
+    const current=()=>run===epoch&&owner===scope();
+    try{
+      // Prepared text needs no asynchronous reads: this call uses the new tap's activation.
+      await navigator.clipboard.writeText(text);
+      if(current()){clear();status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';onClose();}
+    }catch{if(current())status.textContent='길게 눌러 전체 선택 → 복사';}
+    finally{if(current()){busy=false;onBusy(false);}}
+  }
+  host.addEventListener?.('click',event=>{
+    if(event.target.closest('[data-handoff-close]')){clear();onClose();}
+    else if(event.target.closest('[data-handoff-retry]'))void retryCopy();
+  });
   window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='basket')clear();});
   window.addEventListener('kptu:session-changed',()=>{if(scope()!==currentScope){currentScope=scope();clear();}});
   return {close:clear,async copy(){
@@ -97,7 +112,7 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{}},rt=window.KP
       else{try{await navigator.clipboard.writeText(text);copied=true;}catch{}}
       if(!current())return;
       if(copied)status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';
-      else{input.value=text;fallback.hidden=false;status.textContent='길게 눌러 전체 선택 → 복사';input.focus();input.select();}
+      else{input.value=text;fallbackScope=owner;fallback.hidden=false;status.textContent='길게 눌러 전체 선택 → 복사';input.focus();input.select();}
     }catch{if(current())status.textContent='맡길 메모를 준비하지 못했어요. 다시 눌러 주세요.';}
     finally{if(current()){busy=false;onBusy(false);}}
   }};
