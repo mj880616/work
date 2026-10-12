@@ -41,12 +41,12 @@
 
 - 초기 SHA `d44cf7a` 자동 전체 회귀는 1212/1214(24.1분). 신규 지연 복사390/1280 두 사례만 실패했고 기존1200과 나머지 새 사례는 통과했다. CI는 Chromium Headless Shell140.0.7339.16을 사용했다. 첫 write의 activation은 true였지만 deferred data 준비 뒤 NotAllowedError였다. 로컬 Chromium151에서는 같은 무권한 지연 프로브가 성공했다. 버전/빌드 차이의 세부 원인은 단정하지 않는다.
 - 사용자가 허용한 두 번째 탭 경로로 보완: 실패 상자의 복사하기 → 이미 준비된 글에 새 동작에서 writeText → 실제 복사 성공 시 상자/글 비움. 진짜 권한 거부에서는 그대로 수동 복사/닫기 가능하다.
-- Playwright clipboard-write 단독은 allowWithoutGesture=true 권한 조회가 denied인 것을 RED로 확인했다. 기존 실제 복사 테스트와 같은 clipboard-read/write 명시 허용으로 맞추고 실제 granted 상태를 먼저 assertion한다. 무권한 native/재검사 모델은 그대로 두어 보안 경계를 우회하지 않고 두 번째 동작으로 완료하는지 확인한다.
-- 지연 자동 성공 테스트는 명시 clipboard-read/write 허용 사례로 유지하여 첫 write active=true/실제 내용/상자 미표시를 모두 확인한다. 무권한 실제 native 지연 사례를 별도로 추가해, 처음 성공하거나 준비된 글에 새 탭을 누른 뒤 실제 복사 완료를 반드시 확인한다. activation을 data 준비 뒤 검사하는 모델은 실제 writeText를 사용하며 첫 거부→필수 두 번째 터치→실제 클립보드 내용과 상자 비움을 검증한다. 기존 main1200 테스트는 삭제·약화하지 않았다.
+- Playwright clipboard-write 단독은 allowWithoutGesture=true 권한 조회가 denied인 것을 RED로 확인했다. 기존 실제 복사 테스트와 같은 clipboard-read/write 명시 허용으로 맞추고 실제 granted 상태를 먼저 assertion한다. 동작 필요 native/재검사 모델은 제한된 허용 상태를 명시하여 보안 경계를 우회하지 않고 두 번째 동작으로 완료하는지 확인한다.
+- 지연 자동 성공 테스트는 명시 clipboard-read/write 허용 사례로 유지하여 첫 write active=true/실제 내용/상자 미표시를 모두 확인한다. 동작 필요 실제 native 지연 사례를 별도로 추가해, 처음 성공하거나 준비된 글에 새 탭을 누른 뒤 실제 복사 완료를 반드시 확인한다. activation을 data 준비 뒤 검사하는 모델은 실제 writeText를 사용하며 첫 거부→필수 두 번째 터치→실제 클립보드 내용과 상자 비움을 검증한다. 기존 main1200 테스트는 삭제·약화하지 않았다.
 - 후속 로컬 Node547/547·관련Chromium44/44. 최종 패널18/18 별도 통과. 결과를 PR 댓글에 기록한다. 권한 거부 때 복사하기 Enter를 눌러도 상자/글을 유지하는 assertion을 추가했다. 늦은 결과를 기다리는 CDP polling은 userGesture=false로 수행해 동작 만료를 가리지 않는다.
 - 두 번째 복사 원문 보존: textarea.value의 CRLF→LF 정규화가 실제 복사에 반영되는 RED를 추가로 재현했다. 원래 준비한 문자열을 handoff 메모리에만 유지하고 모든 clear에서 함께 비워, 실제 CRLF 복사 GREEN·최종 패널18/18·Node547/547을 확인했다. 추가 리뷰 중요 지적 없음.
 - 로컬 smoke 재실행·캐시425참조·문법/공백 통과. 추가 별도 리뷰 중요 지적 없음, 느린 준비 완료를 기다리라는 테스트 보완 반영.
-- CI 동일 버전 바이너리 다운로드는 클라우드 네트워크 정책403으로 실행 불가. 허용된 npm의 Lambda용140 바이너리는 로컬 renderer가 crash하여 검증 근거로 세지 않는다. 최종 CI의 실제140 회귀 결과로 판정한다.
+- 공식 CI 동일 버전 바이너리 다운로드는 클라우드 네트워크 정책403으로 실행 불가. 허용된 npm의 Lambda용140 바이너리는 로컬 renderer가 crash하여 검증 근거로 세지 않는다. 최종 CI의 실제140 회귀 결과로 판정한다.
 
 - 역방향 이동도 RED로 재현: 메모/결과 넣기 화면에서 새 복사 상자를 열거나 조회 중인 상태로 목록으로 돌아가면 비움이 빠져 있었다. 메모 닫기/결과 넣기 닫기 콜백에 같은 clear를 연결하고, 메모 닫기는 busy guard 전에 handoff만 취소한다. 수정 중 글 확인·다른 저장/분류 잠금 유지. 390/1280px 완료 상자와 지연 조회 양쪽의 역방향 회귀4사례를 추가했다. 별도 리뷰 중요 지적 없음. 최종 관련48/48·바구니 인접37/37·Node547/547·smoke/캐시425참조 통과. 결과는 PR 댓글에 기록한다.
 
@@ -55,3 +55,10 @@
 merge/배포는 사용자가 별도로 판단한다. 반영 후 안드로이드 크롬에서 AI에게 맡기기 한 번으로 “복사했어요” 문구가 뜨는지 확인한다. 첫 자동 복사가 실패하면 상자 위 복사하기로 두 번째 탭 복사가 되는지, 닫기로 글 상자가 사라지는지 확인한다. 재클릭·다른 화면 이동 후 이전 글이 남지 않는지도 확인한다.
 
 BASKET-사진글자(2026-10-12 승인, Google Drive OCR로 메모에 글 붙이기, 10/9 “첨부는 링크만” 변경, 4b-1 앞)·BASKET-삭제(연결 없는 메모만, 첨부 Drive 휴지통, 확인1회, 착수 때 결정·급하지 않음)는 원장 대기 등록만 했다.
+
+## 최종 테스트 권한 상태 확인
+
+- 중간 `8b3501a` CI는 1214/1218(24.6분): 명시 허용 지연은 통과했지만 미지정 권한을 “새 동작이면 허용”으로 가정한 추가 native/model4사례가 실패했다. 기존 main1200·명시 거부·상자 수명은 통과했다.
+- 로컬 Lambda용140.0.7339.0에서 기본 권한은 두 descriptor 모두 prompt였다. focus=true·active=true·trusted=true의 plain-button writeText도 “Write permission denied”였다. clipboard-write만 명시하면 allowWithoutGesture=false는 granted, true는 denied이며 새 터치 쓰기는 성공했다. 따라서 미지정 권한을 조건부 허용으로 가정하지 않는다. CI의 기본 prompt 거부가 실패 원인이라는 해석은 이 진단과 일치하지만 폰 원인과는 구분한다.
+- 추가 native/model 테스트는 gestureWriteAllowed로 위 두 상태를 먼저 assertion한다. 전체 허용·새 동작에서만 허용·명시 거부를 따로 검증하고, 모델의 첫 거부→필수 새 터치→실제 복사·CRLF 보존·상자/글 비움은 유지한다. 앱에서 권한을 부여하거나 경계를 바꾸는 코드는 추가하지 않는다. Chromium151 최종 패널22/22, 별도 테스트 검토 지적 없음.
+- 초기 Lambda 실행의 single-process 옵션을 제거해 기본 터치/권한 probe와 native 조건부 복사2개를 실행할 수 있었다. Lambda 패널 전체는18/22(명시 거부2개가 override와 다르게 동작, getType 모델2개 timeout)여서 공식 CI의 대체 통과 근거로 세지 않는다. 전체 완료 판정은 최종 SHA의 공식 자동 CI로 한다.

@@ -26,6 +26,11 @@ async function settledCopy(page){
   return result.value;
  },{timeout:15000}).toBe(true);}finally{await cdp.detach();}
 }
+async function gestureWriteAllowed(page){
+ await page.context().grantPermissions(['clipboard-write']);
+ expect(await page.evaluate(async()=>(await navigator.permissions.query({name:'clipboard-write',allowWithoutGesture:false})).state)).toBe('granted');
+ expect(await page.evaluate(async()=>(await navigator.permissions.query({name:'clipboard-write',allowWithoutGesture:true})).state)).toBe('denied');
+}
 async function requireFreshGesture(page){
  // A browser may check activation again when ClipboardItem's deferred data is ready.
  await page.evaluate(()=>{const original=navigator.clipboard.writeText.bind(navigator.clipboard);navigator.clipboard.write=async items=>{const text=await (await items[0].getType('text/plain')).text();return original(text);};});
@@ -103,7 +108,7 @@ for(const width of [390,1280])for(const [control,target,source] of [
 }
 
 for(const width of [390,1280])test(`handoff browser rechecks activation then prepared copy succeeds on second tap ${width}`,async({page})=>{
- const {note,errors}=await setup(page,width);note.raw_text='합성 원문\r\n둘째 줄';await requireFreshGesture(page);
+ const {note,errors}=await setup(page,width);note.raw_text='합성 원문\r\n둘째 줄';await gestureWriteAllowed(page);await requireFreshGesture(page);
  await page.route(SB+'/rest/v1/app_notes?**',async r=>{await new Promise(resolve=>setTimeout(resolve,6100));await r.fallback();});
  await press(page);await new Promise(resolve=>setTimeout(resolve,6800));await settledCopy(page);
  await expect(page.locator('[data-handoff-text]')).toBeVisible();await expect(page.locator('[data-handoff-text]')).toHaveValue(new RegExp(note.raw_text.replace(/\r\n?/g,'\n')));
@@ -112,8 +117,8 @@ for(const width of [390,1280])test(`handoff browser rechecks activation then pre
  await page.context().grantPermissions(['clipboard-read']);expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(note.raw_text);expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`handoff slow native clipboard completes with a fresh tap when needed ${width}`,async({page})=>{
- const {note,errors}=await setup(page,width);
+for(const width of [390,1280])test(`handoff gesture-required native clipboard completes with a fresh tap when needed ${width}`,async({page})=>{
+ const {note,errors}=await setup(page,width);await gestureWriteAllowed(page);
  await page.route(SB+'/rest/v1/app_notes?**',async r=>{await new Promise(resolve=>setTimeout(resolve,6100));await r.fallback();});
  await press(page);await new Promise(resolve=>setTimeout(resolve,6800));await settledCopy(page);
  if(await page.locator('[data-handoff-fallback]').isVisible())await page.locator('[data-handoff-retry]').tap();
