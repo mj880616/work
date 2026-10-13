@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const quick=page=>page.locator('[data-home-quick]');
+const quick=page=>page.locator('#homeView [data-home-quick]');
 test('quick task starts folded and opens on focus',async({page})=>{
- await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click(); const q=page.locator('[data-home-quick]');
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click(); const q=page.locator('#homeView [data-home-quick]');
  await expect(q.locator('[data-quick-input]')).toBeVisible();
  await expect(q.locator('[data-quick-options]')).toBeHidden();
  await q.locator('[data-quick-input]').focus();

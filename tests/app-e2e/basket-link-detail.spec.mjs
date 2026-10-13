@@ -1,6 +1,7 @@
+import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 test.use({hasTouch:true});
-const fixture='http://127.0.0.1:8123/tests/app-e2e/basket-link-detail-fixture.html';
+const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html';
 for(const [code,message] of [['NOT_FOUND','찾거나 열 수 없어요'],['PERMISSION_DENIED','고칠 권한이 없어요'],['FUNCTION_UNAVAILABLE','아직 준비되지 않았어요'],['INVALID_INPUT','글자와 길이를 확인'],['RESULT_UNKNOWN','결과를 확인하지 못했어요']])test(`summary save ${code} keeps the draft and never reports success`,async({page})=>{
  await ready(page);await open(page);const row=page.locator('#wdUpdates [data-basket-link]').first();await row.locator('[data-link-summary-edit]').click();await row.locator('textarea').fill('실패해도 유지할 합성 초안');
  await page.evaluate(code=>{const rt=window.KPTURuntime,api=rt.api;rt.api=async(path,...args)=>{if(path.endsWith('/app_basket_update_link_summary')){if(code==='FUNCTION_UNAVAILABLE')throw {status:404,message:'PGRST202'};if(code==='RESULT_UNKNOWN')throw {status:503};return {ok:false,error:code};}return api(path,...args);};},code);

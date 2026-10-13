@@ -1,0 +1,10 @@
+exclude:
+  - docs
+  - tests
+  - scripts
+  - supabase
+  - android-app
+  - windows-app
+  - cloudflare
+  - AGENTS.md
+  - CLAUDE.md

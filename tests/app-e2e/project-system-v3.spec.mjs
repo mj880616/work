@@ -1,3 +1,4 @@
+import {testOrigin} from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
@@ -161,7 +162,7 @@ test('project list loads and its heading uses available width at desktop, tablet
   const state=baseState();
   await mockApp(page,state);
   await page.setViewportSize({width:1440,height:900});
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(testOrigin+'/app/');
   await signIn(page);
   await clickView(page,'projects');
   await expect(page.locator('#projectsView')).toBeVisible();
@@ -185,7 +186,7 @@ test('project list loads and its heading uses available width at desktop, tablet
 
 
 test('project owner UI stays inside 360 390 412 and 430px viewports',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   for(const width of [360,390,412,430]){
     await page.setViewportSize({width,height:844});
     await page.locator('#newProjectBtn').click();
@@ -215,7 +216,7 @@ test('project owner UI stays inside 360 390 412 and 430px viewports',async({page
 test('project renderer clears user A data before rendering user B projects',async({page})=>{
   const state=baseState();
   state.spaces.push({id:'user-2-project',workspace_id:'workspace-1',name:'B 사용자 프로젝트',description:'B 전용',parent_id:null,status:'active',visibility:'public',owner_id:'user-2',sort_order:40,metadata:{project_system:'v2',management_version:2}});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('#projectGrid')).toContainText('민자철도 정책·조직사업');
   await expect(page.locator('#projectGrid')).not.toContainText('B 사용자 프로젝트');
   state.user={id:'user-2',email:'b@example.org',user_metadata:{display_name:'B 사용자'}};
@@ -230,7 +231,7 @@ test('project detail omits removed content, linked-post and collaboration featur
   state.blocks=[{id:'block-legacy',project_id:'main-1',section_id:'section-legacy',block_type:'text',title:'기존 내용',content:{text:'남겨진 데이터'},sort_order:10}];
   state.pages=[{id:'page-legacy',space_id:'main-1',title:'기존 연결 게시글',slug:'legacy',summary:'기존 페이지',status:'draft',visibility:'private',metadata:{},updated_at:now()}];
   state.comments=[{id:'comment-legacy',project_id:'main-1',author_id:'user-1',body:'기존 협업 메모',created_at:now()}];
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3-content')).toHaveCount(0);
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
   await expect(page.locator('#ps3-collaboration')).toHaveCount(0);
@@ -244,7 +245,7 @@ test('project detail omits removed content, linked-post and collaboration featur
 
 test('project memo supports add edit and delete',async({page})=>{
   const state=baseState();
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3-overview,#ps3-decisions')).toHaveCount(0);
   await expect(page.locator('#ps3-memos')).toBeVisible();
   await expect(page.locator('#ps3-memos')).not.toHaveAttribute('open','');
@@ -267,7 +268,7 @@ test('project memo supports add edit and delete',async({page})=>{
 test('project creation omits type and visibility controls and starts with zero progress items',async({page})=>{
   const state=baseState();
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(testOrigin+'/app/');
   await signIn(page);
   await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();
@@ -290,7 +291,7 @@ test('project creation omits type and visibility controls and starts with zero p
 test('new project milestone UI has only title time Google calendar and memo, and blocks save without Google',async({page})=>{
   const state=baseState();
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await page.goto(testOrigin+'/app/?project=main-1');
   await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
@@ -308,7 +309,7 @@ test('new project milestone UI has only title time Google calendar and memo, and
 test('new project milestone distinguishes Google reconnect requirement',async({page})=>{
   const state=baseState();
   state.googleStatus={connected:false,calendars:[],warning:'Google 재인증이 필요합니다.'};
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneGoogle')).toContainText('재연결 필요');
   await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('재연결이 필요');
@@ -326,7 +327,7 @@ test('new project milestone creates Google first, stores linkage, and excludes r
     ]
   };
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await page.goto(testOrigin+'/app/?project=main-1');
   await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneGoogle')).toBeEnabled();
@@ -358,7 +359,7 @@ test('Google create failure leaves no Web2-only project milestone',async({page})
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   state.googleFailures['create-event']='Google create failed';
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('실패 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
@@ -373,7 +374,7 @@ test('local milestone failure rolls back the newly created Google event',async({
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   state.restFailures['app_project_milestones:POST']=1;
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('롤백 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
@@ -387,7 +388,7 @@ test('local milestone failure rolls back the newly created Google event',async({
 test('child project milestone uses the exact current child project id',async({page})=>{
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=child-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('하위 프로젝트 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-03T09:00');
@@ -404,7 +405,7 @@ test('legacy unlinked milestone edit preserves hidden fields and does not create
   state.milestones[0].event_id='legacy-event';
   state.events.push({id:'legacy-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await expect(page.locator('#ps3MilestoneGoogleHint')).toContainText('기존 미연동');
   await page.locator('#ps3MilestoneTitle').fill('레거시 일정 제목 수정');
@@ -421,7 +422,7 @@ test('linked milestone update uses stored Google ids without writing Web2 events
   Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
   state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('primary');
   await page.locator('#ps3MilestoneTitle').fill('연동 일정 수정');
@@ -441,7 +442,7 @@ test('linked milestone local update failure restores Google and local state',asy
   state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   state.restFailures['app_project_milestones:PATCH']=1;
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await page.locator('#ps3MilestoneTitle').fill('저장 실패 수정안');
   await page.locator('#ps3MilestoneSave').click();
@@ -457,7 +458,7 @@ test('linked milestone delete uses stored Google ids without writing Web2 events
   Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
   state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   page.once('dialog',d=>d.accept());
   await page.locator('#ps3MilestoneDelete').click();
@@ -472,7 +473,7 @@ test('linked milestone local delete failure restores Google linkage and mileston
   state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
   state.restFailures['app_project_milestones:DELETE']=1;
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   page.once('dialog',d=>d.accept());
   await page.locator('#ps3MilestoneDelete').click();
@@ -491,7 +492,7 @@ test('rollback failure reports possible Google and Web2 inconsistency with the G
   state.restFailures['app_project_milestones:POST']=1;
   state.googleFailures['delete-event']='forced Google rollback failure';
   const errors=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('rollback 실패 일정');
   await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
@@ -508,7 +509,7 @@ test.describe('project milestone Korea timezone',()=>{
   test('datetime-local is sent to Google as the matching UTC instant with one-hour duration',async({page})=>{
     const state=baseState();
     state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-    await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+    await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
     await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
     await page.locator('#ps3MilestoneTitle').fill('한국시간 검증 일정');
     await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
@@ -522,7 +523,7 @@ test.describe('project milestone Korea timezone',()=>{
 test('progress items are added directly by title and existing progress data stays usable',async({page})=>{
   const state=baseState();
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await page.goto(testOrigin+'/app/?project=main-1');
   await signIn(page);
   await expect(page.locator('#ps3-progress')).toContainText('정책·제도 대응');
   await page.locator('[data-ps3-add-ws]').click();
@@ -540,7 +541,7 @@ test('progress items are added directly by title and existing progress data stay
 
 test('new progress item saves the selected phase and updates its chip',async({page})=>{
   const state=baseState();await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await page.locator('[data-ps3-add-ws]').click();
   await page.locator('#ps3WsTitle').fill('선택 단계 확인');
   await expect(page.locator('#ps3WsPhase option')).toHaveText(['준비','진행','협의','실행','후속조치','종료']);
@@ -554,7 +555,7 @@ test('new progress item saves the selected phase and updates its chip',async({pa
 test('recorded progress item has a visible edit action that saves title and phase once',async({page})=>{
   const state=baseState();state.workstreams[0].phase='preparation';await mockApp(page,state);
   const probe=await saveProbe(page,'app_project_workstreams','PATCH');
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   const item=page.locator('[data-ps3-progress-item="ws-1"]');
   const edit=item.locator('[data-ps3-edit-ws]');
   await expect(edit).toBeVisible();
@@ -587,7 +588,7 @@ test('progress list shows status and title, then the latest record and date on o
   });
   state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20});
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await page.goto(testOrigin+'/app/?project=main-1');
   await signIn(page);
 
   const item=page.locator('[data-ps3-progress-item="ws-1"]');
@@ -623,7 +624,7 @@ test('first progress record is saved inline through the existing progress path',
   const state=baseState();
   state.workstreams.push({id:'ws-2',project_id:'main-1',title:'현장 조직 대응',description:null,phase:'preparation',sort_order:20});
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await page.goto(testOrigin+'/app/?project=main-1');
   await signIn(page);
   const form=page.locator('[data-ps3-quick-progress="ws-2"]');
   await form.locator('button[type="submit"]').click();
@@ -648,7 +649,7 @@ test('project detail keeps one summary-first column at desktop and phone widths'
   state.spaces[0].metadata.objective='민자철도 안전·인력 제도개선을 위한 정책·조직사업의 목표 설명이 길어져도 한 줄로 줄여 보여 준다';
   await mockApp(page,state);
   await page.setViewportSize({width:1280,height:900});
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await page.goto(testOrigin+'/app/?project=main-1');
   await signIn(page);
   await expect(page.locator('#ps3-progress')).toBeVisible();
   const order=await page.locator('#ps3Body').evaluate(body=>[...body.children].map(x=>x.id||x.className));
@@ -688,7 +689,7 @@ test('project detail keeps one summary-first column at desktop and phone widths'
 test('key schedule status is shown in Korean inside the collapsed bottom section',async({page})=>{
   const state=baseState();
   state.milestones.push({id:'mile-2',project_id:'main-1',title:'완료된 일정',milestone_type:'action',status:'done',start_at:'2026-09-10T05:00:00Z'});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3-milestones > summary')).toContainText('주요 일정');
   await expect(page.locator('#ps3-milestones > summary .ps3-count')).toHaveText('2');
   await openFold(page,'ps3-milestones');
@@ -701,7 +702,7 @@ test('key schedule status is shown in Korean inside the collapsed bottom section
 test('top-level project creates a task directly on the current project',async({page})=>{
   const state=baseState();state.sessionUser=true;
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await page.goto(testOrigin+'/app/?project=main-1');
   await signIn(page);
   await page.locator('[data-ps3-global="task"]').click();
   await expect(page.locator('#gtTaskModal')).toBeVisible();
@@ -725,7 +726,7 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   const errors=[];
   page.on('pageerror',error=>errors.push(String(error)));
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(testOrigin+'/app/');
   await signIn(page);
   await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();
@@ -790,7 +791,7 @@ test('V3 lists child projects with counts in the body and child returns to paren
   // A Web2 task no longer counts.
   state.tasks.push({id:'child-task-open',project_id:'child-1',title:'발제 취합',status:'todo',assignee_id:'user-1'});
   state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('[data-ps3-project="main-1"]')).toBeVisible();
   await expect(page.locator('#projectGrid [data-project]')).toHaveCount(0);
   await page.locator('[data-ps3-project="main-1"]').first().click();
@@ -824,7 +825,7 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   state.links=[{google_task_id:'g-main',project_id:'main-1',status:'confirmed'}, {google_task_id:'g-main',project_id:'main-1',status:'confirmed'}, {google_task_id:'g-child',project_id:'child-1',status:'confirmed'}, {google_task_id:'g-done',project_id:'main-2',status:'confirmed'}, {google_task_id:'g-child',project_id:'main-2',status:'suggested'}];
   state.milestones=[{id:'today',project_id:'main-1',title:'오늘',start_at:'2026-10-08T15:00:00Z',status:'planned'},{id:'future',project_id:'child-1',title:'다음',start_at:'2026-10-11T03:00:00Z',status:'planned'},{id:'done',project_id:'child-1',start_at:'2026-10-09T03:00:00Z',status:'done'},{id:'canceled',project_id:'child-1',start_at:'2026-10-09T03:00:00Z',status:'cancelled'},{id:'past',project_id:'main-2',start_at:'2026-10-08T03:00:00Z',status:'planned'}];
   state.progress=[{project_id:'main-1',effective_on:'2026-10-08',created_at:now()},...Array.from({length:1200},(_,i)=>({project_id:'main-1',effective_on:'2026-10-07',created_at:String(i)})),{project_id:'child-1',effective_on:'2025-01-01',created_at:now()}];
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   const list=page.locator('#projectGrid .ps3-plist'),main=list.locator('[data-ps3-project="main-1"]'),child=list.locator('[data-ps3-project="child-1"]');
   await expect(list.locator('.add-list-head h2')).toHaveCount(0);
   await expect(list.locator('[data-ps3-total]')).toHaveText('프로젝트 2개');
@@ -858,7 +859,7 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
 for(const extra of [0,200])test(`D-project requests stay constant with ${extra} extra projects`,async({page})=>{
  const state=baseState();state.sessionUser=true;state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
  state.spaces.push(...Array.from({length:extra},(_,i)=>({...state.spaces[0],id:'extra-'+i,name:'추가 '+i})));
- await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?view=projects');await signIn(page);await expect(page.locator('#projectsView')).toBeVisible();
+ await mockApp(page,state);await page.goto(testOrigin+'/app/?view=projects');await signIn(page);await expect(page.locator('#projectsView')).toBeVisible();
  await expect(page.locator('[data-ps3-project="main-1"] .kptu-list-task-count')).toHaveText('1');
  await expect.poll(()=>state.summaryQueries?.length).toBe(1);
  expect(state.gtCalls.filter(x=>x.action==='overview')).toHaveLength(1);
@@ -869,7 +870,7 @@ for(const extra of [0,200])test(`D-project requests stay constant with ${extra} 
 });
 test('D-project names appear before optional reads and survive failed metadata',async({page})=>{
  const state=baseState();state.summaryFail=true;let release;state.summaryDelay=new Promise(r=>release=r);
- await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+ await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
  await expect(page.locator('#projectGrid [data-ps3-project]')).toHaveCount(2);await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
  release();await expect.poll(()=>state.summaryQueries?.length).toBe(1);
  await page.locator('#projectGrid [data-ps3-project="main-1"]').click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
@@ -878,7 +879,7 @@ test('D-project names appear before optional reads and survive failed metadata',
 for(const failure of ['tasks','dates','both'])test(`D-project ${failure} failure preserves names and other metadata`,async({page})=>{
  const state=baseState();state.sessionUser=true;state.summaryFail=failure!=='tasks';state.gtOverviewFail=failure!=='dates';
  state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
- await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+ await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
  const main=page.locator('#projectGrid [data-ps3-project="main-1"]');
  if(failure==='tasks')await expect(main.locator('time')).toHaveText('9.15');
  if(failure==='dates')await expect(main.locator('.kptu-list-task-count')).toHaveText('1');
@@ -887,7 +888,7 @@ for(const failure of ['tasks','dates','both'])test(`D-project ${failure} failure
 });
 
 test('V3 generated dialogs expose consistent accessibility semantics',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   for(const id of ['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3DeleteModal','ps3ArchiveModal']){
     const modal=page.locator('#'+id);
     await expect(modal).toHaveAttribute('role','dialog');
@@ -900,7 +901,7 @@ test('V3 generated dialogs expose consistent accessibility semantics',async({pag
 });
 
 test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   const card=page.locator('[data-ps3-project="main-1"]').first();
   await card.focus();await card.click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
@@ -927,7 +928,7 @@ test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',
 });
 
 test('V3 more menu and progress items use native keyboard disclosure behavior',async({page})=>{
-  const state=baseState();state.progress.push({...state.progress[0],id:'keyboard-second'});await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  const state=baseState();state.progress.push({...state.progress[0],id:'keyboard-second'});await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await page.locator('[data-ps3-project="main-1"]').first().click();
   const menu=page.locator('#ps3Menu .ps3-more'),summary=menu.locator(':scope > summary');
   await expect(summary).toHaveAttribute('aria-label','프로젝트 관리 메뉴');
@@ -958,7 +959,7 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
 test('V3 creates and edits a project with the same final renderer',async({page})=>{
   // 기본 시작일은 오늘이다(앱은 UTC 날짜를 쓰지만 정오 시계에서는 한국 날짜와 같다). 종료일을 고정 날짜로 두면 그 날짜가 지난 뒤 시작일보다 앞서게 된다.
   const today=await calendarToday(page);
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await page.locator('#ps3CreateName').fill('인력확충 투쟁');await page.locator('#ps3CreateObjective').fill('안전·공공서비스 인력확충');await page.locator('#ps3CreateSave').click();
   await expect.poll(()=>state.spaces.some(x=>x.name==='인력확충 투쟁')).toBeTruthy();
@@ -987,7 +988,7 @@ test('V3 edits and deletes a key schedule and shows the three most recent docume
     {id:'doc-3',project_id:'main-1',title:'현장 설문 결과',category:'현장자료',document_date:'2026-09-12'},
     {id:'doc-4',project_id:'main-1',title:'지난 회의록',category:'회의',document_date:'2026-09-01'}
   );
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
   await page.locator('#ps3MilestoneTitle').fill('9.29 민자철도 국회토론회 확정');await page.locator('#ps3MilestoneSave').click();
@@ -1008,7 +1009,7 @@ test('V3 edits and deletes a key schedule and shows the three most recent docume
 });
 
 test('V3 archives and restores without returning to a legacy project screen',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
   await openMenu(page);
   page.once('dialog',d=>d.accept());await page.locator('[data-ps3-archive-project]').click();
@@ -1023,7 +1024,7 @@ test('V3 archives and restores without returning to a legacy project screen',asy
 });
 
 test('V3 exposes project delete in final renderer',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
   await openMenu(page);
   await expect(page.locator('[data-ps3-delete-project]')).toBeVisible();
@@ -1036,7 +1037,7 @@ test('V3 includes legacy child work areas under a V3 parent without changing the
   const state=baseState();state.sessionUser=true;state.spaces.push({id:'legacy-child',workspace_id:'workspace-1',parent_id:'main-1',name:'국회토론회 준비',slug:'old-child',owner_id:'user-1',status:'active',visibility:'team',metadata:{legacy_snapshot:true}});
   state.gtasks.push({id:'legacy-g',title:'발제 원고 취합',status:'needsAction',due:null,taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'});
   state.links.push({google_task_id:'legacy-g',project_id:'legacy-child',status:'confirmed',task_completed:false});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3-children [data-ps3-project="legacy-child"]')).toBeVisible();
   await page.locator('#ps3-children [data-ps3-project="legacy-child"]').click();
   await expect(page.locator('#ps3Title')).toHaveText('국회토론회 준비');
@@ -1047,7 +1048,7 @@ test('V3 includes legacy child work areas under a V3 parent without changing the
 test('V3 project list only shows projects owned by the signed-in user',async({page})=>{
   const state=baseState();
   state.spaces.push({id:'other-owner',workspace_id:'workspace-1',name:'다른 사용자 프로젝트',parent_id:null,status:'active',visibility:'public',owner_id:'user-2',sort_order:30,metadata:{project_system:'v2',management_version:2}});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('#projectGrid')).toContainText('민자철도 정책·조직사업');
   await expect(page.locator('#projectGrid')).not.toContainText('다른 사용자 프로젝트');
 });
@@ -1055,7 +1056,7 @@ test('V3 project list only shows projects owned by the signed-in user',async({pa
 test('V3 keeps an owned legacy child visible even when its parent is not returned',async({page})=>{
   const state=baseState();
   state.spaces=[{id:'legacy-child-owned',workspace_id:'workspace-1',parent_id:'hidden-parent',name:'소유한 기존 하위 프로젝트',owner_id:'user-1',status:'active',visibility:'team',metadata:{project_system:'v2',management_version:2}}];
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/');await signIn(page);await clickView(page,'projects');
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('#projectGrid')).toContainText('소유한 기존 하위 프로젝트');
   await expect(page.locator('[data-ps3-project="legacy-child-owned"]')).toBeVisible();
 });
@@ -1065,7 +1066,7 @@ test('V3 project detail stays separate from the Web1-backed board',async({page})
   state.spaces[1].metadata.source_draft_id='page-child';
   state.pages=[{id:'page-notice',space_id:'main-1',title:'독립 현장 공지',slug:'standalone-notice',summary:'독립 공지 요약',body:'독립 공지 본문',status:'published',visibility:'public',updated_at:'2026-09-18T10:00:00Z',metadata:{}}];
   await mockApp(page,state);
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');
+  await page.goto(testOrigin+'/app/?project=main-1');
   await signIn(page);
   await expect(page.locator('#ps3-children [data-ps3-project="child-1"]')).toBeVisible();
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
@@ -1080,7 +1081,7 @@ test('Web1-backed board stays compact and excludes dedicated library and press s
   const state=baseState();
   await mockApp(page,state);
   await page.setViewportSize({width:1440,height:900});
-  await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+  await page.goto(testOrigin+'/app/');await signIn(page);
   await clickView(page,'pages');
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
   await expect(page.locator('#web1BoardActive')).toContainText('민자철도 사업 현황');
@@ -1095,7 +1096,7 @@ test('Web1-backed board stays compact and excludes dedicated library and press s
 });
 
 test('V3 completion changes status without deleting the project',async({page})=>{
-  const state=baseState();await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   const control=page.locator('[data-ps3-toggle-done]');
   await openMenu(page);await expect(control).toHaveText('완료');
   await control.click();
@@ -1113,7 +1114,7 @@ test('V3 project task section completes, edits and unlinks linked Google tasks',
   const state=baseState();state.sessionUser=true;
   state.gtasks.push({id:'g1',title:'자료 정리',notes:'공유 전 확인',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'});
   state.links.push({google_task_id:'g1',project_id:'child-1',status:'confirmed',task_completed:false});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=child-1');await signIn(page);
   const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
   await expect(panel.locator('[data-google-task="g1"]')).toContainText('자료 정리');
   await expect(page.locator('#ps3-tasks [data-ps3-task-count]')).toHaveText('1');
@@ -1139,7 +1140,7 @@ test('V3 project task section rolls back a failed completion',async({page})=>{
   const state=baseState();state.sessionUser=true;state.gtToggleFail=true;
   state.gtasks.push({id:'g1',title:'자료 정리',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'});
   state.links.push({google_task_id:'g1',project_id:'child-1',status:'confirmed',task_completed:false});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=child-1');await signIn(page);
   const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
   await panel.locator('[data-gt-linked-toggle="g1"]').click();
   await expect(panel.locator('[data-gt-linked-msg]')).toContainText('완료를 저장하지 못해 되돌렸습니다');
@@ -1153,7 +1154,7 @@ test('V3 project links an existing unlinked Google task',async({page})=>{
     {id:'g-other',title:'다른 프로젝트 할 일',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일',source:'google-task'}
   );
   state.links.push({google_task_id:'g-other',project_id:'main-1',status:'confirmed',task_completed:false});
-  await mockApp(page,state);await page.goto('http://127.0.0.1:8123/app/?project=child-1');await signIn(page);
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=child-1');await signIn(page);
   const panel=page.locator('#ps3-tasks [data-ps3-gtasks]');
   await expect(panel).toContainText('연결된 Google 할 일이 없습니다.');
   await page.locator('[data-ps3-gtask-link]').click();
@@ -1188,7 +1189,7 @@ async function saveProbe(page,table,method='POST'){
 test('saveWs creates once during repeated clicks and retries after failure',async({page})=>{
   const state=baseState();await mockApp(page,state);
   const probe=await saveProbe(page,'app_project_workstreams');
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await page.locator('[data-ps3-add-ws]').click();
   await page.locator('#ps3WsTitle').fill('저장 잠금 영역');
   const button=page.locator('#ps3WsSave');
@@ -1208,7 +1209,7 @@ test('saveWs creates once during repeated clicks and retries after failure',asyn
 test('saveQuickProgress creates once during repeated submits and retries after failure',async({page})=>{
   const state=baseState();await mockApp(page,state);
   const probe=await saveProbe(page,'app_project_progress_updates');
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   const form=page.locator('[data-ps3-quick-progress="ws-1"]'),button=form.locator('button');
   await form.locator('input').fill('잠금 검증 기록');await button.click();await expect.poll(()=>probe.count).toBe(1);
   await expect(button).toBeDisabled();await form.dispatchEvent('submit');
@@ -1222,7 +1223,7 @@ test('saveQuickProgress creates once during repeated submits and retries after f
 test('saveMemo creates once during repeated clicks and retries after failure',async({page})=>{
   const state=baseState();await mockApp(page,state);
   const probe=await saveProbe(page,'app_project_comments');
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-memos');await page.locator('#ps3MemoBody').fill('잠금 검증');
   const button=page.locator('[data-ps3-memo-save]');
   await button.click();await expect.poll(()=>probe.count).toBe(1);
@@ -1250,7 +1251,7 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
     if(probe.fail){probe.fail=false;return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'임시 저장 실패'})})}
     return route.fallback();
   });
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneSave')).toBeEnabled();
   await page.locator('#ps3MilestoneTitle').fill('잠금 검증 일정');
@@ -1274,7 +1275,7 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
 async function openRecords(page,state){
   await mockApp(page,state);
   await page.setViewportSize({width:390,height:844});
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   const item=page.locator('[data-ps3-progress-item="ws-1"]');
   await expect(item.locator('[data-ps3-quick-progress] input')).toBeVisible();
   if(await item.locator('summary').count())await item.locator('summary').click();
@@ -1423,7 +1424,7 @@ for(const width of [390,1440])for(const [phase,label] of [['done','종료'],['fo
 
 for(const width of [390,1280])test(`D-4c single progress record has no duplicate summary at ${width}`,async({page})=>{
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width,height:844});
-  await page.goto('http://127.0.0.1:8123/app/?project=main-1');await signIn(page);
+  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   const item=page.locator('[data-ps3-progress-item="ws-1"]');
   await expect(item.locator('.ps3-pg-summary')).toHaveCount(0);
   await expect(item.locator('.ps3-pg-record')).toHaveCount(1);

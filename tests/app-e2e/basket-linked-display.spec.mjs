@@ -1,3 +1,4 @@
+import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-12T01:00:00Z';
@@ -38,7 +39,7 @@ for(const width of [390,1280])test.describe(`original list return ${width}`,()=>
  test.use({hasTouch:width===390});
  test(`removes note only and reload keeps unclassified list`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page);f.links.push({id:'linked',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:'승인'});
- await page.goto('http://127.0.0.1:8123/app/?view=basket&note='+n+'&unrelated=keep#anchor');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);
+ await page.goto(testOrigin+'/app/?view=basket&note='+n+'&unrelated=keep#anchor');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);
  await page.evaluate(()=>history.replaceState({...history.state,custom:'preserve'},'',location.href));await page.locator('[data-basket-close]').focus();await page.keyboard.press('Enter');
  expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('unrelated')).toBe('keep');expect(new URL(page.url()).hash).toBe('#anchor');expect(await page.evaluate(()=>history.state.custom)).toBe('preserve');
  await page.reload();await expect(page.locator('[data-basket-detail]')).toBeHidden();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
@@ -46,7 +47,7 @@ for(const width of [390,1280])test.describe(`original list return ${width}`,()=>
  });
 });
 test('cancelled dirty menu movement preserves URL and editor; accepted movement clears note',async({page})=>{
- const f=await fixture(page);await page.goto('http://127.0.0.1:8123/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.evaluate(()=>KPTUViewLoader.load('home'));await page.locator('[data-basket-text]').fill('수정 중');const before=page.url();
+ const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.evaluate(()=>KPTUViewLoader.load('home'));await page.locator('[data-basket-text]').fill('수정 중');const before=page.url();
  page.once('dialog',d=>d.dismiss());await page.evaluate(()=>KPTURouter.go('home'));expect(page.url()).toBe(before);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('수정 중');
  page.once('dialog',d=>d.accept());await page.evaluate(()=>KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('keep')).toBe('yes');expect(new URL(page.url()).hash).toBe('#here');
  await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(f.errors).toEqual([]);
@@ -85,7 +86,7 @@ for(const retire of ['screen','session'])test(`list ${retire} transition retires
 });
 test('archived original and browser Back remain explicit choices',async({page})=>{
  const f=await fixture(page);f.note.archived_at=stamp;f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-list]')).toBeVisible();await page.locator('[data-basket-filter="archived"]').click();await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();
- await page.goto('http://127.0.0.1:8123/app/?view=basket&note='+n);await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await page.evaluate(async()=>{await KPTUViewLoader.load('home');KPTURouter.go('home',{source:'delegated'});});await expect(page.locator('#homeView')).toBeVisible();await page.goBack();await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(f.errors).toEqual([]);
+ await page.goto(testOrigin+'/app/?view=basket&note='+n);await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.locator('[data-basket-close]').click();await page.evaluate(async()=>{await KPTUViewLoader.load('home');KPTURouter.go('home',{source:'delegated'});});await expect(page.locator('#homeView')).toBeVisible();await page.goBack();await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(f.errors).toEqual([]);
 });
 
 test('Back declined while editing restores the original URL, history state, and text',async({page})=>{
@@ -95,7 +96,7 @@ test('Back declined while editing restores the original URL, history state, and 
  await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);
 });
 test('failed destination loading preserves note URL and the opened original',async({page})=>{
- const f=await fixture(page);await page.goto('http://127.0.0.1:8123/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);const address=page.url();
+ const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);const address=page.url();
  await page.evaluate(()=>{const load=KPTUViewLoader.load;KPTUViewLoader.load=view=>view==='tasks'?Promise.reject(Error('synthetic route load failure')):load(view);KPTURouter.go('tasks');});
  await expect.poll(()=>f.errors.some(e=>e.includes('synthetic route load failure'))).toBe(true);expect(page.url()).toBe(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);expect(f.errors).toHaveLength(1);
 });
