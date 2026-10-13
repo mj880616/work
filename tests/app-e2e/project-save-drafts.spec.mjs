@@ -290,3 +290,28 @@ test('a calendar selection changed during a new milestone save remains the curre
 test('reopened pending milestone restores the changed calendar draft and resumes only its known original address',async({page})=>{
   const state=await milestoneFixture(page);state.calendarState.calendars.push({id:'other-calendar',summary:'다른 캘린더',accessRole:'owner'});await newMilestone(page);await trackClickedSave(page,'#ps3MilestoneSave');const first=state.nextGoogle('create-event',{hold:true});await page.locator('#ps3MilestoneSave').click();await expect.poll(()=>first.claimed).toBe(true);await page.locator('#ps3MilestoneGoogle').selectOption('other-calendar');await page.locator('[data-ps3-close="ps3MilestoneModal"]').click();await page.locator('[data-ps3-add-milestone]').click();await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('other-calendar');await expect(page.locator('#ps3MilestoneSave')).toBeDisabled();first.release();await savedHandlerFinished(page);await expect(page.getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await expect(page.locator('#ps3MilestoneState')).toContainText('입력을 확인');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneState')).toContainText('현재 선택을 확인');expect(state.calls('app_project_milestones','POST')).toHaveLength(0);await page.locator('#ps3MilestoneGoogle').selectOption('primary');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(state.googleCalls.filter(c=>c.action==='create-event')).toHaveLength(1);expect(state.calls('app_project_milestones','POST')).toHaveLength(1);
 });
+
+// The compact UI has no trigger for this existing delegated dialog. Exercise
+// the shared source path without restoring a visible product action.
+test('delegated source path: a changed phase after confirmed save updates the same record and phase',async({page})=>{
+  const state=await fixture(page);await openProject(page);
+  await page.evaluate(()=>{const b=document.createElement('button');b.dataset.ps3ProgressWs='ws-a';document.querySelector('#ps3Body').append(b);b.click();b.remove();});
+  await page.locator('#ps3ProgressSummary').fill('제출한 기록');await page.locator('#ps3ProgressPhase').selectOption('done');await trackClickedSave(page,'#ps3ProgressSave');
+  const first=state.next('app_project_workstreams','PATCH',{hold:true});
+  try{await page.locator('#ps3ProgressSave').click();await expect.poll(()=>first.claimed).toBe(true);await page.locator('#ps3ProgressPhase').selectOption('consultation');first.release();await savedHandlerFinished(page);
+    await expect(page.locator('#ps3ProgressModal')).toBeVisible();await expect(page.locator('#ps3ProgressPhase')).toHaveValue('consultation');expect(state.tables.app_project_workstreams[0].phase).toBe('done');
+    await page.locator('#ps3ProgressSave').click();await savedHandlerFinished(page,1);
+    expect(state.tables.app_project_workstreams[0].phase).toBe('consultation');expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);expect(state.calls('app_project_progress_updates','PATCH')).toHaveLength(1);expect(state.calls('app_project_workstreams','PATCH').map(r=>r.body.phase)).toEqual(['done','consultation']);await expect(page.locator('#ps3ProgressModal')).toBeHidden();
+    observation('confirmed phase followed by changed draft',state);
+  }finally{first.release()}
+});
+test('delegated source path: unknown phase positive GET preserves the confirmed value before a changed phase',async({page})=>{
+  const state=await fixture(page);await openProject(page);
+  await page.evaluate(()=>{const b=document.createElement('button');b.dataset.ps3ProgressWs='ws-a';document.querySelector('#ps3Body').append(b);b.click();b.remove();});
+  await page.locator('#ps3ProgressSummary').fill('응답 불명 기록');await page.locator('#ps3ProgressPhase').selectOption('done');
+  state.next('app_project_workstreams','PATCH',{status:503,apply:true,response:{message:'phase response unknown'}});await page.locator('#ps3ProgressSave').click();await expect(page.locator('#ps3ProgressState')).toContainText('phase response unknown');
+  await page.locator('#ps3ProgressPhase').selectOption('consultation');await page.locator('#ps3ProgressSave').click();expect(state.calls('app_project_workstreams','PATCH')).toHaveLength(1);
+  await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await expect(page.locator('#ps3ProgressState')).toContainText('입력을 확인');await page.locator('#ps3ProgressSave').click();await expect(page.locator('#ps3ProgressModal')).toBeHidden();
+  expect(state.tables.app_project_workstreams[0].phase).toBe('consultation');expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);expect(state.calls('app_project_workstreams','PATCH').map(r=>r.body.phase)).toEqual(['done','consultation']);
+  const reads=state.calls('app_project_workstreams','GET');expect(reads.some(r=>r.query.id==='eq.ws-a'&&r.query.project_id==='eq.p')).toBe(true);observation('positive phase recovery followed by changed draft',state);
+});

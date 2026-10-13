@@ -29,7 +29,7 @@ function sameSaveSession(e){const c=rt.context.read();return e.epoch===rt.sessio
 function saveEditorCurrent(e){return sameSaveSession(e)&&saveEditors.get(e.key)===e&&!e.closed&&e.form.isConnected&&(!e.modal||!$('#'+e.modal).classList.contains('hidden'))&&(!e.projectId||current?.id===e.projectId&&$('#ps3Body')?.dataset.project===e.projectId)}
 function projectSaveCurrent(r){return saveEditorCurrent(r.editor)&&r.editor.request===r&&r.seq===r.editor.seq}
 function readSaveDraft(e){return e.fields.map(field=>field.value)}
-function saveAttemptComplete(a){return a.bodyState==='confirmed'&&(!a.modulesNeeded||a.modulesState==='confirmed')&&(!a.phaseWanted||a.phaseState==='confirmed')&&(!a.googleNeeded||a.googleState==='confirmed')}
+function saveAttemptComplete(a){return a.bodyState==='confirmed'&&(!a.modulesNeeded||a.modulesState==='confirmed')&&(!a.phaseWanted||a.phaseState==='confirmed'&&a.phaseConfirmed===a.phaseWanted)&&(!a.googleNeeded||a.googleState==='confirmed')}
 function saveBusy(e,value){if(e.button?.isConnected){e.button.disabled=value;e.button.toggleAttribute('aria-busy',value)}if(e.form.matches('[data-ps3-quick-progress]'))e.form.dataset.saving=value?'1':'0';if(e.kind==='record')e.form.closest('[data-ps3-record]').dataset.saving=value?'1':'0'}
 function saveNotice(e,text,{confirm=false}={}){if(!saveEditorCurrent(e))return;e.status.textContent=text;e.status.className='status';if(confirm){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='저장 결과 확인';b.onclick=()=>e.kind==='milestone'?recoverMilestone(e):recoverSave(e);e.status.append(document.createTextNode(' '),b)}}
 function saveStatus(form,selector){let s=selector?$(selector):form.querySelector('[data-ps3-save-state]');if(!s){s=document.createElement('div');s.dataset.ps3SaveState='';s.className='status';s.setAttribute('role','status');form.matches('[data-ps3-quick-progress]')?form.after(s):form.append(s)}return s}
@@ -71,7 +71,7 @@ async function recoverSave(e){
     const exact=await read(saveReadPath(e,a,row.id));if(!Array.isArray(exact)||exact.length!==1||!validSaveRow(scopeEditor,exact[0],row.id))throw new Error('선택한 항목의 저장 결과를 확인하지 못했습니다.');
     const fresh=exact[0];if(a.knownId==null&&e.kind==='project')a.modulesNeeded=false;a.knownId=fresh.id;a.row=structuredClone(fresh);a.bodyState='confirmed';a.savedBody=structuredClone(fresh);
     if(a.modulesNeeded){const modules=await read('/rest/v1/app_project_modules?'+new URLSearchParams({project_id:'eq.'+fresh.id,select:'*'}));if(!Array.isArray(modules))throw new Error('프로젝트 설정을 확인하지 못했습니다.');for(const row of modules)if(row.project_id===fresh.id&&savedId(row.id)&&MODULES.some(([key])=>key===row.module_key))a.moduleKeys.add(row.module_key);if(MODULES.every(([key])=>a.moduleKeys.has(key)))a.modulesState='confirmed';if(a.modulesState==='unknown'){saveNotice(e,'프로젝트는 확인했습니다. 설정은 일부만 확인됐습니다. 다시 확인해 주세요.',{confirm:true});return}}
-    if(a.phaseState==='unknown'){const rows=await read('/rest/v1/app_project_workstreams?'+new URLSearchParams({id:'eq.'+a.workstreamId,project_id:'eq.'+a.projectId,select:'*'}));if(!Array.isArray(rows)||rows.length!==1||rows[0].id!==a.workstreamId||rows[0].project_id!==a.projectId)throw new Error('진행 단계를 확인하지 못했습니다.');a.phaseState=rows[0].phase===a.phaseWanted?'confirmed':'idle'}
+    if(a.phaseState==='unknown'){const rows=await read('/rest/v1/app_project_workstreams?'+new URLSearchParams({id:'eq.'+a.workstreamId,project_id:'eq.'+a.projectId,select:'*'}));if(!Array.isArray(rows)||rows.length!==1||rows[0].id!==a.workstreamId||rows[0].project_id!==a.projectId)throw new Error('진행 단계를 확인하지 못했습니다.');a.phaseConfirmed=rows[0].phase;a.phaseState=a.phaseConfirmed===a.phaseWanted?'confirmed':'idle'}
     a.needsReview=false;e.attempt=a;saveNotice(e,'선택한 기존 항목을 사용합니다. 입력을 확인한 뒤 저장해 주세요.');
   };
   e.reading=true;saveBusy(e,true);saveNotice(e,'저장 결과를 확인하는 중…');
@@ -463,10 +463,10 @@ async function insertProgress({workstreamId,phase=null},r){
   if(workstreamId!==r.editor.workstreamId)throw new Error('진행 항목이 바뀌었습니다.');
   const a=r.attempt;a.phaseWanted=phase;
   await writeSaveBody(r);if(!projectSaveCurrent(r)){if(sameSaveSession(r.editor))a.needsReview=true;return false}
-  if(phase&&a.phaseState!=='confirmed'){
+  if(phase&&(a.phaseState!=='confirmed'||a.phaseConfirmed!==phase)){
     r.failureStage='phase';const rows=await saveCall(r,'/rest/v1/app_project_workstreams?'+new URLSearchParams({id:'eq.'+r.editor.workstreamId,project_id:'eq.'+r.editor.projectId}),{method:'PATCH',body:{phase},prefer:'return=representation'});
     if(!sameSaveSession(r.editor))return false;
-    if(!Array.isArray(rows)||rows.length!==1||rows[0]?.id!==r.editor.workstreamId||rows[0]?.project_id!==r.editor.projectId||rows[0]?.phase!==phase)throw new Error('진행 단계의 저장 결과를 확인하지 못했습니다.');a.phaseState='confirmed';
+    if(!Array.isArray(rows)||rows.length!==1||rows[0]?.id!==r.editor.workstreamId||rows[0]?.project_id!==r.editor.projectId||rows[0]?.phase!==phase)throw new Error('진행 단계의 저장 결과를 확인하지 못했습니다.');a.phaseConfirmed=phase;a.phaseState='confirmed';
     if(!projectSaveCurrent(r)){a.needsReview=true;return false}
   }
   return true;
