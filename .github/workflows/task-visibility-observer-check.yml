@@ -16,6 +16,9 @@ on:
       - 'app/task-assignment-visibility.js'
       - '.github/workflows/task-visibility-observer-check.yml'
 
+permissions:
+  contents: read
+
 jobs:
   structure:
     runs-on: ubuntu-24.04

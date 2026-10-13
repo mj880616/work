@@ -29,6 +29,9 @@ on:
       - '.github/workflows/runtime-recovery-e2e.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   runtime-recovery:
     runs-on: ubuntu-24.04

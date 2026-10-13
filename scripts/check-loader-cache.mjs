@@ -8,7 +8,7 @@ import { tokenizer } from 'acorn';
 const sourceFile = /\.(?:html|js|mjs|css)$/i;
 const textFile = /\.(?:html|js|mjs|css|json|svg|md|ya?ml)$/i;
 // These directories contain tooling/fixtures, not deployed page entry points.
-const nonEntry = /^(?:tests|docs|scripts|node_modules|android|windows|supabase|cloudflare|\.github)\/|^app\/legacy\//;
+const nonEntry = /^(?:tests|docs|scripts|node_modules|android-app|windows-app|supabase|cloudflare|\.github)\/|^app\/legacy\//;
 const normalized = value => typeof value === 'string' ? value.replace(/\r\n/g, '\n') : value;
 
 function localReference(raw, parent) {

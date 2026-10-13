@@ -21,6 +21,9 @@ on:
     - cron: '0 21 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   browser-e2e:
     runs-on: ubuntu-24.04

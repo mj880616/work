@@ -16,6 +16,9 @@ on:
       - 'tests/app-e2e/access-request-push.spec.mjs'
       - 'tests/app-e2e/solo-shell.spec.mjs'
       - '.github/workflows/team-member-overview-e2e.yml'
+permissions:
+  contents: read
+
 jobs:
   e2e:
     runs-on: ubuntu-24.04

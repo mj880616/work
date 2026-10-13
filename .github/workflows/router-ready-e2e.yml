@@ -11,6 +11,9 @@ on:
       - 'tests/app-e2e/app-initial-paint.spec.mjs'
       - '.github/workflows/router-ready-e2e.yml'
 
+permissions:
+  contents: read
+
 jobs:
   router-ready:
     runs-on: ubuntu-24.04
