@@ -35,7 +35,7 @@
 <script>
   window.__navDelta=0;
   window.__KPTU_CALENDAR_MOVE_MONTH__=delta=>{window.__navDelta=delta};
-  window.KPTURuntime={context:{read:()=>({})}};
+  window.KPTURuntime={context:{read:()=>({})},session:{read:()=>null,epoch:()=>0,ensure:async()=>null},api:async()=>{throw new Error('Month fixture does not send API requests.')}};
   window.KPTUA11y={dialog:{activate:()=>{},deactivate:()=>{}}};
 </script>
 <script src="/app/mobile-swipe-navigation.js"></script>

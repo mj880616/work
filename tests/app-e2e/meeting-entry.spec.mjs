@@ -700,13 +700,13 @@ test('repeated meeting follow-up save sends one Google create',async({page})=>{
 test('meeting detail waits for a task screen completion and rereads it on reopening',async({page})=>{
   await signIn(page);
   const due=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10)+'T00:00:00Z';
-  let status='needsAction',toggleStarted=false,linkedReads=0,release;
+  let status='needsAction',toggleStarted=false,linkedReads=0,linkedCompleted=0,release;
   const held=new Promise(resolve=>{release=resolve});
   const task=()=>({id:'meeting-follow-up',taskListId:'@default',taskListTitle:'내 할 일',title:'후속',status,due,completed:status==='completed'?new Date().toISOString():null});
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const action=new URL(route.request().url()).searchParams.get('action');
     if(action==='overview')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[task()]})});
-    if(action==='linked'){linkedReads++;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[task()]})})}
+    if(action==='linked'){linkedReads++;await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[task()]})});linkedCompleted++;return}
     if(action==='toggle'){
       toggleStarted=true;
       await held;
@@ -729,10 +729,12 @@ test('meeting detail waits for a task screen completion and rereads it on reopen
   await expect(page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]')).toHaveClass(/completed/);
   expect(readsBeforeSave).toBe(0);
   await page.locator('#mrdClose').click();
-  const previousReads=linkedReads;
+  const previousReads=linkedReads,previousCompleted=linkedCompleted;
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
+  await expect.poll(()=>linkedCompleted).toBeGreaterThan(previousCompleted);
   await expect(page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]')).toHaveClass(/completed/);
-  expect(linkedReads).toBeGreaterThan(previousReads);
+  await expect.poll(()=>linkedReads).toBeGreaterThan(previousReads);
 });
 
 test('meeting detail can undo a completion while the immediate Google save is in flight',async({page})=>{
@@ -839,15 +841,15 @@ test('Google editor displays and retains meeting links while a meeting-only task
   await signIn(page);
   const today=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
   const task={id:'linked-google',taskListId:'@default',taskListTitle:'내 할 일',title:'회의 연결 항목',due:today+'T00:00:00Z',notes:'',status:'needsAction'};
-  let update=null,linkChanges=0,unlinkBody=null;const actions=[];
+  let update=null,linkChanges=0,unlinkBody=null,projectLinked=true;const actions=[];
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
     const action=new URL(route.request().url()).searchParams.get('action');
     actions.push(action);
     if(action==='overview')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[task,{...task,id:'meeting-only'}]})});
-    if(action==='links')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({links:[{project_id:'main',status:'confirmed'}],meeting_links:[{meeting_id:'meeting-1',status:'confirmed'}]})});
-    if(action==='update')update=route.request().postDataJSON();
-    if(action==='link'||action==='unlink'){linkChanges++;if(action==='unlink')unlinkBody=route.request().postDataJSON()}
-    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task})});
+    if(action==='links')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({links:projectLinked?[{project_id:'main',status:'confirmed'}]:[],meeting_links:[{meeting_id:'meeting-1',status:'confirmed'}]})});
+    if(action==='update'){update=route.request().postDataJSON();Object.assign(task,{title:update.title,notes:update.notes,due:update.due})}
+    if(action==='link'||action==='unlink'){linkChanges++;if(action==='unlink'){unlinkBody=route.request().postDataJSON();projectLinked=false}}
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task,links:projectLinked?[{project_id:'main',status:'confirmed'}]:[],meeting_links:[{meeting_id:'meeting-1',status:'confirmed'}]})});
   });
   await clickView(page,'tasks');
   await expect.poll(()=>actions,{timeout:15000}).toContain('overview');
@@ -855,7 +857,7 @@ test('Google editor displays and retains meeting links while a meeting-only task
   await page.locator('[data-gt-edit="linked-google"]').click();
   await expect(page.locator('#gtMeetingLinks')).toContainText('회의: 궤도협의회');
   await expect(page.locator('#gtEditLinkBody input[value="p:main"]')).toBeChecked();
-  await page.locator('#gtSaveBtn').click();
+  await page.locator('#gtEditNotes').fill('회의 연결을 유지하는 수정');await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>update).not.toBeNull();
   expect(linkChanges).toBe(0);
   await page.locator('[data-gt-edit="linked-google"]').click();

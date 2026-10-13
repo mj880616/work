@@ -36,7 +36,7 @@ async function mock(page,{calendars=[{id:'primary',summary:'기본',primary:true
       if(method==='PATCH')return write('meeting',[{id:meeting.id}]);
       return ok([meeting]);
     }
-    if(path==='/functions/v1/google-calendar'){const action=new URL(req.url()).searchParams.get('action');const body=method==='POST'?req.postDataJSON():null;if(action==='event')return ok({event:state.googleEvents.find(e=>e.id===new URL(req.url()).searchParams.get('eventId')),eventColors:{}});if(action==='events')return ok({events:state.googleEvents,eventColors:{}});if(body?.action==='create-event'){const result=await write('event',{ok:true,event:{id:'google-new',calendarId:body.calendar_id,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false}});if(!state.failNext)state.googleEvents=[{id:'google-new',calendarId:body.calendar_id,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false}];return result}if(body?.action==='update-event')return write('googleEdit',{ok:true,event:{id:body.event_id,calendarId:body.calendar_id}});return ok({connected:true,enabled:true,selected:['primary'],calendars,events:state.googleEvents,eventColors:{}})}
+    if(path==='/functions/v1/google-calendar'){const action=new URL(req.url()).searchParams.get('action');const body=method==='POST'?req.postDataJSON():null;if(action==='event')return ok({event:state.googleEvents.find(e=>e.id===new URL(req.url()).searchParams.get('eventId')),eventColors:{}});if(action==='events')return ok({events:state.googleEvents,eventColors:{}});if(body?.action==='create-event'){const result=await write('event',{ok:true,event:{id:'google-new',calendarId:body.calendar_id,title:body.title,location:body.location||'',start:body.start_iso,end:body.end_iso,allDay:false}});if(!state.failNext)state.googleEvents=[{id:'google-new',calendarId:body.calendar_id,title:body.title,location:body.location||'',start:body.start_iso,end:body.end_iso,allDay:false}];return result}if(body?.action==='update-event')return write('googleEdit',{ok:true,event:{id:body.event_id,calendarId:body.calendar_id,location:body.location??state.googleEvents.find(x=>x.id===body.event_id)?.location??''}});return ok({connected:true,enabled:true,selected:['primary'],calendars,events:state.googleEvents,eventColors:{}})}
     if(path==='/functions/v1/google-tasks')return ok({tasks:[],needs_reconnect:false});
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -118,7 +118,7 @@ async function openMeetingEdit(page){
   await expect(page.locator('#mrdSaveEdit')).toBeVisible();
 }
 
-test('Google event save sends one request on double press and unlocks after failure',async({page})=>{
+test('Google event create sends one request and requires explicit confirmation after an unknown result',async({page})=>{
   const state=await signIn(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
   expect(state.eventReads).toBe(0);
@@ -127,11 +127,14 @@ test('Google event save sends one request on double press and unlocks after fail
   await pressTwiceWhileSaving(page,state,'#saveEventBtn','event','저장');
   await expect(page.locator('#eventModal')).toBeHidden();
   await openEvent(page);
-  await failThenRetry(page,state,'#saveEventBtn','event','저장','#eventStatus');
-  await expect(page.locator('#eventModal')).toBeHidden();
+  const before=state.writes.event;state.failNext=true;await page.locator('#saveEventBtn').click();
+  await expect(page.locator('#eventStatus')).toContainText('임시 저장 실패');await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventTitle')).toHaveValue('잠금 일정');await expect(page.locator('#saveEventBtn')).toBeEnabled();
+  await page.locator('#saveEventBtn').click();expect(state.writes.event).toBe(before+1);
+  await page.getByRole('button',{name:'목록에서 저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:'잠금 일정 · 이 항목에 이어서 저장',exact:true}).click();
+  await expect(page.locator('#eventStatus')).toContainText('고른 항목');await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();expect(state.writes.event).toBe(before+1);expect(state.writes.googleEdit).toBe(1);
 });
 
-test('Google event edit sends one request on double press and unlocks after failure',async({page})=>{
+test('Google event edit sends one request and confirms an unknown address before retry',async({page})=>{
   const state=await signIn(page,'calendar');
   await openEvent(page);
   await page.locator('#saveEventBtn').click();
@@ -141,8 +144,10 @@ test('Google event edit sends one request on double press and unlocks after fail
   await pressTwiceWhileSaving(page,state,'#ciGoogleSave','googleEdit','변경사항 저장');
   await expect(page.locator('#ciGoogleModal')).toBeHidden();
   await page.locator('.cp-event[data-google-event="google-new"]').click();
-  await failThenRetry(page,state,'#ciGoogleSave','googleEdit','변경사항 저장','#ciGoogleStatus');
-  await expect(page.locator('#ciGoogleModal')).toBeHidden();
+  const before=state.writes.googleEdit;state.failNext=true;await page.locator('#ciGoogleSave').click();
+  await expect(page.locator('#ciGoogleStatus')).toContainText('임시 저장 실패');await expect(page.locator('#ciGoogleModal')).toBeVisible();await expect(page.locator('#ciGoogleSave')).toBeEnabled();
+  await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('위치를 확인');expect(state.writes.googleEdit).toBe(before+1);
+  await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(state.writes.googleEdit).toBe(before+2);
 });
 
 // 목록은 전역에 직접 주입하지 않고 모든 status 응답에서 동일하게 제공한다.

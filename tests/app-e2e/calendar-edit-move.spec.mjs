@@ -23,10 +23,10 @@ async function open(page,{view='list',recurring=false,partial=false}={}){
     if(url.pathname==='/functions/v1/google-calendar'){
       const action=url.searchParams.get('action');
       if(req.method()==='POST'){
-        const body=req.postDataJSON();state.writes.push(body);
+        const body=req.postDataJSON();state.writes.push(body);if(state.writeGate)await state.writeGate;
         if(body.action==='update-event'){
           state.event.calendarId=body.target_calendar_id||body.calendar_id;
-          if(!partial)state.event.title=body.title;
+          if(!partial)state.event.title=body.title;if(state.empty)return ok(null);
           return ok(partial?{ok:false,moved:true,partial_failure:true,failed_stage:'contents',message:'캘린더는 옮겨졌지만 일부 내용 저장에 실패했습니다.',event:state.event}:{ok:true,moved:!!body.target_calendar_id,event:state.event});
         }
       }
@@ -70,7 +70,7 @@ test('recurring event locks calendar but keeps existing edits',async({page})=>{
 });
 test('partial save reads actual destination and preserves warning for retry',async({page})=>{
   const state=await open(page,{partial:true});await edit(page);await page.locator('#ciGoogleCalendar').selectOption('target');await page.locator('#ciGoogleTitle').fill('합성 수정 입력');await page.locator('#ciGoogleSave').click();
-  await expect(page.locator('#ciGoogleStatus')).toContainText('캘린더는 옮겨졌지만 일부 내용 저장에 실패했습니다');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');await expect(page.locator('#ciGoogleTitle')).toHaveValue('합성 이동 시험');expect(state.reads).toBeGreaterThan(0);
+  await expect(page.locator('#ciGoogleStatus')).toContainText('캘린더는 옮겨졌지만 일부 내용 저장에 실패했습니다');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');await expect(page.locator('#ciGoogleTitle')).toHaveValue('합성 수정 입력');expect(state.reads).toBeGreaterThan(0);
   await page.locator('#ciGoogleSave').click();await expect.poll(()=>state.writes.length).toBe(2);expect(state.writes[1].calendar_id).toBe('target');expect(state.writes[1]).not.toHaveProperty('target_calendar_id');
 });
 test('failed reread retains server-confirmed destination and allows a correct retry',async({page})=>{
@@ -94,4 +94,21 @@ test('desktop uses the same keyboard-accessible calendar selector',async({page})
 test('primary alias selects the named current calendar without a duplicate destination',async({page})=>{
   await open(page);await page.evaluate(()=>{window.__KPTU_GOOGLE_EVENTS__[0].calendarId='primary';window.__KPTU_GOOGLE_STATE__.calendars[0].primary=true;document.querySelector('[data-google-event="move-event"]').dataset.googleCalendar='primary'});await edit(page);
   await expect(page.locator('#ciGoogleCalendar')).toHaveValue('primary');expect(await page.locator('#ciGoogleCalendar option').evaluateAll(rows=>rows.map(r=>({value:r.value,disabled:r.disabled,label:r.textContent})))).toEqual([{value:'primary',disabled:false,label:'기존 캘린더 (기본)'},{value:'target',disabled:false,label:'새 캘린더'}]);
+});
+
+for(const width of [390,1280])test(`partial move preserves full current draft ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});const s=await open(page,{partial:true});await edit(page);await page.locator('#ciGoogleCalendar').selectOption('target');await page.locator('#ciGoogleTitle').fill('새 제목');await page.locator('#ciGoogleMemo').fill('새 메모');await page.locator('#ciGoogleStartDate').fill('2026-10-21');await page.locator('#ciGoogleEndDate').fill('2026-10-22');await page.locator('#ciGoogleColor button').nth(2).click();const color=await page.locator('#ciGoogleColor').getAttribute('data-selected-color');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('수정 입력');await expect(page.locator('#ciGoogleTitle')).toHaveValue('새 제목');await expect(page.locator('#ciGoogleMemo')).toHaveValue('새 메모');await expect(page.locator('#ciGoogleStartDate')).toHaveValue('2026-10-21');await expect(page.locator('#ciGoogleEndDate')).toHaveValue('2026-10-22');await expect(page.locator('#ciGoogleColor')).toHaveAttribute('data-selected-color',color);expect(s.writes[0].organization_ids).toEqual(['org-a']);
+});
+test('new input during event edit success remains open',async({page})=>{
+ const s=await open(page);await edit(page);let release;s.writeGate=new Promise(r=>release=r);await page.locator('#ciGoogleSave').click();await expect.poll(()=>s.writes.length).toBe(1);await page.locator('#ciGoogleMemo').fill('늦은 입력');release();await expect(page.locator('#ciGoogleSave')).toBeEnabled();await expect(page.locator('#ciGoogleModal')).toBeVisible();await expect(page.locator('#ciGoogleMemo')).toHaveValue('늦은 입력');
+});
+test('unconfirmed move checks actual address before another write',async({page})=>{
+ const s=await open(page);await edit(page);s.empty=true;await page.locator('#ciGoogleCalendar').selectOption('target');await page.locator('#ciGoogleTitle').fill('보존 입력');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('확인');s.empty=false;await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('위치를 확인');expect(s.writes).toHaveLength(1);await expect(page.locator('#ciGoogleTitle')).toHaveValue('보존 입력');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(s.writes[1].calendar_id).toBe('target');expect(s.writes[1]).not.toHaveProperty('target_calendar_id');
+});
+test('same event reopened during a save waits without losing new input',async({page})=>{
+ const s=await open(page);await edit(page);let release;s.writeGate=new Promise(r=>release=r);await page.locator('#ciGoogleSave').click();await expect.poll(()=>s.writes.length).toBe(1);await page.locator('#ciGoogleClose').click();await page.locator('[data-google-event="move-event"]').first().click();await expect(page.locator('#ciGoogleModal')).toBeVisible();await expect(page.locator('#ciGoogleSave')).toBeDisabled();await page.locator('#ciGoogleTitle').fill('같은 일정 새 초안');release();await expect(page.locator('#ciGoogleSave')).toBeEnabled();await expect(page.locator('#ciGoogleSave')).toHaveText('변경사항 저장');await expect(page.locator('#ciGoogleSave')).not.toHaveAttribute('aria-busy','true');await expect(page.locator('#ciGoogleTitle')).toHaveValue('같은 일정 새 초안');
+});
+
+test('unknown move address confirmation preserves a newly chosen destination',async({page})=>{
+ const s=await open(page);await edit(page);s.empty=true;await page.locator('#ciGoogleCalendar').selectOption('target');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('확인');s.empty=false;await page.locator('#ciGoogleCalendar').selectOption('source');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('위치를 확인');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('source');expect(s.writes).toHaveLength(1);await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(s.writes[1]).toMatchObject({calendar_id:'target',target_calendar_id:'source'});
 });
