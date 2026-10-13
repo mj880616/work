@@ -21,11 +21,13 @@ async function mockApp(page,state){
       if(typeof value==='number'){if(value<=0)return null;bucket[key]=value-1;return key+' forced failure'}
       return typeof value==='string'?value:key+' forced failure'
     };
-    // sessionUser: the token carries the user like a real Supabase response; Google task code reads the owner from the session.
-    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(()=>Date.now())/1000)+3600,...(state.sessionUser?{user:state.user}:{})});
+    // Supabase token responses carry the signed-in user; the runtime binds its boot context to that owner.
+    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(()=>Date.now())/1000)+3600,user:state.user});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
+      state.googleEvents??=[];
+      const calendarEvent=(calendarId,id)=>state.googleEvents.find(e=>e.calendarId===calendarId&&e.id===id)||(()=>{const m=state.milestones.find(m=>m.google_calendar_id===calendarId&&m.google_event_id===id);return m?{id,calendarId,title:m.title,description:m.notes||'',start:m.start_at,end:m.end_at||new Date(Date.parse(m.start_at)+3600000).toISOString(),allDay:false,location:'원래 장소',colorId:'4',organizationIds:['기존 조직'],recurring:false,source:'google'}:null})();
       const action=url.searchParams.get('action')||body?.action||'status';
       if(method==='POST'){
         state.googleCalls=state.googleCalls||[];
@@ -34,11 +36,12 @@ async function mockApp(page,state){
         state.callOrder.push('google:'+action);
         const failure=forcedFailure(state.googleFailures,action);
         if(failure)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:failure})});
-        if(action==='delete-event')return ok({ok:true});
+        if(action==='delete-event'){state.googleEvents=state.googleEvents.filter(e=>e.id!==body.event_id||e.calendarId!==body.calendar_id);return ok({ok:true})}
         const id=action==='update-event'?(body?.event_id||'google-updated'):`google-${state.googleCalls.filter(x=>x.action==='create-event').length}`;
-        return ok({ok:true,event:{id,calendarId:body?.calendar_id||'primary'}});
+        const calendarId=body?.calendar_id||'primary',event={...(calendarEvent(calendarId,id)||{}),id,calendarId,title:body.title,description:body.memo||'',allDay:!!body.all_day,start:body.all_day?body.start_date:body.start_iso,end:body.all_day?new Date(Date.parse(body.end_date)+86400000).toISOString().slice(0,10):body.end_iso,source:'google'};for(const key of ['location','color_hex','organization_ids'])if(Object.hasOwn(body,key))event[key]=body[key];state.googleEvents=state.googleEvents.filter(e=>e.id!==id||e.calendarId!==calendarId);state.googleEvents.push(event);return ok({ok:true,event});
       }
-      if(action==='events')return ok({events:[],colors:state.googleStatus?.colors||{},eventColors:{}});
+      if(action==='event'){const event=calendarEvent(url.searchParams.get('calendarId'),url.searchParams.get('eventId'));return event?ok({event,eventColors:{}}):route.fulfill({status:400,json:{error:'exact event not found'}})}
+      if(action==='events')return ok({events:state.googleEvents,colors:state.googleStatus?.colors||{},eventColors:{}});
       return ok(state.googleStatus||{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     }
     if(path==='/functions/v1/google-tasks'){
@@ -78,7 +81,7 @@ async function mockApp(page,state){
         return ok(rows)
       }
       if(method==='POST'){const row={...(body||{}),id:`project-${state.spaces.length+1}`,created_at:now(),updated_at:now()};state.spaces.push(row);return ok([row])}
-      if(method==='PATCH'){const id=eq(url,'id'),row=state.spaces.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok([])}
+      if(method==='PATCH'){const id=eq(url,'id'),row=state.spaces.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok(req.headers()['prefer']?.includes('return=representation')?(row?[row]:[]):[])}
       if(method==='DELETE'){const id=eq(url,'id');state.spaces=state.spaces.filter(x=>x.id!==id&&x.parent_id!==id);return ok([])}
     }
     const table=(name,arr,key='project_id')=>{
@@ -87,9 +90,9 @@ async function mockApp(page,state){
       state.restCalls.push({name,method,body:body?structuredClone(body):body});
       state.callOrder.push(name+':'+method);
       const failure=forcedFailure(state.restFailures,name+':'+method);
-      if(failure){route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:failure})});return true}
+      if(failure){route.fulfill({status:state.restFailureStatuses?.[name+':'+method]||500,contentType:'application/json',body:JSON.stringify({error:failure})});return true}
       const raw=String(url.searchParams.get(key)||''),inList=raw.startsWith('in.(')?raw.slice(4,-1).split(',').map(decodeURIComponent):null,pid=inList?'':eq(url,key),id=eq(url,'id');
-      if(method==='GET'){const rows=arr.filter(x=>(!pid||x[key]===pid)&&(!inList||inList.includes(x[key]))&&(!id||x.id===id));if(name==='app_project_progress_updates')rows.sort((a,b)=>String(b.effective_on||'').localeCompare(String(a.effective_on||''))||String(b.created_at||'').localeCompare(String(a.created_at||'')));return ok(rows)}
+      if(method==='GET'){const scopes=['workspace_id','owner_id','author_id','created_by','workstream_id'].filter(field=>url.searchParams.get(field)?.startsWith('eq.'));const rows=arr.filter(x=>(!pid||x[key]===pid)&&(!inList||inList.includes(x[key]))&&(!id||x.id===id)&&scopes.every(field=>String(x[field]??'')===eq(url,field)));if(name==='app_project_progress_updates')rows.sort((a,b)=>String(b.effective_on||'').localeCompare(String(a.effective_on||''))||String(b.created_at||'').localeCompare(String(a.created_at||'')));return ok(rows)}
       if(method==='POST'){const rows=(Array.isArray(body)?body:[body]).map((x,i)=>({...x,id:x.id||`${name}-${arr.length+i+1}`,created_at:now(),updated_at:now()}));for(const row of rows){const existing=url.searchParams.get('on_conflict')==='id'?arr.find(x=>x.id===row.id):null;if(existing)Object.assign(existing,row);else arr.push(row)}return ok(rows)}
       if(method==='PATCH'){const targets=id?arr.filter(x=>x.id===id):arr.filter(x=>!pid||x[key]===pid);targets.forEach(x=>Object.assign(x,body||{}));return ok(req.headers()['prefer']?.includes('return=representation')?targets:[])}
       if(method==='DELETE'){const removed=[];if(id){const i=arr.findIndex(x=>x.id===id);if(i>=0)removed.push(...arr.splice(i,1))}return ok(req.headers()['prefer']?.includes('return=representation')?removed:[])}
@@ -220,7 +223,7 @@ test('project renderer clears user A data before rendering user B projects',asyn
   await expect(page.locator('#projectGrid')).toContainText('민자철도 정책·조직사업');
   await expect(page.locator('#projectGrid')).not.toContainText('B 사용자 프로젝트');
   state.user={id:'user-2',email:'b@example.org',user_metadata:{display_name:'B 사용자'}};
-  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:session-changed')));
+  await page.evaluate(user=>{window.KPTURuntime.session.write({...window.KPTURuntime.session.read(),user});},state.user);
   await expect(page.locator('#projectGrid')).toContainText('B 사용자 프로젝트');
   await expect(page.locator('#projectGrid')).not.toContainText('민자철도 정책·조직사업');
 });
@@ -373,7 +376,7 @@ test('Google create failure leaves no Web2-only project milestone',async({page})
 test('local milestone failure rolls back the newly created Google event',async({page})=>{
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  state.restFailures['app_project_milestones:POST']=1;
+  state.restFailures['app_project_milestones:POST']=1;state.restFailureStatuses={'app_project_milestones:POST':403};
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('롤백 일정');
@@ -441,7 +444,7 @@ test('linked milestone local update failure restores Google and local state',asy
   Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
   state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  state.restFailures['app_project_milestones:PATCH']=1;
+  state.restFailures['app_project_milestones:PATCH']=1;state.restFailureStatuses={'app_project_milestones:PATCH':403};
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await page.locator('#ps3MilestoneTitle').fill('저장 실패 수정안');
@@ -489,7 +492,7 @@ test('linked milestone local delete failure restores Google linkage and mileston
 test('rollback failure reports possible Google and Web2 inconsistency with the Google event id in console data',async({page})=>{
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  state.restFailures['app_project_milestones:POST']=1;
+  state.restFailures['app_project_milestones:POST']=1;state.restFailureStatuses={'app_project_milestones:POST':403};
   state.googleFailures['delete-event']='forced Google rollback failure';
   const errors=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
@@ -1177,7 +1180,7 @@ async function saveProbe(page,table,method='POST'){
   const probe={count:0,hold:true,fail:false,waiters:[]};
   probe.release=()=>{probe.hold=false;probe.waiters.splice(0).forEach(resolve=>resolve())};
   await page.route(`${SB}/rest/v1/${table}**`,async route=>{
-    if(route.request().method()!==method)return route.fallback();
+    if(method==='write'?!['POST','PATCH'].includes(route.request().method()):route.request().method()!==method)return route.fallback();
     probe.count++;
     if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
     if(probe.fail){probe.fail=false;return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'임시 저장 실패'})})}
@@ -1188,7 +1191,7 @@ async function saveProbe(page,table,method='POST'){
 
 test('saveWs creates once during repeated clicks and retries after failure',async({page})=>{
   const state=baseState();await mockApp(page,state);
-  const probe=await saveProbe(page,'app_project_workstreams');
+  const probe=await saveProbe(page,'app_project_workstreams','write');
   await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await page.locator('[data-ps3-add-ws]').click();
   await page.locator('#ps3WsTitle').fill('저장 잠금 영역');
@@ -1201,28 +1204,28 @@ test('saveWs creates once during repeated clicks and retries after failure',asyn
   await page.locator('#ps3WsTitle').fill('다시 시도 영역');
   probe.fail=true;await button.click();
   await expect(page.locator('#ps3WsState')).toContainText('임시 저장 실패');
-  await expect(button).toBeEnabled();await button.click();
+  await expect(button).toBeEnabled();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:/ · 이 항목 사용$/}).first().click();await expect(page.locator('#ps3WsState')).toContainText('입력을 확인');await button.click();
   await expect.poll(()=>probe.count).toBe(3);
   expect(state.workstreams.filter(x=>x.title==='저장 잠금 영역')).toHaveLength(1);
 });
 
 test('saveQuickProgress creates once during repeated submits and retries after failure',async({page})=>{
   const state=baseState();await mockApp(page,state);
-  const probe=await saveProbe(page,'app_project_progress_updates');
+  const probe=await saveProbe(page,'app_project_progress_updates','write');
   await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   const form=page.locator('[data-ps3-quick-progress="ws-1"]'),button=form.locator('button');
   await form.locator('input').fill('잠금 검증 기록');await button.click();await expect.poll(()=>probe.count).toBe(1);
   await expect(button).toBeDisabled();await form.dispatchEvent('submit');
   expect(probe.count).toBe(1);probe.release();await expect(page.locator('#toast')).toHaveText('진행상황을 기록했습니다.');await expect(button).toBeEnabled();await expect(form.locator('input')).toHaveValue('');
   await form.locator('input').fill('다시 시도 기록');probe.fail=true;await button.click();
-  await expect(page.locator('#toast')).toContainText('저장 실패');await expect(button).toBeEnabled();await button.click();
+  await expect(page.locator('#toast')).toContainText('저장 실패');await expect(button).toBeEnabled();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:'잠금 검증 기록 · 이 항목 사용',exact:true}).click();await expect(form.locator('input')).toHaveValue('다시 시도 기록');await button.click();
   await expect.poll(()=>probe.count).toBe(3);await expect(form.locator('input')).toHaveValue('');
-  expect(state.progress.filter(x=>x.summary==='잠금 검증 기록')).toHaveLength(1);
+  expect(state.progress.filter(x=>x.summary==='다시 시도 기록')).toHaveLength(1);expect(state.progress).toHaveLength(2);
 });
 
 test('saveMemo creates once during repeated clicks and retries after failure',async({page})=>{
   const state=baseState();await mockApp(page,state);
-  const probe=await saveProbe(page,'app_project_comments');
+  const probe=await saveProbe(page,'app_project_comments','write');
   await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-memos');await page.locator('#ps3MemoBody').fill('잠금 검증');
   const button=page.locator('[data-ps3-memo-save]');
@@ -1233,7 +1236,7 @@ test('saveMemo creates once during repeated clicks and retries after failure',as
   await page.locator('#ps3MemoBody').fill('다시 시도');
   probe.fail=true;await button.click();
   await expect(page.locator('#ps3MemoState')).toContainText('임시 저장 실패');
-  await expect(button).toBeEnabled();await button.click();
+  await expect(button).toBeEnabled();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:'잠금 검증 · 이 항목 사용',exact:true}).click();await expect(page.locator('#ps3MemoState')).toContainText('입력을 확인');await button.click();
   await expect.poll(()=>probe.count).toBe(3);
 });
 
@@ -1245,7 +1248,7 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
   probe.release=()=>{probe.hold=false;probe.waiters.splice(0).forEach(resolve=>resolve())};
   await page.route(`${SB}/functions/v1/google-calendar**`,async route=>{
     const body=route.request().postDataJSON?.();
-    if(route.request().method()!=='POST'||body?.action!=='create-event')return route.fallback();
+    if(route.request().method()!=='POST'||!['create-event','update-event'].includes(body?.action))return route.fallback();
     probe.count++;
     if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
     if(probe.fail){probe.fail=false;return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'임시 저장 실패'})})}
@@ -1267,8 +1270,8 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
   await expect(button).toBeEnabled();
   probe.fail=true;await button.click();
   await expect(page.locator('#ps3MilestoneState')).toContainText('임시 저장 실패');
-  await expect(button).toBeEnabled();await button.click();
-  await expect.poll(()=>probe.count).toBe(3);
+  await expect(button).toBeEnabled();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:'Google 일정에서 확인',exact:true}).click();await page.getByRole('button',{name:'잠금 검증 일정 · 이 항목 사용',exact:true}).click();await expect(page.locator('#ps3MilestoneState')).toContainText('선택한 기존 Google');await button.click();
+  await expect.poll(()=>probe.count).toBe(3);expect(state.googleCalls.filter(c=>c.action==='create-event')).toHaveLength(1);
 });
 
 // PRJ-progress: real UI with REST mocked at the network boundary.
@@ -1320,7 +1323,7 @@ test('PRJ record deletion confirms once, cancel sends nothing, success removes r
   await expect(record).toHaveCount(0);await expect(item.locator('.ps3-pg-summary')).toHaveCount(0);await expect(item.locator('.ps3-pg-record')).toHaveCount(1);
   await expect(item.locator('.ps3-pg-record p').first()).toHaveText('국토부 후속협의 준비');
 });
-for(const method of ['PATCH','DELETE'])for(const status of [403,200])test(`PRJ ${method} ${status===403?'permission denied':'zero rows'} restores original record`,async({page})=>{
+for(const method of ['PATCH','DELETE'])for(const status of [403,200])test(`PRJ ${method} ${status===403?'permission denied':'zero rows'} preserves the draft or restores a deleted record`,async({page})=>{
   const state=baseState(),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
   await page.route(`${SB}/rest/v1/app_project_progress_updates?**`,async route=>{
     if(route.request().method()!==method)return route.fallback();
@@ -1330,8 +1333,7 @@ for(const method of ['PATCH','DELETE'])for(const status of [403,200])test(`PRJ $
     await recordAction(page,record,'수정');await record.locator('input').fill('저장 실패 글');await record.getByRole('button',{name:'저장',exact:true}).click();
   }else{page.once('dialog',d=>d.accept());await recordAction(page,record,'삭제')}
   await expect(page.locator('#toast')).toHaveText(method==='PATCH'?'수정 실패':'삭제 실패');
-  await expect(record.locator('form[data-ps3-edit-record]')).toHaveCount(0);await expect(record.locator('p').first()).toHaveText('국토부 후속협의 준비');
-  await expect(record.locator('[data-ps3-record-menu]')).toBeEnabled();await expect(item.locator('.ps3-pg-summary')).toHaveCount(0);await expect(item.locator('.ps3-pg-record')).toHaveCount(1);
+  if(method==='PATCH'){await expect(record.locator('input')).toHaveValue('저장 실패 글');await expect(record.getByRole('button',{name:'저장',exact:true})).toBeEnabled();if(status===200)await expect(record.getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible()}else{await expect(record.locator('form[data-ps3-edit-record]')).toHaveCount(0);await expect(record.locator('p').first()).toHaveText('국토부 후속협의 준비');await expect(record.locator('[data-ps3-record-menu]')).toBeEnabled()};await expect(item.locator('.ps3-pg-summary')).toHaveCount(0);await expect(item.locator('.ps3-pg-record')).toHaveCount(1);
 });
 test('PRJ dirty record asks before closing project and keeps draft when discard is cancelled',async({page})=>{
   const item=await openRecords(page,baseState()),record=item.locator('[data-ps3-record="pr-1"]');

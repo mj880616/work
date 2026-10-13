@@ -1,5 +1,5 @@
 import {toSeoulISO} from './meeting-time.js?v=2';
-import { createGoogleTask } from './quick-save.js?v=1';
+import { createGoogleTask } from './quick-save.js?v=2';
 import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
 const CM_GOOGLE_DEFAULT='#4285f4';
 const CM_FALLBACK_EVENT_COLORS=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];

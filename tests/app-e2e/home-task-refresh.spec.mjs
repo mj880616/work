@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome,createdTaskReply} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 for(const source of ['events','toggle','quick'])test(`initial pending links coalesce ${source} mutations into one fresh read`,async({page})=>{
  let release;const pending=new Promise(r=>release=r);
@@ -17,7 +17,7 @@ for(const source of ['events','toggle','quick'])test(`initial pending links coal
   }else{
    if(source==='quick'){
     await page.locator('[data-quick-mode="task"]').click();
-    await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{c.tasks.push({id:'queued',title:'QA queued',status:'needsAction',due:'2026-10-06'});return r.fulfill({json:{task:{id:'queued'}}});});
+    await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{c.tasks.push({id:'queued',title:'QA queued',status:'needsAction',due:'2026-10-06'});return r.fulfill({json:createdTaskReply(r.request().postDataJSON(),{id:'queued'})});});
     await page.locator('[data-quick-input]').fill('QA queued');
     await page.locator('[data-quick-save]').click();
     await expect.poll(()=>c.tasks.some(t=>t.id==='queued')).toBe(true);

@@ -1,4 +1,4 @@
-import { mountQuick } from './home-quick.js?v=11';
+import { mountQuick } from './home-quick.js?v=12';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=12';
 import { mountClassification } from './basket-classification-ui.js?v=11';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';

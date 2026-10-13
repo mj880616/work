@@ -1,5 +1,5 @@
 import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
-import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=1';
+import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=2';
 import { createNote, validateNoteText } from './basket-data.js?v=3';
 import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=4';
 import { dayKey } from './home-read-model.js?v=3';
@@ -11,6 +11,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   let quickOwner=quickScope();
   let mode='basket',saving=false,expanded=false,project='',organization='',due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
   try { const saved=basketOnly?null:window.localStorage.getItem('kptu-home-quick-mode'); mode=['basket','task','update'].includes(saved)?saved:'basket'; } catch {}
+  let taskAttempt=null,taskRequest=null,taskSequence=0,taskReading=false,taskSessionEpoch=window.KPTURuntime.session.epoch();
   let upload = createUploadBatch();
   box.innerHTML=`<div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><button type="button" data-quick-mode="update">업데이트</button></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div data-quick-basket-options hidden><div data-quick-files></div><button type="button" class="home-basket-link" data-quick-new-note hidden>새 메모 입력</button></div><div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div><div data-quick-update-options hidden><button type="button" data-quick-org aria-label="조직" aria-haspopup="dialog" aria-expanded="false">조직 ▾</button></div><small data-quick-destination></small></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
@@ -76,7 +77,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{
     if(saving)return;mode=b.dataset.quickMode;status.textContent='';
     try{if(!basketOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
-    paint();if(expanded&&mode!=='basket')void choices();
+    paint();if(mode==='task'&&taskAttempt?.needsReview)taskNotice('앞선 저장 결과를 확인해 주세요. 입력은 유지했습니다.',{confirm:true});if(expanded&&mode!=='basket')void choices();
   });
   box.querySelectorAll('[data-quick-day]').forEach(b=>b.onclick=()=>{
     if(saving)return;const kind=b.dataset.quickDay;
@@ -85,7 +86,60 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     dateKind=kind;due=dayKey(Date.now()+(kind==='tomorrow'?86400000:0));paint();
   });
   date.onchange=()=>{due=date.value;dateKind=due?'date':'';paint();};
+  const taskRuntime=window.KPTURuntime;
+  const taskIdentity=task=>!!task&&typeof task.id==='string'&&!!task.id&&typeof task.taskListId==='string'&&!!task.taskListId&&typeof task.title==='string';
+  const taskSnapshot=()=>JSON.stringify({raw:input.value,project,due,dateKind});
+  const taskScopeCurrent=r=>{const c=taskRuntime.context.read();return box.isConnected&&r.owner===c?.user?.id&&r.workspace===c?.workspace?.id&&r.epoch===taskRuntime.session.epoch();};
+  const taskCurrent=r=>taskRequest===r&&r.token===taskSequence&&taskScopeCurrent(r)&&mode==='task';
+  const taskLinkKey=link=>link.project_id?'project:'+link.project_id:link.organization_id?'organization:'+link.organization_id:link.meeting_id?'meeting:'+link.meeting_id:'';
+  function taskLinkKeys(result){if(!Array.isArray(result?.links)||!Array.isArray(result?.meeting_links))throw new Error('프로젝트 연결의 저장 결과를 확인하지 못했습니다.');return new Set([...result.links,...result.meeting_links].filter(l=>l.status==='confirmed').map(taskLinkKey).filter(Boolean))}
+  function taskNotice(message,{confirm=false}={}){status.textContent=message;if(confirm&&mode==='task'){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=taskAttempt?.task?'연결 확인':'할 일 목록에서 확인';b.onclick=()=>recoverQuickTask();status.append(document.createTextNode(' '),b)}}
+  function taskControls(busy){box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=busy);pickerFiles.render()}
+  function taskToast(r,message){if(!taskScopeCurrent(r))return;const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>{if(taskScopeCurrent(r)&&r.token===taskSequence)toast.classList.add('hidden')},3200)}
+  function taskBodyMatches(task,body){return task.title===body.title&&(task.notes||'')===(body.notes||'')&&(task.due?String(task.due).slice(0,10):null)===(body.due||null)}
+  async function recoverQuickTask(){
+    const a=taskAttempt;if(!a||a.pending||taskRequest||taskReading||mode!=='task'||!taskScopeCurrent(a))return;
+    const run=++taskSequence,active=()=>run===taskSequence&&taskAttempt===a&&taskScopeCurrent(a)&&mode==='task';
+    const read=async path=>{if(!active())throw new Error('입력창이나 로그인이 바뀌었습니다.');const d=await taskRuntime.api('/functions/v1/google-tasks?action='+path,{singleFlight:false,expectedSessionEpoch:a.epoch});if(!active())throw new Error('입력창이나 로그인이 바뀌었습니다.');return d};
+    const tasks=async()=>{const d=await read('tasks&pending_scope=all');if(!Array.isArray(d?.tasks)||d.needs_reconnect||d.error)throw new Error(d?.warning||d?.error||'Google 할 일 목록을 확인하지 못했습니다.');return d.tasks.filter(taskIdentity)};
+    const accept=async row=>{const exact=(await tasks()).filter(t=>t.id===row.id&&t.taskListId===row.taskListId);if(exact.length!==1)throw new Error('선택한 기존 할 일을 확인하지 못했습니다.');const links=taskLinkKeys(await read('links&task_id='+encodeURIComponent(row.id)));a.task=structuredClone(exact[0]);a.bodyState='confirmed';a.links=links;a.linkState='confirmed';a.needsReview=false;taskNotice('선택한 기존 할 일을 사용합니다. 입력을 확인한 뒤 저장해 주세요.')};
+    taskReading=true;saving=true;taskControls(true);taskNotice('할 일과 프로젝트 연결을 확인하는 중…');
+    try{
+      if(a.task)await accept(a.task);
+      else{const rows=await tasks();taskNotice(rows.length?'저장된 할 일을 직접 골라 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했습니다. 입력은 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=row.title+' · 이 항목 사용';b.onclick=async()=>{if(!active()||taskReading)return;taskReading=true;saving=true;taskControls(true);try{await accept(row)}catch(error){if(active())taskNotice(error.message||String(error),{confirm:true})}finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}};status.append(document.createTextNode(' '),b);const hint=document.createElement('small');hint.textContent=[row.taskListTitle||'Google 할 일',row.due?String(row.due).slice(0,10):'기한 없음',row.notes||''].join(' · ');status.append(hint)}}
+    }catch(error){if(active())taskNotice('저장 결과를 확인하지 못했습니다. '+(error.message||error),{confirm:true})}
+    finally{if(active()){taskReading=false;saving=false;taskControls(false);paint()}}
+  }
+  async function saveTask(){
+    if(saving||taskRequest||taskReading)return;const ctx=taskRuntime.context.read();if(!ctx?.user?.id||!ctx?.workspace?.id)return;
+    const a=taskAttempt;if(a?.pending)return;if(a&&(a.needsReview||a.bodyState==='unknown'||a.linkState==='unknown')){taskNotice('앞선 저장 결과를 먼저 확인해 주세요. 새 할 일은 만들지 않았습니다.',{confirm:true});return}
+    const title=input.value.trim();if(!title)return;
+    const attempt=a||{owner:ctx.user.id,workspace:ctx.workspace.id,epoch:taskRuntime.session.epoch(),task:null,bodyState:'idle',linkState:'idle',links:new Set(),needsReview:false};
+    const body=Object.freeze({title,due:due||null,notes:attempt.task?.notes||'',links:Object.freeze(project?[Object.freeze({project_id:project})]:[])}),r={owner:attempt.owner,workspace:attempt.workspace,epoch:attempt.epoch,token:++taskSequence,attempt,body,draft:taskSnapshot()};
+    taskAttempt=attempt;taskRequest=r;attempt.pending=true;saving=true;taskControls(true);taskNotice('저장 중…');let stage='body';
+    const call=(action,body)=>{if(!taskCurrent(r))throw new Error('입력창이나 로그인이 바뀌었습니다.');return taskRuntime.api('/functions/v1/google-tasks?action='+action,{method:'POST',body,expectedSessionEpoch:r.epoch})};
+    try{
+      if(!attempt.task){
+        const result=await createGoogleTask({...body,expectedSessionEpoch:r.epoch});if(!taskScopeCurrent(r))return;
+        if(result?.ok===true&&taskIdentity(result.task))attempt.task=structuredClone(result.task);
+        if(!attempt.task||!taskBodyMatches(attempt.task,body))throw new Error('Google 할 일의 저장 결과를 확인하지 못했습니다.');attempt.bodyState='confirmed';
+        if(!taskCurrent(r)){attempt.needsReview=true;return}
+        stage='links';attempt.links=taskLinkKeys(result);
+        if(result.link_error||body.links.some(l=>!attempt.links.has(taskLinkKey(l)))){attempt.linkState='partial';attempt.needsReview=true;taskNotice('할 일은 저장했습니다. 프로젝트 연결을 확인해 주세요.',{confirm:true});taskToast(r,'할 일은 저장했습니다. 프로젝트 연결을 확인해 주세요.');return}
+      }else if(!taskBodyMatches(attempt.task,body)){
+        const result=await call('update',{action:'update',task_id:attempt.task.id,task_list_id:attempt.task.taskListId,title:body.title,notes:body.notes,due:body.due});if(!taskScopeCurrent(r))return;
+        if(result?.ok!==true||!taskIdentity(result.task)||result.task.id!==attempt.task.id||result.task.taskListId!==attempt.task.taskListId||!taskBodyMatches(result.task,body))throw new Error('기존 할 일의 수정 결과를 확인하지 못했습니다.');attempt.task=structuredClone(result.task);attempt.bodyState='confirmed';if(!taskCurrent(r)){attempt.needsReview=true;return}
+      }
+      stage='links';const missing=body.links.filter(l=>!attempt.links.has(taskLinkKey(l)));
+      if(missing.length){const result=await call('link',{action:'link',task_id:attempt.task.id,links:missing});if(!taskScopeCurrent(r))return;const confirmed=taskLinkKeys(result);if(result?.ok!==true||missing.some(l=>!confirmed.has(taskLinkKey(l))))throw new Error('프로젝트 연결의 저장 결과를 확인하지 못했습니다.');attempt.links=confirmed;if(!taskCurrent(r)){attempt.needsReview=true;return}}
+      attempt.linkState='confirmed';if(!taskCurrent(r))return;taskAttempt=null;r.completed=true;
+      if(taskSnapshot()===r.draft){input.value='';expanded=false;taskNotice('')}else{expanded=true;taskNotice('제출한 할 일은 저장했습니다. 추가 입력은 남겨 두었습니다.')}paint();taskToast(r,'할 일을 추가했습니다.');
+      try{void Promise.resolve(refreshTasks()).catch(()=>{if(taskScopeCurrent(r)&&r.token===taskSequence&&mode==='task'&&!input.value)taskNotice('할 일은 저장했습니다. 목록을 다시 불러오지 못했습니다.')})}catch(error){if(taskCurrent(r))taskNotice('할 일은 저장했습니다. 목록을 다시 불러오지 못했습니다.')}
+    }catch(error){if(!taskScopeCurrent(r))return;if(stage==='body')attempt.bodyState='unknown';else attempt.linkState='unknown';attempt.needsReview=true;if(taskCurrent(r))taskNotice((attempt.task?'할 일은 확인했습니다. 연결과 수정 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(error.message||error),{confirm:true})}
+    finally{attempt.pending=false;if(taskRequest===r&&taskScopeCurrent(r)&&r.token===taskSequence){taskRequest=null;saving=false;taskControls(false);paint()}}
+  }
   async function save(){
+    if(mode==='task')return saveTask();
     if(saving)return;
     if(mode==='basket'){if(!upload.entries.length){try{validateNoteText(input.value);}catch(e){status.textContent=e.message;return;}}}else if(!input.value.trim())return;
     if(mode==='update'&&!organization){expand();await choices();status.textContent='조직을 선택해 주세요.';await openSheet('org');return;}
@@ -93,22 +147,22 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const saveMode=mode,text=mode==='basket'?input.value:input.value.trim(),workspace=ctx.workspace?.id,batch=upload;const isCurrent=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace&&batch===upload;};saving=true;status.textContent='';
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{
-      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,onChange:()=>{if(isCurrent())paint();}}):await createNote({raw_text:text})):saveMode==='task'?await createGoogleTask({title:text,due:due||null,links:project?[{project_id:project}]:[]}):await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner});
+      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,onChange:()=>{if(isCurrent())paint();}}):await createNote({raw_text:text})):await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner});
       if(!isCurrent())return;
       if(saveMode==='basket'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
       input.value='';expanded=false;paint();if(saveMode==='basket')onSaved(result);
-      const toast=document.querySelector('#toast');toast.textContent=saveMode==='task'&&result?.link_error?'할 일은 추가됨, 프로젝트 연결 실패':saveMode==='basket'?'바구니에 저장했습니다.':saveMode==='task'?'할 일을 추가했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
-      if(saveMode==='task')void refreshTasks();else choicesFlight=null;
+      const toast=document.querySelector('#toast');toast.textContent=saveMode==='basket'?'바구니에 저장했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
+      choicesFlight=null;
     }catch(e){if(isCurrent())status.textContent=e.message||'저장하지 못했습니다.';}
     finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
   box.querySelector('[data-quick-save]').onclick=save;
   input.addEventListener('keydown',e=>{if(mode==='task'&&e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();void save();}});
-  window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length||upload.entries.some(e=>e.kind!=='success'))e.detail.otherDraft=true;});
-  window.addEventListener('kptu:session-changed',()=>{const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();});
+  window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length||taskAttempt||upload.entries.some(e=>e.kind!=='success'))e.detail.otherDraft=true;});
+  window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();});
   window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode!=='basket')void choices();});
   window.KPTURouter.on(view,()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode!=='basket')void choices();});
   if(basketOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','바구니에 메모 입력');}
   paint();
-  return {hasDraft:()=>!!input.value||upload.entries.some(e=>e.kind!=='success'),isBusy:()=>saving};
+  return {hasDraft:()=>!!input.value||!!taskAttempt||upload.entries.some(e=>e.kind!=='success'),isBusy:()=>saving};
 }

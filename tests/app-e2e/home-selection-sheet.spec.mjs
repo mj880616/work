@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {openHome} from './helpers/home-entry.mjs';
+import {openHome,createdTaskReply} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const q=page=>page.locator('#homeView [data-home-quick]');
 const sheet=page=>page.getByRole('dialog');
@@ -41,7 +41,7 @@ test('close paths consume one history entry, focus is contained and project none
  await trigger.click();await sheet(page).getByRole('button',{name:'선택판 닫기'}).click();await expect(trigger).toBeFocused();
  await trigger.click();await page.mouse.click(10,10);await expect(trigger).toBeFocused();
  await trigger.click();await sheet(page).getByRole('button',{name:'프로젝트 없음',exact:true}).click();await expect(trigger).toHaveText('프로젝트 ▾');
- const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'new'}}});});
+ const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
  await q(page).locator('[data-quick-save]').click();await expect(q(page).locator('[data-quick-input]')).toHaveValue('');expect(bodies[0].links).toEqual([]);
 });
 

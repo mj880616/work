@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openHome } from './helpers/home-entry.mjs';
+import { openHome, createdTaskReply } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('#homeView [data-home-quick]');
 test('quick task starts folded and opens on focus',async({page})=>{
@@ -18,21 +18,21 @@ test('quick task KST midnight, project, IME, partial success and request lock',a
  await q.getByRole('button',{name:'오늘',exact:true}).click();await expect(q.getByRole('button',{name:'오늘',exact:true})).toHaveAttribute('aria-pressed','false');
  await q.getByRole('button',{name:'내일',exact:true}).click();
  const bodies=[];let release;const pending=new Promise(r=>release=r);
- await page.route(SB+'/functions/v1/google-tasks?action=create',async route=>{bodies.push(route.request().postDataJSON());await pending;await route.fulfill({json:{link_error:true,task:{id:'new'}}});});
+ await page.route(SB+'/functions/v1/google-tasks?action=create',async route=>{bodies.push(route.request().postDataJSON());await pending;await route.fulfill({json:createdTaskReply(route.request().postDataJSON(),{linkError:'project link denied'})});});
  await input.dispatchEvent('keydown',{key:'Enter',isComposing:true});expect(bodies).toHaveLength(0);
  const before=requests.length;await q.locator('[data-quick-save]').click();
  await expect(input).toBeDisabled();await expect(q.locator('[data-quick-mode="update"]')).toBeDisabled();
  await q.locator('[data-quick-save]').dispatchEvent('click');release();
- await expect(input).toHaveValue('');expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({due:'2026-10-08',links:[{project_id:'child'}]});
- await expect(q.locator('[data-quick-options]')).toBeHidden();await expect(page.locator('#toast')).toContainText('할 일은 추가됨, 프로젝트 연결 실패');
- await expect.poll(()=>requests.slice(before).filter(r=>r.action==='overview').length).toBe(1);
+ await expect(input).toHaveValue('QA');expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({due:'2026-10-08',links:[{project_id:'child'}]});
+ await expect(q.locator('[data-quick-options]')).toBeVisible();await expect(page.locator('#toast')).toContainText('할 일은 저장했습니다. 프로젝트 연결');await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();
+ await expect.poll(()=>requests.slice(before).filter(r=>r.action==='overview').length).toBe(0);
  expect(requests.slice(before).filter(r=>r.path.includes('google-calendar')||r.path.includes('app_project_milestones')||r.path.includes('app_suborganization_updates'))).toHaveLength(0);
 });
 test('quick task none/today/custom due, Enter and failure retains content',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),input=q.locator('[data-quick-input]'),bodies=[];
- await page.route(SB+'/functions/v1/google-tasks?action=create',async r=>{bodies.push(r.request().postDataJSON());await r.fulfill({status:500,json:{message:'QA error'}});});
- await input.fill('QA');await input.press('Enter');await expect(q.locator('[data-quick-status]')).toContainText('QA error');expect(bodies[0].due).toBeNull();await expect(input).toHaveValue('QA');
- await page.clock.setFixedTime(new Date('2026-10-06T14:59:59Z'));await q.getByRole('button',{name:'오늘',exact:true}).click();await input.press('Enter');await expect.poll(()=>bodies.length).toBe(2);expect(bodies[1].due).toBe('2026-10-06');
+ await page.route(SB+'/functions/v1/google-tasks?action=*',async r=>{if(!['create','update'].includes(new URL(r.request().url()).searchParams.get('action')))return r.fallback();bodies.push(r.request().postDataJSON());await r.fulfill({status:500,json:{message:'QA error'}});});
+ await input.fill('QA');await input.press('Enter');await expect(q.locator('[data-quick-status]')).toContainText('QA error');expect(bodies[0].due).toBeNull();await expect(input).toHaveValue('QA');await q.getByRole('button',{name:'할 일 목록에서 확인',exact:true}).click();await q.getByRole('button',{name:'지연 항목 · 이 항목 사용',exact:true}).click();
+ await page.clock.setFixedTime(new Date('2026-10-06T14:59:59Z'));await q.getByRole('button',{name:'오늘',exact:true}).click();await input.press('Enter');await expect.poll(()=>bodies.length).toBe(2);expect(bodies[1].due).toBe('2026-10-06');expect(bodies[1].action).toBe('update');await expect(q.getByRole('button',{name:'연결 확인',exact:true})).toBeVisible();await q.getByRole('button',{name:'연결 확인',exact:true}).click();await expect(q.locator('[data-quick-status]')).toContainText('선택한 기존');
  await expect(input).toBeEnabled();await q.locator('[data-quick-date]').evaluate(el=>{el.value='2026-10-09';el.dispatchEvent(new Event('change',{bubbles:true}));});
  await expect(q.getByRole('button',{name:'10.9',exact:true})).toBeVisible();await input.press('Enter');await expect.poll(()=>bodies.length).toBe(3);expect(bodies[2].due).toBe('2026-10-09');
  await expect(input).toBeEnabled();await q.getByRole('button',{name:'10.9',exact:true}).click();await expect(q.getByRole('button',{name:'날짜',exact:true})).toHaveAttribute('aria-pressed','false');
@@ -78,12 +78,12 @@ test('catalog changes clear a retired selection and refresh labels during the sa
  await page.evaluate(()=>{const cat=window.KPTUProjectCatalog,s=cat.snapshot();cat.publish({workspaceId:s.workspaceId,userId:s.userId,spaces:s.spaces.map(p=>({...p,name:'QA renamed',status:p.id==='child'?'archived':p.status}))});});
  await expect(q.locator('[data-quick-project]')).toHaveText('프로젝트 ▾');await q.locator('[data-quick-project]').click();
  await expect(page.locator('[data-sheet-value="child"]')).toHaveCount(0);await expect(page.locator('[data-sheet-value="p"]')).toHaveText('QA renamed');await page.keyboard.press('Escape');await expect(q.locator('[data-quick-project]')).toBeFocused();
- const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'new'}}});});
+ const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies[0].links).toEqual([]);
 });
 test('stale post-save refresh cannot overwrite a restarted home',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.route(SB+'/functions/v1/google-tasks?action=create',r=>r.fulfill({json:{task:{id:'new'}}}));
+ await page.route(SB+'/functions/v1/google-tasks?action=create',r=>r.fulfill({json:createdTaskReply(r.request().postDataJSON())}));
  let release,count=0;const pending=new Promise(r=>release=r);
  await page.route('**/functions/v1/google-tasks?action=overview*',async r=>{count++;if(count===1)await pending;return r.fulfill({json:{connected:true,authorized:true,pending_scope:'all',tasks:[]}});});
  await quick(page).locator('[data-quick-input]').fill('QA');await quick(page).locator('[data-quick-save]').click();await expect.poll(()=>count).toBe(1);
@@ -91,7 +91,7 @@ test('stale post-save refresh cannot overwrite a restarted home',async({page})=>
 });
 test('stale post-save refresh after session loss has no detached-card error',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.route(SB+'/functions/v1/google-tasks?action=create',r=>r.fulfill({json:{task:{id:'new'}}}));
+ await page.route(SB+'/functions/v1/google-tasks?action=create',r=>r.fulfill({json:createdTaskReply(r.request().postDataJSON())}));
  let release,count=0;const pending=new Promise(r=>release=r);
  await page.route('**/functions/v1/google-tasks?action=overview*',async r=>{count++;await pending;return r.fulfill({json:{connected:true,authorized:true,pending_scope:'all',tasks:[]}});});
  await quick(page).locator('[data-quick-input]').fill('QA');await quick(page).locator('[data-quick-save]').click();await expect.poll(()=>count).toBe(1);
@@ -112,7 +112,7 @@ test('task screen saveEditor retains shared create title notes due and links',as
 });
 test('quick add and show-all link respond in the transparent 44px target',async({page})=>{
  await page.setViewportSize({width:390,height:1000});await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),bodies=[];
- await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'new'}}});});
+ await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
  await q.locator('[data-quick-input]').fill('QA');const add=await q.locator('[data-quick-save]').boundingBox();await page.mouse.click(add.x+add.width/2,add.y-1);
  await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies).toHaveLength(1);
  await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await expect(page.locator('#tasksView')).toBeVisible();await expect(page.locator('[data-gt-overdue]')).toBeVisible();await page.evaluate(()=>KPTUGoogleTasks.showUnlinked());const show=page.locator('[data-gt-show-all]');await expect(show).toHaveText('전체 보기 ›');await expect(show).toHaveCSS('font-size','12px');await expect(show).toHaveCSS('font-weight','700');await expect(show).toHaveCSS('border-top-width','0px');

@@ -2,6 +2,8 @@ import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+// Normalized Google Tasks create representation, matching the existing Edge contract.
+export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
 export async function openHome(
   page,
   { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true } = {},
@@ -114,6 +116,9 @@ export async function openHome(
         body: '{"message":"QA failure"}',
       });
     if (p.endsWith("google-tasks")) {
+      if(a==='create'){const body=req.postDataJSON(),d=createdTaskReply(body,{id:'home-created-'+tasks.length});tasks.push(d.task);links.push(...d.links.map(link=>({...link,google_task_id:d.task.id})));return ok(d)}
+      if(a==='tasks')return ok({tasks:connected?tasks:[],needs_reconnect:!connected,pending_scope:'all'});
+      if(a==='links')return ok({links:links.filter(link=>link.google_task_id===u.searchParams.get('task_id')),meeting_links:[]});
       if (a === "toggle") {
         const b = req.postDataJSON(),
           t = tasks.find((t) => t.id === b.task_id);
