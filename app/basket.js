@@ -1,5 +1,6 @@
-import { mountHandoff } from './basket-ai-handoff.js?v=10';
-import { mountClassification } from './basket-classification-ui.js?v=9';
+import { mountQuick } from './home-quick.js?v=11';
+import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=12';
+import { mountClassification } from './basket-classification-ui.js?v=11';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=4';
@@ -8,14 +9,26 @@ const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, busy = false, epoch = 0;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
+let quick=null;
 let currentScope = scope(), retainedForTraversal = false;
 const initialUrl = new URL(location.href);
 let requestedNote = initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar"><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-handoff-copy>AI에게 맡기기</button><button type="button" class="quick-pill-button" data-classification-open>AI 정리 결과 넣기</button></div><button type="button" class="quick-text-link" data-goto="home">홈에서 입력 ›</button></div></div><div data-handoff-host></div><div data-basket-list><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류</button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar"><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-handoff-copy>AI에게 맡기기</button><button type="button" class="quick-pill-button" data-classification-open>AI 정리 결과 넣기</button></div></div></div><p data-basket-handoff-scope></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류</button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
+// Keep the basket heading available to assistive navigation; the shell owns
+// the visible mobile title at the same 760px breakpoint as the shared header.
+const basketTitle=root.querySelector('.basket-head > h2'),mobileTitle=window.matchMedia('(max-width:760px)');
+const syncTitle=()=>basketTitle.classList.toggle('a11y-only',mobileTitle.matches);
+mobileTitle.addEventListener('change',syncTitle);syncTitle();
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
-const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{isBlocked:()=>busy,onBusy:value=>{handoffBusy=value;busy=value;root.querySelector('[data-handoff-copy]').disabled=value;},onClose:()=>root.querySelector('[data-handoff-copy]').focus()});
+quick=mountQuick({root,esc,basketOnly:true,view:'basket',idPrefix:'basket',onSaved:()=>void refresh()});
+const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{getRequest:()=>{
+  if(!selected){if(quick.hasDraft())return {error:'입력 중인 메모와 첨부를 먼저 저장한 뒤 맡겨 주세요.'};return {};}
+  if(dirty())return {error:'수정 중인 글과 첨부를 먼저 저장한 뒤 맡겨 주세요.'};
+  if(selected.archived_at||selected.ai_export_allowed!==true)return {error:'이 메모는 지금 AI에게 맡길 수 없어요. 보관 또는 AI 제외 상태를 확인해 주세요.'};
+  return {noteId:selected.id};
+},onPrepared:(count,request)=>{root.querySelector('[data-basket-handoff-scope]').textContent=request.noteId?'현재 메모 1개를 맡깁니다.':`최근 4주 · 미분류 · AI 허용 메모 ${count}개를 맡깁니다(최대 100개).`;},isBlocked:()=>busy,onBusy:value=>{handoffBusy=value;busy=value;root.querySelector('[data-handoff-copy]').disabled=value;},onClose:()=>root.querySelector('[data-handoff-copy]').focus()});
 const classification = mountClassification(root.querySelector('[data-classification-host]'), {
   isBlocked:()=>busy, onBusy:value=>{busy=value;if(value)++epoch;},
   onOpen:()=>{handoff.close();closeDetail();if(selected)return false;list.hidden=true;return true;},
@@ -32,12 +45,19 @@ const classification = mountClassification(root.querySelector('[data-classificat
   }
 });
 const stateLabel=state=>({확정:'연결됨', '분류 제안됨':'정리 제안 있음'})[state]||state;
+function paintHandoffScope(){
+  root.querySelector('[data-basket-handoff-scope]').textContent=selected?'현재 메모 1개 · 연결된 메모도 다시 맡길 수 있어요.':`최근 4주 · 미분류 · AI 허용 메모 ${selectHandoffNotes(notes,links,new Date()).length}개(최대 100개).`;
+  if(notes.some(note=>note.attachments?.some(file=>String(file.mime_type||'').startsWith('image/'))))root.querySelector('[data-basket-handoff-scope]').textContent+=' 사진 속 글과 내용은 아직 읽지 않아요.';
+}
 function renderList() {
+  paintHandoffScope();
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
   const visible = visibleNotes(notes, links, filter);
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
     const state = noteState(note, links);
-    return `<button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><span class="basket-preview">${esc([...String(note.raw_text || '')].slice(0, 160).join(''))}</span><time>${esc(time(note))}</time><span>${stateLabel(state.status)}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${state.destinations.map(d => `<span class="basket-destination">${esc(d)}</span>`).join('')}</button>`;
+    const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
+    const title=lines[0]||(file?`${String(file.mime_type||'').startsWith('image/')?'사진':'파일'} · ${file.file_name||'첨부'}`:'메모');
+    return `<button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${stateLabel(state.status)}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${state.destinations.map(d => `<span class="basket-destination">${esc(d)}</span>`).join('')}</button>`;
   }).join('');
   listStatus.textContent = visible.length ? `${visible.length}개 메모` : '메모가 없습니다.';
 }
@@ -53,7 +73,7 @@ function clearNoteAddress(){
 function closeDetail({focus = true, force = false, cleanAddress = true} = {}) {
   if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return;
   handoff.close();
-  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;
+  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;paintHandoffScope();
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
 }
 function paintDetailState() {
@@ -75,7 +95,7 @@ function openDetail(id) {
   detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-editor"><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions"><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-archive>보관</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
-  paintDetailState(); detail.querySelector('[data-basket-text]').focus();
+  paintDetailState();paintHandoffScope(); detail.querySelector('[data-basket-text]').focus();
 }
 async function refresh() {
   if (busy) return;
@@ -157,7 +177,8 @@ root.addEventListener('click', e => {
 });
 root.addEventListener('keydown', e => { if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); closeDetail(); } });
 window.addEventListener('kptu:before-reload', e => {
-  if (busy) e.preventDefault();
+  if (busy||quick?.isBusy()) e.preventDefault();
+  else if (quick?.hasDraft()) e.detail.otherDraft=true;
   else if (dirty() || classification.hasDraft()) e.detail.otherDraft = true;
 });
 window.addEventListener('kptu:session-changed', () => {
@@ -165,15 +186,15 @@ window.addEventListener('kptu:session-changed', () => {
   currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true,cleanAddress:false}); renderList();
 });
 window.addEventListener('kptu:before-view-change',e=>{
-  if(retainedForTraversal&&((busy&&!handoffBusy)||dirty()||classification.isOpen()))e.detail.retainBasketDraft=true;
+  if(retainedForTraversal&&((busy&&!handoffBusy)||quick?.isBusy()||quick?.hasDraft()||dirty()||classification.isOpen()))e.detail.retainBasketDraft=true;
   if(window.KPTURouter.current!=='basket'||e.detail?.view==='basket')return;
   // Without a native entry position, honor the traversal and retain the draft
   // in this mounted view. Never guess its direction or rewrite the destination.
-  if(e.detail?.source==='popstate'&&!e.detail.canRestoreHistory&&((busy&&!handoffBusy)||dirty())){
+  if(e.detail?.source==='popstate'&&!e.detail.canRestoreHistory&&((busy&&!handoffBusy)||quick?.isBusy()||quick?.hasDraft()||dirty())){
     e.detail.retainBasketDraft=true;return;
   }
-  const blockedBusy=busy&&!handoffBusy&&(!classification.isOpen()||e.detail?.source==='popstate');
-  if(blockedBusy||(dirty()&&!window.confirm('수정 중인 글을 버리고 다른 화면으로 갈까요?'))){
+  const blockedBusy=quick?.isBusy()||busy&&!handoffBusy&&(!classification.isOpen()||e.detail?.source==='popstate');
+  if(blockedBusy||(quick?.hasDraft()&&!window.confirm('저장하지 않은 입력이 있어요. 다른 화면으로 갈까요? 입력은 이 탭에 남아요.'))||(dirty()&&!window.confirm('수정 중인 글을 버리고 다른 화면으로 갈까요?'))){
     e.preventDefault();
   }
 });

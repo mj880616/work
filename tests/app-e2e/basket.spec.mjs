@@ -1,8 +1,9 @@
+import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({hasTouch:true});
-const quick=page=>page.locator('[data-home-quick]');
+const quick=page=>page.locator('#homeView [data-home-quick]');
 async function fixture(page){
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  const home=await openHome(page),writes=[];
@@ -69,12 +70,12 @@ for(const width of [390,1280]){
  });
 }
 test('basket links failure shows error and retry rather than false unclassified list',async({page})=>{const f=await fixture(page);f.setLinksDenied(true);await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status]')).toHaveText('메모를 불러오지 못했어요. 다시 시도해 주세요.');await expect(page.locator('[data-basket-row]')).toHaveCount(0);f.setLinksDenied(false);await page.locator('[data-basket-retry]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(1);});
-test('basket raw text and drafts never enter permanent browser storage',async({page})=>{await fixture(page);await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_DRAFT');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_UNSAVED');await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-row="new"]').click();await page.locator('[data-basket-text]').fill('BASKET_PRIVATE_EDIT');const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:'http://127.0.0.1:8123',isLocalStorage}}))));expect(stored).not.toContain('BASKET_PRIVATE');});
+test('basket raw text and drafts never enter permanent browser storage',async({page})=>{await fixture(page);await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_DRAFT');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_UNSAVED');await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-row="new"]').click();await page.locator('[data-basket-text]').fill('BASKET_PRIVATE_EDIT');const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:testOrigin,isLocalStorage}}))));expect(stored).not.toContain('BASKET_PRIVATE');});
 test('basket direct URL and home return refresh new notes without saving view choice',async({page})=>{
- const f=await fixture(page);await page.goto('http://127.0.0.1:8123/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+ const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(1);
  await page.locator('[data-basket-filter="archived"]').click();await expect(page.locator('[data-basket-row="a"]')).toBeVisible();
  await page.reload();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
- await page.locator('#basketView [data-goto="home"]').click();await quick(page).locator('[data-quick-input]').fill('새 글');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');
+ await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible').click();await quick(page).locator('[data-quick-input]').fill('새 글');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');
  await quick(page).locator('[data-goto="basket"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(2);expect(f.writes).toHaveLength(1);
 });
 test('basket save lock blocks duplicate home posts and detail patches, reload guard keeps pending edits',async({page})=>{
@@ -203,9 +204,9 @@ test('basket successful text save clears a native selection rejected by prefligh
 });
 for(const width of [390,1280])test(`basket original link opens the exact suggested or archived note after owner reads ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);
- await page.goto('http://127.0.0.1:8123/app/?view=basket&note=s');
+ await page.goto(testOrigin+'/app/?view=basket&note=s');
  await expect(page.locator('[data-basket-text]')).toHaveValue('제안 원문');await expect(page.locator('[data-basket-state]')).toContainText('정리 제안 있음');
  await page.screenshot({path:info.outputPath(`basket3-suggested-${width}.png`),fullPage:true});
- await page.goto('http://127.0.0.1:8123/app/?view=basket&note=a');await expect(page.locator('[data-basket-text]')).toHaveValue(' 보관 원문\n ');
- await page.goto('http://127.0.0.1:8123/app/?view=basket&note=foreign');await expect(page.locator('[data-basket-list-status]')).toContainText('메모를 찾을 수 없습니다');expect(f.writes).toHaveLength(0);
+ await page.goto(testOrigin+'/app/?view=basket&note=a');await expect(page.locator('[data-basket-text]')).toHaveValue(' 보관 원문\n ');
+ await page.goto(testOrigin+'/app/?view=basket&note=foreign');await expect(page.locator('[data-basket-list-status]')).toContainText('메모를 찾을 수 없습니다');expect(f.writes).toHaveLength(0);
 });

@@ -1,4 +1,4 @@
-import {classificationFormat} from './basket-classification.js?v=6';
+import {classificationFormat} from './basket-classification.js?v=8';
 import {readBasket} from './basket-data.js?v=3';
 
 // Basket guidance only: active + actual owner assignment, matching home weekUpdates.
@@ -32,7 +32,9 @@ export function buildHandoff(notes,projects,organizations,now,fallback=false) {
   for(const row of organizations)lines.push(`organization · ${row.id} · ${row.name}`);
   lines.push('프로젝트 목록 (ID · 이름)');
   for(const row of projects)lines.push(`project · ${row.id} · ${row.name}`);
-  return lines.join('\n\n');
+  const text=lines.join('\n\n');
+  if(new TextEncoder().encode(text).length>1048576)throw Error('맡길 글이 너무 길어요. 전체 글은 1MiB까지 복사할 수 있어요.');
+  return text;
 }
 async function organizationRows(rt,path){
   const rows=[];
@@ -52,12 +54,19 @@ async function organizations(rt,workspaceId,userId){
   ]);
   return selectBasketOrganizations(rows,assignees);
 }
-export async function readHandoff(rt=window.KPTURuntime,now=new Date()) {
+export async function readHandoff(rt=window.KPTURuntime,now=new Date(),{noteId=null,onPrepared=()=>{}}={}) {
   const c=rt.context.read(),workspaceId=c?.workspace?.id,userId=c?.user?.id;
   if(!workspaceId||!userId)throw Error('업무 공간을 확인할 수 없어요.');
-  const basket=await readBasket(rt),notes=selectHandoffNotes(basket.notes,basket.links,now);
+  const basket=await readBasket(rt);
+  let notes=selectHandoffNotes(basket.notes,basket.links,now);
+  if(noteId){
+    const note=basket.notes.find(row=>row.id===noteId);
+    if(!note||note.archived_at||note.ai_export_allowed!==true)throw Error('이 메모는 지금 AI에게 맡길 수 없어요.');
+    notes=[note];
+  }
   const current=rt.context.read();
   if(current?.workspace?.id!==workspaceId||current?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
+  onPrepared(notes.length);
   if(!notes.length)return '';
   await import('./project-catalog.js?v=3');
   const [catalog,orgs]=await Promise.all([window.KPTUProjectCatalog.load({workspaceId,userId,force:true}),organizations(rt,workspaceId,userId)]);
@@ -65,7 +74,7 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date()) {
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
   return buildHandoff(notes,window.KPTUProjectCatalog.basketProjects(catalog.projects),orgs.organizations,now,orgs.fallback);
 }
-export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{}},rt=window.KPTURuntime) {
+export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()=>({}),onPrepared=()=>{}},rt=window.KPTURuntime) {
   host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><div data-handoff-fallback hidden><button type="button" class="quick-pill-button quick-pill-primary" data-handoff-retry>복사하기</button><button type="button" class="quick-pill-button" data-handoff-close>닫기</button><label class="basket-text-label">AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label></div>';
   const status=host.querySelector('[role="status"]'),fallback=host.querySelector('[data-handoff-fallback]'),input=host.querySelector('textarea');
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
@@ -91,9 +100,11 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{}},rt=window.KP
   window.addEventListener('kptu:session-changed',()=>{if(scope()!==currentScope){currentScope=scope();clear();}});
   return {close:clear,async copy(){
     if(busy||isBlocked())return;
+    const request=getRequest();
+    if(request?.error){clear();status.textContent=request.error;return;}
     clear();const run=epoch,owner=scope();busy=true;onBusy(true);status.textContent='맡길 메모를 준비하고 있어요…';
     const current=()=>run===epoch&&owner===scope();
-    const prepared=readHandoff(rt);
+    const prepared=readHandoff(rt,new Date(),{...request,onPrepared:count=>{if(current())onPrepared(count,request);}});
     let written=null;
     // Start the browser write in the click stack, before any API reads finish.
     // Reject empty/stale data so a cancelled read never replaces the clipboard.
