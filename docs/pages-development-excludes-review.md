@@ -1,5 +1,7 @@
 # 📱 폰 가능 — Pages 개발폴더 게시 제외
 
+PR #517. 최종 head의 자동 검사·독립 검토·병합은 CC가 확인한다.
+
 ## 문제와 변경
 
 GitHub Pages는 저장소 root를 Jekyll로 빌드한다. 2026-10-13 main `3f0b8c249eaec98744f46e239bab746795a3804c`의 실제 [Pages 실행](https://github.com/mj880616/work/actions/runs/38343057103) artifact에도 개발문서·검사·운영 스크립트·DB/Edge·네이티브 앱·Worker 소스가 포함돼 있었다.
