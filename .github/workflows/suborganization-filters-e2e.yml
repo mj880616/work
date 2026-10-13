@@ -15,6 +15,7 @@ on:
       - 'app/myspace-return.js'
       - 'app/my-work.html'
       - 'app/app.js'
+      - 'tests/app-e2e/suborganization-filters.spec.mjs'
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
   push:
@@ -31,6 +32,7 @@ on:
       - 'app/myspace-return.js'
       - 'app/my-work.html'
       - 'app/app.js'
+      - 'tests/app-e2e/suborganization-filters.spec.mjs'
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
 
