@@ -33,6 +33,7 @@ GitHub Pages는 저장소 root를 Jekyll로 빌드한다. 2026-10-13 main `3f0b8
 ## 의존성과 실행 확인
 
 - 보존 파일의 HTML/CSS/JS/JSON 참조 709개 대조: 새 broken local dependency 0.
+- 709개는 검증 도구가 추출한 정적 리터럴 참조의 수다. HTML 안 inline script·side-effect import·계산 경로 전체를 파싱하지 않으며, JS `fetch`의 문서 기준 URL과 module import의 모듈 기준 URL을 모두 실행 의미대로 해석한 검사는 아니다. 그러므로 전체 runtime 의존성이 완전히 검증됐다는 뜻으로 쓰지 않는다. 보존 파일 전체의 bytes 대조와 아래 대표 화면의 실제 요청·콘솔 검사를 함께 근거로 삼는다.
 - 기존 `press/index.html`의 `../2025-10-02-seohae-rail-cba/index.html` 링크 1개는 양쪽 baseline/candidate에서 동일하게 없음. 이번 범위에서 수정하지 않음.
 - Chromium 390/1280에서 Web1 root, 공개 p shell, 공개 review, 분석 생성 HTML·template, 포털, 아스날, Web2 익명 로그인 이동·mock 인증 홈을 대조했다.
 - 실제 공개 기자회견 페이지의 동적 `file-dropzone.js`, 민자철도 질문 페이지의 동적 helper도 양쪽 출력에서 확인했다.
