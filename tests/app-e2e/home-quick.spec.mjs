@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const quick=page=>page.locator('[data-home-quick]');
+const quick=page=>page.locator('#homeView [data-home-quick]');
 test('quick task starts folded and opens on focus',async({page})=>{
- await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click(); const q=page.locator('[data-home-quick]');
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click(); const q=page.locator('#homeView [data-home-quick]');
  await expect(q.locator('[data-quick-input]')).toBeVisible();
  await expect(q.locator('[data-quick-options]')).toBeHidden();
  await q.locator('[data-quick-input]').focus();
@@ -105,7 +105,7 @@ test('organization detail retains the existing shared inbox save payload and fai
  fail=false;await page.locator('#wdInboxSave').click();await expect(page.locator('#wdInboxText')).toHaveValue('');expect(bodies[1]).toEqual({organization_id:'o',raw_text:'첫 줄\n둘째 줄',created_by:'home-test'});
 });
 test('task screen saveEditor retains shared create title notes due and links',async({page})=>{
- await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'new'}}});});
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{const body=r.request().postDataJSON();bodies.push(body);return r.fulfill({json:{ok:true,task:{id:'new',title:body.title,notes:body.notes,due:body.due,taskListId:'@default',status:'needsAction'},links:body.links.map(t=>({...t,google_task_id:'new',status:'confirmed'})),meeting_links:[]}});});
  await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await page.locator('#newTaskBtn').click();await expect(page.locator('#gtTaskModal')).toBeVisible();
  await page.locator('#gtEditTitle').fill('QA');await page.locator('#gtEditNotes').fill('QA notes');await page.locator('#gtEditDue').fill('2026-10-09');await page.locator('[data-gt-link][value="p:child"]').check();await page.locator('#gtSaveBtn').click();
  await expect(page.locator('#gtTaskModal')).toBeHidden();expect(bodies[0]).toMatchObject({title:'QA',notes:'QA notes',due:'2026-10-09',links:[{project_id:'child'}]});

@@ -44,7 +44,7 @@ async function mock(page,calls){
       if(action==='linked')return ok({tasks:[gt('org-pending',2),gt('org-undated',null),gt('org-done',0,{status:'completed',completed:new Date().toISOString()})]});
       if(action==='links')return ok({links:[],meeting_links:[]});
       if(action==='unlinked')return ok({tasks:[gt('free-1',3)]});
-      if(action==='create')return ok({ok:true,task:gt('new-1',1)});
+      if(action==='create')return ok({ok:true,task:gt('new-1',1),links:body.links.map(t=>({...t,google_task_id:'new-1',status:'confirmed'})),meeting_links:[]});
       if(action==='link')return ok({ok:true});
       return ok({connected:true,authorized:true,needs_reconnect:false,pending_scope:'all',tasks:[]});
     }

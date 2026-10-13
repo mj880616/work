@@ -26,3 +26,6 @@
 #wdUpdates :is(button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 
 #wdUpdates .basket-link-actions a{color:var(--kptu-primary-ink);text-decoration:none}
+#wdUpdates [data-link-summary-original] > summary{min-height:44px;align-content:center;cursor:pointer}
+#wdUpdates .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+#wdUpdates [data-link-summary-form] .basket-link-actions{justify-content:flex-end}

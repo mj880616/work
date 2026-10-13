@@ -46,3 +46,22 @@ test('confirm sends only typed note/version/selected targets and recognizes abse
  for(const error of [{status:404},{message:'Could not find the function public.app_basket_confirm_links in the schema cache'},{message:'function public.app_basket_confirm_links does not exist'}])assert.equal((await confirmLinks(n,stamp,[],{api:async()=>{throw error;}})).error,'FUNCTION_UNAVAILABLE');
  await assert.rejects(confirmLinks(n,stamp,[],{api:async()=>{throw Error('RLS denied');}}),/RLS/);
 });
+test('confirmed destination with a real link ID becomes exact previous-summary CAS candidate',()=>{
+ for(const summary of [null,'  정확한 이전 요약\n ']){
+  const s=snapshot();s.links=[{id:'40000000-0000-4000-8000-000000000001',note_id:n,project_id:p,status:'confirmed',summary}];
+  const t=previewClassification(proposal(),s)[0].destinations[0];
+  assert.equal(t.error,null);assert.equal(t.action,'update');assert.equal(t.linkId,s.links[0].id);assert.equal(t.expectedSummary,summary);
+ }
+});
+test('new destination is a create candidate while another-workspace and unsupported kinds stay disabled',()=>{
+ assert.equal(previewClassification(proposal(),snapshot())[0].destinations[0].action,'create');
+ const s=snapshot();s.projects[0].workspace_id='other';assert.equal(previewClassification(proposal(),s)[0].destinations[0].error,'TARGET_WORKSPACE');
+});
+test('unsupported optional-ID kinds cannot inherit an existing project summary or action',()=>{
+ const s=snapshot();s.links=[{id:'40000000-0000-4000-8000-000000000001',note_id:n,project_id:p,status:'confirmed',summary:'PRIVATE_EXISTING_PROJECT_SUMMARY'}];
+ for(const kind of ['google_task','library']){
+  const data=proposal();data.items[0].destinations=[{kind,reason:'미지원 제안'}];
+  const target=previewClassification(parseClassification(JSON.stringify(data)),s)[0].destinations[0];
+  assert.equal(target.error,'NEXT_STAGE');for(const key of ['action','summary','linkId','expectedSummary'])assert.equal(Object.hasOwn(target,key),false,key);
+ }
+});

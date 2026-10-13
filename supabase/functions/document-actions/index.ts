@@ -1,3 +1,5 @@
+import { inspectBasketOriginal } from '../_shared/basket-file-origin.ts';
+
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -11,13 +13,14 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
   headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' },
 });
 
-async function db(path: string, opts: { method?: string; body?: unknown; prefer?: string } = {}) {
+async function db(path: string, opts: { method?: string; body?: unknown; prefer?: string; range?: [number, number] } = {}) {
   const headers: Record<string, string> = {
     apikey: SERVICE,
     Authorization: `Bearer ${SERVICE}`,
     'Content-Type': 'application/json',
   };
   if (opts.prefer) headers.Prefer = opts.prefer;
+  if (opts.range) { headers.Range = opts.range.join('-'); headers['Range-Unit'] = 'items'; }
   const r = await fetch(`${SB}/rest/v1/${path}`, {
     method: opts.method || 'GET',
     headers,
@@ -27,7 +30,7 @@ async function db(path: string, opts: { method?: string; body?: unknown; prefer?
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
   if (!r.ok) throw new Error(data?.message || data?.hint || data?.details || `DB 요청 실패 ${r.status}`);
-  return data;
+  return opts.range ? { rows: data, contentRange: r.headers.get('Content-Range') } : data;
 }
 
 async function getUser(req: Request) {
@@ -74,26 +77,64 @@ async function deleteDocument(userId: string, documentId: string) {
   const rows = await db(`app_documents?id=eq.${encodeURIComponent(documentId)}&select=*&limit=1`);
   const doc = rows?.[0];
   if (!doc) throw new Error('파일을 찾을 수 없습니다.');
+  if (doc.id !== documentId || typeof doc.workspace_id !== 'string' || (doc.file_id != null && typeof doc.file_id !== 'string')) {
+    throw Object.assign(new Error('자료의 원본 연결을 확인하지 못했습니다. 삭제하지 않고 다시 확인해 주세요.'), { code: 'DOCUMENT_CHANGED' });
+  }
   await assertDeleteAccess(userId, doc);
 
-  if (doc.file_id) {
-    const token = await driveAccessToken();
-    const fileUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(doc.file_id)}`;
-    const current = await fetch(`${fileUrl}?fields=trashed`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!current.ok && current.status !== 404) throw new Error('Google Drive 파일 상태를 확인하지 못했습니다.');
-    if (current.ok && !(await current.json()).trashed) {
-      const dr = await fetch(fileUrl, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+  // Fix the server-read source; a late request must not delete a replacement.
+  const sourceWorkspace = doc.workspace_id, sourceFile = doc.file_id ?? null;
+  let driveResult = sourceFile ? 'unchanged' : 'no_file';
+  const recheckSource = async () => {
+    try {
+      const current = await db(`app_documents?id=eq.${encodeURIComponent(documentId)}&select=id,workspace_id,file_id&limit=1`);
+      if (current?.[0]?.id !== doc.id || current[0].workspace_id !== sourceWorkspace || (current[0].file_id ?? null) !== sourceFile) {
+        throw Object.assign(new Error('자료의 파일 연결이 바뀌었습니다. 다시 확인해 주세요.'), { code: 'DOCUMENT_CHANGED' });
+      }
+      await assertDeleteAccess(userId, current[0]);
+    } catch (e) {
+      throw Object.assign(e instanceof Error ? e : new Error('자료의 현재 상태를 확인하지 못했습니다.'), { drive_result: driveResult });
+    }
+  };
+  let token: string | undefined;
+  const getToken = async () => token ?? (token = await driveAccessToken());
+  const origin = sourceFile ? await inspectBasketOriginal({ userId, workspaceId: sourceWorkspace, fileId: sourceFile }, {
+    readPage: (path, start, end) => db(path, { prefer: 'count=exact', range: [start, end] }),
+    driveToken: getToken, fetch,
+  }) : { preserveDrive: false, reason: 'ordinary_library', missing: false, trashed: false };
+  driveResult = origin.preserveDrive ? 'preserved' : origin.missing ? 'missing' : origin.trashed ? 'already_trashed' : driveResult;
+  await recheckSource();
+  if (sourceFile && !origin.preserveDrive && !origin.missing && !origin.trashed) {
+    let dr: Response;
+    try {
+      dr = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(sourceFile)}`, {
+        method: 'PATCH', redirect: 'error',
+        headers: { Authorization: `Bearer ${await getToken()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ trashed: true }),
       });
-      if (!dr.ok && dr.status !== 404) throw new Error('Google Drive 휴지통 이동에 실패했습니다.');
+    } catch {
+      throw Object.assign(new Error('Google Drive 휴지통 이동 결과를 확인하지 못했습니다.'), { code: 'RESULT_UNKNOWN', drive_result: 'unknown' });
     }
+    if (!dr.ok && dr.status !== 404) throw Object.assign(new Error('Google Drive 휴지통 이동에 실패했습니다.'), { code: 'RESULT_UNKNOWN', drive_result: 'unknown' });
+    driveResult = dr.status === 404 ? 'missing' : 'trashed';
   }
-
-  await db(`app_drive_download_tokens?document_id=eq.${encodeURIComponent(documentId)}`, { method: 'DELETE' });
-  await db(`app_documents?id=eq.${encodeURIComponent(documentId)}`, { method: 'DELETE' });
-  return { ok: true };
+  await recheckSource();
+  // Preserve the existing token -> document deletion order. These REST writes
+  // are not one DB transaction; any uncertain write is reported for readback.
+  let tokenDeleteResult = 'not_started', documentDeleteResult = 'not_started';
+  try {
+    tokenDeleteResult = 'unknown';
+    await db(`app_drive_download_tokens?document_id=eq.${encodeURIComponent(documentId)}`, { method: 'DELETE' });
+    tokenDeleteResult = 'confirmed';
+    const matchFile = sourceFile === null ? 'is.null' : `eq.${encodeURIComponent(sourceFile)}`;
+    documentDeleteResult = 'unknown';
+    const removed = await db(`app_documents?id=eq.${encodeURIComponent(documentId)}&workspace_id=eq.${encodeURIComponent(sourceWorkspace)}&file_id=${matchFile}`, { method: 'DELETE', prefer: 'return=representation' });
+    if (!Array.isArray(removed) || removed.length !== 1 || removed[0].id !== doc.id) throw new Error('Delete result not confirmed');
+    documentDeleteResult = 'confirmed';
+  } catch {
+    throw Object.assign(new Error('자료 등록 삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 목록을 새로 확인해 주세요.'), { code: 'RESULT_UNKNOWN', drive_result: driveResult, token_delete_result: tokenDeleteResult, document_delete_result: documentDeleteResult });
+  }
+  return { ok: true, drive_result: driveResult, drive_preserved: origin.preserveDrive, reason: origin.reason };
 }
 
 Deno.serve(async (req: Request) => {
@@ -109,6 +150,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Unknown action' }, 400);
   } catch (e) {
     console.error(e);
-    return json({ error: e instanceof Error ? e.message : String(e) }, 400);
+    const details = e as Record<string, unknown>;
+    return json({ error: e instanceof Error ? e.message : String(e), ...Object.fromEntries(['code', 'drive_result', 'token_delete_result', 'document_delete_result'].filter(key => typeof details?.[key] === 'string').map(key => [key, details[key]])) }, 400);
   }
 });

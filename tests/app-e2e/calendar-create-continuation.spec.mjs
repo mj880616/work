@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 async function continued(page,{oldEdge=false,partial=false,readFail=false,lost=false,omitLocation=false}={}){
- await openHome(page,{query:'?view=calendar'});await page.waitForFunction(()=>window.KPTUCalendarPlus);
+ await openHome(page,{query:'?view=calendar'});await page.waitForFunction(()=>window.KPTUCalendarPlus&&window.__KPTU_CALENDAR_PERSISTENCE_READY__);await page.evaluate(()=>window.__KPTU_CALENDAR_PERSISTENCE_READY__);
  const calendars=[{id:'source',summary:'기존 캘린더',accessRole:'owner'},{id:'target',summary:'새 캘린더',accessRole:'writer'}],state={writes:[],reads:[],event:null,partial,readFail,lost};let release;const gate=new Promise(r=>release=r);
  await page.evaluate(calendars=>window.__KPTU_GOOGLE_STATE__={connected:true,selected:['source'],calendars,colors:{}},calendars);
  await page.route(SB+'/functions/v1/google-calendar**',async r=>{

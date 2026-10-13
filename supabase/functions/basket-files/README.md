@@ -79,3 +79,65 @@ Drive PUT 성공 응답 자체 유실·정리 실패·강제 종료는 파일이
 공통 모듈 `_shared/drive-upload.ts`는 library-files의 토큰·폴더 POST·resumable
 업로드·orphan 정리 흐름을 추출했다. 이번 PR은 library-files 소스를 변경하지 않는다.
 기존 업로드 경로 재배포를 피하기 위한 사용자 지정 예외이며 `_shared` 전환은 후속 원장 행으로 추적한다.
+
+## 사진글자 준비 — 아직 운영 미적용
+
+기존 multipart 업로드와 별개인 OCR 경로를 준비한다. Google Drive의 기존
+`drive.file` 인증을 재사용하며 JPEG/PNG 원본을 GET으로 읽어 임시 Google 문서로
+import한다. 원본의 이동·수정·삭제, 공개 이미지 URL, 새 저장소·인증은 추가하지 않는다.
+원본 업로드가 성공한 뒤 OCR가 실패해도 업로드 성공을 취소하지 않는다.
+
+| 요청 | 의미 |
+| --- | --- |
+| owner GET `?action=ocr-capabilities` | protocol1, caller RPC 지원, 실제 Drive import/export map, 두 글자 상한. DB 행·Drive 파일 쓰기 없음 |
+| owner GET `?action=ocr-status&note_id=UUID` | 현재 owner 업무공간의 첨부·정확한 원문 버전 조회. 쓰기 없음 |
+| POST JSON `ocr-read` | 정확한 note 버전·전체 예상 첨부로 신규 시도 확정 후 한 번만 import |
+| POST JSON `ocr-reconcile` | 같은 attempt만 검증·회수. 검색 결과 없음/복수/불명은 새 import하지 않음 |
+| POST JSON `ocr-cleanup` | 같은 attempt의 검증된 임시 문서만 정리. 임의 file ID 삭제 없음 |
+
+모든 JSON 요청은 `action`, `note_id`, `note_updated_at`, `expected_attachment`를
+사용한다. reconcile/cleanup은 `attempt_id`도 필요하다. reconcile에서 초기 원문과
+현재 원문이 달라졌으면 평소 재확인으로 저장하지 않는다. 같은 임시 문서의 인식 글을
+현재 원문에 명시적으로 확인할 때만 `confirm_current_note_version`에 현재 버전
+문자열을 그대로 넣는다. source Drive version이 바뀌었으면 이 확인으로도 저장하지 않는다.
+
+기존 admin은 JWT 검증·owner 조회·OAuth 설정·기존 업로드에만 사용한다. OCR 행
+조회와 `app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)`는 기존
+`SUPABASE_ANON_KEY`와 검증된 caller JWT client로 실행한다. service_role RPC
+fallback은 없다. RPC/ANON/provider 지원이 없거나 불명이면 새 OCR 실행이 거절된다.
+기능 가능 probe는 null input의 정확한 INVALID_INPUT/no-row-write 응답을 확인하며,
+실제 DB source/ACL/role 상속을 증명하는 검사는 아니다.
+
+OCR는 이미 등록·검증된 비공개 최상위 바구니 폴더만 사용한다. 폴더 설정이 조회 중
+사라져도 폴더를 생성하거나 설정을 쓰지 않는다. 임시 문서는 원본과 다른 ID, 실제
+GoogleDocs MIME, owner-only 권한, 해당 폴더, app-private note/workspace/attempt/
+source hash/Drive version/초기 note timestamp 표식을 모두 검증한다. 임시 문서의
+생성 결과 불명은 기존 attempt를 보존하며 자동 생성·새 UUID로 재전송하지 않는다.
+
+인식 글은 16,384 Unicode code points와 65,536 UTF-8 bytes를 모두 만족해야 한다.
+상한 초과·malformed UTF8·NUL은 prefix를 저장하지 않는다. 원문·승인 요약과 분리된
+`attachments[].ocr.text`만 좁은 INVOKER RPC의 버전/전체 첨부/시도 CAS로 갱신한다.
+저장된 text는 reading/failed에서도 보존하며 상태·정리 변경만으로 원문 버전을
+늘리지 않는다. 보관·AI 제외 메모의 명시 수동 읽기도 그 설정을 바꾸지 않는다.
+
+응답의 `ocr_saved`, `text_changed`, `cleanup_state`, `result_unknown`을 각각 판정해야
+한다. OCR 저장 성공과 임시 문서 삭제 성공은 별개다. 삭제 실패·불명은 인식 글과
+known temp ID를 보존한다. DELETE204 뒤 DB 갱신 충돌은 같은 attempt에 대해서만
+현재 버전으로 정리 상태를 기록하며, 인식 글을 새 원문에 자동 확정하지 않는다.
+API/로그는 고정 코드만 사용하고 Google 오류본문·원문·인식 글·토큰은 로그에 쓰지 않는다.
+
+서버/사본/UI 준비 PR → 실제 DB dry-run/apply → basket-files와 drive-summary 배포
+→ 정상 owner 세션 실사용 확인 → 별도 활성화 PR 순서다. 준비 화면은 기본 비활성이다.
+폰 실사용 확인의 정상 인증 경로는 마지막 운영 묶음에서 확정해야 하며 읽기 전용
+진단 북마크에 쓰기·삭제를 숨기지 않는다. 운영 직전 실제 Edge source/version/JWT를
+다시 확인한다. 알려진 되돌리기 기준은 basket-files v2
+`4bd2f719e55aebd813c95b014ee5c0725ccb3753`, drive-summary v7
+`39f1dfec9cd978f9ea5e7c94bca120fb16a0a84e`이다.
+인식 글을 사용한 뒤에는 DB rollback으로 자료를 삭제하지 않고 새 실행 비활성·자료
+보존·forward fix로 복구한다. 서버 준비와 실제 운영 확인을 동일시하지 않는다.
+이 Drive 검증은 지원 Edge 경로의 검증이다. 직접 호출 가능한 INVOKER RPC가 원격
+Drive 검증이나 정확히 한 번의 외부 문서 생성을 증명하는 것은 아니다.
+
+정상 owner가 실제 인식·임시삭제를 확인할 구체 경로/필요한 규칙 예외 또는 순서결정은 마지막 묶음에서 CC 확인한다. 운영·인증 우회 경로를 임의로 만들지 않는다.
+
+별도 검토 보완: 재시작한 persisted create_pending/create_unknown 시도는 정리·검색·소유/출처 검증의 거절 응답으로 failed/none으로 풀지 않는다. 이번 요청에서 새 시도 CAS가 확인되고 provider의 외부 CREATE가 아직 발송되지 않았다는 요청별 근거가 함께 있을 때만 known pre-POST 실패를 failed/none으로 기록한다. 기존 pending/unknown은 결과 불명과 같은 attempt를 보존하며 새 UUID/import로 우회하지 않는다.
