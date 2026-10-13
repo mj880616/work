@@ -147,7 +147,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const saveMode=mode,text=mode==='basket'?input.value:input.value.trim(),workspace=ctx.workspace?.id,batch=upload;const isCurrent=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace&&batch===upload;};saving=true;status.textContent='';
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{
-      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,onChange:()=>{if(isCurrent())paint();}}):await createNote({raw_text:text})):await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner});
+      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,onChange:()=>{if(isCurrent())paint();},onOcrChange:value=>{if(isCurrent()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 바구니에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';}}):await createNote({raw_text:text})):await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner});
       if(!isCurrent())return;
       if(saveMode==='basket'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
       input.value='';expanded=false;paint();if(saveMode==='basket')onSaved(result);

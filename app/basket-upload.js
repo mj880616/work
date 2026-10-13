@@ -1,3 +1,4 @@
+import {createBasketOcr} from './basket-ocr.js?v=1';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 바구니에서 확인 후 다시 시도하세요';
@@ -45,8 +46,10 @@ export async function uploadBasketFile(fd, file, rt = window.KPTURuntime, fetche
     })(), deadline]);
   } finally { clearTimeout(timer); }
 }
-export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime, onChange = () => {}, isCurrent = () => true, request = uploadBasketFile} = {}) {
+export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime, onChange = () => {}, onOcrChange = () => {}, isCurrent = () => true, request = uploadBasketFile, ocr} = {}) {
   validateBatch(batch, raw_text);
+  const originalIds=new Set(batch.attachments.map(file=>file.drive_file_id));
+  const hadPending=batch.entries.some(entry=>entry.kind!=='success');
   for (const entry of batch.entries.filter(e => e.kind !== 'success')) {
     if (!isCurrent()) throw Error('입력 세션이 변경되었습니다.');
     entry.kind = 'uploading'; entry.label = '업로드 중'; onChange();
@@ -71,6 +74,26 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
       if (['note_save_result_unknown','note_changed'].includes(error.code)) batch.blocked = error;
       onChange(); throw error;
     } finally { fd?.delete('file'); }
+  }
+  // Multipart success is final before this separate phase. An OCR failure never
+  // changes upload entries, blocks the batch, or sends the source file again.
+  if(hadPending && isCurrent()) {
+    const controller=ocr||createBasketOcr({rt,isCurrent});
+    const photos=batch.attachments.filter(file=>!originalIds.has(file.drive_file_id)&&['image/jpeg','image/png'].includes(file.mime_type));
+    const notice=value=>{if(isCurrent()){try{onOcrChange(value);}catch{/* A notice cannot undo a confirmed upload. */}}};
+    if(controller.state.enabled && photos.length) {
+      let supported=false;
+      try{supported=(await controller.capabilities()).ok===true;}catch{/* Saved sources remain saved. */}
+      for(const file of photos) {
+        if(!isCurrent())break;
+        let result;
+        try{result=supported?await controller.read(batch.note_id,file.drive_file_id):{ok:false,code:'OCR_UNSUPPORTED',result_unknown:false};}
+        catch{result={ok:false,code:'OCR_RESULT_UNKNOWN',result_unknown:true};}
+        if(!isCurrent())break;
+        if(result.ok && result.attachment)batch.attachments=batch.attachments.map(source=>source.drive_file_id===file.drive_file_id?result.attachment:source);
+        notice({...result,note_id:batch.note_id,drive_file_id:file.drive_file_id});
+      }
+    }
   }
   return {ok:true,note_id:batch.note_id,attachments:batch.attachments};
 }
