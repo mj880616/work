@@ -23,6 +23,7 @@ const fixture = {
 
 function harness(options = {}) {
   const calls = [], uploads = [], patches = [];
+  let contentReads=0,headerScans=0,linkScans=0;
   const files = new Map(options.existing ? [
     ['folder', { id: 'folder', mimeType: 'application/vnd.google-apps.folder', appProperties: { kptu_summary: 'folder', last_success_at: 'old-success', extra: 'keep' } }],
     ['org-doc', { id: 'org-doc', mimeType: 'application/vnd.google-apps.document', appProperties: { kptu_summary: 'org' } }],
@@ -51,11 +52,28 @@ function harness(options = {}) {
       if (options.failAssignmentPage && table === 'app_suborganization_assignees' && Number(url.searchParams.get('offset')) > 0) return reply({},503);
       for (const [key, value] of url.searchParams) {
         const field = r => key.split('.').reduce((v, part) => v?.[part], r);
+        if (value.startsWith('in.(')) rows = rows.filter(r=>value.slice(4,-1).split(',').includes(String(field(r))));
         if (value.startsWith('eq.')) rows = rows.filter(r => String(field(r)) === value.slice(3));
         if (value === 'is.null') rows = rows.filter(r => field(r) == null);
         if (value === 'not.is.null') rows = rows.filter(r => field(r) != null);
         if (value.startsWith('gte.')) rows = rows.filter(r => r[key] >= value.slice(4));
         if (value.startsWith('lte.')) rows = rows.filter(r => r[key] <= value.slice(4));
+      }
+      const range=new Headers(init.headers).get('Range');
+      const notePath=table==='app_notes',linkPath=table==='app_record_links'&&url.searchParams.has('note_id');
+      if(notePath||linkPath){
+        const content=notePath&&url.searchParams.get('select').split(',').includes('raw_text');
+        if(content)contentReads++;
+        if(range?.startsWith('0-')&&!content){if(notePath)headerScans++;else linkScans++;}
+        rows=options.mutateRows?.({rows,table,content,contentReads,headerScans,linkScans})??rows;
+        const columns=url.searchParams.get('select').split(',');
+        rows=rows.map(r=>Object.fromEntries(columns.map(k=>[k,r[k]??null])));
+        if(range){
+          const [start,end]=range.split('-').map(Number);
+          const page=rows.slice(start,Math.min(end+1,start+(options.notePageCap||500)));
+          const value=rows.length?`${start}-${start+page.length-1}/${rows.length}`:'*/0';
+          return options.noteResponse?.({rows:page,content,table,value})??Response.json(page,{headers:options.noNoteRange?{}:{'Content-Range':options.noteRange||value}});
+        }
       }
       const offset = Number(url.searchParams.get('offset') || 0), limit = Number(url.searchParams.get('limit') || 1000);
       return reply(rows.slice(offset, offset + limit));
@@ -166,7 +184,7 @@ function harness(options = {}) {
     const h = harness(); await h.request({ Authorization: 'Bearer valid-owner' });
     for (const c of h.calls.filter(c => c.url.pathname.startsWith('/rest/v1/'))) {
       const select = c.url.searchParams.get('select');
-      if (c.url.pathname.endsWith('/app_notes')) assert.equal(select, 'id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments');
+      if (c.url.pathname.endsWith('/app_notes')) assert.ok(['id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed','id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,raw_text,attachments'].includes(select));
       assert.doesNotMatch(select, /\*|transcript_text|notes|decisions|body|detail_text|year_summary/);
       assert.doesNotMatch(c.url.pathname, /app_tasks|timeline|comments/);
       if (!/app_workspaces|app_workspace_members|public_policy_drive_config/.test(c.url.pathname)) {
@@ -494,4 +512,76 @@ test('browser catalog and Drive guidance list the same six synthetic destination
   assert.equal(basket.includes('담당조직이 지정되지 않아 전체 조직을 싣습니다'),selected.fallback);
   assert.ok(copy.indexOf('담당조직 목록')<copy.indexOf('프로젝트 목록'));assert.ok(basket.indexOf('담당조직 목록')<basket.indexOf('프로젝트 목록'));
  }
+});
+
+const contentCalls=h=>h.calls.filter(c=>c.url.pathname.endsWith('/app_notes')&&c.url.searchParams.get('select')?.split(',').includes('raw_text'));
+test('summary count101 fetches no source content and keeps two diagnostic uploads',async()=>{
+ const h=harness({existing:true,notePageCap:2,data:{app_notes:Array.from({length:101},(_,i)=>note('limit'+i))}});
+ const result=await(await h.request({Authorization:'Bearer valid-owner'})).json();
+ assert.equal(result.error,'BASKET_OUTPUT_LIMIT');assert.equal(contentCalls(h).length,0);assert.equal(h.uploads.length,2);assert.equal(result.failure_recorded,true);
+});
+test('summary complete capped headers and links select only recent unclassified content in five-row ranges',async()=>{
+ const notes=[...Array.from({length:12},(_,i)=>note('n'+i)),note('old',{occurred_at:'2026-01-01T00:00:00Z'}),note('excluded',{ai_export_allowed:false}),note('archived',{archived_at:now.toISOString()})];
+ const h=harness({notePageCap:2,data:{app_notes:notes,app_record_links:[...fixture.app_record_links,{id:'a',note_id:'n0',status:'confirmed'},{id:'b',note_id:'n11',status:'suggested'}]}});
+ assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
+ const content=contentCalls(h);assert.ok(content.length>=5);
+ for(const c of content){const [a,b]=new Headers(c.init.headers).get('Range').split('-').map(Number);assert.ok(b-a+1<=5);const ids=c.url.searchParams.get('id');assert.ok(ids&&!ids.includes('old')&&!ids.includes('excluded')&&!ids.includes('archived'));}
+ const body=h.uploads[1].body;assert.doesNotMatch(body,/TEXT_n0<|TEXT_n11<|TEXT_old/);assert.match(body,/4주 이전 미분류: 1건/);
+});
+for(const opts of [{noNoteRange:true},{noteRange:'0-0/*'},{noteRange:'1-1/1'}])test('summary incomplete notes Range fails before document bodies '+JSON.stringify(opts),async()=>{
+ const h=harness({existing:true,...opts,data:{app_notes:[note('one')]}});const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();
+ assert.equal(r.error,'DB_READ_FAILED');assert.equal(h.uploads.length,0);assert.equal(r.failure_recorded,true);assert.equal(h.files.get('folder').appProperties.last_success_at,'old-success');
+});
+for(const variant of ['stamp','archive','ai','workspace','delete','link'])test('summary snapshot mismatch prevents both bodies '+variant,async()=>{
+ const h=harness({existing:true,data:{app_notes:[note('one')]},mutateRows:({rows,table,content,headerScans,linkScans})=>{
+  if(content&&variant==='stamp')return rows.map(r=>({...r,updated_at:'2026-10-03T15:30:00.000001Z'}));
+  if(table==='app_notes'&&!content&&headerScans>1){if(variant==='delete')return [];if(variant==='archive')return rows.map(r=>({...r,archived_at:now.toISOString()}));if(variant==='ai')return rows.map(r=>({...r,ai_export_allowed:false}));if(variant==='workspace')return rows.map(r=>({...r,workspace_id:'foreign'}));}
+  if(table==='app_record_links'&&linkScans>1&&variant==='link')return [...rows,{id:'late',note_id:'one',workspace_id:'ws',status:'confirmed'}];return rows;
+ }});const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();assert.equal(r.error,'DB_READ_FAILED');assert.equal(h.uploads.length,0);assert.equal(r.failure_recorded,true);
+});
+
+test('lazy whole-document overflow stops later attachments and later content pages',async()=>{
+ const first=note('first',{attachments:Array.from({length:20},(_,i)=>ocrPhoto('done','"'.repeat(16384)))});
+ let reads=0;
+ Object.defineProperty(first.attachments[19].ocr,'text',{enumerable:true,get(){reads++;throw Error('late OCR must not render');}});
+ const data={organizations:[],organizationUpdates:[],projects:[],workstreams:[],progress:[],milestones:[],taskLinks:[],documents:[],meetings:[],notes:[first],noteLinks:[]};
+ const html=core.renderDocuments(data,now);assert.equal(html.basketError,'BASKET_OUTPUT_LIMIT');assert.equal(reads,0);assert.ok(new TextEncoder().encode(html.project).length<=1048576);
+ const h=harness({existing:true,data:{app_notes:[note('000',{attachments:Array.from({length:20},()=>ocrPhoto('done','"'.repeat(16384)))}),...Array.from({length:9},(_,i)=>note(`next${i}`))]}});
+ const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();assert.equal(r.error,'BASKET_OUTPUT_LIMIT');assert.equal(contentCalls(h).length,1);assert.equal(h.uploads.length,2);assert.doesNotMatch(h.uploads[1].body,/TEXT_next/);
+});
+
+test('summary exactly100 targets reads twenty selected five-row pages and validates metadata without raw re-reads',async()=>{
+ const h=harness({data:{app_notes:Array.from({length:100},(_,i)=>note(`n${String(i).padStart(3,'0')}`))}});
+ assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);assert.equal(contentCalls(h).length,20);
+ const headers=h.calls.filter(c=>c.url.pathname.endsWith('/app_notes')&&!c.url.searchParams.get('select').includes('raw_text'));
+ assert.equal(headers.length,2);assert.match(h.uploads[1].body,/대상 건수: 100/);
+});
+test('oversized selected body is read failure with no org/project upload; completed OAuth and failure status remain',async()=>{
+ const h=harness({existing:true,data:{app_notes:[note('one')]},noteResponse:({content,rows,value})=>content?new Response(JSON.stringify([{...rows[0],raw_text:'x'.repeat(16777216)}]),{headers:{'Content-Range':value}}):undefined});
+ const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();assert.equal(r.error,'DB_READ_FAILED');assert.equal(h.uploads.length,0);assert.equal(r.failure_recorded,true);assert.equal(h.calls.filter(c=>c.url.hostname==='oauth2.googleapis.com').length,1);
+});
+test('content IDs are matched and restored to header selection order despite server ID order',async()=>{
+ const h=harness({data:{app_notes:[note('z',{occurred_at:'2026-10-03T15:00:00Z'}),note('a',{occurred_at:'2026-10-03T14:00:00Z'})]},mutateRows:({rows,content})=>content?rows.sort((a,b)=>a.id.localeCompare(b.id)):rows});
+ assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);const body=h.uploads[1].body;assert.ok(body.indexOf('TEXT_z')<body.indexOf('TEXT_a'));
+});
+for(const variant of ['duplicate','unexpected','missing','rawExtra','contentExtra'])test('invalid notes response identities/projection fails closed '+variant,async()=>{
+ const h=harness({existing:true,data:{app_notes:[note('one'),note('two')]},noteResponse:({rows,content,table,value})=>{
+  if(table!=='app_notes')return;
+  if(variant==='duplicate'&&!content&&rows.length===2)return Response.json([rows[0],rows[0]],{headers:{'Content-Range':value}});
+  if(variant==='unexpected'&&content)return Response.json(rows.map(r=>({...r,id:'other'})),{headers:{'Content-Range':value}});
+  if(variant==='missing'&&content)return Response.json(rows.slice(0,1),{headers:{'Content-Range':'0-0/1'}});
+  if(variant==='rawExtra'&&!content)return Response.json(rows.map(r=>({...r,raw_text:'PRIVATE'})),{headers:{'Content-Range':value}});
+  if(variant==='contentExtra'&&content)return Response.json(rows.map(r=>({...r,metadata:{unknown:'PRIVATE'}})),{headers:{'Content-Range':value}});
+ }});const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();assert.equal(r.error,'DB_READ_FAILED');assert.equal(h.uploads.length,0);
+});
+
+test('capped selector page total drift fails before either body and preserves old success',async()=>{
+ let pages=0;
+ const h=harness({existing:true,notePageCap:2,data:{app_notes:[note('one'),note('two'),note('three')]},noteResponse:({rows,content,table,value})=>{
+  if(!content&&table==='app_notes'&&++pages===2)return Response.json(rows,{headers:{'Content-Range':value.replace('/3','/4')}});
+ }});const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();assert.equal(r.error,'DB_READ_FAILED');assert.equal(h.uploads.length,0);assert.equal(h.files.get('folder').appProperties.last_success_at,'old-success');
+});
+test('notes advertised100000 retains the existing read limit refusal without accumulating that content',async()=>{
+ const h=harness({existing:true,data:{app_notes:[note('one')]},noteResponse:({rows,content,table})=>!content&&table==='app_notes'?Response.json(rows,{headers:{'Content-Range':'0-0/100000'}}):undefined});
+ const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();assert.equal(r.error,'DB_READ_LIMIT');assert.equal(contentCalls(h).length,0);assert.equal(h.uploads.length,0);
 });

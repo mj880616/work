@@ -24,3 +24,10 @@ test('guard admits five max-length OCR notes including escaped control text and 
   const wire=JSON.stringify(rows);assert.ok(new TextEncoder().encode(wire).length<NOTE_RESPONSE_BYTES);
   assert.deepEqual(await readBoundedJson(new Response(wire),{maxBytes:NOTE_RESPONSE_BYTES}),rows);
 });
+
+test('overflow returns controlled failure even when stream cancellation never settles',async()=>{
+ let cancelled=false;
+ const response=new Response(new ReadableStream({start(c){c.enqueue(new Uint8Array([1,2]));},cancel(){cancelled=true;return new Promise(()=>{});}}));
+ const result=await Promise.race([readBoundedJson(response,{maxBytes:1}).then(()=> 'unexpected_success',e=>e.message),new Promise(r=>setImmediate(()=>r('blocked_on_cancel')))]);
+ assert.equal(result,'BOUNDED_JSON_FAILED');assert.equal(cancelled,true);assert.equal(response.body.locked,false);
+});

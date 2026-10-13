@@ -267,3 +267,9 @@ test("oversized notes response is unknown and prevents Drive and metadata delete
   const h=harness({notes:{"ws-1":[note("n1")]},notesResponse:()=>new Response(JSON.stringify([{...note("n1"),padding:"x".repeat(16777216)}]),{headers:{"Content-Range":"0-0/1"}})});
   const r=await h.send();assert.equal(r.body.code,"BASKET_ORIGIN_UNKNOWN");assert.equal(driveWrites(h.calls).length,0);assert.equal(recordDeletes(h.calls).length,0);
 });
+
+test('oversized origin body with nonsettling cancellation still returns unknown before writes',async()=>{
+ let cancelled=false;
+ const h=harness({notes:{'ws-1':[note('n1')]},notesResponse:()=>new Response(new ReadableStream({start(c){c.enqueue(new Uint8Array(16777217));},cancel(){cancelled=true;return new Promise(()=>{});}}),{headers:{'Content-Range':'0-0/1'}})});
+ const result=await h.send();assert.equal(result.body.code,'BASKET_ORIGIN_UNKNOWN');assert.equal(cancelled,true);assert.equal(driveWrites(h.calls).length,0);assert.equal(recordDeletes(h.calls).length,0);
+});
