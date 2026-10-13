@@ -27,8 +27,8 @@ export async function openSeoulApp(page,{view='month',target=BASE+'/app/?view=ca
     if(url.pathname==='/functions/v1/google-calendar'){
       const action=body?.action||url.searchParams.get('action');
       if(action==='create-event'||action==='update-event'){
-        state.writes.push(body);const row=action==='create-event'?{id:'saved-'+state.writes.length,calendarId:'primary',source:'google',color:'#4285f4'}:state.events.find(x=>x.id===body.event_id);
-        Object.assign(row,{title:body.title,allDay:body.all_day,start:body.all_day?body.start_date:body.start_iso,end:body.all_day?new Date(Date.parse(body.end_date)+86400000).toISOString().slice(0,10):body.end_iso});
+        state.writes.push(body);const row=action==='create-event'?{id:'saved-'+state.writes.length,calendarId:'primary',source:'google',color:'#4285f4',location:''}:state.events.find(x=>x.id===body.event_id);
+        Object.assign(row,{title:body.title,description:body.memo||'',...(Object.hasOwn(body,'location')?{location:String(body.location||'')}:{}),allDay:body.all_day,start:body.all_day?body.start_date:body.start_iso,end:body.all_day?new Date(Date.parse(body.end_date)+86400000).toISOString().slice(0,10):body.end_iso});
         if(action==='create-event')state.events.push(row);return ok({ok:true,event:row});
       }
       if(action==='event')return ok({event:state.events.find(x=>x.id===url.searchParams.get('eventId')),eventColors:{}});

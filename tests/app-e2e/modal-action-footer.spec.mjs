@@ -59,6 +59,7 @@ for(const width of [360,1280])for(const c of cases){
       expect(hit).toBe(true);
     }
     if(c.id==='eventModal')await page.locator('#eventTitle').fill('합성 저장 시험');
+    if(c.id==='gtTaskModal')await page.locator('#gtEditNotes').fill('수정 입력을 보존하는 합성 저장 시험');
     if(c.id==='taskModal')await page.locator('#taskTitle').fill('');
     await top(page,c);await page.locator('#'+c.save).click();
     await expect(page.locator('#'+c.status)).toContainText(c.id==='taskModal'?'할 일을 입력해 주세요.':'합성 저장 오류');await top(page,c);
@@ -111,7 +112,7 @@ test('pending save and wrapped server error remain above the save button',async(
   const c=cases[0];await open(page,c,{gate,error});await page.locator('#eventTitle').fill('진행 상태 시험');await top(page,c);
   await page.locator('#saveEventBtn').click();
   try{await expect(page.locator('#eventStatus')).toContainText('저장 중');await top(page,c);await inViewport(page.locator('#eventStatus'));await inViewport(page.locator('#saveEventBtn'));}finally{release();}
-  await expect(page.locator('#eventStatus')).toHaveText(error.trim());await top(page,c);
+  await expect(page.locator('#eventStatus')).toContainText(error.trim());await expect(page.locator('#eventStatus')).toContainText('저장 결과를 확인하지 못했습니다. 입력은 유지했습니다.');await expect(page.locator('#eventStatus').getByRole('button',{name:'목록에서 저장 결과 확인'})).toBeVisible();await expect(page.locator('#eventTitle')).toHaveValue('진행 상태 시험');await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#saveEventBtn')).toBeEnabled();await expect(page.locator('#saveEventBtn')).not.toHaveAttribute('aria-busy','true');await top(page,c);
   await inViewport(page.locator('#eventStatus'));await inViewport(page.locator('#saveEventBtn'));
 });
 

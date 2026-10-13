@@ -21,7 +21,7 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveG
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
       const action=url.searchParams.get('action'),body=(()=>{try{return req.postDataJSON()}catch{return {}}})();
-      if(req.method()==='POST'&&body?.action==='create-event'){if(eventSaveGate)await eventSaveGate;if(failEventSave)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'일정 저장 실패'})});return ok({ok:true,event:{id:'g-new',title:body.title}})}
+      if(req.method()==='POST'&&body?.action==='create-event'){if(eventSaveGate)await eventSaveGate;if(failEventSave)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'일정 저장 실패'})});return ok({ok:true,event:{id:'g-new',calendarId:body.calendar_id,title:body.title,location:String(body.location||''),description:body.memo||'',start:body.start_iso,end:body.end_iso,allDay:body.all_day}})}
       if(action==='events')return ok({events:[],eventColors:{}});
       return ok({connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner',backgroundColor:'#4285f4'}],colors:{},events:[],eventColors:{}});
     }
