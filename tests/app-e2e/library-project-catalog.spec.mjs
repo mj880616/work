@@ -43,7 +43,7 @@ async function mockApp(page,state){
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
     const body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:state.user});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
@@ -71,7 +71,21 @@ async function mockApp(page,state){
         return ok(rows);
       }
       if(method==='POST'){const row={...(body||{}),id:`project-new-${state.spaces.length+1}`,created_at:now(),updated_at:now()};state.spaces.push(row);return ok([row])}
-      if(method==='PATCH'){const id=eq(url,'id'),row=state.spaces.find(x=>x.id===id);if(row)Object.assign(row,body||{},{updated_at:now()});return ok([])}
+      if(method==='PATCH'){
+        const id=eq(url,'id'),owner=eq(url,'owner_id'),workspace=eq(url,'workspace_id');
+        const rows=state.spaces.filter(row=>row.id===id&&(!owner||row.owner_id===owner)&&(!workspace||row.workspace_id===workspace));
+        rows.forEach(row=>Object.assign(row,body||{},{updated_at:now()}));return ok(req.headers().prefer?.includes('return=representation')?rows:[]);
+      }
+    }
+    // Synthetic PostgREST representation only; these IDs do not prove DB defaults.
+    if(path==='/rest/v1/app_project_modules'){
+      const modules=state.projectModules??=[];
+      if(method==='GET'){const projectId=eq(url,'project_id');return ok(modules.filter(row=>!projectId||row.project_id===projectId))}
+      if(method==='POST'&&Array.isArray(body)){
+        const rows=body.map((value,index)=>({...value,id:`synthetic-module-${modules.length+index+1}`}));modules.push(...rows);
+        return ok(req.headers().prefer?.includes('return=representation')?rows:[]);
+      }
+      return ok([]);
     }
     if(path==='/rest/v1/app_documents'){
       const id=eq(url,'id'),pid=eq(url,'project_id');
