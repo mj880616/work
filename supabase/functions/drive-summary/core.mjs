@@ -1,6 +1,8 @@
 import {select} from './project-catalog-model.mjs';
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
-import { basketState, renderBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
+import {createBasketReader} from './basket-read.mjs';
+import {createHtmlBudget} from './html-budget.mjs';
+import { basketState, prepareBasket, basketIntroLines, basketNoteLines, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
 export { basketState, BASKET_LIMITS };
 const WORKSPACE = 'kptu-work';
 const DAY = 86400000, KST = 9 * 3600000, PAGE = 500;
@@ -52,7 +54,7 @@ function dday(at, today) {
   const days = Math.round((Date.parse(date) - Date.parse(today)) / DAY);
   return days === 0 ? 'D-day' : days > 0 ? `D-${days}` : `D+${-days}`;
 }
-export function renderDocuments(data, now) {
+function prepareDocuments(data, now) {
   const window = kstWindow(now);
   const top = `<html><head><meta charset="utf-8"></head><body>\n${paragraph(`마지막 갱신: ${kstText(now)} (KST)`)}\n${paragraph(NOTICE)}`;
   const wrap = (title, lines) => `${top}\n<h1>${escapeHtml(title)}</h1>\n${paragraph(`최근 4주: ${window.startDate} 00:00 ~ ${kstText(now)} (KST)`)}\n${lines.join('\n')}\n</body></html>`;
@@ -90,20 +92,35 @@ export function renderDocuments(data, now) {
   }
   if (!data.meetings.length) project.push(paragraph('최근 4주 회의 없음'));
   const selected = selectBasketOrganizations(data.organizations, data.organizationAssignees || []);
-  const basket = renderBasket(data.notes || [], data.noteLinks || [], projects, selected.organizations, now, window, selected.fallback);
-  const orgHtml = wrap(TITLES.org, org);
-  const projectHtml = wrap(TITLES.project, [...project, basket.html]);
-  const overLimit = basket.overLimit || new TextEncoder().encode(projectHtml).length > BASKET_LIMITS.documentBytes;
-  if (!overLimit) return { org: orgHtml, project: projectHtml };
-  const notice = paragraph('대상 축소 필요: 바구니 출력 상한 초과. 이번 갱신의 바구니 원문은 내보내지 않았습니다. 이전 갱신 성공으로 처리하지 않습니다.');
-  let failureHtml = wrap(TITLES.project, [...project, basket.diagnostic]).replace('<body>\n', `<body>\n${notice}\n`);
-  // Even the pre-existing project sections can exceed the document budget.
-  // Publish a diagnostic copy, never a truncated set of originals.
-  if (new TextEncoder().encode(failureHtml).length > BASKET_LIMITS.documentBytes) {
-    failureHtml = wrap(TITLES.project, [paragraph('기존 프로젝트 절을 포함한 문서 크기가 상한을 넘었습니다.'), basket.diagnostic]).replace('<body>\n', `<body>\n${notice}\n`);
-  }
-  return { org: orgHtml, project: failureHtml, basketError: 'BASKET_OUTPUT_LIMIT' };
+  return {org:wrap(TITLES.org,org),project,projects,selected,wrap,top,window};
 }
+function documentRenderer(data,now,notes,links) {
+  const prepared=prepareDocuments(data,now),basket=prepareBasket(notes,links,now,prepared.window);
+  const sink=createHtmlBudget(BASKET_LIMITS.documentBytes,'\n</body></html>');
+  let overflow=basket.overLimit;
+  const append=text=>{if(!overflow&&!sink.append(text)){overflow=true;sink.discard();}};
+  append(`${prepared.top}\n<h1>${escapeHtml(TITLES.project)}</h1>\n${paragraph(`최근 4주: ${prepared.window.startDate} 00:00 ~ ${kstText(now)} (KST)`)}\n`);
+  let first=true;
+  const line=chunks=>{if(overflow)return; if(!first)append('\n');first=false;for(const chunk of chunks){append(chunk);if(overflow)break;}};
+  for(const text of prepared.project)line([text]);
+  for(const chunks of basketIntroLines(basket,prepared.projects,prepared.selected.organizations,now,prepared.selected.fallback)){line(chunks);if(overflow)break;}
+  function add(note){if(overflow)return false;for(const chunks of basketNoteLines(note)){line(chunks);if(overflow)break;}return !overflow;}
+  function finish(){
+    if(!basket.recent.length&&!overflow)line([paragraph('최근 4주 미분류 메모 없음')]);
+    if(!overflow)return {org:prepared.org,project:sink.finish()};
+    const notice=paragraph('대상 축소 필요: 바구니 출력 상한 초과. 이번 갱신의 바구니 원문은 내보내지 않았습니다. 이전 갱신 성공으로 처리하지 않습니다.');
+    let failure=prepared.wrap(TITLES.project,[...prepared.project,basket.diagnostic]).replace('<body>\n',`<body>\n${notice}\n`);
+    if(new TextEncoder().encode(failure).length>BASKET_LIMITS.documentBytes)failure=prepared.wrap(TITLES.project,[paragraph('기존 프로젝트 절을 포함한 문서 크기가 상한을 넘었습니다.'),basket.diagnostic]).replace('<body>\n',`<body>\n${notice}\n`);
+    return {org:prepared.org,project:failure,basketError:'BASKET_OUTPUT_LIMIT'};
+  }
+  return {basket,add,finish,get overflow(){return overflow;}};
+}
+export function renderDocuments(data,now){
+  const renderer=documentRenderer(data,now,data.notes||[],data.noteLinks||[]);
+  if(!renderer.overflow)for(const note of renderer.basket.recent)if(!renderer.add(note))break;
+  return renderer.finish();
+}
+
 class SummaryError extends Error {
   constructor(code, status = 502) { super(code); this.status = status; }
 }
@@ -179,7 +196,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
     const timeParams = (columns, scopeParams, column, start, end) => [
       ['select', columns], ...Object.entries(scopeParams), [column, `gte.${start}`], [column, `lte.${end}`],
     ];
-    const [organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, notes, noteLinks, meetings] = await Promise.all([
+    const [organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings] = await Promise.all([
       dbRows('app_suborganizations', { select: 'id,name,active,recent_month_summary', ...scope }),
       dbRows('app_suborganization_updates', timeParams('id,organization_id,raw_text,occurred_at,organization:app_suborganizations!organization_id!inner(workspace_id)', { 'organization.workspace_id': `eq.${workspaceId}` }, 'occurred_at', window.start, window.end)),
       dbRows('app_spaces', { select: 'id,parent_id,name,status,sort_order,project_system:metadata->>project_system,management_version:metadata->>management_version', ...scope }),
@@ -188,8 +205,6 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       dbRows('app_project_milestones', { select: projectSelect('id,project_id,title,start_at'), ...projectScope, start_at: `gte.${window.start}` }),
       dbRows('app_record_links', { select: 'id,project_id', ...scope, project_id: 'not.is.null', google_task_id: 'not.is.null', task_completed: 'eq.false', status: 'eq.confirmed' }),
       dbRows('app_documents', { select: 'id,project_id', ...scope, project_id: 'not.is.null' }),
-      dbRows('app_notes', { select: 'id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments', ...scope, archived_at: 'is.null', ai_export_allowed: 'eq.true', occurred_at: `lte.${window.end}` }),
-      dbRows('app_record_links', { select: 'id,note_id,status', ...scope, note_id: 'not.is.null' }),
       // Strict metadata allowlist: transcript_text/notes/decisions are never selected.
       dbRows('app_meetings', timeParams('id,series_name,title,meeting_at,round_no,project_id', scope, 'meeting_at', window.start, window.end)),
     ]);
@@ -207,7 +222,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
         order: 'organization_id.asc', user_id: `eq.${ownerId}`, 'organization.workspace_id': `eq.${workspaceId}`,
       });
     } catch { /* A failed/partial assignment read uses the full active guidance list. */ }
-    return { organizationAssignees, organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings, notes, noteLinks };
+    return { organizationAssignees, organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings };
   }
   async function accessToken() {
     const configs = await dbRows('public_policy_drive_config', { select: 'google_client_id,google_client_secret,google_refresh_token', id: 'eq.1' });
@@ -285,7 +300,18 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       token = await accessToken();
       folder = await folderFor(token);
       await assertPrivate(token, folder.id);
-      const at = now(), data = await readData(workspaceId, at, ownerId), html = renderDocuments(data, at);
+      const at = now(), data = await readData(workspaceId, at, ownerId);
+      const reader=createBasketReader({fetcher,baseUrl:env.SUPABASE_URL,headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`},workspaceId,at});
+      let html;
+      try {
+        const snapshot=await reader.snapshot(),renderer=documentRenderer(data,at,[...snapshot.notes.values()],[...snapshot.links.values()]);
+        if(!renderer.overflow)for await(const note of reader.content(snapshot,renderer.basket.recent))if(!renderer.add(note))break;
+        await reader.recheck(snapshot);
+        html=renderer.finish();
+      }catch(error){
+        if(['DB_READ_FAILED','DB_READ_LIMIT'].includes(error?.message))throw new SummaryError(error.message);
+        throw error;
+      }
       // Sequential uploads make partial failure explicit; last_success only after both + checks.
       for (const kind of ['org', 'project']) documents[kind] = await replaceDocument(token, folder, kind, html[kind]);
       await assertPrivate(token, folder.id);
