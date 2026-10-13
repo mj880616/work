@@ -76,7 +76,7 @@ for(const width of [390,1280])test(`active modal titles survive eyebrow removal 
 test("login has its title without an English eyebrow",async({page})=>{
   await page.goto(BASE+"/app/login/");
   await expect(page.locator(".auth-card .eyebrow")).toHaveCount(0);
-  await expect(page.locator(".auth-card h1")).toHaveText("Workspace 로그인");
+  await expect(page.locator(".auth-card h1")).toHaveText("업무 공간 로그인");
 });
 
 test('all remaining label entries use the same width rule when their controls exist',async({page})=>{

@@ -43,7 +43,7 @@ async function mockApp(page,state){
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
     const body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:state.user});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
@@ -76,8 +76,15 @@ async function mockApp(page,state){
       if(method==='PATCH'){const id=eq(url,'id'),row=state.spaces.find(x=>x.id===id);if(row)Object.assign(row,body||{},{updated_at:now()});return ok([])}
     }
     if(path==='/rest/v1/app_meetings'&&method==='POST'){const row={...body,id:'new-meeting'};state.meetings.push(row);state.meetingWrites.push(body);return ok([row])}
-    if(path==='/rest/v1/app_meetings'&&method==='PATCH'){const row=state.meetings.find(m=>m.id===eq(url,'id'));Object.assign(row,body);state.meetingWrites.push(body);return ok([{id:row.id}])}
-    if(path==='/rest/v1/app_meetings')return ok((state.meetings||[{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]).filter(m=>!eq(url,'id')||m.id===eq(url,'id')));
+    if(path==='/rest/v1/app_meetings'&&method==='PATCH'){
+      const id=eq(url,'id'),workspace=eq(url,'workspace_id');
+      const rows=(state.meetings||[]).filter(row=>id&&workspace&&row.id===id&&row.workspace_id===workspace);
+      if(!rows.length)return ok([]);
+      rows.forEach(row=>Object.assign(row,body));
+      state.meetingWrites.push(body);
+      return req.headers().prefer?.includes('return=representation')?ok(rows):route.fulfill({status:204,body:''});
+    }
+    if(path==='/rest/v1/app_meetings')return ok((state.meetings||[{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]).filter(m=>(!eq(url,'id')||m.id===eq(url,'id'))&&(!eq(url,'workspace_id')||m.workspace_id===eq(url,'workspace_id'))));
     if(path==='/rest/v1/app_documents'){
       const id=eq(url,'id'),pid=eq(url,'project_id'),mid=eq(url,'meeting_id');
       if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)));
