@@ -107,6 +107,10 @@ apply/dry-run에서 다음 조건을 모두 검사하며, 지원 밖 문법·본
 4. `GRANT EXECUTE ON FUNCTION <signature> TO authenticated`만 허용한다. 같은 파일에서 해당 서명의 함수를 먼저 정의하고, 해당 정의 뒤·GRANT 전에 `REVOKE ALL`(또는 `EXECUTE`) `ON FUNCTION <signature> FROM public, anon`을 해야 한다. 두 역할의 revoke는 별도 명령으로 나눌 수 있으며 두 개 모두 필요하다. 명시적 GRANT가 없어도 PostgreSQL 기본 PUBLIC 실행권한이 남지 않도록 모든 생성 함수에 두 역할 revoke를 요구한다. 다른 함수·다른 overload·anon/public/service_role 등 다른 역할·여러 역할·ALL 권한·WITH GRANT OPTION·스키마 전체 함수 GRANT는 거부한다.
 5. `ALTER FUNCTION`, `COMMENT ON FUNCTION` 및 위 문법 외 함수 명령은 허용하지 않는다. 같은 서명을 한 파일에서 여러 번 정의하는 것도 거부한다. 정적 검사가 실제 운영의 기존 함수 본문·ACL·기본 권한·RLS를 증명하지는 않으므로 OR REPLACE와 권한은 커맨드센터에서 snapshot과 대조한다. OR REPLACE 뒤 함수 DROP은 이전 정의를 복원하지 않으므로 기존 함수 교체의 복구는 별도 승인과 snapshot 검토가 필요하다.
 
+같은 파일에서 먼저 정의한 **정확한 함수 서명**에는 `REVOKE ALL`(또는 `EXECUTE`) `ON FUNCTION <signature> FROM service_role`도 추가로 허용한다. REVOKE 대상은 PUBLIC·anon·service_role 세 역할뿐이며 한 명령으로 함께 또는 별도 명령으로 회수할 수 있다. PUBLIC/anon 두 역할 회수는 계속 필수이고 service_role 회수는 선택적 추가 지원이다. 기존 두 역할만 회수하는 migration의 문법 호환성을 유지한다. `GRANT EXECUTE ... TO authenticated` 조건은 그대로이며 service_role·다른 역할·여러 역할에 대한 GRANT를 새로 허용하지 않는다. 다른 함수/overload·정의 전 권한 변경·스키마 전체 함수·짝 rollback의 권한 변경도 계속 거절한다.
+
+[과거 read-only snapshot](security/sec1-auth-handoff-snapshot.md)은 postgres/public 신규 함수에 anon·authenticated·service_role EXECUTE가 기본 부여되는 hosted ACL을 기록한다. 현재 운영 기본값을 새로 확인한 기록은 아니다. 이 조건에서 신규 RPC를 authenticated 전용으로 준비할 때는 해당 함수에 service_role 회수까지 명시하고, 실제 적용 전 신규 서명 부재·default ACL/역할 상속·적용 뒤 실제 EXECUTE 권한을 대조한다. 정적 guard의 통과만으로 함수의 운영 신규 여부, service_role 기본/상속 실행권한 부재 또는 전체 authenticated-only 경계가 증명되지는 않는다. 기존 표·업로드 함수의 service_role 권한, role/default privileges, 정책은 이 지원으로 변경하지 않는다.
+
 서명 문법은 인자 이름(선택)·`IN`(선택)·아래 기본 자료형 및 `[]` 배열 한 겹으로 제한한다. 별칭은 PostgreSQL에서 같은 자료형인 경우만 정규화한다. OUT/INOUT/VARIADIC·DEFAULT·형식 길이/정밀도·사용자 정의 자료형·schema-qualified 자료형·RETURNS TABLE은 지원하지 않으며 거부한다. 반환은 같은 기본형(또는 `void`), 선택적 SETOF만 인정한다. LANGUAGE/SECURITY/SET/AS 외 선택 사항은 STABLE/IMMUTABLE/VOLATILE 중 하나와 STRICT뿐이다.
 
 자료형: `integer`(`int`, `int4`), `bigint`(`int8`), `smallint`(`int2`), `boolean`(`bool`), `text`, `uuid`, `json`, `jsonb`, `bytea`, `numeric`(`decimal`), `real`(`float4`), `double precision`(`float8`), `date`, `timestamp`(`timestamp without time zone`), `timestamptz`(`timestamp with time zone`).
@@ -117,6 +121,12 @@ language sql security invoker set search_path = ''
 as $$select p_value + 1;$$;
 revoke all on function public.ops_example(integer) from public, anon;
 grant execute on function public.ops_example(integer) to authenticated;
+```
+
+위 두 역할 예시는 계속 지원한다. hosted 기본 실행권한까지 회수하는 신규 함수는 위 REVOKE 줄을 다음처럼 쓴다(같은 정의 뒤·authenticated GRANT 전).
+
+```sql
+revoke all on function public.ops_example(integer) from public, anon, service_role;
 ```
 
 위 조각만 단독 실행하지 않는다. 실제 migration은 begin/commit·일치하는 history INSERT·짝 rollback·snapshot·일상어 summary를 함께 준비해 사용자 승인 절차를 따른다. 예시 함수는 테스트 자료이며 이번 PR에서 운영 migration을 만들거나 실행하지 않는다.
