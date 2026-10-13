@@ -23,6 +23,9 @@ on:
       - '.github/workflows/browser-storage-audit.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   audit:
     runs-on: ubuntu-24.04
@@ -76,7 +79,6 @@ jobs:
               'tests/app-e2e/helpers/calendar-task-emphasis.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'app/library-upload.js':[r'LU_SESSION'],
               'app/suborganizations.js':[r'SO_SESSION'],
-              'app/photo-upload-fix.js':[r'PUF_SESSION'],
               'app/team.js':[r'SESSION_KEY'],
               'app/auth-bootstrap.js':[r'SESSION_KEY'],
               'app/runtime-client.js':[r'config\.sessionKey',r'OWNER_CACHE_PREFIX'],
