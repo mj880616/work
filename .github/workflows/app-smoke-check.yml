@@ -19,6 +19,10 @@ on:
       - 'tests/basket-upload.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'scripts/check-app-smoke-contract.mjs'
+      - 'scripts/check-app-smoke-contract.test.mjs'
+      - 'scripts/package.json'
+      - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
   pull_request:
     branches: [main]
@@ -38,8 +42,15 @@ on:
       - 'tests/basket-upload.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'scripts/check-app-smoke-contract.mjs'
+      - 'scripts/check-app-smoke-contract.test.mjs'
+      - 'scripts/package.json'
+      - 'scripts/package-lock.json'
       - '.github/workflows/app-smoke-check.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   smoke:
@@ -79,31 +90,34 @@ jobs:
       - name: Check domain routing and service worker registration
         run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs
 
+      - name: Install locked smoke parser
+        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+
       - name: Check recursive app dependency graph
         run: |
+          node --test scripts/check-app-smoke-contract.test.mjs
+          node scripts/check-app-smoke-contract.mjs
           node <<'NODE'
           const fs=require('fs');
           const loader=fs.readFileSync('app/loader-v2.js','utf8');
           const views=fs.readFileSync('app/view-loader.js','utf8');
           const loaderKeys=[
             'const authenticated=await window.KPTURuntime.session.ensure()',
-            "import('./action-labels.js?v=2')",
-            "import('./team.js?v=68')",'await window.__KPTU_TEAM_READY__',
-            "import('./view-loader.js?v=138')",'result=await viewLoader.load(requested)',
+            'await window.__KPTU_TEAM_READY__',
+            'result=await viewLoader.load(requested)',
             'window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true})'
           ];
           const missingLoader=loaderKeys.filter(key=>!loader.includes(key));
           if(missingLoader.length)throw new Error('missing route-first startup marker: '+missingLoader.join(', '));
           const viewKeys=[
-            "module('./calendar-month-view.js?v=22'","__KPTU_CALENDAR_MONTH_VIEW_READY__",
-            "module('./task-workflow.js?v=9'","__KPTU_TASK_WORKFLOW_READY__",
-            "module('./web1-board.js?v=4'",
-            "module('./meeting-round-detail.js?v=26'","__KPTU_MEETING_ROUND_DETAIL_READY__",
-            "module('./calendar-plus.js?v=12'","__KPTU_CALENDAR_PLUS_READY__",
-            "module('./calendar-persistence.js?v=17'","__KPTU_CALENDAR_PERSISTENCE_READY__",
-            "module('./calendar-interactions-v2.js?v=19'","__KPTU_CALENDAR_INTERACTIONS_READY__",
-            "module('./calendar-mobile-ui.js?v=8'","__KPTU_CALENDAR_MOBILE_UI_READY__",
-            "module('./calendar-day-overflow.js?v=10'","__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
+            "__KPTU_CALENDAR_MONTH_VIEW_READY__",
+            "__KPTU_TASK_WORKFLOW_READY__",
+            "__KPTU_MEETING_ROUND_DETAIL_READY__",
+            "__KPTU_CALENDAR_PLUS_READY__",
+            "__KPTU_CALENDAR_PERSISTENCE_READY__",
+            "__KPTU_CALENDAR_INTERACTIONS_READY__",
+            "__KPTU_CALENDAR_MOBILE_UI_READY__",
+            "__KPTU_CALENDAR_DAY_OVERFLOW_READY__"
           ];
           const missingViews=viewKeys.filter(key=>!views.includes(key));
           if(missingViews.length)throw new Error('missing view dependency marker: '+missingViews.join(', '));
@@ -139,46 +153,25 @@ jobs:
 
           grep -q 'id="appView"' app/index.html
           grep -q 'id="accessDeniedView"' app/index.html
-          grep -Eq '<script src="\./app\.js\?v=[0-9]+" defer></script>' app/index.html
           grep -q "loader-v2.js" app/app.js
-          grep -q "critical.css?v=26" app/index.html
-          if grep -q "styles.css?v=52" app/loader-v2.js; then echo 'global feature stylesheet returned to startup'; exit 1; fi
           if grep -q "ensureFeatureStyles" app/loader-v2.js; then echo 'global feature stylesheet gate returned'; exit 1; fi
           grep -q "viewLoader.prepare(requested)" app/loader-v2.js
-          grep -q "calendar-ui.css?v=34" app/view-loader.js
-          grep -q "task-layout.css?v=4" app/view-loader.js
-          grep -q "project-system-v3.css?v=26" app/view-loader.js
-          grep -q "library-upload.css?v=8" app/view-loader.js
-          grep -q "meeting-ui.css?v=15" app/view-loader.js
-          grep -q "web1-press.css?v=4" app/view-loader.js
-          grep -q "web1-board.css?v=7" app/view-loader.js
-          grep -q "suborganizations.css?v=11" app/view-loader.js
           grep -q "runtime-client.js" app/loader-v2.js
           grep -q "auth-service.js" app/loader-v2.js
-          grep -q "capabilities.js?v=3" app/loader-v2.js
           grep -q "KPTURuntime.session.ensure" app/loader-v2.js
           grep -Fq "document.body.classList.toggle('kptu-workspace-shell',id==='appView')" app/team.js
           grep -q "__KPTU_BOOT_MEMBERSHIP_PROMISE__" app/loader-v2.js
           grep -q "workspacePrefetchStart" app/loader-v2.js
           grep -q "prefetched?.ok?prefetched.rows" app/team.js
           if grep -q "public-workspace.js" app/loader-v2.js; then echo 'anonymous Web2 boot returned to the public workspace'; exit 1; fi
-          grep -q "pwa.js?v=6" app/loader-v2.js
           grep -q 'class="brand-icon" src="./app-icon.svg?v=20260924-unicorn3"' app/index.html
-          grep -q 'rel="manifest" href="./windows-manifest.json?v=6"' app/index.html
           if grep -q 'class="leaf"' app/index.html; then echo 'green first-paint brand placeholder returned'; exit 1; fi
           if grep -Eq "favicon|apple-touch-icon|createElement\\('link'\\)" app/pwa.js; then echo 'PWA bootstrap returned to late icon mutation'; exit 1; fi
           if grep -R -q "20260913-3" app/index.html app/pwa.js app/windows-manifest.json app/sw.js; then echo 'stale Web2 icon version returned'; exit 1; fi
           if grep -R -q "20260924-unicorn2" app/index.html app/windows-manifest.json app/sw.js; then echo 'poisoned Web2 icon URL returned'; exit 1; fi
           grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
-          grep -q "topbar-actions.js?v=20" app/loader-v2.js
-          grep -q "team.js?v=68" app/loader-v2.js
-          grep -q "project-system-v3.js?v=47" app/view-loader.js
-          grep -q "task-workflow.js?v=9" app/view-loader.js
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
-          grep -q "google-tasks.js?v=32" app/view-loader.js
-          grep -q "library-upload.js?v=26" app/view-loader.js
-          grep -q "project-catalog.js?v=3" app/view-loader.js
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
           test ! -f app/home-task-controls.js
           test ! -f app/home-task.css
@@ -188,36 +181,21 @@ jobs:
           test ! -f app/photo-room.js
           test ! -f app/photo-room.css
           if grep -Eq "photo-room|__KPTU_PHOTO_ROOM|photos" app/loader-v2.js app/view-loader.js app/app-router.js app/styles.css app/index.html; then echo 'retired photo room returned'; exit 1; fi
-          grep -q "web1-board.js?v=4" app/view-loader.js
-          grep -q "meeting-round-detail.js?v=26" app/view-loader.js
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/view-loader.js
           if grep -q 'mobile-dock.js' app/loader-v2.js app/view-loader.js; then echo 'obsolete personal dock returned'; exit 1; fi
           if grep -Eq "notification-center-ui|__KPTU_NOTIFICATION_CENTER_READY__|push-notifications-ui" app/loader-v2.js app/view-loader.js app/styles.css; then echo 'notification runtime returned'; exit 1; fi
           test ! -e app/notification-center-ui.js
           test ! -e app/notification-center-ui.css
           test ! -e app/push-notifications-ui.js
-          grep -q "calendar-plus.js?v=12" app/view-loader.js
           grep -q "__KPTU_CALENDAR_PLUS_READY__" app/view-loader.js
-          grep -q "calendar-persistence.js?v=17" app/view-loader.js
           grep -q "__KPTU_CALENDAR_PERSISTENCE_READY__" app/view-loader.js
-          grep -q "calendar-interactions-v2.js?v=19" app/view-loader.js
           grep -q "__KPTU_CALENDAR_INTERACTIONS_READY__" app/view-loader.js
-          grep -q "calendar-mobile-ui.js?v=8" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MOBILE_UI_READY__" app/view-loader.js
-          grep -q "calendar-day-overflow.js?v=10" app/view-loader.js
           grep -q "__KPTU_CALENDAR_DAY_OVERFLOW_READY__" app/view-loader.js
 
-          grep -q "topbar-actions.css?v=17" app/styles.css
-          grep -q "team.css?v=7" app/styles.css
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed personal view stylesheet was loaded'; exit 1; fi
           if grep -q 'mobile-dock.css' app/styles.css; then echo 'obsolete personal dock style returned'; exit 1; fi
-          grep -q "task-layout.css?v=4" app/styles.css
-          grep -q "google-tasks.css?v=25" app/styles.css
-          grep -q "library-upload.css?v=8" app/styles.css
-          grep -q "meeting-ui.css?v=15" app/styles.css
-          grep -q "calendar-ui.css?v=34" app/styles.css
           if grep -Eq "page-editor-static|page-core\.css|page-builder\.css" app/styles.css; then echo 'retired Web2 page editor styles returned'; exit 1; fi
-          grep -q "project-system-v3.css?v=26" app/styles.css
           grep -q "#authView{display:none!important}" app/base-ui.css
           grep -q "#appView:not(.kptu-ui-ready)" app/base-ui.css
           grep -Fq "[data-kptu-logout]" app/topbar-actions.css
@@ -249,7 +227,6 @@ jobs:
           grep -q "repoPathFromCanonical" app/web1-board.js
           grep -q "kptu:web1-board:navigate" app/web1-board.js
           if grep -q "mj880616.github.io/work/" app/web1-board.js; then echo 'Web1 board returned to Pages document iframe'; exit 1; fi
-          grep -q "web1-board.css?v=7" app/styles.css
           grep -q "#web1BoardDetailModal .w1b-detail-card" app/web1-board.css
           grep -q "height:100dvh" app/web1-board.css
           grep -q "#web1BoardDetailModal .w1b-detail-frame" app/web1-board.css
@@ -329,16 +306,12 @@ jobs:
           set -e
           grep -q "window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate" app/calendar-month-view.js
           grep -q "window.__KPTU_CALENDAR_MONTH_VIEW_READY__" app/calendar-month-view.js
-          grep -q "calendar-month-view.js?v=22" app/view-loader.js
           grep -q "__KPTU_CALENDAR_MONTH_VIEW_READY__" app/view-loader.js
           grep -Fq "(window.KPTUCalendarView||window.KPTUCalendarMonthView)?.render?.(" app/team.js
           grep -Fq "window.KPTUCalendarMonthView?.render(next)" app/calendar-view.js
-          grep -q "calendar-view.js?v=8" app/view-loader.js
-          grep -q "calendar-list-view.js?v=6" app/calendar-view.js
           grep -q "window.__KPTU_RENDER_CALENDAR__=renderCalendar" app/team.js
           grep -q "window.KPTUCalendarPersistence={paint:" app/calendar-persistence.js
           grep -q "window.KPTUCalendarDayOverflow={apply,open}" app/calendar-day-overflow.js
-          grep -q "calendar-ui.css?v=34" app/styles.css
           grep -q "id=\"googleCalendarPanel\"" app/team.js
           grep -q "visualViewport" app/calendar-month-view.js
           grep -q "cmvLaneSlots" app/calendar-month-view.js
@@ -458,8 +431,6 @@ jobs:
       - name: Check retained non-project feature invariants
         run: |
           set -e
-          grep -q "task-workflow.js?v=9" app/view-loader.js
-          grep -q "web1-board.js?v=4" app/view-loader.js
           test -f app/workflow-ai-v3.js
           if grep -q "workflow-ai-v3.js" app/loader-v2.js app/view-loader.js; then echo 'retired meeting AI workflow returned to active loader'; exit 1; fi
           if grep -q 'mobile-dock.js' app/loader-v2.js app/view-loader.js; then echo 'obsolete personal dock returned'; exit 1; fi
