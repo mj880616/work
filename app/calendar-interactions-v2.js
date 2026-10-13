@@ -35,7 +35,7 @@ async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
   ciGoogleOwner=owner;
   const active=()=>seq===ciGoogleOpenSeq&&epoch===ciRuntime().session.epoch()&&owner===window.KPTURuntime?.session?.read?.()?.user?.id&&!document.querySelector('#ciGoogleModal').classList.contains('hidden');
   ciInject();ciGoogleCurrent=null;ciOpen('#ciGoogleModal');ciStatus('#ciGoogleStatus','Google 일정을 불러오는 중…');
-  document.querySelector('#ciGoogleSave').disabled=true;document.querySelector('#ciGoogleDelete').disabled=true;document.querySelector('#ciGoogleCalendar').disabled=true;
+  const save=document.querySelector('#ciGoogleSave');save.disabled=true;save.textContent='변경사항 저장';save.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=true;document.querySelector('#ciGoogleCalendar').disabled=true;
   try{
     ciRuntime();if(!owner)throw new Error('로그인이 필요합니다.');
     const cached=(window.__KPTU_GOOGLE_EVENTS__||[]).find(e=>e.id===eventId&&(!calendarId||e.calendarId===calendarId));
@@ -61,11 +61,11 @@ function ciDraft(){return JSON.stringify([...['ciGoogleCalendar','ciGoogleTitle'
 const ciSameSession=r=>r.owner===ciRuntime().session.read()?.user?.id&&r.epoch===ciRuntime().session.epoch();
 const ciSaveActive=r=>ciSaveRequest===r&&ciSameSession(r)&&r.seq===ciGoogleOpenSeq&&ciGoogleCurrent===r.current&&!document.querySelector('#ciGoogleModal').classList.contains('hidden');
 const ciUncertainKey=(id,calendar)=>JSON.stringify([ciRuntime().session.epoch(),ciRuntime().session.read()?.user?.id,id,calendar]);
-function ciAcceptAddress(r,event){
+function ciAcceptAddress(r,event,{preserveSelection=false}={}){
   const selected=document.querySelector('#ciGoogleCalendar').value;
   ciGoogleCurrent=r.current={...r.current,...event};ciPopulateGoogleCalendars(ciGoogleCurrent);
   // The verified address is the baseline; a new selection made during the request is still a draft.
-  if(selected!==r.selected&&[...document.querySelector('#ciGoogleCalendar').options].some(o=>o.value===selected&&!o.disabled))document.querySelector('#ciGoogleCalendar').value=selected;
+  if((preserveSelection||selected!==r.selected)&&[...document.querySelector('#ciGoogleCalendar').options].some(o=>o.value===selected&&!o.disabled))document.querySelector('#ciGoogleCalendar').value=selected;
 }
 async function ciSaveGoogle(){
   if(!ciGoogleCurrent||ciGoogleSavePending||ciGoogleReadySeq!==ciGoogleOpenSeq)return;
@@ -90,7 +90,7 @@ async function ciSaveGoogle(){
       if(!d)d=await ciGoogleCall('event',{expectedSessionEpoch:r.epoch,params:{eventId:current.id,calendarId:uncertain.source}});
       if(!ciSaveActive(r))return;
       if(d?.event?.id!==current.id||![uncertain.source,uncertain.target].filter(Boolean).includes(d.event.calendarId))throw new Error('앞선 저장 결과를 확인하지 못했습니다.');
-      ciAcceptAddress(r,d.event);ciUncertain.delete(key);
+      ciAcceptAddress(r,d.event,{preserveSelection:true});ciUncertain.delete(key);
       body.calendar_id=d.event.calendarId;
       if(body.target_calendar_id===body.calendar_id)delete body.target_calendar_id;
       ciStatus('#ciGoogleStatus','앞선 저장의 위치를 확인했습니다. 입력을 확인한 뒤 저장해 주세요.',true);return;
