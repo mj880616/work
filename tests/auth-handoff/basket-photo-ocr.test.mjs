@@ -31,6 +31,22 @@ test('photo OCR compatible DB, exact CAS, text versions and preservation', {time
   await pool.query(`create table public.app_documents(id uuid primary key,workspace_id uuid);alter table public.app_spaces add column owner_id uuid default '${OWNER}',add column name text,add column parent_id uuid,add column status text default 'active',add column metadata jsonb default '{"project_system":"v2"}';grant select,update on public.app_spaces to authenticated;alter table public.app_spaces enable row level security;create policy synthetic_spaces_owner on public.app_spaces for all to authenticated using(private.app_is_workspace_owner(workspace_id)) with check(private.app_is_workspace_owner(workspace_id));`);
   for(const file of ['20261010120000_basket1_notes_links.sql','20261011180000_basket4a_confirm_links.sql','20261012100000_basket_link_view_db.sql'])await pool.query(await read('supabase/migrations/'+file));
   const migration=await read('supabase/migrations/'+stem+'.sql');
+  await t.test('independent version SELECT precedes catalog gates and reports the actual isolated PostgreSQL',async()=>{
+   const rows=(await pool.query(await read('docs/'+stem+'.version-check.sql'))).rows;
+   const actual=(await pool.query("select current_setting('server_version_num')::integer number,current_setting('server_version')version")).rows[0];
+   assert.equal(rows.find(r=>r.item==='server_version_num')?.value,String(actual.number));assert.equal(rows.find(r=>r.item==='PostgreSQL 16+ catalog prerequisite')?.value,'예');assert.match(actual.version,/^17\.6(?:\D|$)/);
+   assert.ok(migration.indexOf('PHOTO_OCR_POSTGRES_VERSION_UNSUPPORTED')<migration.indexOf('pg_auth_members'));
+  });
+  await t.test('version guard rejects a missing or pre-16 catalog prerequisite before executing newer reads',async()=>{
+   // Evaluate the unchanged guard against synthetic version rows on PG17.6.
+   // This proves its threshold/unknown decision, not whole PostgreSQL16 support.
+   const guard=migration.match(/do \$\$([\s\S]*?PHOTO_OCR_POSTGRES_VERSION_UNSUPPORTED[\s\S]*?)\$\$;/)[0];
+   for(const value of ['159999',null]){
+    const relation=value===null?"(select 'server_version_num'::text name,'170006'::text setting where false)pg_settings":"(values('server_version_num','"+value+"'))pg_settings(name,setting)";
+    await assert.rejects(pool.query(guard.replace('from pg_settings','from '+relation)),/PHOTO_OCR_POSTGRES_VERSION_UNSUPPORTED/);
+   }
+   for(const value of ['160000','170006'])await pool.query(guard.replace('from pg_settings',"from (values('server_version_num','"+value+"'))pg_settings(name,setting)"));
+  });
   // This is the TDD gate: empty pre-feature migration has no callable OCR RPC.
   await pool.query(migration);
   assert.notEqual((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)') fn")).rows[0].fn,null,'new OCR RPC must exist after applying the preparation migration');
@@ -197,6 +213,45 @@ test('photo OCR compatible DB, exact CAS, text versions and preservation', {time
      await pool.query('rollback');await pool.query('alter table public.app_notes drop constraint app_notes_attachments_check;alter table public.app_notes add constraint app_notes_attachments_check '+exactCheck);
      await pool.query(exactFn);await pool.query('revoke all on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)from public,anon,authenticated,service_role;grant execute on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)to authenticated');
      await pool.query('insert into supabase_migrations.schema_migrations(version,name,statements)values($1,$2,$3)on conflict(version)do update set name=excluded.name,statements=excluded.statements',[exactHistory.version,exactHistory.name,exactHistory.statements]);
+    }
+   });
+  });
+  await t.test('same-name CHECK on another public table cannot satisfy source or rollback gates',async collision=>{
+   await pool.query('delete from public.app_notes');
+   const root=new URL('../../',import.meta.url).pathname;
+   const query=async(sql,options={})=>{const c=await pool.connect();try{if(options.readOnly)await c.query('begin read only');const r=await c.query(sql);if(options.readOnly)await c.query('commit');return Array.isArray(r)?[]:r.rows;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+   const fingerprint=async()=>(await pool.query(`select 'notes' kind,coalesce(jsonb_agg(to_jsonb(n)order by id),'[]'::jsonb) value from public.app_notes n
+    union all select 'CHECK',coalesce(jsonb_agg(to_jsonb(c)order by c.oid),'[]'::jsonb)from pg_constraint c where c.connamespace='public'::regnamespace and c.conname='app_notes_attachments_check'
+    union all select 'RPC',coalesce(jsonb_agg(to_jsonb(p)order by p.oid),'[]'::jsonb)from pg_proc p where p.pronamespace='public'::regnamespace and p.proname='app_basket_update_attachment_ocr'
+    union all select 'history',coalesce(jsonb_agg(to_jsonb(m)),'[]'::jsonb)from supabase_migrations.schema_migrations m where m.version='20261013034836' order by kind`)).rows;
+   for(const [index,[phase,operation]]of [['old','precheck'],['old','postcheck'],['old','dry-run.postcheck'],['old','apply'],['old','dry-run'],['old','direct apply'],['applied','postcheck'],['applied','rollback'],['applied','direct rollback']].entries())await collision.test(phase+' '+operation,async()=>{
+    if(phase==='old')await pool.query(await read('docs/'+stem+'.rollback.sql'));
+    const exactCheck=(await pool.query("select pg_get_constraintdef(oid)def from pg_constraint where conrelid='public.app_notes'::regclass and conname='app_notes_attachments_check'")).rows[0].def;
+    const exactFn=phase==='applied'?(await pool.query("select pg_get_functiondef('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)'::regprocedure)def")).rows[0].def:null;
+    const history=phase==='applied'?(await pool.query('select * from supabase_migrations.schema_migrations where version=$1',[version])).rows[0]:null;
+    try{
+     await pool.query('create table public.synthetic_later_catalog_collision(attachments jsonb,constraint app_notes_attachments_check '+exactCheck+');alter table public.app_notes drop constraint app_notes_attachments_check;alter table public.app_notes add constraint app_notes_attachments_check check(('+exactCheck.slice(6)+') and jsonb_array_length(attachments)<=19)');
+     await note();const before=await fingerprint();
+     const snapshot=(await pool.query(await read('docs/'+stem+'.snapshot.sql'))).rows;assert.equal(snapshot.find(r=>r.name==='public attachments CHECK name count')?.definition,'2');
+     if(['precheck','postcheck','dry-run.postcheck'].includes(operation)){
+      const rows=(await pool.query(await read('docs/'+stem+'.'+operation+'.sql'))).rows;
+      const item=operation==='precheck'?'exact old CHECK intact':operation==='postcheck'?'mode-specific attachments CHECK':'exact old CHECK restored';
+      assert.equal(rows.find(r=>r.item===item)?.[operation==='precheck'?'value':'ok'],operation==='precheck'?'아니오':false,'a decoy CHECK must not attest the real notes CHECK');
+     }else if(operation.startsWith('direct')){
+      await assert.rejects(pool.query(operation==='direct apply'?migration:await read('docs/'+stem+'.rollback.sql')),/PHOTO_OCR_(?:PREREQUISITE|ROLLBACK)_CHANGED/);await pool.query('rollback');
+     }else{
+      const result=await runMigrationPlan(prepareMigration({mode:operation,version,runId:String(9700+index),root}),query);assert.equal(result.ok,false,'runner must reject target CHECK drift despite the exact decoy');
+     }
+     assert.deepEqual(await fingerprint(),before,'rejection must preserve notes, later CHECK, current RPC and migration history');
+    }finally{
+     await pool.query('rollback');await pool.query('drop table public.synthetic_later_catalog_collision;alter table public.app_notes drop constraint app_notes_attachments_check;alter table public.app_notes add constraint app_notes_attachments_check '+exactCheck);
+     await pool.query('delete from public.app_notes');
+     if(phase==='old'){
+      await pool.query('drop function if exists public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)');await pool.query('delete from supabase_migrations.schema_migrations where version=$1',[version]);await pool.query(migration);
+     }else{
+      await pool.query(exactFn);await pool.query('revoke all on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)from public,anon,authenticated,service_role;grant execute on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)to authenticated');
+      await pool.query('insert into supabase_migrations.schema_migrations(version,name,statements)values($1,$2,$3)on conflict(version)do update set name=excluded.name,statements=excluded.statements',[history.version,history.name,history.statements]);
+     }
     }
    });
   });
