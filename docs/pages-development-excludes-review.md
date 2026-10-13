@@ -51,3 +51,7 @@ GitHub Pages는 저장소 root를 Jekyll로 빌드한다. 2026-10-13 main `3f0b8
 병합 후 exact main SHA의 Pages 실행 성공과 artifact manifest를 대조한다. 문제가 생기면 이 exclude 설정만 되돌리는 PR로 복구한다. 저장소 자료·원문·분석자료·앱 소스를 reset/clean/삭제하지 않는다.
 
 ENV-8 중 Pages 개발폴더 제외 범위다. Actions Node24·Cloudflare 도구 고정·중복 Pages 게시 판단·기타 ENV 후속은 별도 범위로 유지한다.
+
+## main 통합 기록
+
+#518과 #515가 반영된 main `01399e9beea7db47bbe03c3fd88f49c6fa16fb16`을 같은 branch에 정상 merge했다. ENV-8 충돌은 main의 #515 설명·성공 기록과 #517 Pages 기록을 함께 보존해 해결했다. `_config.yml` blob은 독립 검토를 받은 e9a17fd와 동일하며, 제외·숨김 경로와 설정 파일을 별도로 구분한 공개 빌드 입력의 Git blob 대조에서도 변경이 없다. 이 입력 동일성에 따라 Docker·전체 browser 검사를 반복하지 않는다. 앞의 실제 artifact·브라우저 수치는 원래 검증한 출력의 결과이며, 통합 head의 자동 검사와 병합 뒤 실제 Pages artifact 확인은 별도로 기록한다.
