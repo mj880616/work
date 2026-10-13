@@ -76,16 +76,28 @@ test('wdCreateAffTag creates once and retries after failure',async({page})=>{
   await expect.poll(()=>count(page)).toBe(3);
 });
 
-test('wdSaveAff sends one connection POST and retries after failure',async({page})=>{
+test('wdSaveAff keeps POST single-flight, resumes known refusal and never resends an unknown result',async({page})=>{
   await setup(page,'app_suborganization_affiliations');await openRail(page);await openAff(page);
   const button=page.locator('#wdAffSave');
   await assertOneDuringSave(page,button);
   await expect(page.locator('#wdAffModal')).toBeHidden();
   await page.locator('#wdAffManage').click();
   await failNext(page);await button.click();
-  await expect(page.locator('#wdAffStatus')).toContainText('임시 저장 실패');
+  await expect(page.locator('#wdAffStatus')).toContainText('기존 소속을 비웠고');
+  const deleted=await page.evaluate(()=>window.__affCalls.filter(x=>x.method==='DELETE').length);
   await expect(button).toBeEnabled();await button.click();
   await expect.poll(()=>count(page)).toBe(3);
+  await expect(page.locator('#wdAffModal')).toBeHidden();
+  expect(await page.evaluate(()=>window.__affCalls.filter(x=>x.method==='DELETE').length)).toBe(deleted);
+  await page.locator('#wdAffManage').click();
+  await page.evaluate(()=>{window.__saveLockProbe.fail=true;window.__saveLockProbe.failStatus=503});await button.click();
+  await expect.poll(()=>count(page)).toBe(4);
+  await expect(page.locator('#wdAffStatus')).toContainText('새 선택은 아직 확인하지 못했습니다');
+  await page.locator('#wdAffStatus button').click();
+  await expect(page.locator('#wdAffStatus')).toContainText('다시 전송하지 않았습니다');
+  await button.click();expect(await count(page)).toBe(4);
+  await expect(page.locator('#wdAffModal')).toBeVisible();
+  await expect(page.locator('[data-wd-aff][value="tag-1"]')).toBeChecked();
 });
 
 test('saveAssignees sends one connection POST and retries after failure',async({page})=>{

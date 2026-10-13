@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import {runInNewContext} from 'node:vm';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const liveSession=()=>({
@@ -177,7 +178,18 @@ test('GET single-flight and boot context are isolated when the signed-in user ch
 
 test('library mutations use the shared runtime recovery transport',async()=>{
   const source=readFileSync('app/library-upload.js','utf8');
-  expect(source).toContain("if(window.KPTURuntime?.api)return window.KPTURuntime.api(path,{method,body,prefer})");
+  const start=source.indexOf('async function luApi('),end=source.indexOf('\nfunction luEsc(',start);
+  expect(start).toBeGreaterThanOrEqual(0);expect(end).toBeGreaterThan(start);
+  const calls=[],api=runInNewContext(source.slice(start,end)+';luApi',{
+    window:{KPTURuntime:{api:(path,options)=>{calls.push({path,options});return 'shared-runtime'}}},
+    fetch:()=>{throw new Error('direct fetch bypassed runtime')}
+  });
+  const body={title:'scope transport'},options={method:'PATCH',body,prefer:'return=representation',expectedSessionEpoch:0,singleFlight:false};
+  expect(await api('/rest/v1/app_documents?id=eq.fixture',options)).toBe('shared-runtime');
+  expect(calls[0].path).toBe('/rest/v1/app_documents?id=eq.fixture');
+  expect(calls[0].options).toEqual(options);expect(calls[0].options.body).toBe(body);
+  expect(await api('/rest/v1/app_documents')).toBe('shared-runtime');
+  expect(calls[1].options).toEqual({method:'GET',body:null,prefer:'',expectedSessionEpoch:null,singleFlight:true});
   expect(source).not.toContain("fetch(LU_SB+'/functions/v1/library-files'");
   expect(source).not.toContain("fetch(LU_SB+'/functions/v1/document-actions'");
   expect(source).not.toContain("fetch(LU_SB+'/auth/v1/user'");
