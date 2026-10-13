@@ -111,9 +111,9 @@ export function previewClassification(proposal,{workspaceId,userId,notes,links,p
     return {item,note,error,destinations:item.destinations.map(target=>{
       const supported=['organization','project'].includes(target.kind), rows=target.kind==='organization'?organizations:projects;
       const destination=supported?rows.find(d=>d.id===target.target_id):null;
-      const existing=links.find(l=>l.note_id===item.note_id&&l.status==='confirmed'&&l[target.kind==='project'?'project_id':'organization_id']===target.target_id);
+      const existing=supported?links.find(l=>l.note_id===item.note_id&&l.status==='confirmed'&&l[target.kind==='project'?'project_id':'organization_id']===target.target_id):null;
       const targetError=!supported?'NEXT_STAGE':!destination?'TARGET_MISSING':destination.workspace_id!==workspaceId?'TARGET_WORKSPACE':target.kind==='project'&&!visible.has(destination.id)?'TARGET_UNSELECTABLE':existing&&!existing.id?'ALREADY_CONFIRMED':null;
-      return {...target,summary:existing?.summary??null,action:existing?'update':'create',linkId:existing?.id??null,expectedSummary:existing?.summary??null,name:destination?.name||'이름을 확인할 수 없어요.',error:!supported?'NEXT_STAGE':error||targetError};
+      return {...target,...(supported?{summary:existing?.summary??null,action:existing?'update':'create',linkId:existing?.id??null,expectedSummary:existing?.summary??null}:{}),name:destination?.name||'이름을 확인할 수 없어요.',error:!supported?'NEXT_STAGE':error||targetError};
     })};
   });
 }

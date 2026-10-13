@@ -1,6 +1,6 @@
 import { mountQuick } from './home-quick.js?v=11';
-import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=11';
-import { mountClassification } from './basket-classification-ui.js?v=10';
+import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=12';
+import { mountClassification } from './basket-classification-ui.js?v=11';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=4';
@@ -16,6 +16,11 @@ let requestedNote = initialUrl.searchParams.get('view') === 'basket' ? initialUr
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
 root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar"><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-handoff-copy>AI에게 맡기기</button><button type="button" class="quick-pill-button" data-classification-open>AI 정리 결과 넣기</button></div></div></div><p data-basket-handoff-scope></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류</button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
+// Keep the basket heading available to assistive navigation; the shell owns
+// the visible mobile title at the same 760px breakpoint as the shared header.
+const basketTitle=root.querySelector('.basket-head > h2'),mobileTitle=window.matchMedia('(max-width:760px)');
+const syncTitle=()=>basketTitle.classList.toggle('a11y-only',mobileTitle.matches);
+mobileTitle.addEventListener('change',syncTitle);syncTitle();
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
 quick=mountQuick({root,esc,basketOnly:true,view:'basket',idPrefix:'basket',onSaved:()=>void refresh()});
 const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{getRequest:()=>{
