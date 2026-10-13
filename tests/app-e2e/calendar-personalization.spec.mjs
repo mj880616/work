@@ -49,7 +49,7 @@ test('active Web2 calendar path is personal and attendee-free',()=>{
 
   expect(suborg).toContain('window.__KPTU_SYNC_EVENT_ORGS__');
   expect(suborg).not.toContain('eventCalendarScope');
-  expect(projects).toContain('google_calendar_id:calendarId');
+  expect(projects).toContain('google_calendar_id:a.address.calendarId,google_event_id:a.address.eventId');
 });
 
 test('personal calendar keeps legacy data compatibility without schema removal',()=>{

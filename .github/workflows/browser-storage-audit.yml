@@ -96,6 +96,14 @@ jobs:
               # failed handoffs never persist a session. No application grant.
               'tests/security/auth-handoff-browser.test.mjs':[r'^\s*localStorage:\s*\{'],
               'tests/app-e2e/google-tasks-cache.spec.mjs':[r'\blocalStorage\b'],
+              # Exact synthetic Map adapter and injection into the real runtime VM.
+              # No application storage grant or other test-file usage is allowed.
+              'tests/quick-save-session.test.mjs':[
+                  r'^\s*'+re.escape(line)+r'\s*$' for line in (
+                      'const localStorage={getItem:k=>rows.get(k)??null,setItem:(k,v)=>rows.set(k,v),removeItem:k=>rows.delete(k),get length(){return rows.size},key:i=>[...rows.keys()][i]};',
+                      "vm.runInNewContext(readFileSync(new URL('../app/runtime-client.js',import.meta.url),'utf8'),{window,localStorage,fetch,performance,URL,URLSearchParams,AbortController,FormData,CustomEvent:class{},setTimeout,clearTimeout,console});",
+                  )
+              ],
               # Synthetic stale-copy fixture only, scoped to the existing home-test display-cache key.
               # This adds no application storage permission and permits no other key in this test file.
               'tests/app-e2e/basket-link-home.spec.mjs':[

@@ -75,6 +75,21 @@ async function installSupabaseMock(page, state) {
       if (method === 'PATCH') return ok([]);
     }
 
+    // Synthetic PostgREST representation only; these IDs do not prove DB defaults.
+    if (path === '/rest/v1/app_project_modules') {
+      const modules=state.projectModules??=[];
+      if (method === 'GET') {
+        const projectId=String(url.searchParams.get('project_id')||'').replace(/^eq\./,'');
+        return ok(modules.filter(row=>!projectId||row.project_id===projectId));
+      }
+      if (method === 'POST' && Array.isArray(body)) {
+        if(!body.every(value=>value?.created_by===state.user.id&&state.spaces.some(project=>project.id===value.project_id&&project.owner_id===state.user.id&&project.workspace_id===state.workspace.id)))return ok([]);
+        const rows=body.map((value,index)=>({...value,id:`synthetic-module-${modules.length+index+1}`}));modules.push(...rows);
+        return ok(req.headers().prefer?.includes('return=representation')?rows:[]);
+      }
+      return ok([]);
+    }
+
     if (path === '/rest/v1/app_events') {
       if (method === 'GET') return ok(state.events);
       if (method === 'POST') {
