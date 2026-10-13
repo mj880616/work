@@ -533,6 +533,7 @@ test('editor save reentry sends one create request',async({page})=>{
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.locator('#newTaskBtn').click();
   await page.locator('#gtEditTitle').fill('QA');
+  await expect(page.locator('#gtSaveBtn')).toBeEnabled();
   await page.evaluate(()=>{const save=document.querySelector('#gtSaveBtn').onclick;save();save()});
   await expect.poll(()=>saves).toBe(1);
   await expect(page.locator('#gtSaveBtn')).toBeDisabled();
