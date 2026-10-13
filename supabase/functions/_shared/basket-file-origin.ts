@@ -45,12 +45,13 @@ async function allRows(
   order: string,
   key: (row: Row) => unknown,
   visit?: (row: Row) => boolean,
+  pageSize = 100,
 ): Promise<Row[]> {
   const params = new URLSearchParams({ ...filters, select: fields, order });
   const result: Row[] = [], keys = new Set();
   let start = 0, expectedTotal: number | undefined;
   while (true) {
-    const page = await deps.readPage(`${table}?${params}`, start, start + 99);
+    const page = await deps.readPage(`${table}?${params}`, start, start + pageSize - 1);
     if (!Array.isArray(page.rows)) throw unknownOrigin();
     if (page.contentRange === "*/0" && !page.rows.length && start === 0) {
       return [];
@@ -60,7 +61,7 @@ async function allRows(
     const [first, last, total] = m.slice(1).map(Number);
     if (
       ![first, last, total].every(Number.isSafeInteger) || first !== start ||
-      last < first || last >= total || last > start + 99 ||
+      last < first || last >= total || last > start + pageSize - 1 ||
       page.rows.length !== last - first + 1 ||
       (expectedTotal !== undefined && total !== expectedTotal)
     ) throw unknownOrigin();
@@ -176,6 +177,7 @@ export async function inspectBasketOriginal(
           }
           return false;
         },
+        5,
       );
       // A known reference needs no folder lookup/OAuth refresh. No archive,
       // AI permission, or link status filter is applied to this read.

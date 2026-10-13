@@ -245,3 +245,31 @@ for (
     assert.equal(recordDeletes(h.calls).length, 0);
   });
 }
+
+
+test("origin notes requests at most five rows, retaining later full-scope references", async () => {
+  const h = harness({ pageCap: 2, owned: ["ws-1", "ws-2"], notes: {
+    "ws-2": Array.from({length: 8}, (_,i) => ({...note(`n${i}`, i===7?[attachment]:[]),workspace_id:"ws-2",archived_at:"2026-10-01",ai_export_allowed:false})),
+  }});
+  assert.equal((await h.send()).body.drive_preserved,true);
+  const requests=h.calls.filter(c=>c.path.includes("/app_notes?"));
+  assert.ok(requests.length>=5);
+  for(const c of requests){ const [a,b]=c.headers.get("Range").split("-").map(Number); assert.ok(b-a+1<=5); }
+  assert.equal(driveWrites(h.calls).length,0);
+});
+test("known positive reference ends the notes scan before OAuth or folder lookup", async()=>{
+  const h=harness({notes:{"ws-1":[note("first",[attachment]),...Array.from({length:10},(_,i)=>note(`n${i}`))]}});
+  assert.equal((await h.send()).body.drive_preserved,true);
+  assert.equal(h.calls.filter(c=>c.path.includes("/app_notes?")).length,1);
+  assert.equal(h.calls.filter(c=>c.path.includes("/token")||c.path.includes("/drive/v3/")).length,0);
+});
+test("oversized notes response is unknown and prevents Drive and metadata deletes",async()=>{
+  const h=harness({notes:{"ws-1":[note("n1")]},notesResponse:()=>new Response(JSON.stringify([{...note("n1"),padding:"x".repeat(16777216)}]),{headers:{"Content-Range":"0-0/1"}})});
+  const r=await h.send();assert.equal(r.body.code,"BASKET_ORIGIN_UNKNOWN");assert.equal(driveWrites(h.calls).length,0);assert.equal(recordDeletes(h.calls).length,0);
+});
+
+test('oversized origin body with nonsettling cancellation still returns unknown before writes',async()=>{
+ let cancelled=false;
+ const h=harness({notes:{'ws-1':[note('n1')]},notesResponse:()=>new Response(new ReadableStream({start(c){c.enqueue(new Uint8Array(16777217));},cancel(){cancelled=true;return new Promise(()=>{});}}),{headers:{'Content-Range':'0-0/1'}})});
+ const result=await h.send();assert.equal(result.body.code,'BASKET_ORIGIN_UNKNOWN');assert.equal(cancelled,true);assert.equal(driveWrites(h.calls).length,0);assert.equal(recordDeletes(h.calls).length,0);
+});
