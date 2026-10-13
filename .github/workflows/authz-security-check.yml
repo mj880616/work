@@ -29,6 +29,9 @@ on:
       - 'docs/main-pr-gate-ruleset.json'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   auth-handoff-postgres:
     runs-on: ubuntu-24.04

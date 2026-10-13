@@ -20,6 +20,9 @@ on:
       - 'tests/app-e2e/profile-workplaces*'
       - '.github/workflows/profile-single-render-check.yml'
 
+permissions:
+  contents: read
+
 jobs:
   structure:
     runs-on: ubuntu-24.04

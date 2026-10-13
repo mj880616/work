@@ -91,6 +91,46 @@ test('every created function revokes default PUBLIC and anon execution, even wit
   rejected(`${definition()}\n${revoke(signature, 'all', 'public')}`);
 });
 
+test('optionally revokes hosted service_role execution only on the exact function defined in this file', () => {
+  for (const privilege of ['all', 'all privileges', 'execute']) {
+    accepted(`${definition()}\n${revoke(signature, privilege, 'public, anon, service_role')}\n${grant()}`);
+    accepted(`${definition()}\n${revoke()}\n${revoke(signature, privilege, 'service_role')}\n${grant()}`);
+  }
+  accepted(`${definition()}\n${revoke(signature, 'execute', 'service_role, anon, public')}`);
+  // Existing two-role migrations do not gain a new mandatory requirement.
+  accepted(`${definition()}\n${revoke()}\n${grant()}`);
+  const migrationSQL = wrap(`${definition()}\n${revoke(signature, 'all', 'public, anon, service_role')}\n${grant()}`);
+  assert.doesNotThrow(() => validateSQL(rollback, { ...options('rollback'), migrationSQL }));
+});
+
+test('service_role revocation preserves required roles, exact signature, definition order and grant boundaries', () => {
+  const complete = `${definition()}\n${revoke(signature, 'all', 'public, anon, service_role')}`;
+  for (const bad of [
+    `${definition()}\n${revoke(signature, 'all', 'service_role')}\n${grant()}`,
+    `${definition()}\n${revoke(signature, 'all', 'public, service_role')}\n${grant()}`,
+    `${definition()}\n${revoke(signature, 'all', 'anon, service_role')}\n${grant()}`,
+    // The final definition check must still apply without an explicit GRANT.
+    ...['service_role', 'public, service_role', 'anon, service_role']
+      .map(roles => `${definition()}\n${revoke(signature, 'all', roles)}`),
+    `${revoke(signature, 'all', 'service_role')}\n${definition()}\n${revoke()}\n${grant()}`,
+    `${definition()}\n${grant()}\n${revoke(signature, 'all', 'public, anon, service_role')}`,
+    `${complete}\n${revoke('public.other(integer)', 'all', 'service_role')}`,
+    `${complete}\n${revoke('public.ops_example(text)', 'all', 'service_role')}`,
+    `${complete}\nrevoke execute on all functions in schema public from service_role;`,
+    `${complete}\nrevoke execute on function ${signature}, public.other(integer) from service_role;`,
+    ...['authenticated', 'postgres', 'visitor', 'public, anon, service_role, service_role', 'service_role, other']
+      .map(role => `${definition()}\n${revoke(signature, 'all', role)}\n${grant()}`),
+    ...['service_role', 'anon', 'public', 'authenticated, service_role']
+      .map(role => `${complete}\n${grant(signature, role)}`),
+    `${complete}\n${grant().replace(';', ' with grant option;')}`,
+  ]) rejected(bad);
+  const migrationSQL = wrap(`${complete}\n${grant()}`);
+  for (const command of [revoke(signature, 'all', 'service_role'), `drop function public.ops_example(text);`,
+    `drop function public.other(integer);`, `drop function ${signature} cascade;`]) {
+    assert.throws(() => validateSQL(wrap(command, true), { ...options('rollback'), migrationSQL }));
+  }
+});
+
 test('rejects truncating identifiers and unnamed output/variadic arguments with ambiguous signatures', () => {
   const longName = 'ops_' + 'x'.repeat(60);
   const sig = `public.${longName}(integer)`;
