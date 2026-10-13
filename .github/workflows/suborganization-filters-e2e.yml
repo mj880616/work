@@ -34,6 +34,9 @@ on:
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
 
+permissions:
+  contents: read
+
 jobs:
   assigned-organizations:
     runs-on: ubuntu-24.04

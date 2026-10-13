@@ -44,6 +44,29 @@ test('leaf bump does not excuse an unchanged upper loader version', () => {
 test('inactive files referenced only by test fixtures pass', () => {
   assert.deepEqual(run({ 'app/inactive.js': 'window.inactive=2;' }).errors, []);
 });
+for (const root of ['android-app', 'windows-app']) {
+  test(`${root} tooling HTML is not an operational entry point`, () => {
+    const base = {
+      [`${root}/fixture.html`]: '<script src="../app/inactive.js?v=1"></script>',
+      'app/inactive.js': 'old();',
+    };
+    assert.deepEqual(run({ 'app/inactive.js': 'newer();' }, base).errors, []);
+  });
+  test(`${root} files explicitly loaded by a real page are still checked`, () => {
+    const base = {
+      'index.html': `<script src="./${root}/native.js?v=1"></script>`,
+      [`${root}/native.js`]: 'old();',
+    };
+    assert.match(run({ [`${root}/native.js`]: 'newer();' }, base).errors[0], /native\.js.*index\.html/);
+  });
+  test(`${root}-public is not tooling and remains an entry point`, () => {
+    const base = {
+      [`${root}-public/index.html`]: '<script src="../app/inactive.js?v=1"></script>',
+      'app/inactive.js': 'old();',
+    };
+    assert.match(run({ 'app/inactive.js': 'newer();' }, base).errors[0], /inactive\.js/);
+  });
+}
 test('documentation-only changes pass', () => {
   assert.deepEqual(run({ 'docs/readme.md': 'Updated documentation' }).errors, []);
 });

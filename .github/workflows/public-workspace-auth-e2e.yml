@@ -14,6 +14,9 @@ on:
       - 'tests/app-e2e/public-workspace-auth.spec.mjs'
       - '.github/workflows/public-workspace-auth-e2e.yml'
 
+permissions:
+  contents: read
+
 jobs:
   anonymous-auth-gate:
     runs-on: ubuntu-24.04
