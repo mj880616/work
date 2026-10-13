@@ -1,4 +1,5 @@
 import { inspectBasketOriginal } from '../_shared/basket-file-origin.ts';
+import { readBoundedJson } from '../_shared/bounded-json.mjs';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -26,6 +27,11 @@ async function db(path: string, opts: { method?: string; body?: unknown; prefer?
     headers,
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
   });
+  if (opts.range && path.startsWith('app_notes?')) {
+    const data = await readBoundedJson(r);
+    if (!r.ok) throw new Error('DB 요청 실패');
+    return { rows: data, contentRange: r.headers.get('Content-Range') };
+  }
   const text = await r.text();
   let data: any = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
