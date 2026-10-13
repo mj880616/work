@@ -146,7 +146,10 @@ test('task dialog wraps keyboard focus within the dialog',async({page})=>{
   const modal=page.locator('#gtTaskModal');
   const first=modal.locator('[data-gt-close]');
   const last=page.locator('#gtSaveBtn');
+  await expect(modal).toBeVisible();
+  await expect(last).toBeEnabled();
   await first.focus();
+  await expect(first).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(last).toBeFocused();
   await last.focus();
