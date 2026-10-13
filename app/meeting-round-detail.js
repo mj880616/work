@@ -3,6 +3,8 @@ let mrdUploadEntries=[],mrdUploading=false;
 window.addEventListener('kptu:before-reload',event=>{if(mrdUploadEntries.some(entry=>entry.kind!=='success')&&!document.querySelector('#meetingRoundDetailModal')?.classList.contains('hidden'))event.detail.otherDraft=true});
 let mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrdCurrent=null,mrdTasks=[],mrdEditingTask=null,mrdRequestEpoch=0,mrdSavingTask=false,mrdSavingEdit=false;const mrdTaskToggleSeq=new Map();
 let mrdEditSequence=0,mrdEditor=null,mrdEditObservedScope=null;const mrdEditAttempts=new Map();
+// These tokens own only the lifetime of in-flight UI work, not deletion authority.
+const mrdDeleteTokens=new Set();
 async function mrdApi(path,options={}){const rt=window.KPTURuntime;if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,options)}
 function mrdEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 const mrdFmt=v=>formatMeetingTime(v,{year:'numeric'});
@@ -56,8 +58,27 @@ async function mrdTaskClick(e){
 async function mrdDownload(id){try{const d=await mrdApi('/functions/v1/workspace-drive?action=download-token',{method:'POST',body:{document_id:id}});location.href=d.url}catch(e){alert(e.message)}}
 function mrdRenderMaterials(docs){
     document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>`<div class="mrd-file-row"><div class="mrd-file-main"><b>${mrdEsc(d.file_name||d.title)}</b><small>${mrdEsc(d.title)}${d.file_size?' · '+Math.max(1,Math.round(d.file_size/1024))+'KB':''}</small></div><div class="mrd-file-actions"><button class="mini" type="button" data-mrd-download="${mrdEsc(d.id)}">다운로드</button><button class="mini danger" type="button" data-mrd-delete-document="${mrdEsc(d.id)}">삭제</button></div></div>`).join(''):'<div class="empty compact">등록된 회의자료가 없습니다.</div>';
-    document.querySelectorAll('[data-mrd-delete-document]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(b.disabled)return;b.disabled=true;try{let helper;try{helper=await import('./document-delete.js?v=1')}catch{alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return}await helper.deleteDocument(docs.find(d=>d.id===b.dataset.mrdDeleteDocument),{api:mrdApi,role:mrdRole})}finally{b.disabled=false}});
+    document.querySelectorAll('[data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();return mrdDeleteMaterial(b,docs)});
     document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload)});
+}
+async function mrdDeleteMaterial(button,docs){
+  if(button.disabled)return;
+  const id=button.dataset.mrdDeleteDocument,scope=mrdDeleteScope(),meetingId=mrdCurrent?.id;
+  if(typeof id!=='string'||!id.trim())return;
+  if(!scope){alert('로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.');return}
+  const token=Object.freeze({id,scope:Object.freeze(scope),meetingId,requestEpoch:mrdRequestEpoch});
+  mrdDeleteTokens.add(token);
+  const isCurrent=()=>mrdDeleteCurrent(token);
+  button.disabled=true;
+  try{
+    const d=docs.find(d=>d.id===token.id);
+    if(!isCurrent()||d?.id!==token.id||d.workspace_id!==scope.workspace)return;
+    const registration=Object.freeze({...d});
+    let helper;
+    try{helper=await import('./document-delete.js?v=1')}
+    catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return}
+    if(isCurrent())await helper.deleteDocument(registration,{api:mrdApi,role:mrdRole,expectedSessionEpoch:scope.epoch,isCurrent});
+  }finally{mrdDeleteTokens.delete(token);button.disabled=false}
 }
 let mrdMaterialsRefreshing=false,mrdMaterialsDirty=false;
 async function mrdRefreshMaterials(){
@@ -112,6 +133,11 @@ const mrdEditInputs=['Title','Round','At','Project','Transcript','Notes'];
 function mrdEditDraft(){return JSON.stringify(mrdEditInputs.map(key=>document.querySelector('#mrdEdit'+key)?.value??''))}
 function mrdEditScope(){const rt=window.KPTURuntime,epoch=rt?.session?.epoch?.(),ctx=rt?.context?.read?.(),owner=rt?.session?.read?.()?.user?.id;return Number.isInteger(epoch)&&epoch>=0&&owner===mrdUser?.id&&ctx?.user?.id===owner&&ctx?.workspace?.id===mrdWorkspace?{owner,workspace:mrdWorkspace,epoch}:null}
 function mrdEditSameScope(scope){const now=mrdEditScope();return !!scope&&!!now&&['owner','workspace','epoch'].every(k=>now[k]===scope[k])}
+function mrdDeleteScope(){const rt=window.KPTURuntime;if(typeof rt?.api!=='function'||typeof rt.session?.read!=='function'||typeof rt.session?.epoch!=='function'||typeof rt.context?.read!=='function')return null;const scope=mrdEditScope(),session=rt.session.read();return scope&&typeof scope.owner==='string'&&scope.owner.trim()&&typeof scope.workspace==='string'&&scope.workspace.trim()&&typeof session?.access_token==='string'&&session.access_token.trim()?scope:null}
+function mrdDeleteCurrent(token){const scope=mrdDeleteScope(),modal=document.querySelector('#meetingRoundDetailModal');if(!mrdDeleteTokens.has(token)||!scope||!['owner','workspace','epoch'].every(key=>scope[key]===token.scope[key])||window.KPTURouter?.current!=='meetings'||!token.meetingId||mrdCurrent?.id!==token.meetingId||mrdCurrent.workspace_id!==token.scope.workspace||token.requestEpoch!==mrdRequestEpoch||!modal||modal.classList.contains('hidden')||modal.getAttribute('aria-hidden')!=='false'||modal.dataset.meetingId!==token.meetingId){mrdDeleteTokens.delete(token);return false}return true}
+window.addEventListener('kptu:session-changed',event=>{for(const token of mrdDeleteTokens){const detail=event.detail,session=detail?.session;if(!mrdDeleteCurrent(token)||(detail&&Object.prototype.hasOwnProperty.call(detail,'session')&&(!session?.access_token?.trim?.()||session.user?.id!==token.scope.owner))||(detail&&Object.prototype.hasOwnProperty.call(detail,'epoch')&&detail.epoch!==token.scope.epoch))mrdDeleteTokens.delete(token)}});
+window.addEventListener('kptu:view-changed',event=>{for(const token of mrdDeleteTokens)if(event.detail?.view!=='meetings'||event.detail?.source!=='session'||!mrdDeleteCurrent(token))mrdDeleteTokens.delete(token)});
+for(const name of ['kptu:dialog-closed','kptu:dialog-opened'])window.addEventListener(name,event=>{if(event.detail?.modal?.id==='meetingRoundDetailModal')mrdDeleteTokens.clear()});
 function mrdEditCurrent(e){return mrdEditor===e&&e.sequence===mrdEditSequence&&e.view===mrdRequestEpoch&&mrdCurrent?.id===e.id&&mrdEditSameScope(e.scope)&&!document.querySelector('#mrdEditor')?.classList.contains('hidden')}
 function mrdEditKey(e){return [e.scope.owner,e.scope.workspace,e.scope.epoch,e.id].join(':')}
 function mrdEditRow(e,rows,body){const row=Array.isArray(rows)&&rows.length===1&&rows[0];if(!row||row.id!==e.id||row.workspace_id!==e.scope.workspace||!Object.entries(body).every(([k,v])=>k==='updated_at'||(k==='meeting_at'?Number.isFinite(Date.parse(row[k]))&&Date.parse(row[k])===Date.parse(v):JSON.stringify(row[k])===JSON.stringify(v))))throw new Error('회의의 저장 결과를 확인하지 못했습니다.');return row}
