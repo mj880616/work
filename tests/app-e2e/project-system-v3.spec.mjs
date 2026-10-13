@@ -26,6 +26,8 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
+      state.googleEvents??=[];
+      const calendarEvent=(calendarId,id)=>state.googleEvents.find(e=>e.calendarId===calendarId&&e.id===id)||(()=>{const m=state.milestones.find(m=>m.google_calendar_id===calendarId&&m.google_event_id===id);return m?{id,calendarId,title:m.title,description:m.notes||'',start:m.start_at,end:m.end_at||new Date(Date.parse(m.start_at)+3600000).toISOString(),allDay:false,location:'원래 장소',colorId:'4',organizationIds:['기존 조직'],recurring:false,source:'google'}:null})();
       const action=url.searchParams.get('action')||body?.action||'status';
       if(method==='POST'){
         state.googleCalls=state.googleCalls||[];
@@ -34,11 +36,12 @@ async function mockApp(page,state){
         state.callOrder.push('google:'+action);
         const failure=forcedFailure(state.googleFailures,action);
         if(failure)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:failure})});
-        if(action==='delete-event')return ok({ok:true});
+        if(action==='delete-event'){state.googleEvents=state.googleEvents.filter(e=>e.id!==body.event_id||e.calendarId!==body.calendar_id);return ok({ok:true})}
         const id=action==='update-event'?(body?.event_id||'google-updated'):`google-${state.googleCalls.filter(x=>x.action==='create-event').length}`;
-        return ok({ok:true,event:{id,calendarId:body?.calendar_id||'primary'}});
+        const calendarId=body?.calendar_id||'primary',event={...(calendarEvent(calendarId,id)||{}),id,calendarId,title:body.title,description:body.memo||'',allDay:!!body.all_day,start:body.all_day?body.start_date:body.start_iso,end:body.all_day?new Date(Date.parse(body.end_date)+86400000).toISOString().slice(0,10):body.end_iso,source:'google'};for(const key of ['location','color_hex','organization_ids'])if(Object.hasOwn(body,key))event[key]=body[key];state.googleEvents=state.googleEvents.filter(e=>e.id!==id||e.calendarId!==calendarId);state.googleEvents.push(event);return ok({ok:true,event});
       }
-      if(action==='events')return ok({events:[],colors:state.googleStatus?.colors||{},eventColors:{}});
+      if(action==='event'){const event=calendarEvent(url.searchParams.get('calendarId'),url.searchParams.get('eventId'));return event?ok({event,eventColors:{}}):route.fulfill({status:400,json:{error:'exact event not found'}})}
+      if(action==='events')return ok({events:state.googleEvents,colors:state.googleStatus?.colors||{},eventColors:{}});
       return ok(state.googleStatus||{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     }
     if(path==='/functions/v1/google-tasks'){
@@ -87,7 +90,7 @@ async function mockApp(page,state){
       state.restCalls.push({name,method,body:body?structuredClone(body):body});
       state.callOrder.push(name+':'+method);
       const failure=forcedFailure(state.restFailures,name+':'+method);
-      if(failure){route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:failure})});return true}
+      if(failure){route.fulfill({status:state.restFailureStatuses?.[name+':'+method]||500,contentType:'application/json',body:JSON.stringify({error:failure})});return true}
       const raw=String(url.searchParams.get(key)||''),inList=raw.startsWith('in.(')?raw.slice(4,-1).split(',').map(decodeURIComponent):null,pid=inList?'':eq(url,key),id=eq(url,'id');
       if(method==='GET'){const scopes=['workspace_id','owner_id','author_id','created_by','workstream_id'].filter(field=>url.searchParams.get(field)?.startsWith('eq.'));const rows=arr.filter(x=>(!pid||x[key]===pid)&&(!inList||inList.includes(x[key]))&&(!id||x.id===id)&&scopes.every(field=>String(x[field]??'')===eq(url,field)));if(name==='app_project_progress_updates')rows.sort((a,b)=>String(b.effective_on||'').localeCompare(String(a.effective_on||''))||String(b.created_at||'').localeCompare(String(a.created_at||'')));return ok(rows)}
       if(method==='POST'){const rows=(Array.isArray(body)?body:[body]).map((x,i)=>({...x,id:x.id||`${name}-${arr.length+i+1}`,created_at:now(),updated_at:now()}));for(const row of rows){const existing=url.searchParams.get('on_conflict')==='id'?arr.find(x=>x.id===row.id):null;if(existing)Object.assign(existing,row);else arr.push(row)}return ok(rows)}
@@ -373,7 +376,7 @@ test('Google create failure leaves no Web2-only project milestone',async({page})
 test('local milestone failure rolls back the newly created Google event',async({page})=>{
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  state.restFailures['app_project_milestones:POST']=1;
+  state.restFailures['app_project_milestones:POST']=1;state.restFailureStatuses={'app_project_milestones:POST':403};
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('롤백 일정');
@@ -441,7 +444,7 @@ test('linked milestone local update failure restores Google and local state',asy
   Object.assign(state.milestones[0],{event_id:'local-event',google_calendar_id:'primary',google_event_id:'google-existing'});
   state.events.push({id:'local-event',workspace_id:'workspace-1',project_id:'main-1',workstream_id:'ws-1',title:'9.29 국회토론회',description:'국토부·TS 참석',event_type:'other',start_at:'2026-09-29T05:00:00Z',end_at:null,calendar_scope:'personal'});
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  state.restFailures['app_project_milestones:PATCH']=1;
+  state.restFailures['app_project_milestones:PATCH']=1;state.restFailureStatuses={'app_project_milestones:PATCH':403};
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await page.locator('#ps3MilestoneTitle').fill('저장 실패 수정안');
@@ -489,7 +492,7 @@ test('linked milestone local delete failure restores Google linkage and mileston
 test('rollback failure reports possible Google and Web2 inconsistency with the Google event id in console data',async({page})=>{
   const state=baseState();
   state.googleStatus={connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'기본',primary:true,accessRole:'owner'}],events:[],eventColors:{}};
-  state.restFailures['app_project_milestones:POST']=1;
+  state.restFailures['app_project_milestones:POST']=1;state.restFailureStatuses={'app_project_milestones:POST':403};
   state.googleFailures['delete-event']='forced Google rollback failure';
   const errors=[];page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
@@ -1245,7 +1248,7 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
   probe.release=()=>{probe.hold=false;probe.waiters.splice(0).forEach(resolve=>resolve())};
   await page.route(`${SB}/functions/v1/google-calendar**`,async route=>{
     const body=route.request().postDataJSON?.();
-    if(route.request().method()!=='POST'||body?.action!=='create-event')return route.fallback();
+    if(route.request().method()!=='POST'||!['create-event','update-event'].includes(body?.action))return route.fallback();
     probe.count++;
     if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
     if(probe.fail){probe.fail=false;return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'임시 저장 실패'})})}
@@ -1267,8 +1270,8 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
   await expect(button).toBeEnabled();
   probe.fail=true;await button.click();
   await expect(page.locator('#ps3MilestoneState')).toContainText('임시 저장 실패');
-  await expect(button).toBeEnabled();await button.click();
-  await expect.poll(()=>probe.count).toBe(3);
+  await expect(button).toBeEnabled();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:'Google 일정에서 확인',exact:true}).click();await page.getByRole('button',{name:'잠금 검증 일정 · 이 항목 사용',exact:true}).click();await expect(page.locator('#ps3MilestoneState')).toContainText('선택한 기존 Google');await button.click();
+  await expect.poll(()=>probe.count).toBe(3);expect(state.googleCalls.filter(c=>c.action==='create-event')).toHaveLength(1);
 });
 
 // PRJ-progress: real UI with REST mocked at the network boundary.

@@ -21,17 +21,17 @@ let user=null,membership=null,wid=null,members=[],profiles=[],spaces=[],projects
 // Save attempts outlive a closed/replaced editor, but never the authenticated tab.
 // An unknown create cannot become a fresh create by changing its title or DOM.
 const saveEditors=new Map(),saveAttempts=new Map();let saveSequence=0,projectRuntimeEpoch=rt.session.epoch();
-const SAVE_TABLE={project:'app_spaces',workstream:'app_project_workstreams',progress:'app_project_progress_updates',record:'app_project_progress_updates',memo:'app_project_comments'};
-const saveScope=e=>e.kind==='project'?{workspace_id:e.workspace,owner_id:e.owner}:e.kind==='memo'?{project_id:e.projectId,author_id:e.owner}:e.kind==='progress'?{project_id:e.projectId,workstream_id:e.workstreamId,author_id:e.owner}:{project_id:e.projectId};
-const attemptKey=e=>JSON.stringify([e.epoch,e.owner,e.workspace,e.kind,e.projectId||'',e.targetId||'new']);
+const SAVE_TABLE={project:'app_spaces',workstream:'app_project_workstreams',progress:'app_project_progress_updates',record:'app_project_progress_updates',memo:'app_project_comments',milestone:'app_project_milestones'};
+const saveScope=e=>e.kind==='project'?{workspace_id:e.workspace,owner_id:e.owner}:e.kind==='milestone'&&!e.targetId?{project_id:e.projectId,created_by:e.owner}:e.kind==='memo'?{project_id:e.projectId,author_id:e.owner}:e.kind==='progress'?{project_id:e.projectId,workstream_id:e.workstreamId,author_id:e.owner}:e.kind==='record'?{project_id:e.projectId,workstream_id:e.workstreamId}:{project_id:e.projectId};
+const attemptKey=e=>JSON.stringify([e.epoch,e.owner,e.workspace,e.kind,e.projectId??'',e.targetId??'new']);
 function freezeSave(value){if(value&&typeof value==='object'){Object.values(value).forEach(freezeSave);Object.freeze(value)}return value}
 function sameSaveSession(e){const c=rt.context.read();return e.epoch===rt.session.epoch()&&e.projectEpoch===projectEpoch&&e.owner===user?.id&&e.workspace===wid&&c?.user?.id===e.owner&&c?.workspace?.id===e.workspace}
 function saveEditorCurrent(e){return sameSaveSession(e)&&saveEditors.get(e.key)===e&&!e.closed&&e.form.isConnected&&(!e.modal||!$('#'+e.modal).classList.contains('hidden'))&&(!e.projectId||current?.id===e.projectId&&$('#ps3Body')?.dataset.project===e.projectId)}
 function projectSaveCurrent(r){return saveEditorCurrent(r.editor)&&r.editor.request===r&&r.seq===r.editor.seq}
 function readSaveDraft(e){return e.fields.map(field=>field.value)}
-function saveAttemptComplete(a){return a.bodyState==='confirmed'&&(!a.modulesNeeded||a.modulesState==='confirmed')&&(!a.phaseWanted||a.phaseState==='confirmed')}
+function saveAttemptComplete(a){return a.bodyState==='confirmed'&&(!a.modulesNeeded||a.modulesState==='confirmed')&&(!a.phaseWanted||a.phaseState==='confirmed')&&(!a.googleNeeded||a.googleState==='confirmed')}
 function saveBusy(e,value){if(e.button?.isConnected){e.button.disabled=value;e.button.toggleAttribute('aria-busy',value)}if(e.form.matches('[data-ps3-quick-progress]'))e.form.dataset.saving=value?'1':'0';if(e.kind==='record')e.form.closest('[data-ps3-record]').dataset.saving=value?'1':'0'}
-function saveNotice(e,text,{confirm=false}={}){if(!saveEditorCurrent(e))return;e.status.textContent=text;e.status.className='status';if(confirm){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='저장 결과 확인';b.onclick=()=>recoverSave(e);e.status.append(document.createTextNode(' '),b)}}
+function saveNotice(e,text,{confirm=false}={}){if(!saveEditorCurrent(e))return;e.status.textContent=text;e.status.className='status';if(confirm){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='저장 결과 확인';b.onclick=()=>e.kind==='milestone'?recoverMilestone(e):recoverSave(e);e.status.append(document.createTextNode(' '),b)}}
 function saveStatus(form,selector){let s=selector?$(selector):form.querySelector('[data-ps3-save-state]');if(!s){s=document.createElement('div');s.dataset.ps3SaveState='';s.className='status';s.setAttribute('role','status');form.matches('[data-ps3-quick-progress]')?form.after(s):form.append(s)}return s}
 function configureSaveEditor({key,kind,form,modal=null,targetId=null,projectId=null,workstreamId=null,button,status,fields,source=null}){
   const old=saveEditors.get(key);if(old){old.closed=true;old.seq=++saveSequence}
@@ -39,7 +39,7 @@ function configureSaveEditor({key,kind,form,modal=null,targetId=null,projectId=n
   e.attempt=saveAttempts.get(attemptKey(e))||null;saveEditors.set(key,e);
   if(e.attempt?.liveDraft&&(!workstreamId||workstreamId===e.attempt.workstreamId))e.fields.forEach((field,i)=>{field.value=e.attempt.liveDraft[i]??field.value});
   e.baseline=JSON.stringify(readSaveDraft(e));saveBusy(e,!!e.attempt?.pending);
-  if(e.attempt){const a=e.attempt;saveNotice(e,a.pending?'앞선 저장 결과를 기다리는 중…':'앞선 저장 결과를 확인해 주세요.',{confirm:!a.pending});if(a.pending)a.done.then(()=>{if(saveEditorCurrent(e)&&e.attempt===a){saveBusy(e,false);saveNotice(e,'앞선 저장 처리가 끝났습니다. 저장 결과를 확인해 주세요.',{confirm:true})}})}
+  if(e.attempt){const a=e.attempt;saveNotice(e,a.pending?'앞선 저장 결과를 기다리는 중…':'앞선 저장 결과를 확인해 주세요.',{confirm:!a.pending});if(a.pending)a.done.then(()=>{if(saveEditorCurrent(e)&&e.attempt===a){e.kind==='milestone'?milestoneReadyButton(e):saveBusy(e,false);saveNotice(e,'앞선 저장 처리가 끝났습니다. 저장 결과를 확인해 주세요.',{confirm:true})}})}
   return e;
 }
 function closeSaveEditor(modal){for(const e of saveEditors.values())if(e.modal===modal&&!e.closed){if(e.attempt){e.attempt.liveDraft=readSaveDraft(e);if(!e.attempt.pending&&saveAttemptComplete(e.attempt)&&!e.attempt.needsReview)saveAttempts.delete(attemptKey(e))}e.closed=true;e.seq=++saveSequence}}
@@ -47,7 +47,7 @@ function beginProjectSave(e,body){
   if(!saveEditorCurrent(e)||e.request||e.reading)return null;
   const a=e.attempt||saveAttempts.get(attemptKey(e));
   if(a?.pending){saveNotice(e,'앞선 저장 결과를 기다려 주세요. 새로 저장하지 않았습니다.');return null}
-  if(a?.needsReview||a?.bodyState==='unknown'||a?.modulesState==='unknown'||a?.phaseState==='unknown'){e.attempt=a;saveNotice(e,'앞선 저장 결과를 먼저 확인해 주세요. 새로 저장하지 않았습니다.',{confirm:true});return null}
+  if(a?.needsReview||a?.bodyState==='unknown'||a?.modulesState==='unknown'||a?.phaseState==='unknown'||a?.googleState==='unknown'||a?.googleState==='compensated'){e.attempt=a;saveNotice(e,'앞선 저장 결과를 먼저 확인해 주세요. 새로 저장하지 않았습니다.',{confirm:true});return null}
   if(a&&e.kind==='progress'&&a.workstreamId!==e.workstreamId){saveNotice(e,'앞선 기록의 진행 항목에서 저장 결과를 확인해 주세요.',{confirm:true});return null}
   const attempt=a||{kind:e.kind,owner:e.owner,workspace:e.workspace,projectId:e.projectId,workstreamId:e.workstreamId,epoch:e.epoch,knownId:e.targetId,row:e.source,bodyState:'idle',modulesNeeded:e.kind==='project'&&!e.targetId,modulesState:'idle',moduleKeys:new Set(),phaseState:'idle',needsReview:false};
   const r={editor:e,attempt,seq:e.seq,owner:e.owner,workspace:e.workspace,epoch:e.epoch,projectEpoch:e.projectEpoch,body:freezeSave(structuredClone(body)),draft:JSON.stringify(readSaveDraft(e)),token:++saveSequence};
@@ -56,26 +56,27 @@ function beginProjectSave(e,body){
 function finishProjectSave(r){const e=r.editor,a=r.attempt;if(a.request===r){a.pending=false;a.request=null;r.finish()}if(e.request===r){e.request=null;if(saveEditorCurrent(e)&&e.seq===r.seq)saveBusy(e,false)}}
 const saveCall=(r,path,options={})=>{if(!projectSaveCurrent(r))throw new Error('편집창이 바뀌었습니다.');return api(path,{...options,expectedSessionEpoch:r.epoch})};
 const savedId=id=>typeof id==='string'&&!!id||typeof id==='number'&&Number.isFinite(id);
-function validSaveRow(e,row,id=null){return !!row&&savedId(row.id)&&(!id||row.id===id)&&Object.entries(saveScope(e)).every(([key,value])=>row[key]===value)}
+function validSaveRow(e,row,id=null){return !!row&&savedId(row.id)&&(id==null||row.id===id)&&Object.entries(saveScope(e)).every(([key,value])=>row[key]===value)}
 function sameSavedValue(a,b){if(a===b)return true;if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;const keys=Object.keys(a);return keys.length===Object.keys(b).length&&keys.every(key=>Object.hasOwn(b,key)&&sameSavedValue(a[key],b[key]))}
-function savedRow(r,rows){const a=r.attempt;if(!Array.isArray(rows)||rows.length!==1||!validSaveRow(r.editor,rows[0],a.knownId)||Object.entries(r.body).some(([key,value])=>key!=='updated_at'&&!sameSavedValue(rows[0][key],value)))throw new Error('저장된 항목을 확인하지 못했습니다.');a.knownId=rows[0].id;a.row=structuredClone(rows[0]);a.savedBody=r.body;a.bodyState='confirmed';return rows[0]}
-function savedBodySame(a,body){return a.bodyState==='confirmed'&&Object.keys(body).filter(k=>k!=='updated_at').every(k=>sameSavedValue(a.savedBody?.[k],body[k]))}
-function failedSave(r,error,stage='body'){const a=r.attempt,e=r.editor;if(!sameSaveSession(e))return;const rejected=[401,403].includes(error?.status);if(stage==='body')a.bodyState=rejected?'idle':'unknown';else if(stage==='modules')a.modulesState=rejected?'idle':'unknown';else a.phaseState=rejected?'idle':'unknown';a.needsReview=!rejected;if(!projectSaveCurrent(r))a.needsReview=true;saveNotice(e,(rejected?'저장할 권한을 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(error.message||String(error)),{confirm:!rejected});if(rejected&&!a.knownId){saveAttempts.delete(attemptKey(e));e.attempt=null}}
-function saveReadPath(e,a,id=null){const scope=saveScope({...e,projectId:a.projectId,workstreamId:a.workstreamId}),q=new URLSearchParams({select:'*',...Object.fromEntries(Object.entries(scope).map(([k,v])=>[k,'eq.'+v]))});if(id)q.set('id','eq.'+id);return '/rest/v1/'+SAVE_TABLE[e.kind]+'?'+q}
+function sameSavedField(key,a,b){return ['start_at','end_at'].includes(key)&&typeof a==='string'&&typeof b==='string'&&Number.isFinite(Date.parse(a))&&Number.isFinite(Date.parse(b))?Date.parse(a)===Date.parse(b):sameSavedValue(a,b)}
+function savedRow(r,rows,body=r.body){const a=r.attempt;if(!Array.isArray(rows)||rows.length!==1||!validSaveRow(r.editor,rows[0],a.knownId)||Object.entries(body).some(([key,value])=>key!=='updated_at'&&!sameSavedField(key,rows[0][key],value)))throw new Error('저장된 항목을 확인하지 못했습니다.');a.knownId=rows[0].id;a.row=structuredClone(rows[0]);a.savedBody=body;a.bodyState='confirmed';return rows[0]}
+function savedBodySame(a,body){return a.bodyState==='confirmed'&&Object.keys(body).filter(k=>k!=='updated_at').every(k=>sameSavedField(k,a.savedBody?.[k],body[k]))}
+function failedSave(r,error,stage='body'){const a=r.attempt,e=r.editor;if(!sameSaveSession(e))return;if(r.confirmed){if(saveEditors.get(e.key)===e)toast('저장은 완료했습니다. 화면을 다시 불러오지 못했습니다.');return;}const rejected=[401,403].includes(error?.status);if(stage==='body')a.bodyState=rejected?'idle':'unknown';else if(stage==='modules')a.modulesState=rejected?'idle':'unknown';else a.phaseState=rejected?'idle':'unknown';a.needsReview=!rejected;if(!projectSaveCurrent(r))a.needsReview=true;saveNotice(e,(rejected?'저장할 권한을 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(error.message||String(error)),{confirm:!rejected});if(rejected&&a.knownId==null&&!a.address){saveAttempts.delete(attemptKey(e));e.attempt=null}}
+function saveReadPath(e,a,id=null){const scope=saveScope({...e,projectId:a.projectId,workstreamId:a.workstreamId}),q=new URLSearchParams({select:'*',...Object.fromEntries(Object.entries(scope).map(([k,v])=>[k,'eq.'+v]))});if(id!=null)q.set('id','eq.'+id);return '/rest/v1/'+SAVE_TABLE[e.kind]+'?'+q}
 async function recoverSave(e){
   const a=e.attempt||saveAttempts.get(attemptKey(e));if(!a||a.pending||e.reading||e.request||!saveEditorCurrent(e))return;
   const run=++e.readRun,active=()=>saveEditorCurrent(e)&&run===e.readRun,read=async path=>{if(!active())throw new Error('편집창이 바뀌었습니다.');const d=await api(path,{singleFlight:false,expectedSessionEpoch:e.epoch});if(!active())throw new Error('편집창이 바뀌었습니다.');return d};
   const accept=async row=>{
     const scopeEditor={...e,projectId:a.projectId,workstreamId:a.workstreamId};
     const exact=await read(saveReadPath(e,a,row.id));if(!Array.isArray(exact)||exact.length!==1||!validSaveRow(scopeEditor,exact[0],row.id))throw new Error('선택한 항목의 저장 결과를 확인하지 못했습니다.');
-    const fresh=exact[0];if(!a.knownId&&e.kind==='project')a.modulesNeeded=false;a.knownId=fresh.id;a.row=structuredClone(fresh);a.bodyState='confirmed';a.savedBody=structuredClone(fresh);
+    const fresh=exact[0];if(a.knownId==null&&e.kind==='project')a.modulesNeeded=false;a.knownId=fresh.id;a.row=structuredClone(fresh);a.bodyState='confirmed';a.savedBody=structuredClone(fresh);
     if(a.modulesNeeded){const modules=await read('/rest/v1/app_project_modules?'+new URLSearchParams({project_id:'eq.'+fresh.id,select:'*'}));if(!Array.isArray(modules))throw new Error('프로젝트 설정을 확인하지 못했습니다.');for(const row of modules)if(row.project_id===fresh.id&&savedId(row.id)&&MODULES.some(([key])=>key===row.module_key))a.moduleKeys.add(row.module_key);if(MODULES.every(([key])=>a.moduleKeys.has(key)))a.modulesState='confirmed';if(a.modulesState==='unknown'){saveNotice(e,'프로젝트는 확인했습니다. 설정은 일부만 확인됐습니다. 다시 확인해 주세요.',{confirm:true});return}}
     if(a.phaseState==='unknown'){const rows=await read('/rest/v1/app_project_workstreams?'+new URLSearchParams({id:'eq.'+a.workstreamId,project_id:'eq.'+a.projectId,select:'*'}));if(!Array.isArray(rows)||rows.length!==1||rows[0].id!==a.workstreamId||rows[0].project_id!==a.projectId)throw new Error('진행 단계를 확인하지 못했습니다.');a.phaseState=rows[0].phase===a.phaseWanted?'confirmed':'idle'}
     a.needsReview=false;e.attempt=a;saveNotice(e,'선택한 기존 항목을 사용합니다. 입력을 확인한 뒤 저장해 주세요.');
   };
   e.reading=true;saveBusy(e,true);saveNotice(e,'저장 결과를 확인하는 중…');
   try{
-    if(a.knownId)await accept({id:a.knownId});
+    if(a.knownId!=null)await accept({id:a.knownId});
     else{
       const scopeEditor={...e,projectId:a.projectId,workstreamId:a.workstreamId};const rows=await readRecordPages(saveReadPath(e,a),{...rt,api:read});if(!active())return;
       const candidates=rows.filter(row=>validSaveRow(scopeEditor,row));saveNotice(e,candidates.length?'저장된 항목을 직접 골라 주세요. 제목만으로 저장을 판단하지 않습니다.':'목록에서 결과를 찾지 못했습니다. 입력은 유지했습니다.',{confirm:!candidates.length});
@@ -100,7 +101,7 @@ const canManage=p=>p?.owner_id===user?.id;
 const canEdit=p=>canManage(p);
 const MODAL_FOCUS={ps3DetailModal:'[data-ps3-close="ps3DetailModal"]',ps3CreateModal:'#ps3CreateName',ps3WorkstreamModal:'#ps3WsTitle',ps3MilestoneModal:'#ps3MilestoneTitle'};
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),2400)}
-async function googleCalendarCall(action,{method='GET',body=null,params=null}={}){if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await api(u.toString(),{method,body});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
+async function googleCalendarCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await api(u.toString(),{method,body,...(expectedSessionEpoch==null?{}:{expectedSessionEpoch})});if(d?.error&&!d?.partial_failure)throw new Error(d.error||'Google Calendar 요청 실패');return d}
 async function googleCalendarStatus(){const cached=window.__KPTU_GOOGLE_STATE__;if(cached&&typeof cached.connected==='boolean'&&Array.isArray(cached.calendars)){googleCalendarState=cached;return cached}try{googleCalendarState=await googleCalendarCall('status');window.__KPTU_GOOGLE_STATE__={...(window.__KPTU_GOOGLE_STATE__||{}),...(googleCalendarState||{})};return googleCalendarState}catch(e){googleCalendarState={connected:false,calendars:[],warning:e?.message||String(e)};return googleCalendarState}}
 const writableGoogleCalendars=s=>(s?.calendars||[]).filter(x=>['owner','writer'].includes(x.accessRole||''));
 const milestoneGoogleLinked=m=>!!(m?.google_calendar_id&&m?.google_event_id);
@@ -115,50 +116,36 @@ function milestoneRestorePayload(row,googleEventId=row?.google_event_id){
   out.google_event_id=googleEventId||null;
   return out
 }
-async function prepareMilestoneGoogle(milestone=null){
-  const sel=$('#ps3MilestoneGoogle'),hint=$('#ps3MilestoneGoogleHint'),save=$('#ps3MilestoneSave');
-  if(!sel)return;
-  sel.disabled=true;sel.innerHTML='';
-  if(milestone){
-    if(milestoneGoogleLinked(milestone)){
-      const s=await googleCalendarStatus(),rows=writableGoogleCalendars(s),current=rows.find(x=>x.id===milestone.google_calendar_id);
-      sel.innerHTML='<option value="'+esc(milestone.google_calendar_id)+'">'+esc(current?.summary||milestone.google_calendar_id)+'</option>';
-      sel.value=milestone.google_calendar_id;
-      if(hint)hint.textContent='이 일정은 Google Calendar와 연결되어 있습니다. 캘린더 이동 없이 같은 일정으로 수정됩니다.';
+function milestoneReadyButton(e){if(saveEditorCurrent(e))saveBusy(e,!!e.preparing||!!e.request||!!e.attempt?.pending||!e.googleReady)}
+function milestoneOriginalNotice(e,message){if(!saveEditorCurrent(e))return;saveNotice(e,message);const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='일정 원본 확인';b.onclick=()=>prepareMilestoneGoogle(e);e.status.append(document.createTextNode(' '),b)}
+function validGoogleAddress(event,address){return !!event&&savedId(event.id)&&event.id===address.eventId&&event.calendarId===address.calendarId}
+async function prepareMilestoneGoogle(e){
+  if(!saveEditorCurrent(e)||e.request||e.preparing)return;
+  const sel=$('#ps3MilestoneGoogle'),hint=$('#ps3MilestoneGoogleHint'),source=e.source,linked=milestoneGoogleLinked(source);e.googleReady=false;e.preparing=true;sel.disabled=true;milestoneReadyButton(e);
+  try{
+    if(source&&!linked){sel.innerHTML='<option value="">Google 연결 없음</option>';hint.textContent='기존 미연동 일정입니다. 수정해도 Google 일정을 새로 만들지 않습니다.';e.googleReady=true;return}
+    const address=linked?{calendarId:source.google_calendar_id,eventId:source.google_event_id}:null;
+    sel.innerHTML='<option value="">Google Calendar 확인 중…</option>';hint.textContent='Google Calendar 연결 상태를 확인하는 중…';
+    const status=await googleCalendarCall('status',{expectedSessionEpoch:e.epoch});if(!saveEditorCurrent(e))return;
+    const writable=writableGoogleCalendars(status);e.calendars=writable;
+    if(!status?.connected||!writable.length)throw new Error(status?.warning?'Google Calendar 재연결이 필요합니다: '+status.warning:status?.connected?'쓰기 가능한 캘린더가 없습니다.':'Google Calendar 연결이 필요합니다.');
+    if(linked){
+      if(!writable.some(c=>c.id===address.calendarId))throw new Error('이 일정의 캘린더를 수정할 권한을 확인해 주세요.');
+      sel.innerHTML='<option value="'+esc(address.calendarId)+'">'+esc(writable.find(c=>c.id===address.calendarId).summary||address.calendarId)+'</option>';sel.value=address.calendarId;
+      const result=await googleCalendarCall('event',{params:{calendarId:address.calendarId,eventId:address.eventId},expectedSessionEpoch:e.epoch});if(!saveEditorCurrent(e))return;
+      if(!validGoogleAddress(result?.event,address)||!result.event.start||!result.event.end)throw new Error('Google 일정의 원본과 정확한 주소를 확인하지 못했습니다.');
+      e.googleBefore=freezeSave(structuredClone(result.event));hint.textContent=result.event.allDay?'종일 일정입니다. 제목과 메모를 수정할 수 있습니다.':result.event.recurring?'반복 일정입니다. 날짜 변경은 일정 화면에서 확인해 주세요.':'Google Calendar의 같은 일정으로 수정됩니다.';
     }else{
-      sel.innerHTML='<option value="">Google 연결 없음</option>';
-      if(hint)hint.textContent='기존 미연동 일정입니다. 수정해도 Google 일정을 새로 만들지 않습니다.';
+      sel.innerHTML=writable.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.summary||c.id)+'</option>').join('');const selected=new Set(status.selected||[]),named=writable.filter(c=>c.summary==='공공운수노조'),preferred=(named.length===1?named[0]:null)||writable.find(c=>selected.has(c.id)||(c.primary&&selected.has('primary')))||writable.find(c=>c.primary)||writable[0];const remembered=e.attempt?.liveDraft?.[3];if(remembered&&!writable.some(c=>c.id===remembered))sel.insertAdjacentHTML('beforeend','<option value="'+esc(remembered)+'" disabled>이전 선택 · 권한 확인 필요</option>');sel.value=remembered||e.attempt?.calendarId||preferred.id;sel.disabled=false;hint.textContent='선택한 Google Calendar에 일정이 저장됩니다.';
     }
-    if(save)save.disabled=false;
-    return
-  }
-  if(save)save.disabled=true;
-  sel.innerHTML='<option value="">Google Calendar 확인 중…</option>';
-  if(hint)hint.textContent='Google Calendar 연결 상태를 확인하는 중…';
-  const s=await googleCalendarStatus();
-  if(!s?.connected){
-    const reconnect=!!s?.warning;
-    sel.innerHTML='<option value="">'+(reconnect?'Google Calendar 재연결 필요':'Google Calendar 연결 필요')+'</option>';
-    if(hint)hint.textContent=reconnect?'Google Calendar 재연결이 필요합니다: '+s.warning:'신규 프로젝트 일정은 Google Calendar 연결 후 저장할 수 있습니다.';
-    return
-  }
-  const rows=writableGoogleCalendars(s);
-  if(!rows.length){
-    sel.innerHTML='<option value="">쓰기 가능한 캘린더 없음</option>';
-    if(hint)hint.textContent=s.warning?'Google Calendar 재연결이 필요합니다: '+s.warning:'쓰기 가능한 Google 세부캘린더가 없습니다.';
-    return
-  }
-  sel.innerHTML=rows.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.summary||x.id)+(x.primary?' (기본)':'')+'</option>').join('');
-  const selected=new Set(s.selected||[]),named=rows.filter(x=>x.summary==='공공운수노조'),preferred=(named.length===1?named[0]:null)||rows.find(x=>selected.has(x.id)||(x.primary&&selected.has('primary')))||rows.find(x=>x.primary)||rows[0];
-  if(preferred)sel.value=preferred.id;
-  sel.disabled=false;
-  if(save)save.disabled=!sel.value;
-  if(hint)hint.textContent='신규 프로젝트 일정은 선택한 Google 세부캘린더와 프로젝트 주요 일정에 저장됩니다.'
+    e.googleReady=true;
+  }catch(error){if(saveEditorCurrent(e)){hint.textContent=error.message||String(error);if(!source)sel.innerHTML='<option value="">'+esc(hint.textContent.includes('재연결')?'Google Calendar 재연결 필요':hint.textContent)+'</option>';milestoneOriginalNotice(e,hint.textContent)}}
+  finally{if(saveEditorCurrent(e)){e.preparing=false;milestoneReadyButton(e)}}
 }
 function googleMilestonePayload(action,calendarId,eventId,body){
   if(!body.start_at)throw new Error('Google Calendar에 저장하려면 일시를 입력해 주세요.');
   const start=new Date(body.start_at),end=new Date(start.getTime()+60*60*1000);
-  return {action,calendar_id:calendarId,...(eventId?{event_id:eventId}:{}),title:body.title,memo:body.notes||'',location:'',all_day:false,start_iso:start.toISOString(),end_iso:end.toISOString()}
+  return {action,calendar_id:calendarId,...(eventId?{event_id:eventId}:{}),title:body.title,memo:body.notes||'',...(action==='create-event'?{location:''}:{}),all_day:false,start_iso:start.toISOString(),end_iso:end.toISOString()}
 }
 async function createGoogleMilestone(calendarId,body){
   const result=await googleCalendarCall('',{method:'POST',body:googleMilestonePayload('create-event',calendarId,null,body)});
@@ -175,9 +162,10 @@ async function deleteGoogleMilestone(calendarId,eventId){
   if(!calendarId||!eventId)throw new Error('Google Calendar 연결 식별자가 없습니다.');
   return googleCalendarCall('',{method:'POST',body:{action:'delete-event',calendar_id:calendarId,event_id:eventId}})
 }
-async function reloadMilestoneCalendars(){
+async function reloadMilestoneCalendars(isCurrent=()=>true){
+  if(!isCurrent())return;
   if(window.__KPTU_RELOAD_GOOGLE_EVENTS__)await window.__KPTU_RELOAD_GOOGLE_EVENTS__();
-  window.dispatchEvent(new CustomEvent('kptu:calendar-changed',{detail:{source:'project-milestone'}}))
+  if(!isCurrent())return;window.dispatchEvent(new CustomEvent('kptu:calendar-changed',{detail:{source:'project-milestone'}}))
 }
 function rollbackMessage(stage,error,link={}){
   console.error('project milestone rollback failed',{stage,calendarId:link.calendarId||null,eventId:link.eventId||null,error});
@@ -220,7 +208,7 @@ function ensureUi(){if($('#ps3DetailModal'))return;document.body.insertAdjacentH
 <div id="ps3CreateModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3CreateHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="ps3CreateHeading">프로젝트 만들기</h2></div><button class="icon-btn" data-ps3-close="ps3CreateModal" type="button" aria-label="닫기">×</button></div><label>프로젝트명<input id="ps3CreateName"></label><label>목표·설명<textarea id="ps3CreateObjective" rows="4"></textarea></label><label>상위 프로젝트<select id="ps3CreateParent"></select></label><div class="two-col"><label>시작일<input id="ps3CreateStart" type="date"></label><label>종료일<input id="ps3CreateEnd" type="date"></label></div><div class="modal-action-footer"><div id="ps3CreateStatus" class="status" role="status"></div><button id="ps3CreateSave" class="primary wide">저장</button></div></div></div>
 <div id="ps3WorkstreamModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3WorkstreamHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">진행상황</div><h2 id="ps3WorkstreamHeading">진행상황 추가</h2></div><button class="icon-btn" data-ps3-close="ps3WorkstreamModal" aria-label="닫기">×</button></div><label>진행상황 제목<input id="ps3WsTitle" maxlength="160"></label><label>단계<select id="ps3WsPhase">${Object.entries(PHASE).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><div class="modal-action-footer"><div id="ps3WsState" class="status" role="status"></div><div class="ps3-modal-actions"><button id="ps3WsDelete" class="ghost ps3-danger hidden">삭제</button><button id="ps3WsSave" class="primary">저장</button></div></div></div></div>
 <div id="ps3ProgressModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3ProgressHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">진행 기록</div><h2 id="ps3ProgressHeading">진척상황 기록</h2></div><button class="icon-btn" data-ps3-close="ps3ProgressModal" aria-label="닫기">×</button></div><label>영역<select id="ps3ProgressWs"></select></label><div class="two-col"><label>단계<select id="ps3ProgressPhase">${Object.entries(PHASE).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label><label>기준일<input id="ps3ProgressDate" type="date"></label></div><label>현재 상황<textarea id="ps3ProgressSummary" rows="4"></textarea></label><label>다음 단계<textarea id="ps3ProgressNext" rows="3"></textarea></label><button id="ps3ProgressSave" class="primary wide">저장</button><div id="ps3ProgressState" class="status"></div></div></div>
-<div id="ps3MilestoneModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3MilestoneHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">주요 일정</div><h2 id="ps3MilestoneHeading">주요 일정 추가</h2></div><button class="icon-btn" data-ps3-close="ps3MilestoneModal" aria-label="닫기">×</button></div><label>제목<input id="ps3MilestoneTitle"></label><label>일시<input id="ps3MilestoneAt" type="datetime-local"></label><label>Google 세부캘린더<select id="ps3MilestoneGoogle"></select><small id="ps3MilestoneGoogleHint" class="muted"></small></label><label>메모<textarea id="ps3MilestoneNotes" rows="3"></textarea></label><div class="ps3-modal-actions"><button id="ps3MilestoneDelete" class="ghost ps3-danger hidden">삭제</button><button id="ps3MilestoneSave" class="primary">저장</button></div><div id="ps3MilestoneState" class="status"></div></div></div>
+<div id="ps3MilestoneModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3MilestoneHeading"><div class="modal-card small-card"><div class="modal-head"><div><div class="eyebrow">주요 일정</div><h2 id="ps3MilestoneHeading">주요 일정 추가</h2></div><button class="icon-btn" data-ps3-close="ps3MilestoneModal" aria-label="닫기">×</button></div><label>제목<input id="ps3MilestoneTitle"></label><label>일시<input id="ps3MilestoneAt" type="datetime-local"></label><label>Google 세부캘린더<select id="ps3MilestoneGoogle"></select><small id="ps3MilestoneGoogleHint" class="muted"></small></label><label>메모<textarea id="ps3MilestoneNotes" rows="3"></textarea></label><div class="modal-action-footer"><div id="ps3MilestoneState" class="status" role="status"></div><div class="ps3-modal-actions"><button id="ps3MilestoneDelete" class="ghost ps3-danger hidden">삭제</button><button id="ps3MilestoneSave" class="primary">저장</button></div></div></div></div>
 <div id="ps3DeleteModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3DeleteHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="ps3DeleteHeading">프로젝트 삭제</h2></div><button class="icon-btn" data-ps3-close="ps3DeleteModal" aria-label="닫기">×</button></div><div id="ps3DeleteMessage" class="notice"></div><p class="muted">연결된 할 일·일정·회의·자료·게시물은 삭제하지 않고 프로젝트 연결만 해제함. 프로젝트 전용 진행기록·주요 일정·의견은 함께 삭제됨.</p><button id="ps3DeleteConfirm" class="primary wide ps3-danger-btn">삭제</button><div id="ps3DeleteState" class="status"></div></div></div>
 <div id="ps3ArchiveModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3ArchiveHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="ps3ArchiveHeading">보관한 프로젝트</h2></div><button class="icon-btn" data-ps3-close="ps3ArchiveModal" aria-label="닫기">×</button></div><p class="muted">삭제하지 않고 목록에서만 숨긴 프로젝트입니다.</p><div id="ps3ArchiveList" class="ps3-archive-list"></div></div></div>`)}
 // D-project-list: names first; optional metadata has one run owner, shared with archive rows.
@@ -239,7 +227,7 @@ async function loadListSummaries(listed){
  if(!listed.length)return;
  const current=()=>run===summaryRun&&epoch===projectEpoch&&user?.id===owner&&wid===workspace;
  const taskRead=async()=>{
-  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=33');
+  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=34');
   const g=window.KPTUGoogleTasks;if(!current()||!g?.listTasks)return;
   const fill=async d=>{
    if(d?.owner!==owner)return;
@@ -432,10 +420,10 @@ function forgetSave(r){saveAttempts.delete(attemptKey(r.editor));r.editor.attemp
 async function closeSavedEditor(r){const e=r.editor;closeSaveEditor(e.modal);const seq=e.seq,active=()=>sameSaveSession(e)&&saveEditors.get(e.key)===e&&e.closed&&e.seq===seq;return new Promise(resolve=>{const after=()=>resolve(active()?active:null);if(window.KPTUMobileModalHistory)window.KPTUMobileModalHistory.closeThen($('#'+e.modal),after);else{closeModal(e.modal);after()}})}
 async function writeSaveBody(r,body=r.body){
   const a=r.attempt;if(savedBodySame(a,body))return a.row;
-  const path=a.knownId?saveReadPath(r.editor,a,a.knownId):'/rest/v1/'+SAVE_TABLE[r.editor.kind];
-  const rows=await saveCall(r,path,{method:a.knownId?'PATCH':'POST',body,prefer:'return=representation'});
+  const path=a.knownId!=null?saveReadPath(r.editor,a,a.knownId):'/rest/v1/'+SAVE_TABLE[r.editor.kind];
+  const rows=await saveCall(r,path,{method:a.knownId!=null?'PATCH':'POST',body,prefer:'return=representation'});
   if(!sameSaveSession(r.editor))return null;
-  return savedRow(r,rows);
+  return savedRow(r,rows,body);
 }
 async function saveProject(){
   const e=saveEditors.get('project');if(!e||!saveEditorCurrent(e))return;
@@ -452,7 +440,7 @@ async function saveProject(){
       const modules=MODULES.filter(([key])=>!attempt.moduleKeys.has(key)).map(([module_key,title])=>({project_id:p.id,module_key,title,enabled:true,sort_order:(MODULES.findIndex(([key])=>key===module_key)+1)*10,config:{},created_by:r.owner}));
       const rows=await saveCall(r,'/rest/v1/app_project_modules',{method:'POST',body:freezeSave(modules),prefer:'return=representation'});
       if(!sameSaveSession(e))return;
-      if(Array.isArray(rows))for(const row of rows)if(row?.project_id===p.id&&savedId(row.id)&&modules.some(x=>x.module_key===row.module_key))attempt.moduleKeys.add(row.module_key);
+      if(Array.isArray(rows))for(const row of rows)if(row?.project_id===p.id&&savedId(row.id)&&modules.some(x=>x.module_key===row.module_key&&Object.entries(x).every(([key,value])=>sameSavedField(key,row[key],value))))attempt.moduleKeys.add(row.module_key);
       if(!MODULES.every(([key])=>attempt.moduleKeys.has(key)))throw new Error('프로젝트 설정의 저장 결과를 확인하지 못했습니다.');attempt.modulesState='confirmed';
       if(!projectSaveCurrent(r)){attempt.needsReview=true;return}
     }
@@ -499,75 +487,86 @@ async function saveQuickProgress(form){
 }
 function openMilestone(id=''){
   editingMilestone=id?detail.milestones.find(x=>x.id===id):null;
-  $('#ps3MilestoneHeading').textContent=editingMilestone?'주요 일정 수정':'주요 일정 추가';
-  $('#ps3MilestoneTitle').value=editingMilestone?.title||'';
-  $('#ps3MilestoneAt').value=localInput(editingMilestone?.start_at);
-  $('#ps3MilestoneNotes').value=editingMilestone?.notes||'';
-  $('#ps3MilestoneDelete').classList.toggle('hidden',!editingMilestone);
-  $('#ps3MilestoneState').textContent='';
-  openModal('ps3MilestoneModal');
-  prepareMilestoneGoogle(editingMilestone).catch(e=>{$('#ps3MilestoneGoogleHint').textContent=e.message||String(e)})
+  $('#ps3MilestoneHeading').textContent=editingMilestone?'주요 일정 수정':'주요 일정 추가';$('#ps3MilestoneTitle').value=editingMilestone?.title||'';$('#ps3MilestoneAt').value=localInput(editingMilestone?.start_at);$('#ps3MilestoneNotes').value=editingMilestone?.notes||'';$('#ps3MilestoneDelete').classList.toggle('hidden',!editingMilestone);$('#ps3MilestoneState').textContent='';openModal('ps3MilestoneModal');
+  const e=configureSaveEditor({key:'milestone',kind:'milestone',form:$('#ps3MilestoneModal .modal-card'),modal:'ps3MilestoneModal',targetId:editingMilestone?.id,source:editingMilestone,projectId:current.id,button:$('#ps3MilestoneSave'),status:$('#ps3MilestoneState'),fields:[$('#ps3MilestoneTitle'),$('#ps3MilestoneAt'),$('#ps3MilestoneNotes'),$('#ps3MilestoneGoogle')]});e.initialDate=localInput(e.source?.start_at);void prepareMilestoneGoogle(e);
 }
 async function restoreMilestoneSnapshot(snapshot,googleEventId=snapshot?.google_event_id){
   const payload=milestoneRestorePayload(snapshot,googleEventId);
   return api('/rest/v1/app_project_milestones?on_conflict=id',{method:'POST',body:payload,prefer:'resolution=merge-duplicates,return=representation'})
 }
-async function saveExistingMilestone(visible){
-  const previousVisible={title:editingMilestone.title,start_at:editingMilestone.start_at||null,end_at:editingMilestone.end_at||null,notes:editingMilestone.notes||null};
-  const nextFull=milestoneFullBody(visible,editingMilestone),previousFull=milestoneFullBody(previousVisible,editingMilestone);
-  if(milestoneGoogleLinked(editingMilestone)&&!visible.start_at)throw new Error('Google 연결 일정은 일시를 비울 수 없습니다.');
-  if(milestoneGoogleLinked(editingMilestone)){
-    const calendarId=editingMilestone.google_calendar_id,eventId=editingMilestone.google_event_id;
-    await updateGoogleMilestone(calendarId,eventId,nextFull);
-    try{
-      await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(editingMilestone.id),{method:'PATCH',body:visible});
-    }catch(localError){
-      const rollbackErrors=[];
-      try{await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(editingMilestone.id),{method:'PATCH',body:previousVisible})}catch(e){rollbackErrors.push(['Web2 주요 일정',e])}
-      try{await updateGoogleMilestone(calendarId,eventId,previousFull)}catch(e){rollbackErrors.push(['Google Calendar',e])}
-      if(rollbackErrors.length)throw new Error(rollbackErrors.map(([stage,e])=>rollbackMessage(stage,e,{calendarId,eventId})).join(' '));
-      throw new Error('Web2 저장에 실패해 Google Calendar 변경을 되돌렸습니다: '+(localError.message||localError))
-    }
-    return
-  }
-  try{
-    await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(editingMilestone.id),{method:'PATCH',body:visible});
-  }catch(localError){
-    try{await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(editingMilestone.id),{method:'PATCH',body:previousVisible})}catch(e){console.error('legacy milestone rollback failed',{milestoneId:editingMilestone.id,error:e})}
-    throw localError
-  }
+function googleOriginalPayload(address,event){
+  const payload={action:'update-event',calendar_id:address.calendarId,event_id:address.eventId,title:event.title,memo:event.description||'',all_day:!!event.allDay};
+  if(event.allDay){payload.start_date=event.start;payload.end_date=new Date(Date.parse(event.end)-86400000).toISOString().slice(0,10)}else{payload.start_iso=event.start;payload.end_iso=event.end}return payload;
 }
-async function saveNewMilestone(visible){
-  const calendarId=$('#ps3MilestoneGoogle').value||'';
-  if(!calendarId)throw new Error('Google Calendar 연결과 쓰기 가능한 세부캘린더 선택이 필요합니다.');
-  if(!visible.start_at)throw new Error('일시를 입력해 주세요.');
-  const body=milestoneFullBody(visible),googleEvent=await createGoogleMilestone(calendarId,body);
-  const milestoneId=crypto.randomUUID();
+function milestoneGooglePayload(e,visible,source,before,address){
+  if(!address)return googleMilestonePayload('create-event',$('#ps3MilestoneGoogle').value,null,milestoneFullBody(visible));
+  const payload=googleOriginalPayload(address,before),changedDate=e.fields[1].value!==localInput(source?.start_at);
+  if(changedDate&&(before.allDay||before.recurring))throw new Error('종일·반복 일정의 날짜 변경은 일정 화면에서 확인해 주세요. 입력은 유지했습니다.');
+  if(!source||visible.title!==source.title)payload.title=visible.title;if(!source||(visible.notes||'')!==(source.notes||''))payload.memo=visible.notes||'';
+  if(changedDate){const duration=Date.parse(before.end)-Date.parse(before.start);if(!Number.isFinite(duration)||duration<=0)throw new Error('일정의 원래 기간을 확인해 주세요.');payload.start_iso=visible.start_at;payload.end_iso=new Date(Date.parse(visible.start_at)+duration).toISOString()}
+  return payload;
+}
+function googlePayloadSame(a,payload){return a.googleState==='confirmed'&&['title','memo','all_day','start_iso','end_iso','start_date','end_date'].every(k=>sameSavedValue(a.googleWanted?.[k],payload[k]))}
+function googleMatchesPayload(event,payload){return event.title===payload.title&&(event.description||'')===(payload.memo||'')&&!!event.allDay===!!payload.all_day&&(payload.all_day?event.start===payload.start_date&&event.end===new Date(Date.parse(payload.end_date)+86400000).toISOString().slice(0,10):Date.parse(event.start)===Date.parse(payload.start_iso)&&Date.parse(event.end)===Date.parse(payload.end_iso))}
+async function milestoneGoogleCall(r,body){if(!projectSaveCurrent(r))throw new Error('편집창이 바뀌었습니다.');return googleCalendarCall('',{method:'POST',body:freezeSave(structuredClone(body)),expectedSessionEpoch:r.epoch})}
+async function compensateMilestone(r,error){
+  const a=r.attempt;if(!projectSaveCurrent(r)||!r.didGoogleWrite||![401,403].includes(error?.status))return false;
+  a.bodyState='idle';a.compensation='pending';
   try{
-    const rows=await api('/rest/v1/app_project_milestones',{method:'POST',body:{id:milestoneId,project_id:current.id,...body,event_id:null,child_project_id:null,sort_order:(detail.milestones.length+1)*10,created_by:user.id,google_calendar_id:calendarId,google_event_id:googleEvent.id},prefer:'return=representation'});
-    if(!rows?.[0]?.id)throw new Error('Web2 주요 일정 저장 결과를 확인하지 못했습니다.')
-  }catch(localError){
-    const rollbackErrors=[];
-    try{await api('/rest/v1/app_project_milestones?id=eq.'+encodeURIComponent(milestoneId),{method:'DELETE'})}catch(e){rollbackErrors.push(['Web2 주요 일정',e])}
-    try{await deleteGoogleMilestone(calendarId,googleEvent.id)}catch(e){rollbackErrors.push(['Google Calendar',e])}
-    if(rollbackErrors.length)throw new Error((localError.message||localError)+' '+rollbackErrors.map(([stage,e])=>rollbackMessage(stage,e,{calendarId,eventId:googleEvent.id})).join(' '));
-    throw new Error('Web2 저장에 실패해 생성한 Google Calendar 일정을 되돌렸습니다: '+(localError.message||localError))
-  }
+    const body=r.createdGoogle?{action:'delete-event',calendar_id:a.address.calendarId,event_id:a.address.eventId}:googleOriginalPayload(a.address,r.googleBefore),result=await milestoneGoogleCall(r,body);
+    if(!sameSaveSession(r.editor))return true;
+    if(result?.ok!==true||(!r.createdGoogle&&(!validGoogleAddress(result.event,a.address)||!googleMatchesPayload(result.event,body))))throw new Error('되돌린 결과를 확인하지 못했습니다.');
+    a.compensation='confirmed';a.googleState=r.createdGoogle?'compensated':'idle';a.googleCurrent=r.createdGoogle?null:r.googleBefore;a.needsReview=r.createdGoogle;
+    saveNotice(r.editor,'Web2 저장이 거절되어 '+(r.createdGoogle?'생성한 Google 일정을':'Google Calendar 변경을')+' 되돌렸습니다. 입력은 유지했습니다.',{confirm:r.createdGoogle});
+  }catch(rollbackError){if(sameSaveSession(r.editor)){a.compensation='unknown';a.googleState='unknown';a.needsReview=true;saveNotice(r.editor,'되돌린 결과를 확인하지 못했습니다. Google 일정과 프로젝트 기록을 확인해 주세요. '+rollbackMessage('Google Calendar',rollbackError,{calendarId:a.address.calendarId,eventId:a.address.eventId}),{confirm:true})}}
+  return true;
 }
 async function saveMilestone(){
-  const st=$('#ps3MilestoneState'),button=$('#ps3MilestoneSave'),visible=milestoneVisibleBody();
-  if(button.dataset.saving==='1')return;
-  if(!visible.title){st.textContent='제목을 입력해 주세요.';return}
-  button.dataset.saving='1';
-  button.disabled=true;st.textContent='저장 중…';
+  const e=saveEditors.get('milestone');if(!e||!saveEditorCurrent(e))return;if(e.attempt&&(e.attempt.needsReview||['unknown','compensated'].includes(e.attempt.googleState)||e.attempt.bodyState==='unknown')){saveNotice(e,'앞선 저장 결과를 먼저 확인해 주세요. 새로 저장하지 않았습니다.',{confirm:true});return}const [rawTitle,rawDate,rawNotes]=readSaveDraft(e),visible={title:rawTitle.trim(),start_at:rawDate?toSeoulISO(rawDate):null,notes:rawNotes.trim()||null};if(!visible.title){saveNotice(e,'제목을 입력해 주세요.');return}if(!e.googleReady){milestoneOriginalNotice(e,'일정 원본과 캘린더 권한을 먼저 확인해 주세요.');return}
+  const previous=e.attempt,source=previous?.row||e.source,address=previous?.address||(milestoneGoogleLinked(source)?{calendarId:source.google_calendar_id,eventId:source.google_event_id}:null),before=previous?.googleCurrent||e.googleBefore;
+  if(address&&e.fields[3].value!==address.calendarId){saveNotice(e,'저장된 일정은 '+(e.calendars?.find(c=>c.id===address.calendarId)?.summary||'앞서 선택한 캘린더')+'에 있습니다. 현재 선택을 확인해 주세요. 캘린더 변경은 일정 화면에서 할 수 있습니다. 입력은 유지했습니다.',{confirm:true});return}
+  if((address||!source)&&!visible.start_at){saveNotice(e,'일시를 입력해 주세요.');return}
+  if(!address&&!source&&!e.calendars?.some(c=>c.id===$('#ps3MilestoneGoogle').value)){saveNotice(e,'쓰기 가능한 Google Calendar를 선택해 주세요.');return}
+  let googleBody=null;try{if(address||!source)googleBody=milestoneGooglePayload(e,visible,source,before,address)}catch(error){saveNotice(e,error.message||String(error));return}
+  const localId=previous?.localId||e.targetId||crypto.randomUUID(),body=source||previous?.knownId?visible:{...(previous?.localBase||{id:localId,project_id:e.projectId,...milestoneFullBody({...visible,end_at:null}),event_id:null,child_project_id:null,sort_order:(detail.milestones.length+1)*10,created_by:e.owner}),...visible};
+  const r=beginProjectSave(e,body);if(!r)return;const a=r.attempt;a.localId=localId;a.localBase=a.localBase||r.body;a.googleNeeded=!!googleBody;a.address=address?freezeSave(structuredClone(address)):null;a.calendarId=a.calendarId||googleBody?.calendar_id;r.googleBefore=before?freezeSave(structuredClone(before)):null;r.failureStage='google';
   try{
-    if(editingMilestone)await saveExistingMilestone(visible);else await saveNewMilestone(visible);
-    closeModal('ps3MilestoneModal');
-    await refreshDetail();
-    if(milestoneGoogleLinked(editingMilestone)||!editingMilestone)await reloadMilestoneCalendars();
-    toast(editingMilestone?'주요 일정을 수정했습니다.':'주요 일정을 추가했습니다.')
-  }catch(e){st.textContent=e.message||String(e)}
-  finally{button.dataset.saving='0';if(document.body.contains(button))button.disabled=!editingMilestone&&!$('#ps3MilestoneGoogle')?.value}
+    if(googleBody&&!googlePayloadSame(a,googleBody)){
+      a.googleWanted=freezeSave(structuredClone(googleBody));a.googleState='pending';const result=await milestoneGoogleCall(r,googleBody);if(!sameSaveSession(e))return;
+      if(result?.partial_failure&&result?.event?.id&&result.event.calendarId)a.observedAddress=freezeSave({calendarId:result.event.calendarId,eventId:result.event.id});
+      const expected=address||{calendarId:a.calendarId,eventId:result?.event?.id};
+      if(result?.ok!==true||!validGoogleAddress(result.event,expected)||!googleMatchesPayload(result.event,googleBody))throw new Error(result?.error||'Google 일정의 저장 결과를 확인하지 못했습니다.');
+      a.address=freezeSave({...expected});a.googleCurrent=freezeSave(structuredClone(result.event));a.googleState='confirmed';r.didGoogleWrite=true;r.createdGoogle=googleBody.action==='create-event';
+      if(!projectSaveCurrent(r)){a.needsReview=true;return}
+    }
+    r.failureStage='body';const localBody=a.address&&(!source||source.google_calendar_id!==a.address.calendarId||source.google_event_id!==a.address.eventId)?freezeSave({...r.body,google_calendar_id:a.address.calendarId,google_event_id:a.address.eventId}):r.body;
+    if(!savedBodySame(a,localBody))a.localDispatched=true;
+    await writeSaveBody(r,localBody);if(!projectSaveCurrent(r)){if(sameSaveSession(e))a.needsReview=true;return}
+    if(JSON.stringify(readSaveDraft(e))!==r.draft){saveNotice(e,'제출한 일정은 저장했습니다. 추가로 입력한 내용은 남겨 두었습니다.');return}
+    forgetSave(r);const active=await closeSavedEditor(r);if(!active)return;
+    try{if(current?.id===e.projectId)await refreshDetail();if(active()&&a.address)await reloadMilestoneCalendars(active);if(active())toast(e.targetId?'주요 일정을 수정했습니다.':'주요 일정을 추가했습니다.')}catch(error){if(active())toast('일정은 저장했습니다. 목록을 다시 불러오지 못했습니다.')}
+  }catch(error){
+    if(!sameSaveSession(e))return;
+    if(r.failureStage==='body'){if(!await compensateMilestone(r,error))failedSave(r,error)}else{a.googleState='unknown';a.needsReview=true;saveNotice(e,'Google 일정의 저장 결과를 확인하지 못했습니다. '+(error.message||error),{confirm:true})}
+  }finally{finishProjectSave(r)}
+}
+async function recoverMilestone(e){
+  const a=e.attempt;if(!a||a.pending||e.request||e.reading||!saveEditorCurrent(e))return;const run=++e.readRun,active=()=>saveEditorCurrent(e)&&run===e.readRun;
+  const read=async(path,google=false)=>{if(!active())throw new Error('편집창이 바뀌었습니다.');const result=google?await googleCalendarCall(path.action,{params:path.params,expectedSessionEpoch:e.epoch}):await api(path,{singleFlight:false,expectedSessionEpoch:e.epoch});if(!active())throw new Error('편집창이 바뀌었습니다.');return result};
+  const localPath=id=>saveReadPath(e,a,id),localRows=async id=>{const rows=await read(localPath(id));if(!Array.isArray(rows))throw new Error('프로젝트 기록을 확인하지 못했습니다.');return rows.filter(row=>validSaveRow(e,row,id))};
+  const getGoogle=async address=>{const status=await read({action:'status'},true);if(!writableGoogleCalendars(status).some(c=>c.id===address.calendarId))throw new Error('선택한 캘린더의 수정 권한을 확인해 주세요.');const d=await read({action:'event',params:{calendarId:address.calendarId,eventId:address.eventId}},true);if(!validGoogleAddress(d?.event,address)||!d.event.start||!d.event.end)throw new Error('정확한 Google 일정을 확인하지 못했습니다.');return d.event};
+  const acceptGoogle=event=>{a.address=freezeSave({calendarId:event.calendarId,eventId:event.id});a.observedAddress=null;a.googleCurrent=freezeSave(structuredClone(event));e.googleBefore=a.googleCurrent;e.googleReady=true;a.googleState=googleMatchesPayload(event,a.googleWanted||{})?'confirmed':'idle'};
+  const acceptLocal=async row=>{const rows=await localRows(row.id);if(rows.length!==1)throw new Error('선택한 프로젝트 기록을 확인하지 못했습니다.');const fresh=rows[0];if(fresh.google_calendar_id&&fresh.google_event_id)acceptGoogle(await getGoogle(a.observedAddress||{calendarId:fresh.google_calendar_id,eventId:fresh.google_event_id}));else if(a.googleNeeded)throw new Error('선택한 기록의 Google 연결을 확인하지 못했습니다.');a.knownId=fresh.id;a.row=structuredClone(fresh);a.savedBody=structuredClone(fresh);a.bodyState='confirmed';a.needsReview=false;saveNotice(e,'선택한 기존 일정을 사용합니다. 입력을 확인한 뒤 저장해 주세요.')};
+  const pick=async(label,load,accept)=>{const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=label;b.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);try{const rows=await load();saveNotice(e,rows.length?'확인할 기존 항목을 직접 골라 주세요.':'목록에서 찾지 못했습니다. 입력을 유지하며 새로 만들지 않습니다.',{confirm:!rows.length});for(const row of rows){const c=document.createElement('button');c.type='button';c.className='secondary';c.textContent=String(row.title||'제목 없음')+' · 이 항목 사용';c.onclick=async()=>{if(!active()||e.reading)return;e.reading=true;saveBusy(e,true);try{await accept(row)}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),c);const hint=document.createElement('small');hint.textContent=String(row.start||row.start_at||'')+' · '+String(row.calendarId||row.id);e.status.append(hint)}}catch(error){if(active())saveNotice(e,error.message||String(error),{confirm:true})}finally{if(active()){e.reading=false;saveBusy(e,false)}}};e.status.append(document.createTextNode(' '),b)};
+  e.reading=true;saveBusy(e,true);saveNotice(e,'Google 일정과 프로젝트 기록을 확인하는 중…');
+  try{
+    const rows=await localRows(a.knownId||a.localId);if(rows.length===1){await acceptLocal(rows[0]);return}
+    if(a.address){try{acceptGoogle(await getGoogle(a.observedAddress||a.address))}catch(error){if(a.googleState!=='compensated'){a.googleState='unknown';a.needsReview=true}}}
+    a.needsReview=a.bodyState==='unknown'||a.googleState==='unknown'||a.googleState==='compensated';saveNotice(e,a.googleState==='compensated'?'Google 일정의 삭제 보상 응답은 확인했습니다. 현재 일정 조회와 프로젝트 기록의 저장은 확인되지 않았습니다. 새로 만들지 않습니다.':!a.address?'Google 생성 결과를 확인하지 못했습니다. 기존 일정을 직접 확인해 주세요.':a.bodyState==='unknown'?'Google 일정은 조회했습니다. 프로젝트 기록의 저장은 아직 확인하지 못했습니다. 새로 저장하지 않았습니다.':'Google 일정은 확인했습니다. 입력을 확인한 뒤 저장해 주세요.',{confirm:a.needsReview});
+    if(a.bodyState==='unknown')await pick('프로젝트 기록에서 확인',async()=>{const rows=await readRecordPages(localPath(null),{...rt,api:path=>read(path)});return rows.filter(row=>validSaveRow(e,row))},acceptLocal);
+    if(!a.address||a.googleState==='compensated'||a.googleState==='unknown')await pick('Google 일정에서 확인',async()=>{const start=Date.parse(a.googleWanted?.start_iso||a.googleWanted?.start_date||a.localBase?.start_at),d=await read({action:'events',params:{timeMin:new Date(start-7*86400000).toISOString(),timeMax:new Date(start+7*86400000).toISOString()}},true);if(!Array.isArray(d?.events))throw new Error('Google 일정 목록을 확인하지 못했습니다.');return d.events.filter(row=>row.calendarId===a.calendarId&&savedId(row.id))},async row=>{const event=await getGoogle({calendarId:row.calendarId,eventId:row.id});acceptGoogle(event);a.needsReview=a.bodyState==='unknown';saveNotice(e,'선택한 기존 Google 일정을 사용합니다. '+(a.needsReview?'프로젝트 기록은 더 확인해 주세요.':'입력을 확인한 뒤 저장해 주세요.'),{confirm:a.needsReview})});
+  }catch(error){if(active())saveNotice(e,'저장 결과를 확인하지 못했습니다. '+(error.message||error),{confirm:true})}
+  finally{if(active()){e.reading=false;saveBusy(e,false)}}
 }
 async function delMilestone(){
   if(!editingMilestone||!confirm('“'+editingMilestone.title+'” 주요 일정을 삭제할까요?'))return;
