@@ -83,6 +83,7 @@ async function installSupabaseMock(page, state) {
         return ok(modules.filter(row=>!projectId||row.project_id===projectId));
       }
       if (method === 'POST' && Array.isArray(body)) {
+        if(!body.every(value=>value?.created_by===state.user.id&&state.spaces.some(project=>project.id===value.project_id&&project.owner_id===state.user.id&&project.workspace_id===state.workspace.id)))return ok([]);
         const rows=body.map((value,index)=>({...value,id:`synthetic-module-${modules.length+index+1}`}));modules.push(...rows);
         return ok(req.headers().prefer?.includes('return=representation')?rows:[]);
       }
