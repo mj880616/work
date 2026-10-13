@@ -133,7 +133,9 @@ async function mrdSaveEdit(){
   try{
     const rows=await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(e.id)}&workspace_id=eq.${encodeURIComponent(e.scope.workspace)}&select=*`,{method:'PATCH',body,prefer:'return=representation',expectedSessionEpoch:e.scope.epoch});
     const row=mrdEditRow(e,rows,body);a.state='confirmed';if(!mrdEditSameScope(e.scope))return;if(mrdEditAttempts.get(key)===a)mrdEditAttempts.delete(key);
-    if(!mrdEditCurrent(e))return;Object.assign(mrdCurrent,row);
+    // Keep the same-target saved model current without touching a replacement draft.
+    if(mrdCurrent?.id===e.id&&mrdCurrent.workspace_id===e.scope.workspace)Object.assign(mrdCurrent,row);
+    if(!mrdEditCurrent(e))return;
     if(mrdEditDraft()!==a.draft){mrdEditNotice(e,'제출한 회의 정보는 저장했습니다. 추가 입력은 남겨두었습니다.');return}
     mrdRenderMeetingInfo(mrdCurrent);btn.disabled=false;btn.textContent=label;mrdSetEdit(false);
     const sequence=mrdEditSequence;await window.__KPTU_RELOAD_MEETINGS__?.();

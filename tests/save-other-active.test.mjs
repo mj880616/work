@@ -142,3 +142,66 @@ test('author self-review: confirmed unknown Library edit must adopt saved baseli
 test('author self-review: confirmed unknown Meeting name adopts saved baseline using independent HTTP row copies',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.node('#mrdEditTitle').value='이미 저장된 회의명';h.mode='unknown';await h.call('mrdSaveEdit');const a=h.eval('mrdEditAttempts.values().next().value');Object.assign(h.db.app_meetings[0],copy(a.body));h.mode='positive';await h.call('mrdCheckEdit',h.eval('mrdEditor'));h.node('#mrdEditTitle').value='회의';await h.call('mrdSaveEdit');console.log('MEETING_AFTER_CONFIRMED_READ',JSON.stringify({name:h.db.app_meetings[0].series_name,bodies:h.writes.map(w=>w.body)}));assert.equal(h.db.app_meetings[0].series_name,'회의');});
 
 test('author single probe: confirmed unknown Report final timestamp remains the known original value',async()=>{const h=harness('workplace-report.js');await h.open('report-A');h.mode='unknown';await h.call('saveReport',true);const a=h.eval('reportAttempts.values().next().value');Object.assign(h.db.app_suborganization_weekly_reports[0],copy(a.body));const first=a.body.finalized_at;h.mode='positive';await h.call('checkReport',h.eval('reportEditor'));await new Promise(r=>setTimeout(r,5));h.node('#warSummary').value='확인 이후 새 요약';await h.call('saveReport',true);console.log('REPORT_TIMESTAMP',JSON.stringify({first,second:h.writes[1].body.finalized_at,summary:h.db.app_suborganization_weekly_reports[0].summary}));assert.equal(h.writes[1].body.finalized_at,first);});
+
+// Independent HTTP copies above keep saved rows distinct from editor/cache models.
+const reopenedSavers=[
+  {file:'library-upload.js',id:'doc-A',table:'app_documents',field:'#libraryEditTitle',value:'doc-A',submitted:'submitted title',saved:'title',save:'luSaveEdit',modal:'#libraryEditModal',close:h=>h.call('luClose','libraryEditModal'),reopen:h=>h.call('luOpenEditById','doc-A'),prepare:h=>h.eval('luRenderLibrary=()=>{}')},
+  {file:'meeting-round-detail.js',id:'meeting-A',table:'app_meetings',field:'#mrdEditTitle',value:'회의',submitted:'submitted name',saved:'series_name',save:'mrdSaveEdit',modal:'#mrdEditor',close:h=>h.call('mrdSetEdit',false),reopen:h=>h.call('mrdStartEdit')},
+];
+for(const f of reopenedSavers){
+  for(const value of [f.value,'further current edit'])test(f.save+' pending reopen saves retained current value '+value,async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;
+    const first=h.call(f.save);await new Promise(r=>setImmediate(r));f.close(h);await f.reopen(h);h.node(f.field).value=value;
+    h.release();await first;await new Promise(r=>setImmediate(r));
+    assert.equal(h.db[f.table][0][f.saved],f.submitted);assert.equal(h.node(f.field).value,value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);
+    h.hold=f.table;const second=h.call(f.save);await new Promise(r=>setImmediate(r));
+    assert.equal(h.writes[1].body[f.saved],value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);
+    h.release();await second;assert.equal(h.db[f.table][0][f.saved],value);assert.equal(h.node(f.modal).classList.contains('hidden'),true);
+    if(f.file==='library-upload.js'){assert.equal(h.db[f.table][0].source,'  원 출처  ');assert.equal(h.db[f.table][0].file_id,'original-file');}
+  });
+  test(f.save+' success while closed updates the next same-target reopen',async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;
+    const first=h.call(f.save);await new Promise(r=>setImmediate(r));f.close(h);h.release();await first;
+    await f.reopen(h);assert.equal(h.node(f.field).value,f.submitted);h.node(f.field).value=f.value;await h.call(f.save);
+    assert.equal(h.db[f.table][0][f.saved],f.value);assert.equal(h.writes[1].body[f.saved],f.value);
+  });
+  for(const mode of ['denied','unknown'])test(f.save+' '+mode+' pending reopen retains original stored value',async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;h.mode=mode;
+    const first=h.call(f.save);await new Promise(r=>setImmediate(r));f.close(h);await f.reopen(h);h.node(f.field).value=f.value;h.release();await first;await new Promise(r=>setImmediate(r));
+    assert.equal(h.db[f.table][0][f.saved],f.value);assert.equal(h.node(f.field).value,f.value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);
+    h.mode='positive';await h.call(f.save);assert.equal(h.writes.length,mode==='unknown'?1:2);assert.equal(h.db[f.table][0][f.saved],f.value);
+  });
+}
+for(const reopenBefore of [true,false])test('Report first confirmed finalization survives '+(reopenBefore?'pending reopen':'reopen after success'),async()=>{
+  const h=harness('workplace-report.js');await h.open('report-A');h.hold='app_suborganization_weekly_reports';const first=h.call('saveReport',true);
+  await new Promise(r=>setImmediate(r));h.call('modal',false);if(reopenBefore)h.call('detail','report-A');h.release();await first;await new Promise(r=>setImmediate(r));
+  if(!reopenBefore)h.call('detail','report-A');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);
+  const finalized=h.db.app_suborganization_weekly_reports[0].finalized_at;await new Promise(r=>setTimeout(r,10));h.node('#warSummary').value='reopened summary';
+  h.hold='app_suborganization_weekly_reports';const second=h.call('saveReport',true);await new Promise(r=>setImmediate(r));
+  assert.equal(h.writes[1].body.finalized_at,finalized);assert.equal(h.node('#warSummary').value,'reopened summary');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);
+  h.release();await second;assert.equal(h.db.app_suborganization_weekly_reports[0].finalized_at,finalized);assert.equal(h.db.app_suborganization_weekly_reports[0].summary,'reopened summary');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),true);
+});
+
+for(const f of [...reopenedSavers,{file:'workplace-report.js',id:'report-A',table:'app_suborganization_weekly_reports',field:'#warSummary',value:'원 요약',submitted:'submitted summary',saved:'summary',save:'saveReport',modal:'#warDraftModal',close:h=>h.call('modal',false),reopen:h=>h.call('detail','report-A')}]){
+  test(f.save+' foreign response on pending reopen keeps the draft and blocks resend',async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;h.reply=rows=>rows.map(r=>({...r,id:'foreign-id'}));
+    const first=h.call(f.save,true);await new Promise(r=>setImmediate(r));f.close(h);await f.reopen(h);h.node(f.field).value=f.value;h.release();await first;await new Promise(r=>setImmediate(r));
+    assert.equal(h.node(f.field).value,f.value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);await h.call(f.save,true);assert.equal(h.writes.length,1);
+  });
+  for(const change of ['owner','workspace','epoch'])test(f.save+' pending reopen '+change+' change rejects saved metadata adoption',async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;
+    const first=h.call(f.save,true);await new Promise(r=>setImmediate(r));f.close(h);await f.reopen(h);
+    if(change==='owner')h.rt.session.read().user.id='other-owner';else if(change==='workspace')h.setContext({workspace:{id:'other-workspace'}});else h.setEpoch(1);
+    h.release();await first;await new Promise(r=>setImmediate(r));assert.equal(h.node(f.field).value,f.value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);
+    const baseline=h.eval(f.file==='library-upload.js'?'luDocuments[0].title':f.file==='meeting-round-detail.js'?'mrdCurrent.series_name':'editingReport.summary');assert.equal(baseline,f.value);
+    await h.call(f.save,true);assert.equal(h.writes.length,1);
+  });
+}
+test('Library confirmed rename during reopen meeting lookup keeps current input with the saved baseline',async()=>{
+  const h=harness('library-upload.js');h.eval('luRenderLibrary=()=>{}');await h.open('doc-A');h.node('#libraryEditTitle').value='submitted title';h.hold='app_documents';const first=h.call('luSaveEdit');await new Promise(r=>setImmediate(r));h.call('luClose','libraryEditModal');
+  h.eval('window.__KPTU_START_TEAM_VIEW__=()=>new Promise(resolve=>window.resumeMeetings=resolve)');const opening=h.call('luOpenEditById','doc-A');await new Promise(r=>setImmediate(r));h.release();await first;h.eval('window.resumeMeetings()');await opening;
+  assert.equal(h.node('#libraryEditTitle').value,'doc-A');await h.call('luSaveEdit');assert.equal(h.db.app_documents[0].title,'doc-A');assert.equal(h.writes[1].body.title,'doc-A');
+});
+test('Library confirmed unknown rename is also the baseline of a later reopen',async()=>{
+  const h=harness('library-upload.js');h.eval('luRenderLibrary=()=>{}');await h.open('doc-A');h.node('#libraryEditTitle').value='submitted title';h.mode='unknown';await h.call('luSaveEdit');const a=h.eval('luEditAttempts.values().next().value');Object.assign(h.db.app_documents[0],copy(a.body));h.mode='positive';await h.call('luCheckEdit',h.eval('luEditor'));h.call('luClose','libraryEditModal');await h.call('luOpenEditById','doc-A');assert.equal(h.node('#libraryEditTitle').value,'submitted title');h.node('#libraryEditTitle').value='doc-A';await h.call('luSaveEdit');assert.equal(h.db.app_documents[0].title,'doc-A');
+});

@@ -73,8 +73,14 @@ async function saveReport(finalize){
   const a={body,draft:reportDraft(),pending:true,state:'pending'};a.done=new Promise(resolve=>a.finish=resolve);e.request=a;reportAttempts.set(key,a);reportBusy(true);reportNotice(e,'저장 중…');
   try{
     const rows=await api(reportPath(e),{method:'PATCH',body,prefer:'return=representation',expectedSessionEpoch:e.scope.epoch});const row=reportRow(e,rows,body);a.state='confirmed';
-    if(!reportSameScope(e.scope))return;if(reportAttempts.get(key)===a)reportAttempts.delete(key);if(!reportCurrent(e))return;
-    Object.assign(editingReport,row);reports=reports.map(r=>r.id===row.id?row:r);render();
+    if(!reportSameScope(e.scope))return;if(reportAttempts.get(key)===a)reportAttempts.delete(key);
+    // The first confirmed finalization remains the baseline across editor lifetimes.
+    if(currentOrgId===e.orgId){
+      reports=reports.map(r=>r.id===row.id?structuredClone(row):r);
+      if(editingReport?.id===e.id&&editingReport.organization_id===e.orgId)Object.assign(editingReport,row);
+    }
+    if(!reportCurrent(e))return;
+    render();
     if(reportDraft()===a.draft){reportBusy(false);modal(false)}else reportNotice(e,'제출한 주간보고는 저장했습니다. 추가 입력은 남겨두었습니다.');
   }catch(err){a.state=[401,403].includes(err?.status)?'rejected':'unknown';if(a.state==='rejected'&&reportSameScope(e.scope)&&reportAttempts.get(key)===a)reportAttempts.delete(key);reportNotice(e,a.state==='rejected'?'주간보고 수정 권한을 확인해 주세요. 입력은 유지했습니다.':'저장 결과를 확인하지 못했습니다. 입력을 유지했습니다.',a.state==='unknown')}
   finally{a.pending=false;a.finish();if(e.request===a&&reportCurrent(e))reportBusy(false)}
