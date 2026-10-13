@@ -25,7 +25,7 @@ test('Edge deployment is manual, production-approved, serialized and read-only i
 
 test('deployment pins actions and CLI and forbids other production mutations or token logging', () => {
   const actions = [...source.matchAll(/uses: (\S+)/g)].map(m => m[1]);
-  assert.deepEqual(actions, ['actions/checkout@11d5960a326750d5838078e36cf38b85af677262']);
+  assert.deepEqual(actions, ['actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1']);
   assert.match(source, /npx --yes supabase@2\.120\.0/);
   assert.doesNotMatch(source, /functions\s+delete|secrets\s+set|\bsupabase(?:@[\w.]+)?\s+(?:db|login)\b|--prune|set -x/);
   assert.match(source, /SUPABASE_ACCESS_TOKEN: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}/);
