@@ -4,19 +4,23 @@ import {clickView} from './helpers/shell-navigation.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const DELETE_CONFIRM='“first.pdf” 자료 등록을 삭제할까요?\n파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.';
+const DELETE_LEGACY='자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.';
+const DELETE_UNKNOWN='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 회의자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
+const DELETE_AUTH='로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.';
 const file=name=>({name,mimeType:'application/pdf',buffer:Buffer.from(name)});
 const selectionDraft=page=>page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{detail}));return detail.otherDraft});
 const meeting={id:'meeting-1',workspace_id:'ws',title:'자료 확인 회의',series_name:'자료 확인 회의',meeting_at:'2026-10-10T10:00:00Z',transcript_text:'회의 원문',created_by:'owner'};
 
 async function boot(page,width){
   await page.setViewportSize({width,height:900});
-  const state={docs:['first.pdf','second.pdf'].map((name,i)=>({id:'doc-'+i,workspace_id:'ws',meeting_id:meeting.id,file_name:name,title:name,category:'회의자료',tags:[],created_at:'2026-10-10T00:00:00Z'})),deletes:[],uploads:[],error:null,hold:false,release:null,errors:[]};
+  const state={docs:['first.pdf','second.pdf'].map((name,i)=>({id:'doc-'+i,workspace_id:'ws',meeting_id:meeting.id,file_name:name,title:name,category:'회의자료',tags:[],created_at:'2026-10-10T00:00:00Z'})),deletes:[],uploads:[],error:null,hold:false,release:null,errors:[],refreshes:0,deleteStatus:200,deletePayload:{ok:true}};
   page.on('pageerror',e=>state.errors.push(e.message));
   page.on('console',m=>{if(m.type()==='error')state.errors.push(m.text())});
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
-    if(path==='/auth/v1/token')return ok({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token'){if(url.searchParams.get('grant_type')==='refresh_token')state.refreshes++;return ok({access_token:'test-access',refresh_token:'test-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'owner'}});}
     if(path==='/auth/v1/user')return ok({id:'owner',email:'owner@example.org'});
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'ws',user_id:'owner',role:'owner',workspace:{id:'ws',name:'테스트'}}]);
     if(path==='/rest/v1/app_workspaces')return ok([{id:'ws',name:'테스트'}]);
@@ -27,9 +31,10 @@ async function boot(page,width){
     }
     if(path==='/functions/v1/document-actions'){
       state.deletes.push(req.postDataJSON());
+      if(state.deleteStatus!==200&&!(state.deleteStatus===401&&state.deletes.length>1))return route.fulfill({status:state.deleteStatus,json:state.deletePayload});
       if(state.error)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:state.error})});
       state.docs=state.docs.filter(d=>d.id!==req.postDataJSON().document_id);
-      return ok({ok:true});
+      return ok(state.deletePayload);
     }
     if(['/functions/v1/library-files','/functions/v1/meeting-files'].includes(path)){
       const raw=req.postDataBuffer().toString('utf8');
@@ -79,16 +84,17 @@ for(const width of [390,1280]){
     await page.locator('[data-mrd-meeting="meeting-1"]').click();
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     const remove=page.locator('[data-mrd-delete-document="doc-0"]');
-    let canceled=false;page.once('dialog',async d=>{expect(d.message()).toBe('“first.pdf” 파일을 삭제할까요?\nDrive 휴지통으로 이동합니다. Drive 휴지통에서 30일 안에 복구할 수 있습니다.');await d.dismiss();canceled=true});
+    let canceled=false;page.once('dialog',async d=>{expect(d.message()).toBe('“first.pdf” 자료 등록을 삭제할까요?\n파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.');await d.dismiss();canceled=true});
     await remove.click();
     await expect.poll(()=>canceled).toBe(true);
     await expect(remove).toBeEnabled();
     expect(state.deletes).toEqual([]);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
-    page.once('dialog',d=>d.accept());
+    const confirmed=[];page.on('dialog',async d=>{confirmed.push({type:d.type(),message:d.message()});if(d.type()==='confirm')expect(d.message()).toBe(DELETE_CONFIRM);else expect(d.message()).toBe(DELETE_LEGACY);await d.accept()});
     await remove.click();
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(1);
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
+    expect(confirmed.map(d=>d.type)).toEqual(['confirm','alert']);
     await page.locator('#mrdClose').click();
     await expect(page.locator('#meetingList')).toContainText('자료 1');
     await clickView(page,'library');
@@ -104,7 +110,7 @@ for(const width of [390,1280]){
     const alerts=[];
     page.on('dialog',async d=>{if(d.type()==='confirm')await d.accept();else{alerts.push(d.message());await d.accept()}});
     await page.locator('[data-mrd-delete-document="doc-0"]').click();
-    await expect.poll(()=>alerts).toEqual(['자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.']);
+    await expect.poll(()=>alerts).toEqual([DELETE_UNKNOWN]);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     await page.locator('#mrdClose').click();
     await expect(page.locator('#meetingList')).toContainText('자료 2');
@@ -303,5 +309,77 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
     expect(state.uploads[0].raw).not.toContain('unreadable.pdf');
     expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf','good.pdf']);
     expect(state.errors).toEqual([]);
+  });
+}
+
+async function openDeleteControl(page,view){
+  if(view==='meetings'){
+    await page.locator('[data-mrd-meeting="meeting-1"]').click();
+    await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
+  }else{
+    await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
+    await selectFilter(page,'#libraryViewFilter','meetings');
+    await page.locator('[data-lu-menu="doc-0"]').click();
+  }
+  expect(await page.evaluate(()=>({owner:window.KPTURuntime.session.read()?.user?.id,token:!!window.KPTURuntime.session.read()?.access_token,workspace:window.KPTURuntime.context.read()?.workspace?.id,view:window.KPTURouter.current}))).toEqual({owner:'owner',token:true,workspace:'ws',view});
+  return page.locator(view==='meetings'?'[data-mrd-delete-document="doc-0"]':'[data-lu-delete="doc-0"]');
+}
+function deleteDialogs(page,notice){
+  const dialogs=[];
+  page.on('dialog',async d=>{
+    dialogs.push({type:d.type(),message:d.message()});
+    if(d.type()==='confirm'){expect(d.message()).toBe(DELETE_CONFIRM);await d.accept()}
+    else{expect(d.type()).toBe('alert');expect(d.message()).toBe(notice);await d.accept()}
+  });
+  return dialogs;
+}
+async function spyActualDeleteRuntime(page){
+  await page.evaluate(()=>{
+    const rt=window.KPTURuntime,api=rt.api;
+    window.__deleteOptions=[];window.__deleteErrors=[];window.__deleteEvents=0;
+    window.addEventListener('kptu:documents-changed',()=>window.__deleteEvents++);
+    rt.api=function(path,options){
+      if(!path.endsWith('document-actions'))return api(path,options);
+      window.__deleteOptions.push(options);
+      return api(path,options).catch(e=>{window.__deleteErrors.push({name:e.name,status:e.status,code:e.code,drive_result:e.drive_result,token_delete_result:e.token_delete_result,document_delete_result:e.document_delete_result});throw e});
+    };
+  });
+}
+const deleteResults=[
+  [{ok:true,drive_result:'preserved',drive_preserved:true,reason:'note_reference'},'자료 등록을 삭제했습니다. 바구니 원본 파일은 Drive에 보존했습니다.'],
+  [{ok:true,drive_result:'trashed',drive_preserved:false,reason:'ordinary_library'},'자료 등록을 삭제하고 파일을 Drive 휴지통으로 이동했습니다. 파일은 Drive 휴지통에서 확인해 주세요.'],
+  [{ok:true,drive_result:'already_trashed',drive_preserved:false,reason:'ordinary_library'},'자료 등록을 삭제했습니다. 파일은 이미 Drive 휴지통에 있었습니다.'],
+  [{ok:true,drive_result:'missing',drive_preserved:false,reason:'ordinary_library'},'자료 등록을 삭제했습니다. 연결된 Drive 파일은 찾을 수 없었습니다.'],
+  [{ok:true,drive_result:'no_file',drive_preserved:false,reason:'ordinary_library'},'자료 등록을 삭제했습니다. 이 자료에 연결된 Drive 파일 ID는 없었습니다.'],
+  [{ok:true},DELETE_LEGACY]
+];
+for(const width of [390,1280])for(const view of ['library','meetings']){
+  for(const [payload,notice] of deleteResults)test(`delete integration confirmed ${payload.drive_result||'legacy'} ${view} ${width}px`,async({page})=>{
+    const state=await boot(page,width);state.deletePayload=payload;
+    const remove=await openDeleteControl(page,view);await spyActualDeleteRuntime(page);
+    const dialogs=deleteDialogs(page,notice);
+    await remove.focus();await page.keyboard.press('Enter');
+    await expect.poll(()=>dialogs.map(d=>d.type)).toEqual(['confirm','alert']);
+    await expect(page.locator(view==='meetings'?'#mrdMaterials .mrd-file-row':'#documentList [data-lu-document]')).toHaveCount(1);
+    expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
+    expect(await page.evaluate(()=>window.__deleteEvents)).toBe(1);
+    const opts=await page.evaluate(()=>window.__deleteOptions);
+    expect(opts).toHaveLength(1);expect(opts[0]).toMatchObject({refreshSession:false,expectedSessionEpoch:await page.evaluate(()=>window.KPTURuntime.session.epoch())});
+    expect(state.errors).toEqual([]);
+  });
+  for(const failure of ['401','400 phases','malformed','network'])test(`delete integration ${failure} one request conservative result ${view} ${width}px`,async({page})=>{
+    const state=await boot(page,width),remove=await openDeleteControl(page,view);await spyActualDeleteRuntime(page);
+    if(failure==='401'){state.deleteStatus=401;state.deletePayload={error:'JWT expired'}}
+    if(failure==='400 phases'){state.deleteStatus=400;state.deletePayload={error:'자료 등록 삭제 결과를 확인하지 못했습니다.',code:'RESULT_UNKNOWN',drive_result:'preserved',token_delete_result:'confirmed',document_delete_result:'unknown'}}
+    if(failure==='malformed')state.deletePayload=null;
+    if(failure==='network')await page.route(`${SB}/functions/v1/document-actions`,route=>{state.deletes.push(route.request().postDataJSON());return route.abort('failed')});
+    const dialogs=deleteDialogs(page,failure==='401'?DELETE_AUTH:DELETE_UNKNOWN);
+    await remove.click();
+    await expect.poll(()=>dialogs.map(d=>d.type)).toEqual(['confirm','alert']);
+    expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);expect(state.refreshes).toBe(0);
+    expect(await page.evaluate(()=>window.__deleteEvents)).toBe(0);
+    await expect(page.locator(view==='meetings'?'#mrdMaterials .mrd-file-row':'#documentList [data-lu-document]')).toHaveCount(2);
+    if(failure==='400 phases')expect(await page.evaluate(()=>window.__deleteErrors)).toEqual([{name:'KPTURuntimeError',status:400,code:'http_400',drive_result:undefined,token_delete_result:undefined,document_delete_result:undefined}]);
+    expect(await page.evaluate(()=>window.__deleteOptions[0])).toMatchObject({refreshSession:false,expectedSessionEpoch:await page.evaluate(()=>window.KPTURuntime.session.epoch())});
   });
 }
