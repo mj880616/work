@@ -60,7 +60,7 @@ test('Google Tasks remains separate from the app task list',async({page})=>{
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
   await page.getByRole('button',{name:'할 일 목록 안내',exact:true}).click();
-  await expect(page.locator('#gtScopeModal')).toContainText('Google "내 할 일" 목록만 보입니다.');
+  await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveText('Google "내 할 일"만 표시합니다. 다른 목록은 표시하지 않으며, 다른 목록으로 옮기면 연결이 끊길 수 있습니다.');
   await page.locator('[data-gt-scope-close]').click();
   await expect(page.locator('#gtTaskSection [data-gt-count]')).toHaveText('할 일 1개');
 });
@@ -344,7 +344,7 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.getByRole('button',{name:'할 일 목록 안내',exact:true}).click();
-  await expect(page.locator('#gtScopeModal')).toContainText('"내 할 일" 목록만 보입니다');
+  await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveText('Google "내 할 일"만 표시합니다. 다른 목록은 표시하지 않으며, 다른 목록으로 옮기면 연결이 끊길 수 있습니다.');
   await page.locator('[data-gt-scope-close]').click();
   await page.locator('#newTaskBtn').click();
   await expect(page.locator('#gtEditList')).toHaveCount(0);
@@ -533,6 +533,7 @@ test('editor save reentry sends one create request',async({page})=>{
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.locator('#newTaskBtn').click();
   await page.locator('#gtEditTitle').fill('QA');
+  await expect(page.locator('#gtSaveBtn')).toBeEnabled();
   await page.evaluate(()=>{const save=document.querySelector('#gtSaveBtn').onclick;save();save()});
   await expect.poll(()=>saves).toBe(1);
   await expect(page.locator('#gtSaveBtn')).toBeDisabled();

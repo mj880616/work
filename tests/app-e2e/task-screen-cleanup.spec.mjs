@@ -34,7 +34,7 @@ for(const width of [360,1280]){
   await expect(page.locator('#gtTaskSection .gt-scope-note')).toHaveCount(0);await expect(page.locator('#gtTaskSection')).not.toContainText('Google 할 일');
   tasks.push(task('scope-info','2026-10-08'));await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   const info=page.getByRole('button',{name:'할 일 목록 안내',exact:true});await expect(info).toBeVisible();const box=await info.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
-  await info.click();await expect(page.locator('#gtScopeModal')).toContainText('Google "내 할 일" 목록만 보입니다.');await page.locator('#gtScopeModal [data-gt-scope-close]').click();await expect(page.locator('#gtScopeModal')).toBeHidden();await expect(info).toBeFocused();
+  await info.click();await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveText('Google "내 할 일"만 표시합니다. 다른 목록은 표시하지 않으며, 다른 목록으로 옮기면 연결이 끊길 수 있습니다.');await page.locator('#gtScopeModal [data-gt-scope-close]').click();await expect(page.locator('#gtScopeModal')).toBeHidden();await expect(info).toBeFocused();
   await info.click();await page.goBack();await expect(page.locator('#gtScopeModal')).toBeHidden();await expect(info).toBeFocused();
  });
  test(`overdue color and completed-only empty state ${width}`,async({page})=>{

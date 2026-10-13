@@ -621,7 +621,11 @@ test('meeting edit does not report success when RLS updates zero rows',async({pa
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
   await page.locator('#mrdEdit').click();
   await page.locator('#mrdSaveEdit').click();
-  await expect(page.locator('#mrdEditStatus')).toContainText('수정 권한을 확인하지 못했습니다.');
+  await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했습니다.');
+  await expect(page.locator('#mrdEditStatus')).not.toHaveClass(/ok/);
+  await expect(page.locator('#mrdEditStatus').getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible();
+  await expect(page.locator('#mrdEditNotes')).toHaveValue(meeting.notes);
+  await expect(page.locator('#mrdEditTranscript')).toHaveValue(meeting.transcript_text);
   await expect(page.locator('#mrdEditor')).toBeVisible();
 });
 
@@ -875,7 +879,12 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   await signIn(page);
   let current={...meeting},linkChanges=0,linkedReads=0;
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>{
-    if(route.request().method()==='PATCH'){current={...current,...route.request().postDataJSON()};return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:meeting.id}])})}
+    if(route.request().method()==='PATCH'){
+      const request=route.request(),url=new URL(request.url());
+      const matches=url.searchParams.get('id')==='eq.'+current.id&&url.searchParams.get('workspace_id')==='eq.'+current.workspace_id;
+      if(matches)current={...current,...request.postDataJSON()};
+      return request.headers().prefer?.includes('return=representation')?route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(matches?[current]:[])}):route.fulfill({status:204,body:''});
+    }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([current])});
   });
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
@@ -891,7 +900,8 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   await page.locator('#mrdSaveEdit').click();
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();
   expect(current.project_id).toBe('child');
-  expect(linkedReads).toBeGreaterThan(1);
+  await expect(page.locator('#mrdEditor')).toBeHidden();
+  expect(linkedReads).toBe(1);
   expect(linkChanges).toBe(0);
 });
 
@@ -913,7 +923,7 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('workflow-ai-v3.js');
   expect(loader).toContain("import('./team.js?v=68')");
   expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=26');
+  expect(views).toContain('meeting-round-detail.js?v=28');
   expect(views).toContain('meeting-ui.css?v=15');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");

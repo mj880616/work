@@ -44,7 +44,7 @@ async function mockApp(page,state){
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
     const body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:state.user});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
@@ -78,9 +78,14 @@ async function mockApp(page,state){
     }
     if(path==='/rest/v1/app_meetings')return ok((state.meetings||[{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]).filter(m=>!eq(url,'id')||m.id===eq(url,'id')));
     if(path==='/rest/v1/app_documents'){
-      const id=eq(url,'id'),pid=eq(url,'project_id'),mid=eq(url,'meeting_id');
-      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)));
-      if(method==='PATCH'){state.patches.push({id,body});const row=state.docs.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok([])}
+      const id=eq(url,'id'),workspace=eq(url,'workspace_id'),pid=eq(url,'project_id'),mid=eq(url,'meeting_id');
+      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!workspace||x.workspace_id===workspace)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)));
+      if(method==='PATCH'){
+        state.patches.push({id,body});
+        const rows=state.docs.filter(row=>row.id===id&&(!workspace||row.workspace_id===workspace));
+        rows.forEach(row=>Object.assign(row,body||{}));
+        return req.headers().prefer?.includes('return=representation')?ok(rows):route.fulfill({status:204,body:''});
+      }
     }
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});

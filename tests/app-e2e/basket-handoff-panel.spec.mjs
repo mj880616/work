@@ -49,6 +49,8 @@ for(const width of [390,1280]){
  });
  test(`handoff starts real clipboard before activation expires during slow reads ${width}`,async({page})=>{
   const {note,errors}=await setup(page,width);await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+  // This gesture test needs a valid synthetic session at setup's fixed date.
+  await page.evaluate(()=>{const rt=window.KPTURuntime;rt.session.write({...rt.session.read(),expires_at:Math.floor(Date.now()/1000)+3600});});
   expect(await page.evaluate(async()=>(await navigator.permissions.query({name:'clipboard-write',allowWithoutGesture:true})).state)).toBe('granted');
   await page.evaluate(()=>{window.__copyActivation=[];for(const method of ['write','writeText']){const original=navigator.clipboard[method].bind(navigator.clipboard);navigator.clipboard[method]=(...args)=>{const attempt={method,active:navigator.userActivation.isActive};window.__copyActivation.push(attempt);return original(...args).catch(error=>{attempt.error=error.name;throw error;});};}});
   await page.route(SB+'/rest/v1/app_notes?**',async r=>{await new Promise(resolve=>setTimeout(resolve,6100));await r.fallback();});

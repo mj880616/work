@@ -227,7 +227,7 @@ async function loadListSummaries(listed){
  if(!listed.length)return;
  const current=()=>run===summaryRun&&epoch===projectEpoch&&user?.id===owner&&wid===workspace;
  const taskRead=async()=>{
-  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=34');
+  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=35');
   const g=window.KPTUGoogleTasks;if(!current()||!g?.listTasks)return;
   const fill=async d=>{
    if(d?.owner!==owner)return;

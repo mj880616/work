@@ -13,6 +13,7 @@ async function orgs(page){
 }
 for(const width of [390,1440])test(`organization chips fit, preserve order and non-overlapping targets at ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:844});await openHome(page);await q(page).locator('[data-quick-mode="task"]').click();await orgs(page);
+ await sheet(page).evaluate(async dialog=>{await Promise.all(dialog.getAnimations().map(animation=>animation.finished));});
  const recent=sheet(page).locator('[data-sheet-recent] button'),all=sheet(page).locator('[data-sheet-all] button');
  await expect(recent).toHaveCount(3);await expect(all).toHaveCount(13);
  expect(await all.allTextContents()).toEqual(names);
