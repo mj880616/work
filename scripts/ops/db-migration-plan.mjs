@@ -265,7 +265,7 @@ function functionPrivilege(ts, functions) {
     if (!keyword(ts[i++], 'from')) fail();
     const roles = [];
     while (i < ts.length) {
-      if (!identifier(ts[i]) || !['public', 'anon'].includes(ts[i].value)) fail();
+      if (!identifier(ts[i]) || !['public', 'anon', 'service_role'].includes(ts[i].value)) fail();
       roles.push(ts[i++].value);
       if (i < ts.length && (!symbol(ts[i++], ',') || i === ts.length)) fail();
     }
