@@ -18,7 +18,7 @@ const inventory=[
   ['app/suborganizations.js','ASSIGNEES','담당자 지정'],
   ['app/workflow-ai-v3.js','AI MEETING DRAFT','회의 결과 초안 만들기'],
   ['app/workplace-detail.js','AFFILIATIONS','협의회·사업단 소속'],
-  ['app/login/index.html','KPTU PUBLIC INSTITUTIONS TEAM','Workspace 로그인']
+  ['app/login/index.html','KPTU PUBLIC INSTITUTIONS TEAM','업무 공간 로그인']
 ];
 for(const [file,label,title] of inventory)test(`${file}: remove ${label}, keep ${title}`,()=>{
   const source=read(file);

@@ -89,9 +89,14 @@ async function mockApp(page,state){
       return ok([]);
     }
     if(path==='/rest/v1/app_documents'){
-      const id=eq(url,'id'),pid=eq(url,'project_id');
-      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)));
-      if(method==='PATCH'){state.patches.push({id,body});const row=state.docs.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok([])}
+      const id=eq(url,'id'),workspace=eq(url,'workspace_id'),pid=eq(url,'project_id');
+      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!workspace||x.workspace_id===workspace)&&(!pid||x.project_id===pid)));
+      if(method==='PATCH'){
+        state.patches.push({id,body});
+        const rows=state.docs.filter(row=>row.id===id&&(!workspace||row.workspace_id===workspace));
+        rows.forEach(row=>Object.assign(row,body||{}));
+        return req.headers().prefer?.includes('return=representation')?ok(rows):route.fulfill({status:204,body:''});
+      }
     }
     if(path.startsWith('/rest/v1/'))return ok([]);
     return ok({});

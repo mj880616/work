@@ -53,7 +53,7 @@ test('session loss and bfcache restoration lock private UI before navigation',()
 });
 
 test('authenticated workspace initialization errors remain recoverable',()=>{
-  assert.match(login,/Web2 업무정보는 로그인한 사용자만 볼 수 있습니다/);
+  assert.match(login,/업무 정보는 로그인한 본인만 볼 수 있습니다/);
   assert.match(team,/showWorkspaceError\(\)/);
   assert.match(team,/bootRetryBtn/);
   assert.match(team,/bootLogoutBtn/);

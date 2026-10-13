@@ -47,7 +47,7 @@ async function readSummaries(){
  const run=++summaryRun,user=soUser?.id,workspace=soWorkspace,ids=myOrganizations().map(o=>o.id);if(!ids.length)return;
  const current=()=>summaryCurrent(run,user,workspace);
  const taskRead=async()=>{
-  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=34');
+  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=35');
   const g=window.KPTUGoogleTasks;if(!current()||!g?.listTasks)return;
   const fill=async d=>{if(d?.owner!==user)return;if(d.status==='disconnected'){if(current())paintTaskCounts([],[],g);return}const links=await g.readLinks(d.tasks);if(current())paintTaskCounts(d.tasks,links,g)};
   const cached=g.peekTasks();if(cached?.owner===user)await fill(cached).catch(()=>{});
