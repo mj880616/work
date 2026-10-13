@@ -1,3 +1,4 @@
+import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 test.use({hasTouch:true});
@@ -15,8 +16,8 @@ async function press(page){await page.locator('[data-handoff-copy]').focus();awa
 async function denied(page){
  const cdp=await page.context().newCDPSession(page);
  const {targetInfo}=await cdp.send('Target.getTargetInfo');
- await cdp.send('Browser.setPermission',{permission:{name:'clipboard-read'},setting:'denied',browserContextId:targetInfo.browserContextId,origin:'http://127.0.0.1:8123'});
- await cdp.send('Browser.setPermission',{permission:{name:'clipboard-write'},setting:'denied',browserContextId:targetInfo.browserContextId,origin:'http://127.0.0.1:8123'});
+ await cdp.send('Browser.setPermission',{permission:{name:'clipboard-read'},setting:'denied',browserContextId:targetInfo.browserContextId,origin:testOrigin});
+ await cdp.send('Browser.setPermission',{permission:{name:'clipboard-write'},setting:'denied',browserContextId:targetInfo.browserContextId,origin:testOrigin});
 }
 async function settledCopy(page){
  // CDP polling must not renew the gesture while deferred clipboard data is pending.
@@ -79,16 +80,16 @@ for(const width of [390,1280]){
   let release;const held=new Promise(resolve=>release=resolve);await page.route(SB+'/rest/v1/app_notes?**',async r=>{await held;await r.fallback();});
   await press(page);await expect(text).toHaveValue('');await expect(text).toBeHidden();release();await expect(text).toHaveValue(/합성 새 메모/);expect(await text.inputValue()).not.toContain('합성 비공개 첫 메모');await page.unroute(SB+'/rest/v1/app_notes?**');
   await page.route(SB+'/rest/v1/app_notes?**',r=>r.fulfill({json:[note]}));
-  for(const control of ['[data-basket-filter="all"]','[data-classification-open]','[data-basket-row]','[data-goto="home"]']){
+  for(const control of ['[data-basket-filter="all"]','[data-classification-open]','[data-basket-row]','.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible']){
    await page.locator(control).click();await cleared(page);
    if(control.includes('classification')){await press(page);await expect(text).toBeVisible();await page.locator('[data-classification-close]').click();await cleared(page);}
    if(control.includes('basket-row')){await press(page);await expect(text).toBeVisible();await page.locator('[data-basket-close]').click();await cleared(page);}
-   if(control.includes('goto'))await page.evaluate(()=>window.KPTURouter.go('basket'));
+   if(control.includes('home'))await page.evaluate(()=>window.KPTURouter.go('basket'));
    await press(page);await expect(text).toBeVisible();
   }
   await page.evaluate(()=>window.KPTURouter.go('calendar'));await cleared(page);await page.evaluate(()=>window.KPTURouter.go('basket'));await cleared(page);
   await press(page);await expect(text).toBeVisible();await close.tap();await cleared(page);
-  const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:'http://127.0.0.1:8123',isLocalStorage}}))));expect(stored).not.toMatch(/합성 비공개 첫 메모|합성 새 메모/);
+  const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:testOrigin,isLocalStorage}}))));expect(stored).not.toMatch(/합성 비공개 첫 메모|합성 새 메모/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
  });
  test(`handoff late read cannot reopen panel after navigation ${width}`,async({page})=>{

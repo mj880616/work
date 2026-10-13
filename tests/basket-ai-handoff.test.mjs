@@ -217,3 +217,13 @@ test('closing during a pending read rejects clipboard data and never restores pr
   await assert.rejects(items[0].data['text/plain']);assert.equal(h.input.value,'');assert.equal(h.status.textContent,'');assert.equal(h.fallback.hidden,true);
  });
 });
+test('explicit current-note handoff includes only the opened linked older note without changing eligibility',async()=>{
+ const opened=note(n,{occurred_at:'2025-10-01T01:00:00Z'}),other=note('other');
+ const rt={context:{read:()=>({workspace:{id:'w'},user:{id:'owner'}})},api:async path=>path.includes('app_notes?')?[opened,other]:path.includes('app_record_links?')?[{note_id:n,status:'confirmed'}]:[]};
+ installCatalog(rt);
+ const text=await readHandoff(rt,now,{noteId:n});assert.ok(text.includes(opened.raw_text));assert.ok(text.includes('메모 ID: '+n));assert.ok(!text.includes('메모 ID: other'));
+ for(const change of [{archived_at:stamp},{ai_export_allowed:false}]){Object.assign(opened,change);await assert.rejects(readHandoff(rt,now,{noteId:n}));Object.assign(opened,{archived_at:null,ai_export_allowed:true});}
+});
+test('entire handoff output refuses oversized UTF-8 rather than truncating original text',()=>{
+ assert.throws(()=>buildHandoff([note(n,{raw_text:'가'.repeat(400000)})],[],[],now),/너무|1MiB|1 MiB/);
+});

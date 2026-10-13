@@ -23,7 +23,7 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   const capture = process.env.BASKET_REVIEW_CAPTURE === '1';
   if (capture) fs.mkdirSync(dir, { recursive: true });
   const shot = name => page.screenshot({ path: capture ? `${dir}/after-${name}-${width}.png` : info.outputPath(`${name}-${width}.png`), fullPage: true });
-  const q = page.locator('[data-home-quick]'), clip = q.getByRole('button', { name: '파일 첨부', exact: true });
+  const q = page.locator('#homeView [data-home-quick]'), clip = q.getByRole('button', { name: '파일 첨부', exact: true });
   await expect(clip).toBeVisible();
   const values = { home: await q.evaluate(el => {
     const input = el.querySelector('[data-quick-input]').getBoundingClientRect();

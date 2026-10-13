@@ -21,7 +21,7 @@ for (const width of [390, 1280]) {
       path: capture ? path.join(reviewDir, `after-${name}-${width}.png`) : info.outputPath(`${name}-${width}.png`),
       fullPage: true,
     });
-    const q = page.locator('[data-home-quick]');
+    const q = page.locator('#homeView [data-home-quick]');
     const values = { home: await q.evaluate(el => {
       const picker = el.querySelector('[data-quick-file-picker]');
       const zone = picker.querySelector('[data-basket-clip]');

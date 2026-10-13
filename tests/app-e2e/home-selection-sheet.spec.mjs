@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const q=page=>page.locator('[data-home-quick]');
+const q=page=>page.locator('#homeView [data-home-quick]');
 const sheet=page=>page.getByRole('dialog');
 const names=['전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','대구교통공사노동조합','인천교통공사노동조합','서해선지부','신분당선지부','지티엑스에이운영지부','공항철도지부','메트로9호선노동조합','서울교통공사9호선지부','김포도시철도지부','용인경전철지부'];
 async function orgs(page){

@@ -4,17 +4,17 @@ import { createNote, validateNoteText } from './basket-data.js?v=3';
 import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=4';
 import { dayKey } from './home-read-model.js?v=3';
 
-export function mountQuick({root, dependencies, refreshTasks, invalidateProjects, esc}) {
+export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, view="home", idPrefix="home", onSaved=()=>{}}) {
   const box=root.querySelector('.home-quick-placeholder');
   box.removeAttribute('aria-hidden'); box.className='home-quick'; box.dataset.homeQuick='';
   const quickScope=()=>{const c=window.KPTURuntime.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let quickOwner=quickScope();
   let mode='basket',saving=false,expanded=false,project='',organization='',due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
-  try { const saved=window.localStorage.getItem('kptu-home-quick-mode'); mode=['basket','task','update'].includes(saved)?saved:'basket'; } catch {}
+  try { const saved=basketOnly?null:window.localStorage.getItem('kptu-home-quick-mode'); mode=['basket','task','update'].includes(saved)?saved:'basket'; } catch {}
   let upload = createUploadBatch();
   box.innerHTML=`<div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><button type="button" data-quick-mode="update">업데이트</button></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div data-quick-basket-options hidden><div data-quick-files></div><button type="button" class="home-basket-link" data-quick-new-note hidden>새 메모 입력</button></div><div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div><div data-quick-update-options hidden><button type="button" data-quick-org aria-label="조직" aria-haspopup="dialog" aria-expanded="false">조직 ▾</button></div><small data-quick-destination></small></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
-  const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:'quickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>mode==='basket',getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
+  const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>mode==='basket',getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
   box.querySelector('[data-quick-new-note]').onclick=()=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&!window.confirm('바구니에서 저장 여부를 확인한 후 새 메모를 입력할까요? 현재 입력과 파일 선택은 비워집니다.'))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
   function size(){ input.style.height=''; if(mode==='update')input.style.height=Math.min(146,Math.max(83,input.scrollHeight+2))+'px'; }
   function paint(){
@@ -61,8 +61,8 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
   }
   function expand(){expanded=true;paint();if(mode!=='basket')void choices();}
   input.addEventListener('focus',expand); input.addEventListener('input',()=>{expand();size();});
-  const picker=createChoiceSheet({id:'homeChoiceSheet',titleId:'homeChoiceTitle',historyKey:'kptuHomeChoice',
-    canOpen:()=>!saving&&window.KPTURouter.current==='home',choices,
+  const picker=createChoiceSheet({id:idPrefix+'ChoiceSheet',titleId:idPrefix+'ChoiceTitle',historyKey:idPrefix==='home'?'kptuHomeChoice':'kptu'+idPrefix+'Choice',
+    canOpen:()=>!saving&&window.KPTURouter.current===view,choices,
     render:kind=>{
       const selected=kind==='org'?organization:project;
       const chip=o=>`<button type="button" class="home-choice-chip" data-sheet-value="${esc(o.id)}" aria-pressed="${o.id===selected}">${esc(o.name)}</button>`;
@@ -72,10 +72,10 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
   const openSheet=kind=>picker.open(kind,kind==='org'?orgSelect:projectSelect);
   const dismissForNavigation=()=>picker.dismiss();
   projectSelect.onclick=()=>void openSheet('project');orgSelect.onclick=()=>void openSheet('org');
-  window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='home')dismissForNavigation();});
+  window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view)dismissForNavigation();});
   box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{
     if(saving)return;mode=b.dataset.quickMode;status.textContent='';
-    try{window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
+    try{if(!basketOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
     paint();if(expanded&&mode!=='basket')void choices();
   });
   box.querySelectorAll('[data-quick-day]').forEach(b=>b.onclick=()=>{
@@ -96,7 +96,7 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
       const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,onChange:()=>{if(isCurrent())paint();}}):await createNote({raw_text:text})):saveMode==='task'?await createGoogleTask({title:text,due:due||null,links:project?[{project_id:project}]:[]}):await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner});
       if(!isCurrent())return;
       if(saveMode==='basket'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
-      input.value='';expanded=false;paint();
+      input.value='';expanded=false;paint();if(saveMode==='basket')onSaved(result);
       const toast=document.querySelector('#toast');toast.textContent=saveMode==='task'&&result?.link_error?'할 일은 추가됨, 프로젝트 연결 실패':saveMode==='basket'?'바구니에 저장했습니다.':saveMode==='task'?'할 일을 추가했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
       if(saveMode==='task')void refreshTasks();else choicesFlight=null;
     }catch(e){if(isCurrent())status.textContent=e.message||'저장하지 못했습니다.';}
@@ -107,6 +107,8 @@ export function mountQuick({root, dependencies, refreshTasks, invalidateProjects
   window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length||upload.entries.some(e=>e.kind!=='success'))e.detail.otherDraft=true;});
   window.addEventListener('kptu:session-changed',()=>{const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();});
   window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode!=='basket')void choices();});
-  window.KPTURouter.on('home',()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode!=='basket')void choices();});
+  window.KPTURouter.on(view,()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode!=='basket')void choices();});
+  if(basketOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','바구니에 메모 입력');}
   paint();
+  return {hasDraft:()=>!!input.value||upload.entries.some(e=>e.kind!=='success'),isBusy:()=>saving};
 }

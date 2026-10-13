@@ -1,5 +1,5 @@
 import {formatSeoulTime,seoulParts} from './meeting-time.js?v=2';
-import {readLinkRecords,readRecordPages,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js?v=2';
+import {readLinkRecords,readRecordPages,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js?v=3';
 const wdRt=window.KPTURuntime;
 let wdEpoch=0,wdSessionEpoch=0,wdTargetId=null,wdLinks=[],wdLinkError=false,wdLinkEditor=null,wdLinkRun=0,wdLinkPending=false;
 const wdCurrent=(id,epoch=wdEpoch)=>epoch===wdEpoch&&wdTargetId===id&&!document.querySelector('#wdModal')?.classList.contains('hidden');

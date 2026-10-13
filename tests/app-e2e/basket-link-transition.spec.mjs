@@ -1,6 +1,7 @@
+import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 test.use({hasTouch:true});
-const fixture='http://127.0.0.1:8123/tests/app-e2e/basket-link-detail-fixture.html';
+const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html';
 const host=kind=>kind==='organization'?'#wdUpdates':'#ps3BasketLinks';
 const title=kind=>kind==='organization'?'#wdTitle':'#ps3Title';
 const modal=kind=>kind==='organization'?'#wdModal':'#ps3DetailModal';

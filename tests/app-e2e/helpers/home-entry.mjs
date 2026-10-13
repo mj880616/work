@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
-const app='http://127.0.0.1:8123/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+import {testOrigin} from './test-origin.mjs';
+const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export async function openHome(
   page,
   { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true } = {},

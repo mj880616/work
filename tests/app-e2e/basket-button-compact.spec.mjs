@@ -46,7 +46,7 @@ async function fixture(page){
 for(const width of [390,1280]){
   test(`basket controls match home pills with keyboard and expanded touch targets ${width}`,async({page},info)=>{
     await page.setViewportSize({width,height:1000});const f=await fixture(page);
-    const quick=page.locator('.home-quick');
+    const quick=page.locator('#homeView .home-quick');
     const quickBounds=await quick.boundingBox();
     const homeMode=await measure(quick.locator('[data-quick-mode="basket"]'));
     const homeLink=await measure(quick.locator('[data-goto="basket"]'));
@@ -67,7 +67,7 @@ for(const width of [390,1280]){
     const controls=['[data-basket-filter="unclassified"]','[data-basket-filter="all"]','[data-basket-filter="archived"]','[data-handoff-copy]','[data-classification-open]'];
     const metrics={homeMode,homeLink,homePrimary,controls:{}};
     for(const selector of controls)metrics.controls[selector]=await measure(page.locator(selector));
-    metrics.link=await measure(page.locator('#basketView [data-goto="home"]'));
+    await expect(page.locator('#basketView [data-goto="home"]')).toHaveCount(0);
     await page.locator('[data-classification-open]').click();
     const proposal={schema_version:1,copied_at:stamp,items:[{note_id:noteId,note_updated_at:stamp,destinations:[{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거'}]}]};
     await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(proposal,null,2)+'\n```');
@@ -86,8 +86,8 @@ for(const width of [390,1280]){
       expect(metric.touchHeight).toBeGreaterThanOrEqual(44);
     }
     expect(Math.abs(metrics.controls['[data-handoff-copy]'].y-metrics.controls['[data-classification-open]'].y)).toBeLessThanOrEqual(1);
-    for(const key of ['height','fontSize','borderWidth','color','background','padding'])expect(metrics.link[key]).toBe(homeLink[key]);
-    await expect(page.locator('#basketView [data-goto="home"]')).toHaveText('홈에서 입력 ›');
+
+    await expect(page.locator('#basketView [data-goto="home"]')).toHaveCount(0);
     expect(metrics.controls['[data-classification-confirm]'].background).toBe(homePrimary.background);
     expect(metrics.controls['[data-classification-confirm]'].color).toBe(homePrimary.color);
 
@@ -115,7 +115,7 @@ for(const width of [390,1280]){
     await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
     expect(f.confirmations).toHaveLength(1);expect(f.confirmations[0].p_targets).toEqual([{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거',summary:'담당조직 업무 근거'}]);
     await close.click();await all.click();await expect(page.locator(`[data-basket-row="${noteId}"]`)).toContainText('연결됨');
-    await page.locator('#basketView [data-goto="home"]').click();await expect(quick).toBeVisible();
+    await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible').click();await expect(quick).toBeVisible();
     await page.mouse.move(0,0);await page.evaluate(()=>document.activeElement?.blur());
     await quick.screenshot({path:info.outputPath(`quick-return-${width}.png`)});
     expect(await quick.boundingBox()).toEqual(quickBounds);

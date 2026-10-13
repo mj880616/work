@@ -1,6 +1,7 @@
+import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
-const app='http://127.0.0.1:8123/app/';
+const app=testOrigin+'/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const tabs=['home','calendar','tasks','projects','team'];
 async function open(page,url=app+'?view=home'){
