@@ -10,7 +10,7 @@ test('authenticated board uses Web1 source without loading retired page manageme
   const board=read('app/web1-board.js');
   const index=read('app/index.html');
 
-  expect(views).toContain("module('./web1-board.js?v=4'");
+  expect(views).toContain("module('./web1-board.js?v=5'");
   for(const retired of [
     'page-list-controller.js',
     'page-save-controller.js',

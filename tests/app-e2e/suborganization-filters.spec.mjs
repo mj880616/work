@@ -28,8 +28,8 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=23");
-  expect(views).toContain("workplace-detail.js?v=21");
+  expect(views).toContain("suborganizations.js?v=24");
+  expect(views).toContain("workplace-detail.js?v=22");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
   expect(styles).toContain("suborganizations.css?v=11");
@@ -140,7 +140,7 @@ test('기존 주간보고는 AI 없이 열고 수정하며 타임라인 수동 �
   expect(patches[0].id).toBe('report-1');
   expect(patches[0].body).not.toHaveProperty('ai_draft');
   expect(await page.evaluate(()=>window.__teamAiCalls)).toBe(0);
-  await page.locator('#warDraftClose').click();
+  await expect(page.locator('#warDraftModal')).toBeHidden();
   await page.locator('#wdTime > summary').click();
   await expect(page.locator('#wdAddTime')).toBeVisible();
 });

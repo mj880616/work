@@ -108,6 +108,15 @@ jobs:
               'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
               # LIB: exact read-only assertion that disclosure never creates storage keys.
               'tests/app-e2e/library-row-list.spec.mjs':[r'^\s*'+re.escape('const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));')+r'\s*$'],
+              # Active-saver tests: read-only privacy observation and a synthetic adapter
+              # whose write always throws. No application storage permission.
+              'tests/app-e2e/save-other-active.spec.mjs':[
+                  r'^\s*'+re.escape('const storageSnapshot=page=>page.evaluate(()=>({local:Object.values(localStorage),session:Object.values(sessionStorage)}));')+r'\s*$',
+              ],
+              'tests/save-other-active.test.mjs':[
+                  r'^\s*'+re.escape("localStorage:{getItem:()=>null,setItem(){throw Error('private persistence forbidden');}},")+r'\s*$',
+                  r'^\s*'+re.escape('h.privateStore=env.localStorage;')+r'\s*$',
+              ],
           }
 
           active_hits=[]; legacy_hits=[]; violations=[]

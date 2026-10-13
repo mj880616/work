@@ -52,19 +52,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=265" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=266" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=377','./runtime-client.js?v=9','./native-auth-bridge.js?v=5',
+    './loader-v2.js?v=378','./runtime-client.js?v=9','./native-auth-bridge.js?v=5',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=377')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=378')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=9')");
   expect(loader).toContain("import('./team.js?v=68')");
-  expect(loader).toContain("import('./view-loader.js?v=144')");
+  expect(loader).toContain("import('./view-loader.js?v=145')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -126,7 +126,7 @@ test('route manifest keeps retired modules out and Web1 views isolated', async (
   for(const retired of ['./page-list-controller.js','./page-save-controller.js','./page-builder.js','./page-shortcut.js','./page-management.js','./page-inline-viewer-v2.js']){
     expect(source).not.toContain(retired);
   }
-  expect(source).toContain("module('./web1-board.js?v=4')");
+  expect(source).toContain("module('./web1-board.js?v=5')");
   expect(source).toContain("module('./web1-press.js?v=2'");
   expect(source).not.toContain('./workflow-ai-v3.js');
   expect(source).not.toContain('./media-workflow.js');
@@ -143,7 +143,7 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   const tasksStart=views.indexOf('async function tasks()');
   const calendarBlock=views.slice(calendarStart,tasksStart);
   expect(calendarBlock).toContain("background(google)");
-  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=23'");
+  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=24'");
   expect(calendarBlock).toContain("google.then(()=>module('./calendar-health.js?v=6'))");
   expect(calendarBlock.indexOf("return {ok:true}")).toBeGreaterThan(calendarBlock.indexOf("background(google)"));
   expect(health).toContain("window.__KPTU_GOOGLE_STATE__");
@@ -152,7 +152,7 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   const pagesStart=views.indexOf('async function pages()');
   const organizationsStart=views.indexOf('async function organizations()');
   const pagesBlock=views.slice(pagesStart,organizationsStart);
-  expect(pagesBlock).toContain("module('./web1-board.js?v=4')");
+  expect(pagesBlock).toContain("module('./web1-board.js?v=5')");
   expect(pagesBlock).not.toContain("team('pages')");
   expect(pagesBlock).not.toContain('page-design-core');
 
