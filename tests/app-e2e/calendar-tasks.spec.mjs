@@ -118,7 +118,7 @@ test('tapping a task opens the existing Google task editor and does not complete
 test('saving from the editor opened on the calendar reads the tasks again',async({page})=>{
   let tasks=[gt('p1','처음 제목','2026-10-20T00:00:00.000Z')];
   const calls=await setup(page,{handler:action=>{
-    if(action==='update'){tasks=[gt('p1','바꾼 제목','2026-10-21T00:00:00.000Z')];return {body:{task:tasks[0]}}}
+    if(action==='update'){tasks=[gt('p1','바꾼 제목','2026-10-21T00:00:00.000Z')];return {body:{ok:true,task:tasks[0]}}}
     return {body:overview(tasks)};
   }});
   await login(page);

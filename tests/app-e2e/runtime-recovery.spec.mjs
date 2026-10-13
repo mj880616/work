@@ -182,3 +182,47 @@ test('library mutations use the shared runtime recovery transport',async()=>{
   expect(source).not.toContain("fetch(LU_SB+'/functions/v1/document-actions'");
   expect(source).not.toContain("fetch(LU_SB+'/auth/v1/user'");
 });
+
+const ownerSession=(id,{expired=false}={})=>({access_token:'synthetic-'+id,refresh_token:'synthetic-refresh-'+id,expires_at:Math.floor(Date.now()/1000)+(expired?-10:3600),user:{id}});
+for(const phase of ['before-ensure','before-401-refresh','during-refresh','before-retry','after-success'])test(`save call context rejects session change ${phase}`,async({page})=>{
+ let calls=0,refreshes=0,release;const gate=new Promise(r=>release=r),state={replacement:false,otherRequests:0};
+ await page.route(`${SB}/**`,async route=>{
+  const u=new URL(route.request().url());
+  if(u.pathname==='/auth/v1/token'){refreshes++;if(phase==='during-refresh')await gate;const id=phase==='before-401-refresh'?'owner-b':'owner-a';return route.fulfill({json:{...ownerSession(id),access_token:'synthetic-refreshed-'+id}});}
+  calls++;if(route.request().headers().authorization==='Bearer synthetic-refreshed-owner-b'||route.request().headers().authorization==='Bearer synthetic-owner-b')state.otherRequests++;
+  if(calls===1&&['before-401-refresh','after-success'].includes(phase))await gate;
+  return route.fulfill({status:calls===1&&!['before-ensure','after-success'].includes(phase)?401:200,json:{ok:true}});
+ });
+ await loadRuntime(page,ownerSession('owner-a'));
+ if(phase==='before-ensure'){
+  const result=await page.evaluate(async()=>{const rt=window.KPTURuntime,epoch=rt.session.epoch();rt.session.write({access_token:'synthetic-owner-b',refresh_token:'synthetic-refresh-owner-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'owner-b'}});try{await rt.api('/rest/v1/guarded-save',{method:'POST',body:{title:'draft-a'},expectedSessionEpoch:epoch});return {ok:true}}catch(e){return {code:e.code}}});expect(result.code).toBe('session_changed');expect(calls).toBe(0);return;
+ }
+ if(phase==='before-retry')await page.evaluate(()=>{window.addEventListener('kptu:session-changed',e=>{if(e.detail?.session?.access_token==='synthetic-refreshed-owner-a')window.KPTURuntime.session.write({access_token:'synthetic-owner-b',refresh_token:'synthetic-refresh-owner-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'owner-b'}})})});
+ await page.evaluate(()=>{const rt=window.KPTURuntime;window.__guardedSave=rt.api('/rest/v1/guarded-save',{method:'POST',body:{title:'draft-a'},expectedSessionEpoch:rt.session.epoch()}).then(()=>({ok:true}),e=>({code:e.code}))});
+ if(phase!=='before-retry'){
+  await expect.poll(()=>phase==='during-refresh'?refreshes:calls).toBe(1);
+  await page.evaluate(s=>window.KPTURuntime.session.write(s),ownerSession('owner-b'));release();
+ }
+ const result=await page.evaluate(async()=>await window.__guardedSave);console.info('save-context observation',JSON.stringify({phase,calls,refreshes,otherRequests:state.otherRequests,resultCode:result.code||'success'}));expect(result.code).toBe('session_changed');expect(calls).toBe(1);expect(state.otherRequests).toBe(0);
+});
+test('guarded same-owner 401 refresh retains the normal authenticated retry',async({page})=>{
+ let calls=0,refreshes=0;
+ await page.route(`${SB}/**`,r=>{if(new URL(r.request().url()).pathname==='/auth/v1/token'){refreshes++;return r.fulfill({json:{...ownerSession('owner-a'),access_token:'synthetic-refreshed-owner-a'}})}calls++;return r.fulfill({status:calls===1?401:200,json:{ok:true}})});
+ await loadRuntime(page,ownerSession('owner-a'));const result=await page.evaluate(()=>{const rt=window.KPTURuntime;return rt.api('/rest/v1/guarded-save',{method:'POST',body:{title:'draft-a'},expectedSessionEpoch:rt.session.epoch()})});expect(result).toEqual({ok:true});expect(calls).toBe(2);expect(refreshes).toBe(1);
+});
+test('guarded save rejects logout and same-owner login as a new session',async({page})=>{
+ let calls=0,release;const gate=new Promise(r=>release=r);await page.route(`${SB}/**`,async r=>{if(new URL(r.request().url()).pathname==='/auth/v1/token')return r.fulfill({json:ownerSession('owner-a')});calls++;if(calls===1)await gate;return r.fulfill({status:calls===1?401:200,json:{ok:true}})});await loadRuntime(page,ownerSession('owner-a'));await page.evaluate(()=>{const rt=window.KPTURuntime;window.__guardedSave=rt.api('/rest/v1/guarded-save',{method:'POST',body:{title:'draft-a'},expectedSessionEpoch:rt.session.epoch()}).then(()=>({ok:true}),e=>({code:e.code}))});await expect.poll(()=>calls).toBe(1);await page.evaluate(s=>{window.KPTURuntime.session.write(null);window.KPTURuntime.session.write(s)},ownerSession('owner-a'));release();const result=await page.evaluate(async()=>await window.__guardedSave);expect(result.code).toBe('session_changed');expect(calls).toBe(1);
+});
+for(const method of ['POST','GET'])test(`guarded ${method} does not join an unguarded flight`,async({page})=>{
+ let calls=0,release;const gate=new Promise(r=>release=r);await page.route(`${SB}/rest/v1/context-flight`,async r=>{calls++;await gate;return r.fulfill({json:{ok:true}})});await loadRuntime(page,ownerSession('owner-a'));
+ await page.evaluate(method=>{const rt=window.KPTURuntime,o={method,...(method==='POST'?{body:{title:'draft-a'}}:{})};window.__defaultFlight=rt.api('/rest/v1/context-flight',o);window.__guardedFlight=rt.api('/rest/v1/context-flight',{...o,expectedSessionEpoch:rt.session.epoch()})},method);
+ try{await expect.poll(()=>calls).toBe(2)}finally{release()}
+ await page.evaluate(async()=>await Promise.all([window.__defaultFlight,window.__guardedFlight]));
+});
+
+test('guarded identical calls still share one guarded request',async({page})=>{
+ let calls=0;await page.route(`${SB}/rest/v1/context-flight`,r=>{calls++;return r.fulfill({json:{ok:true}})});await loadRuntime(page,ownerSession('owner-a'));const result=await page.evaluate(()=>{const rt=window.KPTURuntime,o={method:'POST',body:{title:'draft-a'},expectedSessionEpoch:rt.session.epoch()};return Promise.all([rt.api('/rest/v1/context-flight',o),rt.api('/rest/v1/context-flight',o)])});expect(result).toEqual([{ok:true},{ok:true}]);expect(calls).toBe(1);
+});
+test('session changes during initial ensure reject before the save dispatch',async({page})=>{
+ let writes=0,refreshes=0,release;const gate=new Promise(r=>release=r);await page.route(`${SB}/**`,async r=>{if(new URL(r.request().url()).pathname==='/auth/v1/token'){refreshes++;await gate;return r.fulfill({json:ownerSession('owner-a')})}writes++;return r.fulfill({json:{ok:true}})});await loadRuntime(page,ownerSession('owner-a',{expired:true}));await page.evaluate(()=>{const rt=window.KPTURuntime;window.__guardedSave=rt.api('/rest/v1/context-flight',{method:'POST',body:{title:'draft-a'},expectedSessionEpoch:rt.session.epoch()}).then(()=>({ok:true}),e=>({code:e.code}))});await expect.poll(()=>refreshes).toBe(1);await page.evaluate(s=>window.KPTURuntime.session.write(s),ownerSession('owner-b'));release();const result=await page.evaluate(async()=>await window.__guardedSave);expect(result.code).toBe('session_changed');expect(writes).toBe(0);
+});
