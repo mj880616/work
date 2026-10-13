@@ -205,3 +205,31 @@ test('Library confirmed rename during reopen meeting lookup keeps current input 
 test('Library confirmed unknown rename is also the baseline of a later reopen',async()=>{
   const h=harness('library-upload.js');h.eval('luRenderLibrary=()=>{}');await h.open('doc-A');h.node('#libraryEditTitle').value='submitted title';h.mode='unknown';await h.call('luSaveEdit');const a=h.eval('luEditAttempts.values().next().value');Object.assign(h.db.app_documents[0],copy(a.body));h.mode='positive';await h.call('luCheckEdit',h.eval('luEditor'));h.call('luClose','libraryEditModal');await h.call('luOpenEditById','doc-A');assert.equal(h.node('#libraryEditTitle').value,'submitted title');h.node('#libraryEditTitle').value='doc-A';await h.call('luSaveEdit');assert.equal(h.db.app_documents[0].title,'doc-A');
 });
+async function reportUnknownAfterPendingReopen(){
+  const h=harness('workplace-report.js');await h.open('report-A');h.node('#warSummary').value='first submitted summary';h.hold='app_suborganization_weekly_reports';
+  const first=h.call('saveReport',false);await new Promise(r=>setImmediate(r));h.call('modal',false);h.call('detail','report-A');h.release();await first;await new Promise(r=>setImmediate(r));
+  h.node('#warSummary').value='confirmed final summary';h.mode='unknown';await h.call('saveReport',true);
+  const a=h.eval('reportAttempts.values().next().value');Object.assign(h.db.app_suborganization_weekly_reports[0],copy(a.body));h.mode='positive';
+  return {h,finalized:a.body.finalized_at};
+}
+test('Report confirmed GET after pending reopen preserves saved summary and first finalization across another reopen',async()=>{
+  const {h,finalized}=await reportUnknownAfterPendingReopen();h.readHold='app_suborganization_weekly_reports';const checking=h.call('checkReport',h.eval('reportEditor'));await new Promise(r=>setImmediate(r));
+  h.node('#warSummary').value='additional current input';h.readRelease();await checking;
+  assert.equal(h.node('#warSummary').value,'additional current input');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);
+  h.call('modal',false);h.call('detail','report-A');await new Promise(r=>setTimeout(r,10));
+  h.hold='app_suborganization_weekly_reports';const saving=h.call('saveReport',true);await new Promise(r=>setImmediate(r));assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);h.release();await saving;
+  const row=h.db.app_suborganization_weekly_reports[0],body=h.writes[2].body;
+  assert.deepEqual({savedSummary:row.summary,savedFinalized:row.finalized_at,bodySummary:body.summary,bodyFinalized:body.finalized_at},{savedSummary:'confirmed final summary',savedFinalized:finalized,bodySummary:'confirmed final summary',bodyFinalized:finalized});
+  assert.equal(h.node('#warDraftModal').classList.contains('hidden'),true);
+});
+for(const change of ['owner','workspace','epoch','editor'])test('Report confirmation after detached success rejects stale '+change+' adoption',async()=>{
+  const {h}=await reportUnknownAfterPendingReopen();h.readHold='app_suborganization_weekly_reports';const checking=h.call('checkReport',h.eval('reportEditor'));await new Promise(r=>setImmediate(r));
+  if(change==='owner')h.rt.session.read().user.id='other-owner';else if(change==='workspace')h.setContext({workspace:{id:'other-workspace'}});else if(change==='epoch')h.setEpoch(1);else{h.call('modal',false);h.call('detail','report-A');}
+  h.node('#warSummary').value='replacement current input';h.readRelease();await checking;
+  assert.equal(h.node('#warSummary').value,'replacement current input');assert.equal(h.eval('reports.find(r=>r.id==="report-A").summary'),'first submitted summary');assert.equal(h.eval('reportAttempts.size'),1);
+  await h.call('saveReport',true);assert.equal(h.writes.length,2);
+});
+test('Report foreign confirmation row after detached success never adopts cache or allows resend',async()=>{
+  const {h}=await reportUnknownAfterPendingReopen();h.db.app_suborganization_weekly_reports[0].organization_id='org-B';await h.call('checkReport',h.eval('reportEditor'));
+  assert.equal(h.eval('reports.find(r=>r.id==="report-A").summary'),'first submitted summary');assert.equal(h.node('#warSummary').value,'confirmed final summary');await h.call('saveReport',true);assert.equal(h.writes.length,2);
+});

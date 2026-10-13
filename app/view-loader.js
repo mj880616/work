@@ -132,7 +132,7 @@ async function organizations(){
   await module('./project-catalog.js?v=3');
   await module('./google-tasks.js?v=35');
   await module('./workplace-detail.js?v=22');
-  import('./workplace-report.js?v=4').catch(console.error);
+  import('./workplace-report.js?v=5').catch(console.error);
   return {ok:true}
 }
 async function home(){
