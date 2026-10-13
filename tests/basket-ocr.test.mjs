@@ -230,3 +230,44 @@ for(const method of ['reconcile','cleanup'])test(`${method} requires an explicit
   h.queue.push(response({...snapshot([file({ocr:ocr()})]),note_id:other}));
   assert.equal((await h.controller[method](other,'original')).code,'OCR_ATTEMPT_UNRESOLVED');assert.equal(postCalls(h).length,0);assert.equal(h.calls.length,2);
 });
+const signedIn = (owner='owner',token='fake-owner-token') => ({access_token:token,user:{id:owner}});
+for(const [label,nextSession] of [['owner B',signedIn('other')],['signed out',null],['missing authentication',{user:{id:'owner'}}]])test(`accessor hides private A state when only actual session becomes ${label}`,async()=>{
+  const h=harness();await prepare(h);h.queue.push(response(success()));await h.controller.read(note,'original');
+  h.rt.session.read=()=>nextSession;
+  assert.equal(h.controller.state.snapshot,null);assert.equal(h.controller.state.outcome,null);assert.equal(h.controller.state.capabilities,null);
+});
+for(const [label,nextSession] of [['owner B',signedIn('other')],['signed out',null]])for(const method of ['status','read'])test(`held ${method} reply is stale after session-only ${label} with A context and unchanged epoch`,async()=>{
+  const h=harness();await prepare(h);const late=deferred();
+  if(method==='read')h.queue.push(response(snapshot()));h.queue.push(()=>late.promise);
+  const pending=method==='read'?h.controller.read(note,'original'):h.controller.status(note);
+  await new Promise(resolve=>setImmediate(resolve));const before=h.changes.length;
+  h.rt.session.read=()=>nextSession;late.resolve(response(method==='read'?success():snapshot([file({file_name:'private late A'})])));
+  const result=await pending;assert.equal(result.code,'OCR_STALE');assert.equal(result.ok,false);
+  assert.equal(h.changes.length,before);assert.equal(h.controller.state.snapshot,null);assert.equal(h.controller.state.outcome,null);
+  assert.equal(postCalls(h).length,method==='read'?1:0);assert.ok(postCalls(h).every(([,options])=>options.signal===undefined));
+});
+test('a stale dispatched A write retains only A’s ambiguity through session/context A to B to A',async()=>{
+  const h=harness();await prepare(h);const late=deferred();h.queue.push(response(snapshot()),()=>late.promise);
+  const pending=h.controller.read(note,'original');await new Promise(resolve=>setImmediate(resolve));
+  h.rt.session.read=()=>signedIn('other');late.resolve(response(success()));assert.equal((await pending).code,'OCR_STALE');
+  // Another tab changed shared storage without invoking this document’s runtime.write.
+  // Align B context, then restore A’s original context/epoch as in the independent probe.
+  h.scope({owner:'other',workspace:'other-workspace',epoch:1});
+  h.queue.push(response(cap()),response(snapshot()),response(success()));
+  assert.equal((await h.controller.capabilities()).ok,true);assert.equal((await h.controller.status(note)).ok,true);
+  assert.equal((await h.controller.read(note,'original')).ok,true);assert.equal(postCalls(h).length,2);
+  h.scope({owner:'owner',workspace:'workspace',epoch:1});h.rt.session.read=()=>signedIn();
+  h.queue.push(response(cap()),response(snapshot()));await h.controller.capabilities();await h.controller.status(note);
+  assert.equal((await h.controller.read(note,'original')).code,'OCR_ATTEMPT_UNRESOLVED');assert.equal(postCalls(h).length,2);
+});
+for(const method of ['status','read'])test(`same-owner access-token rotation preserves private visibility and held ${method} result`,async()=>{
+  const h=harness();await prepare(h);const late=deferred();if(method==='read')h.queue.push(response(snapshot()));h.queue.push(()=>late.promise);
+  const pending=method==='read'?h.controller.read(note,'original'):h.controller.status(note);await new Promise(resolve=>setImmediate(resolve));
+  h.rt.session.read=()=>signedIn('owner','rotated-owner-token');assert.equal(h.controller.state.snapshot.note_id,note);
+  late.resolve(response(method==='read'?success():snapshot()));assert.equal((await pending).ok,true);assert.equal(h.controller.state.snapshot.note_id,note);
+});
+test('default-off accessor and every method avoid actual session, context, epoch and fetch reads',async()=>{
+  const touch=()=>assert.fail('default-off runtime touch');const c=createBasketOcr({rt:{context:{read:touch},session:{read:touch,ensure:touch,epoch:touch}},fetcher:touch,isCurrent:touch});
+  assert.equal(c.state.enabled,false);assert.equal(c.state.snapshot,null);
+  for(const [method,args] of [['capabilities',[]],['status',[note]],['read',[note,'original']],['reconcile',[note,'original']],['cleanup',[note,'original']]])assert.equal((await c[method](...args)).code,'OCR_DISABLED');
+});

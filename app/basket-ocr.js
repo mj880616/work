@@ -77,7 +77,12 @@ export function createBasketOcr({rt=globalThis.window?.KPTURuntime,fetcher=globa
     return {owner:context?.user?.id,workspace:context?.workspace?.id,epoch:rt?.session?.epoch?.()};
   };
   const scopeKey = scope => JSON.stringify([scope.owner,scope.workspace,scope.epoch]);
-  const current = scope => isCurrent() && scopeKey(capture()) === scopeKey(scope);
+  const current = scope => {
+    if (!isCurrent() || scopeKey(capture()) !== scopeKey(scope)) return false;
+    // Cross-tab storage changes can precede this document's context/epoch update.
+    const session=rt.session.read();
+    return typeof session?.access_token === 'string' && session.access_token.length > 0 && session?.user?.id === scope.owner;
+  };
   const recordKey = (scope,noteId,fileId) => JSON.stringify([scopeKey(scope),noteId,fileId]);
   function state() {
     const visible = enabled && stateScope && current(stateScope);
@@ -128,8 +133,8 @@ export function createBasketOcr({rt=globalThis.window?.KPTURuntime,fetcher=globa
     flight={token,scope};
     try {
       if (!await rt.session.ensure()) return refusal('SESSION_REQUIRED');
-      if (!current(scope) || flight?.token !== token) return refusal('OCR_STALE');
       const session=rt.session.read();if (!session?.access_token || session?.user?.id !== scope.owner) return refusal('SESSION_REQUIRED');
+      if (!current(scope) || flight?.token !== token) return refusal('OCR_STALE');
       if (!stateScope || scopeKey(stateScope)!==scopeKey(scope)) {capability=null;snapshot=null;outcome=null;stateScope=scope;}
       notify(scope);
       return await run(scope,token);
