@@ -23,13 +23,14 @@ jobs:
       trusted_author: ${{ steps.classify.outputs.trusted_author }}
     steps:
       - name: Check out trusted base policy
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20
+          package-manager-cache: false
       - name: Classify every changed path against the trusted policy
         id: classify
         env:
@@ -47,15 +48,16 @@ jobs:
       contents: read
     steps:
       - name: Check out candidate with a read-only token
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           path: candidate
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20
+          package-manager-cache: false
       - name: Check press archive paths and newest listing
         working-directory: candidate
         run: node --test scripts/publication-content.test.mjs
@@ -98,13 +100,14 @@ jobs:
           test "$CLASSIFY_RESULT" = success
           if [[ "$PUBLICATION" == true ]]; then test "$CONTENT_RESULT" = success; fi
       - name: Check out trusted base policy only
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20
+          package-manager-cache: false
       - name: Wait until an earlier auto-merge reservation is removed
         if: needs.classify.outputs.publication != 'true' && needs.classify.outputs.trusted_author == 'true'
         env:
