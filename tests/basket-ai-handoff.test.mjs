@@ -2,6 +2,7 @@ import * as projectRules from '../app/project-catalog-model.mjs';
 import test from 'node:test';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {buildHandoff, selectHandoffNotes, readHandoff, mountHandoff} from '../app/basket-ai-handoff.js';
 import {parseAIAnswer, classificationFormat, ERROR_TEXT} from '../app/basket-classification.js';
@@ -21,11 +22,11 @@ test('export takes newest 100 notes with deterministic ID ordering',()=>{
  const rows=Array.from({length:105},(_,i)=>note(String(i).padStart(3,'0'))).reverse();
  assert.equal(selectHandoffNotes(rows,[],now).length,100);assert.equal(selectHandoffNotes(rows,[],now)[0].id,'000');assert.equal(selectHandoffNotes(rows,[],now)[99].id,'099');
 });
-test('handoff preserves original and only attachment name, type, Drive link; destinations and parser format round trip',()=>{
- const rows=[note(n,{attachments:[{file_name:'議事.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-drive',size_bytes:10,body:'ATTACHMENT_BODY',ocr:'OCR_SECRET'}]})];
+test('handoff preserves original and no-OCR PDF name, type, Drive link; destinations and parser format round trip',()=>{
+ const rows=[note(n,{attachments:[{file_name:'議事.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-drive',size_bytes:10,body:'ATTACHMENT_BODY'}]})];
  const text=buildHandoff(rows,[{id:p,name:'합성 프로젝트'}],[{id:n,name:'합성 담당조직'}],now);
  for(const required of [rows[0].raw_text,n,stamp,'議事.pdf','application/pdf','https://drive.google.com/file/d/synthetic-drive/view','합성 담당조직','합성 프로젝트','프로젝트 목록 (ID · 이름)',"AI 정리 결과 넣기",'블록이 기준'])assert.ok(text.includes(required),required);
- for(const excluded of ['ATTACHMENT_BODY','OCR_SECRET','size_bytes','google_task','write_request_candidate','library',])assert.ok(!text.includes(excluded),excluded);
+ for(const excluded of ['ATTACHMENT_BODY','size_bytes','google_task','write_request_candidate','library',])assert.ok(!text.includes(excluded),excluded);
  const format=classificationFormat(now);const block=/```json\n([\s\S]*?)\n```/.exec(format)[1];
  const sample=JSON.parse(block);sample.items=proposal().items;assert.deepEqual(parseAIAnswer('사람 정리\n```json\n'+JSON.stringify(sample)+'\n```'),sample);
 });
@@ -226,4 +227,78 @@ test('explicit current-note handoff includes only the opened linked older note w
 });
 test('entire handoff output refuses oversized UTF-8 rather than truncating original text',()=>{
  assert.throws(()=>buildHandoff([note(n,{raw_text:'가'.repeat(400000)})],[],[],now),/너무|1MiB|1 MiB/);
+});
+
+const photo=(changes={})=>({drive_file_id:'source',file_name:'photo.jpg',mime_type:'image/jpeg',size_bytes:4,...changes});
+const photoOcr=(changes={})=>({state:'done',attempt_id:'40000000-0000-4000-8000-000000000001',original_file_id:'source',cleanup_state:'deleted',temp_document_id:'private-temp',text:' 認識した字\r\n<そのまま> ',...changes});
+const budgetPhotos=()=>Array.from({length:16},(_,index)=>photo({drive_file_id:'source-'+index,file_name:'photo-'+index+'.jpg',ocr:photoOcr({original_file_id:'source-'+index,temp_document_id:'private-temp-'+index,text:'😀'.repeat(16384)})}));
+
+test('complete no-OCR handoff bytes match the actual approved base including fallback guidance',()=>{
+ // Captured before OCR implementation from main9235, identical to approved #528 product51.
+ const rows=[note(n,{raw_text:' 原文\r\n\r\n末尾  ',attachments:[photo({file_name:'写真.jpg',body:'PRIVATE_BODY'}),{drive_file_id:'document',file_name:'議事.pdf',mime_type:'application/pdf',size_bytes:10}]}),note('10000000-0000-4000-8000-000000000002',{raw_text:'第二のメモ\n',updated_at:'2026-10-11T01:02:03.123456+00:00'})];
+ const projects=[{id:p,name:'合成プロジェクト'}],orgs=[{id:'30000000-0000-4000-8000-000000000001',name:'合成組織'}];
+ for(const [fallback,bytes,hash] of [[false,3416,'1affa40d45af7be157c82aece05b6b39917245a96e7f0325194b6cba49c732ad'],[true,3483,'891a548ee0fb576aca1a2097ba67a09a99c96f94d80b4732f5a199ac8fc56930']]){
+  const text=buildHandoff(rows,projects,orgs,now,fallback);
+  assert.equal(Buffer.byteLength(text),bytes);assert.equal(createHash('sha256').update(text).digest('hex'),hash);
+ }
+});
+test('handoff appends source-labeled committed OCR outside raw markers without private attempt metadata',()=>{
+ const original=' 原文\r\n\r\n末尾  ',updated_at='2026-10-11T01:02:03.123456+00:00';
+ const rows=[note(n,{raw_text:original,updated_at,attachments:[photo({body:'PRIVATE_BODY',text:'UNVALIDATED_TEXT',ocr:photoOcr({error_code:'OCR_SAFE_ERROR',cleanup_error_code:'OCR_CLEANUP_ERROR'})})]})],before=structuredClone(rows);
+ const text=buildHandoff(rows,[],[],now);
+ assert.ok(text.includes('본문 시작\n\n'+original+'\n\n본문 끝'));
+ assert.ok(text.includes('updated_at: '+updated_at));
+ assert.ok(text.includes('첨부: photo.jpg · image/jpeg · https://drive.google.com/file/d/source/view'));
+ const label='사진에서 읽은 글 · photo.jpg\n'+rows[0].attachments[0].ocr.text;
+ assert.ok(text.includes(label));assert.ok(text.indexOf(label)>text.indexOf('본문 끝'));
+ for(const value of ['PRIVATE_BODY','UNVALIDATED_TEXT','private-temp','40000000-0000-4000-8000-000000000001','OCR_SAFE_ERROR','OCR_CLEANUP_ERROR','attempt_id','cleanup_state'])assert.ok(!text.includes(value),value);
+ assert.deepEqual(rows,before);
+});
+test('reading and failed attempts preserve previously committed OCR in the handoff through cleanup states',()=>{
+ for(const state of ['reading','failed'])for(const cleanup_state of ['created','delete_pending','deleted','delete_failed']){
+  const text=' 以前の確定字\r\n ',row=note(n,{attachments:[photo({ocr:photoOcr({state,cleanup_state,text})})]});
+  const handoff=buildHandoff([row],[],[],now);
+  assert.ok(handoff.includes('사진에서 읽은 글 · photo.jpg\n'+text),state+' '+cleanup_state);
+  assert.ok(handoff.includes('updated_at: '+stamp));assert.equal(row.raw_text,' 첫 줄\n둘째 줄 ');
+ }
+});
+test('absent, unread and empty validated OCR preserve the exact link-only handoff',()=>{
+ const rows=[note(n,{attachments:[photo()]})],expected=buildHandoff(rows,[],[],now);
+ for(const ocr of [{state:'unread',original_file_id:'source',cleanup_state:'none'},photoOcr({state:'empty',text:''})]){
+  assert.equal(buildHandoff([note(n,{attachments:[photo({ocr})]})],[],[],now),expected);
+ }
+});
+test('every present malformed OCR fails closed including unread, empty and unsupported PDFs',async t=>{
+ const values=[null,undefined,'OCR_SECRET',{},photoOcr({original_file_id:'other'}),photoOcr({extra:'private'}),photoOcr({text:'\0'}),photoOcr({text:'😀'.repeat(16385)}),photoOcr({state:'empty',text:'not-empty'}),{state:'unread',original_file_id:'source',cleanup_state:'none',attempt_id:'40000000-0000-4000-8000-000000000001'}];
+ for(const [index,ocr] of values.entries())await t.test('invalid OCR '+index,()=>assert.throws(()=>buildHandoff([note(n,{attachments:[photo({ocr})]})],[],[],now)));
+ await t.test('malformed OCR on a PDF',()=>assert.throws(()=>buildHandoff([note(n,{attachments:[photo({mime_type:'application/pdf',ocr:'OCR_SECRET'})]})],[],[],now)));
+});
+test('validated OCR counts toward the full UTF8 handoff budget at exactly 1MiB and one byte over',()=>{
+ const row=note(n,{attachments:budgetPhotos()}),last=row.attachments.at(-1);
+ last.ocr.text='x';
+ const remainingBytes=1048576-Buffer.byteLength(buildHandoff([row],[],[],now))+1;
+ assert.ok(remainingBytes>0&&remainingBytes<=65536);
+ last.ocr.text='😀'.repeat(Math.floor(remainingBytes/4))+['','x','é','字'][remainingBytes%4];
+ assert.ok([...last.ocr.text].length<=16384);
+ assert.equal(Buffer.byteLength(buildHandoff([row],[],[],now)),1048576);
+ assert.throws(()=>buildHandoff([{...row,raw_text:row.raw_text+'x'}],[],[],now),/1MiB/);
+ const linksOnly=row.attachments.map(({ocr,...file})=>file);
+ assert.ok(Buffer.byteLength(buildHandoff([{...row,attachments:linksOnly}],[],[],now))<1048576);
+});
+test('explicit current-note handoff retains OCR and exact microsecond version on an older linked note',async()=>{
+ const updated_at='2026-10-11T01:02:03.123456+00:00',opened=note(n,{occurred_at:'2025-10-01T01:00:00Z',updated_at,attachments:[photo({ocr:photoOcr({state:'failed',cleanup_state:'delete_failed'})})]});
+ const rt={context:{read:()=>({workspace:{id:'w'},user:{id:'owner'}})},api:async path=>path.includes('app_notes?')?[opened,note('other')]:path.includes('app_record_links?')?[{note_id:n,status:'confirmed'}]:[]};
+ installCatalog(rt);
+ const text=await readHandoff(rt,now,{noteId:n});
+ assert.ok(text.includes('updated_at: '+updated_at));assert.ok(text.includes('사진에서 읽은 글 · photo.jpg\n'+opened.attachments[0].ocr.text));assert.ok(!text.includes('메모 ID: other'));
+});
+test('malformed or over-budget OCR rejects promised clipboard data without partial replacement',async t=>{
+ for(const [name,row] of [['malformed',note(n,{attachments:[photo({ocr:null})]})],['over-budget',note(n,{attachments:budgetPhotos()})]])await t.test(name,async()=>{
+  await withPromiseClipboard(async()=>{
+   let clipboard='previous clipboard',item;
+   navigator.clipboard.write=async entries=>{item=entries[0];const blob=await item.data['text/plain'];clipboard=await blob.text();};
+   const h=handoffHarness({rows:[row]});await h.handoff.copy();
+   await assert.rejects(item.data['text/plain']);assert.equal(clipboard,'previous clipboard');assert.equal(h.input.value,'');assert.equal(h.fallback.hidden,true);assert.equal(h.busy,false);
+  });
+ });
 });
