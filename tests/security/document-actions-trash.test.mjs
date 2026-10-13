@@ -1,39 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { stripTypeScriptTypes } from 'node:module';
-
-const source = stripTypeScriptTypes(readFileSync(new URL('../../supabase/functions/document-actions/index.ts', import.meta.url), 'utf8'), { mode: 'strip' });
-
-function harness({ trashed = false, patchStatus = 200, getStatus = 200, role = 'owner' } = {}) {
-  const calls = [];
-  let handler;
-  const fetchMock = async (url, init = {}) => {
-    const path = String(url), method = init.method || 'GET';
-    calls.push({ path, method, body: init.body });
-    if (path.endsWith('/auth/v1/user')) return Response.json({ id: 'owner-1' });
-    if (path.includes('public_policy_drive_config')) return Response.json([{ google_client_id: 'c', google_client_secret: 's', google_refresh_token: 'r' }]);
-    if (path.includes('app_documents?id=')) {
-      if (method === 'GET') return Response.json([{ id: 'doc-1', workspace_id: 'ws-1', file_id: 'file-1' }]);
-      return new Response(null, { status: 204 });
-    }
-    if (path.includes('app_workspace_members')) return Response.json(role ? [{ role }] : []);
-    if (path.includes('app_drive_download_tokens')) return new Response(null, { status: 204 });
-    if (path === 'https://oauth2.googleapis.com/token') return Response.json({ access_token: 'drive-token' });
-    if (path.endsWith('?fields=trashed')) return Response.json({ trashed }, { status: getStatus });
-    if (path.endsWith('/drive/v3/files/file-1') && method === 'PATCH') return Response.json({ trashed: true }, { status: patchStatus });
-    throw Error(`Unexpected ${method} ${path}`);
-  };
-  const Deno = { env: { get: key => ({ SUPABASE_URL: 'https://sb.example', SUPABASE_SERVICE_ROLE_KEY: 'service' })[key] }, serve: fn => { handler = fn; } };
-  new Function('Deno', 'fetch', 'console', source)(Deno, fetchMock, { error() {} });
-  return { calls, send: async () => {
-    const response = await handler(new Request('https://sb.example/functions/v1/document-actions', {
-      method: 'POST', headers: { Authorization: 'Bearer user-token' },
-      body: JSON.stringify({ action: 'delete', document_id: 'doc-1' }),
-    }));
-    return { status: response.status, body: await response.json() };
-  } };
-}
+import { harness } from '../fixtures/document-actions-harness.mjs';
 
 const drive = calls => calls.filter(c => c.path.includes('googleapis.com/drive/v3/files/'));
 const recordDeletes = calls => calls.filter(c => c.method === 'DELETE' && c.path.includes('/rest/v1/'));
