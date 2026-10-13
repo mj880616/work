@@ -44,12 +44,13 @@ jobs:
       PGSSLMODE: verify-full
       PGSSLROOTCERT: /out/prod-ca-2021.crt
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Check read-only connection settings without printing values
         shell: bash
         run: |
@@ -110,7 +111,7 @@ jobs:
       - name: Stop after inspection and discard temporary schema
         if: ${{ inputs.phase == 'inspect' }}
         run: echo 'Inspection completed. Review the reported findings and hash before a separate verify run.'
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         if: ${{ inputs.phase == 'verify' }}
         with:
           version: 2.84.2
