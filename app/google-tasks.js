@@ -10,7 +10,8 @@ const rt=window.KPTURuntime;const RECENT_COMPLETED_MS=3*24*60*60*1000;let loadin
 // Web2 reads and creates tasks in the Google default list ("내 할 일") only (TASK-구현 PR 3), so the editor has no list choice (PR 4).
 const SCOPE_NOTE='Google "내 할 일" 목록만 보입니다. 다른 목록의 할 일은 나오지 않고, 다른 목록으로 옮긴 할 일은 연결이 끊길 수 있습니다.';
 // Links (TASK-구현 PR 4): a task may be linked to any number of projects and organizations (up to the Edge limit), or to none.
-const MAX_LINKS=20;let editorSeq=0,editorLinks=null,editorPreset=[],linkTargets=null;
+let editorRuntimeEpoch=rt.session.epoch();
+const MAX_LINKS=20;let editorSeq=0,editorLinks=null,editorPreset=[],linkTargets=null,editorRequest=null,createAttempt=null;const uncertainTasks=new Map(),pendingEditors=new Map();
 // Last result per owner on this device, shown first while a fresh copy loads. KPTURuntime drops it on sign-out or owner change.
 // v2 (묶음C-4): results now include overdue pending tasks, so a v1 copy is ignored and removed.
 const GT_CACHE_NAME='google-tasks-v2',GT_CACHE_OLD_NAMES=['google-tasks-v1'],GT_CACHE_MAX_AGE=7*24*60*60*1000;
@@ -56,7 +57,7 @@ function openScope(){
 }
 
 function ensureModal(){let m=document.querySelector('#gtTaskModal');if(m)return m;document.body.insertAdjacentHTML('beforeend',`<div id="gtTaskModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="gtTaskHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="gtTaskHeading">Google 할 일</h2></div><button class="icon-btn" data-gt-close type="button" aria-label="닫기">×</button></div><label>할 일<input id="gtEditTitle" type="text"></label><p class="gt-scope-note" data-gt-list-note>Google "내 할 일" 목록에 저장됩니다.</p><label>기한<input id="gtEditDue" type="date"></label><label>메모<textarea id="gtEditNotes" rows="4"></textarea></label><p class="gt-scope-note hidden" id="gtMeetingLinks"></p><fieldset class="gt-links"><legend>연결할 프로젝트·조직 <small>고르지 않아도 됩니다 · 여러 개 가능</small></legend><div id="gtEditLinkBody" class="gt-link-body"></div></fieldset><div class="modal-action-footer"><div id="gtEditStatus" class="status"></div><div class="gt-modal-actions"><button id="gtDeleteBtn" class="ghost tl-danger hidden" type="button">삭제</button><button id="gtToggleBtn" class="ghost hidden" type="button">완료</button><button id="gtSaveBtn" class="primary" type="button">저장</button></div></div></div></div>`);m=document.querySelector('#gtTaskModal');m.querySelector('[data-gt-close]').onclick=closeEditor;document.querySelector('#gtSaveBtn').onclick=saveEditor;document.querySelector('#gtDeleteBtn').onclick=deleteEditor;document.querySelector('#gtToggleBtn').onclick=toggleEditor;return m}
-function closeEditor(){const m=document.querySelector('#gtTaskModal');if(!m)return;m.classList.add('hidden');m.setAttribute('aria-hidden','true');const target=editorReturn?document.querySelector(editorReturn):null;window.KPTUA11y?.dialog.deactivate(m,{restoreFocus:true,fallbackFocus:target?.getClientRects().length?target:'#newTaskBtn'});editing=null;editorReturn=''}
+function closeEditor(){editorSeq++;editorRequest=null;editorSaving=false;const m=document.querySelector('#gtTaskModal');if(!m)return;m.classList.add('hidden');m.setAttribute('aria-hidden','true');const target=editorReturn?document.querySelector(editorReturn):null;window.KPTUA11y?.dialog.deactivate(m,{restoreFocus:true,fallbackFocus:target?.getClientRects().length?target:'#newTaskBtn'});editing=null;editorReturn=''}
 const linkKey=l=>l?.project_id?'p:'+l.project_id:l?.meeting_id?'m:'+l.meeting_id:'o:'+(l?.organization_id||'');
 const keyLink=k=>k.startsWith('p:')?{project_id:k.slice(2)}:k.startsWith('m:')?{meeting_id:k.slice(2)}:{organization_id:k.slice(2)};
 const workspaceOf=()=>rt?.context?.read?.()?.workspace?.id||window.__KPTU_BOOT_CONTEXT__?.workspace?.id||'';
@@ -71,8 +72,8 @@ const linkOpt=(x,selected)=>`<label class="gt-link-opt"><input type="checkbox" d
 const linkGroup=(title,groups,selected)=>`<div class="gt-link-group" role="group" aria-label="${esc(title)}"><b>${esc(title)}</b>${groups.some(g=>g.length)?groups.filter(g=>g.length).map(g=>title==='조직'?`<div class="gt-org-group">${g.map(x=>linkOpt(x,selected)).join('')}</div>`:g.map(x=>linkOpt(x,selected)).join('')).join(''):`<span class="gt-muted">${title==='조직'?'담당 조직이 없습니다.':esc(title)+' 없음'}</span>`}</div>`;
 // Links chosen in the editor. Links to targets that are not offered (e.g. an archived project) are kept as they are.
 function chosenLinks(){if(!editorLinks)return null;const box=document.querySelector('#gtEditLinkBody'),inputs=[...(box?.querySelectorAll('[data-gt-link]')||[])],shown=new Set(inputs.map(x=>x.value)),out=new Set(inputs.filter(x=>x.checked).map(x=>x.value));for(const k of editorLinks)if(!shown.has(k))out.add(k);return out}
-async function openEditor(task=null,{links=[],focusLinks=false}={}){if(editorSaving)return;const trigger=document.activeElement,kind=trigger?.dataset?.gtMenu?'menu':trigger?.dataset?.gtEdit?'edit':'';editorReturn=kind&&task?.id?`[data-gt-${kind}="${CSS.escape(task.id)}"]`:'';const m=ensureModal(),seq=++editorSeq;editing=task;editorReady=false;editorLinks=null;editorPreset=links;document.querySelector('#gtTaskHeading').textContent=task?'Google 할 일 수정':'Google 할 일 추가';document.querySelector('#gtEditTitle').value=task?.title||'';document.querySelector('#gtEditDue').value=task?.due?String(task.due).slice(0,10):'';document.querySelector('#gtEditNotes').value=task?.notes||'';document.querySelector('#gtDeleteBtn').classList.toggle('hidden',!task);const toggle=document.querySelector('#gtToggleBtn');toggle.classList.toggle('hidden',!task);toggle.textContent=task?.status==='completed'?'완료 취소':'완료';toggle.disabled=true;editorDraft=readEditorDraft();document.querySelector('#gtEditStatus').textContent='';const box=document.querySelector('#gtEditLinkBody'),meetingBox=document.querySelector('#gtMeetingLinks');box.innerHTML='<span class="gt-muted">연결할 프로젝트·조직을 불러오는 중…</span>';meetingBox.textContent='';meetingBox.classList.add('hidden');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');window.KPTUA11y?.dialog.activate(m,{trigger:document.activeElement,initialFocus:'#gtEditTitle',onRequestClose:closeEditor});document.querySelector('#gtEditTitle').focus();
-  try{const [targets,cur]=await Promise.all([loadTargets(),task?rt.api(endpoint('links')+'&task_id='+encodeURIComponent(task.id)):{links,meeting_links:[]}]);if(seq!==editorSeq)return;const projectOrg=cur?.links||[],meetingLinks=cur?.meeting_links||[],selected=new Set([...projectOrg,...meetingLinks].filter(l=>!l.status||l.status==='confirmed').map(linkKey));editorLinks=selected;box.innerHTML=linkGroup('프로젝트',[targets.projects],selected)+linkGroup('조직',targets.orgGroups,selected);if(meetingLinks.length){const known=new Map((window.KPTUTeamData?.meetings?.()||[]).map(row=>[row.id,row.series_name||row.title]));meetingBox.textContent='회의: '+meetingLinks.map(link=>known.get(link.meeting_id)||'회의 연결').join(', ');meetingBox.classList.remove('hidden');const missing=meetingLinks.filter(link=>!known.has(link.meeting_id));if(missing.length){const rows=await Promise.all(missing.map(link=>rt.api('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(link.meeting_id)+'&select=id,title,series_name&limit=1').catch(()=>[])));if(seq===editorSeq){rows.flat().forEach(row=>known.set(row.id,row.series_name||row.title));meetingBox.textContent='회의: '+meetingLinks.map(link=>known.get(link.meeting_id)||'회의 연결').join(', ')}}}if(focusLinks)box.querySelector('[data-gt-link]')?.focus()}catch{if(seq!==editorSeq)return;editorLinks=null;box.innerHTML='<span class="gt-error">연결 정보를 불러오지 못했습니다. 연결은 그대로 두고 할 일만 저장합니다.</span>'}finally{if(seq===editorSeq){editorReady=true;toggle.disabled=editorSaving}}}
+async function openEditor(task=null,{links=[],focusLinks=false}={}){const pending=task?.id?pendingEditors.get(taskUncertaintyKey(task.id)):null;editorRequest=null;editorSaving=false;const trigger=document.activeElement,kind=trigger?.dataset?.gtMenu?'menu':trigger?.dataset?.gtEdit?'edit':'';editorReturn=kind&&task?.id?`[data-gt-${kind}="${CSS.escape(task.id)}"]`:'';const m=ensureModal(),seq=++editorSeq;m.querySelectorAll('input,textarea,#gtSaveBtn,#gtDeleteBtn,#gtToggleBtn').forEach(el=>el.disabled=false);editing=task;editorReady=false;editorLinks=null;editorPreset=links;document.querySelector('#gtTaskHeading').textContent=task?'Google 할 일 수정':'Google 할 일 추가';document.querySelector('#gtEditTitle').value=task?.title||'';document.querySelector('#gtEditDue').value=task?.due?String(task.due).slice(0,10):'';document.querySelector('#gtEditNotes').value=task?.notes||'';document.querySelector('#gtDeleteBtn').classList.toggle('hidden',!task);const toggle=document.querySelector('#gtToggleBtn');toggle.classList.toggle('hidden',!task);toggle.textContent=task?.status==='completed'?'완료 취소':'완료';toggle.disabled=true;document.querySelector('#gtSaveBtn').disabled=true;editorDraft=readEditorDraft();document.querySelector('#gtEditStatus').textContent='';const box=document.querySelector('#gtEditLinkBody'),meetingBox=document.querySelector('#gtMeetingLinks');box.innerHTML='<span class="gt-muted">연결할 프로젝트·조직을 불러오는 중…</span>';meetingBox.textContent='';meetingBox.classList.add('hidden');m.classList.remove('hidden');m.setAttribute('aria-hidden','false');window.KPTUA11y?.dialog.activate(m,{trigger:document.activeElement,initialFocus:'#gtEditTitle',onRequestClose:closeEditor});document.querySelector('#gtEditTitle').focus();
+  try{const [targets,cur]=await Promise.all([loadTargets(),task?rt.api(endpoint('links')+'&task_id='+encodeURIComponent(task.id)):{links,meeting_links:[]}]);if(seq!==editorSeq)return;const projectOrg=cur?.links||[],meetingLinks=cur?.meeting_links||[],selected=new Set([...projectOrg,...meetingLinks].filter(l=>!l.status||l.status==='confirmed').map(linkKey));editorLinks=selected;box.innerHTML=linkGroup('프로젝트',[targets.projects],selected)+linkGroup('조직',targets.orgGroups,selected);if(meetingLinks.length){const known=new Map((window.KPTUTeamData?.meetings?.()||[]).map(row=>[row.id,row.series_name||row.title]));meetingBox.textContent='회의: '+meetingLinks.map(link=>known.get(link.meeting_id)||'회의 연결').join(', ');meetingBox.classList.remove('hidden');const missing=meetingLinks.filter(link=>!known.has(link.meeting_id));if(missing.length){const rows=await Promise.all(missing.map(link=>rt.api('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(link.meeting_id)+'&select=id,title,series_name&limit=1').catch(()=>[])));if(seq===editorSeq){rows.flat().forEach(row=>known.set(row.id,row.series_name||row.title));meetingBox.textContent='회의: '+meetingLinks.map(link=>known.get(link.meeting_id)||'회의 연결').join(', ')}}}if(pending){document.querySelector('#gtEditStatus').textContent='이 할 일의 앞선 저장 결과를 기다리는 중…';await pending.done;if(seq!==editorSeq||pending.epoch!==editorSession()||pending.owner!==currentOwner())return;const latest=await rt.api(endpoint('links')+'&task_id='+encodeURIComponent(task.id),{singleFlight:false});if(seq!==editorSeq||pending.epoch!==editorSession()||pending.owner!==currentOwner())return;editorLinks=confirmedKeys(latest);if(pending.savedText)editorDraft=pending.savedText;document.querySelector('#gtEditStatus').textContent='앞선 저장 처리가 끝났습니다. 현재 입력을 확인한 뒤 저장해 주세요.';}if(focusLinks)box.querySelector('[data-gt-link]')?.focus()}catch{if(seq!==editorSeq)return;editorLinks=null;box.innerHTML='<span class="gt-error">연결 정보를 불러오지 못했습니다. 연결은 그대로 두고 할 일만 저장합니다.</span>'}finally{if(seq===editorSeq){editorReady=true;toggle.disabled=editorSaving;document.querySelector('#gtSaveBtn').disabled=editorSaving}}}
 // Compare the draft exactly, including whitespace and retained links. Never save a draft as a side effect of completion.
 function readEditorDraft(){return JSON.stringify(['#gtEditTitle','#gtEditDue','#gtEditNotes'].map(selector=>document.querySelector(selector).value))}
 function editorDirty(){const chosen=chosenLinks();return readEditorDraft()!==editorDraft||Boolean(chosen&&editorLinks&&(chosen.size!==editorLinks.size||[...chosen].some(key=>!editorLinks.has(key))))}
@@ -87,11 +88,119 @@ async function toggleEditor(){
     const result=await toggleTask(task);
     if(seq!==editorSeq||!stillCurrent(epoch,owner)||editing?.id!==task.id||m.classList.contains('hidden'))return;
     if(result?.ok)closeEditor();else if(result?.message)st.textContent=result.message;
-  }finally{editorSaving=false;controls.forEach(({el,disabled})=>{el.disabled=disabled})}
+  }finally{if(seq===editorSeq&&stillCurrent(epoch,owner)){editorSaving=false;controls.forEach(({el,disabled})=>{el.disabled=disabled})}}
 }
-async function saveEditor(){if(editorSaving)return;const title=document.querySelector('#gtEditTitle').value.trim(),st=document.querySelector('#gtEditStatus');if(!title)return st.textContent='할 일을 입력해 주세요.';const chosen=chosenLinks();if(chosen&&[...chosen].filter(k=>!k.startsWith('m:')).length>MAX_LINKS)return st.textContent=`연결은 ${MAX_LINKS}개까지 고를 수 있습니다.`;const task=editing,before=editorLinks,body={action:task?'update':'create',task_id:task?.id||null,title,notes:document.querySelector('#gtEditNotes').value,due:document.querySelector('#gtEditDue').value||null};if(task)body.task_list_id=task.taskListId||null;else body.links=[...(chosen||new Set(editorPreset.map(linkKey)))].map(keyLink);const b=document.querySelector('#gtSaveBtn'),toggle=document.querySelector('#gtToggleBtn');editorSaving=true;b.disabled=true;toggle.disabled=true;
-  try{const d=task?await rt.api(endpoint(body.action),{method:'POST',body}):await createGoogleTask(body);let note=!task&&d?.link_error?'할 일은 만들었지만 연결을 저장하지 못했습니다. 할 일을 다시 열어 연결해 주세요.':'';if(task&&chosen&&before){const add=[...chosen].filter(k=>!before.has(k)),del=[...before].filter(k=>!chosen.has(k));try{if(add.length)await rt.api(endpoint('link'),{method:'POST',body:{action:'link',task_id:task.id,links:add.map(keyLink)}});if(del.length)await rt.api(endpoint('unlink'),{method:'POST',body:{action:'unlink',task_id:task.id,links:del.map(keyLink)}})}catch(e){note='할 일은 저장했지만 연결을 바꾸지 못했습니다. '+errorText(e)}}closeEditor();tasksChanged();if(note)toast(note)}catch(e){const msg=String(e?.message||e);if(/TASKS_SCOPE_REQUIRED|권한/.test(msg)){closeEditor();renderConnect('Google 할 일을 수정하려면 Google 계정을 다시 연결해 주세요.');toast('Google 할 일 권한을 다시 연결해 주세요(할 일 탭).')}else st.textContent=msg}finally{editorSaving=false;b.disabled=false;toggle.disabled=!editorReady}}
-async function deleteEditor(){if(editorSaving||!editing||!confirm('이 Google 할 일을 삭제할까요?'))return;const toggle=document.querySelector('#gtToggleBtn');editorSaving=true;toggle.disabled=true;try{await rt.api(endpoint('delete'),{method:'POST',body:{action:'delete',task_list_id:editing.taskListId,task_id:editing.id}});closeEditor();tasksChanged()}catch(e){document.querySelector('#gtEditStatus').textContent=String(e?.message||e)}finally{editorSaving=false;toggle.disabled=!editorReady}}
+const editorSession=()=>rt.session.epoch();
+const editorCall=(r,path,options={})=>rt.api(path,{...options,expectedSessionEpoch:r.epoch});
+const sameKeys=(a,b)=>a.size===b.size&&[...a].every(k=>b.has(k));
+const confirmedKeys=d=>{
+  if(!Array.isArray(d?.links)||(d.meeting_links!=null&&!Array.isArray(d.meeting_links)))throw new Error('연결 저장 결과를 확인하지 못했습니다.');
+  return new Set([...d.links,...(d.meeting_links||[])].filter(l=>!l.status||l.status==='confirmed').map(linkKey));
+};
+const confirmedTask=(d,id=null)=>d?.ok===true&&typeof d.task?.id==='string'&&d.task.id&&(!id||d.task.id===id);
+const editorActive=r=>editorRequest===r&&r.seq===editorSeq&&r.epoch===editorSession()&&r.owner===currentOwner()&&editing?.id===r.task?.id&&!document.querySelector('#gtTaskModal').classList.contains('hidden');
+const taskUncertaintyKey=id=>`${editorSession()}:${currentOwner()}:${id}`;
+function editorNotice(text,{recover=false,reconnect=false}={}){
+  const st=document.querySelector('#gtEditStatus');st.textContent=text;
+  const button=(label,fn)=>{const b=document.createElement('button');b.type='button';b.className='mini';b.textContent=label;b.onclick=fn;st.append(document.createTextNode(' '),b)};
+  if(reconnect)button('Google 권한 다시 연결',()=>connect());
+  if(recover)button('목록에서 저장 결과 확인',()=>recoverCreatedTask());
+}
+async function recoverCreatedTask(){
+  const attempt=createAttempt,seq=editorSeq,epoch=editorSession(),owner=currentOwner();
+  const active=()=>seq===editorSeq&&epoch===editorSession()&&owner===currentOwner()&&!document.querySelector('#gtTaskModal').classList.contains('hidden');
+  if(!attempt||attempt.owner!==owner||attempt.epoch!==epoch||attempt.pending)return;
+  editorNotice('저장된 할 일을 직접 골라 주세요. 새 할 일은 다시 만들지 않습니다.');
+  try{
+    const d=await fetchOverview(true,epoch);if(!active())return;
+    if(!Array.isArray(d?.tasks)||d.authorized===false||d.connected===false)throw new Error('Google 할 일 목록을 확인하지 못했습니다.');
+    const rows=attempt.task?d.tasks.filter(t=>t.id===attempt.task.id):d.tasks;
+    const st=document.querySelector('#gtEditStatus');
+    if(!rows.length)return editorNotice('목록에서 결과를 찾지 못했습니다. Google 할 일에서 먼저 확인해 주세요.',{recover:true});
+    for(const t of rows.filter(t=>typeof t.id==='string'&&t.id)){
+      const b=document.createElement('button');b.type='button';b.className='mini';b.textContent=(t.title||'제목 없음')+' · 이 할 일에 이어서 저장';
+      b.onclick=async()=>{b.disabled=true;try{
+        const links=await rt.api(endpoint('links')+'&task_id='+encodeURIComponent(t.id),{singleFlight:false,expectedSessionEpoch:epoch});if(!active())return;
+        const keys=confirmedKeys(links);editing={...t};editorLinks=keys;editorDraft=JSON.stringify([t.title||'',t.due?String(t.due).slice(0,10):'',t.notes||'']);createAttempt=null;
+        document.querySelector('#gtTaskHeading').textContent='Google 할 일 수정';document.querySelector('#gtDeleteBtn').classList.remove('hidden');document.querySelector('#gtToggleBtn').classList.remove('hidden');
+        editorNotice('고른 할 일에 이어서 저장합니다. 입력과 연결을 확인한 뒤 저장해 주세요.');
+      }catch(e){if(active())editorNotice('연결을 확인하지 못했습니다. '+errorText(e),{recover:true})}};
+      st.append(document.createTextNode(' '),b);
+    }
+  }catch(e){if(active())editorNotice(errorText(e),{recover:true})}
+}
+async function saveEditor(){
+  if(editorSaving||!editorReady)return;
+  const title=document.querySelector('#gtEditTitle').value.trim();if(!title)return editorNotice('할 일을 입력해 주세요.');
+  const chosen=chosenLinks();if(chosen&&[...chosen].filter(k=>!k.startsWith('m:')).length>MAX_LINKS)return editorNotice(`연결은 ${MAX_LINKS}개까지 고를 수 있습니다.`);
+  const owner=currentOwner(),epoch=editorSession();if(!owner)return editorNotice('로그인이 필요합니다.');
+  if(!editing&&createAttempt?.owner===owner&&createAttempt.epoch===epoch){editorNotice(createAttempt.pending?'앞선 할 일을 저장 중입니다. 결과가 확인될 때까지 새로 만들지 않습니다.':'앞선 할 일의 저장 결과를 확인해 주세요. 새로 만들지 않았습니다.',{recover:!createAttempt.pending});return}
+  const r={owner,epoch,seq:editorSeq,task:editing,text:readEditorDraft(),chosen:chosen?new Set(chosen):null},b=document.querySelector('#gtSaveBtn'),toggle=document.querySelector('#gtToggleBtn');
+  const body={action:r.task?'update':'create',task_id:r.task?.id||null,title,notes:document.querySelector('#gtEditNotes').value,due:document.querySelector('#gtEditDue').value||null};
+  if(r.task)body.task_list_id=r.task.taskListId||null;else body.links=[...(r.chosen||new Set(editorPreset.map(linkKey)))].map(keyLink);
+  r.done=new Promise(resolve=>{r.finish=resolve});if(r.task)pendingEditors.set(taskUncertaintyKey(r.task.id),r);editorRequest=r;editorSaving=true;b.disabled=true;toggle.disabled=true;editorNotice('저장 중…');
+  let stage='body',attempt=null;
+  try{
+    if(r.task&&uncertainTasks.has(taskUncertaintyKey(r.task.id))){
+      const kind=uncertainTasks.get(taskUncertaintyKey(r.task.id));
+      if(kind==='body'){
+        const d=await fetchOverview(true,r.epoch);if(!editorActive(r))return;
+        const t=d?.tasks?.find(t=>t.id===r.task.id);if(!t)throw new Error('앞선 저장 결과를 확인하지 못했습니다. Google 할 일에서 확인해 주세요.');
+        editorDraft=JSON.stringify([t.title||'',t.due?String(t.due).slice(0,10):'',t.notes||'']);
+      }
+      const d=await editorCall(r,endpoint('links')+'&task_id='+encodeURIComponent(r.task.id),{singleFlight:false});if(!editorActive(r))return;
+      editorLinks=confirmedKeys(d);uncertainTasks.delete(taskUncertaintyKey(r.task.id));
+    }
+    if(!r.task||r.text!==editorDraft){
+      if(!editorActive(r))return;
+      if(!r.task){attempt={owner,epoch,pending:true,task:null};createAttempt=attempt}
+      const d=r.task?await editorCall(r,endpoint('update'),{method:'POST',body}):await createGoogleTask(body,{api:(path,options)=>editorCall(r,path,options)});
+      if(attempt){attempt.pending=false;if(confirmedTask(d))attempt.task=d.task}
+      if(!editorActive(r)){
+        if(attempt&&owner===currentOwner()&&epoch===editorSession()&&confirmedTask(d)&&!d.link_error)createAttempt=null;
+        return;
+      }
+      if(!confirmedTask(d,r.task?.id))throw new Error('저장 결과를 확인하지 못했습니다.') ;
+      if(!r.task){r.task=editing={...d.task};editorLinks=confirmedKeys(d);document.querySelector('#gtTaskHeading').textContent='Google 할 일 수정'}
+      else editing=r.task={...r.task,...d.task};
+      editorDraft=r.text;r.savedText=r.text;pendingEditors.set(taskUncertaintyKey(r.task.id),r);
+      if(d.link_error){
+        stage='links';
+        const actual=await editorCall(r,endpoint('links')+'&task_id='+encodeURIComponent(r.task.id),{singleFlight:false});if(!editorActive(r))return;
+        editorLinks=confirmedKeys(actual);editorNotice('할 일은 저장했습니다. 연결은 일부만 저장됐을 수 있습니다. 확인한 뒤 저장해 주세요.');tasksChanged();return;
+      }
+    }
+    if(!editorActive(r))return;
+    if(r.chosen&&editorLinks){
+      stage='links';
+      const add=[...r.chosen].filter(k=>!editorLinks.has(k));
+      if(add.length){const d=await editorCall(r,endpoint('link'),{method:'POST',body:{action:'link',task_id:r.task.id,links:add.map(keyLink)}});if(!editorActive(r))return;if(d?.ok!==true)throw new Error('연결 저장 결과를 확인하지 못했습니다.');editorLinks=confirmedKeys(d)}
+      const del=[...editorLinks].filter(k=>!r.chosen.has(k));
+      if(del.length){const d=await editorCall(r,endpoint('unlink'),{method:'POST',body:{action:'unlink',task_id:r.task.id,links:del.map(keyLink)}});if(!editorActive(r))return;if(d?.ok!==true)throw new Error('연결 저장 결과를 확인하지 못했습니다.');editorLinks=confirmedKeys(d)}
+      if(!sameKeys(editorLinks,r.chosen))throw new Error('연결 저장 결과가 선택과 다릅니다.');
+    }
+    if(!editorActive(r))return;
+    if(createAttempt===attempt||(createAttempt?.task?.id===r.task?.id))createAttempt=null;
+    const current=chosenLinks(),unchanged=readEditorDraft()===r.text&&(!r.chosen||!!current&&sameKeys(current,r.chosen));
+    if(unchanged)closeEditor();else editorNotice('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
+    tasksChanged();
+  }catch(e){
+    if(attempt)attempt.pending=false;
+    if(!editorActive(r)){if(r.task&&r.epoch===editorSession()&&r.owner===currentOwner())uncertainTasks.set(taskUncertaintyKey(r.task.id),stage);return}
+    const scope=/TASKS_SCOPE_REQUIRED|권한/.test(String(e?.message||''));
+    if(stage==='links'&&r.task){
+      uncertainTasks.set(taskUncertaintyKey(r.task.id),'links');
+      try{const d=await editorCall(r,endpoint('links')+'&task_id='+encodeURIComponent(r.task.id),{singleFlight:false});if(!editorActive(r))return;editorLinks=confirmedKeys(d);uncertainTasks.delete(taskUncertaintyKey(r.task.id))}catch{}
+      if(!editorActive(r))return;
+      editorNotice('할 일은 저장했습니다. 연결 저장을 확인해 주세요. '+errorText(e),{reconnect:scope});
+    }else if(scope){if(createAttempt===attempt)createAttempt=null;editorNotice(errorText(e),{reconnect:true})}
+    else{if(r.task)uncertainTasks.set(taskUncertaintyKey(r.task.id),'body');editorNotice('저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+errorText(e),{recover:!r.task})}
+  }finally{
+    for(const [key,pending] of pendingEditors)if(pending===r)pendingEditors.delete(key);r.finish();
+    if(editorRequest===r){editorRequest=null;editorSaving=false;if(r.seq===editorSeq&&r.epoch===editorSession()&&r.owner===currentOwner()){b.disabled=false;toggle.disabled=!editorReady}}
+  }
+}
+async function deleteEditor(){if(editorSaving||!editing||!confirm('이 Google 할 일을 삭제할까요?'))return;const task=editing,seq=editorSeq,epoch=editorSession(),owner=currentOwner(),toggle=document.querySelector('#gtToggleBtn');const active=()=>seq===editorSeq&&epoch===editorSession()&&owner===currentOwner()&&editing?.id===task.id&&!document.querySelector('#gtTaskModal').classList.contains('hidden');editorSaving=true;toggle.disabled=true;try{await rt.api(endpoint('delete'),{method:'POST',expectedSessionEpoch:epoch,body:{action:'delete',task_list_id:task.taskListId,task_id:task.id}});if(!active())return;closeEditor();tasksChanged()}catch(e){if(active())document.querySelector('#gtEditStatus').textContent=String(e?.message||e)}finally{if(seq===editorSeq&&epoch===editorSession()&&owner===currentOwner()){editorSaving=false;toggle.disabled=!editorReady}}}
 // After a change from the editor: the task view reloads only while it is shown (it reloads on every visit anyway), and open link views refetch.
 function tasksChanged(){linkedCache.clear();refreshLinked();if(tasksViewShown())load(true);else fetchedOwner='';window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'))}
 // Completing or reopening shows at once and saves to Google in the background, without reloading the whole list.
@@ -147,7 +256,7 @@ function renderError(message,retry=false){const body=section()?.querySelector('#
 async function connect(){const epoch=sessionEpoch;let owner='';try{if(!rt?.session||!(await rt.session.ensure())||epoch!==sessionEpoch)return;owner=currentOwner();if(!owner)return;const params=new URLSearchParams(location.search),platform=/KPTUAndroid/i.test(navigator.userAgent)||params.get('native')==='android'?'android':'web',d=await rt.api(endpoint('start')+'&platform='+platform);if(!stillCurrent(epoch,owner))return;if(d?.url)location.href=d.url;else throw new Error('Google 권한 연결 주소를 받지 못했습니다.')}catch(e){if(stillCurrent(epoch,owner))renderError(e.message||String(e))}}
 function setSync(text='',failed=false,retry=false){const el=document.querySelector('#gtTaskSection [data-gt-sync]');if(!el)return;el.textContent=text;if(text)el.closest('.gt-head-left')?.classList.remove('hidden');el.style.color=failed?'var(--kptu-danger)':'';if(retry)appendRetry(el)}
 // action=overview combines status and tasks. An older google-tasks Edge answers "Unknown action", so fall back to status then tasks.
-async function fetchOverview(fresh=false){if(!overviewUnsupported){try{return await rt.api(endpoint('overview')+'&pending_scope=all',fresh?{singleFlight:false}:{})}catch(e){if(!(e?.status===400&&/Unknown action/i.test(String(e?.message||''))))throw e;overviewUnsupported=true}}const status=await rt.api(endpoint('status'));if(status?.needs_reconnect||status?.authorized===false)return {...status,tasks:[]};const d=await rt.api(endpoint('tasks')+'&pending_scope=all');return d?.needs_reconnect?{connected:true,authorized:false,needs_reconnect:true,warning:d.warning,tasks:[]}:{connected:true,authorized:true,needs_reconnect:false,error:d?.error,tasks:d?.tasks||[],pending_scope:d?.pending_scope}}
+async function fetchOverview(fresh=false,expectedSessionEpoch=null){const options={...(fresh?{singleFlight:false}:{}),...(expectedSessionEpoch==null?{}:{expectedSessionEpoch})};if(!overviewUnsupported){try{return await rt.api(endpoint('overview')+'&pending_scope=all',options)}catch(e){if(!(e?.status===400&&/Unknown action/i.test(String(e?.message||''))))throw e;overviewUnsupported=true}}const status=await rt.api(endpoint('status'),options);if(status?.needs_reconnect||status?.authorized===false)return {...status,tasks:[]};const d=await rt.api(endpoint('tasks')+'&pending_scope=all',options);return d?.needs_reconnect?{connected:true,authorized:false,needs_reconnect:true,warning:d.warning,tasks:[]}:{connected:true,authorized:true,needs_reconnect:false,error:d?.error,tasks:d?.tasks||[],pending_scope:d?.pending_scope}}
 // The overview contains Google task data but no link rows. Read only confirmed project/organization links through the existing owner-scoped RLS endpoint.
 async function readLinks(tasks){const ids=[...new Set(tasks.map(t=>t.id).filter(Boolean))],rows=[];for(let i=0;i<ids.length;i+=50){const query=ids.slice(i,i+50).map(encodeURIComponent).join(',');rows.push(...await rt.api(`/rest/v1/app_record_links?google_task_id=in.(${query})&status=eq.confirmed&select=google_task_id,project_id,organization_id,meeting_id,status`))}return rows}
 // Shared display enrichment for this screen and calendarDayModal only. Organization/meeting links do not display as project names.
@@ -218,7 +327,7 @@ function closePicker(){const m=document.querySelector('#gtPickModal');if(!m||m.c
 async function openLinkPicker(target){if(!target)return;const m=ensurePicker(),seq=++pickSeq,epoch=sessionEpoch,owner=currentOwner(),body=m.querySelector('#gtPickBody');pickTarget=target;pickTasks=[];pickDone.clear();m.querySelector('[data-gt-pick-msg]').textContent='';body.className='gt-status';body.textContent='연결 안 된 할 일을 불러오는 중…';m.classList.remove('hidden');m.setAttribute('aria-hidden','false');window.KPTUA11y?.dialog.activate(m,{trigger:document.activeElement,initialFocus:'[data-gt-pick-close]',onRequestClose:closePicker});try{const d=await rt.api(endpoint('unlinked'));if(seq!==pickSeq||!stillCurrent(epoch,owner))return;pickTasks=d?.tasks||[];renderPicker()}catch(e){if(seq!==pickSeq)return;body.innerHTML=`<span class="gt-error">${esc(errorText(e))}</span>`}}
 function renderPicker(){const body=document.querySelector('#gtPickBody');if(!body)return;if(!pickTasks.length){body.className='gt-status';body.textContent='연결할 수 있는 할 일이 없습니다.';return}body.className='gt-list';body.innerHTML=pickTasks.map(t=>{const done=pickDone.has(t.id);return `<div class="gt-row pending gt-side-row${isOverdue(t)?' overdue':''}"><div class="gt-main"><b>${esc(t.title||'제목 없음')}</b><div class="gt-meta"><span class="gt-due">${esc(due(t.due))}</span></div></div><button class="mini" type="button" data-gt-pick="${esc(t.id)}"${done?' disabled':''} aria-label="${esc(t.title||'제목 없음')} ${done?'연결됨':'연결'}">${done?'연결됨':'연결'}</button></div>`}).join('');body.querySelectorAll('[data-gt-pick]').forEach(b=>b.onclick=()=>pickLink(b))}
 async function pickLink(btn){const target=pickTarget,id=btn.dataset.gtPick,seq=pickSeq;if(!target||!id||pickDone.has(id))return;btn.disabled=true;try{await rt.api(endpoint('link'),{method:'POST',body:{action:'link',task_id:id,links:[target]}});pickDone.add(id);linkedCache.delete(linkKey(target));refreshLinked();if(tasksViewShown())load(true);if(seq===pickSeq)renderPicker()}catch(e){btn.disabled=false;const msg=document.querySelector('#gtPickModal [data-gt-pick-msg]');if(msg&&seq===pickSeq)msg.innerHTML=`<span class="gt-error">연결하지 못했습니다. ${esc(errorText(e))}</span>`}}
-async function boot(){section();ensureModal();const add=document.querySelector('#newTaskBtn');if(add)add.onclick=()=>openEditor();window.KPTURouter?.on?.('tasks',()=>{unlinkedOnly=false;document.querySelector('#gtCompleted')?.removeAttribute('open');load(true)});window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='tasks'){taskMenu?.close();closeScope();cancelPendingDeletes()}});window.addEventListener('pagehide',cancelPendingDeletes);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelPendingDeletes();else if(tasksViewShown())renderTasks(lastTasks)});window.addEventListener('focus',()=>{if(tasksViewShown())load(true)});window.addEventListener('kptu:session-changed',e=>{if(e.detail?.session?.user?.id&&e.detail.session.user.id===cacheOwnerId)return;sessionEpoch++;taskMenu?.close();closeScope();cancelPendingDeletes();pendingDeletes.clear();deletedTombstones.clear();lastTasks=[];pendingToggles.clear();savedToggles.clear();stopEffects();cacheOwnerId='';shownOwner='';fetchedOwner='';allPendingConfirmed=false;linkTargets=null;editorSeq++;linkedCache.clear();closePicker();document.querySelector('#gtTaskSection')?.remove();if(e.detail?.session&&tasksViewShown())queueMicrotask(()=>load(true))});window.addEventListener('kptu:project-catalog-updated',()=>{linkTargets=null});
+async function boot(){section();ensureModal();const add=document.querySelector('#newTaskBtn');if(add)add.onclick=()=>openEditor();window.KPTURouter?.on?.('tasks',()=>{unlinkedOnly=false;document.querySelector('#gtCompleted')?.removeAttribute('open');load(true)});window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!=='tasks'){taskMenu?.close();closeScope();cancelPendingDeletes()}});window.addEventListener('pagehide',cancelPendingDeletes);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelPendingDeletes();else if(tasksViewShown())renderTasks(lastTasks)});window.addEventListener('focus',()=>{if(tasksViewShown())load(true)});window.addEventListener('kptu:session-changed',e=>{if(editorRuntimeEpoch===rt.session.epoch())return;editorRuntimeEpoch=rt.session.epoch();sessionEpoch++;editorSeq++;editorRequest=null;editorSaving=false;createAttempt=null;uncertainTasks.clear();pendingEditors.clear();closeEditor();document.querySelector('#gtSaveBtn').disabled=false;taskMenu?.close();closeScope();cancelPendingDeletes();pendingDeletes.clear();deletedTombstones.clear();lastTasks=[];pendingToggles.clear();savedToggles.clear();stopEffects();cacheOwnerId='';shownOwner='';fetchedOwner='';allPendingConfirmed=false;linkTargets=null;editorSeq++;linkedCache.clear();closePicker();document.querySelector('#gtTaskSection')?.remove();if(e.detail?.session&&tasksViewShown())queueMicrotask(()=>load(true))});window.addEventListener('kptu:project-catalog-updated',()=>{linkTargets=null});
   // The project view loads this module too (PR 4), so the task list is read only while the task view is shown; the route hook reads it on each visit.
   if(tasksViewShown())await load(false)}
 // Read-only task list for other screens (CAL-할일 calendar; later the new home, D-4). Neither call changes this view's list, its

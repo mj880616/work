@@ -67,28 +67,28 @@ async function calendar(){
   await module('./calendar-view.js?v=8');
   await projectCatalog();
   await team('calendar');
-  await module('./calendar-plus.js?v=12','__KPTU_CALENDAR_PLUS_READY__');
+  await module('./calendar-plus.js?v=13','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
-    module('./calendar-interactions-v2.js?v=19','__KPTU_CALENDAR_INTERACTIONS_READY__'),
+    module('./calendar-interactions-v2.js?v=20','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=8','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=10','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=17','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
-  background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=21','__KPTU_SUBORGANIZATIONS_READY__')));
+  background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=22','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
   // google-tasks.js.
-  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=25'),organizationOrder()])).then(()=>module('./google-tasks.js?v=32')).then(()=>module('./calendar-tasks.js?v=3')));
+  background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=25'),organizationOrder()])).then(()=>module('./google-tasks.js?v=33')).then(()=>module('./calendar-tasks.js?v=3')));
   background(google.then(()=>module('./calendar-health.js?v=6')));
   return {ok:true}
 }
 async function tasks(){
   await module('./project-catalog.js?v=3');
   await organizationOrder();
-  await module('./google-tasks.js?v=32');
+  await module('./google-tasks.js?v=33');
   return {ok:true}
 }
 async function projects(){
@@ -99,8 +99,8 @@ async function projects(){
   await module('./project-catalog.js?v=3');
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
-  await module('./google-tasks.js?v=32');
-  await module('./project-system-v3.js?v=48','__KPTU_PROJECT_V3_READY__');
+  await module('./google-tasks.js?v=33');
+  await module('./project-system-v3.js?v=49','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
@@ -113,7 +113,7 @@ async function meetings(){
   await projectCatalog();
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
-  await module('./google-tasks.js?v=32');
+  await module('./google-tasks.js?v=33');
   await module('./meeting-round-detail.js?v=26','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
@@ -127,10 +127,10 @@ async function pages(){
 }
 async function organizations(){
   await organizationOrder();
-  await module('./suborganizations.js?v=21','__KPTU_SUBORGANIZATIONS_READY__');
+  await module('./suborganizations.js?v=22','__KPTU_SUBORGANIZATIONS_READY__');
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
   await module('./project-catalog.js?v=3');
-  await module('./google-tasks.js?v=32');
+  await module('./google-tasks.js?v=33');
   await module('./workplace-detail.js?v=20');
   import('./workplace-report.js?v=2').catch(console.error);
   return {ok:true}
@@ -138,7 +138,7 @@ async function organizations(){
 async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
-  await module('./home-read.js?v=24');
+  await module('./home-read.js?v=25');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});

@@ -123,19 +123,19 @@
     }
     try{return JSON.stringify(body)}catch{return null}
   }
-  function getKey(path,{method='GET',auth=true,headers={}}={}){
+  function getKey(path,{method='GET',auth=true,headers={},expectedSessionEpoch=null}={}){
     const verb=String(method||'GET').toUpperCase();
     if(verb!=='GET')return null;
     const headerKey=JSON.stringify(Object.entries(headers||{}).sort(([a],[b])=>a.localeCompare(b)));
-    return [sessionEpoch,path,auth?'auth':'anon',headerKey].join('\n');
+    return [sessionEpoch,path,auth?'auth':'anon',headerKey,expectedSessionEpoch==null?'default':'session:'+expectedSessionEpoch].join('\n');
   }
-  function mutationKey(path,{method='GET',body=null,prefer='',auth=true,headers={}}={}){
+  function mutationKey(path,{method='GET',body=null,prefer='',auth=true,headers={},expectedSessionEpoch=null}={}){
     const verb=String(method||'GET').toUpperCase();
     if(!['POST','PUT','PATCH','DELETE'].includes(verb))return null;
     const bodyKey=mutationBodyKey(body);
     if(bodyKey===null)return null;
     const headerKey=JSON.stringify(Object.entries(headers||{}).sort(([a],[b])=>a.localeCompare(b)));
-    return [verb,path,auth?'auth':'anon',prefer||'',headerKey,bodyKey].join('\n');
+    return [verb,path,auth?'auth':'anon',prefer||'',headerKey,bodyKey,expectedSessionEpoch==null?'default':'session:'+expectedSessionEpoch].join('\n');
   }
 
   async function refresh(){
@@ -181,13 +181,25 @@
     if((current.expires_at||0)<Math.floor(Date.now()/1000)+60)return !!(await refresh());
     return true;
   }
-  async function apiRequest(path,{method='GET',body=null,prefer='',auth=true,headers={},timeoutMs=config.timeoutMs,refreshSession=true}={}){
-    if(auth&&refreshSession&&!(await ensure()))throw sessionRequired();
+  // Opted-in editors bind retries to the authentication generation that started the save.
+  // This cancels future requests/returned results, not writes already received by a server.
+  function checkRequestSession(expectedSessionEpoch){
+    if(expectedSessionEpoch!=null&&expectedSessionEpoch!==sessionEpoch)throw new RuntimeError('로그인 상태가 바뀌어 요청을 중단했습니다.',{code:'session_changed',retryable:false});
+  }
+  async function apiRequest(path,{method='GET',body=null,prefer='',auth=true,headers={},timeoutMs=config.timeoutMs,refreshSession=true,expectedSessionEpoch=null}={}){
+    checkRequestSession(expectedSessionEpoch);
+    if(auth&&refreshSession){
+      let ensured;
+      try{ensured=await ensure()}catch(e){checkRequestSession(expectedSessionEpoch);throw e}
+      checkRequestSession(expectedSessionEpoch);
+      if(!ensured)throw sessionRequired();
+    }
     const requestEpoch=sessionEpoch;
     const url=path.startsWith('http')?path:config.url+path;
     const requestBody=body===null?null:(body instanceof FormData?body:JSON.stringify(body));
 
     async function request(){
+      checkRequestSession(expectedSessionEpoch);
       const current=read();
       if(auth&&!current?.access_token)throw sessionRequired();
       const h={apikey:config.key,...headers};
@@ -206,10 +218,14 @@
     }
 
     let r=await request();
+    checkRequestSession(expectedSessionEpoch);
     if(auth&&refreshSession&&r.status===401){
-      const refreshed=await refresh();
+      let refreshed;
+      try{refreshed=await refresh()}catch(e){checkRequestSession(expectedSessionEpoch);throw e}
+      checkRequestSession(expectedSessionEpoch);
       if(!refreshed)throw sessionRequired();
       r=await request();
+      checkRequestSession(expectedSessionEpoch);
       if(r.status===401){
         write(null);
         throw sessionRequired();
@@ -217,6 +233,7 @@
     }
 
     const data=await responseData(r);
+    checkRequestSession(expectedSessionEpoch);
     if(!r.ok){
       throw new RuntimeError(responseMessage(data,r.status),{
         status:r.status,
@@ -235,6 +252,8 @@
     return data;
   }
   async function api(path,options={}){
+    // Validate before sharing a flight: a stale caller must not join a current one.
+    checkRequestSession(options.expectedSessionEpoch);
     const dedupe=options.singleFlight!==false;
     const getFlightKey=dedupe?getKey(path,options):null;
     if(getFlightKey&&getFlights.has(getFlightKey))return getFlights.get(getFlightKey);

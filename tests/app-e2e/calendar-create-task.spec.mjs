@@ -27,7 +27,7 @@ test('monthly blank cell supplies the task date',async({page})=>{
 });
 test('task uses shared save path with date-only, project and notes; refreshes calendar and home',async({page})=>{
  await open(page);const bodies=[];
- await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{task:{id:'created'}}});});
+ await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,task:{id:'created',...r.request().postDataJSON()},links:r.request().postDataJSON().links.map(x=>({...x,status:'confirmed'})),meeting_links:[]}});});
  await page.locator('[data-event-mode="task"]').click();await page.locator('#eventTitle').fill('QA');await page.locator('#eventStartDate').fill('2026-10-06');await page.locator('#eventDescription').fill('QA notes');
  await page.locator('#eventTaskProject').click();await page.locator('#eventProjectSheet').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(page.locator('#eventTaskProject')).toBeFocused();
  let overview=0;await page.route(SB+'/functions/v1/google-tasks?action=overview*',r=>{overview++;return r.fulfill({json:{connected:true,authorized:true,tasks:[{id:'created',title:'QA',due:'2026-10-06',status:'needsAction'}]}});});
@@ -37,14 +37,14 @@ test('task uses shared save path with date-only, project and notes; refreshes ca
  await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('[data-home-cards]')).toContainText('QA');
 });
 test('task failure retains draft and blocks repeated saves; undated and partial success are supported',async({page})=>{
- await open(page);await page.locator('[data-event-mode="task"]').click();await page.locator('#eventTitle').fill('QA');await page.locator('#eventStartDate').fill('');
+ await open(page);await page.locator('[data-event-mode="task"]').click();await page.locator('#eventTitle').fill('QA');await page.locator('#eventStartDate').fill('');await page.locator('#eventTaskProject').click();await page.getByRole('button',{name:'자식 프로젝트',exact:true}).click();
  const bodies=[];let release;const gate=new Promise(r=>release=r);let fail=true;
- await page.route(SB+'/functions/v1/google-tasks?action=create',async r=>{bodies.push(r.request().postDataJSON());await gate;return r.fulfill({status:fail?500:200,json:fail?{message:'QA error'}:{task:{id:'created'},link_error:true}});});
- await page.locator('#saveEventBtn').click();await expect(page.locator('[data-event-mode="event"]')).toBeDisabled();await page.locator('#saveEventBtn').dispatchEvent('click');release();await expect(page.locator('#eventStatus')).toContainText('QA error');await expect(page.locator('#eventTitle')).toHaveValue('QA');expect(bodies).toHaveLength(1);expect(bodies[0].due).toBeNull();
- fail=false;await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();await expect(page.locator('#toast')).toContainText('프로젝트 연결 실패');
+ await page.route(SB+'/functions/v1/google-tasks?action=create',async r=>{bodies.push(r.request().postDataJSON());await gate;return r.fulfill({status:fail?403:200,json:fail?{error:'TASKS_SCOPE_REQUIRED'}:{ok:true,task:{id:'created',...r.request().postDataJSON()},links:[],meeting_links:[],link_error:'연결 실패'}});});
+ await page.locator('#saveEventBtn').click();await expect(page.locator('[data-event-mode="event"]')).toBeDisabled();await page.locator('#saveEventBtn').dispatchEvent('click');release();await expect(page.locator('#eventStatus')).toContainText('권한');await expect(page.locator('#eventTitle')).toHaveValue('QA');expect(bodies).toHaveLength(1);expect(bodies[0].due).toBeNull();
+ await page.route(SB+'/functions/v1/google-tasks?action=links*',r=>r.fulfill({json:{links:[],meeting_links:[]}}));fail=false;await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventStatus')).toContainText('연결');await expect(page.locator('#eventTitle')).toHaveValue('QA');expect(bodies).toHaveLength(2);
 });
 test('event mode still sends the existing calendar request',async({page})=>{
- await open(page);const writes=[];await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true}});});
+ await open(page);const writes=[];await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
  await page.locator('#eventTitle').fill('QA');await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();expect(writes[0]).toMatchObject({action:'create-event',title:'QA',all_day:false});expect(writes[0]).toHaveProperty('start_iso');expect(writes[0]).not.toHaveProperty('links');
 });
 test('project selection survives token refresh; sheet Back and Escape preserve registration',async({page})=>{
@@ -60,7 +60,7 @@ test('project selection survives token refresh; sheet Back and Escape preserve r
 });
 test('pending event save locks mode changes',async({page})=>{
  await open(page);await page.locator('#eventTitle').fill('QA');let release;const gate=new Promise(r=>release=r);
- await page.route(SB+'/functions/v1/google-calendar',async r=>{await gate;return r.fulfill({json:{ok:true}});});
+ await page.route(SB+'/functions/v1/google-calendar',async r=>{await gate;return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
  await page.locator('#saveEventBtn').click();await expect(page.locator('[data-event-mode="task"]')).toBeDisabled();release();await expect(page.locator('#eventModal')).toBeHidden();
 });
 test('desktop task registration keeps fields and shared project sheet usable',async({page})=>{
