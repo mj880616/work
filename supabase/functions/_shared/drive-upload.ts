@@ -180,6 +180,7 @@ export function createDriveUpload(
   async function ensurePrivateRootFolder(
     workspaceId: string,
     token: string,
+    options: { existingOnly?: boolean } = {},
   ): Promise<string> {
     const { data: setting, error } = await admin.from("app_drive_settings")
       .select("basket_folder_id")
@@ -261,6 +262,9 @@ export function createDriveUpload(
     }
     if (setting?.basket_folder_id) {
       return await verifyStoredFolder(setting.basket_folder_id);
+    }
+    if (options.existingOnly) {
+      throw new UploadError(409, "drive_folder_missing", "drive_folder");
     }
     const found = await rootFolders();
     const id = found.length

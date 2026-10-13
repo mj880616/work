@@ -291,6 +291,25 @@ function harness(options = {}) {
   });
 
 const note = (id, extra = {}) => ({id, raw_text:`TEXT_${id}`, occurred_at:now.toISOString(), created_at:now.toISOString(), updated_at:now.toISOString(), archived_at:null, ai_export_allowed:true, attachments:[], ...extra});
+const ocrPhoto = (state='done',text='  인식 글 <script>\r\n끝  ') => ({drive_file_id:'photo-source',file_name:'원본.jpg',mime_type:'image/jpeg',size_bytes:4,
+ ocr:{state,original_file_id:'photo-source',attempt_id:'10000000-0000-4000-8000-000000000001',text,temp_document_id:'photo-temp',cleanup_state:'created'}});
+test('Drive copy includes escaped OCR separately from raw text and retains it in reading and failed states',async()=>{
+ for(const state of ['done','reading','failed']){
+  const h=harness({data:{app_notes:[note('ocr',{attachments:[ocrPhoto(state)]}),note('archived',{archived_at:now.toISOString(),attachments:[ocrPhoto('done','ARCHIVED_OCR')]}),note('excluded',{ai_export_allowed:false,attachments:[ocrPhoto('done','EXCLUDED_OCR')]})]}});
+  assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
+  const html=h.uploads[1].body;assert.match(html,/사진에서 읽은 글/);assert.match(html,/  인식 글 &lt;script&gt;&#13;\n끝  /);
+  assert.match(html,/TEXT_ocr/);assert.doesNotMatch(html,/ARCHIVED_OCR|EXCLUDED_OCR|<script>/);
+ }
+});
+test('malformed OCR is rejected without exporting untrusted contents',async()=>{
+ const h=harness({existing:true,data:{app_notes:[note('bad-ocr',{attachments:[{...ocrPhoto(),ocr:'FORBIDDEN_OCR'}]})]}});
+ const result=await(await h.request({Authorization:'Bearer valid-owner'})).json();
+ assert.equal(result.error,'BASKET_ATTACHMENT_INVALID');assert.equal(h.uploads.length,0);assert.doesNotMatch(JSON.stringify(h.patches),/FORBIDDEN_OCR/);
+});
+test('the complete project document budget includes all OCR and escaping bytes',()=>{
+ const data={organizations:[],organizationUpdates:[],projects:[],workstreams:[],progress:[],milestones:[],taskLinks:[],documents:[],meetings:[],noteLinks:[],notes:Array.from({length:20},(_,i)=>note('ocr-limit'+i,{attachments:[ocrPhoto('reading','😀'.repeat(16384))]}))};
+ const rendered=core.renderDocuments(data,now);assert.equal(rendered.basketError,'BASKET_OUTPUT_LIMIT');assert.doesNotMatch(rendered.project,/😀/);assert.match(rendered.project,/対象|대상 축소 필요/);assert.ok(new TextEncoder().encode(rendered.project).length<=1048576);
+});
 test('basket includes only eligible unclassified owner notes with KST boundaries and old count', async () => {
   const window=core.kstWindow(now);
   const h=harness({data:{
@@ -307,7 +326,7 @@ test('basket includes only eligible unclassified owner notes with KST boundaries
 });
 test('basket preserves raw whitespace and literal HTML; attachment allowlist emits links only',async()=>{
  const raw='  첫 줄\n\n\t둘째 <script> & 줄\r\n끝  ';
- const h=harness({data:{app_notes:[note('raw',{raw_text:raw,attachments:[{drive_file_id:'fake_file-123',file_name:'사진 <원본>.png',mime_type:'image/png',size_bytes:123,body:'FORBIDDEN_ATTACHMENT_BODY',base64:'FORBIDDEN_BASE64',ocr:'FORBIDDEN_OCR'}]})]}});
+ const h=harness({data:{app_notes:[note('raw',{raw_text:raw,attachments:[{drive_file_id:'fake_file-123',file_name:'사진 <원본>.png',mime_type:'image/png',size_bytes:123,body:'FORBIDDEN_ATTACHMENT_BODY',base64:'FORBIDDEN_BASE64'}]})]}});
  assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
  const html=h.uploads[1].body;
  assert.match(html,/<pre[^>]*><span><\/span>  첫 줄\n\n\t둘째 &lt;script&gt; &amp; 줄&#13;\n끝  <\/pre>/);

@@ -1,11 +1,13 @@
 import { createDriveUpload, UploadError } from "../_shared/drive-upload.ts";
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
+import {createOcrHandler} from "./ocr.ts";
+import type {OcrUser} from "./ocr.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -48,10 +50,11 @@ function validateFiles(files: FormDataEntryValue[]): File[] {
 
 export function createBasketHandler(
   admin: UploadAdmin,
-  options: { fetch?: typeof fetch; log?: UploadLog } = {},
+  options: { fetch?: typeof fetch; log?: UploadLog; userClient?:(authorization:string)=>OcrUser } = {},
 ) {
   const log = options.log ?? ((code: string) => console.error(code));
   const drive = createDriveUpload(admin, { ...options, log });
+  const ocr=createOcrHandler(admin,{...options,log});
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     let token = "";
@@ -74,7 +77,7 @@ export function createBasketHandler(
       if (error || !data.user) {
         throw new UploadError(401, "session_required", "auth");
       }
-      if (req.method !== "POST") return json({ error: "POST only" }, 405);
+      if (!["GET","POST"].includes(req.method)) return json({ error: "GET/POST only" }, 405);
       stage = "authorize";
       const { data: member, error: memberError } = await admin.from(
         "app_workspace_members",
@@ -87,6 +90,9 @@ export function createBasketHandler(
         throw new UploadError(403, "forbidden", stage);
       }
       workspaceId = member.workspace_id;
+      if(req.method==="GET" || req.headers.get("content-type")?.split(";")[0].trim().toLowerCase()==="application/json"){
+        return await ocr(req,workspaceId,`Bearer ${match[1]}`);
+      }
       stage = "request";
       let form: FormData;
       try {

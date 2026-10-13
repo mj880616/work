@@ -1,4 +1,5 @@
 import {basketProjects} from './project-catalog-model.mjs';
+import {effectiveOcrText} from '../_shared/basket-ocr-text.mjs';
 // Basket guidance only: active + actual owner assignment, matching home weekUpdates.
 // Keep browser/Edge deployment-local copies identical; regression tests compare them.
 export function selectBasketOrganizations(organizations, assignees) {
@@ -30,7 +31,9 @@ function attachmentHtml(file) {
     throw new Error('BASKET_ATTACHMENT_INVALID');
   }
   const url = `https://drive.google.com/file/d/${file.drive_file_id}/view`;
-  return `<p>첨부: ${escape(file.file_name)} · ${escape(file.mime_type)} · ${file.size_bytes} bytes · <a href="${escape(url)}">${escape(url)}</a></p>`;
+  const text=effectiveOcrText(file);
+  return `<p>첨부: ${escape(file.file_name)} · ${escape(file.mime_type)} · ${file.size_bytes} bytes · <a href="${escape(url)}">${escape(url)}</a></p>`
+    +(text ? `<p>사진에서 읽은 글 · ${escape(file.file_name)}</p><pre style="white-space: pre-wrap"><span></span>${escape(text).replace(/\r/g,'&#13;')}</pre>` : '');
 }
 export function renderBasket(notes, links, projects, organizations, now, window, fallback = false) {
   const linked = new Set(links.filter(link => ['confirmed', 'suggested'].includes(link.status)).map(link => link.note_id));
