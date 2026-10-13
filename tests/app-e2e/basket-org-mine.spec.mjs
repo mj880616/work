@@ -14,6 +14,8 @@ for(const width of [390,1280]){
   test(`basket handoff owner organizations ${mode} ${width}`,async({page},info)=>{
    const errors=[],confirms=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
    await page.setViewportSize({width,height:1000});await openHome(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+   // Organization copy tests need a valid synthetic session at this fixed date.
+   await page.evaluate(()=>{const rt=window.KPTURuntime;rt.session.write({...rt.session.read(),expires_at:Math.floor(Date.now()/1000)+3600});});
    const note={id:noteId,workspace_id:'w',raw_text:'합성 정리 대상 메모',occurred_at:stamp,updated_at:stamp,ai_export_allowed:true,attachments:[]};
    await page.route(SB+'/rest/v1/app_notes?**',r=>r.fulfill({json:[note]}));
    await page.route(SB+'/rest/v1/app_record_links?**',r=>r.fulfill({json:[]}));
