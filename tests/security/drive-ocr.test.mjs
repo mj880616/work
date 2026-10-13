@@ -84,3 +84,11 @@ test('reconciliation searches every page and requires one exact private-marker i
   assert.equal(probe.calls.some(c=>c.method==='POST'||c.method==='DELETE'),false);
  }
 });
+
+test('provider reports the actual create dispatch boundary, including response loss but excluding pre-POST failure',async()=>{
+ for(const options of [{},{createUnknown:true},{sourceBytes:new Uint8Array([1,2,3,4])}]){
+  const h=await harness(options),source=await h.drive.source(PHOTO,'folder','token');let dispatched=0;
+  try{await h.drive.create(source,PHOTO,'folder',h.markers,'token',()=>{dispatched++;});}catch{}
+  assert.equal(dispatched,options.sourceBytes?0:1);assert.equal(h.calls.filter(c=>c.method==='POST').length,dispatched);
+ }
+});

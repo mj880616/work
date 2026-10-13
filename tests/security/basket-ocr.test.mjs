@@ -84,3 +84,23 @@ test('discovery never exposes an unverified candidate as a known temporary docum
  assert.equal(r.code,'OCR_IDENTITY_INVALID');assert.equal(r.temp_document_id,undefined);assert.equal(h.note.attachments[0].ocr.temp_document_id,undefined);
  assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1);assert.equal(h.calls.drive.some(c=>c.method==='DELETE'),false);
 });
+
+test('restarted pending or unknown attempts survive cleanup and reconciliation refusals without another import',async()=>{
+ const cases=[['cleanup',{},'ocr-cleanup'],['discovery-http',{discoveryStatus:503},'ocr-reconcile'],['ambiguous',{discoveryFiles:[{id:'temp'},{id:'other'}]},'ocr-reconcile'],['identity',{temp:{ownedByMe:false}},'ocr-reconcile'],['source',{sourceMetadata:{ownedByMe:false}},'ocr-reconcile'],['not-found',{discoveryEmpty:true},'ocr-reconcile']];
+ for(const [initial,createUnknown,blocked]of [['create_pending',true,'create_unknown'],['create_pending',false,'created'],['create_unknown',true,null]])for(const [label,failure,action]of cases){
+  const options={createUnknown,rpcHook:(_name,args)=>blocked&&args.p_ocr?.cleanup_state===blocked?{data:null,error:{code:'NETWORK'}}:null};
+  const h=ocrHarness(options);await h.request();const attempt=h.note.attachments[0].ocr.attempt_id;
+  assert.equal(h.note.attachments[0].ocr.cleanup_state,initial);assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1);
+  Object.assign(options,failure);h.restart();const refusal=await(await h.request(action,{attempt_id:attempt})).json();assert.equal(refusal.ok,false,label);
+  for(const key of Object.keys(failure))delete options[key];
+  await h.request();assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1,initial+':'+label+' must never regenerate');
+  assert.equal(h.note.attachments[0].ocr.attempt_id,attempt,label);assert.ok(['create_pending','create_unknown'].includes(h.note.attachments[0].ocr.cleanup_state),label);if(initial==='create_unknown')assert.equal(h.note.attachments[0].ocr.cleanup_state,'create_unknown',label);assert.equal(h.note.attachments[0].ocr.state,'reading',label);
+  assert.equal(refusal.result_unknown,true,label);assert.equal(h.calls.drive.some(c=>c.method==='DELETE'),false,label);
+ }
+});
+test('only a fresh confirmed attempt with a known pre-POST binary failure can return to failed/none',async()=>{
+ const options={sourceBytes:new Uint8Array([1,2,3,4])},h=ocrHarness(options),r=await(await h.request()).json();
+ assert.equal(r.code,'OCR_SOURCE_UNSUPPORTED');assert.equal(r.result_unknown,false);assert.equal(h.note.attachments[0].ocr.state,'failed');assert.equal(h.note.attachments[0].ocr.cleanup_state,'none');
+ const oldAttempt=h.note.attachments[0].ocr.attempt_id;assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,0);
+ delete options.sourceBytes;const next=await(await h.request()).json();assert.equal(next.ok,true);assert.notEqual(h.note.attachments[0].ocr.attempt_id,oldAttempt);assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1);
+});

@@ -73,6 +73,8 @@ export function createOcrHandler(
       attempt: string | undefined,
       tempId: string | undefined,
       created = false,
+      freshAttemptConfirmed = false,
+      createDispatched = false,
       textChanged = false;
     async function read(id: string) {
       if (!db) throw new OcrError("OCR_DB_UNAVAILABLE");
@@ -415,6 +417,7 @@ export function createOcrHandler(
           source.version!,
         );
         await save(note, file, next);
+        freshAttemptConfirmed = true;
         if (note!.updated_at !== sourceStamp) {
           throw new OcrError("NOTE_CHANGED", 409);
         }
@@ -424,6 +427,9 @@ export function createOcrHandler(
           folder,
           markers,
           token,
+          () => {
+            createDispatched = true;
+          },
         );
         created = true;
         await drive.temp(
@@ -546,9 +552,12 @@ export function createOcrHandler(
               e.code === "OCR_CREATE_UNKNOWN" || (created && !tempId)
             ) next.cleanup_state = "create_unknown";
             else if (
-              !tempId && file!.ocr!.cleanup_state === "create_pending" &&
-              !e.unknown
+              freshAttemptConfirmed && !createDispatched && !tempId &&
+              file!.ocr!.cleanup_state === "create_pending" && !e.unknown
             ) {
+              // Only this request can prove its own confirmed new attempt
+              // failed before CREATE dispatch. Persisted pending/unknown
+              // attempts may belong to an interrupted or late worker.
               next.state = "failed";
               next.cleanup_state = "none";
             }
@@ -567,7 +576,10 @@ export function createOcrHandler(
         ok: false,
         code: e.code,
         retryable: false,
-        result_unknown: e.unknown || (created && !tempId),
+        result_unknown: e.unknown || (created && !tempId) ||
+          ["create_pending", "create_unknown"].includes(
+            file?.ocr?.cleanup_state,
+          ),
         ocr_saved: ["done", "empty"].includes(file?.ocr?.state),
         text_changed: textChanged,
         cleanup_state: file?.ocr?.cleanup_state,

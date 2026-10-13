@@ -28,10 +28,16 @@ test('photo server consumes main SQL with exact owner-JWT CAS and preserves lega
   async function harness(options={}){
    const id=randomUUID();await pool.query("insert into public.app_notes(id,workspace_id,raw_text,attachments,updated_at,archived_at,ai_export_allowed,metadata)values($1,$2,'unchanged raw',$3::jsonb,'2026-10-13T01:00:00.123456Z','2026-10-12T00:00:00Z',false,'{\"unrelated\":true}')",[id,WS_A,JSON.stringify([{drive_file_id:'source',file_name:'photo.jpg',mime_type:'image/jpeg',size_bytes:4}])]);
    const shared=await row(id),role=options.role??'authenticated',sub=options.sub??OWNER;let h;
-   const user={from(table){assert.equal(table,'app_notes');const filters={};const q={select(){return q;},eq(k,v){filters[k]=v;return q;},async maybeSingle(){try{const data=await row(filters.id,role,sub);return {data:data?.workspace_id===filters.workspace_id?data:null,error:null};}catch(e){return {data:null,error:{code:e.code}};}}};return q;},async rpc(name,args){assert.equal(name,'app_basket_update_attachment_ocr');h.calls.rpc.push(structuredClone(args));try{
+   const user={from(table){assert.equal(table,'app_notes');const filters={};const q={select(){return q;},eq(k,v){filters[k]=v;return q;},async maybeSingle(){try{const data=await row(filters.id,role,sub);return {data:data?.workspace_id===filters.workspace_id?data:null,error:null};}catch(e){return {data:null,error:{code:e.code}};}}};return q;},async rpc(name,args){assert.equal(name,'app_basket_update_attachment_ocr');h.calls.rpc.push(structuredClone(args));if(options.lateStartCommit&&args.p_ocr?.cleanup_state==='create_pending'){
+     options.lateStartCommit=false;
+     const c=await pool.connect();await c.query('begin');await c.query("select set_config('request.jwt.claim.sub',$1,true)",[OWNER]);await c.query('set local role authenticated');
+     const data=(await c.query('select public.app_basket_update_attachment_ocr($1,$2,$3::jsonb,$4::jsonb) value',[args.p_note_id,args.p_note_updated_at,JSON.stringify(args.p_expected_attachment),JSON.stringify(args.p_ocr)])).rows[0].value;assert.equal(data.ok,true);
+     h.commitLate=async()=>{await c.query('commit');c.release();Object.assign(shared,await row(id));h.calls.writes.push(structuredClone(data.attachment.ocr));};
+     return {data:null,error:{code:'NETWORK'}};
+    }if(options.blockCleanupStates?.includes(args.p_ocr?.cleanup_state))return {data:null,error:{code:'NETWORK'}};try{
      const data=await as(role,sub,async c=>(await c.query('select public.app_basket_update_attachment_ocr($1,$2,$3::jsonb,$4::jsonb) value',[args.p_note_id,args.p_note_updated_at,JSON.stringify(args.p_expected_attachment),JSON.stringify(args.p_ocr)])).rows[0].value);
      if(data.ok){Object.assign(shared,await row(id));h.calls.writes.push(structuredClone(data.attachment.ocr));}
-     if(options.lostDoneResponse&&data.ok&&args.p_ocr.state==='done')return {data:null,error:{code:'NETWORK'}};
+     if(data.ok&&((options.lostDoneResponse&&args.p_ocr.state==='done')||(options.lostStartResponse&&args.p_ocr.cleanup_state==='create_pending')))return {data:null,error:{code:'NETWORK'}};
      return {data,error:null};
     }catch(e){return {data:null,error:{code:e.code}};}}};
    const adminNotes=()=>{
@@ -42,7 +48,7 @@ test('photo server consumes main SQL with exact owner-JWT CAS and preserves lega
      });return {data,error:null,status:200};}catch(e){return {data:null,error:{code:e.code},status:400};}
     }};return q;
    };
-   h=ocrHarness({...options,note:shared,user,adminNotes});return h;
+   const providerOptions={...options,note:shared,user,adminNotes};h=ocrHarness(providerOptions);h.providerOptions=providerOptions;return h;
   }
   await t.test('actual SQL commits text once, lifecycle versions stay exact, archive/exclusion/raw/metadata survive',async()=>{
    const h=await harness(),before=structuredClone(h.note),r=await(await h.request()).json();assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.cleanup_state,'deleted');assert.equal(r.ocr_saved,true);assert.equal(r.text_changed,true);
@@ -72,6 +78,28 @@ test('photo server consumes main SQL with exact owner-JWT CAS and preserves lega
    const n=await row(h.note.id);assert.equal(n.attachments[0].ocr.text,undefined);assert.equal(n.attachments[0].ocr.state,'failed');assert.equal(n.attachments[0].ocr.temp_document_id,'temp');assert.equal(h.calls.drive.some(c=>c.method==='DELETE'),false);
    Object.assign(h.note,n);const clean=await(await h.request('ocr-cleanup',{attempt_id:n.attachments[0].ocr.attempt_id})).json();assert.equal(clean.ok,true,JSON.stringify(clean));assert.equal(clean.cleanup_state,'deleted');assert.equal(clean.ocr_saved,false);
    assert.equal(h.calls.drive.filter(c=>c.method==='DELETE'&&c.url.pathname.endsWith('/source')).length,0);
+  });
+  await t.test('real owner RPC pending after lost CREATE and lost unknown-status persistence cannot be reset by restart cleanup',async()=>{
+   const options={createUnknown:true,blockCleanupStates:['create_unknown']},h=await harness(options);const first=await(await h.request()).json();assert.equal(first.code,'OCR_CREATE_UNKNOWN');
+   Object.assign(h.note,await row(h.note.id));const original=h.note.updated_at,attempt=h.note.attachments[0].ocr.attempt_id;assert.equal(h.note.attachments[0].ocr.cleanup_state,'create_pending');assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1);
+   h.restart();const cleanup=await(await h.request('ocr-cleanup',{attempt_id:attempt})).json();assert.equal(cleanup.code,'OCR_TEMP_UNKNOWN');
+   await h.request();assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1);const n=await row(h.note.id);assert.equal(n.attachments[0].ocr.attempt_id,attempt);assert.equal(n.attachments[0].ocr.cleanup_state,'create_pending');assert.equal(n.updated_at,original);assert.equal(cleanup.result_unknown,true);
+   h.providerOptions.discoveryStatus=503;assert.notEqual((await h.request('ocr-reconcile',{attempt_id:attempt})).status,200);delete h.providerOptions.discoveryStatus;
+   await h.request();assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1);assert.equal((await row(h.note.id)).attachments[0].ocr.cleanup_state,'create_pending');
+  });
+  await t.test('negative readback does not disprove a late attempt commit; a restarted worker cannot release it',async()=>{
+   const h=await harness({lateStartCommit:true});try{
+    const first=await(await h.request()).json();assert.equal(first.code,'OCR_DB_RESULT_UNKNOWN');assert.equal(first.result_unknown,true);assert.equal((await row(h.note.id)).attachments[0].ocr,undefined);assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,0);
+   }finally{if(h.commitLate)await h.commitLate();}
+   const attempt=h.note.attachments[0].ocr.attempt_id;assert.equal(h.note.attachments[0].ocr.cleanup_state,'create_pending');h.restart();
+   const cleanup=await(await h.request('ocr-cleanup',{attempt_id:attempt})).json();assert.equal(cleanup.code,'OCR_TEMP_UNKNOWN');assert.equal(cleanup.result_unknown,true);
+   await h.request();assert.equal((await row(h.note.id)).attachments[0].ocr.attempt_id,attempt);assert.equal((await row(h.note.id)).attachments[0].ocr.cleanup_state,'create_pending');assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,0);
+  });
+  await t.test('real owner RPC permits fresh known pre-POST failure recovery without altering source flags',async()=>{
+   const options={sourceBytes:new Uint8Array([1,2,3,4]),lostStartResponse:true},h=await harness(options),before=structuredClone(h.note),r=await(await h.request()).json();assert.equal(r.code,'OCR_SOURCE_UNSUPPORTED');assert.equal(r.result_unknown,false);
+   const n=await row(h.note.id),attempt=n.attachments[0].ocr.attempt_id;assert.equal(n.attachments[0].ocr.state,'failed');assert.equal(n.attachments[0].ocr.cleanup_state,'none');assert.equal(n.updated_at,before.updated_at);assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,0);
+   delete h.providerOptions.sourceBytes;const next=await(await h.request()).json();assert.equal(next.ok,true);assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,1);assert.notEqual(h.note.attachments[0].ocr.attempt_id,attempt);
+   for(const key of ['raw_text','metadata','archived_at','ai_export_allowed'])assert.deepEqual(h.note[key],before[key]);
   });
   await t.test('caller owner-RLS, service-role execute denial and unknown capability fail closed',async()=>{
    for(const options of [{sub:STRANGER},{role:'service_role',sub:OWNER}]){const h=await harness(options);assert.notEqual((await h.request()).status,200);assert.equal(h.calls.drive.filter(c=>c.url.pathname.includes('/upload/')).length,0);}

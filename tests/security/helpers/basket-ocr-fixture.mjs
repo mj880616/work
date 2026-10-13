@@ -29,9 +29,10 @@ export function ocrHarness(options={}){
   if(url.hostname==='oauth2.googleapis.com')return Response.json({access_token:'token'});
   if(url.pathname.endsWith('/about'))return Response.json({importFormats:{'image/jpeg':['application/vnd.google-apps.document'],'image/png':['application/vnd.google-apps.document']},exportFormats:{'application/vnd.google-apps.document':['text/plain']}});
   if(url.pathname==='/drive/v3/files/folder')return Response.json({...meta('folder','application/vnd.google-apps.folder','Web2 바구니'),parents:['root']});
-  if(url.pathname==='/drive/v3/files'&&method==='GET')return Response.json({files:url.searchParams.get('q')?.includes("name = 'Web2 바구니'")?options.noRoot?[]:[{...meta('folder','application/vnd.google-apps.folder','Web2 바구니'),parents:['root']}]:options.discoveryEmpty?[]:doc?[doc]:[]});
-  if(url.pathname==='/drive/v3/files/source'&&url.searchParams.get('alt')==='media')return new Response(new Uint8Array([255,216,255,0]));
-  if(url.pathname==='/drive/v3/files/source')return Response.json(meta('source','image/jpeg','photo.jpg'));
+  if(url.pathname==='/drive/v3/files'&&method==='GET'&&!url.searchParams.get('q')?.includes("name = 'Web2 바구니'")&&options.discoveryStatus)return new Response(null,{status:options.discoveryStatus});
+  if(url.pathname==='/drive/v3/files'&&method==='GET')return Response.json({files:url.searchParams.get('q')?.includes("name = 'Web2 바구니'")?options.noRoot?[]:[{...meta('folder','application/vnd.google-apps.folder','Web2 바구니'),parents:['root']}]:options.discoveryEmpty?[]:options.discoveryFiles??(doc?[doc]:[])});
+  if(url.pathname==='/drive/v3/files/source'&&url.searchParams.get('alt')==='media')return new Response(options.sourceBytes??new Uint8Array([255,216,255,0]));
+  if(url.pathname==='/drive/v3/files/source')return Response.json({...meta('source','image/jpeg','photo.jpg'),...options.sourceMetadata});
   if(url.pathname==='/upload/drive/v3/files'&&url.searchParams.get('uploadType')==='resumable')return new Response('{}',{headers:{location:'https://www.googleapis.com/legacy-upload'}});
   if(url.pathname==='/legacy-upload'&&method==='PUT')return Response.json({id:'legacy-second'});
   if(url.pathname==='/upload/drive/v3/files'){
@@ -49,10 +50,10 @@ export function ocrHarness(options={}){
   if(url.pathname==='/drive/v3/files/temp'&&method==='DELETE'){if(options.onDelete)await options.onDelete(note);if(options.cleanupFail)return new Response(null,{status:503});doc=null;return new Response(null,{status:204});}
   throw Error('unexpected HTTP');
  };
- const handler=createBasketHandler(admin,{fetch:fetcher,log:code=>calls.logs.push(code),userClient:authorization=>{calls.client.push(authorization);assert.equal(authorization,'Bearer owner');return options.user??user;}});
+ const makeHandler=()=>createBasketHandler(admin,{fetch:fetcher,log:code=>calls.logs.push(code),userClient:authorization=>{calls.client.push(authorization);assert.equal(authorization,'Bearer owner');return options.user??user;}});let handler=makeHandler();
  const request=(action='ocr-read',extra={},method='POST',token='owner')=>{
   const url=method==='GET'?`https://edge.test/basket-files?action=${action}&note_id=${extra.note_id||NOTE}`:'https://edge.test/basket-files';
   return handler(new Request(url,{method,headers:{Authorization:'Bearer '+token,...(method==='POST'?{'Content-Type':'application/json'}:{})},...(method==='POST'?{body:JSON.stringify({action,note_id:NOTE,note_updated_at:note.updated_at,expected_attachment:structuredClone(note.attachments[0]),...extra})}:{})}));
  };
- return {handler,request,note,calls,user,fetcher};
+ return {handler,request,note,calls,user,fetcher,restart:()=>{handler=makeHandler();}};
 }

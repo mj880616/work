@@ -139,3 +139,5 @@ API/로그는 고정 코드만 사용하고 Google 오류본문·원문·인식 
 Drive 검증이나 정확히 한 번의 외부 문서 생성을 증명하는 것은 아니다.
 
 정상 owner가 실제 인식·임시삭제를 확인할 구체 경로/필요한 규칙 예외 또는 순서결정은 마지막 묶음에서 CC 확인한다. 운영·인증 우회 경로를 임의로 만들지 않는다.
+
+별도 검토 보완: 재시작한 persisted create_pending/create_unknown 시도는 정리·검색·소유/출처 검증의 거절 응답으로 failed/none으로 풀지 않는다. 이번 요청에서 새 시도 CAS가 확인되고 provider의 외부 CREATE가 아직 발송되지 않았다는 요청별 근거가 함께 있을 때만 known pre-POST 실패를 failed/none으로 기록한다. 기존 pending/unknown은 결과 불명과 같은 attempt를 보존하며 새 UUID/import로 우회하지 않는다.

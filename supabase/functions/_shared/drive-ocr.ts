@@ -165,6 +165,7 @@ export function createDriveOcr(options: { fetch?: typeof fetch } = {}) {
     folder: string,
     markers: Record<string, string>,
     token: string,
+    onDispatch: () => void = () => {},
   ) {
     if (
       !validId(folder) ||
@@ -264,6 +265,9 @@ export function createDriveOcr(options: { fetch?: typeof fetch } = {}) {
         body: stream,
         duplex: "half",
       };
+      // Tell this request exactly when remote creation may have been sent.
+      // A later refusal cannot be treated as proof that no document exists.
+      onDispatch();
       const response = await request(
         `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&ocrLanguage=ko&fields=id`,
         token,
