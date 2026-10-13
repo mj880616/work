@@ -6,6 +6,13 @@ on:
       - 'app/**'
       - 'supabase/functions/google-calendar/**'
       - 'tests/app-e2e/calendar-edit-move.spec.mjs'
+      - 'tests/app-e2e/calendar-personalization.spec.mjs'
+      - 'tests/app-e2e/save-lock.spec.mjs'
+      - 'tests/app-e2e/save-lock-2-org.spec.mjs'
+      - 'tests/app-e2e/calendar-modal-close.spec.mjs'
+      - 'tests/app-e2e/helpers/login-entry.mjs'
+      - 'tests/app-e2e/helpers/calendar-task-emphasis.mjs'
+      - 'tests/app-e2e/suborganization-filters-canonical-fixture.html'
       - '.github/workflows/calendar-edit-move-e2e.yml'
   push:
     branches: [main]
@@ -13,6 +20,13 @@ on:
       - 'app/**'
       - 'supabase/functions/google-calendar/**'
       - 'tests/app-e2e/calendar-edit-move.spec.mjs'
+      - 'tests/app-e2e/calendar-personalization.spec.mjs'
+      - 'tests/app-e2e/save-lock.spec.mjs'
+      - 'tests/app-e2e/save-lock-2-org.spec.mjs'
+      - 'tests/app-e2e/calendar-modal-close.spec.mjs'
+      - 'tests/app-e2e/helpers/login-entry.mjs'
+      - 'tests/app-e2e/helpers/calendar-task-emphasis.mjs'
+      - 'tests/app-e2e/suborganization-filters-canonical-fixture.html'
       - '.github/workflows/calendar-edit-move-e2e.yml'
 permissions:
   contents: read
