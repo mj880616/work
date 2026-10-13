@@ -10,7 +10,7 @@
 
 첨부 base 네 필드·20개 상한·100MiB 상한·raw_text/metadata/owner RLS·기존 confirm/summary RPC는 유지한다. JPEG/PNG에만 선택적 ocr 정보를 붙인다. OCR 없는 기존 파일은 모든 기존 mime 종류를 그대로 허용한다. 보관·AI 제외 메모를 수동으로 읽어도 그 상태를 해제하지 않는다.
 
-새 함수 정확한 서명은 `app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)`다. authenticated 사용자 JWT로 호출하며 SECURITY INVOKER, 빈 search_path, PUBLIC/anon revoke 뒤 authenticated EXECUTE만. 기존 service-role 첨부 업로드는 새 함수 대신 기존 REST 경로를 유지한다. CHECK에 custom helper를 넣지 않아 helper ACL이 업로드를 막지 않는다.
+새 함수 정확한 서명은 `app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)`다. authenticated 사용자 JWT로 호출하며 SECURITY INVOKER, 빈 search_path, PUBLIC/anon/service_role revoke 뒤 authenticated EXECUTE만. 기존 service-role 첨부 업로드는 새 함수 대신 기존 REST 경로를 유지한다. CHECK에 custom helper를 넣지 않아 helper ACL이 업로드를 막지 않는다.
 
 OCR 필드는 state(unread/reading/done/empty/failed), attempt_id, original_file_id, cleanup_state(none/create_pending/create_unknown/created/delete_pending/deleted/delete_failed), 선택적 text/temp_document_id/error_code/cleanup_error_code다. original_file_id는 첨부의 원본 ID와 일치하고 임시 문서 ID는 원본 ID와 다르다. 알려진 임시 ID는 같은 attempt에서 바꾸거나 지울 수 없다. deleted로 정리가 확인된 뒤 명시적으로 새 시도를 시작하면 이전의 해결된 시도 기록을 새 attempt로 바꿀 수 있다.
 
@@ -25,14 +25,14 @@ text는 16,384 Unicode 문자 및 65,536 UTF8byte 이하다. 초과는 거절하
 1. main 병합 뒤 실제 파일 `supabase/migrations/20261013034836_basket_photo_ocr_db.sql`과 version/name을 고정한다. AI는 DB apply/운영 workflow/환경 승인을 실행하지 않는다.
 2. 사용자 SQL Editor의 SELECT 전용 [snapshot](20261013034836_basket_photo_ocr_db.snapshot.sql)·[precheck](20261013034836_basket_photo_ocr_db.precheck.sql) 결과를 CC가 대조한다. 원문/OCR 글은 출력하지 않는 집계와 schema 정의만 공유한다.
 3. 모든 사전 예/아니오 항목이 예, OCR count0, 실제 원문 version finite, UTF8, 정확한 옛 CHECK, 새로운 동명 함수0, owner RLS 유지가 필요하다. noninternal notes trigger가 하나라도 있으면 호환 검증 전 중단한다. 특히 무조건 updated_at을 바꾸는 trigger는 상태-only version 보존을 깨뜨린다. 기존 trigger를 자동 제거하지 않는다.
-4. 현재 migration 생성 역할의 global/public 함수 custom default ACL이 있으면 중단한다. PUBLIC/anon만 revoke하는 기존 runner 정책에서 추가 service-role/다른 역할의 EXECUTE를 조용히 남길 수 있다. 실제 [snapshot](20261013034836_basket_photo_ocr_db.snapshot.sql)의 default ACL 정의를 CC가 검토한 뒤 좁은 후속 정책 변경을 별도로 마련해야 한다. 이 PR은 default ACL을 변경하지 않는다. [2026-09-27 운영 읽기 전용 기록](security/sec1-auth-handoff-snapshot.md)은 postgres/public의 anon·authenticated·service_role EXECUTE 기본 부여를 확인했다. 현재 값은 다시 확인해야 하지만 같은 설정이면 이 migration은 의도적으로 거절된다. CC가 검토 중인 service_role REVOKE만 허용하는 좁은 OPS 후속 및 그 이후 DB 소스 보완이 운영 준비의 선행 의존성이다. 그 후속을 이 PR에 몰래 포함하지 않는다.
+4. main의 #518 service_role 명시 REVOKE 지원을 반영했다. 현재 생성 역할의 global/public 함수 default ACL은 확인된 anon·authenticated·service_role의 EXECUTE를 지원하고, RPC를 만든 뒤 PUBLIC/anon/service_role를 명시 회수한다. 알 수 없는 role, EXECUTE grant option, 예상 밖 실제 RPC ACL이면 transaction을 거절한다. [2026-09-27 운영 읽기 전용 기록](security/sec1-auth-handoff-snapshot.md)의 hosted3role 설정을 지원하지만 현재 운영 값은 SELECT로 다시 대조한다. authenticated 실행권한을 상속하거나 SET할 수 있는 알 수 없는 member도 중단한다. 기존 생성 역할과 NOINHERIT authenticator gateway의 의도된 인증 경로는 유지한다. 기존 role membership/default ACL을 고치거나 기존 서비스 업로드 권한을 회수하지 않는다.
 5. 승인형 DB workflow는 main에서 dry-run→결과/원상태 대조→apply 순서다. [dry-run.postcheck](20261013034836_basket_photo_ocr_db.dry-run.postcheck.sql)는 원래 CHECK·새 함수 부재를 확인한다. workflow의 집계/structural 성공은 운영 전체 schema·자료 동일성 증명이 아니다. 저장한 snapshot의 행 hash·ACL·정책·기존 confirm/summary·trigger를 따로 대조한다.
 6. apply 뒤 [postcheck](20261013034836_basket_photo_ocr_db.postcheck.sql)와 원본 snapshot을 대조한다. postcheck는 정확한 새 function source/ACL·새 CHECK와 기존 RPC 존재를 검사한다. 수동 snapshot 대조가 끝나기 전 준비 적용을 완료라고 하지 않는다. 실제 backup은 `ops_backup.20261013034836_app_notes_<실제 run_id>`이며 아직 존재를 확인하지 않았다.
 7. 다음 단계는 서버·사본·기본 비활성 화면 준비→실제 DB/Edge 적용→원본 보존·실제 인식·임시 Google 문서 삭제 확인→별도 활성화 PR이다. drive-summary의 직전 운영 되돌리기 source는 현재 v7 `39f1dfec9cd978f9ea5e7c94bca120fb16a0a84e`이며 과거 v6를 사용하지 않는다.
 
 ## 사용 전 되돌리기
 
-사용 전이란 ocr key가 어떤 첨부에도 없는 상태다. reading/unread/empty 정보만 있어도 사용한 것으로 본다. [rollback](20261013034836_basket_photo_ocr_db.rollback.sql)은 table lock 아래 하나라도 ocr key가 있으면 `OCR_DATA_PRESERVATION_REQUIRED`로 거절한다. 정확한 새 함수 서명만 DROP하고 옛 attachments CHECK를 복원한다. 데이터 수정·CASCADE·기존 confirm/summary 제거는 없다. version/name 기록만 지운다.
+사용 전이란 ocr key가 어떤 첨부에도 없는 상태다. reading/unread/empty 정보만 있어도 사용한 것으로 본다. [rollback](20261013034836_basket_photo_ocr_db.rollback.sql)은 table lock 아래 하나라도 ocr key가 있으면 `OCR_DATA_PRESERVATION_REQUIRED`로 거절한다. notes table lock과 migration-history lock 아래 현재 OCR CHECK의 정확한 canonical 정의·검증 상태, RPC 본문/서명/반환/설정/소유자/실행권한, 정확한 version/name/statements가 이 준비 migration과 같은지 먼저 확인한다. 다르면 `PHOTO_OCR_ROLLBACK_CHANGED`로 거절하며 후속 변경을 제거하지 않는다. 일치할 때만 정확한 새 함수 서명을 DROP하고 옛 attachments CHECK를 복원한다. 데이터 수정·CASCADE·기존 confirm/summary 제거는 없다. version/name 기록만 지운다.
 
 ## 사용 후 복구
 

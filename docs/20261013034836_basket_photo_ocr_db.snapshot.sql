@@ -6,6 +6,7 @@ with objects as (
  union all select 'ACL',relname,relrowsecurity::text||':'||relforcerowsecurity::text||':'||coalesce(relacl::text,'') from pg_class where oid in('public.app_notes'::regclass,'public.app_record_links'::regclass)
  union all select 'column ACL',attname,coalesce(attacl::text,'') from pg_attribute where attrelid='public.app_notes'::regclass and attnum>0 and not attisdropped
  union all select 'function default ACL',defaclobjtype::text||':'||defaclnamespace::text,defaclacl::text from pg_default_acl where defaclrole=current_user::regrole and defaclobjtype='f' and (defaclnamespace=0 or defaclnamespace='public'::regnamespace)
+ union all select 'auth role membership',member::regrole::text,inherit_option::text||':'||set_option::text from pg_auth_members where roleid='authenticated'::regrole
  union all select 'trigger',tgname,tgenabled::text||':'||pg_get_triggerdef(oid)||':'||pg_get_functiondef(tgfoid) from pg_trigger where tgrelid='public.app_notes'::regclass and not tgisinternal
  union all select 'existing function',p.proname,pg_get_functiondef(p.oid)||':'||coalesce(p.proacl::text,'') from pg_proc p where p.oid in(to_regprocedure('public.app_basket_confirm_links(uuid,timestamptz,jsonb)'),to_regprocedure('public.app_basket_update_link_summary(uuid,text,text)'))
 )

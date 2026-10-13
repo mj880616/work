@@ -19,7 +19,7 @@ test('photo preparation pairs apply/dry-run/unused rollback and registers exactl
  assert.doesNotMatch(code,/create table|alter policy|grant (?:select|insert|update|delete)|disable row level security|rtw_|security definer|cascade/i);
  assert.equal((code.match(/create function/g)||[]).length,1);
  assert.match(migration,/security invoker set search_path = ''/);
- assert.match(migration,/revoke all on function public\.app_basket_update_attachment_ocr\(uuid,timestamptz,jsonb,jsonb\) from public, anon/);
+ assert.match(migration,/revoke all on function public\.app_basket_update_attachment_ocr\(uuid,timestamptz,jsonb,jsonb\) from public, anon, service_role/);
 });
 test('photo inspection and used-recovery assets are SELECT only and never perform cleanup or discard OCR',()=>{
  for(const suffix of ['snapshot','precheck','postcheck','dry-run.postcheck','preserve','recovery']){
@@ -35,4 +35,12 @@ test('postcheck binds exact RPC source and production gate explicitly checks tri
  const hash=createHash('md5').update(body).digest('hex');assert.ok(read('docs/'+stem+'.postcheck.sql').includes(hash));
  const pre=read('docs/'+stem+'.precheck.sql');assert.match(pre,/pg_trigger/);assert.match(pre,/pg_default_acl/);assert.match(pre,/check_clause=/);
  const recovery=read('docs/'+stem+'.recovery.md');assert.match(recovery,/운영.*미확인/);assert.match(recovery,/사용 후/);assert.match(recovery,/forward fix/);
+});
+
+test('unused rollback embeds the same exact RPC source and verifies validation/history/ACL before paired DROP',()=>{
+ const body=tokens(migration).filter(t=>t.kind==='block').find(t=>t.value.includes('v_note public.app_notes%rowtype')).value;
+ const rollback=read('docs/'+stem+'.rollback.sql');const block=tokens(rollback).find(t=>t.kind==='block');const assertion=tokens(block.value);const index=assertion.findIndex(t=>t.kind==='word'&&t.value==='prosrc');assert.equal(assertion[index+2].kind,'string');assert.equal(assertion[index+2].value,body);
+ assert.match(block.value,/convalidated/);assert.match(block.value,/proconfig=/);assert.match(block.value,/proacl=/);assert.match(block.value,/statements=array/);assert.match(block.value,/PHOTO_OCR_ROLLBACK_CHANGED/);
+ assert.ok(rollback.indexOf('PHOTO_OCR_ROLLBACK_CHANGED')<rollback.indexOf('alter table public.app_notes drop constraint'));
+ const pre=read('docs/'+stem+'.precheck.sql');assert.match(pre,/supported function defaults/);assert.match(pre,/pg_auth_members/);
 });

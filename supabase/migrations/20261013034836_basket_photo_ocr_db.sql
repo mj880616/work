@@ -8,9 +8,12 @@ do $$
 begin
   if (select count(*) from supabase_migrations.schema_migrations where version='20261012100000' and name='basket_link_view_db') <> 1
      or exists(select 1 from pg_settings where name='server_encoding' and setting<>'UTF8')
-     -- Existing runner permits PUBLIC/anon revocation only. Refuse custom
-     -- function defaults instead of leaving an unintended EXECUTE grant.
-     or exists(select 1 from pg_default_acl where defaclrole=current_user::regrole and defaclobjtype='f' and (defaclnamespace=0 or defaclnamespace='public'::regnamespace))
+     -- #518 supports exact service_role revocation. Known hosted defaults
+     -- may grant EXECUTE to these three clients; any other/grant-option default
+     -- or inherited authenticated execution remains a stop, not a permission fix.
+     or exists(select 1 from pg_default_acl where defaclrole=current_user::regrole and defaclobjtype='f' and (defaclnamespace=0 or defaclnamespace='public'::regnamespace)
+       and not (defaclacl <@ array[(current_user::text||'=X/'||current_user::text)::aclitem,('=X/'||current_user::text)::aclitem,('anon=X/'||current_user::text)::aclitem,('authenticated=X/'||current_user::text)::aclitem,('service_role=X/'||current_user::text)::aclitem]))
+     or exists(select 1 from pg_auth_members where roleid='authenticated'::regrole and member<>current_user::regrole and (inherit_option or member not in(select oid from pg_roles where rolname='authenticator' and not rolinherit)))
      or exists(select 1 from pg_class where oid='public.app_notes'::regclass and not relrowsecurity)
      or exists(select 1 from public.app_notes where updated_at in ('infinity'::timestamptz,'-infinity'::timestamptz))
      or exists(select 1 from pg_trigger where tgrelid='public.app_notes'::regclass and not tgisinternal)
@@ -229,8 +232,21 @@ exception
     return pg_catalog.jsonb_build_object('ok',false,'error','INVALID_INPUT');
 end;
 $photo$;
-revoke all on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb) from public, anon;
+revoke all on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb) from public, anon, service_role;
 grant execute on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb) to authenticated;
+
+-- Refuse unexpected effective entry paths before committing the new capability.
+do $$
+begin
+  if (select count(*) from pg_proc where pronamespace='public'::regnamespace and proname='app_basket_update_attachment_ocr'
+    and pronargs=4 and proargtypes[0]='uuid'::regtype and proargtypes[1]='timestamptz'::regtype and proargtypes[2]='jsonb'::regtype and proargtypes[3]='jsonb'::regtype
+    and not prosecdef and proconfig=array['search_path=""'] and proowner=current_user::regrole
+    and proacl=array[(current_user::text||'=X/'||current_user::text)::aclitem,('authenticated=X/'||current_user::text)::aclitem]) <> 1
+    or exists(select 1 from pg_auth_members where roleid='authenticated'::regrole and member<>current_user::regrole and (inherit_option or member not in(select oid from pg_roles where rolname='authenticator' and not rolinherit))) then
+    raise exception 'PHOTO_OCR_UNEXPECTED_EXECUTE_ACL';
+  end if;
+end
+$$;
 
 insert into supabase_migrations.schema_migrations(version,name,statements)
 values('20261013034836','basket_photo_ocr_db',array['Preparation only: compatible optional OCR attachment metadata and owner-invoker CAS']);

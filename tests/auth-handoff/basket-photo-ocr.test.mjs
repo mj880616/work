@@ -143,6 +143,63 @@ test('photo OCR compatible DB, exact CAS, text versions and preservation', {time
    const apply=await runMigrationPlan(plan('apply'),query);assert.equal(apply.ok,true,apply.summary);const rollback=await runMigrationPlan(plan('rollback'),query);assert.equal(rollback.ok,true,rollback.summary);assert.deepEqual((await pool.query(snapshot)).rows,before);
    await pool.query(migration);
   });
+  await t.test('unused rollback waits for a concurrent migration-record edit and preserves its committed revision',async()=>{
+   await pool.query('delete from public.app_notes');
+   const before=(await pool.query("select pg_get_constraintdef(c.oid) chk,pg_get_functiondef(p.oid) fn,p.proacl::text acl from pg_constraint c cross join pg_proc p where c.conrelid='public.app_notes'::regclass and c.conname='app_notes_attachments_check' and p.oid='public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)'::regprocedure")).rows;
+   const original=(await pool.query('select * from supabase_migrations.schema_migrations where version=$1',[version])).rows[0];
+   const writer=await pool.connect(),worker=await pool.connect();let pending;
+   try{
+    await writer.query('begin');await writer.query('update supabase_migrations.schema_migrations set statements=$1 where version=$2',[['synthetic concurrent revision'],version]);
+    const query=async(sql,options={})=>{try{if(options.readOnly)await worker.query('begin read only');const r=await worker.query(sql);if(options.readOnly)await worker.query('commit');return Array.isArray(r)?[]:r.rows;}catch(e){await worker.query('rollback');throw e;}};
+    pending=runMigrationPlan(prepareMigration({mode:'rollback',version,runId:'9599',root:new URL('../../',import.meta.url).pathname}),query);
+    let blocked=false;for(let i=0;i<100&&!blocked;i++){blocked=(await pool.query("select wait_event_type='Lock' blocked from pg_stat_activity where pid=$1",[worker.processID])).rows[0]?.blocked;if(!blocked)await new Promise(r=>setTimeout(r,10));}assert.equal(blocked,true);
+    await writer.query('commit');const result=await pending;assert.equal(result.ok,false,'a newly committed history revision must not be deleted by unused rollback');
+    assert.deepEqual((await pool.query("select pg_get_constraintdef(c.oid) chk,pg_get_functiondef(p.oid) fn,p.proacl::text acl from pg_constraint c cross join pg_proc p where c.conrelid='public.app_notes'::regclass and c.conname='app_notes_attachments_check' and p.oid='public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)'::regprocedure")).rows,before);
+    assert.deepEqual((await pool.query('select statements from supabase_migrations.schema_migrations where version=$1',[version])).rows[0].statements,['synthetic concurrent revision']);
+   }finally{
+    await writer.query('rollback');await worker.query('rollback');if(pending)await pending;writer.release();worker.release();
+    if((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)')fn")).rows[0].fn===null)await pool.query(migration);
+    await pool.query('update supabase_migrations.schema_migrations set name=$1,statements=$2 where version=$3',[original.name,original.statements,version]);
+   }
+  });
+  await t.test('unused rollback through actual runner refuses CHECK/RPC/history drift before changing source',async drift=>{
+   await pool.query('delete from public.app_notes');
+   const rollbackSQL=await read('docs/'+stem+'.rollback.sql');
+   const exactCheck=(await pool.query("select pg_get_constraintdef(oid) def from pg_constraint where conrelid='public.app_notes'::regclass and conname='app_notes_attachments_check'")).rows[0].def;
+   const exactFn=(await pool.query("select pg_get_functiondef('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)'::regprocedure) def")).rows[0].def;
+   const exactHistory=(await pool.query('select * from supabase_migrations.schema_migrations where version=$1',[version])).rows[0];
+   const fingerprint=async()=>(await pool.query(`select 'notes' kind,coalesce(jsonb_agg(to_jsonb(n)order by id),'[]'::jsonb) value from public.app_notes n
+     union all select 'CHECK',coalesce(jsonb_agg(jsonb_build_object('definition',pg_get_constraintdef(c.oid),'validated',c.convalidated,'local',c.conislocal,'inherit_count',c.coninhcount)),'[]'::jsonb) from pg_constraint c where c.conrelid='public.app_notes'::regclass and c.conname='app_notes_attachments_check'
+     union all select 'RPC',coalesce(jsonb_agg(to_jsonb(p)order by p.oid),'[]'::jsonb) from pg_proc p where p.pronamespace='public'::regnamespace and p.proname='app_basket_update_attachment_ocr'
+     union all select 'history',coalesce(jsonb_agg(to_jsonb(m)),'[]'::jsonb) from supabase_migrations.schema_migrations m where m.version='20261013034836' order by kind`)).rows;
+   const root=new URL('../../',import.meta.url).pathname;
+   const query=async(sql,options={})=>{const c=await pool.connect();try{if(options.readOnly)await c.query('begin read only');const r=await c.query(sql);if(options.readOnly)await c.query('commit');return Array.isArray(r)?[]:r.rows;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+   const cases=[
+    ['later CHECK cap19',()=>pool.query('alter table public.app_notes drop constraint app_notes_attachments_check;alter table public.app_notes add constraint app_notes_attachments_check check(('+exactCheck.slice(6)+') and jsonb_array_length(attachments)<=19)')],
+    ['unvalidated CHECK',()=>pool.query('alter table public.app_notes drop constraint app_notes_attachments_check;alter table public.app_notes add constraint app_notes_attachments_check '+exactCheck+' not valid')],
+    ['RPC body changed',()=>pool.query(exactFn.replace('v_note public.app_notes%rowtype;','v_note public.app_notes%rowtype; -- synthetic later implementation'))],
+    ['RPC config changed',()=>pool.query("alter function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)set search_path=public")],
+    ['RPC ACL added',()=>pool.query('grant execute on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)to service_role')],
+    ['history statements changed',()=>pool.query('update supabase_migrations.schema_migrations set statements=$1 where version=$2',[['synthetic later record'],version])],
+    ['history name changed',()=>pool.query('update supabase_migrations.schema_migrations set name=$1 where version=$2',['synthetic_other_name',version])]
+   ];
+   // A later stricter CHECK is part of the same named definition, not a separate
+   // constraint: old rollback must not silently erase that downstream contract.
+   for(const [index,[label,change]]of cases.entries())await drift.test(label,async()=>{
+    try{
+     await change();const before=await fingerprint();
+     const result=await runMigrationPlan(prepareMigration({mode:'rollback',version,runId:String(9600+index),root}),query);
+     assert.equal(result.ok,false,'rollback must reject '+label);assert.deepEqual(await fingerprint(),before,'runner must preserve current definition, grants, record and source');
+     // Also check SQL Editor path: name mismatch is refused by workflow before
+     // executing SQL, but the rollback SQL must independently protect the record.
+     await assert.rejects(pool.query(rollbackSQL),/PHOTO_OCR_ROLLBACK_CHANGED/);await pool.query('rollback');assert.deepEqual(await fingerprint(),before);
+    }finally{
+     await pool.query('rollback');await pool.query('alter table public.app_notes drop constraint app_notes_attachments_check;alter table public.app_notes add constraint app_notes_attachments_check '+exactCheck);
+     await pool.query(exactFn);await pool.query('revoke all on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)from public,anon,authenticated,service_role;grant execute on function public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)to authenticated');
+     await pool.query('insert into supabase_migrations.schema_migrations(version,name,statements)values($1,$2,$3)on conflict(version)do update set name=excluded.name,statements=excluded.statements',[exactHistory.version,exactHistory.name,exactHistory.statements]);
+    }
+   });
+  });
   await t.test('changed legacy attachment constraint is rejected before schema mutation',async()=>{
    await pool.query('delete from public.app_notes');await pool.query(await read('docs/'+stem+'.rollback.sql'));
    const original=(await pool.query("select pg_get_constraintdef(oid) def from pg_constraint where conrelid='public.app_notes'::regclass and conname='app_notes_attachments_check'")).rows[0].def;
@@ -150,10 +207,37 @@ test('photo OCR compatible DB, exact CAS, text versions and preservation', {time
    await assert.rejects(pool.query(migration),/PHOTO_OCR_PREREQUISITE_CHANGED/);await pool.query('rollback');assert.equal((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)') fn")).rows[0].fn,null);
    await pool.query('alter table public.app_notes drop constraint app_notes_attachments_check;alter table public.app_notes add constraint app_notes_attachments_check '+original);await pool.query(migration);
   });
-  await t.test('custom function default ACL cannot silently grant a new service-role entry point',async()=>{
+  await t.test('hosted three-role function defaults preserve uploads and grant only authenticated OCR execution',async hosted=>{
+   for(const scope of ['in schema public',''])await hosted.test(scope||'global',async()=>{
+    await pool.query('delete from public.app_notes');await pool.query(await read('docs/'+stem+'.rollback.sql'));
+    await pool.query('alter default privileges '+scope+' grant execute on functions to anon,authenticated,service_role');
+    try{
+     const readiness=(await pool.query(await read('docs/'+stem+'.precheck.sql'))).rows;assert.equal(readiness.find(r=>r.item==='supported function defaults')?.value,'예');
+     await pool.query(migration);
+     const rights=(await pool.query("select has_function_privilege('authenticated','public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)','EXECUTE') auth,has_function_privilege('anon','public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)','EXECUTE') anon,has_function_privilege('service_role','public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)','EXECUTE') service,has_function_privilege('public_probe','public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)','EXECUTE') other")).rows[0];assert.deepEqual(rights,{auth:true,anon:false,service:false,other:false});
+     await writeAs('service_role',[baseAttachment]);const id=await note();assert.equal((await call(id,start())).ok,true);await assert.rejects(call(id,start(),undefined,undefined,OWNER,'service_role'),{code:'42501'});
+    }finally{
+     await pool.query('rollback');await pool.query('alter default privileges '+scope+' revoke execute on functions from anon,authenticated,service_role');
+     if((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)') fn")).rows[0].fn===null)await pool.query(migration);
+    }
+   });
+  });
+  await t.test('existing NOINHERIT authenticator gateway remains supported without direct OCR execution',async()=>{
+   await pool.query('delete from public.app_notes');await pool.query(await read('docs/'+stem+'.rollback.sql'));await pool.query('create role authenticator noinherit;grant authenticated to authenticator');
+   try{await pool.query(migration);assert.equal((await pool.query("select has_function_privilege('authenticator','public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)','EXECUTE') direct,pg_has_role('authenticator','authenticated','SET') gateway")).rows[0].direct,false);assert.equal((await pool.query("select pg_has_role('authenticator','authenticated','SET') gateway")).rows[0].gateway,true);}finally{await pool.query('rollback');await pool.query('revoke authenticated from authenticator;drop role authenticator');if((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)')fn")).rows[0].fn===null)await pool.query(migration);}
+  });
+  await t.test('unknown role and inherited authenticated execution fail closed without weakening existing memberships',async gates=>{
    await pool.query('delete from public.app_notes');await pool.query(await read('docs/'+stem+'.rollback.sql'));
-   await pool.query('alter default privileges in schema public grant execute on functions to service_role');
-   try{await assert.rejects(pool.query(migration),/PHOTO_OCR_PREREQUISITE_CHANGED/);await pool.query('rollback');assert.equal((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)') fn")).rows[0].fn,null);}finally{await pool.query('alter default privileges in schema public revoke execute on functions from service_role');}
+   const cases=[
+    ['unknown default role','alter default privileges in schema public grant execute on functions to public_probe','alter default privileges in schema public revoke execute on functions from public_probe'],
+    ['default grant option','alter default privileges in schema public grant execute on functions to authenticated with grant option','alter default privileges in schema public revoke execute on functions from authenticated'],
+    ['unknown auth inheritor','grant authenticated to public_probe','revoke authenticated from public_probe'],
+    ['service auth inheritor','grant authenticated to service_role','revoke authenticated from service_role'],
+    ['unknown SET-only auth member','alter role public_probe noinherit;grant authenticated to public_probe','revoke authenticated from public_probe;alter role public_probe inherit']
+   ];
+   for(const [label,change,restore]of cases)await gates.test(label,async()=>{
+    await pool.query(change);try{const readiness=(await pool.query(await read('docs/'+stem+'.precheck.sql'))).rows;const item=change.startsWith('alter default')?'supported function defaults':'auth execution paths supported';assert.equal(readiness.find(r=>r.item===item)?.value,'아니오');await assert.rejects(pool.query(migration),/PHOTO_OCR_PREREQUISITE_CHANGED/);await pool.query('rollback');assert.equal((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)') fn")).rows[0].fn,null);}finally{await pool.query('rollback');await pool.query(restore);if((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)')fn")).rows[0].fn!==null)await pool.query(await read('docs/'+stem+'.rollback.sql'));}
+   });
    await pool.query(migration);
   });
   await t.test('unexpected note trigger fails closed before adding OCR capability',async()=>{
