@@ -91,6 +91,12 @@ function wdAffSet(rows,e,wanted=null){if(!Array.isArray(rows)||rows.some(r=>r.or
 async function wdAffRead(e){const org=await wdApi(wdSavePath(e),{expectedSessionEpoch:e.scope.epoch,singleFlight:false});if(!wdSaveCurrent(e))throw new Error('편집 대상이 바뀌었습니다.');wdSaveOrgRow(e,org,{});return wdSaveReadPages(wdAffPath(e),e)}
 function wdAffPartial(a){if(a.stages.delete==='confirmed'&&(a.stages.post==='confirmed'||a.stages.post==='notRequired'))return '소속은 확인했고 수정일은 아직 확인하지 못했습니다. 선택을 유지했습니다.';if(a.stages.delete==='confirmed')return '기존 소속을 비웠고 새 선택은 아직 확인하지 못했습니다. 선택을 유지했습니다.';return '소속 저장 결과를 확인하지 못했습니다. 선택을 유지했습니다.'}
 function wdAffTimestamp(e,rows,body){const row=wdSaveOrgRow(e,rows,body);if(Date.parse(row.updated_at)!==Date.parse(body.updated_at))throw new Error('수정일의 저장 결과를 확인하지 못했습니다.');return row}
+// Saved affiliations belong to the current organization, independent of its editor.
+function wdAffAdopt(e,a){
+  if(!wdSaveSameScope(e.scope)||!wdRecordCurrent(e.id))return;
+  wdAffiliations=a.ids.map(tag_id=>({organization_id:e.id,tag_id}));
+  Object.assign(wdOrg,{updated_at:a.org.updated_at});
+}
 async function wdCheckAff(e){
   const a=wdSaveAttempts.get(wdSaveKey(e));if(!a||a.pending||a.reading||!wdSaveCurrent(e))return;a.reading=true;const current=()=>wdSaveCurrent(e)&&wdSaveAttempts.get(wdSaveKey(e))===a;
   try{
@@ -98,7 +104,7 @@ async function wdCheckAff(e){
     if(a.stages.delete==='unknown'){wdAffSet(rows,e,[]);a.stages.delete='confirmed'}
     if(a.stages.post==='unknown'){wdAffSet(rows,e,a.ids);a.stages.post='confirmed'}
     if(a.stages.timestamp==='unknown'){const org=await wdApi(wdSavePath(e),{expectedSessionEpoch:e.scope.epoch,singleFlight:false});if(!wdSaveCurrent(e))return;a.org=wdAffTimestamp(e,org,a.timestampBody);a.stages.timestamp='confirmed'}
-    if(!current())return;if(a.stages.timestamp==='confirmed'){wdAffSet(rows,e,a.ids);wdSaveAttempts.delete(wdSaveKey(e));wdSaveNotice(e,'제출한 소속을 확인했습니다. 현재 선택은 남겨두었습니다.')}else wdSaveNotice(e,'확인된 단계는 다시 보내지 않습니다. 같은 선택으로 저장하면 남은 단계만 진행합니다.');
+    if(!current())return;if(a.stages.timestamp==='confirmed'){wdAffSet(rows,e,a.ids);wdAffAdopt(e,a);wdSaveAttempts.delete(wdSaveKey(e));wdSaveNotice(e,'제출한 소속을 확인했습니다. 현재 선택은 남겨두었습니다.')}else wdSaveNotice(e,'확인된 단계는 다시 보내지 않습니다. 같은 선택으로 저장하면 남은 단계만 진행합니다.');
   }catch{if(current())wdSaveNotice(e,wdAffPartial(a)+' 다시 전송하지 않았습니다.',true)}finally{a.reading=false}
 }
 async function wdSaveAff(){
@@ -124,8 +130,8 @@ async function wdSaveAff(){
     }
     if(!wdSaveCurrent(e))return;stage='timestamp';
     if(a.stages.timestamp!=='confirmed'){a.stages.timestamp='sent';const rows=await wdApi(wdSavePath(e),{method:'PATCH',body:a.timestampBody,prefer:'return=representation',expectedSessionEpoch:e.scope.epoch});a.org=wdAffTimestamp(e,rows,a.timestampBody);a.stages.timestamp='confirmed'}
-    if(!wdSaveSameScope(e.scope))return;wdSaveAttempts.delete(key);if(!wdSaveCurrent(e))return;
-    wdAffiliations=a.ids.map(tag_id=>({organization_id:e.id,tag_id}));wdRenderAff();Object.assign(wdOrg,{updated_at:a.org.updated_at});document.querySelector('#wdUpdated').textContent=formatSeoulTime(wdOrg.updated_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric'});
+    if(!wdSaveSameScope(e.scope))return;wdAffAdopt(e,a);wdSaveAttempts.delete(key);if(!wdSaveCurrent(e))return;
+    wdRenderAff();document.querySelector('#wdUpdated').textContent=formatSeoulTime(wdOrg.updated_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric'});
     if(wdSaveDraft('aff')===a.draft){document.querySelector('#wdAffSave').disabled=false;wdModal('wdAffModal',false);wdToast('협의회·사업단 소속을 저장했습니다.')}else wdSaveNotice(e,'제출한 소속은 저장했습니다. 추가 선택은 남겨두었습니다.');
     if(wdSaveSameScope(e.scope)&&e.view===wdEpoch)window.dispatchEvent(new Event('kptu:suborganization-updated'));
   }catch(err){if(a.stages[stage]==='reading'){a.stages[stage]='neverSent';wdSaveNotice(e,'소속 목록을 확인하지 못해 저장 요청을 보내지 않았습니다. 선택은 유지했습니다.');return}if(!['confirmed','notRequired'].includes(a.stages[stage]))a.stages[stage]=[401,403].includes(err?.status)?'rejected':'unknown';wdSaveNotice(e,wdAffPartial(a)+(a.stages[stage]==='rejected'?' 수정 권한을 확인해 주세요.':''),a.stages[stage]==='unknown')}

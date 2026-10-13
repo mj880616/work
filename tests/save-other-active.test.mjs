@@ -233,3 +233,59 @@ test('Report foreign confirmation row after detached success never adopts cache 
   const {h}=await reportUnknownAfterPendingReopen();h.db.app_suborganization_weekly_reports[0].organization_id='org-B';await h.call('checkReport',h.eval('reportEditor'));
   assert.equal(h.eval('reports.find(r=>r.id==="report-A").summary'),'first submitted summary');assert.equal(h.node('#warSummary').value,'confirmed final summary');await h.call('saveReport',true);assert.equal(h.writes.length,2);
 });
+// Consume the actual checkbox renderer output: the VM DOM does not parse HTML.
+function openAffDefaults(h){h.call('wdOpenAff');const ids=[...h.node('#wdAffChoices').innerHTML.matchAll(/<input[^>]*value="([^"]+)" checked/g)].map(m=>m[1]).sort();h.setChecked(ids);return ids;}
+const storedAffIds=h=>h.db.app_suborganization_affiliations.filter(r=>r.organization_id==='org-A').map(r=>r.tag_id).sort();
+async function affTimestampUnknown(wanted=['tag-new']){
+  const h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(wanted);h.failTable='app_suborganizations';h.failStatus=503;await h.call('wdSaveAff');
+  const a=h.eval('wdSaveAttempts.values().next().value');Object.assign(h.db.app_suborganizations[0],copy(a.timestampBody));h.failTable=null;h.failStatus=null;return h;
+}
+async function saveFreshAffDefaults(h,wanted){
+  h.call('wdModal','wdAffModal',false);const defaults=openAffDefaults(h),before=h.writes.length;await h.call('wdSaveAff');
+  const posts=h.writes.slice(before).filter(w=>w.method==='POST').map(w=>w.body),expectedPosts=wanted.length?[wanted.map(tag_id=>({organization_id:'org-A',tag_id,created_by:OWNER}))]:[];
+  assert.deepEqual({defaults,stored:storedAffIds(h),posts},{defaults:wanted,stored:wanted,posts:expectedPosts});
+  assert.equal(h.node('#wdAffModal').classList.contains('hidden'),true);
+}
+for(const wanted of [['tag-new'],[]]){
+  for(const lifetime of ['replacement','closed','current'])test('Affiliation confirmed '+(wanted.length?'new':'empty')+' defaults survive '+lifetime+' editor and next save',async()=>{
+    const h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(wanted);h.hold='app_suborganizations';const saving=h.call('wdSaveAff');await new Promise(r=>setImmediate(r));
+    if(lifetime!=='current'){h.call('wdModal','wdAffModal',false);if(lifetime==='replacement')openAffDefaults(h);}if(lifetime!=='closed')h.setChecked(['tag-old']);
+    h.release();await saving;await new Promise(r=>setImmediate(r));assert.deepEqual(storedAffIds(h),wanted);
+    if(lifetime!=='closed'){assert.equal(h.node('#wdAffModal').classList.contains('hidden'),false);assert.equal(h.eval('wdSaveDraft("aff")'),'["tag-old"]');}
+    if(wanted.length)assert.deepEqual(h.writes.find(w=>w.method==='POST').body,[{organization_id:'org-A',tag_id:'tag-new',created_by:OWNER}]);else assert.equal(h.writes.filter(w=>w.method==='POST').length,0);
+    await saveFreshAffDefaults(h,wanted);
+  });
+  test('Affiliation confirmed GET adopts '+(wanted.length?'new':'empty')+' defaults without replacing current choices',async()=>{
+    const h=await affTimestampUnknown(wanted);h.setChecked(['tag-old']);h.readHold='app_suborganization_affiliations';const checking=h.call('wdCheckAff',h.eval('wdAffEditor'));await new Promise(r=>setImmediate(r));h.readRelease();await checking;
+    assert.equal(h.eval('wdSaveDraft("aff")'),'["tag-old"]');assert.equal(h.node('#wdAffModal').classList.contains('hidden'),false);assert.equal(h.eval('wdSaveAttempts.size'),0);assert.deepEqual(storedAffIds(h),wanted);
+    await saveFreshAffDefaults(h,wanted);
+  });
+}
+for(const path of ['direct','check'])for(const change of ['owner','workspace','epoch','organization'])test('Affiliation '+path+' confirmation rejects stale '+change+' cache adoption',async()=>{
+  let h,saving;
+  if(path==='check'){h=await affTimestampUnknown();h.readHold='app_suborganization_affiliations';saving=h.call('wdCheckAff',h.eval('wdAffEditor'));}
+  else{h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(['tag-new']);h.hold='app_suborganizations';saving=h.call('wdSaveAff');}
+  await new Promise(r=>setImmediate(r));
+  if(change==='owner')h.rt.session.read().user.id='other-owner';else if(change==='workspace')h.setContext({workspace:{id:'other-workspace'}});else if(change==='epoch')h.setEpoch(1);else{h.call('wdClose',true);await h.open('org-B');openAffDefaults(h);}
+  h.setChecked(['tag-old']);const baseline=JSON.stringify(h.eval('wdAffiliations'));h.node('#wdUpdated').textContent='replacement UI';
+  if(path==='check')h.readRelease();else h.release();await saving;await new Promise(r=>setImmediate(r));
+  assert.equal(JSON.stringify(h.eval('wdAffiliations')),baseline);assert.equal(h.eval('wdSaveDraft("aff")'),'["tag-old"]');assert.equal(h.node('#wdUpdated').textContent,'replacement UI');assert.deepEqual(storedAffIds(h),['tag-new']);
+});
+test('Affiliation retired confirmation lease cannot adopt cache or clear the current unknown attempt',async()=>{
+  const h=await affTimestampUnknown();h.readHold='app_suborganization_affiliations';const checking=h.call('wdCheckAff',h.eval('wdAffEditor'));await new Promise(r=>setImmediate(r));h.call('wdModal','wdAffModal',false);openAffDefaults(h);h.setChecked([]);h.readRelease();await checking;
+  assert.deepEqual(h.eval('wdAffiliations').map(r=>r.tag_id),['tag-old']);assert.equal(h.eval('wdSaveAttempts.size'),1);assert.equal(h.eval('wdSaveDraft("aff")'),'[]');
+  await h.call('wdCheckAff',h.eval('wdAffEditor'));assert.equal(h.eval('wdSaveDraft("aff")'),'[]');await saveFreshAffDefaults(h,['tag-new']);
+});
+for(const stage of ['DELETE','POST'])test('Affiliation positive partial '+stage+' check adopts defaults only after remaining stages succeed',async()=>{
+  const h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(['tag-new']);h.failTable='app_suborganization_affiliations';h.failMethod=stage;h.failStatus=503;await h.call('wdSaveAff');
+  if(stage==='DELETE')h.db.app_suborganization_affiliations=[];else h.db.app_suborganization_affiliations=[{organization_id:'org-A',tag_id:'tag-new',created_by:OWNER}];h.failTable=null;h.failStatus=null;await h.call('wdCheckAff',h.eval('wdAffEditor'));
+  assert.deepEqual(h.eval('wdAffiliations').map(r=>r.tag_id),['tag-old']);assert.equal(h.eval('wdSaveAttempts.size'),1);h.call('wdModal','wdAffModal',false);assert.deepEqual(openAffDefaults(h),['tag-old']);h.setChecked(['tag-new']);await h.call('wdSaveAff');
+  assert.equal(h.writes.filter(w=>w.method==='DELETE').length,1);assert.equal(h.writes.filter(w=>w.method==='POST').length,1);await saveFreshAffDefaults(h,['tag-new']);
+});
+for(const foreign of ['organization','workspace'])test('Affiliation foreign '+foreign+' timestamp response never confirms cache or permits resend',async()=>{
+  const h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(['tag-new']);h.reply=(rows,call)=>call.table==='app_suborganizations'?rows.map(row=>({...row,...(foreign==='organization'?{id:'org-B'}:{workspace_id:'other-workspace'})})):rows;
+  await h.call('wdSaveAff');assert.deepEqual(h.eval('wdAffiliations').map(r=>r.tag_id),['tag-old']);assert.equal(h.eval('wdSaveAttempts.values().next().value.stages.timestamp'),'unknown');const before=h.writes.length;await h.call('wdSaveAff');assert.equal(h.writes.length,before);
+});
+test('Affiliation negative timestamp confirmation keeps stale cache and blocks retransmission',async()=>{
+  const h=await affTimestampUnknown();h.db.app_suborganizations[0].updated_at=stamp;await h.call('wdCheckAff',h.eval('wdAffEditor'));assert.deepEqual(h.eval('wdAffiliations').map(r=>r.tag_id),['tag-old']);assert.equal(h.eval('wdSaveAttempts.size'),1);const before=h.writes.length;await h.call('wdSaveAff');assert.equal(h.writes.length,before);assert.deepEqual(storedAffIds(h),['tag-new']);
+});
