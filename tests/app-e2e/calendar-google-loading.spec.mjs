@@ -43,7 +43,7 @@ async function installMock(page,state){
         const min=new Date(url.searchParams.get('timeMin')),max=new Date(url.searchParams.get('timeMax'));
         return ok({events:state.events.filter(e=>ids.includes(e.calendarId)&&new Date(e.start)>=min&&new Date(e.start)<max),eventColors:{1:{background:'#7986cb'}}});
       }
-      if(action==='create-event'){entry.google=['colors','insert'];await sleep(LAT.edge+400);const row={id:'new-'+state.events.length,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false,calendarId:body.calendar_id||'primary',source:'google'};state.events.push(row);return ok({ok:true,event:row})}
+      if(action==='create-event'){entry.google=['colors','insert'];await sleep(LAT.edge+400);const row={id:'new-'+state.events.length,title:body.title,location:body.location||'',start:body.start_iso,end:body.end_iso,allDay:false,calendarId:body.calendar_id||'primary',source:'google'};state.events.push(row);return ok({ok:true,event:row})}
       if(action==='preferences'){state.selected=body.calendar_ids;return ok({ok:true})}
       if(action==='disconnect'){state.connected=false;return ok({ok:true})}
       return ok({});

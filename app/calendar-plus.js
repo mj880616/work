@@ -133,21 +133,40 @@ function cmForm(){const title=document.querySelector('#eventTitle')?.value.trim(
 async function cmSaveGoogle(){
   if(cmMode==='task')return cmSaveTask();if(cmSavePending)return false;
   let body;
-  try{const f=cmForm(),calendar=document.querySelector('#eventGoogleCalendar').value;if(!calendar)throw new Error('Google 세부 캘린더를 선택해 주세요.');body={action:cmSaved?.kind==='event'?'update-event':'create-event',calendar_id:cmSaved?.kind==='event'?cmSaved.record.calendarId:calendar,...(cmSaved?.kind==='event'?{event_id:cmSaved.record.id}:{}),title:f.title,memo:f.memo,location:f.location,color_hex:f.color_hex,all_day:f.allDay,organization_ids:[...(window.__KPTU_SELECTED_EVENT_ORGS__?.()||[])]};if(f.allDay){body.start_date=f.startDate;body.end_date=f.endDate}else{body.start_iso=f.start_iso;body.end_iso=f.end_iso}}catch(e){cmStatus(e.message||String(e),true);return false}
-  const r={owner:cmOwner(),epoch:cmSession(),seq:cmFormEpoch,snapshot:cmSnapshot()};if(!r.owner){cmStatus('로그인이 필요합니다.',true);return false}
+  try{const f=cmForm(),calendar=document.querySelector('#eventGoogleCalendar').value;if(!calendar)throw new Error('Google 세부 캘린더를 선택해 주세요.');body={action:cmSaved?.kind==='event'?'update-event':'create-event',calendar_id:cmSaved?.kind==='event'?cmSaved.record.calendarId:calendar,...(cmSaved?.kind==='event'?{event_id:cmSaved.record.id}:{}),title:f.title,memo:f.memo,location:f.location,color_hex:f.color_hex,all_day:f.allDay,organization_ids:[...(window.__KPTU_SELECTED_EVENT_ORGS__?.()||[])]};if(cmSaved?.kind==='event'&&calendar!==cmSaved.record.calendarId)body.target_calendar_id=calendar;if(f.allDay){body.start_date=f.startDate;body.end_date=f.endDate}else{body.start_iso=f.start_iso;body.end_iso=f.end_iso}}catch(e){cmStatus(e.message||String(e),true);return false}
+  const r={owner:cmOwner(),epoch:cmSession(),seq:cmFormEpoch,snapshot:cmSnapshot(),selected:document.querySelector('#eventGoogleCalendar').value};if(!r.owner){cmStatus('로그인이 필요합니다.',true);return false}
   const prior=cmAttempts.get('event');if(!cmSaved&&prior?.owner===r.owner&&prior.epoch===r.epoch){if(prior.pending)cmStatus('앞선 일정을 저장 중입니다. 결과를 기다려 주세요.');else cmUnknownNotice('event','앞선 일정의 저장 결과를 확인해 주세요. 새로 만들지 않았습니다.');return false}
   const button=document.querySelector('#saveEventBtn'),label=button.textContent;cmRequest=r;cmSavePending=true;cmSetBusy(true);button.textContent='저장 중…';cmStatus('Google Calendar에 저장 중…');let attempt=null;
   try{
-    if(cmSaved?.unknown){const d=await cmGoogleCall('event',{expectedSessionEpoch:r.epoch,params:{eventId:cmSaved.record.id,calendarId:cmSaved.record.calendarId}});if(!cmActive(r))return false;if(d?.event?.id!==cmSaved.record.id||d.event.calendarId!==cmSaved.record.calendarId)throw new Error('앞선 일정 저장을 확인하지 못했습니다.');cmSaved.unknown=false}
+    if(cmSaved?.unknown){
+      const address=cmSaved.pendingAddress||{source:cmSaved.record.calendarId,target:null};let d;
+      if(address.target){try{d=await cmGoogleCall('event',{expectedSessionEpoch:r.epoch,params:{eventId:cmSaved.record.id,calendarId:address.target}})}catch(e){if(!cmActive(r))return false;if(e?.status!==400&&e?.status!==404)throw e}}
+      if(!cmActive(r))return false;
+      if(!d)d=await cmGoogleCall('event',{expectedSessionEpoch:r.epoch,params:{eventId:cmSaved.record.id,calendarId:address.source}});
+      if(!cmActive(r))return false;
+      if(d?.event?.id!==cmSaved.record.id||![address.source,address.target].filter(Boolean).includes(d.event.calendarId))throw new Error('앞선 일정 저장을 확인하지 못했습니다.');
+      cmSaved.record=d.event;cmSaved.unknown=false;delete cmSaved.pendingAddress;
+      cmStatus('앞선 저장의 위치를 확인했습니다. 입력을 확인한 뒤 다시 저장해 주세요.');return false;
+    }
     if(!cmSaved){attempt={owner:r.owner,epoch:r.epoch,body,pending:true};cmAttempts.set('event',attempt)}
     const d=await cmGoogleCall('',{method:'POST',body,expectedSessionEpoch:r.epoch});if(attempt){attempt.pending=false;if(d?.ok===true&&d.event?.id)attempt.record=d.event}
     if(!cmActive(r)){if(attempt&&cmSameSession(r)&&d?.ok===true&&d.event?.id)cmAttempts.delete('event');return false}
-    if(d?.ok!==true||typeof d.event?.id!=='string'||!d.event.id||(body.event_id&&d.event.id!==body.event_id)||d.event.calendarId!==body.calendar_id)throw new Error('일정 저장 결과를 확인하지 못했습니다.');
+    const destination=body.target_calendar_id||body.calendar_id;
+    if(typeof d.event?.id!=='string'||!d.event.id||(body.event_id&&d.event.id!==body.event_id)||d.event.calendarId!==destination)throw new Error('일정 저장 결과를 확인하지 못했습니다.');
+    if(d.partial_failure&&d.moved){
+      cmSaved={kind:'event',record:d.event,body:null,unknown:false};let readFailed=false;
+      try{const fresh=await cmGoogleCall('event',{expectedSessionEpoch:r.epoch,params:{eventId:d.event.id,calendarId:destination}});if(!cmActive(r))return false;if(fresh?.event?.id!==d.event.id||fresh.event.calendarId!==destination)throw new Error('이동한 일정 조회 결과를 확인하지 못했습니다.');cmSaved.record=fresh.event}catch{if(!cmActive(r))return false;readFailed=true}
+      if(!cmActive(r))return false;
+      cmStatus((d.message||'일정은 옮겨졌지만 일부 저장을 확인하지 못했습니다.')+(readFailed?' 최신 조회도 실패했습니다. 확인된 이동 위치와 수정 입력은 유지했습니다.':' 수정 입력은 유지했습니다. 확인한 뒤 저장해 주세요.'),true);
+      try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false;
+    }
+    if(d.ok!==true)throw new Error(d.message||'일정 저장 결과를 확인하지 못했습니다.');
     cmSaved={kind:'event',record:d.event,body,unknown:false};cmAttempts.delete('event');
+    if(d.event.location!==body.location){cmStatus('일정은 저장했습니다. 장소 저장은 확인하지 못했습니다. 장소와 수정 입력은 유지했습니다. 확인한 뒤 다시 저장해 주세요.',true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false}
     const unchanged=r.snapshot===cmSnapshot();if(unchanged){cmSetBusy(false);button.textContent=label;cmCloseModal()}else cmStatus('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
     try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast('일정은 저장했습니다. 목록을 새로고침해 주세요.');return true}
     if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast('Google Calendar에 저장했습니다.');return true;
-  }catch(e){if(attempt)attempt.pending=false;if(!cmActive(r))return false;if(cmSaved){cmSaved.unknown=true;cmStatus('저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+(e.message||String(e)),true)}else if(/권한|연결되지|재인증/.test(String(e.message||''))){if(cmAttempts.get('event')===attempt)cmAttempts.delete('event');cmStatus(e.message||String(e),true)}else cmUnknownNotice('event','저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+(e.message||String(e)));return false}
+  }catch(e){if(attempt)attempt.pending=false;if(!cmActive(r))return false;if(cmSaved){cmSaved.unknown=true;cmSaved.pendingAddress={source:body.calendar_id,target:body.target_calendar_id||null};cmStatus('저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+(e.message||String(e)),true)}else if(/권한|연결되지|재인증/.test(String(e.message||''))){if(cmAttempts.get('event')===attempt)cmAttempts.delete('event');cmStatus(e.message||String(e),true)}else cmUnknownNotice('event','저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+(e.message||String(e)));return false}
   finally{if(cmRequest===r){cmRequest=null;cmSavePending=false;if(cmSameSession(r)&&r.seq===cmFormEpoch){cmSetBusy(false);button.textContent=label}}}
 }
 async function cmPrepareNewEvent(){cmFormEpoch++;cmRequest=null;cmSaved=null;cmSavePending=false;cmSetBusy(false);document.querySelector('#saveEventBtn').textContent='저장';cmMode='event';cmProject='';cmPaintMode();cmPaintProject();cmStatus('');cmToggleAllDay();await cmPopulateGoogleCalendars()}

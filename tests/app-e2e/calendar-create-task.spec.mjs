@@ -44,7 +44,7 @@ test('task failure retains draft and blocks repeated saves; undated and partial 
  await page.route(SB+'/functions/v1/google-tasks?action=links*',r=>r.fulfill({json:{links:[],meeting_links:[]}}));fail=false;await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventStatus')).toContainText('연결');await expect(page.locator('#eventTitle')).toHaveValue('QA');expect(bodies).toHaveLength(2);
 });
 test('event mode still sends the existing calendar request',async({page})=>{
- await open(page);const writes=[];await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id}}});});
+ await open(page);const writes=[];await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
  await page.locator('#eventTitle').fill('QA');await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();expect(writes[0]).toMatchObject({action:'create-event',title:'QA',all_day:false});expect(writes[0]).toHaveProperty('start_iso');expect(writes[0]).not.toHaveProperty('links');
 });
 test('project selection survives token refresh; sheet Back and Escape preserve registration',async({page})=>{
@@ -60,7 +60,7 @@ test('project selection survives token refresh; sheet Back and Escape preserve r
 });
 test('pending event save locks mode changes',async({page})=>{
  await open(page);await page.locator('#eventTitle').fill('QA');let release;const gate=new Promise(r=>release=r);
- await page.route(SB+'/functions/v1/google-calendar',async r=>{await gate;return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id}}});});
+ await page.route(SB+'/functions/v1/google-calendar',async r=>{await gate;return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
  await page.locator('#saveEventBtn').click();await expect(page.locator('[data-event-mode="task"]')).toBeDisabled();release();await expect(page.locator('#eventModal')).toBeHidden();
 });
 test('desktop task registration keeps fields and shared project sheet usable',async({page})=>{
