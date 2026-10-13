@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
+import {readBoundedJson} from '../../supabase/functions/_shared/bounded-json.mjs';
 const helperURL = new URL(
   "../../supabase/functions/_shared/basket-file-origin.ts",
   import.meta.url,
@@ -16,7 +17,7 @@ const source = stripTypeScriptTypes(
     "utf8",
   ),
   { mode: "strip" },
-).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "");
+).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "");
 export const folder = (id = "basket-1") => ({
   id,
   name: "Web2 바구니",
@@ -128,6 +129,7 @@ export function harness(options = {}) {
         const value = rows.length
           ? `${start}-${start + page.length - 1}/${rows.length}`
           : "*/0";
+        if(table === "app_notes" && o.notesResponse) return o.notesResponse(page,value);
         return Response.json(o.malformedRows?.[table] ?? page, {
           headers: o.noRange
             ? {}
@@ -176,11 +178,12 @@ export function harness(options = {}) {
       handler = fn;
     },
   };
-  new Function("Deno", "fetch", "console", "inspectBasketOriginal", source)(
+  new Function("Deno", "fetch", "console", "inspectBasketOriginal", "readBoundedJson", source)(
     Deno,
     fetchMock,
     { error() {} },
     inspectBasketOriginal,
+    readBoundedJson,
   );
   return {
     calls,
