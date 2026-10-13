@@ -1,6 +1,6 @@
 # 📱 폰 가능 — 바구니 원본 삭제 보호 서버 준비
 
-2026-10-13, BASKET-4b-1 A 범위. 시작 main `a9ba4a1de1799b18908dde00500e3b4f6df977df`, `codex/basket-document-origin-protection`.
+2026-10-13, BASKET-4b-1 A 범위, 준비 Draft [#523](https://github.com/mj880616/work/pull/523). 시작 main `a9ba4a1de1799b18908dde00500e3b4f6df977df`, `codex/basket-document-origin-protection`.
 
 ## 바뀌는 동작
 
