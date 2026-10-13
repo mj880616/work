@@ -30,7 +30,7 @@ async function installSupabaseMock(page, state) {
     if (path === '/functions/v1/google-calendar') {
       const action=url.searchParams.get('action');
       if (method==='POST' && body?.action==='create-event') {
-        const row={id:`google-${(state.googleEvents||[]).length+1}`,title:body.title,start:body.start_iso,end:body.end_iso,calendarId:body.calendar_id||'primary',source:'google'};
+        const row={id:`google-${(state.googleEvents||[]).length+1}`,title:body.title,location:String(body.location||''),description:body.memo||'',start:body.start_iso,end:body.end_iso,calendarId:body.calendar_id||'primary',source:'google'};
         state.googleEvents=(state.googleEvents||[]).concat(row);
         return ok({ok:true,event:row});
       }
@@ -42,7 +42,7 @@ async function installSupabaseMock(page, state) {
       if (action === 'create') {
         const row={id:`google-task-${state.tasks.length+1}`,title:body.title,due:body.due,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일'};
         state.tasks.push(row);
-        return ok({ok:true,task:row});
+        return ok({ok:true,task:row,links:(body.links||[]).map(t=>({...t,google_task_id:row.id,status:'confirmed'})),meeting_links:[]});
       }
       if (action === 'toggle') {
         const row=state.tasks.find(task=>task.id===body.task_id);

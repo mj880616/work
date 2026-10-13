@@ -26,7 +26,7 @@ async function installMock(page,state){
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
     const body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     let entry=null;const ok=(d,s=200)=>{if(entry)entry.done=true;return route.fulfill({status:s,contentType:'application/json',body:JSON.stringify(d??null)})};
-    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,token_type:'bearer'});
+    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,token_type:'bearer',user:state.user});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/functions/v1/google-calendar'){
       const action=url.searchParams.get('action')||(method==='POST'?body?.action:'status');
@@ -43,7 +43,7 @@ async function installMock(page,state){
         const min=new Date(url.searchParams.get('timeMin')),max=new Date(url.searchParams.get('timeMax'));
         return ok({events:state.events.filter(e=>ids.includes(e.calendarId)&&new Date(e.start)>=min&&new Date(e.start)<max),eventColors:{1:{background:'#7986cb'}}});
       }
-      if(action==='create-event'){entry.google=['colors','insert'];await sleep(LAT.edge+400);const row={id:'new-'+state.events.length,title:body.title,start:body.start_iso,end:body.end_iso,allDay:false,calendarId:body.calendar_id||'primary',source:'google'};state.events.push(row);return ok({ok:true,event:row})}
+      if(action==='create-event'){entry.google=['colors','insert'];await sleep(LAT.edge+400);const row={id:'new-'+state.events.length,title:body.title,location:body.location||'',start:body.start_iso,end:body.end_iso,allDay:false,calendarId:body.calendar_id||'primary',source:'google'};state.events.push(row);return ok({ok:true,event:row})}
       if(action==='preferences'){state.selected=body.calendar_ids;return ok({ok:true})}
       if(action==='disconnect'){state.connected=false;return ok({ok:true})}
       return ok({});

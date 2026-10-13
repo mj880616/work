@@ -154,8 +154,8 @@ test('completing an overdue Google task moves it from the overdue group to the c
   await expect(page.locator('#gt-overdue-head')).toHaveText('기한 지남 1');
   // The check is drawn in CSS inside the circle: no glyph that can spill out, same circle for pending and completed.
   const check=id=>page.locator(`[data-gt-toggle="${id}"]`).evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after'),circle=getComputedStyle(el,'::before');return {w:r.width,h:r.height,text:el.textContent,after:a.content,left:a.left,top:a.top,pos:a.position,bg:circle.backgroundColor,circle:{w:circle.width,h:circle.height,left:circle.left,top:circle.top}}});
-  const pendingCheck=await check('late');
-  expect(pendingCheck).toMatchObject({w:44,h:44,text:'',after:'none',circle:{w:'22px',h:'22px',left:'11px',top:'11px'}});
+  let pendingCheck;
+  await expect.poll(async()=>pendingCheck=await check('late')).toMatchObject({w:44,h:44,text:'',after:'none',circle:{w:'22px',h:'22px',left:'11px',top:'11px'}});
   await page.locator('[data-gt-overdue] [data-gt-toggle="late"]').click();
   await expect(page.locator('#gt-overdue-head')).toHaveCount(0);
   await expect(page.locator('#gtCompleted summary')).toContainText('완료 1');
@@ -163,9 +163,9 @@ test('completing an overdue Google task moves it from the overdue group to the c
   const row=page.locator('#gtCompleted .gt-row.completed[data-google-task="late"]');
   await expect(row).toBeVisible();
   await expect(row).toContainText('밀린 할 일');
-  const doneCheck=await check('late');
+  let doneCheck;
   // The visible circle stays 22px, centred in the 44px tap target; the check is centred in that target.
-  expect(doneCheck).toMatchObject({w:44,h:44,text:'',after:'""',left:'22px',top:'22px',pos:'absolute',circle:{w:'22px',h:'22px',left:'11px',top:'11px'}});
+  await expect.poll(async()=>doneCheck=await check('late')).toMatchObject({w:44,h:44,text:'',after:'""',left:'22px',top:'22px',pos:'absolute',circle:{w:'22px',h:'22px',left:'11px',top:'11px'}});
   expect(doneCheck.bg).not.toBe(pendingCheck.bg);
   expect(toggles).toEqual([expect.objectContaining({action:'toggle',task_id:'late',completed:true})]);
   await context.close();
@@ -206,7 +206,7 @@ test('Google Tasks can be created, edited, completed, reopened and deleted',asyn
     if(action==='lists')return ok({lists:[{id:'l1',title:'업무'}]});
     if(action==='overview')return ok({connected:true,authorized:true,needs_reconnect:false,tasks:listed});
     if(action==='tasks')return ok({tasks:listed,needs_reconnect:false});
-    calls.push({action,body});return ok({ok:true});
+    calls.push({action,body});if(action==='links')return ok({links:[],meeting_links:[]});if(action==='create'||action==='update')return ok({ok:true,task:{...listed[0],id:body.task_id||'created',title:body.title,notes:body.notes,due:body.due},links:(body.links||[]).map(x=>({...x,status:'confirmed'})),meeting_links:[]});return ok({ok:true});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.locator('#newTaskBtn').click();
@@ -330,14 +330,17 @@ async function mockLinkTargets(page){
 
 test('Google Tasks editor has no list choice and saves chosen links',async({page})=>{
   await mock(page);await mockLinkTargets(page);
-  const calls=[];
+  const calls=[];const savedLinks=new Map([['g1',[{project_id:'p1',status:'confirmed'},{project_id:'p3',status:'confirmed'},{organization_id:'o0',status:'confirmed'}]]]);
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const req=route.request(),u=new URL(req.url()),action=u.searchParams.get('action'),body=req.method()==='GET'?{}:JSON.parse(req.postData()||'{}');
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
     calls.push({action,body,query:Object.fromEntries(u.searchParams)});
     if(action==='overview')return ok({connected:true,authorized:true,needs_reconnect:false,tasks:[gt('g1',googleDue(0),{taskListId:'@default',taskListTitle:'내 할 일'})]});
-    if(action==='links')return ok({links:[{project_id:'p1',organization_id:null,status:'confirmed'},{project_id:'p3',organization_id:null,status:'confirmed'},{project_id:null,organization_id:'o0',status:'confirmed'}]});
-    return ok({ok:true,task:gt('g1',googleDue(0)),links:[]});
+    if(action==='links')return ok({links:savedLinks.get(u.searchParams.get('task_id'))||[],meeting_links:[]});
+    if(action==='create'){const id='created-'+calls.filter(x=>x.action==='create').length,rows=body.links.map(x=>({...x,status:'confirmed'}));savedLinks.set(id,rows);return ok({ok:true,task:gt(id,body.due,{title:body.title,notes:body.notes}),links:rows,meeting_links:[]})}
+    if(action==='link')savedLinks.set(body.task_id,[...savedLinks.get(body.task_id),...body.links.map(x=>({...x,status:'confirmed'}))]);
+    if(action==='unlink')savedLinks.set(body.task_id,savedLinks.get(body.task_id).filter(x=>!body.links.some(y=>x.project_id&&x.project_id===y.project_id||x.organization_id&&x.organization_id===y.organization_id)));
+    return ok({ok:true,task:gt(body.task_id||'g1',body.due,{title:body.title,notes:body.notes}),links:savedLinks.get(body.task_id)||[],meeting_links:[]});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.getByRole('button',{name:'할 일 목록 안내',exact:true}).click();
@@ -523,7 +526,7 @@ test('editor save reentry sends one create request',async({page})=>{
     const action=new URL(route.request().url()).searchParams.get('action');
     if(action==='create'){
       saves++;await new Promise(resolve=>{release=resolve});
-      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:gt('created',googleDue(0))})});
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:gt('created',googleDue(0)),links:(route.request().postDataJSON().links||[]).map(x=>({...x,status:'confirmed'})),meeting_links:[]})});
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[]})});
   });
