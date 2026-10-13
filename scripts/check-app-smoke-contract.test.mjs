@@ -89,6 +89,12 @@ test('script href does not replace the actual src attribute', () => {
   const url = versioned('app/index.html', 'app.js');
   assert.match(run(change('app/index.html', `<script src="${url}" defer>`, `<script href="${url}" defer>`)).errors.join('\n'), /index\.html.*app\.js/);
 });
+for (const attribute of ['type="application/json"', 'type="module"', 'nomodule', 'async']) {
+  test(`app startup script rejects ${attribute}`, () => {
+    const url = versioned('app/index.html', 'app.js');
+    assert.match(run(change('app/index.html', `<script src="${url}" defer>`, `<script src="${url}" defer ${attribute}>`)).errors.join('\n'), /app\.js.*deferred classic/);
+  });
+}
 test('link src does not replace the actual href attribute', () => {
   const url = versioned('app/index.html', 'critical.css');
   assert.match(run(change('app/index.html', `href="${url}"`, `src="${url}"`)).errors.join('\n'), /index\.html.*critical\.css/);

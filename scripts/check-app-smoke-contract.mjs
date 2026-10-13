@@ -129,6 +129,11 @@ export function checkAppSmokeContract(files) {
     const refs = tags.filter(item => item.tag === tag && (!rel || item.attributes.rel === rel) && resourceName(item.attributes[attribute]) === name);
     required(refs.map(item => ({ raw: item.attributes[attribute] })), name, 'app/index.html');
     if (name === 'app.js' && refs.some(item => !item.defer)) errors.push('app/index.html: app.js script requires defer');
+    // Startup uses the default classic script, deferred in document order.
+    // A data/module type, async, or nomodule changes that execution contract.
+    if (name === 'app.js' && refs.some(item => ['type', 'async', 'nomodule'].some(key => Object.hasOwn(item.attributes, key)))) {
+      errors.push('app/index.html: app.js requires the deferred classic startup contract without type, async, or nomodule');
+    }
   }
   // The shell's style preloads and actual imports must use one URL for each asset.
   for (const item of tags) {
