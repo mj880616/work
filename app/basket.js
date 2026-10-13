@@ -25,7 +25,7 @@ const syncTitle=()=>basketTitle.classList.toggle('a11y-only',mobileTitle.matches
 mobileTitle.addEventListener('change',syncTitle);syncTitle();
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
 const ocrViews=new Map();
-let ocrFlight=null,ocrViewScope=null;
+let ocrFlight=null,ocrViewScope=null,ocrGeneration=0;
 const captureOcrScope=()=>({scope:scope(),owner:rt.context.read()?.user?.id,sessionEpoch:rt.session.epoch()});
 const currentOcrScope=value=>{const session=rt.session.read();return !!value&&value.scope===scope()&&value.sessionEpoch===rt.session.epoch()&&session?.user?.id===value.owner&&!!session?.access_token;};
 const ocrKey=fileId=>`${selected?.id}:${fileId}`;
@@ -35,7 +35,8 @@ function guardOcrPrivacy(){
   if(ocrFlight){ocrFlight=null;busy=false;}
   return false;
 }
-const ocr=basketOcrFor({rt,isCurrent:()=>window.KPTURouter.current==='basket'&&(!ocrFlight||ocrFlight.current()),onChange:()=>{if(guardOcrPrivacy())paintOcrControls();}});
+// This facade reads presentation only; native operations bind their own token.
+const ocr=basketOcrFor({rt,isCurrent:()=>window.KPTURouter.current==='basket'&&(!ocrViewScope||currentOcrScope(ocrViewScope))});
 const recognition={unread:'읽기 전',reading:'읽는 중',done:'읽기 완료',empty:'글자 없음',failed:'읽기 실패'};
 const cleanupLabel={none:'',create_pending:'임시 문서 생성 확인 중',create_unknown:'임시 문서 생성 결과 불명',created:'임시 문서 정리 필요',delete_pending:'임시 문서 정리 중',deleted:'임시 문서 정리 완료',delete_failed:'임시 문서 정리 실패'};
 function ocrNotice(value,action=value.action){
@@ -58,7 +59,7 @@ function paintOcrControls(){
   if(!selected||!guardOcrPrivacy())return;
   const state=ocr.state;
   for(const file of selected.attachments||[]){
-    const node=detail.querySelector(`[data-basket-ocr="${CSS.escape(file.drive_file_id)}"]`);if(!node)continue;
+    const node=detail.querySelector(`[data-basket-ocr="${CSS.escape(file.drive_file_id)}"]`);if(!node?.querySelector('[data-basket-ocr-read]'))continue;
     const view=ocrViews.get(ocrKey(file.drive_file_id)),saved=file.ocr;
     const enabled=state.enabled&&!busy&&!state.busy&&['image/jpeg','image/png'].includes(file.mime_type);
     const outcome=ocr.outcome?.(selected.id,file.drive_file_id);
@@ -98,15 +99,17 @@ async function runOcr(action,fileId){
   const recovery=['reconcile','cleanup'].includes(action);
   const consent={attempt:selected.attachments.find(file=>file.drive_file_id===fileId)?.ocr?.attempt_id,checked:view?.checkedAttempt,stamp:view?.stamp};
   if(recovery&&(!consent.attempt||consent.checked!==consent.attempt||!consent.stamp))return;
-  const run=++epoch,captured=captureOcrScope();
-  const token={current:()=>ocrFlight===token&&run===epoch&&selected?.id===id&&currentOcrScope(captured)&&window.KPTURouter.current==='basket'};
-  ocrFlight=token;busy=true;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);
+  const run=++epoch,captured=captureOcrScope(),generation=ocrGeneration;
+  const token={current:()=>ocrFlight===token&&generation===ocrGeneration&&run===epoch&&selected?.id===id&&currentOcrScope(captured)&&window.KPTURouter.current==='basket'};
+  ocrFlight=token;
+  const operation=basketOcrFor({rt,isCurrent:token.current,onChange:()=>{if(token.current()&&guardOcrPrivacy())paintOcrControls();}});
+  busy=true;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);
   const status=detail.querySelector('[data-basket-status]');status.textContent='사진 속 글자 확인 중…';
   try{
-    const capability=await ocr.capabilities();if(!token.current())return;
+    const capability=await operation.capabilities();if(!token.current())return;
     if(!capability.ok){status.textContent='지금은 사진 속 글자 읽기를 사용할 수 없습니다.';return;}
     {
-      const snapshot=await ocr.status(id);if(!token.current())return;
+      const snapshot=await operation.status(id);if(!token.current())return;
       if(!snapshot.ok){status.textContent=ocrNotice(snapshot);return;}
       applyOcrSnapshot(snapshot);
       if(action==='status'){
@@ -126,9 +129,9 @@ async function runOcr(action,fileId){
         options={confirmCurrentNoteVersion:view.stamp};
       }
     }
-    const result=action==='read'?await ocr.read(id,fileId):action==='reconcile'?await ocr.reconcile(id,fileId,options):await ocr.cleanup(id,fileId);
+    const result=action==='read'?await operation.read(id,fileId):action==='reconcile'?await operation.reconcile(id,fileId,options):await operation.cleanup(id,fileId);
     if(!token.current())return;
-    applyOcrSnapshot(ocr.state.snapshot);
+    applyOcrSnapshot(operation.state.snapshot);
     applyOcrOutcome(result,action);status.textContent=ocrNotice(result,action);
   }catch{if(token.current())status.textContent='글자 읽기 결과를 확인하지 못했습니다. 상태를 확인해 주세요.';}
   finally{if(ocrFlight===token){ocrFlight=null;busy=false;if(currentOcrScope(captured)&&selected?.id===id){detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}else guardOcrPrivacy();}}
@@ -252,15 +255,19 @@ async function patch(changes, message) {
 }
 async function saveAttachments() {
   if(busy||!selected)return;
-  let batch=upload;const id=selected.id,owner=scope();const isCurrent=()=>scope()===owner&&selected?.id===id&&upload===batch;
+  let batch=upload;const id=selected.id,owner=scope();const isCurrent=()=>scope()===owner&&selected?.id===id&&upload===batch&&run===epoch;
   const status=detail.querySelector('[data-basket-status]');
   if(!batch.entries.length){status.textContent='파일을 선택해 주세요.';return;}
   // A read started before this write must not restore stale attachment counts.
-  ++epoch;busy=true;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);pickerFiles.render();status.textContent='업로드 중…';
+  const run=++epoch,captured=ocr.enabled?captureOcrScope():null,generation=ocrGeneration;
+  const token={current:()=>ocrFlight===token&&generation===ocrGeneration&&isCurrent()&&currentOcrScope(captured)&&window.KPTURouter.current==='basket'};
+  if(ocr.enabled)ocrFlight=token;
+  const operation=ocr.enabled?basketOcrFor({rt,isCurrent:token.current,onChange:()=>{if(token.current()&&guardOcrPrivacy())paintOcrControls();}}):ocr;
+  busy=true;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);pickerFiles.render();status.textContent='업로드 중…';
   const paint=()=>{if(!isCurrent())return;selected.attachments=batch.attachments;renderList();paintAttachments();pickerFiles.render();};
-  try{await uploadBatch(batch,{isCurrent,onChange:paint,ocr,onOcrChange:value=>{if(isCurrent()&&guardOcrPrivacy())applyOcrOutcome(value);}});if(isCurrent()){upload=batch=createUploadBatch(id,batch.attachments);status.textContent='첨부를 저장했습니다.';}}
+  try{await uploadBatch(batch,{isCurrent,onChange:paint,ocr:operation,onOcrChange:value=>{if(token.current()&&guardOcrPrivacy())applyOcrOutcome(value);}});if(isCurrent()){upload=batch=createUploadBatch(id,batch.attachments);status.textContent='첨부를 저장했습니다.';}}
   catch(e){if(isCurrent()){status.textContent='메모를 다시 불러오지 못했어요. 다시 시도해 주세요.';detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;}}
-  finally{busy=false;if(isCurrent()){detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles.render();paintOcrControls();}}
+  finally{if(ocrFlight===token){ocrFlight=null;busy=false;}else if(!ocr.enabled)busy=false;if(isCurrent()&&!busy){detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles.render();paintOcrControls();}}
 }
 async function reloadDetail() {
   if(busy||!selected)return;
@@ -323,6 +330,7 @@ window.addEventListener('kptu:before-view-change',e=>{
 });
 window.addEventListener('kptu:view-changed',e=>{
   if(e.detail?.view==='basket'){retainedForTraversal=false;return;}
+  ocrGeneration++;
   if(e.detail?.retainBasketDraft){retainedForTraversal=true;return;}
   retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});
 });
