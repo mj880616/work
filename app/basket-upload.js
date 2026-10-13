@@ -1,4 +1,4 @@
-import {createBasketOcr} from './basket-ocr.js?v=1';
+import {basketOcrFor} from './basket-ocr-runtime.js?v=1';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 바구니에서 확인 후 다시 시도하세요';
@@ -78,10 +78,10 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
   // Multipart success is final before this separate phase. An OCR failure never
   // changes upload entries, blocks the batch, or sends the source file again.
   if(hadPending && isCurrent()) {
-    const controller=ocr||createBasketOcr({rt,isCurrent});
+    const controller=ocr||basketOcrFor({rt,isCurrent});
     const photos=batch.attachments.filter(file=>!originalIds.has(file.drive_file_id)&&['image/jpeg','image/png'].includes(file.mime_type));
     const notice=value=>{if(isCurrent()){try{onOcrChange(value);}catch{/* A notice cannot undo a confirmed upload. */}}};
-    if(controller.state.enabled && photos.length) {
+    if((controller.enabled??controller.state.enabled) && photos.length) {
       let supported=false;
       try{supported=(await controller.capabilities()).ok===true;}catch{/* Saved sources remain saved. */}
       for(const file of photos) {
