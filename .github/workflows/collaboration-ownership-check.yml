@@ -14,6 +14,9 @@ on:
       - 'android-app/**'
       - '.github/workflows/collaboration-ownership-check.yml'
 
+permissions:
+  contents: read
+
 jobs:
   structure:
     runs-on: ubuntu-24.04
