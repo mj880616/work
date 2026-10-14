@@ -238,7 +238,7 @@ async function luDeleteDocument(id){
     if(!d){const rows=await luApi('/rest/v1/app_documents?id=eq.'+encodeURIComponent(token.id)+'&workspace_id=eq.'+encodeURIComponent(scope.workspace)+'&select=*&limit=1',{expectedSessionEpoch:scope.epoch,singleFlight:false});if(!isCurrent())return;d=rows?.[0]}
     if(!isCurrent()||d?.id!==token.id||d.workspace_id!==scope.workspace)return;
     const registration=Object.freeze({...d});
-    let helper;try{helper=await import('./document-delete.js?v=1')}catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return}
+    let helper;try{helper=await import('./document-delete.js?v=2')}catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return}
     if(!isCurrent())return;
     if(await helper.deleteDocument(registration,{api:luApi,maybeReconnect:luMaybeReconnectDrive,expectedSessionEpoch:scope.epoch,isCurrent})&&isCurrent()){luDocuments=luDocuments.filter(x=>x.id!==token.id);luRenderLibrary()}
   }catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.')}

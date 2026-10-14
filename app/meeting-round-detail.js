@@ -75,7 +75,7 @@ async function mrdDeleteMaterial(button,docs){
     if(!isCurrent()||d?.id!==token.id||d.workspace_id!==scope.workspace)return;
     const registration=Object.freeze({...d});
     let helper;
-    try{helper=await import('./document-delete.js?v=1')}
+    try{helper=await import('./document-delete.js?v=2')}
     catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return}
     if(isCurrent())await helper.deleteDocument(registration,{api:mrdApi,role:mrdRole,expectedSessionEpoch:scope.epoch,isCurrent});
   }finally{mrdDeleteTokens.delete(token);button.disabled=false}
