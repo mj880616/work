@@ -1,5 +1,5 @@
 import {classificationFormat} from './basket-classification.js?v=8';
-import {readBasket} from './basket-data.js?v=3';
+import {readBasket} from './basket-data.js?v=4';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
 
 // Basket guidance only: active + actual owner assignment, matching home weekUpdates.

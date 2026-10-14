@@ -114,3 +114,6 @@ div.gt-main{cursor:default}
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 #gtPickModal .gt-linked-msg{font-size:var(--kptu-text-meta)}
+
+/* BASKET-할일출처: source-note link under the task title, inside the same row. */
+#gtTaskBody .gt-row .gt-source{grid-column:2;justify-self:start;display:inline-flex;align-items:center;min-height:32px;margin-top:-6px;font-size:var(--kptu-text-meta);color:var(--kptu-primary-ink)}
