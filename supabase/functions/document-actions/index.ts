@@ -231,7 +231,17 @@ Deno.serve(async (req: Request) => {
     const user = await getUser(req);
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || '');
-    if (action === 'register-basket-attachment') return json(await registerBasketAttachment(user.id, body));
+    if (action === 'register-basket-attachment') {
+      try {
+        return json(await registerBasketAttachment(user.id, body));
+      } catch (e) {
+        // 400: refused before any write. 503: the write may have happened; the
+        // caller must check the library instead of sending again.
+        const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : undefined;
+        console.error(e);
+        return json({ error: e instanceof Error ? e.message : String(e), ...(code ? { code } : {}) }, code === 'RESULT_UNKNOWN' ? 503 : 400);
+      }
+    }
     const documentId = String(body?.document_id || '');
     if (!documentId) return json({ error: 'document_id가 필요합니다.' }, 400);
     if (action === 'delete') return json(await deleteDocument(user.id, documentId));

@@ -121,10 +121,13 @@ test('an unknown write result is reported once and never sent again', async () =
     const h = harness(extra);
     const r = await register(h);
     assert.equal(r.body.code, 'RESULT_UNKNOWN', JSON.stringify(extra));
+    assert.equal(r.status, 503);
     assert.equal(posts(h).length, 1);
   }
   const rejected = harness({ insertStatus: 409 });
-  assert.equal((await register(rejected)).body.code, 'REGISTER_REJECTED');
+  const refused = await register(rejected);
+  assert.equal(refused.body.code, 'REGISTER_REJECTED');
+  assert.equal(refused.status, 400);
   assert.equal(posts(rejected).length, 1);
 });
 

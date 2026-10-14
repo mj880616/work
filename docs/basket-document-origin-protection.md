@@ -48,6 +48,6 @@ owner 업무공간·메모·setting은 명시 Range와 `Prefer: count=exact`, �
 - 서버가 메모를 읽어 업무공간·첨부(같은 `drive_file_id`)·파일 이름·종류·크기를 정한다. 클라이언트가 보낸 업무공간·제목·공개 범위는 쓰지 않는다. `visibility='private'`, `uploaded_by`=로그인 사용자, 분류 메모 "바구니 메모 첨부에서 등록(같은 Drive 원본)".
 - Drive는 메타데이터 GET만 한다(내 소유·휴지통 아님·ID 일치). 복사·이동·업로드·휴지통·권한 변경 없음. 자료 행은 같은 Drive 파일 ID를 가리킨다.
 - 중복: 같은 업무공간·같은 `file_id` 자료가 있으면 `{ok:true,result:"exists",document}`. Drive 확인 뒤 쓰기 직전에 한 번 더 확인한다. DB에 `file_id` 고유 제약이 없어 두 요청이 정확히 동시에 오면 두 행이 생길 수 있다(화면은 첨부마다 요청 1개만 보낸다). 고유 제약은 DB 변경이라 이번 범위가 아니다(제안만).
-- 결과 불명(연결 끊김·5xx·응답 행 불일치): `RESULT_UNKNOWN`, 서버가 다시 보내지 않는다. 명확한 거절(4xx): `REGISTER_REJECTED`. 그 밖: `INVALID_REQUEST`·`NOTE_NOT_FOUND`·`ATTACHMENT_NOT_FOUND`·`DRIVE_FILE_MISSING`·`DRIVE_FILE_TRASHED`·`DRIVE_FILE_INVALID`·`DRIVE_UNAVAILABLE`.
+- 결과 불명(연결 끊김·5xx·응답 행 불일치): HTTP 503 `RESULT_UNKNOWN`, 서버가 다시 보내지 않는다. 쓰기 전 거절은 모두 HTTP 400(화면은 400이면 "바뀐 것 없음", 그 밖의 실패는 "결과 불명"으로 본다). 명확한 거절(4xx): `REGISTER_REJECTED`. 그 밖: `INVALID_REQUEST`·`NOTE_NOT_FOUND`·`ATTACHMENT_NOT_FOUND`·`DRIVE_FILE_MISSING`·`DRIVE_FILE_TRASHED`·`DRIVE_FILE_INVALID`·`DRIVE_UNAVAILABLE`.
 - 삭제 쪽: 등록한 자료를 자료실에서 지우면 메모 참조(`note_reference`)로 Drive를 건드리지 않는다. 메모를 지우면 basket-files `note-delete`가 `app_documents.file_id` 참조를 보고 원본을 휴지통으로 옮기지 않는다. 둘 다 지운 뒤에는 바구니 폴더 원본 판정(`private_basket_original`)으로 원본이 보존된다(자동 정리 없음).
 - 검사: `tests/security/document-actions-register.test.mjs` 8개(등록 본문·이미 있음·확인 중 생긴 중복·결과 불명 4종 1회만·클라이언트 값 무시·Drive 이상 6종·등록 뒤 삭제 시 원본 보존·기존 delete 계약). 보안·Edge 격리 전체 595/595(Deno 2.5.6), `deno check` 통과.
