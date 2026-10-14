@@ -1,6 +1,6 @@
 import {basketOcrFor} from './basket-ocr-runtime.js?v=1';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
-import { mountQuick } from './home-quick.js?v=13';
+import { mountQuick } from './home-quick.js?v=14';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=13';
 import { mountClassification } from './basket-classification-ui.js?v=11';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
@@ -8,7 +8,7 @@ import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.j
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=5';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
-let notes = [], links = [], filter = 'unclassified', selected = null, busy = false, epoch = 0;
+let notes = [], links = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
 let quick=null;
@@ -188,7 +188,7 @@ function clearNoteAddress(){
 function closeDetail({focus = true, force = false, cleanAddress = true} = {}) {
   if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return;
   handoff.close();
-  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;paintHandoffScope();
+  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;paintHandoffScope();
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
 }
 function paintDetailState() {
@@ -204,17 +204,40 @@ function paintAttachments() {
   detail.querySelectorAll('[data-basket-ocr] details').forEach(node=>{node.open=openIds.has(node.parentElement.dataset.basketOcr);});
   paintOcrControls();
 }
-function openDetail(id) {
+function paintMode() {
+  if (!selected) return;
+  const text = detail.querySelector('[data-basket-read-text]');
+  text.textContent = selected.raw_text || '글 없이 첨부만 있는 메모입니다.'; text.classList.toggle('basket-read-empty', !selected.raw_text);
+  detail.querySelector('[data-basket-read]').hidden = editing; detail.querySelector('[data-basket-read-actions]').hidden = editing;
+  detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
+}
+function openDetail(id, {edit = false} = {}) {
   handoff.close();
   selected = notes.find(n => n.id === id); if (!selected) return;
-  // Keep the opened editor attached to this list snapshot until an explicit reload.
-  ++epoch;ocrViewScope=captureOcrScope();
+  // Keep the opened note attached to this list snapshot until an explicit reload.
+  ++epoch;ocrViewScope=captureOcrScope();editing=edit;
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
-  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-editor"><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions"><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-archive>보관</button></div><p data-basket-status role="status"></p>`;
+  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions" data-basket-read-actions><button type="button" data-basket-edit>수정</button><button type="button" data-basket-handoff>AI에게 맡기기</button><button type="button" data-basket-archive>보관</button></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
-  pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
-  paintDetailState();paintHandoffScope(); detail.querySelector('[data-basket-text]').focus();
+  pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isActive:()=>editing,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
+  paintDetailState();paintMode();paintHandoffScope();
+  // Reading never opens the on-screen keyboard; only an explicit edit focuses the text.
+  detail.querySelector(editing ? '[data-basket-text]' : '[data-basket-read-text]').focus();
+}
+function startEdit() {
+  if (!selected || editing) return;
+  editing = true; detail.querySelector('[data-basket-text]').value = selected.raw_text; detail.querySelector('[data-basket-status]').textContent = '';
+  paintMode(); pickerFiles?.render(); detail.querySelector('[data-basket-text]').focus();
+}
+function finishEdit({force = false} = {}) {
+  if (!selected || !editing) return;
+  if (!force && dirty() && !window.confirm('수정 중인 글과 첨부 선택을 버리고 읽기 화면으로 돌아갈까요?')) return;
+  editing = false; detail.querySelector('[data-basket-text]').value = selected.raw_text;
+  // Cancelling discards the selection the same way leaving the note does.
+  if (upload.blocked || upload.entries.some(e => e.kind !== 'success')) upload = createUploadBatch(selected.id, selected.attachments || []);
+  if (!force) detail.querySelector('[data-basket-status]').textContent = '';
+  paintMode(); pickerFiles?.render(); detail.querySelector('[data-basket-read-text]').focus();
 }
 async function refresh() {
   if (busy) return;
@@ -236,7 +259,7 @@ async function refresh() {
     root.querySelector('[data-basket-retry]').hidden = false;
   }
 }
-async function patch(changes, message) {
+async function patch(changes, message, {read = false} = {}) {
   if (busy || !selected) return;
   const id = selected.id, run = ++epoch, owner = scope(); busy = true;
   detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = true);
@@ -246,6 +269,8 @@ async function patch(changes, message) {
     if (run !== epoch || owner !== scope()) return;
     notes = notes.map(n => n.id === id ? note : n); selected = note;upload.attachments=note.attachments||[];
     renderList(); paintDetailState(); detail.querySelector('[data-basket-status]').textContent = message;
+    if (!editing) detail.querySelector('[data-basket-text]').value = note.raw_text;
+    if (read) finishEdit({force:true}); else paintMode();
   } catch (e) {
     if (run !== epoch || owner !== scope()) return;
     paintDetailState(); detail.querySelector('[data-basket-status]').textContent = '저장하지 못했어요. 다시 시도해 주세요.';
@@ -274,7 +299,7 @@ async function reloadDetail() {
   if(dirty()&&!window.confirm('저장된 메모를 다시 불러올까요? 수정 중인 글과 미완료 파일 선택은 비워집니다.'))return;
   const id=selected.id,owner=scope(),run=++epoch;busy=true;
   detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);
-  try{const result=await readBasket();if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;renderList();if(notes.some(n=>n.id===id))openDetail(id);else closeDetail({force:true});}
+  try{const result=await readBasket();if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;renderList();if(notes.some(n=>n.id===id))openDetail(id,{edit:editing});else closeDetail({force:true});}
   catch(e){if(run===epoch&&owner===scope())detail.querySelector('[data-basket-status]').textContent='메모를 다시 불러오지 못했어요. 다시 시도해 주세요.';}
   finally{busy=false;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}
 }
@@ -282,9 +307,9 @@ root.addEventListener('click', e => {
   if(!guardOcrPrivacy())return;
   const b = e.target.closest('button'); if (!b||b.disabled) return;
   // Navigation cancels this handoff's read, but never releases another operation's lock.
-  if (b.matches('[data-basket-filter],[data-classification-open],[data-basket-row],[data-basket-close]')) handoff.close();
+  if (b.matches('[data-basket-filter],[data-classification-open],[data-basket-row],[data-basket-close],[data-basket-edit]')) handoff.close();
   if (busy) return;
-  if (b.hasAttribute('data-handoff-copy')) void handoff.copy();
+  if (b.hasAttribute('data-handoff-copy')||b.hasAttribute('data-basket-handoff')) void handoff.copy();
   else if (b.hasAttribute('data-classification-open')) classification.open();
   else if(b.hasAttribute('data-basket-ocr-read'))void runOcr('read',b.dataset.basketOcrRead);
   else if(b.hasAttribute('data-basket-ocr-status'))void runOcr('status',b.dataset.basketOcrStatus);
@@ -293,11 +318,15 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
   else if (b.hasAttribute('data-basket-filter')) { handoff.close(); filter = b.dataset.basketFilter; renderList(); }
   else if (b.hasAttribute('data-basket-close')) closeDetail();
+  else if (b.hasAttribute('data-basket-edit')) startEdit();
+  else if (b.hasAttribute('data-basket-cancel')) finishEdit();
   else if (b.hasAttribute('data-basket-retry')) void refresh();
   else if (b.hasAttribute('data-basket-save')) {
     // textarea normalizes CR/CRLF on display; do not rewrite an unchanged original.
-    if (!textDirty()) detail.querySelector('[data-basket-status]').textContent = '저장된 글입니다.';
-    else void patch({raw_text:detail.querySelector('[data-basket-text]').value}, '수정한 글을 저장했습니다.');
+    // Selected files stay in the editor until they are saved or cancelled.
+    const pendingFiles = upload.entries.some(e => e.kind !== 'success');
+    if (!textDirty()) { detail.querySelector('[data-basket-status]').textContent = pendingFiles ? '저장된 글입니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.' : '저장된 글입니다.'; if (!pendingFiles) finishEdit({force:true}); }
+    else void patch({raw_text:detail.querySelector('[data-basket-text]').value}, pendingFiles ? '수정한 글을 저장했습니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.' : '수정한 글을 저장했습니다.', {read:!pendingFiles});
   }
   else if (b.hasAttribute('data-basket-upload')) void saveAttachments();
   else if (b.hasAttribute('data-basket-reload')) void reloadDetail();
