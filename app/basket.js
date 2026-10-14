@@ -2,8 +2,9 @@ import {basketOcrFor} from './basket-ocr-runtime.js?v=1';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
 import { mountQuick } from './home-quick.js?v=14';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=13';
-import { mountClassification } from './basket-classification-ui.js?v=11';
+import { mountClassification } from './basket-classification-ui.js?v=12';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
+import { deleteNoteOriginal } from './basket-record-delete.js?v=1';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=5';
 
@@ -218,7 +219,7 @@ function openDetail(id, {edit = false} = {}) {
   ++epoch;ocrViewScope=captureOcrScope();editing=edit;
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
-  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions" data-basket-read-actions><button type="button" data-basket-edit>수정</button><button type="button" data-basket-handoff>AI에게 맡기기</button><button type="button" data-basket-archive>보관</button></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions" data-basket-read-actions><button type="button" data-basket-edit>수정</button><button type="button" data-basket-handoff>AI에게 맡기기</button><button type="button" data-basket-archive>보관</button><button type="button" data-basket-delete>삭제</button></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isActive:()=>editing,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
   paintDetailState();paintMode();paintHandoffScope();
@@ -278,6 +279,30 @@ async function patch(changes, message, {read = false} = {}) {
     busy = false; detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = false);paintOcrControls();
   }
 }
+// Read view only: the delete button lives in the read actions hidden while editing.
+async function deleteSelected() {
+  if (busy || !selected || editing) return;
+  const id = selected.id, run = ++epoch, owner = scope(); busy = true;
+  const status = detail.querySelector('[data-basket-status]');
+  detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = true);
+  status.textContent = '';
+  const current = () => run === epoch && owner === scope() && selected?.id === id && window.KPTURouter.current === 'basket';
+  let result;
+  try { result = await deleteNoteOriginal(id, {rt, isCurrent:current}); }
+  catch { result = {status:'unknown', message:'결과를 확인하지 못했어요. 메모 다시 불러오기로 실제 상태를 확인해 주세요.'}; }
+  finally { busy = false; }
+  if (!current() || result.status === 'stale') return;
+  if (['deleted', 'missing'].includes(result.status)) {
+    notes = notes.filter(n => n.id !== id); links = links.filter(l => l.note_id !== id);
+    closeDetail({force:true}); renderList(); listStatus.textContent = result.message;
+    return;
+  }
+  detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = false); paintOcrControls();
+  if (result.status === 'cancelled') { detail.querySelector('[data-basket-delete]').focus(); return; }
+  status.textContent = result.message;
+  if (result.status === 'unknown') detail.querySelector('[data-basket-reload]').hidden = false;
+  detail.querySelector('[data-basket-delete]').focus();
+}
 async function saveAttachments() {
   if(busy||!selected)return;
   let batch=upload;const id=selected.id,owner=scope();const isCurrent=()=>scope()===owner&&selected?.id===id&&upload===batch&&run===epoch;
@@ -330,6 +355,7 @@ root.addEventListener('click', e => {
   }
   else if (b.hasAttribute('data-basket-upload')) void saveAttachments();
   else if (b.hasAttribute('data-basket-reload')) void reloadDetail();
+  else if (b.hasAttribute('data-basket-delete')) void deleteSelected();
   else if (b.hasAttribute('data-basket-archive')) void patch({archived_at:selected.archived_at ? null : new Date().toISOString()}, selected.archived_at ? '보관을 해제했습니다.' : '보관했습니다.');
 });
 window.addEventListener('storage',()=>guardOcrPrivacy());
