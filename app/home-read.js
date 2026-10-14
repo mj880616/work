@@ -1,5 +1,5 @@
 import { readRecordPages } from './basket-link-records.js?v=3';
-import { mountQuick } from './home-quick.js?v=12';
+import { mountQuick } from './home-quick.js?v=14';
 import { createHomeCache } from './home-read-cache.js?v=6';
 import {
   ranges,

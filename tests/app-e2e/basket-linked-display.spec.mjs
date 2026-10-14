@@ -47,7 +47,7 @@ for(const width of [390,1280])test.describe(`original list return ${width}`,()=>
  });
 });
 test('cancelled dirty menu movement preserves URL and editor; accepted movement clears note',async({page})=>{
- const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.evaluate(()=>KPTUViewLoader.load('home'));await page.locator('[data-basket-text]').fill('수정 중');const before=page.url();
+ const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket&note='+n+'&keep=yes#here');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.evaluate(()=>KPTUViewLoader.load('home'));await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('수정 중');const before=page.url();
  page.once('dialog',d=>d.dismiss());await page.evaluate(()=>KPTURouter.go('home'));expect(page.url()).toBe(before);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('수정 중');
  page.once('dialog',d=>d.accept());await page.evaluate(()=>KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();expect(new URL(page.url()).searchParams.has('note')).toBe(false);expect(new URL(page.url()).searchParams.get('keep')).toBe('yes');expect(new URL(page.url()).hash).toBe('#here');
  await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(f.errors).toEqual([]);
@@ -92,7 +92,7 @@ test('archived original and browser Back remain explicit choices',async({page})=
 test('Back declined while editing restores the original URL, history state, and text',async({page})=>{
  const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await page.locator('[data-basket-filter="all"]').click();
  await page.evaluate(id=>{history.replaceState({marker:'prior'},'','?view=home&keep=yes#here');history.pushState({marker:'editor'},'','?view=basket&note='+id+'&keep=yes#here');},n);
- await page.locator('[data-basket-row]').click();await page.locator('[data-basket-text]').fill('뒤로가기 취소 원문');const address=page.url();page.once('dialog',d=>d.dismiss());await page.evaluate(()=>history.back());
+ await page.locator('[data-basket-row]').click();await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('뒤로가기 취소 원문');const address=page.url();page.once('dialog',d=>d.dismiss());await page.evaluate(()=>history.back());
  await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);
 });
 test('failed destination loading preserves note URL and the opened original',async({page})=>{
@@ -104,22 +104,26 @@ test('failed destination loading preserves note URL and the opened original',asy
 test('Back declined after lazy-loading an unopened target still restores note URL and text',async({page})=>{
  const f=await fixture(page);await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');});await page.locator('[data-basket-filter="all"]').click();expect(await page.evaluate(()=>KPTUViewLoader.isLoaded('calendar'))).toBe(false);
  await page.evaluate(id=>{history.replaceState({marker:'calendar'},'','?view=calendar&keep=yes#here');history.pushState({marker:'editor'},'','?view=basket&note='+id+'&keep=yes#here');},n);
- await page.locator('[data-basket-row]').click();await page.locator('[data-basket-text]').fill('지연 뒤로가기 취소 원문');const address=page.url();let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.back());await expect.poll(()=>prompted).toBe(true);
+ await page.locator('[data-basket-row]').click();await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('지연 뒤로가기 취소 원문');const address=page.url();let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.back());await expect.poll(()=>prompted).toBe(true);
  await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('지연 뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);
 });
 
+// Load first, then build the same-document entries in a later task. An evaluate that is still
+// returning while those URL changes run can be reported as a destroyed context.
 async function historyStack(page){
- await page.evaluate(async id=>{
-  await KPTUViewLoader.load('calendar');await KPTUViewLoader.load('basket');
+ await page.evaluate(async()=>{await KPTUViewLoader.load('calendar');await KPTUViewLoader.load('basket');});
+ await page.evaluate(id=>{window.__historyStackReady=false;setTimeout(()=>{
   KPTURouter.go('home',{source:'delegated'});history.replaceState({marker:'home',unrelated:{value:1}},'','?view=home&keep=1#home');
   KPTURouter.go('calendar',{source:'delegated'});history.replaceState({marker:'calendar',unrelated:{value:2}},'','?view=calendar&keep=1#calendar');
   KPTURouter.go('basket',{source:'delegated'});history.replaceState({marker:'editor',unrelated:{value:3}},'','?view=basket&note='+id+'&keep=1#basket');
- },n);
+  window.__historyStackReady=true;
+ });},n);
+ await expect.poll(()=>page.evaluate(()=>window.__historyStackReady)).toBe(true);
  await expect(page.locator('[data-basket-row]')).toHaveCount(1);
 }
 const historyProof=page=>page.evaluate(()=>({index:navigation.currentEntry.index,entries:navigation.entries().map(e=>({key:e.key,id:e.id,index:e.index,url:e.url})),state:history.state}));
 for(const width of [390,1280])test(`declined Back retains history position and calendar entry for next Back/Forward ${width}`,async({page})=>{
- await page.setViewportSize({width,height:900});const f=await fixture(page);await historyStack(page);await page.locator('[data-basket-row]').click();await page.locator('[data-basket-text]').fill('history 원문 유지');const before=await historyProof(page);let prompts=0;page.on('dialog',()=>prompts++);
+ await page.setViewportSize({width,height:900});const f=await fixture(page);await historyStack(page);await page.locator('[data-basket-row]').click();await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('history 원문 유지');const before=await historyProof(page);let prompts=0;page.on('dialog',()=>prompts++);
  let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.back());await expect.poll(()=>prompted).toBe(true);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);expect(prompts).toBe(1);await expect(page.locator('[data-basket-text]')).toHaveValue('history 원문 유지');
  page.once('dialog',d=>d.accept());await page.locator('[data-basket-close]').click();expect(await page.evaluate(()=>history.state)).toEqual(before.state);
  await page.evaluate(()=>history.back());await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#calendar/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'calendar',unrelated:{value:2}});expect(await page.evaluate(()=>navigation.currentEntry.index)).toBe(before.index-1);
@@ -128,7 +132,7 @@ for(const width of [390,1280])test(`declined Back retains history position and c
 test('declined Forward restores its prior position without replacing the forward destination',async({page})=>{
  const f=await fixture(page);await historyStack(page);
  await page.evaluate(()=>history.pushState({marker:'future',unrelated:{value:4}},'','?view=calendar&keep=1#future'));await page.evaluate(()=>history.back());await expect(page).toHaveURL(/view=basket&note=/);
- await page.locator('[data-basket-row]').click();await page.locator('[data-basket-text]').fill('Forward 취소 원문');const before=await historyProof(page);let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.forward());await expect.poll(()=>prompted).toBe(true);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);
+ await page.locator('[data-basket-row]').click();await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('Forward 취소 원문');const before=await historyProof(page);let prompted=false;page.once('dialog',d=>{prompted=true;return d.dismiss();});await page.evaluate(()=>history.forward());await expect.poll(()=>prompted).toBe(true);await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);expect(await historyProof(page)).toEqual(before);
  page.once('dialog',d=>d.accept());await page.locator('[data-basket-close]').click();await page.evaluate(()=>history.forward());await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#future/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'future',unrelated:{value:4}});expect(f.errors).toEqual([]);
 });
 for(const operation of ['preview','confirm'])test(`blocked Back during classification ${operation} keeps route-owned history without an editor`,async({page})=>{
@@ -143,7 +147,7 @@ for(const operation of ['preview','confirm'])test(`blocked Back during classific
 });
 
 test('API-disabled traversal keeps URL/current/screen consistent and retains the original draft for return',async({page})=>{
- const f=await fixture(page);await historyStack(page);await page.locator('[data-basket-row]').click();await page.locator('[data-basket-text]').fill('fallback 원문 유지');const before=await historyProof(page);let dialogs=0;page.on('dialog',d=>{dialogs++;return d.dismiss();});
+ const f=await fixture(page);await historyStack(page);await page.locator('[data-basket-row]').click();await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('fallback 원문 유지');const before=await historyProof(page);let dialogs=0;page.on('dialog',d=>{dialogs++;return d.dismiss();});
  await page.evaluate(()=>{window.__navigationProof=window.navigation;Object.defineProperty(window,'navigation',{value:undefined,configurable:true});history.back();});
  await expect(page.locator('#calendarView')).toBeVisible();expect(await page.evaluate(()=>KPTURouter.current)).toBe('calendar');await expect(page).toHaveURL(/view=calendar&keep=1#calendar/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'calendar',unrelated:{value:2}});expect(await page.evaluate(()=>__navigationProof.entries().map(e=>({key:e.key,id:e.id,index:e.index,url:e.url})))).toEqual(before.entries);await expect(page.locator('[data-basket-text]')).toHaveValue('fallback 원문 유지');
  await page.evaluate(()=>history.forward());await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('fallback 원문 유지');expect(await page.evaluate(()=>history.state)).toEqual(before.state);expect(dialogs).toBe(0);expect(f.errors).toEqual([]);
@@ -159,7 +163,7 @@ for(const operation of ['preview','confirm'])test(`API-disabled Back keeps class
 
 for(const draft of ['original','classification'])test(`API-disabled retained ${draft} survives further menu movement before basket return`,async({page})=>{
  const f=await fixture(page);await historyStack(page);
- if(draft==='original'){await page.locator('[data-basket-row]').click();await page.locator('[data-basket-text]').fill('다른 메뉴 뒤에도 원문 유지');}
+ if(draft==='original'){await page.locator('[data-basket-row]').click();await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('다른 메뉴 뒤에도 원문 유지');}
  else{await page.locator('[data-classification-open]').click();await page.locator('[data-classification-input]').fill(JSON.stringify({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'organization',target_id:o,reason:'다른 메뉴 뒤에도 후보 유지'}]}]}));await page.evaluate(()=>{const api=KPTURuntime.api;window.__retainedClass={};KPTURuntime.api=async(path,...args)=>{if(path.split('?')[0].endsWith('/app_notes')){__retainedClass.waiting=true;await new Promise(resolve=>__retainedClass.release=resolve);}return api(path,...args);};});await page.locator('[data-classification-preview]').click();await expect.poll(()=>page.evaluate(()=>__retainedClass.waiting)).toBe(true);}
  const input=page.locator(draft==='original'?'[data-basket-text]':'[data-classification-input]'),text=await input.inputValue();await page.evaluate(()=>{Object.defineProperty(window,'navigation',{value:undefined,configurable:true});history.back();});await expect(page.locator('#calendarView')).toBeVisible();
  await page.evaluate(()=>KPTURouter.go('home',{source:'delegated'}));await expect(page.locator('#homeView')).toBeVisible();await expect(input).toHaveValue(text);
@@ -169,7 +173,7 @@ for(const draft of ['original','classification'])test(`API-disabled retained ${d
 
 test('returning Forward before a lazy Back target loads cannot prompt or commit the retired target',async({page})=>{
  const f=await fixture(page);await page.evaluate(async id=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket');history.replaceState({marker:'calendar'},'','?view=calendar');history.pushState({marker:'editor'},'','?view=basket&note='+id);const load=KPTUViewLoader.load;window.__retiredLazy={};KPTUViewLoader.load=async view=>{if(view==='calendar'){__retiredLazy.waiting=true;await new Promise(resolve=>__retiredLazy.release=resolve);const result=await load(view);__retiredLazy.completed=true;return result;}return load(view);};},n);
- await expect(page.locator('[data-basket-row]')).toHaveCount(1);await page.locator('[data-basket-row]').click();await page.locator('[data-basket-text]').fill('늦은 이전 대상 원문 유지');const before=await historyProof(page);let prompts=0;page.on('dialog',d=>{prompts++;return d.dismiss();});
+ await expect(page.locator('[data-basket-row]')).toHaveCount(1);await page.locator('[data-basket-row]').click();await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('늦은 이전 대상 원문 유지');const before=await historyProof(page);let prompts=0;page.on('dialog',d=>{prompts++;return d.dismiss();});
  await page.evaluate(()=>history.back());await expect.poll(()=>page.evaluate(()=>__retiredLazy.waiting)).toBe(true);await page.evaluate(()=>history.forward());await expect(page).toHaveURL(before.entries.find(e=>e.index===before.index).url);await page.evaluate(()=>__retiredLazy.release());await expect.poll(()=>page.evaluate(()=>__retiredLazy.completed)).toBe(true);
  expect(await page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('늦은 이전 대상 원문 유지');expect(await historyProof(page)).toEqual(before);expect(prompts).toBe(0);expect(f.errors).toEqual([]);
 });

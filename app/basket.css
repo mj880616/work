@@ -60,3 +60,14 @@
 #basketView .basket-approval-footer .basket-actions { justify-content:flex-end; }
 body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static; }
 #basketView .home-quick-save { background:var(--kptu-primary); color:var(--kptu-on-primary); border:0; min-height:44px; }
+
+[data-basket-ocr] { width:100%; min-width:0; }
+.basket-ocr-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+[data-basket-attachments] .library-selected-file { flex-wrap:wrap; }
+.basket-ocr-cleanup { color:var(--kptu-muted); }
+#basketView .home-quick-lock:not([hidden]) { display:grid; gap:6px; margin-top:8px; }
+#basketView .home-quick-lock p { margin:0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+#basketView .home-quick-new-note { justify-self:start; border:0; font-weight:700; background:var(--kptu-primary); color:var(--kptu-on-primary); }
+
+#basketView .basket-read-text { box-sizing:border-box; margin:12px 0; padding:12px; font-size:15px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
+#basketView .basket-read-empty { color:var(--kptu-muted); }
