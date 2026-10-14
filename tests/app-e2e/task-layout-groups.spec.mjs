@@ -226,8 +226,8 @@ test('task mutations have one canonical owner and obsolete task filters stay rem
   expect(project).not.toContain('/rest/v1/app_tasks?project_id=${');
   expect(project).toContain('/rest/v1/app_record_links?project_id=');
   expect(index).not.toContain('rel="modulepreload" href="./team.js');
-  expect(index).toContain('./loader-v2.js?v=384');
-  expect(index).toContain('./app.js?v=272');
+  expect(index).toContain('./loader-v2.js?v=385');
+  expect(index).toContain('./app.js?v=273');
   expect(loader).toContain("import('./team.js?v=68')");
-  expect(app).toContain("import('./loader-v2.js?v=384')");
+  expect(app).toContain("import('./loader-v2.js?v=385')");
 });
