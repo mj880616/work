@@ -33,7 +33,7 @@ test('photo inspection and used-recovery assets are SELECT only and never perfor
 test('postcheck binds exact RPC source and production gate explicitly checks trigger/default ACL uncertainty',()=>{
  const body=tokens(migration).filter(t=>t.kind==='block').find(t=>t.value.includes('v_note public.app_notes%rowtype')).value;
  const hash=createHash('md5').update(body).digest('hex');assert.ok(read('docs/'+stem+'.postcheck.sql').includes(hash));
- const pre=read('docs/'+stem+'.precheck.sql');assert.match(pre,/pg_trigger/);assert.match(pre,/pg_default_acl/);assert.match(pre,/check_clause=/);
+ const pre=read('docs/'+stem+'.precheck.sql');assert.match(pre,/pg_trigger/);assert.match(pre,/pg_default_acl/);assert.match(pre,/btrim\(regexp_replace\(pg_get_constraintdef\(oid\),'\\s\+',' ','g'\)\)=btrim\(regexp_replace\('CHECK \('\|\|'/);
  const recovery=read('docs/'+stem+'.recovery.md');assert.match(recovery,/운영.*미확인/);assert.match(recovery,/사용 후/);assert.match(recovery,/forward fix/);
 });
 
@@ -51,4 +51,24 @@ test('photo preparation binds every CHECK attestation and declares PostgreSQL ve
  assert.ok(migration.indexOf('PHOTO_OCR_POSTGRES_VERSION_UNSUPPORTED')<migration.indexOf('pg_auth_members'));
  const versionSQL=read('docs/'+stem+'.version-check.sql');assert.match(versionSQL,/160000/);assert.doesNotMatch(sqlCode(versionSQL),/pg_auth_members|inherit_option|set_option/);
  assert.match(read('docs/'+stem+'.snapshot.sql'),/version-check/);assert.match(read('docs/'+stem+'.recovery.md'),/PostgreSQL 16/);assert.match(read('docs/'+stem+'.recovery.md'),/17\.6/);
+});
+
+test('read-only gates do not depend on the endpoint role and CHECK text compares whitespace-insensitively',()=>{
+ for(const suffix of ['precheck','postcheck','dry-run.postcheck']){
+  const sql=read('docs/'+stem+'.'+suffix+'.sql');
+  // information_schema filters by table owner and current_user is the read-only role.
+  assert.doesNotMatch(sqlCode(sql),/information_schema|current_user/,suffix);
+  assert.doesNotMatch(sql,/check_clause\s*=\s*'/,suffix);
+  assert.match(sql,/btrim\(regexp_replace\(pg_get_constraintdef\(oid\),'\\s\+',' ','g'\)\)/,suffix);
+ }
+ for(const [file,sql] of [['migration',migration],['rollback',read('docs/'+stem+'.rollback.sql')]]){
+  assert.doesNotMatch(sql,/check_clause\s*=\s*'/,file);
+  assert.match(sql,/btrim\(regexp_replace\(check_clause,'\\s\+',' ','g'\)\)=btrim\(regexp_replace\('\n/,file);
+ }
+ // Exact allowlist: NOINHERIT authenticator and Supabase Realtime admin only.
+ for(const sql of [migration,read('docs/'+stem+'.precheck.sql'),read('docs/'+stem+'.postcheck.sql')]){
+  const lists=[...sql.matchAll(/rolname in\(([^)]*)\) and not rolinherit/g)].map(m=>m[1]);
+  assert.ok(lists.length>=1);for(const list of lists)assert.equal(list,"'authenticator','supabase_realtime_admin'");
+  assert.doesNotMatch(sql,/rolname='authenticator'/);
+ }
 });

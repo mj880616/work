@@ -93,6 +93,7 @@ select to_regclass('private.ops_tx_probe_<run_id>') is null as rolled_back;
 - dry-run/apply: `supabase/migrations/<version>_*.sql` 정확히 1개. 첫 줄 `begin;`, 마지막 줄 `commit;`, 마지막 본문에 같은 version/name의 history INSERT 정확히 한 행. dry-run은 마지막 commit만 rollback으로 바꿔 1회 실행하고 version이 여전히 없는지 확인한다. 백업은 만들지 않는다.
 - rollback: `docs/<version>_*.rollback.sql` 정확히 1개, 같은 이름의 migration과 summary 필수. begin/commit 안에서 해당 version의 history DELETE 정확히 한 행. 사전에 version/name 한 행이 있어야 한다. apply/dry-run은 version이 이미 있으면 거부한다.
 - symlink·여러 파일·파일 짝 불일치·비정상 식별자·큰 파일은 승인 전에 거부한다. plan에는 일상어 3줄, 파일 경로·SHA256·줄 수, 위험 검사 결과, 실행 SQL 전문, 사전·사후 SQL과 백업 SQL을 표시한다. run은 plan이 기록한 main SHA를 checkout해 같은 검사를 반복한다.
+- 읽기 guard(DO)에서 쓸 수 있는 함수는 if/exists/count/length/num_nonnulls/coalesce/to_regclass와, 저장된 제약 문구를 공백 무시로 비교하기 위한 순수 문자열 함수 `btrim`·`regexp_replace`뿐이다.
 - SQL 주석(중첩 포함), 문자열·dollar block을 구분해 검사한다. 대소문자·줄바꿈·주석으로 명령을 숨길 수 없다. 일반 SQL 파서가 아니라 보수적인 허용 범위다. 동적 EXECUTE/CALL/COPY, 실행형 DO(읽기 guard 외), 중간 트랜잭션 종료, 대소문자 구분/Unicode 이스케이프 식별자 등 지원 밖 문법은 거부한다.
 
 차단 목록(세 모드 공통): `drop table`, `drop schema`, `truncate`, 최상위 WHERE 없는 DELETE/UPDATE, `alter role`, `create/alter/drop extension`, 아래 예외 외 `grant … to anon|public|authenticated`, 주석 외 `rtw_` 언급, 허용된 history INSERT/DELETE 외 `supabase_migrations` 쓰기. DROP CASCADE·RLS 비활성화·파일/외부 호출(`dblink` 등)·동적 `EXECUTE`/CALL/COPY도 계속 거부한다. 권한 문법의 `GRANT/REVOKE EXECUTE`만 아래 조건에서 구분해 허용한다. 외래 키의 `ON DELETE CASCADE`는 DROP CASCADE와 구분한다.
@@ -149,6 +150,7 @@ rollback 짝 파일의 허용 범위: `drop column`, `drop constraint`, `drop in
 
 같은 이름의 `docs/<version>_<name>.precheck.sql`·`.postcheck.sql`·`.dry-run.postcheck.sql`은 선택 사항이다. 한 개의 SELECT 또는 WITH SELECT만 허용하며 기존 검사를 그대로 거쳐 `read_only: true`로 요청한다. 쓰기 CTE·여러 요청·위험 함수는 거부한다. plan에는 해당 mode에서 선택한 확인 SQL의 경로·SHA256·전문을 표시한다.
 
+- `read_only: true` 요청은 실행 역할이 postgres가 아닐 수 있다(Supabase 읽기 전용 역할 추정, 2026-10-14 사진글자 dry-run). 확인 SQL은 `current_user`·`information_schema`(표 소유자 기준으로 숨김)에 기대지 말고 `pg_catalog`과 명시한 실행 역할을 사용한다.
 - precheck 결과는 정확히 `item`, `value` 두 칸, 1~64행이며 item 키는 중복될 수 없다. item은 100자 이하, value는 128자 이하 집계 숫자·해시·예/아니오·최근 migration 메타데이터만 허용한다. 개인 자료·임의 텍스트·추가 칸은 출력 없이 실패한다. 길거나 NULL인 결과는 이 제한에 맞게 SQL을 설계한다.
 - dry-run은 적용용 `.postcheck.sql`을 실행하지 않는다. SQL의 마지막 rollback과 사후 migration 기록 부재를 확인한 뒤, precheck를 같은 읽기 전용 SQL로 다시 실행하여 item 집합과 값을 비교한다. 행 순서는 무관하고 변경·추가·누락·중복은 실패다. **사전 집계 관측값 보존**만 확인하며 DB 전체 자료가 동일하다고 판정하지 않는다.
 - `.dry-run.postcheck.sql`이 있으면 집계 비교 뒤 원래 함수·스키마 등 추가 판정을 실행한다. item과 `ok`/`expected`/`value` 중 한 칸, 값은 boolean 또는 예/아니오만 허용한다. 아니오면 원래 상태 검사 실패다. SQL 취소 완료와 사후 검사 완료는 별개로 표시한다. BASKET link view `20261012100000`은 #506의 이전 RPC 본문 MD5·invoker·고정 search_path·summary 칸과 edit RPC 부재 검사를 이 파일에도 보존한다. 기존 apply postcheck는 그대로 유지한다.

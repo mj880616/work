@@ -24,18 +24,22 @@ begin
      -- or inherited authenticated execution remains a stop, not a permission fix.
      or exists(select 1 from pg_default_acl where defaclrole=current_user::regrole and defaclobjtype='f' and (defaclnamespace=0 or defaclnamespace='public'::regnamespace)
        and not (defaclacl <@ array[(current_user::text||'=X/'||current_user::text)::aclitem,('=X/'||current_user::text)::aclitem,('anon=X/'||current_user::text)::aclitem,('authenticated=X/'||current_user::text)::aclitem,('service_role=X/'||current_user::text)::aclitem]))
-     or exists(select 1 from pg_auth_members where roleid='authenticated'::regrole and member<>current_user::regrole and (inherit_option or member not in(select oid from pg_roles where rolname='authenticator' and not rolinherit)))
+     -- Supabase-managed members: NOINHERIT authenticator (PostgREST) and NOINHERIT
+     -- supabase_realtime_admin (Realtime) switch to authenticated only after JWT checks.
+     or exists(select 1 from pg_auth_members where roleid='authenticated'::regrole and member<>current_user::regrole and (inherit_option or member not in(select oid from pg_roles where rolname in('authenticator','supabase_realtime_admin') and not rolinherit)))
      or exists(select 1 from pg_class where oid='public.app_notes'::regclass and not relrowsecurity)
      or exists(select 1 from public.app_notes where updated_at in ('infinity'::timestamptz,'-infinity'::timestamptz))
      or exists(select 1 from pg_trigger where tgrelid='public.app_notes'::regclass and not tgisinternal)
      or (select count(*) from pg_constraint where conrelid='public.app_notes'::regclass and conname='app_notes_attachments_check' and convalidated) <> 1
      -- Reject another public table's same-name CHECK before using schema/name text.
+     -- Deparsed CHECK text is compared after whitespace normalization only.
      or (select count(*) from pg_constraint where connamespace='public'::regnamespace and conname='app_notes_attachments_check') <> 1
-     or (select count(*) from information_schema.check_constraints where constraint_schema='public' and constraint_name='app_notes_attachments_check' and check_clause='
+     or (select count(*) from information_schema.check_constraints where constraint_schema='public' and constraint_name='app_notes_attachments_check'
+       and btrim(regexp_replace(check_clause,'\s+',' ','g'))=btrim(regexp_replace('
 CASE
     WHEN (jsonb_typeof(attachments) = ''array''::text) THEN ((jsonb_array_length(attachments) <= 20) AND (NOT jsonb_path_exists(attachments, ''strict $[*]?(@.type() != "object")''::jsonpath)) AND (NOT jsonb_path_exists(attachments, ''$[*]?((((((((((((((@.type() != "object" || !(exists (@."drive_file_id"))) || !(exists (@."file_name"))) || !(exists (@."mime_type"))) || !(exists (@."size_bytes"))) || @."drive_file_id".type() != "string") || !(@."drive_file_id" like_regex "^[A-Za-z0-9_-]{1,255}$")) || @."file_name".type() != "string") || !(@."file_name" like_regex "^.{1,255}$" flag "s")) || @."mime_type".type() != "string") || !(@."mime_type" like_regex "^[^/[:space:]]{1,127}/[^/[:space:]]{1,127}$")) || @."size_bytes".type() != "number") || @."size_bytes" < 1) || @."size_bytes" > 104857600) || @."size_bytes" != @."size_bytes".floor())''::jsonpath)) AND (NOT jsonb_path_exists(attachments, ''$[*].keyvalue()?(((@."key" != "drive_file_id" && @."key" != "file_name") && @."key" != "mime_type") && @."key" != "size_bytes")''::jsonpath)))
     ELSE false
-END') <> 1
+END','\s+',' ','g'))) <> 1
      or exists(select 1 from pg_proc p join pg_namespace s on s.oid=p.pronamespace where s.nspname='public' and p.proname='app_basket_update_attachment_ocr')
      or exists(select 1 from public.app_notes where attachments->0 ? 'ocr' or attachments->1 ? 'ocr' or attachments->2 ? 'ocr' or attachments->3 ? 'ocr' or attachments->4 ? 'ocr' or attachments->5 ? 'ocr' or attachments->6 ? 'ocr' or attachments->7 ? 'ocr' or attachments->8 ? 'ocr' or attachments->9 ? 'ocr' or attachments->10 ? 'ocr' or attachments->11 ? 'ocr' or attachments->12 ? 'ocr' or attachments->13 ? 'ocr' or attachments->14 ? 'ocr' or attachments->15 ? 'ocr' or attachments->16 ? 'ocr' or attachments->17 ? 'ocr' or attachments->18 ? 'ocr' or attachments->19 ? 'ocr') then
     raise exception 'PHOTO_OCR_PREREQUISITE_CHANGED';
@@ -255,7 +259,7 @@ begin
     and pronargs=4 and proargtypes[0]='uuid'::regtype and proargtypes[1]='timestamptz'::regtype and proargtypes[2]='jsonb'::regtype and proargtypes[3]='jsonb'::regtype
     and not prosecdef and proconfig=array['search_path=""'] and proowner=current_user::regrole
     and proacl=array[(current_user::text||'=X/'||current_user::text)::aclitem,('authenticated=X/'||current_user::text)::aclitem]) <> 1
-    or exists(select 1 from pg_auth_members where roleid='authenticated'::regrole and member<>current_user::regrole and (inherit_option or member not in(select oid from pg_roles where rolname='authenticator' and not rolinherit))) then
+    or exists(select 1 from pg_auth_members where roleid='authenticated'::regrole and member<>current_user::regrole and (inherit_option or member not in(select oid from pg_roles where rolname in('authenticator','supabase_realtime_admin') and not rolinherit))) then
     raise exception 'PHOTO_OCR_UNEXPECTED_EXECUTE_ACL';
   end if;
 end
