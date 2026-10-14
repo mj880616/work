@@ -106,7 +106,7 @@ async function projects(){
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=3');
-  await module('./library-upload.js?v=28','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=29','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
@@ -114,7 +114,7 @@ async function meetings(){
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
   await module('./google-tasks.js?v=35');
-  await module('./meeting-round-detail.js?v=28','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=29','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){

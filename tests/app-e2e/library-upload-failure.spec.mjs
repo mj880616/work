@@ -225,8 +225,10 @@ test('revoked Google Drive token starts reconnect through the canonical function
   page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
   await page.locator('[data-lu-menu="doc-1"]').click();
   await page.locator('[data-lu-delete="doc-1"]').click();
-  await expect.poll(()=>dialogs.length).toBe(2);
-  expect(dialogs[1]).toContain('Google Drive 연결이 만료됐습니다');
+  // Shared helper (Task2): result guidance first, then the reconnect offer.
+  await expect.poll(()=>dialogs.length).toBe(3);
+  expect(dialogs[1]).toBe('Google Drive 연결을 확인해 주세요. 다시 삭제하기 전에 자료 목록과 원본 상태를 먼저 확인해 주세요.');
+  expect(dialogs[2]).toContain('Google Drive 연결이 만료됐습니다');
   await expect.poll(()=>page.evaluate(()=>window.__driveReconnectCalls.at(-1))).toEqual({action:'drive-start'});
   await expect(page).toHaveURL(/#drive-auth$/);
   await expect(page.locator('[data-lu-document="doc-1"]')).toBeVisible();
