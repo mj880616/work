@@ -1,5 +1,5 @@
 import {confirmLinks,ERROR_TEXT} from './basket-classification.js?v=8';
-import {validateLinkSummary,readRecordPages} from './basket-link-records.js?v=4';
+import {validateLinkSummary,readRecordPages} from './basket-link-records.js?v=5';
 import {selectBasketOrganizations} from './basket-ai-handoff.js?v=13';
 import {createChoiceSheet,projectRows} from './choice-sheet.js?v=1';
 import {createGoogleTask} from './quick-save.js?v=2';

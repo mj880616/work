@@ -2,10 +2,10 @@ import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
 import { mountQuick } from './home-quick.js?v=15';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=13';
-import { mountClassification } from './basket-classification-ui.js?v=12';
+import { mountClassification } from './basket-classification-ui.js?v=13';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
-import { deleteNoteOriginal } from './basket-record-delete.js?v=1';
-import { mountManualLink } from './basket-manual-link.js?v=1';
+import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
+import { mountManualLink } from './basket-manual-link.js?v=2';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=6';
 

@@ -1,5 +1,5 @@
 import {formatSeoulTime} from './meeting-time.js?v=2';
-import {disconnectRecordLink,deleteNoteOriginal} from './basket-record-delete.js?v=1';
+import {disconnectRecordLink,deleteNoteOriginal} from './basket-record-delete.js?v=2';
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
