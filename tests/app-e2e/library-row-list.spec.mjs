@@ -185,8 +185,8 @@ for(const width of [390,1440]){
     await expect(page.locator('.lu-row-title').first()).toHaveText('수정한 자료');expect(state.patches).toHaveLength(1);
     await menu(page);page.once('dialog',d=>{expect(d.type()).toBe('confirm');expect(d.message()).toContain('Drive 휴지통');d.dismiss()});
     await page.locator('[data-lu-delete]').click();await expect(page.locator('.lu-more-panel')).toBeHidden();expect(state.deletes).toHaveLength(0);
-    await menu(page);page.once('dialog',d=>d.accept());await page.locator('[data-lu-delete]').click();await expect(page.locator('[data-lu-document="row-0"]')).toHaveCount(0);
-    expect(state.deletes).toEqual([{action:'delete',document_id:'row-0'}]);
+    await menu(page);const dialogs=[];const acceptDelete=async d=>{dialogs.push(d.type());if(d.type()==='confirm')expect(d.message()).toContain('자료 등록을 삭제할까요?');else expect(d.message()).toBe('자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.');await d.accept()};page.on('dialog',acceptDelete);await page.locator('[data-lu-delete]').click();await expect(page.locator('[data-lu-document="row-0"]')).toHaveCount(0);
+    expect(state.deletes).toEqual([{action:'delete',document_id:'row-0'}]);expect(dialogs).toEqual(['confirm','alert']);page.off('dialog',acceptDelete);
     await menu(page,'row-1');await page.locator('[data-lu-download]').click();await expect(page).toHaveURL(/library-open-fixture.*download=1/);
     expect(state.downloads).toEqual([{document_id:'row-1'}]);
   });
