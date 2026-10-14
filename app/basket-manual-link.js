@@ -131,8 +131,13 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
 <p data-manual-status role="status">${esc(link.status)}</p>
 <div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm>연결</button><button type="button" data-manual-cancel>취소</button></div></section>`;
   }
+  const taskProjectName=()=>task?.project?choices?.projects.find(x=>x.project.id===task.project)?.project.name||'프로젝트':'프로젝트';
+  function paintTaskProject(){
+    const button=host?.querySelector('[data-manual-task-project]');if(!button)return;
+    const project=taskProjectName();button.textContent=project+' ▾';button.setAttribute('aria-label',task.project?'프로젝트: '+project:'프로젝트');
+  }
   function taskMarkup(){
-    const project=task.project?choices?.projects.find(x=>x.project.id===task.project)?.project.name||'프로젝트':'프로젝트';
+    const project=taskProjectName();
     const dateLabel=task.dateKind==='date'&&task.due?`${Number(task.due.slice(5,7))}.${Number(task.due.slice(8,10))}`:'날짜';
     return `<section class="basket-manual" data-manual-task aria-labelledby="basketManualTaskTitle"><h3 id="basketManualTaskTitle">Google 할 일 만들기</h3>
 <label class="basket-text-label">할 일 제목<input type="text" data-manual-task-title maxlength="${TASK_LIMITS.title}" value="${esc(task.title)}"></label>
@@ -170,7 +175,8 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     if(next==='task'&&!task){const title=firstLine(n.raw_text);task={title,notes:n.raw_text||'',initial:{title,notes:n.raw_text||''},due:'',dateKind:'',project:'',status:'',unknown:null,recover:null};}
     paint();
     host?.querySelector(next==='link'?'[data-manual-pick="organization"]':'[data-manual-task-title]')?.focus();
-    if(next==='task')void loadChoices().then(()=>{if(mode==='task')paint();}).catch(()=>{});
+    // Only the project label depends on the loaded list; never rebuild the form under the user's finger.
+    if(next==='task')void loadChoices().then(()=>{if(mode==='task')paintTaskProject();}).catch(()=>{});
     return '';
   }
   function reset(){++seq;mode=null;noteId=null;link={targets:[],status:''};task=null;sheet.dismiss();}

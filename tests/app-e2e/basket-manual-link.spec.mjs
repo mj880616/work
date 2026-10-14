@@ -164,3 +164,15 @@ test('a late link result after a workspace or account switch is not painted, and
  await expect(page.locator('[data-manual-link]')).toHaveCount(0);await expect(page.locator('[data-basket-detail]')).toBeHidden();await expect(page.locator('[data-basket-status]')).toHaveCount(0);
  expect(f.calls).toHaveLength(1);expect(f.errors).toEqual([]);
 });
+
+test('the task form is not rebuilt when the project list arrives, so a tap in progress keeps its button',async({page})=>{
+ const f=await fixture(page),detail=await openNote(page,1280);
+ let release;const held=new Promise(r=>release=r);await page.route(SB+'/rest/v1/app_spaces?**',async route=>{await held;await route.fallback();});
+ const loaded=page.waitForResponse(r=>r.url().includes('/rest/v1/app_spaces'));
+ await detail.getByRole('button',{name:'할 일 만들기'}).click();await detail.locator('[data-manual-task-title]').fill('쓰는 중');
+ await page.evaluate(()=>{document.querySelector('[data-manual-task-day="tomorrow"]').dataset.marker='same';document.querySelector('[data-manual-task-title]').dataset.marker='same';});
+ release();await loaded;await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0))));
+ await expect(detail.locator('[data-manual-task-day="tomorrow"][data-marker="same"]')).toHaveCount(1);
+ await expect(detail.locator('[data-manual-task-title][data-marker="same"]')).toHaveValue('쓰는 중');await expect(detail.locator('[data-manual-task-title]')).toBeFocused();
+ await expect(detail.locator('[data-manual-task-project]')).toHaveText('프로젝트 ▾');expect(f.errors).toEqual([]);
+});
