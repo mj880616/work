@@ -121,6 +121,14 @@ jobs:
               'tests/app-e2e/save-other-active.spec.mjs':[
                   r'^\s*'+re.escape('const storageSnapshot=page=>page.evaluate(()=>({local:Object.values(localStorage),session:Object.values(sessionStorage)}));')+r'\s*$',
               ],
+              # LIB Task2: synthetic session-state probes that swap only the runtime
+              # auth session key (owner/null/empty token) and restore it. No user content.
+              'tests/app-e2e/runtime-recovery.spec.mjs':[
+                  r'^\s*'+re.escape(line)+r'\s*$' for line in (
+                      'const write=value=>value?localStorage.setItem(key,JSON.stringify(value)):localStorage.removeItem(key);',
+                      "await page.evaluate(changed=>{const rt=window.KPTURuntime,s=rt.session.read();if(changed==='null')localStorage.removeItem(rt.config.sessionKey);else localStorage.setItem(rt.config.sessionKey,JSON.stringify(changed==='owner'?{...s,user:{id:'other-owner'}}:{...s,access_token:''}))},changed);",
+                  )
+              ],
               'tests/save-other-active.test.mjs':[
                   r'^\s*'+re.escape("localStorage:{getItem:()=>null,setItem(){throw Error('private persistence forbidden');}},")+r'\s*$',
                   r'^\s*'+re.escape('h.privateStore=env.localStorage;')+r'\s*$',
