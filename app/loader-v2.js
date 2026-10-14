@@ -115,7 +115,7 @@
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
-    import('./topbar-actions.js?v=20'),
+    import('./topbar-actions.js?v=21'),
     import('./team.js?v=68')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
