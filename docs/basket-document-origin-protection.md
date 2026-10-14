@@ -39,3 +39,15 @@ owner 업무공간·메모·setting은 명시 Range와 `Prefer: count=exact`, �
 3. 사용자 승인형 Edge workflow에서 기존 함수 `document-actions`, 검토된 전체 ref, first_deploy=false, verify_jwt=keep, expect_unauth_401=true. 실제 현재 JWT 정책·unauth POST 상태는 운영 gate다(기존 handler의 자체 Auth 오류400을 이번 변경에서 재작성하지 않았다). version증가/JWT유지/POST401/OPTIONS200 또는204를 확인한다. 검증 실패는 이미 실행된 배포를 자동 취소하지 않는다.
 4. 보호/일반 trash 실사용 확인과 UI 완료 뒤에만 B 등록 활성화. 임의 원본/task를 검증용으로 자동 삭제하지 않는다. 기존 폰3개 확인을 다시 요구하지 않는다.
 5. 운영 문제 때 먼저 새 등록/삭제 실행을 비활성·자료 보존한다. B 등록이 아직 미사용이면 확인된 직전 Edge source로 사용자 승인 배포를 준비한다. B가 활성화되어 원본이 공유되기 시작한 뒤 보호를 제거하는 rollback은 하지 않고 forward fix한다. DB 자료/Drive 원본을 삭제해서 되돌리지 않는다.
+
+## B 등록 서버(2026-10-14 야간, BASKET-4b-1 후속)
+
+📱 Claude Code 웹. 시작 main `a128799`. 원본 보호(A)는 이미 `document-actions` 삭제 경로에 연결되어 있고, 자료실의 두 삭제 화면(자료실 목록 `library-upload.js`, 회의 상세 `meeting-round-detail.js`)은 공통 `document-delete.js`로 이 서버만 호출한다(#533). 이번에 같은 함수에 등록 동작을 추가했다. 같은 함수에 있으므로 등록만 먼저 운영에 올라가는 경우는 없다.
+
+- 요청: `POST document-actions` `{action:"register-basket-attachment", note_id, drive_file_id}`. 함수 JWT 정책(verify_jwt=true)·기존 `getUser`·owner 확인 그대로.
+- 서버가 메모를 읽어 업무공간·첨부(같은 `drive_file_id`)·파일 이름·종류·크기를 정한다. 클라이언트가 보낸 업무공간·제목·공개 범위는 쓰지 않는다. `visibility='private'`, `uploaded_by`=로그인 사용자, 분류 메모 "바구니 메모 첨부에서 등록(같은 Drive 원본)".
+- Drive는 메타데이터 GET만 한다(내 소유·휴지통 아님·ID 일치). 복사·이동·업로드·휴지통·권한 변경 없음. 자료 행은 같은 Drive 파일 ID를 가리킨다.
+- 중복: 같은 업무공간·같은 `file_id` 자료가 있으면 `{ok:true,result:"exists",document}`. Drive 확인 뒤 쓰기 직전에 한 번 더 확인한다. DB에 `file_id` 고유 제약이 없어 두 요청이 정확히 동시에 오면 두 행이 생길 수 있다(화면은 첨부마다 요청 1개만 보낸다). 고유 제약은 DB 변경이라 이번 범위가 아니다(제안만).
+- 결과 불명(연결 끊김·5xx·응답 행 불일치): `RESULT_UNKNOWN`, 서버가 다시 보내지 않는다. 명확한 거절(4xx): `REGISTER_REJECTED`. 그 밖: `INVALID_REQUEST`·`NOTE_NOT_FOUND`·`ATTACHMENT_NOT_FOUND`·`DRIVE_FILE_MISSING`·`DRIVE_FILE_TRASHED`·`DRIVE_FILE_INVALID`·`DRIVE_UNAVAILABLE`.
+- 삭제 쪽: 등록한 자료를 자료실에서 지우면 메모 참조(`note_reference`)로 Drive를 건드리지 않는다. 메모를 지우면 basket-files `note-delete`가 `app_documents.file_id` 참조를 보고 원본을 휴지통으로 옮기지 않는다. 둘 다 지운 뒤에는 바구니 폴더 원본 판정(`private_basket_original`)으로 원본이 보존된다(자동 정리 없음).
+- 검사: `tests/security/document-actions-register.test.mjs` 8개(등록 본문·이미 있음·확인 중 생긴 중복·결과 불명 4종 1회만·클라이언트 값 무시·Drive 이상 6종·등록 뒤 삭제 시 원본 보존·기존 delete 계약). 보안·Edge 격리 전체 595/595(Deno 2.5.6), `deno check` 통과.
