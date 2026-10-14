@@ -28,11 +28,15 @@ function harness({enabled=true,waitMs=1000,isCurrent=()=>true}={}) {
 }
 async function prepare(h,attachments=[file()],updated_at=stamp){h.queue.push(response(cap()),response(snapshot(attachments,updated_at)));assert.equal((await h.controller.capabilities()).ok,true);assert.equal((await h.controller.status(note)).ok,true);}
 const postCalls = h => h.calls.filter(([,o])=>o.method==='POST');
-test('source-controlled flag is false and default-off returns before every auth or endpoint touch',async()=>{
-  assert.equal(BASKET_OCR_ENABLED,false);
-  const h=harness({enabled:undefined});
+test('source-controlled flag is true and the omitted enabled parameter follows it',()=>{
+  assert.equal(BASKET_OCR_ENABLED,true);
   // Explicitly omit the optional enabled parameter to exercise the actual default.
-  const c=createBasketOcr({rt:h.rt,fetcher:()=>assert.fail('disabled fetch')});
+  assert.equal(createBasketOcr({rt:harness().rt,fetcher:()=>assert.fail('no fetch on creation')}).state.enabled,true);
+});
+// Rollback path: a BASKET_OCR_ENABLED=false PR must keep stopping every new run.
+test('turned-off controller returns before every auth or endpoint touch',async()=>{
+  const h=harness({enabled:undefined});
+  const c=createBasketOcr({rt:h.rt,enabled:false,fetcher:()=>assert.fail('disabled fetch')});
   for(const [method,args] of [['capabilities',[]],['status',[note]],['read',[note,'original']],['reconcile',[note,'original']],['cleanup',[note,'original']]])assert.equal((await c[method](...args)).code,'OCR_DISABLED');
   assert.deepEqual(h.counts(),{ensures:0,reads:0});assert.equal(c.state.enabled,false);
 });
@@ -266,8 +270,8 @@ for(const method of ['status','read'])test(`same-owner access-token rotation pre
   h.rt.session.read=()=>signedIn('owner','rotated-owner-token');assert.equal(h.controller.state.snapshot.note_id,note);
   late.resolve(response(method==='read'?success():snapshot()));assert.equal((await pending).ok,true);assert.equal(h.controller.state.snapshot.note_id,note);
 });
-test('default-off accessor and every method avoid actual session, context, epoch and fetch reads',async()=>{
-  const touch=()=>assert.fail('default-off runtime touch');const c=createBasketOcr({rt:{context:{read:touch},session:{read:touch,ensure:touch,epoch:touch}},fetcher:touch,isCurrent:touch});
+test('turned-off accessor and every method avoid actual session, context, epoch and fetch reads',async()=>{
+  const touch=()=>assert.fail('turned-off runtime touch');const c=createBasketOcr({rt:{context:{read:touch},session:{read:touch,ensure:touch,epoch:touch}},enabled:false,fetcher:touch,isCurrent:touch});
   assert.equal(c.state.enabled,false);assert.equal(c.state.snapshot,null);
   for(const [method,args] of [['capabilities',[]],['status',[note]],['read',[note,'original']],['reconcile',[note,'original']],['cleanup',[note,'original']]])assert.equal((await c[method](...args)).code,'OCR_DISABLED');
 });

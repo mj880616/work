@@ -1,4 +1,4 @@
-import {basketOcrFor} from './basket-ocr-runtime.js?v=1';
+import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 // Basket-only sequencing and clip picker; library/meeting uploads keep their own controls.
 const MAX_BYTES = 100 * 1024 * 1024;
 const UNKNOWN = '저장 결과를 확인하지 못했습니다. 바구니에서 확인 후 다시 시도하세요';

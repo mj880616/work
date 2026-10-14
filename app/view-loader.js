@@ -138,12 +138,12 @@ async function organizations(){
 async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
-  await module('./home-read.js?v=30');
+  await module('./home-read.js?v=31');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
-async function basket(){ await module('./basket.js?v=28'); return {ok:true} }
+async function basket(){ await module('./basket.js?v=29'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations};
 function normalize(view){
   return loaders[view]?view:'home'

@@ -1,7 +1,7 @@
 import {effectiveOcrText, OCR_LIMITS} from './basket-ocr-text.mjs?v=1';
 
 // Source-controlled only. Production callers never supply enabled:true.
-export const BASKET_OCR_ENABLED = false;
+export const BASKET_OCR_ENABLED = true;
 const RESPONSE_BYTES = 4194304, REQUEST_BYTES = 266240;
 const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const stamp = value => typeof value === 'string' && value.length <= 64 && Number.isFinite(Date.parse(value));
