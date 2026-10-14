@@ -11,6 +11,11 @@ async function fixture(page,{linked=[]}={}){
  const tables={app_notes:[note],app_suborganizations:[{id:o,workspace_id:'w',name:'합성 한빛지부',active:true},{id:o2,workspace_id:'w',name:'합성 새벽지부',active:true}],app_suborganization_assignees:[{organization_id:o,user_id:'home-test'},{organization_id:o2,user_id:'home-test'}],app_spaces:[{id:p,workspace_id:'w',owner_id:'home-test',name:'합성 기자회견 준비',status:'active',metadata:{project_system:'v2'}}],app_suborganization_updates:[]};
  for(const [table,items] of Object.entries(tables))await page.route(SB+'/rest/v1/'+table+'?**',route=>{
   const q=new URL(route.request().url()).searchParams;let rows=items;
+  // BASKET-할일출처: metadata-only PATCH guarded by the original's version.
+  if(table==='app_notes'&&route.request().method()==='PATCH'){
+   if(q.get('updated_at')!=='eq.'+note.updated_at)return route.fulfill({json:[]});
+   note.metadata=route.request().postDataJSON().metadata;return route.fulfill({json:[note]});
+  }
   for(const key of ['id','organization_id']){const filter=q.get(key);if(filter?.startsWith('eq.'))rows=rows.filter(x=>x[key]===filter.slice(3));}
   return route.fulfill({json:rows.slice(Number(q.get('offset')||0),Number(q.get('offset')||0)+Number(q.get('limit')||rows.length))});
  });
@@ -132,11 +137,11 @@ for(const width of [390,1280])test(`a Google task is made from the note with the
  await detail.locator('[data-manual-task-title]').fill('기자회견 장소 확정');
  await tap(page,detail.locator('[data-manual-task-day="tomorrow"]'),width);await expect(detail.locator('[data-manual-task-day="tomorrow"]')).toHaveAttribute('aria-pressed','true');
  await tap(page,detail.locator('[data-manual-task-project]'),width);const sheet=page.locator('#basketLinkChoiceSheet');await tap(page,sheet.getByRole('button',{name:'합성 기자회견 준비'}),width);await expect(sheet).toBeHidden();
- await expect(detail.locator('[data-manual-task-project]')).toHaveText('합성 기자회견 준비 ▾');await expect(detail).toContainText('이 메모와 할 일 사이의 연결 기록은 남지 않아요.');
+ await expect(detail.locator('[data-manual-task-project]')).toHaveText('합성 기자회견 준비 ▾');await expect(detail).toContainText('만든 할 일은 이 메모의 ‘이 메모로 만든 할 일’에 기록돼요.');
  expect(await noWideScroll(page)).toBe(true);
  if(width===390)await page.screenshot({path:info.outputPath('manual-task-form-390.png'),fullPage:true});
  await tap(page,detail.getByRole('button',{name:'할 일 만들기',exact:true}),width);
- await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 메모와의 연결 기록은 남지 않아요.');await expect(detail.locator('[data-manual-task]')).toHaveCount(0);
+ await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 메모에 기록했어요.');await expect(detail.locator('[data-manual-task]')).toHaveCount(0);
  expect(f.tasks).toEqual([{action:'create',task_id:null,title:'기자회견 장소 확정',notes:RAW,due:'2026-10-07',links:[{project_id:p}]}]);
  expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
@@ -148,7 +153,7 @@ test('an unclear task result is never retried by itself; checking the list unloc
  await expect(detail.locator('[data-manual-task-save]')).toBeDisabled();expect(f.tasks).toHaveLength(1);
  await detail.getByRole('button',{name:'할 일 목록에서 확인'}).click();
  await expect(detail.locator('[data-manual-task-status]')).toHaveText('목록에서 찾지 못했어요. 입력을 확인한 뒤 다시 [할 일 만들기]를 눌러 주세요.');
- await detail.getByRole('button',{name:'할 일 만들기',exact:true}).click();await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 메모와의 연결 기록은 남지 않아요.');
+ await detail.getByRole('button',{name:'할 일 만들기',exact:true}).click();await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 메모에 기록했어요.');
  expect(f.tasks).toHaveLength(2);expect(f.errors.filter(e=>!/502/.test(e))).toEqual([]);
 });
 
