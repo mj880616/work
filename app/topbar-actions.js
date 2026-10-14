@@ -163,13 +163,18 @@ document.querySelectorAll('[data-mobile-press]').forEach(button=>button.addEvent
 document.addEventListener('keydown',event=>{if(mobileOpen&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeMobile()}});
 window.addEventListener('popstate',event=>{if(mobileOpen&&!event.state?.kptuMobileMenu)closeMobile(null,true)});
 const editable=()=>document.activeElement?.matches('input:not([type="button"]):not([type="checkbox"]):not([type="radio"]),textarea,select,[contenteditable="true"]');
-let keyboardLayoutHeight=innerHeight;
+let keyboardLayoutHeight=innerHeight,keyboardLayoutWidth=innerWidth;
 function syncKeyboard(){
   const viewport=window.visualViewport;
-  const editing=editable();
-  if(!editing||!mobileQuery.matches)keyboardLayoutHeight=innerHeight;
-  // Zoom also shrinks the viewport: require an editable focus and a normal scale.
-  const keyboard=mobileQuery.matches&&editing&&(!viewport||(viewport.scale<=1.01&&Math.max(keyboardLayoutHeight,innerHeight)-viewport.height-viewport.offsetTop>120));
+  const editing=editable(),shown=document.body.classList.contains('kptu-mobile-keyboard');
+  if((!editing&&!shown)||!mobileQuery.matches||innerWidth!==keyboardLayoutWidth){keyboardLayoutHeight=innerHeight;keyboardLayoutWidth=innerWidth}
+  // Zoom also shrinks the viewport: require a normal scale.
+  const shrunk=viewport?viewport.scale<=1.01&&Math.max(keyboardLayoutHeight,innerHeight)-viewport.height-viewport.offsetTop>120:editing;
+  // An editable focus opens the keyboard state. A tap on a button blurs the field
+  // during its mousedown, before the click is delivered; dropping the state there
+  // would bring back the tab bar under the finger and send the click elsewhere.
+  // Keep the layout until the viewport actually grows back.
+  const keyboard=mobileQuery.matches&&(editing||shown)&&shrunk;
   document.body.classList.toggle('kptu-mobile-keyboard',!!keyboard);
 }
 window.visualViewport?.addEventListener('resize',syncKeyboard);
