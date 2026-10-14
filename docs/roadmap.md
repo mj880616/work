@@ -1,6 +1,6 @@
 # Web2 개발 작업 원장 (Roadmap)
 
-- 최종 갱신일: 2026-10-13
+- 최종 갱신일: 2026-10-14
 - 이 작업의 시작 main SHA: `289334e` (#464)
 - 이 문서가 Web2 개발계획·진행상태의 source of truth다. 채팅 기록보다 이 원장을 따른다.
 
@@ -13,6 +13,16 @@
 | 대기 | 순서가 정해졌으나 아직 시작하지 않음 |
 | 보류 | 결정·선행조건 부족으로 중단. 비고에 사유를 적는다 |
 | 종료 | 작업 없이 닫음(대상 없음·소유자 결정 등). 비고에 사유를 적는다 |
+
+## 2026-10-14 CC17.4 결과·CC17.5 인계
+
+사용자 요청으로 [CC17.5 인계서](cc17-5-handoff.md)를 작성했다. 2026-10-14 새 원격 확인 기준 actual main은28e620c이며 사진·자료실 제품은 아직 병합하지 않았다. 아래 최신 결과가 이전 진행 중/대기 문장보다 우선한다. 정해진 내부 구현·검토·일반 반영 위임과 실제 서버 적용·활성화의 별도 승인 경계는 유지한다.
+
+- 사진 #531 최종 보완 c5478fc: spec touch 선언 두 줄·제품/Node/Auth/DB/Edge/cache/workflow frozen32 동일, local42/42 및 독립 scoped Spec/Quality PASS. 그러나 새 exact CI run38458680140/job115507953817은 **1557/1558·1실패(27.3분)**, checks19성공/2정상skip/1실패로 종료됐다. 이번 실패는 basket-linked-display.spec.mjs:134의 classification preview Back 준비 중 historyStack:112 page.evaluate execution context destroyed/navigation이다. 해당 spec은 main28과 byte 동일이나 원인·baseline 재현은 미확정이다. old hasTouch 실패는 통과했으며 새 실패의 artifact11846841144/digest와 원로그를 보존한다. Draft·미병합, OCR false, 맹목적 재시도 없음.
+- 자료실 Task2 source **de094a54131be55e39fa8439004a63c49845228c**: 두 consumer 수명/옵션/OAuth guard와 immutable registration 사본 구현, changed3browser files222/222 및 독립 Spec/Quality PASS·fresh17/17+별도9/9. helper/Node frozena1c, 최초212/218 등 실패 이력은 보고서에 그대로 보존한다. 원격 **codex/library-delete-ui-task2-reviewed**로 새 source archive를 저장했다. 기존 원격 codex/library-delete-ui-prep는a1c 그대로다. Draft #533 codex/library-delete-ui의6459는 문서 준비뿐이며 아직 소비자 소스가 아니다. 사진 actual-main 이후 캐시·전체 Node/static/security/인접·whole review·exactCI·일반 반영/Pages인 Task3는 미실행이다.
+- source-only [운영 사실 검토본](cc17-5-evidence/operations-fact-review.md)을 보존했다. actual DB/Edge/predecessor/version/JWT/provider/owner proof·자료실 B schema/등록 계약은 미확인, 활성화 순서 미승인이다. production 접속·DB/Edge/Worker 적용·workflow 수동 실행/승인·사진 활성화는0이다. 옛 SQL9/owner packet bytes는 새 workspace에 없었으며 복구했다고 주장하지 않는다.
+
+자료실의 최종222 GREEN과 사진의 실패1557/1558을 혼동하지 않는다. 다음은 사진의 새 실패 좁은 진단·필요 보완·검토·정확 CI이고, 이후 실제 main sync를 거쳐 자료실 Task3를 이어간다. 원격 소스·보고서·복구 방법·검사 한계는 인계서를 따른다. 완료된 폰3건은 반복 요구하지 않는다.
 
 ## 2026-10-13 CC 17.3 인수 확인
 
