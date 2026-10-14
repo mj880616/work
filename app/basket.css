@@ -71,3 +71,19 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 
 #basketView .basket-read-text { box-sizing:border-box; margin:12px 0; padding:12px; font-size:15px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 #basketView .basket-read-empty { color:var(--kptu-muted); }
+
+/* BASKET-수동연결: link panel and task form inside the read view. */
+#basketView .basket-manual { margin-top:12px; padding-top:8px; border-top:1px solid var(--kptu-border); overflow-wrap:anywhere; }
+#basketView .basket-manual h3 { margin:8px 0; font-size:16px; }
+#basketView .basket-manual-hint { margin:8px 0; font-size:13px; line-height:1.5; color:var(--kptu-muted); }
+#basketView .basket-manual-target { margin:10px 0; padding:10px; border:1px solid var(--kptu-border); border-radius:8px; }
+#basketView .basket-manual-target-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+#basketView .basket-manual-target-head b { min-width:0; }
+#basketView .basket-manual-target-head button { flex-shrink:0; }
+#basketView .basket-manual-summary textarea,#basketView [data-manual-task-notes] { min-height:96px; }
+#basketView .basket-manual input[type="text"] { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:15px; font-weight:400; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
+#basketView .basket-manual-task-options { position:relative; }
+#basketView .basket-manual-date { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
+#basketView [data-manual-task-recover] { display:flex; flex-wrap:wrap; gap:8px; }
+.home-choice-sheet .basket-choice-done { display:inline-flex; align-items:center; color:var(--kptu-muted); border-style:dashed; cursor:default; }
+.home-choice-sheet .home-choice-row.basket-choice-done { display:flex; }
