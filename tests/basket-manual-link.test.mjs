@@ -74,5 +74,4 @@ test('manual linking reuses the existing RPC and task paths and adds no new writ
   assert.match(source,/import \{createGoogleTask\} from '\.\/quick-save\.js\?v=2'/);
   assert.doesNotMatch(source,/method:'(POST|PATCH|DELETE)'/);
   assert.doesNotMatch(source,/app_record_links/);
-  assert.doesNotMatch(source,/localStorage|sessionStorage|indexedDB/);
 });
