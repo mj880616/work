@@ -1,7 +1,7 @@
 import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,seoulDateKey} from './meeting-time.js?v=2';
 import { dayKey, ranges } from './home-read-model.js?v=3';
 import { createAnchoredMenu } from './anchored-menu.js?v=1';
-import {readRecordPages,readLinkRecords,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js?v=4';
+import {readRecordPages,readLinkRecords,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js?v=5';
 (()=>{
 'use strict';
 const rt=window.KPTURuntime,catalog=window.KPTUProjectCatalog;if(!rt||!catalog)return;

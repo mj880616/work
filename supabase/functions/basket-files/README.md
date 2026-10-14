@@ -80,6 +80,29 @@ Drive PUT 성공 응답 자체 유실·정리 실패·강제 종료는 파일이
 업로드·orphan 정리 흐름을 추출했다. 이번 PR은 library-files 소스를 변경하지 않는다.
 기존 업로드 경로 재배포를 피하기 위한 사용자 지정 예외이며 `_shared` 전환은 후속 원장 행으로 추적한다.
 
+## 메모 삭제(note-delete) — 배포 대기
+
+`POST ?action=note-delete`, JSON `{action:"note-delete",note_id,note_updated_at}`(정확히 이 3개 키, 4096 bytes까지).
+위와 같은 JWT `getUser`·owner workspace 확인 뒤 기존 `SUPABASE_ANON_KEY`와 caller JWT client로만 메모를
+조회·삭제한다(owner RLS 그대로, service_role은 `app_notes`를 읽거나 지우지 않음). ANON 설정이 없으면 503
+`note_delete_unavailable`로 아무것도 바꾸지 않는다.
+
+1. 메모 조회: 없음 404 `note_not_found`, 첨부 형식 이상·중복 409 `note_state_invalid`,
+   `updated_at` 불일치 409 `note_changed`. 이때 Drive·DB 쓰기 없음.
+2. 첨부마다 Drive 휴지통 이동: 저장·검증된 바구니 폴더만 사용(`existingOnly`, 폴더 생성 없음).
+   다른 메모나 `app_documents.file_id`가 같은 파일을 쓰면 건너뜀. 메타데이터 GET이 앱 접근 가능·내 소유·
+   폴더 아님·부모가 정확히 바구니 폴더 1개일 때만 `PATCH {trashed:true}`. 영구 `DELETE`는 하지 않는다.
+   건너뜀·4xx는 `failed`, 응답 유실·5xx·확인 불가는 `unknown`(재시도 없음), 이미 휴지통이면 `trashed`.
+   토큰·폴더 확인 실패면 전부 `failed`. 사진 글자 읽기 임시 문서는 기존 정리 규칙을 따르며 여기서 지우지 않는다.
+3. 휴지통 결과와 무관하게(사용자 결정) caller JWT로 `id`·`workspace_id`·`updated_at` 조건 삭제.
+   0행이면 다시 읽어 남아 있으면 409 `note_changed`, 없으면 404 `note_not_found`(동시 요청).
+   오류면 다시 읽어 없으면 성공, 있으면 500 `note_delete_failed`, 읽기 실패면 503 `note_delete_result_unknown`.
+
+응답은 항상 `{action:"note-delete",note_id,attachments_total,trashed,failed,unknown,ok,note_deleted,code?}`이며
+폴더 ID·토큰·Google 오류 본문은 넣지 않는다. 이 동작을 모르는 이전 배포는 JSON POST를 OCR로 보내
+`400 OCR_REQUEST_INVALID`(`action` 필드 없음)로 DB·Drive 접근 전에 거절한다. 화면은 이 응답만 구버전으로 보고
+기존 REST 삭제로 메모만 지운다. 검사: `tests/security/basket-note-delete.test.mjs`.
+
 ## 사진글자 준비 — 아직 운영 미적용
 
 기존 multipart 업로드와 별개인 OCR 경로를 준비한다. Google Drive의 기존
