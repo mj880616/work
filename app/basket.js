@@ -1,13 +1,13 @@
-import {basketOcrFor} from './basket-ocr-runtime.js?v=1';
+import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
-import { mountQuick } from './home-quick.js?v=14';
+import { mountQuick } from './home-quick.js?v=15';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=13';
 import { mountClassification } from './basket-classification-ui.js?v=12';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=3';
 import { deleteNoteOriginal } from './basket-record-delete.js?v=1';
 import { mountManualLink } from './basket-manual-link.js?v=1';
 
-import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=5';
+import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=6';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0;
