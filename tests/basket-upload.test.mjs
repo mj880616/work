@@ -69,3 +69,49 @@ test('only validated current basket upload successes publish safe summary refres
   window.dispatchEvent=()=>{throw Error('subscriber');};await m.uploadBatch(await batch([file('private')],'n'),{rt,request:async()=>({ok:true,note_id:'n',attachments:[]})});
  }finally{delete globalThis.window;}
 });
+
+const photo = (id, mime='image/jpeg') => ({drive_file_id:id,file_name:id+'.jpg',mime_type:mime,size_bytes:4});
+function fakeOcr(calls, {result, thrown=false}={}) {
+ return {state:{enabled:true},capabilities:async()=>{calls.push('capabilities');return {ok:true};},read:async(n,id)=>{calls.push(['read',n,id]);if(thrown)throw Error('provider private detail');return result||{ok:true,note_id:n,drive_file_id:id,attachment:{...photo(id),ocr:{state:'done',text:'saved photo',original_file_id:id,attempt_id:'22222222-2222-4222-8222-222222222222',temp_document_id:'temp_'+id,cleanup_state:'deleted'}},updated_at:'2026-10-06T01:00:01.234567Z',requestStartUpdatedAt:'2026-10-06T01:00:00.123456Z'};}};
+}
+test('OCR runs serially only after the complete successful multipart batch and only newly saved supported sources',async()=>{
+ const m=await mod,b=await batch([file('one'),file('two')],'n');b.attachments=[photo('existing')];const calls=[],notices=[];
+ const controller=fakeOcr(calls);const request=async()=>{calls.push('multipart');const i=calls.filter(x=>x==='multipart').length;return {ok:true,note_id:'n',attachments:[photo('existing'),photo('new1'),...(i===2?[photo('new2','image/png'),photo('pdf','application/pdf')]:[])]};};
+ const result=await m.uploadBatch(b,{rt,request,ocr:controller,onOcrChange:value=>{assert.ok(b.entries.every(e=>e.kind==='success'));notices.push(value);}});
+ assert.deepEqual(calls,['multipart','multipart','capabilities',['read','n','new1'],['read','n','new2']]);assert.equal(notices.length,2);assert.equal(result.ok,true);assert.equal(b.blocked,null);assert.deepEqual(Object.keys(result),['ok','note_id','attachments']);assert.ok(b.entries.every(e=>e.kind==='success'));
+});
+for(const mode of ['failed','unknown','throw','observer'])test('confirmed upload survives separate OCR '+mode+' without replay',async()=>{
+ const m=await mod,b=await batch([file('one')]);const calls=[],notices=[];let sends=0;
+ const result={ok:false,code:mode==='unknown'?'OCR_RESULT_UNKNOWN':'OCR_FAILED',retryable:false,result_unknown:mode==='unknown',ocr_saved:false,text_changed:false};
+ const ocr=fakeOcr(calls,{result,thrown:mode==='throw'});
+ const request=async()=>{sends++;return {ok:true,note_id:'n',attachments:[photo('new')]};};
+ const saved=await m.uploadBatch(b,{rt,request,ocr,onOcrChange:value=>{notices.push(value);if(mode==='observer')throw Error('observer');}});
+ assert.equal(saved.ok,true);assert.equal(sends,1);assert.equal(b.entries[0].kind,'success');assert.deepEqual(b.entries[0].file,{name:'one',size:4});assert.equal(b.blocked,null);assert.equal(notices.length,1);assert.equal(notices[0].note_id,'n');assert.equal(notices[0].drive_file_id,'new');
+ await m.uploadBatch(b,{rt,request,ocr});assert.equal(sends,1);assert.equal(calls.filter(x=>Array.isArray(x)).length,1);
+});
+test('partial multipart failure does not start OCR even for already saved photo',async()=>{
+ const m=await mod,b=await batch([file('one'),file('bad')]);const calls=[];let sends=0;
+ await assert.rejects(m.uploadBatch(b,{rt,ocr:fakeOcr(calls),request:async()=>{if(++sends===1)return {ok:true,note_id:'n',attachments:[photo('new')]};throw Object.assign(Error(),{status:503});}}));
+ assert.equal(b.entries[0].kind,'success');assert.equal(b.entries[1].kind,'error');assert.ok(b.blocked);assert.deepEqual(calls,[]);
+});
+test('default-disabled OCR keeps legacy minimal upload responses and performs no session or OCR fetch',async()=>{
+ const m=await mod,b=await batch([file('one')]);let notices=0;
+ await m.uploadBatch(b,{rt:{...rt,session:{read:()=>assert.fail('disabled session'),ensure:()=>assert.fail('disabled ensure')}},request:async()=>({ok:true,note_id:'legacy',attachments:[{drive_file_id:'minimal'}]}),onOcrChange:()=>notices++});assert.equal(notices,0);
+});
+
+test('complete multipart phase precedes real enabled controller fresh CAS for each new photo',async()=>{
+ const {createBasketOcr}=await import('../app/basket-ocr.js');const m=await mod,b=await batch([file('one'),file('two')]);
+ const noteId='11111111-1111-4111-8111-111111111111',owner='owner',workspace='workspace';let stamp='2026-10-06T01:00:00.123456Z',files=[],count=0;const calls=[];
+ const runtime={...rt,context:{read:()=>({user:{id:owner},workspace:{id:workspace}})},session:{ensure:async()=>true,read:()=>({access_token:'synthetic',user:{id:owner}}),epoch:()=>1},config:{url:'https://synthetic.invalid',key:'publishable'}};
+ const ocr=createBasketOcr({rt:runtime,enabled:true,fetcher:async(url,opts)=>{
+  const action=opts.method==='POST'?JSON.parse(opts.body).action:new URL(url).searchParams.get('action');calls.push(action);
+  if(action==='ocr-capabilities')return Response.json({ok:true,protocol_version:1,db:'supported',limits:{characters:16384,utf8_bytes:65536},supported_mime_types:['image/jpeg','image/png']});
+  if(action==='ocr-status')return Response.json({ok:true,note_id:noteId,updated_at:stamp,attachments:files});
+  const body=JSON.parse(opts.body);assert.equal(body.note_updated_at,stamp);assert.deepEqual(body.expected_attachment,files.find(f=>f.drive_file_id===body.expected_attachment.drive_file_id));count++;
+  const attachment={...body.expected_attachment,ocr:{state:'done',text:'photo '+count,attempt_id:count===1?'22222222-2222-4222-8222-222222222222':'33333333-3333-4333-8333-333333333333',original_file_id:body.expected_attachment.drive_file_id,temp_document_id:'temp_'+count,cleanup_state:'deleted'}};
+  stamp=count===1?'2026-10-06T01:00:01.234567Z':'2026-10-06T01:00:02.345678Z';files=files.map(f=>f.drive_file_id===attachment.drive_file_id?attachment:f);
+  return Response.json({ok:true,note_id:noteId,updated_at:stamp,attachment,ocr_saved:true,text_changed:true,cleanup_state:'deleted'});
+ }});
+ const result=await m.uploadBatch(b,{rt:runtime,ocr,request:async()=>{calls.push('multipart');files=[...files,photo('file_'+files.length)];return {ok:true,note_id:noteId,attachments:structuredClone(files)};}});
+ assert.deepEqual(calls,['multipart','multipart','ocr-capabilities','ocr-status','ocr-read','ocr-status','ocr-read']);assert.deepEqual(result.attachments.map(f=>f.ocr.text),['photo 1','photo 2']);assert.ok(b.entries.every(e=>e.kind==='success'));
+});

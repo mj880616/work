@@ -108,13 +108,17 @@ test('Back declined after lazy-loading an unopened target still restores note UR
  await expect(page).toHaveURL(address);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('지연 뒤로가기 취소 원문');expect(await page.evaluate(()=>history.state.marker)).toBe('editor');expect(f.errors).toEqual([]);
 });
 
+// Load first, then build the same-document entries in a later task. An evaluate that is still
+// returning while those URL changes run can be reported as a destroyed context.
 async function historyStack(page){
- await page.evaluate(async id=>{
-  await KPTUViewLoader.load('calendar');await KPTUViewLoader.load('basket');
+ await page.evaluate(async()=>{await KPTUViewLoader.load('calendar');await KPTUViewLoader.load('basket');});
+ await page.evaluate(id=>{window.__historyStackReady=false;setTimeout(()=>{
   KPTURouter.go('home',{source:'delegated'});history.replaceState({marker:'home',unrelated:{value:1}},'','?view=home&keep=1#home');
   KPTURouter.go('calendar',{source:'delegated'});history.replaceState({marker:'calendar',unrelated:{value:2}},'','?view=calendar&keep=1#calendar');
   KPTURouter.go('basket',{source:'delegated'});history.replaceState({marker:'editor',unrelated:{value:3}},'','?view=basket&note='+id+'&keep=1#basket');
- },n);
+  window.__historyStackReady=true;
+ });},n);
+ await expect.poll(()=>page.evaluate(()=>window.__historyStackReady)).toBe(true);
  await expect(page.locator('[data-basket-row]')).toHaveCount(1);
 }
 const historyProof=page=>page.evaluate(()=>({index:navigation.currentEntry.index,entries:navigation.entries().map(e=>({key:e.key,id:e.id,index:e.index,url:e.url})),state:history.state}));
