@@ -186,6 +186,8 @@ version 1, verify_jwt=false, 비로그인 POST 401, OPTIONS 200, source b466910.
 
 2026-10-15 사용자 승인형 workflow로 `document-actions` v6→v7을 ref `85320da`(#546 merge, 바구니 첨부를 같은 Drive 원본 참조로 자료실에 등록하는 `register-basket-attachment`)에서 배포했다. verify_jwt=true를 유지했고 비로그인 POST 401, OPTIONS 200을 확인했다. 배포 전 운영 v6은 2026-10-02 00:56 UTC 배포본이며 출처 SHA 기록이 없어 #393 merge `323ae3b`로 추정한다. 되돌리기 ref도 그 추정값이다. 사용자 실행·폰 확인 보고 기준이며, 이를 반영한 UI-바구니버튼정리 PR 세션(Claude Code 웹)에서는 운영 조회·배포·workflow 실행을 하지 않았다.
 
+HWP-편집기 2단계 #554가 `document-actions`에 `hwp-open`·`hwp-overwrite`를 더한다(배포 대기, verify_jwt=true 유지 예정). 운영 v7 출처는 `85320da`이며 배포·확인 전까지 위 표는 바꾸지 않는다.
+
 ### 5.1 ENV-6c 삭제 결과 확인
 
 - ENV-6c 삭제 대상 8개(`push-notifications`·`rtw-owner-claim`·`rtw-owner-setup`·`rail-1007-page`·`rail-1007-page-v2`·`pc0914-storage-test`·`pc-file-test`·`kptu-board-probe`)는 목록에 **없다**.
