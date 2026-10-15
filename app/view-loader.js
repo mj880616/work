@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=13','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1'],
+  basket:['./basket.css?v=14','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1'],
   home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26'],
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=26'],
@@ -106,7 +106,7 @@ async function projects(){
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=3');
-  await module('./library-upload.js?v=29','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=30','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
@@ -143,7 +143,7 @@ async function home(){
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
-async function basket(){ await module('./basket.js?v=32'); return {ok:true} }
+async function basket(){ await module('./basket.js?v=33'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations};
 function normalize(view){
   return loaders[view]?view:'home'

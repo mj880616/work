@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { librarySendOutcome, sendAttachmentToLibrary, LIBRARY_SEND_TEXT } from '../app/basket-library-send.js';
+import { librarySendOutcome, sendAttachmentToLibrary, LIBRARY_SEND_TEXT, requestLibraryDocument, takeLibraryDocumentRequest } from '../app/basket-library-send.js';
 
 test('created and exists need a well-formed server answer', () => {
   assert.deepEqual(librarySendOutcome({ data: { ok: true, result: 'created', document: { id: 'd1', title: 't' } } }), { kind: 'created', message: LIBRARY_SEND_TEXT.created, document: { id: 'd1', title: 't' } });
@@ -31,4 +31,19 @@ test('one POST with only the note and file, no session refresh, no resend', asyn
   assert.equal(calls.length, 1);
   assert.equal(calls[0].path, '/functions/v1/document-actions');
   assert.deepEqual(calls[0].options, { method: 'POST', body: { action: 'register-basket-attachment', note_id: 'n1', drive_file_id: 'f1' }, refreshSession: false, singleFlight: false, expectedSessionEpoch: 4 });
+});
+
+test('the library hand-off is one-shot and bound to the same user and workspace', () => {
+  const ctx = { user: { id: 'u1' }, workspace: { id: 'w1' } };
+  const rt = { context: { read: () => ctx } };
+  requestLibraryDocument('d1', rt);
+  assert.equal(takeLibraryDocumentRequest(rt), 'd1');
+  assert.equal(takeLibraryDocumentRequest(rt), null);
+  requestLibraryDocument('d2', rt);
+  assert.equal(takeLibraryDocumentRequest({ context: { read: () => ({ user: { id: 'u1' }, workspace: { id: 'w2' } }) } }), null);
+  assert.equal(takeLibraryDocumentRequest(rt), null);
+  requestLibraryDocument('', rt);
+  assert.equal(takeLibraryDocumentRequest(rt), null);
+  requestLibraryDocument('d3', { context: { read: () => null } });
+  assert.equal(takeLibraryDocumentRequest(rt), null);
 });

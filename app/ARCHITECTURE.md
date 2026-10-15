@@ -86,7 +86,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 - 할 일: `task-*`
 - 프로젝트: `project-*`
 - 회의: `meeting-*`
-- 자료실: `library-upload.js`
+- 자료실: `library-upload.js`. 바구니 메모 첨부의 [자료실로 보내기]는 `basket-library-send.js`가 `document-actions` `register-basket-attachment`를 1회 호출하고(결과 불명은 다시 보내지 않음), 보낸 첨부의 [자료실에서 보기]는 같은 모듈의 1회용 요청(로그인 사용자·업무 공간 일치, 1분)으로 자료실 화면에 그 자료 id를 넘긴다. 자료실은 목록을 불러온 뒤 그 행으로 이동·포커스하며, 행이 필터에 가려지면 검색·프로젝트 필터만 비운다(BASKET-4b-1, UI-바구니버튼정리).
 - 게시/현장공유: `page-editor-fix.js`
 
 ## 5. 알림 모듈 안정화

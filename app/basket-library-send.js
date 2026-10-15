@@ -37,3 +37,12 @@ export async function sendAttachmentToLibrary(noteId,fileId,{rt=window.KPTURunti
     return librarySendOutcome({data});
   }catch(error){return librarySendOutcome({error});}
 }
+// One-shot in-app hand-off to the library view: the library shows this
+// document's row once it has loaded. Bound to the signed-in user and
+// workspace and expires quickly, like the basket and task hand-offs.
+const REVEAL_MS=60*1000;
+let revealRequest=null;
+const revealScope=rt=>{const c=rt?.context?.read?.();return c?.user?.id&&c?.workspace?.id?`${c.user.id}:${c.workspace.id}`:'';};
+export function requestLibraryDocument(id,rt=window.KPTURuntime){const scope=revealScope(rt);revealRequest=typeof id==='string'&&id&&scope?{id,scope,at:Date.now()}:null;}
+export function takeLibraryDocumentRequest(rt=window.KPTURuntime){const value=revealRequest;revealRequest=null;return value&&value.scope===revealScope(rt)&&Date.now()-value.at<REVEAL_MS?value.id:null;}
+export const libraryHref='./?view=library';

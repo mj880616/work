@@ -7,7 +7,7 @@ import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.j
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest } from './basket-note-tasks.js?v=1';
 import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
 import { mountManualLink } from './basket-manual-link.js?v=3';
-import { sendAttachmentToLibrary } from './basket-library-send.js?v=1';
+import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=6';
 
@@ -31,10 +31,11 @@ mobileTitle.addEventListener('change',syncTitle);syncTitle();
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
 const ocrViews=new Map();
 // Per scope, note and file: the last send result shown on the read view. A send
-// in flight or an unknown result keeps that attachment's button off; nothing resends.
+// in flight keeps that attachment's button off; a sent or unknown result is a
+// status badge, not a button, so nothing resends.
 const librarySends=new Map();
 const libraryKey=fileId=>`${scope()}:${selected?.id}:${fileId}`;
-const libraryLabel={sending:'보내는 중…',created:'자료실에 있어요',exists:'자료실에 있어요',unknown:'자료실에서 확인해 주세요'};
+const libraryBadge={created:['published','자료실에 있어요'],exists:['published','자료실에 있어요'],unknown:['review','자료실에서 확인해 주세요']};
 let ocrFlight=null,ocrViewScope=null,ocrGeneration=0;
 const captureOcrScope=()=>({scope:scope(),owner:rt.context.read()?.user?.id,sessionEpoch:rt.session.epoch()});
 const currentOcrScope=value=>{const session=rt.session.read();return !!value&&value.scope===scope()&&value.sessionEpoch===rt.session.epoch()&&session?.user?.id===value.owner&&!!session?.access_token;};
@@ -229,14 +230,27 @@ function paintDetailState() {
 }
 function paintAttachments() {
   const openIds=new Set(Array.from(detail.querySelectorAll('[data-basket-ocr] details[open]'),node=>node.parentElement.dataset.basketOcr));
-  detail.querySelector('[data-basket-attachments]').innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}${libraryMarkup(file)}${ocrMarkup(file)}</div>`;}).join('');
+  detail.querySelector('[data-basket-attachments]').innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}${libraryMarkup(file)}${ocrMarkup(file)}</div>${libraryResult(file)}`;}).join('');
   detail.querySelectorAll('[data-basket-ocr] details').forEach(node=>{node.open=openIds.has(node.parentElement.dataset.basketOcr);});
   paintOcrControls();
 }
 function libraryMarkup(file) {
   const id=String(file?.drive_file_id||'');if(!id)return '';
-  const sent=librarySends.get(libraryKey(id)),label=libraryLabel[sent?.kind]||'자료실로 보내기';
-  return `<div class="basket-library-send" data-basket-library="${esc(id)}"><button type="button" data-basket-library-send="${esc(id)}" aria-label="${esc(file.file_name||'첨부')} ${esc(label)}"${sent&&sent.kind!=='refused'&&sent.kind!=='session'?' disabled':''}${editing?' hidden':''}>${esc(label)}</button><small role="status" data-basket-library-status>${esc(sent?.message||'')}</small></div>`;
+  const sent=librarySends.get(libraryKey(id)),name=esc(file.file_name||'첨부'),badge=libraryBadge[sent?.kind];
+  let body;
+  if(badge){
+    const doc=sent.document?.id;
+    body=`<span class="badge ${badge[0]} basket-library-badge" data-basket-library-badge>${esc(badge[1])}</span>${doc?`<a href="${esc(libraryHref)}" data-basket-library-open="${esc(doc)}" aria-label="${name} 자료실에서 보기">자료실에서 보기</a>`:''}`;
+  }else{
+    const label=sent?.kind==='sending'?'보내는 중…':'자료실로 보내기';
+    body=`<button type="button" data-basket-library-send="${esc(id)}" aria-label="${name} ${esc(label)}"${sent?.kind==='sending'?' disabled':''}>${esc(label)}</button>`;
+  }
+  return `<div class="basket-library-send" data-basket-library="${esc(id)}"${editing?' hidden':''}>${body}</div>`;
+}
+// The send result reads as one line under its attachment card.
+function libraryResult(file) {
+  const id=String(file?.drive_file_id||''),message=id&&librarySends.get(libraryKey(id))?.message;
+  return message?`<p class="basket-library-result" role="status" data-basket-library-status="${esc(id)}">${esc(message)}</p>`:'';
 }
 async function sendToLibrary(fileId) {
   if (!selected || editing || busy) return;
@@ -265,7 +279,7 @@ function paintMode() {
   // The link panel and the task form bring their own buttons; the read actions return when they close.
   detail.querySelector('[data-basket-read]').hidden = editing; detail.querySelector('[data-basket-read-actions]').hidden = editing || manual.isOpen();
   detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
-  detail.querySelectorAll('[data-basket-library-send]').forEach(button => { button.hidden = editing; });
+  detail.querySelectorAll('[data-basket-library]').forEach(box => { box.hidden = editing; });
 }
 function openDetail(id, {edit = false} = {}) {
   handoff.close();
@@ -274,7 +288,7 @@ function openDetail(id, {edit = false} = {}) {
   ++epoch;ocrViewScope=captureOcrScope();editing=edit;
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
-  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions" data-basket-read-actions><button type="button" data-basket-edit>수정</button><button type="button" data-basket-link-open>연결하기</button><button type="button" data-basket-task-open>할 일 만들기</button><button type="button" data-basket-handoff>AI에게 맡기기</button><button type="button" data-basket-archive>보관</button><button type="button" data-basket-delete>삭제</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><div class="basket-read-main"><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div class="basket-read-more"><button type="button" class="secondary" data-basket-edit>수정</button><button type="button" class="secondary" data-basket-archive>보관</button><button type="button" class="danger" data-basket-delete>삭제</button></div></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   manual.attach(detail.querySelector('[data-basket-manual]'));
   pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isActive:()=>editing,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
@@ -390,7 +404,7 @@ root.addEventListener('click', e => {
   // Navigation cancels this handoff's read, but never releases another operation's lock.
   if (b.matches('[data-basket-filter],[data-classification-open],[data-basket-row],[data-basket-close],[data-basket-edit]')) handoff.close();
   if (busy) return;
-  if (b.hasAttribute('data-handoff-copy')||b.hasAttribute('data-basket-handoff')) void handoff.copy();
+  if (b.hasAttribute('data-handoff-copy')) void handoff.copy();
   else if (b.hasAttribute('data-classification-open')) classification.open();
   else if(b.hasAttribute('data-basket-library-send'))void sendToLibrary(b.dataset.basketLibrarySend);
   else if(b.hasAttribute('data-basket-ocr-read'))void runOcr('read',b.dataset.basketOcrRead);
@@ -416,6 +430,13 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-reload')) void reloadDetail();
   else if (b.hasAttribute('data-basket-delete')) void deleteSelected();
   else if (b.hasAttribute('data-basket-archive')) void patch({archived_at:selected.archived_at ? null : new Date().toISOString()}, selected.archived_at ? '보관을 해제했습니다.' : '보관했습니다.');
+});
+// [자료실에서 보기] keeps a plain link for new tabs; in place it hands the
+// document to the library view, which shows its row once loaded.
+root.addEventListener('click', e => {
+  const a = e.target.closest('a[data-basket-library-open]'); if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault(); if (busy || editing) return;
+  requestLibraryDocument(a.dataset.basketLibraryOpen, rt); window.KPTURouter.go('library', {source:'delegated'});
 });
 window.addEventListener('storage',()=>guardOcrPrivacy());
 root.addEventListener('keydown', e => { guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); if (manual.isOpen()) manual.cancel(); else closeDetail(); } });
