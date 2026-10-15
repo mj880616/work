@@ -32,12 +32,14 @@ export function mergeNoteTask(metadata,entry){
   const kept=noteTasks({metadata:base}).filter(t=>t.task_id!==entry.task_id);
   return {...base,tasks:[Object.fromEntries(ENTRY_KEYS.map(key=>[key,entry[key]])),...kept].slice(0,NOTE_TASK_LIMIT)};
 }
-// Concurrency guard for the PATCH: the original's version must be unchanged
-// and so must the first listed task, so two writers never drop each other's entry.
+// Concurrency guard for the PATCH: the original's version must be unchanged,
+// and so must the first listed task and the write-request candidate's mark
+// (BASKET-4b-2), so two metadata writers never drop each other's entry.
+const textGuard=value=>value==null?'is.null':'eq.'+encodeURIComponent(typeof value==='string'?value:JSON.stringify(value));
 export function noteTaskGuard(note){
   const first=Array.isArray(note?.metadata?.tasks)?note.metadata.tasks[0]:null;
-  const value=plainObject(first)&&first.task_id!=null?(typeof first.task_id==='string'?first.task_id:JSON.stringify(first.task_id)):null;
-  return `updated_at=eq.${encodeURIComponent(note.updated_at)}&metadata->tasks->0->>task_id=${value===null?'is.null':'eq.'+encodeURIComponent(value)}`;
+  const request=plainObject(note?.metadata)&&plainObject(note.metadata.write_request)?note.metadata.write_request.marked_at:null;
+  return `updated_at=eq.${encodeURIComponent(note.updated_at)}&metadata->write_request->>marked_at=${textGuard(request)}&metadata->tasks->0->>task_id=${textGuard(plainObject(first)?first.task_id:null)}`;
 }
 function workspaceId(rt){
   const id=rt.context.read()?.workspace?.id;
