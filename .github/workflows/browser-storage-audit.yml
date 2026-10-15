@@ -135,7 +135,16 @@ jobs:
               ],
           }
 
-          active_hits=[]; legacy_hits=[]; violations=[]
+          # HWP-편집기 1단계: 고정 버전 rhwp 편집기 빌드본(제3자 코드, 직접 고치지 않음). 편집기 frame은
+          # app/hwp-lab/studio-guard.js가 모든 편집기 코드보다 먼저 저장소를 메모리 대체물·undefined로 바꾸므로
+          # 기기에 남는 것이 없다(tests/app-e2e/hwp-lab.spec.mjs가 실제 브라우저에서 확인). 보고만 한다.
+          vendored_prefix='app/hwp-lab/rhwp-'
+          # The guard may only replace storage with a memory stand-in or undefined; nothing else.
+          neutralizers={
+              'app/hwp-lab/studio-guard.js':re.compile(r"^\s*replace\('(?:localStorage|sessionStorage|indexedDB)',(?:memoryStorage\(\)|undefined)\);\s*$"),
+          }
+
+          active_hits=[]; legacy_hits=[]; vendored_hits=[]; violations=[]
           for p in Path('.').rglob('*'):
               if not p.is_file() or p.suffix.lower() not in exts: continue
               if any(part in skip_parts for part in p.parts): continue
@@ -149,7 +158,12 @@ jobs:
                       if path.startswith('app/legacy/'):
                           legacy_hits.append(row)
                           continue
+                      if path.startswith(vendored_prefix):
+                          vendored_hits.append(row)
+                          continue
                       active_hits.append(row)
+                      if path in neutralizers and neutralizers[path].search(line):
+                          continue
                       if kind in {'indexedDB','CacheStorage'}:
                           violations.append(row);continue
                       tokens=allowed.get(path,[])
@@ -164,6 +178,8 @@ jobs:
           for path,lineno,kind,line in legacy_hits:
               print(f'{path}:{lineno}: [{kind}] {line}')
           print(f'LEGACY_HITS={len(legacy_hits)}')
+          print('=== VENDORED EDITOR STORAGE USE (memory-only via studio-guard.js, reported only) ===')
+          print(f'VENDORED_HITS={len(vendored_hits)}')
 
           if violations:
               print('=== POLICY VIOLATIONS ===')

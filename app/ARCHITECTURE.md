@@ -88,6 +88,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 - 회의: `meeting-*`
 - 자료실: `library-upload.js`. 바구니 메모 첨부의 [자료실로 보내기]는 `basket-library-send.js`가 `document-actions` `register-basket-attachment`를 1회 호출하고(결과 불명은 다시 보내지 않음), 보낸 첨부의 [자료실에서 보기]는 같은 모듈의 1회용 요청(로그인 사용자·업무 공간 일치, 1분)으로 자료실 화면에 그 자료 id를 넘긴다. 자료실은 목록을 불러온 뒤 그 행으로 이동·포커스하며, 행이 필터에 가려지면 검색·프로젝트 필터만 비운다(BASKET-4b-1, UI-바구니버튼정리).
 - 게시/현장공유: `page-editor-fix.js`
+- HWP 편집기 시험판(HWP-편집기 1단계): `?view=hwp-lab` 주소로만 열며 메뉴와 `loadAll`에 넣지 않아 다른 화면은 편집기를 불러오지 않는다. `hwp-lab.js`가 이 화면의 유일한 renderer다. 고정 버전 rhwp 편집기(`hwp-lab/rhwp-0.8.7/`, `scripts/hwp-lab/build-rhwp-studio.sh`로 다시 만들고 직접 고치지 않음, 출처는 같은 폴더 `SOURCE.md`)를 같은 origin iframe으로 연다. 편집기 HTML은 외부 주소를 막는 CSP와 `hwp-lab/studio-guard.js`(브라우저 저장소를 메모리 대체물로 바꿔 문서·설정이 기기에 남지 않고 Web2 로그인 정보도 보이지 않게 함)를 편집기 코드보다 먼저 실행한다. 파일은 브라우저 안에서만 열고 [내 기기에 저장(다운로드)]만 제공하며 서버·Drive 호출이 없다. 편집기 버전을 바꿀 때는 새 `rhwp-<버전>/` 폴더를 만들고 `hwp-lab.js`의 경로를 바꾼다.
 
 ## 5. 알림 모듈 안정화
 

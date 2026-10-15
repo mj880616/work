@@ -18,11 +18,11 @@
 <link rel="preload" as="style" href="./workspace-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=393">
+<link rel="modulepreload" href="./loader-v2.js?v=394">
 <link rel="modulepreload" href="./runtime-client.js?v=9">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=281" defer></script>
+<script src="./app.js?v=282" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -83,6 +83,10 @@
   <section id="homeView" class="view-panel hidden"><h2 data-home-date></h2><div class="home-quick-placeholder" aria-hidden="true"></div><div data-home-cards></div></section>
 
   <section id="basketView" class="view-panel hidden"></section>
+
+  <section id="hwp-labView" class="view-panel hidden" aria-labelledby="hwpLabTitle">
+    <section class="add-list-card hwp-lab"><div class="add-list-head"><h2 id="hwpLabTitle">HWP 편집기 시험판</h2></div><p class="hwp-lab-note">고른 파일은 이 기기 브라우저 안에서만 엽니다. 서버·Drive로 보내지 않고 기기에도 남기지 않습니다.</p><div class="hwp-lab-actions"><button id="hwpLabPick" class="secondary" type="button">파일 선택</button><input id="hwpLabFile" class="a11y-only" type="file" tabindex="-1" aria-hidden="true"><button id="hwpLabSave" class="primary" type="button" disabled>내 기기에 저장(다운로드)</button></div><p id="hwpLabStatus" class="hwp-lab-status" role="status" aria-live="polite"></p><div id="hwpLabEditor" class="hwp-lab-editor"></div></section>
+  </section>
 
   <section id="calendarView" class="view-panel hidden">
     <div id="calendarCard" class="calendar-card">
