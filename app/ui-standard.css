@@ -16,7 +16,8 @@
 #appView #homeView .home-card h3 small{ color:var(--kptu-muted); }
 
 /* 버튼·입력 모서리 8px, 테두리 0.5px. 작은 테두리 버튼 12~13px. 누르는 영역 44px는 그대로. */
-#appView #basketView button{ font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+#appView #basketView button:not(.quick-pill-button,.quick-text-link){ font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-radius:var(--ds-radius-control); }
+#appView #basketView button:not(.quick-pill-button,.quick-text-link,.primary,.danger,.home-quick-save,.home-quick-new-note){ border-color:var(--ds-line); }
 #appView #basketView :is(textarea,input[type="text"],select),#appView #homeView .home-quick [data-quick-input]{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
 #appView #homeView .home-quick :is([data-quick-options] button,select){ border-width:var(--ds-line-width); border-color:var(--ds-line); }
 

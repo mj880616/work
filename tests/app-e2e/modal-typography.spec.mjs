@@ -135,7 +135,10 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
       for(const radio of await group.getByRole('radio').all()){
         const selected=await radio.getAttribute('aria-checked');
         const home=page.locator(`.home-quick-modes button[aria-pressed="${selected}"]`).first();
-        expect(await radio.evaluate(style),name+' filter reuses home pill style').toEqual(await home.evaluate(style));
+        // UI-디자인기준 1/3: home pills moved to the new standard (weight 500, selected 바구니 in the basket kind color)
+        // while meeting/library filters keep their look until stage 3, so compare size and shape only there.
+        const comparable=v=>v.filter((_,i)=>i!==1&&!(selected==='true'&&(i===6||i===7)));
+        expect(comparable(await radio.evaluate(style)),name+' filter reuses home pill style').toEqual(comparable(await home.evaluate(style)));
       }
     }
   }
