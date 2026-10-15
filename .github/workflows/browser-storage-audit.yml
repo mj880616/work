@@ -153,6 +153,11 @@ jobs:
                   'parentStore:reach(()=>parent.localStorage.length),',
                   'visible:keys.filter(key=>localStorage.getItem(key)!==null),',
               )],
+              # MD-표시보완: read-only probes that the sandboxed ChatGPT HTML frame cannot reach any storage.
+              'tests/app-e2e/chatgpt-view.spec.mjs':[re.compile(r'^\s*'+re.escape(line)+r'\s*$') for line in (
+                  "t('storage',function(){return localStorage.length});",
+                  "t('session',function(){return sessionStorage.length});",
+              )],
           }
 
           active_hits=[]; legacy_hits=[]; vendored_hits=[]; violations=[]

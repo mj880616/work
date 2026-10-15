@@ -2,7 +2,8 @@ import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
 import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=2';
 import { createNote, validateNoteText } from './basket-data.js?v=4';
-import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=6';
+import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=7';
+import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs?v=1';
 import { dayKey } from './home-read-model.js?v=3';
 
 export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, view="home", idPrefix="home", onSaved=()=>{}}) {
@@ -21,6 +22,18 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   box.innerHTML=`<div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><button type="button" data-quick-mode="update">업데이트</button></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div class="home-quick-lock" data-quick-lock hidden><p data-quick-lock-reason></p><button type="button" class="home-quick-new-note" data-quick-new-note>새 메모 입력</button></div><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div><div data-quick-update-options hidden><button type="button" data-quick-org aria-label="조직" aria-haspopup="dialog" aria-expanded="false">조직 ▾</button></div><small data-quick-destination></small></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
   const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>mode==='basket',getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
+  // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
+  // same upload path as the clip; the text keeps a short mark. Nothing is saved until [추가].
+  input.addEventListener('paste',e=>{
+    if(mode!=='basket'||saving||input.readOnly)return;
+    const found=extractHtmlDocument(e.clipboardData?.getData('text/plain')||'');if(!found)return;
+    e.preventDefault();
+    if(utf8Bytes(found.html)>HTML_MAX_BYTES){status.textContent='HTML 문서가 2MB를 넘어 붙여 넣지 않았어요. 더 짧게 만들어 달라고 한 뒤 다시 붙여 넣어 주세요.';return;}
+    if(!pickerFiles.add([new File([found.html],htmlFileName(),{type:'text/html'})]))return;
+    input.setRangeText([found.before,HTML_MARK,found.after].filter(Boolean).join('\n'),input.selectionStart,input.selectionEnd,'end');
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+    status.textContent='HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 바구니에 저장돼요.';
+  });
   box.querySelector('[data-quick-new-note]').onclick=()=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&!window.confirm('바구니에서 저장 여부를 확인한 후 새 메모를 입력할까요? 현재 입력과 파일 선택은 비워집니다.'))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
   function size(){ input.style.height=''; if(mode==='update')input.style.height=Math.min(146,Math.max(83,input.scrollHeight+2))+'px'; }
   function paint(){

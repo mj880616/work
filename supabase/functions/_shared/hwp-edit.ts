@@ -1,4 +1,4 @@
-// HWP-편집기 2단계: document-actions `hwp-open`·`hwp-overwrite`.
+// HWP-편집기 2단계: document-actions `hwp-open`·`hwp-overwrite`. MD-표시보완: 읽기 전용 `html-view`(바구니 .html 첨부).
 // The file, its workspace and every Drive ID come from the server-read library row
 // or basket note, never from the client. Saving as a new file uses the existing
 // library-files / basket-files uploads; this module only reads and overwrites.
@@ -19,7 +19,7 @@ type Source = {
   workspaceId: string;
   fileId: string;
   fileName: string;
-  format: "hwp" | "hwpx";
+  format: "hwp" | "hwpx" | "html";
   documentId?: string;
   noteId?: string;
 };
@@ -35,6 +35,9 @@ type DriveFile = {
 };
 
 export const HWP_MAX_BYTES = 30 * 1024 * 1024;
+// MD-표시보완: a pasted ChatGPT HTML page shown in the memo's sandboxed frame. Read only; nothing is written.
+export const HTML_VIEW_MAX_BYTES = 2 * 1024 * 1024;
+export const isHtmlName = (name: string) => /\.html?$/i.test(String(name || ""));
 export const BACKUP_FOLDER = "Web2 편집 백업";
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -113,6 +116,7 @@ export function createHwpEdit(deps: Deps) {
   async function source(
     userId: string,
     input: { document_id?: unknown; note_id?: unknown; drive_file_id?: unknown },
+    want: "hwp" | "html" = "hwp",
   ): Promise<Source> {
     const documentId = typeof input.document_id === "string"
       ? input.document_id
@@ -181,6 +185,15 @@ export function createHwpEdit(deps: Deps) {
     } else {
       throw refuse("INVALID_REQUEST", "열 파일을 확인할 수 없습니다.");
     }
+    if (want === "html") {
+      if (found.kind !== "basket") {
+        throw refuse("INVALID_REQUEST", "바구니 메모의 첨부만 화면으로 볼 수 있습니다.");
+      }
+      if (!isHtmlName(found.fileName)) {
+        throw refuse("NOT_HTML", "HTML 첨부만 화면으로 볼 수 있습니다.");
+      }
+      return { ...found, format: "html" };
+    }
     const format = formatOf(found.fileName);
     if (!format) {
       throw refuse("NOT_HWP", "HWP·HWPX 파일만 편집할 수 있습니다.");
@@ -206,7 +219,11 @@ export function createHwpEdit(deps: Deps) {
     return rows.length > 0;
   }
 
-  async function meta(fileId: string, token: string): Promise<DriveFile> {
+  async function meta(
+    fileId: string,
+    token: string,
+    max = HWP_MAX_BYTES,
+  ): Promise<DriveFile> {
     const r = await drive(
       `${DRIVE}/${encodeURIComponent(fileId)}?fields=${FILE_FIELDS}`,
       { headers: auth(token) },
@@ -225,8 +242,13 @@ export function createHwpEdit(deps: Deps) {
     if (f.trashed) {
       throw refuse("DRIVE_FILE_TRASHED", "Drive 원본이 휴지통에 있습니다.");
     }
-    if (Number(f.size) <= 0 || Number(f.size) > HWP_MAX_BYTES) {
-      throw refuse("FILE_TOO_LARGE", "30MB보다 큰 파일은 편집기에서 열지 않습니다.");
+    if (Number(f.size) <= 0 || Number(f.size) > max) {
+      throw refuse(
+        "FILE_TOO_LARGE",
+        max === HWP_MAX_BYTES
+          ? "30MB보다 큰 파일은 편집기에서 열지 않습니다."
+          : "2MB보다 큰 HTML은 화면으로 보지 않습니다. Drive에서 열어 주세요.",
+      );
     }
     return f;
   }
@@ -273,6 +295,33 @@ export function createHwpEdit(deps: Deps) {
         can_overwrite: src.format === "hwp",
         shared: isShared,
       },
+    };
+  }
+
+  // The bytes as text for the memo's sandboxed frame (html-frame.js adds the network-blocking policy).
+  // Same checks as open: the server-read note and attachment, a file the owner's Drive holds, one revision.
+  async function openHtml(userId: string, input: Record<string, unknown>) {
+    const src = await source(userId, input, "html");
+    const token = await deps.driveToken();
+    const before = await meta(src.fileId, token, HTML_VIEW_MAX_BYTES);
+    const r = await drive(
+      `${DRIVE}/${encodeURIComponent(src.fileId)}?alt=media`,
+      { headers: auth(token) },
+    );
+    if (!r?.ok) throw unavailable();
+    const bytes = new Uint8Array(await r.arrayBuffer().catch(() => new ArrayBuffer(0)));
+    if (bytes.length !== Number(before.size)) {
+      throw new HwpEditError(
+        409,
+        "DRIVE_FILE_CHANGING",
+        "Drive 원본이 바뀌는 중입니다. 잠시 뒤 다시 열어 주세요.",
+      );
+    }
+    return {
+      ok: true,
+      file_name: src.fileName,
+      size: bytes.length,
+      html: new TextDecoder("utf-8").decode(bytes),
     };
   }
 
@@ -430,5 +479,5 @@ export function createHwpEdit(deps: Deps) {
     };
   }
 
-  return { open, overwrite };
+  return { open, overwrite, openHtml };
 }

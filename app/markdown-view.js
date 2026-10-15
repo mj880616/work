@@ -2,7 +2,8 @@
 // 라이브러리는 scripts/markdown/md-pin.json으로 고정해 app/markdown-lib/에 넣은 같은 주소 파일만 쓴다(CDN 없음).
 // markdown-it·DOMPurify는 처음 표시할 때, KaTeX는 수식이 있을 때, Mermaid는 도식이 있을 때만 불러온다.
 // 모든 결과는 DOMPurify로 정화한 DOM 조각으로 넣고(문자열 재해석 없음), 외부 주소를 부르는 요소·속성은 남기지 않는다.
-import {createMarkdown, renderMarkdown, renderMath, safeHref, MERMAID_CONFIG} from './markdown-render.mjs?v=1';
+import {createMarkdown, renderMarkdown, renderMath, safeHref, MERMAID_CONFIG} from './markdown-render.mjs?v=2';
+import {chatgptShareLinks} from './chatgpt-html.mjs?v=1';
 
 const LIB = new URL('./markdown-lib/', import.meta.url);
 export const MARKDOWN_LIBS = Object.freeze({
@@ -14,8 +15,8 @@ export const MARKDOWN_LIBS = Object.freeze({
 });
 const libUrl = name => new URL(MARKDOWN_LIBS[name], LIB).href;
 
-const PAGE_TAGS = ['p', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 's', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'a', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'span', 'div'];
-const PAGE_ATTRS = ['href', 'target', 'rel', 'class', 'start', 'type', 'checked', 'disabled', 'style'];
+const PAGE_TAGS = ['p', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 's', 'code', 'pre', 'blockquote', 'ul', 'ol', 'li', 'a', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'span', 'div', 'button'];
+const PAGE_ATTRS = ['href', 'target', 'rel', 'class', 'start', 'type', 'checked', 'disabled', 'style', 'hidden', 'aria-expanded'];
 const CELL_ALIGN = /^text-align:(left|right|center)$/;
 // Anything that could name another address inside SVG or KaTeX output.
 const URL_IN_CSS = /url\s*\(|@import|expression\s*\(/i;
@@ -33,6 +34,7 @@ function purifiers(DOMPurify) {
       else { node.removeAttribute('href'); node.removeAttribute('target'); node.removeAttribute('rel'); }
     }
     if (node.nodeName === 'INPUT') { node.setAttribute('type', 'checkbox'); node.setAttribute('disabled', ''); }
+    if (node.nodeName === 'BUTTON') node.setAttribute('type', 'button');
     if (node.hasAttribute?.('style') && !(/^T[HD]$/.test(node.nodeName) && CELL_ALIGN.test(node.getAttribute('style')))) node.removeAttribute('style');
   });
   const offsite = node => {
@@ -134,6 +136,54 @@ async function enhanceMermaid(el, live, purify) {
   }
 }
 
+// MD-표시보완: an image chip loads its pictures only when pressed, and folds them away again on the next press.
+// Only http(s) addresses already checked by the renderer become <img>; no referrer is sent.
+const chipped = new WeakSet();
+function toggleImages(chip) {
+  const list = chip.parentElement?.querySelector('.md-image-list');
+  if (!list) return;
+  const open = chip.getAttribute('aria-expanded') !== 'true';
+  if (open && !list.dataset.loaded) {
+    list.dataset.loaded = '1';
+    for (const link of list.querySelectorAll('a.md-image-link')) {
+      const href = safeHref(link.getAttribute('href'));
+      if (!href || !/^https?:/.test(href)) continue;
+      const img = document.createElement('img');
+      img.alt = link.textContent.replace(/^이미지: /, ''); img.loading = 'lazy'; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
+      img.addEventListener('error', () => img.remove(), {once: true});
+      img.src = href;
+      link.prepend(img);
+    }
+  }
+  chip.setAttribute('aria-expanded', String(open));
+  list.hidden = !open;
+}
+function watchChips(el) {
+  if (chipped.has(el)) return;
+  chipped.add(el);
+  el.addEventListener('click', event => {
+    const chip = event.target.closest?.('button.md-image-chip');
+    if (chip && el.contains(chip)) toggleImages(chip);
+  });
+}
+
+// MD-표시보완: one "ChatGPT 원본 보기" card per https://chatgpt.com/share/<id> in the text. Opens in a new window;
+// nothing is fetched from that page. Returns how many cards are shown.
+export function renderShareCards(host, text) {
+  const links = chatgptShareLinks(text);
+  host.replaceChildren(...links.map(href => {
+    const a = document.createElement('a');
+    a.className = 'md-share-card'; a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    const title = document.createElement('b'), where = document.createElement('small');
+    title.textContent = 'ChatGPT 원본 보기'; where.textContent = href.replace(/^https:\/\//, '');
+    a.append(title, where);
+    a.setAttribute('aria-label', 'ChatGPT 원본 보기 (새 창)');
+    return a;
+  }));
+  host.hidden = !links.length;
+  return links.length;
+}
+
 // Show text exactly as written. Cancels any markdown render still in flight for this element.
 export function showPlainText(el, text) {
   jobs.set(el, (jobs.get(el) || 0) + 1);
@@ -156,6 +206,7 @@ export async function renderMarkdownInto(el, text, {isCurrent = () => true} = {}
   const {html, math, mermaid} = renderMarkdown(lib.md, text);
   el.replaceChildren(lib.purify.page(html));
   el.classList.add('md-body');
+  if (el.querySelector('.md-image-chip')) watchChips(el);
   const tasks = [];
   if (math && el.querySelector('.md-math')) tasks.push(enhanceMath(el, live, lib.purify));
   if (mermaid && el.querySelector('.md-mermaid')) tasks.push(enhanceMermaid(el, live, lib.purify));

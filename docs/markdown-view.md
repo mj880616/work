@@ -1,6 +1,6 @@
 # 마크다운 표시(MD-표시) 기준
 
-원장 행: `MD-표시`. 공용 표시 모듈을 먼저 바구니 메모 읽기 화면에 적용했고, 이후 일지·노트(JOURNAL·MEMO)에서 그대로 재사용한다.
+원장 행: `MD-표시`, `MD-표시보완`. 공용 표시 모듈을 먼저 바구니 메모 읽기 화면에 적용했고, 이후 일지·노트(JOURNAL·MEMO)에서 그대로 재사용한다.
 
 ## 1. 지금 고정한 버전
 
@@ -28,7 +28,7 @@
 
 - 글 속 HTML·스크립트는 실행하지 않는다: markdown-it `html:false`로 글자로만 보이고, 결과는 DOMPurify(허용 태그·속성 목록)로 한 번 더 걸러 DOM 조각으로 넣는다(문자열 재해석 없음).
 - 링크는 `http:`·`https:`·`mailto:`만 링크가 되고, 모두 `target="_blank" rel="noopener noreferrer"`로 연다. `javascript:`·`data:`·상대 주소 등은 글자로 남는다.
-- 글 속 이미지는 불러오지 않는다: 안전한 주소면 `이미지: 설명` 링크, 아니면 글자.
+- 글 속 이미지는 불러오지 않는다: 안전한 주소면 `이미지: 설명` 링크, 아니면 글자. 그림이 2개 이상 연달아 나오면(사이에 빈칸·줄바꿈·그림만 있는 문단만) "🖼 이미지 N개" 칩 하나로 접고, 칩을 누를 때만 그 그림(http·https만, referrer 없음)을 불러온다(7절).
 - 표 칸 정렬(`text-align`) 외의 style 속성은 지운다. 체크박스는 항상 `disabled`(누를 수 없음)다.
 - Mermaid: `securityLevel:'strict'`(글 속 HTML은 글자로, 클릭 동작 끔), `htmlLabels:false`. 글 안 `%%{init}%%` 지시문으로 보안 수준·HTML 글자·테마 CSS를 바꾸지 못하게 `secure`에 넣었다. 결과 SVG는 DOMPurify SVG 정화 후 `<a>`·`<image>`·`<foreignObject>`·스크립트를 지우고, `#` 내부 참조가 아닌 주소(href·url()·@import)는 모두 지운다.
   - `sandbox` 수준(iframe 안에 그림)은 쓰지 않았다: 결과가 iframe이라 SVG를 정화할 수 없고, 화면에 iframe을 하나 더 들이게 된다. strict + 결과 SVG 정화가 이 화면에서는 더 엄격하다.
@@ -52,10 +52,31 @@
 ## 6. 재사용(일지·노트)
 
 ```js
-import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js?v=1';
+import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js?v=2';
 // 칸 하나의 표시 담당 모듈이 직접 부른다. isCurrent는 계정·대상이 바뀐 뒤 도착한 결과를 버린다.
 await renderMarkdownInto(el, text, { isCurrent: () => owner === scope() });
 showPlainText(el, text); // 원문 그대로
 ```
 
 모양은 `app/markdown-view.css`(`.md-body`)다. 그 화면의 css 목록(`view-loader.js`)에 함께 넣는다. 순수 변환은 `app/markdown-render.mjs`(DOM 없음, Node 검사 가능)다.
+
+## 7. ChatGPT 화면 보완(MD-표시보완)
+
+ChatGPT 화면의 카드·그림 상자·도식은 복사·붙여넣기로 모양이 넘어오지 않는다. 그래서 두 경로를 둔다. 순수 판별은 `app/chatgpt-html.mjs`(Node 검사 가능), 칸막이는 `app/html-frame.js`다.
+
+| 기능 | 동작 | 안전 |
+| --- | --- | --- |
+| 이미지 칩 | 연달아 나오는 그림 2개 이상 → "🖼 이미지 N개" 칩. 누르면 그림, 다시 누르면 접힘 | 누르기 전 외부 요청 0건. 하나라도 안전하지 않은 주소면 접지 않고 기존 규칙(링크·글자) |
+| 강조 상자 | `> [!NOTE]`·`[!TIP]`·`[!IMPORTANT]`·`[!WARNING]`·`[!CAUTION]`(첫 줄이 표시만일 때) → 참고·팁·중요·경고·주의 색 상자 | 테마 토큰 색만, 표시 글자는 고정 문구 |
+| 공유 링크 카드 | 원문에 `https://chatgpt.com/share/<id>`가 있으면 읽기 화면 위에 "ChatGPT 원본 보기" 카드(최대 5개), 새 창 | 정확한 형식만(https, 호스트 `chatgpt.com`, 포트·계정 없음, `/share/<id>`만). 서버가 그 페이지를 가져오지 않음(제목 미리보기 없음) |
+| [ChatGPT용 요청 복사] | 바구니 목록 입력칸 아래. 고정 문구를 복사 | 복사 실패 시 문구를 안내 |
+| HTML 붙여넣기 | 홈 빠른 입력·바구니 입력(바구니 모드)에 완전한 HTML 문서(`<!doctype html>`로 시작, `<html>…</html>`, 또는 그런 문서 하나를 담은 ```html 블록)를 붙여 넣으면 `chatgpt-YYYYMMDD-HHmm.html` 첨부로 바꾸고 글에는 "📄 ChatGPT HTML"만 남김. [추가]를 눌러야 저장 | 기존 첨부 업로드(`basket-files`) 그대로. 2MB 초과는 붙여 넣지 않고 안내 |
+| HTML 첨부 보기 | 메모 읽기 화면 원문 아래에 .html 첨부를 칸막이로 표시, 높이 자동, [크게 보기](화면 전체, Esc·[작게 보기]로 복귀) | 아래 표 |
+
+칸막이 규칙:
+
+- `<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" srcdoc>`. allow-same-origin·forms·popups·top-navigation은 넣지 않는다 → 문서 origin은 `null`, Web2의 parent·top·localStorage·sessionStorage·쿠키·로그인 정보에 닿지 못함. 폼 제출·새 창·최상위 이동 불가.
+- 문서 맨 앞(doctype 바로 뒤)에 CSP를 붙인다: `default-src 'none'`, 인라인 스타일·스크립트, `data:` 이미지·글꼴만. `connect-src`·`frame-src`·`object-src`·`form-action`·`base-uri` 모두 `'none'`. 외부 글꼴·스크립트·그림을 부르는 HTML은 그 부분만 빠진 채 보이고 Web2에는 영향이 없다.
+- 높이는 칸막이 안 스크립트가 보낸 숫자만, 보낸 창이 그 iframe일 때만 받는다(120~20000px).
+- 칸막이 문서가 스스로 다른 주소로 이동하면(두 번째 load) 즉시 닫고 [다시 보기]를 보인다. 브라우저는 자기 칸 안의 이동 요청 자체를 막는 수단이 없어, 이동 요청이 한 번 나갈 수는 있다(남은 위험). 이때도 Web2 정보는 칸 안에 없다.
+- 내용은 `document-actions` `html-view`로 받는다: 로그인 사용자 JWT, 업무 공간 소유자 확인, 메모·첨부는 서버가 DB에서 찾음(클라이언트가 준 파일 ID는 그 메모의 첨부일 때만), 이름이 `.html`·`.htm`, Drive 원본 2MB 이하·내 소유·휴지통 아님. 읽기만 하며 Drive·DB에 쓰지 않는다. 서버가 아직 이 동작을 모르면 "HTML 보기 서버가 아직 준비되지 않았어요"를 보인다.

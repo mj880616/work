@@ -24,3 +24,39 @@
 .md-body .md-mermaid-figure { max-width:100%; overflow-x:auto; }
 .md-body .md-mermaid-figure svg { display:block; max-width:100%; height:auto; margin:0 auto; }
 .md-body .md-mermaid-error { margin:0 0 6px; font-size:0.9em; color:var(--kptu-muted); }
+/* MD-표시보완: 이미지 칩(누를 때만 불러옴), GitHub식 강조 상자, ChatGPT 공유 링크 카드. 색은 테마 토큰만 쓴다. */
+.md-body .md-image-group { display:inline-flex; flex-direction:column; align-items:flex-start; gap:8px; max-width:100%; }
+.md-body .md-image-chip { display:inline-flex; align-items:center; min-height:var(--kptu-touch-target, 44px); padding:0 14px; color:var(--kptu-ink); background:var(--kptu-surface-subtle); border:1px solid var(--kptu-border-strong); border-radius:999px; font:inherit; cursor:pointer; }
+.md-body .md-image-chip[aria-expanded="true"] { background:var(--kptu-primary-soft); border-color:var(--kptu-primary); }
+.md-body .md-image-list { display:flex; flex-wrap:wrap; gap:8px; max-width:100%; }
+.md-body .md-image-list[hidden] { display:none; }
+.md-body .md-image-list a { display:inline-flex; flex-direction:column; gap:4px; max-width:100%; font-size:0.9em; }
+.md-body .md-image-list img { display:block; max-width:min(100%, 480px); height:auto; border:1px solid var(--kptu-border); border-radius:6px; }
+.md-body blockquote.md-callout { padding:10px 12px; color:var(--kptu-text-body, var(--kptu-ink)); background:var(--kptu-primary-soft); border-left:4px solid var(--kptu-primary); border-radius:6px; }
+.md-body blockquote.md-callout > :last-child { margin-bottom:0; }
+.md-body .md-callout-title { display:block; margin-bottom:4px; font-weight:700; color:var(--kptu-primary-ink, var(--kptu-ink)); }
+.md-body .md-callout-note .md-callout-title::before { content:"ⓘ "; }
+.md-body .md-callout-tip { background:var(--kptu-surface-subtle); border-left-color:var(--kptu-link); }
+.md-body .md-callout-tip .md-callout-title { color:var(--kptu-link); }
+.md-body .md-callout-tip .md-callout-title::before { content:"💡 "; }
+.md-body .md-callout-important .md-callout-title::before { content:"❗ "; }
+.md-body .md-callout-important { border-left-width:6px; }
+.md-body .md-callout-warning, .md-body .md-callout-caution { background:var(--kptu-danger-soft); border-left-color:var(--kptu-danger); }
+.md-body .md-callout-warning .md-callout-title, .md-body .md-callout-caution .md-callout-title { color:var(--kptu-danger); }
+.md-body .md-callout-warning .md-callout-title::before { content:"⚠ "; }
+.md-body .md-callout-caution .md-callout-title::before { content:"⛔ "; }
+.md-share-cards { display:flex; flex-direction:column; gap:8px; margin:0 0 12px; }
+.md-share-cards[hidden] { display:none; }
+.md-share-card { display:flex; flex-direction:column; gap:2px; min-height:var(--kptu-touch-target, 44px); padding:10px 14px; color:var(--kptu-ink); text-decoration:none; background:var(--kptu-surface); border:1px solid var(--kptu-border-strong); border-left:4px solid var(--kptu-primary); border-radius:8px; }
+.md-share-card b::after { content:" ↗"; }
+.md-share-card small { color:var(--kptu-muted); overflow-wrap:anywhere; }
+.md-share-card:focus-visible, .md-body .md-image-chip:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:2px; }
+/* MD-표시보완: .html 첨부 칸막이(html-frame.js). [크게 보기]는 화면 전체를 덮는다. */
+.html-frame { display:flex; flex-direction:column; gap:8px; margin:0 0 12px; padding:10px; background:var(--kptu-surface); border:1px solid var(--kptu-border-strong); border-radius:8px; }
+.html-frame-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.html-frame-title { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+.html-frame-note { margin:0; color:var(--kptu-muted); font-size:0.92em; }
+.html-frame-note:empty { display:none; }
+.html-frame-view { display:block; width:100%; min-height:120px; border:1px solid var(--kptu-border); border-radius:6px; background:var(--kptu-surface); }
+.html-frame-full { position:fixed; inset:0; z-index:1000; margin:0; border-radius:0; padding:max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); }
+.html-frame-full .html-frame-view { flex:1 1 auto; height:auto !important; min-height:0; }

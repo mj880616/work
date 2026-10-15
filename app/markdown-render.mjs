@@ -1,7 +1,7 @@
 // MD-표시: 마크다운 글을 안전한 HTML 문자열로 바꾸는 순수 함수. DOM이 없어 Node 단위 검사에서도 그대로 돈다.
 // 브라우저 쪽 불러오기·정화·Mermaid·KaTeX 적용은 markdown-view.js가 맡는다(바구니 메모, 이후 일지·노트에서 재사용).
 // 안전 원칙: 글 속 HTML은 글자로만 보이고(html:false), 링크는 http·https·mailto만 새 창 + noopener로 열며,
-// 이미지는 불러오지 않고 링크로만 보인다. 수식·도식은 자리표시(원문 글자)만 두고 나중에 바꾼다.
+// 이미지는 불러오지 않고 링크로만 보인다(연달아 나오면 칩 하나로 접고, 누를 때만 불러온다). 수식·도식은 자리표시(원문 글자)만 두고 나중에 바꾼다.
 
 const LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 
@@ -99,6 +99,7 @@ function safeLinks(state) {
         out.push(token); continue;
       }
       if (token.type === 'link_close') { if (open.pop()) out.push(token); continue; }
+      if (token.type === 'md_image_chip') { out.push(token); continue; }
       if (token.type === 'image') {
         // Images are never fetched: a safe address becomes a link the reader may open, anything else plain text.
         const href = safeHref(token.attrGet('src')), label = `이미지: ${token.content || '설명 없음'}`;
@@ -116,6 +117,64 @@ function safeLinks(state) {
   }
 }
 
+// MD-표시보완: two or more images in a row (only spaces or line breaks between them, across image-only paragraphs too)
+// fold into one "🖼 이미지 N개" chip. Nothing is fetched until the reader presses it (markdown-view.js).
+const imageAddress = href => /^https?:$/.test(new URL(href).protocol);
+const imageOnly = inline => inline?.children?.length && inline.children.every(t => t.type === 'image' || t.type === 'softbreak' || t.type === 'hardbreak' || (t.type === 'text' && !t.content.trim()));
+function mergeImageParagraphs(state) {
+  const tokens = state.tokens;
+  for (let i = 0; i + 5 < tokens.length; i++) {
+    if (tokens[i].type !== 'paragraph_open' || !imageOnly(tokens[i + 1]) || tokens[i + 2].type !== 'paragraph_close') continue;
+    while (tokens[i + 3]?.type === 'paragraph_open' && tokens[i + 3].level === tokens[i].level && imageOnly(tokens[i + 4]) && tokens[i + 5]?.type === 'paragraph_close') {
+      tokens[i + 1].children.push(new state.Token('softbreak', 'br', 0), ...tokens[i + 4].children);
+      tokens.splice(i + 3, 3);
+    }
+  }
+}
+const gap = t => t.type === 'softbreak' || t.type === 'hardbreak' || (t.type === 'text' && !t.content.trim());
+function imageChips(state) {
+  mergeImageParagraphs(state);
+  for (const block of state.tokens) {
+    if (block.type !== 'inline' || !block.children) continue;
+    const kids = block.children, out = [];
+    let inLink = 0;
+    for (let i = 0; i < kids.length;) {
+      const t = kids[i];
+      if (t.type === 'link_open') inLink++;
+      if (t.type === 'link_close') inLink--;
+      if (t.type !== 'image' || inLink) { out.push(t); i++; continue; }
+      // A run: images separated only by blank text or line breaks.
+      const run = [];
+      let end = i;
+      for (let j = i; j < kids.length && (kids[j].type === 'image' || gap(kids[j])); j++) if (kids[j].type === 'image') { run.push(kids[j]); end = j + 1; }
+      const images = run.map(x => ({href: safeHref(x.attrGet('src')), alt: x.content || ''})).filter(x => x.href && imageAddress(x.href));
+      if (run.length < 2 || images.length !== run.length) { out.push(...kids.slice(i, end)); i = end; continue; }
+      const chip = new state.Token('md_image_chip', 'span', 0);
+      chip.meta = {images};
+      out.push(chip);
+      i = end;
+    }
+    block.children = out;
+  }
+}
+
+// GitHub alerts: a quote whose first line is exactly [!NOTE]·[!TIP]·[!IMPORTANT]·[!WARNING]·[!CAUTION].
+export const CALLOUTS = Object.freeze({note: '참고', tip: '팁', important: '중요', warning: '경고', caution: '주의'});
+function callouts(state) {
+  const tokens = state.tokens;
+  for (let i = 0; i + 2 < tokens.length; i++) {
+    if (tokens[i].type !== 'blockquote_open' || tokens[i + 1].type !== 'paragraph_open' || tokens[i + 2].type !== 'inline') continue;
+    const kids = tokens[i + 2].children || [], first = kids[0];
+    const match = first?.type === 'text' ? /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$/i.exec(first.content) : null;
+    if (!match || (kids[1] && !['softbreak', 'hardbreak'].includes(kids[1].type))) continue;
+    const kind = match[1].toLowerCase();
+    tokens[i].attrJoin('class', `md-callout md-callout-${kind}`);
+    const title = new state.Token('md_callout_title', 'span', 0);
+    title.meta = {kind};
+    kids.splice(0, kids[1] ? 2 : 1, title);
+  }
+}
+
 export function createMarkdown(MarkdownIt) {
   const md = new MarkdownIt({html: false, linkify: true, breaks: true, typographer: false});
   md.linkify.set({fuzzyEmail: false});
@@ -123,13 +182,24 @@ export function createMarkdown(MarkdownIt) {
   md.block.ruler.before('fence', 'math_block', mathBlock, {alt: ['paragraph', 'reference', 'blockquote', 'list']});
   md.inline.ruler.before('escape', 'math_inline', mathInline);
   md.core.ruler.push('md_task_lists', taskLists);
+  md.core.ruler.push('md_image_chips', imageChips);
   md.core.ruler.push('md_safe_links', safeLinks);
+  md.core.ruler.push('md_callouts', callouts);
   const esc = md.utils.escapeHtml;
   md.renderer.rules.math_inline = (tokens, idx, options, env) => {
     env.math = true;
     return `<span class="md-math md-math-${tokens[idx].meta.display ? 'display' : 'inline'}">${esc(tokens[idx].content)}</span>`;
   };
   md.renderer.rules.math_block = (tokens, idx, options, env) => { env.math = true; return `<div class="md-math md-math-block">${esc(tokens[idx].content)}</div>\n`; };
+  md.renderer.rules.md_image_chip = (tokens, idx) => {
+    const images = tokens[idx].meta.images;
+    const links = images.map(x => `<a class="md-image-link" href="${esc(x.href)}" target="_blank" rel="noopener noreferrer">이미지: ${esc(x.alt || '설명 없음')}</a>`).join('');
+    return `<span class="md-image-group"><button type="button" class="md-image-chip" aria-expanded="false">🖼 이미지 ${images.length}개</button><span class="md-image-list" hidden>${links}</span></span>`;
+  };
+  md.renderer.rules.md_callout_title = (tokens, idx) => {
+    const kind = tokens[idx].meta.kind;
+    return `<span class="md-callout-title">${esc(CALLOUTS[kind])}</span>`;
+  };
   md.renderer.rules.task_checkbox = (tokens, idx) => `<input class="md-task" type="checkbox" disabled${tokens[idx].meta.checked ? ' checked' : ''}> `;
   const fence = md.renderer.rules.fence;
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {

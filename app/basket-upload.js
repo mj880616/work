@@ -118,11 +118,11 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, is
     rows.innerHTML = batch.entries.map((entry, index) => `<div class="library-selected-file ${entry.kind}" data-basket-file="${index}"><div class="library-selected-file-main"><b>${esc(entry.file.name)}</b><small>${esc(fileSize(entry.file.size))}</small></div><span class="library-upload-state">${esc(entry.label || '대기')}</span>${entry.kind === 'success' ? '' : `<button type="button" class="icon-btn" data-basket-remove="${index}" aria-label="${esc(entry.file.name)} 선택 취소"${isBusy() || batch.blocked ? ' disabled' : ''}>×</button>`}</div>`).join('');
   }
   function add(files) {
-    if (!isActive() || isBusy() || getBatch().blocked) return;
+    if (!isActive() || isBusy() || getBatch().blocked) return false;
     const batch = getBatch(), old = batch.entries;
     batch.entries = [...old, ...Array.from(files || []).map(file => ({file,kind:'pending',label:'대기'}))];
-    try { validateBatch(batch); } catch(e) { batch.entries = old; render(); onError(e.message); return; }
-    input.value = ''; render(); onChange();
+    try { validateBatch(batch); } catch(e) { batch.entries = old; render(); onError(e.message); return false; }
+    input.value = ''; render(); onChange(); return true;
   }
   input.addEventListener('change', () => add(input.files));
   // Native button activation covers touch, click, Enter and Space.
@@ -156,5 +156,5 @@ export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, is
     batch.entries.splice(index, 1); render(); onChange();
     (rows.querySelectorAll('button')[Math.min(index, rows.querySelectorAll('button').length - 1)] || clip).focus();
   });
-  render(); return {render};
+  render(); return {render, add};
 }
