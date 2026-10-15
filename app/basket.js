@@ -7,6 +7,7 @@ import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.j
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest } from './basket-note-tasks.js?v=1';
 import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
 import { mountManualLink } from './basket-manual-link.js?v=3';
+import { sendAttachmentToLibrary } from './basket-library-send.js?v=1';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=6';
 
@@ -29,6 +30,11 @@ const syncTitle=()=>basketTitle.classList.toggle('a11y-only',mobileTitle.matches
 mobileTitle.addEventListener('change',syncTitle);syncTitle();
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
 const ocrViews=new Map();
+// Per scope, note and file: the last send result shown on the read view. A send
+// in flight or an unknown result keeps that attachment's button off; nothing resends.
+const librarySends=new Map();
+const libraryKey=fileId=>`${scope()}:${selected?.id}:${fileId}`;
+const libraryLabel={sending:'보내는 중…',created:'자료실에 있어요',exists:'자료실에 있어요',unknown:'자료실에서 확인해 주세요'};
 let ocrFlight=null,ocrViewScope=null,ocrGeneration=0;
 const captureOcrScope=()=>({scope:scope(),owner:rt.context.read()?.user?.id,sessionEpoch:rt.session.epoch()});
 const currentOcrScope=value=>{const session=rt.session.read();return !!value&&value.scope===scope()&&value.sessionEpoch===rt.session.epoch()&&session?.user?.id===value.owner&&!!session?.access_token;};
@@ -223,9 +229,27 @@ function paintDetailState() {
 }
 function paintAttachments() {
   const openIds=new Set(Array.from(detail.querySelectorAll('[data-basket-ocr] details[open]'),node=>node.parentElement.dataset.basketOcr));
-  detail.querySelector('[data-basket-attachments]').innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}${ocrMarkup(file)}</div>`;}).join('');
+  detail.querySelector('[data-basket-attachments]').innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}${libraryMarkup(file)}${ocrMarkup(file)}</div>`;}).join('');
   detail.querySelectorAll('[data-basket-ocr] details').forEach(node=>{node.open=openIds.has(node.parentElement.dataset.basketOcr);});
   paintOcrControls();
+}
+function libraryMarkup(file) {
+  const id=String(file?.drive_file_id||'');if(!id)return '';
+  const sent=librarySends.get(libraryKey(id)),label=libraryLabel[sent?.kind]||'자료실로 보내기';
+  return `<div class="basket-library-send" data-basket-library="${esc(id)}"><button type="button" data-basket-library-send="${esc(id)}" aria-label="${esc(file.file_name||'첨부')} ${esc(label)}"${sent&&sent.kind!=='refused'&&sent.kind!=='session'?' disabled':''}${editing?' hidden':''}>${esc(label)}</button><small role="status" data-basket-library-status>${esc(sent?.message||'')}</small></div>`;
+}
+async function sendToLibrary(fileId) {
+  if (!selected || editing || busy) return;
+  const key=libraryKey(fileId),prior=librarySends.get(key)?.kind;if(['sending','created','exists','unknown'].includes(prior))return;
+  if(!(selected.attachments||[]).some(file=>file.drive_file_id===fileId))return;
+  const noteId=selected.id,run=epoch,owner=scope(),sessionEpoch=rt.session.epoch();
+  librarySends.set(key,{kind:'sending',message:''});paintAttachments();
+  const outcome=await sendAttachmentToLibrary(noteId,fileId,{rt,expectedSessionEpoch:sessionEpoch});
+  // A result for another account or workspace is never kept or shown.
+  if(owner!==scope()||rt.session.epoch()!==sessionEpoch){librarySends.delete(key);return;}
+  librarySends.set(key,outcome);
+  if(outcome.kind==='created')window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
+  if(run===epoch&&selected?.id===noteId)paintAttachments();
 }
 function paintNoteTasks() {
   const box = detail.querySelector('[data-basket-note-tasks]'); if (!box || !selected) return;
@@ -241,6 +265,7 @@ function paintMode() {
   // The link panel and the task form bring their own buttons; the read actions return when they close.
   detail.querySelector('[data-basket-read]').hidden = editing; detail.querySelector('[data-basket-read-actions]').hidden = editing || manual.isOpen();
   detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
+  detail.querySelectorAll('[data-basket-library-send]').forEach(button => { button.hidden = editing; });
 }
 function openDetail(id, {edit = false} = {}) {
   handoff.close();
@@ -367,6 +392,7 @@ root.addEventListener('click', e => {
   if (busy) return;
   if (b.hasAttribute('data-handoff-copy')||b.hasAttribute('data-basket-handoff')) void handoff.copy();
   else if (b.hasAttribute('data-classification-open')) classification.open();
+  else if(b.hasAttribute('data-basket-library-send'))void sendToLibrary(b.dataset.basketLibrarySend);
   else if(b.hasAttribute('data-basket-ocr-read'))void runOcr('read',b.dataset.basketOcrRead);
   else if(b.hasAttribute('data-basket-ocr-status'))void runOcr('status',b.dataset.basketOcrStatus);
   else if(b.hasAttribute('data-basket-ocr-reconcile'))void runOcr('reconcile',b.dataset.basketOcrReconcile);

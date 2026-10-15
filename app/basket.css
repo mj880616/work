@@ -64,6 +64,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 [data-basket-ocr] { width:100%; min-width:0; }
 .basket-ocr-text { white-space:pre-wrap; overflow-wrap:anywhere; }
 [data-basket-attachments] .library-selected-file { flex-wrap:wrap; }
+[data-basket-attachments] .basket-library-send { flex-basis:100%; display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; }
+[data-basket-attachments] .basket-library-send small { color:var(--kptu-muted); overflow-wrap:anywhere; }
 .basket-ocr-cleanup { color:var(--kptu-muted); }
 #basketView .home-quick-lock:not([hidden]) { display:grid; gap:6px; margin-top:8px; }
 #basketView .home-quick-lock p { margin:0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
