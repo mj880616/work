@@ -82,7 +82,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
     await page.locator('#searchInput').fill('');
     await page.locator('#competitionFilter').selectOption('all');
     await page.locator('#seasonFilter').selectOption('2026-27');
-    await expect(page.locator('#archiveList .archive-item')).toHaveCount(8);
+    const seasonCount = await page.evaluate(() => window.ARSENAL_MATCHES.filter(match => match.season === '2026-27').length);
+    await expect(page.locator('#archiveList .archive-item')).toHaveCount(seasonCount);
     await page.locator('#archiveList .archive-item').filter({ hasText: '브라이튼' }).click();
     await expect(page.locator('#latestReview .match-review')).toContainText('브라이튼');
     await expect(page.locator('#latestReview .goal-entry')).toHaveCount(3);
