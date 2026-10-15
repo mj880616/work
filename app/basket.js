@@ -10,11 +10,12 @@ import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
 import { mountManualLink } from './basket-manual-link.js?v=4';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
+import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js?v=1';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=6';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
-let notes = [], links = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0;
+let notes = [], links = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
 let quick=null;
@@ -116,7 +117,7 @@ async function runOcr(action,fileId){
   const token={current:()=>ocrFlight===token&&generation===ocrGeneration&&run===epoch&&selected?.id===id&&currentOcrScope(captured)&&window.KPTURouter.current==='basket'};
   ocrFlight=token;
   const operation=basketOcrFor({rt,isCurrent:token.current,onChange:()=>{if(token.current()&&guardOcrPrivacy())paintOcrControls();}});
-  busy=true;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);
+  busy=true;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=true);
   const status=detail.querySelector('[data-basket-status]');status.textContent='사진 속 글자 확인 중…';
   try{
     const capability=await operation.capabilities();if(!token.current())return;
@@ -147,7 +148,7 @@ async function runOcr(action,fileId){
     applyOcrSnapshot(operation.state.snapshot);
     applyOcrOutcome(result,action);status.textContent=ocrNotice(result,action);
   }catch{if(token.current())status.textContent='글자 읽기 결과를 확인하지 못했습니다. 상태를 확인해 주세요.';}
-  finally{if(ocrFlight===token){ocrFlight=null;busy=false;if(currentOcrScope(captured)&&selected?.id===id){detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}else guardOcrPrivacy();}}
+  finally{if(ocrFlight===token){ocrFlight=null;busy=false;if(currentOcrScope(captured)&&selected?.id===id){detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}else guardOcrPrivacy();}}
 }
 quick=mountQuick({root,esc,basketOnly:true,view:'basket',idPrefix:'basket',onSaved:()=>void refresh()});
 const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{getRequest:()=>{
@@ -184,7 +185,7 @@ const manual = mountManualLink({esc,rt,getNote:()=>selected,getLinks:()=>links,i
 // BASKET-4b-2: the write-request candidate form and box in the read view.
 const writeRequest = mountWriteRequest({esc,rt,getNote:()=>selected,isBusy:()=>busy,setBusy:setDetailBusy,onSaved:noteMetadataSaved,
   onUnknown:()=>{const reload=detail.querySelector('[data-basket-reload]');if(reload)reload.hidden=false;},onModeChange:()=>paintMode()});
-function setDetailBusy(value){busy=value;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=value);if(!value){pickerFiles?.render();paintOcrControls();}manual.controls();writeRequest.controls();}
+function setDetailBusy(value){busy=value;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=value);if(!value){pickerFiles?.render();paintOcrControls();}manual.controls();writeRequest.controls();}
 // Only metadata changed: the original's version (updated_at), text and attachments stay as they are.
 function noteMetadataSaved(saved){
   if(!saved?.id)return;
@@ -286,10 +287,26 @@ function paintNoteTasks() {
   box.innerHTML = tasks.length ? `<h3 id="basketNoteTasksTitle">이 메모로 만든 할 일 ${tasks.length}</h3><ul>${tasks.map(t => `<li><span class="basket-note-task-title">${esc(t.title)}</span><button type="button" data-basket-note-task="${esc(t.task_id)}" aria-label="${esc(t.title)} 할 일 화면에서 보기">할 일 화면에서 보기</button></li>`).join('')}</ul>` : '';
   if (busy) box.querySelectorAll('button').forEach(el => el.disabled = true);
 }
+// MD-표시: the read text shows the original as formatted markdown; [원문 그대로 보기] shows it exactly as stored.
+// The stored text never changes here, and the choice is not remembered (each opened note starts formatted).
+// Task checkboxes inside the formatted text stay disabled, so the busy toggles below skip input.md-task.
+const readShown = new WeakMap();
+function paintReadText() {
+  const text = detail.querySelector('[data-basket-read-text]'), toggle = detail.querySelector('[data-basket-read-raw]'), raw = selected.raw_text || '';
+  toggle.hidden = !raw; toggle.textContent = rawView ? '정리해서 보기' : '원문 그대로 보기';
+  text.classList.toggle('basket-read-empty', !raw); text.classList.toggle('basket-read-raw', !!raw && rawView);
+  const key = `${raw && rawView ? 'raw' : 'md'}:${raw}`;
+  if (readShown.get(text) === key) return;
+  readShown.set(text, key);
+  if (!raw) return showPlainText(text, '글 없이 첨부만 있는 메모입니다.');
+  showPlainText(text, raw);
+  if (rawView) return;
+  const owner = scope();
+  void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope()}).then(result => { if (!result.ok && readShown.get(text) === key) readShown.delete(text); });
+}
 function paintMode() {
   if (!selected) return;
-  const text = detail.querySelector('[data-basket-read-text]');
-  text.textContent = selected.raw_text || '글 없이 첨부만 있는 메모입니다.'; text.classList.toggle('basket-read-empty', !selected.raw_text);
+  paintReadText();
   // The link panel and the task form bring their own buttons; the read actions return when they close.
   detail.querySelector('[data-basket-read]').hidden = editing; detail.querySelector('[data-basket-read-actions]').hidden = editing || manual.isOpen() || writeRequest.isOpen();
   detail.querySelector('[data-basket-write-request-wrap]').hidden = editing;
@@ -301,10 +318,10 @@ function openDetail(id, {edit = false} = {}) {
   handoff.close();
   selected = notes.find(n => n.id === id); if (!selected) return;
   // Keep the opened note attached to this list snapshot until an explicit reload.
-  ++epoch;ocrViewScope=captureOcrScope();editing=edit;
+  ++epoch;ocrViewScope=captureOcrScope();editing=edit;rawView=false;
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
-  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><div data-basket-write-request-wrap><div data-basket-write-request hidden></div></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><div class="basket-read-main"><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div class="basket-read-more"><button type="button" class="secondary" data-basket-write-request-open>쓰기요청 후보</button><button type="button" class="secondary" data-basket-edit>수정</button><button type="button" class="secondary" data-basket-archive>보관</button><button type="button" class="danger" data-basket-delete>삭제</button></div></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="basket-read-tools"><button type="button" class="secondary" data-basket-read-raw>원문 그대로 보기</button></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><div data-basket-write-request-wrap><div data-basket-write-request hidden></div></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><div class="basket-read-main"><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div class="basket-read-more"><button type="button" class="secondary" data-basket-write-request-open>쓰기요청 후보</button><button type="button" class="secondary" data-basket-edit>수정</button><button type="button" class="secondary" data-basket-archive>보관</button><button type="button" class="danger" data-basket-delete>삭제</button></div></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   manual.attach(detail.querySelector('[data-basket-manual]'));
   writeRequest.attach(detail.querySelector('[data-basket-write-request]'));
@@ -350,7 +367,7 @@ async function refresh() {
 async function patch(changes, message, {read = false} = {}) {
   if (busy || !selected) return;
   const id = selected.id, run = ++epoch, owner = scope(); busy = true;
-  detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = true);
+  detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = true);
   detail.querySelector('[data-basket-status]').textContent = '저장 중…';
   try {
     const note = await updateNote(id, changes);
@@ -363,7 +380,7 @@ async function patch(changes, message, {read = false} = {}) {
     if (run !== epoch || owner !== scope()) return;
     paintDetailState(); detail.querySelector('[data-basket-status]').textContent = '저장하지 못했어요. 다시 시도해 주세요.';
   } finally {
-    busy = false; detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = false);paintOcrControls();
+    busy = false; detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = false);paintOcrControls();
   }
 }
 // Read view only: the delete button lives in the read actions hidden while editing.
@@ -371,7 +388,7 @@ async function deleteSelected() {
   if (busy || !selected || editing) return;
   const id = selected.id, run = ++epoch, owner = scope(); busy = true;
   const status = detail.querySelector('[data-basket-status]');
-  detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = true);
+  detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = true);
   status.textContent = '';
   const current = () => run === epoch && owner === scope() && selected?.id === id && window.KPTURouter.current === 'basket';
   let result;
@@ -384,7 +401,7 @@ async function deleteSelected() {
     closeDetail({force:true}); renderList(); listStatus.textContent = result.message;
     return;
   }
-  detail.querySelectorAll('button,input,textarea').forEach(el => el.disabled = false); paintOcrControls();
+  detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = false); paintOcrControls();
   if (result.status === 'cancelled') { detail.querySelector('[data-basket-delete]').focus(); return; }
   status.textContent = result.message;
   if (result.status === 'unknown') detail.querySelector('[data-basket-reload]').hidden = false;
@@ -400,26 +417,27 @@ async function saveAttachments() {
   const token={current:()=>ocrFlight===token&&generation===ocrGeneration&&isCurrent()&&currentOcrScope(captured)&&window.KPTURouter.current==='basket'};
   if(ocr.enabled)ocrFlight=token;
   const operation=ocr.enabled?basketOcrFor({rt,isCurrent:token.current,onChange:()=>{if(token.current()&&guardOcrPrivacy())paintOcrControls();}}):ocr;
-  busy=true;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);pickerFiles.render();status.textContent='업로드 중…';
+  busy=true;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=true);pickerFiles.render();status.textContent='업로드 중…';
   const paint=()=>{if(!isCurrent())return;selected.attachments=batch.attachments;renderList();paintAttachments();pickerFiles.render();};
   try{await uploadBatch(batch,{isCurrent,onChange:paint,ocr:operation,onOcrChange:value=>{if(token.current()&&guardOcrPrivacy())applyOcrOutcome(value);}});if(isCurrent()){upload=batch=createUploadBatch(id,batch.attachments);status.textContent='첨부를 저장했습니다.';}}
   catch(e){if(isCurrent()){status.textContent='메모를 다시 불러오지 못했어요. 다시 시도해 주세요.';detail.querySelector('[data-basket-reload]').hidden=!batch.blocked;}}
-  finally{if(ocrFlight===token){ocrFlight=null;busy=false;}else if(!ocr.enabled)busy=false;if(isCurrent()&&!busy){detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles.render();paintOcrControls();}}
+  finally{if(ocrFlight===token){ocrFlight=null;busy=false;}else if(!ocr.enabled)busy=false;if(isCurrent()&&!busy){detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles.render();paintOcrControls();}}
 }
 async function reloadDetail() {
   if(busy||!selected)return;
   if(dirty()&&!window.confirm('저장된 메모를 다시 불러올까요? 수정 중인 글과 미완료 파일 선택은 비워집니다.'))return;
   const id=selected.id,owner=scope(),run=++epoch;busy=true;
-  detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);
+  detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=true);
   try{const result=await readBasket();if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;renderList();if(notes.some(n=>n.id===id))openDetail(id,{edit:editing});else closeDetail({force:true});}
   catch(e){if(run===epoch&&owner===scope())detail.querySelector('[data-basket-status]').textContent='메모를 다시 불러오지 못했어요. 다시 시도해 주세요.';}
-  finally{busy=false;detail.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}
+  finally{busy=false;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}
 }
 root.addEventListener('click', e => {
   if(!guardOcrPrivacy())return;
   const b = e.target.closest('button'); if (!b||b.disabled) return;
   // Navigation cancels this handoff's read, but never releases another operation's lock.
   if (b.matches('[data-basket-filter],[data-classification-open],[data-basket-row],[data-basket-close],[data-basket-edit]')) handoff.close();
+  if (b.hasAttribute('data-basket-read-raw')) { rawView = !rawView; paintReadText(); return; }
   if (busy) return;
   if (b.hasAttribute('data-handoff-copy')) void handoff.copy();
   else if (b.hasAttribute('data-classification-open')) classification.open();
@@ -495,6 +513,7 @@ window.addEventListener('kptu:view-changed',e=>{
   retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});
 });
 window.KPTURouter.on('basket', () => {
+  void preloadMarkdown();
   const wanted = takeBasketNoteRequest(rt);
   if (busy || classification.isOpen()) return;
   filter = 'unclassified'; renderList();

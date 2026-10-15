@@ -72,6 +72,12 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 
 #basketView .basket-read-text { box-sizing:border-box; margin:12px 0; padding:12px; font-size:15px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 #basketView .basket-read-empty { color:var(--kptu-muted); }
+/* MD-표시: formatted reading (markdown-view.css) and the [원문 그대로 보기] switch above it. */
+#basketView .basket-read-text.md-body { white-space:normal; }
+#basketView .basket-read-tools { display:flex; justify-content:flex-end; margin:12px 0 0; }
+#basketView .basket-read-tools [hidden] { display:none; }
+#basketView .basket-read-tools button { min-height:var(--kptu-touch-target,44px); padding:0 14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border-strong); border-radius:999px; font-size:14px; }
+#basketView .basket-read-tools + .basket-read-text { margin-top:8px; }
 
 /* BASKET-수동연결: link panel and task form inside the read view. */
 #basketView .basket-manual { margin-top:12px; padding-top:8px; border-top:1px solid var(--kptu-border); overflow-wrap:anywhere; }
