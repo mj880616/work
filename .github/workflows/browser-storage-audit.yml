@@ -138,6 +138,7 @@ jobs:
           # HWP-편집기 1단계: 고정 버전 rhwp 편집기 빌드본(제3자 코드, 직접 고치지 않음). 편집기 frame은
           # app/hwp-lab/studio-guard.js가 모든 편집기 코드보다 먼저 저장소를 메모리 대체물·undefined로 바꾸므로
           # 기기에 남는 것이 없다(tests/app-e2e/hwp-lab.spec.mjs가 실제 브라우저에서 확인). 보고만 한다.
+          # 2단계부터 편집기 frame은 sandbox(allow-same-origin 없음)라 Web2 저장소 자체에 닿지 못한다.
           vendored_prefix='app/hwp-lab/rhwp-'
           # The guard may only replace storage with a memory stand-in or undefined; nothing else.
           # The spec lines are read-only observations that nothing was stored and that the frame cannot see Web2 keys.
@@ -148,7 +149,9 @@ jobs:
                   'local:Object.keys(localStorage).filter(key=>/rhwp/i.test(key)),',
                   'session:Object.keys(sessionStorage).filter(key=>/rhwp/i.test(key))',
                   'const web2Keys=await page.evaluate(()=>Object.keys(localStorage));',
-                  "expect(await frame.evaluate(keys=>({visible:keys.filter(key=>localStorage.getItem(key)!==null),idb:typeof indexedDB,caches:typeof caches}),web2Keys)).toEqual({visible:[],idb:'undefined',caches:'undefined'});",
+                  # HWP-편집기 2단계: read-only probes that the sandboxed frame cannot reach Web2 storage.
+                  'parentStore:reach(()=>parent.localStorage.length),',
+                  'visible:keys.filter(key=>localStorage.getItem(key)!==null),',
               )],
           }
 

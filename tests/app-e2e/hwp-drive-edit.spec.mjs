@@ -104,8 +104,6 @@ for(const width of [390,1280])test(`a library HWP opens from Drive and is saved 
   await expect(page.locator('#documentList [data-lu-document="doc-new"]')).toBeFocused();
   expect(f.external).toEqual([]);
   expect(f.errors).toEqual([]);
-  // The editor keeps nothing in this origin's storage.
-  expect(await page.evaluate(async()=>(await indexedDB.databases()).length)).toBe(0);
 });
 
 test('overwrite asks once, says both sides change for a shared file, and sends the opened revision with a backup first',async({page})=>{
