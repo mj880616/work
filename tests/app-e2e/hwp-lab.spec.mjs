@@ -6,7 +6,8 @@ import {testOrigin} from './helpers/test-origin.mjs';
 // frame; files stay in the browser (no server, Drive or external request) and nothing is kept in device storage.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const sample=name=>new URL(`../fixtures/hwp-lab/${name}`,import.meta.url);
-const HWP_MAGIC=[0xd0,0xcf,0x11,0xe0],ZIP_MAGIC=[0x50,0x4b,0x03,0x04];
+const HWP_MAGIC=[0xd0,0xcf,0x11,0xe0];
+const RHWP=`hwp-lab/rhwp-${JSON.parse(readFileSync(new URL('../../scripts/hwp-lab/rhwp-pin.json',import.meta.url),'utf8')).version}/`;
 test.setTimeout(120000);
 
 function watch(page){
@@ -28,18 +29,18 @@ function watch(page){
 
 // Once the lab binds its editor, the frame ignores other senders. To read what a file shows, the test opens it in a
 // second instance of the same self-hosted editor and reads the page text from its SVG.
-const pageText=(page,bytes,name)=>page.evaluate(async({bytes,name})=>{
-  const {createEditor}=await import('./hwp-lab/rhwp-0.8.7/sdk/index.js');
+const pageText=(page,bytes,name)=>page.evaluate(async({bytes,name,RHWP})=>{
+  const {createEditor}=await import('./'+RHWP+'sdk/index.js');
   const box=document.createElement('div');box.style.cssText='position:fixed;left:0;top:0;width:800px;height:600px;opacity:0;pointer-events:none';
   document.body.appendChild(box);
   try{
-    const editor=await createEditor(box,{studioUrl:new URL('./hwp-lab/rhwp-0.8.7/studio/index.html',location.href).href});
+    const editor=await createEditor(box,{studioUrl:new URL('./'+RHWP+'studio/index.html',location.href).href});
     await editor.loadFile(new Uint8Array(bytes),name);
     const svg=new DOMParser().parseFromString(await editor.getPageSvg(0),'image/svg+xml');
     editor.destroy?.();
     return svg.documentElement.textContent.replace(/\s+/g,'');
   }finally{box.remove()}
-},{bytes,name});
+},{bytes,name,RHWP});
 
 async function openLab(page,width){
   await page.setViewportSize({width,height:width<761?844:900});
@@ -93,7 +94,7 @@ for(const width of [390,1280])test(`open, edit and download an HWP file inside t
   expect(stored).toEqual({databases:[],local:[],session:[]});
 });
 
-test('HWPX opens and saves back as HWPX; other files are refused before the editor sees them',async({page})=>{
+test('HWPX opens and is saved as HWP (the only save format); other files are refused before the editor sees them',async({page})=>{
   const seen=await openLab(page,1280);
   await page.locator('#hwpLabFile').setInputFiles({name:'메모.txt',mimeType:'text/plain',buffer:Buffer.from('not a document')});
   await expect(page.locator('#hwpLabStatus')).toHaveText('HWP(.hwp) 또는 HWPX(.hwpx) 파일만 열 수 있습니다.');
@@ -102,10 +103,10 @@ test('HWPX opens and saves back as HWPX; other files are refused before the edit
   await expect(page.locator('#hwpLabSave')).toBeDisabled();
 
   await page.locator('#hwpLabFile').setInputFiles(sample('sample.hwpx').pathname);
-  await expect(page.locator('#hwpLabStatus')).toHaveText(/sample\.hwpx · 1쪽을 열었습니다/,{timeout:30000});
+  await expect(page.locator('#hwpLabStatus')).toHaveText('sample.hwpx · 1쪽을 열었습니다. 저장은 HWP로 합니다. 고친 뒤 [내 기기에 저장(다운로드)]을 누르세요.',{timeout:30000});
   const saved=await download(page);
-  expect(saved.name).toBe('sample-수정.hwpx');
-  expect(saved.bytes.slice(0,4)).toEqual(ZIP_MAGIC);
+  expect(saved.name).toBe('sample-수정.hwp');
+  expect(saved.bytes.slice(0,4)).toEqual(HWP_MAGIC);
   expect(await pageText(page,saved.bytes,saved.name)).toContain('HWP편집기시험문서');
   expect(seen.external).toEqual([]);
   expect(seen.csp).toEqual([]);
@@ -122,7 +123,7 @@ test('the editor frame cannot read Web2 session storage and is never loaded by o
   await page.evaluate(()=>window.KPTURouter.go('hwp-lab'));
   await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
   expect(new URL(page.url()).searchParams.get('view')).toBe('hwp-lab');
-  const frame=page.frames().find(item=>item.url().includes('/hwp-lab/rhwp-0.8.7/studio/'));
+  const frame=page.frames().find(item=>item.url().includes('/'+RHWP+'studio/'));
   const web2Keys=await page.evaluate(()=>Object.keys(localStorage));
   expect(web2Keys.length).toBeGreaterThan(0);
   // The frame gets memory-only stand-ins: none of Web2's keys (session included) are visible there.

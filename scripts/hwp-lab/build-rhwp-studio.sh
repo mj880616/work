@@ -5,11 +5,14 @@
 # 사용법: bash scripts/hwp-lab/build-rhwp-studio.sh   (Node 20 이상, git, npm 필요. 운영 접속 없음)
 set -euo pipefail
 
-RHWP_VERSION=0.8.7
-RHWP_TAG=v0.8.7
-RHWP_COMMIT=1a76570e833917d15817415a53c09ad61ab3203f
-EDITOR_INTEGRITY='sha512-+765+dsh45HHb0o1fzGJyS8JBsGUtnX9oN/0a+9xGERztPEzkemdiGsVpje+awy/Cn033/KDK2LyiaFhWfAr/g=='
-CORE_INTEGRITY='sha512-qgNpY9aclCvy9D7cPnpuplu42kUFZCCPhdjAS5HBso4Z4XeHG3uchYdUleQBoas/zEuwfJ7H4/ulepqdL/LXDA=='
+# 고정 버전은 rhwp-pin.json 한 곳에서 관리한다(올리는 방법: docs/hwp-editor.md).
+PIN="$(cd "$(dirname "$0")" && pwd)/rhwp-pin.json"
+pin() { node -p "require(process.argv[1]).$1" "$PIN"; }
+RHWP_VERSION=$(pin version)
+RHWP_TAG=$(pin tag)
+RHWP_COMMIT=$(pin commit)
+EDITOR_INTEGRITY=$(pin editorIntegrity)
+CORE_INTEGRITY=$(pin coreIntegrity)
 
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 OUT="$REPO_ROOT/app/hwp-lab/rhwp-$RHWP_VERSION"

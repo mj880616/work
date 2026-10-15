@@ -1,12 +1,13 @@
 // HWP-편집기 1단계 시험판(?view=hwp-lab). 메뉴에 없고 주소로만 연다.
 // 고른 HWP/HWPX 파일은 이 기기 브라우저 안의 rhwp 편집기(같은 origin, 고정 버전)에서만 열고 고친다.
-// 서버·Drive·외부로 보내지 않으며, 저장은 [내 기기에 저장(다운로드)] 하나뿐이다.
+// 서버·Drive·외부로 보내지 않으며, 저장은 [내 기기에 저장(다운로드)] 하나뿐이다. 저장 형식은 HWP만(HWPX 원본도 HWP로).
+// 편집기 버전은 scripts/hwp-lab/rhwp-pin.json과 같아야 한다(tests/hwp-lab-pin.test.mjs).
 (()=>{
 'use strict';
 if(window.__KPTU_HWP_LAB_READY__)return;
 const RHWP='./hwp-lab/rhwp-0.8.7/';
 const MAX_BYTES=30*1024*1024;
-const FORMATS={hwp:{magic:[0xd0,0xcf,0x11,0xe0],mime:'application/x-hwp'},hwpx:{magic:[0x50,0x4b,0x03,0x04],mime:'application/hwp+zip'}};
+const MAGIC={hwp:[0xd0,0xcf,0x11,0xe0],hwpx:[0x50,0x4b,0x03,0x04]};
 const $=id=>document.getElementById(id);
 let editorFlight=null,current=null,busy=false;
 
@@ -23,13 +24,13 @@ function sync(){
 }
 function formatOf(name,bytes){
   const ext=String(name||'').toLowerCase().match(/\.(hwpx?)$/)?.[1];
-  const format=ext&&FORMATS[ext];
-  if(!format)return null;
-  return format.magic.every((byte,index)=>bytes[index]===byte)?ext:null;
+  const magic=ext&&MAGIC[ext];
+  if(!magic)return null;
+  return magic.every((byte,index)=>bytes[index]===byte)?ext:null;
 }
-function editedName(name,format){
+function editedName(name){
   const base=String(name||'문서').replace(/\.(hwpx?)$/i,'')||'문서';
-  return `${base}-수정.${format}`;
+  return `${base}-수정.hwp`;
 }
 
 function editor(){
@@ -61,7 +62,8 @@ async function open(file){
     const instance=await editor();
     const result=await instance.loadFile(bytes,file.name,{skipUnsavedGuard:true});
     current={name:file.name,format};
-    status(`${file.name} · ${result?.pageCount??'?'}쪽을 열었습니다. 고친 뒤 [내 기기에 저장(다운로드)]을 누르세요.`,'ok');
+    const note=format==='hwpx'?' 저장은 HWP로 합니다.':'';
+    status(`${file.name} · ${result?.pageCount??'?'}쪽을 열었습니다.${note} 고친 뒤 [내 기기에 저장(다운로드)]을 누르세요.`,'ok');
   }catch(err){
     console.error('hwp-lab open',err);
     status('파일을 열지 못했습니다. 다른 파일로 시도해 주세요.','error');
@@ -73,9 +75,9 @@ async function save(){
   busy=true;sync();
   try{
     const instance=await editor();
-    const bytes=current.format==='hwpx'?await instance.exportHwpx():await instance.exportHwp();
-    const name=editedName(current.name,current.format);
-    const url=URL.createObjectURL(new Blob([bytes],{type:FORMATS[current.format].mime}));
+    const bytes=await instance.exportHwp();
+    const name=editedName(current.name);
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/x-hwp'}));
     const link=document.createElement('a');
     link.href=url;link.download=name;link.hidden=true;
     document.body.appendChild(link);link.click();link.remove();

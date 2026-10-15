@@ -146,7 +146,7 @@ window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='hom
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
 async function basket(){ await module('./basket.js?v=34'); return {ok:true} }
 // HWP-편집기 1단계 시험판: 주소(?view=hwp-lab)로만 열며 loadAll에 넣지 않아 다른 화면은 편집기를 불러오지 않는다.
-async function hwpLab(){ await module('./hwp-lab.js?v=1','__KPTU_HWP_LAB_READY__'); return {ok:true} }
+async function hwpLab(){ await module('./hwp-lab.js?v=2','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations,'hwp-lab':hwpLab};
 function normalize(view){
   return loaders[view]?view:'home'

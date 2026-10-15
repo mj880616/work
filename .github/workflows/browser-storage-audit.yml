@@ -140,8 +140,16 @@ jobs:
           # 기기에 남는 것이 없다(tests/app-e2e/hwp-lab.spec.mjs가 실제 브라우저에서 확인). 보고만 한다.
           vendored_prefix='app/hwp-lab/rhwp-'
           # The guard may only replace storage with a memory stand-in or undefined; nothing else.
+          # The spec lines are read-only observations that nothing was stored and that the frame cannot see Web2 keys.
           neutralizers={
-              'app/hwp-lab/studio-guard.js':re.compile(r"^\s*replace\('(?:localStorage|sessionStorage|indexedDB)',(?:memoryStorage\(\)|undefined)\);\s*$"),
+              'app/hwp-lab/studio-guard.js':[re.compile(r"^\s*replace\('(?:localStorage|sessionStorage|indexedDB)',(?:memoryStorage\(\)|undefined)\);\s*$")],
+              'tests/app-e2e/hwp-lab.spec.mjs':[re.compile(r'^\s*'+re.escape(line)+r'\s*$') for line in (
+                  'databases:(await indexedDB.databases()).map(db=>db.name),',
+                  'local:Object.keys(localStorage).filter(key=>/rhwp/i.test(key)),',
+                  'session:Object.keys(sessionStorage).filter(key=>/rhwp/i.test(key))',
+                  'const web2Keys=await page.evaluate(()=>Object.keys(localStorage));',
+                  "expect(await frame.evaluate(keys=>({visible:keys.filter(key=>localStorage.getItem(key)!==null),idb:typeof indexedDB,caches:typeof caches}),web2Keys)).toEqual({visible:[],idb:'undefined',caches:'undefined'});",
+              )],
           }
 
           active_hits=[]; legacy_hits=[]; vendored_hits=[]; violations=[]
@@ -162,7 +170,7 @@ jobs:
                           vendored_hits.append(row)
                           continue
                       active_hits.append(row)
-                      if path in neutralizers and neutralizers[path].search(line):
+                      if any(rule.search(line) for rule in neutralizers.get(path,[])):
                           continue
                       if kind in {'indexedDB','CacheStorage'}:
                           violations.append(row);continue
