@@ -4,6 +4,8 @@ import { openHome } from './helpers/home-entry.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({hasTouch:true});
 const LONG='첫 줄 제목\n\n'+'아주 긴 둘째 문단입니다. '.repeat(20)+'\n마지막 줄';
+// MD-표시: the formatted reading drops spaces before a line break; [원문 그대로 보기] shows the stored text exactly.
+const SHOWN=LONG.replace(/ +\n/g,'\n');
 async function fixture(page,{query=''}={}){
  const errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  const notes=[{id:'n',raw_text:LONG,occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[{drive_file_id:'file_1',file_name:'회의.txt',size_bytes:12,mime_type:'text/plain'}]}];
@@ -23,7 +25,8 @@ async function fixture(page,{query=''}={}){
 const noDialog=page=>page.on('dialog',d=>{throw new Error('unexpected dialog: '+d.message());});
 async function press(page,locator,width){
  await expect(locator).toBeVisible();
- if(width<761){const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();
+ // The formatted reading view can be taller than the screen: bring the target above the fixed bottom tabs first.
+ if(width<761){await locator.evaluate(el=>el.scrollIntoView({block:'center'}));const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();
 }
 async function enterBasket(page,width){await press(page,page.locator('#homeView [data-goto="basket"]'),width);await expect(page.locator('[data-basket-row]')).toHaveCount(1);}
 const editableFocused=page=>page.evaluate(()=>!!document.activeElement?.matches('input:not([type=button]),textarea,[contenteditable="true"]'));
@@ -34,7 +37,9 @@ for(const width of [390,1280]){
   await enterBasket(page,width);
   await press(page,page.locator('[data-basket-row="n"]'),width);
   const read=detail.locator('[data-basket-read-text]');
-  await expect(read).toBeVisible();expect(await read.innerText()).toBe(LONG);
+  await expect(read).toBeVisible();await expect.poll(()=>read.innerText()).toBe(SHOWN);
+  await press(page,detail.locator('[data-basket-read-raw]'),width);await expect(detail.locator('[data-basket-read-raw]')).toHaveText('정리해서 보기');expect(await read.innerText()).toBe(LONG);
+  await press(page,detail.locator('[data-basket-read-raw]'),width);await expect(detail.locator('[data-basket-read-raw]')).toHaveText('원문 그대로 보기');expect(await read.innerText()).toBe(SHOWN);
   await expect(detail.locator('time')).toContainText('2026');await expect(detail.locator('[data-basket-attachments]')).toContainText('회의.txt');
   await expect(detail.locator('[data-basket-attachments] a')).toHaveText('Drive에서 열기');
   await expect(detail.locator('[data-basket-text]')).toBeHidden();await expect(detail.locator('[data-basket-save]')).toBeHidden();await expect(detail.locator('[data-basket-upload]')).toBeHidden();
@@ -59,6 +64,8 @@ for(const width of [390,1280]){
  test(`basket edit cancel returns to reading and save failure keeps the editor ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page),detail=page.locator('[data-basket-detail]'),text=detail.locator('[data-basket-text]'),read=detail.locator('[data-basket-read-text]');
   await enterBasket(page,width);await press(page,page.locator('[data-basket-row="n"]'),width);
+  // Taps use screen positions, so wait until the formatted text has replaced the plain text.
+  await expect(read).toHaveClass(/md-body/);
   // Unchanged: cancel returns at once without a question.
   const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());void(dialogs.accept?d.accept():d.dismiss());});
   await press(page,detail.locator('[data-basket-edit]'),width);await press(page,detail.locator('[data-basket-cancel]'),width);
@@ -67,7 +74,7 @@ for(const width of [390,1280]){
   await press(page,detail.locator('[data-basket-edit]'),width);await text.fill('버릴 글');
   await press(page,detail.locator('[data-basket-cancel]'),width);expect(dialogs).toHaveLength(1);await expect(text).toBeVisible();await expect(text).toHaveValue('버릴 글');
   dialogs.accept=true;await press(page,detail.locator('[data-basket-cancel]'),width);expect(dialogs).toHaveLength(2);
-  await expect(read).toBeVisible();expect(await read.innerText()).toBe(LONG);await expect(text).toHaveValue(LONG);
+  await expect(read).toBeVisible();await expect.poll(()=>read.innerText()).toBe(SHOWN);await expect(text).toHaveValue(LONG);
   // Failure keeps the editor and the typed text.
   f.setDenied(true);await press(page,detail.locator('[data-basket-edit]'),width);await text.fill('실패해도 남는 글');await press(page,detail.locator('[data-basket-save]'),width);
   await expect(detail.locator('[data-basket-status]')).toContainText('저장하지 못했어요');await expect(text).toBeVisible();await expect(text).toHaveValue('실패해도 남는 글');await expect(read).toBeHidden();
@@ -99,7 +106,7 @@ test('basket quick input takes taps and typing when the basket opens directly',a
 
 test('basket address restores a note in the read view without a keyboard',async({page})=>{
  await page.setViewportSize({width:390,height:900});await fixture(page,{query:'?view=basket&note=n'});
- const read=page.locator('[data-basket-read-text]');await expect(read).toBeVisible();expect(await read.innerText()).toBe(LONG);
+ const read=page.locator('[data-basket-read-text]');await expect(read).toBeVisible();await expect.poll(()=>read.innerText()).toBe(SHOWN);
  await expect(page.locator('[data-basket-text]')).toBeHidden();expect(await editableFocused(page)).toBe(false);
  noDialog(page);await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
 });

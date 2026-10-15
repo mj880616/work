@@ -23,6 +23,8 @@ on:
       - 'tests/basket-write-request.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
       - 'scripts/hwp-lab/**'
+      - 'tests/markdown-view.test.mjs'
+      - 'scripts/markdown/**'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
@@ -52,6 +54,8 @@ on:
       - 'tests/basket-write-request.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
       - 'scripts/hwp-lab/**'
+      - 'tests/markdown-view.test.mjs'
+      - 'scripts/markdown/**'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
@@ -92,6 +96,9 @@ jobs:
 
       - name: Check pinned HWP editor files
         run: node --test tests/hwp-lab-pin.test.mjs
+
+      - name: Markdown display pin and safety unit tests
+        run: node --test tests/markdown-view.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs

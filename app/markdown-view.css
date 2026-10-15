@@ -1,0 +1,26 @@
+/* MD-표시: markdown-view.js가 그린 글(.md-body)의 공용 모양. 바구니 메모 읽기 화면, 이후 일지·노트에서 재사용. */
+.md-body { white-space:normal; overflow-wrap:anywhere; }
+.md-body > :first-child { margin-top:0; }
+.md-body > :last-child { margin-bottom:0; }
+.md-body p, .md-body ul, .md-body ol, .md-body blockquote, .md-body pre, .md-body table, .md-body .md-mermaid, .md-body .md-math-block { margin:0 0 12px; }
+.md-body h1, .md-body h2, .md-body h3, .md-body h4, .md-body h5, .md-body h6 { margin:18px 0 8px; line-height:1.35; color:var(--kptu-ink); }
+.md-body h1 { font-size:1.35em; } .md-body h2 { font-size:1.22em; } .md-body h3 { font-size:1.1em; } .md-body h4, .md-body h5, .md-body h6 { font-size:1em; }
+.md-body ul, .md-body ol { padding-left:1.4em; }
+.md-body li + li { margin-top:4px; }
+.md-body li.md-task-item { list-style:none; margin-left:-1.4em; }
+/* Read-only checkbox: undo the app-wide text-field look of input. */
+.md-body input.md-task { display:inline-block; width:1.05em; height:1.05em; min-height:0; margin:0 6px 0 0; padding:0; border:0; box-shadow:none; vertical-align:-0.15em; }
+.md-body blockquote { padding:4px 0 4px 12px; color:var(--kptu-muted); border-left:3px solid var(--kptu-border-strong); }
+.md-body a { color:var(--kptu-link); text-decoration:underline; }
+.md-body hr { margin:16px 0; border:0; border-top:1px solid var(--kptu-border); }
+.md-body code { padding:1px 4px; font-size:0.92em; background:var(--kptu-surface-subtle); border-radius:4px; }
+.md-body pre { padding:10px 12px; overflow-x:auto; background:var(--kptu-surface-subtle); border:1px solid var(--kptu-border); border-radius:6px; }
+.md-body pre code { padding:0; white-space:pre; background:none; }
+/* Wide tables scroll inside the note instead of widening the page. */
+.md-body table { display:block; max-width:100%; overflow-x:auto; border-collapse:collapse; }
+.md-body th, .md-body td { padding:6px 10px; border:1px solid var(--kptu-border); vertical-align:top; }
+.md-body th { background:var(--kptu-surface-subtle); font-weight:700; }
+.md-body .md-math-block, .md-body .md-math-display { display:block; max-width:100%; overflow-x:auto; overflow-y:hidden; }
+.md-body .md-mermaid-figure { max-width:100%; overflow-x:auto; }
+.md-body .md-mermaid-figure svg { display:block; max-width:100%; height:auto; margin:0 auto; }
+.md-body .md-mermaid-error { margin:0 0 6px; font-size:0.9em; color:var(--kptu-muted); }
