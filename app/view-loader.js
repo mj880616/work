@@ -29,7 +29,8 @@ const routeStyles={
   meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26'],
   media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=7'],
-  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26']
+  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26'],
+  'hwp-lab':['./hwp-lab.css?v=1']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -144,7 +145,9 @@ async function home(){
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
 async function basket(){ await module('./basket.js?v=34'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations};
+// HWP-편집기 1단계 시험판: 주소(?view=hwp-lab)로만 열며 loadAll에 넣지 않아 다른 화면은 편집기를 불러오지 않는다.
+async function hwpLab(){ await module('./hwp-lab.js?v=2','__KPTU_HWP_LAB_READY__'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations,'hwp-lab':hwpLab};
 function normalize(view){
   return loaders[view]?view:'home'
 }
