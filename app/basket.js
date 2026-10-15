@@ -9,6 +9,7 @@ import { mountWriteRequest, noteWriteRequest } from './basket-write-request.js?v
 import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
 import { mountManualLink } from './basket-manual-link.js?v=4';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
+import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=6';
 
@@ -238,7 +239,7 @@ function paintDetailState() {
 }
 function paintAttachments() {
   const openIds=new Set(Array.from(detail.querySelectorAll('[data-basket-ocr] details[open]'),node=>node.parentElement.dataset.basketOcr));
-  detail.querySelector('[data-basket-attachments]').innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}${libraryMarkup(file)}${ocrMarkup(file)}</div>${libraryResult(file)}`;}).join('');
+  detail.querySelector('[data-basket-attachments]').innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}${libraryMarkup(file)}${hwpEditMarkup(file)}${ocrMarkup(file)}</div>${libraryResult(file)}`;}).join('');
   detail.querySelectorAll('[data-basket-ocr] details').forEach(node=>{node.open=openIds.has(node.parentElement.dataset.basketOcr);});
   paintOcrControls();
 }
@@ -254,6 +255,11 @@ function libraryMarkup(file) {
     body=`<button type="button" data-basket-library-send="${esc(id)}" aria-label="${name} ${esc(label)}"${sent?.kind==='sending'?' disabled':''}>${esc(label)}</button>`;
   }
   return `<div class="basket-library-send" data-basket-library="${esc(id)}"${editing?' hidden':''}>${body}</div>`;
+}
+// HWP-편집기 2단계: HWP·HWPX 첨부는 편집기 화면(hwp-lab.js)에서 연다. 저장은 그 화면이 같은 메모에 새 첨부로 더한다.
+function hwpEditMarkup(file) {
+  const id=String(file?.drive_file_id||'');if(!id||!isHwpName(file.file_name))return '';
+  return `<div class="basket-library-send" data-basket-hwp="${esc(id)}"${editing?' hidden':''}><button type="button" data-basket-hwp-edit="${esc(id)}" aria-label="${esc(file.file_name||'첨부')} 편집">편집</button></div>`;
 }
 // The send result reads as one line under its attachment card.
 function libraryResult(file) {
@@ -289,7 +295,7 @@ function paintMode() {
   detail.querySelector('[data-basket-write-request-wrap]').hidden = editing;
   detail.querySelector('[data-basket-write-request-open]').hidden = writeRequest.hasCandidate();
   detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
-  detail.querySelectorAll('[data-basket-library]').forEach(box => { box.hidden = editing; });
+  detail.querySelectorAll('[data-basket-library],[data-basket-hwp]').forEach(box => { box.hidden = editing; });
 }
 function openDetail(id, {edit = false} = {}) {
   handoff.close();
@@ -418,6 +424,7 @@ root.addEventListener('click', e => {
   if (b.hasAttribute('data-handoff-copy')) void handoff.copy();
   else if (b.hasAttribute('data-classification-open')) classification.open();
   else if(b.hasAttribute('data-basket-library-send'))void sendToLibrary(b.dataset.basketLibrarySend);
+  else if(b.hasAttribute('data-basket-hwp-edit'))openHwpEditor(b.dataset.basketHwpEdit);
   else if(b.hasAttribute('data-basket-ocr-read'))void runOcr('read',b.dataset.basketOcrRead);
   else if(b.hasAttribute('data-basket-ocr-status'))void runOcr('status',b.dataset.basketOcrStatus);
   else if(b.hasAttribute('data-basket-ocr-reconcile'))void runOcr('reconcile',b.dataset.basketOcrReconcile);
@@ -443,6 +450,12 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-delete')) void deleteSelected();
   else if (b.hasAttribute('data-basket-archive')) void patch({archived_at:selected.archived_at ? null : new Date().toISOString()}, selected.archived_at ? '보관을 해제했습니다.' : '보관했습니다.');
 });
+function openHwpEditor(fileId){
+  const file=selected?.attachments?.find(item=>item.drive_file_id===fileId);
+  if(!file||editing)return;
+  if(!requestHwpEdit({kind:'basket',noteId:selected.id,fileId,fileName:file.file_name},rt)){detail.querySelector('[data-basket-status]').textContent='로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.';return}
+  window.KPTURouter.go('hwp-lab',{source:'delegated'});
+}
 // [자료실에서 보기] keeps a plain link for new tabs; in place it hands the
 // document to the library view, which shows its row once loaded.
 root.addEventListener('click', e => {

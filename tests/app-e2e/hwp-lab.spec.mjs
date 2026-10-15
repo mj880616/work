@@ -2,8 +2,10 @@ import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-// HWP-편집기 1단계 시험판: ?view=hwp-lab only. The pinned rhwp editor runs from Web2's own files in a same-origin
-// frame; files stay in the browser (no server, Drive or external request) and nothing is kept in device storage.
+import {servePagesCors} from './helpers/hwp-editor.mjs';
+// HWP-편집기 시험판: ?view=hwp-lab only. The pinned rhwp editor runs from Web2's own files in a sandboxed frame
+// (2단계 칸막이, no same-origin access to Web2); files stay in the browser (no server, Drive or external request)
+// and nothing is kept in device storage.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const sample=name=>new URL(`../fixtures/hwp-lab/${name}`,import.meta.url);
 const HWP_MAGIC=[0xd0,0xcf,0x11,0xe0];
@@ -45,6 +47,7 @@ const pageText=(page,bytes,name)=>page.evaluate(async({bytes,name,RHWP})=>{
 async function openLab(page,width){
   await page.setViewportSize({width,height:width<761?844:900});
   const seen=watch(page);
+  await servePagesCors(page);
   await openHome(page,{query:'?view=hwp-lab'});
   await expect(page.locator('#hwp-labView')).toBeVisible();
   await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
@@ -112,8 +115,9 @@ test('HWPX opens and is saved as HWP (the only save format); other files are ref
   expect(seen.csp).toEqual([]);
 });
 
-test('the editor frame cannot read Web2 session storage and is never loaded by other views',async({page})=>{
+test('the sandboxed editor frame cannot reach the Web2 window, its storage or the API, and other views never load it',async({page})=>{
   const seen=watch(page);
+  await servePagesCors(page);
   await openHome(page);
   await page.evaluate(()=>window.KPTURouter.go('basket'));
   await page.waitForTimeout(500);
@@ -123,10 +127,29 @@ test('the editor frame cannot read Web2 session storage and is never loaded by o
   await page.evaluate(()=>window.KPTURouter.go('hwp-lab'));
   await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
   expect(new URL(page.url()).searchParams.get('view')).toBe('hwp-lab');
+  await expect(page.locator('#hwpLabEditor iframe')).toHaveAttribute('sandbox','allow-scripts');
   const frame=page.frames().find(item=>item.url().includes('/'+RHWP+'studio/'));
   const web2Keys=await page.evaluate(()=>Object.keys(localStorage));
   expect(web2Keys.length).toBeGreaterThan(0);
-  // The frame gets memory-only stand-ins: none of Web2's keys (session included) are visible there.
-  expect(await frame.evaluate(keys=>({visible:keys.filter(key=>localStorage.getItem(key)!==null),idb:typeof indexedDB,caches:typeof caches}),web2Keys)).toEqual({visible:[],idb:'undefined',caches:'undefined'});
+  const apiCalls=[];
+  page.on('request',request=>{if(request.frame()===frame&&request.url().startsWith(SB))apiCalls.push(request.url())});
+  // An opaque origin: the Web2 window, its runtime and storage, cookies and the Supabase API are all out of reach.
+  const probe=await frame.evaluate(async({SB,keys})=>{
+    const reach=read=>{try{read();return 'reached'}catch(error){return error.name}};
+    let api='reached';
+    try{await fetch(SB+'/rest/v1/app_documents')}catch(error){api=error.name}
+    return {
+      origin:self.origin,
+      parentDocument:reach(()=>parent.document.title),
+      topLocation:reach(()=>top.location.href),
+      parentRuntime:reach(()=>parent.KPTURuntime.session),
+      parentStore:reach(()=>parent.localStorage.length),
+      cookie:reach(()=>document.cookie),
+      api,
+      visible:keys.filter(key=>localStorage.getItem(key)!==null),
+    };
+  },{SB,keys:web2Keys});
+  expect(probe).toEqual({origin:'null',parentDocument:'SecurityError',topLocation:'SecurityError',parentRuntime:'SecurityError',parentStore:'SecurityError',cookie:'SecurityError',api:'TypeError',visible:[]});
+  expect(apiCalls).toEqual([]);
   expect(seen.external).toEqual([]);
 });

@@ -1,5 +1,6 @@
 import { inspectBasketOriginal } from '../_shared/basket-file-origin.ts';
 import { readBoundedJson } from '../_shared/bounded-json.mjs';
+import { createHwpEdit, HwpEditError } from '../_shared/hwp-edit.ts';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -8,6 +9,7 @@ const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Expose-Headers': 'X-Web2-Hwp',
 };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -224,13 +226,37 @@ async function registerBasketAttachment(userId: string, body: { note_id?: unknow
   return { ok: true, result: 'created', document: { id: created[0].id, title: String(created[0].title ?? title) } };
 }
 
+// HWP-편집기 2단계: open an HWP/HWPX library document or basket attachment in the
+// editor and overwrite an HWP original (../_shared/hwp-edit.ts). Saving as a new
+// file goes through the existing library-files / basket-files uploads.
+const hwpEdit = createHwpEdit({ db: path => db(path), driveToken: driveAccessToken, assertOwner: assertDeleteAccess, fetch });
+function hwpFailure(e: unknown) {
+  const known = e instanceof HwpEditError;
+  const backup = (e as { backup?: unknown })?.backup;
+  if (!known) console.error(e);
+  // Anything not classified happened before a Drive write: a refusal that changed nothing.
+  return json({ error: e instanceof Error ? e.message : String(e), code: known ? e.code : 'HWP_REFUSED', ...(backup ? { backup } : {}) }, known ? e.status : 400);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   try {
     const user = await getUser(req);
+    if ((req.headers.get('content-type') || '').toLowerCase().startsWith('multipart/form-data')) {
+      let form: FormData;
+      try { form = await req.formData(); } catch { return json({ error: '저장 요청을 읽지 못했습니다. 아무것도 바꾸지 않았습니다.', code: 'INVALID_REQUEST' }, 400); }
+      if (form.get('action') !== 'hwp-overwrite') return json({ error: 'Unknown action' }, 400);
+      try { return json(await hwpEdit.overwrite(user.id, form)); } catch (e) { return hwpFailure(e); }
+    }
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || '');
+    if (action === 'hwp-open') {
+      try {
+        const { bytes, info } = await hwpEdit.open(user.id, body);
+        return new Response(bytes, { headers: { ...cors, 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Web2-Hwp': encodeURIComponent(JSON.stringify(info)) } });
+      } catch (e) { return hwpFailure(e); }
+    }
     if (action === 'register-basket-attachment') {
       try {
         return json(await registerBasketAttachment(user.id, body));

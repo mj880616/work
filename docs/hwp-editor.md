@@ -1,6 +1,6 @@
 # HWP 편집기(rhwp) 반입·업데이트 기준
 
-원장 행: `HWP-편집기`. 1단계 시험판 [#553](https://github.com/mj880616/work/pull/553).
+원장 행: `HWP-편집기`. 1단계 시험판 [#553](https://github.com/mj880616/work/pull/553), 2단계 열기·Drive 저장 [#554](https://github.com/mj880616/work/pull/554).
 
 ## 1. 지금 고정한 버전
 
@@ -37,4 +37,14 @@
 
 - 반입본은 약 43MiB이며 저장소 이력에 남는다. 버전을 올릴 때마다 비슷한 크기가 더해진다.
 - 한컴 전용 글꼴은 내장 오픈소스 글꼴로 대체되어 글자 모양·폭이 조금 다를 수 있다.
-- 편집기는 같은 origin iframe에서 돈다. 외부 연결은 CSP로, 기기 저장·Web2 로그인 정보 접근은 `app/hwp-lab/studio-guard.js`로 막는다.
+- 2단계부터 편집기는 sandbox iframe(allow-same-origin 없음)에서 돈다(5절). 외부 연결은 CSP로, 기기 저장은 `app/hwp-lab/studio-guard.js`로 막는다.
+- 편집기 안 복사·붙여넣기 중 시스템 클립보드 연동은 sandbox에서 막힐 수 있다.
+
+## 5. 2단계: 칸막이와 Drive 저장(#554)
+
+- 칸막이: `app/hwp-frame.js`가 `sandbox="allow-scripts"` iframe을 만든다. 편집기 문서는 고유 origin(`null`)이라 Web2 창(parent·top)·로그인 정보·저장소·쿠키에 닿지 못하고, CSP가 Supabase를 포함한 다른 주소 호출을 막는다. 연결 메시지 1회(문서 없음, 전용 MessagePort 전달)만 `*`로 보내고 파일은 그 port로만 오간다. 연결이 확인되지 않으면 열지 않는다. 검사: `tests/app-e2e/hwp-lab.spec.mjs`.
+- 편집기 파일(모듈 JS·CSS·WASM·글꼴)은 다른 origin에서 읽는 셈이라 응답에 `Access-Control-Allow-Origin`이 필요하다. GitHub Pages는 모든 파일에 `*`를 붙이고 Cloudflare Worker(`cloudflare/bokdoong-router.mjs`)는 원본 헤더를 그대로 넘긴다. 이 헤더가 없어지면 편집기가 열리지 않을 뿐 데이터는 바뀌지 않는다. 그때 대안은 편집기 전용 주소(예: 별도 하위 도메인)와 Worker 헤더 추가이며 운영 변경이 필요하다.
+- 열기: 자료실 ⋯ 메뉴·바구니 첨부의 [편집] → `document-actions` `hwp-open`(파일·업무공간은 서버가 DB에서 정함, 30MB까지, Drive `headRevisionId`·`md5Checksum`을 함께 받음).
+- 저장(2026-10-15 결정): [새 파일로 저장]이 기본. 자료실은 `library-files`로 새 자료(제목 "… (수정)"), 바구니는 `basket-files`로 같은 메모 첨부. [원본에 덮어쓰기]는 HWP 원본만: `hwp-overwrite`가 열 때 본 버전과 같은지 확인 → 내 드라이브 루트 "Web2 편집 백업" 폴더에 `<이름> 편집 전 백업 YYYY-MM-DD HHmm.hwp` 사본 → 사본 md5 확인 → 버전 재확인 → 덮어쓰기. 같은 원본을 바구니·자료실이 함께 쓰면 확인 1회(`confirm_shared`). 백업은 지우지 않는다.
+- 덮어쓰기 뒤 자료실 `file_size`·메모 첨부 `size_bytes`는 갱신하지 않는다(DB 쓰기 없음). Drive 파일이 기준이다.
+- 결과 불명(시간 초과·5xx·응답 이상)은 다시 보내지 않고 해당 저장 버튼을 잠근 뒤 확인을 안내한다.
