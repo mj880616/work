@@ -12,8 +12,12 @@ test('one pinned rhwp version is used by the lab and the vendored folder',()=>{
   assert.equal(pin.tag,`v${pin.version}`);
   assert.match(pin.commit,/^[0-9a-f]{40}$/);
   assert.deepEqual(readdirSync('app/hwp-lab').filter(name=>name.startsWith('rhwp-')),[`rhwp-${pin.version}`]);
-  const lab=readFileSync('app/hwp-lab.js','utf8');
-  assert.deepEqual([...lab.matchAll(/hwp-lab\/rhwp-([\d.]+)\//g)].map(match=>match[1]),[pin.version]);
+  // The sandboxed editor frame (hwp-frame.js) is the only place that names the vendored editor path.
+  const frame=readFileSync('app/hwp-frame.js','utf8');
+  const paths=[...frame.matchAll(/hwp-lab\/rhwp-([\d.]+)\//g)].map(match=>match[1]);
+  assert.ok(paths.length>=1);
+  assert.deepEqual([...new Set(paths)],[pin.version]);
+  assert.doesNotMatch(readFileSync('app/hwp-lab.js','utf8'),/rhwp-[\d.]+\//);
   const source=readFileSync(`${dir}/SOURCE.md`,'utf8');
   for(const value of [pin.tag,pin.commit,pin.editorIntegrity,pin.coreIntegrity])assert.ok(source.includes(value),value);
 });
@@ -22,6 +26,15 @@ test('vendored editor files match the recorded build output',()=>{
   const rows=readFileSync(`${dir}/SHA256SUMS`,'utf8').trim().split('\n').map(line=>line.split(/  /));
   assert.ok(rows.length>40);
   for(const [hash,path] of rows)assert.equal(createHash('sha256').update(readFileSync(`${dir}/${path}`)).digest('hex'),hash,path);
+});
+
+test('the editor frame is sandboxed without same-origin access to Web2',()=>{
+  const frame=readFileSync('app/hwp-frame.js','utf8').replace(/^\s*\/\/.*$/gm,'');
+  assert.match(frame,/setAttribute\('sandbox','allow-scripts'\)/);
+  assert.doesNotMatch(frame,/allow-same-origin|allow-top-navigation|allow-popups|allow-downloads/);
+  // The lab never builds its own unsandboxed frame.
+  const lab=readFileSync('app/hwp-lab.js','utf8');
+  assert.doesNotMatch(lab,/createEditor|createElement\('iframe'\)/);
 });
 
 test('the editor page blocks external origins and runs the storage guard before any editor script',()=>{

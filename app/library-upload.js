@@ -1,5 +1,6 @@
 import {renderFilterChips} from './filter-chips.js?v=2';
 import {takeLibraryDocumentRequest} from './basket-library-send.js?v=2';
+import {isHwpName,requestHwpEdit} from './hwp-drive.js?v=1';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const LU_SESSION='kptu_collab_session_v1';
@@ -149,14 +150,15 @@ function luOpenMenu(trigger){
   if(luMenuClosing){luMenuClosing.then(()=>{if(trigger.isConnected)luOpenMenu(trigger)});return}
   if(luActiveMenu){luCloseMenu(luActiveMenu.trigger===trigger?null:()=>luOpenMenu(trigger));return}
   const id=trigger.dataset.luMenu;luActiveMenu={trigger,id};
-  luMenuPanel.innerHTML=`<button type="button" data-lu-download="${luEsc(id)}">다운로드</button><button type="button" data-lu-edit="${luEsc(id)}">정보 수정</button><button type="button" class="lu-menu-danger" data-lu-delete="${luEsc(id)}">삭제</button>`;
+  const hwp=luDocuments.find(x=>x.id===id);
+  luMenuPanel.innerHTML=`${hwp?.file_id&&isHwpName(hwp.file_name)?`<button type="button" data-lu-hwp-edit="${luEsc(id)}">편집</button>`:''}<button type="button" data-lu-download="${luEsc(id)}">다운로드</button><button type="button" data-lu-edit="${luEsc(id)}">정보 수정</button><button type="button" class="lu-menu-danger" data-lu-delete="${luEsc(id)}">삭제</button>`;
   luMenuPanel.hidden=false;if(luMenuPopover){try{luMenuPanel.showPopover()}catch{luMenuPopover=false;luMenuPanel.removeAttribute('popover')}}
   luPositionMenu();trigger.setAttribute('aria-expanded','true');history.pushState({...history.state,kptuLibraryMenu:id},'',location.href);luMenuPanel.querySelector('button')?.focus({preventScroll:true});
 }
 function luBindMenu(){
   luMenuPanel=document.createElement('div');luMenuPanel.id='luMorePanel';luMenuPanel.className='lu-more-panel';luMenuPanel.hidden=true;luMenuPanel.setAttribute('role','group');luMenuPanel.setAttribute('aria-label','자료 관리');
   luMenuPopover=typeof luMenuPanel.showPopover==='function'&&typeof luMenuPanel.hidePopover==='function'&&'popover' in luMenuPanel;if(luMenuPopover)luMenuPanel.setAttribute('popover','manual');document.body.append(luMenuPanel);
-  luMenuPanel.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;luCloseMenu(()=>{if(b.dataset.luDownload)luDownload(b.dataset.luDownload);else if(b.dataset.luEdit)luOpenEditById(b.dataset.luEdit);else if(b.dataset.luDelete)luDeleteDocument(b.dataset.luDelete)})});
+  luMenuPanel.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;luCloseMenu(()=>{if(b.dataset.luHwpEdit)luHwpEdit(b.dataset.luHwpEdit);else if(b.dataset.luDownload)luDownload(b.dataset.luDownload);else if(b.dataset.luEdit)luOpenEditById(b.dataset.luEdit);else if(b.dataset.luDelete)luDeleteDocument(b.dataset.luDelete)})});
   document.addEventListener('click',e=>{if((!luActiveMenu&&!luMenuClosing)||luMenuPanel.contains(e.target)||luActiveMenu?.trigger.contains(e.target))return;const target=e.target,forward=new MouseEvent('click',e);e.preventDefault();e.stopImmediatePropagation();luCloseMenu(()=>{if(target.isConnected)target.dispatchEvent(forward)})},true);
   document.addEventListener('keydown',e=>{if(luActiveMenu&&e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();luCloseMenu()}},true);
   window.addEventListener('popstate',e=>{if(luActiveMenu&&e.state?.kptuLibraryMenu!==luActiveMenu.id)luCloseMenu(null,true)});
@@ -165,6 +167,8 @@ function luBindMenu(){
 }
 
 async function luOpenDocument(id){const d=luDocuments.find(x=>x.id===id)||await luFetchOne(id);if(d?.drive_url){try{const url=new URL(d.drive_url);if(['https:','http:'].includes(url.protocol)){location.href=url.href;return}}catch{}console.error('invalid document URL',{documentId:id});alert('자료 링크가 올바르지 않습니다.');return}if(d?.file_id){await luDownload(id);return}alert('열 수 있는 파일 링크가 없습니다.')}
+// HWP-편집기 2단계: HWP·HWPX 자료를 편집기 화면(hwp-lab.js)으로 넘긴다. 열기·저장은 그 화면이 한다.
+function luHwpEdit(id){const d=luDocuments.find(x=>x.id===id);if(!d)return;if(!requestHwpEdit({kind:'library',document:{id:d.id,title:d.title,file_name:d.file_name,category:d.category,source:d.source,document_date:d.document_date,project_id:d.project_id,meeting_id:d.meeting_id,tags:d.tags}})){alert('로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.');return}window.KPTURouter.go('hwp-lab',{source:'delegated'})}
 async function luDownload(id){try{const d=await luApi('/functions/v1/workspace-drive?action=download-token',{method:'POST',body:{document_id:id}});if(!d?.url)throw new Error('다운로드 주소를 받지 못했습니다.');location.href=d.url}catch(e){alert(e.message||String(e))}}
 async function luFetchOne(id){const rows=await luApi('/rest/v1/app_documents?id=eq.'+encodeURIComponent(id)+'&select=*&limit=1');return rows?.[0]||null}
 async function luOpenEditById(id){

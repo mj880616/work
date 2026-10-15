@@ -1,8 +1,10 @@
-/* HWP-편집기 1단계 시험판(?view=hwp-lab). 편집기 frame 높이만 정하고 나머지는 공용 카드·버튼을 쓴다. */
+/* HWP 편집기 화면(?view=hwp-lab: 시험판·Drive 편집). 편집기 frame 높이만 정하고 나머지는 공용 카드·버튼을 쓴다. */
+.hwp-lab [hidden]{display:none}
 .hwp-lab .hwp-lab-note{margin:0 0 12px;color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
-.hwp-lab .hwp-lab-actions{display:flex;flex-wrap:wrap;gap:8px}
+.hwp-lab .hwp-lab-actions:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .hwp-lab .hwp-lab-actions button{min-height:var(--kptu-touch-target)}
-.hwp-lab .hwp-lab-status{min-height:1.5em;margin:10px 0;font-size:var(--kptu-text-body);color:var(--kptu-ink)}
+.hwp-lab .hwp-drive-bar a:not([hidden]){display:inline-flex;align-items:center;min-height:var(--kptu-touch-target);padding:0 4px}
+.hwp-lab .hwp-lab-status{min-height:1.5em;margin:10px 0;font-size:var(--kptu-text-body);color:var(--kptu-ink);overflow-wrap:anywhere}
 .hwp-lab .hwp-lab-status[data-state="error"]{color:var(--kptu-danger)}
 .hwp-lab .hwp-lab-editor{height:max(480px,calc(100dvh - 260px));border:1px solid var(--kptu-border);border-radius:8px;overflow:hidden;background:var(--kptu-surface)}
 .hwp-lab .hwp-lab-editor iframe{display:block}
