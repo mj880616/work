@@ -31,3 +31,53 @@
   --kptu-text-title:20px;--kptu-text-subtitle:16px;--kptu-text-body:14px;--kptu-text-meta:12px;
   --kptu-touch-target:44px;
 }
+
+/* UI-디자인기준(8-9c): 새 디자인 기준의 공통 값. 값은 여기 한 곳에만 둔다.
+   1단계는 홈·바구니(ui-standard.css)만 이 값을 쓴다. 다른 화면은 쓰지 않는다. */
+:root{
+  --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
+  --ds-text-button:13px;--ds-text-read:15px;
+  --ds-weight-regular:400;--ds-weight-medium:500;
+  --ds-line-width:0.5px;--ds-line:var(--kptu-border-strong);
+  --ds-radius-box:12px;--ds-radius-control:8px;
+  --ds-row-pad-y:9px;--ds-row-pad-x:12px;
+  --ds-section-ink:var(--kptu-primary-ink);
+  /* 종류별 색: 연한 바탕 + 같은 계열 진한 글자. 그 밖에는 회색. */
+  --ds-kind-basket-soft:#fdeedb;--ds-kind-basket-ink:#8f4708;
+  --ds-kind-note-soft:#e5eefa;--ds-kind-note-ink:#1d5291;
+  --ds-kind-journal-soft:#e3f1e6;--ds-kind-journal-ink:#2a6537;
+  --ds-kind-diary-soft:#eee8f8;--ds-kind-diary-ink:#5a3d8f;
+  --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
+}
+/* 다크 모드: 기기 설정이 어두운 화면이고, 새 기준을 쓰는 화면(홈·바구니)이 보일 때만 바꾼다.
+   다른 화면이 열리면 지금 모양(밝은 화면) 그대로다. */
+@media (prefers-color-scheme:dark){
+  html:has(#homeView:not(.hidden)),html:has(#basketView:not(.hidden)){
+    color-scheme:dark;
+    --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;
+    --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+    --kptu-border:#34332d;--kptu-border-strong:#4a4840;
+    --kptu-on-primary:#161613;
+    --kptu-danger:#f0918a;--kptu-danger-soft:#3b201d;
+    --kptu-success:#86c79f;--kptu-success-soft:#1d3124;
+    --kptu-warning:#e2b866;--kptu-warning-soft:#372c17;
+    --kptu-info:#9dbbd8;--kptu-info-soft:#1d2a37;
+    --kptu-accent:#c3b0e8;
+    --kptu-primary:#b4c385;--kptu-primary-hover:#c3d097;--kptu-primary-ink:#c2d095;
+    --kptu-primary-soft:#2c3120;--kptu-link:#c2d095;
+    --ds-kind-basket-soft:#3a2816;--ds-kind-basket-ink:#f3b77e;
+    --ds-kind-note-soft:#1b2a3d;--ds-kind-note-ink:#9fc4f0;
+    --ds-kind-journal-soft:#1c3022;--ds-kind-journal-ink:#9fd2a9;
+    --ds-kind-diary-soft:#2b2440;--ds-kind-diary-ink:#c8b5ee;
+    --ds-kind-other-soft:#2d2c27;--ds-kind-other-ink:#cbc8bd;
+  }
+  html[data-theme="navy"]:has(#homeView:not(.hidden)),html[data-theme="navy"]:has(#basketView:not(.hidden)){
+    --kptu-primary:#8fb4dc;--kptu-primary-hover:#a3c2e3;--kptu-primary-ink:#a6c6ea;--kptu-primary-soft:#1d2a3a;--kptu-link:#a6c6ea;
+  }
+  html[data-theme="terracotta"]:has(#homeView:not(.hidden)),html[data-theme="terracotta"]:has(#basketView:not(.hidden)){
+    --kptu-primary:#e39b6d;--kptu-primary-hover:#eaaf88;--kptu-primary-ink:#efb48d;--kptu-primary-soft:#3a2519;--kptu-link:#efb48d;
+  }
+  html[data-theme="sand"]:has(#homeView:not(.hidden)),html[data-theme="sand"]:has(#basketView:not(.hidden)){
+    --kptu-primary:#d8b67f;--kptu-primary-hover:#e2c597;--kptu-primary-ink:#e2c597;--kptu-primary-soft:#352b1b;--kptu-link:#e2c597;
+  }
+}
