@@ -3,6 +3,9 @@
   const hooks=new Map();
   const VIEW_PARAM='view';
   const NAV_ALIAS={messages:'home',profile:'home',myspace:'home'};
+  // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
+  const VIEW_ALIAS={'hwp-lab':'hwp'};
+  const viewName=view=>VIEW_ALIAS[view]||view;
   let bound=false,routeEntry=null,returningTo=null;
 
   // Route ownership includes history entries made by menus and dialogs. Native
@@ -41,7 +44,7 @@
   function viewFromUrl(){
     if(!authenticatedShellReady())return null;
     const params=new URLSearchParams(location.search);
-    const requested=params.get(VIEW_PARAM);
+    const requested=params.get(VIEW_PARAM)&&viewName(params.get(VIEW_PARAM));
     if(viewExists(requested))return requested;
     if(requested)return viewExists('home')?'home':null;
     if(params.get('project')&&viewExists('projects'))return 'projects';
@@ -90,6 +93,7 @@
   }
 
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false}={}){
+    view=viewName(view);
     if(!view||!authenticatedShellReady()||returningTo)return false;
     const lazy=window.KPTUViewLoader;
     if(!allowUnloaded&&lazy?.isLoaded&&!lazy.isLoaded(view)){

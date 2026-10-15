@@ -66,7 +66,7 @@ async function editLibraryDocument(page,width){
   await press(page,page.locator(`[data-lu-menu="${DOC}"]`),width);
   await expect(page.locator('#luMorePanel button').first()).toHaveText('편집');
   await press(page,page.locator('#luMorePanel [data-lu-hwp-edit]'),width);
-  await expect(page.locator('#hwp-labView')).toBeVisible();
+  await expect(page.locator('#hwpView')).toBeVisible();
 }
 const status=page=>page.locator('#hwpLabStatus');
 async function typeInEditor(page,width,text){
@@ -204,7 +204,7 @@ test('a changed Drive original is not overwritten and unsaved edits are not drop
   await press(page,page.getByRole('button',{name:'돌아가기'}),390);
   await expect.poll(()=>asked.length).toBe(1);
   expect(asked[0]).toContain('저장하지 않은 고친 내용');
-  await expect(page.locator('#hwp-labView')).toBeVisible();
+  await expect(page.locator('#hwpView')).toBeVisible();
   expect(f.sent.overwrite).toHaveLength(1);
   expect(f.errors).toEqual([]);
 });

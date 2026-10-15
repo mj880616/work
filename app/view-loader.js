@@ -30,7 +30,7 @@ const routeStyles={
   media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=7'],
   team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26'],
-  'hwp-lab':['./hwp-lab.css?v=2']
+  hwp:['./hwp-lab.css?v=3']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -107,7 +107,7 @@ async function projects(){
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=3');
-  await module('./library-upload.js?v=31','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=32','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
@@ -145,10 +145,13 @@ async function home(){
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
 async function basket(){ await module('./basket.js?v=35'); return {ok:true} }
-// HWP-편집기 1단계 시험판: 주소(?view=hwp-lab)로만 열며 loadAll에 넣지 않아 다른 화면은 편집기를 불러오지 않는다.
-async function hwpLab(){ await module('./hwp-lab.js?v=3','__KPTU_HWP_LAB_READY__'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations,'hwp-lab':hwpLab};
+// HWP-편집기(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
+async function hwpLab(){ await module('./hwp-lab.js?v=4','__KPTU_HWP_LAB_READY__'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab};
+// Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp). The router uses the same map.
+const VIEW_ALIAS={'hwp-lab':'hwp'};
 function normalize(view){
+  view=VIEW_ALIAS[view]||view;
   return loaders[view]?view:'home'
 }
 function load(view){

@@ -3,9 +3,10 @@ import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {servePagesCors} from './helpers/hwp-editor.mjs';
-// HWP-편집기 시험판: ?view=hwp-lab only. The pinned rhwp editor runs from Web2's own files in a sandboxed frame
-// (2단계 칸막이, no same-origin access to Web2); files stay in the browser (no server, Drive or external request)
-// and nothing is kept in device storage.
+// HWP 편집(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp; the retired lab address ?view=hwp-lab leads here). The pinned rhwp
+// editor runs from Web2's own files in a sandboxed frame (2단계 칸막이, no same-origin access to Web2); a device file
+// stays in the browser (no server, Drive or external request) until the person registers it in the library's own
+// [+ 자료 등록] dialog, and nothing is kept in device storage.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const sample=name=>new URL(`../fixtures/hwp-lab/${name}`,import.meta.url);
 const HWP_MAGIC=[0xd0,0xcf,0x11,0xe0];
@@ -44,12 +45,13 @@ const pageText=(page,bytes,name)=>page.evaluate(async({bytes,name,RHWP})=>{
   }finally{box.remove()}
 },{bytes,name,RHWP});
 
-async function openLab(page,width){
+async function openLab(page,width,query='?view=hwp'){
   await page.setViewportSize({width,height:width<761?844:900});
   const seen=watch(page);
   await servePagesCors(page);
-  await openHome(page,{query:'?view=hwp-lab'});
-  await expect(page.locator('#hwp-labView')).toBeVisible();
+  await openHome(page,{query});
+  await expect(page.locator('#hwpView')).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('view')).toBe('hwp');
   await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
   await expect(page.locator('#hwpLabSave')).toBeDisabled();
   return seen;
@@ -64,7 +66,7 @@ async function download(page){
 for(const width of [390,1280])test(`open, edit and download an HWP file inside the browser ${width}`,async({page},info)=>{
   const seen=await openLab(page,width);
   await page.locator('#hwpLabFile').setInputFiles(sample('sample.hwp').pathname);
-  await expect(page.locator('#hwpLabStatus')).toHaveText('sample.hwp · 1쪽을 열었습니다. 고친 뒤 [내 기기에 저장(다운로드)]을 누르세요.',{timeout:30000});
+  await expect(page.locator('#hwpLabStatus')).toHaveText('sample.hwp · 1쪽을 열었습니다. 고친 뒤 [내 기기에 저장] 또는 [자료실에 올리기]를 누르세요.',{timeout:30000});
   expect(await pageText(page,[...readFileSync(sample('sample.hwp'))],'sample.hwp')).toContain('HWP편집기시험문서');
   await page.screenshot({path:info.outputPath(`hwp-lab-${width}.png`)});
 
@@ -97,8 +99,8 @@ for(const width of [390,1280])test(`open, edit and download an HWP file inside t
   expect(stored).toEqual({databases:[],local:[],session:[]});
 });
 
-test('HWPX opens and is saved as HWP (the only save format); other files are refused before the editor sees them',async({page})=>{
-  const seen=await openLab(page,1280);
+test('HWPX opens and is saved as HWP (the only save format); other files are refused before the editor sees them; the old lab address leads here',async({page})=>{
+  const seen=await openLab(page,1280,'?view=hwp-lab');
   await page.locator('#hwpLabFile').setInputFiles({name:'메모.txt',mimeType:'text/plain',buffer:Buffer.from('not a document')});
   await expect(page.locator('#hwpLabStatus')).toHaveText('HWP(.hwp) 또는 HWPX(.hwpx) 파일만 열 수 있습니다.');
   await page.locator('#hwpLabFile').setInputFiles({name:'가짜.hwp',mimeType:'application/octet-stream',buffer:Buffer.from('PK not hwp')});
@@ -106,7 +108,7 @@ test('HWPX opens and is saved as HWP (the only save format); other files are ref
   await expect(page.locator('#hwpLabSave')).toBeDisabled();
 
   await page.locator('#hwpLabFile').setInputFiles(sample('sample.hwpx').pathname);
-  await expect(page.locator('#hwpLabStatus')).toHaveText('sample.hwpx · 1쪽을 열었습니다. 저장은 HWP로 합니다. 고친 뒤 [내 기기에 저장(다운로드)]을 누르세요.',{timeout:30000});
+  await expect(page.locator('#hwpLabStatus')).toHaveText('sample.hwpx · 1쪽을 열었습니다. 저장은 HWP로 합니다. 고친 뒤 [내 기기에 저장] 또는 [자료실에 올리기]를 누르세요.',{timeout:30000});
   const saved=await download(page);
   expect(saved.name).toBe('sample-수정.hwp');
   expect(saved.bytes.slice(0,4)).toEqual(HWP_MAGIC);
@@ -124,9 +126,9 @@ test('the sandboxed editor frame cannot reach the Web2 window, its storage or th
   expect(seen.editor).toEqual([]);
   expect(await page.locator('#hwpLabEditor iframe').count()).toBe(0);
 
-  await page.evaluate(()=>window.KPTURouter.go('hwp-lab'));
+  await page.evaluate(()=>window.KPTURouter.go('hwp'));
   await expect(page.locator('#hwpLabStatus')).toHaveText(/편집기가 준비됐습니다/,{timeout:60000});
-  expect(new URL(page.url()).searchParams.get('view')).toBe('hwp-lab');
+  expect(new URL(page.url()).searchParams.get('view')).toBe('hwp');
   await expect(page.locator('#hwpLabEditor iframe')).toHaveAttribute('sandbox','allow-scripts');
   const frame=page.frames().find(item=>item.url().includes('/'+RHWP+'studio/'));
   const web2Keys=await page.evaluate(()=>Object.keys(localStorage));

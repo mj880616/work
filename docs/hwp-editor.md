@@ -1,6 +1,6 @@
 # HWP 편집기(rhwp) 반입·업데이트 기준
 
-원장 행: `HWP-편집기`. 1단계 시험판 [#553](https://github.com/mj880616/work/pull/553), 2단계 열기·Drive 저장 [#554](https://github.com/mj880616/work/pull/554).
+원장 행: `HWP-편집기`·`HWP-편집기메뉴`. 1단계 시험판 [#553](https://github.com/mj880616/work/pull/553), 2단계 열기·Drive 저장 [#554](https://github.com/mj880616/work/pull/554), 메뉴 입구(이 문서 6절).
 
 ## 1. 지금 고정한 버전
 
@@ -28,7 +28,7 @@
 1. 작업 브랜치에서 `scripts/hwp-lab/rhwp-pin.json`의 `version`·`tag`·`commit`(태그가 가리키는 커밋), `editorIntegrity`·`coreIntegrity`(`npm view <패키지>@<버전> dist.integrity`)를 고친다.
 2. `bash scripts/hwp-lab/build-rhwp-studio.sh` → `app/hwp-lab/rhwp-<새 버전>/`이 생긴다. 한 번 더 실행해 `SHA256SUMS`가 같은지(재현) 본다.
 3. 옛 `app/hwp-lab/rhwp-<옛 버전>/` 폴더를 지우고, `app/hwp-lab.js`의 `RHWP` 경로를 새 버전으로 바꾼다. `hwp-lab.js?v=`부터 캐시 버전 연쇄를 올린다(`AGENTS.md` 4절).
-4. 시험 HWP 검사 재실행: `node --test tests/hwp-lab-pin.test.mjs`, `npx playwright test tests/app-e2e/hwp-lab.spec.mjs`(390·1280 열기·입력·HWP 다운로드, HWPX→HWP, 외부 요청 0, 저장소 흔적 0). 시험 파일은 `tests/fixtures/hwp-lab/`(직접 만든 빈 문서, `scripts/hwp-lab/make-samples.mjs`).
+4. 시험 HWP 검사 재실행: `node --test tests/hwp-lab-pin.test.mjs`, `npx playwright test tests/app-e2e/hwp-lab.spec.mjs tests/app-e2e/hwp-menu.spec.mjs tests/app-e2e/hwp-drive-edit.spec.mjs`(390·1280 열기·입력·HWP 다운로드, HWPX→HWP, 자료실 올리기, 외부 요청 0, 저장소 흔적 0). 시험 파일은 `tests/fixtures/hwp-lab/`(직접 만든 빈 문서, `scripts/hwp-lab/make-samples.mjs`).
 5. 빌드 결과에 `https://` 외부 주소를 부르는 새 경로가 생겼는지, 편집기 HTML에서 CSP·guard가 지워지지 않았는지 `finalize-rhwp-studio.mjs` 결과와 검사로 확인한다. browser-storage-audit도 통과해야 한다.
 6. 배포 뒤 폰에서 실제 주간보고 HWP를 열어 깨짐을 보고, 내보낸 HWP를 한컴오피스(또는 한컴 뷰어)에서 연다(PR 댓글의 폰 시험 순서).
 7. 원장 `HWP-편집기` 행과 이 문서 1절을 같은 PR에서 고친다.
@@ -48,3 +48,14 @@
 - 저장(2026-10-15 결정): [새 파일로 저장]이 기본. 자료실은 `library-files`로 새 자료(제목 "… (수정)"), 바구니는 `basket-files`로 같은 메모 첨부. [원본에 덮어쓰기]는 HWP 원본만: `hwp-overwrite`가 열 때 본 버전과 같은지 확인 → 내 드라이브 루트 "Web2 편집 백업" 폴더에 `<이름> 편집 전 백업 YYYY-MM-DD HHmm.hwp` 사본 → 사본 md5 확인 → 버전 재확인 → 덮어쓰기. 같은 원본을 바구니·자료실이 함께 쓰면 확인 1회(`confirm_shared`). 백업은 지우지 않는다.
 - 덮어쓰기 뒤 자료실 `file_size`·메모 첨부 `size_bytes`는 갱신하지 않는다(DB 쓰기 없음). Drive 파일이 기준이다.
 - 결과 불명(시간 초과·5xx·응답 이상)은 다시 보내지 않고 해당 저장 버튼을 잠근 뒤 확인을 안내한다.
+
+## 6. 메뉴 입구(HWP-편집기메뉴)
+
+- 목적: 한글이 깔리지 않은 PC나 폰에서 내 기기의 HWP를 열어 고친다.
+- 입구: ☰ 메뉴(폰)·사이드바(PC) [HWP 편집] → `?view=hwp`. 하단 탭은 그대로다. 옛 시험판 주소 `?view=hwp-lab`과 `go('hwp-lab')`은 이 화면으로 이어진다(`app-router.js`·`view-loader.js`의 `VIEW_ALIAS`). 자료실·바구니 [편집](5절)도 같은 화면을 쓴다.
+- 할 수 있는 일: [파일 선택](HWP·HWPX, 칸막이 편집기 그대로) · [내 기기에 저장](HWP로만 다운로드, HWPX도 HWP) · [자료실에 올리기].
+- [자료실에 올리기]: 고친 HWP(`<이름>-수정.hwp`)를 메모리 1회용 요청(`app/library-upload-request.js`, 로그인 사용자·업무공간에 묶임, 60초 만료)으로 자료실에 넘겨 기존 [+ 자료 등록] 창에 파일을 채워 연다. 프로젝트·분류와 [등록]은 사용자가 한다. 업로드는 기존 `library-files` 흐름 그대로이며 새 업로드 경로·서버 변경은 없다.
+- 저장하지 않은 고친 내용이 있으면 다른 화면으로 가거나 다른 파일을 열거나 창을 닫을 때 확인한다(편집기 변경 번호를 2초마다 읽음). 다운로드·자료실 넘김 뒤에는 묻지 않는다.
+- Drive 파일을 연 뒤 화면을 떠났다가 메뉴로 다시 들어오면 새 편집기로 내 기기 파일 편집을 시작한다(Drive 문서는 이 화면에서 더 저장하지 않음).
+- 편집기 파일(약 20MB)은 이 화면을 열 때만 받는다(`loadAll`에 넣지 않음). 다른 화면 시작 속도는 그대로다.
+- 검사: `tests/app-e2e/hwp-menu.spec.mjs`(390·1280 메뉴 진입, 다른 화면에서 편집기 요청 0, 버튼 배치, 파일 열기, 자료실 등록 창으로 이어짐과 [등록] 시 `library-files`로 HWP 전송, 나갈 때 확인창, 외부 요청 0, 칸막이 sandbox 유지).
