@@ -114,3 +114,13 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
   #basketView .basket-read-actions:not([hidden]) { display:grid; grid-template-columns:minmax(0,1fr); }
   #basketView .basket-read-main { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* BASKET-4b-2: the write-request candidate form and box in the read view. */
+#basketView .basket-write-request { margin-top:12px; padding:10px 12px; border:1px solid var(--kptu-border-strong); border-radius:8px; overflow-wrap:anywhere; }
+#basketView .basket-write-request h3 { margin:4px 0 8px; font-size:16px; }
+#basketView .basket-write-request-reason { margin:6px 0; font-size:15px; line-height:1.5; white-space:pre-wrap; }
+#basketView .basket-write-request textarea { min-height:88px; }
+#basketView .basket-write-request [data-write-request-status]:empty { display:none; }
+#basketView .basket-write-request-actions button.primary { color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); font-weight:700; }
+#basketView .basket-write-request-actions button.secondary,#basketView .basket-read-actions [data-basket-write-request-open] { border-color:var(--kptu-border-strong); }
+#basketView [data-basket-write-request] > [data-write-request-status] { margin:12px 0 0; }

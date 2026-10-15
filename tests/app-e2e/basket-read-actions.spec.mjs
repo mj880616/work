@@ -21,19 +21,19 @@ const box=locator=>locator.boundingBox();
 
 for(const width of [390,1280])test(`read actions: common first, 삭제 apart, tidy rows ${width}`,async({page},info)=>{
  const {errors,actions}=await openNote(page,width);
- await expect(actions.getByRole('button')).toHaveText(['연결하기','할 일 만들기','수정','보관','삭제']);
- const link=actions.locator('[data-basket-link-open]'),task=actions.locator('[data-basket-task-open]'),edit=actions.locator('[data-basket-edit]'),archive=actions.locator('[data-basket-archive]'),del=actions.locator('[data-basket-delete]');
+ await expect(actions.getByRole('button')).toHaveText(['연결하기','할 일 만들기','쓰기요청 후보','수정','보관','삭제']);
+ const link=actions.locator('[data-basket-link-open]'),task=actions.locator('[data-basket-task-open]'),candidate=actions.locator('[data-basket-write-request-open]'),edit=actions.locator('[data-basket-edit]'),archive=actions.locator('[data-basket-archive]'),del=actions.locator('[data-basket-delete]');
  // Shared button styles: primary for the common two, danger for 삭제.
- await expect(link).toHaveClass(/\bprimary\b/);await expect(task).toHaveClass(/\bprimary\b/);await expect(del).toHaveClass(/\bdanger\b/);
+ await expect(link).toHaveClass(/\bprimary\b/);await expect(task).toHaveClass(/\bprimary\b/);await expect(del).toHaveClass(/\bdanger\b/);await expect(candidate).toHaveClass(/\bsecondary\b/);
  const color=l=>l.evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,border:s.borderTopColor};});
  const [p,e,d]=await Promise.all([color(link),color(edit),color(del)]);
  expect(p.bg).not.toBe(e.bg);expect(d.fg).not.toBe(e.fg);expect(d.border).not.toBe(e.border);
- const [bl,bt,be,ba,bd,area]=await Promise.all([box(link),box(task),box(edit),box(archive),box(del),box(actions)]);
- for(const b of [bl,bt,be,ba,bd])expect(b.height).toBeGreaterThanOrEqual(44);
- const rows=new Set([bl,bt,be,ba,bd].map(b=>Math.round(b.y)));
+ const [bl,bt,bc,be,ba,bd,area]=await Promise.all([box(link),box(task),box(candidate),box(edit),box(archive),box(del),box(actions)]);
+ for(const b of [bl,bt,bc,be,ba,bd])expect(b.height).toBeGreaterThanOrEqual(44);
+ const rows=new Set([bl,bt,bc,be,ba,bd].map(b=>Math.round(b.y)));
  if(width===390){
-  // Two orderly rows: the common pair side by side across the width, then 수정·보관 with 삭제 at the far end.
-  expect(rows.size).toBe(2);expect(Math.round(bl.y)).toBe(Math.round(bt.y));expect(Math.round(be.y)).toBe(Math.round(bd.y));
+  // Two orderly rows: the common pair side by side across the width, then 쓰기요청 후보·수정·보관 with 삭제 at the far end (BASKET-4b-2).
+  expect(rows.size).toBe(2);expect(Math.round(bl.y)).toBe(Math.round(bt.y));expect(Math.round(bc.y)).toBe(Math.round(bd.y));expect(Math.round(be.y)).toBe(Math.round(bd.y));
   expect(bl.width+bt.width).toBeGreaterThan(area.width*0.9);
  }else expect(rows.size).toBe(1);
  expect(Math.abs(bd.x+bd.width-(area.x+area.width))).toBeLessThanOrEqual(1);
@@ -45,7 +45,7 @@ for(const width of [390,1280])test(`read actions: common first, 삭제 apart, ti
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`basket-read-actions-${width}.png`),fullPage:true});
  // Keyboard order follows what is seen; 삭제 is reached last.
- await link.focus();for(const next of [task,edit,archive,del]){await page.keyboard.press('Tab');await expect(next).toBeFocused();}
+ await link.focus();for(const next of [task,candidate,edit,archive,del]){await page.keyboard.press('Tab');await expect(next).toBeFocused();}
  // Touch and keyboard still open the same panels as before.
  if(width===390)await task.tap();else{await task.focus();await page.keyboard.press('Enter');}
  await expect(actions).toBeHidden();await expect(page.locator('[data-basket-manual]')).toBeVisible();
