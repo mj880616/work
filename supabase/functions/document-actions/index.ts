@@ -257,6 +257,13 @@ Deno.serve(async (req: Request) => {
         return new Response(bytes, { headers: { ...cors, 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Web2-Hwp': encodeURIComponent(JSON.stringify(info)) } });
       } catch (e) { return hwpFailure(e); }
     }
+    if (action === 'html-view') {
+      try {
+        const r = json(await hwpEdit.openHtml(user.id, body));
+        r.headers.set('Cache-Control', 'no-store');
+        return r;
+      } catch (e) { return hwpFailure(e); }
+    }
     if (action === 'register-basket-attachment') {
       try {
         return json(await registerBasketAttachment(user.id, body));

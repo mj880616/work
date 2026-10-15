@@ -130,3 +130,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .basket-write-request-actions button.primary { color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); font-weight:700; }
 #basketView .basket-write-request-actions button.secondary,#basketView .basket-read-actions [data-basket-write-request-open] { border-color:var(--kptu-border-strong); }
 #basketView [data-basket-write-request] > [data-write-request-status] { margin:12px 0 0; }
+/* MD-표시보완: .html 첨부 칸막이 자리(html-frame.js가 그린다). */
+.basket-html-views:empty { display:none; }
+.basket-html-message { margin:0 0 12px; color:var(--kptu-muted); }
+.basket-chatgpt-tools { display:flex; justify-content:flex-end; margin:0 0 8px; }

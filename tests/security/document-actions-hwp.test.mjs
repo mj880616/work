@@ -79,6 +79,7 @@ function harness(o = {}) {
   };
   return {
     state, calls,
+    html: body => call({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'html-view', ...body }) }),
     open: body => call({ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hwp-open', ...body }) }),
     overwrite: (fields, bytes = Uint8Array.from([0xd0, 0xcf, 0x11, 0xe0, 7, 7, 7])) => {
       const form = new FormData();
@@ -267,4 +268,46 @@ test('the existing JSON actions are unchanged by the HWP routes', async () => {
   assert.equal(other.status, 400);
   assert.equal(other.body.error, 'Unknown action');
   assert.deepEqual(drive(form), []);
+});
+
+// MD-표시보완: `html-view` reads a basket .html attachment as text for the sandboxed frame. Read only.
+const HTML_NOTE = { id: NOTE, workspace_id: 'ws-1', attachments: [{ drive_file_id: FILE, file_name: 'chatgpt-20261015-1430.html', mime_type: 'text/html', size_bytes: 20 }] };
+const PAGE = new TextEncoder().encode('<!doctype html><p>카드</p>');
+const htmlDrive = (o = {}) => ({ id: FILE, name: 'chatgpt.html', mimeType: 'text/html', size: String(PAGE.length), md5Checksum: MD5A, headRevisionId: 'rev-1', trashed: false, ownedByMe: true, ...o });
+
+test('html-view returns a basket HTML attachment as text and writes nothing', async () => {
+  const h = harness({ note: HTML_NOTE, content: PAGE, drive: htmlDrive() });
+  const r = await h.html({ note_id: NOTE, drive_file_id: FILE, workspace_id: 'other-ws' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body, { ok: true, file_name: 'chatgpt-20261015-1430.html', size: PAGE.length, html: '<!doctype html><p>카드</p>' });
+  assert.ok(drive(h).every(c => c.path.endsWith(FILE)), 'only the server-read Drive file');
+  assert.deepEqual(driveWrites(h), []);
+  assert.deepEqual(h.calls.filter(c => c.path.startsWith('/rest/v1/') && c.method !== 'GET'), []);
+});
+
+test('html-view refuses before Drive: library documents, non-HTML, other notes and non-owners', async () => {
+  for (const [o, body, code] of [
+    [{ note: HTML_NOTE }, { document_id: DOC }, 'INVALID_REQUEST'],
+    [{}, { note_id: NOTE, drive_file_id: FILE }, 'NOT_HTML'],
+    [{ note: HTML_NOTE }, { note_id: NOTE, drive_file_id: 'someone-else' }, 'ATTACHMENT_NOT_FOUND'],
+    [{ note: HTML_NOTE, role: 'member' }, { note_id: NOTE, drive_file_id: FILE }, 'HWP_REFUSED'],
+  ]) {
+    const h = harness(o);
+    const r = await h.html(body);
+    assert.equal(r.status, 400, code);
+    assert.equal(r.body.code, code);
+    assert.deepEqual(drive(h), [], code);
+  }
+});
+
+test('html-view refuses pages over 2MB and files that change while read', async () => {
+  let h = harness({ note: HTML_NOTE, content: PAGE, drive: htmlDrive({ size: String(2 * 1024 * 1024 + 1) }) });
+  let r = await h.html({ note_id: NOTE, drive_file_id: FILE });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.code, 'FILE_TOO_LARGE');
+  assert.ok(!h.calls.some(c => c.search?.get('alt') === 'media'), 'not downloaded');
+  h = harness({ note: HTML_NOTE, content: PAGE, drive: htmlDrive({ size: String(PAGE.length + 3) }) });
+  r = await h.html({ note_id: NOTE, drive_file_id: FILE });
+  assert.equal(r.status, 409);
+  assert.equal(r.body.code, 'DRIVE_FILE_CHANGING');
 });

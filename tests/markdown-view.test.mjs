@@ -102,3 +102,32 @@ test('math: $…$, $$…$$, \\(…\\), \\[…\\] and ```math render with KaTeX; 
   // Broken TeX does not throw.
   assert.doesNotThrow(()=>renderMath(katex,'\\frac{',false));
 });
+
+// MD-표시보완: 연달아 나오는 그림은 칩 하나로 접고(누르기 전 <img> 없음), GitHub식 강조 상자는 색 있는 상자가 된다.
+test('two or more images in a row fold into one chip that holds only checked links',()=>{
+  const {html}=render('![가](https://img.example/1.png) ![나](https://img.example/2.png)\n![다](https://img.example/3.png)\n\n![라](https://img.example/4.png)\n\n본문');
+  assert.doesNotMatch(html,/<img/i);
+  assert.equal((html.match(/class="md-image-chip"/g)||[]).length,1);
+  assert.ok(html.includes('<button type="button" class="md-image-chip" aria-expanded="false">🖼 이미지 4개</button><span class="md-image-list" hidden>'));
+  assert.deepEqual([...html.matchAll(/<a class="md-image-link" href="([^"]*)" target="_blank" rel="noopener noreferrer">/g)].map(m=>m[1]),[1,2,3,4].map(n=>`https://img.example/${n}.png`));
+  assert.match(html,/<p>본문<\/p>/);
+});
+
+test('a single image, images split by words, unsafe or linked images are not folded',()=>{
+  for(const text of ['![하나](https://img.example/1.png)','![가](https://img.example/1.png) 글 ![나](https://img.example/2.png)','![가](https://img.example/1.png) ![나](javascript:alert(1))','![가](https://img.example/1.png) ![나](mailto:a@b.c)','[![가](https://img.example/1.png)![나](https://img.example/2.png)](https://example.com)']){
+    const {html}=render(text);
+    assert.doesNotMatch(html,/md-image-chip|<img/i,text);
+    assert.doesNotMatch(html,/(?:href|src)="javascript/i,text);
+  }
+});
+
+test('GitHub alerts become colored callout boxes; other quotes stay quotes',()=>{
+  for(const [kind,label] of [['NOTE','참고'],['TIP','팁'],['IMPORTANT','중요'],['WARNING','경고'],['CAUTION','주의']]){
+    const {html}=render(`> [!${kind}]\n> 내용 **굵게**`);
+    assert.match(html,new RegExp(`<blockquote class="md-callout md-callout-${kind.toLowerCase()}">\\s*<p><span class="md-callout-title">${label}</span>내용 <strong>굵게</strong></p>`),kind);
+  }
+  assert.match(render('> [!note]\n>\n> 둘째 문단').html,/<blockquote class="md-callout md-callout-note">\s*<p><span class="md-callout-title">참고<\/span><\/p>\s*<p>둘째 문단<\/p>/);
+  for(const text of ['> [!TIP] 붙은 글','> [!DANGER]\n> 모름','> 그냥 [!NOTE]','[!NOTE]\n일반 문단'])assert.doesNotMatch(render(text).html,/md-callout/,text);
+  // The marker never becomes markup from the writer's own text.
+  assert.doesNotMatch(render('> [!NOTE]\n> <script>x</script>').html,/<script/);
+});
