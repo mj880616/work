@@ -17,6 +17,9 @@ on:
       - 'tests/basket-classification.test.mjs'
       - 'tests/basket-ai-handoff.test.mjs'
       - 'tests/basket-upload.test.mjs'
+      - 'tests/basket-ocr-text.test.mjs'
+      - 'tests/basket-ocr.test.mjs'
+      - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
@@ -40,6 +43,9 @@ on:
       - 'tests/basket-classification.test.mjs'
       - 'tests/basket-ai-handoff.test.mjs'
       - 'tests/basket-upload.test.mjs'
+      - 'tests/basket-ocr-text.test.mjs'
+      - 'tests/basket-ocr.test.mjs'
+      - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
@@ -76,7 +82,7 @@ jobs:
         run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-summary-guide.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs

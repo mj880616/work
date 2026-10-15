@@ -47,7 +47,7 @@ async function readSummaries(){
  const run=++summaryRun,user=soUser?.id,workspace=soWorkspace,ids=myOrganizations().map(o=>o.id);if(!ids.length)return;
  const current=()=>summaryCurrent(run,user,workspace);
  const taskRead=async()=>{
-  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=35');
+  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=36');
   const g=window.KPTUGoogleTasks;if(!current()||!g?.listTasks)return;
   const fill=async d=>{if(d?.owner!==user)return;if(d.status==='disconnected'){if(current())paintTaskCounts([],[],g);return}const links=await g.readLinks(d.tasks);if(current())paintTaskCounts(d.tasks,links,g)};
   const cached=g.peekTasks();if(cached?.owner===user)await fill(cached).catch(()=>{});
@@ -56,7 +56,7 @@ async function readSummaries(){
  const updateRead=async()=>{
   // Reuse the owner/workspace-checked confirmed note reader. Both sources
   // must succeed before publishing a latest date; neither write time is used.
-  const {readLinkRecords}=await import('./basket-link-records.js?v=3');
+  const {readLinkRecords}=await import('./basket-link-records.js?v=5');
   const latest=new Map();
   const newer=row=>{const at=Date.parse(row.occurred_at);if(ids.includes(row.organization_id)&&Number.isFinite(at)&&(!latest.has(row.organization_id)||at>Date.parse(latest.get(row.organization_id))))latest.set(row.organization_id,row.occurred_at);};
   const legacy=async()=>{

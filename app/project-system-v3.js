@@ -1,7 +1,7 @@
 import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,seoulDateKey} from './meeting-time.js?v=2';
 import { dayKey, ranges } from './home-read-model.js?v=3';
 import { createAnchoredMenu } from './anchored-menu.js?v=1';
-import {readRecordPages,readLinkRecords,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js?v=3';
+import {readRecordPages,readLinkRecords,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js?v=5';
 (()=>{
 'use strict';
 const rt=window.KPTURuntime,catalog=window.KPTUProjectCatalog;if(!rt||!catalog)return;
@@ -227,7 +227,7 @@ async function loadListSummaries(listed){
  if(!listed.length)return;
  const current=()=>run===summaryRun&&epoch===projectEpoch&&user?.id===owner&&wid===workspace;
  const taskRead=async()=>{
-  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=35');
+  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=36');
   const g=window.KPTUGoogleTasks;if(!current()||!g?.listTasks)return;
   const fill=async d=>{
    if(d?.owner!==owner)return;

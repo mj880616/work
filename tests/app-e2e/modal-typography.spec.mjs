@@ -258,6 +258,9 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // Compare the added record region under both style sets too; exclude no existing nodes.
   const basketRecords=await page.locator('#ps3BasketLinks').evaluate(el=>el.outerHTML);
   await original.locator('#ps3-progress').evaluate((el,html)=>el.insertAdjacentHTML('beforeend',html),basketRecords);
+  // BASKET-할일출처 added the task editor's source-note line; compare it under both style sets too.
+  const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
+  await original.locator('#gtMeetingLinks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),sourceNote);
   const before=await d6bSnapshot(original),after=await d6bSnapshot(page);
   expect(before).toHaveLength(16);
   for(const row of before)expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);

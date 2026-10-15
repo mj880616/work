@@ -1,0 +1,36 @@
+{
+  "observed_at": "2026-10-14T04:06:38Z",
+  "source_sha": "c5478fc19d95fbc79486e38488e4adaae4296822",
+  "main_at_observation": "28e620c06ee0fbd508d3aca3d574b451e4d4560c",
+  "run_id": 38458680140,
+  "job_id": 115507953817,
+  "event": "pull_request",
+  "attempt": 1,
+  "conclusion": "failure",
+  "passed": 1557,
+  "failed": 1,
+  "suite_minutes": 27.3,
+  "checks": {
+    "success": 19,
+    "skipped": 2,
+    "failure": 1
+  },
+  "failure": {
+    "spec": "tests/app-e2e/basket-linked-display.spec.mjs",
+    "test_line": 134,
+    "helper_line": 112,
+    "helper": "historyStack",
+    "message": "page.evaluate: Execution context was destroyed, most likely because of a navigation.",
+    "cause_confirmed": false,
+    "baseline_reproduction_done": false,
+    "spec_byte_equal_to_main28": true
+  },
+  "artifact": {
+    "id": 11846841144,
+    "bytes": 4950600,
+    "api_digest_sha256": "6324ed3d84a879db2ca5b0ee8ab1361329c257b6d1b3833828ce6bdae1eb364d",
+    "local_zip_bytes_verified": false
+  },
+  "merge_done": false,
+  "ocr_enabled": false
+}

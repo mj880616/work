@@ -1,4 +1,4 @@
-import {validateLinkSummary,updateLinkSummary,SUMMARY_ERROR_TEXT} from './basket-link-records.js?v=3';
+import {validateLinkSummary,updateLinkSummary,SUMMARY_ERROR_TEXT} from './basket-link-records.js?v=5';
 import { parseAIAnswer, readClassificationSnapshot, previewClassification, confirmLinks, selectableProjects, ERROR_TEXT } from './basket-classification.js?v=8';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names={organization:'담당조직',project:'프로젝트',library:'자료실',write_request_candidate:'쓰기요청 후보',google_task:'Google 할 일'};

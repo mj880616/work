@@ -103,7 +103,7 @@ for(const width of [390,1280]){
  test(`AI handoff copy full reply safe errors and connection ${width}`,async({page},info)=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page);
   await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
-  f.note.attachments=[{file_name:'합성 첨부.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-attachment',body:'BODY_SECRET',ocr:'OCR_SECRET'}];
+  f.note.attachments=[{file_name:'합성 첨부.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-attachment',size_bytes:12,body:'BODY_SECRET',private_extra:'OCR_SECRET'}];
   await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
   const destinationReads=[];page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/app_spaces'))destinationReads.push(request.url());});
   await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');

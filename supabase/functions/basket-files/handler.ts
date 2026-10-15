@@ -1,6 +1,7 @@
 import { createDriveUpload, UploadError } from "../_shared/drive-upload.ts";
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import {createOcrHandler} from "./ocr.ts";
+import { createNoteDeleteHandler } from "./note-delete.ts";
 import type {OcrUser} from "./ocr.ts";
 
 const cors = {
@@ -55,6 +56,7 @@ export function createBasketHandler(
   const log = options.log ?? ((code: string) => console.error(code));
   const drive = createDriveUpload(admin, { ...options, log });
   const ocr=createOcrHandler(admin,{...options,log});
+  const noteDelete = createNoteDeleteHandler(admin, { ...options, log });
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     let token = "";
@@ -90,6 +92,10 @@ export function createBasketHandler(
         throw new UploadError(403, "forbidden", stage);
       }
       workspaceId = member.workspace_id;
+      if (
+        req.method === "POST" &&
+        new URL(req.url).searchParams.get("action") === "note-delete"
+      ) return await noteDelete(req, workspaceId, `Bearer ${match[1]}`);
       if(req.method==="GET" || req.headers.get("content-type")?.split(";")[0].trim().toLowerCase()==="application/json"){
         return await ocr(req,workspaceId,`Bearer ${match[1]}`);
       }

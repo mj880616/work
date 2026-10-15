@@ -39,7 +39,7 @@ async function pages(path, rt) {
 }
 export async function readBasket(rt = window.KPTURuntime) {
   const scope = `workspace_id=eq.${workspace(rt)}`;
-  const notes = await pages(`/rest/v1/app_notes?${scope}&select=id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments&order=occurred_at.desc,id.desc`, rt);
+  const notes = await pages(`/rest/v1/app_notes?${scope}&select=id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata&order=occurred_at.desc,id.desc`, rt);
   const links = [];
   // Read only links whose source is one of these notes, never task links.
   for (let start = 0; start < notes.length; start += PAGE_SIZE) {

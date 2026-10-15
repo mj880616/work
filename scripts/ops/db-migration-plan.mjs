@@ -318,7 +318,8 @@ export function validateSQL(sql, { mode, version, name, migrationSQL }) {
     if (root[0] === 'set' && !(root[1] === 'local' && ['lock_timeout', 'statement_timeout'].includes(root[2]))) fail();
     if (root[0] === 'do') {
       if (ts.filter(t => t.kind === 'block').length !== 1 || c.some(v => ['insert', 'update', 'delete', 'create', 'alter', 'drop', 'grant', 'revoke', 'commit', 'rollback', 'perform'].includes(v))) fail();
-      const assertionCalls = new Set(['if', 'exists', 'in', 'not', 'and', 'or', 'count', 'length', 'num_nonnulls', 'coalesce', 'to_regclass']);
+      // Pure text helpers only, for whitespace-insensitive deparsed CHECK comparison.
+      const assertionCalls = new Set(['if', 'exists', 'in', 'not', 'and', 'or', 'count', 'length', 'num_nonnulls', 'coalesce', 'to_regclass', 'btrim', 'regexp_replace']);
       for (let i = 0; i < c.length - 1; i++) {
         if (c[i + 1] === '(' && /^[a-z_]/.test(c[i]) && (!assertionCalls.has(c[i]) || c[i - 1] === '.')) fail();
       }

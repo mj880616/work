@@ -46,6 +46,7 @@ for (const width of [390, 1280]) {
     await verifySelection(q, 'home');
     await q.locator('[data-goto="basket"]').click();
     await page.locator('[data-basket-row="n"]').click();
+    await page.locator('[data-basket-edit]').click();
     const detail = page.locator('[data-basket-detail]');
     values.detail = await detail.locator('[data-basket-file-picker]').evaluate(el => ({
       pickerHeight: el.getBoundingClientRect().height,

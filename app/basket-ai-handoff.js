@@ -1,5 +1,6 @@
 import {classificationFormat} from './basket-classification.js?v=8';
-import {readBasket} from './basket-data.js?v=3';
+import {readBasket} from './basket-data.js?v=4';
+import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
 
 // Basket guidance only: active + actual owner assignment, matching home weekUpdates.
 // Keep browser/Edge deployment-local copies identical; regression tests compare them.
@@ -23,8 +24,10 @@ export function buildHandoff(notes,projects,organizations,now,fallback=false) {
     lines.push(`메모 ID: ${n.id}\nupdated_at: ${n.updated_at}\n입력일: ${n.occurred_at}\n본문 시작`,n.raw_text,'본문 끝');
     for(const f of n.attachments||[]){
       if(!/^[A-Za-z0-9_-]{1,255}$/.test(f?.drive_file_id||''))throw Error('첨부 링크를 확인할 수 없어요. 메모를 다시 불러와 주세요.');
-      // Deliberately select fields: never include attachment text or OCR.
+      // Validate present OCR even when empty; copy only its committed source text.
+      const text=effectiveOcrText(f);
       lines.push(`첨부: ${f.file_name} · ${f.mime_type} · https://drive.google.com/file/d/${f.drive_file_id}/view`);
+      if(text)lines.push(`사진에서 읽은 글 · ${f.file_name}\n${text}`);
     }
   }
   if(fallback)lines.push('담당조직이 지정되지 않아 전체 조직을 싣습니다');
