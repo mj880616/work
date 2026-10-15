@@ -142,7 +142,7 @@
 | # | 이름 | 제품 | 버전 | 마지막 배포(KST) | verify_jwt | 원본 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `auth-handoff` | Web2(안드로이드 로그인 전달) | v3 | 09-12 09:13 | false | work |
-| 2 | `document-actions` | Web2 | v4 | 09-25 20:58 | **true** | work |
+| 2 | `document-actions` | Web2(자료실 동작·바구니 첨부 자료실 등록) | v7 | 2026-10-15 (승인 버튼) | **true** | work (`85320da4909cd4bdabfe8a6764e52e0f942b03f0`, #546 main, `register-basket-attachment` 포함). v6→v7·JWT 유지·비로그인 POST 401·OPTIONS 200 성공(사용자 실행 보고, 같은 날 폰 확인 완료). 배포 전 운영 v6(2026-10-02 00:56 UTC 배포, 출처 기록 없음, #393 merge `323ae3b`로 추정). 되돌리기 ref `323ae3b18b50c22c1ffdba98584c7a5175a9ebd7`(추정) |
 | 3 | `document-ai-index` | Web2 | v3 | 09-16 15:44 | **true** | work |
 | 4 | `event-media` | Web2 | v5 | 09-25 20:58 | false | work |
 | 5 | `google-calendar` | Web2 | v15 | 10-01 | false | work |
@@ -183,6 +183,8 @@ version 1, verify_jwt=false, 비로그인 POST 401, OPTIONS 200, source b466910.
 2026-10-14 사용자 승인형 workflow로 `basket-files` v2→v3, `drive-summary` v7→v8을 같은 ref `0013c56`에서 배포했다. 두 함수 모두 verify_jwt=false를 유지했다. 같은 날 DB migration `20261013034836_basket_photo_ocr_db`가 먼저 apply됐다. 위 두 행은 사용자 실행 보고 기준이며, 이를 반영한 OCR-켜기 PR 세션에서는 운영 조회·배포·workflow 실행을 하지 않았다.
 
 같은 날 사용자 승인형 workflow로 `basket-files` v3→v4를 ref `34874ef`(#543 merge, 메모 삭제 시 첨부 Drive 휴지통 `note-delete`)에서 배포했다. verify_jwt=false를 유지했고 되돌리기 ref는 `0013c56`(v3 소스)이다. 사용자 실행·폰 확인 보고 기준이며, 이를 반영한 BASKET-할일출처 PR 세션(Claude Code 웹)에서는 운영 조회·배포·workflow 실행을 하지 않았다.
+
+2026-10-15 사용자 승인형 workflow로 `document-actions` v6→v7을 ref `85320da`(#546 merge, 바구니 첨부를 같은 Drive 원본 참조로 자료실에 등록하는 `register-basket-attachment`)에서 배포했다. verify_jwt=true를 유지했고 비로그인 POST 401, OPTIONS 200을 확인했다. 배포 전 운영 v6은 2026-10-02 00:56 UTC 배포본이며 출처 SHA 기록이 없어 #393 merge `323ae3b`로 추정한다. 되돌리기 ref도 그 추정값이다. 사용자 실행·폰 확인 보고 기준이며, 이를 반영한 UI-바구니버튼정리 PR 세션(Claude Code 웹)에서는 운영 조회·배포·workflow 실행을 하지 않았다.
 
 ### 5.1 ENV-6c 삭제 결과 확인
 

@@ -65,7 +65,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .basket-ocr-text { white-space:pre-wrap; overflow-wrap:anywhere; }
 [data-basket-attachments] .library-selected-file { flex-wrap:wrap; }
 [data-basket-attachments] .basket-library-send { flex-basis:100%; display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; }
-[data-basket-attachments] .basket-library-send small { color:var(--kptu-muted); overflow-wrap:anywhere; }
 .basket-ocr-cleanup { color:var(--kptu-muted); }
 #basketView .home-quick-lock:not([hidden]) { display:grid; gap:6px; margin-top:8px; }
 #basketView .home-quick-lock p { margin:0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
@@ -98,3 +97,20 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .basket-note-tasks li:first-child { border-top:0; }
 #basketView .basket-note-task-title { min-width:0; }
 #basketView .basket-note-tasks button { flex-shrink:0; }
+
+/* UI-바구니버튼정리: the library state is a badge (not a button), its result is
+   one readable line under the attachment card, and the read actions put the
+   common ones first and keep 삭제 apart. */
+#basketView .basket-library-badge { display:inline-flex; align-items:center; min-height:24px; box-sizing:border-box; font-size:12px; }
+#basketView .basket-library-result { margin:0 2px 4px; font-size:14px; line-height:1.5; color:var(--kptu-muted); overflow-wrap:anywhere; }
+#basketView .basket-read-actions:not([hidden]) { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; }
+#basketView .basket-read-main,#basketView .basket-read-more { display:flex; gap:8px; min-width:0; }
+#basketView .basket-read-more { flex:1 1 auto; }
+#basketView .basket-read-more [data-basket-delete] { margin-left:auto; }
+#basketView .basket-read-actions button.primary { color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); font-weight:700; }
+#basketView .basket-read-actions button.secondary { border-color:var(--kptu-border-strong); }
+#basketView .basket-read-actions button.danger { color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }
+@media(max-width:760px) {
+  #basketView .basket-read-actions:not([hidden]) { display:grid; grid-template-columns:minmax(0,1fr); }
+  #basketView .basket-read-main { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

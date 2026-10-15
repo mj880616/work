@@ -19,7 +19,7 @@ async function fixture(page,width,reply){
  await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-filter="all"]').click();
  const row=page.locator(`[data-basket-row="${n}"]`);if(width<761)await row.tap();else await row.click();
  await expect(page.locator('[data-basket-read-text]')).toBeVisible();
- return {home,errors,sends,changed,box:id=>page.locator(`[data-basket-library="${id}"]`)};
+ return {home,errors,sends,changed,box:id=>page.locator(`[data-basket-library="${id}"]`),result:id=>page.locator(`[data-basket-library-status="${id}"]`)};
 }
 const press=async(page,locator,width)=>{await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();};
 
@@ -28,20 +28,41 @@ for(const width of [390,1280])test(`sending an attachment registers it once and 
  const a=f.box('drive-a'),b=f.box('drive-b');
  await expect(a.getByRole('button')).toHaveText('자료실로 보내기');await expect(b.getByRole('button')).toHaveText('자료실로 보내기');
  await press(page,a.getByRole('button'),width);
- await expect(a.locator('[data-basket-library-status]')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');
- await expect(a.getByRole('button')).toHaveText('자료실에 있어요');await expect(a.getByRole('button')).toBeDisabled();
+ await expect(f.result('drive-a')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');
+ // UI-바구니버튼정리: the library state is a badge, not a button, with a link to that library document.
+ await expect(a.locator('[data-basket-library-badge]')).toHaveText('자료실에 있어요');await expect(a.getByRole('button')).toHaveCount(0);
+ await expect(a.getByRole('link',{name:'회의 사진.jpg 자료실에서 보기'})).toHaveAttribute('data-basket-library-open','doc-drive-a');
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:n,drive_file_id:'drive-a'}]);
  await expect.poll(()=>f.changed.length).toBe(1);
  await press(page,b.getByRole('button'),width);
- await expect(b.locator('[data-basket-library-status]')).toHaveText('이미 자료실에 있어요.');await expect(b.getByRole('button')).toBeDisabled();
+ await expect(f.result('drive-b')).toHaveText('이미 자료실에 있어요.');await expect(b.locator('[data-basket-library-badge]')).toHaveText('자료실에 있어요');
+ await expect(b.getByRole('link',{name:'안내문.pdf 자료실에서 보기'})).toHaveAttribute('data-basket-library-open','doc-drive-b');
  expect(f.sends).toHaveLength(2);expect(f.changed).toHaveLength(1);
+ // The result is one readable line under its attachment card, not inside it.
+ const card=await page.locator('[data-basket-attachments] .library-selected-file').first().boundingBox(),line=await f.result('drive-a').boundingBox();
+ expect(line.y).toBeGreaterThanOrEqual(card.y+card.height-1);
+ expect(await f.result('drive-a').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(13);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  if(width===390)await page.screenshot({path:info.outputPath('library-send-390.png'),fullPage:true});
- // The edit view has no send buttons; reading again brings them back with the same state.
+ // The edit view has no send controls; reading again brings them back with the same state.
  await press(page,page.locator('[data-basket-edit]'),width);
- await expect(page.locator('[data-basket-library-send]')).toHaveCount(2);for(const button of await page.locator('[data-basket-library-send]').all())await expect(button).toBeHidden();
+ await expect(page.locator('[data-basket-library]')).toHaveCount(2);for(const box of await page.locator('[data-basket-library]').all())await expect(box).toBeHidden();
  await press(page,page.locator('[data-basket-cancel]'),width);
- await expect(a.getByRole('button')).toHaveText('자료실에 있어요');
+ await expect(a.locator('[data-basket-library-badge]')).toHaveText('자료실에 있어요');
+ expect(f.errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`자료실에서 보기 opens the library at that document ${width}`,async({page})=>{
+ const f=await fixture(page,width,route=>route.fulfill({json:{ok:true,result:'created',document:{id:'doc-drive-a',title:'회의 사진.jpg'}}}));
+ await page.route(SB+'/rest/v1/app_documents?**',r=>r.fulfill({json:[{id:'doc-other',workspace_id:'w',title:'다른 자료',file_name:'other.pdf',project_id:null,meeting_id:null,created_at:stamp},{id:'doc-drive-a',workspace_id:'w',title:'회의 사진.jpg',file_name:'회의 사진.jpg',project_id:null,meeting_id:null,created_at:stamp}]}));
+ const a=f.box('drive-a');
+ await press(page,a.getByRole('button'),width);
+ const link=a.getByRole('link',{name:'회의 사진.jpg 자료실에서 보기'});
+ await expect(link).toHaveAttribute('href','./?view=library');
+ await press(page,link,width);
+ await expect(page.locator('#libraryView')).toBeVisible();
+ await expect(page.locator('#documentList [data-lu-document="doc-drive-a"]')).toBeFocused();
+ expect(f.sends).toHaveLength(1);
  expect(f.errors).toEqual([]);
 });
 
@@ -49,7 +70,7 @@ test('an older server refuses before any change and the button stays usable',asy
  const f=await fixture(page,390,route=>route.fulfill({status:400,json:{error:'document_id가 필요합니다.'}}));
  const a=f.box('drive-a');
  await press(page,a.getByRole('button'),390);
- await expect(a.locator('[data-basket-library-status]')).toHaveText('자료실 보내기가 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.');
+ await expect(f.result('drive-a')).toHaveText('자료실 보내기가 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.');
  await expect(a.getByRole('button')).toBeEnabled();await expect(a.getByRole('button')).toHaveText('자료실로 보내기');
  expect(f.sends).toHaveLength(1);expect(f.changed).toEqual([]);
  // Notes and links are not written by this flow.
@@ -61,9 +82,10 @@ test(`an unknown result (${name}) is reported and never sent again`,async({page}
  const f=await fixture(page,390,reply);
  const a=f.box('drive-a');
  await press(page,a.getByRole('button'),390);
- await expect(a.locator('[data-basket-library-status]')).toHaveText('자료실로 보냈는지 확인하지 못했어요. 다시 보내지 말고 자료실 목록에서 먼저 확인해 주세요.');
- await expect(a.getByRole('button')).toHaveText('자료실에서 확인해 주세요');await expect(a.getByRole('button')).toBeDisabled();
- await a.getByRole('button').dispatchEvent('click');
+ await expect(f.result('drive-a')).toHaveText('자료실로 보냈는지 확인하지 못했어요. 다시 보내지 말고 자료실 목록에서 먼저 확인해 주세요.');
+ // A status badge, not a button: there is nothing to press again and no document to link.
+ await expect(a.locator('[data-basket-library-badge]')).toHaveText('자료실에서 확인해 주세요');
+ await expect(a.getByRole('button')).toHaveCount(0);await expect(a.getByRole('link')).toHaveCount(0);
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,50))));
  expect(f.sends).toHaveLength(1);expect(f.changed).toEqual([]);
  // The other attachment is independent.
