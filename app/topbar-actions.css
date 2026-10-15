@@ -65,7 +65,8 @@
 
 /* D-5a: the ordered prefix and the existing mobile trigger share one row. */
 @media(min-width:761px) and (max-width:1023px){
-  #appView>.app-nav{flex-wrap:nowrap;overflow:visible;min-width:0}
+  /* overflow-x:clip: until the overflow items move into ☰ (topbar-actions.js, right after a resize) the row must not widen the page. */
+  #appView>.app-nav{flex-wrap:nowrap;overflow:visible;overflow-x:clip;min-width:0}
   #appView>.app-nav .nav-btn{flex:0 0 auto;min-width:44px;min-height:44px;font-size:14px}
   #appView>.app-nav [hidden],#appView>.app-nav .account-menu{display:none}
   #appView>.app-nav .mid-menu-trigger{margin-left:auto}

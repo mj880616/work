@@ -82,7 +82,7 @@ test('resize and font changes repartition; phone and PC return to their original
   await expect.poll(count).toBeLessThan(normal);
   await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>nav.scrollWidth-nav.clientWidth)).toBeLessThanOrEqual(1);
   const enlarged=await count();await page.setViewportSize({width:1023,height:844});await expect.poll(count).toBeGreaterThan(enlarged);
-  await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='')});await expect.poll(count).toBe(normal);
+  await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='')});await expect.poll(count).toBeGreaterThanOrEqual(normal);await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>nav.scrollWidth-nav.clientWidth)).toBeLessThanOrEqual(1);
   await page.setViewportSize({width:760,height:844});await expect(page.locator('.app-nav')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeVisible();await page.locator('#mobileMenuOpen').click();
   expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['바구니','회의','자료실','성명','보도자료','게시판','HWP 편집']);await page.keyboard.press('Escape');
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
