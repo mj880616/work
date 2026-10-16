@@ -96,14 +96,14 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  expect(errors).toEqual([]);
 });
 
-test('dark mode stays off on home and basket until the whole app moves to the new standard',async({page})=>{
+test('dark mode follows the device on home and basket (3/3 8-9e-3 turned it on for the whole app)',async({page})=>{
  const errors=await open(page,390,true);
  expect(await page.evaluate(()=>matchMedia('(prefers-color-scheme: dark)').matches)).toBe(true);
- const light={bg:'rgb(243, 241, 234)',surface:'rgb(255, 254, 250)'};
+ const dark={bg:'rgb(22, 22, 19)',surface:'rgb(31, 31, 27)'};
  const colors=()=>page.evaluate(()=>{const s=getComputedStyle(document.documentElement);return {scheme:s.colorScheme,bg:getComputedStyle(document.body).backgroundColor,surface:getComputedStyle(document.querySelector('#homeView .home-quick')).backgroundColor};});
- const home=await colors();expect(home.bg).toBe(light.bg);expect(home.surface).toBe(light.surface);expect(home.scheme).not.toContain('dark');
+ const home=await colors();expect(home.bg).toBe(dark.bg);expect(home.surface).toBe(dark.surface);expect(home.scheme).toContain('dark');
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
- expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).toBe(light.bg);
+ expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).toBe(dark.bg);
  await openBasketMore(page);
  expect(errors).toEqual([]);
 });

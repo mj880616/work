@@ -20,17 +20,17 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=18','./markdown-view.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=6'],
-  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26','./ui-standard.css?v=6'],
-  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=6'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=6'],
-  projects:['./project-system-v3.css?v=27','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=6'],
-  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2','./ui-standard.css?v=6'],
-  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26','./ui-standard.css?v=6'],
-  media:['./web1-press.css?v=4'],
-  pages:['./web1-board.css?v=7'],
-  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26','./ui-standard.css?v=6'],
-  hwp:['./hwp-lab.css?v=3']
+  basket:['./basket.css?v=18','./markdown-view.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=7'],
+  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26','./ui-standard.css?v=7'],
+  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=7'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=7'],
+  projects:['./project-system-v3.css?v=27','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=7'],
+  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2','./ui-standard.css?v=7'],
+  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26','./ui-standard.css?v=7'],
+  media:['./web1-press.css?v=4','./ui-standard.css?v=7'],
+  pages:['./web1-board.css?v=7','./ui-standard.css?v=7'],
+  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26','./ui-standard.css?v=7'],
+  hwp:['./hwp-lab.css?v=3','./ui-standard.css?v=7']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -83,7 +83,7 @@ async function calendar(){
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
   // google-tasks.js.
   background(afterReveal().then(()=>Promise.all([style('./google-tasks.css?v=26'),organizationOrder()])).then(()=>module('./google-tasks.js?v=37')).then(()=>module('./calendar-tasks.js?v=3')));
-  background(google.then(()=>module('./calendar-health.js?v=6')));
+  background(google.then(()=>module('./calendar-health.js?v=7')));
   return {ok:true}
 }
 async function tasks(){

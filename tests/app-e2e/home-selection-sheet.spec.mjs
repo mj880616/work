@@ -52,7 +52,7 @@ test('long projects scroll only inside the sheet and remain one-line with child 
  await q(page).locator('[data-quick-input]').fill('QA');await q(page).locator('[data-quick-project]').click();
  const content=sheet(page).locator('[data-sheet-content]'),parent=sheet(page).locator('[data-sheet-value="p"]'),child=sheet(page).locator('[data-sheet-value="child-0"]');
  expect(await content.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);
- await expect(parent).toHaveCSS('height','40px');await expect(parent).toHaveCSS('text-overflow','ellipsis');await expect(parent).toHaveCSS('white-space','nowrap');
+ await expect(parent).toHaveCSS('height','44px');/* 8-9e-3: 고르기 시트 줄 44px */await expect(parent).toHaveCSS('text-overflow','ellipsis');await expect(parent).toHaveCSS('white-space','nowrap');
  expect(await child.evaluate(el=>parseFloat(getComputedStyle(el).paddingLeft))).toBe(22);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath('project-sheet-390.png'),fullPage:false});
