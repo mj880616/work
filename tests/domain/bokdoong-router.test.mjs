@@ -341,3 +341,35 @@ test('Arsenal favicon requests do not return 404 or reach unrelated origins', as
   assert.equal(await head.response.text(), '');
   assert.equal(head.calls.length, 0);
 });
+
+test('each browser clears its HTTP cache once per epoch on its next Web2 page load', async () => {
+  const page = () => new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  const first = await request('https://desk.bokdoong.com/work/app/', { upstream: page() });
+  assert.equal(first.response.headers.get('Clear-Site-Data'), '"cache"');
+  const cookie = first.response.headers.get('Set-Cookie');
+  assert.match(cookie, /^kptu_cache_epoch=[\w-]+; Path=\/work\/app\/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax$/);
+  // The cookie (like every cookie) is not forwarded to GitHub Pages.
+  assert.equal(first.calls[0].headers.get('Cookie'), null);
+
+  const value = cookie.split(';')[0];
+  const later = await request('https://desk.bokdoong.com/work/app/login/', { upstream: page(), headers: { Cookie: `other=1; ${value}` } });
+  assert.equal(later.response.headers.get('Clear-Site-Data'), null);
+  assert.equal(later.response.headers.get('Set-Cookie'), null);
+
+  const oldEpoch = await request('https://desk.bokdoong.com/work/app/', { upstream: page(), headers: { Cookie: 'kptu_cache_epoch=1999-01-01' } });
+  assert.equal(oldEpoch.response.headers.get('Clear-Site-Data'), '"cache"');
+});
+
+test('cache clearing is limited to successful desk pages', async () => {
+  const html = (status = 200) => new Response('<!doctype html>', { status, headers: { 'Content-Type': 'text/html' } });
+  for (const [url, upstream] of [
+    ['https://work.bokdoong.com/work/', html()],
+    ['https://bokdoong.com/', html()],
+    ['https://desk.bokdoong.com/work/app/missing/', html(404)],
+    ['https://desk.bokdoong.com/work/app/auth-service.js', new Response('js', { headers: { 'Content-Type': 'text/javascript' } })]
+  ]) {
+    const { response } = await request(url, { upstream });
+    assert.equal(response.headers.get('Clear-Site-Data'), null, url);
+    assert.equal(response.headers.get('Set-Cookie'), null, url);
+  }
+});

@@ -45,6 +45,17 @@ async function matchesManifest(pathname, version, bytes) {
   return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('') === entry.sha256;
 }
 
+// Browsers that already hold old bytes as immutable never ask again. Each browser gets one
+// Clear-Site-Data: "cache" on its next Web2 page load per epoch; a cookie remembers it was done.
+// Raise CACHE_EPOCH (and deploy) to flush every browser once more. The cookie is never forwarded.
+const CACHE_EPOCH = '2026-10-17';
+const EPOCH_COOKIE = 'kptu_cache_epoch';
+
+function hasCurrentEpoch(request) {
+  return (request.headers.get('Cookie') || '').split(';')
+    .some(part => part.trim() === `${EPOCH_COOKIE}=${CACHE_EPOCH}`);
+}
+
 export function resetManifestMemo() {
   manifestMemo = null;
 }
@@ -138,6 +149,14 @@ export default {
         target.hostname = host;
         responseHeaders.set('Location', target.href);
       }
+    }
+    const webPage = host === 'desk.bokdoong.com'
+      && request.method === 'GET'
+      && upstream.status === 200
+      && /^text\/html\b/i.test(responseHeaders.get('Content-Type') || '');
+    if (webPage && !hasCurrentEpoch(request)) {
+      responseHeaders.set('Clear-Site-Data', '"cache"');
+      responseHeaders.append('Set-Cookie', `${EPOCH_COOKIE}=${CACHE_EPOCH}; Path=/work/app/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax`);
     }
     const response = new Response(body, { status: upstream.status, headers: responseHeaders });
     if (immutableAsset && edgeCache) {
