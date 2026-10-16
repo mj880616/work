@@ -299,8 +299,10 @@
     margin:0; padding:0; border:0; border-radius:50%; color:var(--kptu-on-primary); background:var(--kptu-primary); box-shadow:var(--kptu-shadow-float); font-size:0; overflow:visible;
   }
   #appView #calendarView .calendar-toolbar #newEventBtn > *{ display:none; }
+  /* + 는 글자 대신 선으로 그린 SVG 아이콘(8-9e-3): 글꼴 높이 때문에 위로 치우치지 않게 가로·세로 정가운데. 장식이라 낭독되지 않는다(이름은 aria-label). */
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn)::before{
-    content:"+"; font-size:24px; font-weight:var(--ds-weight-regular); line-height:1; color:var(--kptu-on-primary);
+    content:""; display:block; width:20px; height:20px; background:var(--kptu-on-primary);
+    -webkit-mask:var(--ds-fab-plus) center / 20px 20px no-repeat; mask:var(--ds-fab-plus) center / 20px 20px no-repeat;
   }
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn)::after{
     content:""; position:absolute; inset:calc((var(--ds-fab-size) - var(--kptu-touch-target,44px)) / 2); width:auto; height:auto; border-radius:50%;
