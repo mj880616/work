@@ -52,8 +52,9 @@ const samples={
  projects:[['.add-list-head [data-ps3-total]',12],['.ps3-prow-name',13],['.ps3-prow-meta',12],['button.primary',13]],
  // UI-디자인기준 3/3(8-9e-1): 회의·담당조직 목록 이름 13px, 상자 제목(섹션 이름) 13px, 버튼 13px(새 기준).
  meetings:[['.add-list-head h2',13],['.meeting-list-title h3',13],['.meeting-list-row p',12],['button.primary',13]],
- media:[['.w1p-title',16],['.w1p-year>h3',16],['.w1p-filter',12],['.w1p-date',12],['.w1p-tag',12],['.w1p-publisher',12]],
- pages:[['.w1b-card h3',16],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
+ // UI-디자인기준 3/3 3부(8-9e-3): 성명·보도자료 목록 이름 13px·연도(섹션 이름) 13px·필터 버튼 13px·종류 표시 11px(자료실 종류 표시와 같음), 게시판 줄 이름 13px.
+ media:[['.w1p-title',13],['.w1p-year>h3',13],['.w1p-filter',13],['.w1p-date',12],['.w1p-tag',11],['.w1p-publisher',12]],
+ pages:[['.w1b-card h3',13],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
  team:[['.so-card h4',13],['button.secondary',13],['.muted',12]]
 };
 async function boot(page){
@@ -107,7 +108,12 @@ for(const width of [390,1440])test('D-3e archive and input roles preserve other 
  const properties=['fontSize','fontWeight','lineHeight','color','minHeight','whiteSpace','overflow','textOverflow'];
  for(const selector of ['#ps3ArchiveList .ps3-prow-name','#ps3ArchiveList .ps3-prow-meta','#ps3ArchiveModal h2','#ps3ArchiveModal button.mini','#eventModal input','#ps3CreateModal .modal-head h2','#ps3CreateSave']){
   const styles=async p=>p.locator(selector).first().evaluate((el,keys)=>{const s=getComputedStyle(el);return keys.map(k=>s[k])},properties);
-  const before=await styles(original);if(selector==='#ps3ArchiveList .ps3-prow-meta'){before[0]='12px';before[2]='16px';before[4]='auto';before[6]='visible';before[7]='clip'}if(selector==='#ps3ArchiveList .ps3-prow-name'){before[0]='16px';before[1]='750';before[2]='21.6px'}if(selector==='#eventModal input'){before[0]='14px';before[2]='21.7px'}expect(await styles(page),selector).toEqual(before);
+  const before=await styles(original);if(selector==='#ps3ArchiveList .ps3-prow-meta'){before[0]='12px';before[2]='16px';before[4]='auto';before[6]='visible';before[7]='clip'}if(selector==='#ps3ArchiveList .ps3-prow-name'){before[0]='16px';before[1]='750';before[2]='21.6px'}if(selector==='#eventModal input'){before[0]='14px';before[2]='21.7px'}
+  // UI-디자인기준 3/3 3부(8-9e-3): 창 제목 18px·500, 창 버튼은 높이 하나(46px)·13px·500, 창 입력칸 46px·글자 400.
+  if(selector.endsWith(' h2')){before[0]='18px';before[1]='500';before[2]='25.2px'}
+  if(selector==='#ps3ArchiveModal button.mini'||selector==='#ps3CreateSave'){before[0]='13px';before[1]='500';before[2]='16.9px';before[4]='46px'}
+  if(selector==='#ps3ArchiveModal button.mini')before[3]=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-ink)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c});// 기본 버튼 글자는 본문 색
+  if(selector==='#eventModal input'){before[1]='400';before[4]='46px'}expect(await styles(page),selector).toEqual(before);
  }
  await original.close();
 });

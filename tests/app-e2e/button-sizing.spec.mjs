@@ -69,9 +69,9 @@ async function size(el){return el.evaluate(el=>{const r=el.getBoundingClientRect
 async function standard(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();await expect(el).toHaveCSS('font-size','12px');const s=await size(el);expect(s.height,selector).toBeGreaterThanOrEqual(35);expect(s.height,selector).toBeLessThanOrEqual(37);expect(s.paddingLeft).toBe('12px');expect(s.paddingRight).toBe('12px');if(!selector.includes('press-type'))expect(s.radius).toBe('8px');}
 // UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트의 버튼은 새 기준(높이 --ds-control-height 46px·13px·모서리 8px·굵기 500)으로 바뀌었다.
 async function dsStandard(page,selector){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(46);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');}
-// 일정의 [Google Calendar] 설정 칸(#googleConnectBtn)은 3/3까지 옛 크기 그대로라 옛 검사를 쓴다.
 // UI-디자인기준 3/3(8-9e-1): 회의·담당조직(·자료실)의 버튼도 새 기준.
-const dsViews=new Set(['projects','meetings','team']);
+// UI-디자인기준 3/3 3부(8-9e-3): 일정 [Google Calendar] 설정 칸 버튼(2/3 원장 ③, calendar-health.js의 !important 정리)·성명 필터·공용 창 버튼도 새 기준.
+const dsViews=new Set(['projects','meetings','team','calendar','media']);
 // UI-디자인기준 3/3 2부(8-9e-2): 폰의 일정·할 일·프로젝트·자료실 추가 버튼은 하단 탭 위 동그란 [+](누르는 범위 44px, 보이는 원 36px).
 async function phoneFab(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const b=await el.boundingBox();expect(b.width,selector).toBe(36);expect(b.height,selector).toBe(36);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).toBe('fixed');const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w,selector).toBe(44);expect(t.h,selector).toBe(44);}
 const fabs=new Set(['#newEventBtn','#newTaskBtn','#newProjectBtn','#newDocumentBtn']);
@@ -97,7 +97,9 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
   if(name==='tasks'){await (width<=760?phoneFab:dsStandard)(page,'#newTaskBtn');continue}
   if(name==='library'){await (width<=760?phoneFab:dsStandard)(page,'#newDocumentBtn');continue}
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
-  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());expect(await size(page.locator(selector).first()),selector).toEqual(name==='calendar'?{...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'}:before);}
+  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());
+   // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.
+   expect(await size(page.locator(selector).first()),selector).toEqual({...before,font:'13px',weight:'400'});}
  }
  await original.close();
 });
@@ -153,9 +155,10 @@ for(const width of [390,1440])test('D-button project and organization detail and
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'projects');
  await page.locator('[data-ps3-project="type-project"]').click();await expect(page.locator('#ps3DetailModal')).toBeVisible();
  await page.locator('.ps3-more>summary').click();
+ // ⋯ 메뉴 안 항목은 버튼 모양이 아닌 메뉴(옛 크기 그대로). 창 안 [저장]·[삭제]는 새 기준.
  for(const selector of ['[data-ps3-toggle-done]','[data-ps3-edit-project]','[data-ps3-archive-project]','[data-ps3-delete-project]'])await standard(page,selector);
  await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden();
- await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await standard(page,'#wdInboxSave');
+ await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave');
  await page.locator('[data-wd-close="wdModal"]').click();await expect(page.locator('#wdModal')).toBeHidden();
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
 });
@@ -173,6 +176,6 @@ for(const width of [390,1440])test('D-button Google event editor delete and save
  await page.clock.setFixedTime(new Date('2026-10-05T03:00:00Z'));await page.setViewportSize({width,height:900});
  await boot(page,[],[{id:'size-event',calendarId:'primary',title:'Fixture event',start:'2026-10-05',end:'2026-10-06',allDay:true,color:'#7986cb'}]);
  await view(page,'calendar');const chip=page.locator('.cp-event[data-google-event="size-event"]').first();await expect(chip).toBeVisible();await chip.click();
- await expect(page.locator('#ciGoogleDelete')).toBeEnabled();await standard(page,'#ciGoogleDelete');await standard(page,'#ciGoogleSave');
+ await expect(page.locator('#ciGoogleDelete')).toBeEnabled();await dsStandard(page,'#ciGoogleDelete');await dsStandard(page,'#ciGoogleSave');
  expect(await page.locator('#ciGoogleModal .modal-card').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
 });

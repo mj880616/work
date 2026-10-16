@@ -169,15 +169,16 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['projects','#newProjectBtn','backgroundColor',color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
    ['meetings','#newMeetingBtn','backgroundColor',color],
-   ['media','.w1p-filter.active','backgroundColor',color],
-   ['pages','.w1b-card','backgroundColor',surface[theme]],
+   // UI-디자인기준 3/3 3부(8-9e-3): 고른 성명 필터는 회색(종류 색 '그 밖'), 게시판은 상자 안 줄(상자가 바탕).
+   ['media','.w1p-filter.active','backgroundColor','#efede6'],
+   ['pages','#web1BoardActive','backgroundColor',surface[theme]],
    ['team','#soAddOrg','backgroundColor',surface[theme]]
   ]){
    await clickView(page,view);
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
-   if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',theme==='olive'?'#47532a':theme==='navy'?'#355f86':theme==='terracotta'?'#7f3f1b':'#7a5012');}else await matches('.app-nav .nav-btn.active','backgroundColor',color);
+   if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',theme==='olive'?'#47532a':theme==='navy'?'#355f86':theme==='terracotta'?'#7f3f1b':'#7a5012');}else await matches('.app-nav .nav-btn.active','backgroundColor',{olive:'#eef0e1',navy:'#eef4f8',terracotta:'#f8e9dc',sand:'#f6ead1'}[theme]);/* 8-9e-3: 고른 메뉴는 연한 계정 색 */
    // 8-9e-2: phones show the small "담당조직 추가" link instead of [+ 담당조직].
    if(!(width<=760&&selector==='#soAddOrg'))await matches(selector,property,expected);
    if(view==='projects'){
@@ -238,7 +239,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
  // UI-디자인기준 2/3(8-9d): 일정 머리줄 버튼은 높이 하나(--ds-control-height 46px).
  await check('#prevMonthBtn',46);await check('#nextMonthBtn',46);await check('#newEventBtn',width<=760?36:46); // 8-9e-2: phone round [+] paints 36px
  await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
- await check('#eventModal .icon-btn',32);await check('#saveEventBtn',36);
+ await check('#eventModal .icon-btn',32);await check('#saveEventBtn',46);/* 8-9e-3: 창 버튼도 높이 하나 */
  const close=page.locator('#eventModal .icon-btn');await close.scrollIntoViewIfNeeded();const r=await close.boundingBox();
  await page.mouse.click(r.x+r.width/2,r.y-4);await expect(page.locator('#eventModal')).toBeHidden();
  await clickView(page,'tasks');await expect(page.locator('#gtTaskBody .gt-menu-trigger')).toBeVisible();await check('#gtTaskBody .gt-menu-trigger',44);
@@ -283,7 +284,7 @@ for(const width of [390,1440])test('D-3c outside navigation keeps its route and 
 
 for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account matches menu typography '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
- if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','14px');await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
+ if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','13px');/* 8-9e-3: 메뉴 줄 13px */await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
   const nav=getComputedStyle(document.querySelector('.app-nav [data-view="tasks"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-nav [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};

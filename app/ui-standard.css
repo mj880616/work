@@ -299,8 +299,10 @@
     margin:0; padding:0; border:0; border-radius:50%; color:var(--kptu-on-primary); background:var(--kptu-primary); box-shadow:var(--kptu-shadow-float); font-size:0; overflow:visible;
   }
   #appView #calendarView .calendar-toolbar #newEventBtn > *{ display:none; }
+  /* + 는 글자 대신 선으로 그린 SVG 아이콘(8-9e-3): 글꼴 높이 때문에 위로 치우치지 않게 가로·세로 정가운데. 장식이라 낭독되지 않는다(이름은 aria-label). */
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn)::before{
-    content:"+"; font-size:24px; font-weight:var(--ds-weight-regular); line-height:1; color:var(--kptu-on-primary);
+    content:""; position:absolute; inset:0; margin:auto; display:block; width:20px; height:20px; background:var(--kptu-on-primary);
+    -webkit-mask:var(--ds-fab-plus) center / 20px 20px no-repeat; mask:var(--ds-fab-plus) center / 20px 20px no-repeat;
   }
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn)::after{
     content:""; position:absolute; inset:calc((var(--ds-fab-size) - var(--kptu-touch-target,44px)) / 2); width:auto; height:auto; border-radius:50%;
@@ -370,3 +372,137 @@
 }
 @keyframes ds-sheet-up{ from{ transform:translateY(100%); } to{ transform:none; } }
 @media(max-width:760px) and (prefers-reduced-motion:reduce){ #appView #basketView [data-classification-panel]:not([hidden]){ animation:none; } }
+
+/* ───────── 3단계 3부(8-9e-3): 남은 화면·공용 셸·공용 창 ─────────
+   1·2부와 같은 값·같은 모양. HWP 편집(#hwpView, 칸막이 iframe 안은 그대로)·성명·보도자료(#mediaView, 모양만 최소로)·게시판(#pagesView),
+   공용 셸(폰 머리줄·하단 탭·PC 사이드바·☰ 메뉴 판·계정 메뉴), 화면 색 창, 공용 창(.modal)·고르기 시트. 구조·순서·동작은 그대로.
+   view-loader.js가 모든 화면의 스타일 목록 끝에 이 파일을 불러오므로 셸·창 규칙은 어느 화면에서 시작해도 적용된다. */
+
+/* 버튼: 높이 하나·모서리 8px·13px/500·흰 바탕 + 0.5px 테두리(기본). ×·⋯ 아이콘·목록 행·색 고르기·글자 링크는 버튼 모양이 아니므로 뺀다. */
+#appView :is(#hwpView,#mediaView,#pagesView) :is(button.primary,button.secondary,button.mini,.w1p-filter):not(.icon-btn):where(:not([hidden])),
+#appView #calendarView .calendar-google-panel button#googleConnectBtn,
+.modal :is(button.primary,button.secondary,button.ghost,button.mini,a.mini,button.danger,button.wd-danger,button.ci-delete):not(.icon-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])),
+.modal .event-create-modes button{
+  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  height:auto; min-height:var(--ds-control-height); max-width:100%; margin:0; padding:4px var(--ds-control-pad-x);
+  font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none; white-space:nowrap;
+  color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
+  box-shadow:none; background-image:none;
+}
+/* ① 채운 버튼(화면·창당 1개): HWP [내 기기에 저장], 창의 저장·확정 버튼. */
+#appView #hwpView button.primary:not(.icon-btn):where(:not([hidden])),
+.modal button.primary:not(.icon-btn,.ps3-danger-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+#appView #hwpView button.primary:not(.icon-btn):disabled{ opacity:.55; }
+/* ② 고른 필터·고른 종류는 회색(종류 색 '그 밖'), 일정 창의 [할 일]은 할 일 색. */
+#appView #mediaView button.w1p-filter.active,.modal .event-create-modes [data-event-mode="event"][aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+.modal .event-create-modes [data-event-mode="task"][aria-pressed="true"]{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); border-color:var(--ds-kind-task-soft); }
+.modal .event-create-modes{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; max-width:240px; padding:0; background:transparent; border:0; border-radius:0; }
+/* ④ 삭제: 빨간 테두리. */
+.modal button:is(.danger,.wd-danger,.tl-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.mrd-delete,.ps-danger,.ci-delete):not(.ps3-more-panel *,.tl-menu-items *):where(:not([hidden])){ color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }
+
+/* 굵기 두 가지(400·500): 남은 화면과 창의 제목·이름·라벨. */
+#appView :is(#hwpView,#mediaView,#pagesView) :is(h2,h3,h4,b,strong,summary,.w1p-tag),
+.modal :is(h2,h3,h4,legend,label,summary,.modal-head b):not(.md-body *),
+.home-choice-sheet :is(h2,button[aria-pressed="true"]){ font-weight:var(--ds-weight-medium); }
+
+/* 화면 제목 18px(HWP 편집 상자 제목), 창 제목 18px. 창 제목 크기는 공용 대화상자 규칙(D-6b, workspace-ui.css)이 --kptu-text-title로 정하므로 창 안에서만 그 값을 바꾼다. */
+.modal{ --kptu-text-title:var(--ds-text-title); }
+#appView #hwpView .hwp-lab-head h2,.modal :is(.modal-head h2,.w1b-detail-head h2,.w1p-detail-head h2),.home-choice-sheet h2,.theme-panel h2{ font-size:var(--ds-text-title); line-height:1.4; }
+
+/* 입력: 높이 하나·0.5px 선·모서리 8px. 여러 줄 칸은 높이만 그대로. */
+#appView #mediaView #pressSearch,
+.modal :is(input:not([type="checkbox"],[type="radio"],[type="file"],[type="color"],[type="range"],[type="hidden"]),select){
+  box-sizing:border-box; min-height:var(--ds-control-height); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none;
+}
+#appView #mediaView #pressSearch{ height:var(--ds-control-height); font-size:var(--ds-text-button); }
+.modal :is(input,select,textarea){ font-weight:var(--ds-weight-regular); }
+.modal textarea{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; }
+
+/* 상자: 0.5px 선·모서리 12px·그림자 없음. */
+#appView #hwpView .hwp-lab,#appView #mediaView .w1p-table,#appView #pagesView .w1b-grid:has(.w1b-card),
+.modal .modal-card,.modal fieldset.meeting-entry-section,.theme-panel .theme-choices,.account-panel{
+  border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none;
+}
+/* 구분선 0.5px. */
+.modal :is(.modal-action-footer,.w1b-detail-head,.w1p-detail-head){ border-color:var(--ds-line); border-top-width:var(--ds-line-width); }
+.modal :is(.w1b-detail-head,.w1p-detail-head){ border-top-width:0; border-bottom-width:var(--ds-line-width); }
+.modal hr,.mobile-menu-panel hr{ border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
+
+/* HWP 편집: 안내 12px 흐린 색, 편집기 칸막이 바깥 틀은 0.5px 선·모서리 8px, 바탕은 밝게(칸막이 안은 그대로). */
+#appView #hwpView .hwp-lab-note{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #hwpView .hwp-lab-status{ font-size:var(--ds-text-row); }
+#appView #hwpView .hwp-lab-editor{ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--ds-frame-paper); }
+#appView #calendarView .calendar-google-panel .updated{ font-weight:var(--ds-weight-regular); }
+#appView #hwpView .hwp-drive-bar a{ font-size:var(--ds-text-button); color:var(--kptu-link); }
+
+/* 성명·보도자료(모양만 최소로): 필터는 홈 빠른 입력 탭과 같은 버튼, 연도는 섹션 이름, 목록은 0.5px 상자 안 줄(44px)·이름 13px·400. */
+#appView #mediaView .w1p-filters{ gap:6px; }
+#appView #mediaView .w1p-year > h3{ font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
+#appView #mediaView .w1p-table{ overflow:hidden; background:var(--kptu-surface); }
+#appView #mediaView .w1p-head{ font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); background:transparent; border-bottom:var(--ds-line-width) solid var(--ds-line); }
+#appView #mediaView .w1p-item{ box-sizing:border-box; min-height:var(--kptu-touch-target,44px); padding-top:var(--ds-row-pad-y); padding-bottom:var(--ds-row-pad-y); border-bottom:var(--ds-line-width) solid var(--ds-line); }
+#appView #mediaView .w1p-item:last-child{ border-bottom:0; }
+#appView #mediaView .w1p-title{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.4; }
+#appView #mediaView :is(.w1p-date,.w1p-publisher){ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #mediaView .w1p-tag{ min-height:20px; padding:2px 7px; border:0; border-radius:var(--ds-radius-control); font-size:11px; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #mediaView .w1p-tag.statement{ color:var(--ds-file-pdf-ink); background:var(--ds-file-pdf-soft); }
+#appView #mediaView .w1p-tag.release{ color:var(--ds-file-xls-ink); background:var(--ds-file-xls-soft); }
+
+/* 게시판: 카드 묶음 대신 0.5px 상자 안 줄(44px), 이름 13px·400, 오른쪽 ›. 지나간 업무는 접기(<details>) 그대로, 이름은 섹션 이름. */
+#appView #pagesView .w1b-grid:has(.w1b-card){ display:block; overflow:hidden; background:var(--kptu-surface); }
+#appView #pagesView .w1b-card{ box-sizing:border-box; display:flex; align-items:center; gap:10px; min-height:var(--kptu-touch-target,44px); padding:var(--ds-row-pad-y) var(--ds-row-pad-x); border:0; border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; transform:none; }
+#appView #pagesView .w1b-card:first-child{ border-top:0; }
+#appView #pagesView .w1b-card:hover{ box-shadow:none; transform:none; background:var(--kptu-surface-subtle); }
+#appView #pagesView .w1b-card:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+#appView #pagesView .w1b-card h3{ flex:1 1 auto; min-width:0; font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.4; }
+#appView #pagesView .w1b-card::after{ content:"›" / ""; flex:0 0 auto; color:var(--kptu-muted); font-size:16px; line-height:1; }
+#appView #pagesView .w1b-archive > summary{ font-size:var(--ds-text-section); color:var(--ds-section-ink); min-height:var(--kptu-touch-target,44px); display:flex; align-items:center; margin-bottom:0; }
+/* 성명·게시판 본문 칸막이는 사용자가 붙여 넣은 HTML: 다크 모드에서도 밝게. */
+.modal :is(.w1b-detail-frame,.w1p-detail-frame){ color-scheme:light; background:var(--ds-frame-paper); }
+
+/* 공용 창: 닫기 ×는 테두리 없는 아이콘(크기·누르는 범위는 그대로). */
+.modal .modal-head .icon-btn{ border-color:transparent; background:transparent; color:var(--kptu-muted); }
+
+/* 고르기 시트: 제목 18px, 줄 44px·13px·400, 줄 사이 0.5px, 모서리 12px. 칩 모양은 그대로(굵기만 두 가지 안에서). */
+.home-choice-sheet{ border-radius:var(--ds-radius-box) var(--ds-radius-box) 0 0; }
+.home-choice-sheet .home-choice-row{ height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row); border-radius:0; border-top:var(--ds-line-width) solid var(--ds-line); }
+.home-choice-sheet .home-choice-label{ font-size:var(--ds-text-meta); }
+
+/* 화면 색(설정) 창: 0.5px 상자 안 줄(44px)·13px·400, 고른 줄은 회색(종류 색 '그 밖'). */
+.theme-panel .theme-choices{ gap:0; overflow:hidden; }
+.theme-panel .theme-choices button{ min-height:var(--kptu-touch-target,44px); padding:var(--ds-row-pad-y) var(--ds-row-pad-x); border:0; border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }
+.theme-panel .theme-choices button:first-child{ border-top:0; }
+.theme-panel .theme-choices button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+.theme-panel .theme-selected{ font-size:var(--ds-text-meta); }
+
+/* 계정 메뉴(PC 사이드바 [계정 ▾]): 메뉴 줄 44px·13px·400, 로그아웃은 빨강. */
+.account-panel{ border-radius:var(--ds-radius-box); box-shadow:var(--kptu-shadow-float); }
+.account-panel .account-action{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
+.account-panel [data-kptu-logout]{ color:var(--kptu-danger); }
+.account-panel [data-drive-summary-status]{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+
+/* ☰ 메뉴 판(폰 [메뉴] 탭·761~1023px ☰): 제목 18px, 항목은 메뉴 줄(44px·13px·400, 줄 사이 0.5px), "계정"은 섹션 이름. */
+#appView .mobile-menu-panel .mobile-menu-head b{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
+#appView .mobile-menu-panel :is(nav,#mobileAccountGroup) button{ min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
+#appView .mobile-menu-panel nav button:not([hidden]) ~ button:not([hidden]){ border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
+#appView .mobile-menu-panel h2{ margin:4px 0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--ds-section-ink); }
+#appView .mobile-menu-panel [data-drive-summary-status]{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+
+/* PC 사이드바: 0.5px 상자·모서리 12px·그림자 없음, 메뉴 줄 13px(고른 화면만 500, 연한 계정 색 바탕). */
+@media(min-width:1024px){
+  #appView > .app-nav{ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; }
+  #appView > .app-nav .sidebar-brand{ border-bottom:var(--ds-line-width) solid var(--ds-line); font-weight:var(--ds-weight-medium); }
+  #appView > .app-nav .nav-btn{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
+  #appView > .app-nav .nav-btn.active{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); font-weight:var(--ds-weight-medium); }
+  /* [계정 ▾]도 메뉴와 같은 글자(13px·400). */
+  #appView > .app-nav .account-trigger{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }
+}
+
+/* 폰 머리줄·하단 탭: 화면 이름 18px·500, 탭 위 0.5px 선, 고른 탭은 500. */
+@media(max-width:760px){
+  /* 게시판 본문 전체 화면 창: [닫기]가 46px 버튼이 되어도 본문 칸막이가 줄지 않게 머리 위아래 여백만 줄인다. */
+  #appView #web1BoardDetailModal .w1b-detail-head{ min-height:0; padding-top:calc(4px + env(safe-area-inset-top)); padding-bottom:4px; }
+  #appView > .mobile-shell-header :is(time,[data-mobile-view-name]){ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; }
+  #appView > .mobile-tabs{ border-top:var(--ds-line-width) solid var(--ds-line); }
+  #appView > .mobile-tabs button:is([aria-current="page"],#mobileMenuTab[aria-expanded="true"]){ font-weight:var(--ds-weight-medium); }
+}

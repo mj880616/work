@@ -61,12 +61,16 @@
   --ds-recency-fresh:#2f9254;--ds-recency-warn:#dc8a1c;--ds-recency-stale:#c8372b;
   /* 3/3 2부(8-9e-2) 폰 배치: 하단 탭 바로 위에 떠 있는 동그란 [+](보이는 크기 36px, 누르는 범위 --kptu-touch-target 44px)와 탭 사이 간격. */
   --ds-fab-size:36px;--ds-fab-gap:12px;
+  /* 동그란 [+]의 + 아이콘(선 두 개, 가운데 정렬). 모양만 쓰고 색은 버튼 글자 색(--kptu-on-primary). */
+  --ds-fab-plus:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 3v14M3 10h14' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·성명·보도자료·게시판 본문은 다크 모드에서도 밝게 둔다. */
+  --ds-frame-paper:#ffffff;
 }
-/* 다크 모드: 2026-10-16 사용자 결정으로 전체 화면(3/3)이 끝날 때까지 꺼 둔다.
-   값은 지우지 않았다. 아래 선택자의 [data-ds-dark="on"] 조건을 지우면(또는 html에 그 속성을 붙이면) 다시 켜진다.
-   켜면 기기 설정이 어둡고 새 기준을 쓰는 화면(홈·바구니)이 보일 때만 바뀐다. */
+/* 다크 모드(3/3 8-9e-3에서 켬): 기기 설정이 어두우면 Web2 전체(창 포함)가 어두운 값으로 바뀐다.
+   값만 바꾸고 규칙은 그대로 토큰을 읽는다. 테마별로는 계정 색(--kptu-primary 계열)만 다시 정한다.
+   HWP 편집기 칸막이(iframe) 안과 사용자가 붙여 넣은 HTML 칸막이 안은 밝게 둔다(--ds-frame-paper). */
 @media (prefers-color-scheme:dark){
-  html[data-ds-dark="on"]:has(#homeView:not(.hidden)),html[data-ds-dark="on"]:has(#basketView:not(.hidden)){
+  :root{
     color-scheme:dark;
     --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;
     --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
@@ -91,14 +95,16 @@
     --ds-file-doc-soft:#22263b;--ds-file-doc-ink:#b4bff0;
     --ds-file-ppt-soft:#3a2816;--ds-file-ppt-ink:#f3b77e;
     --ds-recency-fresh:#86c79f;--ds-recency-warn:#e2b866;--ds-recency-stale:#f0918a;
+    /* 떠 있는 창·동그란 [+]의 그림자와 창 뒤 어둡게 하는 막은 어두운 바탕에서 보이도록 더 진하게. */
+    --kptu-shadow-float:0 8px 24px rgba(0,0,0,.45);--kptu-shadow-modal:0 18px 48px rgba(0,0,0,.55);
   }
-  html[data-ds-dark="on"][data-theme="navy"]:has(#homeView:not(.hidden)),html[data-ds-dark="on"][data-theme="navy"]:has(#basketView:not(.hidden)){
+  :root[data-theme="navy"]{
     --kptu-primary:#8fb4dc;--kptu-primary-hover:#a3c2e3;--kptu-primary-ink:#a6c6ea;--kptu-primary-soft:#1d2a3a;--kptu-link:#a6c6ea;
   }
-  html[data-ds-dark="on"][data-theme="terracotta"]:has(#homeView:not(.hidden)),html[data-ds-dark="on"][data-theme="terracotta"]:has(#basketView:not(.hidden)){
+  :root[data-theme="terracotta"]{
     --kptu-primary:#e39b6d;--kptu-primary-hover:#eaaf88;--kptu-primary-ink:#efb48d;--kptu-primary-soft:#3a2519;--kptu-link:#efb48d;
   }
-  html[data-ds-dark="on"][data-theme="sand"]:has(#homeView:not(.hidden)),html[data-ds-dark="on"][data-theme="sand"]:has(#basketView:not(.hidden)){
+  :root[data-theme="sand"]{
     --kptu-primary:#d8b67f;--kptu-primary-hover:#e2c597;--kptu-primary-ink:#e2c597;--kptu-primary-soft:#352b1b;--kptu-link:#e2c597;
   }
 }

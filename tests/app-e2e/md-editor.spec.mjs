@@ -164,3 +164,28 @@ test('md editor keeps native undo, keyboard shortcuts and Escape on a wide scree
  await expect(detail.locator('[data-basket-read-text]')).toBeHidden();
  expect(seen.writes).toEqual([]);expect(seen.errors).toEqual([]);
 });
+
+test('md editor follows dark mode through the theme tokens',async({page},info)=>{
+ await page.emulateMedia({colorScheme:'dark'});
+ await page.setViewportSize({width:390,height:860});const seen=await fixture(page);
+ const {editor,area,preview}=await openEditor(page,390);
+ // Every surface reads a --kptu-* token, so the dark values from theme-tokens.css apply without editor rules.
+ const colors=await editor.evaluate(el=>{
+  const root=getComputedStyle(document.documentElement),probe=document.createElement('div');document.body.append(probe);
+  const token=name=>{probe.style.color=`var(${name})`;return getComputedStyle(probe).color;};
+  const want={surface:token('--kptu-surface'),ink:token('--kptu-ink'),subtle:token('--kptu-surface-subtle')};probe.remove();
+  const text=el.querySelector('.md-editor-text'),bar=el.querySelector('.md-editor-bar'),tool=el.querySelector('.md-editor-tools button');
+  return {frame:[getComputedStyle(text).borderTopWidth,getComputedStyle(text).borderTopLeftRadius],scheme:root.colorScheme,want,shell:getComputedStyle(el).backgroundColor,text:getComputedStyle(text).backgroundColor,textInk:getComputedStyle(text).color,bar:getComputedStyle(bar).backgroundColor,toolInk:getComputedStyle(tool).color};
+ });
+ expect(colors.scheme).toContain('dark');
+ // The shared .modal textarea rule (ui-standard.css) must not frame the full-screen writing area.
+ expect(colors.frame).toEqual(['0px','0px']);
+ expect(colors.want.surface).toBe('rgb(31, 31, 27)');
+ expect(colors.shell).toBe(colors.want.surface);expect(colors.text).toBe(colors.want.surface);expect(colors.bar).toBe(colors.want.subtle);
+ expect(colors.textInk).toBe(colors.want.ink);expect(colors.toolInk).toBe(colors.want.ink);
+ await area.fill('# 어두운 화면\n\n> [!NOTE]\n> 강조 상자\n\n| 항목 | 내용 |\n| --- | --- |\n| 가 | 나 |');
+ await press(page,tool(editor,'미리보기'),390);await expect(preview.locator('h1')).toHaveText('어두운 화면');
+ expect(await preview.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(colors.want.surface);
+ await page.screenshot({path:info.outputPath('md-editor-dark-390.png')});
+ expect(seen.external).toEqual([]);expect(seen.errors).toEqual([]);
+});

@@ -63,22 +63,24 @@ for(const width of [390,1440])test('compact board cards show only their title an
     const selector='[data-web1-board-title="'+item.title+'"]';
     const card=page.locator(selector);
     await expect(card.locator('h3')).toBeVisible();
-    await expect(card.locator('h3')).toHaveCSS('font-size','16px');
+    await expect(card.locator('h3')).toHaveCSS('font-size','13px'); // 8-9e-3: 목록 줄 이름 13px
     await expect(card.locator('h3')).toHaveCSS('margin','0px');
     await expect(card.locator('.w1b-card-top')).toBeHidden();
     await expect(card.locator('p')).toBeHidden();
     await expect(card.locator('.w1b-open')).toBeHidden();
     await expect(card).toHaveAccessibleName(item.title);
     await expect(card).toMatchAriaSnapshot('- button "'+item.title+'"');
-    await expect(card).toHaveCSS('padding','14px 16px');
-    await expect(card).toHaveCSS('border-radius','12px');
+    // UI-디자인기준 3/3 3부(8-9e-3): 카드 대신 상자 안 줄(위아래 9px·좌우 12px, 모서리 없음, 줄 44px).
+    await expect(card).toHaveCSS('padding','9px 12px');
+    await expect(card).toHaveCSS('border-radius','0px');
     expect((await card.boundingBox()).height).toBeLessThan((await baseline.locator(selector).boundingBox()).height);
   }
   for(const id of ['web1BoardActive','web1BoardArchived']){
     const grid=page.locator('#'+id);
     await expect(grid).toHaveCSS('gap','10px');
     const columns=await grid.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length);
-    expect(columns).toBe(width===390?1:2);
+    // 8-9e-3: PC도 한 상자 안 줄 목록(격자 대신 블록).
+    expect(await grid.evaluate(el=>getComputedStyle(el).display)).toBe('block');void columns;
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(0);
   const modal=page.locator('#web1BoardDetailModal');
