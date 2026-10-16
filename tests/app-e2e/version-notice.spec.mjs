@@ -112,7 +112,7 @@ test('project draft uses existing confirmDiscard; accepting reloads',async({page
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await clickView(page,'projects');
   await page.locator('[data-ps3-project="version-project"]').first().click();
-  const field=page.locator('[data-ps3-quick-progress] input').first();await expect(field).toBeVisible();await field.fill('QA draft');
+  const field=page.locator('[data-ps3-record-input] input');await expect(field).toBeVisible();await field.fill('QA draft');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
   expect(message).toBe('저장하지 않은 프로젝트 내용이 있습니다. 이동하면서 버릴까요?');await expect(field).toHaveValue('QA draft');
@@ -163,9 +163,11 @@ test('folded project memo still confirms before reload',async({page})=>{
 });
 test('saved workstream reopened without edits reloads without confirmation',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
-  await page.locator('[data-ps3-edit-ws="version-stream"]').click();await page.locator('#ps3WsTitle').fill('Saved stream');await page.locator('#ps3WsSave').click();
-  await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();await expect(page.locator('[data-ps3-edit-ws="version-stream"]')).toHaveAttribute('aria-label',/수정/);
-  await page.locator('[data-ps3-edit-ws="version-stream"]').click();await expect(page.locator('#ps3WsTitle')).toHaveValue('Saved stream');
+  // PRJ-기록입력: an old progress item without records is a record line; its menu 수정 opens the same workstream editor.
+  const editStream=async()=>{await page.locator('[data-ps3-record="version-stream"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정'}).click();await expect(page.locator('#ps3WorkstreamModal')).toBeVisible()};
+  await editStream();await page.locator('#ps3WsTitle').fill('Saved stream');await page.locator('#ps3WsSave').click();
+  await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();await expect(page.locator('[data-ps3-record="version-stream"]')).toContainText('Saved stream');
+  await editStream();await expect(page.locator('#ps3WsTitle')).toHaveValue('Saved stream');
   const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());return d.dismiss()});const reload=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reload;expect(dialogs).toEqual([]);
 });

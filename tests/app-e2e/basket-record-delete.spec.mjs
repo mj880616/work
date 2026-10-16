@@ -18,11 +18,11 @@ async function ready(page,mode){const errors=[];page.on('pageerror',e=>errors.pu
  await page.evaluate(()=>{const s=window.__detailState;s.notes[0].attachments=[{drive_file_id:'f1',file_name:'사진.jpg',mime_type:'image/jpeg',size_bytes:10}];s.notes[0].updated_at='2026-10-11T01:00:00Z';s.notes.push({id:'10000000-0000-4000-8000-000000000009',workspace_id:'detail-workspace',occurred_at:'2026-10-09T01:00:00Z',raw_text:'다른 메모',attachments:[]});s.links.push({id:'40000000-0000-4000-8000-000000000009',note_id:'10000000-0000-4000-8000-000000000009',source_type:'note',workspace_id:'detail-workspace',organization_id:s.ids.org,project_id:null,status:'confirmed',summary:'다른 메모 요약'});window.__linkEvents=0;addEventListener('kptu:basket-links-changed',()=>window.__linkEvents++);});
  return errors;}
 async function open(page,kind){await page.evaluate(kind=>{const s=window.__detailState;if(kind==='project')for(const row of s.links){row.project_id=s.ids.project;row.organization_id=null}return kind==='organization'?window.KPTUWorkplace.open(s.ids.org):window.KPTUProjects.open(s.ids.project)},kind);
- const host=page.locator(kind==='organization'?'#wdUpdates':'#ps3BasketLinks');if(kind==='project')await host.locator('summary').click();await expect(host.locator('[data-basket-link]')).toHaveCount(3);return host;}
+ const host=page.locator(kind==='organization'?'#wdUpdates':'#ps3-progress [data-ps3-records]');await expect(host.locator('[data-basket-link]')).toHaveCount(3);return host;}
 const ids=page=>page.evaluate(()=>window.__detailState.ids);
 const deletes=page=>page.evaluate(()=>(window.__detailState.deletes||[]).map(path=>{const u=new URL(path,'https://fixture.invalid');return {table:u.pathname.split('/').pop(),params:Object.fromEntries(u.searchParams)};}));
 
-for(const width of [390,1280])for(const kind of ['organization','project'])test(`${kind} disconnect removes only that link row ${width}`,async({page},info)=>{
+for(const width of [390,1280])for(const kind of ['organization'])test(`${kind} disconnect removes only that link row ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,kind),{link,nullLink,note}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
  await expect(row.getByRole('button',{name:'연결 해제'})).toBeVisible();await expect(row.getByRole('button',{name:'원문 삭제'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -36,7 +36,7 @@ for(const width of [390,1280])for(const kind of ['organization','project'])test(
  await expect.poll(()=>page.evaluate(()=>window.__linkEvents)).toBeGreaterThan(0);expect(errors).toEqual([]);
 });
 
-for(const kind of ['organization','project'])test(`${kind} cancel on either confirmation changes nothing`,async({page})=>{
+for(const kind of ['organization'])test(`${kind} cancel on either confirmation changes nothing`,async({page})=>{
  const errors=await ready(page),host=await open(page,kind),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
  for(const name of ['연결 해제','원문 삭제']){page.once('dialog',d=>d.dismiss());await row.getByRole('button',{name}).click();await expect(row.getByRole('button',{name})).toBeEnabled();await expect(row.getByRole('button',{name})).toBeFocused();}
  await expect(host.locator('[data-basket-link]')).toHaveCount(3);await expect(row.locator('[data-link-action-status]')).toBeHidden();expect(await deletes(page)).toEqual([]);
@@ -63,10 +63,11 @@ test('organization original delete on a server that does not know note-delete fa
  expect(await deletes(page)).toEqual([{table:'app_notes',params:{id:'eq.'+note,workspace_id:'eq.detail-workspace',select:'id'}}]);expect(errors).toEqual([]);
 });
 
-test('project original delete uses the same confirmation and keeps other notes',async({page})=>{
- const errors=await ready(page),host=await open(page,'project'),{nullLink}=await ids(page);
- page.once('dialog',d=>d.accept());await host.locator(`[data-basket-link="${nullLink}"]`).getByRole('button',{name:'원문 삭제'}).click();
- await expect(host.locator('[data-basket-link]')).toHaveCount(1);await expect(host).toContainText('다른 메모 요약');expect(errors).toEqual([]);
+for(const width of [390,1280])test(`project basket rows have no disconnect or delete; they only open the memo ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,'project'),{link}=await ids(page);
+ await expect(host.getByRole('button',{name:'연결 해제'})).toHaveCount(0);await expect(host.getByRole('button',{name:'원문 삭제'})).toHaveCount(0);await expect(host.locator('[data-link-disconnect],[data-link-note-delete],[data-link-summary-edit]')).toHaveCount(0);
+ await expect(host.locator(`[data-basket-link="${link}"]`)).toHaveAttribute('href',/view=basket&note=/);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(await page.evaluate(()=>window.__detailState.links.length)).toBe(3);expect(errors).toEqual([]);
 });
 
 for(const name of ['연결 해제','원문 삭제'])test(`${name} failure keeps the row and explains in plain words`,async({page})=>{

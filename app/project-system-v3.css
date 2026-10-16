@@ -137,8 +137,6 @@
 .ps3-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--kptu-space-2)}
 .ps3-title-wrap{flex:1 1 auto}
 .ps3-title-wrap h2{overflow-wrap:anywhere}
-.ps3-objective{margin:2px 0 0;font-size:12px;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ps3-objective:empty{display:none}
 .ps3-head-actions{display:flex;flex:0 0 auto;gap:var(--kptu-space-1);align-items:center}
 .ps3-more{position:relative}
 .ps3-more>summary{list-style:none;cursor:pointer;font-size:18px;line-height:1}
@@ -150,30 +148,13 @@
 .ps3-count{margin-left:2px;font-size:12px;font-weight:600;color:var(--kptu-faint)}
 .ps3-text-btn{flex:0 0 auto;min-height:32px;border:0;background:transparent;color:var(--kptu-link);padding:0 var(--kptu-space-1);font-size:12px;font-weight:700;cursor:pointer}
 .ps3-text-btn:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
-.ps3-child-rows,.ps3-pg-list{display:grid}
+.ps3-child-rows{display:grid}
 .ps3-child-link{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--kptu-space-2);align-items:center;width:100%;min-height:44px;border:0;border-top:1px solid var(--kptu-border);background:transparent;color:var(--kptu-ink);padding:var(--kptu-space-2) 0;text-align:left}
-.ps3-child-link:first-child,.ps3-pg-item:first-child{border-top:0}
+.ps3-child-link:first-child{border-top:0}
 .ps3-child-link strong{min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps3-child-link small{font-size:11px;color:var(--kptu-muted);white-space:nowrap}
 .ps3-child-link>span{color:var(--kptu-faint)}
 .ps3-child-link:hover{background:var(--kptu-surface-subtle)}
-.ps3-pg-item{min-width:0;border-top:1px solid var(--kptu-border);padding:var(--kptu-space-2) 0}
-.ps3-pg-details>summary{list-style:none;display:grid;gap:3px;cursor:pointer;min-width:0}
-.ps3-pg-details>summary::-webkit-details-marker{display:none}
-.ps3-pg-line1{display:flex;align-items:center;gap:6px;min-width:0}
-.ps3-pg-title{flex:1 1 auto;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ps3-pg-count{flex:0 0 auto;font-size:11px;color:var(--kptu-faint)}
-.ps3-pg-line2{display:flex;gap:var(--kptu-space-2);min-width:0;font-size:12px;color:var(--kptu-muted)}
-.ps3-pg-summary{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ps3-pg-line2 time{flex:0 0 auto;color:var(--kptu-faint)}
-.ps3-pg-details>summary{min-height:var(--kptu-touch-target);align-items:center}
-.ps3-pg-quick{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-top:6px}
-.ps3-pg-quick input{margin:0;min-width:0;min-height:36px}
-.ps3-pg-quick .mini{min-height:36px}
-.ps3-pg-history{display:grid;gap:var(--kptu-space-2);margin-top:var(--kptu-space-2);padding:var(--kptu-space-2) var(--kptu-space-3);background:var(--kptu-surface-subtle);border-radius:var(--kptu-radius-md)}
-.ps3-pg-record time{font-size:11px;color:var(--kptu-faint)}
-.ps3-pg-record p{margin:2px 0 0;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
-.ps3-pg-record .ps3-pg-next{color:var(--kptu-muted)}
 .ps3-pg-actions{display:flex;gap:var(--kptu-space-2);align-items:center}
 .ps3-row-main>b{display:block;font-size:12px;overflow-wrap:anywhere}
 .ps3-row-actions{display:flex;flex:0 0 auto;gap:var(--kptu-space-1);align-items:flex-start}
@@ -183,43 +164,23 @@
 .ps3-fold[open]>summary::after{transform:rotate(180deg)}
 .ps3-fold-body{margin-top:var(--kptu-space-2)}
 .ps3-fold-actions{display:flex;justify-content:flex-end}
-.ps3-pg-details>summary:focus-visible,.ps3-fold>summary:focus-visible,.ps3-child-link:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
 
-.ps3-pg-record{min-width:0}
-.ps3-pg-record .ps3-text-btn{min-width:var(--kptu-touch-target);min-height:var(--kptu-touch-target)}
 .ps3-pg-editor input{min-width:0;width:100%;margin:0}
 
-/* D-3e record actions: painted 32px, transparent 44px hit area. */
-.ps3-pg-record-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
-.ps3-record-trigger{flex:none;width:32px;height:32px;min-width:32px;min-height:32px;color:var(--kptu-muted);background:transparent;border:0}
 .ps3-record-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
 .ps3-record-menu[hidden]{display:none}
 .ps3-record-menu button{display:block;width:100%;height:44px;min-height:44px;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
 .ps3-record-menu button:hover{background:var(--kptu-surface-subtle)}
 .ps3-record-menu .ps3-record-danger{color:var(--kptu-danger)}
-.ps3-record-menu button:focus-visible,.ps3-record-trigger:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
+.ps3-record-menu button:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 #ps3DetailModal :is(.ps3-summary b,.ps3-stat-grid b,.ps3-row-main>b,.ps3-row-title b){font-size:var(--kptu-text-body)}
-#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective){font-size:var(--kptu-text-body)}
+#ps3DetailModal #ps3Summary{font-size:var(--kptu-text-body)}
 #ps3DetailModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
 #ps3ArchiveModal .ps3-prow-meta{font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 #ps3CreateModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
-.ps3-basket-links{margin-top:14px;min-width:0;max-width:100%}
-.ps3-basket-links>summary{cursor:pointer;min-height:44px;align-content:center;color:var(--kptu-muted)}
-.ps3-basket-links .basket-link-record{min-width:0;max-width:100%;box-sizing:border-box;padding:10px;margin-top:7px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
-.ps3-basket-links .basket-link-record small{color:var(--kptu-muted)}
-.ps3-basket-links .basket-link-record p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:7px 0}
-.ps3-basket-links .basket-link-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.ps3-basket-links .basket-link-actions :is(button,a),.ps3-basket-links [data-link-summary-current],.ps3-basket-links [data-ps3-basket-retry]{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
-.ps3-basket-links [data-link-summary-form]{margin-top:10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
-.ps3-basket-links [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
-.ps3-basket-links :is(summary,button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 
-#ps3BasketLinks .basket-link-actions a{color:var(--kptu-primary-ink);text-decoration:none}
-.ps3-basket-links [data-link-summary-original] > summary{min-height:44px;align-content:center;cursor:pointer}
-.ps3-basket-links .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
-.ps3-basket-links [data-link-summary-form] .basket-link-actions{justify-content:flex-end}
 /* PRJ-색: 이름 앞 8px 점. 메인은 고른 색, 하위는 메인 색의 연한 톤, 색 없으면 회색. 값은 theme-tokens.css의 --ds-project-*. */
 .ps3-color-dot{display:inline-block;width:8px;height:8px;flex:0 0 8px;border-radius:999px;background:var(--ds-project-gray)}
 .ps3-color-dot[data-color="green"]{background:var(--ds-project-green)}.ps3-color-dot[data-color="green"][data-tone="soft"]{background:var(--ds-project-green-soft)}
@@ -246,3 +207,34 @@
 .ps3-color-swatch[data-color="pink"]{background:var(--ds-project-pink)}.ps3-color-swatch[data-color="yellow"]{background:var(--ds-project-yellow)}
 .ps3-color-swatch[data-color="red"]{background:var(--ds-project-red)}
 .ps3-color-option[aria-checked="true"] .ps3-color-swatch{outline:2px solid var(--kptu-ink);outline-offset:2px}
+/* PRJ-기록입력: 머리줄 아래 요약 한 줄, 맨 위 입력칸 + [기록], 기록 목록 하나(최신 위·🧺 포함), 묶음 제목 옆 작은 +, 자료는 줄 누르기 + ⋯. */
+.ps3-head-summary{margin:2px 0 0;line-height:1.45;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps3-head-summary:empty{display:none}
+.ps3-record-input{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin:0 0 var(--kptu-space-3)}
+.ps3-record-input input{margin:0;min-width:0}
+.ps3-record-input+[data-ps3-save-state]:empty{display:none}
+.ps3-rec-list{display:grid}
+.ps3-rec-list>.ps3-rec{min-width:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ps3-rec-list>.ps3-rec:first-child{border-top:0}
+.ps3-rec-line{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:baseline;width:100%;min-height:var(--kptu-touch-target);box-sizing:border-box;padding:11px 0;border:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);line-height:1.45;text-align:left;text-decoration:none;cursor:pointer}
+.ps3-rec-line:hover{background:var(--kptu-surface-subtle)}
+.ps3-rec-line:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.ps3-rec-line time{min-width:3.4em;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint);white-space:nowrap}
+.ps3-rec-text{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.ps3-rec-from,.ps3-rec-next{color:var(--kptu-muted)}
+.ps3-rec-from::after{content:' ·'}
+.ps3-rec-empty{margin:0;padding:18px 0;text-align:center;color:var(--kptu-faint);font-size:var(--ds-text-row,13px)}
+.ps3-rec .ps3-pg-editor{padding:6px 0}
+.ps3-add-plus{flex:0 0 auto;display:inline-grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:-8px -8px -8px 0;padding:0;border:0;border-radius:999px;background:transparent;color:var(--kptu-link);font-size:22px;font-weight:400;line-height:1;cursor:pointer}
+.ps3-add-plus:hover{background:var(--kptu-surface-subtle)}
+.ps3-add-plus:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.ps3-section-actions{display:flex;align-items:center;gap:var(--kptu-space-1)}
+.ps3-lines{display:grid}
+.ps3-line{display:flex;align-items:center;gap:4px;min-width:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ps3-line:first-child{border-top:0}
+.ps3-line-main{flex:1 1 auto;display:grid;gap:2px;min-width:0;min-height:var(--kptu-touch-target);box-sizing:border-box;padding:8px 0;color:var(--kptu-ink);text-decoration:none}
+a.ps3-line-main:hover{background:var(--kptu-surface-subtle)}
+a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.ps3-line-main b{min-width:0;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps3-line-main small{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#ps3DetailModal .ps3-line-more>summary{display:grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0;border-color:transparent;background:transparent;box-shadow:none;color:var(--kptu-muted)}
