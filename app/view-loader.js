@@ -20,16 +20,16 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=18','./markdown-view.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=4'],
-  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26','./ui-standard.css?v=4'],
-  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=4'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=4'],
-  projects:['./project-system-v3.css?v=27','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=4'],
-  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2'],
-  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26'],
+  basket:['./basket.css?v=18','./markdown-view.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=5'],
+  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26','./ui-standard.css?v=5'],
+  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=5'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=5'],
+  projects:['./project-system-v3.css?v=27','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=5'],
+  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2','./ui-standard.css?v=5'],
+  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26','./ui-standard.css?v=5'],
   media:['./web1-press.css?v=4'],
   pages:['./web1-board.css?v=7'],
-  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26'],
+  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26','./ui-standard.css?v=5'],
   hwp:['./hwp-lab.css?v=3']
 };
 async function prepare(view){
@@ -77,7 +77,7 @@ async function calendar(){
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js?v=17','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);
-  background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=28','__KPTU_SUBORGANIZATIONS_READY__')));
+  background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=29','__KPTU_SUBORGANIZATIONS_READY__')));
   background(module('./google-calendar-return-status.js?v=1'));
   // Google tasks by due date (CAL-할일) come after the first screen is shown and painted, so they never hold it: the task
   // editor's style and modules, then the calendar's task list. The task view and project/organization details load the same
@@ -101,13 +101,13 @@ async function projects(){
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=37');
-  await module('./project-system-v3.js?v=58','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=59','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=3');
-  await module('./library-upload.js?v=32','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=33','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
@@ -128,7 +128,7 @@ async function pages(){
 }
 async function organizations(){
   await organizationOrder();
-  await module('./suborganizations.js?v=28','__KPTU_SUBORGANIZATIONS_READY__');
+  await module('./suborganizations.js?v=29','__KPTU_SUBORGANIZATIONS_READY__');
   // The organization detail shows linked Google tasks and opens the Google task editor (TASK-조직상세).
   await module('./project-catalog.js?v=3');
   await module('./google-tasks.js?v=37');
@@ -144,7 +144,7 @@ async function home(){
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
-async function basket(){ await module('./basket.js?v=39'); return {ok:true} }
+async function basket(){ await module('./basket.js?v=40'); return {ok:true} }
 // HWP-편집기(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
 async function hwpLab(){ await module('./hwp-lab.js?v=4','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab};

@@ -1,13 +1,13 @@
 import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
 import { mountQuick } from './home-quick.js?v=17';
-import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=15';
-import { mountClassification } from './basket-classification-ui.js?v=14';
+import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=16';
+import { mountClassification } from './basket-classification-ui.js?v=15';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=4';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest } from './basket-note-tasks.js?v=2';
 import { mountWriteRequest, noteWriteRequest } from './basket-write-request.js?v=1';
 import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
-import { mountManualLink } from './basket-manual-link.js?v=5';
+import { mountManualLink } from './basket-manual-link.js?v=6';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js?v=2';

@@ -51,8 +51,21 @@ test('full browser and Edge rendered record guide match while raw source and not
   assert.ok(copy.includes('본문 시작\n\n'+raw+'\n\n본문 끝'));
   assert.ok(decode(html).includes(raw));
   assert.deepEqual(parseAIAnswer(guide),{schema_version:1,copied_at:now.toISOString(),items:[]});
-  assert.ok(guide.includes("아래 블록을 복사해서 바구니의 'AI 정리 결과 넣기'에 붙여 넣으세요"));
+  assert.ok(guide.includes("아래 블록을 복사해서 바구니의 '분류 결과 입력'에 붙여 넣으세요"));
+  assert.ok(!guide.includes('AI 정리 결과'));
   for(const cap of ['100개','20개','1~2000자','1048576바이트'])assert.ok(guide.includes(cap),cap);
+});
+
+// UI-디자인기준 3/3: the guide names the renamed button [분류 결과 입력]. The browser copy and the Edge Drive copy are deployed
+// separately (Pages on merge, drive-summary by the approval button), so either copy may still carry the old name for a while.
+// The sentence is prose for the person; the parser reads only the block, so an answer echoing either name is accepted the same way.
+test('answers echoing the old or the new paste-button name parse identically during the deploy gap',()=>{
+  const block='```json\n'+JSON.stringify({schema_version:1,copied_at:now.toISOString(),items:[]})+'\n```';
+  const results=['AI 정리 결과 넣기','분류 결과 입력'].map(name=>parseAIAnswer(`요약: 한빛지부 → 기자회견\n아래 블록을 복사해서 바구니의 '${name}'에 붙여 넣으세요\n${block}`));
+  assert.deepEqual(results[0],results[1]);
+  assert.deepEqual(results[1],{schema_version:1,copied_at:now.toISOString(),items:[]});
+  const old=classificationFormat(now).replace("'분류 결과 입력'","'AI 정리 결과 넣기'");
+  assert.deepEqual(parseAIAnswer(old),parseAIAnswer(classificationFormat(now)));
 });
 
 test('record guide change preserves five-kind parser compatibility and organization export eligibility',()=>{

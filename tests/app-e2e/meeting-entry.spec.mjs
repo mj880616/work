@@ -253,7 +253,8 @@ test('meeting list uses canonical meeting names without title-series duplication
   expect(box.height).toBeLessThanOrEqual(60);
 });
 
-const stripe=row=>row.evaluate(el=>getComputedStyle(el).borderLeftColor);
+// UI-디자인기준 3/3(8-9e-1): the meeting color is the 8px dot before the name (it was the row's left stripe).
+const stripe=row=>row.evaluate(el=>getComputedStyle(el.querySelector('.meeting-list-title'),'::before').backgroundColor);
 const rgb=hex=>`rgb(${[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', ')})`;
 
 const neutral=page=>page.evaluate(()=>{const probe=document.createElement('i');probe.style.color='#808080';document.body.append(probe);const c=getComputedStyle(probe).color;probe.remove();return c});
@@ -284,7 +285,7 @@ test('meeting names keep colors after reload and after older meetings are added'
   expect(original.a1).toBe(original.a2);
   expect(original.a2).toBe(original.a3);
   for(const color of Object.values(original))expect(P.map(rgb)).toContain(color);
-  expect(await byId('a1').evaluate(el=>getComputedStyle(el).borderLeftWidth)).toBe('4px');
+  expect(await byId('a1').evaluate(el=>{const s=getComputedStyle(el.querySelector('.meeting-list-title'),'::before');return [s.width,s.height,s.borderRadius]})).toEqual(['8px','8px','50%']);
   expect(await stripe(byId('none'))).toBe(await neutral(page));
   // Second line: round · date · materials only.
   await expect(byId('a3').locator('p')).toHaveText(/^3차 · .+ · 자료 1개$/);
@@ -455,20 +456,21 @@ for(const width of [320,360,390,768,1280]){
     await expect(button).toBeVisible();
     const head=page.locator('#meetingsListCard .add-list-head');
     const [b,s,h,btn]=await Promise.all([bar.boundingBox(),select.boundingBox(),head.boundingBox(),button.boundingBox()]);
-    expect(btn.height).toBeCloseTo(36,0);
-    expect(s.height).toBeCloseTo(44,0);
+    // UI-디자인기준 3/3(8-9e-1): one control height (--ds-control-height 46px) for the add button and the filter buttons.
+    expect(btn.height).toBeCloseTo(46,0);
+    expect(s.height).toBeCloseTo(46,0);
     expect(s.x).toBeCloseTo(b.x,0);
     expect(s.width).toBeLessThanOrEqual(b.width);
     expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0);
     expect(btn.y).toBeGreaterThanOrEqual(h.y);
     expect(btn.y+btn.height).toBeLessThanOrEqual(h.y+h.height);
-    expect(b.height).toBeCloseTo(44,0);
+    expect(b.height).toBeCloseTo(46,0);
     expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
     const row=page.locator('#meetingList .meeting-list-row').first();
-    const fit=await row.evaluate(el=>{const main=el.querySelector('.meeting-list-main').getBoundingClientRect(),box=el.getBoundingClientRect(),cs=getComputedStyle(el);return {row:box.height,content:main.height+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+parseFloat(cs.borderBottomWidth)}});
+    const fit=await row.evaluate(el=>{const main=el.querySelector('.meeting-list-main').getBoundingClientRect(),box=el.getBoundingClientRect(),cs=getComputedStyle(el);return {row:box.height,content:main.height+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+parseFloat(cs.borderTopWidth)}});
     expect(Math.abs(fit.row-fit.content)).toBeLessThanOrEqual(1);
-    // D-3d: 16px title + 12px metadata, with the existing line-height, padding and border.
-    expect(fit.row).toBeCloseTo(16*1.35+12*1.4+2+16+1,0);
+    // UI-디자인기준 3/3: 13px name + 12px metadata (line height 1.4), 9px row padding, first row without a line, at least 44px.
+    expect(fit.row).toBeCloseTo(13*1.4+12*1.4+2+18,0);expect(fit.row).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   });
 }

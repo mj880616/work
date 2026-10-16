@@ -213,11 +213,11 @@ function ensureUi(){if($('#ps3DetailModal'))return;document.body.insertAdjacentH
 <div id="ps3ArchiveModal" class="modal hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="ps3ArchiveHeading"><div class="modal-card small-card"><div class="modal-head"><div><h2 id="ps3ArchiveHeading">보관한 프로젝트</h2></div><button class="icon-btn" data-ps3-close="ps3ArchiveModal" aria-label="닫기">×</button></div><p class="muted">삭제하지 않고 목록에서만 숨긴 프로젝트입니다.</p><div id="ps3ArchiveList" class="ps3-archive-list"></div></div></div>`)}
 // D-project-list: names first; optional metadata has one run owner, shared with archive rows.
 let listCounts={},summaryRun=0;
-function summaryHtml(id){const c=listCounts[id]||{},at=c.progress,days=c.milestone?Math.round((Date.parse(dayKey(Date.parse(c.milestone)))-Date.parse(dayKey()))/86400000):null;
+function summaryHtml(id){const c=listCounts[id]||{},days=c.milestone?Math.round((Date.parse(dayKey(Date.parse(c.milestone)))-Date.parse(dayKey()))/86400000):null;
  // UI-디자인기준-2: the right pill is the D-day of the project's next milestone (same read and rule as the home D-day chips: nearest
  // unfinished milestone from today, "D-day" today, red within 3 days). "일정 없음" only after the read answered; nothing while loading.
- const dday=days!==null&&days>=0?`<span class="ps3-dday${days<=3?' ps3-dday-soon':''}" aria-label="다음 주요 일정 ${days===0?'오늘':days+'일 후'}">${days===0?'D-day':'D-'+days}</span>`:'milestone' in c?'<span class="ps3-dday ps3-dday-none" aria-label="다음 주요 일정 없음">일정 없음</span>':'';
- return `${c.tasks?`<span class="kptu-list-task-count${c.overdue?' kptu-list-overdue':''}" aria-label="미완료 할 일 ${c.tasks}개${c.overdue?', 기한 지남 포함':''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>${c.tasks}</span>`:''}${at?`<time datetime="${esc(at)}" aria-label="최근 진행 기록 ${esc(at)}">${Number(at.slice(5,7))}.${Number(at.slice(8,10))}</time>`:''}${dday}`
+ // UI-디자인기준-3: the list shows only this pill. Open-task counts and the last record date stay in the project detail.
+ return days!==null&&days>=0?`<span class="ps3-dday${days<=3?' ps3-dday-soon':''}" aria-label="다음 주요 일정 ${days===0?'오늘':days+'일 후'}">${days===0?'D-day':'D-'+days}</span>`:'milestone' in c?'<span class="ps3-dday ps3-dday-none" aria-label="다음 주요 일정 없음">일정 없음</span>':''
 }
 function listRowHtml(p,ch,{open=true,trail=''}={}){
  const row=(x,child=false,tail='')=>{const main=`<span class="kptu-list-row-main"><span class="ps3-prow-name kptu-list-name">${esc(x.name)}</span><span class="ps3-prow-meta kptu-list-summary" data-ps3-summary="${esc(x.id)}">${summaryHtml(x.id)}</span><span class="kptu-list-chevron" aria-hidden="true">›</span></span>`;
@@ -229,30 +229,15 @@ async function loadListSummaries(listed){
  const run=++summaryRun,epoch=projectEpoch,owner=user?.id,workspace=wid;
  if(!listed.length)return;
  const current=()=>run===summaryRun&&epoch===projectEpoch&&user?.id===owner&&wid===workspace;
- const taskRead=async()=>{
-  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=37');
-  const g=window.KPTUGoogleTasks;if(!current()||!g?.listTasks)return;
-  const fill=async d=>{
-   if(d?.owner!==owner)return;
-   if(d.status==='disconnected'){if(current()){for(const c of Object.values(listCounts)){delete c.tasks;delete c.overdue}paintSummaries()}return}
-   const links=await g.readLinks(d.tasks),pending=new Map(d.tasks.filter(t=>t.status!=='completed').map(t=>[t.id,t])),by=new Map();
-   if(!current())return;
-   for(const l of links){if(l.status!=='confirmed'||!l.project_id||!pending.has(l.google_task_id))continue;if(!by.has(l.project_id))by.set(l.project_id,new Set());by.get(l.project_id).add(l.google_task_id)}
-   for(const p of listed){const ids=by.get(p.id);listCounts[p.id]={...listCounts[p.id],tasks:ids?.size||0,overdue:ids?[...ids].some(id=>g.isOverdue(pending.get(id))):false}}paintSummaries();
-  };
-  const cached=g.peekTasks();if(cached?.owner===owner)await fill(cached).catch(()=>{});
-  await fill(await g.listTasks());
- };
- const dateRead=async()=>{
-  // PostgREST per-parent embedded limits: latest record and nearest nonterminal milestone, one HTTP read.
-  // Column hints distinguish milestone.project_id from milestone.child_project_id. No inner join: empty projects remain.
-  const q=new URLSearchParams({workspace_id:'eq.'+workspace,owner_id:'eq.'+owner,id:'in.('+listed.map(p=>p.id).join(',')+')',select:'id,progress:app_project_progress_updates!project_id(effective_on),milestones:app_project_milestones!project_id(start_at)',
-   'progress.order':'effective_on.desc,created_at.desc','progress.limit':'1','milestones.order':'start_at.asc','milestones.limit':'1',
-   'milestones.start_at':'gte.'+new Date(ranges().start).toISOString(),'milestones.or':'(status.is.null,status.not.in.(done,completed,cancelled,canceled))'});
+ // PostgREST per-parent embedded limit: nearest nonterminal milestone, one HTTP read. The column hint distinguishes
+ // milestone.project_id from milestone.child_project_id. No inner join: empty projects remain.
+ const q=new URLSearchParams({workspace_id:'eq.'+workspace,owner_id:'eq.'+owner,id:'in.('+listed.map(p=>p.id).join(',')+')',select:'id,milestones:app_project_milestones!project_id(start_at)',
+  'milestones.order':'start_at.asc','milestones.limit':'1',
+  'milestones.start_at':'gte.'+new Date(ranges().start).toISOString(),'milestones.or':'(status.is.null,status.not.in.(done,completed,cancelled,canceled))'});
+ try{
   const rows=await api('/rest/v1/app_spaces?'+q);if(!current())return;
-  for(const p of listed){const row=(rows||[]).find(x=>x.id===p.id),at=row?.progress?.[0]?.effective_on,milestone=row?.milestones?.[0]?.start_at;listCounts[p.id]={...listCounts[p.id],progress:/^\d{4}-\d{2}-\d{2}$/.test(at||'')?at:null,milestone:Number.isFinite(Date.parse(milestone))?milestone:null}}paintSummaries();
- };
- await Promise.allSettled([taskRead(),dateRead()]);
+  for(const p of listed){const milestone=(rows||[]).find(x=>x.id===p.id)?.milestones?.[0]?.start_at;listCounts[p.id]={...listCounts[p.id],milestone:Number.isFinite(Date.parse(milestone))?milestone:null}}paintSummaries();
+ }catch{}
 }
 async function renderGrid({isCurrent=()=>true}={}){
  const grid=$('#projectGrid');if(!grid)return;

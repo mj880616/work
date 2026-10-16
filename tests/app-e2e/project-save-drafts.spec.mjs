@@ -41,7 +41,7 @@ async function fixture(page,width=390){
     const rows=state.tables[table];let result;
     if(method==='GET'){
       result=matching(rows,url.searchParams);
-      if(table==='app_spaces'&&url.searchParams.get('select')?.includes('progress:'))result=result.map(row=>({id:row.id,progress:state.tables.app_project_progress_updates.filter(p=>p.project_id===row.id).slice(0,1),milestones:[]}));
+      if(table==='app_spaces'&&url.searchParams.get('select')?.includes('milestones:'))result=result.map(row=>({id:row.id,progress:state.tables.app_project_progress_updates.filter(p=>p.project_id===row.id).slice(0,1),milestones:[]}));
     }else if(method==='POST'){
       const created=(Array.isArray(body)?body:[body]).map(row=>({...row,id:row.id||'synthetic-row-'+(++state.serial),created_at:stamp,updated_at:stamp}));
       if(!rule||rule.apply)rows.push(...created);

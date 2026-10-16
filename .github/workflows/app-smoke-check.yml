@@ -385,7 +385,7 @@ jobs:
           if grep -q "data-ps3-kids-toggle" app/project-system-v3.js; then echo 'project child toggle returned'; exit 1; fi
           grep -q 'data-ps3-total' app/project-system-v3.js
           grep -q 'ps3-prow-kids' app/project-system-v3.js
-          grep -q 'progress.limit' app/project-system-v3.js
+          grep -q 'milestones.limit' app/project-system-v3.js
           grep -q 'kptu-list-row' app/project-system-v3.js
           grep -q 'kptu-list-row' app/suborganizations.js
           grep -q ".ps3-plist" app/project-system-v3.css

@@ -1,12 +1,13 @@
 /* UI-디자인기준(8-9c) 1단계: 새 디자인 기준을 홈·바구니에만 적용한다.
    값은 theme-tokens.css의 --ds-* 한 곳에서 가져오고, 규칙은 모두 #homeView·#basketView 안으로 한정한다.
    2단계(8-9d)는 일정·할 일·프로젝트(#calendarView·#tasksView·#projectsView)와 프로젝트 상세 창(#ps3DetailModal)을 이 파일 끝에 더한다.
-   다음 단계(8-9e)에서 화면을 넓힐 때 아래 :is() 목록에 화면을 더한다. */
+   3단계 1부(8-9e-1)는 담당조직·자료실·회의(#teamView·#libraryView·#meetingsView)를 이 파일 끝에 더한다. */
 
 /* 굵기: 보통(400)과 중간(500) 두 가지만. 글 본문(.md-body) 안의 강조는 내용이므로 그대로 둔다. */
 /* 일정의 월간·주간 칸(#calendarGrid·#calendarWeek)은 이번 단계에서 모양을 바꾸지 않으므로 굵기도 그대로 둔다. */
-#appView :is(#homeView,#basketView,#calendarView,#tasksView,#projectsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *),
-#ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *){ font-weight:var(--ds-weight-medium); }
+/* 목록 줄(행 버튼)과 그 안의 이름은 아래 '목록 글자' 규칙이 굵기를 정한다(3/3). */
+#appView :is(#homeView,#basketView,#calendarView,#tasksView,#projectsView,#teamView,#libraryView,#meetingsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"],[aria-checked="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *,.basket-row,.basket-row *,.kptu-list-name,.lu-row-title,.meeting-list-title h3,.gt-main b,.clv-title,.home-title),
+#ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b){ font-weight:var(--ds-weight-medium); }
 
 :where(#homeView,#basketView) label{ font-weight:var(--ds-weight-medium); }
 
@@ -71,10 +72,10 @@
 
 /* 목록: 큰 카드 대신 테두리 상자 안의 줄 단위 행(행 사이 얇은 선, 행 안쪽 8~10px). */
 #appView #basketView [data-basket-rows]:not(:empty){ overflow:hidden; background:var(--kptu-surface); margin:8px 0; }
-#appView #basketView .basket-row{ gap:2px; margin:0; padding:var(--ds-row-pad-y) var(--ds-row-pad-x); min-height:var(--kptu-touch-target,44px); border:0; border-radius:0; background:transparent; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #basketView .basket-row{ font-weight:var(--ds-weight-regular); gap:2px; margin:0; padding:var(--ds-row-pad-y) var(--ds-row-pad-x); min-height:var(--kptu-touch-target,44px); border:0; border-radius:0; background:transparent; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #basketView .basket-row + .basket-row{ border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #basketView .basket-row:focus-visible{ outline-offset:-2px; }
-#appView #basketView .basket-row .basket-title{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
+#appView #basketView .basket-row .basket-title{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); color:var(--kptu-ink); }
 #appView #basketView .basket-row :is(.basket-preview,time,.basket-destination){ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 
 #appView #homeView .home-title{ font-size:var(--ds-text-row); }
@@ -96,7 +97,7 @@
   /* 폰의 D-day 줄은 지금처럼 상자 없이 둔다. */
   #appView #homeView [data-home-card="dday"]{ border:0; }
   /* 폰 화면 제목(위 머리줄)도 홈·바구니가 보일 때만 18px·중간 굵기. */
-  html:has(#homeView:not(.hidden)) .mobile-shell-header time,html:has(:is(#homeView,#basketView,#calendarView,#tasksView,#projectsView):not(.hidden)) [data-mobile-view-name]{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
+  html:has(#homeView:not(.hidden)) .mobile-shell-header time,html:has(:is(#homeView,#basketView,#calendarView,#tasksView,#projectsView,#teamView,#libraryView,#meetingsView):not(.hidden)) [data-mobile-view-name]{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
 }
 
 /* ───────── 2단계(8-9d): 일정·할 일·프로젝트 ─────────
@@ -160,6 +161,8 @@
 #appView #tasksView .gt-group{ border-bottom-width:var(--ds-line-width); }
 #appView #tasksView #gtTaskBody .gt-main b{ font-size:var(--ds-text-row); }
 #appView #tasksView :is(.gt-meta,.gt-count,.gt-source){ font-size:var(--ds-text-meta); }
+/* 기한 지난 날짜는 빨강 그대로, 굵기는 두 가지(400·500) 안에서. */
+#appView #tasksView .gt-row.overdue .gt-due{ font-weight:var(--ds-weight-medium); }
 
 /* 프로젝트 목록: 메인(13px·500) 아래 하위(13px·400)를 들여쓰고 가지 선으로 잇는다. 오른쪽 끝 알약은 D-day. */
 #appView #projectsView .ps3-plist :is(.ps3-prow + .ps3-prow,.ps3-prow:has(.ps3-prow-kids) > .ps3-prow-main,.add-list-head){ border-color:var(--ds-line); border-top-width:var(--ds-line-width); border-bottom-width:var(--ds-line-width); }
@@ -185,3 +188,76 @@
 #ps3DetailModal :is(.ps3-row,.ps3-child-link){ border-top-width:var(--ds-line-width); border-top-color:var(--ds-line); }
 /* 상세의 한 줄 기록 칸은 옆 [저장]과 같은 높이, 0.5px 선·모서리 8px. */
 #ps3DetailModal [data-ps3-quick-progress] input{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+
+/* ───────── 3단계 1부(8-9e-1): 담당조직·자료실·회의 + 목록 글자 통일 ─────────
+   1·2단계와 같은 값·같은 모양. 규칙은 #appView 안의 #teamView·#libraryView·#meetingsView로만 한정한다. */
+
+/* 목록 글자(2026-10-16 사용자 결정, 새 기준 전 화면): 목록 줄의 이름은 13px·보통 굵기(400), 보조 줄은 12px 흐린 색.
+   예외는 프로젝트 목록의 메인 프로젝트(500). 화면 제목·묶음 제목은 해당 없음. */
+#appView #homeView .home-title,#appView #tasksView #gtTaskBody .gt-main b,#appView #calendarView #calendarList .clv-title,
+#ps3DetailModal :is(.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b),
+#appView #teamView #soOrganizationList .kptu-list-name,#appView #libraryView #documentList .lu-row-title,#appView #meetingsView #meetingList .meeting-list-title h3{
+  font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.4;
+}
+#appView #libraryView .lu-row-meta,#appView #meetingsView #meetingList .meeting-list-row p{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+
+/* 버튼: 높이 하나·모서리 8px·13px/500·흰 바탕 + 0.5px 테두리(기본). 목록 행·⋯ 아이콘은 버튼 모양이 아니므로 뺀다.
+   목록 필터(프로젝트·자료 종류·회의명)는 홈 빠른 입력 탭과 같은 버튼 모양. */
+#appView :is(#teamView,#libraryView,#meetingsView) :is(button.primary,button.secondary,button.mini,a.mini,.filter-chips button):not(.icon-btn,.lu-more-panel *):where(:not([hidden])){
+  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  height:auto; min-height:var(--ds-control-height); max-width:100%; margin:0; padding:4px var(--ds-control-pad-x);
+  font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none; white-space:nowrap;
+  color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
+  box-shadow:none; background-image:none;
+}
+/* ① 채운 버튼(화면당 1개): [+ 자료]·[+ 회의 결과]. */
+#appView :is(#teamView,#libraryView,#meetingsView) button.primary:not(.icon-btn,.lu-more-panel *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+/* ② 고른 필터는 회색(종류 색 '그 밖'). 필터 묶음은 회색 알약 판 대신 버튼을 나란히(가로로 밀어 보기). */
+#appView :is(#libraryView,#meetingsView) .filter-chips{ gap:6px; padding:0; background:transparent; border-radius:0; min-height:var(--ds-control-height); }
+#appView :is(#libraryView,#meetingsView) .filter-chips button[aria-checked="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView :is(#libraryView,#meetingsView) .filter-chips button::after{ content:none; }
+
+/* 입력: 높이 하나·0.5px 선·모서리 8px. */
+#appView #libraryView #documentSearch{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; }
+
+/* 상자: 0.5px 선·모서리 12px·그림자 없음. 상자 안 제목(자료실·회의 결과)은 섹션 이름 13px·테마 색. */
+#appView :is(#libraryView #libraryListCard,#meetingsView #meetingsListCard,#teamView .so-group-card){ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none; }
+#appView :is(#libraryView #libraryListCard,#meetingsView #meetingsListCard) .add-list-head h2{ font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
+#appView :is(#libraryView #libraryListCard,#meetingsView #meetingsListCard) .add-list-head{ margin-bottom:4px; }
+
+/* 목록: 상자 안 줄 단위(행 사이 0.5px 선, 줄 최소 44px). */
+#appView #libraryView .lu-row{ min-height:var(--kptu-touch-target,44px); padding:var(--ds-row-pad-y) 0; border-top:var(--ds-line-width) solid var(--ds-line); gap:10px; }
+#appView #libraryView .lu-row:first-child{ border-top:0; }
+#appView #meetingsView #meetingList.meeting-list{ gap:0; }
+#appView #meetingsView #meetingList .meeting-list-row{ box-sizing:border-box; display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); padding:var(--ds-row-pad-y) 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; }
+#appView #meetingsView #meetingList .meeting-list-row:first-child{ border-top:0; }
+/* 회의 색은 줄 왼쪽 막대 대신 이름 앞 8px 점(필터의 점과 같은 색). */
+#appView #meetingsView #meetingList .meeting-list-title::before{ content:''; flex:0 0 8px; width:8px; height:8px; border-radius:50%; background:var(--meeting-color,var(--kptu-faint)); }
+#appView #meetingsView #meetingList .meeting-list-row p{ padding-left:16px; }
+#appView #teamView .so-group-card .kptu-list-row{ border-bottom-width:var(--ds-line-width); border-bottom-color:var(--ds-line); }
+
+/* 자료실 종류 표시: 연한 바탕 + 진한 글자(원장 CC18). PDF 빨강·HWP 파랑·엑셀 초록·워드 남색·PPT 주황·나머지 회색. */
+#appView #libraryView .lu-file-kind{ border-radius:var(--ds-radius-control); font-size:11px; font-weight:var(--ds-weight-medium); color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #libraryView .lu-file-kind[data-lu-kind="pdf"]{ color:var(--ds-file-pdf-ink); background:var(--ds-file-pdf-soft); }
+#appView #libraryView .lu-file-kind[data-lu-kind="hwp"]{ color:var(--ds-file-hwp-ink); background:var(--ds-file-hwp-soft); }
+#appView #libraryView .lu-file-kind[data-lu-kind="xls"]{ color:var(--ds-file-xls-ink); background:var(--ds-file-xls-soft); }
+#appView #libraryView .lu-file-kind[data-lu-kind="doc"]{ color:var(--ds-file-doc-ink); background:var(--ds-file-doc-soft); }
+#appView #libraryView .lu-file-kind[data-lu-kind="ppt"]{ color:var(--ds-file-ppt-ink); background:var(--ds-file-ppt-soft); }
+
+/* 담당조직 목록(2026-10-16 사용자 결정): 이름 한 줄(보조 줄·할 일 수 없음), 오른쪽은 › 만, 줄 높이 44px.
+   묶음 제목은 테마 색 12px, 오른쪽에 "N곳". 이름 왼쪽 8px 점은 마지막 기록이 며칠 전인지(KST)를 색으로:
+   7일 이내 초록·8~20일 주황·21일 이상 또는 기록 없음 빨강. 읽기 전에는 점을 비워 둔다. */
+#appView #teamView .so-group-heading{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:var(--ds-text-meta); color:var(--ds-section-ink); }
+#appView #teamView .so-group-heading .so-group-count{ color:var(--kptu-muted); }
+#appView #teamView #soOrgCount{ font-size:var(--ds-text-meta); }
+#appView #teamView #soOrganizationList .kptu-list-row{ box-sizing:border-box; display:grid; align-items:center; min-height:var(--kptu-touch-target,44px); padding-top:0; padding-bottom:0; }
+#appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 24px; gap:10px; }
+#appView #teamView .so-dot{ width:8px; height:8px; border-radius:50%; box-sizing:border-box; border:var(--ds-line-width) solid var(--ds-line); }
+#appView #teamView .so-dot[data-so-recency]{ border:0; }
+#appView #teamView .so-dot[data-so-recency="fresh"]{ background:var(--ds-recency-fresh); }
+#appView #teamView .so-dot[data-so-recency="warn"]{ background:var(--ds-recency-warn); }
+#appView #teamView .so-dot[data-so-recency="stale"]{ background:var(--ds-recency-stale); }
+@media(max-width:650px){
+  #appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 20px; }
+  #appView #teamView .so-team-actions #soAddOrg{ min-height:var(--ds-control-height); padding:4px var(--ds-control-pad-x); font-size:var(--ds-text-button); }
+}

@@ -3,6 +3,9 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {openBasketMore} from './helpers/basket-more.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-12T01:00:00Z';
+// UI-디자인기준 3/3: the organization list shows the last record only as the colored dot before the name; the dot keeps the
+// record time (data-so-at), read here as the KST month.day the list used to print on the right.
+const recordDay=page=>page.locator('[data-so-dot][data-so-at]').evaluateAll(t=>t.map(e=>{const d=new Date(Date.parse(e.dataset.soAt)+9*3600000).toISOString();return Number(d.slice(5,7))+'.'+Number(d.slice(8,10))}).join(','));
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='30000000-0000-4000-8000-000000000001';
 async function fixture(page){
  await openHome(page);const errors=[],calls=[],links=[],taskLinks=[],linkReads=[],note={id:n,workspace_id:'w',occurred_at:stamp,updated_at:stamp,raw_text:'합성 원문 <script>만 표시</script>',ai_export_allowed:true,archived_at:null,attachments:[]};
@@ -28,13 +31,13 @@ async function fixture(page){
  return {links,note,calls,errors,taskLinks,linkReads,updates:tables.app_suborganization_updates};
 }
 
-async function team(page){await page.evaluate(async()=>{await KPTUViewLoader.load('team');KPTURouter.go('team');});await expect(page.locator('[data-so-summary]')).toHaveCount(1);}
+async function team(page){await page.evaluate(async()=>{await KPTUViewLoader.load('team');KPTURouter.go('team');});await expect(page.locator('[data-so-dot]')).toHaveCount(1);}
 for(const width of [390,1280])test(`organization list combines occurred_at and rechecks after links change ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await fixture(page);
  f.links.push({id:'linked',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});f.note.archived_at=stamp;f.note.ai_export_allowed=false;
- await team(page);await expect(page.locator('[data-so-summary] time')).toHaveText('10.12');
+ await team(page);await expect.poll(()=>recordDay(page)).toBe('10.12');
  f.links[0].summary='오늘 고친 요약';await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));
- await expect.poll(()=>f.linkReads.length).toBeGreaterThan(1);await expect(page.locator('[data-so-summary] time')).toHaveText('10.12');expect(f.errors).toEqual([]);
+ await expect.poll(()=>f.linkReads.length).toBeGreaterThan(1);await expect.poll(()=>recordDay(page)).toBe('10.12');expect(f.errors).toEqual([]);
 });
 for(const width of [390,1280])test.describe(`original list return ${width}`,()=>{
  test.use({hasTouch:width===390});
@@ -54,35 +57,35 @@ test('cancelled dirty menu movement preserves URL and editor; accepted movement 
  await page.evaluate(()=>KPTURouter.go('basket'));await expect(page.locator('[data-basket-detail]')).toBeHidden();expect(f.errors).toEqual([]);
 });
 
-test('list batches all linked pages, excludes suggested/task/foreign links, and keeps task counts',async({page})=>{
+test('list batches all linked pages and excludes suggested/task/foreign links',async({page})=>{
  const f=await fixture(page);f.taskLinks.push({google_task_id:'overdue',organization_id:o,status:'confirmed'});
  f.links.push(...Array.from({length:105},(_,i)=>({id:'l'+i,workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:i===104?null:'승인'})));
  f.links.push({id:'suggested',workspace_id:'w',note_id:n,organization_id:o,status:'suggested'},{id:'foreign',workspace_id:'other',note_id:n,organization_id:o,status:'confirmed'},{id:'task',workspace_id:'w',note_id:null,organization_id:o,status:'confirmed',google_task_id:'today'});
- await team(page);await expect(page.locator('[data-so-summary] time')).toHaveText('10.12');await expect(page.locator('[data-so-summary] .so-task-count')).toHaveText('1');
+ await team(page);await expect.poll(()=>recordDay(page)).toBe('10.12');
  expect(f.linkReads.map(q=>q.offset)).toEqual(['0','100']);for(const q of f.linkReads){expect(q.select).not.toMatch(/raw_text|summary/);}
- f.links.forEach(l=>{if(l.id.startsWith('l'))l.status='suggested';});await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));await expect(page.locator('[data-so-summary] time')).toHaveCount(0);await expect(page.locator('[data-so-summary] .so-task-count')).toHaveText('1');expect(f.errors).toEqual([]);
+ f.links.forEach(l=>{if(l.id.startsWith('l'))l.status='suggested';});await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));await expect(page.locator('[data-so-at]')).toHaveCount(0);await expect(page.locator('[data-so-recency="stale"]')).toHaveCount(1);expect(f.errors).toEqual([]);
 });
 test('list takes the newest occurred_at of legacy and note and preserves read failure path',async({page})=>{
  const f=await fixture(page);f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});f.updates.push({id:'old',organization_id:o,occurred_at:'2026-10-13T01:00:00Z'});
  await page.evaluate(()=>{const api=KPTURuntime.api;window.__failListLinks=true;KPTURuntime.api=(path,...args)=>{if(__failListLinks&&path.includes('note_id=not.is.null'))throw Error('synthetic read denied');return api(path,...args);};});
- await team(page);await expect(page.locator('[data-so-summary] time')).toHaveCount(0);await expect(page.locator('[data-so-org]')).toHaveCount(1);
- await page.evaluate(()=>{__failListLinks=false;dispatchEvent(new Event('kptu:basket-links-changed'));});await expect(page.locator('[data-so-summary] time')).toHaveText('10.13');expect(f.errors).toEqual([]);
+ await team(page);await expect(page.locator('[data-so-at]')).toHaveCount(0);await expect(page.locator('[data-so-org]')).toHaveCount(1);
+ await page.evaluate(()=>{__failListLinks=false;dispatchEvent(new Event('kptu:basket-links-changed'));});await expect.poll(()=>recordDay(page)).toBe('10.13');expect(f.errors).toEqual([]);
 });
 async function holdListRead(page){
  await page.evaluate(()=>{const api=KPTURuntime.api;window.__heldList={count:0};KPTURuntime.api=async(path,...args)=>{const result=await api(path,...args);if(path.includes('note_id=not.is.null')&&KPTURouter.current==='team'){const h=__heldList;h.count++;if(h.count===1){h.waiting=true;await new Promise(r=>h.release=r);}}return result;};dispatchEvent(new Event('kptu:basket-links-changed'));});
  await expect.poll(()=>page.evaluate(()=>__heldList.waiting)).toBe(true);
 }
 test('list replays one fresh read after a change during an existing read',async({page})=>{
- const f=await fixture(page);f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await team(page);await expect(page.locator('[data-so-summary] time')).toHaveText('10.12');await holdListRead(page);
+ const f=await fixture(page);f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await team(page);await expect.poll(()=>recordDay(page)).toBe('10.12');await holdListRead(page);
  f.note.occurred_at='2026-10-14T01:00:00Z';await page.evaluate(()=>{dispatchEvent(new Event('kptu:basket-links-changed'));dispatchEvent(new Event('kptu:basket-links-changed'));__heldList.release();});
- await expect(page.locator('[data-so-summary] time')).toHaveText('10.14');expect(await page.evaluate(()=>__heldList.count)).toBe(2);expect(f.errors).toEqual([]);
+ await expect.poll(()=>recordDay(page)).toBe('10.14');expect(await page.evaluate(()=>__heldList.count)).toBe(2);expect(f.errors).toEqual([]);
 });
 for(const retire of ['screen','session'])test(`list ${retire} transition retires old read and queued replay`,async({page})=>{
- const f=await fixture(page);f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await team(page);await expect(page.locator('[data-so-summary] time')).toHaveText('10.12');await holdListRead(page);
+ const f=await fixture(page);f.links.push({id:'l',workspace_id:'w',note_id:n,organization_id:o,status:'confirmed',summary:null});await team(page);await expect.poll(()=>recordDay(page)).toBe('10.12');await holdListRead(page);
  await page.evaluate(()=>dispatchEvent(new Event('kptu:basket-links-changed')));f.note.occurred_at='2026-10-14T01:00:00Z';
  if(retire==='screen')await page.evaluate(()=>KPTURouter.go('home'));else await page.evaluate(()=>{const c=KPTURuntime.context.read();KPTURuntime.context.set({...c,workspace:{...c.workspace,id:'other'}});dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:{user:c.user}}}));});
  await page.evaluate(async()=>{__heldList.release();for(let i=0;i<30;i++)await Promise.resolve();});
- if(retire==='screen'){await expect(page.locator('[data-so-summary] time')).toHaveText('10.12');await team(page);await expect(page.locator('[data-so-summary] time')).toHaveText('10.14');}else await expect(page.locator('[data-so-summary] time')).toHaveCount(0);
+ if(retire==='screen'){await expect.poll(()=>recordDay(page)).toBe('10.12');await team(page);await expect.poll(()=>recordDay(page)).toBe('10.14');}else await expect(page.locator('[data-so-at]')).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });
 test('archived original and browser Back remain explicit choices',async({page})=>{
