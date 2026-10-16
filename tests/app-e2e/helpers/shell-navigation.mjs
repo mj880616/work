@@ -2,8 +2,9 @@
 export function navigationButton(page,view){
   return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible`);
 }
+// The menu opener at this width: the account trigger (PC), ☰ (761~1023px) or the [메뉴] tab (phone, 8-9e-2).
 export function accountButton(page){
-  return page.locator('#appView>.app-nav [data-account-open]:visible,#mobileMenuOpen:visible');
+  return page.locator('#appView>.app-nav [data-account-open]:visible,#mobileMenuOpen:visible,#mobileMenuTab:visible');
 }
 export async function clickView(page,view){
   await page.waitForFunction(()=>{
@@ -14,6 +15,13 @@ export async function clickView(page,view){
   const direct=navigationButton(page,view);
   if(await direct.count()){
     await direct.click();
+    return;
+  }
+  // Phone (8-9e-2): the [일정] tab opens the side seen last; [달력 | 할 일] on top switches.
+  const schedule=page.locator('.mobile-tabs [data-mobile-schedule-tab]:visible');
+  if(['calendar','tasks'].includes(view)&&await schedule.count()){
+    await schedule.click();
+    await page.locator(`.schedule-switch [data-view="${view}"]:visible`).click();
     return;
   }
   await accountButton(page).click();

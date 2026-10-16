@@ -92,7 +92,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
   if(name==='tasks'){await dsStandard(page,'#newTaskBtn');continue}
   if(name==='library'){await dsStandard(page,'#newDocumentBtn');continue}
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
-  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuOpen')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());expect(await size(page.locator(selector).first()),selector).toEqual(name==='calendar'?{...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'}:before);}
+  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());expect(await size(page.locator(selector).first()),selector).toEqual(name==='calendar'?{...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'}:before);}
  }
  await original.close();
 });

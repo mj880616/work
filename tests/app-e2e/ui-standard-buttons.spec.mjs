@@ -24,7 +24,8 @@ async function sameButtons(region,height){
  const all=await region.locator('button:visible,[data-basket-attachments] a:visible,[data-basket-more] > summary:visible').all();
  const shaped=[];
  for(const control of all){
-  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.md-body *')))continue;
+  // 8-9e-2: the basket [⋯] is a small icon on phones and its menu rows are not button-shaped.
+  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
   expect(Math.abs(s.height-height),await control.textContent()).toBeLessThanOrEqual(0.5);
   expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.radius).toBe('8px');expect(s.shadow).toBe('none');expect(s.image).toBe('none');
@@ -59,17 +60,20 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  // Basket list: filters, [추가] and [⋯ 더보기]; the AI buttons are folded away until it opens.
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
  const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]');
- await expect(more).toHaveJSProperty('tagName','DETAILS');await expect(more).not.toHaveAttribute('open','');
+ // 8-9e-2: [⋯] is a button (aria-label 더보기) that opens a small menu under itself.
+ await expect(more).toHaveJSProperty('tagName','BUTTON');await expect(more).toHaveAttribute('aria-label','더보기');await expect(more).toHaveAttribute('aria-expanded','false');
  for(const name of ['분류 요청','분류 결과 입력','GPT 답변 가져오기'])await expect(basket.getByRole('button',{name,exact:true})).toHaveCount(0);
  await sameButtons(basket,height);
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary)filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
  expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(await token(page,'--ds-kind-basket-soft'));
- // Keyboard opens and closes the folded menu.
- await more.locator('summary').focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('open','');
- await expect(more.getByRole('button')).toHaveText(['분류 요청','분류 결과 입력','GPT 답변 가져오기']);
+ // Keyboard opens and closes the menu; it does not push the list.
+ const listTop=(await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y;
+ await more.focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('aria-expanded','true');
+ await expect(page.locator('#basketMoreMenu').getByRole('button')).toHaveText(['분류 요청','GPT 답변 가져오기']);
+ expect((await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y).toBe(listTop);
  await sameButtons(basket,height);
- await page.keyboard.press('Enter');await expect(more).not.toHaveAttribute('open','');
+ await page.keyboard.press('Escape');await expect(more).toHaveAttribute('aria-expanded','false');await expect(more).toBeFocused();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 
  // Read view: actions and attachment controls share the height; 연결하기 filled, 할 일 만들기 basket kind, 삭제 red border.

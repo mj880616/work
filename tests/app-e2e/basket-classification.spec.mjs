@@ -1,7 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {openBasketMore} from './helpers/basket-more.mjs';
+import {openBasketMore,openClassification,requestClassification,handoffLine} from './helpers/basket-more.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='20000000-0000-4000-8000-000000000002',stamp='2026-10-11T01:02:03.123456Z';
 const data=()=>({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'project',target_id:p,reason:'진행 근거 <img src=x onerror=alert(1)> https://example.org'},{kind:'organization',target_id:o,reason:'조직 근거'},{kind:'google_task',reason:'후속 작업'}]}]});
@@ -24,7 +24,7 @@ async function fixture(page){
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);await openBasketMore(page);
  return {...f,note,links,rpc,errors,events,setMissing:v=>missing=v,setRejected:v=>rejected=v};
 }
-async function open(page){await page.locator('[data-classification-open]').click();await expect(page.locator('[data-classification-input]')).toBeFocused();}
+async function open(page){await openClassification(page);}
 async function preview(page,proposal=data()){await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(proposal,null,2)+'\n```');await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-note]')).toHaveCount(proposal.items.length);}
 for(const width of [390,1280])test(`record summary editing is independent, preserved and explicitly submitted ${width}`,async({page})=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);await open(page);await preview(page);
@@ -64,7 +64,7 @@ test('record summary late confirmation cannot restore drafts after leaving baske
 });
 for(const width of [390,1280]){
  test(`classification paste preview errors selected confirm and copy notification ${width}`,async({page},info)=>{
- await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.locator('[data-classification-open]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-classification-input]')).toBeFocused();
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.context().grantPermissions(['clipboard-read','clipboard-write']);await expect(page.locator('#basketMoreMenu [data-handoff-copy]')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('[data-classification-input]')).toBeFocused();
  await page.screenshot({path:info.outputPath(`paste-${width}.png`),fullPage:true});
  await page.locator('[data-classification-input]').fill('説明\n'+JSON.stringify(data()));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toContainText('AI 답 전체나, 답 속 복사용 블록만 넣어 주세요');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();
  f.note.updated_at='2026-10-11T01:02:03.123457Z';await preview(page);await expect(page.locator('[data-classification-note]')).toContainText('메모가 바뀌었어요');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);await page.screenshot({path:info.outputPath(`preview-error-${width}.png`),fullPage:true});
@@ -107,8 +107,8 @@ for(const width of [390,1280]){
   f.note.attachments=[{file_name:'합성 첨부.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-attachment',size_bytes:12,body:'BODY_SECRET',private_extra:'OCR_SECRET'}];
   await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
   const destinationReads=[];page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/app_spaces'))destinationReads.push(request.url());});
-  await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');
-  await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+  await requestClassification(page,{keyboard:true});
+  await expect(handoffLine(page)).toHaveText('미분류 메모 1개 요청을 복사했어요');await expect(page.locator('[data-classification-input]')).toBeFocused();
   const copied=await page.evaluate(()=>window.__handoffWrites[0]);
   for(const value of [f.note.raw_text,n,stamp,'현재 조직','현재 프로젝트','담당조직 목록 (ID · 이름)','프로젝트 목록 (ID · 이름)','synthetic-attachment','application/pdf'])expect(copied).toContain(value);
   expect(copied).not.toMatch(/BODY_SECRET|OCR_SECRET|google_task|library|write_request_candidate/);expect(f.rpc).toHaveLength(0);expect(destinationReads).toHaveLength(1);expect(new URL(destinationReads[0]).searchParams.get('owner_id')).toBe('eq.home-test');
@@ -136,17 +136,18 @@ for(const width of [390,1280]){
  test(`AI handoff clipboard fallback and zero notes ${width}`,async({page})=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
   await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('permission denied');}}});});
-  await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText("아래 '복사하기'를 눌러 주세요");
+  await requestClassification(page);await expect(page.locator('[data-handoff-status]')).toHaveText("아래 '복사하기'를 눌러 주세요");await expect(page.locator('[data-classification-panel]')).toBeHidden();
   const text=page.locator('[data-handoff-text]');await expect(text).toBeVisible();await expect(text).toHaveAttribute('readonly','');await expect(text).toBeFocused();expect(await text.inputValue()).toContain(f.note.raw_text);
   expect(await text.evaluate(el=>el.selectionStart===0&&el.selectionEnd===el.value.length)).toBe(true);
-  f.note.ai_export_allowed=false;await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('분류 요청할 메모가 없어요');await expect(text).toBeHidden();await expect(text).toHaveValue('');expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
+  // 복사할 메모가 없어도 창은 열린다(앞서 복사한 답을 붙여 넣을 수 있게). 알림은 한 줄.
+  f.note.ai_export_allowed=false;await requestClassification(page);await expect(handoffLine(page)).toHaveText('분류 요청할 메모가 없어요');await expect(page.locator('[data-classification-panel]')).toBeVisible();await expect(text).toBeHidden();await expect(text).toHaveValue('');expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
  });
 }
 test('AI handoff cannot copy or restore late private content after workspace changes',async({page})=>{
  await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
  await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
  let release;const held=new Promise(r=>release=r);await page.route(SB+'/rest/v1/app_notes?**',async r=>{await held;await r.fallback();});
- await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-copy]')).toBeDisabled();
+ await requestClassification(page);await expect(page.locator('[data-handoff-copy]')).toBeDisabled();
  await page.evaluate(()=>{const rt=window.KPTURuntime,c=rt.context.read();rt.context.set({...c,workspace:{...c.workspace,id:'other-workspace'}});window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:rt.session.read()}}));});release();
  await expect(page.locator('[data-handoff-copy]')).toBeEnabled();await expect(page.locator('[data-handoff-text]')).toHaveValue('');await expect(page.locator('[data-handoff-status]')).toBeEmpty();expect(await page.evaluate(()=>window.__handoffWrites)).toEqual([]);
 });
@@ -161,7 +162,7 @@ test('AI handoff writes the complete text to the native Chromium clipboard',asyn
  await page.setViewportSize({width:390,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  f.note.raw_text='합성 메모 첫 줄\n'+('긴 합성 본문 '.repeat(1000))+'\n합성 메모 마지막 줄';
- await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+ await requestClassification(page);await expect(handoffLine(page)).toHaveText('미분류 메모 1개 요청을 복사했어요');
  const text=await page.evaluate(()=>navigator.clipboard.readText());expect(text).toContain(f.note.raw_text);expect(text).toContain('organization · '+o+' · 현재 조직');expect(text.trim()).toMatch(new RegExp('project · '+p+' · 현재 프로젝트$'));
  expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
 });
@@ -206,7 +207,7 @@ for(const width of [390,1280]){
   await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
   for(const fallback of [false,true]){
    if(fallback)assignments=[];
-   await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+   await requestClassification(page);await expect(handoffLine(page)).toHaveText(/요청을 복사했어요$/);
    const text=await page.evaluate(()=>window.__handoffWrites.at(-1));
    expect(text.match(/^project · /gm)).toHaveLength(6);
    for(const row of synthetic.expected_projects)expect(text).toContain(`project · ${row.id} · ${row.name}`);

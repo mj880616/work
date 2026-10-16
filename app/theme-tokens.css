@@ -59,6 +59,8 @@
   --ds-file-ppt-soft:#fcebdb;--ds-file-ppt-ink:#a14b10;
   /* 3/3(8-9e) 담당조직 마지막 기록 점: 7일 이내 초록·8~20일 주황·21일 이상 또는 기록 없음 빨강. */
   --ds-recency-fresh:#2f9254;--ds-recency-warn:#dc8a1c;--ds-recency-stale:#c8372b;
+  /* 3/3 2부(8-9e-2) 폰 배치: 하단 탭 바로 위에 떠 있는 동그란 [+](보이는 크기 36px, 누르는 범위 --kptu-touch-target 44px)와 탭 사이 간격. */
+  --ds-fab-size:36px;--ds-fab-gap:12px;
 }
 /* 다크 모드: 2026-10-16 사용자 결정으로 전체 화면(3/3)이 끝날 때까지 꺼 둔다.
    값은 지우지 않았다. 아래 선택자의 [data-ds-dark="on"] 조건을 지우면(또는 html에 그 속성을 붙이면) 다시 켜진다.

@@ -29,7 +29,7 @@ async function press(page,locator,width){
  // The formatted reading view can be taller than the screen: bring the target above the fixed bottom tabs first.
  if(width<761){await locator.evaluate(el=>el.scrollIntoView({block:'center'}));const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();
 }
-async function enterBasket(page,width){await press(page,page.locator('#homeView [data-goto="basket"]'),width);await expect(page.locator('[data-basket-row]')).toHaveCount(1);}
+async function enterBasket(page,width){await press(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await expect(page.locator('[data-basket-row]')).toHaveCount(1);}
 const editableFocused=page=>page.evaluate(()=>!!document.activeElement?.matches('input:not([type=button]),textarea,[contenteditable="true"]'));
 
 for(const width of [390,1280]){

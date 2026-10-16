@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {openBasketMore} from './helpers/basket-more.mjs';
+import {openBasketMore,openClassification,requestClassification,handoffLine} from './helpers/basket-more.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-06T01:00:00Z';
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='30000000-0000-4000-8000-000000000001';
 async function fixture(page){
@@ -27,7 +27,7 @@ async function fixture(page){
  return {links,note,calls,errors,requests};
 }
 async function connect(page,capture=null){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);await openBasketMore(page);await page.locator('[data-classification-open]').click();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);await openClassification(page);
  await page.locator('[data-classification-input]').fill(JSON.stringify({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'organization',target_id:o,reason:'옛 AI 조직 이유'},{kind:'project',target_id:p,reason:'옛 AI 프로젝트 이유'}]}]}));
  await page.locator('[data-classification-preview]').click();await page.locator('[data-classification-summary="0:0"]').fill('한빛지부, 10/20 기자회견 예정');await page.locator('[data-classification-summary="0:1"]').fill('기자회견 장소 협의 중');
  await page.locator('[data-classification-choice="0:0"]').check();await page.locator('[data-classification-choice="0:1"]').check();if(capture)await page.screenshot({path:capture,fullPage:true});await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('2개 연결했어요');

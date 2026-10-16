@@ -43,7 +43,7 @@ async function setup(page,width){
 }
 async function enterFromMenu(page,width,{ready=true}={}){
   if(width<761){
-    await page.locator('#mobileMenuOpen').click();
+    await page.locator('#mobileMenuTab').click();
     await page.locator('#mobileMenu nav').getByRole('button',{name:'HWP 편집',exact:true}).click();
   }else await page.locator('.app-nav').getByRole('button',{name:'HWP 편집',exact:true}).click();
   await expect(page.locator('#hwpView')).toBeVisible();

@@ -1,0 +1,231 @@
+import {test,expect} from '@playwright/test';
+import {enterLogin} from './helpers/login-entry.mjs';
+import {testOrigin} from './helpers/test-origin.mjs';
+import {openBasketMore,requestClassification,handoffLine} from './helpers/basket-more.mjs';
+// UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·프로젝트·담당조직·메뉴),
+// [일정] 탭 하나에 [달력 | 할 일], 홈·바구니 입력칸 하단 고정(자판 위로), 동그란 [+], 담당조직 추가 링크, 바구니 [⋯] 메뉴와
+// [분류 요청] → 조용히 복사 + 한 줄 알림 + [분류 결과 입력] 창(#577). PC(1280)는 그대로.
+const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const user={id:'ds3b-user',email:'ds3b@example.org',user_metadata:{display_name:'배치'}};
+const ws={id:'ds3b-ws',slug:'ds3b',name:'웹2'};
+const now=new Date('2026-10-16T03:00:00Z');
+const ago=days=>new Date(now.getTime()-days*86400000).toISOString();
+const orgs=Array.from({length:9},(_,i)=>({id:'o'+i,name:'합성 담당조직 '+(i+1),active:true,created_by:user.id,workspace_id:ws.id}));
+const meta={project_system:'v2',management_version:2};
+const spaces=Array.from({length:9},(_,i)=>({id:'p'+i,name:'합성 프로젝트 '+(i+1),parent_id:null,status:'active',workspace_id:ws.id,owner_id:user.id,created_by:user.id,sort_order:i,metadata:meta}));
+const docs=Array.from({length:12},(_,i)=>({id:'d'+i,title:'합성 자료 '+(i+1),file_name:`자료${i}.pdf`,workspace_id:ws.id,created_by:user.id,category:'교섭',document_date:`2026-10-${String(15-i).padStart(2,'0')}`,file_id:'f'+i,project_id:null}));
+const tasks=Array.from({length:10},(_,i)=>({id:'t'+i,taskListId:'l1',taskListTitle:'내 할 일',title:'합성 할 일 '+(i+1),due:new Date(now.getTime()+i*86400000).toISOString().slice(0,10)+'T00:00:00.000Z',status:'needsAction',notes:''}));
+const noteRow=(i,text)=>({id:`10000000-0000-4000-8000-00000000000${i}`,workspace_id:ws.id,occurred_at:ago(i),updated_at:ago(i),created_at:ago(i),raw_text:text,ai_export_allowed:true,archived_at:null,attachments:[],metadata:{}});
+
+async function boot(page,width,{notes=[noteRow(1,'합성 메모 하나'),noteRow(2,'합성 메모 둘')],url='/app/'}={}){
+ await page.setViewportSize({width,height:width<761?844:900});
+ await page.clock.setFixedTime(now);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route(`${SB}/**`,route=>{
+  const u=new URL(route.request().url()),path=u.pathname,q=u.searchParams,action=q.get('action');
+  const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
+  if(path==='/auth/v1/token')return ok({access_token:'a',refresh_token:'r',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user});
+  if(path==='/auth/v1/user')return ok(user);
+  if(path==='/functions/v1/google-calendar')return ok(action==='events'?{events:[],colors:{},eventColors:{}}:{connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
+  if(path==='/functions/v1/google-tasks'){if(['linked','links'].includes(action))return ok({tasks:[],links:[],meeting_links:[]});return ok({connected:true,authorized:true,pending_scope:'all',tasks});}
+  if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
+  if(path.startsWith('/functions/v1/'))return ok({});
+  if(path.startsWith('/rest/v1/rpc/'))return ok(null);
+  if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:ws.id,user_id:user.id,role:'owner',email:user.email}]);
+  if(path==='/rest/v1/app_workspaces')return ok([ws]);
+  if(path==='/rest/v1/app_profiles')return ok([{user_id:user.id,display_name:'배치'}]);
+  if(path==='/rest/v1/app_suborganizations')return ok(orgs);
+  if(path==='/rest/v1/app_suborganization_assignees')return ok(orgs.map(o=>({organization_id:o.id,user_id:user.id})));
+  if(path==='/rest/v1/app_documents')return ok(docs);
+  if(path==='/rest/v1/app_spaces'){if((q.get('select')||'').includes('milestones:'))return ok(spaces.map(p=>({id:p.id,milestones:[]})));return ok(spaces);}
+  if(path==='/rest/v1/app_notes'){if(q.get('metadata'))return ok([]);return ok(notes.slice(Number(q.get('offset')||0)));}
+  if(path.startsWith('/rest/v1/'))return ok([]);
+  return ok({});
+ });
+ await page.goto(testOrigin+url);await enterLogin(page);
+ await page.locator('#emailAuthToggle').click();await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('password123');await page.locator('#authSubmit').click();
+ await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
+ return {errors};
+}
+const loaded=(page,view)=>expect.poll(()=>page.evaluate(v=>window.KPTUViewLoader.isLoaded(v)&&!document.querySelector('#'+v+'View').classList.contains('hidden'),view)).toBe(true);
+const box=locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height};});
+const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('span');e.style.color=`var(${name})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},name);
+async function swipe(page,direction){
+ const view=await page.evaluate(()=>KPTURouter.current);
+ await page.locator('#'+view+'View').evaluate((el,direction)=>{
+  const r=el.getBoundingClientRect(),y=r.top+Math.min(r.height/2,80),start=direction==='left'?300:90,end=direction==='left'?90:300;
+  for(const [type,x] of [['touchstart',start],['touchmove',(start+end)/2],['touchend',end]]){
+   const e=new Event(type,{bubbles:true,cancelable:true}),points=[{clientX:x,clientY:y}];
+   Object.defineProperty(e,'touches',{value:type==='touchend'?[]:points});Object.defineProperty(e,'changedTouches',{value:points});el.dispatchEvent(e);
+  }
+ },direction);
+ await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);
+}
+
+test('폰 하단 탭 6칸: 바구니 색 아이콘, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
+ const {errors}=await boot(page,390);
+ const tabs=page.locator('.mobile-tabs > button');
+ await expect(tabs).toHaveText(['홈','바구니','일정','프로젝트','담당조직','메뉴']);
+ for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
+ expect(await page.locator('.mobile-tabs [data-view="basket"] svg').evaluate(el=>getComputedStyle(el).color)).toBe(await token(page,'--ds-kind-basket-ink'));
+ await expect(page.locator('#mobileMenuOpen')).toBeHidden();
+ const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
+ await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
+ // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다.
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['회의','자료실','성명','보도자료','게시판','HWP 편집']);
+ await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
+ await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
+ await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [data-view="basket"]')).toHaveAttribute('aria-current','page');
+ expect(errors).toEqual([]);
+});
+
+test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?view=tasks·홈 "할 일 ›"·밀기 순서',async({page})=>{
+ const {errors}=await boot(page,390,{url:'/app/?view=tasks'});
+ const schedule=page.locator('.mobile-tabs [data-mobile-schedule-tab]'),name=page.locator('[data-mobile-view-name]');
+ // 옛 할 일 주소는 [일정]의 [할 일] 쪽으로 열린다.
+ await loaded(page,'tasks');await expect(page).toHaveURL(/view=tasks/);
+ await expect(schedule).toHaveAttribute('aria-current','page');await expect(name).toHaveText('일정');
+ const toTasks=page.locator('#tasksView .schedule-switch [data-view="tasks"]'),toCalendar=page.locator('#tasksView .schedule-switch [data-view="calendar"]');
+ await expect(toTasks).toHaveAttribute('aria-pressed','true');await expect(toCalendar).toHaveAttribute('aria-pressed','false');
+ const pressed=await toTasks.evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}));
+ expect(pressed).toEqual({fg:await token(page,'--ds-kind-task-ink'),bg:await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-task-soft)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})});
+ await toCalendar.click();await loaded(page,'calendar');await expect(schedule).toHaveAttribute('aria-current','page');await expect(name).toHaveText('일정');
+ await expect(page.locator('#calendarView .schedule-switch [data-view="calendar"]')).toHaveAttribute('aria-pressed','true');
+ // 탭은 마지막으로 본 쪽을 연다(새 저장소 없이 라우터가 탭의 data-view를 맞춘다).
+ await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await schedule.click();await loaded(page,'calendar');
+ await page.locator('#calendarView .schedule-switch [data-view="tasks"]').click();await loaded(page,'tasks');
+ await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await schedule.click();await loaded(page,'tasks');
+ // 홈 "할 일 ›"도 [일정]의 [할 일] 쪽.
+ await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>el.click());await loaded(page,'calendar');
+ await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('#homeView [data-home-card="tasks"] [data-goto="tasks"]').click();await loaded(page,'tasks');await expect(schedule).toHaveAttribute('aria-current','page');
+ // 밀기: 홈·바구니·일정·프로젝트·담당조직(메뉴는 밀기 대상 아님). 할 일 쪽에서도 [일정] 자리로 이어진다.
+ await swipe(page,'left');await loaded(page,'projects');await swipe(page,'right');await loaded(page,'tasks');await swipe(page,'right');await loaded(page,'basket');await swipe(page,'right');await loaded(page,'home');await swipe(page,'right');await loaded(page,'home');
+ for(const view of ['basket','tasks','projects','team']){await swipe(page,'left');await loaded(page,view);}
+ await swipe(page,'left');await loaded(page,'team');
+ expect(errors).toEqual([]);
+});
+
+test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 입력칸 제자리',async({page})=>{
+ const {errors}=await boot(page,1280);
+ await expect(page.locator('.mobile-tabs')).toBeHidden();
+ expect(await page.locator('#homeView .home-quick').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');await expect(page.locator('#homeView .home-basket-link')).toBeVisible();
+ for(const [view,id,text] of [['calendar','#newEventBtn',null],['tasks','#newTaskBtn','+ 할 일'],['projects','#newProjectBtn','+ 프로젝트'],['library','#newDocumentBtn','+ 자료 등록']]){
+  await page.locator(`.app-nav [data-view="${view}"]`).click();await loaded(page,view);
+  await expect(page.locator(`#${view}View .schedule-switch`)).toHaveCount(view==='calendar'||view==='tasks'?1:0);
+  if(view==='calendar'||view==='tasks')await expect(page.locator(`#${view}View .schedule-switch`)).toBeHidden();
+  const button=page.locator(id);await expect(button).toBeVisible();expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
+  if(text)await expect(button).toHaveText(text);
+ }
+ await page.locator('.app-nav [data-view="team"]').click();await loaded(page,'team');await expect(page.locator('#soAddOrg')).toBeVisible();await expect(page.locator('#soAddOrgLink')).toBeHidden();
+ expect(errors).toEqual([]);
+});
+
+test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르는 범위 44px, 이름, 같은 창, 마지막 줄이 가리지 않음',async({page})=>{
+ const {errors}=await boot(page,390);
+ const tabsTop=(await box(page.locator('.mobile-tabs'))).top;
+ for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['tasks','#newTaskBtn','할 일 추가','#gtTaskModal'],['projects','#newProjectBtn','프로젝트 추가','#ps3CreateModal'],['library','#newDocumentBtn','자료 등록','#documentModal']]){
+  await page.evaluate(v=>KPTURouter.go(v),view);await loaded(page,view);
+  const button=page.locator(id);await expect(button).toBeVisible();await expect(button).toHaveAttribute('aria-label',label);
+  const b=await box(button);expect(b.width).toBe(44);expect(b.height).toBe(44);expect(Math.round(tabsTop-b.bottom)).toBe(12);expect(Math.round(390-b.right)).toBe(16);
+  const circle=await button.evaluate(el=>{const s=getComputedStyle(el,'::before');return {w:s.width,h:s.height,content:s.content,radius:s.borderTopLeftRadius};});
+  expect(circle).toEqual({w:'36px',h:'36px',content:'"+"',radius:'50%'});
+  // 목록 끝까지 내리면 마지막 줄은 [+] 위에 있다.
+  await expect.poll(()=>page.locator('#'+view+'View').evaluate(el=>{
+   window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'});
+   const shown=[...el.querySelectorAll('*')].filter(node=>node.getClientRects().length&&getComputedStyle(node).position!=='fixed'&&!node.closest('.modal'));
+   return Math.max(...shown.map(node=>node.getBoundingClientRect().bottom));
+  })).toBeLessThanOrEqual(b.top);
+  await button.click();await expect(page.locator(modal)).toBeVisible();
+  await page.keyboard.press('Escape');await expect(page.locator(modal)).toBeHidden();
+ }
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+ expect(errors).toEqual([]);
+});
+
+test('담당조직: 폰은 위쪽 [+ 담당조직] 대신 목록 맨 아래 작은 글자 링크(같은 창)',async({page})=>{
+ const {errors}=await boot(page,390);
+ await page.locator('.mobile-tabs [data-view="team"]').click();await loaded(page,'team');
+ await expect(page.locator('#soAddOrg')).toBeHidden();
+ const link=page.locator('#soAddOrgLink');await expect(link).toBeVisible();await expect(link).toHaveText('담당조직 추가');await expect(link).toHaveCSS('font-size','12px');
+ const list=await box(page.locator('#soOrganizationList')),l=await box(link);expect(l.top).toBeGreaterThanOrEqual(list.bottom);expect(l.height).toBeGreaterThanOrEqual(44);
+ await link.click();await expect(page.locator('#soEditModal')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+
+test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가 가리지 않고 자판이 열리면 자판 위로',async({page})=>{
+ const {errors}=await boot(page,390);
+ const quick=page.locator('#homeView .home-quick'),tabs=page.locator('.mobile-tabs');
+ await expect(page.locator('#homeView .home-basket-link')).toBeHidden();
+ const q=await box(quick),t=await box(tabs);expect(Math.round(q.bottom)).toBe(Math.round(t.top));expect(q.left).toBe(0);expect(q.right).toBe(390);
+ const entry=await box(quick.locator('.home-quick-entry')),modes=await box(quick.locator('.home-quick-modes'));expect(modes.bottom).toBeLessThanOrEqual(entry.top);
+ // [할 일]의 오늘·내일·날짜·프로젝트 버튼은 입력칸 위.
+ await quick.locator('[data-quick-mode="task"]').click();await quick.locator('[data-quick-input]').click();
+ const options=await box(quick.locator('[data-quick-options]'));expect(options.bottom).toBeLessThanOrEqual((await box(quick.locator('.home-quick-entry'))).top);
+ expect(Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
+ // 카드는 그 위에서 스크롤: 끝까지 내리면 마지막 카드가 입력칸 위.
+ await page.locator('body').click({position:{x:5,y:5}});
+ await page.evaluate(()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'}));
+ const cards=await box(page.locator('#homeView [data-home-cards] > :last-child'));expect(cards.bottom).toBeLessThanOrEqual((await box(quick)).top+1);
+ // 자판(레이아웃 뷰포트가 줄지 않는 브라우저): 탭이 사라지고 입력칸이 자판 바로 위로.
+ await quick.locator('[data-quick-input]').focus();
+ await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'))});
+ await expect(tabs).toBeHidden();await expect.poll(async()=>Math.round((await box(quick)).bottom)).toBe(400);
+ await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>844});visualViewport.dispatchEvent(new Event('resize'))});
+ await expect(tabs).toBeVisible();await expect.poll(async()=>Math.round((await box(quick)).bottom)).toBe(Math.round(t.top));
+ expect(errors).toEqual([]);
+});
+
+test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키보드), 폭 가득 필터, 한 줄 입력칸',async({page})=>{
+ const {errors}=await boot(page,390);
+ await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
+ const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]'),menu=page.locator('#basketMoreMenu');
+ await expect(more).toHaveAttribute('aria-label','더보기');const m=await box(more);expect(m.width).toBeGreaterThanOrEqual(44);expect(m.height).toBeGreaterThanOrEqual(44);
+ // 제목 오른쪽(폰 머리줄 "바구니"와 같은 줄).
+ const title=await box(page.locator('[data-mobile-view-name]'));expect(m.right).toBeGreaterThan(300);expect(Math.abs((m.top+m.bottom)/2-(title.top+title.bottom)/2)).toBeLessThanOrEqual(4);
+ await expect(handoffLine(page)).toBeHidden();
+ const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','전체','보관']);
+ const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]'));
+ expect(Math.round(first.left)).toBe(Math.round(rows.left));expect(Math.round(last.right)).toBe(Math.round(rows.right));
+ const before=await box(filters.first());
+ await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
+ await expect(menu.getByRole('button')).toHaveText(['분류 요청','GPT 답변 가져오기']);await expect(menu.locator('[data-handoff-copy]')).toBeFocused();
+ expect(await box(filters.first())).toEqual(before);
+ const mb=await box(menu);expect(mb.top).toBeGreaterThanOrEqual(m.bottom);
+ for(const item of await menu.getByRole('button').all())expect((await box(item)).height).toBeGreaterThanOrEqual(44);
+ await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();
+ await page.keyboard.press('Enter');await expect(menu).toBeVisible();
+ await page.mouse.click(30,400);await expect(menu).toBeHidden();await expect(more).toHaveAttribute('aria-expanded','false');
+ await more.focus();await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Tab');await expect(menu).toBeHidden();
+ // 입력칸: 하단 탭 바로 위 한 줄, 테두리 하나, 손잡이 없음, 첨부 클립 그대로.
+ const quick=basket.locator('.home-quick'),input=quick.locator('[data-quick-input]');
+ expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top));
+ await expect(input).toHaveCSS('height','46px');await expect(input).toHaveCSS('resize','none');await expect(quick).toHaveCSS('border-left-width','0px');await expect(quick).toHaveCSS('border-bottom-width','0px');
+ await expect(quick.locator('.basket-clip')).toBeVisible();
+ expect(errors).toEqual([]);
+});
+
+test('바구니 [분류 요청]: 조용히 복사 + 한 줄 알림 → [분류 결과 입력] 창이 아래에서, 닫고 다시 누르면 다시 복사',async({page})=>{
+ const {errors}=await boot(page,390);
+ await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+ await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
+ await requestClassification(page);
+ await expect(handoffLine(page)).toHaveText('미분류 메모 2개 요청을 복사했어요');await expect(page.locator('[data-handoff-status]')).toBeEmpty();
+ const copied=await page.evaluate(()=>navigator.clipboard.readText());expect(copied).toContain('합성 메모 하나');expect(copied).toContain('합성 메모 둘');
+ const sheet=page.locator('[data-classification-panel]');await expect(sheet).toBeVisible();await expect(page.locator('[data-classification-input]')).toBeFocused();
+ await expect(sheet.getByRole('heading',{name:'분류 결과 입력'})).toBeVisible();
+ const t=await box(page.locator('.mobile-tabs'));await expect.poll(async()=>Math.round((await box(sheet)).bottom)).toBe(Math.round(t.top));const s=await box(sheet);expect(s.left).toBe(0);expect(s.right).toBe(390);
+ await page.locator('[data-classification-close]').click();await expect(sheet).toBeHidden();await expect(handoffLine(page)).toBeHidden();await expect(page.locator('[data-basket-more]')).toBeFocused();
+ await page.evaluate(()=>navigator.clipboard.writeText('다른 글'));
+ await requestClassification(page,{keyboard:true});await expect(sheet).toBeVisible();await expect(handoffLine(page)).toHaveText('미분류 메모 2개 요청을 복사했어요');
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(copied);
+ expect(errors).toEqual([]);
+});
+
+test('바구니: 메모가 없으면 가운데 회색 "아직 메모가 없어요"',async({page})=>{
+ const {errors}=await boot(page,390,{notes:[]});
+ await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');
+ const empty=page.locator('#basketView [data-basket-list-status]');await expect(empty).toHaveText('아직 메모가 없어요');
+ await expect(empty).toHaveCSS('text-align','center');expect(await empty.evaluate(el=>getComputedStyle(el).color)).toBe(await token(page,'--kptu-muted'));
+ await expect(page.locator('#basketView [data-basket-filter="unclassified"]')).toHaveText('미분류 0');
+ expect(errors).toEqual([]);
+});

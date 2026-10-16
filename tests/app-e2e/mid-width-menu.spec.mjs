@@ -83,8 +83,9 @@ test('resize and font changes repartition; phone and PC return to their original
   await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>nav.scrollWidth-nav.clientWidth)).toBeLessThanOrEqual(1);
   const enlarged=await count();await page.setViewportSize({width:1023,height:844});await expect.poll(count).toBeGreaterThan(enlarged);
   await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='')});await expect.poll(count).toBeGreaterThanOrEqual(normal);await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>nav.scrollWidth-nav.clientWidth)).toBeLessThanOrEqual(1);
-  await page.setViewportSize({width:760,height:844});await expect(page.locator('.app-nav')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeVisible();await page.locator('#mobileMenuOpen').click();
-  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['바구니','회의','자료실','성명','보도자료','게시판','HWP 편집']);await page.keyboard.press('Escape');
+  await page.setViewportSize({width:760,height:844});await expect(page.locator('.app-nav')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeVisible();await page.locator('#mobileMenuTab').click();
+  // 8-9e-2: [바구니]는 하단 탭으로 옮겨 메뉴 창에서 뺐다.
+  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['회의','자료실','성명','보도자료','게시판','HWP 편집']);await page.keyboard.press('Escape');
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
   expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직','HWP 편집']);await expect(page.locator('.app-nav [data-account-open]')).toBeVisible();
 });
@@ -109,10 +110,10 @@ test('recalculation preserves keyboard focus and highlights the hidden combined 
 test('focused controls stay reachable when crossing the phone and PC boundaries',async({page})=>{
   await page.setViewportSize({width:1023,height:844});await open(page);
   const home=page.locator('.app-nav [data-view="home"]');await home.focus();await page.setViewportSize({width:1024,height:844});await expect(home).toBeFocused();
-  await page.setViewportSize({width:761,height:844});await home.focus();await page.setViewportSize({width:760,height:844});await expect(page.locator('#mobileMenuOpen')).toBeFocused();
+  await page.setViewportSize({width:761,height:844});await home.focus();await page.setViewportSize({width:760,height:844});await expect(page.locator('#mobileMenuTab')).toBeFocused();
   await page.setViewportSize({width:761,height:844});await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='40px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
   await expect.poll(()=>page.locator('.app-nav [data-view="team"]').count()).toBe(0);await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu [data-view="team"]').focus();
-  await page.setViewportSize({width:760,height:844});await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();await page.keyboard.press('Escape');await expect(page.locator('#mobileMenuOpen')).toBeFocused();
+  await page.setViewportSize({width:760,height:844});await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();await page.keyboard.press('Escape');await expect(page.locator('#mobileMenuTab')).toBeFocused();
 });
 
 test('shared navigation helper reaches media from the row and from the drawer',async({page})=>{
@@ -127,7 +128,7 @@ test('phone breakpoint preserves focus when CSS hides the row before the layout 
     if(event.matches&&document.activeElement?.closest('.app-nav'))document.activeElement.blur();
   }));
   await page.setViewportSize({width:820,height:844});await open(page);
-  await page.locator('.app-nav [data-view="home"]').focus();await page.setViewportSize({width:760,height:844});await expect(page.locator('#mobileMenuOpen')).toBeFocused();
+  await page.locator('.app-nav [data-view="home"]').focus();await page.setViewportSize({width:760,height:844});await expect(page.locator('#mobileMenuTab')).toBeFocused();
 });
 
 test('breakpoint recovery does not steal deliberate blur or content input focus',async({page})=>{

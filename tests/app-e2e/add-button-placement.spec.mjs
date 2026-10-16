@@ -67,12 +67,21 @@ async function assertInHeader(page,{card,head,button,title}){
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 }
 
+// 8-9e-2: on phones the add button of calendar·tasks·projects·library is the same button shown as a floating
+// round [+] right above the bottom tabs (details in ui-standard-3b.spec.mjs); PC keeps it in the card header.
+async function assertFloating(page,button){
+  const control=page.locator(button),b=await control.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
+  expect(await control.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+  expect(b.width).toBe(44);expect(b.height).toBe(44);expect(Math.round(tabs.y-(b.y+b.height))).toBe(12);
+}
+async function assertPlaced(page,width,spec){if(width===390)await assertFloating(page,spec.button);else await assertInHeader(page,spec);}
+
 for(const width of [390,1440]){
   test.describe(`${width}px`,()=>{
     test.use({viewport:{width,height:width===390?844:900},timezoneId:'Asia/Seoul'});
     test('library list card keeps add action and opens the same form',async({page})=>{
       await openApp(page,'library');
-      await assertInHeader(page,{card:'#libraryListCard',head:'.add-list-head',button:'#newDocumentBtn',title:'h2'});
+      await assertPlaced(page,width,{card:'#libraryListCard',head:'.add-list-head',button:'#newDocumentBtn',title:'h2'});
       await expect(page.locator('#libraryListCard .add-list-head #manageLibraryBtn')).toBeVisible();
       await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
       await page.locator('#newDocumentBtn').click();
@@ -87,17 +96,13 @@ for(const width of [390,1440]){
     });
     test('calendar card has the right label, 44px target and same form',async({page})=>{
       await openApp(page,'calendar');
-      await assertInHeader(page,{card:'#calendarCard',head:'.calendar-toolbar',button:'#newEventBtn',title:'#monthTitle'});
+      await assertPlaced(page,width,{card:'#calendarCard',head:'.calendar-toolbar',button:'#newEventBtn',title:'#monthTitle'});
       const button=page.locator('#newEventBtn');
       await expect(button).toHaveAttribute('aria-label','일정 등록');
-      expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width===390?'+':'+ 일정 등록');
-      const box=await button.boundingBox();
-      if(width===390){
-        // UI-디자인기준 2/3: 폰의 [+]는 버튼 높이 하나(--ds-control-height 46px)와 같은 폭의 정사각형.
-        expect(box.width).toBeGreaterThanOrEqual(45);
-        expect(box.width).toBeLessThanOrEqual(47);
+      if(width!==390){
+        expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe('+ 일정 등록');
+        expect((await button.boundingBox()).height).toBe(46);
       }
-      expect(box.height).toBe(46);
       await button.click();
       await expect(page.locator('#eventModal')).toBeVisible();
     });
@@ -133,7 +138,7 @@ for(const width of [390,1440]){
     });
     test('Google task card keeps add action and editor',async({page})=>{
       await openApp(page,'tasks');
-      await assertInHeader(page,{card:'#gtTaskSection',head:'.gt-head',button:'#newTaskBtn',title:'[data-gt-count]'});
+      await assertPlaced(page,width,{card:'#gtTaskSection',head:'.gt-head',button:'#newTaskBtn',title:'[data-gt-count]'});
       await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
       await page.locator('#newTaskBtn').click();
       await expect(page.locator('#gtTaskModal')).toBeVisible();
@@ -143,7 +148,7 @@ for(const width of [390,1440]){
       const card='#projectGrid .ps3-plist',head='.add-list-head',title='[data-ps3-total]';
       const checkActions=async()=>{
         await assertInHeader(page,{card,head,button:'#ps3ArchiveBtn',title});
-        await assertInHeader(page,{card,head,button:'#newProjectBtn',title});
+        await assertPlaced(page,width,{card,head,button:'#newProjectBtn',title});
         const actions=page.locator(`${card} ${head} .ps3-project-toolbar`);
         await expect(actions.locator('button')).toHaveCount(2);
         expect(await actions.locator('button').evaluateAll(buttons=>buttons.map(button=>button.id))).toEqual(['ps3ArchiveBtn','newProjectBtn']);
@@ -152,9 +157,11 @@ for(const width of [390,1440]){
         expect(archive.width).toBeGreaterThanOrEqual(44);
         expect(archive.height).toBe(44);
         expect(add.width).toBeGreaterThanOrEqual(44);
-        expect(add.height).toBe(46); // UI-디자인기준 2/3: 버튼 높이 하나(--ds-control-height)
-        expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
-        expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
+        if(width!==390){
+          expect(add.height).toBe(46); // UI-디자인기준 2/3: 버튼 높이 하나(--ds-control-height)
+          expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
+          expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
+        }
       };
       await checkActions();
       await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관 1');

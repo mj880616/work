@@ -42,11 +42,11 @@
       seen.add(view);out.push(view);
     }
     if(out.length)return out;
-    return ['home','calendar','tasks','projects','team'].filter(view=>document.getElementById(view+'View'));
+    return ['home','basket','calendar','projects','team'].filter(view=>document.getElementById(view+'View'));
   }
 
   function blockedTarget(target){
-    return !!target?.closest?.('.modal,.app-nav,.mobile-tabs,.mobile-menu,[data-swipe-lock],.pm2-nav,.pv-nav,.cc-peer-list');
+    return !!target?.closest?.('.modal,.app-nav,.mobile-tabs,.mobile-menu,[data-swipe-lock],.pm2-nav,.pv-nav,.cc-peer-list,.home-quick');
   }
 
   function visiblePanel(target){

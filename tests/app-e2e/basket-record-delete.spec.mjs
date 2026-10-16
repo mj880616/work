@@ -117,7 +117,7 @@ async function basket(page,{fail=0,mode='ok'}={}){
  await page.route(SB+'/rest/v1/app_record_links?**',r=>{const u=new URL(r.request().url()),q=u.searchParams.get('note_id');if(!q)return r.fallback();const wanted=q.startsWith('eq.')?[q.slice(3)]:q.slice(4,-1).split(',');return r.fulfill({json:links.filter(l=>wanted.includes(l.note_id)&&(!u.searchParams.get('status')||l.status==='confirmed'))});});
  return {notes,writes,posts,errors};
 }
-async function openNote(page,width){await tap(page,page.locator('#homeView [data-goto="basket"]'),width);await page.locator('[data-basket-filter="all"]').click();await tap(page,page.locator('[data-basket-row="n"]'),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
+async function openNote(page,width){await tap(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await page.locator('[data-basket-filter="all"]').click();await tap(page,page.locator('[data-basket-row="n"]'),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
 
 const CONFIRM='메모 원문을 지웁니다. 연결된 조직·프로젝트 1곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).';
 for(const width of [390,1280])for(const [mode,status] of [['ok','메모를 지우고 첨부를 Drive 휴지통으로 옮겼어요.'],['partial','메모를 지웠어요. 첨부 1개는 Drive에 남았어요.'],['legacy','메모를 지웠어요. 첨부 파일은 Drive에 남아 있어요.']])test(`basket read view deletes the original (${mode}) and returns to the list ${width}`,async({page},info)=>{

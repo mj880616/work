@@ -89,7 +89,7 @@ for(const width of [390,1280]){
   await page.setViewportSize({width,height:900});
   const seen=await fixture(page,{notes:[{id:'rich',raw_text:RICH,occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[]}]});
   const detail=page.locator('[data-basket-detail]'),read=detail.locator('[data-basket-read-text]');
-  await press(page,page.locator('#homeView [data-goto="basket"]'),width);
+  await press(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);
   await press(page,page.locator('[data-basket-row="rich"]'),width);
   await expect(read).toHaveClass(/md-body/);
   const chip=read.locator('button.md-image-chip');
@@ -127,7 +127,7 @@ for(const width of [390,1280]){
   const notes=[{id:'pasted',raw_text:'📄 ChatGPT HTML',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[{drive_file_id:'html_1',file_name:'chatgpt-20261006-1000.html',mime_type:'text/html',size_bytes:PROBE.length}]}];
   const seen=await fixture(page,{notes,htmlReply:reply});
   await page.evaluate(()=>{window.__copied=null;Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:text=>{window.__copied=text;return Promise.resolve();}}});});
-  await press(page,page.locator('#homeView [data-goto="basket"]'),width);
+  await press(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);
   // [GPT 답변 가져오기] copies the fixed request.
   await openBasketMore(page);await press(page,page.locator('[data-chatgpt-request-copy]'),width);
   await expect.poll(()=>page.evaluate(()=>window.__copied)).toBe('위 답변을 외부 라이브러리·폰트·이미지 주소 없이 인라인 CSS와 인라인 SVG만 쓴 HTML 파일 하나로 만들어 줘. 카드·표·도식 모양을 살려 줘.');
@@ -209,7 +209,7 @@ test('an older server, a refused page and a page over 2MB show a notice instead 
  const file=(id,size=100)=>({drive_file_id:id,file_name:`${id}.html`,mime_type:'text/html',size_bytes:size});
  const notes=[{id:'n',raw_text:'',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[file('old'),file('big',2*1024*1024+1),file('refused')]}];
  const seen=await fixture(page,{notes,htmlReply:(route,body)=>body.drive_file_id==='old'?route.fulfill({status:400,json:{error:'document_id가 필요합니다.'}}):route.fulfill({status:400,json:{error:'Drive 원본이 휴지통에 있습니다.',code:'DRIVE_FILE_TRASHED'}})});
- await page.locator('#homeView [data-goto="basket"]').click();
+ await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
  await page.locator('[data-basket-row="n"]').click();
  await expect(page.locator('[data-basket-html-view="old"]')).toContainText('HTML 보기 서버가 아직 준비되지 않았어요');
  await expect(page.locator('[data-basket-html-view="big"]')).toContainText('2MB보다 큰 HTML은 화면으로 보지 않아요');

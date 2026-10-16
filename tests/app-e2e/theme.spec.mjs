@@ -177,7 +177,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
-   if(width<=760){if(['calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',theme==='olive'?'#47532a':theme==='navy'?'#355f86':theme==='terracotta'?'#7f3f1b':'#7a5012');}else await matches('.app-nav .nav-btn.active','backgroundColor',color);
+   if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',theme==='olive'?'#47532a':theme==='navy'?'#355f86':theme==='terracotta'?'#7f3f1b':'#7a5012');}else await matches('.app-nav .nav-btn.active','backgroundColor',color);
    await matches(selector,property,expected);
    if(view==='projects'){
     await page.locator('[data-ps3-project="theme-project"]').first().click();
@@ -282,7 +282,7 @@ for(const width of [390,1440])test('D-3c outside navigation keeps its route and 
 
 for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account matches menu typography '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
- if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','14px');await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');return;}
+ if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','14px');await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
   const nav=getComputedStyle(document.querySelector('.app-nav [data-view="tasks"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-nav [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
