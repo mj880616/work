@@ -13,6 +13,7 @@ import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js?v=2';
 import { openBasketHtml, mountHtmlFrame, HTML_FRAME_TEXT } from './html-frame.js?v=1';
 import { CHATGPT_HTML_REQUEST, HTML_MAX_BYTES, isHtmlName } from './chatgpt-html.mjs?v=1';
+import { openMarkdownEditor } from './md-editor.js?v=1';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=7';
 
@@ -20,7 +21,7 @@ const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
-let quick=null;
+let quick=null, bigWriter=null;
 let currentScope = scope(), retainedForTraversal = false;
 const initialUrl = new URL(location.href);
 // A source-note link from the task view hands its note over in-app; a full load reads ?note=.
@@ -250,6 +251,7 @@ function closeDetail({focus = true, force = false, cleanAddress = true} = {}) {
   if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return;
   if (!force && !dirty() && manualDraft() && !window.confirm('작성 중인 연결·할 일 입력을 버리고 목록으로 돌아갈까요?')) return;
   handoff.close();
+  bigWriter?.close({silent:true});
   const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;manual.reset();writeRequest.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false;paintHandoffScope();
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
 }
@@ -382,7 +384,7 @@ function openDetail(id, {edit = false} = {}) {
   ++epoch;ocrViewScope=captureOcrScope();editing=edit;rawView=false;
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
-  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-tools"><button type="button" class="secondary" data-basket-read-raw>원문 그대로 보기</button></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div><div class="basket-html-views" data-basket-html-views></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><div data-basket-write-request-wrap><div data-basket-write-request hidden></div></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><div class="basket-read-main"><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div class="basket-read-more"><button type="button" class="secondary" data-basket-write-request-open>쓰기요청 후보</button><button type="button" class="secondary" data-basket-edit>수정</button><button type="button" class="secondary" data-basket-archive>보관</button><button type="button" class="danger" data-basket-delete>삭제</button></div></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+  detail.innerHTML = `<button type="button" data-basket-close>목록으로</button><p data-basket-state></p><time>${esc(time(selected))}</time><div class="basket-read" data-basket-read><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-tools"><button type="button" class="secondary" data-basket-read-raw>원문 그대로 보기</button></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div><div class="basket-html-views" data-basket-html-views></div></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><button type="button" class="secondary" data-basket-big-write>크게 쓰기</button><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><div data-basket-write-request-wrap><div data-basket-write-request hidden></div></div><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><div class="basket-read-main"><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div class="basket-read-more"><button type="button" class="secondary" data-basket-write-request-open>쓰기요청 후보</button><button type="button" class="secondary" data-basket-edit>수정</button><button type="button" class="secondary" data-basket-archive>보관</button><button type="button" class="danger" data-basket-delete>삭제</button></div></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   manual.attach(detail.querySelector('[data-basket-manual]'));
   writeRequest.attach(detail.querySelector('[data-basket-write-request]'));
@@ -390,6 +392,18 @@ function openDetail(id, {edit = false} = {}) {
   paintDetailState();paintMode();paintHandoffScope();
   // Reading never opens the on-screen keyboard; only an explicit edit focuses the text.
   detail.querySelector(editing ? '[data-basket-text]' : '[data-basket-read-text]').focus();
+}
+// MD-편집기: [크게 쓰기] opens the shared full-screen editor on the edit field's text. Every change goes straight
+// back into the field, so [수정 저장]·취소·leaving the screen see the same text; saving stays the existing flow.
+function openBigWriter() {
+  const field = detail.querySelector('[data-basket-text]'), id = selected?.id;
+  if (!selected || !editing || busy || !field) return;
+  const same = () => editing && selected?.id === id && field.isConnected;
+  bigWriter = openMarkdownEditor({
+    text: field.value, title: '메모 크게 쓰기',
+    onInput: value => { if (same()) field.value = value; },
+    onClose: value => { bigWriter = null; if (!same()) return; field.value = value; field.focus(); },
+  });
 }
 function startEdit() {
   if (!selected || editing) return;
@@ -513,6 +527,7 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-filter')) { handoff.close(); filter = b.dataset.basketFilter; renderList(); }
   else if (b.hasAttribute('data-basket-close')) closeDetail();
   else if (b.hasAttribute('data-basket-edit')) startEdit();
+  else if (b.hasAttribute('data-basket-big-write')) openBigWriter();
   else if (b.hasAttribute('data-basket-link-open')||b.hasAttribute('data-basket-task-open')) { const message = manual.open(b.hasAttribute('data-basket-link-open') ? 'link' : 'task'); detail.querySelector('[data-basket-status]').textContent = message || ''; }
   else if (b.hasAttribute('data-basket-write-request-open')) { detail.querySelector('[data-basket-status]').textContent = ''; writeRequest.open(); }
   else if (b.hasAttribute('data-basket-cancel')) finishEdit();

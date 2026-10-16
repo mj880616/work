@@ -1,0 +1,166 @@
+import {testOrigin} from './helpers/test-origin.mjs';
+import { test, expect } from '@playwright/test';
+import { openHome } from './helpers/home-entry.mjs';
+// MD-편집기 1단계: 바구니 메모 수정 화면의 [크게 쓰기]가 전체 화면 편집기를 열고, 도구 막대가 마크다운 기호를 넣고,
+// [쓰기|미리보기](폰)·나란히(넓은 화면) 미리보기가 기존 표시 모듈로 그려지며, 닫으면 글이 수정 칸으로 돌아가
+// 기존 [수정 저장]으로 저장되는지, [텔레그램용 복사] 결과와 외부 요청 0건을 확인한다.
+const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+test.use({hasTouch:true});
+const ORIGINAL='처음 메모';
+
+async function fixture(page){
+ const seen={external:[],errors:[],writes:[]};
+ page.on('pageerror',e=>seen.errors.push(e.message));page.on('console',m=>{if(m.type()==='error')seen.errors.push(m.text());});
+ page.on('request',request=>{const url=new URL(request.url());if(url.origin!==testOrigin&&url.origin!==SB)seen.external.push(request.url());});
+ const notes=[{id:'n',raw_text:ORIGINAL,occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[]}];
+ await openHome(page);
+ await page.route(SB+'/rest/v1/app_notes**',r=>{
+  const req=r.request(),u=new URL(req.url());if(req.method()==='GET')return r.fulfill({json:notes});
+  const body=req.postDataJSON();seen.writes.push({method:req.method(),body});
+  const n=notes.find(n=>'eq.'+n.id===u.searchParams.get('id'));Object.assign(n,body,{updated_at:'2026-10-06T02:00:00Z'});return r.fulfill({json:[n]});
+ });
+ await page.route(SB+'/rest/v1/app_record_links?**',r=>new URL(r.request().url()).searchParams.has('note_id')?r.fulfill({json:[]}):r.fallback());
+ return seen;
+}
+async function press(page,locator,width){
+ await expect(locator).toBeVisible();
+ if(width<761){await locator.evaluate(el=>el.scrollIntoView({block:'nearest',inline:'nearest'}));const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();
+}
+async function openEditor(page,width){
+ const detail=page.locator('[data-basket-detail]');
+ await press(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);
+ await press(page,page.locator('[data-basket-row="n"]'),width);
+ await expect(detail.locator('[data-basket-read-text]')).toHaveClass(/md-body/);
+ if(width<761)await page.addStyleTag({content:'html,body{overflow-anchor:none}'});
+ await press(page,detail.locator('[data-basket-edit]'),width);
+ await press(page,detail.getByRole('button',{name:'크게 쓰기',exact:true}),width);
+ const editor=page.locator('#mdEditor');
+ await expect(editor).toBeVisible();await expect(editor).toHaveAttribute('role','dialog');
+ return {detail,editor,area:editor.locator('textarea.md-editor-text'),preview:editor.locator('.md-editor-preview')};
+}
+const tool=(editor,name)=>editor.getByRole('button',{name,exact:true});
+// Puts the caret (or a selection) in the editor without a keyboard event.
+const select=(area,from,to=from)=>area.evaluate((el,[a,b])=>{el.focus();el.setSelectionRange(a,b);},[from,to]);
+
+for(const width of [390,1280]){
+ test(`md editor opens from basket edit, inserts markdown, previews and returns the text to 수정 저장 ${width}`,async({page},info)=>{
+  await page.setViewportSize({width,height:860});const seen=await fixture(page);
+  const {detail,editor,area,preview}=await openEditor(page,width);
+  await expect(area).toHaveValue(ORIGINAL);await expect(area).toBeFocused();
+  // The editor covers the whole screen, including the phone tabs.
+  const box=await editor.boundingBox();expect(box.x).toBe(0);expect(box.y).toBe(0);expect(Math.round(box.width)).toBe(width);expect(Math.round(box.height)).toBe(860);
+  // Toolbar: one row, 44px buttons; on a phone the row scrolls sideways and sits at the bottom.
+  const tools=editor.locator('.md-editor-tools');
+  for(const b of await tools.locator('button').all()){const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);}
+  const toolsBox=await tools.boundingBox();
+  if(width<761){expect(toolsBox.y+toolsBox.height).toBeGreaterThan(860-60);expect(await tools.evaluate(el=>el.scrollWidth>el.clientWidth&&getComputedStyle(el).flexWrap==='nowrap')).toBe(true);}
+  else expect(toolsBox.y).toBeLessThan(200);
+
+  // 제목 1 on the caret's line.
+  await select(area,2);await press(page,tool(editor,'제목 단계 고르기'),width);await press(page,tool(editor,'제목 1'),width);
+  await expect(area).toHaveValue('# 처음 메모');
+  // 굵게 wraps the selected word; 되돌리기·다시하기 go through the browser's own history.
+  // A toolbar press never takes focus from the text, so the phone keyboard stays open.
+  await area.evaluate(el=>{el.__blurs=0;el.addEventListener('blur',()=>el.__blurs++);});
+  await select(area,2,4);await press(page,tool(editor,'굵게'),width);await expect(area).toHaveValue('# **처음** 메모');
+  await expect(area).toBeFocused();expect(await area.evaluate(el=>el.__blurs)).toBe(0);
+  await press(page,tool(editor,'되돌리기'),width);await expect(area).toHaveValue('# 처음 메모');
+  await press(page,tool(editor,'다시하기'),width);await expect(area).toHaveValue('# **처음** 메모');
+  // Block tools go after the caret's line with a blank line around them.
+  const end=async()=>select(area,(await area.inputValue()).length);
+  await end();await area.pressSequentially('\n\n');await press(page,tool(editor,'글머리 목록'),width);await area.pressSequentially('할 일');
+  await end();await area.pressSequentially('\n');await press(page,tool(editor,'체크 목록'),width);
+  await end();await press(page,tool(editor,'표 틀 넣기'),width);
+  await end();await press(page,tool(editor,'강조 상자 종류 고르기'),width);await expect(editor.locator('.md-editor-menu button')).toHaveText(['참고','팁','중요','경고','주의']);await press(page,tool(editor,'경고'),width);
+  await end();await press(page,tool(editor,'Mermaid 도식 틀 고르기'),width);await expect(editor.locator('.md-editor-menu button')).toHaveText(['흐름도','순서도','타임라인']);await press(page,tool(editor,'흐름도'),width);
+  await end();await press(page,tool(editor,'구분선'),width);
+  const value=await area.inputValue();
+  expect(value).toContain('# **처음** 메모\n\n- 할 일');expect(value).toContain('- 할 일\n- [ ] \n');expect(value).toContain('| 항목 | 내용 | 비고 |\n| --- | --- | --- |');
+  expect(value).toContain('> [!WARNING]\n> 내용');expect(value).toContain('```mermaid\nflowchart TD');expect(value.trimEnd().endsWith('---')).toBe(true);
+  // The basket field follows every change while the editor is open.
+  await expect(detail.locator('[data-basket-text]')).toHaveValue(value);
+
+  // Preview: the shared markdown view (sanitized, diagrams drawn), [쓰기|미리보기] on a phone, side by side when wide.
+  if(width<761){
+   await expect(preview).toBeHidden();await press(page,tool(editor,'미리보기'),width);
+   await expect(preview).toBeVisible();await expect(area).toBeHidden();
+  }else{
+   await expect(tool(editor,'미리보기')).toBeHidden();await expect(preview).toBeVisible();await expect(area).toBeVisible();
+   const a=await area.boundingBox(),p=await preview.boundingBox();expect(p.x).toBeGreaterThanOrEqual(a.x+a.width-1);
+  }
+  await expect(preview).toHaveClass(/md-body/);await expect(preview.locator('h1 strong')).toHaveText('처음');
+  await expect(preview.locator('table th')).toHaveText(['항목','내용','비고']);await expect(preview.locator('blockquote.md-callout-warning')).toContainText('경고');
+  await expect(preview.locator('input.md-task')).toHaveCount(1);await expect(preview.locator('hr')).toHaveCount(1);
+  await expect(preview.locator('.md-mermaid-figure svg')).toHaveCount(1,{timeout:20000});
+  await expect(preview.locator('script,iframe,foreignObject')).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:info.outputPath(`md-editor-preview-${width}.png`)});
+  if(width<761){
+   // A toolbar press from the preview goes back to writing.
+   await press(page,tool(editor,'쓰기'),width);await expect(area).toBeVisible();await expect(preview).toBeHidden();
+   await page.screenshot({path:info.outputPath(`md-editor-write-${width}.png`)});
+  }else await page.screenshot({path:info.outputPath(`md-editor-write-${width}.png`)});
+
+  // Typing updates the wide preview by itself.
+  await end();await area.pressSequentially('\n\n마지막 문단');
+  if(width>=1024)await expect(preview).toContainText('마지막 문단');
+
+  // [닫기]: the text returns to the basket field; saving is the existing [수정 저장].
+  const final=await area.inputValue();
+  await press(page,tool(editor,'닫고 수정 칸으로 돌아가기'),width);
+  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  const field=detail.locator('[data-basket-text]');await expect(field).toHaveValue(final);await expect(field).toBeFocused();
+  await field.evaluate(el=>{el.blur();el.scrollTop=0;el.closest('.basket-editor').scrollIntoView({block:'start'});});
+  await page.screenshot({path:info.outputPath(`md-editor-basket-edit-${width}.png`)});
+  expect(seen.writes).toEqual([]);
+  await press(page,detail.locator('[data-basket-save]'),width);
+  await expect(detail.locator('[data-basket-status]')).toContainText('수정한 글을 저장했습니다');
+  expect(seen.writes).toHaveLength(1);expect(seen.writes[0]).toMatchObject({method:'PATCH',body:{raw_text:final}});
+  await expect(detail.locator('[data-basket-read-text] h1')).toHaveText('처음 메모');
+  expect(seen.external).toEqual([]);expect(seen.errors).toEqual([]);
+ });
+}
+
+test('md editor telegram copy turns markdown into plain Telegram text',async({page})=>{
+ await page.setViewportSize({width:390,height:860});const seen=await fixture(page);
+ const {editor,area}=await openEditor(page,390);
+ await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};});
+ const FENCE='```';
+ await area.fill(['# 주간 정리','**굵게** 와 *기울임*, ~~취소~~, `코드`','- 첫째','  - 하위','1. 하나','- [ ] 할 일','- [x] 끝난 일','> 인용','','> [!NOTE]','> 참고 내용','','---','','| 항목 | 담당 |','| --- | --- |','| 성명 | 홍보 |','','[기사](https://example.com/a)',FENCE+'mermaid','flowchart TD','A-->B',FENCE].join('\n'));
+ await press(page,tool(editor,'텔레그램용 복사'),390);
+ await expect(editor.locator('.md-editor-status')).toHaveText('텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.');
+ expect(await page.evaluate(()=>window.__copied)).toBe(['주간 정리','굵게 와 기울임, 취소, 코드','• 첫째','  • 하위','1. 하나','☐ 할 일','☑ 끝난 일','▎ 인용','','[참고]','참고 내용','','──────────','','항목: 성명, 담당: 홍보','','기사 (https://example.com/a)','(도식은 텔레그램에서 보이지 않아 뺐습니다)'].join('\n'));
+ // The stored text is untouched: copying never rewrites the editor.
+ expect(await area.inputValue()).toContain('# 주간 정리');
+ expect(seen.external).toEqual([]);expect(seen.errors).toEqual([]);
+});
+
+test('md editor closes with the phone back button and keeps the text in the edit field',async({page})=>{
+ await page.setViewportSize({width:390,height:860});const seen=await fixture(page);
+ const {detail,area}=await openEditor(page,390);
+ await area.fill('뒤로 가기로 닫은 글');
+ await page.goBack();
+ await expect(page.locator('#mdEditor')).toHaveCount(0);
+ await expect(detail.locator('[data-basket-text]')).toBeVisible();await expect(detail.locator('[data-basket-text]')).toHaveValue('뒤로 가기로 닫은 글');
+ expect(new URL(page.url()).searchParams.get('view')).toBe('basket');
+ // A smaller screen (keyboard open with resizes-content) keeps the toolbar right above it.
+ await press(page,detail.getByRole('button',{name:'크게 쓰기',exact:true}),390);
+ await page.setViewportSize({width:390,height:500});
+ const bar=await page.locator('#mdEditor .md-editor-tools').boundingBox();expect(bar.y+bar.height).toBeGreaterThan(500-60);expect(bar.y+bar.height).toBeLessThanOrEqual(501);
+ expect(seen.writes).toEqual([]);expect(seen.errors).toEqual([]);
+});
+
+test('md editor keeps native undo, keyboard shortcuts and Escape on a wide screen',async({page})=>{
+ await page.setViewportSize({width:1280,height:860});const seen=await fixture(page);
+ const {detail,editor,area}=await openEditor(page,1280);
+ await select(area,0,2);await page.keyboard.press('Control+b');await expect(area).toHaveValue('**처음** 메모');
+ await page.keyboard.press('Control+z');await expect(area).toHaveValue(ORIGINAL);
+ await area.press('End');await page.keyboard.type(' 추가');await press(page,tool(editor,'인용'),1280);await expect(area).toHaveValue('> 처음 메모 추가');
+ await page.keyboard.press('Control+z');await expect(area).toHaveValue('처음 메모 추가');
+ // Escape closes the choice row first, then the editor (text kept).
+ await press(page,tool(editor,'제목 단계 고르기'),1280);await page.keyboard.press('Escape');await expect(editor.locator('.md-editor-menu')).toBeHidden();await expect(editor).toBeVisible();
+ await area.focus();await page.keyboard.press('Escape');
+ await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(detail.locator('[data-basket-text]')).toHaveValue('처음 메모 추가');
+ await expect(detail.locator('[data-basket-read-text]')).toBeHidden();
+ expect(seen.writes).toEqual([]);expect(seen.errors).toEqual([]);
+});
