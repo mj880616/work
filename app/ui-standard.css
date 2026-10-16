@@ -316,7 +316,9 @@
     padding:8px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));
     border:0; border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; background:var(--kptu-surface); box-shadow:none;
   }
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-entry{ order:1; }
+  /* 맨 아래 입력칸, 그 바로 위 잠금 안내(있을 때). */
+  #appView :is(#homeView,#basketView) .home-quick .home-quick-entry{ order:2; }
+  #appView :is(#homeView,#basketView) .home-quick .home-quick-lock{ order:1; }
   #appView :is(#homeView,#basketView) .home-quick > *{ grid-row:auto; margin-top:0; }
   #appView #homeView .home-quick .home-quick-modes{ max-width:none; }
   /* 하단 탭에 [바구니]가 있으므로 "바구니 전체 보기"는 뺀다. */
