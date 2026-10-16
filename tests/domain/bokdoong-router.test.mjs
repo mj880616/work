@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import router from '../../cloudflare/bokdoong-router.mjs';
+import { createHash } from 'node:crypto';
+import router, { resetManifestMemo } from '../../cloudflare/bokdoong-router.mjs';
 
 async function request(url, { method = 'GET', upstream = new Response('ok'), headers = {} } = {}) {
   const calls = [];
@@ -106,31 +107,112 @@ test('unversioned proxied pages and assets bypass Cloudflare cache and revalidat
 });
 
 
-test('desk versioned static assets are reusable in browser and Cloudflare edge caches', async () => {
-  for (const url of [
-    'https://desk.bokdoong.com/work/app/app.js?v=58',
-    'https://desk.bokdoong.com/work/app/loader-v2.js?v=170',
-    'https://desk.bokdoong.com/work/app/styles.css?v=31',
-    'https://desk.bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn2'
-  ]) {
-    const { response, calls, fetchInits } = await request(url, {
-      upstream: new Response('versioned asset', { headers: { 'Cache-Control': 'max-age=0' } })
-    });
-    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
-    assert.equal(calls[0].cache, 'default', url);
-    assert.equal(fetchInits[0]?.cf?.cacheEverything, true, url);
-    assert.equal(fetchInits[0]?.cf?.cacheTtlByStatus?.['200-299'], 31536000, url);
-    assert.equal(fetchInits[0]?.cf?.cacheTtlByStatus?.['404'], 0, url);
-  }
-  const serviceWorker = await request('https://desk.bokdoong.com/work/app/sw.js?v=2', {
-    upstream: new Response('service worker', { headers: { 'Cache-Control': 'max-age=0' } })
-  });
-  assert.equal(serviceWorker.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+const MANIFEST = 'https://mj880616.github.io/work/app/asset-manifest.json';
+const sha256 = text => createHash('sha256').update(text).digest('hex');
 
-  const html = await request('https://desk.bokdoong.com/work/app/?v=58', {
-    upstream: new Response('<!doctype html>', { headers: { 'Cache-Control': 'max-age=0' } })
-  });
-  assert.equal(html.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+// Router with a synthetic GitHub Pages (asset bytes + manifest) and a synthetic edge cache.
+async function versioned(url, { body = 'current bytes', manifest, manifestStatus = 200, cache = new Map(), method = 'GET' } = {}) {
+  resetManifestMemo();
+  const calls = [];
+  const originalFetch = globalThis.fetch, originalCaches = globalThis.caches;
+  globalThis.caches = {
+    default: {
+      match: async key => cache.get(key.url)?.clone(),
+      put: async (key, response) => { cache.set(key.url, response); }
+    }
+  };
+  globalThis.fetch = async input => {
+    calls.push(input);
+    if (input.url.startsWith(MANIFEST + '?')) return new Response(JSON.stringify(manifest ?? {}), { status: manifestStatus });
+    return new Response(body, { headers: { 'Cache-Control': 'max-age=600', ETag: '"pages"' } });
+  };
+  try {
+    const response = await router.fetch(new Request(url, { method }));
+    return { response, calls, cache };
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.caches = originalCaches;
+  }
+}
+
+test('desk versioned assets are immutable in browser and edge only when bytes match the manifest', async () => {
+  for (const [url, path, version] of [
+    ['https://desk.bokdoong.com/work/app/app.js?v=58', 'app/app.js', '58'],
+    ['https://desk.bokdoong.com/work/app/project-system-v3.css?v=29', 'app/project-system-v3.css', '29'],
+    ['https://desk.bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn2', 'app/app-icon.svg', '20260924-unicorn2']
+  ]) {
+    const manifest = { assets: { [path]: { v: [version], sha256: sha256('current bytes') } } };
+    const { response, calls, cache } = await versioned(url, { manifest });
+    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
+    assert.equal(await response.text(), 'current bytes', url);
+    assert.equal(calls.find(call => !call.url.startsWith(MANIFEST)).cache, 'no-store', url);
+    assert.equal(cache.size, 1, url);
+    // A later request is answered from the edge cache without reaching GitHub Pages.
+    const again = await versioned(url, { manifest, cache });
+    assert.equal(again.calls.length, 0, url);
+    assert.equal(await again.response.text(), 'current bytes', url);
+    assert.equal(again.response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
+  }
+});
+
+test('old bytes served for a new ?v= during a deploy are neither pinned at the edge nor immutable', async () => {
+  const url = 'https://desk.bokdoong.com/work/app/project-system-v3.css?v=29';
+  const cases = [
+    ['bytes from the previous deploy', { body: 'old bytes', manifest: { assets: { 'app/project-system-v3.css': { v: ['29'], sha256: sha256('new bytes') } } } }],
+    ['manifest from the previous deploy', { body: 'old bytes', manifest: { assets: { 'app/project-system-v3.css': { v: ['28'], sha256: sha256('old bytes') } } } }],
+    ['asset missing from the manifest', { manifest: { assets: {} } }],
+    ['manifest unavailable', { manifestStatus: 404 }],
+    ['manifest malformed', { manifest: { nope: true } }]
+  ];
+  for (const [name, options] of cases) {
+    const { response, cache } = await versioned(url, options);
+    assert.equal(response.status, 200, name);
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', name);
+    assert.equal(response.headers.get('ETag'), '"pages"', name);
+    assert.equal(cache.size, 0, name);
+  }
+});
+
+test('one manifest fetch serves the burst of asset misses on a cold page load', async () => {
+  resetManifestMemo();
+  const manifest = { assets: { 'app/a.js': { v: ['1'], sha256: sha256('current bytes') }, 'app/b.js': { v: ['1'], sha256: sha256('current bytes') } } };
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    calls.push(input.url);
+    return input.url.startsWith(MANIFEST + '?') ? new Response(JSON.stringify(manifest)) : new Response('current bytes');
+  };
+  try {
+    for (const name of ['a', 'b']) {
+      const response = await router.fetch(new Request(`https://desk.bokdoong.com/work/app/${name}.js?v=1`));
+      assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.equal(calls.filter(url => url.startsWith(MANIFEST)).length, 1);
+});
+
+test('service worker, HTML and HEAD requests are never immutable', async () => {
+  const manifest = { assets: { 'app/sw.js': { v: ['2'], sha256: sha256('current bytes') }, 'app/app.js': { v: ['58'], sha256: sha256('current bytes') } } };
+  for (const [url, method] of [
+    ['https://desk.bokdoong.com/work/app/sw.js?v=2', 'GET'],
+    ['https://desk.bokdoong.com/work/app/?v=58', 'GET'],
+    ['https://desk.bokdoong.com/work/app/app.js?v=58', 'HEAD']
+  ]) {
+    const { response, cache } = await versioned(url, { manifest, method });
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
+    assert.equal(cache.size, 0, url);
+  }
+});
+
+test('the committed manifest matches the repository files it lists', async () => {
+  const { assets } = JSON.parse(await readFile(new URL('../../app/asset-manifest.json', import.meta.url), 'utf8'));
+  assert.ok(Object.keys(assets).length > 50);
+  for (const path of ['app/app.js', 'app/loader-v2.js', 'app/view-loader.js', 'app/project-system-v3.css', 'app/project-system-v3.js', 'app/theme-tokens.css']) {
+    const bytes = await readFile(new URL(`../../${path}`, import.meta.url));
+    assert.equal(assets[path]?.sha256, createHash('sha256').update(bytes).digest('hex'), path);
+  }
 });
 
 test('failed versioned Web2 assets never receive immutable browser caching', async () => {
@@ -143,20 +225,35 @@ test('failed versioned Web2 assets never receive immutable browser caching', asy
   }
 });
 
-test('conditional or range requests bypass the immutable edge-cache path', async () => {
-  const conditional = await request('https://desk.bokdoong.com/work/app/app.js?v=86', {
-    headers: { 'If-None-Match': '"old"' },
-    upstream: new Response(null, { status: 304, headers: { ETag: '"current"' } })
-  });
-  assert.equal(conditional.calls[0].cache, 'no-store');
-  assert.equal(conditional.fetchInits[0], undefined);
-
+test('range requests bypass the edge cache; conditional versioned requests get the verified body', async () => {
   const range = await request('https://desk.bokdoong.com/work/app/app.js?v=86', {
     headers: { Range: 'bytes=0-3' },
     upstream: new Response('data', { status: 206, headers: { 'Content-Range': 'bytes 0-3/10' } })
   });
   assert.equal(range.calls[0].cache, 'no-store');
-  assert.equal(range.fetchInits[0], undefined);
+  assert.equal(range.calls.length, 1);
+  assert.equal(range.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+
+  resetManifestMemo();
+  const manifest = { assets: { 'app/app.js': { v: ['86'], sha256: sha256('current bytes') } } };
+  const seen = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    seen.push(input);
+    return input.url.startsWith(MANIFEST + '?') ? new Response(JSON.stringify(manifest)) : new Response('current bytes');
+  };
+  try {
+    const response = await router.fetch(new Request('https://desk.bokdoong.com/work/app/app.js?v=86', {
+      headers: { 'If-None-Match': '"old"', 'If-Modified-Since': 'Thu, 01 Jan 2026 00:00:00 GMT' }
+    }));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+    const asset = seen.find(call => !call.url.startsWith(MANIFEST));
+    assert.equal(asset.headers.get('If-None-Match'), null);
+    assert.equal(asset.headers.get('If-Modified-Since'), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('conditional and range requests retain HTTP semantics while revalidating', async () => {

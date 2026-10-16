@@ -87,6 +87,8 @@ jobs:
           wait_for_match app/app-icon.svg https://mj880616.github.io/work/app/app-icon.svg
           wait_for_match app/pwa.js https://mj880616.github.io/work/app/pwa.js
           wait_for_match app/windows-manifest.json https://mj880616.github.io/work/app/windows-manifest.json
+          # The router pins ?v= assets only when they match this manifest on Pages.
+          wait_for_match app/asset-manifest.json https://mj880616.github.io/work/app/asset-manifest.json
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
