@@ -98,7 +98,7 @@ jobs:
         run: node --test tests/hwp-lab-pin.test.mjs
 
       - name: Markdown display pin and safety unit tests
-        run: node --test tests/markdown-view.test.mjs
+        run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs

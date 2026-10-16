@@ -1,0 +1,62 @@
+/* MD-편집기: 전체 화면 마크다운 편집기(md-editor.js). 색은 테마 토큰만 쓴다.
+   폰: 머리줄 → 글/미리보기 한 칸 → 도구 막대(맨 아래, 자판이 열리면 자판 바로 위). 넓은 화면(1024px~): 도구 막대 위, 글·미리보기 나란히. */
+html.md-editor-open, html.md-editor-open body { overflow:hidden; }
+.modal.md-editor {
+  position:fixed; top:0; left:0; right:0; bottom:var(--kptu-keyboard-inset, 0px); z-index:1000;
+  display:flex; flex-direction:column; place-items:stretch; gap:0; padding:0;
+  background:var(--kptu-surface); color:var(--kptu-ink);
+}
+.modal.md-editor.hidden { display:none; }
+/* The shared phone .modal rules (base-ui.css, workspace-ui.css) make a bottom sheet; this one is the whole screen. */
+html .modal.md-editor { align-items:stretch !important; overflow:hidden !important; padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left) !important; }
+.md-editor-head {
+  display:grid; grid-template-columns:minmax(0, 1fr) auto; grid-template-areas:"title done" "modes copy";
+  align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--kptu-border);
+}
+.md-editor-head h2 { grid-area:title; margin:0; font-size:var(--kptu-text-subtitle, 16px); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.md-editor-head [data-md-telegram] { grid-area:copy; }
+.md-editor-head [data-close] { grid-area:done; }
+.md-editor-modes { grid-area:modes; display:inline-flex; gap:0; width:max-content; }
+.md-editor button { min-height:var(--kptu-touch-target, 44px); min-width:var(--kptu-touch-target, 44px); font-size:14px; }
+.md-editor-head .primary, .md-editor-head .secondary { padding:0 14px; font-size:14px; }
+.md-editor-modes button, .md-editor-tools button, .md-editor-menu button {
+  flex:none; padding:0 12px; color:var(--kptu-ink); background:var(--kptu-surface); white-space:nowrap;
+  border:1px solid var(--kptu-border-strong); border-radius:8px;
+}
+.md-editor-modes button { border-radius:0; }
+.md-editor-modes button:first-child { border-radius:8px 0 0 8px; }
+.md-editor-modes button:last-child { border-radius:0 8px 8px 0; border-left:0; }
+.md-editor-modes button[aria-pressed="true"], .md-editor-tools button[aria-expanded="true"] { color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); border-color:var(--kptu-primary); font-weight:700; }
+.md-editor button:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:-2px; }
+.md-editor-panes { flex:1 1 auto; min-height:0; display:flex; }
+.md-editor-text, .md-editor-preview { flex:1 1 auto; min-width:0; min-height:0; box-sizing:border-box; margin:0; }
+.md-editor .md-editor-text {
+  width:100%; height:100%; padding:12px; resize:none; border:0; border-radius:0; outline:none; box-shadow:none;
+  font-size:16px; line-height:1.6; color:var(--kptu-ink); background:var(--kptu-surface); white-space:pre-wrap; overflow-wrap:anywhere;
+  /* Show the marks as typed: no font ligature turns --> into an arrow. */
+  font-variant-ligatures:none; font-feature-settings:"liga" 0, "calt" 0;
+}
+.md-editor .md-editor-text:focus, .md-editor .md-editor-text:focus-visible { border-color:var(--kptu-border); box-shadow:none; outline:none; }
+.md-editor-preview { padding:12px 14px; overflow:auto; font-size:var(--ds-text-read, 15px); line-height:1.65; background:var(--kptu-surface); }
+.md-editor[data-md-mode="write"]:not([data-md-wide="true"]) .md-editor-preview,
+.md-editor[data-md-mode="preview"]:not([data-md-wide="true"]) .md-editor-text { display:none; }
+.md-editor-status { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }
+.md-editor-status:empty { display:none; }
+.md-editor-bar { border-top:1px solid var(--kptu-border); background:var(--kptu-surface-subtle); padding-bottom:env(safe-area-inset-bottom); }
+/* One row each; on a phone the row scrolls sideways instead of wrapping. */
+.md-editor-tools, .md-editor-menu { display:flex; flex-wrap:nowrap; gap:6px; padding:6px 8px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+.md-editor-menu { border-bottom:1px solid var(--kptu-border); }
+.md-editor-menu[hidden] { display:none; }
+@media (min-width:761px) {
+  .md-editor-head { grid-template-columns:minmax(0, 1fr) auto auto auto; grid-template-areas:"title modes copy done"; }
+  .md-editor-bar { order:-1; border-top:0; border-bottom:1px solid var(--kptu-border); padding-bottom:0; }
+  .md-editor-head { order:-2; }
+  .md-editor-tools { flex-wrap:wrap; }
+  .md-editor-menu { order:2; border-bottom:0; border-top:1px solid var(--kptu-border); }
+  .md-editor-bar { display:flex; flex-direction:column; }
+}
+@media (min-width:1024px) {
+  .md-editor-modes { display:none; }
+  .md-editor-panes { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); }
+  .md-editor .md-editor-text { border-right:1px solid var(--kptu-border); }
+}

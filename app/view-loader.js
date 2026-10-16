@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=18','./markdown-view.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=7'],
+  basket:['./basket.css?v=18','./markdown-view.css?v=2','./md-editor.css?v=1','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=7'],
   home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26','./ui-standard.css?v=7'],
   calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=7'],
   tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=7'],
@@ -144,7 +144,7 @@ async function home(){
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
-async function basket(){ await module('./basket.js?v=41'); return {ok:true} }
+async function basket(){ await module('./basket.js?v=42'); return {ok:true} }
 // HWP-편집기(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
 async function hwpLab(){ await module('./hwp-lab.js?v=4','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab};
