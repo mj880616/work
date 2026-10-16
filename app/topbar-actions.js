@@ -31,11 +31,13 @@ const mobileAccount=accounts[0];
 const mobileTab=document.querySelector('#mobileMenuTab');
 const menuButton=()=>mobileTab?.getClientRects().length?mobileTab:mobileTrigger;
 let mobileOpen=false,mobileClosing=false,mobileOpener=null;
+// One close control: the × in the drawer head (761~1023px), drawn as the sheet's grip on a phone.
+const closeControl=()=>mobilePanel?.querySelector('[data-mobile-menu-close]')||mobilePanel;
 // Mid-width navigation reuses the original controls and the mobile dialog.
 const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
-const phoneOnly=[...drawerNav?.querySelectorAll('[data-view],[data-mobile-press]')||[]];
+const phoneOnly=[...drawerNav?.querySelectorAll('[data-view]')||[]];
 const midItems=['home','basket','calendar','tasks','projects','library','meetings','media','pages','team','hwp']
   .map(view=>appNav?.querySelector(`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
@@ -79,7 +81,7 @@ function syncMidNavigation(){
     phoneOnly.forEach(button=>button.hidden=false);
     mobileTrigger.classList.remove('nav-btn','mid-menu-trigger','active');mobileTrigger.removeAttribute('aria-current');
     if(homes.has(focus)){
-      const target=mobileOpen&&menuQuery.matches?mobilePanel.querySelector('[data-mobile-menu-close]')
+      const target=mobileOpen&&menuQuery.matches?closeControl()
         :focus.getClientRects().length?focus:mobileQuery.matches?menuButton():appNav.querySelector('.nav-btn.active')||midItems[0];
       target?.focus({preventScroll:true});
     }
@@ -101,10 +103,10 @@ function syncMidNavigation(){
   midItems.slice(count).forEach(button=>drawerNav.append(button));
   if(midItems.includes(focus)){
     if(focus.parentElement===drawerNav&&!mobileOpen)mobileTrigger.focus({preventScroll:true});
-    else if(focus.parentElement===appNav&&mobileOpen)mobilePanel.querySelector('[data-mobile-menu-close]')?.focus({preventScroll:true});
+    else if(focus.parentElement===appNav&&mobileOpen)closeControl()?.focus({preventScroll:true});
     else focus.focus({preventScroll:true});
   }else if(phoneOnly.includes(focus)&&!focus.getClientRects().length){
-    (mobileOpen?mobilePanel.querySelector('[data-mobile-menu-close]'):mobileTrigger)?.focus({preventScroll:true});
+    (mobileOpen?closeControl():mobileTrigger)?.focus({preventScroll:true});
   }else if(focus===mobileTrigger)mobileTrigger.focus({preventScroll:true});
   syncMenuLocation();
 }
@@ -119,7 +121,7 @@ document.fonts?.addEventListener('loadingdone',syncMidNavigation);
 
 function closeMobile(then,fromBack=false){
   if(!mobileOpen){then?.();return}
-  mobileOpen=false;mobileClosing=true;mobileMenu.hidden=true;[mobileTrigger,mobileTab].forEach(button=>button?.setAttribute('aria-expanded','false'));
+  mobileOpen=false;mobileClosing=true;resetDrag();mobileMenu.hidden=true;[mobileTrigger,mobileTab].forEach(button=>button?.setAttribute('aria-expanded','false'));
   window.KPTUA11y?.dialog.deactivate(mobilePanel,{restoreFocus:false});
   const opener=mobileOpener?.getClientRects().length?mobileOpener:menuButton();mobileOpener=null;
   const finish=()=>queueMicrotask(()=>{mobileClosing=false;if(opener.getClientRects().length)opener.focus({preventScroll:true});then?.()});
@@ -140,9 +142,9 @@ function openMobile(trigger){
   if(mobileClosing)return;
   if(mobileOpen){closeMobile();return}
   if(!menuQuery.matches||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
-  mobileOpen=true;mobileOpener=trigger;mobileMenu.hidden=false;trigger.setAttribute('aria-expanded','true');
+  mobileOpen=true;mobileOpener=trigger;dragEndedAt=0;mobileMenu.hidden=false;trigger.setAttribute('aria-expanded','true');
   history.pushState({...history.state,kptuMobileMenu:true},'',location.href);
-  window.KPTUA11y?.dialog.activate(mobilePanel,{trigger,initialFocus:'[data-mobile-menu-close]',onRequestClose:closeMobile});
+  window.KPTUA11y?.dialog.activate(mobilePanel,{trigger,initialFocus:closeControl(),onRequestClose:closeMobile});
 }
 mobileTrigger?.addEventListener('click',()=>openMobile(mobileTrigger));
 mobileTab?.addEventListener('click',()=>openMobile(mobileTab));
@@ -150,6 +152,8 @@ mobileTab?.addEventListener('click',()=>openMobile(mobileTab));
 document.addEventListener('click',event=>{
   if(!mobileOpen)return;
   if(mobileTrigger.contains(event.target)||mobileTab?.contains(event.target))return;
+  // The click that ends a pull on the sheet is not a press.
+  if(performance.now()-dragEndedAt<500&&mobilePanel.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();return}
   if(!mobilePanel.contains(event.target)||event.target.closest('[data-mobile-menu-close]')){
     event.preventDefault();event.stopImmediatePropagation();closeMobile();return;
   }
@@ -157,15 +161,31 @@ document.addEventListener('click',event=>{
   event.preventDefault();event.stopImmediatePropagation();
   closeMobile(()=>{if(button.isConnected)button.click()});
 },true);
-document.querySelectorAll('[data-mobile-press]').forEach(button=>button.addEventListener('click',async()=>{
-  try{
-    await window.KPTUViewLoader.load('media');
-    window.KPTURouter.go('media',{source:'delegated'});
-    document.querySelector(`#mediaView [data-press-type="${button.dataset.mobilePress}"]`)?.click();
-    const name=document.querySelector('[data-mobile-view-name]');if(name)name.textContent=button.dataset.mobilePress==='release'?'보도자료':'성명';
-    syncMenuLocation();
-  }catch(error){console.error('press menu navigation',error)}
-}));
+// Phone sheet (UI-디자인손질 4): pull the grip or the top row down to close. A short pull springs back; a tap on the grip closes.
+let drag=null,dragEndedAt=0;
+function resetDrag(){if(!drag)return;drag=null;mobilePanel.style.transform='';mobilePanel.classList.remove('is-dragging')}
+// Only the click that ends a pull is swallowed: any new press clears that mark.
+mobilePanel?.addEventListener('pointerdown',()=>{dragEndedAt=0},true);
+mobilePanel?.addEventListener('pointerdown',event=>{
+  if(!mobileOpen||!mobileQuery.matches||event.button>0||!event.target.closest('.mobile-menu-head'))return;
+  drag={id:event.pointerId,y:event.clientY,dy:0,captured:false};
+});
+mobilePanel?.addEventListener('pointermove',event=>{
+  if(drag?.id!==event.pointerId)return;
+  drag.dy=Math.max(0,event.clientY-drag.y);
+  // Capture only once it is really a pull, so a plain tap still reaches the grip (its click closes the sheet).
+  if(!drag.captured&&drag.dy>6){drag.captured=true;mobilePanel.classList.add('is-dragging');try{mobilePanel.setPointerCapture(event.pointerId)}catch{}}
+  if(drag.captured)mobilePanel.style.transform=drag.dy?`translateY(${drag.dy}px)`:'';
+});
+const endDrag=event=>{
+  if(drag?.id!==event.pointerId)return;
+  const far=drag.dy>Math.min(96,mobilePanel.getBoundingClientRect().height/4);
+  if(drag.captured)dragEndedAt=performance.now();
+  resetDrag();if(far&&event.type==='pointerup')closeMobile();
+};
+mobilePanel?.addEventListener('pointerup',endDrag);
+mobilePanel?.addEventListener('pointercancel',endDrag);
+
 document.addEventListener('keydown',event=>{if(mobileOpen&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeMobile()}});
 window.addEventListener('popstate',event=>{if(mobileOpen&&!event.state?.kptuMobileMenu)closeMobile(null,true)});
 const editable=()=>document.activeElement?.matches('input:not([type="button"]):not([type="checkbox"]):not([type="radio"]),textarea,select,[contenteditable="true"]');
@@ -193,13 +213,42 @@ document.addEventListener('focusin',syncKeyboard);
 document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
 menuQuery.addEventListener('change',syncMobile);
 window.addEventListener('resize',syncKeyboard);
-document.addEventListener('click',event=>{syncMenuLocation();const type=event.target.closest?.('[data-press-type]')?.dataset.pressType;if(type&&window.KPTURouter?.current==='media'){const name=document.querySelector('[data-mobile-view-name]');if(name)name.textContent=type==='release'?'보도자료':'성명'}});
+document.addEventListener('click',()=>syncMenuLocation());
 window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',media:document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType==='release'?'보도자료':'성명',pages:'게시판'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',media:'성명·보도자료',pages:'게시판'})[event.detail?.view]||''}
 });
+// Menu [쓰기] (UI-디자인손질 8): the shared MD editor (md-editor.js) opens empty, and [저장] makes one new basket note
+// through the basket's existing text save (basket-data.js createNote, owner RLS) — no new save path. Text closed
+// without saving stays in this tab's memory for the next [쓰기] only (never in browser storage).
+let writeDraft='',writerOpening=false;
+const writeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(writeToast.timer);writeToast.timer=setTimeout(()=>toast.classList.add('hidden'),3200)};
+async function openWriter(){
+  if(writerOpening||document.querySelector('#mdEditor:not(.hidden)')||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
+  writerOpening=true;
+  try{
+    const owner=window.KPTURuntime?.session?.read?.()?.user?.id;
+    const [{openMarkdownEditor},{createNote}]=await Promise.all([import('./md-editor.js?v=2'),import('./basket-data.js?v=4'),window.KPTUViewLoader?.prepare?.('basket')]);
+    if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
+    let saved=false;
+    openMarkdownEditor({text:writeDraft,title:'쓰기',save:{label:'저장',aria:'바구니에 새 메모로 저장',run:async text=>{
+      if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return {ok:false,message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
+      try{await createNote({raw_text:text});}catch(error){return {ok:false,message:error?.message||'저장하지 못했어요. 다시 눌러 주세요.'}}
+      saved=true;writeDraft='';writeToast('바구니에 저장했어요.');
+      window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
+      return {ok:true};
+    }},onClose:text=>{
+      if(saved)return;
+      writeDraft=text.trim()?text:'';
+      if(writeDraft)writeToast('저장하지 않은 글은 [쓰기]를 다시 누르면 이어서 쓸 수 있어요.');
+    }});
+  }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
+  finally{writerOpening=false}
+}
+document.querySelectorAll('[data-menu-write]').forEach(button=>button.addEventListener('click',()=>void openWriter()));
+window.addEventListener('kptu:session-changed',()=>{writeDraft=''});
 syncMobile();
 syncMidNavigation();
 function closeAccount(then,fromBack=false){

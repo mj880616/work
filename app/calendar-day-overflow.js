@@ -12,7 +12,8 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js?v=2';
   const taskDate=ev=>ev.date||(ev.start?seoulDateKey(ev.start):'');
   function eventRow(ev){
     // Google tasks (CAL-할일) keep the month view's task chip; calendar-tasks.js opens the task editor for them.
-    if(ev.source==='task'){const t=window.KPTUCalendarMonthView?.taskButton?.(ev,'cmv-day-event');if(t){const main=document.createElement('span');main.className='gt-day-main';main.append(t.querySelector('.cmv-event-title'));main.insertAdjacentHTML('beforeend',window.KPTUGoogleTasks?.taskMeta?.({due:taskDate(ev)})||'');t.append(main);return t}}
+    // UI-디자인손질 2: an overdue one also shows a small "지남" on the right (its aria-label already says 기한 지남).
+    if(ev.source==='task'){const t=window.KPTUCalendarMonthView?.taskButton?.(ev,'cmv-day-event');if(t){const main=document.createElement('span');main.className='gt-day-main';main.append(t.querySelector('.cmv-event-title'));main.insertAdjacentHTML('beforeend',window.KPTUGoogleTasks?.taskMeta?.({due:taskDate(ev)})||'');t.append(main);if(ev.overdue&&!ev.done)t.insertAdjacentHTML('beforeend','<span class="kptu-day-overdue" aria-hidden="true">지남</span>');return t}}
     const b=document.createElement('button');b.type='button';b.className='cal-event cmv-day-event '+(ev.source==='google'?'google cp-event':'cm-app');
     if(ev.source==='google'){b.dataset.googleEvent=ev.id;b.dataset.googleCalendar=ev.calendarId||'primary'}else b.dataset.appEvent=ev.id;
     b.style.background=ev.color||'#7656a8';b.style.color=ev.text||'#fff';
