@@ -27,6 +27,7 @@ on:
       - 'scripts/markdown/**'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'tests/google-tasks-delete-keep.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -58,6 +59,7 @@ on:
       - 'scripts/markdown/**'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'tests/google-tasks-delete-keep.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -114,6 +116,9 @@ jobs:
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+
+      - name: Check Google task delete keeps going after leaving the view
+        run: node --test tests/google-tasks-delete-keep.test.mjs
 
       - name: Check recursive app dependency graph
         run: |

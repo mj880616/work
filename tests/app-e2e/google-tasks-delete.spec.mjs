@@ -127,15 +127,32 @@ test('delete during completion effect cannot reappear when the effect finishes',
   await context.close();
 });
 
-test('leaving the task view inside five seconds cancels deletion',async({browser})=>{
+test('leaving the task view inside five seconds still deletes after the wait',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
   await deleteTask(page,'a');
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
+  expect(calls.deletes).toHaveLength(0);
+  await expect.poll(()=>calls.deletes.map(x=>x.task_id),{timeout:7000}).toEqual(['a']);
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(row(page,'b')).toBeVisible({timeout:10000});
+  await expect(row(page,'a')).toHaveCount(0);
+  await expect(page.locator('[data-gt-undo="a"]')).toHaveCount(0);
+  await context.close();
+});
+
+test('coming back inside five seconds can still undo the deletion',async({browser})=>{
+  const {context,page,calls}=await openTasks(browser);
+  await deleteTask(page,'a');
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
+  await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(row(page,'b')).toBeVisible({timeout:10000});
+  await expect(row(page,'a')).toHaveCount(0);
+  await page.locator('[data-gt-undo="a"]').click();
+  await expect(row(page,'a')).toBeVisible();
   await page.waitForTimeout(5200);
   expect(calls.deletes).toHaveLength(0);
-  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await expect(row(page,'a')).toBeVisible({timeout:10000});
   await context.close();
 });
 
@@ -148,18 +165,20 @@ test('closing the page inside five seconds sends no delete',async({browser})=>{
   await context.close();
 });
 
-test('returning to the same tab restores a deletion cancelled while hidden',async({browser})=>{
+test('switching tabs inside five seconds still deletes after the wait',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
   await deleteTask(page,'a');
   await page.evaluate(()=>{
     Object.defineProperty(document,'hidden',{configurable:true,value:true});
     document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(()=>calls.deletes.map(x=>x.task_id),{timeout:7000}).toEqual(['a']);
+  await page.evaluate(()=>{
     Object.defineProperty(document,'hidden',{configurable:true,value:false});
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await expect(row(page,'a')).toBeVisible();
-  await page.waitForTimeout(5200);
-  expect(calls.deletes).toHaveLength(0);
+  await expect(row(page,'a')).toHaveCount(0);
+  await expect(row(page,'b')).toBeVisible();
   await context.close();
 });
 
