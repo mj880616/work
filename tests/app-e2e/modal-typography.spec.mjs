@@ -303,6 +303,9 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // UI-디자인손질 1 (2026-10-16 사용자 결정): "차수" has no separate "선택" tag any more; drop that removed node from
   // the baseline only. Every other optional tag (특이사항·약칭 etc.) is still compared.
   await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
+  // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
+  const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
+  await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);
   const before=await d6bSnapshot(original),after=await d6bSnapshot(page);
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
