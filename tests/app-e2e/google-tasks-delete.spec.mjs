@@ -127,18 +127,36 @@ test('delete during completion effect cannot reappear when the effect finishes',
   await context.close();
 });
 
-test('leaving the task view inside five seconds cancels deletion',async({browser})=>{
+// TASK-삭제유지: leaving the task view or the tab no longer cancels the wait; only [되돌리기] does.
+test('leaving the task view inside five seconds still deletes when the wait ends',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
   await deleteTask(page,'a');
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
-  await page.waitForTimeout(5200);
   expect(calls.deletes).toHaveLength(0);
+  await expect.poll(()=>calls.deletes.length,{timeout:8000}).toBe(1);
+  expect(calls.deletes[0]).toMatchObject({action:'delete',task_id:'a',task_list_id:'l1'});
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await expect(row(page,'a')).toBeVisible({timeout:10000});
+  await expect(row(page,'b')).toBeVisible({timeout:10000});
+  await expect(row(page,'a')).toHaveCount(0);
   await context.close();
 });
 
+test('undo after coming back inside five seconds still cancels the deletion',async({browser})=>{
+  const {context,page,calls}=await openTasks(browser);
+  await deleteTask(page,'a');
+  await page.evaluate(()=>window.KPTURouter.go('home',{source:'qa'}));
+  await expect(page.locator('#homeView')).toBeVisible({timeout:10000});
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await page.locator('[data-gt-undo="a"]').click();
+  await expect(row(page,'a')).toBeVisible();
+  await page.waitForTimeout(5200);
+  expect(calls.deletes).toHaveLength(0);
+  await context.close();
+});
+
+// Safe side when the page itself closes: the wait is dropped and nothing is deleted (a delete from a
+// closing page could not be confirmed); the task is still there on the next visit.
 test('closing the page inside five seconds sends no delete',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
   await deleteTask(page,'a');
@@ -148,7 +166,7 @@ test('closing the page inside five seconds sends no delete',async({browser})=>{
   await context.close();
 });
 
-test('returning to the same tab restores a deletion cancelled while hidden',async({browser})=>{
+test('switching to another tab and back keeps the deletion running',async({browser})=>{
   const {context,page,calls}=await openTasks(browser);
   await deleteTask(page,'a');
   await page.evaluate(()=>{
@@ -157,9 +175,21 @@ test('returning to the same tab restores a deletion cancelled while hidden',asyn
     Object.defineProperty(document,'hidden',{configurable:true,value:false});
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await expect(row(page,'a')).toBeVisible();
-  await page.waitForTimeout(5200);
-  expect(calls.deletes).toHaveLength(0);
+  await expect(row(page,'a')).toHaveCount(0);
+  await expect(page.locator('[data-gt-undo="a"]')).toBeVisible();
+  await expect.poll(()=>calls.deletes.length,{timeout:8000}).toBe(1);
+  await expect(row(page,'a')).toHaveCount(0);
+  await context.close();
+});
+
+test('a failed delete finished on another screen restores the task and says so',async({browser})=>{
+  const {context,page,calls}=await openTasks(browser,{onDelete:route=>ok(route,{error:'fail'},500)});
+  await deleteTask(page,'a');
+  await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'qa'}));
+  await expect.poll(()=>calls.deletes.length,{timeout:8000}).toBe(1);
+  await expect(page.locator('#toast')).toContainText('할 일을 삭제하지 못해 되돌렸습니다.');
+  await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
+  await expect(row(page,'a')).toBeVisible({timeout:10000});
   await context.close();
 });
 

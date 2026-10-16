@@ -21,3 +21,11 @@ export async function requestClassification(page,{keyboard=false}={}){
  if(keyboard){await item.focus();await page.keyboard.press('Enter');}else await item.click();
 }
 export const handoffLine=page=>page.locator('[data-basket-handoff-scope]');
+// UI-디자인손질 6: 메모 읽기 화면의 [수정]·[원문 그대로 보기]·[보관]·[삭제]는 그 메모의 [⋯](aria-label "이 메모 메뉴") 안에 있다.
+// 메뉴가 닫혀 있으면 사람처럼 [⋯]를 눌러 연 뒤 항목을 누른다.
+export async function noteAction(page,selector,{press=null}={}){
+ const item=page.locator('#basketNoteMenu '+selector),more=page.locator('[data-basket-detail] [data-basket-note-more]');
+ if(await more.getAttribute('aria-expanded')!=='true'){if(press)await press(more);else await more.click();}
+ await expect(item).toBeVisible();
+ if(press)await press(item);else await item.click();
+}

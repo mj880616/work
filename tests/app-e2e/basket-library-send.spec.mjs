@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {noteAction} from './helpers/basket-more.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 // BASKET-4b-1 C: [자료실로 보내기] on a basket note attachment. Server results only;
 // a refusal changes nothing, an unknown result is never sent again.
@@ -45,7 +46,7 @@ for(const width of [390,1280])test(`sending an attachment registers it once and 
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  if(width===390)await page.screenshot({path:info.outputPath('library-send-390.png'),fullPage:true});
  // The edit view has no send controls; reading again brings them back with the same state.
- await press(page,page.locator('[data-basket-edit]'),width);
+ await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});
  await expect(page.locator('[data-basket-library]')).toHaveCount(2);for(const box of await page.locator('[data-basket-library]').all())await expect(box).toBeHidden();
  await press(page,page.locator('[data-basket-cancel]'),width);
  await expect(a.locator('[data-basket-library-badge]')).toHaveText('자료실에 있어요');

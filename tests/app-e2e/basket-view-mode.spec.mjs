@@ -1,7 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import {openBasketMore} from './helpers/basket-more.mjs';
+import {noteAction} from './helpers/basket-more.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 test.use({hasTouch:true});
 const LONG='첫 줄 제목\n\n'+'아주 긴 둘째 문단입니다. '.repeat(20)+'\n마지막 줄';
@@ -39,18 +39,19 @@ for(const width of [390,1280]){
   await press(page,page.locator('[data-basket-row="n"]'),width);
   const read=detail.locator('[data-basket-read-text]');
   await expect(read).toBeVisible();await expect.poll(()=>read.innerText()).toBe(SHOWN);
-  await press(page,detail.locator('[data-basket-read-raw]'),width);await expect(detail.locator('[data-basket-read-raw]')).toHaveText('정리해서 보기');expect(await read.innerText()).toBe(LONG);
-  await press(page,detail.locator('[data-basket-read-raw]'),width);await expect(detail.locator('[data-basket-read-raw]')).toHaveText('원문 그대로 보기');expect(await read.innerText()).toBe(SHOWN);
+  await noteAction(page,'[data-basket-read-raw]',{press:l=>press(page,l,width)});await expect(detail.locator('[data-basket-read-raw]')).toHaveText('정리해서 보기');expect(await read.innerText()).toBe(LONG);
+  await noteAction(page,'[data-basket-read-raw]',{press:l=>press(page,l,width)});await expect(detail.locator('[data-basket-read-raw]')).toHaveText('원문 그대로 보기');expect(await read.innerText()).toBe(SHOWN);
   await expect(detail.locator('time')).toContainText('2026');await expect(detail.locator('[data-basket-attachments]')).toContainText('회의.txt');
   await expect(detail.locator('[data-basket-attachments] a')).toHaveText('Drive에서 열기');
   await expect(detail.locator('[data-basket-text]')).toBeHidden();await expect(detail.locator('[data-basket-save]')).toBeHidden();await expect(detail.locator('[data-basket-upload]')).toBeHidden();
-  for(const name of ['수정','연결하기','할 일 만들기','보관','삭제','목록으로'])await expect(detail.getByRole('button',{name,exact:true})).toBeVisible();
-  // One AI handoff on the read view: the toolbar's, scoped to this memo.
-  await openBasketMore(page);await expect(detail.getByRole('button',{name:'분류 요청'})).toHaveCount(0);await expect(page.locator('#basketView').getByRole('button',{name:'분류 요청',exact:true})).toHaveCount(1);
+  // UI-디자인손질 6: big buttons [연결하기]·[할 일 만들기], "‹ 바구니" back, the rest in the note's [⋯]; no list menu on a note.
+  for(const name of ['연결하기','할 일 만들기','바구니 목록으로','이 메모 메뉴'])await expect(detail.getByRole('button',{name,exact:true})).toBeVisible();
+  for(const name of ['수정','보관','삭제'])await expect(detail.getByRole('button',{name,exact:true})).toBeHidden();
+  await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);
   expect(await editableFocused(page)).toBe(false);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath(`basket-read-${width}.png`),fullPage:true});
-  await press(page,detail.locator('[data-basket-edit]'),width);
+  await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});
   const text=detail.locator('[data-basket-text]');await expect(text).toBeFocused();await expect(text).toHaveValue(LONG);
   await expect(read).toBeHidden();await expect(detail.locator('[data-basket-archive]')).toBeHidden();await expect(detail.locator('[data-basket-cancel]')).toBeVisible();await expect(detail.locator('[data-basket-upload]')).toBeVisible();
   await page.screenshot({path:info.outputPath(`basket-edit-${width}.png`),fullPage:true});
@@ -69,7 +70,7 @@ for(const width of [390,1280]){
   await expect(read).toHaveClass(/md-body/);
   // Unchanged: cancel returns at once without a question.
   const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());void(dialogs.accept?d.accept():d.dismiss());});
-  await press(page,detail.locator('[data-basket-edit]'),width);
+  await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});
   // UI-디자인기준 1/3 보완: with 46px buttons this page now ends with [수정 저장]·[취소] at the bottom of the scroll.
   // There the swipe module's touchstart (will-change on the panel) lets Chromium's scroll anchoring move the
   // page 64px before the click, so the tap lands on the attachment link. That pre-existing interaction is
@@ -78,12 +79,12 @@ for(const width of [390,1280]){
   await press(page,detail.locator('[data-basket-cancel]'),width);
   await expect(read).toBeVisible();expect(dialogs).toEqual([]);
   // Changed: the first answer keeps editing, the second discards.
-  await press(page,detail.locator('[data-basket-edit]'),width);await text.fill('버릴 글');
+  await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});await text.fill('버릴 글');
   await press(page,detail.locator('[data-basket-cancel]'),width);expect(dialogs).toHaveLength(1);await expect(text).toBeVisible();await expect(text).toHaveValue('버릴 글');
   dialogs.accept=true;await press(page,detail.locator('[data-basket-cancel]'),width);expect(dialogs).toHaveLength(2);
   await expect(read).toBeVisible();await expect.poll(()=>read.innerText()).toBe(SHOWN);await expect(text).toHaveValue(LONG);
   // Failure keeps the editor and the typed text.
-  f.setDenied(true);await press(page,detail.locator('[data-basket-edit]'),width);await text.fill('실패해도 남는 글');await press(page,detail.locator('[data-basket-save]'),width);
+  f.setDenied(true);await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});await text.fill('실패해도 남는 글');await press(page,detail.locator('[data-basket-save]'),width);
   await expect(detail.locator('[data-basket-status]')).toContainText('저장하지 못했어요');await expect(text).toBeVisible();await expect(text).toHaveValue('실패해도 남는 글');await expect(read).toBeHidden();
   // While editing, leaving the note still asks first.
   dialogs.accept=false;await press(page,detail.locator('[data-basket-close]'),width);expect(dialogs).toHaveLength(3);await expect(text).toHaveValue('실패해도 남는 글');
