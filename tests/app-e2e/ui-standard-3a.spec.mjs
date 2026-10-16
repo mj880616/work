@@ -187,14 +187,14 @@ for(const width of [390,1280])test(`프로젝트 목록 오른쪽은 D-day 하�
  expect(errors).toEqual([]);
 });
 
-test('다크 모드는 3/3 2부까지 담당조직·자료실·회의에서도 꺼져 있다',async({page})=>{
+test('다크 모드(3/3 3부에서 켬): 기기 설정이 어두우면 담당조직·자료실·회의도 어둡다',async({page})=>{
  await page.emulateMedia({colorScheme:'dark'});
  const {errors}=await boot(page,390);
- const light='rgb(243, 241, 234)';
+ const dark='rgb(22, 22, 19)';
  for(const name of ['team','library','meetings']){
   await view(page,name);
-  expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),name).toBe(light);
-  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).colorScheme),name).not.toContain('dark');
+  expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),name).toBe(dark);
+  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).colorScheme),name).toContain('dark');
  }
  expect(errors).toEqual([]);
 });

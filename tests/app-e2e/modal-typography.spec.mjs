@@ -74,7 +74,22 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
 // 대화상자 검사(audit)는 그대로 한다.
 // UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의도 새 기준으로 바뀌어 같은 방식으로 뺀다. 새 모양은 ui-standard-3a 검사가 맡고,
 // 아래 필터 검사는 홈 빠른 입력 탭과 비교로 되돌린다. 남은 화면(성명·게시판)은 2부에서 옮긴다.
-const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings']);
+// UI-디자인기준 3/3 3부(8-9e-3, 마지막): 성명·게시판도 새 기준으로 옮겼다. 옛 main 비교에서 뺀 화면은 이제 모두
+// 새 기준과 비교한다(2/3 원장 ② 되돌림): 보이는 글자의 굵기는 400·500 두 가지, 버튼 모양 컨트롤은 높이 하나(46px)·13px.
+// 일정 월간·주간 칸(#calendarGrid·#calendarWeek)과 글 본문(.md-body)은 내용 표시라 뺀다.
+const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings','media','pages']);
+const newStandard=p=>p.evaluate(()=>{
+ const view=document.querySelector('.view-panel:not(.hidden)'),bad=[];
+ for(const e of view.querySelectorAll('*')){
+  if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body'))continue;
+  const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
+  if(text&&!['400','500'].includes(s.fontWeight))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
+  if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link'))){
+   const h=Math.round(e.getBoundingClientRect().height);if(h!==46||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
+  }
+ }
+ return bad;
+});
 for(const width of [390,1440])test('D-3e modal roles and excluded list computed styles '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original,'b9dbcaee0b8e92bd8d80334bf97999f561deef94');await boot(original);
@@ -134,6 +149,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await expect(page.locator('#soOrganizationList .so-group-heading > span')).toHaveText(['그 외','1곳']);
   }
   if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
+  else expect(await newStandard(page),name+' new standard').toEqual([]);
   if(name==='meetings'||name==='library'){
     const groups=page.locator('#'+name+'View .filter-chips');
     await expect(groups).toHaveCount(name==='meetings'?1:2);
@@ -171,7 +187,8 @@ async function audit(page,id){
  expect(small,id).toEqual([]);
  for(const input of await modal.locator('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select').all())await expect(input).toHaveCSS('font-size','14px');
  for(const label of await modal.locator('label:not(.secondary):not(.primary)').all())await expect(label).toHaveCSS('font-size','12px');
- for(const h2 of await modal.locator('.modal-head h2,.w1b-detail-head h2').all())await expect(h2).toHaveCSS('font-size','20px');
+ // UI-디자인기준 3/3 3부(8-9e-3): 창 제목은 새 기준 18px(--ds-text-title).
+ for(const h2 of await modal.locator('.modal-head h2,.w1b-detail-head h2').all())await expect(h2).toHaveCSS('font-size','18px');
 }
 
 const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','pressDetailModal','web1BoardDetailModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
@@ -189,7 +206,7 @@ for(const width of [390,1440])test('D-3e installed dialog templates use role siz
    for(const e of text){const size=parseFloat(getComputedStyle(e).fontSize);if(size<12)result.violations.push({id,element:e.id||e.className||e.tagName,size})}
    for(const e of root.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select'))if(getComputedStyle(e).fontSize!=='14px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:14});
    for(const e of root.querySelectorAll('label:not(.secondary):not(.primary):not(.mrd-upload-label):not(.library-picker-mobile)'))if(getComputedStyle(e).fontSize!=='12px')result.violations.push({id,element:e.id||e.className,size:getComputedStyle(e).fontSize,want:12});
-   for(const e of root.querySelectorAll('.modal-head h2,.w1b-detail-head h2'))if(getComputedStyle(e).fontSize!=='20px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:20});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
+   for(const e of root.querySelectorAll('.modal-head h2,.w1b-detail-head h2'))if(getComputedStyle(e).fontSize!=='18px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:18});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
   }return result;
  },modalIds);
  expect(inventory.violations).toEqual([]);
