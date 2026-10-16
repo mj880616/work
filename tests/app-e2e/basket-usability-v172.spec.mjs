@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {openBasketMore} from './helpers/basket-more.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',n='10000000-0000-4000-8000-000000000001',other='10000000-0000-4000-8000-000000000002',p='20000000-0000-4000-8000-000000000001',o='20000000-0000-4000-8000-000000000002',l='30000000-0000-4000-8000-000000000001',stamp='2026-10-06T01:00:00.123456Z';
 const answer=()=>({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'project',target_id:p,reason:'새 요약'},{kind:'organization',target_id:o,reason:'조직 요약'},{kind:'google_task',reason:'아직 지원 안 됨'}]}]});
@@ -13,7 +14,7 @@ async function fixture(page,width=390){
  await page.route(SB+'/rest/v1/app_spaces?**',r=>r.fulfill({json:[project]}));await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:[org]}));
  await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',r=>{const body=r.request().postDataJSON();writes.push({path:'confirm',body});const created=body.p_targets.length;for(const target of body.p_targets)links.push({id:l+target.kind,note_id:n,status:'confirmed',summary:target.summary,[target.kind==='project'?'project_id':'organization_id']:target.target_id});return r.fulfill({json:{ok:true,created,existing:0}});});
  await page.route(SB+'/rest/v1/rpc/app_basket_update_link_summary',r=>{const body=r.request().postDataJSON();writes.push({path:'summary',body});if(unknown)return r.abort('failed');if(conflict)return r.fulfill({json:{ok:false,error:'SUMMARY_CHANGED'}});const link=links.find(row=>row.id===body.p_link_id);link.summary=body.p_summary;return r.fulfill({json:{ok:true}});});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(2);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(2);await openBasketMore(page);
  return {errors,writes,notes,links,setUnknown:value=>unknown=value,setConflict:value=>conflict=value};
 }
 async function preview(page,proposal=answer()){await page.locator('[data-classification-open]').click();await page.locator('[data-classification-input]').fill(JSON.stringify(proposal));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-note]')).toHaveCount(1);}

@@ -15,16 +15,51 @@
 #appView :is(#homeView,#basketView) .ds-section,#appView #homeView .home-card h3,#appView #basketView [data-basket-list-status],#appView #basketView :is(.basket-manual,.basket-note-tasks,.basket-write-request) h3{ font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
 #appView #homeView .home-card h3 small{ color:var(--kptu-muted); }
 
-/* 버튼·입력 모서리 8px, 테두리 0.5px. 작은 테두리 버튼 12~13px. 누르는 영역 44px는 그대로. */
-#appView #basketView button:not(.quick-pill-button,.quick-text-link){ font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-radius:var(--ds-radius-control); }
-#appView #basketView button:not(.quick-pill-button,.quick-text-link,.primary,.danger,.home-quick-save,.home-quick-new-note){ border-color:var(--ds-line); }
+/* 입력 모서리 8px, 테두리 0.5px. */
 #appView #basketView :is(textarea,input[type="text"],select),#appView #homeView .home-quick [data-quick-input]{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
-#appView #homeView .home-quick :is([data-quick-options] button,select){ border-width:var(--ds-line-width); border-color:var(--ds-line); }
 
-/* 알약 버튼(기준 모양)은 그대로 두고 굵기만 중간으로. */
-#appView :is(#homeView,#basketView) :is(.home-quick-modes button,.quick-pill-button){ font-weight:var(--ds-weight-medium); }
-/* 종류 색: 바구니 = 주황(연한 바탕 + 진한 글자). */
-#appView #homeView .home-quick-modes [data-quick-mode="basket"][aria-pressed="true"],#appView #basketView .basket-filters [aria-pressed="true"]{ background:var(--ds-kind-basket-soft); color:var(--ds-kind-basket-ink); }
+/* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
+   종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
+   목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. */
+#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.md-share-cards *,.home-choice-sheet *),[data-basket-attachments] a,[data-basket-more] > summary):where(:not([hidden])),
+#appView #homeView .home-quick :is(.home-quick-modes button,.home-quick-save,.home-quick-new-note,[data-quick-options] button):where(:not([hidden])){
+  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  height:auto; min-height:var(--ds-control-height); max-width:100%; margin:0; padding:4px var(--ds-control-pad-x);
+  font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none;
+  color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
+  box-shadow:none; background-image:none;
+}
+/* ① 채운 버튼: 빠른 입력 [추가], 읽기 [연결하기], 수정 [수정 저장], 패널 안 확정 버튼. 위 기본 규칙과 같은 우선순위로 맞춰 뒤에서 덮는다. */
+#appView :is(#homeView,#basketView) :is(.home-quick button.home-quick-save,button.primary,button.quick-pill-primary,button[data-basket-save]){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+/* ② 종류 색: 고른 탭·필터·날짜와 읽기 화면 [할 일 만들기](바구니 색). 바구니 = 주황, 할 일 = 청록, 업데이트 = 회색. */
+#appView #basketView .basket-read-actions button.primary ~ button.primary,
+#appView #basketView .basket-filters [aria-pressed="true"],
+#appView #homeView .home-quick-modes [data-quick-mode="basket"][aria-pressed="true"]{ color:var(--ds-kind-basket-ink); background:var(--ds-kind-basket-soft); border-color:var(--ds-kind-basket-soft); }
+#appView #homeView .home-quick-modes [data-quick-mode="task"][aria-pressed="true"],
+#appView :is(#homeView,#basketView) button:is([data-quick-day],[data-manual-task-day])[aria-pressed="true"]{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); border-color:var(--ds-kind-task-soft); }
+#appView #homeView .home-quick-modes [data-quick-mode="update"][aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+/* ④ 삭제: 빨간 테두리. */
+#appView #basketView button.danger{ color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }
+/* 읽기 화면 [삭제]는 맨 끝에 떨어뜨려 둔다(UI-바구니버튼정리). */
+#appView #basketView .basket-read-more button[data-basket-delete]{ margin-left:auto; }
+
+/* 탭·필터: 알약 묶음 대신 같은 버튼 셋을 한 줄에 같은 폭으로. */
+#appView :is(#homeView .home-quick-modes,#basketView .basket-filters){ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; width:100%; max-width:360px; padding:0; background:transparent; border-radius:0; }
+
+/* 홈 빠른 입력: 한 줄 입력칸도 [추가]와 같은 높이. 업데이트 칸(여러 줄)은 그대로. */
+#appView #homeView .home-quick:not([data-mode="update"]) [data-quick-input]{ height:var(--ds-control-height); min-height:var(--ds-control-height); }
+#appView #homeView .home-quick[data-mode="task"] [data-quick-input]{ padding-top:12px; padding-bottom:11px; }
+#appView #homeView .home-quick [data-quick-options] button{ max-width:150px; }
+
+/* 바구니 [⋯ 더보기]: 자주 쓰지 않는 AI 버튼 묶음. 키보드로 열리는 기본 <details>. */
+#appView #basketView [data-basket-more] > summary{ list-style:none; cursor:pointer; }
+#appView #basketView [data-basket-more] > summary::-webkit-details-marker{ display:none; }
+#appView #basketView .basket-more-menu{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin:8px 0 0; }
+
+/* 읽기 화면 첨부: 파일 이름 줄 아래에 [Drive에서 열기]·[자료실로 보내기]·[편집]을 같은 모양으로 나란히. */
+#appView #basketView [data-basket-attachments] .library-selected-file{ align-items:center; justify-content:flex-start; gap:8px; }
+#appView #basketView [data-basket-attachments] .library-selected-file-main{ flex:1 1 100%; }
+#appView #basketView [data-basket-attachments] .basket-library-send{ flex-basis:auto; }
 
 /* 상자: 카드·상자 모서리 12px, 0.5px 선, 그림자·그라데이션 없음. */
 #appView #homeView :is(.home-card,.home-quick),#appView #basketView :is(.home-quick,[data-basket-rows]:not(:empty),.basket-read-text,.basket-write-request,.basket-manual-target){ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none; }
@@ -44,18 +79,12 @@
 #appView #homeView .home-timing{ font-size:var(--ds-text-meta); }
 #appView #homeView .home-card header button,#appView #homeView .home-status button{ font-size:var(--ds-text-meta); }
 
-/* 채운 버튼은 화면당 하나. 바구니 읽기 화면은 [연결하기]만 채우고 [할 일 만들기]는 연한 바탕으로 둔다. */
-#appView #basketView .basket-read-actions button.primary ~ button.primary{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); border-color:var(--kptu-primary-ink); }
-
 /* 글 본문을 읽거나 쓰는 칸은 15px. */
 #appView #basketView .basket-read-text,#appView #basketView .basket-editor textarea{ font-size:var(--ds-text-read); }
-#appView #basketView .basket-read-tools button{ font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-color:var(--ds-line); }
 
-/* 읽기 화면의 상태 줄은 보조 정보 크기, 첨부 링크는 테마 링크 색. */
+/* 읽기 화면의 상태 줄은 보조 정보 크기, 본문 속 링크는 테마 링크 색. */
 #appView #basketView [data-basket-detail] > [data-basket-state]{ font-size:var(--ds-text-section); color:var(--kptu-muted); }
-#appView #basketView a{ color:var(--kptu-link); }
-/* 수정 화면의 채운 버튼은 [수정 저장] 하나. */
-#appView #basketView [data-basket-save]{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+#appView #basketView a:not([data-basket-attachments] a){ color:var(--kptu-link); }
 
 @media(max-width:760px){
   /* 폰의 D-day 줄은 지금처럼 상자 없이 둔다. */

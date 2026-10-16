@@ -1,6 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import {openBasketMore} from './helpers/basket-more.mjs';
 // MD-표시보완: 연달아 나오는 그림은 칩 하나(누르기 전 외부 요청 0건), 강조 상자, ChatGPT 공유 링크 카드(정확한 도메인만),
 // [ChatGPT용 요청 복사], 붙여 넣은 HTML 문서 → .html 첨부, .html 첨부를 칸막이 iframe(parent·top·저장소·네트워크 불가)으로 보기.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -128,7 +129,7 @@ for(const width of [390,1280]){
   await page.evaluate(()=>{window.__copied=null;Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:text=>{window.__copied=text;return Promise.resolve();}}});});
   await press(page,page.locator('#homeView [data-goto="basket"]'),width);
   // [ChatGPT용 요청 복사] copies the fixed request.
-  await press(page,page.locator('[data-chatgpt-request-copy]'),width);
+  await openBasketMore(page);await press(page,page.locator('[data-chatgpt-request-copy]'),width);
   await expect.poll(()=>page.evaluate(()=>window.__copied)).toBe('위 답변을 외부 라이브러리·폰트·이미지 주소 없이 인라인 CSS와 인라인 SVG만 쓴 HTML 파일 하나로 만들어 줘. 카드·표·도식 모양을 살려 줘.');
   await expect(page.locator('#toast')).toContainText('복사했어요');
   // Pasting a whole document into the basket input turns it into an attachment and leaves a short mark.

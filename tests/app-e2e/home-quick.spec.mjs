@@ -68,7 +68,8 @@ test('mode memory failures default to basket, reload guard detects hidden home d
 });
 for(const width of [390,1440])test(`quick visual measurements and snapshot ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');
- await expect(q.locator('[data-quick-input]')).toHaveCSS('height','40px');await expect(q.locator('[data-quick-save]')).toHaveCSS('height','40px');
+ // UI-디자인기준 1/3 보완: one control height for every mode, the [추가] height (--ds-control-height).
+ await expect(q.locator('[data-quick-input]')).toHaveCSS('height','46px');await expect(q.locator('[data-quick-save]')).toHaveCSS('height','46px');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});
  if(width===390){await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'));});await expect(page.locator('.mobile-tabs')).toBeHidden();const b=await q.locator('[data-quick-input]').boundingBox();expect(b.y+b.height).toBeLessThan(400);}

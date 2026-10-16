@@ -133,4 +133,3 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 /* MD-표시보완: .html 첨부 칸막이 자리(html-frame.js가 그린다). */
 .basket-html-views:empty { display:none; }
 .basket-html-message { margin:0 0 12px; color:var(--kptu-muted); }
-.basket-chatgpt-tools { display:flex; justify-content:flex-end; margin:0 0 8px; }
