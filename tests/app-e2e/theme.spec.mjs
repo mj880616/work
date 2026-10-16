@@ -234,7 +234,8 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
   });
   expect(bounds.paintedHeight).toBe(painted);expect(bounds.width).toBeGreaterThanOrEqual(44);expect(bounds.height).toBeGreaterThanOrEqual(44);expect(bounds.hits.every(hit=>hit.same),selector+' '+JSON.stringify(bounds)).toBe(true);
  };
- await check('#prevMonthBtn',32);await check('#nextMonthBtn',32);await check('#newEventBtn',32);
+ // UI-디자인기준 2/3(8-9d): 일정 머리줄 버튼은 높이 하나(--ds-control-height 46px).
+ await check('#prevMonthBtn',46);await check('#nextMonthBtn',46);await check('#newEventBtn',46);
  await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
  await check('#eventModal .icon-btn',32);await check('#saveEventBtn',36);
  const close=page.locator('#eventModal .icon-btn');await close.scrollIntoViewIfNeeded();const r=await close.boundingBox();

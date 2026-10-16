@@ -4,7 +4,8 @@
    다음 단계(8-9e)에서 화면을 넓힐 때 아래 :is() 목록에 화면을 더한다. */
 
 /* 굵기: 보통(400)과 중간(500) 두 가지만. 글 본문(.md-body) 안의 강조는 내용이므로 그대로 둔다. */
-#appView :is(#homeView,#basketView,#calendarView,#tasksView,#projectsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *),
+/* 일정의 월간·주간 칸(#calendarGrid·#calendarWeek)은 이번 단계에서 모양을 바꾸지 않으므로 굵기도 그대로 둔다. */
+#appView :is(#homeView,#basketView,#calendarView,#tasksView,#projectsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *),
 #ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *){ font-weight:var(--ds-weight-medium); }
 
 :where(#homeView,#basketView) label{ font-weight:var(--ds-weight-medium); }
@@ -113,7 +114,7 @@
   box-shadow:none; background-image:none;
 }
 /* 프로젝트 목록 [보관 n]은 버튼이 아니라 흐린 글자 링크(보통 굵기). */
-#appView #projectsView #ps3ArchiveBtn{ font-weight:var(--ds-weight-regular); }
+#appView #projectsView .ps3-plist button#ps3ArchiveBtn{ font-weight:var(--ds-weight-regular); }
 /* ① 채운 버튼(화면당 1개): [+ 할 일]·[+ 프로젝트]·상세 [할 일 추가]. */
 #appView :is(#tasksView,#projectsView) button.primary:not(.calendar-toolbar *,.icon-btn):where(:not([hidden])),#ps3DetailModal button.primary:not(.ps3-danger-btn):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
 /* ④ 삭제: 빨간 테두리. */

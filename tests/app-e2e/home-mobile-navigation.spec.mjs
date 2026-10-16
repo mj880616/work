@@ -152,8 +152,9 @@ test('swipes visit exactly the five bottom tabs with home and team boundaries',a
   await expect(page.locator('[data-mobile-view-name]')).toBeHidden();
   await page.locator('.mobile-tabs [data-view="calendar"]').click();
   await expect(page.locator('[data-mobile-view-name]')).toHaveText('일정');
-  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','16px');
-  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','700');
+  // UI-디자인기준 2/3(8-9d): 일정 화면 머리줄 이름은 화면 제목 18px·중간 굵기(500).
+  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','18px');
+  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','500');
   await page.locator('#mobileMenuOpen').click();
   await expect(page.locator('.mobile-menu-head b')).toHaveText('메뉴');
   const close=page.locator('[data-mobile-menu-close]');
