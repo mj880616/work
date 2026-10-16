@@ -173,7 +173,8 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·성명
  const box=await look(board);expect(box.radius).toBe('12px');expect(box.shadow).toBe('none');expect(box.borderStyle).toBe('solid');
  for(const row of await board.locator('.w1b-card').all()){const s=await look(row);expect(s.height).toBeGreaterThanOrEqual(44);expect(s.radius).toBe('0px');expect(s.shadow).toBe('none');}
  const name=await look(board.locator('.w1b-card h3').first());expect([name.fontSize,name.fontWeight]).toEqual(['13px','400']);
- expect(await board.locator('.w1b-card').first().evaluate(el=>getComputedStyle(el,'::after').content)).toBe('"›"');
+ expect(await board.locator('.w1b-card').first().evaluate(el=>getComputedStyle(el,'::after').content)).toBe('"›" / ""');
+ await expect(board.locator('.w1b-card').first()).toHaveAccessibleName(/^[^›]+$/);
  await board.locator('.w1b-card').first().click();
  const detail=page.locator('#web1BoardDetailModal');await expect(detail).toBeVisible();
  expect(await sameButtons(page,detail)).toEqual([]);

@@ -81,7 +81,7 @@ const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings
 const newStandard=p=>p.evaluate(()=>{
  const view=document.querySelector('.view-panel:not(.hidden)'),bad=[];
  for(const e of view.querySelectorAll('*')){
-  if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body'))continue;
+  if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only'))continue;
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
   if(text&&!['400','500'].includes(s.fontWeight))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link'))){
@@ -179,7 +179,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
  await view(page,'team');await page.locator(width<=760?'#soAddOrgLink':'#soAddOrg').click();await audit(page,'soEditModal');await page.locator('[data-so-close="soEditModal"]').click();
  await view(page,'library');await page.locator('#newDocumentBtn').click();await audit(page,'documentModal');await page.locator('#documentModal').evaluate(el=>el.classList.add('hidden'));
  await view(page,'calendar');await page.locator('#newEventBtn').click();await audit(page,'eventModal');await page.locator('#eventModal').evaluate(el=>el.classList.add('hidden'));
- await expect(page.locator('.theme-choices button').first()).toHaveCSS('font-size',await original.locator('.theme-choices button').first().evaluate(el=>getComputedStyle(el).fontSize));await original.close();
+ // UI-디자인기준 3/3 3부(8-9e-3): 화면 색 창 줄은 목록 줄 이름 13px.
+ await expect(page.locator('.theme-choices button').first()).toHaveCSS('font-size','13px');await original.close();
 });
 async function audit(page,id){
  const modal=page.locator('#'+id);await expect(modal).toBeVisible();
@@ -294,6 +295,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
   await original.locator('#gtMeetingLinks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),sourceNote);
   const before=await d6bSnapshot(original),after=await d6bSnapshot(page);
+  // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
+  for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
   expect(before).toHaveLength(16);
   for(const row of before)expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
   expect(after).toEqual(before);

@@ -432,6 +432,7 @@
 #appView #hwpView .hwp-lab-note{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #hwpView .hwp-lab-status{ font-size:var(--ds-text-row); }
 #appView #hwpView .hwp-lab-editor{ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--ds-frame-paper); }
+#appView #calendarView .calendar-google-panel .updated{ font-weight:var(--ds-weight-regular); }
 #appView #hwpView .hwp-drive-bar a{ font-size:var(--ds-text-button); color:var(--kptu-link); }
 
 /* 성명·보도자료(모양만 최소로): 필터는 홈 빠른 입력 탭과 같은 버튼, 연도는 섹션 이름, 목록은 0.5px 상자 안 줄(44px)·이름 13px·400. */
@@ -454,7 +455,7 @@
 #appView #pagesView .w1b-card:hover{ box-shadow:none; transform:none; background:var(--kptu-surface-subtle); }
 #appView #pagesView .w1b-card:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 #appView #pagesView .w1b-card h3{ flex:1 1 auto; min-width:0; font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.4; }
-#appView #pagesView .w1b-card::after{ content:"›"; flex:0 0 auto; color:var(--kptu-muted); font-size:16px; line-height:1; }
+#appView #pagesView .w1b-card::after{ content:"›" / ""; flex:0 0 auto; color:var(--kptu-muted); font-size:16px; line-height:1; }
 #appView #pagesView .w1b-archive > summary{ font-size:var(--ds-text-section); color:var(--ds-section-ink); min-height:var(--kptu-touch-target,44px); display:flex; align-items:center; margin-bottom:0; }
 /* 성명·게시판 본문 칸막이는 사용자가 붙여 넣은 HTML: 다크 모드에서도 밝게. */
 .modal :is(.w1b-detail-frame,.w1p-detail-frame){ color-scheme:light; background:var(--ds-frame-paper); }
@@ -479,7 +480,6 @@
 .account-panel .account-action{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
 .account-panel [data-kptu-logout]{ color:var(--kptu-danger); }
 .account-panel [data-drive-summary-status]{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView .account-trigger{ font-weight:var(--ds-weight-medium); }
 
 /* ☰ 메뉴 판(폰 [메뉴] 탭·761~1023px ☰): 제목 18px, 항목은 메뉴 줄(44px·13px·400, 줄 사이 0.5px), "계정"은 섹션 이름. */
 #appView .mobile-menu-panel .mobile-menu-head b{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
@@ -494,10 +494,14 @@
   #appView > .app-nav .sidebar-brand{ border-bottom:var(--ds-line-width) solid var(--ds-line); font-weight:var(--ds-weight-medium); }
   #appView > .app-nav .nav-btn{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
   #appView > .app-nav .nav-btn.active{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); font-weight:var(--ds-weight-medium); }
+  /* [계정 ▾]도 메뉴와 같은 글자(13px·400). */
+  #appView > .app-nav .account-trigger{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }
 }
 
 /* 폰 머리줄·하단 탭: 화면 이름 18px·500, 탭 위 0.5px 선, 고른 탭은 500. */
 @media(max-width:760px){
+  /* 게시판 본문 전체 화면 창: [닫기]가 46px 버튼이 되어도 본문 칸막이가 줄지 않게 머리 위아래 여백만 줄인다. */
+  #appView #web1BoardDetailModal .w1b-detail-head{ min-height:0; padding-top:calc(4px + env(safe-area-inset-top)); padding-bottom:4px; }
   #appView > .mobile-shell-header :is(time,[data-mobile-view-name]){ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; }
   #appView > .mobile-tabs{ border-top:var(--ds-line-width) solid var(--ds-line); }
   #appView > .mobile-tabs button:is([aria-current="page"],#mobileMenuTab[aria-expanded="true"]){ font-weight:var(--ds-weight-medium); }
