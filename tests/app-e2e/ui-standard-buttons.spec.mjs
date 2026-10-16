@@ -60,14 +60,14 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
  const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]');
  await expect(more).toHaveJSProperty('tagName','DETAILS');await expect(more).not.toHaveAttribute('open','');
- for(const name of ['AI에게 맡기기','AI 정리 결과 넣기','ChatGPT용 요청 복사'])await expect(basket.getByRole('button',{name,exact:true})).toHaveCount(0);
+ for(const name of ['분류 요청','분류 결과 입력','GPT 답변 가져오기'])await expect(basket.getByRole('button',{name,exact:true})).toHaveCount(0);
  await sameButtons(basket,height);
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary)filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
  expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(await token(page,'--ds-kind-basket-soft'));
  // Keyboard opens and closes the folded menu.
  await more.locator('summary').focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('open','');
- await expect(more.getByRole('button')).toHaveText(['AI에게 맡기기','AI 정리 결과 넣기','ChatGPT용 요청 복사']);
+ await expect(more.getByRole('button')).toHaveText(['분류 요청','분류 결과 입력','GPT 답변 가져오기']);
  await sameButtons(basket,height);
  await page.keyboard.press('Enter');await expect(more).not.toHaveAttribute('open','');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

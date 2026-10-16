@@ -46,7 +46,7 @@ for(const width of [390,1280]){
   await expect(detail.locator('[data-basket-text]')).toBeHidden();await expect(detail.locator('[data-basket-save]')).toBeHidden();await expect(detail.locator('[data-basket-upload]')).toBeHidden();
   for(const name of ['수정','연결하기','할 일 만들기','보관','삭제','목록으로'])await expect(detail.getByRole('button',{name,exact:true})).toBeVisible();
   // One AI handoff on the read view: the toolbar's, scoped to this memo.
-  await openBasketMore(page);await expect(detail.getByRole('button',{name:'AI에게 맡기기'})).toHaveCount(0);await expect(page.locator('#basketView').getByRole('button',{name:'AI에게 맡기기',exact:true})).toHaveCount(1);
+  await openBasketMore(page);await expect(detail.getByRole('button',{name:'분류 요청'})).toHaveCount(0);await expect(page.locator('#basketView').getByRole('button',{name:'분류 요청',exact:true})).toHaveCount(1);
   expect(await editableFocused(page)).toBe(false);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath(`basket-read-${width}.png`),fullPage:true});

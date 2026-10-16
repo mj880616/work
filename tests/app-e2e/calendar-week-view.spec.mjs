@@ -23,7 +23,7 @@ test('PC default week has Monday through Sunday and one KST seven-day request',a
   await expect(current).toHaveClass(/cwv-today/);
   await expect(current.locator('.cwv-create')).toBeVisible();
   const colors=await current.evaluate(el=>({background:getComputedStyle(el).backgroundColor,expected:getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary-soft').trim(),weight:getComputedStyle(el.querySelector('.cwv-date')).fontWeight}));
-  expect(colors.weight).toBe('700');
+  expect(colors.weight).toBe('500'); // UI-디자인기준 2/3: 굵기는 400·500 두 가지
   expect(colors.background).not.toBe('rgba(0, 0, 0, 0)');
   const columns=await page.locator('.cwv-day').evaluateAll(ds=>ds.map(d=>d.getBoundingClientRect().toJSON()));
   expect(new Set(columns.map(d=>d.top)).size).toBe(1);

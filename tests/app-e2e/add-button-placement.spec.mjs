@@ -93,10 +93,11 @@ for(const width of [390,1440]){
       expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width===390?'+':'+ 일정 등록');
       const box=await button.boundingBox();
       if(width===390){
-        expect(box.width).toBeGreaterThanOrEqual(35);
-        expect(box.width).toBeLessThanOrEqual(37);
+        // UI-디자인기준 2/3: 폰의 [+]는 버튼 높이 하나(--ds-control-height 46px)와 같은 폭의 정사각형.
+        expect(box.width).toBeGreaterThanOrEqual(45);
+        expect(box.width).toBeLessThanOrEqual(47);
       }
-      expect(box.height).toBe(32);
+      expect(box.height).toBe(46);
       await button.click();
       await expect(page.locator('#eventModal')).toBeVisible();
     });
@@ -151,7 +152,7 @@ for(const width of [390,1440]){
         expect(archive.width).toBeGreaterThanOrEqual(44);
         expect(archive.height).toBe(44);
         expect(add.width).toBeGreaterThanOrEqual(44);
-        expect(add.height).toBe(36);
+        expect(add.height).toBe(46); // UI-디자인기준 2/3: 버튼 높이 하나(--ds-control-height)
         expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
         expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
       };

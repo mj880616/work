@@ -48,7 +48,8 @@ async function signIn(page){
 import {execFileSync} from 'node:child_process';
 const BASE='248451a0afab043321620d168ec9610451e8bbeb';
 const samples={
- projects:[['.add-list-head [data-ps3-total]',12],['.ps3-prow-name',16],['.ps3-prow-meta',12],['button.primary',12]],
+ // UI-디자인기준 2/3(8-9d): 프로젝트 목록 행 13px, 버튼 13px(새 기준).
+ projects:[['.add-list-head [data-ps3-total]',12],['.ps3-prow-name',13],['.ps3-prow-meta',12],['button.primary',13]],
  meetings:[['.add-list-head h2',20],['.meeting-list-title h3',16],['.meeting-list-row p',12],['button.primary',12]],
  media:[['.w1p-title',16],['.w1p-year>h3',16],['.w1p-filter',12],['.w1p-date',12],['.w1p-tag',12],['.w1p-publisher',12]],
  pages:[['.w1b-card h3',16],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
@@ -83,10 +84,11 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
  if(width===390){expect(geometry.title.width/geometry.row.width).toBeGreaterThanOrEqual(.9);expect(geometry.publisher).toBe('none');expect(geometry.tag.bottom).toBeLessThanOrEqual(geometry.title.y);expect(geometry.date.bottom).toBeLessThanOrEqual(geometry.title.y);expect(Math.abs(geometry.tag.y-geometry.date.y)).toBeLessThan(8);}
  else{expect(geometry.publisher).not.toBe('none');expect(Math.abs(geometry.title.y-geometry.date.y)).toBeLessThan(8);}
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
+ // UI-디자인기준 2/3(8-9d): 일정 제목 18px·일정/할 일 버튼 13px(새 기준).
  const selectors={calendar:['#monthTitle','#newEventBtn','#prevMonthBtn'],tasks:['#newTaskBtn','#gtTaskBody'],library:['#libraryListCard h2','#libraryListCard button'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']};
  for(const [name,selectorsForView]of Object.entries(selectors)){
   if(name!=='menu'){await view(page,name);await view(original,name);}
-  for(const selector of selectorsForView){await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#prevMonthBtn'?'24px':selector==='#newEventBtn'?'12px':selector==='#monthTitle'&&width<=760?'20px':await fonts(original));}
+  for(const selector of selectorsForView){await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#prevMonthBtn'?'24px':['#newEventBtn','#newTaskBtn'].includes(selector)?'13px':selector==='#monthTitle'?'18px':await fonts(original));}
  }
  for(const p of [page,original])await p.goto('http://127.0.0.1:8123/press/');
  for(const selector of ['h1','.item h3','.date','.tag','.filter']){

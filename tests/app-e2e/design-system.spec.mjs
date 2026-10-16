@@ -70,7 +70,8 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   for(const name of tokenNames)expect(values[name],name).not.toBe('');
 
   const calendarAction=await actionMetrics(page,'calendar','#newEventBtn');
-  expect(calendarAction.height).toBeCloseTo(32,0);
+  // UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트 버튼은 새 기준 높이(--ds-control-height 46px). 자료실·회의는 3/3까지 36px.
+  expect(calendarAction.height).toBeCloseTo(46,0);
 
   const actions=[
     ['tasks','#newTaskBtn'],['projects','#newProjectBtn'],
@@ -78,8 +79,10 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   ];
   const metrics=[];
   for(const [view,selector] of actions)metrics.push(await actionMetrics(page,view,selector));
-  expect(metrics[1].height).toBe(36);
-  const compact=[metrics[0],metrics[2],metrics[3]];
+  expect(metrics[0].height).toBeCloseTo(46,0);
+  expect(metrics[1].height).toBe(46);
+  // 3/3에서 자료실·회의도 46px이 되면 네 버튼 모두 한 높이 비교로 되돌린다(원장 UI-디자인기준-2 행).
+  const compact=[metrics[2],metrics[3]];
   expect(new Set(compact.map(x=>Math.round(x.height))).size).toBe(1);
   for(const metric of compact)expect(metric.height).toBeCloseTo(36,0);
   expect(new Set(metrics.map(x=>x.radius)).size).toBe(1);

@@ -57,12 +57,14 @@ test('calendar uses 32px and text actions use 36px with mobile content above the
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 
   const calendarAdd=await buttonHeight(page,'calendar','#newEventBtn');
-  expect(calendarAdd).toBeCloseTo(32,0);
+  // UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트 버튼은 새 기준 높이(--ds-control-height 46px). 자료실·회의는 3/3까지 36px.
+  expect(calendarAdd).toBeCloseTo(46,0);
 
   const heights=[];
-  heights.push(await buttonHeight(page,'tasks','#newTaskBtn'));
+  expect(await buttonHeight(page,'tasks','#newTaskBtn')).toBeCloseTo(46,0);
   const projectAdd=await buttonHeight(page,'projects','#newProjectBtn');
-  expect(projectAdd).toBe(36);
+  expect(projectAdd).toBe(46);
+  // 3/3에서 자료실·회의도 46px이 되면 할 일까지 한 높이 비교로 되돌린다(원장 UI-디자인기준-2 행).
   heights.push(await buttonHeight(page,'library','#newDocumentBtn'));
   heights.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
 

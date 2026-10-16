@@ -1,9 +1,11 @@
 /* UI-디자인기준(8-9c) 1단계: 새 디자인 기준을 홈·바구니에만 적용한다.
    값은 theme-tokens.css의 --ds-* 한 곳에서 가져오고, 규칙은 모두 #homeView·#basketView 안으로 한정한다.
-   다음 단계(8-9d·8-9e)에서 화면을 넓힐 때 아래 :is() 목록에 화면을 더한다. */
+   2단계(8-9d)는 일정·할 일·프로젝트(#calendarView·#tasksView·#projectsView)와 프로젝트 상세 창(#ps3DetailModal)을 이 파일 끝에 더한다.
+   다음 단계(8-9e)에서 화면을 넓힐 때 아래 :is() 목록에 화면을 더한다. */
 
 /* 굵기: 보통(400)과 중간(500) 두 가지만. 글 본문(.md-body) 안의 강조는 내용이므로 그대로 둔다. */
-#appView :is(#homeView,#basketView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *){ font-weight:var(--ds-weight-medium); }
+#appView :is(#homeView,#basketView,#calendarView,#tasksView,#projectsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *),
+#ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *){ font-weight:var(--ds-weight-medium); }
 
 :where(#homeView,#basketView) label{ font-weight:var(--ds-weight-medium); }
 
@@ -87,8 +89,98 @@
 #appView #basketView a:not([data-basket-attachments] a){ color:var(--kptu-link); }
 
 @media(max-width:760px){
+  /* 폰의 [+ 일정 등록]은 글자를 숨긴 정사각형 아이콘 버튼(높이와 같은 폭). */
+  #appView #calendarView .calendar-toolbar .calendar-toolbar-add{ width:var(--ds-control-height); min-width:var(--ds-control-height); padding:0; }
+  #appView #calendarView .calendar-toolbar #calendarTodayBtn{ padding:0; }
   /* 폰의 D-day 줄은 지금처럼 상자 없이 둔다. */
   #appView #homeView [data-home-card="dday"]{ border:0; }
   /* 폰 화면 제목(위 머리줄)도 홈·바구니가 보일 때만 18px·중간 굵기. */
-  html:has(#homeView:not(.hidden)) .mobile-shell-header time,html:has(:is(#homeView,#basketView):not(.hidden)) [data-mobile-view-name]{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
+  html:has(#homeView:not(.hidden)) .mobile-shell-header time,html:has(:is(#homeView,#basketView,#calendarView,#tasksView,#projectsView):not(.hidden)) [data-mobile-view-name]{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
 }
+
+/* ───────── 2단계(8-9d): 일정·할 일·프로젝트 ─────────
+   1단계와 같은 값·같은 모양. 규칙은 #appView 안의 #calendarView·#tasksView·#projectsView와,
+   body 끝에 붙는 프로젝트 상세 창 #ps3DetailModal로만 한정한다(상세 창은 #appView 밖에 있다). 구조·순서는 바꾸지 않는다. */
+
+/* 버튼: 높이 하나·모서리 8px·13px/500·흰 바탕 + 0.5px 테두리(기본). 목록 행·체크·⋯·×·글자 링크·⋯ 메뉴 안 항목은 버튼 모양이 아니므로 뺀다.
+   일정의 접힌 [Google Calendar] 설정 칸은 calendar-health.js가 !important로 크기를 박아 두어 3/3에서 함께 정리한다(이번엔 그대로). */
+#appView :is(#calendarView,#tasksView,#projectsView) :is(button.primary,button.secondary,button.mini,a.mini):not(.calendar-toolbar *,.calendar-google-panel *,.icon-btn):where(:not([hidden])),
+#ps3DetailModal :is(button.primary,button.secondary,button.mini,a.mini,button.ghost):not(.icon-btn,.ps3-more-panel *):where(:not([hidden])){
+  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  height:var(--ds-control-height); min-height:var(--ds-control-height); max-width:100%; margin:0; padding:0 var(--ds-control-pad-x);
+  font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none; white-space:nowrap;
+  color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
+  box-shadow:none; background-image:none;
+}
+/* 프로젝트 목록 [보관 n]은 버튼이 아니라 흐린 글자 링크(보통 굵기). */
+#appView #projectsView #ps3ArchiveBtn{ font-weight:var(--ds-weight-regular); }
+/* ① 채운 버튼(화면당 1개): [+ 할 일]·[+ 프로젝트]·상세 [할 일 추가]. */
+#appView :is(#tasksView,#projectsView) button.primary:not(.calendar-toolbar *,.icon-btn):where(:not([hidden])),#ps3DetailModal button.primary:not(.ps3-danger-btn):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+/* ④ 삭제: 빨간 테두리. */
+#ps3DetailModal button:is(.ps3-danger,.ps3-danger-btn,.danger):not(.ps3-more-panel *):where(:not([hidden])){ color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }
+
+/* 일정 머리줄: 이전·다음 화살표는 테두리 없는 아이콘, [오늘]·[+ 일정 등록]은 기본 버튼, 보기 전환은 한 상자 안 세 칸. 고른 보기는 회색(종류 색 '그 밖'). */
+#appView #calendarView .calendar-toolbar{ min-height:var(--ds-control-height); }
+/* 머리줄 버튼은 위 기본 모양과 같되, 기존 간격(margin)은 그대로 둔다(누르는 영역 44px이 겹치지 않게). */
+#appView #calendarView .calendar-toolbar button:where(:not([hidden])){
+  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  height:var(--ds-control-height); min-height:var(--ds-control-height); max-width:100%; padding:0 var(--ds-control-pad-x);
+  font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; white-space:nowrap;
+  color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
+  box-shadow:none; background-image:none;
+}
+#appView #calendarView .calendar-toolbar :is(#prevMonthBtn,#nextMonthBtn){ padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:24px; line-height:1; }
+#appView #calendarView .calendar-toolbar #calendarTodayBtn{ padding:0 8px; }
+#appView #calendarView .calendar-toolbar .calendar-view-switch{ height:var(--ds-control-height); outline:var(--ds-line-width) solid var(--ds-line); outline-offset:calc(-1 * var(--ds-line-width)); border-radius:var(--ds-radius-control); }
+#appView #calendarView .calendar-toolbar .calendar-view-switch button{ width:36px; min-width:36px; padding:0; border:0; color:var(--kptu-muted); background:transparent; }
+#appView #calendarView .calendar-toolbar .calendar-view-switch button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
+#appView #calendarView .calendar-toolbar .calendar-view-switch button:last-child{ border-radius:0 var(--ds-radius-control) var(--ds-radius-control) 0; }
+#appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #calendarView .calendar-toolbar #monthTitle{ font-size:var(--ds-text-title); }
+#appView #calendarView .calendar-toolbar-divider{ border-left-width:var(--ds-line-width); border-left-color:var(--ds-line); }
+
+/* 상자: 0.5px 선·모서리 12px·그림자·그라데이션 없음. */
+#appView #calendarView .calendar-card,#appView #tasksView #gtTaskSection,#appView #projectsView .ps3-plist,#ps3DetailModal .ps3-section{
+  border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none;
+}
+
+/* 일정 목록 보기: 줄 단위 행(13px), 시각·빈 날·할 일 수는 보조 12px, 날짜 머리 13px. */
+#appView #calendarView #calendarList .clv-date{ font-size:var(--ds-text-section); color:var(--kptu-muted); }
+#appView #calendarView #calendarList .clv-date.clv-today{ color:var(--ds-section-ink); }
+#appView #calendarView #calendarList :is(.clv-event,.clv-tasks,.clv-more,.clv-empty){ border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
+#appView #calendarView #calendarList .clv-title{ font-size:var(--ds-text-row); }
+#appView #calendarView #calendarList :is(.clv-time,.clv-tasks,.clv-more,.clv-empty){ font-size:var(--ds-text-meta); }
+
+/* 할 일: 섹션 이름(기한 묶음)은 할 일 색(청록) 13px, 기한 지남은 빨강 그대로. 행은 13px·보조 12px, 행 사이 0.5px. */
+#appView #tasksView{ --ds-section-ink:var(--ds-kind-task-ink); }
+#appView #tasksView .gt-group-head{ font-size:var(--ds-text-section); color:var(--ds-section-ink); }
+#appView #tasksView .gt-overdue .gt-group-head{ color:var(--kptu-danger); }
+#appView #tasksView :is(.gt-row,.gt-group){ border-color:var(--ds-line); border-top-width:var(--ds-line-width); }
+#appView #tasksView .gt-group{ border-bottom-width:var(--ds-line-width); }
+#appView #tasksView #gtTaskBody .gt-main b{ font-size:var(--ds-text-row); }
+#appView #tasksView :is(.gt-meta,.gt-count,.gt-source){ font-size:var(--ds-text-meta); }
+
+/* 프로젝트 목록: 메인(13px·500) 아래 하위(13px·400)를 들여쓰고 가지 선으로 잇는다. 오른쪽 끝 알약은 D-day. */
+#appView #projectsView .ps3-plist :is(.ps3-prow + .ps3-prow,.ps3-prow:has(.ps3-prow-kids) > .ps3-prow-main,.add-list-head){ border-color:var(--ds-line); border-top-width:var(--ds-line-width); border-bottom-width:var(--ds-line-width); }
+#appView #projectsView .ps3-plist .kptu-list-row{ border-bottom-width:var(--ds-line-width); border-bottom-color:var(--ds-line); }
+#appView #projectsView .ps3-plist .kptu-list-name{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); }
+#appView #projectsView .ps3-plist .ps3-kid-row .kptu-list-name{ font-weight:var(--ds-weight-regular); }
+#appView #projectsView .ps3-plist .kptu-list-summary{ font-size:var(--ds-text-meta); }
+#appView #projectsView .ps3-prow-kids .ps3-kid-row{ position:relative; padding-left:44px; border-bottom:0; }
+/* 가지 선: 메인 이름 아래에서 내려오는 세로선 + 하위 이름으로 가는 가로선. 마지막 하위에서는 세로선이 가운데서 끝난다. */
+#appView #projectsView .ps3-prow-kids .ps3-kid-row::before,#appView #projectsView .ps3-prow-kids .ps3-kid-row::after{ content:''; position:absolute; left:24px; pointer-events:none; border-color:var(--kptu-faint); border-style:solid; border-width:0; }
+#appView #projectsView .ps3-prow-kids .ps3-kid-row::before{ top:0; bottom:0; border-left-width:1px; }
+#appView #projectsView .ps3-prow-kids .ps3-kid-row:last-child::before{ bottom:50%; }
+#appView #projectsView .ps3-prow-kids .ps3-kid-row::after{ top:50%; width:12px; border-top-width:1px; }
+#appView #projectsView .ps3-prow:has(.ps3-prow-kids) > .ps3-prow-main{ border-bottom:0; }
+#appView #projectsView .ps3-dday{ display:inline-flex; align-items:center; min-height:22px; padding:0 8px; border-radius:var(--kptu-radius-pill,999px); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #projectsView .ps3-dday.ps3-dday-soon{ color:var(--kptu-danger); background:var(--kptu-danger-soft); }
+#appView #projectsView .ps3-dday.ps3-dday-none{ font-weight:var(--ds-weight-regular); color:var(--kptu-faint); background:transparent; }
+
+/* 프로젝트 상세(모양만): 행 13px·보조 12px, 행 사이 0.5px. 창 제목·섹션 제목은 공용 대화상자 크기(D-6b) 그대로.
+   위계·⋯ 메뉴·접기(<details>) 구조는 그대로. */
+#ps3DetailModal :is(.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-summary b,.ps3-stat-grid b){ font-size:var(--ds-text-row); }
+#ps3DetailModal :is(.ps3-child-link small,.ps3-row p,.ps3-row small,.ps3-section-head p){ font-size:var(--ds-text-meta); }
+#ps3DetailModal :is(.ps3-row,.ps3-child-link){ border-top-width:var(--ds-line-width); border-top-color:var(--ds-line); }
+/* 상세의 한 줄 기록 칸은 옆 [저장]과 같은 높이, 0.5px 선·모서리 8px. */
+#ps3DetailModal [data-ps3-quick-progress] input{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }

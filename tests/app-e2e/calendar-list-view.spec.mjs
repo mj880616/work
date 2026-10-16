@@ -78,7 +78,7 @@ test('exclusive ends, all-day first, timed order and multi-day rows share the ho
   await expect(page.locator('.clv-day[data-date="2026-10-16"] [data-google-event]')).toHaveCount(1);
   await expect(page.locator('.clv-day[data-date="2026-10-17"] [data-google-event]')).toHaveCount(0);
   const size=await first.locator('.clv-event').first().evaluate(el=>({height:el.getBoundingClientRect().height,font:getComputedStyle(el.querySelector('.clv-title')).fontSize,stripe:el.querySelector('.clv-color').getBoundingClientRect().toJSON()}));
-  expect(size.height).toBeGreaterThanOrEqual(44);expect(size.font).toBe('14px');expect(size.stripe.width).toBe(4);expect(size.stripe.height).toBe(18);
+  expect(size.height).toBeGreaterThanOrEqual(44);expect(size.font).toBe('13px');expect(size.stripe.width).toBe(4);expect(size.stripe.height).toBe(18);
   await first.locator('[data-google-event="early"]').click();
   await expect(page.locator('#ciGoogleModal')).toBeVisible();
 });
