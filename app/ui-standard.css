@@ -1,0 +1,65 @@
+/* UI-디자인기준(8-9c) 1단계: 새 디자인 기준을 홈·바구니에만 적용한다.
+   값은 theme-tokens.css의 --ds-* 한 곳에서 가져오고, 규칙은 모두 #homeView·#basketView 안으로 한정한다.
+   다음 단계(8-9d·8-9e)에서 화면을 넓힐 때 아래 :is() 목록에 화면을 더한다. */
+
+/* 굵기: 보통(400)과 중간(500) 두 가지만. 글 본문(.md-body) 안의 강조는 내용이므로 그대로 둔다. */
+#appView :is(#homeView,#basketView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *){ font-weight:var(--ds-weight-medium); }
+
+:where(#homeView,#basketView) label{ font-weight:var(--ds-weight-medium); }
+
+/* 화면 제목 18px */
+#appView #homeView > h2[data-home-date],#appView #basketView .basket-head h2{ font-size:var(--ds-text-title); line-height:1.4; }
+
+/* 섹션 이름 13px, 색 있음. 바구니 화면의 섹션 이름은 바구니 색(주황). */
+#appView #basketView{ --ds-section-ink:var(--ds-kind-basket-ink); }
+#appView :is(#homeView,#basketView) .ds-section,#appView #homeView .home-card h3,#appView #basketView [data-basket-list-status],#appView #basketView :is(.basket-manual,.basket-note-tasks,.basket-write-request) h3{ font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
+#appView #homeView .home-card h3 small{ color:var(--kptu-muted); }
+
+/* 버튼·입력 모서리 8px, 테두리 0.5px. 작은 테두리 버튼 12~13px. 누르는 영역 44px는 그대로. */
+#appView #basketView button:not(.quick-pill-button,.quick-text-link){ font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-radius:var(--ds-radius-control); }
+#appView #basketView button:not(.quick-pill-button,.quick-text-link,.primary,.danger,.home-quick-save,.home-quick-new-note){ border-color:var(--ds-line); }
+#appView #basketView :is(textarea,input[type="text"],select),#appView #homeView .home-quick [data-quick-input]{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+#appView #homeView .home-quick :is([data-quick-options] button,select){ border-width:var(--ds-line-width); border-color:var(--ds-line); }
+
+/* 알약 버튼(기준 모양)은 그대로 두고 굵기만 중간으로. */
+#appView :is(#homeView,#basketView) :is(.home-quick-modes button,.quick-pill-button){ font-weight:var(--ds-weight-medium); }
+/* 종류 색: 바구니 = 주황(연한 바탕 + 진한 글자). */
+#appView #homeView .home-quick-modes [data-quick-mode="basket"][aria-pressed="true"],#appView #basketView .basket-filters [aria-pressed="true"]{ background:var(--ds-kind-basket-soft); color:var(--ds-kind-basket-ink); }
+
+/* 상자: 카드·상자 모서리 12px, 0.5px 선, 그림자·그라데이션 없음. */
+#appView #homeView :is(.home-card,.home-quick),#appView #basketView :is(.home-quick,[data-basket-rows]:not(:empty),.basket-read-text,.basket-write-request,.basket-manual-target){ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none; }
+#appView #basketView .library-selected-file{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-box); }
+#appView #basketView .library-selected-file small,#appView #homeView .library-selected-file small{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+
+/* 목록: 큰 카드 대신 테두리 상자 안의 줄 단위 행(행 사이 얇은 선, 행 안쪽 8~10px). */
+#appView #basketView [data-basket-rows]:not(:empty){ overflow:hidden; background:var(--kptu-surface); margin:8px 0; }
+#appView #basketView .basket-row{ gap:2px; margin:0; padding:var(--ds-row-pad-y) var(--ds-row-pad-x); min-height:var(--kptu-touch-target,44px); border:0; border-radius:0; background:transparent; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #basketView .basket-row + .basket-row{ border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #basketView .basket-row:focus-visible{ outline-offset:-2px; }
+#appView #basketView .basket-row .basket-title{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
+#appView #basketView .basket-row :is(.basket-preview,time,.basket-destination){ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+
+#appView #homeView .home-title{ font-size:var(--ds-text-row); }
+#appView #homeView :is(.home-event,.home-task) + :is(.home-event,.home-task){ border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #homeView .home-timing{ font-size:var(--ds-text-meta); }
+#appView #homeView .home-card header button,#appView #homeView .home-status button{ font-size:var(--ds-text-meta); }
+
+/* 채운 버튼은 화면당 하나. 바구니 읽기 화면은 [연결하기]만 채우고 [할 일 만들기]는 연한 바탕으로 둔다. */
+#appView #basketView .basket-read-actions button.primary ~ button.primary{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); border-color:var(--kptu-primary-ink); }
+
+/* 글 본문을 읽거나 쓰는 칸은 15px. */
+#appView #basketView .basket-read-text,#appView #basketView .basket-editor textarea{ font-size:var(--ds-text-read); }
+#appView #basketView .basket-read-tools button{ font-size:var(--ds-text-button); border-width:var(--ds-line-width); border-color:var(--ds-line); }
+
+/* 읽기 화면의 상태 줄은 보조 정보 크기, 첨부 링크는 테마 링크 색. */
+#appView #basketView [data-basket-detail] > [data-basket-state]{ font-size:var(--ds-text-section); color:var(--kptu-muted); }
+#appView #basketView a{ color:var(--kptu-link); }
+/* 수정 화면의 채운 버튼은 [수정 저장] 하나. */
+#appView #basketView [data-basket-save]{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+
+@media(max-width:760px){
+  /* 폰의 D-day 줄은 지금처럼 상자 없이 둔다. */
+  #appView #homeView [data-home-card="dday"]{ border:0; }
+  /* 폰 화면 제목(위 머리줄)도 홈·바구니가 보일 때만 18px·중간 굵기. */
+  html:has(#homeView:not(.hidden)) .mobile-shell-header time,html:has(:is(#homeView,#basketView):not(.hidden)) [data-mobile-view-name]{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
+}
