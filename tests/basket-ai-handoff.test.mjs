@@ -208,7 +208,7 @@ test('starts clipboard write synchronously while private text is still being rea
 });
 test('empty basket rejects pending clipboard data without replacing the clipboard',async()=>{
  await withPromiseClipboard(async items=>{
-  const h=handoffHarness({rows:[]});await h.handoff.copy();assert.equal(items.length,1);await assert.rejects(items[0].data['text/plain']);assert.equal(h.status.textContent,'맡길 메모가 없어요');assert.equal(h.input.value,'');
+  const h=handoffHarness({rows:[]});await h.handoff.copy();assert.equal(items.length,1);await assert.rejects(items[0].data['text/plain']);assert.equal(h.status.textContent,'분류 요청할 메모가 없어요');assert.equal(h.input.value,'');
  });
 });
 test('closing during a pending read rejects clipboard data and never restores private text',async()=>{

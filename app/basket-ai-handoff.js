@@ -36,7 +36,7 @@ export function buildHandoff(notes,projects,organizations,now,fallback=false) {
   lines.push('프로젝트 목록 (ID · 이름)');
   for(const row of projects)lines.push(`project · ${row.id} · ${row.name}`);
   const text=lines.join('\n\n');
-  if(new TextEncoder().encode(text).length>1048576)throw Error('맡길 글이 너무 길어요. 전체 글은 1MiB까지 복사할 수 있어요.');
+  if(new TextEncoder().encode(text).length>1048576)throw Error('분류 요청할 글이 너무 길어요. 전체 글은 1MiB까지 복사할 수 있어요.');
   return text;
 }
 async function organizationRows(rt,path){
@@ -64,7 +64,7 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date(),{noteId=n
   let notes=selectHandoffNotes(basket.notes,basket.links,now);
   if(noteId){
     const note=basket.notes.find(row=>row.id===noteId);
-    if(!note||note.archived_at||note.ai_export_allowed!==true)throw Error('이 메모는 지금 AI에게 맡길 수 없어요.');
+    if(!note||note.archived_at||note.ai_export_allowed!==true)throw Error('이 메모는 지금 분류 요청할 수 없어요.');
     notes=[note];
   }
   const current=rt.context.read();
@@ -105,7 +105,7 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()
     if(busy||isBlocked())return;
     const request=getRequest();
     if(request?.error){clear();status.textContent=request.error;return;}
-    clear();const run=epoch,owner=scope();busy=true;onBusy(true);status.textContent='맡길 메모를 준비하고 있어요…';
+    clear();const run=epoch,owner=scope();busy=true;onBusy(true);status.textContent='분류 요청할 메모를 준비하고 있어요…';
     const current=()=>run===epoch&&owner===scope();
     const prepared=readHandoff(rt,new Date(),{...request,onPrepared:count=>{if(current())onPrepared(count,request);}});
     let written=null;
@@ -120,14 +120,14 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()
     }
     try{
       const text=await prepared;if(!current())return;
-      if(!text){status.textContent='맡길 메모가 없어요';return;}
+      if(!text){status.textContent='분류 요청할 메모가 없어요';return;}
       let copied=false;
       if(written)copied=await written;
       else{try{await navigator.clipboard.writeText(text);copied=true;}catch{}}
       if(!current())return;
       if(copied)status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';
       else{input.value=text;fallbackText=text;fallbackScope=owner;fallback.hidden=false;status.textContent="아래 '복사하기'를 눌러 주세요";input.focus();input.select();}
-    }catch{if(current())status.textContent='맡길 메모를 준비하지 못했어요. 다시 눌러 주세요.';}
+    }catch{if(current())status.textContent='분류 요청할 메모를 준비하지 못했어요. 다시 눌러 주세요.';}
     finally{if(current()){busy=false;onBusy(false);}}
   }};
 }

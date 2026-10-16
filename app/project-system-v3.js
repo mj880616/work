@@ -214,7 +214,10 @@ function ensureUi(){if($('#ps3DetailModal'))return;document.body.insertAdjacentH
 // D-project-list: names first; optional metadata has one run owner, shared with archive rows.
 let listCounts={},summaryRun=0;
 function summaryHtml(id){const c=listCounts[id]||{},at=c.progress,days=c.milestone?Math.round((Date.parse(dayKey(Date.parse(c.milestone)))-Date.parse(dayKey()))/86400000):null;
- return `${days!==null&&days>=0?`<span aria-label="다음 주요 일정 ${days===0?'오늘':days+'일 후'}">${days===0?'D-day':'D-'+days}</span>`:''}${c.tasks?`<span class="kptu-list-task-count${c.overdue?' kptu-list-overdue':''}" aria-label="미완료 할 일 ${c.tasks}개${c.overdue?', 기한 지남 포함':''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>${c.tasks}</span>`:''}${at?`<time datetime="${esc(at)}" aria-label="최근 진행 기록 ${esc(at)}">${Number(at.slice(5,7))}.${Number(at.slice(8,10))}</time>`:''}`
+ // UI-디자인기준-2: the right pill is the D-day of the project's next milestone (same read and rule as the home D-day chips: nearest
+ // unfinished milestone from today, "D-day" today, red within 3 days). "일정 없음" only after the read answered; nothing while loading.
+ const dday=days!==null&&days>=0?`<span class="ps3-dday${days<=3?' ps3-dday-soon':''}" aria-label="다음 주요 일정 ${days===0?'오늘':days+'일 후'}">${days===0?'D-day':'D-'+days}</span>`:'milestone' in c?'<span class="ps3-dday ps3-dday-none" aria-label="다음 주요 일정 없음">일정 없음</span>':'';
+ return `${c.tasks?`<span class="kptu-list-task-count${c.overdue?' kptu-list-overdue':''}" aria-label="미완료 할 일 ${c.tasks}개${c.overdue?', 기한 지남 포함':''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>${c.tasks}</span>`:''}${at?`<time datetime="${esc(at)}" aria-label="최근 진행 기록 ${esc(at)}">${Number(at.slice(5,7))}.${Number(at.slice(8,10))}</time>`:''}${dday}`
 }
 function listRowHtml(p,ch,{open=true,trail=''}={}){
  const row=(x,child=false,tail='')=>{const main=`<span class="kptu-list-row-main"><span class="ps3-prow-name kptu-list-name">${esc(x.name)}</span><span class="ps3-prow-meta kptu-list-summary" data-ps3-summary="${esc(x.id)}">${summaryHtml(x.id)}</span><span class="kptu-list-chevron" aria-hidden="true">›</span></span>`;

@@ -41,8 +41,8 @@ for(const width of [390,1280])test(`read actions: common first, 삭제 apart, ti
  expect(bd.x-(ba.x+ba.width)).toBeGreaterThanOrEqual(width===390?40:200);
  // One AI handoff on the read view (the toolbar's [⋯ 더보기], scoped to this memo).
  await openBasketMore(page);
- await expect(page.locator('[data-basket-detail]').getByRole('button',{name:'AI에게 맡기기'})).toHaveCount(0);
- await expect(page.locator('#basketView').getByRole('button',{name:'AI에게 맡기기',exact:true})).toHaveCount(1);
+ await expect(page.locator('[data-basket-detail]').getByRole('button',{name:'분류 요청'})).toHaveCount(0);
+ await expect(page.locator('#basketView').getByRole('button',{name:'분류 요청',exact:true})).toHaveCount(1);
  await expect(page.locator('[data-basket-handoff-scope]')).toContainText('현재 메모 1개');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`basket-read-actions-${width}.png`),fullPage:true});

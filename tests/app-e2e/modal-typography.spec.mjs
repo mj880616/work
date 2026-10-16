@@ -69,6 +69,10 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
 }
 
 
+// UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트 목록은 새 기준(ui-standard.css)으로 바뀌어 옛 main과의 전체 계산 스타일 비교에서 뺀다.
+// 이 세 화면의 새 모양은 각 화면 검사(button-sizing·calendar-toolbar-one-row·project-system-v3·task-screen-cleanup 등)가 맡고,
+// 대화상자 검사(audit)는 그대로 한다. 3/3에서 나머지 화면도 바뀌면 이 비교를 새 기준 비교로 바꾼다(원장 UI-디자인기준-2 행).
+const DS_VIEWS=new Set(['projects','tasks','calendar']);
 for(const width of [390,1440])test('D-3e modal roles and excluded list computed styles '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original,'b9dbcaee0b8e92bd8d80334bf97999f561deef94');await boot(original);
@@ -79,15 +83,16 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   if(name==='tasks'){
     const style=el=>{const s=getComputedStyle(el);return [el.tagName,el.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]};
     await expect(original.locator('#gt-week-head')).toBeVisible();
-    await expect.poll(()=>original.locator('#gt-week-head').evaluate(style)).toEqual(await page.locator('#gt-today-head').evaluate(style));
+    // UI-디자인기준 2/3(8-9d): 기한 묶음 이름은 섹션 이름(13px·500·할 일 색 --ds-kind-task-ink).
+    await expect.poll(()=>page.locator('#gt-today-head').evaluate(style)).toEqual(['H4','gt-group-head','13px','rgb(15, 110, 86)','500','20.15px']);
     await expect(page.locator('#gt-week-head')).toHaveCount(0);
     await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
     await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
-    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','14px');
+    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','13px');
     await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('-webkit-line-clamp','2');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('color',await page.locator('[data-gt-count]').evaluate(el=>getComputedStyle(el).color));
-    expect(await page.locator('#newTaskBtn').evaluate(style)).toEqual(await original.locator('#newTaskBtn').evaluate(style));
+    await expect(page.locator('#newTaskBtn')).toHaveCSS('height','46px');await expect(page.locator('#newTaskBtn')).toHaveCSS('font-size','13px');
     for(const selector of ['[data-gt-info]','[data-gt-menu]']){
       const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
     }
@@ -110,7 +115,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     expected[oldZero]=['SPAN','kptu-list-chevron','20px',muted,'400','20px'];
     await expect(page.locator('#projectGrid .add-list-head h2')).toHaveCount(0);
     await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
-    await expect(page.locator('#projectGrid .ps3-prow-meta')).toBeEmpty();
+    await expect(page.locator('#projectGrid .ps3-prow-meta .ps3-dday')).toHaveText('일정 없음');
   }
   if(name==='team'){
     // D-담당조직목록 intentionally replaces only the type role with a group heading above the retained name.
@@ -124,7 +129,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await expect(page.locator('#soOrganizationList .sof-type')).toHaveCount(0);
     await expect(page.locator('#soOrganizationList .so-group-heading')).toHaveText('그 외 · 1');
   }
-  expect(await snapshot(page),name).toEqual(expected);
+  if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
   if(name==='meetings'||name==='library'){
     const groups=page.locator('#'+name+'View .filter-chips');
     await expect(groups).toHaveCount(name==='meetings'?1:2);
@@ -145,7 +150,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     }
   }
   if(name==='calendar'){for(const id of ['prevMonthBtn','nextMonthBtn']){await expect(page.locator('#'+id)).toHaveCSS('font-size','24px');await expect(page.locator('#'+id)).toHaveCSS('line-height','24px');}}
-  if(name==='calendar'&&width<=760){await expect(page.locator('#monthTitle')).toHaveCSS('font-size','20px');await expect(page.locator('#monthTitle')).toHaveCSS('line-height','24px');}
+  if(name==='calendar'&&width<=760){await expect(page.locator('#monthTitle')).toHaveCSS('font-size','18px');await expect(page.locator('#monthTitle')).toHaveCSS('line-height','24px');}
 
  }
  await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expect(page.locator('#ps3Title')).toHaveText('Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await page.locator('[data-ps3-close="ps3DetailModal"]').click();

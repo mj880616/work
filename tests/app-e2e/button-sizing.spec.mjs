@@ -67,6 +67,10 @@ const listButtons={projects:['#ps3ArchiveBtn','#newProjectBtn'],calendar:['#goog
 async function muted(page){return page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-muted)';document.body.append(el);const value=getComputedStyle(el).color;el.remove();return value})}
 async function size(el){return el.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {height:r.height,font:s.fontSize,paddingLeft:s.paddingLeft,paddingRight:s.paddingRight,radius:s.borderRadius,weight:s.fontWeight,color:s.color,background:s.backgroundColor}})}
 async function standard(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();await expect(el).toHaveCSS('font-size','12px');const s=await size(el);expect(s.height,selector).toBeGreaterThanOrEqual(35);expect(s.height,selector).toBeLessThanOrEqual(37);expect(s.paddingLeft).toBe('12px');expect(s.paddingRight).toBe('12px');if(!selector.includes('press-type'))expect(s.radius).toBe('8px');}
+// UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트의 버튼은 새 기준(높이 --ds-control-height 46px·13px·모서리 8px·굵기 500)으로 바뀌었다.
+async function dsStandard(page,selector){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(46);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');}
+// 일정의 [Google Calendar] 설정 칸(#googleConnectBtn)은 3/3까지 옛 크기 그대로라 옛 검사를 쓴다.
+const dsViews=new Set(['projects']);
 for(const width of [390,1440])test('D-button list sizes and compact exclusions '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
@@ -77,12 +81,15 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
    if(selector==='#ps3ArchiveBtn'){
     const el=page.locator(selector);await expect(el).toHaveText('보관 1');const after=await size(el);
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
-   }else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
+   }else if(dsViews.has(name))await dsStandard(page,selector);
+   else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }
   expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
  for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
+  if(name==='tasks'){await dsStandard(page,'#newTaskBtn');continue}
+  if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
   if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuOpen')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());expect(await size(page.locator(selector).first()),selector).toEqual(name==='calendar'?{...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'}:before);}
  }
  await original.close();
@@ -92,20 +99,21 @@ for(const width of [390,760,761,1440])test('calendar controls paint 32px with re
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'calendar');
  const button=page.locator('#newEventBtn');await expect(button).toBeVisible();
  const painted=await size(button),rect=await button.boundingBox();
- expect(painted.height).toBe(32);
- expect(painted.font).toBe('12px');expect(painted.radius).toBe('8px');
+ expect(painted.height).toBe(46);
+ expect(painted.font).toBe('13px');expect(painted.radius).toBe('8px');
  expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width<=760?'+':'+ 일정 등록');
- if(width<=760){expect(rect.width).toBeGreaterThanOrEqual(35);expect(rect.width).toBeLessThanOrEqual(37);}
- else{expect(painted.paddingLeft).toBe('12px');expect(painted.paddingRight).toBe('12px');}
+ if(width<=760){expect(rect.width).toBeGreaterThanOrEqual(45);expect(rect.width).toBeLessThanOrEqual(47);}
+ else{expect(painted.paddingLeft).toBe('14px');expect(painted.paddingRight).toBe('14px');}
  const original=await browser.newPage({viewport:{width,height:900}});
  await baseline(original,'8d9a30626b11c0826def8393cefdf65934489d2f');await boot(original);await view(original,'calendar');
  for(const selector of ['#prevMonthBtn','#nextMonthBtn']){
   const before=await size(original.locator(selector));
-  expect(await size(page.locator(selector))).toEqual({...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'});
+  expect(await size(page.locator(selector))).toEqual({...before,height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',weight:'500',color:await muted(page),background:'rgba(0, 0, 0, 0)'});
   expect((await page.locator(selector).boundingBox()).width).toBe(width<=760?16:32);
  }
  const before=await size(original.locator('#newEventBtn'));
- for(const property of ['weight','color','background'])expect(painted[property]).toBe(before[property]);
+ expect(painted.background).toBe(before.background);expect(painted.weight).toBe('500');
+ expect(painted.color).toBe(await page.evaluate(()=>getComputedStyle(document.body).color)); // 기본 버튼 글자는 본문 색(--kptu-ink)
  await original.close();
  const target=await button.evaluate(el=>{
   const r=el.getBoundingClientRect(),s=getComputedStyle(el),p=getComputedStyle(el,'::after');

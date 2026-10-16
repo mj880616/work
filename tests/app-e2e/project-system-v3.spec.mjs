@@ -838,16 +838,25 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   await expect(page.locator('#newProjectBtn')).toHaveText('+ 프로젝트');
   await expect(list.locator('[data-ps3-kids-toggle]')).toHaveCount(0);
   await expect(child).toBeVisible();await expect(list.locator('[data-ps3-child]')).toHaveCount(0);
-  await expect(main.locator('.ps3-prow-meta')).toHaveText('D-day110.8');
-  await expect(child.locator('.ps3-prow-meta')).toHaveText('D-211.1');
-  await expect(list.locator('[data-ps3-project="main-2"] .ps3-prow-meta')).toBeEmpty();
+  // UI-디자인기준 2/3(8-9d): 오른쪽 끝 알약은 다음 주요 일정 D-day(3일 이내 빨강), 읽은 뒤 없으면 흐린 "일정 없음".
+  await expect(main.locator('.ps3-prow-meta')).toHaveText('110.8D-day');
+  await expect(child.locator('.ps3-prow-meta')).toHaveText('11.1D-2');
+  await expect(list.locator('[data-ps3-project="main-2"] .ps3-prow-meta')).toHaveText('일정 없음');
+  await expect(main.locator('.ps3-dday')).toHaveClass(/ps3-dday-soon/);await expect(main.locator('.ps3-dday')).toHaveAttribute('aria-label','다음 주요 일정 오늘');
+  await expect(child.locator('.ps3-dday')).toHaveClass(/ps3-dday-soon/);await expect(child.locator('.ps3-dday')).toHaveAttribute('aria-label','다음 주요 일정 2일 후');
+  await expect(list.locator('[data-ps3-project="main-2"] .ps3-dday')).toHaveClass(/ps3-dday-none/);
+  for(const pill of await list.locator('.ps3-dday').all())expect(await pill.evaluate(e=>e===e.parentElement.lastElementChild)).toBe(true);
+  // 위계: 메인 13px·500, 하위 13px·400, 하위 앞 가지 선.
+  await expect(main.locator('.ps3-prow-name')).toHaveCSS('font-weight','500');await expect(child.locator('.ps3-prow-name')).toHaveCSS('font-weight','400');
+  for(const row of [main,child])await expect(row.locator('.ps3-prow-name')).toHaveCSS('font-size','13px');
+  expect(await child.evaluate(e=>{const b=getComputedStyle(e,'::before'),a=getComputedStyle(e,'::after');return [b.content!=='none',b.borderLeftWidth,a.borderTopWidth]})).toEqual([true,'1px','1px']);
   await expect(main.locator('.kptu-list-task-count')).toHaveAttribute('aria-label','미완료 할 일 1개, 기한 지남 포함');
   await expect(child.locator('.kptu-list-task-count')).not.toHaveClass(/kptu-list-overdue/);
   await expect(main.locator('svg path')).toHaveAttribute('d','m5 12 4 4L19 6');
   await expect(list).not.toContainText('자료');await expect(list).not.toContainText('할 일 0');
   for(const row of [main,child]){
     const geometry=await row.evaluate(e=>({height:e.getBoundingClientRect().height,padding:getComputedStyle(e).paddingLeft,font:getComputedStyle(e.querySelector('.ps3-prow-meta')).fontSize}));
-    expect(geometry.height).toBeGreaterThanOrEqual(44);expect(geometry.font).toBe('12px');expect(parseInt(geometry.padding)).toBe(row===main?16:32);
+    expect(geometry.height).toBeGreaterThanOrEqual(44);expect(geometry.font).toBe('12px');expect(parseInt(geometry.padding)).toBe(row===main?16:44);
   }
   const clipped=await list.locator('[data-ps3-project="main-2"] .ps3-prow-name').evaluate(e=>({clipped:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow}));expect(clipped).toEqual({clipped:true,ellipsis:'ellipsis'});
   const danger=await main.locator('.kptu-list-task-count').evaluate(e=>getComputedStyle(e).color);
