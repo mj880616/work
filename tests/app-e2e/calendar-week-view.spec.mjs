@@ -162,7 +162,7 @@ test('phone swipe with saved week keeps fallback list dates while navigating the
       Object.defineProperty(event,'changedTouches',{value:[point]});el.dispatchEvent(event);
     }
   });
-  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
   await expect(page.locator('#monthTitle')).toHaveText(before);
 });

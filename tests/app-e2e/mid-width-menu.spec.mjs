@@ -152,9 +152,10 @@ for(const width of [761,820,900,1023])test(`combined media current location at $
   await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
 });
 
-for(const label of ['바구니','회의','자료실','성명','보도자료','게시판','HWP 편집'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
+// 8-9e-2: on phones [바구니] is a bottom tab (not in the drawer) and the drawer opens from the [메뉴] tab.
+for(const label of ['회의','자료실','성명','보도자료','게시판','HWP 편집'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
   await page.setViewportSize({width:760,height:844});await open(page);
-  await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true}).focus();
+  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true}).focus();
   await page.setViewportSize({width:820,height:844});await expect(page.locator('#mobileMenu')).toBeVisible();await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
   await page.keyboard.press('Escape');await expect(page.locator('#mobileMenuOpen')).toBeFocused();
 });

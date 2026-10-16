@@ -90,7 +90,7 @@ test('12px jitter stays a tap; larger moves suppress clicks and preserve menu sw
   for(const [dx,dy] of [[13,0],[0,13],[-170,0]]){
     await movement(page,dx,dy);
     await expect(page.locator('#calendarDayModal')).toBeHidden();
-    if(dx===-170)await expect(page.locator('#tasksView')).toBeVisible();
+    if(dx===-170)await expect(page.locator('#projectsView')).toBeVisible();
     else{
       expect(await page.evaluate(()=>KPTUCalendarMonthView.suppressClick())).toBe(true);
       await page.clock.fastForward(350);

@@ -27,7 +27,9 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
   expect(await rail.locator('.kptu-list-row-main > *').evaluateAll(xs=>xs.map(x=>x.className))).toEqual(['so-dot','kptu-list-name','so-chevron kptu-list-chevron']);
   const layout=await rail.evaluate(el=>({height:el.getBoundingClientRect().height,padding:getComputedStyle(el).paddingLeft}));
   expect(layout.height).toBe(44);expect(layout.padding).toBe('16px');
-  const centers=await page.locator('.so-team-actions').evaluate(el=>[...el.children].map(e=>{const r=e.getBoundingClientRect();return r.y+r.height/2}));expect(Math.abs(centers[0]-centers[1])).toBeLessThan(1);
+  // 8-9e-2: phones show "담당조직 추가" as a small link under the list instead of the header button.
+  if(width<=760){await expect(page.locator('#soAddOrg')).toBeHidden();await expect(page.locator('#soAddOrgLink')).toBeVisible();}
+  else{const centers=await page.locator('.so-team-actions').evaluate(el=>[...el.children].map(e=>{const r=e.getBoundingClientRect();return r.y+r.height/2}));expect(Math.abs(centers[0]-centers[1])).toBeLessThan(1);}
   await page.evaluate(()=>{document.querySelector('[data-so-org="ord-3"] h4').textContent='아주 긴 조직 이름 '.repeat(30)});
   const name=await page.locator('[data-so-org="ord-3"] h4').evaluate(e=>({overflow:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow,white:getComputedStyle(e).whiteSpace}));expect(name).toEqual({overflow:true,ellipsis:'ellipsis',white:'nowrap'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

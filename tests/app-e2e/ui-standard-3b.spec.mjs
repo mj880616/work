@@ -98,6 +98,9 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  // 홈 "할 일 ›"도 [일정]의 [할 일] 쪽.
  await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>el.click());await loaded(page,'calendar');
  await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('#homeView [data-home-card="tasks"] [data-goto="tasks"]').click();await loaded(page,'tasks');await expect(schedule).toHaveAttribute('aria-current','page');
+ // [달력 | 할 일]은 위 머리줄("일정") 오른쪽 자리(달력 칸 높이를 줄이지 않는다).
+ const switchBox=await box(page.locator('#tasksView .schedule-switch')),header=await box(page.locator('.mobile-shell-header'));
+ expect(switchBox.top).toBeLessThan(header.bottom);expect(switchBox.right).toBeGreaterThan(360);
  // 밀기: 홈·바구니·일정·프로젝트·담당조직(메뉴는 밀기 대상 아님). 할 일 쪽에서도 [일정] 자리로 이어진다.
  await swipe(page,'left');await loaded(page,'projects');await swipe(page,'right');await loaded(page,'tasks');await swipe(page,'right');await loaded(page,'basket');await swipe(page,'right');await loaded(page,'home');await swipe(page,'right');await loaded(page,'home');
  for(const view of ['basket','tasks','projects','team']){await swipe(page,'left');await loaded(page,view);}
@@ -126,9 +129,12 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
  for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['tasks','#newTaskBtn','할 일 추가','#gtTaskModal'],['projects','#newProjectBtn','프로젝트 추가','#ps3CreateModal'],['library','#newDocumentBtn','자료 등록','#documentModal']]){
   await page.evaluate(v=>KPTURouter.go(v),view);await loaded(page,view);
   const button=page.locator(id);await expect(button).toBeVisible();await expect(button).toHaveAttribute('aria-label',label);
-  const b=await box(button);expect(b.width).toBe(44);expect(b.height).toBe(44);expect(Math.round(tabsTop-b.bottom)).toBe(12);expect(Math.round(390-b.right)).toBe(16);
-  const circle=await button.evaluate(el=>{const s=getComputedStyle(el,'::before');return {w:s.width,h:s.height,content:s.content,radius:s.borderTopLeftRadius};});
-  expect(circle).toEqual({w:'36px',h:'36px',content:'"+"',radius:'50%'});
+  // 보이는 원은 버튼 자체 36px, 누르는 범위는 ::after 44px(앱의 다른 버튼과 같은 방식). 누르는 범위가 탭 위 12px·오른쪽 16px.
+  const b=await box(button);expect(b.width).toBe(36);expect(b.height).toBe(36);expect(await button.evaluate(el=>getComputedStyle(el).borderRadius)).toBe('50%');
+  const t=await button.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after');const left=r.left+parseFloat(p.left),top=r.top+parseFloat(p.top),w=parseFloat(p.width),h=parseFloat(p.height);
+   return {w,h,bottom:top+h,right:left+w,hits:[[left+1,top+h/2],[left+w-1,top+h/2],[left+w/2,top+1],[left+w/2,top+h-1]].map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)};});
+  expect(t.w).toBe(44);expect(t.h).toBe(44);expect(t.hits).toEqual([true,true,true,true]);expect(Math.round(tabsTop-t.bottom)).toBe(12);expect(Math.round(390-t.right)).toBe(16);
+  expect(await button.evaluate(el=>getComputedStyle(el,'::before').content)).toBe('"+"');
   // 목록 끝까지 내리면 마지막 줄은 [+] 위에 있다.
   await expect.poll(()=>page.locator('#'+view+'View').evaluate(el=>{
    window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'});

@@ -72,7 +72,8 @@ async function assertInHeader(page,{card,head,button,title}){
 async function assertFloating(page,button){
   const control=page.locator(button),b=await control.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
   expect(await control.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
-  expect(b.width).toBe(44);expect(b.height).toBe(44);expect(Math.round(tabs.y-(b.y+b.height))).toBe(12);
+  // Painted circle 36px; the ::after touch target is 44px and sits 12px above the tabs.
+  expect(b.width).toBe(36);expect(b.height).toBe(36);const el=control;const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-t.bottom)).toBe(12);
 }
 async function assertPlaced(page,width,spec){if(width===390)await assertFloating(page,spec.button);else await assertInHeader(page,spec);}
 
@@ -156,8 +157,8 @@ for(const width of [390,1440]){
         const add=await page.locator('#newProjectBtn').boundingBox();
         expect(archive.width).toBeGreaterThanOrEqual(44);
         expect(archive.height).toBe(44);
-        expect(add.width).toBeGreaterThanOrEqual(44);
         if(width!==390){
+          expect(add.width).toBeGreaterThanOrEqual(44);
           expect(add.height).toBe(46); // UI-디자인기준 2/3: 버튼 높이 하나(--ds-control-height)
           expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
           expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
