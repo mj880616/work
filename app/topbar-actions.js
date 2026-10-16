@@ -153,7 +153,7 @@ document.addEventListener('click',event=>{
   if(!mobileOpen)return;
   if(mobileTrigger.contains(event.target)||mobileTab?.contains(event.target))return;
   // The click that ends a pull on the sheet is not a press.
-  if(performance.now()-dragEndedAt<500&&mobilePanel.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();return}
+  if(dragEndedAt&&performance.now()-dragEndedAt<500&&mobilePanel.contains(event.target)){event.preventDefault();event.stopImmediatePropagation();return}
   if(!mobilePanel.contains(event.target)||event.target.closest('[data-mobile-menu-close]')){
     event.preventDefault();event.stopImmediatePropagation();closeMobile();return;
   }

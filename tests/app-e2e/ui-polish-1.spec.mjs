@@ -100,6 +100,8 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  await expect(menu).toBeVisible();await expect.poll(()=>panel.evaluate(el=>el.style.transform)).toBe('');
  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x,y+180,{steps:8});await page.mouse.up();
  await expect(menu).toBeHidden();
+ // A tap right after a page load still works (the clock is small then; only the click that ends a pull is swallowed).
+ await page.evaluate(()=>{performance.now=()=>120;});
  // A tile opens its screen; 성명·보도자료 shows that one name on top.
  await tab.click();await page.locator('#mobileMenu [data-view="media"]').click();
  await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
