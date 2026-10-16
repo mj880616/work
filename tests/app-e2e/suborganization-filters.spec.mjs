@@ -19,7 +19,7 @@ test('담당조직 탭은 검색·협의회·유형 필터 없이 내 담당조�
   await expect(page.locator('#soTeamSection h3')).toHaveCount(0);
   const rail=page.locator('[data-so-org="org-rail"]');
   await expect(rail.locator('.sof-type')).toHaveCount(0);
-  await expect(page.locator('.so-group-heading')).toHaveText('철도 · 1');
+  await expect(page.locator('.so-group-heading')).toHaveText('철도1곳');
   await expect(rail.locator('.so-chevron')).toHaveText('›');
   await expect(rail).not.toContainText('김명진');
 });
@@ -28,7 +28,7 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=28");
+  expect(views).toContain("suborganizations.js?v=29");
   expect(views).toContain("workplace-detail.js?v=25");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');

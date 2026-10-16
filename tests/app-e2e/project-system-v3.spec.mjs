@@ -69,7 +69,7 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_spaces'){
       if(method==='GET'){
         const id=url.searchParams.get('id')?.startsWith('eq.')?eq(url,'id'):'',owner=eq(url,'owner_id');let rows=id?state.spaces.filter(x=>x.id===id):state.spaces;rows=rows.filter(x=>!owner||x.owner_id===owner);
-        if(url.searchParams.get('select')?.includes('progress:')){
+        if(url.searchParams.get('select')?.includes('milestones:')){
           state.summaryQueries??=[];state.summaryQueries.push(Object.fromEntries(url.searchParams));
           if(state.summaryDelay)await state.summaryDelay;
           if(state.summaryFail)return route.fulfill({status:500,contentType:'application/json',body:'{}'});
@@ -839,8 +839,10 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   await expect(list.locator('[data-ps3-kids-toggle]')).toHaveCount(0);
   await expect(child).toBeVisible();await expect(list.locator('[data-ps3-child]')).toHaveCount(0);
   // UI-디자인기준 2/3(8-9d): 오른쪽 끝 알약은 다음 주요 일정 D-day(3일 이내 빨강), 읽은 뒤 없으면 흐린 "일정 없음".
-  await expect(main.locator('.ps3-prow-meta')).toHaveText('110.8D-day');
-  await expect(child.locator('.ps3-prow-meta')).toHaveText('11.1D-2');
+  // UI-디자인기준 3/3(8-9e-1): 목록 오른쪽은 D-day 알약 하나만(밀린 할 일 수·마지막 기록 날짜는 상세에만).
+  await expect(main.locator('.ps3-prow-meta')).toHaveText('D-day');
+  await expect(child.locator('.ps3-prow-meta')).toHaveText('D-2');
+  await expect(list.locator('.kptu-list-task-count,.ps3-prow-meta time,.ps3-prow-meta svg')).toHaveCount(0);
   await expect(list.locator('[data-ps3-project="main-2"] .ps3-prow-meta')).toHaveText('일정 없음');
   await expect(main.locator('.ps3-dday')).toHaveClass(/ps3-dday-soon/);await expect(main.locator('.ps3-dday')).toHaveAttribute('aria-label','다음 주요 일정 오늘');
   await expect(child.locator('.ps3-dday')).toHaveClass(/ps3-dday-soon/);await expect(child.locator('.ps3-dday')).toHaveAttribute('aria-label','다음 주요 일정 2일 후');
@@ -850,19 +852,14 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   await expect(main.locator('.ps3-prow-name')).toHaveCSS('font-weight','500');await expect(child.locator('.ps3-prow-name')).toHaveCSS('font-weight','400');
   for(const row of [main,child])await expect(row.locator('.ps3-prow-name')).toHaveCSS('font-size','13px');
   expect(await child.evaluate(e=>{const b=getComputedStyle(e,'::before'),a=getComputedStyle(e,'::after');return [b.content!=='none',b.borderLeftWidth,a.borderTopWidth]})).toEqual([true,'1px','1px']);
-  await expect(main.locator('.kptu-list-task-count')).toHaveAttribute('aria-label','미완료 할 일 1개, 기한 지남 포함');
-  await expect(child.locator('.kptu-list-task-count')).not.toHaveClass(/kptu-list-overdue/);
-  await expect(main.locator('svg path')).toHaveAttribute('d','m5 12 4 4L19 6');
   await expect(list).not.toContainText('자료');await expect(list).not.toContainText('할 일 0');
   for(const row of [main,child]){
     const geometry=await row.evaluate(e=>({height:e.getBoundingClientRect().height,padding:getComputedStyle(e).paddingLeft,font:getComputedStyle(e.querySelector('.ps3-prow-meta')).fontSize}));
     expect(geometry.height).toBeGreaterThanOrEqual(44);expect(geometry.font).toBe('12px');expect(parseInt(geometry.padding)).toBe(row===main?16:44);
   }
   const clipped=await list.locator('[data-ps3-project="main-2"] .ps3-prow-name').evaluate(e=>({clipped:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow}));expect(clipped).toEqual({clipped:true,ellipsis:'ellipsis'});
-  const danger=await main.locator('.kptu-list-task-count').evaluate(e=>getComputedStyle(e).color);
-  expect(danger).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c}));
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
-  expect(state.summaryQueries).toHaveLength(1);expect(state.summaryQueries[0]['progress.limit']).toBe('1');expect(state.summaryQueries[0]['milestones.limit']).toBe('1');expect(state.summaryQueries[0]['progress.order']).toBe('effective_on.desc,created_at.desc');
+  expect(state.summaryQueries).toHaveLength(1);expect(state.summaryQueries[0]['milestones.limit']).toBe('1');expect(state.summaryQueries[0]['progress.limit']).toBeUndefined();expect(state.summaryQueries[0].select).toBe('id,milestones:app_project_milestones!project_id(start_at)');
   await child.press('Enter');await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await page.locator('#ps3ArchiveBtn').click();await expect(page.locator('#ps3ArchiveModal')).toBeVisible();await expect(page.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
@@ -872,10 +869,12 @@ for(const extra of [0,200])test(`D-project requests stay constant with ${extra} 
  const state=baseState();state.sessionUser=true;state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
  state.spaces.push(...Array.from({length:extra},(_,i)=>({...state.spaces[0],id:'extra-'+i,name:'추가 '+i})));
  await mockApp(page,state);await page.goto(testOrigin+'/app/?view=projects');await signIn(page);await expect(page.locator('#projectsView')).toBeVisible();
- await expect(page.locator('[data-ps3-project="main-1"] .kptu-list-task-count')).toHaveText('1');
+ // UI-디자인기준 3/3(8-9e-1): the list reads only the D-day (one batched read); it no longer reads Google tasks for counts.
+ await expect(page.locator('[data-ps3-project="main-1"] .ps3-dday')).toHaveCount(1);
  await expect.poll(()=>state.summaryQueries?.length).toBe(1);
- expect(state.gtCalls.filter(x=>x.action==='overview')).toHaveLength(1);
- expect(state.restCalls.filter(x=>x.name==='app_record_links')).toHaveLength(1);
+ await expect(page.locator('#projectGrid .kptu-list-task-count')).toHaveCount(0);
+ expect(state.gtCalls.filter(x=>x.action==='overview').length).toBeLessThanOrEqual(1);
+ expect(state.restCalls.filter(x=>x.name==='app_record_links')).toHaveLength(0);
  expect(state.restCalls.filter(x=>x.name==='app_documents'||x.name==='app_project_progress_updates'||x.name==='app_project_milestones')).toHaveLength(0);
  await expect(page.locator('#ps3ArchiveBtn')).toBeHidden();
  await expect(page.locator('[data-ps3-total]')).toHaveText(`프로젝트 ${extra+1}개`);
@@ -893,8 +892,9 @@ for(const failure of ['tasks','dates','both'])test(`D-project ${failure} failure
  state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
  const main=page.locator('#projectGrid [data-ps3-project="main-1"]');
- if(failure==='tasks')await expect(main.locator('time')).toHaveText('9.15');
- if(failure==='dates')await expect(main.locator('.kptu-list-task-count')).toHaveText('1');
+ if(failure==='tasks')await expect(main.locator('.ps3-dday')).toHaveCount(1);
+ // UI-디자인기준 3/3: the list no longer reads tasks for counts; a failed date read leaves the right side empty.
+ if(failure!=='tasks'){await expect.poll(()=>state.summaryQueries?.length).toBe(1);await expect(main.locator('.ps3-prow-meta')).toBeEmpty();}
  await expect(page.locator('#projectGrid [data-ps3-project]')).toHaveCount(2);
  await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
 });

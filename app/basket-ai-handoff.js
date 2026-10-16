@@ -1,4 +1,4 @@
-import {classificationFormat} from './basket-classification.js?v=8';
+import {classificationFormat} from './basket-classification.js?v=9';
 import {readBasket} from './basket-data.js?v=4';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
 

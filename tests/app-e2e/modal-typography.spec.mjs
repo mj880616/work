@@ -71,8 +71,10 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
 
 // UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트 목록은 새 기준(ui-standard.css)으로 바뀌어 옛 main과의 전체 계산 스타일 비교에서 뺀다.
 // 이 세 화면의 새 모양은 각 화면 검사(button-sizing·calendar-toolbar-one-row·project-system-v3·task-screen-cleanup 등)가 맡고,
-// 대화상자 검사(audit)는 그대로 한다. 3/3에서 나머지 화면도 바뀌면 이 비교를 새 기준 비교로 바꾼다(원장 UI-디자인기준-2 행).
-const DS_VIEWS=new Set(['projects','tasks','calendar']);
+// 대화상자 검사(audit)는 그대로 한다.
+// UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의도 새 기준으로 바뀌어 같은 방식으로 뺀다. 새 모양은 ui-standard-3a 검사가 맡고,
+// 아래 필터 검사는 홈 빠른 입력 탭과 비교로 되돌린다. 남은 화면(성명·게시판)은 2부에서 옮긴다.
+const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings']);
 for(const width of [390,1440])test('D-3e modal roles and excluded list computed styles '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original,'b9dbcaee0b8e92bd8d80334bf97999f561deef94');await boot(original);
@@ -127,25 +129,27 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     const muted=await original.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-muted)';document.body.append(e);const color=getComputedStyle(e).color;e.remove();return color});
     expected.splice(nameIndex,0,['DIV','so-group-heading','12px',muted,'400','18px']);
     await expect(page.locator('#soOrganizationList .sof-type')).toHaveCount(0);
-    await expect(page.locator('#soOrganizationList .so-group-heading')).toHaveText('그 외 · 1');
+    // UI-디자인기준 3/3: 묶음 이름 왼쪽, 오른쪽 "N곳".
+    await expect(page.locator('#soOrganizationList .so-group-heading > span')).toHaveText(['그 외','1곳']);
   }
   if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
   if(name==='meetings'||name==='library'){
     const groups=page.locator('#'+name+'View .filter-chips');
     await expect(groups).toHaveCount(name==='meetings'?1:2);
-    const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.height,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
-    // UI-디자인기준 1/3 보완(8-9c2): home tabs are now 46px buttons (8px corners, 13px) while meeting/library
-    // filters keep the shared pill until stage 3 (8-9e). Until then the filters are compared with one
-    // another and with the pill size, not with home. Restore the home comparison in 3/3 (원장 UI-디자인기준-3).
-    const first={};
+    // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
+    const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
+    // UI-디자인기준 3/3(8-9e-1): meeting/library filters moved to the new standard, so they compare with the home
+    // quick-input tabs again (46px, 8px corners, 13px/500, same padding and line height). Only the selected colors
+    // differ by kind: the home tab takes its kind color (바구니 주황), a selected filter is gray (종류 색 '그 밖').
     for(const group of await groups.all()){
       await expect(group).toHaveAttribute('role','radiogroup');
       await expect(group.locator('[role="radio"][aria-checked="true"]')).toHaveCount(1);
       for(const radio of await group.getByRole('radio').all()){
-        const selected=await radio.getAttribute('aria-checked'),value=await radio.evaluate(style);
-        first[selected]??=value;
-        expect(value,name+' filters share one pill style').toEqual(first[selected]);
-        expect(value[3],name+' filter pill height').toBe('30px');
+        const selected=await radio.getAttribute('aria-checked');
+        const home=page.locator(`.home-quick-modes button[aria-pressed="${selected}"]`).first();
+        const comparable=v=>v.filter((_,i)=>!(selected==='true'&&(i===6||i===7)));
+        expect(comparable(await radio.evaluate(style)),name+' filter reuses home tab style').toEqual(comparable(await home.evaluate(style)));
+        expect((await radio.boundingBox()).height,name+' filter height').toBe(46);
       }
     }
   }

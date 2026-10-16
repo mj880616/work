@@ -10,18 +10,20 @@ for(const width of [390,1280])test(`공용 알약 필터·2단 프로젝트·키
   await expect(group.getByRole('radio')).toHaveText(['전체','궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의','회의명 미지정']);
   await group.getByRole('radio',{name:'회의명 미지정',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(1);
   await group.getByRole('radio',{name:'궤도협의회',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(1);
-  const color=await page.locator('.meeting-list-row').evaluate(e=>getComputedStyle(e).borderLeftColor);
+  // UI-디자인기준 3/3(8-9e-1): the meeting color is the dot before the name (it was the row's left stripe).
+  const color=await page.locator('.meeting-list-row').evaluate(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').backgroundColor);
   expect(await group.locator('[data-filter-value="궤도협의회"] .filter-chip-dot').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe(color);
   await page.keyboard.press('ArrowRight');await expect(group.getByRole('radio',{name:'노사협의회',exact:true})).toBeFocused();await page.keyboard.press('Space');
   await expect(page.locator('.meeting-list-row h3')).toHaveText('노사협의회');
   await page.keyboard.press('ArrowLeft');await page.keyboard.press('Enter');await expect(page.locator('.meeting-list-row h3')).toHaveText('궤도협의회');
   await group.getByRole('radio',{name:'전체',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(s.meetings.length);
-  const namedColors=await page.locator('.meeting-list-row').evaluateAll(rows=>rows.slice(0,3).map(e=>getComputedStyle(e).borderLeftColor));expect(new Set(namedColors).size).toBe(3);
+  const namedColors=await page.locator('.meeting-list-row').evaluateAll(rows=>rows.slice(0,3).map(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').backgroundColor));expect(new Set(namedColors).size).toBe(3);
   if(width===390){
     await group.getByRole('radio',{name:'후속회의',exact:true}).tap();expect(await group.evaluate(e=>e.scrollLeft)).toBeGreaterThan(0);
     await page.evaluate(async()=>{document.querySelector('#meetingTypeFilter').value='회의명 미지정';await window.__KPTU_RELOAD_MEETINGS__()});
-    const geometry=await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),r=b.getBoundingClientRect(),lane=e.getBoundingClientRect();return {height:r.height,touch:getComputedStyle(b,'::after').height,wrap:getComputedStyle(e).flexWrap,inside:r.left>=lane.left-1&&r.right<=lane.right+1}});
-    expect(geometry).toEqual({height:30,touch:'44px',wrap:'nowrap',inside:true});
+    const geometry=await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),r=b.getBoundingClientRect(),lane=e.getBoundingClientRect();return {height:r.height,touch:getComputedStyle(b,'::after').content,wrap:getComputedStyle(e).flexWrap,inside:r.left>=lane.left-1&&r.right<=lane.right+1}});
+    // UI-디자인기준 3/3(8-9e-1): filters are 46px buttons (the home tab height), so they need no 44px touch extender.
+    expect(geometry).toEqual({height:46,touch:'none',wrap:'nowrap',inside:true});
   }
   await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('library'));
   const view=page.locator('#libraryViewFilter');for(const [v,count] of [['general',6],['meetings',1]]){await view.locator(`[data-filter-value="${v}"]`).click();await expect(page.locator('.lu-row')).toHaveCount(count)}
@@ -29,8 +31,8 @@ for(const width of [390,1280])test(`공용 알약 필터·2단 프로젝트·키
   await view.locator('[data-filter-value="general"]').click();const project=page.locator('#documentProject');
   await project.locator('[data-filter-value="top-a"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(project.locator('.filter-chips-small')).toBeVisible();await expect(project.locator('.filter-chips-small').getByRole('radio')).toHaveText(['전체(이 프로젝트)','국토부 대응','산자부 대응']);
-  await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','26px');
-  expect(await project.locator('.filter-chips-small [role=radio]').first().evaluate(e=>getComputedStyle(e,'::after').height)).toBe('44px');
+  // UI-디자인기준 3/3(8-9e-1): the second (child project) row uses the same one button height.
+  await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','46px');
   await project.locator('[data-filter-value="child-a1"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();
   await view.locator('[data-filter-value="meetings"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);

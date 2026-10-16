@@ -130,8 +130,9 @@ for(const width of [390,1440]){
     const rows=page.locator('.lu-row');await expect(rows).toHaveCount(10);
     const kind=rows.first().locator('.lu-file-kind');
     for(const [property,value]of [['width','36px'],['height','36px'],['border-radius','8px'],['font-size','11px']])await expect(kind).toHaveCSS(property,value);
-    await expect(rows.first()).toHaveCSS('gap','12px');await expect(rows.first()).toHaveCSS('padding','11px 2px');
-    await expect(rows.first().locator('.lu-row-title')).toHaveCSS('font-size','15px');
+    // UI-디자인기준 3/3(8-9e-1): 상자 안 줄 단위(줄 최소 44px), 이름 13px·400, 보조 줄 12px.
+    await expect(rows.first()).toHaveCSS('gap','10px');await expect(rows.first()).toHaveCSS('padding','9px 0px');await expect(rows.first()).toHaveCSS('min-height','44px');
+    await expect(rows.first().locator('.lu-row-title')).toHaveCSS('font-size','13px');await expect(rows.first().locator('.lu-row-title')).toHaveCSS('font-weight','400');
     await expect(rows.first().locator('.lu-row-meta')).toHaveCSS('font-size','12px');
     expect(await rows.locator('.lu-file-kind').allTextContents()).toEqual(['HWP','PDF','XLS','DOC','PPT','파일','HWP','XLS','DOC','PPT']);
     await expect(rows.first().locator('.lu-row-meta')).toHaveText('10.06 · 정책자료');
@@ -151,12 +152,14 @@ for(const width of [390,1440]){
     await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
     const before=await browser.newPage();await boot(before,{width,main:true});
     expect((await rows.first().boundingBox()).height).toBeLessThan((await before.locator('[data-lu-document]').first().boundingBox()).height);
-    // Compare the real neighboring renderer, including hover, with the same API data.
-    for(const p of [page,before]){await clickView(p,'meetings');await p.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(p.locator('#meetingList .meeting-list-row')).toBeVisible()}
-    const style=el=>el.evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['display','padding','border','borderRadius','boxShadow','backgroundColor','fontSize'].map(k=>[k,s[k]]))});
-    expect(await style(page.locator('#meetingList .meeting-list-row'))).toEqual(await style(before.locator('#meetingList .meeting-list-row')));
-    await page.locator('#meetingList .meeting-list-row').hover();await before.locator('#meetingList .meeting-list-row').hover();
-    await expect.poll(async()=>JSON.stringify(await style(page.locator('#meetingList .meeting-list-row')))===JSON.stringify(await style(before.locator('#meetingList .meeting-list-row')))).toBe(true);
+    // UI-디자인기준 3/3(8-9e-1): library and meeting rows are the same line rows in a 0.5px box (they used to match the old
+    // meeting card row of main). Compare the real neighboring renderer with the same API data.
+    const style=el=>el.evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['paddingTop','paddingBottom','minHeight','borderRadius','boxShadow','backgroundColor'].map(k=>[k,s[k]]))});
+    const libraryRow=await style(rows.nth(1));
+    await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
+    const meetingRows=page.locator('#meetingList .meeting-list-row');
+    expect(await style(meetingRows.nth(await meetingRows.count()>1?1:0))).toEqual(libraryRow);
+    expect(libraryRow).toEqual({paddingTop:'9px',paddingBottom:'9px',minHeight:'44px',borderRadius:'0px',boxShadow:'none',backgroundColor:'rgba(0, 0, 0, 0)'});
     await before.close();
   });
   test('library menu closes outside, Escape and Back without opening document '+width,async({page})=>{
@@ -191,11 +194,13 @@ for(const width of [390,1440]){
     expect(state.downloads).toEqual([{document_id:'row-1'}]);
   });
 }
-test('library file type follows all four theme tokens and search/filter remain intact',async({page})=>{
+// UI-디자인기준 3/3(8-9e-1, 원장 CC18): the file kind keeps its own color (HWP 파랑) in every account theme.
+test('library file type keeps its kind color in all four themes and search/filter remain intact',async({page})=>{
   await boot(page);
   for(const theme of ['olive','navy','terracotta','sand']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
-    expect(await page.locator('.lu-file-kind').first().evaluate(el=>{const s=getComputedStyle(el),root=getComputedStyle(document.documentElement);const probe=document.createElement('span');probe.style.color=root.getPropertyValue('--kptu-primary-ink');probe.style.backgroundColor=root.getPropertyValue('--kptu-primary-soft');el.append(probe);const p=getComputedStyle(probe),match=s.color===p.color&&s.backgroundColor===p.backgroundColor;probe.remove();return match})).toBe(true);
+    await expect(page.locator('.lu-file-kind').first()).toHaveAttribute('data-lu-kind','hwp');
+    expect(await page.locator('.lu-file-kind').first().evaluate(el=>{const s=getComputedStyle(el);const probe=document.createElement('span');probe.style.color='var(--ds-file-hwp-ink)';probe.style.backgroundColor='var(--ds-file-hwp-soft)';el.append(probe);const p=getComputedStyle(probe),match=s.color===p.color&&s.backgroundColor===p.backgroundColor;probe.remove();return match})).toBe(true);
   }
   await page.locator('#documentSearch').fill('목록에 표시하지 않을 출처');await expect(page.locator('.lu-row')).toHaveCount(10);
   await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('.lu-row')).toHaveCount(0);

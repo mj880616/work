@@ -33,7 +33,7 @@
 }
 
 /* UI-디자인기준(8-9c): 새 디자인 기준의 공통 값. 값은 여기 한 곳에만 둔다.
-   1단계는 홈·바구니(ui-standard.css)만 이 값을 쓴다. 다른 화면은 쓰지 않는다. */
+   새 기준 화면(ui-standard.css: 홈·바구니·일정·할 일·프로젝트·담당조직·자료실·회의)만 이 값을 쓴다. */
 :root{
   --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
   --ds-text-button:13px;--ds-text-read:15px;
@@ -51,6 +51,14 @@
   --ds-kind-diary-soft:#eee8f8;--ds-kind-diary-ink:#5a3d8f;
   --ds-kind-task-soft:#e1f5ee;--ds-kind-task-ink:#0f6e56;
   --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
+  /* 3/3(8-9e) 자료실 파일 종류 색(원장 CC18 결정): PDF 빨강·HWP 파랑·엑셀 초록·워드 남색·PPT 주황, 나머지는 --ds-kind-other(회색). */
+  --ds-file-pdf-soft:#fbe5e2;--ds-file-pdf-ink:#a3271b;
+  --ds-file-hwp-soft:#e3eefb;--ds-file-hwp-ink:#1c5aa6;
+  --ds-file-xls-soft:#e1f2e5;--ds-file-xls-ink:#226b3a;
+  --ds-file-doc-soft:#e4e8f4;--ds-file-doc-ink:#27386e;
+  --ds-file-ppt-soft:#fcebdb;--ds-file-ppt-ink:#a14b10;
+  /* 3/3(8-9e) 담당조직 마지막 기록 점: 7일 이내 초록·8~20일 주황·21일 이상 또는 기록 없음 빨강. */
+  --ds-recency-fresh:#2f9254;--ds-recency-warn:#dc8a1c;--ds-recency-stale:#c8372b;
 }
 /* 다크 모드: 2026-10-16 사용자 결정으로 전체 화면(3/3)이 끝날 때까지 꺼 둔다.
    값은 지우지 않았다. 아래 선택자의 [data-ds-dark="on"] 조건을 지우면(또는 html에 그 속성을 붙이면) 다시 켜진다.
@@ -75,6 +83,12 @@
     --ds-kind-diary-soft:#2b2440;--ds-kind-diary-ink:#c8b5ee;
     --ds-kind-task-soft:#16332b;--ds-kind-task-ink:#8ad6bd;
     --ds-kind-other-soft:#2d2c27;--ds-kind-other-ink:#cbc8bd;
+    --ds-file-pdf-soft:#3d1f1b;--ds-file-pdf-ink:#f2a097;
+    --ds-file-hwp-soft:#1b2a3d;--ds-file-hwp-ink:#9fc4f0;
+    --ds-file-xls-soft:#1c3022;--ds-file-xls-ink:#9fd2a9;
+    --ds-file-doc-soft:#22263b;--ds-file-doc-ink:#b4bff0;
+    --ds-file-ppt-soft:#3a2816;--ds-file-ppt-ink:#f3b77e;
+    --ds-recency-fresh:#86c79f;--ds-recency-warn:#e2b866;--ds-recency-stale:#f0918a;
   }
   html[data-ds-dark="on"][data-theme="navy"]:has(#homeView:not(.hidden)),html[data-ds-dark="on"][data-theme="navy"]:has(#basketView:not(.hidden)){
     --kptu-primary:#8fb4dc;--kptu-primary-hover:#a3c2e3;--kptu-primary-ink:#a6c6ea;--kptu-primary-soft:#1d2a3a;--kptu-link:#a6c6ea;

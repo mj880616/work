@@ -25,8 +25,8 @@ test('export takes newest 100 notes with deterministic ID ordering',()=>{
 test('handoff preserves original and no-OCR PDF name, type, Drive link; destinations and parser format round trip',()=>{
  const rows=[note(n,{attachments:[{file_name:'議事.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-drive',size_bytes:10,body:'ATTACHMENT_BODY'}]})];
  const text=buildHandoff(rows,[{id:p,name:'합성 프로젝트'}],[{id:n,name:'합성 담당조직'}],now);
- for(const required of [rows[0].raw_text,n,stamp,'議事.pdf','application/pdf','https://drive.google.com/file/d/synthetic-drive/view','합성 담당조직','합성 프로젝트','프로젝트 목록 (ID · 이름)',"AI 정리 결과 넣기",'블록이 기준'])assert.ok(text.includes(required),required);
- for(const excluded of ['ATTACHMENT_BODY','size_bytes','google_task','write_request_candidate','library',])assert.ok(!text.includes(excluded),excluded);
+ for(const required of [rows[0].raw_text,n,stamp,'議事.pdf','application/pdf','https://drive.google.com/file/d/synthetic-drive/view','합성 담당조직','합성 프로젝트','프로젝트 목록 (ID · 이름)',"'분류 결과 입력'",'블록이 기준'])assert.ok(text.includes(required),required);
+ for(const excluded of ['ATTACHMENT_BODY','size_bytes','google_task','write_request_candidate','library','AI 정리 결과 넣기',])assert.ok(!text.includes(excluded),excluded);
  const format=classificationFormat(now);const block=/```json\n([\s\S]*?)\n```/.exec(format)[1];
  const sample=JSON.parse(block);sample.items=proposal().items;assert.deepEqual(parseAIAnswer('사람 정리\n```json\n'+JSON.stringify(sample)+'\n```'),sample);
 });
@@ -237,9 +237,12 @@ test('complete no-OCR handoff bytes match the actual approved base including fal
  // Captured before OCR implementation from main9235, identical to approved #528 product51.
  const rows=[note(n,{raw_text:' 原文\r\n\r\n末尾  ',attachments:[photo({file_name:'写真.jpg',body:'PRIVATE_BODY'}),{drive_file_id:'document',file_name:'議事.pdf',mime_type:'application/pdf',size_bytes:10}]}),note('10000000-0000-4000-8000-000000000002',{raw_text:'第二のメモ\n',updated_at:'2026-10-11T01:02:03.123456+00:00'})];
  const projects=[{id:p,name:'合成プロジェクト'}],orgs=[{id:'30000000-0000-4000-8000-000000000001',name:'合成組織'}];
- for(const [fallback,bytes,hash] of [[false,3416,'1affa40d45af7be157c82aece05b6b39917245a96e7f0325194b6cba49c732ad'],[true,3483,'891a548ee0fb576aca1a2097ba67a09a99c96f94d80b4732f5a199ac8fc56930']]){
-  const text=buildHandoff(rows,projects,orgs,now,fallback);
+ // UI-디자인기준 3/3: only the paste-button name in one guide sentence changed ('AI 정리 결과 넣기' -> '분류 결과 입력').
+ // Reverting that name must still give the approved base bytes and hash.
+ for(const [fallback,bytes,hash,baseBytes,baseHash] of [[false,3413,'162e7c431296f094a4253ba04249cf14505a3261765b5ac2fe5118f42078eaab',3416,'1affa40d45af7be157c82aece05b6b39917245a96e7f0325194b6cba49c732ad'],[true,3480,'351b016b6fdaa69a0a3c0af42c2fe33ce965adf46c2f9d73400024112f48d59b',3483,'891a548ee0fb576aca1a2097ba67a09a99c96f94d80b4732f5a199ac8fc56930']]){
+  const text=buildHandoff(rows,projects,orgs,now,fallback),base=text.split("'분류 결과 입력'").join("'AI 정리 결과 넣기'");
   assert.equal(Buffer.byteLength(text),bytes);assert.equal(createHash('sha256').update(text).digest('hex'),hash);
+  assert.equal(Buffer.byteLength(base),baseBytes);assert.equal(createHash('sha256').update(base).digest('hex'),baseHash);
  }
 });
 test('handoff appends source-labeled committed OCR outside raw markers without private attempt metadata',()=>{
