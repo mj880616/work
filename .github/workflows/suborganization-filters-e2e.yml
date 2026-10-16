@@ -66,7 +66,7 @@ jobs:
           if grep -q "suborganization-filters.css" app/styles.css; then echo 'removed assigned-organization filter styles returned'; exit 1; fi
           grep -q "default_assignee_name" app/suborganizations.js
           grep -q "sofEditType" app/suborganizations.js
-          grep -q "id=\"soOrgCount\"" app/suborganizations.js
+          if grep -q 'id="soOrgCount"' app/suborganizations.js; then echo 'removed N개 담당조직 line returned (UI-디자인손질 3)'; exit 1; fi
           grep -q "const mine=myOrganizations()" app/suborganizations.js
           grep -q "id=\"wdInboxSave\"" app/workplace-detail.js
           if grep -Eq "wdUpdateCurrent|wdAddItem" app/workplace-detail.js; then echo 'removed current-status/memo input returned'; exit 1; fi
