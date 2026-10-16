@@ -353,14 +353,12 @@ jobs:
           grep -q "data-ps3-delete-project" app/project-system-v3.js
           grep -q 'owner_id=eq.${encodeURIComponent(userId)}' app/project-catalog.js
           grep -q 'catalog.fetchSpaces(wid,user.id)' app/project-system-v3.js
-          grep -q "data-ps3-add-ws" app/project-system-v3.js
-          grep -q "data-ps3-progress-item" app/project-system-v3.js
-          grep -q "ps3-pg-summary" app/project-system-v3.js
-          grep -q "ps3-pg-history" app/project-system-v3.js
-          grep -q "data-ps3-quick-progress" app/project-system-v3.js
-          grep -q "insertProgress({workstreamId" app/project-system-v3.js
-          grep -q ".ps3-pg-line1" app/project-system-v3.css
-          grep -q ".ps3-pg-line2" app/project-system-v3.css
+          grep -q "data-ps3-record-input" app/project-system-v3.js
+          grep -q "data-ps3-records" app/project-system-v3.js
+          grep -q "workstream_id:null,author_id:e.owner,status_label:null" app/project-system-v3.js
+          grep -q "data-ps3-basket-note" app/project-system-v3.js
+          grep -q ".ps3-rec-line" app/project-system-v3.css
+          if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal|mountLinkSummaryEditor" app/project-system-v3.js; then echo 'retired per-item progress UI or project basket editor returned'; exit 1; fi
           if grep -Eq "ps3CreateType|ps3CreateVisibility|ps3AccessModal|ps3TypeModal|data-ps3-access|ps3ManageTypes" app/project-system-v3.js; then echo 'removed project type/access UI returned'; exit 1; fi
           if grep -q "bindPublication();" app/project-system-v3.js; then echo 'project publication execution path returned'; exit 1; fi
           grep -q "projects','\\[\\]'::jsonb" supabase/migrations/20260923074619_web2_project_owner_only.sql
