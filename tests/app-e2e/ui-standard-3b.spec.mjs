@@ -140,12 +140,17 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
   // 8-9e-3: + 는 글자가 아닌 선으로 그린 SVG 아이콘(장식), 원의 가로·세로 정가운데.
   const plus=await button.evaluate(el=>{const p=getComputedStyle(el,'::before');return {content:p.content,mask:p.maskImage||p.webkitMaskImage,w:p.width,h:p.height};});
   expect(plus.content).toBe('""');expect(plus.mask).toContain('svg');expect([plus.w,plus.h]).toEqual(['20px','20px']);
-  // 그려진 + 의 밝은 픽셀 상자 가운데가 원 가운데와 1px 안(위로 치우치지 않음).
-  const shot=await button.screenshot();
-  const center=await page.evaluate(async data=>{const img=new Image();img.src='data:image/png;base64,'+data;await img.decode();const c=document.createElement('canvas');c.width=img.width;c.height=img.height;const g=c.getContext('2d');g.drawImage(img,0,0);const d=g.getImageData(0,0,c.width,c.height).data;
-   let x0=1e9,y0=1e9,x1=-1,y1=-1;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const k=(y*c.width+x)*4;if(d[k]+d[k+1]+d[k+2]>600){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}}
-   return {dx:(x0+x1+1)/2-c.width/2,dy:(y0+y1+1)/2-c.height/2,w:x1-x0+1,h:y1-y0+1};},shot.toString('base64'));
-  expect(Math.abs(center.dx),'+ 가로 가운데').toBeLessThanOrEqual(1);expect(Math.abs(center.dy),'+ 세로 가운데').toBeLessThanOrEqual(1);expect(center.w).toBeGreaterThan(10);
+  // 그려진 + 의 픽셀 상자(원 안에서 원 바탕색과 다른 픽셀) 가운데가 원 가운데와 1px 안(위로 치우치지 않음). 밝은·어두운 화면 모두.
+  for(const scheme of ['light','dark']){
+   await page.emulateMedia({colorScheme:scheme});await page.waitForTimeout(100);
+   const shot=await button.screenshot();
+   const center=await page.evaluate(async data=>{const img=new Image();img.src='data:image/png;base64,'+data;await img.decode();const c=document.createElement('canvas');c.width=img.width;c.height=img.height;const g=c.getContext('2d');g.drawImage(img,0,0);const d=g.getImageData(0,0,c.width,c.height).data;
+    const cx=c.width/2,cy=c.height/2,at=(x,y)=>{const k=(y*c.width+x)*4;return [d[k],d[k+1],d[k+2]];},bg=at(Math.round(cx),Math.round(cy*0.25)+2);
+    let x0=1e9,y0=1e9,x1=-1,y1=-1;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){if(Math.hypot(x+0.5-cx,y+0.5-cy)>c.width/2-5)continue;const p=at(x,y);if(Math.abs(p[0]-bg[0])+Math.abs(p[1]-bg[1])+Math.abs(p[2]-bg[2])>150){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}}
+    return {dx:(x0+x1+1)/2-cx,dy:(y0+y1+1)/2-cy,w:x1-x0+1,h:y1-y0+1};},shot.toString('base64'));
+   expect(Math.abs(center.dx),view+' '+scheme+' + 가로 가운데').toBeLessThanOrEqual(1);expect(Math.abs(center.dy),view+' '+scheme+' + 세로 가운데').toBeLessThanOrEqual(1);expect(center.w).toBeGreaterThan(10);expect(center.h).toBeGreaterThan(10);
+  }
+  await page.emulateMedia({colorScheme:'light'});
   // 목록 끝까지 내리면 마지막 줄은 [+] 위에 있다.
   await expect.poll(()=>page.locator('#'+view+'View').evaluate(el=>{
    window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'});

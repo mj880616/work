@@ -5,6 +5,8 @@ import {testOrigin} from './helpers/test-origin.mjs';
 // UI-디자인기준 3/3 3부(8-9e-3, 마지막): 남은 화면(HWP 편집 바깥 틀·성명·보도자료·게시판)·공용 셸(폰 머리줄·하단 탭·PC 사이드바·☰ 메뉴 판·계정 메뉴)·
 // 화면 색 창·공용 창(.modal)을 같은 기준(버튼 높이 하나·13px/500·모서리 8px, 0.5px 상자 안 44px 줄·이름 13px/400, 제목 18px/500)으로,
 // 다크 모드는 기기 설정만 따라 Web2 전체(창 포함)에 켠다. 칸막이(HWP 편집기·성명·게시판 본문 iframe) 바탕은 밝게 둔다.
+// 폰 실제 환경처럼 한국어 로케일(글꼴 대체로 줄 높이가 달라지는 경우까지 본다).
+test.use({locale:'ko-KR'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'ds3c-user',email:'ds3c@example.org',user_metadata:{display_name:'마무리'}};
 const ws={id:'ds3c-ws',slug:'ds3c',name:'웹2'};
@@ -265,5 +267,23 @@ test('일정 [Google Calendar] 설정 칸 버튼도 같은 기준(옛 !important
  const button=await look(page.locator('#googleConnectBtn'));
  expect([button.height,button.fontSize,button.fontWeight,button.radius]).toEqual([46,'13px','500','8px']);
  expect(await page.locator('#calendarCompactStyle').evaluate(el=>/#googleConnectBtn\{[^}]*!important/.test(el.textContent))).toBe(false);
+ expect(errors).toEqual([]);
+});
+
+test('동그란 [+]: 선으로 그린 + 가 원의 가로·세로 정가운데(한국어 로케일, 밝은·어두운 화면, 네 화면)',async({page})=>{
+ const {errors}=await boot(page,390);
+ for(const [name,id] of [['calendar','#newEventBtn'],['tasks','#newTaskBtn'],['projects','#newProjectBtn'],['library','#newDocumentBtn']]){
+  await view(page,name);const button=page.locator(id);await expect(button).toBeVisible();
+  for(const scheme of ['light','dark']){
+   await page.emulateMedia({colorScheme:scheme});await page.waitForTimeout(100);
+   const shot=await button.screenshot();
+   const c=await page.evaluate(async data=>{const img=new Image();img.src='data:image/png;base64,'+data;await img.decode();const cv=document.createElement('canvas');cv.width=img.width;cv.height=img.height;const g=cv.getContext('2d');g.drawImage(img,0,0);const d=g.getImageData(0,0,cv.width,cv.height).data;
+    const cx=cv.width/2,cy=cv.height/2,at=(x,y)=>{const k=(y*cv.width+x)*4;return [d[k],d[k+1],d[k+2]];},bg=at(Math.round(cx),4);
+    let x0=1e9,y0=1e9,x1=-1,y1=-1;for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){if(Math.hypot(x+0.5-cx,y+0.5-cy)>cv.width/2-5)continue;const p=at(x,y);if(Math.abs(p[0]-bg[0])+Math.abs(p[1]-bg[1])+Math.abs(p[2]-bg[2])>150){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}}
+    return {dx:(x0+x1+1)/2-cx,dy:(y0+y1+1)/2-cy,w:x1-x0+1,h:y1-y0+1};},shot.toString('base64'));
+   expect(Math.abs(c.dx),name+' '+scheme+' 가로').toBeLessThanOrEqual(1);expect(Math.abs(c.dy),name+' '+scheme+' 세로').toBeLessThanOrEqual(1);expect(c.w).toBeGreaterThan(10);expect(c.h).toBeGreaterThan(10);
+  }
+  await page.emulateMedia({colorScheme:'light'});
+ }
  expect(errors).toEqual([]);
 });
