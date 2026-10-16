@@ -27,7 +27,10 @@ const mobileQuery=window.matchMedia('(max-width:760px)');
 const mobileMenu=document.querySelector('#mobileMenu'),mobileTrigger=document.querySelector('#mobileMenuOpen');
 const mobilePanel=mobileMenu?.querySelector('.mobile-menu-panel'),mobileGroup=document.querySelector('#mobileAccountGroup');
 const mobileAccount=accounts[0];
-let mobileOpen=false,mobileClosing=false;
+// Phone: the [메뉴] tab at the end of the bottom tabs opens the same dialog; the top ☰ is hidden there.
+const mobileTab=document.querySelector('#mobileMenuTab');
+const menuButton=()=>mobileTab?.getClientRects().length?mobileTab:mobileTrigger;
+let mobileOpen=false,mobileClosing=false,mobileOpener=null;
 // Mid-width navigation reuses the original controls and the mobile dialog.
 const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
@@ -68,7 +71,7 @@ function syncMidNavigation(){
   const focus=active===document.body&&navigationFocus&&!navigationFocus.getClientRects().length?navigationFocus:active;
   if(!midQuery.matches){
     if(!midActive){
-      if(mobileQuery.matches&&homes.has(focus)&&!focus.getClientRects().length)mobileTrigger.focus({preventScroll:true});
+      if(mobileQuery.matches&&homes.has(focus)&&!focus.getClientRects().length)menuButton().focus({preventScroll:true});
       return;
     }
     midActive=false;
@@ -77,7 +80,7 @@ function syncMidNavigation(){
     mobileTrigger.classList.remove('nav-btn','mid-menu-trigger','active');mobileTrigger.removeAttribute('aria-current');
     if(homes.has(focus)){
       const target=mobileOpen&&menuQuery.matches?mobilePanel.querySelector('[data-mobile-menu-close]')
-        :focus.getClientRects().length?focus:mobileQuery.matches?mobileTrigger:appNav.querySelector('.nav-btn.active')||midItems[0];
+        :focus.getClientRects().length?focus:mobileQuery.matches?menuButton():appNav.querySelector('.nav-btn.active')||midItems[0];
       target?.focus({preventScroll:true});
     }
     return;
@@ -116,9 +119,10 @@ document.fonts?.addEventListener('loadingdone',syncMidNavigation);
 
 function closeMobile(then,fromBack=false){
   if(!mobileOpen){then?.();return}
-  mobileOpen=false;mobileClosing=true;mobileMenu.hidden=true;mobileTrigger.setAttribute('aria-expanded','false');
+  mobileOpen=false;mobileClosing=true;mobileMenu.hidden=true;[mobileTrigger,mobileTab].forEach(button=>button?.setAttribute('aria-expanded','false'));
   window.KPTUA11y?.dialog.deactivate(mobilePanel,{restoreFocus:false});
-  const finish=()=>queueMicrotask(()=>{mobileClosing=false;if(mobileTrigger.getClientRects().length)mobileTrigger.focus({preventScroll:true});then?.()});
+  const opener=mobileOpener?.getClientRects().length?mobileOpener:menuButton();mobileOpener=null;
+  const finish=()=>queueMicrotask(()=>{mobileClosing=false;if(opener.getClientRects().length)opener.focus({preventScroll:true});then?.()});
   if(!fromBack&&history.state?.kptuMobileMenu){window.addEventListener('popstate',finish,{once:true});history.back()}else finish();
 }
 window.KPTUMobileMenu={isOpen:()=>mobileOpen,close:closeMobile};
@@ -132,18 +136,20 @@ function syncMobile(){
   }
   syncKeyboard();
 }
-mobileTrigger?.addEventListener('click',()=>{
+function openMobile(trigger){
   if(mobileClosing)return;
   if(mobileOpen){closeMobile();return}
   if(!menuQuery.matches||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
-  mobileOpen=true;mobileMenu.hidden=false;mobileTrigger.setAttribute('aria-expanded','true');
+  mobileOpen=true;mobileOpener=trigger;mobileMenu.hidden=false;trigger.setAttribute('aria-expanded','true');
   history.pushState({...history.state,kptuMobileMenu:true},'',location.href);
-  window.KPTUA11y?.dialog.activate(mobilePanel,{trigger:mobileTrigger,initialFocus:'[data-mobile-menu-close]',onRequestClose:closeMobile});
-});
+  window.KPTUA11y?.dialog.activate(mobilePanel,{trigger,initialFocus:'[data-mobile-menu-close]',onRequestClose:closeMobile});
+}
+mobileTrigger?.addEventListener('click',()=>openMobile(mobileTrigger));
+mobileTab?.addEventListener('click',()=>openMobile(mobileTab));
 // History is consumed before the existing router/feature/account handler sees the click.
 document.addEventListener('click',event=>{
   if(!mobileOpen)return;
-  if(mobileTrigger.contains(event.target))return;
+  if(mobileTrigger.contains(event.target)||mobileTab?.contains(event.target))return;
   if(!mobilePanel.contains(event.target)||event.target.closest('[data-mobile-menu-close]')){
     event.preventDefault();event.stopImmediatePropagation();closeMobile();return;
   }
@@ -176,6 +182,10 @@ function syncKeyboard(){
   // Keep the layout until the viewport actually grows back.
   const keyboard=mobileQuery.matches&&(editing||shown)&&shrunk;
   document.body.classList.toggle('kptu-mobile-keyboard',!!keyboard);
+  // Bottom-docked inputs sit on the keyboard. Where the layout viewport already shrinks
+  // (interactive-widget=resizes-content), this stays 0.
+  const inset=keyboard&&viewport?Math.max(0,Math.round(innerHeight-viewport.height-viewport.offsetTop)):0;
+  document.documentElement.style.setProperty('--kptu-keyboard-inset',inset+'px');
 }
 window.visualViewport?.addEventListener('resize',syncKeyboard);
 window.visualViewport?.addEventListener('scroll',syncKeyboard);
@@ -188,7 +198,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'할 일',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',media:document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType==='release'?'보도자료':'성명',pages:'게시판'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',media:document.querySelector('#mediaView [data-press-type].active')?.dataset.pressType==='release'?'보도자료':'성명',pages:'게시판'})[event.detail?.view]||''}
 });
 syncMobile();
 syncMidNavigation();
@@ -261,7 +271,7 @@ function closeTheme(){
 }
 themeButtons.forEach(button=>button.addEventListener('click',()=>closeAccount(()=>{
   const account=accounts.find(account=>account.theme===button);
-  const focusTrigger=menuQuery.matches?mobileTrigger:account.trigger;
+  const focusTrigger=menuQuery.matches?menuButton():account.trigger;
   window.removeEventListener('popstate',restoreAfterBack);
   // Register after the current view's history listeners, and restore on traversal completion.
   restoreAfterBack=()=>queueMicrotask(()=>{

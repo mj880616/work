@@ -3,7 +3,8 @@ import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 const app=testOrigin+'/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const tabs=['home','calendar','tasks','projects','team'];
+// 8-9e-2: 폰 하단 탭 6칸 중 화면 탭 다섯(메뉴 탭은 메뉴 창을 연다). 할 일은 [일정] 탭의 [할 일] 쪽.
+const tabs=['home','basket','calendar','projects','team'];
 async function open(page,url=app+'?view=home'){
   const user={id:'home-qa',email:'home-qa@example.org'};
   await page.route(`${SB}/**`,route=>{
@@ -34,7 +35,8 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   expect(requests.some(u=>/app_tasks/.test(u))).toBe(false);
   const mobile=width<=760;
   await expect(page.locator('.mobile-tabs')).toBeVisible({visible:mobile});
-  await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:width<1024});
+  await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:width>760&&width<1024});
+  await expect(page.locator('#mobileMenuTab')).toBeVisible({visible:mobile});
   await expect(page.locator('#appView>.app-nav')).toBeVisible({visible:!mobile});
   if(mobile){
     expect(await page.locator('.mobile-tabs [data-view]').evaluateAll(ns=>ns.map(n=>n.dataset.view))).toEqual(tabs);
@@ -47,7 +49,7 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
 });
 test('drawer consumes history before navigation, theme and logout',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
-  const drawer=page.locator('#mobileMenu'),trigger=page.locator('#mobileMenuOpen');
+  const drawer=page.locator('#mobileMenu'),trigger=page.locator('#mobileMenuTab');
   for(const close of ['outside','escape','back']){
     await trigger.click();await expect(drawer).toBeVisible();
     if(close==='outside')await drawer.click({position:{x:10,y:400}});
@@ -107,15 +109,15 @@ test('KST date crosses the day boundary independently of the browser timezone',a
 test('drawer media filters and moved Drive slot run their existing handlers once',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
   for(const type of ['statement','release']){
-    await page.locator('#mobileMenuOpen').click();await page.locator(`[data-mobile-press="${type}"]`).click();
+    await page.locator('#mobileMenuTab').click();await page.locator(`[data-mobile-press="${type}"]`).click();
     await expect(page.locator(`#mediaView [data-press-type="${type}"]`)).toHaveClass(/active/);
     await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
   }
   let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,updated_at:new Date().toISOString(),documents:{}})})});
-  await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu [data-drive-summary-refresh]').click();
+  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-drive-summary-refresh]').click();
   await expect.poll(()=>posts).toBe(1);await expect(page.locator('#mobileMenu')).toBeHidden();
   await page.setViewportSize({width:1440,height:844});await page.setViewportSize({width:390,height:844});
-  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-account-drive-slot]')).toHaveCount(1);
+  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-account-drive-slot]')).toHaveCount(1);
   await page.locator('#mobileMenu [data-drive-summary-refresh]').click();await expect.poll(()=>posts).toBe(2);
 });
 test('native final return and browser default both open home',async({page})=>{
@@ -155,7 +157,7 @@ test('swipes visit exactly the five bottom tabs with home and team boundaries',a
   // UI-디자인기준 2/3(8-9d): 일정 화면 머리줄 이름은 화면 제목 18px·중간 굵기(500).
   await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','18px');
   await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','500');
-  await page.locator('#mobileMenuOpen').click();
+  await page.locator('#mobileMenuTab').click();
   await expect(page.locator('.mobile-menu-head b')).toHaveText('메뉴');
   const close=page.locator('[data-mobile-menu-close]');
   const size=await close.evaluate(el=>{const r=el.getBoundingClientRect(),pseudo=getComputedStyle(el,'::before');return {w:r.width,h:r.height,left:pseudo.left,right:pseudo.right,top:pseudo.top,bottom:pseudo.bottom}});

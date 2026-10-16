@@ -38,6 +38,15 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
         expect(b[left[i]].y-b[left[i-1]].bottom).toBeCloseTo(12,0);
       }
       expect(b.dday.bottom).toBeLessThan(b.meetings.bottom);
+    }else if(width<=760){
+      // 8-9e-2: the phone quick input is docked right above the bottom tabs; the cards stack above it.
+      const tabs=await page.locator('.mobile-tabs').boundingBox();
+      expect(Math.round(b.quick.bottom)).toBe(Math.round(tabs.y));
+      const cards=order.slice(1);
+      for(let i=1;i<cards.length;i++){
+        expect(b[cards[i]].x).toBe(b[cards[0]].x);
+        expect(b[cards[i]].y).toBeGreaterThanOrEqual(b[cards[i-1]].bottom);
+      }
     }else{
       for(let i=1;i<order.length;i++){
         expect(b[order[i]].x).toBe(b.quick.x);

@@ -77,23 +77,26 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date(),{noteId=n
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
   return buildHandoff(notes,window.KPTUProjectCatalog.basketProjects(catalog.projects),orgs.organizations,now,orgs.fallback);
 }
-export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()=>({}),onPrepared=()=>{}},rt=window.KPTURuntime) {
+// onCopied(count,request) runs once the request text is on the clipboard and this lock is released.
+export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()=>({}),onPrepared=()=>{},onCopied=null},rt=window.KPTURuntime) {
   host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><div data-handoff-fallback hidden><button type="button" class="quick-pill-button quick-pill-primary" data-handoff-retry>복사하기</button><button type="button" class="quick-pill-button" data-handoff-close>닫기</button><label class="basket-text-label">AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label></div>';
   const status=host.querySelector('[role="status"]'),fallback=host.querySelector('[data-handoff-fallback]'),input=host.querySelector('textarea');
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
-  let busy=false,epoch=0,currentScope=scope(),fallbackScope=null,fallbackText='';
-  const clear=()=>{++epoch;status.textContent='';input.value='';fallback.hidden=true;fallbackScope=null;fallbackText='';if(busy){busy=false;onBusy(false);}};
+  let busy=false,epoch=0,currentScope=scope(),fallbackScope=null,fallbackText='',fallbackCopied=null;
+  const clear=()=>{++epoch;status.textContent='';input.value='';fallback.hidden=true;fallbackScope=null;fallbackText='';fallbackCopied=null;if(busy){busy=false;onBusy(false);}};
+  const copiedText='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';
   async function retryCopy(){
     if(busy||isBlocked()||!fallbackText)return;
     if(fallbackScope!==scope()){clear();return;}
-    const run=epoch,owner=scope(),text=fallbackText;busy=true;onBusy(true);
+    const run=epoch,owner=scope(),text=fallbackText,copied=fallbackCopied;busy=true;onBusy(true);
     const current=()=>run===epoch&&owner===scope();
+    let done=false;
     try{
       // Prepared text needs no asynchronous reads: this call uses the new tap's activation.
       await navigator.clipboard.writeText(text);
-      if(current()){clear();status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';onClose();}
+      if(current()){done=true;clear();if(onCopied)onCopied(copied.count,copied.request);else{status.textContent=copiedText;onClose();}}
     }catch{if(current()){status.textContent='복사가 안 되면 길게 눌러 전체 선택 → 복사';input.focus();input.select();}}
-    finally{if(current()){busy=false;onBusy(false);}}
+    finally{if(!done&&current()){busy=false;onBusy(false);}}
   }
   host.addEventListener?.('click',event=>{
     if(event.target.closest('[data-handoff-close]')){clear();onClose();}
@@ -107,7 +110,8 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()
     if(request?.error){clear();status.textContent=request.error;return;}
     clear();const run=epoch,owner=scope();busy=true;onBusy(true);status.textContent='분류 요청할 메모를 준비하고 있어요…';
     const current=()=>run===epoch&&owner===scope();
-    const prepared=readHandoff(rt,new Date(),{...request,onPrepared:count=>{if(current())onPrepared(count,request);}});
+    let count=0,handed=false;
+    const prepared=readHandoff(rt,new Date(),{...request,onPrepared:value=>{count=value;if(current())onPrepared(value,request);}});
     let written=null;
     // Start the browser write in the click stack, before any API reads finish.
     // Reject empty/stale data so a cancelled read never replaces the clipboard.
@@ -119,15 +123,20 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()
       catch{written=Promise.resolve(false);}
     }
     try{
-      const text=await prepared;if(!current())return;
-      if(!text){status.textContent='분류 요청할 메모가 없어요';return;}
-      let copied=false;
-      if(written)copied=await written;
-      else{try{await navigator.clipboard.writeText(text);copied=true;}catch{}}
-      if(!current())return;
-      if(copied)status.textContent='복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.';
-      else{input.value=text;fallbackText=text;fallbackScope=owner;fallback.hidden=false;status.textContent="아래 '복사하기'를 눌러 주세요";input.focus();input.select();}
+      const text=await prepared;
+      if(!current()){/* cancelled */}
+      // Nothing to copy still hands over (count 0): an answer copied earlier can be pasted.
+      else if(!text){status.textContent='분류 요청할 메모가 없어요';handed=!!onCopied;}
+      else{
+        let copied=false;
+        if(written)copied=await written;
+        else{try{await navigator.clipboard.writeText(text);copied=true;}catch{}}
+        if(!current()){/* cancelled */}
+        else if(copied){status.textContent=onCopied?'':copiedText;handed=!!onCopied;}
+        else{input.value=text;fallbackText=text;fallbackScope=owner;fallbackCopied={count,request};fallback.hidden=false;status.textContent="아래 '복사하기'를 눌러 주세요";input.focus();input.select();}
+      }
     }catch{if(current())status.textContent='분류 요청할 메모를 준비하지 못했어요. 다시 눌러 주세요.';}
     finally{if(current()){busy=false;onBusy(false);}}
+    if(handed&&current())onCopied(count,request);
   }};
 }

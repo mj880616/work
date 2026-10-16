@@ -3,26 +3,26 @@
 <head>
 <script data-kptu-theme-bootstrap>(()=>{let theme='olive';try{const value=localStorage.getItem('kptu-theme');if(['olive','navy','terracotta','sand'].includes(value))theme=value}catch{}document.documentElement.setAttribute('data-theme',theme)})();</script>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <title>웹2</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="./app-icon.svg?v=20260924-unicorn3" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./app-icon.svg?v=20260924-unicorn3">
 <link rel="manifest" href="./windows-manifest.json?v=6">
-<link rel="stylesheet" href="./critical.css?v=30">
+<link rel="stylesheet" href="./critical.css?v=31">
 <link rel="stylesheet" href="./version-notice.css?v=2">
 <link rel="preload" as="style" href="./base-ui.css?v=16">
 <link rel="preload" as="style" href="./static-gates.css?v=3">
-<link rel="preload" as="style" href="./topbar-actions.css?v=18">
+<link rel="preload" as="style" href="./topbar-actions.css?v=19">
 <link rel="preload" as="style" href="./team.css?v=7">
 <link rel="preload" as="style" href="./workspace-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-ui.css?v=11">
 <link rel="preload" as="style" href="./desktop-tight-nav.css?v=2">
-<link rel="modulepreload" href="./loader-v2.js?v=404">
+<link rel="modulepreload" href="./loader-v2.js?v=405">
 <link rel="modulepreload" href="./runtime-client.js?v=9">
 <link rel="modulepreload" href="./native-auth-bridge.js?v=5">
 <link rel="modulepreload" href="./calendar-return-bridge.js?v=3">
-<script src="./app.js?v=292" defer></script>
+<script src="./app.js?v=293" defer></script>
 </head>
 <body class="kptu-session-pending">
 <div class="shell">
@@ -61,16 +61,16 @@
 
   <nav class="mobile-tabs" aria-label="주 메뉴">
     <button type="button" data-view="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9"/></svg><span>홈</span></button>
-    <button type="button" data-view="calendar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v16H5zM8 3v4m8-4v4M5 10h14"/></svg><span>일정</span></button>
-    <button type="button" data-view="tasks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 6 2 2 3-4m3 2h8M4 13l2 2 3-4m3 2h8M4 20h5m3 0h8"/></svg><span>할 일</span></button>
+    <button type="button" data-view="basket" class="mobile-tab-basket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3"/></svg><span>바구니</span></button>
+    <button type="button" data-view="calendar" data-mobile-schedule-tab><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v16H5zM8 3v4m8-4v4M5 10h14"/></svg><span>일정</span></button>
     <button type="button" data-view="projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h7l2 2h9v12H3zM3 7V4h7l2 3"/></svg><span>프로젝트</span></button>
     <button type="button" data-view="team"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 9v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 4v2"/></svg><span>담당조직</span></button>
+    <button id="mobileMenuTab" type="button" aria-controls="mobileMenu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>메뉴</span></button>
   </nav>
   <div id="mobileMenu" class="mobile-menu" hidden>
     <aside class="mobile-menu-panel" role="dialog" aria-modal="true" aria-label="메뉴" tabindex="-1">
       <div class="mobile-menu-head"><b>메뉴</b><button type="button" data-mobile-menu-close aria-label="메뉴 닫기">×</button></div>
       <nav aria-label="더 보기">
-        <button type="button" data-view="basket">바구니</button>
         <button type="button" data-view="meetings">회의</button>
         <button type="button" data-view="library">자료실</button>
         <button type="button" data-mobile-press="statement">성명</button>
@@ -91,6 +91,7 @@
   </section>
 
   <section id="calendarView" class="view-panel hidden">
+    <div class="schedule-switch" role="group" aria-label="달력·할 일 전환"><button type="button" data-view="calendar" aria-pressed="true">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button></div>
     <div id="calendarCard" class="calendar-card">
       <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="calendarTodayBtn" class="mini" type="button">오늘</button><span class="calendar-toolbar-divider" aria-hidden="true"></span><div class="calendar-view-switch" role="group" aria-label="일정 보기"><button type="button" class="mini" data-calendar-view="list" aria-label="목록 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><button type="button" class="mini" data-calendar-view="week" aria-label="주간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 7h21v10h-21zM4.5 7v10M7.5 7v10M10.5 7v10M13.5 7v10M16.5 7v10M19.5 7v10"/></svg></button><button type="button" class="mini" data-calendar-view="month" aria-label="월간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v16H4zM8 3v4m8-4v4M4 10h16M4 15h16M9 10v11M15 10v11"/></svg></button></div><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
       <div id="calendarList" class="hidden" aria-label="목록 일정"></div>
@@ -100,18 +101,19 @@
   </section>
 
   <section id="tasksView" class="view-panel hidden">
-    <div class="section-head actions-only"><button id="newTaskBtn" class="primary" type="button">+ 할 일</button></div>
+    <div class="schedule-switch" role="group" aria-label="달력·할 일 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="true">할 일</button></div>
+    <div class="section-head actions-only"><button id="newTaskBtn" class="primary" type="button" aria-label="할 일 추가">+ 할 일</button></div>
     <div id="taskList" class="card-list"></div>
   </section>
 
   <section id="projectsView" class="view-panel hidden">
-    <div class="section-head actions-only"><button id="newProjectBtn" class="primary" type="button">+ 프로젝트</button></div>
+    <div class="section-head actions-only"><button id="newProjectBtn" class="primary" type="button" aria-label="프로젝트 추가">+ 프로젝트</button></div>
     <div id="projectGrid" class="project-grid"></div>
   </section>
 
   <section id="libraryView" class="view-panel hidden">
     <div class="toolbar library-filter-toolbar"><label class="a11y-only" for="documentSearch">자료 검색</label><input id="documentSearch" class="search" type="search" placeholder="제목·출처·태그 검색"><div id="documentProject" role="group" aria-label="프로젝트 필터" aria-controls="documentList"></div><div id="libraryViewFilter" aria-label="자료 종류" aria-controls="documentList"></div></div>
-    <section id="libraryListCard" class="add-list-card"><div class="add-list-head"><h2>자료실</h2><div class="lu-head-actions"><button id="manageLibraryBtn" class="secondary" type="button">분류 수정</button><button id="newDocumentBtn" class="primary" type="button">+ 자료 등록</button></div></div><div id="documentList" class="card-list"></div></section>
+    <section id="libraryListCard" class="add-list-card"><div class="add-list-head"><h2>자료실</h2><div class="lu-head-actions"><button id="manageLibraryBtn" class="secondary" type="button">분류 수정</button><button id="newDocumentBtn" class="primary" type="button" aria-label="자료 등록">+ 자료 등록</button></div></div><div id="documentList" class="card-list"></div></section>
   </section>
 
   <section id="mediaView" class="view-panel hidden">

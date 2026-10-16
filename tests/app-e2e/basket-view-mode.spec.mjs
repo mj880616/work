@@ -29,7 +29,7 @@ async function press(page,locator,width){
  // The formatted reading view can be taller than the screen: bring the target above the fixed bottom tabs first.
  if(width<761){await locator.evaluate(el=>el.scrollIntoView({block:'center'}));const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();
 }
-async function enterBasket(page,width){await press(page,page.locator('#homeView [data-goto="basket"]'),width);await expect(page.locator('[data-basket-row]')).toHaveCount(1);}
+async function enterBasket(page,width){await press(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await expect(page.locator('[data-basket-row]')).toHaveCount(1);}
 const editableFocused=page=>page.evaluate(()=>!!document.activeElement?.matches('input:not([type=button]),textarea,[contenteditable="true"]'));
 
 for(const width of [390,1280]){
@@ -128,7 +128,8 @@ test('basket quick input explains a lock below the input and offers a new memo',
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('바구니에서 확인');
  await expect(lock).toBeVisible();await expect(q.locator('[data-quick-lock-reason]')).toContainText('입력창을 잠갔어요');await expect(q.locator('[data-quick-new-note]')).toBeVisible();
  expect(await input.evaluate(el=>el.readOnly)).toBe(true);
- const inputBox=await input.boundingBox(),lockBox=await lock.boundingBox();expect(lockBox.y).toBeGreaterThanOrEqual(inputBox.y+inputBox.height);expect(lockBox.y-(inputBox.y+inputBox.height)).toBeLessThan(24);
+ // 8-9e-2: 폰 입력칸은 하단 탭 바로 위에 붙어 맨 아래에 있으므로 잠금 안내는 입력칸 바로 위에 붙는다.
+ const inputBox=await input.boundingBox(),lockBox=await lock.boundingBox();expect(lockBox.y+lockBox.height).toBeLessThanOrEqual(inputBox.y);expect(inputBox.y-(lockBox.y+lockBox.height)).toBeLessThan(24);
  page.once('dialog',d=>d.accept());await press(page,q.locator('[data-quick-new-note]'),390);
  await expect(lock).toBeHidden();await expect(input).toBeFocused();await expect(input).toHaveValue('');expect(await input.evaluate(el=>el.readOnly)).toBe(false);
  await page.keyboard.type('새로 쓰는 메모');await expect(input).toHaveValue('새로 쓰는 메모');

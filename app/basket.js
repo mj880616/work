@@ -1,13 +1,13 @@
 import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
-import { mountQuick } from './home-quick.js?v=17';
-import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=16';
+import { mountQuick } from './home-quick.js?v=18';
+import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=17';
 import { mountClassification } from './basket-classification-ui.js?v=15';
 import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=4';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest } from './basket-note-tasks.js?v=2';
 import { mountWriteRequest, noteWriteRequest } from './basket-write-request.js?v=1';
 import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
-import { mountManualLink } from './basket-manual-link.js?v=6';
+import { mountManualLink } from './basket-manual-link.js?v=7';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js?v=2';
@@ -27,12 +27,27 @@ const initialUrl = new URL(location.href);
 let requestedNote = (initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null) || takeBasketNoteRequest(rt);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar"><details class="basket-more" data-basket-more><summary><span aria-hidden="true">⋯</span> 더보기</summary><div class="basket-actions basket-more-menu"><button type="button" data-handoff-copy>분류 요청</button><button type="button" data-classification-open>분류 결과 입력</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></details></div></div><p data-basket-handoff-scope></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류</button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
 // Keep the basket heading available to assistive navigation; the shell owns
 // the visible mobile title at the same 760px breakpoint as the shared header.
 const basketTitle=root.querySelector('.basket-head > h2'),mobileTitle=window.matchMedia('(max-width:760px)');
 const syncTitle=()=>basketTitle.classList.toggle('a11y-only',mobileTitle.matches);
 mobileTitle.addEventListener('change',syncTitle);syncTitle();
+// [⋯] opens a small menu under itself (it does not push the list). Esc, a tap outside,
+// leaving it by keyboard or choosing an item closes it.
+const moreWrap=root.querySelector('[data-basket-more-wrap]'),moreButton=root.querySelector('[data-basket-more]'),moreMenu=root.querySelector('#basketMoreMenu');
+function setMore(open,{focus=false}={}){
+  if(moreMenu.hidden===!open)return;
+  moreMenu.hidden=!open;moreButton.setAttribute('aria-expanded',String(open));
+  if(open)moreMenu.querySelector('button:not(:disabled)')?.focus();else if(focus)moreButton.focus();
+}
+moreButton.addEventListener('click',()=>setMore(moreMenu.hidden));
+moreWrap.addEventListener('keydown',e=>{if(e.key==='Escape'&&!moreMenu.hidden){e.preventDefault();e.stopPropagation();setMore(false,{focus:true});}});
+moreWrap.addEventListener('focusout',e=>{if(e.relatedTarget&&!moreWrap.contains(e.relatedTarget))setMore(false);});
+document.addEventListener('click',e=>{if(!moreMenu.hidden&&!moreWrap.contains(e.target))setMore(false);});
+// The scope guidance shows only after [분류 요청]; once copied it becomes one line.
+const handoffLine=root.querySelector('[data-basket-handoff-scope]');
+let handoffNotice=null;
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
 const ocrViews=new Map();
 // Per scope, note and file: the last send result shown on the read view. A send
@@ -158,11 +173,15 @@ const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{getReque
   if(dirty())return {error:'수정 중인 글과 첨부를 먼저 저장한 뒤 분류 요청해 주세요.'};
   if(selected.archived_at||selected.ai_export_allowed!==true)return {error:'이 메모는 지금 분류 요청할 수 없어요. 보관 또는 AI 제외 상태를 확인해 주세요.'};
   return {noteId:selected.id};
-},onPrepared:(count,request)=>{root.querySelector('[data-basket-handoff-scope]').textContent=request.noteId?'현재 메모 1개를 분류 요청합니다.':`최근 4주 · 미분류 · AI 허용 메모 ${count}개를 분류 요청합니다(최대 100개).`;},isBlocked:()=>busy,onBusy:value=>{handoffBusy=value;busy=value;root.querySelector('[data-handoff-copy]').disabled=value;},onClose:()=>root.querySelector('[data-handoff-copy]').focus()});
+},onPrepared:(count,request)=>{handoffNotice=request.noteId?'현재 메모 1개를 분류 요청합니다.':`최근 4주 · 미분류 · AI 허용 메모 ${count}개를 분류 요청합니다(최대 100개).`;paintHandoffScope();},isBlocked:()=>busy,onBusy:value=>{handoffBusy=value;busy=value;root.querySelector('[data-handoff-copy]').disabled=value;},onClose:()=>{hideHandoffNotice();moreButton.focus();},
+  // Ledger decision (PR 577): the copy is quiet (one line), then the result sheet opens right away for the answer.
+  onCopied:(count,request)=>{handoffNotice=!count?'분류 요청할 메모가 없어요':request.noteId?'메모 1개 요청을 복사했어요':`미분류 메모 ${count}개 요청을 복사했어요`;paintHandoffScope();classification.open();}});
+function requestClassification(){handoffNotice='scope';paintHandoffScope();void handoff.copy();}
+function hideHandoffNotice(){handoffNotice=null;paintHandoffScope();}
 const classification = mountClassification(root.querySelector('[data-classification-host]'), {
   isBlocked:()=>busy, onBusy:value=>{busy=value;if(value)++epoch;},
   onOpen:()=>{handoff.close();closeDetail();if(selected)return false;list.hidden=true;return true;},
-  onClose:()=>{handoff.close();list.hidden=false;root.querySelector('[data-classification-open]').focus();},
+  onClose:()=>{handoff.close();hideHandoffNotice();list.hidden=false;moreButton.focus();},
   onConfirmed:async(noteId,targets)=>{
     const result=await linksConfirmed(noteId,targets);
     if(!result.ok&&!result.stale)return '연결했어요. 목록 새로고침은 다시 시도해 주세요.';
@@ -198,9 +217,11 @@ function noteMetadataSaved(saved){
 const manualDraft=()=>!!selected&&(manual.hasDraft()||writeRequest.hasDraft());
 const stateLabel=state=>({확정:'연결됨', '분류 제안됨':'정리 제안 있음'})[state]||state;
 function paintHandoffScope(){
-  root.querySelector('[data-basket-handoff-scope]').textContent=selected?'현재 메모 1개 · 연결된 메모도 다시 분류 요청할 수 있어요.':`최근 4주 · 미분류 · AI 허용 메모 ${selectHandoffNotes(notes,links,new Date()).length}개(최대 100개).`;
+  handoffLine.hidden=!handoffNotice;
+  if(handoffNotice!=='scope'){handoffLine.textContent=handoffNotice||'';return;}
+  handoffLine.textContent=selected?'현재 메모 1개 · 연결된 메모도 다시 분류 요청할 수 있어요.':`최근 4주 · 미분류 · AI 허용 메모 ${selectHandoffNotes(notes,links,new Date()).length}개(최대 100개).`;
   const photos=(selected?[selected]:selectHandoffNotes(notes,links,new Date())).flatMap(note=>note.attachments||[]).filter(file=>String(file.mime_type||'').startsWith('image/'));
-  if(photos.length){let stored=false;for(const file of photos){try{stored ||= !!effectiveOcrText(file);}catch{/* Copy validation will refuse malformed OCR. */}}root.querySelector('[data-basket-handoff-scope]').textContent+=stored?' 저장된 사진 속 글자도 함께 분류 요청합니다.':'사진 속 글자는 아직 저장되지 않았습니다.';}
+  if(photos.length){let stored=false;for(const file of photos){try{stored ||= !!effectiveOcrText(file);}catch{/* Copy validation will refuse malformed OCR. */}}handoffLine.textContent+=stored?' 저장된 사진 속 글자도 함께 분류 요청합니다.':'사진 속 글자는 아직 저장되지 않았습니다.';}
 }
 function renderList() {
   paintHandoffScope();
@@ -212,7 +233,9 @@ function renderList() {
     const title=lines[0]||(file?`${String(file.mime_type||'').startsWith('image/')?'사진':'파일'} · ${file.file_name||'첨부'}`:'메모');
     return `<button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${stateLabel(state.status)}${noteWriteRequest(note)?' · 쓰기요청 후보':''}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${state.destinations.map(d => `<span class="basket-destination">${esc(d)}</span>`).join('')}</button>`;
   }).join('');
-  listStatus.textContent = visible.length ? `${visible.length}개 메모` : '메모가 없습니다.';
+  listStatus.textContent = visible.length ? `${visible.length}개 메모` : '아직 메모가 없어요';
+  listStatus.toggleAttribute('data-basket-empty', !visible.length);
+  root.querySelector('[data-basket-filter-count]').textContent = ' ' + visibleNotes(notes, links, 'unclassified').length;
 }
 const textDirty = () => selected && detail.querySelector('[data-basket-text]')?.value !== selected.raw_text.replace(/\r\n?/g, '\n');
 const dirty = () => textDirty() || upload.entries.some(e=>e.kind!=='success');
@@ -474,12 +497,12 @@ root.addEventListener('click', e => {
   if(!guardOcrPrivacy())return;
   const b = e.target.closest('button'); if (!b||b.disabled) return;
   // Navigation cancels this handoff's read, but never releases another operation's lock.
-  if (b.matches('[data-basket-filter],[data-classification-open],[data-basket-row],[data-basket-close],[data-basket-edit]')) handoff.close();
+  if (moreMenu.contains(b)) setMore(false, {focus:true});
+  if (b.matches('[data-basket-filter],[data-basket-row],[data-basket-close],[data-basket-edit]')) { handoff.close(); hideHandoffNotice(); }
   if (b.hasAttribute('data-basket-read-raw')) { rawView = !rawView; paintReadText(); return; }
   if (b.hasAttribute('data-chatgpt-request-copy')) { void copyChatgptRequest(); return; }
   if (busy) return;
-  if (b.hasAttribute('data-handoff-copy')) void handoff.copy();
-  else if (b.hasAttribute('data-classification-open')) classification.open();
+  if (b.hasAttribute('data-handoff-copy')) requestClassification();
   else if(b.hasAttribute('data-basket-library-send'))void sendToLibrary(b.dataset.basketLibrarySend);
   else if(b.hasAttribute('data-basket-hwp-edit'))openHwpEditor(b.dataset.basketHwpEdit);
   else if(b.hasAttribute('data-basket-ocr-read'))void runOcr('read',b.dataset.basketOcrRead);
@@ -547,6 +570,7 @@ window.addEventListener('kptu:before-view-change',e=>{
 });
 window.addEventListener('kptu:view-changed',e=>{
   if(e.detail?.view==='basket'){retainedForTraversal=false;return;}
+  setMore(false);if(!classification.isOpen())hideHandoffNotice();
   ocrGeneration++;
   if(e.detail?.retainBasketDraft){retainedForTraversal=true;return;}
   retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});

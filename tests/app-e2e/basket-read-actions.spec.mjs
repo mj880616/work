@@ -43,7 +43,8 @@ for(const width of [390,1280])test(`read actions: common first, 삭제 apart, ti
  await openBasketMore(page);
  await expect(page.locator('[data-basket-detail]').getByRole('button',{name:'분류 요청'})).toHaveCount(0);
  await expect(page.locator('#basketView').getByRole('button',{name:'분류 요청',exact:true})).toHaveCount(1);
- await expect(page.locator('[data-basket-handoff-scope]')).toContainText('현재 메모 1개');
+ // 8-9e-2: 범위 안내는 [분류 요청]을 누른 뒤에만 보인다.
+ await expect(page.locator('[data-basket-handoff-scope]')).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`basket-read-actions-${width}.png`),fullPage:true});
  // Keyboard order follows what is seen; 삭제 is reached last.

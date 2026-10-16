@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {openClassification} from './helpers/basket-more.mjs';
 // UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의를 새 기준(버튼 높이 하나·버튼 4종·모서리 8px·13px/500·0.5px 상자 안 줄 단위)으로,
 // 목록 줄 이름 13px·400(프로젝트 메인만 500)·보조 줄 12px 흐린 색, 담당조직 마지막 기록 점·보조 줄, 프로젝트 목록 오른쪽 D-day 하나,
 // 자료실 종류 색(확장자, 없으면 Drive 파일 종류), 바구니 [분류 결과 입력] 칸 제목.
@@ -62,7 +63,8 @@ const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('sp
 async function sameButtons(page,region){
  const primary=await token(page,'--kptu-primary'),filled=[];
  for(const control of await region.locator('button:visible').all()){
-  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')))continue;
+  // 8-9e-2: on phones the add button is the floating round [+] and 담당조직 추가 is a small text link (ui-standard-3b).
+  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')||innerWidth<761&&el.matches('#newDocumentBtn,.so-add-link')))continue;
   const s=await look(control),label=(await control.textContent()).trim();
   expect(s.height,label).toBe(46);expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.radius,label).toBe('8px');expect(s.shadow,label).toBe('none');
   if(s.bg===primary)filled.push(label);
@@ -130,7 +132,7 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  const box=await look(page.locator('#libraryListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
  // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 회색.
- expect(await sameButtons(page,page.locator('#libraryView'))).toEqual([width<761?'+ 자료':'+ 자료 등록']);
+ expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
  const selected=await look(page.locator('#libraryViewFilter [aria-checked="true"]'));
  expect(selected.bg).toBe(await token(page,'--ds-kind-other-soft'));expect(selected.fg).toBe(await token(page,'--ds-kind-other-ink'));
  const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
@@ -172,12 +174,13 @@ for(const width of [390,1280])test(`프로젝트 목록 오른쪽은 D-day 하�
  // 메인 500, 하위 400, 모두 13px.
  await rowText(page,list.locator('.ps3-prow-main .kptu-list-name'),{weight:'500'});
  await rowText(page,list.locator('.ps3-kid-row .kptu-list-name'));
- // 바구니 목록 이름도 13px·400, 보조 줄 12px. [분류 결과 입력]을 누르면 같은 이름의 칸이 열린다.
+ // 바구니 목록 이름도 13px·400, 보조 줄 12px. [분류 요청] 뒤에 열리는 칸 이름은 [분류 결과 입력].
  await view(page,'basket');
  const basket=page.locator('#basketView');await expect(basket.locator('[data-basket-row]')).toHaveCount(1);
  await rowText(page,basket.locator('.basket-row .basket-title'));
  for(const meta of await basket.locator('.basket-row time').all())expect((await look(meta)).fontSize).toBe('12px');
- await basket.locator('[data-basket-more] > summary').click();await basket.getByRole('button',{name:'분류 결과 입력',exact:true}).click();
+ // 8-9e-2(#577): [분류 결과 입력] 칸은 [⋯] → [분류 요청]이 요청문을 복사한 뒤 곧바로 연다.
+ await openClassification(page);
  await expect(basket.getByRole('heading',{level:3,name:'분류 결과 입력',exact:true})).toBeVisible();
  await expect(basket.getByRole('heading',{name:'AI 정리 결과'})).toHaveCount(0);
  await expect(basket.locator('[data-classification-panel]')).toHaveAttribute('aria-labelledby','basketClassificationTitle');

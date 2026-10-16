@@ -119,11 +119,11 @@ test('zoomed calendar, tasks and projects release both pan axes and restore norm
   expect(motion.prevented).toBe(true);
   expect(motion.transform).toContain('translate3d');
   await page.clock.fastForward(1000);
-  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
   await touchSequence(page,'#calendarGrid .cal-cell');
   await page.clock.fastForward(1000);
-  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeVisible();
   expect(await page.locator('#monthTitle .calendar-title-full').textContent()).toBe(monthBefore);
 });
 
@@ -135,7 +135,7 @@ test('normal scale tolerates small errors and allows pinch zoom without taking v
   expect(await touchSequence(page,'.calendar-toolbar',{dx:2,dy:100})).toEqual({prevented:false,transform:''});
   const motion=await touchSequence(page,'.calendar-toolbar');
   expect(motion.prevented).toBe(true);
-  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeVisible();
 });
 
 test('zoom and a second finger cancel active swipes before movement, release and queued navigation',async({page})=>{
@@ -220,7 +220,7 @@ test('Chromium page scale releases calendar touch action and restores it after z
     await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
     await expect.poll(()=>page.locator('#calendarGrid').evaluate(el=>getComputedStyle(el).touchAction)).toBe('pan-y pinch-zoom');
     expect((await touchSequence(page,'.calendar-toolbar')).prevented).toBe(true);
-    await expect(page.locator('#tasksView')).toBeVisible();
+    await expect(page.locator('#projectsView')).toBeVisible();
   }finally{await context.close()}
 });
 
@@ -260,7 +260,7 @@ test('calendar date cells, events and overflow use menu swipes and the first-men
     }
     await setScale(page,1);
   }
-  for(const selector of ['#calendarGrid .cal-cell','.cp-event','.kptu-day-more'])for(const [dx,destination] of [[-170,'tasks'],[170,'home']]){
+  for(const selector of ['#calendarGrid .cal-cell','.cp-event','.kptu-day-more'])for(const [dx,destination] of [[-170,'projects'],[170,'basket']]){ // 8-9e-2: 홈·바구니·일정·프로젝트·담당조직
     await page.evaluate(()=>KPTURouter.go('calendar',{source:'test'}));
     await expect(page.locator(selector).first()).toBeVisible();
     await touchSequence(page,selector,{dx,releaseClick:true});
@@ -289,7 +289,7 @@ test('760px enables menu swipes and 761px touch width has no menu or month swipe
     await page.setViewportSize({width:760,height:844});
     expect((await touchSequence(page,'#calendarGrid .cal-cell')).prevented).toBe(true);
     await page.clock.fastForward(1000);
-    await expect(page.locator('#tasksView')).toBeVisible();
+    await expect(page.locator('#projectsView')).toBeVisible();
     await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText(before);
   }finally{await context.close()}
 });
@@ -298,10 +298,10 @@ test('calendar toolbar and Google calendar list retain menu swipes',async({page}
   await openMobileApp(page);
   const before=await page.locator('#monthTitle .calendar-title-full').textContent();
   await swipe(page,'.calendar-toolbar','left');
-  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeVisible();
   await page.evaluate(()=>KPTURouter.go('calendar',{source:'test'}));
   await page.evaluate(()=>{const list=document.querySelector('#googleCalendarList');list.classList.remove('hidden');list.innerHTML='<b>QA</b><label><input type="checkbox">QA</label>';});
   await swipe(page,'#googleCalendarList','left');
-  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeVisible();
   await expect(page.locator('#monthTitle .calendar-title-full')).toHaveText(before);
 });

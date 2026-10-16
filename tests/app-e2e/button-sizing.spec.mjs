@@ -72,6 +72,9 @@ async function dsStandard(page,selector){const el=page.locator(selector).first()
 // 일정의 [Google Calendar] 설정 칸(#googleConnectBtn)은 3/3까지 옛 크기 그대로라 옛 검사를 쓴다.
 // UI-디자인기준 3/3(8-9e-1): 회의·담당조직(·자료실)의 버튼도 새 기준.
 const dsViews=new Set(['projects','meetings','team']);
+// UI-디자인기준 3/3 2부(8-9e-2): 폰의 일정·할 일·프로젝트·자료실 추가 버튼은 하단 탭 위 동그란 [+](누르는 범위 44px, 보이는 원 36px).
+async function phoneFab(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const b=await el.boundingBox();expect(b.width,selector).toBe(36);expect(b.height,selector).toBe(36);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).toBe('fixed');const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w,selector).toBe(44);expect(t.h,selector).toBe(44);}
+const fabs=new Set(['#newEventBtn','#newTaskBtn','#newProjectBtn','#newDocumentBtn']);
 for(const width of [390,1440])test('D-button list sizes and compact exclusions '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
@@ -82,17 +85,19 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
    if(selector==='#ps3ArchiveBtn'){
     const el=page.locator(selector);await expect(el).toHaveText('보관 1');const after=await size(el);
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
-   }else if(dsViews.has(name))await dsStandard(page,selector);
+   }else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
+   else if(width<=760&&selector==='#soAddOrg'){await expect(page.locator(selector)).toBeHidden();await expect(page.locator('#soAddOrgLink')).toBeVisible();}
+   else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }
-  expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
+  expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn'].includes(b.id))&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
  for(const [name,selectors]of Object.entries({tasks:['#newTaskBtn'],calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
-  if(name==='tasks'){await dsStandard(page,'#newTaskBtn');continue}
-  if(name==='library'){await dsStandard(page,'#newDocumentBtn');continue}
+  if(name==='tasks'){await (width<=760?phoneFab:dsStandard)(page,'#newTaskBtn');continue}
+  if(name==='library'){await (width<=760?phoneFab:dsStandard)(page,'#newDocumentBtn');continue}
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
-  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-view="tasks"]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuOpen')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());expect(await size(page.locator(selector).first()),selector).toEqual(name==='calendar'?{...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'}:before);}
+  if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());expect(await size(page.locator(selector).first()),selector).toEqual(name==='calendar'?{...before,height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'}:before);}
  }
  await original.close();
 });
@@ -100,6 +105,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
 for(const width of [390,760,761,1440])test('calendar controls paint 32px with real 44px targets and borderless month arrows '+width,async({page,browser},testInfo)=>{
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'calendar');
  const button=page.locator('#newEventBtn');await expect(button).toBeVisible();
+ if(width<=760){await phoneFab(page,'#newEventBtn');await expect(button).toHaveAttribute('aria-label','일정 등록');return;}
  const painted=await size(button),rect=await button.boundingBox();
  expect(painted.height).toBe(46);
  expect(painted.font).toBe('13px');expect(painted.radius).toBe('8px');

@@ -1,7 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {openBasketMore} from './helpers/basket-more.mjs';
+import {openBasketMore,openClassification,requestClassification,handoffLine} from './helpers/basket-more.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-12T01:00:00Z';
 // UI-디자인기준 3/3: the organization list shows the last record only as the colored dot before the name; the dot keeps the
 // record time (data-so-at), read here as the KST month.day the list used to print on the right.
@@ -140,7 +140,7 @@ test('declined Forward restores its prior position without replacing the forward
  page.once('dialog',d=>d.accept());await page.locator('[data-basket-close]').click();await page.evaluate(()=>history.forward());await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar&keep=1#future/);expect(await page.evaluate(()=>history.state)).toEqual({marker:'future',unrelated:{value:4}});expect(f.errors).toEqual([]);
 });
 for(const operation of ['preview','confirm'])test(`blocked Back during classification ${operation} keeps route-owned history without an editor`,async({page})=>{
- const f=await fixture(page);await historyStack(page);await openBasketMore(page);await page.locator('[data-classification-open]').click();await expect(page.locator('[data-basket-text]')).toHaveCount(0);
+ const f=await fixture(page);await historyStack(page);await openClassification(page);await expect(page.locator('[data-basket-text]')).toHaveCount(0);
  await page.locator('[data-classification-input]').fill(JSON.stringify({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'organization',target_id:o,reason:'합성 후보'}]}]}));
  const target=operation==='preview'?'app_notes':'app_basket_confirm_links';await page.evaluate(target=>{const api=KPTURuntime.api;window.__classificationHistoryHold={target};KPTURuntime.api=async(path,...args)=>{if(path.split('?')[0].endsWith('/'+target)){__classificationHistoryHold.waiting=true;await new Promise(resolve=>__classificationHistoryHold.release=resolve);}return api(path,...args);};},target);
  await page.locator('[data-classification-preview]').click();
@@ -157,7 +157,7 @@ test('API-disabled traversal keeps URL/current/screen consistent and retains the
  await page.evaluate(()=>history.forward());await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-text]')).toHaveValue('fallback 원문 유지');expect(await page.evaluate(()=>history.state)).toEqual(before.state);expect(dialogs).toBe(0);expect(f.errors).toEqual([]);
 });
 for(const operation of ['preview','confirm'])test(`API-disabled Back keeps classification ${operation} in memory and commits destination consistently`,async({page})=>{
- const f=await fixture(page);await historyStack(page);await openBasketMore(page);await page.locator('[data-classification-open]').click();const proposal=JSON.stringify({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'organization',target_id:o,reason:'fallback 후보'}]}]});await page.locator('[data-classification-input]').fill(proposal);
+ const f=await fixture(page);await historyStack(page);await openClassification(page);const proposal=JSON.stringify({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'organization',target_id:o,reason:'fallback 후보'}]}]});await page.locator('[data-classification-input]').fill(proposal);
  const target=operation==='preview'?'app_notes':'app_basket_confirm_links';await page.evaluate(target=>{const api=KPTURuntime.api;window.__fallbackClass={};KPTURuntime.api=async(path,...args)=>{if(path.split('?')[0].endsWith('/'+target)){__fallbackClass.waiting=true;await new Promise(resolve=>__fallbackClass.release=resolve);}return api(path,...args);};},target);await page.locator('[data-classification-preview]').click();
  if(operation==='confirm'){await expect(page.locator('[data-classification-choice]')).toHaveCount(1);await page.locator('[data-classification-choice]').check();await page.locator('[data-classification-confirm]').click();}
  await expect.poll(()=>page.evaluate(()=>__fallbackClass.waiting)).toBe(true);const before=await historyProof(page);
@@ -168,7 +168,7 @@ for(const operation of ['preview','confirm'])test(`API-disabled Back keeps class
 for(const draft of ['original','classification'])test(`API-disabled retained ${draft} survives further menu movement before basket return`,async({page})=>{
  const f=await fixture(page);await historyStack(page);
  if(draft==='original'){await page.locator('[data-basket-row]').click();await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('다른 메뉴 뒤에도 원문 유지');}
- else{await openBasketMore(page);await page.locator('[data-classification-open]').click();await page.locator('[data-classification-input]').fill(JSON.stringify({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'organization',target_id:o,reason:'다른 메뉴 뒤에도 후보 유지'}]}]}));await page.evaluate(()=>{const api=KPTURuntime.api;window.__retainedClass={};KPTURuntime.api=async(path,...args)=>{if(path.split('?')[0].endsWith('/app_notes')){__retainedClass.waiting=true;await new Promise(resolve=>__retainedClass.release=resolve);}return api(path,...args);};});await page.locator('[data-classification-preview]').click();await expect.poll(()=>page.evaluate(()=>__retainedClass.waiting)).toBe(true);}
+ else{await openClassification(page);await page.locator('[data-classification-input]').fill(JSON.stringify({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'organization',target_id:o,reason:'다른 메뉴 뒤에도 후보 유지'}]}]}));await page.evaluate(()=>{const api=KPTURuntime.api;window.__retainedClass={};KPTURuntime.api=async(path,...args)=>{if(path.split('?')[0].endsWith('/app_notes')){__retainedClass.waiting=true;await new Promise(resolve=>__retainedClass.release=resolve);}return api(path,...args);};});await page.locator('[data-classification-preview]').click();await expect.poll(()=>page.evaluate(()=>__retainedClass.waiting)).toBe(true);}
  const input=page.locator(draft==='original'?'[data-basket-text]':'[data-classification-input]'),text=await input.inputValue();await page.evaluate(()=>{Object.defineProperty(window,'navigation',{value:undefined,configurable:true});history.back();});await expect(page.locator('#calendarView')).toBeVisible();
  await page.evaluate(()=>KPTURouter.go('home',{source:'delegated'}));await expect(page.locator('#homeView')).toBeVisible();await expect(input).toHaveValue(text);
  await page.evaluate(()=>KPTURouter.go('basket',{source:'delegated'}));await expect(page.locator('#basketView')).toBeVisible();await expect(input).toBeVisible();await expect(input).toHaveValue(text);

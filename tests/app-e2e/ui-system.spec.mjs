@@ -56,20 +56,15 @@ test('calendar uses 32px and text actions use 36px with mobile content above the
   await signIn(page);
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 
-  const calendarAdd=await buttonHeight(page,'calendar','#newEventBtn');
-  // UI-디자인기준 2/3(8-9d): 일정 버튼은 새 기준 높이(--ds-control-height 46px).
-  expect(calendarAdd).toBeCloseTo(46,0);
-
-  // UI-디자인기준 3/3(8-9e-1): 자료실·회의도 새 기준이 되어 할 일까지 한 높이(--ds-control-height 46px)로 다시 비교한다.
-  const heights=[];
-  heights.push(await buttonHeight(page,'tasks','#newTaskBtn'));
-  const projectAdd=await buttonHeight(page,'projects','#newProjectBtn');
-  expect(projectAdd).toBe(46);
-  heights.push(await buttonHeight(page,'library','#newDocumentBtn'));
-  heights.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
-
-  expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(.5);
-  for(const height of heights)expect(height).toBeCloseTo(46,0);
+  // UI-디자인기준 3/3 2부(8-9e-2): 폰의 일정·할 일·프로젝트·자료실 추가 버튼은 하단 탭 위 동그란 [+](보이는 36px)로 한 크기.
+  const round=[];
+  round.push(await buttonHeight(page,'calendar','#newEventBtn'));
+  round.push(await buttonHeight(page,'tasks','#newTaskBtn'));
+  round.push(await buttonHeight(page,'projects','#newProjectBtn'));
+  round.push(await buttonHeight(page,'library','#newDocumentBtn'));
+  for(const height of round)expect(height).toBeCloseTo(36,0);
+  // 회의는 위쪽 버튼 그대로(--ds-control-height 46px).
+  expect(await buttonHeight(page,'meetings','#newMeetingBtn')).toBeCloseTo(46,0);
 
   await clickView(page,'tasks');
   const rows=page.locator('#gtTaskBody .gt-row');

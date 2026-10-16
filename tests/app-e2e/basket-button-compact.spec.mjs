@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import {openHome} from './helpers/home-entry.mjs';
-import {openBasketMore} from './helpers/basket-more.mjs';
+import {openBasketMore,requestClassification,handoffLine} from './helpers/basket-more.mjs';
 
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -62,16 +62,21 @@ for(const width of [390,1280]){
       return page.screenshot({clip:{x:b.x+2,y:b.y+2,width:b.width-4,height:b.height-4}});
     };
     const quickBefore=await quickContent();
-    await quick.locator('[data-goto="basket"]').click();
+    // 8-9e-2: 폰은 "바구니 전체 보기" 대신 하단 [바구니] 탭으로 간다(PC는 링크 그대로).
+    if(width<=760){await expect(quick.locator('[data-goto="basket"]')).toBeHidden();await page.locator('.mobile-tabs [data-view="basket"]').click();}
+    else await quick.locator('[data-goto="basket"]').click();
     await expect(page.locator('[data-basket-row]')).toHaveCount(1);
     await page.screenshot({path:info.outputPath(`basket-list-${width}.png`),fullPage:true});
-    // UI-디자인기준 1/3 보완: the AI buttons sit in [⋯ 더보기] and match the other buttons once it is open.
+    // 8-9e-2: the AI actions sit in the small [⋯] menu as 44px menu rows (not buttons); the filters match the home pills.
     await openBasketMore(page);
-    const controls=['[data-basket-filter="unclassified"]','[data-basket-filter="all"]','[data-basket-filter="archived"]','[data-basket-more] > summary','[data-handoff-copy]','[data-classification-open]','[data-chatgpt-request-copy]'];
-    const metrics={homeMode,homeLink,homePrimary,controls:{}};
+    const controls=['[data-basket-filter="unclassified"]','[data-basket-filter="all"]','[data-basket-filter="archived"]'];
+    const metrics={homeMode,homeLink,homePrimary,controls:{},menu:{}};
     for(const selector of controls)metrics.controls[selector]=await measure(page.locator(selector));
+    for(const selector of ['[data-basket-more]','#basketMoreMenu [data-handoff-copy]','#basketMoreMenu [data-chatgpt-request-copy]'])metrics.menu[selector]=await measure(page.locator(selector));
+    for(const metric of Object.values(metrics.menu))expect(metric.touchHeight).toBeGreaterThanOrEqual(44);
+    await expect(page.locator('#basketMoreMenu [data-classification-open]')).toHaveCount(0);
     await expect(page.locator('#basketView [data-goto="home"]')).toHaveCount(0);
-    await page.locator('[data-classification-open]').click();
+    await requestClassification(page);await expect(page.locator('[data-classification-input]')).toBeFocused();
     const proposal={schema_version:1,copied_at:stamp,items:[{note_id:noteId,note_updated_at:stamp,destinations:[{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거'}]}]};
     await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(proposal,null,2)+'\n```');
     await page.locator('[data-classification-preview]').click();
@@ -88,7 +93,6 @@ for(const width of [390,1280]){
       expect(metric.borderRadius).toBe(homeMode.borderRadius);
       expect(metric.touchHeight).toBeGreaterThanOrEqual(44);
     }
-    expect(Math.abs(metrics.controls['[data-handoff-copy]'].y-metrics.controls['[data-classification-open]'].y)).toBeLessThanOrEqual(1);
 
     await expect(page.locator('#basketView [data-goto="home"]')).toHaveCount(0);
     expect(metrics.controls['[data-classification-confirm]'].background).toBe(homePrimary.background);
@@ -98,7 +102,7 @@ for(const width of [390,1280]){
     await page.locator('[data-classification-input]').focus();await page.keyboard.press('Shift+Tab');
     await expect(close).toBeFocused();
     expect(await close.evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
-    await page.keyboard.press('Enter');await expect(page.locator('[data-classification-open]')).toBeFocused();
+    await page.keyboard.press('Enter');await expect(page.locator('[data-basket-more]')).toBeFocused();
     const all=page.locator('[data-basket-filter="all"]');await all.focus();await page.keyboard.press('Enter');
     await expect(all).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(1);
     await expect(page.locator(`[data-basket-row="${noteId}"]`)).toBeVisible();
@@ -106,10 +110,10 @@ for(const width of [390,1280]){
     const archived=page.locator('[data-basket-filter="archived"]'),box=await archived.boundingBox();
     await page.touchscreen.tap(box.x+box.width/2,box.y+3);
     await expect(archived).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row="archived"]')).toBeVisible();
-    await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');
-    await expect(page.locator('[data-handoff-status]')).toContainText('복사했어요');
-    expect(await page.evaluate(()=>window.__compactCopies)).toHaveLength(1);
-    await page.locator('[data-classification-open]').focus();await page.keyboard.press('Enter');
+    // #577: [분류 요청] copies again and opens the same result sheet.
+    await requestClassification(page,{keyboard:true});
+    await expect(handoffLine(page)).toContainText('복사했어요');
+    expect(await page.evaluate(()=>window.__compactCopies)).toHaveLength(2);
     await expect(page.locator('[data-classification-input]')).toBeFocused();
     const choice=page.locator('[data-classification-choice]');await choice.focus();await page.keyboard.press('Space');await expect(choice).not.toBeChecked();
     await expect(page.locator('[data-classification-confirm]')).toBeDisabled();await page.keyboard.press('Space');

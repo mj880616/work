@@ -94,7 +94,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('-webkit-line-clamp','2');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('color',await page.locator('[data-gt-count]').evaluate(el=>getComputedStyle(el).color));
-    await expect(page.locator('#newTaskBtn')).toHaveCSS('height','46px');await expect(page.locator('#newTaskBtn')).toHaveCSS('font-size','13px');
+    // 8-9e-2: on phones [+ 할 일] is the round [+] (36px painted, 44px target).
+    if(width<=760)await expect(page.locator('#newTaskBtn')).toHaveCSS('height','36px');else{await expect(page.locator('#newTaskBtn')).toHaveCSS('height','46px');await expect(page.locator('#newTaskBtn')).toHaveCSS('font-size','13px');}
     for(const selector of ['[data-gt-info]','[data-gt-menu]']){
       const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
     }
@@ -159,7 +160,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
  }
  await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expect(page.locator('#ps3Title')).toHaveText('Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await page.locator('[data-ps3-close="ps3DetailModal"]').click();
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await audit(page,'meetingModal');await page.locator('#meetingModal').evaluate(el=>el.classList.add('hidden'));
- await view(page,'team');await page.locator('#soAddOrg').click();await audit(page,'soEditModal');await page.locator('[data-so-close="soEditModal"]').click();
+ await view(page,'team');await page.locator(width<=760?'#soAddOrgLink':'#soAddOrg').click();await audit(page,'soEditModal');await page.locator('[data-so-close="soEditModal"]').click();
  await view(page,'library');await page.locator('#newDocumentBtn').click();await audit(page,'documentModal');await page.locator('#documentModal').evaluate(el=>el.classList.add('hidden'));
  await view(page,'calendar');await page.locator('#newEventBtn').click();await audit(page,'eventModal');await page.locator('#eventModal').evaluate(el=>el.classList.add('hidden'));
  await expect(page.locator('.theme-choices button').first()).toHaveCSS('font-size',await original.locator('.theme-choices button').first().evaluate(el=>getComputedStyle(el).fontSize));await original.close();

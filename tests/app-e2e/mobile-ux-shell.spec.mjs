@@ -78,13 +78,13 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
 
   const motion=await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
   expect(motion).toContain('translate3d');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
-  await expect(page.locator('#tasksView')).toBeVisible();
-  await expect.poll(()=>page.locator('#tasksView').evaluate(el=>el.style.transform||'')).toBe('');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('projects');
+  await expect(page.locator('#projectsView')).toBeVisible();
+  await expect.poll(()=>page.locator('#projectsView').evaluate(el=>el.style.transform||'')).toBe('');
 
-  const vertical=await gesture(page,'#tasksView',[{x:220,y:300},{x:214,y:390},{x:210,y:510}]);
+  const vertical=await gesture(page,'#projectsView',[{x:220,y:300},{x:214,y:390},{x:210,y:510}]);
   expect(vertical).toBe('');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('projects');
 
   await clickView(page,'calendar');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
@@ -102,7 +102,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await expect(page.locator('#eventModal')).toBeHidden();
   await expect(page.locator('#calendarView')).toBeVisible();
   await page.goBack();
-  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeVisible();
 
   const before=await page.evaluate(()=>window.KPTURouter?.current);
   const navBox=await page.locator('.mobile-tabs').boundingBox();
