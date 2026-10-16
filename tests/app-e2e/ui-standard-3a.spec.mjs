@@ -78,7 +78,7 @@ async function metaText(page,locator){
 }
 const noOverflow=page=>expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 
-for(const width of [390,1280])test(`담당조직: 마지막 기록 점·보조 줄·묶음 제목·새 버튼 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`담당조직: 이름 한 줄·마지막 기록 점·묶음 제목·새 버튼 ${width}`,async({page})=>{
  const {calls,errors}=await boot(page,width);
  await view(page,'team');
  const list=page.locator('#soOrganizationList');
@@ -88,18 +88,19 @@ for(const width of [390,1280])test(`담당조직: 마지막 기록 점·보조 �
  await expect(list.locator('.so-group-heading').nth(1).locator('span')).toHaveText(['지하철','3곳']);
  const heading=await look(list.locator('.so-group-heading').first());
  expect(heading.fontSize).toBe('12px');expect(heading.fg).toBe(await token(page,'--kptu-primary-ink'));
- // 보조 줄과 점(한국 시간 날짜 기준).
- const expectRow=async(id,text,level)=>{const row=list.locator(`[data-so-org="${id}"]`);await expect(row.locator('.so-sub')).toHaveText(text);await expect(row.locator('[data-so-dot]')).toHaveAttribute('data-so-recency',level);return row};
+ // 점 색(한국 시간 날짜 기준). 보조 줄은 없고(2026-10-16 사용자 결정), 같은 말은 줄의 화면 낭독 이름에 들어간다.
+ const expectRow=async(id,text,level)=>{const row=list.locator(`[data-so-org="${id}"]`);await expect(row.locator('[data-so-dot]')).toHaveAttribute('data-so-recency',level);await expect(row).toHaveAttribute('aria-label',new RegExp(`, ${text}, 상세 열기$`));return row};
  await expectRow('o2','오늘 기록','fresh');await expectRow('o1','7일 전 기록','fresh');await expectRow('o6','8일 전 기록','warn');
  await expectRow('o3','20일 전 기록','warn');await expectRow('o4','21일 전 기록','stale');await expectRow('o5','기록 없음','stale');
  const colors={fresh:await token(page,'--ds-recency-fresh'),warn:await token(page,'--ds-recency-warn'),stale:await token(page,'--ds-recency-stale')};
  for(const [id,level] of [['o2','fresh'],['o6','warn'],['o5','stale']]){const dot=await look(list.locator(`[data-so-org="${id}"] [data-so-dot]`));expect(dot.bg).toBe(colors[level]);expect(dot.radius).toBe('50%');}
  const dotBox=await list.locator('[data-so-org="o1"] [data-so-dot]').boundingBox(),nameBox=await list.locator('[data-so-org="o1"] .kptu-list-name').boundingBox();
  expect(dotBox.width).toBe(8);expect(dotBox.height).toBe(8);expect(dotBox.x+dotBox.width).toBeLessThan(nameBox.x);
- // 오른쪽 날짜(M.D)는 없다. 이름 13px·400, 보조 줄 12px 흐린 색, 줄 44px 이상, 상자 0.5px.
- await expect(list.locator('.so-summary time')).toHaveCount(0);
- await rowText(page,list.locator('.kptu-list-name'));await metaText(page,list.locator('.so-sub'));
- for(const row of await list.locator('.so-card').all())expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
+ // 이름 한 줄만: 날짜·보조 줄·할 일 수 없음, 오른쪽은 › 만. 이름 13px·400, 줄 44px, 상자 0.5px.
+ await expect(list.locator('time,.so-sub,.so-task-count,[data-so-summary]')).toHaveCount(0);
+ await expect(list.locator('[data-so-org="o1"] .kptu-list-row-main > *')).toHaveCount(3);
+ await rowText(page,list.locator('.kptu-list-name'));
+ for(const row of await list.locator('.so-card').all())expect((await row.boundingBox()).height).toBe(44);
  const card=await look(list.locator('.so-group-card').first());expect(card.borderWidth).toBe(await lineWidth(page));expect(card.radius).toBe('12px');expect(card.shadow).toBe('none');
  // 날짜는 기존 묶음 읽기 한 번(조직별 요청 없음).
  expect(calls.updates).toBe(1);

@@ -54,7 +54,7 @@ const samples={
  meetings:[['.add-list-head h2',13],['.meeting-list-title h3',13],['.meeting-list-row p',12],['button.primary',13]],
  media:[['.w1p-title',16],['.w1p-year>h3',16],['.w1p-filter',12],['.w1p-date',12],['.w1p-tag',12],['.w1p-publisher',12]],
  pages:[['.w1b-card h3',16],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
- team:[['.so-card h4',13],['button.secondary',13],['.muted',12],['.so-sub',12]]
+ team:[['.so-card h4',13],['button.secondary',13],['.muted',12]]
 };
 async function boot(page){
  await mockApp(page,{spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});

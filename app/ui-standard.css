@@ -199,7 +199,7 @@
 #appView #teamView #soOrganizationList .kptu-list-name,#appView #libraryView #documentList .lu-row-title,#appView #meetingsView #meetingList .meeting-list-title h3{
   font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.4;
 }
-#appView #teamView .so-sub,#appView #libraryView .lu-row-meta,#appView #meetingsView #meetingList .meeting-list-row p{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #libraryView .lu-row-meta,#appView #meetingsView #meetingList .meeting-list-row p{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 
 /* 버튼: 높이 하나·모서리 8px·13px/500·흰 바탕 + 0.5px 테두리(기본). 목록 행·⋯ 아이콘은 버튼 모양이 아니므로 뺀다.
    목록 필터(프로젝트·자료 종류·회의명)는 홈 빠른 입력 탭과 같은 버튼 모양. */
@@ -244,20 +244,20 @@
 #appView #libraryView .lu-file-kind[data-lu-kind="doc"]{ color:var(--ds-file-doc-ink); background:var(--ds-file-doc-soft); }
 #appView #libraryView .lu-file-kind[data-lu-kind="ppt"]{ color:var(--ds-file-ppt-ink); background:var(--ds-file-ppt-soft); }
 
-/* 담당조직 목록: 묶음 제목은 테마 색 12px, 오른쪽에 "N곳". 이름 왼쪽 8px 점은 마지막 기록이 며칠 전인지(KST)를 색으로:
-   7일 이내 초록·8~20일 주황·21일 이상 또는 기록 없음 빨강. 읽기 전에는 점을 비워 둔다. 이름 아래 보조 줄 "N일 전 기록". */
+/* 담당조직 목록(2026-10-16 사용자 결정): 이름 한 줄(보조 줄·할 일 수 없음), 오른쪽은 › 만, 줄 높이 44px.
+   묶음 제목은 테마 색 12px, 오른쪽에 "N곳". 이름 왼쪽 8px 점은 마지막 기록이 며칠 전인지(KST)를 색으로:
+   7일 이내 초록·8~20일 주황·21일 이상 또는 기록 없음 빨강. 읽기 전에는 점을 비워 둔다. */
 #appView #teamView .so-group-heading{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:var(--ds-text-meta); color:var(--ds-section-ink); }
 #appView #teamView .so-group-heading .so-group-count{ color:var(--kptu-muted); }
 #appView #teamView #soOrgCount{ font-size:var(--ds-text-meta); }
-#appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) auto 24px; gap:10px; }
-#appView #teamView .so-name-wrap{ display:grid; min-width:0; }
-#appView #teamView .so-sub{ min-height:16px; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#appView #teamView #soOrganizationList .kptu-list-row{ box-sizing:border-box; display:grid; align-items:center; min-height:var(--kptu-touch-target,44px); padding-top:0; padding-bottom:0; }
+#appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 24px; gap:10px; }
 #appView #teamView .so-dot{ width:8px; height:8px; border-radius:50%; box-sizing:border-box; border:var(--ds-line-width) solid var(--ds-line); }
 #appView #teamView .so-dot[data-so-recency]{ border:0; }
 #appView #teamView .so-dot[data-so-recency="fresh"]{ background:var(--ds-recency-fresh); }
 #appView #teamView .so-dot[data-so-recency="warn"]{ background:var(--ds-recency-warn); }
 #appView #teamView .so-dot[data-so-recency="stale"]{ background:var(--ds-recency-stale); }
 @media(max-width:650px){
-  #appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) auto 20px; }
+  #appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 20px; }
   #appView #teamView .so-team-actions #soAddOrg{ min-height:var(--ds-control-height); padding:4px var(--ds-control-pad-x); font-size:var(--ds-text-button); }
 }

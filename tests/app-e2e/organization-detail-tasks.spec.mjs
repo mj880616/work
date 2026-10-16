@@ -135,10 +135,10 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   const calls=[];calls.summary=true;calls.extraOrganizations=extra;
   await openTeam(page,calls);
   const rail=page.locator(`[data-so-org="${RAIL}"]`);
-  await expect(rail.locator('.so-task-count')).toHaveText('1');
-  // UI-디자인기준 3/3: the line under the name says "N일 전 기록"; its <time datetime> is the same latest record (KST 1.9).
-  await expect(rail.locator('.so-sub time')).toHaveText(/^\d+일 전 기록$/);
-  expect(await rail.locator('.so-sub time').evaluate(t=>{const d=new Date(Date.parse(t.dateTime)+9*3600000).toISOString();return Number(d.slice(5,7))+'.'+Number(d.slice(8,10))})).toBe('1.9');
+  // UI-디자인기준 3/3(2026-10-16 사용자 결정): the list shows no task count; the dot keeps the latest record (KST 1.9).
+  await expect(rail.locator('.so-task-count')).toHaveCount(0);
+  await expect(rail.locator('[data-so-dot]')).toHaveAttribute('data-so-at',/./);
+  expect(await rail.locator('[data-so-dot]').evaluate(t=>{const d=new Date(Date.parse(t.dataset.soAt)+9*3600000).toISOString();return Number(d.slice(5,7))+'.'+Number(d.slice(8,10))})).toBe('1.9');
   await page.waitForFunction(()=>window.KPTUHome?.metrics?.readyAt>0);
   expect(calls.filter(c=>c.action==='linked')).toHaveLength(0);
   // One home overview and one team overview; number of organizations does not change either bound.

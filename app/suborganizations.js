@@ -25,23 +25,19 @@ function installModals(){if(document.querySelector('#soEditModal'))return;docume
 // TASK-조직순서 / D-4c: one surface box per shared organization group.
 // UI-디자인기준 3/3: the list heading is the group name with "N곳" on the right.
 const ordered=(list,item,headings=false)=>window.KPTUOrganizationOrder.groups(list).map(g=>`<div class="so-org-group">${headings?`<div class="so-group-heading"><span>${esc(window.KPTUOrganizationOrder.groupName(g[0]))}</span><span class="so-group-count">${g.length}곳</span></div><div class="so-group-card">`:''}${g.map(item).join('')}${headings?'</div>':''}</div>`).join('');
-function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const mine=myOrganizations(),count=document.querySelector('#soOrgCount');if(count)count.textContent=mine.length?`${mine.length}개 담당조직`:'담당조직 없음';box.innerHTML=mine.length?ordered(mine,o=>`<article class="so-card kptu-list-row" data-so-org="${esc(o.id)}" data-ps-workplace-org="${esc(o.id)}" role="button" tabindex="0" aria-label="${esc(o.name)} 상세 열기"><div class="so-card-main kptu-list-row-main"><span class="so-dot" data-so-dot="${esc(o.id)}" aria-hidden="true"></span><span class="so-name-wrap"><h4 class="kptu-list-name">${esc(o.name)}</h4><span class="so-sub" data-so-sub="${esc(o.id)}"></span></span><span class="so-summary kptu-list-summary" data-so-summary="${esc(o.id)}"></span><span class="so-chevron kptu-list-chevron" aria-hidden="true">›</span></div></article>`,true):'<div class="empty compact">등록된 담당조직이 없습니다.</div>';window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}))}
-// Names render before optional metadata. One overview + batched confirmed links, never one linked request per organization.
+function renderTeam(){const box=document.querySelector('#soOrganizationList');if(!box)return;const mine=myOrganizations(),count=document.querySelector('#soOrgCount');if(count)count.textContent=mine.length?`${mine.length}개 담당조직`:'담당조직 없음';box.innerHTML=mine.length?ordered(mine,o=>`<article class="so-card kptu-list-row" data-so-org="${esc(o.id)}" data-ps-workplace-org="${esc(o.id)}" role="button" tabindex="0" aria-label="${esc(o.name)} 상세 열기"><div class="so-card-main kptu-list-row-main"><span class="so-dot" data-so-dot="${esc(o.id)}" aria-hidden="true"></span><h4 class="kptu-list-name">${esc(o.name)}</h4><span class="so-chevron kptu-list-chevron" aria-hidden="true">›</span></div></article>`,true):'<div class="empty compact">등록된 담당조직이 없습니다.</div>';window.dispatchEvent(new CustomEvent('kptu:suborganizations-rendered',{detail:{count:mine.length}}))}
+// Names render before optional metadata: one batched read of the latest record dates, never one request per organization.
 function summaryCurrent(run,user,workspace){const c=rt.context?.read?.();return run===summaryRun&&soUser?.id===user&&soWorkspace===workspace&&(!rt.context?.read||(c?.user?.id===user&&c?.workspace?.id===workspace))&&(!window.KPTURouter||window.KPTURouter.current==='team')}
-function paintTaskCounts(tasks,links,g){
- const pending=new Map(tasks.filter(t=>t.status!=='completed').map(t=>[t.id,t])),by=new Map();
- for(const l of links){if(l.status!=='confirmed'||!l.organization_id||!pending.has(l.google_task_id))continue;if(!by.has(l.organization_id))by.set(l.organization_id,new Set());by.get(l.organization_id).add(l.google_task_id)}
- document.querySelectorAll('[data-so-summary]').forEach(box=>{box.querySelector('.so-task-count')?.remove();const ids=by.get(box.dataset.soSummary);if(!ids?.size)return;const overdue=[...ids].some(id=>g.isOverdue(pending.get(id)));box.insertAdjacentHTML('afterbegin',`<span class="so-task-count kptu-list-task-count${overdue?' so-overdue kptu-list-overdue':''}" aria-label="미완료 할 일 ${ids.size}개${overdue?', 기한 지남 포함':''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>${ids.size}</span>`)});
-}
-// UI-디자인기준 3/3: the line under the name says how long ago the last record was (KST days), and the dot left of the name
-// shows it as a color: within 7 days green, 8~20 days orange, 21 days or more (or no record) red. Painted only after the read.
+// UI-디자인기준 3/3: one line per organization (2026-10-16 user decision: no second line, no task count). The dot left of the name
+// shows how long ago the last record was (KST days): within 7 days green, 8~20 days orange, 21 days or more (or no record) red.
+// Painted only after the read. The same words go into the row's accessible name, so the color is not the only signal.
 const kstDay=ms=>new Date(ms+9*3600000).toISOString().slice(0,10);
 function recency(at){if(!at)return {level:'stale',text:'기록 없음'};const days=Math.max(0,Math.round((Date.parse(kstDay(Date.now()))-Date.parse(kstDay(Date.parse(at))))/86400000));return {level:days<=7?'fresh':days<=20?'warn':'stale',text:days?`${days}일 전 기록`:'오늘 기록',days}}
 function paintRecency(latest){
- document.querySelectorAll('[data-so-sub]').forEach(sub=>{const id=sub.dataset.soSub,at=latest.get(id),r=recency(at),dot=sub.closest('.so-card')?.querySelector('[data-so-dot]');
-  sub.innerHTML=at?`<time datetime="${esc(at)}">${esc(r.text)}</time>`:esc(r.text);if(dot)dot.dataset.soRecency=r.level});
+ document.querySelectorAll('[data-so-dot]').forEach(dot=>{const id=dot.dataset.soDot,at=latest.get(id),r=recency(at),row=dot.closest('.so-card'),name=row?.querySelector('.kptu-list-name')?.textContent||'';
+  dot.dataset.soRecency=r.level;if(at)dot.dataset.soAt=at;else delete dot.dataset.soAt;row?.setAttribute('aria-label',`${name}, ${r.text}, 상세 열기`)});
 }
-function clearRecency(){document.querySelectorAll('[data-so-sub]').forEach(sub=>sub.replaceChildren());document.querySelectorAll('[data-so-dot]').forEach(dot=>delete dot.dataset.soRecency)}
+function clearRecency(){document.querySelectorAll('[data-so-dot]').forEach(dot=>{delete dot.dataset.soRecency;delete dot.dataset.soAt;const row=dot.closest('.so-card'),name=row?.querySelector('.kptu-list-name')?.textContent||'';row?.setAttribute('aria-label',`${name} 상세 열기`)})}
 function loadSummaries(){
  if(window.KPTURouter&&window.KPTURouter.current!=='team')return Promise.resolve();
  if(summaryFlight){summaryDirty=true;return summaryFlight;}
@@ -56,13 +52,6 @@ async function readSummaries(){
  if(window.KPTURouter&&window.KPTURouter.current!=='team')return;
  const run=++summaryRun,user=soUser?.id,workspace=soWorkspace,ids=myOrganizations().map(o=>o.id);if(!ids.length)return;
  const current=()=>summaryCurrent(run,user,workspace);
- const taskRead=async()=>{
-  if(!window.KPTUGoogleTasks)await import('./google-tasks.js?v=37');
-  const g=window.KPTUGoogleTasks;if(!current()||!g?.listTasks)return;
-  const fill=async d=>{if(d?.owner!==user)return;if(d.status==='disconnected'){if(current())paintTaskCounts([],[],g);return}const links=await g.readLinks(d.tasks);if(current())paintTaskCounts(d.tasks,links,g)};
-  const cached=g.peekTasks();if(cached?.owner===user)await fill(cached).catch(()=>{});
-  const d=await g.listTasks();await fill(d);
- };
  const updateRead=async()=>{
   // Reuse the owner/workspace-checked confirmed note reader. Both sources
   // must succeed before publishing a latest date; neither write time is used.
@@ -85,7 +74,7 @@ async function readSummaries(){
   if(!current())return;
   paintRecency(latest);
  };
- await Promise.allSettled([taskRead(),updateRead()]);
+ await updateRead().catch(()=>{});
 }
 function checks(prefix,selected=[],source=soOrganizations){const set=new Set(selected),list=window.KPTUOrganizationOrder.forPicker(source,selected);return list.length?`<div class="so-org-checks">${ordered(list,o=>{const names=effectiveNames(o),planned=!actualNames(o).length&&!!o.default_assignee_name;return `<label class="so-org-check"><input type="checkbox" data-${prefix}-org="${esc(o.id)}" ${set.has(o.id)?'checked':''}><span>${esc(o.name)}${names.length?`<small> · 담당 ${esc(names.join(', '))}${planned?' (계정 연결 전)':''}</small>`:''}</span></label>`})}</div>`:'<div class="updated">표시할 담당조직이 없습니다.</div>'}
 function renderEventCreate(selected=[]){const box=document.querySelector('#soEventOrgChecks');if(box)box.innerHTML=checks('event',selected,myOrganizations())}
@@ -107,7 +96,7 @@ let soGoogleHiddenOrgIds=[];
 window.__KPTU_EDIT_GOOGLE_ORGS__=selected=>{installGoogleEditSelector();const box=document.querySelector('#soGoogleEditOrgChecks');if(box){const mine=myOrganizations();soGoogleHiddenOrgIds=selected.filter(id=>!mine.some(o=>o.id===id));box.innerHTML=checks('google-edit',selected,mine)}};
 window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__=()=>[...soGoogleHiddenOrgIds,...[...document.querySelectorAll('[data-google-edit-org]:checked')].map(x=>x.dataset.googleEditOrg)];
 function resetCreate(){document.querySelectorAll('[data-event-org]').forEach(x=>x.checked=false)}
-function bind(){if(soBound)return;soBound=true;window.addEventListener('kptu:basket-links-changed',()=>{void loadSummaries()});window.addEventListener('kptu:google-tasks-changed',()=>{void loadSummaries()});window.addEventListener('kptu:api-saved',e=>{if(e.detail?.path?.includes('/app_suborganization_updates')||(e.detail?.path?.includes('/functions/v1/google-tasks')&&['link','unlink'].includes(e.detail?.action)))void loadSummaries()});document.querySelector('#soAddOrg')?.addEventListener('click',()=>openEdit());document.querySelector('#soSaveOrg')?.addEventListener('click',saveOrg);document.querySelector('#soSaveAssignees')?.addEventListener('click',saveAssignees);document.addEventListener('keydown',e=>{const card=e.target.closest?.('[data-ps-workplace-org]');if(card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();card.click()}});document.addEventListener('click',e=>{const closeBtn=e.target.closest('[data-so-close]');if(closeBtn){close(closeBtn.dataset.soClose);return}const edit=e.target.closest('[data-so-edit]');if(edit){openEdit(edit.dataset.soEdit);return}const del=e.target.closest('[data-so-delete]');if(del){removeOrg(del.dataset.soDelete);return}const assign=e.target.closest('[data-so-assign]');if(assign){openAssign(assign.dataset.soAssign);return}if(e.target.closest('#newEventBtn,#homeAddEvent,#calendarQuickAdd'))resetCreate();},true);window.addEventListener('kptu:view-changed',e=>{summaryRun++;summaryFlight=null;summaryDirty=false;if(e.detail?.view==='team')load().catch(console.error)});window.addEventListener('kptu:session-changed',()=>{summaryRun++;summaryFlight=null;summaryDirty=false;document.querySelectorAll('[data-so-summary]').forEach(box=>box.replaceChildren());clearRecency();context().then(ok=>ok&&load()).catch(console.error)})}
+function bind(){if(soBound)return;soBound=true;window.addEventListener('kptu:basket-links-changed',()=>{void loadSummaries()});window.addEventListener('kptu:api-saved',e=>{if(e.detail?.path?.includes('/app_suborganization_updates'))void loadSummaries()});document.querySelector('#soAddOrg')?.addEventListener('click',()=>openEdit());document.querySelector('#soSaveOrg')?.addEventListener('click',saveOrg);document.querySelector('#soSaveAssignees')?.addEventListener('click',saveAssignees);document.addEventListener('keydown',e=>{const card=e.target.closest?.('[data-ps-workplace-org]');if(card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();card.click()}});document.addEventListener('click',e=>{const closeBtn=e.target.closest('[data-so-close]');if(closeBtn){close(closeBtn.dataset.soClose);return}const edit=e.target.closest('[data-so-edit]');if(edit){openEdit(edit.dataset.soEdit);return}const del=e.target.closest('[data-so-delete]');if(del){removeOrg(del.dataset.soDelete);return}const assign=e.target.closest('[data-so-assign]');if(assign){openAssign(assign.dataset.soAssign);return}if(e.target.closest('#newEventBtn,#homeAddEvent,#calendarQuickAdd'))resetCreate();},true);window.addEventListener('kptu:view-changed',e=>{summaryRun++;summaryFlight=null;summaryDirty=false;if(e.detail?.view==='team')load().catch(console.error)});window.addEventListener('kptu:session-changed',()=>{summaryRun++;summaryFlight=null;summaryDirty=false;clearRecency();context().then(ok=>ok&&load()).catch(console.error)})}
 async function boot(){if(!rt)return false;if(!(await context()))return false;installTeam();installModals();installEventCreate();installGoogleEditSelector();bind();await load();if(document.querySelector('#ciGoogleModal:not(.hidden)'))window.__KPTU_EDIT_GOOGLE_ORGS__(window.__KPTU_GOOGLE_EDIT_ORGS_PENDING__||[]);window.__KPTU_RELOAD_SUBORGANIZATIONS__=()=>load();return true}
 window.__KPTU_SUBORGANIZATIONS_READY__=boot().catch(err=>{console.error('suborganizations init',err);return false});
 })();
