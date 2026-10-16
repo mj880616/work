@@ -31,7 +31,8 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
     return { cardHeight: el.getBoundingClientRect().height, inputToLink: el.querySelector('[data-goto="basket"]').getBoundingClientRect().top - el.querySelector('.home-quick-entry').getBoundingClientRect().bottom, input: { x: input.x, y: input.y, width: input.width, height: input.height }, clip: { x: clip.x, y: clip.y, width: clip.width, height: clip.height }, paddingLeft: parseFloat(getComputedStyle(el.querySelector('[data-quick-input]')).paddingLeft) };
   }) };
   // #482's 390px card was 204px: removing the attachment line saves at least 44px.
-  expect(values.home.cardHeight).toBeLessThanOrEqual(160);
+  // UI-디자인기준 1/3 보완: the mode tabs grew from 30px pills to 46px buttons (+16px).
+  expect(values.home.cardHeight).toBeLessThanOrEqual(160 + 16);
   expect(values.home.inputToLink).toBeLessThanOrEqual(8);
   expect(values.home.clip.width).toBeGreaterThanOrEqual(44);
   expect(values.home.clip.height).toBeGreaterThanOrEqual(44);

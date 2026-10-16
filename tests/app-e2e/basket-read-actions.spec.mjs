@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {openBasketMore} from './helpers/basket-more.mjs';
 // UI-바구니버튼정리: the read view's actions. Common ones first and emphasized,
 // 삭제 set apart as the risky one, and at 390 no scattered wrap.
 test.use({hasTouch:true});
@@ -38,7 +39,8 @@ for(const width of [390,1280])test(`read actions: common first, 삭제 apart, ti
  }else expect(rows.size).toBe(1);
  expect(Math.abs(bd.x+bd.width-(area.x+area.width))).toBeLessThanOrEqual(1);
  expect(bd.x-(ba.x+ba.width)).toBeGreaterThanOrEqual(width===390?40:200);
- // One AI handoff on the read view (the toolbar's, scoped to this memo).
+ // One AI handoff on the read view (the toolbar's [⋯ 더보기], scoped to this memo).
+ await openBasketMore(page);
  await expect(page.locator('[data-basket-detail]').getByRole('button',{name:'AI에게 맡기기'})).toHaveCount(0);
  await expect(page.locator('#basketView').getByRole('button',{name:'AI에게 맡기기',exact:true})).toHaveCount(1);
  await expect(page.locator('[data-basket-handoff-scope]')).toContainText('현재 메모 1개');

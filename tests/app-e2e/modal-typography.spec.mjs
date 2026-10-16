@@ -129,16 +129,18 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     const groups=page.locator('#'+name+'View .filter-chips');
     await expect(groups).toHaveCount(name==='meetings'?1:2);
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.height,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
+    // UI-디자인기준 1/3 보완(8-9c2): home tabs are now 46px buttons (8px corners, 13px) while meeting/library
+    // filters keep the shared pill until stage 3 (8-9e). Until then the filters are compared with one
+    // another and with the pill size, not with home. Restore the home comparison in 3/3 (원장 UI-디자인기준-3).
+    const first={};
     for(const group of await groups.all()){
       await expect(group).toHaveAttribute('role','radiogroup');
       await expect(group.locator('[role="radio"][aria-checked="true"]')).toHaveCount(1);
       for(const radio of await group.getByRole('radio').all()){
-        const selected=await radio.getAttribute('aria-checked');
-        const home=page.locator(`.home-quick-modes button[aria-pressed="${selected}"]`).first();
-        // UI-디자인기준 1/3: home pills moved to the new standard (weight 500, selected 바구니 in the basket kind color)
-        // while meeting/library filters keep their look until stage 3, so compare size and shape only there.
-        const comparable=v=>v.filter((_,i)=>i!==1&&!(selected==='true'&&(i===6||i===7)));
-        expect(comparable(await radio.evaluate(style)),name+' filter reuses home pill style').toEqual(comparable(await home.evaluate(style)));
+        const selected=await radio.getAttribute('aria-checked'),value=await radio.evaluate(style);
+        first[selected]??=value;
+        expect(value,name+' filters share one pill style').toEqual(first[selected]);
+        expect(value[3],name+' filter pill height').toBe('30px');
       }
     }
   }

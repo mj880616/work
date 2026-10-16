@@ -92,7 +92,7 @@ const api = (path) => {
 const cards = {
   dday: ["주요 일정", ""],
   calendar: ["오늘 일정", "calendar", "달력"],
-  tasks: ["오늘·밀린 할 일", "tasks", "할 일"],
+  tasks: ["오늘 할 일", "tasks", "할 일"],
   meetings: ["회의 후속", "meetings", "회의"],
 };
 const desktopHome = window.matchMedia('(min-width:1024px)');
@@ -261,7 +261,7 @@ function renderTasks({ includeMeetings = true } = {}) {
       "tasks",
       rows.length
         ? taskRows(rows)
-        : '<p class="home-status">오늘·밀린 할 일 없음</p>',
+        : '<p class="home-status">오늘 할 일 없음</p>',
       dueTasks(shown.map((x) => x.task)).length,
     );
   if(tasksReady)card('meetings')?.querySelectorAll('[data-home-toggle]').forEach(b=>{b.disabled=!google?.taskState(b.dataset.homeToggle)?.task;});

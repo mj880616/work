@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {openBasketMore} from './helpers/basket-more.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const stamp='2026-10-11T01:02:03.123456Z',noteId='10000000-0000-4000-8000-000000000001';
 const orgs=[
@@ -27,7 +28,7 @@ for(const width of [390,1280]){
    });
    if(mode==='failure')await page.evaluate(()=>{const rt=window.KPTURuntime,api=rt.api;rt.api=async(path,...args)=>{if(path.includes('app_suborganization_assignees'))throw Error('synthetic assignment read failure');return api(path,...args);};});
    await page.context().grantPermissions(['clipboard-read','clipboard-write']);
-   await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+   await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);await openBasketMore(page);
    await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toContainText('복사했어요');
    const copied=await page.evaluate(()=>navigator.clipboard.readText());
    for(const row of mode==='two'?orgs.slice(0,2):orgs.slice(0,3))expect(copied).toContain(`organization · ${row.id} · ${row.name}`);

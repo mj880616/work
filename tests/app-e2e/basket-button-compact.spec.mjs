@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import {openHome} from './helpers/home-entry.mjs';
+import {openBasketMore} from './helpers/basket-more.mjs';
 
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -64,7 +65,9 @@ for(const width of [390,1280]){
     await quick.locator('[data-goto="basket"]').click();
     await expect(page.locator('[data-basket-row]')).toHaveCount(1);
     await page.screenshot({path:info.outputPath(`basket-list-${width}.png`),fullPage:true});
-    const controls=['[data-basket-filter="unclassified"]','[data-basket-filter="all"]','[data-basket-filter="archived"]','[data-handoff-copy]','[data-classification-open]'];
+    // UI-디자인기준 1/3 보완: the AI buttons sit in [⋯ 더보기] and match the other buttons once it is open.
+    await openBasketMore(page);
+    const controls=['[data-basket-filter="unclassified"]','[data-basket-filter="all"]','[data-basket-filter="archived"]','[data-basket-more] > summary','[data-handoff-copy]','[data-classification-open]','[data-chatgpt-request-copy]'];
     const metrics={homeMode,homeLink,homePrimary,controls:{}};
     for(const selector of controls)metrics.controls[selector]=await measure(page.locator(selector));
     await expect(page.locator('#basketView [data-goto="home"]')).toHaveCount(0);
@@ -99,9 +102,9 @@ for(const width of [390,1280]){
     const all=page.locator('[data-basket-filter="all"]');await all.focus();await page.keyboard.press('Enter');
     await expect(all).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(1);
     await expect(page.locator(`[data-basket-row="${noteId}"]`)).toBeVisible();
-    // Tap beyond the painted 30px pill, inside its 44px touch target.
+    // UI-디자인기준 1/3 보완: the painted button is itself the 46px touch target; tap near its top edge.
     const archived=page.locator('[data-basket-filter="archived"]'),box=await archived.boundingBox();
-    await page.touchscreen.tap(box.x+box.width/2,box.y-5);
+    await page.touchscreen.tap(box.x+box.width/2,box.y+3);
     await expect(archived).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row="archived"]')).toBeVisible();
     await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');
     await expect(page.locator('[data-handoff-status]')).toContainText('복사했어요');
@@ -111,7 +114,7 @@ for(const width of [390,1280]){
     const choice=page.locator('[data-classification-choice]');await choice.focus();await page.keyboard.press('Space');await expect(choice).not.toBeChecked();
     await expect(page.locator('[data-classification-confirm]')).toBeDisabled();await page.keyboard.press('Space');
     const connect=page.locator('[data-classification-confirm]');await connect.scrollIntoViewIfNeeded();const hit=await connect.boundingBox();
-    await page.touchscreen.tap(hit.x+hit.width/2,hit.y-5);
+    await page.touchscreen.tap(hit.x+hit.width/2,hit.y+3);
     await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
     expect(f.confirmations).toHaveLength(1);expect(f.confirmations[0].p_targets).toEqual([{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거',summary:'담당조직 업무 근거'}]);
     await close.click();await all.click();await expect(page.locator(`[data-basket-row="${noteId}"]`)).toContainText('연결됨');

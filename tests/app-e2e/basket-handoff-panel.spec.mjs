@@ -1,6 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {openBasketMore} from './helpers/basket-more.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 async function setup(page,width){
@@ -9,7 +10,7 @@ async function setup(page,width){
  const note={id:'10000000-0000-4000-8000-000000000001',workspace_id:'w',raw_text:'합성 비공개 첫 메모',occurred_at:'2026-10-11T01:00:00Z',updated_at:'2026-10-11T01:00:00Z',ai_export_allowed:true,attachments:[]};
  await page.route(SB+'/rest/v1/app_notes?**',r=>r.fulfill({json:[note]}));
  await page.route(SB+'/rest/v1/app_record_links?**',r=>r.fulfill({json:[]}));
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);await openBasketMore(page);
  return {note,errors};
 }
 async function press(page){await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');}

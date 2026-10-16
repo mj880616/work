@@ -1,6 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {openBasketMore} from './helpers/basket-more.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='20000000-0000-4000-8000-000000000002',stamp='2026-10-11T01:02:03.123456Z';
 const data=()=>({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'project',target_id:p,reason:'진행 근거 <img src=x onerror=alert(1)> https://example.org'},{kind:'organization',target_id:o,reason:'조직 근거'},{kind:'google_task',reason:'후속 작업'}]}]});
@@ -20,7 +21,7 @@ async function fixture(page){
  return r.fulfill({json:{ok:true,created,existing}});
  });
  await page.evaluate(()=>{window.__basketSaved=[];window.addEventListener('kptu:api-saved',e=>window.__basketSaved.push(e.detail));});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);await openBasketMore(page);
  return {...f,note,links,rpc,errors,events,setMissing:v=>missing=v,setRejected:v=>rejected=v};
 }
 async function open(page){await page.locator('[data-classification-open]').click();await expect(page.locator('[data-classification-input]')).toBeFocused();}
