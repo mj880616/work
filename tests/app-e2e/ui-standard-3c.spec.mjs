@@ -21,11 +21,10 @@ const meetings=[{id:'m1',workspace_id:ws.id,title:'정책위원회',meeting_name
 const tasks=[0,1,2].map(i=>({id:'t'+i,taskListId:'l1',taskListTitle:'내 할 일',title:'합성 할 일 '+(i+1),due:iso(i-1)+'T00:00:00.000Z',status:'needsAction',notes:''}));
 const notes=[{id:'10000000-0000-4000-8000-000000000001',workspace_id:ws.id,occurred_at:ago(0),updated_at:ago(0),created_at:ago(0),raw_text:'합성 메모',ai_export_allowed:true,archived_at:null,attachments:[],metadata:{}}];
 
-async function boot(page,width,{dark=false,theme='olive'}={}){
+async function boot(page,width,{dark=false}={}){
  await page.setViewportSize({width,height:width<761?844:900});
  await page.emulateMedia({colorScheme:dark?'dark':'light'});
  await page.clock.setFixedTime(now);
- await page.addInitScript(theme=>{try{localStorage.setItem('kptu-theme',theme)}catch{}},theme);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route(`${SB}/**`,route=>{
   const u=new URL(route.request().url()),path=u.pathname,q=u.searchParams,action=q.get('action');
@@ -124,9 +123,12 @@ test('다크 모드: 기기 설정이 어두우면 Web2 전체·창이 어둡고
  }
  expect(primaries.size).toBe(4);
  await page.keyboard.press('Escape');
- for(const theme of ['navy','terracotta','sand'])for(const name of ['home','projects','meetings','media']){
-  await page.evaluate(theme=>{localStorage.setItem('kptu-theme',theme);document.documentElement.setAttribute('data-theme',theme);},theme);
-  await view(page,name);expect(await lowContrast(page),theme+' '+name).toEqual([]);
+ // 테마는 화면 색 창에서 고른다(사용자가 고르는 그 경로).
+ for(const theme of ['navy','terracotta','sand']){
+  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-theme-open]').click();
+  await page.locator(`[data-theme-choice="${theme}"]`).click();await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
+  await page.keyboard.press('Escape');await expect(page.locator('#themeModal')).toBeHidden();
+  for(const name of ['home','projects','meetings','media']){await view(page,name);expect(await lowContrast(page),theme+' '+name).toEqual([]);}
  }
  expect(errors).toEqual([]);
 });
