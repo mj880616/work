@@ -28,7 +28,7 @@ test('record query scopes workspace, confirmed note sources and paginates instea
   assert.equal(result.length,101);assert.equal(result[0].summary,null);assert.equal(result[0].raw_text,'보관된 AI 제외 원문');
   assert.equal(calls.length,2);
   const q=new URL(calls[0],'http://fixture').searchParams;
-  assert.equal(q.get('workspace_id'),'eq.workspace');assert.equal(q.get('status'),'eq.confirmed');assert.equal(q.get('note_id'),'not.is.null');assert.equal(q.get('organization_id'),'in.(org)');
+  assert.equal(q.get('workspace_id'),'eq.workspace');assert.equal(q.get('status'),'eq.confirmed');assert.equal(q.get('note_id'),'not.is.null');assert.equal(q.get('organization_id'),'in.(org)');assert.equal(q.get('note.kind'),'eq.basket');
   assert.match(q.get('select'),/summary/);assert.match(q.get('select'),/app_notes!inner/);assert.equal(q.getAll('note.occurred_at').length,2);
   assert.doesNotMatch(calls.join(''),/archived_at|ai_export_allowed/);
 });
