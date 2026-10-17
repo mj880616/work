@@ -53,6 +53,13 @@ test('dismissed deployment stays dismissed in this tab; later deployment appears
   await expect(notice(page)).toHaveCount(0);
   await page.clock.runFor(1001);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
 });
+test('content-hash and rollback deployments differ from the running version; a dismissed hash stays dismissed',async({page})=>{
+  await boot(page);await page.clock.install();await response(page,'0123abcdef');await visible(page);
+  await expect(notice(page)).toBeVisible();await notice(page).getByRole('button',{name:'닫기',exact:true}).click();
+  await page.clock.runFor(1001);const same=page.waitForResponse(origin+'/app/index.html');await visible(page);await same;
+  await expect(notice(page)).toHaveCount(0);
+  await page.clock.runFor(1001);await response(page,current-1);await visible(page);await expect(notice(page)).toBeVisible();
+});
 test('reload without draft navigates; changed calendar input confirms first and cancel keeps draft',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await page.locator('#newEventBtn').click();

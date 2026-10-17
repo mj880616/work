@@ -147,6 +147,18 @@
 
 - `_config.yml`의 역할 확인(Jekyll을 빌드 workflow에서 계속 쓰면 유지), 문서·원장 정리. BUG-배포캐시-후속(HTML 10분 보관)은 Actions 배포에서도 같은 헤더라 별도 과제로 남는다.
 
+### 1단계 구현 (2026-10-17)
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `scripts/build-pages.mjs <입력> <출력>` | 입력 폴더의 `?v=`를 대상 파일 최종 바이트의 SHA-256 앞 10자로 잎부터 바꿔 쓰고 `app/asset-manifest.json`을 새로 만든다. 순환 참조는 거부, 바뀌지 않은 파일은 바이트 그대로 복사 |
+| `scripts/check-pages-build.mjs <출력>` | (a) 모든 `?v=` = 대상 해시 (b) 목록 = 결과 파일 (c) Worker(`cloudflare/bokdoong-router.mjs`)가 목록의 모든 Web2 자산을 `immutable`로 판정 |
+| `scripts/compare-pages.mjs <A> <B>` / `--live <폴더>` | Jekyll 결과와 다른 폴더 또는 지금 GitHub Pages 파일을 SHA-256으로 대조(보고만) |
+| `.github/workflows/pages-build-check.yml` | PR마다 위 검사 + 결과물 브라우저 기동(`tests/build-pages/`), `actions/jekyll-build-pages` 결과에도 같은 검사. 수동 실행 시 운영 Pages 대조. 배포 없음 |
+
+- 결과물의 자산 목록은 저장소 전체 그래프에서 만들므로, Web1 HTML만 부르는 `app/` 자산(예: `web1-admin-auth.js`)도 들어간다. 지금 커밋된 목록(`app/` 안 HTML만 읽음)보다 항목이 많다.
+- 해시가 우연히 숫자만으로 될 수 있다(예: `6901432061`). 검사는 숫자 여부가 아니라 해시 값 일치로 본다.
+
 ## 5. 사용자 결정 항목
 
 | 번호 | 결정 | 추천 |
