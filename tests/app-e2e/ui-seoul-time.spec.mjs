@@ -2,6 +2,7 @@ import {readFileSync} from 'node:fs';
 import {test,expect} from '@playwright/test';
 import {openSeoulApp} from './helpers/seoul-time-fixture.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {fillDateTime} from './helpers/date-time.mjs';
 for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(const width of [390,1280])test.describe(`${timezoneId} ${width}`,()=>{
   test.use({timezoneId,viewport:{width,height:900}});
   test('월 날짜 칸·한국 오늘·자정·월 경계·종일',async({page})=>{
@@ -40,7 +41,7 @@ for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(c
     const s=await openSeoulApp(page,{target:'http://127.0.0.1:8123/app/?view=projects'});await page.locator('[data-ps3-project="top-a"]').click();
     await page.locator('#ps3-milestones summary').click();await expect(page.locator('#ps3-milestones')).toContainText('오전 12:30');await page.locator('[data-ps3-edit-milestone="seoul-mile"]').click();await expect(page.locator('#ps3MilestoneAt')).toHaveValue('2026-10-01T00:30');
     await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(s.milestones[0].start_at).toBe('2026-09-30T15:30:00.000Z');
-    await page.locator('[data-ps3-add-milestone]').click();await page.locator('#ps3MilestoneTitle').fill('새 한국 주요 일정');await page.locator('#ps3MilestoneAt').fill('2026-10-01T23:30');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(s.milestones.at(-1).start_at).toBe('2026-10-01T14:30:00.000Z');
+    await page.locator('[data-ps3-add-milestone]').click();await page.locator('#ps3MilestoneTitle').fill('새 한국 주요 일정');await fillDateTime(page,'#ps3MilestoneAt','2026-10-01T23:30');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(s.milestones.at(-1).start_at).toBe('2026-10-01T14:30:00.000Z');
     await page.locator('#ps3-memos summary').click();await expect(page.locator('#ps3-memos')).toContainText('오전 12:30');
     // decisions() is currently dormant. Exercise its real renderer in a browser without exposing it in the app.
     const source=readFileSync(new URL('../../app/project-system-v3.js',import.meta.url),'utf8');

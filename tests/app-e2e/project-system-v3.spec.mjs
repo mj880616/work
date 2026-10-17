@@ -5,6 +5,7 @@ import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
 watchRetiredCollaboration(test);
 import { enterLogin } from './helpers/login-entry.mjs';
 import { calendarToday, addCalendarDays } from './helpers/calendar-today.mjs';
+import {fillDateTime} from './helpers/date-time.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -338,7 +339,7 @@ test('new project milestone creates Google first, stores linkage, and excludes r
   await expect(page.locator('#ps3MilestoneGoogle option[value="read-only"]')).toHaveCount(0);
   await page.locator('#ps3MilestoneGoogle').selectOption('owner@example.org');
   await page.locator('#ps3MilestoneTitle').fill('Google 세부 캘린더 지정 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-10-02T15:00');
   await page.locator('#ps3MilestoneNotes').fill('선택 캘린더 전달 검증');
   await page.locator('#ps3MilestoneSave').click();
 
@@ -365,7 +366,7 @@ test('Google create failure leaves no Web2-only project milestone',async({page})
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('실패 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-10-02T15:00');
   await page.locator('#ps3MilestoneSave').click();
   await expect(page.locator('#ps3MilestoneState')).toContainText('Google create failed');
   expect(state.milestones.filter(x=>x.title==='실패 일정')).toHaveLength(0);
@@ -380,7 +381,7 @@ test('local milestone failure rolls back the newly created Google event',async({
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('롤백 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-10-02T15:00');
   await page.locator('#ps3MilestoneSave').click();
   await expect(page.locator('#ps3MilestoneState')).toContainText('되돌렸습니다');
   expect(state.milestones.filter(x=>x.title==='롤백 일정')).toHaveLength(0);
@@ -394,7 +395,7 @@ test('child project milestone uses the exact current child project id',async({pa
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=child-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('하위 프로젝트 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-10-03T09:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-10-03T09:00');
   await page.locator('#ps3MilestoneSave').click();
   await expect.poll(()=>state.milestones.some(x=>x.title==='하위 프로젝트 일정')).toBe(true);
   const milestone=state.milestones.find(x=>x.title==='하위 프로젝트 일정');
@@ -429,7 +430,7 @@ test('linked milestone update uses stored Google ids without writing Web2 events
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-edit-milestone="mile-1"]').click();
   await expect(page.locator('#ps3MilestoneGoogle')).toHaveValue('primary');
   await page.locator('#ps3MilestoneTitle').fill('연동 일정 수정');
-  await page.locator('#ps3MilestoneAt').fill('2026-09-30T16:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-09-30T16:00');
   await page.locator('#ps3MilestoneNotes').fill('수정 메모');
   await page.locator('#ps3MilestoneSave').click();
   await expect.poll(()=>state.milestones[0].title).toBe('연동 일정 수정');
@@ -498,7 +499,7 @@ test('rollback failure reports possible Google and Web2 inconsistency with the G
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('rollback 실패 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-10-02T15:00');
   await page.locator('#ps3MilestoneSave').click();
   await expect(page.locator('#ps3MilestoneState')).toContainText('불일치');
   await expect.poll(()=>errors.some(x=>x.includes('project milestone rollback failed'))).toBe(true);
@@ -515,7 +516,7 @@ test.describe('project milestone Korea timezone',()=>{
     await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
     await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
     await page.locator('#ps3MilestoneTitle').fill('한국시간 검증 일정');
-    await page.locator('#ps3MilestoneAt').fill('2026-10-02T15:00');
+    await fillDateTime(page,'#ps3MilestoneAt','2026-10-02T15:00');
     await page.locator('#ps3MilestoneSave').click();
     const create=state.googleCalls.find(x=>x.action==='create-event');
     expect(create.start_iso).toBe('2026-10-02T06:00:00.000Z');
@@ -724,7 +725,7 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneModal')).toBeVisible();
   await page.locator('#ps3MilestoneTitle').fill('모바일 QA 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-09-29T10:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-09-29T10:00');
   await page.locator('#ps3MilestoneSave').click();
   await expect.poll(()=>state.milestones.some(x=>x.title==='모바일 QA 일정')).toBe(true);
   await expect(page.locator('#ps3Body')).toContainText('모바일 QA 일정');
@@ -1245,7 +1246,7 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
   await expect(page.locator('#ps3MilestoneSave')).toBeEnabled();
   await page.locator('#ps3MilestoneTitle').fill('잠금 검증 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-10-02T10:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-10-02T10:00');
   const button=page.locator('#ps3MilestoneSave');
   await button.click();await expect.poll(()=>probe.count).toBe(1);
   await expect(button).toBeDisabled();await button.dispatchEvent('click');
@@ -1253,7 +1254,7 @@ test('saveMilestone creates one Google request during repeated clicks and retrie
   probe.release();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();
   await page.locator('[data-ps3-add-milestone]').click();
   await page.locator('#ps3MilestoneTitle').fill('다시 시도 일정');
-  await page.locator('#ps3MilestoneAt').fill('2026-10-03T10:00');
+  await fillDateTime(page,'#ps3MilestoneAt','2026-10-03T10:00');
   await expect(button).toBeEnabled();
   probe.fail=true;await button.click();
   await expect(page.locator('#ps3MilestoneState')).toContainText('임시 저장 실패');

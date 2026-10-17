@@ -4,6 +4,7 @@ import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
 watchRetiredCollaboration(test);
 import { readFileSync, existsSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
+import {fillDateTime} from './helpers/date-time.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -93,7 +94,7 @@ test('new meeting stores raw result exactly and creates linked Google follow-up 
   const raw='  첫 줄 원문\n둘째 줄 그대로\n마지막 줄  ';
   const special='특이사항 첫 줄\n특이사항 둘째 줄';
   await page.locator('#meetingTitle').fill('회의 단순화 검증');
-  await page.locator('#meetingAt').fill('2026-09-24T11:00');
+  await fillDateTime(page,'#meetingAt','2026-09-24T11:00');
   await page.locator('#meetingProject').selectOption('main-1');
   await page.locator('#meetingRoundNo').fill('9');
   await page.locator('#meetingTranscript').fill(raw);

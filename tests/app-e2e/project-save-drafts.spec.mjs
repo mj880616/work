@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { openHome } from './helpers/home-entry.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
+import {fillDateTime} from './helpers/date-time.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const sourceHead=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
@@ -232,7 +233,7 @@ async function milestoneFixture(page,width=390){
   });return state;
 }
 async function editMilestone(page,id='mile-a'){await openProject(page);await fold(page,'ps3-milestones');await page.locator(`[data-ps3-edit-milestone="${id}"]`).click();await expect(page.locator('#ps3MilestoneSave')).toBeEnabled()}
-async function newMilestone(page){await openProject(page);await fold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();await expect(page.locator('#ps3MilestoneSave')).toBeEnabled();await page.locator('#ps3MilestoneTitle').fill('생성 일정');await page.locator('#ps3MilestoneAt').fill('2026-10-06T10:00')}
+async function newMilestone(page){await openProject(page);await fold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();await expect(page.locator('#ps3MilestoneSave')).toBeEnabled();await page.locator('#ps3MilestoneTitle').fill('생성 일정');await fillDateTime(page,'#ps3MilestoneAt','2026-10-06T10:00')}
 
 test('milestone late Google A result cannot PATCH local B or close its draft',async({page})=>{
   const state=await milestoneFixture(page);await editMilestone(page);await trackClickedSave(page,'#ps3MilestoneSave');const first=state.nextGoogle('update-event',{hold:true});await page.locator('#ps3MilestoneTitle').fill('A 제출');await page.locator('#ps3MilestoneSave').click();await expect.poll(()=>first.claimed).toBe(true);await page.locator('[data-ps3-close="ps3MilestoneModal"]').click();await page.locator('[data-ps3-edit-milestone="mile-b"]').click();await page.locator('#ps3MilestoneTitle').fill('B 초안');first.release();await savedHandlerFinished(page);await expect(page.locator('#ps3MilestoneModal')).toBeVisible();await expect(page.locator('#ps3MilestoneTitle')).toHaveValue('B 초안');expect(state.calls('app_project_milestones','PATCH')).toHaveLength(0);
@@ -253,7 +254,7 @@ test('all-day milestone memo edit preserves the original all-day boundaries',asy
   const state=await milestoneFixture(page);Object.assign(state.googleEvents[0],{allDay:true,start:'2026-10-06',end:'2026-10-08'});await editMilestone(page);await page.locator('#ps3MilestoneNotes').fill('종일 메모 수정');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(state.googleCalls.find(x=>x.action==='update-event').body).toMatchObject({all_day:true,start_date:'2026-10-06',end_date:'2026-10-07'});
 });
 test('recurring milestone date conversion is held for confirmation without a write',async({page})=>{
-  const state=await milestoneFixture(page);state.googleEvents[0].recurring=true;await editMilestone(page);await page.locator('#ps3MilestoneAt').fill('2026-10-07T11:00');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneState')).toContainText('반복');expect(state.googleCalls.filter(x=>x.action==='update-event')).toHaveLength(0);expect(state.calls('app_project_milestones','PATCH')).toHaveLength(0);await expect(page.locator('#ps3MilestoneAt')).toHaveValue('2026-10-07T11:00');
+  const state=await milestoneFixture(page);state.googleEvents[0].recurring=true;await editMilestone(page);await fillDateTime(page,'#ps3MilestoneAt','2026-10-07T11:00');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneState')).toContainText('반복');expect(state.googleCalls.filter(x=>x.action==='update-event')).toHaveLength(0);expect(state.calls('app_project_milestones','PATCH')).toHaveLength(0);await expect(page.locator('#ps3MilestoneAt')).toHaveValue('2026-10-07T11:00');
 });
 test('milestone extra notes during confirmed save remain in the current draft',async({page})=>{
   const state=await milestoneFixture(page);await newMilestone(page);const first=state.nextGoogle('create-event',{hold:true});await page.locator('#ps3MilestoneNotes').fill('제출 메모');await page.locator('#ps3MilestoneSave').click();await expect.poll(()=>first.claimed).toBe(true);await page.locator('#ps3MilestoneNotes').fill('후속 메모');first.release();await expect.poll(()=>state.calls('app_project_milestones','POST').length).toBe(1);await expect(page.locator('#ps3MilestoneModal')).toBeVisible();await expect(page.locator('#ps3MilestoneNotes')).toHaveValue('후속 메모');expect(state.calls('app_project_milestones','POST')[0].body.notes).toBe('제출 메모');
