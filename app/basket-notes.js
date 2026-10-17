@@ -1,8 +1,8 @@
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
-// This module owns everything drawn into its host: list (search, newest change first) → read → edit.
+// This module owns everything drawn into its host: list (search, newest change first) → read → edit, and [+] → new note.
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
-import { readNoteDocs, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody } from './basket-data.js';
+import { readNoteDocs, createNoteDoc, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, noteTitleFromText } from './basket-data.js';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
@@ -15,11 +15,11 @@ const day = value => { const d = new Date(value); return Number.isNaN(d.getTime(
 const normalize = value => String(value ?? '').replace(/\r\n?/g, '\n');
 
 export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = () => {}, onMovedToBasket = () => {}}) {
-  let notes = [], links = [], selected = null, editing = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null;
+  let notes = [], links = [], selected = null, editing = false, creating = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null;
   // BUG-뒤로가기: an opened note is one router layer, so Back returns to the list at the same scroll.
   let layer = null, listScroll = 0;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-  host.innerHTML = `<div data-note-list><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><p data-note-list-status role="status"></p><button type="button" data-note-retry hidden>다시 시도</button><div data-note-rows></div></div><div data-note-detail hidden></div>`;
+  host.innerHTML = `<div data-note-list><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><button type="button" id="newNoteBtn" class="primary" data-note-new aria-label="새 노트">+ 노트</button></div><p data-note-list-status role="status"></p><button type="button" data-note-retry hidden>다시 시도</button><div data-note-rows></div></div><div data-note-detail hidden></div>`;
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
   const sorted = () => notes.slice().sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at) || String(b.id).localeCompare(String(a.id)));
   const chips = note => links.filter(l => l.note_id === note.id && l.status === 'confirmed').map(link => {
@@ -37,7 +37,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       return `<button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"><b class="basket-title"><span class="note-dot" aria-hidden="true"></span>${esc([...(note.title || '노트')].slice(0, 80).join(''))}</b>${preview ? `<span class="basket-preview">${esc([...preview].slice(0, 120).join(''))}</span>` : ''}<time>고친 날 ${esc(day(note.updated_at))}</time>${note.attachments?.length ? `<span>첨부 ${note.attachments.length}개</span>` : ''}${tags ? `<span class="note-row-chips">${tags}</span>` : ''}</button>`;
     }).join('');
     if (!loaded) return;
-    status.textContent = visible.length ? `${visible.length}개 노트` : query ? '찾는 노트가 없어요' : '아직 노트가 없어요. 바구니 메모의 ⋯ → [노트로 옮기기]로 만들 수 있어요.';
+    status.textContent = visible.length ? `${visible.length}개 노트` : query ? '찾는 노트가 없어요' : '아직 노트가 없어요. [+]로 새로 쓰거나 바구니 메모의 ⋯ → [노트로 옮기기]로 만들 수 있어요.';
     status.toggleAttribute('data-basket-empty', !visible.length);
   }
   async function refresh() {
@@ -105,26 +105,36 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     detail.querySelector('[data-note-more-wrap]').hidden = editing; if (editing) setNoteMenu(false);
     detail.querySelector('[data-note-editor]').hidden = !editing; detail.querySelector('[data-note-edit-actions]').hidden = !editing;
   }
-  function open(id, {focus = true} = {}) {
-    if (!selected) listScroll = window.scrollY;
-    selected = notes.find(n => n.id === id); if (!selected) return;
+  function showDetail() {
     layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
     ++epoch; editing = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
     detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="basket-note-more" data-note-more-wrap><button type="button" class="basket-more-trigger" data-note-more aria-label="이 노트 메뉴" aria-expanded="false" aria-controls="noteDocMenu"><span aria-hidden="true">⋯</span></button><div id="noteDocMenu" class="basket-more-menu" role="group" aria-label="이 노트" hidden><button type="button" data-note-to-basket>바구니로 돌리기</button><button type="button" class="basket-menu-danger" data-note-delete>삭제</button></div></div></div><div class="basket-read note-read" data-note-read><h3 class="note-read-title" data-note-read-title></h3><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label><div class="basket-editor-tools"><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button></div></div><div data-note-attachments class="library-selected-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-note-read-actions><button type="button" data-note-edit>고치기</button><button type="button" data-note-telegram>텔레그램용 복사</button><button type="button" class="primary" data-basket-link-open>연결하기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-note-edit-actions hidden><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
+  }
+  function open(id, {focus = true} = {}) {
+    if (!selected) listScroll = window.scrollY;
+    selected = notes.find(n => n.id === id); if (!selected) return;
+    creating = false; showDetail();
     paintRead(); paintMeta(); paintMode();
     if (focus) detail.querySelector('[data-basket-read-text]').focus();
   }
+  // [+]: the same edit screen on an unsaved draft (no id). The first [저장] inserts the row and shows its read view.
+  function openNew() {
+    if (selected || busy) return;
+    listScroll = window.scrollY;
+    selected = {id:null, title:'', raw_text:'', attachments:[]}; creating = true; showDetail();
+    startEdit();
+  }
   function close({focus = true, force = false, fromBack = false} = {}) {
     if (!selected) return true;
-    if (!force && textDirty() && !window.confirm('고치던 노트를 버리고 목록으로 돌아갈까요?')) return false;
+    if (!force && textDirty() && !window.confirm(creating ? '저장 안 하고 닫을까요?' : '고치던 노트를 버리고 목록으로 돌아갈까요?')) return false;
     if (!force && !textDirty() && manual.hasDraft() && !window.confirm('작성 중인 연결 입력을 버리고 목록으로 돌아갈까요?')) return false;
     bigWriter?.close({silent:true}); bigWriter = null;
-    const id = selected.id; ++epoch; selected = null; editing = false; manual.reset();
+    const id = selected.id; ++epoch; selected = null; editing = false; creating = false; manual.reset();
     detail.replaceChildren(); detail.hidden = true; list.hidden = false; onOpenChange(false); renderList();
     const opened = layer; layer = null; if (!fromBack) opened?.close();
     if (window.KPTURouter?.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
-    if (focus) (host.querySelector(`[data-note-row="${CSS.escape(id)}"]`) || host.querySelector('[data-note-search]'))?.focus({preventScroll:true});
+    if (focus) ((id ? host.querySelector(`[data-note-row="${CSS.escape(id)}"]`) : host.querySelector('[data-note-new]')) || host.querySelector('[data-note-search]'))?.focus({preventScroll:true});
     return true;
   }
   function startEdit() {
@@ -134,6 +144,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   function finishEdit({force = false} = {}) {
     if (!selected || !editing) return;
+    if (creating) { close({force}); return; }
     if (!force && textDirty() && !window.confirm('고치던 내용을 버리고 읽기 화면으로 돌아갈까요?')) return;
     bigWriter?.close({silent:true}); bigWriter = null;
     editing = false; if (!force) say(''); paintRead(); paintMode(); detail.querySelector('[data-basket-read-text]').focus();
@@ -149,6 +160,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   async function save() {
     if (!selected || !editing || busy) return;
+    if (creating) return create();
     const f = fields();
     if (!textDirty()) { say('저장된 노트입니다.'); finishEdit({force:true}); return; }
     const changes = {title:f.title.value, raw_text:f.body.value};
@@ -160,6 +172,25 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       notes = notes.map(n => n.id === id ? note : n); selected = note; renderList(); paintMeta();
       finishEdit({force:true}); say('노트를 저장했습니다.');
     } catch (error) {
+      if (run !== epoch || owner !== scope()) return;
+      say('저장하지 못했어요. 다시 시도해 주세요.');
+    } finally { if (run === epoch) lock(false); else busy = false; }
+  }
+  async function create() {
+    const f = fields(), raw_text = f.body.value;
+    if (!f.title.value.trim() && !raw_text.trim()) { say('제목이나 본문을 써 주세요.'); f.title.focus(); return; }
+    // The database needs a title on every note; an untitled draft takes its first body line.
+    const title = f.title.value.trim() ? f.title.value : noteTitleFromText(raw_text);
+    try { validateNoteTitle(title); validateNoteBody(raw_text); } catch (error) { say(error.message); return; }
+    const run = ++epoch, owner = scope(); lock(true); say('저장 중…');
+    try {
+      const note = await createNoteDoc({title, raw_text}, rt);
+      if (run !== epoch || owner !== scope()) return;
+      notes = [note, ...notes.filter(n => n.id !== note.id)]; selected = note; creating = false; renderList();
+      bigWriter?.close({silent:true}); bigWriter = null;
+      editing = false; paintRead(); paintMeta(); paintMode(); say('노트를 저장했습니다.');
+      detail.querySelector('[data-basket-read-text]').focus();
+    } catch {
       if (run !== epoch || owner !== scope()) return;
       say('저장하지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch) lock(false); else busy = false; }
@@ -217,6 +248,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (noteMenu()?.contains(b)) setNoteMenu(false, {focus:true});
     if (busy) return;
     if (b.hasAttribute('data-note-row')) open(b.dataset.noteRow);
+    else if (b.hasAttribute('data-note-new')) openNew();
     else if (b.hasAttribute('data-note-retry')) void refresh();
     else if (b.hasAttribute('data-note-close')) close();
     else if (b.hasAttribute('data-note-edit')) startEdit();
@@ -244,7 +276,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // openId: a note just moved here from the basket opens once the list is read.
     show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
     close,
-    reset() { const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; creating = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     hasDraft: () => textDirty() || (!!selected && manual.hasDraft()),
     isOpen: () => !!selected,

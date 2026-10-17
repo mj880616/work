@@ -15,7 +15,7 @@ async function fixture(page){
  const rows=store(),writes=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await openHome(page);
- await page.route(SB+'/rest/v1/app_notes?**',async r=>{
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',async r=>{
   const req=r.request(),q=new URL(req.url()).searchParams;
   const pick=row=>(!q.get('kind')||'eq.'+row.kind===q.get('kind'))&&(!q.get('id')||'eq.'+row.id===q.get('id'))&&(!q.get('workspace_id')||'eq.'+row.workspace_id===q.get('workspace_id'));
   if(req.method()==='GET'){if(q.get('metadata'))return r.fulfill({json:[]});return r.fulfill({json:rows.filter(pick).slice(Number(q.get('offset')||0))});}
@@ -29,6 +29,12 @@ async function fixture(page){
     Object.assign(row,next);
    }
    return r.fulfill({json:hit});
+  }
+  if(req.method()==='POST'){
+   const body=req.postDataJSON();writes.push({method:'POST',body});
+   const at='2026-10-17T05:00:00Z',row={id:body.kind==='note'?'n-created':'m-created',kind:'basket',title:null,occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{},...body};
+   if(row.kind==='note'?!String(row.title||'').trim():row.title!==null||!row.raw_text)return r.fulfill({status:400,json:{code:'23514'}});
+   rows.push(row);return r.fulfill({status:201,json:[row]});
   }
   return r.fulfill({status:500,json:{}});
  });
@@ -118,6 +124,79 @@ for(const width of [390,1280]){
  });
 }
 
+for(const width of [390,1280]){
+ test(`[+] writes a new note: saved as kind=note, read view, top of the list, not a basket memo ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  await page.locator('[data-basket-kind="note"]').click();
+  await expect(noteList(page)).toHaveCount(2);
+  const add=page.getByRole('button',{name:'새 노트',exact:true});
+  await expect(add).toBeVisible();
+  // Phone: the same round [+] as the other screens, above the bottom tabs.
+  if(width<=760){const s=await add.evaluate(el=>{const c=getComputedStyle(el);return {position:c.position,radius:c.borderRadius,width:el.getBoundingClientRect().width};});
+   expect(s.position).toBe('fixed');expect(s.radius).toBe('50%');expect(Math.round(s.width)).toBe(36);}
+  await add.click();
+  const detail=page.locator('[data-note-detail]');
+  await expect(page.locator('[data-note-list]')).toBeHidden();
+  await expect(detail.locator('[data-note-title-input]')).toBeFocused();
+  await expect(detail.locator('[data-note-title-input]')).toHaveValue('');await expect(detail.locator('[data-basket-text]')).toHaveValue('');
+  await expect(detail.getByRole('button',{name:'큰 창에서 수정',exact:true})).toBeVisible();
+  await expect(detail.locator('[data-note-more-wrap]')).toBeHidden();await expect(detail.locator('[data-note-read-actions]')).toBeHidden();
+  await detail.locator('[data-note-title-input]').fill('단체교섭 준비');
+  await detail.locator('[data-basket-text]').fill('## 할 일\n\n- 요구안 정리');
+  await detail.locator('[data-note-save]').click();
+  await expect(detail.locator('[data-basket-status]')).toHaveText('노트를 저장했습니다.');
+  await expect(detail.locator('[data-note-read-title]')).toHaveText('단체교섭 준비');
+  await expect(detail.locator('[data-basket-read-text] h2')).toHaveText('할 일');
+  await expect(detail.locator('[data-note-read-actions]')).toBeVisible();
+  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'단체교섭 준비',raw_text:'## 할 일\n\n- 요구안 정리'}}]);
+  await detail.locator('[data-note-close]').click();
+  await expect(noteList(page)).toHaveCount(3);
+  await expect(noteList(page).nth(0)).toContainText('단체교섭 준비');
+  await page.locator('[data-basket-kind="memo"]').click();
+  await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();
+  await expect(page.locator('[data-basket-rows]')).not.toContainText('단체교섭 준비');
+  await expect(page.locator('[data-basket-row="n-created"]')).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+ });
+}
+
+test('an empty new note is not saved; a body-only note takes its first line as title',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ await page.locator('[data-basket-kind="note"]').click();
+ await page.getByRole('button',{name:'새 노트',exact:true}).click();
+ const detail=page.locator('[data-note-detail]');
+ await detail.locator('[data-note-title-input]').fill('   ');await detail.locator('[data-basket-text]').fill('  \n ');
+ await detail.locator('[data-note-save]').click();
+ await expect(detail.locator('[data-basket-status]')).toHaveText('제목이나 본문을 써 주세요.');
+ expect(f.writes).toEqual([]);
+ await detail.locator('[data-note-title-input]').fill('');await detail.locator('[data-basket-text]').fill('\n  첫 줄 메모  \n둘째 줄');
+ await detail.locator('[data-note-save]').click();
+ await expect(detail.locator('[data-note-read-title]')).toHaveText('첫 줄 메모');
+ expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({kind:'note',title:'첫 줄 메모',raw_text:'\n  첫 줄 메모  \n둘째 줄'});
+ expect(f.errors).toEqual([]);
+});
+
+test('phone back on an unsaved new note asks before closing; an untouched one just closes',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ await page.locator('[data-basket-kind="note"]').click();
+ const add=page.getByRole('button',{name:'새 노트',exact:true}),detail=page.locator('[data-note-detail]');
+ await add.click();await expect(detail).toBeVisible();
+ await page.goBack();
+ await expect(page.locator('[data-note-list]')).toBeVisible();await expect(add).toBeFocused();
+ await add.click();
+ await detail.locator('[data-basket-text]').fill('쓰던 글');
+ const asked=[];page.on('dialog',d=>{asked.push(d.message());asked.length===1?d.dismiss():d.accept();});
+ await page.goBack();
+ await expect.poll(()=>asked.length).toBe(1);expect(asked[0]).toBe('저장 안 하고 닫을까요?');
+ await expect(detail.locator('[data-basket-text]')).toHaveValue('쓰던 글');
+ await detail.locator('[data-note-cancel]').click();
+ await expect.poll(()=>asked.length).toBe(2);expect(asked[1]).toBe('저장 안 하고 닫을까요?');
+ await expect(page.locator('[data-note-list]')).toBeVisible();await expect(noteList(page)).toHaveCount(2);
+ // Closing the new note stays in the basket tab.
+ expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 test('a note without body cannot go back to the basket and nothing is written',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  f.rows.find(r=>r.id==='n-old').raw_text='';
@@ -139,5 +218,109 @@ test('note edit draft is protected when leaving with Escape',async({page})=>{
  let asked=0;page.on('dialog',d=>{asked++;d.dismiss();});
  await page.keyboard.press('Escape');
  expect(asked).toBe(1);await expect(page.locator('[data-note-detail] [data-basket-text]')).toHaveValue('고치는 중');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+// MD-내보내기: menu [쓰기] head = [메모|노트] at the left, [내보내기] [닫기] [저장] at the right, 32px buttons.
+async function openWriter(page,width){
+ if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
+ else await page.locator('#appView>.app-nav [data-menu-write]').click();
+ const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();return editor;
+}
+// The [메모|노트] box is the shared 32px segment (its buttons sit inside its 1px line); every other head button is 32px itself.
+async function headHeights(editor){return editor.locator('.md-editor-head :is(.md-editor-kinds, button:not(.md-editor-kinds button)):visible').evaluateAll(list=>list.map(b=>[b.textContent,Math.round(b.getBoundingClientRect().height)]));}
+for(const width of [390,1280]){
+ test(`menu [쓰기] → [노트] saves a kind=note row and opens it; the 메모 list stays clean ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  const editor=await openWriter(page,width),kinds=editor.locator('.md-editor-kinds');
+  await expect(kinds.getByRole('button')).toHaveText(['메모','노트']);
+  await expect(kinds.getByRole('button',{name:'메모'})).toHaveAttribute('aria-pressed','true');
+  // Left: the switch. Right: 내보내기 · 닫기 · 저장, in that order, all 32px tall (the press area stays 44px).
+  const [k,x,c,sv]=await Promise.all([kinds,editor.getByRole('button',{name:'내보내기'}),editor.locator('[data-close="mdEditor"]'),editor.locator('[data-md-save]')].map(l=>l.boundingBox()));
+  expect(k.x).toBeLessThan(x.x);expect(x.x).toBeLessThan(c.x);expect(c.x).toBeLessThan(sv.x);expect(Math.abs(k.y-x.y)).toBeLessThan(2);
+  for(const [label,h] of await headHeights(editor))expect(h,label).toBe(32);
+  expect(await editor.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');
+  const pressed=await kinds.getByRole('button',{name:'메모'}).evaluate(el=>getComputedStyle(el).backgroundColor),plain=await kinds.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el).backgroundColor);
+  expect(pressed).not.toBe(plain);
+  await kinds.getByRole('button',{name:'노트'}).click();
+  await expect(kinds.getByRole('button',{name:'노트'})).toHaveAttribute('aria-pressed','true');
+  await expect(editor.locator('[data-md-save]')).toHaveAttribute('aria-label','새 노트로 저장');
+  await editor.locator('[data-md-save]').click();
+  await expect(editor.locator('.md-editor-status')).toHaveText('글을 입력해 주세요.');expect(f.writes).toEqual([]);
+  await editor.locator('.md-editor-text').fill('# 회의 정리\n\n- 다음 일정 확인');
+  await editor.locator('[data-md-save]').click();
+  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'회의 정리',raw_text:'# 회의 정리\n\n- 다음 일정 확인'}}]);
+  const detail=page.locator('[data-note-detail]');
+  await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed','true');
+  await expect(detail.locator('[data-note-read-title]')).toHaveText('회의 정리');
+  await expect(detail.locator('[data-basket-read-text] h1')).toHaveText('회의 정리');
+  await detail.locator('[data-note-close]').click();
+  await expect(noteList(page).nth(0)).toContainText('회의 정리');
+  await page.locator('[data-basket-kind="memo"]').click();
+  await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await expect(page.locator('[data-basket-rows]')).not.toContainText('회의 정리');
+  expect(f.errors).toEqual([]);
+ });
+}
+
+test('menu [쓰기] → [메모] still saves one basket memo (no kind, no title)',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ const editor=await openWriter(page,390);
+ await expect(editor.locator('[data-md-save]')).toHaveAttribute('aria-label','바구니에 새 메모로 저장');
+ await editor.locator('.md-editor-text').fill('쓰기 메모');
+ await editor.locator('[data-md-save]').click();
+ await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
+ expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',raw_text:'쓰기 메모'}}]);
+ await page.locator('[data-basket-filter="all"]').click();
+ await expect(page.locator('[data-basket-row="m-created"]')).toContainText('쓰기 메모');
+ await expect(page.locator('[data-basket-kind="memo"]')).toHaveAttribute('aria-pressed','true');
+ expect(f.errors).toEqual([]);
+});
+
+test('[내보내기] opens the shared choice sheet: 텔레그램 copies, 한글·HWP say they are not ready',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ const editor=await openWriter(page,390),sheet=page.locator('#mdExportSheet'),status=editor.locator('.md-editor-status');
+ await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};});
+ await editor.locator('.md-editor-text').fill('**굵게** 글');
+ const exportButton=editor.getByRole('button',{name:'내보내기',exact:true});
+ await exportButton.click();
+ await expect(sheet).toHaveAttribute('open','');await expect(exportButton).toHaveAttribute('aria-expanded','true');
+ await expect(sheet.locator('h2')).toHaveText('내보내기');
+ const rows=sheet.locator('[data-sheet-value]');
+ await expect(rows).toHaveText(['텔레그램용 복사','한글용 복사','HWP 파일로 받기']);
+ for(const row of await rows.all())await expect(row).toBeEnabled();
+ await rows.nth(0).click();
+ await expect(status).toHaveText('텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.');
+ expect(await page.evaluate(()=>window.__copied)).toBe('굵게 글');
+ await expect(sheet).not.toHaveAttribute('open','');await expect(editor).toBeVisible();await expect(exportButton).toBeFocused();
+ await exportButton.click();await rows.nth(1).click();
+ await expect(status).toHaveText('한글용 복사는 준비 중이에요.');
+ await exportButton.click();await rows.nth(2).click();
+ await expect(status).toHaveText('HWP 파일로 받기는 준비 중이에요.');
+ // Escape and phone back close the sheet only; the editor and its text stay.
+ await exportButton.click();await expect(sheet).toHaveAttribute('open','');
+ await page.keyboard.press('Escape');await expect(sheet).not.toHaveAttribute('open','');
+ await exportButton.click();await expect(sheet).toHaveAttribute('open','');
+ await page.goBack();await expect(sheet).not.toHaveAttribute('open','');
+ await expect(editor).toBeVisible();await expect(editor.locator('.md-editor-text')).toHaveValue('**굵게** 글');
+ // Back once more closes the editor itself.
+ await page.goBack();await expect(page.locator('#mdEditor')).toHaveCount(0);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+test('the editor opened to change a note has no [메모|노트] switch, and the same 32px head',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ await page.locator('[data-basket-kind="note"]').click();
+ await noteList(page).filter({hasText:'오래된 노트'}).click();
+ await page.locator('[data-note-edit]').click();
+ await page.locator('[data-note-big-write]').click();
+ const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
+ await expect(editor.locator('.md-editor-kinds')).toHaveCount(0);await expect(editor.locator('[data-md-save]')).toHaveCount(0);
+ await expect(editor.locator('h2')).toBeVisible();await expect(editor.getByRole('button',{name:'내보내기',exact:true})).toBeVisible();
+ await expect(editor.getByRole('button',{name:'텔레그램용 복사',exact:true})).toHaveCount(0);
+ for(const [label,h] of await headHeights(editor))expect(h,label).toBe(32);
+ // The note read view keeps its own [텔레그램용 복사] this time.
+ await editor.locator('[data-close="mdEditor"]').click();await page.locator('[data-note-cancel]').click();
+ await expect(page.locator('[data-note-detail]').getByRole('button',{name:'텔레그램용 복사',exact:true})).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

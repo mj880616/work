@@ -5,6 +5,7 @@
 import {renderMarkdownInto, preloadMarkdown} from './markdown-view.js';
 import {applyAction, MERMAID_TEMPLATES, CALLOUT_KINDS} from './md-editor-ops.mjs';
 import {toTelegram} from './md-telegram.mjs';
+import {createChoiceSheet} from './choice-sheet.js';
 
 const ID = 'mdEditor';
 const WIDE = window.matchMedia('(min-width:1024px)');
@@ -25,6 +26,18 @@ const MENUS = {
 };
 
 let current = null;
+
+// MD-내보내기: [내보내기] opens the app's shared bottom choice sheet. 한글·HWP rows are listed now and say they are
+// not ready yet when pressed (8-11a·8-11b connect them); they are not disabled so the press can explain itself.
+const EXPORTS = [['telegram', '텔레그램용 복사'], ['hangul', '한글용 복사'], ['hwp', 'HWP 파일로 받기']];
+let exportSheet = null;
+function exportChoices() {
+  exportSheet ||= createChoiceSheet({id:'mdExportSheet', titleId:'mdExportSheetTitle', historyKey:'kptuMdExport',
+    canOpen:() => !!current, choices:async () => {},
+    render:() => ({title:'내보내기', html:EXPORTS.map(([value, label]) => `<button type="button" class="home-choice-row" data-sheet-value="${value}">${label}</button>`).join('')}),
+    onSelect:(kind, value) => current?.exportAs(value)});
+  return exportSheet;
+}
 
 function button(label, data = {}, aria) {
   const b = document.createElement('button');
@@ -51,8 +64,10 @@ export async function copyText(text) {
 // onClose(text): when it closes, with the final text; the opener puts it back into its own field.
 // save (optional, UI-디자인손질 8 메뉴 [쓰기]): {label, aria, run(text)} adds a filled [저장]; run is the opener's own
 // existing save and resolves {ok:true} (the editor then closes) or {ok:false, message}. [닫기] stays the plain close.
+// kinds (optional, MD-내보내기 메뉴 [쓰기]): {label, value, options:[[value, label], …]} shows a small switch at the left of
+// the head; the chosen value is passed to save.run(text, kind), and save.aria may be a function of it.
 // Returns {close({silent})}: silent closes without calling onClose (e.g. the opener's screen went away).
-export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null} = {}) {
+export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, kinds = null} = {}) {
   current?.close({silent: true});
   const trigger = document.activeElement;
   const shell = document.createElement('div');
@@ -63,15 +78,29 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
 
   const head = document.createElement('div'), name = document.createElement('h2');
   head.className = 'md-editor-head'; name.id = ID + 'Title'; name.textContent = title;
-  const copy = button('텔레그램용 복사', {mdTelegram: ''}), done = button('닫기', {close: ID}, save ? '저장하지 않고 닫기' : '닫고 수정 칸으로 돌아가기');
-  copy.className = 'secondary'; done.className = save ? 'secondary' : 'primary';
-  const saveButton = save ? button(save.label || '저장', {mdSave: ''}, save.aria) : null;
+  const copy = button('내보내기', {mdExport: ''}), done = button('닫기', {close: ID}, save ? '저장하지 않고 닫기' : '닫고 수정 칸으로 돌아가기');
+  copy.className = 'secondary'; copy.setAttribute('aria-haspopup', 'dialog'); copy.setAttribute('aria-expanded', 'false'); done.className = save ? 'secondary' : 'primary';
+  let kind = kinds?.value ?? null;
+  const saveAria = () => typeof save?.aria === 'function' ? save.aria(kind) : save?.aria;
+  const saveButton = save ? button(save.label || '저장', {mdSave: ''}, saveAria()) : null;
   if (saveButton) { saveButton.className = 'primary'; shell.dataset.mdSave = ''; }
+  const kindGroup = kinds ? document.createElement('div') : null;
+  if (kindGroup) {
+    kindGroup.className = 'md-editor-kinds'; kindGroup.setAttribute('role', 'group'); kindGroup.setAttribute('aria-label', kinds.label || '종류');
+    kindGroup.append(...kinds.options.map(([value, label]) => button(label, {mdKind: value})));
+    shell.dataset.mdKinds = '';
+  }
+  function setKind(next) {
+    kind = next;
+    kindGroup?.querySelectorAll('[data-md-kind]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mdKind === kind)));
+    if (saveButton && saveAria()) saveButton.setAttribute('aria-label', saveAria());
+  }
+  setKind(kind);
   const modes = document.createElement('div');
   modes.className = 'md-editor-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', '보기');
   const writeTab = button('쓰기', {mdMode: 'write'}), previewTab = button('미리보기', {mdMode: 'preview'});
   modes.append(writeTab, previewTab);
-  head.append(name, modes, copy, done, ...(saveButton ? [saveButton] : []));
+  head.append(name, ...(kindGroup ? [kindGroup] : []), modes, copy, done, ...(saveButton ? [saveButton] : []));
 
   const tools = document.createElement('div'), menu = document.createElement('div');
   tools.className = 'md-editor-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
@@ -143,7 +172,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (!save || saving || closed) return;
     saving = true; saveButton.disabled = true; status.textContent = '저장 중…';
     let result;
-    try { result = await save.run(area.value); } catch (error) { result = {ok: false, message: error?.message}; }
+    try { result = await save.run(area.value, kind); } catch (error) { result = {ok: false, message: error?.message}; }
     saving = false;
     if (closed) return;
     saveButton.disabled = false;
@@ -155,6 +184,12 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (closed) return;
     status.textContent = ok ? '텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.' : '복사하지 못했어요. 다시 눌러 주세요.';
   }
+  function exportAs(value) {
+    if (closed) return;
+    if (value === 'telegram') { void telegram(); return; }
+    const label = EXPORTS.find(([v]) => v === value)?.[1];
+    if (label) status.textContent = `${label}는 준비 중이에요.`;
+  }
 
   // Toolbar presses must not take focus from the text: the selection stays and the phone keyboard stays open.
   bar.addEventListener('pointerdown', e => { if (e.target.closest('button') && document.activeElement === area) e.preventDefault(); });
@@ -163,7 +198,8 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (!b || !shell.contains(b)) return;
     if (b.dataset.mdAction) run(b.dataset.mdAction, b.dataset.mdOption);
     else if (b.dataset.mdMode) setMode(b.dataset.mdMode);
-    else if (b.hasAttribute('data-md-telegram')) void telegram();
+    else if (b.dataset.mdKind) setKind(b.dataset.mdKind);
+    else if (b.hasAttribute('data-md-export')) void exportChoices().open('export', copy);
     else if (b.hasAttribute('data-md-save')) void runSave();
     else if (b.dataset.close === ID) close();
   });
@@ -181,6 +217,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   function close({silent = false} = {}) {
     if (closed) return;
     closed = true; clearTimeout(timer); WIDE.removeEventListener('change', onWide);
+    if (copy.getAttribute('aria-expanded') === 'true') exportSheet?.dismiss();
     const value = area.value;
     shell.classList.add('hidden'); shell.setAttribute('aria-hidden', 'true');
     window.KPTUA11y?.dialog.deactivate?.(shell, {restoreFocus: false});
@@ -191,7 +228,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (!silent) onClose(value);
     else if (trigger?.isConnected) trigger.focus?.({preventScroll: true});
   }
-  const handle = {close, get text() { return area.value; }};
+  const handle = {close, exportAs, get text() { return area.value; }};
 
   document.body.append(shell);
   document.documentElement.classList.add('md-editor-open');

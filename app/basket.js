@@ -5,7 +5,7 @@ import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js';
 import { mountClassification } from './basket-classification-ui.js';
 import { readBasket, updateNote, noteState, visibleNotes, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js';
 import { mountNotes } from './basket-notes.js';
-import { noteTasks, requestTaskOpen, takeBasketNoteRequest } from './basket-note-tasks.js';
+import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
@@ -739,13 +739,14 @@ window.addEventListener('kptu:view-changed',e=>{
 });
 window.KPTURouter.on('basket', () => {
   void preloadMarkdown();
-  const wanted = takeBasketNoteRequest(rt);
+  const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt);
   if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) return;
   noteDocs.close({focus:false,force:true}); showKind('memo');
   filter = 'unclassified'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();
+  if (wantedDoc) showKind('note', {openId:wantedDoc});
 });
 // UI-디자인손질 8: a note saved from the menu [쓰기] shows up here without leaving the current screen.
 window.addEventListener('kptu:basket-note-created',()=>{if(window.KPTURouter.current==='basket'&&!selected&&!busy&&!classification.isOpen())void refresh();});

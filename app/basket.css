@@ -120,6 +120,10 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .basket-kind-switch:not([hidden]) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; width:100%; max-width:240px; margin:0 0 8px; }
 #appView #basketView .basket-kind-switch [aria-pressed="true"] { color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
+/* [노트] 위쪽: 검색칸 + [+ 노트]. 폰에서는 [+ 노트]가 다른 화면과 같은 동그란 [+]로 뜬다(ui-standard.css). */
+.note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }
+.note-list-head .note-search { flex:1; min-width:0; margin:0; }
+#basketView #newNoteBtn { flex:none; min-height:44px; white-space:nowrap; }
 .note-search { display:block; margin:8px 0; }
 #basketView :is(.note-search input,.note-editor input[type="text"],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 .note-dot { display:inline-block; flex-shrink:0; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--ds-kind-note-ink); vertical-align:middle; }
