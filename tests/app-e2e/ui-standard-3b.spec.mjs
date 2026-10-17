@@ -37,6 +37,7 @@ async function boot(page,width,{notes=[noteRow(1,'합성 메모 하나'),noteRow
   if(path==='/rest/v1/app_suborganizations')return ok(orgs);
   if(path==='/rest/v1/app_suborganization_assignees')return ok(orgs.map(o=>({organization_id:o.id,user_id:user.id})));
   if(path==='/rest/v1/app_documents')return ok(docs);
+  if(path==='/rest/v1/app_meetings')return ok([{id:'m1',workspace_id:ws.id,title:'합성 집행국 회의',series_name:'합성 집행국 회의',meeting_at:ago(1),created_by:user.id},{id:'m2',workspace_id:ws.id,title:'합성 교섭 회의',series_name:'합성 교섭 회의',meeting_at:ago(2),created_by:user.id}]);
   if(path==='/rest/v1/app_spaces'){if((q.get('select')||'').includes('milestones:'))return ok(spaces.map(p=>({id:p.id,milestones:[]})));return ok(spaces);}
   if(path==='/rest/v1/app_notes'){if(q.get('metadata'))return ok([]);return ok(notes.slice(Number(q.get('offset')||0)));}
   if(path.startsWith('/rest/v1/'))return ok([]);
@@ -132,7 +133,7 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
 test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르는 범위 44px, 이름, 같은 창, 마지막 줄이 가리지 않음',async({page})=>{
  const {errors}=await boot(page,390);
  const tabsTop=(await box(page.locator('.mobile-tabs'))).top;
- for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['tasks','#newTaskBtn','할 일 추가','#gtTaskModal'],['projects','#newProjectBtn','프로젝트 추가','#ps3CreateModal'],['library','#newDocumentBtn','자료 등록','#documentModal']]){
+ for(const [view,id,label,modal] of [['calendar','#newEventBtn','일정 등록','#eventModal'],['tasks','#newTaskBtn','할 일 추가','#gtTaskModal'],['projects','#newProjectBtn','프로젝트 추가','#ps3CreateModal'],['library','#newDocumentBtn','자료 등록','#documentModal'],['meetings','#newMeetingBtn','회의 결과 등록','#meetingModal']]){
   await page.evaluate(v=>KPTURouter.go(v),view);await loaded(page,view);
   const button=page.locator(id);await expect(button).toBeVisible();await expect(button).toHaveAttribute('aria-label',label);
   // 보이는 원은 버튼 자체 36px, 누르는 범위는 ::after 44px(앱의 다른 버튼과 같은 방식). 누르는 범위가 탭 위 12px·오른쪽 16px.
@@ -162,6 +163,17 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
   })).toBeLessThanOrEqual(b.top);
   await button.click();await expect(page.locator(modal)).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.locator(modal)).toBeHidden();
+ }
+ // UI-선택표시통일: 회의 화면의 위쪽 [+ 회의]는 동그란 [+]로만 보이고(카드 머리줄 안에 글자 버튼 없음), 고른 필터 칩은 회색, 안 고른 칩은 흰 바탕.
+ await page.evaluate(()=>KPTURouter.go('meetings'));await loaded(page,'meetings');
+ expect(await page.locator('#newMeetingBtn').evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+ const chips=page.locator('#meetingTypeFilter button');await expect.poll(()=>chips.count()).toBeGreaterThanOrEqual(2);
+ {
+  const color=(el,prop)=>el.evaluate((el,prop)=>getComputedStyle(el)[prop],prop);
+  const paint=prop=>page.evaluate(([prop,name])=>{const e=document.createElement('span');e.style[prop]=`var(${name})`;document.querySelector('#appView').append(e);const c=getComputedStyle(e)[prop];e.remove();return c;},[prop,prop==='color'?'--ds-kind-other-ink':'--ds-kind-other-soft']);
+  const picked=page.locator('#meetingTypeFilter [aria-checked="true"]');
+  await expect(picked).toHaveCount(1);expect(await color(picked,'backgroundColor')).toBe(await paint('backgroundColor'));expect(await color(picked,'color')).toBe(await paint('color'));
+  for(const other of await page.locator('#meetingTypeFilter [aria-checked="false"]').all())expect(await color(other,'backgroundColor')).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--kptu-surface)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
  }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
