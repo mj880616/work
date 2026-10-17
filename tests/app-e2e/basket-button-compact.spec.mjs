@@ -87,10 +87,12 @@ for(const width of [390,1280]){
     for(const selector of ['[data-classification-close]','[data-classification-preview]','[data-classification-confirm]'])metrics.controls[selector]=await measure(page.locator(selector));
     await writeFile(info.outputPath(`metrics-${width}.json`),JSON.stringify(metrics,null,2));
 
-    for(const metric of Object.values(metrics.controls)){
-      expect(Math.abs(metric.height-homeMode.height)).toBeLessThanOrEqual(1);
-      expect(metric.fontSize).toBe(homeMode.fontSize);
-      expect(metric.borderRadius).toBe(homeMode.borderRadius);
+    // UI-버튼크기: 필터는 알약 칩(보이는 높이 32px·13px, 누르는 범위 44px), 분류 창 버튼은 [추가]와 같은 큰 버튼.
+    for(const [selector,metric] of Object.entries(metrics.controls)){
+      const filter=selector.startsWith('[data-basket-filter');
+      expect(Math.abs(metric.height-(filter?32:homePrimary.height)),selector).toBeLessThanOrEqual(1);
+      expect(metric.fontSize).toBe('13px');
+      expect(metric.borderRadius,selector).toBe(filter?'999px':'8px');
       expect(metric.touchHeight).toBeGreaterThanOrEqual(44);
     }
 
@@ -106,9 +108,9 @@ for(const width of [390,1280]){
     const all=page.locator('[data-basket-filter="all"]');await all.focus();await page.keyboard.press('Enter');
     await expect(all).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(1);
     await expect(page.locator(`[data-basket-row="${noteId}"]`)).toBeVisible();
-    // UI-디자인기준 1/3 보완: the painted button is itself the 46px touch target; tap near its top edge.
+    // UI-버튼크기: the 32px chip keeps a 44px touch target; tap just above its painted top edge.
     const archived=page.locator('[data-basket-filter="archived"]'),box=await archived.boundingBox();
-    await page.touchscreen.tap(box.x+box.width/2,box.y+3);
+    await page.touchscreen.tap(box.x+box.width/2,box.y-4);
     await expect(archived).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row="archived"]')).toBeVisible();
     // #577: [분류 요청] copies again and opens the same result sheet.
     await requestClassification(page,{keyboard:true});

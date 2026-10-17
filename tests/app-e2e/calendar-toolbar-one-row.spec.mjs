@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
-// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px), 고른 보기는 회색(--ds-kind-other-*), 보기 칸은 같은 폭 44px로 정확히 나눔(UI-선택표시통일), 상자 선 0.5px.
+// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px; UI-버튼크기부터 보기 전환·[오늘]은 32px, 누르는 범위 44px), 고른 보기는 회색(--ds-kind-other-*), 보기 칸은 같은 폭 44px로 정확히 나눔(UI-선택표시통일), 상자 선 0.5px.
 for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one row, accessible icons and persistence at ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await openEmphasisFixture(page,{view:'default'});
   const toolbar=page.locator('.calendar-toolbar');
@@ -8,7 +8,7 @@ for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one r
   expect(await toolbar.evaluate(el=>[...el.children].map(e=>e.id||e.className))).toEqual(['prevMonthBtn','monthTitle','nextMonthBtn','calendarTodayBtn','calendar-toolbar-divider','calendar-view-switch','newEventBtn']);
   for(const [view,name] of (width<1024?[['list','목록 보기'],['month','월간 보기']]:[['list','목록 보기'],['week','주간 보기'],['month','월간 보기']])){
     const button=toolbar.getByRole('button',{name,exact:true});await expect(button).toBeVisible();await expect(button.locator('svg')).toHaveCount(1);
-    const rect=await button.boundingBox();expect(rect.width).toBe(44);expect(rect.height).toBe(46);
+    const rect=await button.boundingBox();expect(rect.width).toBe(44);expect(rect.height).toBeGreaterThanOrEqual(30);expect(rect.height).toBeLessThanOrEqual(32); // UI-버튼크기: 작은 세그먼트(상자 32px), 누르는 범위는 아래 targets에서 44px
     // UI-선택표시통일: 칸은 정확히 같은 폭으로 나뉘고(사이·양옆 여백 없음) 고른 바탕이 자기 칸을 꽉 채운다.
     const cells=await toolbar.locator('.calendar-view-switch').evaluate(el=>{const r=el.getBoundingClientRect(),bs=[...el.querySelectorAll('button')].filter(b=>!b.hidden).map(b=>b.getBoundingClientRect());return {left:r.left,right:r.right,bs:bs.map(b=>({left:b.left,right:b.right,width:b.width}))};});
     expect(cells.bs[0].left).toBe(cells.left);expect(cells.bs.at(-1).right).toBe(cells.right);
@@ -31,8 +31,8 @@ for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one r
   expect(iconShapes[0]).toMatchObject({width:16,height:12});
   if(width>=1024){expect(iconShapes[1]).toEqual({width:21,height:10,verticals:7});expect(iconShapes[2].height).toBeGreaterThan(iconShapes[1].height)}else{expect(iconShapes).toHaveLength(2);expect(iconShapes[1].height).toBeGreaterThan(12)}
   const appearance=await toolbar.evaluate(el=>{const group=el.querySelector('.calendar-view-switch'),gs=getComputedStyle(group),divider=el.querySelector('.calendar-toolbar-divider'),ds=getComputedStyle(divider),ts=getComputedStyle(el);return {padding:[ts.paddingTop,ts.paddingBottom],group:{outline:gs.outlineWidth,style:gs.outlineStyle,color:gs.outlineColor,height:group.getBoundingClientRect().height},divider:{width:divider.getBoundingClientRect().width,height:divider.getBoundingClientRect().height,color:ds.borderLeftColor},buttons:[...el.querySelectorAll('button:not([hidden])')].map(b=>({height:b.getBoundingClientRect().height,border:getComputedStyle(b).borderTopWidth})),icons:[...group.querySelectorAll('button:not([hidden]) svg')].map(s=>({width:s.getBoundingClientRect().width,stroke:getComputedStyle(s).strokeWidth})),border:getComputedStyle(document.documentElement).getPropertyValue('--kptu-border').trim()}});
-  expect(appearance.padding).toEqual(['8px','8px']);expect(appearance.group).toMatchObject({outline:'1px',style:'solid',height:46}); // 0.5px 선은 1배율 화면에서 1px로 그려진다expect(appearance.divider.width).toBe(1);expect(appearance.divider.height).toBe(20);expect(appearance.group.color).toBe(appearance.divider.color);
-  for(const b of appearance.buttons)if(!(width<=760&&b.height===36))expect(b.height).toBe(46); // 8-9e-2: phone round [+] paints 36pxfor(const icon of appearance.icons)expect(icon).toEqual({width:16,stroke:'1.7px'});
+  expect(appearance.padding).toEqual(['8px','8px']);expect(appearance.group).toMatchObject({outline:'1px',style:'solid',height:32}); // UI-버튼크기: 작은 세그먼트 // 0.5px 선은 1배율 화면에서 1px로 그려진다expect(appearance.divider.width).toBe(1);expect(appearance.divider.height).toBe(20);expect(appearance.group.color).toBe(appearance.divider.color);
+  for(const b of appearance.buttons)if(!(width<=760&&b.height===36))expect([46,32]).toContain(b.height); // UI-버튼크기: [오늘]·보기 전환은 32px, 화살표·[+ 일정 등록]은 46px; // 8-9e-2: phone round [+] paints 36pxfor(const icon of appearance.icons)expect(icon).toEqual({width:16,stroke:'1.7px'});
   for(const b of await toolbar.locator('.calendar-view-switch button').all())await expect(b).toHaveCSS('border-top-width','0px');
   for(const id of ['prevMonthBtn','nextMonthBtn']){await expect(page.locator('#'+id)).toHaveCSS('border-top-width','0px');await expect(page.locator('#'+id)).toHaveCSS('background-color','rgba(0, 0, 0, 0)')}
   for(let i=0;i<targets.length;i++)for(let j=i+1;j<targets.length;j++){const a=targets[i],b=targets[j];expect(Math.min(a.left+a.w,b.left+b.w)-Math.max(a.left,b.left),a.name+'/'+b.name).toBeLessThanOrEqual(.5)}

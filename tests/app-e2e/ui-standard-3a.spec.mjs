@@ -59,14 +59,18 @@ const look=locator=>locator.evaluate(el=>{const b=el.getBoundingClientRect(),s=g
 // The 0.5px line (--ds-line-width) as this screen computes it (Chromium shows a 1px device line at scale 1).
 const lineWidth=page=>page.evaluate(()=>{const e=document.createElement('div');e.style.borderTop='var(--ds-line-width) solid';document.querySelector('#appView').append(e);const w=getComputedStyle(e).borderTopWidth;e.remove();return w;});
 const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('span');e.style.color=`var(${name})`;document.querySelector('#appView').append(e);const c=getComputedStyle(e).color;e.remove();return c;},name);
-// Every visible button-shaped control in a region: one height, 13px, 500, 8px corners, no shadow. Returns the filled ones.
+// Every visible button-shaped control in a region: one height, 13px, 500, 8px corners, no shadow (UI-버튼크기: filter chips·[분류 수정] 32px). Returns the filled ones.
 async function sameButtons(page,region){
  const primary=await token(page,'--kptu-primary'),filled=[];
  for(const control of await region.locator('button:visible').all()){
   // 8-9e-2: on phones the add button is the floating round [+] and 담당조직 추가 is a small text link (ui-standard-3b).
   if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
   const s=await look(control),label=(await control.textContent()).trim();
-  expect(s.height,label).toBe(46);expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.radius,label).toBe('8px');expect(s.shadow,label).toBe('none');
+  // UI-버튼크기: 필터 칩(자료실·회의)은 32px 알약, 보조 버튼([분류 수정])은 32px. 둘 다 누르는 범위 44px. 나머지는 46px·8px.
+  const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('#manageLibraryBtn')?'compact':'button');
+  if(kind==='button'){expect(s.height,label).toBe(46);expect(s.radius,label).toBe('8px');}
+  else{expect(s.height,label).toBe(32);expect(s.radius,label).toBe(kind==='chip'?'999px':'8px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
+  expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
   if(s.bg===primary)filled.push(label);
  }
  return filled;

@@ -18,7 +18,7 @@ test('registration always opens as event; task mode keeps title/date and hides e
  await page.locator('[data-event-mode="event"]').click();await expect(page.locator('#eventGoogleOptions')).toBeVisible();await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-09');
  await page.locator('[data-event-mode="task"]').click();await page.locator('[data-close="eventModal"]').click();await page.locator('#newEventBtn').click();
  await expect(page.locator('[data-event-mode="event"]')).toHaveAttribute('aria-pressed','true');
- const boxes=await page.locator('[data-event-mode]').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {top:r.top,height:r.height,target:parseFloat(getComputedStyle(e,'::after').height),right:r.right}}));expect(boxes[0].top).toBe(boxes[1].top);expect(boxes.every(r=>r.height===46&&r.right<=360)).toBeTruthy(); // 8-9e-3: [일정 | 할 일]은 창 버튼과 같은 높이 하나(46px, 그 자체로 44px 이상)
+ const boxes=await page.locator('[data-event-mode]').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {top:r.top,height:r.height,target:parseFloat(getComputedStyle(e,'::after').height),right:r.right}}));expect(boxes[0].top).toBe(boxes[1].top);expect(boxes.every(r=>r.height>=30&&r.height<=32&&r.target===44&&r.right<=360)).toBeTruthy(); // UI-버튼크기: [일정 | 할 일]은 왼쪽 작은 세그먼트(상자 32px), 누르는 범위 44px
 });
 test('monthly blank cell supplies the task date',async({page})=>{
  await open(page);await page.locator('[data-close="eventModal"]').click();await page.locator('[data-calendar-view="month"]').click();

@@ -28,10 +28,19 @@ async function sameButtons(region,height){
   // UI-디자인손질 6: the note's "‹ 바구니" (title-position back link) and its [⋯] icon are not button-shaped either.
   if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more]')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
-  expect(Math.abs(s.height-height),await control.textContent()).toBeLessThanOrEqual(0.5);
-  // HOME-빠른입력정리: [업데이트]와 ▾는 한 칸에 붙은 두 버튼이라 바깥쪽 모서리만 8px.
-  const split=await control.evaluate(el=>el.closest('.home-quick-update-split')?(el.matches('[data-quick-org]')?'0px 8px 8px 0px':'8px 0px 0px 8px'):'8px');
-  expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.radius).toBe(split);expect(s.shadow).toBe('none');expect(s.image).toBe('none');
+  // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [바구니|할 일|업데이트 ▾]·바구니 [메모|노트])은 32px 상자 안 칸으로
+  // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
+  const want=await control.evaluate(el=>{
+   const seg=el.closest('.home-quick-modes,.basket-kind-switch');
+   if(seg){const cells=[...seg.querySelectorAll('button')],i=cells.indexOf(el);return {min:30,max:32,radius:i===0?'8px 0px 0px 8px':i===cells.length-1?'0px 8px 8px 0px':'0px'};}
+   if(el.matches('[data-basket-filter]'))return {min:32,max:32,radius:'999px'};
+   if(el.matches('.basket-more-trigger'))return {min:32,max:32,radius:'8px'};
+   return null;
+  });
+  const label=await control.textContent();
+  if(want){expect(s.height,label).toBeGreaterThanOrEqual(want.min);expect(s.height,label).toBeLessThanOrEqual(want.max);expect(s.radius,label).toBe(want.radius);expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
+  else{expect(Math.abs(s.height-height),label).toBeLessThanOrEqual(0.5);expect(s.radius,label).toBe('8px');}
+  expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.shadow).toBe('none');expect(s.image).toBe('none');
  }
  return shaped;
 }

@@ -23,8 +23,9 @@ for(const width of [390,1280])test(`공용 알약 필터·2단 프로젝트·키
     await group.getByRole('radio',{name:'후속회의',exact:true}).tap();expect(await group.evaluate(e=>e.scrollLeft)).toBeGreaterThan(0);
     await page.evaluate(async()=>{document.querySelector('#meetingTypeFilter').value='회의명 미지정';await window.__KPTU_RELOAD_MEETINGS__()});
     const geometry=await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),r=b.getBoundingClientRect(),lane=e.getBoundingClientRect();return {height:r.height,touch:getComputedStyle(b,'::after').content,wrap:getComputedStyle(e).flexWrap,inside:r.left>=lane.left-1&&r.right<=lane.right+1}});
-    // UI-디자인기준 3/3(8-9e-1): filters are 46px buttons (the home tab height), so they need no 44px touch extender.
-    expect(geometry).toEqual({height:46,touch:'none',wrap:'nowrap',inside:true});
+    // UI-버튼크기: filters are 32px pill chips; a 44px touch extender (::after) stays inside the scroll lane.
+    expect(geometry).toEqual({height:32,touch:'""',wrap:'nowrap',inside:true});
+    expect(await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),p=getComputedStyle(b,'::after');return [parseFloat(p.height),getComputedStyle(b).borderRadius,e.getBoundingClientRect().height]})).toEqual([44,'999px',44]);
   }
   await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('library'));
   const view=page.locator('#libraryViewFilter');for(const [v,count] of [['general',6],['meetings',1]]){await view.locator(`[data-filter-value="${v}"]`).click();await expect(page.locator('.lu-row')).toHaveCount(count)}
@@ -32,8 +33,8 @@ for(const width of [390,1280])test(`공용 알약 필터·2단 프로젝트·키
   await view.locator('[data-filter-value="general"]').click();const project=page.locator('#documentProject');
   await project.locator('[data-filter-value="top-a"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(project.locator('.filter-chips-small')).toBeVisible();await expect(project.locator('.filter-chips-small').getByRole('radio')).toHaveText(['전체(이 프로젝트)','국토부 대응','산자부 대응']);
-  // UI-디자인기준 3/3(8-9e-1): the second (child project) row uses the same one button height.
-  await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','46px');
+  // UI-버튼크기: the second (child project) row uses the same 32px chip height.
+  await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','32px');
   await project.locator('[data-filter-value="child-a1"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();
   await view.locator('[data-filter-value="meetings"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);

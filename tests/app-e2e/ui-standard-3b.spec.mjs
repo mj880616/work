@@ -212,7 +212,7 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
  expect(errors).toEqual([]);
 });
 
-test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키보드), 폭 가득 필터, 한 줄 입력칸',async({page})=>{
+test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키보드), [메모 | 노트] 옆 필터 칩, 한 줄 입력칸',async({page})=>{
  const {errors}=await boot(page,390);
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]'),menu=page.locator('#basketMoreMenu');
@@ -221,8 +221,10 @@ test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  const title=await box(page.locator('[data-mobile-view-name]'));expect(m.right).toBeGreaterThan(300);expect(Math.abs((m.top+m.bottom)/2-(title.top+title.bottom)/2)).toBeLessThanOrEqual(4);
  await expect(handoffLine(page)).toBeHidden();
  const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','전체','보관']);
- const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]'));
- expect(Math.round(first.left)).toBe(Math.round(rows.left));expect(Math.round(last.right)).toBe(Math.round(rows.right));
+ // UI-버튼크기: 필터는 [메모 | 노트] 오른쪽 같은 줄의 알약 칩(32px, 누르는 범위 44px), 폭 가득이 아니다.
+ const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]')),kinds=await box(basket.locator('.basket-kind-switch'));
+ expect(first.left).toBeGreaterThan(kinds.right);expect(Math.abs((first.top+first.bottom)/2-(kinds.top+kinds.bottom)/2)).toBeLessThanOrEqual(1);
+ expect(Math.round(first.height)).toBe(32);expect(last.right).toBeLessThanOrEqual(rows.right);
  const before=await box(filters.first());
  await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
  await expect(menu.getByRole('button')).toHaveText(['AI 분류 요청','GPT 답변 가져오기']);await expect(menu.locator('[data-handoff-copy]')).toBeFocused();
