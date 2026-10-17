@@ -20,17 +20,17 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=19','./markdown-view.css?v=2','./md-editor.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=8'],
-  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26','./ui-standard.css?v=8'],
-  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=8'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=8'],
-  projects:['./project-system-v3.css?v=29','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=8'],
-  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2','./ui-standard.css?v=8'],
-  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26','./ui-standard.css?v=8'],
-  media:['./web1-press.css?v=4','./ui-standard.css?v=8'],
-  pages:['./web1-board.css?v=7','./ui-standard.css?v=8'],
-  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26','./ui-standard.css?v=8'],
-  hwp:['./hwp-lab.css?v=3','./ui-standard.css?v=8']
+  basket:['./basket.css?v=19','./markdown-view.css?v=2','./md-editor.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=9'],
+  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26','./ui-standard.css?v=9'],
+  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=9'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=9'],
+  projects:['./project-system-v3.css?v=30','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=9'],
+  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2','./ui-standard.css?v=9'],
+  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26','./ui-standard.css?v=9'],
+  media:['./web1-press.css?v=4','./ui-standard.css?v=9'],
+  pages:['./web1-board.css?v=7','./ui-standard.css?v=9'],
+  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26','./ui-standard.css?v=9'],
+  hwp:['./hwp-lab.css?v=3','./ui-standard.css?v=9']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -101,7 +101,7 @@ async function projects(){
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=38');
-  await module('./project-system-v3.js?v=60','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=61','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){

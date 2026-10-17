@@ -249,6 +249,10 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
 const d6bMain='23f5b87241a6a8b2db4f6bb552237ef4d41a3139';
 const d6bSource=path=>execFileSync('git',['show',d6bMain+':app/'+path],{encoding:'utf8'});
 const d6bSelectors=d6bSource('base-ui.css').split('\n').slice(194,210).map(line=>line.split('{')[0]);
+// PRJ-기록입력: main line 202 styled the progress line (.ps3-pg-summary/.ps3-pg-next) and the header line under the title (#ps3Objective).
+// The progress line is gone; the header line is now #ps3Summary with the same role, so the current page is read through that selector.
+const d6bProgressLine='#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective)',d6bHeaderLine='#ps3DetailModal #ps3Summary';
+const d6bCurrentSelectors=d6bSelectors.map(selector=>selector===d6bProgressLine?d6bHeaderLine:selector);
 
 async function d6bPrepare(page,source){
  await boot(page);
@@ -268,7 +272,7 @@ async function d6bPrepare(page,source){
   // Deferred/retained roles whose normal templates need additional API data, or no longer render.
   // Same structural markup on both sides, including status variants overridden by D-3e metadata color.
   const deferred={
-   ps3DetailModal:'<div class="ps3-summary"><b>목표</b></div><div class="ps3-stat-grid"><b>1</b><span>개수</span></div><div class="ps3-row-main"><b>제목</b></div><div class="ps3-row-title"><b>제목</b></div><div class="ps3-type-row"><b>유형</b><small>설명</small></div><p class="ps3-pg-next">다음</p><span class="ps3-pg-summary">진행</span><span class="badge published">완료</span>',
+   ps3DetailModal:'<div class="ps3-summary"><b>목표</b></div><div class="ps3-stat-grid"><b>1</b><span>개수</span></div><div class="ps3-row-main"><b>제목</b></div><div class="ps3-row-title"><b>제목</b></div><div class="ps3-type-row"><b>유형</b><small>설명</small></div><span class="badge published">완료</span>',
    ps3CreateModal:'<div class="ps3-type-row"><b>유형</b><small>설명</small></div>',
    wdModal:'<div class="wd-year">2026년</div><span class="wd-aff-chip taskforce">소속</span>',
    documentModal:'<div class="library-selected-file error"><span class="library-upload-state">실패</span></div><div class="library-selected-file unknown"><span class="library-upload-state">확인</span></div>'
@@ -277,10 +281,10 @@ async function d6bPrepare(page,source){
  },{ai,rule});
 }
 
-async function d6bSnapshot(page){
+async function d6bSnapshot(page,selectors=d6bSelectors){
  return page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].map(el=>{
   const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color};
- })})),d6bSelectors);
+ })})),selectors);
 }
 
 for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size and color '+width,async({page,browser},testInfo)=>{
@@ -295,8 +299,11 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   const meetingField=await page.locator('#libraryEditMeeting').evaluate(el=>el.closest('label').outerHTML);
   await original.locator('#libraryEditProject').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),meetingField);
   // Compare the added record region under both style sets too; exclude no existing nodes.
-  const basketRecords=await page.locator('#ps3BasketLinks').evaluate(el=>el.outerHTML);
-  await original.locator('#ps3-progress').evaluate((el,html)=>el.insertAdjacentHTML('beforeend',html),basketRecords);
+  // PRJ-기록입력 rebuilt the project detail (one record list, small +, line lists) and removed the progress dialog.
+  // Main's header line under the title keeps its size; then the same current markup is compared under main's and current styles.
+  const mainHeaderSize=await original.locator('#ps3Objective').evaluate(el=>getComputedStyle(el).fontSize);
+  for(const id of ['ps3DetailModal','ps3WorkstreamModal']){const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.outerHTML=html},html)}
+  await original.locator('#ps3ProgressModal').evaluate(el=>el.remove());await expect(page.locator('#ps3ProgressModal')).toHaveCount(0);
   // BASKET-할일출처 added the task editor's source-note line; compare it under both style sets too.
   const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
   await original.locator('#gtMeetingLinks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),sourceNote);
@@ -306,7 +313,14 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
   const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
   await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);
-  const before=await d6bSnapshot(original),after=await d6bSnapshot(page);
+  const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
+  // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
+  const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];
+  expect(headerRow.elements.map(el=>el.id)).toEqual(['ps3Summary']);headerRow.elements[0].fontSize=mainHeaderSize;
+  // Two new elements carry their own PRJ-기록입력 rules that main never had: the header line (compared above on line 202)
+  // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
+  const generic=el=>!(el.class==='ps3-rec-empty'||el.id==='ps3Summary');
+  for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
   expect(before).toHaveLength(16);
@@ -327,7 +341,7 @@ test('D-6b keeps hide priorities and removes only dialog priorities',async()=>{
   return current;
  }).join('\n');
  for(const selector of d6bSelectors){
-  const rule=owned.split('\n').find(line=>line.startsWith(selector+'{'));
+  const rule=owned.split('\n').find(line=>line.startsWith((selector===d6bProgressLine?d6bHeaderLine:selector)+'{'));
   expect(rule,selector+' stays explicit').toBeDefined();expect(rule).not.toContain('!important');
  }
 });
