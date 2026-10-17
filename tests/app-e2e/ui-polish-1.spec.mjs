@@ -176,7 +176,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  // [⋯] = 수정·원문 그대로 보기·보관·삭제(빨강), keyboard and Esc.
  const more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(menu).toBeHidden();await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(menu.locator('button')).toHaveText(['수정','원문 그대로 보기','보관','삭제']);
+ await expect(menu.locator('button')).toHaveText(['수정','노트로 옮기기','원문 그대로 보기','보관','삭제']);
  await expect(menu.locator('[data-basket-edit]')).toBeFocused();
  expect(await menu.locator('[data-basket-delete]').evaluate(el=>getComputedStyle(el).color)).toBe(await token('--kptu-danger'));
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
