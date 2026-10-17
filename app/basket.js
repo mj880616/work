@@ -22,6 +22,8 @@ const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
 let quick=null, bigWriter=null;
 let currentScope = scope(), retainedForTraversal = false;
+// BUG-뒤로가기: an opened memo is one router layer, so Back returns to the list at the same scroll.
+let noteLayer = null, listScroll = 0;
 const initialUrl = new URL(location.href);
 // A source-note link from the task view hands its note over in-app; a full load reads ?note=.
 let requestedNote = (initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null) || takeBasketNoteRequest(rt);
@@ -255,13 +257,20 @@ function clearNoteAddress(){
   url.searchParams.delete('note');
   history.replaceState(history.state,'',url.pathname+url.search+url.hash);
 }
-function closeDetail({focus = true, force = false, cleanAddress = true} = {}) {
-  if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return;
-  if (!force && !dirty() && manualDraft() && !window.confirm('작성 중인 연결·할 일 입력을 버리고 목록으로 돌아갈까요?')) return;
+function closeDetail({focus = true, force = false, cleanAddress = true, fromBack = false} = {}) {
+  if (!force && dirty() && !window.confirm('수정 중인 글을 버리고 목록으로 돌아갈까요?')) return false;
+  if (!force && !dirty() && manualDraft() && !window.confirm('작성 중인 연결·할 일 입력을 버리고 목록으로 돌아갈까요?')) return false;
   handoff.close();
   bigWriter?.close({silent:true});
   const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; listHead.hidden = false;paintHandoffScope();
-  if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
+  const layer = noteLayer; noteLayer = null; if (!fromBack) layer?.close();
+  if (id && window.KPTURouter.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
+  if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus({preventScroll:true});
+  return true;
+}
+function openNoteLayer({adoptOnly = false} = {}) {
+  if (noteLayer || !selected) return;
+  noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: () => !busy && closeDetail({fromBack:true})}) || null;
 }
 // UI-디자인손질 6: one line under the text — each confirmed link as a colored-dot chip (or the state when
 // there is none), then the date. The stored write_request metadata is kept as is and no longer shown.
@@ -395,6 +404,7 @@ function paintMode() {
 }
 function openDetail(id, {edit = false} = {}) {
   handoff.close();
+  if (!selected) listScroll = window.scrollY;
   selected = notes.find(n => n.id === id); if (!selected) return;
   // Keep the opened note attached to this list snapshot until an explicit reload.
   ++epoch;ocrViewScope=captureOcrScope();editing=edit;rawView=false;
@@ -406,6 +416,8 @@ function openDetail(id, {edit = false} = {}) {
   manual.attach(detail.querySelector('[data-basket-manual]'));
   pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isActive:()=>editing,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
   paintDetailState();paintMode();paintHandoffScope();
+  // A note address (?note=) opens the note once; the list entry under it stays the plain list.
+  if (!noteLayer) { clearNoteAddress(); openNoteLayer(); }
   // Reading never opens the on-screen keyboard; only an explicit edit focuses the text.
   detail.querySelector(editing ? '[data-basket-text]' : '[data-basket-read-text]').focus();
 }
@@ -613,7 +625,7 @@ window.KPTURouter.on('basket', () => {
   if (busy || classification.isOpen()) return;
   filter = 'unclassified'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
-  if (dirty() || manualDraft()) return;
+  if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();
 });
 // UI-디자인손질 8: a note saved from the menu [쓰기] shows up here without leaving the current screen.
