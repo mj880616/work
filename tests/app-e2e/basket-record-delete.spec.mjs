@@ -2,9 +2,12 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {noteAction} from './helpers/basket-more.mjs';
 import {openHome} from './helpers/home-entry.mjs';
+import {linkAction} from './helpers/basket-link-menu.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const DISCONNECT={organization:'이 조직에서만 빠집니다. 메모는 바구니에 남고, 이 연결에 적은 요약은 사라집니다.',project:'이 프로젝트에서만 빠집니다. 메모는 바구니에 남고, 이 연결에 적은 요약은 사라집니다.'};
+// BUG-바구니연결해제: one wording on every screen, naming the place. Actions live in the line's ⋯ (helpers/basket-link-menu.mjs).
+const DISCONNECT={organization:'합성 담당조직 연결을 해제할까요? 메모는 남아요'};
+const more=row=>row.getByRole('button',{name:'바구니 기록 메뉴'});
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
 // basket-files note-delete model: trash count comes from the test, the note and its links go away like the real cascade.
 const CORS={'access-control-allow-origin':'*','access-control-allow-headers':'authorization, x-client-info, apikey, content-type','access-control-allow-methods':'GET, POST, OPTIONS'};
@@ -25,11 +28,11 @@ const deletes=page=>page.evaluate(()=>(window.__detailState.deletes||[]).map(pat
 
 for(const width of [390,1280])for(const kind of ['organization'])test(`${kind} disconnect removes only that link row ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,kind),{link,nullLink,note}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
- await expect(row.getByRole('button',{name:'연결 해제'})).toBeVisible();await expect(row.getByRole('button',{name:'원문 삭제'})).toBeVisible();
+ await expect(more(row)).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- if(width===390&&kind==='organization'){await row.scrollIntoViewIfNeeded();await row.screenshot({path:info.outputPath('link-record-buttons-390.png')});}
+ if(width===390&&kind==='organization'){await row.scrollIntoViewIfNeeded();await row.screenshot({path:info.outputPath('link-record-line-390.png')});}
  const messages=[];page.once('dialog',d=>{messages.push(d.message());d.accept();});
- await tap(page,row.getByRole('button',{name:'연결 해제'}),width);
+ await linkAction(row,'연결 해제',{tap:width<761});
  await expect(row).toHaveCount(0);expect(messages).toEqual([DISCONNECT[kind]]);
  await expect(host.locator(`[data-basket-link="${nullLink}"]`)).toBeVisible();await expect(host.locator('[data-basket-link]')).toHaveCount(2);
  expect(await deletes(page)).toEqual([{table:'app_record_links',params:{id:'eq.'+link,workspace_id:'eq.detail-workspace',select:'id'}}]);
@@ -39,7 +42,7 @@ for(const width of [390,1280])for(const kind of ['organization'])test(`${kind} d
 
 for(const kind of ['organization'])test(`${kind} cancel on either confirmation changes nothing`,async({page})=>{
  const errors=await ready(page),host=await open(page,kind),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
- for(const name of ['연결 해제','원문 삭제']){page.once('dialog',d=>d.dismiss());await row.getByRole('button',{name}).click();await expect(row.getByRole('button',{name})).toBeEnabled();await expect(row.getByRole('button',{name})).toBeFocused();}
+ for(const name of ['연결 해제','원문 삭제']){page.once('dialog',d=>d.dismiss());await linkAction(row,name);await expect(more(row)).toBeEnabled();await expect(more(row)).toBeFocused();}
  await expect(host.locator('[data-basket-link]')).toHaveCount(3);await expect(row.locator('[data-link-action-status]')).toBeHidden();expect(await deletes(page)).toEqual([]);
  expect(await page.evaluate(()=>window.__linkEvents)).toBe(0);expect(errors).toEqual([]);
 });
@@ -47,7 +50,7 @@ for(const kind of ['organization'])test(`${kind} cancel on either confirmation c
 for(const width of [390,1280])test(`organization original delete names places and attachments, trashes through the server and removes that note's rows ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,'organization'),{link,note}=await ids(page);
  const messages=[];page.once('dialog',d=>{messages.push(d.message());d.accept();});
- await tap(page,host.locator(`[data-basket-link="${link}"]`).getByRole('button',{name:'원문 삭제'}),width);
+ await linkAction(host.locator(`[data-basket-link="${link}"]`),'원문 삭제',{tap:width<761});
  await expect(host.locator('[data-basket-link]')).toHaveCount(1);await expect(host).toContainText('다른 메모 요약');
  expect(messages).toEqual(['메모 원문을 지웁니다. 연결된 조직·프로젝트 2곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
  expect(page.__posts).toEqual([{body:{action:'note-delete',note_id:note,note_updated_at:'2026-10-11T01:00:00Z'},auth:'Bearer fixture-token'}]);
@@ -59,42 +62,42 @@ for(const width of [390,1280])test(`organization original delete names places an
 
 test('organization original delete on a server that does not know note-delete falls back to the REST delete',async({page})=>{
  const errors=await ready(page,{legacy:true}),host=await open(page,'organization'),{link,note}=await ids(page);
- page.once('dialog',d=>d.accept());await host.locator(`[data-basket-link="${link}"]`).getByRole('button',{name:'원문 삭제'}).click();
+ page.once('dialog',d=>d.accept());await linkAction(host.locator(`[data-basket-link="${link}"]`),'원문 삭제');
  await expect(host.locator('[data-basket-link]')).toHaveCount(1);expect(page.__posts).toHaveLength(1);
  expect(await deletes(page)).toEqual([{table:'app_notes',params:{id:'eq.'+note,workspace_id:'eq.detail-workspace',select:'id'}}]);expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`project basket rows have no disconnect or delete; they only open the memo ${width}`,async({page})=>{
+for(const width of [390,1280])test(`project basket rows open the memo and offer no summary edit or original delete ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,'project'),{link}=await ids(page);
  await expect(host.getByRole('button',{name:'연결 해제'})).toHaveCount(0);await expect(host.getByRole('button',{name:'원문 삭제'})).toHaveCount(0);await expect(host.locator('[data-link-disconnect],[data-link-note-delete],[data-link-summary-edit]')).toHaveCount(0);
- await expect(host.locator(`[data-basket-link="${link}"]`)).toHaveAttribute('href',/view=basket&note=/);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await expect(host.locator(`[data-basket-link="${link}"] a`)).toHaveAttribute('href',/view=basket&note=/);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(await page.evaluate(()=>window.__detailState.links.length)).toBe(3);expect(errors).toEqual([]);
 });
 
 for(const name of ['연결 해제','원문 삭제'])test(`${name} failure keeps the row and explains in plain words`,async({page})=>{
  const errors=await ready(page,{fail:true}),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
- await page.evaluate(()=>window.__detailState.failDelete=403);page.once('dialog',d=>d.accept());await row.getByRole('button',{name}).click();
+ await page.evaluate(()=>window.__detailState.failDelete=403);page.once('dialog',d=>d.accept());await linkAction(row,name);
  await expect(row.locator('[data-link-action-status]')).toHaveText(name==='연결 해제'?'연결을 해제하지 못했어요. 다시 시도해 주세요.':'메모를 지우지 못했어요. 다시 시도해 주세요.');
- await expect(host.locator('[data-basket-link]')).toHaveCount(3);await expect(row.getByRole('button',{name})).toBeEnabled();expect(errors).toEqual([]);
+ await expect(host.locator('[data-basket-link]')).toHaveCount(3);await expect(more(row)).toBeEnabled();expect(errors).toEqual([]);
 });
 
 test('lost delete response is re-read and shows the real state',async({page})=>{
  const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page);
- await page.evaluate(()=>window.__detailState.loseDeleteResponse=true);page.once('dialog',d=>d.accept());await host.locator(`[data-basket-link="${link}"]`).getByRole('button',{name:'연결 해제'}).click();
+ await page.evaluate(()=>window.__detailState.loseDeleteResponse=true);page.once('dialog',d=>d.accept());await linkAction(host.locator(`[data-basket-link="${link}"]`),'연결 해제');
  await expect(host.locator(`[data-basket-link="${link}"]`)).toHaveCount(0);await expect(host.locator('[data-basket-link]')).toHaveCount(2);expect(errors).toEqual([]);
 });
 
 test('an open summary edit blocks disconnect without a dialog',async({page})=>{
  const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
- await row.locator('[data-link-summary-edit]').click();await row.locator('textarea').fill('작성 중');page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});
- await row.locator('.basket-link-actions [data-link-disconnect]').click();await expect(row.locator('[data-link-action-status]')).toHaveText('요약 수정을 먼저 저장하거나 취소해 주세요.');
+ await linkAction(row,'요약 수정');await row.locator('textarea').fill('작성 중');page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});
+ await linkAction(row,'연결 해제');await expect(row.locator('[data-link-action-status]')).toHaveText('요약 수정을 먼저 저장하거나 취소해 주세요.');
  await expect(row.locator('textarea')).toHaveValue('작성 중');expect(await deletes(page)).toEqual([]);expect(errors).toEqual([]);
 });
 
 test('a late disconnect result never paints into another opened organization',async({page})=>{
  const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page);
  await page.evaluate(id=>{const s=window.__detailState;s.holdTable='app_record_links';s.holdTarget='id=eq.'+id;},link);
- page.once('dialog',d=>d.accept());const button=host.locator(`[data-basket-link="${link}"]`).getByRole('button',{name:'연결 해제'});await button.click();await expect(button).toBeDisabled();
+ page.once('dialog',d=>d.accept());const button=more(host.locator(`[data-basket-link="${link}"]`));await linkAction(host.locator(`[data-basket-link="${link}"]`),'연결 해제');await expect(button).toBeDisabled();
  await expect.poll(()=>page.evaluate(()=>typeof window.__detailState.release)).toBe('function');
  await page.evaluate(()=>window.KPTUWorkplace.open(window.__detailState.ids.otherOrg));await expect(page.locator('#wdTitle')).toHaveText('다른 담당조직');
  await page.evaluate(()=>{const s=window.__detailState;s.holdTable=null;s.release();});

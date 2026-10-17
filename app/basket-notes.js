@@ -2,9 +2,9 @@
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
 // This module owns everything drawn into its host: list (search, newest change first) → read → edit.
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
-import { readNoteDocs, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody } from './basket-data.js?v=7';
-import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
-import { mountManualLink } from './basket-manual-link.js?v=10';
+import { readNoteDocs, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody } from './basket-data.js?v=8';
+import { deleteNoteOriginal } from './basket-record-delete.js?v=3';
+import { mountManualLink } from './basket-manual-link.js?v=11';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js?v=2';
 import { openMarkdownEditor, copyText } from './md-editor.js?v=4';
 import { toTelegram } from './md-telegram.mjs?v=1';

@@ -12,9 +12,10 @@ const q=path=>new URL(path,'http://fixture');
 test('disconnect deletes exactly that link id inside the signed-in workspace',async()=>{
   events.length=0;const calls=[];
   const rt=rtFor(async(path,options={})=>{calls.push({path,...options});return [{id:'link/1'}];});
-  const {result,calls:asked}=await withConfirm(true,()=>mod.disconnectRecordLink('link/1',{kind:'organization',rt}));
+  const {result,calls:asked}=await withConfirm(true,()=>mod.disconnectRecordLink('link/1',{name:'합성 조직',rt}));
   assert.equal(result.status,'deleted');
-  assert.deepEqual(asked,['이 조직에서만 빠집니다. 메모는 바구니에 남고, 이 연결에 적은 요약은 사라집니다.']);
+  // BUG-바구니연결해제: one wording on every screen, naming the place.
+  assert.deepEqual(asked,['합성 조직 연결을 해제할까요? 메모는 남아요']);
   assert.equal(calls.length,1);
   const url=q(calls[0].path);
   assert.equal(url.pathname,'/rest/v1/app_record_links');
@@ -181,4 +182,47 @@ test('cancelled server-path confirmation sends nothing; missing session sends no
   const d=serverCase({reply:{status:200,body:body()}});d.rt.session.read=()=>null;
   const {result:noSession}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:d.rt,fetcher:d.fetcher}));
   assert.equal(noSession.status,'failed');assert.equal(d.posts.length,0);
+});
+
+test('disconnect wording and the × name fall back to "이" without a name',()=>{
+  assert.equal(mod.disconnectConfirmText(''),'이 연결을 해제할까요? 메모는 남아요');
+  assert.equal(mod.disconnectLabel('합성 프로젝트'),'합성 프로젝트 연결 해제');
+  assert.equal(mod.UNDO_MS,5000);
+});
+
+// Undo re-links through the existing confirm-links RPC only: one note read, one RPC, same place and summary.
+for(const [summary,expectedTarget] of [['연결 요약',{kind:'project',target_id:'p1',reason:'직접 연결',summary:'연결 요약'}],[null,{kind:'project',target_id:'p1',reason:'직접 연결'}]])
+test(`restore re-links the same place ${summary?'with':'without'} its summary`,async()=>{
+  events.length=0;const calls=[];
+  const rt=rtFor(async(path,options={})=>{calls.push({path,...options});if(path.startsWith('/rest/v1/app_notes'))return [{id:'n1',updated_at:'2026-10-17T01:00:00Z'}];return {ok:true,created:1,existing:0};});
+  const result=await mod.restoreRecordLink({noteId:'n1',kind:'project',targetId:'p1',summary},{rt});
+  assert.deepEqual(result,{status:'restored',message:'연결을 되돌렸어요.'});
+  assert.equal(calls.length,2);
+  const read=q(calls[0].path);assert.equal(read.pathname,'/rest/v1/app_notes');assert.equal(read.searchParams.get('id'),'eq.n1');assert.equal(read.searchParams.get('workspace_id'),'eq.ws 1');assert.equal(calls[0].method,undefined);
+  assert.equal(calls[1].path,'/rest/v1/rpc/app_basket_confirm_links');assert.equal(calls[1].method,'POST');
+  assert.deepEqual(calls[1].body,{p_note_id:'n1',p_note_updated_at:'2026-10-17T01:00:00Z',p_targets:[expectedTarget]});
+  assert.deepEqual(events,['kptu:basket-links-changed']);
+});
+
+for(const [error,message] of [['NOTE_ARCHIVED','보관된 메모라 연결을 되돌리지 못했어요. 보관을 해제한 뒤 다시 이어 주세요.'],['AI_EXCLUDED','AI 제외로 표시된 메모라 연결을 되돌리지 못했어요.'],['TARGET_UNSELECTABLE','연결했던 곳을 찾거나 고를 수 없어 되돌리지 못했어요.'],['SUGGESTED_EXISTS','연결을 되돌리지 못했어요. 메모에서 [연결하기]로 다시 이어 주세요.']])
+test(`restore refusal ${error} explains and sends nothing else`,async()=>{
+  events.length=0;const calls=[];
+  const rt=rtFor(async(path,options={})=>{calls.push(path);return path.startsWith('/rest/v1/app_notes')?[{id:'n1',updated_at:'t'}]:{ok:false,error,created:0,existing:0};});
+  const result=await mod.restoreRecordLink({noteId:'n1',kind:'organization',targetId:'o1'},{rt});
+  assert.deepEqual(result,{status:'failed',message});assert.equal(calls.length,2);assert.deepEqual(events,[]);
+});
+
+test('restore of a missing note never calls the RPC; a thrown RPC is unknown and re-read by the lists',async()=>{
+  events.length=0;let calls=0;
+  let rt=rtFor(async()=>{calls++;return [];});
+  assert.deepEqual(await mod.restoreRecordLink({noteId:'n1',kind:'project',targetId:'p1'},{rt}),{status:'failed',message:'메모를 찾을 수 없어 연결을 되돌리지 못했어요.'});assert.equal(calls,1);
+  rt=rtFor(async path=>{if(path.startsWith('/rest/v1/app_notes'))return [{id:'n1',updated_at:'t'}];throw Error('network');});
+  assert.equal((await mod.restoreRecordLink({noteId:'n1',kind:'project',targetId:'p1'},{rt})).status,'unknown');assert.deepEqual(events,['kptu:basket-links-changed']);
+  assert.equal((await mod.restoreRecordLink({noteId:'n1',kind:'meeting',targetId:'m1'},{rt})).status,'failed');
+});
+
+test('restore after an account switch reports stale and writes nothing',async()=>{
+  events.length=0;const state={ctx};let rpc=0;
+  const rt=rtFor(async path=>{if(path.startsWith('/rest/v1/app_notes')){state.ctx={user:{id:'other'},workspace:{id:'ws 2'}};return [{id:'n1',updated_at:'t'}];}rpc++;return {ok:true};},state);
+  assert.deepEqual(await mod.restoreRecordLink({noteId:'n1',kind:'project',targetId:'p1'},{rt}),{status:'stale'});assert.equal(rpc,0);assert.deepEqual(events,[]);
 });
