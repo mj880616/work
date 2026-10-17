@@ -78,7 +78,7 @@
 /* 목록: 큰 카드 대신 테두리 상자 안의 줄 단위 행(행 사이 얇은 선, 행 안쪽 8~10px). */
 #appView #basketView [data-basket-rows]:not(:empty){ overflow:hidden; background:var(--kptu-surface); margin:8px 0; }
 #appView #basketView .basket-row{ font-weight:var(--ds-weight-regular); gap:2px; margin:0; padding:var(--ds-row-pad-y) var(--ds-row-pad-x); min-height:var(--kptu-touch-target,44px); border:0; border-radius:0; background:transparent; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView #basketView .basket-row + .basket-row{ border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #basketView :is(.basket-row + .basket-row,.basket-row-item + .basket-row-item){ border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #basketView .basket-row:focus-visible{ outline-offset:-2px; }
 #appView #basketView .basket-row .basket-title{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); color:var(--kptu-ink); }
 #appView #basketView .basket-row :is(.basket-preview,time,.basket-destination){ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
@@ -604,6 +604,16 @@
 #appView #basketView .basket-chip[data-chip-kind="project"] .basket-chip-dot{ background:var(--ds-kind-note-ink); }
 #appView #basketView .basket-chip[data-chip-kind="organization"] .basket-chip-dot{ background:var(--ds-kind-journal-ink); }
 #appView #basketView .basket-chip[data-chip-kind="meeting"] .basket-chip-dot{ background:var(--ds-kind-diary-ink); }
+/* BUG-바구니연결해제: list rows carry their link chips under the row button; organization/project chips get ×
+   (24px painted, 44px target, name "○○ 연결 해제"); on the note screen the chip name opens that place. */
+#appView #basketView .basket-row-links{ display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:-2px; padding:0 var(--ds-row-pad-x) var(--ds-row-pad-y); font-size:var(--ds-text-meta); }
+#appView #basketView .basket-chip :is(.basket-chip-open,.basket-chip-name){ display:inline-flex; align-items:center; gap:6px; min-width:0; overflow-wrap:anywhere; }
+#appView #basketView button.basket-chip-open{ min-height:24px; padding:0; border:0; border-radius:0; background:transparent; color:inherit; font:inherit; font-weight:var(--ds-weight-regular); text-align:left; cursor:pointer; }
+#appView #basketView button.basket-chip-open:hover{ text-decoration:underline; }
+#appView #basketView button.basket-chip-x{ position:relative; flex:0 0 24px; width:24px; min-width:24px; height:24px; min-height:24px; margin:0 -6px 0 -2px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--kptu-muted); font:inherit; font-size:16px; line-height:1; cursor:pointer; }
+#appView #basketView button.basket-chip-x::before{ content:''; position:absolute; inset:-10px; }
+#appView #basketView button.basket-chip-x:hover{ color:var(--kptu-ink); background:var(--kptu-surface-subtle); }
+#appView #basketView button.basket-chip-x:focus-visible,#appView #basketView button.basket-chip-open:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:1px; }
 @media(max-width:760px){
   /* 폰: 위 머리줄의 "바구니" 자리에 "‹ 바구니"·[⋯]가 올라간다(목록의 [⋯]와 같은 방식). */
   #appView #basketView > [data-basket-detail] > .basket-detail-head{ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; position:relative; z-index:2; }

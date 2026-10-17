@@ -1,9 +1,9 @@
-@import url('./base-ui.css?v=16');
+@import url('./base-ui.css?v=17');
 @import url('./theme-tokens.css?v=7');
 @import url('./static-gates.css?v=3');
 @import url('./topbar-actions.css?v=20');
 @import url('./team.css?v=7');
-@import url('./workplace-detail.css?v=9');
+@import url('./workplace-detail.css?v=10');
 @import url('./suborganizations.css?v=11');
 @import url('./task-layout.css?v=4');
 @import url('./google-tasks.css?v=26');
@@ -15,7 +15,7 @@
 @import url('./desktop-tight-nav.css?v=2');
 @import url('./compact-list.css?v=2');
 @import url('./forum-flow-polish.css?v=2');
-@import url('./project-system-v3.css?v=30');
+@import url('./project-system-v3.css?v=31');
 
 @import url('./web1-press.css?v=4');
 

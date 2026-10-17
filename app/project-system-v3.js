@@ -1,7 +1,8 @@
 import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,seoulDateKey} from './meeting-time.js?v=2';
 import { dayKey, ranges } from './home-read-model.js?v=3';
 import { createAnchoredMenu } from './anchored-menu.js?v=1';
-import {readRecordPages,readLinkRecords} from './basket-link-records.js?v=5';
+import {readRecordPages,readLinkRecords} from './basket-link-records.js?v=6';
+import {disconnectWithUndo} from './basket-record-delete.js?v=3';
 import {requestBasketNote,basketNoteHref} from './basket-note-tasks.js?v=2';
 (()=>{
 'use strict';
@@ -279,7 +280,8 @@ const recordFrom=u=>u.workstream_id?detail?.workstreams.find(w=>w.id===u.workstr
 const recordButton=(id,date,text)=>`<button type="button" class="ps3-rec-line" data-ps3-record-menu="${esc(id)}" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><time>${esc(day(date))}</time><span class="ps3-rec-text">${text}</span></button>`;
 function progressRecord(u){const from=recordFrom(u);return recordButton(u.id,u.effective_on,`${from?`<span class="ps3-rec-from">${esc(from)}</span> `:''}<span class="ps3-rec-summary">${esc(u.summary||'')}</span>${u.next_step?` <span class="ps3-rec-next">다음: ${esc(u.next_step)}</span>`:''}`)}
 function itemRecord(w){return recordButton(w.id,keyOf(w.created_at),esc(w.title||''))}
-function basketRecord(b){const text=b.summary??[...String(b.raw_text||'')].slice(0,120).join('');return `<a class="ps3-rec ps3-rec-line ps3-rec-basket" href="${esc(basketNoteHref(b.note_id))}" data-ps3-basket-note="${esc(b.note_id)}" data-basket-link="${esc(b.id)}"><time>${esc(day(keyOf(b.occurred_at)))}</time><span class="ps3-rec-text"><span class="ps3-rec-mark" role="img" aria-label="바구니 메모">🧺</span> ${esc(text||'요약 없음')}</span></a>`}
+// BUG-바구니연결해제: tapping a 🧺 line opens the original note; its ⋯ holds [메모 열기]·[연결 해제] only (no summary edit or note delete here).
+function basketRecord(b){const text=b.summary??[...String(b.raw_text||'')].slice(0,120).join('');return `<div class="ps3-rec ps3-rec-basket" data-basket-link="${esc(b.id)}"><a class="ps3-rec-line" href="${esc(basketNoteHref(b.note_id))}" data-ps3-basket-note="${esc(b.note_id)}"><time>${esc(day(keyOf(b.occurred_at)))}</time><span class="ps3-rec-text"><span class="ps3-rec-mark" role="img" aria-label="바구니 메모">🧺</span> ${esc(text||'요약 없음')}</span></a><button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span aria-hidden="true">⋯</span></button></div>`}
 function recordItems(d){const used=new Set(d.progress.map(u=>u.workstream_id));return [
   ...d.progress.map(u=>({key:u.effective_on||'',at:Date.parse(u.created_at)||0,html:`<div class="ps3-rec" data-ps3-record="${esc(u.id)}">${progressRecord(u)}</div>`})),
   ...d.workstreams.filter(w=>!used.has(w.id)).map(w=>({key:keyOf(w.created_at),at:Date.parse(w.created_at)||0,html:`<div class="ps3-rec" data-ps3-record="${esc(w.id)}" data-ps3-record-kind="item">${itemRecord(w)}</div>`})),
@@ -294,14 +296,17 @@ function closeRecordMenu(then,fromBack=false){return recordMenu?.close(then,from
 function openRecordMenu(trigger){recordMenu?.open(trigger)}
 function bindRecordMenu(){
   recordMenu=createAnchoredMenu({id:'ps3RecordMenu',className:'ps3-record-menu',label:'진행 기록 관리',historyKey:'kptuProgressMenu',parent:$('#ps3DetailModal'),key:trigger=>trigger.dataset.ps3RecordMenu,canOpen:trigger=>trigger.closest('[data-ps3-record]')?.dataset.saving!=='1',
-    render:()=>'<button type="button" data-ps3-record-action="edit">수정</button><button type="button" class="ps3-record-danger" data-ps3-record-action="delete">삭제</button>',
-    onAction:(button,active)=>{const row=active.trigger.closest('[data-ps3-record]');if(!row?.isConnected)return;if(button.dataset.ps3RecordAction==='edit'){if(row.dataset.ps3RecordKind==='item')openWs(active.id);else{active.trigger.dataset.ps3EditRecord=active.id;editProgressRecord(active.trigger)}}else mutateProgressRecord(row,'DELETE')}
+    render:id=>String(id).startsWith('basket:')?'<button type="button" data-ps3-record-action="open-note">메모 열기</button><button type="button" class="ps3-record-danger" data-ps3-record-action="disconnect">연결 해제</button>':'<button type="button" data-ps3-record-action="edit">수정</button><button type="button" class="ps3-record-danger" data-ps3-record-action="delete">삭제</button>',
+    onAction:(button,active)=>{const basket=active.trigger.closest('[data-basket-link]');if(basket){const b=detail?.basketLinks?.find(x=>x.id===basket.dataset.basketLink);if(!b)return;if(button.dataset.ps3RecordAction==='open-note')openBasketNote(b.note_id);else if(button.dataset.ps3RecordAction==='disconnect')void disconnectBasket(b);return}const row=active.trigger.closest('[data-ps3-record]');if(!row?.isConnected)return;if(button.dataset.ps3RecordAction==='edit'){if(row.dataset.ps3RecordKind==='item')openWs(active.id);else{active.trigger.dataset.ps3EditRecord=active.id;editProgressRecord(active.trigger)}}else mutateProgressRecord(row,'DELETE')}
   });
 }
 async function refreshBasketLinks(){const id=basketTargetId,epoch=detailEpoch;if(!id)return;if(!basketCurrent(id,epoch)){basketPending=true;return}const run=++basketRun;basketPending=false;let rows,error=false;try{rows=await readLinkRecords({kind:'project',targetIds:[id]},rt)}catch{error=true}if(!basketCurrent(id,epoch)||run!==basketRun)return;detail.basketLinks=rows||detail.basketLinks;detail.basketError=error;paintRecords()}
 // Repaints the record list in place unless a record is being edited or saved; the next detail render shows the rest.
 function paintRecords(){const host=$('#ps3Body [data-ps3-records]');if(!host||!detail||recordMenu?.active||host.querySelector('[data-ps3-edit-record],[data-ps3-record][data-saving="1"]'))return;host.innerHTML=recordRows(detail);const badge=$('#ps3Body [data-ps3-record-count]');if(badge)badge.textContent=recordCount(detail)}
 function openBasketNote(id){if(!closeDetail())return;requestBasketNote(id,rt);window.KPTURouter?.go('basket',{source:'delegated'})}
+// One confirmation, one owner-RLS row delete, then 5 seconds to undo (basket-record-delete.js). The list is re-read by the shared event.
+const basketActing=new Set();
+async function disconnectBasket(b){const id=current?.id,epoch=detailEpoch;if(!id||basketActing.has(b.id))return;const button=()=>$(`#ps3Body [data-basket-link="${CSS.escape(b.id)}"] .ps3-rec-more`);basketActing.add(b.id);if(button())button().disabled=true;let result;try{result=await disconnectWithUndo(b,{name:current.name,rt,isCurrent:()=>basketCurrent(id,epoch)})}catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.'}}finally{basketActing.delete(b.id)}if(!basketCurrent(id,epoch)||result.status==='stale')return;const row=$(`#ps3Body [data-basket-link="${CSS.escape(b.id)}"]`);if(['deleted','missing'].includes(result.status)){const at=row?[...row.parentElement.children].indexOf(row):0;detail.basketLinks=(detail.basketLinks||[]).filter(x=>x.id!==b.id);paintRecords();const rows=[...($('#ps3Body [data-ps3-records]')?.children||[])];rows[Math.min(at,rows.length-1)]?.querySelector?.('a,button')?.focus();return}if(button()){button().disabled=false;button().focus()}if(result.status!=='cancelled'&&result.message)toast(result.message)}
 
 function editProgressRecord(button){
   if(!canEdit(current))return;

@@ -1,4 +1,4 @@
-import {validateLinkSummary,updateLinkSummary,SUMMARY_ERROR_TEXT} from './basket-link-records.js?v=5';
+import {validateLinkSummary,updateLinkSummary,SUMMARY_ERROR_TEXT} from './basket-link-records.js?v=6';
 import { parseAIAnswer, readClassificationSnapshot, previewClassification, confirmLinks, selectableProjects, ERROR_TEXT } from './basket-classification.js?v=9';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // BASKET-4b-2 decision 5: an AI write-request suggestion is only a hint; nothing is marked automatically.

@@ -44,7 +44,7 @@ export async function readBasket(rt = window.KPTURuntime) {
   // Read only links whose source is one of these notes, never task links.
   for (let start = 0; start < notes.length; start += PAGE_SIZE) {
     const ids = notes.slice(start, start + PAGE_SIZE).map(n => encodeURIComponent(n.id)).join(',');
-    links.push(...await pages(`/rest/v1/app_record_links?${scope}&note_id=in.(${ids})&select=note_id,status,project_id,organization_id,meeting_id,document_id,project:app_spaces(name),organization:app_suborganizations(name),meeting:app_meetings(title,series_name),document:app_documents(title)&order=id.asc`, rt));
+    links.push(...await pages(`/rest/v1/app_record_links?${scope}&note_id=in.(${ids})&select=id,note_id,status,summary,project_id,organization_id,meeting_id,document_id,project:app_spaces(name),organization:app_suborganizations(name),meeting:app_meetings(title,series_name),document:app_documents(title)&order=id.asc`, rt));
   }
   return {notes, links};
 }

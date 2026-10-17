@@ -1,18 +1,21 @@
-// 바구니 연결 해제와 메모 원문 삭제는 조직·프로젝트 상세와 바구니 읽기 화면이 이 모듈 하나로 처리한다.
-// 연결 해제는 기존 owner RLS(record_links_owner_all)로 1행만 지운다. 메모를 지우면
+// 바구니 연결 해제와 메모 원문 삭제는 조직·프로젝트 상세와 바구니 목록·읽기 화면이 이 모듈 하나로 처리한다.
+// 연결 해제는 기존 owner RLS(record_links_owner_all)로 1행만 지운다. 해제 뒤 5초 [되돌리기]는 새 저장 경로 없이
+// 기존 연결 만들기(app_basket_confirm_links)로 같은 곳·같은 요약을 다시 잇는다(BUG-바구니연결해제). 메모를 지우면
 // app_record_links.note_id의 on delete cascade로 그 메모의 연결도 함께 지워진다.
 // 첨부가 있는 메모는 basket-files의 note-delete가 첨부를 Drive 휴지통으로 옮긴 뒤 로그인 사용자 JWT로
 // 메모를 지운다. 서버가 아직 이 동작을 모르면(배포 전 구버전 응답) 지금처럼 REST DELETE로 메모만 지운다.
+import {confirmLinks} from './basket-classification.js?v=9';
+
 const PAGE_SIZE=100;
 const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
 const scope=rt=>{const c=contextFor(rt);return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
 const encode=encodeURIComponent;
 const pending=new Set();
 
-export const DISCONNECT_CONFIRM_TEXT=Object.freeze({
-  organization:'이 조직에서만 빠집니다. 메모는 바구니에 남고, 이 연결에 적은 요약은 사라집니다.',
-  project:'이 프로젝트에서만 빠집니다. 메모는 바구니에 남고, 이 연결에 적은 요약은 사라집니다.',
-});
+// One confirmation for every screen: the place's name, and that the note stays.
+export const disconnectConfirmText=name=>`${String(name||'').trim()||'이'} 연결을 해제할까요? 메모는 남아요`;
+export const disconnectLabel=name=>`${String(name||'').trim()||'이'} 연결 해제`;
+export const UNDO_MS=5000;
 export const RECORD_DELETE_TEXT=Object.freeze({
   DISCONNECT_FAILED:'연결을 해제하지 못했어요. 다시 시도해 주세요.',
   DISCONNECT_MISSING:'이미 해제된 연결이에요. 목록을 다시 불러왔어요.',
@@ -25,6 +28,13 @@ export const RECORD_DELETE_TEXT=Object.freeze({
   NOTE_CHANGED:'메모가 바뀌었어요. 다시 불러온 뒤 확인해 주세요.',
   RESULT_UNKNOWN:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.',
   BUSY:'처리 중이에요. 잠시 기다려 주세요.',
+  DISCONNECTED:'연결을 해제했어요.',
+  RESTORED:'연결을 되돌렸어요.',
+  RESTORE_FAILED:'연결을 되돌리지 못했어요. 메모에서 [연결하기]로 다시 이어 주세요.',
+  RESTORE_NOTE_MISSING:'메모를 찾을 수 없어 연결을 되돌리지 못했어요.',
+  RESTORE_ARCHIVED:'보관된 메모라 연결을 되돌리지 못했어요. 보관을 해제한 뒤 다시 이어 주세요.',
+  RESTORE_AI_EXCLUDED:'AI 제외로 표시된 메모라 연결을 되돌리지 못했어요.',
+  RESTORE_TARGET:'연결했던 곳을 찾거나 고를 수 없어 되돌리지 못했어요.',
 });
 
 export function noteDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
@@ -146,8 +156,77 @@ async function remove(kind,id,{rt,isCurrent,confirmText,write}){
   }finally{pending.delete(key);}
 }
 
-export function disconnectRecordLink(linkId,{kind='organization',rt=window.KPTURuntime,isCurrent=()=>true}={}){
-  return remove('link',linkId,{rt,isCurrent,confirmText:async()=>({text:DISCONNECT_CONFIRM_TEXT[kind]||DISCONNECT_CONFIRM_TEXT.organization})});
+export function disconnectRecordLink(linkId,{name='',rt=window.KPTURuntime,isCurrent=()=>true}={}){
+  return remove('link',linkId,{rt,isCurrent,confirmText:async()=>({text:disconnectConfirmText(name)})});
+}
+
+// Undo re-links the same place with the same summary through the existing confirm-links RPC (owner RLS, INVOKER).
+// The note's current version is read first; one call only, and an unclear result is re-read by the screens' lists.
+const RESTORE_ERROR={NOTE_MISSING:'RESTORE_NOTE_MISSING',NOTE_WORKSPACE:'RESTORE_NOTE_MISSING',NOTE_ARCHIVED:'RESTORE_ARCHIVED',AI_EXCLUDED:'RESTORE_AI_EXCLUDED',
+  TARGET_MISSING:'RESTORE_TARGET',TARGET_WORKSPACE:'RESTORE_TARGET',TARGET_UNSELECTABLE:'RESTORE_TARGET'};
+export async function restoreRecordLink({noteId,kind,targetId,summary=null},{rt=window.KPTURuntime}={}){
+  const key=`restore:${noteId}:${kind}:${targetId}`;
+  if(pending.has(key))return {status:'busy',message:RECORD_DELETE_TEXT.BUSY};
+  if(!noteId||!targetId||!['organization','project'].includes(kind))return {status:'failed',message:RECORD_DELETE_TEXT.RESTORE_FAILED};
+  pending.add(key);
+  const owner=scope(rt),notify=()=>{if(owner===scope(rt))window.dispatchEvent(new Event('kptu:basket-links-changed'));};
+  try{
+    let workspaceId;try{workspaceId=workspaceOf(rt);}catch{return {status:'stale'};}
+    const expectedSessionEpoch=sessionEpoch(rt);
+    let note;
+    try{
+      const rows=await rt.api(`/rest/v1/app_notes?id=eq.${encode(noteId)}&workspace_id=eq.${encode(workspaceId)}&select=id,updated_at`,{expectedSessionEpoch});
+      if(!Array.isArray(rows))throw Error('unexpected');note=rows.find(row=>row.id===noteId);
+    }catch{return {status:'failed',message:RECORD_DELETE_TEXT.RESTORE_FAILED};}
+    if(owner!==scope(rt))return {status:'stale'};
+    if(!note)return {status:'failed',message:RECORD_DELETE_TEXT.RESTORE_NOTE_MISSING};
+    let result;
+    try{result=await confirmLinks(noteId,note.updated_at,[{kind,target_id:targetId,reason:'직접 연결',...(summary===null||summary===undefined?{}:{summary})}],rt);}
+    catch{notify();return owner===scope(rt)?{status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN}:{status:'stale'};}
+    if(result?.ok===true){notify();return owner===scope(rt)?{status:'restored',message:RECORD_DELETE_TEXT.RESTORED}:{status:'stale'};}
+    if(owner!==scope(rt))return {status:'stale'};
+    if(!result||typeof result!=='object'){notify();return {status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN};}
+    return {status:'failed',message:RECORD_DELETE_TEXT[RESTORE_ERROR[result.error]]||RECORD_DELETE_TEXT.RESTORE_FAILED};
+  }finally{pending.delete(key);}
+}
+
+// One undo notice at a time, for 5 seconds. It sits inside the open dialog (if any) so the
+// dialog's focus loop reaches [되돌리기]; the result is said in the same notice.
+let undoBox=null,undoTimer=0;
+export function closeUndoNotice(){clearTimeout(undoTimer);undoTimer=0;undoBox?.remove();undoBox=null;}
+globalThis.window?.addEventListener?.('kptu:session-changed',closeUndoNotice);
+export function offerUndoNotice({text=RECORD_DELETE_TEXT.DISCONNECTED,onUndo,ms=UNDO_MS,doc=globalThis.document}={}){
+  closeUndoNotice();if(!doc||typeof onUndo!=='function')return null;
+  const host=[...doc.querySelectorAll('.modal:not(.hidden)')].at(-1)||doc.body;
+  const box=doc.createElement('div');box.className='kptu-undo-notice';box.dataset.undoNotice='';
+  box.innerHTML='<span role="status" aria-live="polite" data-undo-text></span><button type="button" data-undo-action>되돌리기</button>';
+  const line=box.querySelector('[data-undo-text]'),button=box.querySelector('[data-undo-action]');line.textContent=text;
+  const finish=message=>{if(undoBox!==box)return;button.remove();line.textContent=message;clearTimeout(undoTimer);undoTimer=setTimeout(()=>{if(undoBox===box)closeUndoNotice();},2400);};
+  button.addEventListener('click',async()=>{
+    if(undoBox!==box||button.disabled)return;
+    clearTimeout(undoTimer);button.disabled=true;line.textContent='되돌리는 중…';
+    let result;try{result=await onUndo();}catch{result={status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN};}
+    if(result?.status==='stale'){if(undoBox===box)closeUndoNotice();return;}
+    finish(result?.message||RECORD_DELETE_TEXT.RESULT_UNKNOWN);
+  });
+  host.append(box);undoBox=box;undoTimer=setTimeout(()=>{if(undoBox===box)closeUndoNotice();},ms);
+  return box;
+}
+
+// The four screens' disconnect: one confirmation, one row delete, then 5 seconds to undo.
+// link = {id,note_id,organization_id|project_id,summary}; name = the place's name.
+export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isCurrent=()=>true,onRestored=()=>{}}={}){
+  const result=await disconnectRecordLink(link.id,{name,rt,isCurrent});
+  if(result.status==='deleted'){
+    const owner=scope(rt),kind=link.organization_id?'organization':'project';
+    offerUndoNotice({text:`${String(name||'').trim()||'이'} 연결을 해제했어요. 메모는 남아요.`,onUndo:async()=>{
+      if(owner!==scope(rt))return {status:'stale'};
+      const restored=await restoreRecordLink({noteId:link.note_id,kind,targetId:link[kind+'_id'],summary:link.summary??null},{rt});
+      if(restored.status==='restored')onRestored(restored);
+      return restored;
+    }});
+  }
+  return result;
 }
 
 export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs}={}){

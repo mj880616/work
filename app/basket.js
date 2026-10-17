@@ -1,12 +1,12 @@
 import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
-import { mountQuick } from './home-quick.js?v=18';
-import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=17';
-import { mountClassification } from './basket-classification-ui.js?v=16';
-import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=4';
+import { mountQuick } from './home-quick.js?v=19';
+import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=18';
+import { mountClassification } from './basket-classification-ui.js?v=17';
+import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=5';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest } from './basket-note-tasks.js?v=2';
-import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
-import { mountManualLink } from './basket-manual-link.js?v=7';
+import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js?v=3';
+import { mountManualLink } from './basket-manual-link.js?v=8';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js?v=2';
@@ -232,6 +232,22 @@ function paintHandoffScope(){
   const photos=(selected?[selected]:selectHandoffNotes(notes,links,new Date())).flatMap(note=>note.attachments||[]).filter(file=>String(file.mime_type||'').startsWith('image/'));
   if(photos.length){let stored=false;for(const file of photos){try{stored ||= !!effectiveOcrText(file);}catch{/* Copy validation will refuse malformed OCR. */}}handoffLine.textContent+=stored?' 저장된 사진 속 글자도 함께 분류 요청합니다.':'사진 속 글자는 아직 저장되지 않았습니다.';}
 }
+// UI-디자인손질 6: each confirmed link is a colored-dot chip. BUG-바구니연결해제: organization and project
+// chips get × (disconnect, 44px target); on the note screen the chip itself opens that place.
+// Meeting and library chips stay plain: their links cannot be put back by the existing link path.
+const chipKinds=[['project','프로젝트'],['organization','담당조직'],['meeting','회의'],['document','자료실']];
+const confirmedLinks = noteId => links.filter(l => l.note_id === noteId && l.status === 'confirmed');
+function chipInfo(link) {
+  const [kind, label] = chipKinds.find(([key]) => link[key + '_id']) || ['other', '연결'];
+  return {kind, label, name: link[kind]?.name || link[kind]?.title || link[kind]?.series_name || '연결 대상 없음', removable: !!link.id && (kind === 'organization' || kind === 'project')};
+}
+function linkChip(link, {open = false} = {}) {
+  const {kind, label, name, removable} = chipInfo(link);
+  const body = `<span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">${esc(label)}: </span>${esc(name)}`;
+  const main = open && removable ? `<button type="button" class="basket-chip-open" data-basket-chip-open="${esc(link.id)}">${body}</button>` : `<span class="basket-chip-name">${body}</span>`;
+  const remove = removable ? `<button type="button" class="basket-chip-x" data-basket-unlink="${esc(link.id)}" aria-label="${esc(disconnectLabel(name))}"><span aria-hidden="true">×</span></button>` : '';
+  return `<span class="basket-chip" data-chip-kind="${esc(kind)}"${removable ? ` data-basket-chip="${esc(link.id)}"` : ''}>${main}${remove}</span>`;
+}
 function renderList() {
   paintHandoffScope();
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
@@ -240,7 +256,9 @@ function renderList() {
     const state = noteState(note, links);
     const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
     const title=lines[0]||(file?`${String(file.mime_type||'').startsWith('image/')?'사진':'파일'} · ${file.file_name||'첨부'}`:'메모');
-    return `<button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${stateLabel(state.status)}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${state.destinations.map(d => `<span class="basket-destination">${esc(d)}</span>`).join('')}</button>`;
+    // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
+    const chips = confirmedLinks(note.id).map(link => linkChip(link)).join('');
+    return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${stateLabel(state.status)}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span></button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
   }).join('');
   listStatus.textContent = visible.length ? `${visible.length}개 메모` : '아직 메모가 없어요';
   listStatus.toggleAttribute('data-basket-empty', !visible.length);
@@ -263,16 +281,9 @@ function closeDetail({focus = true, force = false, cleanAddress = true} = {}) {
   const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; listHead.hidden = false;paintHandoffScope();
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
 }
-// UI-디자인손질 6: one line under the text — each confirmed link as a colored-dot chip (or the state when
-// there is none), then the date. The stored write_request metadata is kept as is and no longer shown.
-const chipKinds=[['project','프로젝트'],['organization','담당조직'],['meeting','회의'],['document','자료실']];
 function paintStateLine() {
   const state = noteState(selected, links), box = detail.querySelector('[data-basket-state]');
-  const chips = links.filter(l => l.note_id === selected.id && l.status === 'confirmed').map(link => {
-    const [kind, label] = chipKinds.find(([key]) => link[key + '_id']) || ['other', '연결'];
-    const name = link[kind]?.name || link[kind]?.title || link[kind]?.series_name || '연결 대상 없음';
-    return `<span class="basket-chip" data-chip-kind="${esc(kind)}"><span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">${esc(label)}: </span>${esc(name)}</span>`;
-  });
+  const chips = confirmedLinks(selected.id).map(link => linkChip(link, {open:true}));
   box.innerHTML = chips.length ? `<span class="a11y-only">${esc(stateLabel(state.status))}: </span>${chips.join('')}` : `<span class="basket-state-text">${esc(stateLabel(state.status))}</span>`;
 }
 function paintDetailState() {
@@ -534,7 +545,9 @@ root.addEventListener('click', e => {
   if (b.hasAttribute('data-basket-read-raw')) { rawView = !rawView; paintReadText(); return; }
   if (b.hasAttribute('data-chatgpt-request-copy')) { void copyChatgptRequest(); return; }
   if (busy) return;
-  if (b.hasAttribute('data-handoff-copy')) requestClassification();
+  if (b.hasAttribute('data-basket-unlink')) void unlinkChip(b.dataset.basketUnlink);
+  else if (b.hasAttribute('data-basket-chip-open')) void openChipPlace(b.dataset.basketChipOpen);
+  else if (b.hasAttribute('data-handoff-copy')) requestClassification();
   else if(b.hasAttribute('data-basket-library-send'))void sendToLibrary(b.dataset.basketLibrarySend);
   else if(b.hasAttribute('data-basket-hwp-edit'))openHwpEditor(b.dataset.basketHwpEdit);
   else if(b.hasAttribute('data-basket-ocr-read'))void runOcr('read',b.dataset.basketOcrRead);
@@ -561,6 +574,57 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-reload')) void reloadDetail();
   else if (b.hasAttribute('data-basket-delete')) void deleteSelected();
   else if (b.hasAttribute('data-basket-archive')) void patch({archived_at:selected.archived_at ? null : new Date().toISOString()}, selected.archived_at ? '보관을 해제했습니다.' : '보관했습니다.');
+});
+// BUG-바구니연결해제: × on a chip — one confirmation, one owner-RLS row delete (basket-record-delete.js),
+// then 5 seconds to undo. The shared event re-reads this list and the open detail screens.
+const unlinking = new Set();
+async function unlinkChip(linkId) {
+  const link = links.find(l => l.id === linkId); if (!link || unlinking.has(linkId)) return;
+  const {name} = chipInfo(link), owner = scope(), noteId = link.note_id, inDetail = selected?.id === noteId;
+  const say = message => { const box = inDetail && selected?.id === noteId ? detail.querySelector('[data-basket-status]') : listStatus; if (box) box.textContent = message || ''; };
+  const button = () => root.querySelector(`[data-basket-unlink="${CSS.escape(linkId)}"]`);
+  unlinking.add(linkId); if (button()) button().disabled = true;
+  let result;
+  try { result = await disconnectWithUndo(link, {name, rt, isCurrent: () => owner === scope()}); }
+  catch { result = {status:'unknown', message:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.'}; }
+  finally { unlinking.delete(linkId); }
+  if (owner !== scope() || result.status === 'stale') return;
+  if (['deleted', 'missing'].includes(result.status)) {
+    // Focus stays on the same note: its next chip, else the row (list) or the text (note screen).
+    links = links.filter(l => l.id !== linkId); renderList();
+    if (selected?.id === noteId) paintStateLine();
+    const scopeBox = selected?.id === noteId ? detail.querySelector('[data-basket-state]') : root.querySelector(`[data-basket-row-item="${CSS.escape(noteId)}"]`);
+    (scopeBox?.querySelector('[data-basket-unlink]') || (selected?.id === noteId ? detail.querySelector('[data-basket-read-text]') : root.querySelector(`[data-basket-row="${CSS.escape(noteId)}"]`)))?.focus();
+    if (result.status === 'missing') say(result.message);
+    return;
+  }
+  if (button()) { button().disabled = false; button().focus(); }
+  if (result.status !== 'cancelled') say(result.message);
+}
+// Note screen chip: open that organization or project over the basket, as home does.
+async function openChipPlace(linkId) {
+  const link = links.find(l => l.id === linkId); if (!link) return;
+  const project = !!link.project_id;
+  try {
+    await window.KPTUViewLoader.load(project ? 'projects' : 'team');
+    await (project ? window.KPTUProjects.open(link.project_id) : window.KPTUWorkplace.open(link.organization_id));
+  } catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = project ? '프로젝트를 열지 못했어요. 다시 시도해 주세요.' : '담당조직을 열지 못했어요. 다시 시도해 주세요.'; }
+}
+// Another screen (or this one) changed links: re-read them only, keeping any open note and its drafts.
+let linkReadRun = 0;
+window.addEventListener('kptu:basket-links-changed', async () => {
+  if (window.KPTURouter.current !== 'basket') return;
+  const run = ++linkReadRun, owner = scope();
+  try {
+    const result = await readBasket();
+    if (run !== linkReadRun || owner !== scope()) return;
+    // A repaint keeps focus on the same row or chip (or that note's row when its chip is gone).
+    const active = root.contains(document.activeElement) ? document.activeElement : null;
+    const attr = active && ['data-basket-row', 'data-basket-unlink', 'data-basket-chip-open'].find(name => active.hasAttribute(name));
+    const value = attr && active.getAttribute(attr), noteId = active?.closest('[data-basket-row-item]')?.dataset.basketRowItem;
+    links = result.links; renderList(); if (selected) paintStateLine();
+    if (attr && !active.isConnected) (root.querySelector(`[${attr}="${CSS.escape(value)}"]`) || (noteId && root.querySelector(`[data-basket-row="${CSS.escape(noteId)}"]`)) || (selected && detail.querySelector('[data-basket-read-text]')))?.focus({preventScroll:true});
+  } catch {}
 });
 function openHwpEditor(fileId){
   const file=selected?.attachments?.find(item=>item.drive_file_id===fileId);

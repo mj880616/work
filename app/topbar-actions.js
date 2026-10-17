@@ -230,7 +230,7 @@ async function openWriter(){
   writerOpening=true;
   try{
     const owner=window.KPTURuntime?.session?.read?.()?.user?.id;
-    const [{openMarkdownEditor},{createNote}]=await Promise.all([import('./md-editor.js?v=2'),import('./basket-data.js?v=4'),window.KPTUViewLoader?.prepare?.('basket')]);
+    const [{openMarkdownEditor},{createNote}]=await Promise.all([import('./md-editor.js?v=2'),import('./basket-data.js?v=5'),window.KPTUViewLoader?.prepare?.('basket')]);
     if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
     let saved=false;
     openMarkdownEditor({text:writeDraft,title:'쓰기',save:{label:'저장',aria:'바구니에 새 메모로 저장',run:async text=>{
