@@ -1,6 +1,6 @@
-@import url('./list-row.css?v=1');
+@import url('./list-row.css');
 /* Web2 single-render startup + Project System V3. Feature layout only; visual primitives use Design System tokens. */
-.brand .leaf{width:40px!important;height:36px!important;border:0!important;border-radius:var(--kptu-radius-md)!important;background:transparent url('./app-icon.svg?v=20261016-frame1') center/36px 36px no-repeat!important;color:transparent!important;font-size:0!important;overflow:hidden}
+.brand .leaf{width:40px!important;height:36px!important;border:0!important;border-radius:var(--kptu-radius-md)!important;background:transparent url('./app-icon.svg') center/36px 36px no-repeat!important;color:transparent!important;font-size:0!important;overflow:hidden}
 #projectGrid[data-ps3-ready="1"]{display:grid}
 /* D-project-list: shared row geometry, always-visible indented children. */
 .ps3-plist{grid-column:1/-1;min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface);overflow:hidden}

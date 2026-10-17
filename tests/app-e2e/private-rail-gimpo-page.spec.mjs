@@ -54,7 +54,7 @@ test('9호선 1단계 행감 하위페이지는 독립 문서·상위 복귀·�
 test('공개페이지 편집기는 Google 관리자 인증과 서버 RLS 권한검증을 사용한다', async () => {
   const editor=await read('app/public-page-editor.js');
   const auth=await read('app/web1-admin-auth.js');
-  expect(editor).toContain("ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js?v=1'");
+  expect(editor).toContain("ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js'");
   expect(editor).toContain('window.KPTUWeb1AdminAuth');
   expect(editor).toContain("'/functions/v1/public-page-edit'");
   expect(editor).not.toContain('window.KPTURuntime');

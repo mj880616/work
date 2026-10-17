@@ -65,8 +65,8 @@ body.auth-ok .auth-gate{display:none}
 @media(max-width:650px){.auth-box{padding:24px 20px}.auth-field{display:grid;grid-template-columns:minmax(0,1fr) auto}.wrap{padding:16px 12px 50px}.hero{padding:25px 21px}.hero h1{font-size:27px}.grid{grid-template-columns:1fr}.section-title{margin-top:23px;align-items:center}.archive-head{margin-top:23px}.archive-toggle strong{font-size:20px}.archive-move{font-size:10px;padding-left:6px}}
 </style>
 <meta property="og:type" content="website"><meta property="og:locale" content="ko_KR"><meta property="og:title" content="웹1"><meta property="og:url" content="https://mj880616.github.io/work/"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="웹1">
-<link rel="icon" href="/work/favicon.svg?v=20260919-unicorn1" type="image/svg+xml"><link rel="shortcut icon" href="/work/favicon.svg?v=20260919-unicorn1">
-<link rel="stylesheet" href="/work/assets/web1-design-lite.css?v=1">
+<link rel="icon" href="/work/favicon.svg" type="image/svg+xml"><link rel="shortcut icon" href="/work/favicon.svg">
+<link rel="stylesheet" href="/work/assets/web1-design-lite.css">
 
 <style>
 /* Main workboard hierarchy pilot */
@@ -120,4 +120,4 @@ async function moveProject(card){const archived=card.dataset.archived!=='true',b
 projectCards.forEach(card=>card.addEventListener('click',e=>{if(e.target.closest('.archive-move')){e.preventDefault();e.stopPropagation();moveProject(card);return}location.href=card.dataset.href}));
 archiveToggle.addEventListener('click',()=>{const open=!archiveWrap.classList.contains('open');archiveWrap.classList.toggle('open',open);archiveToggle.setAttribute('aria-expanded',String(open));archiveToggleText.textContent=open?'숨기기 ▴':'펼치기 ▾'});
 loadProjectArchiveState();
-</script><script src="/work/assets/rich-copy.js?v=1"></script></body></html>
+</script><script src="/work/assets/rich-copy.js"></script></body></html>

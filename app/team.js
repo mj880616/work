@@ -1,7 +1,7 @@
-import {renderFilterChips} from './filter-chips.js?v=2';
-import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js?v=2';
-import './time-input.js?v=1';
-import {fileLine,bindDropTarget} from './meeting-compact.js?v=1';
+import {renderFilterChips} from './filter-chips.js';
+import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js';
+import './time-input.js';
+import {fileLine,bindDropTarget} from './meeting-compact.js';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const SESSION_KEY='kptu_collab_session_v1';

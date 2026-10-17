@@ -55,7 +55,7 @@ async function readSummaries(){
  const updateRead=async()=>{
   // Reuse the owner/workspace-checked confirmed note reader. Both sources
   // must succeed before publishing a latest date; neither write time is used.
-  const {readLinkRecords}=await import('./basket-link-records.js?v=7');
+  const {readLinkRecords}=await import('./basket-link-records.js');
   const latest=new Map();
   const newer=row=>{const at=Date.parse(row.occurred_at);if(ids.includes(row.organization_id)&&Number.isFinite(at)&&(!latest.has(row.organization_id)||at>Date.parse(latest.get(row.organization_id))))latest.set(row.organization_id,row.occurred_at);};
   const legacy=async()=>{

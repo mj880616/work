@@ -1,11 +1,11 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import {serveBuiltShell,shellVersion} from './helpers/built-shell.mjs';
 
 const origin='http://127.0.0.1:8123';
-const html=readFileSync('app/index.html','utf8');
-const current=Number(html.match(/src="\.\/app\.js\?v=(\d+)"/)[1]);
+const current=shellVersion;
 async function boot(page,{connected=false}={}){
+  await serveBuiltShell(page,origin);
   const user={id:'version-user',email:'version@example.org'},workspace={id:'version-workspace',name:'QA',slug:'qa'};
   let streamTitle='QA stream';
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**',route=>{

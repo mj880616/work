@@ -29,7 +29,7 @@ test('real generic template has managed metadata markers and stays noindex',()=>
   assert.match(shell,/<link rel="canonical" href="https:\/\/mj880616.github.io\/work\/p\/bus-strike-publicness-internal-archive-202609\/">/);
   assert.match(shell,/<meta property="og:title"/);
   assert.match(shell,/<meta name="twitter:title"/);
-  assert.match(shell,/src="\.\.\/public-post\.js\?v=3"/);
+  assert.match(shell,/src="\.\.\/public-post\.js"/);
 });
 
 test('every private rail HTML entry has a noindex directive',()=>{
@@ -235,14 +235,15 @@ test('small title design is compact and does not split Korean words',()=>{
 });
 
 test('managed custom shell keeps legacy body and scripts while metadata is refreshed',()=>{
-  const template='<!doctype html><html><head><title>generic</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body>generic body<script src="../app/public-page-editor.js?v=5"></script></body></html>';
+  const template='<!doctype html><html><head><title>generic</title><!-- PUBLIC_PAGE_META_START --><!-- PUBLIC_PAGE_META_END --></head><body>generic body<script src="../app/public-page-editor.js"></script></body></html>';
   const existing='<!doctype html><html><head><title>old title</title><meta name="description" content="old summary"><meta name="robots" content="noindex,nofollow"><link rel="canonical" href="https://old.example/"><meta property="og:title" content="old title"><meta property="og:description" content="old summary"><meta property="og:url" content="https://old.example/"></head><body><nav id="custom-nav">custom nav</nav><script src="/work/custom.js?v=9"></script><script src="../../app/public-page-editor.js?v=4"></script></body></html>';
   const next={...page,title:'새 제목',summary:'새 요약'};
   const html=renderManagedShell(template,existing,next,{site:SITE,preserveExisting:true});
   assert.match(html,/id="custom-nav">custom nav/);
   assert.match(html,/src="\/work\/custom\.js\?v=9"/);
-  assert.match(html,/src="\.\.\/\.\.\/app\/public-page-editor\.js\?v=5"/);
-  assert.doesNotMatch(html,/public-page-editor\.js\?v=4/);
+  // A hand-written editor ?v= from before CI-버전자동화 3단계 is dropped; the Pages build adds one.
+  assert.match(html,/src="\.\.\/\.\.\/app\/public-page-editor\.js"/);
+  assert.doesNotMatch(html,/public-page-editor\.js\?v=/);
   assert.match(html,/<title>새 제목<\/title>/);
   assert.match(html,/PUBLIC_PAGE_META_START/);
   assert.match(html,/<meta property="og:title" content="새 제목">/);

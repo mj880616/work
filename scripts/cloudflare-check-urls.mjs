@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Reads the release chain from a Pages tree: the checkout (branch deployment) by default, or
-// the build-pages.mjs output folder given as the only argument (GitHub Actions deployment).
-const [root = '.', ...extra] = process.argv.slice(2);
+// Reads the release chain from the build-pages.mjs output folder given as the only argument (what
+// GitHub Pages serves). The checkout has no ?v= since CI-버전자동화 3단계, so it is refused.
+const [root, ...extra] = process.argv.slice(2);
 
 // Keep the order in sync with Verify production routes' read command.
 const references = [
@@ -15,7 +15,7 @@ const references = [
 ];
 
 try {
-  if (extra.length) throw new Error('usage: node scripts/cloudflare-check-urls.mjs [pages-tree]');
+  if (!root || extra.length) throw new Error('usage: node scripts/cloudflare-check-urls.mjs <pages-build-output>');
   const urls = references.map(([file, asset, prefix]) => {
     const source = readFileSync(resolve(root, file), 'utf8');
     const escapedAsset = asset.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

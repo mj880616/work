@@ -32,8 +32,8 @@
   <div class="print-actions"><button id="editPageBtn" class="print-btn hidden" type="button">수정</button><button id="printPageBtn" class="print-btn" type="button">인쇄 / PDF</button></div>
 </div>
 <main class="wrap"><article id="paper" class="paper"><div class="error">불러오는 중…</div></article></main>
-<script src="../../app/page-design-core.js?v=3"></script>
-<script src="../../app/public-page-editor.js?v=11"></script>
+<script src="../../app/page-design-core.js"></script>
+<script src="../../app/public-page-editor.js"></script>
 <script>
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const LABEL={article:'ARTICLE · 업무자료',notice:'NOTICE · 알림',status:'STATUS UPDATE · 업무현황',event:'EVENT · 행사 안내',brief:'POLICY BRIEF · 정책 브리핑'};
@@ -55,5 +55,5 @@ window.KPTURenderPublicPage=render;
 async function run(){const slug=document.querySelector('meta[name="kptu-page-slug"]')?.content?.trim();const url=SB+'/rest/v1/rpc/app_public_post';const r=await fetch(url,{method:'POST',cache:'no-store',headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},body:JSON.stringify({p_slug:slug})}),d=await r.json();if(!r.ok||!d.length){document.querySelector('#paper').innerHTML='<div class="error">공개된 페이지를 찾을 수 없습니다.</div>';return}render(d[0],false)}
 run().catch(()=>document.querySelector('#paper').innerHTML='<div class="error">페이지를 불러오지 못했습니다.</div>');
 </script>
-<script src="/work/app/web1-page-capabilities.js?v=2"></script>\n<script src="/work/app/web1-admin-auth.js?v=2"></script>\n\n</body>
+<script src="/work/app/web1-page-capabilities.js"></script>\n<script src="/work/app/web1-admin-auth.js"></script>\n\n</body>
 </html>

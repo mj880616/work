@@ -1,18 +1,18 @@
 (async()=>{
   const startup=window.__KPTU_STARTUP__;
   startup?.mark('loaderStart');
-  const runtimeReady=import('./runtime-client.js?v=9');
+  const runtimeReady=import('./runtime-client.js');
   await Promise.all([
-    import('./native-auth-bridge.js?v=5'),
-    import('./calendar-return-bridge.js?v=3')
+    import('./native-auth-bridge.js'),
+    import('./calendar-return-bridge.js')
   ]);
   if(window.__KPTU_NATIVE_BRIDGE__||window.__KPTU_CALENDAR_BRIDGE__)return;
   await runtimeReady;
   // Scrub/finish a handoff before OAuth bootstrap can inspect mixed URL input.
-  await import('./auth-handoff-client.js?v=2');
+  await import('./auth-handoff-client.js');
   await Promise.all([
-    import('./auth-bootstrap.js?v=1'),
-    import('./auth-service.js?v=2')
+    import('./auth-bootstrap.js'),
+    import('./auth-service.js')
   ]);
 
   const lockPrivateUi=()=>{
@@ -87,13 +87,13 @@
     location.reload();
   });
   await Promise.all([
-    import('./action-labels.js?v=2'),
-    import('./app-router.js?v=21'),
-    import('./accessibility-dialog.js?v=4'),
-    import('./native-back-guard.js?v=4'),
-    import('./session-resilience.js?v=6'),
-    import('./capabilities.js?v=3'),
-    import('./pwa.js?v=6')
+    import('./action-labels.js'),
+    import('./app-router.js'),
+    import('./accessibility-dialog.js'),
+    import('./native-back-guard.js'),
+    import('./session-resilience.js'),
+    import('./capabilities.js'),
+    import('./pwa.js')
   ]);
   document.body?.classList.remove('kptu-session-pending');
   const bootView=document.querySelector('#bootView');
@@ -115,8 +115,8 @@
       .catch(error=>{startup?.mark('workspacePrefetchFailed');startup?.mark('membershipCheckFailed');return {ok:false,error}});
   }
   await Promise.all([
-    import('./topbar-actions.js?v=28'),
-    import('./team.js?v=70')
+    import('./topbar-actions.js'),
+    import('./team.js')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
   delete window.__KPTU_AUTHENTICATED_BOOT_SESSION__;
@@ -125,9 +125,9 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
-  await import('./drive-summary.js?v=5');
+  await import('./drive-summary.js');
 
-  const mobileNavigationReady=import('./mobile-swipe-navigation.js?v=8').catch(err=>{console.error('mobile navigation load failed',err);return null});
+  const mobileNavigationReady=import('./mobile-swipe-navigation.js').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{
     console.error('view feature load failed',err);
     let box=document.querySelector('#deferredFeatureError');
@@ -135,7 +135,7 @@
     box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
   };
 
-  await import('./view-loader.js?v=183');
+  await import('./view-loader.js');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
   const rawRequested=params.get('view')||(params.get('project')?'projects':'home');
@@ -190,10 +190,10 @@
     showFeatureError(err);
     startup?.mark('requestedViewFailed',{view:requested});
   }
-  const {startVersionNotice}=await import('./version-notice.js?v=2');
+  const {startVersionNotice}=await import('./version-notice.js');
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
-  import('./mobile-modal-history.js?v=3').catch(()=>{});
+  import('./mobile-modal-history.js').catch(()=>{});
   const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
   await mobileNavigationReady;
 })().catch(err=>{

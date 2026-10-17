@@ -10,7 +10,7 @@ test('Web1 편집 인증은 폐기된 비밀번호 복구 대신 Google OAuth를
  expect(auth).toContain('/auth/v1/authorize?provider=google');
  expect(auth).not.toContain('/auth/v1/recover');
  expect(auth).not.toContain('grant_type=password');
- expect(editor).toContain('web1-admin-auth.js?v=1');
+ expect(editor).toContain('web1-admin-auth.js');
  expect(editor).not.toContain('public-page-auth.js');
 });
 

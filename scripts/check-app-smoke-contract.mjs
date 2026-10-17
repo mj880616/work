@@ -76,15 +76,12 @@ function htmlResources(source) {
 }
 
 export function checkAppSmokeContract(files) {
-  const errors = [], versions = new Map();
+  const errors = [];
   const js = Object.fromEntries(sourceFiles.filter(name => name.endsWith('.js')).map(name => [name, javascript(files[name])]));
+  // The repository writes the exact path; the Pages build adds the content-hash ?v=.
   function url(raw, name, owner) {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = typeof raw === 'string' && raw.match(new RegExp(`^\\./${escaped}\\?v=([1-9]\\d*)$`));
-    if (!match) { errors.push(`${owner}: ${name} requires an exact local path and one positive integer cache version`); return; }
+    if (raw !== `./${name}`) { errors.push(`${owner}: ${name} requires the exact local path ./${name} without ?v= or other query`); return; }
     if (!Object.hasOwn(files, `app/${name}`)) errors.push(`${owner}: ${name} target missing`);
-    if (!versions.has(name)) versions.set(name, new Set());
-    versions.get(name).add(match[1]);
   }
   function required(refs, name, owner, ready) {
     const matches = refs.filter(ref => resourceName(ref.raw) === name);
@@ -140,7 +137,6 @@ export function checkAppSmokeContract(files) {
     const raw = item.attributes.href;
     if (item.tag === 'link' && ['preload', 'stylesheet'].includes(item.attributes.rel) && raw?.startsWith('./') && resourceName(raw).endsWith('.css')) url(raw, resourceName(raw), 'app/index.html');
   }
-  for (const [name, values] of versions) if (values.size !== 1) errors.push(`${name}: cache version mismatch across operational references (${[...values].join(', ')})`);
   return { errors: [...new Set(errors)] };
 }
 

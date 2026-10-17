@@ -10,9 +10,11 @@
 4. `runtime-client.js`, `app-router.js` 등 공용 코어
 5. 기능 모듈
 
-`index.html`은 캐시 버전을 가진 `app.js`만 직접 로드함. 기능 모듈 추가·삭제는 원칙적으로 `loader-v2.js`에서 관리함.
+`index.html`은 `app.js`만 직접 로드함. 기능 모듈 추가·삭제는 원칙적으로 `loader-v2.js`에서 관리함.
 
-`desk.bokdoong.com`의 Cloudflare Worker(`cloudflare/bokdoong-router.mjs`)는 `?v=` 파일의 내용이 `app/asset-manifest.json`(해당 `?v=` 값과 SHA-256)과 같을 때만 엣지에 보관하고 브라우저에 1년 `immutable`로 보냄. 다르면(배포 전파 중 옛 내용 등) `no-cache`로 보내고 보관하지 않음. 목록은 `node scripts/asset-manifest.mjs`로 만들며 CI가 최신인지 검사함.
+캐시 버전(CI-버전자동화 3단계): 저장소의 HTML·JS·CSS는 번호 없는 경로로 서로를 부르고 `?v=`를 손으로 쓰지 않음. GitHub Pages 배포 빌드(`.github/workflows/pages-deploy.yml` → `scripts/build-pages.mjs`)가 저장소 안 파일을 가리키는 정적 경로마다 그 파일 최종 내용의 SHA-256 앞 10자를 `?v=`로 붙임. 잎부터 계산하므로 기능 모듈이 바뀌면 `view-loader.js` → `loader-v2.js` → `app.js` → `index.html`의 해시가 차례로 바뀜. 빌드가 건드리지 않는 것: `${…}`가 든 동적 경로, 저장소 밖 주소·저장소에 없는 파일, 폴더 이름에 판 번호가 든 외부 라이브러리(`hwp-lab/rhwp-0.8.7/`, `markdown-lib/mermaid-11.17.2/` 등) 안쪽, 스크립트가 읽는 JSON 자료(`press/archive.json`), JSON 파일 안의 주소(`windows-manifest.json`의 아이콘). JS 안 문자열이 저장소 파일 경로와 같으면(예: `'./app.js'`) 빌드가 그 문자열에도 `?v=`를 붙이므로, 경로 문자열을 비교·표시용으로 쓰지 않음. 저장소 소스에 손으로 쓴 `?v=`는 CI(`scripts/check-loader-cache.mjs`)가 막음.
+
+`desk.bokdoong.com`의 Cloudflare Worker(`cloudflare/bokdoong-router.mjs`)는 `?v=` 파일의 내용이 `app/asset-manifest.json`(해당 `?v=` 값과 SHA-256)과 같을 때만 엣지에 보관하고 브라우저에 1년 `immutable`로 보냄. 다르면(배포 전파 중 옛 내용 등) `no-cache`로 보내고 보관하지 않음. 목록은 배포 빌드가 같은 결과물에서 만들며 저장소에는 없음(`scripts/check-pages-build.mjs`가 해시·목록·Worker 판정을 검사함).
 
 이미 옛 내용을 `immutable`로 받아 둔 브라우저는 다시 묻지 않으므로, Worker는 Web2 페이지(HTML) 응답에 브라우저마다 한 번 `Clear-Site-Data: "cache"`를 붙여 HTTP 캐시를 비우게 함(쿠키 `kptu_cache_epoch`로 한 번만). 다시 전체를 비워야 하면 Worker의 `CACHE_EPOCH`를 바꿔 배포함(§6 정지 지점).
 

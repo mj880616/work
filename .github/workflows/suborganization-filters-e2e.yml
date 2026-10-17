@@ -57,11 +57,11 @@ jobs:
           test ! -f app/suborganization-filters.js
           test ! -f app/suborganization-filters.css
           test ! -f app/suborganization-planned-assignee.js
-          grep -Fq "suborganizations.js?v=33" app/view-loader.js
+          grep -Fq "module('./suborganizations.js'" app/view-loader.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/view-loader.js
-          grep -Fq "workplace-detail.js?v=27" app/view-loader.js
-          grep -q "suborganizations.css?v=11" app/styles.css
-          grep -q "workplace-detail.css?v=10" app/styles.css
+          grep -Fq "module('./workplace-detail.js')" app/view-loader.js
+          grep -Fq "@import url('./suborganizations.css');" app/styles.css
+          grep -Fq "@import url('./workplace-detail.css');" app/styles.css
           if grep -q "suborganization-filters.js" app/loader-v2.js app/view-loader.js; then echo 'removed assigned-organization filter module returned'; exit 1; fi
           if grep -q "suborganization-filters.css" app/styles.css; then echo 'removed assigned-organization filter styles returned'; exit 1; fi
           grep -q "default_assignee_name" app/suborganizations.js

@@ -1,4 +1,4 @@
-import {effectiveOcrText, OCR_LIMITS} from './basket-ocr-text.mjs?v=1';
+import {effectiveOcrText, OCR_LIMITS} from './basket-ocr-text.mjs';
 
 // Source-controlled only. Production callers never supply enabled:true.
 export const BASKET_OCR_ENABLED = true;

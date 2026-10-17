@@ -1,5 +1,5 @@
-import {createAnchoredMenu} from './anchored-menu.js?v=1';
-import {dueText,bindDue,paintDue} from './meeting-compact.js?v=1';
+import {createAnchoredMenu} from './anchored-menu.js';
+import {dueText,bindDue,paintDue} from './meeting-compact.js';
 let twUser=null,twBound=false;
 const twRuntime=()=>window.KPTURuntime;
 async function twApi(path,options={}){const rt=twRuntime();if(!rt?.api)throw new Error('공용 런타임을 불러오지 못했습니다.');return rt.api(path,options)}

@@ -14,7 +14,7 @@
 <meta name="twitter:description" content="공공운수노조 산하 미전환 노동조합의 산별전환 관련 활동 경과와 현재 상황, 향후 과제를 한 곳에서 점검하기 위함.">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <link rel="canonical" href="https://mj880616.github.io/work/sanbyeol/">
-<link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
+<link rel="icon" href="/work/favicon.svg" type="image/svg+xml">
 <style>
 :root{--bg:#f4f6f8;--paper:#fff;--ink:#17202b;--muted:#667383;--line:#dfe5eb;--navy:#193653;--blue:#315e91;--green:#28704b;--red:#8a4650}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.58}
@@ -37,7 +37,7 @@
 .hero .btn-edit,.hero .btn-delete{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff}.hidden-item{display:none!important}.summary-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.42);display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999}.summary-modal{width:min(520px,100%);background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.22);padding:20px}.summary-modal h3{margin:0 0 16px;font-size:18px}.summary-modal label{display:block;font-size:12px;font-weight:800;color:#536171;margin:12px 0 6px}.summary-modal input,.summary-modal textarea{width:100%;border:1px solid #ccd5df;border-radius:9px;padding:10px 11px;font:inherit;color:var(--ink);background:#fff}.summary-modal textarea{min-height:140px;resize:vertical;white-space:pre-wrap}.summary-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.summary-modal-actions button{border:1px solid #ccd5df;background:#fff;border-radius:8px;padding:8px 13px;font-size:12px;font-weight:800;cursor:pointer}.summary-modal-actions .save{background:var(--navy);border-color:var(--navy);color:#fff}.timeline-add-wrap{padding:0 19px 16px;display:flex;justify-content:flex-end}.timeline-add{border:1px solid #cbd5df;background:#f8fafc;color:var(--navy);border-radius:8px;padding:7px 11px;font-size:11px;font-weight:800;cursor:pointer}.timeline-add:hover{background:#eef3f7}
 @media(max-width:760px){.wrap{padding:15px 11px 50px}.hero{padding:24px 20px}.hero h1{font-size:27px}.summary{grid-template-columns:1fr 1fr}.edu-grid{grid-template-columns:1fr}.box.full{grid-column:auto}.row{grid-template-columns:58px minmax(0,1fr);gap:8px}.row .edit-tools{grid-column:2;justify-self:end}.org-title{padding-right:0;align-items:flex-start}.org-title .status{margin-right:0}.org-head p{padding-right:78px}.edu-head .meta,.edu-head h3,.edu-head p{padding-right:0}.edu-head h3,.edu-head p{margin-right:72px}.box ul{padding-right:0;margin-right:56px}.sum small{padding-right:0;margin-right:56px}.source{padding-right:80px}}
 </style>
-<link rel="stylesheet" href="/work/assets/web1-design-lite.css?v=1">
+<link rel="stylesheet" href="/work/assets/web1-design-lite.css">
 
 <style>
 /* Sanbyeol editorial hierarchy pilot */
@@ -178,4 +178,4 @@ async function deleteEl(el){if(getPw()===null)return;if(!confirm('이 내용을 
 async function load(){document.querySelectorAll('.editable').forEach(tools);addScheduleButtons();try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)return;const rows=await r.json();if(!Array.isArray(rows))return;rows.forEach(x=>{const k=String(x.item_key||'');if(!k.startsWith('san_'))return;const key=k.slice(4);const el=document.querySelector('[data-key="'+CSS.escape(key)+'"]');if(el)applyValue(el,x.value);else loadDynamicRow(key,x.value)})}catch(e){console.error(e)}}
 load();
 </script>
-<script src="/work/assets/rich-copy.js?v=1"></script><script src="/work/app/web1-page-capabilities.js?v=2"></script>\n<script src="/work/app/web1-admin-auth.js?v=2"></script>\n\n</body></html>
+<script src="/work/assets/rich-copy.js"></script><script src="/work/app/web1-page-capabilities.js"></script>\n<script src="/work/app/web1-admin-auth.js"></script>\n\n</body></html>

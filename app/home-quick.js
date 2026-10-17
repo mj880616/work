@@ -1,10 +1,10 @@
-import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
-import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
-import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=2';
-import { createNote, validateNoteText } from './basket-data.js?v=8';
-import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=7';
-import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs?v=1';
-import { dayKey } from './home-read-model.js?v=3';
+import {basketOcrFor} from './basket-ocr-runtime.js';
+import { createChoiceSheet, projectRows } from './choice-sheet.js';
+import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js';
+import { createNote, validateNoteText } from './basket-data.js';
+import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js';
+import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
+import { dayKey } from './home-read-model.js';
 
 export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, view="home", idPrefix="home", onSaved=()=>{}}) {
   const box=root.querySelector('.home-quick-placeholder');

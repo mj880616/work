@@ -31,9 +31,9 @@ test('anonymous workspace shell stays hidden until the dedicated login is ready'
   // UI-디자인손질 7: the SVG favicon first, a 32px PNG as a fallback for browsers without SVG favicons.
   await expect(page.locator('link[rel="icon"]')).toHaveCount(2);
   const favicon = await page.locator('link[rel="icon"][type="image/svg+xml"]').getAttribute('href');
-  expect(favicon).toBe('./app-icon.svg?v=20261016-frame1');
+  expect(favicon).toBe('./app-icon.svg');
   await expect(page.locator('.brand .brand-icon')).toHaveCount(1);
-  await expect(page.locator('.brand .brand-icon')).toHaveAttribute('src','./app-icon.svg?v=20261016-frame1');
+  await expect(page.locator('.brand .brand-icon')).toHaveAttribute('src','./app-icon.svg');
   await expect(page.locator('.brand .leaf')).toHaveCount(0);
 
 

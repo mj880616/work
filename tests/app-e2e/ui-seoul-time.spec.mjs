@@ -48,7 +48,7 @@ for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(c
     const renderer=source.slice(source.indexOf('function decisions(d){'),source.indexOf('function memoHtml(d){'));
     const fmt=source.match(/const fmt=[^;]+;/)[0];
     const html=await page.evaluate(async({renderer,fmt})=>{
-      const {formatMeetingTime}=await import('/app/meeting-time.js?v=2');
+      const {formatMeetingTime}=await import('/app/meeting-time.js');
       return new Function('formatMeetingTime','esc','moduleTitle','empty','data',fmt+'\n'+renderer+';return decisions(data)')(formatMeetingTime,String,(_d,_k,title)=>title,()=>'',{decisions:[{title:'한국 결정',body:'내용',decided_at:'2026-09-30T15:30:00Z'}],meetings:[]});
     },{renderer,fmt});expect(html).toContain('10. 1. 오전 12:30');
     await page.locator('[data-ps3-close="ps3DetailModal"]').click();await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateStart')).toHaveValue('2026-10-01');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await clickView(page,'meetings');await expect(page.locator('[data-mrd-meeting="seoul-meeting"]')).toContainText('오전 12:30');await clickView(page,'home');await expect(page.locator('#homeView')).toContainText('00:30');expect(errors).toEqual([]);

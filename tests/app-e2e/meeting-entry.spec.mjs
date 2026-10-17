@@ -981,10 +981,10 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=70')");
-  expect(views).toContain('task-workflow.js?v=10');
-  expect(views).toContain('meeting-round-detail.js?v=32');
-  expect(views).toContain('meeting-ui.css?v=16');
+  expect(loader).toContain("import('./team.js')");
+  expect(views).toContain('task-workflow.js');
+  expect(views).toContain('meeting-round-detail.js');
+  expect(views).toContain('meeting-ui.css');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
@@ -997,5 +997,5 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingProject']");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
-  expect(css).toContain("meeting-ui.css?v=16");
+  expect(css).toContain("meeting-ui.css");
 });

@@ -1,4 +1,4 @@
-@import url('./list-row.css?v=1');
+@import url('./list-row.css');
 .so-team-section{margin-top:0;padding-top:0}
 .so-team-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .so-team-actions h3{margin:0;font-size:15px}.so-team-actions p{margin:2px 0 0;font-size:10.5px}

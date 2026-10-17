@@ -1,7 +1,7 @@
 import {clickView} from '../app-e2e/helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
-// CI-버전자동화 1단계: the scripts/build-pages.mjs output (hashed ?v=, not deployed) boots and
+// CI-버전자동화: the scripts/build-pages.mjs output (hashed ?v=, what Pages deploys) boots and
 // switches views with the same mocked APIs as tests/app-e2e. Served at PAGES_BUILD_ORIGIN.
 const origin=process.env.PAGES_BUILD_ORIGIN||'http://127.0.0.1:8125';
 const hashed=/[?&]v=[0-9a-f]{10}(?:&|$)/;

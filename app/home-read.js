@@ -1,6 +1,6 @@
-import { readRecordPages } from './basket-link-records.js?v=7';
-import { mountQuick } from './home-quick.js?v=23';
-import { createHomeCache } from './home-read-cache.js?v=6';
+import { readRecordPages } from './basket-link-records.js';
+import { mountQuick } from './home-quick.js';
+import { createHomeCache } from './home-read-cache.js';
 import {
   ranges,
   dayKey,
@@ -8,7 +8,7 @@ import {
   todayEvents,
   dueTasks,
   meetingTasks,
-} from "./home-read-model.js?v=3";
+} from "./home-read-model.js";
 const rt = window.KPTURuntime,
   root = document.querySelector("#homeView"),
   esc = (v) =>
@@ -62,9 +62,9 @@ try { homeCache = createHomeCache({storage:window.localStorage,keyPrefix:rt.owne
 function saveCopy(key,value){homeCache?.save(key,value);copies=homeCache?.read()||copies;}
 function preload(){
   if(!imports)imports={
-    projects:import('./project-catalog.js?v=3'),
-    order:import('./organization-order.js?v=2'),
-    google:import('./google-tasks.js?v=39'),
+    projects:import('./project-catalog.js'),
+    order:import('./organization-order.js'),
+    google:import('./google-tasks.js'),
   };
   Object.values(imports).forEach(p=>p.catch(()=>{}));
   return imports;

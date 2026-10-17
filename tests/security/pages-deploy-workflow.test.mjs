@@ -46,7 +46,7 @@ test('every action is pinned to a full commit SHA', () => {
   }
 });
 
-test('Worker deploy accepts Pages from the branch files or this commit\'s build output, never a mix', () => {
+test('Worker deploy accepts Pages only when it serves this commit\'s build output', () => {
   const worker = read('cloudflare-worker-deploy.yml');
   assert.match(worker, /node scripts\/build-pages\.mjs _site "\$RUNNER_TEMP\/pages-out"/);
   assert.match(worker, /node scripts\/check-pages-build\.mjs "\$RUNNER_TEMP\/pages-out"/);
@@ -54,6 +54,8 @@ test('Worker deploy accepts Pages from the branch files or this commit\'s build 
     assert.ok(worker.includes(`            app/${file}\n`), file);
   }
   assert.match(worker, /count_matches "\$RUNNER_TEMP\/pages-out"\) == \$\{#files\[@\]\}/);
-  assert.match(worker, /count_matches "\$GITHUB_WORKSPACE"\) == \$\{#files\[@\]\}/);
+  // CI-버전자동화 3단계: the checkout has no ?v= and no manifest, so it can never be production.
+  assert.doesNotMatch(worker, /count_matches "\$GITHUB_WORKSPACE"|tree=\$GITHUB_WORKSPACE/);
+  assert.match(worker, /echo "tree=\$RUNNER_TEMP\/pages-out" >> "\$GITHUB_OUTPUT"/);
   assert.ok(worker.indexOf('Wait for Web2 release on GitHub Pages') < worker.indexOf('- name: Deploy Worker'));
 });

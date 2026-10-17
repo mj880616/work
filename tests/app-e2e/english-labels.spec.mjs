@@ -83,7 +83,7 @@ test('all remaining label entries use the same width rule when their controls ex
   const entries=Object.values(labels);
   await page.route(BASE+'/label-fixture',route=>route.fulfill({contentType:'text/html',body:entries.map(([id])=>`<button id="${id}">fixture</button>`).join('')}));
   await page.setViewportSize({width:390,height:900});await page.goto(BASE+'/label-fixture');
-  await page.evaluate(()=>import('/app/action-labels.js?v=2'));
+  await page.evaluate(()=>import('/app/action-labels.js'));
   for(const width of [390,760,761,1280,390]){
     await page.setViewportSize({width,height:900});
     for(const [id,short,long] of entries)await expect(page.locator('#'+id)).toHaveText(width<=760?short:long);

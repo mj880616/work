@@ -1,4 +1,4 @@
-import {createBasketOcr} from './basket-ocr.js?v=2';
+import {createBasketOcr} from './basket-ocr.js';
 
 // One native authority per runtime lifetime. Facades own only operation guards
 // and safe presentation outcomes; all attempt/write decisions stay in the core.

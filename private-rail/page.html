@@ -13,9 +13,9 @@
 
 .focus-section{margin-top:18px}.focus-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.focus-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 14px;border:1px solid #d9e1e8;border-radius:12px;background:#fff;color:#17324d;text-decoration:none}.focus-card:hover{border-color:#9eb3c6;background:#fbfdff}.focus-card>div{min-width:0}.focus-card strong{display:block;margin-top:3px;font-size:14px;line-height:1.4}.focus-card small{display:block;margin-top:4px;color:#6d7a86;font-size:11px;line-height:1.45}.focus-status{display:inline-block;font-size:10px;font-weight:800;color:#315f85}.focus-card>b{font-size:18px;font-weight:500;color:#7b8b98}.policy-section .section-tools #addCardBtn{display:none!important}@media(max-width:680px){.focus-grid{grid-template-columns:1fr}}
 </style>
-<link rel="stylesheet" href="/work/assets/web1-design-lite.css?v=1">
-<link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
-<link rel="shortcut icon" href="/work/favicon.svg?v=1">
+<link rel="stylesheet" href="/work/assets/web1-design-lite.css">
+<link rel="icon" href="/work/favicon.svg" type="image/svg+xml">
+<link rel="shortcut icon" href="/work/favicon.svg">
 </head>
 <body class="private-rail-page"><main class="wrap"><header class="hero"><h1>민자철도 사업 현황</h1></header>
 <section class="section focus-section"><div class="section-head"><h2>현재 집중사업</h2><span>당면 대응</span></div><div class="focus-grid">
@@ -92,4 +92,4 @@ document.getElementById('cardModalSave').onclick=async()=>{const status=document
 document.getElementById('cardModalClose').onclick=closeCardModal;document.getElementById('cardModalCancel').onclick=closeCardModal;document.getElementById('cardModal').addEventListener('click',e=>{if(e.target.id==='cardModal')closeCardModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('cardModal').classList.contains('open'))closeCardModal()});
 renderCards();loadCards();
 setInterval(()=>{if(document.visibilityState==='visible')loadCards()},12000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadCards()});
-</script><script src="/work/assets/rich-copy.js?v=1"></script><script src="/work/app/web1-page-capabilities.js?v=2"></script><script src="/work/app/web1-admin-auth.js?v=2"></script></body></html>
+</script><script src="/work/assets/rich-copy.js"></script><script src="/work/app/web1-page-capabilities.js"></script><script src="/work/app/web1-admin-auth.js"></script></body></html>

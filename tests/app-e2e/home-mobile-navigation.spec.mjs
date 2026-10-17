@@ -1,4 +1,5 @@
 import {testOrigin} from './helpers/test-origin.mjs';
+import {serveBuiltShell} from './helpers/built-shell.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 const app=testOrigin+'/app/';
@@ -80,6 +81,7 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
   // Chromium 140 cannot set safe-area insets through CDP; substitute only the
   // environment value in the served CSS while exercising the actual declarations.
   await page.route(/\.css(?:\?|$)/,async route=>{const r=await route.fetch();await route.fulfill({response:r,body:(await r.text()).replaceAll('env(safe-area-inset-bottom)','20px')})});
+  await serveBuiltShell(page,testOrigin);
   await open(page,app);
   await expect(page.locator('.mobile-tabs')).toHaveCSS('height','76px');
   const tabs=await page.locator('.mobile-tabs').boundingBox();expect(tabs.y+tabs.height).toBe(844);

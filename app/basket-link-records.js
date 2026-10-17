@@ -1,6 +1,6 @@
-import {formatSeoulTime} from './meeting-time.js?v=2';
-import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js?v=3';
-import {createAnchoredMenu} from './anchored-menu.js?v=1';
+import {formatSeoulTime} from './meeting-time.js';
+import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js';
+import {createAnchoredMenu} from './anchored-menu.js';
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

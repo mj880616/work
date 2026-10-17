@@ -57,9 +57,9 @@ jobs:
             fi
           done
 
-      # Pages serves either this checkout (Source: branch) or the build-pages.mjs output
-      # (Source: GitHub Actions, .github/workflows/pages-deploy.yml). Build the same output here
-      # so the wait and the URL checks below work before and after the switch.
+      # Pages serves the build-pages.mjs output (Source: GitHub Actions,
+      # .github/workflows/pages-deploy.yml). Since CI-버전자동화 3단계 the checkout has no ?v= and
+      # no app/asset-manifest.json, so only this build output can match production.
       - name: Jekyll build
         uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
         with:
@@ -109,21 +109,16 @@ jobs:
             for file in "${files[@]}"; do
               live[$file]="$(curl --silent --fail --location --compressed --connect-timeout 5 --max-time 10 --header 'Cache-Control: no-cache' "https://mj880616.github.io/work/$file?deploy=$GITHUB_SHA&attempt=$attempt" | sha256sum | cut -d ' ' -f1 || true)"
             done
-            # Every file must match one tree; a mix of branch and build files is still waiting.
+            # Every file must match the build output; a partial match is still waiting.
             if (( $(count_matches "$RUNNER_TEMP/pages-out") == ${#files[@]} )); then
               echo "OK  GitHub Pages matches this commit's Actions build output"
               echo "tree=$RUNNER_TEMP/pages-out" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            if (( $(count_matches "$GITHUB_WORKSPACE") == ${#files[@]} )); then
-              echo "OK  GitHub Pages matches this commit's branch files"
-              echo "tree=$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            echo "WAIT ($attempt/60)  GitHub Pages matches $(count_matches "$RUNNER_TEMP/pages-out")/${#files[@]} build files, $(count_matches "$GITHUB_WORKSPACE")/${#files[@]} branch files"
+            echo "WAIT ($attempt/60)  GitHub Pages matches $(count_matches "$RUNNER_TEMP/pages-out")/${#files[@]} build files"
             sleep 5
           done
-          echo "FAIL  GitHub Pages did not match this commit (branch files or Actions build output)"
+          echo "FAIL  GitHub Pages did not match this commit's Actions build output"
           exit 1
 
       - name: Deploy Worker

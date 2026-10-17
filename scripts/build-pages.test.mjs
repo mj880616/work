@@ -4,25 +4,26 @@ import test from 'node:test';
 import { buildPages, rewriteVersions, versionOf } from './build-pages.mjs';
 
 const sha = text => createHash('sha256').update(text).digest('hex');
+// The repository writes plain paths (CI-버전자동화 3단계); a leftover number is overwritten too.
 const tree = () => ({
-  'app/index.html': '<link rel="stylesheet" href="./a.css?v=3"><script src="./app.js?v=9" defer></script><img src="./icon.svg">',
+  'app/index.html': '<link rel="stylesheet" href="./a.css"><script src="./app.js" defer></script><img src="./icon.svg">',
   'app/app.js': "import('./loader.js?v=5');const plain='./loader.js';",
-  'app/loader.js': "import('./view.js?v=12');import('./view.js?v=1');",
+  'app/loader.js': "import('./view.js');import('./view.js?v=1');",
   'app/view.js': 'export const view = 1;',
   'app/a.css': '.a{background:url(./bg.svg?v=2)}',
   'app/bg.svg': Buffer.from('<svg/>'),
   'app/icon.svg': Buffer.from('<svg id="i"/>')
 });
 
-test('every ?v= becomes the first 10 hex chars of the final bytes, children first', () => {
+test('every reference gets the first 10 hex chars of the final bytes, children first', () => {
   const out = buildPages(tree());
-  assert.match(out['app/loader.js'], new RegExp(`'./view.js\\?v=${versionOf(Buffer.from(out['app/view.js']))}'`));
-  assert.ok(!out['app/loader.js'].includes('v=12') && !out['app/loader.js'].includes('v=1\''));
-  assert.ok(out['app/app.js'].includes(`./loader.js?v=${versionOf(Buffer.from(out['app/loader.js']))}`));
-  assert.ok(out['app/app.js'].includes("const plain='./loader.js'"), 'unversioned references stay as they are');
+  const view = versionOf(Buffer.from(out['app/view.js']));
+  assert.equal(out['app/loader.js'], `import('./view.js?v=${view}');import('./view.js?v=${view}');`);
+  const loader = versionOf(Buffer.from(out['app/loader.js']));
+  assert.equal(out['app/app.js'], `import('./loader.js?v=${loader}');const plain='./loader.js?v=${loader}';`);
   assert.ok(out['app/a.css'].includes(`url(./bg.svg?v=${versionOf(out['app/bg.svg'])})`));
   assert.ok(out['app/index.html'].includes(`./app.js?v=${versionOf(Buffer.from(out['app/app.js']))}`));
-  assert.ok(out['app/index.html'].includes('src="./icon.svg"'));
+  assert.ok(out['app/index.html'].includes(`src="./icon.svg?v=${versionOf(out['app/icon.svg'])}"`));
   assert.equal(out['app/view.js'], 'export const view = 1;');
 });
 
@@ -30,8 +31,8 @@ test('the same input gives the same output; numbers already in the repository do
   const first = buildPages(tree());
   assert.deepEqual(buildPages(tree()), first);
   const renumbered = tree();
-  renumbered['app/index.html'] = renumbered['app/index.html'].replace('app.js?v=9', 'app.js?v=400');
-  renumbered['app/app.js'] = renumbered['app/app.js'].replace('loader.js?v=5', 'loader.js?v=77');
+  renumbered['app/index.html'] = renumbered['app/index.html'].replace('./app.js', './app.js?v=400');
+  renumbered['app/app.js'] = renumbered['app/app.js'].replace('loader.js?v=5', 'loader.js');
   assert.deepEqual(buildPages(renumbered), first);
 });
 
@@ -47,7 +48,7 @@ test('a leaf change reaches index.html; an unrelated branch keeps its version', 
 test('the manifest lists the rewritten versions with the SHA-256 of the output bytes', () => {
   const out = buildPages(tree());
   const { assets } = JSON.parse(out['app/asset-manifest.json']);
-  assert.deepEqual(Object.keys(assets), ['app/a.css', 'app/app.js', 'app/bg.svg', 'app/loader.js', 'app/view.js']);
+  assert.deepEqual(Object.keys(assets), ['app/a.css', 'app/app.js', 'app/bg.svg', 'app/icon.svg', 'app/loader.js', 'app/view.js']);
   for (const [file, entry] of Object.entries(assets)) {
     const bytes = typeof out[file] === 'string' ? Buffer.from(out[file]) : out[file];
     assert.deepEqual(entry, { v: [versionOf(bytes)], sha256: sha(bytes) }, file);
@@ -100,4 +101,41 @@ test('circular versioned references are refused', () => {
     'app/a.js': "import('./b.js?v=1')",
     'app/b.js': "import('./a.js?v=1')"
   }), /순환 참조: .*app\/a\.js → app\/b\.js → app\/a\.js/);
+});
+
+test('a plain path keeps its other query parameters and fragment', () => {
+  const out = buildPages({
+    'app/index.html': '<script src="./a.js?x=1"></script><link rel="icon" href="./i.svg#mark">',
+    'app/a.js': 'export {}',
+    'app/i.svg': Buffer.from('<svg/>')
+  });
+  assert.ok(out['app/index.html'].includes(`./a.js?x=1&v=${versionOf(Buffer.from('export {}'))}`));
+  assert.ok(out['app/index.html'].includes(`./i.svg?v=${versionOf(Buffer.from('<svg/>'))}#mark`));
+});
+
+test('references into vendored release folders are left as written', () => {
+  const out = buildPages({
+    'app/index.html': '<script src="./frame.js"></script><script src="./lib/rhwp-0.8.7/studio.js"></script>',
+    'app/frame.js': "import('./lib/rhwp-0.8.7/sdk/index.js');",
+    'app/lib/rhwp-0.8.7/sdk/index.js': "import('./transport.js');import('../studio.js');",
+    'app/lib/rhwp-0.8.7/sdk/transport.js': 'export {}',
+    'app/lib/rhwp-0.8.7/studio.js': "import('./sdk/index.js');import('../../guard.js');",
+    'app/guard.js': 'guard()'
+  });
+  assert.ok(out['app/frame.js'].includes("'./lib/rhwp-0.8.7/sdk/index.js'"));
+  assert.ok(out['app/index.html'].includes('"./lib/rhwp-0.8.7/studio.js"'));
+  assert.equal(out['app/lib/rhwp-0.8.7/sdk/index.js'], "import('./transport.js');import('../studio.js');");
+  // Our own file loaded from a vendored page is still versioned.
+  assert.ok(out['app/lib/rhwp-0.8.7/studio.js'].includes(`'../../guard.js?v=${versionOf(Buffer.from('guard()'))}'`));
+});
+
+test('JSON linked from HTML is versioned; JSON named in a script is run-time data and is not', () => {
+  const out = buildPages({
+    'app/index.html': '<link rel="manifest" href="./m.json"><script src="./press.js"></script>',
+    'app/m.json': Buffer.from('{}'),
+    'app/press.js': "fetch(new URL('../press/archive.json',location.href));",
+    'press/archive.json': Buffer.from('[]')
+  });
+  assert.ok(out['app/index.html'].includes(`./m.json?v=${versionOf(Buffer.from('{}'))}`));
+  assert.equal(out['app/press.js'], "fetch(new URL('../press/archive.json',location.href));");
 });

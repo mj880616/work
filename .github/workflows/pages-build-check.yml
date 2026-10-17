@@ -1,15 +1,15 @@
 name: Pages build check
 
-# CI-버전자동화 1단계(docs/design/ci-version-automation.md 4장): builds the hashed ?v= Pages
-# output from this commit and checks it. Nothing here deploys: Pages settings, the Pages
-# deployment and the Cloudflare Worker stay as they are until 2단계.
+# CI-버전자동화(docs/design/ci-version-automation.md 4장): builds the hashed ?v= Pages output from
+# this commit the way pages-deploy.yml does and checks it. Nothing here deploys. Since 3단계 the
+# repository has no ?v= and no app/asset-manifest.json; only this build output has them.
 on:
   pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
       compare_live:
-        description: 'Jekyll 결과를 지금 GitHub Pages 파일과 비교(읽기만, 결과는 보고만)'
+        description: '이 커밋의 빌드 결과를 지금 GitHub Pages 파일과 비교(읽기만, 결과는 보고만)'
         type: boolean
         default: false
 
@@ -40,8 +40,7 @@ jobs:
       - name: Check hashed references, manifest and Worker fingerprints
         run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
       - name: Check Worker deploy URL extraction on the output
-        working-directory: ${{ runner.temp }}/pages-out
-        run: node "$GITHUB_WORKSPACE/scripts/cloudflare-check-urls.mjs"
+        run: node scripts/cloudflare-check-urls.mjs "$RUNNER_TEMP/pages-out"
       - name: Install Playwright
         run: |
           npm install --no-save @playwright/test@1.55.0
@@ -86,6 +85,7 @@ jobs:
         run: |
           node scripts/build-pages.mjs _site "$RUNNER_TEMP/jekyll-out"
           node scripts/check-pages-build.mjs "$RUNNER_TEMP/jekyll-out"
-      - name: Compare Jekyll output with current GitHub Pages (report only)
+      # Since 2단계 Pages serves the build output, so that is what production is compared with.
+      - name: Compare build output with current GitHub Pages (report only)
         if: github.event_name == 'workflow_dispatch' && inputs.compare_live
-        run: node scripts/compare-pages.mjs --live _site
+        run: node scripts/compare-pages.mjs --live "$RUNNER_TEMP/jekyll-out"
