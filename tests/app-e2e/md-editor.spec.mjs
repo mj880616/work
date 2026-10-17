@@ -1,7 +1,8 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
+import {noteAction} from './helpers/basket-more.mjs';
 import { openHome } from './helpers/home-entry.mjs';
-// MD-편집기 1단계: 바구니 메모 수정 화면의 [크게 쓰기]가 전체 화면 편집기를 열고, 도구 막대가 마크다운 기호를 넣고,
+// MD-편집기 1단계: 바구니 메모 수정 화면의 [큰 창에서 수정](옛 [크게 쓰기], UI-디자인손질 8)이 전체 화면 편집기를 열고, 도구 막대가 마크다운 기호를 넣고,
 // [쓰기|미리보기](폰)·나란히(넓은 화면) 미리보기가 기존 표시 모듈로 그려지며, 닫으면 글이 수정 칸으로 돌아가
 // 기존 [수정 저장]으로 저장되는지, [텔레그램용 복사] 결과와 외부 요청 0건을 확인한다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -32,8 +33,8 @@ async function openEditor(page,width){
  await press(page,page.locator('[data-basket-row="n"]'),width);
  await expect(detail.locator('[data-basket-read-text]')).toHaveClass(/md-body/);
  if(width<761)await page.addStyleTag({content:'html,body{overflow-anchor:none}'});
- await press(page,detail.locator('[data-basket-edit]'),width);
- await press(page,detail.getByRole('button',{name:'크게 쓰기',exact:true}),width);
+ await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});
+ await press(page,detail.getByRole('button',{name:'큰 창에서 수정',exact:true}),width);
  const editor=page.locator('#mdEditor');
  await expect(editor).toBeVisible();await expect(editor).toHaveAttribute('role','dialog');
  return {detail,editor,area:editor.locator('textarea.md-editor-text'),preview:editor.locator('.md-editor-preview')};
@@ -144,7 +145,7 @@ test('md editor closes with the phone back button and keeps the text in the edit
  await expect(detail.locator('[data-basket-text]')).toBeVisible();await expect(detail.locator('[data-basket-text]')).toHaveValue('뒤로 가기로 닫은 글');
  expect(new URL(page.url()).searchParams.get('view')).toBe('basket');
  // A smaller screen (keyboard open with resizes-content) keeps the toolbar right above it.
- await press(page,detail.getByRole('button',{name:'크게 쓰기',exact:true}),390);
+ await press(page,detail.getByRole('button',{name:'큰 창에서 수정',exact:true}),390);
  await page.setViewportSize({width:390,height:500});
  const bar=await page.locator('#mdEditor .md-editor-tools').boundingBox();expect(bar.y+bar.height).toBeGreaterThan(500-60);expect(bar.y+bar.height).toBeLessThanOrEqual(501);
  expect(seen.writes).toEqual([]);expect(seen.errors).toEqual([]);

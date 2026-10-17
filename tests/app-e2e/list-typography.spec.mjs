@@ -55,7 +55,8 @@ const samples={
  // UI-디자인기준 3/3 3부(8-9e-3): 성명·보도자료 목록 이름 13px·연도(섹션 이름) 13px·필터 버튼 13px·종류 표시 11px(자료실 종류 표시와 같음), 게시판 줄 이름 13px.
  media:[['.w1p-title',13],['.w1p-year>h3',13],['.w1p-filter',13],['.w1p-date',12],['.w1p-tag',11],['.w1p-publisher',12]],
  pages:[['.w1b-card h3',13],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
- team:[['.so-card h4',13],['button.secondary',13],['.muted',12]]
+ // UI-디자인손질 3: the "N개 담당조직" line (.muted) is gone; the group heading carries the 12px meta text.
+ team:[['.so-card h4',13],['button.secondary',13],['.so-group-heading',12]]
 };
 async function boot(page){
  await mockApp(page,{spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});

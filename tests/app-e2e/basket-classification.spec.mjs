@@ -108,7 +108,7 @@ for(const width of [390,1280]){
   await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
   const destinationReads=[];page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/app_spaces'))destinationReads.push(request.url());});
   await requestClassification(page,{keyboard:true});
-  await expect(handoffLine(page)).toHaveText('미분류 메모 1개 요청을 복사했어요');await expect(page.locator('[data-classification-input]')).toBeFocused();
+  await expect(handoffLine(page)).toHaveText('미분류 메모 1개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');await expect(page.locator('[data-classification-input]')).toBeFocused();
   const copied=await page.evaluate(()=>window.__handoffWrites[0]);
   for(const value of [f.note.raw_text,n,stamp,'현재 조직','현재 프로젝트','담당조직 목록 (ID · 이름)','프로젝트 목록 (ID · 이름)','synthetic-attachment','application/pdf'])expect(copied).toContain(value);
   expect(copied).not.toMatch(/BODY_SECRET|OCR_SECRET|google_task|library|write_request_candidate/);expect(f.rpc).toHaveLength(0);expect(destinationReads).toHaveLength(1);expect(new URL(destinationReads[0]).searchParams.get('owner_id')).toBe('eq.home-test');
@@ -162,7 +162,7 @@ test('AI handoff writes the complete text to the native Chromium clipboard',asyn
  await page.setViewportSize({width:390,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  f.note.raw_text='합성 메모 첫 줄\n'+('긴 합성 본문 '.repeat(1000))+'\n합성 메모 마지막 줄';
- await requestClassification(page);await expect(handoffLine(page)).toHaveText('미분류 메모 1개 요청을 복사했어요');
+ await requestClassification(page);await expect(handoffLine(page)).toHaveText('미분류 메모 1개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');
  const text=await page.evaluate(()=>navigator.clipboard.readText());expect(text).toContain(f.note.raw_text);expect(text).toContain('organization · '+o+' · 현재 조직');expect(text.trim()).toMatch(new RegExp('project · '+p+' · 현재 프로젝트$'));
  expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
 });
@@ -207,7 +207,7 @@ for(const width of [390,1280]){
   await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
   for(const fallback of [false,true]){
    if(fallback)assignments=[];
-   await requestClassification(page);await expect(handoffLine(page)).toHaveText(/요청을 복사했어요$/);
+   await requestClassification(page);await expect(handoffLine(page)).toHaveText(/AI 분류 요청을 복사했어요\. ChatGPT에 붙여 넣고/);
    const text=await page.evaluate(()=>window.__handoffWrites.at(-1));
    expect(text.match(/^project · /gm)).toHaveLength(6);
    for(const row of synthetic.expected_projects)expect(text).toContain(`project · ${row.id} · ${row.name}`);

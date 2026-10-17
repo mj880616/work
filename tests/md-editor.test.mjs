@@ -99,7 +99,9 @@ test('Telegram copy: links, images, code spans, escapes and words with marks ins
 test('the editor module is reusable: no basket imports, text and callbacks only, no outside address', () => {
   const src = readFileSync('app/md-editor.js', 'utf8');
   assert.doesNotMatch(src, /from '\.\/basket/);
-  assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}\} = \{\}\)/);
+  // UI-디자인손질 8: the optional save is the opener's own callback; the module itself still never saves or fetches.
+  assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null\} = \{\}\)/);
+  assert.doesNotMatch(src, /KPTURuntime|\.api\(|fetch\(/);
   for (const file of ['app/md-editor.js', 'app/md-editor-ops.mjs', 'app/md-telegram.mjs', 'app/md-editor.css']) {
     assert.doesNotMatch(readFileSync(file, 'utf8'), /https?:\/\/|\/\/cdn|@import/, file);
   }

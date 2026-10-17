@@ -1,5 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
+import {noteAction} from './helpers/basket-more.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 // MD-표시: 바구니 메모 읽기 화면이 ChatGPT식 마크다운·Mermaid·수식을 안전하게 그리는지, 외부 요청이 0건인지,
 // [원문 그대로 보기]가 저장된 글을 그대로 보여 주는지, 도식·수식 도구는 필요한 글에서만 불러오는지 확인한다.
@@ -117,13 +118,14 @@ for(const width of [390,1280]){
   await page.screenshot({path:info.outputPath(`markdown-read-${width}.png`),fullPage:true});
 
   // [원문 그대로 보기] shows the stored text exactly, and back again.
-  const toggle=detail.locator('[data-basket-read-raw]');
-  await press(page,toggle,width);await expect(toggle).toHaveText('정리해서 보기');await expect(read).not.toHaveClass(/md-body/);
+  // UI-디자인손질 6: the toggle lives in the note's [⋯] menu.
+  const toggle=detail.locator('[data-basket-read-raw]'),more=detail.locator('[data-basket-note-more]');
+  await press(page,more,width);await press(page,toggle,width);await press(page,more,width);await expect(toggle).toHaveText('정리해서 보기');await page.keyboard.press('Escape');await expect(read).not.toHaveClass(/md-body/);
   expect(await read.innerText()).toBe(RICH);await expect(read.locator('*')).toHaveCount(0);
   await page.screenshot({path:info.outputPath(`markdown-raw-${width}.png`),fullPage:true});
-  await press(page,toggle,width);await expect(toggle).toHaveText('원문 그대로 보기');await expect(figures).toHaveCount(2,{timeout:20000});await expect(read.locator('.md-math-done .katex')).toHaveCount(2);
+  await press(page,more,width);await press(page,toggle,width);await press(page,more,width);await expect(toggle).toHaveText('원문 그대로 보기');await page.keyboard.press('Escape');await expect(figures).toHaveCount(2,{timeout:20000});await expect(read.locator('.md-math-done .katex')).toHaveCount(2);
   // Editing still uses the plain text box with the stored text.
-  await press(page,detail.locator('[data-basket-edit]'),width);await expect(detail.locator('[data-basket-text]')).toHaveValue(RICH);await expect(read).toBeHidden();
+  await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});await expect(detail.locator('[data-basket-text]')).toHaveValue(RICH);await expect(read).toBeHidden();
 
   expect(seen.external).toEqual([]);
   expect(seen.errors).toEqual([]);

@@ -243,7 +243,8 @@ test('assigned organization list and compact rows expose clear names without ret
   await boot(page,{width:1024,height:768});
   await clickView(page,'team');
   await expect(page.locator('#sofToolbar,#sofSearch,#sofCouncil,#sofType,#sofAssignee,#sofMine,#sofUnassigned')).toHaveCount(0);
-  await expect(page.locator('#soOrgCount')).toContainText('담당조직');
+  // UI-디자인손질 3: no "N개 담당조직" line above the list.
+  await expect(page.locator('#soOrgCount')).toHaveCount(0);
   const row=page.locator('[data-so-org="a11y-org-1"]');
   // UI-디자인기준 3/3: once the record dates are read, the name also says in words what the colored dot shows.
   await expect(row).toHaveAttribute('aria-label',/^철도노조(, (\d+일 전 기록|오늘 기록|기록 없음),)? 상세 열기$/);

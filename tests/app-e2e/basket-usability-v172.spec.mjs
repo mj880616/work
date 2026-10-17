@@ -30,13 +30,15 @@ for(const width of [390,1280]){
   await page.evaluate(()=>window.KPTURouter.go('home'));await page.locator('#homeView [data-quick-input]').fill('홈 초안');await page.evaluate(()=>window.KPTURouter.go('basket'));await q.locator('[data-quick-input]').fill('바구니 초안');page.once('dialog',d=>d.dismiss());await page.evaluate(()=>window.KPTURouter.go('home'));await expect(q.locator('[data-quick-input]')).toHaveValue('바구니 초안');await expect(page.locator('#basketView')).toBeVisible();
   expect(await page.evaluate(()=>{const detail={};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);expect(f.errors).toEqual([]);
  });
- test(`attachment-only cards and actual count, current linked note handoff and unsaved guard ${width}`,async({page})=>{
+ test(`attachment-only cards and actual count, the note has no list menu, and unsaved guard ${width}`,async({page})=>{
   // 8-9e-2: 범위 안내는 [분류 요청]을 누른 뒤에만, 복사되면 한 줄(#577).
   const f=await fixture(page,width);await expect(page.locator(`[data-basket-row="${other}"]`)).toContainText('현장 사진.jpg');await expect(handoffLine(page)).toBeHidden();
-  await page.context().grantPermissions(['clipboard-read','clipboard-write']);await requestClassification(page);await expect(handoffLine(page)).toHaveText('미분류 메모 2개 요청을 복사했어요');await page.locator('[data-classification-close]').click();await expect(handoffLine(page)).toBeHidden();
-  f.links.push({id:l,note_id:n,status:'confirmed',project_id:p,summary:null});await page.locator(`[data-basket-row="${n}"]`).click();await requestClassification(page);await expect(handoffLine(page)).toHaveText('메모 1개 요청을 복사했어요');const text=await page.evaluate(()=>navigator.clipboard.readText());expect(text).toContain('메모 ID: '+n);expect(text).not.toContain('메모 ID: '+other);
-  await page.locator('[data-classification-close]').click();await page.locator(`[data-basket-row="${n}"]`).click();
-  await page.locator('[data-basket-edit]').click();await page.locator('[data-basket-text]').fill('미저장 원문');await requestClassification(page);await expect(page.locator('[data-handoff-status]')).toContainText('저장');await expect(page.locator('[data-classification-panel]')).toBeHidden();expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(text);expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+  await page.context().grantPermissions(['clipboard-read','clipboard-write']);await requestClassification(page);await expect(handoffLine(page)).toHaveText('미분류 메모 2개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');await page.locator('[data-classification-close]').click();await expect(handoffLine(page)).toBeHidden();
+  // UI-디자인손질 6: the list menu ([AI 분류 요청]) is the list's only; an open note shows its own [⋯] without it.
+  const copied=await page.evaluate(()=>navigator.clipboard.readText());
+  f.links.push({id:l,note_id:n,status:'confirmed',project_id:p,summary:null});await page.locator(`[data-basket-row="${n}"]`).click();await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();
+  await page.locator('[data-basket-note-more]').click();await expect(page.locator('#basketNoteMenu').getByRole('button',{name:'AI 분류 요청'})).toHaveCount(0);await page.keyboard.press('Escape');
+  await page.locator('[data-basket-close]').click();await page.locator('#basketView [data-home-quick] [data-quick-input]').fill('미저장 원문');await requestClassification(page);await expect(page.locator('[data-handoff-status]')).toContainText('저장');await expect(page.locator('[data-classification-panel]')).toBeHidden();expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(copied);expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });
 }
 test('existing summary uses exact NULL CAS and successful item is never retransmitted after another conflict',async({page})=>{

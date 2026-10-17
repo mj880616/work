@@ -15,7 +15,7 @@ test('담당조직 탭은 검색·협의회·유형 필터 없이 내 담당조�
   expect(await visibleNames(page)).toEqual(['전국철도노동조합']);
   await expect(page.locator('[data-so-org="org-consumer"]')).toHaveCount(0);
   await expect(page.locator('#sofToolbar,#sofSearch,#sofCouncil,#sofType,#sofReset')).toHaveCount(0);
-  await expect(page.locator('#soOrgCount')).toHaveText('1개 담당조직');
+  await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(1);await expect(page.locator('#soOrgCount')).toHaveCount(0);
   await expect(page.locator('#soTeamSection h3')).toHaveCount(0);
   const rail=page.locator('[data-so-org="org-rail"]');
   await expect(rail.locator('.sof-type')).toHaveCount(0);
@@ -28,7 +28,7 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=30");
+  expect(views).toContain("suborganizations.js?v=31");
   expect(views).toContain("workplace-detail.js?v=25");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
@@ -306,7 +306,7 @@ test('담당조직 목록은 정한 13개 순서와 묶음 구분선, 그 밖은
     await page.setViewportSize({width,height:900});
     await openAssigned(page,'?orgs=order');
     expect(await sequence(page,'#soOrganizationList','h4')).toEqual([...ORDERED,'국민연금지부','궤도협의회','한국소비자원지부']);
-    await expect(page.locator('#soOrgCount')).toHaveText('16개 담당조직');
+    await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(16);await expect(page.locator('#soOrgCount')).toHaveCount(0);
     await expect(page.locator('#soOrganizationList>.so-org-group')).toHaveCount(5);
     const groups=await page.locator('#soOrganizationList').evaluate(box=>({gap:getComputedStyle(box).gap,borders:[...box.querySelectorAll('.so-group-card')].map(g=>getComputedStyle(g).borderTopWidth)}));
     expect(groups.gap).toBe('12px');expect(groups.borders).toEqual(Array(5).fill('1px'));

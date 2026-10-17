@@ -87,7 +87,8 @@ for(const width of [360,390])test(`long calendar task stays inside dialog and me
  expect.soft(metrics.row.right,'task row inside dialog').toBeLessThanOrEqual(metrics.card.right);
  expect.soft(metrics.list.right,'task list inside dialog').toBeLessThanOrEqual(metrics.card.right);
  expect(metrics.card.right,'dialog inside viewport').toBeLessThanOrEqual(width);
- expect(metrics.title).toBe('14px');expect(metrics.clamp).toBe('2');expect(metrics.titleWhiteSpace).toBe('normal');
+ // UI-디자인손질 2: day-list task names are list rows, 13px.
+ expect(metrics.title).toBe('13px');expect(metrics.clamp).toBe('2');expect(metrics.titleWhiteSpace).toBe('normal');
  expect(metrics.titleHeight).toBeLessThanOrEqual(metrics.lineHeight*2+1);
  expect(metrics.meta).toBe('12px');expect(metrics.projectWhiteSpace).toBe('nowrap');expect(metrics.ellipsis).toBe('ellipsis');
  await checkGap(row);

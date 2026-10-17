@@ -47,7 +47,7 @@ async function cleared(page){await expect(page.locator('[data-handoff-fallback]'
 for(const width of [390,1280]){
  test(`handoff real clipboard permission allowed ${width}`,async({page},info)=>{
   const {note,errors}=await setup(page,width);await page.context().grantPermissions(['clipboard-read','clipboard-write']);await press(page);
-  await expect(copiedLine(page)).toHaveText('미분류 메모 1개 요청을 복사했어요');await expect(page.locator('[data-classification-panel]')).toBeVisible();await expect(page.locator('[data-classification-input]')).toBeFocused();await expect(page.locator('[data-handoff-status]')).toBeEmpty();expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(note.raw_text);
+  await expect(copiedLine(page)).toHaveText('미분류 메모 1개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');await expect(page.locator('[data-classification-panel]')).toBeVisible();await expect(page.locator('[data-classification-input]')).toBeFocused();await expect(page.locator('[data-handoff-status]')).toBeEmpty();expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(note.raw_text);
   await expect(page.locator('[data-handoff-fallback]')).toBeHidden();await expect(page.locator('[data-handoff-text]')).toHaveValue('');
   await page.screenshot({path:info.outputPath(`success-${width}.png`),fullPage:true});expect(errors).toEqual([]);
  });
@@ -89,7 +89,8 @@ for(const width of [390,1280]){
   // [분류 결과 입력]을 따로 여는 버튼은 없다(#577: [분류 요청]이 복사 뒤 연다). 창 닫기는 아래 '취소' 표에서 다룬다.
   for(const control of ['[data-basket-filter="all"]','[data-basket-row]','.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible']){
    await page.locator(control).click();await cleared(page);
-   if(control.includes('basket-row')){await press(page);await expect(text).toBeVisible();await page.locator('[data-basket-close]').click();await cleared(page);}
+   // UI-디자인손질 6: an open note has no list menu ([AI 분류 요청] is the list's), so go back to the list first.
+   if(control.includes('basket-row')){await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();await page.locator('[data-basket-close]').click();await cleared(page);}
    if(control.includes('home'))await page.evaluate(()=>window.KPTURouter.go('basket'));
    await press(page);await expect(text).toBeVisible();
   }
@@ -113,7 +114,6 @@ for(const width of [390,1280])for(const [control,target,source] of [
  ['[data-basket-filter="all"]','[data-basket-filter="all"][aria-pressed="true"]'],
  ['[data-basket-row]','[data-basket-detail]'],
  ['[data-classification-close]','[data-basket-list]',openSheet],
- ['[data-basket-close]','[data-basket-list]','[data-basket-row]'],
 ]){
  test(`handoff pending read cancelled by ${control} ${width}`,async({page})=>{
   const {errors}=await setup(page,width);if(typeof source==='function')await source(page);else{await denied(page);if(source)await page.locator(source).click();}

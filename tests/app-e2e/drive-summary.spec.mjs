@@ -203,7 +203,7 @@ for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,9
   await expectSingleLine(menu.locator('.drive-summary-time'));
   await expect.poll(()=>menu.evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight-11)).toBe(true);
   await expect.poll(()=>menu.evaluate(el=>{
-    const panel=el.getBoundingClientRect();if(innerWidth<=760){const drawer=el.closest('.mobile-menu-panel').getBoundingClientRect();return drawer.width===260&&Math.abs(drawer.right-innerWidth)<1&&panel.right<=drawer.right;}
+    const panel=el.getBoundingClientRect();if(innerWidth<=760){const drawer=el.closest('.mobile-menu-panel').getBoundingClientRect(),tabs=document.querySelector('.mobile-tabs').getBoundingClientRect();return drawer.left===0&&Math.abs(drawer.right-innerWidth)<1&&Math.abs(drawer.bottom-tabs.top)<1&&panel.right<=drawer.right;}
     const trigger=document.querySelector('#appView>.app-nav [data-account-open]').getBoundingClientRect();
     const nav=document.querySelector('#appView>.app-nav'),bounds=nav.getBoundingClientRect(),style=getComputedStyle(nav);
     if(innerWidth<1024)return Math.abs(panel.right-trigger.right)<=2&&panel.top>=trigger.bottom&&panel.right<=innerWidth-12;
