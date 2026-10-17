@@ -229,11 +229,12 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
   return result;
 }
 
-export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs}={}){
+// describe: the confirmation text for a row that is not a basket memo (JOURNAL-일기: "…일기를 지웁니다").
+export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText}={}){
   return remove('note',noteId,{rt,isCurrent,confirmText:async()=>{
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
     if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};
-    return {text:noteDeleteConfirmText(info),info};
+    return {text:describe(info),info};
   },write:async({message:{info},expectedSessionEpoch,path})=>{
     // No attachment: nothing to trash, the owner-RLS REST delete is enough.
     if(!info.attachments)return {status:'rest',message:RECORD_DELETE_TEXT.NOTE_DELETED_PLAIN};

@@ -142,7 +142,7 @@
   const requested=viewLoader.normalize(rawRequested);
   startup?.mark('routeResolved',{route:'authenticated',view:requested});
 
-  const staticShellViews=new Set(['home','basket','calendar','tasks','projects','library','meetings','media','pages','team']);
+  const staticShellViews=new Set(['home','basket','calendar','tasks','journal','diary','projects','library','meetings','media','pages','team']);
   await viewLoader.prepare(requested);
   const app=document.querySelector('#appView');
   if(staticShellViews.has(requested)){

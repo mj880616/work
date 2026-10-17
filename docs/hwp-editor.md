@@ -27,7 +27,7 @@
 
 1. 작업 브랜치에서 `scripts/hwp-lab/rhwp-pin.json`의 `version`·`tag`·`commit`(태그가 가리키는 커밋), `editorIntegrity`·`coreIntegrity`(`npm view <패키지>@<버전> dist.integrity`)를 고친다.
 2. `bash scripts/hwp-lab/build-rhwp-studio.sh` → `app/hwp-lab/rhwp-<새 버전>/`이 생긴다. 한 번 더 실행해 `SHA256SUMS`가 같은지(재현) 본다.
-3. 옛 `app/hwp-lab/rhwp-<옛 버전>/` 폴더를 지우고, `app/hwp-lab.js`의 `RHWP` 경로를 새 버전으로 바꾼다. `hwp-lab.js?v=`부터 캐시 버전 연쇄를 올린다(`AGENTS.md` 4절).
+3. 옛 `app/hwp-lab/rhwp-<옛 버전>/` 폴더를 지우고, `app/hwp-lab.js`의 `RHWP` 경로를 새 버전으로 바꾼다. 캐시 버전(`?v=`)은 손으로 올리지 않는다. Pages 배포 빌드가 내용 해시로 붙인다(`AGENTS.md` 4절). 판 번호가 든 폴더 안쪽은 빌드가 건드리지 않으므로 폴더 이름을 새 판으로 바꾸는 것이 곧 캐시 갱신이다.
 4. 시험 HWP 검사 재실행: `node --test tests/hwp-lab-pin.test.mjs`, `npx playwright test tests/app-e2e/hwp-lab.spec.mjs tests/app-e2e/hwp-menu.spec.mjs tests/app-e2e/hwp-drive-edit.spec.mjs`(390·1280 열기·입력·HWP 다운로드, HWPX→HWP, 자료실 올리기, 외부 요청 0, 저장소 흔적 0). 시험 파일은 `tests/fixtures/hwp-lab/`(직접 만든 빈 문서, `scripts/hwp-lab/make-samples.mjs`).
 5. 빌드 결과에 `https://` 외부 주소를 부르는 새 경로가 생겼는지, 편집기 HTML에서 CSP·guard가 지워지지 않았는지 `finalize-rhwp-studio.mjs` 결과와 검사로 확인한다. browser-storage-audit도 통과해야 한다.
 6. 배포 뒤 폰에서 실제 주간보고 HWP를 열어 깨짐을 보고, 내보낸 HWP를 한컴오피스(또는 한컴 뷰어)에서 연다(PR 댓글의 폰 시험 순서).
