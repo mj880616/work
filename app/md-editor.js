@@ -34,7 +34,8 @@ function button(label, data = {}, aria) {
   return b;
 }
 
-async function copyText(text) {
+// Also used by the note read view's [텔레그램용 복사].
+export async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
   // Older WebViews: a hidden read-only text field and the copy command.
   const area = document.createElement('textarea');
