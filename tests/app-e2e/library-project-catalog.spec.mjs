@@ -153,8 +153,8 @@ test('library selectors match the canonical project hierarchy on direct entry wi
   // Project relationships remain in the canonical filter and metadata editor;
   // the approved library row shows only date and category.
   await expect(page.locator('#documentList .badges')).toHaveCount(0);
-  await expect(page.locator('[data-lu-document="doc-a"] .lu-row-meta')).toHaveText('정부자료');
-  await expect(page.locator('[data-lu-document="doc-a1"] .lu-row-meta')).toHaveText('정책자료');
+  await expect(page.locator('[data-lu-document="doc-a"] .lu-row-meta')).toHaveText('정책');
+  await expect(page.locator('[data-lu-document="doc-a1"] .lu-row-meta')).toHaveText('정책');
 });
 
 test('project screen and library expose the same active project set in the same order',async({page})=>{

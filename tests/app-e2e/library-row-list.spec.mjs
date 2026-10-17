@@ -116,7 +116,7 @@ async function boot(page,{width=390,main=false}={}){
     id:'row-'+i,workspace_id:'workspace-1',project_id:'top-a',title:i===0?'긴 자료 제목 '.repeat(30):'자료 '+i,
     file_name:'sample.'+ext,category:'정책자료',document_date:i===5?null:'2026-10-06',
     source:'목록에 표시하지 않을 출처',file_size:2048,description:'목록에 표시하지 않을 요약',tags:['검색태그'],
-    drive_url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html',created_at:now()
+    drive_url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html',created_at:'2026-10-06T00:00:00Z'
   }));
   await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
   await expect(page.locator('[data-lu-document]')).toHaveCount(10);
@@ -135,8 +135,9 @@ for(const width of [390,1440]){
     await expect(rows.first().locator('.lu-row-title')).toHaveCSS('font-size','13px');await expect(rows.first().locator('.lu-row-title')).toHaveCSS('font-weight','400');
     await expect(rows.first().locator('.lu-row-meta')).toHaveCSS('font-size','12px');
     expect(await rows.locator('.lu-file-kind').allTextContents()).toEqual(['HWP','PDF','XLS','DOC','PPT','파일','HWP','XLS','DOC','PPT']);
-    await expect(rows.first().locator('.lu-row-meta')).toHaveText('10.06 · 정책자료');
-    await expect(rows.nth(5).locator('.lu-row-meta')).toHaveText('정책자료');
+    // UI-바구니첨부메모 ⑪: 분류 꼬리표(정책자료 → 정책) + 날짜. 날짜 없는 자료는 등록일(같은 10.06)로 같은 달 묶음.
+    await expect(rows.first().locator('.lu-row-meta')).toHaveText('정책 10.06');
+    await expect(rows.nth(5).locator('.lu-row-meta')).toHaveText('정책');
     await expect(rows.locator('.badges,.compact-entry-summary,.lu-document-actions')).toHaveCount(0);
     await expect(page.locator('[data-lu-download]')).toBeHidden();
     await expect(page.locator('[data-lu-edit]')).toBeHidden();

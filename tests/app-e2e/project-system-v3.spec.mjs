@@ -966,7 +966,7 @@ test('V3 creates and edits a project with the same final renderer',async({page})
   await expect(page.locator('#ps3Title')).toHaveText('인력확충 공동투쟁');
 });
 
-test('V3 edits and deletes a key schedule and shows the three most recent documents',async({page})=>{
+test('V3 edits and deletes a key schedule and shows the five most recent documents',async({page})=>{
   const state=baseState();
   state.docs.push(
     {id:'doc-2',project_id:'main-1',title:'토론회 발제문',category:'정책자료',document_date:'2026-09-13'},
@@ -983,9 +983,11 @@ test('V3 edits and deletes a key schedule and shows the three most recent docume
   await expect.poll(()=>state.milestones.length).toBe(0);
   const docs=page.locator('#ps3-documents');
   await expect(docs.locator('.ps3-section-head .ps3-count')).toHaveText('4');
-  await expect(docs.locator('.ps3-doc-row')).toHaveCount(3);
+  // UI-바구니첨부메모: 최근 5개 + "전체 N개 보기 ›", 줄마다 분류 꼬리표(저장 값은 그대로).
+  await expect(docs.locator('.ps3-doc-row')).toHaveCount(4);
   await expect(docs).toContainText('민자철도 국토부 요구자료 답변');
-  await expect(docs).not.toContainText('지난 회의록');
+  await expect(docs.locator('.doc-category-tag').nth(1)).toHaveText('정책');
+  await expect(docs.getByRole('button',{name:'전체 4개 보기'})).toBeVisible();
   await expect(docs.locator('#ps3DocSearch,[data-ps3-doc-filter]')).toHaveCount(0);
   await expect(docs.locator('a.ps3-line-main[href="https://example.org/doc"]')).toContainText('민자철도 국토부 요구자료 답변');
   await expect(docs.locator('a[href="https://example.org/doc"]')).toHaveAttribute('target','_blank');

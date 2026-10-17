@@ -79,12 +79,21 @@ export async function readManualChoices(rt=window.KPTURuntime){
 // One link panel and one task form inside the basket read view. basket.js keeps
 // owning the detail; this controller owns only what is drawn into its host.
 // sheetId: each mounted panel needs its own choice sheet (the basket memo side and the note side, MEMO-노트).
-export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBusy,setBusy,onLinked,onNoteChanged,onModeChange,onTaskRecorded,sheetId='basketLinkChoice'}){
+// UI-바구니첨부메모 ⑦⑧: files (optional) = {read:()=>({files,docs}), put:(projectId,isCurrent)=>result}.
+// 글 없이 첨부만 있는 메모는 프로젝트를 고르면 요약 없이 [자료로 넣기](진행상황에 안 남음), 원할 때만 [기록도 남기기].
+// 글이 있는 메모는 지금처럼 요약 필수 기록이고, 첨부가 있으면 파일은 첫 번째로 고른 프로젝트 자료에도 들어간다.
+// 담당조직 자료는 DB 적용 뒤(PR 3)라 지금은 기록만 남긴다.
+export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBusy,setBusy,onLinked,onNoteChanged,onModeChange,onTaskRecorded,files:fileDocs=null,sheetId='basketLinkChoice'}){
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let host=null,mode=null,noteId=null,choices=null,choicesFlight=null,seq=0;
   let link={targets:[],status:''},task=null;
   const note=()=>{const n=getNote();return n&&n.id===noteId?n:null;};
   const linked=()=>linkedDestinations(noteId,getLinks());
+  const fileState=()=>{const value=fileDocs?.read?.();return {files:Array.isArray(value?.files)?value.files:[],docs:value?.docs instanceof Map?value.docs:new Map()};};
+  const filesOnly=n=>!!n&&!String(n.raw_text||'').trim()&&fileState().files.length>0;
+  // The first chosen project takes the files (a document belongs to one project).
+  const fileTarget=()=>fileState().files.length?link.targets.find(t=>t.kind==='project')||null:null;
+  const projectName=id=>choices?.projects.find(x=>x.project.id===id)?.project.name||window.KPTUProjectCatalog?.describe?.(id)?.name||'다른 프로젝트';
   async function loadChoices(){
     if(choices&&choices.owner===scope())return choices;
     if(choicesFlight)return choicesFlight;
@@ -114,7 +123,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
       if(!existing){
         if(link.targets.length>=MANUAL_LINK_LIMIT){link.status=`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`;paint();return;}
         const name=kind==='organization'?choices.organizations.find(o=>o.id===value)?.name:choices.projects.find(x=>x.project.id===value)?.project.name;
-        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:''});link.status='';
+        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:kind==='organization'||!filesOnly(note())});link.status='';
       }
       paint();
       // The sheet returns focus to its trigger once its history entry is gone; the new summary is
@@ -123,16 +132,25 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     },
     onError:error=>{const message=error?.message||'고를 목록을 불러오지 못했어요. 다시 눌러 주세요.';if(mode==='link')link.status=message;else if(task)task.status=message;paint();}
   });
+  function targetFiles(t){
+    const {files,docs}=fileState();if(!files.length)return '';
+    if(t.kind==='organization')return '<p class="basket-manual-file-note">조직에 자료로 넣기는 곧 돼요. 지금은 기록만 남겨요.</p>';
+    const into=fileTarget();
+    if(into?.id!==t.id)return `<p class="basket-manual-file-note">파일은 ${esc(into?.name||'')} 한 곳에만 들어가요.</p>`;
+    const from=[...new Set(files.map(f=>docs.get(f.drive_file_id)?.project_id).filter(id=>id&&id!==t.id))].map(projectName);
+    return `<p class="basket-manual-file-note" data-manual-file-note>파일 ${files.length}개를 이 프로젝트 자료로 넣어요.${from.length?` ${esc(from.join(', '))}에서 옮겨요.`:''}</p>`;
+  }
+  function confirmLabel(n){return filesOnly(n)&&link.targets.every(t=>!t.record)?'자료로 넣기':'연결';}
   function linkMarkup(n){
-    const done=[...linked().keys()].length;
-    return `<section class="basket-manual" data-manual-link aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">조직·프로젝트에 연결</h3>
-<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'글 없이 첨부만 있는 메모입니다.')}</div></details>
+    const done=[...linked().keys()].length,only=filesOnly(n);
+    return `<section class="basket-manual" data-manual-link aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">${only?'조직·프로젝트 자료로 넣기':'조직·프로젝트에 연결'}</h3>
+${only?'':`<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'')}</div></details>`}
 <div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 수 없어요.</p>`:''}
-<p class="basket-manual-hint">고른 곳마다 요약을 직접 써 주세요. 일시·장소·누가·숫자를 빠짐없이 적어 주세요.</p>
-<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div><label class="basket-text-label basket-manual-summary">기록 요약 (필수)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label></div>`;}).join('')}</div>
+<p class="basket-manual-hint">${only?'프로젝트를 고르면 파일을 그 프로젝트 자료로 넣어요. 진행상황에는 남지 않아요.':'고른 곳마다 요약을 직접 써 주세요. 일시·장소·누가·숫자를 빠짐없이 적어 주세요.'}</p>
+<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind==='project'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (필수)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>`:''}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${esc(link.status)}</p>
-<div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm>연결</button><button type="button" data-manual-cancel>취소</button></div></section>`;
+<div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm>${confirmLabel(n)}</button><button type="button" data-manual-cancel>취소</button></div></section>`;
   }
   const taskProjectName=()=>task?.project?choices?.projects.find(x=>x.project.id===task.project)?.project.name||'프로젝트':'프로젝트';
   function paintTaskProject(){
@@ -198,36 +216,54 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
   async function confirm(){
     const n=note();if(mode!=='link'||!n||isBusy())return;
     const done=linked();link.targets=link.targets.filter(t=>!done.has(linkKey(t.kind,t.id)));
-    const invalid=invalidManualSelection(link.targets);
-    if(invalid){link.status=invalid.message;paint();if(invalid.index>=0)host.querySelector(`[data-manual-summary="${CSS.escape(linkKey(link.targets[invalid.index].kind,link.targets[invalid.index].id))}"]`)?.focus();return;}
-    const targets=manualLinkTargets(link.targets),run=++seq,owner=scope(),id=n.id;
+    const records=link.targets.filter(t=>t.record),into=fileTarget();
+    const invalid=!link.targets.length||link.targets.length>MANUAL_LINK_LIMIT?invalidManualSelection(link.targets):records.length?invalidManualSelection(records):null;
+    if(invalid){link.status=invalid.message;paint();if(invalid.index>=0)host.querySelector(`[data-manual-summary="${CSS.escape(linkKey(records[invalid.index].kind,records[invalid.index].id))}"]`)?.focus();return;}
+    const run=++seq,owner=scope(),id=n.id;
     const current=()=>run===seq&&owner===scope()&&note()?.id===id&&window.KPTURouter.current==='basket';
+    let linkedResult={created:0,existing:0,warning:''};
+    if(records.length){linkedResult=await linkRecords(n,records,current,owner,{keepBusy:!!into});if(!linkedResult)return;}
+    let filed=null;
+    if(into){
+      setBusy(true);link.status='자료로 넣는 중…';paint();
+      try{filed=await fileDocs.put(into.id,current);}catch{filed={ok:false,kind:'unknown',message:'자료로 넣었는지 확인하지 못했어요. 자료실에서 먼저 확인해 주세요.'};}
+      setBusy(false);
+      if(!current())return;
+      // Nothing linked and the files did not go in: keep the panel so the person can try again (sending is idempotent).
+      if(!filed.ok&&!records.length){link.status=filed.message;paint();return;}
+    }
+    finish(linkedResult.created,linkedResult.existing,linkedResult.warning,{records:records.length,into,filed});
+  }
+  // The record path (app_basket_confirm_links). Returns the counts, or null when it already painted why it stopped.
+  async function linkRecords(n,records,current,owner,{keepBusy=false}={}){
+    const targets=manualLinkTargets(records),id=n.id;
     const changed=()=>window.dispatchEvent(new Event('kptu:basket-links-changed'));
     setBusy(true);link.status='연결하는 중…';paint();
     let result=null;
     try{result=await confirmLinks(id,n.updated_at,targets,rt);}catch{result=null;}
-    setBusy(false);
-    if(!current()){if(owner===scope()&&result?.ok!==false)changed();return;}
+    if(!keepBusy||!result?.ok)setBusy(false);
+    if(!current()){setBusy(false);if(owner===scope()&&result?.ok!==false)changed();return null;}
     if(!result||typeof result.ok!=='boolean'){
       // Unknown outcome: the RPC is all-or-nothing, so one fresh read tells which.
       changed();link.status='연결 결과를 확인하는 중…';paint();
-      const fresh=await onLinked(id,[]).catch(()=>({ok:false}));if(!current())return;
+      const fresh=await onLinked(id,[]).catch(()=>({ok:false}));if(!current())return null;
       const now=linkedDestinations(id,getLinks());
-      if(fresh.ok&&targets.every(t=>now.get(linkKey(t.kind,t.target_id))==='confirmed')){finish(targets.length,0);return;}
-      link.status=!fresh.ok?'연결 결과를 확인하지 못했어요. [메모 다시 불러오기]로 실제 연결을 확인해 주세요.':'연결되지 않았어요. 다시 [연결]을 눌러 주세요.';paint();return;
+      if(fresh.ok&&targets.every(t=>now.get(linkKey(t.kind,t.target_id))==='confirmed'))return {created:targets.length,existing:0,warning:''};
+      link.status=!fresh.ok?'연결 결과를 확인하지 못했어요. [메모 다시 불러오기]로 실제 연결을 확인해 주세요.':'연결되지 않았어요. 다시 [연결]을 눌러 주세요.';paint();return null;
     }
     if(!result.ok){
-      if(result.error==='NOTE_CHANGED'){link.status=manualErrorText('NOTE_CHANGED');await onNoteChanged();if(note()?.id===id&&mode==='link'){link.status=manualErrorText('NOTE_CHANGED');paint();}return;}
-      link.status=manualErrorText(result.error);paint();return;
+      if(result.error==='NOTE_CHANGED'){link.status=manualErrorText('NOTE_CHANGED');await onNoteChanged();if(note()?.id===id&&mode==='link'){link.status=manualErrorText('NOTE_CHANGED');paint();}return null;}
+      link.status=manualErrorText(result.error);paint();return null;
     }
     changed();
-    const fresh=await onLinked(id,targets.map(t=>({kind:t.kind,target_id:t.target_id,name:link.targets.find(s=>s.kind===t.kind&&s.id===t.target_id)?.name}))).catch(()=>({ok:false}));
-    if(!current())return;
-    finish(result.created||0,result.existing||0,fresh.ok?'':'목록 새로고침은 다시 시도해 주세요.');
+    const fresh=await onLinked(id,targets.map(t=>({kind:t.kind,target_id:t.target_id,name:records.find(s=>s.kind===t.kind&&s.id===t.target_id)?.name}))).catch(()=>({ok:false}));
+    if(!current()){setBusy(false);return null;}
+    return {created:result.created||0,existing:result.existing||0,warning:fresh.ok?'':'목록 새로고침은 다시 시도해 주세요.'};
   }
-  function finish(created,existing,warning=''){
+  function finish(created,existing,warning='',{records=1,into=null,filed=null}={}){
     reset();paint();
-    const message=[`${created}곳에 연결했어요.`,existing?`${existing}곳은 이미 연결돼 있어 요약을 바꾸지 않았어요.`:'',warning].filter(Boolean).join(' ');
+    const files=!into?'':filed?.ok?`파일 ${filed.placed}개를 ${into.name} 자료로 넣었어요.`:filed?.message||'';
+    const message=[records?`${created}곳에 연결했어요.`:'',existing?`${existing}곳은 이미 연결돼 있어 요약을 바꾸지 않았어요.`:'',files,warning].filter(Boolean).join(' ');
     host?.ownerDocument.querySelector('[data-basket-status]')?.replaceChildren(message);
     host?.ownerDocument.querySelector('[data-basket-link-open]')?.focus();
   }
@@ -288,6 +324,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       const b=event.target.closest('button');if(!b||b.disabled||isBusy())return;
       if(b.dataset.manualPick)void sheet.open(b.dataset.manualPick,b);
       else if(b.dataset.manualRemove){link.targets=link.targets.filter(t=>linkKey(t.kind,t.id)!==b.dataset.manualRemove);link.status='';paint();host.querySelector('[data-manual-pick="organization"]')?.focus();}
+      else if(b.dataset.manualRecord){const t=link.targets.find(x=>linkKey(x.kind,x.id)===b.dataset.manualRecord);if(t){t.record=!t.record;paint();if(t.record)host.querySelector(`[data-manual-summary="${CSS.escape(b.dataset.manualRecord)}"]`)?.focus();}}
       else if(b.hasAttribute('data-manual-confirm'))void confirm();
       else if(b.hasAttribute('data-manual-cancel')||b.hasAttribute('data-manual-task-cancel'))cancel();
       else if(b.hasAttribute('data-manual-task-save'))void saveTask();
