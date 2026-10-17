@@ -170,8 +170,8 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['projects','#newProjectBtn','backgroundColor',color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
    ['meetings','#newMeetingBtn','backgroundColor',color],
-   // UI-디자인기준 3/3 3부(8-9e-3): 고른 성명 필터는 회색(종류 색 '그 밖'), 게시판은 상자 안 줄(상자가 바탕).
-   ['media','.w1p-filter.active','backgroundColor','#efede6'],
+   // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕). 고른 성명 필터는 민트(--ds-kind-task-soft, UI-선택표시통일).
+   ['media','.w1p-filter.active','backgroundColor','#e1f5ee'],
    ['pages','#web1BoardActive','backgroundColor',surface[theme]],
    ['team','#soAddOrg','backgroundColor',surface[theme]]
   ]){

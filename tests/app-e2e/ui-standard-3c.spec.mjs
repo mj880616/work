@@ -170,7 +170,7 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·성명
  const pressTitle=await look(media.locator('.w1p-title').first());expect([pressTitle.fontSize,pressTitle.fontWeight]).toEqual(['13px','400']);
  const date=await look(media.locator('.w1p-date').first());expect(date.fontSize).toBe('12px');
  await media.locator('[data-press-type="statement"]').click();
- expect((await look(media.locator('[data-press-type="statement"]'))).bg).toBe(await token(page,'--ds-kind-other-soft'));
+ expect((await look(media.locator('[data-press-type="statement"]'))).bg).toBe(await token(page,'--ds-kind-task-soft'));
  // 게시판: 한 상자 안 줄(44px)·이름 13px/400·오른쪽 ›, 카드 그림자·떠오름 없음.
  await view(page,'pages');
  const board=page.locator('#web1BoardActive');await expect(board.locator('.w1b-card').first()).toBeVisible();
