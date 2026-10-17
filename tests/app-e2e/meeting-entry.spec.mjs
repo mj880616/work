@@ -448,6 +448,7 @@ test('meeting palette has 8 distinct non-red colors visible on light and dark su
 });
 
 for(const width of [320,360,390,768,1280]){
+  // UI-선택표시통일: 폰(760px 이하)의 [+ 회의]는 다른 탭과 같은 동그란 [+](하단 탭 위)이고 카드 안에는 없다.
   test(`meeting filter stays usable and add button sits in the list card at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:800});
     await signIn(page);
@@ -457,15 +458,20 @@ for(const width of [320,360,390,768,1280]){
     const head=page.locator('#meetingsListCard .add-list-head');
     const [b,s,h,btn]=await Promise.all([bar.boundingBox(),select.boundingBox(),head.boundingBox(),button.boundingBox()]);
     // UI-디자인기준 3/3(8-9e-1): one control height (--ds-control-height 46px) for the add button and the filter buttons.
-    expect(btn.height).toBeCloseTo(46,0);
     expect(s.height).toBeCloseTo(46,0);
     expect(s.x).toBeCloseTo(b.x,0);
     expect(s.width).toBeLessThanOrEqual(b.width);
-    expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0);
-    expect(btn.y).toBeGreaterThanOrEqual(h.y);
-    expect(btn.y+btn.height).toBeLessThanOrEqual(h.y+h.height);
     expect(b.height).toBeCloseTo(46,0);
-    expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
+    if(width<=760){
+      expect(await button.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');expect(btn.width).toBe(36);expect(btn.height).toBe(36);
+      await expect(button).toHaveAttribute('aria-label','회의 결과 등록');
+    }else{
+      expect(btn.height).toBeCloseTo(46,0);
+      expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0);
+      expect(btn.y).toBeGreaterThanOrEqual(h.y);
+      expect(btn.y+btn.height).toBeLessThanOrEqual(h.y+h.height);
+      expect(await button.evaluate(el=>el.scrollWidth<=el.clientWidth&&getComputedStyle(el).whiteSpace==='nowrap')).toBe(true);
+    }
     const row=page.locator('#meetingList .meeting-list-row').first();
     const fit=await row.evaluate(el=>{const main=el.querySelector('.meeting-list-main').getBoundingClientRect(),box=el.getBoundingClientRect(),cs=getComputedStyle(el);return {row:box.height,content:main.height+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+parseFloat(cs.borderTopWidth)}});
     expect(Math.abs(fit.row-fit.content)).toBeLessThanOrEqual(1);

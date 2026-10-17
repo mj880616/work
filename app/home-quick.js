@@ -19,7 +19,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   for(const event of ['click','keydown','input'])box.addEventListener(event,guardPendingOcr,true);
   window.addEventListener('storage',guardPendingOcr);
   window.addEventListener('kptu:session-changed',guardPendingOcr);
-  box.innerHTML=`<div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><button type="button" data-quick-mode="update">업데이트</button></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div class="home-quick-lock" data-quick-lock hidden><p data-quick-lock-reason></p><button type="button" class="home-quick-new-note" data-quick-new-note>새 메모 입력</button></div><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div><div data-quick-update-options hidden><button type="button" data-quick-org aria-label="조직" aria-haspopup="dialog" aria-expanded="false">조직 ▾</button></div><small data-quick-destination></small></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
+  // HOME-빠른입력정리: the task options row sits above the mode buttons, and the organization picker is the ▾ right of [업데이트].
+  box.innerHTML=`<div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div></div><div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><span class="home-quick-update-split"><button type="button" data-quick-mode="update">업데이트</button><button type="button" data-quick-org aria-label="조직 선택" aria-haspopup="dialog" aria-expanded="false">▾</button></span></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div class="home-quick-lock" data-quick-lock hidden><p data-quick-lock-reason></p><button type="button" class="home-quick-new-note" data-quick-new-note>새 메모 입력</button></div><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
   const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>mode==='basket',getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
   // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
@@ -41,17 +42,15 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     // A saved or unconfirmed note keeps its text; say why and offer the reset next to the input.
     const locked=mode==='basket'&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 메모 입력’을 눌러 주세요.':'메모 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 메모 입력’을 눌러 주세요.';
-    box.dataset.mode=mode; input.rows=mode==='update'?3:1; input.placeholder=mode==='basket'?'메모를 입력하세요':mode==='task'?'할 일을 입력하세요':'담당조직 기록을 입력하세요';
+    box.dataset.mode=mode; input.rows=mode==='update'?3:1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'';
+    input.placeholder=mode==='basket'?'메모를 입력하세요':mode==='task'?'할 일을 입력하세요':(orgName||'담당조직')+' 기록을 입력하세요';
     box.querySelector('[data-quick-file-picker]').hidden=mode!=='basket';
     box.querySelector('[data-quick-basket-options]').hidden=mode!=='basket'||!upload.entries.length;
     box.querySelectorAll('[data-quick-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quickMode===mode)));
-    box.querySelector('[data-quick-task-options]').hidden=mode!=='task'; box.querySelector('[data-quick-update-options]').hidden=mode!=='update';
-    box.querySelector('[data-quick-destination]').textContent=mode==='basket'?'→ 바구니':mode==='task'?'→ Google 할 일':'→ 담당조직 기록';
-    options.hidden=!expanded||mode==='basket';
+    options.hidden=!expanded||mode!=='task';
     projectSelect.textContent=(projectChoices.find(x=>x.project.id===project)?.project.name||'프로젝트')+' ▾';
-    orgSelect.textContent=(orgChoices.groups.flat().find(o=>o.id===organization)?.name||'조직')+' ▾';
     projectSelect.setAttribute('aria-label',project?'프로젝트: '+projectSelect.textContent.slice(0,-2):'프로젝트');
-    orgSelect.setAttribute('aria-label',organization?'조직: '+orgSelect.textContent.slice(0,-2):'조직');
+    orgSelect.setAttribute('aria-label',orgName?'조직 선택: '+orgName:'조직 선택');
     box.querySelectorAll('[data-quick-day]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.quickDay===dateKind));if(b.dataset.quickDay==='date')b.textContent=dateKind==='date'?`${Number(due.slice(5,7))}.${Number(due.slice(8,10))}`:'날짜';});size();
   }
   async function choices(){
@@ -93,13 +92,16 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   });
   const openSheet=kind=>picker.open(kind,kind==='org'?orgSelect:projectSelect);
   const dismissForNavigation=()=>picker.dismiss();
-  projectSelect.onclick=()=>void openSheet('project');orgSelect.onclick=()=>void openSheet('org');
+  projectSelect.onclick=()=>void openSheet('project');
+  // ▾ also picks [업데이트] when another mode is showing, then opens the organization sheet.
+  orgSelect.onclick=()=>{if(saving)return;if(mode!=='update')setMode('update');void openSheet('org');};
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view){uploadGeneration++;dismissForNavigation();}});
-  box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{
-    if(saving)return;mode=b.dataset.quickMode;status.textContent='';
+  function setMode(next){
+    mode=next;status.textContent='';
     try{if(!basketOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
     paint();if(mode==='task'&&taskAttempt?.needsReview)taskNotice('앞선 저장 결과를 확인해 주세요. 입력은 유지했습니다.',{confirm:true});if(expanded&&mode!=='basket')void choices();
-  });
+  }
+  box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{if(!saving)setMode(b.dataset.quickMode);});
   box.querySelectorAll('[data-quick-day]').forEach(b=>b.onclick=()=>{
     if(saving)return;const kind=b.dataset.quickDay;
     if(dateKind===kind){due='';dateKind='';date.value='';paint();return;}

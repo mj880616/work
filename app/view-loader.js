@@ -20,17 +20,17 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=20','./markdown-view.css?v=2','./md-editor.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=9'],
-  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=18','./google-tasks.css?v=26','./ui-standard.css?v=9'],
-  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=9'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=9'],
-  projects:['./project-system-v3.css?v=30','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=9'],
-  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2','./ui-standard.css?v=9'],
-  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26','./ui-standard.css?v=9'],
-  media:['./web1-press.css?v=4','./ui-standard.css?v=9'],
-  pages:['./web1-board.css?v=7','./ui-standard.css?v=9'],
-  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26','./ui-standard.css?v=9'],
-  hwp:['./hwp-lab.css?v=3','./ui-standard.css?v=9']
+  basket:['./basket.css?v=20','./markdown-view.css?v=2','./md-editor.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=10'],
+  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=19','./google-tasks.css?v=26','./ui-standard.css?v=10'],
+  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=10'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=10'],
+  projects:['./project-system-v3.css?v=30','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=10'],
+  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2','./ui-standard.css?v=10'],
+  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26','./ui-standard.css?v=10'],
+  media:['./web1-press.css?v=4','./ui-standard.css?v=10'],
+  pages:['./web1-board.css?v=7','./ui-standard.css?v=10'],
+  team:['./suborganizations.css?v=11','./workplace-detail.css?v=9','./google-tasks.css?v=26','./ui-standard.css?v=10'],
+  hwp:['./hwp-lab.css?v=3','./ui-standard.css?v=10']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -139,7 +139,7 @@ async function organizations(){
 async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
-  await module('./home-read.js?v=40');
+  await module('./home-read.js?v=41');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});

@@ -29,7 +29,9 @@ async function sameButtons(region,height){
   if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more]')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
   expect(Math.abs(s.height-height),await control.textContent()).toBeLessThanOrEqual(0.5);
-  expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.radius).toBe('8px');expect(s.shadow).toBe('none');expect(s.image).toBe('none');
+  // HOME-빠른입력정리: [업데이트]와 ▾는 한 칸에 붙은 두 버튼이라 바깥쪽 모서리만 8px.
+  const split=await control.evaluate(el=>el.closest('.home-quick-update-split')?(el.matches('[data-quick-org]')?'0px 8px 8px 0px':'8px 0px 0px 8px'):'8px');
+  expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.radius).toBe(split);expect(s.shadow).toBe('none');expect(s.image).toBe('none');
  }
  return shaped;
 }
@@ -40,8 +42,8 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  const height=(await look(save)).height;
  expect(height).toBe(46);expect(height).toBe(parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height'))));
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
- // Home tabs: one height; the selected tab takes its kind color.
- const kinds={basket:'--ds-kind-basket',task:'--ds-kind-task',update:'--ds-kind-other'};
+ // Home tabs: one height; the selected tab is gray whichever it is (UI-선택표시통일 결정 B), the others white.
+ const kinds={basket:'--ds-kind-other',task:'--ds-kind-other',update:'--ds-kind-other'};
  for(const [mode,kind] of Object.entries(kinds)){
   const tab=quick.locator(`[data-quick-mode="${mode}"]`);
   if(width<761)await tab.tap();else await tab.click();
@@ -67,7 +69,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  await sameButtons(basket,height);
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary)filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
- expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(await token(page,'--ds-kind-basket-soft'));
+ expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(await token(page,'--ds-kind-other-soft'));
  // Keyboard opens and closes the menu; it does not push the list.
  const listTop=(await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y;
  await more.focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('aria-expanded','true');
