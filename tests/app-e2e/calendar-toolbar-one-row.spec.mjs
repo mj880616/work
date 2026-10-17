@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
-// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px), 고른 보기는 회색(--ds-kind-other-*), 상자 선 0.5px.
+// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px), 고른 보기는 민트(--ds-kind-task-*, UI-선택표시통일), 상자 선 0.5px.
 for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one row, accessible icons and persistence at ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await openEmphasisFixture(page,{view:'default'});
   const toolbar=page.locator('.calendar-toolbar');
@@ -12,7 +12,7 @@ for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one r
     await button.click();await expect(button).toHaveAttribute('aria-pressed','true');
     await expect(toolbar.locator('[data-calendar-view][aria-pressed="true"]')).toHaveCount(1);
     for(const inactive of await toolbar.locator('[data-calendar-view][aria-pressed="false"]').all())await expect(inactive).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
-    const colors=await button.evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,stroke:getComputedStyle(el.querySelector('svg')).stroke}});expect(colors.background).toBe('rgb(239, 237, 230)');expect(colors.color).toBe('rgb(85, 83, 74)');expect(colors.stroke).toBe(colors.color);
+    const colors=await button.evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,stroke:getComputedStyle(el.querySelector('svg')).stroke}});expect(colors.background).toBe('rgb(225, 245, 238)');expect(colors.color).toBe('rgb(15, 110, 86)');expect(colors.stroke).toBe(colors.color);
     expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe(view);
   }
   // Do not seed storage on reload: the real selection must survive.

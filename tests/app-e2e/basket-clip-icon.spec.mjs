@@ -89,7 +89,8 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
     await expect(root).not.toContainText('파일 추가');
     await expect(badge).toBeHidden();
     await expect(hint).toBeHidden();
-    await (name === 'home' ? root.locator('[data-quick-mode="update"]') : root.locator('textarea')).focus();
+    // HOME-빠른입력정리: the last control before the clip on home is the ▾ (organization) right of [업데이트].
+    await (name === 'home' ? root.locator('[data-quick-org]') : root.locator('textarea')).focus();
     await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     const chooser = page.waitForEvent('filechooser');

@@ -161,7 +161,7 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·성명
  const media=page.locator('#mediaView');
  expect(await sameButtons(page,media.locator('.w1p-tools'))).toEqual([]);
  const all=await look(media.locator('[data-press-type="all"]'));
- expect(all.bg).toBe(await token(page,'--ds-kind-other-soft'));expect(all.fg).toBe(await token(page,'--ds-kind-other-ink'));
+ expect(all.bg).toBe(await token(page,'--ds-kind-task-soft'));expect(all.fg).toBe(await token(page,'--ds-kind-task-ink'));
  expect(all.bg).not.toBe(primary);
  const search=await look(media.locator('#pressSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');
  const year=await look(media.locator('.w1p-year > h3').first());expect([year.fontSize,year.fontWeight,year.fg]).toEqual(['13px','500',await token(page,'--ds-section-ink')]);
@@ -239,12 +239,12 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  await titleOf(modal);expect(await sameButtons(page,modal)).toEqual(['저장']);await inputs(modal);await labels(modal);
  const card=await look(modal.locator('.modal-card'));expect(card.radius).toBe('12px');expect(card.shadow).toBe('none');
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
- // 일정 창: [일정 | 할 일]은 같은 버튼, 고른 [일정]은 회색.
+ // 일정 창: [일정 | 할 일]은 같은 버튼, 고른 [일정]도 민트(UI-선택표시통일).
  await view(page,'calendar');await page.locator('#newEventBtn').click();
  modal=page.locator('#eventModal');await expect(modal).toBeVisible();
  await titleOf(modal);await inputs(modal);await labels(modal);
  expect(await sameButtons(page,modal,'.icon-btn,.calendar-color-swatch,[role="radio"]')).toEqual(['저장']);
- expect((await look(modal.locator('[data-event-mode="event"]'))).bg).toBe(await token(page,'--ds-kind-other-soft'));
+ expect((await look(modal.locator('[data-event-mode="event"]'))).bg).toBe(await token(page,'--ds-kind-task-soft'));
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
  // 자료 등록
  await view(page,'library');await page.locator('#newDocumentBtn').click();
