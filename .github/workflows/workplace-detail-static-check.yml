@@ -36,7 +36,7 @@ jobs:
           test -f app/workplace-detail.js
           test -f app/workplace-detail.css
           grep -q "workplace-detail.css?v=9" app/styles.css
-          grep -Fq "workplace-detail.js?v=25" app/view-loader.js
+          grep -Fq "workplace-detail.js?v=26" app/view-loader.js
           grep -q "data-wd-close" app/workplace-detail.js
           grep -q "data-wd-time-edit" app/workplace-detail.js
           grep -q "id=\"wdInboxText\"" app/workplace-detail.js

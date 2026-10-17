@@ -308,7 +308,7 @@ function harness(options = {}) {
     assert.equal(h.uploads.length, 0);
   });
 
-const note = (id, extra = {}) => ({id, raw_text:`TEXT_${id}`, occurred_at:now.toISOString(), created_at:now.toISOString(), updated_at:now.toISOString(), archived_at:null, ai_export_allowed:true, attachments:[], ...extra});
+const note = (id, extra = {}) => ({id, kind:'basket', raw_text:`TEXT_${id}`, occurred_at:now.toISOString(), created_at:now.toISOString(), updated_at:now.toISOString(), archived_at:null, ai_export_allowed:true, attachments:[], ...extra});
 const ocrPhoto = (state='done',text='  인식 글 <script>\r\n끝  ') => ({drive_file_id:'photo-source',file_name:'원본.jpg',mime_type:'image/jpeg',size_bytes:4,
  ocr:{state,original_file_id:'photo-source',attempt_id:'10000000-0000-4000-8000-000000000001',text,temp_document_id:'photo-temp',cleanup_state:'created'}});
 test('Drive copy includes escaped OCR separately from raw text and retains it in reading and failed states',async()=>{
@@ -331,16 +331,16 @@ test('the complete project document budget includes all OCR and escaping bytes',
 test('basket includes only eligible unclassified owner notes with KST boundaries and old count', async () => {
   const window=core.kstWindow(now);
   const h=harness({data:{
-    app_notes:[note('inside',{occurred_at:window.start}), note('old',{occurred_at:'2026-09-05T14:59:59.999Z'}), note('future',{occurred_at:'2026-10-04T00:00:00Z'}), note('archived',{archived_at:now.toISOString()}), note('excluded',{ai_export_allowed:false}), note('confirmed'), note('suggested'), note('foreign',{workspace_id:'other'})],
+    app_notes:[note('inside',{occurred_at:window.start}), note('old',{occurred_at:'2026-09-05T14:59:59.999Z'}), note('future',{occurred_at:'2026-10-04T00:00:00Z'}), note('archived',{archived_at:now.toISOString()}), note('excluded',{ai_export_allowed:false}), note('confirmed'), note('suggested'), note('foreign',{workspace_id:'other'}), note('memo-note',{kind:'note',title:'노트'}), note('diary',{kind:'diary'})],
     app_record_links:[...fixture.app_record_links,{id:'c',note_id:'confirmed',status:'confirmed'},{id:'s',note_id:'suggested',status:'suggested'}],
   }});
   assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
   const project=h.uploads[1].body, org=h.uploads[0].body;
   assert.match(project,/<h2>바구니<\/h2>/); assert.match(project,/대상 건수: 1/); assert.match(project,/4주 이전 미분류: 1건/);
-  assert.match(project,/TEXT_inside/); assert.doesNotMatch(project,/TEXT_(old|future|archived|excluded|confirmed|suggested|foreign)/);
+  assert.match(project,/TEXT_inside/); assert.doesNotMatch(project,/TEXT_(old|future|archived|excluded|confirmed|suggested|foreign|memo-note|diary)/);
   assert.doesNotMatch(org,/바구니|TEXT_/); assert.match(org,/현재 요약/); assert.match(project,/진행 기록|최근 4주 회의/);
   const notesQuery=h.calls.find(c=>c.url.pathname.endsWith('/app_notes')).url.searchParams;
-  assert.equal(notesQuery.get('archived_at'),'is.null');assert.equal(notesQuery.get('ai_export_allowed'),'eq.true');
+  assert.equal(notesQuery.get('archived_at'),'is.null');assert.equal(notesQuery.get('ai_export_allowed'),'eq.true');assert.equal(notesQuery.get('kind'),'eq.basket');
 });
 test('basket preserves raw whitespace and literal HTML; attachment allowlist emits links only',async()=>{
  const raw='  첫 줄\n\n\t둘째 <script> & 줄\r\n끝  ';
