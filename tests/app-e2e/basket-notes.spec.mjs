@@ -15,7 +15,7 @@ async function fixture(page){
  const rows=store(),writes=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await openHome(page);
- await page.route(SB+'/rest/v1/app_notes?**',async r=>{
+ const notesApi=async r=>{
   const req=r.request(),q=new URL(req.url()).searchParams;
   const pick=row=>(!q.get('kind')||'eq.'+row.kind===q.get('kind'))&&(!q.get('id')||'eq.'+row.id===q.get('id'))&&(!q.get('workspace_id')||'eq.'+row.workspace_id===q.get('workspace_id'));
   if(req.method()==='GET'){if(q.get('metadata'))return r.fulfill({json:[]});return r.fulfill({json:rows.filter(pick).slice(Number(q.get('offset')||0))});}
@@ -30,8 +30,16 @@ async function fixture(page){
    }
    return r.fulfill({json:hit});
   }
+  if(req.method()==='POST'){
+   const body=req.postDataJSON(),now=new Date().toISOString();writes.push({method:'POST',query:Object.fromEntries(q),body});
+   if(body.kind==='note'&&!String(body.title||'').trim())return r.fulfill({status:400,json:{code:'23514'}});
+   const row={id:'n-created',title:null,occurred_at:now,created_at:now,updated_at:now,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{},...body};
+   rows.push(row);return r.fulfill({status:201,json:[row]});
+  }
   return r.fulfill({status:500,json:{}});
- });
+ };
+ // A new note POSTs to the bare path; reads and PATCHes carry filters.
+ await page.route(SB+'/rest/v1/app_notes?**',notesApi);await page.route(SB+'/rest/v1/app_notes',notesApi);
  await page.route(SB+'/rest/v1/app_record_links?**',r=>{
   const q=new URL(r.request().url()).searchParams;if(!q.has('note_id'))return r.fallback();
   const ids=(q.get('note_id').match(/^in\.\((.*)\)$/)?.[1]||'').split(',');
@@ -139,5 +147,85 @@ test('note edit draft is protected when leaving with Escape',async({page})=>{
  let asked=0;page.on('dialog',d=>{asked++;d.dismiss();});
  await page.keyboard.press('Escape');
  expect(asked).toBe(1);await expect(page.locator('[data-note-detail] [data-basket-text]')).toHaveValue('고치는 중');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+// MEMO-노트 후속: [+] on the [노트] list writes a new kind=note row through the same owner-RLS POST.
+for(const width of [390,1280]){
+ test(`[+] writes a new note, opens it and lists it first, never in the memo list ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  await page.locator('[data-basket-kind="note"]').click();
+  await expect(noteList(page)).toHaveCount(2);
+  const add=page.locator('#newNoteDocBtn');
+  await expect(add).toBeVisible();await expect(add).toHaveAccessibleName('노트 추가');
+  const box=await add.boundingBox();
+  if(width===390){
+   // The same round [+] as the other tabs: fixed at the bottom right, 36px circle.
+   expect(await add.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+   expect(Math.round(box.width)).toBe(36);expect(Math.round(box.height)).toBe(36);
+   expect(box.x+box.width).toBeGreaterThan(width-60);
+  } else await expect(add).toHaveText('+ 노트');
+  await add.click();
+  const detail=page.locator('[data-note-detail]');
+  await expect(page.locator('[data-note-list]')).toBeHidden();await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();
+  await expect(detail.locator('[data-note-title-input]')).toBeFocused();await expect(detail.locator('[data-note-title-input]')).toHaveValue('');
+  await expect(detail.locator('[data-basket-text]')).toHaveValue('');
+  for(const hidden of ['[data-note-read]','[data-note-read-actions]','[data-note-more-wrap]'])await expect(detail.locator(hidden)).toBeHidden();
+  await expect(detail.getByRole('button',{name:'큰 창에서 수정',exact:true})).toBeVisible();
+  await detail.locator('[data-note-title-input]').fill('새로 쓴 노트');
+  await detail.locator('[data-basket-text]').fill('## 할 말\n\n- 첫째');
+  await detail.locator('[data-note-save]').click();
+  await expect(detail.locator('[data-basket-status]')).toHaveText('노트를 저장했습니다.');
+  await expect(detail.locator('[data-note-read-title]')).toHaveText('새로 쓴 노트');
+  await expect(detail.locator('[data-basket-read-text] h2')).toHaveText('할 말');
+  await expect(detail.locator('[data-note-read-actions]')).toBeVisible();
+  expect(f.writes).toHaveLength(1);
+  expect(f.writes[0]).toMatchObject({method:'POST',body:{workspace_id:'w',kind:'note',title:'새로 쓴 노트',raw_text:'## 할 말\n\n- 첫째'}});
+  await detail.locator('[data-note-close]').click();
+  await expect(noteList(page)).toHaveCount(3);await expect(noteList(page).nth(0)).toContainText('새로 쓴 노트');
+  await page.locator('[data-basket-kind="memo"]').click();
+  await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();
+  await expect(page.locator('[data-basket-row="n-created"]')).toHaveCount(0);
+  await expect(page.locator('[data-basket-list]')).not.toContainText('새로 쓴 노트');
+  expect(f.writes).toHaveLength(1);expect(f.errors).toEqual([]);
+ });
+}
+
+test('an empty new note is not saved; a body-only note takes its first line as title',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ await page.locator('[data-basket-kind="note"]').click();await expect(noteList(page)).toHaveCount(2);
+ await page.locator('#newNoteDocBtn').click();
+ const detail=page.locator('[data-note-detail]');
+ await detail.locator('[data-note-title-input]').fill('   ');await detail.locator('[data-basket-text]').fill('  \n ');
+ await detail.locator('[data-note-save]').click();
+ await expect(detail.locator('[data-basket-status]')).toHaveText('제목이나 본문을 써 주세요.');
+ expect(f.writes).toEqual([]);
+ await detail.locator('[data-note-title-input]').fill('');await detail.locator('[data-basket-text]').fill('\n  본문 첫 줄  \n둘째 줄');
+ await detail.locator('[data-note-save]').click();
+ await expect(detail.locator('[data-note-read-title]')).toHaveText('본문 첫 줄');
+ expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({kind:'note',title:'본문 첫 줄',raw_text:'\n  본문 첫 줄  \n둘째 줄'});
+ expect(f.errors).toEqual([]);
+});
+
+test('leaving an unsaved new note asks first; Back closes it, an untouched one closes without asking',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ await page.locator('[data-basket-kind="note"]').click();await expect(noteList(page)).toHaveCount(2);
+ const detail=page.locator('[data-note-detail]'),asked=[];
+ let answer=false;page.on('dialog',d=>{asked.push(d.message());answer?d.accept():d.dismiss();});
+ // Untouched: closes at once and focus returns to [+].
+ await page.locator('#newNoteDocBtn').click();
+ await detail.locator('[data-note-cancel]').click();
+ await expect(page.locator('[data-note-list]')).toBeVisible();await expect(page.locator('#newNoteDocBtn')).toBeFocused();
+ expect(asked).toEqual([]);
+ await page.locator('#newNoteDocBtn').click();
+ await detail.locator('[data-basket-text]').fill('쓰는 중');
+ await page.goBack();
+ await expect.poll(()=>asked.length).toBe(1);expect(asked[0]).toBe('저장 안 하고 닫을까요?');
+ await expect(detail.locator('[data-basket-text]')).toHaveValue('쓰는 중');
+ await page.keyboard.press('Escape');
+ await expect.poll(()=>asked.length).toBe(2);await expect(detail.locator('[data-basket-text]')).toHaveValue('쓰는 중');
+ answer=true;await page.goBack();
+ await expect(page.locator('[data-note-list]')).toBeVisible();await expect(noteList(page)).toHaveCount(2);
+ expect(asked).toEqual(['저장 안 하고 닫을까요?','저장 안 하고 닫을까요?','저장 안 하고 닫을까요?']);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

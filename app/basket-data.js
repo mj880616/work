@@ -78,6 +78,13 @@ export function suggestNoteTitle(note) {
 async function patchKind(id, kind, body, rt) {
   return savedRow(await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.${kind}`, {method:'PATCH', prefer:'return=representation', body:{...body, updated_at:new Date().toISOString()}}));
 }
+// [+] on the [노트] side: the same owner-RLS POST as createNote, with kind=note and a title.
+export async function createNoteDoc({title, raw_text}, rt = window.KPTURuntime) {
+  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)};
+  const workspace_id = rt.context.read()?.workspace?.id;
+  workspace(rt);
+  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, ...body}}));
+}
 export function saveNoteDoc(id, {title, raw_text}, rt = window.KPTURuntime) {
   return patchKind(id, 'note', {title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)}, rt);
 }

@@ -292,9 +292,9 @@
   #appView .schedule-switch [aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
   #appView .schedule-switch button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 
-  /* 동그란 [+]: 일정(달력=일정 추가)·할 일·프로젝트·자료실·회의(UI-선택표시통일 추가)의 위쪽 추가 버튼을 하단 탭 바로 위 오른쪽에 띄운다.
+  /* 동그란 [+]: 일정(달력=일정 추가)·할 일·프로젝트·자료실·회의(UI-선택표시통일 추가)·바구니 [노트](MEMO-노트 후속)의 위쪽 추가 버튼을 하단 탭 바로 위 오른쪽에 띄운다.
      같은 버튼(같은 창을 엶)의 모양만 바꾼다. 보이는 원 36px(버튼 자체), 누르는 범위 44px(::after, 앱의 다른 버튼과 같은 방식). 자판이 열리면 감춘다. */
-  #appView #calendarView .calendar-toolbar #newEventBtn,#appView #tasksView #newTaskBtn,#appView #projectsView #newProjectBtn,#appView #libraryView #newDocumentBtn,#appView #meetingsView #newMeetingBtn{
+  #appView #calendarView .calendar-toolbar #newEventBtn,#appView #tasksView #newTaskBtn,#appView #projectsView #newProjectBtn,#appView #libraryView #newDocumentBtn,#appView #meetingsView #newMeetingBtn,#appView #basketView #newNoteDocBtn{
     position:fixed; z-index:28; right:calc(16px + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2 + env(safe-area-inset-right));
     bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + var(--ds-fab-gap) + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2);
     box-sizing:border-box; display:grid; place-items:center; width:var(--ds-fab-size); min-width:var(--ds-fab-size); height:var(--ds-fab-size); min-height:var(--ds-fab-size);
@@ -302,21 +302,23 @@
   }
   #appView #calendarView .calendar-toolbar #newEventBtn > *{ display:none; }
   /* + 는 글자 대신 선으로 그린 SVG 아이콘(8-9e-3): 글꼴 높이 때문에 위로 치우치지 않게 가로·세로 정가운데. 장식이라 낭독되지 않는다(이름은 aria-label). */
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn)::before{
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#basketView #newNoteDocBtn)::before{
     content:""; position:absolute; inset:0; margin:auto; display:block; width:20px; height:20px; background:var(--kptu-on-primary);
     -webkit-mask:var(--ds-fab-plus) center / 20px 20px no-repeat; mask:var(--ds-fab-plus) center / 20px 20px no-repeat;
   }
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn)::after{
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#basketView #newNoteDocBtn)::after{
     content:""; position:absolute; inset:calc((var(--ds-fab-size) - var(--kptu-touch-target,44px)) / 2); width:auto; height:auto; border-radius:50%;
   }
-  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-  body.kptu-mobile-keyboard #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn){ display:none; }
+  #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#basketView #newNoteDocBtn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+  body.kptu-mobile-keyboard #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#basketView #newNoteDocBtn){ display:none; }
   /* 새 버전 알림(version-notice.css, 하단 탭 위)이 떠 있으면 [+]는 그 위로(알림 토스트와 같은 방식). */
-  body.kptu-version-notice-open #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn){
+  body.kptu-version-notice-open #appView :is(#calendarView .calendar-toolbar #newEventBtn,#tasksView #newTaskBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#basketView #newNoteDocBtn){
     bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + var(--kptu-version-notice-height,76px) + 24px + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2);
   }
   /* 목록 마지막 줄이 [+]에 가리지 않게 아래 여백(누르는 범위 + 간격 + 여유). */
   #appView :is(#tasksView,#projectsView,#libraryView,#meetingsView).view-panel{ padding-bottom:calc(var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
+  /* 바구니 [노트] 목록: 빠른 입력 칸이 없으니 [+]만큼만 비운다. */
+  #appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
   /* 일정은 달력 칸이 화면 아래까지 차도록 높이를 재므로(calendar-month-view.js) 여백 대신 기존 끝 여백(::after)을 [+]만큼 늘린다. */
   #appView #calendarView:not(.hidden)::after{ height:calc(var(--kptu-mobile-tab-height,0px) + var(--ds-fab-gap) + var(--kptu-touch-target,44px) + 8px); }
 
