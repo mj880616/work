@@ -200,8 +200,6 @@ test('공용 셸(폰): 머리줄 18px/500, 하단 탭 0.5px 선, ☰ 메뉴 판�
  for(const item of await page.locator('#mobileMenu nav button:visible').all()){
   const s=await look(item);expect(s.height).toBeGreaterThanOrEqual(44);expect([s.fontSize,s.radius]).toEqual(['13px','12px']);expect(['400','500']).toContain(s.fontWeight);
  }
- // 판이 올라오는 애니메이션이 끝난 뒤에 잰다. 움직이는 동안의 소수점 반올림(예: 43.99994)은 크기 차이가 아니다.
- await page.locator('.mobile-menu-panel').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
  for(const item of await page.locator('#mobileAccountGroup button:visible').all()){
   const s=await look(item);expect(s.height).toBeCloseTo(44,2);expect([s.fontSize,s.fontWeight]).toEqual(['13px','400']);
  }
