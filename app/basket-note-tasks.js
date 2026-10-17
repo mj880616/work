@@ -68,7 +68,7 @@ export async function recordNoteTask(noteId,entry,{rt=window.KPTURuntime,expecte
 // query (never one request per task). Owner RLS decides which notes are visible.
 export async function readTaskSourceNotes({rt=window.KPTURuntime,expectedSessionEpoch=null}={}){
   const options=expectedSessionEpoch==null?{}:{expectedSessionEpoch},out=new Map(),size=100;
-  const path=`/rest/v1/app_notes?workspace_id=eq.${workspaceId(rt)}&metadata=cs.${encodeURIComponent('{"tasks":[]}')}&select=id,tasks:metadata->tasks&order=id.asc`;
+  const path=`/rest/v1/app_notes?workspace_id=eq.${workspaceId(rt)}&kind=eq.basket&metadata=cs.${encodeURIComponent('{"tasks":[]}')}&select=id,tasks:metadata->tasks&order=id.asc`;
   for(let offset=0;;offset+=size){
     const rows=await rt.api(`${path}&limit=${size}&offset=${offset}`,options);
     if(!Array.isArray(rows))throw Error('출처 메모를 확인하지 못했어요.');

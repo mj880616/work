@@ -37,9 +37,10 @@ async function pages(path, rt) {
     if (rows.length < PAGE_SIZE) return result;
   }
 }
+// app_notes also holds notes, work lines and diary rows (MEMO-노트·JOURNAL-일지); the basket reads kind=basket only.
 export async function readBasket(rt = window.KPTURuntime) {
   const scope = `workspace_id=eq.${workspace(rt)}`;
-  const notes = await pages(`/rest/v1/app_notes?${scope}&select=id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata&order=occurred_at.desc,id.desc`, rt);
+  const notes = await pages(`/rest/v1/app_notes?${scope}&kind=eq.basket&select=id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata&order=occurred_at.desc,id.desc`, rt);
   const links = [];
   // Read only links whose source is one of these notes, never task links.
   for (let start = 0; start < notes.length; start += PAGE_SIZE) {

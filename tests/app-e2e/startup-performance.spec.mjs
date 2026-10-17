@@ -144,7 +144,7 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   const tasksStart=views.indexOf('async function tasks()');
   const calendarBlock=views.slice(calendarStart,tasksStart);
   expect(calendarBlock).toContain("background(google)");
-  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=31'");
+  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=32'");
   expect(calendarBlock).toContain("google.then(()=>module('./calendar-health.js?v=7'))");
   expect(calendarBlock.indexOf("return {ok:true}")).toBeGreaterThan(calendarBlock.indexOf("background(google)"));
   expect(health).toContain("window.__KPTU_GOOGLE_STATE__");
