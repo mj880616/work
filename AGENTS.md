@@ -114,6 +114,7 @@ AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로�
 - Web2는 `app/index.html` → `app/app.js` → `app/loader-v2.js` → `app/view-loader.js`·기능 모듈 순서로 `?v=` 캐시 버전을 붙여 불러온다(`app/ARCHITECTURE.md`).
 - `?v=`로 불러오는 파일을 고치면 그 파일을 불러오는 곳의 `?v=`를 올린다. 그 때문에 불러오는 파일 자체가 바뀌면 그 파일의 버전도 윗단계에서 올린다. `index.html`까지 올라간다(예: `view-loader.js` 수정 → `loader-v2.js`의 `view-loader.js?v=` → `app.js`의 `loader-v2.js?v=`와 `index.html` modulepreload → `index.html`의 `app.js?v=`).
 - 버전 문자열을 기대하는 테스트(`tests/app-e2e/`)도 같은 PR에서 맞춘다.
+- `?v=`로 불러오는 파일이나 버전을 바꾸면 `node scripts/asset-manifest.mjs`로 `app/asset-manifest.json`을 다시 만들어 같은 PR에 넣는다(CI 검사). 손으로 고치지 않는다. 충돌하면 main을 merge한 뒤 다시 만든다.
 - 어느 로더도 불러오지 않는 파일은 올릴 버전이 없다. 이 경우 보고에 그렇게 적는다.
 
 ## 5. 제품 구조 (Confirmed product structure)

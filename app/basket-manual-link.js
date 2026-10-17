@@ -117,8 +117,9 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
         link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:''});link.status='';
       }
       paint();
-      // The sheet returns focus to its trigger; the new summary is the next thing to write.
-      queueMicrotask(()=>requestAnimationFrame(()=>host?.querySelector(`[data-manual-summary="${CSS.escape(linkKey(kind,value))}"]`)?.focus()));
+      // The sheet returns focus to its trigger once its history entry is gone; the new summary is
+      // the next thing to write, so focus it after that close settles (sheet.close() returns it).
+      queueMicrotask(()=>void sheet.close().then(()=>host?.querySelector(`[data-manual-summary="${CSS.escape(linkKey(kind,value))}"]`)?.focus()));
     },
     onError:error=>{const message=error?.message||'고를 목록을 불러오지 못했어요. 다시 눌러 주세요.';if(mode==='link')link.status=message;else if(task)task.status=message;paint();}
   });
