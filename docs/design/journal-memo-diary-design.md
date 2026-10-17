@@ -5,6 +5,7 @@
 - 작성: 2026-10-16, Claude Code 웹. 기준 main `a96161e`.
 - 원장 행: `docs/roadmap.md`의 JOURNAL-일지 · MEMO-노트.
 - SQL 초안: [`sql/20261020090000_journal_memo_notes_kind.sql`](sql/20261020090000_journal_memo_notes_kind.sql), 짝 되돌리기 [`.rollback.sql`](sql/20261020090000_journal_memo_notes_kind.rollback.sql), 읽기 전용 확인 [`.check.sql`](sql/20261020090000_journal_memo_notes_kind.check.sql).
+- 적용 파일(2026-10-17, MEMO-노트 PR 1): 초안을 version `20261017052234`로 옮겨 [`supabase/migrations/20261017052234_journal_memo_notes_kind.sql`](../../supabase/migrations/20261017052234_journal_memo_notes_kind.sql)와 `docs/20261017052234_journal_memo_notes_kind.*`(precheck·postcheck·rollback·snapshot·summary)로 준비했다. 승인형 DB workflow 검사 규칙에 맞춰 do 블록의 `has_table_privilege`·`jsonb_array_length` 호출을 표 ACL 확인·검증된 기존 검사 조건 확인으로 바꿨고, 검사·열·색인 정의는 초안과 같다. 위 초안 파일은 기록용으로 남기며 실행하지 않는다.
 
 ## 0. 요구사항 정리 (원장 기준)
 
