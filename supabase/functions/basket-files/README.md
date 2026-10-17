@@ -164,3 +164,23 @@ Drive 검증이나 정확히 한 번의 외부 문서 생성을 증명하는 것
 정상 owner가 실제 인식·임시삭제를 확인할 구체 경로/필요한 규칙 예외 또는 순서결정은 마지막 묶음에서 CC 확인한다. 운영·인증 우회 경로를 임의로 만들지 않는다.
 
 별도 검토 보완: 재시작한 persisted create_pending/create_unknown 시도는 정리·검색·소유/출처 검증의 거절 응답으로 failed/none으로 풀지 않는다. 이번 요청에서 새 시도 CAS가 확인되고 provider의 외부 CREATE가 아직 발송되지 않았다는 요청별 근거가 함께 있을 때만 known pre-POST 실패를 failed/none으로 기록한다. 기존 pending/unknown은 결과 불명과 같은 attempt를 보존하며 새 UUID/import로 우회하지 않는다.
+
+## 사진 보기(photo) — 배포 대기
+
+`GET ?action=photo&note_id=UUID&file_id=DRIVE_ID&size=small|large`(기본 `small`). 일기·바구니 메모 화면이
+사진을 작게(긴 변 480px)·크게(1600px) 보여 줄 때 쓴다. 쓰기는 하나도 하지 않는다.
+
+1. 위와 같은 JWT `getUser`·owner workspace 확인. 비로그인 401, owner 아님 403. 이때 메모·Drive 조회 없음.
+2. 입력 검사: `note_id` UUID, `file_id` Drive ID 형식, `size`는 `small|large`만. 아니면 400 `photo_request_invalid`.
+3. 메모 조회는 caller JWT client(owner RLS)와 서버의 workspace로만 한다(service_role은 `app_notes`를 읽지 않음).
+   ANON 설정이 없으면 503 `photo_unavailable`. 메모가 없거나 다른 workspace면 404 `note_not_found`,
+   그 파일이 그 메모의 `attachments`에 없으면 404 `photo_not_found`, 첨부가 사진(JPEG·PNG·WebP·GIF)이 아니면 415
+   `photo_not_image`. 여기까지 Drive 호출 없음.
+4. Drive 메타데이터 GET(`id,mimeType,ownedByMe,trashed,size,thumbnailLink`): id 일치·내 소유·휴지통 아님·사진 형식이
+   아니면 404 `photo_not_found`. Drive 썸네일 링크(`*.googleusercontent.com`만)의 크기를 바꿔 받아 그대로 돌려준다.
+   썸네일이 아직 없으면 5 MiB 이하 원본만 `alt=media`로 보낸다. 그 밖에·응답이 사진이 아니면 502 `photo_unavailable`.
+5. 성공 응답: 사진 바이트, `Content-Type` 사진 형식, `Cache-Control: private, max-age=3600`, `nosniff`.
+   실패 응답: `{action:"photo",ok:false,code}`, `Cache-Control: no-store`. 토큰·Drive 오류 본문·폴더 ID는 넣지 않는다.
+
+CORS는 기존과 같고 공개 주소·새 권한은 없다. 이 동작을 모르는 이전 배포(v4)는 GET을 OCR로 보내
+400 `OCR_REQUEST_INVALID`로 거절하므로 화면은 "Drive에서 열기" 링크로 대신 보여 준다. 검사: `tests/security/basket-photo.test.mjs`.
