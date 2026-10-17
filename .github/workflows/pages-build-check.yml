@@ -1,0 +1,91 @@
+name: Pages build check
+
+# CI-버전자동화 1단계(docs/design/ci-version-automation.md 4장): builds the hashed ?v= Pages
+# output from this commit and checks it. Nothing here deploys: Pages settings, the Pages
+# deployment and the Cloudflare Worker stay as they are until 2단계.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      compare_live:
+        description: 'Jekyll 결과를 지금 GitHub Pages 파일과 비교(읽기만, 결과는 보고만)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-output:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          package-manager-cache: false
+      - name: Install locked checker parser
+        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+      - name: Test build scripts
+        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs
+      - name: Build repository copy
+        run: |
+          mkdir -p "$RUNNER_TEMP/pages-src"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/pages-src"
+          node scripts/build-pages.mjs "$RUNNER_TEMP/pages-src" "$RUNNER_TEMP/pages-out"
+      - name: Check hashed references, manifest and Worker fingerprints
+        run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
+      - name: Check Worker deploy URL extraction on the output
+        working-directory: ${{ runner.temp }}/pages-out
+        run: node "$GITHUB_WORKSPACE/scripts/cloudflare-check-urls.mjs"
+      - name: Install Playwright
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Serve build output
+        run: |
+          (cd "$RUNNER_TEMP/pages-out" && python3 -m http.server 8125 >"$RUNNER_TEMP/pages-http.log" 2>&1 &)
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8125/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat "$RUNNER_TEMP/pages-http.log"
+          exit 1
+      - name: Boot built output in the browser
+        run: npx playwright test tests/build-pages --browser=chromium --workers=1 --reporter=line
+
+  jekyll-output:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The same Jekyll build GitHub Pages runs for a branch deployment.
+      - name: Jekyll build
+        uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
+        with:
+          source: ./
+          destination: ./_site
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          package-manager-cache: false
+      - name: Install locked checker parser
+        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+      - name: Compare repository files with Jekyll output (report only)
+        run: |
+          mkdir -p "$RUNNER_TEMP/repo"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/repo"
+          node scripts/compare-pages.mjs "$RUNNER_TEMP/repo" _site
+      - name: Build and check Jekyll output
+        run: |
+          node scripts/build-pages.mjs _site "$RUNNER_TEMP/jekyll-out"
+          node scripts/check-pages-build.mjs "$RUNNER_TEMP/jekyll-out"
+      - name: Compare Jekyll output with current GitHub Pages (report only)
+        if: github.event_name == 'workflow_dispatch' && inputs.compare_live
+        run: node scripts/compare-pages.mjs --live _site

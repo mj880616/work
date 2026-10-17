@@ -56,7 +56,8 @@ for(const width of [390,1280])test.describe(`${width}px`,()=>{
     await page.locator('#ciGoogleStartTime').fill('1330');await expect(page.locator('#ciGoogleEndTime')).toHaveValue('14:30');
     await place.fill('서울역 회의실');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();
     expect(s.writes[0]).toMatchObject({action:'update-event',event_id:'exec',location:'서울역 회의실',start_iso:'2026-09-15T04:30:00.000Z',end_iso:'2026-09-15T05:30:00.000Z'});
-    await page.locator('#calendarGrid [data-google-event="exec"]').first().click();await expect(page.locator('#ciGoogleLocation')).toHaveValue('서울역 회의실');
+    // Reopening keeps the previous values until the event is read again; wait until the editor is ready.
+    await page.locator('#calendarGrid [data-google-event="exec"]').first().click();await expect(page.locator('#ciGoogleSave')).toBeEnabled();await expect(page.locator('#ciGoogleLocation')).toHaveValue('서울역 회의실');
     // Leaving the place empty clears it.
     await place.fill('');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(s.writes[1].location).toBe('');
     expect(errors).toEqual([]);

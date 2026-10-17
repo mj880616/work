@@ -1,7 +1,9 @@
 // Open tabs compare the deployed entry point with the app script they actually loaded.
+// Any deployed ?v= other than the running one is new (numbers now, content hashes later;
+// a rollback is a new deployment too). A dismissed value is not offered again in this tab.
 export function startVersionNotice(scriptUrl){
   const script=new URL(scriptUrl),entry=new URL('./index.html',script);
-  const version=raw=>/^\d+$/.test(raw||'')&&Number.isSafeInteger(Number(raw))?Number(raw):null;
+  const version=raw=>/^[A-Za-z0-9._-]{1,64}$/.test(raw||'')?raw:null;
   const current=version(script.searchParams.get('v'));
   if(current===null)return;
   const dismissed=new Set(),drafts=new Map();
@@ -56,7 +58,7 @@ export function startVersionNotice(scriptUrl){
     document.body.style.removeProperty('--kptu-version-notice-height');
   }
   function show(deployed){
-    if(deployed<=current||deployed<latest||dismissed.has(deployed)||stopped)return;
+    if(deployed===current||dismissed.has(deployed)||stopped)return;
     latest=deployed;
     if(box)return;
     box=document.createElement('aside');box.id='versionNotice';box.setAttribute('aria-label','새 버전 안내');
