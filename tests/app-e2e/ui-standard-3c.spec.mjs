@@ -197,13 +197,13 @@ test('공용 셸(폰): 머리줄 18px/500, 하단 탭 0.5px 선, ☰ 메뉴 판�
  const header=await look(page.locator('[data-mobile-view-name]'));expect([header.fontSize,header.fontWeight]).toEqual(['18px','500']);
  const current=await look(page.locator('.mobile-tabs [aria-current="page"]'));expect(current.fontWeight).toBe('500');
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu')).toBeVisible();
+ // Measure after the sheet's slide-up (ds-sheet-up): mid-slide the transformed boxes read 44±0.00006px.
+ await page.locator('#appView .mobile-menu-panel').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
  // UI-디자인손질 4: 폰 메뉴 판은 손잡이(제목 대신)·큰 칸(13px·400, 모서리 12px)·계정 줄(44px·13px·400).
  await expect(page.locator('.mobile-menu-head b')).toBeHidden();await expect(page.locator('#mobileMenu [data-mobile-menu-close]')).toBeVisible();
  for(const item of await page.locator('#mobileMenu nav button:visible').all()){
   const s=await look(item);expect(s.height).toBeGreaterThanOrEqual(44);expect([s.fontSize,s.radius]).toEqual(['13px','12px']);expect(['400','500']).toContain(s.fontWeight);
  }
- // 판이 올라오는 애니메이션이 끝난 뒤에 잰다. 움직이는 동안의 소수점 반올림(예: 43.99994)은 크기 차이가 아니다.
- await page.locator('.mobile-menu-panel').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
  for(const item of await page.locator('#mobileAccountGroup button:visible').all()){
   const s=await look(item);expect(s.height).toBeCloseTo(44,2);expect([s.fontSize,s.fontWeight]).toEqual(['13px','400']);
  }
