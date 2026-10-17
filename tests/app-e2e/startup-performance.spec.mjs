@@ -203,7 +203,7 @@ test('tab navigation waits for deferred feature data on first click',async({page
   const pending=new Promise(resolve=>release=resolve);
   // Home preloads this dependency in the background; the first task navigation awaits it.
   // Keep it pending until the loading state is observed instead of racing a fixed delay.
-  await page.route('**/app/google-tasks.js?*',async route=>{await pending;await route.continue();});
+  await page.route('**/app/google-tasks.js*',async route=>{await pending;await route.continue();});
   try{
     await loginWithMock(page);
     await clickView(page,'tasks');

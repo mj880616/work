@@ -371,7 +371,7 @@ test('담당조직 상세의 할 일 칸은 편집 권한이 없으면 추가·�
   await expect(page.locator('#wdTaskLink')).toBeHidden();
   await page.locator('#wdTaskAdd').evaluate(b=>b.click());
   expect((await page.evaluate(()=>window.__gtCalls)).filter(x=>x.action!=='mount')).toEqual([]);
-  await page.route('**/app/google-tasks.js?*',route=>route.abort());
+  await page.route('**/app/google-tasks.js*',route=>route.abort());
   await openAssigned(page,'?gtasks=none');
   await page.locator('[data-so-org="org-rail"]').click();
   await expect(page.locator('#wdTaskBody')).toHaveText('Google 할 일 기능을 불러오지 못했습니다.');

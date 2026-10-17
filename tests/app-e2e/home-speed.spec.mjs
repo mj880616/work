@@ -35,7 +35,7 @@ test('a disconnected current status supersedes early events, including a later e
 test('cold cached meeting controls wait for the task module and current task state',async({page})=>{
   await openHome(page);await ready(page);const errors=[];page.on('pageerror',e=>errors.push(e.message));
   let release;const pending=new Promise(r=>release=r);
-  await page.route('**/app/google-tasks.js?*',async route=>{await pending;await route.continue();});
+  await page.route('**/app/google-tasks.js*',async route=>{await pending;await route.continue();});
   await page.reload();const button=page.locator('[data-home-card="meetings"] [data-home-toggle="meeting"]');
   await expect(button).toBeVisible();await expect(button).toBeDisabled();release();await ready(page);
   await expect(button).toBeEnabled();await button.click();
