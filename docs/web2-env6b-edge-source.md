@@ -172,7 +172,7 @@
 | 29 | `rtw-recommend` | 읽생기 | v8 | 09-21 04:41 | false | read-think-write |
 | 30 | `rtw-url-import` | 읽생기 | v8 | 09-21 04:36 | **true** | read-think-write |
 | 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v8 | 2026-10-14 (승인 버튼) | false | work (`0013c56160a62cf45dbd941462f54210104cd105`, #540 main, 사진 글자 Drive 사본 투영 포함). v7→v8·JWT 유지·POST401·OPTIONS204 성공(사용자 실행 보고). 되돌리기 ref `39f1dfec9cd978f9ea5e7c94bca120fb16a0a84e`(v7 소스, #507). v2 출처 미기록 |
-| 32 | `basket-files` | Web2(바구니 첨부·사진 글자 읽기·메모 삭제 시 첨부 휴지통) | v4 | 2026-10-14 (승인 버튼) | false | work (`34874eff5eb3a83db94cdec5001bcec4ea4b1f9b`, #543 main, `note-delete` 포함). v3→v4·JWT 유지(사용자 실행 보고, 같은 날 폰 확인 완료). 되돌리기 ref `0013c56160a62cf45dbd941462f54210104cd105`(v3 소스, #540) |
+| 32 | `basket-files` | Web2(바구니 첨부·사진 글자 읽기·메모 삭제 시 첨부 휴지통·일기 사진 보기) | v5 | 2026-10-18 (승인 버튼) | false | work (`bd7a19d0bee95c25906bc41e04144d8e5bdef255`, #641 main, owner 전용 `action=photo` 추가). v4→v5·JWT 유지, 비로그인 POST 401·OPTIONS 200(사용자 실행 보고). 되돌리기 ref `34874eff5eb3a83db94cdec5001bcec4ea4b1f9b`(v4 소스, #543) |
 
 `basket-files`는 2026-10-10 사용자 승인형 #475 신규 배포 경로로 최초 배포 완료했다.
 version 1, verify_jwt=false, 비로그인 POST 401, OPTIONS 200, source b466910.
