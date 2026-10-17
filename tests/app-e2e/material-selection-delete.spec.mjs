@@ -181,22 +181,28 @@ for(const width of [390,1280]){
     expect(state.errors).toEqual([]);
   });
 
-  test(`meeting detail stages files for cancellation before upload ${width}px`,async({page})=>{
+  // UI-회의결과창정리: 파일을 고르면 바로 올라간다([업로드] 버튼 없음). 차례를 기다리는 파일은 ×로 뺄 수 있다.
+  test(`meeting detail uploads picked files right away and drops a waiting file on × ${width}px`,async({page})=>{
     const state=await boot(page,width);
     await page.locator('[data-mrd-meeting="meeting-1"]').click();
     await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
+    await expect(page.locator('#mrdUpload')).toHaveCount(0);
+    state.hold=true;
     await page.locator('#mrdFiles').setInputFiles([file('detail-keep.pdf'),file('detail-remove.pdf')]);
-    await expect(page.locator('#mrdSelectedFiles')).toContainText('detail-keep.pdf');
+    await expect.poll(()=>state.uploads.length).toBe(1);
+    const rows=page.locator('#mrdSelectedFiles .file-line');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('.file-kind')).toHaveText('PDF');
+    await expect(rows.nth(0).locator('.file-line-progress')).toHaveCount(1);
+    await expect(page.getByRole('button',{name:'detail-keep.pdf 선택 취소',exact:true})).toHaveCount(0);
     expect(await selectionDraft(page)).toBe(true);
     await page.getByRole('button',{name:'detail-remove.pdf 선택 취소',exact:true}).click();
-    expect(state.uploads).toEqual([]);
-    state.hold=true;
-    await page.locator('#mrdUpload').click();
-    await expect.poll(()=>state.uploads.length).toBe(1);
-    await expect(page.getByRole('button',{name:'detail-keep.pdf 선택 취소',exact:true})).toBeDisabled();
+    await expect(rows).toHaveCount(1);
     state.hold=false;state.release();
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(3);
+    await expect(page.locator('#mrdSelectedFiles .file-line')).toHaveCount(0);
     expect(state.uploads).toHaveLength(1);
+    expect(state.uploads[0].raw).toContain('detail-keep.pdf');
     expect(state.uploads[0].raw).not.toContain('detail-remove.pdf');
     expect(await selectionDraft(page)).toBe(false);
     expect(state.errors).toEqual([]);
@@ -245,22 +251,22 @@ async function openUploadScreen(page,screen){
   }
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
-  return {input:'#mrdFiles',save:'#mrdUpload',rows:'#mrdSelectedFiles > div',status:'#mrdStatus'};
+  // 회의 결과 창 회의자료는 고르면 바로 올라가므로 따로 누를 저장 버튼이 없다.
+  return {input:'#mrdFiles',save:null,rows:'#mrdSelectedFiles > div',status:'#mrdStatus'};
 }
 const READ_ERROR='파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.';
 for(const width of [390,1280])for(const screen of ['library','new meeting','meeting detail']){
   test(`memory copy: ${screen} sends metadata-preserving copies sequentially ${width}px`,async({page})=>{
     await observeSelectedFiles(page);
     const state=await boot(page,width),ui=await openUploadScreen(page,screen);
-    await page.locator(ui.input).setInputFiles([file('한글 자료.pdf'),file('second.pdf')]);
-    expect(await page.evaluate(()=>window.__copyReads)).toEqual([]);
     state.hold=true;
-    await page.locator(ui.save).click();
+    await page.locator(ui.input).setInputFiles([file('한글 자료.pdf'),file('second.pdf')]);
+    if(ui.save){expect(await page.evaluate(()=>window.__copyReads)).toEqual([]);await page.locator(ui.save).click()}
     await expect.poll(()=>state.uploads.length).toBe(1);
     expect(await page.evaluate(()=>window.__copyReads)).toEqual(['한글 자료.pdf']);
     state.hold=false;state.release();
     await expect.poll(()=>state.uploads.length).toBe(2);
-    await expect(page.locator(ui.save)).toBeEnabled();
+    if(ui.save)await expect(page.locator(ui.save)).toBeEnabled();
     const sent=await page.evaluate(()=>window.__copyUploads);
     expect(sent.map(file=>file.name)).toEqual(['한글 자료.pdf','second.pdf']);
     for(const file of sent){
@@ -279,10 +285,10 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
     const state=await boot(page,width),ui=await openUploadScreen(page,screen);
     await page.evaluate(()=>window.__copyFailName='unreadable.pdf');
     await page.locator(ui.input).setInputFiles(file('unreadable.pdf'));
-    await page.locator(ui.save).click();
+    if(ui.save)await page.locator(ui.save).click();
     await expect(page.locator(ui.status)).toContainText(READ_ERROR);
     await expect(page.locator(ui.rows)).toContainText(READ_ERROR);
-    await expect(page.locator(ui.save)).toBeEnabled();
+    if(ui.save)await expect(page.locator(ui.save)).toBeEnabled();
     expect(state.uploads).toEqual([]);
     expect(await page.evaluate(()=>window.__copyUploads)).toEqual([]);
     expect(await page.evaluate(()=>window.__copyReads)).toEqual(['unreadable.pdf']);
@@ -302,9 +308,9 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
     const state=await boot(page,width),ui=await openUploadScreen(page,screen);
     await page.evaluate(()=>window.__copyFailName='unreadable.pdf');
     await page.locator(ui.input).setInputFiles([file('unreadable.pdf'),file('good.pdf')]);
-    await page.locator(ui.save).click();
+    if(ui.save)await page.locator(ui.save).click();
     await expect(page.locator(ui.status)).toContainText(READ_ERROR);
-    await expect(page.locator(ui.save)).toBeEnabled();
+    if(ui.save)await expect(page.locator(ui.save)).toBeEnabled();
     expect(state.uploads).toHaveLength(1);
     expect(state.uploads[0].raw).toContain('good.pdf');
     expect(state.uploads[0].raw).not.toContain('unreadable.pdf');

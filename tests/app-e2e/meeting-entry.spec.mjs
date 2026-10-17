@@ -71,7 +71,19 @@ test('meeting create modal exposes the task 9 fields only',async({page})=>{
   await expect(page.locator('#meetingSeriesName')).toHaveCount(0);
   await expect(page.locator('#meetingModal legend')).toHaveText(['기본정보','회의 결과','첨부·후속']);
   await expect(page.locator('#meetingFiles')).toHaveAttribute('multiple','');
-  await expect(page.locator('.meeting-action-row')).toHaveCount(1);
+  // UI-회의결과창정리: 후속 할 일은 입력 한 줄(입력칸 + [기한 ▾] + [추가])로 시작하고, 넣은 할 일 줄은 아직 없다.
+  await expect(page.locator('#meetingActionLine')).toBeVisible();
+  await expect(page.locator('#meetingActionLine > :is(input,.due-chip,button)')).toHaveCount(3);
+  await expect(page.locator('#meetingActionLine .due-chip')).toHaveText('기한 ▾');
+  await expect(page.locator('.meeting-action-row')).toHaveCount(0);
+  await expect(page.locator('#meetingActionList .mtg-empty')).toHaveText('후속 할 일이 없습니다.');
+  await expect(page.locator('#meetingMaterialsBlock .mtg-note')).toHaveText('자료실에도 자동 등록');
+  await expect(page.locator('#meetingMaterialsBlock .mtg-note')).toHaveCSS('font-size','12px');
+  await expect(page.locator('#meetingActionList .mtg-empty')).toHaveCSS('font-size','13px');
+  for(const el of [page.locator('#addMeetingAction'),page.locator('#meetingPickFiles')]){const b=await el.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44)}
+  expect((await page.locator('#meetingActionAdd').boundingBox()).height).toBe(32);
+  expect((await page.locator('#meetingActionLine .due-chip').boundingBox()).height).toBe(32);
+  await expect(page.locator('#meetingModal .mtg-group-head .mtg-add-plus')).toHaveCount(2);
   await expect(page.locator('.meeting-action-assignee,#mrdTaskAssignee,#taskAssignee')).toHaveCount(0);
   await expect(page.locator('#meetingAutoClassify,#meetingDecisions,#wfMeetingLocation,#wfMeetingAttendees')).toHaveCount(0);
   await expect(page.locator('#meetingProject option[value="main"]')).toHaveText('메인');
@@ -106,8 +118,33 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
   const raw='  첫 줄\n둘째 줄\n마지막 줄  ';
   await page.locator('#meetingTranscript').fill(raw);
   await page.locator('#meetingNotes').fill('특이사항\n둘째 줄');
-  await page.locator('.meeting-action-row .meeting-action-title').fill('결과 공유');
-  await page.locator('.meeting-action-row .meeting-action-due').fill('2026-09-30');
+  // 넣은 할 일은 할 일 화면과 같은 줄(동그라미·이름·기한·⋯)로 보이고, 저장할 때 함께 만든다.
+  await page.locator('#meetingActionTitle').fill('결과 공유');
+  await page.locator('#meetingActionDue').fill('2026-09-30');
+  await expect(page.locator('#meetingActionLine .due-chip')).not.toHaveText('기한 ▾');
+  await page.locator('#meetingActionAdd').click();
+  const draft=page.locator('#meetingActionList .meeting-action-row');
+  await expect(draft).toHaveCount(1);
+  await expect(draft.locator('.gt-check')).toBeVisible();
+  await expect(draft.locator('.gt-main b')).toHaveText('결과 공유');
+  await expect(draft.locator('.gt-due')).not.toBeEmpty();
+  await expect(draft.locator('[data-meeting-action-menu]')).toHaveText('⋯');
+  await expect(page.locator('#meetingActionTitle')).toHaveValue('');
+  await expect(page.locator('#meetingActionLine .due-chip')).toHaveText('기한 ▾');
+  // ⋯ → 삭제 / 수정(입력 줄로 다시 올림)
+  await page.locator('#meetingActionTitle').fill('지울 할 일');
+  await page.locator('#meetingActionTitle').press('Enter');
+  await expect(page.locator('#meetingActionList .meeting-action-row')).toHaveCount(2);
+  await page.locator('#meetingActionList [data-meeting-action-menu]').nth(1).click();
+  await page.locator('#meetingActionMenu [data-meeting-action-do="delete"]').click();
+  await expect(page.locator('#meetingActionList .meeting-action-row')).toHaveCount(1);
+  await draft.locator('[data-meeting-action-menu]').click();
+  await page.locator('#meetingActionMenu [data-meeting-action-do="edit"]').click();
+  await expect(page.locator('#meetingActionTitle')).toHaveValue('결과 공유');
+  await expect(page.locator('#meetingActionDue')).toHaveValue('2026-09-30');
+  await expect(page.locator('#meetingActionList .meeting-action-row')).toHaveCount(0);
+  await page.locator('#meetingActionAdd').click();
+  await expect(page.locator('#meetingActionList .meeting-action-row')).toHaveCount(1);
   await page.locator('#saveMeetingBtn').click();
 
   await expect.poll(()=>savedMeeting).not.toBeNull();
@@ -697,7 +734,9 @@ test('repeated meeting follow-up save sends one Google create',async({page})=>{
   await page.locator('#mrdTaskTitle').fill('후속');
   await page.locator('#mrdTaskSave').click();
   await expect.poll(()=>creates).toBeGreaterThanOrEqual(1);
-  await page.locator('#mrdTaskCancel').click();
+  // UI-회의결과창정리: 제목 옆 작은 +가 입력 한 줄을 닫고 다시 연다.
+  await page.locator('#mrdAddTask').click();
+  await expect(page.locator('#mrdTaskForm')).toBeHidden();
   await page.locator('#mrdAddTask').click();
   await page.locator('#mrdTaskTitle').fill('후속 변경');
   await expect(page.locator('#mrdTaskSave')).toBeDisabled();
@@ -821,7 +860,12 @@ test('meeting detail keeps completed Google follow-ups and supports create, edit
   await page.locator('#mrdTaskSave').click();
   await expect(page.locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
   expect(created).toMatchObject({action:'create',due:'2026-09-30',notes:'',links:[{meeting_id:'meeting-1'},{project_id:'main'}]});
-  await page.locator('#mrdTasks [data-mrd-task-edit="old-done"]').click();
+  // 할 일 화면과 같은 ⋯ 메뉴의 [수정]은 같은 입력 한 줄에 올리고, [저장]·[취소]를 보인다.
+  await page.locator('#mrdTasks [data-mrd-task-menu="old-done"]').click();
+  await page.locator('#mrdTaskMenu [data-mrd-menu-action="edit"]').click();
+  await expect(page.locator('#mrdTaskTitle')).toHaveValue('완료된 항목');
+  await expect(page.locator('#mrdTaskSave')).toHaveText('저장');
+  await expect(page.locator('#mrdTaskCancel')).toBeVisible();
   await page.locator('#mrdTaskTitle').fill('수정된 후속');
   await page.locator('#mrdTaskDue').fill('2026-10-01');
   await page.locator('#mrdTaskSave').click();
@@ -832,7 +876,8 @@ test('meeting detail keeps completed Google follow-ups and supports create, edit
   await page.locator('#mrdTasks [data-mrd-task-toggle="old-done"]').click();
   await expect(page.locator('#mrdTasks [data-mrd-task="old-done"]')).toHaveClass(/completed/);
   page.once('dialog',dialog=>dialog.accept());
-  await page.locator('#mrdTasks [data-mrd-task-delete="new-google"]').click();
+  await page.locator('#mrdTasks [data-mrd-task-menu="new-google"]').click();
+  await page.locator('#mrdTaskMenu [data-mrd-menu-action="delete"]').click();
   await expect(page.locator('#mrdTasks [data-mrd-task]')).toHaveCount(1);
   expect(deleted).toMatchObject({action:'delete',task_id:'new-google'});
   expect(legacyRequests).toBe(0);
@@ -847,7 +892,12 @@ for(const width of [390,1280])test(`meeting Google follow-up row stays usable at
   await expect(row).toBeVisible();
   await expect(row.locator('[data-mrd-task-toggle]')).toBeVisible();
   await expect(row.locator('[data-mrd-task-edit]')).toBeVisible();
-  await expect(row.locator('[data-mrd-task-delete]')).toBeVisible();
+  await expect(row.locator('[data-mrd-task-menu]')).toBeVisible();
+  // 할 일 화면과 같은 줄: 동그라미 · 이름 · 기한 · ⋯
+  await expect(row.locator('.gt-due')).not.toBeEmpty();
+  const box=await row.boundingBox(),menu=await row.locator('[data-mrd-task-menu]').boundingBox();
+  expect(menu.width).toBeGreaterThanOrEqual(44);expect(menu.height).toBeGreaterThanOrEqual(44);
+  expect(menu.y).toBeLessThan(box.y+box.height/2);
   expect(await row.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
 });
 
@@ -931,10 +981,10 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=69')");
-  expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=31');
-  expect(views).toContain('meeting-ui.css?v=15');
+  expect(loader).toContain("import('./team.js?v=70')");
+  expect(views).toContain('task-workflow.js?v=10');
+  expect(views).toContain('meeting-round-detail.js?v=32');
+  expect(views).toContain('meeting-ui.css?v=16');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");
   expect(detail).not.toContain('MutationObserver');
@@ -947,5 +997,5 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingProject']");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
-  expect(css).toContain("meeting-ui.css?v=15");
+  expect(css).toContain("meeting-ui.css?v=16");
 });

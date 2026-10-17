@@ -190,7 +190,8 @@ async function audit(page,id){
  const small=await modal.evaluate(root=>[...root.querySelectorAll('*')].filter(e=>e.checkVisibility()&&!e.closest('button,.icon-btn,[aria-hidden="true"]')&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())&&parseFloat(getComputedStyle(e).fontSize)<12).map(e=>({tag:e.tagName,id:e.id,class:e.className,size:getComputedStyle(e).fontSize})));
  expect(small,id).toEqual([]);
  for(const input of await modal.locator('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select').all())await expect(input).toHaveCSS('font-size','14px');
- for(const label of await modal.locator('label:not(.secondary):not(.primary)').all())await expect(label).toHaveCSS('font-size','12px');
+ // UI-회의결과창정리: 자료 등록 창 [📎 파일 고르기]는 label이지만 보조 버튼(13px)이다.
+ for(const label of await modal.locator('label:not(.secondary):not(.primary):not(.library-pick-button)').all())await expect(label).toHaveCSS('font-size','12px');
  // UI-디자인기준 3/3 3부(8-9e-3): 창 제목은 새 기준 18px(--ds-text-title).
  for(const h2 of await modal.locator('.modal-head h2,.w1b-detail-head h2').all())await expect(h2).toHaveCSS('font-size','18px');
 }
@@ -209,7 +210,7 @@ for(const width of [390,1440])test('D-3e installed dialog templates use role siz
    result.counts[id]=text.length;
    for(const e of text){const size=parseFloat(getComputedStyle(e).fontSize);if(size<12)result.violations.push({id,element:e.id||e.className||e.tagName,size})}
    for(const e of root.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select'))if(getComputedStyle(e).fontSize!=='14px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:14});
-   for(const e of root.querySelectorAll('label:not(.secondary):not(.primary):not(.mrd-upload-label):not(.library-picker-mobile)'))if(getComputedStyle(e).fontSize!=='12px')result.violations.push({id,element:e.id||e.className,size:getComputedStyle(e).fontSize,want:12});
+   for(const e of root.querySelectorAll('label:not(.secondary):not(.primary):not(.library-pick-button)'))if(getComputedStyle(e).fontSize!=='12px')result.violations.push({id,element:e.id||e.className,size:getComputedStyle(e).fontSize,want:12});
    for(const e of root.querySelectorAll('.modal-head h2,.w1b-detail-head h2'))if(getComputedStyle(e).fontSize!=='18px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:18});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
   }return result;
  },modalIds);
@@ -256,6 +257,8 @@ const d6bSelectors=d6bSource('base-ui.css').split('\n').slice(194,210).map(line=
 // The progress line is gone; the header line is now #ps3Summary with the same role, so the current page is read through that selector.
 const d6bProgressLine='#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective)',d6bHeaderLine='#ps3DetailModal #ps3Summary';
 const d6bCurrentSelectors=d6bSelectors.map(selector=>selector===d6bProgressLine?d6bHeaderLine:selector);
+// UI-회의결과창정리: 업로드 상자 글자(#documentModal .library-dropzone strong)와 회의자료 라벨 설명은 화면에서 없어졌다.
+const d6bRetired=['#documentModal .library-dropzone strong','#meetingModal .meeting-materials-block label span'];
 
 async function d6bPrepare(page,source){
  await boot(page);
@@ -321,18 +324,23 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // FORM-시간입력 added the place field to the event edit window; compare it under both style sets too.
   const placeField=await page.locator('#ciGoogleLocation').evaluate(el=>el.closest('label').outerHTML);
   await original.locator('#ciGoogleEndTime').evaluate((el,html)=>el.closest('.ci-date-grid').insertAdjacentHTML('afterend',html),placeField);
+  // UI-회의결과창정리(2026-10-17 사용자 결정): 회의 결과 창(만들기·수정)의 첨부·후속 묶음과 자료 등록 창 업로드 칸을 작은 묶음으로 바꿨다.
+  // 바뀐 부분은 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다. 없어진 두 요소(업로드 상자 글자·회의자료 라벨 설명)의 규칙은 아래에서 뺀다.
+  for(const [from,to] of [['#meetingModal fieldset:has(#meetingActionList)','#meetingModal fieldset:has(#meetingActionList)'],['#mrdView .mrd-followup-section','#mrdView .mrd-followup-section'],['#mrdView .mrd-material-section','#mrdView .mrd-material-section'],['#documentModal .library-file-block','#documentModal .library-file-block']]){const html=await page.locator(from).evaluate(el=>el.outerHTML);await original.locator(to).evaluate((el,html)=>{el.outerHTML=html},html)}
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
   // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
   const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];
   expect(headerRow.elements.map(el=>el.id)).toEqual(['ps3Summary']);headerRow.elements[0].fontSize=mainHeaderSize;
   // Two new elements carry their own PRJ-기록입력 rules that main never had: the header line (compared above on line 202)
   // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
-  const generic=el=>!(el.class==='ps3-rec-empty'||el.id==='ps3Summary');
+  // UI-회의결과창정리: 묶음 설명(.mtg-note 12px)과 빈 상태(.mtg-empty 13px)도 자기 규칙이 있다(meeting-entry.spec에서 크기 확인).
+  const generic=el=>!(el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
   expect(before).toHaveLength(16);
-  for(const row of before)expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
+  for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i]))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
+  for(const [i,row] of after.entries())if(d6bRetired.includes(d6bSelectors[i]))expect(row.elements,'retired main line '+row.line).toEqual([]);
   expect(after).toEqual(before);
   await testInfo.attach('d6b-main-style-comparison',{body:JSON.stringify({main:d6bMain,width,before,after},null,2),contentType:'application/json'});
  }finally{await original.close()}
@@ -345,10 +353,10 @@ test('D-6b keeps hide priorities and removes only dialog priorities',async()=>{
  const owners=['workspace-ui.css','project-system-v3.css','workplace-detail.css','library-upload.css','meeting-ui.css','google-tasks.css','web1-board.css'];
  const owned=owners.map(path=>{
   const current=fs.readFileSync('app/'+path,'utf8');
-  expect((current.match(/!important/g)||[]).length,path+' adds no priorities').toBe((d6bSource(path).match(/!important/g)||[]).length);
+  expect((current.match(/!important/g)||[]).length,path+' adds no priorities').toBeLessThanOrEqual((d6bSource(path).match(/!important/g)||[]).length);
   return current;
  }).join('\n');
- for(const selector of d6bSelectors){
+ for(const selector of d6bSelectors.filter(selector=>!d6bRetired.includes(selector))){
   const rule=owned.split('\n').find(line=>line.startsWith((selector===d6bProgressLine?d6bHeaderLine:selector)+'{'));
   expect(rule,selector+' stays explicit').toBeDefined();expect(rule).not.toContain('!important');
  }

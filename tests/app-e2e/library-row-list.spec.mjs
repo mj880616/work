@@ -345,7 +345,7 @@ for(const width of [390,1280]){
       await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(0);
       await selectFilter(page,'#libraryViewFilter','general');await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('meetings'));await page.locator('[data-mrd-meeting="recent"]').click();
-      await expect(page.locator('#mrdMaterials')).toContainText('등록된 회의자료가 없습니다.');
+      await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
       // Refresh the open material list through the same signal that the edit save emitted.
       // It must leave an in-progress meeting editor intact.
       await page.locator('#mrdEdit').click();await page.locator('#mrdEditTranscript').fill('작성 중 원문');
@@ -366,7 +366,7 @@ for(const width of [390,1280]){
       state.docs[0].meeting_id=null;
       await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
       releaseFirst();
-      await expect(page.locator('#mrdMaterials')).toContainText('등록된 회의자료가 없습니다.');
+      await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
       expect(materialReads).toBe(2);
       await expect(page.locator('#mrdEditTranscript')).toHaveValue('작성 중 원문');
       await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));

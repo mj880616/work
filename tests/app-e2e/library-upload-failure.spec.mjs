@@ -238,10 +238,13 @@ test('revoked Google Drive token starts reconnect through the canonical function
 test('mobile library upload opens the native file picker from the visible tap target',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  // UI-회의결과창정리: 큰 점선 상자 대신 [📎 파일 고르기] 작은 버튼 한 줄 + 짧은 안내(폰은 끌어다 놓기 안내 없음).
   const zone=page.locator('#libraryDropzone');
   await expect(zone).toBeVisible();
-  await expect(zone.locator('.library-picker-mobile')).toBeVisible();
-  await expect(zone.locator('.library-picker-desktop')).toBeHidden();
+  await expect(zone).toHaveText(/파일 고르기/);
+  expect((await zone.boundingBox()).height).toBeLessThanOrEqual(34);
+  await expect(page.locator('.library-picker-hint')).toContainText('여러 개 · 파일당 100MB');
+  await expect(page.locator('.library-drop-hint')).toBeHidden();
   await expect(page.locator('#libraryFileInput')).toHaveJSProperty('multiple',true);
   const chooser=page.waitForEvent('filechooser');
   await zone.click();
@@ -285,6 +288,24 @@ test('desktop drag and drop keeps all dropped files selected',async({page})=>{
   await expect(selected).toHaveCount(2);
   await expect(selected.nth(0)).toContainText('desktop-one.pdf');
   await expect(selected.nth(1)).toContainText('desktop-two.pdf');
+});
+
+// UI-회의결과창정리: PC는 창 전체가 끌어다 놓는 자리이고, 파일을 끌고 들어올 때만 테두리를 보인다.
+test('desktop library window accepts files dropped anywhere and outlines only while dragging',async({page})=>{
+  await page.setViewportSize({width:1280,height:900});
+  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  await expect(page.locator('.library-drop-hint')).toBeVisible();
+  const card=page.locator('#documentModal .modal-card');
+  await expect(card).not.toHaveClass(/drop-active/);
+  await card.evaluate(el=>{const data=new DataTransfer();data.items.add(new File(['x'],'drag.pdf',{type:'application/pdf'}));el.querySelector('#docTitle').dispatchEvent(new DragEvent('dragenter',{bubbles:true,cancelable:true,dataTransfer:data}))});
+  await expect(card).toHaveClass(/drop-active/);
+  await card.evaluate(el=>{const data=new DataTransfer();data.items.add(new File(['one'],'anywhere.hwp'));el.querySelector('#docTitle').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:data}))});
+  await expect(card).not.toHaveClass(/drop-active/);
+  const selected=page.locator('[data-lu-upload-file]');
+  await expect(selected).toHaveCount(1);
+  await expect(selected.first().locator('.file-kind')).toHaveText('HWP');
+  await expect(selected.first()).toContainText('anywhere.hwp');
+  await expect(selected.first().locator('[data-lu-remove-file]')).toBeVisible();
 });
 
 test('multi-file upload reuses library-files sequentially and preserves per-file failure state',async({page})=>{
