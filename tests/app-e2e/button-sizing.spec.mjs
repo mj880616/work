@@ -154,7 +154,7 @@ for(const width of [390,1440])test('D-button real painted and pointer bounds in 
 for(const width of [390,1440])test('D-button project and organization detail and meeting input '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'projects');
  await page.locator('[data-ps3-project="type-project"]').click();await expect(page.locator('#ps3DetailModal')).toBeVisible();
- await page.locator('.ps3-more>summary').click();
+ await page.locator('#ps3Menu .ps3-more>summary').click();
  // ⋯ 메뉴 안 항목은 버튼 모양이 아닌 메뉴(옛 크기 그대로). 창 안 [저장]·[삭제]는 새 기준.
  for(const selector of ['[data-ps3-toggle-done]','[data-ps3-edit-project]','[data-ps3-archive-project]','[data-ps3-delete-project]'])await standard(page,selector);
  await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden();
