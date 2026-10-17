@@ -82,6 +82,7 @@ function selectDay(day, {focus = false} = {}) {
   requestAnimationFrame(() => { detail.scrollIntoView({block:'nearest', behavior:'smooth'}); if (focus) detail.querySelector('h3')?.focus(); });
 }
 function closeDetail({fromBack = false} = {}) {
+  closeViewer({fromBack, restore:false});
   selected = null; detail.hidden = true; detail.replaceChildren();
   days.querySelectorAll('[aria-pressed="true"]').forEach(cell => cell.setAttribute('aria-pressed', 'false'));
   const opened = dayLayer; dayLayer = null; if (!fromBack) opened?.close();
@@ -95,21 +96,59 @@ function renderDetail() {
   if (!host) return;
   if (source === 'star') { host.innerHTML = '<p class="diary-muted diary-star-note" data-diary-star-note>원드라이브 연결 뒤 쓸 수 있어요</p>'; return; }
   if (!photos.length) { host.innerHTML = '<p class="diary-muted">직접 올린 사진이 없어요.</p>'; return; }
-  const strip = document.createElement('div');
-  strip.className = 'diary-strip'; strip.dataset.diaryStrip = ''; strip.tabIndex = 0; strip.dataset.swipeLock = '';
-  strip.setAttribute('role', 'group'); strip.setAttribute('aria-label', `사진 ${photos.length}장${photos.length > 1 ? ', 옆으로 넘겨 보기' : ''}`);
+  // Small square grid (four a row on a phone); a photo opens full screen.
+  const grid = document.createElement('div');
+  grid.className = 'diary-grid'; grid.dataset.diaryGrid = '';
+  grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', `사진 ${photos.length}장`);
+  photos.forEach((file, i) => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'diary-grid-item'; button.dataset.diaryOpen = String(i);
+    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기`);
+    button.append(photoElement(row, file, 'small', {label:'', link:false}));
+    grid.append(button);
+  });
+  host.append(grid);
+}
+
+// Full-screen photo view: swipe sideways, "3 / 8", × and Back close it (router layer), ☆ is a place holder until OneDrive.
+let viewer = null;
+function openViewer(index) {
+  const row = rows.get(selected), photos = diaryPhotos(row);
+  if (!row || !photos[index] || viewer) return;
+  const trigger = document.activeElement, box = document.createElement('div');
+  box.className = 'diary-viewer'; box.dataset.diaryViewer = ''; box.dataset.swipeLock = '';
+  box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', `${shortDay(selected)} 사진`);
+  box.innerHTML = `<div class="diary-viewer-bar"><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><button type="button" class="diary-viewer-star" data-diary-star aria-label="별표">☆</button><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">×</button></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-note" data-diary-viewer-note role="status"></p>`;
+  const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]');
   photos.forEach((file, i) => {
     const slide = document.createElement('figure'); slide.className = 'diary-slide';
     slide.append(photoElement(row, file, 'large', {label:`${shortDay(selected)} 사진 ${i + 1}`}));
-    if (photos.length > 1) { const count = document.createElement('figcaption'); count.textContent = `${i + 1} / ${photos.length}`; slide.append(count); }
     strip.append(slide);
   });
-  // Arrow keys move one photo for keyboard users; touch scrolls natively with snap.
-  strip.addEventListener('keydown', event => {
-    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
-    event.preventDefault(); strip.scrollBy({left:(event.key === 'ArrowRight' ? 1 : -1) * strip.clientWidth, behavior:'smooth'});
+  let at = index;
+  const show = () => { count.textContent = `${at + 1} / ${photos.length}`; };
+  strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && photos[next]) { at = next; show(); } }, {passive:true});
+  const step = dir => strip.scrollTo({left:Math.max(0, Math.min(photos.length - 1, at + dir)) * strip.clientWidth, behavior:'smooth'});
+  box.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); closeViewer(); }
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); step(event.key === 'ArrowRight' ? 1 : -1); }
   });
-  host.append(strip);
+  box.addEventListener('click', event => {
+    if (event.target.closest('[data-diary-viewer-close]')) closeViewer();
+    else if (event.target.closest('[data-diary-star]')) box.querySelector('[data-diary-viewer-note]').textContent = '원드라이브 연결 뒤 쓸 수 있어요';
+  });
+  root.append(box);
+  viewer = {box, trigger, layer:window.KPTURouter?.layer?.open('diary-photo', {close:() => { closeViewer({fromBack:true}); return true; }}) || null};
+  document.documentElement.classList.add('diary-viewer-open');
+  strip.scrollLeft = index * strip.clientWidth; show();
+  box.querySelector('[data-diary-viewer-close]').focus();
+}
+function closeViewer({fromBack = false, restore = true} = {}) {
+  if (!viewer) return;
+  const {box, trigger, layer} = viewer; viewer = null;
+  box.remove(); document.documentElement.classList.remove('diary-viewer-open');
+  if (!fromBack) layer?.close();
+  if (restore && trigger?.isConnected) trigger.focus();
 }
 
 // Write / edit panel. One diary per day: a day that already has one always opens it to edit.
@@ -288,6 +327,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-write-day]')) return openEditor(selected);
   if (button.matches('[data-diary-detail-close]')) return closeDetail();
   if (button.matches('[data-diary-source]')) { source = button.dataset.diarySource; return renderDetail(); }
+  if (button.matches('[data-diary-open]')) return openViewer(Number(button.dataset.diaryOpen));
   if (button.matches('[data-diary-edit]')) return openEditor(selected);
   if (button.matches('[data-diary-delete]')) return removeDiary(edit ? edit.row : rows.get(selected));
   if (button.matches('[data-diary-editor-close]')) return closeEditor();
@@ -309,12 +349,14 @@ window.addEventListener('kptu:before-view-change', event => {
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'diary') return;
   // The router forgets the left view's layers; drop ours with them.
+  closeViewer({fromBack:true, restore:false});
   dayLayer = null; editLayer = null;
   if (selected) closeDetail({fromBack:true});
 });
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
+  closeViewer({fromBack:true, restore:false});
   if (edit) { releasePending(); edit = null; editor.hidden = true; editor.replaceChildren(); cal.hidden = false; $('.diary-head').hidden = false; $('[data-diary-new]').hidden = false; status.hidden = false; }
   editLayer = null; dayLayer = null; selected = null; detail.hidden = true; rows = new Map(); loadedMonth = ''; renderMonth();
 });

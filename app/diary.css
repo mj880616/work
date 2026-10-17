@@ -41,11 +41,33 @@
 #appView #diaryView .diary-source button:last-child{ border-radius:0 var(--ds-radius-control) var(--ds-radius-control) 0; }
 #appView #diaryView .diary-source button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #diaryView .diary-source [aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
-#appView #diaryView .diary-strip{ display:flex; gap:8px; overflow-x:auto; scroll-snap-type:x mandatory; overscroll-behavior-x:contain; touch-action:pan-x pan-y pinch-zoom; border-radius:var(--ds-radius-control); }
-#appView #diaryView .diary-strip:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
-#appView #diaryView .diary-slide{ position:relative; flex:0 0 100%; margin:0; scroll-snap-align:center; display:grid; place-items:center; min-height:200px; background:var(--kptu-surface-subtle); border-radius:var(--ds-radius-control); }
-#appView #diaryView .diary-slide img{ display:block; max-width:100%; max-height:min(70vh,640px); object-fit:contain; border-radius:var(--ds-radius-control); }
-#appView #diaryView .diary-slide figcaption{ position:absolute; right:8px; bottom:8px; padding:2px 8px; color:#fff; background:rgba(0,0,0,.5); border-radius:10px; font-size:var(--ds-text-meta); }
+/* 고른 날 사진: 작은 정사각 격자(폰 한 줄 4칸). 누르면 화면 가득 크게 보기. */
+#appView #diaryView .diary-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
+@media(min-width:761px){ #appView #diaryView .diary-grid{ grid-template-columns:repeat(6,minmax(0,1fr)); } }
+#appView #diaryView .diary-grid-item{ position:relative; display:block; aspect-ratio:1/1; width:100%; min-width:0; height:auto; min-height:0; margin:0; padding:0; overflow:hidden;
+  background:var(--kptu-surface-subtle); border:0; border-radius:6px; box-shadow:none; cursor:zoom-in; }
+#appView #diaryView .diary-grid-item .diary-photo{ position:absolute; inset:0; display:block; }
+#appView #diaryView .diary-grid-item img{ width:100%; height:100%; object-fit:cover; display:block; }
+#appView #diaryView .diary-grid-item .diary-photo-mark{ display:grid; place-items:center; height:100%; color:var(--ds-kind-diary-ink); font-size:11px; }
+#appView #diaryView .diary-grid-item:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+
+/* 크게 보기: 화면 가득, 옆으로 넘기기, "3 / 8", ☆ 자리(1차는 안내만), ×·뒤로가기로 닫기. 사진 위라 색은 늘 어두운 바탕. */
+#appView #diaryView .diary-viewer{ position:fixed; inset:0; z-index:1000; display:flex; flex-direction:column; background:#000; color:#fff;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
+#appView #diaryView .diary-viewer-bar{ display:flex; align-items:center; gap:8px; min-height:52px; padding:4px 8px 4px 16px; }
+#appView #diaryView .diary-viewer-count{ flex:1; font-size:var(--ds-text-row); font-variant-numeric:tabular-nums; }
+#appView #diaryView .diary-viewer-bar button{ position:relative; display:grid; place-items:center; width:44px; min-width:44px; height:44px; min-height:44px; margin:0; padding:0;
+  color:#fff; background:transparent; border:0; border-radius:50%; box-shadow:none; font-size:24px; line-height:1; }
+#appView #diaryView .diary-viewer-bar button:focus-visible{ outline:2px solid #fff; outline-offset:-2px; }
+#appView #diaryView .diary-viewer-strip{ flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior:contain; scrollbar-width:none; touch-action:pan-x pinch-zoom; }
+#appView #diaryView .diary-viewer-strip:focus-visible{ outline:none; }
+#appView #diaryView .diary-viewer .diary-slide{ flex:0 0 100%; margin:0; display:grid; place-items:center; scroll-snap-align:center; scroll-snap-stop:always; min-width:0; }
+#appView #diaryView .diary-viewer .diary-slide img{ display:block; max-width:100%; max-height:100%; object-fit:contain; }
+#appView #diaryView .diary-viewer .diary-photo{ display:grid; place-items:center; width:100%; height:100%; }
+#appView #diaryView .diary-viewer .diary-photo-link{ color:#fff; font-size:var(--ds-text-read); }
+#appView #diaryView .diary-viewer-note{ margin:0; min-height:24px; padding:4px 16px 12px; text-align:center; font-size:var(--ds-text-row); }
+#appView #diaryView .diary-viewer-note:empty{ visibility:hidden; }
 #appView #diaryView .diary-text{ white-space:pre-wrap; overflow-wrap:anywhere; font-size:var(--ds-text-read); line-height:1.6; }
 #appView #diaryView .diary-actions{ display:flex; flex-wrap:wrap; gap:8px; }
 #appView #diaryView .diary-danger{ color:var(--kptu-danger); }

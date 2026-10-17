@@ -143,35 +143,53 @@ test('[일정] 머리줄 [달력|할 일|일지|일기]: 높이 32·고른 쪽 �
 
 for(const width of [390,1280]){
  test(`[일기] 달력: 사진 있는 날은 첫 사진이 칸을 채우고 글만 있는 날은 점, 날짜 누르면 크게·옆으로·[별표] 안내, 뒤로가기 ${width}`,async({page})=>{
-  const f=await fixture(page,{width});await openDiary(page,width);
+  const rows=store();rows[1].attachments=['pa','pb','pc','pd','pe','pf'].map(id=>photo(id));
+  const f=await fixture(page,{width,rows});await openDiary(page,width);
   const photoDay=cell(page,'2026-10-03');
   await expect(photoDay.locator('.diary-photo img')).toBeVisible();
   const [c,i]=await Promise.all([photoDay.boundingBox(),photoDay.locator('img').boundingBox()]);
   expect(Math.abs(c.width-i.width)).toBeLessThan(3);expect(Math.abs(c.height-i.height)).toBeLessThan(3);
-  await expect(photoDay).toHaveAttribute('aria-label','10월 3일, 사진 2장');
+  await expect(photoDay).toHaveAttribute('aria-label','10월 3일, 사진 6장');
   await expect(cell(page,'2026-10-04').locator('[data-diary-dot]')).toBeVisible();await expect(cell(page,'2026-10-04').locator('img')).toHaveCount(0);
   await expect(cell(page,'2026-10-05').locator('[data-diary-dot],img')).toHaveCount(0);
   await expect(cell(page,'2026-10-06')).toHaveAttribute('aria-current','date');
   expect(f.photoReads.every(r=>r.size==='small')).toBe(true);
-  // The month read is the diary kind and this month only.
   await photoDay.click();
   const detail=page.locator('#diaryRoot [data-diary-detail]');
   await expect(detail.locator('h3')).toHaveText('10월 3일 토요일');
-  await expect(detail.locator('[data-diary-strip] .diary-slide')).toHaveCount(2);
-  await expect(detail.locator('[data-diary-strip] img').first()).toBeVisible();
-  expect(f.photoReads.some(r=>r.size==='large'&&r.note_id==='d3'&&r.file_id==='pa')).toBe(true);
+  // 작은 정사각 격자(폰 한 줄 4칸, PR 1의 "작게"), 그 아래 글.
+  const grid=detail.locator('[data-diary-grid] .diary-grid-item');
+  await expect(grid).toHaveCount(6);await expect(grid.locator('img').first()).toBeVisible();
+  const boxes=await grid.evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {x:Math.round(r.x),y:Math.round(r.y),w:r.width,h:r.height};}));
+  if(width<=760)expect(boxes.filter(b=>b.y===boxes[0].y)).toHaveLength(4);
+  for(const b of boxes)expect(Math.abs(b.w-b.h)).toBeLessThan(1.5);
+  expect(f.photoReads.some(r=>r.size==='large')).toBe(false);
+  expect(await detail.evaluate(el=>{const g=el.querySelector('[data-diary-grid]').getBoundingClientRect(),t=el.querySelector('[data-diary-text-view]').getBoundingClientRect();return t.top>=g.bottom-1;})).toBe(true);
   await expect(detail.locator('[data-diary-text-view]')).toHaveText('가을 산책 DIARY_TEXT_SECRET');
-  const strip=detail.locator('[data-diary-strip]');
-  const sb=await strip.boundingBox(),slide=await strip.locator('.diary-slide').first().boundingBox();
-  expect(Math.abs(sb.width-slide.width)).toBeLessThan(2);
-  expect(await strip.evaluate(el=>el.scrollWidth>el.clientWidth+10)).toBe(true);
-  await strip.focus();await page.keyboard.press('ArrowRight');
-  await expect.poll(()=>strip.evaluate(el=>el.scrollLeft)).toBeGreaterThan(sb.width/2);
+  // 누르면 화면 가득 크게(PR 1의 "크게"), 옆으로 넘기기·"3 / 6"·☆ 안내, 뒤로가기는 크게 보기부터 닫는다.
+  await grid.nth(2).click();
+  const viewer=page.locator('#diaryRoot [data-diary-viewer]');
+  await expect(viewer).toBeVisible();
+  const vb=await viewer.boundingBox();expect(vb.width).toBe(width);expect(vb.height).toBe(900);
+  await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('3 / 6');
+  await expect(viewer.locator('.diary-slide').nth(2).locator('img')).toBeVisible();
+  expect(f.photoReads.some(r=>r.size==='large'&&r.note_id==='d3'&&r.file_id==='pc')).toBe(true);
+  const vstrip=viewer.locator('[data-diary-viewer-strip]');
+  await vstrip.evaluate(el=>el.scrollTo({left:el.clientWidth*3}));
+  await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('4 / 6');
+  await page.keyboard.press('ArrowRight');await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('5 / 6');
+  await viewer.locator('[data-diary-star]').click();
+  await expect(viewer.locator('[data-diary-viewer-note]')).toHaveText('원드라이브 연결 뒤 쓸 수 있어요');
+  await page.goBack();
+  await expect(viewer).toHaveCount(0);await expect(detail).toBeVisible();
+  await grid.nth(0).click();await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('1 / 6');
+  await viewer.locator('[data-diary-viewer-close]').click();
+  await expect(viewer).toHaveCount(0);await expect(grid.nth(0)).toBeFocused();
   const all=detail.locator('[data-diary-source="all"]'),star=detail.locator('[data-diary-source="star"]');
   await expect(all).toHaveAttribute('aria-pressed','true');
   await star.click();
-  await expect(detail.locator('[data-diary-star-note]')).toHaveText('원드라이브 연결 뒤 쓸 수 있어요');await expect(detail.locator('[data-diary-strip]')).toHaveCount(0);
-  await detail.locator('[data-diary-source="all"]').click();await expect(detail.locator('[data-diary-strip] .diary-slide')).toHaveCount(2);
+  await expect(detail.locator('[data-diary-star-note]')).toHaveText('원드라이브 연결 뒤 쓸 수 있어요');await expect(detail.locator('[data-diary-grid]')).toHaveCount(0);
+  await detail.locator('[data-diary-source="all"]').click();await expect(grid).toHaveCount(6);
   // 뒤로가기는 열린 날짜부터 닫는다.
   await page.goBack();
   await expect(detail).toBeHidden();await expect(page.locator('#diaryView')).toBeVisible();
@@ -189,7 +207,9 @@ test('사진 보기가 아직 안 되면(배포 전) 칸은 사진 표시, 크�
  await expect(cell(page,'2026-10-03').locator('.diary-photo-mark')).toHaveText('사진');
  await expect(cell(page,'2026-10-03').locator('a')).toHaveCount(0);
  await cell(page,'2026-10-03').click();
- const links=page.locator('#diaryRoot [data-diary-strip] a.diary-photo-link');
+ await expect(page.locator('#diaryRoot [data-diary-grid] .diary-photo-mark')).toHaveCount(2);
+ await page.locator('#diaryRoot [data-diary-grid] .diary-grid-item').first().click();
+ const links=page.locator('#diaryRoot [data-diary-viewer] a.diary-photo-link');
  await expect(links).toHaveCount(2);await expect(links.first()).toHaveAttribute('href','https://drive.google.com/file/d/pa/view');
  await expect(links.first()).toHaveText('Drive에서 열기');
  expect(f.errors).toEqual([]);
@@ -217,7 +237,7 @@ test('쓰기 — 사진만: 그날 행을 먼저 만들고(일기·AI 끔) 2048p
  const row=f.rows.find(r=>r.journal_day==='2026-10-06');expect(row.raw_text).toBe('');expect(row.attachments).toHaveLength(2);
  await expect(cell(page,'2026-10-06').locator('img')).toBeVisible();
  await expect(page.locator('#diaryRoot [data-diary-detail] h3')).toHaveText('10월 6일 화요일');
- await expect(page.locator('#diaryRoot [data-diary-detail] .diary-slide')).toHaveCount(2);
+ await expect(page.locator('#diaryRoot [data-diary-detail] .diary-grid-item')).toHaveCount(2);
  expect(f.errors).toEqual([]);
 });
 
@@ -361,8 +381,11 @@ for(const scheme of ['light','dark'])for(const width of [390,1280]){
   await page.emulateMedia({colorScheme:scheme});
   const f=await fixture(page,{width});await openDiary(page,width);
   await expect(cell(page,'2026-10-03').locator('img')).toBeVisible();
-  await cell(page,'2026-10-03').click();await expect(page.locator('#diaryRoot [data-diary-strip] img').first()).toBeVisible();
+  await cell(page,'2026-10-03').click();await expect(page.locator('#diaryRoot [data-diary-grid] img').first()).toBeVisible();
   await page.screenshot({path:info.outputPath(`diary-${width}-${scheme}.png`),fullPage:true});
+  await page.locator('#diaryRoot [data-diary-grid] .diary-grid-item').nth(1).click();await expect(page.locator('#diaryRoot [data-diary-viewer] .diary-slide').nth(1).locator('img')).toBeVisible();
+  await page.screenshot({path:info.outputPath(`diary-view-${width}-${scheme}.png`)});
+  await page.locator('#diaryRoot [data-diary-viewer-close]').click();
   await page.locator('#diaryRoot #newDiaryBtn').click();
   await page.locator('#diaryRoot [data-diary-editor] [data-diary-input]').setInputFiles(await photoFiles(page,2,{w:400,h:300}));
   await page.screenshot({path:info.outputPath(`diary-edit-${width}-${scheme}.png`),fullPage:true});
