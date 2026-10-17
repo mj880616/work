@@ -114,7 +114,7 @@
 "app/theme-tokens.css":{"v":["8"],"sha256":"d403ba478aba26293735389b937a7380672e3ff3278fa54ac557b3484964d5ab"},
 "app/topbar-actions.css":{"v":["20"],"sha256":"823425fefe81f575447b26c1359bcd3b234bdcf37dc78ffbc6aaf2cb3ad717bf"},
 "app/topbar-actions.js":{"v":["27"],"sha256":"e050b1179c03ab3181943223292f3b09ae39f7eb68c970a46aff10c1ec7ed421"},
-"app/ui-standard.css":{"v":["11"],"sha256":"7609c5468be3d28e8e496662bc7951fad8d307988a153fe78f5a756d624e167a"},
+"app/ui-standard.css":{"v":["11"],"sha256":"849126f04ca3bd52e68a68d9f93a5c7a70fb0d22f4be59bc3102dbe35fb55493"},
 "app/version-notice.css":{"v":["2"],"sha256":"3c965eb350489de49eb93c0ed3116b5908d4fe17b42b32dae1870f17486fc920"},
 "app/version-notice.js":{"v":["1"],"sha256":"0fecb0ce4c0167ef04b3b8421568f51b9125a595537fc67ce0e7cd6e651ca389"},
 "app/view-loader.js":{"v":["179"],"sha256":"afc410ed00be46b416962c3edbc54ff7fb3b5e9e69cf39e53484bc063ce907ae"},

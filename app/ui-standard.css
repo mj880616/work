@@ -627,6 +627,8 @@
   gap:0; margin:0; padding:0; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); outline:0; box-shadow:none;
 }
 #appView #homeView .home-quick .home-quick-modes .home-quick-update-split{ display:flex; align-items:stretch; }
+/* 두 칸 전환은 칸 폭을 같게(반반): 바구니 [메모|노트]·일정 창 [일정|할 일]. */
+#appView #basketView .basket-kind-switch:not([hidden]),.modal .event-create-modes:not([hidden]){ display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; }
 #appView #homeView .home-quick .home-quick-modes button,
 #appView #basketView .basket-kind-switch button,
 #appView #calendarView .calendar-toolbar .calendar-view-switch button,
@@ -725,7 +727,7 @@
 @media(max-width:760px){
   /* [달력 | 할 일]: 위 머리줄("일정") 오른쪽 자리의 작은 세그먼트. 머리줄(44px) 가운데에 맞추고 아래 내용 위치는 그대로. */
   #appView .schedule-switch:not([hidden]){
-    display:flex; width:max-content; align-items:stretch; gap:0; padding:0; height:var(--ds-compact-height); background:var(--kptu-surface);
+    display:grid; grid-auto-flow:column; grid-auto-columns:1fr; width:max-content; align-items:stretch; gap:0; padding:0; height:var(--ds-compact-height); background:var(--kptu-surface);
     border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-sizing:border-box;
     margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px) + (var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 0 calc(12px + (var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) auto;
   }

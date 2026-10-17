@@ -258,3 +258,23 @@ test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 
  expect(svg).toContain('fill="#1f3150"');expect(svg).toContain('@media (max-width:32px){.dot{r:4.5px}}');
  expect(svg).not.toMatch(/<image|href=|data:/);
 });
+
+// UI-버튼크기(2026-10-17): 폰 위 상태줄·아래 버튼줄은 남색이 아니라 앱 바탕(--kptu-bg)과 같은 색(밝게·어둡게 각각).
+// 시작 화면(manifest background_color)만 남색. 계정 테마를 바꾸면 지금 켜진 쪽 meta가 그 테마의 바탕으로 바뀐다.
+for(const dark of [false,true])test(`위아래 줄 색: meta theme-color가 앱 바탕을 따른다${dark?' (어두운 화면)':''}`,async({page})=>{
+ for(const path of ['app/index.html','app/login/index.html']){
+  const html=readFileSync(path,'utf8');
+  expect(html,path).toContain('<meta name="theme-color" content="#f3f1ea" media="(prefers-color-scheme: light)">');
+  expect(html,path).toContain('<meta name="theme-color" content="#161613" media="(prefers-color-scheme: dark)">');
+ }
+ const {errors}=await boot(page,390,{dark});
+ const scheme=dark?'dark':'light';
+ const read=()=>page.evaluate(scheme=>({meta:document.querySelector(`meta[name="theme-color"][media="(prefers-color-scheme: ${scheme})"]`).content,bg:getComputedStyle(document.documentElement).getPropertyValue('--kptu-bg').trim()}),scheme);
+ await expect.poll(async()=>{const r=await read();return r.meta===r.bg;}).toBe(true);
+ expect((await read()).bg).toBe(dark?'#161613':'#f3f1ea');
+ // 테마 [남색]을 고르면 밝은 화면의 meta는 그 테마 바탕(#f5f6f7), 어두운 화면은 공통 어두운 바탕 그대로.
+ await page.locator('#themeModal [data-theme-choice="navy"]').evaluate(el=>el.click());
+ await expect.poll(async()=>(await read()).meta).toBe(dark?'#161613':'#f5f6f7');
+ expect(await page.evaluate(()=>document.documentElement.dataset.theme)).toBe('navy');
+ expect(errors).toEqual([]);
+});
