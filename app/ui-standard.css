@@ -8,7 +8,7 @@
 /* 일정의 월간·주간 칸(#calendarGrid·#calendarWeek)은 이번 단계에서 모양을 바꾸지 않으므로 굵기도 그대로 둔다. */
 /* 목록 줄(행 버튼)과 그 안의 이름은 아래 '목록 글자' 규칙이 굵기를 정한다(3/3). */
 #appView :is(#homeView,#basketView,#calendarView,#tasksView,#projectsView,#teamView,#libraryView,#meetingsView) :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"],[aria-checked="true"]):not(.md-body *,#calendarGrid *,#calendarWeek *,.basket-row,.basket-row *,.kptu-list-name,.lu-row-title,.meeting-list-title h3,.gt-main b,.clv-title,.home-title),
-#ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b){ font-weight:var(--ds-weight-medium); }
+#ps3DetailModal :is(h2,h3,h4,b,strong,button,summary,[aria-pressed="true"]):not(.md-body *,.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-rec-line,.ps3-rec-line *,.ps3-line-main b,.ps3-add-plus){ font-weight:var(--ds-weight-medium); }
 
 :where(#homeView,#basketView) label{ font-weight:var(--ds-weight-medium); }
 
@@ -36,14 +36,14 @@
 }
 /* ① 채운 버튼: 빠른 입력 [추가], 읽기 [연결하기], 수정 [수정 저장], 패널 안 확정 버튼. 위 기본 규칙과 같은 우선순위로 맞춰 뒤에서 덮는다. */
 #appView :is(#homeView,#basketView) :is(.home-quick button.home-quick-save,button.primary,button.quick-pill-primary,button[data-basket-save]){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
-/* ② 종류 색: 읽기 화면 [할 일 만들기](할 일 색, UI-디자인손질 6).
-   고른 쪽(UI-선택표시통일): 전환 버튼·필터·날짜의 고른 쪽은 어디서든 민트(--ds-kind-task 옅은 바탕 + 진한 글자), 안 고른 쪽은 흰 바탕(기본 ③).
-   고른 상태는 각 버튼의 aria-pressed/aria-checked가 기준이다. 홈 [업데이트 ▾]는 [업데이트]와 ▾ 두 버튼이 한 덩어리로 같이 칠해진다. */
+/* ② 종류 색: 읽기 화면 [할 일 만들기](할 일 색, UI-디자인손질 6). */
+#appView #basketView .basket-read-actions button.primary ~ button.primary{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); border-color:var(--ds-kind-task-soft); }
+/* 고른 쪽(UI-선택표시통일, 2026-10-17 사용자 결정 B): 전환 버튼·필터·날짜의 고른 쪽은 어디서든 회색(--ds-kind-other 옅은 바탕 + 진한 글자),
+   안 고른 쪽은 흰 바탕(기본 ③). 고른 상태는 각 버튼의 aria-pressed/aria-checked가 기준이다. 홈 [업데이트 ▾]는 [업데이트]와 ▾ 두 버튼이 한 덩어리로 같이 칠해진다. */
 #appView #basketView .basket-filters [aria-pressed="true"],
 #appView #homeView .home-quick-modes [data-quick-mode][aria-pressed="true"],
 #appView #homeView .home-quick-modes [data-quick-mode="update"][aria-pressed="true"] + [data-quick-org],
-#appView #basketView .basket-read-actions button.primary ~ button.primary,
-#appView :is(#homeView,#basketView) button:is([data-quick-day],[data-manual-task-day])[aria-pressed="true"]{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); border-color:var(--ds-kind-task-soft); }
+#appView :is(#homeView,#basketView) button:is([data-quick-day],[data-manual-task-day])[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 /* ④ 삭제: 빨간 테두리. */
 #appView #basketView button.danger{ color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }
 
@@ -131,7 +131,7 @@
 /* ④ 삭제: 빨간 테두리. */
 #ps3DetailModal button:is(.ps3-danger,.ps3-danger-btn,.danger):not(.ps3-more-panel *):where(:not([hidden])){ color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }
 
-/* 일정 머리줄: 이전·다음 화살표는 테두리 없는 아이콘, [오늘]·[+ 일정 등록]은 기본 버튼, 보기 전환은 한 상자 안 세 칸. 고른 보기는 회색(종류 색 '그 밖'). */
+/* 일정 머리줄: 이전·다음 화살표는 테두리 없는 아이콘, [오늘]·[+ 일정 등록]은 기본 버튼, 보기 전환은 한 상자 안 같은 폭(44px) 칸(폰 둘·PC 셋, 칸 사이·양옆 여백 없음 → 고른 바탕이 자기 칸을 정확히 채움, UI-선택표시통일). 고른 보기는 회색(종류 색 '그 밖'). */
 #appView #calendarView .calendar-toolbar{ min-height:var(--ds-control-height); }
 /* 머리줄 버튼은 위 기본 모양과 같되, 기존 간격(margin)은 그대로 둔다(누르는 영역 44px이 겹치지 않게). */
 #appView #calendarView .calendar-toolbar button:where(:not([hidden])){
@@ -143,11 +143,11 @@
 }
 #appView #calendarView .calendar-toolbar :is(#prevMonthBtn,#nextMonthBtn){ padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:24px; line-height:1; }
 #appView #calendarView .calendar-toolbar #calendarTodayBtn{ padding:0 8px; }
-#appView #calendarView .calendar-toolbar .calendar-view-switch{ height:var(--ds-control-height); outline:var(--ds-line-width) solid var(--ds-line); outline-offset:calc(-1 * var(--ds-line-width)); border-radius:var(--ds-radius-control); }
-#appView #calendarView .calendar-toolbar .calendar-view-switch button{ width:36px; min-width:36px; padding:0; border:0; color:var(--kptu-muted); background:transparent; }
+#appView #calendarView .calendar-toolbar .calendar-view-switch{ display:grid; grid-auto-flow:column; grid-auto-columns:var(--kptu-touch-target,44px); gap:0; padding:0; height:var(--ds-control-height); outline:var(--ds-line-width) solid var(--ds-line); outline-offset:calc(-1 * var(--ds-line-width)); border-radius:var(--ds-radius-control); }
+#appView #calendarView .calendar-toolbar .calendar-view-switch button{ width:auto; min-width:0; padding:0; border:0; color:var(--kptu-muted); background:transparent; }
 #appView #calendarView .calendar-toolbar .calendar-view-switch button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
 #appView #calendarView .calendar-toolbar .calendar-view-switch button:last-child{ border-radius:0 var(--ds-radius-control) var(--ds-radius-control) 0; }
-#appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"]{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); }
+#appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 #appView #calendarView .calendar-toolbar #monthTitle{ font-size:var(--ds-text-title); }
 #appView #calendarView .calendar-toolbar-divider{ border-left-width:var(--ds-line-width); border-left-color:var(--ds-line); }
 
@@ -196,8 +196,8 @@
 #ps3DetailModal :is(.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-summary b,.ps3-stat-grid b){ font-size:var(--ds-text-row); }
 #ps3DetailModal :is(.ps3-child-link small,.ps3-row p,.ps3-row small,.ps3-section-head p){ font-size:var(--ds-text-meta); }
 #ps3DetailModal :is(.ps3-row,.ps3-child-link){ border-top-width:var(--ds-line-width); border-top-color:var(--ds-line); }
-/* 상세의 한 줄 기록 칸은 옆 [저장]과 같은 높이, 0.5px 선·모서리 8px. */
-#ps3DetailModal [data-ps3-quick-progress] input{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+/* 상세 맨 위 기록 칸은 옆 [기록]과 같은 높이, 0.5px 선·모서리 8px. */
+#ps3DetailModal [data-ps3-record-input] input{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
 
 /* ───────── 3단계 1부(8-9e-1): 담당조직·자료실·회의 + 목록 글자 통일 ─────────
    1·2단계와 같은 값·같은 모양. 규칙은 #appView 안의 #teamView·#libraryView·#meetingsView로만 한정한다. */
@@ -222,9 +222,9 @@
 }
 /* ① 채운 버튼(화면당 1개): [+ 자료]·[+ 회의 결과]. */
 #appView :is(#teamView,#libraryView,#meetingsView) button.primary:not(.icon-btn,.lu-more-panel *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
-/* ② 고른 필터는 민트(UI-선택표시통일, 할 일 색). 필터 묶음은 회색 알약 판 대신 버튼을 나란히(가로로 밀어 보기). */
+/* ② 고른 필터는 회색(종류 색 '그 밖', UI-선택표시통일). 필터 묶음은 회색 알약 판 대신 버튼을 나란히(가로로 밀어 보기). */
 #appView :is(#libraryView,#meetingsView) .filter-chips{ gap:6px; padding:0; background:transparent; border-radius:0; min-height:var(--ds-control-height); }
-#appView :is(#libraryView,#meetingsView) .filter-chips button[aria-checked="true"]{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); border-color:var(--ds-kind-task-soft); }
+#appView :is(#libraryView,#meetingsView) .filter-chips button[aria-checked="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #appView :is(#libraryView,#meetingsView) .filter-chips button::after{ content:none; }
 
 /* 입력: 높이 하나·0.5px 선·모서리 8px. */
@@ -281,7 +281,7 @@
 #appView #teamView .so-add-link{ display:none; }
 
 @media(max-width:760px){
-  /* [달력 | 할 일]: 홈 빠른 입력 탭과 같은 버튼 둘. 고른 쪽은 어느 쪽이든 민트(UI-선택표시통일). */
+  /* [달력 | 할 일]: 홈 빠른 입력 탭과 같은 버튼 둘. 고른 쪽은 어느 쪽이든 회색(UI-선택표시통일). */
   /* 위 머리줄("일정") 오른쪽 자리(☰가 빠진 자리)에 올려 달력 칸 높이를 줄이지 않는다. */
   #appView .schedule-switch{ position:relative; z-index:2; display:grid; grid-template-columns:repeat(2,72px); gap:6px; width:max-content; margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 10px auto; }
   #appView .schedule-switch button{
@@ -289,7 +289,7 @@
     font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3;
     color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; cursor:pointer;
   }
-  #appView .schedule-switch [aria-pressed="true"]{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); border-color:var(--ds-kind-task-soft); }
+  #appView .schedule-switch [aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
   #appView .schedule-switch button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 
   /* 동그란 [+]: 일정(달력=일정 추가)·할 일·프로젝트·자료실의 위쪽 추가 버튼을 하단 탭 바로 위 오른쪽에 띄운다.
@@ -395,8 +395,8 @@
 #appView #hwpView button.primary:not(.icon-btn):where(:not([hidden])),
 .modal button.primary:not(.icon-btn,.ps3-danger-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
 #appView #hwpView button.primary:not(.icon-btn):disabled{ opacity:.55; }
-/* ② 고른 필터·고른 종류(일정 창 [일정]·[할 일])는 민트(UI-선택표시통일, 할 일 색). */
-#appView #mediaView button.w1p-filter.active,.modal .event-create-modes [data-event-mode][aria-pressed="true"]{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); border-color:var(--ds-kind-task-soft); }
+/* ② 고른 필터·고른 종류(일정 창 [일정]·[할 일])는 회색(종류 색 '그 밖', UI-선택표시통일). */
+#appView #mediaView button.w1p-filter.active,.modal .event-create-modes [data-event-mode][aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 .modal .event-create-modes{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; max-width:240px; padding:0; background:transparent; border:0; border-radius:0; }
 /* ④ 삭제: 빨간 테두리. */
 .modal button:is(.danger,.wd-danger,.tl-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.mrd-delete,.ps-danger,.ci-delete):not(.ps3-more-panel *,.tl-menu-items *):where(:not([hidden])){ color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }

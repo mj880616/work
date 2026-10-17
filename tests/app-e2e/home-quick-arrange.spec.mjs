@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // HOME-빠른입력정리 + UI-선택표시통일: 할 일 옵션 줄은 모드 버튼 줄 위, 안내 화살표 글자 없음,
 // 조직 고르기는 [업데이트] 오른쪽 ▾(누르는 범위 44px, 키보드로 열림), 고른 조직은 입력칸 안내 글자.
-// 고른 모드는 어느 것이든 민트(--ds-kind-task), 안 고른 쪽은 흰 바탕. 라이트·다크 모두.
+// 고른 모드는 어느 것이든 회색(--ds-kind-other, 사용자 결정 B), 안 고른 쪽은 흰 바탕. 라이트·다크 모두.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const names=['전국철도노동조합','서해선지부','신분당선지부'];
 const q=page=>page.locator('#homeView [data-home-quick]');
@@ -19,11 +19,11 @@ async function open(page,width,dark){
  await page.reload();await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt>0);
  return errors;
 }
-async function mint(page){return {bg:await token(page,'--ds-kind-task-soft','backgroundColor'),fg:await token(page,'--ds-kind-task-ink')};}
+async function gray(page){return {bg:await token(page,'--ds-kind-other-soft','backgroundColor'),fg:await token(page,'--ds-kind-other-ink')};}
 const shot=(info,name)=>process.env.KPTU_SHOT_DIR?`${process.env.KPTU_SHOT_DIR}/${name}.png`:info.outputPath(`${name}.png`);
 
-for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입력 배치와 고른 쪽 민트 ${width}${dark?' 다크':''}`,async({page},info)=>{
- const errors=await open(page,width,dark),box=q(page),selected=await mint(page),white=await token(page,'--kptu-surface','backgroundColor');
+for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입력 배치와 고른 쪽 회색 ${width}${dark?' 다크':''}`,async({page},info)=>{
+ const errors=await open(page,width,dark),box=q(page),selected=await gray(page),white=await token(page,'--kptu-surface','backgroundColor');
  const modes=box.locator('.home-quick-modes'),update=box.locator('[data-quick-mode="update"]'),org=box.locator('[data-quick-org]'),input=box.locator('[data-quick-input]');
  // 안내 화살표 글자는 어느 모드에서도 없다.
  await expect(box.locator('[data-quick-destination],[data-quick-update-options]')).toHaveCount(0);
@@ -41,7 +41,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  await page.screenshot({path:shot(info,`home-quick-task-${width}-${dark?'dark':'light'}`)});
  await input.fill('');
 
- // [업데이트 ▾]: 조직 줄 없이 [업데이트] 바로 오른쪽 ▾, 둘이 함께 민트. ▾ 누르는 범위 44px 이상.
+ // [업데이트 ▾]: 조직 줄 없이 [업데이트] 바로 오른쪽 ▾, 둘이 함께 회색. ▾ 누르는 범위 44px 이상.
  await update.click();await expect(box).toHaveAttribute('data-mode','update');
  await expect(options).toBeHidden();await expect(box.locator('[data-quick-options]')).toBeHidden();
  await expect(box).not.toContainText('담당조직 기록');

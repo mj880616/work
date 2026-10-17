@@ -42,8 +42,8 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  const height=(await look(save)).height;
  expect(height).toBe(46);expect(height).toBe(parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height'))));
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
- // Home tabs: one height; the selected tab is mint whichever it is (UI-선택표시통일), the others white.
- const kinds={basket:'--ds-kind-task',task:'--ds-kind-task',update:'--ds-kind-task'};
+ // Home tabs: one height; the selected tab is gray whichever it is (UI-선택표시통일 결정 B), the others white.
+ const kinds={basket:'--ds-kind-other',task:'--ds-kind-other',update:'--ds-kind-other'};
  for(const [mode,kind] of Object.entries(kinds)){
   const tab=quick.locator(`[data-quick-mode="${mode}"]`);
   if(width<761)await tab.tap();else await tab.click();
@@ -69,7 +69,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  await sameButtons(basket,height);
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary)filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
- expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(await token(page,'--ds-kind-task-soft'));
+ expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(await token(page,'--ds-kind-other-soft'));
  // Keyboard opens and closes the menu; it does not push the list.
  const listTop=(await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y;
  await more.focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('aria-expanded','true');

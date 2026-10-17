@@ -49,7 +49,7 @@ async function openApp(page,view,{entryView='calendar'}={}){
   }
 }
 
-async function assertInHeader(page,{card,head,button,title}){
+async function assertInHeader(page,{card,head,button,title,centered=false}){
   await expect(page.locator(`${card} ${head} ${button}`)).toHaveCount(1);
   const box=await page.locator(`${card} ${head} ${button}`).boundingBox();
   const cardBox=await page.locator(card).boundingBox();
@@ -57,8 +57,10 @@ async function assertInHeader(page,{card,head,button,title}){
   expect(box).toBeTruthy();expect(cardBox).toBeTruthy();expect(headBox).toBeTruthy();
   expect(box.x).toBeGreaterThanOrEqual(cardBox.x-1);
   expect(box.x+box.width).toBeLessThanOrEqual(cardBox.x+cardBox.width+1);
-  expect(box.y).toBeGreaterThanOrEqual(headBox.y-1);
-  expect(box.y+box.height).toBeLessThanOrEqual(headBox.y+headBox.height+1);
+  // A small + keeps a 44px touch area that may reach past its heading row; its center stays in that row.
+  if(centered){const mid=box.y+box.height/2;expect(mid).toBeGreaterThanOrEqual(headBox.y);expect(mid).toBeLessThanOrEqual(headBox.y+headBox.height);expect(box.y).toBeGreaterThanOrEqual(cardBox.y-1);expect(box.y+box.height).toBeLessThanOrEqual(cardBox.y+cardBox.height+1)}
+  else{expect(box.y).toBeGreaterThanOrEqual(headBox.y-1);
+  expect(box.y+box.height).toBeLessThanOrEqual(headBox.y+headBox.height+1);}
   const titleBox=await page.locator(`${card} ${head} ${title}`).boundingBox();
   if(titleBox){
     const overlap=box.x<titleBox.x+titleBox.width&&box.x+box.width>titleBox.x&&box.y<titleBox.y+titleBox.height&&box.y+box.height>titleBox.y;
@@ -109,8 +111,9 @@ for(const width of [390,1440]){
     });
     test('project detail places both actions in their cards after redraw',async({page})=>{
       await openApp(page,'project_detail');
-      const task={card:'#ps3-tasks',head:'.ps3-section-head',button:'[data-ps3-global="task"]',title:'h3'};
-      const doc={card:'#ps3-documents',head:'.ps3-section-head',button:'[data-ps3-global="document"]',title:'h3'};
+      // PRJ-기록입력: the add actions are the small + beside each group title.
+      const task={card:'#ps3-tasks',head:'.ps3-section-head',button:'.ps3-add-plus[data-ps3-global="task"]',title:'h3',centered:true};
+      const doc={card:'#ps3-documents',head:'.ps3-section-head',button:'.ps3-add-plus[data-ps3-global="document"]',title:'h3',centered:true};
       await assertInHeader(page,task);await assertInHeader(page,doc);
       await expect(page.locator('#ps3Body .ps3-quick')).toHaveCount(0);
       await page.locator('#ps3-tasks h3').evaluate(el=>el.textContent='매우 긴 할 일 카드 제목을 반복해서 표시하는 화면 배치 확인용 제목');

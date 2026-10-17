@@ -91,10 +91,10 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  const toTasks=page.locator('#tasksView .schedule-switch [data-view="tasks"]'),toCalendar=page.locator('#tasksView .schedule-switch [data-view="calendar"]');
  await expect(toTasks).toHaveAttribute('aria-pressed','true');await expect(toCalendar).toHaveAttribute('aria-pressed','false');
  const pressed=await toTasks.evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}));
- expect(pressed).toEqual({fg:await token(page,'--ds-kind-task-ink'),bg:await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-task-soft)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})});
+ expect(pressed).toEqual({fg:await token(page,'--ds-kind-other-ink'),bg:await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-other-soft)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})});
  await toCalendar.click();await loaded(page,'calendar');await expect(schedule).toHaveAttribute('aria-current','page');await expect(name).toHaveText('일정');
  await expect(page.locator('#calendarView .schedule-switch [data-view="calendar"]')).toHaveAttribute('aria-pressed','true');
- // UI-선택표시통일: 고른 [달력]도 [할 일]과 같은 민트, 안 고른 [할 일]은 흰 바탕.
+ // UI-선택표시통일: 고른 [달력]도 [할 일]과 같은 회색, 안 고른 [할 일]은 흰 바탕.
  expect(await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}))).toEqual(pressed);
  expect(await page.locator('#calendarView .schedule-switch [data-view="tasks"]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--kptu-surface)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
  // 탭은 마지막으로 본 쪽을 연다(새 저장소 없이 라우터가 탭의 data-view를 맞춘다).
