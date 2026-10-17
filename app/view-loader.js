@@ -139,7 +139,7 @@ async function organizations(){
 async function home(){
   const date=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long'}).format(new Date());
   document.querySelectorAll('[data-home-date]').forEach(el=>{el.textContent=date});
-  await module('./home-read.js?v=41');
+  await module('./home-read.js?v=42');
   return {ok:true}
 }
 window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='home')void home()});

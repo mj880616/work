@@ -1,6 +1,6 @@
 import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
-import { mountQuick } from './home-quick.js?v=21';
+import { mountQuick } from './home-quick.js?v=22';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=19';
 import { mountClassification } from './basket-classification-ui.js?v=17';
 import { readBasket, updateNote, noteState, visibleNotes, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js?v=7';

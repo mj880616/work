@@ -36,13 +36,14 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     status.textContent='HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 바구니에 저장돼요.';
   });
   box.querySelector('[data-quick-new-note]').onclick=()=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&!window.confirm('바구니에서 저장 여부를 확인한 후 새 메모를 입력할까요? 현재 입력과 파일 선택은 비워집니다.'))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
-  function size(){ input.style.height=''; if(mode==='update')input.style.height=Math.min(146,Math.max(83,input.scrollHeight+2))+'px'; }
+  // UI-버튼크기: 홈은 세 모드 모두 한 줄 높이에서 시작해 글에 맞춰 늘고 5줄에서 멈춘다(그 뒤는 칸 안 스크롤). 바구니 화면은 CSS 높이 그대로.
+  function size(){ input.style.height=''; if(basketOnly)return; const s=getComputedStyle(input),edge=parseFloat(s.paddingTop)+parseFloat(s.paddingBottom)+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth),line=parseFloat(s.lineHeight)||21,min=input.offsetHeight;input.style.height=Math.max(min,Math.min(line*5+edge,input.scrollHeight+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth)))+'px'; }
   function paint(){
     pickerFiles.render();
     // A saved or unconfirmed note keeps its text; say why and offer the reset next to the input.
     const locked=mode==='basket'&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 메모 입력’을 눌러 주세요.':'메모 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 메모 입력’을 눌러 주세요.';
-    box.dataset.mode=mode; input.rows=mode==='update'?3:1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'';
+    box.dataset.mode=mode; input.rows=1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'';
     input.placeholder=mode==='basket'?'메모를 입력하세요':mode==='task'?'할 일을 입력하세요':(orgName||'담당조직')+' 기록을 입력하세요';
     box.querySelector('[data-quick-file-picker]').hidden=mode!=='basket';
     box.querySelector('[data-quick-basket-options]').hidden=mode!=='basket'||!upload.entries.length;
