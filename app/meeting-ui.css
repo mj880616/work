@@ -65,7 +65,7 @@
 .mtg-task-line>.status:empty{display:none}
 .modal .mtg-task-line :is(.mtg-line-add,.mtg-line-cancel){position:relative;box-sizing:border-box;width:auto;min-width:0;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
 .modal .mtg-task-line :is(.mtg-line-add,.mtg-line-cancel)::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-/* [기한 ▾]: 보이는 것은 알약 칩, 누르면 기기 날짜 고르기(FORM-시간입력 #624: 날짜는 기기 고르기 유지). */
+/* [기한 ▾]: 보이는 것은 알약 칩, 누르면 기기 날짜 고르기(FORM-시간입력: 날짜는 기기 고르기 유지). */
 .due-chip{position:relative;box-sizing:border-box;display:inline-flex;align-items:center;height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--ds-chip-radius,999px);background:var(--kptu-surface);color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;white-space:nowrap}
 .due-chip.has-value{color:var(--kptu-ink)}
 .due-chip:focus-within{outline:2px solid var(--kptu-info);outline-offset:2px}

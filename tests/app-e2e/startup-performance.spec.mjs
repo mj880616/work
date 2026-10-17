@@ -83,7 +83,7 @@ test('startup loads only requested route CSS before showing the shell', async ()
     './task-layout.css?v=4',
     './google-tasks.css?v=26',
     './project-system-v3.css?v=31',
-    './library-upload.css?v=8',
+    './library-upload.css?v=9',
     './meeting-ui.css?v=16',
     './web1-press.css?v=4',
     './web1-board.css?v=7',
