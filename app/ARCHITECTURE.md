@@ -30,7 +30,9 @@
 
 TASK-팀AI삭제 1단계에서 조직 상세의 주간보고·타임라인 AI 초안과 비활성 프로젝트 AI 초안 호출을 제거함. 조직의 저장된 주간보고 열람·수정과 타임라인 수동 관리는 유지하며, `?view=ai`·`?view=team-ai` 같은 옛 주소는 홈으로 귀결됨. `team-ai` Edge와 AI 기록은 별도 2단계 대상임.
 
-D-4a ②는 실제 `#homeView`의 읽기 칸을 독립 조회한다. `?view=home`과 브랜드, 기본 `/app/`는 홈으로 가며 일정은 `?view=calendar`이다. 홈이 남아 있는 project query보다 우선하고, native-back-guard의 마지막 복귀는 Android와 같은 home이다.
+D-4a ②는 실제 `#homeView`의 읽기 칸을 독립 조회한다. `?view=home`과 브랜드, 기본 `/app/`는 홈으로 가며 일정은 `?view=calendar`이다. 홈이 남아 있는 project query보다 우선하고, 안드로이드 뒤로의 마지막 복귀(Web2 첫 기록에서)는 home이다.
+
+뒤로 가기(BUG-뒤로가기): 열린 것(창·메뉴 판·고르기 시트·화면 안 상세)이 있으면 뒤로 가기는 가장 위의 것 하나를 닫고, 아무것도 열려 있지 않을 때만 이전 탭으로 간다. 열린 것마다 같은 주소의 기록 1개를 갖는 것이 규칙이며, 브라우저·PWA의 뒤로 가기와 안드로이드 앱 뒤로(`native-back-guard.js`의 `KPTUNativeBack` v3 → `KPTURouter.back()`)는 같은 기록을 한 칸 되돌리므로 결과가 같다. 앞으로 만드는 창·화면도 이 규칙을 따른다: `.modal`은 `mobile-modal-history.js`가 폰 폭(760px 이하, 또는 `data-kptu-history-all`)에서 기록을 붙이고, 화면 안에서 여는 상세(바구니 메모 등)는 `KPTURouter.layer.open(name,{close})`로 연다. 화면의 닫기(‹·Esc)는 스스로 닫은 뒤 돌려받은 `close()`를 불러 그 기록을 되돌린다(‹와 뒤로가 같은 결과). 뒤로로 닫힐 때 여는 쪽의 `close({fromBack:true})`가 `false`를 돌려주면(저장 안 한 글을 버리지 않음) 기록을 다시 쓰지 않고 그 칸으로 돌아간다. 다른 탭으로 옮기면 그 화면의 layer는 라우터가 잊고(여는 쪽은 `kptu:view-changed`에서 닫음), 남은 기록은 다음 뒤로 가기에서 건너뛴다. 안드로이드는 Web2의 첫 기록에서 홈이 아니면 홈으로, 홈이면 누름을 소비한다(앱은 닫지 않음, 기존 APK 결정). 바구니 메모와 노트(`basket-notes.js`)는 목록에서 열면 목록 스크롤 위치를 기억했다가 뒤로·‹로 닫을 때 되돌린다.
 
 각 기능 모듈은 직접 모든 `.view-panel`을 숨기거나 활성 메뉴를 다시 계산하지 않음. 화면 전환이 필요하면 `window.KPTURouter.go(view)`를 사용함.
 
@@ -122,6 +124,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 ## 7. 변경 규칙
 
 - 화면 이동은 `app-router.js`만 담당함.
+- 새 창·판·상세 화면은 열 때 기록 1개를 갖고 뒤로 가기로 가장 위의 것부터 닫혀야 함(2절 "뒤로 가기"). 화면별 popstate 임시 처리·지연 덮어쓰기를 만들지 않음.
 - 같은 버튼에 여러 모듈이 `onclick`/`click`을 중복 등록하지 않음.
 - 세션 refresh 로직을 기능 모듈에 새로 만들지 않고 `runtime-client.js`를 사용함.
 - DOM 생성 시점을 기다리기 위한 전역 `MutationObserver`는 최후 수단으로만 사용함. 가능하면 명시적 이벤트를 사용함.
