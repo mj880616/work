@@ -48,8 +48,10 @@ async function copyText(text) {
 
 // Opens the editor over the whole screen. text: the starting text. onInput(text): every change (optional).
 // onClose(text): when it closes, with the final text; the opener puts it back into its own field.
+// save (optional, UI-디자인손질 8 메뉴 [쓰기]): {label, aria, run(text)} adds a filled [저장]; run is the opener's own
+// existing save and resolves {ok:true} (the editor then closes) or {ok:false, message}. [닫기] stays the plain close.
 // Returns {close({silent})}: silent closes without calling onClose (e.g. the opener's screen went away).
-export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}} = {}) {
+export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null} = {}) {
   current?.close({silent: true});
   const trigger = document.activeElement;
   const shell = document.createElement('div');
@@ -60,13 +62,15 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
 
   const head = document.createElement('div'), name = document.createElement('h2');
   head.className = 'md-editor-head'; name.id = ID + 'Title'; name.textContent = title;
-  const copy = button('텔레그램용 복사', {mdTelegram: ''}), done = button('닫기', {close: ID}, '닫고 수정 칸으로 돌아가기');
-  copy.className = 'secondary'; done.className = 'primary';
+  const copy = button('텔레그램용 복사', {mdTelegram: ''}), done = button('닫기', {close: ID}, save ? '저장하지 않고 닫기' : '닫고 수정 칸으로 돌아가기');
+  copy.className = 'secondary'; done.className = save ? 'secondary' : 'primary';
+  const saveButton = save ? button(save.label || '저장', {mdSave: ''}, save.aria) : null;
+  if (saveButton) { saveButton.className = 'primary'; shell.dataset.mdSave = ''; }
   const modes = document.createElement('div');
   modes.className = 'md-editor-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', '보기');
   const writeTab = button('쓰기', {mdMode: 'write'}), previewTab = button('미리보기', {mdMode: 'preview'});
   modes.append(writeTab, previewTab);
-  head.append(name, modes, copy, done);
+  head.append(name, modes, copy, done, ...(saveButton ? [saveButton] : []));
 
   const tools = document.createElement('div'), menu = document.createElement('div');
   tools.className = 'md-editor-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
@@ -89,7 +93,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   bar.className = 'md-editor-bar'; bar.append(menu, tools);
   shell.append(head, panes, status, bar);
 
-  let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null;
+  let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false;
   const previewing = () => WIDE.matches || mode === 'preview';
   function paintPreview() {
     clearTimeout(timer); timer = 0;
@@ -134,6 +138,17 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     replace(r.from, r.to, r.insert);
     area.setSelectionRange(r.selStart, r.selEnd);
   }
+  async function runSave() {
+    if (!save || saving || closed) return;
+    saving = true; saveButton.disabled = true; status.textContent = '저장 중…';
+    let result;
+    try { result = await save.run(area.value); } catch (error) { result = {ok: false, message: error?.message}; }
+    saving = false;
+    if (closed) return;
+    saveButton.disabled = false;
+    if (result?.ok) close();
+    else status.textContent = result?.message || '저장하지 못했어요. 다시 눌러 주세요.';
+  }
   async function telegram() {
     const ok = await copyText(toTelegram(area.value));
     if (closed) return;
@@ -148,6 +163,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (b.dataset.mdAction) run(b.dataset.mdAction, b.dataset.mdOption);
     else if (b.dataset.mdMode) setMode(b.dataset.mdMode);
     else if (b.hasAttribute('data-md-telegram')) void telegram();
+    else if (b.hasAttribute('data-md-save')) void runSave();
     else if (b.dataset.close === ID) close();
   });
   area.addEventListener('input', () => { status.textContent = ''; onInput?.(area.value); schedule(); });

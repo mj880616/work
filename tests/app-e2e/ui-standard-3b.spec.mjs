@@ -74,8 +74,8 @@ test('폰 하단 탭 6칸: 바구니 색 아이콘, [메뉴] 탭이 메뉴 창�
  await expect(page.locator('#mobileMenuOpen')).toBeHidden();
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
- // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['회의','자료실','성명','보도자료','게시판','HWP 편집']);
+ // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·성명·보도자료(한 칸)·게시판.
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['쓰기','회의','자료실','HWP 편집','성명·보도자료','게시판']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [data-view="basket"]')).toHaveAttribute('aria-current','page');
@@ -210,7 +210,7 @@ test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  expect(Math.round(first.left)).toBe(Math.round(rows.left));expect(Math.round(last.right)).toBe(Math.round(rows.right));
  const before=await box(filters.first());
  await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(menu.getByRole('button')).toHaveText(['분류 요청','GPT 답변 가져오기']);await expect(menu.locator('[data-handoff-copy]')).toBeFocused();
+ await expect(menu.getByRole('button')).toHaveText(['AI 분류 요청','GPT 답변 가져오기']);await expect(menu.locator('[data-handoff-copy]')).toBeFocused();
  expect(await box(filters.first())).toEqual(before);
  const mb=await box(menu);expect(mb.top).toBeGreaterThanOrEqual(m.bottom);
  for(const item of await menu.getByRole('button').all())expect((await box(item)).height).toBeGreaterThanOrEqual(44);
@@ -231,14 +231,14 @@ test('바구니 [분류 요청]: 조용히 복사 + 한 줄 알림 → [분류 �
  await page.context().grantPermissions(['clipboard-read','clipboard-write']);
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  await requestClassification(page);
- await expect(handoffLine(page)).toHaveText('미분류 메모 2개 요청을 복사했어요');await expect(page.locator('[data-handoff-status]')).toBeEmpty();
+ await expect(handoffLine(page)).toHaveText('미분류 메모 2개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');await expect(page.locator('[data-handoff-status]')).toBeEmpty();
  const copied=await page.evaluate(()=>navigator.clipboard.readText());expect(copied).toContain('합성 메모 하나');expect(copied).toContain('합성 메모 둘');
  const sheet=page.locator('[data-classification-panel]');await expect(sheet).toBeVisible();await expect(page.locator('[data-classification-input]')).toBeFocused();
  await expect(sheet.getByRole('heading',{name:'분류 결과 입력'})).toBeVisible();
  const t=await box(page.locator('.mobile-tabs'));await expect.poll(async()=>Math.round((await box(sheet)).bottom)).toBe(Math.round(t.top));const s=await box(sheet);expect(s.left).toBe(0);expect(s.right).toBe(390);
  await page.locator('[data-classification-close]').click();await expect(sheet).toBeHidden();await expect(handoffLine(page)).toBeHidden();await expect(page.locator('[data-basket-more]')).toBeFocused();
  await page.evaluate(()=>navigator.clipboard.writeText('다른 글'));
- await requestClassification(page,{keyboard:true});await expect(sheet).toBeVisible();await expect(handoffLine(page)).toHaveText('미분류 메모 2개 요청을 복사했어요');
+ await requestClassification(page,{keyboard:true});await expect(sheet).toBeVisible();await expect(handoffLine(page)).toHaveText('미분류 메모 2개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(copied);
  expect(errors).toEqual([]);
 });

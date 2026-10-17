@@ -38,8 +38,8 @@
 ## 4. 바구니 메모 적용
 
 - 읽기 화면의 원문 칸(`[data-basket-read-text]`)을 마크다운으로 그린다. 그리는 곳은 `basket.js`의 `paintReadText` 하나다.
-- [원문 그대로 보기]를 누르면 저장된 글을 한 글자도 바꾸지 않고 보이며, [정리해서 보기]로 돌아간다. 선택은 기억하지 않는다(메모를 열 때마다 정리된 보기).
-- 수정 화면은 그대로 일반 글 입력이다. 원문 데이터·저장 방식은 바뀌지 않는다. [크게 쓰기]는 같은 글을 전체 화면 편집기로 연다(8절).
+- 메모의 [⋯] 메뉴에서 [원문 그대로 보기]를 누르면 저장된 글을 한 글자도 바꾸지 않고 보이며, [정리해서 보기]로 돌아간다. 선택은 기억하지 않는다(메모를 열 때마다 정리된 보기).
+- 수정 화면은 그대로 일반 글 입력이다. 원문 데이터·저장 방식은 바뀌지 않는다. [큰 창에서 수정](옛 [크게 쓰기])은 같은 글을 전체 화면 편집기로 연다(8절).
 
 ## 5. 올리는 순서
 
@@ -83,9 +83,9 @@ ChatGPT 화면의 카드·그림 상자·도식은 복사·붙여넣기로 모�
 
 ## 8. 전체 화면 편집기(MD-편집기 1단계)
 
-바구니 메모 수정 화면의 [크게 쓰기]가 전체 화면 마크다운 편집기를 연다. 화면은 `app/md-editor.js` 하나가 그리고(모양 `app/md-editor.css`), 도구 막대 동작은 `app/md-editor-ops.mjs`, [텔레그램용 복사] 변환은 `app/md-telegram.mjs`(둘 다 DOM 없음, `tests/md-editor.test.mjs`)다.
+바구니 메모 수정 화면의 [큰 창에서 수정](옛 [크게 쓰기])과 메뉴 [쓰기](UI-디자인손질 8)가 전체 화면 마크다운 편집기를 연다. 화면은 `app/md-editor.js` 하나가 그리고(모양 `app/md-editor.css`), 도구 막대 동작은 `app/md-editor-ops.mjs`, [텔레그램용 복사] 변환은 `app/md-telegram.mjs`(둘 다 DOM 없음, `tests/md-editor.test.mjs`)다.
 
-- 여는 쪽은 글과 콜백만 넘긴다. 편집기는 저장하지 않는다. 바구니는 고칠 때마다 수정 칸에 같은 글을 넣고(`onInput`), 닫으면 수정 칸으로 돌아가 기존 [수정 저장]·[취소] 흐름을 그대로 쓴다. 새 저장 경로·DB 변경 없음.
+- 여는 쪽은 글과 콜백만 넘긴다. 편집기는 스스로 저장하지 않는다. 메뉴 [쓰기]는 `save: {label, aria, run}`을 넘겨 머리줄에 채운 [저장]을 더하고, `run(text)`은 바구니 빠른 입력과 같은 `createNote`(새 메모 1개)를 부른 뒤 `{ok:true}`면 편집기가 닫힌다. 실패하면 편집기 아래 상태 줄에 이유를 보이고 글은 그대로 둔다. 저장하지 않고 닫으면 글은 그 탭 메모리에만 남아 다음 [쓰기]에서 이어진다. 바구니는 고칠 때마다 수정 칸에 같은 글을 넣고(`onInput`), 닫으면 수정 칸으로 돌아가 기존 [수정 저장]·[취소] 흐름을 그대로 쓴다. 새 저장 경로·DB 변경 없음.
 - 닫기: [닫기]·Esc·뒤로 가기(폰·PC, `mobile-modal-history.js`). 어느 쪽이든 글은 수정 칸에 남는다. 메모 화면이 닫히면(계정 바뀜·다른 화면) 편집기도 글을 돌려주지 않고 닫힌다.
 - 도구 막대: 제목(1~3단계)·굵게·기울임·글머리·번호·체크·표 틀·인용·코드·강조 상자(5종)·구분선·Mermaid 틀(흐름도·순서도·타임라인)·되돌리기·다시하기. 선택한 글을 감싸거나 줄 앞에 기호를 넣는다(보이는 그대로 편집기 아님). 같은 버튼을 다시 누르면 기호를 뺀다. 표·구분선 등 덩어리는 커서가 있는 줄 다음에 빈 줄을 두고 넣는다.
 - 바꾸기는 `execCommand('insertText')`로 해서 브라우저 기본 되돌리기(Ctrl+Z, [되돌리기])에 함께 남는다. Ctrl+B·Ctrl+I도 된다.
@@ -117,11 +117,13 @@ ChatGPT 화면의 카드·그림 상자·도식은 복사·붙여넣기로 모�
 재사용(일지·노트):
 
 ```js
-import { openMarkdownEditor } from './md-editor.js?v=1';
+import { openMarkdownEditor } from './md-editor.js?v=2';
 const editor = openMarkdownEditor({ text: field.value, title: '노트 크게 쓰기',
   onInput: value => { field.value = value; },      // 선택
   onClose: value => { field.value = value; field.focus(); } });
 editor.close({ silent: true }); // 여는 쪽 화면이 사라질 때(글을 돌려주지 않음)
+// 새 글 저장(메뉴 [쓰기]): save.run은 여는 쪽의 기존 저장을 부르고 {ok:true} 또는 {ok:false,message}를 돌려준다.
+// openMarkdownEditor({ title: '쓰기', save: { label: '저장', aria: '바구니에 새 메모로 저장', run: async text => { await createNote({ raw_text: text }); return { ok: true }; } } });
 ```
 
 모양 `md-editor.css`와 미리보기 모양 `markdown-view.css`를 그 화면의 css 목록(`view-loader.js`)에 함께 넣는다.
