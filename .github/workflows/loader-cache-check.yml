@@ -23,7 +23,9 @@ jobs:
       - name: Install locked checker parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
       - name: Test cache checker
-        run: node --test scripts/check-loader-cache.test.mjs
+        run: node --test scripts/check-loader-cache.test.mjs scripts/asset-manifest.test.mjs
+      - name: Check asset manifest is current
+        run: node scripts/asset-manifest.mjs --check
       - name: Check PR loader cache versions
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
