@@ -45,14 +45,14 @@
 
 1. `scripts/markdown/md-pin.json`의 `version`·`integrity`(`npm view <패키지>@<버전> dist.integrity`)를 고친다.
 2. `node scripts/markdown/vendor-markdown.mjs` → `app/markdown-lib/`가 다시 만들어진다. 한 번 더 실행해 `SHA256SUMS`가 같은지(재현) 본다.
-3. `app/markdown-view.js`의 `MARKDOWN_LIBS` 경로를 새 버전으로 바꾸고, `markdown-view.js?v=`부터 캐시 버전 연쇄를 올린다(`AGENTS.md` 4절).
+3. `app/markdown-view.js`의 `MARKDOWN_LIBS` 경로를 새 버전으로 바꾸고, 캐시 버전(`?v=`)은 손으로 올리지 않는다. Pages 배포 빌드가 내용 해시로 붙인다(`AGENTS.md` 4절).
 4. `node --test tests/markdown-view.test.mjs`, `npx playwright test tests/app-e2e/markdown-view.spec.mjs tests/app-e2e/basket-view-mode.spec.mjs`(390·1280 표시, Mermaid, 외부 요청 0, 원문 전환).
 5. 원장 `MD-표시` 행과 이 문서 1절을 같은 PR에서 고친다.
 
 ## 6. 재사용(일지·노트)
 
 ```js
-import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js?v=2';
+import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
 // 칸 하나의 표시 담당 모듈이 직접 부른다. isCurrent는 계정·대상이 바뀐 뒤 도착한 결과를 버린다.
 await renderMarkdownInto(el, text, { isCurrent: () => owner === scope() });
 showPlainText(el, text); // 원문 그대로
@@ -117,7 +117,7 @@ ChatGPT 화면의 카드·그림 상자·도식은 복사·붙여넣기로 모�
 재사용(일지·노트):
 
 ```js
-import { openMarkdownEditor } from './md-editor.js?v=2';
+import { openMarkdownEditor } from './md-editor.js';
 const editor = openMarkdownEditor({ text: field.value, title: '노트 크게 쓰기',
   onInput: value => { field.value = value; },      // 선택
   onClose: value => { field.value = value; field.focus(); } });
