@@ -82,7 +82,7 @@ test('after a recorded task the AI and link flows keep the same note version',as
  const f=await fixture(page),detail=await openNote(page,1280);
  await makeTask(page,detail,1280);await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 메모에 기록했어요.');
  // The AI handoff copies updated_at as the version a pasted result must match; it must not move.
- expect(await page.evaluate(id=>import('./basket-data.js?v=6').then(m=>m.readBasket()).then(r=>r.notes.find(x=>x.id===id).updated_at),n)).toBe(stamp);
+ expect(await page.evaluate(id=>import('./basket-data.js?v=8').then(m=>m.readBasket()).then(r=>r.notes.find(x=>x.id===id).updated_at),n)).toBe(stamp);
  await detail.getByRole('button',{name:'연결하기'}).click();
  await detail.locator('[data-manual-pick="organization"]').click();await page.locator('#basketLinkChoiceSheet').getByRole('button',{name:'합성 한빛지부',exact:true}).click();
  await detail.locator(`[data-manual-summary="organization:${o}"]`).fill('10/20 본사 앞 30명');

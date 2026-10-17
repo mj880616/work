@@ -1,18 +1,19 @@
 import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
-import { mountQuick } from './home-quick.js?v=20';
-import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=19';
+import { mountQuick } from './home-quick.js?v=21';
+import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=20';
 import { mountClassification } from './basket-classification-ui.js?v=18';
-import { readBasket, updateNote, noteState, visibleNotes } from './basket-data.js?v=6';
+import { readBasket, updateNote, noteState, visibleNotes, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js?v=8';
+import { mountNotes } from './basket-notes.js?v=2';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest } from './basket-note-tasks.js?v=3';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js?v=3';
-import { mountManualLink } from './basket-manual-link.js?v=9';
+import { mountManualLink } from './basket-manual-link.js?v=10';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js?v=2';
 import { openBasketHtml, mountHtmlFrame, HTML_FRAME_TEXT } from './html-frame.js?v=1';
 import { CHATGPT_HTML_REQUEST, HTML_MAX_BYTES, isHtmlName } from './chatgpt-html.mjs?v=1';
-import { openMarkdownEditor } from './md-editor.js?v=2';
+import { openMarkdownEditor } from './md-editor.js?v=4';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=7';
 
@@ -27,7 +28,7 @@ const initialUrl = new URL(location.href);
 let requestedNote = (initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null) || takeBasketNoteRequest(rt);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-kind-switch" role="group" aria-label="메모·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">메모</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation; the shell owns
 // the visible mobile title at the same 760px breakpoint as the shared header.
 const basketTitle=root.querySelector('.basket-head > h2'),mobileTitle=window.matchMedia('(max-width:760px)');
@@ -224,6 +225,49 @@ function noteMetadataSaved(saved){
   if(selected?.id===saved.id){paintNoteTasks();paintStateLine();}
 }
 const manualDraft=()=>!!selected&&manual.hasDraft();
+// MEMO-노트: [메모 | 노트] at the top of the basket tab. basket.js owns this switch; basket-notes.js owns the note side.
+const kindSwitch=root.querySelector('[data-basket-kind-switch]'),noteHost=root.querySelector('[data-note-host]');
+let kind='memo';
+const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:open=>{kindSwitch.hidden=open;listHead.hidden=open;},onMovedToBasket:()=>void refresh()});
+function showKind(next,{openId=null}={}){
+  kind=next;kindSwitch.querySelectorAll('[data-basket-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.basketKind===kind)));
+  const memo=kind==='memo';
+  list.hidden=!memo||!!selected;moreWrap.hidden=!memo;noteHost.hidden=memo;if(!memo){setMore(false);hideHandoffNotice();}
+  if(!memo)noteDocs.show({openId});
+}
+function setKind(next,{openId=null}={}){
+  if(next===kind||busy||noteDocs.isBusy()||classification.isOpen())return;
+  if(kind==='memo'){if(selected)closeDetail({focus:false});if(selected)return;handoff.close();}
+  else if(!noteDocs.close({focus:false}))return;
+  showKind(next,{openId});
+  if(next==='memo'){renderList();void refresh();}
+  kindSwitch.querySelector(`[data-basket-kind="${next}"]`)?.focus();
+}
+// [노트로 옮기기]: a title form under the read text, filled with the memo's first line.
+const toNoteForm=()=>detail.querySelector('[data-basket-to-note-form]');
+const toNoteOpen=()=>!!toNoteForm()&&toNoteForm().dataset.open==='1';
+function openToNote(){
+  if(!selected||editing||busy||manual.isOpen())return;
+  const form=toNoteForm();form.dataset.open='1';form.querySelector('[data-basket-to-note-title]').value=suggestNoteTitle(selected);
+  detail.querySelector('[data-basket-status]').textContent='';paintMode();form.querySelector('[data-basket-to-note-title]').focus();
+}
+function closeToNote(){const form=toNoteForm();if(!form)return;delete form.dataset.open;paintMode();detail.querySelector('[data-basket-note-more]')?.focus();}
+async function saveToNote(){
+  if(!selected||busy||!toNoteOpen())return;
+  const title=toNoteForm().querySelector('[data-basket-to-note-title]').value,status=detail.querySelector('[data-basket-status]');
+  try{validateNoteTitle(title);}catch(error){status.textContent=error.message;toNoteForm().querySelector('[data-basket-to-note-title]').focus();return;}
+  const id=selected.id,run=++epoch,owner=scope();busy=true;
+  detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=true);status.textContent='노트로 옮기는 중…';
+  try{
+    await moveToNote(id,title);
+    if(run!==epoch||owner!==scope())return;
+    notes=notes.filter(n=>n.id!==id);links=links.filter(l=>l.note_id!==id);busy=false;
+    closeDetail({force:true,focus:false});renderList();showKind('note',{openId:id});
+  }catch{
+    if(run!==epoch||owner!==scope())return;
+    status.textContent='노트로 옮기지 못했어요. 다시 시도해 주세요.';
+  }finally{if(busy){busy=false;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);paintOcrControls();}}
+}
 const stateLabel=state=>({확정:'연결됨', '분류 제안됨':'정리 제안 있음'})[state]||state;
 function paintHandoffScope(){
   handoffLine.hidden=!handoffNotice;
@@ -278,7 +322,7 @@ function closeDetail({focus = true, force = false, cleanAddress = true} = {}) {
   if (!force && !dirty() && manualDraft() && !window.confirm('작성 중인 연결·할 일 입력을 버리고 목록으로 돌아갈까요?')) return;
   handoff.close();
   bigWriter?.close({silent:true});
-  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; listHead.hidden = false;paintHandoffScope();
+  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; listHead.hidden = false;kindSwitch.hidden = false;paintHandoffScope();
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus();
 }
 function paintStateLine() {
@@ -398,7 +442,8 @@ function paintMode() {
   if (!selected) return;
   paintReadText();
   // The link panel and the task form bring their own buttons; the read actions return when they close.
-  detail.querySelector('[data-basket-read]').hidden = editing; detail.querySelector('[data-basket-read-actions]').hidden = editing || manual.isOpen();
+  detail.querySelector('[data-basket-read]').hidden = editing; detail.querySelector('[data-basket-read-actions]').hidden = editing || manual.isOpen() || toNoteOpen();
+  detail.querySelector('[data-basket-to-note-form]').hidden = editing || !toNoteOpen();
   // The note menu is for reading; while editing the edit buttons and Esc take over.
   detail.querySelector('[data-basket-note-more-wrap]').hidden = editing; if (editing) setNoteMenu(false);
   detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
@@ -411,8 +456,8 @@ function openDetail(id, {edit = false} = {}) {
   ++epoch;ocrViewScope=captureOcrScope();editing=edit;rawView=false;
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
-  listHead.hidden = true;
-  detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="바구니 목록으로"><span aria-hidden="true">‹</span> 바구니</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more aria-label="이 메모 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 메모" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-read-raw>원문 그대로 보기</button><button type="button" data-basket-archive>보관</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><div class="basket-read" data-basket-read><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button><button type="button" class="secondary" data-basket-big-write>큰 창에서 수정</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+  listHead.hidden = true; kindSwitch.hidden = true;
+  detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="바구니 목록으로"><span aria-hidden="true">‹</span> 바구니</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more aria-label="이 메모 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 메모" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-to-note>노트로 옮기기</button><button type="button" data-basket-read-raw>원문 그대로 보기</button><button type="button" data-basket-archive>보관</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><div class="basket-read" data-basket-read><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button><button type="button" class="secondary" data-basket-big-write>큰 창에서 수정</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-to-note" data-basket-to-note-form hidden><label class="basket-text-label">노트 제목<input type="text" data-basket-to-note-title autocomplete="off"></label><p class="basket-to-note-help">연결·첨부·할 일은 그대로 노트로 옮겨져요.</p><div class="basket-actions"><button type="button" class="primary" data-basket-to-note-save>노트로 옮기기</button><button type="button" data-basket-to-note-cancel>취소</button></div></div><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   manual.attach(detail.querySelector('[data-basket-manual]'));
   pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isActive:()=>editing,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
@@ -535,6 +580,8 @@ async function reloadDetail() {
   finally{busy=false;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}
 }
 root.addEventListener('click', e => {
+  // The note side handles its own buttons (basket-notes.js).
+  if(noteHost.contains(e.target))return;
   if(!guardOcrPrivacy())return;
   const b = e.target.closest('button'); if (!b||b.disabled) return;
   // Navigation cancels this handoff's read, but never releases another operation's lock.
@@ -558,6 +605,10 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-filter')) { handoff.close(); filter = b.dataset.basketFilter; renderList(); }
   else if (b.hasAttribute('data-basket-close')) closeDetail();
   else if (b.hasAttribute('data-basket-edit')) startEdit();
+  else if (b.hasAttribute('data-basket-to-note')) openToNote();
+  else if (b.hasAttribute('data-basket-to-note-cancel')) closeToNote();
+  else if (b.hasAttribute('data-basket-to-note-save')) void saveToNote();
+  else if (b.hasAttribute('data-basket-kind')) setKind(b.dataset.basketKind);
   else if (b.hasAttribute('data-basket-big-write')) openBigWriter();
   else if (b.hasAttribute('data-basket-link-open')||b.hasAttribute('data-basket-task-open')) { const message = manual.open(b.hasAttribute('data-basket-link-open') ? 'link' : 'task'); detail.querySelector('[data-basket-status]').textContent = message || ''; }
   else if (b.hasAttribute('data-basket-cancel')) finishEdit();
@@ -643,16 +694,16 @@ root.addEventListener('click', e => {
   requestLibraryDocument(a.dataset.basketLibraryOpen, rt); window.KPTURouter.go('library', {source:'delegated'});
 });
 window.addEventListener('storage',()=>guardOcrPrivacy());
-root.addEventListener('keydown', e => { guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true}); else if (manual.isOpen()) manual.cancel(); else closeDetail(); } });
+root.addEventListener('keydown', e => { if (noteHost.contains(e.target)) return; guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true}); else if (manual.isOpen()) manual.cancel(); else if (toNoteOpen()) closeToNote(); else closeDetail(); } });
 window.addEventListener('kptu:before-reload', e => {
-  if (busy||quick?.isBusy()) e.preventDefault();
-  else if (quick?.hasDraft()) e.detail.otherDraft=true;
+  if (busy||quick?.isBusy()||noteDocs.isBusy()) e.preventDefault();
+  else if (quick?.hasDraft()||noteDocs.hasDraft()) e.detail.otherDraft=true;
   else if (dirty() || manualDraft() || classification.hasDraft()) e.detail.otherDraft = true;
 });
 window.addEventListener('kptu:session-changed', () => {
   guardOcrPrivacy();
   const next = scope(); if (next === currentScope) return;
-  currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true,cleanAddress:false}); renderList();
+  currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true,cleanAddress:false}); noteDocs.reset(); showKind('memo'); renderList();
 });
 window.addEventListener('kptu:before-view-change',e=>{
   if(retainedForTraversal&&((busy&&!handoffBusy)||quick?.isBusy()||quick?.hasDraft()||dirty()||manualDraft()||classification.isOpen()))e.detail.retainBasketDraft=true;
@@ -662,8 +713,8 @@ window.addEventListener('kptu:before-view-change',e=>{
   if(e.detail?.source==='popstate'&&!e.detail.canRestoreHistory&&((busy&&!handoffBusy)||quick?.isBusy()||quick?.hasDraft()||dirty()||manualDraft())){
     e.detail.retainBasketDraft=true;return;
   }
-  const blockedBusy=quick?.isBusy()||busy&&!handoffBusy&&(!classification.isOpen()||e.detail?.source==='popstate');
-  if(blockedBusy||(quick?.hasDraft()&&!window.confirm('저장하지 않은 입력이 있어요. 다른 화면으로 갈까요? 입력은 이 탭에 남아요.'))||(dirty()&&!window.confirm('수정 중인 글을 버리고 다른 화면으로 갈까요?'))||(!dirty()&&manualDraft()&&!window.confirm('작성 중인 연결·할 일 입력을 버리고 다른 화면으로 갈까요?'))){
+  const blockedBusy=quick?.isBusy()||noteDocs.isBusy()||busy&&!handoffBusy&&(!classification.isOpen()||e.detail?.source==='popstate');
+  if(blockedBusy||(noteDocs.hasDraft()&&!window.confirm('고치던 노트를 버리고 다른 화면으로 갈까요?'))||(quick?.hasDraft()&&!window.confirm('저장하지 않은 입력이 있어요. 다른 화면으로 갈까요? 입력은 이 탭에 남아요.'))||(dirty()&&!window.confirm('수정 중인 글을 버리고 다른 화면으로 갈까요?'))||(!dirty()&&manualDraft()&&!window.confirm('작성 중인 연결·할 일 입력을 버리고 다른 화면으로 갈까요?'))){
     e.preventDefault();
   }
 });
@@ -672,12 +723,13 @@ window.addEventListener('kptu:view-changed',e=>{
   setMore(false);if(!classification.isOpen())hideHandoffNotice();
   ocrGeneration++;
   if(e.detail?.retainBasketDraft){retainedForTraversal=true;return;}
-  retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});
+  retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});noteDocs.close({focus:false,force:true});showKind('memo');
 });
 window.KPTURouter.on('basket', () => {
   void preloadMarkdown();
   const wanted = takeBasketNoteRequest(rt);
-  if (busy || classification.isOpen()) return;
+  if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) return;
+  noteDocs.close({focus:false,force:true}); showKind('memo');
   filter = 'unclassified'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) return;
