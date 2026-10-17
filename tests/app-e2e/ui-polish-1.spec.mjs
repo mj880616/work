@@ -243,7 +243,8 @@ for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 
 
 test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 있고 크기가 맞다',async({request})=>{
  const manifest=JSON.parse(readFileSync('app/windows-manifest.json','utf8'));
- expect(manifest).toMatchObject({name:'9-6',short_name:'9-6',background_color:'#1f3150',theme_color:'#1f3150'});
+ // UI-버튼크기: 시작 화면(background_color)은 남색 그대로, 사용 중 위아래 줄(theme_color)은 앱 바탕(밝은 --kptu-bg).
+ expect(manifest).toMatchObject({name:'9-6',short_name:'9-6',background_color:'#1f3150',theme_color:'#f3f1ea'});
  const png=manifest.icons.filter(i=>i.type==='image/png');
  expect(png.map(i=>`${i.sizes} ${i.purpose}`).sort()).toEqual(['192x192 any','192x192 maskable','512x512 any','512x512 maskable']);
  const html=readFileSync('app/index.html','utf8');

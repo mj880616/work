@@ -58,13 +58,17 @@ async function boot(page,width,{dark=false}={}){
 async function view(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(n=>window.KPTUViewLoader.isLoaded(n)&&!document.querySelector('#'+n+'View').classList.contains('hidden'),name)).toBe(true);}
 const look=locator=>locator.evaluate(el=>{const b=el.getBoundingClientRect(),s=getComputedStyle(el);return {height:b.height,fontSize:s.fontSize,fontWeight:s.fontWeight,radius:s.borderRadius,bg:s.backgroundColor,fg:s.color,border:s.borderTopColor,borderStyle:s.borderTopStyle,shadow:s.boxShadow};});
 const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('span');e.style.color=`var(${name})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},name);
-// Every visible button-shaped control in a region: one height (46px), 13px, 500, 8px corners, no shadow. Returns the filled ones.
+// Every visible button-shaped control in a region: one height (46px), 13px, 500, 8px corners, no shadow (UI-버튼크기: filters/switches 32px). Returns the filled ones.
 async function sameButtons(page,region,skip='.icon-btn'){
  const primary=await token(page,'--kptu-primary'),filled=[];
  for(const control of await region.locator('button:visible,a.mini:visible').all()){
   if(await control.evaluate((el,skip)=>el.matches(skip),skip))continue;
   const s=await look(control),label=(await control.textContent()).trim();
-  expect(s.height,label).toBe(46);expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.radius,label).toBe('8px');expect(s.shadow,label).toBe('none');
+  // UI-버튼크기: 필터 칩(성명 종류)은 32px 알약, 전환 세그먼트(일정 창 [일정 | 할 일])는 32px 상자 안 칸. 둘 다 누르는 범위 44px.
+  const kind=await control.evaluate(el=>el.matches('.w1p-filter')?'chip':el.matches('[data-event-mode]')?'segment':'button');
+  if(kind==='button'){expect(s.height,label).toBe(46);expect(s.radius,label).toBe('8px');}
+  else{expect(s.height,label).toBeGreaterThanOrEqual(kind==='chip'?32:30);expect(s.height,label).toBeLessThanOrEqual(32);if(kind==='chip')expect(s.radius,label).toBe('999px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
+  expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
   if(s.bg===primary)filled.push(label);
  }
  return filled;

@@ -49,7 +49,10 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  await expect(input).toHaveAttribute('placeholder','담당조직 기록을 입력하세요');
  const u=await update.boundingBox(),g=await org.boundingBox();
  expect(Math.abs(g.x-(u.x+u.width))).toBeLessThanOrEqual(1);expect(Math.abs(g.y-u.y)).toBeLessThanOrEqual(1);
- expect(g.width).toBeGreaterThanOrEqual(44);expect(g.height).toBeGreaterThanOrEqual(44);
+ // UI-버튼크기: ▾는 작은 세그먼트 칸(보이는 높이 32px 이하)이고, 누르는 범위(::after)는 위아래·오른쪽으로 늘려 44×44px.
+ expect(g.height).toBeLessThanOrEqual(32);
+ const reach=await org.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after');const w=parseFloat(p.width),h=parseFloat(p.height),left=r.left+parseFloat(p.left),top=r.top+parseFloat(p.top);return {w,h,hits:[[left+w-1,top+h/2],[left+w/2,top+1],[left+w/2,top+h-1]].map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)};});
+ expect(reach.w).toBeGreaterThanOrEqual(44);expect(reach.h).toBeGreaterThanOrEqual(44);expect(reach.hits).toEqual([true,true,true]);
  expect(await look(update)).toEqual(selected);expect(await look(org)).toEqual(selected);
  for(const other of ['basket','task'])expect((await look(box.locator(`[data-quick-mode="${other}"]`))).bg).toBe(white);
 

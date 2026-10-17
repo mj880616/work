@@ -457,11 +457,12 @@ for(const width of [320,360,390,768,1280]){
     await expect(button).toBeVisible();
     const head=page.locator('#meetingsListCard .add-list-head');
     const [b,s,h,btn]=await Promise.all([bar.boundingBox(),select.boundingBox(),head.boundingBox(),button.boundingBox()]);
-    // UI-디자인기준 3/3(8-9e-1): one control height (--ds-control-height 46px) for the add button and the filter buttons.
-    expect(s.height).toBeCloseTo(46,0);
+    // UI-버튼크기: the filter lane is 44px (32px pill chips + touch room); the add button keeps the 46px main-action height.
+    expect(s.height).toBeCloseTo(44,0);
     expect(s.x).toBeCloseTo(b.x,0);
     expect(s.width).toBeLessThanOrEqual(b.width);
-    expect(b.height).toBeCloseTo(46,0);
+    expect(b.height).toBeCloseTo(44,0);
+    expect(await select.locator('[role=radio]').first().evaluate(el=>el.getBoundingClientRect().height)).toBe(32);
     if(width<=760){
       expect(await button.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');expect(btn.width).toBe(36);expect(btn.height).toBe(36);
       await expect(button).toHaveAttribute('aria-label','회의 결과 등록');
