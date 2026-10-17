@@ -92,7 +92,8 @@ for(const width of [390,1440]){
     });
     test('meeting list card keeps filter and opens the same form',async({page})=>{
       await openApp(page,'meetings');
-      await assertInHeader(page,{card:'#meetingsListCard',head:'.add-list-head',button:'#newMeetingBtn',title:'h2'});
+      // UI-선택표시통일: 폰은 다른 탭과 같은 동그란 [+](하단 탭 위), PC는 카드 머리줄 그대로.
+      await assertPlaced(page,width,{card:'#meetingsListCard',head:'.add-list-head',button:'#newMeetingBtn',title:'h2'});
       await expect(page.locator('#meetingsView .meeting-toolbar #meetingTypeFilter')).toBeVisible();
       await page.locator('#newMeetingBtn').click();
       await expect(page.locator('#meetingModal')).toBeVisible();

@@ -75,7 +75,8 @@ test('home breakpoint moves the same D-day control and preserves input and focus
     expect(await chip.evaluate(el=>el===window.layoutChip)).toBe(true);
     await expect(page.locator('[data-quick-input]')).toHaveValue('유지할 입력');
     await noOverflow(page);
-    expect(await readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday']:['quick','dday','calendar','tasks','meetings']);
+    // The D-day card moves on the media query's change event, which fires after the resize.
+    await expect.poll(()=>readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday']:['quick','dday','calendar','tasks','meetings']);
   }
 });
 for(const [card,view] of [['calendar','calendar'],['tasks','tasks'],['meetings','meetings']]){

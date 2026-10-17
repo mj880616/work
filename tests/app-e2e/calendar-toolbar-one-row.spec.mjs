@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
-// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px), 고른 보기는 회색(--ds-kind-other-*), 상자 선 0.5px.
+// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px), 고른 보기는 회색(--ds-kind-other-*), 보기 칸은 같은 폭 44px로 정확히 나눔(UI-선택표시통일), 상자 선 0.5px.
 for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one row, accessible icons and persistence at ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await openEmphasisFixture(page,{view:'default'});
   const toolbar=page.locator('.calendar-toolbar');
@@ -8,7 +8,11 @@ for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one r
   expect(await toolbar.evaluate(el=>[...el.children].map(e=>e.id||e.className))).toEqual(['prevMonthBtn','monthTitle','nextMonthBtn','calendarTodayBtn','calendar-toolbar-divider','calendar-view-switch','newEventBtn']);
   for(const [view,name] of (width<1024?[['list','목록 보기'],['month','월간 보기']]:[['list','목록 보기'],['week','주간 보기'],['month','월간 보기']])){
     const button=toolbar.getByRole('button',{name,exact:true});await expect(button).toBeVisible();await expect(button.locator('svg')).toHaveCount(1);
-    const rect=await button.boundingBox();expect(rect.width).toBe(36);expect(rect.height).toBe(46);
+    const rect=await button.boundingBox();expect(rect.width).toBe(44);expect(rect.height).toBe(46);
+    // UI-선택표시통일: 칸은 정확히 같은 폭으로 나뉘고(사이·양옆 여백 없음) 고른 바탕이 자기 칸을 꽉 채운다.
+    const cells=await toolbar.locator('.calendar-view-switch').evaluate(el=>{const r=el.getBoundingClientRect(),bs=[...el.querySelectorAll('button')].filter(b=>!b.hidden).map(b=>b.getBoundingClientRect());return {left:r.left,right:r.right,bs:bs.map(b=>({left:b.left,right:b.right,width:b.width}))};});
+    expect(cells.bs[0].left).toBe(cells.left);expect(cells.bs.at(-1).right).toBe(cells.right);
+    for(let i=1;i<cells.bs.length;i++){expect(cells.bs[i].left).toBe(cells.bs[i-1].right);expect(cells.bs[i].width).toBe(cells.bs[0].width);}
     await button.click();await expect(button).toHaveAttribute('aria-pressed','true');
     await expect(toolbar.locator('[data-calendar-view][aria-pressed="true"]')).toHaveCount(1);
     for(const inactive of await toolbar.locator('[data-calendar-view][aria-pressed="false"]').all())await expect(inactive).toHaveCSS('background-color','rgba(0, 0, 0, 0)');

@@ -25,7 +25,7 @@ for(const width of [390,1440])test(`organization chips fit, preserve order and n
  for(let i=0;i<targets.length;i++)for(let j=i+1;j<targets.length;j++){const a=targets[i],b=targets[j];expect(Math.max(a.left,b.left)>=Math.min(a.right,b.right)-.1||Math.max(a.top,b.top)>=Math.min(a.bottom,b.bottom)-.1).toBe(true);}
  await page.screenshot({path:info.outputPath(`org-sheet-${width}.png`),fullPage:false});
  const b=await all.filter({hasText:'서해선지부'}).boundingBox();await page.mouse.click(b.x+b.width/2,b.y-2);
- await expect(sheet(page)).toBeHidden();await expect(q(page).locator('[data-quick-org]')).toHaveText('서해선지부 ▾');await expect(q(page).locator('[data-quick-org]')).toHaveAccessibleName('조직: 서해선지부');await expect(q(page).locator('[data-quick-org]')).toBeFocused();
+ await expect(sheet(page)).toBeHidden();await expect(q(page).locator('[data-quick-org]')).toHaveText('▾');await expect(q(page).locator('[data-quick-mode="update"]')).toHaveText('업데이트');await expect(q(page).locator('[data-quick-org]')).toHaveAccessibleName('조직 선택: 서해선지부');await expect(q(page).locator('[data-quick-input]')).toHaveAttribute('placeholder','서해선지부 기록을 입력하세요');await expect(q(page).locator('[data-quick-org]')).toBeFocused();
  await q(page).locator('[data-quick-org]').click();await expect(sheet(page).locator('[aria-pressed="true"]').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(sheet(page)).toBeHidden();
 });

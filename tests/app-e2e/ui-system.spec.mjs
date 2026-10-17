@@ -62,9 +62,9 @@ test('calendar uses 32px and text actions use 36px with mobile content above the
   round.push(await buttonHeight(page,'tasks','#newTaskBtn'));
   round.push(await buttonHeight(page,'projects','#newProjectBtn'));
   round.push(await buttonHeight(page,'library','#newDocumentBtn'));
+  // UI-선택표시통일: 회의도 같은 동그란 [+].
+  round.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
   for(const height of round)expect(height).toBeCloseTo(36,0);
-  // 회의는 위쪽 버튼 그대로(--ds-control-height 46px).
-  expect(await buttonHeight(page,'meetings','#newMeetingBtn')).toBeCloseTo(46,0);
 
   await clickView(page,'tasks');
   const rows=page.locator('#gtTaskBody .gt-row');
