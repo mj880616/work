@@ -12,6 +12,10 @@
 
 `index.html`은 캐시 버전을 가진 `app.js`만 직접 로드함. 기능 모듈 추가·삭제는 원칙적으로 `loader-v2.js`에서 관리함.
 
+`desk.bokdoong.com`의 Cloudflare Worker(`cloudflare/bokdoong-router.mjs`)는 `?v=` 파일의 내용이 `app/asset-manifest.json`(해당 `?v=` 값과 SHA-256)과 같을 때만 엣지에 보관하고 브라우저에 1년 `immutable`로 보냄. 다르면(배포 전파 중 옛 내용 등) `no-cache`로 보내고 보관하지 않음. 목록은 `node scripts/asset-manifest.mjs`로 만들며 CI가 최신인지 검사함.
+
+이미 옛 내용을 `immutable`로 받아 둔 브라우저는 다시 묻지 않으므로, Worker는 Web2 페이지(HTML) 응답에 브라우저마다 한 번 `Clear-Site-Data: "cache"`를 붙여 HTTP 캐시를 비우게 함(쿠키 `kptu_cache_epoch`로 한 번만). 다시 전체를 비워야 하면 Worker의 `CACHE_EPOCH`를 바꿔 배포함(§6 정지 지점).
+
 ## 2. 화면 전환 소유권
 
 화면 전환은 `app-router.js`가 단독 소유함.

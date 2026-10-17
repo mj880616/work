@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test check-loader-cache.test.mjs check-app-smoke-contract.test.mjs"
+    "test": "node --test check-loader-cache.test.mjs check-app-smoke-contract.test.mjs asset-manifest.test.mjs"
   },
   "devDependencies": {
     "acorn": "8.15.0"

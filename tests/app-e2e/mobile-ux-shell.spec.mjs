@@ -75,7 +75,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await signIn(page);
 
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
-  // The swipe module loads beside the shell; its touch listeners exist once this flag is set.
+  // The shell is shown before loader-v2 finishes importing the swipe module; swipe only once its listeners exist.
   await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_MOBILE_SWIPE_NAV__),{timeout:10000}).toBe(true);
 
   const motion=await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
