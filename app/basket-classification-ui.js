@@ -2,7 +2,7 @@ import {validateLinkSummary,updateLinkSummary,SUMMARY_ERROR_TEXT} from './basket
 import { parseAIAnswer, readClassificationSnapshot, previewClassification, confirmLinks, selectableProjects, ERROR_TEXT } from './basket-classification.js?v=9';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // BASKET-4b-2 decision 5: an AI write-request suggestion is only a hint; nothing is marked automatically.
-export const WRITE_REQUEST_HINT='쓰기요청 후보는 자동으로 표시하지 않아요. 메모 읽기 화면에서 직접 [쓰기요청 후보]를 눌러 주세요.';
+export const WRITE_REQUEST_HINT='쓰기요청 후보는 Web2에서 표시하지 않아요.';
 const names={organization:'담당조직',project:'프로젝트',library:'자료실',write_request_candidate:'쓰기요청 후보',google_task:'Google 할 일'};
 export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBlocked}) {
   host.innerHTML=`<section data-classification-panel hidden aria-labelledby="basketClassificationTitle"><div class="basket-head"><h3 id="basketClassificationTitle">분류 결과 입력</h3><button type="button" class="quick-pill-button" data-classification-close>목록으로</button></div><label class="basket-text-label">AI 답 붙여넣기<textarea data-classification-input rows="6" spellcheck="false" placeholder="답 전체 또는 복사용 블록을 넣으세요."></textarea></label><p>선택된 조직·프로젝트와 요약을 고친 뒤 마지막에 확정하세요.</p><div data-classification-rows></div><div class="modal-action-footer basket-approval-footer"><p data-classification-status class="status" role="status" aria-live="polite"></p><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-classification-preview>확인</button><button type="button" class="quick-pill-button quick-pill-primary" data-classification-confirm disabled>선택 확정</button></div></div></section>`;

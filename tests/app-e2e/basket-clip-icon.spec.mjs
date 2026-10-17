@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {noteAction} from './helpers/basket-more.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import fs from 'node:fs';
 
@@ -59,7 +60,7 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   await expect(page.locator('#toast')).toHaveClass(/hidden/);
   await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
   await page.locator('[data-basket-row="n"]').click();
-  await page.locator('[data-basket-edit]').click();
+  await noteAction(page,'[data-basket-edit]');
   const detail = page.locator('[data-basket-detail]'), editor = detail.locator('[data-basket-text]');
   const detailClip = detail.getByRole('button', { name: '파일 첨부', exact: true });
   const editorBox = await editor.boundingBox(), clipBox = await detailClip.boundingBox();

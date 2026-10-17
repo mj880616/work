@@ -226,7 +226,13 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
    }
    // Compare every pre-existing task role unchanged, then check the added metadata role.
    const taskStyles=async p=>p.locator('#calendarDayList [data-calendar-task="font-task"]').evaluate(el=>[el,el.querySelector('.cmv-task-mark'),el.querySelector('.cmv-event-title')].map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight,s.backgroundColor,s.borderColor,s.opacity,s.textDecorationLine]}));
-   expect(await taskStyles(page),'calendar day task retained roles').toEqual(await taskStyles(dayOriginal));
+   // UI-디자인손질 2 (2026-10-16 사용자 결정): the day rows keep the same elements and roles, but are drawn as plain rows
+   // (no fill or border, check circle, name 13px·400). Compare the roles with the baseline, then check the new look.
+   const roles=rows=>rows.map(([tag,cls])=>[tag,cls]);
+   expect(roles(await taskStyles(page)),'calendar day task retained roles').toEqual(roles(await taskStyles(dayOriginal)));
+   const row=page.locator('#calendarDayList [data-calendar-task="font-task"]');
+   await expect(row).toHaveCSS('background-color','rgba(0, 0, 0, 0)');await expect(row).toHaveCSS('border-left-width','0px');
+   await expect(row.locator('.cmv-event-title')).toHaveCSS('font-size','13px');await expect(row.locator('.cmv-event-title')).toHaveCSS('font-weight','400');
    await expect(page.locator('#calendarDayTasks .gt-day-main')).toHaveCount(1);
    await expect(page.locator('#calendarDayTasks .gt-meta')).toHaveCSS('font-size','12px');
    await expect(page.locator('#calendarDayTasks .gt-due')).not.toBeEmpty();
@@ -294,6 +300,9 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // BASKET-할일출처 added the task editor's source-note line; compare it under both style sets too.
   const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
   await original.locator('#gtMeetingLinks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),sourceNote);
+  // UI-디자인손질 1 (2026-10-16 사용자 결정): "차수" has no separate "선택" tag any more; drop that removed node from
+  // the baseline only. Every other optional tag (특이사항·약칭 etc.) is still compared.
+  await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
   // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
   const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
   await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);

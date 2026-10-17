@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {noteAction} from './helpers/basket-more.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -46,7 +47,7 @@ for (const width of [390, 1280]) {
     await verifySelection(q, 'home');
     await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
     await page.locator('[data-basket-row="n"]').click();
-    await page.locator('[data-basket-edit]').click();
+    await noteAction(page,'[data-basket-edit]');
     const detail = page.locator('[data-basket-detail]');
     values.detail = await detail.locator('[data-basket-file-picker]').evaluate(el => ({
       pickerHeight: el.getBoundingClientRect().height,

@@ -106,13 +106,14 @@ test('KST date crosses the day boundary independently of the browser timezone',a
   await page.clock.setFixedTime(new Date('2026-10-05T16:00:00Z'));await open(page);
   await expect(page.locator('#homeView [data-home-date]')).toHaveText('10월 6일 화요일');
 });
-test('drawer media filters and moved Drive slot run their existing handlers once',async({page})=>{
+test('drawer media item and moved Drive slot run their existing handlers once',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
-  for(const type of ['statement','release']){
-    await page.locator('#mobileMenuTab').click();await page.locator(`[data-mobile-press="${type}"]`).click();
-    await expect(page.locator(`#mediaView [data-press-type="${type}"]`)).toHaveClass(/active/);
-    await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
-  }
+  // UI-디자인손질 4: 성명·보도자료 is one menu item; it opens the list with every kind and one header name.
+  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-mobile-press]')).toHaveCount(0);
+  await page.locator('#mobileMenu [data-view="media"]').click();
+  await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
+  await page.locator('#mediaView [data-press-type="release"]').click();await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
+  await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
   let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,updated_at:new Date().toISOString(),documents:{}})})});
   await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-drive-summary-refresh]').click();
   await expect.poll(()=>posts).toBe(1);await expect(page.locator('#mobileMenu')).toBeHidden();
@@ -158,10 +159,10 @@ test('swipes visit exactly the five bottom tabs with home and team boundaries',a
   await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','18px');
   await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','500');
   await page.locator('#mobileMenuTab').click();
-  await expect(page.locator('.mobile-menu-head b')).toHaveText('메뉴');
-  const close=page.locator('[data-mobile-menu-close]');
-  const size=await close.evaluate(el=>{const r=el.getBoundingClientRect(),pseudo=getComputedStyle(el,'::before');return {w:r.width,h:r.height,left:pseudo.left,right:pseudo.right,top:pseudo.top,bottom:pseudo.bottom}});
-  expect(size).toEqual({w:32,h:32,left:'-6px',right:'-6px',top:'-6px',bottom:'-6px'});
-  const r=await close.boundingBox();await page.mouse.click(r.x-5,r.y+r.height/2);
+  // UI-디자인손질 4: on a phone the close control is the sheet's full-width grip (32px, 44px to touch with its ::after).
+  const close=page.locator('[data-mobile-menu-close]');await expect(close).toHaveAccessibleName('메뉴 닫기');
+  const size=await close.evaluate(el=>{const r=el.getBoundingClientRect(),panel=el.closest('.mobile-menu-panel').getBoundingClientRect(),pseudo=getComputedStyle(el,'::after');return {full:r.width>=panel.width-40,h:r.height,top:pseudo.top,bottom:pseudo.bottom}});
+  expect(size).toEqual({full:true,h:32,top:'-6px',bottom:'-6px'});
+  const r=await close.boundingBox();await page.mouse.click(r.x+r.width/2,r.y+r.height/2);
   await expect(page.locator('#mobileMenu')).toBeHidden();
  });
