@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 test.use({hasTouch:true});
 import {clickView} from './helpers/shell-navigation.mjs';
+import {fillDateTime} from './helpers/date-time.mjs';
 export function chipState(){const s=baseState();s.meetingWrites=[];s.meetings=['궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의',''].map((name,i)=>({id:`meeting-${i}`,workspace_id:s.workspace.id,title:name,series_name:name,round_no:i+1,meeting_at:'2026-10-11T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});return s}
 for(const width of [390,1280])test(`공용 알약 필터·2단 프로젝트·키보드·터치 ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
@@ -46,8 +47,8 @@ for(const width of [390,1280])test(`공용 알약 필터·2단 프로젝트·키
 for(const timezoneId of ['Europe/Rome','Asia/Seoul','UTC'])test.describe(timezoneId,()=>{test.use({timezoneId});test('회의 표시·새 입력·수정 왕복 한국 고정',async({page})=>{
   const s=chipState();await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));await expect(page.locator('[data-mrd-meeting="meeting-0"] p')).toContainText('10:00');
   await page.locator('[data-mrd-meeting="meeting-0"]').click();await expect(page.locator('#mrdMeta')).toContainText('10:00');await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T10:00');
-  await page.locator('#mrdEditAt').fill('2026-10-11T00:30');await page.locator('#mrdSaveEdit').click();await expect.poll(()=>s.meetingWrites[0]?.meeting_at).toBe('2026-10-10T15:30:00.000Z');await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T00:30');await page.locator('#mrdClose').click();
-  await page.locator('#newMeetingBtn').click();await page.locator('#meetingNameSelect').selectOption('궤도협의회');await page.locator('#meetingAt').fill('2026-10-11T10:00');await page.locator('#meetingTranscript').fill('새 원문');await page.locator('#saveMeetingBtn').click();await expect.poll(()=>s.meetingWrites.at(-1)?.meeting_at).toBe('2026-10-11T01:00:00.000Z');
+  await fillDateTime(page,'#mrdEditAt','2026-10-11T00:30');await page.locator('#mrdSaveEdit').click();await expect.poll(()=>s.meetingWrites[0]?.meeting_at).toBe('2026-10-10T15:30:00.000Z');await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T00:30');await page.locator('#mrdClose').click();
+  await page.locator('#newMeetingBtn').click();await page.locator('#meetingNameSelect').selectOption('궤도협의회');await fillDateTime(page,'#meetingAt','2026-10-11T10:00');await page.locator('#meetingTranscript').fill('새 원문');await page.locator('#saveMeetingBtn').click();await expect.poll(()=>s.meetingWrites.at(-1)?.meeting_at).toBe('2026-10-11T01:00:00.000Z');
 })});
 
 test('프로젝트 자료 전체 보기는 하위 알약과 같은 필터 결과로 이동',async({page})=>{

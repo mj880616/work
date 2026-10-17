@@ -4,6 +4,7 @@ import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
+import {fillDateTime} from './helpers/date-time.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -100,7 +101,7 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
   await page.locator('#newMeetingBtn').click();
   await fillMeetingName(page,'궤도협의회 집행위원회');
   await page.locator('#meetingRoundNo').fill('8');
-  await page.locator('#meetingAt').fill('2026-09-25T14:00');
+  await fillDateTime(page,'#meetingAt','2026-09-25T14:00');
   await page.locator('#meetingProject').selectOption('child');
   const raw='  첫 줄\n둘째 줄\n마지막 줄  ';
   await page.locator('#meetingTranscript').fill(raw);
@@ -147,7 +148,7 @@ test('repeated meeting save submits one meeting and one Google follow-up',async(
   });
   await page.locator('#newMeetingBtn').click();
   await fillMeetingName(page,'중복 방지 회의');
-  await page.locator('#meetingAt').fill('2026-09-29T09:00');
+  await fillDateTime(page,'#meetingAt','2026-09-29T09:00');
   await page.locator('#meetingTranscript').fill('결과');
   await page.locator('.meeting-action-title').fill('후속');
   await page.locator('#saveMeetingBtn').evaluate(button=>{button.click();button.click()});
@@ -176,7 +177,7 @@ test('failed meeting create restores its save button for a retry',async({page})=
   });
   await page.locator('#newMeetingBtn').click();
   await fillMeetingName(page,'재시도 회의');
-  await page.locator('#meetingAt').fill('2026-09-29T09:00');
+  await fillDateTime(page,'#meetingAt','2026-09-29T09:00');
   await page.locator('#meetingTranscript').fill('결과');
   await page.locator('#saveMeetingBtn').click();
   await expect(page.locator('#meetingStatus')).toHaveClass(/error/);
@@ -197,7 +198,7 @@ test('a Google follow-up failure leaves the saved meeting available without anot
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'Google 저장 실패'})}));
   await page.locator('#newMeetingBtn').click();
   await fillMeetingName(page,'새 회의');
-  await page.locator('#meetingAt').fill('2026-09-25T14:00');
+  await fillDateTime(page,'#meetingAt','2026-09-25T14:00');
   await page.locator('#meetingTranscript').fill('회의 결과');
   await page.locator('.meeting-action-title').fill('후속');
   await page.locator('#saveMeetingBtn').click();
@@ -225,7 +226,7 @@ test('meeting material upload attempts every selected file and reports partial f
 
   await page.locator('#newMeetingBtn').click();
   await fillMeetingName(page,'자료 첨부 회의');
-  await page.locator('#meetingAt').fill('2026-09-25T14:00');
+  await fillDateTime(page,'#meetingAt','2026-09-25T14:00');
   await page.locator('#meetingTranscript').fill('회의 결과 원문');
   await page.locator('#meetingFiles').setInputFiles([
     {name:'자료1.txt',mimeType:'text/plain',buffer:Buffer.from('one')},
@@ -312,7 +313,7 @@ test('meeting names keep colors after reload and after older meetings are added'
   });
   await page.locator('#newMeetingBtn').click();
   await page.locator('#meetingNameSelect').selectOption({label:'궤도협의회'});
-  await page.locator('#meetingAt').fill('2026-10-03T10:00');
+  await fillDateTime(page,'#meetingAt','2026-10-03T10:00');
   await page.locator('#meetingTranscript').fill('모의 결과');
   await page.locator('#saveMeetingBtn').click();
   await expect(byId('added')).toBeVisible();
@@ -930,9 +931,9 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(loader).not.toContain('meeting-assignee-picker.js');
   expect(loader).not.toContain('meeting-file-route.js');
   expect(loader).not.toContain('workflow-ai-v3.js');
-  expect(loader).toContain("import('./team.js?v=68')");
+  expect(loader).toContain("import('./team.js?v=69')");
   expect(views).toContain('task-workflow.js?v=9');
-  expect(views).toContain('meeting-round-detail.js?v=30');
+  expect(views).toContain('meeting-round-detail.js?v=31');
   expect(views).toContain('meeting-ui.css?v=15');
   expect(workflow).not.toContain('MutationObserver');
   expect(workflow).not.toContain("document.createElement('style')");

@@ -1,5 +1,6 @@
 import {accountButton} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
+import {fillDateTime} from './helpers/date-time.mjs';
 
 test.use({timezoneId:'UTC'});
 
@@ -184,7 +185,7 @@ for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,9
   await page.goto(`${BASE}/app/?view=meetings`);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   await page.clock.install();await page.locator('#newMeetingBtn').click();
   if(await page.locator('#meetingNameSelect').isVisible())await page.locator('#meetingNameSelect').selectOption('__other__');await page.locator('#meetingTitle').fill('Mock meeting');
-  await page.locator('#meetingAt').fill('2026-10-03T12:30');await page.locator('#meetingTranscript').fill('Mock transcript');
+  await fillDateTime(page,'#meetingAt','2026-10-03T12:30');await page.locator('#meetingTranscript').fill('Mock transcript');
   if(lateUpload){await page.locator('#meetingProject').selectOption('mock-project');await page.locator('#meetingFiles').setInputFiles({name:'mock.txt',mimeType:'text/plain',buffer:Buffer.from('mock file')})}
   await page.locator('#saveMeetingBtn').click();
   if(lateUpload){await expect.poll(()=>uploadStarted).toBe(true);await page.clock.fastForward(4000);await expect.poll(()=>calls).toBe(1);await expect(page.locator('[data-drive-summary-refresh]').first()).toBeEnabled();releaseUpload()}
