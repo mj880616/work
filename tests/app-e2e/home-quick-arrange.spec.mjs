@@ -49,7 +49,10 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  await expect(input).toHaveAttribute('placeholder','담당조직 기록을 입력하세요');
  const u=await update.boundingBox(),g=await org.boundingBox();
  expect(Math.abs(g.x-(u.x+u.width))).toBeLessThanOrEqual(1);expect(Math.abs(g.y-u.y)).toBeLessThanOrEqual(1);
- expect(g.width).toBeGreaterThanOrEqual(44);expect(g.height).toBeGreaterThanOrEqual(44);
+ // UI-버튼크기: ▾는 작은 세그먼트 칸(보이는 높이 32px 이하)이고, 누르는 범위(::after)는 위아래·오른쪽으로 늘려 44×44px.
+ expect(g.height).toBeLessThanOrEqual(32);
+ const reach=await org.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after');const w=parseFloat(p.width),h=parseFloat(p.height),left=r.left+parseFloat(p.left),top=r.top+parseFloat(p.top);return {w,h,hits:[[left+w-1,top+h/2],[left+w/2,top+1],[left+w/2,top+h-1]].map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)};});
+ expect(reach.w).toBeGreaterThanOrEqual(44);expect(reach.h).toBeGreaterThanOrEqual(44);expect(reach.hits).toEqual([true,true,true]);
  expect(await look(update)).toEqual(selected);expect(await look(org)).toEqual(selected);
  for(const other of ['basket','task'])expect((await look(box.locator(`[data-quick-mode="${other}"]`))).bg).toBe(white);
 
@@ -66,5 +69,38 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  await org.click();await expect(box).toHaveAttribute('data-mode','update');await expect(sheet).toBeVisible();
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+// UI-버튼크기 추가(2026-10-17): 세 모드 모두 입력칸은 한 줄(46px, [추가]와 같은 높이·같은 위치)에서 시작해
+// 글에 맞춰 늘고 5줄(130px)에서 멈춘 뒤 칸 안에서 스크롤한다. [업데이트]도 처음부터 여러 줄 높이가 아니다.
+for(const width of [390,1280])test(`빠른 입력칸: 한 줄에서 시작해 5줄까지 늘고 그 뒤 스크롤 ${width}`,async({page})=>{
+ const errors=await open(page,width,false),box=q(page),input=box.locator('[data-quick-input]'),save=box.locator('[data-quick-save]');
+ const measure=()=>page.evaluate(()=>{const b=document.querySelector('#homeView [data-home-quick]'),i=b.querySelector('[data-quick-input]'),s=b.querySelector('[data-quick-save]').getBoundingClientRect(),r=i.getBoundingClientRect();return {h:r.height,scroll:i.scrollHeight>i.clientHeight,saveTop:s.top-r.top,saveH:s.height};});
+ for(const mode of ['basket','task','update']){
+  await box.locator(`[data-quick-mode="${mode}"]`).click();await expect(box).toHaveAttribute('data-mode',mode);
+  await input.fill('');expect(await measure(),mode+' empty').toEqual({h:46,scroll:false,saveTop:0,saveH:46});
+  await input.fill('첫 줄\n둘째 줄\n셋째 줄');expect(await measure(),mode+' 3 lines').toEqual({h:88,scroll:false,saveTop:0,saveH:46});
+  await input.fill('1\n2\n3\n4\n5\n6\n7');expect(await measure(),mode+' 7 lines').toEqual({h:130,scroll:true,saveTop:0,saveH:46});
+  await input.fill('');expect((await measure()).h,mode+' cleared').toBe(46);
+ }
+ expect(errors).toEqual([]);
+});
+
+// UI-버튼크기 추가: 전환·필터를 누르는 순간 기기 기본 탭 하이라이트(폰에서 민트·파란 빛)가 없고, 누르는 동안은 고른 쪽과 같은 회색.
+for(const dark of [false,true])test(`눌림 색: 탭 하이라이트 없음, :active는 회색${dark?' 다크':''}`,async({page})=>{
+ const errors=await open(page,390,dark),box=q(page),g=await gray(page);
+ const cdp=await page.context().newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');
+ const pressed=async selector=>{
+  const {root}=await cdp.send('DOM.getDocument',{depth:-1});const {nodeId}=await cdp.send('DOM.querySelector',{nodeId:root.nodeId,selector});
+  await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:['active','focus']});
+  const v=await page.locator(selector).evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,tap:s.webkitTapHighlightColor};});
+  await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});return v;
+ };
+ await box.locator('[data-quick-mode="basket"]').click();
+ expect(await pressed('#homeView [data-quick-mode="task"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-basket-filter="all"]')).toBeVisible();
+ expect(await pressed('#basketView [data-basket-kind="note"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
+ expect(await pressed('#basketView [data-basket-filter="all"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
  expect(errors).toEqual([]);
 });

@@ -74,6 +74,8 @@ async function dsStandard(page,selector){const el=page.locator(selector).first()
 const dsViews=new Set(['projects','meetings','team','calendar','media']);
 // UI-디자인기준 3/3 2부(8-9e-2): 폰의 일정·할 일·프로젝트·자료실 추가 버튼은 하단 탭 위 동그란 [+](누르는 범위 44px, 보이는 원 36px).
 async function phoneFab(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const b=await el.boundingBox();expect(b.width,selector).toBe(36);expect(b.height,selector).toBe(36);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).toBe('fixed');const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w,selector).toBe(44);expect(t.h,selector).toBe(44);}
+// UI-버튼크기(2026-10-17): 성명·보도자료 종류 필터는 알약 칩(보이는 높이 32px·13px·모서리 999px·500, 누르는 범위 44px).
+async function dsChip(page,selector){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(32);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('999px');expect(s.weight,selector).toBe('500');expect(await el.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height)),selector).toBe(44);}
 const fabs=new Set(['#newEventBtn','#newTaskBtn','#newProjectBtn','#newDocumentBtn','#newMeetingBtn']);
 for(const width of [390,1440])test('D-button list sizes and compact exclusions '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
@@ -87,6 +89,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
    }else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
    else if(width<=760&&selector==='#soAddOrg'){await expect(page.locator(selector)).toBeHidden();await expect(page.locator('#soAddOrgLink')).toBeVisible();}
+   else if(selector.includes('press-type'))await dsChip(page,selector);
    else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }

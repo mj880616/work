@@ -308,6 +308,14 @@ const themeButtons=accounts.map(account=>account.theme);
 window.dispatchEvent(new CustomEvent('kptu:account-ready'));
 const modal=document.querySelector('#themeModal');
 let restoreAfterBack=null;
+// UI-버튼크기: 폰 위 상태줄·아래 버튼줄은 앱 바탕(--kptu-bg)과 같은 색. 지금 켜진 쪽(밝게/어둡게) meta를 계정 테마의 바탕 값으로 맞춘다(시작 화면 남색은 manifest background_color).
+const darkScheme=window.matchMedia?.('(prefers-color-scheme: dark)');
+function syncThemeColor(){
+  const meta=document.querySelector(`meta[name="theme-color"][media="(prefers-color-scheme: ${darkScheme?.matches?'dark':'light'})"]`);
+  const bg=getComputedStyle(document.documentElement).getPropertyValue('--kptu-bg').trim();
+  if(meta&&bg)meta.setAttribute('content',bg);
+}
+syncThemeColor();darkScheme?.addEventListener?.('change',syncThemeColor);
 function selected(){
   const current=document.documentElement.dataset.theme||'olive';
   modal?.querySelectorAll('[data-theme-choice]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.themeChoice===current)));
@@ -337,6 +345,7 @@ modal?.addEventListener('click',event=>{
   if(!['olive','navy','terracotta','sand'].includes(theme))return;
   document.documentElement.dataset.theme=theme;
   try{localStorage.setItem('kptu-theme',theme)}catch{}
+  syncThemeColor();
   selected();
 });
 const show=state=>{

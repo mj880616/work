@@ -75,7 +75,7 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
 // UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의도 새 기준으로 바뀌어 같은 방식으로 뺀다. 새 모양은 ui-standard-3a 검사가 맡고,
 // 아래 필터 검사는 홈 빠른 입력 탭과 비교로 되돌린다. 남은 화면(성명·게시판)은 2부에서 옮긴다.
 // UI-디자인기준 3/3 3부(8-9e-3, 마지막): 성명·게시판도 새 기준으로 옮겼다. 옛 main 비교에서 뺀 화면은 이제 모두
-// 새 기준과 비교한다(2/3 원장 ② 되돌림): 보이는 글자의 굵기는 400·500 두 가지, 버튼 모양 컨트롤은 높이 하나(46px)·13px.
+// 새 기준과 비교한다(2/3 원장 ② 되돌림): 보이는 글자의 굵기는 400·500 두 가지, 버튼 모양 컨트롤은 높이 하나(46px)·13px(UI-버튼크기부터 필터 칩·보조 버튼은 32px).
 // 일정 월간·주간 칸(#calendarGrid·#calendarWeek)과 글 본문(.md-body)은 내용 표시라 뺀다.
 const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings','media','pages']);
 const newStandard=p=>p.evaluate(()=>{
@@ -85,7 +85,8 @@ const newStandard=p=>p.evaluate(()=>{
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
   if(text&&!['400','500'].includes(s.fontWeight))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
-   const h=Math.round(e.getBoundingClientRect().height);if(h!==46||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
+   // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px, 나머지 버튼은 46px.
+   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,.w1p-filter,#manageLibraryBtn')?32:46;if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
   }
  }
  return bad;
@@ -155,18 +156,20 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await expect(groups).toHaveCount(name==='meetings'?1:2);
     // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
-    // UI-디자인기준 3/3(8-9e-1): meeting/library filters moved to the new standard, so they compare with the home
-    // quick-input tabs again (46px, 8px corners, 13px/500, same padding and line height). Only the selected colors
-    // differ by kind: the home tab takes its kind color (바구니 주황), a selected filter is gray (종류 색 '그 밖').
+    // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),
+    // no longer copies of the home quick-input tabs (those became a small segment). Unselected chips are white with ink text,
+    // the selected one is gray (종류 색 '그 밖'). The touch target stays 44px through ::after.
+    const tokens=await page.evaluate(()=>Object.fromEntries(['--kptu-ink','--kptu-surface','--ds-kind-other-ink','--ds-kind-other-soft'].map(n=>{const e=document.createElement('span');e.style.color=`var(${n})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return [n,c];})));
     for(const group of await groups.all()){
       await expect(group).toHaveAttribute('role','radiogroup');
       await expect(group.locator('[role="radio"][aria-checked="true"]')).toHaveCount(1);
       for(const radio of await group.getByRole('radio').all()){
-        const selected=await radio.getAttribute('aria-checked');
-        const home=page.locator(`.home-quick-modes button[aria-pressed="${selected}"]`).first();
-        const comparable=v=>v.filter((_,i)=>!(selected==='true'&&(i===6||i===7)));
-        expect(comparable(await radio.evaluate(style)),name+' filter reuses home tab style').toEqual(comparable(await home.evaluate(style)));
-        expect((await radio.boundingBox()).height,name+' filter height').toBe(46);
+        const selected=await radio.getAttribute('aria-checked')==='true';
+        const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await radio.evaluate(style);
+        expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' filter chip style').toEqual(['13px','500','32px','12px','12px','999px']);
+        expect([color,background],name+' filter chip color').toEqual(selected?[tokens['--ds-kind-other-ink'],tokens['--ds-kind-other-soft']]:[tokens['--kptu-ink'],tokens['--kptu-surface']]);
+        expect((await radio.boundingBox()).height,name+' filter height').toBe(32);
+        expect(await radio.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' filter touch').toBe(44);
       }
     }
   }
