@@ -313,6 +313,11 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
   const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
   await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);
+  // FORM-시간입력 turned each date-time field into a date picker + 4-digit time cell; compare those fields under both style sets.
+  for(const id of ['meetingAt','mrdEditAt','ps3MilestoneAt']){const html=await page.locator('#'+id).evaluate(el=>el.closest('label').outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.closest('label').outerHTML=html},html)}
+  // FORM-시간입력 added the place field to the event edit window; compare it under both style sets too.
+  const placeField=await page.locator('#ciGoogleLocation').evaluate(el=>el.closest('label').outerHTML);
+  await original.locator('#ciGoogleEndTime').evaluate((el,html)=>el.closest('.ci-date-grid').insertAdjacentHTML('afterend',html),placeField);
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
   // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
   const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];
