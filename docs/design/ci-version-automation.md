@@ -134,6 +134,16 @@
 - 되돌리기: Source를 "Deploy from a branch / main / (root)"로 되돌림 → 저장소의 숫자 버전·커밋된 목록으로 지금과 똑같이 배포. 해시 URL로 이미 받은 파일은 내용과 일치하므로 보관돼도 무해하다. `CACHE_EPOCH` 변경 불필요.
 - 이 단계 동안 PR은 아직 지금 규칙(숫자 올리기·목록 재생성)을 지킨다. 저장소 값은 빌드가 덮어쓰므로 운영에 영향은 없다.
 
+### 2단계 구현 (2026-10-17, 전환 준비 PR — Source 변경 전)
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `.github/workflows/pages-deploy.yml` | main push·수동 실행 때 Jekyll → `build-pages.mjs` → `check-pages-build.mjs` → `cloudflare-check-urls.mjs <결과>` → `upload-pages-artifact`. 어느 단계든 실패하면 배포 job이 돌지 않는다. 배포 job은 Pages API의 `build_type`이 `workflow`(Source = GitHub Actions)일 때만 돈다. Source가 branch인 동안은 빌드·검사만 하고 배포를 건너뛴다(요약에 표시). 수동 실행의 `skip_deploy`로 전환 뒤에도 검사만 할 수 있다. |
+| `.github/workflows/cloudflare-worker-deploy.yml` | 같은 커밋의 Jekyll 결과를 `build-pages.mjs`로 빌드해 두고, Pages의 7개 파일이 **저장소 파일 7개 모두** 또는 **빌드 결과 7개 모두**와 같아질 때까지 기다린다(섞이면 계속 대기). 맞은 쪽 폴더로 `cloudflare-check-urls.mjs`를 돌려 운영 URL을 검사한다. 전환 전후 모두 같은 workflow로 동작한다. |
+| `scripts/cloudflare-check-urls.mjs [폴더]` | 읽을 폴더를 인자로 받는다(없으면 지금처럼 현재 폴더). |
+
+- Source 변경(③)과 그 뒤 확인은 사용자 몫이다. 순서·확인·되돌리기는 PR 댓글에 둔다.
+
 ### 3단계 — 저장소에서 번호 빼기 (일반 PR, 규칙 변경 포함)
 
 - 2단계가 며칠 안정적으로 돈 뒤.
