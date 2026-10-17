@@ -7,7 +7,7 @@
 import {createSandboxedEditor} from './hwp-frame.js?v=1';
 import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp} from './hwp-drive.js?v=1';
 import {requestLibraryDocument} from './basket-library-send.js?v=2';
-import {requestBasketNote} from './basket-note-tasks.js?v=3';
+import {requestBasketNote} from './basket-note-tasks.js?v=4';
 import {requestLibraryUpload} from './library-upload-request.js?v=1';
 (()=>{
 'use strict';

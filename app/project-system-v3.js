@@ -4,7 +4,7 @@ import { dayKey, ranges } from './home-read-model.js?v=3';
 import { createAnchoredMenu } from './anchored-menu.js?v=1';
 import {readRecordPages,readLinkRecords} from './basket-link-records.js?v=7';
 import {disconnectWithUndo} from './basket-record-delete.js?v=3';
-import {requestBasketNote,basketNoteHref} from './basket-note-tasks.js?v=3';
+import {requestBasketNote,basketNoteHref} from './basket-note-tasks.js?v=4';
 (()=>{
 'use strict';
 const rt=window.KPTURuntime,catalog=window.KPTUProjectCatalog;if(!rt||!catalog)return;

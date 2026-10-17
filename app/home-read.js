@@ -1,5 +1,5 @@
 import { readRecordPages } from './basket-link-records.js?v=7';
-import { mountQuick } from './home-quick.js?v=23';
+import { mountQuick } from './home-quick.js?v=24';
 import { createHomeCache } from './home-read-cache.js?v=6';
 import {
   ranges,
@@ -64,7 +64,7 @@ function preload(){
   if(!imports)imports={
     projects:import('./project-catalog.js?v=3'),
     order:import('./organization-order.js?v=2'),
-    google:import('./google-tasks.js?v=39'),
+    google:import('./google-tasks.js?v=40'),
   };
   Object.values(imports).forEach(p=>p.catch(()=>{}));
   return imports;
