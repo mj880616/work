@@ -190,7 +190,7 @@
     showFeatureError(err);
     startup?.mark('requestedViewFailed',{view:requested});
   }
-  const {startVersionNotice}=await import('./version-notice.js?v=1');
+  const {startVersionNotice}=await import('./version-notice.js?v=2');
   startVersionNotice(window.__KPTU_APP_SCRIPT_URL__);
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js?v=3').catch(()=>{});
