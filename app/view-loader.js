@@ -20,17 +20,17 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css?v=20','./markdown-view.css?v=2','./md-editor.css?v=2','./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=12'],
-  home:['./library-upload.css?v=8','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=19','./google-tasks.css?v=26','./ui-standard.css?v=12'],
-  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=12'],
-  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=12'],
-  projects:['./project-system-v3.css?v=31','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=12'],
-  library:['./filter-chips.css?v=2','./library-upload.css?v=8','./compact-list.css?v=2','./ui-standard.css?v=12'],
-  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=15','./google-tasks.css?v=26','./ui-standard.css?v=12'],
-  media:['./web1-press.css?v=4','./ui-standard.css?v=12'],
-  pages:['./web1-board.css?v=7','./ui-standard.css?v=12'],
-  team:['./suborganizations.css?v=11','./workplace-detail.css?v=10','./google-tasks.css?v=26','./ui-standard.css?v=12'],
-  hwp:['./hwp-lab.css?v=3','./ui-standard.css?v=12']
+  basket:['./basket.css?v=20','./markdown-view.css?v=2','./md-editor.css?v=2','./library-upload.css?v=9','./basket-picker.css?v=2','./choice-sheet.css?v=1','./ui-standard.css?v=13'],
+  home:['./library-upload.css?v=9','./basket-picker.css?v=2','./choice-sheet.css?v=1','./home-read.css?v=19','./google-tasks.css?v=26','./ui-standard.css?v=13'],
+  calendar:['./choice-sheet.css?v=1','./calendar-ui.css?v=34','./ui-standard.css?v=13'],
+  tasks:['./task-layout.css?v=4','./google-tasks.css?v=26','./ui-standard.css?v=13'],
+  projects:['./project-system-v3.css?v=31','./forum-flow-polish.css?v=2','./google-tasks.css?v=26','./ui-standard.css?v=13'],
+  library:['./filter-chips.css?v=2','./library-upload.css?v=9','./compact-list.css?v=2','./ui-standard.css?v=13'],
+  meetings:['./filter-chips.css?v=2','./meeting-ui.css?v=16','./google-tasks.css?v=26','./ui-standard.css?v=13'],
+  media:['./web1-press.css?v=4','./ui-standard.css?v=13'],
+  pages:['./web1-board.css?v=7','./ui-standard.css?v=13'],
+  team:['./suborganizations.css?v=11','./workplace-detail.css?v=10','./google-tasks.css?v=26','./ui-standard.css?v=13'],
+  hwp:['./hwp-lab.css?v=3','./ui-standard.css?v=13']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -107,15 +107,15 @@ async function projects(){
 async function library(){
   await team('library');
   await module('./project-catalog.js?v=3');
-  await module('./library-upload.js?v=33','__KPTU_LIBRARY_UPLOAD_READY__');
+  await module('./library-upload.js?v=34','__KPTU_LIBRARY_UPLOAD_READY__');
   return {ok:true}
 }
 async function meetings(){
   await projectCatalog();
   await team('meetings');
-  await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
+  await module('./task-workflow.js?v=10','__KPTU_TASK_WORKFLOW_READY__');
   await module('./google-tasks.js?v=39');
-  await module('./meeting-round-detail.js?v=31','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=32','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){

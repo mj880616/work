@@ -53,19 +53,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=304" defer></script>');
+  expect(head).toContain('<script src="./app.js?v=305" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=416','./runtime-client.js?v=9','./native-auth-bridge.js?v=5',
+    './loader-v2.js?v=417','./runtime-client.js?v=9','./native-auth-bridge.js?v=5',
     './calendar-return-bridge.js?v=3'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=416')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=417')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
   expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=9')");
-  expect(loader).toContain("import('./team.js?v=69')");
-  expect(loader).toContain("import('./view-loader.js?v=182')");
+  expect(loader).toContain("import('./team.js?v=70')");
+  expect(loader).toContain("import('./view-loader.js?v=183')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -84,7 +84,7 @@ test('startup loads only requested route CSS before showing the shell', async ()
     './google-tasks.css?v=26',
     './project-system-v3.css?v=31',
     './library-upload.css?v=8',
-    './meeting-ui.css?v=15',
+    './meeting-ui.css?v=16',
     './web1-press.css?v=4',
     './web1-board.css?v=7',
     './suborganizations.css?v=11',

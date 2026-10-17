@@ -99,9 +99,9 @@ test('new meeting stores raw result exactly and creates linked Google follow-up 
   await page.locator('#meetingRoundNo').fill('9');
   await page.locator('#meetingTranscript').fill(raw);
   await page.locator('#meetingNotes').fill(special);
-  const action=page.locator('.meeting-action-row').first();
-  await action.locator('.meeting-action-title').fill('후속 자료 정리');
-  await action.locator('.meeting-action-due').fill('2026-09-25');
+  // UI-회의결과창정리: 입력 한 줄에 쓰고 [추가] 없이 저장해도 그 줄의 할 일을 함께 만든다.
+  await page.locator('#meetingActionTitle').fill('후속 자료 정리');
+  await page.locator('#meetingActionDue').fill('2026-09-25');
   await page.locator('#meetingFiles').setInputFiles([
     {name:'자료1.txt',mimeType:'text/plain',buffer:Buffer.from('one')},
     {name:'자료2.txt',mimeType:'text/plain',buffer:Buffer.from('two')}
@@ -141,7 +141,10 @@ test('meeting materials keep multiple upload and the existing 100MB per-file ser
   const html=readFileSync('app/index.html','utf8');
   const edge=readFileSync('supabase/functions/meeting-files/index.ts','utf8');
   expect(html).toContain('id="meetingFiles" type="file" multiple');
-  expect(html).toContain('파일당 최대 100MB');
+  // UI-회의결과창정리: 창 설명은 "자료실에도 자동 등록"만 남기고, 100MB 제한은 고를 때·저장할 때 안내한다.
+  expect(html).toContain('자료실에도 자동 등록');
+  expect(readFileSync('app/team.js','utf8')).toContain('회의자료는 파일당 100MB까지 첨부할 수 있습니다.');
+  expect(readFileSync('app/meeting-round-detail.js','utf8')).toContain('회의자료는 파일당 100MB까지 첨부할 수 있습니다.');
   expect(edge).toContain('file.size>100*1024*1024');
   expect(edge).toContain('파일당 100MB까지 지원합니다.');
 });

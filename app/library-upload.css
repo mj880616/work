@@ -1,12 +1,6 @@
 .library-file-block{padding:12px;border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle);margin-bottom:12px}
 .library-file-block p{margin:7px 0 0;color:var(--kptu-muted);font-size:12px;line-height:1.45}
 .library-file-block .optional{font-size:11px;color:var(--kptu-muted);font-weight:500}
-.library-dropzone{min-height:112px;border:2px dashed var(--kptu-border-strong);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;text-align:center;cursor:pointer;outline:none;transition:border-color .15s ease,background .15s ease,box-shadow .15s ease}
-.library-dropzone:hover,.library-dropzone:focus-visible,.library-dropzone.dragover{border-color:var(--kptu-info);background:var(--kptu-info-soft);box-shadow:none}
-.library-dropzone strong{font-size:13px;color:var(--kptu-ink)}
-.library-dropzone span{font-size:11px;color:var(--kptu-muted)}
-.library-picker-mobile{display:none}
-.library-picker-button{font-weight:800}
 .library-file-input{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;opacity:0!important;pointer-events:none!important}
 .library-selected-files{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-top:10px}
 .library-selected-file{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
@@ -29,13 +23,24 @@
 .library-manage-row small{color:var(--kptu-muted)}
 .library-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media(max-width:650px){
-  .library-dropzone{min-height:76px;padding:12px;border-style:solid}
-  .library-picker-desktop{display:none}
-  .library-picker-mobile{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-link)!important;font-size:12px!important}
   .library-picker-hint{font-size:var(--kptu-text-meta)!important}
   .library-selected-file{padding:9px 10px}
   .library-edit-grid{grid-template-columns:1fr}
 }
+
+/* UI-회의결과창정리(2026-10-17 사용자 결정): 자료 등록 창은 큰 점선 상자 대신 [📎 파일 고르기] 작은 버튼 한 줄 + 짧은 안내.
+   고른 파일은 파일 한 줄(ui-standard.css .file-line), PC는 창 전체가 끌어다 놓는 자리. 바구니 첨부의 .library-selected-file 모양은 그대로. */
+#documentModal .library-file-block{padding:0;background:transparent}
+#documentModal .library-selected-files{gap:0;margin-top:4px}
+.library-pick-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-height:var(--kptu-touch-target,44px)}
+.library-pick-button{position:relative;box-sizing:border-box;display:inline-flex;flex-direction:row;align-items:center;gap:4px;height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.library-pick-button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.library-pick-button:hover{background:var(--kptu-surface-subtle)}
+.library-pick-button:active{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
+.library-pick-button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
+@media(hover:none),(max-width:650px){.library-drop-hint{display:none}}
+#documentModal .file-line.error{background:var(--kptu-danger-soft)}
+#documentModal .file-line.unknown{background:var(--kptu-warning-soft)}
 
 /* Library-only rows; the shared compact-entry card remains unchanged. */
 #libraryListCard #documentList{gap:0}
@@ -56,7 +61,6 @@
 .lu-more-panel .lu-menu-danger{color:var(--kptu-danger)}
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
-#documentModal .library-dropzone strong{font-size:var(--kptu-text-body)}
 
 #libraryView>.toolbar{flex-wrap:wrap}
 #libraryView>.toolbar .search{min-width:0}

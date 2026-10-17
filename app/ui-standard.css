@@ -775,3 +775,36 @@
   #appView #homeView .home-quick .home-quick-modes{ max-width:100%; }
   #appView #calendarView .calendar-toolbar button#calendarTodayBtn{ width:auto; min-width:0; padding:0 10px; }
 }
+
+/* ───────── UI-회의결과창정리(2026-10-17 사용자 결정): 파일 한 줄·끌어다 놓기 ─────────
+   회의 결과 창 회의자료와 자료 등록 창이 같은 줄을 쓴다(meeting-compact.js fileLine): 종류 표시 · 이름(· 크기) · 상태(진행률) · ×.
+   종류 색은 자료실 목록(원장 CC18)과 같다. PC는 창 전체가 끌어다 놓는 자리이고, 파일을 끌고 들어올 때만 테두리를 보인다. */
+.file-line{position:relative;box-sizing:border-box;display:flex;align-items:center;gap:10px;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:4px 0;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));background:transparent}
+.file-line:first-child{border-top:0}
+.file-kind{flex:none;box-sizing:border-box;display:inline-grid;place-items:center;min-width:34px;height:22px;padding:0 4px;border-radius:6px;font-size:10.5px;font-weight:var(--ds-weight-medium,500);line-height:1;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
+.file-kind[data-kind="pdf"]{color:var(--ds-file-pdf-ink);background:var(--ds-file-pdf-soft)}
+.file-kind[data-kind="hwp"]{color:var(--ds-file-hwp-ink);background:var(--ds-file-hwp-soft)}
+.file-kind[data-kind="xls"]{color:var(--ds-file-xls-ink);background:var(--ds-file-xls-soft)}
+.file-kind[data-kind="doc"]{color:var(--ds-file-doc-ink);background:var(--ds-file-doc-soft)}
+.file-kind[data-kind="ppt"]{color:var(--ds-file-ppt-ink);background:var(--ds-file-ppt-soft)}
+.file-line-main{flex:1 1 auto;display:flex;align-items:baseline;gap:6px;min-width:0}
+.file-line-main b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);line-height:1.4;color:var(--kptu-ink)}
+.file-line-main small{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint)}
+.file-line-state{flex:0 1 auto;max-width:45%;font-size:var(--ds-text-meta,12px);line-height:1.35;text-align:right;color:var(--kptu-muted);overflow-wrap:anywhere}
+.file-line.uploading .file-line-state{color:var(--kptu-link)}
+.file-line.success .file-line-state{color:var(--kptu-success)}
+.file-line.error .file-line-state{color:var(--kptu-danger)}
+.file-line.unknown .file-line-state{color:var(--kptu-warning)}
+.file-line-progress{position:absolute;left:44px;right:0;bottom:0;height:2px;overflow:hidden;border-radius:2px;background:var(--kptu-surface-subtle)}
+.file-line-progress::after{content:"";position:absolute;top:0;bottom:0;left:-40%;width:40%;background:var(--kptu-link);animation:file-line-progress 1.1s ease-in-out infinite}
+@keyframes file-line-progress{to{left:100%}}
+@media(prefers-reduced-motion:reduce){.file-line-progress::after{left:0;width:100%;opacity:.5;animation:none}}
+.modal .file-line .file-line-x{position:relative;z-index:1;flex:none;display:inline-grid;place-items:center;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:var(--kptu-touch-target,44px);margin:-4px -6px -4px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:18px;line-height:1}
+.modal .file-line .file-line-x:hover{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.modal .file-line .file-line-x:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+/* 올라간 회의자료: 줄을 누르면 내려받기(×는 따로). */
+.modal .file-line .file-line-open{position:absolute;top:0;bottom:0;left:0;right:var(--kptu-touch-target,44px);width:auto;height:auto;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;cursor:pointer}
+.modal .file-line .file-line-open:hover{background:color-mix(in srgb,var(--kptu-surface-subtle) 60%,transparent)}
+.modal .file-line .file-line-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.modal .file-line:has(.file-line-open) :is(.file-kind,.file-line-main){pointer-events:none}
+.modal .modal-card.drop-active{outline:2px dashed var(--kptu-info);outline-offset:-6px}
