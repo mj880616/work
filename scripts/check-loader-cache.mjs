@@ -55,7 +55,7 @@ function literalValues(source) {
   return values;
 }
 
-function graph(files) {
+export function graph(files) {
   const queue = Object.keys(files).filter(file => file.endsWith('.html') && !nonEntry.test(file));
   const visited = new Set(), edges = [];
   while (queue.length) {
