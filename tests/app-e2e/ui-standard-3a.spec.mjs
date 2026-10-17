@@ -64,7 +64,7 @@ async function sameButtons(page,region){
  const primary=await token(page,'--kptu-primary'),filled=[];
  for(const control of await region.locator('button:visible').all()){
   // 8-9e-2: on phones the add button is the floating round [+] and 담당조직 추가 is a small text link (ui-standard-3b).
-  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')||innerWidth<761&&el.matches('#newDocumentBtn,.so-add-link')))continue;
+  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
   const s=await look(control),label=(await control.textContent()).trim();
   expect(s.height,label).toBe(46);expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.radius,label).toBe('8px');expect(s.shadow,label).toBe('none');
   if(s.bg===primary)filled.push(label);
@@ -131,7 +131,7 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  for(const row of await rows.all())expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
  const box=await look(page.locator('#libraryListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
- // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 회색.
+ // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 회색(UI-선택표시통일).
  expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
  const selected=await look(page.locator('#libraryViewFilter [aria-checked="true"]'));
  expect(selected.bg).toBe(await token(page,'--ds-kind-other-soft'));expect(selected.fg).toBe(await token(page,'--ds-kind-other-ink'));
@@ -152,7 +152,8 @@ for(const width of [390,1280])test(`회의: 줄 단위 목록·회의 색 점·�
  const chip=await page.locator('#meetingTypeFilter [data-filter-value="중앙쟁의대책위원회"] .filter-chip-dot').evaluate(el=>getComputedStyle(el).backgroundColor);
  expect(dot).toEqual({w:'8px',bg:chip,radius:'50%'});
  const box=await look(page.locator('#meetingsListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
- expect(await sameButtons(page,page.locator('#meetingsView'))).toEqual([width<761?'+ 회의':'+ 회의 결과']);
+ // UI-선택표시통일: 폰의 [+ 회의]는 동그란 [+](버튼 모양 검사 밖), PC는 채운 버튼 하나.
+ expect(await sameButtons(page,page.locator('#meetingsView'))).toEqual(width<761?[]:['+ 회의 결과']);
  // 필터 고르기는 그대로 동작.
  await page.locator('#meetingTypeFilter [data-filter-value="정책위원회"]').click();
  await expect(rows).toHaveCount(1);await expect(rows.first().locator('h3')).toHaveText('정책위원회');

@@ -7,6 +7,8 @@
   const VIEW_ALIAS={'hwp-lab':'hwp'};
   const viewName=view=>VIEW_ALIAS[view]||view;
   let bound=false,routeEntry=null,returningTo=null;
+  // BUG-뒤로가기: the app's first entry in this document. Back below it leaves Web2.
+  const baseIndex=window.navigation?.currentEntry?.index;
 
   // Route ownership includes history entries made by menus and dialogs. Native
   // entry positions let a declined traversal return without rewriting either entry.
@@ -60,8 +62,99 @@
     const current=location.pathname+location.search+location.hash;
     if(next===current)return;
     const state={...(history.state||{}),kptuView:view};
+    delete state[LAYERS];
     if(replace)history.replaceState(state,'',next);
     else history.pushState(state,'',next);
+  }
+
+  // BUG-뒤로가기: back closes the top open thing first. A layer is a screen opened inside
+  // a view (a basket memo over its list, a panel): open() adds one same-address entry whose
+  // state lists the open layers, so browser, PWA and Android back all pop it before the tab.
+  // The owner's close button calls the returned close() after closing itself.
+  const LAYERS='kptuLayers';
+  const layers=[];let releasing=0,deferred=[],layerReturn=false,traverseDelta=0;
+  const chainOf=state=>Array.isArray(state?.[LAYERS])?state[LAYERS]:[];
+  const topOf=state=>chainOf(state).at(-1);
+  function pushLayer(layer){
+    history.pushState({...(history.state||{}),[LAYERS]:[...chainOf(history.state),layer.name]},'',location.href);
+    layer.index=window.navigation?.currentEntry?.index;
+  }
+  function openLayer(name,{close,adoptOnly=false}){
+    const known=layers.find(layer=>layer.name===name);
+    if(known)return {close:()=>releaseLayer(known)};
+    const adopt=!releasing&&topOf(history.state)===name;
+    if(adoptOnly&&!adopt)return null;
+    const layer={name,close,index:adopt?window.navigation?.currentEntry?.index:undefined};
+    layers.push(layer);
+    if(adopt);else if(releasing)deferred.push(layer);else pushLayer(layer);
+    return {close:()=>releaseLayer(layer)};
+  }
+  function releaseLayer(layer){
+    const at=layers.indexOf(layer);
+    if(at<0)return;
+    layers.splice(at,1);
+    const waiting=deferred.indexOf(layer);
+    if(waiting>=0){deferred.splice(waiting,1);return}
+    if(topOf(history.state)!==layer.name)return;
+    releasing++;
+    history.back();
+  }
+  // A view change ends the layers of the view left; their owners close them on kptu:view-changed.
+  function forgetLayers(){layers.length=0;deferred=[];releasing=0}
+  function returnToLayer(layer){
+    const entry=window.navigation?.currentEntry;
+    if(entry&&Number.isInteger(entry.index)&&Number.isInteger(layer.index)){
+      const delta=layer.index-entry.index;
+      if(!delta)return;
+      returningTo=window.navigation.entries()[layer.index]?.key||null;
+      history.go(delta);
+      return;
+    }
+    layerReturn=true;
+    history.forward();
+  }
+  // Same-view traversal: close each open layer whose entry was left, top first. A declined
+  // close (unsaved edit) returns to its entry without rewriting history.
+  function closeLeftLayers(){
+    const chain=chainOf(history.state);
+    while(layers.length&&!chain.includes(layers.at(-1).name)){
+      const layer=layers.at(-1);
+      let closed=true;
+      try{closed=layer.close({fromBack:true})!==false}catch(err){console.error('layer close',layer.name,err)}
+      if(!closed){returnToLayer(layer);return true}
+      layers.pop();
+    }
+    return false;
+  }
+  // An entry for a layer that is no longer open (left by a tab change) is passed over in
+  // the direction of travel, so one press always changes the screen.
+  function skipStaleLayer(){
+    const top=topOf(history.state);
+    if(!top||layers.some(layer=>layer.name===top)||!traverseDelta)return;
+    if(traverseDelta<0)history.back();else history.forward();
+  }
+  function onTraversal(){
+    if(layerReturn){layerReturn=false;return}
+    if(releasing){
+      releasing--;
+      if(!releasing)deferred.splice(0).forEach(pushLayer);
+      restoreFromUrl('popstate');
+      return;
+    }
+    const sameView=appReady()&&viewFromUrl()===api.current;
+    if(sameView&&closeLeftLayers())return;
+    restoreFromUrl('popstate');
+    if(!returningTo)skipStaleLayer();
+  }
+  // ‹ and Android back: one step back through Web2's own entries; at the first entry the
+  // last return is home (D-4a ②). Returns false only when Web2 has nothing left to close.
+  function back(){
+    const entry=window.navigation?.currentEntry;
+    if(entry&&Number.isInteger(entry.index)&&Number.isInteger(baseIndex)){
+      if(entry.index>baseIndex){history.back();return true}
+    }else if(layers.length){history.back();return true}
+    if(api.current&&api.current!=='home'&&viewExists('home'))return go('home',{source:'back',replaceUrl:true});
+    return false;
   }
 
   function scrollControlIntoView(container,control,behavior='smooth'){
@@ -115,6 +208,7 @@
     const before=new CustomEvent('kptu:before-view-change',{cancelable:true,detail:{view,source,canRestoreHistory}});
     window.dispatchEvent(before);
     if(before.defaultPrevented){if(source==='popstate')restoreRoutePosition();return false;}
+    if(api.current!==view)forgetLayers();
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.toggle('hidden',panel!==target));
     syncNavigationState(view);
     api.current=view;
@@ -187,16 +281,24 @@
     if(appReady())handleUiReady();
   }
 
-  const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible};
+  const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer}};
   window.KPTURouter=api;
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
-  window.navigation?.addEventListener('currententrychange',rememberRoute);
+  // currententrychange comes before popstate and names the entry left, so a traversal's
+  // direction is known without a navigate listener (which would change traversal timing).
+  const nav=window.navigation;
+  nav?.addEventListener('currententrychange',e=>{
+    const from=e.from?.index,to=nav.currentEntry?.index;
+    traverseDelta=e.navigationType==='traverse'&&Number.isInteger(from)&&Number.isInteger(to)?to-from:0;
+    rememberRoute();
+  });
   window.addEventListener('popstate',()=>{
-    if(returningTo&&window.navigation?.currentEntry?.key===returningTo){returningTo=null;rememberRoute();return;}
-    restoreFromUrl('popstate');
+    if(returningTo&&window.navigation?.currentEntry?.key===returningTo){returningTo=null;traverseDelta=0;rememberRoute();return;}
+    onTraversal();
+    traverseDelta=0;
   });
   window.addEventListener('kptu:session-changed',e=>{
-    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;return}
+    if(!e.detail?.session){api.current=null;routeEntry=null;returningTo=null;forgetLayers();return}
     if(appReady())restoreFromUrl('session');
   });
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});

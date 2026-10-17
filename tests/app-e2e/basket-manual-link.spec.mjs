@@ -51,6 +51,8 @@ async function pick(page,detail,kind,name,width){
  await tap(page,detail.locator(`[data-manual-pick="${kind}"]`),width);
  const sheet=page.locator('#basketLinkChoiceSheet');await expect(sheet).toBeVisible();
  await tap(page,sheet.getByRole('button',{name,exact:true}),width);await expect(sheet).toBeHidden();
+ // The new summary takes focus once the sheet's close settles; type only after that.
+ await expect(detail.locator(`[data-manual-summary^="${kind}:"]`).last()).toBeFocused();
 }
 const summary=(detail,id,kind)=>detail.locator(`[data-manual-summary="${kind}:${id}"]`);
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);

@@ -193,13 +193,15 @@ test('공용 셸(폰): 머리줄 18px/500, 하단 탭 0.5px 선, ☰ 메뉴 판�
  const header=await look(page.locator('[data-mobile-view-name]'));expect([header.fontSize,header.fontWeight]).toEqual(['18px','500']);
  const current=await look(page.locator('.mobile-tabs [aria-current="page"]'));expect(current.fontWeight).toBe('500');
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu')).toBeVisible();
+ // Measure after the sheet's slide-up (ds-sheet-up): mid-slide the transformed boxes read 44±0.00006px.
+ await page.locator('#appView .mobile-menu-panel').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
  // UI-디자인손질 4: 폰 메뉴 판은 손잡이(제목 대신)·큰 칸(13px·400, 모서리 12px)·계정 줄(44px·13px·400).
  await expect(page.locator('.mobile-menu-head b')).toBeHidden();await expect(page.locator('#mobileMenu [data-mobile-menu-close]')).toBeVisible();
  for(const item of await page.locator('#mobileMenu nav button:visible').all()){
   const s=await look(item);expect(s.height).toBeGreaterThanOrEqual(44);expect([s.fontSize,s.radius]).toEqual(['13px','12px']);expect(['400','500']).toContain(s.fontWeight);
  }
  for(const item of await page.locator('#mobileAccountGroup button:visible').all()){
-  const s=await look(item);expect(s.height).toBe(44);expect([s.fontSize,s.fontWeight]).toEqual(['13px','400']);
+  const s=await look(item);expect(s.height).toBeCloseTo(44,2);expect([s.fontSize,s.fontWeight]).toEqual(['13px','400']);
  }
  const account=await look(page.locator('.mobile-menu-panel h2'));expect([account.fontSize,account.fontWeight,account.fg]).toEqual(['13px','500',await token(page,'--ds-section-ink')]);
  await page.locator('#mobileMenu [data-theme-open]').click();
@@ -239,7 +241,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  await titleOf(modal);expect(await sameButtons(page,modal)).toEqual(['저장']);await inputs(modal);await labels(modal);
  const card=await look(modal.locator('.modal-card'));expect(card.radius).toBe('12px');expect(card.shadow).toBe('none');
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
- // 일정 창: [일정 | 할 일]은 같은 버튼, 고른 [일정]은 회색.
+ // 일정 창: [일정 | 할 일]은 같은 버튼, 고른 쪽은 [일정]·[할 일] 모두 회색(UI-선택표시통일).
  await view(page,'calendar');await page.locator('#newEventBtn').click();
  modal=page.locator('#eventModal');await expect(modal).toBeVisible();
  await titleOf(modal);await inputs(modal);await labels(modal);

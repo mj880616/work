@@ -218,7 +218,7 @@
   }
 }
 .home-quick { min-width:0; background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:12px; padding:10px; margin-bottom:0; display:grid; gap:8px; }
-.home-quick [data-quick-options][hidden],.home-quick [data-quick-task-options][hidden],.home-quick [data-quick-update-options][hidden] { display:none; }
+.home-quick [data-quick-options][hidden],.home-quick [data-quick-task-options][hidden] { display:none; }
 .home-quick button,.home-quick select { font-family:inherit; font-size:12px; cursor:pointer; }
 .home-quick-entry { display:flex; align-items:flex-start; gap:8px; }
 .home-quick-input-wrap { position:relative; display:flex; flex:1; min-width:0; }
@@ -232,7 +232,7 @@
 .home-quick-save { position:relative; }
 .home-quick-save::after { content:"";position:absolute;inset:-2px 0; }
 .home-quick [data-quick-options] { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-.home-quick [data-quick-task-options],.home-quick [data-quick-update-options] { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:0 0 auto; max-width:100%; }
+.home-quick [data-quick-task-options] { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:0 0 auto; max-width:100%; }
 .home-quick [data-quick-options] button,.home-quick select { box-sizing:border-box; height:32px; min-height:32px; max-width:150px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-pill); padding:0 10px; color:var(--kptu-muted); background:var(--kptu-surface); margin:0; }
 .home-quick [data-quick-day][aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); font-weight:700; }
 .home-quick [data-quick-date] { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
@@ -242,7 +242,7 @@
 .home-quick :disabled { cursor:wait; opacity:.65; }
 
 .home-quick [data-quick-project] { width:110px; }
-.home-quick [data-quick-project],.home-quick [data-quick-org] { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-quick [data-quick-project] { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-timing { font-size:11px; color:var(--kptu-muted); line-height:1.5; }
 
 /* Each column stacks independently; DOM order follows the active layout. */
