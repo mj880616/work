@@ -52,6 +52,8 @@
     <button class="nav-btn nav-write" data-menu-write type="button">쓰기</button>
     <button class="nav-btn" data-view="calendar" type="button">일정</button>
     <button class="nav-btn" data-view="tasks" type="button">할 일</button>
+    <button class="nav-btn" data-view="journal" type="button">일지</button>
+    <button class="nav-btn" data-view="diary" type="button">일기</button>
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
     <button class="nav-btn" data-view="library" type="button">자료실</button>
     <button class="nav-btn" data-view="meetings" type="button">회의</button>
@@ -95,7 +97,7 @@
   </section>
 
   <section id="calendarView" class="view-panel hidden">
-    <div class="schedule-switch" role="group" aria-label="달력·할 일 전환"><button type="button" data-view="calendar" aria-pressed="true">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button></div>
+    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="true">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="false">일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
     <div id="calendarCard" class="calendar-card">
       <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="calendarTodayBtn" class="mini" type="button">오늘</button><span class="calendar-toolbar-divider" aria-hidden="true"></span><div class="calendar-view-switch" role="group" aria-label="일정 보기"><button type="button" class="mini" data-calendar-view="list" aria-label="목록 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><button type="button" class="mini" data-calendar-view="week" aria-label="주간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 7h21v10h-21zM4.5 7v10M7.5 7v10M10.5 7v10M13.5 7v10M16.5 7v10M19.5 7v10"/></svg></button><button type="button" class="mini" data-calendar-view="month" aria-label="월간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v16H4zM8 3v4m8-4v4M4 10h16M4 15h16M9 10v11M15 10v11"/></svg></button></div><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
       <div id="calendarList" class="hidden" aria-label="목록 일정"></div>
@@ -105,9 +107,19 @@
   </section>
 
   <section id="tasksView" class="view-panel hidden">
-    <div class="schedule-switch" role="group" aria-label="달력·할 일 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="true">할 일</button></div>
+    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="true">할 일</button><button type="button" data-view="journal" aria-pressed="false">일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
     <div class="section-head actions-only"><button id="newTaskBtn" class="primary" type="button" aria-label="할 일 추가">+ 할 일</button></div>
     <div id="taskList" class="card-list"></div>
+  </section>
+
+  <section id="journalView" class="view-panel hidden">
+    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="true">일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
+    <section class="journal-soon" aria-labelledby="journalSoonTitle"><h2 id="journalSoonTitle">업무일지</h2><p>준비 중이에요. 그날의 바구니 메모·일정·끝낸 할 일이 모이고 "오늘 한 줄"을 남기는 화면이 여기에 생겨요.</p></section>
+  </section>
+
+  <section id="diaryView" class="view-panel hidden">
+    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="false">일지</button><button type="button" data-view="diary" aria-pressed="true">일기</button></div>
+    <div id="diaryRoot" class="diary"></div>
   </section>
 
   <section id="projectsView" class="view-panel hidden">

@@ -111,7 +111,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
 test('PC 사이드바: 메뉴 판과 같은 항목([쓰기]·성명·보도자료 한 줄), 761~1023px 가로 메뉴에는 [쓰기]가 ☰ 안에만',async({page})=>{
  await boot(page,1280);
  await expect(page.locator('#appView>.app-nav [data-menu-write]')).toBeVisible();
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['홈','바구니','쓰기','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직','HWP 편집']);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['홈','바구니','쓰기','일정','할 일','일지','일기','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직','HWP 편집']);
  await page.setViewportSize({width:900,height:900});
  await expect(page.locator('#appView>.app-nav [data-menu-write]')).toBeHidden();
  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toBeVisible();

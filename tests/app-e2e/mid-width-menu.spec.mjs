@@ -23,7 +23,7 @@ async function open(page,url=app+'?view=home'){
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
-const order=['홈','바구니','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직','HWP 편집'];
+const order=['홈','바구니','일정','할 일','일지','일기','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직','HWP 편집'];
 for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`mid menu is a reachable ordered prefix at ${width}px, font ${fontSize||'default'}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);
   const trigger=page.locator('#mobileMenuOpen');await expect(trigger).toBeVisible();
@@ -52,7 +52,7 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`m
     let item=page.locator('.app-nav').getByRole('button',{name:label,exact:true});
     if(!await item.count()){await trigger.click();item=page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true})}
     await item.click();await expect(page.locator('#mobileMenu')).toBeHidden();
-    const view=({'홈':'home','바구니':'basket','일정':'calendar','할 일':'tasks','프로젝트':'projects','자료실':'library','회의':'meetings','성명·보도자료':'media','게시판':'pages','담당조직':'team','HWP 편집':'hwp'})[label];
+    const view=({'홈':'home','바구니':'basket','일정':'calendar','할 일':'tasks','일지':'journal','일기':'diary','프로젝트':'projects','자료실':'library','회의':'meetings','성명·보도자료':'media','게시판':'pages','담당조직':'team','HWP 편집':'hwp'})[label];
     await expect(page.locator('#'+view+'View')).toBeVisible();
     if(label==='성명·보도자료')await expect(page.locator('.app-nav [data-view="media"],#mobileMenu nav .nav-btn[data-view="media"]')).toHaveAttribute('aria-current','page');
   }
@@ -88,7 +88,7 @@ test('resize and font changes repartition; phone and PC return to their original
   // 8-9e-2: [바구니]는 하단 탭으로 옮겨 메뉴 창에서 뺐다.
   expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['쓰기','회의','자료실','HWP 편집','성명·보도자료','게시판']);await page.keyboard.press('Escape');
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
-  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','쓰기','일정','할 일','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직','HWP 편집']);await expect(page.locator('.app-nav [data-account-open]')).toBeVisible();
+  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','쓰기','일정','할 일','일지','일기','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직','HWP 편집']);await expect(page.locator('.app-nav [data-account-open]')).toBeVisible();
 });
 
 test('recalculation preserves keyboard focus and highlights the hidden combined media button',async({page})=>{
@@ -139,7 +139,8 @@ test('breakpoint recovery does not steal deliberate blur or content input focus'
   await page.setViewportSize({width:820,height:844});await expect(trigger).toBeVisible();await home.focus();const input=page.getByRole('textbox',{name:'빠른 입력'});await input.focus();await page.setViewportSize({width:760,height:844});await expect(input).toBeFocused();await expect(trigger).not.toBeFocused();
 });
 
-for(const width of [761,820,900,1023])test(`combined media current location at ${width}px in row and drawer`,async({page})=>{
+// JOURNAL-일기 1차: [일지]·[일기] 두 칸이 늘어 761px 줄에는 성명·보도자료가 들어가지 않는다(메뉴 창 쪽은 아래 글자 40px 경우가 검사).
+for(const width of [820,900,1023])test(`combined media current location at ${width}px in row and drawer`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);await clickView(page,'media');
   const media=page.locator('.app-nav [data-view="media"]'),trigger=page.locator('#mobileMenuOpen');
   await expect(media).toHaveAttribute('aria-current','page');

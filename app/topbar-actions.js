@@ -38,7 +38,7 @@ const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
 const phoneOnly=[...drawerNav?.querySelectorAll('[data-view]')||[]];
-const midItems=['home','basket','calendar','tasks','projects','library','meetings','media','pages','team','hwp']
+const midItems=['home','basket','calendar','tasks','journal','diary','projects','library','meetings','media','pages','team','hwp']
   .map(view=>appNav?.querySelector(`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
@@ -218,7 +218,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',media:'성명·보도자료',pages:'게시판'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',media:'성명·보도자료',pages:'게시판'})[event.detail?.view]||''}
 });
 // Menu [쓰기] (UI-디자인손질 8): the shared MD editor (md-editor.js) opens empty, and [저장] makes one new basket note
 // through the basket's existing text save (basket-data.js createNote, owner RLS) — no new save path. Text closed
