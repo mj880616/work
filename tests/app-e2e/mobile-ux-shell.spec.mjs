@@ -78,6 +78,9 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   // The shell is shown before loader-v2 finishes importing the swipe module; swipe only once its listeners exist.
   await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_MOBILE_SWIPE_NAV__),{timeout:10000}).toBe(true);
 
+  // The swipe module ignores touches below the panel (inSwipeArea). Under load the calendar panel can still be
+  // shorter than the touch point (bottom ≈ 368px) when the swipe listeners are ready, so wait for its real height first.
+  await expect.poll(()=>page.locator('#calendarView').evaluate(el=>el.getBoundingClientRect().bottom),{timeout:10000}).toBeGreaterThan(405);
   const motion=await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
   expect(motion).toContain('translate3d');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('projects');
