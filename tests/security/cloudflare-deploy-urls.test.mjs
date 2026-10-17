@@ -27,8 +27,8 @@ const refs = [
 });
 const base = 'https://desk.bokdoong.com/work/app/';
 
-function run(cwd = root) {
-  return spawnSync(process.execPath, [script], { cwd, encoding: 'utf8' });
+function run(cwd = root, args = []) {
+  return spawnSync(process.execPath, [script, ...args], { cwd, encoding: 'utf8' });
 }
 
 function fixture(t, change) {
@@ -60,6 +60,21 @@ test('tracks future versions in their owning files, including nonnumeric icon ve
   const result = run(dir);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(result.stdout.trim().split('\t'), refs.map(([, asset]) => `${base}${asset}?v=next-release_9`));
+});
+
+test('reads the release chain from a given Pages tree (build output) instead of the working directory', t => {
+  const dir = fixture(t, (file, content) => {
+    for (const [owner, asset, version] of refs) {
+      if (file === owner) content = content.replaceAll(`${asset}?v=${version}`, `${asset}?v=0123abcdef`);
+    }
+    return content;
+  });
+  const result = run(root, [dir]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(result.stdout.trim().split('\t'), refs.map(([, asset]) => `${base}${asset}?v=0123abcdef`));
+  const extra = run(root, [dir, 'extra']);
+  assert.equal(extra.status, 1);
+  assert.equal(extra.stdout, '');
 });
 
 for (const file of sources) {
@@ -103,7 +118,8 @@ test('gets sw.js only from the service worker registration URL', t => {
 
 test('workflow consumes extracted URLs without fixed version addresses or a silent fallback', () => {
   assert.doesNotMatch(workflow, /https:\/\/desk\.bokdoong\.com\/work\/app\/(?:app\.js|loader-v2\.js|pwa\.js|sw\.js|app-icon\.svg)\?v=[^\s'"$]+/);
-  assert.match(workflow, /asset_urls="\$\(node scripts\/cloudflare-check-urls\.mjs\)"/);
+  assert.match(workflow, /asset_urls="\$\(node scripts\/cloudflare-check-urls\.mjs "\$PAGES_TREE"\)"/);
+  assert.match(workflow, /PAGES_TREE: \$\{\{ steps\.pages\.outputs\.tree \}\}/);
   assert.match(workflow, /read -r APP_URL LOADER_URL PWA_URL SW_URL APP_ICON_URL <<< "\$asset_urls"/);
   for (const name of ['APP_URL', 'LOADER_URL', 'PWA_URL', 'SW_URL', 'APP_ICON_URL']) {
     assert.ok(workflow.includes(`check_200 "$${name}"`), `${name} retains its 200 check`);
