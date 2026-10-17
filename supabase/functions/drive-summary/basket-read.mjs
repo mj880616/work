@@ -18,6 +18,8 @@ export function createBasketReader(
   const scope = { workspace_id: `eq.${workspaceId}` };
   const noteScope = {
     ...scope,
+    // app_notes also holds notes/work lines/diary; the read-only copy takes basket rows only.
+    kind: "eq.basket",
     archived_at: "is.null",
     ai_export_allowed: "eq.true",
     occurred_at: `lte.${at.toISOString()}`,

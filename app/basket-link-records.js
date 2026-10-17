@@ -31,7 +31,7 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
   if(targetIds&&!targetIds.length)return [];
   const owner=scope(rt),encode=encodeURIComponent,target=kind==='organization'?'organization_id':'project_id';
   const fields=dateOnly?'id,workspace_id,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at)':'id,workspace_id,summary,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text)';
-  const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&status=eq.confirmed&note_id=not.is.null&or=(organization_id.not.is.null,project_id.not.is.null)&select=${fields}&order=id.asc`;
+  const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&note.kind=eq.basket&status=eq.confirmed&note_id=not.is.null&or=(organization_id.not.is.null,project_id.not.is.null)&select=${fields}&order=id.asc`;
   const batches=targetIds?Array.from({length:Math.ceil(targetIds.length/PAGE_SIZE)},(_,i)=>targetIds.slice(i*PAGE_SIZE,(i+1)*PAGE_SIZE)):[null];
   const rows=[];
   for(const ids of batches){

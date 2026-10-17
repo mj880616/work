@@ -1,7 +1,7 @@
 import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
 import { createChoiceSheet, projectRows } from './choice-sheet.js?v=1';
 import { createGoogleTask, saveOrganizationUpdate } from './quick-save.js?v=2';
-import { createNote, validateNoteText } from './basket-data.js?v=5';
+import { createNote, validateNoteText } from './basket-data.js?v=6';
 import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js?v=7';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs?v=1';
 import { dayKey } from './home-read-model.js?v=3';

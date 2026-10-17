@@ -4,7 +4,7 @@
 // app_record_links.note_id의 on delete cascade로 그 메모의 연결도 함께 지워진다.
 // 첨부가 있는 메모는 basket-files의 note-delete가 첨부를 Drive 휴지통으로 옮긴 뒤 로그인 사용자 JWT로
 // 메모를 지운다. 서버가 아직 이 동작을 모르면(배포 전 구버전 응답) 지금처럼 REST DELETE로 메모만 지운다.
-import {confirmLinks} from './basket-classification.js?v=9';
+import {confirmLinks} from './basket-classification.js?v=10';
 
 const PAGE_SIZE=100;
 const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
