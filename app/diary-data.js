@@ -96,7 +96,7 @@ export async function shrinkPhoto(file, {edge = DIARY_PHOTO_EDGE, quality = 0.86
     if (scale === 1 && file.type === 'image/jpeg') return file;
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ds-photo-paper').trim() || 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
     if (!blob?.size) throw new Error('사진을 줄이지 못했어요. 다른 사진으로 다시 골라 주세요.');

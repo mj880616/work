@@ -17,7 +17,7 @@
 #appView #diaryView .diary-cell .diary-num{ position:absolute; top:4px; left:5px; z-index:1; font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #diaryView .diary-cell[aria-current="date"] .diary-num{ font-weight:700; color:var(--ds-kind-diary-ink); }
 #appView #diaryView .diary-cell .diary-dot{ position:absolute; left:50%; bottom:18%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-diary-ink); }
-#appView #diaryView .diary-cell.has-photo .diary-num{ padding:1px 5px; color:#fff; background:rgba(0,0,0,.45); border-radius:6px; }
+#appView #diaryView .diary-cell.has-photo .diary-num{ padding:1px 5px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); border-radius:6px; }
 #appView #diaryView .diary-cell .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #diaryView .diary-cell .diary-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
 #appView #diaryView .diary-cell .diary-photo{ background:var(--ds-kind-diary-soft); }
@@ -52,20 +52,20 @@
 #appView #diaryView .diary-grid-item:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 
 /* 크게 보기: 화면 가득, 옆으로 넘기기, "3 / 8", ☆ 자리(1차는 안내만), ×·뒤로가기로 닫기. 사진 위라 색은 늘 어두운 바탕. */
-#appView #diaryView .diary-viewer{ position:fixed; inset:0; z-index:1000; display:flex; flex-direction:column; background:#000; color:#fff;
+#appView #diaryView .diary-viewer{ position:fixed; inset:0; z-index:1000; display:flex; flex-direction:column; background:var(--ds-photo-stage); color:var(--ds-photo-ink);
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-viewer-bar{ display:flex; align-items:center; gap:8px; min-height:52px; padding:4px 8px 4px 16px; }
 #appView #diaryView .diary-viewer-count{ flex:1; font-size:var(--ds-text-row); font-variant-numeric:tabular-nums; }
 #appView #diaryView .diary-viewer-bar button{ position:relative; display:grid; place-items:center; width:44px; min-width:44px; height:44px; min-height:44px; margin:0; padding:0;
-  color:#fff; background:transparent; border:0; border-radius:50%; box-shadow:none; font-size:24px; line-height:1; }
-#appView #diaryView .diary-viewer-bar button:focus-visible{ outline:2px solid #fff; outline-offset:-2px; }
+  color:var(--ds-photo-ink); background:transparent; border:0; border-radius:50%; box-shadow:none; font-size:24px; line-height:1; }
+#appView #diaryView .diary-viewer-bar button:focus-visible{ outline:2px solid var(--ds-photo-ink); outline-offset:-2px; }
 #appView #diaryView .diary-viewer-strip{ flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior:contain; scrollbar-width:none; touch-action:pan-x pinch-zoom; }
 #appView #diaryView .diary-viewer-strip:focus-visible{ outline:none; }
 #appView #diaryView .diary-viewer .diary-slide{ flex:0 0 100%; margin:0; display:grid; place-items:center; scroll-snap-align:center; scroll-snap-stop:always; min-width:0; }
 #appView #diaryView .diary-viewer .diary-slide img{ display:block; max-width:100%; max-height:100%; object-fit:contain; }
 #appView #diaryView .diary-viewer .diary-photo{ display:grid; place-items:center; width:100%; height:100%; }
-#appView #diaryView .diary-viewer .diary-photo-link{ color:#fff; font-size:var(--ds-text-read); }
+#appView #diaryView .diary-viewer .diary-photo-link{ color:var(--ds-photo-ink); font-size:var(--ds-text-read); }
 #appView #diaryView .diary-viewer-note{ margin:0; min-height:24px; padding:4px 16px 12px; text-align:center; font-size:var(--ds-text-row); }
 #appView #diaryView .diary-viewer-note:empty{ visibility:hidden; }
 #appView #diaryView .diary-text{ white-space:pre-wrap; overflow-wrap:anywhere; font-size:var(--ds-text-read); line-height:1.6; }
@@ -81,7 +81,7 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-thumb{ position:relative; aspect-ratio:1/1; overflow:hidden; background:var(--kptu-surface-subtle); border-radius:var(--ds-radius-control); }
 #appView #diaryView .diary-thumb :is(img,.diary-photo,.diary-photo img){ display:block; width:100%; height:100%; object-fit:cover; }
 #appView #diaryView .diary-thumb.pending{ outline:2px dashed var(--ds-kind-diary-ink); outline-offset:-2px; }
-#appView #diaryView .diary-thumb .icon-btn{ position:absolute; top:2px; right:2px; width:28px; min-width:28px; height:28px; min-height:28px; padding:0; color:#fff; background:rgba(0,0,0,.55); border:0; border-radius:50%; }
+#appView #diaryView .diary-thumb .icon-btn{ position:absolute; top:2px; right:2px; width:28px; min-width:28px; height:28px; min-height:28px; padding:0; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); border:0; border-radius:50%; }
 #appView #diaryView .diary-thumb .icon-btn::after{ content:""; position:absolute; inset:-8px; }
 #appView #diaryView .diary-thumb .diary-photo-link{ position:absolute; inset:auto 4px 4px; font-size:11px; }
 #appView #diaryView .diary-editor-status{ margin:0; font-size:var(--ds-text-row); }

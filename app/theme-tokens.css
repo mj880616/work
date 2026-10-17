@@ -64,6 +64,8 @@
   --ds-recency-fresh:#2f9254;--ds-recency-warn:#dc8a1c;--ds-recency-stale:#c8372b;
   /* 3/3 2부(8-9e-2) 폰 배치: 하단 탭 바로 위에 떠 있는 동그란 [+](보이는 크기 36px, 누르는 범위 --kptu-touch-target 44px)와 탭 사이 간격. */
   --ds-fab-size:36px;--ds-fab-gap:12px;
+  /* JOURNAL-일기: 사진 위 글자·가림 막과 크게 보기 바탕. 사진 위라 밝은·어두운 화면에서 같은 값. --ds-photo-paper는 투명 사진을 JPEG로 줄일 때 바탕. */
+  --ds-photo-ink:#fff;--ds-photo-scrim:rgba(0,0,0,.5);--ds-photo-stage:#000;--ds-photo-paper:#fff;
   /* 동그란 [+]의 + 아이콘(선 두 개, 가운데 정렬). 모양만 쓰고 색은 버튼 글자 색(--kptu-on-primary). */
   --ds-fab-plus:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 3v14M3 10h14' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
   /* PRJ-색: 프로젝트 이름 앞 점 8가지(사용자가 메인 프로젝트에서 고름). -soft는 하위 프로젝트용 연한 톤. 저장값은 색 이름 키. */
