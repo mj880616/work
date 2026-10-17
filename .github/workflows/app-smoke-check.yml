@@ -113,6 +113,10 @@ jobs:
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
 
+      # Also runs on push to main: a PR merged without re-syncing can leave the Worker's asset list stale.
+      - name: Check asset manifest is current
+        run: node scripts/asset-manifest.mjs --check
+
       - name: Check recursive app dependency graph
         run: |
           node --test scripts/check-app-smoke-contract.test.mjs
