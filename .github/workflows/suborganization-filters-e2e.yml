@@ -57,7 +57,7 @@ jobs:
           test ! -f app/suborganization-filters.js
           test ! -f app/suborganization-filters.css
           test ! -f app/suborganization-planned-assignee.js
-          grep -Fq "suborganizations.js?v=30" app/view-loader.js
+          grep -Fq "suborganizations.js?v=31" app/view-loader.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/view-loader.js
           grep -Fq "workplace-detail.js?v=25" app/view-loader.js
           grep -q "suborganizations.css?v=11" app/styles.css
@@ -66,7 +66,7 @@ jobs:
           if grep -q "suborganization-filters.css" app/styles.css; then echo 'removed assigned-organization filter styles returned'; exit 1; fi
           grep -q "default_assignee_name" app/suborganizations.js
           grep -q "sofEditType" app/suborganizations.js
-          grep -q "id=\"soOrgCount\"" app/suborganizations.js
+          if grep -q 'id="soOrgCount"' app/suborganizations.js; then echo 'removed N개 담당조직 line returned (UI-디자인손질 3)'; exit 1; fi
           grep -q "const mine=myOrganizations()" app/suborganizations.js
           grep -q "id=\"wdInboxSave\"" app/workplace-detail.js
           if grep -Eq "wdUpdateCurrent|wdAddItem" app/workplace-detail.js; then echo 'removed current-status/memo input returned'; exit 1; fi

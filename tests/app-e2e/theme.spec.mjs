@@ -141,8 +141,9 @@ test('390px drawer keeps account actions and dismissal without switching views',
  await expect(page.locator('#appView>.app-nav')).toBeHidden();
  for(const close of ['outside','back']){
   await account.click();await expect(panel).toBeVisible();
-  await expect.poll(async()=>{const pb=await panel.locator('.mobile-menu-panel').boundingBox();return pb.x+pb.width}).toBe(390);expect((await panel.locator('.mobile-menu-panel').boundingBox()).width).toBe(260);
-  if(close==='outside')await page.mouse.click(10,500);else await page.goBack();
+  // UI-디자인손질 4: the phone menu is a full-width sheet right above the tab bar.
+  await expect.poll(async()=>{const pb=await panel.locator('.mobile-menu-panel').boundingBox();return [pb.x,pb.x+pb.width]}).toEqual([0,390]);
+  if(close==='outside')await page.mouse.click(10,100);else await page.goBack();
   await expect(panel).toBeHidden();await expect(page.locator('#calendarView')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>history.state?.kptuMobileMenu||null)).toBe(null);
  }
@@ -313,7 +314,7 @@ for(const width of [390,1440])for(const nativePopover of [true,false]){
   await mockApp(page);await page.goto('http://127.0.0.1:8123/app/?view=calendar');await signIn(page);
   const nav=page.locator('#appView>.app-nav'),account=accountButton(page),panel=page.locator(width<=760?'#mobileMenu':'#sidebarAccountPanel');
   const open=async()=>{
-   if(width<=760){await account.click();await expect(panel).toBeVisible();await expect(account).toHaveAttribute('aria-expanded','true');await expect.poll(async()=>{const box=await panel.locator('.mobile-menu-panel').boundingBox();return box.x+box.width}).toBe(width);expect((await panel.locator('.mobile-menu-panel').boundingBox()).width).toBe(260);return;}
+   if(width<=760){await account.click();await expect(panel).toBeVisible();await expect(account).toHaveAttribute('aria-expanded','true');await expect.poll(async()=>{const box=await panel.locator('.mobile-menu-panel').boundingBox();return [box.x,box.x+box.width]}).toEqual([0,width]);return;}
    await account.click();await expect(panel).toBeVisible();
    await expect(account).toHaveAttribute('aria-expanded','true');
    await expect.poll(()=>panel.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);

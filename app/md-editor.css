@@ -16,6 +16,10 @@ html .modal.md-editor { align-items:stretch !important; overflow:hidden !importa
 .md-editor-head h2 { grid-area:title; margin:0; font-size:var(--kptu-text-subtitle, 16px); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .md-editor-head [data-md-telegram] { grid-area:copy; }
 .md-editor-head [data-close] { grid-area:done; }
+/* 메뉴 [쓰기](UI-디자인손질 8): [닫기] 옆에 채운 [저장]. */
+.md-editor-head [data-md-save] { grid-area:save; }
+.md-editor[data-md-save] .md-editor-head { grid-template-columns:minmax(0, 1fr) auto auto; grid-template-areas:"title done save" "modes copy copy"; }
+.md-editor[data-md-save] .md-editor-head [data-md-telegram] { justify-self:end; }
 .md-editor-modes { grid-area:modes; display:inline-flex; gap:0; width:max-content; }
 .md-editor button { min-height:var(--kptu-touch-target, 44px); min-width:var(--kptu-touch-target, 44px); font-size:14px; }
 .md-editor-head .primary, .md-editor-head .secondary { padding:0 14px; font-size:14px; }
@@ -49,6 +53,7 @@ html .modal.md-editor { align-items:stretch !important; overflow:hidden !importa
 .md-editor-menu[hidden] { display:none; }
 @media (min-width:761px) {
   .md-editor-head { grid-template-columns:minmax(0, 1fr) auto auto auto; grid-template-areas:"title modes copy done"; }
+  .md-editor[data-md-save] .md-editor-head { grid-template-columns:minmax(0, 1fr) auto auto auto auto; grid-template-areas:"title modes copy done save"; }
   .md-editor-bar { order:-1; border-top:0; border-bottom:1px solid var(--kptu-border); padding-bottom:0; }
   .md-editor-head { order:-2; }
   .md-editor-tools { flex-wrap:wrap; }

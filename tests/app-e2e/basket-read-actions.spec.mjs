@@ -1,6 +1,5 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {openBasketMore} from './helpers/basket-more.mjs';
 // UI-바구니버튼정리: the read view's actions. Common ones first and emphasized,
 // 삭제 set apart as the risky one, and at 390 no scattered wrap.
 test.use({hasTouch:true});
@@ -20,35 +19,32 @@ async function openNote(page,width){
 }
 const box=locator=>locator.boundingBox();
 
-for(const width of [390,1280])test(`read actions: common first, 삭제 apart, tidy rows ${width}`,async({page},info)=>{
+// UI-디자인손질 6: the big buttons are only [연결하기](filled) and [할 일 만들기](task teal); 수정·원문 그대로 보기·보관·삭제
+// moved into the note's own [⋯] at the top right, 삭제 last and red. The list's [⋯] (AI 분류 요청) is not shown on a note.
+for(const width of [390,1280])test(`read actions: two big buttons, the rest in the note menu ${width}`,async({page},info)=>{
  const {errors,actions}=await openNote(page,width);
- await expect(actions.getByRole('button')).toHaveText(['연결하기','할 일 만들기','쓰기요청 후보','수정','보관','삭제']);
- const link=actions.locator('[data-basket-link-open]'),task=actions.locator('[data-basket-task-open]'),candidate=actions.locator('[data-basket-write-request-open]'),edit=actions.locator('[data-basket-edit]'),archive=actions.locator('[data-basket-archive]'),del=actions.locator('[data-basket-delete]');
- // Shared button styles: primary for the common two, danger for 삭제.
- await expect(link).toHaveClass(/\bprimary\b/);await expect(task).toHaveClass(/\bprimary\b/);await expect(del).toHaveClass(/\bdanger\b/);await expect(candidate).toHaveClass(/\bsecondary\b/);
- const color=l=>l.evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,border:s.borderTopColor};});
- const [p,e,d]=await Promise.all([color(link),color(edit),color(del)]);
- expect(p.bg).not.toBe(e.bg);expect(d.fg).not.toBe(e.fg);expect(d.border).not.toBe(e.border);
- const [bl,bt,bc,be,ba,bd,area]=await Promise.all([box(link),box(task),box(candidate),box(edit),box(archive),box(del),box(actions)]);
- for(const b of [bl,bt,bc,be,ba,bd])expect(b.height).toBeGreaterThanOrEqual(44);
- const rows=new Set([bl,bt,bc,be,ba,bd].map(b=>Math.round(b.y)));
- if(width===390){
-  // Two orderly rows: the common pair side by side across the width, then 쓰기요청 후보·수정·보관 with 삭제 at the far end (BASKET-4b-2).
-  expect(rows.size).toBe(2);expect(Math.round(bl.y)).toBe(Math.round(bt.y));expect(Math.round(bc.y)).toBe(Math.round(bd.y));expect(Math.round(be.y)).toBe(Math.round(bd.y));
-  expect(bl.width+bt.width).toBeGreaterThan(area.width*0.9);
- }else expect(rows.size).toBe(1);
- expect(Math.abs(bd.x+bd.width-(area.x+area.width))).toBeLessThanOrEqual(1);
- expect(bd.x-(ba.x+ba.width)).toBeGreaterThanOrEqual(width===390?40:200);
- // One AI handoff on the read view (the toolbar's [⋯ 더보기], scoped to this memo).
- await openBasketMore(page);
- await expect(page.locator('[data-basket-detail]').getByRole('button',{name:'분류 요청'})).toHaveCount(0);
- await expect(page.locator('#basketView').getByRole('button',{name:'분류 요청',exact:true})).toHaveCount(1);
- // 8-9e-2: 범위 안내는 [분류 요청]을 누른 뒤에만 보인다.
+ await expect(actions.getByRole('button')).toHaveText(['연결하기','할 일 만들기']);
+ const link=actions.locator('[data-basket-link-open]'),task=actions.locator('[data-basket-task-open]');
+ await expect(link).toHaveClass(/\bprimary\b/);await expect(task).toHaveClass(/\bprimary\b/);
+ const color=l=>l.evaluate(el=>getComputedStyle(el).backgroundColor);
+ expect(await color(link)).not.toBe(await color(task));
+ const [bl,bt,area]=await Promise.all([box(link),box(task),box(actions)]);
+ for(const b of [bl,bt])expect(b.height).toBeGreaterThanOrEqual(44);
+ // Side by side across the width.
+ expect(Math.round(bl.y)).toBe(Math.round(bt.y));expect(bl.width+bt.width).toBeGreaterThan(area.width*0.9);
+ const detail=page.locator('[data-basket-detail]'),more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
+ await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();
+ await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);
  await expect(page.locator('[data-basket-handoff-scope]')).toBeHidden();
+ if(width===390)await more.tap();else await more.click();
+ await expect(menu.getByRole('button')).toHaveText(['수정','원문 그대로 보기','보관','삭제']);
+ for(const b of await menu.getByRole('button').all())expect((await box(b)).height).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`basket-read-actions-${width}.png`),fullPage:true});
- // Keyboard order follows what is seen; 삭제 is reached last.
- await link.focus();for(const next of [task,candidate,edit,archive,del]){await page.keyboard.press('Tab');await expect(next).toBeFocused();}
+ // Keyboard: the menu opens on its first item and Tab walks it in order, 삭제 last.
+ const items=menu.getByRole('button');await expect(items.first()).toBeFocused();
+ for(let i=1;i<4;i++){await page.keyboard.press('Tab');await expect(items.nth(i)).toBeFocused();}
+ await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();
  // Touch and keyboard still open the same panels as before.
  if(width===390)await task.tap();else{await task.focus();await page.keyboard.press('Enter');}
  await expect(actions).toBeHidden();await expect(page.locator('[data-basket-manual]')).toBeVisible();

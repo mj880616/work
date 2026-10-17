@@ -12,7 +12,8 @@ const expectRecency=async(page,id,level,words,at)=>{
 };
 for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·기록 점·배치·상세 ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:900});await page.goto(url);
-  await expect(page.locator('#soOrgCount')).toHaveText('16개 담당조직');
+  // UI-디자인손질 3: the "N개 담당조직" line is gone; the groups keep their own "N곳".
+  await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(16);await expect(page.locator('#soOrgCount')).toHaveCount(0);
   await expect(page.locator('.so-group-heading')).toHaveText(['철도1곳','지하철4곳','민자철도4곳','민간도시철도4곳','그 외3곳']);
   await expect(page.locator('#soOrganizationList .sof-type')).toHaveCount(0);
   const rail=page.locator('[data-so-org="ord-5"]');
@@ -29,7 +30,7 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
   expect(layout.height).toBe(44);expect(layout.padding).toBe('16px');
   // 8-9e-2: phones show "담당조직 추가" as a small link under the list instead of the header button.
   if(width<=760){await expect(page.locator('#soAddOrg')).toBeHidden();await expect(page.locator('#soAddOrgLink')).toBeVisible();}
-  else{const centers=await page.locator('.so-team-actions').evaluate(el=>[...el.children].map(e=>{const r=e.getBoundingClientRect();return r.y+r.height/2}));expect(Math.abs(centers[0]-centers[1])).toBeLessThan(1);}
+  else{await expect(page.locator('#soAddOrg')).toBeVisible();const edge=await page.locator('.so-team-actions').evaluate(el=>el.getBoundingClientRect().right-el.querySelector('#soAddOrg').getBoundingClientRect().right);expect(Math.abs(edge)).toBeLessThan(1);}
   await page.evaluate(()=>{document.querySelector('[data-so-org="ord-3"] h4').textContent='아주 긴 조직 이름 '.repeat(30)});
   const name=await page.locator('[data-so-org="ord-3"] h4').evaluate(e=>({overflow:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow,white:getComputedStyle(e).whiteSpace}));expect(name).toEqual({overflow:true,ellipsis:'ellipsis',white:'nowrap'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
@@ -39,7 +40,7 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
 });
 test('기록 조회 실패해도 목록·상세 유지, 그 외 없는 경우 머리줄 숨김',async({page})=>{
   await page.goto(url+'&statsfail=1&knownonly=1');
-  await expect(page.locator('#soOrgCount')).toHaveText('13개 담당조직');
+  await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(13);await expect(page.locator('#soOrgCount')).toHaveCount(0);
   await page.evaluate(()=>window.__releaseTeamStats());
   await expect.poll(()=>page.evaluate(()=>window.__teamStatsCalls)).toEqual({tasks:0,links:0,updates:1});
   await expect(page.locator('.so-group-heading')).toHaveText(['철도1곳','지하철4곳','민자철도4곳','민간도시철도4곳']);

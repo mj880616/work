@@ -1,5 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
+import {noteAction} from './helpers/basket-more.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -122,11 +123,12 @@ async function openNote(page,width){await tap(page,page.locator('#homeView [data
 const CONFIRM='메모 원문을 지웁니다. 연결된 조직·프로젝트 1곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).';
 for(const width of [390,1280])for(const [mode,status] of [['ok','메모를 지우고 첨부를 Drive 휴지통으로 옮겼어요.'],['partial','메모를 지웠어요. 첨부 1개는 Drive에 남았어요.'],['legacy','메모를 지웠어요. 첨부 파일은 Drive에 남아 있어요.']])test(`basket read view deletes the original (${mode}) and returns to the list ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const f=await basket(page,{mode});await openNote(page,width);const detail=page.locator('[data-basket-detail]');
- await tap(page,detail.getByRole('button',{name:'수정',exact:true}),width);await expect(detail.locator('[data-basket-delete]')).toBeHidden();
- await tap(page,detail.locator('[data-basket-cancel]'),width);await expect(detail.locator('[data-basket-delete]')).toBeVisible();
+ // UI-디자인손질 6: 수정·삭제 live in the note's [⋯]; while editing that menu is gone.
+ await noteAction(page,'[data-basket-edit]',{press:l=>tap(page,l,width)});await expect(detail.locator('[data-basket-note-more]')).toBeHidden();await expect(detail.locator('[data-basket-delete]')).toBeHidden();
+ await tap(page,detail.locator('[data-basket-cancel]'),width);await expect(detail.locator('[data-basket-note-more]')).toBeVisible();
  if(width===390&&mode==='ok')await page.screenshot({path:info.outputPath('basket-read-delete-390.png'),fullPage:true});
  const messages=[];page.once('dialog',d=>{messages.push(d.message());d.accept();});
- await tap(page,detail.getByRole('button',{name:'삭제',exact:true}),width);
+ await noteAction(page,'[data-basket-delete]',{press:l=>tap(page,l,width)});
  await expect(detail).toBeHidden();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);await expect(page.locator('[data-basket-row="keep"]')).toBeVisible();
  await expect(page.locator('[data-basket-list-status]')).toHaveText(status);
  if(width===390)await page.screenshot({path:info.outputPath(`basket-delete-result-${mode}-390.png`)});
@@ -139,14 +141,15 @@ for(const width of [390,1280])for(const [mode,status] of [['ok','메모를 지�
 
 for(const width of [390,1280])test(`basket delete cancel keeps the read view and sends nothing ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await basket(page);await openNote(page,width);const detail=page.locator('[data-basket-detail]');
- page.once('dialog',d=>d.dismiss());await detail.getByRole('button',{name:'삭제',exact:true}).click();
- await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-delete]')).toBeFocused();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
+ page.once('dialog',d=>d.dismiss());await noteAction(page,'[data-basket-delete]');
+ // Cancelling returns focus to the note's [⋯], where 삭제 lives.
+ await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-note-more]')).toBeFocused();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
  expect(f.writes).toEqual([]);expect(f.posts).toEqual([]);expect(f.notes.map(n=>n.id)).toEqual(['n','keep']);await expect(detail.locator('[data-basket-status]')).toHaveText('');expect(f.errors).toEqual([]);
 });
 
 test('basket delete failure keeps the note open with a plain error',async({page})=>{
  const f=await basket(page,{mode:'fail'});await openNote(page,390);const detail=page.locator('[data-basket-detail]');
- page.once('dialog',d=>d.accept());await detail.getByRole('button',{name:'삭제',exact:true}).click();
+ page.once('dialog',d=>d.accept());await noteAction(page,'[data-basket-delete]');
  await expect(detail.locator('[data-basket-status]')).toHaveText('메모를 지우지 못했어요. 다시 시도해 주세요.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
  expect(f.notes.some(n=>n.id==='n')).toBe(true);expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
