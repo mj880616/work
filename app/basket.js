@@ -1,21 +1,21 @@
-import {basketOcrFor} from './basket-ocr-runtime.js?v=2';
-import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
-import { mountQuick } from './home-quick.js?v=24';
-import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=21';
-import { mountClassification } from './basket-classification-ui.js?v=18';
-import { readBasket, updateNote, noteState, visibleNotes, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js?v=9';
-import { mountNotes } from './basket-notes.js?v=5';
-import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js?v=4';
-import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js?v=3';
-import { mountManualLink } from './basket-manual-link.js?v=12';
-import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
-import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
-import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js?v=2';
-import { openBasketHtml, mountHtmlFrame, HTML_FRAME_TEXT } from './html-frame.js?v=1';
-import { CHATGPT_HTML_REQUEST, HTML_MAX_BYTES, isHtmlName } from './chatgpt-html.mjs?v=1';
-import { openMarkdownEditor } from './md-editor.js?v=5';
+import {basketOcrFor} from './basket-ocr-runtime.js';
+import {effectiveOcrText} from './basket-ocr-text.mjs';
+import { mountQuick } from './home-quick.js';
+import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js';
+import { mountClassification } from './basket-classification-ui.js';
+import { readBasket, updateNote, noteState, visibleNotes, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js';
+import { mountNotes } from './basket-notes.js';
+import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js';
+import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js';
+import { mountManualLink } from './basket-manual-link.js';
+import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
+import { isHwpName, requestHwpEdit } from './hwp-drive.js';
+import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js';
+import { openBasketHtml, mountHtmlFrame, HTML_FRAME_TEXT } from './html-frame.js';
+import { CHATGPT_HTML_REQUEST, HTML_MAX_BYTES, isHtmlName } from './chatgpt-html.mjs';
+import { openMarkdownEditor } from './md-editor.js';
 
-import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=7';
+import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0, rawView = false;

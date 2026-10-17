@@ -248,7 +248,7 @@ test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 
  const png=manifest.icons.filter(i=>i.type==='image/png');
  expect(png.map(i=>`${i.sizes} ${i.purpose}`).sort()).toEqual(['192x192 any','192x192 maskable','512x512 any','512x512 maskable']);
  const html=readFileSync('app/index.html','utf8');
- const apple=html.match(/rel="apple-touch-icon" href="\.\/([^"?]+)/)[1],favicon=html.match(/rel="icon" href="\.\/([^"?]+)\?[^"]*" sizes="32x32"/)[1];
+ const apple=html.match(/rel="apple-touch-icon" href="\.\/([^"?]+)/)[1],favicon=html.match(/rel="icon" href="\.\/([^"?]+)(?:\?[^"]*)?" sizes="32x32"/)[1];
  for(const [path,size] of [...png.map(i=>[i.src.replace('./','').split('?')[0],Number(i.sizes.split('x')[0])]),[apple,180],[favicon,32]]){
   const res=await request.get(`${testOrigin}/app/${path}`);expect(res.ok(),path).toBe(true);
   const body=await res.body();expect(body.subarray(1,4).toString(),path).toBe('PNG');

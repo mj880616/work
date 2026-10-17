@@ -1,6 +1,6 @@
-import {classificationFormat} from './basket-classification.js?v=10';
-import {readBasket} from './basket-data.js?v=9';
-import {effectiveOcrText} from './basket-ocr-text.mjs?v=1';
+import {classificationFormat} from './basket-classification.js';
+import {readBasket} from './basket-data.js';
+import {effectiveOcrText} from './basket-ocr-text.mjs';
 
 // Basket guidance only: active + actual owner assignment, matching home weekUpdates.
 // Keep browser/Edge deployment-local copies identical; regression tests compare them.
@@ -71,7 +71,7 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date(),{noteId=n
   if(current?.workspace?.id!==workspaceId||current?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
   onPrepared(notes.length);
   if(!notes.length)return '';
-  await import('./project-catalog.js?v=3');
+  await import('./project-catalog.js');
   const [catalog,orgs]=await Promise.all([window.KPTUProjectCatalog.load({workspaceId,userId,force:true}),organizations(rt,workspaceId,userId)]);
   const after=rt.context.read();
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');

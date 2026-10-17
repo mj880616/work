@@ -1,4 +1,4 @@
-import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js?v=2';
+import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
 (()=>{
   if(window.__KPTU_CALENDAR_DAY_OVERFLOW__)return;
   window.__KPTU_CALENDAR_DAY_OVERFLOW__=true;

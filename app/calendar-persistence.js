@@ -1,4 +1,4 @@
-import {seoulParts,seoulDate,addSeoulDays} from './meeting-time.js?v=2';
+import {seoulParts,seoulDate,addSeoulDays} from './meeting-time.js';
 let cpState=null,cpEvents=[],cpSavePromise=null,cpSaveQueued=false,cpOwner=null;
 // 메모리 캐시만 사용한다(저장소 키 없음). status는 연결 상태일 때만 5분, 월별 events는 5분 동안 먼저 보여주고 항상 뒤에서 다시 읽는다.
 const CP_STATUS_TTL=5*60*1000,CP_EVENTS_TTL=5*60*1000,CP_FOCUS_MIN=30*1000,cpRangeCache=new Map();

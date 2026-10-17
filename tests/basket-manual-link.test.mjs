@@ -70,8 +70,8 @@ test('plain-language errors for manual linking',()=>{
 
 test('manual linking reuses the existing RPC and task paths and adds no new write path',()=>{
   const source=readFileSync(new URL('../app/basket-manual-link.js',import.meta.url),'utf8');
-  assert.match(source,/import \{confirmLinks,ERROR_TEXT\} from '\.\/basket-classification\.js\?v=10'/);
-  assert.match(source,/import \{createGoogleTask\} from '\.\/quick-save\.js\?v=2'/);
+  assert.match(source,/import \{confirmLinks,ERROR_TEXT\} from '\.\/basket-classification\.js'/);
+  assert.match(source,/import \{createGoogleTask\} from '\.\/quick-save\.js'/);
   assert.doesNotMatch(source,/method:'(POST|PATCH|DELETE)'/);
   assert.doesNotMatch(source,/app_record_links/);
 });

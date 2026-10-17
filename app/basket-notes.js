@@ -2,13 +2,13 @@
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
 // This module owns everything drawn into its host: list (search, newest change first) → read → edit, and [+] → new note.
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
-import { readNoteDocs, createNoteDoc, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, noteTitleFromText } from './basket-data.js?v=9';
-import { deleteNoteOriginal } from './basket-record-delete.js?v=3';
-import { mountManualLink } from './basket-manual-link.js?v=12';
-import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js?v=2';
-import { openMarkdownEditor, copyText } from './md-editor.js?v=5';
-import { toTelegram } from './md-telegram.mjs?v=1';
-import { driveFileUrl, fileSize } from './basket-upload.js?v=7';
+import { readNoteDocs, createNoteDoc, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, noteTitleFromText } from './basket-data.js';
+import { deleteNoteOriginal } from './basket-record-delete.js';
+import { mountManualLink } from './basket-manual-link.js';
+import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
+import { openMarkdownEditor, copyText } from './md-editor.js';
+import { toTelegram } from './md-telegram.mjs';
+import { driveFileUrl, fileSize } from './basket-upload.js';
 
 const chipKinds = [['project','프로젝트'], ['organization','담당조직'], ['meeting','회의'], ['document','자료실']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', dateStyle:'medium', timeStyle:'short'}).format(d); };

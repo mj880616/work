@@ -2,10 +2,10 @@
 // 이 화면은 이 모듈 하나가 그린다. 여는 쪽은 글과 콜백만 넘기고, 저장은 여는 쪽의 기존 흐름이 맡는다(이 모듈은 저장하지 않는다).
 // 도구 막대는 선택한 글을 감싸거나 줄 앞에 기호를 넣는 마크다운 편집이며, 바꾸기는 execCommand('insertText')로 해
 // 브라우저 기본 되돌리기(Ctrl+Z·[되돌리기])에 그대로 남는다. 미리보기는 공용 markdown-view.js(정화·외부 요청 0)를 쓴다.
-import {renderMarkdownInto, preloadMarkdown} from './markdown-view.js?v=2';
-import {applyAction, MERMAID_TEMPLATES, CALLOUT_KINDS} from './md-editor-ops.mjs?v=1';
-import {toTelegram} from './md-telegram.mjs?v=1';
-import {createChoiceSheet} from './choice-sheet.js?v=1';
+import {renderMarkdownInto, preloadMarkdown} from './markdown-view.js';
+import {applyAction, MERMAID_TEMPLATES, CALLOUT_KINDS} from './md-editor-ops.mjs';
+import {toTelegram} from './md-telegram.mjs';
+import {createChoiceSheet} from './choice-sheet.js';
 
 const ID = 'mdEditor';
 const WIDE = window.matchMedia('(min-width:1024px)');

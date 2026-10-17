@@ -1,8 +1,8 @@
-import {formatSeoulTime} from './meeting-time.js?v=2';
-import { createAnchoredMenu } from './anchored-menu.js?v=1';
-import { dayKey } from './home-read-model.js?v=3';
-import { createGoogleTask } from './quick-save.js?v=2';
-import { readTaskSourceNotes, requestBasketNote, takeTaskOpenRequest, basketNoteHref } from './basket-note-tasks.js?v=4';
+import {formatSeoulTime} from './meeting-time.js';
+import { createAnchoredMenu } from './anchored-menu.js';
+import { dayKey } from './home-read-model.js';
+import { createGoogleTask } from './quick-save.js';
+import { readTaskSourceNotes, requestBasketNote, takeTaskOpenRequest, basketNoteHref } from './basket-note-tasks.js';
 (()=>{
 'use strict';
 if(window.__KPTU_GOOGLE_TASKS__)return;

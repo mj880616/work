@@ -1,4 +1,4 @@
-import {isProject,select,active,archived,tops,kids,tree,basketProjects} from './project-catalog-model.mjs?v=1';
+import {isProject,select,active,archived,tops,kids,tree,basketProjects} from './project-catalog-model.mjs';
 (()=>{
 'use strict';
 if(window.KPTUProjectCatalog)return;

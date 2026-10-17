@@ -1,4 +1,4 @@
-import {toMeetingISO} from './meeting-time.js?v=2';
+import {toMeetingISO} from './meeting-time.js';
 (()=>{
 'use strict';
 const rt=window.KPTURuntime;if(!rt)return;

@@ -1,5 +1,5 @@
-import {seoulDateKey,seoulClock} from './meeting-time.js?v=2';
-import {todayEvents} from './home-read-model.js?v=3';
+import {seoulDateKey,seoulClock} from './meeting-time.js';
+import {todayEvents} from './home-read-model.js';
 // List and week share KST day calculation and event/task rows. Month owns normalized bar geometry.
 export const calendarDateKey=seoulDateKey;
 export function dayItems(options,date,tasks){

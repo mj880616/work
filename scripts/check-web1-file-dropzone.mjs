@@ -23,7 +23,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (missing.length) {
       console.error('Web1 upload pages missing the shared dropzone helper:');
       for (const path of missing) console.error(`- ${path}`);
-      console.error('Add <script src="/work/assets/file-dropzone.js?v=20260913"></script> before </body> in each listed HTML file, then update the PR.');
+      console.error('Add <script src="/work/assets/file-dropzone.js"></script> before </body> in each listed HTML file, then update the PR.');
       process.exitCode = 1;
     } else {
       console.log(`Checked ${paths.length} tracked HTML files; all Web1 upload pages have the dropzone helper.`);

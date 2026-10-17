@@ -4,7 +4,7 @@
   window.__KPTU_PUBLIC_PAGE_EDITOR__=true;
 
   const EDIT_API='/functions/v1/public-page-edit';
-  const ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js?v=1';
+  const ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js';
   const AUTOSAVE_DELAY=650;
   const RETRY_DELAYS=[900,2200];
   const btn=()=>document.querySelector('#editPageBtn');

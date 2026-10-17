@@ -1,8 +1,8 @@
-import {seoulDayStart,seoulDate,seoulParts,addSeoulDays} from './meeting-time.js?v=2';
-import {renderList,stopList} from './calendar-list-view.js?v=6';
-import {renderWeek} from './calendar-week-view.js?v=5';
-import {dayItems,calendarDateKey} from './calendar-day-items.js?v=5';
-import {dayKey,ranges} from './home-read-model.js?v=3';
+import {seoulDayStart,seoulDate,seoulParts,addSeoulDays} from './meeting-time.js';
+import {renderList,stopList} from './calendar-list-view.js';
+import {renderWeek} from './calendar-week-view.js';
+import {dayItems,calendarDateKey} from './calendar-day-items.js';
+import {dayKey,ranges} from './home-read-model.js';
 // Owns view choice, list/week ranges and list pagination. Storage is local to this device/browser.
 const STORAGE_KEY='kptu-calendar-view';
 const desktop=matchMedia('(min-width:1024px)');

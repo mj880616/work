@@ -5,7 +5,7 @@ import test from 'node:test';
 import { buildPages } from './build-pages.mjs';
 import { checkBuild } from './check-pages-build.mjs';
 
-// The repository as it is now (numbered ?v=) is a valid build input; the output is not deployed.
+// The repository (plain paths since CI-버전자동화 3단계) is the Pages build input.
 const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const source = /\.(?:html|js|mjs|css)$/i;
 const input = Object.fromEntries(execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
@@ -19,9 +19,8 @@ test('the repository builds into hashed references, a matching manifest and Work
   assert.deepEqual(result.errors, []);
   assert.ok(result.references > 300 && result.assets > 100 && result.workerChecked > 100, JSON.stringify(result));
   assert.match(output['app/index.html'], /<script src="\.\/app\.js\?v=[0-9a-f]{10}" defer><\/script>/);
-  // A hash may happen to be all digits, so compare with the repository's own number instead.
-  const number = input['app/app.js'].match(/loader-v2\.js\?v=([^'"]+)/)[1];
-  assert.ok(!output['app/app.js'].includes(`loader-v2.js?v=${number}'`), number);
+  assert.match(output['app/app.js'], /import\('\.\/loader-v2\.js\?v=[0-9a-f]{10}'\)/);
+  assert.ok(!Object.hasOwn(input, 'app/asset-manifest.json'), 'the manifest exists only in the build output');
 });
 
 test('the build is deterministic for the same repository input', () => {
@@ -30,5 +29,5 @@ test('the build is deterministic for the same repository input', () => {
 
 test('an unbuilt tree fails the hash check, so the check cannot pass by accident', async () => {
   const { errors } = await checkBuild(input);
-  assert.ok(errors.some(error => error.startsWith('(a) app/index.html: ./app.js?v=')), errors.slice(0, 3).join('\n'));
+  assert.ok(errors.includes('(a) app/index.html: ./app.js → ?v= 없음'), errors.slice(0, 3).join('\n'));
 });

@@ -1,8 +1,9 @@
 name: Deploy GitHub Pages
 
 # CI-버전자동화 2단계(docs/design/ci-version-automation.md 4장): builds the Pages site the same way
-# the branch deployment does (Jekyll), rewrites ?v= to content hashes and app/asset-manifest.json
-# with scripts/build-pages.mjs, checks the result, and only then deploys it.
+# the branch deployment does (Jekyll), adds content-hash ?v= to references (the repository has none
+# since 3단계) and writes app/asset-manifest.json with scripts/build-pages.mjs, checks the result,
+# and only then deploys it.
 #
 # Safe before the switch: while Settings → Pages → Source is still "Deploy from a branch", the
 # build runs and is checked, but the deploy job is skipped (Pages build_type is not "workflow").
@@ -59,7 +60,7 @@ jobs:
           package-manager-cache: false
       - name: Install locked checker parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
-      - name: Rewrite ?v= to content hashes and build the asset manifest
+      - name: Add content-hash ?v= and build the asset manifest
         run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
       - name: Check hashed references, manifest and Worker fingerprints
         run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"

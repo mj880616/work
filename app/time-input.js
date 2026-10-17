@@ -2,7 +2,7 @@
 // Time cells are text inputs with the number keypad: 0900 → 09:00, 930 → 09:30, 1405 → 14:05.
 // Values keep their old shapes ("HH:MM", and "YYYY-MM-DDTHH:MM" for date-time holders),
 // so the existing save paths still read `.value` unchanged. Dates stay native date pickers.
-import {seoulInputValue,toSeoulISO} from './meeting-time.js?v=2';
+import {seoulInputValue,toSeoulISO} from './meeting-time.js';
 
 const pad=n=>String(n).padStart(2,'0');
 const HOUR=3600000;

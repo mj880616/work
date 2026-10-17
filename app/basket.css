@@ -1,4 +1,4 @@
-@import url('./quick-controls.css?v=2');
+@import url('./quick-controls.css');
 
 #basketView { box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; }
 #basketView [hidden] { display:none; }

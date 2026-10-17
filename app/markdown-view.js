@@ -2,8 +2,8 @@
 // 라이브러리는 scripts/markdown/md-pin.json으로 고정해 app/markdown-lib/에 넣은 같은 주소 파일만 쓴다(CDN 없음).
 // markdown-it·DOMPurify는 처음 표시할 때, KaTeX는 수식이 있을 때, Mermaid는 도식이 있을 때만 불러온다.
 // 모든 결과는 DOMPurify로 정화한 DOM 조각으로 넣고(문자열 재해석 없음), 외부 주소를 부르는 요소·속성은 남기지 않는다.
-import {createMarkdown, renderMarkdown, renderMath, safeHref, MERMAID_CONFIG} from './markdown-render.mjs?v=2';
-import {chatgptShareLinks} from './chatgpt-html.mjs?v=1';
+import {createMarkdown, renderMarkdown, renderMath, safeHref, MERMAID_CONFIG} from './markdown-render.mjs';
+import {chatgptShareLinks} from './chatgpt-html.mjs';
 
 const LIB = new URL('./markdown-lib/', import.meta.url);
 export const MARKDOWN_LIBS = Object.freeze({

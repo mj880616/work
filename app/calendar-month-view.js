@@ -1,4 +1,4 @@
-import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js?v=2';
+import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;

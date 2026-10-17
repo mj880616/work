@@ -2,17 +2,48 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync, copyFileSync, exis
 import { createHash } from 'node:crypto';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { graph } from './check-loader-cache.mjs';
-import { buildManifest, manifestPath } from './asset-manifest.mjs';
+import { graph, vendored } from './check-loader-cache.mjs';
 
-// CI-버전자동화 1단계(docs/design/ci-version-automation.md 4장): a Pages build output
-// (Jekyll _site or a repository copy) gets every ?v= replaced by the first 10 hex chars of the
-// SHA-256 of the referenced file's final bytes, children first, so a leaf change reaches
-// index.html. app/asset-manifest.json is regenerated from the same output. Not deployed yet.
+// CI-버전자동화(docs/design/ci-version-automation.md 4장): the repository references files
+// without ?v=. A Pages build output (Jekyll _site or a repository copy) gets every static
+// reference to a file in the tree versioned with the first 10 hex chars of the SHA-256 of that
+// file's final bytes, children first, so a leaf change reaches index.html. A ?v= already present
+// is overwritten. app/asset-manifest.json exists only in the output, made from the same bytes.
 const sourceFile = /\.(?:html|js|mjs|css)$/i;
 export const hashLength = 10;
 export const versionOf = bytes => createHash('sha256').update(bytes).digest('hex').slice(0, hashLength);
 const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// References into third-party bundles (`vendored`) are left as written: the release in the
+// folder name already pins the content, and their internal imports must keep one URL per module.
+// JSON named in a script is data read at run time (press/archive.json, rewritten by every press
+// publication); versioning it would change the script and so the whole Web2 chain on each
+// publication. JSON linked from HTML (the web app manifest) is a static asset like the rest.
+export const versionable = (files, edge) => Object.hasOwn(files, edge.target) && !vendored.test(edge.target)
+  && !(edge.target.endsWith('.json') && !edge.parent.endsWith('.html'));
+
+export function withVersion(raw, version) {
+  if (/[?&]v=/.test(raw)) return raw.replace(/([?&]v=)[^&#]*/, `$1${version}`);
+  const [, path, query = '', hash = ''] = raw.match(/^([^?#]*)(\?[^#]*)?(#.*)?$/);
+  return `${path}${query ? `${query}&` : '?'}v=${version}${hash}`;
+}
+
+// The Cloudflare router (cloudflare/bokdoong-router.mjs) keeps a ?v= asset in the edge cache and
+// marks it immutable only when the GitHub Pages bytes match this manifest. A deploy still
+// propagating serves old bytes for a new ?v=; those are never pinned.
+export const manifestPath = 'app/asset-manifest.json';
+
+export function buildManifest(files, bytes) {
+  const assets = {};
+  for (const edge of graph(files).edges) {
+    if (edge.version === null || !edge.target.startsWith('app/') || !bytes(edge.target)) continue;
+    const entry = assets[edge.target] ||= { v: new Set(), sha256: createHash('sha256').update(bytes(edge.target)).digest('hex') };
+    entry.v.add(edge.version);
+  }
+  const lines = Object.keys(assets).sort().map(target =>
+    `${JSON.stringify(target)}:${JSON.stringify({ v: [...assets[target].v].sort(), sha256: assets[target].sha256 })}`);
+  return `{"assets":{\n${lines.join(',\n')}\n}}\n`;
+}
 
 // A reference is a whole string literal, attribute value or url() value, so it must sit
 // between delimiters; "./a.js?v=1" never matches inside "./a.js?v=12".
@@ -30,7 +61,7 @@ export function rewriteVersions(input) {
   const text = Object.fromEntries(Object.entries(files).map(([file, value]) => [file, typeof value === 'string' ? value : 'blob']));
   const children = new Map();
   for (const edge of graph(text).edges) {
-    if (edge.version === null || !Object.hasOwn(files, edge.target)) continue;
+    if (!versionable(files, edge)) continue;
     if (!children.has(edge.parent)) children.set(edge.parent, []);
     children.get(edge.parent).push(edge);
   }
@@ -43,7 +74,7 @@ export function rewriteVersions(input) {
     let source = files[file];
     for (const edge of children.get(file) || []) {
       const version = finish(edge.target, [...trail, file]);
-      const next = edge.raw.replace(/([?&]v=)[^&#]*/, `$1${version}`);
+      const next = withVersion(edge.raw, version);
       if (next === edge.raw) continue;
       let replaced = replaceReference(source, edge.raw, next);
       // HTML attributes may spell & as &amp;; graph() reports the decoded form.

@@ -49,7 +49,7 @@ const index = patch(join(studio, 'index.html'), [
   [/<script id="vite-plugin-pwa:register-sw"[^>]*><\/script>/, ''],
   [/\s*<link rel="apple-touch-icon"[^>]*>/, ''],
   // The guard runs before every studio script (theme/locale init read browser storage synchronously).
-  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js?v=1"></script>`],
+  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>`],
 ]);
 patch(join(studio, 'print.html'), [[/(<meta charset="UTF-8">)/, `$1\n  ${cspMeta}`]]);
 for (const removed of ['manifest.webmanifest', 'registerSW.js', 'icons/', 'sw.js']) {

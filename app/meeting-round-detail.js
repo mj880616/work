@@ -1,7 +1,7 @@
-import {formatMeetingTime,meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js?v=2';
-import {bindDateTimeFields} from './time-input.js?v=1';
-import {createAnchoredMenu} from './anchored-menu.js?v=1';
-import {dueText,fileLine,bindDue,paintDue,bindDropTarget} from './meeting-compact.js?v=1';
+import {formatMeetingTime,meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js';
+import {bindDateTimeFields} from './time-input.js';
+import {createAnchoredMenu} from './anchored-menu.js';
+import {dueText,fileLine,bindDue,paintDue,bindDropTarget} from './meeting-compact.js';
 let mrdUploadEntries=[],mrdUploading=false;
 window.addEventListener('kptu:before-reload',event=>{if(mrdUploadEntries.some(entry=>entry.kind!=='success')&&!document.querySelector('#meetingRoundDetailModal')?.classList.contains('hidden'))event.detail.otherDraft=true});
 let mrdUser=null,mrdWorkspace=null,mrdRole=null,mrdProjects=[],mrdCurrent=null,mrdTasks=[],mrdEditingTask=null,mrdRequestEpoch=0,mrdSavingTask=false,mrdSavingEdit=false;const mrdTaskToggleSeq=new Map();
@@ -86,7 +86,7 @@ async function mrdDeleteMaterial(button,docs){
     if(!isCurrent()||d?.id!==token.id||d.workspace_id!==scope.workspace)return;
     const registration=Object.freeze({...d});
     let helper;
-    try{helper=await import('./document-delete.js?v=2')}
+    try{helper=await import('./document-delete.js')}
     catch{if(isCurrent())alert('자료를 삭제하지 못했습니다. 관리자에게 오류 확인을 요청해 주세요.');return}
     if(isCurrent())await helper.deleteDocument(registration,{api:mrdApi,role:mrdRole,expectedSessionEpoch:scope.epoch,isCurrent});
   }finally{mrdDeleteTokens.delete(token);button.disabled=false}

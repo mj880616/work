@@ -5,146 +5,74 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkCacheVersions } from './check-loader-cache.mjs';
+import { checkSourceVersions } from './check-loader-cache.mjs';
 
+// CI-버전자동화 3단계: the repository writes paths without ?v=; the Pages build adds hashes.
 const baseline = {
-  'app/index.html': '<link rel="modulepreload" href="./loader.js?v=1"><script src="./app.js?v=1"></script>',
-  'app/app.js': "import('./loader.js?v=1');",
-  'app/loader.js': "import('./views.js?v=1');",
-  'app/views.js': "const routes={tasks:['./tasks.js?v=1','./tasks.css?v=1']};",
+  'app/index.html': '<link rel="modulepreload" href="./loader.js"><script src="./app.js"></script>',
+  'app/app.js': "import('./loader.js');",
+  'app/loader.js': "import('./views.js');",
+  'app/views.js': "const routes={tasks:['./tasks.js','./tasks.css']};",
   'app/tasks.js': 'window.tasks=1;',
-  'app/tasks.css': 'body{color:black}',
-  'app/inactive.js': 'window.inactive=1;',
-  'tests/fixture.html': '<script src="../app/inactive.js?v=1"></script>',
-  'docs/readme.md': 'Documentation',
-  'index.html': '<link rel="icon" href="./icon.svg?v=1">',
+  'app/tasks.css': 'body{background:url(./bg.svg)}',
+  'app/bg.svg': '<svg/>',
+  'tests/fixture.html': '<script src="../app/tasks.js?v=1"></script>',
+  'docs/readme.md': 'Documentation ./app.js?v=1',
+  'index.html': '<link rel="icon" href="./icon.svg">',
   'icon.svg': '<svg>\n</svg>\n',
 };
-const run = (changes, base = baseline) => checkCacheVersions(base, { ...base, ...changes });
-const bumpChain = {
-  'app/index.html': baseline['app/index.html'].replaceAll('v=1', 'v=2'),
-  'app/app.js': baseline['app/app.js'].replaceAll('v=1', 'v=2'),
-  'app/loader.js': baseline['app/loader.js'].replaceAll('v=1', 'v=2'),
-  'app/views.js': baseline['app/views.js'].replaceAll('v=1', 'v=2'),
-};
+const run = (changes, base = baseline) => checkSourceVersions(base, { ...base, ...changes });
 
-test('changed loaded file with all parent versions bumped passes', () => {
-  assert.deepEqual(run({ ...bumpChain, 'app/tasks.js': 'window.tasks=2;' }).errors, []);
+test('a tree without hand-written ?v= passes', () => {
+  assert.deepEqual(run({}).errors, []);
 });
-test('changed loaded file without a bump names the file and version owner', () => {
-  const result = run({ 'app/tasks.js': 'window.tasks=2;' });
-  assert.equal(result.errors.length, 1);
-  assert.match(result.errors[0], /app\/tasks\.js.*app\/views\.js.*v=/);
+test('a hand-written ?v= in HTML, JS or CSS names the file and the reference', () => {
+  for (const [file, source, raw] of [
+    ['app/index.html', '<script src="./app.js?v=2"></script>', './app.js?v=2'],
+    ['app/views.js', "const routes={tasks:['./tasks.js?v=7','./tasks.css']};", './tasks.js?v=7'],
+    ['app/tasks.css', 'body{background:url(./bg.svg?v=20261016-frame1)}', './bg.svg?v=20261016-frame1'],
+    ['app/loader.js', "import('./views.js?x=1&v=3');", './views.js?x=1&v=3'],
+  ]) {
+    const { errors } = run({ [file]: source });
+    assert.equal(errors.length, 1, file);
+    assert.ok(errors[0].startsWith(`${file}: ${raw} — `), errors[0]);
+  }
 });
-test('leaf bump does not excuse an unchanged upper loader version', () => {
-  const result = run({ 'app/tasks.js': 'window.tasks=2;', 'app/views.js': bumpChain['app/views.js'] });
-  assert.equal(result.errors.length, 1);
-  assert.match(result.errors[0], /app\/views\.js.*app\/loader\.js/);
+test('HTML &amp; spelling and Web1 /work/ URLs are checked', () => {
+  const base = { 'p/index.html': '<script src="/work/app/tasks.js?x=1&amp;v=2"></script>', 'app/tasks.js': 'x();' };
+  assert.match(checkSourceVersions(base, base).errors[0], /^p\/index\.html: \/work\/app\/tasks\.js\?x=1&v=2/);
 });
-test('inactive files referenced only by test fixtures pass', () => {
-  assert.deepEqual(run({ 'app/inactive.js': 'window.inactive=2;' }).errors, []);
+test('files no page loads are checked too, so a retired module cannot carry a stale ?v=', () => {
+  assert.match(run({ 'app/retired.js': "import('./tasks.js?v=2');" }).errors[0], /^app\/retired\.js/);
+});
+test('external URLs, files outside the repository, templates and vendored bundles may keep ?v=', () => {
+  assert.deepEqual(run({
+    'app/views.js': "import('https://cdn.example/app/tasks.js?v=1');const n=1;import(`./view-${n}.js?v=4`);",
+    'index.html': '<link rel="icon" href="/favicon.ico?v=ad4b66941757"><script src="./lib/rhwp-0.8.7/index.js?v=1"></script>',
+    'lib/rhwp-0.8.7/index.js': "import('./transport.js?v=1');",
+    'lib/rhwp-0.8.7/transport.js': '',
+  }).errors, []);
+});
+test('comments do not count as references', () => {
+  assert.deepEqual(run({
+    'app/views.js': "// import('./tasks.js?v=1');\n/* import('./tasks.js?v=2') */ const routes={};",
+    'index.html': '<!-- <script src="app/tasks.js?v=1"></script> -->',
+  }).errors, []);
 });
 for (const root of ['android-app', 'windows-app']) {
-  test(`${root} tooling HTML is not an operational entry point`, () => {
-    const base = {
-      [`${root}/fixture.html`]: '<script src="../app/inactive.js?v=1"></script>',
-      'app/inactive.js': 'old();',
-    };
-    assert.deepEqual(run({ 'app/inactive.js': 'newer();' }, base).errors, []);
+  test(`${root} tooling is not a deployed source`, () => {
+    assert.deepEqual(run({ [`${root}/fixture.html`]: '<script src="../app/tasks.js?v=1"></script>' }).errors, []);
   });
-  test(`${root} files explicitly loaded by a real page are still checked`, () => {
-    const base = {
-      'index.html': `<script src="./${root}/native.js?v=1"></script>`,
-      [`${root}/native.js`]: 'old();',
-    };
-    assert.match(run({ [`${root}/native.js`]: 'newer();' }, base).errors[0], /native\.js.*index\.html/);
-  });
-  test(`${root}-public is not tooling and remains an entry point`, () => {
-    const base = {
-      [`${root}-public/index.html`]: '<script src="../app/inactive.js?v=1"></script>',
-      'app/inactive.js': 'old();',
-    };
-    assert.match(run({ 'app/inactive.js': 'newer();' }, base).errors[0], /inactive\.js/);
+  test(`${root}-public is not tooling and is checked`, () => {
+    assert.match(run({ [`${root}-public/index.html`]: '<script src="../app/tasks.js?v=1"></script>' }).errors[0], /tasks\.js\?v=1/);
   });
 }
-test('documentation-only changes pass', () => {
-  assert.deepEqual(run({ 'docs/readme.md': 'Updated documentation' }).errors, []);
-});
-test('every remaining reference must change, including duplicate preloads', () => {
-  const result = run({ ...bumpChain, 'app/index.html': baseline['app/index.html'].replace('app.js?v=1', 'app.js?v=2') });
-  assert.equal(result.errors.length, 1);
-  assert.match(result.errors[0], /app\/loader\.js.*app\/index\.html/);
-});
-test('moving a reference to a new loader cannot reuse an old cached URL', () => {
-  const base = { 'old.html': '<script src="./dep.js?v=1"></script>', 'dep.js': 'old();' };
-  const head = { 'new.html': '<script src="./dep.js?v=1"></script>', 'dep.js': 'newer();' };
-  assert.match(checkCacheVersions(base, head).errors[0], /dep\.js.*new\.html/);
-});
-test('bumping to a version already used by another page still fails', () => {
-  const base = {
-    'a.html': '<script src="./dep.js?v=1"></script>',
-    'b.html': '<script src="./dep.js?v=2"></script>',
-    'dep.js': 'old();',
-  };
-  assert.match(run({ 'dep.js': 'newer();', 'a.html': base['b.html'], 'b.html': '' }, base).errors[0], /dep\.js.*a\.html/);
-});
-test('Web1 root URLs and transitive script assignments are checked', () => {
-  const base = {
-    'index.html': '<script src="/work/assets/main.js?v=abc"></script>',
-    'assets/main.js': "s.src='/work/assets/tools.js?v=date-1';",
-    'assets/tools.js': 'old();',
-  };
-  assert.match(run({ 'assets/tools.js': 'newer();' }, base).errors[0], /assets\/tools\.js.*assets\/main\.js/);
-  assert.deepEqual(run({
-    'assets/tools.js': 'newer();',
-    'assets/main.js': "s.src='/work/assets/tools.js?v=date-2';",
-    'index.html': '<script src="/work/assets/main.js?v=def"></script>',
-  }, base).errors, []);
-});
-test('CSS imports in login styles are checked through their parent', () => {
-  const base = {
-    'app/login/index.html': '<link rel="stylesheet" href="../styles.css?v=1">',
-    'app/styles.css': '@import url(./tasks.css?v=1);',
-    'app/tasks.css': 'body{color:black}',
-  };
-  assert.match(run({ 'app/tasks.css': 'body{color:red}' }, base).errors[0], /app\/tasks\.css.*app\/styles\.css/);
-});
-test('Web1 regex quotes do not hide subsequent script loads', () => {
-  // Reduced from assets/press-0914-tools.js escapeHtml + dynamic script load.
-  const base = {
-    'index.html': '<script src="/work/assets/tools.js?v=1"></script>',
-    'assets/tools.js': `const escapeHtml=s=>s.replace(/[&<>"']/g,c=>c);
-      s.src='/work/assets/file-dropzone.js?v=20260914-3';`,
-    'assets/file-dropzone.js': 'old();',
-  };
-  const result = run({ 'assets/file-dropzone.js': 'newer();' }, base);
-  assert.equal(result.errors.length, 1);
-  assert.match(result.errors[0], /assets\/file-dropzone\.js.*assets\/tools\.js/);
-});
-test('comments and external URL lookalikes do not activate local files', () => {
-  const base = { ...baseline, 'app/views.js': `// import('./inactive.js?v=1');
-    /* import('./inactive.js?v=2') */
-    import('https://cdn.example/app/inactive.js?v=1');`,
-    'index.html': '<!-- <script src="app/inactive.js?v=1"></script> -->',
-  };
-  assert.deepEqual(run({ 'app/inactive.js': 'newer();' }, base).errors, []);
-});
-test('removing v is not a cache bump and one stale duplicate still fails', () => {
-  assert.match(run({ ...bumpChain, 'app/tasks.js': 'newer();', 'app/views.js': "import('./tasks.js');" }).errors[0], /tasks\.js/);
-  assert.match(run({ ...bumpChain, 'app/tasks.js': 'newer();', 'app/views.js': "import('./tasks.js?v=2');import('./tasks.js?v=1');" }).errors[0], /tasks\.js/);
-});
 test('removed dependency passes but a deleted file still referenced fails', () => {
-  const base = { 'index.html': '<script src="./main.js?v=1"></script>', 'main.js': 'old();' };
-  assert.deepEqual(checkCacheVersions(base, { 'index.html': '' }).errors, []);
-  assert.match(checkCacheVersions(base, { 'index.html': base['index.html'] }).errors[0], /main\.js/);
+  const base = { 'index.html': '<script src="./main.js"></script>', 'main.js': 'old();' };
+  assert.deepEqual(checkSourceVersions(base, { 'index.html': '' }).errors, []);
+  assert.match(checkSourceVersions(base, { 'index.html': base['index.html'] }).errors[0], /main\.js 파일을 삭제했지만 index\.html/);
 });
-test('new files, unversioned references and line ending changes do not demand old versions', () => {
-  const base = { 'index.html': '<script src="./main.js"></script>', 'main.js': 'old();\n' };
-  assert.deepEqual(run({ 'main.js': 'newer();' }, base).errors, []);
-  assert.deepEqual(run({ 'main.js': 'old();\r\n' }, base).errors, []);
-  assert.deepEqual(run({ 'new.js': 'newer();', 'index.html': '<script src="./new.js?v=1"></script>' }, base).errors, []);
-});
-test('CLI compares real Git revisions, working tree, and fails for invalid base', t => {
+test('CLI checks real Git revisions and the working tree, and fails for an invalid base', t => {
   const dir = mkdtempSync(join(tmpdir(), 'loader-cache-test-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
@@ -160,36 +88,36 @@ test('CLI compares real Git revisions, working tree, and fails for invalid base'
   const cli = fileURLToPath(new URL('./check-loader-cache.mjs', import.meta.url));
   const invoke = (...args) => spawnSync(process.execPath, [cli, ...args], { cwd: dir, encoding: 'utf8' });
   writeFileSync(join(dir, 'icon.svg'), '<svg>\r\n</svg>\r\n');
-  assert.equal(invoke('--base', base).status, 0, 'Windows checkout line endings must not report icon changes');
-  writeFileSync(join(dir, 'app/tasks.js'), 'newer();');
+  assert.equal(invoke('--base', base).status, 0);
+  writeFileSync(join(dir, 'app/views.js'), "const routes={tasks:['./tasks.js?v=2','./tasks.css']};");
   assert.equal(invoke('--base', base).status, 1);
-  git('add', '.'); git('commit', '-qm', 'missing bump');
+  git('add', '.'); git('commit', '-qm', 'hand-written version');
   const result = invoke('--base', base, '--head', 'HEAD');
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /app\/tasks\.js.*app\/views\.js/);
+  assert.match(result.stderr, /app\/views\.js: \.\/tasks\.js\?v=2/);
   assert.equal(invoke('--base', 'missing-ref', '--head', 'HEAD').status, 2);
-  for (const [file, source] of Object.entries(bumpChain)) writeFileSync(join(dir, file), source);
+  writeFileSync(join(dir, 'app/views.js'), baseline['app/views.js']);
   assert.equal(invoke('--base', base).status, 0);
-  git('add', '.'); git('commit', '-qm', 'complete bumps');
+  git('add', '.'); git('commit', '-qm', 'path only');
   assert.equal(invoke('--base', base, '--head', 'HEAD').status, 0);
 });
-
-test('working-tree CLI removes old entry points after staged HTML rename', t => {
+test('working-tree CLI follows a staged HTML rename', t => {
   const dir = mkdtempSync(join(tmpdir(), 'loader-cache-rename-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
   git('init', '-q');
   git('config', 'user.name', 'Cache test');
   git('config', 'user.email', 'cache-test@example.invalid');
-  const html = '<p>Unchanged page content</p>\n'.repeat(30) + '<script src="./dep.js?v=1"></script>';
+  const html = '<p>Unchanged page content</p>\n'.repeat(30) + '<script src="./dep.js"></script>';
   writeFileSync(join(dir, 'old.html'), html);
   writeFileSync(join(dir, 'dep.js'), 'old();');
   git('add', '.'); git('commit', '-qm', 'base');
   git('mv', 'old.html', 'new.html');
-  writeFileSync(join(dir, 'new.html'), html.replace('v=1', 'v=2'));
   writeFileSync(join(dir, 'dep.js'), 'newer();');
   git('add', '.');
   const cli = fileURLToPath(new URL('./check-loader-cache.mjs', import.meta.url));
   const result = spawnSync(process.execPath, [cli, '--base', 'HEAD'], { cwd: dir, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
+  writeFileSync(join(dir, 'new.html'), html.replace('./dep.js', './dep.js?v=2'));
+  assert.equal(spawnSync(process.execPath, [cli, '--base', 'HEAD'], { cwd: dir, encoding: 'utf8' }).status, 1);
 });

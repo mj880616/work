@@ -6,7 +6,7 @@
 <title>10.7 궤도 공동대의원대회 기획안</title>
 <meta name="description" content="2026년 10월 7일 국회 앞 궤도 공동대의원대회 기획안">
 <link rel="canonical" href="https://mj880616.github.io/work/rail-council/2026-1007-delegates/">
-<link rel="icon" href="/work/favicon.svg?v=1" type="image/svg+xml">
+<link rel="icon" href="/work/favicon.svg" type="image/svg+xml">
 <style>
 :root{--bg:#f4f6f8;--paper:#fff;--ink:#18202a;--muted:#687383;--line:#e2e7ec;--navy:#17324d;--blue:#245786;--soft:#edf3f7;--red:#9d2b35}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.64;word-break:keep-all}button{font:inherit}.wrap{max-width:980px;margin:auto;padding:22px 16px 70px}.back{display:inline-flex;margin:0 2px 12px;color:#566577;text-decoration:none;font-size:13px;font-weight:800}.hero{background:linear-gradient(135deg,#142a42,#245786);color:#fff;border-radius:20px;padding:31px 29px}.eyebrow{font-size:12px;font-weight:900;color:#cbdbea;margin-bottom:8px}.hero h1{font-size:30px;line-height:1.25;margin:0}.hero p{margin:9px 0 0;color:#dce8f2;font-size:14px}.toolbar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:14px 2px 0}.state,.guide{font-size:11px;color:var(--muted)}.page-actions{display:flex;gap:7px;flex-shrink:0}.action-btn,.table-copy-btn{border:1px solid #c7d3dd;background:#fff;color:var(--navy);border-radius:9px;padding:7px 11px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 1px 3px rgba(23,50,77,.05)}
@@ -64,7 +64,7 @@ async function saveEdit(t){try{await persist();finish(t)}catch{alert('저장하�
 async function load(){try{const r=await fetch(API,{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();plan.innerHTML=(typeof d.content==='string'&&d.content.trim())?d.content:'<section class="section"><h2>저장된 기획안이 없습니다.</h2></section>';state.textContent=d.updated_at?'마지막 수정 '+fmt(d.updated_at):'초안';const changed=migrateContent();decorate();if(changed)try{await persist('내용 정리 저장 중…')}catch{}}catch{plan.innerHTML='<section class="section"><h2>기획안을 불러오지 못했습니다.</h2><p>잠시 후 새로고침해 주세요.</p></section>';state.textContent='불러오기 실패'}}
 load();
 </script>
-<script src="/work/assets/rich-copy.js?v=2"></script><script src="/work/assets/rail-1007-controls.js?v=5"></script><script src="/work/app/web1-page-capabilities.js?v=2"></script>
-<script src="/work/app/web1-admin-auth.js?v=2"></script>
+<script src="/work/assets/rich-copy.js"></script><script src="/work/assets/rail-1007-controls.js"></script><script src="/work/app/web1-page-capabilities.js"></script>
+<script src="/work/app/web1-admin-auth.js"></script>
 
 </body></html>

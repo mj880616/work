@@ -1,13 +1,12 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { graph } from './check-loader-cache.mjs';
-import { buildManifest, manifestPath } from './asset-manifest.mjs';
-import { readTree, versionOf, hashLength } from './build-pages.mjs';
+import { readTree, versionOf, hashLength, buildManifest, manifestPath, versionable } from './build-pages.mjs';
 import router, { resetManifestMemo } from '../cloudflare/bokdoong-router.mjs';
 
-// Checks a build-pages.mjs output: (a) every ?v= reference is the content hash of its target,
-// (b) app/asset-manifest.json is exactly what the output files give, (c) the Cloudflare router
-// marks every listed Web2 asset immutable when GitHub Pages serves these bytes.
+// Checks a build-pages.mjs output: (a) every reference the build versions carries the content
+// hash of its target, (b) app/asset-manifest.json is exactly what the output files give, (c) the
+// Cloudflare router marks every listed Web2 asset immutable when GitHub Pages serves these bytes.
 const bytesOf = (files, file) => typeof files[file] === 'string' ? Buffer.from(files[file], 'utf8') : files[file];
 const hashed = new RegExp(`^[0-9a-f]{${hashLength}}$`);
 
@@ -17,7 +16,11 @@ export async function checkBuild(files) {
   const { edges } = graph(text);
   let references = 0;
   for (const edge of edges) {
-    if (edge.version === null || !Object.hasOwn(files, edge.target)) continue;
+    if (!Object.hasOwn(files, edge.target)) continue;
+    if (edge.version === null) {
+      if (versionable(files, edge)) errors.push(`(a) ${edge.parent}: ${edge.raw} → ?v= 없음`);
+      continue;
+    }
     references++;
     const expected = versionOf(bytesOf(files, edge.target));
     if (!hashed.test(edge.version) || edge.version !== expected) {

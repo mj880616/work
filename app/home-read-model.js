@@ -1,4 +1,4 @@
-import {seoulDateKey,seoulParts} from './meeting-time.js?v=2';
+import {seoulDateKey,seoulParts} from './meeting-time.js';
 const DAY = 86400000;
 export const dayKey = (now = Date.now()) => seoulDateKey(now);
 export function ranges(now = Date.now()) {

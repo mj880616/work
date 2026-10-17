@@ -15,14 +15,14 @@ const change = (file, before, after) => {
   assert.ok(baseline[file].includes(before), `fixture marker exists: ${file}: ${before}`);
   return { [file]: baseline[file].replace(before, after) };
 };
-const versioned = (file, name) => baseline[file].match(new RegExp(`\\./${name.replaceAll('.', '\\.')}\\?v=\\d+`))[0];
+// The repository writes exact paths; the Pages build adds ?v= (CI-버전자동화 3단계).
+const versioned = (file, name) => { assert.ok(baseline[file].includes(`./${name}`), `${file} references ${name}`); return `./${name}`; };
 
 test('current operational tree satisfies the module and cache contracts', () => {
   assert.deepEqual(run({}).errors, []);
 });
-test('consistent version increments need no checker version edits', () => {
-  const files = Object.fromEntries(Object.entries(baseline).map(([name, source]) => [name, source.replace(/\?v=(\d+)(?=["'])/g, (_, v) => `?v=${Number(v) + 1}`)]));
-  assert.deepEqual(checkAppSmokeContract(files).errors, []);
+test('a hand-written ?v= on a checked reference fails; the build adds it', () => {
+  assert.match(run(change('app/app.js', "'./loader-v2.js'", "'./loader-v2.js?v=1'")).errors.join('\n'), /app\.js.*loader-v2\.js.*without \?v=/);
 });
 test('missing app to loader import cannot be replaced by a comment', () => {
   const url = versioned('app/app.js', 'loader-v2.js');
@@ -50,7 +50,7 @@ test('duplicate startup and route registration fail', () => {
   const board = versioned('app/view-loader.js', 'web1-board.js');
   assert.match(run(change('app/view-loader.js', `await module('${board}');`, `await module('${board}'); await module('${board}');`)).errors.join('\n'), /web1-board.*1/);
 });
-for (const invalid of ['', '?v=', '?v=0', '?v=2&v=3', '?v=2#fragment', '?other=2', '?v=nope', '?v=2&other=3']) {
+for (const invalid of ['?v=', '?v=1', '?v=2&v=3', '?v=2#fragment', '?other=2', '#fragment', '?v=0123abcdef']) {
   test(`module cache URL rejects ${JSON.stringify(invalid)}`, () => {
     const url = versioned('app/view-loader.js', 'web1-board.js');
     assert.match(run(change('app/view-loader.js', url, `./web1-board.js${invalid}`)).errors.join('\n'), /web1-board/);
@@ -64,9 +64,9 @@ test('missing module target fails even if its import remains', () => {
   const files = { ...baseline }; delete files['app/web1-board.js'];
   assert.match(checkAppSmokeContract(files).errors.join('\n'), /web1-board.*missing/);
 });
-test('loader preload must exactly match the actual import version', () => {
+test('loader preload must use the same exact path as the actual import', () => {
   const url = versioned('app/index.html', 'loader-v2.js');
-  assert.match(run(change('app/index.html', url, './loader-v2.js?v=999999')).errors.join('\n'), /loader-v2.*version/);
+  assert.match(run(change('app/index.html', `href="${url}"`, 'href="./loader-v2.js?v=999999"')).errors.join('\n'), /loader-v2.*exact local path/);
 });
 test('a duplicate preload cannot hide one stale version', () => {
   assert.match(run({ 'app/index.html': baseline['app/index.html'] + '<link rel="modulepreload" href="./loader-v2.js?v=999999">' }).errors.join('\n'), /loader-v2/);
@@ -101,7 +101,7 @@ test('link src does not replace the actual href attribute', () => {
 });
 test('required stylesheet must belong to its route', () => {
   const url = versioned('app/view-loader.js', 'calendar-ui.css');
-  assert.match(run(change('app/view-loader.js', url, './not-calendar-ui.css?v=1')).errors.join('\n'), /calendar.*calendar-ui/);
+  assert.match(run(change('app/view-loader.js', `'${url}'`, "'./not-calendar-ui.css'")).errors.join('\n'), /calendar.*calendar-ui/);
 });
 test('CSS imports inside comments cannot satisfy required styles', () => {
   const url = versioned('app/styles.css', 'team.css');
@@ -109,11 +109,11 @@ test('CSS imports inside comments cannot satisfy required styles', () => {
 });
 test('CSS and HTML preload references to the same asset must agree', () => {
   const url = versioned('app/styles.css', 'topbar-actions.css');
-  assert.match(run(change('app/styles.css', url, './topbar-actions.css?v=999999')).errors.join('\n'), /topbar-actions.*version/);
+  assert.match(run(change('app/styles.css', `'${url}'`, "'./topbar-actions.css?v=999999'")).errors.join('\n'), /topbar-actions.*exact local path/);
 });
-test('manifest must be an actual manifest link with a valid cache URL', () => {
+test('manifest must be an actual manifest link with the exact path', () => {
   const url = versioned('app/index.html', 'windows-manifest.json');
-  assert.match(run(change('app/index.html', url, './windows-manifest.json')).errors.join('\n'), /windows-manifest/);
+  assert.match(run(change('app/index.html', `"${url}"`, '"./windows-manifest.json?v=8"')).errors.join('\n'), /windows-manifest/);
   assert.match(run(change('app/index.html', 'rel="manifest"', 'rel="other"')).errors.join('\n'), /windows-manifest/);
 });
 test('any global startup stylesheet version stays forbidden', () => {

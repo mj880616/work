@@ -206,13 +206,14 @@ test('service worker, HTML and HEAD requests are never immutable', async () => {
   }
 });
 
-test('the committed manifest matches the repository files it lists', async () => {
-  const { assets } = JSON.parse(await readFile(new URL('../../app/asset-manifest.json', import.meta.url), 'utf8'));
-  assert.ok(Object.keys(assets).length > 50);
-  for (const path of ['app/app.js', 'app/loader-v2.js', 'app/view-loader.js', 'app/project-system-v3.css', 'app/project-system-v3.js', 'app/theme-tokens.css']) {
-    const bytes = await readFile(new URL(`../../${path}`, import.meta.url));
-    assert.equal(assets[path]?.sha256, createHash('sha256').update(bytes).digest('hex'), path);
-  }
+// CI-버전자동화 3단계: the manifest exists only in the Pages build output, made from the same bytes it
+// lists. scripts/build-pages-repo.test.mjs builds this repository and checks every listed asset
+// against this router (scripts/check-pages-build.mjs (c)).
+test('the manifest is not committed; the Pages build writes it next to the files it lists', async () => {
+  await assert.rejects(readFile(new URL('../../app/asset-manifest.json', import.meta.url)), { code: 'ENOENT' });
+  const build = await readFile(new URL('../../scripts/build-pages.mjs', import.meta.url), 'utf8');
+  assert.match(build, /export const manifestPath = 'app\/asset-manifest\.json';/);
+  assert.ok(MANIFEST.endsWith('/work/app/asset-manifest.json'));
 });
 
 test('failed versioned Web2 assets never receive immutable browser caching', async () => {

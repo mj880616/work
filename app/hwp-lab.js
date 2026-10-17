@@ -4,11 +4,11 @@
 // - Drive 편집(2단계): 자료실·바구니의 [편집]이 hwp-drive.js 1회용 요청으로 넘긴 파일을 서버에서 열고,
 //   [새 파일로 저장](기본)·[원본에 덮어쓰기](HWP 원본만)로 Drive에 저장한다. 저장 형식은 HWP 하나다.
 // 편집기는 hwp-frame.js의 sandbox iframe(allow-same-origin 없음)에서 돈다. Web2 창·저장소·API에 닿지 못한다.
-import {createSandboxedEditor} from './hwp-frame.js?v=1';
-import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp} from './hwp-drive.js?v=1';
-import {requestLibraryDocument} from './basket-library-send.js?v=2';
-import {requestBasketNote} from './basket-note-tasks.js?v=4';
-import {requestLibraryUpload} from './library-upload-request.js?v=1';
+import {createSandboxedEditor} from './hwp-frame.js';
+import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp} from './hwp-drive.js';
+import {requestLibraryDocument} from './basket-library-send.js';
+import {requestBasketNote} from './basket-note-tasks.js';
+import {requestLibraryUpload} from './library-upload-request.js';
 (()=>{
 'use strict';
 if(window.__KPTU_HWP_LAB_READY__)return;

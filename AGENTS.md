@@ -113,11 +113,10 @@ AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로�
 
 ### 캐시 버전
 
-- Web2는 `app/index.html` → `app/app.js` → `app/loader-v2.js` → `app/view-loader.js`·기능 모듈 순서로 `?v=` 캐시 버전을 붙여 불러온다(`app/ARCHITECTURE.md`).
-- `?v=`로 불러오는 파일을 고치면 그 파일을 불러오는 곳의 `?v=`를 올린다. 그 때문에 불러오는 파일 자체가 바뀌면 그 파일의 버전도 윗단계에서 올린다. `index.html`까지 올라간다(예: `view-loader.js` 수정 → `loader-v2.js`의 `view-loader.js?v=` → `app.js`의 `loader-v2.js?v=`와 `index.html` modulepreload → `index.html`의 `app.js?v=`).
-- 버전 문자열을 기대하는 테스트(`tests/app-e2e/`)도 같은 PR에서 맞춘다.
-- `?v=`로 불러오는 파일이나 버전을 바꾸면 `node scripts/asset-manifest.mjs`로 `app/asset-manifest.json`을 다시 만들어 같은 PR에 넣는다(CI 검사). 손으로 고치지 않는다. 충돌하면 main을 merge한 뒤 다시 만든다.
-- 어느 로더도 불러오지 않는 파일은 올릴 버전이 없다. 이 경우 보고에 그렇게 적는다.
+- `?v=`를 손으로 쓰지 않는다. 빌드가 붙인다. HTML·JS·CSS에서 저장소 안 파일은 번호 없는 경로로 부른다(예: `import('./view-loader.js')`, `<script src="./app.js" defer>`).
+- Pages 배포(`.github/workflows/pages-deploy.yml`) 때 `scripts/build-pages.mjs`가 그 경로마다 파일 내용 해시를 `?v=`로 붙이고 `app/asset-manifest.json`을 만든다. 파일 하나를 고치면 부르는 쪽 해시도 빌드가 `index.html`까지 이어 바꾼다. 목록 파일은 빌드 결과물에만 있고 저장소에 두지 않는다(`app/ARCHITECTURE.md` 1절).
+- CI(`loader-cache-check`)는 저장소 소스에 손으로 쓴 `?v=`가 있으면 실패한다. 저장소 밖 주소, 저장소에 없는 파일, 폴더 이름에 판 번호가 든 외부 라이브러리(`rhwp-0.8.7/` 등) 안쪽은 예외다.
+- 테스트(`tests/app-e2e/` 등)는 번호 없는 경로를 기대한다. 배포된 버전이 필요한 검사(새 버전 알림 등)는 빌드처럼 `app.js`에 버전을 붙인 화면을 띄워 검사한다(`tests/app-e2e/helpers/built-shell.mjs`).
 
 ## 5. 제품 구조 (Confirmed product structure)
 

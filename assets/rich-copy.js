@@ -117,7 +117,7 @@
     if(window.__PRIVATE_RAIL_QUESTION_TOOLS__||document.getElementById('privateRailQuestionToolsLoader'))return;
     const s=document.createElement('script');
     s.id='privateRailQuestionToolsLoader';
-    s.src='/work/assets/private-rail-question-tools.js?v=0915-1';
+    s.src='/work/assets/private-rail-question-tools.js';
     document.head.append(s);
   }
 

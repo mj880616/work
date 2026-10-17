@@ -33,10 +33,10 @@ test('calendar hotfix removes stale local calendar UI and returns OAuth to Web2'
   expect(callback).toContain("if (state?.split('.').includes('android')) u.searchParams.set('native', 'android')");
   expect(bridge).toContain("params.get('native')==='android'");
   expect(bridge).not.toContain("/Android/i.test(navigator.userAgent)");
-  expect(index).toContain('./loader-v2.js?v=419');
-  expect(index).toContain('./app.js?v=307');
-  expect(views).toContain("module('./calendar-persistence.js?v=17'");
-  expect(views).not.toContain("calendar-persistence.js?v=10");
+  expect(index).toContain('./loader-v2.js');
+  expect(index).toContain('./app.js');
+  expect(views).toContain("module('./calendar-persistence.js'");
+  expect(views).not.toContain("calendar-persistence.js?v=");
   expect(persistence).not.toContain('showGoogleCalendar');
   expect(persistence).toContain("addEventListener('kptu:session-changed'");
   expect(calendarEdge).toContain("ids=Array.isArray(c.calendar_ids)?c.calendar_ids:['primary']");

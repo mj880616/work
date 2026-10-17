@@ -153,6 +153,24 @@
 - `AGENTS.md` §4 캐시 버전 절과 `app/ARCHITECTURE.md` 1절을 새 방식으로 바꾼다(규칙 변경 → 사용자 승인).
 - 되돌리기: 이 PR revert + 2단계 되돌리기. 3단계 뒤 Pages만 branch로 되돌리면 번호 없이 동작(전부 `no-cache`, 기능 정상).
 
+### 3단계 구현 (2026-10-17, 저장소에서 번호·목록 빼기)
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `app/`·Web1 HTML·JS·CSS (137개) | 저장소 안 파일을 가리키던 손으로 쓴 `?v=` 502개를 지움(번호 없는 경로). `${…}` 동적 경로에 `?v=`가 박힌 곳은 없었음. 정적 분석에 안 잡히던 2곳(`app/workflow-ai-v3.js`의 `meeting-time.js?v=2` — 어느 로더도 안 부르는 파일, `private-rail/index.html`의 `fetch('./page.html?v=3',{cache:'no-store'})`)도 지움 |
+| `app/asset-manifest.json`, `scripts/asset-manifest.mjs`(+test) | 삭제. 목록 생성(`buildManifest`)은 `build-pages.mjs`로 옮김 → 빌드 결과물에만 생김 |
+| `scripts/build-pages.mjs` | 번호 없는 참조에도 `?v=<해시>`를 붙임(다른 query·`#`는 유지). 예외: 저장소에 없는 대상, 폴더 이름에 판 번호가 든 외부 라이브러리(`rhwp-0.8.7/` 등, 내부 import가 한 주소를 유지해야 함), 스크립트가 읽는 JSON(`press/archive.json` — 게시할 때마다 Web2 사슬이 바뀌지 않게) |
+| `scripts/check-loader-cache.mjs` | "저장소 소스에 손으로 쓴 `?v=`가 없을 것"(로더가 안 부르는 파일 포함) + 기존 "삭제한 파일을 아직 부름" 검사 |
+| `scripts/check-pages-build.mjs` | (a)에 "빌드가 붙여야 할 참조에 `?v=`가 없음"도 오류로 추가 |
+| `scripts/cloudflare-check-urls.mjs` | 빌드 결과 폴더를 반드시 받음(저장소 checkout은 `?v=`가 없어 거부) |
+| `.github/workflows/cloudflare-worker-deploy.yml` | 대기 단계에서 "저장소 파일과 일치" 경로 제거, "빌드 결과물과 일치"만 인정 |
+| `loader-cache-check.yml`·`app-smoke-check.yml` | 목록 검사 제거. 다른 workflow의 `grep "x.js?v=N"`은 번호 없는 정확한 줄로 |
+| `tests/app-e2e/` | 버전 문자열 기대를 번호 없는 경로로. 새 버전 알림 검사는 빌드처럼 `app.js?v=300`을 붙인 화면을 띄움(`helpers/built-shell.mjs`) |
+
+- 대조: 같은 스크립트로 main(27d3a84, 운영과 같은 빌드)과 이 브랜치를 빌드하면 `app/` 아래 결과물(`asset-manifest.json` 포함)은 바이트까지 같다. 다른 곳은 Web1 페이지 14개(전에 번호가 없던 `favicon.svg`·`kptu-logo.svg`·`makinochaya-route.png`·`materials-data.js`에 해시가 새로 붙음)와 `private-rail/index.html`의 `page.html` fetch, 로더가 안 부르는 `workflow-ai-v3.js`뿐이다.
+- 남은 손 번호(예외): 저장소에 없는 파일(`personal/portal`의 `/favicon.ico?v=…`·`/favicon.png?v=…`), 다른 주소(`https://…?v=20260920`), JSON 안 주소(`app/windows-manifest.json` 아이콘 `?v=20261016-frame1`).
+- Worker 코드(`cloudflare/bokdoong-router.mjs`)는 고치지 않았다(주석의 `scripts/asset-manifest.mjs` 언급도 그대로). workflow 파일 변경으로 merge 때 Worker 배포 workflow가 한 번 돈다(같은 코드 재배포).
+
 ### 4단계 — 정리
 
 - `_config.yml`의 역할 확인(Jekyll을 빌드 workflow에서 계속 쓰면 유지), 문서·원장 정리. BUG-배포캐시-후속(HTML 10분 보관)은 Actions 배포에서도 같은 헤더라 별도 과제로 남는다.

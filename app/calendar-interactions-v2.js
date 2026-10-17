@@ -1,5 +1,5 @@
-import {seoulInputValue,seoulDateKey,seoulClock,seoulDayStart,addSeoulDays,seoulDate,toSeoulISO} from './meeting-time.js?v=2';
-import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js?v=1';
+import {seoulInputValue,seoulDateKey,seoulClock,seoulDayStart,addSeoulDays,seoulDate,toSeoulISO} from './meeting-time.js';
+import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 let ciEndLink=null,ciGoogleCurrent=null,ciGoogleSavePending=false,ciGoogleOpenSeq=0,ciGoogleReadySeq=0,ciGoogleOwner=null,ciSaveRequest=null;const ciUncertain=new Map(),ciPendingWrites=new Map();
 function ciRuntime(){const rt=window.KPTURuntime;if(!rt?.session||!rt?.api)throw new Error('앱 런타임을 불러오지 못했습니다.');return rt}
 async function ciGoogleCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){const rt=ciRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body,expectedSessionEpoch});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}

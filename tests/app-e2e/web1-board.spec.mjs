@@ -50,7 +50,7 @@ for(const width of [390,1440])test('compact board cards show only their title an
   await page.setViewportSize({width,height:900});
   const baseline=await browser.newPage({viewport:{width,height:900}});
   const mainCSS=execFileSync('git',['show','589d7eee99eeaf88b4b87498d42842aa74d9f401:app/web1-board.css'],{encoding:'utf8'});
-  await baseline.route('**/app/web1-board.css?*',route=>route.fulfill({contentType:'text/css',body:mainCSS}));
+  await baseline.route('**/app/web1-board.css*',route=>route.fulfill({contentType:'text/css',body:mainCSS}));
   for(const p of [page,baseline]){
     await mockApp(p,{archived:['sanbyeol']});
     await p.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({contentType:'text/plain; charset=utf-8',body:'<!doctype html><html><body><main id="embeddedBoard">board reader</main></body></html>'}));

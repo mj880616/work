@@ -233,7 +233,7 @@ async function openWriter(){
   writerOpening=true;
   try{
     const owner=window.KPTURuntime?.session?.read?.()?.user?.id;
-    const [{openMarkdownEditor},{createNote,createNoteDoc,noteTitleFromText},{requestNoteDocOpen}]=await Promise.all([import('./md-editor.js?v=5'),import('./basket-data.js?v=9'),import('./basket-note-tasks.js?v=4'),window.KPTUViewLoader?.prepare?.('basket')]);
+    const [{openMarkdownEditor},{createNote,createNoteDoc,noteTitleFromText},{requestNoteDocOpen}]=await Promise.all([import('./md-editor.js'),import('./basket-data.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
     if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
     let saved=null;
     openMarkdownEditor({text:writeDraft,title:'쓰기',kinds:{label:'저장할 곳',value:'memo',options:[['memo','메모'],['note','노트']]},

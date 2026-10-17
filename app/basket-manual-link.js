@@ -1,10 +1,10 @@
-import {confirmLinks,ERROR_TEXT} from './basket-classification.js?v=10';
-import {validateLinkSummary,readRecordPages} from './basket-link-records.js?v=7';
-import {selectBasketOrganizations} from './basket-ai-handoff.js?v=21';
-import {createChoiceSheet,projectRows} from './choice-sheet.js?v=1';
-import {createGoogleTask} from './quick-save.js?v=2';
-import {dayKey} from './home-read-model.js?v=3';
-import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js?v=4';
+import {confirmLinks,ERROR_TEXT} from './basket-classification.js';
+import {validateLinkSummary,readRecordPages} from './basket-link-records.js';
+import {selectBasketOrganizations} from './basket-ai-handoff.js';
+import {createChoiceSheet,projectRows} from './choice-sheet.js';
+import {createGoogleTask} from './quick-save.js';
+import {dayKey} from './home-read-model.js';
+import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
 
 // BASKET-수동연결: the user picks destinations and writes each summary in the
 // basket read view. Writes reuse app_basket_confirm_links (owner RLS, INVOKER).
@@ -64,7 +64,7 @@ const taskIdentity=task=>!!task&&typeof task.id==='string'&&!!task.id&&typeof ta
 export async function readManualChoices(rt=window.KPTURuntime){
   const c=rt.context.read(),workspaceId=c?.workspace?.id,userId=c?.user?.id;
   if(!workspaceId||!userId)throw Error('업무 공간을 확인할 수 없어요.');
-  await Promise.all([import('./project-catalog.js?v=3'),import('./organization-order.js?v=2')]);
+  await Promise.all([import('./project-catalog.js'),import('./organization-order.js')]);
   const [catalog,rows,assignees]=await Promise.all([
     window.KPTUProjectCatalog.load({workspaceId,userId,force:true}),
     readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=id,name,active&order=id.asc`,rt),

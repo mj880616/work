@@ -41,7 +41,7 @@ test('the editor page blocks external origins and runs the storage guard before 
   const html=readFileSync(`${dir}/studio/index.html`,'utf8');
   assert.match(html,/<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval';[^"]*connect-src 'self' data: blob:;/);
   const scripts=[...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].map(match=>match[1]);
-  assert.equal(scripts[0],'../../studio-guard.js?v=1');
+  assert.equal(scripts[0],'../../studio-guard.js');
   assert.ok(!/https?:\/\//.test(scripts.join(' ')));
   assert.ok(!/rel="manifest"|registerSW/.test(html));
 });

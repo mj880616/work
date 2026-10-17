@@ -65,7 +65,7 @@ test('non-owner cannot touch Drive or remove a record', async () => {
 test('active library delete entry point explains that the Drive file may be trashed or preserved', () => {
   const code = readFileSync(new URL('../../app/library-upload.js', import.meta.url), 'utf8');
   const shared = readFileSync(new URL('../../app/document-delete.js', import.meta.url), 'utf8');
-  assert.match(code, /import\('\.\/document-delete\.js\?v=\d+'\)/);
+  assert.match(code, /import\('\.\/document-delete\.js'\)/);
   assert.match(code, /await helper\.deleteDocument\(registration,/);
   assert.match(shared, /파일도 Drive 휴지통으로 이동할 수 있습니다\. 삭제 결과에서 원본 보존 여부를 확인해 주세요\./);
   assert.match(shared, /자료 등록을 삭제하고 파일을 Drive 휴지통으로 이동했습니다\./);

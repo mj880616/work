@@ -4,7 +4,7 @@
 // - 문서 맨 앞에 CSP(default-src 'none', 인라인 스타일·스크립트·data: 이미지·글꼴만)를 붙여 모든 네트워크 요청을 막는다.
 // - 높이는 칸막이 안 스크립트가 보낸 숫자만 받는다(보낸 창이 그 iframe일 때만, 범위 제한).
 // - 내용은 document-actions `html-view`(읽기 전용, 2MB까지)로 받는다. 요청은 자동으로 다시 보내지 않는다.
-import {frameDocument} from './chatgpt-html.mjs?v=1';
+import {frameDocument} from './chatgpt-html.mjs';
 
 export const HTML_FRAME_TEXT = Object.freeze({
   notReady: 'HTML 보기 서버가 아직 준비되지 않았어요. [Drive에서 열기]로 확인해 주세요.',
