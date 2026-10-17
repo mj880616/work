@@ -177,10 +177,10 @@
   }
 
   function syncNavigationState(view){
-    // Phone [일정] tab holds 달력(calendar) and 할 일(tasks): it opens the side seen last
+    // Phone [일정] tab holds 달력(calendar), 할 일(tasks), 일지(journal) and 일기(diary): it opens the side seen last
     // in this tab, so the tab, swipe order and current mark all follow one attribute.
     const schedule=document.querySelector('.mobile-tabs [data-mobile-schedule-tab]');
-    if(schedule&&(view==='calendar'||view==='tasks'))schedule.dataset.view=view;
+    if(schedule&&['calendar','tasks','journal','diary'].includes(view))schedule.dataset.view=view;
     document.querySelectorAll('.app-nav .nav-btn,.mobile-tabs [data-view],.mobile-menu-panel [data-view]').forEach(btn=>{
       const current=btn.dataset.view===(NAV_ALIAS[view]||view);
       btn.classList.toggle('active',current);

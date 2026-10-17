@@ -34,6 +34,11 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
     if(tasks.length){const section=document.createElement('section');section.id='calendarDayTasks';const heading=document.createElement('h3');heading.textContent='할 일';section.append(heading);tasks.forEach(e=>section.append(eventRow(e)));list.append(section)}
     if(tasks.length)window.KPTUGoogleTasks?.describeTasks?.(tasks.map(e=>({id:e.id,due:taskDate(e)}))).then(rows=>{if(seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;rows.forEach(t=>{const main=list.querySelector(`[data-calendar-task="${CSS.escape(t.id)}"] .gt-day-main`);if(!main)return;main.querySelector('.gt-meta')?.remove();main.insertAdjacentHTML('beforeend',window.KPTUGoogleTasks.taskMeta(t));})}).catch(()=>{});
     if(!events.length)list.innerHTML='<div class="empty compact">일정 없음</div>';
+    // JOURNAL-일기: that day's diary first photo, small, on top of the list (opens [일기] on that day).
+    Promise.all([import('./diary-data.js'),window.KPTUViewLoader?.prepare?.('diary')]).then(([diary])=>diary.diaryDayPreview(seoulDateKey(date))).then(preview=>{
+      if(!preview||seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
+      const section=document.createElement('section');section.id='calendarDayDiary';section.append(preview);list.prepend(section);
+    }).catch(()=>{});
     const modal=document.querySelector('#calendarDayModal');modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
     window.KPTUA11y?.dialog.activate?.(modal,{trigger:document.activeElement,initialFocus:'#calendarDayList .cal-event',onRequestClose:()=>{modal.classList.add('hidden');modal.setAttribute('aria-hidden','true')}});
   }
@@ -42,6 +47,17 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
   ensureModal();
   window.KPTUCalendarDayOverflow={apply,open};
   document.addEventListener('click',event=>{
+    const preview=event.target.closest?.('#calendarDayList [data-diary-preview]');
+    if(preview){
+      const modal=document.querySelector('#calendarDayModal'),day=preview.dataset.diaryPreview;
+      import('./diary-data.js').then(diary=>{
+        diary.requestDiaryDay(day);
+        const show=()=>window.KPTURouter?.go?.('diary');
+        if(window.KPTUMobileModalHistory)window.KPTUMobileModalHistory.closeThen(modal,show);
+        else{modal?.classList.add('hidden');modal?.setAttribute('aria-hidden','true');window.KPTUA11y?.dialog.deactivate?.(modal,{restoreFocus:false});show()}
+      }).catch(()=>{});
+      return;
+    }
     if(!event.target.closest?.('#calendarDayList .cal-event'))return;
     // The task handler closes this list and waits for its history traversal before opening the editor.
     if(event.target.closest('[data-calendar-task]'))return;
