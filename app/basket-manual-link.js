@@ -4,7 +4,7 @@ import {selectBasketOrganizations} from './basket-ai-handoff.js?v=21';
 import {createChoiceSheet,projectRows} from './choice-sheet.js?v=1';
 import {createGoogleTask} from './quick-save.js?v=2';
 import {dayKey} from './home-read-model.js?v=3';
-import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js?v=3';
+import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js?v=4';
 
 // BASKET-수동연결: the user picks destinations and writes each summary in the
 // basket read view. Writes reuse app_basket_confirm_links (owner RLS, INVOKER).

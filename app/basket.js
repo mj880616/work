@@ -5,7 +5,7 @@ import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js?v=21';
 import { mountClassification } from './basket-classification-ui.js?v=18';
 import { readBasket, updateNote, noteState, visibleNotes, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js?v=9';
 import { mountNotes } from './basket-notes.js?v=5';
-import { noteTasks, requestTaskOpen, takeBasketNoteRequest } from './basket-note-tasks.js?v=3';
+import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js?v=4';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js?v=3';
 import { mountManualLink } from './basket-manual-link.js?v=12';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js?v=2';
@@ -13,7 +13,7 @@ import { isHwpName, requestHwpEdit } from './hwp-drive.js?v=1';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js?v=2';
 import { openBasketHtml, mountHtmlFrame, HTML_FRAME_TEXT } from './html-frame.js?v=1';
 import { CHATGPT_HTML_REQUEST, HTML_MAX_BYTES, isHtmlName } from './chatgpt-html.mjs?v=1';
-import { openMarkdownEditor } from './md-editor.js?v=4';
+import { openMarkdownEditor } from './md-editor.js?v=5';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js?v=7';
 
@@ -739,13 +739,14 @@ window.addEventListener('kptu:view-changed',e=>{
 });
 window.KPTURouter.on('basket', () => {
   void preloadMarkdown();
-  const wanted = takeBasketNoteRequest(rt);
+  const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt);
   if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) return;
   noteDocs.close({focus:false,force:true}); showKind('memo');
   filter = 'unclassified'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();
+  if (wantedDoc) showKind('note', {openId:wantedDoc});
 });
 // UI-디자인손질 8: a note saved from the menu [쓰기] shows up here without leaving the current screen.
 window.addEventListener('kptu:basket-note-created',()=>{if(window.KPTURouter.current==='basket'&&!selected&&!busy&&!classification.isOpen())void refresh();});

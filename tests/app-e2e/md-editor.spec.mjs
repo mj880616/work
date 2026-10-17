@@ -128,7 +128,10 @@ test('md editor telegram copy turns markdown into plain Telegram text',async({pa
  await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};});
  const FENCE='```';
  await area.fill(['# 주간 정리','**굵게** 와 *기울임*, ~~취소~~, `코드`','- 첫째','  - 하위','1. 하나','- [ ] 할 일','- [x] 끝난 일','> 인용','','> [!NOTE]','> 참고 내용','','---','','| 항목 | 담당 |','| --- | --- |','| 성명 | 홍보 |','','[기사](https://example.com/a)',FENCE+'mermaid','flowchart TD','A-->B',FENCE].join('\n'));
- await press(page,tool(editor,'텔레그램용 복사'),390);
+ // MD-내보내기: [내보내기] → the shared bottom choice sheet → ① 텔레그램용 복사.
+ await press(page,tool(editor,'내보내기'),390);
+ await page.locator('#mdExportSheet').getByRole('button',{name:'텔레그램용 복사',exact:true}).tap();
+ await expect(page.locator('#mdExportSheet')).not.toHaveAttribute('open','');await expect(editor).toBeVisible();
  await expect(editor.locator('.md-editor-status')).toHaveText('텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.');
  expect(await page.evaluate(()=>window.__copied)).toBe(['주간 정리','굵게 와 기울임, 취소, 코드','• 첫째','  • 하위','1. 하나','☐ 할 일','☑ 끝난 일','▎ 인용','','[참고]','참고 내용','','──────────','','항목: 성명, 담당: 홍보','','기사 (https://example.com/a)','(도식은 텔레그램에서 보이지 않아 뺐습니다)'].join('\n'));
  // The stored text is untouched: copying never rewrites the editor.

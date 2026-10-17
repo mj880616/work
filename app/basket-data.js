@@ -78,7 +78,12 @@ export function suggestNoteTitle(note) {
 async function patchKind(id, kind, body, rt) {
   return savedRow(await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.${kind}`, {method:'PATCH', prefer:'return=representation', body:{...body, updated_at:new Date().toISOString()}}));
 }
-// [노트] [+]: a new kind=note row through the same owner-RLS insert as createNote.
+// A note written without a title (the [+] draft's empty title, menu [쓰기]) takes its first line, minus a heading mark.
+export function noteTitleFromText(text) {
+  const line = String(text ?? '').split(/\r?\n/).map(value => value.trim()).find(Boolean) || '';
+  return [...line.replace(/^#{1,6}\s+/, '')].slice(0, NOTE_LIMITS.title).join('').trim();
+}
+// [노트] [+] and menu [쓰기]: a new kind=note row through the same owner-RLS insert as createNote.
 export async function createNoteDoc({title, raw_text}, rt = window.KPTURuntime) {
   const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)};
   const workspace_id = rt.context.read()?.workspace?.id;

@@ -2,11 +2,11 @@
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
 // This module owns everything drawn into its host: list (search, newest change first) → read → edit, and [+] → new note.
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
-import { readNoteDocs, createNoteDoc, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, suggestNoteTitle } from './basket-data.js?v=9';
+import { readNoteDocs, createNoteDoc, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, noteTitleFromText } from './basket-data.js?v=9';
 import { deleteNoteOriginal } from './basket-record-delete.js?v=3';
 import { mountManualLink } from './basket-manual-link.js?v=12';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js?v=2';
-import { openMarkdownEditor, copyText } from './md-editor.js?v=4';
+import { openMarkdownEditor, copyText } from './md-editor.js?v=5';
 import { toTelegram } from './md-telegram.mjs?v=1';
 import { driveFileUrl, fileSize } from './basket-upload.js?v=7';
 
@@ -179,8 +179,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   async function create() {
     const f = fields(), raw_text = f.body.value;
     if (!f.title.value.trim() && !raw_text.trim()) { say('제목이나 본문을 써 주세요.'); f.title.focus(); return; }
-    // The database needs a title on every note; an untitled draft takes its first body line, as [노트로 옮기기] suggests.
-    const title = f.title.value.trim() ? f.title.value : suggestNoteTitle({raw_text});
+    // The database needs a title on every note; an untitled draft takes its first body line.
+    const title = f.title.value.trim() ? f.title.value : noteTitleFromText(raw_text);
     try { validateNoteTitle(title); validateNoteBody(raw_text); } catch (error) { say(error.message); return; }
     const run = ++epoch, owner = scope(); lock(true); say('저장 중…');
     try {
