@@ -15,7 +15,7 @@ async function fixture(page){
  const rows=store(),writes=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await openHome(page);
- await page.route(SB+'/rest/v1/app_notes?**',async r=>{
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',async r=>{
   const req=r.request(),q=new URL(req.url()).searchParams;
   const pick=row=>(!q.get('kind')||'eq.'+row.kind===q.get('kind'))&&(!q.get('id')||'eq.'+row.id===q.get('id'))&&(!q.get('workspace_id')||'eq.'+row.workspace_id===q.get('workspace_id'));
   if(req.method()==='GET'){if(q.get('metadata'))return r.fulfill({json:[]});return r.fulfill({json:rows.filter(pick).slice(Number(q.get('offset')||0))});}
@@ -29,6 +29,12 @@ async function fixture(page){
     Object.assign(row,next);
    }
    return r.fulfill({json:hit});
+  }
+  if(req.method()==='POST'){
+   const body=req.postDataJSON();writes.push({method:'POST',body});
+   if(body.kind!=='note'||!String(body.title||'').trim())return r.fulfill({status:400,json:{code:'23514'}});
+   const at='2026-10-17T05:00:00Z',row={id:'n-created',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{},...body};
+   rows.push(row);return r.fulfill({status:201,json:[row]});
   }
   return r.fulfill({status:500,json:{}});
  });
@@ -117,6 +123,79 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 }
+
+for(const width of [390,1280]){
+ test(`[+] writes a new note: saved as kind=note, read view, top of the list, not a basket memo ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  await page.locator('[data-basket-kind="note"]').click();
+  await expect(noteList(page)).toHaveCount(2);
+  const add=page.getByRole('button',{name:'새 노트',exact:true});
+  await expect(add).toBeVisible();
+  // Phone: the same round [+] as the other screens, above the bottom tabs.
+  if(width<=760){const s=await add.evaluate(el=>{const c=getComputedStyle(el);return {position:c.position,radius:c.borderRadius,width:el.getBoundingClientRect().width};});
+   expect(s.position).toBe('fixed');expect(s.radius).toBe('50%');expect(Math.round(s.width)).toBe(36);}
+  await add.click();
+  const detail=page.locator('[data-note-detail]');
+  await expect(page.locator('[data-note-list]')).toBeHidden();
+  await expect(detail.locator('[data-note-title-input]')).toBeFocused();
+  await expect(detail.locator('[data-note-title-input]')).toHaveValue('');await expect(detail.locator('[data-basket-text]')).toHaveValue('');
+  await expect(detail.getByRole('button',{name:'큰 창에서 수정',exact:true})).toBeVisible();
+  await expect(detail.locator('[data-note-more-wrap]')).toBeHidden();await expect(detail.locator('[data-note-read-actions]')).toBeHidden();
+  await detail.locator('[data-note-title-input]').fill('단체교섭 준비');
+  await detail.locator('[data-basket-text]').fill('## 할 일\n\n- 요구안 정리');
+  await detail.locator('[data-note-save]').click();
+  await expect(detail.locator('[data-basket-status]')).toHaveText('노트를 저장했습니다.');
+  await expect(detail.locator('[data-note-read-title]')).toHaveText('단체교섭 준비');
+  await expect(detail.locator('[data-basket-read-text] h2')).toHaveText('할 일');
+  await expect(detail.locator('[data-note-read-actions]')).toBeVisible();
+  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'단체교섭 준비',raw_text:'## 할 일\n\n- 요구안 정리'}}]);
+  await detail.locator('[data-note-close]').click();
+  await expect(noteList(page)).toHaveCount(3);
+  await expect(noteList(page).nth(0)).toContainText('단체교섭 준비');
+  await page.locator('[data-basket-kind="memo"]').click();
+  await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();
+  await expect(page.locator('[data-basket-rows]')).not.toContainText('단체교섭 준비');
+  await expect(page.locator('[data-basket-row="n-created"]')).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+ });
+}
+
+test('an empty new note is not saved; a body-only note takes its first line as title',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ await page.locator('[data-basket-kind="note"]').click();
+ await page.getByRole('button',{name:'새 노트',exact:true}).click();
+ const detail=page.locator('[data-note-detail]');
+ await detail.locator('[data-note-title-input]').fill('   ');await detail.locator('[data-basket-text]').fill('  \n ');
+ await detail.locator('[data-note-save]').click();
+ await expect(detail.locator('[data-basket-status]')).toHaveText('제목이나 본문을 써 주세요.');
+ expect(f.writes).toEqual([]);
+ await detail.locator('[data-note-title-input]').fill('');await detail.locator('[data-basket-text]').fill('\n  첫 줄 메모  \n둘째 줄');
+ await detail.locator('[data-note-save]').click();
+ await expect(detail.locator('[data-note-read-title]')).toHaveText('첫 줄 메모');
+ expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({kind:'note',title:'첫 줄 메모',raw_text:'\n  첫 줄 메모  \n둘째 줄'});
+ expect(f.errors).toEqual([]);
+});
+
+test('phone back on an unsaved new note asks before closing; an untouched one just closes',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ await page.locator('[data-basket-kind="note"]').click();
+ const add=page.getByRole('button',{name:'새 노트',exact:true}),detail=page.locator('[data-note-detail]');
+ await add.click();await expect(detail).toBeVisible();
+ await page.goBack();
+ await expect(page.locator('[data-note-list]')).toBeVisible();await expect(add).toBeFocused();
+ await add.click();
+ await detail.locator('[data-basket-text]').fill('쓰던 글');
+ const asked=[];page.on('dialog',d=>{asked.push(d.message());asked.length===1?d.dismiss():d.accept();});
+ await page.goBack();
+ await expect.poll(()=>asked.length).toBe(1);expect(asked[0]).toBe('저장 안 하고 닫을까요?');
+ await expect(detail.locator('[data-basket-text]')).toHaveValue('쓰던 글');
+ await detail.locator('[data-note-cancel]').click();
+ await expect.poll(()=>asked.length).toBe(2);expect(asked[1]).toBe('저장 안 하고 닫을까요?');
+ await expect(page.locator('[data-note-list]')).toBeVisible();await expect(noteList(page)).toHaveCount(2);
+ // Closing the new note stays in the basket tab.
+ expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
 
 test('a note without body cannot go back to the basket and nothing is written',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);

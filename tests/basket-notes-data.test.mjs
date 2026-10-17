@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readNoteDocs, saveNoteDoc, moveToNote, moveToBasket, validateNoteTitle, validateNoteBody, suggestNoteTitle } from '../app/basket-data.js';
+import { readNoteDocs, createNoteDoc, saveNoteDoc, moveToNote, moveToBasket, validateNoteTitle, validateNoteBody, suggestNoteTitle } from '../app/basket-data.js';
 
 // MEMO-노트 PR 3: notes reuse the owner-RLS app_notes REST path; every write carries the kind it expects.
 const runtime = api => ({context:{read:()=>({workspace:{id:'w'}, user:{id:'u'}})}, api});
@@ -48,4 +48,19 @@ test('a note that the basket rules would refuse is not sent back', async () => {
   assert.throws(() => moveToBasket({id:'n', raw_text:'  ', attachments:[]}, rt), /본문과 첨부가 없는/);
   assert.throws(() => moveToBasket({id:'n', raw_text:'가'.repeat(20001), attachments:[]}, rt), /20,000/);
   await assert.rejects(moveToBasket({id:'n', raw_text:'', attachments:[{drive_file_id:'f'}]}, runtime(async () => [])), /저장 결과/);
+});
+
+test('a new note is one owner-RLS insert of kind=note, checked before it is sent', async () => {
+  const calls = [];
+  const rt = runtime(async (path, options) => { calls.push({path, options}); return [{id:'new', ...options.body}]; });
+  assert.deepEqual(await createNoteDoc({title:'새 노트', raw_text:''}, rt), {id:'new', workspace_id:'w', kind:'note', title:'새 노트', raw_text:''});
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].path, '/rest/v1/app_notes');
+  assert.deepEqual({method:calls[0].options.method, prefer:calls[0].options.prefer}, {method:'POST', prefer:'return=representation'});
+  assert.deepEqual(Object.keys(calls[0].options.body).sort(), ['kind', 'raw_text', 'title', 'workspace_id']);
+  const refuse = runtime(async () => { throw new Error('must not write'); });
+  await assert.rejects(createNoteDoc({title:' ', raw_text:'본문'}, refuse), /제목/);
+  await assert.rejects(createNoteDoc({title:'가'.repeat(201), raw_text:''}, refuse), /200자/);
+  await assert.rejects(createNoteDoc({title:'제목', raw_text:'가'.repeat(100001)}, refuse), /100,000/);
+  await assert.rejects(createNoteDoc({title:'제목', raw_text:''}, runtime(async () => [])), /저장 결과/);
 });
