@@ -1,5 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
+import {linkAction} from './helpers/basket-link-menu.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html';
 const host=kind=>kind==='organization'?'#wdUpdates':'#ps3-progress [data-ps3-records]';
@@ -31,11 +32,11 @@ for(const kind of ['organization','project'])for(const width of [390,1280])test(
  await expect(page.locator(`${host(kind)} [data-link-summary-form]`)).toHaveCount(0);
  if(kind==='project')await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('2');
  await release(page);await expect(page.locator(title(kind))).toHaveText(kind==='organization'?'다른 담당조직':'하위 프로젝트');await expect(page.locator(host(kind))).toContainText('B 최신 요약');await expect(page.locator(`${host(kind)} [data-basket-link]`)).toHaveCount(1);
- if(kind==='project'){await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');await expect(page.locator(`${host(kind)} [data-basket-link]`)).toHaveAttribute('href',/view=basket&note=/);await expect(page.locator(`${host(kind)} button`)).toHaveCount(0);}
- else{await page.locator(`${host(kind)} [data-link-summary-edit]`).tap();await expect(page.locator(`${host(kind)} textarea`)).toHaveValue('B 최신 요약');}expect(errors).toEqual([]);
+ if(kind==='project'){await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('1');await expect(page.locator(`${host(kind)} [data-basket-link] a`)).toHaveAttribute('href',/view=basket&note=/);await expect(page.locator(`${host(kind)} button:not([data-ps3-record-menu^="basket:"])`)).toHaveCount(0);}
+ else{await linkAction(page.locator(`${host(kind)} [data-basket-link]`).first(),'요약 수정',{tap:true});await expect(page.locator(`${host(kind)} textarea`)).toHaveValue('B 최신 요약');}expect(errors).toEqual([]);
 });
 for(const kind of ['organization'])test(`${kind} late summary save during transition refreshes the loaded destination`,async({page})=>{
- await ready(page,kind);const row=page.locator(`${host(kind)} [data-basket-link]`).first();await row.locator('[data-link-summary-edit]').click();await row.locator('textarea').fill('전환 중 늦은 A 저장');await page.evaluate(()=>{const s=__detailState;s.holdTable='app_basket_update_link_summary';s.holdTarget=s.ids.link;});await row.locator('[data-link-summary-save]').click();await expect.poll(()=>page.evaluate(()=>typeof __detailState.release)).toBe('function');
+ await ready(page,kind);const row=page.locator(`${host(kind)} [data-basket-link]`).first();await linkAction(row,'요약 수정');await row.locator('textarea').fill('전환 중 늦은 A 저장');await page.evaluate(()=>{const s=__detailState;s.holdTable='app_basket_update_link_summary';s.holdTarget=s.ids.link;});await row.locator('[data-link-summary-save]').click();await expect.poll(()=>page.evaluate(()=>typeof __detailState.release)).toBe('function');
  page.once('dialog',d=>d.accept());await startB(page);await page.evaluate(async()=>{__detailState.links.find(row=>row.id===__transition.bLink).summary='B 최신 요약';__detailState.holdTable=null;__detailState.release();for(let i=0;i<30;i++)await Promise.resolve();});
  await expect(page.locator(`${host(kind)} [data-basket-link="40000000-0000-4000-8000-000000000003"]`)).toHaveCount(0);await release(page);await expect(page.locator(host(kind))).toContainText('B 최신 요약');await expect(page.locator(host(kind))).not.toContainText('전환 중 늦은 A 저장');
 });
@@ -64,7 +65,7 @@ async function releaseMenu(page){await page.evaluate(async()=>{window.dispatchEv
 test('queued project record-menu render cannot replace a newer project or its editor',async({page})=>{
  await queuedProjectMenu(page);await page.evaluate(()=>KPTUProjects.open(__transition.a));await releaseMenu(page);
  await expect(page.locator('#ps3Title')).toHaveText('합성 프로젝트');await expect(page.locator('#ps3Body')).toHaveAttribute('data-project',await page.evaluate(()=>__transition.a));await expect(page.locator(`${host('project')} [data-basket-link]`)).toHaveCount(2);expect(new URL(page.url()).searchParams.get('project')).toBe(await page.evaluate(()=>__transition.a));
- await expect(page.locator(host('project'))).toContainText('연결 요약');await expect(page.locator(`${host('project')} [data-basket-link]`).first()).toHaveAttribute('href',/view=basket&note=/);await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-summary-input]')).toHaveCount(0);
+ await expect(page.locator(host('project'))).toContainText('연결 요약');await expect(page.locator(`${host('project')} [data-basket-link] a`).first()).toHaveAttribute('href',/view=basket&note=/);await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-summary-input]')).toHaveCount(0);
 });
 for(const action of ['route close','session'])test(`queued project record-menu render retires on ${action}`,async({page})=>{
  await queuedProjectMenu(page);if(action==='session')await page.evaluate(()=>window.dispatchEvent(new Event('kptu:session-changed')));else await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail:{view:'home'}})));await expect(page.locator('#ps3DetailModal')).toBeHidden();const before=await page.locator('#ps3Body').innerHTML();await releaseMenu(page);expect(await page.locator('#ps3Body').innerHTML()).toBe(before);expect(await page.locator('#ps3Body').getAttribute('data-project')).not.toBe(await page.evaluate(()=>__transition.b));await expect(page.locator('#ps3DetailModal')).toBeHidden();

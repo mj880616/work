@@ -20,12 +20,23 @@
 #wdUpdates .basket-link-record small{color:var(--kptu-muted)}
 #wdUpdates .basket-link-record p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:7px 0}
 #wdUpdates .basket-link-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+/* BUG-바구니연결해제: the line opens the note; ⋯ (44px) holds the record's actions. */
+#wdUpdates .basket-link-line{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px}
+#wdUpdates .basket-link-open{display:block;min-width:0;min-height:44px;color:inherit;text-decoration:none;border-radius:var(--kptu-radius-md)}
+#wdUpdates .basket-link-open:hover p[data-link-summary-text]{text-decoration:underline}
+#wdUpdates .basket-link-more{width:44px;height:44px;min-height:44px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+#wdUpdates .basket-link-more:hover{background:var(--kptu-surface)}
+.basket-link-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
+.basket-link-menu[hidden]{display:none}
+.basket-link-menu button{display:block;width:100%;height:44px;min-height:44px;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
+.basket-link-menu button:hover{background:var(--kptu-surface-subtle)}
+.basket-link-menu .basket-link-danger{color:var(--kptu-danger)}
+.basket-link-menu button:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 #wdUpdates .basket-link-actions :is(button,a),#wdUpdates [data-link-summary-current],#wdUpdates [data-wd-link-retry]{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
 #wdUpdates [data-link-summary-form]{margin-top:10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
 #wdUpdates [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
 #wdUpdates :is(button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 
-#wdUpdates .basket-link-actions a{color:var(--kptu-primary-ink);text-decoration:none}
 #wdUpdates [data-link-summary-original] > summary{min-height:44px;align-content:center;cursor:pointer}
 #wdUpdates .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 #wdUpdates [data-link-summary-form] .basket-link-actions{justify-content:flex-end}
