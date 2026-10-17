@@ -66,7 +66,7 @@
 .modal .mtg-task-line :is(.mtg-line-add,.mtg-line-cancel){position:relative;box-sizing:border-box;width:auto;min-width:0;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
 .modal .mtg-task-line :is(.mtg-line-add,.mtg-line-cancel)::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 /* [기한 ▾]: 보이는 것은 알약 칩, 누르면 기기 날짜 고르기(FORM-시간입력: 날짜는 기기 고르기 유지). */
-.due-chip{position:relative;box-sizing:border-box;display:inline-flex;align-items:center;height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--ds-chip-radius,999px);background:var(--kptu-surface);color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;white-space:nowrap}
+.due-chip{position:relative;box-sizing:border-box;display:inline-flex;align-items:center;height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:999px;background:var(--kptu-surface);color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;white-space:nowrap}
 .due-chip.has-value{color:var(--kptu-ink)}
 .due-chip:focus-within{outline:2px solid var(--kptu-info);outline-offset:2px}
 .modal .due-chip>input.due-chip-input{position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);box-sizing:border-box;width:100%;height:var(--kptu-touch-target,44px);min-height:0;margin:0;padding:0;border:0;opacity:0;cursor:pointer;font-size:16px}
@@ -74,7 +74,7 @@
 /* 넣은 할 일: 할 일 화면 줄(google-tasks.css)과 같은 동그라미·이름·기한·⋯. */
 .modal :is(#mrdTasks,#meetingActionList) .gt-row{grid-template-columns:44px minmax(0,1fr) 44px;column-gap:var(--kptu-space-2);min-height:var(--kptu-touch-target,44px);padding:0 2px 0 0}
 .modal :is(#mrdTasks,#meetingActionList) .gt-row:first-child{border-top:0}
-.modal #meetingActionList .gt-check{position:relative;box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;margin:0;border:0;border-radius:0;background:transparent}
+.modal #meetingActionList .gt-check{position:relative;box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;margin:0;border:0;background:transparent}
 .modal #meetingActionList .gt-check::before{content:'';position:absolute;box-sizing:border-box;width:22px;height:22px;left:11px;top:11px;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);opacity:.55}
 .modal :is(#mrdTasks,#meetingActionList) .gt-main{width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);height:auto;padding:6px 0;margin:0;border:0;background:transparent;box-shadow:none;color:inherit;font:inherit;text-align:left;display:flex;flex-direction:column;justify-content:center;align-items:stretch}
 .modal :is(#mrdTasks,#meetingActionList) .gt-main b{font-size:var(--ds-text-row,13px);line-height:1.4;font-weight:var(--ds-weight-regular,400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
