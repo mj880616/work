@@ -622,7 +622,10 @@ window.addEventListener('kptu:basket-links-changed', async () => {
     const active = root.contains(document.activeElement) ? document.activeElement : null;
     const attr = active && ['data-basket-row', 'data-basket-unlink', 'data-basket-chip-open'].find(name => active.hasAttribute(name));
     const value = attr && active.getAttribute(attr), noteId = active?.closest('[data-basket-row-item]')?.dataset.basketRowItem;
+    // renderList writes the note count; a result message already on that line (delete, disconnect) stays.
+    const said = listStatus.textContent, counted = /^(\d+개 메모|아직 메모가 없어요|불러오는 중…)?$/.test(said);
     links = result.links; renderList(); if (selected) paintStateLine();
+    if (!counted) listStatus.textContent = said;
     if (attr && !active.isConnected) (root.querySelector(`[${attr}="${CSS.escape(value)}"]`) || (noteId && root.querySelector(`[data-basket-row="${CSS.escape(noteId)}"]`)) || (selected && detail.querySelector('[data-basket-read-text]')))?.focus({preventScroll:true});
   } catch {}
 });
