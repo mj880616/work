@@ -115,3 +115,21 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 /* MD-표시보완: .html 첨부 칸막이 자리(html-frame.js가 그린다). */
 .basket-html-views:empty { display:none; }
 .basket-html-message { margin:0 0 12px; color:var(--kptu-muted); }
+
+/* MEMO-노트: 바구니 탭 맨 위 [메모 | 노트]. 두 칸 반반, 고른 쪽은 회색(UI-선택표시통일 결정), 안 고른 쪽은 흰 바탕. */
+#basketView .basket-kind-switch:not([hidden]) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; width:100%; max-width:240px; margin:0 0 8px; }
+#appView #basketView .basket-kind-switch [aria-pressed="true"] { color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
+.note-search { display:block; margin:8px 0; }
+#basketView :is(.note-search input,.note-editor input[type="text"],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
+.note-dot { display:inline-block; flex-shrink:0; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--ds-kind-note-ink); vertical-align:middle; }
+.note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.note-read-title { margin:8px 0 12px; font-size:20px; line-height:1.4; overflow-wrap:anywhere; }
+.basket-to-note { margin:12px 0; }
+.basket-to-note .basket-text-label { margin:0 0 6px; }
+.basket-to-note-help { margin:0; color:var(--kptu-muted); font-size:12px; }
+@media(max-width:760px){
+  /* 폰: 노트 읽기·고치기도 메모처럼 위 머리줄의 "바구니" 자리에 "‹ 노트"·[⋯]가 올라간다. */
+  #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head{ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; position:relative; z-index:2; }
+  html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-detail]:not([hidden])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
+}

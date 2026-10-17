@@ -37,7 +37,7 @@ for(const width of [390,1280])test(`read actions: two big buttons, the rest in t
  await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);
  await expect(page.locator('[data-basket-handoff-scope]')).toBeHidden();
  if(width===390)await more.tap();else await more.click();
- await expect(menu.getByRole('button')).toHaveText(['수정','원문 그대로 보기','보관','삭제']);
+ await expect(menu.getByRole('button')).toHaveText(['수정','노트로 옮기기','원문 그대로 보기','보관','삭제']);
  for(const b of await menu.getByRole('button').all())expect((await box(b)).height).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`basket-read-actions-${width}.png`),fullPage:true});

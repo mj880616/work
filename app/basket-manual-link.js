@@ -1,6 +1,6 @@
 import {confirmLinks,ERROR_TEXT} from './basket-classification.js?v=10';
 import {validateLinkSummary,readRecordPages} from './basket-link-records.js?v=6';
-import {selectBasketOrganizations} from './basket-ai-handoff.js?v=18';
+import {selectBasketOrganizations} from './basket-ai-handoff.js?v=19';
 import {createChoiceSheet,projectRows} from './choice-sheet.js?v=1';
 import {createGoogleTask} from './quick-save.js?v=2';
 import {dayKey} from './home-read-model.js?v=3';
@@ -78,7 +78,8 @@ export async function readManualChoices(rt=window.KPTURuntime){
 
 // One link panel and one task form inside the basket read view. basket.js keeps
 // owning the detail; this controller owns only what is drawn into its host.
-export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBusy,setBusy,onLinked,onNoteChanged,onModeChange,onTaskRecorded}){
+// sheetId: each mounted panel needs its own choice sheet (the basket memo side and the note side, MEMO-노트).
+export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBusy,setBusy,onLinked,onNoteChanged,onModeChange,onTaskRecorded,sheetId='basketLinkChoice'}){
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let host=null,mode=null,noteId=null,choices=null,choicesFlight=null,seq=0;
   let link={targets:[],status:''},task=null;
@@ -91,7 +92,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     choicesFlight=readManualChoices(rt).then(value=>{if(owner===scope())choices=value;return value;}).finally(()=>{choicesFlight=null;});
     return choicesFlight;
   }
-  const sheet=createChoiceSheet({id:'basketLinkChoiceSheet',titleId:'basketLinkChoiceTitle',historyKey:'kptuBasketLinkChoice',
+  const sheet=createChoiceSheet({id:sheetId+'Sheet',titleId:sheetId+'Title',historyKey:'kptu'+sheetId[0].toUpperCase()+sheetId.slice(1),
     canOpen:()=>!!mode&&!!note()&&!isBusy()&&window.KPTURouter.current==='basket',
     choices:loadChoices,
     render:kind=>{
