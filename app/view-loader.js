@@ -68,9 +68,9 @@ async function calendar(){
   await module('./calendar-view.js?v=8');
   await projectCatalog();
   await team('calendar');
-  await module('./calendar-plus.js?v=14','__KPTU_CALENDAR_PLUS_READY__');
+  await module('./calendar-plus.js?v=15','__KPTU_CALENDAR_PLUS_READY__');
   await Promise.all([
-    module('./calendar-interactions-v2.js?v=20','__KPTU_CALENDAR_INTERACTIONS_READY__'),
+    module('./calendar-interactions-v2.js?v=21','__KPTU_CALENDAR_INTERACTIONS_READY__'),
     module('./calendar-mobile-ui.js?v=8','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js?v=11','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
@@ -101,7 +101,7 @@ async function projects(){
   // The project detail shows linked Google tasks and opens the Google task editor (TASK-구현 PR 4).
   await organizationOrder();
   await module('./google-tasks.js?v=39');
-  await module('./project-system-v3.js?v=62','__KPTU_PROJECT_V3_READY__');
+  await module('./project-system-v3.js?v=63','__KPTU_PROJECT_V3_READY__');
   return {ok:true}
 }
 async function library(){
@@ -115,7 +115,7 @@ async function meetings(){
   await team('meetings');
   await module('./task-workflow.js?v=9','__KPTU_TASK_WORKFLOW_READY__');
   await module('./google-tasks.js?v=39');
-  await module('./meeting-round-detail.js?v=30','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  await module('./meeting-round-detail.js?v=31','__KPTU_MEETING_ROUND_DETAIL_READY__');
   return {ok:true}
 }
 async function media(){

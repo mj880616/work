@@ -1,6 +1,7 @@
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {test,expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {fillDateTime} from './helpers/date-time.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -158,7 +159,7 @@ for(const width of [390,1280]){
     await page.locator('#newMeetingBtn').click();
     await page.locator('#meetingNameSelect').selectOption('__other__');
     await page.locator('#meetingTitle').fill('새 회의');
-    await page.locator('#meetingAt').fill('2026-10-10T10:00');
+    await fillDateTime(page,'#meetingAt','2026-10-10T10:00');
     await page.locator('#meetingTranscript').fill('회의 원문');
     await page.locator('#meetingFiles').setInputFiles([file('keep.pdf'),file('remove.pdf')]);
     expect(await selectionDraft(page)).toBe(true);
@@ -238,7 +239,7 @@ async function openUploadScreen(page,screen){
     await page.locator('#newMeetingBtn').click();
     await page.locator('#meetingNameSelect').selectOption('__other__');
     await page.locator('#meetingTitle').fill('사본 업로드 회의');
-    await page.locator('#meetingAt').fill('2026-10-10T10:00');
+    await fillDateTime(page,'#meetingAt','2026-10-10T10:00');
     await page.locator('#meetingTranscript').fill('원문');
     return {input:'#meetingFiles',save:'#saveMeetingBtn',rows:'#meetingSelectedFiles > div',status:'#toast'};
   }
