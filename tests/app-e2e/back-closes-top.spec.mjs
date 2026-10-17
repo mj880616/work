@@ -82,6 +82,16 @@ for(const platform of ['browser','android'])test.describe(`Back closes the top o
   expect(errors).toEqual([]);
  });
 
+ test('a memo left open by a tab change does not cost an extra Back',async({page})=>{
+  const errors=await fixture(page);await enterBasket(page);
+  await page.locator('[data-basket-row="n3"]').click();await expect(page.locator('[data-basket-detail]')).toBeVisible();
+  await page.locator('.mobile-tabs [data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();
+  await back(page);await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-detail]')).toBeHidden();
+  await expect.poll(()=>page.evaluate(()=>history.state?.kptuLayers)).toBeUndefined();
+  await back(page);await expect(page.locator('#homeView')).toBeVisible();
+  expect(errors).toEqual([]);
+ });
+
  test('with nothing open, Back reaches the previous tab',async({page})=>{
   const errors=await fixture(page);
   await page.locator('.mobile-tabs [data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();

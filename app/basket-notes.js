@@ -4,7 +4,7 @@
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import { readNoteDocs, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody } from './basket-data.js?v=7';
 import { deleteNoteOriginal } from './basket-record-delete.js?v=2';
-import { mountManualLink } from './basket-manual-link.js?v=9';
+import { mountManualLink } from './basket-manual-link.js?v=10';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js?v=2';
 import { openMarkdownEditor, copyText } from './md-editor.js?v=4';
 import { toTelegram } from './md-telegram.mjs?v=1';

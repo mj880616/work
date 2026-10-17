@@ -284,11 +284,13 @@
   const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer}};
   window.KPTURouter=api;
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
-  window.navigation?.addEventListener('currententrychange',rememberRoute);
+  // currententrychange comes before popstate and names the entry left, so a traversal's
+  // direction is known without a navigate listener (which would change traversal timing).
   const nav=window.navigation;
-  nav?.addEventListener('navigate',e=>{
-    const from=nav.currentEntry?.index,to=e.destination?.index;
+  nav?.addEventListener('currententrychange',e=>{
+    const from=e.from?.index,to=nav.currentEntry?.index;
     traverseDelta=e.navigationType==='traverse'&&Number.isInteger(from)&&Number.isInteger(to)?to-from:0;
+    rememberRoute();
   });
   window.addEventListener('popstate',()=>{
     if(returningTo&&window.navigation?.currentEntry?.key===returningTo){returningTo=null;traverseDelta=0;rememberRoute();return;}
