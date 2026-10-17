@@ -223,6 +223,10 @@
 .ps3-rec-text{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .ps3-rec-from,.ps3-rec-next{color:var(--kptu-muted)}
 .ps3-rec-from::after{content:' ·'}
+.ps3-rec-basket{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:center}
+.ps3-rec-more{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+.ps3-rec-more:hover{background:var(--kptu-surface-subtle)}
+.ps3-rec-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .ps3-rec-empty{margin:0;padding:18px 0;text-align:center;color:var(--kptu-faint);font-size:var(--ds-text-row,13px)}
 .ps3-rec .ps3-pg-editor{padding:6px 0}
 .ps3-add-plus{flex:0 0 auto;display:inline-grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:-8px -8px -8px 0;padding:0;border:0;border-radius:999px;background:transparent;color:var(--kptu-link);font-size:22px;font-weight:400;line-height:1;cursor:pointer}

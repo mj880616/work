@@ -1,5 +1,6 @@
 import {formatSeoulTime} from './meeting-time.js?v=2';
-import {disconnectRecordLink,deleteNoteOriginal} from './basket-record-delete.js?v=2';
+import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js?v=3';
+import {createAnchoredMenu} from './anchored-menu.js?v=1';
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -67,18 +68,32 @@ export async function updateLinkSummary(id,expected,summary,rt=window.KPTURuntim
     return {ok:false,error:'RESULT_UNKNOWN'};
   }
 }
+// BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
+// [메모 열기]·[연결 해제] and, in organization detail, [요약 수정]·[원문 삭제].
 export function linkRecordHtml(row){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
-  const kind=row.organization_id?'organization':'project';
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}"><small>바구니 연결 · <time>${escape(date)}</time></small><p data-link-summary-text>${escape(row.summary??'요약 없음')}</p>${row.summary===null?`<p class="muted" data-link-original-excerpt>${escape([...String(row.raw_text||'')].slice(0,120).join(''))}</p>`:''}<div class="basket-link-actions"><a href="?view=basket&amp;note=${escape(encodeURIComponent(row.note_id))}">원문 열기</a><button type="button" class="secondary" data-link-summary-edit="${escape(row.id)}">요약 수정</button><button type="button" class="secondary" data-link-disconnect="${escape(row.id)}">연결 해제</button><button type="button" class="danger" data-link-note-delete="${escape(row.id)}">원문 삭제</button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  const kind=row.organization_id?'organization':'project',href=`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>바구니 연결 · <time>${escape(date)}</time></small><p data-link-summary-text>${escape(row.summary??'요약 없음')}</p>${row.summary===null?`<p class="muted" data-link-original-excerpt>${escape([...String(row.raw_text||'')].slice(0,120).join(''))}</p>`:''}</a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+}
+
+// One menu panel for every mounted record host (created on first use inside the open dialog).
+const mountedHosts=new Map();let linkMenu=null;
+const hostOf=trigger=>[...mountedHosts.keys()].find(host=>host.contains(trigger));
+function recordMenu(host){
+  if(linkMenu)return linkMenu;
+  linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'바구니 기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
+    key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
+    render:()=>'<button type="button" data-basket-link-action="open">메모 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button><button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
+    onAction:(button,active)=>{const host=hostOf(active.trigger);mountedHosts.get(host)?.(button.dataset.basketLinkAction,active.id);}});
+  return linkMenu;
 }
 
 // One delegated editor per detail host; drafts and exact previous strings are
 // memory-only. A conflict/unknown result always needs explicit user confirmation.
-export function mountLinkSummaryEditor(host,{getRecord,isCurrent=()=>true,onUpdated=()=>{},onRemoved=()=>{}},rt=window.KPTURuntime){
+export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=()=>true,onUpdated=()=>{},onRemoved=()=>{},onOpenNote=null},rt=window.KPTURuntime){
   const states=new Map();let epoch=0;
   const valid=(state,run,owner)=>run===epoch&&states.get(state.id)===state&&owner===scope(rt)&&isCurrent()&&host.isConnected;
-  function clear(){epoch++;states.clear();host.querySelectorAll('[data-link-summary-form]').forEach(form=>form.remove());host.querySelectorAll('.basket-link-record .basket-link-actions button').forEach(button=>button.disabled=false);host.querySelectorAll('[data-link-action-status]').forEach(status=>{status.textContent='';status.hidden=true;});}
+  function clear(){epoch++;states.clear();host.querySelectorAll('[data-link-summary-form]').forEach(form=>form.remove());host.querySelectorAll('.basket-link-record [data-basket-link-menu]').forEach(button=>button.disabled=false);host.querySelectorAll('[data-link-action-status]').forEach(status=>{status.textContent='';status.hidden=true;});}
   function formFor(id){return [...host.querySelectorAll('[data-link-summary-form]')].find(form=>form.dataset.linkSummaryForm===id);}
   function open(id){
     if(!isCurrent())return;const record=getRecord(id);if(!record)return;
@@ -126,40 +141,52 @@ export function mountLinkSummaryEditor(host,{getRecord,isCurrent=()=>true,onUpda
   // by cascade, every row that shares it. Results never paint after clear/dispose.
   const acting=new Set();
   const rowsFor=(attr,value)=>[...host.querySelectorAll('[data-basket-link]')].filter(row=>row.dataset[attr]===value);
-  function setRowBusy(rows,value){rows.forEach(row=>row.querySelectorAll('.basket-link-actions button').forEach(el=>el.disabled=value));}
+  function setRowBusy(rows,value){rows.forEach(row=>row.querySelectorAll('[data-basket-link-menu]').forEach(el=>el.disabled=value));}
   function say(id,message){const status=rowsFor('basketLink',id)[0]?.querySelector('[data-link-action-status]');if(status){status.textContent=message||'';status.hidden=!message;}}
-  async function act(button){
-    const id=button.dataset.linkDisconnect||button.dataset.linkNoteDelete,row=rowsFor('basketLink',id)[0];if(!row||!isCurrent())return;
-    const note=button.hasAttribute('data-link-note-delete'),rows=note?rowsFor('basketLinkNote',row.dataset.basketLinkNote):[row],key=note?`note:${row.dataset.basketLinkNote}`:`link:${id}`;
+  async function act(id,note){
+    const row=rowsFor('basketLink',id)[0];if(!row||!isCurrent())return;
+    const rows=note?rowsFor('basketLinkNote',row.dataset.basketLinkNote):[row],key=note?`note:${row.dataset.basketLinkNote}`:`link:${id}`;
     if(acting.has(key)||rows.some(el=>acting.has(`link:${el.dataset.basketLink}`)||acting.has(`note:${el.dataset.basketLinkNote}`)))return;
     if(rows.some(el=>formFor(el.dataset.basketLink))){say(id,'요약 수정을 먼저 저장하거나 취소해 주세요.');return;}
+    const record=getRecord(id);if(!note&&!record)return;
     const run=epoch,owner=scope(rt),valid=()=>run===epoch&&owner===scope(rt)&&isCurrent()&&host.isConnected;
     acting.add(key);setRowBusy(rows,true);say(id,'처리 중…');
     let result;
-    try{result=note?await deleteNoteOriginal(row.dataset.basketLinkNote,{rt,isCurrent:valid}):await disconnectRecordLink(id,{kind:row.dataset.basketLinkKind,rt,isCurrent:valid});}
+    try{result=note?await deleteNoteOriginal(row.dataset.basketLinkNote,{rt,isCurrent:valid}):await disconnectWithUndo(record,{name:getName(),rt,isCurrent:valid});}
     catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.'};}
     finally{acting.delete(key);}
     if(!valid()||result.status==='stale')return;
     const live=note?rowsFor('basketLinkNote',row.dataset.basketLinkNote):rowsFor('basketLink',id);
     if(['deleted','missing'].includes(result.status)){
-      const next=live.at(-1)?.nextElementSibling?.querySelector?.('.basket-link-actions button');
+      const next=live.at(-1)?.nextElementSibling?.querySelector?.('[data-basket-link-open],button');
       live.forEach(el=>{states.delete(el.dataset.basketLink);el.remove();});
       onRemoved({status:result.status,linkId:note?null:id,noteId:note?row.dataset.basketLinkNote:null});
       if(next)next.focus();
       return;
     }
     setRowBusy(live,false);say(id,result.status==='cancelled'?'':result.message);
-    live[0]?.querySelector(note?'[data-link-note-delete]':'[data-link-disconnect]')?.focus();
+    live[0]?.querySelector('[data-basket-link-menu]')?.focus();
   }
+  function action(name,id){
+    const row=rowsFor('basketLink',id)[0];if(!row||!isCurrent())return;
+    if(name==='open'){openNote(row.dataset.basketLinkNote);return;}
+    if(name==='summary'){open(id);return;}
+    if(name==='disconnect'||name==='note-delete')void act(id,name==='note-delete');
+  }
+  function openNote(noteId){if(onOpenNote&&noteId)onOpenNote(noteId);else if(noteId)location.href=`./?view=basket&note=${encodeURIComponent(noteId)}`;}
   function click(event){
+    const link=event.target.closest?.('a[data-basket-link-open]');
+    if(link&&host.contains(link)){
+      if(!onOpenNote||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+      event.preventDefault();if(isCurrent())openNote(link.dataset.basketLinkOpen);return;
+    }
     const button=event.target.closest?.('button');if(!button||!host.contains(button))return;
-    if(button.dataset.linkDisconnect||button.dataset.linkNoteDelete){if(!button.disabled)void act(button);return;}
-    if(button.dataset.linkSummaryEdit){open(button.dataset.linkSummaryEdit);return;}
+    if(button.dataset.basketLinkMenu){if(!button.disabled)recordMenu(host).open(button);return;}
     const form=button.closest('[data-link-summary-form]'),state=form&&states.get(form.dataset.linkSummaryForm);if(!state||state.busy)return;
     if(button.hasAttribute('data-link-summary-cancel')){states.delete(state.id);form.remove();}
     if(button.hasAttribute('data-link-summary-current')&&state.latest){state.expected=state.latest.summary;state.needsReview=false;form.querySelector('[data-link-summary-status]').textContent='최신 요약을 확인했어요. 작성 중인 글을 저장하려면 저장을 눌러 주세요.';button.hidden=true;form.querySelector('textarea').focus();}
   }
   function submit(event){const form=event.target.closest?.('[data-link-summary-form]');if(form&&host.contains(form)){event.preventDefault();void save(form);}}
-  host.addEventListener('click',click);host.addEventListener('submit',submit);
-  return {clear,hasDraft:()=>states.size>0,dispose(){clear();host.removeEventListener('click',click);host.removeEventListener('submit',submit);}};
+  host.addEventListener('click',click);host.addEventListener('submit',submit);mountedHosts.set(host,action);
+  return {clear,hasDraft:()=>states.size>0,dispose(){clear();if(linkMenu?.active&&host.contains(linkMenu.active.trigger))linkMenu.close(()=>{},false);if(mountedHosts.get(host)===action)mountedHosts.delete(host);host.removeEventListener('click',click);host.removeEventListener('submit',submit);}};
 }
