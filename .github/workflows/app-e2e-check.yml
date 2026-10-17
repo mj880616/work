@@ -25,9 +25,15 @@ permissions:
   contents: read
 
 jobs:
-  browser-e2e:
+  browser-e2e-shard:
+    name: browser-e2e-shard (${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3, 4]
+        shardTotal: [4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,7 +60,9 @@ jobs:
           cat /tmp/kptu-e2e-http.log
           exit 1
 
+      # 시작 시간 측정은 검사 묶음과 별개라 shard 1에서만 한 번 실행한다.
       - name: Start baseline main app server
+        if: matrix.shardIndex == 1
         run: |
           mkdir -p /tmp/kptu-p6-main
           git archive 3d84e8e18a822c84015bf7a8a4a556b42d7f2f1c | tar -x -C /tmp/kptu-p6-main
@@ -67,10 +75,11 @@ jobs:
           exit 1
 
       - name: Measure main and P6 startup with identical mocked APIs
+        if: matrix.shardIndex == 1
         run: node tests/app-e2e/startup-benchmark.mjs
 
       - name: Upload startup measurements
-        if: always()
+        if: always() && matrix.shardIndex == 1
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: p6-startup-measurement
@@ -81,13 +90,29 @@ jobs:
         run: >-
           npx playwright test tests/app-e2e
           --browser=chromium --workers=1 --reporter=line
+          --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: app-e2e-report
+          name: app-e2e-report-${{ matrix.shardIndex }}
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
+
+  # 기존 검사 이름(browser-e2e)으로 4개 shard 결과를 한 번에 본다.
+  # shard가 실패하면 "Re-run failed jobs"로 실패한 shard와 이 job만 다시 돌린다.
+  browser-e2e:
+    if: always()
+    needs: browser-e2e-shard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check all shards passed
+        env:
+          SHARD_RESULT: ${{ needs.browser-e2e-shard.result }}
+        run: |
+          echo "browser-e2e-shard result: $SHARD_RESULT"
+          test "$SHARD_RESULT" = "success"
