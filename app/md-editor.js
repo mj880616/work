@@ -1,4 +1,7 @@
 // MD-편집기: 전체 화면 마크다운 편집기(바구니 메모 [크게 쓰기], 이후 일지·노트에서 재사용).
+// UI-키보드하단바: 위에서부터 머리줄 한 줄 [× 닫기] [메모|노트] [쓰기|미리보기] … [공유 = 내보내기] [저장] → 서식 도구줄 → 본문.
+// 폰에서는 그 아래 앱 공용 하단 탭이 보이고(자판이 열리면 accessibility-dialog.js의 공용 자판 상태가 탭을 숨김), 탭을 누르면
+// 이 모듈이 편집기를 먼저 닫고 그 탭으로 보낸다. [저장]이 있는 쓰기 창에 글이 있으면 먼저 "저장 안 하고 닫을까요?"를 묻는다.
 // 이 화면은 이 모듈 하나가 그린다. 여는 쪽은 글과 콜백만 넘기고, 저장은 여는 쪽의 기존 흐름이 맡는다(이 모듈은 저장하지 않는다).
 // 도구 막대는 선택한 글을 감싸거나 줄 앞에 기호를 넣는 마크다운 편집이며, 바꾸기는 execCommand('insertText')로 해
 // 브라우저 기본 되돌리기(Ctrl+Z·[되돌리기])에 그대로 남는다. 미리보기는 공용 markdown-view.js(정화·외부 요청 0)를 쓴다.
@@ -30,7 +33,25 @@ let current = null;
 // MD-내보내기: [내보내기] opens the app's shared bottom choice sheet. 한글·HWP rows are listed now and say they are
 // not ready yet when pressed (8-11a·8-11b connect them); they are not disabled so the press can explain itself.
 const EXPORTS = [['telegram', '텔레그램용 복사'], ['hangul', '한글용 복사'], ['hwp', 'HWP 파일로 받기']];
-let exportSheet = null;
+let exportSheet = null, leaveSheet = null;
+// UI-키보드하단바: the same shared sheet asks before a bottom tab leaves a write window that has text.
+const LEAVE_CHOICES = [['stay', '계속 쓰기'], ['leave', '저장 안 하고 이동']];
+function leaveChoices() {
+  leaveSheet ||= createChoiceSheet({id:'mdLeaveSheet', titleId:'mdLeaveSheetTitle', historyKey:'kptuMdLeave',
+    canOpen:() => !!current, choices:async () => {},
+    render:() => ({title:'저장 안 하고 닫을까요?', html:LEAVE_CHOICES.map(([value, label]) => `<button type="button" class="home-choice-row" data-sheet-value="${value}">${label}</button>`).join('')}),
+    onSelect:(kind, value) => current?.leaveChoice(value)});
+  return leaveSheet;
+}
+// Share icon (an arrow out of a tray), built with DOM calls: the module never writes HTML. The namespace is a name, not a request.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function shareIcon() {
+  const svg = document.createElementNS(SVG_NS, 'svg'), path = document.createElementNS(SVG_NS, 'path');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+  path.setAttribute('d', 'M12 3v12M7 8l5-5 5 5M5 13v7h14v-7');
+  svg.append(path);
+  return svg;
+}
 function exportChoices() {
   exportSheet ||= createChoiceSheet({id:'mdExportSheet', titleId:'mdExportSheetTitle', historyKey:'kptuMdExport',
     canOpen:() => !!current, choices:async () => {},
@@ -78,8 +99,12 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
 
   const head = document.createElement('div'), name = document.createElement('h2');
   head.className = 'md-editor-head'; name.id = ID + 'Title'; name.textContent = title;
-  const copy = button('내보내기', {mdExport: ''}), done = button('닫기', {close: ID}, save ? '저장하지 않고 닫기' : '닫고 수정 칸으로 돌아가기');
-  copy.className = 'secondary'; copy.setAttribute('aria-haspopup', 'dialog'); copy.setAttribute('aria-expanded', 'false'); done.className = save ? 'secondary' : 'primary';
+  // Icon buttons keep their names for screen readers (닫기·내보내기); the glyphs are hidden from them.
+  const copy = button('', {mdExport: ''}, '내보내기'), done = button('', {close: ID}, save ? '저장하지 않고 닫기' : '닫고 수정 칸으로 돌아가기');
+  const cross = document.createElement('span'); cross.setAttribute('aria-hidden', 'true'); cross.textContent = '×';
+  copy.append(shareIcon()); done.append(cross);
+  copy.className = 'md-editor-icon'; done.className = 'md-editor-icon md-editor-close';
+  copy.setAttribute('aria-haspopup', 'dialog'); copy.setAttribute('aria-expanded', 'false');
   let kind = kinds?.value ?? null;
   const saveAria = () => typeof save?.aria === 'function' ? save.aria(kind) : save?.aria;
   const saveButton = save ? button(save.label || '저장', {mdSave: ''}, saveAria()) : null;
@@ -100,7 +125,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   modes.className = 'md-editor-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', '보기');
   const writeTab = button('쓰기', {mdMode: 'write'}), previewTab = button('미리보기', {mdMode: 'preview'});
   modes.append(writeTab, previewTab);
-  head.append(name, ...(kindGroup ? [kindGroup] : []), modes, copy, done, ...(saveButton ? [saveButton] : []));
+  head.append(name, done, ...(kindGroup ? [kindGroup] : []), modes, copy, ...(saveButton ? [saveButton] : []));
 
   const tools = document.createElement('div'), menu = document.createElement('div');
   tools.className = 'md-editor-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
@@ -120,8 +145,9 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   const status = document.createElement('p');
   status.className = 'md-editor-status'; status.setAttribute('role', 'status');
   const bar = document.createElement('div');
-  bar.className = 'md-editor-bar'; bar.append(menu, tools);
-  shell.append(head, panes, status, bar);
+  // The format row sits right under the head; a choice row (제목·강조 상자·도식) opens under it.
+  bar.className = 'md-editor-bar'; bar.append(tools, menu);
+  shell.append(head, bar, panes, status);
 
   let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false;
   const previewing = () => WIDE.matches || mode === 'preview';
@@ -210,14 +236,45 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     const key = e.key.toLowerCase();
     if (key === 'b' || key === 'i') { e.preventDefault(); run(key === 'b' ? 'bold' : 'italic'); }
   });
+  // UI-키보드하단바: a bottom tab press closes the editor first and then goes on as that tab (the editor's own history
+  // entry steps back before the tab moves, as the menu [쓰기] hands a saved note to the basket). A write window
+  // with text asks first; an editor opened to change a memo or note hands its text back to the opener, whose own
+  // leave check (unsaved edit) then runs as before.
+  function leaveTo(tab) {
+    if (closed) return;
+    const waitBack = history.state?.kptuOverlay === ID;
+    close();
+    const go = () => { if (tab.isConnected) tab.click(); };
+    if (waitBack) window.addEventListener('popstate', () => queueMicrotask(go), {once: true}); else go();
+  }
+  let leavingTab = null, leaving = false;
+  // The sheet hands focus back to its trigger; here that is the text, so [계속 쓰기] goes straight back to writing.
+  const leaveReturn = {setAttribute() {}, hidden: false, get isConnected() { return !closed && !leaving; }, focus: () => area.focus({preventScroll: true})};
+  function onTab(e) {
+    const tab = e.target.closest?.('.mobile-tabs button');
+    if (!tab || closed) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (save && area.value.trim()) { leavingTab = tab; void leaveChoices().open('leave', leaveReturn); }
+    else leaveTo(tab);
+  }
+  function leaveChoice(value) {
+    const tab = leavingTab; leavingTab = null;
+    if (value !== 'leave' || !tab || closed) return;
+    leaving = true;
+    // Let the sheet's own history entry step back first, then the editor's.
+    void leaveSheet.close().then(() => leaveTo(tab));
+  }
+  // window capture runs before every document listener (the deferred-view loader stops a click for a view not loaded yet).
+  window.addEventListener('click', onTab, true);
   const onWide = () => { shell.dataset.mdWide = String(WIDE.matches); if (WIDE.matches) paintPreview(); };
   WIDE.addEventListener('change', onWide);
 
   // Closing by button or Escape gives the text back; the back button arrives as a [닫기] click.
   function close({silent = false} = {}) {
     if (closed) return;
-    closed = true; clearTimeout(timer); WIDE.removeEventListener('change', onWide);
+    closed = true; clearTimeout(timer); WIDE.removeEventListener('change', onWide); window.removeEventListener('click', onTab, true);
     if (copy.getAttribute('aria-expanded') === 'true') exportSheet?.dismiss();
+    if (leavingTab) { leavingTab = null; leaveSheet?.dismiss(); }
     const value = area.value;
     shell.classList.add('hidden'); shell.setAttribute('aria-hidden', 'true');
     window.KPTUA11y?.dialog.deactivate?.(shell, {restoreFocus: false});
@@ -228,7 +285,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (!silent) onClose(value);
     else if (trigger?.isConnected) trigger.focus?.({preventScroll: true});
   }
-  const handle = {close, exportAs, get text() { return area.value; }};
+  const handle = {close, exportAs, leaveChoice, get text() { return area.value; }};
 
   document.body.append(shell);
   document.documentElement.classList.add('md-editor-open');

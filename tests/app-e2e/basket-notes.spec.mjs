@@ -221,7 +221,7 @@ test('note edit draft is protected when leaving with Escape',async({page})=>{
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// MD-내보내기: menu [쓰기] head = [메모|노트] at the left, [내보내기] [닫기] [저장] at the right, 32px buttons.
+// UI-키보드하단바: menu [쓰기] head in one row = [× 닫기] [메모|노트] [쓰기|미리보기] … [내보내기] [저장], 32px buttons.
 async function openWriter(page,width){
  if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
  else await page.locator('#appView>.app-nav [data-menu-write]').click();
@@ -235,9 +235,9 @@ for(const width of [390,1280]){
   const editor=await openWriter(page,width),kinds=editor.locator('.md-editor-kinds');
   await expect(kinds.getByRole('button')).toHaveText(['메모','노트']);
   await expect(kinds.getByRole('button',{name:'메모'})).toHaveAttribute('aria-pressed','true');
-  // Left: the switch. Right: 내보내기 · 닫기 · 저장, in that order, all 32px tall (the press area stays 44px).
-  const [k,x,c,sv]=await Promise.all([kinds,editor.getByRole('button',{name:'내보내기'}),editor.locator('[data-close="mdEditor"]'),editor.locator('[data-md-save]')].map(l=>l.boundingBox()));
-  expect(k.x).toBeLessThan(x.x);expect(x.x).toBeLessThan(c.x);expect(c.x).toBeLessThan(sv.x);expect(Math.abs(k.y-x.y)).toBeLessThan(2);
+  // Left: × then the switch. Right: 내보내기 · 저장, in that order, one row, all 32px tall (the press area stays 44px).
+  const [c,k,x,sv]=await Promise.all([editor.locator('[data-close="mdEditor"]'),kinds,editor.getByRole('button',{name:'내보내기'}),editor.locator('[data-md-save]')].map(l=>l.boundingBox()));
+  expect(c.x).toBeLessThan(k.x);expect(k.x).toBeLessThan(x.x);expect(x.x).toBeLessThan(sv.x);expect(Math.abs(k.y-x.y)).toBeLessThan(2);expect(Math.abs(c.y-sv.y)).toBeLessThan(2);
   for(const [label,h] of await headHeights(editor))expect(h,label).toBe(32);
   expect(await editor.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');
   const pressed=await kinds.getByRole('button',{name:'메모'}).evaluate(el=>getComputedStyle(el).backgroundColor),plain=await kinds.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el).backgroundColor);
@@ -316,7 +316,7 @@ test('the editor opened to change a note has no [메모|노트] switch, and the 
  await page.locator('[data-note-big-write]').click();
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  await expect(editor.locator('.md-editor-kinds')).toHaveCount(0);await expect(editor.locator('[data-md-save]')).toHaveCount(0);
- await expect(editor.locator('h2')).toBeVisible();await expect(editor.getByRole('button',{name:'내보내기',exact:true})).toBeVisible();
+ await expect(editor).toHaveAccessibleName('큰 창에서 수정');await expect(editor.getByRole('button',{name:'내보내기',exact:true})).toBeVisible();
  await expect(editor.getByRole('button',{name:'텔레그램용 복사',exact:true})).toHaveCount(0);
  for(const [label,h] of await headHeights(editor))expect(h,label).toBe(32);
  // The note read view keeps its own [텔레그램용 복사] this time.
