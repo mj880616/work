@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateNoteText, noteState, visibleNotes, createNote, updateNote, readBasket } from '../app/basket-data.js';
+import { validateNoteText, noteState, visibleNotes, filedProjects, createNote, updateNote, readBasket } from '../app/basket-data.js';
 
 test('text validation rejects whitespace and over 20000 Unicode characters without trimming originals',()=>{
  assert.throws(()=>validateNoteText(' \n\t '),/입력/);
@@ -46,4 +46,35 @@ test('persisted suggested links exclude notes from unclassified, confirmed wins'
  const links=[{note_id:'n',status:'suggested',project_id:'p'}];
  assert.equal(noteState({id:'n'},links).status,'분류 제안됨');
  assert.deepEqual(visibleNotes([{id:'n'}],links,'unclassified'),[]);
+});
+
+// BUG-자료넣기미분류: [자료로 넣기] makes no record link; the memo's files as a project's documents classify it.
+test('a memo whose files are a project document is classified, and follows where the document is now',()=>{
+ const note={id:'n',attachments:[{drive_file_id:'drive-a'},{drive_file_id:'drive-b'}]};
+ const docs=[{file_id:'drive-a',project_id:'p',project:{name:'민자철도'}},{file_id:'drive-b',project_id:'p',project:{name:'민자철도'}}];
+ assert.deepEqual(filedProjects(note,docs),[{project_id:'p',name:'민자철도'}]);
+ assert.deepEqual(noteState(note,[],docs),{status:'확정',destinations:['프로젝트 자료: 민자철도']});
+ assert.deepEqual(visibleNotes([note,{id:'plain'}],[],'unclassified',docs).map(n=>n.id),['plain']);
+ // Moved to another project: the line follows; taken out of every project: unclassified again.
+ assert.deepEqual(filedProjects(note,[{file_id:'drive-a',project_id:'q',project:{name:'궤도'}}]),[{project_id:'q',name:'궤도'}]);
+ assert.equal(noteState(note,[],[]).status,'미분류');
+ assert.equal(noteState({...note,archived_at:'now'},[],docs).status,'보관');
+ // Without docs the old two-argument calls behave as before.
+ assert.equal(noteState(note,[]).status,'미분류');
+});
+test('the basket read asks for these attachments\' documents and their project names only, and survives a failed read',async()=>{
+ const paths=[];
+ const handler=fail=>async path=>{paths.push(path);const u=new URL(path,'https://test');
+  if(u.pathname.endsWith('app_notes'))return [{id:'n1',attachments:[{drive_file_id:'drive-a'},{drive_file_id:'bad id'}]},{id:'n2',attachments:[]}];
+  if(u.pathname.endsWith('app_record_links'))return [];
+  if(u.pathname.endsWith('app_documents')){if(fail)throw Error('x');return [{id:'d1',file_id:'drive-a',project_id:'p'},{id:'d2',file_id:'drive-a',project_id:'q'}];}
+  if(u.pathname.endsWith('app_spaces'))return [{id:'p',name:'민자철도'}];
+  return [];};
+ const result=await readBasket(runtime(handler(false)));
+ assert.deepEqual(result.docs,[{id:'d1',file_id:'drive-a',project_id:'p',project:{name:'민자철도'}}]);
+ const doc=paths.find(p=>p.startsWith('/rest/v1/app_documents')),space=paths.find(p=>p.startsWith('/rest/v1/app_spaces'));
+ assert.match(doc,/^\/rest\/v1\/app_documents\?workspace_id=eq\.w&file_id=in\.\(drive-a\)&select=id,file_id,project_id&order=created_at\.asc,id\.asc/);
+ assert.match(space,/^\/rest\/v1\/app_spaces\?workspace_id=eq\.w&id=in\.\(p\)&select=id,name/);
+ const failed=await readBasket(runtime(handler(true)));
+ assert.equal(failed.notes.length,2);assert.deepEqual(failed.docs,[]);
 });

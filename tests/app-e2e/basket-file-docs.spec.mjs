@@ -97,9 +97,10 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`a memo 
  await tap(page,more.locator('summary'),width);await expect(more.getByRole('link',{name:'임단협 요구안.hwp 자료실에서 보기'})).toBeVisible();
  for(const box of await detail.locator('.basket-file-actions > *').all())expect((await box.boundingBox()).height).toBeGreaterThanOrEqual(44);
  await page.keyboard.press('Escape');await expect(more).not.toHaveAttribute('open','');await expect(detail).toBeVisible();
- // ⑥ "미분류 · 날짜" is one line under the files; [연결하기]·[할 일 만들기] stay at the bottom.
+ // ⑥ "state · 날짜" is one line under the files; [연결하기]·[할 일 만들기] stay at the bottom.
+ // BUG-자료넣기미분류: the HWP is already a document of 합성 지난 교섭, so the state is that place, not 미분류.
  const meta=detail.locator('.basket-note-meta'),cards=detail.locator('[data-basket-attachments]');
- await expect(meta).toContainText('미분류');expect((await meta.boundingBox()).y).toBeGreaterThan((await cards.boundingBox()).y+(await cards.boundingBox()).height-1);
+ await expect(meta).toContainText('합성 지난 교섭 · 자료');await expect(meta).not.toContainText('미분류');expect((await meta.boundingBox()).y).toBeGreaterThan((await cards.boundingBox()).y+(await cards.boundingBox()).height-1);
  await expect(detail.locator('[data-basket-read-actions] button')).toHaveText(['연결하기','할 일 만들기']);
  expect(await noWideScroll(page)).toBe(true);
  await capture(page,info,`memo-files-${width}-${scheme}`);
@@ -141,6 +142,68 @@ for(const width of [390,1280])test(`[자료로 넣기] puts the files into the p
  await expect(docs.locator('.doc-category-tag')).toHaveText(['교섭','기타']);
  await expect(docs.getByRole('button',{name:'전체 2개 보기'})).toBeVisible();
  await expect(page.locator('#ps3Body')).not.toContainText('임단협 요구안.hwp 기록');
+ expect(f.errors).toEqual([]);
+});
+
+// BUG-자료넣기미분류: [자료로 넣기] makes no record link, yet the memo leaves [미분류] and shows "○○ · 자료".
+const filedChip=(scope,project=P)=>scope.locator(`[data-basket-filed="${project}"]`);
+for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미분류 with a "project · 자료" line, also after a reload ${width}`,async({page})=>{
+ // The HWP is in the library but in no project yet, so both memos start 미분류.
+ const f=await fixture(page,{width,docs:[{id:'doc-hwp',workspace_id:'w',project_id:null,meeting_id:null,title:'임단협 요구안',file_id:'drive-hwp',file_name:'임단협 요구안.hwp',category:'교섭자료',created_at:'2026-09-14T01:00:00Z'}]});
+ // The text memo gets its own Drive file here (the shared fixture reuses the same PDF, which would file it too).
+ f.tables.app_notes[1].attachments=[{...PDF,drive_file_id:'drive-pdf-text'}];
+ await page.evaluate(()=>window.KPTURouter.go('basket'));
+ const unclassified=page.locator('[data-basket-filter="unclassified"]');
+ await expect(page.locator(`[data-basket-row="${ONLY}"]`)).toBeVisible();
+ await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 2');
+ const detail=await openNote(page,ONLY,width);
+ await tap(page,detail.getByRole('button',{name:'연결하기'}),width);await pick(page,detail,'project','합성 임단협',width);
+ await tap(page,detail.getByRole('button',{name:'자료로 넣기',exact:true}),width);
+ await expect(detail.locator('[data-basket-status]')).toHaveText('파일 2개를 합성 임단협 자료로 넣었어요.');
+ expect(f.tables.app_record_links).toEqual([]);
+ // The note screen line says where the files went, instead of 미분류.
+ await expect(filedChip(detail.locator('[data-basket-state]'))).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
+ await expect(detail.locator('.basket-note-meta')).not.toContainText('미분류');
+ await tap(page,detail.locator('[data-basket-close]'),width);
+ await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 1');
+ await tap(page,unclassified,width);
+ await expect(page.locator(`[data-basket-row="${ONLY}"]`)).toHaveCount(0);
+ await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
+ await page.locator('[data-basket-filter="all"]').click();
+ const row=page.locator(`[data-basket-row-item="${ONLY}"]`);
+ await expect(row.locator('.basket-row')).toContainText('연결됨');
+ await expect(filedChip(row)).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
+ // A fresh load reads the same state from the documents alone (no stored flag).
+ await page.reload();await page.waitForFunction(()=>!!window.KPTURouter?.go);await page.evaluate(()=>window.KPTURouter.go('basket'));
+ await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
+ await expect(page.locator(`[data-basket-row="${ONLY}"]`)).toHaveCount(0);
+ await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 1');
+ await page.locator('[data-basket-filter="all"]').click();
+ await expect(filedChip(page.locator(`[data-basket-row-item="${ONLY}"]`))).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
+ expect(f.errors).toEqual([]);
+});
+
+test('an already filed memo (no record link) is not 미분류 on load, and follows its documents when they move or leave',async({page})=>{
+ const docs=[{id:'doc-hwp',workspace_id:'w',project_id:OLD,meeting_id:null,title:'임단협 요구안',file_id:'drive-hwp',file_name:'임단협 요구안.hwp',category:'교섭자료',created_at:'2026-09-14T01:00:00Z'},{id:'doc-pdf',workspace_id:'w',project_id:OLD,meeting_id:null,title:'공문',file_id:'drive-pdf',file_name:'공문.pdf',category:'기타',created_at:'2026-09-15T01:00:00Z'}];
+ const f=await fixture(page,{width:1280,docs});
+ await page.evaluate(()=>window.KPTURouter.go('basket'));
+ // ONLY's files are both in OLD; TEXT's single PDF is too, so both memos are classified.
+ await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 0');
+ await page.locator('[data-basket-filter="all"]').click();
+ const only=page.locator(`[data-basket-row-item="${ONLY}"]`);
+ await expect(filedChip(only,OLD)).toHaveText('프로젝트 자료: 합성 지난 교섭 · 자료');
+ await expect(only.locator('[data-basket-filed]')).toHaveCount(1);
+ // Moved to another project (library edit): the line follows on the next read.
+ f.tables.app_documents[0].project_id=P;
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
+ await expect(only.locator('[data-basket-filed]')).toHaveText(['프로젝트 자료: 합성 임단협 · 자료','프로젝트 자료: 합성 지난 교섭 · 자료']);
+ // Taken out of every project: back to 미분류.
+ for(const doc of f.tables.app_documents)doc.project_id=null;
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
+ await expect(only.locator('[data-basket-filed]')).toHaveCount(0);
+ await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 2');
+ await expect(only.locator('.basket-row')).toContainText('미분류');
+ expect(f.calls('app_documents','PATCH')).toEqual([]);
  expect(f.errors).toEqual([]);
 });
 

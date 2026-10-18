@@ -3,7 +3,7 @@ import {effectiveOcrText} from './basket-ocr-text.mjs';
 import { mountQuick } from './home-quick.js';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js';
 import { mountClassification } from './basket-classification-ui.js';
-import { readBasket, updateNote, noteState, visibleNotes, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js';
+import { readBasket, updateNote, noteState, visibleNotes, filedProjects, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js';
 import { mountNotes } from './basket-notes.js';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js';
@@ -20,7 +20,7 @@ import { openMarkdownEditor } from './md-editor.js';
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
-let notes = [], links = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
+let notes = [], links = [], docs = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
 let quick=null, bigWriter=null;
@@ -92,7 +92,14 @@ async function loadLibraryDocs(){
 async function putFiles(projectId,isCurrent){
   const note=selected,owner=scope();
   const result=await putFilesIntoProject({noteId:note.id,files:note.attachments||[],projectId,known:knownDocs(),rt,expectedSessionEpoch:rt.session.epoch(),isCurrent:()=>isCurrent()&&owner===scope()});
-  if(owner===scope())for(const [id,doc] of result.docs||[])libraryDocs.set(`${owner}:${id}`,doc);
+  if(owner===scope()){
+    for(const [id,doc] of result.docs||[])libraryDocs.set(`${owner}:${id}`,doc);
+    // BUG-자료넣기미분류: placed files make this memo classified ("○○ · 자료") at once; the documents-changed re-read confirms it.
+    const name=window.KPTUProjectCatalog?.describe?.(projectId)?.name||'프로젝트';
+    for(const [fileId,doc] of result.docs||[])docs=[...docs.filter(d=>d.file_id!==fileId),{id:doc.id,file_id:fileId,project_id:projectId,project:{name}}];
+    renderList();
+    if(selected?.id===note.id)paintStateLine();
+  }
   if(selected?.id===note.id)paintAttachments();
   return result;
 }
@@ -236,7 +243,7 @@ async function linksConfirmed(noteId,targets){
   }
   renderList();if(selected?.id===noteId)paintDetailState();
   const owner=scope();
-  try { const current=await readBasket();if(owner!==scope())return {ok:false,stale:true};notes=current.notes;links=current.links;renderList();
+  try { const current=await readBasket();if(owner!==scope())return {ok:false,stale:true};notes=current.notes;links=current.links;docs=current.docs;renderList();
     if(selected?.id===noteId){selected=notes.find(n=>n.id===noteId)||selected;paintDetailState();}
     return {ok:true}; }
   catch { return {ok:false}; }
@@ -304,8 +311,8 @@ const stateLabel=state=>({확정:'연결됨', '분류 제안됨':'정리 제안 
 function paintHandoffScope(){
   handoffLine.hidden=!handoffNotice;
   if(handoffNotice!=='scope'){handoffLine.textContent=handoffNotice||'';return;}
-  handoffLine.textContent=selected?'현재 메모 1개 · 연결된 메모도 다시 분류 요청할 수 있어요.':`최근 4주 · 미분류 · AI 허용 메모 ${selectHandoffNotes(notes,links,new Date()).length}개(최대 100개).`;
-  const photos=(selected?[selected]:selectHandoffNotes(notes,links,new Date())).flatMap(note=>note.attachments||[]).filter(file=>String(file.mime_type||'').startsWith('image/'));
+  handoffLine.textContent=selected?'현재 메모 1개 · 연결된 메모도 다시 분류 요청할 수 있어요.':`최근 4주 · 미분류 · AI 허용 메모 ${selectHandoffNotes(notes,links,new Date(),docs).length}개(최대 100개).`;
+  const photos=(selected?[selected]:selectHandoffNotes(notes,links,new Date(),docs)).flatMap(note=>note.attachments||[]).filter(file=>String(file.mime_type||'').startsWith('image/'));
   if(photos.length){let stored=false;for(const file of photos){try{stored ||= !!effectiveOcrText(file);}catch{/* Copy validation will refuse malformed OCR. */}}handoffLine.textContent+=stored?' 저장된 사진 속 글자도 함께 분류 요청합니다.':'사진 속 글자는 아직 저장되지 않았습니다.';}
 }
 // UI-디자인손질 6: each confirmed link is a colored-dot chip. BUG-바구니연결해제: organization and project
@@ -324,21 +331,26 @@ function linkChip(link, {open = false} = {}) {
   const remove = removable ? `<button type="button" class="basket-chip-x" data-basket-unlink="${esc(link.id)}" aria-label="${esc(disconnectLabel(name))}"><span aria-hidden="true">×</span></button>` : '';
   return `<span class="basket-chip" data-chip-kind="${esc(kind)}"${removable ? ` data-basket-chip="${esc(link.id)}"` : ''}>${main}${remove}</span>`;
 }
+// BUG-자료넣기미분류: a project holding this memo's files ([자료로 넣기]) is one plain chip "○○ · 자료".
+// Moving or removing the documents elsewhere changes it on the next read; there is nothing to undo here.
+function filedChips(note) {
+  return filedProjects(note, docs).map(p => `<span class="basket-chip" data-chip-kind="project" data-basket-filed="${esc(p.project_id)}"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">프로젝트 자료: </span>${esc(p.name)} · 자료</span></span>`);
+}
 function renderList() {
   paintHandoffScope();
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
-  const visible = visibleNotes(notes, links, filter);
+  const visible = visibleNotes(notes, links, filter, docs);
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
-    const state = noteState(note, links);
+    const state = noteState(note, links, docs);
     const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
     const title=lines[0]||(file?`${String(file.mime_type||'').startsWith('image/')?'사진':'파일'} · ${file.file_name||'첨부'}`:'메모');
     // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
-    const chips = confirmedLinks(note.id).map(link => linkChip(link)).join('');
+    const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('');
     return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${stateLabel(state.status)}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span></button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
   }).join('');
   listStatus.textContent = visible.length ? `${visible.length}개 메모` : '아직 메모가 없어요';
   listStatus.toggleAttribute('data-basket-empty', !visible.length);
-  root.querySelector('[data-basket-filter-count]').textContent = ' ' + visibleNotes(notes, links, 'unclassified').length;
+  root.querySelector('[data-basket-filter-count]').textContent = ' ' + visibleNotes(notes, links, 'unclassified', docs).length;
 }
 const textDirty = () => selected && detail.querySelector('[data-basket-text]')?.value !== selected.raw_text.replace(/\r\n?/g, '\n');
 const dirty = () => textDirty() || upload.entries.some(e=>e.kind!=='success');
@@ -365,8 +377,8 @@ function openNoteLayer({adoptOnly = false} = {}) {
   noteLayer = window.KPTURouter.layer?.open('basket-note', {adoptOnly, close: () => !busy && closeDetail({fromBack:true})}) || null;
 }
 function paintStateLine() {
-  const state = noteState(selected, links), box = detail.querySelector('[data-basket-state]');
-  const chips = confirmedLinks(selected.id).map(link => linkChip(link, {open:true}));
+  const state = noteState(selected, links, docs), box = detail.querySelector('[data-basket-state]');
+  const chips = [...confirmedLinks(selected.id).map(link => linkChip(link, {open:true})), ...filedChips(selected)];
   box.innerHTML = chips.length ? `<span class="a11y-only">${esc(stateLabel(state.status))}: </span>${chips.join('')}` : `<span class="basket-state-text">${esc(stateLabel(state.status))}</span>`;
 }
 function paintDetailState() {
@@ -562,7 +574,7 @@ async function refresh() {
   try {
     const result = await readBasket();
     if (run !== epoch || owner !== scope()) return;
-    notes = result.notes; links = result.links; renderList();
+    notes = result.notes; links = result.links; docs = result.docs; renderList();
     if (requestedNote) {
       const id = requestedNote; requestedNote = null;
       if (notes.some(note => note.id === id)) openDetail(id);
@@ -570,7 +582,7 @@ async function refresh() {
     }
   } catch (e) {
     if (run !== epoch || owner !== scope()) return;
-    notes = []; links = []; root.querySelector('[data-basket-rows]').replaceChildren();
+    notes = []; links = []; docs = []; root.querySelector('[data-basket-rows]').replaceChildren();
     listStatus.textContent = '메모를 불러오지 못했어요. 다시 시도해 주세요.';
     root.querySelector('[data-basket-retry]').hidden = false;
   }
@@ -639,7 +651,7 @@ async function reloadDetail() {
   if(dirty()&&!window.confirm('저장된 메모를 다시 불러올까요? 수정 중인 글과 미완료 파일 선택은 비워집니다.'))return;
   const id=selected.id,owner=scope(),run=++epoch;busy=true;
   detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=true);
-  try{const result=await readBasket();if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;renderList();if(notes.some(n=>n.id===id))openDetail(id,{edit:editing});else closeDetail({force:true});}
+  try{const result=await readBasket();if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;docs=result.docs;renderList();if(notes.some(n=>n.id===id))openDetail(id,{edit:editing});else closeDetail({force:true});}
   catch(e){if(run===epoch&&owner===scope())detail.querySelector('[data-basket-status]').textContent='메모를 다시 불러오지 못했어요. 다시 시도해 주세요.';}
   finally{busy=false;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}
 }
@@ -725,9 +737,9 @@ async function openChipPlace(linkId) {
     await (project ? window.KPTUProjects.open(link.project_id) : window.KPTUWorkplace.open(link.organization_id));
   } catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = project ? '프로젝트를 열지 못했어요. 다시 시도해 주세요.' : '담당조직을 열지 못했어요. 다시 시도해 주세요.'; }
 }
-// Another screen (or this one) changed links: re-read them only, keeping any open note and its drafts.
+// Another screen (or this one) changed links or documents: re-read them only, keeping any open note and its drafts.
 let linkReadRun = 0;
-window.addEventListener('kptu:basket-links-changed', async () => {
+async function rereadLinks() {
   if (window.KPTURouter.current !== 'basket') return;
   const run = ++linkReadRun, owner = scope();
   try {
@@ -739,11 +751,13 @@ window.addEventListener('kptu:basket-links-changed', async () => {
     const value = attr && active.getAttribute(attr), noteId = active?.closest('[data-basket-row-item]')?.dataset.basketRowItem;
     // renderList writes the note count; a result message already on that line (delete, disconnect) stays.
     const said = listStatus.textContent, counted = /^(\d+개 메모|아직 메모가 없어요|불러오는 중…)?$/.test(said);
-    links = result.links; renderList(); if (selected) paintStateLine();
+    links = result.links; docs = result.docs; renderList(); if (selected) paintStateLine();
     if (!counted) listStatus.textContent = said;
     if (attr && !active.isConnected) (root.querySelector(`[${attr}="${CSS.escape(value)}"]`) || (noteId && root.querySelector(`[data-basket-row="${CSS.escape(noteId)}"]`)) || (selected && detail.querySelector('[data-basket-read-text]')))?.focus({preventScroll:true});
   } catch {}
-});
+}
+window.addEventListener('kptu:basket-links-changed', rereadLinks);
+window.addEventListener('kptu:documents-changed', rereadLinks);
 function openHwpEditor(fileId){
   const file=selected?.attachments?.find(item=>item.drive_file_id===fileId);
   if(!file||editing)return;
@@ -769,7 +783,7 @@ window.addEventListener('kptu:before-reload', e => {
 window.addEventListener('kptu:session-changed', () => {
   guardOcrPrivacy();
   const next = scope(); if (next === currentScope) return;
-  currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; closeDetail({focus:false,force:true,cleanAddress:false}); noteDocs.reset(); showKind('memo'); renderList();
+  currentScope = next; retainedForTraversal=false; requestedNote = null; epoch++; notes = []; links = []; docs = []; closeDetail({focus:false,force:true,cleanAddress:false}); noteDocs.reset(); showKind('memo'); renderList();
 });
 window.addEventListener('kptu:before-view-change',e=>{
   if(retainedForTraversal&&((busy&&!handoffBusy)||quick?.isBusy()||quick?.hasDraft()||dirty()||manualDraft()||classification.isOpen()))e.detail.retainBasketDraft=true;
