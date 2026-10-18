@@ -220,7 +220,7 @@ test('restoring original calendar color removes the unsaved draft',async({page})
 test('late-created task modal connects its last control to the notice in both directions',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/google-tasks**',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[],links:[]})}));
-  await clickView(page,'tasks');await page.locator('#newTaskBtn').click();const last=page.locator('#gtSaveBtn');await expect(last).toBeEnabled();
+  await clickView(page,'tasks');await expect(page.locator('#gtTaskSection')).toBeVisible();await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());const last=page.locator('#gtSaveBtn');await expect(last).toBeEnabled();
   await page.locator('#gtTaskModal').evaluate(el=>document.body.appendChild(el));
   await last.focus();await last.press('Tab');await expect(notice(page).locator('[data-version-reload]')).toBeFocused();
   await notice(page).locator('[data-version-reload]').press('Shift+Tab');await expect(last).toBeFocused();

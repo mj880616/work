@@ -74,7 +74,7 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   expect(calendarAction.height).toBeCloseTo(46,0);
 
   const actions=[
-    ['tasks','#newTaskBtn'],['projects','#newProjectBtn'],
+    ['projects','#newProjectBtn'],
     ['library','#newDocumentBtn'],['meetings','#newMeetingBtn']
   ];
   const metrics=[];
@@ -85,7 +85,8 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   expect(new Set(metrics.map(x=>x.radius)).size).toBe(1);
 
   await clickView(page,'tasks');
-  await page.locator('#newTaskBtn').click();
+  await expect(page.locator('#gtTaskSection')).toBeVisible();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   const modal=page.locator('#gtTaskModal .modal-card');
   await expect(modal).toBeVisible();
   expect(await modal.evaluate(el=>getComputedStyle(el).borderRadius)).toBe('12px');

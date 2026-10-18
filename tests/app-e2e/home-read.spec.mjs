@@ -84,7 +84,7 @@ test("home completion retains row 3s and task view agrees", async ({
   });
   await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();
   await expect(page.locator("#tasksView")).toBeVisible();
-  await expect(page.locator("#newTaskBtn")).toHaveText("+ 할 일");
+  await expect(page.locator("#tasksView .home-quick [data-quick-save]")).toHaveText("추가");
   await expect(page.locator("[data-gt-overdue]")).toBeVisible();
   await expect(page.locator('[data-google-task="today"]')).toBeHidden();
   await expect(page.locator('[data-google-task="meeting"]')).toBeVisible();

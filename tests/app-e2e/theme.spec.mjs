@@ -166,7 +166,8 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
   };
   for(const [view,selector,property,expected] of [
    ['calendar','#calendarCard','backgroundColor',surface[theme]],
-   ['tasks','#newTaskBtn','backgroundColor',color],
+   // UI-할일입력: [할 일]의 채운 버튼은 늘 보이는 입력 칸의 [추가].
+   ['tasks','#tasksView .home-quick [data-quick-save]','backgroundColor',color],
    ['projects','#newProjectBtn','backgroundColor',color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
    ['meetings','#newMeetingBtn','backgroundColor',color],

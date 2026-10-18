@@ -75,7 +75,8 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  const tasks=await pressAndMeasure(page,'#calendarView .schedule-switch [data-view="tasks"]',fab);
  expect(tasks.during).toEqual(home);
  await expect(page.locator('#tasksView')).toBeVisible();
- expect(await fabSpot(page,'#tasksView #newTaskBtn')).toEqual(home);
+ // UI-할일입력: [할 일] has the always-visible input instead of a [+].
+ await expect(page.locator('#tasksView #newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
  await page.locator('#tasksView .schedule-switch [data-view="diary"]').click();
  await expect(page.locator('#diaryRoot [data-diary-day="2026-10-06"]')).toBeVisible();
  const diaryFab='#diaryRoot #newDiaryBtn';

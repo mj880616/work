@@ -296,7 +296,7 @@ test('initial task load failure offers a short accessible retry at mobile width 
   const retry=page.getByRole('button',{name:'다시 시도',exact:true});
   await expect(retry).toBeVisible();
   await expect(page.getByRole('button',{name:'새로고침',exact:true})).toHaveCount(0);
-  await expect(page.locator('#newTaskBtn')).toBeVisible();
+  await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   expect(calls).toEqual(['overview']);
   fail=false;await retry.click();
