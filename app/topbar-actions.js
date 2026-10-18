@@ -188,31 +188,9 @@ mobilePanel?.addEventListener('pointercancel',endDrag);
 
 document.addEventListener('keydown',event=>{if(mobileOpen&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeMobile()}});
 window.addEventListener('popstate',event=>{if(mobileOpen&&!event.state?.kptuMobileMenu)closeMobile(null,true)});
-const editable=()=>document.activeElement?.matches('input:not([type="button"]):not([type="checkbox"]):not([type="radio"]),textarea,select,[contenteditable="true"]');
-let keyboardLayoutHeight=innerHeight,keyboardLayoutWidth=innerWidth;
-function syncKeyboard(){
-  const viewport=window.visualViewport;
-  const editing=editable(),shown=document.body.classList.contains('kptu-mobile-keyboard');
-  if((!editing&&!shown)||!mobileQuery.matches||innerWidth!==keyboardLayoutWidth){keyboardLayoutHeight=innerHeight;keyboardLayoutWidth=innerWidth}
-  // Zoom also shrinks the viewport: require a normal scale.
-  const shrunk=viewport?viewport.scale<=1.01&&Math.max(keyboardLayoutHeight,innerHeight)-viewport.height-viewport.offsetTop>120:editing;
-  // An editable focus opens the keyboard state. A tap on a button blurs the field
-  // during its mousedown, before the click is delivered; dropping the state there
-  // would bring back the tab bar under the finger and send the click elsewhere.
-  // Keep the layout until the viewport actually grows back.
-  const keyboard=mobileQuery.matches&&(editing||shown)&&shrunk;
-  document.body.classList.toggle('kptu-mobile-keyboard',!!keyboard);
-  // Bottom-docked inputs sit on the keyboard. Where the layout viewport already shrinks
-  // (interactive-widget=resizes-content), this stays 0.
-  const inset=keyboard&&viewport?Math.max(0,Math.round(innerHeight-viewport.height-viewport.offsetTop)):0;
-  document.documentElement.style.setProperty('--kptu-keyboard-inset',inset+'px');
-}
-window.visualViewport?.addEventListener('resize',syncKeyboard);
-window.visualViewport?.addEventListener('scroll',syncKeyboard);
-document.addEventListener('focusin',syncKeyboard);
-document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
+// Phone keyboard state (body.kptu-mobile-keyboard, --kptu-keyboard-inset) is owned by accessibility-dialog.js (UI-키보드하단바).
+const syncKeyboard=()=>window.KPTUA11y?.keyboard?.sync?.();
 menuQuery.addEventListener('change',syncMobile);
-window.addEventListener('resize',syncKeyboard);
 document.addEventListener('click',()=>syncMenuLocation());
 window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();

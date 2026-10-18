@@ -48,14 +48,16 @@ for(const width of [390,1280]){
   await page.setViewportSize({width,height:860});const seen=await fixture(page);
   const {detail,editor,area,preview}=await openEditor(page,width);
   await expect(area).toHaveValue(ORIGINAL);await expect(area).toBeFocused();
-  // The editor covers the whole screen, including the phone tabs.
-  const box=await editor.boundingBox();expect(box.x).toBe(0);expect(box.y).toBe(0);expect(Math.round(box.width)).toBe(width);expect(Math.round(box.height)).toBe(860);
-  // Toolbar: one row, 44px buttons; on a phone the row scrolls sideways and sits at the bottom.
+  // The editor covers the screen; on a phone it ends right above the app's bottom tabs (UI-키보드하단바).
+  const box=await editor.boundingBox();expect(box.x).toBe(0);expect(box.y).toBe(0);expect(Math.round(box.width)).toBe(width);
+  if(width<761){const tabs=await page.locator('.mobile-tabs').boundingBox();expect(Math.round(box.height)).toBe(Math.round(tabs.y));expect(Math.round(tabs.y+tabs.height)).toBe(860);}
+  else expect(Math.round(box.height)).toBe(860);
+  // Toolbar: one row, 44px buttons, right under the head; on a phone the row scrolls sideways.
   const tools=editor.locator('.md-editor-tools');
   for(const b of await tools.locator('button').all()){const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);}
-  const toolsBox=await tools.boundingBox();
-  if(width<761){expect(toolsBox.y+toolsBox.height).toBeGreaterThan(860-60);expect(await tools.evaluate(el=>el.scrollWidth>el.clientWidth&&getComputedStyle(el).flexWrap==='nowrap')).toBe(true);}
-  else expect(toolsBox.y).toBeLessThan(200);
+  const toolsBox=await tools.boundingBox(),headBox=await editor.locator('.md-editor-head').boundingBox(),areaBox=await area.boundingBox();
+  expect(Math.abs(toolsBox.y-(headBox.y+headBox.height))).toBeLessThan(8);expect(areaBox.y).toBeGreaterThanOrEqual(toolsBox.y+toolsBox.height);
+  if(width<761)expect(await tools.evaluate(el=>el.scrollWidth>el.clientWidth&&getComputedStyle(el).flexWrap==='nowrap')).toBe(true);
 
   // 제목 1 on the caret's line.
   await select(area,2);await press(page,tool(editor,'제목 단계 고르기'),width);await press(page,tool(editor,'제목 1'),width);
@@ -147,10 +149,13 @@ test('md editor closes with the phone back button and keeps the text in the edit
  await expect(page.locator('#mdEditor')).toHaveCount(0);
  await expect(detail.locator('[data-basket-text]')).toBeVisible();await expect(detail.locator('[data-basket-text]')).toHaveValue('뒤로 가기로 닫은 글');
  expect(new URL(page.url()).searchParams.get('view')).toBe('basket');
- // A smaller screen (keyboard open with resizes-content) keeps the toolbar right above it.
+ // A smaller screen (keyboard open with resizes-content): the bottom tabs hide and the text runs down to the keyboard;
+ // the toolbar stays right under the head.
  await press(page,detail.getByRole('button',{name:'큰 창에서 수정',exact:true}),390);
  await page.setViewportSize({width:390,height:500});
- const bar=await page.locator('#mdEditor .md-editor-tools').boundingBox();expect(bar.y+bar.height).toBeGreaterThan(500-60);expect(bar.y+bar.height).toBeLessThanOrEqual(501);
+ await expect(page.locator('.mobile-tabs')).toBeHidden();
+ const shell=await page.locator('#mdEditor').boundingBox();expect(Math.round(shell.y+shell.height)).toBe(500);
+ const bar=await page.locator('#mdEditor .md-editor-tools').boundingBox();expect(bar.y).toBeLessThan(120);
  expect(seen.writes).toEqual([]);expect(seen.errors).toEqual([]);
 });
 

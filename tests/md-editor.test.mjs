@@ -103,7 +103,32 @@ test('the editor module is reusable: no basket imports, text and callbacks only,
   assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, kinds = null\} = \{\}\)/);
   assert.doesNotMatch(src, /KPTURuntime|\.api\(|fetch\(/);
   for (const file of ['app/md-editor.js', 'app/md-editor-ops.mjs', 'app/md-telegram.mjs', 'app/md-editor.css']) {
-    assert.doesNotMatch(readFileSync(file, 'utf8'), /https?:\/\/|\/\/cdn|@import/, file);
+    // The SVG namespace name (UI-키보드하단바 share icon) is not a request.
+    assert.doesNotMatch(readFileSync(file, 'utf8').replaceAll("'http://www.w3.org/2000/svg'", ''), /https?:\/\/|\/\/cdn|@import/, file);
   }
   assert.doesNotMatch(src, /innerHTML|insertAdjacentHTML/);
+});
+
+// UI-키보드하단바: 폰 자판 감지는 accessibility-dialog.js 한 곳이 소유한다(하단 탭·팝업 아래 버튼·하단 입력·쓰기 창 공용).
+test('one phone keyboard detector: accessibility-dialog owns the state, no other module measures the viewport for it', () => {
+  const owner = readFileSync('app/accessibility-dialog.js', 'utf8');
+  assert.match(owner, /classList\.toggle\('kptu-mobile-keyboard'/);
+  assert.match(owner, /setProperty\('--kptu-keyboard-inset'/);
+  assert.match(owner, /toggleAttribute\('data-keyboard-open'/);
+  assert.match(owner, /keyboard:\{sync:syncKeyboard/);
+  for (const file of ['app/topbar-actions.js', 'app/md-editor.js', 'app/home-quick.js', 'app/basket.js']) {
+    const src = readFileSync(file, 'utf8');
+    assert.doesNotMatch(src, /classList\.toggle\('kptu-mobile-keyboard'|setProperty\('--kptu-keyboard-inset'|data-keyboard-open/, file);
+  }
+});
+
+test('editor head order and the bottom-tab leave question', () => {
+  const src = readFileSync('app/md-editor.js', 'utf8');
+  // × 닫기 → [메모|노트] → [쓰기|미리보기] → 내보내기 → 저장; the format row before the text.
+  assert.match(src, /head\.append\(name, done, \.\.\.\(kindGroup \? \[kindGroup\] : \[\]\), modes, copy, \.\.\.\(saveButton \? \[saveButton\] : \[\]\)\)/);
+  assert.match(src, /shell\.append\(head, bar, panes, status\)/);
+  assert.match(src, /'저장 안 하고 닫을까요\?'/);
+  assert.match(src, /\['stay', '계속 쓰기'\], \['leave', '저장 안 하고 이동'\]/);
+  // Icon buttons keep their accessible names.
+  assert.match(src, /button\('', \{mdExport: ''\}, '내보내기'\)/);
 });
