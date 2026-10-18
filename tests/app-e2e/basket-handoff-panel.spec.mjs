@@ -87,8 +87,10 @@ for(const width of [390,1280]){
   await press(page);await expect(text).toHaveValue('');await expect(text).toBeHidden();release();await expect(text).toHaveValue(/합성 새 메모/);expect(await text.inputValue()).not.toContain('합성 비공개 첫 메모');await page.unroute(SB+'/rest/v1/app_notes?**');
   await page.route(SB+'/rest/v1/app_notes?**',r=>r.fulfill({json:[note]}));
   // [분류 결과 입력]을 따로 여는 버튼은 없다(#577: [분류 요청]이 복사 뒤 연다). 창 닫기는 아래 '취소' 표에서 다룬다.
-  for(const control of ['[data-basket-filter="all"]','[data-basket-row]','.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible']){
+  for(const control of ['[data-basket-filter="classified"]','[data-basket-row]','.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible']){
    await page.locator(control).click();await cleared(page);
+   // UI-바구니거르기: the memo is unclassified, so come back to [미분류] before the next control opens its row.
+   if(control.includes('classified'))await page.locator('[data-basket-filter="unclassified"]').click();
    // UI-디자인손질 6: an open note has no list menu ([AI 분류 요청] is the list's), so go back to the list first.
    if(control.includes('basket-row')){await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();await page.locator('[data-basket-close]').click();await cleared(page);}
    if(control.includes('home'))await page.evaluate(()=>window.KPTURouter.go('basket'));
@@ -111,7 +113,7 @@ for(const width of [390,1280]){
 // 창을 여는 것은 복사가 된 [분류 요청]뿐이므로, 창 닫기 경우는 먼저 허용된 복사로 창을 연 뒤 클립보드를 막는다.
 const openSheet=async page=>{await page.context().grantPermissions(['clipboard-read','clipboard-write']);await press(page);await expect(page.locator('[data-classification-panel]')).toBeVisible();await denied(page);};
 for(const width of [390,1280])for(const [control,target,source] of [
- ['[data-basket-filter="all"]','[data-basket-filter="all"][aria-pressed="true"]'],
+ ['[data-basket-filter="classified"]','[data-basket-filter="classified"][aria-pressed="true"]'],
  ['[data-basket-row]','[data-basket-detail]'],
  ['[data-classification-close]','[data-basket-list]',openSheet],
 ]){

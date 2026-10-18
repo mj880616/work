@@ -1,5 +1,6 @@
 // The shared runtime supplies JWTs; the existing owner RLS decides access.
 // No note content or drafts are persisted in browser storage.
+import { noteTasks } from './basket-note-tasks.js';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -151,6 +152,35 @@ export function noteState(note, links, docs = []) {
   destinations.push(...filed.map(p => `프로젝트 자료: ${p.name}`));
   return {status:note.archived_at ? '보관' : confirmed.length || filed.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
 }
-export function visibleNotes(notes, links, filter, docs = []) {
-  return notes.filter(n => filter === 'archived' ? !!n.archived_at : !n.archived_at && (filter === 'all' || noteState(n, links, docs).status === '미분류'));
+// UI-바구니거르기: where a classified memo went, from what is already read (no stored state):
+// confirmed record links by target kind, [자료로 넣기] documents (a project's library documents, so both
+// 'project' and 'library'), and Google tasks made from it (metadata.tasks, basket-note-tasks.js).
+export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization','담당조직'], ['project','프로젝트'], ['library','자료실'], ['task','할 일']]);
+export function notePlaces(note, links, docs = []) {
+  const places = new Set();
+  for (const link of links) {
+    if (link.note_id !== note.id || link.status !== 'confirmed') continue;
+    if (link.organization_id) places.add('organization');
+    if (link.project_id) places.add('project');
+    if (link.document_id) places.add('library');
+    if (link.meeting_id) places.add('meeting');
+  }
+  if (filedProjects(note, docs).length) { places.add('project'); places.add('library'); }
+  if (noteTasks(note).length) places.add('task');
+  return places;
+}
+// A memo has gone somewhere when it is confirmed (noteState) or a Google task was made from it.
+export function noteClassified(note, links, docs = []) {
+  return !note.archived_at && (noteState(note, links, docs).status === '확정' || noteTasks(note).length > 0);
+}
+// [미분류]: not archived and gone nowhere yet (a stored suggestion still waits here, marked "정리 제안 있음").
+// [분류]: gone somewhere, narrowed by place. [보류] (filter value 'archived'): archived. noteState is unchanged.
+export function visibleNotes(notes, links, filter, docs = [], place = 'all') {
+  return notes.filter(n => {
+    if (filter === 'archived') return !!n.archived_at;
+    if (n.archived_at) return false;
+    const classified = noteClassified(n, links, docs);
+    if (filter !== 'classified') return !classified;
+    return classified && (place === 'all' || notePlaces(n, links, docs).has(place));
+  });
 }

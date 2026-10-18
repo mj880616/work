@@ -1,6 +1,6 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
-import {noteAction} from './helpers/basket-more.mjs';
+import {noteAction,showBasketRow} from './helpers/basket-more.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 // MD-표시: 바구니 메모 읽기 화면이 ChatGPT식 마크다운·Mermaid·수식을 안전하게 그리는지, 외부 요청이 0건인지,
 // [원문 그대로 보기]가 저장된 글을 그대로 보여 주는지, 도식·수식 도구는 필요한 글에서만 불러오는지 확인한다.
@@ -140,7 +140,7 @@ test('a broken diagram keeps its source readable and other screens never load th
  await page.goto(testOrigin+'/app/?view=basket');
  await page.route(SB+'/rest/v1/app_notes**',r=>r.fulfill({json:[{id:'bad',raw_text:FENCE+'mermaid\nflowchart TD\n  A -->\n'+FENCE,occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[]}]}));
  await page.reload();
- await page.locator('[data-basket-filter="all"]').click();await page.locator('[data-basket-row="bad"]').click();
+ await (await showBasketRow(page,'bad')).click();
  const read=page.locator('[data-basket-read-text]');
  await expect(read.locator('.md-mermaid-error')).toHaveText('도식을 그리지 못해 원문을 그대로 보여 줍니다.',{timeout:20000});
  await expect(read.locator('.md-mermaid-source code')).toContainText('A -->');

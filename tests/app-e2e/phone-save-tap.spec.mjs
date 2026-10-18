@@ -1,3 +1,4 @@
+import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // UI-폰저장버튼튐: on a phone, tapping a save button below a focused field blurs the field
@@ -19,7 +20,7 @@ async function fixture(page,{width,height}){
   if(q.get('metadata'))return r.fulfill({json:[]});
   return r.fulfill({json:[note].slice(Number(q.get('offset')||0))});
  });
- await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-filter="all"]').click();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
  const row=page.locator(`[data-basket-row="${n}"]`);if(width<761)await row.tap();else await row.click();
  await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  const detail=page.locator('[data-basket-detail]'),open=detail.getByRole('button',{name:'할 일 만들기'});

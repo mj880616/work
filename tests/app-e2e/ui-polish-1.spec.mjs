@@ -1,3 +1,4 @@
+import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -137,7 +138,7 @@ for(const width of [390,1280])test(`메뉴 [쓰기]: 빈 MD 편집기에서 [저
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
  expect(state.posts).toEqual([{workspace_id:ws.id,raw_text:'# 새 메모\n쓰기에서 저장'}]);
  // The basket list on screen shows the new note without leaving it.
- await page.locator('[data-basket-filter="all"]').click();
+ await showBasketRow(page,'10000000-0000-4000-8000-000000000099');
  await expect(page.locator('[data-basket-row="10000000-0000-4000-8000-000000000099"]')).toContainText('# 새 메모');
  // The next [쓰기] starts empty again.
  if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
@@ -151,7 +152,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  const {errors,state}=await boot(page,width,{dark});
  await view(page,'basket');
  const listMore=page.locator('[data-basket-more]');await expect(listMore).toBeVisible();
- await page.locator('[data-basket-filter="all"]').click();await page.locator(`[data-basket-row="${N1}"]`).click();
+ await (await showBasketRow(page,N1)).click();
  const detail=page.locator('[data-basket-detail]');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
  // The list menu (AI 분류 요청 등) is the list's only; the note has its own.
  await expect(listMore).toBeHidden();

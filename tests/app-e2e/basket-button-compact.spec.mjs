@@ -69,7 +69,7 @@ for(const width of [390,1280]){
     await page.screenshot({path:info.outputPath(`basket-list-${width}.png`),fullPage:true});
     // 8-9e-2: the AI actions sit in the small [⋯] menu as 44px menu rows (not buttons); the filters match the home pills.
     await openBasketMore(page);
-    const controls=['[data-basket-filter="unclassified"]','[data-basket-filter="all"]','[data-basket-filter="archived"]'];
+    const controls=['[data-basket-filter="unclassified"]','[data-basket-filter="classified"]','[data-basket-filter="archived"]'];
     const metrics={homeMode,homeLink,homePrimary,controls:{},menu:{}};
     for(const selector of controls)metrics.controls[selector]=await measure(page.locator(selector));
     for(const selector of ['[data-basket-more]','#basketMoreMenu [data-handoff-copy]','#basketMoreMenu [data-chatgpt-request-copy]'])metrics.menu[selector]=await measure(page.locator(selector));
@@ -105,8 +105,10 @@ for(const width of [390,1280]){
     await expect(close).toBeFocused();
     expect(await close.evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
     await page.keyboard.press('Enter');await expect(page.locator('[data-basket-more]')).toBeFocused();
-    const all=page.locator('[data-basket-filter="all"]');await all.focus();await page.keyboard.press('Enter');
-    await expect(all).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+    // UI-바구니거르기: [분류] holds no memo here (the one memo is unclassified); [미분류] still holds it.
+    const classified=page.locator('[data-basket-filter="classified"]');await classified.focus();await page.keyboard.press('Enter');
+    await expect(classified).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(0);
+    const unclassified=page.locator('[data-basket-filter="unclassified"]');await unclassified.focus();await page.keyboard.press('Enter');
     await expect(page.locator(`[data-basket-row="${noteId}"]`)).toBeVisible();
     // UI-버튼크기: the 32px chip keeps a 44px touch target; tap just above its painted top edge.
     const archived=page.locator('[data-basket-filter="archived"]'),box=await archived.boundingBox();
@@ -123,7 +125,7 @@ for(const width of [390,1280]){
     await page.touchscreen.tap(hit.x+hit.width/2,hit.y+3);
     await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
     expect(f.confirmations).toHaveLength(1);expect(f.confirmations[0].p_targets).toEqual([{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거',summary:'담당조직 업무 근거'}]);
-    await close.click();await all.click();await expect(page.locator(`[data-basket-row="${noteId}"]`)).toContainText('연결됨');
+    await close.click();await classified.click();await expect(page.locator(`[data-basket-row="${noteId}"]`)).toContainText('연결됨');
     await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible').click();await expect(quick).toBeVisible();
     await page.mouse.move(0,0);await page.evaluate(()=>document.activeElement?.blur());
     await quick.screenshot({path:info.outputPath(`quick-return-${width}.png`)});
