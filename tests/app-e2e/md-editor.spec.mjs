@@ -49,9 +49,10 @@ for(const width of [390,1280]){
   const {detail,editor,area,preview}=await openEditor(page,width);
   await expect(area).toHaveValue(ORIGINAL);await expect(area).toBeFocused();
   // The editor covers the screen; on a phone it ends right above the app's bottom tabs (UI-키보드하단바).
-  const box=await editor.boundingBox();expect(box.x).toBe(0);expect(box.y).toBe(0);expect(Math.round(box.width)).toBe(width);
-  if(width<761){const tabs=await page.locator('.mobile-tabs').boundingBox();expect(Math.round(box.height)).toBe(Math.round(tabs.y));expect(Math.round(tabs.y+tabs.height)).toBe(860);}
-  else expect(Math.round(box.height)).toBe(860);
+  // UI-쓰기창PC탭유지: on a wide screen the app's side menu stays visible and the editor takes only the space to its right.
+  const box=await editor.boundingBox();expect(box.y).toBe(0);
+  if(width<761){expect(box.x).toBe(0);expect(Math.round(box.width)).toBe(width);const tabs=await page.locator('.mobile-tabs').boundingBox();expect(Math.round(box.height)).toBe(Math.round(tabs.y));expect(Math.round(tabs.y+tabs.height)).toBe(860);}
+  else{const side=await page.locator('#appView>.app-nav').boundingBox();expect(box.x).toBeGreaterThanOrEqual(side.x+side.width);expect(Math.round(box.x+box.width)).toBe(width);expect(Math.round(box.height)).toBe(860);}
   // Toolbar: one row right under the head; on a phone the row scrolls sideways.
   // UI-버튼작게 ②: buttons are 28px to the eye with a 44px press area (::after).
   const tools=editor.locator('.md-editor-tools');

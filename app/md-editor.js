@@ -2,6 +2,9 @@
 // UI-키보드하단바: 위에서부터 머리줄 한 줄 [× 닫기] [메모|노트] [쓰기|미리보기] … [공유 = 내보내기] [저장] → 서식 도구줄 → 본문.
 // 폰에서는 그 아래 앱 공용 하단 탭이 보이고(자판이 열리면 accessibility-dialog.js의 공용 자판 상태가 탭을 숨김), 탭을 누르면
 // 이 모듈이 편집기를 먼저 닫고 그 탭으로 보낸다. [저장]이 있는 쓰기 창에 글이 있으면 먼저 "저장 안 하고 닫을까요?"를 묻는다.
+// UI-쓰기창PC탭유지: 넓은 화면(761px~)에서는 앱 탭(1024px~ 왼쪽 세로 메뉴, 761~1023px 위쪽 한 줄 메뉴 = `#appView>.app-nav`)이
+// 그대로 보이고, 편집기는 그 메뉴를 뺀 본문 자리에서만 연다(placeBesideNav가 메뉴 위치를 재서 --md-editor-left/top 두 값만 정함).
+// 메뉴를 누르는 동작은 폰 하단 탭과 같은 한 가지 규칙(onTab)이고, Tab 키는 편집기 → 메뉴 → 편집기 순서로 돈다.
 // 이 화면은 이 모듈 하나가 그린다. 여는 쪽은 글과 콜백만 넘기고, 저장은 여는 쪽의 기존 흐름이 맡는다(이 모듈은 저장하지 않는다).
 // 도구 막대는 선택한 글을 감싸거나 줄 앞에 기호를 넣는 마크다운 편집이며, 바꾸기는 execCommand('insertText')로 해
 // 브라우저 기본 되돌리기(Ctrl+Z·[되돌리기])에 그대로 남는다. 미리보기는 공용 markdown-view.js(정화·외부 요청 0)를 쓴다.
@@ -13,6 +16,11 @@ import {createChoiceSheet} from './choice-sheet.js';
 
 const ID = 'mdEditor';
 const WIDE = window.matchMedia('(min-width:1024px)');
+const PHONE = window.matchMedia('(max-width:760px)');
+// The app's tabs: the phone bottom tabs, and on wider screens the shell's own menu (side column or top row).
+const NAV = '#appView>.app-nav';
+const TABS = `.mobile-tabs button, ${NAV} :is(button, a[href])`;
+const NAV_GAP = 12;
 // [label, action, option, aria] — option groups open a second row of choices.
 const TOOLS = [
   ['제목', 'heading-menu', null, '제목 단계 고르기'],
@@ -163,6 +171,25 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
 
   let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false;
   const previewing = () => WIDE.matches || mode === 'preview';
+  // 761px~: the app's own menu stays beside (side) or above (top) the editor; the editor takes only the rest. One
+  // function measures it for open, resize, and the menu's own size changes. With the menu in use the dialog is not modal.
+  function placeBesideNav() {
+    const nav = PHONE.matches ? null : document.querySelector(NAV);
+    const box = nav?.getClientRects().length ? nav.getBoundingClientRect() : null;
+    const side = box ? (WIDE.matches ? 'side' : 'top') : null;
+    if (side) {
+      shell.dataset.mdNav = side;
+      shell.style.setProperty('--md-editor-left', side === 'side' ? Math.ceil(box.right) + NAV_GAP + 'px' : '0px');
+      shell.style.setProperty('--md-editor-top', side === 'top' ? Math.ceil(box.bottom) + 'px' : '0px');
+    } else {
+      delete shell.dataset.mdNav;
+      shell.style.removeProperty('--md-editor-left'); shell.style.removeProperty('--md-editor-top');
+    }
+    shell.setAttribute('aria-modal', String(!side));
+  }
+  const navSize = typeof ResizeObserver === 'function' ? new ResizeObserver(() => placeBesideNav()) : null;
+  const navEl = document.querySelector(NAV);
+  if (navEl) navSize?.observe(navEl);
   function paintPreview() {
     clearTimeout(timer); timer = 0;
     if (!previewing() || shown === area.value) return;
@@ -271,9 +298,11 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   // The sheet hands focus back to its trigger; here that is the text, so [계속 쓰기] goes straight back to writing.
   const leaveReturn = {setAttribute() {}, hidden: false, get isConnected() { return !closed && !leaving; }, focus: () => area.focus({preventScroll: true})};
   function onTab(e) {
-    const tab = e.target.closest?.('.mobile-tabs button');
+    const tab = e.target.closest?.(TABS);
     if (!tab || closed) return;
     e.preventDefault(); e.stopImmediatePropagation();
+    // [쓰기] in the wide menu while the write window is already open: just go on writing.
+    if (save && tab.hasAttribute('data-menu-write')) { area.focus({preventScroll: true}); return; }
     if (save && area.value.trim()) { leavingTab = tab; void leaveChoices().open('leave', leaveReturn); }
     else leaveTo(tab);
   }
@@ -286,13 +315,16 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   }
   // window capture runs before every document listener (the deferred-view loader stops a click for a view not loaded yet).
   window.addEventListener('click', onTab, true);
-  const onWide = () => { shell.dataset.mdWide = String(WIDE.matches); if (WIDE.matches) paintPreview(); };
+  const onWide = () => { shell.dataset.mdWide = String(WIDE.matches); placeBesideNav(); if (WIDE.matches) paintPreview(); };
   WIDE.addEventListener('change', onWide);
+  PHONE.addEventListener('change', placeBesideNav);
+  window.addEventListener('resize', placeBesideNav);
 
   // Closing by button or Escape gives the text back; the back button arrives as a [닫기] click.
   function close({silent = false} = {}) {
     if (closed) return;
     closed = true; clearTimeout(timer); WIDE.removeEventListener('change', onWide); window.removeEventListener('click', onTab, true);
+    PHONE.removeEventListener('change', placeBesideNav); window.removeEventListener('resize', placeBesideNav); navSize?.disconnect();
     if (copy.getAttribute('aria-expanded') === 'true') exportSheet?.dismiss();
     if (leavingTab) { leavingTab = null; leaveSheet?.dismiss(); }
     const value = area.value;
@@ -310,7 +342,9 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   document.body.append(shell);
   document.documentElement.classList.add('md-editor-open');
   onWide(); setMode('write', {focus: false});
-  window.KPTUA11y?.dialog.activate?.(shell, {trigger, initialFocus: area, onRequestClose: () => close()});
+  // companions: the wide menu is part of the Tab cycle (editor → menu → editor); on a phone there is none.
+  window.KPTUA11y?.dialog.activate?.(shell, {trigger, initialFocus: area, onRequestClose: () => close(),
+    companions: () => PHONE.matches ? [] : document.querySelectorAll(`${NAV} :is(button, a[href]):not([disabled])`)});
   area.focus({preventScroll: true});
   area.setSelectionRange(area.value.length, area.value.length);
   area.scrollTop = area.scrollHeight;

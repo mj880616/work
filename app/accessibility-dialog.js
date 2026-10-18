@@ -42,10 +42,12 @@
   document.addEventListener('focusin',syncKeyboard);
   document.addEventListener('focusout',()=>queueMicrotask(syncKeyboard));
 
-  function activate(modal,{trigger=document.activeElement,initialFocus=null,onRequestClose=null}={}){
+  // companions (optional): a function returning controls outside the dialog that stay in its Tab cycle (the full-screen
+  // editor on a wide screen keeps the app's menu beside it). The cycle is the dialog, then these, then the version notice.
+  function activate(modal,{trigger=document.activeElement,initialFocus=null,onRequestClose=null,companions=null}={}){
     if(!modal)return;
     active?.querySelector('.modal-action-footer')?.removeAttribute('data-keyboard-open');
-    state.set(modal,{trigger,onRequestClose});
+    state.set(modal,{trigger,onRequestClose,companions});
     active=modal;
     window.dispatchEvent(new CustomEvent('kptu:dialog-opened',{detail:{modal}}));
     const target=resolve(modal,initialFocus)||items(modal)[0]||modal;
@@ -76,6 +78,17 @@
     if(e.key!=='Tab')return;
     const list=items(active);
     if(!list.length){e.preventDefault();active.focus();return}
+    const extra=[...state.get(active)?.companions?.()||[]].filter(el=>!el.closest('.hidden')&&el.getClientRects().length);
+    if(extra.length){
+      const own=list.filter(el=>active.contains(el)),notice=list.filter(el=>el.closest('#versionNotice')&&!active.contains(el));
+      const rings=[own,extra,notice].filter(ring=>ring.length),at=document.activeElement,i=rings.findIndex(ring=>ring.includes(at));
+      if(i>=0){
+        const ring=rings[i];
+        if(!e.shiftKey&&at===ring.at(-1)){e.preventDefault();rings[(i+1)%rings.length][0].focus()}
+        else if(e.shiftKey&&at===ring[0]){e.preventDefault();rings[(i+rings.length-1)%rings.length].at(-1).focus()}
+        return;
+      }
+    }
     const first=list[0],last=list[list.length-1];
     const noticeFirst=list.find(el=>el.closest('#versionNotice'));
     const modalLast=list.filter(el=>active.contains(el)).at(-1);
