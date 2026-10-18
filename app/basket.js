@@ -3,7 +3,7 @@ import {effectiveOcrText} from './basket-ocr-text.mjs';
 import { mountQuick } from './home-quick.js';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js';
 import { mountClassification } from './basket-classification-ui.js';
-import { readBasket, updateNote, noteState, visibleNotes, filedProjects, moveToNote, suggestNoteTitle, validateNoteTitle, BASKET_PLACES, noteClassified } from './basket-data.js';
+import { readBasket, updateNote, noteState, visibleNotes, filedProjects, moveToNote, suggestNoteTitle, validateNoteTitle, BASKET_PLACES, noteClassified, placeSubOptions } from './basket-data.js';
 import { renderFilterChips } from './filter-chips.js';
 import { mountNotes } from './basket-notes.js';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js';
@@ -21,7 +21,7 @@ import { openMarkdownEditor } from './md-editor.js';
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
-let notes = [], links = [], docs = [], filter = 'unclassified', place = 'all', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
+let notes = [], links = [], docs = [], filter = 'unclassified', place = 'all', sub = 'all', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
 let quick=null, bigWriter=null;
@@ -33,7 +33,7 @@ const initialUrl = new URL(location.href);
 let requestedNote = (initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null) || takeBasketNoteRequest(rt);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-switch-row"><div class="basket-kind-switch" role="group" aria-label="메모·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">메모</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="classified">분류</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보류</button></div></div><div class="basket-place-filter" data-basket-place-filter hidden></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows id="basketRows"></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-switch-row"><div class="basket-kind-switch" role="group" aria-label="메모·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">메모</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="classified">분류</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보류</button></div></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows id="basketRows"></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation; the shell owns
 // the visible mobile title at the same 760px breakpoint as the shared header.
 const basketTitle=root.querySelector('.basket-head > h2'),mobileTitle=window.matchMedia('(max-width:760px)');
@@ -345,7 +345,19 @@ const placeFilter = root.querySelector('[data-basket-place-filter]');
 function paintPlaceFilter() {
   placeFilter.hidden = filter !== 'classified';
   if (placeFilter.hidden) return;
-  renderFilterChips(placeFilter, {label:'분류된 곳', controls:'basketRows', value:place, options:BASKET_PLACES.map(([value, label]) => ({value, label})), onChange:value => { handoff.close(); place = value; renderList(); }});
+  renderFilterChips(placeFilter, {label:'분류된 곳', controls:'basketRows', value:place, options:BASKET_PLACES.map(([value, label]) => ({value, label})), onChange:value => { handoff.close(); place = value; sub = 'all'; renderList(); }});
+}
+// UI-바구니거르기2: [담당조직]/[프로젝트] → one row of names ([모든 ○○ N] + places holding a memo, most first),
+// [자료실] → the 7 document categories. [전체]·[할 일] have none. Same shared chips, same memory-only choice.
+const subFilter = root.querySelector('[data-basket-sub-filter]');
+const SUB_LABELS = {organization:'조직', project:'프로젝트', library:'자료 분류'};
+function paintSubFilter() {
+  const options = filter === 'classified' ? placeSubOptions(notes, links, docs, place) : null;
+  subFilter.hidden = !options;
+  if (!options) { sub = 'all'; return; }
+  // A chosen name that is gone after a refresh (unlinked, moved) falls back to [모든 ○○].
+  if (!options.some(o => o.value === sub)) sub = 'all';
+  renderFilterChips(subFilter, {label:SUB_LABELS[place], controls:'basketRows', value:sub, options, onChange:value => { handoff.close(); sub = value; renderList(); }});
 }
 // Tasks made from the memo have no link chip; the row names them in the same chip row ("할 일 N개").
 function taskPlaceLine(note) {
@@ -355,8 +367,8 @@ function taskPlaceLine(note) {
 function renderList() {
   paintHandoffScope();
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
-  paintPlaceFilter();
-  const visible = visibleNotes(notes, links, filter, docs, place);
+  paintPlaceFilter(); paintSubFilter();
+  const visible = visibleNotes(notes, links, filter, docs, place, sub);
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
     const state = noteState(note, links, docs);
     const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
@@ -679,7 +691,7 @@ root.addEventListener('click', e => {
   else if(b.hasAttribute('data-basket-ocr-reconcile'))void runOcr('reconcile',b.dataset.basketOcrReconcile);
   else if(b.hasAttribute('data-basket-ocr-cleanup'))void runOcr('cleanup',b.dataset.basketOcrCleanup);
   else if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
-  else if (b.hasAttribute('data-basket-filter')) { handoff.close(); filter = b.dataset.basketFilter; place = 'all'; renderList(); }
+  else if (b.hasAttribute('data-basket-filter')) { handoff.close(); filter = b.dataset.basketFilter; place = 'all'; sub = 'all'; renderList(); }
   else if (b.hasAttribute('data-basket-close')) closeDetail();
   else if (b.hasAttribute('data-basket-edit')) startEdit();
   else if (b.hasAttribute('data-basket-to-note')) openToNote();
@@ -811,7 +823,7 @@ window.KPTURouter.on('basket', () => {
   const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt);
   if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) return;
   noteDocs.close({focus:false,force:true}); showKind('memo');
-  filter = 'unclassified'; place = 'all'; renderList();
+  filter = 'unclassified'; place = 'all'; sub = 'all'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();

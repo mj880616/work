@@ -80,8 +80,8 @@ for(const width of [390,1280]){
   await expect(detail.locator('[data-note-read-title]')).toHaveText('임금협상 정리');
   await expect(detail.locator('[data-basket-read-text] h2')).toHaveText('쟁점');
   await expect(detail.locator('[data-basket-read-text] strong')).toHaveText('기본급');
-  for(const label of ['고치기','텔레그램용 복사','연결하기'])await expect(detail.getByRole('button',{name:label,exact:true})).toBeVisible();
-  await detail.getByRole('button',{name:'고치기',exact:true}).click();
+  for(const label of ['수정','텔레그램용 복사','연결하기'])await expect(detail.getByRole('button',{name:label,exact:true})).toBeVisible();
+  await detail.getByRole('button',{name:'수정',exact:true}).click();
   await expect(detail.locator('[data-note-title-input]')).toHaveValue('임금협상 정리');
   await detail.locator('[data-note-title-input]').fill('');
   await detail.locator('[data-note-save]').click();
