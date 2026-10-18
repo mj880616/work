@@ -9,6 +9,7 @@ import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-v
 import { openMarkdownEditor, copyText } from './md-editor.js';
 import { toTelegram } from './md-telegram.mjs';
 import { driveFileUrl, fileSize } from './basket-upload.js';
+import { fileLine } from './meeting-compact.js';
 
 const chipKinds = [['project','프로젝트'], ['organization','담당조직'], ['meeting','회의'], ['document','자료실']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', dateStyle:'medium', timeStyle:'short'}).format(d); };
@@ -37,7 +38,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       return `<button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"><b class="basket-title"><span class="note-dot" aria-hidden="true"></span>${esc([...(note.title || '노트')].slice(0, 80).join(''))}</b>${preview ? `<span class="basket-preview">${esc([...preview].slice(0, 120).join(''))}</span>` : ''}<time>고친 날 ${esc(day(note.updated_at))}</time>${note.attachments?.length ? `<span>첨부 ${note.attachments.length}개</span>` : ''}${tags ? `<span class="note-row-chips">${tags}</span>` : ''}</button>`;
     }).join('');
     if (!loaded) return;
-    status.textContent = visible.length ? `${visible.length}개 노트` : query ? '찾는 노트가 없어요' : '아직 노트가 없어요. [+]로 새로 쓰거나 바구니 메모의 ⋯ → [노트로 옮기기]로 만들 수 있어요.';
+    // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.
+    status.textContent = visible.length ? `${visible.length}개 노트` : query ? '찾는 노트가 없어요' : '';
     status.toggleAttribute('data-basket-empty', !visible.length);
   }
   async function refresh() {
@@ -87,7 +89,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!selected) return;
     const box = detail.querySelector('[data-note-meta]'), tags = chips(selected);
     box.innerHTML = `${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '연결됨' : '연결 없음')}</span></span>`}<time>고친 날 ${esc(day(selected.updated_at))}</time>`;
-    detail.querySelector('[data-note-attachments]').innerHTML = (selected.attachments || []).map(file => { const url = driveFileUrl(file.drive_file_id); return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>` : '<span>링크를 확인할 수 없습니다.</span>'}</div>`; }).join('');
+    // UI-일기손질 ⑥: each attachment is the shared file line (meeting-compact.js) with a small [Drive에서 열기] at its end.
+    detail.querySelector('[data-note-attachments]').innerHTML = (selected.attachments || []).map(file => {
+      const url = driveFileUrl(file.drive_file_id), name = file.file_name || '첨부';
+      const end = url ? `<a class="file-line-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>` : '<span class="file-line-state">링크를 확인할 수 없습니다.</span>';
+      return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end});
+    }).join('');
   }
   function paintRead() {
     const title = detail.querySelector('[data-note-read-title]'), text = detail.querySelector('[data-basket-read-text]'), raw = selected.raw_text || '';
@@ -108,7 +115,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function showDetail() {
     layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
     ++epoch; editing = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
-    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="basket-note-more" data-note-more-wrap><button type="button" class="basket-more-trigger" data-note-more aria-label="이 노트 메뉴" aria-expanded="false" aria-controls="noteDocMenu"><span aria-hidden="true">⋯</span></button><div id="noteDocMenu" class="basket-more-menu" role="group" aria-label="이 노트" hidden><button type="button" data-note-to-basket>바구니로 돌리기</button><button type="button" class="basket-menu-danger" data-note-delete>삭제</button></div></div></div><div class="basket-read note-read" data-note-read><h3 class="note-read-title" data-note-read-title></h3><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label><div class="basket-editor-tools"><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button></div></div><div data-note-attachments class="library-selected-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-note-read-actions><button type="button" data-note-edit>고치기</button><button type="button" data-note-telegram>텔레그램용 복사</button><button type="button" class="primary" data-basket-link-open>연결하기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-note-edit-actions hidden><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="basket-note-more" data-note-more-wrap><button type="button" class="basket-more-trigger" data-note-more aria-label="이 노트 메뉴" aria-expanded="false" aria-controls="noteDocMenu"><span aria-hidden="true">⋯</span></button><div id="noteDocMenu" class="basket-more-menu" role="group" aria-label="이 노트" hidden><button type="button" data-note-to-basket>바구니로 돌리기</button><button type="button" class="basket-menu-danger" data-note-delete>삭제</button></div></div></div><div class="basket-read note-read" data-note-read><h3 class="note-read-title" data-note-read-title></h3><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label><div class="basket-editor-tools"><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button></div></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-note-read-actions><button type="button" data-note-edit>고치기</button><button type="button" data-note-telegram>텔레그램용 복사</button><button type="button" class="primary" data-basket-link-open>연결하기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-note-edit-actions hidden><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
   }
   function open(id, {focus = true} = {}) {

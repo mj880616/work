@@ -24,8 +24,8 @@ async function movement(page,dx,dy=0,date='2026-10-21'){
       el.dispatchEvent(e);return e.defaultPrevented;
     };
     fire('touchstart',x,y);const prevented=fire('touchmove',x+dx,y+dy);
-    const transform=el.closest('.view-panel').style.transform;
-    fire('touchend',x+dx,y+dy);el.click();return {prevented,transform};
+    const shift=el.closest('.view-panel').style.left;
+    fire('touchend',x+dx,y+dy);el.click();return {prevented,shift};
   },{dx,dy});
 }
 
@@ -83,7 +83,7 @@ test('12px jitter stays a tap; larger moves suppress clicks and preserve menu sw
   await open(page);
   await page.clock.install();
   for(const [dx,dy] of [[12,0],[-12,0],[0,12],[0,-12],[12,12]]){
-    expect(await movement(page,dx,dy)).toEqual({prevented:false,transform:''});
+    expect(await movement(page,dx,dy)).toEqual({prevented:false,shift:''});
     await expect(page.locator('#calendarDayModal')).toBeVisible();
     await closeList(page);
   }
@@ -112,7 +112,7 @@ test('zoomed numbers still open lists and movement leaves navigation to viewport
     await page.evaluate(()=>history.back());
     await expect(page.locator('#calendarDayModal')).toBeHidden();
     for(const [dx,dy] of [[-170,0],[170,0],[0,100]]){
-      expect(await movement(page,dx,dy,'2026-09-27')).toEqual({prevented:false,transform:''});
+      expect(await movement(page,dx,dy,'2026-09-27')).toEqual({prevented:false,shift:''});
       await expect(page.locator('#calendarDayModal')).toBeHidden();
       expect(await page.evaluate(()=>KPTURouter.current)).toBe('calendar');
     }

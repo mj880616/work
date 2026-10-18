@@ -91,7 +91,7 @@ function renderDetail() {
   if (!selected) return;
   const row = rows.get(selected), photos = diaryPhotos(row), text = diaryText(row);
   detail.hidden = false;
-  detail.innerHTML = `<div class="diary-panel-head"><h3 id="diaryDetailTitle" tabindex="-1">${esc(longDay(selected))}</h3><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text" data-diary-text-view>${esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>고치기</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p><div class="diary-actions"><button type="button" class="primary" data-diary-write-day>이 날 일기 쓰기</button></div>`}`;
+  detail.innerHTML = `<div class="diary-panel-head"><h3 id="diaryDetailTitle" tabindex="-1">${esc(longDay(selected))}</h3><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text" data-diary-text-view>${esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>고치기</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
   const host = detail.querySelector('[data-diary-photos]');
   if (!host) return;
   if (source === 'star') { host.innerHTML = '<p class="diary-muted diary-star-note" data-diary-star-note>원드라이브 연결 뒤 쓸 수 있어요</p>'; return; }
@@ -323,8 +323,8 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-next]')) return moveMonth(1);
   if (button.matches('[data-diary-today]')) { const t = seoulParts(new Date()); if (t.year !== cursor.year || t.month !== cursor.month) { cursor = {year:t.year, month:t.month}; closeDetail(); loadMonth(); } return; }
   if (button.matches('[data-diary-retry]')) return loadMonth({force:true});
+  // UI-일기손질 ③: the shared [+] writes the chosen day (edits it when it has one), or today when no day is chosen.
   if (button.matches('[data-diary-new]')) return openEditor(selected || todayKey());
-  if (button.matches('[data-diary-write-day]')) return openEditor(selected);
   if (button.matches('[data-diary-detail-close]')) return closeDetail();
   if (button.matches('[data-diary-source]')) { source = button.dataset.diarySource; return renderDetail(); }
   if (button.matches('[data-diary-open]')) return openViewer(Number(button.dataset.diaryOpen));
