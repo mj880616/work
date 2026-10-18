@@ -1,6 +1,7 @@
 // The shared runtime supplies JWTs; the existing owner RLS decides access.
 // No note content or drafts are persisted in browser storage.
 import { noteTasks } from './basket-note-tasks.js';
+import { DOCUMENT_CATEGORIES, categoryOf } from './document-categories.js';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -46,7 +47,7 @@ async function readKind(kind, fields, order, rt) {
   // Read only links whose source is one of these notes, never task links.
   for (let start = 0; start < notes.length; start += PAGE_SIZE) {
     const ids = notes.slice(start, start + PAGE_SIZE).map(n => encodeURIComponent(n.id)).join(',');
-    links.push(...await pages(`/rest/v1/app_record_links?${scope}&note_id=in.(${ids})&select=id,note_id,status,summary,project_id,organization_id,meeting_id,document_id,project:app_spaces(name),organization:app_suborganizations(name),meeting:app_meetings(title,series_name),document:app_documents(title)&order=id.asc`, rt));
+    links.push(...await pages(`/rest/v1/app_record_links?${scope}&note_id=in.(${ids})&select=id,note_id,status,summary,project_id,organization_id,meeting_id,document_id,project:app_spaces(name),organization:app_suborganizations(name),meeting:app_meetings(title,series_name),document:app_documents(title,category)&order=id.asc`, rt));
   }
   return {notes, links};
 }
@@ -65,7 +66,7 @@ async function readFiledDocs(notes, rt) {
   try {
     const scope = `workspace_id=eq.${workspace(rt)}`, first = new Map();
     for (let start = 0; start < ids.length; start += PAGE_SIZE) {
-      for (const row of await pages(`/rest/v1/app_documents?${scope}&file_id=in.(${ids.slice(start, start + PAGE_SIZE).join(',')})&select=id,file_id,project_id&order=created_at.asc,id.asc`, rt))
+      for (const row of await pages(`/rest/v1/app_documents?${scope}&file_id=in.(${ids.slice(start, start + PAGE_SIZE).join(',')})&select=id,file_id,project_id,category&order=created_at.asc,id.asc`, rt))
         if (row?.file_id && !first.has(row.file_id)) first.set(row.file_id, row);
     }
     const docs = [...first.values()].filter(row => row.project_id);
@@ -74,7 +75,7 @@ async function readFiledDocs(notes, rt) {
       const list = projects.slice(start, start + PAGE_SIZE).map(encodeURIComponent).join(',');
       for (const row of await pages(`/rest/v1/app_spaces?${scope}&id=in.(${list})&select=id,name&order=id.asc`, rt)) names.set(row.id, row.name);
     }
-    return docs.map(row => ({id: row.id, file_id: row.file_id, project_id: row.project_id, project: {name: names.get(row.project_id) || ''}}));
+    return docs.map(row => ({id: row.id, file_id: row.file_id, project_id: row.project_id, category: row.category ?? null, project: {name: names.get(row.project_id) || ''}}));
   } catch { return []; }
 }
 // The projects that hold this memo's attachments as documents, once each, in attachment order.
@@ -175,12 +176,61 @@ export function noteClassified(note, links, docs = []) {
 }
 // [미분류]: not archived and gone nowhere yet (a stored suggestion still waits here, marked "정리 제안 있음").
 // [분류]: gone somewhere, narrowed by place. [보류] (filter value 'archived'): archived. noteState is unchanged.
-export function visibleNotes(notes, links, filter, docs = [], place = 'all') {
+export function visibleNotes(notes, links, filter, docs = [], place = 'all', sub = 'all') {
   return notes.filter(n => {
     if (filter === 'archived') return !!n.archived_at;
     if (n.archived_at) return false;
     const classified = noteClassified(n, links, docs);
     if (filter !== 'classified') return !classified;
-    return classified && (place === 'all' || notePlaces(n, links, docs).has(place));
+    if (!classified || (place !== 'all' && !notePlaces(n, links, docs).has(place))) return false;
+    return sub === 'all' || !SUB_PLACES[place] || placeTargets(n, links, docs, place).has(sub);
   });
+}
+// UI-바구니거르기2: under [분류]·[담당조직]/[프로젝트]/[자료실], one more row narrows to one organization, one project
+// or one of the 7 document categories (document-categories.js). Everything comes from what the basket already reads:
+// confirmed links (their organization/project ids and names, a linked document's category) and [자료로 넣기]
+// documents (their project and category). [전체]·[할 일] have no second row.
+const SUB_PLACES = Object.freeze({organization:'모든 조직', project:'모든 프로젝트', library:'모든 자료'});
+// The documents holding this memo's attachments ([자료로 넣기]), once each, in attachment order.
+function filedDocs(note, docs) {
+  const byFile = new Map(docs.map(doc => [doc.file_id, doc])), seen = new Map();
+  for (const file of Array.isArray(note?.attachments) ? note.attachments : []) {
+    const doc = byFile.get(String(file?.drive_file_id || ''));
+    if (doc?.project_id && !seen.has(doc.id ?? doc.file_id)) seen.set(doc.id ?? doc.file_id, doc);
+  }
+  return [...seen.values()];
+}
+// Map of target key → name for one place: organization/project ids, or category names for 자료실.
+function placeTargetNames(note, links, docs, place) {
+  const targets = new Map();
+  for (const link of links) {
+    if (link.note_id !== note.id || link.status !== 'confirmed') continue;
+    if (place === 'organization' && link.organization_id) targets.set(link.organization_id, link.organization?.name || '');
+    if (place === 'project' && link.project_id) targets.set(link.project_id, link.project?.name || '');
+    if (place === 'library' && link.document_id) targets.set(categoryOf(link.document?.category), '');
+  }
+  for (const doc of filedDocs(note, docs)) {
+    if (place === 'project' && !targets.get(doc.project_id)) targets.set(doc.project_id, doc.project?.name || '');
+    if (place === 'library') targets.set(categoryOf(doc.category), '');
+  }
+  return targets;
+}
+function placeTargets(note, links, docs, place) { return new Set(placeTargetNames(note, links, docs, place).keys()); }
+// The second row's chips for a place, or null for [전체]·[할 일]: [모든 ○○ N] first (N = memos under that place),
+// then organizations/projects that hold a memo, most memos first (ties by name), or the 7 categories in their fixed order.
+export function placeSubOptions(notes, links, docs, place) {
+  const allLabel = SUB_PLACES[place];
+  if (!allLabel) return null;
+  const inPlace = visibleNotes(notes, links, 'classified', docs, place);
+  const counts = new Map(), names = new Map();
+  for (const note of inPlace) for (const [key, name] of placeTargetNames(note, links, docs, place)) {
+    counts.set(key, (counts.get(key) || 0) + 1);
+    if (name && !names.get(key)) names.set(key, name);
+  }
+  const head = {value:'all', label:`${allLabel} ${inPlace.length}`};
+  if (place === 'library') return [head, ...DOCUMENT_CATEGORIES.map(name => ({value:name, label:name}))];
+  const fallback = place === 'organization' ? '조직' : '프로젝트';
+  const rows = [...counts].map(([value, count]) => ({value, label:names.get(value) || fallback, count}));
+  rows.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko'));
+  return [head, ...rows.map(({value, label}) => ({value, label}))];
 }
