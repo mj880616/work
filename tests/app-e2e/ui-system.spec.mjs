@@ -66,6 +66,10 @@ test('calendar uses 32px and text actions use 36px with mobile content above the
   for(const height of round)expect(height).toBeCloseTo(36,0);
 
   await clickView(page,'tasks');
+  // UI-할일입력: the [할 일] screen has no [+] to wait on any more. Wait for the screen itself and its always-visible input, so the scroll below
+  // never runs while the screen is still hidden (scrolling a hidden row does nothing, and the router then scrolls to the top).
+  await expect(page.locator('#tasksView')).toBeVisible({timeout:10000});
+  await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible({timeout:10000});
   const rows=page.locator('#gtTaskBody .gt-row');
   await expect(rows).toHaveCount(24,{timeout:10000});
   await expect(rows.last().locator('.gt-unlinked-badge')).toHaveCount(0);
