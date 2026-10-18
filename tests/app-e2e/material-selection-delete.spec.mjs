@@ -71,7 +71,6 @@ for(const width of [390,1280]){
     }else{
       await clickView(page,'library');
     await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await selectFilter(page,'#libraryViewFilter','meetings');
       await page.locator('[data-lu-menu="doc-0"]').click();
     }
     const alerts=[];page.on('dialog',async d=>{alerts.push(d.message());await d.accept()});
@@ -100,7 +99,6 @@ for(const width of [390,1280]){
     await expect(page.locator('#meetingList')).toContainText('자료 1');
     await clickView(page,'library');
     await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-    await selectFilter(page,'#libraryViewFilter','meetings');
     await expect(page.locator('[data-lu-document]')).toHaveCount(1);
     expect(state.errors).toEqual([]);
   });
@@ -325,7 +323,6 @@ async function openDeleteControl(page,view){
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
   }else{
     await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-    await selectFilter(page,'#libraryViewFilter','meetings');
     await page.locator('[data-lu-menu="doc-0"]').click();
   }
   expect(await page.evaluate(()=>({owner:window.KPTURuntime.session.read()?.user?.id,token:!!window.KPTURuntime.session.read()?.access_token,workspace:window.KPTURuntime.context.read()?.workspace?.id,view:window.KPTURouter.current}))).toEqual({owner:'owner',token:true,workspace:'ws',view});

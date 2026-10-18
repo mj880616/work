@@ -371,7 +371,7 @@
   #appView #basketView > .basket-head .basket-more{ pointer-events:auto; }
   #appView #basketView button.basket-more-trigger{ width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:22px; line-height:1; }
   #appView #basketView .basket-more-trigger .basket-more-label{ display:none; }
-  /* 필터 [미분류 N]·[전체]·[보관]은 화면 폭 가득. */
+  /* 필터 [미분류 N]·[분류]·[보류]은 화면 폭 가득. */
   #appView #basketView .basket-filters{ max-width:none; }
   #appView #basketView .basket-filter-count{ display:inline; }
   /* 메모가 없으면 가운데 회색 한 줄. */
@@ -711,15 +711,15 @@
 #appView #calendarView .calendar-toolbar .calendar-view-switch button{ padding:0; color:var(--kptu-muted); background:transparent; }
 #appView #calendarView .calendar-toolbar .calendar-view-switch button[hidden]{ display:none; }
 
-/* ② 필터·날짜 고르기(알약 칩): 바구니 [미분류·전체·보관], 자료실 프로젝트·자료 종류, 회의 종류, 성명·보도자료 종류, 할 일 [프로젝트 ▾]·[오늘]·[내일]·[날짜]. */
+/* ② 필터·날짜 고르기(알약 칩): 바구니 [미분류·분류·보류]와 [분류] 아래 분류된 곳 칩, 자료실 프로젝트·자료 분류, 회의 종류, 성명·보도자료 종류, 할 일 [프로젝트 ▾]·[오늘]·[내일]·[날짜]. */
 #appView #basketView .basket-switch-row .basket-filters,
 #appView #homeView .home-quick [data-quick-task-options]:not([hidden]),
 #appView #mediaView .w1p-filters:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 6px; width:auto; max-width:100%; margin:0; padding:0; background:transparent; border:0; border-radius:0; }
-#appView :is(#libraryView,#meetingsView) .filter-chips:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; }
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; }
 #appView #basketView .basket-switch-row .basket-filters button,
 #appView #homeView .home-quick [data-quick-task-options] button,
 #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),
-#appView :is(#libraryView,#meetingsView) .filter-chips button:not(.icon-btn),
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button:not(.icon-btn),
 #appView #mediaView .w1p-filters button.w1p-filter:not(.icon-btn){
   position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:0 0 auto; width:auto; min-width:0;
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
@@ -729,12 +729,12 @@
 #appView #basketView .basket-switch-row .basket-filters button::after,
 #appView #homeView .home-quick [data-quick-task-options] button::after,
 #appView #basketView button:is([data-manual-task-day],[data-manual-task-project])::after,
-#appView :is(#libraryView,#meetingsView) .filter-chips button::after,
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button::after,
 #appView #mediaView .w1p-filters button.w1p-filter::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 #appView #basketView .basket-switch-row .basket-filters button[aria-pressed="true"],
 #appView #homeView .home-quick [data-quick-task-options] button[aria-pressed="true"],
 #appView #basketView button[data-manual-task-day][aria-pressed="true"],
-#appView :is(#libraryView,#meetingsView) .filter-chips button[aria-checked="true"],
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
 #appView #mediaView .w1p-filters button.w1p-filter.active{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #appView #homeView .home-quick [data-quick-task-options] button{ max-width:150px; overflow:hidden; text-overflow:ellipsis; }
 @media(max-width:650px){ #appView #mediaView .w1p-filters:not([hidden]){ flex-wrap:nowrap; overflow-x:auto; padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; scrollbar-width:none; } }
@@ -744,23 +744,29 @@
 :is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .basket-kind-switch button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
-  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter){ -webkit-tap-highlight-color:transparent; }
+  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter){ -webkit-tap-highlight-color:transparent; }
 :is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .basket-kind-switch button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
-  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter):active:not([aria-pressed="true"],[aria-checked="true"],.active){ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter):active:not([aria-pressed="true"],[aria-checked="true"],.active){ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 @media(hover:hover){
   :is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .basket-kind-switch button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
-  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter):hover:not(:active,[aria-pressed="true"],[aria-checked="true"],.active){ background:var(--kptu-surface-subtle); }
+  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter):hover:not(:active,[aria-pressed="true"],[aria-checked="true"],.active){ background:var(--kptu-surface-subtle); }
 }
 /* 전환 칸 사이 선은 마우스를 올려도 그대로(공용 버튼 :hover의 테두리 색이 선만 진하게 바꾸지 않게). */
 :is(#appView #homeView .home-quick .home-quick-modes,#appView #basketView .basket-kind-switch,.modal .event-create-modes,.modal .meeting-create-modes,#appView .schedule-switch) > :is(button,div):hover{ border-color:var(--ds-line); }
 
-/* ③ 전환·필터 한 줄: 바구니 [메모 | 노트] 오른쪽에 [미분류·전체·보관](넘치면 다음 줄). 목록이 숨으면(노트·읽기·분류 창) 필터도 숨는다. */
+/* ③ 전환·필터 한 줄: 바구니 [메모 | 노트] 오른쪽에 [미분류·분류·보류](넘치면 다음 줄). 목록이 숨으면(노트·읽기·분류 창) 필터도 숨는다. */
 #appView #basketView .basket-switch-row:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 10px; min-height:var(--kptu-touch-target,44px); margin:0 0 8px; }
 #appView #basketView:has(> [data-basket-list][hidden]) .basket-switch-row .basket-filters{ display:none; }
+/* UI-바구니거르기: [분류]를 고르면 바로 아래 한 줄에 분류된 곳 칩 [전체·담당조직·프로젝트·자료실·할 일](공용 filter-chips.js, 자료실·회의와 같은 알약).
+   넘치면 옆으로 밀어 본다. 목록이 숨으면(노트·읽기·분류 창) 함께 숨는다. */
+#appView #basketView > .basket-place-filter:not([hidden]){ width:auto; max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; margin:-8px 0 4px; background:transparent; border-radius:0; }
+#appView #basketView > .basket-place-filter::-webkit-scrollbar{ display:none; }
+#appView #basketView:has(> [data-basket-list][hidden]) > .basket-place-filter{ display:none; }
+#appView #basketView .basket-chip[data-chip-kind="task"] .basket-chip-dot{ background:var(--ds-kind-task-ink); }
 /* 자료실: 프로젝트 칩과 자료 종류 칩도 자리가 되면 한 줄(PC). */
 #appView #libraryView .library-filter-toolbar{ gap:0 12px; }
 #appView #libraryView .library-filter-toolbar #documentProject{ flex:0 1 auto; }
@@ -904,7 +910,7 @@
   body.kptu-mobile-keyboard #appView .schedule-switch,
   body.kptu-mobile-keyboard #appView #basketView .basket-switch-row .basket-kind-switch{ display:none; }
 
-  /* 바구니 위쪽 줄에는 필터 [미분류·전체·보관]만 남는다. 필터가 숨으면(노트 목록) 줄도 자리를 차지하지 않는다. */
+  /* 바구니 위쪽 줄에는 필터 [미분류·분류·보류]만 남는다. 필터가 숨으면(노트 목록) 줄도 자리를 차지하지 않는다. */
   #appView #basketView:has(> [data-basket-list][hidden]) > .basket-switch-row{ min-height:0; margin:0; }
   /* 알림(토스트·새 버전 알림)도 전환 줄 위로. 바구니 메모 목록은 위 빠른 입력 규칙(더 구체적)이 입력칸 높이까지 더한다. */
   html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView,#basketView):not(.hidden))) .toast{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + 8px + env(safe-area-inset-bottom))!important; }

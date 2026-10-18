@@ -1,3 +1,4 @@
+import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
@@ -80,7 +81,7 @@ for(const width of [390,1280]){
   await tap(page,page.locator('[data-note-close]'),width);
   // 메모: [연결하기][할 일 만들기] — 같은 규칙, [할 일 만들기]는 할 일 종류 색 그대로.
   await tap(page,page.locator('[data-basket-kind="memo"]'),width);
-  await tap(page,page.locator('[data-basket-filter="all"]'),width);
+  await showBasketRow(page,'m1');
   await tap(page,page.locator('[data-basket-row="m1"]'),width);
   const memoRow=page.locator('[data-basket-read-actions]');
   const memo=await readRow(page,memoRow,['연결하기','할 일 만들기'],width);
@@ -90,7 +91,7 @@ for(const width of [390,1280]){
   await page.keyboard.press('Escape');
   await go(page,'home');await go(page,'basket');
   // 첨부만 있는 메모 화면도 같은 규칙.
-  await tap(page,page.locator('[data-basket-filter="all"]'),width);
+  await showBasketRow(page,'m2');
   await tap(page,page.locator('[data-basket-row="m2"]'),width);
   await expect(page.locator('[data-basket-file-card="drive-hwp"]')).toBeVisible();
   await readRow(page,page.locator('[data-basket-read-actions]'),['연결하기','할 일 만들기'],width);
@@ -175,7 +176,7 @@ test('③ 폰: 일정·바구니 전환은 아래 탭 바로 위 한 줄(알약 
  await expect(page.locator('#basketView .basket-kind-switch')).toBeHidden();
  await page.locator('[data-note-close]').tap();await expect(page.locator('#basketView .basket-kind-switch')).toBeVisible();
  // The same for an opened memo.
- await page.locator('[data-basket-kind="memo"]').tap();await page.locator('[data-basket-filter="all"]').tap();
+ await page.locator('[data-basket-kind="memo"]').tap();await showBasketRow(page,'m1');
  await page.locator('[data-basket-row="m1"]').tap();await expect(page.locator('[data-basket-close]')).toBeVisible();
  await expect(page.locator('#basketView .basket-kind-switch')).toBeHidden();
  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
@@ -263,7 +264,7 @@ if(REVIEW){
   test(`캡처 ${width} ${scheme}`,async({page})=>{
    await fixture(page,{width,scheme});
    const shot=name=>page.screenshot({path:`${REVIEW}/${name}-${width}-${scheme}.png`});
-   await go(page,'basket');await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await shot('basket-memo-list');
+   await go(page,'basket');await showBasketRow(page,'m1');await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await shot('basket-memo-list');
    await page.locator('[data-basket-row="m1"]').click();await expect(page.locator('[data-basket-read-actions]')).toBeVisible();await shot('memo-read');
    await page.locator('[data-basket-close]').click();
    await page.locator('[data-basket-kind="note"]').click();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();await shot('basket-note-list');

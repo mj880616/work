@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateNoteText, noteState, visibleNotes, filedProjects, createNote, updateNote, readBasket } from '../app/basket-data.js';
+import { validateNoteText, noteState, visibleNotes, filedProjects, notePlaces, noteClassified, BASKET_PLACES, createNote, updateNote, readBasket } from '../app/basket-data.js';
 
 test('text validation rejects whitespace and over 20000 Unicode characters without trimming originals',()=>{
  assert.throws(()=>validateNoteText(' \n\t '),/입력/);
@@ -15,7 +15,7 @@ test('archive wins, only confirmed note links count, all destinations remain vis
  assert.equal(noteState({id:'new'},links).status,'미분류');
  const notes=[{id:'archived',archived_at:'now'},{id:'new'},{id:'n'}];
  assert.deepEqual(visibleNotes(notes,links,'unclassified').map(n=>n.id),['new']);
- assert.deepEqual(visibleNotes(notes,links,'all').map(n=>n.id),['new','n']);
+ assert.deepEqual(visibleNotes(notes,links,'classified').map(n=>n.id),['n']);
  assert.deepEqual(visibleNotes(notes,links,'archived').map(n=>n.id),['archived']);
 });
 const runtime=api=>({context:{read:()=>({workspace:{id:'w'},user:{id:'u'}})},api});
@@ -42,10 +42,13 @@ test('read pages notes and note-only links without silently truncating at REST r
  assert.ok(paths.filter(p=>p.includes('app_record_links')).every(p=>p.includes('note_id=in.')&&p.includes('workspace_id=eq.w')));
 });
 
-test('persisted suggested links exclude notes from unclassified, confirmed wins',()=>{
+// UI-바구니거르기: with [전체] gone, a memo with only a stored suggestion waits in [미분류] (row says "정리 제안 있음")
+// instead of disappearing from every segment; it is not [분류] until confirmed.
+test('persisted suggested links stay in unclassified until confirmed, confirmed wins',()=>{
  const links=[{note_id:'n',status:'suggested',project_id:'p'}];
  assert.equal(noteState({id:'n'},links).status,'분류 제안됨');
- assert.deepEqual(visibleNotes([{id:'n'}],links,'unclassified'),[]);
+ assert.deepEqual(visibleNotes([{id:'n'}],links,'unclassified').map(n=>n.id),['n']);
+ assert.deepEqual(visibleNotes([{id:'n'}],links,'classified'),[]);
 });
 
 // BUG-자료넣기미분류: [자료로 넣기] makes no record link; the memo's files as a project's documents classify it.
@@ -77,4 +80,40 @@ test('the basket read asks for these attachments\' documents and their project n
  assert.match(space,/^\/rest\/v1\/app_spaces\?workspace_id=eq\.w&id=in\.\(p\)&select=id,name/);
  const failed=await readBasket(runtime(handler(true)));
  assert.equal(failed.notes.length,2);assert.deepEqual(failed.docs,[]);
+});
+
+// UI-바구니거르기: [미분류][분류][보류] and, under [분류], where the memo went.
+test('segments split unclassified, classified and on-hold memos; place chips follow links, filed documents and tasks',()=>{
+ assert.deepEqual(BASKET_PLACES.map(([v])=>v),['all','organization','project','library','task']);
+ assert.deepEqual(BASKET_PLACES.map(([,l])=>l),['전체','담당조직','프로젝트','자료실','할 일']);
+ const task={task_id:'t1',task_list_id:'l',title:'할 일',created_at:'2026-10-18T00:00:00Z'};
+ const notes=[
+  {id:'org'},{id:'proj'},{id:'doc'},{id:'meet'},{id:'filed',attachments:[{drive_file_id:'drive-a'}]},
+  {id:'task',metadata:{tasks:[task]}},{id:'bad-task',metadata:{tasks:[{task_id:''}]}},{id:'plain'},{id:'suggest'},
+  {id:'held',archived_at:'now'},{id:'held-linked',archived_at:'now'},
+ ];
+ const links=[
+  {note_id:'org',status:'confirmed',organization_id:'o'},{note_id:'proj',status:'confirmed',project_id:'p'},
+  {note_id:'doc',status:'confirmed',document_id:'d'},{note_id:'meet',status:'confirmed',meeting_id:'m'},
+  {note_id:'suggest',status:'suggested',project_id:'p'},{note_id:'held-linked',status:'confirmed',project_id:'p'},
+ ];
+ const docs=[{file_id:'drive-a',project_id:'p',project:{name:'민자철도'}}];
+ const ids=(filter,place)=>visibleNotes(notes,links,filter,docs,place).map(n=>n.id);
+ assert.deepEqual(ids('unclassified'),['bad-task','plain','suggest']);
+ assert.deepEqual(ids('classified'),['org','proj','doc','meet','filed','task']);
+ assert.deepEqual(ids('classified','all'),ids('classified'));
+ assert.deepEqual(ids('classified','organization'),['org']);
+ // #671 "자료로 넣음" (a project's library document) counts for both 프로젝트 and 자료실.
+ assert.deepEqual(ids('classified','project'),['proj','filed']);
+ assert.deepEqual(ids('classified','library'),['doc','filed']);
+ assert.deepEqual(ids('classified','task'),['task']);
+ assert.deepEqual(ids('archived'),['held','held-linked']);
+ // Every memo is in exactly one segment.
+ assert.equal(ids('unclassified').length+ids('classified').length+ids('archived').length,notes.length);
+ assert.deepEqual([...notePlaces(notes[4],links,docs)].sort(),['library','project']);
+ assert.equal(noteClassified(notes[5],[],[]),true);assert.equal(noteClassified(notes[9],links,docs),false);
+ // An unknown place (an old value) narrows to nothing rather than throwing; the screen only offers the five above.
+ assert.deepEqual(ids('classified','unknown'),[]);
+ // noteState itself (shared with drive-summary) is unchanged by tasks.
+ assert.equal(noteState(notes[5],[]).status,'미분류');
 });

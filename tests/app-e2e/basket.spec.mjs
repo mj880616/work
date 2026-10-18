@@ -25,7 +25,7 @@ async function fixture(page){
  });
  return {...home,notes,writes,errors,setDenied:v=>denied=v,setEmpty:v=>empty=v,setLinksDenied:v=>linksDenied=v};
 }
-async function enter(page,width,count=1){if(width<761){await page.locator('.mobile-tabs [data-view="basket"]').click();}else await page.locator('.app-nav [data-view="basket"]').click();await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(count);}
+async function enter(page,width,count=2){if(width<761){await page.locator('.mobile-tabs [data-view="basket"]').click();}else await page.locator('.app-nav [data-view="basket"]').click();await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(count);}
 for(const width of [390,1280]){
  test(`basket save edit AI hidden archive filters keyboard touch and console ${width}`,async({page},info)=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page),q=quick(page);
@@ -38,23 +38,26 @@ for(const width of [390,1280]){
   expect(f.requests.filter(r=>r.action==='create')).toHaveLength(0);expect(f.writes[0].body).not.toHaveProperty('ai_export_allowed');
   await expect(q.locator('[data-quick-ai-excluded]')).toHaveCount(0);
   if(width<761){await page.locator('.mobile-tabs [data-view="basket"]').click();}else await page.locator('.app-nav [data-view="basket"]').click();
-  await expect(page.locator('[data-basket-row]')).toHaveCount(2);await expect(page.locator('#basketView')).not.toContainText('AI 제외');
-  await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(4);
+  // UI-바구니거르기: [미분류] holds the new memo, the plain one and the one with only a stored suggestion; [분류] the linked one.
+  await expect(page.locator('[data-basket-row]')).toHaveCount(3);await expect(page.locator('#basketView')).not.toContainText('AI 제외');
   await expect(page.locator('[data-basket-row="s"]')).toContainText('정리 제안 있음');
+  await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+  await expect(page.locator('[data-basket-place-filter]')).toBeVisible();
   // BUG-바구니연결해제: link chips sit under the row button, inside the row item.
   const confirmed=page.locator('[data-basket-row-item="c"]');await expect(confirmed).toContainText('연결됨');await expect(confirmed).toContainText('테스트 프로젝트');await expect(confirmed).toContainText('테스트 조직');await expect(confirmed).toContainText('연결 대상 없음');
+  await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-place-filter]')).toBeHidden();
   await page.locator('[data-basket-row="new"]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-basket-read-text]')).toHaveText(raw.trim());await expect(page.locator('[data-basket-text]')).toBeHidden();await page.locator('[data-basket-note-more]').press('Enter');await expect(page.locator('#basketNoteMenu [data-basket-edit]')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('[data-basket-text]')).toBeFocused();await expect(page.locator('[data-basket-text]')).toHaveValue(raw);const editor=await page.locator('[data-basket-text]').boundingBox();expect(editor.width).toBeGreaterThanOrEqual(width===1280?600:300);
   const revised=' 수정한 원문\n\n마지막  ';await page.locator('[data-basket-text]').fill(revised);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).toContainText('저장');expect(f.writes.at(-1).body.raw_text).toBe(revised);expect(f.writes.at(-1).body.updated_at).toBeTruthy();
   await expect(page.locator('[data-basket-ai-excluded]')).toHaveCount(0);expect(f.writes.at(-1).body).not.toHaveProperty('ai_export_allowed');expect(f.notes.find(n=>n.id==='n').ai_export_allowed).toBe(false);
   await noteAction(page,'[data-basket-archive]');await expect(page.locator('[data-basket-archive]')).toHaveText('보관 해제');expect(f.notes[0].archived_at).toBeTruthy();
-  await page.locator('[data-basket-close]').click();await page.locator('[data-basket-filter="archived"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(2);await expect(page.locator('[data-basket-row="new"]')).toContainText('보관');
+  await page.locator('[data-basket-close]').click();await page.locator('[data-basket-filter="archived"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(2);await expect(page.locator('[data-basket-row="new"]')).toContainText('보관');await expect(page.locator('[data-basket-filter="archived"]')).toHaveText('보류');
   await page.locator('[data-basket-row="new"]').click();await noteAction(page,'[data-basket-archive]');await expect(page.locator('[data-basket-archive]')).toHaveText('보관');expect(f.notes[0].archived_at).toBeNull();await page.screenshot({path:info.outputPath(`basket-detail-${width}.png`),fullPage:true});await page.locator('[data-basket-close]').click();
-  await page.locator('[data-basket-filter="all"]').click();await page.screenshot({path:info.outputPath(`basket-${width}.png`),fullPage:true});
+  await page.locator('[data-basket-filter="unclassified"]').click();await page.screenshot({path:info.outputPath(`basket-${width}.png`),fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   const b=await page.locator('[data-basket-row="new"]').boundingBox();expect(b.height).toBeGreaterThanOrEqual(44);
   if(width===390){await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);await expect(page.locator('[data-basket-read-text]')).toHaveText(revised.trim());await expect(page.locator('[data-basket-text]')).toBeHidden();await page.keyboard.press('Escape');await expect(page.locator('[data-basket-row="new"]')).toBeFocused();}
   expect(await page.locator('#basketView').getByRole('button',{name:'삭제',exact:true}).count()).toBe(0);
-  await page.evaluate(()=>window.KPTURouter.go('home'));await enter(page,width,2);
+  await page.evaluate(()=>window.KPTURouter.go('home'));await enter(page,width,3);
   await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');
   expect(f.errors).toEqual([]);expect(f.writes.every(w=>w.method!=='DELETE')).toBe(true);
  });
@@ -72,14 +75,14 @@ for(const width of [390,1280]){
   f.setDenied(false);f.setEmpty(true);await page.locator('[data-basket-save]').click();await expect(page.locator('[data-basket-status]')).toHaveText('저장하지 못했어요. 다시 시도해 주세요.');await expect(page.locator('[data-basket-text]')).toHaveValue(' 편집 실패\n ');
  });
 }
-test('basket links failure shows error and retry rather than false unclassified list',async({page})=>{const f=await fixture(page);f.setLinksDenied(true);await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status]')).toHaveText('메모를 불러오지 못했어요. 다시 시도해 주세요.');await expect(page.locator('[data-basket-row]')).toHaveCount(0);f.setLinksDenied(false);await page.locator('[data-basket-retry]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(1);});
+test('basket links failure shows error and retry rather than false unclassified list',async({page})=>{const f=await fixture(page);f.setLinksDenied(true);await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status]')).toHaveText('메모를 불러오지 못했어요. 다시 시도해 주세요.');await expect(page.locator('[data-basket-row]')).toHaveCount(0);f.setLinksDenied(false);await page.locator('[data-basket-retry]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(2);});
 test('basket raw text and drafts never enter permanent browser storage',async({page})=>{await fixture(page);await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_DRAFT');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');await quick(page).locator('[data-quick-input]').fill('BASKET_PRIVATE_UNSAVED');await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-row="new"]').click();await noteAction(page,'[data-basket-edit]');await page.locator('[data-basket-text]').fill('BASKET_PRIVATE_EDIT');const cdp=await page.context().newCDPSession(page);const stored=JSON.stringify(await Promise.all([true,false].map(isLocalStorage=>cdp.send('DOMStorage.getDOMStorageItems',{storageId:{securityOrigin:testOrigin,isLocalStorage}}))));expect(stored).not.toContain('BASKET_PRIVATE');});
 test('basket direct URL and home return refresh new notes without saving view choice',async({page})=>{
- const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+ const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  await page.locator('[data-basket-filter="archived"]').click();await expect(page.locator('[data-basket-row="a"]')).toBeVisible();
  await page.reload();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
  await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible').click();await quick(page).locator('[data-quick-input]').fill('새 글');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');
- await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await expect(page.locator('[data-basket-row]')).toHaveCount(2);expect(f.writes).toHaveLength(1);
+ await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await expect(page.locator('[data-basket-row]')).toHaveCount(3);expect(f.writes).toHaveLength(1);
 });
 test('basket save lock blocks duplicate home posts and detail patches, reload guard keeps pending edits',async({page})=>{
  const f=await fixture(page);let release;let pending=new Promise(r=>release=r);
@@ -99,11 +102,11 @@ test('session scope change clears basket content and prevents a delayed response
  await expect(page.locator('[data-basket-row]')).toHaveCount(0);await expect(page.locator('#basketView')).not.toContainText('BASKET_STALE_PRIVATE');
 });
 test('unsaved detail survives canceled list/Escape dismissal and navigation until explicit discard',async({page})=>{
- await fixture(page);await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await page.locator('[data-basket-filter="all"]').click();await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');const input=page.locator('[data-basket-text]');await input.fill('수정 중인 원문');
+ await fixture(page);await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await page.locator('[data-basket-filter="classified"]').click();await page.locator('[data-basket-filter="unclassified"]').click();await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');const input=page.locator('[data-basket-text]');await input.fill('수정 중인 원문');
  page.once('dialog',d=>d.dismiss());await page.locator('[data-basket-close]').click();await expect(input).toHaveValue('수정 중인 원문');
  page.once('dialog',d=>d.dismiss());await input.press('Escape');await expect(input).toHaveValue('수정 중인 원문');
  const address=page.url();page.once('dialog',d=>d.dismiss());await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#basketView')).toBeVisible();expect(page.url()).toBe(address);await expect(input).toHaveValue('수정 중인 원문');
- page.once('dialog',d=>d.accept());await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-row="n"]')).toBeFocused();await expect(page.locator('[data-basket-filter="all"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(3);await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(1);await page.locator('[data-basket-row="n"]').click();await expect(page.locator('[data-basket-read-text]')).toHaveText(' 첫 줄\n\n둘째 줄  ');await expect(input).toBeHidden();await expect(input).toHaveValue(' 첫 줄\n\n둘째 줄  ');
+ page.once('dialog',d=>d.accept());await page.locator('[data-basket-close]').click();await expect(page.locator('[data-basket-row="n"]')).toBeFocused();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(1);await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row]')).toHaveCount(2);await page.locator('[data-basket-row="n"]').click();await expect(page.locator('[data-basket-read-text]')).toHaveText(' 첫 줄\n\n둘째 줄  ');await expect(input).toBeHidden();await expect(input).toHaveValue(' 첫 줄\n\n둘째 줄  ');
 });
 test('explicit task and update modes still save directly when preference storage is blocked',async({page})=>{
  const f=await fixture(page),q=quick(page);await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('blocked');};});

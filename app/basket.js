@@ -3,7 +3,8 @@ import {effectiveOcrText} from './basket-ocr-text.mjs';
 import { mountQuick } from './home-quick.js';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js';
 import { mountClassification } from './basket-classification-ui.js';
-import { readBasket, updateNote, noteState, visibleNotes, filedProjects, moveToNote, suggestNoteTitle, validateNoteTitle } from './basket-data.js';
+import { readBasket, updateNote, noteState, visibleNotes, filedProjects, moveToNote, suggestNoteTitle, validateNoteTitle, BASKET_PLACES, noteClassified } from './basket-data.js';
+import { renderFilterChips } from './filter-chips.js';
 import { mountNotes } from './basket-notes.js';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js';
@@ -13,14 +14,14 @@ import { readAttachmentDocuments, putFilesIntoProject } from './basket-file-docs
 import { fileLine } from './meeting-compact.js';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js';
-import { openBasketHtml, mountHtmlFrame, HTML_FRAME_TEXT } from './html-frame.js';
-import { CHATGPT_HTML_REQUEST, HTML_MAX_BYTES, isHtmlName } from './chatgpt-html.mjs';
+import { paintHtmlAttachments } from './html-frame.js';
+import { CHATGPT_HTML_REQUEST } from './chatgpt-html.mjs';
 import { openMarkdownEditor } from './md-editor.js';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
-let notes = [], links = [], docs = [], filter = 'unclassified', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
+let notes = [], links = [], docs = [], filter = 'unclassified', place = 'all', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
 let quick=null, bigWriter=null;
@@ -32,7 +33,7 @@ const initialUrl = new URL(location.href);
 let requestedNote = (initialUrl.searchParams.get('view') === 'basket' ? initialUrl.searchParams.get('note') : null) || takeBasketNoteRequest(rt);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-switch-row"><div class="basket-kind-switch" role="group" aria-label="메모·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">메모</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="all">전체</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보관</button></div></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-switch-row"><div class="basket-kind-switch" role="group" aria-label="메모·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">메모</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="classified">분류</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보류</button></div></div><div class="basket-place-filter" data-basket-place-filter hidden></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows id="basketRows"></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation; the shell owns
 // the visible mobile title at the same 760px breakpoint as the shared header.
 const basketTitle=root.querySelector('.basket-head > h2'),mobileTitle=window.matchMedia('(max-width:760px)');
@@ -308,6 +309,8 @@ async function saveToNote(){
   }finally{if(busy){busy=false;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);paintOcrControls();}}
 }
 const stateLabel=state=>({확정:'연결됨', '분류 제안됨':'정리 제안 있음'})[state]||state;
+// UI-바구니거르기: a memo with no link but a Google task made from it is classified ([분류]·[할 일]), not 미분류.
+const rowState=(note,state)=>state.status==='미분류'&&noteClassified(note,links,docs)?'할 일 만듦':stateLabel(state.status);
 function paintHandoffScope(){
   handoffLine.hidden=!handoffNotice;
   if(handoffNotice!=='scope'){handoffLine.textContent=handoffNotice||'';return;}
@@ -336,17 +339,31 @@ function linkChip(link, {open = false} = {}) {
 function filedChips(note) {
   return filedProjects(note, docs).map(p => `<span class="basket-chip" data-chip-kind="project" data-basket-filed="${esc(p.project_id)}"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">프로젝트 자료: </span>${esc(p.name)} · 자료</span></span>`);
 }
+// UI-바구니거르기: under [분류], one row of place chips (shared filter-chips.js) narrows by where the memo went.
+// The choice lives only in this module's memory; entering the basket starts again at [미분류]·[전체].
+const placeFilter = root.querySelector('[data-basket-place-filter]');
+function paintPlaceFilter() {
+  placeFilter.hidden = filter !== 'classified';
+  if (placeFilter.hidden) return;
+  renderFilterChips(placeFilter, {label:'분류된 곳', controls:'basketRows', value:place, options:BASKET_PLACES.map(([value, label]) => ({value, label})), onChange:value => { handoff.close(); place = value; renderList(); }});
+}
+// Tasks made from the memo have no link chip; the row names them in the same chip row ("할 일 N개").
+function taskPlaceLine(note) {
+  const count = noteTasks(note).length;
+  return count ? `<span class="basket-chip" data-chip-kind="task"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span>할 일 ${count}개</span></span>` : '';
+}
 function renderList() {
   paintHandoffScope();
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
-  const visible = visibleNotes(notes, links, filter, docs);
+  paintPlaceFilter();
+  const visible = visibleNotes(notes, links, filter, docs, place);
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
     const state = noteState(note, links, docs);
     const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
     const title=lines[0]||(file?`${String(file.mime_type||'').startsWith('image/')?'사진':'파일'} · ${file.file_name||'첨부'}`:'메모');
     // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
-    const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('');
-    return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${stateLabel(state.status)}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span></button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
+    const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
+    return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span></button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
   }).join('');
   listStatus.textContent = visible.length ? `${visible.length}개 메모` : '아직 메모가 없어요';
   listStatus.toggleAttribute('data-basket-empty', !visible.length);
@@ -379,7 +396,7 @@ function openNoteLayer({adoptOnly = false} = {}) {
 function paintStateLine() {
   const state = noteState(selected, links, docs), box = detail.querySelector('[data-basket-state]');
   const chips = [...confirmedLinks(selected.id).map(link => linkChip(link, {open:true})), ...filedChips(selected)];
-  box.innerHTML = chips.length ? `<span class="a11y-only">${esc(stateLabel(state.status))}: </span>${chips.join('')}` : `<span class="basket-state-text">${esc(stateLabel(state.status))}</span>`;
+  box.innerHTML = chips.length ? `<span class="a11y-only">${esc(stateLabel(state.status))}: </span>${chips.join('')}` : `<span class="basket-state-text">${esc(rowState(selected, state))}</span>`;
 }
 function paintDetailState() {
   if (!selected) return;
@@ -396,27 +413,11 @@ function paintAttachments() {
   paintOcrControls();paintHtmlViews();
 }
 // MD-표시보완: each .html attachment (pasted ChatGPT HTML) shows in a sandboxed frame under the read text.
-// Read once per opened note through document-actions `html-view`; never sent again on its own.
+// The shared painter (html-frame.js) also serves the note read view.
 function paintHtmlViews() {
-  const host=detail.querySelector('[data-basket-html-views]');if(!host||!selected)return;
-  const files=(selected.attachments||[]).filter(file=>isHtmlName(file.file_name)&&typeof file.drive_file_id==='string'&&file.drive_file_id);
-  const wanted=new Set(files.map(file=>file.drive_file_id));
-  host.querySelectorAll('[data-basket-html-view]').forEach(box=>{if(!wanted.has(box.dataset.basketHtmlView))box.remove();});
-  const shown=new Set(Array.from(host.querySelectorAll('[data-basket-html-view]'),box=>box.dataset.basketHtmlView));
-  for(const file of files){
-    if(shown.has(file.drive_file_id))continue;
-    const box=document.createElement('section');
-    box.className='basket-html-view';box.dataset.basketHtmlView=file.drive_file_id;box.setAttribute('aria-label',`${file.file_name||'HTML'} 화면`);
-    host.append(box);void loadHtmlView(box,file);
-  }
-}
-async function loadHtmlView(box,file){
-  const noteId=selected.id,owner=scope(),live=()=>box.isConnected&&owner===scope()&&selected?.id===noteId;
-  const say=text=>{const p=document.createElement('p');p.className='basket-html-message';p.setAttribute('role','status');p.textContent=`${file.file_name||'HTML'}: ${text}`;box.replaceChildren(p);};
-  if(Number(file.size_bytes)>HTML_MAX_BYTES)return say(HTML_FRAME_TEXT.tooLarge);
-  say('불러오는 중…');
-  try{const {html}=await openBasketHtml(noteId,file.drive_file_id,{rt});if(live())mountHtmlFrame(box,html,{title:file.file_name||'ChatGPT HTML'});}
-  catch(err){if(live())say(err?.message||HTML_FRAME_TEXT.failed);}
+  if(!selected)return;
+  const noteId=selected.id,owner=scope();
+  paintHtmlAttachments(detail.querySelector('[data-basket-html-views]'),{noteId,attachments:selected.attachments,rt,isCurrent:()=>owner===scope()&&selected?.id===noteId});
 }
 // MD-표시보완: copy the request that asks ChatGPT for one self-contained HTML file.
 async function copyChatgptRequest(){
@@ -678,7 +679,7 @@ root.addEventListener('click', e => {
   else if(b.hasAttribute('data-basket-ocr-reconcile'))void runOcr('reconcile',b.dataset.basketOcrReconcile);
   else if(b.hasAttribute('data-basket-ocr-cleanup'))void runOcr('cleanup',b.dataset.basketOcrCleanup);
   else if (b.hasAttribute('data-basket-row')) openDetail(b.dataset.basketRow);
-  else if (b.hasAttribute('data-basket-filter')) { handoff.close(); filter = b.dataset.basketFilter; renderList(); }
+  else if (b.hasAttribute('data-basket-filter')) { handoff.close(); filter = b.dataset.basketFilter; place = 'all'; renderList(); }
   else if (b.hasAttribute('data-basket-close')) closeDetail();
   else if (b.hasAttribute('data-basket-edit')) startEdit();
   else if (b.hasAttribute('data-basket-to-note')) openToNote();
@@ -810,7 +811,7 @@ window.KPTURouter.on('basket', () => {
   const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt);
   if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) return;
   noteDocs.close({focus:false,force:true}); showKind('memo');
-  filter = 'unclassified'; renderList();
+  filter = 'unclassified'; place = 'all'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();

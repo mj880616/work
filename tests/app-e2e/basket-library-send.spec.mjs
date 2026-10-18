@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {noteAction} from './helpers/basket-more.mjs';
+import {noteAction,showBasketRow} from './helpers/basket-more.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 // BASKET-4b-1 C: [자료실로 보내기] on a basket note attachment. Server results only;
 // a refusal changes nothing, an unknown result is never sent again.
@@ -17,7 +17,7 @@ async function fixture(page,width,reply){
  await page.route(SB+'/functions/v1/document-actions',async route=>{const body=route.request().postDataJSON();sends.push(body);return reply(route,body,sends.length);});
  await page.exposeFunction('__libraryChanged',d=>changed.push(d));
  await page.evaluate(()=>addEventListener('kptu:documents-changed',e=>window.__libraryChanged(e.detail)));
- await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-filter="all"]').click();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
  const row=page.locator(`[data-basket-row="${n}"]`);if(width<761)await row.tap();else await row.click();
  await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  return {home,errors,sends,changed,box:id=>page.locator(`[data-basket-library="${id}"]`),result:id=>page.locator(`[data-basket-library-status="${id}"]`)};

@@ -1,3 +1,4 @@
+import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
@@ -142,7 +143,7 @@ test('overwrite asks once, says both sides change for a shared file, and sends t
 for(const width of [390,1280])test(`a basket HWPX attachment is saved as a new HWP attachment of the same note, never overwritten ${width}`,async({page})=>{
   const f=await fixture(page,width);
   await page.evaluate(()=>window.KPTURouter.go('basket'));
-  await page.locator('[data-basket-filter="all"]').click();
+  await showBasketRow(page,NOTE);
   await press(page,page.locator(`[data-basket-row="${NOTE}"]`),width);
   await expect(page.locator('[data-basket-hwp="drive-jpg"]')).toHaveCount(0);
   await press(page,page.getByRole('button',{name:'안건.hwpx 편집'}),width);

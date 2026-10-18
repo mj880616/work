@@ -4,7 +4,8 @@
 // - 문서 맨 앞에 CSP(default-src 'none', 인라인 스타일·스크립트·data: 이미지·글꼴만)를 붙여 모든 네트워크 요청을 막는다.
 // - 높이는 칸막이 안 스크립트가 보낸 숫자만 받는다(보낸 창이 그 iframe일 때만, 범위 제한).
 // - 내용은 document-actions `html-view`(읽기 전용, 2MB까지)로 받는다. 요청은 자동으로 다시 보내지 않는다.
-import {frameDocument} from './chatgpt-html.mjs';
+// - 메모 읽기(basket.js)와 노트 읽기(basket-notes.js)는 paintHtmlAttachments 하나로 같은 칸막이를 그린다(BUG-노트HTML표시).
+import {frameDocument, isHtmlName, HTML_MAX_BYTES} from './chatgpt-html.mjs';
 
 export const HTML_FRAME_TEXT = Object.freeze({
   notReady: 'HTML 보기 서버가 아직 준비되지 않았어요. [Drive에서 열기]로 확인해 주세요.',
@@ -124,3 +125,33 @@ export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML'} = {}) {
   return {close() { if (full) setFull(false); frames.delete(frame); box.remove(); }};
 }
 
+
+// The .html attachments a note shows as frames, in attachment order.
+export const htmlAttachments = attachments => (Array.isArray(attachments) ? attachments : [])
+  .filter(file => isHtmlName(file?.file_name) && typeof file.drive_file_id === 'string' && file.drive_file_id);
+
+// BUG-노트HTML표시: one painter for the memo and note read views. Each .html attachment gets one
+// [data-basket-html-view] box in host; a box already shown is kept (read once per opened note, never re-sent).
+// isCurrent() is false once the view moved to another note or account; a late answer is then dropped.
+export function paintHtmlAttachments(host, {noteId, attachments, isCurrent = () => true, rt = window.KPTURuntime}) {
+  if (!host) return 0;
+  const files = htmlAttachments(attachments);
+  const wanted = new Set(files.map(file => file.drive_file_id));
+  host.querySelectorAll('[data-basket-html-view]').forEach(box => { if (!wanted.has(box.dataset.basketHtmlView)) box.remove(); });
+  const shown = new Set(Array.from(host.querySelectorAll('[data-basket-html-view]'), box => box.dataset.basketHtmlView));
+  for (const file of files) {
+    if (shown.has(file.drive_file_id)) continue;
+    const box = document.createElement('section');
+    box.className = 'basket-html-view'; box.dataset.basketHtmlView = file.drive_file_id; box.setAttribute('aria-label', `${file.file_name || 'HTML'} 화면`);
+    host.append(box); void loadHtmlView(box, file, {noteId, isCurrent, rt});
+  }
+  return files.length;
+}
+async function loadHtmlView(box, file, {noteId, isCurrent, rt}) {
+  const live = () => box.isConnected && isCurrent();
+  const say = text => { const p = document.createElement('p'); p.className = 'basket-html-message'; p.setAttribute('role', 'status'); p.textContent = `${file.file_name || 'HTML'}: ${text}`; box.replaceChildren(p); };
+  if (Number(file.size_bytes) > HTML_MAX_BYTES) return say(HTML_FRAME_TEXT.tooLarge);
+  say('불러오는 중…');
+  try { const {html} = await openBasketHtml(noteId, file.drive_file_id, {rt}); if (live()) mountHtmlFrame(box, html, {title: file.file_name || 'ChatGPT HTML'}); }
+  catch (err) { if (live()) say(err?.message || HTML_FRAME_TEXT.failed); }
+}

@@ -29,3 +29,16 @@ export async function noteAction(page,selector,{press=null}={}){
  await expect(item).toBeVisible();
  if(press)await press(item);else await item.click();
 }
+// UI-바구니거르기: [전체] is gone; the list is [미분류 N]·[분류]·[보류]. Tests that only need a memo's row on screen
+// pick the segment that holds it, as a person would (미분류 first, then 분류, then 보류).
+export async function showBasketRow(page,id){
+ const row=page.locator(`[data-basket-row="${id}"]`);
+ for(const segment of ['unclassified','classified','archived']){
+  const button=page.locator(`#basketView [data-basket-filter="${segment}"]`);
+  await expect(button).toBeVisible();await button.click();await expect(button).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('[data-basket-list-status]')).not.toHaveText('불러오는 중…');
+  if(await row.count())return row;
+ }
+ await expect(row).toBeVisible();
+ return row;
+}
