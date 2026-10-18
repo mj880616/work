@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateNoteText, noteState, visibleNotes, filedProjects, notePlaces, noteClassified, BASKET_PLACES, createNote, updateNote, readBasket } from '../app/basket-data.js';
+import { validateNoteText, noteState, visibleNotes, filedProjects, notePlaces, noteClassified, BASKET_PLACES, placeSubOptions, createNote, updateNote, readBasket } from '../app/basket-data.js';
 
 test('text validation rejects whitespace and over 20000 Unicode characters without trimming originals',()=>{
  assert.throws(()=>validateNoteText(' \n\t '),/입력/);
@@ -74,9 +74,9 @@ test('the basket read asks for these attachments\' documents and their project n
   if(u.pathname.endsWith('app_spaces'))return [{id:'p',name:'민자철도'}];
   return [];};
  const result=await readBasket(runtime(handler(false)));
- assert.deepEqual(result.docs,[{id:'d1',file_id:'drive-a',project_id:'p',project:{name:'민자철도'}}]);
+ assert.deepEqual(result.docs,[{id:'d1',file_id:'drive-a',project_id:'p',category:null,project:{name:'민자철도'}}]);
  const doc=paths.find(p=>p.startsWith('/rest/v1/app_documents')),space=paths.find(p=>p.startsWith('/rest/v1/app_spaces'));
- assert.match(doc,/^\/rest\/v1\/app_documents\?workspace_id=eq\.w&file_id=in\.\(drive-a\)&select=id,file_id,project_id&order=created_at\.asc,id\.asc/);
+ assert.match(doc,/^\/rest\/v1\/app_documents\?workspace_id=eq\.w&file_id=in\.\(drive-a\)&select=id,file_id,project_id,category&order=created_at\.asc,id\.asc/);
  assert.match(space,/^\/rest\/v1\/app_spaces\?workspace_id=eq\.w&id=in\.\(p\)&select=id,name/);
  const failed=await readBasket(runtime(handler(true)));
  assert.equal(failed.notes.length,2);assert.deepEqual(failed.docs,[]);
@@ -116,4 +116,39 @@ test('segments split unclassified, classified and on-hold memos; place chips fol
  assert.deepEqual(ids('classified','unknown'),[]);
  // noteState itself (shared with drive-summary) is unchanged by tasks.
  assert.equal(noteState(notes[5],[]).status,'미분류');
+});
+
+// UI-바구니거르기2: under [분류]·[담당조직]/[프로젝트]/[자료실], one more row of names or the 7 document categories.
+test('second row: organization and project names by memo count, the 7 categories for 자료실, none for 전체·할 일',()=>{
+ const notes=[{id:'o1'},{id:'o2'},{id:'o3'},{id:'o4'},{id:'p1'},{id:'p2',attachments:[{drive_file_id:'drive-a'}]},{id:'d1'},{id:'d2'},{id:'held',archived_at:'now'}];
+ const links=[
+  {note_id:'o1',status:'confirmed',organization_id:'org-b',organization:{name:'나지부'}},
+  {note_id:'o2',status:'confirmed',organization_id:'org-a',organization:{name:'가지부'}},
+  {note_id:'o3',status:'confirmed',organization_id:'org-b',organization:{name:'나지부'}},
+  {note_id:'o3',status:'confirmed',organization_id:'org-a',organization:{name:'가지부'}},
+  {note_id:'o4',status:'confirmed',organization_id:'org-b',organization:{name:'나지부'}},
+  {note_id:'p1',status:'suggested',organization_id:'org-c',organization:{name:'제안만'}},
+  {note_id:'p1',status:'confirmed',project_id:'pr-1',project:{name:'임단협'}},
+  {note_id:'d1',status:'confirmed',document_id:'doc-1',document:{title:'요구안',category:'교섭자료'}},
+  {note_id:'d2',status:'confirmed',document_id:'doc-2',document:{title:'결과',category:'회의결과'}},
+  {note_id:'held',status:'confirmed',organization_id:'org-z',organization:{name:'보류 조직'}},
+ ];
+ const docs=[{id:'x',file_id:'drive-a',project_id:'pr-2',category:'정책',project:{name:'궤도'}}];
+ assert.equal(placeSubOptions(notes,links,docs,'all'),null);assert.equal(placeSubOptions(notes,links,docs,'task'),null);
+ // Most memos first; a suggested or archived link never makes a chip.
+ assert.deepEqual(placeSubOptions(notes,links,docs,'organization'),[{value:'all',label:'모든 조직 4'},{value:'org-b',label:'나지부'},{value:'org-a',label:'가지부'}]);
+ // Ties break by name.
+ assert.deepEqual(placeSubOptions(notes,links,docs,'project'),[{value:'all',label:'모든 프로젝트 2'},{value:'pr-2',label:'궤도'},{value:'pr-1',label:'임단협'}]);
+ assert.deepEqual(placeSubOptions(notes,links,docs,'library').map(o=>o.label),['모든 자료 3','교섭','투쟁','교육','선전','정책','회의','기타']);
+ const ids=(place,sub)=>visibleNotes(notes,links,'classified',docs,place,sub).map(n=>n.id);
+ assert.deepEqual(ids('organization','org-a'),['o2','o3']);assert.deepEqual(ids('organization','org-b'),['o1','o3','o4']);
+ assert.deepEqual(ids('organization','all'),['o1','o2','o3','o4']);
+ assert.deepEqual(ids('project','pr-2'),['p2']);assert.deepEqual(ids('project','pr-1'),['p1']);
+ // Old category names map onto the 7 (교섭자료→교섭, 회의결과→회의); a filed document counts by its own category.
+ assert.deepEqual(ids('library','교섭'),['d1']);assert.deepEqual(ids('library','회의'),['d2']);assert.deepEqual(ids('library','정책'),['p2']);
+ assert.deepEqual(ids('library','투쟁'),[]);
+ // A document read without a category is 기타 (categoryOf), not dropped.
+ assert.deepEqual(visibleNotes([{id:'n'}],[{note_id:'n',status:'confirmed',document_id:'d',document:{title:'t'}}],'classified',[],'library','기타').map(n=>n.id),['n']);
+ // [전체]·[할 일] ignore a leftover sub value.
+ assert.deepEqual(ids('all','org-a'),ids('all'));
 });

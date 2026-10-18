@@ -65,17 +65,17 @@ for(const width of [390,1280]){
   const f=await fixture(page,{width});
   const primary=await paint(page,'backgroundColor','--kptu-primary'),surface=await paint(page,'backgroundColor','--kptu-surface');
   await go(page,'basket');
-  // 노트: [고치기][텔레그램용 복사][연결하기]
+  // 노트: [수정][텔레그램용 복사][연결하기]
   await tap(page,page.locator('[data-basket-kind="note"]'),width);
   await tap(page,page.locator('[data-note-row="n1"]'),width);
   const noteRow=page.locator('[data-note-read-actions]');
-  const note=await readRow(page,noteRow,['고치기','텔레그램용 복사','연결하기'],width);
+  const note=await readRow(page,noteRow,['수정','텔레그램용 복사','연결하기'],width);
   expect(note.map(b=>b.bg)).toEqual([surface,surface,primary]);
   // Width by the label, not the whole row.
   expect(note.at(-1).right).toBeLessThan(width-40);
   expect(await noWideScroll(page)).toBe(true);
-  // The buttons still do what they did: [고치기] opens the edit view.
-  await tap(page,noteRow.getByRole('button',{name:'고치기',exact:true}),width);
+  // The buttons still do what they did: [수정] opens the edit view.
+  await tap(page,noteRow.getByRole('button',{name:'수정',exact:true}),width);
   await expect(page.locator('[data-note-editor]')).toBeVisible();await expect(noteRow).toBeHidden();
   await tap(page,page.locator('[data-note-cancel]'),width);await expect(noteRow).toBeVisible();
   await tap(page,page.locator('[data-note-close]'),width);
