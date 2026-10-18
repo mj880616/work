@@ -10,7 +10,7 @@ const meeting={
   transcript_text:'첫째 줄 알파\n둘째 줄 베타\n셋째 줄 감마',created_by:'meeting-user'
 };
 async function setup(page,row=meeting){
-  const posts=[];let failPost=false;
+  const posts=[];let failPost=false,postDelay=0;
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),path=new URL(req.url()).pathname,method=req.method();
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
@@ -22,6 +22,7 @@ async function setup(page,row=meeting){
     if(path==='/rest/v1/app_meetings')return ok([row]);
     if(path==='/rest/v1/app_notes'&&method==='POST'){
       const body=req.postDataJSON();posts.push(body);
+      if(postDelay)await new Promise(r=>setTimeout(r,postDelay));
       if(failPost)return route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({message:'denied'})});
       return ok([{id:'new-note',...body}]);
     }
@@ -42,7 +43,7 @@ async function setup(page,row=meeting){
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
   await expect(page.locator('#mrdResult')).not.toBeEmpty();await expect(page.locator('#mrdResult')).not.toHaveText('');
-  return {posts,errors,setFail:v=>failPost=v};
+  return {posts,errors,setFail:v=>failPost=v,setDelay:v=>postDelay=v};
 }
 // 길게 눌러 고른 것과 같은 결과: 결과 칸 안의 글자 범위를 고른다.
 const select=(page,from,to)=>page.evaluate(([a,b])=>{
@@ -76,7 +77,7 @@ test('selected part only is sent and the label follows the selection',async({pag
   await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
   expect(f.posts).toHaveLength(1);
   expect(f.posts[0].raw_text).toBe('출처: 시험 회의 2차 회의 (2026-09-17)\n\n둘째 줄 베타');
-  await expect(button).toHaveText('바구니에 담기');
+  await expect(button).toHaveText('바구니에 담김');await expect(button).toBeDisabled();
 });
 
 test('selection outside the result box is ignored',async({page})=>{
@@ -120,4 +121,89 @@ test('keyboard can reach and press the button',async({page})=>{
   await page.keyboard.press('Enter');
   await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
   expect(f.posts).toHaveLength(1);
+});
+
+for(const width of [390,1280])test(`saved state: button turns disabled with a saved label and stays so until the window is reopened ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  const f=await setup(page);
+  const button=page.locator('#mrdToBasket');
+  await expect(button).toBeEnabled();await expect(button).not.toHaveAttribute('aria-disabled','true');
+  await button.click();
+  await expect(button).toHaveText('바구니에 담김');await expect(button).toBeDisabled();
+  await expect(button).toHaveAttribute('aria-disabled','true');await expect(button).toHaveAttribute('data-saved','true');
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
+  // A new selection does not re-enable it, and a forced click saves nothing more.
+  await select(page,'둘째','베타');
+  await expect(button).toHaveText('바구니에 담김');await expect(button).toBeDisabled();
+  await button.click({force:true});
+  expect(f.posts).toHaveLength(1);
+  // Screen memory only: closing and reopening starts fresh (persistent record is MEET stage 2).
+  await page.locator('#mrdClose').click();
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await expect(page.locator('#mrdToBasket')).toBeEnabled();await expect(page.locator('#mrdToBasket')).toHaveText('바구니에 담기');
+  expect(f.errors).toEqual([]);
+});
+
+test('rapid double press saves exactly once while the save is in flight',async({page})=>{
+  const f=await setup(page);f.setDelay(600);
+  const button=page.locator('#mrdToBasket');
+  await button.evaluate(b=>{b.click();b.click();b.click()});
+  await expect(button).toBeDisabled();await expect(button).toHaveAttribute('aria-busy','true');
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담는 중…');
+  await expect(button).toHaveText('바구니에 담김');
+  await button.click({force:true});
+  expect(f.posts).toHaveLength(1);
+});
+
+test('failed save keeps the button pressable with a failure notice, then a retry becomes saved',async({page})=>{
+  const f=await setup(page);f.setFail(true);
+  const button=page.locator('#mrdToBasket');
+  await button.click();
+  await expect(page.locator('#mrdBasketStatus')).toHaveClass(/error/);
+  await expect(button).toBeEnabled();await expect(button).toHaveText('바구니에 담기');await expect(button).not.toHaveAttribute('data-saved','true');
+  f.setFail(false);
+  await button.click();
+  await expect(button).toHaveText('바구니에 담김');await expect(button).toBeDisabled();
+  expect(f.posts).toHaveLength(2);
+});
+
+test('failed selected-part save keeps the selected-part label and can be retried',async({page})=>{
+  const f=await setup(page);f.setFail(true);
+  const button=page.locator('#mrdToBasket');
+  await select(page,'둘째','베타');
+  await button.click();
+  await expect(page.locator('#mrdBasketStatus')).toHaveClass(/error/);
+  await expect(button).toBeEnabled();
+  f.setFail(false);await select(page,'둘째','베타');
+  await expect(button).toHaveText('선택한 글 담기');
+  await button.click();
+  await expect(button).toHaveText('바구니에 담김');
+  expect(f.posts).toHaveLength(2);
+});
+
+// 버튼 크기: [수정][삭제][바구니에 담기]는 공용 작은 버튼(32px)과 같고, 누르는 범위는 44px, [삭제]는 빨간 글자.
+const measure=l=>l.evaluate(el=>{
+  const b=el.getBoundingClientRect(),s=getComputedStyle(el),a=getComputedStyle(el,'::after');
+  return {height:Math.round(b.height*10)/10,fontSize:s.fontSize,fontWeight:s.fontWeight,radius:s.borderRadius,color:s.color,border:s.borderTopColor,
+    touch:a.content==='none'?b.height:Math.max(b.height,parseFloat(a.height)||0)};
+});
+for(const width of [390,1280])test(`result window buttons match the shared small button and keep a 44px touch area ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await setup(page,{...meeting,created_by:'meeting-user'});
+  await expect(page.locator('#mrdEdit')).toBeVisible();await expect(page.locator('#mrdDelete')).toBeVisible();
+  // Reference: the small [추가] button in the same window's follow-up task line (shared --ds-compact-* tokens).
+  await page.locator('#mrdAddTask').click();
+  const ref=await measure(page.locator('#mrdTaskSave'));
+  const token=await page.evaluate(()=>{const r=getComputedStyle(document.documentElement);return {h:r.getPropertyValue('--ds-compact-height').trim(),t:r.getPropertyValue('--ds-compact-text').trim()}});
+  expect(ref.height).toBe(parseFloat(token.h));
+  for(const id of ['#mrdEdit','#mrdDelete','#mrdToBasket']){
+    const m=await measure(page.locator(id));
+    expect(m.height,id).toBe(ref.height);
+    expect(m.fontSize,id).toBe(ref.fontSize);
+    expect(m.touch,id).toBeGreaterThanOrEqual(44);
+  }
+  const del=await measure(page.locator('#mrdDelete')),edit=await measure(page.locator('#mrdEdit'));
+  expect(del.color).not.toBe(edit.color);
+  expect(del.color).toBe(await page.evaluate(()=>{const e=document.createElement('i');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c}));
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

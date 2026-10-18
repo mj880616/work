@@ -28,15 +28,15 @@ function mrdMeetingName(m){return String(m?.series_name||m?.title||'').trim()}
 function mrdLegacyTitle(m){const name=mrdMeetingName(m),title=String(m?.title||'').trim();return title&&name&&title!==name?title:''}
 function mrdResultText(m){if(m?.transcript_text!=null&&String(m.transcript_text).length)return String(m.transcript_text);if(String(m?.decisions||'').trim())return `[기존 회의결과 기록]\n${m.decisions}`;return '기록 없음'}
 // MEET-기록보내기 1단계: 고른 글(없으면 전체)을 바구니 메모로 담는다. 버튼을 누르면 선택이 풀릴 수 있어 누르기 직전에 한 번 붙잡아 둔다.
-let mrdBasketBusy=false,mrdPickedText='';
+let mrdBasketBusy=false,mrdPickedText='',mrdBasketSavedId=null;// 담김 표시는 창이 열려 있는 동안 화면 메모리에만 둔다(영구 기록은 MEET 2단계 source_meeting_id).
 const mrdPicked=()=>selectedResultText(document.querySelector('#mrdResult'),window.getSelection());
 function mrdBasketBody(){const picked=mrdPickedText||mrdPicked();if(picked)return picked;const m=mrdCurrent;if(!m)return'';return m.transcript_text!=null&&String(m.transcript_text).trim()?String(m.transcript_text):String(m.decisions||'')}
-function mrdPaintBasketButton(){const b=document.querySelector('#mrdToBasket');if(!b)return;b.disabled=mrdBasketBusy||!mrdBasketBody().trim();b.textContent=mrdPicked()?'선택한 글 담기':'바구니에 담기'}
+function mrdPaintBasketButton(){const b=document.querySelector('#mrdToBasket');if(!b)return;const saved=!!mrdCurrent&&mrdBasketSavedId===mrdCurrent.id;b.disabled=saved||mrdBasketBusy||!mrdBasketBody().trim();b.setAttribute('aria-disabled',String(b.disabled));b.setAttribute('aria-busy',String(mrdBasketBusy));if(saved)b.dataset.saved='true';else delete b.dataset.saved;b.textContent=saved?'바구니에 담김':mrdPicked()?'선택한 글 담기':'바구니에 담기'}
 async function mrdSendToBasket(){
   const meeting=mrdCurrent,st=document.querySelector('#mrdBasketStatus'),body=mrdBasketBody();mrdPickedText='';
-  if(mrdBasketBusy||!meeting||!body.trim())return;
+  if(mrdBasketBusy||!meeting||!body.trim()||mrdBasketSavedId===meeting.id)return;
   mrdBasketBusy=true;mrdPaintBasketButton();st.className='status';st.textContent='바구니에 담는 중…';
-  try{const r=await sendMeetingToBasket(meeting,body);if(mrdCurrent?.id!==meeting.id)return;st.textContent=r.truncated?'바구니에 담았어요. 글이 길어 앞 2만 자까지만 담았어요.':'바구니에 담았어요.';window.getSelection()?.removeAllRanges()}
+  try{const r=await sendMeetingToBasket(meeting,body);mrdBasketSavedId=meeting.id;if(mrdCurrent?.id!==meeting.id)return;st.textContent=r.truncated?'바구니에 담았어요. 글이 길어 앞 2만 자까지만 담았어요.':'바구니에 담았어요.';window.getSelection()?.removeAllRanges()}
   catch(e){if(mrdCurrent?.id===meeting.id){st.className='status error';st.textContent=e.message||'바구니에 담지 못했어요. 다시 시도해 주세요.'}}
   finally{mrdBasketBusy=false;mrdPaintBasketButton()}
 }
@@ -129,7 +129,7 @@ function mrdRenderMeetingInfo(m){
     const name=mrdMeetingName(m)||'회의 결과',legacyTitle=mrdLegacyTitle(m);
     document.querySelector('#mrdTitle').textContent=name;
     document.querySelector('#mrdMeta').textContent=[legacyTitle?`기존 제목: ${legacyTitle}`:null,m.round_no?`${m.round_no}차`:null,mrdFmt(m.meeting_at),m.project_id?mrdProjects.find(x=>x.id===m.project_id)?.name:null].filter(Boolean).join(' · ');
-    document.querySelector('#mrdResult').textContent=mrdResultText(m);{const st=document.querySelector('#mrdBasketStatus');st.textContent='';st.className='status';mrdPickedText='';mrdPaintBasketButton()}
+    document.querySelector('#mrdResult').textContent=mrdResultText(m);{const st=document.querySelector('#mrdBasketStatus');st.textContent='';st.className='status';mrdPickedText='';mrdBasketSavedId=null;mrdPaintBasketButton()}
     const special=String(m.notes||''),specialSection=document.querySelector('#mrdSpecialSection');specialSection.classList.toggle('hidden',!special.trim());document.querySelector('#mrdSpecial').textContent=special;
 }
 async function mrdOpenMeeting(id){
