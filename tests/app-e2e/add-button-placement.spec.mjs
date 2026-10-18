@@ -74,8 +74,10 @@ async function assertInHeader(page,{card,head,button,title,centered=false}){
 async function assertFloating(page,button){
   const control=page.locator(button),b=await control.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
   expect(await control.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
-  // Painted circle 36px; the ::after touch target is 44px and sits 12px above the tabs.
-  expect(b.width).toBe(36);expect(b.height).toBe(36);const el=control;const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-t.bottom)).toBe(12);
+  // Painted circle 36px; the ::after touch target is 44px and sits 12px above the tabs —
+  // or, where the phone switch row sits on the tabs (UI-버튼작게 ③: 일정·할 일, 44px row), 12px above that row.
+  const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch');return sw&&sw.getClientRects().length?44:0;});
+  expect(b.width).toBe(36);expect(b.height).toBe(36);const el=control;const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-dock-t.bottom)).toBe(12);
 }
 async function assertPlaced(page,width,spec){if(width===390)await assertFloating(page,spec.button);else await assertInHeader(page,spec);}
 

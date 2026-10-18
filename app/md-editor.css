@@ -66,6 +66,12 @@ html .modal.md-editor .md-editor-head > button.md-editor-icon::after { left:calc
 .md-editor-bar { border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface-subtle); }
 /* One row each; on a phone the row scrolls sideways instead of wrapping. */
 .md-editor-tools, .md-editor-menu { display:flex; flex-wrap:nowrap; gap:6px; padding:6px 8px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+/* UI-버튼작게 ②: 서식 도구줄(과 그 아래 고르기 줄) 버튼은 보이는 높이 28px(--ds-compact-height-sm)·글자 13px.
+   누르는 범위는 ::after로 위아래를 늘려 44px 그대로. 줄은 옆으로 넘기므로(overflow-x) 늘린 범위가 잘리지 않게
+   줄 높이를 누르는 범위와 같은 44px로 두고 버튼을 가운데에 놓는다(예전 줄 56px → 44px). */
+.md-editor .md-editor-tools, .md-editor .md-editor-menu { align-items:center; min-height:var(--kptu-touch-target, 44px); padding-top:0; padding-bottom:0; box-sizing:border-box; }
+html .modal.md-editor :is(.md-editor-tools, .md-editor-menu) button { position:relative; box-sizing:border-box; height:var(--ds-compact-height-sm, 28px); min-height:0; min-width:0; padding:0 10px; font-size:var(--ds-compact-text, 13px); line-height:1; }
+html .modal.md-editor :is(.md-editor-tools, .md-editor-menu) button::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
 .md-editor-menu { border-top:1px solid var(--kptu-border); }
 .md-editor-menu[hidden] { display:none; }
 @media (min-width:761px) {

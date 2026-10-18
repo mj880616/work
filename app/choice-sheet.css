@@ -4,7 +4,8 @@
    never over them. Laid over the tabs, its lowest rows sat exactly on a tab, so the next press at the same spot after a
    choice closed the sheet went to that tab (담당조직 under the right thumb). The tab bar already holds the safe area. */
 @media (max-width:760px) {
-  html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .home-choice-sheet { bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); max-height:calc(100dvh - 16px - var(--kptu-mobile-tab-height,0px) - env(safe-area-inset-bottom)); padding-bottom:16px; }
+  /* UI-버튼작게 ③: 일정·바구니처럼 탭 위에 전환 줄(--kptu-switch-dock, ui-standard.css)이 있으면 그 줄 위에서 올린다(같은 유령 누름이 전환 줄로 가지 않게). */
+  html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .home-choice-sheet { bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom)); max-height:calc(100dvh - 16px - var(--kptu-mobile-tab-height,0px) - var(--kptu-switch-dock,0px) - env(safe-area-inset-bottom)); padding-bottom:16px; }
 }
 .home-choice-sheet::backdrop { background:color-mix(in srgb,var(--kptu-ink) 46%,transparent); }
 body:has(.home-choice-sheet[open]) { overflow:hidden; }

@@ -45,6 +45,8 @@
   /* UI-버튼크기(2026-10-17 사용자 결정): 큰 버튼(--ds-control-height)은 그 화면의 주 동작만. 전환(세그먼트)·필터(알약 칩)·보조 버튼은
      보이는 높이 32px·글자 13px이고, 누르는 범위는 위아래로 늘려 --kptu-touch-target(44px)을 지킨다. */
   --ds-compact-height:32px;--ds-compact-pad-x:12px;--ds-compact-text:13px;--ds-chip-radius:999px;
+  /* UI-버튼작게(2026-10-18 사용자 결정): 쓰기 창 서식 도구줄 버튼은 한 단계 더 작게 28px(누르는 범위는 그대로 44px). */
+  --ds-compact-height-sm:28px;
   --ds-row-pad-y:9px;--ds-row-pad-x:12px;
   --ds-section-ink:var(--kptu-primary-ink);
   /* 종류별 색: 연한 바탕 + 같은 계열 진한 글자. 그 밖에는 회색. */
