@@ -48,7 +48,18 @@ public sealed class QueueProcessor
             foreach (var queued in _store.List().Where(Eligible))
             {
                 var item = queued;
-                var token = await _auth.GetAccessTokenAsync(ct).ConfigureAwait(false);
+                string? token;
+                try
+                {
+                    token = await _auth.GetAccessTokenAsync(ct).ConfigureAwait(false);
+                }
+                catch (AuthUnavailableException)
+                {
+                    // The login is fine, the network is not: keep everything as it is and try again later.
+                    _notReachedStreak++;
+                    _log.Write(LogCode.SendNotReached);
+                    return Backoff(_notReachedStreak);
+                }
                 if (token == null)
                 {
                     MarkLoginRequired();
@@ -132,6 +143,7 @@ public sealed class QueueProcessor
         switch (r.Outcome)
         {
             case ApiOutcome.LoginRequired:
+                _auth.MarkAccessTokenRejected();
                 Persist(item, ItemState.LoginRequired, r.Code);
                 _log.Write(LogCode.LoginRequired);
                 return Step.LoginRequired;
