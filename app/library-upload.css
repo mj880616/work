@@ -70,3 +70,26 @@
   #libraryView>.toolbar .search{flex:1 1 100%}
   #libraryView>.toolbar select{flex:1 1 0;min-width:0;width:0}
 }
+
+/* UI-바구니첨부메모 PR 3: 담당조직으로 거른 자료실(칩 한 줄)과 [분류 수정] 창의 분류 목록 편집. */
+#libraryOrganizationFilter{flex:1 1 100%;min-width:0}
+#libraryOrganizationFilter[hidden]{display:none}
+.library-category-editor{margin:0 0 16px;padding:0 0 14px;border-bottom:1px solid var(--kptu-border)}
+.library-manage-title{margin:0 0 8px;font-size:14px}
+.dce h3{margin:0 0 4px;font-size:15px}
+.dce-count{margin-left:4px;font-size:var(--kptu-text-meta);font-weight:400;color:var(--kptu-muted)}
+.dce-note{margin:0 0 8px;font-size:var(--kptu-text-meta);line-height:1.5;color:var(--kptu-muted)}
+.dce-list{display:grid;margin:0 0 10px;padding:0;list-style:none}
+.dce-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;min-height:44px;padding:6px 0;border-top:1px solid var(--kptu-border)}
+.dce-row:first-child{border-top:0}
+.dce-name{flex:1 1 80px;min-width:0;overflow-wrap:anywhere;font-size:14px}
+.dce-meta{flex:0 1 auto;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
+.dce-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.dce-row-edit{display:block}
+.dce-label{display:block;margin:0 0 4px;font-size:var(--kptu-text-meta)}
+.dce-input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.dce-add{margin:0 0 6px}
+.dce-add-line{display:flex;align-items:center;gap:8px}
+.dce-add-line .dce-input{flex:1 1 auto}
+.dce-status{min-height:1.4em;margin:6px 0 0;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
+.dce-status.error{color:var(--kptu-danger)}
