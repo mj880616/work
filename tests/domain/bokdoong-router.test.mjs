@@ -374,3 +374,96 @@ test('cache clearing is limited to successful desk pages', async () => {
     assert.equal(response.headers.get('Set-Cookie'), null, url);
   }
 });
+
+// BUG-배포캐시-후속 안 A: GitHub Pages keeps HTML up to 10 minutes (max-age=600) in its CDN, so the
+// Worker adds a 15-second value to desk HTML requests (page loads and version-notice.js checks).
+async function atTime(now, url, options) {
+  const originalNow = Date.now;
+  Date.now = () => now;
+  try {
+    return await request(url, options);
+  } finally {
+    Date.now = originalNow;
+  }
+}
+
+const deskPage = () => new Response('<!doctype html>', {
+  headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=600', ETag: '"pages"' }
+});
+
+test('desk HTML and the version check skip the GitHub Pages copy with a 15-second value', async () => {
+  const start = 1_800_000_000_000; // a multiple of 15 seconds
+  const bucket = start / 15000;
+  for (const [url, origin] of [
+    ['https://desk.bokdoong.com/work/app/', `https://mj880616.github.io/work/app/?__fresh=${bucket}`],
+    // app/version-notice.js fetches ./index.html next to app.js.
+    ['https://desk.bokdoong.com/work/app/index.html', `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`],
+    ['https://desk.bokdoong.com/work/app/login/', `https://mj880616.github.io/work/app/login/?__fresh=${bucket}`],
+    ['https://desk.bokdoong.com/work/app/?route=calendar', `https://mj880616.github.io/work/app/?route=calendar&__fresh=${bucket}`]
+  ]) {
+    const { response, calls } = await atTime(start, url, { upstream: deskPage() });
+    assert.equal(calls.length, 1, url);
+    assert.equal(calls[0].url, origin, url);
+    assert.equal(calls[0].cache, 'no-store', url);
+    // Response cache rules are unchanged.
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
+    assert.equal(response.headers.get('ETag'), '"pages"', url);
+  }
+
+  const url = 'https://desk.bokdoong.com/work/app/index.html';
+  const sameWindow = await atTime(start + 14999, url, { upstream: deskPage() });
+  assert.equal(sameWindow.calls[0].url, `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`);
+  const nextWindow = await atTime(start + 15000, url, { upstream: deskPage() });
+  assert.equal(nextWindow.calls[0].url, `https://mj880616.github.io/work/app/index.html?__fresh=${bucket + 1}`);
+});
+
+test('assets, Web1, arsenal and the portal are forwarded without the freshness value', async () => {
+  for (const [url, origin] of [
+    ['https://desk.bokdoong.com/work/app/app.js?v=abc', 'https://mj880616.github.io/work/app/app.js?v=abc'],
+    ['https://desk.bokdoong.com/work/app/project-system-v3.css?v=29', 'https://mj880616.github.io/work/app/project-system-v3.css?v=29'],
+    ['https://desk.bokdoong.com/work/app/sw.js', 'https://mj880616.github.io/work/app/sw.js'],
+    ['https://desk.bokdoong.com/work/app/auth-service.js', 'https://mj880616.github.io/work/app/auth-service.js'],
+    ['https://desk.bokdoong.com/work/app/?v=58', 'https://mj880616.github.io/work/app/?v=58'],
+    ['https://work.bokdoong.com/work/', 'https://mj880616.github.io/work/'],
+    ['https://work.bokdoong.com/work/p/index.html', 'https://mj880616.github.io/work/p/index.html'],
+    ['https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/', 'https://mj880616.github.io/work/personal/arsenal-match-archive/'],
+    ['https://bokdoong.com/', 'https://mj880616.github.io/work/personal/portal/']
+  ]) {
+    const { calls } = await request(url);
+    assert.equal(calls[0].url, origin, url);
+    assert.doesNotMatch(calls[0].url, /__fresh/, url);
+  }
+});
+
+test('versioned asset edge cache keys and immutable rules are unaffected by the freshness value', async () => {
+  const url = 'https://desk.bokdoong.com/work/app/app.js?v=58';
+  const manifest = { assets: { 'app/app.js': { v: ['58'], sha256: sha256('current bytes') } } };
+  const { response, calls, cache } = await versioned(url, { manifest });
+  assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+  assert.deepEqual([...cache.keys()], [url]);
+  assert.doesNotMatch(calls.find(call => !call.url.startsWith(MANIFEST)).url, /__fresh/);
+});
+
+test('the freshness value never leaks into redirects shown to the visitor', async () => {
+  const start = 1_800_000_000_000;
+  const upstream = new Response(null, {
+    status: 301,
+    headers: { Location: `https://mj880616.github.io/work/app/login/?__fresh=${start / 15000}` }
+  });
+  const { response, calls } = await atTime(start, 'https://desk.bokdoong.com/work/app/index.html', { upstream });
+  assert.match(calls[0].url, /__fresh=/);
+  assert.equal(response.status, 301);
+  assert.equal(response.headers.get('Location'), 'https://desk.bokdoong.com/work/app/login/');
+
+  const withQuery = await atTime(start, 'https://desk.bokdoong.com/work/app/?route=a', {
+    upstream: new Response(null, { status: 302, headers: { Location: `/work/app/next/?route=a&__fresh=${start / 15000}` } })
+  });
+  assert.equal(withQuery.response.headers.get('Location'), 'https://desk.bokdoong.com/work/app/next/?route=a');
+});
+
+test('Clear-Site-Data still applies once per epoch to desk pages fetched with the freshness value', async () => {
+  const { response, calls } = await request('https://desk.bokdoong.com/work/app/', { upstream: deskPage() });
+  assert.match(calls[0].url, /\?__fresh=\d+$/);
+  assert.equal(response.headers.get('Clear-Site-Data'), '"cache"');
+  assert.equal(calls[0].headers.get('Cookie'), null);
+});
