@@ -105,9 +105,10 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  // 홈 "할 일 ›"도 [일정]의 [할 일] 쪽.
  await page.locator('.mobile-tabs [data-view="home"]').click();await loaded(page,'home');await page.locator('#calendarView .schedule-switch [data-view="calendar"]').evaluate(el=>el.click());await loaded(page,'calendar');
  await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('#homeView [data-home-card="tasks"] [data-goto="tasks"]').click();await loaded(page,'tasks');await expect(schedule).toHaveAttribute('aria-current','page');
- // [달력 | 할 일]은 위 머리줄("일정") 오른쪽 자리(달력 칸 높이를 줄이지 않는다).
- const switchBox=await box(page.locator('#tasksView .schedule-switch')),header=await box(page.locator('.mobile-shell-header'));
- expect(switchBox.top).toBeLessThan(header.bottom);expect(switchBox.right).toBeGreaterThan(360);
+ // UI-버튼작게 ③: [달력 | 할 일 | 일지 | 일기]는 아래 탭 바로 위 한 줄(가운데, 줄 높이 44px 안 32px 알약).
+ const switchBox=await box(page.locator('#tasksView .schedule-switch')),tabsBox=await box(page.locator('.mobile-tabs'));
+ expect(Math.round(tabsBox.top-switchBox.bottom)).toBe(6);expect(Math.round(switchBox.height)).toBe(32);
+ expect(Math.abs((switchBox.left+switchBox.right)/2-195)).toBeLessThanOrEqual(1);
  // 밀기: 홈·바구니·일정·프로젝트·담당조직(메뉴는 밀기 대상 아님). 할 일 쪽에서도 [일정] 자리로 이어진다.
  await swipe(page,'left');await loaded(page,'projects');await swipe(page,'right');await loaded(page,'tasks');await swipe(page,'right');await loaded(page,'basket');await swipe(page,'right');await loaded(page,'home');await swipe(page,'right');await loaded(page,'home');
  for(const view of ['basket','tasks','projects','team']){await swipe(page,'left');await loaded(page,view);}
@@ -140,7 +141,9 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
   const b=await box(button);expect(b.width).toBe(36);expect(b.height).toBe(36);expect(await button.evaluate(el=>getComputedStyle(el).borderRadius)).toBe('50%');
   const t=await button.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after');const left=r.left+parseFloat(p.left),top=r.top+parseFloat(p.top),w=parseFloat(p.width),h=parseFloat(p.height);
    return {w,h,bottom:top+h,right:left+w,hits:[[left+1,top+h/2],[left+w-1,top+h/2],[left+w/2,top+1],[left+w/2,top+h-1]].map(([x,y])=>document.elementFromPoint(x,y)?.closest('button')===el)};});
-  expect(t.w).toBe(44);expect(t.h).toBe(44);expect(t.hits).toEqual([true,true,true,true]);expect(Math.round(tabsTop-t.bottom)).toBe(12);expect(Math.round(390-t.right)).toBe(16);
+  // UI-버튼작게 ③: 일정·할 일은 아래 탭 위에 전환 줄(44px)이 있어 [+]는 그 줄 위 12px.
+  const dock=view==='calendar'||view==='tasks'?44:0;
+  expect(t.w).toBe(44);expect(t.h).toBe(44);expect(t.hits).toEqual([true,true,true,true]);expect(Math.round(tabsTop-dock-t.bottom)).toBe(12);expect(Math.round(390-t.right)).toBe(16);
   // 8-9e-3: + 는 글자가 아닌 선으로 그린 SVG 아이콘(장식), 원의 가로·세로 정가운데.
   const plus=await button.evaluate(el=>{const p=getComputedStyle(el,'::before');return {content:p.content,mask:p.maskImage||p.webkitMaskImage,w:p.width,h:p.height};});
   expect(plus.content).toBe('""');expect(plus.mask).toContain('svg');expect([plus.w,plus.h]).toEqual(['20px','20px']);
@@ -158,7 +161,7 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
   // 목록 끝까지 내리면 마지막 줄은 [+] 위에 있다.
   await expect.poll(()=>page.locator('#'+view+'View').evaluate(el=>{
    window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'});
-   const shown=[...el.querySelectorAll('*')].filter(node=>node.getClientRects().length&&getComputedStyle(node).position!=='fixed'&&!node.closest('.modal'));
+   const shown=[...el.querySelectorAll('*')].filter(node=>node.getClientRects().length&&getComputedStyle(node).position!=='fixed'&&!node.closest('.modal,.schedule-switch'));
    return Math.max(...shown.map(node=>node.getBoundingClientRect().bottom));
   })).toBeLessThanOrEqual(b.top);
   await button.click();await expect(page.locator(modal)).toBeVisible();
@@ -221,9 +224,10 @@ test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  const title=await box(page.locator('[data-mobile-view-name]'));expect(m.right).toBeGreaterThan(300);expect(Math.abs((m.top+m.bottom)/2-(title.top+title.bottom)/2)).toBeLessThanOrEqual(4);
  await expect(handoffLine(page)).toBeHidden();
  const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','전체','보관']);
- // UI-버튼크기: 필터는 [메모 | 노트] 오른쪽 같은 줄의 알약 칩(32px, 누르는 범위 44px), 폭 가득이 아니다.
+ // UI-버튼크기: 필터는 알약 칩(32px, 누르는 범위 44px), 폭 가득이 아니다.
+ // UI-버튼작게 ③: 폰의 [메모 | 노트]는 아래 탭 바로 위 전환 줄로 내려가고, 위쪽 줄에는 필터만 왼쪽부터 남는다.
  const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]')),kinds=await box(basket.locator('.basket-kind-switch'));
- expect(first.left).toBeGreaterThan(kinds.right);expect(Math.abs((first.top+first.bottom)/2-(kinds.top+kinds.bottom)/2)).toBeLessThanOrEqual(1);
+ expect(kinds.top).toBeGreaterThan(first.bottom);expect(Math.round(first.left)).toBe(Math.round(rows.left));
  expect(Math.round(first.height)).toBe(32);expect(last.right).toBeLessThanOrEqual(rows.right);
  const before=await box(filters.first());
  await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
@@ -236,8 +240,9 @@ test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  await page.mouse.click(30,400);await expect(menu).toBeHidden();await expect(more).toHaveAttribute('aria-expanded','false');
  await more.focus();await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Tab');await expect(menu).toBeHidden();
  // 입력칸: 하단 탭 바로 위 한 줄, 테두리 하나, 손잡이 없음, 첨부 클립 그대로.
+ // UI-버튼작게 ③: 입력칸은 아래 탭 위 전환 줄([메모 | 노트]) 바로 위.
  const quick=basket.locator('.home-quick'),input=quick.locator('[data-quick-input]');
- expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top));
+ expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top)-44);
  await expect(input).toHaveCSS('height','46px');await expect(input).toHaveCSS('resize','none');await expect(quick).toHaveCSS('border-left-width','0px');await expect(quick).toHaveCSS('border-bottom-width','0px');
  await expect(quick.locator('.basket-clip')).toBeVisible();
  expect(errors).toEqual([]);

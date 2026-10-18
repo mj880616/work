@@ -28,10 +28,10 @@ for(const width of [390,1280])test(`read actions: two big buttons, the rest in t
  await expect(link).toHaveClass(/\bprimary\b/);await expect(task).toHaveClass(/\bprimary\b/);
  const color=l=>l.evaluate(el=>getComputedStyle(el).backgroundColor);
  expect(await color(link)).not.toBe(await color(task));
- const [bl,bt,area]=await Promise.all([box(link),box(task),box(actions)]);
- for(const b of [bl,bt])expect(b.height).toBeGreaterThanOrEqual(44);
- // Side by side across the width.
- expect(Math.round(bl.y)).toBe(Math.round(bt.y));expect(bl.width+bt.width).toBeGreaterThan(area.width*0.9);
+ const [bl,bt]=await Promise.all([box(link),box(task)]);
+ // UI-버튼작게 ①: one row, 32px to the eye, 44px press area, width by the label.
+ for(const [b,l] of [[bl,link],[bt,task]]){expect(b.height).toBe(32);expect(await l.evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');}
+ expect(Math.round(bl.y)).toBe(Math.round(bt.y));expect(bt.x).toBeGreaterThan(bl.x+bl.width);
  const detail=page.locator('[data-basket-detail]'),more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();
  await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);

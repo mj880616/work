@@ -128,8 +128,9 @@ test('[일정] 머리줄 [달력|할 일|일지|일기]: 높이 32·고른 쪽 �
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  const sw=page.locator('#calendarView .schedule-switch');
  await expect(sw).toBeVisible();await expect(sw.locator('button')).toHaveText(['달력','할 일','일지','일기']);
- const box=await sw.boundingBox(),header=await page.locator('.mobile-shell-header').boundingBox();
- expect(Math.round(box.height)).toBe(32);expect(box.y).toBeLessThan(header.y+header.height);expect(box.x+box.width).toBeLessThanOrEqual(390);
+ // UI-버튼작게 ③: 폰은 아래 탭 바로 위 한 줄.
+ const box=await sw.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
+ expect(Math.round(box.height)).toBe(32);expect(Math.round(tabs.y-(box.y+box.height))).toBe(6);expect(box.x+box.width).toBeLessThanOrEqual(390);
  await sw.locator('[data-view="journal"]').click();
  await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#journalView')).toContainText('준비 중이에요');
  const pressed=page.locator('#journalView .schedule-switch [aria-pressed="true"]');await expect(pressed).toHaveText('일지');

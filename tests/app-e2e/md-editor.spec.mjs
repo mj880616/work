@@ -52,9 +52,10 @@ for(const width of [390,1280]){
   const box=await editor.boundingBox();expect(box.x).toBe(0);expect(box.y).toBe(0);expect(Math.round(box.width)).toBe(width);
   if(width<761){const tabs=await page.locator('.mobile-tabs').boundingBox();expect(Math.round(box.height)).toBe(Math.round(tabs.y));expect(Math.round(tabs.y+tabs.height)).toBe(860);}
   else expect(Math.round(box.height)).toBe(860);
-  // Toolbar: one row, 44px buttons, right under the head; on a phone the row scrolls sideways.
+  // Toolbar: one row right under the head; on a phone the row scrolls sideways.
+  // UI-버튼작게 ②: buttons are 28px to the eye with a 44px press area (::after).
   const tools=editor.locator('.md-editor-tools');
-  for(const b of await tools.locator('button').all()){const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);}
+  for(const b of await tools.locator('button').all()){const r=await b.boundingBox();expect(r.height).toBe(28);expect(await b.evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');}
   const toolsBox=await tools.boundingBox(),headBox=await editor.locator('.md-editor-head').boundingBox(),areaBox=await area.boundingBox();
   expect(Math.abs(toolsBox.y-(headBox.y+headBox.height))).toBeLessThan(8);expect(areaBox.y).toBeGreaterThanOrEqual(toolsBox.y+toolsBox.height);
   if(width<761)expect(await tools.evaluate(el=>el.scrollWidth>el.clientWidth&&getComputedStyle(el).flexWrap==='nowrap')).toBe(true);

@@ -63,8 +63,8 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  await openMonth(page);
  const fab='#calendarView .calendar-toolbar #newEventBtn';
  const home=await fabSpot(page,fab),top=await tabsTop(page);
- // Bottom right, just above the bottom tabs.
- expect(home.x+36).toBeGreaterThan(390-30);expect(home.y+36).toBeLessThanOrEqual(top);expect(home.y+36).toBeGreaterThan(top-40);
+ // Bottom right, just above the switch row that sits on the bottom tabs (UI-버튼작게 ③: row 44px).
+ expect(home.x+36).toBeGreaterThan(390-30);expect(home.y+36).toBeLessThanOrEqual(top-44);expect(home.y+36).toBeGreaterThan(top-44-40);
  for(const target of ['#calendarTodayBtn','#calendarGrid .cmv-date-list[data-date="2026-10-20"]']){
   const seen=await pressAndMeasure(page,target,fab);
   expect(seen.during,target).toEqual(home);
