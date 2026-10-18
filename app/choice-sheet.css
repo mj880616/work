@@ -1,5 +1,11 @@
 .home-choice-sheet { position:fixed; inset:auto 0 0; margin:0 auto; box-sizing:border-box; width:min(600px,100%); max-width:100%; max-height:calc(100dvh - 16px); border:0; border-radius:16px 16px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); background:var(--kptu-surface); color:var(--kptu-ink); overflow:hidden; }
 .home-choice-sheet[open] { display:flex; flex-direction:column; }
+/* BUG-내보내기탭이동: on a phone the sheet rises from just above the bottom tabs (as the menu sheet and the write window do),
+   never over them. Laid over the tabs, its lowest rows sat exactly on a tab, so the next press at the same spot after a
+   choice closed the sheet went to that tab (담당조직 under the right thumb). The tab bar already holds the safe area. */
+@media (max-width:760px) {
+  html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .home-choice-sheet { bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); max-height:calc(100dvh - 16px - var(--kptu-mobile-tab-height,0px) - env(safe-area-inset-bottom)); padding-bottom:16px; }
+}
 .home-choice-sheet::backdrop { background:color-mix(in srgb,var(--kptu-ink) 46%,transparent); }
 body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-sheet header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-shrink:0; }
