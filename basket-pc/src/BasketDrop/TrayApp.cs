@@ -137,12 +137,21 @@ internal sealed class TrayApp : ApplicationContext
         try { c = ClipboardReader.Read(); }
         catch (System.Runtime.InteropServices.ExternalException)
         {
-            Balloon("클립보드를 읽지 못했어요. 잠시 뒤 다시 눌러 주세요.", ToolTipIcon.Warning);
+            ToastForm.Show("클립보드를 읽지 못했어요. 다른 프로그램이 쓰는 중일 수 있어요. 잠시 뒤 다시 눌러 주세요.", true);
             return;
         }
-        if (c.IsEmpty) { Balloon("클립보드에 보낼 글·사진·파일이 없어요.", ToolTipIcon.Info); return; }
-        Submit(ToSources(c), c.Text ?? "", null);
+        if (c.IsEmpty)
+        {
+            ToastForm.Show(c.HasUnsupported
+                ? "이 형식은 보낼 수 없어요. 글·사진·파일만 보낼 수 있어요."
+                : "클립보드가 비어 있어요. 보낼 글·사진·파일을 먼저 복사해 주세요.", true);
+            return;
+        }
+        if (Submit(ToSources(c), c.Text ?? "", null)) ToastForm.Show("대기열에 담았어요 (" + Describe(c) + ")");
     }
+
+    private static string Describe(ClipboardContent c) =>
+        c.Files.Count > 0 ? $"파일 {c.Files.Count}개" : c.Text != null ? "글" : "사진";
 
     public static List<DropSource> ToSources(ClipboardContent c)
     {

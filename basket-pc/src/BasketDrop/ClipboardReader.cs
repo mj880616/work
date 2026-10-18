@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace BasketDrop.App;
 
-internal sealed record ClipboardContent(IReadOnlyList<string> Files, string? Text, byte[]? Png)
+internal sealed record ClipboardContent(IReadOnlyList<string> Files, string? Text, byte[]? Png, bool HasUnsupported = false)
 {
     public bool IsEmpty => Files.Count == 0 && Text == null && Png == null;
 }
@@ -52,7 +52,10 @@ internal static class ClipboardReader
                 png = ms.ToArray();
             }
         }
-        return new ClipboardContent(files, text, png);
+        // Something is on the clipboard but not a file, text or picture (e.g. a drawing object): say so instead of "empty".
+        var unsupported = files.Count == 0 && text == null && png == null
+            && (Clipboard.GetDataObject()?.GetFormats().Length ?? 0) > 0;
+        return new ClipboardContent(files, text, png, unsupported);
     }
 
     public static string PictureName(DateTime now) => $"붙여넣기-{now:yyyyMMdd-HHmmss}.png";
