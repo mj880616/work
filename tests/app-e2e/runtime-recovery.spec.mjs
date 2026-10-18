@@ -313,8 +313,8 @@ async function deleteConsumerFixture(page,view,width=390,{holdImport=false}={}){
     await import('/app/meeting-round-detail.js');await window.__KPTU_MEETING_ROUND_DETAIL_READY__;
     document.querySelector('#meetingList').innerHTML='<article data-mrd-meeting="meeting-1" role="button" tabindex="0">회의</article>';
   },view);
-  if(view==='library')await page.locator('#libraryViewFilter [role=radio]').filter({hasText:'회의자료만'}).click();
-  else{await page.locator('[data-mrd-meeting="meeting-1"]').click();await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2)}
+  // UI-바구니거르기: meeting documents list with the rest in the library (no [회의자료만] row).
+  if(view!=='library'){await page.locator('[data-mrd-meeting="meeting-1"]').click();await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2)}
   expect(await page.evaluate(()=>({owner:window.KPTURuntime.session.read()?.user?.id,token:!!window.KPTURuntime.session.read()?.access_token,ctx:window.KPTURuntime.context.read()?.workspace?.id,view:window.KPTURouter.current}))).toEqual({owner:'owner',token:true,ctx:'ws',view});
   return state;
 }
@@ -408,7 +408,6 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
       // Capture cache at the consumer's final checkpoint before restoring the
       // actual route's filter, so a later GET cannot mask optimistic removal.
       expect(state.settlementCacheIds).toContain('doc-0');
-      await page.locator('#libraryViewFilter [role=radio]').filter({hasText:'회의자료만'}).click();
     }
     await expect(page.locator(view==='library'?'[data-lu-document="doc-0"]':'[data-mrd-delete-document="doc-0"]')).toHaveCount(1);
   });

@@ -137,7 +137,7 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
  // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 회색(UI-선택표시통일).
  expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
- const selected=await look(page.locator('#libraryViewFilter [aria-checked="true"]'));
+ const selected=await look(page.locator('#libraryCategoryFilter [aria-checked="true"]'));
  expect(selected.bg).toBe(await token(page,'--ds-kind-other-soft'));expect(selected.fg).toBe(await token(page,'--ds-kind-other-ink'));
  const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  await noOverflow(page);

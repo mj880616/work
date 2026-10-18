@@ -1,3 +1,4 @@
+import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // UI-바구니버튼정리: the read view's actions. Common ones first and emphasized,
@@ -12,7 +13,7 @@ async function openNote(page,width){
  const note={id:n,workspace_id:'w',occurred_at:stamp,updated_at:stamp,raw_text:'10/20 기자회견 자료',ai_export_allowed:true,archived_at:null,attachments:[{drive_file_id:'drive-a',file_name:'안내문.pdf',mime_type:'application/pdf',size_bytes:4096}],metadata:{}};
  for(const t of ['app_suborganizations','app_suborganization_assignees','app_spaces','app_record_links'])await page.route(SB+'/rest/v1/'+t+'?**',r=>r.fulfill({json:[]}));
  await page.route(SB+'/rest/v1/app_notes?**',r=>{const q=new URL(r.request().url()).searchParams;if(r.request().method()!=='GET')return r.fulfill({status:500,json:{}});if(q.get('metadata'))return r.fulfill({json:[]});return r.fulfill({json:[note].slice(Number(q.get('offset')||0))});});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-filter="all"]').click();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
  const row=page.locator(`[data-basket-row="${n}"]`);if(width<761)await row.tap();else await row.click();
  await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  return {errors,actions:page.locator('[data-basket-read-actions]')};

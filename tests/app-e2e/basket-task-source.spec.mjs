@@ -1,3 +1,4 @@
+import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // BASKET-할일출처: a task made from a basket note is listed on the note (metadata.tasks),
@@ -32,7 +33,7 @@ async function fixture(page,{metadata={keep:'그대로'}}={}){
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 async function openNote(page,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-filter="all"]').click();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
  await tap(page,page.locator(`[data-basket-row="${n}"]`),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  return page.locator('[data-basket-detail]');
 }

@@ -18,7 +18,7 @@ async function fixture(page){
 }
 async function enterBasket(page){
  await page.locator('.mobile-tabs [data-view="basket"]').click();await expect(page.locator('#basketView')).toBeVisible();
- await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(notes.length);
+ await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-row]')).toHaveCount(notes.length);
 }
 const view=page=>page.evaluate(()=>KPTURouter.current);
 

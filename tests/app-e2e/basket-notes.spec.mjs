@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { noteAction } from './helpers/basket-more.mjs';
+import { noteAction,showBasketRow} from './helpers/basket-more.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // MEMO-노트 PR 3: [메모 | 노트] in the basket tab. The mock keeps one app_notes store and honours the kind/id
 // filters, so every list and write is checked against the row kind the screen showed.
@@ -271,7 +271,7 @@ test('menu [쓰기] → [메모] still saves one basket memo (no kind, no title)
  await editor.locator('[data-md-save]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',raw_text:'쓰기 메모'}}]);
- await page.locator('[data-basket-filter="all"]').click();
+ await showBasketRow(page,'m-created');
  await expect(page.locator('[data-basket-row="m-created"]')).toContainText('쓰기 메모');
  await expect(page.locator('[data-basket-kind="memo"]')).toHaveAttribute('aria-pressed','true');
  expect(f.errors).toEqual([]);

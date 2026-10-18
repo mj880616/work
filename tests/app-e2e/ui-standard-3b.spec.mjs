@@ -223,7 +223,7 @@ test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  // 제목 오른쪽(폰 머리줄 "바구니"와 같은 줄).
  const title=await box(page.locator('[data-mobile-view-name]'));expect(m.right).toBeGreaterThan(300);expect(Math.abs((m.top+m.bottom)/2-(title.top+title.bottom)/2)).toBeLessThanOrEqual(4);
  await expect(handoffLine(page)).toBeHidden();
- const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','전체','보관']);
+ const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','분류','보류']);
  // UI-버튼크기: 필터는 알약 칩(32px, 누르는 범위 44px), 폭 가득이 아니다.
  // UI-버튼작게 ③: 폰의 [메모 | 노트]는 아래 탭 바로 위 전환 줄로 내려가고, 위쪽 줄에는 필터만 왼쪽부터 남는다.
  const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]')),kinds=await box(basket.locator('.basket-kind-switch'));

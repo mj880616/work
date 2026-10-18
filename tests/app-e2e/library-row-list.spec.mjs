@@ -228,7 +228,7 @@ test('library menu stays within a short viewport after scrolling and resizing',a
 for(const width of [390,1280]){
   test.describe(`meeting-linked views at ${width}px`,()=>{
     test.use({hasTouch:width===390});
-    test(`library filters only by meeting_id with project and search at ${width}px`,async({page})=>{
+    test(`library lists meeting documents with the rest and the [회의] category chip narrows to them at ${width}px`,async({page})=>{
       await page.setViewportSize({width,height:900});
       const errors=[];
       page.on('pageerror',error=>errors.push(error.message));
@@ -246,54 +246,43 @@ for(const width of [390,1280]){
       page.on('request',req=>{const url=new URL(req.url());if(url.pathname==='/rest/v1/app_documents')documentQueries.push(url.searchParams)});
       await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      const rows=page.locator('#documentList [data-lu-document]');
-      const view=page.getByRole('radiogroup',{name:'자료 종류',exact:true});
-      await expect(rows).toHaveCount(3);
-      expect(await rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument))).toEqual(['ordinary-a','category-only','ordinary-b']);
-      await expect(view).toHaveJSProperty('value','general');
-      expect(await view.getByRole('radio').allTextContents()).toEqual(['일반 자료','회의자료만']);
-      await expect(page.locator('#libraryViewFilter')).toHaveAttribute('aria-controls','documentList');
-      expect(await view.evaluate(el=>el.previousElementSibling.id)).toBe('documentProject');
-      await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
-      await expect(page.locator('[data-lu-document="meeting-a"]')).toHaveCount(0);
+      const rows=page.locator('#documentList [data-lu-document]'),ids=()=>rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument));
+      const category=page.getByRole('radiogroup',{name:'자료 분류',exact:true});
+      // UI-바구니거르기: no [일반 자료|회의자료만] row; meeting-linked documents list with the rest.
+      await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.getByRole('radiogroup',{name:'자료 종류',exact:true})).toHaveCount(0);
+      await expect(rows).toHaveCount(5);
+      expect(await ids()).toEqual(['ordinary-a','category-only','ordinary-b','meeting-a','meeting-b']);
       await expect(page.locator('#libraryMeetingToggle')).toHaveCount(0);
-      if(width===390)await view.getByRole('radio',{name:'일반 자료',exact:true}).tap();else await view.getByRole('radio',{name:'일반 자료',exact:true}).click();
-      await page.keyboard.press('Escape');
-      await view.locator('[aria-checked=true]').focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');await page.keyboard.press('Enter');
-      await expect(view).toHaveJSProperty('value','meetings');await expect(rows).toHaveCount(2);
-      await expect(view.locator('[aria-checked=true]')).toBeFocused();
-      expect(await rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument))).toEqual(['meeting-a','meeting-b']);
+      // The project chip row and the category chip row stay; meeting documents are the [회의] category (회의자료·회의결과).
+      await expect(page.locator('#documentProject')).toBeVisible();await expect(category).toHaveAttribute('aria-controls','documentList');
+      const meetingChip=category.getByRole('radio',{name:'회의',exact:true});
+      if(width===390)await meetingChip.tap();else await meetingChip.click();
+      await expect(category).toHaveJSProperty('value','회의');expect(await ids()).toEqual(['category-only','meeting-b']);
       await page.screenshot({path:`/tmp/library-two-meetings-${width}.png`,fullPage:true});
-      await expect(page.locator('[data-lu-document="category-only"]')).toHaveCount(0);
+      await category.locator('[aria-checked=true]').focus();await page.keyboard.press('Home');await page.keyboard.press('Enter');
+      await expect(category).toHaveJSProperty('value','all');await expect(rows).toHaveCount(5);await expect(category.locator('[aria-checked=true]')).toBeFocused();
       await selectFilter(page,'#documentProject','top-a');
       await page.locator('#documentSearch').fill('철도');
-      for(const [value,count] of [['general',2],['meetings',1]]){
-        await selectFilter(page,'#libraryViewFilter',value);await expect(rows).toHaveCount(count);
-        await expect(page.locator('[data-lu-document="meeting-b"]')).toHaveCount(0);
-      }
-      await page.locator('#documentSearch').fill('일반');
-      await expect(rows).toHaveCount(0);
-      await selectFilter(page,'#libraryViewFilter','general');await expect(rows).toHaveCount(1);
-      // Meeting-linked documents remain reachable through the two-option filter.
-      await page.locator('#documentSearch').fill('회의 연결');
-      await expect(rows).toHaveCount(0);await expect(view).toBeVisible();
-      await selectFilter(page,'#libraryViewFilter','meetings');await expect(rows).toHaveCount(1);
-      await page.locator('#documentSearch').fill('없음');await expect(rows).toHaveCount(0);await expect(view).toBeVisible();
+      await expect(rows).toHaveCount(3);
+      await selectFilter(page,'#libraryCategoryFilter','회의');await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
+      await page.locator('#documentSearch').fill('회의 연결');await expect(rows).toHaveCount(0);
+      await selectFilter(page,'#libraryCategoryFilter','all');await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();
       await page.locator('#documentSearch').fill('');await selectFilter(page,'#documentProject','all');
-      await expect(rows).toHaveCount(2);
+      await expect(rows).toHaveCount(5);
       await page.locator('#manageLibraryBtn').click();
       await expect(page.locator('#libraryManageList [data-library-edit]')).toHaveCount(5);
       await page.locator('#libraryManageClose').click();
       const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));
       const before=await storageKeys();
-      await selectFilter(page,'#libraryViewFilter','general');await selectFilter(page,'#libraryViewFilter','meetings');
+      await selectFilter(page,'#libraryCategoryFilter','회의');await selectFilter(page,'#libraryCategoryFilter','all');
       expect(await storageKeys()).toEqual(before);
+      await selectFilter(page,'#libraryCategoryFilter','회의');
       await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('library'));
-      await expect(rows).toHaveCount(3);await expect(view).toHaveJSProperty('value','general');
-      await selectFilter(page,'#libraryViewFilter','meetings');await expect(rows).toHaveCount(2);
+      await expect(rows).toHaveCount(5);await expect(category).toHaveJSProperty('value','all');
+      // An old address or remembered view (?view=library) lands on the default list.
       await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await expect(rows).toHaveCount(3);await expect(view).toHaveJSProperty('value','general');
+      await expect(rows).toHaveCount(5);await expect(category).toHaveJSProperty('value','all');await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
       expect(documentQueries.length).toBeGreaterThan(0);
       for(const params of documentQueries)expect(params.has('meeting_id')).toBe(false);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -332,19 +321,18 @@ for(const width of [390,1280]){
       expect(state.patches.at(-1)).toMatchObject({id:'doc-archived',body:{meeting_id:'recent'}});
       expect(Object.keys(state.patches.at(-1).body).sort()).toEqual(['meeting_id','updated_at']);
       for(const key of ['project_id','title','category','source','file_id','file_name','drive_url','auto_classified','classification_note'])expect(state.docs[0][key]).toEqual(original[key]);
-      await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(0);
-      await selectFilter(page,'#libraryViewFilter','meetings');await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
+      // UI-바구니거르기: linking a meeting no longer moves the row to another view; it stays in the one list.
+      await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       // Existing meeting query/data and display stay shared with the meeting screen.
       await page.evaluate(()=>window.KPTURouter.go('meetings'));await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
       await page.locator('[data-mrd-meeting="recent"]').click();
       await expect(page.locator('#mrdMaterials')).toContainText('report.pdf');
       await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));
-      await selectFilter(page,'#libraryViewFilter','meetings');await edit();
+      await edit();
       await expect(meeting).toHaveValue('recent');
       await meeting.selectOption('');await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden();
       expect(state.patches.at(-1).body.meeting_id).toBeNull();
-      await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(0);
-      await selectFilter(page,'#libraryViewFilter','general');await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
+      await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('meetings'));await page.locator('[data-mrd-meeting="recent"]').click();
       await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
       // Refresh the open material list through the same signal that the edit save emitted.
@@ -371,7 +359,7 @@ for(const width of [390,1280]){
       expect(materialReads).toBe(2);
       await expect(page.locator('#mrdEditTranscript')).toHaveValue('작성 중 원문');
       await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));
-      await expect(page.locator('#libraryViewFilter')).toHaveJSProperty('value','general');await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
+      await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       expect(state.docs[0].project_id).toBe('top-c');
       expect(requests.filter(r=>r.method!=='GET'&&/functions\/v1\/(library-files|meeting-files|document-actions|drive-summary)/.test(r.url))).toEqual([]);
       expect(requests.filter(r=>r.method==='GET'&&r.url.includes('/rest/v1/app_meetings?')&&!r.url.includes('id=eq.recent'))).toHaveLength(1);

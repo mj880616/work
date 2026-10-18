@@ -1,3 +1,4 @@
+import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
@@ -61,7 +62,7 @@ async function fixture(page,{width=390,scheme='light',docs=null}={}){
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
 async function openNote(page,id,width){
- await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-filter="all"]').click();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,id);
  await tap(page,page.locator(`[data-basket-row="${id}"]`),width);
  const detail=page.locator('[data-basket-detail]');await expect(detail.locator('[data-basket-attachments]')).not.toBeEmpty();return detail;
 }
@@ -169,7 +170,7 @@ for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미
  await tap(page,unclassified,width);
  await expect(page.locator(`[data-basket-row="${ONLY}"]`)).toHaveCount(0);
  await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
- await page.locator('[data-basket-filter="all"]').click();
+ await page.locator('[data-basket-filter="classified"]').click();
  const row=page.locator(`[data-basket-row-item="${ONLY}"]`);
  await expect(row.locator('.basket-row')).toContainText('연결됨');
  await expect(filedChip(row)).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
@@ -178,7 +179,7 @@ for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미
  await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
  await expect(page.locator(`[data-basket-row="${ONLY}"]`)).toHaveCount(0);
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 1');
- await page.locator('[data-basket-filter="all"]').click();
+ await page.locator('[data-basket-filter="classified"]').click();
  await expect(filedChip(page.locator(`[data-basket-row-item="${ONLY}"]`))).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
  expect(f.errors).toEqual([]);
 });
@@ -189,7 +190,7 @@ test('an already filed memo (no record link) is not 미분류 on load, and follo
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  // ONLY's files are both in OLD; TEXT's single PDF is too, so both memos are classified.
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 0');
- await page.locator('[data-basket-filter="all"]').click();
+ await page.locator('[data-basket-filter="classified"]').click();
  const only=page.locator(`[data-basket-row-item="${ONLY}"]`);
  await expect(filedChip(only,OLD)).toHaveText('프로젝트 자료: 합성 지난 교섭 · 자료');
  await expect(only.locator('[data-basket-filed]')).toHaveCount(1);
@@ -202,7 +203,9 @@ test('an already filed memo (no record link) is not 미분류 on load, and follo
  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
  await expect(only.locator('[data-basket-filed]')).toHaveCount(0);
  await expect(page.locator('[data-basket-filter-count]')).toHaveText(' 2');
- await expect(only.locator('.basket-row')).toContainText('미분류');
+ // UI-바구니거르기: it leaves [분류] and is back in [미분류].
+ await expect(only).toHaveCount(0);
+ await page.locator('[data-basket-filter="unclassified"]').click();await expect(only.locator('.basket-row')).toContainText('미분류');
  expect(f.calls('app_documents','PATCH')).toEqual([]);
  expect(f.errors).toEqual([]);
 });

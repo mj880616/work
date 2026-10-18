@@ -99,8 +99,8 @@ for(const dark of [false,true])test(`눌림 색: 탭 하이라이트 없음, :ac
  };
  await box.locator('[data-quick-mode="basket"]').click();
  expect(await pressed('#homeView [data-quick-mode="task"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-basket-filter="all"]')).toBeVisible();
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-basket-filter="classified"]')).toBeVisible();
  expect(await pressed('#basketView [data-basket-kind="note"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
- expect(await pressed('#basketView [data-basket-filter="all"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
+ expect(await pressed('#basketView [data-basket-filter="classified"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
  expect(errors).toEqual([]);
 });
