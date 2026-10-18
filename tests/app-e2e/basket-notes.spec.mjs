@@ -277,10 +277,10 @@ test('menu [쓰기] → [메모] still saves one basket memo (no kind, no title)
  expect(f.errors).toEqual([]);
 });
 
-test('[내보내기] opens the shared choice sheet: 텔레그램 copies, 한글·HWP say they are not ready',async({page})=>{
+test('[내보내기] opens the shared choice sheet: 텔레그램·한글 copy, HWP says it is not ready',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  const editor=await openWriter(page,390),sheet=page.locator('#mdExportSheet'),status=editor.locator('.md-editor-status');
- await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};});
+ await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};navigator.clipboard.write=async items=>{window.__rich=await Promise.all(items[0].types.map(async t=>[t,await (await items[0].getType(t)).text()]));};});
  await editor.locator('.md-editor-text').fill('**굵게** 글');
  const exportButton=editor.getByRole('button',{name:'내보내기',exact:true});
  await exportButton.click();
@@ -294,7 +294,8 @@ test('[내보내기] opens the shared choice sheet: 텔레그램 copies, 한글�
  expect(await page.evaluate(()=>window.__copied)).toBe('굵게 글');
  await expect(sheet).not.toHaveAttribute('open','');await expect(editor).toBeVisible();await expect(exportButton).toBeFocused();
  await exportButton.click();await rows.nth(1).click();
- await expect(status).toHaveText('한글용 복사는 준비 중이에요.');
+ await expect(status).toHaveText('한글용 글을 복사했어요. 한글에 붙여 넣으세요.');
+ expect(await page.evaluate(()=>window.__rich)).toEqual([['text/html','<p style="margin:0"><b>굵게</b> 글</p>'],['text/plain','굵게 글']]);
  await exportButton.click();await rows.nth(2).click();
  await expect(status).toHaveText('HWP 파일로 받기는 준비 중이에요.');
  // Escape and phone back close the sheet only; the editor and its text stay.

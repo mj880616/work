@@ -6,6 +6,7 @@ import {readFileSync} from 'node:fs';
 const {applyAction, MERMAID_TEMPLATES, CALLOUT_KINDS} = await import('../app/md-editor-ops.mjs');
 const {toTelegram, telegramInline, TELEGRAM_RULE, TELEGRAM_DIAGRAM} = await import('../app/md-telegram.mjs');
 const {CALLOUTS} = await import('../app/markdown-render.mjs');
+const {toHangul, levelMark, HANGUL_DIAGRAM} = await import('../app/md-hangul.mjs');
 
 // Applies one toolbar action; returns the new text and the selected part.
 function act(text, s, e, action, option) {
@@ -102,7 +103,7 @@ test('the editor module is reusable: no basket imports, text and callbacks only,
   // UI-디자인손질 8: the optional save is the opener's own callback; the module itself still never saves or fetches.
   assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, kinds = null\} = \{\}\)/);
   assert.doesNotMatch(src, /KPTURuntime|\.api\(|fetch\(/);
-  for (const file of ['app/md-editor.js', 'app/md-editor-ops.mjs', 'app/md-telegram.mjs', 'app/md-editor.css']) {
+  for (const file of ['app/md-editor.js', 'app/md-editor-ops.mjs', 'app/md-telegram.mjs', 'app/md-hangul.mjs', 'app/md-editor.css']) {
     // The SVG namespace name (UI-키보드하단바 share icon) is not a request.
     assert.doesNotMatch(readFileSync(file, 'utf8').replaceAll("'http://www.w3.org/2000/svg'", ''), /https?:\/\/|\/\/cdn|@import/, file);
   }
@@ -131,4 +132,71 @@ test('editor head order and the bottom-tab leave question', () => {
   assert.match(src, /\['stay', '계속 쓰기'\], \['leave', '저장 안 하고 이동'\]/);
   // Icon buttons keep their accessible names.
   assert.match(src, /button\('', \{mdExport: ''\}, '내보내기'\)/);
+});
+
+// MD-내보내기 8-11a [한글용 복사]: docs/hwp-style-map.md 3절 번호 체계(1. 1) (1) ① 가. 가) (가))·들여쓰기·굵게·표.
+test('한글 copy: list levels follow the union numbering 1. 1) (1) ① 가. 가) (가), and (가) again past 7', () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9].map(level => levelMark(level, 1)), ['1.', '1)', '(1)', '①', '가.', '가)', '(가)', '(가)', '(가)']);
+  assert.deepEqual([2, 14, 15, 28, 29].map(n => levelMark(5, n)), ['나.', '하.', '거.', '허.', '29.']);
+  assert.deepEqual([1, 20, 21, 35, 36, 50, 51].map(n => levelMark(4, n)), ['①', '⑳', '㉑', '㉟', '㊱', '㊿', '(51)']);
+  const md = ['- 1단계', '  - 2단계', '    - 3단계', '      - 4단계', '        - 5단계', '          - 6단계', '            - 7단계', '              - 8단계', '- 다음 1단계', '  1. 번호도 같은 기호', '  2. 둘째'].join('\n');
+  assert.equal(toHangul(md).text, ['1. 1단계', '  1) 2단계', '    (1) 3단계', '      ① 4단계', '        가. 5단계', '          가) 6단계', '            (가) 7단계', '              (가) 8단계', '2. 다음 1단계', '  1) 번호도 같은 기호', '  2) 둘째'].join('\n'));
+});
+
+test('한글 copy: numbering continues, restarts and keeps item bodies like the markdown list', () => {
+  // An ordered list keeps its first number; going back up closes the deeper level; a blank line inside a list keeps it.
+  assert.equal(toHangul(['3. 셋', '   - 가', '   - 나', '4. 넷', '', '   본문 줄', '- 다섯'].join('\n')).text,
+    ['3. 셋', '  1) 가', '  2) 나', '4. 넷', '', '  본문 줄', '1. 다섯'].join('\n'));
+  // A line right under an item is its body; a paragraph after a blank line ends the list, and the next list restarts.
+  assert.equal(toHangul(['- 현황', '설명', '', '새 문단', '- 다시'].join('\n')).text, ['1. 현황', '  설명', '', '새 문단', '1. 다시'].join('\n'));
+  // A heading ends the list. Check items sit at their level without a number. "* " is the 참고 줄 and keeps no number.
+  assert.equal(toHangul(['- 하나', '## 둘째 절', '- 다시 하나', '  - [ ] 할 일', '  - [x] 끝난 일', '  - 하위', '* 참고 줄', '- 이어서'].join('\n')).text,
+    ['1. 하나', '둘째 절', '1. 다시 하나', '  ☐ 할 일', '  ☑ 끝난 일', '  1) 하위', '* 참고 줄', '2. 이어서'].join('\n'));
+});
+
+test('한글 copy: title and headings are bold lines without numbers, bold stays only in the HTML', () => {
+  const {text, html} = toHangul(['# 문서 제목', '## **소제목**', '본문 **굵게** 와 *기울임*, ~~취소~~, `코드`, __밑줄식__', '1. 항목 **강조**'].join('\n'));
+  assert.equal(text, ['문서 제목', '소제목', '본문 굵게 와 기울임, 취소, 코드, 밑줄식', '1. 항목 강조'].join('\n'));
+  assert.equal(html, ['<b>문서 제목</b>', '<b>소제목</b>', '본문 <b>굵게</b> 와 기울임, 취소, 코드, <b>밑줄식</b>', '1. 항목 <b>강조</b>'].map(l => `<p style="margin:0">${l}</p>`).join(''));
+  // Indentation survives HTML paste as non-breaking spaces.
+  assert.equal(toHangul('- a\n  - b').html, '<p style="margin:0">1. a</p><p style="margin:0">&nbsp;&nbsp;1) b</p>');
+});
+
+test('한글 copy: tables are real tables in HTML and tab rows in plain text', () => {
+  const md = ['| 항목 | 담당 | 기한 |', '| :-- | :-: | --: |', '| **성명** | 홍보 | 10/20 |', '| a \\| b |  | 10/25 |'].join('\n');
+  const {text, html} = toHangul(md);
+  assert.equal(text, ['항목\t담당\t기한', '성명\t홍보\t10/20', 'a | b\t\t10/25'].join('\n'));
+  const cell = 'border:1px solid #000;padding:2pt 4pt';
+  assert.equal(html, `<table style="border-collapse:collapse"><tr><th style="${cell}">항목</th><th style="${cell}">담당</th><th style="${cell}">기한</th></tr>`
+    + `<tr><td style="${cell}"><b>성명</b></td><td style="${cell}">홍보</td><td style="${cell}">10/20</td></tr>`
+    + `<tr><td style="${cell}">a | b</td><td style="${cell}"><br></td><td style="${cell}">10/25</td></tr></table>`);
+});
+
+test('한글 copy: blank lines, quotes, callouts, rules, code and diagrams', () => {
+  const F = '```';
+  const md = ['', '첫 줄  ', '', '', '', '> 인용', '', '> [!WARNING]', '', '> [!TIP]', '> 팁 내용', '> 둘째', '', '***', '', F + 'js', '  const a = 1; // **그대로**', F, F + 'mermaid', 'flowchart TD', F, '끝', '', ''].join('\n');
+  const {text, html} = toHangul(md);
+  assert.equal(text, ['첫 줄', '', '* 인용', '', '* [경고]', '', '* [팁] 팁 내용', '* 둘째', '', '  const a = 1; // **그대로**', HANGUL_DIAGRAM, '끝'].join('\n'));
+  assert.match(html, /<p style="margin:0">&nbsp;&nbsp;const a = 1; \/\/ \*\*그대로\*\*<\/p>/);
+  // One blank paragraph per blank run, none at the ends.
+  assert.equal(html.split('<br></p>').length - 1, 4);
+  assert.ok(html.startsWith('<p style="margin:0">첫 줄</p>'));
+  assert.deepEqual(toHangul(''), {text: '', html: ''});
+  assert.deepEqual(toHangul('\n\n'), {text: '', html: ''});
+});
+
+test('한글 copy: special characters stay as written in text and are escaped in HTML; the words are never changed', () => {
+  const md = '- <script>alert(1)</script> & "따옴표" \'작은\' \\*별\\* 2*3*4 snake_case $5 ※ ○ · ─ 회의를 진행함.\n- [기사](https://example.com/a?b=1&c=2) ![현장](https://img.example/p.png)';
+  const {text, html} = toHangul(md);
+  assert.equal(text, '1. <script>alert(1)</script> & "따옴표" \'작은\' *별* 2*3*4 snake_case $5 ※ ○ · ─ 회의를 진행함.\n2. 기사 (https://example.com/a?b=1&c=2) 현장 (https://img.example/p.png)');
+  assert.equal(html, '<p style="margin:0">1. &lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;따옴표&quot; &#39;작은&#39; *별* 2*3*4 snake_case $5 ※ ○ · ─ 회의를 진행함.</p>'
+    + '<p style="margin:0">2. 기사 (https://example.com/a?b=1&amp;c=2) 현장 (https://img.example/p.png)</p>');
+  assert.doesNotMatch(html, /<script|<a |<img/);
+  // Mark-like characters typed in the text cannot open a bold tag.
+  assert.equal(toHangul('a b').html, '<p style="margin:0">a b</p>');
+});
+
+test('Telegram copy is unchanged by the shared bold marks', () => {
+  assert.equal(toTelegram('**굵게** __굵게__ ***둘 다***'), '굵게 굵게 둘 다');
+  assert.doesNotMatch(toTelegram('| **a** | b |\n| - | - |\n| **c** | d |'), /[-]/);
 });

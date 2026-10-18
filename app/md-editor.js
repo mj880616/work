@@ -8,6 +8,7 @@
 import {renderMarkdownInto, preloadMarkdown} from './markdown-view.js';
 import {applyAction, MERMAID_TEMPLATES, CALLOUT_KINDS} from './md-editor-ops.mjs';
 import {toTelegram} from './md-telegram.mjs';
+import {toHangul} from './md-hangul.mjs';
 import {createChoiceSheet} from './choice-sheet.js';
 
 const ID = 'mdEditor';
@@ -30,8 +31,8 @@ const MENUS = {
 
 let current = null;
 
-// MD-내보내기: [내보내기] opens the app's shared bottom choice sheet. 한글·HWP rows are listed now and say they are
-// not ready yet when pressed (8-11a·8-11b connect them); they are not disabled so the press can explain itself.
+// MD-내보내기: [내보내기] opens the app's shared bottom choice sheet. ① 텔레그램 and ② 한글(8-11a) copy; the HWP row is
+// listed now and says it is not ready yet when pressed (8-11b connects it); it is not disabled so the press can explain itself.
 const EXPORTS = [['telegram', '텔레그램용 복사'], ['hangul', '한글용 복사'], ['hwp', 'HWP 파일로 받기']];
 let exportSheet = null, leaveSheet = null;
 // UI-키보드하단바: the same shared sheet asks before a bottom tab leaves a write window that has text.
@@ -68,15 +69,26 @@ function button(label, data = {}, aria) {
   return b;
 }
 
-// Also used by the note read view's [텔레그램용 복사].
-export async function copyText(text) {
-  try { await navigator.clipboard.writeText(text); return true; } catch {}
-  // Older WebViews: a hidden read-only text field and the copy command.
+// Also used by the note read view's [텔레그램용 복사]. With html (8-11a [한글용 복사]) the clipboard gets both kinds:
+// text/html for programs that read formatting (한글 keeps bold and makes a real table) and text/plain for the rest.
+export async function copyText(text, {html = null} = {}) {
+  try {
+    if (html == null) await navigator.clipboard.writeText(text);
+    else await navigator.clipboard.write([new ClipboardItem({'text/html': new Blob([html], {type: 'text/html'}), 'text/plain': new Blob([text], {type: 'text/plain'})})]);
+    return true;
+  } catch {}
+  // Older WebViews: a hidden read-only text field and the copy command; with html the copy event carries both kinds.
   const area = document.createElement('textarea');
   area.value = text; area.setAttribute('readonly', ''); area.className = 'a11y-only';
+  const both = e => {
+    if (!e.clipboardData) return;
+    e.clipboardData.setData('text/plain', text); e.clipboardData.setData('text/html', html); e.preventDefault();
+  };
+  if (html != null) document.addEventListener('copy', both, true);
   document.body.append(area); area.select();
   let ok = false;
   try { ok = document.execCommand('copy'); } catch {}
+  document.removeEventListener('copy', both, true);
   area.remove();
   return ok;
 }
@@ -210,9 +222,17 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (closed) return;
     status.textContent = ok ? '텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.' : '복사하지 못했어요. 다시 눌러 주세요.';
   }
+  // 8-11a: the 노조 문서 numbering (docs/hwp-style-map.md) with bold and tables; the text itself is not reworded.
+  async function hangul() {
+    const copy = toHangul(area.value);
+    const ok = await copyText(copy.text, {html: copy.html});
+    if (closed) return;
+    status.textContent = ok ? '한글용 글을 복사했어요. 한글에 붙여 넣으세요.' : '복사하지 못했어요. 다시 눌러 주세요.';
+  }
   function exportAs(value) {
     if (closed) return;
     if (value === 'telegram') { void telegram(); return; }
+    if (value === 'hangul') { void hangul(); return; }
     const label = EXPORTS.find(([v]) => v === value)?.[1];
     if (label) status.textContent = `${label}는 준비 중이에요.`;
   }
