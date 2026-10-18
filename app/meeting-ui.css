@@ -83,3 +83,49 @@
 .modal :is(#mrdTasks,#meetingActionList) .gt-menu-trigger{box-sizing:border-box;position:relative;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:20px;line-height:1}
 .modal :is(#mrdTasks,#meetingActionList) .gt-menu-trigger:hover{background:var(--kptu-surface-subtle)}
 .modal :is(#mrdTasks,#meetingActionList) .gt-menu-trigger:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+
+/* ───────── MEET-파일로만들기(2026-10-17 사용자 결정): 회의 [+] 창 [직접 쓰기 | 파일·글로 만들기] ─────────
+   전환은 공용 세그먼트(ui-standard.css), 파일 줄은 공용 파일 한 줄(meeting-compact.js). 창 안에서 어느 쪽을 보일지는
+   #meetingModal[data-create-mode](meeting-from-files.js가 정함) 하나로만 정한다. 묶음 표는 회의별 한 줄(날짜·종류·차수·자료·결과),
+   직접 골라야 하는 줄은 주황 테두리, 결과가 없는 줄은 빨간 글자 "결과를 더해 주세요". 줄을 누르면 고칠 칸과 파일이 펼쳐진다. */
+#meetingModal .meeting-create-modes{margin:0 0 var(--kptu-space-3)}
+#meetingModal:not([data-create-mode="files"]) #mffPanel,
+#meetingModal[data-create-mode="files"] .modal-card>:is(fieldset.meeting-entry-section,#saveMeetingBtn,#meetingStatus){display:none}
+#mffPanel .mtg-group{margin-bottom:var(--kptu-space-2)}
+#mffPanel .mff-text-label{display:grid;gap:4px;margin:0 0 var(--kptu-space-3)}
+#mffPanel .mff-text-label textarea{min-height:96px}
+.mff-list{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;min-width:0}
+.mff-head,.mff-row>summary{display:grid;grid-template-columns:64px minmax(0,1fr) 40px 36px 40px;align-items:center;column-gap:8px}
+.mff-head{padding:0 10px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.mff-head span:nth-child(n+3){text-align:center}
+.mff-row{min-width:0;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface)}
+.mff-row>summary{position:relative;min-height:var(--kptu-touch-target,44px);padding:6px 10px;list-style:none;cursor:pointer;row-gap:2px}
+.mff-row>summary::-webkit-details-marker{display:none}
+.mff-row>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:inherit}
+.mff-cell{min-width:0;font-size:var(--ds-text-row,13px);line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mff-round,.mff-count,.mff-result{text-align:center}
+.mff-date{font-variant-numeric:tabular-nums;color:var(--kptu-muted)}
+.mff-result[data-has="0"]{color:var(--kptu-danger);font-weight:var(--ds-weight-medium,500)}
+.mff-note{grid-column:1/-1;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mff-row:is([data-state="pick"],[data-state="new-kind"]){border-color:var(--ds-project-orange);box-shadow:inset 0 0 0 1px var(--ds-project-orange)}
+.mff-row:is([data-state="pick"],[data-state="new-kind"]) .mff-note{color:var(--ds-kind-basket-ink)}
+.mff-row[data-state="no-result"] .mff-note{color:var(--kptu-danger)}
+.mff-row[data-state="done"]{background:var(--kptu-surface-subtle)}
+.mff-row[data-state="done"] .mff-note{color:var(--kptu-success)}
+.mff-body{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--kptu-space-2);padding:0 10px 8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.mff-fields{display:grid;grid-template-columns:minmax(0,1fr) 72px 150px;gap:8px;padding-top:8px}
+.mff-fields label{display:grid;gap:2px;min-width:0;margin:0}
+.modal .mff-fields input{min-width:0;margin:0}
+.mff-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:8px 0 0;font-size:var(--ds-text-row,13px);color:var(--ds-kind-basket-ink)}
+#meetingModal .mff-confirm button.secondary{position:relative;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px)}
+#meetingModal .mff-confirm button.secondary::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.mff-body .file-line-main{flex-direction:column;align-items:flex-start;gap:0}
+.mff-body .file-line-main b{max-width:100%}
+.modal .mff-body select.mff-role{flex:none;width:auto;min-width:0;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 24px 0 8px;font-size:var(--ds-compact-text,13px)}
+#mffPanel .mff-footer{margin-top:var(--kptu-space-3)}
+@media(max-width:760px){
+  .mff-head,.mff-row>summary{grid-template-columns:62px minmax(0,1fr) 34px 28px 32px;column-gap:6px}
+  .mff-row>summary,.mff-head{padding-left:8px;padding-right:8px}
+  .mff-fields{grid-template-columns:minmax(0,1fr) 64px}
+  .mff-fields label:last-child{grid-column:1/-1}
+}
