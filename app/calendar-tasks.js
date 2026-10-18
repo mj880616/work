@@ -4,8 +4,9 @@ if(window.KPTUCalendarTasks)return;
 // Google tasks on the month calendar by due date (CAL-할일). This module owns the calendar's task list; calendar-month-view.js
 // draws it. It is kept apart from the Web2 events path (team.js) so removing Web2 events (CAL-웹2일정삭제) leaves it alone.
 // Shown: every pending task with a due date (an overdue one stays on its due date) and tasks completed in the last 3 days
-// (faded), whatever their project or organization links. Tasks without a due date are not shown. Read only: a tap opens the
-// existing Google task editor, nothing here completes or changes a task. Without Google or its Tasks permission the calendar
+// (faded), whatever their project or organization links. Tasks without a due date are not shown. A tap opens the existing
+// Google task editor (which also completes, un-completes and deletes). In the date list the row's circle completes or un-completes through
+// the task view's own toggle; nothing else here changes a task. Without Google or its Tasks permission the calendar
 // simply shows no tasks, with no error message.
 // The first calendar screen never waits for tasks: the view loader brings this module in after the first render, this device's
 // copy is shown at once, and the fresh read starts a moment later and only while the calendar is still shown.
@@ -57,11 +58,35 @@ function open(id,dayModal){
     show();
   }
 }
+// The date list's circle: complete / un-complete with the task view's own toggle, keeping the list open. The row follows at once and is
+// put back when the save fails (the task view reports the reason; this shows the same short notice).
+async function toggleFromList(b){
+  const id=b.dataset.calendarTask,g=api(),raw=tasks.find(x=>x.id===id);
+  if(!raw||!g?.toggleTask||b.dataset.busy)return;
+  const done=b.classList.contains('cmv-task-done'),task={...(g.taskState?.(id)?.task||raw),status:done?'completed':'needsAction'};
+  const paint=value=>{
+    b.classList.toggle('cmv-task-done',value);
+    const mark=b.querySelector('.cmv-task-mark');if(mark)mark.textContent=value?'✓':'';
+    const label=(b.getAttribute('aria-label')||'').replace(/, 완료$/,'')+(value?', 완료':'');
+    b.setAttribute('aria-label',label);b.title=label;
+  };
+  b.dataset.busy='1';paint(!done);
+  try{
+    const r=await g.toggleTask(task);
+    if(r?.ok===false){
+      paint(done);
+      const t=document.querySelector('#toast');
+      if(t){t.textContent=r.message||'저장하지 못해 되돌렸습니다.';t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),3200)}
+    }
+  }catch{paint(done)}
+  finally{delete b.dataset.busy}
+}
 function boot(){
   owner=currentOwner();
   document.addEventListener('click',e=>{
     const b=e.target.closest?.('[data-calendar-task]');
     if(!b||window.KPTUCalendarMonthView?.suppressClick?.())return;
+    if(e.target.closest('#calendarDayTasks .cmv-task-mark')){e.preventDefault();toggleFromList(b);return}
     e.preventDefault();open(b.dataset.calendarTask,b.closest('#calendarDayModal'));
   });
   window.KPTURouter?.on?.('calendar',()=>{applyCopy();schedule()});
