@@ -3,12 +3,24 @@
    가리지 않고 그 위에서 끝나며, 자판이 열리면 탭이 숨고(--kptu-mobile-tab-height 0, accessibility-dialog.js) 자판 바로 위까지 쓴다.
    넓은 화면(1024px~)은 글·미리보기 나란히. */
 html.md-editor-open, html.md-editor-open body { overflow:hidden; }
+/* 넓은 화면(761px~): 화면 잠금은 html 하나만 맡는다. body까지 숨기면 body가 스크롤 상자가 돼 왼쪽 세로 메뉴(sticky)가
+   제자리를 잃으므로, body는 그대로 두어 메뉴가 편집기 옆에 보이게 한다. */
+@media (min-width:761px) {
+  html.md-editor-open body { overflow:visible; }
+}
+/* top·left는 md-editor.js(placeBesideNav)가 앱 메뉴 자리를 재어 정한다. 폰·메뉴가 없으면 0(화면 전체). */
 .modal.md-editor {
-  position:fixed; top:0; left:0; right:0; bottom:var(--kptu-keyboard-inset, 0px); z-index:1000;
+  position:fixed; top:var(--md-editor-top, 0px); left:var(--md-editor-left, 0px); right:0; bottom:var(--kptu-keyboard-inset, 0px); z-index:1000;
   display:flex; flex-direction:column; place-items:stretch; gap:0; padding:0;
   background:var(--kptu-surface); color:var(--kptu-ink);
 }
 .modal.md-editor.hidden { display:none; }
+.modal.md-editor[data-md-nav="side"] { border-left:1px solid var(--kptu-border); }
+.modal.md-editor[data-md-nav="top"] { border-top:1px solid var(--kptu-border); }
+/* 761~1023px: 위쪽 한 줄 메뉴는 화면이 스크롤된 채 열려도 편집기 위에 그대로 붙어 있다(1024px~ 세로 메뉴는 이미 sticky). */
+@media (min-width:761px) and (max-width:1023px) {
+  html.md-editor-open #appView > .app-nav { position:sticky; top:0; z-index:5; }
+}
 /* The shared phone .modal rules (base-ui.css, workspace-ui.css) make a bottom sheet; this one is the whole screen. */
 html .modal.md-editor { align-items:stretch !important; overflow:hidden !important; padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left) !important; }
 /* 폰에서 하단 탭이 보이는 동안(자판 없음)은 탭 바로 위에서 끝난다. 자판이 열리면 탭이 숨고 위 기본값(자판 위)으로 돌아간다. */
