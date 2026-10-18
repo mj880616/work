@@ -76,7 +76,7 @@ test('selected part only is sent and the label follows the selection',async({pag
   await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
   expect(f.posts).toHaveLength(1);
   expect(f.posts[0].raw_text).toBe('출처: 시험 회의 2차 회의 (2026-09-17)\n\n둘째 줄 베타');
-  await expect(button).toHaveText('바구니에 담기');
+  await expect(button).toHaveText('바구니에 담김');
 });
 
 test('selection outside the result box is ignored',async({page})=>{
@@ -120,4 +120,61 @@ test('keyboard can reach and press the button',async({page})=>{
   await page.keyboard.press('Enter');
   await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
   expect(f.posts).toHaveLength(1);
+});
+
+test('after a successful send the button is disabled and says it is in the basket; reopening restores it',async({page})=>{
+  const f=await setup(page);
+  const button=page.locator('#mrdToBasket');
+  const keys=async()=>JSON.stringify(await page.context().storageState());
+  const before=await keys();
+  await button.click();
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
+  await expect(button).toBeDisabled();await expect(button).toHaveText('바구니에 담김');
+  // 선택이 바뀌어도 담긴 표시는 그대로이고 다시 보내지 않는다.
+  await select(page,'둘째','베타');
+  await expect(button).toBeDisabled();await expect(button).toHaveText('바구니에 담김');
+  expect(f.posts).toHaveLength(1);
+  // 창을 닫았다 다시 열면 원래대로(기억은 MEET 2단계).
+  await page.locator('#mrdClose').click();
+  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await expect(page.locator('#mrdResult')).toContainText('첫째 줄 알파');
+  await expect(button).toBeEnabled();await expect(button).toHaveText('바구니에 담기');
+  expect(await keys()).toBe(before);// 브라우저 저장소로 담김 표시를 흉내 내지 않는다.
+});
+
+test('a failed send keeps the button pressable; it is disabled only while sending',async({page})=>{
+  const f=await setup(page);
+  const button=page.locator('#mrdToBasket');
+  f.setFail(true);
+  await button.click();
+  await expect(page.locator('#mrdBasketStatus')).toHaveClass(/error/);
+  await expect(button).toBeEnabled();await expect(button).toHaveText('바구니에 담기');
+  f.setFail(false);
+  await button.click();
+  await expect(button).toHaveText('바구니에 담김');await expect(button).toBeDisabled();
+  expect(f.posts).toHaveLength(2);
+});
+
+test('a slow send disables the button so a second press cannot double post',async({page})=>{
+  const f=await setup(page);
+  await page.route('**/rest/v1/app_notes',async route=>{if(route.request().method()==='POST')await new Promise(r=>setTimeout(r,600));await route.fallback()});
+  const button=page.locator('#mrdToBasket');
+  await button.click();
+  await expect(button).toBeDisabled();
+  await expect(button).toHaveText('바구니에 담김');
+  expect(f.posts).toHaveLength(1);
+});
+
+for(const width of [412,870,1280])test(`edit, delete and basket buttons share the small button size and stay inside the window ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});
+  await setup(page);
+  const rows=await page.evaluate(()=>['#mrdEdit','#mrdDelete','#mrdToBasket'].map(sel=>{
+    const el=document.querySelector(sel),r=el.getBoundingClientRect(),cs=getComputedStyle(el),card=document.querySelector('#meetingRoundDetailModal .modal-card').getBoundingClientRect();
+    return {sel,h:Math.round(r.height*10)/10,fontSize:cs.fontSize,fontWeight:cs.fontWeight,radius:cs.borderRadius,padY:cs.paddingTop+'/'+cs.paddingBottom,inside:r.left>=card.left&&r.right<=card.right,cls:el.className};
+  }));
+  for(const r of rows){expect(r.inside,r.sel).toBe(true);expect(r.h,r.sel).toBeGreaterThanOrEqual(32)}
+  for(const r of rows){expect(r.h,r.sel).toBe(rows[0].h);expect(r.fontSize).toBe(rows[0].fontSize);expect(r.fontWeight).toBe(rows[0].fontWeight);expect(r.radius).toBe(rows[0].radius);expect(r.padY).toBe(rows[0].padY);expect(r.cls.split(' ')).toContain('mini')}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  // 터치 영역: 보이는 높이가 44보다 작으면 ::after가 44px까지 넓힌다(기존 규칙).
+  for(const sel of ['#mrdEdit','#mrdDelete','#mrdToBasket']){const t=await page.locator(sel).evaluate(el=>{const a=getComputedStyle(el,'::after');return [a.minHeight,a.minWidth]});expect(t).toEqual(['44px','44px'])}
 });
