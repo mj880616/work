@@ -101,3 +101,25 @@ test('Actions policy 6065 workflow paths keep their names', () => {
   assert.ok(names.includes('publication-gate.yml'));
   assert.ok(names.includes('publication-auto-merge.yml'));
 });
+
+test('auto merge publishes through the Actions Pages workflow, not the legacy Pages build API', () => {
+  const source = workflow('publication-auto-merge.yml');
+  const jobs = jobBlocks(source);
+  assert.deepEqual(Object.keys(jobs), ['reserve', 'deploy-pages']);
+  assert.doesNotMatch(source, /pages\/builds|pages:\s*write|build-pages/);
+  // Only the reservation job may write contents; only the deploy job may dispatch workflows.
+  assert.match(jobs.reserve, /permissions:\n      contents: write\n      pull-requests: write\n    outputs:/);
+  assert.doesNotMatch(jobs.reserve, /actions:/);
+  const deploy = jobs['deploy-pages'];
+  assert.match(deploy, /permissions:\n      contents: read\n      pull-requests: read\n      actions: write\n    steps:/);
+  assert.match(deploy, /^    needs: reserve\n    if: needs\.reserve\.outputs\.armed == 'true'\n/m);
+  assert.ok(deploy.indexOf('Wait for this exact PR head to merge') < deploy.indexOf('/dispatches'));
+  assert.match(deploy, /gh api -X POST "repos\/\$GITHUB_REPOSITORY\/actions\/workflows\/pages-deploy\.yml\/dispatches" -f ref=main\n/);
+  assert.doesNotMatch(deploy, /skip_deploy|continue-on-error|\|\| true/);
+  assert.match(deploy, /compare\/\$MERGE_SHA\.\.\.\$run_sha/);
+  assert.match(deploy, /map\(\{\(\.name\): \.conclusion\}\) \| add \| \.deploy \/\/ empty/);
+  assert.match(deploy, /"\$conclusion" == success && "\$deploy" == success/);
+  const pages = workflow('pages-deploy.yml');
+  assert.match(pages, /^  workflow_dispatch:\n/m);
+  assert.match(pages, /^  deploy:\n/m);
+});
