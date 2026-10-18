@@ -1,0 +1,13 @@
+{
+  "folder": "app/pdf-lib",
+  "package": "pdfjs-dist",
+  "version": "6.3.289",
+  "integrity": "sha512-ZHjSVpDa3D6izMq8/04lvkhkATUmL9px6ChPaXc1k6nU2Mrhlg1/7F0bdUqCwUjw3NsPTfPZsMDUU6ZIcRaeQw==",
+  "license": "Apache-2.0",
+  "files": {
+    "legacy/build/pdf.min.mjs": "pdf.min.mjs",
+    "legacy/build/pdf.worker.min.mjs": "pdf.worker.min.mjs",
+    "LICENSE": "LICENSE"
+  },
+  "cmaps": "^(Adobe-Korea1-.*|KSC.*|UniKS-.*)\\.bcmap$"
+}

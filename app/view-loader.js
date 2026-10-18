@@ -118,6 +118,8 @@ async function meetings(){
   await module('./task-workflow.js','__KPTU_TASK_WORKFLOW_READY__');
   await module('./google-tasks.js');
   await module('./meeting-round-detail.js','__KPTU_MEETING_ROUND_DETAIL_READY__');
+  // MEET-파일로만들기: 회의 [+] 창의 [직접 쓰기 | 파일·글로 만들기].
+  await module('./meeting-from-files.js');
   return {ok:true}
 }
 async function media(){
