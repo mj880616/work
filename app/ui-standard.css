@@ -64,8 +64,8 @@
 #appView #basketView .basket-more{ position:relative; }
 #appView #basketView .basket-more-menu{ position:absolute; z-index:20; top:calc(100% + 4px); right:0; display:grid; min-width:200px; padding:4px; box-sizing:border-box; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:var(--kptu-shadow-float); }
 #appView #basketView .basket-more-menu[hidden]{ display:none; }
-#appView #basketView .basket-more-menu button{ display:flex; align-items:center; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:0 12px; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-ink); font-size:var(--ds-text-button); font-weight:var(--ds-weight-regular); text-align:left; white-space:nowrap; }
-#appView #basketView .basket-more-menu button:hover,#appView #basketView .basket-more-menu button:focus-visible{ background:var(--kptu-surface-subtle); }
+#appView #basketView .basket-more-menu :is(button,a){ display:flex; align-items:center; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:0 12px; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-ink); font-size:var(--ds-text-button); font-weight:var(--ds-weight-regular); justify-content:flex-start; text-align:left; white-space:nowrap; text-decoration:none; }
+#appView #basketView .basket-more-menu :is(button,a):hover,#appView #basketView .basket-more-menu :is(button,a):focus-visible{ background:var(--kptu-surface-subtle); }
 #appView #basketView .basket-more-menu button:focus-visible{ outline-offset:-2px; }
 /* 필터 [미분류]의 메모 수는 폰에서만 보인다. */
 #appView #basketView .basket-filter-count{ display:none; }
@@ -74,6 +74,25 @@
 #appView #basketView [data-basket-attachments] .library-selected-file{ align-items:center; justify-content:flex-start; gap:8px; }
 #appView #basketView [data-basket-attachments] .library-selected-file-main{ flex:1 1 100%; }
 #appView #basketView [data-basket-attachments] .basket-library-send{ flex-basis:auto; }
+/* UI-바구니첨부메모 ②③④: 글 없는 메모는 파일이 주인공. 파일 한 줄(종류 색 · 이름 / 크기 · 자료실에 있음 ✓ · ⋯) 아래 큰 버튼 둘. */
+#appView #basketView .basket-file-cards{ display:grid; gap:10px; }
+#appView #basketView .basket-file-card{ padding:6px 12px 12px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); }
+#appView #basketView .basket-file-card .file-line{ border-top:0; min-height:var(--kptu-touch-target,44px); }
+#appView #basketView .basket-file-card .file-line-main{ flex-direction:column; align-items:flex-start; gap:0; }
+#appView #basketView .basket-file-card .file-line-main b{ max-width:100%; font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); }
+#appView #basketView .basket-file-card .file-line-main small{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #basketView .basket-file-actions:not([hidden]){ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:6px; }
+#appView #basketView .basket-file-actions > :only-child{ grid-column:1 / -1; }
+#appView #basketView .basket-file-actions > :is(a,button){ width:100%; min-height:var(--kptu-touch-target,44px); }
+#appView #basketView .basket-file-more{ flex:none; }
+#appView #basketView .basket-file-more-trigger{ display:grid; place-items:center; width:var(--kptu-touch-target,44px); height:var(--kptu-touch-target,44px); border-radius:var(--ds-radius-control); color:var(--kptu-muted); font-size:18px; list-style:none; cursor:pointer; }
+#appView #basketView .basket-file-more-trigger::-webkit-details-marker{ display:none; }
+#appView #basketView .basket-file-more-trigger:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+#appView #basketView .basket-file-cards + .basket-note-meta{ margin-top:8px; }
+/* 연결 창: 파일이 어디로 들어가는지 한 줄, [기록도 남기기]는 고른 쪽 회색(다른 전환과 같음). */
+#appView #basketView .basket-manual-file-note{ margin:6px 0 0; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-muted); }
+#appView #basketView .basket-manual-record-toggle{ margin-top:8px; }
+#appView #basketView .basket-manual-record-toggle[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 
 /* 상자: 카드·상자 모서리 12px, 0.5px 선, 그림자·그라데이션 없음. */
 #appView #homeView :is(.home-card,.home-quick),#appView #basketView :is(.home-quick,[data-basket-rows]:not(:empty),.basket-read-text,.basket-manual-target){ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none; }
@@ -238,6 +257,10 @@
 /* 목록: 상자 안 줄 단위(행 사이 0.5px 선, 줄 최소 44px). */
 #appView #libraryView .lu-row{ min-height:var(--kptu-touch-target,44px); padding:var(--ds-row-pad-y) 0; border-top:var(--ds-line-width) solid var(--ds-line); gap:10px; }
 #appView #libraryView .lu-row:first-child{ border-top:0; }
+/* UI-바구니첨부메모 ⑩: 달별 묶음 제목(섹션 이름과 같은 12px·테마 색). 묶음 첫 줄은 위 선 없음. */
+#appView #libraryView .lu-month{ margin:10px 0 0; padding:4px 0; font-size:var(--ds-text-meta); line-height:1.5; color:var(--ds-section-ink); }
+#appView #libraryView .lu-month:first-child{ margin-top:0; }
+#appView #libraryView .lu-month + .lu-row{ border-top:0; }
 #appView #meetingsView #meetingList.meeting-list{ gap:0; }
 #appView #meetingsView #meetingList .meeting-list-row{ box-sizing:border-box; display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); padding:var(--ds-row-pad-y) 0; border:0; border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; background:transparent; box-shadow:none; }
 #appView #meetingsView #meetingList .meeting-list-row:first-child{ border-top:0; }
@@ -816,3 +839,6 @@
 .modal .file-line .file-line-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .modal .file-line:has(.file-line-open) :is(.file-kind,.file-line-main){pointer-events:none}
 .modal .modal-card.drop-active{outline:2px dashed var(--kptu-info);outline-offset:-6px}
+
+/* UI-바구니첨부메모 ⑪: 자료 줄마다 작은 분류 꼬리표(교섭·투쟁·교육·선전·정책·회의·기타). 확장자 표시와 같은 회색 바탕. */
+.doc-category-tag{ display:inline-flex; align-items:center; box-sizing:border-box; height:20px; padding:0 6px; border-radius:var(--kptu-radius-pill,999px); font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); line-height:1; vertical-align:1px; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }

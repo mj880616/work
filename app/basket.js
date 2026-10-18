@@ -9,6 +9,8 @@ import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest }
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
+import { readAttachmentDocuments, putFilesIntoProject } from './basket-file-docs.js';
+import { fileLine } from './meeting-compact.js';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js';
 import { openBasketHtml, mountHtmlFrame, HTML_FRAME_TEXT } from './html-frame.js';
@@ -71,6 +73,29 @@ const ocrViews=new Map();
 const librarySends=new Map();
 const libraryKey=fileId=>`${scope()}:${selected?.id}:${fileId}`;
 const libraryBadge={created:['published','자료실에 있어요'],exists:['published','자료실에 있어요'],unknown:['review','자료실에서 확인해 주세요']};
+// UI-바구니첨부메모: which attachments are already library documents (read when a note opens), per scope and file.
+const libraryDocs=new Map();
+const docKey=fileId=>`${scope()}:${fileId}`;
+function knownDocs(){const out=new Map();for(const file of selected?.attachments||[]){const doc=libraryDocs.get(docKey(file.drive_file_id));if(doc)out.set(file.drive_file_id,doc);}return out;}
+const librarySent=fileId=>librarySends.get(libraryKey(fileId))||(libraryDocs.get(docKey(fileId))?{kind:'exists',document:{id:libraryDocs.get(docKey(fileId)).id}}:null);
+// Written text decides the screen: a memo with only attachments puts its files first (①~⑥).
+// Reading focus: the text, or the files of a memo without text (never the keyboard).
+const readFocus=()=>detail.querySelector(filesOnly(selected)?'[data-basket-attachments]':'[data-basket-read-text]');
+const filesOnly=note=>!!note&&!String(note.raw_text||'').trim()&&(note.attachments||[]).length>0;
+async function loadLibraryDocs(){
+  const note=selected,owner=scope();if(!note?.attachments?.length)return;
+  let found;try{found=await readAttachmentDocuments(note.attachments,{rt});}catch{return;}
+  if(owner!==scope())return;
+  for(const [id,doc] of found)libraryDocs.set(`${owner}:${id}`,doc);
+  if(selected?.id===note.id)paintAttachments();
+}
+async function putFiles(projectId,isCurrent){
+  const note=selected,owner=scope();
+  const result=await putFilesIntoProject({noteId:note.id,files:note.attachments||[],projectId,known:knownDocs(),rt,expectedSessionEpoch:rt.session.epoch(),isCurrent:()=>isCurrent()&&owner===scope()});
+  if(owner===scope())for(const [id,doc] of result.docs||[])libraryDocs.set(`${owner}:${id}`,doc);
+  if(selected?.id===note.id)paintAttachments();
+  return result;
+}
 let ocrFlight=null,ocrViewScope=null,ocrGeneration=0;
 const captureOcrScope=()=>({scope:scope(),owner:rt.context.read()?.user?.id,sessionEpoch:rt.session.epoch()});
 const currentOcrScope=value=>{const session=rt.session.read();return !!value&&value.scope===scope()&&value.sessionEpoch===rt.session.epoch()&&session?.user?.id===value.owner&&!!session?.access_token;};
@@ -217,7 +242,8 @@ async function linksConfirmed(noteId,targets){
   catch { return {ok:false}; }
 }
 const manual = mountManualLink({esc,rt,getNote:()=>selected,getLinks:()=>links,isBusy:()=>busy,
-  setBusy:setDetailBusy,onLinked:linksConfirmed,onNoteChanged:()=>reloadDetail(),onModeChange:()=>paintMode(),onTaskRecorded:noteMetadataSaved});
+  setBusy:setDetailBusy,onLinked:linksConfirmed,onNoteChanged:()=>reloadDetail(),onModeChange:()=>paintMode(),onTaskRecorded:noteMetadataSaved,
+  files:{read:()=>({files:selected?.attachments||[],docs:knownDocs()}),put:putFiles}});
 function setDetailBusy(value){busy=value;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=value);if(!value){pickerFiles?.render();paintOcrControls();}manual.controls();}
 // Only metadata changed: the original's version (updated_at), text and attachments stay as they are.
 function noteMetadataSaved(saved){
@@ -347,7 +373,9 @@ function paintDetailState() {
 }
 function paintAttachments() {
   const openIds=new Set(Array.from(detail.querySelectorAll('[data-basket-ocr] details[open]'),node=>node.parentElement.dataset.basketOcr));
-  detail.querySelector('[data-basket-attachments]').innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}${libraryMarkup(file)}${hwpEditMarkup(file)}${ocrMarkup(file)}</div>${libraryResult(file)}`;}).join('');
+  const box=detail.querySelector('[data-basket-attachments]'),only=filesOnly(selected);box.classList.toggle('basket-file-cards',only);
+  if(only)box.innerHTML=selected.attachments.map(fileCard).join('');
+  else box.innerHTML = (selected?.attachments || []).map(file=>{const url=driveFileUrl(file.drive_file_id);return `<div class="library-selected-file"><div class="library-selected-file-main"><b>${esc(file.file_name)}</b><small>${esc(fileSize(file.size_bytes))}</small></div>${url?`<a href="${url}" target="_blank" rel="noopener noreferrer">Drive에서 열기</a>`:'<span>링크를 확인할 수 없습니다.</span>'}${libraryMarkup(file)}${hwpEditMarkup(file)}${ocrMarkup(file)}</div>${libraryResult(file)}`;}).join('');
   detail.querySelectorAll('[data-basket-ocr] details').forEach(node=>{node.open=openIds.has(node.parentElement.dataset.basketOcr);});
   paintOcrControls();paintHtmlViews();
 }
@@ -388,7 +416,7 @@ async function copyChatgptRequest(){
 }
 function libraryMarkup(file) {
   const id=String(file?.drive_file_id||'');if(!id)return '';
-  const sent=librarySends.get(libraryKey(id)),name=esc(file.file_name||'첨부'),badge=libraryBadge[sent?.kind];
+  const sent=librarySent(id),name=esc(file.file_name||'첨부'),badge=libraryBadge[sent?.kind];
   let body;
   if(badge){
     const doc=sent.document?.id;
@@ -398,6 +426,20 @@ function libraryMarkup(file) {
     body=`<button type="button" data-basket-library-send="${esc(id)}" aria-label="${name} ${esc(label)}"${sent?.kind==='sending'?' disabled':''}>${esc(label)}</button>`;
   }
   return `<div class="basket-library-send" data-basket-library="${esc(id)}"${editing?' hidden':''}>${body}</div>`;
+}
+// UI-바구니첨부메모 ②③④: 글 없는 메모의 파일 한 줄(종류 색 · 이름 · "크기 · 자료실에 있음 ✓"),
+// 아래에 파일 종류에 맞는 큰 버튼 둘(HWP: [HWP 편집]·[Drive에서 열기], 그 밖: [Drive에서 열기]·자료실),
+// 나머지는 파일 줄 ⋯ 안. 보낸 결과는 실패·확인 필요만 한 줄로 알린다(⑤).
+function fileCard(file){
+  const id=String(file?.drive_file_id||''),name=file.file_name||'첨부',url=driveFileUrl(id),sent=librarySent(id),doc=sent?.document?.id;
+  const inLibrary=['created','exists'].includes(sent?.kind),meta=[fileSize(file.size_bytes),inLibrary?'자료실에 있음 ✓':sent?.kind==='unknown'?'자료실에서 확인해 주세요':''].filter(Boolean).join(' · ');
+  const open=url?`<a class="basket-file-button" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>`:'';
+  const library=inLibrary?`<a class="basket-file-button" href="${esc(libraryHref)}" data-basket-library-open="${esc(doc)}" aria-label="${esc(name)} 자료실에서 보기">자료실에서 보기</a>`
+    :sent?.kind==='unknown'?'':`<button type="button" class="basket-file-button" data-basket-library-send="${esc(id)}" aria-label="${esc(name)} ${sent?.kind==='sending'?'보내는 중…':'자료실로 보내기'}"${sent?.kind==='sending'?' disabled':''}>${sent?.kind==='sending'?'보내는 중…':'자료실로 보내기'}</button>`;
+  const hwp=isHwpName(name),big=hwp?[`<button type="button" class="basket-file-button" data-basket-hwp-edit="${esc(id)}" aria-label="${esc(name)} 편집">HWP 편집</button>`,open]:[open,library];
+  const more=hwp&&library?`<details class="basket-file-more basket-more" data-basket-file-more${editing?' hidden':''}><summary class="basket-file-more-trigger" aria-label="${esc(name)} 더보기"><span aria-hidden="true">⋯</span></summary><div class="basket-more-menu basket-file-more-panel" role="group" aria-label="${esc(name)}">${library}</div></details>`:'';
+  const message=sent?.message&&!inLibrary?`<p class="basket-library-result" role="status" data-basket-library-status="${esc(id)}">${esc(sent.message)}</p>`:'';
+  return `<div class="basket-file-card" data-basket-file-card="${esc(id)}">${fileLine({name,meta,cls:'basket-file-line',end:more})}<div class="basket-actions basket-file-actions"${editing?' hidden':''}>${big.filter(Boolean).join('')}</div>${ocrMarkup(file)}</div>${message}`;
 }
 // HWP-편집기 2단계: HWP·HWPX 첨부는 편집기 화면(hwp-lab.js)에서 연다. 저장은 그 화면이 같은 메모에 새 첨부로 더한다.
 function hwpEditMarkup(file) {
@@ -420,6 +462,7 @@ async function sendToLibrary(fileId) {
   if(owner!==scope()||rt.session.epoch()!==sessionEpoch){librarySends.delete(key);return;}
   librarySends.set(key,outcome);
   if(outcome.kind==='created')window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
+  if(['created','exists'].includes(outcome.kind)&&!libraryDocs.has(`${owner}:${fileId}`))libraryDocs.set(`${owner}:${fileId}`,{id:outcome.document.id,title:outcome.document.title,project_id:undefined});
   if(run===epoch&&selected?.id===noteId)paintAttachments();
 }
 function paintNoteTasks() {
@@ -437,11 +480,13 @@ function paintReadText() {
   const text = detail.querySelector('[data-basket-read-text]'), toggle = detail.querySelector('[data-basket-read-raw]'), raw = selected.raw_text || '';
   toggle.hidden = !raw; toggle.textContent = rawView ? '정리해서 보기' : '원문 그대로 보기';
   text.classList.toggle('basket-read-empty', !raw); text.classList.toggle('basket-read-raw', !!raw && rawView);
+  // ①: a memo with only attachments has no text box; its files lead the screen.
+  text.hidden = filesOnly(selected);
   const key = `${raw && rawView ? 'raw' : 'md'}:${raw}`;
   if (readShown.get(text) === key) return;
   readShown.set(text, key);
   renderShareCards(detail.querySelector('[data-basket-share]'), raw);
-  if (!raw) return showPlainText(text, '글 없이 첨부만 있는 메모입니다.');
+  if (!raw) return showPlainText(text, filesOnly(selected) ? '' : '글 없이 첨부만 있는 메모입니다.');
   showPlainText(text, raw);
   if (rawView) return;
   const owner = scope();
@@ -456,7 +501,10 @@ function paintMode() {
   // The note menu is for reading; while editing the edit buttons and Esc take over.
   detail.querySelector('[data-basket-note-more-wrap]').hidden = editing; if (editing) setNoteMenu(false);
   detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
-  detail.querySelectorAll('[data-basket-library],[data-basket-hwp]').forEach(box => { box.hidden = editing; });
+  detail.querySelectorAll('[data-basket-library],[data-basket-hwp],.basket-file-actions,[data-basket-file-more]').forEach(box => { box.hidden = editing; });
+  // ⑥: "미분류 · 날짜" sits under the files of a memo with only attachments, else under the text.
+  const meta = detail.querySelector('.basket-note-meta');
+  if (filesOnly(selected) && !editing) detail.querySelector('[data-basket-attachments]').after(meta); else detail.querySelector('[data-basket-read]').append(meta);
 }
 function openDetail(id, {edit = false} = {}) {
   handoff.close();
@@ -467,15 +515,15 @@ function openDetail(id, {edit = false} = {}) {
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
   listHead.hidden = true; kindSwitch.hidden = true;
-  detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="바구니 목록으로"><span aria-hidden="true">‹</span> 바구니</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more aria-label="이 메모 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 메모" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-to-note>노트로 옮기기</button><button type="button" data-basket-read-raw>원문 그대로 보기</button><button type="button" data-basket-archive>보관</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><div class="basket-read" data-basket-read><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button><button type="button" class="secondary" data-basket-big-write>큰 창에서 수정</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-to-note" data-basket-to-note-form hidden><label class="basket-text-label">노트 제목<input type="text" data-basket-to-note-title autocomplete="off"></label><p class="basket-to-note-help">연결·첨부·할 일은 그대로 노트로 옮겨져요.</p><div class="basket-actions"><button type="button" class="primary" data-basket-to-note-save>노트로 옮기기</button><button type="button" data-basket-to-note-cancel>취소</button></div></div><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+  detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="바구니 목록으로"><span aria-hidden="true">‹</span> 바구니</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more aria-label="이 메모 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 메모" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-to-note>노트로 옮기기</button><button type="button" data-basket-read-raw>원문 그대로 보기</button><button type="button" data-basket-archive>보관</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><div class="basket-read" data-basket-read><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button><button type="button" class="secondary" data-basket-big-write>큰 창에서 수정</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-to-note" data-basket-to-note-form hidden><label class="basket-text-label">노트 제목<input type="text" data-basket-to-note-title autocomplete="off"></label><p class="basket-to-note-help">연결·첨부·할 일은 그대로 노트로 옮겨져요.</p><div class="basket-actions"><button type="button" class="primary" data-basket-to-note-save>노트로 옮기기</button><button type="button" data-basket-to-note-cancel>취소</button></div></div><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   manual.attach(detail.querySelector('[data-basket-manual]'));
   pickerFiles=mountBasketPicker(detail.querySelector('[data-basket-file-picker]'),{id:'detailBasketFiles',filesHost:detail.querySelector('[data-basket-file-selection]'),dropTarget:detail.querySelector('.basket-editor'),getBatch:()=>upload,isActive:()=>editing,isBusy:()=>busy,onError:message=>detail.querySelector('[data-basket-status]').textContent=message});
-  paintDetailState();paintMode();paintHandoffScope();
+  paintDetailState();paintMode();paintHandoffScope();void loadLibraryDocs();
   // A note address (?note=) opens the note once; the list entry under it stays the plain list.
   if (!noteLayer) { clearNoteAddress(); openNoteLayer(); }
   // Reading never opens the on-screen keyboard; only an explicit edit focuses the text.
-  detail.querySelector(editing ? '[data-basket-text]' : '[data-basket-read-text]').focus();
+  (editing ? detail.querySelector('[data-basket-text]') : readFocus()).focus();
 }
 // MD-편집기: [크게 쓰기] opens the shared full-screen editor on the edit field's text. Every change goes straight
 // back into the field, so [수정 저장]·취소·leaving the screen see the same text; saving stays the existing flow.
@@ -501,7 +549,7 @@ function finishEdit({force = false} = {}) {
   // Cancelling discards the selection the same way leaving the note does.
   if (upload.blocked || upload.entries.some(e => e.kind !== 'success')) upload = createUploadBatch(selected.id, selected.attachments || []);
   if (!force) detail.querySelector('[data-basket-status]').textContent = '';
-  paintMode(); pickerFiles?.render(); detail.querySelector('[data-basket-read-text]').focus();
+  paintMode(); pickerFiles?.render(); readFocus().focus();
 }
 async function refresh() {
   if (busy) return;
@@ -705,8 +753,10 @@ root.addEventListener('click', e => {
   e.preventDefault(); if (busy || editing) return;
   requestLibraryDocument(a.dataset.basketLibraryOpen, rt); window.KPTURouter.go('library', {source:'delegated'});
 });
+// A file's ⋯ closes on a choice inside it or a tap anywhere else (native <details> for keyboard and touch).
+document.addEventListener('click', e => { detail.querySelectorAll('[data-basket-file-more][open]').forEach(more => { if (!more.contains(e.target) || e.target.closest('.basket-file-more-panel :is(button,a)')) more.open = false; }); });
 window.addEventListener('storage',()=>guardOcrPrivacy());
-root.addEventListener('keydown', e => { if (noteHost.contains(e.target)) return; guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true}); else if (manual.isOpen()) manual.cancel(); else if (toNoteOpen()) closeToNote(); else closeDetail(); } });
+root.addEventListener('keydown', e => { if (noteHost.contains(e.target)) return; guardOcrPrivacy(); if (e.key === 'Escape' && selected && !busy) { e.preventDefault(); const fileMore = detail.querySelector('[data-basket-file-more][open]'); if (fileMore) { fileMore.open = false; fileMore.querySelector('summary').focus(); } else if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true}); else if (manual.isOpen()) manual.cancel(); else if (toNoteOpen()) closeToNote(); else closeDetail(); } });
 window.addEventListener('kptu:before-reload', e => {
   if (busy||quick?.isBusy()||noteDocs.isBusy()) e.preventDefault();
   else if (quick?.hasDraft()||noteDocs.hasDraft()) e.detail.otherDraft=true;

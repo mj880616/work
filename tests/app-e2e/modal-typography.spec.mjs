@@ -153,7 +153,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   else expect(await newStandard(page),name+' new standard').toEqual([]);
   if(name==='meetings'||name==='library'){
     const groups=page.locator('#'+name+'View .filter-chips');
-    await expect(groups).toHaveCount(name==='meetings'?1:2);
+    // UI-바구니첨부메모 ⑪: 자료실은 프로젝트·자료 종류에 분류 7개 칩 줄이 더해진다.
+    await expect(groups).toHaveCount(name==='meetings'?1:3);
     // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
     // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),
@@ -327,6 +328,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // UI-회의결과창정리(2026-10-17 사용자 결정): 회의 결과 창(만들기·수정)의 첨부·후속 묶음과 자료 등록 창 업로드 칸을 작은 묶음으로 바꿨다.
   // 바뀐 부분은 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다. 없어진 두 요소(업로드 상자 글자·회의자료 라벨 설명)의 규칙은 아래에서 뺀다.
   for(const [from,to] of [['#meetingModal fieldset:has(#meetingActionList)','#meetingModal fieldset:has(#meetingActionList)'],['#mrdView .mrd-followup-section','#mrdView .mrd-followup-section'],['#mrdView .mrd-material-section','#mrdView .mrd-material-section'],['#documentModal .library-file-block','#documentModal .library-file-block']]){const html=await page.locator(from).evaluate(el=>el.outerHTML);await original.locator(to).evaluate((el,html)=>{el.outerHTML=html},html)}
+  // UI-바구니첨부메모(2026-10-18 사용자 결정): 자료 등록·수정 창의 분류는 자유 입력 대신 7개 중 고르기. 현재 칸을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  for(const id of ['docCategory','libraryEditCategory']){const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.outerHTML=html},html)}
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
   // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
   const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];

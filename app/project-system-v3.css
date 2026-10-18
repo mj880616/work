@@ -148,6 +148,8 @@
 .ps3-count{margin-left:2px;font-size:12px;font-weight:600;color:var(--kptu-faint)}
 .ps3-text-btn{flex:0 0 auto;min-height:32px;border:0;background:transparent;color:var(--kptu-link);padding:0 var(--kptu-space-1);font-size:12px;font-weight:700;cursor:pointer}
 .ps3-text-btn:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+/* UI-바구니첨부메모: 자료 묶음 아래 "전체 N개 보기 ›"(누르는 범위 44px). */
+.ps3-docs-all{display:flex;align-items:center;gap:4px;min-height:44px;margin-left:auto}
 .ps3-child-rows{display:grid}
 .ps3-child-link{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--kptu-space-2);align-items:center;width:100%;min-height:44px;border:0;border-top:1px solid var(--kptu-border);background:transparent;color:var(--kptu-ink);padding:var(--kptu-space-2) 0;text-align:left}
 .ps3-child-link:first-child{border-top:0}
