@@ -125,7 +125,7 @@ test('keyboard can reach and press the button',async({page})=>{
 test('after a successful send the button is disabled and says it is in the basket; reopening restores it',async({page})=>{
   const f=await setup(page);
   const button=page.locator('#mrdToBasket');
-  const keys=()=>page.evaluate(()=>JSON.stringify([Object.keys(localStorage).sort(),Object.keys(sessionStorage).sort()]));
+  const keys=async()=>JSON.stringify(await page.context().storageState());
   const before=await keys();
   await button.click();
   await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
