@@ -98,16 +98,16 @@
 .mff-head,.mff-row>summary{display:grid;grid-template-columns:64px minmax(0,1fr) 40px 36px 40px;align-items:center;column-gap:8px}
 .mff-head{padding:0 10px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .mff-head span:nth-child(n+3){text-align:center}
-.mff-row{min-width:0;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface)}
+.mff-row{min-width:0;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
 .mff-row>summary{position:relative;min-height:var(--kptu-touch-target,44px);padding:6px 10px;list-style:none;cursor:pointer;row-gap:2px}
 .mff-row>summary::-webkit-details-marker{display:none}
-.mff-row>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:inherit}
+.mff-row>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-md)}
 .mff-cell{min-width:0;font-size:var(--ds-text-row,13px);line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mff-round,.mff-count,.mff-result{text-align:center}
 .mff-date{font-variant-numeric:tabular-nums;color:var(--kptu-muted)}
 .mff-result[data-has="0"]{color:var(--kptu-danger);font-weight:var(--ds-weight-medium,500)}
 .mff-note{grid-column:1/-1;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mff-row:is([data-state="pick"],[data-state="new-kind"]){border-color:var(--ds-project-orange);box-shadow:inset 0 0 0 1px var(--ds-project-orange)}
+.mff-row:is([data-state="pick"],[data-state="new-kind"]){border:2px solid var(--ds-project-orange)}
 .mff-row:is([data-state="pick"],[data-state="new-kind"]) .mff-note{color:var(--ds-kind-basket-ink)}
 .mff-row[data-state="no-result"] .mff-note{color:var(--kptu-danger)}
 .mff-row[data-state="done"]{background:var(--kptu-surface-subtle)}
