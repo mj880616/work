@@ -865,6 +865,8 @@
   html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]))),
   html:has(:where(#appView #basketView:not(.hidden) > .basket-switch-row:not([hidden]) > .basket-kind-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
+  /* 전체 화면 쓰기 창(md-editor.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(창의 선택 창은 탭 바로 위에서). */
+  html.md-editor-open{ --kptu-switch-dock:0px; }
 
   #appView .schedule-switch:not([hidden]),
   #appView #basketView .basket-switch-row .basket-kind-switch:not([hidden]){

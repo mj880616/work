@@ -215,6 +215,34 @@ test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려�
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
+test('③ 폰: 전환 줄이 있는 바구니·일정에서 고르기 시트는 전환 줄 위에서 열리고, 고른 뒤 같은 자리 누름이 전환 줄로 가지 않음',async({page})=>{
+ const f=await fixture(page);
+ const settle=sheet=>sheet.evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
+ async function aboveRow(sheet,row){
+  const box=await sheet.boundingBox(),r=await row.boundingBox(),tabs=await page.locator('#appView > .mobile-tabs').boundingBox();
+  // The row is 44px on the tabs; the sheet ends where that row starts.
+  expect(Math.round(box.y+box.height)).toBe(Math.round(tabs.y-44));expect(box.y+box.height).toBeLessThanOrEqual(r.y-6+0.5);
+  for(const item of await sheet.locator('[data-sheet-value]').all()){const b=await item.boundingBox();expect(b.y+b.height).toBeLessThanOrEqual(tabs.y-44);}
+ }
+ // 바구니 빠른 입력은 [바구니] 한 가지라 고르기 시트가 없다. 전환 줄이 보이는 일정 화면에서 일정 창 [할 일]의 프로젝트 고르기로 본다.
+ await page.locator('.mobile-tabs [data-mobile-schedule-tab]').tap();
+ const row=page.locator('#calendarView .schedule-switch');await expect(row).toBeVisible();
+ await page.waitForFunction(()=>window.KPTUCalendarPlus);
+ await page.locator('#calendarView .calendar-toolbar #newEventBtn').tap();
+ await expect(page.locator('#eventModal')).toBeVisible();
+ await page.locator('[data-event-mode="task"]').tap();
+ await page.locator('#eventTaskProject').tap();
+ const sheet=page.locator('#eventProjectSheet');await expect(sheet).toHaveAttribute('open','');await settle(sheet);
+ await aboveRow(sheet,row);
+ // Pick the lowest row at its bottom edge, then press the same spot again: it must not reach the switch row.
+ const last=await sheet.locator('[data-sheet-value]').last().boundingBox(),x=last.x+last.width/2,y=last.y+last.height-2;
+ await page.touchscreen.tap(x,y);await expect(sheet).not.toHaveAttribute('open','');
+ await page.touchscreen.tap(x,y);
+ expect(await page.evaluate(()=>window.KPTURouter.current)).toBe('calendar');
+ await expect(page.locator('#eventModal')).toBeVisible();
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 test('③ PC 1280: 전환은 지금처럼 위(바구니 [메모|노트]는 목록 위, 일정 전환은 보이지 않음), [+]·아래 탭 없음',async({page})=>{
  const f=await fixture(page,{width:1280,height:900});
  await go(page,'basket');
