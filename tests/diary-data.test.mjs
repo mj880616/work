@@ -74,3 +74,36 @@ test('a non-photo file is refused before any upload', async () => {
   await assert.rejects(m.shrinkPhoto(new File(['x'], 'a.pdf', {type:'application/pdf'})), /사진이 아니에요/);
   await assert.rejects(m.shrinkPhoto(new File([], 'empty.jpg', {type:'image/jpeg'})), /빈 파일/);
 });
+
+test('photo comments: kept in metadata.photo_comments only (other metadata stays), 200 chars, one line, only for photos still on the day', async () => {
+  const m = await mod, rt = runtime((path, o) => [{...row(), ...o.body}]);
+  const base = row({attachments:[photo('a'), photo('b')], metadata:{tasks:[1], photo_comments:{a:'하나', gone:'없는 사진', b:'  '}}});
+  assert.deepEqual(m.photoComments(base), {a:'하나'});
+  assert.deepEqual(m.photoComments(row()), {}); assert.deepEqual(m.photoComments(null), {});
+  assert.deepEqual(m.photoComments(row({attachments:[photo('a')], metadata:{photo_comments:['x']}})), {});
+  assert.equal(m.cleanComment('  두 줄\n로  쓴  글 '), '두 줄 로 쓴 글');
+  assert.equal(m.cleanComment('가'.repeat(200)).length, 200);
+  assert.throws(() => m.cleanComment('가'.repeat(201)), /200자/);
+  assert.equal(m.cleanComment('😀'.repeat(200)).length, 400);
+  await m.saveDiaryComments(base, {a:'하나', b:' 둘 '}, rt);
+  assert.deepEqual(Object.keys(rt.calls[0].body).sort(), ['metadata', 'updated_at']);
+  assert.deepEqual(rt.calls[0].body.metadata, {tasks:[1], photo_comments:{a:'하나', b:'둘'}});
+  // Nothing changed: no write. The last comment removed drops the key.
+  const same = await m.saveDiaryComments(row({attachments:[photo('a')], metadata:{photo_comments:{a:'하나'}}}), {a:'하나'}, rt);
+  assert.equal(rt.calls.length, 1); assert.equal(same.id, 'd1');
+  await m.saveDiaryComments(row({attachments:[photo('a')], metadata:{x:1, photo_comments:{a:'하나'}}}), {a:''}, rt);
+  assert.deepEqual(rt.calls[1].body.metadata, {x:1});
+  await m.saveDiaryComments(row({attachments:[photo('a')]}), {a:'가'.repeat(201)}, rt).then(() => assert.fail('over 200'), error => assert.match(error.message, /200자/));
+  assert.equal(rt.calls.length, 2);
+});
+
+test('removing a photo takes its comment in the same write; a day without comments sends no metadata', async () => {
+  const m = await mod, rt = runtime((path, o) => [{...row(), ...o.body}]);
+  await m.removeDiaryPhoto(row({attachments:[photo('a'), photo('b')], metadata:{tasks:[1], photo_comments:{a:'하나', b:'둘'}}}), 'a', rt);
+  assert.deepEqual(rt.calls[0].body.attachments, [photo('b')]);
+  assert.deepEqual(rt.calls[0].body.metadata, {tasks:[1], photo_comments:{b:'둘'}});
+  await m.removeDiaryPhoto(row({attachments:[photo('a'), photo('b')], metadata:{photo_comments:{a:'하나'}}}), 'a', rt);
+  assert.deepEqual(rt.calls[1].body.metadata, {});
+  await m.removeDiaryPhoto(row({attachments:[photo('a'), photo('b')], metadata:{}}), 'a', rt);
+  assert.equal('metadata' in rt.calls[2].body, false);
+});

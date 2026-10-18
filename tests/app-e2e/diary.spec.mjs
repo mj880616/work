@@ -33,13 +33,15 @@ function valid(row){
  if(row.kind!=='note'&&!(row.raw_text?.length>=1||row.attachments?.length>=1))return false;
  return (row.attachments||[]).length<=20;
 }
-async function fixture(page,{rows=store(),failUploadAt=0,photoView=true,width=390}={}){
+async function fixture(page,{rows=store(),failUploadAt=0,photoView=true,width=390,height=900,photoSizes=null}={}){
  const writes=[],uploads=[],photoReads=[],deletes=[],errors=[];let uploadCount=0;
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
- await page.setViewportSize({width,height:900});
+ await page.setViewportSize({width,height});
  await openHome(page);
  const img=await pngFor(page,'#7a5cc0');
+ // 크게 보기 검사용: 사진마다 다른 크기(세로·가로·정사각)의 합성 이미지를 파일 순서대로 돌려 쓴다.
+ const sized=photoSizes?await Promise.all(photoSizes.map(([w,h],i)=>pngFor(page,['#e85','#5a8','#58e'][i%3],w,h))):null;
  const match=(row,q)=>{
   for(const [k,v] of q.entries()){
    if(['select','order','limit','offset'].includes(k))continue;
@@ -81,7 +83,8 @@ async function fixture(page,{rows=store(),failUploadAt=0,photoView=true,width=39
    if(!photoView)return r.fulfill({status:400,json:{error:'bad',code:'OCR_REQUEST_INVALID'}});
    const row=rows.find(x=>x.id===u.searchParams.get('note_id'));
    if(!row?.attachments.some(a=>a.drive_file_id===u.searchParams.get('file_id')))return r.fulfill({status:404,json:{action:'photo',ok:false,code:'photo_not_found'}});
-   return r.fulfill({status:200,contentType:'image/png',headers:{'cache-control':'private, max-age=3600'},body:img});
+   const nth=row.attachments.findIndex(a=>a.drive_file_id===u.searchParams.get('file_id'));
+   return r.fulfill({status:200,contentType:'image/png',headers:{'cache-control':'private, max-age=3600'},body:sized&&u.searchParams.get('size')==='large'?sized[nth%sized.length]:img});
   }
   if(req.method()==='POST'&&u.searchParams.get('action')==='note-delete'){
    const body=req.postDataJSON(),row=rows.find(x=>x.id===body.note_id);
@@ -436,6 +439,107 @@ for(const scheme of ['light','dark'])for(const width of [390,1280]){
   await page.locator('#diaryRoot #newDiaryBtn').click();
   await page.locator('#diaryRoot [data-diary-editor] [data-diary-input]').setInputFiles(await photoFiles(page,2,{w:400,h:300}));
   await page.screenshot({path:info.outputPath(`diary-edit-${width}-${scheme}.png`),fullPage:true});
+  expect(f.errors).toEqual([]);
+ });
+}
+
+// UI-일기사진 ②: [사진 고르기]는 촬영 전용이 아니라 시스템 사진 선택창(여러 장)으로 열린다.
+test('사진 고르기: capture 속성 없이 image/*·여러 장 선택',async({page})=>{
+ const f=await fixture(page);await openDiary(page,390);
+ await page.locator('#diaryRoot #newDiaryBtn').click();
+ const input=page.locator('#diaryRoot [data-diary-editor] [data-diary-input]');
+ await expect(input).toHaveAttribute('accept','image/*');await expect(input).toHaveAttribute('multiple','');
+ expect(await input.evaluate(el=>el.hasAttribute('capture'))).toBe(false);
+ expect(f.errors).toEqual([]);
+});
+
+// UI-일기사진 ③: 사진별 코멘트(선택, 200자)는 기존 metadata jsonb(photo_comments)에만 저장한다. 새 열·표·Edge 변경 없음.
+for(const width of [390,1280]){
+ test(`사진별 코멘트: 쓰기·보기·크게 보기·빼면 함께 제거·코멘트 없는 기존 일기는 그대로 ${width}`,async({page})=>{
+  const f=await fixture(page,{width});await openDiary(page,width);
+  await cell(page,'2026-10-03').click();
+  // 코멘트 없는 기존 일기: 보기에 코멘트 줄이 없다.
+  const detail=page.locator('#diaryRoot [data-diary-detail]');
+  await expect(detail.locator('[data-diary-grid] .diary-grid-item')).toHaveCount(2);await expect(detail.locator('[data-diary-captions]')).toHaveCount(0);
+  await page.locator('#diaryRoot #newDiaryBtn').click();
+  const ed=page.locator('#diaryRoot [data-diary-editor]');
+  const inputs=ed.locator('[data-diary-comment]');await expect(inputs).toHaveCount(2);
+  await expect(inputs.first()).toHaveAttribute('maxlength','200');await expect(inputs.first()).toHaveAttribute('aria-label','사진 1 코멘트');
+  // 글만 고치면 metadata는 건드리지 않는다.
+  await ed.locator('[data-diary-text]').fill('글만 고침');await ed.locator('[data-diary-save]').click();
+  await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('글만 고침');
+  expect(f.writes.every(w=>!('metadata' in (w.body||{})))).toBe(true);
+  // 코멘트 쓰기: 사진 1·2에 달고, 사진 1은 앞뒤 공백과 줄바꿈을 한 줄로 정리.
+  await page.locator('#diaryRoot #newDiaryBtn').click();
+  await inputs.first().fill('  단풍 길  ');await inputs.nth(1).fill('둘째 사진');
+  // 새 사진 한 장에도 코멘트를 달 수 있고, 저장하면 올라간 사진 id로 이어진다.
+  await ed.locator('[data-diary-input]').setInputFiles(await photoFiles(page,1,{w:800,h:600}));
+  const pend=ed.locator('[data-diary-pending-comment]');await expect(pend).toHaveCount(1);await pend.fill('새로 올린 사진');
+  // 다시 그려져도(사진 고르기) 쓰던 코멘트가 남는다.
+  await expect(inputs.first()).toHaveValue('  단풍 길  ');
+  await ed.locator('[data-diary-save]').click();
+  await expect(detail.locator('[data-diary-captions] li')).toHaveCount(3);
+  await expect(detail.locator('[data-diary-captions] li').first()).toHaveText('사진 1 단풍 길');
+  const row=f.rows.find(r=>r.id==='d3');
+  expect(row.metadata.photo_comments).toEqual({pa:'단풍 길',pb:'둘째 사진',up1:'새로 올린 사진'});
+  expect(row.attachments.map(a=>a.drive_file_id)).toEqual(['pa','pb','up1']);
+  expect(Object.keys(row)).not.toContain('photo_comments');
+  // 크게 보기: 사진 아래에 그 사진의 코멘트.
+  await detail.locator('.diary-grid-item').nth(1).click();
+  const viewer=page.locator('#diaryRoot [data-diary-viewer]');
+  await expect(viewer.locator('[data-diary-viewer-caption]')).toHaveText('둘째 사진');
+  await page.keyboard.press('ArrowRight');
+  await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('3 / 3');await expect(viewer.locator('[data-diary-viewer-caption]')).toHaveText('새로 올린 사진');
+  await viewer.locator('[data-diary-viewer-close]').click();
+  // 고치기: 저장된 코멘트가 입력칸에 보이고, 지우면 코멘트가 빠진다.
+  await page.locator('#diaryRoot #newDiaryBtn').click();
+  await expect(inputs.nth(1)).toHaveValue('둘째 사진');
+  await inputs.nth(1).fill('');await ed.locator('[data-diary-save]').click();
+  await expect(detail.locator('[data-diary-captions] li')).toHaveCount(2);
+  expect(f.rows.find(r=>r.id==='d3').metadata.photo_comments).toEqual({pa:'단풍 길',up1:'새로 올린 사진'});
+  // 사진을 빼면 그 사진의 코멘트도 같은 저장에서 빠진다.
+  await page.locator('#diaryRoot #newDiaryBtn').click();
+  page.once('dialog',d=>d.accept());await ed.locator('[data-diary-remove="pa"]').click();
+  await expect(ed.locator('[data-diary-editor-status]')).toHaveText('사진을 뺐어요.');
+  const removal=f.writes.at(-1);
+  expect(removal.body.attachments.map(a=>a.drive_file_id)).toEqual(['pb','up1']);expect(removal.body.metadata.photo_comments).toEqual({up1:'새로 올린 사진'});
+  expect(f.rows.find(r=>r.id==='d3').metadata.photo_comments).toEqual({up1:'새로 올린 사진'});
+  expect(f.errors).toEqual([]);
+ });
+}
+
+// BUG-일기사진크게: 크게 보기에서 세로·가로·정사각 사진이 비율대로 화면 안에 전체가 들어온다(contain, 잘림 없음).
+for(const [width,height] of [[390,844],[720,900],[880,1000],[1280,800]]){
+ test(`크게 보기: 세로·가로·정사각 사진 전체가 비율 유지로 화면 안에 들어온다 ${width}x${height}`,async({page})=>{
+  const sizes=[[1200,1800],[1800,1200],[1500,1500],[600,2400],[2400,600]];
+  const rows=store();rows[1].attachments=['pa','pb','pc','pd','pe'].map(id=>photo(id));
+  const f=await fixture(page,{width,height,rows,photoSizes:sizes});await openDiary(page,width);
+  await cell(page,'2026-10-03').click();
+  await page.locator('#diaryRoot [data-diary-grid] .diary-grid-item').first().click();
+  const viewer=page.locator('#diaryRoot [data-diary-viewer]');
+  await expect(viewer).toBeVisible();
+  for(let i=0;i<sizes.length;i++){
+   if(i)await page.keyboard.press('ArrowRight');
+   await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText(`${i+1} / ${sizes.length}`);
+   const img=viewer.locator('.diary-slide').nth(i).locator('img');
+   await expect(img).toBeVisible();
+   await expect.poll(()=>img.evaluate(el=>el.complete&&el.naturalWidth>0)).toBe(true);
+   await page.waitForTimeout(450);
+   const m=await page.evaluate(([i])=>{
+    const v=document.querySelector('[data-diary-viewer]'),s=v.querySelector('[data-diary-viewer-strip]'),img=v.querySelectorAll('.diary-slide img')[i];
+    const r=img.getBoundingClientRect(),sr=s.getBoundingClientRect();
+    return {x:r.x,y:r.y,w:r.width,h:r.height,sx:sr.x,sy:sr.y,sw:sr.width,sh:sr.height,nw:img.naturalWidth,nh:img.naturalHeight,fit:getComputedStyle(img).objectFit};
+   },[i]);
+   // 전체가 보인다: 상자가 줄 영역 안에 있고(위아래·좌우 넘침 없음), 실제 그려지는 사진(contain)은 원본 비율이며
+   // 한 변이 줄 영역에 닿을 만큼 크게 보인다.
+   expect(m.fit).toBe('contain');
+   expect(m.x).toBeGreaterThanOrEqual(m.sx-1);expect(m.x+m.w).toBeLessThanOrEqual(m.sx+m.sw+1);
+   expect(m.y).toBeGreaterThanOrEqual(m.sy-1);expect(m.y+m.h).toBeLessThanOrEqual(m.sy+m.sh+1);
+   expect(m.w).toBeGreaterThan(20);expect(m.h).toBeGreaterThan(20);
+   const scale=Math.min(m.w/m.nw,m.h/m.nh),cw=m.nw*scale,ch=m.nh*scale;
+   expect(cw).toBeLessThanOrEqual(m.sw+1);expect(ch).toBeLessThanOrEqual(m.sh+1);
+   expect(Math.max(cw/m.sw,ch/m.sh)).toBeGreaterThan(0.95);
+  }
   expect(f.errors).toEqual([]);
  });
 }
