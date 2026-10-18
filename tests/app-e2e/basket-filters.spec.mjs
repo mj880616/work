@@ -1,6 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
+import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
+import {testOrigin} from './helpers/test-origin.mjs';
 
 // UI-바구니거르기: 바구니 [메모] 거르기 [미분류 N][분류][보류] + [분류] 아래 분류된 곳 칩 [전체][담당조직][프로젝트][자료실][할 일].
 // 분류된 곳은 이미 읽는 것만으로 정한다: 확정 연결 기록(app_record_links)의 대상 종류, [자료로 넣기](app_documents.project_id,
@@ -135,4 +137,27 @@ test('phone: [메모|노트] stays in the bottom switch row while the segment an
  // Back on [메모] the earlier choice is kept within the visit (as before), with its place row.
  await tap(page,sw.locator('[data-basket-kind="memo"]'),390);await expect(filterChip(page,'classified')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-place-filter]')).toBeVisible();
  expect(f.errors).toEqual([]);
+});
+
+// ⑤ 자료실: the [일반 자료|회의자료만] row is gone; the project and category chip rows stay; [회의] narrows to meeting documents.
+for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library has no [일반 자료|회의자료만] row and [회의] shows meeting documents ${width} ${scheme}`,async({page},info)=>{
+ await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme:scheme});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ const state=baseState(),made=new Date().toISOString();
+ state.docs.push({id:'meeting-doc',workspace_id:'workspace-1',project_id:'top-a',meeting_id:'meeting-1',title:'합성 회의 결과',category:'회의결과',tags:[],created_at:made},
+  {id:'meeting-doc-2',workspace_id:'workspace-1',project_id:null,meeting_id:'meeting-2',title:'합성 회의 자료',category:'회의자료',tags:[],created_at:made});
+ await mockApp(page,state);await signIn(page,testOrigin+'/app/?view=library');
+ await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
+ const docRows=page.locator('#documentList [data-lu-document]');
+ await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
+ await expect(page.locator('#libraryView')).not.toContainText('회의자료만');
+ await expect(page.locator('#documentProject .filter-chips').first()).toBeVisible();
+ const category=page.locator('#libraryCategoryFilter');await expect(category.getByRole('radio')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
+ await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
+ await capture(page,info,`library-all-${width}-${scheme}`);
+ const meetingChip=category.getByRole('radio',{name:'회의',exact:true});await meetingChip.scrollIntoViewIfNeeded();
+ await tap(page,meetingChip,width);await expect(meetingChip).toHaveAttribute('aria-checked','true');
+ await expect.poll(()=>docRows.evaluateAll(els=>els.map(el=>el.dataset.luDocument).sort())).toEqual(['meeting-doc','meeting-doc-2']);
+ await capture(page,info,`library-meeting-${width}-${scheme}`);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
