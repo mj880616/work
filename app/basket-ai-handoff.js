@@ -1,5 +1,5 @@
 import {classificationFormat} from './basket-classification.js';
-import {readBasket} from './basket-data.js';
+import {readBasket,filedProjects} from './basket-data.js';
 import {effectiveOcrText} from './basket-ocr-text.mjs';
 
 // Basket guidance only: active + actual owner assignment, matching home weekUpdates.
@@ -11,11 +11,12 @@ export function selectBasketOrganizations(organizations, assignees) {
   return { organizations: mine.length ? mine : active, fallback: mine.length === 0 };
 }
 
-export function selectHandoffNotes(notes,links,now) {
+// docs: the basket's filed documents (readBasket). A memo whose files went into a project ([자료로 넣기]) is not 미분류.
+export function selectHandoffNotes(notes,links,now,docs=[]) {
   const today=new Date(now.getTime()+9*3600000).toISOString().slice(0,10);
   const start=Date.parse(today+'T00:00:00+09:00')-28*86400000;
   const linked=new Set(links.filter(l=>['confirmed','suggested'].includes(l.status)).map(l=>l.note_id));
-  return notes.filter(n=>!n.archived_at&&n.ai_export_allowed===true&&!linked.has(n.id)&&Date.parse(n.occurred_at)>=start&&Date.parse(n.occurred_at)<=now.getTime())
+  return notes.filter(n=>!n.archived_at&&n.ai_export_allowed===true&&!linked.has(n.id)&&!filedProjects(n,docs).length&&Date.parse(n.occurred_at)>=start&&Date.parse(n.occurred_at)<=now.getTime())
     .sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at)||String(a.id).localeCompare(String(b.id))).slice(0,100);
 }
 export function buildHandoff(notes,projects,organizations,now,fallback=false) {
@@ -61,7 +62,7 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date(),{noteId=n
   const c=rt.context.read(),workspaceId=c?.workspace?.id,userId=c?.user?.id;
   if(!workspaceId||!userId)throw Error('업무 공간을 확인할 수 없어요.');
   const basket=await readBasket(rt);
-  let notes=selectHandoffNotes(basket.notes,basket.links,now);
+  let notes=selectHandoffNotes(basket.notes,basket.links,now,basket.docs);
   if(noteId){
     const note=basket.notes.find(row=>row.id===noteId);
     if(!note||note.archived_at||note.ai_export_allowed!==true)throw Error('이 메모는 지금 분류 요청할 수 없어요.');

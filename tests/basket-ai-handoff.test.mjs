@@ -18,6 +18,11 @@ test('export follows Drive eligibility, inclusive KST midnight boundary and excl
  const rows=[note(),note('confirmed'),note('suggested'),note('archive',{archived_at:stamp}),note('excluded',{ai_export_allowed:false}),note('unset',{ai_export_allowed:undefined}),note('old',{occurred_at:'2026-09-12T14:59:59.999Z'}),note('boundary',{occurred_at:'2026-09-12T15:00:00.000Z'}),note('future',{occurred_at:'2026-10-11T01:02:04Z'})];
  assert.deepEqual(selectHandoffNotes(rows,[{note_id:'confirmed',status:'confirmed'},{note_id:'suggested',status:'suggested'}],now).map(x=>x.id),[n,'boundary']);
 });
+test('BUG-자료넣기미분류: a memo already filed as a project document is not sent as unclassified',()=>{
+ const rows=[note('filed',{raw_text:'',attachments:[{drive_file_id:'drive-a'}]}),note('open',{raw_text:'',attachments:[{drive_file_id:'drive-b'}]})];
+ assert.deepEqual(selectHandoffNotes(rows,[],now,[{file_id:'drive-a',project_id:'p'}]).map(x=>x.id),['open']);
+ assert.deepEqual(selectHandoffNotes(rows,[],now).map(x=>x.id),['filed','open']);
+});
 test('export takes newest 100 notes with deterministic ID ordering',()=>{
  const rows=Array.from({length:105},(_,i)=>note(String(i).padStart(3,'0'))).reverse();
  assert.equal(selectHandoffNotes(rows,[],now).length,100);assert.equal(selectHandoffNotes(rows,[],now)[0].id,'000');assert.equal(selectHandoffNotes(rows,[],now)[99].id,'099');
