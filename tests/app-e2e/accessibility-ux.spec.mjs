@@ -123,7 +123,8 @@ test('project creation dialog exposes semantics, keyboard close, and trigger res
 test('task dialog exposes semantics, closes on Escape, and restores trigger focus',async({page})=>{
   await boot(page,{width:1024,height:768});
   await clickView(page,'tasks');
-  const trigger=page.locator('#newTaskBtn');
+  // UI-할일입력: [할 일] has no [+]; the editor opens from a task row and returns focus to it.
+  const trigger=page.locator('#gtTaskBody [data-gt-edit]').first();
   await trigger.focus();
   await trigger.click();
   const modal=page.locator('#gtTaskModal');
@@ -142,7 +143,8 @@ test('task dialog exposes semantics, closes on Escape, and restores trigger focu
 test('task dialog wraps keyboard focus within the dialog',async({page})=>{
   await boot(page,{width:1024,height:768});
   await clickView(page,'tasks');
-  await page.locator('#newTaskBtn').click();
+  await expect(page.locator('#gtTaskSection')).toBeVisible();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   const modal=page.locator('#gtTaskModal');
   const first=modal.locator('[data-gt-close]');
   const last=page.locator('#gtSaveBtn');

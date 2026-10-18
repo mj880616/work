@@ -108,7 +108,7 @@ test('다크 모드: 기기 설정이 어두우면 Web2 전체·창이 어둡고
   if(name!=='hwp')expect(await lowContrast(page),name).toEqual([]);
  }
  // 창도 어둡다: 할 일 편집·화면 색 창·메뉴 판.
- await view(page,'tasks');await page.locator('#newTaskBtn').click();
+ await view(page,'tasks');await expect(page.locator('#gtTaskSection')).toBeVisible();await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
  const taskModal=page.locator('#gtTaskModal .modal-card');await expect(taskModal).toBeVisible();
  expect((await look(taskModal)).bg).toBe(surface);expect(await lowContrast(page)).toEqual([]);
  await page.keyboard.press('Escape');await expect(taskModal).toBeHidden();
@@ -240,7 +240,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  const titleOf=async modal=>{const t=await look(modal.locator('.modal-head h2').first());expect([t.fontSize,t.fontWeight]).toEqual(['18px','500']);};
  const labels=async modal=>{for(const label of await modal.locator('label:visible').all())expect((await look(label)).fontWeight).toBe('500');};
  // 할 일 편집
- await view(page,'tasks');await page.locator('#newTaskBtn').click();
+ await view(page,'tasks');await expect(page.locator('#gtTaskSection')).toBeVisible();await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
  let modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
  await titleOf(modal);expect(await sameButtons(page,modal)).toEqual(['저장']);await inputs(modal);await labels(modal);
  const card=await look(modal.locator('.modal-card'));expect(card.radius).toBe('12px');expect(card.shadow).toBe('none');
@@ -284,7 +284,7 @@ test('일정 [Google Calendar] 설정 칸 버튼도 같은 기준(옛 !important
 
 test('동그란 [+]: 선으로 그린 + 가 원의 가로·세로 정가운데(한국어 로케일, 밝은·어두운 화면, 네 화면)',async({page})=>{
  const {errors}=await boot(page,390);
- for(const [name,id] of [['calendar','#newEventBtn'],['tasks','#newTaskBtn'],['projects','#newProjectBtn'],['library','#newDocumentBtn']]){
+ for(const [name,id] of [['calendar','#newEventBtn'],['projects','#newProjectBtn'],['library','#newDocumentBtn']]){
   await view(page,name);const button=page.locator(id);await expect(button).toBeVisible();
   for(const scheme of ['light','dark']){
    await page.emulateMedia({colorScheme:scheme});await page.waitForTimeout(100);

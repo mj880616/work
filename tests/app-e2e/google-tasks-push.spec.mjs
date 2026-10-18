@@ -188,7 +188,8 @@ test('Google Tasks layout fits supported mobile widths',async({page})=>{
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
     const section=await page.locator('#gtTaskSection').boundingBox();
     expect(section?.width||0).toBeLessThanOrEqual(width);
-    await expect(page.locator('#newTaskBtn')).toBeVisible();
+    // UI-할일입력: the always-visible input replaces [+ 할 일].
+    await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeVisible();
     await expect(page.locator('#gtTaskSection').getByRole('button',{name:'새로고침',exact:true})).toHaveCount(0);
     await expect(page.locator('[data-gt-add]')).toHaveCount(0);
   }
@@ -209,7 +210,7 @@ test('Google Tasks can be created, edited, completed, reopened and deleted',asyn
     calls.push({action,body});if(action==='links')return ok({links:[],meeting_links:[]});if(action==='create'||action==='update')return ok({ok:true,task:{...listed[0],id:body.task_id||'created',title:body.title,notes:body.notes,due:body.due},links:(body.links||[]).map(x=>({...x,status:'confirmed'})),meeting_links:[]});return ok({ok:true});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('새 Google 할 일');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.some(x=>x.action==='create'&&x.body.title==='새 Google 할 일')).toBeTruthy();
@@ -346,7 +347,7 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await page.getByRole('button',{name:'할 일 목록 안내',exact:true}).click();
   await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveText('Google "내 할 일"만 표시합니다. 다른 목록은 표시하지 않으며, 다른 목록으로 옮기면 연결이 끊길 수 있습니다.');
   await page.locator('[data-gt-scope-close]').click();
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtEditList')).toHaveCount(0);
   await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toContainText('"내 할 일" 목록에 저장');
   const links=page.locator('#gtEditLinkBody');
@@ -366,7 +367,7 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
   expect(calls.find(x=>x.action==='create').body.task_list_id).toBeUndefined();
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('연결 둘');
   await links.locator('input[value="p:p2"]').check();
   await links.locator('input[value="o:o1"]').check();
@@ -408,7 +409,7 @@ test('Google Tasks editor shows a short message when no organizations are assign
   await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'not-mine',name:'담당 아닌 조직'}])}));
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,needs_reconnect:false,tasks:[]})}));
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   const organizations=page.locator('#gtEditLinkBody [role="group"][aria-label="조직"]');
   await expect(organizations).toContainText('담당 조직이 없습니다.');
   await expect(organizations.locator('[data-gt-link]')).toHaveCount(0);
@@ -453,7 +454,7 @@ test('Google Tasks editor warns by count when an assigned organization misses th
   await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'o2',name:'전국철도노동조합 '},{id:'o1',name:'서울교통공사노동조합'}])}));
   const warnings=[];page.on('console',msg=>{if(msg.type()==='warning')warnings.push(msg.text())});
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtEditLinkBody [aria-label="조직"] [data-gt-link]')).toHaveCount(2);
   await expect.poll(()=>warnings.filter(x=>x.startsWith('[Google Tasks] 조직 순서표 미등록:'))).toEqual(['[Google Tasks] 조직 순서표 미등록: 1개. 이름 일치 여부를 확인하세요.']);
 });
@@ -531,7 +532,7 @@ test('editor save reentry sends one create request',async({page})=>{
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[]})});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('QA');
   await expect(page.locator('#gtSaveBtn')).toBeEnabled();
   await page.evaluate(()=>{const save=document.querySelector('#gtSaveBtn').onclick;save();save()});

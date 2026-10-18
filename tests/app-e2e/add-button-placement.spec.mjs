@@ -135,19 +135,21 @@ for(const width of [390,1440]){
       const calendarUiRequests=[];
       page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/calendar-mobile-ui.js'))calendarUiRequests.push(request.url())});
       await openApp(page,'tasks',{entryView:'tasks'});
-      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+      // UI-할일입력: [할 일] adds through its always-visible input ([추가]), not a [+ 할 일] button.
+      await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
       expect(calendarUiRequests).toEqual([]);
       await page.reload();
       await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
       await expect(page.locator('#tasksView')).toBeVisible();
-      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+      await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
       expect(calendarUiRequests).toEqual([]);
     });
-    test('Google task card keeps add action and editor',async({page})=>{
+    test('Google task card has no [+], the always-visible input adds and the editor still opens',async({page})=>{
       await openApp(page,'tasks');
-      await assertPlaced(page,width,{card:'#gtTaskSection',head:'.gt-head',button:'#newTaskBtn',title:'[data-gt-count]'});
-      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
-      await page.locator('#newTaskBtn').click();
+      await expect(page.locator('#newTaskBtn')).toHaveCount(0);
+      await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
+      await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
+      await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
       await expect(page.locator('#gtTaskModal')).toBeVisible();
     });
     test('project list card keeps archive and add action after redraw',async({page})=>{

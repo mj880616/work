@@ -29,7 +29,7 @@ for(const width of [360,1280]){
  test(`empty state and scope information ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});const tasks=[];await open(page,tasks);
   await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');
-  if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-empty-360.png'});await expect(page.locator('#gtTaskBody .gt-group')).toHaveCount(0);await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+  if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-empty-360.png'});await expect(page.locator('#gtTaskBody .gt-group')).toHaveCount(0);await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
   await expect(page.locator('#gtTaskSection .gt-head-left')).toBeHidden();
   await expect(page.locator('#gtTaskSection .gt-scope-note')).toHaveCount(0);await expect(page.locator('#gtTaskSection')).not.toContainText('Google 할 일');
   tasks.push(task('scope-info','2026-10-08'));await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
@@ -64,7 +64,7 @@ test('a task removed during menu use closes without opening a blank editor',asyn
  await expect.poll(()=>page.evaluate(()=>window.KPTUGoogleTasks.peekTasks().tasks.length)).toBe(0);
  await page.locator('#gtTaskMenu').getByRole('button',{name:'편집',exact:true}).click();
  await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(page.locator('#gtTaskModal')).toBeHidden();
- await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');await expect(page.locator('#newTaskBtn')).toBeFocused();expect(errors).toEqual([]);
+ await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeFocused();expect(errors).toEqual([]);
 });
 
 for(const width of [360,390])test(`long calendar task stays inside dialog and metadata has visual spacing ${width}`,async({page})=>{

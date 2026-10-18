@@ -199,7 +199,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#tasksView')).toBeVisible();
   await expect(page.locator('#taskList')).toBeEmpty();
   await expect(page.locator('#gtTaskSection')).toBeVisible();
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('E2E 할 일');
   await page.locator('#gtEditDue').fill(today);
   await page.locator('#gtSaveBtn').click();

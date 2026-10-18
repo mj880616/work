@@ -110,8 +110,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('-webkit-line-clamp','2');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('color',await page.locator('[data-gt-count]').evaluate(el=>getComputedStyle(el).color));
-    // 8-9e-2: on phones [+ 할 일] is the round [+] (36px painted, 44px target).
-    if(width<=760)await expect(page.locator('#newTaskBtn')).toHaveCSS('height','36px');else{await expect(page.locator('#newTaskBtn')).toHaveCSS('height','46px');await expect(page.locator('#newTaskBtn')).toHaveCSS('font-size','13px');}
+    // UI-할일입력: no [+ 할 일]; the always-visible input's [추가] is one control height (46px·13px) on phone and PC.
+    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height','46px');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('font-size','13px');
     for(const selector of ['[data-gt-info]','[data-gt-menu]']){
       const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
     }

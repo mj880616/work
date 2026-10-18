@@ -183,7 +183,7 @@ test('new task editor has no toggle button',async({page})=>{
   const {calls}=await fixture(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskBody [data-google-task="cell"]')).toBeVisible();
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtTaskHeading')).toHaveText('Google 할 일 추가');
   await expect(page.locator('#gtToggleBtn')).toBeHidden();
   await expect(page.locator('#gtDeleteBtn')).toBeHidden();
