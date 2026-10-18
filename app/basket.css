@@ -24,6 +24,8 @@
 [data-basket-attachments] a { display:inline-flex; align-items:center; min-height:44px; flex-shrink:0; font-size:12px; }
 .basket-editor-tools { display:flex; align-items:center; gap:8px; margin-top:4px; }
 .basket-editor .basket-text-label { margin-bottom:0; }
+#basketView .note-edit-actions { flex-wrap:nowrap; gap:6px; }
+#basketView .note-edit-actions button { flex:0 1 auto; min-width:0; padding:8px 10px; font-size:13px; white-space:nowrap; }
 .basket-editor .basket-file-selection { margin-top:8px; }
 #basketView .basket-clip { padding:0; border:0; background:transparent; font-size:20px; }
 
