@@ -244,8 +244,8 @@ for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 
 
 test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 있고 크기가 맞다',async({request})=>{
  const manifest=JSON.parse(readFileSync('app/windows-manifest.json','utf8'));
- // UI-버튼크기: 시작 화면(background_color)은 남색 그대로, 사용 중 위아래 줄(theme_color)은 앱 바탕(밝은 --kptu-bg).
- expect(manifest).toMatchObject({name:'9-6',short_name:'9-6',background_color:'#1f3150',theme_color:'#f3f1ea'});
+ // UI-하단바색: background_color·theme_color 모두 앱 바탕(밝은 --kptu-bg). 일부 폰이 background_color를 하단 내비게이션 바에 쓰므로 남색을 쓰지 않는다(아이콘 바탕 app-icon.svg만 남색).
+ expect(manifest).toMatchObject({name:'9-6',short_name:'9-6',background_color:'#f3f1ea',theme_color:'#f3f1ea'});
  const png=manifest.icons.filter(i=>i.type==='image/png');
  expect(png.map(i=>`${i.sizes} ${i.purpose}`).sort()).toEqual(['192x192 any','192x192 maskable','512x512 any','512x512 maskable']);
  const html=readFileSync('app/index.html','utf8');
@@ -261,7 +261,7 @@ test('앱 아이콘·시작 화면: 9-6, 남색 바탕, 모든 크기 파일이 
 });
 
 // UI-버튼크기(2026-10-17): 폰 위 상태줄·아래 버튼줄은 남색이 아니라 앱 바탕(--kptu-bg)과 같은 색(밝게·어둡게 각각).
-// 시작 화면(manifest background_color)만 남색. 계정 테마를 바꾸면 지금 켜진 쪽 meta가 그 테마의 바탕으로 바뀐다.
+// manifest background_color도 앱 바탕(UI-하단바색). 계정 테마를 바꾸면 지금 켜진 쪽 meta가 그 테마의 바탕으로 바뀐다.
 for(const dark of [false,true])test(`위아래 줄 색: meta theme-color가 앱 바탕을 따른다${dark?' (어두운 화면)':''}`,async({page})=>{
  for(const path of ['app/index.html','app/login/index.html']){
   const html=readFileSync(path,'utf8');
