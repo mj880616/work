@@ -149,3 +149,14 @@ test('360px list range title stays one line and matches month typography',async(
   expect(first.fontSize).toBe(month.fontSize);
   expect(first.fontWeight).toBe(month.fontWeight);
 });
+// BUG-오늘버튼: [오늘] in every calendar view comes back to the range holding today, marks today and shows it.
+for(const [view,width,today] of [['list',360,'.clv-day[data-date="2026-10-15"] .clv-today'],['month',360,'#calendarGrid .cal-cell.today[data-date="2026-10-15"]'],['week',1280,'.cwv-day.cwv-today[data-date="2026-10-15"]'],['month',1280,'#calendarGrid .cal-cell.today[data-date="2026-10-15"]']])
+test(`[오늘] ${view} ${width}: another range or scrolled away, today is marked and on screen`,async({page})=>{
+  await open(page,width,view);
+  const onScreen=()=>page.locator(today).evaluate(el=>{const r=el.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight});
+  for(let i=0;i<2;i++)await page.locator('#nextMonthBtn').click();
+  await expect(page.locator(today)).toHaveCount(0);
+  await page.locator('#calendarTodayBtn').click();
+  await expect(page.locator(today)).toHaveCount(1);
+  await expect.poll(onScreen).toBe(true);
+});

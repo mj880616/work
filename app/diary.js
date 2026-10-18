@@ -81,6 +81,14 @@ function selectDay(day, {focus = false} = {}) {
   dayLayer ||= window.KPTURouter?.layer?.open('diary-day', {close:() => { closeDetail({fromBack:true}); return true; }}) || null;
   requestAnimationFrame(() => { detail.scrollIntoView({block:'nearest', behavior:'smooth'}); if (focus) detail.querySelector('h3')?.focus(); });
 }
+// BUG-오늘버튼: [오늘] goes to this month (when needed) and chooses today, opening its detail like a tap on the day.
+// Today already chosen stays as it is. Another month first loads this month, then chooses today if still here.
+function goToday() {
+  const t = seoulParts(new Date()), day = todayKey();
+  if (t.year === cursor.year && t.month === cursor.month) { if (selected !== day) selectDay(day); return; }
+  cursor = {year:t.year, month:t.month}; closeDetail();
+  loadMonth().then(() => { if (!edit && !selected && loadedMonth === monthKey() && monthKey() === monthOf(day)) selectDay(day); });
+}
 function closeDetail({fromBack = false} = {}) {
   closeViewer({fromBack, restore:false});
   selected = null; detail.hidden = true; detail.replaceChildren();
@@ -321,7 +329,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-day]')) return selected === button.dataset.diaryDay ? closeDetail() : selectDay(button.dataset.diaryDay);
   if (button.matches('[data-diary-prev]')) return moveMonth(-1);
   if (button.matches('[data-diary-next]')) return moveMonth(1);
-  if (button.matches('[data-diary-today]')) { const t = seoulParts(new Date()); if (t.year !== cursor.year || t.month !== cursor.month) { cursor = {year:t.year, month:t.month}; closeDetail(); loadMonth(); } return; }
+  if (button.matches('[data-diary-today]')) return goToday();
   if (button.matches('[data-diary-retry]')) return loadMonth({force:true});
   // UI-일기손질 ③: the shared [+] writes the chosen day (edits it when it has one), or today when no day is chosen.
   if (button.matches('[data-diary-new]')) return openEditor(selected || todayKey());

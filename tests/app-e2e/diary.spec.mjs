@@ -378,6 +378,50 @@ test('[달력] 날짜 목록 맨 위에 그날 일기 첫 사진 작게, 누르�
  expect(f.errors).toEqual([]);
 });
 
+// BUG-오늘버튼: [오늘] goes to this month and chooses today (its detail opens), like tapping the day.
+for(const width of [390,1280]){
+ test(`[일기] [오늘]: 이번 달에서 다른 날을 골랐어도, 다른 달에서도 오늘이 골라지고 상세가 열린다 ${width}`,async({page})=>{
+  const rows=store();rows.push({id:'d6',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-06',raw_text:'오늘 쓴 일기',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}});
+  const f=await fixture(page,{width,rows});await openDiary(page,width);
+  const today=page.locator('#diaryRoot [data-diary-today]'),detail=page.locator('#diaryRoot [data-diary-detail]'),title=page.locator('#diaryRoot [data-diary-title]');
+  // 아무 날도 안 고른 상태 → 오늘.
+  await today.click();
+  await expect(cell(page,'2026-10-06')).toHaveAttribute('aria-pressed','true');
+  await expect(detail.locator('h3')).toHaveText('10월 6일 화요일');await expect(detail.locator('[data-diary-text-view]')).toHaveText('오늘 쓴 일기');
+  // 이미 오늘이 골라져 있으면 그대로(닫히지 않음).
+  await today.click();
+  await expect(detail).toBeVisible();await expect(cell(page,'2026-10-06')).toHaveAttribute('aria-pressed','true');
+  // 이번 달에서 다른 날을 고른 뒤 → 오늘로 바뀜.
+  await cell(page,'2026-10-03').click();await expect(detail.locator('h3')).toHaveText('10월 3일 토요일');
+  await today.click();
+  await expect(detail.locator('h3')).toHaveText('10월 6일 화요일');
+  await expect(cell(page,'2026-10-06')).toHaveAttribute('aria-pressed','true');await expect(cell(page,'2026-10-03')).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('#diaryRoot [data-diary-day][aria-pressed="true"]')).toHaveCount(1);
+  // 다른 달 → 이번 달로 오고 오늘이 골라짐.
+  await page.locator('#diaryRoot [data-diary-prev]').click();await page.locator('#diaryRoot [data-diary-prev]').click();
+  await expect(title).toHaveText('2026년 8월');await expect(detail).toBeHidden();
+  await today.click();
+  await expect(title).toHaveText('2026년 10월');
+  await expect(cell(page,'2026-10-06')).toHaveAttribute('aria-pressed','true');
+  await expect(detail.locator('h3')).toHaveText('10월 6일 화요일');await expect(detail.locator('[data-diary-text-view]')).toHaveText('오늘 쓴 일기');
+  // 뒤로가기는 열린 날짜 하나만 닫는다(기록이 겹쳐 쌓이지 않음).
+  await page.goBack();await expect(detail).toBeHidden();await expect(page.locator('#diaryView')).toBeVisible();
+  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+ });
+}
+
+test('[일기] [오늘]: 오늘 일기가 없으면 "이 날 일기가 없어요", [+]는 오늘을 쓴다',async({page})=>{
+ const f=await fixture(page);await openDiary(page,390);
+ await page.locator('#diaryRoot [data-diary-next]').click();await expect(page.locator('#diaryRoot [data-diary-title]')).toHaveText('2026년 11월');
+ await page.locator('#diaryRoot [data-diary-today]').click();
+ const detail=page.locator('#diaryRoot [data-diary-detail]');
+ await expect(page.locator('#diaryRoot [data-diary-title]')).toHaveText('2026년 10월');
+ await expect(detail.locator('h3')).toHaveText('10월 6일 화요일');await expect(detail).toContainText('이 날 일기가 없어요');
+ await page.locator('#diaryRoot [data-diary-new]').click();
+ await expect(page.locator('#diaryRoot [data-diary-date]')).toHaveValue('2026-10-06');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 for(const scheme of ['light','dark'])for(const width of [390,1280]){
  test(`캡처 ${width} ${scheme}`,async({page},info)=>{
   await page.emulateMedia({colorScheme:scheme});
