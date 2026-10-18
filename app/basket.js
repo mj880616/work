@@ -14,8 +14,8 @@ import { readAttachmentDocuments, putFilesIntoProject } from './basket-file-docs
 import { fileLine } from './meeting-compact.js';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js';
-import { openBasketHtml, mountHtmlFrame, HTML_FRAME_TEXT } from './html-frame.js';
-import { CHATGPT_HTML_REQUEST, HTML_MAX_BYTES, isHtmlName } from './chatgpt-html.mjs';
+import { paintHtmlAttachments } from './html-frame.js';
+import { CHATGPT_HTML_REQUEST } from './chatgpt-html.mjs';
 import { openMarkdownEditor } from './md-editor.js';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
@@ -413,27 +413,11 @@ function paintAttachments() {
   paintOcrControls();paintHtmlViews();
 }
 // MD-표시보완: each .html attachment (pasted ChatGPT HTML) shows in a sandboxed frame under the read text.
-// Read once per opened note through document-actions `html-view`; never sent again on its own.
+// The shared painter (html-frame.js) also serves the note read view.
 function paintHtmlViews() {
-  const host=detail.querySelector('[data-basket-html-views]');if(!host||!selected)return;
-  const files=(selected.attachments||[]).filter(file=>isHtmlName(file.file_name)&&typeof file.drive_file_id==='string'&&file.drive_file_id);
-  const wanted=new Set(files.map(file=>file.drive_file_id));
-  host.querySelectorAll('[data-basket-html-view]').forEach(box=>{if(!wanted.has(box.dataset.basketHtmlView))box.remove();});
-  const shown=new Set(Array.from(host.querySelectorAll('[data-basket-html-view]'),box=>box.dataset.basketHtmlView));
-  for(const file of files){
-    if(shown.has(file.drive_file_id))continue;
-    const box=document.createElement('section');
-    box.className='basket-html-view';box.dataset.basketHtmlView=file.drive_file_id;box.setAttribute('aria-label',`${file.file_name||'HTML'} 화면`);
-    host.append(box);void loadHtmlView(box,file);
-  }
-}
-async function loadHtmlView(box,file){
-  const noteId=selected.id,owner=scope(),live=()=>box.isConnected&&owner===scope()&&selected?.id===noteId;
-  const say=text=>{const p=document.createElement('p');p.className='basket-html-message';p.setAttribute('role','status');p.textContent=`${file.file_name||'HTML'}: ${text}`;box.replaceChildren(p);};
-  if(Number(file.size_bytes)>HTML_MAX_BYTES)return say(HTML_FRAME_TEXT.tooLarge);
-  say('불러오는 중…');
-  try{const {html}=await openBasketHtml(noteId,file.drive_file_id,{rt});if(live())mountHtmlFrame(box,html,{title:file.file_name||'ChatGPT HTML'});}
-  catch(err){if(live())say(err?.message||HTML_FRAME_TEXT.failed);}
+  if(!selected)return;
+  const noteId=selected.id,owner=scope();
+  paintHtmlAttachments(detail.querySelector('[data-basket-html-views]'),{noteId,attachments:selected.attachments,rt,isCurrent:()=>owner===scope()&&selected?.id===noteId});
 }
 // MD-표시보완: copy the request that asks ChatGPT for one self-contained HTML file.
 async function copyChatgptRequest(){

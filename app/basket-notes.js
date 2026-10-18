@@ -10,6 +10,7 @@ import { openMarkdownEditor, copyText } from './md-editor.js';
 import { toTelegram } from './md-telegram.mjs';
 import { driveFileUrl, fileSize } from './basket-upload.js';
 import { fileLine } from './meeting-compact.js';
+import { paintHtmlAttachments } from './html-frame.js';
 
 const chipKinds = [['project','프로젝트'], ['organization','담당조직'], ['meeting','회의'], ['document','자료실']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', dateStyle:'medium', timeStyle:'short'}).format(d); };
@@ -61,6 +62,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
 
   const fields = () => ({title: detail.querySelector('[data-note-title-input]'), body: detail.querySelector('[data-basket-text]')});
   const textDirty = () => { if (!selected || !editing) return false; const f = fields(); return f.title.value !== (selected.title || '') || f.body.value !== normalize(selected.raw_text); };
+  // A note with only HTML hides its empty body box; focus then goes to the HTML area.
+  const readFocus = () => { const text = detail.querySelector('[data-basket-read-text]'); return text.hidden ? detail.querySelector('[data-basket-html-views]') : text; };
   const say = text => { const p = detail.querySelector('[data-basket-status]'); if (p) p.textContent = text; };
   const lock = value => { busy = value; detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => { el.disabled = value; }); if (!value) manual.controls(); };
   const noteMenu = () => detail.querySelector('#noteDocMenu');
@@ -99,10 +102,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function paintRead() {
     const title = detail.querySelector('[data-note-read-title]'), text = detail.querySelector('[data-basket-read-text]'), raw = selected.raw_text || '';
     title.textContent = selected.title || '노트';
-    text.classList.toggle('basket-read-empty', !raw);
-    if (!raw) return showPlainText(text, '본문이 없는 노트입니다.');
-    showPlainText(text, raw);
     const owner = scope(), id = selected.id;
+    // BUG-노트HTML표시: .html attachments show in the same sandboxed frames as the memo read view (html-frame.js),
+    // under the body text. A note whose only content is HTML has no "no body" sentence.
+    const htmlCount = id ? paintHtmlAttachments(detail.querySelector('[data-basket-html-views]'), {noteId:id, attachments:selected.attachments, rt, isCurrent:() => owner === scope() && selected?.id === id}) : 0;
+    text.hidden = !raw && htmlCount > 0;
+    text.classList.toggle('basket-read-empty', !raw);
+    if (!raw) return showPlainText(text, htmlCount ? '' : '본문이 없는 노트입니다.');
+    showPlainText(text, raw);
     void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing});
   }
   function paintMode() {
@@ -115,7 +122,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function showDetail() {
     layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
     ++epoch; editing = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
-    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="basket-note-more" data-note-more-wrap><button type="button" class="basket-more-trigger" data-note-more aria-label="이 노트 메뉴" aria-expanded="false" aria-controls="noteDocMenu"><span aria-hidden="true">⋯</span></button><div id="noteDocMenu" class="basket-more-menu" role="group" aria-label="이 노트" hidden><button type="button" data-note-to-basket>바구니로 돌리기</button><button type="button" class="basket-menu-danger" data-note-delete>삭제</button></div></div></div><div class="basket-read note-read" data-note-read><h3 class="note-read-title" data-note-read-title></h3><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label><div class="basket-editor-tools"><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button></div></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-note-read-actions><button type="button" data-note-edit>고치기</button><button type="button" data-note-telegram>텔레그램용 복사</button><button type="button" class="primary" data-basket-link-open>연결하기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-note-edit-actions hidden><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="basket-note-more" data-note-more-wrap><button type="button" class="basket-more-trigger" data-note-more aria-label="이 노트 메뉴" aria-expanded="false" aria-controls="noteDocMenu"><span aria-hidden="true">⋯</span></button><div id="noteDocMenu" class="basket-more-menu" role="group" aria-label="이 노트" hidden><button type="button" data-note-to-basket>바구니로 돌리기</button><button type="button" class="basket-menu-danger" data-note-delete>삭제</button></div></div></div><div class="basket-read note-read" data-note-read><h3 class="note-read-title" data-note-read-title></h3><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label><div class="basket-editor-tools"><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button></div></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-note-read-actions><button type="button" data-note-edit>고치기</button><button type="button" data-note-telegram>텔레그램용 복사</button><button type="button" class="primary" data-basket-link-open>연결하기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-note-edit-actions hidden><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
   }
   function open(id, {focus = true} = {}) {
@@ -123,7 +130,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     selected = notes.find(n => n.id === id); if (!selected) return;
     creating = false; showDetail();
     paintRead(); paintMeta(); paintMode();
-    if (focus) detail.querySelector('[data-basket-read-text]').focus();
+    if (focus) readFocus().focus();
   }
   // [+]: the same edit screen on an unsaved draft (no id). The first [저장] inserts the row and shows its read view.
   function openNew() {
@@ -154,7 +161,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (creating) { close({force}); return; }
     if (!force && textDirty() && !window.confirm('고치던 내용을 버리고 읽기 화면으로 돌아갈까요?')) return;
     bigWriter?.close({silent:true}); bigWriter = null;
-    editing = false; if (!force) say(''); paintRead(); paintMode(); detail.querySelector('[data-basket-read-text]').focus();
+    editing = false; if (!force) say(''); paintRead(); paintMode(); readFocus().focus();
   }
   // MD-편집기: the shared full-screen editor works on the body field; saving stays this view's [저장].
   function openBigWriter() {
@@ -196,7 +203,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       notes = [note, ...notes.filter(n => n.id !== note.id)]; selected = note; creating = false; renderList();
       bigWriter?.close({silent:true}); bigWriter = null;
       editing = false; paintRead(); paintMeta(); paintMode(); say('노트를 저장했습니다.');
-      detail.querySelector('[data-basket-read-text]').focus();
+      readFocus().focus();
     } catch {
       if (run !== epoch || owner !== scope()) return;
       say('저장하지 못했어요. 다시 시도해 주세요.');

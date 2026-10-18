@@ -28,6 +28,7 @@ on:
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/pdf-lib-pin.test.mjs'
       - 'tests/markdown-view.test.mjs'
+      - 'tests/html-frame.test.mjs'
       - 'scripts/markdown/**'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
@@ -63,6 +64,7 @@ on:
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/pdf-lib-pin.test.mjs'
       - 'tests/markdown-view.test.mjs'
+      - 'tests/html-frame.test.mjs'
       - 'scripts/markdown/**'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
@@ -109,7 +111,7 @@ jobs:
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
       - name: Markdown display pin and safety unit tests
-        run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs
+        run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs tests/html-frame.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
