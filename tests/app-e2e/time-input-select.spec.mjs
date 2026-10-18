@@ -19,10 +19,10 @@ for(const width of [390,1280])test.describe(`시간칸 전체 선택 ${width}px`
     }
     await start.click();await page.keyboard.type('1430');
     await expect(start).toHaveValue('14:30');await expect(end).toHaveValue('16:30');
-    // Keyboard focus (Tab) selects it too.
-    await page.locator('#eventStartDate').focus();await page.keyboard.press('Tab');
-    await expect(start).toBeFocused();expect(await selected(start)).toEqual({s:0,e:5,n:5});
-    await page.keyboard.type('0815');await expect(start).toHaveValue('08:15');
+    // Keyboard focus (Shift+Tab from the place cell) selects it too.
+    await page.locator('#eventLocation').focus();await page.keyboard.press('Shift+Tab');
+    await expect(end).toBeFocused();expect(await selected(end)).toEqual({s:0,e:5,n:5});
+    await page.keyboard.type('1815');await expect(end).toHaveValue('18:15');
     expect(errors).toEqual([]);
   });
 
