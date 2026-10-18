@@ -18,11 +18,11 @@ function savedRow(rows) {
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없습니다. 접근 권한을 확인해 주세요.');
   return rows[0];
 }
-export async function createNote({raw_text, ai_export_allowed}, rt = window.KPTURuntime) {
+export async function createNote({raw_text, ai_export_allowed, occurred_at}, rt = window.KPTURuntime) {
   validateNoteText(raw_text);
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
-  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, raw_text, ...(ai_export_allowed === undefined ? {} : {ai_export_allowed})}}));
+  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, raw_text, ...(ai_export_allowed === undefined ? {} : {ai_export_allowed}), ...(occurred_at === undefined ? {} : {occurred_at})}}));
 }
 export async function updateNote(id, changes, rt = window.KPTURuntime) {
   const body = {updated_at:new Date().toISOString()};

@@ -19,6 +19,11 @@
 .mrd-head-actions{display:flex;gap:6px;margin-top:var(--kptu-space-2)}
 .mrd-editor-actions{display:flex;justify-content:flex-end;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
 .mrd-result-section h3{margin:0 0 var(--kptu-space-3)}
+.mrd-result-head{justify-content:space-between;gap:var(--kptu-space-2)}
+.mrd-result-section .mrd-result-head h3{margin:0}
+#meetingRoundDetailModal .mrd-result-head .mini{width:auto;min-width:0;white-space:nowrap;flex:none}
+.mrd-result-section .mtg-note{margin:0 0 var(--kptu-space-2)}
+.mrd-result-text{-webkit-user-select:text;user-select:text}
 #meetingRoundDetailModal :is(.mrd-head-actions,.mrd-editor-actions) button{width:auto;min-width:0;white-space:nowrap;flex:none}
 #meetingList article.item-card[data-mrd-meeting]{cursor:pointer}
 #meetingList article.item-card[data-mrd-meeting]:active{transform:scale(.995)}
