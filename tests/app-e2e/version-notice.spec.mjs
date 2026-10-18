@@ -5,6 +5,10 @@ import {serveBuiltShell,shellVersion} from './helpers/built-shell.mjs';
 const origin='http://127.0.0.1:8123';
 const current=shellVersion;
 async function boot(page,{connected=false}={}){
+  // BUG-main브라우저시험: version-notice.js skips checks while navigator.onLine is false. Chromium
+  // derives that value from the host's network interfaces, and a CI runner can report offline even
+  // though every request here is mocked. Pin it online; the offline test below overrides it again.
+  await page.addInitScript(()=>Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true}));
   await serveBuiltShell(page,origin);
   const user={id:'version-user',email:'version@example.org'},workspace={id:'version-workspace',name:'QA',slug:'qa'};
   let streamTitle='QA stream';
