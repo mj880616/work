@@ -65,10 +65,6 @@ async function fixture(page,{notes,htmlReply}={}){
   if(url.origin===SB&&request.frame()!==page.mainFrame())seen.sbFromFrame.push(request.url());
  });
  await openHome(page);
- // Pre-existing on main, outside this change: mobile-swipe-navigation.js adds will-change:transform to the view panel on
- // touchstart, and at some scroll offsets the page then jumps 64px between finger-down and finger-up, so the tap lands
- // elsewhere. Reported separately; held off here so these taps test the new buttons themselves.
- await page.addStyleTag({content:'.kptu-swipe-panel{will-change:auto!important}'});
  await page.route('https://images.example/**',r=>r.fulfill({contentType:'image/png',body:PNG}));
  await page.route(SB+'/rest/v1/app_notes**',r=>r.request().method()==='GET'?r.fulfill({json:notes}):r.fulfill({status:500,json:{}}));
  await page.route(SB+'/rest/v1/app_record_links?**',r=>new URL(r.request().url()).searchParams.has('note_id')?r.fulfill({json:[]}):r.fallback());

@@ -61,9 +61,9 @@ async function gesture(page,selector,points){
     };
     touch('touchstart',points[0]);
     for(const p of points.slice(1,-1))touch('touchmove',p);
-    const transform=el.style.transform;
+    const shift=el.style.left;
     touch('touchend',points.at(-1),'changedTouches');
-    return transform;
+    return shift;
   },points);
 }
 
@@ -82,10 +82,10 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   // shorter than the touch point (bottom ≈ 368px) when the swipe listeners are ready, so wait for its real height first.
   await expect.poll(()=>page.locator('#calendarView').evaluate(el=>el.getBoundingClientRect().bottom),{timeout:10000}).toBeGreaterThan(405);
   const motion=await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
-  expect(motion).toContain('translate3d');
+  expect(motion).toMatch(/px$/);
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('projects');
   await expect(page.locator('#projectsView')).toBeVisible();
-  await expect.poll(()=>page.locator('#projectsView').evaluate(el=>el.style.transform||'')).toBe('');
+  await expect.poll(()=>page.locator('#projectsView').evaluate(el=>el.style.left||'')).toBe('');
 
   const vertical=await gesture(page,'#projectsView',[{x:220,y:300},{x:214,y:390},{x:210,y:510}]);
   expect(vertical).toBe('');

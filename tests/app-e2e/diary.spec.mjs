@@ -244,7 +244,9 @@ test('쓰기 — 사진만: 그날 행을 먼저 만들고(일기·AI 끔) 2048p
 test('쓰기 — 글만 / 둘 다: 글만이면 점, 둘 다면 사진과 글',async({page})=>{
  const f=await fixture(page);await openDiary(page,390);
  await cell(page,'2026-10-01').click();
- await page.locator('#diaryRoot [data-diary-write-day]').click();
+ // UI-일기손질 ③: no button in the day box; the shared [+] writes the chosen day.
+ await expect(page.locator('#diaryRoot [data-diary-detail] button.primary')).toHaveCount(0);
+ await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');await expect(ed.locator('[data-diary-date]')).toHaveValue('2026-10-01');
  await ed.locator('[data-diary-text]').fill('글만 남긴 하루');await ed.locator('[data-diary-save]').click();
  await expect(cell(page,'2026-10-01').locator('[data-diary-dot]')).toBeVisible();

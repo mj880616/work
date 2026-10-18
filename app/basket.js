@@ -256,7 +256,11 @@ const manualDraft=()=>!!selected&&manual.hasDraft();
 // MEMO-노트: [메모 | 노트] at the top of the basket tab. basket.js owns this switch; basket-notes.js owns the note side.
 const kindSwitch=root.querySelector('[data-basket-kind-switch]'),noteHost=root.querySelector('[data-note-host]');
 let kind='memo';
-const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:open=>{kindSwitch.hidden=open;listHead.hidden=open;},onMovedToBasket:()=>void refresh()});
+const switchRow=root.querySelector('.basket-switch-row');
+// UI-일기손질 ⑥: the [메모 | 노트] row and the list head have one painter. They show only while a list is on screen;
+// an open memo or note draws its own "‹ 바구니"/"‹ 노트" head in that place instead.
+function paintListChrome(){const open=!!selected||noteDocs.isOpen();switchRow.hidden=open;listHead.hidden=open;}
+const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:()=>paintListChrome(),onMovedToBasket:()=>void refresh()});
 function showKind(next,{openId=null}={}){
   kind=next;kindSwitch.querySelectorAll('[data-basket-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.basketKind===kind)));
   const memo=kind==='memo';
@@ -350,7 +354,7 @@ function closeDetail({focus = true, force = false, cleanAddress = true, fromBack
   if (!force && !dirty() && manualDraft() && !window.confirm('작성 중인 연결·할 일 입력을 버리고 목록으로 돌아갈까요?')) return false;
   handoff.close();
   bigWriter?.close({silent:true});
-  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; listHead.hidden = false;kindSwitch.hidden = false;paintHandoffScope();
+  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; paintListChrome();paintHandoffScope();
   const layer = noteLayer; noteLayer = null; if (!fromBack) layer?.close();
   if (id && window.KPTURouter.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus({preventScroll:true});
@@ -514,7 +518,7 @@ function openDetail(id, {edit = false} = {}) {
   ++epoch;ocrViewScope=captureOcrScope();editing=edit;rawView=false;
   for(const file of selected.attachments||[]){const view=ocrViews.get(ocrKey(file.drive_file_id));if(view){delete view.checkedAttempt;delete view.stamp;}}
   upload=createUploadBatch(selected.id,selected.attachments||[]);list.hidden = true; detail.hidden = false;
-  listHead.hidden = true; kindSwitch.hidden = true;
+  paintListChrome();
   detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="바구니 목록으로"><span aria-hidden="true">‹</span> 바구니</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more aria-label="이 메모 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 메모" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-to-note>노트로 옮기기</button><button type="button" data-basket-read-raw>원문 그대로 보기</button><button type="button" data-basket-archive>보관</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><div class="basket-read" data-basket-read><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="메모 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">메모 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-tools"><div data-basket-file-picker></div><button type="button" data-basket-upload>첨부 저장</button><button type="button" class="secondary" data-basket-big-write>큰 창에서 수정</button></div><div data-basket-file-selection></div></div><div data-basket-attachments class="library-selected-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>메모 다시 불러오기</button><div class="basket-to-note" data-basket-to-note-form hidden><label class="basket-text-label">노트 제목<input type="text" data-basket-to-note-title autocomplete="off"></label><p class="basket-to-note-help">연결·첨부·할 일은 그대로 노트로 옮겨져요.</p><div class="basket-actions"><button type="button" class="primary" data-basket-to-note-save>노트로 옮기기</button><button type="button" data-basket-to-note-cancel>취소</button></div></div><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" class="primary" data-basket-link-open>연결하기</button><button type="button" class="primary" data-basket-task-open>할 일 만들기</button></div><div data-basket-manual hidden></div><div class="basket-actions" data-basket-edit-actions hidden><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p>`;
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
   manual.attach(detail.querySelector('[data-basket-manual]'));
