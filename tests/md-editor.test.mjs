@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 const {applyAction, MERMAID_TEMPLATES, CALLOUT_KINDS} = await import('../app/md-editor-ops.mjs');
 const {toTelegram, telegramInline, TELEGRAM_RULE, TELEGRAM_DIAGRAM} = await import('../app/md-telegram.mjs');
 const {CALLOUTS} = await import('../app/markdown-render.mjs');
-const {toHangul, levelMark, HANGUL_DIAGRAM} = await import('../app/md-hangul.mjs');
+const {toHangul, markLevel, atShort, HANGUL_DIAGRAM} = await import('../app/md-hangul.mjs');
 
 // Applies one toolbar action; returns the new text and the selected part.
 function act(text, s, e, action, option) {
@@ -134,24 +134,48 @@ test('editor head order and the bottom-tab leave question', () => {
   assert.match(src, /button\('', \{mdExport: ''\}, '내보내기'\)/);
 });
 
-// MD-내보내기 8-11a [한글용 복사]: docs/hwp-style-map.md 3절 번호 체계(1. 1) (1) ① 가. 가) (가))·들여쓰기·굵게·표.
-test('한글 copy: list levels follow the union numbering 1. 1) (1) ① 가. 가) (가), and (가) again past 7', () => {
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9].map(level => levelMark(level, 1)), ['1.', '1)', '(1)', '①', '가.', '가)', '(가)', '(가)', '(가)']);
-  assert.deepEqual([2, 14, 15, 28, 29].map(n => levelMark(5, n)), ['나.', '하.', '거.', '허.', '29.']);
-  assert.deepEqual([1, 20, 21, 35, 36, 50, 51].map(n => levelMark(4, n)), ['①', '⑳', '㉑', '㉟', '㊱', '㊿', '(51)']);
-  const md = ['- 1단계', '  - 2단계', '    - 3단계', '      - 4단계', '        - 5단계', '          - 6단계', '            - 7단계', '              - 8단계', '- 다음 1단계', '  1. 번호도 같은 기호', '  2. 둘째'].join('\n');
-  assert.equal(toHangul(md).text, ['1. 1단계', '  1) 2단계', '    (1) 3단계', '      ① 4단계', '        가. 5단계', '          가) 6단계', '            (가) 7단계', '              (가) 8단계', '2. 다음 1단계', '  1) 번호도 같은 기호', '  2) 둘째'].join('\n'));
+// MD-내보내기 8-11a [한글용 복사] ("쓴 대로 나온다 + @1 단축"): 쓴 번호 기호는 그대로, - 는 그대로, 들여쓰기만 기호 단계(hwp-style-map 3절)로.
+test('한글 copy: the seven written number marks stay as written and only their indent goes to the mark level', () => {
+  assert.deepEqual(['1. a', '1) a', '(1) a', '① a', '가. a', '가) a', '(가) a', '- a', '1.5 a', '가나. a', 'x'].map(markLevel), [0, 1, 2, 3, 4, 5, 6, -1, -1, -1, -1]);
+  // Any indent, any numbers (no renumbering, no restart), a number list that starts at 3 or skips stays as typed.
+  const md = ['      1. 일', '3. 셋', '5) 다섯', '(7) 일곱', '⑨ 아홉', '다. 다', '라) 라', '(마) 마', '  가. 둘째 줄'].join('\n');
+  assert.equal(toHangul(md).text, ['1. 일', '3. 셋', '  5) 다섯', '    (7) 일곱', '      ⑨ 아홉', '        다. 다', '          라) 라', '            (마) 마', '        가. 둘째 줄'].join('\n'));
+  // A tab indent and a "① " without a space are marks too; the text after the mark is untouched.
+  assert.equal(toHangul('\t(1) 탭\n①붙임\n1.\n').text, '    (1) 탭\n      ①붙임\n1.');
+  // Written in a markdown list or as plain lines: the same output.
+  assert.equal(toHangul('1. a\n   1) b\n      (1) c').text, '1. a\n  1) b\n    (1) c');
+  assert.equal(toHangul('1. a\n1) b\n(1) c').text, '1. a\n  1) b\n    (1) c');
+  // A list written in the markdown "1." way is not renumbered: first number, repeats and gaps stay.
+  assert.equal(toHangul('3. 셋\n3. 또 셋\n9. 아홉\n\n1. 다시').text, '3. 셋\n3. 또 셋\n9. 아홉\n\n1. 다시');
 });
 
-test('한글 copy: numbering continues, restarts and keeps item bodies like the markdown list', () => {
-  // An ordered list keeps its first number; going back up closes the deeper level; a blank line inside a list keeps it.
-  assert.equal(toHangul(['3. 셋', '   - 가', '   - 나', '4. 넷', '', '   본문 줄', '- 다섯'].join('\n')).text,
-    ['3. 셋', '  1) 가', '  2) 나', '4. 넷', '', '  본문 줄', '1. 다섯'].join('\n'));
-  // A line right under an item is its body; a paragraph after a blank line ends the list, and the next list restarts.
-  assert.equal(toHangul(['- 현황', '설명', '', '새 문단', '- 다시'].join('\n')).text, ['1. 현황', '  설명', '', '새 문단', '1. 다시'].join('\n'));
-  // A heading ends the list. Check items sit at their level without a number. "* " is the 참고 줄 and keeps no number.
-  assert.equal(toHangul(['- 하나', '## 둘째 절', '- 다시 하나', '  - [ ] 할 일', '  - [x] 끝난 일', '  - 하위', '* 참고 줄', '- 이어서'].join('\n')).text,
-    ['1. 하나', '둘째 절', '1. 다시 하나', '  ☐ 할 일', '  ☑ 끝난 일', '  1) 하위', '* 참고 줄', '2. 이어서'].join('\n'));
+test('한글 copy: - bullets stay "- " at the written indent, also inside numbered items; + and * keep their mark', () => {
+  assert.equal(toHangul(['- 하나', '  - 둘', '    - 셋', '- 넷'].join('\n')).text, ['- 하나', '  - 둘', '    - 셋', '- 넷'].join('\n'));
+  assert.equal(toHangul(['1. 상위', '   - 글머리 **굵게**', '   - 또', '2) 다음', '    - 아래', '      본문 줄'].join('\n')).text,
+    ['1. 상위', '   - 글머리 굵게', '   - 또', '  2) 다음', '    - 아래', '      본문 줄'].join('\n'));
+  assert.equal(toHangul('+ 더하기\n* 참고 줄\n  * 들여 쓴 참고').text, '+ 더하기\n* 참고 줄\n  * 들여 쓴 참고');
+  // A number written after a dash is item text, not a mark.
+  assert.equal(toHangul('- 1. 글\n- (1) 글').text, '- 1. 글\n- (1) 글');
+  // Headings end nothing and add nothing; check items keep their indent without a number; "* " stays the 참고 줄.
+  assert.equal(toHangul(['- 하나', '## 둘째 절', '- 다시 하나', '  - [ ] 할 일', '  - [x] 끝난 일', '* 참고 줄', '- 이어서'].join('\n')).text,
+    ['- 하나', '둘째 절', '- 다시 하나', '  ☐ 할 일', '  ☑ 끝난 일', '* 참고 줄', '- 이어서'].join('\n'));
+  // A line under an item and a blank line keep the written text and indent.
+  assert.equal(toHangul(['- 현황', '  설명', '', '새 문단'].join('\n')).text, ['- 현황', '  설명', '', '새 문단'].join('\n'));
+});
+
+test('한글 copy: @1~@50 become ①~㊿ (the only symbol it changes); @51, @01, e-mail, address and code stay', () => {
+  assert.deepEqual([1, 10, 20, 21, 35, 36, 50].map(n => atShort(`@${n}`)), ['①', '⑩', '⑳', '㉑', '㉟', '㊱', '㊿']);
+  assert.equal(atShort('@51 @100 @0 @01 @1a @1가'), '@51 @100 @0 @01 @1a ①가');
+  // Line start (with indent), inside a sentence, with punctuation after.
+  assert.equal(toHangul('@1 첫째\n    @2 둘째\n내용 @3, 그리고 (@4) 끝 @50.').text, '      ① 첫째\n      ② 둘째\n내용 ③, 그리고 (④) 끝 ㊿.');
+  // E-mail and address @, 51 and up, malformed, code spans and code blocks do not change.
+  const keep = ['메일 abc@3.com, a.b@1 x1@2, 9@3', 'https://example.com/@5 www.a.com/@6', '@51 @99 @100 @0 @05', '`@1` 코드', '[링크](https://a.co/@7)'].join('\n');
+  assert.equal(toHangul(keep).text, ['메일 abc@3.com, a.b@1 x1@2, 9@3', 'https://example.com/@5 www.a.com/@6', '@51 @99 @100 @0 @05', '@1 코드', '링크 (https://a.co/@7)'].join('\n'));
+  assert.equal(toHangul('```\n@1 코드\n  @2\n```\n끝 @3').text, '@1 코드\n  @2\n끝 ③');
+  // In headings, tables and quotes; a line starting with @1 is a ① line (indent 6).
+  assert.equal(toHangul('# @1 제목\n> @2 인용\n| @3 | b@4 |\n| - | - |\n| @5 | x |\n- 글머리 @6').text, '① 제목\n> ② 인용\n③\tb@4\n⑤\tx\n- 글머리 ⑥');
+  // The stored text is the copy source only: Telegram copy is unchanged by @.
+  assert.equal(toTelegram('@1 글'), '@1 글');
 });
 
 test('한글 copy: title and headings are bold lines without numbers, bold stays only in the HTML', () => {
@@ -159,7 +183,7 @@ test('한글 copy: title and headings are bold lines without numbers, bold stays
   assert.equal(text, ['문서 제목', '소제목', '본문 굵게 와 기울임, 취소, 코드, 밑줄식', '1. 항목 강조'].join('\n'));
   assert.equal(html, ['<b>문서 제목</b>', '<b>소제목</b>', '본문 <b>굵게</b> 와 기울임, 취소, 코드, <b>밑줄식</b>', '1. 항목 <b>강조</b>'].map(l => `<p style="margin:0">${l}</p>`).join(''));
   // Indentation survives HTML paste as non-breaking spaces.
-  assert.equal(toHangul('- a\n  - b').html, '<p style="margin:0">1. a</p><p style="margin:0">&nbsp;&nbsp;1) b</p>');
+  assert.equal(toHangul('1. a\n1) b').html, '<p style="margin:0">1. a</p><p style="margin:0">&nbsp;&nbsp;1) b</p>');
 });
 
 test('한글 copy: tables are real tables in HTML and tab rows in plain text', () => {
@@ -172,11 +196,11 @@ test('한글 copy: tables are real tables in HTML and tab rows in plain text', (
     + `<tr><td style="${cell}">a | b</td><td style="${cell}"><br></td><td style="${cell}">10/25</td></tr></table>`);
 });
 
-test('한글 copy: blank lines, quotes, callouts, rules, code and diagrams', () => {
+test('한글 copy: blank lines, quotes and callouts as written, rules, rules, code and diagrams', () => {
   const F = '```';
   const md = ['', '첫 줄  ', '', '', '', '> 인용', '', '> [!WARNING]', '', '> [!TIP]', '> 팁 내용', '> 둘째', '', '***', '', F + 'js', '  const a = 1; // **그대로**', F, F + 'mermaid', 'flowchart TD', F, '끝', '', ''].join('\n');
   const {text, html} = toHangul(md);
-  assert.equal(text, ['첫 줄', '', '* 인용', '', '* [경고]', '', '* [팁] 팁 내용', '* 둘째', '', '  const a = 1; // **그대로**', HANGUL_DIAGRAM, '끝'].join('\n'));
+  assert.equal(text, ['첫 줄', '', '> 인용', '', '> [!WARNING]', '', '> [!TIP]', '> 팁 내용', '> 둘째', '', '  const a = 1; // **그대로**', HANGUL_DIAGRAM, '끝'].join('\n'));
   assert.match(html, /<p style="margin:0">&nbsp;&nbsp;const a = 1; \/\/ \*\*그대로\*\*<\/p>/);
   // One blank paragraph per blank run, none at the ends.
   assert.equal(html.split('<br></p>').length - 1, 4);
@@ -188,9 +212,9 @@ test('한글 copy: blank lines, quotes, callouts, rules, code and diagrams', () 
 test('한글 copy: special characters stay as written in text and are escaped in HTML; the words are never changed', () => {
   const md = '- <script>alert(1)</script> & "따옴표" \'작은\' \\*별\\* 2*3*4 snake_case $5 ※ ○ · ─ 회의를 진행함.\n- [기사](https://example.com/a?b=1&c=2) ![현장](https://img.example/p.png)';
   const {text, html} = toHangul(md);
-  assert.equal(text, '1. <script>alert(1)</script> & "따옴표" \'작은\' *별* 2*3*4 snake_case $5 ※ ○ · ─ 회의를 진행함.\n2. 기사 (https://example.com/a?b=1&c=2) 현장 (https://img.example/p.png)');
-  assert.equal(html, '<p style="margin:0">1. &lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;따옴표&quot; &#39;작은&#39; *별* 2*3*4 snake_case $5 ※ ○ · ─ 회의를 진행함.</p>'
-    + '<p style="margin:0">2. 기사 (https://example.com/a?b=1&amp;c=2) 현장 (https://img.example/p.png)</p>');
+  assert.equal(text, '- <script>alert(1)</script> & "따옴표" \'작은\' *별* 2*3*4 snake_case $5 ※ ○ · ─ 회의를 진행함.\n- 기사 (https://example.com/a?b=1&c=2) 현장 (https://img.example/p.png)');
+  assert.equal(html, '<p style="margin:0">- &lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;따옴표&quot; &#39;작은&#39; *별* 2*3*4 snake_case $5 ※ ○ · ─ 회의를 진행함.</p>'
+    + '<p style="margin:0">- 기사 (https://example.com/a?b=1&amp;c=2) 현장 (https://img.example/p.png)</p>');
   assert.doesNotMatch(html, /<script|<a |<img/);
   // Mark-like characters typed in the text cannot open a bold tag.
   assert.equal(toHangul('a b').html, '<p style="margin:0">a b</p>');
