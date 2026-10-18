@@ -65,13 +65,21 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-viewer-bar button:focus-visible{ outline:2px solid var(--ds-photo-ink); outline-offset:-2px; }
 #appView #diaryView .diary-viewer-strip{ flex:1; min-height:0; display:flex; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; overscroll-behavior:contain; scrollbar-width:none; touch-action:pan-x pinch-zoom; }
 #appView #diaryView .diary-viewer-strip:focus-visible{ outline:none; }
-#appView #diaryView .diary-viewer .diary-slide{ flex:0 0 100%; margin:0; display:grid; place-items:center; scroll-snap-align:center; scroll-snap-stop:always; min-width:0; }
-#appView #diaryView .diary-viewer .diary-slide img{ display:block; max-width:100%; max-height:100%; object-fit:contain; }
-#appView #diaryView .diary-viewer .diary-photo{ display:grid; place-items:center; width:100%; height:100%; }
+/* 사진 상자는 칸(슬라이드)을 절대 위치로 꽉 채워 높이가 확정된 상태에서 contain으로 맞춘다.
+   예전에는 img의 max-height:100%가 높이 미확정 상자(grid 안 height:100%) 안에서 풀리지 않아 폭만 제한됐고,
+   넓은 화면(폴드 펼침·PC)에서는 폭 기준으로 커진 사진이 화면 높이를 넘어 위아래가 잘렸다. */
+#appView #diaryView .diary-viewer .diary-slide{ position:relative; flex:0 0 100%; margin:0; scroll-snap-align:center; scroll-snap-stop:always; min-width:0; }
+#appView #diaryView .diary-viewer .diary-photo{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+#appView #diaryView .diary-viewer .diary-slide img{ display:block; flex:1 1 auto; min-width:0; min-height:0; width:100%; height:100%; object-fit:contain; }
 #appView #diaryView .diary-viewer .diary-photo-link{ color:var(--ds-photo-ink); font-size:var(--ds-text-read); }
 #appView #diaryView .diary-viewer-note{ margin:0; min-height:24px; padding:4px 16px 12px; text-align:center; font-size:var(--ds-text-row); }
 #appView #diaryView .diary-viewer-note:empty{ visibility:hidden; }
+#appView #diaryView .diary-viewer-caption{ margin:0; max-height:6.5em; overflow-y:auto; padding:6px 16px 4px; text-align:center; font-size:var(--ds-text-row); line-height:1.5; overflow-wrap:anywhere; }
+#appView #diaryView .diary-viewer-caption:empty{ display:none; }
 #appView #diaryView .diary-text{ white-space:pre-wrap; overflow-wrap:anywhere; font-size:var(--ds-text-read); line-height:1.6; }
+/* 고른 날: 코멘트가 있는 사진만 한 줄씩. */
+#appView #diaryView .diary-captions{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:2px; font-size:var(--ds-text-row); overflow-wrap:anywhere; }
+#appView #diaryView .diary-captions b{ color:var(--ds-kind-diary-ink); font-weight:var(--ds-weight-medium); }
 #appView #diaryView .diary-actions{ display:flex; flex-wrap:wrap; gap:8px; }
 #appView #diaryView .diary-danger{ color:var(--kptu-danger); }
 
@@ -80,7 +88,9 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-field textarea{ min-height:120px; font-size:var(--ds-text-read); color:var(--kptu-ink); }
 #appView #diaryView .diary-pick{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 #appView #diaryView .diary-pick small{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
-#appView #diaryView .diary-thumbs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(76px,1fr)); gap:6px; }
+#appView #diaryView .diary-thumbs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px 6px; }
+#appView #diaryView .diary-thumb-cell{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+#appView #diaryView .diary-thumb-cell .diary-comment{ box-sizing:border-box; width:100%; min-width:0; font-size:var(--ds-text-meta); }
 #appView #diaryView .diary-thumb{ position:relative; aspect-ratio:1/1; overflow:hidden; background:var(--kptu-surface-subtle); border-radius:var(--ds-radius-control); }
 #appView #diaryView .diary-thumb :is(img,.diary-photo,.diary-photo img){ display:block; width:100%; height:100%; object-fit:cover; }
 #appView #diaryView .diary-thumb.pending{ outline:2px dashed var(--ds-kind-diary-ink); outline-offset:-2px; }
