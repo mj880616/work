@@ -173,16 +173,14 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['meetings','#newMeetingBtn','backgroundColor',color],
    // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕). 고른 성명 필터는 회색(--ds-kind-other-soft, UI-선택표시통일).
    ['media','.w1p-filter.active','backgroundColor','#efede6'],
-   ['pages','#web1BoardActive','backgroundColor',surface[theme]],
-   ['team','#soAddOrg','backgroundColor',surface[theme]]
+   ['pages','#web1BoardActive','backgroundColor',surface[theme]]
   ]){
    await clickView(page,view);
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
    if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',theme==='olive'?'#47532a':theme==='navy'?'#355f86':theme==='terracotta'?'#7f3f1b':'#7a5012');}else await matches('.app-nav .nav-btn.active','backgroundColor',{olive:'#eef0e1',navy:'#eef4f8',terracotta:'#f8e9dc',sand:'#f6ead1'}[theme]);/* 8-9e-3: 고른 메뉴는 연한 계정 색 */
-   // 8-9e-2: phones show the small "담당조직 추가" link instead of [+ 담당조직].
-   if(!(width<=760&&selector==='#soAddOrg'))await matches(selector,property,expected);
+   await matches(selector,property,expected);
    if(view==='projects'){
     await page.locator('[data-ps3-project="theme-project"]').first().click();
     await matches('#ps3DetailModal .modal-card','backgroundColor',surface[theme]);

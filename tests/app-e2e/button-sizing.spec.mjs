@@ -63,7 +63,7 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
  });
 }
 
-const listButtons={projects:['#ps3ArchiveBtn','#newProjectBtn'],calendar:['#googleConnectBtn'],meetings:['#newMeetingBtn'],team:['#soAddOrg'],media:['[data-press-type="all"]','[data-press-type="statement"]','[data-press-type="release"]','[data-press-type="request"]']};
+const listButtons={projects:['#ps3ArchiveBtn','#newProjectBtn'],calendar:['#googleConnectBtn'],meetings:['#newMeetingBtn'],media:['[data-press-type="all"]','[data-press-type="statement"]','[data-press-type="release"]','[data-press-type="request"]']};
 async function muted(page){return page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-muted)';document.body.append(el);const value=getComputedStyle(el).color;el.remove();return value})}
 async function size(el){return el.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {height:r.height,font:s.fontSize,paddingLeft:s.paddingLeft,paddingRight:s.paddingRight,radius:s.borderRadius,weight:s.fontWeight,color:s.color,background:s.backgroundColor}})}
 async function standard(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();await expect(el).toHaveCSS('font-size','12px');const s=await size(el);expect(s.height,selector).toBeGreaterThanOrEqual(35);expect(s.height,selector).toBeLessThanOrEqual(37);expect(s.paddingLeft).toBe('12px');expect(s.paddingRight).toBe('12px');if(!selector.includes('press-type'))expect(s.radius).toBe('8px');}
@@ -88,7 +88,6 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
     const el=page.locator(selector);await expect(el).toHaveText('보관 1');const after=await size(el);
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
    }else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
-   else if(width<=760&&selector==='#soAddOrg'){await expect(page.locator(selector)).toBeHidden();await expect(page.locator('#soAddOrgLink')).toBeVisible();}
    else if(selector.includes('press-type'))await dsChip(page,selector);
    else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}

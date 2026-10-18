@@ -257,7 +257,9 @@ test('assigned organization list and compact rows expose clear names without ret
 test('suborganization edit dialog exposes semantics, Escape close, and trigger restore',async({page})=>{
   await boot(page,{width:1024,height:768});
   await clickView(page,'team');
-  const trigger=page.locator('#soAddOrg');
+  // UI-조직추가숨김: the add button is gone, so open the dialog through the edit delegate.
+  await page.evaluate(()=>{const b=document.createElement('button');b.id='soTestOpenEdit';b.setAttribute('data-so-edit','');document.body.append(b)});
+  const trigger=page.locator('#soTestOpenEdit');
   await trigger.focus();
   await trigger.click();
   const modal=page.locator('#soEditModal');
