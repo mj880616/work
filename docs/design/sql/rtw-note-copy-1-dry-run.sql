@@ -1,24 +1,27 @@
 -- 초안(DRAFT) — RTW-노트일원화 ④ 옮기기 1/4: 해 보기만(아무것도 바뀌지 않음). 설명: docs/design/rtw-note-copy-sql.md
--- 무엇이 바뀌나: 아무것도 안 바뀐다. 실제와 똑같이 노트를 넣어 보고 개수·제목·길이를 표로 보여 준 뒤, 맨 끝 rollback으로 전부 취소한다.
+-- 무엇이 바뀌나: 아무것도 안 바뀐다. 실제와 똑같이 노트를 넣어 보고 개수·제목·길이를 표로 만든 뒤, 맨 끝에서 일부러 오류를 내 전부 취소한다.
 -- 잘못되면: 중간에 하나라도 맞지 않으면 빨간 오류 문구(RTW_COPY_STOP-번호)로 멈추고 아무것도 안 바뀐다.
 -- 되돌리는 법: 필요 없다(이미 취소됨).
--- 쓰는 법: Supabase SQL Editor 새 쿼리 창(+)에 전부 붙여 넣기 → 첫 줄 begin; · 마지막 줄 rollback; 확인 → 대상 프로젝트 확인 → 실행.
--- 이 파일은 읽생기 표(rtw_*)를 select만 하고, 임시 표와 app_notes에만 쓴다(그리고 마지막에 취소한다).
-begin;
--- 결과 표가 안 보이고 "No rows returned"만 보이면, 아래 'no'를 'yes'로 바꿔 다시 실행한다. 그러면 표 내용이 오류 칸에 글자로 나온다(그래도 전부 취소됨).
-select set_config('rtw_copy.show_as_error', 'no', true);
+-- 쓰는 법: SQL Editor 새 쿼리 창(+)에 전부 붙여 넣기 → 대상 프로젝트 확인 → 실행. 끝은 항상 빨간 오류이고, 그 오류 문구 안의 RTW_COPY_DRYRUN_REPORT 표를 캡처한다(오류 = 취소됨).
+-- 이 파일은 읽생기 표(rtw_*)를 select만 하고, 임시 표와 app_notes에만 쓴다(그리고 마지막에 오류로 전부 취소한다).
+-- 경고창(RLS 없는 표)이 뜨면 Run without RLS를 누른다(임시 표라 밖에서 접근할 수 없고 문장이 끝나면 사라진다).
+-- 이 SQL Editor는 문장 사이에 임시 표·begin 문이 유지되지 않는다(실험 확인). 그래서 이 파일은 DO 블록 한 문장뿐이고 거래 시작·저장·취소 문(begin·commit·rollback)이 없다.
+-- 이 문장 하나가 곧 한 덩어리(원자 단위)다: 끝까지 가면 저장, 중간에 오류가 나면 전부 취소.
+do $$
+declare
+  v_ctx record;
+  v_report text;
+begin
 -- ==== 본문 시작 (해 보기 파일과 실행 파일이 글자 하나까지 같아야 한다. 고치지 말 것) ====
 -- 이 본문이 하는 일: 읽생기(rtw_*)의 명진 글을 읽기만 하고, Web2 노트(app_notes)에 새 노트로 넣는다.
 -- 읽생기 표·권한·정책·함수는 건드리지 않는다. 권한 확대·정책 변경·새 함수·GRANT 없음.
--- 임시 표(rtw_ctx 등)는 이 거래가 끝나면 저절로 사라진다.
-set local lock_timeout = '5s';
-set local statement_timeout = '120s';
+-- 임시 표(rtw_ctx 등)는 이 문장이 끝나면 저절로 사라진다. 이 문장 전체가 한 덩어리라 중간에 오류가 나면 전부 취소된다.
+-- 잠금을 5초 넘게 기다리면 멈춘다(이 문장 안에서만 적용).
+perform set_config('lock_timeout', '5s', true);
 -- 같은 순간에 다른 곳에서 노트를 넣거나 이 SQL을 또 돌려도 두 번 들어가지 않게 노트 표에 쓰기 잠금을 건다.
 lock table public.app_notes in share row exclusive mode;
 
 -- [1단계] 시작 전 확인. 하나라도 다르면 아무것도 바꾸지 않고 여기서 멈춘다(오류 문구에 이유가 나온다).
-do $$
-begin
   if (select count(*) from public.rtw_personal_mode where id = 'owner') <> 1 then
     raise exception 'RTW_COPY_STOP-01: 읽생기 소유자 지정 행이 1개가 아님';
   end if;
@@ -67,8 +70,6 @@ begin
   ) then
     raise exception 'RTW_COPY_STOP-06: 읽생기 표에 이 SQL이 읽는 열이 없음(열 이름이 다름)';
   end if;
-end
-$$;
 
 -- [2단계] 기준 정보: 소유자, 넣을 작업공간, 옮긴 시각, 시작 전 노트 수.
 create temp table rtw_ctx on commit drop as
@@ -287,8 +288,6 @@ join rtw_ctx c on c.owner_id = w.owner_id
 where btrim(coalesce(w.profile_md, ''), E' \t\r\n') <> '';
 
 -- [5단계] 넣기 전 데이터 확인. 글자가 사라지거나 노트 규칙에 안 맞을 것 같으면 멈춘다.
-do $$
-begin
   if exists (select 1 from public.rtw_notes n join rtw_ctx c on c.owner_id = n.owner_id
              where n.resource_id is not null
                and not exists (select 1 from public.rtw_resources r where r.id = n.resource_id and r.owner_id = n.owner_id)) then
@@ -306,8 +305,6 @@ begin
   if exists (select 1 from rtw_plan where char_length(title) not between 1 and 200 or title ~ '[\r\n]') then
     raise exception 'RTW_COPY_STOP-14: 제목이 1~200자 한 줄 규칙에 안 맞는 노트가 있음';
   end if;
-end
-$$;
 
 -- [6단계] 실제로 넣기. 읽생기 원본은 select만 했고, 여기서 app_notes에 insert만 한다.
 --   날짜는 원래 값 그대로(created_at, updated_at), occurred_at = created_at.
@@ -324,102 +321,86 @@ where not exists (select 1 from public.app_notes x
 order by p.created_at, p.src_table, p.src_id;
 
 -- [7단계] 넣은 뒤 확인. 개수가 원본과 다르거나 다른 노트가 바뀌었으면 전체 취소.
-do $$
-declare
-  c rtw_ctx%rowtype;
-begin
-  select * into c from rtw_ctx;
-  if (select count(*) from public.app_notes where metadata -> 'rtw' ->> 'migrated_at' = c.migrated_at)
+select * into v_ctx from rtw_ctx;
+  if (select count(*) from public.app_notes where metadata -> 'rtw' ->> 'migrated_at' = v_ctx.migrated_at)
      <> (select count(*) from rtw_plan) then
     raise exception 'RTW_COPY_STOP-21: 넣은 노트 수가 계산한 수와 다름';
   end if;
-  if (select count(*) from public.app_notes) <> c.notes_before + (select count(*) from rtw_plan) then
+  if (select count(*) from public.app_notes) <> v_ctx.notes_before + (select count(*) from rtw_plan) then
     raise exception 'RTW_COPY_STOP-22: 기존 노트 수가 달라짐';
   end if;
-  if exists (select 1 from public.app_notes where metadata -> 'rtw' ->> 'migrated_at' = c.migrated_at
-             and (workspace_id <> c.workspace_id or kind <> 'note' or attachments <> '[]'::jsonb or archived_at is not null)) then
+  if exists (select 1 from public.app_notes where metadata -> 'rtw' ->> 'migrated_at' = v_ctx.migrated_at
+             and (workspace_id <> v_ctx.workspace_id or kind <> 'note' or attachments <> '[]'::jsonb or archived_at is not null)) then
     raise exception 'RTW_COPY_STOP-23: 넣은 노트의 작업공간·종류·첨부가 예상과 다름';
   end if;
   if (select count(*) from rtw_plan where src_table = 'rtw_resources')
-       <> (select count(*) from public.rtw_resources where owner_id = c.owner_id)
+       <> (select count(*) from public.rtw_resources where owner_id = v_ctx.owner_id)
      or (select count(*) from rtw_plan where src_table = 'rtw_notes')
-       <> (select count(*) from public.rtw_notes where owner_id = c.owner_id and resource_id is null)
+       <> (select count(*) from public.rtw_notes where owner_id = v_ctx.owner_id and resource_id is null)
      or (select count(*) from rtw_plan where src_table = 'rtw_questions')
-       <> (select count(*) from public.rtw_questions where owner_id = c.owner_id)
+       <> (select count(*) from public.rtw_questions where owner_id = v_ctx.owner_id)
      or (select count(*) from rtw_plan where src_table = 'rtw_records')
-       <> (select count(*) from public.rtw_records where owner_id = c.owner_id)
+       <> (select count(*) from public.rtw_records where owner_id = v_ctx.owner_id)
      or (select count(*) from rtw_plan where src_table = 'rtw_writing_context')
-       <> (select count(*) from public.rtw_writing_context where owner_id = c.owner_id
+       <> (select count(*) from public.rtw_writing_context where owner_id = v_ctx.owner_id
            and btrim(coalesce(profile_md, ''), E' \t\r\n') <> '') then
     raise exception 'RTW_COPY_STOP-24: 종류별 노트 수가 읽생기 원본 수와 다름';
   end if;
-end
-$$;
+
 -- ==== 본문 끝 ====
-
--- [8단계] 해 보기 결과표. 개수만 있고 글 내용은 없다. 판정이 전부 OK(또는 -)이면 실제 실행으로 간다.
-create temp table rtw_report on commit drop as
-with c as (select * from rtw_ctx),
-src as (
-  select
-    (select count(*) from public.rtw_resources where owner_id = c.owner_id) as res,
-    (select count(*) from public.rtw_notes where owner_id = c.owner_id and resource_id is null) as memo_alone,
-    (select count(*) from public.rtw_notes where owner_id = c.owner_id and resource_id is not null) as memo_on,
-    (select count(*) from public.rtw_questions where owner_id = c.owner_id) as q,
-    (select count(*) from public.rtw_records where owner_id = c.owner_id) as rec,
-    (select count(*) from public.rtw_writing_context where owner_id = c.owner_id and btrim(coalesce(profile_md, ''), E' \t\r\n') <> '') as wc,
-    (select count(*) from public.rtw_bookmarks where owner_id = c.owner_id) as bm,
-    (select count(*) from public.rtw_relations where owner_id = c.owner_id) as rel
-  from c
-),
-mv as (select n.* from public.app_notes n, c where n.metadata -> 'rtw' ->> 'migrated_at' = c.migrated_at),
-r as (
-  select 10 as ord, '개수' as grp, '만들어질 노트 합계' as item, (select count(*) from mv) as val,
-         (select res + memo_alone + q + rec + wc from src) as expected, 'eq' as how
-  union all select 11, '개수', '읽기 글', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_resources'), (select res from src), 'eq'
-  union all select 12, '개수', '독립 메모', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_notes'), (select memo_alone from src), 'eq'
-  union all select 13, '개수', '질문', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_questions'), (select q from src), 'eq'
-  union all select 14, '개수', '글쓰기 기록', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_records'), (select rec from src), 'eq'
-  union all select 15, '개수', '훈련 기준', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_writing_context'), (select wc from src), 'eq'
-  union all select 20, '글자로 남긴 것', '글에 붙은 메모(나의 메모 칸)', (select coalesce(sum(memos), 0) from rtw_plan), (select memo_on from src), 'eq'
-  union all select 21, '글자로 남긴 것', '책갈피(문장 + 글 전체)', (select coalesce(sum(marks), 0) from rtw_plan), (select bm from src), 'eq'
-  union all select 22, '글자로 남긴 것', '연결(주제·질문 줄)', (select coalesce(sum(rels), 0) from rtw_plan), (select rel from src), 'eq'
-  union all select 30, '제목 길이', '1~20자', (select count(*) from mv where char_length(title) between 1 and 20), null, 'info'
-  union all select 31, '제목 길이', '21~50자', (select count(*) from mv where char_length(title) between 21 and 50), null, 'info'
-  union all select 32, '제목 길이', '51~100자', (select count(*) from mv where char_length(title) between 51 and 100), null, 'info'
-  union all select 33, '제목 길이', '101~200자', (select count(*) from mv where char_length(title) between 101 and 200), null, 'info'
-  union all select 34, '제목 길이', '200자 넘어 잘린 제목', (select count(*) from rtw_plan where title_cut), 0, 'eq'
-  union all select 35, '제목 길이', '가장 긴 제목(자)', (select coalesce(max(char_length(title)), 0) from mv), 200, 'max'
-  union all select 36, '제목 길이', '인용(>)으로 시작해 제목이 인용문인 독립 메모', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_notes' and title like '>%'), null, 'info'
-  union all select 40, '본문 길이', '가장 긴 본문(자)', (select coalesce(max(char_length(raw_text)), 0) from mv), 100000, 'max'
-  union all select 41, '본문 길이', '10만 자 넘는 본문', (select count(*) from mv where char_length(raw_text) > 100000), 0, 'eq'
-  union all select 42, '본문 길이', '본문이 빈 노트', (select count(*) from mv where raw_text = ''), null, 'info'
-  union all select 50, '안전', '작업공간(workspace_id) 종류 수', (select count(distinct workspace_id) from mv), 1, 'eq'
-  union all select 51, '안전', '같은 원본이 두 번 들어간 수', (select count(*) - count(distinct (metadata -> 'rtw' ->> 'table', metadata -> 'rtw' ->> 'id')) from mv), 0, 'eq'
-  union all select 52, '안전', '시작 전에 이미 옮겨져 있던 노트', (select count(*) from public.app_notes n, c where n.metadata -> 'rtw' is not null and n.metadata -> 'rtw' ->> 'migrated_at' <> c.migrated_at), 0, 'eq'
-  union all select 53, '안전', '기존 노트(바구니 등) 수 변화', (select count(*) from public.app_notes) - (select notes_before from c) - (select count(*) from mv), 0, 'eq'
-)
-select ord, grp as "구분", item as "항목", val::text as "값", coalesce(expected::text, '-') as "기대·원본",
-       case how
-         when 'info' then '-'
-         when 'max' then case when val <= expected then 'OK' else '확인 필요' end
-         else case when val is not distinct from expected then 'OK' else '확인 필요' end
-       end as "판정"
-from r;
-
--- 결과 표가 안 보일 때(위 set_config를 'yes'로 바꾼 경우)만: 표 내용을 오류 문구로 보여 주고 전체를 취소한다.
-do $$
-declare
-  t text;
-begin
-  if current_setting('rtw_copy.show_as_error', true) = 'yes' then
-    select string_agg(format('%s | %s | 값 %s | 기대 %s | %s', "구분", "항목", "값", "기대·원본", "판정"), E'\n' order by ord)
-      into t from rtw_report;
-    raise exception E'RTW_COPY_DRYRUN_REPORT (전부 취소됨, 아무것도 안 바뀜)\n%', t;
-  end if;
+-- [8단계] 해 보기 결과표(여기부터는 해 보기 파일에만 있다). 개수만 있고 글 내용은 없다. 판정이 전부 OK(또는 -)이면 실제 실행으로 간다.
+-- 표를 글자로 만들어 오류 문구에 싣고 일부러 오류를 낸다. 오류가 나면 이 문장 전체가 취소되므로 아무것도 저장되지 않는다.
+select string_agg(format('%s | %s | 값 %s | 기대 %s | %s', "구분", "항목", "값", "기대·원본", "판정"), E'\n' order by ord)
+  into v_report
+from (
+  with c as (select * from rtw_ctx),
+  src as (
+    select
+      (select count(*) from public.rtw_resources where owner_id = c.owner_id) as res,
+      (select count(*) from public.rtw_notes where owner_id = c.owner_id and resource_id is null) as memo_alone,
+      (select count(*) from public.rtw_notes where owner_id = c.owner_id and resource_id is not null) as memo_on,
+      (select count(*) from public.rtw_questions where owner_id = c.owner_id) as q,
+      (select count(*) from public.rtw_records where owner_id = c.owner_id) as rec,
+      (select count(*) from public.rtw_writing_context where owner_id = c.owner_id and btrim(coalesce(profile_md, ''), E' \t\r\n') <> '') as wc,
+      (select count(*) from public.rtw_bookmarks where owner_id = c.owner_id) as bm,
+      (select count(*) from public.rtw_relations where owner_id = c.owner_id) as rel
+    from c
+  ),
+  mv as (select n.* from public.app_notes n, c where n.metadata -> 'rtw' ->> 'migrated_at' = c.migrated_at),
+  r as (
+    select 10 as ord, '개수' as grp, '만들어질 노트 합계' as item, (select count(*) from mv) as val,
+           (select res + memo_alone + q + rec + wc from src) as expected, 'eq' as how
+    union all select 11, '개수', '읽기 글', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_resources'), (select res from src), 'eq'
+    union all select 12, '개수', '독립 메모', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_notes'), (select memo_alone from src), 'eq'
+    union all select 13, '개수', '질문', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_questions'), (select q from src), 'eq'
+    union all select 14, '개수', '글쓰기 기록', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_records'), (select rec from src), 'eq'
+    union all select 15, '개수', '훈련 기준', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_writing_context'), (select wc from src), 'eq'
+    union all select 20, '글자로 남긴 것', '글에 붙은 메모(나의 메모 칸)', (select coalesce(sum(memos), 0) from rtw_plan), (select memo_on from src), 'eq'
+    union all select 21, '글자로 남긴 것', '책갈피(문장 + 글 전체)', (select coalesce(sum(marks), 0) from rtw_plan), (select bm from src), 'eq'
+    union all select 22, '글자로 남긴 것', '연결(주제·질문 줄)', (select coalesce(sum(rels), 0) from rtw_plan), (select rel from src), 'eq'
+    union all select 30, '제목 길이', '1~20자', (select count(*) from mv where char_length(title) between 1 and 20), null, 'info'
+    union all select 31, '제목 길이', '21~50자', (select count(*) from mv where char_length(title) between 21 and 50), null, 'info'
+    union all select 32, '제목 길이', '51~100자', (select count(*) from mv where char_length(title) between 51 and 100), null, 'info'
+    union all select 33, '제목 길이', '101~200자', (select count(*) from mv where char_length(title) between 101 and 200), null, 'info'
+    union all select 34, '제목 길이', '200자 넘어 잘린 제목', (select count(*) from rtw_plan where title_cut), 0, 'eq'
+    union all select 35, '제목 길이', '가장 긴 제목(자)', (select coalesce(max(char_length(title)), 0) from mv), 200, 'max'
+    union all select 36, '제목 길이', '인용(>)으로 시작해 제목이 인용문인 독립 메모', (select count(*) from mv where metadata -> 'rtw' ->> 'table' = 'rtw_notes' and title like '>%'), null, 'info'
+    union all select 40, '본문 길이', '가장 긴 본문(자)', (select coalesce(max(char_length(raw_text)), 0) from mv), 100000, 'max'
+    union all select 41, '본문 길이', '10만 자 넘는 본문', (select count(*) from mv where char_length(raw_text) > 100000), 0, 'eq'
+    union all select 42, '본문 길이', '본문이 빈 노트', (select count(*) from mv where raw_text = ''), null, 'info'
+    union all select 50, '안전', '작업공간(workspace_id) 종류 수', (select count(distinct workspace_id) from mv), 1, 'eq'
+    union all select 51, '안전', '같은 원본이 두 번 들어간 수', (select count(*) - count(distinct (metadata -> 'rtw' ->> 'table', metadata -> 'rtw' ->> 'id')) from mv), 0, 'eq'
+    union all select 52, '안전', '시작 전에 이미 옮겨져 있던 노트', (select count(*) from public.app_notes n, c where n.metadata -> 'rtw' is not null and n.metadata -> 'rtw' ->> 'migrated_at' <> c.migrated_at), 0, 'eq'
+    union all select 53, '안전', '기존 노트(바구니 등) 수 변화', (select count(*) from public.app_notes) - (select notes_before from c) - (select count(*) from mv), 0, 'eq'
+  )
+  select ord, grp as "구분", item as "항목", val::text as "값", coalesce(expected::text, '-') as "기대·원본",
+         case how
+           when 'info' then '-'
+           when 'max' then case when val <= expected then 'OK' else '확인 필요' end
+           else case when val is not distinct from expected then 'OK' else '확인 필요' end
+         end as "판정"
+  from r
+) rpt;
+raise exception E'RTW_COPY_DRYRUN_REPORT (전부 취소됨, 아무것도 안 바뀜)\n구분 | 항목 | 값 | 기대·원본 | 판정\n%', coalesce(v_report, '(결과 없음)');
 end
 $$;
-
-select "구분", "항목", "값", "기대·원본", "판정" from rtw_report order by ord;
--- 아무것도 저장하지 않고 끝낸다. 이 줄이 마지막 줄이어야 한다.
-rollback;

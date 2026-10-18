@@ -1,5 +1,6 @@
 // Fresh local PostgreSQL only (embedded, isolated). Fake rtw_* rows only. No Supabase, Google or production credentials.
 // RTW-노트일원화 ④: dry-run -> apply -> re-run (0 added) -> check -> guarded revert for docs/design/sql/rtw-note-copy-*.sql.
+// The Supabase SQL Editor keeps neither temp tables nor an open transaction between statements (checked by hand), so each draft must be ONE statement.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
@@ -17,15 +18,48 @@ for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process
 const strip=sql=>sql.split('\n').filter(l=>!/^\s*--/.test(l)).join('\n');
 const bodyOf=sql=>sql.slice(sql.indexOf('-- ==== 본문 시작'),sql.indexOf('-- ==== 본문 끝 ====')+'-- ==== 본문 끝 ===='.length);
 
+// Splits a script into top-level statements the way a plain parser would: skips -- comments, '...' / E'...' strings, "..." identifiers and $tag$...$tag$ bodies.
+const statements=sql=>{
+ const out=[];let cur='',i=0;const n=sql.length;
+ while(i<n){
+  const ch=sql[i],two=sql.slice(i,i+2);
+  if(two==='--'){const e=sql.indexOf('\n',i);i=e<0?n:e;continue;}
+  if(ch==="'"){const esc=/[eE]$/.test(cur)&&!/\w[eE]$/.test(cur);let j=i+1;for(;j<n;j++){if(esc&&sql[j]==='\\'){j++;continue;}if(sql[j]==="'"){if(sql[j+1]==="'"){j++;continue;}break;}}cur+=sql.slice(i,j+1);i=j+1;continue;}
+  if(ch==='"'){const j=sql.indexOf('"',i+1);cur+=sql.slice(i,j+1);i=j+1;continue;}
+  if(ch==='$'){const m=/^\$([A-Za-z_]\w*)?\$/.exec(sql.slice(i,i+40));if(m){const e=sql.indexOf(m[0],i+m[0].length);assert.ok(e>0,'unterminated dollar quote');cur+=sql.slice(i,e+m[0].length);i=e+m[0].length;continue;}}
+  if(ch===';'){if(cur.trim())out.push(cur.trim());cur='';i++;continue;}
+  cur+=ch;i++;
+ }
+ if(cur.trim())out.push(cur.trim());return out;
+};
+
+test('static: each draft is exactly one statement, so nothing depends on state kept between statements',async()=>{
+ const sql={};for(const [k,p] of Object.entries(FILES))sql[k]=await read(p);
+ for(const k of ['dry','apply','revert']){
+  const st=statements(sql[k]);assert.equal(st.length,1,k+' is one statement');assert.match(st[0],/^do\s+\$\$/i,k+' is a single DO block');
+  assert.equal((sql[k].match(/\$\$/g)||[]).length,2,k+' has exactly one dollar-quoted body');
+ }
+ const chk=statements(sql.check);assert.equal(chk.length,1);assert.match(chk[0],/^with\b/i);
+ // The splitter itself must not hide extra statements: a second statement after the DO block is counted.
+ assert.equal(statements(sql.apply.trimEnd()+'\nselect 1;').length,2);
+ assert.equal(statements("do $$ begin perform 1; end $$; -- x; y\nselect 'a;b';").length,2);
+ for(const [k,v] of Object.entries(sql))assert.doesNotMatch(v,/\b(begin|commit|rollback|savepoint|start\s+transaction|end\s+transaction)\s*;|\bset\s+(local\s+)?(lock_timeout|statement_timeout)\b/i,k+' has no transaction statements or session settings');
+ // Temp tables are created and used only inside the DO body (same statement).
+ for(const k of ['dry','apply']){assert.ok(/create\s+temp\s+table\s+rtw_ctx\b/i.test(sql[k]));assert.match(sql[k],/on commit drop/i);}
+ assert.ok(!/create\s+temp/i.test(sql.check)&&!/create\s+temp/i.test(sql.revert));
+ // Dry-run always ends in the report error (the error is the cancel); apply has no report and ends normally.
+ assert.match(sql.dry,/raise exception E'RTW_COPY_DRYRUN_REPORT[\s\S]*\nend\n\$\$;\s*$/);assert.ok(!/show_as_error/.test(sql.dry));
+ assert.ok(!/RTW_COPY_DRYRUN_REPORT|rtw_report/.test(sql.apply));assert.match(sql.apply.trimEnd(),/\nend\n\$\$;$/);
+});
+
 test('static: four SQL drafts keep to select/insert/delete on the allowed tables only',async()=>{
  assert.equal(ME,OWNER,'fake rtw owner is the Web2 owner of the shared fixture');
  const sql={};for(const [k,p] of Object.entries(FILES)){assert.ok(!p.includes('supabase/migrations'));sql[k]=await read(p);}
  // dry-run and apply share a byte-identical body; only head/tail differ.
  assert.ok(bodyOf(sql.dry).length>5000);assert.equal(bodyOf(sql.dry),bodyOf(sql.apply));
  const code=Object.fromEntries(Object.entries(sql).map(([k,v])=>[k,strip(v).trim()]));
- assert.ok(/^begin;/.test(code.dry)&&/rollback;$/.test(code.dry)&&!/\bcommit\b\s*;/.test(code.dry));
- assert.ok(/^begin;/.test(code.apply)&&/commit;$/.test(code.apply)&&!/\brollback\b/.test(code.apply));
- assert.ok(/^begin;/.test(code.revert)&&/commit;$/.test(code.revert));
+ // dry-run ends only with its report error; the three writing/reading drafts hold no transaction statements (see the one-statement test).
+ assert.ok(!/\bdelete\s+from/i.test(code.dry));
  for(const [k,v] of Object.entries(code)){
   assert.doesNotMatch(v,/\b(grant|revoke)\b|security\s+definer|create\s+(or\s+replace\s+)?(function|policy|trigger|view|table\s+(?!pg_temp))|create\s+(?!temp\b|temporary\b)\w+|alter\s+(table|policy|function|role|default)|drop\s+(table|function|policy|trigger|index|column|schema)|truncate|enable\s+row|disable\s+row|force\s+row/i,k);
   assert.doesNotMatch(v,/(insert\s+into|update|delete\s+from|truncate(\s+table)?|merge\s+into)\s+(only\s+)?(public\.)?rtw_(resources|notes|bookmarks|questions|topics|relations|records|writing_context|note_types|personal_mode|beta_access|feedback|ai_usage)\b/i,k+' must not write rtw_*');
@@ -36,6 +70,7 @@ test('static: four SQL drafts keep to select/insert/delete on the allowed tables
  assert.ok(!/insert\s+into/i.test(code.revert)&&!/insert\s+into/i.test(code.check));
  assert.ok(/^\s*with\b[\s\S]*;\s*$/.test(code.check),'check is a single select statement');
  assert.equal((code.check.match(/;/g)||[]).length,1);
+ assert.match(sql.dry+sql.apply,/RTW_COPY_STOP-01[\s\S]*RTW_COPY_STOP-24/,'STOP codes kept');
 });
 
 test('rtw note copy: dry-run, apply, re-run, check and guarded revert on fake rows',{timeout:120000},async t=>{
@@ -67,7 +102,13 @@ test('rtw note copy: dry-run, apply, re-run, check and guarded revert on fake ro
   const run=async(text,role='copier')=>{const c=await pool.connect();try{await c.query('set role '+role);const r=await c.query(text);return Array.isArray(r)?r:[r];}catch(e){await c.query('rollback').catch(()=>{});throw e;}finally{await c.query('reset role').catch(()=>{});c.release();}};
   const migrated=async()=>(await pool.query("select count(*)::int n from public.app_notes where metadata ? 'rtw'")).rows[0].n;
   const rows=async(text)=>{const r=await run(text);return r.at(-1).rows;};
-  const report=async()=>{const r=await run(sql.dry);const sel=r.filter(x=>x.fields?.some(f=>f.name==='판정')).at(-1);return Object.fromEntries(sel.rows.map(x=>[x['항목'],x]));};
+  // The dry-run always ends with an error whose text is the report table (the error is the cancel). Parse it back into rows.
+  const report=async()=>{
+   let msg;try{await run(sql.dry);}catch(e){msg=e.message;}
+   assert.ok(msg&&msg.startsWith('RTW_COPY_DRYRUN_REPORT (전부 취소됨, 아무것도 안 바뀜)'),'dry-run ends with the report error: '+msg);
+   const lines=msg.split('\n').slice(1);assert.equal(lines[0],'구분 | 항목 | 값 | 기대·원본 | 판정');
+   return Object.fromEntries(lines.slice(1).map(l=>{const m=/^(.*?) \| (.*?) \| 값 (.*?) \| 기대 (.*?) \| (.*)$/.exec(l);assert.ok(m,'report line: '+l);return [m[2],{'구분':m[1],'항목':m[2],'값':m[3],'기대·원본':m[4],'판정':m[5]}];}));
+  };
   const notes=async()=>Object.fromEntries((await pool.query("select metadata->'rtw'->>'table' tbl,metadata->'rtw'->>'id' sid,n.* from public.app_notes n where metadata ? 'rtw'")).rows.map(r=>[r.sid,r]));
 
   await t.test('dry-run: real insert is computed, report shows counts, nothing remains',async()=>{
@@ -84,9 +125,17 @@ test('rtw note copy: dry-run, apply, re-run, check and guarded revert on fake ro
    assert.equal(rep['10만 자 넘는 본문']['값'],'0');assert.equal(rep['기존 노트(바구니 등) 수 변화']['값'],'0');
    assert.equal(['1~20자','21~50자','51~100자','101~200자'].reduce((s,k)=>s+Number(rep[k]['값']),0),EXPECTED.total);
   });
-  await t.test('dry-run fallback: report as an error text, still nothing saved',async()=>{
-   const flipped=sql.dry.replace("'rtw_copy.show_as_error', 'no'","'rtw_copy.show_as_error', 'yes'");assert.notEqual(flipped,sql.dry);
-   await assert.rejects(run(flipped),e=>e.message.includes('RTW_COPY_DRYRUN_REPORT')&&e.message.includes('만들어질 노트 합계 | 값 '+EXPECTED.total));
+  await t.test('dry-run is one statement that always ends in the report error and leaves no rows or temp tables behind',async()=>{
+   const c=await pool.connect();
+   try{
+    await c.query('set role copier');
+    await assert.rejects(c.query(sql.dry),e=>e.message.includes('RTW_COPY_DRYRUN_REPORT')&&e.message.includes('만들어질 노트 합계 | 값 '+EXPECTED.total));
+    // Same session, right after the error: no copied notes, no leftover temp tables (the statement is the unit of atomicity).
+    assert.equal((await c.query("select count(*)::int n from public.app_notes where metadata ? 'rtw'")).rows[0].n,0);
+    assert.equal((await c.query("select count(*)::int n from pg_class where relpersistence='t' and relname like 'rtw\\_%'")).rows[0].n,0);
+    // Not inside an open transaction either: nothing was left half-done for the next statement.
+    assert.equal((await c.query('select txid_current_if_assigned() is null as clean')).rows[0].clean,true);
+   }finally{await c.query('reset role').catch(()=>{});c.release();}
    assert.equal(await migrated(),0);assert.deepEqual(await snapshot(),before);
   });
   await t.test('stops before changing anything when a precondition differs',async()=>{
@@ -187,9 +236,10 @@ test('rtw note copy: dry-run, apply, re-run, check and guarded revert on fake ro
    const rep=Object.fromEntries((await rows(sql.check)).map(r=>[r['항목'],r]));
    assert.equal(rep['옮긴 뒤 고쳐진 노트(옮긴 직후에는 0)']['값'],'0');assert.equal(rep['연결·첨부가 붙은 노트(옮긴 직후에는 0)']['값'],'0');
   });
-  await t.test('revert: preview with rollback keeps rows; real revert removes only the copied notes; copy works again',async()=>{
-   const preview=sql.revert.replace(/commit;\s*$/,'rollback;');assert.notEqual(preview,sql.revert);
-   await run(preview);assert.equal(await migrated(),EXPECTED.total);
+  await t.test('revert: preview (v_preview = true) cancels everything and keeps rows; real revert removes only the copied notes; copy works again',async()=>{
+   const preview=sql.revert.replace('v_preview boolean := false','v_preview boolean := true');assert.notEqual(preview,sql.revert);
+   await assert.rejects(run(preview),e=>e.message.includes('RTW_REVERT_PREVIEW: 지울 수 있음 ('+EXPECTED.total+'개)'));
+   assert.equal(await migrated(),EXPECTED.total);
    await run(sql.revert);assert.equal(await migrated(),0);
    const after=await snapshot();assert.deepEqual(after,before,'rtw tables, access control and the other notes are exactly as before');
    assert.equal((await pool.query("select count(*)::int n from public.app_notes where id=$1",[basket])).rows[0].n,1);
@@ -204,6 +254,20 @@ test('rtw note copy: dry-run, apply, re-run, check and guarded revert on fake ro
    assert.match((a.status==='rejected'?a:b).reason.message,/RTW_COPY_STOP-04|lock timeout/);
    assert.equal(await migrated(),EXPECTED.total);
    await run(sql.revert);assert.equal(await migrated(),0);assert.deepEqual(await snapshot(),before);
+  });
+  await t.test('one statement is all-or-nothing: an error after the inserts leaves no notes, and a 49-note copy goes in at once',async()=>{
+   const failLate=sql.apply.replace(/\nend\n\$\$;\s*$/,"\n  raise exception 'FORCED_AFTER_INSERT';\nend\n$$;\n");assert.notEqual(failLate,sql.apply);
+   await assert.rejects(run(failLate),e=>e.message.includes('FORCED_AFTER_INSERT'));assert.equal(await migrated(),0);assert.deepEqual(await snapshot(),before);
+   // Grow the fake source to 49 notes (13 + 36 more articles), like the real 49, and copy them in one go.
+   await pool.query(`insert into public.rtw_resources(id,owner_id,title,body_md,created_at,updated_at) select ('31000000-0000-4000-8000-'||lpad(g::text,12,'0'))::uuid,'${ME}','추가 글 '||g,'본문 '||g,timestamptz '2026-08-01 00:00+00'+g*interval '1 hour',timestamptz '2026-08-01 00:00+00'+g*interval '1 hour' from generate_series(1,36) g`);
+   try{
+    const rep=await report();assert.equal(rep['만들어질 노트 합계']['값'],'49');assert.equal(await migrated(),0);
+    await run(sql.apply);assert.equal(await migrated(),49);
+    await assert.rejects(run(sql.apply),e=>e.message.includes('RTW_COPY_STOP-04'));assert.equal(await migrated(),49);
+    const chk=Object.fromEntries((await rows(sql.check)).map(r=>[r['항목'],r]));assert.ok(Object.values(chk).every(r=>r['판정']==='OK'||r['판정']==='-'));assert.equal(chk['옮겨진 노트 합계']['값'],'49');
+    await run(sql.revert);assert.equal(await migrated(),0);
+   }finally{await pool.query("delete from public.rtw_resources where id::text like '31000000-%'");}
+   assert.deepEqual(await snapshot(),before);
   });
   await t.test('stops when a friend becomes the Web2 owner mismatch, and writes nothing as a non-owner role',async()=>{
    await pool.query(`update public.rtw_personal_mode set owner_id='${FRIEND}'`);

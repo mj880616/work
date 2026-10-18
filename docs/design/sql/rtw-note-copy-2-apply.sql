@@ -1,23 +1,27 @@
 -- 초안(DRAFT) — RTW-노트일원화 ④ 옮기기 2/4: 실제 실행(데이터 옮기기). 설명: docs/design/rtw-note-copy-sql.md
 -- 무엇이 바뀌나: Web2 노트(app_notes)에 읽생기 명진 글이 노트로 새로 들어온다(읽기 글·독립 메모·질문·글쓰기 기록·훈련 기준). 읽생기 글과 기존 바구니 메모는 그대로다.
--- 잘못되면: 중간에 하나라도 맞지 않으면 오류로 멈추고 아무것도 안 바뀐다(한 번에 전부 아니면 전무). 다 들어간 뒤 모양이 마음에 안 들면 3/4로 확인하고 4/4로 옮긴 노트만 지운다.
+-- 잘못되면: 중간에 하나라도 맞지 않으면 오류로 멈추고 아무것도 안 바뀐다(한 문장이라 전부 아니면 전무). 다 들어간 뒤 모양이 마음에 안 들면 3/4로 확인하고 4/4로 옮긴 노트만 지운다.
 -- 되돌리는 법: rtw-note-copy-4-revert.sql(옮겨 온 노트만 삭제. 옮긴 뒤 고친 노트가 있으면 멈춤). 읽생기 원본이 남아 있어 다시 옮길 수 있다.
--- 쓰는 법: 1/4 해 보기 결과가 전부 OK인 것을 본 뒤, SQL Editor 새 쿼리 창(+)에 전부 붙여 넣기 → 첫 줄 begin; · 마지막 줄 commit; 확인 → 대상 프로젝트 확인 → 실행 → Success 확인.
+-- 쓰는 법: 1/4 해 보기 결과가 전부 OK인 것을 본 뒤, SQL Editor 새 쿼리 창(+)에 전부 붙여 넣기 → 대상 프로젝트 확인 → 실행 → Success 확인 → 3/4로 개수 확인. 결과표는 내지 않는다.
 -- 이 파일은 읽생기 표(rtw_*)를 select만 하고, app_notes에 insert만 한다. 표 구조·권한·정책·함수는 바꾸지 않는다.
--- 붙여 넣기가 중간에 잘리면 commit;이 없어 아무것도 저장되지 않거나, 문법 오류로 아무것도 실행되지 않는다.
-begin;
+-- 붙여 넣기가 중간에 잘리면 문장이 끝나지 않아 문법 오류로 아무것도 실행되지 않는다.
+-- 경고창(RLS 없는 표)이 뜨면 Run without RLS를 누른다(임시 표라 밖에서 접근할 수 없고 문장이 끝나면 사라진다).
+-- 이 SQL Editor는 문장 사이에 임시 표·begin 문이 유지되지 않는다(실험 확인). 그래서 이 파일은 DO 블록 한 문장뿐이고 거래 시작·저장·취소 문(begin·commit·rollback)이 없다.
+-- 이 문장 하나가 곧 한 덩어리(원자 단위)다: 끝까지 가면 저장, 중간에 오류가 나면 전부 취소.
+do $$
+declare
+  v_ctx record;
+begin
 -- ==== 본문 시작 (해 보기 파일과 실행 파일이 글자 하나까지 같아야 한다. 고치지 말 것) ====
 -- 이 본문이 하는 일: 읽생기(rtw_*)의 명진 글을 읽기만 하고, Web2 노트(app_notes)에 새 노트로 넣는다.
 -- 읽생기 표·권한·정책·함수는 건드리지 않는다. 권한 확대·정책 변경·새 함수·GRANT 없음.
--- 임시 표(rtw_ctx 등)는 이 거래가 끝나면 저절로 사라진다.
-set local lock_timeout = '5s';
-set local statement_timeout = '120s';
+-- 임시 표(rtw_ctx 등)는 이 문장이 끝나면 저절로 사라진다. 이 문장 전체가 한 덩어리라 중간에 오류가 나면 전부 취소된다.
+-- 잠금을 5초 넘게 기다리면 멈춘다(이 문장 안에서만 적용).
+perform set_config('lock_timeout', '5s', true);
 -- 같은 순간에 다른 곳에서 노트를 넣거나 이 SQL을 또 돌려도 두 번 들어가지 않게 노트 표에 쓰기 잠금을 건다.
 lock table public.app_notes in share row exclusive mode;
 
 -- [1단계] 시작 전 확인. 하나라도 다르면 아무것도 바꾸지 않고 여기서 멈춘다(오류 문구에 이유가 나온다).
-do $$
-begin
   if (select count(*) from public.rtw_personal_mode where id = 'owner') <> 1 then
     raise exception 'RTW_COPY_STOP-01: 읽생기 소유자 지정 행이 1개가 아님';
   end if;
@@ -66,8 +70,6 @@ begin
   ) then
     raise exception 'RTW_COPY_STOP-06: 읽생기 표에 이 SQL이 읽는 열이 없음(열 이름이 다름)';
   end if;
-end
-$$;
 
 -- [2단계] 기준 정보: 소유자, 넣을 작업공간, 옮긴 시각, 시작 전 노트 수.
 create temp table rtw_ctx on commit drop as
@@ -286,8 +288,6 @@ join rtw_ctx c on c.owner_id = w.owner_id
 where btrim(coalesce(w.profile_md, ''), E' \t\r\n') <> '';
 
 -- [5단계] 넣기 전 데이터 확인. 글자가 사라지거나 노트 규칙에 안 맞을 것 같으면 멈춘다.
-do $$
-begin
   if exists (select 1 from public.rtw_notes n join rtw_ctx c on c.owner_id = n.owner_id
              where n.resource_id is not null
                and not exists (select 1 from public.rtw_resources r where r.id = n.resource_id and r.owner_id = n.owner_id)) then
@@ -305,8 +305,6 @@ begin
   if exists (select 1 from rtw_plan where char_length(title) not between 1 and 200 or title ~ '[\r\n]') then
     raise exception 'RTW_COPY_STOP-14: 제목이 1~200자 한 줄 규칙에 안 맞는 노트가 있음';
   end if;
-end
-$$;
 
 -- [6단계] 실제로 넣기. 읽생기 원본은 select만 했고, 여기서 app_notes에 insert만 한다.
 --   날짜는 원래 값 그대로(created_at, updated_at), occurred_at = created_at.
@@ -323,38 +321,32 @@ where not exists (select 1 from public.app_notes x
 order by p.created_at, p.src_table, p.src_id;
 
 -- [7단계] 넣은 뒤 확인. 개수가 원본과 다르거나 다른 노트가 바뀌었으면 전체 취소.
-do $$
-declare
-  c rtw_ctx%rowtype;
-begin
-  select * into c from rtw_ctx;
-  if (select count(*) from public.app_notes where metadata -> 'rtw' ->> 'migrated_at' = c.migrated_at)
+select * into v_ctx from rtw_ctx;
+  if (select count(*) from public.app_notes where metadata -> 'rtw' ->> 'migrated_at' = v_ctx.migrated_at)
      <> (select count(*) from rtw_plan) then
     raise exception 'RTW_COPY_STOP-21: 넣은 노트 수가 계산한 수와 다름';
   end if;
-  if (select count(*) from public.app_notes) <> c.notes_before + (select count(*) from rtw_plan) then
+  if (select count(*) from public.app_notes) <> v_ctx.notes_before + (select count(*) from rtw_plan) then
     raise exception 'RTW_COPY_STOP-22: 기존 노트 수가 달라짐';
   end if;
-  if exists (select 1 from public.app_notes where metadata -> 'rtw' ->> 'migrated_at' = c.migrated_at
-             and (workspace_id <> c.workspace_id or kind <> 'note' or attachments <> '[]'::jsonb or archived_at is not null)) then
+  if exists (select 1 from public.app_notes where metadata -> 'rtw' ->> 'migrated_at' = v_ctx.migrated_at
+             and (workspace_id <> v_ctx.workspace_id or kind <> 'note' or attachments <> '[]'::jsonb or archived_at is not null)) then
     raise exception 'RTW_COPY_STOP-23: 넣은 노트의 작업공간·종류·첨부가 예상과 다름';
   end if;
   if (select count(*) from rtw_plan where src_table = 'rtw_resources')
-       <> (select count(*) from public.rtw_resources where owner_id = c.owner_id)
+       <> (select count(*) from public.rtw_resources where owner_id = v_ctx.owner_id)
      or (select count(*) from rtw_plan where src_table = 'rtw_notes')
-       <> (select count(*) from public.rtw_notes where owner_id = c.owner_id and resource_id is null)
+       <> (select count(*) from public.rtw_notes where owner_id = v_ctx.owner_id and resource_id is null)
      or (select count(*) from rtw_plan where src_table = 'rtw_questions')
-       <> (select count(*) from public.rtw_questions where owner_id = c.owner_id)
+       <> (select count(*) from public.rtw_questions where owner_id = v_ctx.owner_id)
      or (select count(*) from rtw_plan where src_table = 'rtw_records')
-       <> (select count(*) from public.rtw_records where owner_id = c.owner_id)
+       <> (select count(*) from public.rtw_records where owner_id = v_ctx.owner_id)
      or (select count(*) from rtw_plan where src_table = 'rtw_writing_context')
-       <> (select count(*) from public.rtw_writing_context where owner_id = c.owner_id
+       <> (select count(*) from public.rtw_writing_context where owner_id = v_ctx.owner_id
            and btrim(coalesce(profile_md, ''), E' \t\r\n') <> '') then
     raise exception 'RTW_COPY_STOP-24: 종류별 노트 수가 읽생기 원본 수와 다름';
   end if;
+
+-- ==== 본문 끝 ====
 end
 $$;
--- ==== 본문 끝 ====
-
--- 모든 확인을 통과했을 때만 저장한다. 이 줄이 마지막 줄이어야 한다.
-commit;

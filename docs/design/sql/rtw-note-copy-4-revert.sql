@@ -2,15 +2,10 @@
 -- 무엇이 바뀌나: 2/4로 옮겨 온 노트(metadata.rtw 표시)만 Web2 노트에서 지운다. 읽생기 원본과 바구니·업무일지·일기·직접 쓴 노트는 그대로다.
 -- 잘못되면: 옮긴 뒤 고친 노트·연결 또는 첨부가 붙은 노트·종류를 바꾼 노트가 하나라도 있으면 아무것도 지우지 않고 멈춘다(오류 문구에 개수가 나온다). 고친 내용을 지워서 통과시키지 않는다.
 -- 되돌리는 법: 지운 뒤에도 읽생기 원본이 남아 있으므로 2/4를 다시 실행하면 처음부터 다시 옮겨진다.
--- 쓰는 법: SQL Editor 새 쿼리 창(+)에 전부 붙여 넣기 → 첫 줄 begin; · 마지막 줄 commit; 확인 → 대상 프로젝트 확인 → 실행 → Success 확인 → 3/4로 옮긴 노트 0개 확인.
---   먼저 지워질 개수만 보고 싶으면 마지막 줄 commit;을 rollback;으로 바꿔 실행한다(오류 없이 끝나면 지울 수 있다는 뜻이고, 실제로는 지워지지 않는다).
+-- 쓰는 법: SQL Editor 새 쿼리 창(+)에 전부 붙여 넣기 → 대상 프로젝트 확인 → 실행 → Success 확인 → 3/4로 옮긴 노트 0개 확인.
+--   먼저 지워질 개수만 보고 싶으면 아래 선언의 false를 true로 바꿔 실행한다(v_preview 줄). 그러면 지울 수 있는 경우 RTW_REVERT_PREVIEW 오류로 끝나고(오류 = 전부 취소) 실제로는 아무것도 지워지지 않는다.
+-- 이 SQL Editor는 문장 사이에 임시 표·begin 문이 유지되지 않는다(실험 확인). 그래서 이 파일은 DO 블록 한 문장뿐이고 거래 시작·저장·취소 문이 없다. 이 문장 하나가 곧 한 덩어리다: 끝까지 가면 저장, 오류가 나면 전부 취소.
 -- 이 파일은 app_notes에서 delete만 한다. 읽생기 표·권한·정책·함수는 바꾸지 않는다.
-begin;
-set local lock_timeout = '5s';
-set local statement_timeout = '60s';
--- 되돌리는 동안 노트가 새로 들어오거나 고쳐지지 않게 노트 표에 쓰기 잠금을 건다.
-lock table public.app_notes in share row exclusive mode;
-
 do $$
 declare
   ws uuid;
@@ -22,7 +17,12 @@ declare
   n_linked int;
   n_del int;
   total_before int;
+  v_preview boolean := false;
 begin
+  -- 되돌리는 동안 노트가 새로 들어오거나 고쳐지지 않게 노트 표에 쓰기 잠금을 건다(5초 넘게 기다리면 멈춤).
+  perform set_config('lock_timeout', '5s', true);
+  lock table public.app_notes in share row exclusive mode;
+
   if (select count(*) from public.app_workspaces where slug = 'kptu-work') <> 1 then
     raise exception 'RTW_REVERT_STOP-01: Web2 작업공간(kptu-work)이 1개가 아님';
   end if;
@@ -71,8 +71,8 @@ begin
      or (select count(*) from public.app_notes) <> total_before - n_all then
     raise exception 'RTW_REVERT_STOP-06: 지운 수가 예상과 다름(전체 취소)';
   end if;
+  if v_preview then
+    raise exception 'RTW_REVERT_PREVIEW: 지울 수 있음 (%개). 미리보기라 전부 취소됨, 아무것도 안 지워짐', n_all;
+  end if;
 end
 $$;
-
--- 모든 확인을 통과했을 때만 저장한다. 이 줄이 마지막 줄이어야 한다.
-commit;
