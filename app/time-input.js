@@ -59,6 +59,13 @@ function installTimeCells(){
     if(completeTime(clean)&&normalizeTime(clean)!==null)commitTime(el);
     else if(el.getAttribute('aria-invalid')==='true'&&normalizeTime(clean)!==null)paintTimeHint(el,false);
   });
+  // Entering a time cell selects the whole time, so typing overwrites it. The press that gave the focus would
+  // drop the selection on release (mobile browsers place the caret then), so that one release is cancelled.
+  let fresh=null;
+  document.addEventListener('focusin',e=>{const el=e.target;if(!isTimeCell(el))return;fresh=el;el.select();setTimeout(()=>{if(fresh===el&&document.activeElement===el)el.select()},0)});
+  document.addEventListener('focusout',e=>{if(fresh===e.target)fresh=null});
+  document.addEventListener('keydown',()=>{fresh=null});
+  ['mouseup','touchend'].forEach(type=>document.addEventListener(type,e=>{const el=e.target;if(fresh&&el===fresh){fresh=null;if(e.cancelable)e.preventDefault();el.select()}}));
   document.addEventListener('change',e=>{if(isTimeCell(e.target))commitTime(e.target)});
   document.addEventListener('keydown',e=>{if(e.key==='Enter'&&isTimeCell(e.target))commitTime(e.target)});
 }
