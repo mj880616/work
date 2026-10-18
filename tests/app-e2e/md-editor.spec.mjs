@@ -142,6 +142,56 @@ test('md editor telegram copy turns markdown into plain Telegram text',async({pa
  expect(seen.external).toEqual([]);expect(seen.errors).toEqual([]);
 });
 
+// MD-내보내기 8-11a: ② 한글용 복사 puts the union numbering (docs/hwp-style-map.md) on the clipboard as HTML + plain text.
+const HANGUL_MD=['# 사업 계획','1. 추진 배경','   - 산별전환 **본격화**','1) 세부 항목','     (1) 교육','@1 장소','가. 서울','   가) 본관','(가) 3층','2. 일정','','* 세부 참고','','| 항목 | 담당 |','| --- | --- |','| 성명 & 보도 | 홍보 |'].join('\n');
+const HANGUL_TEXT=['사업 계획','1. 추진 배경','   - 산별전환 본격화','  1) 세부 항목','    (1) 교육','      ① 장소','        가. 서울','          가) 본관','            (가) 3층','2. 일정','','* 세부 참고','','항목\t담당','성명 & 보도\t홍보'].join('\n');
+test('md editor 한글 copy writes the union numbering as HTML and plain text',async({page})=>{
+ await page.setViewportSize({width:390,height:860});const seen=await fixture(page);
+ const {editor,area}=await openEditor(page,390);
+ await page.evaluate(()=>{navigator.clipboard.write=async items=>{window.__rich=await Promise.all(items[0].types.map(async t=>[t,await (await items[0].getType(t)).text()]));};});
+ await area.fill(HANGUL_MD);
+ await press(page,tool(editor,'내보내기'),390);
+ await page.locator('#mdExportSheet').getByRole('button',{name:'한글용 복사',exact:true}).tap();
+ await expect(page.locator('#mdExportSheet')).not.toHaveAttribute('open','');await expect(editor).toBeVisible();
+ await expect(editor.locator('.md-editor-status')).toHaveText('한글용 글을 복사했어요. 한글에 붙여 넣으세요.');
+ const rich=Object.fromEntries(await page.evaluate(()=>window.__rich));
+ expect(Object.keys(rich).sort()).toEqual(['text/html','text/plain']);
+ expect(rich['text/plain']).toBe(HANGUL_TEXT);
+ // The HTML, read back by the browser: bold kept, a real two-column table, indentation as spaces.
+ const parsed=await page.evaluate(html=>{const d=new DOMParser().parseFromString(html,'text/html');return {lines:[...d.body.querySelectorAll('p')].map(p=>p.textContent.replace(/ /g,' ')),bold:[...d.body.querySelectorAll('b')].map(b=>b.textContent),cells:[...d.body.querySelectorAll('tr')].map(tr=>[...tr.children].map(c=>c.tagName+':'+c.textContent))};},rich['text/html']);
+ expect(parsed.lines).toEqual([...HANGUL_TEXT.split('\n').slice(0,13)]);
+ expect(parsed.bold).toEqual(['사업 계획','본격화']);
+ expect(parsed.cells).toEqual([['TH:항목','TH:담당'],['TD:성명 & 보도','TD:홍보']]);
+ // Copying never rewrites the editor's text; Telegram copy still gives its own plain text.
+ await expect(area).toHaveValue(HANGUL_MD);
+ await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};});
+ await press(page,tool(editor,'내보내기'),390);
+ await page.locator('#mdExportSheet').getByRole('button',{name:'텔레그램용 복사',exact:true}).tap();
+ await expect(editor.locator('.md-editor-status')).toHaveText('텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.');
+ expect(await page.evaluate(()=>window.__copied)).toContain('1. 추진 배경\n   • 산별전환 본격화');
+ expect(seen.writes).toEqual([]);expect(seen.external).toEqual([]);expect(seen.errors).toEqual([]);
+});
+
+test('md editor 한글 copy falls back to the copy command with both kinds, and says when copying fails',async({page})=>{
+ await page.setViewportSize({width:390,height:860});const seen=await fixture(page);
+ const {editor,area}=await openEditor(page,390);
+ // An older WebView: no async rich clipboard. The copy event must still carry text/html and text/plain.
+ await page.evaluate(()=>{navigator.clipboard.write=async()=>{throw new Error('no rich clipboard');};
+  window.addEventListener('copy',e=>{window.__event={html:e.clipboardData.getData('text/html'),text:e.clipboardData.getData('text/plain'),prevented:e.defaultPrevented};});});
+ await area.fill('1. **하나**\n   1) 둘\n- 셋 @2');
+ await press(page,tool(editor,'내보내기'),390);
+ await page.locator('#mdExportSheet').getByRole('button',{name:'한글용 복사',exact:true}).tap();
+ await expect(editor.locator('.md-editor-status')).toHaveText('한글용 글을 복사했어요. 한글에 붙여 넣으세요.');
+ expect(await page.evaluate(()=>window.__event)).toEqual({html:'<p style="margin:0">1. <b>하나</b></p><p style="margin:0">&nbsp;&nbsp;1) 둘</p><p style="margin:0">- 셋 ②</p>',text:'1. 하나\n  1) 둘\n- 셋 ②',prevented:true});
+ // Nothing works: the same failure line as Telegram, and the text stays.
+ await page.evaluate(()=>{document.execCommand=()=>false;});
+ await press(page,tool(editor,'내보내기'),390);
+ await page.locator('#mdExportSheet').getByRole('button',{name:'한글용 복사',exact:true}).tap();
+ await expect(editor.locator('.md-editor-status')).toHaveText('복사하지 못했어요. 다시 눌러 주세요.');
+ await expect(area).toHaveValue('1. **하나**\n   1) 둘\n- 셋 @2');
+ expect(seen.writes).toEqual([]);expect(seen.external).toEqual([]);expect(seen.errors).toEqual([]);
+});
+
 test('md editor closes with the phone back button and keeps the text in the edit field',async({page})=>{
  await page.setViewportSize({width:390,height:860});const seen=await fixture(page);
  const {detail,area}=await openEditor(page,390);

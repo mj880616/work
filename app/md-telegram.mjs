@@ -1,17 +1,29 @@
 // MD-편집기 [텔레그램용 복사]: 마크다운 기호를 텔레그램에 붙여 넣었을 때 자연스럽게 읽히는 일반 글로 바꾼다(순수 함수).
 // 텔레그램은 붙여 넣은 글의 마크다운을 꾸밈으로 바꾸지 않으므로, 꾸밈 기호는 빼고 구조(줄·목록·번호)는 글자로 남긴다.
 // 규칙표는 PR·docs/markdown-view.md 8절에 있다. 저장된 원문은 바꾸지 않는다(복사본만).
+// 줄 판별 정규식·표 칸 나누기·글 안 꾸밈 규칙은 [한글용 복사](md-hangul.mjs)가 함께 쓴다.
 
 export const TELEGRAM_RULE = '──────────';
 export const TELEGRAM_DIAGRAM = '(도식은 텔레그램에서 보이지 않아 뺐습니다)';
-const CALLOUT_NAMES = {NOTE: '참고', TIP: '팁', IMPORTANT: '중요', WARNING: '경고', CAUTION: '주의'};
+export const CALLOUT_NAMES = {NOTE: '참고', TIP: '팁', IMPORTANT: '중요', WARNING: '경고', CAUTION: '주의'};
 
 const ESCAPABLE = /\\([\\`*_{}[\]()#+\-.!|>~<])/g;
 // Private-use placeholders keep escaped marks and code spans away from the emphasis rules.
 const hold = (store, value) => `${store.push(value) - 1}`;
 const release = (text, store) => text.replace(/(\d+)/g, (_, i) => store[+i]);
 
+// MD-내보내기 [한글용 복사]: bold survives as a pair of private-use marks (BOLD_OPEN … BOLD_CLOSE) so the 한글 copy can
+// turn it into <b>; Telegram drops the marks, so its text is exactly what it was before the marks existed.
+export const BOLD_OPEN = '\uE002', BOLD_CLOSE = '\uE003';
+const BOLD_MARKS = /[\uE002\uE003]/g;
+export const dropBold = text => String(text).replace(BOLD_MARKS, '');
+
 export function telegramInline(text) {
+  return dropBold(markedInline(text));
+}
+
+// The shared inline rules: marks go, links and images become "글 (주소)", bold is kept as BOLD_OPEN/BOLD_CLOSE.
+export function markedInline(text) {
   const store = [];
   let out = String(text).replace(/(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/g, (_, ticks, code) => hold(store, code.trim() ? code.replace(/^ (.*) $/, '$1') : code));
   out = out.replace(ESCAPABLE, (_, ch) => hold(store, ch));
@@ -19,8 +31,8 @@ export function telegramInline(text) {
     .replace(/!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g, (_, alt, url) => hold(store, `${alt.trim() || '이미지'} (${url})`))
     .replace(/\[([^\]]+)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g, (_, label, url) => hold(store, label.trim() === url ? url : `${label} (${url})`))
     .replace(/<((?:https?|mailto):[^>\s]+)>/g, (_, url) => hold(store, url))
-    .replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '$1')
-    .replace(/(^|[^\w])__(?=\S)([\s\S]*?\S)__(?!\w)/g, '$1$2')
+    .replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, `${BOLD_OPEN}$1${BOLD_CLOSE}`)
+    .replace(/(^|[^\w])__(?=\S)([\s\S]*?\S)__(?!\w)/g, `$1${BOLD_OPEN}$2${BOLD_CLOSE}`)
     .replace(/~~(?=\S)([\s\S]*?\S)~~/g, '$1')
     .replace(/(^|[^\w*])\*(?=[^\s*])([^*\n]*?[^\s*])?\*(?![\w*])/g, (m, lead, body) => body === undefined ? m : lead + body)
     .replace(/(^|[^\w])_(?=[^\s_])([^_\n]*?[^\s_])?_(?!\w)/g, (m, lead, body) => body === undefined ? m : lead + body);
@@ -29,19 +41,23 @@ export function telegramInline(text) {
   return release(release(out, store), store);
 }
 
-const FENCE = /^\s{0,3}(`{3,}|~{3,})\s*([\w-]*)/;
-const HEADING = /^\s{0,3}#{1,6}[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
-const RULE = /^\s{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-const QUOTE = /^\s{0,3}>[ \t]?(.*)$/;
-const CALLOUT = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$/i;
-const TASK = /^(\s*)[-*+][ \t]+\[([ xX])\][ \t]+(.*)$/;
-const BULLET = /^(\s*)[-*+][ \t]+(.*)$/;
-const NUMBER = /^(\s*)(\d+)[.)][ \t]+(.*)$/;
-const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
-const cells = line => {
+export const FENCE = /^\s{0,3}(`{3,}|~{3,})\s*([\w-]*)/;
+export const HEADING = /^\s{0,3}#{1,6}[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
+export const RULE = /^\s{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+export const QUOTE = /^\s{0,3}>[ \t]?(.*)$/;
+export const CALLOUT = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*$/i;
+export const TASK = /^(\s*)[-*+][ \t]+\[([ xX])\][ \t]+(.*)$/;
+export const BULLET = /^(\s*)[-*+][ \t]+(.*)$/;
+export const NUMBER = /^(\s*)(\d+)[.)][ \t]+(.*)$/;
+export const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+// One table row's cells; inline decides how each cell's marks are read (Telegram: plain, 한글: bold kept).
+export const tableCells = (line, inline = telegramInline) => {
   const body = line.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '');
-  return body.split(/(?<!\\)\|/).map(c => telegramInline(c.trim().replace(/\\\|/g, '|')));
+  return body.split(/(?<!\\)\|/).map(c => inline(c.trim().replace(/\\\|/g, '|')));
 };
+const cells = line => tableCells(line);
+// A table starts where a line with | is followed by a separator row (| --- |).
+export const isTableStart = (lines, i) => lines[i].includes('|') && i + 1 < lines.length && TABLE_SEP.test(lines[i + 1]) && lines[i + 1].includes('-');
 
 function listLine(line) {
   let m = TASK.exec(line);
@@ -66,7 +82,7 @@ export function toTelegram(markdown) {
       out.push(...(fence[2].toLowerCase() === 'mermaid' ? [TELEGRAM_DIAGRAM] : body));
       i = j; continue;
     }
-    if (line.includes('|') && i + 1 < lines.length && TABLE_SEP.test(lines[i + 1]) && lines[i + 1].includes('-')) {
+    if (isTableStart(lines, i)) {
       // A table becomes one sentence per row: "머리말: 값, 머리말: 값".
       const head = cells(line);
       let j = i + 2;

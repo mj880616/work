@@ -40,10 +40,10 @@ async function expectAboveTabs(page,sheet){
  for(const row of await sheet.locator('[data-sheet-value]').all()){const r=await row.boundingBox();expect(r.y+r.height).toBeLessThanOrEqual(bar.y);}
 }
 
-const EXPORTS=[['텔레그램용 복사','텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.'],['한글용 복사','한글용 복사는 준비 중이에요.'],['HWP 파일로 받기','HWP 파일로 받기는 준비 중이에요.']];
+const EXPORTS=[['텔레그램용 복사','텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.'],['한글용 복사','한글용 글을 복사했어요. 한글에 붙여 넣으세요.'],['HWP 파일로 받기','HWP 파일로 받기는 준비 중이에요.']];
 for(const [item,status] of EXPORTS)test(`내보내기 [${item}]: 탭 이동 없이 동작하고 쓰기 창이 남음, 같은 자리를 또 눌러도 탭으로 가지 않음 390`,async({page})=>{
  const f=await fixture(page);
- await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};});
+ await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};navigator.clipboard.write=async items=>{window.__copied=await (await items[0].getType('text/plain')).text();};});
  const {editor,area}=await openWriter(page,'# 쓰던 글');
  const sheet=await openExport(page,editor);
  await expectAboveTabs(page,sheet);
@@ -52,7 +52,7 @@ for(const [item,status] of EXPORTS)test(`내보내기 [${item}]: 탭 이동 없�
  await touch(page,x,y);
  await expect(sheet).not.toHaveAttribute('open','');
  await expect(editor.locator('.md-editor-status')).toHaveText(status);
- if(item==='텔레그램용 복사')expect(await page.evaluate(()=>window.__copied)).toBe('쓰던 글');
+ if(item!=='HWP 파일로 받기')expect(await page.evaluate(()=>window.__copied)).toBe('쓰던 글');
  // A second press at the same spot lands in the write window, not on a tab.
  await touch(page,x,y);
  await expect(page.locator('#mdLeaveSheet[open]')).toHaveCount(0);
