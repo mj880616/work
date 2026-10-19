@@ -13,6 +13,8 @@ export function appendDayRows(container,date,items){
   const events=items.filter(e=>e.source==='google'),pending=items.filter(e=>e.source==='task'&&!e.done),count=pending.length;
   for(const ev of events){
     const row=document.createElement('button');row.type='button';row.className='clv-event cp-event';row.dataset.googleEvent=ev.id;row.dataset.googleCalendar=ev.calendarId||'primary';
+    // Same per-event color variable as month/week bands; the week CSS paints its stripe from it.
+    row.style.setProperty('--cmv-google-source',ev.color);
     const time=document.createElement('span');time.className='clv-time';time.textContent=ev.allDay?'종일':seoulClock(ev.start);
     const stripe=document.createElement('span');stripe.className='clv-color';stripe.style.background=ev.color;stripe.setAttribute('aria-hidden','true');
     const title=document.createElement('span');title.className='clv-title';title.textContent=ev.title||'(제목 없음)';
