@@ -2,18 +2,30 @@
 export function projectRows(rows,selected,esc){
   return [{project:{id:'',name:'프로젝트 없음'},depth:0},...rows].map(x=>`<button type="button" class="home-choice-row" style="--home-choice-depth:${x.depth}" data-sheet-value="${esc(x.project.id)}" aria-pressed="${x.project.id===selected}" title="${esc(x.project.name)}">${esc(x.project.name)}</button>`).join('');
 }
-export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,onSelect,onError}){
+// anchored(kind): optional. When it returns true (home update picker on a wide screen) the sheet opens as a small window beside
+// the trigger instead of rising from the bottom. Without it nothing changes for the caller.
+export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,onSelect,onError,anchored}){
   const sheet=document.createElement('dialog');sheet.className='home-choice-sheet';sheet.id=id;sheet.setAttribute('aria-labelledby',titleId);
   sheet.innerHTML=`<header><h2 id="${titleId}"></h2><button type="button" data-sheet-close aria-label="선택판 닫기">×</button></header><div data-sheet-content></div>`;
   document.body.append(sheet);
   let active=null,closing=null,epoch=0;
+  function place(){
+    if(!active)return;
+    if(!anchored?.(active.kind)){unplace();return;}
+    const t=active.trigger.getBoundingClientRect(),vw=document.documentElement.clientWidth,vh=window.innerHeight,gap=4,edge=8;
+    const width=Math.min(360,vw-edge*2),left=Math.max(edge,Math.min(t.left,vw-width-edge));
+    const below=vh-t.bottom-gap-edge,above=t.top-gap-edge,down=below>=Math.min(320,above);
+    sheet.classList.add('home-choice-anchored');
+    Object.assign(sheet.style,{inset:'auto',margin:'0',width:width+'px',left:left+'px',top:down?t.bottom+gap+'px':'auto',bottom:down?'auto':vh-t.top+gap+'px',maxHeight:Math.max(160,down?below:above)+'px'});
+  }
+  function unplace(){if(!sheet.classList.contains('home-choice-anchored'))return;sheet.classList.remove('home-choice-anchored');sheet.removeAttribute('style');}
   function paint(){
     if(!active)return;const view=render(active.kind);sheet.querySelector('h2').textContent=view.title;sheet.dataset.kind=active.kind;
-    const content=sheet.querySelector('[data-sheet-content]');content.innerHTML=view.html;
+    const content=sheet.querySelector('[data-sheet-content]');content.innerHTML=view.html;place();
     const focus=content.querySelector('[aria-pressed="true"]')||content.querySelector('button')||sheet.querySelector('[data-sheet-close]');focus.focus({preventScroll:true});focus.scrollIntoView({block:'nearest'});
   }
   function close(fromBack=false){
-    epoch++;const previous=active;if(!previous)return closing||Promise.resolve();active=null;sheet.close();previous.trigger.setAttribute('aria-expanded','false');
+    epoch++;const previous=active;if(!previous)return closing||Promise.resolve();active=null;sheet.close();unplace();previous.trigger.setAttribute('aria-expanded','false');
     let release;const pending=new Promise(resolve=>release=resolve);closing=pending;
     const finish=()=>queueMicrotask(()=>{if(closing===pending)closing=null;if(canOpen()&&previous.trigger.isConnected&&!previous.trigger.hidden)previous.trigger.focus({preventScroll:true});release();});
     if(!fromBack&&history.state?.[historyKey]===previous.id){window.addEventListener('popstate',finish,{once:true});history.back();}else finish();return pending;
@@ -29,6 +41,7 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   sheet.querySelector('[data-sheet-close]').onclick=()=>void close();sheet.addEventListener('cancel',e=>{e.preventDefault();void close();});
   sheet.addEventListener('click',e=>{const b=e.target.closest('[data-sheet-value]');if(b&&active){onSelect(active.kind,b.dataset.sheetValue);void close();return;}if(e.target===sheet){const r=sheet.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)void close();}});
   sheet.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();void close();return;}if(e.key!=='Tab')return;e.stopPropagation();const buttons=[...sheet.querySelectorAll('button')],i=buttons.indexOf(document.activeElement);if(e.shiftKey&&i===0){e.preventDefault();buttons.at(-1).focus();}else if(!e.shiftKey&&i===buttons.length-1){e.preventDefault();buttons[0].focus();}});
+  if(anchored)window.addEventListener('resize',place);
   window.addEventListener('popstate',e=>{if(active&&e.state?.[historyKey]!==active.id)void close(true);});
   return {open,close,dismiss,render:paint};
 }

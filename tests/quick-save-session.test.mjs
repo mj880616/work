@@ -30,3 +30,11 @@ test('same-owner token refresh keeps the bound quick create retry available',asy
   assert.equal(data.task.id,'task-confirmed');assert.equal(calls.filter(c=>c.path.endsWith('google-tasks')).length,2);
   assert.deepEqual(calls[0].body,{action:'create',task_id:null,title:'유지할 입력',notes:'',due:'2026-10-07',links:[]});
 });
+test('project update saves the same row shape as the project screen progress input',async()=>{
+  const {saveProjectProgress}=await import('../app/quick-save.js');const sent=[];
+  await saveProjectProgress({project_id:'project-a',raw_text:'내용',created_by:'owner-a'},{api:(path,options)=>{sent.push({path,options});return Promise.resolve([]);}});
+  assert.equal(sent[0].path,'/rest/v1/app_project_progress_updates');assert.equal(sent[0].options.method,'POST');
+  const {effective_on,...rest}=sent[0].options.body;
+  assert.deepEqual(rest,{project_id:'project-a',workstream_id:null,author_id:'owner-a',status_label:null,summary:'내용',next_step:null,metadata:{}});
+  assert.match(effective_on,/^\d{4}-\d{2}-\d{2}$/);
+});
