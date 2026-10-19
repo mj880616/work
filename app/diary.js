@@ -4,7 +4,8 @@
 // note-delete path (attachments to the Drive trash). Back closes the top open thing first (router layers).
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, dropEmptyDiary, uploadDiaryPhotos, photoElement,
-  diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS} from './diary-data.js';
+  diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
+  photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {deleteNoteOriginal} from './basket-record-delete.js';
 
 (() => {
@@ -116,6 +117,17 @@ function renderDetail() {
     grid.append(button);
   });
   host.append(grid);
+  // One short line per photo that has a comment (the full-screen view shows it under the photo too).
+  const comments = photoComments(row), commented = photos.map((file, i) => ({i, text:comments[file.drive_file_id]})).filter(item => item.text);
+  if (commented.length) {
+    const list = document.createElement('ul');
+    list.className = 'diary-captions'; list.dataset.diaryCaptions = '';
+    for (const {i, text} of commented) {
+      const item = document.createElement('li'), label = document.createElement('b');
+      label.textContent = `사진 ${i + 1}`; item.append(label, ' ', text); list.append(item);
+    }
+    host.append(list);
+  }
 }
 
 // Full-screen photo view: swipe sideways, "3 / 8", × and Back close it (router layer), ☆ is a place holder until OneDrive.
@@ -126,7 +138,7 @@ function openViewer(index) {
   const trigger = document.activeElement, box = document.createElement('div');
   box.className = 'diary-viewer'; box.dataset.diaryViewer = ''; box.dataset.swipeLock = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', `${shortDay(selected)} 사진`);
-  box.innerHTML = `<div class="diary-viewer-bar"><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><button type="button" class="diary-viewer-star" data-diary-star aria-label="별표">☆</button><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">×</button></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-note" data-diary-viewer-note role="status"></p>`;
+  box.innerHTML = `<div class="diary-viewer-bar"><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><button type="button" class="diary-viewer-star" data-diary-star aria-label="별표">☆</button><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">×</button></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-caption" data-diary-viewer-caption></p><p class="diary-viewer-note" data-diary-viewer-note role="status"></p>`;
   const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]');
   photos.forEach((file, i) => {
     const slide = document.createElement('figure'); slide.className = 'diary-slide';
@@ -134,7 +146,8 @@ function openViewer(index) {
     strip.append(slide);
   });
   let at = index;
-  const show = () => { count.textContent = `${at + 1} / ${photos.length}`; };
+  const comments = photoComments(row), caption = box.querySelector('[data-diary-viewer-caption]');
+  const show = () => { count.textContent = `${at + 1} / ${photos.length}`; caption.textContent = comments[photos[at].drive_file_id] || ''; };
   strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && photos[next]) { at = next; show(); } }, {passive:true});
   const step = dir => strip.scrollTo({left:Math.max(0, Math.min(photos.length - 1, at + dir)) * strip.clientWidth, behavior:'smooth'});
   box.addEventListener('keydown', event => {
@@ -160,14 +173,17 @@ function closeViewer({fromBack = false, restore = true} = {}) {
 }
 
 // Write / edit panel. One diary per day: a day that already has one always opens it to edit.
-const dirty = () => !!edit && (edit.pending.length > 0 || editor.querySelector('[data-diary-text]')?.value !== edit.startText);
+const commentsChanged = () => { const now = cleanLive(), was = edit.startComments; const keys = new Set([...Object.keys(now), ...Object.keys(was)]); return [...keys].some(key => (now[key] || '') !== (was[key] || '')); };
+// The typed comments of the photos already on the day, trimmed to one line; an over-long one is cut by cleanComments' error.
+const cleanLive = () => { const out = {}; for (const [id, text] of Object.entries(edit.comments)) { const line = String(text ?? '').replace(/\s+/g, ' ').trim(); if (line) out[id] = line; } return out; };
+const dirty = () => !!edit && (edit.pending.length > 0 || editor.querySelector('[data-diary-text]')?.value !== edit.startText || commentsChanged());
 async function openEditor(day) {
   if (edit) return;
   let row = rows.get(day) || null;
   if (!row && loadedMonth !== monthOf(day)) {
     try { row = await readDiaryDay(day, rt); } catch { row = null; }
   }
-  edit = {day, row, pending:[], busy:false, startText:diaryText(row)};
+  edit = {day, row, pending:[], busy:false, startText:diaryText(row), comments:photoComments(row), startComments:photoComments(row)};
   cal.hidden = true; detail.hidden = true; $('[data-diary-new]').hidden = true; $('.diary-head').hidden = true; status.hidden = true;
   renderEditor();
   editLayer ||= window.KPTURouter?.layer?.open('diary-edit', {close:() => closeEditor({fromBack:true})}) || null;
@@ -186,17 +202,28 @@ function renderEditor(message = '') {
 <div class="diary-actions"><button type="button" class="primary" data-diary-save>저장</button>${row ? '<button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button>' : ''}</div>`;
   editor.querySelector('[data-diary-text]').value = text;
   const thumbs = editor.querySelector('[data-diary-thumbs]');
+  // Each photo has a one-line optional comment under it (max 200 chars), typed text kept in edit state across redraws.
+  const commentInput = (value, label, attribute, key) => {
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'diary-comment'; input.maxLength = DIARY_COMMENT_MAX; input.value = value || '';
+    input.placeholder = '코멘트(선택)'; input.setAttribute('aria-label', `${label} 코멘트`); input.setAttribute(attribute, key);
+    return input;
+  };
   photos.forEach((file, i) => {
+    const cell = document.createElement('div'); cell.className = 'diary-thumb-cell';
     const item = document.createElement('div'); item.className = 'diary-thumb'; item.dataset.diaryThumb = file.drive_file_id;
     item.append(photoElement(row, file, 'small', {label:`사진 ${i + 1}`}));
     const out = document.createElement('button'); out.type = 'button'; out.className = 'icon-btn'; out.dataset.diaryRemove = file.drive_file_id;
-    out.setAttribute('aria-label', `사진 ${i + 1} 빼기`); out.textContent = '×'; item.append(out); thumbs.append(item);
+    out.setAttribute('aria-label', `사진 ${i + 1} 빼기`); out.textContent = '×'; item.append(out);
+    cell.append(item, commentInput(edit.comments[file.drive_file_id], `사진 ${i + 1}`, 'data-diary-comment', file.drive_file_id)); thumbs.append(cell);
   });
   edit.pending.forEach((entry, i) => {
+    const cell = document.createElement('div'); cell.className = 'diary-thumb-cell';
     const item = document.createElement('div'); item.className = 'diary-thumb pending'; item.dataset.diaryPending = String(i);
     const img = document.createElement('img'); img.alt = entry.file.name; img.src = entry.url; item.append(img);
     const out = document.createElement('button'); out.type = 'button'; out.className = 'icon-btn'; out.dataset.diaryUnpick = String(i);
-    out.setAttribute('aria-label', `${entry.file.name} 선택 취소`); out.textContent = '×'; item.append(out); thumbs.append(item);
+    out.setAttribute('aria-label', `${entry.file.name} 선택 취소`); out.textContent = '×'; item.append(out);
+    cell.append(item, commentInput(entry.comment, entry.file.name, 'data-diary-pending-comment', String(i))); thumbs.append(cell);
   });
   thumbs.hidden = !count;
   setEditorStatus(message);
@@ -218,7 +245,7 @@ function pick(files) {
   const have = diaryPhotos(edit.row).length + edit.pending.length, room = Math.max(0, DIARY_MAX_PHOTOS - have);
   const images = [...files].filter(file => /^image\//.test(file.type || '')), skipped = files.length - images.length;
   const taken = images.slice(0, room);
-  edit.pending.push(...taken.map(file => ({file, url:URL.createObjectURL(file)})));
+  edit.pending.push(...taken.map(file => ({file, url:URL.createObjectURL(file), comment:''})));
   const notes = [];
   if (images.length > room) notes.push(`일기 사진은 하루 ${DIARY_MAX_PHOTOS}장까지예요. ${images.length - room}장은 넣지 않았어요.`);
   if (skipped) notes.push(`사진이 아닌 파일 ${skipped}개는 넣지 않았어요.`);
@@ -236,7 +263,7 @@ async function changeDay(day) {
 function adoptExisting(row, message) {
   const typed = editor.querySelector('[data-diary-text]')?.value || '';
   const saved = diaryText(row);
-  edit.row = row; edit.day = row.journal_day; edit.startText = saved;
+  edit.row = row; edit.day = row.journal_day; edit.startText = saved; edit.comments = photoComments(row); edit.startComments = photoComments(row);
   rows.set(row.journal_day, row);
   renderEditor(message);
   editor.querySelector('[data-diary-text]').value = typed.trim() && typed !== saved ? (saved ? `${saved}\n\n${typed}` : typed) : saved;
@@ -244,7 +271,7 @@ function adoptExisting(row, message) {
 async function save() {
   if (!edit || edit.busy) return;
   const text = editor.querySelector('[data-diary-text]').value, day = edit.day;
-  try { validateDiaryText(text); } catch (error) { return setEditorStatus(error.message); }
+  try { validateDiaryText(text); cleanComments(edit.comments, diaryPhotos(edit.row)); edit.pending.forEach(entry => cleanComments({x:entry.comment}, [{drive_file_id:'x'}])); } catch (error) { return setEditorStatus(error.message); }
   if (!text.trim() && !edit.pending.length && !diaryPhotos(edit.row).length) return setEditorStatus('사진이나 글을 넣어 주세요.');
   const run = owner, mine = () => run === ownerScope(rt) && !!edit;
   edit.busy = true; renderEditor('저장하는 중…');
@@ -260,10 +287,13 @@ async function save() {
         throw error;
       }
     }
+    const comments = {...cleanLive()};
     if (edit.pending.length) {
-      const files = edit.pending.map(entry => entry.file);
+      const files = edit.pending.map(entry => entry.file), have = (edit.row.attachments || []).length;
       result = await uploadDiaryPhotos(edit.row, files, {rt, isCurrent:mine, onProgress:({done, total}) => setEditorStatus(`사진 올리는 중… ${done}/${total}장`)});
       if (!mine()) return;
+      // The photos that went up are the last ones on the row, in the order they were picked: their comments follow them.
+      (result.attachments || []).slice(have, have + result.done).forEach((file, i) => { const line = String(edit.pending[i]?.comment ?? '').replace(/\s+/g, ' ').trim(); if (line) comments[file.drive_file_id] = line; });
       edit.pending.splice(0, result.done).forEach(entry => URL.revokeObjectURL(entry.url));
     }
     let fresh = await readDiaryDay(day, rt);
@@ -276,7 +306,8 @@ async function save() {
     } else if (fresh && fresh.raw_text !== desired && (desired || fresh.attachments?.length)) {
       fresh = await saveDiaryText(fresh, text, rt);
     }
-    if (fresh) { rows.set(day, fresh); edit.row = fresh; edit.startText = diaryText(fresh); } else rows.delete(day);
+    if (fresh) fresh = await saveDiaryComments(fresh, comments, rt);
+    if (fresh) { rows.set(day, fresh); edit.row = fresh; edit.startText = diaryText(fresh); edit.comments = photoComments(fresh); edit.startComments = photoComments(fresh); } else rows.delete(day);
     edit.busy = false;
     if (result.failed) {
       const done = result.done ? `${result.done}장은 올렸어요. ` : '';
@@ -303,6 +334,7 @@ async function removePhoto(fileId) {
   try {
     const row = await removeDiaryPhoto(edit.row, fileId, rt);
     rows.set(row.journal_day, row); edit.row = row; edit.busy = false;
+    delete edit.comments[fileId]; delete edit.startComments[fileId];
     renderEditor('사진을 뺐어요.'); renderMonth();
   } catch (error) {
     edit.busy = false; renderEditor(error?.message && !error.status ? error.message : '사진을 빼지 못했어요. 다시 시도해 주세요.');
@@ -343,6 +375,11 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-unpick]')) { const [entry] = edit.pending.splice(Number(button.dataset.diaryUnpick), 1); if (entry) URL.revokeObjectURL(entry.url); const text = editor.querySelector('[data-diary-text]').value; renderEditor(); editor.querySelector('[data-diary-text]').value = text; return; }
   if (button.matches('[data-diary-remove]')) return removePhoto(button.dataset.diaryRemove);
   if (button.matches('[data-diary-save]')) return save();
+});
+root.addEventListener('input', event => {
+  if (!edit) return;
+  if (event.target.matches('[data-diary-comment]')) edit.comments[event.target.dataset.diaryComment] = event.target.value;
+  else if (event.target.matches('[data-diary-pending-comment]')) { const entry = edit.pending[Number(event.target.dataset.diaryPendingComment)]; if (entry) entry.comment = event.target.value; }
 });
 root.addEventListener('change', event => {
   if (event.target.matches('[data-diary-input]')) { const files = [...event.target.files || []]; event.target.value = ''; if (files.length && edit) { const text = editor.querySelector('[data-diary-text]').value; pick(files); editor.querySelector('[data-diary-text]').value = text; } }

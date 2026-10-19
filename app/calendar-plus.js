@@ -44,7 +44,7 @@ function cmPaintMode(){
 }
 let cmFormOwner=window.KPTURuntime.context.read()?.user?.id;
 const cmProjectButton=()=>document.querySelector('#eventTaskProject');
-function cmPaintProject(){const b=cmProjectButton();if(b){const name=document.createElement('span');name.textContent=(cmProjectRows.find(x=>x.project.id===cmProject)?.project.name||'프로젝트')+' ▾';b.replaceChildren(name);b.setAttribute('aria-label',cmProject?'프로젝트: '+b.textContent.slice(0,-2):'프로젝트');}}
+function cmPaintProject(){const b=cmProjectButton();if(!b)return;const name=cmProjectRows.find(x=>x.project.id===cmProject)?.project.name||'',label=document.createElement('span'),arrow=document.createElement('span');label.className='event-project-name';label.textContent=cmProject&&name?name:'선택 안 함';label.dataset.empty=String(!(cmProject&&name));arrow.className='event-project-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='▾';b.replaceChildren(label,arrow);b.setAttribute('aria-label',cmProject&&name?'프로젝트: '+name:'프로젝트')}
 const cmProjectPicker=createChoiceSheet({id:'eventProjectSheet',titleId:'eventProjectSheetTitle',historyKey:'kptuEventProjectChoice',
   canOpen:()=>cmMode==='task'&&!cmSavePending&&!document.querySelector('#eventModal')?.classList.contains('hidden'),
   choices:async()=>{const ctx=window.KPTURuntime.context.read(),snap=await window.KPTUProjectCatalog.load({workspaceId:ctx.workspaceId,userId:ctx.user.id});cmProjectRows=snap.tree.filter(x=>x.project.status==='active');if(!cmProjectRows.some(x=>x.project.id===cmProject))cmProject='';cmPaintProject();},

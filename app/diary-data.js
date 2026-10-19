@@ -8,10 +8,11 @@ import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
 export const DIARY_MAX_PHOTOS = 20;
 export const DIARY_TEXT_MAX = 20000;
 export const DIARY_PHOTO_EDGE = 2048;
+export const DIARY_COMMENT_MAX = 200;
 // app_notes_raw_text_check needs text or an attachment. A photo-only day is created with this one space, and the
 // space is cleared again as soon as its first photo is attached (or the empty row is removed if none could be).
 const HOLD_TEXT = ' ';
-const FIELDS = 'id,journal_day,raw_text,attachments,updated_at';
+const FIELDS = 'id,journal_day,raw_text,attachments,metadata,updated_at';
 const encode = encodeURIComponent;
 const dayKey = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -23,6 +24,45 @@ function workspace(rt) {
 export const ownerScope = (rt = window.KPTURuntime) => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 export const diaryText = row => String(row?.raw_text ?? '').trim() ? String(row.raw_text) : '';
 export const diaryPhotos = row => (Array.isArray(row?.attachments) ? row.attachments : []).filter(file => /^image\//.test(file?.mime_type || ''));
+// Per-photo comments live in the row's existing metadata jsonb (no new column, no database change):
+// metadata.photo_comments = {<drive_file_id>: '짧은 코멘트'}. Only comments of photos still on the day are read.
+export function photoComments(row) {
+  const raw = row?.metadata?.photo_comments;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out = {};
+  for (const file of diaryPhotos(row)) {
+    const value = raw[file.drive_file_id];
+    if (typeof value === 'string' && value.trim()) out[file.drive_file_id] = value;
+  }
+  return out;
+}
+export function cleanComment(value) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if ([...text].length > DIARY_COMMENT_MAX) throw new Error(`사진 코멘트는 ${DIARY_COMMENT_MAX}자까지 쓸 수 있어요.`);
+  return text;
+}
+// A comments map reduced to the given photos, cleaned, empty ones dropped.
+export function cleanComments(comments, photos) {
+  const out = {};
+  for (const file of photos) {
+    const text = cleanComment(comments?.[file.drive_file_id]);
+    if (text) out[file.drive_file_id] = text;
+  }
+  return out;
+}
+const sameComments = (a, b) => { const x = Object.keys(a), y = Object.keys(b); return x.length === y.length && x.every(key => a[key] === b[key]); };
+// Other metadata keys stay as they are; photo_comments is removed when no comment is left.
+function withComments(metadata, comments) {
+  const next = {...(metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {})};
+  if (Object.keys(comments).length) next.photo_comments = comments; else delete next.photo_comments;
+  return next;
+}
+export async function saveDiaryComments(row, comments, rt = window.KPTURuntime) {
+  const next = cleanComments(comments, diaryPhotos(row));
+  const have = photoComments(row);
+  if (sameComments(next, have) && (Object.keys(next).length || !row?.metadata?.photo_comments)) return row;
+  return one(await patch(row, {metadata:withComments(row.metadata, next)}, rt));
+}
 export const todayKey = () => seoulDateKey(new Date());
 function checkDay(day) {
   if (typeof day !== 'string' || !dayKey.test(day) || seoulDateKey(day) !== day) throw new Error('날짜를 확인해 주세요.');
@@ -75,7 +115,10 @@ export async function removeDiaryPhoto(row, fileId, rt = window.KPTURuntime) {
   const attachments = (row.attachments || []).filter(file => file.drive_file_id !== fileId);
   if (attachments.length === (row.attachments || []).length) throw new Error('이미 빠진 사진이에요.');
   if (!attachments.length && !diaryText(row)) throw Object.assign(new Error('글 없이 사진 한 장만 있는 일기라 이 사진은 뺄 수 없어요. 일기를 지우려면 [일기 지우기]를 눌러 주세요.'), {code:'last_photo'});
-  const rows = await patch(row, {attachments}, rt, {strict:true});
+  // The comment of the removed photo goes in the same write, so no orphan comment stays behind.
+  const body = {attachments};
+  if (row.metadata?.photo_comments !== undefined) { const {[fileId]: gone, ...rest} = photoComments(row); body.metadata = withComments(row.metadata, rest); }
+  const rows = await patch(row, body, rt, {strict:true});
   if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
   return one(rows);
 }
