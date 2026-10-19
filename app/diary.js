@@ -193,7 +193,7 @@ function renderEditor(message = '') {
   const {row, day} = edit, photos = diaryPhotos(row), count = photos.length + edit.pending.length;
   const text = editor.querySelector('[data-diary-text]')?.value ?? edit.startText;
   editor.hidden = false;
-  editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 고치기' : '일기 쓰기'}</h3><button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></div>
+  editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></div>
 <label class="diary-field"><span>날짜</span><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31"${row ? ' disabled' : ''}></label>
 <div class="diary-pick"><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary" data-diary-pick aria-controls="diaryPhotoInput"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}>사진 고르기</button><small data-diary-count>${count}/${DIARY_MAX_PHOTOS}장 · 긴 변 2048px로 줄여 올려요</small></div>
 <div class="diary-thumbs" data-diary-thumbs></div>
@@ -257,7 +257,7 @@ async function changeDay(day) {
   let existing = rows.get(day) || null;
   if (!existing) { try { existing = await readDiaryDay(day, rt); } catch { existing = null; } }
   if (!edit || edit.day !== day) return;
-  if (existing) adoptExisting(existing, '이 날 일기가 이미 있어 고치기로 열었어요.');
+  if (existing) adoptExisting(existing, '이 날 일기가 이미 있어 수정으로 열었어요.');
 }
 // A typed text is kept: appended below the day's saved text.
 function adoptExisting(row, message) {

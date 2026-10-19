@@ -273,7 +273,7 @@ test('같은 날은 하나: [+]는 있는 날을 고치기로, 날짜를 있는 
  await cell(page,'2026-10-03').click();
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');
- await expect(ed.locator('h3')).toHaveText('일기 고치기');await expect(ed.locator('[data-diary-text]')).toHaveValue('가을 산책 DIARY_TEXT_SECRET');
+ await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(ed.locator('[data-diary-text]')).toHaveValue('가을 산책 DIARY_TEXT_SECRET');
  await expect(ed.locator('[data-diary-date]')).toBeDisabled();await expect(ed.locator('[data-diary-thumb]')).toHaveCount(2);
  await ed.locator('[data-diary-text]').fill('가을 산책, 고쳐 씀');await ed.locator('[data-diary-save]').click();
  await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('가을 산책, 고쳐 씀');
@@ -283,14 +283,14 @@ test('같은 날은 하나: [+]는 있는 날을 고치기로, 날짜를 있는 
  await page.locator('#diaryRoot [data-diary-detail-close]').click();
  await page.locator('#diaryRoot #newDiaryBtn').click();await expect(ed.locator('h3')).toHaveText('일기 쓰기');
  await ed.locator('[data-diary-text]').fill('덧붙일 말');await ed.locator('[data-diary-date]').fill('2026-10-04');
- await expect(ed.locator('h3')).toHaveText('일기 고치기');await expect(ed.locator('[data-diary-editor-status]')).toHaveText('이 날 일기가 이미 있어 고치기로 열었어요.');
+ await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(ed.locator('[data-diary-editor-status]')).toHaveText('이 날 일기가 이미 있어 수정으로 열었어요.');
  await expect(ed.locator('[data-diary-text]')).toHaveValue('글만 쓴 날\n\n덧붙일 말');
  page.once('dialog',d=>d.accept());await ed.locator('[data-diary-editor-close]').click();
  // 다른 곳에서 먼저 같은 날을 만들었으면(409) 저장하지 않고 고치기로 연다.
  await page.locator('#diaryRoot #newDiaryBtn').click();await ed.locator('[data-diary-text]').fill('늦게 쓴 글');
  f.rows.push({id:'d6',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-06',raw_text:'다른 기기에서 쓴 글',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}});
  await ed.locator('[data-diary-save]').click();
- await expect(ed.locator('h3')).toHaveText('일기 고치기');await expect(ed.locator('[data-diary-editor-status]')).toHaveText('이 날 일기가 이미 있어요. 고치기로 열게요.');
+ await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(ed.locator('[data-diary-editor-status]')).toHaveText('이 날 일기가 이미 있어요. 수정으로 열게요.');
  await expect(ed.locator('[data-diary-text]')).toHaveValue('다른 기기에서 쓴 글\n\n늦게 쓴 글');
  expect(f.rows.filter(r=>r.journal_day==='2026-10-06')).toHaveLength(1);
  expect(f.errors).toEqual([]);

@@ -81,9 +81,14 @@
 #appView #basketView .basket-file-card .file-line-main{ flex-direction:column; align-items:flex-start; gap:0; }
 #appView #basketView .basket-file-card .file-line-main b{ max-width:100%; font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); }
 #appView #basketView .basket-file-card .file-line-main small{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView #basketView .basket-file-actions:not([hidden]){ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:6px; }
-#appView #basketView .basket-file-actions > :only-child{ grid-column:1 / -1; }
-#appView #basketView .basket-file-actions > :is(a,button){ width:100%; min-height:var(--kptu-touch-target,44px); }
+/* UI-바구니작은버튼(2026-10-19): 파일 카드 아래 버튼은 보조 버튼이라 공용 작은 버튼(--ds-compact-*, 보이는 높이 32px)으로. 누르는 범위는 ::after로 44px. */
+#appView #basketView .basket-file-actions:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; min-height:var(--kptu-touch-target,44px); }
+#appView #basketView .basket-file-actions > :is(a,button){
+  position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:auto; max-width:100%;
+  height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x);
+  font-size:var(--ds-compact-text); line-height:1; white-space:nowrap; text-decoration:none;
+}
+#appView #basketView .basket-file-actions > :is(a,button)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 #appView #basketView .basket-file-more{ flex:none; }
 #appView #basketView .basket-file-more-trigger{ display:grid; place-items:center; width:var(--kptu-touch-target,44px); height:var(--kptu-touch-target,44px); border-radius:var(--ds-radius-control); color:var(--kptu-muted); font-size:18px; list-style:none; cursor:pointer; }
 #appView #basketView .basket-file-more-trigger::-webkit-details-marker{ display:none; }
