@@ -663,7 +663,7 @@
   gap:0; margin:0; padding:0; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); outline:0; box-shadow:none;
 }
 #appView #homeView .home-quick .home-quick-modes .home-quick-update-split{ display:flex; align-items:stretch; }
-/* 두 칸 전환은 칸 폭을 같게(반반): 바구니 [메모|노트]·일정 창 [일정|할 일]. */
+/* 두 칸 전환은 칸 폭을 같게(반반): 바구니 [업데이트|노트]·일정 창 [일정|할 일]. */
 #appView #basketView .basket-kind-switch:not([hidden]),.modal .event-create-modes:not([hidden]),.modal .meeting-create-modes,.md-editor .md-editor-kinds{ display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; }
 #appView #homeView .home-quick .home-quick-modes button,
 #appView #basketView .basket-kind-switch button,
@@ -675,7 +675,7 @@
   margin:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; white-space:nowrap;
   color:var(--kptu-ink); background:var(--kptu-surface); border:0; border-radius:0; box-shadow:none;
 }
-#appView #homeView .home-quick .home-quick-modes > :is(button,div) + :is(button,div),
+#appView #homeView .home-quick .home-quick-modes > :is(button,div,span) + :is(button,div,span),
 #appView #basketView .basket-kind-switch > :is(button,div) + :is(button,div),
 #appView #calendarView .calendar-toolbar .calendar-view-switch > :is(button,div) + :is(button,div),
 .modal .event-create-modes > :is(button,div) + :is(button,div),
@@ -688,6 +688,7 @@
 .modal .meeting-create-modes > button:first-child,
 .md-editor .md-editor-kinds > button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
 #appView #homeView .home-quick .home-quick-modes > :last-child > button:last-child,
+#appView #homeView .home-quick .home-quick-modes > button:last-child,
 #appView #basketView .basket-kind-switch > button:last-child,
 #appView #calendarView .calendar-toolbar .calendar-view-switch > button:last-child,
 .modal .event-create-modes > button:last-child,
@@ -709,7 +710,10 @@
 /* 홈 [업데이트 ▾]: [업데이트]와 ▾는 한 칸처럼 붙고(사이 선 없음), ▾는 보이는 폭 28px·누르는 범위는 오른쪽으로 늘려 44×44px. */
 #appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-mode="update"]{ flex:0 0 auto; padding-right:4px; border:0; border-radius:0; }
 #appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-org]{ flex:0 0 28px; width:28px; min-width:28px; padding:0 8px 0 0; border:0; }
-#appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-org]::after{ right:calc(28px - var(--kptu-touch-target,44px)); }
+/* BASKET-업데이트통합: [업데이트 ▾]가 맨 앞 칸이 되어 왼쪽 모서리를 둥글게. ▾의 누르는 범위는 오른쪽 [할 일]을 덮지 않게 왼쪽으로 늘린다. */
+#appView #homeView .home-quick .home-quick-modes > .home-quick-update-split:first-child > button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
+#appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-org]{ border-radius:0; }
+#appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-org]::after{ left:calc(28px - var(--kptu-touch-target,44px)); right:0; }
 /* 일정 보기 전환(☰/▦, PC는 셋): 아이콘 칸은 누르는 폭과 같은 44px로 정확히 나눈다(UI-선택표시통일). */
 #appView #calendarView .calendar-toolbar .calendar-view-switch:not([hidden]){ display:inline-grid; grid-auto-flow:column; grid-auto-columns:var(--kptu-touch-target,44px); border:0; outline:var(--ds-line-width) solid var(--ds-line); outline-offset:calc(-1 * var(--ds-line-width)); }
 #appView #calendarView .calendar-toolbar .calendar-view-switch > :is(button,div) + :is(button,div){ border-left:0; box-shadow:inset var(--ds-line-width) 0 0 var(--ds-line); }
@@ -763,7 +767,7 @@
 /* 전환 칸 사이 선은 마우스를 올려도 그대로(공용 버튼 :hover의 테두리 색이 선만 진하게 바꾸지 않게). */
 :is(#appView #homeView .home-quick .home-quick-modes,#appView #basketView .basket-kind-switch,.modal .event-create-modes,.modal .meeting-create-modes,#appView .schedule-switch) > :is(button,div):hover{ border-color:var(--ds-line); }
 
-/* ③ 전환·필터 한 줄: 바구니 [메모 | 노트] 오른쪽에 [미분류·분류·보류](넘치면 다음 줄). 목록이 숨으면(노트·읽기·분류 창) 필터도 숨는다. */
+/* ③ 전환·필터 한 줄: 바구니 [업데이트 | 노트] 오른쪽에 [미분류·분류·보류](넘치면 다음 줄). 목록이 숨으면(노트·읽기·분류 창) 필터도 숨는다. */
 #appView #basketView .basket-switch-row:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 10px; min-height:var(--kptu-touch-target,44px); margin:0 0 8px; }
 #appView #basketView:has(> [data-basket-list][hidden]) .basket-switch-row .basket-filters{ display:none; }
 /* UI-바구니거르기: [분류]를 고르면 바로 아래 한 줄에 분류된 곳 칩 [전체·담당조직·프로젝트·자료실·할 일](공용 filter-chips.js, 자료실·회의와 같은 알약).
@@ -867,7 +871,7 @@
 #appView #basketView .note-files a.file-line-link:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 
 /* ───────── UI-버튼작게 ③(2026-10-18 사용자 결정): 폰 전환 줄은 아래 탭 바로 위 ─────────
-   폰(760px 이하)에서 일정 [달력 | 할 일 | 일지 | 일기]와 바구니 [메모 | 노트]를 화면 위에서 빼서 아래 탭 6칸 바로 위 한 줄에 둔다.
+   폰(760px 이하)에서 일정 [달력 | 할 일 | 일지 | 일기]와 바구니 [업데이트 | 노트]를 화면 위에서 빼서 아래 탭 6칸 바로 위 한 줄에 둔다.
    알약 세그먼트(보이는 높이 32px, 고른 쪽 회색, 누르는 범위 44px), 줄 높이 44px(--kptu-switch-dock), 바탕은 아래 탭과 같은 색.
    그리는 주인은 화면마다 하나 그대로다: 일정 네 화면은 index.html의 각 화면 칸 안 .schedule-switch(그 화면이 보일 때만 보임),
    바구니는 basket.js의 .basket-kind-switch(paintListChrome이 줄을 숨기면 같이 숨음 — 노트·메모를 연 동안은 보이지 않는다, UI-일기손질 ⑥).

@@ -71,7 +71,7 @@ export async function readTaskSourceNotes({rt=window.KPTURuntime,expectedSession
   const path=`/rest/v1/app_notes?workspace_id=eq.${workspaceId(rt)}&kind=eq.basket&metadata=cs.${encodeURIComponent('{"tasks":[]}')}&select=id,tasks:metadata->tasks&order=id.asc`;
   for(let offset=0;;offset+=size){
     const rows=await rt.api(`${path}&limit=${size}&offset=${offset}`,options);
-    if(!Array.isArray(rows))throw Error('출처 메모를 확인하지 못했어요.');
+    if(!Array.isArray(rows))throw Error('출처 업데이트를 확인하지 못했어요.');
     for(const row of rows)for(const task of noteTasks({metadata:{tasks:row?.tasks}}))if(!out.has(task.task_id))out.set(task.task_id,row.id);
     if(rows.length<size)return out;
   }

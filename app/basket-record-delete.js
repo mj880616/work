@@ -13,32 +13,32 @@ const encode=encodeURIComponent;
 const pending=new Set();
 
 // One confirmation for every screen: the place's name, and that the note stays.
-export const disconnectConfirmText=name=>`${String(name||'').trim()||'이'} 연결을 해제할까요? 메모는 남아요`;
+export const disconnectConfirmText=name=>`${String(name||'').trim()||'이'} 연결을 해제할까요? 업데이트는 남아요`;
 export const disconnectLabel=name=>`${String(name||'').trim()||'이'} 연결 해제`;
 export const UNDO_MS=5000;
 export const RECORD_DELETE_TEXT=Object.freeze({
   DISCONNECT_FAILED:'연결을 해제하지 못했어요. 다시 시도해 주세요.',
   DISCONNECT_MISSING:'이미 해제된 연결이에요. 목록을 다시 불러왔어요.',
-  NOTE_FAILED:'메모를 지우지 못했어요. 다시 시도해 주세요.',
-  NOTE_MISSING:'메모를 찾을 수 없어요. 이미 지워졌을 수 있어요.',
-  NOTE_READ_FAILED:'메모 정보를 확인하지 못했어요. 다시 시도해 주세요.',
-  NOTE_DELETED:'메모를 지웠어요. 첨부 파일은 Drive에 남아 있어요.',
-  NOTE_DELETED_PLAIN:'메모를 지웠어요.',
-  NOTE_TRASHED:'메모를 지우고 첨부를 Drive 휴지통으로 옮겼어요.',
-  NOTE_CHANGED:'메모가 바뀌었어요. 다시 불러온 뒤 확인해 주세요.',
+  NOTE_FAILED:'업데이트를 지우지 못했어요. 다시 시도해 주세요.',
+  NOTE_MISSING:'업데이트를 찾을 수 없어요. 이미 지워졌을 수 있어요.',
+  NOTE_READ_FAILED:'업데이트 정보를 확인하지 못했어요. 다시 시도해 주세요.',
+  NOTE_DELETED:'업데이트를 지웠어요. 첨부 파일은 Drive에 남아 있어요.',
+  NOTE_DELETED_PLAIN:'업데이트를 지웠어요.',
+  NOTE_TRASHED:'업데이트를 지우고 첨부를 Drive 휴지통으로 옮겼어요.',
+  NOTE_CHANGED:'업데이트가 바뀌었어요. 다시 불러온 뒤 확인해 주세요.',
   RESULT_UNKNOWN:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.',
   BUSY:'처리 중이에요. 잠시 기다려 주세요.',
   DISCONNECTED:'연결을 해제했어요.',
   RESTORED:'연결을 되돌렸어요.',
-  RESTORE_FAILED:'연결을 되돌리지 못했어요. 메모에서 [연결하기]로 다시 이어 주세요.',
-  RESTORE_NOTE_MISSING:'메모를 찾을 수 없어 연결을 되돌리지 못했어요.',
-  RESTORE_ARCHIVED:'보관된 메모라 연결을 되돌리지 못했어요. 보관을 해제한 뒤 다시 이어 주세요.',
-  RESTORE_AI_EXCLUDED:'AI 제외로 표시된 메모라 연결을 되돌리지 못했어요.',
+  RESTORE_FAILED:'연결을 되돌리지 못했어요. 업데이트에서 [연결하기]로 다시 이어 주세요.',
+  RESTORE_NOTE_MISSING:'업데이트를 찾을 수 없어 연결을 되돌리지 못했어요.',
+  RESTORE_ARCHIVED:'보관된 업데이트라 연결을 되돌리지 못했어요. 보관을 해제한 뒤 다시 이어 주세요.',
+  RESTORE_AI_EXCLUDED:'AI 제외로 표시된 업데이트라 연결을 되돌리지 못했어요.',
   RESTORE_TARGET:'연결했던 곳을 찾거나 고를 수 없어 되돌리지 못했어요.',
 });
 
 export function noteDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
-  return ['메모 원문을 지웁니다.',
+  return ['업데이트 원문을 지웁니다.',
     `연결된 조직·프로젝트 ${places}곳에서도 사라집니다.`,
     otherLinks?`회의·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
     attachments?`첨부 파일 ${attachments}개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).`:''].filter(Boolean).join(' ');
@@ -46,7 +46,7 @@ export function noteDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
 // Trash counts from the server. Unknown PATCH outcomes are named separately, never as success.
 export function noteDeleteResultText({failed=0,unknown=0}={}){
   if(!failed&&!unknown)return RECORD_DELETE_TEXT.NOTE_TRASHED;
-  return ['메모를 지웠어요.',failed?`첨부 ${failed}개는 Drive에 남았어요.`:'',
+  return ['업데이트를 지웠어요.',failed?`첨부 ${failed}개는 Drive에 남았어요.`:'',
     unknown?`첨부 ${unknown}개는 휴지통 이동 결과를 확인하지 못했어요. Drive에서 확인해 주세요.`:''].filter(Boolean).join(' ');
 }
 
@@ -219,7 +219,7 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
   const result=await disconnectRecordLink(link.id,{name,rt,isCurrent});
   if(result.status==='deleted'){
     const owner=scope(rt),kind=link.organization_id?'organization':'project';
-    offerUndoNotice({text:`${String(name||'').trim()||'이'} 연결을 해제했어요. 메모는 남아요.`,onUndo:async()=>{
+    offerUndoNotice({text:`${String(name||'').trim()||'이'} 연결을 해제했어요. 업데이트는 남아요.`,onUndo:async()=>{
       if(owner!==scope(rt))return {status:'stale'};
       const restored=await restoreRecordLink({noteId:link.note_id,kind,targetId:link[kind+'_id'],summary:link.summary??null},{rt});
       if(restored.status==='restored')onRestored(restored);
@@ -260,6 +260,6 @@ async function readBack(path,rt,expectedSessionEpoch){
   try{
     return await exists(path,rt,expectedSessionEpoch)
       ?{status:'failed',message:RECORD_DELETE_TEXT.NOTE_FAILED}
-      :{status:'deleted',message:'메모를 지웠어요. 첨부의 휴지통 이동 결과는 Drive에서 확인해 주세요.'};
+      :{status:'deleted',message:'업데이트를 지웠어요. 첨부의 휴지통 이동 결과는 Drive에서 확인해 주세요.'};
   }catch{return {status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN};}
 }

@@ -43,8 +43,8 @@ for(const width of [390,1280]){
   const f=await fixture(page,{width});
   const editor=await openWriter(page,width);
   const items=await head(editor);
-  expect(items.map(i=>i.name)).toEqual(['저장하지 않고 닫기','저장할 곳','보기','내보내기','바구니에 새 메모로 저장'].filter(n=>width<1024||n!=='보기'));
-  await expect(editor.locator('.md-editor-kinds button')).toHaveText(['메모','노트']);
+  expect(items.map(i=>i.name)).toEqual(['저장하지 않고 닫기','저장할 곳','보기','내보내기','바구니에 새 업데이트로 저장'].filter(n=>width<1024||n!=='보기'));
+  await expect(editor.locator('.md-editor-kinds button')).toHaveText(['업데이트','노트']);
   if(width<1024)await expect(editor.locator('.md-editor-modes button')).toHaveText(['쓰기','미리보기']);
   // One row: every item on the same line, left to right, 32px tall; the icon buttons are 32×32 with a 44px press area.
   for(const i of items){expect(i.h,i.name).toBe(32);expect(Math.abs(i.y-items[0].y),i.name).toBeLessThan(2);}

@@ -122,7 +122,7 @@ test('PRJ-기록입력 one list: new, old item records, items and 🧺 basket li
   // 🧺 line: opens the original basket memo; its ⋯ holds only [메모 열기]·[연결 해제] (BUG-바구니연결해제), nothing to edit or delete.
   const basket=lines(page).nth(1).locator('a');
   await expect(basket).toHaveAttribute('href','./?view=basket&note=note-1');
-  await expect(basket.getByRole('img',{name:'바구니 메모'})).toBeVisible();
+  await expect(basket.getByRole('img',{name:'바구니 업데이트'})).toBeVisible();
   await expect(lines(page).nth(1).locator('button')).toHaveCount(1);await expect(lines(page).nth(1).getByRole('button',{name:'바구니 기록 메뉴'})).toBeVisible();
   await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-disconnect],#ps3Body [data-link-note-delete],#ps3BasketLinks')).toHaveCount(0);
   await basket.click();

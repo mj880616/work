@@ -38,12 +38,13 @@ test('quick task none/today/custom due, Enter and failure retains content',async
  await expect(input).toBeEnabled();await q.getByRole('button',{name:'10.9',exact:true}).click();await expect(q.getByRole('button',{name:'날짜',exact:true})).toHaveAttribute('aria-pressed','false');
  await input.fill(' ');await input.press('Enter');expect(bodies).toHaveLength(3);
 });
-test('quick update requires org, preserves multiline and saves without home record reads',async({page})=>{
+// BASKET-업데이트통합 PR 1: [업데이트] with no place saves to the basket; picking a place in ▾ saves that place's record.
+test('quick update with a chosen organization preserves multiline and saves without home record reads',async({page})=>{
  const {requests}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),input=q.locator('[data-quick-input]');
  await q.locator('[data-quick-mode="update"]').click();await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height','130px'); // UI-버튼크기: 5줄에서 멈춤
  await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
  await q.locator('[data-quick-mode="task"]').click();await expect(input).toHaveValue('첫 줄\n둘째 줄');await q.locator('[data-quick-mode="update"]').click();
- await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('조직');await expect(page.getByRole('dialog')).toBeVisible();
+ await q.locator('[data-quick-org]').click();await expect(page.getByRole('dialog')).toBeVisible();
  await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await expect(q.locator('[data-quick-org]')).toBeFocused();let fail=true,bodies=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({status:fail?500:200,json:fail?{message:'QA error'}:[]});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('QA error');await expect(input).toHaveValue('첫 줄\n둘째 줄');
@@ -61,9 +62,10 @@ test('recent three unique organizations precede common organization order',async
  expect(await page.locator('[data-sheet-recent] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).toEqual(['c','a','d']);
  expect(await page.locator('[data-sheet-all] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).not.toContain('e');
 });
-test('mode memory failures default to basket, reload guard detects hidden home draft',async({page})=>{
- await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','update');
- await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('QA')};});await quick(page).locator('[data-quick-mode="task"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','update');
+test('mode memory failures default to update (basket), reload guard detects hidden home draft',async({page})=>{
+ await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','task');
+ const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
+ await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('QA')};});await quick(page).locator('[data-quick-mode="task"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','basket');
  await quick(page).locator('[data-quick-input]').fill('QA');expect(await page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);
  await page.addInitScript(()=>{const read=Storage.prototype.getItem;Storage.prototype.getItem=function(key){if(key==='kptu-home-quick-mode')throw Error('QA');return read.call(this,key);};});await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
 });

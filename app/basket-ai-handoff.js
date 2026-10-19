@@ -70,7 +70,7 @@ export function buildHandoff(notes,projects,organizations,now,fallback=false,exi
   for(const n of notes){
     lines.push(`메모 ID: ${n.id}\nupdated_at: ${n.updated_at}\n입력일: ${n.occurred_at}\n본문 시작`,n.raw_text,'본문 끝');
     for(const f of n.attachments||[]){
-      if(!/^[A-Za-z0-9_-]{1,255}$/.test(f?.drive_file_id||''))throw Error('첨부 링크를 확인할 수 없어요. 메모를 다시 불러와 주세요.');
+      if(!/^[A-Za-z0-9_-]{1,255}$/.test(f?.drive_file_id||''))throw Error('첨부 링크를 확인할 수 없어요. 업데이트를 다시 불러와 주세요.');
       // Validate present OCR even when empty; copy only its committed source text.
       const text=effectiveOcrText(f);
       lines.push(`첨부: ${f.file_name} · ${f.mime_type} · https://drive.google.com/file/d/${f.drive_file_id}/view`);
@@ -112,7 +112,7 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date(),{noteId=n
   let notes=selectHandoffNotes(basket.notes,basket.links,now,basket.docs);
   if(noteId){
     const note=basket.notes.find(row=>row.id===noteId);
-    if(!note||note.archived_at||note.ai_export_allowed!==true)throw Error('이 메모는 지금 분류 요청할 수 없어요.');
+    if(!note||note.archived_at||note.ai_export_allowed!==true)throw Error('이 업데이트는 지금 분류 요청할 수 없어요.');
     notes=[note];
   }
   const current=rt.context.read();
@@ -163,7 +163,7 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()
     if(busy||isBlocked())return;
     const request=getRequest();
     if(request?.error){clear();status.textContent=request.error;return;}
-    clear();const run=epoch,owner=scope();busy=true;onBusy(true);status.textContent='분류 요청할 메모를 준비하고 있어요…';
+    clear();const run=epoch,owner=scope();busy=true;onBusy(true);status.textContent='분류 요청할 업데이트를 준비하고 있어요…';
     const current=()=>run===epoch&&owner===scope();
     let count=0,handed=false;
     const prepared=readHandoff(rt,new Date(),{...request,onPrepared:value=>{count=value;if(current())onPrepared(value,request);},onExisting:records=>{if(current())onExisting(records);}});
@@ -181,7 +181,7 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()
       const text=await prepared;
       if(!current()){/* cancelled */}
       // Nothing to copy still hands over (count 0): an answer copied earlier can be pasted.
-      else if(!text){status.textContent='분류 요청할 메모가 없어요';handed=!!onCopied;}
+      else if(!text){status.textContent='분류 요청할 업데이트가 없어요';handed=!!onCopied;}
       else{
         let copied=false;
         if(written)copied=await written;
@@ -190,7 +190,7 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()
         else if(copied){status.textContent=onCopied?'':copiedText;handed=!!onCopied;}
         else{input.value=text;fallbackText=text;fallbackScope=owner;fallbackCopied={count,request};fallback.hidden=false;status.textContent="아래 '복사하기'를 눌러 주세요";input.focus();input.select();}
       }
-    }catch{if(current())status.textContent='분류 요청할 메모를 준비하지 못했어요. 다시 눌러 주세요.';}
+    }catch{if(current())status.textContent='분류 요청할 업데이트를 준비하지 못했어요. 다시 눌러 주세요.';}
     finally{if(current()){busy=false;onBusy(false);}}
     if(handed&&current())onCopied(count,request);
   }};

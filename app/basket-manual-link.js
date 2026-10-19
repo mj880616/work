@@ -13,13 +13,13 @@ export const MANUAL_LINK_LIMIT=20;
 export const TASK_LIMITS=Object.freeze({title:1024,notes:8192});
 const KIND_NAME={organization:'담당조직',project:'프로젝트'};
 const MANUAL_ERROR_TEXT=Object.freeze({
-  NOTE_CHANGED:'메모가 그사이 바뀌었어요. 최신 메모를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.',
-  NOTE_ARCHIVED:'보관된 메모는 연결할 수 없어요. 보관을 해제한 뒤 연결해 주세요.',
-  AI_EXCLUDED:'AI 제외로 표시된 메모라 지금은 연결할 수 없어요.',
+  NOTE_CHANGED:'업데이트가 그사이 바뀌었어요. 최신 업데이트를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.',
+  NOTE_ARCHIVED:'보관된 업데이트는 연결할 수 없어요. 보관을 해제한 뒤 연결해 주세요.',
+  AI_EXCLUDED:'AI 제외로 표시된 업데이트라 지금은 연결할 수 없어요.',
   ALREADY_CONFIRMED:'이미 연결된 곳이 있어요. 고른 곳을 확인해 주세요.',
   SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 고른 곳을 확인해 주세요.',
   INVALID_TARGETS:'연결할 곳과 요약을 다시 확인해 주세요.',
-  INVALID_INPUT:'메모 정보가 맞지 않아요. 메모를 다시 불러와 주세요.',
+  INVALID_INPUT:'업데이트 정보가 맞지 않아요. 업데이트를 다시 불러와 주세요.',
 });
 export const manualErrorText=code=>MANUAL_ERROR_TEXT[code]||ERROR_TEXT[code]||'연결하지 못했어요. 다시 시도해 주세요.';
 const linkKey=(kind,id)=>kind+':'+id;
@@ -165,7 +165,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
 <label class="basket-text-label">할 일 제목<input type="text" data-manual-task-title maxlength="${TASK_LIMITS.title}" value="${esc(task.title)}"></label>
 <label class="basket-text-label">할 일 메모<textarea data-manual-task-notes rows="6" spellcheck="false">${esc(task.notes)}</textarea></label>
 <div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc('프로젝트: '+project):'프로젝트'}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
-<p class="basket-manual-hint">만든 할 일은 이 메모의 ‘이 메모로 만든 할 일’에 기록돼요.</p>
+<p class="basket-manual-hint">만든 할 일은 이 업데이트의 ‘이 업데이트로 만든 할 일’에 기록돼요.</p>
 <p data-manual-task-status role="status">${esc(task.status)}</p><div data-manual-task-recover></div>
 <div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-task-save>할 일 만들기</button><button type="button" data-manual-task-cancel>취소</button></div></section>`;
   }
@@ -250,7 +250,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       const fresh=await onLinked(id,[]).catch(()=>({ok:false}));if(!current())return null;
       const now=linkedDestinations(id,getLinks());
       if(fresh.ok&&targets.every(t=>now.get(linkKey(t.kind,t.target_id))==='confirmed'))return {created:targets.length,existing:0,warning:''};
-      link.status=!fresh.ok?'연결 결과를 확인하지 못했어요. [메모 다시 불러오기]로 실제 연결을 확인해 주세요.':'연결되지 않았어요. 다시 [연결]을 눌러 주세요.';paint();return null;
+      link.status=!fresh.ok?'연결 결과를 확인하지 못했어요. [업데이트 다시 불러오기]로 실제 연결을 확인해 주세요.':'연결되지 않았어요. 다시 [연결]을 눌러 주세요.';paint();return null;
     }
     if(!result.ok){
       if(result.error==='NOTE_CHANGED'){link.status=manualErrorText('NOTE_CHANGED');await onNoteChanged();if(note()?.id===id&&mode==='link'){link.status=manualErrorText('NOTE_CHANGED');paint();}return null;}
@@ -288,7 +288,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     if(!error&&result?.ok===true&&taskIdentity(result.task)&&taskBodyMatches(result.task,body)){
       const linkMissing=body.links.length&&(result.link_error||!(result.links||[]).some(l=>l.project_id===task.project&&l.status==='confirmed'));
       // BASKET-할일출처: the task exists now, so a failed record is only reported, never retried by making another task.
-      task.status='할 일을 만들었어요. 메모에 기록하는 중…';paint();
+      task.status='할 일을 만들었어요. 업데이트에 기록하는 중…';paint();
       let recorded=null;
       try{recorded=await recordNoteTask(id,noteTaskEntry(result.task),{rt,expectedSessionEpoch:epoch});}catch{recorded=null;}
       setBusy(false);
@@ -296,7 +296,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       if(!current())return;
       if(recorded?.ok)onTaskRecorded?.(recorded.note);
       reset();paint();
-      const message=[recorded?.ok?'Google 할 일을 만들었어요. 이 메모에 기록했어요.':'할 일은 만들었지만 메모에 기록하지 못했어요.',linkMissing?'프로젝트 연결은 할 일 화면에서 확인해 주세요.':''].filter(Boolean).join(' ');
+      const message=[recorded?.ok?'Google 할 일을 만들었어요. 이 업데이트에 기록했어요.':'할 일은 만들었지만 업데이트에 기록하지 못했어요.',linkMissing?'프로젝트 연결은 할 일 화면에서 확인해 주세요.':''].filter(Boolean).join(' ');
       document.querySelector('[data-basket-status]')?.replaceChildren(message);showToast('Google 할 일을 만들었어요.');
       window.KPTUGoogleTasks?.invalidateAfterCreate?.();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
       document.querySelector('[data-basket-task-open]')?.focus();return;

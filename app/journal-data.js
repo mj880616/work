@@ -120,10 +120,10 @@ export function memoLine(memo) {
   const first = String(memo?.raw_text || '').split(/\r?\n/).map(line => line.trim()).find(Boolean);
   if (first) return [...first].length > 80 ? [...first].slice(0, 80).join('') + '…' : first;
   const files = Array.isArray(memo?.attachments) ? memo.attachments.length : 0;
-  return files ? `첨부 ${files}개` : '(빈 메모)';
+  return files ? `첨부 ${files}개` : '(빈 업데이트)';
 }
 export const GROUPS = Object.freeze([
-  ['events', '일정'], ['tasks', '끝낸 할 일'], ['memos', '바구니 메모'], ['notes', '고친 노트'],
+  ['events', '일정'], ['tasks', '끝낸 할 일'], ['memos', '바구니 업데이트'], ['notes', '고친 노트'],
 ]);
 // The items of one day: [{label, items:[text]}] per group, or failed:true for a group whose read failed.
 export function dayMaterials(materials, day) {

@@ -346,13 +346,13 @@ async function removeDiary(row) {
   const photos = diaryPhotos(row).length;
   const result = await deleteNoteOriginal(row.id, {rt, describe:() => `${shortDay(row.journal_day)} 일기를 지웁니다.${photos ? ` 사진 ${photos}장은 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).` : ''}`});
   if (!['deleted', 'missing'].includes(result.status)) {
-    if (result.message) (edit ? setEditorStatus : text => { status.textContent = text; })(result.message.replace(/메모/g, '일기'));
+    if (result.message) (edit ? setEditorStatus : text => { status.textContent = text; })(result.message.replace(/업데이트/g, '일기'));
     return;
   }
   rows.delete(row.journal_day);
   if (edit) closeEditor({force:true});
   closeDetail(); renderMonth();
-  status.textContent = (result.message || '일기를 지웠어요.').replace(/메모/g, '일기');
+  status.textContent = (result.message || '일기를 지웠어요.').replace(/업데이트/g, '일기');
 }
 
 root.addEventListener('click', event => {

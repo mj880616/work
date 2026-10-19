@@ -45,7 +45,7 @@ for(const width of [390,1280]){
   await expect(detail.locator('[data-basket-attachments] a')).toHaveText('Drive에서 열기');
   await expect(detail.locator('[data-basket-text]')).toBeHidden();await expect(detail.locator('[data-basket-save]')).toBeHidden();await expect(detail.locator('[data-basket-upload]')).toBeHidden();
   // UI-디자인손질 6: big buttons [연결하기]·[할 일 만들기], "‹ 바구니" back, the rest in the note's [⋯]; no list menu on a note.
-  for(const name of ['연결하기','할 일 만들기','바구니 목록으로','이 메모 메뉴'])await expect(detail.getByRole('button',{name,exact:true})).toBeVisible();
+  for(const name of ['연결하기','할 일 만들기','바구니 목록으로','이 업데이트 메뉴'])await expect(detail.getByRole('button',{name,exact:true})).toBeVisible();
   for(const name of ['수정','보관','삭제'])await expect(detail.getByRole('button',{name,exact:true})).toBeHidden();
   await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);
   expect(await editableFocused(page)).toBe(false);

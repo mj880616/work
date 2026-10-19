@@ -163,13 +163,13 @@ test('③ 폰: 일정·바구니 전환은 아래 탭 바로 위 한 줄(알약 
  await go(page,'calendar');
  // 바구니: [메모] → [노트]; 메모 목록은 입력칸이 전환 줄 바로 위, 노트 목록은 [+]가 그 위.
  await page.locator('.mobile-tabs [data-view="basket"]').tap();
- row=await dock('#basketView .basket-kind-switch',['메모','노트'],'메모');
+ row=await dock('#basketView .basket-kind-switch',['업데이트','노트'],'업데이트');
  const quick=await page.locator('#basketView .home-quick').boundingBox();expect(Math.round(quick.y+quick.height)).toBe(Math.round(row.y-6));
  // Filters stay at the top, alone on their row.
  const filter=await page.locator('[data-basket-filter="unclassified"]').boundingBox();expect(filter.y).toBeLessThan(header.y+header.height+40);
  await page.locator('[data-basket-kind="note"]').tap();
  await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
- row=await dock('#basketView .basket-kind-switch',['메모','노트'],'노트');
+ row=await dock('#basketView .basket-kind-switch',['업데이트','노트'],'노트');
  await fabAbove('#basketView #newNoteBtn',row);
  // An opened note (head "‹ 노트") keeps the row hidden, as before (#660 ⑥); it comes back on close.
  await page.locator('[data-note-row="n1"]').tap();await expect(page.locator('[data-note-close]')).toBeVisible();

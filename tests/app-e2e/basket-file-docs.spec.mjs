@@ -82,7 +82,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`a memo 
  const f=await fixture(page,{width,scheme}),detail=await openNote(page,ONLY,width);
  // ① no text box and no "글 없이 첨부만" notice.
  await expect(detail.locator('[data-basket-read-text]')).toBeHidden();
- await expect(detail).not.toContainText('글 없이 첨부만 있는 메모입니다');
+ await expect(detail).not.toContainText('글 없이 첨부만 있는 업데이트입니다');
  // ② one line per file: kind color, name, size · in the library.
  const hwp=detail.locator('[data-basket-file-card="drive-hwp"]'),pdf=detail.locator('[data-basket-file-card="drive-pdf"]');
  await expect(hwp.locator('.file-kind')).toHaveText('HWP');await expect(hwp.locator('.file-kind')).toHaveAttribute('data-kind','hwp');

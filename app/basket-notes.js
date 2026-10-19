@@ -223,7 +223,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   async function toBasket() {
     if (!selected || editing || busy) return;
-    if (!window.confirm('이 노트를 바구니 메모로 돌릴까요? 제목은 지워지고 본문·첨부·연결은 그대로 남아요.')) return;
+    if (!window.confirm('이 노트를 바구니 업데이트로 돌릴까요? 제목은 지워지고 본문·첨부·연결은 그대로 남아요.')) return;
     const note = selected, run = ++epoch, owner = scope(); lock(true); say('');
     try {
       await moveToBasket(note, rt);
@@ -246,7 +246,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!current() || result.status === 'stale') return;
     if (['deleted', 'missing'].includes(result.status)) {
       notes = notes.filter(n => n.id !== id); links = links.filter(l => l.note_id !== id);
-      close({force:true}); status.textContent = String(result.message || '').replace('메모', '노트');
+      close({force:true}); status.textContent = String(result.message || '').replace('업데이트', '노트');
       return;
     }
     lock(false);

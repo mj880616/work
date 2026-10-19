@@ -233,14 +233,14 @@ for(const width of [390,1280]){
  test(`menu [쓰기] → [노트] saves a kind=note row and opens it; the 메모 list stays clean ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   const editor=await openWriter(page,width),kinds=editor.locator('.md-editor-kinds');
-  await expect(kinds.getByRole('button')).toHaveText(['메모','노트']);
-  await expect(kinds.getByRole('button',{name:'메모'})).toHaveAttribute('aria-pressed','true');
+  await expect(kinds.getByRole('button')).toHaveText(['업데이트','노트']);
+  await expect(kinds.getByRole('button',{name:'업데이트'})).toHaveAttribute('aria-pressed','true');
   // Left: × then the switch. Right: 내보내기 · 저장, in that order, one row, all 32px tall (the press area stays 44px).
   const [c,k,x,sv]=await Promise.all([editor.locator('[data-close="mdEditor"]'),kinds,editor.getByRole('button',{name:'내보내기'}),editor.locator('[data-md-save]')].map(l=>l.boundingBox()));
   expect(c.x).toBeLessThan(k.x);expect(k.x).toBeLessThan(x.x);expect(x.x).toBeLessThan(sv.x);expect(Math.abs(k.y-x.y)).toBeLessThan(2);expect(Math.abs(c.y-sv.y)).toBeLessThan(2);
   for(const [label,h] of await headHeights(editor))expect(h,label).toBe(32);
   expect(await editor.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');
-  const pressed=await kinds.getByRole('button',{name:'메모'}).evaluate(el=>getComputedStyle(el).backgroundColor),plain=await kinds.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el).backgroundColor);
+  const pressed=await kinds.getByRole('button',{name:'업데이트'}).evaluate(el=>getComputedStyle(el).backgroundColor),plain=await kinds.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el).backgroundColor);
   expect(pressed).not.toBe(plain);
   await kinds.getByRole('button',{name:'노트'}).click();
   await expect(kinds.getByRole('button',{name:'노트'})).toHaveAttribute('aria-pressed','true');
@@ -266,7 +266,7 @@ for(const width of [390,1280]){
 test('menu [쓰기] → [메모] still saves one basket memo (no kind, no title)',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  const editor=await openWriter(page,390);
- await expect(editor.locator('[data-md-save]')).toHaveAttribute('aria-label','바구니에 새 메모로 저장');
+ await expect(editor.locator('[data-md-save]')).toHaveAttribute('aria-label','바구니에 새 업데이트로 저장');
  await editor.locator('.md-editor-text').fill('쓰기 메모');
  await editor.locator('[data-md-save]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');

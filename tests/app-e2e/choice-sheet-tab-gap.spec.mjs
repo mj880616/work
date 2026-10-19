@@ -107,7 +107,7 @@ test('다른 고르기 시트(홈 [업데이트 ▾] 조직)도 아래 탭 위�
  const last=await sheet.getByRole('button',{name:names.at(-1),exact:true}).last().boundingBox(),x=last.x+last.width/2,y=last.y+last.height-2;
  await touch(page,x,y);
  await expect(sheet).toBeHidden();
- await expect(quick.locator('[data-quick-org]')).toHaveAccessibleName(`조직 선택: ${names.at(-1)}`);
+ await expect(quick.locator('[data-quick-org]')).toHaveAccessibleName(`기록할 곳 선택: ${names.at(-1)}`);
  await touch(page,x,y);
  expect(await current(page)).toBe('home');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
