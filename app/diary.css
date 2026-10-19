@@ -1,4 +1,4 @@
-/* JOURNAL-일기 1차: 일정 탭 [일기]·[일지]와 [달력] 날짜 목록의 일기 미리보기. 색은 theme-tokens.css의 값만 쓴다(일기 보라 --ds-kind-diary-*). */
+/* JOURNAL-일기 1차: 일정 탭 [일기]와 [달력] 날짜 목록의 일기 미리보기. 색은 theme-tokens.css의 값만 쓴다(일기 보라 --ds-kind-diary-*). */
 /* UI-PC일기 ②: max-width:760px는 PC에서 사이드바 옆 본문의 일부만 쓰게 했다. PC(≥1024, 사이드바 화면)에서만 폭 제한을 풀어
    본문 폭을 다 쓰고, 같은 [일정] 탭의 [달력](calendar-ui.css)과 같은 본문 폭 규칙을 쓴다. 달력 칸은 정사각 대신 4:3으로 낮춰
    넓어진 폭에서도 한 달이 화면 높이 안에 들어오게 한다. 폰(≤760)·중간 폭은 그대로. */
@@ -107,11 +107,6 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-thumb .diary-photo-link{ position:absolute; inset:auto 4px 4px; font-size:11px; }
 #appView #diaryView .diary-editor-status{ margin:0; font-size:var(--ds-text-row); }
 #appView #diaryView .diary-editor-status:empty{ display:none; }
-
-/* [일지]: 1차는 안내만. */
-#appView #journalView .journal-soon{ max-width:560px; padding:24px 16px; text-align:center; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
-#appView #journalView .journal-soon h2{ margin:0 0 8px; font-size:var(--ds-text-title); color:var(--ds-kind-journal-ink); }
-#appView #journalView .journal-soon p{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-row); line-height:1.6; }
 
 /* [달력] 날짜 목록 맨 위: 그날 일기 첫 사진 작게(누르면 [일기]의 그날). */
 #calendarDayList #calendarDayDiary{ margin:0 0 8px; }

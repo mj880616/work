@@ -1,0 +1,55 @@
+/* JOURNAL-일지 2단계(업무일지): 일정 탭 [일지]. 색은 theme-tokens.css의 값만 쓴다(업무일지 초록 --ds-kind-journal-*).
+   이번 주 날짜 숫자 줄(월~일, 한 줄 쓴 날 초록 점) → 고른 날의 "오늘 한 줄" → 그날 재료 목록. 폰·PC 같은 배치, PC는 폭만 넓힌다. */
+#appView #journalView .journal{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
+@media(min-width:1024px){
+  main:has(#journalView:not(.hidden)){ max-width:1920px; padding-left:clamp(24px,2.2vw,42px); padding-right:clamp(24px,2.2vw,42px); }
+  #appView #journalView .journal{ max-width:960px; }
+}
+#appView #journalView .journal [hidden]{ display:none!important; }
+#appView #journalView .journal-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; min-height:var(--kptu-touch-target,44px); }
+#appView #journalView .journal-week-nav{ display:flex; align-items:center; gap:6px; }
+#appView #journalView .journal-week-nav b{ min-width:8.5em; text-align:center; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
+#appView #journalView .journal-status{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #journalView .journal-status:empty{ display:none; }
+
+/* 날짜 숫자 줄: 7칸, 오늘은 숫자 초록 동그라미(채움), 고른 날은 칸 테두리, 한 줄 쓴 날은 아래 초록 점(J4 ①). */
+#appView #journalView .journal-days{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+#appView #journalView .journal-date{ position:relative; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; width:100%; height:auto;
+  min-height:60px; margin:0; padding:6px 0 14px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line);
+  border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; cursor:pointer; }
+#appView #journalView .journal-weekday{ color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.2; }
+#appView #journalView .journal-date.sunday .journal-weekday{ color:var(--kptu-danger); }
+#appView #journalView .journal-num{ box-sizing:border-box; display:grid; place-items:center; min-width:24px; height:24px; padding:0 4px; font-size:var(--ds-text-row); line-height:1; border-radius:999px; }
+#appView #journalView .journal-date[aria-current="date"] .journal-num{ color:var(--kptu-surface); background:var(--ds-kind-journal-ink); font-weight:var(--ds-weight-medium); }
+#appView #journalView .journal-dot{ position:absolute; left:50%; bottom:6px; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-journal-ink); }
+#appView #journalView .journal-date[aria-pressed="true"]{ border-color:var(--ds-kind-journal-ink); box-shadow:0 0 0 2px var(--ds-kind-journal-ink); background:var(--ds-kind-journal-soft); }
+#appView #journalView .journal-date:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #journalView .journal-date:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
+
+/* 고른 날: 맨 위 "오늘 한 줄", 아래 재료. */
+#appView #journalView .journal-day{ display:flex; flex-direction:column; gap:12px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
+#appView #journalView .journal-day h3{ margin:0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--ds-kind-journal-ink); }
+#appView #journalView .journal-day h3:focus{ outline:none; }
+#appView #journalView .journal-line{ display:flex; flex-direction:column; gap:4px; margin:0; }
+#appView #journalView .journal-line label{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #journalView .journal-line-row{ display:flex; align-items:flex-start; gap:8px; }
+#appView #journalView .journal-line textarea{ flex:1; box-sizing:border-box; min-width:0; min-height:var(--ds-control-height); margin:0; resize:none; font-size:var(--ds-text-read); line-height:1.5; color:var(--kptu-ink); }
+#appView #journalView .journal-line textarea[aria-invalid="true"]{ border-color:var(--kptu-danger); }
+#appView #journalView .journal-line-row button{ flex:0 0 auto; min-height:var(--ds-control-height); }
+#appView #journalView .journal-line-meta{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
+#appView #journalView .journal-line-meta small{ color:var(--kptu-muted); font-size:var(--ds-text-meta); font-variant-numeric:tabular-nums; }
+#appView #journalView .journal-line-meta small.over{ color:var(--kptu-danger); }
+#appView #journalView .journal-line-status{ margin:0; font-size:var(--ds-text-row); }
+#appView #journalView .journal-line-status:empty{ display:none; }
+#appView #journalView .journal-materials{ display:flex; flex-direction:column; gap:10px; }
+#appView #journalView .journal-group{ display:flex; flex-direction:column; gap:4px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #journalView .journal-group h4{ margin:0; font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); }
+#appView #journalView .journal-group ul{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:2px; font-size:var(--ds-text-row); line-height:1.5; overflow-wrap:anywhere; }
+#appView #journalView .journal-group > .mini{ align-self:flex-start; }
+#appView #journalView .journal-muted{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-row); }
+#appView #journalView .journal-failed{ color:var(--kptu-danger); }
+@media(min-width:761px){ #appView #journalView .journal-materials{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; } }
+/* 폰: 전환 줄(아래 탭 위 한 줄)에 마지막 재료가 가리지 않게 아래 여백. [+]는 없다. */
+@media(max-width:760px){
+  #appView #journalView.view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 22px + env(safe-area-inset-bottom))!important; }
+}
