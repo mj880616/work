@@ -123,3 +123,41 @@ test('auto merge publishes through the Actions Pages workflow, not the legacy Pa
   assert.match(pages, /^  workflow_dispatch:\n/m);
   assert.match(pages, /^  deploy:\n/m);
 });
+
+test('browser-e2e reports on every main PR and decides from the change scope', () => {
+  const source = workflow('app-e2e-check.yml');
+  const on = source.slice(0, source.indexOf('\npermissions:'));
+  const pullRequest = on.match(/^  pull_request:\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? '';
+  assert.match(pullRequest, /^    branches:\n      - main\n/);
+  assert.doesNotMatch(pullRequest, /paths|types:/);
+  assert.doesNotMatch(source, /pull_request_target|paths-ignore/);
+  assert.match(on, /^  push:\n    branches:\n      - main\n    paths:\n/m);
+  assert.match(on, /^  schedule:\n/m);
+  assert.match(on, /^  workflow_dispatch:\n/m);
+
+  const jobs = jobBlocks(source);
+  assert.deepEqual(Object.keys(jobs), ['changes', 'browser-e2e-shard', 'browser-e2e']);
+  const decide = jobs.changes;
+  assert.doesNotMatch(decide, /^    if:/m);
+  assert.match(decide, /if \[ "\$EVENT_NAME" != "pull_request" \]; then[\s\S]*?e2e=true/);
+  assert.match(decide, /git diff --no-renames --name-only -z "\$BASE_SHA\.\.\.\$HEAD_SHA"/);
+  assert.match(decide, /\^\(app\/\|p\/\|tests\/app-e2e\/\|\\\.github\/workflows\/app-e2e-check\\\.yml\$\)/);
+  for (const use of decide.matchAll(/uses: (\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/);
+  assert.equal([...decide.matchAll(/uses: /g)].length, 1, 'only checkout');
+
+  assert.match(jobs['browser-e2e-shard'], /^    needs: changes\n    if: needs\.changes\.outputs\.e2e == 'true'\n/m);
+
+  const aggregate = jobs['browser-e2e'];
+  assert.match(aggregate, /^    if: always\(\)\n    needs: \[changes, browser-e2e-shard\]\n/m);
+  const order = ['"$CHANGES_RESULT" != "success"', '"$E2E_NEEDED" = "false"', '"$E2E_NEEDED" != "true"', 'test "$SHARD_RESULT" = "success"'];
+  const positions = order.map(text => aggregate.indexOf(text));
+  assert.ok(positions.every(position => position >= 0), 'aggregate checks decision, need and shard result');
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+  assert.doesNotMatch(aggregate, /continue-on-error|\|\| true/);
+
+  for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name))) {
+    const declared = Object.keys(jobBlocks(workflow(name))).includes('browser-e2e');
+    assert.equal(declared, name === 'app-e2e-check.yml', name);
+    assert.doesNotMatch(workflow(name), /^    name: browser-e2e\s*$/m, name);
+  }
+});
