@@ -6,7 +6,7 @@ import { mountClassification } from './basket-classification-ui.js';
 import { readBasket, updateNote, noteState, visibleNotes, filedProjects, filedOrganizations, moveToNote, suggestNoteTitle, validateNoteTitle, BASKET_PLACES, noteClassified, placeSubOptions } from './basket-data.js';
 import { renderFilterChips } from './filter-chips.js';
 import { mountNotes } from './basket-notes.js';
-import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js';
+import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, takeBasketKindRequest } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
@@ -274,8 +274,14 @@ const switchRow=root.querySelector('.basket-switch-row');
 // an open memo or note draws its own "‹ 바구니"/"‹ 노트" head in that place instead.
 function paintListChrome(){const open=!!selected||noteDocs.isOpen();switchRow.hidden=open;listHead.hidden=open;}
 const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:()=>paintListChrome(),onMovedToBasket:()=>void refresh()});
+// UI-PC메모노트: the PC sidebar's [업데이트]·[노트] under [바구니] show which side is open; this module owns the kind, so it paints them.
+function paintNavKind(){
+  const on=window.KPTURouter?.current==='basket';
+  document.querySelectorAll('#appView>.app-nav [data-basket-kind-nav]').forEach(b=>{const current=on&&b.dataset.basketKindNav===kind;b.classList.toggle('active',current);if(current)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});
+}
+window.addEventListener('kptu:view-changed',paintNavKind);
 function showKind(next,{openId=null}={}){
-  kind=next;kindSwitch.querySelectorAll('[data-basket-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.basketKind===kind)));
+  kind=next;kindSwitch.querySelectorAll('[data-basket-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.basketKind===kind)));paintNavKind();
   const memo=kind==='memo';
   list.hidden=!memo||!!selected;moreWrap.hidden=!memo;noteHost.hidden=memo;if(!memo){setMore(false);hideHandoffNotice();}
   if(!memo)noteDocs.show({openId});
@@ -838,7 +844,7 @@ window.addEventListener('kptu:view-changed',e=>{
 });
 window.KPTURouter.on('basket', () => {
   void preloadMarkdown();
-  const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt);
+  const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt), wantedKind = takeBasketKindRequest(rt);
   if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) return;
   noteDocs.close({focus:false,force:true}); showKind('memo');
   filter = 'unclassified'; place = 'all'; sub = 'all'; renderList();
@@ -846,6 +852,7 @@ window.KPTURouter.on('basket', () => {
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
   closeDetail({focus:false}); if (wanted) requestedNote = wanted; renderList(); void refresh();
   if (wantedDoc) showKind('note', {openId:wantedDoc});
+  else if (wantedKind === 'note') showKind('note');
 });
 // UI-디자인손질 8: a note saved from the menu [쓰기] shows up here without leaving the current screen.
 window.addEventListener('kptu:basket-note-created',()=>{if(window.KPTURouter.current==='basket'&&!selected&&!busy&&!classification.isOpen())void refresh();});

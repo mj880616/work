@@ -87,7 +87,7 @@ for(const width of [390,1280]){
   await press(page);await expect(text).toHaveValue('');await expect(text).toBeHidden();release();await expect(text).toHaveValue(/합성 새 메모/);expect(await text.inputValue()).not.toContain('합성 비공개 첫 메모');await page.unroute(SB+'/rest/v1/app_notes?**');
   await page.route(SB+'/rest/v1/app_notes?**',r=>r.fulfill({json:[note]}));
   // [분류 결과 입력]을 따로 여는 버튼은 없다(#577: [분류 요청]이 복사 뒤 연다). 창 닫기는 아래 '취소' 표에서 다룬다.
-  for(const control of ['[data-basket-filter="classified"]','[data-basket-row]','.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible']){
+  for(const control of ['[data-basket-filter="classified"]','[data-basket-row]','.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible,.app-nav .sidebar-brand:visible']){
    await page.locator(control).click();await cleared(page);
    // UI-바구니거르기: the memo is unclassified, so come back to [미분류] before the next control opens its row.
    if(control.includes('classified'))await page.locator('[data-basket-filter="unclassified"]').click();

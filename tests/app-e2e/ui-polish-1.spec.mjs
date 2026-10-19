@@ -70,9 +70,9 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // The sheet sits right on top of the tab bar, full width, rounded top.
  await expect.poll(async()=>{const [sheet,tabs]=await Promise.all([rect(panel),rect(page.locator('.mobile-tabs'))]);return Math.abs(sheet.bottom-tabs.top)<=1&&sheet.left===0&&Math.round(sheet.right)===390;}).toBe(true);
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
- // 큰 칸 3×2: 쓰기·회의·자료실 / HWP 편집·성명·보도자료·게시판. 성명과 보도자료는 한 칸.
+ // 큰 칸 3×2: 쓰기·회의·자료실 / HWP 편집·성명·보도자료·공유 페이지. 성명과 보도자료는 한 칸.
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['쓰기','회의','자료실','HWP 편집','성명·보도자료','게시판']);
+ await expect(tiles).toHaveText(['쓰기','회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),h:r.height};}));
  expect(new Set(boxes.map(b=>b.y)).size).toBe(2);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
  for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
@@ -112,7 +112,8 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
 test('PC 사이드바: 메뉴 판과 같은 항목([쓰기]·성명·보도자료 한 줄), 761~1023px 가로 메뉴에는 [쓰기]가 ☰ 안에만',async({page})=>{
  await boot(page,1280);
  await expect(page.locator('#appView>.app-nav [data-menu-write]')).toBeVisible();
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['홈','바구니','쓰기','일정','할 일','일지','일기','프로젝트','자료실','회의','성명·보도자료','게시판','담당조직','HWP 편집']);
+ // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','쓰기','일정','할 일','일지','일기','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집']);
  await page.setViewportSize({width:900,height:900});
  await expect(page.locator('#appView>.app-nav [data-menu-write]')).toBeHidden();
  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toBeVisible();

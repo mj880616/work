@@ -126,7 +126,7 @@ for(const width of [390,1280]){
     await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
     expect(f.confirmations).toHaveLength(1);expect(f.confirmations[0].p_targets).toEqual([{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거',summary:'담당조직 업무 근거'}]);
     await close.click();await classified.click();await expect(page.locator(`[data-basket-row="${noteId}"]`)).toContainText('분류 완료');
-    await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible').click();await expect(quick).toBeVisible();
+    await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible,.app-nav .sidebar-brand:visible').click();await expect(quick).toBeVisible();
     await page.mouse.move(0,0);await page.evaluate(()=>document.activeElement?.blur());
     await quick.screenshot({path:info.outputPath(`quick-return-${width}.png`)});
     expect(await quick.boundingBox()).toEqual(quickBounds);

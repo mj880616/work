@@ -519,6 +519,19 @@
   #appView > .app-nav .sidebar-brand{ border-bottom:var(--ds-line-width) solid var(--ds-line); font-weight:var(--ds-weight-medium); }
   #appView > .app-nav .nav-btn{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
   #appView > .app-nav .nav-btn.active{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); font-weight:var(--ds-weight-medium); }
+  /* UI-PC사이드바: 맨 위 아이콘+"홈" 줄이 홈 메뉴. 아래 따로 있던 [홈]은 PC 사이드바에서 숨기고(761~1023px 위쪽 한 줄 메뉴에는 그대로),
+     홈을 고른 표시(연한 계정 색 바탕)는 그 맨 위 줄에. 누르는 범위 44px. */
+  #appView > .app-nav .nav-home-mid{ display:none; }
+  #appView > .app-nav .sidebar-brand{ box-sizing:border-box; min-height:var(--kptu-touch-target,44px); padding:5px 10px 9px; border-radius:var(--ds-radius-control) var(--ds-radius-control) 0 0; font-size:var(--ds-text-row); }
+  #appView > .app-nav .sidebar-brand:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+  #appView > .app-nav .sidebar-brand.active{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); }
+  #appView > .app-nav .sidebar-brand:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+  /* UI-PC메모노트: [바구니] 아래 하위 메뉴 [업데이트]·[노트](항상 펼침, PC 사이드바만). 들여 쓴 작은 줄(36px·12px), 고른 쪽은 진한 글자·500. */
+  #appView > .app-nav .nav-sub{ display:flex; flex-direction:column; gap:2px; margin:0 0 2px 14px; padding-left:8px; border-left:var(--ds-line-width) solid var(--ds-line); }
+  #appView > .app-nav .nav-sub-btn{ position:relative; box-sizing:border-box; width:100%; min-height:36px; margin:0; padding:8px 10px; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); font:inherit; font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-regular); text-align:left; cursor:pointer; }
+  #appView > .app-nav .nav-sub-btn:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+  #appView > .app-nav .nav-sub-btn.active{ color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }
+  #appView > .app-nav .nav-sub-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
   /* [계정 ▾]도 메뉴와 같은 글자(13px·400). */
   #appView > .app-nav .account-trigger{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }
 }
@@ -563,7 +576,7 @@
 
 /* 4 ☰ 메뉴 판(폰): 하단 탭 바로 위로 올라오는 판. 손잡이(= 닫기 버튼, 누르거나 아래로 밀면 닫힘), 위쪽 큰 칸 3×2, 아래 "계정" 상자 줄.
    761~1023px의 오른쪽 서랍과 PC 사이드바는 모양 그대로(사이드바는 항목만 [쓰기]를 더해 같게). */
-@media(max-width:1023px){ #appView > .app-nav .nav-write{ display:none; } }
+@media(max-width:1023px){ #appView > .app-nav :is(.nav-write,.nav-sub){ display:none; } }
 #appView .mobile-menu-panel nav button svg{ display:none; }
 @media(max-width:760px){
   #appView .mobile-menu{ bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); }
