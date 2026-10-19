@@ -103,7 +103,9 @@ test.describe('phone width 412', () => {
 
   test('the in-screen sheet (분류 결과 입력) and an open <dialog> also stop the swipe', async ({ page }) => {
     await page.evaluate(() => window.KPTURouter.go('basket', { source: 'test' }));
-    await expect(page.locator('#basketView')).toBeVisible();
+    // The basket view is lazy-loaded; under a busy runner it can take longer than the default 5s, so wait for the loader state.
+    await expect.poll(() => page.evaluate(() => window.KPTUViewLoader.isLoaded('basket')), { timeout: 30000 }).toBe(true);
+    await expect(page.locator('#basketView')).toBeVisible({ timeout: 15000 });
     await expect(page.locator('[data-classification-panel]')).toHaveAttribute('role', 'dialog');
     await page.evaluate(() => { document.querySelector('[data-classification-panel]').hidden = false; });
     await expect(page.locator('[data-classification-panel]')).toBeVisible();

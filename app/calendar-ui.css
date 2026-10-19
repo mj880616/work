@@ -230,7 +230,7 @@
 .event-create-modes button { position:relative; box-sizing:border-box; min-width:64px; height:36px; padding:0 12px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-pill); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:12px; cursor:pointer; }
 .event-create-modes button[aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
 /* Project picker reads as an input field: left-aligned value, muted placeholder, arrow at the right edge. */
-#eventTaskProject { display:flex; align-items:center; justify-content:space-between; gap:var(--kptu-space-2); width:100%; max-width:100%; min-height:44px; padding:8px var(--kptu-space-3); border:1px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); color:var(--kptu-ink); font-size:inherit; font-weight:400; text-align:left; }
+#eventTaskProject { display:flex; align-items:center; justify-content:space-between; gap:var(--kptu-space-2); width:100%; max-width:100%; min-height:46px; padding:8px var(--kptu-space-3); border:1px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); color:var(--kptu-ink); font-size:13px; font-weight:500; box-shadow:none; text-align:left; }
 #eventTaskProject .event-project-name { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:400; }
 #eventTaskProject .event-project-name[data-empty="true"] { color:var(--kptu-muted); }
 #eventTaskProject .event-project-arrow { flex:none; color:var(--kptu-muted); }
