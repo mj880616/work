@@ -182,3 +182,26 @@ test('overseas device keeps KST single-day events in columns and clips multi-day
     await expect(page.locator('.cwv-bands [data-google-event="multi"]')).toHaveCSS('grid-column','3 / span 2');
   }finally{await context.close()}
 });
+// BUG-일정색표시: 주간 시간 일정 칸도 종일 띠와 같은 일정별 색(왼쪽 색 띠·연한 배경)을 쓴다.
+for(const width of [1024,1440])test(`week timed rows show their own event color like the bands at ${width}`,async({page})=>{
+  const ev=(id,start,end,color,allDay=false)=>({id,title:'QA 색 '+id,calendarId:'qa-cal',start,end,allDay,color});
+  await open(page,width,'week',[
+    ev('red','2026-10-15T09:00:00+09:00','2026-10-15T10:00:00+09:00','#dc2127'),
+    ev('green','2026-10-15T11:00:00+09:00','2026-10-15T12:00:00+09:00','#51b749'),
+    ev('band','2026-10-15','2026-10-17','#dc2127',true)
+  ]);
+  const paint=sel=>page.locator(sel).evaluate(el=>{const s=getComputedStyle(el);return {stripe:s.borderLeftColor,width:s.borderLeftWidth,background:s.backgroundColor}});
+  const red=await paint('#calendarWeek .cwv-items [data-google-event="red"]'),green=await paint('#calendarWeek .cwv-items [data-google-event="green"]'),band=await paint('#calendarWeek .cwv-bands [data-google-event="band"]');
+  expect(red.stripe).toBe('rgb(220, 33, 39)');expect(green.stripe).toBe('rgb(81, 183, 73)');expect(red.width).toBe('4px');
+  expect(red.stripe).toBe(band.stripe);expect(red.background).toBe(band.background);expect(red.background).not.toBe(green.background);expect(red.background).not.toBe('rgba(0, 0, 0, 0)');
+  await expect(page.locator('#calendarWeek .cwv-items [data-google-event="red"] .clv-color')).toBeHidden();
+  await page.getByRole('button',{name:'목록 보기',exact:true}).click();await expect(page.locator('#calendarList')).toBeVisible();
+  expect(await page.locator('#calendarList [data-google-event="red"] .clv-color').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(220, 33, 39)');
+});
+test('phone list keeps the small color bar and no week stripe rule',async({page})=>{
+  const ev={id:'red',title:'QA 색 red',calendarId:'qa-cal',start:'2026-10-15T09:00:00+09:00',end:'2026-10-15T10:00:00+09:00',allDay:false,color:'#dc2127'};
+  await open(page,390,'list',[ev]);await expect(page.locator('#calendarList')).toBeVisible();
+  const row=page.locator('#calendarList [data-google-event="red"]');
+  expect(await row.locator('.clv-color').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(220, 33, 39)');
+  expect(await row.evaluate(el=>getComputedStyle(el).borderLeftWidth)).toBe('0px');
+});
