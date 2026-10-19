@@ -227,3 +227,27 @@ for(const width of [390,1280]){
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
  });
 }
+
+// BASKET-분류중복·변화반영 ②: duplicate / changed / no-basis rows (synthetic records only).
+for(const width of [412,870])test(`verdict rows: duplicate starts unchecked and can be revived, changed starts with the follow-up prefix ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+ const r1='50000000-0000-4000-8000-000000000001',r2='50000000-0000-4000-8000-000000000002',other='10000000-0000-4000-8000-000000000009';
+ const rec=(id,key,target)=>({id,workspace_id:'w',summary:'기존 합성 기록',note_id:other,[key]:target,status:'confirmed',note:{id:other,workspace_id:'w',occurred_at:'2026-10-10T01:00:00Z',raw_text:'합성 원문'}});
+ await page.route(SB+'/rest/v1/app_record_links?**',r=>r.fulfill({json:r.request().url().includes('note.kind=eq.basket')?[rec(r1,'project_id',p),rec(r2,'organization_id',o)]:f.links}));
+ await open(page);
+ const proposal=data();proposal.items[0].destinations=[{kind:'project',target_id:p,reason:'같은 내용',verdict:'duplicate',compared_link_ids:[r1]},{kind:'organization',target_id:o,reason:'새 사실만',verdict:'changed',compared_link_ids:[r2]}];
+ await preview(page,proposal);
+ const dup=page.locator('[data-classification-choice="0:0"]'),chg=page.locator('[data-classification-choice="0:1"]');
+ await expect(dup).not.toBeChecked();await expect(page.locator('[data-classification-verdict="duplicate"]')).toContainText('이미 같은 내용이 기록돼 있어요');
+ await expect(chg).toBeChecked();await expect(page.locator('[data-classification-verdict="changed"]')).toContainText('달라진 점만 기록해요(후속)');
+ await expect(page.locator('[data-classification-summary="0:1"]')).toHaveValue('후속: 새 사실만');
+ await expect(page.locator('[data-classification-summary="0:0"]')).toHaveValue('같은 내용');
+ for(const box of await page.locator('.basket-classification-target').all())expect((await box.boundingBox()).height).toBeGreaterThanOrEqual(43.5);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await dup.check();await expect(dup).toBeChecked();expect(f.rpc).toHaveLength(0);
+ // A compared id that belongs to another destination is not a basis: a plain new row with a small note.
+ proposal.items[0].destinations=[{kind:'project',target_id:p,reason:'근거 없는 판정',verdict:'duplicate',compared_link_ids:[r2]}];
+ await preview(page,proposal);
+ await expect(page.locator('[data-classification-choice="0:0"]')).toBeChecked();await expect(page.locator('[data-classification-verdict="no-basis"]')).toBeVisible();await expect(page.locator('[data-classification-verdict="duplicate"]')).toHaveCount(0);
+ expect(f.errors).toEqual([]);
+});

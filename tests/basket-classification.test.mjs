@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseClassification, previewClassification, confirmLinks, timestampKey } from '../app/basket-classification.js';
+import { initialSummary, FOLLOW_UP_PREFIX, DUPLICATE_TEXT, CHANGED_TEXT, NO_BASIS_TEXT } from '../app/basket-classification-ui.js';
 const n='10000000-0000-4000-8000-000000000001', p='20000000-0000-4000-8000-000000000001', w='30000000-0000-4000-8000-000000000001';
 const stamp='2026-10-11T01:02:03.123456Z';
 const proposal=()=>({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'project',target_id:p,reason:'<img src=x onerror=alert(1)> https://example.org'}]}]});
@@ -88,4 +89,21 @@ test('preview accepts a verdict only with compared ids that the request carried 
  }
  const plain=previewClassification(proposal(),snapshot())[0].destinations[0];
  assert.equal(plain.verdict,'new');assert.equal(plain.verdictNoBasis,false);
+});
+
+// BASKET-분류중복·변화반영 ②: screen helpers (synthetic text only).
+test('changed rows start their summary with the follow-up prefix once; other rows keep the reason as is',()=>{
+ assert.equal(initialSummary({verdict:'changed',reason:'새 사실만'}),FOLLOW_UP_PREFIX+'새 사실만');
+ assert.equal(initialSummary({verdict:'changed',reason:'후속: 이미 붙음'}),'후속: 이미 붙음');
+ for(const verdict of [undefined,'new','duplicate'])assert.equal(initialSummary({verdict,reason:'그대로'}),'그대로');
+});
+test('screen notes are plain Korean and the verdict flags flow from the preview to the screen',()=>{
+ for(const text of [DUPLICATE_TEXT,CHANGED_TEXT,NO_BASIS_TEXT])assert.match(text,/[가-힣]/);
+ const sent=[{id:rid,kind:'project',target_id:p}];
+ // The screen passes the edited proposal (verdict and compared ids kept) plus the sent records.
+ const edited=parseClassification(JSON.stringify(withVerdict({verdict:'duplicate',compared_link_ids:[rid]})));
+ const t=previewClassification(edited,{...snapshot(),sentRecords:sent})[0].destinations[0];
+ assert.equal(t.excluded,true);assert.equal(t.verdictNoBasis,false);
+ const old=previewClassification(parseClassification(JSON.stringify(proposal())),{...snapshot(),sentRecords:sent})[0].destinations[0];
+ assert.equal(old.excluded,undefined);assert.equal(old.verdict,'new');assert.equal(initialSummary(old),old.reason);
 });
