@@ -107,3 +107,35 @@ test('removing a photo takes its comment in the same write; a day without commen
   await m.removeDiaryPhoto(row({attachments:[photo('a'), photo('b')], metadata:{}}), 'a', rt);
   assert.equal('metadata' in rt.calls[2].body, false);
 });
+
+// UI-PC일기 ①: the same owner's sign-in refresh (new token) keeps the photo object URLs; a real owner change or a
+// sign-out drops and revokes them. A photo the browser could not draw is forgotten only if it is still that copy.
+test('photo cache: same-owner token refresh keeps object URLs, owner change or sign-out revokes them', async () => {
+  const m = await mod, revoked = [], realRevoke = URL.revokeObjectURL;
+  URL.revokeObjectURL = url => { revoked.push(url); };
+  try {
+    const rt = {context:{read:() => ({user:{id:'u'}, workspace:{id:'w'}})}, config:{url:'https://x.invalid', key:'k'},
+      session:{ensure:async () => true, read:() => ({access_token:'t', user:{id:'u'}})}};
+    let reads = 0;
+    const fetcher = async () => { reads++; return new Response(new Blob(['x'], {type:'image/png'}), {headers:{'content-type':'image/png'}}); };
+    m.photoSessionChanged({user:{id:'u'}});
+    const first = await m.diaryPhotoUrl('d1', 'a', 'small', {rt, fetcher});
+    assert.equal(m.photoSessionChanged({access_token:'t2', user:{id:'u'}}), false);
+    assert.equal(await m.diaryPhotoUrl('d1', 'a', 'small', {rt, fetcher}), first);
+    assert.equal(reads, 1); assert.deepEqual(revoked, []);
+    // A failed draw of an older copy does not drop a newer one; the failed copy itself is dropped and revoked.
+    await m.forgetDiaryPhoto('d1', 'a', 'small', 'blob:other');
+    assert.equal(await m.diaryPhotoUrl('d1', 'a', 'small', {rt, fetcher}), first); assert.equal(reads, 1);
+    await m.forgetDiaryPhoto('d1', 'a', 'small', first);
+    assert.deepEqual(revoked, [first]);
+    const second = await m.diaryPhotoUrl('d1', 'a', 'small', {rt, fetcher});
+    assert.equal(reads, 2); assert.notEqual(second, first);
+    assert.equal(m.photoSessionChanged({user:{id:'other'}}), true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepEqual(revoked, [first, second]);
+    await m.diaryPhotoUrl('d1', 'a', 'small', {rt, fetcher});
+    assert.equal(m.photoSessionChanged(null), true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(revoked.length, 3);
+  } finally { URL.revokeObjectURL = realRevoke; }
+});

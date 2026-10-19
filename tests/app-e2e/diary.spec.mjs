@@ -593,3 +593,78 @@ for(const [how,back] of [['브라우저 뒤로',page=>page.goBack()],['앱 뒤�
   expect(f.errors).toEqual([]);
  });
 }
+
+// UI-PC일기 ①: a same-owner sign-in refresh (new token only) fires kptu:session-changed. It used to revoke every cached
+// photo object URL, including photos still being read (ensure() itself refreshes the token), so they broke while the
+// box said "shown". Now: the same owner keeps the photos; "shown" means the browser really drew it (naturalWidth > 0).
+for(const width of [390,1280]){
+ test(`사진: 같은 사용자 로그인 갱신(토큰만 바뀜) 중·뒤에도 사진이 그려지고 상태가 맞다 ${width}`,async({page})=>{
+  const f=await fixture(page,{width});
+  let release,waiting=0;const gate=new Promise(resolve=>{release=resolve;});
+  await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files'&&u.searchParams.get('action')==='photo',async r=>{waiting++;await gate;await r.fallback();});
+  await openDiary(page,width);
+  const box=cell(page,'2026-10-03').locator('.diary-photo');
+  await expect(box).toHaveAttribute('data-state','loading');
+  await expect.poll(()=>waiting).toBeGreaterThan(0);
+  // The token is refreshed for the same owner while the photo read is still on its way.
+  await page.evaluate(()=>{const s=window.KPTURuntime.session.read();window.KPTURuntime.session.write({...s,access_token:s.access_token+'-refreshed',expires_at:Math.floor(Date.now()/1000)+3600});});
+  release();
+  await expect(box).toHaveAttribute('data-state','shown');
+  const drawn=()=>box.locator('img').evaluate(img=>img.complete&&img.naturalWidth>0);
+  expect(await drawn()).toBe(true);
+  // Another same-owner refresh after the photo is up: it stays drawn, and opening the day reuses the copy.
+  await page.evaluate(()=>{const s=window.KPTURuntime.session.read();window.KPTURuntime.session.write({...s,access_token:s.access_token+'-again'});});
+  await cell(page,'2026-10-03').click();
+  const grid=page.locator('#diaryRoot [data-diary-grid] .diary-photo');
+  await expect(grid.first()).toHaveAttribute('data-state','shown');
+  expect(await grid.first().locator('img').evaluate(img=>img.complete&&img.naturalWidth>0)).toBe(true);
+  expect(await drawn()).toBe(true);
+  expect(f.photoReads.filter(r=>r.file_id==='pa'&&r.size==='small')).toHaveLength(1);
+  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+ });
+}
+
+test('사진: 브라우저가 그리지 못한 사진은 한 번 다시 읽고, 또 실패하면 사진 표시(달력 칸)로 바뀐다',async({page})=>{
+ const f=await fixture(page);
+ // The photo view answers "image/png" but the bytes cannot be decoded.
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files'&&u.searchParams.get('action')==='photo'&&u.searchParams.get('file_id')==='pa',async r=>{
+  f.photoReads.push(Object.fromEntries(new URL(r.request().url()).searchParams));
+  await r.fulfill({status:200,contentType:'image/png',body:Buffer.from('not an image')});
+ });
+ await openDiary(page,390);
+ const box=cell(page,'2026-10-03').locator('.diary-photo');
+ await expect(box).toHaveAttribute('data-state','link');
+ await expect(box.locator('img')).toHaveCount(0);
+ await expect(box.locator('.diary-photo-mark')).toHaveText('사진');
+ expect(f.photoReads.filter(r=>r.file_id==='pa'&&r.size==='small')).toHaveLength(2);
+ expect(f.writes).toEqual([]);
+});
+
+// UI-PC일기 ②: on a PC the diary uses the whole body beside the sidebar (same width rule as [달력]); the phone keeps its look.
+for(const width of [390,1280]){
+ test(`달력 폭: PC는 사이드바 옆 본문 폭을 다 쓰고, 폰은 그대로 ${width}`,async({page})=>{
+  const f=await fixture(page,{width});await openDiary(page,width);
+  const m=await page.evaluate(()=>{
+   const r=e=>e.getBoundingClientRect(),diary=r(document.querySelector('#diaryRoot')),view=document.querySelector('#diaryView'),cs=getComputedStyle(view);
+   const panel={width:view.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)};
+   const cells=[...document.querySelectorAll('#diaryRoot .diary-days > *')].map(r);
+   const last=cells[6];
+   return {diary:diary.width,panel:panel.width,right:diary.right,cellW:cells[0].width,cellH:cells[0].height,rowRight:last.right,doc:document.documentElement.scrollWidth,vw:innerWidth};
+  });
+  expect(m.doc).toBeLessThanOrEqual(m.vw);
+  expect(Math.abs(m.diary-m.panel)).toBeLessThan(2);
+  expect(Math.abs(m.rowRight-m.right)).toBeLessThan(2);
+  if(width<=760){
+   // Phone: the square cells as before.
+   expect(Math.abs(m.cellW-m.cellH)).toBeLessThan(1.5);
+  }else{
+   // PC: well beyond the old 760px cap, the right edge near the window edge, a month still inside the window.
+   expect(m.diary).toBeGreaterThan(860);
+   expect(m.vw-m.right).toBeLessThan(60);
+   expect(m.cellH).toBeLessThan(m.cellW);
+   const bottom=await page.locator('#diaryRoot .diary-days').evaluate(el=>el.getBoundingClientRect().bottom);
+   expect(bottom).toBeLessThanOrEqual(900);
+  }
+  expect(f.errors).toEqual([]);
+ });
+}
