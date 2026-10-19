@@ -18,6 +18,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly DropService _drop;
     private readonly QueueProcessor _processor;
     private readonly HttpBasketApi _api = new();
+    private readonly HttpAuthClient _authClient = new();
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _wake = new(0);
     // Hidden control whose handle lives on the UI thread; background threads hop onto the UI through it.
@@ -26,6 +27,10 @@ internal sealed class TrayApp : ApplicationContext
     private readonly List<string> _batchPaths = new();
     private readonly object _batchGate = new();
     private readonly ToolStripMenuItem _sendToItem = new("우클릭 [보내기] 메뉴에 넣기");
+    private readonly ToolStripMenuItem _loginStatusItem = new("로그인 상태") { Enabled = false };
+    private readonly ToolStripMenuItem _signInItem = new("구글로 로그인");
+    private readonly ToolStripMenuItem _signOutItem = new("로그아웃");
+    private CancellationTokenSource? _signInCts;
     private PasteForm? _paste;
     private StatusForm? _status;
 
@@ -37,13 +42,15 @@ internal sealed class TrayApp : ApplicationContext
 
     public bool IsClosing => _stop.IsCancellationRequested;
 
-    // Step B replaces this with the Google sign-in provider. Until then nothing can leave the PC.
-    private readonly IAuthProvider _auth = new NotSignedInAuthProvider();
+    // The only object that touches tokens (refresh token in Credential Manager, access token in memory).
+    private readonly SupabaseAuthProvider _auth;
 
     public TrayApp()
     {
         _ = _ui.Handle;
         _drop = new DropService(_store, _history);
+        _auth = new SupabaseAuthProvider(_authClient, new CredentialManagerTokenStore(), _api, _log);
+        _auth.StateChanged += s => Ui(() => OnAuthStateChanged(s));
         _processor = new QueueProcessor(_store, _history, _api, _auth, _log);
         _processor.Finished += f => Ui(() => OnFinished(f));
         _processor.Changed += () => Ui(RefreshTray);
@@ -81,6 +88,12 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add("지금 복사한 것 바로 보내기 (Ctrl+Shift+B)", null, (_, _) => OnHotkey());
         menu.Items.Add("보낸 기록·대기열", null, (_, _) => ShowStatus());
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(_loginStatusItem);
+        _signInItem.Click += (_, _) => _ = SignInAsync();
+        _signOutItem.Click += (_, _) => _ = SignOutAsync();
+        menu.Items.Add(_signInItem);
+        menu.Items.Add(_signOutItem);
+        menu.Items.Add(new ToolStripSeparator());
         _sendToItem.CheckOnClick = false;
         _sendToItem.Checked = SendToShortcut.Exists;
         _sendToItem.Click += (_, _) => ToggleSendTo();
@@ -103,8 +116,99 @@ internal sealed class TrayApp : ApplicationContext
         _sendToItem.Checked = SendToShortcut.Exists;
     }
 
+    // ---- sign-in / sign-out ----
+
+    private async Task SignInAsync()
+    {
+        // A new click replaces an attempt that is still waiting for the browser.
+        _signInCts?.Cancel();
+        var cts = _signInCts = new CancellationTokenSource();
+        ToastForm.Show("브라우저에서 구글 로그인을 마쳐 주세요.");
+        SignInOutcome outcome;
+        try
+        {
+            outcome = await _auth.SignInAsync(OpenInBrowser, cts.Token);
+        }
+        catch (Exception e) when (e is IOException or InvalidOperationException or OperationCanceledException)
+        {
+            outcome = SignInOutcome.Failed;
+        }
+        if (outcome == SignInOutcome.Cancelled && !ReferenceEquals(_signInCts, cts)) return;
+        switch (outcome)
+        {
+            case SignInOutcome.Ok:
+                ToastForm.Show("로그인됐어요. 기다리던 항목을 보냅니다.");
+                Kick();
+                break;
+            case SignInOutcome.NotOwner:
+                ToastForm.Show("이 구글 계정은 Web2 소유자가 아니에요. 평소 Web2에 쓰는 계정으로 다시 로그인해 주세요. 아무것도 보내지 않았어요.", true);
+                break;
+            case SignInOutcome.PortsBusy:
+                ToastForm.Show("로그인 연결 창구를 열지 못했어요. 이전 로그인 창이 남아 있으면 닫고 잠시 뒤 다시 시도해 주세요.", true);
+                break;
+            case SignInOutcome.TimedOut:
+                ToastForm.Show("로그인이 2분 안에 끝나지 않았어요. 다시 시도해 주세요.", true);
+                break;
+            case SignInOutcome.Denied:
+                ToastForm.Show("로그인하지 않았어요.", true);
+                break;
+            case SignInOutcome.Unavailable:
+                ToastForm.Show("서버에 연결하지 못했어요. 인터넷을 확인하고 다시 시도해 주세요.", true);
+                break;
+            case SignInOutcome.Cancelled:
+                break;
+            default:
+                ToastForm.Show("로그인하지 못했어요. 다시 시도해 주세요.", true);
+                break;
+        }
+        RefreshTray();
+    }
+
+    /// <summary>The address holds only public values (the challenge and the loopback return), so it is safe as a process argument.</summary>
+    private static bool OpenInBrowser(Uri url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true });
+            return true;
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private async Task SignOutAsync()
+    {
+        _signInCts?.Cancel();
+        SignOutResult result;
+        try { result = await _auth.SignOutAsync(_stop.Token); }
+        catch (OperationCanceledException) { return; }
+        ToastForm.Show(!result.LocalLoginRemoved
+            ? "로그아웃하지 못했어요. 저장된 로그인을 지우지 못해서 아직 로그인된 상태예요. 다시 시도해 주세요."
+            : result.ServerSessionEnded
+                ? "로그아웃했어요. 대기 중인 항목은 PC에 남아 있어요."
+                : "이 PC에서는 로그아웃했어요. 서버 쪽 정리는 하지 못했어요. 대기 중인 항목은 PC에 남아 있어요.");
+        RefreshTray();
+    }
+
+    private void OnAuthStateChanged(AuthState state)
+    {
+        if (state == AuthState.ReloginNeeded)
+            ToastForm.Show("로그인이 만료됐어요. 트레이 메뉴에서 다시 로그인해 주세요. 대기 중인 항목은 그대로예요.", true);
+        RefreshTray();
+    }
+
+    private static string LoginText(AuthState state) => state switch
+    {
+        AuthState.SignedIn => "로그인됨",
+        AuthState.ReloginNeeded => "다시 로그인 필요",
+        _ => "로그아웃",
+    };
+
     private void Quit()
     {
+        _signInCts?.Cancel();
         _stop.Cancel();
         _hotkey.Dispose();
         _tray.Visible = false;
@@ -245,13 +349,13 @@ internal sealed class TrayApp : ApplicationContext
         switch (f.Kind)
         {
             case FinishKind.Sent:
-                Balloon(f.FileCount > 0 ? $"바구니에 담았어요 · 파일 {f.FileCount}개" : "바구니에 담았어요 · 글 1개", ToolTipIcon.Info);
+                ToastForm.Show(f.FileCount > 0 ? $"바구니에 담았어요 · 파일 {f.FileCount}개" : "바구니에 담았어요 · 글 1개");
                 break;
             case FinishKind.NeedsCheck:
-                Balloon("저장됐는지 확인이 필요해요. 바구니를 열어 보고 기록 창에서 정해 주세요.", ToolTipIcon.Warning);
+                ToastForm.Show("저장됐는지 확인이 필요해요. 바구니를 열어 보고 기록 창에서 정해 주세요.", true);
                 break;
             default:
-                Balloon("보내지 못했어요. 기록 창에서 이유를 확인해 주세요.", ToolTipIcon.Warning);
+                ToastForm.Show("보내지 못했어요. 기록 창에서 이유를 확인해 주세요.", true);
                 break;
         }
     }
@@ -261,7 +365,11 @@ internal sealed class TrayApp : ApplicationContext
         var items = _store.List();
         var waiting = items.Count(i => i.State is ItemState.Pending or ItemState.Sending or ItemState.NotReached or ItemState.LoginRequired);
         var check = items.Count(i => i.State is ItemState.Unknown or ItemState.Rejected);
-        var text = $"바구니 PC드롭 · 대기 {waiting} · 확인 필요 {check}";
+        var login = LoginText(_auth.State);
+        var text = $"바구니 PC드롭 · {login} · 대기 {waiting} · 확인 필요 {check}";
+        _loginStatusItem.Text = "로그인 상태: " + login;
+        _signInItem.Visible = _auth.State != AuthState.SignedIn;
+        _signOutItem.Visible = _auth.State != AuthState.SignedOut;
         _tray.Text = text.Length > 63 ? text[..63] : text;
     }
 
@@ -304,6 +412,7 @@ internal sealed class TrayApp : ApplicationContext
             _ui.Dispose();
             _batchTimer.Dispose();
             _api.Dispose();
+            _authClient.Dispose();
         }
         base.Dispose(disposing);
     }
