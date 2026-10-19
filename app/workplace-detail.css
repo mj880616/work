@@ -40,3 +40,23 @@
 #wdUpdates [data-link-summary-original] > summary{min-height:44px;align-content:center;cursor:pointer}
 #wdUpdates .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 #wdUpdates [data-link-summary-form] .basket-link-actions{justify-content:flex-end}
+
+/* UI-바구니첨부메모 PR 3 ⑨: 조직 상세 [자료] 묶음. 프로젝트 상세의 [자료]와 같은 모양(줄 + ⋯, 최근 5개, "전체 N개 보기 ›"). */
+#wdDocs .wd-head{align-items:center}
+.wd-doc-lines{display:grid}
+.wd-doc-row{display:flex;align-items:center;gap:4px;min-width:0;border-top:1px solid var(--kptu-border)}
+.wd-doc-row:first-child{border-top:0}
+.wd-doc-main{flex:1 1 auto;display:grid;gap:2px;min-width:0;min-height:var(--kptu-touch-target,44px);box-sizing:border-box;padding:8px 0;color:var(--kptu-ink);text-decoration:none}
+a.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
+a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.wd-doc-main b{min-width:0;font-size:13px;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wd-doc-main small{font-size:12px;color:var(--kptu-muted)}
+.wd-doc-more{position:relative;flex:none}
+.wd-doc-more>summary{list-style:none;cursor:pointer;display:grid;place-items:center;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);padding:0;border-color:transparent;background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:18px;line-height:1}
+.wd-doc-more>summary::-webkit-details-marker{display:none}
+.wd-doc-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:8;min-width:148px;display:grid;padding:4px;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:var(--kptu-shadow-float)}
+.wd-doc-panel button{min-height:44px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);padding:0 12px;text-align:left;font-size:var(--kptu-text-meta);font-weight:600}
+.wd-doc-panel button:hover,.wd-doc-panel button:focus-visible{background:var(--kptu-surface-subtle)}
+.wd-doc-all{display:flex;align-items:center;gap:4px;min-height:44px;margin-left:auto;border:0;background:transparent;color:var(--kptu-link);padding:0 4px;font-size:12px;font-weight:700;cursor:pointer}
+.wd-doc-all:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+#wdDocBody .status{margin-top:4px}

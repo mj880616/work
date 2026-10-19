@@ -3,14 +3,15 @@ import {effectiveOcrText} from './basket-ocr-text.mjs';
 import { mountQuick } from './home-quick.js';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js';
 import { mountClassification } from './basket-classification-ui.js';
-import { readBasket, updateNote, noteState, visibleNotes, filedProjects, moveToNote, suggestNoteTitle, validateNoteTitle, BASKET_PLACES, noteClassified, placeSubOptions } from './basket-data.js';
+import { readBasket, updateNote, noteState, visibleNotes, filedProjects, filedOrganizations, moveToNote, suggestNoteTitle, validateNoteTitle, BASKET_PLACES, noteClassified, placeSubOptions } from './basket-data.js';
 import { renderFilterChips } from './filter-chips.js';
 import { mountNotes } from './basket-notes.js';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
-import { readAttachmentDocuments, putFilesIntoProject } from './basket-file-docs.js';
+import { readAttachmentDocuments, putFilesIntoTargets } from './basket-file-docs.js';
+import { loadDocumentCategories } from './document-categories.js';
 import { fileLine } from './meeting-compact.js';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js';
@@ -90,14 +91,18 @@ async function loadLibraryDocs(){
   for(const [id,doc] of found)libraryDocs.set(`${owner}:${id}`,doc);
   if(selected?.id===note.id)paintAttachments();
 }
-async function putFiles(projectId,isCurrent){
+async function putFiles({projectId=null,organizationId=null,projectName='',organizationName=''},isCurrent){
   const note=selected,owner=scope();
-  const result=await putFilesIntoProject({noteId:note.id,files:note.attachments||[],projectId,known:knownDocs(),rt,expectedSessionEpoch:rt.session.epoch(),isCurrent:()=>isCurrent()&&owner===scope()});
+  const result=await putFilesIntoTargets({noteId:note.id,files:note.attachments||[],projectId,organizationId,known:knownDocs(),rt,expectedSessionEpoch:rt.session.epoch(),isCurrent:()=>isCurrent()&&owner===scope()});
   if(owner===scope()){
     for(const [id,doc] of result.docs||[])libraryDocs.set(`${owner}:${id}`,doc);
     // BUG-자료넣기미분류: placed files make this memo classified ("○○ · 자료") at once; the documents-changed re-read confirms it.
-    const name=window.KPTUProjectCatalog?.describe?.(projectId)?.name||'프로젝트';
-    for(const [fileId,doc] of result.docs||[])docs=[...docs.filter(d=>d.file_id!==fileId),{id:doc.id,file_id:fileId,project_id:projectId,project:{name}}];
+    for(const [fileId,doc] of result.docs||[]){
+      const before=docs.find(d=>d.file_id===fileId);
+      docs=[...docs.filter(d=>d.file_id!==fileId),{id:doc.id,file_id:fileId,project_id:doc.project_id||null,organization_id:doc.organization_id||null,category:before?.category??doc.category??null,
+        project:{name:doc.project_id&&doc.project_id===projectId?projectName||'프로젝트':before?.project?.name||''},
+        organization:{name:doc.organization_id&&doc.organization_id===organizationId?organizationName||'조직':before?.organization?.name||''}}];
+    }
     renderList();
     if(selected?.id===note.id)paintStateLine();
   }
@@ -337,7 +342,8 @@ function linkChip(link, {open = false} = {}) {
 // BUG-자료넣기미분류: a project holding this memo's files ([자료로 넣기]) is one plain chip "○○ · 자료".
 // Moving or removing the documents elsewhere changes it on the next read; there is nothing to undo here.
 function filedChips(note) {
-  return filedProjects(note, docs).map(p => `<span class="basket-chip" data-chip-kind="project" data-basket-filed="${esc(p.project_id)}"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">프로젝트 자료: </span>${esc(p.name)} · 자료</span></span>`);
+  const chip = (kind, id, name, label) => `<span class="basket-chip" data-chip-kind="${kind}" data-basket-filed${kind === 'organization' ? '-org' : ''}="${esc(id)}"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">${label} 자료: </span>${esc(name)} · 자료</span></span>`;
+  return [...filedOrganizations(note, docs).map(o => chip('organization', o.organization_id, o.name, '담당조직')), ...filedProjects(note, docs).map(p => chip('project', p.project_id, p.name, '프로젝트'))];
 }
 // UI-바구니거르기: under [분류], one row of place chips (shared filter-chips.js) narrows by where the memo went.
 // The choice lives only in this module's memory; entering the basket starts again at [미분류]·[전체].
@@ -584,6 +590,8 @@ async function refresh() {
   if (busy) return;
   const run = ++epoch, owner = scope();
   listStatus.textContent = '불러오는 중…'; root.querySelector('[data-basket-retry]').hidden = true;
+  // UI-바구니첨부메모 PR 3: 자료실 분류 칩은 내 분류 목록을 따른다(목록이 오면 'kptu:document-categories-changed'로 다시 그린다).
+  void loadDocumentCategories();
   try {
     const result = await readBasket();
     if (run !== epoch || owner !== scope()) return;
@@ -771,6 +779,7 @@ async function rereadLinks() {
 }
 window.addEventListener('kptu:basket-links-changed', rereadLinks);
 window.addEventListener('kptu:documents-changed', rereadLinks);
+window.addEventListener('kptu:document-categories-changed', () => { if (root.isConnected) renderList(); });
 function openHwpEditor(fileId){
   const file=selected?.attachments?.find(item=>item.drive_file_id===fileId);
   if(!file||editing)return;
