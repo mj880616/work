@@ -543,3 +543,47 @@ for(const [width,height] of [[390,844],[720,900],[880,1000],[1280,800]]){
   expect(f.errors).toEqual([]);
  });
 }
+
+// UI-일기뒤로가기: 날짜 패널 위에 크게 보기가 열린 채 폰 뒤로가기 한 번은 크게 보기만 닫고 그날 패널은 남긴다.
+// 브라우저 뒤로(goBack)와 앱 뒤로(KPTURouter.back, 안드로이드 뒤로가 부르는 것)를 둘 다 본다.
+for(const [how,back] of [['브라우저 뒤로',page=>page.goBack()],['앱 뒤로',page=>page.evaluate(()=>window.KPTURouter.back())]]){
+ test(`폰 ${how}: 크게 보기 → 크게 보기만 닫힘, 한 번 더 → 날짜 패널 닫힘 (사진 넘김·×·다시 열기·고치기 저장 뒤에도)`,async({page})=>{
+  const rows=store();rows[1].attachments=['pa','pb','pc','pd'].map(id=>photo(id));
+  const f=await fixture(page,{width:390,rows});await openDiary(page,390);
+  const detail=page.locator('#diaryRoot [data-diary-detail]'),viewer=page.locator('#diaryRoot [data-diary-viewer]'),grid=detail.locator('[data-diary-grid] .diary-grid-item');
+  const layers=()=>page.evaluate(()=>history.state?.kptuLayers||[]);
+  const settle=()=>page.waitForTimeout(250);
+  // 크게 보기만 닫혀야 하는 한 번의 뒤로: 패널·격자·글이 그대로이고 기록은 [날짜]까지만 남는다.
+  const backClosesViewerOnly=async()=>{
+   await expect(viewer).toBeVisible();await back(page);
+   await expect(viewer).toHaveCount(0);await settle();
+   await expect(detail).toBeVisible();await expect(detail.locator('h3')).toHaveText('10월 3일 토요일');await expect(grid).toHaveCount(4);
+   await expect(page.locator('#diaryView')).toBeVisible();expect(await layers()).toEqual(['diary-day']);
+  };
+  await cell(page,'2026-10-03').click();await expect(detail).toBeVisible();expect(await layers()).toEqual(['diary-day']);
+  // 1) 바로 뒤로.
+  await grid.nth(1).click();expect(await layers()).toEqual(['diary-day','diary-photo']);await backClosesViewerOnly();
+  // 2) 사진을 옆으로 넘긴 뒤 뒤로.
+  await grid.nth(0).click();await page.keyboard.press('ArrowRight');await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('2 / 4');await page.keyboard.press('ArrowRight');
+  await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('3 / 4');await backClosesViewerOnly();
+  // 3) ×로 닫은 뒤 다시 열고 뒤로, 그리고 ×·뒤로를 번갈아 반복해도 기록이 늘거나 어긋나지 않는다.
+  await grid.nth(2).click();await viewer.locator('[data-diary-viewer-close]').click();await expect(viewer).toHaveCount(0);await settle();
+  expect(await layers()).toEqual(['diary-day']);await expect(detail).toBeVisible();
+  const entries=()=>page.evaluate(()=>navigation.currentEntry.index);
+  const at=await entries();
+  for(let n=0;n<3;n++){
+   await grid.nth(n).click();await expect(viewer).toBeVisible();expect(await entries()).toBe(at+1);
+   if(n%2)await backClosesViewerOnly();else{await viewer.locator('[data-diary-viewer-close]').click();await expect(viewer).toHaveCount(0);await settle();}
+   expect(await entries()).toBe(at);expect(await layers()).toEqual(['diary-day']);
+  }
+  await grid.nth(3).click();await backClosesViewerOnly();
+  // 4) 같은 날 [고치기] → 저장 뒤에 다시 열어도 마찬가지.
+  await detail.locator('[data-diary-edit]').click();await expect(page.locator('#diaryRoot [data-diary-editor]')).toBeVisible();
+  await page.locator('#diaryRoot [data-diary-save]').click();await expect(page.locator('#diaryRoot [data-diary-editor]')).toBeHidden();await settle();
+  await expect(detail).toBeVisible();await grid.nth(1).click();await backClosesViewerOnly();
+  // 한 번 더 뒤로: 그제야 날짜 패널이 닫히고 일기 달력만 남는다(일기 화면은 그대로).
+  await back(page);await expect(detail).toBeHidden();await expect(page.locator('#diaryView')).toBeVisible();
+  await expect(page.locator('#diaryRoot [data-diary-cal]')).toBeVisible();expect(await layers()).toEqual([]);
+  expect(f.errors).toEqual([]);
+ });
+}

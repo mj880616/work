@@ -28,6 +28,11 @@ public interface IBasketApi
 {
     Task<ApiResult> UploadFileAsync(string token, string filePath, QueueFile file, string? rawText, Guid? noteId, CancellationToken ct);
     Task<ApiResult> CreateNoteAsync(string token, Guid id, string rawText, CancellationToken ct);
+    /// <summary>
+    /// Reads the signed-in user's owner membership. Ok = owner; Rejected = not the Web2 owner (no row visible).
+    /// A courtesy check for a clear message after sign-in; the server still decides every real request.
+    /// </summary>
+    Task<ApiResult> CheckOwnerAsync(string token, CancellationToken ct);
 }
 
 public sealed class ConnectFailedException : Exception
@@ -62,6 +67,8 @@ public sealed class HttpBasketApi : IBasketApi, IDisposable
         _key = key;
         var handler = new SocketsHttpHandler
         {
+            // A redirect is never followed (it would resend the upload and the apikey header elsewhere); it counts as a refusal.
+            AllowAutoRedirect = false,
             ConnectCallback = async (ctx, ct) =>
             {
                 var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
@@ -140,6 +147,27 @@ public sealed class HttpBasketApi : IBasketApi, IDisposable
         }
     }
 
+    public async Task<ApiResult> CheckOwnerAsync(string token, CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        try
+        {
+            // Always re-read: a cached workspace id from a previous account must never be reused after a new sign-in.
+            _workspaceId = null;
+            var found = await FindWorkspaceAsync(token, timeout.Token).ConfigureAwait(false);
+            if (found.Result != null) return found.Result;
+            _workspaceId = found.Id;
+            return new ApiResult(ApiOutcome.Ok, "ok");
+        }
+        catch (Exception e) when (IsTransport(e, ct))
+        {
+            var r = TransportResult(e);
+            // Nothing was written, so "unknown" has no meaning here: treat it as not reached.
+            return r with { Outcome = ApiOutcome.NotReached };
+        }
+    }
+
     /// <summary>Reads the owner workspace like the web loader does. Nothing is written yet, so a failure here is never "unknown".</summary>
     private async Task<(string? Id, ApiResult? Result)> FindWorkspaceAsync(string token, CancellationToken ct)
     {
@@ -176,16 +204,7 @@ public sealed class HttpBasketApi : IBasketApi, IDisposable
     /// <summary>Reads the "sub" claim only to filter the membership query; the server's row security still decides access.</summary>
     internal static string? TokenSubject(string token)
     {
-        try
-        {
-            var parts = token.Split('.');
-            if (parts.Length != 3) return null;
-            var payload = parts[1].Replace('-', '+').Replace('_', '/');
-            payload = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
-            using var doc = JsonDocument.Parse(Convert.FromBase64String(payload));
-            return doc.RootElement.TryGetProperty("sub", out var s) && s.ValueKind == JsonValueKind.String ? s.GetString() : null;
-        }
-        catch (Exception e) when (e is FormatException or JsonException) { return null; }
+        return Jwt.StringClaim(token, "sub");
     }
 
     // Anything that happens after a connection exists is "unknown"; a user/shutdown cancel is not caught here

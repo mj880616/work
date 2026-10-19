@@ -187,4 +187,37 @@ public class HttpApiTests
         Assert.Throws<ArgumentException>(() => new HttpBasketApi("http://example.com"));
         using var ok = new HttpBasketApi("http://127.0.0.1:9");
     }
+
+    [Fact]
+    public async Task Owner_check_reads_the_owner_membership_with_the_users_own_token()
+    {
+        using var server = new FakeServer(_ => new Reply { Body = "[{\"workspace_id\":\"w1\"}]" });
+        using var api = new HttpBasketApi(server.BaseUrl, "PUBLIC-KEY");
+
+        var r = await api.CheckOwnerAsync(FakeJwt, default);
+
+        Assert.Equal(ApiOutcome.Ok, r.Outcome);
+        var req = Assert.Single(server.Requests);
+        Assert.StartsWith("GET /rest/v1/app_workspace_members?select=workspace_id&role=eq.owner&user_id=eq.11111111-2222-3333-4444-555555555555", req.RequestLine);
+        Assert.Equal("Bearer " + FakeJwt, req.Headers["Authorization"]);
+    }
+
+    [Fact]
+    public async Task Owner_check_refuses_an_account_without_an_owner_row_and_forgets_the_old_workspace()
+    {
+        var rows = "[{\"workspace_id\":\"w1\"}]";
+        using var server = new FakeServer(_ => new Reply { Body = rows });
+        using var api = new HttpBasketApi(server.BaseUrl, "PUBLIC-KEY");
+        Assert.Equal(ApiOutcome.Ok, (await api.CheckOwnerAsync(FakeJwt, default)).Outcome);
+
+        rows = "[]"; // another account: row security shows nothing
+        var r = await api.CheckOwnerAsync(FakeJwt, default);
+
+        Assert.Equal(ApiOutcome.Rejected, r.Outcome);
+        Assert.Equal("workspace_not_found", r.Code);
+        // The next text note must look the workspace up again instead of reusing the previous account's id.
+        rows = "[{\"workspace_id\":\"w2\"}]";
+        await api.CreateNoteAsync(FakeJwt, Guid.NewGuid(), "hi", default);
+        Assert.Contains("\"workspace_id\":\"w2\"", Encoding.UTF8.GetString(server.Requests.Last().Body));
+    }
 }

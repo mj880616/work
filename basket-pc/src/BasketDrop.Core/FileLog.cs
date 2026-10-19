@@ -5,6 +5,7 @@ public enum LogCode
 {
     Started, Stopped, HotkeyFailed, HotkeyOk, Enqueued, SendOk, SendNotReached, SendUnknown,
     SendRejected, LoginRequired, QueueFull, QueueRecovered, UpdateCheck, Error,
+    SignInOk, SignInFailed, SignedOut, NotOwner, ReloginNeeded,
 }
 
 public interface ILog
