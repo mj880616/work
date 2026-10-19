@@ -178,6 +178,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - Prefer automated browser E2E and regression tests over manual-only checks whenever feasible.
 - 테스트를 우회하거나 삭제해서 통과시키지 않는다. CI 결과 확인 전에는 완료로 보고하지 않는다.
 - 문서 전용 PR은 CI 대상 아님을 완료 기준으로 인정한다.
+- 같은 E2E 시험이 서로 다른 실행에서 두 번 이상 간헐 실패하면 재실행으로 넘기지 않고 안정화 작업을 원장에 올려 원인을 고친다. 재시도 횟수 증가·대기 시간만 늘리기·skip은 해결로 인정하지 않는다(2026-10-19 사용자 결정).
 - If a security or authorization issue remains unresolved, do not describe the task as fully complete.
 
 ## 10. 보고
