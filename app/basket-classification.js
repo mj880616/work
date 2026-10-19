@@ -1,6 +1,7 @@
 // Untrusted AI proposals live only in memory. Never render reason as markup.
-export const CLASSIFICATION_LIMITS = Object.freeze({bytes:1048576, items:100, targets:20, reason:2000, depth:6});
+export const CLASSIFICATION_LIMITS = Object.freeze({bytes:1048576, items:100, targets:20, reason:2000, depth:7, compared:5});
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const VERDICTS = Object.freeze(['new','duplicate','changed']);
 const kinds = new Set(['organization','project','library','write_request_candidate','google_task']);
 export const ERROR_TEXT = Object.freeze({RESULT_UNKNOWN:'결과를 확인하지 못했어요. 다시 확인을 눌러 현재 연결을 확인해 주세요.',NOTE_MISSING:'메모를 찾거나 열 수 없어요.',NOTE_WORKSPACE:'다른 업무 공간의 메모예요.',NOTE_ARCHIVED:'보관된 메모예요.',AI_EXCLUDED:'AI에게 맡기지 않기로 한 메모예요.',NOTE_CHANGED:'메모가 바뀌었어요. AI에게 다시 맡겨 주세요.',TARGET_MISSING:'연결할 곳을 찾거나 열 수 없어요.',TARGET_WORKSPACE:'다른 업무 공간에 있는 곳이에요.',TARGET_UNSELECTABLE:'지금은 선택할 수 없는 곳이에요.',ALREADY_CONFIRMED:'이미 연결됨',NEXT_STAGE:'아직 지원하지 않는 항목',FUNCTION_UNAVAILABLE:'연결 기능 준비 중',INVALID_TARGETS:'연결할 곳을 다시 확인해 주세요.',INVALID_INPUT:'메모 정보가 맞지 않아요. AI에게 다시 맡겨 주세요.',PERMISSION_DENIED:'이 내용을 열거나 연결할 권한이 없어요.',SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 현재 연결을 확인해 주세요.'});
 // The handoff instructions use the parser's limits and a canonical valid shape.
@@ -58,7 +59,7 @@ export function parseClassification(input) {
     fail('문자열 끝을 확인해 주세요.',start);
   }
   function value(depth=1) {
-    space();if(depth>6)fail('중첩은 6단계까지 허용합니다.');
+    space();if(depth>7)fail('중첩은 7단계까지 허용합니다.');
     if(source[pos]==='"')return string();
     if(source[pos]==='{'||source[pos]==='['){
       const object=source[pos++]==='{',close=object?'}':']',out=object?Object.create(null):[],keys=new Map();positions.set(out,keys);space();
@@ -86,11 +87,14 @@ export function parseClassification(input) {
     item.note_id=item.note_id.toLowerCase();check(!seen.has(item.note_id),'중복 메모 ID',item,'note_id');seen.add(item.note_id);
     check(timestampKey(item.note_updated_at)!==null,'잘못된 날짜: note_updated_at',item,'note_updated_at');
     check(Array.isArray(item.destinations)&&item.destinations.length<=20,'메모당 목적지는 20개까지 허용합니다.',item,'destinations');
-    for(const target of item.destinations){shape(target,['kind','target_id','reason'],['kind','reason']);check(kinds.has(target.kind),'모르는 kind',target,'kind');
+    for(const target of item.destinations){shape(target,['kind','target_id','reason','verdict','compared_link_ids'],['kind','reason']);check(kinds.has(target.kind),'모르는 kind',target,'kind');
+      if(Object.hasOwn(target,'verdict'))check(VERDICTS.includes(target.verdict),'모르는 verdict',target,'verdict');
+      if(Object.hasOwn(target,'compared_link_ids'))check(Array.isArray(target.compared_link_ids)&&target.compared_link_ids.length<=CLASSIFICATION_LIMITS.compared&&target.compared_link_ids.every(id=>typeof id==='string'&&uuid.test(id)),'비교한 기록 ID 형식 오류',target,'compared_link_ids');
       check(typeof target.reason==='string'&&[...target.reason].length>=1&&[...target.reason].length<=2000,'이유는 1~2,000자입니다.',target,'reason');
       if(['organization','project'].includes(target.kind))check(typeof target.target_id==='string'&&uuid.test(target.target_id),'목적지 UUID 형식 오류',target,'target_id');
       else if(target.target_id!==undefined&&target.target_id!==null)check(typeof target.target_id==='string'&&/^[A-Za-z0-9_-]{1,255}$/.test(target.target_id),'4b 대상 ID 형식 오류',target,'target_id');
       if(typeof target.target_id==='string'&&uuid.test(target.target_id))target.target_id=target.target_id.toLowerCase();
+      if(Array.isArray(target.compared_link_ids))target.compared_link_ids=target.compared_link_ids.map(id=>id.toLowerCase());
     }
   }
   // Ordinary JSON objects leave the parser; internal objects protect __proto__ keys.
@@ -103,7 +107,17 @@ export function selectableProjects(projects) {
   function walk(p){if(visible.has(p.id)||p.status==='archived')return;visible.add(p.id);rows.filter(c=>c.parent_id===p.id).forEach(walk);}
   rows.filter(p=>!p.parent_id||!rows.some(parent=>parent.id===p.parent_id)).forEach(walk);return visible;
 }
-export function previewClassification(proposal,{workspaceId,userId,notes,links,projects,organizations}) {
+// sentRecords: the existing records the request carried ({id,kind,target_id}). A duplicate/changed verdict
+// counts only when every compared id was sent for that same destination; otherwise it falls back to 'new'.
+// A duplicate is only marked excluded here; nothing is deleted or linked automatically.
+export function judgeVerdict(target,sentRecords=[]) {
+  const verdict=target.verdict||'new',ids=target.compared_link_ids||[];
+  if(verdict==='new')return {verdict:'new',comparedLinkIds:[],verdictNoBasis:false};
+  const ok=ids.length>0&&ids.every(id=>sentRecords.some(r=>String(r.id).toLowerCase()===id&&r.kind===target.kind&&String(r.target_id).toLowerCase()===target.target_id));
+  if(!ok)return {verdict:'new',comparedLinkIds:[],verdictNoBasis:true};
+  return {verdict,comparedLinkIds:[...ids],verdictNoBasis:false,...(verdict==='duplicate'?{excluded:true,excludedReason:'already_recorded'}:{})};
+}
+export function previewClassification(proposal,{workspaceId,userId,notes,links,projects,organizations,sentRecords=[]}) {
   const visible=selectableProjects(projects.filter(p=>p.workspace_id===workspaceId&&p.owner_id===userId));
   return proposal.items.map(item=>{
     const note=notes.find(n=>n.id===item.note_id);
@@ -113,7 +127,7 @@ export function previewClassification(proposal,{workspaceId,userId,notes,links,p
       const destination=supported?rows.find(d=>d.id===target.target_id):null;
       const existing=supported?links.find(l=>l.note_id===item.note_id&&l.status==='confirmed'&&l[target.kind==='project'?'project_id':'organization_id']===target.target_id):null;
       const targetError=!supported?'NEXT_STAGE':!destination?'TARGET_MISSING':destination.workspace_id!==workspaceId?'TARGET_WORKSPACE':target.kind==='project'&&!visible.has(destination.id)?'TARGET_UNSELECTABLE':existing&&!existing.id?'ALREADY_CONFIRMED':null;
-      return {...target,...(supported?{summary:existing?.summary??null,action:existing?'update':'create',linkId:existing?.id??null,expectedSummary:existing?.summary??null}:{}),name:destination?.name||'이름을 확인할 수 없어요.',error:!supported?'NEXT_STAGE':error||targetError};
+      return {...target,...judgeVerdict(target,sentRecords),...(supported?{summary:existing?.summary??null,action:existing?'update':'create',linkId:existing?.id??null,expectedSummary:existing?.summary??null}:{}),name:destination?.name||'이름을 확인할 수 없어요.',error:!supported?'NEXT_STAGE':error||targetError};
     })};
   });
 }
