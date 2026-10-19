@@ -163,8 +163,8 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
   const [b,header]=await Promise.all([rect(back),rect(page.locator('.mobile-shell-header'))]);
   expect(Math.abs((b.top+b.bottom)/2-(header.top+header.bottom)/2)).toBeLessThanOrEqual(6);
  }
- // Big buttons: only [연결하기](filled) and [할 일 만들기](task teal). No write-request candidate anywhere.
- await expect(detail.locator('[data-basket-read-actions] button')).toHaveText(['연결하기','할 일 만들기']);
+ // Card's last row (UI-바구니상세개편): [연결하기](filled)·[할 일 만들기](task teal)·[노트로 옮기기]. No write-request candidate anywhere.
+ await expect(detail.locator('[data-basket-read-actions] button')).toHaveText(['연결하기','할 일 만들기','노트로 옮기기']);
  const color=sel=>detail.locator(sel).evaluate(el=>getComputedStyle(el).backgroundColor);
  const token=name=>page.evaluate(name=>{const e=document.createElement('span');e.style.color=`var(${name})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},name);
  expect(await color('[data-basket-link-open]')).toBe(await token('--kptu-primary'));
@@ -175,16 +175,16 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  await expect(meta.locator('.basket-chip')).toHaveText(['프로젝트: 2026 임금교섭','담당조직: 전국철도노동조합']);
  await expect(meta.locator('.basket-chip-dot')).toHaveCount(2);await expect(meta.locator('time')).toHaveText(/2026\. 10\. 16\./);
  const [textBox,metaBox]=await Promise.all([rect(detail.locator('[data-basket-read-text]')),rect(meta)]);expect(metaBox.top).toBeGreaterThan(textBox.bottom);
- // [⋯] = 수정·원문 그대로 보기·보관·삭제(빨강), keyboard and Esc.
+ // [⋯] = 수정·보관·삭제(빨강), keyboard and Esc. 원문 보기 is the small toggle icon near the text.
  const more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(menu).toBeHidden();await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(menu.locator('button')).toHaveText(['수정','노트로 옮기기','원문 그대로 보기','보관','삭제']);
+ await expect(menu.locator('button')).toHaveText(['수정','보관','삭제']);
  await expect(menu.locator('[data-basket-edit]')).toBeFocused();
  expect(await menu.locator('[data-basket-delete]').evaluate(el=>getComputedStyle(el).color)).toBe(await token('--kptu-danger'));
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
- await more.click();await menu.locator('[data-basket-read-raw]').click();await expect(menu).toBeHidden();
+ const raw=detail.locator('[data-basket-read-raw]');await expect(raw).toHaveAccessibleName('원문 그대로 보기');await raw.click();
  await expect(detail.locator('[data-basket-read-text]')).toContainText('- 장소: 국회');
- await more.click();await expect(menu.locator('[data-basket-read-raw]')).toHaveText('정리해서 보기');await page.keyboard.press('Escape');
+ await expect(raw).toHaveAttribute('aria-pressed','true');await expect(raw).toHaveAccessibleName('정리해서 보기');
  // 수정: the edit view keeps "‹ 바구니", hides [⋯], and names the big editor [큰 창에서 수정].
  await more.click();await menu.locator('[data-basket-edit]').click();
  await expect(detail.locator('[data-basket-text]')).toBeFocused();await expect(more).toBeHidden();await expect(back).toBeVisible();

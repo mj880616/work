@@ -80,7 +80,8 @@ for(const width of [390,1280]){
   await expect(detail.locator('[data-note-read-title]')).toHaveText('임금협상 정리');
   await expect(detail.locator('[data-basket-read-text] h2')).toHaveText('쟁점');
   await expect(detail.locator('[data-basket-read-text] strong')).toHaveText('기본급');
-  for(const label of ['수정','텔레그램용 복사','연결하기'])await expect(detail.getByRole('button',{name:label,exact:true})).toBeVisible();
+  // UI-바구니상세개편: [텔레그램용 복사] became the small [복사] icon beside the title.
+  for(const label of ['수정','복사','연결하기'])await expect(detail.getByRole('button',{name:label,exact:true})).toBeVisible();
   await detail.getByRole('button',{name:'수정',exact:true}).click();
   await expect(detail.locator('[data-note-title-input]')).toHaveValue('임금협상 정리');
   await detail.locator('[data-note-title-input]').fill('');
@@ -89,7 +90,7 @@ for(const width of [390,1280]){
   await detail.locator('[data-note-title-input]').fill('임금협상 정리 v2');
   await detail.locator('[data-basket-text]').fill('## 쟁점\n\n- 기본급 5% 인상');
   await detail.locator('[data-note-save]').click();
-  await expect(detail.locator('[data-basket-status]')).toHaveText('노트를 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');
   await expect(detail.locator('[data-note-read-title]')).toHaveText('임금협상 정리 v2');
   expect(f.writes).toHaveLength(1);
   expect(f.writes[0].query).toMatchObject({id:'eq.n-new',workspace_id:'eq.w',kind:'eq.note'});
@@ -103,11 +104,12 @@ for(const width of [390,1280]){
  test(`basket memo moves to a note with the first line as title, and back to the basket ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   await page.locator('[data-basket-row="m1"]').click();
-  await noteAction(page,'[data-basket-to-note]');
-  const form=page.locator('[data-basket-to-note-form]');
-  await expect(form).toBeVisible();await expect(page.locator('[data-basket-read-actions]')).toBeHidden();
-  await expect(form.locator('[data-basket-to-note-title]')).toHaveValue('회의 준비 메모 첫 줄');
-  await form.locator('[data-basket-to-note-save]').click();
+  // UI-바구니상세개편: [노트로 옮기기] is in the card's last row and moves at once, without a title form. The database needs a
+  // one-line title on a note, so the first line is saved as the title (as the old form pre-filled it).
+  await expect(page.locator('#basketNoteMenu [data-basket-to-note]')).toHaveCount(0);
+  await page.locator('[data-basket-read-actions] [data-basket-to-note]').click();
+  await expect(page.locator('[data-basket-to-note-form]')).toHaveCount(0);
+  await expect(page.locator('#toast')).toHaveText('노트로 옮겼어요.');
   await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('[data-note-read-title]')).toHaveText('회의 준비 메모 첫 줄');
   expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w'});expect(f.writes[0].body).toMatchObject({kind:'note',title:'회의 준비 메모 첫 줄'});
@@ -326,9 +328,9 @@ test('the editor opened to change a note has no [업데이트|노트] switch, an
  await expect(editor).toHaveAccessibleName('큰 창에서 수정');await expect(editor.getByRole('button',{name:'내보내기',exact:true})).toBeVisible();
  await expect(editor.getByRole('button',{name:'텔레그램용 복사',exact:true})).toHaveCount(0);
  for(const [label,h] of await headHeights(editor))expect(h,label).toBe(32);
- // The note read view keeps its own [텔레그램용 복사] this time.
+ // The note read view keeps its own copy (UI-바구니상세개편: the small [복사] icon, same 텔레그램 conversion).
  await editor.locator('[data-close="mdEditor"]').click();await page.locator('[data-note-cancel]').click();
- await expect(page.locator('[data-note-detail]').getByRole('button',{name:'텔레그램용 복사',exact:true})).toBeVisible();
+ await expect(page.locator('[data-note-detail]').getByRole('button',{name:'복사',exact:true})).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -382,7 +384,7 @@ for(const width of [390,1280]){
   // The second press goes the same path as [저장]: PATCH, the window closes, the read view shows the new text.
   await editor.locator(SAVE_ICON).click();
   await expect(page.locator('#mdEditor')).toHaveCount(0);
-  await expect(detail.locator('[data-basket-status]')).toHaveText('노트를 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');
   await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 본문');
   expect(f.writes).toHaveLength(1);
   expect(f.writes[0].query).toMatchObject({id:'eq.n-old',kind:'eq.note'});expect(f.writes[0].body.raw_text).toBe('큰 창에서 고친 본문');
@@ -420,7 +422,7 @@ for(const width of [390,1280]){
   await editor.locator('.md-editor-text').fill('큰 창에서 고친 메모');
   await editor.locator(SAVE_ICON).click();
   await expect(page.locator('#mdEditor')).toHaveCount(0);
-  await expect(detail.locator('[data-basket-status]')).toHaveText('수정한 글을 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('수정한 글을 저장했습니다.');
   await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 메모');
   expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({raw_text:'큰 창에서 고친 메모'});expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w'});
   expect(f.errors).toEqual([]);

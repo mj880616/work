@@ -191,7 +191,7 @@ for(const width of [390,1280])test(`⑥ an opened note draws only "‹ 노트" (
  const lines=page.locator('[data-note-attachments] .file-line');
  await expect(lines).toHaveCount(2);
  await expect(lines.nth(0).locator('.file-kind')).toHaveText('PDF');await expect(lines.nth(1).locator('.file-kind')).toHaveText('HWP');
- await expect(lines.nth(0).locator('.file-line-main b')).toHaveText('교섭요구안.pdf');await expect(lines.nth(0).locator('.file-line-main small')).toHaveText('200.0 KiB');
+ await expect(lines.nth(0).locator('.file-line-main b')).toHaveText('교섭요구안.pdf');await expect(lines.nth(0).locator('.file-line-main small')).toHaveText('200.0 KB');
  const link=lines.nth(0).getByRole('link',{name:'교섭요구안.pdf Drive에서 열기'});
  await expect(link).toHaveAttribute('href',/f_pdf/);await expect(link).toHaveAttribute('target','_blank');
  const s=await link.evaluate(el=>{const c=getComputedStyle(el),r=el.getBoundingClientRect(),hit=getComputedStyle(el,'::after');return {size:c.fontSize,deco:c.textDecorationLine,h:Math.round(r.height),hit:hit.height};});

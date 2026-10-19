@@ -39,10 +39,12 @@ for(const width of [390,1280]){
   await press(page,page.locator('[data-basket-row="n"]'),width);
   const read=detail.locator('[data-basket-read-text]');
   await expect(read).toBeVisible();await expect.poll(()=>read.innerText()).toBe(SHOWN);
-  await noteAction(page,'[data-basket-read-raw]',{press:l=>press(page,l,width)});await expect(detail.locator('[data-basket-read-raw]')).toHaveText('정리해서 보기');expect(await read.innerText()).toBe(LONG);
-  await noteAction(page,'[data-basket-read-raw]',{press:l=>press(page,l,width)});await expect(detail.locator('[data-basket-read-raw]')).toHaveText('원문 그대로 보기');expect(await read.innerText()).toBe(SHOWN);
+  // UI-바구니상세개편: the 원문 toggle is a small icon near the text (not in [⋯]); formatted is the default.
+  const raw=detail.locator('[data-basket-read-raw]');await expect(raw).toHaveAttribute('aria-pressed','false');
+  await press(page,raw,width);await expect(raw).toHaveAccessibleName('정리해서 보기');await expect(raw).toHaveAttribute('aria-pressed','true');expect(await read.innerText()).toBe(LONG);
+  await press(page,raw,width);await expect(raw).toHaveAccessibleName('원문 그대로 보기');expect(await read.innerText()).toBe(SHOWN);
   await expect(detail.locator('time')).toContainText('2026');await expect(detail.locator('[data-basket-attachments]')).toContainText('회의.txt');
-  await expect(detail.locator('[data-basket-attachments] a')).toHaveText('Drive에서 열기');
+  await expect(detail.locator('[data-basket-attachments] a')).toHaveText('Drive에서 열기');await expect(detail.locator('[data-basket-attachments]')).toContainText(/\d B|KB|MB/);
   await expect(detail.locator('[data-basket-text]')).toBeHidden();await expect(detail.locator('[data-basket-save]')).toBeHidden();await expect(detail.locator('[data-basket-upload]')).toBeHidden();
   // UI-디자인손질 6: big buttons [연결하기]·[할 일 만들기], "‹ 바구니" back, the rest in the note's [⋯]; no list menu on a note.
   for(const name of ['연결하기','할 일 만들기','바구니 목록으로','이 업데이트 메뉴'])await expect(detail.getByRole('button',{name,exact:true})).toBeVisible();
@@ -57,7 +59,7 @@ for(const width of [390,1280]){
   await page.screenshot({path:info.outputPath(`basket-edit-${width}.png`),fullPage:true});
   await text.fill('고친 원문\n둘째 줄');await press(page,detail.locator('[data-basket-save]'),width);
   await expect(read).toBeVisible();expect(await read.innerText()).toBe('고친 원문\n둘째 줄');await expect(text).toBeHidden();
-  await expect(detail.locator('[data-basket-status]')).toContainText('수정한 글을 저장했습니다');expect(f.writes.at(-1)).toMatchObject({method:'PATCH',body:{raw_text:'고친 원문\n둘째 줄'}});
+  await expect(page.locator('#toast')).toContainText('수정한 글을 저장했습니다');expect(f.writes.at(-1)).toMatchObject({method:'PATCH',body:{raw_text:'고친 원문\n둘째 줄'}});
   expect(await editableFocused(page)).toBe(false);
   noDialog(page);await press(page,detail.locator('[data-basket-close]'),width);await expect(page.locator('[data-basket-row="n"]')).toContainText('고친 원문');
   expect(f.errors).toEqual([]);

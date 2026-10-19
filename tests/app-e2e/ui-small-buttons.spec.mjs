@@ -65,12 +65,12 @@ for(const width of [390,1280]){
   const f=await fixture(page,{width});
   const primary=await paint(page,'backgroundColor','--kptu-primary'),surface=await paint(page,'backgroundColor','--kptu-surface');
   await go(page,'basket');
-  // 노트: [수정][텔레그램용 복사][연결하기]
+  // 노트: [수정][연결하기] (UI-바구니상세개편: 복사는 제목 옆 작은 아이콘)
   await tap(page,page.locator('[data-basket-kind="note"]'),width);
   await tap(page,page.locator('[data-note-row="n1"]'),width);
   const noteRow=page.locator('[data-note-read-actions]');
-  const note=await readRow(page,noteRow,['수정','텔레그램용 복사','연결하기'],width);
-  expect(note.map(b=>b.bg)).toEqual([surface,surface,primary]);
+  const note=await readRow(page,noteRow,['수정','연결하기'],width);
+  expect(note.map(b=>b.bg)).toEqual([surface,primary]);
   // Width by the label, not the whole row.
   expect(note.at(-1).right).toBeLessThan(width-40);
   expect(await noWideScroll(page)).toBe(true);
@@ -79,13 +79,13 @@ for(const width of [390,1280]){
   await expect(page.locator('[data-note-editor]')).toBeVisible();await expect(noteRow).toBeHidden();
   await tap(page,page.locator('[data-note-cancel]'),width);await expect(noteRow).toBeVisible();
   await tap(page,page.locator('[data-note-close]'),width);
-  // 메모: [연결하기][할 일 만들기] — 같은 규칙, [할 일 만들기]는 할 일 종류 색 그대로.
+  // 메모: [연결하기][할 일 만들기][노트로 옮기기] — 같은 규칙, [할 일 만들기]는 할 일 종류 색 그대로.
   await tap(page,page.locator('[data-basket-kind="memo"]'),width);
   await showBasketRow(page,'m1');
   await tap(page,page.locator('[data-basket-row="m1"]'),width);
   const memoRow=page.locator('[data-basket-read-actions]');
-  const memo=await readRow(page,memoRow,['연결하기','할 일 만들기'],width);
-  expect(memo[0].bg).toBe(primary);expect(memo[1].bg).toBe(await paint(page,'backgroundColor','--ds-kind-task-soft'));
+  const memo=await readRow(page,memoRow,['연결하기','할 일 만들기','노트로 옮기기'],width);
+  expect(memo[0].bg).toBe(primary);expect(memo[1].bg).toBe(await paint(page,'backgroundColor','--ds-kind-task-soft'));expect(memo[2].bg).toBe(surface);
   await tap(page,memoRow.getByRole('button',{name:'할 일 만들기',exact:true}),width);
   await expect(page.locator('[data-basket-manual]')).toBeVisible();await expect(memoRow).toBeHidden();
   await page.keyboard.press('Escape');
@@ -94,7 +94,7 @@ for(const width of [390,1280]){
   await showBasketRow(page,'m2');
   await tap(page,page.locator('[data-basket-row="m2"]'),width);
   await expect(page.locator('[data-basket-file-card="drive-hwp"]')).toBeVisible();
-  await readRow(page,page.locator('[data-basket-read-actions]'),['연결하기','할 일 만들기'],width);
+  await readRow(page,page.locator('[data-basket-read-actions]'),['연결하기','할 일 만들기','노트로 옮기기'],width);
   expect(await noWideScroll(page)).toBe(true);
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });

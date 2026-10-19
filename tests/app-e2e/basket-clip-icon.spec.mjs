@@ -83,7 +83,7 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   await editor.fill('미저장 수정은 유지');
   await verifyPicker(detail, detail.locator('.basket-editor'), 'detail');
   await detail.locator('[data-basket-upload]').click();
-  await expect(detail.locator('[data-basket-status]')).toHaveText('첨부를 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('첨부를 저장했습니다.');
   await expect(detail.locator('[data-basket-file]')).toHaveCount(0);
   await expect(detail.locator('[data-basket-count]')).toBeHidden();
   await expect(detail.locator('[data-basket-hint]')).toBeHidden();
