@@ -121,8 +121,8 @@
     if(!modal||!frame||!sourcePath)return;
     const token=++detailEpoch;
     detailTrigger=document.activeElement;
-    if(heading)heading.textContent=title||'게시판';
-    frame.title=(title||'게시판')+' 본문';
+    if(heading)heading.textContent=title||'공유 페이지';
+    frame.title=(title||'공유 페이지')+' 본문';
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden','false');
     const close=modal.querySelector('[data-close-web1-board]');

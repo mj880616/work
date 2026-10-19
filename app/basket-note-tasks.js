@@ -79,7 +79,7 @@ export async function readTaskSourceNotes({rt=window.KPTURuntime,expectedSession
 // One-shot in-app hand-offs between the task view and the basket. Each is
 // bound to the signed-in user and workspace and expires quickly.
 const REQUEST_MS=60*1000;
-const requests={note:null,notedoc:null,task:null};
+const requests={note:null,notedoc:null,task:null,kind:null};
 const put=(kind,id,rt)=>{const scope=scopeOf(rt);requests[kind]=id&&scope?{id,scope,at:Date.now()}:null;};
 const take=(kind,rt)=>{const value=requests[kind];requests[kind]=null;return value&&value.scope===scopeOf(rt)&&Date.now()-value.at<REQUEST_MS?value.id:null;};
 export const requestBasketNote=(id,rt=window.KPTURuntime)=>put('note',id,rt);
@@ -87,6 +87,9 @@ export const takeBasketNoteRequest=(rt=window.KPTURuntime)=>take('note',rt);
 // Menu [쓰기] → a note just saved opens on the basket's [노트] side.
 export const requestNoteDocOpen=(id,rt=window.KPTURuntime)=>put('notedoc',id,rt);
 export const takeNoteDocRequest=(rt=window.KPTURuntime)=>take('notedoc',rt);
+// UI-PC메모노트: the PC sidebar's [업데이트]·[노트] under [바구니] open that side of the basket.
+export const requestBasketKind=(kind,rt=window.KPTURuntime)=>put('kind',kind,rt);
+export const takeBasketKindRequest=(rt=window.KPTURuntime)=>take('kind',rt);
 export const requestTaskOpen=(id,rt=window.KPTURuntime)=>put('task',id,rt);
 export const takeTaskOpenRequest=(rt=window.KPTURuntime)=>take('task',rt);
 export const basketNoteHref=id=>`./?view=basket&note=${encodeURIComponent(id)}`;

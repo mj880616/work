@@ -25,7 +25,8 @@ async function fixture(page,{width=1280,height=800}={}){
  return {writes,errors};
 }
 const nav=page=>page.locator('#appView>.app-nav');
-const navTab=(page,view)=>nav(page).locator(`[data-view="${view}"]`);
+// UI-PC사이드바: on the PC sidebar the home menu is the top line (icon + 홈).
+const navTab=(page,view)=>view==='home'?nav(page).locator('.sidebar-brand:visible,[data-view="home"]:visible').first():nav(page).locator(`[data-view="${view}"]`);
 const current=page=>page.evaluate(()=>window.KPTURouter.current);
 const goView=async(page,view)=>{await page.evaluate(view=>window.KPTURouter.go(view),view);await expect.poll(()=>current(page)).toBe(view);};
 async function openWriter(page){

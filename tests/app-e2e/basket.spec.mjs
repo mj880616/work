@@ -81,7 +81,7 @@ test('basket direct URL and home return refresh new notes without saving view ch
  const f=await fixture(page);await page.goto(testOrigin+'/app/?view=basket');await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  await page.locator('[data-basket-filter="archived"]').click();await expect(page.locator('[data-basket-row="a"]')).toBeVisible();
  await page.reload();await expect(page.locator('[data-basket-filter="unclassified"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-row="n"]')).toBeVisible();
- await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible').click();await quick(page).locator('[data-quick-input]').fill('새 글');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');
+ await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible,.app-nav .sidebar-brand:visible').click();await quick(page).locator('[data-quick-input]').fill('새 글');await quick(page).locator('[data-quick-save]').click();await expect(quick(page).locator('[data-quick-input]')).toHaveValue('');
  await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await expect(page.locator('[data-basket-row]')).toHaveCount(3);expect(f.writes).toHaveLength(1);
 });
 test('basket save lock blocks duplicate home posts and detail patches, reload guard keeps pending edits',async({page})=>{
