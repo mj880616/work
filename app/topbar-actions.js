@@ -198,12 +198,10 @@ window.addEventListener('kptu:view-changed',event=>{
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
   const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',media:'성명·보도자료',pages:'게시판'})[event.detail?.view]||''}
 });
-// Menu [쓰기] (UI-디자인손질 8): the shared MD editor (md-editor.js) opens empty, and [저장] makes one new basket note
-// through the basket's existing text save (basket-data.js createNote, owner RLS) — no new save path. Text closed
-// without saving stays in this tab's memory for the next [쓰기] only (never in browser storage).
-// MD-내보내기: [메모|노트] at the left of the editor head. [노트] saves through the same insert as the [노트] tab's [+]
-// (createNoteDoc, kind=note, title from the first line) and then opens that note on the basket's [노트] side.
-// The switch is for a new text only; an editor opened to change a memo or note never shows it.
+// Menu [쓰기] (UI-디자인손질 8, BASKET-업데이트통합 PR 2): the shared write window (write-window.js) opens empty with [업데이트 ▾ | 노트],
+// 업데이트 preselected and no place (= the basket). Each choice saves through its existing owner-RLS path and the window closes
+// (저장하고 닫기). A saved note then opens on the basket's [노트] side. Text closed without saving stays in this tab's memory for
+// the next [쓰기] only (never in browser storage).
 let writeDraft='',writerOpening=false;
 const writeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(writeToast.timer);writeToast.timer=setTimeout(()=>toast.classList.add('hidden'),3200)};
 async function openWriter(){
@@ -211,32 +209,18 @@ async function openWriter(){
   writerOpening=true;
   try{
     const owner=window.KPTURuntime?.session?.read?.()?.user?.id;
-    const [{openMarkdownEditor},{createNote,createNoteDoc,noteTitleFromText},{requestNoteDocOpen}]=await Promise.all([import('./md-editor.js'),import('./basket-data.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
+    const [{openWriteWindow},{requestNoteDocOpen}]=await Promise.all([import('./write-window.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
     if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
-    let saved=null;
-    openMarkdownEditor({text:writeDraft,title:'쓰기',kinds:{label:'저장할 곳',value:'memo',options:[['memo','업데이트'],['note','노트']]},
-      save:{label:'저장',aria:kind=>kind==='note'?'새 노트로 저장':'바구니에 새 업데이트로 저장',run:async(text,kind)=>{
-      if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return {ok:false,message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
-      try{
-        if(kind==='note'){
-          if(!text.trim())return {ok:false,message:'글을 입력해 주세요.'};
-          const note=await createNoteDoc({title:noteTitleFromText(text),raw_text:text});
-          saved={kind,id:note.id};
-        }else{await createNote({raw_text:text});saved={kind};}
-      }catch(error){return {ok:false,message:error?.message||'저장하지 못했어요. 다시 눌러 주세요.'}}
-      writeDraft='';
-      if(kind==='note')writeToast('노트로 저장했어요.');
-      else{writeToast('바구니에 저장했어요.');window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));}
-      return {ok:true};
-    }},onClose:text=>{
-      if(saved?.id){
+    openWriteWindow({text:writeDraft,title:'쓰기',kind:'update',onClose:(text,{saved})=>{
+      if(saved){
+        writeDraft='';
+        if(saved.kind!=='note')return;
         // The editor's own history entry steps back first; the basket opens after that (as other screens hand off a note).
         requestNoteDocOpen(saved.id);
         const go=()=>window.KPTURouter?.go('basket',{source:'delegated'});
         if(history.state?.kptuOverlay==='mdEditor')window.addEventListener('popstate',()=>queueMicrotask(go),{once:true});else go();
         return;
       }
-      if(saved)return;
       writeDraft=text.trim()?text:'';
       if(writeDraft)writeToast('저장하지 않은 글은 [쓰기]를 다시 누르면 이어서 쓸 수 있어요.');
     }});

@@ -50,7 +50,7 @@ for(const width of [390,1280])test(`saving without a place puts the update in th
  const notes=[],orgBodies=[];
  await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();notes.push(body);return r.fulfill({json:[{id:'new-note',kind:'basket',occurred_at:'2026-10-06T01:00:00Z',...body}]});});
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
- await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트를 입력하세요(바구니에 저장)');
+ await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(바구니에 저장)');
  await expect(q.locator('[data-quick-mode]')).toHaveText(['업데이트','할 일']);
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(dialog(page)).toBeHidden();
  await expect(page.locator('#toast')).toContainText('바구니에 저장했습니다.');

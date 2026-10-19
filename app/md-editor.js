@@ -1,7 +1,8 @@
 // MD-편집기: 전체 화면 마크다운 편집기(바구니 메모 [크게 쓰기], 이후 일지·노트에서 재사용).
-// UI-키보드하단바: 위에서부터 머리줄 한 줄 [× 닫기] [메모|노트] [쓰기|미리보기] … [공유 = 내보내기] [저장] → 서식 도구줄 → 본문.
+// UI-키보드하단바: 위에서부터 머리줄 한 줄 [× 닫기] [저장 아이콘] [업데이트 ▾|노트] [쓰기|미리보기] … [공유 = 내보내기] → 서식 도구줄 → 본문.
+// BASKET-업데이트통합 PR 2: 저장은 어느 창이든 × 바로 옆 저장 아이콘 하나(UI-노트편집버튼 ②, PR 742)이고, 누르면 저장하고 닫는다.
 // 폰에서는 그 아래 앱 공용 하단 탭이 보이고(자판이 열리면 accessibility-dialog.js의 공용 자판 상태가 탭을 숨김), 탭을 누르면
-// 이 모듈이 편집기를 먼저 닫고 그 탭으로 보낸다. [저장]이 있는 쓰기 창에 글이 있으면 먼저 "저장 안 하고 닫을까요?"를 묻는다.
+// 이 모듈이 편집기를 먼저 닫고 그 탭으로 보낸다. 새 글 창(draft)에 글이 있으면 먼저 "저장 안 하고 닫을까요?"를 묻는다.
 // UI-쓰기창PC탭유지: 넓은 화면(761px~)에서는 앱 탭(1024px~ 왼쪽 세로 메뉴, 761~1023px 위쪽 한 줄 메뉴 = `#appView>.app-nav`)이
 // 그대로 보이고, 편집기는 그 메뉴를 뺀 본문 자리에서만 연다(placeBesideNav가 메뉴 위치를 재서 --md-editor-left/top 두 값만 정함).
 // 메뉴를 누르는 동작은 폰 하단 탭과 같은 한 가지 규칙(onTab)이고, Tab 키는 편집기 → 메뉴 → 편집기 순서로 돈다.
@@ -111,16 +112,20 @@ export async function copyText(text, {html = null} = {}) {
 
 // Opens the editor over the whole screen. text: the starting text. onInput(text): every change (optional).
 // onClose(text): when it closes, with the final text; the opener puts it back into its own field.
-// save (optional, UI-디자인손질 8 메뉴 [쓰기]): {label, aria, run(text)} adds a filled [저장]; run is the opener's own
-// existing save and resolves {ok:true} (the editor then closes) or {ok:false, message}. [닫기] stays the plain close.
-// kinds (optional, MD-내보내기 메뉴 [쓰기]): {label, value, options:[[value, label], …]} shows a small switch at the left of
-// the head; the chosen value is passed to save.run(text, kind), and save.aria may be a function of it.
-// saveIcon (optional, UI-노트편집버튼): {run(text)} adds a small save icon button right beside [닫기] for an editor opened to change a
-// memo or note. run is the opener's own existing save (the same one its [저장] calls) and resolves {ok:true} (the editor then
-// closes; the opener has usually closed it already) or {ok:false, message} (the editor stays and shows the message). Not drawn
-// when the opener passes none, or together with save (the write window already has its filled [저장]).
-// Returns {close({silent})}: silent closes without calling onClose (e.g. the opener's screen went away).
-export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, saveIcon = null, kinds = null} = {}) {
+// save (optional): {run(text, kind), aria} adds the one save icon right beside [닫기] (UI-노트편집버튼 ②, BASKET-업데이트통합).
+// run is the opener's own existing save and resolves {ok:true} (the editor then closes: 저장하고 닫기) or {ok:false, message}
+// (the editor stays and shows the message). aria may be a function of the chosen kind.
+// draft (optional): a window for a new text (menu [쓰기], 노트 [+]). Leaving it by a tab with text asks first; a window opened
+// on an existing field (memo·note edit, the home input) hands its text back instead.
+// kinds (optional): {label, value, options:[[value, label], …], text(value)?, menu?:{value, aria(), open(trigger)}} shows the
+// [업데이트 ▾|노트] switch right of the save icon. The chosen value goes to save.run(text, kind). text(value) relabels an option
+// (the chosen place's name); menu adds a ▾ right after that option that opens the opener's own choice sheet.
+// placeholder (optional): (kind) => the text box placeholder.
+// noteTitle (optional): {kind, label, placeholder} shows a one-line title box under the head while that kind is chosen; its
+// value goes to save.run as the third argument ({title}).
+// Returns {close({silent}), paint(), kind}: silent closes without calling onClose; paint() redraws labels after the opener's
+// state (the chosen place) changed.
+export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null} = {}) {
   current?.close({silent: true});
   const trigger = document.activeElement;
   const shell = document.createElement('div');
@@ -132,35 +137,45 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   const head = document.createElement('div'), name = document.createElement('h2');
   head.className = 'md-editor-head'; name.id = ID + 'Title'; name.textContent = title;
   // Icon buttons keep their names for screen readers (닫기·내보내기); the glyphs are hidden from them.
-  const copy = button('', {mdExport: ''}, '내보내기'), done = button('', {close: ID}, save ? '저장하지 않고 닫기' : '닫고 수정 칸으로 돌아가기');
+  const copy = button('', {mdExport: ''}, '내보내기'), done = button('', {close: ID}, draft ? '저장하지 않고 닫기' : '닫고 수정 칸으로 돌아가기');
   const cross = document.createElement('span'); cross.setAttribute('aria-hidden', 'true'); cross.textContent = '×';
   copy.append(shareIcon()); done.append(cross);
   copy.className = 'md-editor-icon'; done.className = 'md-editor-icon md-editor-close';
   copy.setAttribute('aria-haspopup', 'dialog'); copy.setAttribute('aria-expanded', 'false');
   let kind = kinds?.value ?? null;
-  const saveAria = () => typeof save?.aria === 'function' ? save.aria(kind) : save?.aria;
-  const saveButton = save ? button(save.label || '저장', {mdSave: ''}, saveAria()) : null;
-  if (saveButton) { saveButton.className = 'primary'; shell.dataset.mdSave = ''; }
-  const quick = !save && saveIcon ? saveIcon : null;
-  const quickButton = quick ? button('', {mdSaveIcon: ''}, '저장') : null;
-  if (quickButton) { quickButton.className = 'md-editor-icon'; quickButton.append(saveIconSvg()); }
+  const saveAria = () => (typeof save?.aria === 'function' ? save.aria(kind) : save?.aria) || '저장';
+  const saveButton = save ? button('', {mdSaveIcon: ''}, saveAria()) : null;
+  if (saveButton) { saveButton.className = 'md-editor-icon'; saveButton.append(saveIconSvg()); }
   const kindGroup = kinds ? document.createElement('div') : null;
+  const kindMenu = kinds?.menu ? button('▾', {mdKindMenu: kinds.menu.value}) : null;
+  if (kindMenu) { kindMenu.setAttribute('aria-haspopup', 'dialog'); kindMenu.setAttribute('aria-expanded', 'false'); }
   if (kindGroup) {
     kindGroup.className = 'md-editor-kinds'; kindGroup.setAttribute('role', 'group'); kindGroup.setAttribute('aria-label', kinds.label || '종류');
-    kindGroup.append(...kinds.options.map(([value, label]) => button(label, {mdKind: value})));
+    for (const [value, label] of kinds.options) {
+      kindGroup.append(button(label, {mdKind: value}));
+      if (kindMenu && value === kinds.menu.value) kindGroup.append(kindMenu);
+    }
     shell.dataset.mdKinds = '';
   }
-  function setKind(next) {
-    kind = next;
-    kindGroup?.querySelectorAll('[data-md-kind]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mdKind === kind)));
-    if (saveButton && saveAria()) saveButton.setAttribute('aria-label', saveAria());
+  function paint() {
+    kindGroup?.querySelectorAll('[data-md-kind]').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.mdKind === kind));
+      const label = kinds.text?.(b.dataset.mdKind) || kinds.options.find(([v]) => v === b.dataset.mdKind)[1];
+      if (b.textContent !== label) b.textContent = label;
+      b.title = label;
+    });
+    if (kindMenu) { kindMenu.setAttribute('aria-pressed', String(kind === kinds.menu.value)); kindMenu.setAttribute('aria-label', kinds.menu.aria?.() || '선택'); }
+    if (saveButton) saveButton.setAttribute('aria-label', saveAria());
+    const hint = placeholder?.(kind);
+    if (hint != null) area.placeholder = hint;
+    if (titleRow) titleRow.hidden = kind !== noteTitle.kind;
   }
-  setKind(kind);
+  function setKind(next) { if (next !== kind) status.textContent = ''; kind = next; paint(); }
   const modes = document.createElement('div');
   modes.className = 'md-editor-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', '보기');
   const writeTab = button('쓰기', {mdMode: 'write'}), previewTab = button('미리보기', {mdMode: 'preview'});
   modes.append(writeTab, previewTab);
-  head.append(name, done, ...(quickButton ? [quickButton] : []), ...(kindGroup ? [kindGroup] : []), modes, copy, ...(saveButton ? [saveButton] : []));
+  head.append(name, done, ...(saveButton ? [saveButton] : []), ...(kindGroup ? [kindGroup] : []), modes, copy);
 
   const tools = document.createElement('div'), menu = document.createElement('div');
   tools.className = 'md-editor-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
@@ -177,12 +192,23 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   area.setAttribute('aria-label', '마크다운 원문');
   preview.className = 'md-editor-preview'; preview.setAttribute('role', 'region'); preview.setAttribute('aria-label', '미리보기'); preview.tabIndex = 0;
   panes.append(area, preview);
+  // The note title box (write window [노트]): one line, under the head; empty means the first line of the text.
+  const titleRow = noteTitle ? document.createElement('label') : null, titleBox = noteTitle ? document.createElement('input') : null;
+  if (titleRow) {
+    titleRow.className = 'md-editor-title';
+    const caption = document.createElement('span'); caption.className = 'a11y-only'; caption.textContent = noteTitle.label || '제목';
+    titleBox.type = 'text'; titleBox.autocomplete = 'off'; titleBox.dataset.mdTitle = ''; titleBox.placeholder = noteTitle.placeholder || '';
+    titleBox.setAttribute('enterkeyhint', 'next');
+    titleBox.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); area.focus(); } });
+    titleRow.append(caption, titleBox);
+  }
   const status = document.createElement('p');
   status.className = 'md-editor-status'; status.setAttribute('role', 'status');
+  paint();
   const bar = document.createElement('div');
   // The format row sits right under the head; a choice row (제목·강조 상자·도식) opens under it.
   bar.className = 'md-editor-bar'; bar.append(tools, menu);
-  shell.append(head, bar, panes, status);
+  shell.append(head, ...(titleRow ? [titleRow] : []), bar, panes, status);
 
   let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false;
   const previewing = () => WIDE.matches || mode === 'preview';
@@ -249,14 +275,13 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     area.setSelectionRange(r.selStart, r.selEnd);
   }
   async function runSave() {
-    const saver = save || quick, pressed = saveButton || quickButton;
-    if (!saver || saving || closed) return;
-    saving = true; pressed.disabled = true; status.textContent = '저장 중…';
+    if (!save || saving || closed) return;
+    saving = true; saveButton.disabled = true; if (kindMenu) kindMenu.disabled = true; status.textContent = '저장 중…';
     let result;
-    try { result = await saver.run(area.value, kind); } catch (error) { result = {ok: false, message: error?.message}; }
+    try { result = await save.run(area.value, kind, {title: titleBox?.value ?? ''}); } catch (error) { result = {ok: false, message: error?.message}; }
     saving = false;
     if (closed) return;
-    pressed.disabled = false;
+    saveButton.disabled = false; if (kindMenu) kindMenu.disabled = false;
     if (result?.ok) close();
     else status.textContent = result?.message || '저장하지 못했어요. 다시 눌러 주세요.';
   }
@@ -287,12 +312,14 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (!b || !shell.contains(b)) return;
     if (b.dataset.mdAction) run(b.dataset.mdAction, b.dataset.mdOption);
     else if (b.dataset.mdMode) setMode(b.dataset.mdMode);
-    else if (b.dataset.mdKind) setKind(b.dataset.mdKind);
+    else if (b.dataset.mdKind) { if (!saving) setKind(b.dataset.mdKind); }
+    else if (b.dataset.mdKindMenu) { if (!saving) { setKind(b.dataset.mdKindMenu); kinds.menu.open(b); } }
     else if (b.hasAttribute('data-md-export')) void exportChoices().open('export', copy);
-    else if (b.hasAttribute('data-md-save') || b.hasAttribute('data-md-save-icon')) void runSave();
+    else if (b.hasAttribute('data-md-save-icon')) void runSave();
     else if (b.dataset.close === ID) close();
   });
   area.addEventListener('input', () => { status.textContent = ''; onInput?.(area.value); schedule(); });
+  titleBox?.addEventListener('input', () => { status.textContent = ''; });
   shell.addEventListener('keydown', e => {
     if (e.key === 'Escape' && openMenu) { e.preventDefault(); e.stopPropagation(); setMenu(null); return; }
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.target !== area) return;
@@ -300,8 +327,8 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (key === 'b' || key === 'i') { e.preventDefault(); run(key === 'b' ? 'bold' : 'italic'); }
   });
   // UI-키보드하단바: a bottom tab press closes the editor first and then goes on as that tab (the editor's own history
-  // entry steps back before the tab moves, as the menu [쓰기] hands a saved note to the basket). A write window
-  // with text asks first; an editor opened to change a memo or note hands its text back to the opener, whose own
+  // entry steps back before the tab moves, as the menu [쓰기] hands a saved note to the basket). A new-text window (draft)
+  // with text asks first; an editor opened on an existing field hands its text back to the opener, whose own
   // leave check (unsaved edit) then runs as before.
   function leaveTo(tab) {
     if (closed) return;
@@ -318,8 +345,8 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (!tab || closed) return;
     e.preventDefault(); e.stopImmediatePropagation();
     // [쓰기] in the wide menu while the write window is already open: just go on writing.
-    if (save && tab.hasAttribute('data-menu-write')) { area.focus({preventScroll: true}); return; }
-    if (save && area.value.trim()) { leavingTab = tab; void leaveChoices().open('leave', leaveReturn); }
+    if (draft && tab.hasAttribute('data-menu-write')) { area.focus({preventScroll: true}); return; }
+    if (draft && (area.value.trim() || titleBox?.value.trim())) { leavingTab = tab; void leaveChoices().open('leave', leaveReturn); }
     else leaveTo(tab);
   }
   function leaveChoice(value) {
@@ -353,7 +380,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (!silent) onClose(value);
     else if (trigger?.isConnected) trigger.focus?.({preventScroll: true});
   }
-  const handle = {close, exportAs, leaveChoice, get text() { return area.value; }};
+  const handle = {close, exportAs, leaveChoice, paint, get text() { return area.value; }, get kind() { return kind; }, get closed() { return closed; }};
 
   document.body.append(shell);
   document.documentElement.classList.add('md-editor-open');

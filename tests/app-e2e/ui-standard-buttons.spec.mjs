@@ -26,7 +26,8 @@ async function sameButtons(region,height){
  for(const control of all){
   // 8-9e-2: the basket [⋯] is a small icon on phones and its menu rows are not button-shaped.
   // UI-디자인손질 6: the note's "‹ 바구니" (title-position back link) and its [⋯] icon are not button-shaped either.
-  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more]')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
+  // BASKET-업데이트통합: the input's [크게] icon (home·basket) is an icon in the field like the clip, not a button shape.
+  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more]')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
   // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [업데이트 ▾|할 일]·바구니 [메모|노트])은 32px 상자 안 칸으로
   // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
