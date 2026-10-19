@@ -177,7 +177,7 @@ test('an empty new note is not saved; a body-only note takes its first line as t
  expect(f.errors).toEqual([]);
 });
 
-test('phone back closes the new-note window; a bottom tab with text asks before leaving',async({page})=>{
+test('phone back closes the new-note window and keeps its text for the next [+]; a bottom tab with text asks before leaving',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  await page.locator('[data-basket-kind="note"]').click();
  const add=page.getByRole('button',{name:'새 노트',exact:true}),editor=page.locator('#mdEditor');
@@ -190,6 +190,11 @@ test('phone back closes the new-note window; a bottom tab with text asks before 
  const leave=page.locator('#mdLeaveSheet');await expect(leave).toHaveAttribute('open','');
  await leave.getByRole('button',{name:'계속 쓰기',exact:true}).click();
  await expect(editor.locator('.md-editor-text')).toHaveValue('쓰던 글');
+ // Back (or ×) closes without saving; the text waits for the next [+] (this tab's memory only).
+ await page.goBack();
+ await expect(page.locator('#mdEditor')).toHaveCount(0);
+ await expect(page.locator('[data-note-list-status]')).toHaveText('저장하지 않은 글은 [+ 노트]를 다시 누르면 이어서 쓸 수 있어요.');
+ await add.click();await expect(editor.locator('.md-editor-text')).toHaveValue('쓰던 글');
  await editor.locator('[data-close="mdEditor"]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);
  await expect(page.locator('[data-note-list]')).toBeVisible();await expect(noteList(page)).toHaveCount(2);

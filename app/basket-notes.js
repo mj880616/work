@@ -137,12 +137,18 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // [+] (BASKET-업데이트통합 PR 2): the one write window (write-window.js) with [노트] preselected — the same window as menu
   // [쓰기]. It saves through createNoteDoc (or, switched to 업데이트, the basket or a chosen place) and closes; a saved note
   // then opens here in its read view. The note side keeps no draft of its own.
+  // Text closed without saving (× or phone back) stays in this tab's memory for the next [+] only (never in browser storage).
+  let newDraft = '';
   function openNew() {
     if (selected || busy || bigWriter) return;
-    bigWriter = openWriteWindow({kind:'note', title:'새 노트', rt, onClose:(value, {saved}) => {
+    const owner = scope();
+    bigWriter = openWriteWindow({text:newDraft, kind:'note', title:'새 노트', rt, onClose:(value, {saved}) => {
       bigWriter = null;
+      if (saved) newDraft = '';
       if (saved?.kind === 'note') { pendingOpen = saved.id; void refresh(); return; }
       if (saved) { onMovedToBasket(); return; }
+      newDraft = owner === scope() && value.trim() ? value : '';
+      if (newDraft) status.textContent = '저장하지 않은 글은 [+ 노트]를 다시 누르면 이어서 쓸 수 있어요.';
       host.querySelector('[data-note-new]')?.focus({preventScroll:true});
     }});
   }
@@ -281,7 +287,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // openId: a note just moved here from the basket opens once the list is read.
     show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
     close,
-    reset() { const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { newDraft = ''; const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     hasDraft: () => textDirty() || (!!selected && manual.hasDraft()),
     isOpen: () => !!selected,
