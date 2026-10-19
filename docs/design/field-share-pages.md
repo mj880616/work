@@ -3,7 +3,7 @@
 📱 폰 가능(이 문서) · 구현 단계 중 DB 단계는 📱 폰 경로 C, Edge 단계는 사용자 승인형 Edge workflow — 이 문서는 설계·조사만 한다. 앱 코드·DB·Edge·Cloudflare·설정 변경 없음.
 
 - 작성: 2026-10-20, Claude Code 웹(설계 조사 세션). 기준 main `62ab52d`(#740).
-- 원장 행: `docs/roadmap.md`의 SHARE-현장공유(조사 당시 PR #741 브랜치에서 읽음). 관련 행: UI-PC사이드바(메뉴 이름 "공유 페이지"), BOARD-이관, PUBLIC-프로젝트페이지.
+- 원장 행: `docs/roadmap.md`의 SHARE-현장공유(PR #741 브랜치에서 읽은 뒤 main `bf5f46c`(#743)에서 다시 확인). 관련 행: UI-PC사이드바(메뉴 이름 "공유 페이지"), BOARD-이관, PUBLIC-프로젝트페이지.
 - 표시: **사실** = 저장소 코드·migration·문서로 확인. **추정** = 확인 못 한 짐작. 운영 DB·Edge는 조회하지 않았다.
 
 ---
