@@ -23,7 +23,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   window.addEventListener('storage',guardPendingOcr);
   window.addEventListener('kptu:session-changed',guardPendingOcr);
   // HOME-빠른입력정리: the task options row sits above the mode buttons, and the organization picker is the ▾ right of [업데이트].
-  box.innerHTML=`<div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div></div><div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><span class="home-quick-update-split"><button type="button" data-quick-mode="update">업데이트</button><button type="button" data-quick-org aria-label="조직 선택" aria-haspopup="dialog" aria-expanded="false">▾</button></span></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div class="home-quick-lock" data-quick-lock hidden><p data-quick-lock-reason></p><button type="button" class="home-quick-new-note" data-quick-new-note>새 메모 입력</button></div><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
+  box.innerHTML=`<div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div></div><div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><span class="home-quick-update-split"><button type="button" data-quick-mode="update">업데이트</button><button type="button" data-quick-org aria-label="조직 선택" aria-haspopup="dialog" aria-expanded="false">▾</button></span></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea><button type="button" class="home-quick-detail" data-quick-detail aria-label="상세 설정으로 추가" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 2.5v11M2.5 8h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div class="home-quick-lock" data-quick-lock hidden><p data-quick-lock-reason></p><button type="button" class="home-quick-new-note" data-quick-new-note>새 메모 입력</button></div><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
   const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>mode==='basket',getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
   // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
@@ -193,6 +193,27 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     finally{if(pendingOcr===token)pendingOcr=null;saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
   box.querySelector('[data-quick-save]').onclick=save;
+  // UI-할일빠른추가상세: [할 일] 화면의 입력 칸 안 오른쪽 끝 [+]는 새 창 없이 일정 화면의 기존 [할 일 등록] 창(프로젝트·날짜 등)을 연다.
+  // 입력한 글은 그 창의 제목으로 미리 채운다. 입력 칸 글은 그 창에서 저장될 때 비운다(같은 글이 두 번 남지 않게). 저장 경로는 기존 그대로.
+  const detailBtn=box.querySelector('[data-quick-detail]');
+  if(!taskOnly)detailBtn.remove();
+  else{
+    let detailTitle=null;
+    detailBtn.onclick=async()=>{
+      if(saving)return;
+      const title=input.value.trim();
+      try{
+        await window.KPTUDeferredFeatures?.loadView?.('calendar');
+        const open=document.querySelector('#newEventBtn');if(!open)throw new Error('missing');
+        open.click();
+        document.querySelector('#eventModal [data-event-mode="task"]')?.click();
+        const field=document.querySelector('#eventTitle');if(field){field.value=title;field.dispatchEvent(new Event('input',{bubbles:true}));}
+        detailTitle=title||null;
+      }catch(e){status.textContent='상세 설정 창을 열지 못했어요. 잠시 뒤 다시 눌러 주세요.';}
+    };
+    window.addEventListener('kptu:google-tasks-changed',()=>{if(detailTitle!==null&&input.value.trim()===detailTitle){input.value='';detailTitle=null;paint();}});
+    window.addEventListener('kptu:dialog-closed',e=>{if(e.detail?.modal?.id==='eventModal')setTimeout(()=>{detailTitle=null;},0);});
+  }
   input.addEventListener('keydown',e=>{if(mode==='task'&&e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();void save();}});
   window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length||taskAttempt||upload.entries.some(e=>e.kind!=='success'))e.detail.otherDraft=true;});
   window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';updateProject='';due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();});
