@@ -144,7 +144,8 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`회의: 줄 단위 목록·회의 색 점·필터·버튼 ${width}`,async({page})=>{
+// UI-PC회의: 줄 단위 목록은 1024 미만. PC 열 배치는 meeting-columns.spec.mjs.
+for(const width of [390,1000])test(`회의: 줄 단위 목록·회의 색 점·필터·버튼 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  await view(page,'meetings');
  const rows=page.locator('#meetingList .meeting-list-row');await expect(rows).toHaveCount(2);

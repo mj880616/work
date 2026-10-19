@@ -277,6 +277,9 @@ test('meeting material upload attempts every selected file and reports partial f
   await expect(page.locator('#toast')).toContainText('회의 결과는 저장했습니다. 회의자료 1개 저장 · 1개 실패');
 });
 
+// UI-PC회의: 아래 줄 목록 시험은 폰·중간 폭(1024 미만)의 그리는 방식이다. PC(≥1024)의 열 배치는 meeting-columns.spec.mjs.
+test.describe('meeting list rows below PC width',()=>{
+test.use({viewport:{width:900,height:900}});
 test('meeting list uses canonical meeting names without title-series duplication',async({page})=>{
   await signIn(page);
   await expect(page.locator('#meetingTypeFilter')).toBeVisible();
@@ -292,6 +295,7 @@ test('meeting list uses canonical meeting names without title-series duplication
   expect(box.height).toBeLessThanOrEqual(60);
 });
 
+});
 // UI-디자인기준 3/3(8-9e-1): the meeting color is the 8px dot before the name (it was the row's left stripe).
 const stripe=row=>row.evaluate(el=>getComputedStyle(el.querySelector('.meeting-list-title'),'::before').backgroundColor);
 const rgb=hex=>`rgb(${[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', ')})`;
@@ -306,6 +310,8 @@ async function showMeetings(page,rows,docs=[]){
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(rows.length);
 }
 
+test.describe('meeting list rows below PC width (colors and names)',()=>{
+test.use({viewport:{width:900,height:900}});
 test('meeting names keep colors after reload and after older meetings are added',async({page})=>{
   await signIn(page);
   const P=palette();
@@ -463,6 +469,7 @@ test('edit can replace a meeting name with an existing choice',async({page})=>{
   expect(saved.title).toBe('통일할 회의');expect(saved.series_name).toBe('통일할 회의');
 });
 
+});
 test('meeting palette has 8 distinct non-red colors visible on light and dark surfaces',async()=>{
   const P=palette();
   expect(P).toHaveLength(8);
@@ -486,7 +493,8 @@ test('meeting palette has 8 distinct non-red colors visible on light and dark su
   for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++)expect(dE(P[i],P[j]),`${P[i]} ${P[j]}`).toBeGreaterThanOrEqual(20);
 });
 
-for(const width of [320,360,390,768,1280]){
+// UI-PC회의: PC(≥1024)의 [+ 회의 결과]·열은 meeting-columns.spec.mjs와 add-button-placement.spec.mjs 1440이 본다.
+for(const width of [320,360,390,768,1000]){
   // UI-선택표시통일: 폰(760px 이하)의 [+ 회의]는 다른 탭과 같은 동그란 [+](하단 탭 위)이고 카드 안에는 없다.
   test(`meeting filter stays usable and add button sits in the list card at ${width}px`,async({page})=>{
     await page.setViewportSize({width,height:800});
@@ -521,6 +529,8 @@ for(const width of [320,360,390,768,1280]){
   });
 }
 
+test.describe('meeting list legacy rows below PC width',()=>{
+test.use({viewport:{width:900,height:900}});
 test('meeting list filters title-only and series-only legacy rows by the displayed meeting name',async({page})=>{
   await signIn(page);
   const rows=[
@@ -535,6 +545,7 @@ test('meeting list filters title-only and series-only legacy rows by the display
   await selectFilter(page,'#meetingTypeFilter',{label:'제목만 회의'});
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
   await expect(page.locator('#meetingList .meeting-list-row p')).not.toContainText('차');
+});
 });
 
 test('meeting detail shows one canonical heading while retaining a distinct legacy title in metadata',async({page})=>{

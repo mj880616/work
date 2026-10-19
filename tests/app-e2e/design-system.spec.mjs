@@ -75,11 +75,14 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
 
   const actions=[
     ['projects','#newProjectBtn'],
-    ['library','#newDocumentBtn'],['meetings','#newMeetingBtn']
+    ['library','#newDocumentBtn']
   ];
   const metrics=[];
   for(const [view,selector] of actions)metrics.push(await actionMetrics(page,view,selector));
-  // UI-디자인기준 3/3(8-9e-1): 자료실·회의도 새 기준이 되어 네 버튼 모두 한 높이(--ds-control-height 46px)로 다시 비교한다.
+  // UI-PC회의(2026-10-20): PC 회의 [+ 회의 결과]만 공용 입력칸 높이(--kptu-control-height 36px)로 줄였다. 다른 화면 버튼은 이번 범위 밖.
+  const meetingAction=await actionMetrics(page,'meetings','#newMeetingBtn');
+  expect(meetingAction.height).toBeCloseTo(36,0);expect(meetingAction.radius).toBe(metrics[0].radius);
+  // UI-디자인기준 3/3(8-9e-1): 자료실도 새 기준이 되어 프로젝트·자료실 버튼은 한 높이(--ds-control-height 46px)로 비교한다(회의는 아래 UI-PC회의).
   expect(new Set(metrics.map(x=>Math.round(x.height))).size).toBe(1);
   for(const metric of metrics)expect(metric.height).toBeCloseTo(46,0);
   expect(new Set(metrics.map(x=>x.radius)).size).toBe(1);
