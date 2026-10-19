@@ -1,12 +1,14 @@
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
-// This module owns everything drawn into its host: list (search, newest change first) → read → edit, and [+] → new note.
+// This module owns everything drawn into its host: list (search, newest change first) → read → edit. [+] opens the shared
+// write window (write-window.js) with [노트] chosen.
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
-import { readNoteDocs, createNoteDoc, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, noteTitleFromText } from './basket-data.js';
+import { readNoteDocs, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody } from './basket-data.js';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
 import { openMarkdownEditor, copyText } from './md-editor.js';
+import { openWriteWindow } from './write-window.js';
 import { toTelegram } from './md-telegram.mjs';
 import { driveFileUrl, fileSize } from './basket-upload.js';
 import { fileLine } from './meeting-compact.js';
@@ -17,7 +19,7 @@ const day = value => { const d = new Date(value); return Number.isNaN(d.getTime(
 const normalize = value => String(value ?? '').replace(/\r\n?/g, '\n');
 
 export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = () => {}, onMovedToBasket = () => {}}) {
-  let notes = [], links = [], selected = null, editing = false, creating = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null;
+  let notes = [], links = [], selected = null, editing = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null;
   // BUG-뒤로가기: an opened note is one router layer, so Back returns to the list at the same scroll.
   let layer = null, listScroll = 0;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
@@ -128,23 +130,28 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function open(id, {focus = true} = {}) {
     if (!selected) listScroll = window.scrollY;
     selected = notes.find(n => n.id === id); if (!selected) return;
-    creating = false; showDetail();
+    showDetail();
     paintRead(); paintMeta(); paintMode();
     if (focus) readFocus().focus();
   }
-  // [+]: the same edit screen on an unsaved draft (no id). The first [저장] inserts the row and shows its read view.
+  // [+] (BASKET-업데이트통합 PR 2): the one write window (write-window.js) with [노트] preselected — the same window as menu
+  // [쓰기]. It saves through createNoteDoc (or, switched to 업데이트, the basket or a chosen place) and closes; a saved note
+  // then opens here in its read view. The note side keeps no draft of its own.
   function openNew() {
-    if (selected || busy) return;
-    listScroll = window.scrollY;
-    selected = {id:null, title:'', raw_text:'', attachments:[]}; creating = true; showDetail();
-    startEdit();
+    if (selected || busy || bigWriter) return;
+    bigWriter = openWriteWindow({kind:'note', title:'새 노트', rt, onClose:(value, {saved}) => {
+      bigWriter = null;
+      if (saved?.kind === 'note') { pendingOpen = saved.id; void refresh(); return; }
+      if (saved) { onMovedToBasket(); return; }
+      host.querySelector('[data-note-new]')?.focus({preventScroll:true});
+    }});
   }
   function close({focus = true, force = false, fromBack = false} = {}) {
     if (!selected) return true;
-    if (!force && textDirty() && !window.confirm(creating ? '저장 안 하고 닫을까요?' : '고치던 노트를 버리고 목록으로 돌아갈까요?')) return false;
+    if (!force && textDirty() && !window.confirm('고치던 노트를 버리고 목록으로 돌아갈까요?')) return false;
     if (!force && !textDirty() && manual.hasDraft() && !window.confirm('작성 중인 연결 입력을 버리고 목록으로 돌아갈까요?')) return false;
     bigWriter?.close({silent:true}); bigWriter = null;
-    const id = selected.id; ++epoch; selected = null; editing = false; creating = false; manual.reset();
+    const id = selected.id; ++epoch; selected = null; editing = false; manual.reset();
     detail.replaceChildren(); detail.hidden = true; list.hidden = false; onOpenChange(false); renderList();
     const opened = layer; layer = null; if (!fromBack) opened?.close();
     if (window.KPTURouter?.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
@@ -158,26 +165,24 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   function finishEdit({force = false} = {}) {
     if (!selected || !editing) return;
-    if (creating) { close({force}); return; }
     if (!force && textDirty() && !window.confirm('고치던 내용을 버리고 읽기 화면으로 돌아갈까요?')) return;
     bigWriter?.close({silent:true}); bigWriter = null;
     editing = false; if (!force) say(''); paintRead(); paintMode(); readFocus().focus();
   }
-  // MD-편집기: the shared full-screen editor works on the body field; saving stays this view's [저장].
+  // MD-편집기: the shared full-screen editor works on the body field. Its one save icon is this view's own [저장]
+  // (save below): it saves and closes (저장하고 닫기), and stays with a message on failure.
   function openBigWriter() {
     const field = fields().body, id = selected?.id;
     if (!selected || !editing || busy || !field) return;
     const same = () => editing && selected?.id === id && field.isConnected;
     bigWriter = openMarkdownEditor({text:field.value, title:'큰 창에서 수정',
-      // The save icon is this view's own [저장] (save above): it saves, closes this window on success and stays with a message on failure.
-      saveIcon:{run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return save(); }},
+      save:{aria:'노트 저장', run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return save(); }},
       onInput: value => { if (same()) field.value = value; },
       onClose: value => { bigWriter = null; if (!same()) return; field.value = value; field.focus(); }});
   }
-  // save() and create() resolve {ok:true} or {ok:false, message}; the big window's save icon waits for it (same path as [저장]).
+  // save() resolves {ok:true} or {ok:false, message}; the big window's save icon waits for it (same path as [저장]).
   async function save() {
     if (!selected || !editing || busy) return {ok:false, message:'지금은 저장할 수 없어요.'};
-    if (creating) return create();
     const f = fields();
     if (!textDirty()) { say('저장된 노트입니다.'); finishEdit({force:true}); return {ok:true}; }
     const changes = {title:f.title.value, raw_text:f.body.value};
@@ -190,27 +195,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       finishEdit({force:true}); say('노트를 저장했습니다.');
       return {ok:true};
     } catch (error) {
-      if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
-      say('저장하지 못했어요. 다시 시도해 주세요.');
-      return {ok:false, message:'저장하지 못했어요. 다시 눌러 주세요.'};
-    } finally { if (run === epoch) lock(false); else busy = false; }
-  }
-  async function create() {
-    const f = fields(), raw_text = f.body.value;
-    if (!f.title.value.trim() && !raw_text.trim()) { say('제목이나 본문을 써 주세요.'); f.title.focus(); return {ok:false, message:'제목이나 본문을 써 주세요.'}; }
-    // The database needs a title on every note; an untitled draft takes its first body line.
-    const title = f.title.value.trim() ? f.title.value : noteTitleFromText(raw_text);
-    try { validateNoteTitle(title); validateNoteBody(raw_text); } catch (error) { say(error.message); return {ok:false, message:error.message}; }
-    const run = ++epoch, owner = scope(); lock(true); say('저장 중…');
-    try {
-      const note = await createNoteDoc({title, raw_text}, rt);
-      if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
-      notes = [note, ...notes.filter(n => n.id !== note.id)]; selected = note; creating = false; renderList();
-      bigWriter?.close({silent:true}); bigWriter = null;
-      editing = false; paintRead(); paintMeta(); paintMode(); say('노트를 저장했습니다.');
-      readFocus().focus();
-      return {ok:true};
-    } catch {
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       say('저장하지 못했어요. 다시 시도해 주세요.');
       return {ok:false, message:'저장하지 못했어요. 다시 눌러 주세요.'};
@@ -297,7 +281,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // openId: a note just moved here from the basket opens once the list is read.
     show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
     close,
-    reset() { const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; creating = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     hasDraft: () => textDirty() || (!!selected && manual.hasDraft()),
     isOpen: () => !!selected,

@@ -118,7 +118,7 @@ test('PC 사이드바: 메뉴 판과 같은 항목([쓰기]·성명·보도자�
  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toBeVisible();
 });
 
-for(const width of [390,1280])test(`메뉴 [쓰기]: 빈 MD 편집기에서 [저장]하면 바구니 새 메모 하나(기존 저장 경로) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`메뉴 [쓰기]: 빈 MD 편집기에서 저장 아이콘을 누르면 바구니 새 업데이트 하나(기존 저장 경로) ${width}`,async({page})=>{
  const {errors,state}=await boot(page,width);
  await view(page,'basket');
  if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
@@ -126,7 +126,7 @@ for(const width of [390,1280])test(`메뉴 [쓰기]: 빈 MD 편집기에서 [저
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  await expect(editor.locator('h2')).toHaveText('쓰기');await expect(editor.locator('.md-editor-text')).toHaveValue('');await expect(editor.locator('.md-editor-text')).toBeFocused();
  // Empty text is refused by the same validation as the basket input; nothing is sent.
- await editor.locator('[data-md-save]').click();await expect(editor.locator('.md-editor-status')).toHaveText('글을 입력해 주세요.');expect(state.posts).toHaveLength(0);
+ await editor.locator('[data-md-save-icon]').click();await expect(editor.locator('.md-editor-status')).toHaveText('글을 입력해 주세요.');expect(state.posts).toHaveLength(0);
  // Closing keeps the unsaved text in this tab for the next [쓰기].
  await editor.locator('.md-editor-text').fill('# 새 메모\n쓰기에서 저장');
  await editor.locator('[data-close="mdEditor"]').click();await expect(editor).toHaveCount(0);
@@ -134,7 +134,7 @@ for(const width of [390,1280])test(`메뉴 [쓰기]: 빈 MD 편집기에서 [저
  if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
  else await page.locator('#appView>.app-nav [data-menu-write]').click();
  await expect(page.locator('#mdEditor .md-editor-text')).toHaveValue('# 새 메모\n쓰기에서 저장');
- await page.locator('#mdEditor [data-md-save]').click();
+ await page.locator('#mdEditor [data-md-save-icon]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
  expect(state.posts).toEqual([{workspace_id:ws.id,raw_text:'# 새 메모\n쓰기에서 저장'}]);
  // The basket list on screen shows the new note without leaving it.

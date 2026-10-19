@@ -568,8 +568,8 @@ function openBigWriter() {
   const same = () => editing && selected?.id === id && field.isConnected;
   bigWriter = openMarkdownEditor({
     text: field.value, title: '큰 창에서 수정',
-    // The save icon is this view's own [수정 저장] (saveEdit): it saves, closes this window on success and stays with a message on failure.
-    saveIcon: {run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return saveEdit(); }},
+    // The one save icon is this view's own [수정 저장] (saveEdit): it saves and closes, and stays with a message on failure.
+    save: {aria: '업데이트 저장', run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return saveEdit(); }},
     onInput: value => { if (same()) field.value = value; },
     onClose: value => { bigWriter = null; if (!same()) return; field.value = value; field.focus(); },
   });
