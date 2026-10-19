@@ -74,9 +74,9 @@ test('the basket read asks for these attachments\' documents and their project n
   if(u.pathname.endsWith('app_spaces'))return [{id:'p',name:'민자철도'}];
   return [];};
  const result=await readBasket(runtime(handler(false)));
- assert.deepEqual(result.docs,[{id:'d1',file_id:'drive-a',project_id:'p',category:null,project:{name:'민자철도'}}]);
+ assert.deepEqual(result.docs,[{id:'d1',file_id:'drive-a',project_id:'p',organization_id:null,category:null,project:{name:'민자철도'},organization:{name:''}}]);
  const doc=paths.find(p=>p.startsWith('/rest/v1/app_documents')),space=paths.find(p=>p.startsWith('/rest/v1/app_spaces'));
- assert.match(doc,/^\/rest\/v1\/app_documents\?workspace_id=eq\.w&file_id=in\.\(drive-a\)&select=id,file_id,project_id,category&order=created_at\.asc,id\.asc/);
+ assert.match(doc,/^\/rest\/v1\/app_documents\?workspace_id=eq\.w&file_id=in\.\(drive-a\)&select=id,file_id,project_id,organization_id,category&order=created_at\.asc,id\.asc/);
  assert.match(space,/^\/rest\/v1\/app_spaces\?workspace_id=eq\.w&id=in\.\(p\)&select=id,name/);
  const failed=await readBasket(runtime(handler(true)));
  assert.equal(failed.notes.length,2);assert.deepEqual(failed.docs,[]);

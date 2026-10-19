@@ -108,6 +108,9 @@ div.gt-main{cursor:default}
 #calendarDayTasks{min-width:0}
 #calendarDayTasks .cmv-task{min-width:0;max-width:100%}
 #calendarDayTasks .cmv-event-title{font-size:14px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+/* 날짜 목록의 동그라미: 모양은 그대로 두고 누르는 영역만 44px로 넓힌다(완료·완료 취소). */
+#calendarDayTasks .cmv-task-mark{position:relative}
+#calendarDayTasks .cmv-task-mark::after{content:"";position:absolute;inset:-13px}
 #calendarDayTasks .cmv-task-overdue .gt-due{color:var(--kptu-danger)}
 
 #gtScopeModal .gt-scope-note{font-size:14px}
