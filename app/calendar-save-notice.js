@@ -5,7 +5,7 @@
 const HANGUL=/[가-힣]/;
 const TIME_REJECTED=/invalid (start|end) time|time range|start time|end time/i;
 // The Edge function also answers 400 when its own request to Google broke or Google failed internally; that write may have landed.
-const TRANSPORT=/sending request|connect|closed|reset|network|timed? ?out|fetch failed|dns|tls|backend error|internal error|service unavailable/i;
+const TRANSPORT=/sending request|connect|closed|reset|network|timed? ?out|fetch failed|dns|tls|backend error|internal error|unavailable/i;
 export function googleSaveFailure(error,{create=false}={}){
   const raw=String(error?.message||error||'').trim(),status=Number(error?.status)||0,korean=HANGUL.test(raw),unchanged=create?'일정은 만들지 않았고':'일정은 바뀌지 않았고';
   if(status===401||error?.code==='session_required')return {kind:'rejected',detail:raw,text:'로그인이 풀려 저장하지 않았습니다. '+unchanged+' 입력은 유지했습니다. 다시 로그인한 뒤 저장해 주세요.'};
