@@ -221,7 +221,7 @@ async function runOcr(action,fileId){
   finally{if(ocrFlight===token){ocrFlight=null;busy=false;if(currentOcrScope(captured)&&selected?.id===id){detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}else guardOcrPrivacy();}}
 }
 quick=mountQuick({root,esc,basketOnly:true,view:'basket',idPrefix:'basket',onSaved:()=>void refresh()});
-const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{getRequest:()=>{
+const handoff = mountHandoff(root.querySelector('[data-handoff-host]'),{onExisting:records=>classification.setSentRecords(records),getRequest:()=>{
   if(!selected){if(quick.hasDraft())return {error:'입력 중인 메모와 첨부를 먼저 저장한 뒤 분류 요청해 주세요.'};return {};}
   if(dirty())return {error:'수정 중인 글과 첨부를 먼저 저장한 뒤 분류 요청해 주세요.'};
   if(selected.archived_at||selected.ai_export_allowed!==true)return {error:'이 메모는 지금 분류 요청할 수 없어요. 보관 또는 AI 제외 상태를 확인해 주세요.'};

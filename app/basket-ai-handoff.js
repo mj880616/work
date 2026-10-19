@@ -133,7 +133,7 @@ export async function readHandoff(rt=window.KPTURuntime,now=new Date(),{noteId=n
   return text;
 }
 // onCopied(count,request) runs once the request text is on the clipboard and this lock is released.
-export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()=>({}),onPrepared=()=>{},onCopied=null},rt=window.KPTURuntime) {
+export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()=>({}),onPrepared=()=>{},onExisting=()=>{},onCopied=null},rt=window.KPTURuntime) {
   host.innerHTML='<p data-handoff-status role="status" aria-live="polite"></p><div data-handoff-fallback hidden><button type="button" class="quick-pill-button quick-pill-primary" data-handoff-retry>복사하기</button><button type="button" class="quick-pill-button" data-handoff-close>닫기</button><label class="basket-text-label">AI에게 줄 글<textarea data-handoff-text rows="12" readonly spellcheck="false"></textarea></label></div>';
   const status=host.querySelector('[role="status"]'),fallback=host.querySelector('[data-handoff-fallback]'),input=host.querySelector('textarea');
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
@@ -166,7 +166,7 @@ export function mountHandoff(host,{isBlocked,onBusy,onClose=()=>{},getRequest=()
     clear();const run=epoch,owner=scope();busy=true;onBusy(true);status.textContent='분류 요청할 메모를 준비하고 있어요…';
     const current=()=>run===epoch&&owner===scope();
     let count=0,handed=false;
-    const prepared=readHandoff(rt,new Date(),{...request,onPrepared:value=>{count=value;if(current())onPrepared(value,request);}});
+    const prepared=readHandoff(rt,new Date(),{...request,onPrepared:value=>{count=value;if(current())onPrepared(value,request);},onExisting:records=>{if(current())onExisting(records);}});
     let written=null;
     // Start the browser write in the click stack, before any API reads finish.
     // Reject empty/stale data so a cancelled read never replaces the clipboard.
