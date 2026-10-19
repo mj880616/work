@@ -10,8 +10,35 @@ test('workflow files contain no direct repository push path', () => {
   for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name))) {
     const source = workflow(name);
     assert.doesNotMatch(source, /\bgit\s+push\b|\bgit\s+commit\b|createCommit|createOrUpdateFileContents/, name);
-    if (name !== 'publication-auto-merge.yml') assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
+    if (!['publication-auto-merge.yml', 'basket-pc-release.yml'].includes(name)) assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
   }
+});
+
+test('Basket PC release workflow only runs for approved basket-pc-v tags and keeps its write access to one job', () => {
+  const source = workflow('basket-pc-release.yml');
+  // trigger: only a tag push of the app's own tag pattern, nothing a pull request or a branch push could start
+  assert.match(source, /^on:\n  push:\n    tags:\n      - 'basket-pc-v\*'\n\npermissions:/m);
+  assert.doesNotMatch(source, /pull_request|workflow_dispatch|schedule:|branches:|workflow_run/);
+  // default permission is read; write permissions exist only in the release job
+  assert.match(source, /^permissions:\n  contents: read\n/m);
+  const writes = source.match(/^\s+contents:\s*write\s*$/gm) ?? [];
+  assert.equal(writes.length, 1);
+  assert.match(source, /^  release:\n[\s\S]*?^    permissions:\n      contents: write\n      id-token: write\n      attestations: write\n/m);
+  // reviewer approval, tag check, main check
+  assert.match(source, /^    environment: basket-pc-release$/m);
+  assert.match(source, /\^basket-pc-v\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\$/);
+  assert.match(source, /git merge-base --is-ancestor "\$GITHUB_SHA" origin\/main/);
+  // no secrets besides the run's own token, no production access, no repository push
+  assert.doesNotMatch(source, /secrets\./);
+  assert.doesNotMatch(source, /SUPABASE|CLOUDFLARE|production-edge/i);
+  assert.equal([...source.matchAll(/\$\{\{\s*([^}]+?)\s*\}\}/g)].map(m => m[1]).join(','), 'github.token');
+  // every action pinned to a commit, the packaging tool pinned to a version
+  for (const use of source.matchAll(/uses:\s*(\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/, use[1]);
+  assert.match(source, /dotnet tool install vpk --version \d+\.\d+\.\d+ /);
+  // installer id differs from the data folder name, and releases are created as draft first, never as "latest"
+  assert.match(source, /PACK_ID: BasketDropApp$/m);
+  assert.match(source, /gh release create[\s\S]*--verify-tag --draft --latest=false/);
+  assert.match(source, /actions\/attest-build-provenance@/);
 });
 
 test('metadata synchronization only compares PR and manual run output', () => {

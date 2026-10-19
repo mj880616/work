@@ -15,4 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BasketDrop.Core\BasketDrop.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Velopack" Version="1.2.161" />
+  </ItemGroup>
 </Project>
