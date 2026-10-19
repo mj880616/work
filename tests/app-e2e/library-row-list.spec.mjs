@@ -157,9 +157,14 @@ for(const width of [390,1440]){
     // meeting card row of main). Compare the real neighboring renderer with the same API data.
     const style=el=>el.evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['paddingTop','paddingBottom','minHeight','borderRadius','boxShadow','backgroundColor'].map(k=>[k,s[k]]))});
     const libraryRow=await style(rows.nth(1));
-    await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
-    const meetingRows=page.locator('#meetingList .meeting-list-row');
-    expect(await style(meetingRows.nth(await meetingRows.count()>1?1:0))).toEqual(libraryRow);
+    // UI-PC회의: PC(≥1024)의 회의는 유형별 열이라 줄 비교는 폰·중간 폭에서만 한다.
+    if(width<1024){
+      await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
+      const meetingRows=page.locator('#meetingList .meeting-list-row');
+      expect(await style(meetingRows.nth(await meetingRows.count()>1?1:0))).toEqual(libraryRow);
+    }else{
+      await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .mcol-card').first()).toBeVisible();
+    }
     expect(libraryRow).toEqual({paddingTop:'9px',paddingBottom:'9px',minHeight:'44px',borderRadius:'0px',boxShadow:'none',backgroundColor:'rgba(0, 0, 0, 0)'});
     await before.close();
   });

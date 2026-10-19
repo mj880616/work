@@ -39,7 +39,7 @@ async function setup(page,row=meeting){
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
-  await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
+  await expect(page.locator('#meetingList [data-mrd-meeting]')).toHaveCount(1);
   await page.locator('[data-mrd-meeting="meeting-1"]').click();
   await expect(page.locator('#mrdResult')).not.toBeEmpty();await expect(page.locator('#mrdResult')).not.toHaveText('');
   return {posts,errors,setFail:v=>failPost=v};

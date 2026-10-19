@@ -258,7 +258,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  await titleOf(modal);await inputs(modal);await labels(modal);expect((await sameButtons(page,modal)).length).toBeLessThanOrEqual(1);
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
  // 회의 상세: [삭제]는 빨간 테두리, 보조 버튼이라 공용 작은 버튼 높이(UI-MEET결과창정리).
- await view(page,'meetings');await page.locator('#meetingList .meeting-list-row').first().click();
+ await view(page,'meetings');await page.locator('#meetingList [data-mrd-meeting]').first().click();
  modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
  const del=await look(modal.locator('#mrdDelete'));expect(del.height).toBe(parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-compact-height'))));expect(del.fg).toBe(await token(page,'--kptu-danger'));expect(del.border).toBe(await token(page,'--kptu-danger'));
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();

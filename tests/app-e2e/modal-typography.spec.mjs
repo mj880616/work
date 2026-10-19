@@ -86,7 +86,8 @@ const newStandard=p=>p.evaluate(()=>{
   if(text&&!['400','500'].includes(s.fontWeight))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px, 나머지 버튼은 46px.
-   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,.w1p-filter,#manageLibraryBtn')?32:46;if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
+   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,.w1p-filter,#manageLibraryBtn')?32:innerWidth>=1024&&e.matches('#newMeetingBtn')?36:46;// UI-PC회의: PC [+ 회의 결과]는 입력칸 높이(36px).
+   if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
   }
  }
  return bad;
@@ -151,8 +152,17 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   }
   if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
   else expect(await newStandard(page),name+' new standard').toEqual([]);
-  if(name==='meetings'||name==='library'){
-    const groups=page.locator('#'+name+'View .filter-chips');
+  // UI-PC회의: PC(≥1024) 회의의 위쪽 칩은 "보일 열 고르기"(누름 버튼, aria-pressed). 같은 알약 모양(32px·13px/500·999px, 누르는 범위 44px).
+  if(name==='meetings'&&width>=1024){
+    await expect(page.locator('#meetingTypeFilter')).toBeHidden();
+    const chips=page.locator('#meetingColumnPicker button');await expect.poll(()=>chips.count()).toBeGreaterThan(0);
+    for(const chip of await chips.all()){
+      await expect(chip).toHaveAttribute('aria-pressed','true');
+      expect(await chip.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,Math.round(el.getBoundingClientRect().height),s.borderRadius,parseFloat(getComputedStyle(el,'::after').height)]})).toEqual(['13px','500',32,'999px',44]);
+    }
+  }
+  if(name==='library'||name==='meetings'&&width<1024){
+    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker)');
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     await expect(groups).toHaveCount(name==='meetings'?1:2);
     // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.

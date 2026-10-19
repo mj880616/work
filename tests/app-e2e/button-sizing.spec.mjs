@@ -89,6 +89,8 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
    }else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
    else if(selector.includes('press-type'))await dsChip(page,selector);
+   // UI-PC회의(2026-10-20): PC 회의 [+ 회의 결과]는 공용 입력칸 높이(36px)·누르는 범위 44px.
+   else if(selector==='#newMeetingBtn'&&width>=1024){const s=await size(page.locator(selector));expect(s.height).toBe(36);expect(s.font).toBe('13px');expect(s.radius).toBe('8px');expect(s.weight).toBe('500');expect(await page.locator(selector).evaluate(n=>getComputedStyle(n,'::after').minHeight)).toBe('44px');}
    else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }
