@@ -135,9 +135,8 @@ const card = (key) => root.querySelector(`[data-home-card="${key}"]`);
 function paint(key, html, count = null) {
   const c = card(key);
   if (!c) return;
-  const focused = c.contains(document.activeElement)
-    ? document.activeElement.dataset.homeToggle
-    : null;
+  const active = c.contains(document.activeElement) ? document.activeElement : null,
+    focused = active?.dataset.homeToggle ? `toggle:${active.dataset.homeToggle}` : active?.dataset.homeEdit ? `edit:${active.dataset.homeEdit}` : null;
   c.hidden = false;
   c.querySelector("[data-home-body]").innerHTML = html;
   c.querySelector("[data-home-count]").textContent =
@@ -147,9 +146,11 @@ function paint(key, html, count = null) {
   metrics.firstPaint[key] ??= Math.round(performance.now()-metrics.shellAt);
   timing();
   if (focused)
-    c.querySelector(`[data-home-toggle="${CSS.escape(focused)}"]`)?.focus({
-      preventScroll: true,
-    });
+    c.querySelector(
+      focused.startsWith("edit:")
+        ? `[data-home-edit="${CSS.escape(focused.slice(5))}"]`
+        : `[data-home-toggle="${CSS.escape(focused.slice(7))}"]`,
+    )?.focus({ preventScroll: true });
 }
 function empty(key, text, hide = false) {
   paint(key, `<p class="home-status">${text}</p>`, 0);
@@ -219,6 +220,10 @@ function shownTasks() {
     return { task: state?.task || t, place: state?.place || state?.task || t };
   });
 }
+function taskRowHtml(id, title, done, meta) {
+  const name = esc(title || "제목 없음");
+  return `<div class="home-task ${done ? "completed" : ""}" data-home-task="${esc(id)}"><button type="button" class="gt-check" data-home-toggle="${esc(id)}" ${google?.taskState(id)?.task ? "" : "disabled"} aria-label="${done ? "완료 취소" : "완료"}" aria-pressed="${done}"></button><button type="button" class="home-task-text" data-home-edit="${esc(id)}" aria-label="${name} 수정"><span class="home-title">${name}</span>${meta ? `<small>${meta}</small>` : ""}</button></div>`;
+}
 function taskRows(rows, meeting = false) {
   return rows
     .map(({ task: t }) => {
@@ -242,10 +247,11 @@ function taskRows(rows, meeting = false) {
       if(!linksReady&&!meeting)names=copies.tasks?.names.find(r=>r.id===t.id)?.names||[];
       const due = String(t.due || "").slice(0, 10),
         past = due && due < dayKey();
+      // 한 줄 행: 오늘 기한은 보조 글자를 쓰지 않고, 기한이 지난 항목만 날짜를 작게 붙인다.
       const meta = meeting
         ? esc(names.join(" · "))
-        : `${past ? `<strong class="home-overdue">${Number(due.slice(5, 7))}.${Number(due.slice(8, 10))} 지남</strong>` : "오늘"}${names.length ? " · " + esc(names.join(" · ")) : ""}`;
-      return `<div class="home-task ${done ? "completed" : ""}" data-home-task="${esc(t.id)}"><button type="button" class="gt-check" data-home-toggle="${esc(t.id)}" ${google?.taskState(t.id)?.task?'':'disabled'} aria-label="${done ? "완료 취소" : "완료"}" aria-pressed="${done}"></button><div class="home-task-text"><div class="home-title">${esc(t.title || "제목 없음")}</div><small>${meta}</small></div></div>`;
+        : [past ? `<strong class="home-overdue">${Number(due.slice(5, 7))}.${Number(due.slice(8, 10))} 지남</strong>` : "", ...names.map(esc)].filter(Boolean).join(" · ");
+      return taskRowHtml(t.id, t.title, done, meta);
     })
     .join("");
 }
@@ -311,7 +317,7 @@ function restoreCopies(){
   if(copies.calendar)renderCalendar(copies.calendar.rows);
   if(copies.meetings){
     const rows=copies.meetings.rows;
-    if(rows.length)paint('meetings',rows.map(r=>`<div class="home-task" data-home-task="${esc(r.id)}"><button type="button" class="gt-check" data-home-toggle="${esc(r.id)}" ${google?.taskState(r.id)?.task?'':'disabled'} aria-label="완료" aria-pressed="false"></button><div class="home-task-text"><div class="home-title">${esc(r.title)}</div><small>${esc(r.meetingName)}</small></div></div>`).join(''),rows.length);
+    if(rows.length)paint('meetings',rows.map(r=>taskRowHtml(r.id,r.title,false,esc(r.meetingName))).join(''),rows.length);
     else empty('meetings','회의 후속 없음',true);
   }
 }
@@ -528,6 +534,13 @@ root.addEventListener("click", async (event) => {
     }
     if(key==='tasks'||key==='meetings')return refreshTaskCards();
     await loadCard(key);
+    return;
+  }
+  const editId = b.dataset.homeEdit;
+  if (editId) {
+    // 할 일 화면의 기존 수정 창을 그대로 연다.
+    const t = google?.taskState(editId)?.task;
+    if (t) google.openEditor(t);
     return;
   }
   const id = b.dataset.homeToggle;

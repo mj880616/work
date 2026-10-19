@@ -117,7 +117,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  min-height: 52px;
+  min-height: 44px;
 }
 .home-task .gt-check {
   position: relative;
@@ -141,12 +141,33 @@
   border-radius: var(--kptu-radius-pill);
 }
 .home-task-text {
+  box-sizing: border-box;
+  display: flex;
+  gap: 6px;
+  align-items: center;
   min-width: 0;
   flex: 1;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.home-task-text .home-title {
+  flex: 0 1 auto;
 }
 .home-task small {
-  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
   line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .home-task.completed .home-title {
   text-decoration: line-through;
@@ -205,7 +226,7 @@
   .home-card header button { min-height: 24px; position: relative; }
   .home-card header button::after { content: ""; position: absolute; inset: -10px 0; }
   .home-event { min-height: 0; padding: 8px 0; }
-  .home-task { min-height: 0; padding: 8px 0; }
+  .home-task { min-height: 44px; padding: 0; }
   .home-event + .home-event,
   .home-task + .home-task { border-top: 1px solid var(--kptu-border); }
   .home-task .gt-check::before { inset: 13px; border-color: var(--kptu-border); }
