@@ -1,5 +1,6 @@
 import {seoulInputValue,seoulDateKey,seoulClock,seoulDayStart,addSeoulDays,seoulDate,toSeoulISO} from './meeting-time.js';
 import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
+import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
 let ciEndLink=null,ciGoogleCurrent=null,ciGoogleSavePending=false,ciGoogleOpenSeq=0,ciGoogleReadySeq=0,ciGoogleOwner=null,ciSaveRequest=null;const ciUncertain=new Map(),ciPendingWrites=new Map();
 function ciRuntime(){const rt=window.KPTURuntime;if(!rt?.session||!rt?.api)throw new Error('앱 런타임을 불러오지 못했습니다.');return rt}
 async function ciGoogleCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){const rt=ciRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body,expectedSessionEpoch});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
@@ -81,10 +82,10 @@ async function ciSaveGoogle(){
   if(!allDay){const st=document.querySelector('#ciGoogleStartTime').value,et=document.querySelector('#ciGoogleEndTime').value;if(!st||!et)return ciStatus('#ciGoogleStatus','시작 시간과 종료 시간을 입력해 주세요.',true);const sn=normalizeTime(st),en=normalizeTime(et);if(!sn||!en)return ciStatus('#ciGoogleStatus','시작·종료 시간을 확인해 주세요. 예: 0930 → 09:30',true);const s=new Date(toSeoulISO(startDate+'T'+sn)),e=new Date(toSeoulISO(endDate+'T'+en));if(e<=s)return ciStatus('#ciGoogleStatus','종료 시각은 시작 시각보다 뒤여야 합니다.',true);body.start_iso=s.toISOString();body.end_iso=e.toISOString()}
   body.organization_ids=[...(window.__KPTU_SELECTED_GOOGLE_EDIT_ORGS__?.()||current.organizationIds||[])];
   const b=document.querySelector('#ciGoogleSave'),label=b.textContent,key=ciUncertainKey(current.id,current.calendarId);r.done=new Promise(resolve=>{r.finish=resolve});ciPendingWrites.set(key,r);ciSaveRequest=r;ciGoogleSavePending=true;b.disabled=true;b.textContent='저장 중…';b.setAttribute('aria-busy','true');document.querySelector('#ciGoogleDelete').disabled=true;ciStatus('#ciGoogleStatus','Google Calendar에 저장 중…');
-  let dispatched=false,verified=false;
+  let dispatched=false,verified=false,checking=false;
   try{
     const uncertain=ciUncertain.get(key);
-    if(uncertain){
+    if(uncertain){checking=true;
       // A lost move response may already have changed the address. Check the destination first.
       let d;
       if(uncertain.target){try{d=await ciGoogleCall('event',{expectedSessionEpoch:r.epoch,params:{eventId:current.id,calendarId:uncertain.target}})}catch(e){if(!ciSaveActive(r))return;if(e?.status!==400&&e?.status!==404)throw e}}
@@ -95,7 +96,8 @@ async function ciSaveGoogle(){
       ciAcceptAddress(r,d.event,{preserveSelection:true});ciUncertain.delete(key);
       body.calendar_id=d.event.calendarId;
       if(body.target_calendar_id===body.calendar_id)delete body.target_calendar_id;
-      ciStatus('#ciGoogleStatus','앞선 저장의 위치를 확인했습니다. 입력을 확인한 뒤 저장해 주세요.',true);return;
+      // Only the address is confirmed here; nothing was written. The next click sends the draft once.
+      ciStatus('#ciGoogleStatus',addressConfirmedText(calendarName(d.event.calendarId),label),true);return;
     }
     if(!ciSaveActive(r))return;
     dispatched=true;ciUncertain.set(key,{source:body.calendar_id,target:body.target_calendar_id||null});const result=await ciGoogleCall('',{method:'POST',body,expectedSessionEpoch:r.epoch});
@@ -121,7 +123,13 @@ async function ciSaveGoogle(){
     let closedSeq=null;if(unchanged){b.disabled=false;b.textContent=label;b.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=false;ciClose('#ciGoogleModal');ciGoogleCurrent=null;closedSeq=ciGoogleOpenSeq}else ciStatus('#ciGoogleStatus','보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
     try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(ciSameSession(r)&&closedSeq===ciGoogleOpenSeq)ciToast('일정은 저장했습니다. 목록을 새로고침해 주세요.');return}
     if(ciSameSession(r)&&closedSeq===ciGoogleOpenSeq)ciToast('Google 일정을 수정했습니다.');
-  }catch(e){if(!ciSaveActive(r))return;if(dispatched&&!verified)ciUncertain.set(key,{source:body.calendar_id,target:body.target_calendar_id||null});ciStatus('#ciGoogleStatus','저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+(e.message||String(e)),true)}
+  }catch(e){
+    if(!ciSaveActive(r))return;
+    const f=checking?{kind:'unknown',detail:String(e?.message||e),text:'앞선 저장 결과를 아직 확인하지 못했습니다. 입력은 유지했습니다.'}:googleSaveFailure(e);logSaveDetail(f.detail);
+    // A rejected write changed nothing, so the next click saves directly instead of re-checking the address.
+    if(dispatched&&!verified){if(f.kind==='rejected')ciUncertain.delete(key);else ciUncertain.set(key,{source:body.calendar_id,target:body.target_calendar_id||null})}
+    ciStatus('#ciGoogleStatus',f.text+(f.kind==='unknown'?unknownRetryText(label):''),true)
+  }
   finally{if(ciPendingWrites.get(key)===r)ciPendingWrites.delete(key);r.finish();if(ciSaveRequest===r){ciSaveRequest=null;ciGoogleSavePending=false;if(ciSameSession(r)&&r.seq===ciGoogleOpenSeq){const ready=!!ciGoogleCurrent&&ciGoogleReadySeq===ciGoogleOpenSeq;b.disabled=!ready;b.textContent=label;b.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=!ready}}}
 }
 async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!confirm('이 Google 일정을 삭제할까요?'))return;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}

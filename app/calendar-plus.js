@@ -1,5 +1,6 @@
 import {toSeoulISO} from './meeting-time.js';
 import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
+import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
 import { createGoogleTask, saveProjectMilestone } from './quick-save.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
 const CM_GOOGLE_DEFAULT='#4285f4';
@@ -163,7 +164,7 @@ async function cmSaveGoogle(){
       if(!cmActive(r))return false;
       if(d?.event?.id!==cmSaved.record.id||![address.source,address.target].filter(Boolean).includes(d.event.calendarId))throw new Error('앞선 일정 저장을 확인하지 못했습니다.');
       cmSaved.record=d.event;cmSaved.unknown=false;delete cmSaved.pendingAddress;
-      cmStatus('앞선 저장의 위치를 확인했습니다. 입력을 확인한 뒤 다시 저장해 주세요.');return false;
+      cmStatus(addressConfirmedText(calendarName(d.event.calendarId),label),true);return false;
     }
     if(!cmSaved){attempt={owner:r.owner,epoch:r.epoch,body,pending:true};cmAttempts.set('event',attempt)}
     const d=await cmGoogleCall('',{method:'POST',body,expectedSessionEpoch:r.epoch});if(attempt){attempt.pending=false;if(d?.ok===true&&d.event?.id)attempt.record=d.event}
@@ -184,7 +185,13 @@ async function cmSaveGoogle(){
     const linked=!!cmSaved.linked,unchanged=r.snapshot===cmSnapshot();if(unchanged){cmSetBusy(false);button.textContent=label;cmCloseModal()}else cmStatus('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
     try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast('일정은 저장했습니다. 목록을 새로고침해 주세요.');return true}
     if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast(linked?'저장하고 프로젝트 주요 일정에 등록했습니다.':'Google Calendar에 저장했습니다.');return true;
-  }catch(e){if(attempt)attempt.pending=false;if(!cmActive(r))return false;if(cmSaved){cmSaved.unknown=true;cmSaved.pendingAddress={source:body.calendar_id,target:body.target_calendar_id||null};cmStatus('저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+(e.message||String(e)),true)}else if(/권한|연결되지|재인증/.test(String(e.message||''))){if(cmAttempts.get('event')===attempt)cmAttempts.delete('event');cmStatus(e.message||String(e),true)}else cmUnknownNotice('event','저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+(e.message||String(e)));return false}
+  }catch(e){
+    if(attempt)attempt.pending=false;if(!cmActive(r))return false;
+    const checking=!!cmSaved?.unknown,f=checking?{kind:'unknown',detail:String(e?.message||e),text:'앞선 저장 결과를 아직 확인하지 못했습니다. 입력은 유지했습니다.'}:googleSaveFailure(e,{create:!cmSaved});logSaveDetail(f.detail);
+    // A rejected request (login, server check, Google refusal) wrote nothing: the next click saves directly.
+    if(cmSaved){if(f.kind==='rejected'&&!checking){cmSaved.unknown=false;delete cmSaved.pendingAddress}else{cmSaved.unknown=true;if(!checking)cmSaved.pendingAddress={source:body.calendar_id,target:body.target_calendar_id||null}}cmStatus(f.text+(cmSaved.unknown?unknownRetryText(label):''),true)}
+    else if(f.kind==='rejected'||/권한|연결되지|재인증/.test(String(e?.message||''))){if(cmAttempts.get('event')===attempt)cmAttempts.delete('event');cmStatus(f.text,true)}
+    else cmUnknownNotice('event',f.text);return false}
   finally{if(cmRequest===r){cmRequest=null;cmSavePending=false;if(cmSameSession(r)&&r.seq===cmFormEpoch){cmSetBusy(false);button.textContent=label}}}
 }
 async function cmPrepareNewEvent(){cmFormEpoch++;cmRequest=null;cmSaved=null;cmSavePending=false;cmSetBusy(false);document.querySelector('#saveEventBtn').textContent='저장';cmMode='event';cmProject='';cmPaintMode();cmPaintProject();cmStatus('');cmToggleAllDay();['#eventStartTime','#eventEndTime'].forEach(id=>{const el=document.querySelector(id);if(el)paintTimeHint(el,false)});cmEndLink?.reset();await cmPopulateGoogleCalendars()}

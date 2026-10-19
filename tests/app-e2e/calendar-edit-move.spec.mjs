@@ -5,8 +5,8 @@ const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const calendars=[{id:'source',summary:'기존 캘린더',accessRole:'owner',backgroundColor:'#336699'},{id:'target',summary:'새 캘린더',accessRole:'writer',backgroundColor:'#aa5533'},{id:'read-only',summary:'읽기 전용',accessRole:'reader'},{id:'unknown',summary:'권한 미확인'}];
 test.use({timezoneId:'Asia/Seoul',viewport:{width:360,height:844}});
-async function open(page,{view='list',recurring=false,partial=false}={}){
-  const state={writes:[],reads:0,event:{id:'move-event',title:'합성 이동 시험',calendarId:'source',start:'2026-10-20',end:'2026-10-21',allDay:true,color:null,colorId:null,organizationIds:['org-a'],recurring,source:'google'}};
+async function open(page,{view='list',recurring=false,partial=false,timed=false}={}){
+  const state={writes:[],reads:0,event:{id:'move-event',title:'합성 이동 시험',calendarId:'source',...(timed?{start:'2026-10-20T01:00:00.000Z',end:'2026-10-20T02:00:00.000Z',allDay:false}:{start:'2026-10-20',end:'2026-10-21',allDay:true}),color:null,colorId:null,organizationIds:['org-a'],recurring,source:'google'}};
   await page.clock.setFixedTime(new Date('2026-10-20T03:00:00Z'));
   await page.addInitScript(view=>localStorage.setItem('kptu-calendar-view',view),view);
   await page.route('**/*',async route=>{
@@ -25,6 +25,8 @@ async function open(page,{view='list',recurring=false,partial=false}={}){
       if(req.method()==='POST'){
         const body=req.postDataJSON();state.writes.push(body);if(state.writeGate)await state.writeGate;
         if(body.action==='update-event'){
+          if(state.reject)return route.fulfill({status:state.reject.status,contentType:'application/json',body:JSON.stringify({error:state.reject.error})});
+          if(state.convert)Object.assign(state.event,body.all_day?{allDay:true,start:body.start_date,end:new Date(Date.parse(body.end_date+'T00:00:00Z')+86400000).toISOString().slice(0,10)}:{allDay:false,start:body.start_iso,end:body.end_iso});
           state.event.calendarId=body.target_calendar_id||body.calendar_id;
           if(!partial)state.event.title=body.title;if(state.empty)return ok(null);
           return ok(partial?{ok:false,moved:true,partial_failure:true,failed_stage:'contents',message:'캘린더는 옮겨졌지만 일부 내용 저장에 실패했습니다.',event:state.event}:{ok:true,moved:!!body.target_calendar_id,event:state.event});
@@ -111,4 +113,37 @@ test('same event reopened during a save waits without losing new input',async({p
 
 test('unknown move address confirmation preserves a newly chosen destination',async({page})=>{
  const s=await open(page);await edit(page);s.empty=true;await page.locator('#ciGoogleCalendar').selectOption('target');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('확인');s.empty=false;await page.locator('#ciGoogleCalendar').selectOption('source');await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleStatus')).toContainText('위치를 확인');await expect(page.locator('#ciGoogleCalendar')).toHaveValue('source');expect(s.writes).toHaveLength(1);await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(s.writes[1]).toMatchObject({calendar_id:'target',target_calendar_id:'source'});
+});
+
+// BUG-일정시간전환: 종일↔시간 전환 저장과 저장 안내 문구
+test('all-day event switched to timed sends Seoul times and closes after save',async({page})=>{
+ const s=await open(page);s.convert=true;await edit(page);await expect(page.locator('#ciGoogleAllDay')).toBeChecked();
+ await page.locator('#ciGoogleAllDay').uncheck();await expect(page.locator('#ciGoogleStartTime')).toBeVisible();
+ await page.locator('#ciGoogleStartDate').fill('2026-10-23');await page.locator('#ciGoogleStartTime').fill('10:30');
+ await page.locator('#ciGoogleEndDate').fill('2026-10-23');await page.locator('#ciGoogleEndTime').fill('12:30');
+ await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();
+ expect(s.writes).toHaveLength(1);expect(s.writes[0]).toMatchObject({action:'update-event',all_day:false,start_iso:'2026-10-23T01:30:00.000Z',end_iso:'2026-10-23T03:30:00.000Z'});
+ await edit(page);await expect(page.locator('#ciGoogleAllDay')).not.toBeChecked();await expect(page.locator('#ciGoogleStartTime')).toHaveValue('10:30');await expect(page.locator('#ciGoogleEndTime')).toHaveValue('12:30');
+});
+test('timed event switched to all-day sends dates only and closes after save',async({page})=>{
+ const s=await open(page,{timed:true});s.convert=true;await edit(page);await expect(page.locator('#ciGoogleAllDay')).not.toBeChecked();
+ await page.locator('#ciGoogleAllDay').check();await expect(page.locator('#ciGoogleStartTime')).toBeHidden();
+ await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();
+ expect(s.writes[0]).toMatchObject({all_day:true,start_date:'2026-10-20',end_date:'2026-10-20'});expect(s.writes[0]).not.toHaveProperty('start_iso');
+ await edit(page);await expect(page.locator('#ciGoogleAllDay')).toBeChecked();await expect(page.locator('#ciGoogleEndDate')).toHaveValue('2026-10-20');
+});
+test('Google time rejection shows Korean guidance only and the next click saves directly',async({page})=>{
+ const s=await open(page);await edit(page);s.reject={status:400,error:'Invalid start time.'};
+ await page.locator('#ciGoogleAllDay').uncheck();await page.locator('#ciGoogleStartTime').fill('10:30');await page.locator('#ciGoogleEndTime').fill('12:30');await page.locator('#ciGoogleSave').click();
+ const status=page.locator('#ciGoogleStatus');await expect(status).toContainText('Google 캘린더가 시작·종료 시각을 받지 않아 저장하지 않았습니다.');await expect(status).toContainText('일정은 바뀌지 않았고 입력은 유지했습니다.');
+ await expect(status).not.toContainText('Invalid');await expect(status).not.toContainText('위치를 확인');await expect(page.locator('#ciGoogleStartTime')).toHaveValue('10:30');await expect(page.locator('#ciGoogleSave')).toBeEnabled();
+ s.reject=null;await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(s.writes).toHaveLength(2);expect(s.reads).toBe(0);
+});
+test('unknown result explains the check-then-save retry in Korean',async({page})=>{
+ const s=await open(page);await edit(page);s.reject={status:502,error:'upstream connect error'};
+ await page.locator('#ciGoogleTitle').fill('합성 재저장');await page.locator('#ciGoogleSave').click();
+ const status=page.locator('#ciGoogleStatus');await expect(status).toContainText('저장 결과를 확인하지 못했습니다. 입력은 유지했습니다.');await expect(status).toContainText('[변경사항 저장]을 다시 누르면 Google에 저장된 상태를 먼저 확인합니다.');await expect(status).not.toContainText('upstream');
+ s.reject=null;await page.locator('#ciGoogleSave').click();await expect(status).toContainText('앞선 저장의 위치를 확인했습니다. 일정은 지금 「기존 캘린더」 캘린더에 있습니다.');await expect(status).toContainText('[변경사항 저장]을 한 번 더 눌러 주세요.');
+ expect(s.writes).toHaveLength(1);await expect(page.locator('#ciGoogleTitle')).toHaveValue('합성 재저장');
+ await page.locator('#ciGoogleSave').click();await expect(page.locator('#ciGoogleModal')).toBeHidden();expect(s.writes).toHaveLength(2);expect(s.writes[1].title).toBe('합성 재저장');
 });
