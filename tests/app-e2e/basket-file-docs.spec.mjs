@@ -83,35 +83,34 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`a memo 
  // ① no text box and no "글 없이 첨부만" notice.
  await expect(detail.locator('[data-basket-read-text]')).toBeHidden();
  await expect(detail).not.toContainText('글 없이 첨부만 있는 업데이트입니다');
- // ② one line per file: kind color, name, size · in the library.
+ // ② one row per file: kind mark, name, size · in the library. UI-바구니상세개편: KB (not KiB).
  const hwp=detail.locator('[data-basket-file-card="drive-hwp"]'),pdf=detail.locator('[data-basket-file-card="drive-pdf"]');
  await expect(hwp.locator('.file-kind')).toHaveText('HWP');await expect(hwp.locator('.file-kind')).toHaveAttribute('data-kind','hwp');
- await expect(hwp.locator('.file-line-main b')).toHaveText('임단협 요구안.hwp');
- await expect(hwp.locator('.file-line-main small')).toHaveText('2.0 KiB · 자료실에 있음 ✓');
- await expect(pdf.locator('.file-kind')).toHaveText('PDF');await expect(pdf.locator('.file-line-main small')).toHaveText('4.0 KiB');
- // ③ two big buttons that fit the kind; ④ the rest sits in the file's ⋯.
- await expect(hwp.locator('.basket-file-actions').getByRole('button')).toHaveText(['HWP 편집']);
- await expect(hwp.locator('.basket-file-actions > *')).toHaveText(['HWP 편집','Drive에서 열기']);
- await expect(pdf.locator('.basket-file-actions > *')).toHaveText(['Drive에서 열기','자료실로 보내기']);
- await expect(pdf.locator('[data-basket-file-more]')).toHaveCount(0);
- const more=hwp.locator('[data-basket-file-more]');await expect(more.getByRole('link',{name:'임단협 요구안.hwp 자료실에서 보기'})).toBeHidden();
- await tap(page,more.locator('summary'),width);await expect(more.getByRole('link',{name:'임단협 요구안.hwp 자료실에서 보기'})).toBeVisible();
- await page.keyboard.press('Escape');await expect(more).not.toHaveAttribute('open','');await expect(detail).toBeVisible();
- // UI-바구니작은버튼: 보이는 높이는 공용 작은 버튼(32px), 누르는 범위는 위아래 44px까지.
- for(const box of await detail.locator('.basket-file-actions > *').all()){const b=await box.boundingBox();expect(b.height).toBe(32);
-  const hit=await box.evaluate(el=>{el.scrollIntoView({block:'center'});const r=el.getBoundingClientRect(),x=r.left+r.width/2,cy=r.top+r.height/2;const ok=dy=>{const t=document.elementFromPoint(x,cy+dy);return t===el||el.contains(t)};return {up:ok(-20),down:ok(20)}});
-  expect(hit).toEqual({up:true,down:true});}
+ await expect(hwp.locator('.basket-file-name')).toHaveText('임단협 요구안.hwp');
+ await expect(hwp.locator('.basket-file-meta')).toHaveText('2.0 KB · 자료실에 있음 ✓');
+ await expect(pdf.locator('.file-kind')).toHaveText('PDF');await expect(pdf.locator('.basket-file-meta')).toHaveText('4.0 KB');
+ // ③④ UI-바구니상세개편: under the name and size, small text links with icons (no buttons, no file ⋯).
+ await expect(hwp.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','자료실에서 보기','편집']);
+ await expect(pdf.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','자료실로 보내기']);
+ await expect(detail.locator('[data-basket-file-more]')).toHaveCount(0);
+ await expect(hwp.getByRole('link',{name:'임단협 요구안.hwp 자료실에서 보기'})).toBeVisible();
+ // Small text to the eye (12px, an icon before it, no box), and the press area is 44px high.
+ for(const link of await detail.locator('.basket-file-links > *').all()){
+  const look=await link.evaluate(el=>{const s=getComputedStyle(el);return {size:s.fontSize,border:s.borderTopStyle,bg:s.backgroundColor,icon:!!el.querySelector('svg')};});
+  expect(look).toEqual({size:'12px',border:'none',bg:'rgba(0, 0, 0, 0)',icon:true});
+  expect((await link.boundingBox()).height).toBeGreaterThanOrEqual(44);
+ }
  // ⑥ "state · 날짜" is one line under the files; [연결하기]·[할 일 만들기] stay at the bottom.
  // BUG-자료넣기미분류: the HWP is already a document of 합성 지난 교섭, so the state is that place, not 미분류.
  const meta=detail.locator('.basket-note-meta'),cards=detail.locator('[data-basket-attachments]');
  await expect(meta).toContainText('합성 지난 교섭 · 자료');await expect(meta).not.toContainText('미분류');expect((await meta.boundingBox()).y).toBeGreaterThan((await cards.boundingBox()).y+(await cards.boundingBox()).height-1);
- await expect(detail.locator('[data-basket-read-actions] button')).toHaveText(['연결하기','할 일 만들기']);
+ await expect(detail.locator('[data-basket-read-actions] button')).toHaveText(['연결하기','할 일 만들기','노트로 옮기기']);
  expect(await noWideScroll(page)).toBe(true);
  await capture(page,info,`memo-files-${width}-${scheme}`);
  // ⑤ sending shows the library state in the file line, without the "자료실로 보냈어요" sentence.
  await tap(page,pdf.getByRole('button',{name:'공문.pdf 자료실로 보내기'}),width);
- await expect(pdf.locator('.file-line-main small')).toHaveText('4.0 KiB · 자료실에 있음 ✓');
- await expect(pdf.locator('.basket-file-actions > *')).toHaveText(['Drive에서 열기','자료실에서 보기']);
+ await expect(pdf.locator('.basket-file-meta')).toHaveText('4.0 KB · 자료실에 있음 ✓');
+ await expect(pdf.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','자료실에서 보기']);
  await expect(detail).not.toContainText('자료실로 보냈어요');
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:ONLY,drive_file_id:'drive-pdf'}]);
  expect(f.errors).toEqual([]);
@@ -138,7 +137,7 @@ for(const width of [390,1280])test(`[자료로 넣기] puts the files into the p
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:ONLY,drive_file_id:'drive-pdf'}]);
  expect(f.calls('app_documents','PATCH').map(c=>[c.query.id,c.body.project_id])).toEqual([['eq.doc-hwp',P],['eq.doc-pdf',P]]);
  expect(f.tables.app_documents.map(d=>[d.file_id,d.project_id])).toEqual([['drive-hwp',P],['drive-pdf',P]]);
- await expect(detail.locator('[data-basket-file-card="drive-pdf"] .file-line-main small')).toHaveText('4.0 KiB · 자료실에 있음 ✓');
+ await expect(detail.locator('[data-basket-file-card="drive-pdf"] .basket-file-meta')).toHaveText('4.0 KB · 자료실에 있음 ✓');
  // The project detail shows them in [자료] with a category tag, and nothing in its progress.
  await clickView(page,'projects');await page.evaluate(()=>window.__KPTU_PROJECT_V3_READY__);
  await page.locator(`[data-ps3-project="${P}"]`).first().click();
@@ -235,7 +234,9 @@ test('[기록도 남기기] adds a required summary and also records the memo',a
 test('a memo with text still needs a summary, and its attachment goes into that project automatically',async({page})=>{
  const f=await fixture(page,{width:1280}),detail=await openNote(page,TEXT,1280);
  await expect(detail.locator('[data-basket-read-text]')).toContainText('10/20 교섭 결과');
- await expect(detail.locator('[data-basket-file-card]')).toHaveCount(0);
+ // UI-바구니상세개편: a memo with text shows the same file rows under its text, inside the same card.
+ await expect(detail.locator('[data-basket-file-card]')).toHaveCount(1);
+ expect((await detail.locator('[data-basket-file-card]').boundingBox()).y).toBeGreaterThan((await detail.locator('[data-basket-read-text]').boundingBox()).y);
  await detail.getByRole('button',{name:'연결하기'}).click();
  await expect(detail.locator('#basketManualLinkTitle')).toHaveText('조직·프로젝트에 연결');
  await pick(page,detail,'project','합성 임단협',1280);

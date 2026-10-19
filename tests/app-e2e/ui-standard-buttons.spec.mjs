@@ -27,7 +27,9 @@ async function sameButtons(region,height){
   // 8-9e-2: the basket [⋯] is a small icon on phones and its menu rows are not button-shaped.
   // UI-디자인손질 6: the note's "‹ 바구니" (title-position back link) and its [⋯] icon are not button-shaped either.
   // BASKET-업데이트통합: the input's [크게] icon (home·basket) is an icon in the field like the clip, not a button shape.
-  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more]')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
+  // UI-바구니상세개편: the [복사]·원문 toggle icons, photo previews and the files' small text links are not button shapes either.
+  // UI-PC바구니첨부버튼: the [📎 첨부] shared button (46px) is checked in basket-attach-button.spec.
+  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more],.basket-icon-button,.basket-row-copy,.basket-file-thumb,.basket-file-link')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
   // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [업데이트 ▾|할 일]·바구니 [메모|노트])은 32px 상자 안 칸으로
   // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
@@ -99,6 +101,8 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  await expect(page.locator('[data-basket-read-text]')).toBeVisible();
  const detail=basket.locator('[data-basket-detail]');
  await expect(detail.locator('[data-basket-attachments] a')).toHaveCount(2);await expect(detail.locator('[data-basket-library-send]')).toHaveCount(2);await expect(detail.locator('[data-basket-hwp-edit]')).toHaveCount(1);
+ // UI-바구니상세개편: the file controls are small text links (12px, no box) under the name and size.
+ for(const l of await detail.locator('.basket-file-link').all())expect(await l.evaluate(el=>[getComputedStyle(el).fontSize,getComputedStyle(el).borderTopStyle])).toEqual(['12px','none']);
  await sameButtons(detail,height);
  const link=await look(detail.locator('[data-basket-link-open]')),task=await look(detail.locator('[data-basket-task-open]'));
  expect(link.bg).toBe(primary);expect(link.fg).toBe(onPrimary);

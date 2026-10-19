@@ -20,31 +20,33 @@ async function openNote(page,width){
 }
 const box=locator=>locator.boundingBox();
 
-// UI-디자인손질 6: the big buttons are only [연결하기](filled) and [할 일 만들기](task teal); 수정·원문 그대로 보기·보관·삭제
-// moved into the note's own [⋯] at the top right, 삭제 last and red. The list's [⋯] (AI 분류 요청) is not shown on a note.
-for(const width of [390,1280])test(`read actions: two big buttons, the rest in the note menu ${width}`,async({page},info)=>{
+// UI-디자인손질 6 → UI-바구니상세개편: the card's last row is [연결하기](filled)·[할 일 만들기](task teal)·[노트로 옮기기](plain),
+// one row at the read-screen button height (UI-버튼작게 ①: 32px to the eye, 44px press area), width by the label. 수정·보관·삭제 stay in the note's own [⋯] at the top right,
+// 삭제 last and red ([노트로 옮기기] and [원문 그대로 보기] left the menu). The list's [⋯] (AI 분류 요청) is not shown on a note.
+for(const width of [390,1280])test(`read actions: three buttons in one row, the rest in the note menu ${width}`,async({page},info)=>{
  const {errors,actions}=await openNote(page,width);
- await expect(actions.getByRole('button')).toHaveText(['연결하기','할 일 만들기']);
- const link=actions.locator('[data-basket-link-open]'),task=actions.locator('[data-basket-task-open]');
- await expect(link).toHaveClass(/\bprimary\b/);await expect(task).toHaveClass(/\bprimary\b/);
+ await expect(actions.getByRole('button')).toHaveText(['연결하기','할 일 만들기','노트로 옮기기']);
+ const link=actions.locator('[data-basket-link-open]'),task=actions.locator('[data-basket-task-open]'),move=actions.locator('[data-basket-to-note]');
+ await expect(link).toHaveClass(/\bprimary\b/);await expect(task).toHaveClass(/\bprimary\b/);await expect(move).not.toHaveClass(/\bprimary\b/);
  const color=l=>l.evaluate(el=>getComputedStyle(el).backgroundColor);
  expect(await color(link)).not.toBe(await color(task));
- const [bl,bt]=await Promise.all([box(link),box(task)]);
- // UI-버튼작게 ①: one row, 32px to the eye, 44px press area, width by the label.
- for(const [b,l] of [[bl,link],[bt,task]]){expect(b.height).toBe(32);expect(await l.evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');}
- expect(Math.round(bl.y)).toBe(Math.round(bt.y));expect(bt.x).toBeGreaterThan(bl.x+bl.width);
+ const [bl,bt,bm]=await Promise.all([box(link),box(task),box(move)]);
+ for(const [b,l] of [[bl,link],[bt,task],[bm,move]]){expect(b.height).toBe(32);expect(await l.evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');expect(Math.round(b.y)).toBe(Math.round(bl.y));}
+ expect(bt.x).toBeGreaterThan(bl.x+bl.width);expect(bm.x).toBeGreaterThan(bt.x+bt.width);
+ // The row sits inside the update card, at its bottom.
+ const card=await box(page.locator('[data-basket-card]'));expect(bl.y+bl.height).toBeLessThanOrEqual(card.y+card.height);
  const detail=page.locator('[data-basket-detail]'),more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();
  await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);
  await expect(page.locator('[data-basket-handoff-scope]')).toBeHidden();
  if(width===390)await more.tap();else await more.click();
- await expect(menu.getByRole('button')).toHaveText(['수정','노트로 옮기기','원문 그대로 보기','보관','삭제']);
+ await expect(menu.getByRole('button')).toHaveText(['수정','보관','삭제']);
  for(const b of await menu.getByRole('button').all())expect((await box(b)).height).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`basket-read-actions-${width}.png`),fullPage:true});
  // Keyboard: the menu opens on its first item and Tab walks it in order, 삭제 last.
  const items=menu.getByRole('button');await expect(items.first()).toBeFocused();
- for(let i=1;i<4;i++){await page.keyboard.press('Tab');await expect(items.nth(i)).toBeFocused();}
+ for(let i=1;i<3;i++){await page.keyboard.press('Tab');await expect(items.nth(i)).toBeFocused();}
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();
  // Touch and keyboard still open the same panels as before.
  if(width===390)await task.tap();else{await task.focus();await page.keyboard.press('Enter');}

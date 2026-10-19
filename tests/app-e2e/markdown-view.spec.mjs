@@ -118,12 +118,12 @@ for(const width of [390,1280]){
   await page.screenshot({path:info.outputPath(`markdown-read-${width}.png`),fullPage:true});
 
   // [원문 그대로 보기] shows the stored text exactly, and back again.
-  // UI-디자인손질 6: the toggle lives in the note's [⋯] menu.
-  const toggle=detail.locator('[data-basket-read-raw]'),more=detail.locator('[data-basket-note-more]');
-  await press(page,more,width);await press(page,toggle,width);await press(page,more,width);await expect(toggle).toHaveText('정리해서 보기');await page.keyboard.press('Escape');await expect(read).not.toHaveClass(/md-body/);
+  // UI-바구니상세개편: the toggle is a small icon near the text (it left the note's [⋯] menu).
+  const toggle=detail.locator('[data-basket-read-raw]');
+  await press(page,toggle,width);await expect(toggle).toHaveAccessibleName('정리해서 보기');await expect(read).not.toHaveClass(/md-body/);
   expect(await read.innerText()).toBe(RICH);await expect(read.locator('*')).toHaveCount(0);
   await page.screenshot({path:info.outputPath(`markdown-raw-${width}.png`),fullPage:true});
-  await press(page,more,width);await press(page,toggle,width);await press(page,more,width);await expect(toggle).toHaveText('원문 그대로 보기');await page.keyboard.press('Escape');await expect(figures).toHaveCount(2,{timeout:20000});await expect(read.locator('.md-math-done .katex')).toHaveCount(2);
+  await press(page,toggle,width);await expect(toggle).toHaveAccessibleName('원문 그대로 보기');await expect(figures).toHaveCount(2,{timeout:20000});await expect(read.locator('.md-math-done .katex')).toHaveCount(2);
   // Editing still uses the plain text box with the stored text.
   await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});await expect(detail.locator('[data-basket-text]')).toHaveValue(RICH);await expect(read).toBeHidden();
 

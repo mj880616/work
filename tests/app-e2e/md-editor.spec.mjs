@@ -119,7 +119,7 @@ for(const width of [390,1280]){
   await page.screenshot({path:info.outputPath(`md-editor-basket-edit-${width}.png`)});
   expect(seen.writes).toEqual([]);
   await press(page,detail.locator('[data-basket-save]'),width);
-  await expect(detail.locator('[data-basket-status]')).toContainText('수정한 글을 저장했습니다');
+  await expect(page.locator('#toast')).toContainText('수정한 글을 저장했습니다');
   expect(seen.writes).toHaveLength(1);expect(seen.writes[0]).toMatchObject({method:'PATCH',body:{raw_text:final}});
   await expect(detail.locator('[data-basket-read-text] h1')).toHaveText('처음 메모');
   expect(seen.external).toEqual([]);expect(seen.errors).toEqual([]);

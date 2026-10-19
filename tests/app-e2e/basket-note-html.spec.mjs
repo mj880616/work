@@ -100,7 +100,7 @@ for(const width of [390,1280]){
   await press(page,detail.getByRole('button',{name:'수정',exact:true}),width);
   await detail.locator('[data-basket-text]').fill('새 본문');
   await press(page,detail.locator('[data-note-save]'),width);
-  await expect(detail.locator('[data-basket-status]')).toHaveText('노트를 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');
   await expect(detail.locator('[data-basket-read-text]')).toContainText('새 본문');
   await expect(detail.locator('[data-basket-html-views] iframe')).toHaveCount(2);
   expect(f.writes).toHaveLength(1);expect(f.writes[0].query).toMatchObject({id:'eq.n-both',kind:'eq.note'});

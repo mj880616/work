@@ -16,6 +16,13 @@ import { paintHtmlAttachments } from './html-frame.js';
 
 const chipKinds = [['project','프로젝트'], ['organization','담당조직'], ['meeting','회의'], ['document','자료실']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', dateStyle:'medium', timeStyle:'short'}).format(d); };
+// UI-바구니상세개편: [복사] on every note row and in the read view (same conversion as the write window's 텔레그램용 복사).
+const COPY_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+function showToast(message, ms = 3200) {
+  const toast = document.querySelector('#toast'); if (!toast) return;
+  toast.textContent = message; toast.classList.remove('hidden');
+  clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.add('hidden'), ms);
+}
 const normalize = value => String(value ?? '').replace(/\r\n?/g, '\n');
 
 export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = () => {}, onMovedToBasket = () => {}}) {
@@ -36,9 +43,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function renderList() {
     const visible = sorted().filter(matches);
     host.querySelector('[data-note-rows]').innerHTML = visible.map(note => {
-      const preview = String(note.raw_text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean).join(' ');
+      const lines = String(note.raw_text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      // UI-바구니상세개편: a note without a title shows the start of its body in the title place (cut with …, by CSS).
+      const title = String(note.title || '').trim(), shown = title || lines[0] || '노트', preview = (title ? lines : lines.slice(1)).join(' ');
       const tags = chips(note);
-      return `<button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"><b class="basket-title"><span class="note-dot" aria-hidden="true"></span>${esc([...(note.title || '노트')].slice(0, 80).join(''))}</b>${preview ? `<span class="basket-preview">${esc([...preview].slice(0, 120).join(''))}</span>` : ''}<time>고친 날 ${esc(day(note.updated_at))}</time>${note.attachments?.length ? `<span>첨부 ${note.attachments.length}개</span>` : ''}${tags ? `<span class="note-row-chips">${tags}</span>` : ''}</button>`;
+      return `<div class="basket-row-item note-row-item"><button type="button" class="basket-row-copy" data-note-row-copy="${esc(note.id)}" aria-label="${esc([...shown].slice(0, 40).join(''))} 복사"${String(note.raw_text || '').trim() ? '' : ' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"><b class="basket-title"><span class="note-dot" aria-hidden="true"></span><span class="basket-title-text">${esc([...shown].slice(0, 80).join(''))}</span></b>${preview ? `<span class="basket-preview">${esc([...preview].slice(0, 120).join(''))}</span>` : ''}<time>고친 날 ${esc(day(note.updated_at))}</time>${note.attachments?.length ? `<span>첨부 ${note.attachments.length}개</span>` : ''}${tags ? `<span class="note-row-chips">${tags}</span>` : ''}</button></div>`;
     }).join('');
     if (!loaded) return;
     // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.
@@ -104,6 +113,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function paintRead() {
     const title = detail.querySelector('[data-note-read-title]'), text = detail.querySelector('[data-basket-read-text]'), raw = selected.raw_text || '';
     title.textContent = selected.title || '노트';
+    detail.querySelector('[data-note-telegram]').hidden = !String(selected.raw_text || '').trim() && !String(selected.title || '').trim();
     const owner = scope(), id = selected.id;
     // BUG-노트HTML표시: .html attachments show in the same sandboxed frames as the memo read view (html-frame.js),
     // under the body text. A note whose only content is HTML has no "no body" sentence.
@@ -124,7 +134,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function showDetail() {
     layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
     ++epoch; editing = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
-    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="basket-note-more" data-note-more-wrap><button type="button" class="basket-more-trigger" data-note-more aria-label="이 노트 메뉴" aria-expanded="false" aria-controls="noteDocMenu"><span aria-hidden="true">⋯</span></button><div id="noteDocMenu" class="basket-more-menu" role="group" aria-label="이 노트" hidden><button type="button" data-note-to-basket>바구니로 돌리기</button><button type="button" class="basket-menu-danger" data-note-delete>삭제</button></div></div></div><div class="basket-read note-read" data-note-read><h3 class="note-read-title" data-note-read-title></h3><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-note-read-actions><button type="button" data-note-edit>수정</button><button type="button" data-note-telegram>텔레그램용 복사</button><button type="button" class="primary" data-basket-link-open>연결하기</button></div><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions" data-note-edit-actions hidden><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="basket-note-more" data-note-more-wrap><button type="button" class="basket-more-trigger" data-note-more aria-label="이 노트 메뉴" aria-expanded="false" aria-controls="noteDocMenu"><span aria-hidden="true">⋯</span></button><div id="noteDocMenu" class="basket-more-menu" role="group" aria-label="이 노트" hidden><button type="button" data-note-to-basket>바구니로 돌리기</button><button type="button" class="basket-menu-danger" data-note-delete>삭제</button></div></div></div><div class="basket-read note-read" data-note-read><div class="note-read-head"><h3 class="note-read-title" data-note-read-title></h3><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-note-read-actions><button type="button" data-note-edit>수정</button><button type="button" class="primary" data-basket-link-open>연결하기</button></div><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions" data-note-edit-actions hidden><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
   }
   function open(id, {focus = true} = {}) {
@@ -190,7 +200,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   async function save() {
     if (!selected || !editing || busy) return {ok:false, message:'지금은 저장할 수 없어요.'};
     const f = fields();
-    if (!textDirty()) { say('저장된 노트입니다.'); finishEdit({force:true}); return {ok:true}; }
+    if (!textDirty()) { showToast('저장된 노트입니다.'); finishEdit({force:true}); return {ok:true}; }
     const changes = {title:f.title.value, raw_text:f.body.value};
     try { validateNoteTitle(changes.title); validateNoteBody(changes.raw_text); } catch (error) { say(error.message); return {ok:false, message:error.message}; }
     const id = selected.id, run = ++epoch, owner = scope(); lock(true); say('저장 중…');
@@ -198,7 +208,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       const note = await saveNoteDoc(id, changes, rt);
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       notes = notes.map(n => n.id === id ? note : n); selected = note; renderList(); paintMeta();
-      finishEdit({force:true}); say('노트를 저장했습니다.');
+      finishEdit({force:true}); say(''); showToast('노트를 저장했습니다.');
       return {ok:true};
     } catch (error) {
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
@@ -206,10 +216,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       return {ok:false, message:'저장하지 못했어요. 다시 눌러 주세요.'};
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
-  async function telegram() {
-    if (!selected) return;
-    const ok = await copyText(toTelegram(`# ${selected.title || '노트'}\n\n${selected.raw_text || ''}`));
-    say(ok ? '텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.' : '복사하지 못했어요. 다시 눌러 주세요.');
+  async function telegram(note = selected) {
+    if (!note) return;
+    const title = String(note.title || '').trim(), body = String(note.raw_text || '');
+    const ok = await copyText(toTelegram(title ? `# ${title}\n\n${body}` : body));
+    showToast(ok ? '복사했습니다' : '복사하지 못했어요. 다시 눌러 주세요.');
   }
   async function toBasket() {
     if (!selected || editing || busy) return;
@@ -258,6 +269,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-note-more')) { setNoteMenu(noteMenu()?.hidden ?? false); return; }
     if (noteMenu()?.contains(b)) setNoteMenu(false, {focus:true});
     if (busy) return;
+    if (b.hasAttribute('data-note-row-copy')) { void telegram(notes.find(n => n.id === b.dataset.noteRowCopy)); return; }
     if (b.hasAttribute('data-note-row')) open(b.dataset.noteRow);
     else if (b.hasAttribute('data-note-new')) openNew();
     else if (b.hasAttribute('data-note-retry')) void refresh();
