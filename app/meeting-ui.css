@@ -151,10 +151,10 @@
   #appView #meetingsView #meetingColumnPicker button[aria-pressed="false"] .filter-chip-dot{opacity:.35}
   #meetingList.meeting-columns{display:block}
   #meetingList .mcol-scroller{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:var(--kptu-space-3);overflow-x:auto;overflow-y:hidden;padding:2px 2px var(--kptu-space-2);overscroll-behavior-x:contain}
-  #meetingList .mcol-scroller:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--ds-radius-box)}
-  #meetingList .mcol{box-sizing:border-box;flex:1 0 240px;min-width:240px;display:flex;flex-direction:column;gap:var(--kptu-space-2);padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
+  #meetingList .mcol-scroller:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-lg)}
+  #meetingList .mcol{box-sizing:border-box;flex:1 0 240px;min-width:240px;display:flex;flex-direction:column;gap:var(--kptu-space-2);padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   #meetingList .mcol-head{display:flex;align-items:center;gap:8px;min-width:0;min-height:var(--ds-compact-height);margin:0;font-size:var(--ds-text-row);line-height:1.4}
-  #meetingList .mcol-dot{flex:0 0 8px;width:8px;height:8px;border-radius:50%;background:var(--meeting-color,var(--kptu-faint))}
+  #meetingList .mcol-dot{flex:0 0 8px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
   #meetingList .mcol-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #meetingList .mcol-count{flex:none;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
   #meetingList .mcol-cards{display:grid;gap:var(--kptu-space-2);margin:0;padding:0;list-style:none}
