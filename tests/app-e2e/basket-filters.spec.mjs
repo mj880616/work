@@ -59,7 +59,7 @@ async function capture(page,info,name){
 }
 async function enter(page,width){
  await tap(page,page.locator('.mobile-tabs [data-view="basket"]:visible,.app-nav [data-view="basket"]:visible'),width);
- await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText(/개 메모/);
+ await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('[data-basket-list-status]')).toHaveText(/개 업데이트/);
 }
 
 for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분류][분류][보류] segment and [분류] place chips ${width} ${scheme}`,async({page},info)=>{
@@ -132,7 +132,7 @@ test('phone: [메모|노트] stays in the bottom switch row while the segment an
  const s=await sw.boundingBox(),t=await tabs.boundingBox(),places=await page.locator('[data-basket-place-filter]').boundingBox(),seg=await filterChip(page,'unclassified').boundingBox();
  expect(Math.abs(s.y+s.height+(44-s.height)/2-t.y)).toBeLessThanOrEqual(2);
  expect(seg.y).toBeLessThan(200);expect(places.y).toBeLessThan(250);
- await expect(sw.getByRole('button')).toHaveText(['메모','노트']);
+ await expect(sw.getByRole('button')).toHaveText(['업데이트','노트']);
  await tap(page,sw.locator('[data-basket-kind="note"]'),390);await expect(page.locator('[data-basket-place-filter]')).toBeHidden();await expect(filterChip(page,'classified')).toBeHidden();
  // Back on [메모] the earlier choice is kept within the visit (as before), with its place row.
  await tap(page,sw.locator('[data-basket-kind="memo"]'),390);await expect(filterChip(page,'classified')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-place-filter]')).toBeVisible();

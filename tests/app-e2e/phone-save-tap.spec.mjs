@@ -30,7 +30,7 @@ async function fixture(page,{width,height}){
 }
 // Records where each phase of the next tap lands.
 const watch=page=>page.evaluate(()=>{window.__tap=[];for(const type of ['touchstart','mousedown','click'])document.addEventListener(type,e=>__tap.push([type,e.target.closest?.('[data-manual-task-save],.mobile-tabs button')?.dataset?.view??(e.target.closest?.('[data-manual-task-save]')?'save':e.target.tagName)]),{capture:true});});
-const done='Google 할 일을 만들었어요. 이 메모에 기록했어요.';
+const done='Google 할 일을 만들었어요. 이 업데이트에 기록했어요.';
 
 test('390 keyboard that shrinks the layout: a scrolled save tap stays on the save button',async({page})=>{
  const f=await fixture(page,{width:390,height:844});

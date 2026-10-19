@@ -214,8 +214,8 @@ async function openWriter(){
     const [{openMarkdownEditor},{createNote,createNoteDoc,noteTitleFromText},{requestNoteDocOpen}]=await Promise.all([import('./md-editor.js'),import('./basket-data.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
     if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
     let saved=null;
-    openMarkdownEditor({text:writeDraft,title:'쓰기',kinds:{label:'저장할 곳',value:'memo',options:[['memo','메모'],['note','노트']]},
-      save:{label:'저장',aria:kind=>kind==='note'?'새 노트로 저장':'바구니에 새 메모로 저장',run:async(text,kind)=>{
+    openMarkdownEditor({text:writeDraft,title:'쓰기',kinds:{label:'저장할 곳',value:'memo',options:[['memo','업데이트'],['note','노트']]},
+      save:{label:'저장',aria:kind=>kind==='note'?'새 노트로 저장':'바구니에 새 업데이트로 저장',run:async(text,kind)=>{
       if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return {ok:false,message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
       try{
         if(kind==='note'){

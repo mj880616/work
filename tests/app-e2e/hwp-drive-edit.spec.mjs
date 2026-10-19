@@ -151,7 +151,7 @@ for(const width of [390,1280])test(`a basket HWPX attachment is saved as a new H
   expect(f.sent.open).toEqual([{action:'hwp-open',note_id:NOTE,drive_file_id:'drive-hwpx'}]);
   await expect(page.getByRole('button',{name:'원본에 덮어쓰기'})).toBeHidden();
   await press(page,page.getByRole('button',{name:'새 파일로 저장'}),width);
-  await expect(status(page)).toHaveText('같은 메모에 새 첨부로 추가했어요. 원본은 그대로예요.',{timeout:30000});
+  await expect(status(page)).toHaveText('같은 업데이트에 새 첨부로 추가했어요. 원본은 그대로예요.',{timeout:30000});
   expect(f.sent.basket).toEqual([{file:{file:'안건-수정.hwp',bytes:[0xd0,0xcf,0x11,0xe0]},note_id:NOTE}]);
   // [돌아가기] returns to the same note.
   await press(page,page.getByRole('button',{name:'돌아가기'}),width);

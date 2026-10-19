@@ -69,7 +69,7 @@ test('inner strict checks remain and public errors contain no developer vocabula
 test('wrapper retains item, destination, reason, depth and duplicate-key rejection',()=>{
  for(const fenced of [JSON.stringify,value=>'```json\n'+JSON.stringify(value)+'\n```']){
  let value=proposal();value.items=Array.from({length:101},()=>value.items[0]);assert.throws(()=>parseAIAnswer(fenced(value)),/100/);
- value=proposal();value.items.push(value.items[0]);assert.throws(()=>parseAIAnswer(fenced(value)),/같은 메모가 두 번/);
+ value=proposal();value.items.push(value.items[0]);assert.throws(()=>parseAIAnswer(fenced(value)),/같은 업데이트가 두 번/);
  value=proposal();value.items[0].destinations=Array.from({length:21},()=>value.items[0].destinations[0]);assert.throws(()=>parseAIAnswer(fenced(value)),/20/);
  value=proposal();value.items[0].destinations[0].reason='가'.repeat(2001);assert.throws(()=>parseAIAnswer(fenced(value)),/2,000/);
  assert.throws(()=>parseAIAnswer('```json\n'+('['.repeat(10))+'0'+(']'.repeat(10))+'\n```'),/내용이 맞지/);
@@ -213,7 +213,7 @@ test('starts clipboard write synchronously while private text is still being rea
 });
 test('empty basket rejects pending clipboard data without replacing the clipboard',async()=>{
  await withPromiseClipboard(async items=>{
-  const h=handoffHarness({rows:[]});await h.handoff.copy();assert.equal(items.length,1);await assert.rejects(items[0].data['text/plain']);assert.equal(h.status.textContent,'분류 요청할 메모가 없어요');assert.equal(h.input.value,'');
+  const h=handoffHarness({rows:[]});await h.handoff.copy();assert.equal(items.length,1);await assert.rejects(items[0].data['text/plain']);assert.equal(h.status.textContent,'분류 요청할 업데이트가 없어요');assert.equal(h.input.value,'');
  });
 });
 test('closing during a pending read rejects clipboard data and never restores private text',async()=>{

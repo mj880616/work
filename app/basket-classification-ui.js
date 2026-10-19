@@ -22,7 +22,7 @@ export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBl
   function controls(){panel.querySelector('[data-classification-close]').disabled=busy;input.disabled=busy;panel.querySelector('[data-classification-preview]').disabled=busy;button.disabled=busy||missing||uncertain||!selected().length;button.textContent='선택 확정';if(uncertain)button.textContent='현재 결과 확인 필요';if(missing)button.textContent='연결 기능 준비 중';rows.querySelectorAll('select').forEach(el=>el.disabled=busy);}
   function refreshPreview(live){snapshot=live;const visible=selectableProjects(live.projects.filter(p=>p.workspace_id===live.workspaceId&&p.owner_id===live.userId));destinationChoices=[...live.organizations.filter(o=>o.workspace_id===live.workspaceId).map(o=>({kind:'organization',id:o.id,name:o.name})),...live.projects.filter(p=>visible.has(p.id)).map(p=>({kind:'project',id:p.id,name:p.name}))];preview=previewClassification(editedProposal(),{...live,sentRecords});for(let i=0;i<preview.length;i++)for(let j=0;j<preview[i].destinations.length;j++){const key=`${i}:${j}`,target=preview[i].destinations[j];let s=states.get(key);if(!s){s={summary:initialSummary(target),kind:target.kind,targetId:target.target_id,checked:!target.error&&!target.excluded,excludedOff:!!target.excluded,touched:false,done:false,error:null};states.set(key,s);}else if(((s.target?.error&&!target.error)||(s.excludedOff&&!target.excluded))&&!target.error&&!s.touched&&!s.done&&!s.error){s.checked=true;s.excludedOff=false;}s.target=target;}}
   function paint(){
-    rows.innerHTML=preview.map((row,i)=>`<article data-classification-note class="basket-classification-note"><h4>${escape([...String(row.note?.raw_text||'메모 '+(i+1)).split(/\r?\n/).find(line=>line.trim())||'메모 '+(i+1)].slice(0,80).join(''))}</h4><details data-classification-original><summary>원문 전체 보기</summary><pre class="basket-classification-original">${escape(row.note?.raw_text??'메모 없음 또는 접근 불가')}</pre></details>${row.error?`<p class="basket-classification-error">${escape(ERROR_TEXT[row.error])}</p>`:''}${row.destinations.map((t,j)=>{
+    rows.innerHTML=preview.map((row,i)=>`<article data-classification-note class="basket-classification-note"><h4>${escape([...String(row.note?.raw_text||'업데이트 '+(i+1)).split(/\r?\n/).find(line=>line.trim())||'업데이트 '+(i+1)].slice(0,80).join(''))}</h4><details data-classification-original><summary>원문 전체 보기</summary><pre class="basket-classification-original">${escape(row.note?.raw_text??'업데이트 없음 또는 접근 불가')}</pre></details>${row.error?`<p class="basket-classification-error">${escape(ERROR_TEXT[row.error])}</p>`:''}${row.destinations.map((t,j)=>{
       const key=`${i}:${j}`,s=states.get(key),supported=['organization','project'].includes(t.kind);s.key=key;const error=s.error||t.error;
       const summary=supported?`<label class="basket-text-label basket-summary-label">기록 요약<textarea data-classification-summary="${key}" rows="3" spellcheck="false" ${s.done?'disabled':''}>${escape(s.summary)}</textarea></label>`:'';
       const select=supported&&!s.done?`<label class="basket-target-picker">연결할 곳<select data-classification-target-select="${key}" ${busy?'disabled':''}><option value="${escape(s.kind+':'+s.targetId)}">${escape(names[s.kind]+' · '+t.name)}</option>${destinationChoices.filter(o=>o.kind!==s.kind||o.id!==s.targetId).map(o=>`<option value="${escape(o.kind+':'+o.id)}">${escape(names[o.kind]+' · '+o.name)}</option>`).join('')}</select></label>`:'';
@@ -42,8 +42,8 @@ export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBl
         const link=live.links.find(l=>l.note_id===proposal.items[index].note_id&&l.status==='confirmed'&&l[key]===s.targetId);
         if(link&&link.summary===s.summary){s.done='저장 확인됨';s.checked=false;}
       }s.error=null;}
-      refreshPreview(live);paint();status.textContent=`${preview.length}개 메모 · 선택과 요약을 확인해 주세요.`;
-    }catch(e){if(run===epoch&&owner===scope()){status.textContent=proposal?'메모와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.':e.message;status.scrollIntoView({block:'nearest'});}}
+      refreshPreview(live);paint();status.textContent=`${preview.length}개 업데이트 · 선택과 요약을 확인해 주세요.`;
+    }catch(e){if(run===epoch&&owner===scope()){status.textContent=proposal?'업데이트와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.':e.message;status.scrollIntoView({block:'nearest'});}}
     finally{if(run===epoch){busy=false;onBusy(false);controls();}}
   }
   async function confirm(){
@@ -97,7 +97,7 @@ export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBl
     }catch{
       if(!current()){if(owner===scope()&&inFlight.length)changed();return;}
       if(inFlight.length){for(const s of inFlight)fail(s,'RESULT_UNKNOWN');changed();}
-      status.textContent=[`${created}개 연결했어요 · ${updated}개 요약 저장했어요`,...messages,inFlight.length?'다시 확인을 눌러 현재 결과를 확인해 주세요.':(created||updated)?'저장은 확인됐지만 최신 목록을 불러오지 못했어요. 다시 확인해 주세요.':'메모와 연결할 곳을 확인하지 못했어요. 다시 확인해 주세요.'].join(' · ');
+      status.textContent=[`${created}개 연결했어요 · ${updated}개 요약 저장했어요`,...messages,inFlight.length?'다시 확인을 눌러 현재 결과를 확인해 주세요.':(created||updated)?'저장은 확인됐지만 최신 목록을 불러오지 못했어요. 다시 확인해 주세요.':'업데이트와 연결할 곳을 확인하지 못했어요. 다시 확인해 주세요.'].join(' · ');
     }finally{if(run===epoch){busy=false;onBusy(false);if(owner===scope())paint();controls();}}
   }
   host.addEventListener('click',e=>{const el=e.target.closest('button');if(!el)return;if(el.hasAttribute('data-classification-close'))close();else if(el.hasAttribute('data-classification-preview'))void inspect();else if(el.hasAttribute('data-classification-confirm'))void confirm();});

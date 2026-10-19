@@ -3,7 +3,7 @@ export const CLASSIFICATION_LIMITS = Object.freeze({bytes:1048576, items:100, ta
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const VERDICTS = Object.freeze(['new','duplicate','changed']);
 const kinds = new Set(['organization','project','library','write_request_candidate','google_task']);
-export const ERROR_TEXT = Object.freeze({RESULT_UNKNOWN:'결과를 확인하지 못했어요. 다시 확인을 눌러 현재 연결을 확인해 주세요.',NOTE_MISSING:'메모를 찾거나 열 수 없어요.',NOTE_WORKSPACE:'다른 업무 공간의 메모예요.',NOTE_ARCHIVED:'보관된 메모예요.',AI_EXCLUDED:'AI에게 맡기지 않기로 한 메모예요.',NOTE_CHANGED:'메모가 바뀌었어요. AI에게 다시 맡겨 주세요.',TARGET_MISSING:'연결할 곳을 찾거나 열 수 없어요.',TARGET_WORKSPACE:'다른 업무 공간에 있는 곳이에요.',TARGET_UNSELECTABLE:'지금은 선택할 수 없는 곳이에요.',ALREADY_CONFIRMED:'이미 연결됨',NEXT_STAGE:'아직 지원하지 않는 항목',FUNCTION_UNAVAILABLE:'연결 기능 준비 중',INVALID_TARGETS:'연결할 곳을 다시 확인해 주세요.',INVALID_INPUT:'메모 정보가 맞지 않아요. AI에게 다시 맡겨 주세요.',PERMISSION_DENIED:'이 내용을 열거나 연결할 권한이 없어요.',SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 현재 연결을 확인해 주세요.'});
+export const ERROR_TEXT = Object.freeze({RESULT_UNKNOWN:'결과를 확인하지 못했어요. 다시 확인을 눌러 현재 연결을 확인해 주세요.',NOTE_MISSING:'업데이트를 찾거나 열 수 없어요.',NOTE_WORKSPACE:'다른 업무 공간의 업데이트예요.',NOTE_ARCHIVED:'보관된 업데이트예요.',AI_EXCLUDED:'AI에게 맡기지 않기로 한 업데이트예요.',NOTE_CHANGED:'업데이트가 바뀌었어요. AI에게 다시 맡겨 주세요.',TARGET_MISSING:'연결할 곳을 찾거나 열 수 없어요.',TARGET_WORKSPACE:'다른 업무 공간에 있는 곳이에요.',TARGET_UNSELECTABLE:'지금은 선택할 수 없는 곳이에요.',ALREADY_CONFIRMED:'이미 연결됨',NEXT_STAGE:'아직 지원하지 않는 항목',FUNCTION_UNAVAILABLE:'연결 기능 준비 중',INVALID_TARGETS:'연결할 곳을 다시 확인해 주세요.',INVALID_INPUT:'업데이트 정보가 맞지 않아요. AI에게 다시 맡겨 주세요.',PERMISSION_DENIED:'이 내용을 열거나 연결할 권한이 없어요.',SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 현재 연결을 확인해 주세요.'});
 // The handoff instructions use the parser's limits and a canonical valid shape.
 // These keys belong in the copied AI instructions, never in screen errors.
 export function classificationFormat(now) {
@@ -12,7 +12,7 @@ export function classificationFormat(now) {
 }
 export function parseAIAnswer(input) {
   const source=String(input);
-  if(new TextEncoder().encode(source).length>CLASSIFICATION_LIMITS.bytes)throw Error('글이 너무 길어요. 메모 100개 이내의 복사용 블록만 넣어 주세요.');
+  if(new TextEncoder().encode(source).length>CLASSIFICATION_LIMITS.bytes)throw Error('글이 너무 길어요. 업데이트 100개 이내의 복사용 블록만 넣어 주세요.');
   // Only inspect fence structure outside the block. Prose is never rendered,
   // interpreted, or sent to the strict parser. Reject extra/unsupported fences.
   const fences=[...source.matchAll(/^[\t ]*```([^\r\n]*)\r?$/gm)];
@@ -22,7 +22,7 @@ export function parseAIAnswer(input) {
   const block=raw?trimmed:source.slice(fences[0].index+fences[0][0].length,fences[1].index).trim();
   try{return parseClassification(block);}catch(error){
     const text=error.message;
-    const limit=[['메모는 100개','메모는 100개까지 넣을 수 있어요.'],['메모당 목적지는 20개','메모 하나에 연결할 곳은 20개까지예요.'],['이유는 1~2,000자','연결 이유는 1~2,000자로 써 주세요.'],['문자열은 2,000자','한 항목의 글은 2,000자까지 넣을 수 있어요.'],['중복 메모 ID','같은 메모가 두 번 들어 있어요. AI에게 다시 정리해 달라고 해 주세요.']].find(([prefix])=>text.startsWith(prefix));
+    const limit=[['메모는 100개','업데이트는 100개까지 넣을 수 있어요.'],['메모당 목적지는 20개','업데이트 하나에 연결할 곳은 20개까지예요.'],['이유는 1~2,000자','연결 이유는 1~2,000자로 써 주세요.'],['문자열은 2,000자','한 항목의 글은 2,000자까지 넣을 수 있어요.'],['중복 메모 ID','같은 업데이트가 두 번 들어 있어요. AI에게 다시 정리해 달라고 해 주세요.']].find(([prefix])=>text.startsWith(prefix));
     throw Error(limit?.[1]||'복사용 블록의 내용이 맞지 않아요. AI에게 같은 형식으로 다시 정리해 달라고 해 주세요.');
   }
 }

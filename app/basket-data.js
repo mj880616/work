@@ -150,7 +150,7 @@ export function moveToNote(id, title, rt = window.KPTURuntime) {
 export function moveToBasket(note, rt = window.KPTURuntime) {
   const text = String(note?.raw_text || '');
   if (!text.trim() && !note?.attachments?.length) throw new Error('본문과 첨부가 없는 노트는 바구니로 돌릴 수 없어요. 본문을 먼저 써 주세요.');
-  if ([...text].length > 20000) throw new Error('바구니 메모는 20,000자까지라 이 노트는 돌릴 수 없어요. 본문을 줄여 주세요.');
+  if ([...text].length > 20000) throw new Error('바구니 업데이트는 20,000자까지라 이 노트는 돌릴 수 없어요. 본문을 줄여 주세요.');
   return patchKind(note.id, 'note', {kind:'basket', title:null}, rt);
 }
 // A memo counts as classified when it has a confirmed link or its files are a project's documents ([자료로 넣기]).

@@ -47,7 +47,7 @@ async function cleared(page){await expect(page.locator('[data-handoff-fallback]'
 for(const width of [390,1280]){
  test(`handoff real clipboard permission allowed ${width}`,async({page},info)=>{
   const {note,errors}=await setup(page,width);await page.context().grantPermissions(['clipboard-read','clipboard-write']);await press(page);
-  await expect(copiedLine(page)).toHaveText('미분류 메모 1개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');await expect(page.locator('[data-classification-panel]')).toBeVisible();await expect(page.locator('[data-classification-input]')).toBeFocused();await expect(page.locator('[data-handoff-status]')).toBeEmpty();expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(note.raw_text);
+  await expect(copiedLine(page)).toHaveText('미분류 업데이트 1개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');await expect(page.locator('[data-classification-panel]')).toBeVisible();await expect(page.locator('[data-classification-input]')).toBeFocused();await expect(page.locator('[data-handoff-status]')).toBeEmpty();expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain(note.raw_text);
   await expect(page.locator('[data-handoff-fallback]')).toBeHidden();await expect(page.locator('[data-handoff-text]')).toHaveValue('');
   await page.screenshot({path:info.outputPath(`success-${width}.png`),fullPage:true});expect(errors).toEqual([]);
  });

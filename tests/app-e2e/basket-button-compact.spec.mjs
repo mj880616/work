@@ -49,7 +49,7 @@ for(const width of [390,1280]){
     await page.setViewportSize({width,height:1000});const f=await fixture(page);
     const quick=page.locator('#homeView .home-quick');
     const quickBounds=await quick.boundingBox();
-    const homeMode=await measure(quick.locator('[data-quick-mode="basket"]'));
+    const homeMode=await measure(quick.locator('[data-quick-mode="update"]'));
     const homeLink=await measure(quick.locator('[data-goto="basket"]'));
     const homePrimary=await measure(quick.locator('[data-quick-save]'));
     await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});
@@ -131,7 +131,7 @@ for(const width of [390,1280]){
     await quick.screenshot({path:info.outputPath(`quick-return-${width}.png`)});
     expect(await quick.boundingBox()).toEqual(quickBounds);
     expect(await quickContent()).toEqual(quickBefore);
-    for(const [selector,original] of [['[data-quick-mode="basket"]',homeMode],['[data-goto="basket"]',homeLink]]){
+    for(const [selector,original] of [['[data-quick-mode="update"]',homeMode],['[data-goto="basket"]',homeLink]]){
       const returned=await measure(quick.locator(selector));
       for(const key of ['height','width','fontSize','borderRadius','borderWidth','background','color','padding'])expect(returned[key]).toBe(original[key]);
     }

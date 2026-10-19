@@ -106,7 +106,7 @@ test('one day of materials in display order; a failed group is marked, the rest 
     notes:{status:'ok', items:[{title:'노트 A', updated_at:'2026-10-06T05:00:00Z'}]},
   };
   const day = m.dayMaterials(materials, '2026-10-06');
-  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '바구니 메모', '고친 노트']);
+  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '바구니 업데이트', '고친 노트']);
   assert.deepEqual(day[0].items, ['종일 종일', '00:30 새벽', '14:00 오후']);
   assert.equal(day[1].failed, true);
   assert.deepEqual(day[2].items, ['첫 줄 메모', '첨부 2개']);
