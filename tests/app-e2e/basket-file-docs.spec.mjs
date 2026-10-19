@@ -98,7 +98,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`a memo 
  await tap(page,more.locator('summary'),width);await expect(more.getByRole('link',{name:'임단협 요구안.hwp 자료실에서 보기'})).toBeVisible();
  // UI-바구니작은버튼: 보이는 높이는 공용 작은 버튼(32px), 누르는 범위는 위아래 44px까지.
  for(const box of await detail.locator('.basket-file-actions > *').all()){const b=await box.boundingBox();expect(b.height).toBe(32);
-  const hit=await box.evaluate(el=>{const r=el.getBoundingClientRect(),x=r.left+r.width/2,cy=r.top+r.height/2;const ok=dy=>{const t=document.elementFromPoint(x,cy+dy);return t===el||el.contains(t)};return {up:ok(-20),down:ok(20)}});
+  const hit=await box.evaluate(el=>{el.scrollIntoView({block:'center'});const r=el.getBoundingClientRect(),x=r.left+r.width/2,cy=r.top+r.height/2;const ok=dy=>{const t=document.elementFromPoint(x,cy+dy);return t===el||el.contains(t)};return {up:ok(-20),down:ok(20)}});
   expect(hit).toEqual({up:true,down:true});}
  await page.keyboard.press('Escape');await expect(more).not.toHaveAttribute('open','');await expect(detail).toBeVisible();
  // ⑥ "state · 날짜" is one line under the files; [연결하기]·[할 일 만들기] stay at the bottom.
