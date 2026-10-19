@@ -18,6 +18,8 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-label { font-size:12px; color:var(--kptu-muted); margin:10px 0; }
 .home-choice-label:first-child { margin-top:0; }
 .home-choice-group { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+/* BASKET-업데이트통합: [바구니(미분류)]와 최근 칩이 한 줄에 이어 놓이도록 감싼 칸은 상자를 만들지 않는다. */
+.home-choice-inline { display:contents; }
 .home-choice-chip { position:relative; box-sizing:border-box; height:32px; min-width:44px; padding:0 10px; border:1px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-pill); font-size:14px; background:var(--kptu-surface); }
 .home-choice-chip::after { content:""; position:absolute; height:38px; top:50%; left:-4px; right:-4px; transform:translateY(-50%); }
 .home-choice-sheet button[aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); font-weight:700; }

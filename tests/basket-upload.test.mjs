@@ -26,7 +26,7 @@ test('preflight blocks >100MiB, empty, >20 including existing attachments and ov
  const b=await batch([file('one')],'n');b.attachments=Array.from({length:20},()=>({}));await assert.rejects(m.uploadBatch(b,opts),/20/);
  await assert.rejects(m.uploadBatch(await batch([file('one')]),{...opts,raw_text:'가'.repeat(20001)}),/20,000/);assert.equal(copies,0);
 });
-for(const [status,code,message] of [[503,'note_save_result_unknown','저장 결과를 확인하지 못했습니다. 바구니에서 확인 후 다시 시도하세요'],[409,'note_changed','메모를 다시 불러'],[401,'unauthorized','로그인'],[413,'too_large','100MiB']])test(`${status} ${code} stops later uploads and preserves completed files`,async()=>{
+for(const [status,code,message] of [[503,'note_save_result_unknown','저장 결과를 확인하지 못했습니다. 바구니에서 확인 후 다시 시도하세요'],[409,'note_changed','업데이트를 다시 불러'],[401,'unauthorized','로그인'],[413,'too_large','100MiB']])test(`${status} ${code} stops later uploads and preserves completed files`,async()=>{
  const m=await mod,b=await batch([file('one'),file('bad'),file('next')]);let calls=0;
  const request=async()=>{if(++calls===1)return {ok:true,note_id:'n',attachments:[{drive_file_id:'done'}]};throw Object.assign(Error('server'),{status,code});};
  await assert.rejects(m.uploadBatch(b,{rt,request}),e=>e.message.includes(message));assert.equal(calls,2);assert.equal(b.entries[0].kind,'success');assert.equal(b.entries[2].kind,'pending');

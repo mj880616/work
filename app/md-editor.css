@@ -27,7 +27,7 @@ html .modal.md-editor { align-items:stretch !important; overflow:hidden !importa
 @media (max-width:760px) {
   html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .modal.md-editor { bottom:calc(var(--kptu-mobile-tab-height, 0px) + env(safe-area-inset-bottom)); }
 }
-/* 머리줄 한 줄: [× 닫기] [메모|노트] [쓰기|미리보기] … [내보내기 아이콘] [저장]. 고치기로 연 편집기는 [메모|노트]·[저장] 없이 같은 순서.
+/* 머리줄 한 줄: [× 닫기] [저장 아이콘] [업데이트 ▾|노트] [쓰기|미리보기] … [내보내기 아이콘]. 고치기로 연 편집기는 [업데이트 ▾|노트] 없이 같은 순서. 저장 아이콘은 모든 창에 하나(저장하고 닫기).
    버튼은 보이는 높이 32px(--ds-compact-*), 누르는 범위는 ::after로 44px. 제목 글자는 화면 낭독용으로만 남긴다(대화상자 이름). */
 .md-editor-head {
   display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-height:var(--kptu-touch-target, 44px);
@@ -36,18 +36,28 @@ html .modal.md-editor { align-items:stretch !important; overflow:hidden !importa
 /* 390px 폰에서도 한 줄에 들어가게 세그먼트 칸 안쪽 여백만 줄인다(높이 32px·누르는 범위 44px는 그대로).
    칸 사이 6px: 아이콘의 44px 누르는 범위(좌우 6px씩 넘침)가 옆 칸과 겹치지 않는다. */
 @media (max-width:760px) {
-  html .modal.md-editor .md-editor-head :is(.md-editor-kinds, .md-editor-modes) button { padding:0 10px; }
+  html .modal.md-editor .md-editor-head :is(.md-editor-kinds, .md-editor-modes) button { padding:0 8px; }
 }
+/* BASKET-업데이트통합: [업데이트 ▾|노트]는 글자 폭만큼(반반이 아니게) — 390px 폰에서도 머리줄이 한 줄에 들어간다.
+   [업데이트]는 고른 곳 이름으로 바뀌므로 너무 길면 줄임표. ▾는 [업데이트]에 붙은 좁은 칸(보이는 폭 24px, 누르는 범위 44px).
+   ▾를 누르면 여는 쪽의 '기록할 곳 선택' 시트가 열린다. */
+html .modal.md-editor .md-editor-head .md-editor-kinds { grid-auto-columns:auto; min-width:0; flex:0 1 auto; }
+html .modal.md-editor .md-editor-head .md-editor-kinds [data-md-kind] { display:block; max-width:9em; overflow:hidden; text-overflow:ellipsis; line-height:var(--ds-compact-height, 32px); }
+html .modal.md-editor .md-editor-head .md-editor-kinds [data-md-kind-menu] { width:24px; padding:0 6px 0 0; border-left:0; }
+html .modal.md-editor .md-editor-head .md-editor-kinds [data-md-kind-menu]::after { left:calc(24px - var(--kptu-touch-target, 44px)); right:0; }
+html .modal.md-editor .md-editor-head .md-editor-kinds [data-md-kind-menu][aria-pressed="true"] { color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+html .modal.md-editor .md-editor-head .md-editor-kinds [data-md-kind]:has(+ [data-md-kind-menu]) { padding-right:2px; }
+@media (max-width:760px) { html .modal.md-editor .md-editor-head .md-editor-kinds [data-md-kind] { max-width:6.5em; } }
 .md-editor-head h2 { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 .md-editor-head [data-md-export] { margin-left:auto; }
-/* [메모|노트] 모양은 공용 세그먼트(ui-standard.css UI-버튼크기). */
+/* [업데이트|노트] 모양은 공용 세그먼트(ui-standard.css UI-버튼크기). */
 .md-editor-kinds, .md-editor-modes { flex:none; }
 .md-editor-modes { display:inline-flex; gap:0; width:max-content; }
 .md-editor button { min-height:var(--kptu-touch-target, 44px); min-width:var(--kptu-touch-target, 44px); font-size:14px; }
 /* 공용 .modal 버튼 규칙(ui-standard.css, 46px)보다 우선하도록 html .modal.md-editor로 시작한다. */
 html .modal.md-editor :is(.md-editor-head > button, .md-editor-modes button) { position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height, 32px); min-height:0; min-width:0; padding:0 var(--ds-compact-pad-x, 12px); font-size:var(--ds-compact-text, 13px); line-height:1; }
 html .modal.md-editor :is(.md-editor-head > button, .md-editor-modes button)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
-/* 아이콘 버튼(닫기·내보내기): 보이는 32×32, 누르는 범위는 가운데 기준 44×44. */
+/* 아이콘 버튼(닫기·저장·내보내기): 보이는 32×32, 누르는 범위는 가운데 기준 44×44. */
 html .modal.md-editor .md-editor-head > button.md-editor-icon { display:inline-flex; align-items:center; justify-content:center; width:var(--ds-compact-height, 32px); padding:0; color:var(--kptu-ink); background:transparent; border:0; border-radius:var(--ds-radius-control, 8px); box-shadow:none; }
 html .modal.md-editor .md-editor-head > button.md-editor-icon::after { left:calc(50% - var(--kptu-touch-target, 44px) / 2); right:auto; width:var(--kptu-touch-target, 44px); }
 .md-editor-icon svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
@@ -76,6 +86,11 @@ html .modal.md-editor .md-editor-head > button.md-editor-icon::after { left:calc
 .md-editor-status { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }
 .md-editor-status:empty { display:none; }
 .md-editor-bar { border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface-subtle); }
+/* 쓰기 창 [노트]: 머리줄 아래 제목 한 줄(비우면 본문 첫 줄이 제목). */
+.md-editor-title { display:block; border-bottom:1px solid var(--kptu-border); }
+.md-editor-title[hidden] { display:none; }
+html .modal.md-editor .md-editor-title input { box-sizing:border-box; display:block; width:100%; height:var(--kptu-touch-target, 44px); min-height:0; margin:0; padding:0 12px; border:0; border-radius:0; outline:none; box-shadow:none; font-family:inherit; font-size:16px; font-weight:700; color:var(--kptu-ink); background:var(--kptu-surface); }
+html .modal.md-editor .md-editor-title input:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:-2px; }
 /* One row each; on a phone the row scrolls sideways instead of wrapping. */
 .md-editor-tools, .md-editor-menu { display:flex; flex-wrap:nowrap; gap:6px; padding:6px 8px; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
 /* UI-버튼작게 ②: 서식 도구줄(과 그 아래 고르기 줄) 버튼은 보이는 높이 28px(--ds-compact-height-sm)·글자 13px.

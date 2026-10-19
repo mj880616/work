@@ -6,7 +6,7 @@ import {linkAction} from './helpers/basket-link-menu.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BUG-바구니연결해제: one wording on every screen, naming the place. Actions live in the line's ⋯ (helpers/basket-link-menu.mjs).
-const DISCONNECT={organization:'합성 담당조직 연결을 해제할까요? 메모는 남아요'};
+const DISCONNECT={organization:'합성 담당조직 연결을 해제할까요? 업데이트는 남아요'};
 const more=row=>row.getByRole('button',{name:'바구니 기록 메뉴'});
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
 // basket-files note-delete model: trash count comes from the test, the note and its links go away like the real cascade.
@@ -52,7 +52,7 @@ for(const width of [390,1280])test(`organization original delete names places an
  const messages=[];page.once('dialog',d=>{messages.push(d.message());d.accept();});
  await linkAction(host.locator(`[data-basket-link="${link}"]`),'원문 삭제',{tap:width<761});
  await expect(host.locator('[data-basket-link]')).toHaveCount(1);await expect(host).toContainText('다른 메모 요약');
- expect(messages).toEqual(['메모 원문을 지웁니다. 연결된 조직·프로젝트 2곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
+ expect(messages).toEqual(['업데이트 원문을 지웁니다. 연결된 조직·프로젝트 2곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
  expect(page.__posts).toEqual([{body:{action:'note-delete',note_id:note,note_updated_at:'2026-10-11T01:00:00Z'},auth:'Bearer fixture-token'}]);
  expect(await deletes(page)).toEqual([]);
  expect(await page.evaluate(()=>window.__detailState.links.length)).toBe(1);expect(errors).toEqual([]);
@@ -77,7 +77,7 @@ for(const width of [390,1280])test(`project basket rows open the memo and offer 
 for(const name of ['연결 해제','원문 삭제'])test(`${name} failure keeps the row and explains in plain words`,async({page})=>{
  const errors=await ready(page,{fail:true}),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
  await page.evaluate(()=>window.__detailState.failDelete=403);page.once('dialog',d=>d.accept());await linkAction(row,name);
- await expect(row.locator('[data-link-action-status]')).toHaveText(name==='연결 해제'?'연결을 해제하지 못했어요. 다시 시도해 주세요.':'메모를 지우지 못했어요. 다시 시도해 주세요.');
+ await expect(row.locator('[data-link-action-status]')).toHaveText(name==='연결 해제'?'연결을 해제하지 못했어요. 다시 시도해 주세요.':'업데이트를 지우지 못했어요. 다시 시도해 주세요.');
  await expect(host.locator('[data-basket-link]')).toHaveCount(3);await expect(more(row)).toBeEnabled();expect(errors).toEqual([]);
 });
 
@@ -124,8 +124,8 @@ async function basket(page,{fail=0,mode='ok'}={}){
 }
 async function openNote(page,width){await tap(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await showBasketRow(page,'n');await tap(page,page.locator('[data-basket-row="n"]'),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
 
-const CONFIRM='메모 원문을 지웁니다. 연결된 조직·프로젝트 1곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).';
-for(const width of [390,1280])for(const [mode,status] of [['ok','메모를 지우고 첨부를 Drive 휴지통으로 옮겼어요.'],['partial','메모를 지웠어요. 첨부 1개는 Drive에 남았어요.'],['legacy','메모를 지웠어요. 첨부 파일은 Drive에 남아 있어요.']])test(`basket read view deletes the original (${mode}) and returns to the list ${width}`,async({page},info)=>{
+const CONFIRM='업데이트 원문을 지웁니다. 연결된 조직·프로젝트 1곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).';
+for(const width of [390,1280])for(const [mode,status] of [['ok','업데이트를 지우고 첨부를 Drive 휴지통으로 옮겼어요.'],['partial','업데이트를 지웠어요. 첨부 1개는 Drive에 남았어요.'],['legacy','업데이트를 지웠어요. 첨부 파일은 Drive에 남아 있어요.']])test(`basket read view deletes the original (${mode}) and returns to the list ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const f=await basket(page,{mode});await openNote(page,width);const detail=page.locator('[data-basket-detail]');
  // UI-디자인손질 6: 수정·삭제 live in the note's [⋯]; while editing that menu is gone.
  await noteAction(page,'[data-basket-edit]',{press:l=>tap(page,l,width)});await expect(detail.locator('[data-basket-note-more]')).toBeHidden();await expect(detail.locator('[data-basket-delete]')).toBeHidden();
@@ -156,6 +156,6 @@ for(const width of [390,1280])test(`basket delete cancel keeps the read view and
 test('basket delete failure keeps the note open with a plain error',async({page})=>{
  const f=await basket(page,{mode:'fail'});await openNote(page,390);const detail=page.locator('[data-basket-detail]');
  page.once('dialog',d=>d.accept());await noteAction(page,'[data-basket-delete]');
- await expect(detail.locator('[data-basket-status]')).toHaveText('메모를 지우지 못했어요. 다시 시도해 주세요.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
+ await expect(detail.locator('[data-basket-status]')).toHaveText('업데이트를 지우지 못했어요. 다시 시도해 주세요.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
  expect(f.notes.some(n=>n.id==='n')).toBe(true);expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

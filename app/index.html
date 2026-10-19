@@ -46,9 +46,10 @@
 <section id="appView" class="app-view hidden">
   <header class="mobile-shell-header"><time data-home-date></time><span data-mobile-view-name hidden></span><button id="mobileMenuOpen" type="button" aria-label="메뉴 열기" aria-controls="mobileMenu" aria-expanded="false">☰</button></header>
   <nav class="app-nav">
-    <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="웹2 홈으로 이동"><img src="./app-icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>웹2</span></a>
-    <button class="nav-btn" data-view="home" type="button">홈</button>
+    <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="홈"><img src="./app-icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>홈</span></a>
+    <button class="nav-btn nav-home-mid" data-view="home" type="button">홈</button>
     <button class="nav-btn" data-view="basket" type="button">바구니</button>
+    <div class="nav-sub" role="group" aria-label="바구니"><button class="nav-sub-btn" data-basket-kind-nav="memo" type="button">업데이트</button><button class="nav-sub-btn" data-basket-kind-nav="note" type="button">노트</button></div>
     <button class="nav-btn nav-write" data-menu-write type="button">쓰기</button>
     <button class="nav-btn" data-view="calendar" type="button">일정</button>
     <button class="nav-btn" data-view="tasks" type="button">할 일</button>
@@ -58,7 +59,7 @@
     <button class="nav-btn" data-view="library" type="button">자료실</button>
     <button class="nav-btn" data-view="meetings" type="button">회의</button>
     <button class="nav-btn" data-view="media" type="button">성명·보도자료</button>
-    <button class="nav-btn" data-view="pages" type="button">게시판</button>
+    <button class="nav-btn" data-view="pages" type="button">공유 페이지</button>
     <button class="nav-btn" data-view="team" type="button">담당조직</button>
     <button class="nav-btn" data-view="hwp" type="button">HWP 편집</button>
     <div class="sidebar-spacer" aria-hidden="true"></div>
@@ -82,7 +83,7 @@
         <button type="button" data-view="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v5H4zM5 9v11h14V9M10 13h4"/></svg><span>자료실</span></button>
         <button type="button" data-view="hwp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"/></svg><span>HWP 편집</span></button>
         <button type="button" data-view="media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l8 5V5l-8 5zM18 9a4 4 0 0 1 0 6"/></svg><span>성명·보도자료</span></button>
-        <button type="button" data-view="pages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 10h16M10 10v10"/></svg><span>게시판</span></button>
+        <button type="button" data-view="pages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 10h16M10 10v10"/></svg><span>공유 페이지</span></button>
       </nav>
       <hr><h2>계정</h2><div id="mobileAccountGroup"></div>
     </aside>
@@ -150,12 +151,12 @@
   <div id="web1BoardDetailModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="web1BoardDetailTitle">
     <div class="modal-card w1b-detail-card">
       <div class="w1b-detail-head">
-        <h2 id="web1BoardDetailTitle">게시판</h2>
-        <button class="mini" type="button" data-close-web1-board aria-label="게시판 상세 닫기">닫기</button>
+        <h2 id="web1BoardDetailTitle">공유 페이지</h2>
+        <button class="mini" type="button" data-close-web1-board aria-label="공유 페이지 상세 닫기">닫기</button>
       </div>
       <div class="w1b-detail-body">
         <div id="web1BoardDetailStatus" class="w1b-detail-status hidden" role="status">본문을 불러오는 중입니다…</div>
-        <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="게시판 상세" loading="eager" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>
+        <iframe id="web1BoardDetailFrame" class="w1b-detail-frame" title="공유 페이지 상세" loading="eager" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>
       </div>
     </div>
   </div>

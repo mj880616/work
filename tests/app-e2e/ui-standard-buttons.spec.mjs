@@ -26,9 +26,10 @@ async function sameButtons(region,height){
  for(const control of all){
   // 8-9e-2: the basket [⋯] is a small icon on phones and its menu rows are not button-shaped.
   // UI-디자인손질 6: the note's "‹ 바구니" (title-position back link) and its [⋯] icon are not button-shaped either.
-  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more]')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
+  // BASKET-업데이트통합: the input's [크게] icon (home·basket) is an icon in the field like the clip, not a button shape.
+  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more]')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
-  // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [바구니|할 일|업데이트 ▾]·바구니 [메모|노트])은 32px 상자 안 칸으로
+  // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [업데이트 ▾|할 일]·바구니 [메모|노트])은 32px 상자 안 칸으로
   // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
   const want=await control.evaluate(el=>{
    const seg=el.closest('.home-quick-modes,.basket-kind-switch');
@@ -56,7 +57,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  expect(height).toBe(46);expect(height).toBe(parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height'))));
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
  // Home tabs: one height; the selected tab is gray whichever it is (UI-선택표시통일 결정 B), the others white.
- const kinds={basket:'--ds-kind-other',task:'--ds-kind-other',update:'--ds-kind-other'};
+ const kinds={update:'--ds-kind-other',task:'--ds-kind-other'};
  for(const [mode,kind] of Object.entries(kinds)){
   const tab=quick.locator(`[data-quick-mode="${mode}"]`);
   if(width<761)await tab.tap();else await tab.click();
@@ -67,7 +68,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
   if(mode!=='update')expect((await quick.locator('[data-quick-input]').boundingBox()).height).toBe(height);
   await sameButtons(quick.locator('.home-quick-modes'),height);
  }
- await quick.locator('[data-quick-mode="basket"]').click();
+ await quick.locator('[data-quick-mode="update"]').click();
  // 이름만 바꿈: 밀린 할 일도 그대로 보인다.
  const tasks=page.locator('#homeView [data-home-card="tasks"]');
  await expect(tasks.locator('h3')).toContainText('오늘 할 일');await expect(tasks.locator('h3')).not.toContainText('밀린');

@@ -55,7 +55,7 @@ function wdRenderDocs(){
   const can=!!wdOrg?.canEdit,rows=wdDocs.slice(0,WD_DOC_ROWS),count=document.querySelector('#wdDocs [data-wd-doc-count]');
   if(count){count.textContent=wdDocsError?'':wdDocs.length;count.hidden=wdDocsError}
   if(wdDocsError){box.innerHTML='<div class="status error" role="status">자료를 불러오지 못했습니다. <button type="button" data-wd-doc-retry>다시 불러오기</button></div>';return}
-  box.innerHTML=(wdDocs.length?`<div class="wd-doc-lines">${rows.map(x=>wdDocRow(x,can)).join('')}</div><button type="button" class="wd-doc-all" data-wd-library>전체 ${wdDocs.length}개 보기 <span aria-hidden="true">›</span></button>`:'<div class="empty compact">붙은 자료가 없습니다. 바구니 메모의 [연결하기]에서 파일을 이 조직 자료로 넣을 수 있습니다.</div>')+`<div class="status${wdDocNote.text?(wdDocNote.error?' error':' ok'):''}" data-wd-doc-state role="status">${wdE(wdDocNote.text)}</div>`;
+  box.innerHTML=(wdDocs.length?`<div class="wd-doc-lines">${rows.map(x=>wdDocRow(x,can)).join('')}</div><button type="button" class="wd-doc-all" data-wd-library>전체 ${wdDocs.length}개 보기 <span aria-hidden="true">›</span></button>`:'<div class="empty compact">붙은 자료가 없습니다. 바구니 업데이트의 [연결하기]에서 파일을 이 조직 자료로 넣을 수 있습니다.</div>')+`<div class="status${wdDocNote.text?(wdDocNote.error?' error':' ok'):''}" data-wd-doc-state role="status">${wdE(wdDocNote.text)}</div>`;
 }
 async function wdRefreshDocs(){const id=wdTargetId,epoch=wdEpoch;if(!id||!wdRecordCurrent(id,epoch))return;const run=++wdDocsRun;try{const rows=await wdReadDocs(id);if(!wdRecordCurrent(id,epoch)||run!==wdDocsRun)return;wdDocs=rows;wdDocsError=false}catch{if(!wdRecordCurrent(id,epoch)||run!==wdDocsRun)return;wdDocsError=true}wdRenderDocs()}
 async function wdRemoveDoc(docId,btn){

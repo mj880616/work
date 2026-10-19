@@ -112,7 +112,7 @@ test('a note changed meanwhile is reloaded with the picks and summaries kept, th
  await pick(page,detail,'organization','합성 한빛지부',1280);await summary(detail,o,'organization').fill('바뀌기 전에 쓴 요약');
  f.rpc.next={ok:false,error:'NOTE_CHANGED',created:0,existing:0};f.note.raw_text=RAW+'\n추가된 줄';
  await detail.getByRole('button',{name:'연결',exact:true}).click();
- await expect(detail.locator('[data-manual-status]')).toHaveText('메모가 그사이 바뀌었어요. 최신 메모를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.');
+ await expect(detail.locator('[data-manual-status]')).toHaveText('업데이트가 그사이 바뀌었어요. 최신 업데이트를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.');
  await expect(detail.locator('[data-basket-read-text]')).toContainText('추가된 줄');await expect(summary(detail,o,'organization')).toHaveValue('바뀌기 전에 쓴 요약');expect(f.links).toHaveLength(0);
  await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
  expect(f.calls.map(c=>c.p_note_updated_at)).toEqual([stamp,changedStamp]);expect(f.errors).toEqual([]);
@@ -140,11 +140,11 @@ for(const width of [390,1280])test(`a Google task is made from the note with the
  await detail.locator('[data-manual-task-title]').fill('기자회견 장소 확정');
  await tap(page,detail.locator('[data-manual-task-day="tomorrow"]'),width);await expect(detail.locator('[data-manual-task-day="tomorrow"]')).toHaveAttribute('aria-pressed','true');
  await tap(page,detail.locator('[data-manual-task-project]'),width);const sheet=page.locator('#basketLinkChoiceSheet');await tap(page,sheet.getByRole('button',{name:'합성 기자회견 준비'}),width);await expect(sheet).toBeHidden();
- await expect(detail.locator('[data-manual-task-project]')).toHaveText('합성 기자회견 준비 ▾');await expect(detail).toContainText('만든 할 일은 이 메모의 ‘이 메모로 만든 할 일’에 기록돼요.');
+ await expect(detail.locator('[data-manual-task-project]')).toHaveText('합성 기자회견 준비 ▾');await expect(detail).toContainText('만든 할 일은 이 업데이트의 ‘이 업데이트로 만든 할 일’에 기록돼요.');
  expect(await noWideScroll(page)).toBe(true);
  if(width===390)await page.screenshot({path:info.outputPath('manual-task-form-390.png'),fullPage:true});
  await tap(page,detail.getByRole('button',{name:'할 일 만들기',exact:true}),width);
- await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 메모에 기록했어요.');await expect(detail.locator('[data-manual-task]')).toHaveCount(0);
+ await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 업데이트에 기록했어요.');await expect(detail.locator('[data-manual-task]')).toHaveCount(0);
  expect(f.tasks).toEqual([{action:'create',task_id:null,title:'기자회견 장소 확정',notes:RAW,due:'2026-10-07',links:[{project_id:p}]}]);
  expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
@@ -156,7 +156,7 @@ test('an unclear task result is never retried by itself; checking the list unloc
  await expect(detail.locator('[data-manual-task-save]')).toBeDisabled();expect(f.tasks).toHaveLength(1);
  await detail.getByRole('button',{name:'할 일 목록에서 확인'}).click();
  await expect(detail.locator('[data-manual-task-status]')).toHaveText('목록에서 찾지 못했어요. 입력을 확인한 뒤 다시 [할 일 만들기]를 눌러 주세요.');
- await detail.getByRole('button',{name:'할 일 만들기',exact:true}).click();await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 메모에 기록했어요.');
+ await detail.getByRole('button',{name:'할 일 만들기',exact:true}).click();await expect(detail.locator('[data-basket-status]')).toHaveText('Google 할 일을 만들었어요. 이 업데이트에 기록했어요.');
  expect(f.tasks).toHaveLength(2);expect(f.errors.filter(e=>!/502/.test(e))).toEqual([]);
 });
 

@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteAction } from './helpers/basket-more.mjs';
-// UI-키보드하단바: 쓰기 창 머리줄 한 줄 [× 닫기] [메모|노트] [쓰기|미리보기] … [내보내기] [저장] → 서식 도구줄 → 본문 → 앱 하단 탭 6칸.
+// UI-키보드하단바: 쓰기 창 머리줄 한 줄 [× 닫기] [저장 아이콘] [업데이트 ▾|노트] [쓰기|미리보기] … [내보내기] → 서식 도구줄 → 본문 → 앱 하단 탭 6칸.
+// BASKET-업데이트통합 PR 2: 저장은 × 옆 저장 아이콘 하나(저장하고 닫기).
 // 하단 탭은 자판이 없을 때만 보이고(쓰기 창·홈 빠른 입력·노트 검색 공통, accessibility-dialog.js 한 곳), 글이 있는 쓰기 창에서
 // 탭을 누르면 "저장 안 하고 닫을까요?"를 먼저 묻는다. 캡처: UI_REVIEW_DIR가 있으면 그 폴더에 390·1280 라이트·다크를 남긴다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -43,19 +44,20 @@ for(const width of [390,1280]){
   const f=await fixture(page,{width});
   const editor=await openWriter(page,width);
   const items=await head(editor);
-  expect(items.map(i=>i.name)).toEqual(['저장하지 않고 닫기','저장할 곳','보기','내보내기','바구니에 새 메모로 저장'].filter(n=>width<1024||n!=='보기'));
-  await expect(editor.locator('.md-editor-kinds button')).toHaveText(['메모','노트']);
+  expect(items.map(i=>i.name)).toEqual(['저장하지 않고 닫기','바구니에 새 업데이트로 저장','저장할 곳','보기','내보내기'].filter(n=>width<1024||n!=='보기'));
+  await expect(editor.locator('.md-editor-kinds button')).toHaveText(['업데이트','▾','노트']);
   if(width<1024)await expect(editor.locator('.md-editor-modes button')).toHaveText(['쓰기','미리보기']);
   // One row: every item on the same line, left to right, 32px tall; the icon buttons are 32×32 with a 44px press area.
   for(const i of items){expect(i.h,i.name).toBe(32);expect(Math.abs(i.y-items[0].y),i.name).toBeLessThan(2);}
   for(let n=1;n<items.length;n++)expect(items[n].x).toBeGreaterThan(items[n-1].x);
-  for(const name of ['저장하지 않고 닫기','내보내기']){
+  for(const name of ['저장하지 않고 닫기','바구니에 새 업데이트로 저장','내보내기']){
    const b=editor.getByRole('button',{name,exact:true});
    expect((await b.boundingBox()).width).toBe(32);
    expect(await b.evaluate(el=>[getComputedStyle(el,'::after').width,getComputedStyle(el,'::after').height])).toEqual(['44px','44px']);
   }
-  // 내보내기 and 저장 sit at the right end.
-  const save=await editor.locator('[data-md-save]').boundingBox();expect(Math.round(save.x+save.width)).toBeGreaterThan(width-16);expect(save.x+save.width).toBeLessThanOrEqual(width);
+  // 내보내기 sits at the right end; the save icon right beside ×.
+  const share=await editor.getByRole('button',{name:'내보내기',exact:true}).boundingBox();expect(Math.round(share.x+share.width)).toBeGreaterThan(width-16);expect(share.x+share.width).toBeLessThanOrEqual(width);
+  const [close,save]=await Promise.all([editor.locator('[data-close="mdEditor"]').boundingBox(),editor.locator('[data-md-save-icon]').boundingBox()]);expect(save.x-(close.x+close.width)).toBeLessThan(16);
   expect(await editor.locator('.md-editor-head').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   // Neighbouring press areas do not overlap (icons reach 6px past their 32px box).
   for(let n=1;n<items.length;n++){const gap=items[n].x-(items[n-1].x+items[n-1].w);expect(gap,items[n].name).toBeGreaterThanOrEqual(6-0.5);}
@@ -161,7 +163,7 @@ test('빈 쓰기 창·고치기로 연 편집기에서 하단 탭은 묻지 않�
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('쓰기 창 [저장](메모)·[내보내기] 시트는 그대로 390',async({page})=>{
+test('쓰기 창 저장 아이콘(업데이트)·[내보내기] 시트는 그대로 390',async({page})=>{
  const f=await fixture(page);
  const editor=await openWriter(page,390);
  await editor.locator('.md-editor-text').fill('쓰기 메모');
@@ -169,7 +171,7 @@ test('쓰기 창 [저장](메모)·[내보내기] 시트는 그대로 390',async
  const sheet=page.locator('#mdExportSheet');await expect(sheet).toHaveAttribute('open','');
  await expect(sheet.locator('[data-sheet-value]')).toHaveText(['텔레그램용 복사','한글용 복사','HWP 파일로 받기']);
  await page.keyboard.press('Escape');await expect(sheet).not.toHaveAttribute('open','');
- await editor.locator('[data-md-save]').click();
+ await editor.locator('[data-md-save-icon]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',raw_text:'쓰기 메모'}}]);
  await expect(tabs(page)).toBeVisible();

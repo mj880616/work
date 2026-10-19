@@ -1,5 +1,6 @@
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
+import { readPlaces, placeSheetHtml, placeValue, placeFromValue } from './update-places.js';
 import { createGoogleTask, saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
 import { createNote, validateNoteText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js';
@@ -13,9 +14,15 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   box.removeAttribute('aria-hidden'); box.className='home-quick'; box.dataset.homeQuick='';
   const quickScope=()=>{const c=window.KPTURuntime.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let quickOwner=quickScope();
-  let mode='basket',saving=false,expanded=false,project='',organization='',updateProject='',due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
-  try { const saved=basketOnly||taskOnly?null:window.localStorage.getItem('kptu-home-quick-mode'); mode=['basket','task','update'].includes(saved)?saved:'basket'; } catch {}
+  // BASKET-업데이트통합 PR 1: the home box has two modes, [업데이트 ▾] and [할 일]. [업데이트] with no place chosen is the old
+  // [바구니] (a basket note, attachments allowed); with an organization or a project chosen it is that place's record, saved
+  // through the same existing paths as before. toBasket() is that one rule; data-mode shows the effective kind (basket/update/task).
+  let mode='update',saving=false,expanded=false,project='',organization='',updateProject='',due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
+  try { const saved=basketOnly||taskOnly?null:window.localStorage.getItem('kptu-home-quick-mode'); mode=saved==='task'?'task':'update'; } catch {}
   if(taskOnly)mode='task';
+  const toBasket=()=>mode==='update'&&!organization&&!updateProject;
+  const currentPlace=()=>organization?{kind:'organization',id:organization}:updateProject?{kind:'project',id:updateProject}:null;
+  const setPlace=place=>{organization=place?.kind==='organization'?place.id:'';updateProject=place?.kind==='project'?place.id:'';};
   let taskAttempt=null,taskRequest=null,taskSequence=0,taskReading=false,taskSessionEpoch=window.KPTURuntime.session.epoch();
   let upload = createUploadBatch(),uploadGeneration=0,pendingOcr=null;
   const guardPendingOcr=()=>{pendingOcr?.current();};
@@ -23,13 +30,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   window.addEventListener('storage',guardPendingOcr);
   window.addEventListener('kptu:session-changed',guardPendingOcr);
   // HOME-빠른입력정리: the task options row sits above the mode buttons, and the organization picker is the ▾ right of [업데이트].
-  box.innerHTML=`<div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div></div><div class="home-quick-modes" role="group" aria-label="입력 종류"><button type="button" data-quick-mode="basket">바구니</button><button type="button" data-quick-mode="task">할 일</button><span class="home-quick-update-split"><button type="button" data-quick-mode="update">업데이트</button><button type="button" data-quick-org aria-label="조직 선택" aria-haspopup="dialog" aria-expanded="false">▾</button></span></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea><button type="button" class="home-quick-detail" data-quick-detail aria-label="상세 설정으로 추가" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 2.5v11M2.5 8h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div class="home-quick-lock" data-quick-lock hidden><p data-quick-lock-reason></p><button type="button" class="home-quick-new-note" data-quick-new-note>새 메모 입력</button></div><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
+  box.innerHTML=`<div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div></div><div class="home-quick-modes" role="group" aria-label="입력 종류"><span class="home-quick-update-split"><button type="button" data-quick-mode="update">업데이트</button><button type="button" data-quick-org aria-label="기록할 곳 선택" aria-haspopup="dialog" aria-expanded="false">▾</button></span><button type="button" data-quick-mode="task">할 일</button></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea><button type="button" class="home-quick-big" data-quick-big aria-label="큰 창에서 쓰기" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="home-quick-detail" data-quick-detail aria-label="상세 설정으로 추가" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 2.5v11M2.5 8h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><div class="home-quick-lock" data-quick-lock hidden><p data-quick-lock-reason></p><button type="button" class="home-quick-new-note" data-quick-new-note>새 업데이트 입력</button></div><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
-  const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>mode==='basket',getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
+  const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>toBasket(),getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
   // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
   // same upload path as the clip; the text keeps a short mark. Nothing is saved until [추가].
   input.addEventListener('paste',e=>{
-    if(mode!=='basket'||saving||input.readOnly)return;
+    if(!toBasket()||saving||input.readOnly)return;
     const found=extractHtmlDocument(e.clipboardData?.getData('text/plain')||'');if(!found)return;
     e.preventDefault();
     if(utf8Bytes(found.html)>HTML_MAX_BYTES){status.textContent='HTML 문서가 2MB를 넘어 붙여 넣지 않았어요. 더 짧게 만들어 달라고 한 뒤 다시 붙여 넣어 주세요.';return;}
@@ -38,23 +45,24 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     input.dispatchEvent(new Event('input',{bubbles:true}));
     status.textContent='HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 바구니에 저장돼요.';
   });
-  box.querySelector('[data-quick-new-note]').onclick=()=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&!window.confirm('바구니에서 저장 여부를 확인한 후 새 메모를 입력할까요? 현재 입력과 파일 선택은 비워집니다.'))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
+  box.querySelector('[data-quick-new-note]').onclick=()=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&!window.confirm('바구니에서 저장 여부를 확인한 후 새 업데이트를 입력할까요? 현재 입력과 파일 선택은 비워집니다.'))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
   // UI-버튼크기: 홈은 세 모드 모두 한 줄 높이에서 시작해 글에 맞춰 늘고 5줄에서 멈춘다(그 뒤는 칸 안 스크롤). 바구니 화면은 CSS 높이 그대로.
   function size(){ input.style.height=''; if(basketOnly||taskOnly)return; const s=getComputedStyle(input),edge=parseFloat(s.paddingTop)+parseFloat(s.paddingBottom)+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth),line=parseFloat(s.lineHeight)||21,min=input.offsetHeight;input.style.height=Math.max(min,Math.min(line*5+edge,input.scrollHeight+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth)))+'px'; }
   function paint(){
     pickerFiles.render();
     // A saved or unconfirmed note keeps its text; say why and offer the reset next to the input.
-    const locked=mode==='basket'&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
-    box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 메모 입력’을 눌러 주세요.':'메모 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 메모 입력’을 눌러 주세요.';
-    box.dataset.mode=mode; input.rows=1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'',updateProjectName=projectChoices.find(x=>x.project.id===updateProject)?.project.name||'',targetName=organization?orgName:updateProjectName;
-    input.placeholder=mode==='basket'?'메모를 입력하세요':mode==='task'?'할 일을 입력하세요':(targetName||'담당조직')+' 기록을 입력하세요';
-    box.querySelector('[data-quick-file-picker]').hidden=mode!=='basket';
-    box.querySelector('[data-quick-basket-options]').hidden=mode!=='basket'||!upload.entries.length;
+    const locked=toBasket()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
+    box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
+    box.dataset.mode=toBasket()?'basket':mode; input.rows=1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'',updateProjectName=projectChoices.find(x=>x.project.id===updateProject)?.project.name||'',targetName=organization?orgName:updateProjectName;
+    input.placeholder=mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
+    box.querySelector('[data-quick-file-picker]').hidden=!toBasket();
+    if(!taskOnly)box.querySelector('[data-quick-big]').hidden=mode==='task';
+    box.querySelector('[data-quick-basket-options]').hidden=!toBasket()||!upload.entries.length;
     box.querySelectorAll('[data-quick-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quickMode===mode)));
     options.hidden=taskOnly||!expanded||mode!=='task';
     projectSelect.textContent=(projectChoices.find(x=>x.project.id===project)?.project.name||'프로젝트')+' ▾';
     projectSelect.setAttribute('aria-label',project?'프로젝트: '+projectSelect.textContent.slice(0,-2):'프로젝트');
-    orgSelect.setAttribute('aria-label',organization&&orgName?'조직 선택: '+orgName:updateProject&&updateProjectName?'프로젝트 선택: '+updateProjectName:'조직 선택');
+    orgSelect.setAttribute('aria-label',organization&&orgName?'기록할 곳 선택: '+orgName:updateProject&&updateProjectName?'기록할 곳 선택: '+updateProjectName:'기록할 곳 선택');
     box.querySelectorAll('[data-quick-day]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.quickDay===dateKind));if(b.dataset.quickDay==='date')b.textContent=dateKind==='date'?`${Number(due.slice(5,7))}.${Number(due.slice(8,10))}`:'날짜';});size();
   }
   async function choices(){
@@ -62,40 +70,27 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const run=choiceEpoch;
     choicesFlight=(async()=>{
       await dependencies.google();
-      const [ps,os,as]=await Promise.all([dependencies.projects(),dependencies.orgs(),dependencies.assignments()]);
-      if(run!==choiceEpoch)return;
-      const ctx=window.KPTURuntime.context.read(),order=window.KPTUOrganizationOrder;
-      const eligible=order.forPicker(os.filter(o=>as.some(a=>a.organization_id===o.id)));
-      const recent=[],recentIds=new Set(),eligibleIds=new Set(eligible.map(o=>o.id));
-      // Page older records until three distinct organizations are found; one busy organization must not hide the others.
-      for(let offset=0;eligible.length&&recentIds.size<Math.min(3,eligible.length);offset+=100){
-        const rows=await window.KPTURuntime.api(`/rest/v1/app_suborganization_updates?created_by=eq.${encodeURIComponent(ctx.user.id)}&organization_id=in.(${eligible.map(o=>encodeURIComponent(o.id)).join(',')})&select=organization_id,occurred_at&order=occurred_at.desc,id.desc&limit=100&offset=${offset}`);
-        if(run!==choiceEpoch)return;
-        recent.push(...rows);rows.forEach(r=>{if(eligibleIds.has(r.organization_id))recentIds.add(r.organization_id);});
-        if(rows.length<100)break;
-      }
-      if(run!==choiceEpoch)return;
-      const cat=window.KPTUProjectCatalog;
-      projectChoices=cat.tree(ps).filter(x=>x.project.status==='active');
+      // BASKET-업데이트통합: the same place lists (and three recent organizations) as the write window (update-places.js).
+      const read=await readPlaces(dependencies,{isCurrent:()=>run===choiceEpoch});
+      if(!read||run!==choiceEpoch)return;
+      projectChoices=read.projects;orgChoices=read.orgs;
       if(!projectChoices.some(x=>x.project.id===project))project='';
       if(!projectChoices.some(x=>x.project.id===updateProject))updateProject='';
-      orgChoices=order.withRecent(eligible,recent.map(r=>r.organization_id),3);
-      if(!eligible.some(o=>o.id===organization))organization='';
+      if(!orgChoices.groups.flat().some(o=>o.id===organization))organization='';
       paint();picker.render();
     })().catch(e=>{if(run===choiceEpoch){choicesFlight=null;status.textContent=e.message||'선택 목록을 불러오지 못했습니다.';}});
     return choicesFlight;
   }
-  function expand(){expanded=true;paint();if(mode!=='basket'&&!taskOnly)void choices();}
+  // The [할 일] options need the lists at once; [업데이트] reads them when its ▾ sheet opens (the sheet waits for choices()).
+  function expand(){expanded=true;paint();if(mode==='task'&&!taskOnly)void choices();}
   input.addEventListener('focus',expand); input.addEventListener('input',()=>{expand();size();});
   const picker=createChoiceSheet({id:idPrefix+'ChoiceSheet',titleId:idPrefix+'ChoiceTitle',historyKey:idPrefix==='home'?'kptuHomeChoice':'kptu'+idPrefix+'Choice',
     canOpen:()=>!saving&&window.KPTURouter.current===view,choices,
     render:kind=>{
-      const selected=kind==='org'?organization:project;
-      const updateRow=x=>`<button type="button" class="home-choice-row" style="--home-choice-depth:${x.depth}" data-sheet-value="project:${esc(x.project.id)}" aria-pressed="${x.project.id===updateProject}" title="${esc(x.project.name)}">${esc(x.project.name)}</button>`;
-      const chip=o=>`<button type="button" class="home-choice-chip" data-sheet-value="${esc(o.id)}" aria-pressed="${o.id===selected}">${esc(o.name)}</button>`;
-      return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',html:kind==='org'?`<p class="home-choice-label">최근</p><div class="home-choice-group" data-sheet-recent>${orgChoices.recent.map(chip).join('')}</div><p class="home-choice-label">전체</p><div data-sheet-all>${orgChoices.groups.filter(g=>g.length).map(g=>`<div class="home-choice-group">${g.map(chip).join('')}</div>`).join('')}</div>${projectChoices.length?`<p class="home-choice-label">프로젝트</p><div data-sheet-projects>${projectChoices.map(updateRow).join('')}</div>`:''}`:projectRows(projectChoices,selected,esc)};
+      // BASKET-업데이트통합: [바구니(미분류)] (no place) is the first chip, on the recent line (update-places.js, shared with the write window).
+      return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',html:kind==='org'?placeSheetHtml({projects:projectChoices,orgs:orgChoices},currentPlace(),esc):projectRows(projectChoices,project,esc)};
     },anchored:kind=>kind==='org'&&window.matchMedia('(min-width:761px)').matches,
-    onSelect:(kind,value)=>{if(kind==='org'){if(value.startsWith('project:')){updateProject=value.slice(8);organization='';}else{organization=value;updateProject='';}}else project=value;paint();}
+    onSelect:(kind,value)=>{if(kind==='org')setPlace(placeFromValue(value));else project=value;paint();}
   });
   const openSheet=kind=>picker.open(kind,kind==='org'?orgSelect:projectSelect);
   const dismissForNavigation=()=>picker.dismiss();
@@ -106,7 +101,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   function setMode(next){
     mode=next;status.textContent='';
     try{if(!basketOnly&&!taskOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
-    paint();if(mode==='task'&&taskAttempt?.needsReview)taskNotice('앞선 저장 결과를 확인해 주세요. 입력은 유지했습니다.',{confirm:true});if(expanded&&mode!=='basket')void choices();
+    paint();if(mode==='task'&&taskAttempt?.needsReview)taskNotice('앞선 저장 결과를 확인해 주세요. 입력은 유지했습니다.',{confirm:true});if(expanded&&mode==='task')void choices();
   }
   box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{if(!saving)setMode(b.dataset.quickMode);});
   box.querySelectorAll('[data-quick-day]').forEach(b=>b.onclick=()=>{
@@ -168,13 +163,16 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     }catch(error){if(!taskScopeCurrent(r))return;if(stage==='body')attempt.bodyState='unknown';else attempt.linkState='unknown';attempt.needsReview=true;if(taskCurrent(r))taskNotice((attempt.task?'할 일은 확인했습니다. 연결과 수정 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(error.message||error),{confirm:true})}
     finally{attempt.pending=false;if(taskRequest===r&&taskScopeCurrent(r)&&r.token===taskSequence){taskRequest=null;saving=false;taskControls(false);paint()}}
   }
+  // Resolves {ok:true} or {ok:false, message}; the write window's save icon ([크게]) waits for it (same path as [추가]).
   async function save(){
     if(mode==='task')return saveTask();
-    if(saving)return;
-    if(mode==='basket'){if(!upload.entries.length){try{validateNoteText(input.value);}catch(e){status.textContent=e.message;return;}}}else if(!input.value.trim())return;
-    if(mode==='update'&&!organization&&!updateProject){expand();await choices();status.textContent='조직이나 프로젝트를 선택해 주세요.';await openSheet('org');return;}
-    const ctx=window.KPTURuntime.context.read(),owner=ctx?.user?.id;if(!owner)return;
-    const saveMode=mode,text=mode==='basket'?input.value:input.value.trim(),workspace=ctx.workspace?.id,batch=upload,generation=uploadGeneration;const isCurrent=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace&&batch===upload&&window.KPTURouter.current===view;};
+    const fail=message=>{status.textContent=message;return {ok:false,message};};
+    if(saving)return {ok:false,message:'저장 중이에요.'};
+    if(toBasket()){if(!upload.entries.length){try{validateNoteText(input.value);}catch(e){return fail(e.message);}}}else if(!input.value.trim())return {ok:false,message:'글을 입력해 주세요.'};
+    // Organization and project records have no attachment column: attachments go only to the basket.
+    if(!toBasket()&&upload.entries.length)return fail('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');
+    const ctx=window.KPTURuntime.context.read(),owner=ctx?.user?.id;if(!owner)return {ok:false,message:'로그인 정보를 확인하지 못했어요.'};
+    const saveMode=toBasket()?'basket':mode,text=saveMode==='basket'?input.value:input.value.trim(),workspace=ctx.workspace?.id,batch=upload,generation=uploadGeneration;const isCurrent=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace&&batch===upload&&window.KPTURouter.current===view;};
     // The native guard belongs to this save, even after the view comes back.
     let invalidated=false,sessionEpoch;
     const token={current:()=>{if(invalidated)return false;const session=window.KPTURuntime.session.read();if(generation!==uploadGeneration||!isCurrent()||sessionEpoch!==window.KPTURuntime.session.epoch()||session?.user?.id!==owner||!session?.access_token)invalidated=true;return !invalidated;}};
@@ -184,15 +182,37 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{
       const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange:()=>{if(isCurrent())paint();},onOcrChange:value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 바구니에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 바구니에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 바구니에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';}}):await createNote({raw_text:text})):organization?await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner}):await saveProjectProgress({project_id:updateProject,raw_text:text,created_by:owner});
-      if(!isCurrent())return;
+      if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       if(saveMode==='basket'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
       input.value='';expanded=false;paint();if(saveMode==='basket')onSaved(result);
       const toast=document.querySelector('#toast');toast.textContent=saveMode==='basket'?'바구니에 저장했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
       choicesFlight=null;
-    }catch(e){if(isCurrent())status.textContent=e.message||'저장하지 못했습니다.';}
+      return {ok:true};
+    }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{if(pendingOcr===token)pendingOcr=null;saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
-  box.querySelector('[data-quick-save]').onclick=save;
+  box.querySelector('[data-quick-save]').onclick=()=>void save();
+  // BASKET-업데이트통합 PR 2: [크게] opens the one write window (write-window.js) on this input's text and chosen place.
+  // 업데이트 saves through this box's own save() (its attachments and photo text reading go along); 노트 saves a note.
+  // Saving closes the window (저장하고 닫기); closing without saving hands the text back to this input.
+  const bigBtn=box.querySelector('[data-quick-big]');
+  if(taskOnly)bigBtn.remove();
+  else bigBtn.onclick=async()=>{
+    if(saving||input.readOnly||document.querySelector('#mdEditor:not(.hidden)'))return;
+    const owner=quickScope();
+    // The editor's styles come with the basket view's (as menu [쓰기] does).
+    let ww;try{[ww]=await Promise.all([import('./write-window.js'),window.KPTUViewLoader?.prepare?.('basket')]);}catch{status.textContent='큰 창을 열지 못했어요. 다시 눌러 주세요.';return;}
+    if(owner!==quickScope()||saving)return;
+    const places=projectChoices.length||orgChoices.groups.length?{projects:projectChoices,orgs:orgChoices}:null;
+    ww.openWriteWindow({text:input.value,kind:'update',place:currentPlace(),places,draft:false,title:'크게 쓰기',sources:dependencies?.orgs?dependencies:null,
+      attachments:()=>upload.entries.length,
+      onInput:value=>{input.value=value;},
+      // The basket screen's input has no ▾: a place chosen in the window is used for that one save only.
+      onPlace:place=>{if(basketOnly)return;setPlace(place);if(mode!=='update')setMode('update');else paint();},
+      updateVia:async(value,place)=>{input.value=value;setPlace(place);if(mode!=='update')setMode('update');try{return await save();}finally{if(basketOnly){setPlace(null);paint();}}},
+      onSaved:saved=>{if(saved.kind==='note'){input.value='';expanded=false;paint();}},
+      onClose:(value,{saved})=>{if(!saved){input.value=value;paint();}input.focus({preventScroll:true});}});
+  };
   // UI-할일빠른추가상세: [할 일] 화면의 입력 칸 안 오른쪽 끝 [+]는 새 창 없이 일정 화면의 기존 [할 일 등록] 창(프로젝트·날짜 등)을 연다.
   // 입력한 글은 그 창의 제목으로 미리 채운다. 입력 칸 글은 그 창에서 저장될 때 비운다(같은 글이 두 번 남지 않게). 저장 경로는 기존 그대로.
   const detailBtn=box.querySelector('[data-quick-detail]');
@@ -217,9 +237,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   input.addEventListener('keydown',e=>{if(mode==='task'&&e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();void save();}});
   window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length||taskAttempt||upload.entries.some(e=>e.kind!=='success'))e.detail.otherDraft=true;});
   window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';updateProject='';due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();});
-  window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode!=='basket'&&!taskOnly)void choices();});
-  window.KPTURouter.on(view,()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode!=='basket'&&!taskOnly)void choices();});
-  if(basketOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','바구니에 메모 입력');}
+  window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode==='task'&&!taskOnly)void choices();});
+  window.KPTURouter.on(view,()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode==='task'&&!taskOnly)void choices();});
+  if(basketOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','바구니에 업데이트 입력');}
   if(taskOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','오늘 할 일 입력');box.dataset.taskOnly='';}
   // Phone (ui-standard.css): this box is docked above the bottom tabs. Its height keeps the
   // last card and the toast clear of it; only the visible box (home or basket) writes it.

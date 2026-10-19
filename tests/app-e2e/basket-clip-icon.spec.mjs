@@ -55,7 +55,7 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   await expect(q).not.toHaveClass(/basket-dragover/);
   await q.dispatchEvent('drop', { dataTransfer: ignored });
   await ignored.dispose();
-  await q.locator('[data-quick-mode="basket"]').click();
+  await q.locator('[data-quick-mode="update"]').click();
   await expect(q.locator('[data-basket-file]')).toHaveCount(0);
   await expect(page.locator('#toast')).toHaveClass(/hidden/);
   await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
@@ -89,8 +89,8 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
     await expect(root).not.toContainText('파일 추가');
     await expect(badge).toBeHidden();
     await expect(hint).toBeHidden();
-    // HOME-빠른입력정리: the last control before the clip on home is the ▾ (organization) right of [업데이트].
-    await (name === 'home' ? root.locator('[data-quick-org]') : root.locator('textarea')).focus();
+    // HOME-빠른입력정리 + BASKET-업데이트통합: the last control before the clip on home is [할 일], right of [업데이트 ▾].
+    await (name === 'home' ? root.locator('[data-quick-mode="task"]') : root.locator('textarea')).focus();
     await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     const chooser = page.waitForEvent('filechooser');

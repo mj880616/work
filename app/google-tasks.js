@@ -229,7 +229,7 @@ const taskRow=(t,overdue=false,fx=null)=>`<div class="gt-row ${t.status==='compl
 // BASKET-할일출처: task id -> source note id, read once per list load for the signed-in owner.
 let sourceNotes={owner:'',map:new Map()};
 const sourceNoteOf=id=>sourceNotes.owner&&sourceNotes.owner===currentOwner()?sourceNotes.map.get(id)||'':'';
-const sourceLink=id=>{const note=sourceNoteOf(id);return note?`<a class="gt-source" href="${esc(basketNoteHref(note))}" data-gt-source-note="${esc(note)}">출처 메모</a>`:''};
+const sourceLink=id=>{const note=sourceNoteOf(id);return note?`<a class="gt-source" href="${esc(basketNoteHref(note))}" data-gt-source-note="${esc(note)}">출처 업데이트</a>`:''};
 // In-app hand-off to the basket; a modified click or a new tab follows the ?note= address.
 function openSourceNote(event){
   const id=event.currentTarget.dataset.gtSourceNote;
@@ -241,7 +241,7 @@ function openSourceNote(event){
 function paintSourceNote(task){
   const box=document.querySelector('#gtSourceNote');if(!box)return;
   const note=task?.id?sourceNoteOf(task.id):'';
-  box.classList.toggle('hidden',!note);box.innerHTML=note?`이 할 일은 바구니 메모에서 만들었습니다. <a href="${esc(basketNoteHref(note))}" data-gt-source-note="${esc(note)}">출처 메모</a>`:'';
+  box.classList.toggle('hidden',!note);box.innerHTML=note?`이 할 일은 바구니 업데이트에서 만들었습니다. <a href="${esc(basketNoteHref(note))}" data-gt-source-note="${esc(note)}">출처 업데이트</a>`:'';
   box.querySelector('[data-gt-source-note]')?.addEventListener('click',openSourceNote);
 }
 async function loadSourceNotes(owner,epoch){

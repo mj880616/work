@@ -96,7 +96,7 @@ const date=(page,day)=>page.locator(`#journalRoot [data-journal-date="${day}"]`)
 const group=(page,key)=>page.locator(`#journalRoot [data-journal-group="${key}"]`);
 
 for(const width of [390,1280]){
- test(`[일지] 이번 주 날짜 줄·한 줄 쓴 날 초록 점·오늘 고름, 그날 재료(일정·끝낸 할 일·바구니 메모·고친 노트) ${width}`,async({page})=>{
+ test(`[일지] 이번 주 날짜 줄·한 줄 쓴 날 초록 점·오늘 고름, 그날 재료(일정·끝낸 할 일·바구니 업데이트·고친 노트) ${width}`,async({page})=>{
   const f=await fixture(page,{width});await openJournal(page,width);
   const row=page.locator('#journalRoot [data-journal-date]');
   await expect(row).toHaveCount(7);
@@ -270,7 +270,7 @@ test('[주간보고 초안 복사]: 이번 주 한 줄 7개 + 날짜별 재료 �
  expect(lines).toContain('- 일정: 10:00 오전 일정');
  expect(lines).toContain('- 일정: 15:00 금요일 일정');
  expect(lines).toContain('- 끝낸 할 일: 보도자료 배포');
- expect(lines).toContain('- 바구니 메모: 현장 간담회 메모');
+ expect(lines).toContain('- 바구니 업데이트: 현장 간담회 메모');
  expect(lines).toContain('- 고친 노트: 교섭 정리 노트');
  expect(text).not.toContain('JOURNAL_SECRET');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);

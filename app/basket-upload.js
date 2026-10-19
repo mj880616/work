@@ -13,7 +13,7 @@ export function createUploadBatch(note_id = null, attachments = []) {
 function uploadError(message, code, status = 0) { return Object.assign(new Error(message), {code, status}); }
 function failure(e) {
   if (e.code === 'file_read_failed') return uploadError('파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.', e.code);
-  if (e.code === 'note_changed') return uploadError('메모가 변경되었습니다. 메모를 다시 불러온 후 첨부를 확인해 주세요.', e.code, e.status);
+  if (e.code === 'note_changed') return uploadError('업데이트가 변경되었습니다. 업데이트를 다시 불러온 후 첨부를 확인해 주세요.', e.code, e.status);
   if (e.code === 'note_save_result_unknown' || !e.status || e.status >= 500) return uploadError(UNKNOWN, 'note_save_result_unknown', e.status);
   if (e.status === 401) return uploadError('로그인이 필요합니다. 다시 로그인한 후 시도해 주세요.', e.code, e.status);
   if (e.status === 413) return uploadError('파일은 100MiB까지 첨부할 수 있습니다.', e.code, e.status);
@@ -23,7 +23,7 @@ export function validateBatch(batch, raw_text = '') {
   if (batch.blocked) throw batch.blocked;
   if (!batch.note_id && [...raw_text.replace(/\r\n|\r|\n/g, '\r\n')].length > 20000) throw Error('글은 20,000자까지 저장할 수 있습니다.');
   const pending = batch.entries.filter(e => e.kind !== 'success');
-  if (batch.attachments.length + pending.length > 20) throw Error('메모에는 파일을 20개까지 첨부할 수 있습니다.');
+  if (batch.attachments.length + pending.length > 20) throw Error('업데이트에는 파일을 20개까지 첨부할 수 있습니다.');
   for (const {file} of pending) {
     if (!file?.size) throw Error('빈 파일은 첨부할 수 없습니다.');
     if (file.size > MAX_BYTES) throw Error('파일은 100MiB까지 첨부할 수 있습니다.');

@@ -109,6 +109,6 @@ test('the manual task form records on the note after creation and never re-creat
   const save=source.slice(source.indexOf('async function saveTask'),source.indexOf('async function recoverTask'));
   assert.equal(save.match(/createGoogleTask\(/g).length,1);
   assert.ok(save.indexOf('createGoogleTask(')<save.indexOf('recordNoteTask('));
-  assert.match(save,/할 일은 만들었지만 메모에 기록하지 못했어요\./);
+  assert.match(save,/할 일은 만들었지만 업데이트에 기록하지 못했어요\./);
   assert.doesNotMatch(source,/연결 기록은 남지 않아요/);
 });

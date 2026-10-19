@@ -49,7 +49,7 @@ for(const width of [390,1280]){
     await page.setViewportSize({width,height:1000});const f=await fixture(page);
     const quick=page.locator('#homeView .home-quick');
     const quickBounds=await quick.boundingBox();
-    const homeMode=await measure(quick.locator('[data-quick-mode="basket"]'));
+    const homeMode=await measure(quick.locator('[data-quick-mode="update"]'));
     const homeLink=await measure(quick.locator('[data-goto="basket"]'));
     const homePrimary=await measure(quick.locator('[data-quick-save]'));
     await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});
@@ -126,12 +126,12 @@ for(const width of [390,1280]){
     await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
     expect(f.confirmations).toHaveLength(1);expect(f.confirmations[0].p_targets).toEqual([{kind:'organization',target_id:orgId,reason:'담당조직 업무 근거',summary:'담당조직 업무 근거'}]);
     await close.click();await classified.click();await expect(page.locator(`[data-basket-row="${noteId}"]`)).toContainText('분류 완료');
-    await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible').click();await expect(quick).toBeVisible();
+    await page.locator('.mobile-tabs [data-view="home"]:visible,.app-nav [data-view="home"]:visible,.app-nav .sidebar-brand:visible').click();await expect(quick).toBeVisible();
     await page.mouse.move(0,0);await page.evaluate(()=>document.activeElement?.blur());
     await quick.screenshot({path:info.outputPath(`quick-return-${width}.png`)});
     expect(await quick.boundingBox()).toEqual(quickBounds);
     expect(await quickContent()).toEqual(quickBefore);
-    for(const [selector,original] of [['[data-quick-mode="basket"]',homeMode],['[data-goto="basket"]',homeLink]]){
+    for(const [selector,original] of [['[data-quick-mode="update"]',homeMode],['[data-goto="basket"]',homeLink]]){
       const returned=await measure(quick.locator(selector));
       for(const key of ['height','width','fontSize','borderRadius','borderWidth','background','color','padding'])expect(returned[key]).toBe(original[key]);
     }

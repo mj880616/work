@@ -101,14 +101,14 @@ export async function saveBasketCopy(target,bytes,{rt=window.KPTURuntime,fetcher
   form.append('file',new File([bytes],editedName(target.fileName),{type:'application/x-hwp'}));
   form.append('note_id',target.noteId);
   let response;
-  try{response=await send(rt,'/functions/v1/basket-files',form,{fetcher})}catch(error){return newFileOutcome({error},'바구니 메모')}
+  try{response=await send(rt,'/functions/v1/basket-files',form,{fetcher})}catch(error){return newFileOutcome({error},'바구니 업데이트')}
   const data=await readJson(response);
   if(response.ok&&data?.ok===true&&data.note_id===target.noteId&&Array.isArray(data.attachments)){
     try{window.dispatchEvent(new CustomEvent('kptu:api-saved',{detail:{path:'/functions/v1/basket-files',method:'POST',fields:['attachments'],action:'',projectLinked:false}}))}catch{/* A listener cannot undo a saved attachment. */}
-    return {kind:'created',message:'같은 메모에 새 첨부로 추가했어요. 원본은 그대로예요.'};
+    return {kind:'created',message:'같은 업데이트에 새 첨부로 추가했어요. 원본은 그대로예요.'};
   }
-  if(response.status===409&&data?.code==='note_changed')return {kind:'refused',message:'메모가 그사이 바뀌어 첨부하지 않았어요. 아무것도 바뀌지 않았어요.'};
-  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'바구니 메모');
+  if(response.status===409&&data?.code==='note_changed')return {kind:'refused',message:'업데이트가 그사이 바뀌어 첨부하지 않았어요. 아무것도 바뀌지 않았어요.'};
+  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'바구니 업데이트');
 }
 
 export async function overwriteHwp(target,bytes,info,{confirmShared=false,rt=window.KPTURuntime,fetcher}={}){

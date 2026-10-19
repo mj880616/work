@@ -187,6 +187,12 @@
       if(current)btn.setAttribute('aria-current','page');
       else btn.removeAttribute('aria-current');
     });
+    // UI-PC사이드바: on the PC sidebar the top line (icon + 홈) is the home menu, so it carries the home selection.
+    document.querySelectorAll('.app-nav .sidebar-brand').forEach(brand=>{
+      const current=(NAV_ALIAS[view]||view)==='home';
+      brand.classList.toggle('active',current);
+      if(current)brand.setAttribute('aria-current','page');else brand.removeAttribute('aria-current');
+    });
   }
 
   function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false}={}){
