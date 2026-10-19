@@ -1,6 +1,8 @@
 // Click the actual navigation at this width; also supports historical baseline pages.
+// UI-PC사이드바: on the PC sidebar (1024px~) the home menu is the top line (icon + 홈), not a [data-view="home"] row.
 export function navigationButton(page,view){
-  return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible`);
+  const home=view==='home'?',#appView>.app-nav .sidebar-brand:visible':'';
+  return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible${home}`);
 }
 // The menu opener at this width: the account trigger (PC), ☰ (761~1023px) or the [메뉴] tab (phone, 8-9e-2).
 export function accountButton(page){
