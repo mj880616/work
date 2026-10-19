@@ -454,6 +454,12 @@ test('사진 고르기: capture 속성 없이 image/*·여러 장 선택',async(
 });
 
 // UI-일기사진 ③: 사진별 코멘트(선택, 200자)는 기존 metadata jsonb(photo_comments)에만 저장한다. 새 열·표·Edge 변경 없음.
+// The editor moves focus to its heading one frame after it opens (diary.js openEditor). Wait for that focus before
+// typing: a fill that lands first loses focus to the heading, and the typed value can miss the editor state.
+async function openEditor(page){
+ await page.locator('#diaryRoot #newDiaryBtn').click();
+ await expect(page.locator('#diaryRoot #diaryEditorTitle')).toBeFocused();
+}
 for(const width of [390,1280]){
  test(`사진별 코멘트: 쓰기·보기·크게 보기·빼면 함께 제거·코멘트 없는 기존 일기는 그대로 ${width}`,async({page})=>{
   const f=await fixture(page,{width});await openDiary(page,width);
@@ -461,7 +467,7 @@ for(const width of [390,1280]){
   // 코멘트 없는 기존 일기: 보기에 코멘트 줄이 없다.
   const detail=page.locator('#diaryRoot [data-diary-detail]');
   await expect(detail.locator('[data-diary-grid] .diary-grid-item')).toHaveCount(2);await expect(detail.locator('[data-diary-captions]')).toHaveCount(0);
-  await page.locator('#diaryRoot #newDiaryBtn').click();
+  await openEditor(page);
   const ed=page.locator('#diaryRoot [data-diary-editor]');
   const inputs=ed.locator('[data-diary-comment]');await expect(inputs).toHaveCount(2);
   await expect(inputs.first()).toHaveAttribute('maxlength','200');await expect(inputs.first()).toHaveAttribute('aria-label','사진 1 코멘트');
@@ -470,7 +476,7 @@ for(const width of [390,1280]){
   await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('글만 고침');
   expect(f.writes.every(w=>!('metadata' in (w.body||{})))).toBe(true);
   // 코멘트 쓰기: 사진 1·2에 달고, 사진 1은 앞뒤 공백과 줄바꿈을 한 줄로 정리.
-  await page.locator('#diaryRoot #newDiaryBtn').click();
+  await openEditor(page);
   await inputs.first().fill('  단풍 길  ');await inputs.nth(1).fill('둘째 사진');
   // 새 사진 한 장에도 코멘트를 달 수 있고, 저장하면 올라간 사진 id로 이어진다.
   await ed.locator('[data-diary-input]').setInputFiles(await photoFiles(page,1,{w:800,h:600}));
@@ -492,13 +498,13 @@ for(const width of [390,1280]){
   await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('3 / 3');await expect(viewer.locator('[data-diary-viewer-caption]')).toHaveText('새로 올린 사진');
   await viewer.locator('[data-diary-viewer-close]').click();
   // 고치기: 저장된 코멘트가 입력칸에 보이고, 지우면 코멘트가 빠진다.
-  await page.locator('#diaryRoot #newDiaryBtn').click();
+  await openEditor(page);
   await expect(inputs.nth(1)).toHaveValue('둘째 사진');
   await inputs.nth(1).fill('');await ed.locator('[data-diary-save]').click();
   await expect(detail.locator('[data-diary-captions] li')).toHaveCount(2);
   expect(f.rows.find(r=>r.id==='d3').metadata.photo_comments).toEqual({pa:'단풍 길',up1:'새로 올린 사진'});
   // 사진을 빼면 그 사진의 코멘트도 같은 저장에서 빠진다.
-  await page.locator('#diaryRoot #newDiaryBtn').click();
+  await openEditor(page);
   page.once('dialog',d=>d.accept());await ed.locator('[data-diary-remove="pa"]').click();
   await expect(ed.locator('[data-diary-editor-status]')).toHaveText('사진을 뺐어요.');
   const removal=f.writes.at(-1);
