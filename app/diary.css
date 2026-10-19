@@ -1,5 +1,12 @@
 /* JOURNAL-일기 1차: 일정 탭 [일기]·[일지]와 [달력] 날짜 목록의 일기 미리보기. 색은 theme-tokens.css의 값만 쓴다(일기 보라 --ds-kind-diary-*). */
+/* UI-PC일기 ②: max-width:760px는 PC에서 사이드바 옆 본문의 일부만 쓰게 했다. PC(≥1024, 사이드바 화면)에서만 폭 제한을 풀어
+   본문 폭을 다 쓰고, 같은 [일정] 탭의 [달력](calendar-ui.css)과 같은 본문 폭 규칙을 쓴다. 달력 칸은 정사각 대신 4:3으로 낮춰
+   넓어진 폭에서도 한 달이 화면 높이 안에 들어오게 한다. 폰(≤760)·중간 폭은 그대로. */
 #appView #diaryView .diary{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
+@media(min-width:1024px){
+  main:has(#diaryView:not(.hidden)){ max-width:1920px; padding-left:clamp(24px,2.2vw,42px); padding-right:clamp(24px,2.2vw,42px); }
+  #appView #diaryView .diary{ max-width:none; }
+}
 #appView #diaryView .diary-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:var(--kptu-touch-target,44px); }
 #appView #diaryView .diary [hidden]{ display:none!important; }
 #appView #diaryView .diary-month{ display:flex; align-items:center; gap:6px; }
@@ -13,6 +20,7 @@
 #appView #diaryView .diary-week-head .sunday{ color:var(--kptu-danger); }
 #appView #diaryView .diary-cell{ position:relative; box-sizing:border-box; display:block; aspect-ratio:1/1; min-width:0; min-height:0; width:100%; height:auto; margin:0; padding:0; overflow:hidden;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; font:inherit; cursor:pointer; }
+@media(min-width:1024px){ #appView #diaryView .diary-cell{ aspect-ratio:4/3; } }
 #appView #diaryView .diary-blank{ border-color:transparent; background:transparent; cursor:default; }
 #appView #diaryView .diary-cell .diary-num{ position:absolute; top:4px; left:5px; z-index:1; font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #diaryView .diary-cell .diary-dot{ position:absolute; left:50%; bottom:18%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--ds-kind-diary-ink); }

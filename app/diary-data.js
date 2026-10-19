@@ -176,10 +176,27 @@ export async function uploadDiaryPhotos(row, files, {rt = window.KPTURuntime, is
 }
 
 // Owner-only reduced photo from basket-files (PR 1). Kept as object URLs in memory for this sign-in only.
+// UI-PC일기 ①: kptu:session-changed also fires when the same owner's sign-in is only refreshed (new token, runtime
+// write()). Revoking then broke every photo already on screen (object URL gone, img fails), so the cache is dropped only
+// when the signed-in owner really changes or signs out; diaryPhotoUrl's owner-scope check still guards each read.
 const photoCache = new Map();
 let cacheScope = '';
-globalThis.window?.addEventListener?.('kptu:session-changed', () => clearPhotoCache());
+let cacheSessionOwner = globalThis.window?.KPTURuntime?.session?.read?.()?.user?.id || '';
+export function photoSessionChanged(session) {
+  const next = session?.user?.id || '';
+  if (next && next === cacheSessionOwner) return false;
+  cacheSessionOwner = next; clearPhotoCache();
+  return true;
+}
+globalThis.window?.addEventListener?.('kptu:session-changed', event => { photoSessionChanged(event?.detail?.session || null); });
 export function clearPhotoCache() { for (const flight of photoCache.values()) flight.then(url => URL.revokeObjectURL(url), () => {}); photoCache.clear(); }
+// The browser could not draw this cached photo (revoked or undecodable): forget it so the next read fetches again.
+// Only the cached copy that failed is dropped (another photo element may already have read a fresh one).
+export function forgetDiaryPhoto(noteId, fileId, size, failedUrl) {
+  const key = `${noteId}:${fileId}:${size}`, flight = photoCache.get(key);
+  if (!flight) return Promise.resolve();
+  return flight.then(url => { if (url === failedUrl && photoCache.get(key) === flight) { photoCache.delete(key); URL.revokeObjectURL(url); } }, () => {});
+}
 export function diaryPhotoUrl(noteId, fileId, size = 'small', {rt = window.KPTURuntime, fetcher = globalThis.fetch} = {}) {
   const scope = ownerScope(rt);
   if (scope !== cacheScope) { clearPhotoCache(); cacheScope = scope; }
@@ -207,16 +224,28 @@ export function photoElement(row, file, size, {label = '', rt = window.KPTURunti
   box.className = 'diary-photo'; box.dataset.diaryPhoto = file.drive_file_id;
   const img = document.createElement('img');
   img.alt = label || file.file_name || '일기 사진'; img.decoding = 'async'; img.loading = 'lazy'; img.hidden = true;
-  box.append(img);
-  diaryPhotoUrl(row.id, file.drive_file_id, size, {rt}).then(url => { img.src = url; img.hidden = false; box.dataset.state = 'shown'; }, () => {
-    img.remove(); box.dataset.state = 'link';
+  box.append(img); box.dataset.state = 'loading';
+  // 'shown' only after the browser really drew the image (load). An error (revoked URL, undecodable file) forgets the
+  // cached copy and reads once more; a second failure shows the same fallback as a failed photo view.
+  const attempt = tries => diaryPhotoUrl(row.id, file.drive_file_id, size, {rt}).then(url => {
+    img.onload = () => { img.onload = img.onerror = null; box.dataset.state = 'shown'; };
+    img.onerror = () => {
+      img.onload = img.onerror = null; img.hidden = true; img.removeAttribute('src');
+      const forgotten = forgetDiaryPhoto(row.id, file.drive_file_id, size, url);
+      if (tries < 2) { box.dataset.state = 'retry'; forgotten.then(() => attempt(tries + 1)); } else fallback();
+    };
+    img.src = url; img.hidden = false;
+  }, fallback);
+  function fallback() {
+    img.onload = img.onerror = null; img.remove(); box.dataset.state = 'link';
     const href = driveFileUrl(file.drive_file_id);
     if (!link || !href) { const mark = document.createElement('span'); mark.className = 'diary-photo-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = '사진'; box.append(mark); return; }
     const anchor = document.createElement('a');
     anchor.href = href; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer'; anchor.className = 'diary-photo-link';
     anchor.textContent = 'Drive에서 열기'; anchor.setAttribute('aria-label', `${label || file.file_name || '사진'} Drive에서 열기`);
     box.append(anchor);
-  });
+  }
+  attempt(1);
   return box;
 }
 
