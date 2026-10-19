@@ -11,7 +11,8 @@ const gt=(id,due,extra={})=>({id,title:id,taskListId:'l1',taskListTitle:'업무'
 
 // Opens the task view at a fixed time in the given device time zone and returns the rendered Google Tasks rows.
 async function renderedRows(browser,{timezoneId,now,tasks}){
-  const context=await browser.newContext({timezoneId});
+  // UI-PC할일: 1024px 이상은 기한별 열(tasks-pc-columns.spec.mjs). 이 묶음 목록 시험은 목록이 그대로인 중간 폭(900px)에서 본다.
+  const context=await browser.newContext({timezoneId,viewport:{width:900,height:800}});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(now));
   await mock(page);
@@ -138,7 +139,7 @@ test('Google Tasks moves the overdue line at Korean midnight whatever the device
 });
 
 test('completing an overdue Google task moves it from the overdue group to the completed part',async({browser})=>{
-  const context=await browser.newContext({timezoneId:'Asia/Seoul'});
+  const context=await browser.newContext({timezoneId:'Asia/Seoul',viewport:{width:900,height:800}});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date('2026-09-27T03:00:00.000Z'));
   await mock(page);
@@ -330,7 +331,8 @@ async function mockLinkTargets(page){
 }
 
 test('Google Tasks editor has no list choice and saves chosen links',async({page})=>{
-  await mock(page);await mockLinkTargets(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);await mockLinkTargets(page);
   const calls=[];const savedLinks=new Map([['g1',[{project_id:'p1',status:'confirmed'},{project_id:'p3',status:'confirmed'},{organization_id:'o0',status:'confirmed'}]]]);
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const req=route.request(),u=new URL(req.url()),action=u.searchParams.get('action'),body=req.method()==='GET'?{}:JSON.parse(req.postData()||'{}');
@@ -416,7 +418,8 @@ test('Google Tasks editor shows a short message when no organizations are assign
 });
 
 test('rows show only confirmed project names without unlinked badges or a separate section',async({page})=>{
-  await mock(page);await mockLinkTargets(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);await mockLinkTargets(page);
   const calls=[];
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const action=new URL(route.request().url()).searchParams.get('action');calls.push(action);
@@ -460,7 +463,8 @@ test('Google Tasks editor warns by count when an assigned organization misses th
 });
 
 test('task screen requests all pending and an old response without the marker keeps the dated window',async({page})=>{
-  await mock(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);
   const scopes=[];
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
     const url=new URL(route.request().url());scopes.push(url.searchParams.get('pending_scope'));
@@ -474,7 +478,8 @@ test('task screen requests all pending and an old response without the marker ke
 });
 
 test('task rows appear before the separate link metadata read completes',async({page})=>{
-  await mock(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);
   let release,linkStarted=false;
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[gt('pending',googleDue(0))]})}));
   await page.route(`${SB}/rest/v1/app_record_links**`,async route=>{
@@ -490,7 +495,8 @@ test('task rows appear before the separate link metadata read completes',async({
 });
 
 test('completed group folds on every visit and counts a newly completed task after the effect',async({page})=>{
-  await mock(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);
   const recent=new Date().toISOString(),items=[gt('pending',googleDue(0)),gt('done',googleDue(-8),{status:'completed',completed:recent})];
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
     const action=new URL(route.request().url()).searchParams.get('action');

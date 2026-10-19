@@ -4,7 +4,8 @@ const task=(id,date,status='needsAction')=>({id,title:id,taskListId:'@default',d
 const orgs=['전국철도노동조합','서울교통공사노동조합','부산지하철노동조합','서해선지부','공항철도지부','김포도시철도지부'].map((name,i)=>({id:'d4c-org-'+i,name,active:true}));
 for(const zone of ['Asia/Seoul','America/Los_Angeles'])for(const now of ['2026-10-08T14:59:59.999Z','2026-10-08T15:00:00.000Z']){
   test(`KST task buckets ${zone} ${now}`,async({browser})=>{
-    const context=await browser.newContext({timezoneId:zone}),page=await context.newPage();
+    // UI-PC할일: 묶음 목록은 중간 폭(900px)에서, 같은 분류를 PC(1280px) 열에서도 본다.
+    const context=await browser.newContext({timezoneId:zone,viewport:{width:900,height:800}}),page=await context.newPage();
     const today=now.includes('14:59')?'2026-10-08':'2026-10-09';
     const date=n=>new Date(Date.parse(today+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
     await openEmphasisFixture(page,{view:'list',now:Date.parse(now),events:[],tasks:[task('overdue',date(-1)),task('today',date(0)),task('tomorrow',date(1)),task('seventh',date(7)),task('eighth',date(8)),task('undated'),task('done',date(0),'completed')]});
@@ -17,6 +18,10 @@ for(const zone of ['Asia/Seoul','America/Los_Angeles'])for(const now of ['2026-1
     }
     expect(await page.locator('#gtTaskBody>.gt-group .gt-group-head').allTextContents()).toEqual(['기한 지남 1','오늘 1','7일 안 2','나중 1','기한 없음 1','완료 1 ▸']);
     await page.locator('#gtCompleted summary').click();await expect(page.locator('#gtCompleted [data-google-task="done"]')).toBeVisible();
+    await page.setViewportSize({width:1280,height:800});
+    await expect(page.locator('#gtTaskBody .gt-col-count')).toHaveText(['2','2','2']);
+    for(const [col,group,ids] of [['now','overdue',['overdue']],['now','today',['today']],['week','week',['tomorrow','seventh']],['later','later',['eighth']],['later','undated',['undated']]])
+      expect(await page.locator(`[data-gt-col="${col}"] [data-gt-${group}] [data-google-task]`).evaluateAll(es=>es.map(e=>e.dataset.googleTask))).toEqual(ids);
     await context.close();
   });
 }
