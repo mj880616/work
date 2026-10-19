@@ -147,6 +147,33 @@ export function saveNoteDoc(id, {title, raw_text}, rt = window.KPTURuntime) {
 export function moveToNote(id, title, rt = window.KPTURuntime) {
   return patchKind(id, 'basket', {kind:'note', title:validateNoteTitle(title)}, rt);
 }
+// UI-노트고정: a pinned note keeps the time it was pinned in its existing metadata jsonb (metadata.pinned_at, an ISO time;
+// no new column, no database change, like metadata.tasks and the diary's metadata.photo_comments). Other metadata keys are
+// kept. Pinning is not an edit: updated_at (the note's "고친 날" and the list order) is not touched. The PATCH only applies
+// while the row is the version that was read (updated_at and the pin value), so a change made elsewhere is never overwritten.
+const plainObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
+export const notePinnedAt = note => { const value = plainObject(note?.metadata) ? note.metadata.pinned_at : null; return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null; };
+// Pinned notes first (most recently pinned on top), then the rest by last change, as before.
+export function sortNotes(notes) {
+  const time = value => Date.parse(value) || 0;
+  return notes.slice().sort((a, b) => {
+    const pa = notePinnedAt(a), pb = notePinnedAt(b);
+    if (!!pa !== !!pb) return pa ? -1 : 1;
+    return (pa ? time(pb) - time(pa) : 0) || time(b.updated_at) - time(a.updated_at) || String(b.id).localeCompare(String(a.id));
+  });
+}
+export async function setNotePinned(note, pinned, rt = window.KPTURuntime, now = new Date()) {
+  const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(note.id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
+  const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('노트를 찾지 못했어요.');
+  const fresh = rows[0], was = plainObject(fresh.metadata) ? fresh.metadata.pinned_at : undefined;
+  const metadata = {...(plainObject(fresh.metadata) ? fresh.metadata : {})};
+  if (pinned) metadata.pinned_at = now.toISOString(); else delete metadata.pinned_at;
+  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}&metadata->>pinned_at=${typeof was === 'string' ? 'eq.' + encodeURIComponent(was) : 'is.null'}`;
+  const saved = await rt.api(`${base}&${guard}&select=id,updated_at,metadata`, {method:'PATCH', prefer:'return=representation', body:{metadata}});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
+  return saved[0];
+}
 export function moveToBasket(note, rt = window.KPTURuntime) {
   const text = String(note?.raw_text || '');
   if (!text.trim() && !note?.attachments?.length) throw new Error('본문과 첨부가 없는 노트는 바구니로 돌릴 수 없어요. 본문을 먼저 써 주세요.');

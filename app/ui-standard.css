@@ -1065,3 +1065,6 @@
 .basket-photo-stage .diary-photo{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
 .basket-photo-stage img{ display:block; width:100%; height:100%; object-fit:contain; }
 .basket-photo-stage .diary-photo-link{ color:var(--ds-photo-ink); font-size:var(--ds-text-read); }
+
+/* UI-노트고정(2026-10-20): 고정한 노트는 목록 맨 위, 제목 앞 점 대신 작은 핀 표시(노트 색). */
+#appView #basketView .note-row .note-pin{ display:inline-grid; place-items:center; flex:0 0 auto; width:14px; height:14px; margin-right:2px; color:var(--ds-kind-note-ink); }
