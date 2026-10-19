@@ -33,7 +33,8 @@ public sealed class HttpAuthClient : IAuthClient, IDisposable
 {
     private readonly string _baseUrl;
     private readonly string _key;
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
+    // No redirects: a redirect could carry the code, refresh token or bearer header to another address.
+    private readonly HttpClient _http = new(new SocketsHttpHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30) };
     private readonly Func<DateTimeOffset> _clock;
 
     public HttpAuthClient(string baseUrl = HttpBasketApi.DefaultBaseUrl, string key = HttpBasketApi.DefaultPublishableKey, Func<DateTimeOffset>? clock = null)

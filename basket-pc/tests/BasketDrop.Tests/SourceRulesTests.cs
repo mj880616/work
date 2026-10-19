@@ -94,6 +94,13 @@ public class SourceRulesTests
     }
 
     [Fact]
+    public void Every_http_client_refuses_to_follow_redirects()
+    {
+        foreach (var file in Sources().Where(f => File.ReadAllText(f).Contains("new HttpClient")))
+            Assert.Contains("AllowAutoRedirect = false", File.ReadAllText(file));
+    }
+
+    [Fact]
     public void Auth_requests_go_over_https_and_use_no_service_key()
     {
         var client = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop.Core", "AuthClient.cs"));

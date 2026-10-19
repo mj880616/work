@@ -67,6 +67,8 @@ public sealed class HttpBasketApi : IBasketApi, IDisposable
         _key = key;
         var handler = new SocketsHttpHandler
         {
+            // A redirect is never followed (it would resend the upload and the apikey header elsewhere); it counts as a refusal.
+            AllowAutoRedirect = false,
             ConnectCallback = async (ctx, ct) =>
             {
                 var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };

@@ -10,7 +10,8 @@ public enum AuthState
 
 public enum SignInOutcome { Ok, NotOwner, PortsBusy, BrowserFailed, Denied, TimedOut, Cancelled, Unavailable, Failed }
 
-public sealed record SignOutResult(bool ServerSessionEnded);
+/// <param name="LocalLoginRemoved">False when the saved login could not be deleted from this PC: it is then still active and would be signed in again at the next start.</param>
+public sealed record SignOutResult(bool ServerSessionEnded, bool LocalLoginRemoved = true);
 
 /// <summary>
 /// Google sign-in through the system browser (PKCE + loopback), refresh-token rotation and sign-out.
@@ -34,6 +35,8 @@ public sealed class SupabaseAuthProvider : IAuthProvider
     private readonly TimeSpan _signInTimeout;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private string? _access;
+    /// <summary>The newest refresh token when it could not be saved: kept in memory so the next renewal does not reuse the old, spent one.</summary>
+    private string? _unsavedRefresh;
     private DateTimeOffset _expires;
     private volatile AuthState _state;
 
@@ -88,7 +91,7 @@ public sealed class SupabaseAuthProvider : IAuthProvider
         if (_access != null && _expires - _clock() > RefreshMargin) return _access;
 
         string? refresh;
-        try { refresh = _store.Load(); }
+        try { refresh = _unsavedRefresh ?? _store.Load(); }
         catch (TokenStoreException) { _log.Write(LogCode.Error); return null; }
         if (refresh == null)
         {
@@ -105,6 +108,7 @@ public sealed class SupabaseAuthProvider : IAuthProvider
         {
             // The saved login is dead. Drop it; the queue stays on this PC as "login needed".
             _access = null;
+            _unsavedRefresh = null;
             try { _store.Delete(); } catch (TokenStoreException) { _log.Write(LogCode.Error); }
             _log.Write(LogCode.ReloginNeeded);
             SetState(AuthState.ReloginNeeded);
@@ -119,8 +123,17 @@ public sealed class SupabaseAuthProvider : IAuthProvider
     /// <summary>Remembers the rotated refresh token first; the old one stops working after its short grace period.</summary>
     private void Accept(AuthTokens tokens)
     {
-        try { _store.Save(tokens.RefreshToken); }
-        catch (TokenStoreException) { _log.Write(LogCode.Error); }
+        try
+        {
+            _store.Save(tokens.RefreshToken);
+            _unsavedRefresh = null;
+        }
+        catch (TokenStoreException)
+        {
+            // The server already retired the old token, so the new one must not be lost; the next save attempt retries.
+            _unsavedRefresh = tokens.RefreshToken;
+            _log.Write(LogCode.Error);
+        }
         _access = tokens.AccessToken;
         _expires = tokens.ExpiresAt;
         SetState(AuthState.SignedIn);
@@ -158,7 +171,14 @@ public sealed class SupabaseAuthProvider : IAuthProvider
         catch (OperationCanceledException) { return Fail(SignInOutcome.Cancelled); }
 
         // Owner check before anything is saved. A wrong account is signed out again (its own new session only).
-        var owner = await _api.CheckOwnerAsync(tokens.AccessToken, ct).ConfigureAwait(false);
+        // A cancel from here on still ends the session just created, so none is left behind on the server.
+        ApiResult owner;
+        try { owner = await _api.CheckOwnerAsync(tokens.AccessToken, ct).ConfigureAwait(false); }
+        catch (OperationCanceledException)
+        {
+            await EndSessionAfterCancelAsync(tokens.AccessToken).ConfigureAwait(false);
+            return Fail(SignInOutcome.Cancelled);
+        }
         if (owner.Outcome != ApiOutcome.Ok)
         {
             await TryEndSessionAsync(tokens.AccessToken, ct).ConfigureAwait(false);
@@ -166,7 +186,12 @@ public sealed class SupabaseAuthProvider : IAuthProvider
             return owner.Outcome == ApiOutcome.Rejected ? SignInOutcome.NotOwner : SignInOutcome.Unavailable;
         }
 
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try { await _gate.WaitAsync(ct).ConfigureAwait(false); }
+        catch (OperationCanceledException)
+        {
+            await EndSessionAfterCancelAsync(tokens.AccessToken).ConfigureAwait(false);
+            return Fail(SignInOutcome.Cancelled);
+        }
         try
         {
             Accept(tokens);
@@ -188,6 +213,7 @@ public sealed class SupabaseAuthProvider : IAuthProvider
     private SignInOutcome Unsaved()
     {
         _access = null;
+        _unsavedRefresh = null;
         SetState(AuthState.SignedOut);
         return Fail(SignInOutcome.Failed);
     }
@@ -212,8 +238,16 @@ public sealed class SupabaseAuthProvider : IAuthProvider
             try { access = await CurrentTokenLockedAsync(ct).ConfigureAwait(false); }
             catch (AuthUnavailableException) { }
 
-            try { _store.Delete(); } catch (TokenStoreException) { _log.Write(LogCode.Error); }
+            try { _store.Delete(); }
+            catch (TokenStoreException)
+            {
+                // The login is still saved and still works, so say so: nothing is cleared and the server session stays,
+                // otherwise the next start would sign in again with a login that looks ended.
+                _log.Write(LogCode.Error);
+                return new SignOutResult(false, false);
+            }
             _access = null;
+            _unsavedRefresh = null;
             _expires = DateTimeOffset.MinValue;
             SetState(AuthState.SignedOut);
             _log.Write(LogCode.SignedOut);
@@ -224,6 +258,13 @@ public sealed class SupabaseAuthProvider : IAuthProvider
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>The caller's token is already cancelled, so the cleanup call gets its own short time limit.</summary>
+    private async Task EndSessionAfterCancelAsync(string accessToken)
+    {
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await TryEndSessionAsync(accessToken, limit.Token).ConfigureAwait(false);
     }
 
     private async Task<bool> TryEndSessionAsync(string accessToken, CancellationToken ct)

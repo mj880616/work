@@ -189,6 +189,28 @@ public class AuthTests
         await Assert.ThrowsAsync<HttpRequestException>(() => http.GetAsync($"http://127.0.0.1:{port}/basket-drop/STATE-OK?code=again"));
     }
 
+    [Theory]
+    [InlineData("localhost:{port}")]
+    [InlineData("127.0.0.1")]
+    [InlineData("127.0.0.1:{other}")]
+    [InlineData("[::1]:{port}")]
+    [InlineData("127.0.0.1.evil.example:{port}")]
+    public async Task Receiver_refuses_every_host_that_is_not_exactly_the_loopback_address_and_port(string hostTemplate)
+    {
+        var port = FakeServer.UnusedPort();
+        using var receiver = LoopbackReceiver.Start("STATE-OK", new[] { port });
+        using var http = new HttpClient();
+        using var req = new HttpRequestMessage(HttpMethod.Get, $"http://127.0.0.1:{port}/basket-drop/STATE-OK?code=evil");
+        req.Headers.Host = hostTemplate.Replace("{port}", port.ToString()).Replace("{other}", (port + 1).ToString());
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await http.SendAsync(req)).StatusCode);
+
+        var ok = await http.GetAsync($"http://127.0.0.1:{port}/basket-drop/STATE-OK?code=real");
+        Assert.Equal(HttpStatusCode.OK, ok.StatusCode); // the listener was not used up by the refused try
+        // Only the correct visit counted; the refused one never produced a code.
+        Assert.Equal(new CallbackResult(CallbackKind.Code, "real"), await receiver.WaitAsync(TimeSpan.FromSeconds(5), default));
+    }
+
     [Fact]
     public async Task Receiver_reports_a_refused_login_and_times_out_without_a_visit()
     {
@@ -330,7 +352,82 @@ public class AuthTests
         finally { busy.Stop(); }
     }
 
+    [Fact]
+    public async Task Cancelling_after_the_code_exchange_still_ends_the_session_that_was_just_created()
+    {
+        using var r = new Rig();
+        using var cts = new CancellationTokenSource();
+        r.Api.OwnerHook = ct => { cts.Cancel(); ct.ThrowIfCancellationRequested(); };
+
+        var outcome = await r.Auth.SignInAsync(r.Browser(), cts.Token);
+
+        Assert.Equal(SignInOutcome.Cancelled, outcome);
+        Assert.Equal(1, r.Server.Exchanges);
+        Assert.Equal(1, r.Server.Logouts); // cleaned up even though the caller's token was already cancelled
+        Assert.Contains("scope=local", r.Server.LastLogoutLine);
+        Assert.Equal("Bearer " + r.Server.LastAccess, r.Server.LastLogoutAuth);
+        Assert.Null(r.Store.Load());
+        Assert.Equal(AuthState.SignedOut, r.Auth.State);
+    }
+
+    // ---- redirects ----
+
+    [Fact]
+    public async Task The_auth_client_does_not_follow_a_redirect_and_treats_it_as_a_refusal()
+    {
+        using var elsewhere = new FakeServer(_ => new Reply());
+        using var server = new FakeServer(_ => new Reply { Status = 302, ExtraHeader = "Location: " + elsewhere.BaseUrl + "/steal" });
+        using var client = new HttpAuthClient(server.BaseUrl, "PUBLIC-KEY");
+
+        await Assert.ThrowsAsync<AuthRejectedException>(() => client.RefreshAsync("REFRESH-SECRET-x", default));
+        await Assert.ThrowsAsync<AuthRejectedException>(() => client.ExchangeCodeAsync("c", "v", default));
+        await client.LogoutLocalAsync(FakeJwts.Make("a"), default).ContinueWith(_ => { });
+
+        Assert.Empty(elsewhere.Requests);
+    }
+
+    [Fact]
+    public async Task The_basket_api_does_not_follow_a_redirect_either()
+    {
+        using var elsewhere = new FakeServer(_ => new Reply());
+        using var server = new FakeServer(_ => new Reply { Status = 302, ExtraHeader = "Location: " + elsewhere.BaseUrl + "/steal" });
+        using var api = new HttpBasketApi(server.BaseUrl, "PUBLIC-KEY");
+
+        var result = await api.CheckOwnerAsync(FakeJwts.Make("a"), default);
+
+        Assert.Equal(ApiOutcome.Rejected, result.Outcome);
+        Assert.Empty(elsewhere.Requests);
+    }
+
     // ---- refresh ----
+
+    [Fact]
+    public async Task A_rotated_token_that_cannot_be_saved_is_still_used_for_the_next_renewal()
+    {
+        using var r = new Rig();
+        await r.Auth.SignInAsync(r.Browser(), default);
+        var seen = new List<AuthState>();
+        r.Auth.StateChanged += seen.Add;
+        r.Store.FailSave = true;
+
+        r.Now = r.Now.AddHours(2);
+        Assert.NotNull(await r.Auth.GetAccessTokenAsync(default)); // refresh #1 works, saving the new token fails
+        Assert.Equal(1, r.Server.Refreshes);
+        Assert.Equal("REFRESH-SECRET-1-0123456789", r.Store.Load()); // the stored one is now spent
+
+        r.Now = r.Now.AddHours(2);
+        var second = await r.Auth.GetAccessTokenAsync(default); // must use the newest token from memory
+
+        Assert.Equal(r.Server.LastAccess, second);
+        Assert.Equal(2, r.Server.Refreshes);
+        Assert.Empty(seen); // never fell into "login needed"
+        Assert.Equal(AuthState.SignedIn, r.Auth.State);
+
+        r.Store.FailSave = false;
+        r.Now = r.Now.AddHours(2);
+        await r.Auth.GetAccessTokenAsync(default);
+        Assert.Equal(r.Server.CurrentRefresh, r.Store.Load()); // saved again once the store works
+    }
 
     [Fact]
     public async Task Concurrent_requests_after_expiry_refresh_exactly_once_and_keep_the_rotated_token()
@@ -472,6 +569,30 @@ public class AuthTests
 
         Assert.False(result.ServerSessionEnded);
         Assert.Equal(0, r.Server.Logouts);
+        Assert.Null(r.Store.Load());
+        Assert.Equal(AuthState.SignedOut, r.Auth.State);
+    }
+
+    [Fact]
+    public async Task Sign_out_says_so_when_the_saved_login_cannot_be_deleted_and_keeps_everything_as_it_was()
+    {
+        using var r = new Rig();
+        await r.Auth.SignInAsync(r.Browser(), default);
+        r.Store.FailDelete = true;
+
+        var result = await r.Auth.SignOutAsync(default);
+
+        Assert.False(result.LocalLoginRemoved);
+        Assert.False(result.ServerSessionEnded);
+        Assert.Equal(0, r.Server.Logouts); // the login still exists, so its session is not ended behind its back
+        Assert.NotNull(r.Store.Load());
+        Assert.Equal(AuthState.SignedIn, r.Auth.State); // honest: it is still signed in
+
+        // Trying again after the store works completes the sign-out.
+        r.Store.FailDelete = false;
+        var again = await r.Auth.SignOutAsync(default);
+        Assert.True(again.LocalLoginRemoved);
+        Assert.True(again.ServerSessionEnded);
         Assert.Null(r.Store.Load());
         Assert.Equal(AuthState.SignedOut, r.Auth.State);
     }

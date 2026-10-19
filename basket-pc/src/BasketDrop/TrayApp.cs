@@ -184,9 +184,11 @@ internal sealed class TrayApp : ApplicationContext
         SignOutResult result;
         try { result = await _auth.SignOutAsync(_stop.Token); }
         catch (OperationCanceledException) { return; }
-        ToastForm.Show(result.ServerSessionEnded
-            ? "로그아웃했어요. 대기 중인 항목은 PC에 남아 있어요."
-            : "이 PC에서는 로그아웃했어요. 서버 쪽 정리는 하지 못했어요. 대기 중인 항목은 PC에 남아 있어요.");
+        ToastForm.Show(!result.LocalLoginRemoved
+            ? "로그아웃하지 못했어요. 저장된 로그인을 지우지 못해서 아직 로그인된 상태예요. 다시 시도해 주세요."
+            : result.ServerSessionEnded
+                ? "로그아웃했어요. 대기 중인 항목은 PC에 남아 있어요."
+                : "이 PC에서는 로그아웃했어요. 서버 쪽 정리는 하지 못했어요. 대기 중인 항목은 PC에 남아 있어요.");
         RefreshTray();
     }
 
