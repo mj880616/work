@@ -416,7 +416,7 @@ for(const width of [390,1280]){
   await expect(page.locator('#mdEditor')).toHaveCount(0);
   await expect(detail.locator('[data-basket-status]')).toHaveText('수정한 글을 저장했습니다.');
   await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 메모');
-  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toEqual({raw_text:'큰 창에서 고친 메모'});
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({raw_text:'큰 창에서 고친 메모'});expect(f.writes[0].query).toMatchObject({id:'eq.m1',kind:'eq.basket'});
   expect(f.errors).toEqual([]);
  });
 }
