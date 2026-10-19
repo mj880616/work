@@ -64,7 +64,8 @@ for(const width of [390,1280])test(`saving without a place puts the update in th
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 test('an old [바구니] tab memory opens as [업데이트]',async({page})=>{
- await page.addInitScript(()=>{try{localStorage.setItem('kptu-home-quick-mode','basket');}catch{}});
+ // Synthetic read stub (as in home-quick.spec.mjs): the remembered tab reads back as the old value 'basket'; nothing is stored.
+ await page.addInitScript(()=>{const read=Storage.prototype.getItem;Storage.prototype.getItem=function(key){return key==='kptu-home-quick-mode'?'basket':read.call(this,key);};});
  await openHome(page);const q=quick(page);
  await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-mode="update"]')).toHaveAttribute('aria-pressed','true');
  await expect(q.locator('[data-quick-mode="basket"]')).toHaveCount(0);

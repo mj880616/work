@@ -27,7 +27,7 @@ html .modal.md-editor { align-items:stretch !important; overflow:hidden !importa
 @media (max-width:760px) {
   html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .modal.md-editor { bottom:calc(var(--kptu-mobile-tab-height, 0px) + env(safe-area-inset-bottom)); }
 }
-/* 머리줄 한 줄: [× 닫기] [메모|노트] [쓰기|미리보기] … [내보내기 아이콘] [저장]. 고치기로 연 편집기는 [메모|노트]·[저장] 없이 같은 순서.
+/* 머리줄 한 줄: [× 닫기] [업데이트|노트] [쓰기|미리보기] … [내보내기 아이콘] [저장]. 고치기로 연 편집기는 [업데이트|노트]·[저장] 없이 같은 순서.
    버튼은 보이는 높이 32px(--ds-compact-*), 누르는 범위는 ::after로 44px. 제목 글자는 화면 낭독용으로만 남긴다(대화상자 이름). */
 .md-editor-head {
   display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-height:var(--kptu-touch-target, 44px);
@@ -36,11 +36,13 @@ html .modal.md-editor { align-items:stretch !important; overflow:hidden !importa
 /* 390px 폰에서도 한 줄에 들어가게 세그먼트 칸 안쪽 여백만 줄인다(높이 32px·누르는 범위 44px는 그대로).
    칸 사이 6px: 아이콘의 44px 누르는 범위(좌우 6px씩 넘침)가 옆 칸과 겹치지 않는다. */
 @media (max-width:760px) {
-  html .modal.md-editor .md-editor-head :is(.md-editor-kinds, .md-editor-modes) button { padding:0 10px; }
+  html .modal.md-editor .md-editor-head :is(.md-editor-kinds, .md-editor-modes) button { padding:0 8px; }
 }
+/* BASKET-업데이트통합: [업데이트|노트]는 글자 폭만큼(반반이 아니게) — 390px 폰에서도 머리줄이 한 줄에 들어간다. */
+html .modal.md-editor .md-editor-head .md-editor-kinds { grid-auto-columns:auto; }
 .md-editor-head h2 { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 .md-editor-head [data-md-export] { margin-left:auto; }
-/* [메모|노트] 모양은 공용 세그먼트(ui-standard.css UI-버튼크기). */
+/* [업데이트|노트] 모양은 공용 세그먼트(ui-standard.css UI-버튼크기). */
 .md-editor-kinds, .md-editor-modes { flex:none; }
 .md-editor-modes { display:inline-flex; gap:0; width:max-content; }
 .md-editor button { min-height:var(--kptu-touch-target, 44px); min-width:var(--kptu-touch-target, 44px); font-size:14px; }
