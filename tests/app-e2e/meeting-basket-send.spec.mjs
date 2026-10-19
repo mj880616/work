@@ -172,7 +172,9 @@ for(const width of [412,870,1280])test(`edit, delete and basket buttons share th
     const el=document.querySelector(sel),r=el.getBoundingClientRect(),cs=getComputedStyle(el),card=document.querySelector('#meetingRoundDetailModal .modal-card').getBoundingClientRect();
     return {sel,h:Math.round(r.height*10)/10,fontSize:cs.fontSize,fontWeight:cs.fontWeight,radius:cs.borderRadius,padY:cs.paddingTop+'/'+cs.paddingBottom,inside:r.left>=card.left&&r.right<=card.right,cls:el.className};
   }));
-  for(const r of rows){expect(r.inside,r.sel).toBe(true);expect(r.h,r.sel).toBeGreaterThanOrEqual(32)}
+  const compact=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-compact-height')));
+  const compactText=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-compact-text').trim());
+  for(const r of rows){expect(r.inside,r.sel).toBe(true);expect(r.h,r.sel).toBe(compact);expect(r.fontSize,r.sel).toBe(compactText)}
   for(const r of rows){expect(r.h,r.sel).toBe(rows[0].h);expect(r.fontSize).toBe(rows[0].fontSize);expect(r.fontWeight).toBe(rows[0].fontWeight);expect(r.radius).toBe(rows[0].radius);expect(r.padY).toBe(rows[0].padY);expect(r.cls.split(' ')).toContain('mini')}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   // 터치 영역: 보이는 높이가 44보다 작으면 ::after가 44px까지 넓힌다(기존 규칙).

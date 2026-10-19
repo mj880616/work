@@ -28,7 +28,7 @@
 
   const style=document.createElement('style');
   style.id='kptuSwipeStyle';
-  style.textContent=`@media(max-width:760px){#appView .view-panel{touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}#calendarView .calendar-toolbar,#calendarView .google-bar,#calendarView .google-cal-list,#calendarView .calendar-grid,#calendarView .cal-cell,#calendarView .cal-event,#calendarView .kptu-day-more{touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}.kptu-swipe-panel{position:relative}.kptu-swipe-animate{transition:left .18s cubic-bezier(.2,.72,.2,1),opacity .18s ease}}`;
+  style.textContent=`@media(max-width:760px){#appView .view-panel,#appView,.shell>main{touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}#calendarView .calendar-toolbar,#calendarView .google-bar,#calendarView .google-cal-list,#calendarView .calendar-grid,#calendarView .cal-cell,#calendarView .cal-event,#calendarView .kptu-day-more{touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}.kptu-swipe-panel{position:relative}.kptu-swipe-animate{transition:left .18s cubic-bezier(.2,.72,.2,1),opacity .18s ease}}`;
   document.head.appendChild(style);
 
   function orderedViews(){
@@ -49,16 +49,49 @@
     return !!target?.closest?.('.modal,.app-nav,.mobile-tabs,.mobile-menu,[data-swipe-lock],.pm2-nav,.pv-nav,.cc-peer-list,.home-quick');
   }
 
+  // An open window is any dialog the app already marks: .modal, a native <dialog open>, or role=dialog / aria-modal
+  // (the shared KPTUA11y.dialog windows, choice sheets and the in-screen sheets such as the 분류 결과 입력 panel).
+  const OPEN_WINDOW='.modal:not(.hidden),dialog[open],[role="dialog"],[role="alertdialog"],[aria-modal="true"]';
+  function windowOpen(){
+    for(const el of document.querySelectorAll(OPEN_WINDOW)){
+      if(el.matches('.modal:not(.hidden),dialog[open]'))return true;
+      if(!el.hidden&&el.getAttribute('aria-hidden')!=='true'&&el.getClientRects().length)return true;
+    }
+    return false;
+  }
+
+  // Panel that follows the finger: the one under the finger, or for a touch on empty space (below a short list,
+  // beside it) the screen the router shows.
   function visiblePanel(target){
-    const panel=target?.closest?.('#appView .view-panel');
-    if(!panel||panel.classList.contains('hidden'))return null;
-    return panel;
+    const app=document.getElementById('appView');
+    if(!app||app.classList.contains('hidden'))return null;
+    const own=target?.closest?.('#appView .view-panel');
+    if(own)return own.classList.contains('hidden')?null:own;
+    if(!(target===app||target?.contains?.(app)||app.contains(target)))return null;
+    const current=document.getElementById((window.KPTURouter?.current||'')+'View');
+    if(current&&app.contains(current)&&current.classList.contains('view-panel')&&!current.classList.contains('hidden'))return current;
+    return app.querySelector('.view-panel:not(.hidden)');
   }
 
   function inSwipeArea(y,panel){
-    const r=panel.getBoundingClientRect();
-    if(y<r.top||y>r.bottom)return false;
-    return true;
+    // Empty space below a short panel still counts; the bottom bars are excluded by blockedTarget.
+    return y>=panel.getBoundingClientRect().top;
+  }
+
+  const TEXT_FIELD='textarea,select,[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"],input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=reset]):not([type=image]):not([type=file])';
+  function hasSelection(){
+    const sel=window.getSelection?.();
+    return !!sel&&!sel.isCollapsed&&!!String(sel).trim();
+  }
+  // Text fields, a live text selection and a row that really scrolls sideways keep their own horizontal drag.
+  function ownsHorizontalDrag(target){
+    if(target?.closest?.(TEXT_FIELD)||hasSelection())return true;
+    for(let n=target instanceof Element?target:target?.parentElement;n&&n!==document.body&&n!==document.documentElement&&!n.matches('#appView,.view-panel');n=n.parentElement){
+      if(n.scrollWidth<=n.clientWidth+1)continue;
+      const ox=getComputedStyle(n).overflowX;
+      if(ox==='auto'||ox==='scroll')return true;
+    }
+    return false;
   }
 
   function resetPanel(panel,animated=true){
@@ -114,8 +147,8 @@
 
   document.addEventListener('touchstart',event=>{
     if(isZoomed()||event.touches.length!==1){cancelGesture();return}
-    if(!mq.matches||document.querySelector('.modal:not(.hidden)'))return;
-    const panel=visiblePanel(event.target);if(!panel||blockedTarget(event.target))return;
+    if(!mq.matches||windowOpen())return;
+    const panel=visiblePanel(event.target);if(!panel||blockedTarget(event.target)||ownsHorizontalDrag(event.target))return;
     const t=event.touches[0];if(!inSwipeArea(t.clientY,panel))return;
     // Nothing on the panel changes at finger-down: a tap must leave the screen exactly as it is.
     gesture={x:t.clientX,y:t.clientY,lastX:t.clientX,lastY:t.clientY,time:performance.now(),panel,axis:null,moved:false};
@@ -146,7 +179,7 @@
     const t=event?.changedTouches?.[0];
     const dx=(t?.clientX??g.lastX)-g.x,dy=(t?.clientY??g.lastY)-g.y;
     const elapsed=Math.max(1,performance.now()-g.time),velocity=Math.abs(dx)/elapsed;
-    const commit=!cancelled&&Math.abs(dx)>=56&&Math.abs(dx)>Math.abs(dy)*1.05&&(elapsed<850||velocity>.18);
+    const commit=!cancelled&&!windowOpen()&&Math.abs(dx)>=56&&Math.abs(dx)>Math.abs(dy)*1.05&&(elapsed<850||velocity>.18);
     if(commit)navigate(g,dx);else resetPanel(g.panel,true);
   }
   document.addEventListener('touchend',event=>finish(event,false),{passive:true});

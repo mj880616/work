@@ -325,3 +325,24 @@ test('the editor opened to change a note has no [메모|노트] switch, and the 
  await expect(page.locator('[data-note-detail]').getByRole('button',{name:'텔레그램용 복사',exact:true})).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
+
+for(const width of [412,870,1280]){
+ test(`note edit buttons [큰 창에서 수정][저장][취소] sit on one uncut line at ${width}px`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  await page.locator('[data-basket-kind="note"]').click();
+  await noteList(page).filter({hasText:'오래된 노트'}).click();
+  await page.locator('[data-note-edit]').click();
+  const bar=page.locator('[data-note-edit-actions]');await expect(bar).toBeVisible();
+  const boxes=[];
+  for(const name of ['큰 창에서 수정','저장','취소']){
+   const b=bar.getByRole('button',{name,exact:true});await expect(b).toBeVisible();
+   const m=await b.evaluate(el=>{const r=el.getBoundingClientRect();return {top:r.top,left:r.left,right:r.right,height:r.height,cut:el.scrollWidth>el.clientWidth+1};});
+   expect(m.cut,name).toBe(false);expect(m.height,name).toBeGreaterThanOrEqual(44);boxes.push(m);
+  }
+  expect(boxes[1].top).toBe(boxes[0].top);expect(boxes[2].top).toBe(boxes[0].top);
+  expect(boxes[0].left).toBeLessThan(boxes[1].left);expect(boxes[1].left).toBeLessThan(boxes[2].left);
+  expect(boxes[2].right).toBeLessThanOrEqual(width);
+  await expect(bar.locator('[data-note-save]')).toHaveClass(/primary/);
+  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+ });
+}

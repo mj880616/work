@@ -58,7 +58,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
 
  // 키보드: [업데이트]에서 Tab → ▾, Enter → 기존 조직 선택 창. 고른 조직은 안내 글자로.
  await update.focus();await page.keyboard.press('Tab');await expect(org).toBeFocused();
- await page.keyboard.press('Enter');const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();await expect(sheet).toContainText('조직 선택');
+ await page.keyboard.press('Enter');const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();await expect(sheet).toContainText('기록할 곳 선택');
  await sheet.getByRole('button',{name:'서해선지부',exact:true}).first().click();await expect(sheet).toBeHidden();
  await expect(input).toHaveAttribute('placeholder','서해선지부 기록을 입력하세요');
  await expect(org).toHaveAccessibleName('조직 선택: 서해선지부');await expect(update).toHaveText('업데이트');await expect(org).toBeFocused();
