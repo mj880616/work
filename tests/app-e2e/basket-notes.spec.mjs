@@ -110,7 +110,7 @@ for(const width of [390,1280]){
   await form.locator('[data-basket-to-note-save]').click();
   await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed','true');
   await expect(page.locator('[data-note-read-title]')).toHaveText('회의 준비 메모 첫 줄');
-  expect(f.writes[0].query).toMatchObject({id:'eq.m1',kind:'eq.basket'});expect(f.writes[0].body).toMatchObject({kind:'note',title:'회의 준비 메모 첫 줄'});
+  expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w'});expect(f.writes[0].body).toMatchObject({kind:'note',title:'회의 준비 메모 첫 줄'});
   expect(f.rows.find(r=>r.id==='m1').raw_text).toBe('회의 준비 메모 첫 줄\n둘째 줄 내용');
   // Back to the basket from the note menu, after a confirmation.
   page.once('dialog',d=>d.accept());
@@ -416,7 +416,7 @@ for(const width of [390,1280]){
   await expect(page.locator('#mdEditor')).toHaveCount(0);
   await expect(detail.locator('[data-basket-status]')).toHaveText('수정한 글을 저장했습니다.');
   await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 메모');
-  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({raw_text:'큰 창에서 고친 메모'});expect(f.writes[0].query).toMatchObject({id:'eq.m1',kind:'eq.basket'});
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({raw_text:'큰 창에서 고친 메모'});expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w'});
   expect(f.errors).toEqual([]);
  });
 }
