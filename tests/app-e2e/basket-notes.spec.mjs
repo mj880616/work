@@ -326,7 +326,7 @@ test('the editor opened to change a note has no [메모|노트] switch, and the 
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-for(const width of [412,870,1280]){
+for(const width of [360,390,412,870,1280]){
  test(`note edit buttons [큰 창에서 수정][저장][취소] sit on one uncut line at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   await page.locator('[data-basket-kind="note"]').click();
@@ -346,3 +346,92 @@ for(const width of [412,870,1280]){
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });
 }
+
+// UI-노트편집버튼 ②: the big window's save icon sits right beside [닫기] and runs the opening screen's own [저장].
+const SAVE_ICON='[data-md-save-icon]';
+async function headBox(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,height:r.height,after:getComputedStyle(el,'::after').height};});}
+async function expectIconNextToClose(editor){
+ const icon=editor.locator(SAVE_ICON);await expect(icon).toBeVisible();await expect(icon).toHaveAccessibleName('저장');
+ const close=await headBox(editor.locator('[data-close="mdEditor"]')),save=await headBox(icon);
+ expect(save.left).toBeGreaterThanOrEqual(close.right);expect(save.left-close.right).toBeLessThan(16);expect(save.top).toBe(close.top);
+ expect(Math.round(save.height)).toBe(32);expect(save.after).toBe('44px');
+}
+for(const width of [390,1280]){
+ test(`big window save icon saves a note through [저장], closes, and keeps the window when the save fails ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  await page.locator('[data-basket-kind="note"]').click();
+  await noteList(page).filter({hasText:'오래된 노트'}).click();
+  const detail=page.locator('[data-note-detail]');
+  await detail.locator('[data-note-edit]').click();
+  await detail.locator('[data-note-big-write]').click();
+  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
+  await expectIconNextToClose(editor);
+  await editor.locator('.md-editor-text').fill('큰 창에서 고친 본문');
+  // A failed save keeps the window, the text and the message.
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>r.request().method()==='PATCH'?r.fulfill({status:500,json:{}}):r.fallback(),{times:1});
+  await editor.locator(SAVE_ICON).click();
+  await expect(editor.locator('.md-editor-status')).toContainText('저장하지 못했어요');
+  await expect(editor).toBeVisible();await expect(editor.locator('.md-editor-text')).toHaveValue('큰 창에서 고친 본문');
+  await expect(editor.locator(SAVE_ICON)).toBeEnabled();expect(f.writes).toEqual([]);
+  // The second press goes the same path as [저장]: PATCH, the window closes, the read view shows the new text.
+  await editor.locator(SAVE_ICON).click();
+  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  await expect(detail.locator('[data-basket-status]')).toHaveText('노트를 저장했습니다.');
+  await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 본문');
+  expect(f.writes).toHaveLength(1);
+  expect(f.writes[0].query).toMatchObject({id:'eq.n-old',kind:'eq.note'});expect(f.writes[0].body.raw_text).toBe('큰 창에서 고친 본문');
+  expect(f.errors.filter(e=>!/500/.test(e))).toEqual([]);
+ });
+
+ test(`big window save icon on a new note creates it and returns to its read view ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  await page.locator('[data-basket-kind="note"]').click();
+  await page.locator('[data-note-new]').click();
+  const detail=page.locator('[data-note-detail]');
+  await detail.locator('[data-note-big-write]').click();
+  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
+  await expectIconNextToClose(editor);
+  // Nothing written: the shared [저장] message shows in the window and nothing is sent.
+  await editor.locator(SAVE_ICON).click();
+  await expect(editor.locator('.md-editor-status')).toContainText('제목이나 본문을 써 주세요.');expect(f.writes).toEqual([]);
+  await editor.locator('.md-editor-text').fill('새 노트 첫 줄\n둘째 줄');
+  await editor.locator(SAVE_ICON).click();
+  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  await expect(detail.locator('[data-basket-status]')).toHaveText('노트를 저장했습니다.');
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].method).toBe('POST');
+  expect(f.writes[0].body).toMatchObject({kind:'note',title:'새 노트 첫 줄',raw_text:'새 노트 첫 줄\n둘째 줄'});
+  expect(f.errors).toEqual([]);
+ });
+
+ test(`big window save icon on a memo runs the memo's [수정 저장] ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  await page.locator('[data-basket-row="m1"]').click();
+  await noteAction(page,'[data-basket-edit]');
+  const detail=page.locator('[data-basket-detail]');
+  await detail.locator('[data-basket-big-write]').click();
+  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
+  await expectIconNextToClose(editor);
+  await editor.locator('.md-editor-text').fill('큰 창에서 고친 메모');
+  await editor.locator(SAVE_ICON).click();
+  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  await expect(detail.locator('[data-basket-status]')).toHaveText('수정한 글을 저장했습니다.');
+  await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 메모');
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toEqual({raw_text:'큰 창에서 고친 메모'});
+  expect(f.errors).toEqual([]);
+ });
+}
+
+test('[닫기] in the big window hands the text back to the edit field and the menu write window has no save icon',async({page})=>{
+ await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+ await page.locator('[data-basket-kind="note"]').click();
+ await noteList(page).filter({hasText:'오래된 노트'}).click();
+ const detail=page.locator('[data-note-detail]');
+ await detail.locator('[data-note-edit]').click();await detail.locator('[data-note-big-write]').click();
+ const editor=page.locator('#mdEditor');await editor.locator('.md-editor-text').fill('닫아도 남는 글');
+ await editor.locator('[data-close="mdEditor"]').click();
+ await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(detail.locator('[data-basket-text]')).toHaveValue('닫아도 남는 글');
+ page.once('dialog',d=>d.accept());await detail.locator('[data-note-cancel]').click();
+ const writer=await openWriter(page,390);
+ await expect(writer.locator('[data-md-save]')).toBeVisible();await expect(writer.locator(SAVE_ICON)).toHaveCount(0);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});

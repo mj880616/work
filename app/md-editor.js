@@ -61,6 +61,14 @@ function shareIcon() {
   svg.append(path);
   return svg;
 }
+// Save icon (a floppy disk), also built with DOM calls.
+function saveIconSvg() {
+  const svg = document.createElementNS(SVG_NS, 'svg'), path = document.createElementNS(SVG_NS, 'path');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+  path.setAttribute('d', 'M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8 3v5h7V3M7 21v-7h10v7');
+  svg.append(path);
+  return svg;
+}
 function exportChoices() {
   exportSheet ||= createChoiceSheet({id:'mdExportSheet', titleId:'mdExportSheetTitle', historyKey:'kptuMdExport',
     canOpen:() => !!current, choices:async () => {},
@@ -107,8 +115,12 @@ export async function copyText(text, {html = null} = {}) {
 // existing save and resolves {ok:true} (the editor then closes) or {ok:false, message}. [닫기] stays the plain close.
 // kinds (optional, MD-내보내기 메뉴 [쓰기]): {label, value, options:[[value, label], …]} shows a small switch at the left of
 // the head; the chosen value is passed to save.run(text, kind), and save.aria may be a function of it.
+// saveIcon (optional, UI-노트편집버튼): {run(text)} adds a small save icon button right beside [닫기] for an editor opened to change a
+// memo or note. run is the opener's own existing save (the same one its [저장] calls) and resolves {ok:true} (the editor then
+// closes; the opener has usually closed it already) or {ok:false, message} (the editor stays and shows the message). Not drawn
+// when the opener passes none, or together with save (the write window already has its filled [저장]).
 // Returns {close({silent})}: silent closes without calling onClose (e.g. the opener's screen went away).
-export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, kinds = null} = {}) {
+export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, saveIcon = null, kinds = null} = {}) {
   current?.close({silent: true});
   const trigger = document.activeElement;
   const shell = document.createElement('div');
@@ -129,6 +141,9 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   const saveAria = () => typeof save?.aria === 'function' ? save.aria(kind) : save?.aria;
   const saveButton = save ? button(save.label || '저장', {mdSave: ''}, saveAria()) : null;
   if (saveButton) { saveButton.className = 'primary'; shell.dataset.mdSave = ''; }
+  const quick = !save && saveIcon ? saveIcon : null;
+  const quickButton = quick ? button('', {mdSaveIcon: ''}, '저장') : null;
+  if (quickButton) { quickButton.className = 'md-editor-icon'; quickButton.append(saveIconSvg()); }
   const kindGroup = kinds ? document.createElement('div') : null;
   if (kindGroup) {
     kindGroup.className = 'md-editor-kinds'; kindGroup.setAttribute('role', 'group'); kindGroup.setAttribute('aria-label', kinds.label || '종류');
@@ -145,7 +160,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   modes.className = 'md-editor-modes'; modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', '보기');
   const writeTab = button('쓰기', {mdMode: 'write'}), previewTab = button('미리보기', {mdMode: 'preview'});
   modes.append(writeTab, previewTab);
-  head.append(name, done, ...(kindGroup ? [kindGroup] : []), modes, copy, ...(saveButton ? [saveButton] : []));
+  head.append(name, done, ...(quickButton ? [quickButton] : []), ...(kindGroup ? [kindGroup] : []), modes, copy, ...(saveButton ? [saveButton] : []));
 
   const tools = document.createElement('div'), menu = document.createElement('div');
   tools.className = 'md-editor-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
@@ -234,13 +249,14 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     area.setSelectionRange(r.selStart, r.selEnd);
   }
   async function runSave() {
-    if (!save || saving || closed) return;
-    saving = true; saveButton.disabled = true; status.textContent = '저장 중…';
+    const saver = save || quick, pressed = saveButton || quickButton;
+    if (!saver || saving || closed) return;
+    saving = true; pressed.disabled = true; status.textContent = '저장 중…';
     let result;
-    try { result = await save.run(area.value, kind); } catch (error) { result = {ok: false, message: error?.message}; }
+    try { result = await saver.run(area.value, kind); } catch (error) { result = {ok: false, message: error?.message}; }
     saving = false;
     if (closed) return;
-    saveButton.disabled = false;
+    pressed.disabled = false;
     if (result?.ok) close();
     else status.textContent = result?.message || '저장하지 못했어요. 다시 눌러 주세요.';
   }
@@ -273,7 +289,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     else if (b.dataset.mdMode) setMode(b.dataset.mdMode);
     else if (b.dataset.mdKind) setKind(b.dataset.mdKind);
     else if (b.hasAttribute('data-md-export')) void exportChoices().open('export', copy);
-    else if (b.hasAttribute('data-md-save')) void runSave();
+    else if (b.hasAttribute('data-md-save') || b.hasAttribute('data-md-save-icon')) void runSave();
     else if (b.dataset.close === ID) close();
   });
   area.addEventListener('input', () => { status.textContent = ''; onInput?.(area.value); schedule(); });
