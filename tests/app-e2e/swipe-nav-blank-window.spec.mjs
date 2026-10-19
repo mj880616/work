@@ -25,6 +25,8 @@ async function mockApp(page) {
   });
 }
 
+const current = page => page.evaluate(() => window.KPTURouter.current);
+
 async function openApp(page, width) {
   await page.setViewportSize({ width, height: 844 });
   await mockApp(page);
@@ -35,11 +37,15 @@ async function openApp(page, width) {
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
   await expect.poll(() => page.evaluate(() => !!window.__KPTU_MOBILE_SWIPE_NAV__), { timeout: 10000 }).toBe(true);
+  // Startup marks kptu-ui-ready only after the requested view's module has loaded (loader-v2.js). Going to a view that
+  // is still loading queues a deferred go() that fires when the module arrives; if a test moves on to another view
+  // first, that late go() takes the screen back. So wait until the projects module is in before any navigation.
+  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 15000 });
+  await expect.poll(() => page.evaluate(() => window.KPTUViewLoader.isLoaded('projects'))).toBe(true);
   await page.evaluate(() => window.KPTURouter.go('projects', { source: 'test' }));
   await expect(page.locator('#projectsView')).toBeVisible();
+  expect(await current(page)).toBe('projects');
 }
-
-const current = page => page.evaluate(() => window.KPTURouter.current);
 
 // Touch sequence that starts on whatever element is at (x, y), like a finger would.
 async function swipeAtPoint(page, { x, y, dx = -170 }) {
@@ -103,9 +109,10 @@ test.describe('phone width 412', () => {
 
   test('the in-screen sheet (분류 결과 입력) and an open <dialog> also stop the swipe', async ({ page }) => {
     await page.evaluate(() => window.KPTURouter.go('basket', { source: 'test' }));
-    // The basket view is lazy-loaded; under a busy runner it can take longer than the default 5s, so wait for the loader state.
+    // The basket view is lazy-loaded: go() returns at once and switches when the module is in.
     await expect.poll(() => page.evaluate(() => window.KPTUViewLoader.isLoaded('basket')), { timeout: 30000 }).toBe(true);
-    await expect(page.locator('#basketView')).toBeVisible({ timeout: 15000 });
+    await expect.poll(() => current(page)).toBe('basket');
+    await expect(page.locator('#basketView')).toBeVisible();
     await expect(page.locator('[data-classification-panel]')).toHaveAttribute('role', 'dialog');
     await page.evaluate(() => { document.querySelector('[data-classification-panel]').hidden = false; });
     await expect(page.locator('[data-classification-panel]')).toBeVisible();
