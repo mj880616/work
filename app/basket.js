@@ -568,6 +568,8 @@ function openBigWriter() {
   const same = () => editing && selected?.id === id && field.isConnected;
   bigWriter = openMarkdownEditor({
     text: field.value, title: '큰 창에서 수정',
+    // The save icon is this view's own [수정 저장] (saveEdit): it saves, closes this window on success and stays with a message on failure.
+    saveIcon: {run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return saveEdit(); }},
     onInput: value => { if (same()) field.value = value; },
     onClose: value => { bigWriter = null; if (!same()) return; field.value = value; field.focus(); },
   });
@@ -608,21 +610,24 @@ async function refresh() {
     root.querySelector('[data-basket-retry]').hidden = false;
   }
 }
+// Resolves true when the change was saved, false when it was not (busy, no note, or the save failed).
 async function patch(changes, message, {read = false} = {}) {
-  if (busy || !selected) return;
+  if (busy || !selected) return false;
   const id = selected.id, run = ++epoch, owner = scope(); busy = true;
   detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = true);
   detail.querySelector('[data-basket-status]').textContent = '저장 중…';
   try {
     const note = await updateNote(id, changes);
-    if (run !== epoch || owner !== scope()) return;
+    if (run !== epoch || owner !== scope()) return false;
     notes = notes.map(n => n.id === id ? note : n); selected = note;upload.attachments=note.attachments||[];
     renderList(); paintDetailState(); detail.querySelector('[data-basket-status]').textContent = message;
     if (!editing) detail.querySelector('[data-basket-text]').value = note.raw_text;
     if (read) finishEdit({force:true}); else paintMode();
+    return true;
   } catch (e) {
-    if (run !== epoch || owner !== scope()) return;
+    if (run !== epoch || owner !== scope()) return false;
     paintDetailState(); detail.querySelector('[data-basket-status]').textContent = '저장하지 못했어요. 다시 시도해 주세요.';
+    return false;
   } finally {
     busy = false; detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = false);paintOcrControls();
   }
@@ -711,18 +716,22 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-cancel')) finishEdit();
   else if (b.hasAttribute('data-basket-retry')) void refresh();
   else if (b.hasAttribute('data-basket-note-task')) { requestTaskOpen(b.dataset.basketNoteTask, rt); window.KPTURouter.go('tasks', {source:'delegated'}); }
-  else if (b.hasAttribute('data-basket-save')) {
-    // textarea normalizes CR/CRLF on display; do not rewrite an unchanged original.
-    // Selected files stay in the editor until they are saved or cancelled.
-    const pendingFiles = upload.entries.some(e => e.kind !== 'success');
-    if (!textDirty()) { detail.querySelector('[data-basket-status]').textContent = pendingFiles ? '저장된 글입니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.' : '저장된 글입니다.'; if (!pendingFiles) finishEdit({force:true}); }
-    else void patch({raw_text:detail.querySelector('[data-basket-text]').value}, pendingFiles ? '수정한 글을 저장했습니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.' : '수정한 글을 저장했습니다.', {read:!pendingFiles});
-  }
+  else if (b.hasAttribute('data-basket-save')) void saveEdit();
   else if (b.hasAttribute('data-basket-upload')) void saveAttachments();
   else if (b.hasAttribute('data-basket-reload')) void reloadDetail();
   else if (b.hasAttribute('data-basket-delete')) void deleteSelected();
   else if (b.hasAttribute('data-basket-archive')) void patch({archived_at:selected.archived_at ? null : new Date().toISOString()}, selected.archived_at ? '보관을 해제했습니다.' : '보관했습니다.');
 });
+// [수정 저장] (and the big window's save icon): one path. Resolves {ok:true} or {ok:false, message}.
+async function saveEdit() {
+  if (!selected || !editing || busy) return {ok:false, message:'지금은 저장할 수 없어요.'};
+  // textarea normalizes CR/CRLF on display; do not rewrite an unchanged original.
+  // Selected files stay in the editor until they are saved or cancelled.
+  const pendingFiles = upload.entries.some(e => e.kind !== 'success');
+  if (!textDirty()) { detail.querySelector('[data-basket-status]').textContent = pendingFiles ? '저장된 글입니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.' : '저장된 글입니다.'; if (!pendingFiles) finishEdit({force:true}); return {ok:true}; }
+  const saved = await patch({raw_text:detail.querySelector('[data-basket-text]').value}, pendingFiles ? '수정한 글을 저장했습니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.' : '수정한 글을 저장했습니다.', {read:!pendingFiles});
+  return saved ? {ok:true} : {ok:false, message:'저장하지 못했어요. 다시 눌러 주세요.'};
+}
 // BUG-바구니연결해제: × on a chip — one confirmation, one owner-RLS row delete (basket-record-delete.js),
 // then 5 seconds to undo. The shared event re-reads this list and the open detail screens.
 const unlinking = new Set();

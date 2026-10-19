@@ -169,44 +169,51 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!selected || !editing || busy || !field) return;
     const same = () => editing && selected?.id === id && field.isConnected;
     bigWriter = openMarkdownEditor({text:field.value, title:'큰 창에서 수정',
+      // The save icon is this view's own [저장] (save above): it saves, closes this window on success and stays with a message on failure.
+      saveIcon:{run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return save(); }},
       onInput: value => { if (same()) field.value = value; },
       onClose: value => { bigWriter = null; if (!same()) return; field.value = value; field.focus(); }});
   }
+  // save() and create() resolve {ok:true} or {ok:false, message}; the big window's save icon waits for it (same path as [저장]).
   async function save() {
-    if (!selected || !editing || busy) return;
+    if (!selected || !editing || busy) return {ok:false, message:'지금은 저장할 수 없어요.'};
     if (creating) return create();
     const f = fields();
-    if (!textDirty()) { say('저장된 노트입니다.'); finishEdit({force:true}); return; }
+    if (!textDirty()) { say('저장된 노트입니다.'); finishEdit({force:true}); return {ok:true}; }
     const changes = {title:f.title.value, raw_text:f.body.value};
-    try { validateNoteTitle(changes.title); validateNoteBody(changes.raw_text); } catch (error) { say(error.message); return; }
+    try { validateNoteTitle(changes.title); validateNoteBody(changes.raw_text); } catch (error) { say(error.message); return {ok:false, message:error.message}; }
     const id = selected.id, run = ++epoch, owner = scope(); lock(true); say('저장 중…');
     try {
       const note = await saveNoteDoc(id, changes, rt);
-      if (run !== epoch || owner !== scope()) return;
+      if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       notes = notes.map(n => n.id === id ? note : n); selected = note; renderList(); paintMeta();
       finishEdit({force:true}); say('노트를 저장했습니다.');
+      return {ok:true};
     } catch (error) {
-      if (run !== epoch || owner !== scope()) return;
+      if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       say('저장하지 못했어요. 다시 시도해 주세요.');
+      return {ok:false, message:'저장하지 못했어요. 다시 눌러 주세요.'};
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
   async function create() {
     const f = fields(), raw_text = f.body.value;
-    if (!f.title.value.trim() && !raw_text.trim()) { say('제목이나 본문을 써 주세요.'); f.title.focus(); return; }
+    if (!f.title.value.trim() && !raw_text.trim()) { say('제목이나 본문을 써 주세요.'); f.title.focus(); return {ok:false, message:'제목이나 본문을 써 주세요.'}; }
     // The database needs a title on every note; an untitled draft takes its first body line.
     const title = f.title.value.trim() ? f.title.value : noteTitleFromText(raw_text);
-    try { validateNoteTitle(title); validateNoteBody(raw_text); } catch (error) { say(error.message); return; }
+    try { validateNoteTitle(title); validateNoteBody(raw_text); } catch (error) { say(error.message); return {ok:false, message:error.message}; }
     const run = ++epoch, owner = scope(); lock(true); say('저장 중…');
     try {
       const note = await createNoteDoc({title, raw_text}, rt);
-      if (run !== epoch || owner !== scope()) return;
+      if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       notes = [note, ...notes.filter(n => n.id !== note.id)]; selected = note; creating = false; renderList();
       bigWriter?.close({silent:true}); bigWriter = null;
       editing = false; paintRead(); paintMeta(); paintMode(); say('노트를 저장했습니다.');
       readFocus().focus();
+      return {ok:true};
     } catch {
-      if (run !== epoch || owner !== scope()) return;
+      if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       say('저장하지 못했어요. 다시 시도해 주세요.');
+      return {ok:false, message:'저장하지 못했어요. 다시 눌러 주세요.'};
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
   async function telegram() {
