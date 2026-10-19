@@ -141,7 +141,7 @@ test('오늘 한 줄: Enter로 저장 → 점이 생기고 [고치기], 다시 �
  const f=await fixture(page);await openJournal(page,390);
  const input=page.locator('#journalRoot [data-journal-input]'),line=page.locator('#journalRoot [data-journal-line-status]');
  await input.fill('  교섭 준비 회의 정리  ');
- await expect(page.locator('#journalRoot [data-journal-count]')).toHaveText('10/300자');
+ await expect(page.locator('#journalRoot [data-journal-count]')).toHaveText('11/300자');
  await input.press('Enter');
  await expect(line).toHaveText('한 줄을 저장했어요.');
  expect(f.writes).toHaveLength(1);
