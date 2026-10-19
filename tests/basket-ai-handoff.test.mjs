@@ -310,3 +310,32 @@ test('malformed or over-budget OCR rejects promised clipboard data without parti
   });
  });
 });
+
+// BASKET-분류중복·변화반영 ①: existing-record block (synthetic strings only).
+import {selectExistingRecords, EXISTING_LIMITS} from '../app/basket-ai-handoff.js';
+const dest=[{kind:'organization',id:n},{kind:'project',id:p}];
+const rec=(i,day,extra={})=>({id:`50000000-0000-4000-8000-${String(i).padStart(12,'0')}`,summary:`합성 요약 ${i}`,raw_text:'합성 원문',organization_id:n,project_id:null,occurred_at:`2026-10-${String(day).padStart(2,'0')}T01:00:00Z`,...extra});
+test('existing records: newest 5 per destination, 28 days, summary then original, 200 chars',()=>{
+ const rows=[...Array.from({length:7},(_,i)=>rec(i+1,i+1)),rec(20,1,{organization_id:null,project_id:p,summary:null,raw_text:'가'.repeat(300)}),rec(21,1,{occurred_at:'2026-09-01T00:00:00Z'}),rec(22,2,{organization_id:'other'})];
+ const out=selectExistingRecords(rows,dest,now);
+ assert.deepEqual(out.filter(r=>r.kind==='organization').map(r=>r.text),['합성 요약 7','합성 요약 6','합성 요약 5','합성 요약 4','합성 요약 3']);
+ const fromOriginal=out.find(r=>r.kind==='project');assert.equal([...fromOriginal.text].length,EXISTING_LIMITS.chars);
+ assert.ok(!out.some(r=>r.id.endsWith('21')||r.id.endsWith('22')));
+});
+test('existing records block appears in the request; absent records leave the request unchanged',()=>{
+ const rows=[note()],plain=buildHandoff(rows,[{id:p,name:'합성 프로젝트'}],[{id:n,name:'합성 담당조직'}],now);
+ assert.ok(!plain.includes('기존 기록'));
+ const existing=selectExistingRecords([rec(1,5),rec(2,6)],dest,now);
+ const text=buildHandoff(rows,[{id:p,name:'합성 프로젝트'}],[{id:n,name:'합성 담당조직'}],now,false,existing);
+ assert.ok(text.startsWith(plain.slice(0,200)));
+ for(const s of ['기존 기록 (','기록 ID: '+existing[0].id,'2026-10-06','합성 요약 2','compared_link_ids','duplicate','changed','후속: ',`organization · ${n}`])assert.ok(text.includes(s),s);
+});
+test('existing records over the total cap are cut oldest first',()=>{
+ const big=Array.from({length:120},(_,i)=>rec(i+1,1+(i%9),{organization_id:null,project_id:`60000000-0000-4000-8000-${String(i).padStart(12,'0')}`,summary:'나'.repeat(200)}));
+ const ds=big.map(r=>({kind:'project',id:r.project_id}));
+ const out=selectExistingRecords(big,ds,now);
+ const bytes=out.reduce((s,r)=>s+Buffer.byteLength(`기록 ID: ${r.id} · 0000-00-00 · ${r.text}`)+2,0);
+ assert.ok(out.length<big.length&&bytes<=EXISTING_LIMITS.bytes+out.length*8);
+ const dropped=big.filter(r=>!out.some(o=>o.id===r.id));
+ assert.ok(dropped.every(d=>out.every(o=>Date.parse(o.occurred_at)>=Date.parse(d.occurred_at))));
+});

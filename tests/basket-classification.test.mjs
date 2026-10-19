@@ -65,3 +65,27 @@ test('unsupported optional-ID kinds cannot inherit an existing project summary o
   assert.equal(target.error,'NEXT_STAGE');for(const key of ['action','summary','linkId','expectedSummary'])assert.equal(Object.hasOwn(target,key),false,key);
  }
 });
+
+// BASKET-분류중복·변화반영 ①: verdict keys (synthetic ids only).
+const rid='50000000-0000-4000-8000-000000000001', rid2='50000000-0000-4000-8000-000000000002';
+const withVerdict=(extra)=>{const d=proposal();Object.assign(d.items[0].destinations[0],extra);return d;};
+test('verdict and compared_link_ids parse; old answers still pass; unknown keys, verdicts and ids are rejected',()=>{
+ assert.equal(parseClassification(JSON.stringify(proposal())).items[0].destinations[0].verdict,undefined);
+ const ok=withVerdict({verdict:'duplicate',compared_link_ids:[rid.toUpperCase(),rid2]});
+ const out=parseClassification('```json\n'+JSON.stringify(ok)+'\n```').items[0].destinations[0];
+ assert.deepEqual(out.compared_link_ids,[rid,rid2]);assert.equal(out.verdict,'duplicate');
+ for(const bad of [{verdict:'same'},{verdict:'changed',compared_link_ids:'x'},{compared_link_ids:['not-uuid']},{compared_link_ids:Array(6).fill(rid)},{extra:1}])assert.throws(()=>parseClassification(JSON.stringify(withVerdict(bad))),/행.*열/);
+});
+test('preview accepts a verdict only with compared ids that the request carried for that destination',()=>{
+ const sent=[{id:rid,kind:'project',target_id:p}];
+ const dup=previewClassification(parseClassification(JSON.stringify(withVerdict({verdict:'duplicate',compared_link_ids:[rid]}))),{...snapshot(),sentRecords:sent})[0].destinations[0];
+ assert.equal(dup.verdict,'duplicate');assert.equal(dup.excluded,true);assert.equal(dup.excludedReason,'already_recorded');assert.equal(dup.reason,proposal().items[0].destinations[0].reason);
+ const chg=previewClassification(parseClassification(JSON.stringify(withVerdict({verdict:'changed',compared_link_ids:[rid]}))),{...snapshot(),sentRecords:sent})[0].destinations[0];
+ assert.equal(chg.verdict,'changed');assert.equal(chg.excluded,undefined);
+ for(const [extra,records] of [[{verdict:'duplicate',compared_link_ids:[rid2]},sent],[{verdict:'duplicate'},sent],[{verdict:'changed',compared_link_ids:[rid]},[]],[{verdict:'changed',compared_link_ids:[rid]},[{id:rid,kind:'organization',target_id:p}]]]){
+  const t=previewClassification(parseClassification(JSON.stringify(withVerdict(extra))),{...snapshot(),sentRecords:records})[0].destinations[0];
+  assert.equal(t.verdict,'new');assert.equal(t.verdictNoBasis,true);assert.equal(t.excluded,undefined);
+ }
+ const plain=previewClassification(proposal(),snapshot())[0].destinations[0];
+ assert.equal(plain.verdict,'new');assert.equal(plain.verdictNoBasis,false);
+});
