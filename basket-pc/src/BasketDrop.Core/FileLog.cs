@@ -4,7 +4,7 @@ namespace BasketDrop;
 public enum LogCode
 {
     Started, Stopped, HotkeyFailed, HotkeyOk, Enqueued, SendOk, SendNotReached, SendUnknown,
-    SendRejected, LoginRequired, QueueFull, QueueRecovered, UpdateCheck, Error,
+    SendRejected, LoginRequired, QueueFull, QueueRecovered, UpdateCheck, UpdateDownloaded, UpdateFailed, Error,
     SignInOk, SignInFailed, SignedOut, NotOwner, ReloginNeeded,
 }
 

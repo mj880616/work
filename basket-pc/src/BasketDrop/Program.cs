@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
+using Velopack;
 
 namespace BasketDrop.App;
 
@@ -16,6 +17,9 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        // Must come first: the installer starts this program with special arguments (install, update, uninstall).
+        VelopackApp.Build().OnBeforeUninstallFastCallback(_ => CleanUpForUninstall()).Run();
+
         using var mutex = new Mutex(true, MutexName, out var isFirst);
         var paths = args.Where(a => a.Length is > 0 and <= MaxPathChars && Path.IsPathRooted(a) && (File.Exists(a) || Directory.Exists(a))).ToList();
 
@@ -32,6 +36,18 @@ internal static class Program
         listener.Start();
         if (paths.Count > 0) app.ReceivePaths(paths);
         Application.Run(app);
+    }
+
+    /// <summary>
+    /// Uninstall removes what the program put outside its own folder: the start-with-Windows entry, the right-click
+    /// Send to entry, and the saved login. The waiting queue and history folder is kept so a reinstall can pick it up.
+    /// Each step is independent; one failing must not block the uninstall.
+    /// </summary>
+    private static void CleanUpForUninstall()
+    {
+        try { new RegistryStartup().RemoveRunValue(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
+        try { SendToShortcut.Remove(); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        try { new CredentialManagerTokenStore().Delete(); } catch (TokenStoreException) { }
     }
 
     private static void Listen(TrayApp app)

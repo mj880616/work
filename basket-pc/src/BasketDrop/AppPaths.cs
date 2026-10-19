@@ -7,6 +7,7 @@ internal static class AppPaths
 
     public static string Queue => Path.Combine(Root, "queue");
     public static string History => Path.Combine(Root, "history.json");
+    public static string Settings => Path.Combine(Root, "settings.json");
     public static string Log => Path.Combine(Root, "log.txt");
 
     /// <summary>The basket lives in Web2; this only opens the page, nothing is passed in the address.</summary>

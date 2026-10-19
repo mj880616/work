@@ -30,6 +30,13 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _loginStatusItem = new("로그인 상태") { Enabled = false };
     private readonly ToolStripMenuItem _signInItem = new("구글로 로그인");
     private readonly ToolStripMenuItem _signOutItem = new("로그아웃");
+    private readonly ToolStripMenuItem _sendNowItem = new();
+    private readonly ToolStripMenuItem _hotkeyMenu = new("단축키 바꾸기");
+    private readonly ToolStripMenuItem _autoStartItem = new("윈도우를 켤 때 자동 실행");
+    private readonly ToolStripMenuItem _restartForUpdateItem = new("새 버전으로 다시 시작") { Visible = false };
+    private readonly SettingsStore _settings = new(AppPaths.Settings);
+    private readonly AutoStartManager _autoStart;
+    private readonly UpdateService _updates;
     private CancellationTokenSource? _signInCts;
     private PasteForm? _paste;
     private StatusForm? _status;
@@ -61,14 +68,21 @@ internal sealed class TrayApp : ApplicationContext
         _tray.ContextMenuStrip = BuildMenu();
         _tray.DoubleClick += (_, _) => ShowPaste();
 
-        _hotkey = new HotkeyWindow();
+        var wanted = HotkeyChoice.FromId(_settings.Load().Hotkey);
+        _hotkey = new HotkeyWindow(wanted);
         _hotkey.Pressed += OnHotkey;
         if (!_hotkey.Registered)
         {
             _log.Write(LogCode.HotkeyFailed);
-            Balloon("Ctrl+Shift+B를 등록하지 못했어요. 다른 프로그램이 쓰고 있어요. 트레이 메뉴의 붙여넣기 창은 그대로 쓸 수 있어요.", ToolTipIcon.Warning);
+            Balloon($"{wanted.Label}를 등록하지 못했어요. 다른 프로그램이 쓰고 있어요. 트레이 메뉴의 [단축키 바꾸기]로 다른 키를 고르거나, 붙여넣기 창을 쓰세요.", ToolTipIcon.Warning);
         }
         else _log.Write(LogCode.HotkeyOk);
+        RefreshHotkeyMenu();
+
+        _autoStart = new AutoStartManager(new RegistryStartup(), _settings, UpdateService.IsInstalled ? Environment.ProcessPath : null);
+        SyncAutoStart();
+        _updates = new UpdateService(_log);
+        _ = Task.Run(UpdateLoopAsync);
 
         _batchTimer.Tick += (_, _) => FlushBatch();
         _log.Write(LogCode.Started);
@@ -85,7 +99,8 @@ internal sealed class TrayApp : ApplicationContext
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add("붙여넣기 창 열기", null, (_, _) => ShowPaste());
-        menu.Items.Add("지금 복사한 것 바로 보내기 (Ctrl+Shift+B)", null, (_, _) => OnHotkey());
+        _sendNowItem.Click += (_, _) => OnHotkey();
+        menu.Items.Add(_sendNowItem);
         menu.Items.Add("보낸 기록·대기열", null, (_, _) => ShowStatus());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_loginStatusItem);
@@ -98,9 +113,137 @@ internal sealed class TrayApp : ApplicationContext
         _sendToItem.Checked = SendToShortcut.Exists;
         _sendToItem.Click += (_, _) => ToggleSendTo();
         menu.Items.Add(_sendToItem);
+        foreach (var choice in HotkeyChoice.All)
+        {
+            var item = new ToolStripMenuItem(choice.Label) { Tag = choice };
+            item.Click += (_, _) => ChangeHotkey(choice);
+            _hotkeyMenu.DropDownItems.Add(item);
+        }
+        menu.Items.Add(_hotkeyMenu);
+        _autoStartItem.Click += (_, _) => ToggleAutoStart();
+        menu.Items.Add(_autoStartItem);
+        _restartForUpdateItem.Click += (_, _) => RestartForUpdate();
+        menu.Items.Add(_restartForUpdateItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("종료", null, (_, _) => Quit());
         return menu;
+    }
+
+    // ---- hotkey ----
+
+    private void RefreshHotkeyMenu()
+    {
+        var current = _hotkey.Current;
+        _sendNowItem.Text = current == null ? "지금 복사한 것 바로 보내기" : $"지금 복사한 것 바로 보내기 ({current.Label})";
+        foreach (ToolStripMenuItem item in _hotkeyMenu.DropDownItems) item.Checked = Equals(item.Tag, current);
+    }
+
+    /// <summary>The previous key stays when Windows refuses the new one, and nothing is saved.</summary>
+    private void ChangeHotkey(HotkeyChoice choice)
+    {
+        var before = _hotkey.Current;
+        if (_hotkey.TryChange(choice))
+        {
+            var s = _settings.Load();
+            s.Hotkey = choice.Id;
+            try { _settings.Save(s); }
+            catch (IOException) { _log.Write(LogCode.Error); }
+            _log.Write(LogCode.HotkeyOk);
+            ToastForm.Show($"단축키를 {choice.Label}(으)로 바꿨어요.");
+        }
+        else
+        {
+            _log.Write(LogCode.HotkeyFailed);
+            Balloon(before == null
+                ? $"{choice.Label}를 등록하지 못했어요. 다른 프로그램이 쓰고 있어요. 다른 키를 골라 주세요."
+                : $"{choice.Label}를 등록하지 못했어요. 다른 프로그램이 쓰고 있어요. 지금 단축키 {before.Label}는 그대로 쓸 수 있어요.", ToolTipIcon.Warning);
+        }
+        RefreshHotkeyMenu();
+    }
+
+    // ---- start with Windows ----
+
+    private void SyncAutoStart()
+    {
+        AutoStartState state;
+        try { state = _autoStart.Sync(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            _log.Write(LogCode.Error);
+            return;
+        }
+        ShowAutoStart(state);
+    }
+
+    private void ToggleAutoStart()
+    {
+        var wasOn = _autoStartItem.Checked;
+        if (_autoStartItem.Tag is AutoStartState.DisabledInWindows)
+        {
+            ToastForm.Show("윈도우 설정의 [앱 > 시작 프로그램]에서 꺼져 있어요. 거기서 켜 주세요.", true);
+            return;
+        }
+        AutoStartState state;
+        try { state = _autoStart.SetEnabled(!wasOn); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            _log.Write(LogCode.Error);
+            ToastForm.Show("자동 실행 설정을 바꾸지 못했어요.", true);
+            return;
+        }
+        ShowAutoStart(state);
+    }
+
+    private void ShowAutoStart(AutoStartState state)
+    {
+        _autoStartItem.Tag = state;
+        _autoStartItem.Checked = state == AutoStartState.On;
+        _autoStartItem.Enabled = state != AutoStartState.NotInstalled;
+        _autoStartItem.Text = state switch
+        {
+            AutoStartState.DisabledInWindows => "윈도우를 켤 때 자동 실행 (윈도우 설정에서 꺼져 있어요)",
+            AutoStartState.NotInstalled => "윈도우를 켤 때 자동 실행 (설치한 프로그램에서만)",
+            _ => "윈도우를 켤 때 자동 실행",
+        };
+    }
+
+    // ---- updates ----
+
+    private async Task UpdateLoopAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(20), _stop.Token).ConfigureAwait(false);
+            while (!_stop.IsCancellationRequested)
+            {
+                var outcome = await _updates.CheckAsync(_stop.Token).ConfigureAwait(false);
+                if (outcome == UpdateOutcome.NotInstalled) return;
+                if (outcome == UpdateOutcome.Downloaded)
+                {
+                    Ui(() =>
+                    {
+                        _restartForUpdateItem.Visible = true;
+                        ToastForm.Show($"새 버전 {_updates.PendingVersion}을 받았어요. 다음에 프로그램을 켤 때 적용돼요. 지금 쓰려면 트레이 메뉴의 [새 버전으로 다시 시작]을 눌러 주세요.");
+                    });
+                    return;
+                }
+                await Task.Delay(TimeSpan.FromHours(12), _stop.Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void RestartForUpdate()
+    {
+        _signInCts?.Cancel();
+        _stop.Cancel();
+        _hotkey.Dispose();
+        _tray.Visible = false;
+        _log.Write(LogCode.Stopped);
+        _updates.ApplyAndRestart();
+        ExitThread();
     }
 
     private void ToggleSendTo()

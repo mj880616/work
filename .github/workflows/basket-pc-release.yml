@@ -1,0 +1,79 @@
+name: Basket PC release
+
+# Builds the installer and the update packages for BASKET-PC드롭 and publishes them as a GitHub release.
+# It runs only for a tag basket-pc-vX.Y.Z that points at a commit already on main, and only after the
+# `basket-pc-release` environment is approved by its reviewer. No secret other than the run's own token is used.
+# Nothing here touches the database, the edge functions, the web hosting or any other production service.
+
+on:
+  push:
+    tags:
+      - 'basket-pc-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: basket-pc-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    environment: basket-pc-release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      PACK_ID: BasketDropApp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the tag
+        shell: bash
+        run: |
+          if ! [[ "$GITHUB_REF_NAME" =~ ^basket-pc-v[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$ ]]; then
+            echo "Tag must look like basket-pc-v1.2.3"
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "The tagged commit is not on main"
+            exit 1
+          fi
+          echo "VERSION=${GITHUB_REF_NAME#basket-pc-v}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test (fake server only, no production calls)
+        run: dotnet test basket-pc/tests/BasketDrop.Tests -c Release
+
+      - name: Publish (self-contained, so no runtime install and no administrator rights)
+        run: dotnet publish basket-pc/src/BasketDrop/BasketDrop.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:DebugType=none -o publish
+
+      - name: Pack installer and update packages
+        run: |
+          dotnet tool install vpk --version 1.2.161 --tool-path vpk-tool
+          ./vpk-tool/vpk pack --packId $env:PACK_ID --packVersion $env:VERSION --packDir publish --mainExe BasketDrop.exe --packTitle "BasketDrop" --outputDir releases
+
+      - name: Record where the files came from
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: releases/*
+
+      - name: Publish the release (draft first, public only when every file is uploaded)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" releases/* --verify-tag --draft --latest=false \
+            --title "Basket PC drop $VERSION" \
+            --notes "Installer: ${PACK_ID}-win-Setup.exe. The installed program updates itself from this repository's basket-pc-v releases."
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest=false

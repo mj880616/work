@@ -101,6 +101,61 @@ public class SourceRulesTests
     }
 
     [Fact]
+    public void The_hotkey_uses_RegisterHotKey_only_and_no_keyboard_hook()
+    {
+        var users = Sources().Where(f => File.ReadAllText(f).Contains("RegisterHotKey(")).Select(Path.GetFileName).ToList();
+        Assert.Equal(new[] { "HotkeyWindow.cs" }, users);
+        foreach (var file in Sources())
+            Assert.DoesNotMatch(@"SetWindowsHookEx|WH_KEYBOARD|GetAsyncKeyState|GetKeyboardState|GetKeyState|RegisterRawInputDevices|SendKeys", File.ReadAllText(file));
+    }
+
+    [Fact]
+    public void Update_addresses_are_decided_in_one_file_and_never_point_at_latest_or_other_repositories()
+    {
+        foreach (var file in Sources())
+        {
+            var text = File.ReadAllText(file);
+            var name = Path.GetFileName(file);
+            if (name != "UpdatePolicy.cs")
+            {
+                Assert.DoesNotContain("github.com", text);
+                Assert.DoesNotContain("githubusercontent", text);
+            }
+            Assert.DoesNotContain("releases/latest", text);
+            Assert.DoesNotContain("GithubSource", text); // it takes whichever release is newest, whatever its tag
+            if (name != "UpdateService.cs") Assert.DoesNotContain("SimpleWebSource", text);
+        }
+        var service = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "UpdateService.cs"));
+        Assert.Contains("UpdatePolicy.ReleaseBase(tag)", service);
+        Assert.Contains("new TrustedDownloader(", service);
+        Assert.Contains("AllowVersionDowngrade = false", service);
+    }
+
+    [Fact]
+    public void App_files_and_user_data_live_in_different_folders()
+    {
+        // The installer owns the app folder and deletes it on update/uninstall; the queue must never be inside it.
+        var paths = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "AppPaths.cs"));
+        Assert.Contains("\"BasketDrop\")", paths);
+        var workflow = Path.Combine(Root(), "..", ".github", "workflows", "basket-pc-release.yml");
+        var release = File.ReadAllText(workflow);
+        Assert.Contains("PACK_ID: BasketDropApp", release);
+        Assert.Contains("--packId $env:PACK_ID", release);
+    }
+
+    [Fact]
+    public void Uninstall_removes_the_login_and_the_entries_but_not_the_queue()
+    {
+        var program = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "Program.cs"));
+        Assert.Contains("OnBeforeUninstallFastCallback", program);
+        Assert.Contains("RemoveRunValue()", program);
+        Assert.Contains("CredentialManagerTokenStore().Delete()", program);
+        Assert.Contains("SendToShortcut.Remove()", program);
+        Assert.DoesNotContain("AppPaths.Root", program);
+        Assert.DoesNotContain("AppPaths.Queue", program);
+    }
+
+    [Fact]
     public void Auth_requests_go_over_https_and_use_no_service_key()
     {
         var client = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop.Core", "AuthClient.cs"));
