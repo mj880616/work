@@ -53,7 +53,8 @@ for (const width of [390, 1280]) {
       pickerHeight: el.getBoundingClientRect().height,
       zoneHeight: el.querySelector('[data-basket-clip]').getBoundingClientRect().height,
     }));
-    expect(values.detail.pickerHeight).toBeLessThanOrEqual(width === 390 ? 44 : 80);
+    // UI-PC바구니첨부버튼: the edit screen's [📎 첨부] is the shared button (--ds-control-height 46px) on both widths.
+    expect(values.detail.pickerHeight).toBeLessThanOrEqual(width === 390 ? 46 : 80);
     expect(values.detail.zoneHeight).toBeGreaterThanOrEqual(44);
     await saveShot('detail');
     await verifySelection(detail, 'detail');
