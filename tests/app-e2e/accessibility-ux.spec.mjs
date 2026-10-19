@@ -145,7 +145,8 @@ test('PC task detail pane is a labelled region, closes on Escape, and restores r
   await boot(page,{width:1024,height:768});
   await clickView(page,'tasks');
   const trigger=page.locator('#gtTaskBody [data-gt-edit]').first();
-  await trigger.focus();
+  // The first Google load replaces the "loading" body once; focus a card of the loaded list (later re-renders keep it).
+  await expect.poll(async()=>{await trigger.focus();return trigger.evaluate(el=>el===document.activeElement&&el.closest('.gt-card')!==null)}).toBe(true);
   await page.keyboard.press('Enter');
   const pane=page.locator('#gtDetailPane'),editor=pane.locator('#gtTaskModal');
   await expect(editor).toBeVisible();
