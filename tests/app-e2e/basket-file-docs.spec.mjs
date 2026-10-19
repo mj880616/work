@@ -247,16 +247,17 @@ test('a memo with text still needs a summary, and its attachment goes into that 
  expect(f.errors).toEqual([]);
 });
 
-test('an organization keeps the record path for now and says its files come later',async({page})=>{
+// UI-바구니첨부메모 PR 3 ⑨: 담당조직도 프로젝트와 같은 흐름이다(자세한 검사는 attach-memo-org.spec.mjs).
+test('an organization takes the files as its documents with no record, like a project',async({page})=>{
  const f=await fixture(page,{width:390}),detail=await openNote(page,ONLY,390);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),390);await pick(page,detail,'organization','합성 한빛지부',390);
  const target=detail.locator(`[data-manual-target="organization:${O}"]`);
- await expect(target).toContainText('조직에 자료로 넣기는 곧 돼요. 지금은 기록만 남겨요.');
- await target.locator('textarea').fill('한빛지부 요구안 전달');
- await tap(page,detail.getByRole('button',{name:'연결',exact:true}),390);
- await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
- expect(f.rpc[0].p_targets).toEqual([{kind:'organization',target_id:O,reason:'직접 연결',summary:'한빛지부 요구안 전달'}]);
- expect(f.sends).toEqual([]);expect(f.calls('app_documents','PATCH')).toEqual([]);
+ await expect(target.locator('textarea')).toHaveCount(0);
+ await expect(target.locator('[data-manual-file-note]')).toHaveText('파일 2개를 이 담당조직 자료로 넣어요.');
+ await tap(page,detail.getByRole('button',{name:'자료로 넣기',exact:true}),390);
+ await expect(detail.locator('[data-basket-status]')).toHaveText('파일 2개를 합성 한빛지부 자료로 넣었어요.');
+ expect(f.rpc).toEqual([]);expect(f.tables.app_record_links).toEqual([]);
+ expect(f.calls('app_documents','PATCH').map(c=>[c.query.id,c.body.organization_id,c.body.project_id])).toEqual([['eq.doc-hwp',O,undefined],['eq.doc-pdf',O,undefined]]);
  expect(f.errors).toEqual([]);
 });
 

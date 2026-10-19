@@ -1,7 +1,7 @@
 // The shared runtime supplies JWTs; the existing owner RLS decides access.
 // No note content or drafts are persisted in browser storage.
 import { noteTasks } from './basket-note-tasks.js';
-import { DOCUMENT_CATEGORIES, categoryOf } from './document-categories.js';
+import { documentCategories, categoryOf } from './document-categories.js';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -55,9 +55,10 @@ export async function readBasket(rt = window.KPTURuntime) {
   const result = await readKind('basket', 'id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata', 'occurred_at.desc,id.desc', rt);
   return {...result, docs: await readFiledDocs(result.notes, rt)};
 }
-// BUG-자료넣기미분류: [자료로 넣기] puts a memo's files into a project as library documents (app_documents.project_id)
-// without a record link. Which project holds each attachment is read from those documents (same Drive file id,
-// first registered one, as basket-file-docs.js does); no new state is stored. A failed read only hides the
+// BUG-자료넣기미분류: [자료로 넣기] puts a memo's files into a project or an organization as library documents
+// (app_documents.project_id / organization_id; UI-바구니첨부메모 PR 3) without a record link. Which project or
+// organization holds each attachment is read from those documents (same Drive file id, first registered one,
+// as basket-file-docs.js does); no new state is stored. A failed read only hides the
 // "○○ · 자료" lines, it never blocks the basket.
 const DRIVE_ID = /^[A-Za-z0-9_-]{1,255}$/;
 async function readFiledDocs(notes, rt) {
@@ -66,17 +67,31 @@ async function readFiledDocs(notes, rt) {
   try {
     const scope = `workspace_id=eq.${workspace(rt)}`, first = new Map();
     for (let start = 0; start < ids.length; start += PAGE_SIZE) {
-      for (const row of await pages(`/rest/v1/app_documents?${scope}&file_id=in.(${ids.slice(start, start + PAGE_SIZE).join(',')})&select=id,file_id,project_id,category&order=created_at.asc,id.asc`, rt))
+      for (const row of await pages(`/rest/v1/app_documents?${scope}&file_id=in.(${ids.slice(start, start + PAGE_SIZE).join(',')})&select=id,file_id,project_id,organization_id,category&order=created_at.asc,id.asc`, rt))
         if (row?.file_id && !first.has(row.file_id)) first.set(row.file_id, row);
     }
-    const docs = [...first.values()].filter(row => row.project_id);
-    const projects = [...new Set(docs.map(row => row.project_id))], names = new Map();
-    for (let start = 0; start < projects.length; start += PAGE_SIZE) {
-      const list = projects.slice(start, start + PAGE_SIZE).map(encodeURIComponent).join(',');
-      for (const row of await pages(`/rest/v1/app_spaces?${scope}&id=in.(${list})&select=id,name&order=id.asc`, rt)) names.set(row.id, row.name);
-    }
-    return docs.map(row => ({id: row.id, file_id: row.file_id, project_id: row.project_id, category: row.category ?? null, project: {name: names.get(row.project_id) || ''}}));
+    const docs = [...first.values()].filter(row => row.project_id || row.organization_id);
+    const names = async (table, ids) => {
+      const found = new Map(), unique = [...new Set(ids)];
+      for (let start = 0; start < unique.length; start += PAGE_SIZE) {
+        const list = unique.slice(start, start + PAGE_SIZE).map(encodeURIComponent).join(',');
+        for (const row of await pages(`/rest/v1/${table}?${scope}&id=in.(${list})&select=id,name&order=id.asc`, rt)) found.set(row.id, row.name);
+      }
+      return found;
+    };
+    const projectNames = await names('app_spaces', docs.map(row => row.project_id).filter(Boolean));
+    const organizationNames = await names('app_suborganizations', docs.map(row => row.organization_id).filter(Boolean));
+    return docs.map(row => ({id: row.id, file_id: row.file_id, project_id: row.project_id || null, organization_id: row.organization_id || null, category: row.category ?? null, project: {name: projectNames.get(row.project_id) || ''}, organization: {name: organizationNames.get(row.organization_id) || ''}}));
   } catch { return []; }
+}
+// The organizations that hold this memo's attachments as documents, once each, in attachment order.
+export function filedOrganizations(note, docs = []) {
+  const byFile = new Map(docs.map(doc => [doc.file_id, doc])), seen = new Map();
+  for (const file of Array.isArray(note?.attachments) ? note.attachments : []) {
+    const doc = byFile.get(String(file?.drive_file_id || ''));
+    if (doc?.organization_id && !seen.has(doc.organization_id)) seen.set(doc.organization_id, {organization_id: doc.organization_id, name: doc.organization?.name || '조직'});
+  }
+  return [...seen.values()];
 }
 // The projects that hold this memo's attachments as documents, once each, in attachment order.
 export function filedProjects(note, docs = []) {
@@ -149,9 +164,9 @@ export function noteState(note, links, docs = []) {
     }
     return '연결 대상 없음';
   });
-  const filed = filedProjects(note, docs);
-  destinations.push(...filed.map(p => `프로젝트 자료: ${p.name}`));
-  return {status:note.archived_at ? '보관' : confirmed.length || filed.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
+  const filed = filedProjects(note, docs), filedOrgs = filedOrganizations(note, docs);
+  destinations.push(...filedOrgs.map(o => `담당조직 자료: ${o.name}`), ...filed.map(p => `프로젝트 자료: ${p.name}`));
+  return {status:note.archived_at ? '보관' : confirmed.length || filed.length || filedOrgs.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
 }
 // UI-바구니거르기: where a classified memo went, from what is already read (no stored state):
 // confirmed record links by target kind, [자료로 넣기] documents (a project's library documents, so both
@@ -167,6 +182,7 @@ export function notePlaces(note, links, docs = []) {
     if (link.meeting_id) places.add('meeting');
   }
   if (filedProjects(note, docs).length) { places.add('project'); places.add('library'); }
+  if (filedOrganizations(note, docs).length) { places.add('organization'); places.add('library'); }
   if (noteTasks(note).length) places.add('task');
   return places;
 }
@@ -196,7 +212,7 @@ function filedDocs(note, docs) {
   const byFile = new Map(docs.map(doc => [doc.file_id, doc])), seen = new Map();
   for (const file of Array.isArray(note?.attachments) ? note.attachments : []) {
     const doc = byFile.get(String(file?.drive_file_id || ''));
-    if (doc?.project_id && !seen.has(doc.id ?? doc.file_id)) seen.set(doc.id ?? doc.file_id, doc);
+    if ((doc?.project_id || doc?.organization_id) && !seen.has(doc.id ?? doc.file_id)) seen.set(doc.id ?? doc.file_id, doc);
   }
   return [...seen.values()];
 }
@@ -210,7 +226,8 @@ function placeTargetNames(note, links, docs, place) {
     if (place === 'library' && link.document_id) targets.set(categoryOf(link.document?.category), '');
   }
   for (const doc of filedDocs(note, docs)) {
-    if (place === 'project' && !targets.get(doc.project_id)) targets.set(doc.project_id, doc.project?.name || '');
+    if (place === 'project' && doc.project_id && !targets.get(doc.project_id)) targets.set(doc.project_id, doc.project?.name || '');
+    if (place === 'organization' && doc.organization_id && !targets.get(doc.organization_id)) targets.set(doc.organization_id, doc.organization?.name || '');
     if (place === 'library') targets.set(categoryOf(doc.category), '');
   }
   return targets;
@@ -228,7 +245,7 @@ export function placeSubOptions(notes, links, docs, place) {
     if (name && !names.get(key)) names.set(key, name);
   }
   const head = {value:'all', label:`${allLabel} ${inPlace.length}`};
-  if (place === 'library') return [head, ...DOCUMENT_CATEGORIES.map(name => ({value:name, label:name}))];
+  if (place === 'library') return [head, ...documentCategories().map(name => ({value:name, label:name}))];
   const fallback = place === 'organization' ? '조직' : '프로젝트';
   const rows = [...counts].map(([value, count]) => ({value, label:names.get(value) || fallback, count}));
   rows.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko'));

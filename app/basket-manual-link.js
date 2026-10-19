@@ -73,16 +73,15 @@ export async function readManualChoices(rt=window.KPTURuntime){
   const after=rt.context.read();
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
   const order=window.KPTUOrganizationOrder,organizations=order.forPicker(selectBasketOrganizations(rows,assignees).organizations);
-  return {owner:`${userId}:${workspaceId}`,organizations,groups:order.groups(organizations),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active')};
+  return {owner:`${userId}:${workspaceId}`,organizations,organizationNames:new Map(rows.map(row=>[row.id,row.name])),groups:order.groups(organizations),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active')};
 }
 
 // One link panel and one task form inside the basket read view. basket.js keeps
 // owning the detail; this controller owns only what is drawn into its host.
 // sheetId: each mounted panel needs its own choice sheet (the basket memo side and the note side, MEMO-노트).
-// UI-바구니첨부메모 ⑦⑧: files (optional) = {read:()=>({files,docs}), put:(projectId,isCurrent)=>result}.
-// 글 없이 첨부만 있는 메모는 프로젝트를 고르면 요약 없이 [자료로 넣기](진행상황에 안 남음), 원할 때만 [기록도 남기기].
-// 글이 있는 메모는 지금처럼 요약 필수 기록이고, 첨부가 있으면 파일은 첫 번째로 고른 프로젝트 자료에도 들어간다.
-// 담당조직 자료는 DB 적용 뒤(PR 3)라 지금은 기록만 남긴다.
+// UI-바구니첨부메모 ⑦⑧⑨: files (optional) = {read:()=>({files,docs}), put:({projectId,organizationId,projectName,organizationName},isCurrent)=>result}.
+// 글 없이 첨부만 있는 메모는 프로젝트·담당조직을 고르면 요약 없이 [자료로 넣기](진행상황·기록에 안 남음), 원할 때만 [기록도 남기기].
+// 글이 있는 메모는 지금처럼 요약 필수 기록이고, 첨부가 있으면 파일은 첫 번째로 고른 프로젝트·첫 번째로 고른 담당조직 자료에도 들어간다.
 export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBusy,setBusy,onLinked,onNoteChanged,onModeChange,onTaskRecorded,files:fileDocs=null,sheetId='basketLinkChoice'}){
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let host=null,mode=null,noteId=null,choices=null,choicesFlight=null,seq=0;
@@ -91,9 +90,11 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   const linked=()=>linkedDestinations(noteId,getLinks());
   const fileState=()=>{const value=fileDocs?.read?.();return {files:Array.isArray(value?.files)?value.files:[],docs:value?.docs instanceof Map?value.docs:new Map()};};
   const filesOnly=n=>!!n&&!String(n.raw_text||'').trim()&&fileState().files.length>0;
-  // The first chosen project takes the files (a document belongs to one project).
-  const fileTarget=()=>fileState().files.length?link.targets.find(t=>t.kind==='project')||null:null;
+  // The first chosen project and the first chosen organization take the files (a document belongs to one project and one organization).
+  const fileTargets=()=>{const has=fileState().files.length>0;return {project:has?link.targets.find(t=>t.kind==='project')||null:null,organization:has?link.targets.find(t=>t.kind==='organization')||null:null};};
   const projectName=id=>choices?.projects.find(x=>x.project.id===id)?.project.name||window.KPTUProjectCatalog?.describe?.(id)?.name||'다른 프로젝트';
+  const organizationName=id=>choices?.organizationNames?.get(id)||choices?.organizations.find(o=>o.id===id)?.name||'다른 조직';
+  const placeName={project:projectName,organization:organizationName};
   async function loadChoices(){
     if(choices&&choices.owner===scope())return choices;
     if(choicesFlight)return choicesFlight;
@@ -123,7 +124,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
       if(!existing){
         if(link.targets.length>=MANUAL_LINK_LIMIT){link.status=`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`;paint();return;}
         const name=kind==='organization'?choices.organizations.find(o=>o.id===value)?.name:choices.projects.find(x=>x.project.id===value)?.project.name;
-        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:kind==='organization'||!filesOnly(note())});link.status='';
+        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:!filesOnly(note())});link.status='';
       }
       paint();
       // The sheet returns focus to its trigger once its history entry is gone; the new summary is
@@ -134,11 +135,11 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   });
   function targetFiles(t){
     const {files,docs}=fileState();if(!files.length)return '';
-    if(t.kind==='organization')return '<p class="basket-manual-file-note">조직에 자료로 넣기는 곧 돼요. 지금은 기록만 남겨요.</p>';
-    const into=fileTarget();
+    const into=fileTargets()[t.kind];
     if(into?.id!==t.id)return `<p class="basket-manual-file-note">파일은 ${esc(into?.name||'')} 한 곳에만 들어가요.</p>`;
-    const from=[...new Set(files.map(f=>docs.get(f.drive_file_id)?.project_id).filter(id=>id&&id!==t.id))].map(projectName);
-    return `<p class="basket-manual-file-note" data-manual-file-note>파일 ${files.length}개를 이 프로젝트 자료로 넣어요.${from.length?` ${esc(from.join(', '))}에서 옮겨요.`:''}</p>`;
+    const column=t.kind+'_id';
+    const from=[...new Set(files.map(f=>docs.get(f.drive_file_id)?.[column]).filter(id=>id&&id!==t.id))].map(placeName[t.kind]);
+    return `<p class="basket-manual-file-note" data-manual-file-note>파일 ${files.length}개를 이 ${KIND_NAME[t.kind]} 자료로 넣어요.${from.length?` ${esc(from.join(', '))}에서 옮겨요.`:''}</p>`;
   }
   function confirmLabel(n){return filesOnly(n)&&link.targets.every(t=>!t.record)?'자료로 넣기':'연결';}
   function linkMarkup(n){
@@ -147,8 +148,8 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
 ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'')}</div></details>`}
 <div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 수 없어요.</p>`:''}
-<p class="basket-manual-hint">${only?'프로젝트를 고르면 파일을 그 프로젝트 자료로 넣어요. 진행상황에는 남지 않아요.':'고른 곳마다 요약을 직접 써 주세요. 일시·장소·누가·숫자를 빠짐없이 적어 주세요.'}</p>
-<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind==='project'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (필수)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>`:''}</div>`;}).join('')}</div>
+<p class="basket-manual-hint">${only?'담당조직이나 프로젝트를 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 써 주세요. 일시·장소·누가·숫자를 빠짐없이 적어 주세요.'}</p>
+<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (필수)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>`:''}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${esc(link.status)}</p>
 <div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm>${confirmLabel(n)}</button><button type="button" data-manual-cancel>취소</button></div></section>`;
   }
@@ -216,23 +217,23 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
   async function confirm(){
     const n=note();if(mode!=='link'||!n||isBusy())return;
     const done=linked();link.targets=link.targets.filter(t=>!done.has(linkKey(t.kind,t.id)));
-    const records=link.targets.filter(t=>t.record),into=fileTarget();
+    const records=link.targets.filter(t=>t.record),into=fileTargets(),filing=into.project||into.organization;
     const invalid=!link.targets.length||link.targets.length>MANUAL_LINK_LIMIT?invalidManualSelection(link.targets):records.length?invalidManualSelection(records):null;
     if(invalid){link.status=invalid.message;paint();if(invalid.index>=0)host.querySelector(`[data-manual-summary="${CSS.escape(linkKey(records[invalid.index].kind,records[invalid.index].id))}"]`)?.focus();return;}
     const run=++seq,owner=scope(),id=n.id;
     const current=()=>run===seq&&owner===scope()&&note()?.id===id&&window.KPTURouter.current==='basket';
     let linkedResult={created:0,existing:0,warning:''};
-    if(records.length){linkedResult=await linkRecords(n,records,current,owner,{keepBusy:!!into});if(!linkedResult)return;}
+    if(records.length){linkedResult=await linkRecords(n,records,current,owner,{keepBusy:!!filing});if(!linkedResult)return;}
     let filed=null;
-    if(into){
+    if(filing){
       setBusy(true);link.status='자료로 넣는 중…';paint();
-      try{filed=await fileDocs.put(into.id,current);}catch{filed={ok:false,kind:'unknown',message:'자료로 넣었는지 확인하지 못했어요. 자료실에서 먼저 확인해 주세요.'};}
+      try{filed=await fileDocs.put({projectId:into.project?.id||null,organizationId:into.organization?.id||null,projectName:into.project?.name||'',organizationName:into.organization?.name||''},current);}catch{filed={ok:false,kind:'unknown',message:'자료로 넣었는지 확인하지 못했어요. 자료실에서 먼저 확인해 주세요.'};}
       setBusy(false);
       if(!current())return;
       // Nothing linked and the files did not go in: keep the panel so the person can try again (sending is idempotent).
       if(!filed.ok&&!records.length){link.status=filed.message;paint();return;}
     }
-    finish(linkedResult.created,linkedResult.existing,linkedResult.warning,{records:records.length,into,filed});
+    finish(linkedResult.created,linkedResult.existing,linkedResult.warning,{records:records.length,into:filing?into:null,filed});
   }
   // The record path (app_basket_confirm_links). Returns the counts, or null when it already painted why it stopped.
   async function linkRecords(n,records,current,owner,{keepBusy=false}={}){
@@ -262,7 +263,8 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
   }
   function finish(created,existing,warning='',{records=1,into=null,filed=null}={}){
     reset();paint();
-    const files=!into?'':filed?.ok?`파일 ${filed.placed}개를 ${into.name} 자료로 넣었어요.`:filed?.message||'';
+    const names=into?[into.project?.name,into.organization?.name].filter(Boolean).join('·'):'';
+    const files=!into?'':filed?.ok?`파일 ${filed.placed}개를 ${names} 자료로 넣었어요.`:filed?.message||'';
     const message=[records?`${created}곳에 연결했어요.`:'',existing?`${existing}곳은 이미 연결돼 있어 요약을 바꾸지 않았어요.`:'',files,warning].filter(Boolean).join(' ');
     host?.ownerDocument.querySelector('[data-basket-status]')?.replaceChildren(message);
     host?.ownerDocument.querySelector('[data-basket-link-open]')?.focus();
