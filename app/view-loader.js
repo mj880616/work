@@ -24,7 +24,7 @@ const routeStyles={
   home:['./library-upload.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./calendar-ui.css','./ui-standard.css'],
   tasks:['./task-layout.css','./google-tasks.css','./ui-standard.css'],
-  journal:['./diary.css','./ui-standard.css'],
+  journal:['./journal.css','./ui-standard.css'],
   diary:['./diary.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./ui-standard.css'],
@@ -150,8 +150,8 @@ window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view==='hom
 window.addEventListener('pageshow',()=>{if(window.KPTURouter?.current==='home')void home()});
 async function basket(){ await module('./basket.js'); return {ok:true} }
 // HWP-편집기(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp): loadAll에 넣지 않아 이 화면을 열 때만 편집기(약 20MB)를 내려받는다.
-// JOURNAL-일기 1차: [일지] is a "준비 중" screen only; [일기] is diary.js (month photo calendar, write, edit).
-async function journal(){ return {ok:true} }
+// JOURNAL-일지 2단계: [일지] is journal.js (week row, "오늘 한 줄", the day's materials); [일기] is diary.js (month photo calendar).
+async function journal(){ await module('./journal.js'); return {ok:true} }
 async function diary(){ await module('./diary.js'); return {ok:true} }
 async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab};
