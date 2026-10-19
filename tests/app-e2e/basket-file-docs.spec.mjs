@@ -96,7 +96,10 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`a memo 
  await expect(pdf.locator('[data-basket-file-more]')).toHaveCount(0);
  const more=hwp.locator('[data-basket-file-more]');await expect(more.getByRole('link',{name:'임단협 요구안.hwp 자료실에서 보기'})).toBeHidden();
  await tap(page,more.locator('summary'),width);await expect(more.getByRole('link',{name:'임단협 요구안.hwp 자료실에서 보기'})).toBeVisible();
- for(const box of await detail.locator('.basket-file-actions > *').all())expect((await box.boundingBox()).height).toBeGreaterThanOrEqual(44);
+ // UI-바구니작은버튼: 보이는 높이는 공용 작은 버튼(32px), 누르는 범위는 위아래 44px까지.
+ for(const box of await detail.locator('.basket-file-actions > *').all()){const b=await box.boundingBox();expect(b.height).toBe(32);
+  const hit=await box.evaluate(el=>{const r=el.getBoundingClientRect(),x=r.left+r.width/2,cy=r.top+r.height/2;const ok=dy=>{const t=document.elementFromPoint(x,cy+dy);return t===el||el.contains(t)};return {up:ok(-20),down:ok(20)}});
+  expect(hit).toEqual({up:true,down:true});}
  await page.keyboard.press('Escape');await expect(more).not.toHaveAttribute('open','');await expect(detail).toBeVisible();
  // ⑥ "state · 날짜" is one line under the files; [연결하기]·[할 일 만들기] stay at the bottom.
  // BUG-자료넣기미분류: the HWP is already a document of 합성 지난 교섭, so the state is that place, not 미분류.
@@ -172,7 +175,7 @@ for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미
  await expect(page.locator(`[data-basket-row="${TEXT}"]`)).toBeVisible();
  await page.locator('[data-basket-filter="classified"]').click();
  const row=page.locator(`[data-basket-row-item="${ONLY}"]`);
- await expect(row.locator('.basket-row')).toContainText('연결됨');
+ await expect(row.locator('.basket-row')).toContainText('분류 완료');
  await expect(filedChip(row)).toHaveText('프로젝트 자료: 합성 임단협 · 자료');
  // A fresh load reads the same state from the documents alone (no stored flag).
  await page.reload();await page.waitForFunction(()=>!!window.KPTURouter?.go);await page.evaluate(()=>window.KPTURouter.go('basket'));

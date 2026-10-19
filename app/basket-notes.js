@@ -91,7 +91,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function paintMeta() {
     if (!selected) return;
     const box = detail.querySelector('[data-note-meta]'), tags = chips(selected);
-    box.innerHTML = `${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '연결됨' : '연결 없음')}</span></span>`}<time>고친 날 ${esc(day(selected.updated_at))}</time>`;
+    box.innerHTML = `${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>고친 날 ${esc(day(selected.updated_at))}</time>`;
     // UI-일기손질 ⑥: each attachment is the shared file line (meeting-compact.js) with a small [Drive에서 열기] at its end.
     detail.querySelector('[data-note-attachments]').innerHTML = (selected.attachments || []).map(file => {
       const url = driveFileUrl(file.drive_file_id), name = file.file_name || '첨부';

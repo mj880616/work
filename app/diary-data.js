@@ -97,7 +97,7 @@ export async function createDiary({day, text = ''}, rt = window.KPTURuntime) {
   try {
     return one(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, kind:'diary', journal_day:checkDay(day), raw_text:text.trim() ? text : HOLD_TEXT, ai_export_allowed:false}}));
   } catch (error) {
-    if (error?.status === 409) throw Object.assign(new Error('이 날 일기가 이미 있어요. 고치기로 열게요.'), {code:'diary_exists'});
+    if (error?.status === 409) throw Object.assign(new Error('이 날 일기가 이미 있어요. 수정으로 열게요.'), {code:'diary_exists'});
     throw error;
   }
 }
