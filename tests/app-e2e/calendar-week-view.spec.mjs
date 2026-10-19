@@ -22,7 +22,7 @@ test('PC default week has Monday through Sunday and one KST seven-day request',a
   const current=page.locator('.cwv-day[data-date="2026-10-15"]');
   await expect(current).toHaveClass(/cwv-today/);
   await expect(current.locator('.cwv-create')).toBeVisible();
-  const colors=await current.evaluate(el=>({background:getComputedStyle(el).backgroundColor,expected:getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary-soft').trim(),weight:getComputedStyle(el.querySelector('.cwv-date')).fontWeight}));
+  const colors=await page.evaluate(()=>{const el=document.querySelector('.cwv-day[data-date="2026-10-15"]');return {background:getComputedStyle(el).backgroundColor,weight:getComputedStyle(el.querySelector('.cwv-date')).fontWeight}});
   expect(colors.weight).toBe('700');
   expect(colors.background).not.toBe('rgba(0, 0, 0, 0)');
   const columns=await page.locator('.cwv-day').evaluateAll(ds=>ds.map(d=>d.getBoundingClientRect().toJSON()));
@@ -102,9 +102,9 @@ for(const width of [1024,1280,1440])test(`week bands, timed order, tasks and dia
   expect(await day.locator('[data-google-event]').evaluateAll(rows=>rows.map(r=>r.dataset.googleEvent))).toEqual(['early','late']);
   const span=page.locator('#calendarWeek .cwv-bands [data-google-event="span"]');
   await expect(span).toHaveCount(1);await expect(span).toHaveCSS('grid-column','4 / span 2');
-  const band=await span.boundingBox(),first=await day.boundingBox(),last=await page.locator('.cwv-day[data-date="2026-10-16"]').boundingBox();
+  const {band,first,last}=await page.evaluate(()=>{const r=sel=>document.querySelector(sel).getBoundingClientRect().toJSON();return {band:r('#calendarWeek .cwv-bands [data-google-event="span"]'),first:r('.cwv-day[data-date="2026-10-15"]'),last:r('.cwv-day[data-date="2026-10-16"]')}});
   expect(band.width).toBeGreaterThan(first.width*1.8);expect(band.x).toBeGreaterThanOrEqual(first.x);expect(band.x+band.width).toBeLessThanOrEqual(last.x+last.width);
-  const geometry=await day.locator('.clv-event').first().evaluate(el=>({height:el.getBoundingClientRect().height,title:getComputedStyle(el.querySelector('.clv-title')).fontSize,time:getComputedStyle(el.querySelector('.clv-time')).fontSize,ellipsis:getComputedStyle(el.querySelector('.clv-title')).textOverflow}));
+  const geometry=await page.evaluate(()=>{const el=document.querySelector('.cwv-day[data-date="2026-10-15"] .clv-event');return {height:el.getBoundingClientRect().height,title:getComputedStyle(el.querySelector('.clv-title')).fontSize,time:getComputedStyle(el.querySelector('.clv-time')).fontSize,ellipsis:getComputedStyle(el.querySelector('.clv-title')).textOverflow}});
   expect(geometry.height).toBeGreaterThanOrEqual(44);expect(parseFloat(geometry.title)).toBeGreaterThanOrEqual(12);expect(parseFloat(geometry.time)).toBeGreaterThanOrEqual(12);expect(geometry.ellipsis).toBe('ellipsis');
   await day.locator('[data-google-event="early"]').click();await expect(page.locator('#ciGoogleModal')).toBeVisible();
   await page.locator('#ciGoogleClose').first().click();
@@ -190,18 +190,20 @@ for(const width of [1024,1440])test(`week timed rows show their own event color 
     ev('green','2026-10-15T11:00:00+09:00','2026-10-15T12:00:00+09:00','#51b749'),
     ev('band','2026-10-15','2026-10-17','#dc2127',true)
   ]);
-  const paint=sel=>page.locator(sel).evaluate(el=>{const s=getComputedStyle(el);return {stripe:s.borderLeftColor,width:s.borderLeftWidth,background:s.backgroundColor}});
-  const red=await paint('#calendarWeek .cwv-items [data-google-event="red"]'),green=await paint('#calendarWeek .cwv-items [data-google-event="green"]'),band=await paint('#calendarWeek .cwv-bands [data-google-event="band"]');
+  // Read every row in one page task: the week owner may legitimately re-render (late task list) between separate reads.
+  const {red,green,band}=await page.evaluate(()=>{const paint=sel=>{const s=getComputedStyle(document.querySelector(sel));return {stripe:s.borderLeftColor,width:s.borderLeftWidth,background:s.backgroundColor}};
+    return {red:paint('#calendarWeek .cwv-items [data-google-event="red"]'),green:paint('#calendarWeek .cwv-items [data-google-event="green"]'),band:paint('#calendarWeek .cwv-bands [data-google-event="band"]')}});
   expect(red.stripe).toBe('rgb(220, 33, 39)');expect(green.stripe).toBe('rgb(81, 183, 73)');expect(red.width).toBe('4px');
   expect(red.stripe).toBe(band.stripe);expect(red.background).toBe(band.background);expect(red.background).not.toBe(green.background);expect(red.background).not.toBe('rgba(0, 0, 0, 0)');
   await expect(page.locator('#calendarWeek .cwv-items [data-google-event="red"] .clv-color')).toBeHidden();
   await page.getByRole('button',{name:'목록 보기',exact:true}).click();await expect(page.locator('#calendarList')).toBeVisible();
-  expect(await page.locator('#calendarList [data-google-event="red"] .clv-color').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(220, 33, 39)');
+  // The list re-renders while its events reload; a web-first assertion re-finds the current row.
+  await expect(page.locator('#calendarList [data-google-event="red"] .clv-color')).toHaveCSS('background-color','rgb(220, 33, 39)');
 });
 test('phone list keeps the small color bar and no week stripe rule',async({page})=>{
   const ev={id:'red',title:'QA 색 red',calendarId:'qa-cal',start:'2026-10-15T09:00:00+09:00',end:'2026-10-15T10:00:00+09:00',allDay:false,color:'#dc2127'};
   await open(page,390,'list',[ev]);await expect(page.locator('#calendarList')).toBeVisible();
   const row=page.locator('#calendarList [data-google-event="red"]');
-  expect(await row.locator('.clv-color').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(220, 33, 39)');
-  expect(await row.evaluate(el=>getComputedStyle(el).borderLeftWidth)).toBe('0px');
+  await expect(row.locator('.clv-color')).toHaveCSS('background-color','rgb(220, 33, 39)');
+  await expect(row).toHaveCSS('border-left-width','0px');
 });
