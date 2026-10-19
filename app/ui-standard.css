@@ -931,6 +931,11 @@
 #appView #tasksView .home-quick .home-quick-input-wrap{ position:relative; display:flex; flex:1; min-width:0; }
 #appView #tasksView .home-quick [data-quick-input]{ box-sizing:border-box; flex:1; min-width:0; width:100%; margin:0; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px; font-family:inherit; font-size:14px; line-height:21px; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); resize:none; overflow-y:auto; }
 #appView #tasksView .home-quick .home-quick-save{ box-sizing:border-box; position:relative; display:inline-flex; align-items:center; justify-content:center; height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:4px var(--ds-control-pad-x); font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); color:var(--kptu-on-primary); background:var(--kptu-primary); border:var(--ds-line-width) solid var(--kptu-primary); border-radius:var(--ds-radius-control); box-shadow:none; cursor:pointer; }
+/* UI-할일빠른추가상세: 입력 칸 안 오른쪽 끝 [+](상세 설정으로 추가). 보이는 그림은 16px, 누르는 범위는 44px 이상(입력 칸 높이 46px 전체). 글이 아이콘 밑으로 들어가지 않게 오른쪽을 비운다. */
+#appView #tasksView .home-quick [data-quick-input]{ padding-right:44px; }
+#appView #tasksView .home-quick .home-quick-detail{ box-sizing:border-box; position:absolute; top:0; right:0; z-index:1; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); cursor:pointer; }
+#appView #tasksView .home-quick .home-quick-detail:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+#appView #tasksView .home-quick .home-quick-detail:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 #appView #tasksView .home-quick [data-quick-status]{ font-size:12px; color:var(--kptu-danger); }
 #appView #tasksView .home-quick [data-quick-status]:empty{ display:none; }
 #appView #tasksView .home-quick [data-quick-status] button{ min-height:var(--kptu-touch-target,44px); margin-top:4px; }
