@@ -26,7 +26,8 @@ async function mockBase(page){
 
 // Google state lives in `google`; overview answers from it unless a test holds or overrides the answer.
 async function openTasks(browser,{onToggle,onOverview,reducedMotion='no-preference',extra={}}={}){
-  const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion});
+  // UI-PC할일: 묶음 목록 시험은 목록이 그대로인 중간 폭(900px)에서 본다(1024px 이상은 기한별 열, tasks-pc-columns.spec.mjs).
+  const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion,viewport:{width:900,height:800}});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(NOW));
   await mockBase(page);

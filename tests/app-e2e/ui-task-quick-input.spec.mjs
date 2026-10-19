@@ -24,6 +24,7 @@ async function fixture(page,{width=390,height=844,scheme='light'}={}){
 const go=async(page,view)=>{await page.evaluate(v=>window.KPTURouter.go(v),view);await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe(view);};
 const quick=page=>page.locator('#tasksView .home-quick[data-home-quick]');
 const keyboard=(page,open)=>page.evaluate(open=>{if(open)Object.defineProperty(window.visualViewport,'height',{configurable:true,value:444});else delete window.visualViewport.height;visualViewport.dispatchEvent(new Event('resize'));},open);
+// UI-PC할일: PC(≥1024)는 기한별 열이라 [오늘] 묶음이 "지남·오늘" 열 안의 같은 오늘 칸(data-gt-today)이다. 고리 하나로 두 배치를 함께 본다.
 const todayGroup=page=>page.locator('#gtTaskBody [data-gt-today]');
 
 for(const width of [390,1280]){

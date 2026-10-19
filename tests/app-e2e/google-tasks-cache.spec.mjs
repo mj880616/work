@@ -163,7 +163,8 @@ test('sign-out and owner change remove the cached Google Tasks; another owner ne
 });
 
 test('a cached copy from before 묶음C-4 (v1) is never shown and is removed',async({page})=>{
-  await mockBase(page);
+  // UI-PC할일: 묶음 목록 시험은 목록이 그대로인 중간 폭(900px)에서 본다(1024px 이상은 기한별 열, tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mockBase(page);
   let release=()=>{},holding=false;
   await mockTasks(page,async action=>{
     if(action!=='overview')return {status:500,body:{error:'unexpected'}};
