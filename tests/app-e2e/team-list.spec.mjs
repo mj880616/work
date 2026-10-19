@@ -28,9 +28,8 @@ for(const width of [360,390,1280])test(`담당조직 머리줄·한 줄 목록·
   expect(await rail.locator('.kptu-list-row-main > *').evaluateAll(xs=>xs.map(x=>x.className))).toEqual(['so-dot','kptu-list-name','so-chevron kptu-list-chevron']);
   const layout=await rail.evaluate(el=>({height:el.getBoundingClientRect().height,padding:getComputedStyle(el).paddingLeft}));
   expect(layout.height).toBe(44);expect(layout.padding).toBe('16px');
-  // 8-9e-2: phones show "담당조직 추가" as a small link under the list instead of the header button.
-  if(width<=760){await expect(page.locator('#soAddOrg')).toBeHidden();await expect(page.locator('#soAddOrgLink')).toBeVisible();}
-  else{await expect(page.locator('#soAddOrg')).toBeVisible();const edge=await page.locator('.so-team-actions').evaluate(el=>el.getBoundingClientRect().right-el.querySelector('#soAddOrg').getBoundingClientRect().right);expect(Math.abs(edge)).toBeLessThan(1);}
+  // UI-조직추가숨김: the team menu draws no add button (PC [+ 담당조직], phone "담당조직 추가" link) at any width.
+  await expect(page.locator('#soAddOrg,#soAddOrgLink,.so-add-link')).toHaveCount(0);
   await page.evaluate(()=>{document.querySelector('[data-so-org="ord-3"] h4').textContent='아주 긴 조직 이름 '.repeat(30)});
   const name=await page.locator('[data-so-org="ord-3"] h4').evaluate(e=>({overflow:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow,white:getComputedStyle(e).whiteSpace}));expect(name).toEqual({overflow:true,ellipsis:'ellipsis',white:'nowrap'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

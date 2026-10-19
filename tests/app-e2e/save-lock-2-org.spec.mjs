@@ -23,12 +23,14 @@ async function assertOneDuringSave(page,button){
 
 test('saveOrg creates once and retries after failure',async({page})=>{
   await setup(page,'app_suborganizations');
-  await page.locator('#soAddOrg').click();
+  // UI-조직추가숨김: no add button on screen; open the create dialog through the edit delegate.
+  await page.evaluate(()=>{const b=document.createElement('button');b.id='soTestOpenEdit';b.setAttribute('data-so-edit','');document.body.append(b)});
+  await page.locator('#soTestOpenEdit').click();
   await page.locator('#soEditName').fill('잠금 검사 조직');
   const button=page.locator('#soSaveOrg');
   await assertOneDuringSave(page,button);
   await expect(page.locator('#soEditModal')).toBeHidden();
-  await page.locator('#soAddOrg').click();
+  await page.locator('#soTestOpenEdit').click();
   await page.locator('#soEditName').fill('재시도 조직');
   await failNext(page);await button.click();
   await expect(page.locator('#soEditStatus')).toContainText('임시 저장 실패');

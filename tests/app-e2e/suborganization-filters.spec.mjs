@@ -276,10 +276,11 @@ test('일반 상세에서 조직 삭제 실행 경로가 제거되고 데이터 
 
 test('viewer에게 담당조직 추가 컨트롤이 노출되거나 탭되지 않는다',async({page})=>{
   await openAssigned(page,'?role=viewer');
-  await expect(page.locator('#soAddOrg')).toBeHidden();
+  // UI-조직추가숨김: the add button is not drawn for anyone, so a viewer has nothing to see or Tab to.
+  await expect(page.locator('#soAddOrg,#soAddOrgLink')).toHaveCount(0);
   await expect(page.locator('.so-card')).toHaveCount(0);
   await page.keyboard.press('Tab');
-  await expect(page.locator('#soAddOrg')).not.toBeFocused();
+  await expect(page.locator('#soAddOrg,#soAddOrgLink')).toHaveCount(0);
 });
 
 test('360 390 412 430px에서 담당조직 목록과 상세가 가로 넘침 없이 표시된다',async({page})=>{
