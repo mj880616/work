@@ -37,10 +37,23 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   expect(values.home.inputToLink).toBeLessThanOrEqual(8);
   expect(values.home.clip.width).toBeGreaterThanOrEqual(44);
   expect(values.home.clip.height).toBeGreaterThanOrEqual(44);
-  expect(values.home.clip.x).toBeGreaterThanOrEqual(values.home.input.x);
-  expect(values.home.clip.x + values.home.clip.width).toBeLessThanOrEqual(values.home.input.x + values.home.paddingLeft);
-  expect(values.home.clip.y).toBeGreaterThanOrEqual(values.home.input.y);
-  expect(values.home.clip.y + values.home.clip.height).toBeLessThanOrEqual(values.home.input.y + values.home.input.height);
+  if (width === 390) {
+    // Phone: the clip stays an icon inside the input's left edge (its "첨부" label is hidden).
+    expect(values.home.clip.x).toBeGreaterThanOrEqual(values.home.input.x);
+    expect(values.home.clip.x + values.home.clip.width).toBeLessThanOrEqual(values.home.input.x + values.home.paddingLeft);
+    expect(values.home.clip.y).toBeGreaterThanOrEqual(values.home.input.y);
+    expect(values.home.clip.y + values.home.clip.height).toBeLessThanOrEqual(values.home.input.y + values.home.input.height);
+    await expect(clip.locator('.basket-clip-label')).toBeHidden();
+  } else {
+    // UI-PC바구니첨부버튼: PC shows [📎 첨부] outside the input, right before [추가], on the same line.
+    const save = await q.locator('[data-quick-save]').boundingBox();
+    expect(values.home.clip.x).toBeGreaterThanOrEqual(values.home.input.x + values.home.input.width);
+    expect(values.home.clip.x + values.home.clip.width).toBeLessThanOrEqual(save.x);
+    expect(Math.abs(values.home.clip.y - values.home.input.y)).toBeLessThanOrEqual(1);
+    expect(values.home.paddingLeft).toBeLessThanOrEqual(12);
+    await expect(clip.locator('.basket-clip-label')).toHaveText('첨부');
+    await expect(clip.locator('.basket-clip-label')).toBeVisible();
+  }
   await shot('home');
   await verifyPicker(q, q, 'home');
   await q.locator('[data-quick-save]').click();
@@ -90,7 +103,8 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
     await expect(badge).toBeHidden();
     await expect(hint).toBeHidden();
     // HOME-빠른입력정리 + BASKET-업데이트통합: the last control before the clip on home is [할 일], right of [업데이트 ▾].
-    await (name === 'home' ? root.locator('[data-quick-mode="task"]') : root.locator('textarea')).focus();
+    // UI-PC바구니첨부버튼: on PC the clip follows the input's [크게] icon (it sits right before [추가]).
+    await (name === 'home' ? root.locator(width === 1280 ? '[data-quick-big]' : '[data-quick-mode="task"]') : root.locator('textarea')).focus();
     await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     const chooser = page.waitForEvent('filechooser');
