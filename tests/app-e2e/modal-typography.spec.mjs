@@ -99,7 +99,20 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   for(const p of [page,original])await view(p,name);
   // Empty headings disappear; retained headings keep the established style.
   // The changed task region gets explicit D-할일화면정리 roles below.
-  if(name==='tasks'){
+  // UI-PC할일: PC(≥1024)는 기한별 열(tasks-pc-columns.spec.mjs). 열 머리·카드 글자 역할을 여기서 같은 값으로 보고, 묶음 목록 역할은 폰(390)에서 본다.
+  if(name==='tasks'&&width>=1024){
+    const style=el=>{const s=getComputedStyle(el);return [el.tagName,s.fontSize,s.color,s.fontWeight]};
+    await expect.poll(()=>page.locator('[data-gt-col="now"] .gt-col-head').evaluate(style)).toEqual(['H3','13px','rgb(15, 110, 86)','500']);
+    await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
+    await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
+    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','13px');
+    await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
+    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height','46px');
+    for(const selector of ['[data-gt-info]','[data-gt-menu]','[data-gt-toggle]']){
+      const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
+    }
+    await page.locator('[data-gt-info]').click();await audit(page,'gtScopeModal');await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveCSS('font-size','14px');await page.locator('[data-gt-scope-close]').click();
+  }else if(name==='tasks'){
     const style=el=>{const s=getComputedStyle(el);return [el.tagName,el.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]};
     await expect(original.locator('#gt-week-head')).toBeVisible();
     // UI-디자인기준 2/3(8-9d): 기한 묶음 이름은 섹션 이름(13px·500·할 일 색 --ds-kind-task-ink).

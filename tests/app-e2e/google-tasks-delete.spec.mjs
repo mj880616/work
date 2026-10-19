@@ -11,7 +11,8 @@ const row=(page,id)=>page.locator(`#gtTaskBody [data-google-task="${id}"]`);
 async function deleteTask(page,id){await row(page,id).locator('[data-gt-menu]').click();await page.locator('#gtTaskMenu [data-gt-menu-action="delete"]').click();}
 
 async function openTasks(browser,{onDelete,onOverview,onToggle,reducedMotion='no-preference'}={}){
-  const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion});
+  // UI-PC할일: 묶음 목록 시험은 목록이 그대로인 중간 폭(900px)에서 본다(1024px 이상은 기한별 열, tasks-pc-columns.spec.mjs).
+  const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion,viewport:{width:900,height:800}});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(NOW));
   const google={a:task('a'),b:task('b'),c:task('c',{status:'completed',completed:NOW})};

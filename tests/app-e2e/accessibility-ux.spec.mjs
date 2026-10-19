@@ -121,7 +121,8 @@ test('project creation dialog exposes semantics, keyboard close, and trigger res
 });
 
 test('task dialog exposes semantics, closes on Escape, and restores trigger focus',async({page})=>{
-  await boot(page,{width:1024,height:768});
+  // UI-PC할일: 1024px 이상에서 줄을 누르면 같은 수정 창이 오른쪽 상세 칸에 열린다(아래 시험). 팝업 창 시험은 팝업이 그대로인 중간 폭(900px).
+  await boot(page,{width:900,height:768});
   await clickView(page,'tasks');
   // UI-할일입력: [할 일] has no [+]; the editor opens from a task row and returns focus to it.
   const trigger=page.locator('#gtTaskBody [data-gt-edit]').first();
@@ -137,6 +138,29 @@ test('task dialog exposes semantics, closes on Escape, and restores trigger focu
   await expect(page.locator('#gtEditTitle')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(modal).toHaveClass(/hidden/);
+  await expect(trigger).toBeFocused();
+});
+
+test('PC task detail pane is a labelled region, closes on Escape, and restores row focus',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await clickView(page,'tasks');
+  const trigger=page.locator('#gtTaskBody [data-gt-edit]').first();
+  // The first Google load replaces the "loading" body once; focus a card of the loaded list (later re-renders keep it).
+  await expect.poll(async()=>{await trigger.focus();return trigger.evaluate(el=>el===document.activeElement&&el.closest('.gt-card')!==null)}).toBe(true);
+  await page.keyboard.press('Enter');
+  const pane=page.locator('#gtDetailPane'),editor=pane.locator('#gtTaskModal');
+  await expect(editor).toBeVisible();
+  await expect(pane).toHaveAttribute('aria-label','할 일 상세');
+  await expect(editor).toHaveAttribute('role','region');
+  await expect(editor).not.toHaveAttribute('aria-modal','true');
+  const labelledby=await editor.getAttribute('aria-labelledby');
+  expect(labelledby).toBeTruthy();
+  await expect(page.locator('#'+labelledby)).toBeVisible();
+  await expect(page.locator('#gtEditTitle')).toBeFocused();
+  await page.keyboard.press('Escape');
+  // Closing puts the same editor back as the phone popup (hidden) and empties the pane.
+  await expect(page.locator('#gtTaskModal')).toHaveClass(/hidden/);
+  await expect(pane.locator('.gt-pane-empty')).toBeVisible();
   await expect(trigger).toBeFocused();
 });
 
