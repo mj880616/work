@@ -9,14 +9,11 @@ on:
       - 'p/**'
       - 'tests/app-e2e/**'
       - '.github/workflows/app-e2e-check.yml'
+  # main 대상 PR은 경로와 무관하게 시작해 browser-e2e 결과를 항상 남긴다.
+  # 화면 시험이 필요한지는 아래 changes job이 변경 파일로 판정한다.
   pull_request:
     branches:
       - main
-    paths:
-      - 'app/**'
-      - 'p/**'
-      - 'tests/app-e2e/**'
-      - '.github/workflows/app-e2e-check.yml'
   schedule:
     - cron: '0 21 * * *'
   workflow_dispatch:
@@ -25,8 +22,46 @@ permissions:
   contents: read
 
 jobs:
+  # 화면 시험 필요 여부 판정. 기준 경로는 push 필터와 같다.
+  # push·schedule·workflow_dispatch는 항상 필요로 본다.
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      e2e: ${{ steps.decide.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether browser E2E is needed
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "event $EVENT_NAME: browser E2E always needed"
+            echo "e2e=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --no-renames --name-only -z "$BASE_SHA...$HEAD_SHA" > /tmp/e2e-changed-files
+          tr '\0' '\n' < /tmp/e2e-changed-files
+          if grep -zqE '^(app/|p/|tests/app-e2e/|\.github/workflows/app-e2e-check\.yml$)' /tmp/e2e-changed-files; then
+            echo "browser E2E needed"
+            echo "e2e=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no app, p, tests/app-e2e or workflow change: browser E2E not needed"
+            echo "e2e=false" >> "$GITHUB_OUTPUT"
+          fi
+
   browser-e2e-shard:
     name: browser-e2e-shard (${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -102,17 +137,32 @@ jobs:
             test-results/
           if-no-files-found: ignore
 
-  # 기존 검사 이름(browser-e2e)으로 4개 shard 결과를 한 번에 본다.
+  # 기존 검사 이름(browser-e2e)으로 판정과 4개 shard 결과를 한 번에 본다.
+  # 판정 실패·취소는 실패, 불필요는 성공, 필요하면 shard 모두 success일 때만 성공.
   # shard가 실패하면 "Re-run failed jobs"로 실패한 shard와 이 job만 다시 돌린다.
   browser-e2e:
     if: always()
-    needs: browser-e2e-shard
+    needs: [changes, browser-e2e-shard]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Check all shards passed
+      - name: Check decision and shard results
         env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          E2E_NEEDED: ${{ needs.changes.outputs.e2e }}
           SHARD_RESULT: ${{ needs.browser-e2e-shard.result }}
         run: |
-          echo "browser-e2e-shard result: $SHARD_RESULT"
+          echo "changes result: $CHANGES_RESULT, e2e needed: $E2E_NEEDED, browser-e2e-shard result: $SHARD_RESULT"
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "decision job did not succeed"
+            exit 1
+          fi
+          if [ "$E2E_NEEDED" = "false" ]; then
+            echo "browser E2E not needed for this change"
+            exit 0
+          fi
+          if [ "$E2E_NEEDED" != "true" ]; then
+            echo "unknown decision: $E2E_NEEDED"
+            exit 1
+          fi
           test "$SHARD_RESULT" = "success"
