@@ -22,6 +22,7 @@ import { photoElement } from './diary-data.js';
 import { fileKind } from './meeting-compact.js';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
+import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], docs = [], filter = 'unclassified', place = 'all', sub = 'all', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
@@ -56,7 +57,7 @@ const LINK_ICONS = {
   edit: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10.5 2.5l3 3-8 8h-3v-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 };
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-switch-row"><div class="basket-kind-switch" role="group" aria-label="업데이트·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">업데이트</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="classified">분류</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보류</button></div></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows id="basketRows"></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-switch-row"><div class="basket-kind-switch" role="group" aria-label="업데이트·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">업데이트</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="classified">분류</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보류</button></div></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows id="basketRows"></div><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation; the shell owns
 // the visible mobile title at the same 760px breakpoint as the shared header.
 const basketTitle=root.querySelector('.basket-head > h2'),mobileTitle=window.matchMedia('(max-width:760px)');
@@ -86,6 +87,39 @@ function setNoteMenu(open,{focus=false}={}){
 }
 root.addEventListener('focusout',e=>{const wrap=root.querySelector('[data-basket-note-more-wrap]');if(wrap?.contains(e.target)&&e.relatedTarget&&!wrap.contains(e.relatedTarget))setNoteMenu(false);});
 document.addEventListener('click',e=>{const wrap=root.querySelector('[data-basket-note-more-wrap]');if(wrap&&noteMenu()&&!noteMenu().hidden&&!wrap.contains(e.target))setNoteMenu(false);});
+// UI-업데이트목록메뉴: each update row has [⋯] beside [복사] (same look and behavior as the note rows, basket-notes.js):
+// 수정 · 연결하기 · 할 일 만들기 · 노트로 옮기기 · 삭제. It opens right under the pressed ⋯ (anchored-popup.js, PC and phone),
+// one at a time, and closes on Esc (focus back to the ⋯), an outside press, leaving it by keyboard or choosing an item.
+// Each item reuses the detail's own path (openDetail and its buttons); an item the detail would refuse is left out.
+const rowMenuEl=root.querySelector('#basketRowMenu');
+let rowMenu=null;
+function rowMenuItems(note){
+  return [['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일 만들기'],['to-note','노트로 옮기기'],['delete','삭제','basket-menu-danger']];
+}
+function closeRowMenu({focus=false}={}){
+  if(!rowMenu)return null;
+  const closed=rowMenu;rowMenu=null;closed.stop();
+  rowMenuEl.hidden=true;clearAnchored(rowMenuEl);
+  closed.trigger.setAttribute('aria-expanded','false');
+  if(focus&&closed.trigger.isConnected)closed.trigger.focus({preventScroll:true});
+  return closed;
+}
+function openRowMenu(trigger){
+  const note=notes.find(n=>n.id===trigger.dataset.basketRowMore);
+  if(rowMenu?.trigger===trigger){closeRowMenu({focus:true});return;}
+  closeRowMenu();if(!note||busy||selected)return;
+  setMore(false);
+  rowMenuEl.innerHTML=rowMenuItems(note).map(([act,label,cls])=>`<button type="button" data-basket-row-act="${act}"${cls?` class="${cls}"`:''}>${label}</button>`).join('');
+  rowMenuEl.hidden=false;
+  const place=()=>placeAnchored(rowMenuEl,trigger,{maxWidth:220,maxHeight:320});
+  place();
+  rowMenu={noteId:note.id,trigger,stop:followAnchor(rowMenuEl,trigger,{place,lost:()=>closeRowMenu()})};
+  trigger.setAttribute('aria-expanded','true');
+  rowMenuEl.querySelector('button')?.focus({preventScroll:true});
+}
+root.addEventListener('keydown',e=>{if(e.key==='Escape'&&rowMenu){e.preventDefault();e.stopPropagation();closeRowMenu({focus:true});}});
+root.addEventListener('focusout',e=>{if(rowMenu&&e.relatedTarget&&!rowMenuEl.contains(e.relatedTarget)&&e.relatedTarget!==rowMenu.trigger)closeRowMenu();});
+document.addEventListener('click',e=>{if(rowMenu&&!rowMenuEl.contains(e.target)&&!rowMenu.trigger.contains(e.target))closeRowMenu();});
 // The scope guidance shows only after [분류 요청]; once copied it becomes one line.
 const handoffLine=root.querySelector('[data-basket-handoff-scope]');
 let handoffNotice=null;
@@ -302,7 +336,7 @@ function paintNavKind(){
 }
 window.addEventListener('kptu:view-changed',paintNavKind);
 function showKind(next,{openId=null}={}){
-  kind=next;kindSwitch.querySelectorAll('[data-basket-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.basketKind===kind)));paintNavKind();
+  closeRowMenu();kind=next;kindSwitch.querySelectorAll('[data-basket-kind]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.basketKind===kind)));paintNavKind();
   const memo=kind==='memo';
   list.hidden=!memo||!!selected;moreWrap.hidden=!memo;noteHost.hidden=memo;if(!memo){setMore(false);hideHandoffNotice();}
   if(!memo)noteDocs.show({openId});
@@ -314,6 +348,38 @@ function setKind(next,{openId=null}={}){
   showKind(next,{openId});
   if(next==='memo'){renderList();void refresh();}
   kindSwitch.querySelector(`[data-basket-kind="${next}"]`)?.focus();
+}
+// UI-업데이트목록메뉴: a list row's menu item. 수정 opens the detail in edit mode; 연결하기·할 일 만들기 open the detail with that
+// panel already open (the detail's own button path); 노트로 옮기기 asks once (the row's text is not on screen), then runs the
+// detail's own move; 삭제 is the detail's delete (same confirmation from basket-record-delete.js), reported on the list.
+function rowMenuAction(act,noteId){
+  const note=notes.find(n=>n.id===noteId);if(!note||busy||selected)return;
+  handoff.close();hideHandoffNotice();
+  if(act==='delete'){void deleteFromList(noteId);return;}
+  if(act==='to-note'&&!window.confirm(`‘${[...suggestNoteTitle(note).replace(/[\r\n]+/g,' ').trim()||'이 업데이트'].slice(0,40).join('')}’을(를) 노트로 옮길까요?`))return;
+  openDetail(noteId,{edit:act==='edit'});
+  if(selected?.id!==noteId)return;
+  if(act==='link'||act==='task'){const message=manual.open(act);detail.querySelector('[data-basket-status]').textContent=message||'';}
+  else if(act==='to-note')void saveToNote();
+}
+async function deleteFromList(id){
+  if(busy||selected)return;
+  const run=++epoch,owner=scope();busy=true;listStatus.textContent='';
+  const current=()=>run===epoch&&owner===scope()&&!selected&&window.KPTURouter.current==='basket';
+  const more=()=>root.querySelector(`[data-basket-row-more="${CSS.escape(id)}"]`);
+  let result;
+  try{result=await deleteNoteOriginal(id,{rt,isCurrent:current});}
+  catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 업데이트 다시 불러오기로 실제 상태를 확인해 주세요.'};}
+  finally{busy=false;}
+  if(!current()||result.status==='stale')return;
+  if(['deleted','missing'].includes(result.status)){
+    notes=notes.filter(n=>n.id!==id);links=links.filter(l=>l.note_id!==id);
+    renderList();listStatus.textContent=result.message;
+    root.querySelector(`[data-basket-filter="${filter}"]`)?.focus({preventScroll:true});
+    return;
+  }
+  if(result.status!=='cancelled')listStatus.textContent=result.message;
+  more()?.focus({preventScroll:true});
 }
 // [노트로 옮기기] (UI-바구니상세개편): one press, no title form. The database requires a one-line title on a note
 // (app_notes_title_check), so the memo's first line (or its first file name) is saved as the title, as the old form
@@ -391,6 +457,7 @@ function taskPlaceLine(note) {
   return count ? `<span class="basket-chip" data-chip-kind="task"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span>할 일 ${count}개</span></span>` : '';
 }
 function renderList() {
+  closeRowMenu();
   paintHandoffScope();
   root.querySelectorAll('[data-basket-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.basketFilter === filter)));
   paintPlaceFilter(); paintSubFilter();
@@ -401,7 +468,7 @@ function renderList() {
     const title=lines[0]||(file?`${String(file.mime_type||'').startsWith('image/')?'사진':'파일'} · ${file.file_name||'첨부'}`:'업데이트');
     // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
-    return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span></button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
+    return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span></button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
   }).join('');
   listStatus.textContent = visible.length ? `${visible.length}개 업데이트` : '아직 업데이트가 없어요';
   listStatus.toggleAttribute('data-basket-empty', !visible.length);
@@ -573,7 +640,7 @@ function paintMode() {
   if (filesOnly(selected) && !editing) detail.querySelector('[data-basket-attachments]').after(meta); else detail.querySelector('[data-basket-read]').append(meta);
 }
 function openDetail(id, {edit = false} = {}) {
-  handoff.close();
+  handoff.close(); closeRowMenu();
   if (!selected) listScroll = window.scrollY;
   selected = notes.find(n => n.id === id); if (!selected) return;
   // Keep the opened note attached to this list snapshot until an explicit reload.
@@ -729,6 +796,8 @@ root.addEventListener('click', e => {
   // Navigation cancels this handoff's read, but never releases another operation's lock.
   if (moreMenu.contains(b)) setMore(false, {focus:true});
   if (b.hasAttribute('data-basket-note-more')) { setNoteMenu(noteMenu()?.hidden ?? false); return; }
+  if (b.hasAttribute('data-basket-row-more')) { openRowMenu(b); return; }
+  if (rowMenuEl.contains(b)) { const from = closeRowMenu({focus:true}); if (from) rowMenuAction(b.dataset.basketRowAct, from.noteId); return; }
   const fromNoteMenu = !!noteMenu()?.contains(b); if (fromNoteMenu) setNoteMenu(false, {focus:true});
   if (b.matches('[data-basket-filter],[data-basket-row],[data-basket-close],[data-basket-edit]')) { handoff.close(); hideHandoffNotice(); }
   if (b.hasAttribute('data-basket-read-raw')) { rawView = !rawView; paintReadText(); return; }
@@ -818,7 +887,7 @@ async function rereadLinks() {
     if (run !== linkReadRun || owner !== scope()) return;
     // A repaint keeps focus on the same row or chip (or that note's row when its chip is gone).
     const active = root.contains(document.activeElement) ? document.activeElement : null;
-    const attr = active && ['data-basket-row', 'data-basket-unlink', 'data-basket-chip-open'].find(name => active.hasAttribute(name));
+    const attr = active && ['data-basket-row', 'data-basket-row-more', 'data-basket-unlink', 'data-basket-chip-open'].find(name => active.hasAttribute(name));
     const value = attr && active.getAttribute(attr), noteId = active?.closest('[data-basket-row-item]')?.dataset.basketRowItem;
     // renderList writes the note count; a result message already on that line (delete, disconnect) stays.
     const said = listStatus.textContent, counted = /^(\d+개 업데이트|아직 업데이트가 없어요|불러오는 중…)?$/.test(said);
