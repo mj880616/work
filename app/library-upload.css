@@ -54,8 +54,17 @@
 .lu-row-tag{flex:0 0 auto;min-width:40px;max-width:84px}
 .lu-row-tag .doc-category-tag{display:block;width:100%;line-height:20px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lu-row-date{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+/* 폰 M2: 두 단 격자 — 위 [이름(2줄까지) | 날짜 | ⋯], 아래 [종류 | 분류]. 종류는 상자 없이 색 글자. */
 @media(max-width:760px){
   .lu-row-title{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
+  #appView #libraryView #documentList .lu-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;grid-template-areas:"title title title date menu" "kind tag . . menu";column-gap:6px;row-gap:3px;align-items:center}
+  #appView #libraryView #documentList .lu-row-title{grid-area:title;font-size:14px}
+  #appView #libraryView #documentList .lu-row-date{grid-area:date;align-self:start;margin-top:2px;padding-left:4px}
+  #appView #libraryView #documentList .lu-more-trigger{grid-area:menu}
+  #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;height:auto;padding:0;background:transparent;font-size:11px;font-weight:600;line-height:18px}
+  #appView #libraryView #documentList .lu-row-tag{grid-area:tag;min-width:0}
+  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{height:18px;line-height:18px;font-size:11px}
+  #appView #libraryView #documentList .lu-expand{display:none}
 }
 /* B안 펼치기: 잘린 줄에만 ⋯ 왼쪽 작은 꺾쇠. 펼친 줄은 이름 전체를 여러 줄로 보이고 꺾쇠를 위로 돌린다. */
 .lu-expand{flex:none;color:var(--kptu-muted);border:0;background:transparent}
@@ -113,5 +122,7 @@
 
 /* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
+/* 꺼진 분류 칩은 흐리게: 글자는 보조 글자색(대비 4.5:1 이상), 테두리는 반쯤 옅게. 초점 표시는 공용 규칙 그대로. */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="false"]{color:var(--kptu-muted);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
 .lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-off-show{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
