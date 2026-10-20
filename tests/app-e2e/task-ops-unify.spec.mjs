@@ -38,7 +38,6 @@ for (const width of [412, 1280]) {
 
 async function fixture(page, { width = 412, onDelete } = {}) {
   await page.setViewportSize({ width, height: 844 });
-  await page.addInitScript(() => { try { localStorage.setItem('kptu-calendar-view', 'month') } catch {} });
   await page.clock.setFixedTime(new Date(NOW));
   const make = (id, date, title = 'QA task') => ({ id, title, notes: '', due: date + 'T00:00:00.000Z', status: 'needsAction', completed: null, taskListId: '@default', taskListTitle: 'QA', source: 'google-task' });
   const tasks = [make('cell', '2026-10-20', '하나'), make('other', '2026-10-20', '둘')];
@@ -80,7 +79,7 @@ async function fixture(page, { width = 412, onDelete } = {}) {
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
-  await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.KPTUCalendarMonthView?.dayEvents?.('2026-10-20').filter((e) => e.source === 'task').length ?? 0)).toBe(2);
   return { calls };
 }
 const line = (page, id) => page.locator(`#calendarDayTasks [data-calendar-task-line="${id}"]`);
