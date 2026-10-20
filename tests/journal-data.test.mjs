@@ -113,31 +113,74 @@ test('another device: a 409 for a new day or a changed row is read again and the
   assert.equal(rt.calls.length, 1);
 });
 
-test('materials: events of the week, done tasks, basket memos (kind=basket) and notes changed that week', async () => {
+test('materials: events of the week, done tasks, every basket update (kind=basket) and the week of organization/project records and meetings', async () => {
   const m = await mod;
   const rt = runtime(path => {
     if (path.includes('google-calendar')) return {events:[{id:'e', title:'회의', start:'2026-10-06T10:00:00+09:00', end:'2026-10-06T11:00:00+09:00'}]};
     if (path.includes('google-tasks')) return {tasks:[{id:'t1', title:'끝', status:'completed', completed:'2026-10-06T03:00:00Z'}, {id:'t2', title:'남음', status:'needsAction'}]};
+    if (path.startsWith('/rest/v1/app_suborganizations?')) return [{id:'o1', name:'가 조직'}, {id:'o2', name:'나 조직'}];
+    if (path.startsWith('/rest/v1/app_suborganization_updates?')) return [{id:'u1', organization_id:'o1', occurred_at:'2026-10-06T01:00:00Z', raw_text:'기록'}, {id:'u9', organization_id:'other', occurred_at:'2026-10-06T01:00:00Z', raw_text:'다른 공간'}];
+    if (path.startsWith('/rest/v1/app_project_progress_updates?')) return [{id:'p1', project_id:'s1', summary:'진행', effective_on:'2026-10-06'}, {id:'p9', project_id:'s9', summary:'다른 공간', effective_on:'2026-10-06'}];
+    if (path.startsWith('/rest/v1/app_spaces?')) return [{id:'s1', name:'사업 A'}];
     return [];
   });
   const events = await m.readWeekEvents('2026-10-05', rt);
   const tasks = await m.readDoneTasks(rt);
-  await m.readBasketMemos(rt);
-  await m.readChangedNotes('2026-10-05', rt);
+  const basket = await m.readBasketUpdates(rt);
+  const orgs = await m.readOrgUpdates('2026-10-05', rt);
+  const projects = await m.readProjectUpdates('2026-10-05', rt);
+  await m.readWeekMeetings('2026-10-05', rt);
   const cal = params(rt.calls[0]);
   assert.equal(cal.get('action'), 'events');
   assert.equal(cal.get('timeMin'), '2026-10-04T15:00:00.000Z'); assert.equal(cal.get('timeMax'), '2026-10-11T15:00:00.000Z');
   assert.equal(events.length, 1);
   assert.deepEqual(tasks.map(t => t.id), ['t1']);
-  const basket = rt.calls.find(c => c.path.startsWith('/rest/v1/app_notes') && params(c).get('kind') === 'eq.basket');
-  assert.ok(basket);
-  const notes = params(rt.calls.at(-1));
-  assert.equal(notes.get('kind'), 'eq.note');
-  assert.deepEqual(notes.getAll('updated_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
+  // Every basket row (no state filter: 미분류, sent to an organization or a project, 보류 alike), with its links and filed documents.
+  const memos = rt.calls.find(c => c.path.startsWith('/rest/v1/app_notes') && params(c).get('kind') === 'eq.basket');
+  assert.ok(memos);
+  assert.deepEqual([...params(memos).keys()].filter(k => !['workspace_id', 'kind', 'select', 'order', 'limit', 'offset'].includes(k)), []);
+  assert.deepEqual(Object.keys(basket).sort(), ['docs', 'links', 'notes']);
+  // Organization records: this workspace's organizations only, the week in Korea time.
+  const orgRead = rt.calls.find(c => c.path.startsWith('/rest/v1/app_suborganizations?'));
+  assert.equal(params(orgRead).get('workspace_id'), 'eq.w');
+  const upd = params(rt.calls.find(c => c.path.startsWith('/rest/v1/app_suborganization_updates?')));
+  assert.equal(upd.get('organization_id'), 'in.(o1,o2)');
+  assert.deepEqual(upd.getAll('occurred_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
+  assert.deepEqual(orgs.map(r => [r.id, r.organization.name]), [['u1', '가 조직']]);
+  // Project records by their day, named from this workspace's projects only.
+  const prog = params(rt.calls.find(c => c.path.startsWith('/rest/v1/app_project_progress_updates?')));
+  assert.deepEqual(prog.getAll('effective_on'), ['gte.2026-10-05', 'lte.2026-10-11']);
+  const spaces = params(rt.calls.find(c => c.path.startsWith('/rest/v1/app_spaces?')));
+  assert.equal(spaces.get('workspace_id'), 'eq.w'); assert.equal(spaces.get('id'), 'in.(s1,s9)');
+  assert.deepEqual(projects.map(r => [r.id, r.project.name]), [['p1', '사업 A']]);
+  // Meetings of the week in this workspace by meeting_at.
+  const meet = params(rt.calls.find(c => c.path.startsWith('/rest/v1/app_meetings?')));
+  assert.equal(meet.get('workspace_id'), 'eq.w');
+  assert.deepEqual(meet.getAll('meeting_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
+  // Notes are not a group any more (고친 노트 was removed).
+  assert.equal(rt.calls.some(c => c.path.startsWith('/rest/v1/app_notes') && params(c).get('kind') === 'eq.note'), false);
   // A disconnected calendar or a reconnect answer counts as a failed group, not as an empty day.
   await assert.rejects(m.readWeekEvents('2026-10-05', runtime(() => ({connected:false, events:[]}))));
   await assert.rejects(m.readWeekEvents('2026-10-05', runtime(() => ({events:[], warning:'Google Calendar 연결 실패'}))));
   await assert.rejects(m.readDoneTasks(runtime(() => ({tasks:[], needs_reconnect:true}))));
+});
+
+test('organization records are read in pages and in batches of 100 organizations, none dropped', async () => {
+  const m = await mod;
+  const orgs = Array.from({length:150}, (_, i) => ({id:`o${i}`, name:`조직 ${i}`}));
+  const rt = runtime((path) => {
+    const q = params({path});
+    const offset = Number(q.get('offset') || 0);
+    if (path.startsWith('/rest/v1/app_suborganizations?')) return orgs.slice(offset, offset + 100);
+    if (path.startsWith('/rest/v1/app_suborganization_updates?')) {
+      const ids = q.get('organization_id').slice(4, -1).split(',');
+      const rows = ids.flatMap(id => [0, 1].map(n => ({id:`${id}-${n}`, organization_id:id, occurred_at:'2026-10-06T01:00:00Z', raw_text:'x'})));
+      return rows.slice(offset, offset + 100);
+    }
+    return [];
+  });
+  const rows = await m.readOrgUpdates('2026-10-05', rt);
+  assert.equal(rows.length, 300);
 });
 
 test('one day of materials in display order; a failed group is marked, the rest stay', async () => {
@@ -150,22 +193,86 @@ test('one day of materials in display order; a failed group is marked, the rest 
       {title:'새벽', start:'2026-10-05T15:30:00Z', end:'2026-10-05T16:00:00Z'},
     ]},
     tasks:{status:'failed'},
-    memos:{status:'ok', items:[{raw_text:'\n  첫 줄 메모\n둘째', occurred_at:'2026-10-06T00:00:00Z'}, {raw_text:'', attachments:[{}, {}], occurred_at:'2026-10-06T01:00:00Z'}, {raw_text:'어제', occurred_at:'2026-10-05T14:59:00Z'}]},
-    notes:{status:'ok', items:[{title:'노트 A', updated_at:'2026-10-06T05:00:00Z'}]},
+    basket:{status:'ok', items:{notes:[{id:'b1', raw_text:'\n  첫 줄 메모\n둘째', occurred_at:'2026-10-06T00:00:00Z'}, {id:'b2', raw_text:'', attachments:[{}, {}], occurred_at:'2026-10-06T01:00:00Z'}, {id:'b3', raw_text:'어제', occurred_at:'2026-10-05T14:59:00Z'}], links:[], docs:[]}},
+    orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]},
+    meetings:{status:'ok', items:[{id:'m1', series_name:'기자회견', round_no:null, meeting_at:'2026-10-06T02:00:00Z'}, {id:'m2', title:'운영위', series_name:'운영위원회', round_no:3, meeting_at:'2026-10-05T23:30:00Z'}, {id:'m3', series_name:'다른 날', meeting_at:'2026-10-06T15:00:00Z'}]},
   };
   const day = m.dayMaterials(materials, '2026-10-06');
-  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '바구니 업데이트', '고친 노트']);
+  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '조직 소식', '회의·행사 결과']);
   assert.deepEqual(day[0].items, ['종일 종일', '00:30 새벽', '14:00 오후']);
-  assert.equal(day[1].failed, true);
-  assert.deepEqual(day[2].items, ['첫 줄 메모', '첨부 2개']);
-  assert.deepEqual(day[3].items, ['노트 A']);
+  assert.deepEqual(day[1].failed, ['tasks']);
+  assert.deepEqual(day[2].sections, [{name:'미분류', items:['첫 줄 메모', '첨부 2개']}]);
+  assert.deepEqual(day[3].items, ['08:30 운영위원회 3차', '11:00 기자회견']);
   assert.equal(m.dayMaterials({}, '2026-10-06')[0].loading, true);
+  // 조직 소식 waits for its three reads, then shows what it could read and names the failed one.
+  assert.equal(m.dayMaterials({...materials, orgUpdates:{status:'loading'}}, '2026-10-06')[2].loading, true);
+  const partial = m.dayMaterials({...materials, projectUpdates:{status:'failed'}}, '2026-10-06')[2];
+  assert.deepEqual(partial.failed, ['projectUpdates']); assert.deepEqual(partial.items, ['첫 줄 메모', '첨부 2개']);
+});
+
+test('조직 소식: every update of the day (basket, organization record, project record) by organization name, 미분류 last, one item each', async () => {
+  const m = await mod;
+  const day = '2026-10-06';
+  const greeting = '안녕하세요, 위원장님.\n다음 주 간담회 일정 공유드립니다.\n출처: 가상 소식지';
+  const basket = {
+    notes:[
+      {id:'n-org', raw_text:greeting, occurred_at:'2026-10-06T00:10:00Z', archived_at:null},
+      {id:'n-two', raw_text:'두 조직 공동 소식', occurred_at:'2026-10-06T00:20:00Z'},
+      {id:'n-sum', raw_text:'긴 원문 첫 줄\n둘째', occurred_at:'2026-10-06T00:30:00Z'},
+      {id:'n-file', raw_text:'', attachments:[{drive_file_id:'F1', file_name:'회의자료.pdf'}], occurred_at:'2026-10-06T00:40:00Z'},
+      {id:'n-proj', raw_text:'사업 진행 메모', occurred_at:'2026-10-06T00:50:00Z'},
+      {id:'n-none', raw_text:'아직 분류 안 함', occurred_at:'2026-10-06T14:59:59Z'},
+      {id:'n-kept', raw_text:'보류한 업데이트', occurred_at:'2026-10-06T01:00:00Z', archived_at:'2026-10-06T02:00:00Z'},
+      {id:'n-next', raw_text:'다음 날 0시', occurred_at:'2026-10-06T15:00:00Z'},
+      {id:'n-prev', raw_text:'전날 23:59', occurred_at:'2026-10-05T14:59:59Z'},
+    ],
+    links:[
+      {note_id:'n-org', status:'confirmed', organization_id:'o1', organization:{name:'가 조직'}},
+      {note_id:'n-two', status:'confirmed', organization_id:'o1', organization:{name:'가 조직'}},
+      {note_id:'n-two', status:'confirmed', organization_id:'o2', organization:{name:'나 조직'}},
+      {note_id:'n-sum', status:'confirmed', organization_id:'o2', organization:{name:'나 조직'}, summary:'요약 한 줄\n요약 둘째'},
+      {note_id:'n-proj', status:'confirmed', project_id:'s1', project:{name:'사업 A'}},
+      {note_id:'n-none', status:'suggested', organization_id:'o1', organization:{name:'가 조직'}},
+    ],
+    docs:[{id:'d1', file_id:'F1', organization_id:'o2', organization:{name:'나 조직'}}],
+  };
+  const orgUpdates = [{id:'u1', organization_id:'o3', organization:{name:'다 조직'}, occurred_at:'2026-10-06T03:00:00Z', raw_text:'조직에 바로 쓴 업데이트\n둘째 줄'}];
+  const projectUpdates = [{id:'p1', project_id:'s2', project:{name:'사업 B'}, effective_on:day, created_at:'2026-10-06T04:00:00Z', summary:'프로젝트에 바로 쓴 업데이트\n둘째'}, {id:'p2', project:{name:'사업 B'}, effective_on:'2026-10-07', summary:'다른 날'}];
+  const sections = m.orgNewsOn({basket, orgUpdates, projectUpdates}, day);
+  assert.deepEqual(sections, [
+    {name:'가 조직', items:['안녕하세요, 위원장님.', '두 조직 공동 소식']},
+    {name:'나 조직', items:['두 조직 공동 소식', '요약 한 줄', '첨부: 회의자료.pdf']},
+    {name:'다 조직', items:['조직에 바로 쓴 업데이트']},
+    {name:'미분류', items:['사업 A · 사업 진행 메모', '보류한 업데이트', '사업 B · 프로젝트에 바로 쓴 업데이트', '아직 분류 안 함']},
+  ]);
+  // One update with several lines is one item: its body lines never become items of their own.
+  const all = sections.flatMap(s => s.items);
+  for (const line of ['다음 주 간담회 일정 공유드립니다.', '출처: 가상 소식지', '둘째 줄', '요약 둘째']) assert.equal(all.includes(line), false);
+  // Korea-time day boundaries: 00:00 next day and 23:59 the day before are not this day.
+  assert.equal(all.includes('다음 날 0시'), false); assert.equal(all.includes('전날 23:59'), false);
+  assert.deepEqual(m.orgNewsOn({basket}, '2026-10-07').flatMap(s => s.items), ['다음 날 0시']);
+  // No cap on how many updates a day shows.
+  const many = {notes:Array.from({length:60}, (_, i) => ({id:`x${i}`, raw_text:`업데이트 ${i}`, occurred_at:'2026-10-06T05:00:00Z'})), links:[], docs:[]};
+  assert.equal(m.orgNewsOn({basket:many}, day)[0].items.length, 60);
+});
+
+test('one update, one line: the first non-empty line of any line break kind, cut at 80 characters', async () => {
+  const m = await mod;
+  assert.equal(m.firstLine('첫 줄\r\n둘째'), '첫 줄');
+  assert.equal(m.firstLine('첫 줄\r둘째'), '첫 줄');
+  assert.equal(m.firstLine('첫 줄 둘째'), '첫 줄');
+  assert.equal(m.firstLine('가'.repeat(81)), '가'.repeat(80) + '…');
+  assert.equal(m.memoLine({raw_text:'', attachments:[{file_name:'a.pdf'}, {file_name:'b.hwp'}]}), '첨부: a.pdf 외 1개');
+  assert.equal(m.memoLine({raw_text:''}), '(빈 업데이트)');
+  assert.equal(m.meetingLine({series_name:'토론회', round_no:2, meeting_at:'2026-10-05T15:00:00Z'}), '토론회 2차');
 });
 
 test('weekly draft: each day lines in saving order one per row, or (없음); materials under each day, missing groups named', async () => {
   const m = await mod;
   const lines = new Map([['2026-10-06', {raw_text:'현장 회의 정리'}], ['2026-10-07', {raw_text:'첫 줄\n둘째 줄\n셋째 줄'}]]);
-  const text = m.weeklyDraft({start:'2026-10-05', lines, materials:{events:{status:'ok', items:[{title:'회의', start:'2026-10-06T10:00:00+09:00', end:'2026-10-06T11:00:00+09:00'}]}, tasks:{status:'failed'}, memos:{status:'ok', items:[]}, notes:{status:'ok', items:[]}}});
+  const text = m.weeklyDraft({start:'2026-10-05', lines, materials:{events:{status:'ok', items:[{title:'회의', start:'2026-10-06T10:00:00+09:00', end:'2026-10-06T11:00:00+09:00'}]}, tasks:{status:'failed'},
+    basket:{status:'ok', items:{notes:[{id:'b', raw_text:'조직 소식 원문\n둘째', occurred_at:'2026-10-06T01:00:00Z'}], links:[{note_id:'b', status:'confirmed', organization_id:'o', organization:{name:'가 조직'}}], docs:[]}},
+    orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, meetings:{status:'ok', items:[{series_name:'기자회견', meeting_at:'2026-10-06T05:00:00Z'}]}}});
   const rows = text.split('\n');
   assert.equal(rows[0], '주간 업무일지 10월 5일(월) ~ 10월 11일(일)');
   assert.equal(rows.filter(r => r.startsWith('■ ')).length, 7);
@@ -175,6 +282,9 @@ test('weekly draft: each day lines in saving order one per row, or (없음); mat
   const wed = rows.indexOf('■ 10월 7일(수)');
   assert.deepEqual(rows.slice(wed + 1, wed + 4), ['한 줄: 첫 줄', '한 줄: 둘째 줄', '한 줄: 셋째 줄']);
   assert.ok(rows.includes('- 일정: 10:00 회의'));
+  assert.ok(rows.includes('- 조직 소식 · 가 조직: 조직 소식 원문'));
+  assert.ok(rows.includes('- 회의·행사 결과: 14:00 기자회견'));
+  assert.equal(rows.some(r => r.includes('바구니 업데이트') || r.includes('고친 노트') || (r.startsWith('- ') && r.includes('둘째'))), false);
   assert.ok(text.includes('※ 끝낸 할 일은(는) 불러오지 못해 빠졌어요.'));
 });
 
