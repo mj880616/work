@@ -4,9 +4,10 @@ import {existsSync, readFileSync} from 'node:fs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {testOrigin} from './helpers/test-origin.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const ORIGIN = 'http://127.0.0.1:8123';
+const ORIGIN = testOrigin;
 const app = ORIGIN + '/app/';
 const user = {id:'share-user', email:'share@example.org', user_metadata:{display_name:'공유 QA'}};
 const WS = 'share-workspace';
@@ -386,7 +387,8 @@ for (const hash of ['', '#t=short', '#t=' + 'A'.repeat(64), '#x=' + TOKEN, '#t='
 });
 
 test('Web1 reader source draws server content with textContent only and keeps no link value', () => {
-  const source = readFileSync('share/share.js', 'utf8');
+  // SHARE-보이는편집: the blocks are drawn by app/sr-render.mjs (shared with the Web2 editor), so it is checked as reader code.
+  const source = ['share/share.js', 'app/sr-render.mjs'].map(file => readFileSync(file, 'utf8')).join('\n');
   for (const sink of ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'console.', 'eval(', 'new Function', 'document.cookie']) expect(source, sink).not.toContain(sink);
   expect(source).not.toMatch(new RegExp(['local', 'session'].map(k => k + 'Storage').concat(['index' + 'edDB', 'caches\\s*\\.']).join('|')));
   const html = readFileSync('share/index.html', 'utf8');
@@ -409,7 +411,7 @@ test('Web1 reader source draws server content with textContent only and keeps no
   expect(names.length).toBeGreaterThan(10);
   for (const name of names) expect(name, name).not.toMatch(/share/i);
   // Older Samsung Internet (Chromium 7x) cannot parse ?. or ?? and has no replaceChildren: one SyntaxError would stop the page.
-  for (const file of ['share/share.js', 'app/share-pages-model.mjs']) {
+  for (const file of ['share/share.js', 'app/sr-render.mjs', 'app/share-pages-model.mjs']) {
     const code = readFileSync(file, 'utf8').replace(/^\s*\/\/.*$/gm, '');
     expect(code, file).not.toMatch(/\?\.[\w[(]|\?\?|replaceChildren|structuredClone|\.findLast|\.toSorted|\.at\(/);
   }
