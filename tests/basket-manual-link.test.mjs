@@ -32,10 +32,11 @@ test('one confirm call sends note id, note version and the manual targets unchan
   assert.deepEqual(calls[0].options.body.p_targets,mod.manualLinkTargets(picks));
 });
 
-test('summaries are required like the database check: blank, whitespace-only and over 2,000 are refused',()=>{
+test('a written summary is checked like the database check (over 2,000 refused); a blank or whitespace-only summary is allowed',()=>{
   assert.equal(mod.invalidManualSelection([]).message,'연결할 담당조직이나 프로젝트를 골라 주세요.');
-  assert.deepEqual(mod.invalidManualSelection([{...picks[0],summary:''}]),{index:0,message:'합성 조직: 기록 요약을 입력해 주세요.'});
-  assert.equal(mod.invalidManualSelection([picks[0],{...picks[1],summary:' 　\n'}]).index,1);
+  assert.equal(mod.invalidManualSelection([{...picks[0],summary:''}]),null);
+  assert.equal(mod.invalidManualSelection([picks[0],{...picks[1],summary:' 　\n'}]),null);
+  assert.equal(mod.invalidManualSelection([{...picks[0],summary:undefined}]),null);
   assert.equal(mod.invalidManualSelection([{...picks[0],summary:'가'.repeat(2001)}]).message,'합성 조직: 기록 요약은 2,000자까지 쓸 수 있어요.');
   assert.equal(mod.invalidManualSelection([{...picks[0],summary:'가'.repeat(2000)}]),null);
   assert.equal(mod.invalidManualSelection(picks),null);
@@ -74,4 +75,11 @@ test('manual linking reuses the existing RPC and task paths and adds no new writ
   assert.match(source,/import \{createGoogleTask\} from '\.\/quick-save\.js'/);
   assert.doesNotMatch(source,/method:'(POST|PATCH|DELETE)'/);
   assert.doesNotMatch(source,/app_record_links/);
+});
+
+test('a blank summary is left out of the RPC target so the database keeps NULL; a written one is sent as is',()=>{
+  const targets=mod.manualLinkTargets([{...picks[0],summary:''},{...picks[1],summary:' 　\n'},{...picks[0],id:'x',summary:'쓴 요약'}]);
+  assert.deepEqual(targets[0],{kind:'organization',target_id:picks[0].id,reason:'직접 연결'});
+  assert.deepEqual(Object.keys(targets[1]).sort(),['kind','reason','target_id']);
+  assert.equal(targets[2].summary,'쓴 요약');
 });

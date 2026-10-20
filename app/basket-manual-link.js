@@ -1,5 +1,5 @@
 import {confirmLinks,ERROR_TEXT} from './basket-classification.js';
-import {validateLinkSummary,readRecordPages} from './basket-link-records.js';
+import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-link-records.js';
 import {selectBasketOrganizations} from './basket-ai-handoff.js';
 import {createChoiceSheet,projectRows} from './choice-sheet.js';
 import {createGoogleTask} from './quick-save.js';
@@ -25,13 +25,15 @@ export const manualErrorText=code=>MANUAL_ERROR_TEXT[code]||ERROR_TEXT[code]||'�
 const linkKey=(kind,id)=>kind+':'+id;
 // RPC payload: only the four keys the database accepts, one fixed reason.
 export function manualLinkTargets(selections){
-  return selections.map(s=>({kind:s.kind,target_id:s.id,reason:MANUAL_LINK_REASON,summary:s.summary}));
+  // A blank summary leaves the key out: the database stores NULL and the note body is shown as the record.
+  return selections.map(s=>({kind:s.kind,target_id:s.id,reason:MANUAL_LINK_REASON,...(isBlankLinkSummary(s.summary)?{}:{summary:s.summary})}));
 }
 // Returns the first selection whose summary the database would refuse, with a plain message.
 export function invalidManualSelection(selections){
   if(!selections.length)return {index:-1,message:'연결할 담당조직이나 프로젝트를 골라 주세요.'};
   if(selections.length>MANUAL_LINK_LIMIT)return {index:-1,message:`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`};
   for(let i=0;i<selections.length;i++){
+    if(isBlankLinkSummary(selections[i].summary))continue;
     try{validateLinkSummary(selections[i].summary);}catch(error){return {index:i,message:`${selections[i].name}: ${error.message}`};}
   }
   return null;
@@ -81,7 +83,7 @@ export async function readManualChoices(rt=window.KPTURuntime){
 // sheetId: each mounted panel needs its own choice sheet (the basket memo side and the note side, MEMO-노트).
 // UI-바구니첨부메모 ⑦⑧⑨: files (optional) = {read:()=>({files,docs}), put:({projectId,organizationId,projectName,organizationName},isCurrent)=>result}.
 // 글 없이 첨부만 있는 메모는 프로젝트·담당조직을 고르면 요약 없이 [자료로 넣기](진행상황·기록에 안 남음), 원할 때만 [기록도 남기기].
-// 글이 있는 메모는 지금처럼 요약 필수 기록이고, 첨부가 있으면 파일은 첫 번째로 고른 프로젝트·첫 번째로 고른 담당조직 자료에도 들어간다.
+// 글이 있는 메모는 기록이 되고(요약은 선택, 비우면 본문 표시), 첨부가 있으면 파일은 첫 번째로 고른 프로젝트·첫 번째로 고른 담당조직 자료에도 들어간다.
 export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBusy,setBusy,onLinked,onNoteChanged,onModeChange,onTaskRecorded,files:fileDocs=null,sheetId='basketLinkChoice'}){
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let host=null,mode=null,noteId=null,choices=null,choicesFlight=null,seq=0;
@@ -148,8 +150,8 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
 ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'')}</div></details>`}
 <div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 수 없어요.</p>`:''}
-<p class="basket-manual-hint">${only?'담당조직이나 프로젝트를 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 써 주세요. 일시·장소·누가·숫자를 빠짐없이 적어 주세요.'}</p>
-<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (필수)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>`:''}</div>`;}).join('')}</div>
+<p class="basket-manual-hint">${only?'담당조직이나 프로젝트를 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
+<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>`:''}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${esc(link.status)}</p>
 <div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm>${confirmLabel(n)}</button><button type="button" data-manual-cancel>취소</button></div></section>`;
   }

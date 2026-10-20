@@ -9,6 +9,10 @@ const scope=rt=>{const c=contextFor(rt);return `${c?.user?.id||''}:${c?.workspac
 const changed=()=>new Error('업무 공간이나 로그인이 바뀌었어요. 다시 확인해 주세요.');
 // Match the applied PostgreSQL btrim character set, including NEL and BOM.
 const onlyWhitespace=/^[\u0009-\u000d\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]*$/u;
+// BASKET-연결요약선택: a blank summary on connect is allowed; the database keeps NULL and screens show the note's opening text.
+export const isBlankLinkSummary=value=>value===undefined||value===null||(typeof value==='string'&&onlyWhitespace.test(value));
+export const EXCERPT_LENGTH=120;
+export const noteExcerpt=text=>{const chars=[...String(text||'').replace(/\s+/g,' ').trim()];return chars.length>EXCERPT_LENGTH?chars.slice(0,EXCERPT_LENGTH).join('')+'…':chars.join('');};
 export function validateLinkSummary(value){
   if(typeof value!=='string'||onlyWhitespace.test(value))throw Error('기록 요약을 입력해 주세요.');
   if(value.includes('\0')||value.isWellFormed?.()===false)throw Error('기록 요약의 글자를 확인해 주세요.');
@@ -73,7 +77,7 @@ export async function updateLinkSummary(id,expected,summary,rt=window.KPTURuntim
 export function linkRecordHtml(row){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
   const kind=row.organization_id?'organization':'project',href=`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>바구니 연결 · <time>${escape(date)}</time></small><p data-link-summary-text>${escape(row.summary??'요약 없음')}</p>${row.summary===null?`<p class="muted" data-link-original-excerpt>${escape([...String(row.raw_text||'')].slice(0,120).join(''))}</p>`:''}</a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>바구니 연결 · <time>${escape(date)}</time></small><p data-link-summary-text>${escape(row.summary??(noteExcerpt(row.raw_text)||'요약 없음'))}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // One menu panel for every mounted record host (created on first use inside the open dialog).
