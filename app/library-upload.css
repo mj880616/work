@@ -48,9 +48,19 @@
 .lu-row:first-child{border-top:0}
 .lu-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
 .lu-file-kind{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:var(--kptu-radius-md);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px;font-weight:800}
-.lu-row-main{flex:1;min-width:0}
-.lu-row-title{margin:0;font-size:15px;font-weight:700;line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lu-row-meta{margin:2px 0 0;font-size:var(--kptu-text-meta);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lu-row-title{flex:1;min-width:0;margin:0;font-size:15px;font-weight:700;line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* UI-PC자료실: 분류 꼬리표는 자료명 왼쪽. 칸 폭은 기본 분류(두 글자)에 맞춘 40px로 고정해 이름 시작점을 맞추고,
+   직접 만든 긴 분류만 84px까지 늘린 뒤 …로 줄인다. 날짜는 줄 오른쪽 작은 글씨. */
+.lu-row-tag{flex:0 0 auto;min-width:40px;max-width:84px}
+.lu-row-tag .doc-category-tag{display:block;width:100%;line-height:20px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lu-row-date{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+@media(max-width:760px){
+  .lu-row-title{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
+}
+/* A안 말풍선: 잘린 이름의 전체를 이름 바로 아래(공간이 없으면 위)에. 길게 누르기 중에는 글자 선택·길게 누르기 메뉴를 막는다. */
+.lu-name-tip{position:fixed;z-index:110;box-sizing:border-box;max-width:min(560px,calc(100vw - 16px));padding:7px 10px;border-radius:var(--kptu-radius-md);background:var(--kptu-ink);color:var(--kptu-surface);font-size:var(--ds-text-meta,12px);line-height:1.5;overflow-wrap:anywhere;box-shadow:var(--kptu-shadow-float);pointer-events:none}
+.lu-name-tip[hidden]{display:none}
+@media(hover:none){.lu-row-title{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}}
 .lu-more-trigger{flex:none;color:var(--kptu-muted);border:0;background:transparent}
 .lu-head-actions{display:flex;align-items:center;gap:8px}
 #libraryListCard .lu-head-actions button{margin:0}
