@@ -1,8 +1,9 @@
 name: Pages build check
 
 # CI-버전자동화(docs/design/ci-version-automation.md 4장): builds the hashed ?v= Pages output from
-# this commit the way pages-deploy.yml does and checks it. Nothing here deploys. Since 3단계 the
-# repository has no ?v= and no app/asset-manifest.json; only this build output has them.
+# this commit the way pages-deploy.yml does (Jekyll, then scripts/build-pages.mjs), checks it and
+# boots it in a browser. Nothing here deploys. Since 3단계 the repository has no ?v= and no
+# app/asset-manifest.json; only this build output has them.
 on:
   pull_request:
     branches: [main]
@@ -19,47 +20,7 @@ permissions:
 jobs:
   build-output:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 20
-          package-manager-cache: false
-      - name: Install locked checker parser
-        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
-      - name: Test build scripts
-        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs
-      - name: Build repository copy
-        run: |
-          mkdir -p "$RUNNER_TEMP/pages-src"
-          git archive HEAD | tar -x -C "$RUNNER_TEMP/pages-src"
-          node scripts/build-pages.mjs "$RUNNER_TEMP/pages-src" "$RUNNER_TEMP/pages-out"
-      - name: Check hashed references, manifest and Worker fingerprints
-        run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
-      - name: Check Worker deploy URL extraction on the output
-        run: node scripts/cloudflare-check-urls.mjs "$RUNNER_TEMP/pages-out"
-      - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
-      - name: Serve build output
-        run: |
-          (cd "$RUNNER_TEMP/pages-out" && python3 -m http.server 8125 >"$RUNNER_TEMP/pages-http.log" 2>&1 &)
-          for i in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8125/app/ >/dev/null; then exit 0; fi
-            sleep 0.5
-          done
-          cat "$RUNNER_TEMP/pages-http.log"
-          exit 1
-      - name: Boot built output in the browser
-        run: npx playwright test tests/build-pages --browser=chromium --workers=1 --reporter=line
-
-  jekyll-output:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -76,16 +37,30 @@ jobs:
           package-manager-cache: false
       - name: Install locked checker parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
-      - name: Compare repository files with Jekyll output (report only)
-        run: |
-          mkdir -p "$RUNNER_TEMP/repo"
-          git archive HEAD | tar -x -C "$RUNNER_TEMP/repo"
-          node scripts/compare-pages.mjs "$RUNNER_TEMP/repo" _site
-      - name: Build and check Jekyll output
-        run: |
-          node scripts/build-pages.mjs _site "$RUNNER_TEMP/jekyll-out"
-          node scripts/check-pages-build.mjs "$RUNNER_TEMP/jekyll-out"
+      - name: Test build scripts
+        run: node --test scripts/build-pages.test.mjs scripts/build-pages-repo.test.mjs scripts/compare-pages.test.mjs
+      - name: Build Jekyll output
+        run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
+      - name: Check hashed references, manifest and Worker fingerprints
+        run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
+      - name: Check Worker deploy URL extraction on the output
+        run: node scripts/cloudflare-check-urls.mjs "$RUNNER_TEMP/pages-out"
       # Since 2단계 Pages serves the build output, so that is what production is compared with.
       - name: Compare build output with current GitHub Pages (report only)
         if: github.event_name == 'workflow_dispatch' && inputs.compare_live
-        run: node scripts/compare-pages.mjs --live "$RUNNER_TEMP/jekyll-out"
+        run: node scripts/compare-pages.mjs --live "$RUNNER_TEMP/pages-out"
+      - name: Install Playwright
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Serve build output
+        run: |
+          (cd "$RUNNER_TEMP/pages-out" && python3 -m http.server 8125 >"$RUNNER_TEMP/pages-http.log" 2>&1 &)
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8125/app/ >/dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          cat "$RUNNER_TEMP/pages-http.log"
+          exit 1
+      - name: Boot built output in the browser
+        run: npx playwright test tests/build-pages --browser=chromium --workers=1 --reporter=line
