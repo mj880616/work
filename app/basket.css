@@ -134,6 +134,13 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView :is(.note-search input,.note-editor input[type="text"],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 .note-dot { display:inline-block; flex-shrink:0; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--ds-kind-note-ink); vertical-align:middle; }
 .note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }
+/* UI-노트폴더: 검색칸 아래 한 줄 [전체][폴더…][폴더 없음](공용 filter-chips.js, 넘치면 옆으로 밂) + 줄 끝 폴더 ⋯. */
+.note-folder-bar { display:flex; align-items:center; gap:4px; min-width:0; margin:-4px 0 4px; }
+#appView #basketView .note-folder-bar > .note-folder-filter:not([hidden]) { flex:1 1 auto; width:auto; min-width:0; max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; background:transparent; border-radius:0; }
+#appView #basketView .note-folder-bar > .note-folder-filter::-webkit-scrollbar { display:none; }
+#appView #basketView .note-folder-bar > button.note-folder-more { flex:none; font-size:22px; line-height:1; }
+.note-folder-status { margin:0 0 6px; color:var(--kptu-muted); font-size:13px; }
+.note-row-folder { display:inline-flex; align-items:center; font-size:12px; color:var(--kptu-muted); }
 .basket-to-note { margin:12px 0; }
 .basket-to-note .basket-text-label { margin:0 0 6px; }
 .basket-to-note-help { margin:0; color:var(--kptu-muted); font-size:12px; }
