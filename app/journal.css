@@ -1,5 +1,5 @@
 /* JOURNAL-일지 2단계(업무일지): 일정 탭 [업무일지]. 색은 theme-tokens.css의 값만 쓴다(업무일지 초록 --ds-kind-journal-*).
-   이번 주 날짜 숫자 줄(월~일, 한 줄 쓴 날 초록 점) → 고른 날의 "오늘 한 줄" → 그날 재료 목록. 폰·PC 같은 배치.
+   이번 주 날짜 숫자 줄(월~일, 한 줄 쓴 날 초록 점) → 고른 날의 "오늘 한 줄" 입력칸과 그 아래 저장한 줄 목록 → 그날 재료 목록. 폰·PC 같은 배치.
    UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다. 바깥 폭은 view-wide.css의 공용 규칙(.view-wide), 안쪽 제한(960px)은 없앴다. */
 #appView #journalView .journal{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
 @media(min-width:1024px){
@@ -41,6 +41,23 @@
 #appView #journalView .journal-line-meta small.over{ color:var(--kptu-danger); }
 #appView #journalView .journal-line-status{ margin:0; font-size:var(--ds-text-row); }
 #appView #journalView .journal-line-status:empty{ display:none; }
+/* JOURNAL-오늘한줄목록: 저장한 줄은 입력칸 바로 아래 목록(저장한 순서, 오래된 것 위). 줄을 누르면 그 자리에서 고치기 칸 + [저장][취소][삭제]. */
+#appView #journalView .journal-lines{ display:flex; flex-direction:column; gap:4px; margin:0; padding:0; list-style:none; }
+#appView #journalView .journal-line-item{ margin:0; }
+#appView #journalView .journal-line-text{ box-sizing:border-box; display:block; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:10px 12px;
+  text-align:left; white-space:normal; overflow-wrap:anywhere; font:inherit; font-size:var(--ds-text-read); line-height:1.5; color:var(--kptu-ink);
+  background:var(--ds-kind-journal-soft); border:var(--ds-line-width) solid transparent; border-left:3px solid var(--ds-kind-journal-ink); border-radius:var(--ds-radius-control); box-shadow:none; cursor:pointer; }
+#appView #journalView .journal-line-text:disabled{ cursor:default; opacity:1; }
+#appView #journalView .journal-line-text:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #journalView .journal-line-text:not(:disabled):hover{ border-color:var(--ds-kind-journal-ink); } }
+#appView #journalView .journal-line-item[data-editing]{ display:flex; flex-direction:column; gap:6px; padding:8px; border:var(--ds-line-width) solid var(--ds-kind-journal-ink); border-radius:var(--ds-radius-control); }
+#appView #journalView .journal-line-item textarea{ box-sizing:border-box; width:100%; min-height:var(--ds-control-height); margin:0; resize:none; font-size:var(--ds-text-read); line-height:1.5; color:var(--kptu-ink); }
+#appView #journalView .journal-line-item textarea[aria-invalid="true"]{ border-color:var(--kptu-danger); }
+#appView #journalView .journal-edit-meta{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
+#appView #journalView .journal-edit-meta small{ color:var(--kptu-muted); font-size:var(--ds-text-meta); font-variant-numeric:tabular-nums; }
+#appView #journalView .journal-edit-meta small.over{ color:var(--kptu-danger); }
+#appView #journalView .journal-edit-actions{ display:flex; flex-wrap:wrap; gap:6px; }
+#appView #journalView .journal-edit-actions .journal-delete{ margin-left:auto; color:var(--kptu-danger); border-color:var(--kptu-danger); background:var(--kptu-surface); }
 #appView #journalView .journal-materials{ display:flex; flex-direction:column; gap:10px; }
 #appView #journalView .journal-group{ display:flex; flex-direction:column; gap:4px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #journalView .journal-group h4{ margin:0; font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); }

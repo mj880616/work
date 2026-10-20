@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-// JOURNAL-일지 2단계: the only stored part is the day's line (kind=work); the materials are read and grouped on screen.
+// JOURNAL-일지 2단계: the only stored part is the day's lines (kind=work, one row a day); the materials are read and grouped on screen.
 const mod = import('../app/journal-data.js');
 function runtime(reply = () => []) {
   const calls = [];
@@ -40,29 +40,77 @@ test('week and day reads are kind=work in the signed-in workspace only', async (
   assert.equal(day.get('kind'), 'eq.work'); assert.equal(day.get('journal_day'), 'eq.2026-10-06');
 });
 
-test('save posts a new line, edits a known one, and turns a 409 for the same day into an edit', async () => {
+test('a day holds its lines in saving order; an old one-line day is line 1; joining keeps the per-line rules', async () => {
   const m = await mod;
-  let rt = runtime((path, o) => [{id:'k1', journal_day:'2026-10-06', ...o.body}]);
-  await m.saveWorkLine({day:'2026-10-06', text:' 오늘 한 일 '}, rt);
+  assert.deepEqual(m.workLines({raw_text:'옛 한 줄'}), ['옛 한 줄']);
+  assert.deepEqual(m.workLines({raw_text:'첫 줄\n둘째 줄\n셋째 줄'}), ['첫 줄', '둘째 줄', '셋째 줄']);
+  assert.deepEqual(m.workLines(null), []);
+  assert.equal(m.joinWorkLines(['가', '나']), '가\n나');
+  assert.equal(m.joinWorkLines(['가'.repeat(300), '나'.repeat(300)]).length, 601);
+  assert.throws(() => m.joinWorkLines(['가', '나'.repeat(301)]), e => e.code === 'too_long');
+  assert.throws(() => m.joinWorkLines(['가', ' ']), e => e.code === 'empty');
+  assert.throws(() => m.joinWorkLines(Array(51).fill('줄')), e => e.code === 'too_many');
+  assert.equal(m.joinWorkLines(Array(50).fill('줄')).split('\n').length, 50);
+  // Line changes find a moved line again by its text and refuse a line that is gone.
+  assert.deepEqual(m.addLine(' 셋 ')(['하나', '둘']), ['하나', '둘', '셋']);
+  assert.deepEqual(m.editLine(1, '둘', '둘 고침')(['하나', '둘', '셋']), ['하나', '둘 고침', '셋']);
+  assert.deepEqual(m.editLine(1, '둘', '둘 고침')(['새 줄', '하나', '둘']), ['새 줄', '하나', '둘 고침']);
+  assert.throws(() => m.editLine(1, '둘', 'x')(['하나']), e => e.code === 'line_missing');
+  assert.deepEqual(m.removeLine(0, '하나')(['하나', '둘']), ['둘']);
+  assert.deepEqual(m.restoreLine(0, '하나')(['둘']), ['하나', '둘']);
+  assert.deepEqual(m.restoreLine(5, '끝')(['둘']), ['둘', '끝']);
+  assert.throws(() => m.addLine('a\nb')([]), e => e.code === 'line_break');
+});
+
+test('save: a new day POSTs its first line; a known day PATCHes the joined lines guarded by updated_at', async () => {
+  const m = await mod;
+  let rt = runtime((path, o) => [{id:'k1', journal_day:'2026-10-06', updated_at:'u1', ...o.body}]);
+  const first = await m.changeWorkDay({day:'2026-10-06', change:m.addLine(' 오늘 한 일 ')}, rt);
   assert.equal(rt.calls[0].path, '/rest/v1/app_notes'); assert.equal(rt.calls[0].method, 'POST');
   assert.deepEqual(rt.calls[0].body, {workspace_id:'w', kind:'work', journal_day:'2026-10-06', raw_text:'오늘 한 일'});
+  assert.equal(first.row.raw_text, '오늘 한 일');
   rt = runtime((path, o) => [{id:'k1', journal_day:'2026-10-06', ...o.body}]);
-  await m.saveWorkLine({day:'2026-10-06', row:{id:'k1'}, text:'고친 줄'}, rt);
+  await m.changeWorkDay({day:'2026-10-06', row:{id:'k1', raw_text:'오늘 한 일', updated_at:'2026-10-06T01:00:00Z'}, change:m.addLine('둘째 줄')}, rt);
   const edit = params(rt.calls[0]);
-  assert.equal(rt.calls[0].method, 'PATCH'); assert.equal(edit.get('id'), 'eq.k1'); assert.equal(edit.get('kind'), 'eq.work');
-  assert.equal(rt.calls[0].body.raw_text, '고친 줄'); assert.ok(rt.calls[0].body.updated_at);
+  assert.equal(rt.calls[0].method, 'PATCH'); assert.equal(edit.get('id'), 'eq.k1'); assert.equal(edit.get('kind'), 'eq.work'); assert.equal(edit.get('workspace_id'), 'eq.w');
+  assert.equal(edit.get('updated_at'), 'eq.2026-10-06T01:00:00Z');
+  assert.equal(rt.calls[0].body.raw_text, '오늘 한 일\n둘째 줄'); assert.ok(rt.calls[0].body.updated_at);
   assert.deepEqual(Object.keys(rt.calls[0].body).sort(), ['raw_text', 'updated_at']);
-  rt = runtime((path, o) => {
+  // Removing the last line deletes the day's row (same guard), so the day loses its dot.
+  rt = runtime((path, o) => [{id:'k1'}]);
+  const gone = await m.changeWorkDay({day:'2026-10-06', row:{id:'k1', raw_text:'하나', updated_at:'u'}, change:m.removeLine(0, '하나')}, rt);
+  assert.equal(gone.row, null); assert.equal(rt.calls[0].method, 'DELETE'); assert.equal(params(rt.calls[0]).get('updated_at'), 'eq.u'); assert.equal(params(rt.calls[0]).get('kind'), 'eq.work');
+  rt = runtime();
+  await assert.rejects(m.changeWorkDay({day:'2026-10-06', change:m.addLine('a\nb')}, rt), e => e.code === 'line_break');
+  assert.equal(rt.calls.length, 0);
+});
+
+test('another device: a 409 for a new day or a changed row is read again and the same change applied to its lines', async () => {
+  const m = await mod;
+  let rt = runtime((path, o) => {
     if (o.method === 'POST') throw Object.assign(new Error('dup'), {status:409});
-    if (!o.method) return [{id:'k9', journal_day:'2026-10-06', raw_text:'다른 기기'}];
+    if (!o.method) return [{id:'k9', journal_day:'2026-10-06', raw_text:'다른 기기', updated_at:'u9'}];
     return [{id:'k9', journal_day:'2026-10-06', ...o.body}];
   });
-  const saved = await m.saveWorkLine({day:'2026-10-06', text:'이 기기'}, rt);
-  assert.equal(saved.id, 'k9'); assert.equal(saved.raw_text, '이 기기');
+  const saved = await m.changeWorkDay({day:'2026-10-06', change:m.addLine('이 기기')}, rt);
+  assert.equal(saved.row.raw_text, '다른 기기\n이 기기');
   assert.deepEqual(rt.calls.map(c => c.method || 'GET'), ['POST', 'GET', 'PATCH']);
-  rt = runtime();
-  await assert.rejects(m.saveWorkLine({day:'2026-10-06', text:'a\nb'}, rt), e => e.code === 'line_break');
-  assert.equal(rt.calls.length, 0);
+  assert.equal(params(rt.calls[2]).get('updated_at'), 'eq.u9');
+  // A guarded PATCH that matched nothing (the row changed) reads the row again.
+  let patches = 0;
+  rt = runtime((path, o) => {
+    if (!o.method) return [{id:'k1', journal_day:'2026-10-06', raw_text:'하나\n다른 기기 줄', updated_at:'u2'}];
+    return ++patches === 1 ? [] : [{id:'k1', journal_day:'2026-10-06', ...o.body}];
+  });
+  const merged = await m.changeWorkDay({day:'2026-10-06', row:{id:'k1', raw_text:'하나', updated_at:'u1'}, change:m.addLine('이 기기 줄')}, rt);
+  assert.equal(merged.row.raw_text, '하나\n다른 기기 줄\n이 기기 줄');
+  // Editing a line another device removed is refused, not guessed.
+  rt = runtime((path, o) => !o.method ? [{id:'k1', journal_day:'2026-10-06', raw_text:'남은 줄', updated_at:'u2'}] : []);
+  await assert.rejects(m.changeWorkDay({day:'2026-10-06', row:{id:'k1', raw_text:'지워질 줄\n남은 줄', updated_at:'u1'}, change:m.editLine(0, '지워질 줄', '고침')}, rt), e => e.code === 'line_missing');
+  // Before the database change (20261020051027) a second line is refused with 400: plain notice, nothing guessed.
+  rt = runtime((path, o) => { if (o.method === 'PATCH') throw Object.assign(new Error('check'), {status:400}); return []; });
+  await assert.rejects(m.changeWorkDay({day:'2026-10-06', row:{id:'k1', raw_text:'하나', updated_at:'u'}, change:m.addLine('둘')}, rt), e => e.code === 'lines_not_ready');
+  assert.equal(rt.calls.length, 1);
 });
 
 test('materials: events of the week, done tasks, basket memos (kind=basket) and notes changed that week', async () => {
@@ -114,15 +162,18 @@ test('one day of materials in display order; a failed group is marked, the rest 
   assert.equal(m.dayMaterials({}, '2026-10-06')[0].loading, true);
 });
 
-test('weekly draft: seven days with the line or (없음), materials under each day, missing groups named', async () => {
+test('weekly draft: each day lines in saving order one per row, or (없음); materials under each day, missing groups named', async () => {
   const m = await mod;
-  const lines = new Map([['2026-10-06', {raw_text:'현장 회의 정리'}]]);
+  const lines = new Map([['2026-10-06', {raw_text:'현장 회의 정리'}], ['2026-10-07', {raw_text:'첫 줄\n둘째 줄\n셋째 줄'}]]);
   const text = m.weeklyDraft({start:'2026-10-05', lines, materials:{events:{status:'ok', items:[{title:'회의', start:'2026-10-06T10:00:00+09:00', end:'2026-10-06T11:00:00+09:00'}]}, tasks:{status:'failed'}, memos:{status:'ok', items:[]}, notes:{status:'ok', items:[]}}});
   const rows = text.split('\n');
   assert.equal(rows[0], '주간 업무일지 10월 5일(월) ~ 10월 11일(일)');
   assert.equal(rows.filter(r => r.startsWith('■ ')).length, 7);
-  assert.equal(rows.filter(r => r.startsWith('한 줄: ')).length, 7);
+  assert.equal(rows.filter(r => r.startsWith('한 줄: ')).length, 9);
+  assert.equal(rows.filter(r => r === '한 줄: (없음)').length, 5);
   assert.ok(rows.includes('한 줄: 현장 회의 정리'));
+  const wed = rows.indexOf('■ 10월 7일(수)');
+  assert.deepEqual(rows.slice(wed + 1, wed + 4), ['한 줄: 첫 줄', '한 줄: 둘째 줄', '한 줄: 셋째 줄']);
   assert.ok(rows.includes('- 일정: 10:00 회의'));
   assert.ok(text.includes('※ 끝낸 할 일은(는) 불러오지 못해 빠졌어요.'));
 });
