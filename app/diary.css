@@ -3,7 +3,7 @@
    본문 폭을 다 쓰고, 같은 [일정] 탭의 [달력](calendar-ui.css)과 같은 본문 폭 규칙을 쓴다. 달력 칸은 정사각 대신 4:3으로 낮춰
    넓어진 폭에서도 한 달이 화면 높이 안에 들어오게 한다. 폰(≤760)·중간 폭은 그대로. */
 #appView #diaryView .diary{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
-/* 바깥 폭(본문 칸)은 ui-standard.css의 .view-wide 공용 규칙(UI-PC업무일지폭)이 정한다. */
+/* 바깥 폭(본문 칸)은 view-wide.css의 공용 규칙(.view-wide)(UI-PC업무일지폭)이 정한다. */
 @media(min-width:1024px){
   #appView #diaryView .diary{ max-width:none; }
 }

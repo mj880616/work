@@ -1,6 +1,6 @@
 /* JOURNAL-일지 2단계(업무일지): 일정 탭 [업무일지]. 색은 theme-tokens.css의 값만 쓴다(업무일지 초록 --ds-kind-journal-*).
    이번 주 날짜 숫자 줄(월~일, 한 줄 쓴 날 초록 점) → 고른 날의 "오늘 한 줄" → 그날 재료 목록. 폰·PC 같은 배치.
-   UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다. 바깥 폭은 ui-standard.css의 .view-wide 공용 규칙, 안쪽 제한(960px)은 없앴다. */
+   UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다. 바깥 폭은 view-wide.css의 공용 규칙(.view-wide), 안쪽 제한(960px)은 없앴다. */
 #appView #journalView .journal{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
 @media(min-width:1024px){
   #appView #journalView .journal{ max-width:none; }
