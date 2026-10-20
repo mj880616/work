@@ -2,6 +2,9 @@ name: Authorization security check
 
 on:
   push:
+    # 태그 push(예: basket-pc-v*)에는 돌지 않음. 브랜치 push 동작은 그대로.
+    tags-ignore:
+      - '**'
     paths:
       - 'supabase/**'
       - 'app/project-catalog-model.mjs'
