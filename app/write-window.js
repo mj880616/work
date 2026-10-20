@@ -18,7 +18,7 @@ let sheet = null, active = null;
 function placeSheet() {
   sheet ||= createChoiceSheet({id:'mdPlaceSheet', titleId:'mdPlaceSheetTitle', historyKey:'kptuMdPlace',
     canOpen:() => !!active && !active.closed(), choices:() => active.load(),
-    render:() => ({title:'기록할 곳 선택', html:placeSheetHtml(active?.places, active?.place, esc)}),
+    render:() => ({title:'기록할 곳 선택', search:'조직·프로젝트 이름 검색', html:placeSheetHtml(active?.places, active?.place, esc)}),
     onSelect:(kind, value) => active?.choose(value), onError:error => active?.say(error?.message || '기록할 곳을 불러오지 못했어요.')});
   return sheet;
 }

@@ -206,3 +206,16 @@ div.gt-main{cursor:default}
 #calendarDayTasks .gt-day-menu{flex:0 0 44px;width:44px;height:44px;min-height:44px;min-width:44px;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 #calendarDayTasks .gt-day-menu:hover{background:var(--kptu-surface-subtle)}
 #calendarDayTasks .gt-day-menu:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}
+/* UI-고르기창개선 C(PC만, 폰 그대로): 연결할 프로젝트·조직 체크 목록도 고르기 창과 같은 표시. 하위 프로젝트는 "↳" 없이 들여쓰기 +
+   흐린 글자, 조직은 묶음마다 작은 묶음 이름. 열 수(#776: 1280 이상 2열)는 그대로. */
+.gt-link-arrow{font-style:normal}
+.gt-org-group-name{display:none}
+@media(min-width:761px){
+  .gt-links .gt-link-opt[data-depth] .gt-link-arrow{display:none}
+  .gt-links .gt-link-opt>span{color:var(--kptu-ink)}
+  .gt-links .gt-link-opt[data-depth]>span{color:var(--kptu-muted)}
+  .gt-links .gt-link-opt[data-depth="1"]{padding-left:16px}
+  .gt-links .gt-link-opt[data-depth="2"]{padding-left:32px}
+  .gt-links .gt-link-opt[data-depth="3"]{padding-left:48px}
+  .gt-org-group-name{display:block;grid-column:1 / -1;padding:6px 0 0;font-size:11px;font-weight:500;color:var(--kptu-muted)}
+}

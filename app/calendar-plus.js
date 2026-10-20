@@ -49,7 +49,7 @@ function cmPaintProject(){const b=cmProjectButton();if(!b)return;const name=cmPr
 const cmProjectPicker=createChoiceSheet({id:'eventProjectSheet',titleId:'eventProjectSheetTitle',historyKey:'kptuEventProjectChoice',
   canOpen:()=>!cmSavePending&&!cmSaved?.linked&&!document.querySelector('#eventModal')?.classList.contains('hidden'),
   choices:async()=>{const ctx=window.KPTURuntime.context.read(),snap=await window.KPTUProjectCatalog.load({workspaceId:ctx.workspaceId,userId:ctx.user.id});cmProjectRows=snap.tree.filter(x=>x.project.status==='active');if(!cmProjectRows.some(x=>x.project.id===cmProject))cmProject='';cmPaintProject();},
-  render:()=>({title:'프로젝트 선택',html:projectRows(cmProjectRows,cmProject,cmEsc)}),onSelect:(_,value)=>{cmProject=value;cmPaintProject();},onError:e=>cmStatus(e.message||'프로젝트 목록을 불러오지 못했습니다.',true)
+  render:()=>({title:'프로젝트 선택',search:'프로젝트 이름 검색',html:projectRows(cmProjectRows,cmProject,cmEsc)}),onSelect:(_,value)=>{cmProject=value;cmPaintProject();},onError:e=>cmStatus(e.message||'프로젝트 목록을 불러오지 못했습니다.',true)
 });
 window.addEventListener('kptu:session-changed',()=>{const nextOwner=window.KPTURuntime.context.read()?.user?.id;if(nextOwner===cmFormOwner)return;cmFormOwner=nextOwner;cmProjectPicker.dismiss();cmProject='';cmProjectRows=[];cmFormEpoch++;cmRequest=null;cmSaved=null;cmAttempts.clear();cmSavePending=false;cmSetBusy(false);cmPaintProject();});
 window.addEventListener('kptu:view-changed',()=>cmProjectPicker.dismiss());

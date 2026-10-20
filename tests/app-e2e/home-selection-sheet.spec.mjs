@@ -23,9 +23,12 @@ for(const width of [390,1440])test(`organization chips fit, preserve order and n
  if(width<761)expect(await content.evaluate(el=>el.scrollHeight<=el.clientHeight)).toBe(true);
  else{const d=await sheet(page).boundingBox();expect(d.height).toBeLessThanOrEqual(560);expect(d.y).toBeGreaterThanOrEqual(0);expect(d.y+d.height).toBeLessThanOrEqual(844);
   expect(await content.evaluate(el=>getComputedStyle(el).overflowY)).toBe('auto');expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight||getComputedStyle(document.body).overflow==='hidden')).toBe(true);}
- await expect(all.first()).toHaveCSS('height','32px');await expect(all.first()).toHaveCSS('font-size','14px');
+ // UI-고르기창개선 A: phones keep the 32px chips (pressing range 38px); the PC list uses low 24px chips (pressing range 32px, the
+ // line pitch, so neighbours never share a pressing range).
+ if(width<761){await expect(all.first()).toHaveCSS('height','32px');await expect(all.first()).toHaveCSS('font-size','14px');}
+ else{await expect(all.first()).toHaveCSS('height','24px');await expect(all.first()).toHaveCSS('font-size','13px');}
  const hit=await all.first().evaluate(el=>parseFloat(getComputedStyle(el,'::after').height));
- expect(hit).toBe(38);
+ expect(hit).toBe(width<761?38:32);
  const targets=await sheet(page).locator('.home-choice-chip').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el,'::after'),h=parseFloat(s.height),w=parseFloat(s.width);return {left:r.left+1+parseFloat(s.left),right:r.left+1+parseFloat(s.left)+w,top:r.top+r.height/2-h/2,bottom:r.top+r.height/2+h/2};}));
  for(let i=0;i<targets.length;i++)for(let j=i+1;j<targets.length;j++){const a=targets[i],b=targets[j];expect(Math.max(a.left,b.left)>=Math.min(a.right,b.right)-.1||Math.max(a.top,b.top)>=Math.min(a.bottom,b.bottom)-.1).toBe(true);}
  await page.screenshot({path:info.outputPath(`org-sheet-${width}.png`),fullPage:false});
@@ -39,7 +42,7 @@ test('close paths consume one history entry, focus is contained and project none
  const trigger=q(page).locator('[data-quick-project]');
  const before=await page.evaluate(()=>history.state);
  await trigger.click();await expect(sheet(page)).toBeVisible();await expect(sheet(page).getByRole('button',{name:'프로젝트 없음',exact:true})).toBeFocused();
- await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'선택판 닫기'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true})).toBeFocused();
+ await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('searchbox',{name:'프로젝트 이름 검색'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'선택판 닫기'})).toBeFocused();await page.keyboard.press('Shift+Tab');await expect(sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true})).toBeFocused();
  await sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(sheet(page)).toBeHidden();await expect(trigger).toHaveText('자식 프로젝트 ▾');await expect(trigger).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>history.state)).toEqual(before);
  await trigger.click();await expect(sheet(page).getByRole('button',{name:'자식 프로젝트',exact:true})).toBeFocused();

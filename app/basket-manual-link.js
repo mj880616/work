@@ -1,7 +1,7 @@
 import {confirmLinks,ERROR_TEXT} from './basket-classification.js';
 import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-link-records.js';
 import {selectBasketOrganizations} from './basket-ai-handoff.js';
-import {createChoiceSheet,projectRows} from './choice-sheet.js';
+import {createChoiceSheet,projectRows,projectRow,orgGroupRows} from './choice-sheet.js';
 import {createGoogleTask} from './quick-save.js';
 import {dayKey} from './home-read-model.js';
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
@@ -108,16 +108,14 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     canOpen:()=>!!mode&&!!note()&&!isBusy()&&window.KPTURouter.current==='basket',
     choices:loadChoices,
     render:kind=>{
-      if(kind==='task-project')return {title:'프로젝트 선택',html:projectRows(choices.projects,task?.project||'',esc)};
+      if(kind==='task-project')return {title:'프로젝트 선택',search:'프로젝트 이름 검색',html:projectRows(choices.projects,task?.project||'',esc)};
       const done=linked(),picked=new Set(link.targets.map(t=>linkKey(t.kind,t.id)));
-      const item=(k,id,name,cls,extra='')=>{
-        const state=done.get(linkKey(k,id));
-        // Already linked places stay visible as text and cannot be chosen again.
-        if(state)return `<span class="${cls} basket-choice-done" ${extra}>${esc(name)} · ${state==='suggested'?'이미 제안됨':'이미 연결됨'}</span>`;
-        return `<button type="button" class="${cls}" ${extra} data-sheet-value="${esc(id)}" aria-pressed="${picked.has(linkKey(k,id))}">${esc(name)}</button>`;
-      };
-      if(kind==='organization')return {title:'담당조직 선택',html:choices.groups.length?choices.groups.filter(g=>g.length).map(g=>`<div class="home-choice-group">${g.map(o=>item('organization',o.id,o.name||'이름 없는 조직','home-choice-chip')).join('')}</div>`).join(''):'<p class="home-choice-label">고를 수 있는 담당조직이 없어요.</p>'};
-      return {title:'프로젝트 선택',html:choices.projects.length?choices.projects.map(x=>item('project',x.project.id,x.project.name||'이름 없는 프로젝트','home-choice-row',`style="--home-choice-depth:${x.depth}" title="${esc(x.project.name||'')}"`)).join(''):'<p class="home-choice-label">고를 수 있는 프로젝트가 없어요.</p>'};
+      // Already linked places stay visible as text and cannot be chosen again.
+      const doneItem=(state,name,cls,extra='')=>`<span class="${cls} basket-choice-done" data-sheet-item ${extra}>${esc(name)} · ${state==='suggested'?'이미 제안됨':'이미 연결됨'}</span>`;
+      const chip=o=>{const name=o.name||'이름 없는 조직',state=done.get(linkKey('organization',o.id));return state?doneItem(state,name,'home-choice-chip'):`<button type="button" class="home-choice-chip" data-sheet-value="${esc(o.id)}" aria-pressed="${picked.has(linkKey('organization',o.id))}">${esc(name)}</button>`;};
+      const row=x=>{const state=done.get(linkKey('project',x.project.id));if(!state){const pressed=picked.has(linkKey('project',x.project.id));return projectRow(x,pressed?x.project.id:null,esc);}return doneItem(state,x.project.name||'이름 없는 프로젝트','home-choice-row',`style="--home-choice-depth:${x.depth}" title="${esc(x.project.name||'')}"`);};
+      if(kind==='organization')return {title:'담당조직 선택',search:'조직 이름 검색',html:choices.groups.some(g=>g.length)?orgGroupRows(choices.groups,chip):'<p class="home-choice-label">고를 수 있는 담당조직이 없어요.</p>'};
+      return {title:'프로젝트 선택',search:'프로젝트 이름 검색',html:choices.projects.length?choices.projects.map(row).join(''):'<p class="home-choice-label">고를 수 있는 프로젝트가 없어요.</p>'};
     },
     onSelect:(kind,value)=>{
       if(kind==='task-project'){if(task)task.project=value;paint();return;}
