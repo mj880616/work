@@ -3,6 +3,7 @@
 // session store (here taken from the fixture's mocked token response), then the login
 // page's own "already signed in" path returns to the requested screen.
 export async function signInWithSession(page,email='qa@example.org'){
+  await page.waitForFunction(()=>location.pathname.endsWith('/app/login/')&&!!window.KPTUAuth&&!!window.KPTURuntime&&!!document.querySelector('#googleLoginBtn'));
   await page.evaluate(async address=>{
     const {url,key}=window.KPTURuntime.config;
     const response=await fetch(url+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify({email:address,password:'fixture'}),cache:'no-store'});
