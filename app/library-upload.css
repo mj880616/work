@@ -60,6 +60,8 @@
 /* B안 펼치기: 잘린 줄에만 ⋯ 왼쪽 작은 꺾쇠. 펼친 줄은 이름 전체를 여러 줄로 보이고 꺾쇠를 위로 돌린다. */
 .lu-expand{flex:none;color:var(--kptu-muted);border:0;background:transparent}
 .lu-expand[hidden]{display:none}
+/* PC(761px 이상): 꺾쇠가 없는 줄도 같은 자리를 비워 날짜 세로줄을 맞춘다. */
+@media(min-width:761px){.lu-expand[hidden]{display:block;visibility:hidden}}
 .lu-expand svg{display:block;transition:transform .15s}
 .lu-row.lu-expanded .lu-expand svg{transform:rotate(180deg)}
 .lu-row.lu-expanded{align-items:flex-start}
