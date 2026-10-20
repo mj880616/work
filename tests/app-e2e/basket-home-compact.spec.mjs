@@ -32,12 +32,15 @@ for (const width of [390, 1280]) {
       return {
         pickerHeight: picker.getBoundingClientRect().height,
         zoneHeight: zone.getBoundingClientRect().height,
+        zoneTouch: parseFloat(getComputedStyle(zone, '::after').height) || 0,
         inputToLink: link.getBoundingClientRect().top - entry.getBoundingClientRect().bottom,
         background: style.backgroundColor, padding: style.padding,
       };
     }) };
     expect(values.home.pickerHeight).toBeLessThanOrEqual(width === 390 ? 44 : 80);
-    expect(values.home.zoneHeight).toBeGreaterThanOrEqual(44);
+    // UI-PC버튼36: PC [📎 첨부] paints 36px (input height) with a 44px ::after touch area.
+    expect(values.home.zoneHeight).toBeGreaterThanOrEqual(width === 390 ? 44 : 36);
+    if (width !== 390) expect(values.home.zoneTouch).toBeGreaterThanOrEqual(44);
     expect(values.home.inputToLink).toBeLessThanOrEqual(8);
     if (width === 390) {
       expect(values.home.background).toBe('rgba(0, 0, 0, 0)');

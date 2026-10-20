@@ -17,7 +17,9 @@ for (const width of [390, 1280]) test(`basket attach button placement and shared
   const clip = quick.getByRole('button', { name: '파일 첨부', exact: true });
   await expect(clip).toBeVisible();
   const box = await clip.boundingBox(), input = await quick.locator('[data-quick-input]').boundingBox(), save = await quick.locator('[data-quick-save]').boundingBox();
-  expect(box.height).toBeGreaterThanOrEqual(44);
+  // UI-PC버튼36: on PC the button paints the input height (36px) and keeps a 44px touch area (::after).
+  expect(box.height).toBeGreaterThanOrEqual(width === 1280 ? 36 : 44);
+  if (width === 1280) expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
   expect(box.width).toBeGreaterThanOrEqual(44);
   if (width === 1280) {
     await expect(clip.locator('.basket-clip-label')).toBeVisible();

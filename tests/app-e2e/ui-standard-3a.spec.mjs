@@ -68,7 +68,8 @@ async function sameButtons(page,region){
   const s=await look(control),label=(await control.textContent()).trim();
   // UI-버튼크기: 필터 칩(자료실·회의)은 32px 알약, 보조 버튼([분류 수정])은 32px. 둘 다 누르는 범위 44px. 나머지는 46px·8px.
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('#manageLibraryBtn')?'compact':'button');
-  if(kind==='button'){expect(s.height,label).toBe(46);expect(s.radius,label).toBe('8px');}
+  // UI-PC버튼36: PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(36px), 누르는 범위 44px.
+  if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=1024&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));expect(s.height,label).toBe(pcAdd?36:46);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
   else{expect(s.height,label).toBe(32);expect(s.radius,label).toBe(kind==='chip'?'999px':'8px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
   if(s.bg===primary)filled.push(label);
