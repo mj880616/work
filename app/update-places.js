@@ -44,16 +44,36 @@ export function placeName(places, place) {
   if (place.kind === 'project') return places?.projects.find(x => x.project.id === place.id)?.project.name || '';
   return places?.orgs.groups.flat().find(o => o.id === place.id)?.name || '';
 }
-// The 기록할 곳 sheet: [바구니(미분류)] then the recent organizations on one line, all organizations by group, then projects.
+// UI-기록할곳되돌리기: after an update is added to an organization or a project, the input goes back to the basket; the place
+// just used stays on the 최근 line (first, after [바구니(미분류)]) until the page reloads or the signed-in user changes. Memory only.
+let lastUsed = null;
+const viewer = () => window.KPTURuntime?.context?.read?.()?.user?.id || '';
+export function rememberPlace(place) { if (place) lastUsed = {owner:viewer(), place:{kind:place.kind, id:place.id}}; }
+function usedPlace(places) {
+  if (!lastUsed || lastUsed.owner !== viewer() || !places) return null;
+  return keepPlace(places, lastUsed.place);
+}
+// The 기록할 곳 sheet: [바구니(미분류)] then the recent places on one line, all organizations by group, then projects.
 // UI-고르기창개선: on a PC list the organizations are one line per group (group name, then its chips) and the projects one per line
 // with a small check box; the search box above filters both (the recent line steps aside while searching, its chips are also below).
+// UI-기록할곳창PC: the organizations and the projects are each one column block (data-sheet-col); on a wide PC (1024px~) the sheet
+// sets them side by side under the 최근 line (choice-sheet.js wide, choice-sheet.css). Phones and middle widths keep them stacked.
 export function placeSheetHtml(places, place, esc) {
   const chosen = placeValue(place);
   const chip = o => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(o.id)}" aria-pressed="${o.id === chosen}">${esc(o.name)}</button>`;
   const row = x => projectRow(x, chosen, esc, {value:'project:' + x.project.id});
   const basket = `<span data-sheet-basket class="home-choice-inline"><button type="button" class="home-choice-chip" data-sheet-value="basket" aria-pressed="${chosen === 'basket'}">바구니(미분류)</button></span>`;
   const orgs = places?.orgs || {recent:[], groups:[]}, projects = places?.projects || [];
-  return `<p class="home-choice-label" data-sheet-hide-on-search>최근</p><div class="home-choice-group home-choice-group-plain" data-sheet-hide-on-search>${basket}<span data-sheet-recent class="home-choice-inline">${orgs.recent.map(chip).join('')}</span></div><p class="home-choice-label" data-sheet-label-of="all">전체</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, chip)}</div>${projects.length ? `<p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div>` : ''}`;
+  const used = usedPlace(places);
+  let recent = orgs.recent.map(chip);
+  if (used?.kind === 'project') {
+    const value = placeValue(used);
+    recent = [`<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${value === chosen}">${esc(placeName(places, used))}</button>`, ...recent];
+  } else if (used) {
+    const org = orgs.groups.flat().find(o => o.id === used.id);
+    recent = [org, ...orgs.recent.filter(o => o.id !== used.id)].slice(0, Math.max(3, orgs.recent.length)).map(chip);
+  }
+  return `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${basket}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div><div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, chip)}</div></div>${projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div></div>` : ''}`;
 }
 export { projectRows };
 // Text-only save of one update. owner is the signed-in user (the record's created_by/author_id, checked again by RLS).

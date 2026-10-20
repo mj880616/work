@@ -1,6 +1,6 @@
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
-import { readPlaces, placeSheetHtml, placeValue, placeFromValue } from './update-places.js';
+import { readPlaces, placeSheetHtml, placeValue, placeFromValue, rememberPlace } from './update-places.js';
 import { createGoogleTask, saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
 import { createNote, validateNoteText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js';
@@ -93,7 +93,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     canOpen:()=>!saving&&window.KPTURouter.current===view,choices,
     render:kind=>{
       // BASKET-업데이트통합: [바구니(미분류)] (no place) is the first chip, on the recent line (update-places.js, shared with the write window).
-      return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',search:kind==='org'?'조직·프로젝트 이름 검색':'프로젝트 이름 검색',html:kind==='org'?placeSheetHtml({projects:projectChoices,orgs:orgChoices},currentPlace(),esc):projectRows(projectChoices,project,esc)};
+      return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',search:kind==='org'?'조직·프로젝트 이름 검색':'프로젝트 이름 검색',split:kind==='org',html:kind==='org'?placeSheetHtml({projects:projectChoices,orgs:orgChoices},currentPlace(),esc):projectRows(projectChoices,project,esc)};
     },
     onSelect:(kind,value)=>{if(kind==='org')setPlace(placeFromValue(value));else project=value;paint();}
   });
@@ -102,7 +102,11 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   projectSelect.onclick=()=>void openSheet('project');
   // ▾ also picks [업데이트] when another mode is showing, then opens the organization sheet.
   orgSelect.onclick=()=>{if(saving)return;if(mode!=='update')setMode('update');void openSheet('org');};
-  window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view){uploadGeneration++;dismissForNavigation();}});
+  // UI-기록할곳되돌리기 (b)(c): a place (and a task's project) chosen here is for one add only. Leaving the screen, or closing the big
+  // window without saving, puts the next input back on the basket (and no project); the placeholder then says 바구니. A save in
+  // flight keeps its place, and a task whose result is still being confirmed keeps its project.
+  const resetChoices=()=>{if(saving)return;if(currentPlace())setPlace(null);if(project&&!taskAttempt&&!taskRequest)project='';paint();};
+  window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view){uploadGeneration++;dismissForNavigation();resetChoices();}});
   function setMode(next){
     mode=next;status.textContent='';
     try{if(!basketOnly&&!taskOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
@@ -163,7 +167,10 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       stage='links';const missing=body.links.filter(l=>!attempt.links.has(taskLinkKey(l)));
       if(missing.length){const result=await call('link',{action:'link',task_id:attempt.task.id,links:missing});if(!taskScopeCurrent(r))return;const confirmed=taskLinkKeys(result);if(result?.ok!==true||missing.some(l=>!confirmed.has(taskLinkKey(l))))throw new Error('프로젝트 연결의 저장 결과를 확인하지 못했습니다.');attempt.links=confirmed;if(!taskCurrent(r)){attempt.needsReview=true;return}}
       attempt.linkState='confirmed';if(!taskCurrent(r))return;taskAttempt=null;r.completed=true;
-      if(taskSnapshot()===r.draft){input.value='';expanded=false;taskNotice('')}else{expanded=true;taskNotice('제출한 할 일은 저장했습니다. 추가 입력은 남겨 두었습니다.')}paint();taskToast(r,'할 일을 추가했습니다.');
+      
+      if(taskSnapshot()===r.draft){input.value='';expanded=false;taskNotice('')}else{expanded=true;taskNotice('제출한 할 일은 저장했습니다. 추가 입력은 남겨 두었습니다.')}
+      // UI-기록할곳되돌리기 (c): the next task starts with no project (the date choice stays as before).
+      project='';paint();taskToast(r,'할 일을 추가했습니다.');
       try{void Promise.resolve(refreshTasks()).catch(()=>{if(taskScopeCurrent(r)&&r.token===taskSequence&&mode==='task'&&!input.value)taskNotice('할 일은 저장했습니다. 목록을 다시 불러오지 못했습니다.')})}catch(error){if(taskCurrent(r))taskNotice('할 일은 저장했습니다. 목록을 다시 불러오지 못했습니다.')}
     }catch(error){if(!taskScopeCurrent(r))return;if(stage==='body')attempt.bodyState='unknown';else attempt.linkState='unknown';attempt.needsReview=true;if(taskCurrent(r))taskNotice((attempt.task?'할 일은 확인했습니다. 연결과 수정 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(error.message||error),{confirm:true})}
     finally{attempt.pending=false;if(taskRequest===r&&taskScopeCurrent(r)&&r.token===taskSequence){taskRequest=null;saving=false;taskControls(false);paint()}}
@@ -189,6 +196,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange:()=>{if(isCurrent())paint();},onOcrChange:value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 바구니에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 바구니에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 바구니에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';}}):await createNote({raw_text:text})):organization?await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner}):await saveProjectProgress({project_id:updateProject,raw_text:text,created_by:owner});
       if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       if(saveMode==='basket'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
+      // UI-기록할곳되돌리기: after an organization or project record is added, the next input goes to the basket again; the place
+      // stays first on the sheet's 최근 line (update-places.js). A failed save keeps the place (catch below) for another try.
+      if(saveMode!=='basket'){rememberPlace(currentPlace());setPlace(null);}
       input.value='';expanded=false;paint();if(saveMode==='basket')onSaved(result);
       const toast=document.querySelector('#toast');toast.textContent=saveMode==='basket'?'바구니에 저장했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
       choicesFlight=null;
@@ -217,7 +227,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       onPlace:place=>{if(basketOnly)return;setPlace(place);if(mode!=='update')setMode('update');else paint();},
       updateVia:async(value,place)=>{input.value=value;setPlace(place);if(mode!=='update')setMode('update');try{return await save();}finally{if(basketOnly){setPlace(null);paint();}}},
       onSaved:saved=>{if(saved.kind==='note'){input.value='';expanded=false;paint();}},
-      onClose:(value,{saved})=>{if(!saved){input.value=value;paint();}input.focus({preventScroll:true});}});
+      onClose:(value,{saved})=>{if(!saved){input.value=value;resetChoices();paint();}input.focus({preventScroll:true});}});
   };
   // UI-할일빠른추가상세: [할 일] 화면의 입력 칸 안 오른쪽 끝 [+]는 새 창 없이 일정 화면의 기존 [할 일 등록] 창(프로젝트·날짜 등)을 연다.
   // 입력한 글은 그 창의 제목으로 미리 채운다. 입력 칸 글은 그 창에서 저장될 때 비운다(같은 글이 두 번 남지 않게). 저장 경로는 기존 그대로.
