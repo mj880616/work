@@ -89,9 +89,9 @@ test('resize and font changes repartition; phone and PC return to their original
   expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['쓰기','회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);await page.keyboard.press('Escape');
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
   // UI-PC일정묶음: back on the PC sidebar, 할 일·업무일지·일기 are sub rows under [일정] again (with [달력] first).
-  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','쓰기','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집']);
+  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집','쓰기']);
   expect(await page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:not(.nav-btn)').allTextContents()).toEqual(['달력','할 일','업무일지','일기']);
-  expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','쓰기','일정','할 일','업무일지','일기','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집']);await expect(page.locator('.app-nav [data-account-open]')).toBeVisible();
+  expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','일정','할 일','업무일지','일기','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집','쓰기']);await expect(page.locator('.app-nav [data-account-open]')).toBeVisible();
 });
 
 test('recalculation preserves keyboard focus and highlights the hidden combined media button',async({page})=>{
