@@ -2,9 +2,12 @@
 import {WIDE_QUERY,isWide,placeAnchored,clearAnchored,followAnchor} from './anchored-popup.js';
 // UI-고르기창개선 B: one project per line. A child is indented by its depth (no "↳"); on a PC list (anchored) it is also lighter and
 // every row has a small check box, green when chosen. Phones keep the plain rows. extra: more attributes for the button.
+// PRJ-3단: a third-level row given x.path (its parents, "1단 › 2단") shows that path in small gray text only while the search box
+// filters the list, when the indentation no longer tells where it sits (the text is added while searching and removed after, so the
+// row's text stays its name otherwise). The search still matches the name only.
 export function projectRow(x,selected,esc,{value=x.project.id,extra=''}={}){
-  const name=x.project.name||'이름 없는 프로젝트';
-  return `<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:${x.depth}" data-depth="${x.depth}" data-sheet-value="${esc(value)}" aria-pressed="${value===selected}" title="${esc(name)}" ${extra}><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(name)}</span></button>`;
+  const name=x.project.name||'이름 없는 프로젝트',path=x.depth>=2&&x.path?` data-sheet-path="${esc(x.path)}"`:'';
+  return `<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:${x.depth}" data-depth="${x.depth}" data-sheet-value="${esc(value)}"${path} aria-pressed="${value===selected}" title="${esc(name)}" ${extra}><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(name)}</span></button>`;
 }
 export function projectRows(rows,selected,esc){
   return [{project:{id:'',name:'프로젝트 없음'},depth:0},...rows].map(x=>projectRow(x,selected,esc)).join('');
@@ -39,7 +42,8 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   function filter(){
     const content=sheet.querySelector('[data-sheet-content]'),q=searchBox.hidden||!sheet.classList.contains('home-choice-anchored')?'':searchText(search.value);let shown=0;
     const visible=root=>!!root?.querySelector('[data-sheet-value]:not([hidden]),[data-sheet-item]:not([hidden])');
-    content.querySelectorAll('[data-sheet-value],[data-sheet-item]').forEach(el=>{const hit=!q||searchText(el.textContent).includes(q);el.hidden=!hit;if(hit)shown++;});
+    content.querySelectorAll('[data-sheet-value],[data-sheet-item]').forEach(el=>{const hit=!q||searchText((el.querySelector('.home-choice-name')||el).textContent).includes(q);el.hidden=!hit;if(hit)shown++;});
+    content.querySelectorAll('[data-sheet-path]').forEach(el=>{let tag=el.querySelector('.home-choice-path');if(!q){tag?.remove();return}if(!tag){tag=document.createElement('span');tag.className='home-choice-path';tag.textContent=el.dataset.sheetPath;el.append(tag)}});
     content.querySelectorAll('[data-sheet-hide-on-search]').forEach(el=>{el.hidden=!!q;});
     content.querySelectorAll('[data-sheet-section]').forEach(el=>{el.hidden=!!q&&!visible(el);});
     content.querySelectorAll('[data-sheet-label-of]').forEach(el=>{el.hidden=!!q&&!visible(content.querySelector(`[data-sheet-part="${el.dataset.sheetLabelOf}"]`));});

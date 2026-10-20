@@ -9,6 +9,8 @@
 .ps3-prow+.ps3-prow{border-top:1px solid var(--kptu-border)}
 .ps3-prow:has(.ps3-prow-kids)>.ps3-prow-main{border-bottom:1px solid var(--kptu-border)}
 .ps3-kid-row.kptu-list-row{padding-left:calc(var(--kptu-space-4) * 2)}
+.ps3-kid-row.kptu-list-row[data-ps3-depth="2"]{padding-left:calc(var(--kptu-space-4) * 3)}
+.ps3-hier-sep{color:var(--kptu-muted);font-size:11px}
 .ps3-restore-line{display:flex;align-items:center;min-width:0}
 .ps3-restore-line>.kptu-list-row{flex:1;cursor:default}
 .ps3-restore-line .kptu-list-chevron{visibility:hidden}

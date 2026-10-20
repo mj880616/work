@@ -791,7 +791,8 @@ test('V3 lists child projects with counts in the body and child returns to paren
   expect(state.restCalls.some(x=>x.name==='app_tasks')).toBeFalsy();
   await row.click();
   await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');
-  await expect(page.locator('#ps3-children')).toHaveCount(0);
+  // PRJ-3단: a second-level project keeps the child list with its + (a third level can be made there), and has no child yet.
+  await expect(page.locator('#ps3-children [data-ps3-child]')).toBeVisible();await expect(page.locator('#ps3-children .ps3-child-link')).toHaveCount(0);
   await expect(page.locator('.ps3-parent-link')).toContainText('민자철도 정책·조직사업');
   await page.locator('.ps3-parent-link').click();
   await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');

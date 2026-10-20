@@ -44,6 +44,8 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-sheet.home-choice-anchored .home-choice-pick:hover { background:var(--kptu-primary-soft); }
 .home-choice-sheet.home-choice-anchored .home-choice-pick .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-choice-sheet.home-choice-anchored .home-choice-pick:not([data-depth="0"]) .home-choice-name { color:var(--kptu-muted); }
+/* PRJ-3단: 검색 중에만 세 번째 단계 줄 끝에 "1단 › 2단" 경로를 작은 회색 글자로. */
+.home-choice-sheet.home-choice-anchored .home-choice-path { flex:0 1 auto; min-width:0; margin-left:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-meta,12px); color:var(--kptu-faint); }
 .home-choice-sheet.home-choice-anchored .home-choice-check { display:inline-grid; place-items:center; flex:none; box-sizing:border-box; width:14px; height:14px; border:1px solid var(--kptu-border-strong); border-radius:3px; font-size:10px; line-height:1; color:var(--kptu-on-primary); background:var(--kptu-surface); }
 .home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] { background:var(--kptu-success-soft); color:var(--kptu-ink); font-weight:var(--ds-weight-medium,500); }
 .home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] .home-choice-check { border-color:var(--kptu-success); background:var(--kptu-success); }

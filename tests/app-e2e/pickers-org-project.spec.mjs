@@ -115,7 +115,9 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
  expect(look.bg).toBe(look.soft);expect(look.check).toBe(look.green);expect(look.mark).toContain('✓');
  await sheet.locator('[data-sheet-value="p"]').click();await trigger.click();await expect(sheet.locator('[aria-pressed="true"]')).toHaveText(['테스트 프로젝트']);
  const box=sheet.getByRole('searchbox',{name:'프로젝트 이름 검색'});await box.fill('손자');
- await expect(sheet.locator('[data-sheet-value]:visible')).toHaveText(['손자 프로젝트']);
+ await expect(sheet.locator('[data-sheet-value]:visible .home-choice-name')).toHaveText(['손자 프로젝트']);
+ // PRJ-3단: while searching, a third-level row also shows where it sits ("1단 › 2단").
+ await expect(sheet.locator('[data-sheet-value]:visible .home-choice-path')).toHaveText(['테스트 프로젝트 › 자식 프로젝트']);
  await box.fill('상위');await expect(sheet.locator('[data-sheet-value]:visible')).toHaveText(['다른 상위 프로젝트']);
 });
 
