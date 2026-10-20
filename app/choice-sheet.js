@@ -20,6 +20,7 @@ export function orgGroupRows(groups,chip){
     return `<div class="home-choice-group${name?'':' home-choice-group-plain'}" data-sheet-section${name?` data-sheet-group="${name}"`:''}>${name?`<span class="home-choice-group-name">${name}</span>`:''}<span class="home-choice-group-items">${g.map(chip).join('')}</span></div>`;
   }).join('');
 }
+const SPLIT_QUERY='(min-width:1024px)';
 const searchText=value=>String(value||'').toLowerCase().replace(/\s+/g,'');
 // UI-PC팝업위치: on a wide screen (761px~, anchored-popup.js) every choice sheet opens as a small list right below the button that
 // was pressed (above or beside it when there is no room), with no dimming; phones keep the bottom sheet. anchored(kind) is
@@ -53,13 +54,18 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
     const anchor=active.anchor||active.trigger;
     // Chip lists (organizations, many per line) get a wider list than one-per-line rows so fewer lines need scrolling.
     const chips=!!sheet.querySelector('[data-sheet-content] .home-choice-chip');
-    if(!wantAnchor(active.kind)||!placeAnchored(sheet,anchor,{maxWidth:chips?480:360,maxHeight:chips?560:480})){unplace();filter();return;}
-    sheet.classList.add('home-choice-anchored');filter();
+    // UI-기록할곳창PC: a sheet whose render() asks for split, on a wide PC (1024px~), is one wide list with its columns
+    // (data-sheet-col) side by side, as tall as the window allows below the button; each column scrolls on its own.
+    const split=!!active.split&&window.matchMedia(SPLIT_QUERY).matches;
+    if(!wantAnchor(active.kind)||!placeAnchored(sheet,anchor,split?{maxWidth:880,maxHeight:760,minHeight:320}:{maxWidth:chips?480:360,maxHeight:chips?560:480})){unplace();filter();return;}
+    sheet.classList.add('home-choice-anchored');sheet.classList.toggle('home-choice-split',split);moveSearch(split);filter();
     unfollow||=followAnchor(sheet,anchor,{place,lost:()=>{if(active)void close();}});
   }
-  function unplace(){unfollow?.();unfollow=null;if(!sheet.classList.contains('home-choice-anchored'))return;sheet.classList.remove('home-choice-anchored');clearAnchored(sheet);}
+  // In a split sheet the search box sits in the header, right of the title (before ×, so Tab order follows what is seen).
+  function moveSearch(split){const head=sheet.querySelector('header'),home=split?head:searchBox;if(search.parentElement===home)return;if(split)head.insertBefore(search,sheet.querySelector('[data-sheet-close]'));else searchBox.prepend(search);}
+  function unplace(){unfollow?.();unfollow=null;sheet.classList.remove('home-choice-split');moveSearch(false);if(!sheet.classList.contains('home-choice-anchored'))return;sheet.classList.remove('home-choice-anchored');clearAnchored(sheet);}
   function paint(){
-    if(!active)return;const view=render(active.kind);sheet.querySelector('h2').textContent=view.title;sheet.dataset.kind=active.kind;
+    if(!active)return;const view=render(active.kind);active.split=!!view.split;sheet.querySelector('h2').textContent=view.title;sheet.dataset.kind=active.kind;
     searchBox.hidden=!view.search;if(view.search){search.placeholder=view.search;search.setAttribute('aria-label',view.search);}else search.value='';
     const content=sheet.querySelector('[data-sheet-content]');content.innerHTML=view.html;place();
     const focus=content.querySelector('[aria-pressed="true"]:not([hidden])')||content.querySelector('button:not([hidden])')||sheet.querySelector('[data-sheet-close]');focus.focus({preventScroll:true});focus.scrollIntoView({block:'nearest'});
@@ -82,7 +88,7 @@ export function createChoiceSheet({id,titleId,historyKey,canOpen,choices,render,
   sheet.addEventListener('click',e=>{const b=e.target.closest('[data-sheet-value]');if(b&&active){onSelect(active.kind,b.dataset.sheetValue);void close();return;}if(e.target===sheet){const r=sheet.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)void close();}});
   sheet.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();void close();return;}if(e.key!=='Tab')return;e.stopPropagation();const buttons=[...sheet.querySelectorAll('button,input')].filter(el=>el.getClientRects().length),i=buttons.indexOf(document.activeElement);if(e.shiftKey&&i===0){e.preventDefault();buttons.at(-1).focus();}else if(!e.shiftKey&&i===buttons.length-1){e.preventDefault();buttons[0].focus();}});
   // A wide↔phone switch while open moves the sheet between the two forms.
-  window.matchMedia(WIDE_QUERY).addEventListener?.('change',place);
+  window.matchMedia(WIDE_QUERY).addEventListener?.('change',place);window.matchMedia(SPLIT_QUERY).addEventListener?.('change',place);
   window.addEventListener('popstate',e=>{if(active&&e.state?.[historyKey]!==active.id)void close(true);});
   return {open,close,dismiss,render:paint};
 }

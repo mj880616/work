@@ -1,5 +1,5 @@
 // Open tabs compare the deployed entry point with the app script they actually loaded.
-// Any deployed ?v= other than the running one is new (numbers now, content hashes later;
+// Any deployed ?v= other than the running one is new (the Pages build makes it a content hash;
 // a rollback is a new deployment too). A dismissed value is not offered again in this tab.
 export function startVersionNotice(scriptUrl){
   const script=new URL(scriptUrl),entry=new URL('./index.html',script);

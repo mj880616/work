@@ -22,7 +22,9 @@ for(const width of [390,1440])test(`organization chips fit, preserve order and n
  const content=sheet(page).locator('[data-sheet-content]');
  if(width<761)expect(await content.evaluate(el=>el.scrollHeight<=el.clientHeight)).toBe(true);
  else{const d=await sheet(page).boundingBox();expect(d.height).toBeLessThanOrEqual(560);expect(d.y).toBeGreaterThanOrEqual(0);expect(d.y+d.height).toBeLessThanOrEqual(844);
-  expect(await content.evaluate(el=>getComputedStyle(el).overflowY)).toBe('auto');expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight||getComputedStyle(document.body).overflow==='hidden')).toBe(true);}
+  // UI-기록할곳창PC: on a wide PC (1024px~) the 기록할 곳 sheet is split into columns; a long list scrolls inside its column only.
+  if(width>=1024){await expect(sheet(page)).toHaveClass(/home-choice-split/);expect(await sheet(page).locator('[data-sheet-all]').evaluate(el=>getComputedStyle(el).overflowY)).toBe('auto');expect(await content.evaluate(el=>el.scrollHeight-el.clientHeight)).toBeLessThanOrEqual(1);}
+  else expect(await content.evaluate(el=>getComputedStyle(el).overflowY)).toBe('auto');expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight||getComputedStyle(document.body).overflow==='hidden')).toBe(true);}
  // UI-고르기창개선 A: phones keep the 32px chips (pressing range 38px); the PC list uses low 24px chips (pressing range 32px, the
  // line pitch, so neighbours never share a pressing range).
  if(width<761){await expect(all.first()).toHaveCSS('height','32px');await expect(all.first()).toHaveCSS('font-size','14px');}

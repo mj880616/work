@@ -17,6 +17,7 @@ internal sealed class PasteForm : Form
     public PasteForm(TrayApp app)
     {
         _app = app;
+        Icon = AppIcon.ForWindow();
         Text = "바구니에 붙여넣기";
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(520, 380);

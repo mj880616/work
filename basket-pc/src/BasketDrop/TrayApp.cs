@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Drawing.Drawing2D;
 
 namespace BasketDrop.App;
 
@@ -64,7 +63,7 @@ internal sealed class TrayApp : ApplicationContext
 
         if (_store.RecoverInterrupted() > 0) _log.Write(LogCode.QueueRecovered);
 
-        _tray = new NotifyIcon { Icon = MakeIcon(), Visible = true, Text = "바구니 PC드롭" };
+        _tray = new NotifyIcon { Icon = AppIcon.ForTray(), Visible = true, Text = "바구니 PC드롭" };
         _tray.ContextMenuStrip = BuildMenu();
         _tray.DoubleClick += (_, _) => ShowPaste();
 
@@ -529,21 +528,6 @@ internal sealed class TrayApp : ApplicationContext
     public static void OpenBasket()
     {
         Process.Start(new ProcessStartInfo(AppPaths.BasketUrl) { UseShellExecute = true });
-    }
-
-    private static Icon MakeIcon()
-    {
-        using var bmp = new Bitmap(32, 32);
-        using (var g = Graphics.FromImage(bmp))
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var back = new SolidBrush(Color.FromArgb(37, 99, 235));
-            g.FillEllipse(back, 1, 1, 30, 30);
-            using var font = new Font("Segoe UI", 15, FontStyle.Bold, GraphicsUnit.Pixel);
-            using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            g.DrawString("B", font, Brushes.White, new RectangleF(0, 1, 32, 32), fmt);
-        }
-        return Icon.FromHandle(bmp.GetHicon());
     }
 
     protected override void Dispose(bool disposing)
