@@ -8,9 +8,16 @@
 // JOURNAL-일지카드정리: the four groups under the lines are 일정 (Google Calendar), 끝낸 할 일 (Google Tasks), 조직 소식 (that
 // day's updates by organization) and 회의·행사 결과 (that day's meetings). An "update" is saved in one of three places
 // (update-places.js): a basket row (app_notes kind=basket), an organization record (app_suborganization_updates) or a project
-// progress record (app_project_progress_updates); 조직 소식 reads all three. No browser storage, no new save path.
+// progress record (app_project_progress_updates). No browser storage, no new save path.
+// JOURNAL-주간보고허브 1단계 (docs/design/weekly-report-hub.md 4절): four more groups after those — 프로젝트 소식 (project
+// records and basket updates sent to a project, by project name; they left 조직 소식's '미분류' so the day card follows the
+// weekly report's 사업 요약 ② / 산하 조직 현황 ④ split), 할 일 예정 (pending Google tasks by due date, in the server's
+// default range: overdue and up to 6 days ahead), 자료실 새 자료 (documents added that day, with their category) and
+// 공유 페이지 (share pages changed that day). Every read is limited to the week, a few columns and a row cap; no long body
+// (meeting text, document text, share page blocks) is read.
 import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} from './meeting-time.js';
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
+import {categoryOf} from './document-categories.js';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -121,13 +128,21 @@ export async function readWeekEvents(start, rt = window.KPTURuntime) {
 // actually covered are the echoed number or, without an echo, DONE_TASK_DAYS (3).
 export const DONE_TASK_DAYS = 3;
 export const DONE_TASK_DAYS_MAX = 8;
+// The same answer also holds the pending tasks in the server's default range (overdue, and due up to 6 days ahead in Korea
+// time — google-tasks pendingDueWindow; undated ones are not sent): 할 일 예정 uses them, so one read feeds both groups.
 export async function readDoneTasksWindow(rt = window.KPTURuntime, ask = DONE_TASK_DAYS_MAX) {
   const data = await rt.api(`/functions/v1/google-tasks?action=tasks&completed_days=${ask}`);
   if (!Array.isArray(data?.tasks) || data?.needs_reconnect || data?.error) throw new Error('tasks');
   const echoed = Number(data.completed_days);
   const days = Number.isInteger(echoed) && echoed >= 1 && echoed <= DONE_TASK_DAYS_MAX ? echoed : DONE_TASK_DAYS;
-  return {days, tasks:data.tasks.filter(task => task?.status === 'completed' && Number.isFinite(Date.parse(task.completed || '')))};
+  return {days, tasks:data.tasks.filter(isDone), pending:data.tasks.filter(task => task?.status !== 'completed' && !!dueDay(task))};
 }
+const isDone = task => task?.status === 'completed' && Number.isFinite(Date.parse(task.completed || ''));
+// Google keeps a due date as midnight UTC of that date, so its day is the date part as written.
+export const dueDay = task => { const key = String(task?.due || '').slice(0, 10); return dayKey.test(key) ? key : ''; };
+// The last day whose pending tasks the server sends (today + 6, Korea time).
+export const PENDING_DAYS = 7;
+export const pendingCoverTo = (today = todayKey()) => seoulDateKey(addSeoulDays(today, PENDING_DAYS - 1));
 export const readDoneTasks = async (rt = window.KPTURuntime) => (await readDoneTasksWindow(rt)).tasks;
 // The first day (Korea time) that the covered days reach completely; earlier days may be missing tasks.
 export const doneCoverFrom = (days = DONE_TASK_DAYS, today = todayKey()) => seoulDateKey(addSeoulDays(today, -((days || DONE_TASK_DAYS) - 1)));
@@ -174,6 +189,20 @@ export async function readWeekMeetings(start, rt = window.KPTURuntime) {
   return pages(`/rest/v1/app_meetings?workspace_id=eq.${encode(workspace(rt))}&meeting_at=gte.${encode(from)}&meeting_at=lt.${encode(to)}&select=id,title,series_name,round_no,meeting_at&order=meeting_at.asc,id.asc`, rt);
 }
 
+// 자료실 새 자료: documents of this workspace added (created_at) in the week — the day they were put in the library, not the
+// document's own date (an old document would land on an old day). Title, file name, category and links only; capped.
+export const WEEK_READ_CAP = 300;
+const capped = rows => { if (!Array.isArray(rows)) throw new Error('read'); return Object.assign(rows, {capped:rows.length >= WEEK_READ_CAP}); };
+export async function readWeekDocuments(start, rt = window.KPTURuntime) {
+  const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
+  return capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encode(workspace(rt))}&created_at=gte.${encode(from)}&created_at=lt.${encode(to)}&select=id,title,file_name,category,meeting_id,created_at&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
+}
+// 공유 페이지: share pages of this workspace changed (updated_at) in the week. Title and state only, never the blocks.
+export async function readWeekSharePages(start, rt = window.KPTURuntime) {
+  const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
+  return capped(await rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${encode(workspace(rt))}&updated_at=gte.${encode(from)}&updated_at=lt.${encode(to)}&select=id,title,status,updated_at&order=updated_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
+}
+
 // One day's share of each material, already in display order.
 const allDayKey = value => String(value || '').slice(0, 10);
 export function eventsOn(events, day) {
@@ -186,7 +215,7 @@ export function eventsOn(events, day) {
   }).sort((a, b) => (a.allDay === b.allDay ? String(a.start).localeCompare(String(b.start)) : a.allDay ? -1 : 1));
 }
 export const eventTime = event => event.allDay ? '종일' : seoulClock(event.start);
-export const tasksOn = (tasks, day) => (tasks || []).filter(task => seoulDateKey(task.completed) === day).sort((a, b) => String(a.completed).localeCompare(String(b.completed)));
+export const tasksOn = (tasks, day) => (tasks || []).filter(task => isDone(task) && seoulDateKey(task.completed) === day).sort((a, b) => String(a.completed).localeCompare(String(b.completed)));
 const onDay = (value, day) => !!value && Number.isFinite(Date.parse(value)) && seoulDateKey(value) === day;
 const byTime = (a, b) => Date.parse(a) - Date.parse(b);
 export const memosOn = (memos, day) => (memos || []).filter(memo => onDay(memo?.occurred_at, day)).sort((a, b) => byTime(a.occurred_at, b.occurred_at));
@@ -206,32 +235,7 @@ export function memoLine(memo) {
   return name ? (files.length > 1 ? `첨부: ${name} 외 ${files.length - 1}개` : `첨부: ${name}`) : `첨부 ${files.length}개`;
 }
 export const UNSORTED = '미분류';
-// 조직 소식 of one day: [{name, items:[text]}] — one section per organization (by name), '미분류' last.
-// A basket update goes under each organization it was sent to (a confirmed link, or its files filed as that organization's
-// documents); the link's summary is shown when there is one. Without an organization it is '미분류' (a project it went to is
-// named in front). An organization record goes under its organization; a project record is '미분류' with its project's name.
-export function orgNewsOn({basket, orgUpdates, projectUpdates} = {}, day) {
-  const entries = [];
-  const add = (name, at, text) => entries.push({name: String(name || '').trim() || UNSORTED, at, text});
-  const links = basket?.links || [], docs = basket?.docs || [];
-  for (const memo of memosOn(basket?.notes, day)) {
-    const confirmed = links.filter(link => link.note_id === memo.id && link.status === 'confirmed');
-    const orgs = new Map(), projects = [];
-    for (const link of confirmed) {
-      if (link.organization_id && !orgs.has(link.organization_id)) orgs.set(link.organization_id, {name:link.organization?.name || '조직', summary:firstLine(link.summary)});
-      else if (link.project_id && !link.organization_id && link.project?.name) projects.push(link.project.name);
-    }
-    for (const org of filedOrganizations(memo, docs)) if (!orgs.has(org.organization_id)) orgs.set(org.organization_id, {name:org.name, summary:''});
-    for (const project of filedProjects(memo, docs)) if (!projects.includes(project.name)) projects.push(project.name);
-    const line = memoLine(memo);
-    if (orgs.size) for (const org of orgs.values()) add(org.name, memo.occurred_at, org.summary || line);
-    else add(UNSORTED, memo.occurred_at, projects.length ? `${[...new Set(projects)].join('·')} · ${line}` : line);
-  }
-  for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) add(row.organization?.name, row.occurred_at, firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)');
-  for (const row of projectUpdates || []) if (row?.effective_on === day) {
-    const line = firstLine(row.summary) || '(빈 업데이트)', name = String(row.project?.name || '').trim();
-    add(UNSORTED, row.created_at || `${day}T23:59:59+09:00`, name ? `${name} · ${line}` : line);
-  }
+const sectionsOf = entries => {
   const sections = new Map();
   for (const entry of entries.sort((a, b) => byTime(a.at, b.at) || 0)) {
     if (!sections.has(entry.name)) sections.set(entry.name, []);
@@ -239,6 +243,47 @@ export function orgNewsOn({basket, orgUpdates, projectUpdates} = {}, day) {
   }
   return [...sections].map(([name, items]) => ({name, items}))
     .sort((a, b) => (a.name === UNSORTED) - (b.name === UNSORTED) || a.name.localeCompare(b.name, 'ko'));
+};
+// Where each basket update of the day went: {orgs:[{name, text}], projects:[name], line, at}.
+function basketPlaces(basket, day) {
+  const links = basket?.links || [], docs = basket?.docs || [];
+  return memosOn(basket?.notes, day).map(memo => {
+    const confirmed = links.filter(link => link.note_id === memo.id && link.status === 'confirmed');
+    const orgs = new Map(), projects = [];
+    for (const link of confirmed) {
+      if (link.organization_id && !orgs.has(link.organization_id)) orgs.set(link.organization_id, {name:link.organization?.name || '조직', summary:firstLine(link.summary)});
+      else if (link.project_id && !link.organization_id && link.project?.name) projects.push({name:link.project.name, summary:firstLine(link.summary)});
+    }
+    for (const org of filedOrganizations(memo, docs)) if (!orgs.has(org.organization_id)) orgs.set(org.organization_id, {name:org.name, summary:''});
+    for (const project of filedProjects(memo, docs)) if (!projects.some(p => p.name === project.name)) projects.push({name:project.name, summary:''});
+    return {memo, orgs:[...orgs.values()], projects, line:memoLine(memo)};
+  });
+}
+// 조직 소식 of one day: [{name, items:[text]}] — one section per organization (by name), '미분류' last.
+// A basket update goes under each organization it was sent to (a confirmed link, or its files filed as that organization's
+// documents); the link's summary is shown when there is one. One sent to no organization and no project is '미분류'.
+// An organization record goes under its organization. Project records and updates sent only to a project are 프로젝트 소식.
+export function orgNewsOn({basket, orgUpdates} = {}, day) {
+  const entries = [];
+  const add = (name, at, text) => entries.push({name: String(name || '').trim() || UNSORTED, at, text});
+  for (const {memo, orgs, projects, line} of basketPlaces(basket, day)) {
+    if (orgs.length) for (const org of orgs) add(org.name, memo.occurred_at, org.summary || line);
+    else if (!projects.length) add(UNSORTED, memo.occurred_at, line);
+  }
+  for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) add(row.organization?.name, row.occurred_at, firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)');
+  return sectionsOf(entries);
+}
+// 프로젝트 소식 of one day: [{name, items:[text]}] — one section per project (by name). A project progress record goes under
+// its project on its day (effective_on); a basket update sent to a project and to no organization goes under each such
+// project (an update sent to an organization stays in 조직 소식 only, so nothing shows twice).
+export function projectNewsOn({basket, projectUpdates} = {}, day) {
+  const entries = [];
+  const add = (name, at, text) => entries.push({name: String(name || '').trim() || UNSORTED, at, text});
+  for (const {memo, orgs, projects, line} of basketPlaces(basket, day))
+    if (!orgs.length) for (const project of projects) add(project.name, memo.occurred_at, project.summary || line);
+  for (const row of projectUpdates || []) if (row?.effective_on === day)
+    add(row.project?.name, row.created_at || `${day}T23:59:59+09:00`, firstLine(row.summary) || '(빈 업데이트)');
+  return sectionsOf(entries);
 }
 // 회의·행사 결과 of one day: every meeting row of this workspace whose meeting_at falls on that day (Korea time). Press
 // conferences and forums are meeting rows too (their series name says so), so no kind is filtered out.
@@ -248,13 +293,22 @@ export function meetingLine(meeting) {
   const round = Number(meeting?.round_no), clock = seoulClock(meeting.meeting_at);
   return `${clock && clock !== '00:00' ? clock + ' ' : ''}${name}${meeting?.round_no != null && meeting.round_no !== '' && Number.isFinite(round) ? ` ${round}차` : ''}`;
 }
+export const pendingOn = (tasks, day) => (tasks || []).filter(task => task?.status !== 'completed' && dueDay(task) === day)
+  .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+export const documentLine = doc => `[${categoryOf(doc?.category)}] ${String(doc?.title || doc?.file_name || '').trim() || '(제목 없음)'}${doc?.meeting_id ? ' · 회의자료' : ''}`;
+export const sharePageLine = page => `${String(page?.title || '').trim() || '제목 없음'} · ${page?.status === 'published' ? '게시' : '초안'}`;
 export const GROUPS = Object.freeze([
   ['events', '일정'], ['tasks', '끝낸 할 일'], ['orgs', '조직 소식'], ['meetings', '회의·행사 결과'],
+  ['projects', '프로젝트 소식'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'],
 ]);
-// The reads behind each group (journal.js reads each on its own; a group shows what it could read).
-export const GROUP_SOURCES = Object.freeze({events:['events'], tasks:['tasks'], orgs:['basket', 'orgUpdates', 'projectUpdates'], meetings:['meetings']});
-// The items of one day: {key, label, items:[text]} per group (조직 소식 also has sections:[{name, items}]), loading:true
-// while a read is out, failed:[source keys] for reads that failed (조직 소식 still shows what the other reads gave).
+// The reads behind each group (journal.js reads each on its own; a group shows what it could read). One Google Tasks read
+// feeds both 끝낸 할 일 and 할 일 예정; the basket read feeds both 조직 소식 and 프로젝트 소식.
+export const GROUP_SOURCES = Object.freeze({events:['events'], tasks:['tasks'], orgs:['basket', 'orgUpdates'], meetings:['meetings'],
+  projects:['basket', 'projectUpdates'], due:['tasks'], docs:['documents'], shares:['sharePages']});
+const SECTIONED = new Set(['orgs', 'projects']);
+// The items of one day: {key, label, items:[text]} per group (조직 소식·프로젝트 소식 also have sections:[{name, items}]),
+// loading:true while a read is out, failed:[source keys] for reads that failed (a sectioned group still shows what its other
+// read gave), capped:true when the week had more rows than one read takes (WEEK_READ_CAP).
 export function dayMaterials(materials, day) {
   return GROUPS.map(([key, label]) => {
     const sources = GROUP_SOURCES[key], states = sources.map(source => materials?.[source]);
@@ -265,16 +319,31 @@ export function dayMaterials(materials, day) {
     if (key === 'events' && !failed.length) items = eventsOn(ok('events'), day).map(event => `${eventTime(event)} ${event.title || '(제목 없음)'}`);
     if (key === 'tasks' && !failed.length) items = tasksOn(ok('tasks'), day).map(task => task.title || '(제목 없음)');
     if (key === 'meetings' && !failed.length) items = meetingsOn(ok('meetings'), day).map(meetingLine);
-    if (key === 'orgs' && failed.length < sources.length) {
-      sections = orgNewsOn({basket:ok('basket'), orgUpdates:ok('orgUpdates'), projectUpdates:ok('projectUpdates')}, day);
+    if (key === 'due' && !failed.length) items = pendingOn(ok('tasks'), day).map(task => task.title || '(제목 없음)');
+    if (key === 'docs' && !failed.length) items = (ok('documents') || []).filter(doc => onDay(doc?.created_at, day)).map(documentLine);
+    if (key === 'shares' && !failed.length) items = (ok('sharePages') || []).filter(page => onDay(page?.updated_at, day)).map(sharePageLine);
+    if (SECTIONED.has(key) && failed.length < sources.length) {
+      const read = {basket:ok('basket'), orgUpdates:ok('orgUpdates'), projectUpdates:ok('projectUpdates')};
+      sections = key === 'orgs' ? orgNewsOn(read, day) : projectNewsOn(read, day);
       items = sections.flatMap(section => section.items);
     }
-    return {key, label, items, sections, ...(failed.length ? {failed} : {})};
+    const cap = sources.some(source => materials[source].status === 'ok' && materials[source].items?.capped);
+    return {key, label, items, sections, ...(failed.length ? {failed} : {}), ...(cap ? {capped:true} : {})};
   });
 }
+// A group with nothing on the day is folded into one "기록 없는 묶음" line, unless it is loading, failed, or has a range note
+// (끝낸 할 일 before the covered days, 할 일 예정 after the server's range) — those keep their own box.
+export function rangeNote(group, day, {doneDays = DONE_TASK_DAYS, today = todayKey()} = {}) {
+  if (group.items.length || group.loading || group.failed) return '';
+  if (group.key === 'tasks' && day < doneCoverFrom(doneDays, today)) return `Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.`;
+  if (group.key === 'due' && day > pendingCoverTo(today)) return `할 일 예정은 오늘부터 ${PENDING_DAYS}일 안 마감만 모여요.`;
+  return '';
+}
+export const isFolded = (group, day, range) => !group.items.length && !group.loading && !group.failed && !rangeNote(group, day, range);
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 
-// [주간보고 초안] (this stage: copy only): each day's lines in saving order (one "한 줄:" row each) and the materials list.
+// [주간보고 초안] (this stage: copy only): day by day (Monday to Sunday), each day's lines in saving order (one "한 줄:" row
+// each) and that day's materials in group order. Empty groups add no row.
 export function weeklyDraft({start, lines, materials, doneDays = DONE_TASK_DAYS, today = todayKey()}) {
   const days = weekDays(start);
   const out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, ''];
@@ -284,13 +353,16 @@ export function weeklyDraft({start, lines, materials, doneDays = DONE_TASK_DAYS,
     if (list.length) for (const line of list) out.push(`한 줄: ${line}`);
     else out.push('한 줄: (없음)');
     for (const group of dayMaterials(materials, day)) {
-      if (group.key === 'orgs') { for (const section of group.sections) for (const item of section.items) out.push(`- ${group.label} · ${section.name}: ${item}`); }
+      if (SECTIONED.has(group.key)) { for (const section of group.sections) for (const item of section.items) out.push(`- ${group.label} · ${section.name}: ${item}`); }
       else for (const item of group.items) out.push(`- ${group.label}: ${item}`);
     }
     out.push('');
   }
   const missing = GROUPS.filter(([key]) => GROUP_SOURCES[key].some(source => materials?.[source]?.status !== 'ok')).map(([, label]) => label);
-  if (missing.length) out.push(`※ ${missing.join('·')}은(는) 불러오지 못해 빠졌어요.`);
+  if (missing.length) out.push(`※ ${missing.join(', ')}은(는) 불러오지 못해 빠졌어요.`);
   if (days[0] < doneCoverFrom(doneDays, today)) out.push(`※ 끝낸 할 일은 Google 할 일에서 최근 ${doneDays}일 안에 끝낸 것만 모여요.`);
+  if (days[6] > pendingCoverTo(today)) out.push(`※ 할 일 예정은 Google 할 일에서 오늘부터 ${PENDING_DAYS}일 안 마감(지난 마감 포함)만 모여요.`);
+  const full = GROUPS.filter(([key]) => GROUP_SOURCES[key].some(source => materials?.[source]?.status === 'ok' && materials[source].items?.capped)).map(([, label]) => label);
+  if (full.length) out.push(`※ ${full.join(', ')}은(는) 이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.`);
   return out.join('\n').replace(/\n+$/, '') + '\n';
 }
