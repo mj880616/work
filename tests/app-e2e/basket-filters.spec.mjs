@@ -66,7 +66,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분
  const f=await fixture(page,{width,scheme});await enter(page,width);
  // ① three segments, default [미분류] (gray), with the unclassified count; [전체] is gone and [보관] reads [보류].
  const seg=page.locator('#basketView [data-basket-filter]');
- await expect(seg).toHaveText(['미분류 2','분류','보류']);
+ await expect(seg).toHaveText(['미분류 2','분류 완료','보류']);
  await expect(page.locator('#basketView [data-basket-filter="all"]')).toHaveCount(0);
  const unclassified=filterChip(page,'unclassified'),classified=filterChip(page,'classified'),held=filterChip(page,'archived');
  await expect(unclassified).toHaveAttribute('aria-pressed','true');
