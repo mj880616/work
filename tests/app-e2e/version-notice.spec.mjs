@@ -163,12 +163,13 @@ async function openProject(page){
   await clickView(page,'projects');await page.locator('[data-ps3-project="version-project"]').first().click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
 }
-test('folded project memo still confirms before reload',async({page})=>{
+// UI-프로젝트화면정리: the folded memo box is gone; an unsaved project record draft still confirms before reload.
+test('unsaved project record draft still confirms before reload',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
-  const section=page.locator('#ps3-memos');await section.locator('summary').click();await page.locator('#ps3MemoBody').fill('QA memo');await section.locator('summary').click();
+  const input=page.locator('#ps3-progress [data-ps3-record-input] input');await input.fill('QA record');
   const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
   const d=await dialog;expect(d.message()).toContain('저장하지 않은 프로젝트 내용');await d.dismiss();await click;
-  expect(await page.locator('#ps3MemoBody').inputValue()).toBe('QA memo');
+  expect(await input.inputValue()).toBe('QA record');
 });
 test('saved workstream reopened without edits reloads without confirmation',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);

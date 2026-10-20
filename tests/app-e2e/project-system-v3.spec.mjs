@@ -246,28 +246,23 @@ test('project detail omits removed content, linked-post and collaboration featur
   await expect(page.locator('.ps3-nav,[data-ps3-nav]')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('사업 콘텐츠·현황');
   await expect(page.locator('#ps3Body')).not.toContainText('기존 연결 게시글');
-  await expect(page.locator('#ps3-memos')).toContainText('기존 협업 메모');
+  // UI-프로젝트화면정리: the folded memo box is gone; stored project comments are kept (no delete) and not shown.
+  await expect(page.locator('#ps3-memos,#ps3MemoBody')).toHaveCount(0);
+  await expect(page.locator('#ps3Body')).not.toContainText('기존 협업 메모');
+  expect(state.comments.map(x=>x.id)).toEqual(['comment-legacy']);
 });
 
-test('project memo supports add edit and delete',async({page})=>{
-  const state=baseState();
+// UI-프로젝트화면정리: notes live in the basket's [노트]; the project detail no longer has a memo box and neither reads nor
+// writes project comments (the stored rows stay).
+test('project detail has no memo box and does not read or write project comments',async({page})=>{
+  const state=baseState();state.comments=[{id:'comment-kept',project_id:'main-1',author_id:'user-1',body:'남겨 둔 메모',created_at:now()}];
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
-  await expect(page.locator('#ps3-overview,#ps3-decisions')).toHaveCount(0);
-  await expect(page.locator('#ps3-memos')).toBeVisible();
-  await expect(page.locator('#ps3-memos')).not.toHaveAttribute('open','');
-  await openFold(page,'ps3-memos');
-  await page.locator('#ps3MemoBody').fill('첫 메모');
-  await page.locator('[data-ps3-memo-save]').click();
-  await expect.poll(()=>state.comments.some(x=>x.body==='첫 메모')).toBe(true);
-  const memo=state.comments.find(x=>x.body==='첫 메모');
-  await page.locator(`[data-ps3-edit-memo="${memo.id}"]`).click();
-  await page.locator('#ps3MemoBody').fill('수정 메모');
-  await page.locator('[data-ps3-memo-save]').click();
-  await expect.poll(()=>state.comments.find(x=>x.id===memo.id)?.body).toBe('수정 메모');
-  await expect(page.locator('#ps3-memos')).toHaveAttribute('open','');
-  page.once('dialog',d=>d.accept());
-  await page.locator(`[data-ps3-delete-memo="${memo.id}"]`).click();
-  await expect.poll(()=>state.comments.some(x=>x.id===memo.id)).toBe(false);
+  await expect(page.locator('#ps3-progress')).toBeVisible();
+  await expect(page.locator('#ps3-memos,.ps3-memo-form,[data-ps3-memo-save]')).toHaveCount(0);
+  await expect(page.locator('#ps3Body')).not.toContainText('메모');
+  await expect(page.locator('#ps3-progress [data-ps3-record-input] input')).toHaveAttribute('placeholder','진행상황 기록');
+  expect(state.restCalls.filter(x=>x.name==='app_project_comments')).toEqual([]);
+  expect(state.comments.map(x=>x.id)).toEqual(['comment-kept']);
 });
 
 
@@ -635,11 +630,11 @@ test('project detail keeps one summary-first column at desktop and phone widths'
   await expect(page.locator('#ps3-progress')).toBeVisible();
   const order=await page.locator('#ps3Body').evaluate(body=>[...body.children].map(x=>x.id||x.className));
   // PRJ-회의표시: the 회의 section follows 자료.
-  expect(order).toEqual(['ps3-progress','ps3-children','ps3-tasks','ps3-documents','ps3-meetings','ps3-milestones','ps3-memos']);
+  expect(order).toEqual(['ps3-progress','ps3-children','ps3-tasks','ps3-documents','ps3-meetings','ps3-milestones']);
   // PRJ-기록입력: the header shows one summary line instead of the stored objective text.
   await expect(page.locator('#ps3Summary')).toHaveText('하위 1 · 할 일 0');await expect(page.locator('.ps3-modal-head')).not.toContainText('목표 설명');
   await expect(page.locator('#ps3-milestones')).not.toHaveAttribute('open','');
-  await expect(page.locator('#ps3-memos')).not.toHaveAttribute('open','');
+  await expect(page.locator('#ps3-memos')).toHaveCount(0);
   await expect(page.locator('#ps3Body .ps3-section-head p,#ps3Body .ps3-empty,#ps3Body .ps3-detail-head')).toHaveCount(0);
   await expect(page.locator('#ps3-tasks .ps3-section-actions [data-ps3-global="task"]')).toHaveAccessibleName('할 일 추가');
   await expect(page.locator('#ps3-documents .ps3-section-actions [data-ps3-global="document"]')).toHaveAccessibleName('자료 올리기');
@@ -740,7 +735,8 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await expect.poll(()=>state.progress.some(x=>x.summary==='모바일 QA 현재 상황'&&x.project_id===created.id&&x.workstream_id===null)).toBe(true);
   await expect(page.locator('#ps3-progress [data-ps3-record] .ps3-rec-summary')).toHaveText('모바일 QA 현재 상황');
   await openFold(page,'ps3-milestones');
-  await openFold(page,'ps3-memos');
+  // UI-프로젝트화면정리: without the memo box a new project's detail is shorter; a shorter phone still has to scroll the card.
+  await page.setViewportSize({width:390,height:600});
   const scroll=await page.locator('#ps3DetailModal .ps3-detail-card').evaluate(el=>{
     el.scrollTop=el.scrollHeight;
     return {top:el.scrollTop,height:el.clientHeight,total:el.scrollHeight};
@@ -1233,23 +1229,6 @@ test('saveRecordInput creates once during repeated submits and retries after fai
   expect(state.progress.filter(x=>x.summary==='다시 시도 기록')).toHaveLength(1);expect(state.progress).toHaveLength(2);
   // The recovery read asks for records without a progress item, not for a literal "null" item.
   expect(state.progress.find(x=>x.summary==='다시 시도 기록').workstream_id).toBeNull();
-});
-
-test('saveMemo creates once during repeated clicks and retries after failure',async({page})=>{
-  const state=baseState();await mockApp(page,state);
-  const probe=await saveProbe(page,'app_project_comments','write');
-  await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
-  await openFold(page,'ps3-memos');await page.locator('#ps3MemoBody').fill('잠금 검증');
-  const button=page.locator('[data-ps3-memo-save]');
-  await button.click();await expect.poll(()=>probe.count).toBe(1);
-  await expect(button).toBeDisabled();await button.dispatchEvent('click');
-  await page.waitForTimeout(150);expect(probe.count).toBe(1);
-  probe.release();await expect.poll(()=>state.comments.filter(x=>x.body==='잠금 검증').length).toBe(1);
-  await page.locator('#ps3MemoBody').fill('다시 시도');
-  probe.fail=true;await button.click();
-  await expect(page.locator('#ps3MemoState')).toContainText('임시 저장 실패');
-  await expect(button).toBeEnabled();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await page.getByRole('button',{name:'잠금 검증 · 이 항목 사용',exact:true}).click();await expect(page.locator('#ps3MemoState')).toContainText('입력을 확인');await button.click();
-  await expect.poll(()=>probe.count).toBe(3);
 });
 
 test('saveMilestone creates one Google request during repeated clicks and retries after failure',async({page})=>{

@@ -43,10 +43,11 @@ for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(c
     await page.locator('#ps3-milestones summary').click();await expect(page.locator('#ps3-milestones')).toContainText('오전 12:30');await page.locator('[data-ps3-edit-milestone="seoul-mile"]').click();await expect(page.locator('#ps3MilestoneAt')).toHaveValue('2026-10-01T00:30');
     await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(s.milestones[0].start_at).toBe('2026-09-30T15:30:00.000Z');
     await page.locator('[data-ps3-add-milestone]').click();await page.locator('#ps3MilestoneTitle').fill('새 한국 주요 일정');await fillDateTime(page,'#ps3MilestoneAt','2026-10-01T23:30');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(s.milestones.at(-1).start_at).toBe('2026-10-01T14:30:00.000Z');
-    await page.locator('#ps3-memos summary').click();await expect(page.locator('#ps3-memos')).toContainText('오전 12:30');
+    // UI-프로젝트화면정리: the memo box (with its Seoul time) is gone from the project detail.
+    await expect(page.locator('#ps3-memos')).toHaveCount(0);
     // decisions() is currently dormant. Exercise its real renderer in a browser without exposing it in the app.
     const source=readFileSync(new URL('../../app/project-system-v3.js',import.meta.url),'utf8');
-    const renderer=source.slice(source.indexOf('function decisions(d){'),source.indexOf('function memoHtml(d){'));
+    const renderer=source.slice(source.indexOf('function decisions(d){'),source.indexOf('function pagesHtml(d){'));
     const fmt=source.match(/const fmt=[^;]+;/)[0];
     const html=await page.evaluate(async({renderer,fmt})=>{
       const {formatMeetingTime}=await import('/app/meeting-time.js');
