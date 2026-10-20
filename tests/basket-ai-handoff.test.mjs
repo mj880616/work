@@ -343,3 +343,22 @@ test('existing records over the total cap are cut oldest first',()=>{
  const dropped=big.filter(r=>!out.some(o=>o.id===r.id));
  assert.ok(dropped.every(d=>out.every(o=>Date.parse(o.occurred_at)>=Date.parse(d.occurred_at))));
 });
+// TEST-바구니담당조직: a token refresh writes the session again for the same owner (kptu:session-changed). While the catalog had
+// nothing published yet, that event reset it and the handoff's in-flight catalog read came back empty ("업무 공간이 바뀌었어요").
+// A refresh for the same owner keeps the read; a new owner or sign-out still drops it.
+test('catalog read in flight survives a same-owner session refresh, not an owner change',async()=>{
+ const listeners=[],pending=[];
+ const rt={api:()=>new Promise(resolve=>pending.push(resolve))};
+ globalThis.window={addEventListener(type,fn){if(type==='kptu:session-changed')listeners.push(fn);},dispatchEvent(){},KPTURuntime:rt};
+ vm.runInNewContext(readFileSync(new URL('../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/,''),{...projectRules,window:globalThis.window,CustomEvent:class {}});
+ const catalog=globalThis.window.KPTUProjectCatalog,session=id=>listeners.forEach(fn=>fn({detail:{session:id?{user:{id}}:null}}));
+ const rows=[{id:p,name:'합성 프로젝트',status:'active',metadata:{project_system:'v2'}}];
+ let read=catalog.load({workspaceId:'w',userId:'u',force:true});session('u');pending.shift()(rows);
+ let result=await read;assert.equal(result.workspaceId,'w');assert.equal(result.userId,'u');assert.equal(result.loaded,true);
+ session('u');assert.equal(catalog.snapshot().workspaceId,'w');
+ read=catalog.load({workspaceId:'w',userId:'u',force:true});session('v');pending.shift()(rows);
+ result=await read;assert.equal(result.workspaceId,null);assert.equal(result.loaded,false);
+ catalog.publish({workspaceId:'w',userId:'u',spaces:rows});session(null);assert.equal(catalog.snapshot().loaded,false);
+ read=catalog.load({workspaceId:'w',userId:'u',force:true});session(null);pending.shift()(rows);
+ assert.equal((await read).loaded,false);
+});

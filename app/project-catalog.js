@@ -54,6 +54,8 @@ function options(selected='',includeBlank=true){
   return (includeBlank?'<option value="">프로젝트 없음</option>':'')+retained+rows.map(({project,depth})=>`<option value="${escape(project.id)}"${project.id===selected?' selected':''}>${escape(label(project.name||'이름 없는 프로젝트',depth))}</option>`).join('')
 }
 function reset(){epoch+=1;flight=null;key='';state={workspaceId:null,userId:null,spaces:[],projects:[],loaded:false}}
-window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(next&&next===state.userId)return;reset()});
+// A token refresh writes the session again for the same owner: keep the catalog and a read in flight for that owner (before
+// the first publish state.userId is still empty, so it must not count as another owner). A new owner or sign-out resets.
+window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(next&&[state.userId,flight?.userId].every(id=>!id||id===next))return;reset()});
 window.KPTUProjectCatalog={isProject,select,active,archived,tops,kids,tree,basketProjects,label,options,publish,fetchSpaces,load,snapshot,describe,reset};
 })();
