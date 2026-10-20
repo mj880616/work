@@ -1,3 +1,4 @@
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -180,6 +181,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
    if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',theme==='olive'?'#47532a':theme==='navy'?'#355f86':theme==='terracotta'?'#7f3f1b':'#7a5012');}else await matches('.app-nav .nav-btn.active','backgroundColor',{olive:'#eef0e1',navy:'#eef4f8',terracotta:'#f8e9dc',sand:'#f6ead1'}[theme]);/* 8-9e-3: 고른 메뉴는 연한 계정 색 */
+   if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);
    if(view==='projects'){
     await page.locator('[data-ps3-project="theme-project"]').first().click();
