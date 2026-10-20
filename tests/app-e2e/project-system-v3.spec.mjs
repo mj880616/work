@@ -1417,7 +1417,7 @@ for(const width of [390,1280])test(`D-4c single progress record has no duplicate
   await expect(item.locator('[data-ps3-record] .ps3-rec-summary')).toHaveText('국토부 후속협의 준비');
   await expect(item.locator('[data-ps3-record-menu]')).toBeVisible();
   await item.locator('[data-ps3-record-input] input').fill('두 번째 기록');
-  await item.locator('[data-ps3-record-input] button').click();
+  await item.locator('[data-ps3-record-input] button[type=submit]').click();
   await expect(item.locator('[data-ps3-record-count]')).toHaveText('2');
   await expect(item.locator('[data-ps3-record] .ps3-rec-summary')).toHaveText(['두 번째 기록','국토부 후속협의 준비']);
   page.once('dialog',d=>d.accept());await recordAction(page,item.locator('[data-ps3-record]').first(),'삭제');
