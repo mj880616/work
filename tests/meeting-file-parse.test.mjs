@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseDate,parseRound,parseKey,roleOf,splitPasted,firstLineKey,mergeKey,matchKind,groupItems,findExisting,appendResult,isHeaderLine,linesFromGlyphs} from '../app/meeting-file-parse.mjs';
+import {parseDate,parseRound,parseKey,roleOf,splitPasted,firstLineKey,mergeKey,matchKind,kindKey,kindCandidates,groupItems,findExisting,appendResult,isHeaderLine,linesFromGlyphs} from '../app/meeting-file-parse.mjs';
 
 test('날짜: YYMMDD·YYYYMMDD·YYYY.MM.DD·YYYY-MM-DD·년월일·YY.MM.DD, 없는 날짜는 버림',()=>{
   assert.equal(parseDate('251015 중집 결과').date,'2025-10-15');
@@ -122,4 +122,32 @@ test('결과 더하기: 빈 칸이면 그대로, 있으면 빈 줄 뒤에, 이�
   assert.equal(appendResult('기존\n','새 결과'),'기존\n\n새 결과');
   assert.equal(appendResult('기존\n\n새 결과','새 결과'),'기존\n\n새 결과');
   assert.equal(appendResult('기존',''),'기존');
+});
+
+// MEET-파일이름인식: 등록된 종류와 파일 이름 속 회의 이름을 띄어쓰기·기호·꼬리말 차이 없이 맞춘다(별칭·줄임말은 맞추지 않음).
+test('종류 맞추기용 글자: 기호·공백·꼬리말을 지운다',()=>{
+  assert.equal(kindKey('운영 위원회 회의'),'운영위원회');
+  assert.equal(kindKey('A·B-C 협의회 회의결과'),'abc협의회');
+  assert.equal(kindKey('회의'),'');
+});
+
+test('파일 이름 → 종류 후보: 붙여 쓰기·띄어 쓰기·꼬리말·날짜 6자리·8자리 모두 같은 종류로 맞춘다',()=>{
+  const kinds=['가나 다라국 회의','마바 협의회','중앙집행위원회'];
+  const one=name=>kindCandidates(name,kinds);
+  assert.deepEqual(one('261020_26-38차 가나다라국 회의결과.hwp'),['가나 다라국 회의']);
+  assert.deepEqual(one('261020_26-38차 가나 다라국 회의결과.hwp'),['가나 다라국 회의']);
+  assert.deepEqual(one('20261020 제38차 가나다라국회의 결과.pdf'),['가나 다라국 회의']);
+  assert.deepEqual(one('2026-10-20 가나·다라국 결과.pdf'),['가나 다라국 회의']);
+  assert.deepEqual(one('(최종) 마바협의회 자료 251020.hwpx'),['마바 협의회']);
+  assert.deepEqual(one('251015 제5차 중앙집행위원회 회의결과.pdf'),['중앙집행위원회']);
+});
+
+test('파일 이름 → 종류 후보: 둘 이상이면 모두 돌려주고, 없거나 짧은 줄임말이면 빈 목록',()=>{
+  assert.deepEqual(kindCandidates('261020 38차 가나다 운영위원회 결과.hwp',['가나다 운영위원회','운영위원회','마바 협의회']),['가나다 운영위원회','운영위원회']);
+  assert.deepEqual(kindCandidates('261020 38차 사아자 회의결과.hwp',['가나 다라국 회의','마바 협의회']),[]);
+  assert.deepEqual(kindCandidates('261020 중집 결과.hwp',['중앙집행위원회']),[]);
+  assert.deepEqual(kindCandidates('261020 38차.hwp',['중앙집행위원회']),[]);
+  assert.deepEqual(kindCandidates('',['중앙집행위원회']),[]);
+  assert.deepEqual(kindCandidates('x.hwp',[]),[]);
+  assert.deepEqual(kindCandidates('261020 가 결과.hwp',['가']),[]);
 });

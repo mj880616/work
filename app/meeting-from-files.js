@@ -5,7 +5,7 @@
 //   파일은 회의자료 올리기와 같은 meeting-files Edge(자료실 '회의자료' 등록 포함). DB·Edge 변경 없음.
 // - 이 모듈은 #mffPanel 한 곳만 그린다. 창 열기·닫기·직접 쓰기 칸은 team.js가 그대로 맡고,
 //   어느 쪽을 보일지는 #meetingModal의 data-create-mode(이 모듈이 정함)와 meeting-ui.css가 정한다.
-import {parseKey,roleOf,splitPasted,firstLineKey,mergeKey,matchKind,nameKey,groupItems,findExisting,appendResult} from './meeting-file-parse.mjs';
+import {parseKey,roleOf,splitPasted,firstLineKey,mergeKey,matchKind,kindCandidates,nameKey,groupItems,findExisting,appendResult} from './meeting-file-parse.mjs';
 import {readFileText,createHwpReader,kindOf} from './meeting-file-text.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {seoulDateKey,toMeetingISO} from './meeting-time.js';
@@ -105,8 +105,15 @@ function rebuildText(){
 }
 
 function plan(){
-  for(const item of files)item.key=mergeKey(item.fileKey,item.bodyKey);
   const known=kinds(),all=meetings();
+  // 파일 이름 속 회의 이름은 띄어쓰기·기호·꼬리말을 무시하고 등록된 종류와 맞춘다: 후보 1개면 그 종류로, 2개 이상이면 비워 두고 고르게 한다.
+  for(const item of files){
+    const cands=kindCandidates(item.file.name,known),fileKey={...item.fileKey};
+    if(cands.length===1)fileKey.name=cands[0];
+    item.cands=cands;
+    item.key=mergeKey(fileKey,item.bodyKey);
+    if(cands.length>1)item.key.name='';
+  }
   return groupItems([...textItems,...files]).map(g=>{
     const items=[...g.results,...g.materials,...g.undecided];
     const matched=matchKind(g.name,known),kind=matched||g.name;
@@ -124,7 +131,9 @@ function plan(){
     else if(!existing&&!matched&&!confirmed.has(nameKey(kind))){state='new-kind';note='처음 보는 회의명이에요'}
     if(error&&state==='ready')note='실패 · '+error;
     const reading=g.results.some(i=>i.kind==='file'&&i.read==='reading');
-    return {...g,items,anchor:items[0]?.id||g.key,kind,isNew:!matched,existing,date,state,note,reading};
+    const candidates=kind?[]:[...new Set(items.flatMap(i=>i.cands||[]))];
+    if(state==='pick'&&candidates.length>1&&!g.undecided.length)note='회의 종류 후보가 여럿이에요. 골라 주세요';
+    return {...g,candidates,items,anchor:items[0]?.id||g.key,kind,isNew:!matched,existing,date,state,note,reading};
   });
 }
 
@@ -142,7 +151,8 @@ function rowHtml(g){
   }).join('');
   const fields=`<div class="mff-fields"><label>종류<input type="text" data-mff-field="name" list="mffKinds" value="${esc(g.kind)}" autocomplete="off"${locked?' disabled':''}></label><label>차수<input type="number" min="1" inputmode="numeric" data-mff-field="round" value="${esc(g.round||'')}"${locked?' disabled':''}></label><label>날짜<input type="date" data-mff-field="date" value="${esc(g.date)}"${locked?' disabled':''}></label></div>`;
   const confirm=g.state==='new-kind'&&!saving?`<p class="mff-confirm">"${esc(g.kind)}"은 처음 보는 회의명이에요. <button type="button" class="secondary" data-mff-confirm="${esc(g.kind)}">새 종류로 만들기</button></p>`:'';
-  return `<details class="mff-row" data-mff-anchor="${esc(g.anchor)}" data-state="${g.state}"${open?' open':''}><summary aria-label="${esc(label)}"><span class="mff-cell mff-date">${esc(shortDate(g.date)||'—')}</span><span class="mff-cell mff-kind">${esc(g.kind||'—')}</span><span class="mff-cell mff-round">${esc(g.round?g.round+'차':'—')}</span><span class="mff-cell mff-count">${g.materials.length}</span><span class="mff-cell mff-result" data-has="${g.results.length?1:0}">${result}</span><span class="mff-note">${esc(g.note)}</span></summary><div class="mff-body">${confirm}${fields}<div class="mtg-file-list">${fileRows}</div></div></details>`;
+  const choose=g.candidates.length>1&&!locked?`<p class="mff-confirm">회의 종류 후보: ${g.candidates.map(c=>`<button type="button" class="secondary" data-mff-candidate="${esc(c)}">${esc(c)}</button>`).join(' ')}</p>`:'';
+  return `<details class="mff-row" data-mff-anchor="${esc(g.anchor)}" data-state="${g.state}"${open?' open':''}><summary aria-label="${esc(label)}"><span class="mff-cell mff-date">${esc(shortDate(g.date)||'—')}</span><span class="mff-cell mff-kind">${esc(g.kind||'—')}</span><span class="mff-cell mff-round">${esc(g.round?g.round+'차':'—')}</span><span class="mff-cell mff-count">${g.materials.length}</span><span class="mff-cell mff-result" data-has="${g.results.length?1:0}">${result}</span><span class="mff-note">${esc(g.note)}</span></summary><div class="mff-body">${choose}${confirm}${fields}<div class="mtg-file-list">${fileRows}</div></div></details>`;
 }
 
 function paint(){
@@ -201,6 +211,12 @@ function onListClick(e){
   if(saving)return;
   const remove=e.target.closest('[data-mff-remove]');
   if(remove){files=files.filter(i=>i.id!==remove.dataset.mffRemove);paint();$('#mffPick')?.focus();return}
+  const candidate=e.target.closest('[data-mff-candidate]');
+  if(candidate){
+    const row=candidate.closest('[data-mff-anchor]');
+    for(const item of rowItems(row)){item.override={...item.override,name:candidate.dataset.mffCandidate};if(item.kind==='text')textOverride.set(item.text,item.override)}
+    opened.set(row.dataset.mffAnchor,true);paint();return;
+  }
   const confirm=e.target.closest('[data-mff-confirm]');
   if(confirm){confirmed.add(nameKey(confirm.dataset.mffConfirm));paint()}
 }

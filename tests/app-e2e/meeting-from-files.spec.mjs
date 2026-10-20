@@ -15,14 +15,14 @@ const REVIEW=process.env.UI_REVIEW_DIR||'';
 const hwpSample=readFileSync(new URL('../fixtures/hwp-lab/sample.hwp',import.meta.url));
 const pdf=(name,lines=['material'])=>({name,mimeType:'application/pdf',buffer:tinyPdf(lines)});
 
-async function fixture(page,{width=1280,scheme='light',failUpload=()=>false}={}){
+async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,extraKinds=[]}={}){
   await page.setViewportSize({width,height:width<761?844:900});
   await page.emulateMedia({colorScheme:scheme});
   await servePagesCors(page);
   const f={meetings:[
     {id:'m-cc4',workspace_id:'ws',project_id:null,title:'중앙집행위원회',series_name:'중앙집행위원회',round_no:4,meeting_at:'2025-09-10T05:00:00Z',transcript_text:'4차 결과',created_by:'u1'},
     {id:'m-op3',workspace_id:'ws',project_id:null,title:'본부 운영위원회',series_name:'본부 운영위원회',round_no:3,meeting_at:'2025-09-03T06:00:00Z',transcript_text:'기존 결과',created_by:'u1'},
-  ],posts:[],patches:[],uploads:[],uploadAttempts:[],errors:[]};
+  ...extraKinds.map((k,i)=>({id:'m-x'+i,workspace_id:'ws',project_id:null,title:k,series_name:k,round_no:1,meeting_at:'2025-08-01T05:00:00Z',transcript_text:'결과',created_by:'u1'}))],posts:[],patches:[],uploads:[],uploadAttempts:[],errors:[]};
   let n=0;
   page.on('pageerror',e=>f.errors.push(e.message));
   await page.route(`${SB}/**`,async route=>{
@@ -250,3 +250,60 @@ if(REVIEW){
     });
   }
 }
+
+// MEET-파일이름인식: 파일 이름 속 회의 이름의 띄어쓰기·기호·꼬리말 차이를 무시하고 등록된 종류와 맞춘다.
+test('a file name with different spacing and tail words is matched to the registered kind without a new-kind prompt',async({page})=>{
+  const f=await fixture(page);
+  await page.locator('#mffFiles').setInputFiles([pdf('261020_26-38차 중앙 집행위원회 회의결과.pdf',['Result body'])]);
+  const r=rows(page);
+  await expect(r).toHaveCount(1);
+  await expect(create(page)).toHaveText('회의 1건 만들기',{timeout:30000});
+  await expect(r).toHaveAttribute('data-state','ready');
+  await expect(r.locator('summary')).toHaveAttribute('aria-label','2026-10-20, 중앙집행위원회, 38차, 자료 0개, 결과 있음, 새로 만들기');
+  await expect(r.locator('[data-mff-confirm]')).toHaveCount(0);
+  await create(page).click();
+  await expect(page.locator('#toast')).toHaveText('회의 1건을 만들었어요.',{timeout:30000});
+  expect(f.posts.map(p=>[p.series_name,p.round_no,p.meeting_at])).toEqual([['중앙집행위원회',38,'2026-10-19T15:00:00.000Z']]);
+  expect(f.errors).toEqual([]);
+});
+
+test('two registered kinds that both fit a file name are never auto-picked; the candidates are shown to choose',async({page})=>{
+  const f=await fixture(page,{extraKinds:['운영위원회']});
+  await page.locator('#mffFiles').setInputFiles([pdf('261020_26-38차 본부운영위원회 회의결과.pdf',['Result body'])]);
+  const r=rows(page);
+  await expect(r).toHaveCount(1);
+  await expect(r).toHaveAttribute('data-state','pick',{timeout:30000});
+  await expect(r).toHaveAttribute('open','');
+  await expect(r.locator('.mff-note')).toHaveText('회의 종류 후보가 여럿이에요. 골라 주세요');
+  await expect(r.locator('[data-mff-candidate]')).toHaveText(['본부 운영위원회','운영위원회']);
+  await expect(r.locator('[data-mff-field="name"]')).toHaveValue('');
+  await expect(create(page)).toBeDisabled();
+  await r.locator('[data-mff-candidate]').first().click();
+  await expect(r).toHaveAttribute('data-state','ready');
+  await expect(r.locator('[data-mff-field="name"]')).toHaveValue('본부 운영위원회');
+  await expect(r.locator('[data-mff-field="round"]')).toHaveValue('38');
+  await expect(r.locator('[data-mff-field="date"]')).toHaveValue('2026-10-20');
+  await expect(r.locator('[data-mff-candidate]')).toHaveCount(0);
+  await create(page).click();
+  await expect(page.locator('#toast')).toHaveText('회의 1건을 만들었어요.',{timeout:30000});
+  expect(f.posts.map(p=>[p.series_name,p.round_no])).toEqual([['본부 운영위원회',38]]);
+  expect(f.errors).toEqual([]);
+});
+
+test('a material file is matched the same way, joins its result file, and the kind field can still be corrected by hand',async({page})=>{
+  const f=await fixture(page,{extraKinds:['본부 집행위']});
+  await page.locator('#mffFiles').setInputFiles([
+    pdf('261020 제38차 본부집행위 회의자료.pdf'),
+    pdf('261020_38차 본부 집행위 회의결과.pdf',['Result body']),
+  ]);
+  const r=rows(page);
+  await expect(r).toHaveCount(1);
+  await expect(create(page)).toHaveText('회의 1건 만들기',{timeout:30000});
+  await expect(r.locator('summary')).toHaveAttribute('aria-label','2026-10-20, 본부 집행위, 38차, 자료 1개, 결과 있음, 새로 만들기');
+  await r.locator('summary').click();
+  const kind=r.locator('[data-mff-field="name"]');
+  await expect(kind).toHaveValue('본부 집행위');
+  await kind.fill('본부 운영위원회');await kind.press('Tab');
+  await expect(r.locator('summary')).toHaveAttribute('aria-label','2026-10-20, 본부 운영위원회, 38차, 자료 1개, 결과 있음, 새로 만들기');
+  expect(f.errors).toEqual([]);
+});
