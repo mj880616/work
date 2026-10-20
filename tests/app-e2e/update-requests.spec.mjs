@@ -84,8 +84,11 @@ for (const width of [390, 1280]) test(`home input marks the next update; the tog
   await press(page, q.locator('[data-quick-save]'), width);
   await expect.poll(() => f.writes.length).toBe(2);
   expect(f.writes[1].body.metadata).toBeUndefined();
+  // The save is finished (the input is emptied) before the next input.
+  await expect(input).toHaveValue('');
+  await expect(box).toBeHidden();
   // [할 일] has no marks: the toggles are not offered there.
-  await input.focus();
+  await input.fill('다음 업데이트');
   await expect(box).toBeVisible();
   await press(page, q.locator('[data-quick-mode="task"]'), width);
   await expect(box).toBeHidden();
@@ -100,6 +103,7 @@ for (const width of [390, 1280]) test(`home input marks the next update; the tog
   await press(page, bq.locator('[data-quick-save]'), width);
   await expect.poll(() => f.writes.length).toBe(3);
   expect(f.writes[2].body.metadata).toEqual({ requests: ['discussion'] });
+  await expect(bq.locator('[data-quick-input]')).toHaveValue('');
   await expect(bq.locator('[data-quick-request="discussion"]')).toHaveAttribute('aria-pressed', 'false');
   // The list shows the marks as small tags on each row.
   await expect(page.locator('[data-basket-row="new-1"] [data-request-tag]')).toHaveText(['임원 요청']);
