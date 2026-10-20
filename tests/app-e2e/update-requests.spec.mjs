@@ -156,3 +156,29 @@ for (const width of [390, 1280]) test(`an open update turns marks on and off; ot
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(f.errors).toEqual([]);
 });
+
+// An update with an attachment is made by the upload (basket-files); its marks follow in one guarded metadata write.
+test('an update saved with a file gets its marks right after the upload', async ({ page }) => {
+  const f = await fixture(page, 1280, []);
+  const uploads = [];
+  await page.route(SB + '/functions/v1/basket-files', async r => {
+    uploads.push(r.request().postDataBuffer().toString());
+    const saved = row('up-1', '첨부 업데이트', {}, { attachments: [{ drive_file_id: 'file_1', file_name: 'a.txt', size_bytes: 12 }] });
+    f.rows.unshift(saved);
+    return r.fulfill({ json: { ok: true, note_id: 'up-1', attachments: saved.attachments } });
+  });
+  const q = page.locator('#homeView [data-home-quick]');
+  await q.locator('[data-quick-input]').focus(); await q.locator('[data-quick-input]').fill('첨부 업데이트');
+  await q.locator('input[type=file]').setInputFiles([{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('fake file') }]);
+  await q.locator('[data-quick-request="exec_schedule"]').click();
+  await q.locator('[data-quick-save]').click();
+  await expect(page.locator('#toast')).toContainText('바구니에 저장했습니다.');
+  expect(uploads).toHaveLength(1);
+  const patch = f.writes.find(w => w.method === 'PATCH');
+  expect(patch.query).toMatchObject({ id: 'eq.up-1', kind: 'eq.basket', 'metadata->>requests': 'is.null' });
+  expect(f.rows[0].metadata).toEqual({ requests: ['exec_schedule'] });
+  expect(f.writes.filter(w => w.method === 'POST')).toHaveLength(0);
+  await expect(q.locator('[data-quick-request="exec_schedule"]')).toHaveAttribute('aria-pressed', 'false');
+  await expect(q.locator('[data-quick-status]')).toHaveText('');
+  expect(f.errors).toEqual([]);
+});
