@@ -46,6 +46,7 @@ async function signIn(page){
 
 import {execFileSync} from 'node:child_process';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { closeProjectDetail } from './helpers/project-detail.mjs';
 // Compare retained styles on the same calendar day in both the historical device-time app and KST app.
 const fixtureNow=new Date('2026-10-05T03:00:00Z');
 const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(fixtureNow);
@@ -79,7 +80,8 @@ const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings
 const newStandard=p=>p.evaluate(()=>{
  const view=document.querySelector('.view-panel:not(.hidden)'),bad=[];
  for(const e of view.querySelectorAll('*')){
-  if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only'))continue;
+  // UI-PC프로젝트좌우: PC(≥1024) 프로젝트 화면 오른쪽 칸은 상세 창(#ps3DetailModal)을 그대로 옮긴 것이라 창 검사(D-6b·audit)가 맡는다.
+  if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only,#ps3DetailPane'))continue;
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
   if(text&&!['400','500'].includes(s.fontWeight))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
@@ -215,7 +217,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   if(name==='calendar'&&width<=760){await expect(page.locator('#monthTitle')).toHaveCSS('font-size','18px');await expect(page.locator('#monthTitle')).toHaveCSS('line-height','24px');}
 
  }
- await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expect(page.locator('#ps3Title')).toHaveText('Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+ await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expect(page.locator('#ps3Title')).toHaveText('Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await closeProjectDetail(page);
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await audit(page,'meetingModal');await page.locator('#meetingModal').evaluate(el=>el.classList.add('hidden'));
  await view(page,'team');// UI-조직추가숨김: no add button on screen, so open the same dialog through the edit delegate.
  await page.evaluate(()=>{const b=document.createElement('button');b.id='soTestOpenEdit';b.setAttribute('data-so-edit','');document.body.append(b)});await page.locator('#soTestOpenEdit').dispatchEvent('click');await audit(page,'soEditModal');await page.locator('[data-so-close="soEditModal"]').click();
@@ -326,10 +328,15 @@ async function d6bPrepare(page,source){
  },{ai,rule});
 }
 
+// UI-PC프로젝트좌우: on a PC (≥1024) the project detail element sits in the projects screen's right pane, earlier in the
+// page than the other dialogs, so each rule's elements are compared in one fixed order (tag, id, class) on both sides.
+const d6bKey=el=>[el.tag,el.id,el.class,el.fontSize,el.color].join('\u0001');
 async function d6bSnapshot(page,selectors=d6bSelectors){
- return page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].map(el=>{
+ const rows=await page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].map(el=>{
   const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color};
  })})),selectors);
+ for(const row of rows)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
+ return rows;
 }
 
 for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size and color '+width,async({page,browser},testInfo)=>{
@@ -389,6 +396,7 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
+  for(const row of before)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
   expect(before).toHaveLength(16);
   for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i]))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
   for(const [i,row] of after.entries())if(d6bRetired.includes(d6bSelectors[i]))expect(row.elements,'retired main line '+row.line).toEqual([]);

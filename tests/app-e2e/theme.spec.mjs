@@ -3,6 +3,7 @@ import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
@@ -182,11 +183,11 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);
    if(view==='projects'){
-    await page.locator('[data-ps3-project="theme-project"]').first().click();
-    await matches('#ps3DetailModal .modal-card','backgroundColor',surface[theme]);
+    await page.locator('#projectGrid .ps3-plist [data-ps3-project="theme-project"]').click();await expectProjectDetail(page,'theme-project');
+    // UI-PC프로젝트좌우: PC(≥1024)는 상세가 오른쪽 칸(#ps3DetailPane)이라 칸이 바탕색을 지닌다. 폰은 상세 창 카드.
+    await matches(await projectDetailDocked(page)?'#ps3DetailPane':'#ps3DetailModal .modal-card','backgroundColor',surface[theme]);
     expect(await readPrimary(page)).toBe(color);
-    await page.locator('[data-ps3-close="ps3DetailModal"]').click();
-    await expect(page.locator('#ps3DetailModal')).toBeHidden();
+    await closeProjectDetail(page);
    }
   }
  });
