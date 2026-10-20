@@ -42,6 +42,10 @@ const title=page=>page.locator('#ps3Title');
 const basketLine=page=>page.locator('#ps3Body [data-basket-link="l-p"] a[data-ps3-basket-note]');
 // The record's place on screen: equal before and after a return means the same scroll.
 const top=locator=>locator.evaluate(el=>Math.round(el.getBoundingClientRect().top));
+// Back as the browser itself does it (the mouse back button, a browser-started traversal like the toolbar, PWA or Android back),
+// next to page.goBack().
+async function browserBack(page){const c=await page.context().newCDPSession(page);for(const type of ['mousePressed','mouseReleased'])await c.send('Input.dispatchMouseEvent',{type,x:1,y:1,button:'back',clickCount:1});await c.detach()}
+const goBack=(page,how)=>how==='browser'?browserBack(page):page.goBack();
 async function scrollToRecord(page,locator){
  await locator.evaluate(el=>{let n=el.parentElement;while(n&&!(n.scrollHeight>n.clientHeight+1&&/(auto|scroll)/.test(getComputedStyle(n).overflowY)))n=n.parentElement;(n||document.scrollingElement).scrollTop+=el.getBoundingClientRect().top-300});
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>r())));return top(locator);
@@ -109,17 +113,24 @@ test('PC 1280: a 🧺 record opens the update with "← (project)으로 돌아�
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expect(title(page)).toHaveText('합성 조직 사업');
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expect(title(page)).toHaveText('합성 정책 사업');
  const before=await scrollToRecord(page,basketLine(page));expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
- for(const how of ['button','back']){
+ for(const how of ['button','back','browser']){
   await basketLine(page).click();
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 합성 정책 사업으로 돌아가기');
-  if(how==='button')await back.click();else await page.goBack();
+  if(how==='button')await back.click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expect(title(page)).toHaveText('합성 정책 사업');
   await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();await expect.poll(()=>top(basketLine(page))).toBe(before);
  }
  // A note opened from the basket list itself has no return line.
  await clickView(page,'basket');await page.locator('[data-basket-filter="classified"]').click();await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
- await expect(page.locator('#basketView [data-basket-return]')).toHaveCount(0);expect(errors).toEqual([]);
+ await expect(page.locator('#basketView [data-basket-return]')).toHaveCount(0);
+ // …and its back stays the basket list, as before.
+ for(const how of ['back','browser']){
+  if(how==='browser'){await page.locator(`[data-basket-row="${note.id}"]`).click();await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text)}
+  await goBack(page,how);await expect(page.locator('[data-basket-text]')).toBeHidden();await expect(page.locator(`[data-basket-row="${note.id}"]`)).toBeVisible();
+  expect(await page.evaluate(()=>KPTURouter.current)).toBe('basket');
+ }
+ expect(errors).toEqual([]);
 });
 
 test('phone 390: list and detail dialog stay; the update shows "← 프로젝트로 돌아가기" and the button or back reopen the project at the same scroll',async({page})=>{
@@ -130,12 +141,12 @@ test('phone 390: list and detail dialog stay; the update shows "← 프로젝트
  const modal=page.locator('#ps3DetailModal');await expect(modal).toHaveAttribute('aria-modal','true');await expect(modal).toHaveAttribute('role','dialog');
  expect(await modal.evaluate(el=>el.parentElement===document.body)).toBe(true);
  const before=await scrollToRecord(page,basketLine(page));
- for(const how of ['button','back']){
+ for(const how of ['button','back','browser']){
   await basketLine(page).click();
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 프로젝트로 돌아가기');
   const b=await back.boundingBox();expect(b.height).toBeGreaterThanOrEqual(44);
-  if(how==='button')await back.click();else await page.goBack();
+  if(how==='button')await back.click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expect(modal).toBeVisible();await expect(title(page)).toHaveText('합성 정책 사업');
   await expect(modal).toHaveAttribute('aria-modal','true');await expect.poll(()=>top(basketLine(page))).toBe(before);
  }
@@ -157,10 +168,10 @@ for(const width of [390,1280])test(`organization ${width}: a 🧺 record returns
  await clickView(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();
  const modal=page.locator('#wdModal'),line=modal.locator('[data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
  const before=await scrollToRecord(page,line);
- for(const how of ['button','back']){
+ for(const how of ['button','back','browser']){
   await line.click();await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'← 담당조직으로 돌아가기':'← 테스트 조직으로 돌아가기');
-  if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await page.goBack();
+  if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
   await expect.poll(()=>top(line)).toBe(before);
  }
