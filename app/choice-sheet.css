@@ -29,3 +29,34 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 /* UI-홈업데이트선택: 넓은 화면에서 홈 [업데이트 ▾] 고르기 창은 버튼 바로 옆에 뜬다(위치는 choice-sheet.js가 inline으로 정함). 폰은 위 시트 그대로. */
 .home-choice-sheet.home-choice-anchored { border-radius:var(--kptu-radius-sm,8px); padding-bottom:16px; box-shadow:0 8px 24px color-mix(in srgb,var(--kptu-ink) 22%,transparent); animation:none; }
 .home-choice-sheet.home-choice-anchored::backdrop { background:transparent; }
+/* UI-고르기창개선(PC만, 폰은 위 시트 그대로): 검색칸은 목록 위 고정, 프로젝트는 한 줄 목록(하위는 들여쓰기·흐린 글자, 작은 체크칸,
+   고른 줄은 연한 초록), 담당조직은 묶음별 줄(왼쪽 묶음 이름, 오른쪽 낮은 칩, 고른 칩은 초록 + ✓). 조직 이름은 줄이지 않는다. */
+.home-choice-search-box { flex-shrink:0; margin:0 0 8px; }
+.home-choice-sheet:not(.home-choice-anchored) .home-choice-search-box { display:none; }
+.home-choice-search { box-sizing:border-box; width:100%; height:32px; padding:0 10px; border:1px solid var(--kptu-border-strong); border-radius:var(--ds-radius-control,8px); font:inherit; font-size:13px; color:var(--kptu-ink); background:var(--kptu-surface); }
+.home-choice-empty { margin:8px 0 0; font-size:12px; color:var(--kptu-muted); }
+.home-choice-check { display:none; }
+.home-choice-group-name { display:none; }
+.home-choice-group-items { display:contents; }
+.home-choice-sheet [hidden] { display:none !important; }
+.home-choice-sheet.home-choice-anchored .home-choice-pick { display:flex; align-items:center; gap:8px; height:32px; padding:0 8px 0 calc(8px + var(--home-choice-depth)*16px); border:0; border-radius:var(--ds-radius-control,8px); font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink); background:transparent; }
+.home-choice-sheet.home-choice-anchored .home-choice-pick + .home-choice-pick { margin-top:1px; }
+.home-choice-sheet.home-choice-anchored .home-choice-pick:hover { background:var(--kptu-primary-soft); }
+.home-choice-sheet.home-choice-anchored .home-choice-pick .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-choice-sheet.home-choice-anchored .home-choice-pick:not([data-depth="0"]) .home-choice-name { color:var(--kptu-muted); }
+.home-choice-sheet.home-choice-anchored .home-choice-check { display:inline-grid; place-items:center; flex:none; box-sizing:border-box; width:14px; height:14px; border:1px solid var(--kptu-border-strong); border-radius:3px; font-size:10px; line-height:1; color:var(--kptu-on-primary); background:var(--kptu-surface); }
+.home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] { background:var(--kptu-success-soft); color:var(--kptu-ink); font-weight:var(--ds-weight-medium,500); }
+.home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] .home-choice-check { border-color:var(--kptu-success); background:var(--kptu-success); }
+.home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] .home-choice-check::after { content:"✓" / ""; }
+.home-choice-sheet.home-choice-anchored .home-choice-row.basket-choice-done { display:flex; align-items:center; height:32px; padding-left:calc(30px + var(--home-choice-depth,0)*16px); border:0; font-size:13px; }
+.home-choice-sheet.home-choice-anchored .home-choice-group:not(.home-choice-group-plain) { display:grid; grid-template-columns:80px minmax(0,1fr); column-gap:8px; align-items:start; margin:0; padding:6px 0; border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+.home-choice-sheet.home-choice-anchored .home-choice-group:not(.home-choice-group-plain):first-child,
+.home-choice-sheet.home-choice-anchored .home-choice-label + .home-choice-group:not(.home-choice-group-plain),
+.home-choice-sheet.home-choice-anchored [data-sheet-all] > .home-choice-group:first-child { border-top:0; }
+.home-choice-sheet.home-choice-anchored .home-choice-group-name { display:block; font-size:12px; line-height:24px; color:var(--kptu-muted); }
+.home-choice-sheet.home-choice-anchored .home-choice-group-items { display:flex; flex-wrap:wrap; gap:8px 6px; min-width:0; }
+.home-choice-sheet.home-choice-anchored .home-choice-group { row-gap:8px; }
+.home-choice-sheet.home-choice-anchored .home-choice-chip { height:auto; min-height:24px; max-width:100%; padding:2px 8px; font-size:13px; line-height:18px; white-space:normal; text-align:left; overflow-wrap:anywhere; }
+.home-choice-sheet.home-choice-anchored .home-choice-chip::after { height:32px; left:-3px; right:-3px; }
+.home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"] { border-color:var(--kptu-success); background:var(--kptu-success-soft); color:var(--kptu-success); font-weight:var(--ds-weight-medium,500); }
+.home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"]::before { content:"✓" / ""; margin-right:4px; }

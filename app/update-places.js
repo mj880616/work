@@ -3,7 +3,7 @@
 // Every save is an existing owner-RLS path (createNote, saveOrganizationUpdate, saveProjectProgress); nothing new is written here.
 import { createNote } from './basket-data.js';
 import { saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
-import { projectRows } from './choice-sheet.js';
+import { projectRows, projectRow, orgGroupRows } from './choice-sheet.js';
 
 // place: null (basket) | {kind:'organization'|'project', id}
 export const BASKET = null;
@@ -45,13 +45,15 @@ export function placeName(places, place) {
   return places?.orgs.groups.flat().find(o => o.id === place.id)?.name || '';
 }
 // The 기록할 곳 sheet: [바구니(미분류)] then the recent organizations on one line, all organizations by group, then projects.
+// UI-고르기창개선: on a PC list the organizations are one line per group (group name, then its chips) and the projects one per line
+// with a small check box; the search box above filters both (the recent line steps aside while searching, its chips are also below).
 export function placeSheetHtml(places, place, esc) {
   const chosen = placeValue(place);
   const chip = o => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(o.id)}" aria-pressed="${o.id === chosen}">${esc(o.name)}</button>`;
-  const row = x => `<button type="button" class="home-choice-row" style="--home-choice-depth:${x.depth}" data-sheet-value="project:${esc(x.project.id)}" aria-pressed="${'project:' + x.project.id === chosen}" title="${esc(x.project.name)}">${esc(x.project.name)}</button>`;
+  const row = x => projectRow(x, chosen, esc, {value:'project:' + x.project.id});
   const basket = `<span data-sheet-basket class="home-choice-inline"><button type="button" class="home-choice-chip" data-sheet-value="basket" aria-pressed="${chosen === 'basket'}">바구니(미분류)</button></span>`;
   const orgs = places?.orgs || {recent:[], groups:[]}, projects = places?.projects || [];
-  return `<p class="home-choice-label">최근</p><div class="home-choice-group">${basket}<span data-sheet-recent class="home-choice-inline">${orgs.recent.map(chip).join('')}</span></div><p class="home-choice-label">전체</p><div data-sheet-all>${orgs.groups.filter(g => g.length).map(g => `<div class="home-choice-group">${g.map(chip).join('')}</div>`).join('')}</div>${projects.length ? `<p class="home-choice-label">프로젝트</p><div data-sheet-projects>${projects.map(row).join('')}</div>` : ''}`;
+  return `<p class="home-choice-label" data-sheet-hide-on-search>최근</p><div class="home-choice-group home-choice-group-plain" data-sheet-hide-on-search>${basket}<span data-sheet-recent class="home-choice-inline">${orgs.recent.map(chip).join('')}</span></div><p class="home-choice-label" data-sheet-label-of="all">전체</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, chip)}</div>${projects.length ? `<p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div>` : ''}`;
 }
 export { projectRows };
 // Text-only save of one update. owner is the signed-in user (the record's created_by/author_id, checked again by RLS).
