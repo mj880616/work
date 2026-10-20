@@ -1,7 +1,8 @@
 import {basketProjects} from './project-catalog-model.mjs';
 import {escapedChunks} from './html-budget.mjs';
 import {effectiveOcrText} from '../_shared/basket-ocr-text.mjs';
-// Basket guidance only: active + actual owner assignment, matching home weekUpdates.
+// My organizations (ORG-담당13기준; browser source app/my-organizations.js): active + actual owner assignment,
+// matching home weekUpdates. Used by the basket list and the organization copy.
 // Keep browser/Edge deployment-local copies identical; regression tests compare them.
 export function selectBasketOrganizations(organizations, assignees) {
   const active = organizations.filter(row => row.active !== false);

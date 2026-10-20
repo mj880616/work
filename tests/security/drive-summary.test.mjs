@@ -444,11 +444,12 @@ test('organization copy, project status and meetings match the starting main sna
 });
 
 const assignedOrgs=[{id:'a',name:'합성 담당 A',active:true},{id:'b',name:'합성 담당 B',active:null},{id:'c',name:'합성 다른 조직',active:true,default_assignee_name:'합성 소유자'},{id:'d',name:'합성 비활성',active:false}];
+const assignedUpdates=[['a','2026-10-01T01:00:00Z'],['c','2026-10-02T01:00:00Z'],['d','2026-09-30T01:00:00Z']].map(([id,at])=>({id:'u'+id,organization_id:id,raw_text:`합성 기록 ${id}`,occurred_at:at}));
 for(const mode of ['two','zero','inactive-only','failure','owner-failure','later-page-failure']){
  test(`Drive basket organization selection: ${mode}, owner JWT and cron agree`,async()=>{
   for(const headers of [{Authorization:'Bearer valid-owner'},{'x-drive-summary-cron-secret':'right-secret'}]){
    const assignees=mode==='two'?[{organization_id:'a',user_id:'owner'},{organization_id:'b',user_id:'owner'},{organization_id:'d',user_id:'owner'},{organization_id:'c',user_id:'other'},{organization_id:'c',user_id:'owner',organization:{workspace_id:'other'}}]:mode==='inactive-only'?[{organization_id:'d',user_id:'owner'}]:mode==='later-page-failure'?Array.from({length:501},()=>({organization_id:'a',user_id:'owner'})):[];
-   const h=harness({failTable:mode==='failure'?'app_suborganization_assignees':mode==='owner-failure'&&headers['x-drive-summary-cron-secret']?'app_workspace_members':undefined,failAssignmentPage:mode==='later-page-failure',data:{app_suborganizations:assignedOrgs,app_suborganization_assignees:assignees}});
+   const h=harness({failTable:mode==='failure'?'app_suborganization_assignees':mode==='owner-failure'&&headers['x-drive-summary-cron-secret']?'app_workspace_members':undefined,failAssignmentPage:mode==='later-page-failure',data:{app_suborganizations:assignedOrgs,app_suborganization_assignees:assignees,app_suborganization_updates:assignedUpdates}});
    assert.equal((await h.request(headers)).status,200);
    const section=h.uploads[1].body.split('<h2>바구니</h2>')[1];
    for(const id of mode==='two'?['a','b']:['a','b','c'])assert.match(section,new RegExp(`organization · ${id} ·`));
@@ -456,8 +457,19 @@ for(const mode of ['two','zero','inactive-only','failure','owner-failure','later
    const notice='담당조직이 지정되지 않아 전체 조직을 싣습니다';
    if(mode==='two'){assert.doesNotMatch(section,/organization · c ·/);assert.ok(!section.includes(notice));}
    else{assert.ok(section.includes(notice));assert.ok(section.indexOf(notice)<section.indexOf('담당조직 목록'));}
-   // The separate organization copy retains its pre-existing full report.
-   assert.match(h.uploads[0].body,/합성 다른 조직|합성 비활성/);
+   // ORG-담당13기준: the organization copy follows the same list — one section per organization of mine, and the
+   // records of every other organization (not mine, inactive) under one "그 외" so nothing of the 4 weeks is lost.
+   const orgCopy=h.uploads[0].body,mineIds=mode==='two'?['a','b']:['a','b','c'];
+   for(const row of assignedOrgs){
+    const own=mineIds.includes(row.id);
+    assert.equal(orgCopy.includes(`<h2>${row.name}</h2>`),own,`${mode} ${row.id} section`);
+    if(row.id==='b')continue; // b has no record
+    const kst=row.id==='a'?'2026-10-01 10:00':row.id==='c'?'2026-10-02 10:00':'2026-09-30 10:00';
+    assert.equal(orgCopy.includes(`<p>${kst} (KST) · 합성 기록 ${row.id}</p>`),own,`${mode} ${row.id} own record`);
+    assert.equal(orgCopy.includes(`<p>${kst} (KST) · ${row.name} · 합성 기록 ${row.id}</p>`),!own,`${mode} ${row.id} in 그 외`);
+   }
+   assert.ok(orgCopy.indexOf('<h2>그 외</h2>')>orgCopy.indexOf('<h2>합성 담당 B</h2>'));
+   assert.equal(orgCopy.split('<h2>그 외</h2>').length,2);
    for(const c of h.calls.filter(c=>c.url.pathname.endsWith('/app_suborganization_assignees'))){
     assert.equal(c.url.searchParams.get('user_id'),'eq.owner');
     assert.equal(c.url.searchParams.get('organization.workspace_id'),'eq.ws');

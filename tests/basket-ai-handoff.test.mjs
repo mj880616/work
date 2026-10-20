@@ -176,6 +176,9 @@ test('handoff reads every assignment page rather than publishing partial assigne
 test('browser and Edge owner organization definitions agree, including zero active organizations',async()=>{
  const {selectBasketOrganizations:browser}=await import('../app/basket-ai-handoff.js');
  const {selectBasketOrganizations:edge}=await import('../supabase/functions/drive-summary/basket.mjs');
+ // ORG-담당13기준: the basket list is the app's one "내 담당 조직" rule, not a copy of it.
+ const mine=await import('../app/my-organizations.js');
+ assert.equal(browser,mine.selectMyOrganizations);
  const orgs=[{id:'a',active:true},{id:'b',active:false},{id:'c',active:null},{id:'d'}];
  for(const rows of [orgs,[],orgs.filter(o=>o.active===false)]){
   for(const ids of [[],['a','c'],['b'],['foreign'],['d','a']]){
@@ -183,6 +186,7 @@ test('browser and Edge owner organization definitions agree, including zero acti
    assert.deepEqual(browser(rows,assignees),edge(rows,assignees));
    const expected=rows.filter(o=>o.active!==false&&ids.includes(o.id)),active=rows.filter(o=>o.active!==false);
    assert.deepEqual(browser(rows,assignees),{organizations:expected.length?expected:active,fallback:expected.length===0});
+   assert.deepEqual([...mine.myOrganizationIds(rows,assignees)],(expected.length?expected:active).map(o=>o.id));
   }
  }
 });
