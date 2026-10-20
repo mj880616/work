@@ -1,4 +1,5 @@
-// UI-PC할일(2026-10-20 사용자 요청): PC(≥1024) 할 일 화면은 기한별 열 3개("지남·오늘"·"7일 안"·"나중") + 오른쪽 상세 칸.
+// UI-PC할일(2026-10-20) → UI-PC할일후속(2026-10-20): PC(≥1024) 할 일 화면은 기한별 열 2개("지남·오늘"·"7일 안") + 오른쪽 상세 칸 = 3칸.
+// "나중 N ▸"·"완료 N ▸"는 "7일 안" 열 맨 아래 접기 줄. 상세 칸의 [저장]은 맨 위 제목 줄(닫기 X 옆)에 있고 스크롤해도 고정.
 // 폰·중간 폭은 지금 묶음 목록 그대로. 상세 칸은 지금 수정 창과 같은 요소·같은 저장 경로(google-tasks update/link/unlink)를 쓴다.
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
@@ -8,9 +9,9 @@ const task=(id,due=null,extra={})=>({id,title:'할 일 '+id,taskListId:'@default
 const PROJECT={id:'p1',name:'시험 프로젝트',workspace_id:'qa-ws',owner_id:'qa-user',metadata:{project_system:'v2'},status:'active'};
 const ORG={id:'o1',name:'시험 조직',active:true};
 
-async function open(page,width,tasks,{links=[]}={}){
-  await page.setViewportSize({width,height:844});
-  await openEmphasisFixture(page,{view:'list',now:NOW,events:[],tasks,projects:[PROJECT],orgs:[ORG],links});
+async function open(page,width,tasks,{links=[],projects=[PROJECT],orgs=[ORG],height=844}={}){
+  await page.setViewportSize({width,height});
+  await openEmphasisFixture(page,{view:'list',now:NOW,events:[],tasks,projects,orgs,links});
   // 저장 경로를 기록하는 google-tasks 응답(먼저 등록된 고정 응답보다 우선한다).
   const calls=[];let taskLinks=links.map(l=>({...l}));
   await page.route('**/functions/v1/google-tasks**',async route=>{
@@ -32,12 +33,13 @@ async function open(page,width,tasks,{links=[]}={}){
 const col=(page,id)=>page.locator(`#gtTaskBody [data-gt-col="${id}"]`);
 
 for(const width of [1280,1440]){
-  test(`PC ${width}: 기한별 열 3개, 건수, 빈 열 "없음", 지난 기한은 빨간 글자, 한 페이지`,async({page})=>{
+  test(`PC ${width}: 기한별 열 2개 + 접기 줄, 건수, 빈 열 "없음", 지난 기한은 빨간 글자, 한 페이지`,async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     const tasks=[task('late','2026-10-06'),task('today','2026-10-08'),task('soon','2026-10-10'),task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
     await open(page,width,tasks,{links:[{google_task_id:'today',project_id:'p1',status:'confirmed'},{google_task_id:'soon',organization_id:'o1',status:'confirmed'}]});
-    await expect(page.locator('#gtTaskBody .gt-col-name')).toHaveText(['지남·오늘','7일 안','나중']);
-    await expect(page.locator('#gtTaskBody .gt-col-count')).toHaveText(['2','1','2']);
+    await expect(page.locator('#gtTaskBody .gt-col-name')).toHaveText(['지남·오늘','7일 안']);
+    await expect(page.locator('#gtTaskBody [data-gt-col="later"]')).toHaveCount(0);
+    await expect(page.locator('#gtTaskBody .gt-col-count')).toHaveText(['2','1']);
     // 지남·오늘: 지난 건이 먼저, 기한 글자는 빨강(지금 목록의 "기한 지남" 색과 같음).
     await expect(col(page,'now').locator('.gt-card')).toHaveCount(2);
     await expect(col(page,'now').locator('.gt-card').first()).toHaveAttribute('data-google-task','late');
@@ -48,14 +50,24 @@ for(const width of [1280,1440]){
     // 카드 태그: 프로젝트·담당조직 이름.
     await expect(col(page,'now').locator('[data-google-task="today"] .gt-tag-project')).toHaveText('시험 프로젝트');
     await expect(col(page,'week').locator('[data-google-task="soon"] .gt-tag-org')).toHaveText('시험 조직');
-    // 나중: 기한 있는 것 + "기한 없음" + 접힌 "완료 1".
-    await expect(col(page,'later').locator('.gt-col-sub')).toHaveText('기한 없음 1');
-    await expect(col(page,'later').locator('[data-gt-undated] [data-google-task]')).toHaveCount(1);
-    await expect(col(page,'now').locator('[data-gt-overdue] [data-google-task]')).toHaveCount(1);await expect(col(page,'now').locator('[data-gt-today] [data-google-task]')).toHaveCount(1);
-    const done=col(page,'later').locator('#gtCompleted');
-    await expect(done).not.toHaveAttribute('open','');await expect(done.locator('summary')).toContainText('완료 1');
-    await expect(done.locator('[data-google-task="done"]')).toBeHidden();
+    // "7일 안" 열 맨 아래 접기 줄: "나중 2 ▸"(먼 기한 1 + 기한 없음 1)·"완료 1 ▸". 접힌 동안 항목은 안 보이고, 펼치면 모두 보인다.
+    const later=col(page,'week').locator('#gtLater'),done=col(page,'week').locator('#gtCompleted');
+    await expect(later.locator('summary')).toContainText('나중 2');await expect(done.locator('summary')).toContainText('완료 1');
+    await expect(later).not.toHaveAttribute('open','');await expect(done).not.toHaveAttribute('open','');
+    await expect(later.locator('[data-google-task="far"]')).toBeHidden();await expect(later.locator('[data-google-task="none"]')).toBeHidden();await expect(done.locator('[data-google-task="done"]')).toBeHidden();
+    // 접기 줄은 열 안쪽 맨 아래(7일 안 카드 뒤), 나중이 완료보다 먼저.
+    const order=await col(page,'week').locator('.gt-col-body').evaluate(b=>[...b.children].map(e=>e.matches('ul[data-gt-week]')?'week':e.id));
+    expect(order).toEqual(['week','gtLater','gtCompleted']);
+    await later.locator('summary').click();await expect(later).toHaveAttribute('open','');
+    await expect(later.locator('[data-gt-later] [data-google-task="far"]')).toBeVisible();
+    await expect(later.locator('.gt-col-sub')).toHaveText('기한 없음 1');
+    await expect(later.locator('[data-gt-undated] [data-google-task="none"]')).toBeVisible();
+    await expect(page.locator('#gtTaskBody [data-google-task]:visible')).toHaveCount(5);
     await done.locator('summary').click();await expect(done).toHaveAttribute('open','');await expect(done.locator('[data-google-task="done"]')).toBeVisible();
+    // 다시 접으면 다시 숨고, 항목은 목록에서 사라지지 않는다(DOM에 모두 있음).
+    await later.locator('summary').click();await expect(later.locator('[data-google-task="far"]')).toBeHidden();
+    await expect(page.locator('#gtTaskBody [data-google-task]')).toHaveCount(6);
+    await expect(col(page,'now').locator('[data-gt-overdue] [data-google-task]')).toHaveCount(1);await expect(col(page,'now').locator('[data-gt-today] [data-google-task]')).toHaveCount(1);
     // 화면 전체는 한 페이지(세로·가로 넘김 없음), 입력 카드는 입력창 + [추가]만.
     const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight,sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth}));
     expect(m.sh).toBeLessThanOrEqual(m.ih+1);expect(m.sw).toBeLessThanOrEqual(m.cw+1);
@@ -72,8 +84,8 @@ for(const width of [1280,1440]){
     const tasks=Array.from({length:24},(_,i)=>task('w'+i,'2026-10-1'+(i%5)));
     await open(page,width,tasks);
     await expect(col(page,'now').locator('.gt-col-empty')).toHaveText('없음');
-    await expect(col(page,'later').locator('.gt-col-empty')).toHaveText('없음');
     await expect(col(page,'week').locator('.gt-col-count')).toHaveText('24');
+    await expect(col(page,'week').locator('.gt-col-empty')).toHaveCount(0);
     const scroll=await col(page,'week').locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));
     expect(scroll.oy).toBe('auto');expect(scroll.sh).toBeGreaterThan(scroll.ch);
     const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));
@@ -119,11 +131,78 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
+  test(`PC ${width}: "7일 안"이 비어도 나중·완료 접기 줄은 남고, 펼친 항목은 다시 그려도 유지`,async({page})=>{
+    const tasks=[task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
+    await open(page,width,tasks);
+    await expect(col(page,'week').locator('.gt-col-empty')).toHaveText('없음');await expect(col(page,'week').locator('.gt-col-count')).toHaveText('0');
+    const later=col(page,'week').locator('#gtLater');
+    await expect(later.locator('summary')).toContainText('나중 2');await expect(col(page,'week').locator('#gtCompleted summary')).toContainText('완료 1');
+    await later.locator('summary').click();
+    await expect(later.locator('[data-google-task="far"]')).toBeVisible();await expect(later.locator('[data-google-task="none"]')).toBeVisible();
+    // 펼친 줄의 카드를 고르면(= 다시 읽어 그려도) 접기 줄은 펼친 채 유지, 카드는 선택 표시.
+    await later.locator('[data-gt-edit="far"]').click();
+    await expect(page.locator('#gtEditTitle')).toHaveValue('할 일 far');
+    await expect(later).toHaveAttribute('open','');await expect(later.locator('[data-google-task="far"]')).toHaveClass(/is-selected/);
+  });
+
+  test(`PC ${width}: 연결 목록이 길어도 [저장]은 처음부터 제목 줄에 보이고, 스크롤해도 고정, 누르면 저장`,async({page})=>{
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    const projects=Array.from({length:40},(_,i)=>({...PROJECT,id:'p'+i,name:'긴 목록 프로젝트 '+i}));
+    const orgs=Array.from({length:30},(_,i)=>({id:'o'+i,name:'긴 목록 조직 '+i,active:true}));
+    const tasks=[task('a','2026-10-08',{notes:'메모'})];
+    const calls=await open(page,width,tasks,{projects,orgs,height:700});
+    const pane=page.locator('#gtDetailPane'),save=pane.locator('#gtSaveBtn'),close=pane.locator('[data-gt-close]'),status=pane.locator('#gtEditStatus');
+    await page.locator('[data-gt-edit="a"]').click();
+    await expect(pane.locator('[data-gt-link]')).toHaveCount(70);
+    await expect(save).toBeEnabled();
+    // 연결 목록이 길어 칸은 실제로 세로로 넘친다.
+    const over=await pane.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight}));expect(over.sh).toBeGreaterThan(over.ch*2);
+    // 저장은 제목 줄(닫기 X 왼쪽)에 있고 처음부터 화면 안에 있다. 맨 아래 줄에는 없다.
+    await expect(save).toBeInViewport();
+    expect(await save.evaluate(e=>e.parentElement.classList.contains('modal-head'))).toBe(true);
+    await expect(pane.locator('.modal-action-footer #gtSaveBtn')).toHaveCount(0);
+    const head=async()=>({pane:await pane.boundingBox(),save:await save.boundingBox(),close:await close.boundingBox(),head:await pane.locator('.modal-head').boundingBox()});
+    const first=await head();
+    expect(first.save.y-first.pane.y).toBeLessThan(80);expect(first.save.x+first.save.width).toBeLessThanOrEqual(first.close.x+1);
+    // 맨 아래까지 스크롤해도 제목 줄(저장·닫기)은 칸 맨 위에 그대로.
+    await pane.evaluate(e=>{e.scrollTop=e.scrollHeight});
+    expect(await pane.evaluate(e=>e.scrollTop)).toBeGreaterThan(200);
+    const last=await head();
+    expect(Math.abs(last.head.y-last.pane.y)).toBeLessThanOrEqual(2);expect(Math.abs(last.save.y-first.save.y)).toBeLessThanOrEqual(2);
+    await expect(save).toBeInViewport();await expect(close).toBeInViewport();
+    // 스크롤한 채로 저장 → 같은 update 경로, 안내("저장했습니다.")도 제목 줄 안에서 보인다.
+    await pane.locator('#gtEditTitle').evaluate(e=>{e.value='고친 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
+    await save.click();
+    await expect(status).toHaveText('저장했습니다.');await expect(status).toBeInViewport();
+    expect(await status.evaluate(e=>e.parentElement.classList.contains('modal-head'))).toBe(true);
+    expect(calls.find(c=>c.action==='update').body).toMatchObject({task_id:'a',title:'고친 제목'});
+    expect(errors).toEqual([]);
+  });
+
+  test(`PC ${width}: 저장 오류 안내도 제목 줄 근처에 보이고 입력은 유지`,async({page})=>{
+    const projects=Array.from({length:40},(_,i)=>({...PROJECT,id:'p'+i,name:'긴 목록 프로젝트 '+i}));
+    const tasks=[task('a','2026-10-08')];
+    await open(page,width,tasks,{projects,height:700});
+    await page.route('**/functions/v1/google-tasks**',async route=>{
+      if(new URL(route.request().url()).searchParams.get('action')==='update')return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'시험 오류'})});
+      return route.fallback();
+    });
+    const pane=page.locator('#gtDetailPane');
+    await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('[data-gt-link]')).toHaveCount(41);await expect(pane.locator('#gtSaveBtn')).toBeEnabled();
+    await pane.evaluate(e=>{e.scrollTop=e.scrollHeight});
+    await pane.locator('#gtEditTitle').evaluate(e=>{e.value='바꾼 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
+    await pane.locator('#gtSaveBtn').click();
+    const status=pane.locator('#gtEditStatus');
+    await expect(status).not.toBeEmpty();await expect(status).not.toHaveText('저장했습니다.');await expect(status).toBeInViewport();
+    const [p,st]=[await pane.boundingBox(),await status.boundingBox()];expect(st.y-p.y).toBeLessThan(120);
+    await expect(pane.locator('#gtEditTitle')).toHaveValue('바꾼 제목');await expect(pane.locator('#gtSaveBtn')).toBeEnabled();
+  });
+
   test(`PC ${width}: 카드의 완료 동그라미는 지금 완료 경로(toggle)`,async({page})=>{
     const tasks=[task('a','2026-10-08')];const calls=await open(page,width,tasks);
     await page.locator('[data-gt-toggle="a"]').click();
     await expect.poll(()=>calls.filter(c=>c.action==='toggle').map(c=>c.body.completed)).toEqual([true]);
-    const done=col(page,'later').locator('#gtCompleted');
+    const done=col(page,'week').locator('#gtCompleted');
     await expect(done.locator('summary')).toContainText('완료 1',{timeout:6000});
     await expect(col(page,'now').locator('.gt-col-empty')).toHaveText('없음');
   });
@@ -137,5 +216,25 @@ test('폰 390: 지금 묶음 목록·수정 창 그대로(열·상세 칸 없음
   await page.locator('[data-gt-edit="today"]').click();
   const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
   expect(await modal.evaluate(e=>({parent:e.parentElement.tagName,role:e.getAttribute('role'),pos:getComputedStyle(e).position}))).toEqual({parent:'BODY',role:'dialog',pos:'fixed'});
+  // 폰 팝업: [저장]·안내는 그대로 맨 아래 줄(footer)에 있다(제목 줄로 옮기는 것은 PC 상세 칸만).
+  expect(await modal.evaluate(e=>({save:e.querySelector('#gtSaveBtn').closest('.modal-action-footer')!==null,status:e.querySelector('#gtEditStatus').parentElement.classList.contains('modal-action-footer'),headSave:e.querySelector('.modal-head #gtSaveBtn')!==null,sticky:getComputedStyle(e.querySelector('.modal-head')).position}))).toEqual({save:true,status:true,headSave:false,sticky:'static'});
   await page.locator('[data-gt-close]').click();await expect(modal).toBeHidden();
+});
+
+test('중간 폭 900: 열·상세 칸 없이 묶음 목록, 수정 창 [저장]은 맨 아래 줄 그대로',async({page})=>{
+  await open(page,900,[task('today','2026-10-08')]);
+  await expect(page.locator('#gtTaskBody .gt-cols')).toHaveCount(0);await expect(page.locator('#gtDetailPane')).toBeHidden();
+  await page.locator('[data-gt-edit="today"]').click();
+  const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
+  expect(await modal.evaluate(e=>({parent:e.parentElement.tagName,save:e.querySelector('#gtSaveBtn').closest('.modal-action-footer')!==null}))).toEqual({parent:'BODY',save:true});
+});
+
+test('PC에서 열었다 닫은 뒤 폭을 좁히면 [저장]이 팝업 맨 아래 줄로 돌아온다',async({page})=>{
+  await open(page,1280,[task('a','2026-10-08')]);
+  await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane .modal-head #gtSaveBtn')).toHaveCount(1);
+  await page.locator('#gtDetailPane [data-gt-close]').click();await expect(page.locator('#gtDetailPane .gt-pane-empty')).toBeVisible();
+  await page.setViewportSize({width:390,height:844});
+  await page.locator('[data-gt-edit="a"]').click();
+  const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
+  expect(await modal.evaluate(e=>({footerSave:e.querySelector('.modal-action-footer #gtSaveBtn')!==null,footerStatus:e.querySelector('.modal-action-footer #gtEditStatus')!==null,cls:e.querySelector('#gtSaveBtn').classList.contains('gt-pane-save')}))).toEqual({footerSave:true,footerStatus:true,cls:false});
 });

@@ -242,7 +242,10 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
  await check('#eventModal .icon-btn',32);await check('#saveEventBtn',46);/* 8-9e-3: 창 버튼도 높이 하나 */
  const close=page.locator('#eventModal .icon-btn');await close.scrollIntoViewIfNeeded();const r=await close.boundingBox();
  await page.mouse.click(r.x+r.width/2,r.y-4);await expect(page.locator('#eventModal')).toBeHidden();
- await clickView(page,'tasks');await expect(page.locator('#gtTaskBody .gt-menu-trigger')).toBeVisible();await check('#gtTaskBody .gt-menu-trigger',44);
+ await clickView(page,'tasks');
+ // UI-PC할일후속: PC(1440)에서 기한 없는 할 일은 "7일 안" 열 아래 "나중 N ▸" 접기 줄 안에 있다. 펼친 뒤 같은 검사를 한다.
+ if(width>=1024){await expect(page.locator('#gtLater summary')).toBeVisible();await page.locator('#gtLater summary').click();}
+ await expect(page.locator('#gtTaskBody .gt-menu-trigger')).toBeVisible();await check('#gtTaskBody .gt-menu-trigger',44);
 });
 
 for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacent controls '+width,async({page})=>{

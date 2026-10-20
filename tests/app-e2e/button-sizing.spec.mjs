@@ -170,6 +170,8 @@ for(const width of [390,1440])test('D-button project and organization detail and
 
 for(const width of [390,1440])test('D-button undo painted size and real 44px target '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await boot(page,[{id:'size-task',title:'Fixture task',taskListId:'l1',taskListTitle:'QA',status:'needsAction',due:null}]);await view(page,'tasks');
+ // UI-PC할일후속: PC(1440)에서 기한 없는 할 일은 "나중 N ▸" 접기 줄 안에 있어 먼저 펼친다.
+ if(width>=1024)await page.locator('#gtLater summary').click();
  await page.locator('#gtTaskBody [data-google-task="size-task"] [data-gt-menu]').click();await page.locator('#gtTaskMenu [data-gt-menu-action="delete"]').click();
  await standard(page,'[data-gt-undo="size-task"]');
  const el=page.locator('[data-gt-undo="size-task"]');await el.scrollIntoViewIfNeeded();
