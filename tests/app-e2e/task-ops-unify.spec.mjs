@@ -79,6 +79,7 @@ async function fixture(page, { width = 412, onDelete } = {}) {
   await page.locator('#authPassword').fill('password123');
   await page.locator('#authSubmit').click();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  await page.locator('[data-calendar-view="month"]').click();
   await expect.poll(() => page.evaluate(() => window.KPTUCalendarMonthView?.dayEvents?.('2026-10-20').filter((e) => e.source === 'task').length ?? 0)).toBe(2);
   return { calls };
 }
