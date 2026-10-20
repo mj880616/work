@@ -217,7 +217,8 @@ test('폰 390: 지금 묶음 목록·수정 창 그대로(열·상세 칸 없음
   const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
   expect(await modal.evaluate(e=>({parent:e.parentElement.tagName,role:e.getAttribute('role'),pos:getComputedStyle(e).position}))).toEqual({parent:'BODY',role:'dialog',pos:'fixed'});
   // 폰 팝업: [저장]·안내는 그대로 맨 아래 줄(footer)에 있다(제목 줄로 옮기는 것은 PC 상세 칸만).
-  expect(await modal.evaluate(e=>({save:e.querySelector('#gtSaveBtn').closest('.modal-action-footer')!==null,status:e.querySelector('#gtEditStatus').parentElement.classList.contains('modal-action-footer'),headSave:e.querySelector('.modal-head #gtSaveBtn')!==null,sticky:getComputedStyle(e.querySelector('.modal-head')).position}))).toEqual({save:true,status:true,headSave:false,sticky:'static'});
+  // UI-팝업머리고정: 제목 줄은 모든 창에서 위에 고정(sticky)이다. 저장 위치는 바뀌지 않는다.
+  expect(await modal.evaluate(e=>({save:e.querySelector('#gtSaveBtn').closest('.modal-action-footer')!==null,status:e.querySelector('#gtEditStatus').parentElement.classList.contains('modal-action-footer'),headSave:e.querySelector('.modal-head #gtSaveBtn')!==null,sticky:getComputedStyle(e.querySelector('.modal-head')).position}))).toEqual({save:true,status:true,headSave:false,sticky:'sticky'});
   await page.locator('[data-gt-close]').click();await expect(modal).toBeHidden();
 });
 
