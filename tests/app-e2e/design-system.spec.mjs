@@ -70,8 +70,8 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   for(const name of tokenNames)expect(values[name],name).not.toBe('');
 
   const calendarAction=await actionMetrics(page,'calendar','#newEventBtn');
-  // UI-디자인기준 2/3(8-9d): 일정 버튼은 새 기준 높이(--ds-control-height 46px).
-  expect(calendarAction.height).toBeCloseTo(46,0);
+  // UI-PC다듬기묶음: 이 시험은 PC 폭(1024) — [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 작은 버튼 높이(--ds-compact-height 32px). (중간 폭 761~1023은 46px 그대로)
+  expect(calendarAction.height).toBeCloseTo(32,0);
 
   const actions=[
     ['projects','#newProjectBtn'],

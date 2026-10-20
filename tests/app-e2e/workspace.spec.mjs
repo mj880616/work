@@ -181,7 +181,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#calendarUpcoming,#upcomingEvents')).toHaveCount(0);
   const addSize=await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().width);
   expect(addSize).toBeGreaterThanOrEqual(44);
-  expect(await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().height)).toBe(46); // UI-디자인기준 2/3: 버튼 높이 하나
+  expect(await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().height)).toBe(32); // UI-PC다듬기묶음: 이 시험은 PC 폭(기본 1280) — [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 32px
   await expect(page.locator('#eventTarget,#eventProject')).toHaveCount(0);
   expect(state.events).toHaveLength(0);
 
