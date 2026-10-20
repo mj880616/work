@@ -4,7 +4,8 @@ import { testOrigin } from './helpers/test-origin.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-일지 2단계: [일정] [달력|할 일|일지|일기] → [일지]. The clock is 2026-10-06 10:00 KST (Tuesday); the week is
 // 10/5(월)~10/11(일). The mock keeps one app_notes store, honours PostgREST filters and the database's work-line rules
-// (one line, 1~300 characters, no attachments, one per day — 409), and lets each material source fail on its own.
+// (JOURNAL-오늘한줄목록, 20261020051027: one row a day — 409; raw_text = 1~50 lines joined by "\n", each 1~300 characters,
+// no empty line, no attachments; oneLine:true is the rule before that change), and lets each material source fail on its own.
 const at='2026-10-06T00:30:00Z';
 function store(){
  return [
@@ -16,10 +17,13 @@ function store(){
   {id:'d1',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-06',raw_text:'일기 JOURNAL_SECRET',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}},
  ];
 }
-function validWork(row){
- return typeof row.raw_text==='string'&&!/[\r\n]/.test(row.raw_text)&&[...row.raw_text.trim()].length>=1&&[...row.raw_text.trim()].length<=300&&!(row.attachments||[]).length&&!!row.journal_day;
+function validWork(row,oneLine){
+ if(typeof row.raw_text!=='string'||(row.attachments||[]).length||!row.journal_day||/\r/.test(row.raw_text))return false;
+ if(oneLine)return !/\n/.test(row.raw_text)&&[...row.raw_text.trim()].length>=1&&[...row.raw_text.trim()].length<=300;
+ const lines=row.raw_text.split('\n');
+ return lines.length<=50&&lines.every(l=>l.trim()&&[...l].length<=300);
 }
-async function fixture(page,{width=390,height=900,fail={}}={}){
+async function fixture(page,{width=390,height=900,fail={},oneLine=false}={}){
  const rows=store(),writes=[],reads=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
@@ -50,13 +54,19 @@ async function fixture(page,{width=390,height=900,fail={}}={}){
    const body=req.postDataJSON();writes.push({method,body});
    const row={id:'k-new-'+writes.length,title:null,occurred_at:at,created_at:at,updated_at:'2026-10-06T01:00:0'+writes.length+'Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{},...body};
    if(rows.some(x=>x.kind===row.kind&&x.journal_day===row.journal_day))return r.fulfill({status:409,json:{code:'23505',message:'duplicate key'}});
-   if(row.kind==='work'&&!validWork(row))return r.fulfill({status:400,json:{code:'23514'}});
+   if(row.kind==='work'&&!validWork(row,oneLine))return r.fulfill({status:400,json:{code:'23514'}});
    rows.push(row);return r.fulfill({status:201,json:[row]});
   }
   if(method==='PATCH'){
    const body=req.postDataJSON();writes.push({method,query:Object.fromEntries(q),body});
    const hit=rows.filter(row=>match(row,q));
-   for(const row of hit){const next={...row,...body};if(next.kind==='work'&&!validWork(next))return r.fulfill({status:400,json:{code:'23514'}});Object.assign(row,next);}
+   for(const row of hit){const next={...row,...body};if(next.kind==='work'&&!validWork(next,oneLine))return r.fulfill({status:400,json:{code:'23514'}});Object.assign(row,next);}
+   return r.fulfill({json:hit});
+  }
+  if(method==='DELETE'){
+   writes.push({method,query:Object.fromEntries(q)});
+   const hit=rows.filter(row=>match(row,q));
+   for(const row of hit)rows.splice(rows.indexOf(row),1);
    return r.fulfill({json:hit});
   }
   return r.fulfill({status:500,json:{}});
@@ -93,6 +103,8 @@ async function openJournal(page,width){
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
 }
 const date=(page,day)=>page.locator(`#journalRoot [data-journal-date="${day}"]`);
+const items=page=>page.locator('#journalRoot [data-journal-lines] > li');
+const work=(f,day)=>f.rows.find(r=>r.kind==='work'&&r.journal_day===day);
 const group=(page,key)=>page.locator(`#journalRoot [data-journal-group="${key}"]`);
 
 for(const width of [390,1280]){
@@ -123,9 +135,12 @@ for(const width of [390,1280]){
   await expect(group(page,'notes').locator('li')).toHaveText(['교섭 정리 노트']);
   // 일기는 업무일지 재료가 아니다.
   await expect(page.locator('#journalRoot')).not.toContainText('JOURNAL_SECRET');
-  // 다른 날을 누르면 그날 한 줄·재료.
+  // 다른 날을 누르면 그날 한 줄 목록·재료. 예전 하루 한 줄 기록은 그날 첫 줄로 입력칸 아래에 보이고, 입력칸은 비어 있다.
+  await expect(items(page)).toHaveCount(0);
   await date(page,'2026-10-05').click();
-  await expect(input).toHaveValue('월요일 한 줄');await expect(page.locator('#journalRoot [data-journal-save]')).toHaveText('고치기');
+  await expect(input).toHaveValue('');await expect(items(page)).toHaveText(['월요일 한 줄']);
+  await expect(page.locator('#journalRoot [data-journal-save]')).toHaveText('저장');
+  expect(await page.evaluate(()=>{const f=document.querySelector('[data-journal-line]').getBoundingClientRect(),l=document.querySelector('[data-journal-lines]').getBoundingClientRect(),m=document.querySelector('[data-journal-materials]').getBoundingClientRect();return f.bottom<=l.top&&l.bottom<=m.top;})).toBe(true);
   await expect(group(page,'events').locator('li')).toHaveText(['종일 여러 날 일정']);
   await expect(group(page,'memos')).toContainText('없어요.');
   // 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 메모는 basket, 노트는 note).
@@ -137,34 +152,120 @@ for(const width of [390,1280]){
  });
 }
 
-test('오늘 한 줄: Enter로 저장 → 점이 생기고 [고치기], 다시 쓰면 같은 행을 고침(날짜당 하나)',async({page})=>{
+for(const width of [390,1280]){
+ test(`오늘 한 줄 목록: 저장하면 입력칸이 비고 아래에 한 줄씩 쌓임(세 번 = 세 줄), 버튼은 늘 [저장] ${width}`,async({page})=>{
+  const f=await fixture(page,{width});await openJournal(page,width);
+  const input=page.locator('#journalRoot [data-journal-input]'),line=page.locator('#journalRoot [data-journal-line-status]'),save=page.locator('#journalRoot [data-journal-save]');
+  await input.fill('  교섭 준비 회의 정리  ');
+  await expect(page.locator('#journalRoot [data-journal-count]')).toHaveText('11/300자');
+  await input.press('Enter');
+  await expect(line).toHaveText('한 줄을 저장했어요.');
+  await expect(input).toHaveValue('');await expect(page.locator('#journalRoot [data-journal-count]')).toHaveText('0/300자');
+  await expect(items(page)).toHaveText(['교섭 준비 회의 정리']);
+  await expect(save).toHaveText('저장');
+  expect(f.writes[0]).toMatchObject({method:'POST',body:{workspace_id:'w',kind:'work',journal_day:'2026-10-06',raw_text:'교섭 준비 회의 정리'}});
+  expect(Object.keys(f.writes[0].body).sort()).toEqual(['journal_day','kind','raw_text','workspace_id']);
+  await expect(date(page,'2026-10-06').locator('[data-journal-dot]')).toBeVisible();
+  await input.fill('현장 간담회 자료 공유');await save.click();
+  await expect(input).toHaveValue('');
+  await input.fill('보도자료 초안');await input.press('Enter');
+  await expect(items(page)).toHaveText(['교섭 준비 회의 정리','현장 간담회 자료 공유','보도자료 초안']);
+  await expect(save).toHaveText('저장');await expect(input).toHaveValue('');
+  // 둘째·셋째 줄은 그날 행 하나를 고친다(본 판의 updated_at 조건, 종류·공간 조건 그대로).
+  expect(f.writes.map(w=>w.method)).toEqual(['POST','PATCH','PATCH']);
+  expect(f.writes[1].query).toMatchObject({kind:'eq.work',workspace_id:'eq.w',id:'eq.'+work(f,'2026-10-06').id});
+  expect(f.writes[1].query.updated_at).toMatch(/^eq\./);
+  expect(f.rows.filter(r=>r.kind==='work'&&r.journal_day==='2026-10-06')).toHaveLength(1);
+  expect(work(f,'2026-10-06').raw_text).toBe('교섭 준비 회의 정리\n현장 간담회 자료 공유\n보도자료 초안');
+  // 쓰던 글은 날짜를 오가도 남는다(저장 전), 목록은 그날 것만.
+  await date(page,'2026-10-07').click();await expect(items(page)).toHaveCount(0);await input.fill('수요일 초안');
+  await date(page,'2026-10-06').click();await expect(input).toHaveValue('');await expect(items(page)).toHaveCount(3);
+  await date(page,'2026-10-07').click();await expect(input).toHaveValue('수요일 초안');
+  expect(f.writes).toHaveLength(3);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(f.errors).toEqual([]);
+ });
+
+ test(`줄을 누르면 그 자리에서 고치기 칸 [저장][취소][삭제]: 고치기·취소·Esc·삭제와 5초 되돌리기 ${width}`,async({page})=>{
+  const f=await fixture(page,{width});
+  f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄\n둘째 줄\n셋째 줄',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
+  await openJournal(page,width);
+  await expect(items(page)).toHaveText(['첫 줄','둘째 줄','셋째 줄']);
+  // 줄 끝 ⋯ 메뉴·팝업 없이 줄 자체가 버튼.
+  await expect(page.locator('#journalRoot [data-journal-lines] button')).toHaveCount(3);
+  await page.locator('#journalRoot [data-journal-edit="1"]').click();
+  const box=page.locator('#journalRoot [data-journal-edit-input]');
+  await expect(box).toBeFocused();await expect(box).toHaveValue('둘째 줄');
+  await expect(items(page).nth(1).getByRole('button')).toHaveText(['저장','취소','삭제']);
+  await expect(page.locator('.modal:not(.hidden), [role="dialog"]:visible')).toHaveCount(0);
+  // 다른 줄은 고치는 동안 눌리지 않는다.
+  await expect(page.locator('#journalRoot [data-journal-edit="0"]')).toBeDisabled();
+  // 취소: 그대로.
+  await box.fill('바꾸다 만 글');await items(page).nth(1).getByRole('button',{name:'취소'}).click();
+  await expect(items(page)).toHaveText(['첫 줄','둘째 줄','셋째 줄']);await expect(page.locator('#journalRoot [data-journal-edit="1"]')).toBeFocused();
+  // Esc도 취소.
+  await page.locator('#journalRoot [data-journal-edit="2"]').click();await box.fill('x');await box.press('Escape');
+  await expect(items(page)).toHaveText(['첫 줄','둘째 줄','셋째 줄']);expect(f.writes).toEqual([]);
+  // 고치기: 301자·줄바꿈은 그 칸에서 거절, 고친 줄은 같은 자리.
+  await page.locator('#journalRoot [data-journal-edit="1"]').click();
+  await box.fill('가'.repeat(301));await expect(items(page).nth(1).locator('[data-journal-edit-count]')).toHaveText('301/300자');
+  await items(page).nth(1).getByRole('button',{name:'저장'}).click();
+  await expect(items(page).nth(1).locator('[data-journal-edit-status]')).toHaveText('한 줄은 300자까지 쓸 수 있어요.');await expect(box).toHaveAttribute('aria-invalid','true');
+  await box.fill('둘째 줄 고침');await box.press('Shift+Enter');
+  await expect(items(page).nth(1).locator('[data-journal-edit-status]')).toHaveText('한 줄로 써 주세요. 줄바꿈은 넣을 수 없어요.');
+  expect(f.writes).toEqual([]);
+  await box.press('Enter');
+  await expect(page.locator('#journalRoot [data-journal-line-status]')).toHaveText('줄을 고쳤어요.');
+  await expect(items(page)).toHaveText(['첫 줄','둘째 줄 고침','셋째 줄']);
+  expect(f.writes[0]).toMatchObject({method:'PATCH',query:{id:'eq.k6',kind:'eq.work',workspace_id:'eq.w',updated_at:'eq.2026-10-06T00:50:00Z'},body:{raw_text:'첫 줄\n둘째 줄 고침\n셋째 줄'}});
+  // 삭제: 바로 지우고 5초 [되돌리기] 안내(앱 공용 되돌리기), 누르면 같은 자리로.
+  await page.locator('#journalRoot [data-journal-edit="0"]').click();
+  await items(page).nth(0).getByRole('button',{name:'삭제'}).click();
+  await expect(items(page)).toHaveText(['둘째 줄 고침','셋째 줄']);
+  const undo=page.locator('[data-undo-notice]');
+  await expect(undo.locator('[data-undo-text]')).toHaveText('한 줄을 지웠어요.');
+  await undo.getByRole('button',{name:'되돌리기'}).click();
+  await expect(undo.locator('[data-undo-text]')).toHaveText('지운 줄을 되돌렸어요.');
+  await expect(items(page)).toHaveText(['첫 줄','둘째 줄 고침','셋째 줄']);
+  expect(work(f,'2026-10-06').raw_text).toBe('첫 줄\n둘째 줄 고침\n셋째 줄');
+  // 마지막 줄까지 지우면 그날 행이 지워지고 초록 점도 사라진다.
+  for(let i=0;i<3;i++){await page.locator('#journalRoot [data-journal-edit="0"]').click();await items(page).nth(0).getByRole('button',{name:'삭제'}).click();await expect(items(page)).toHaveCount(2-i);}
+  await expect(page.locator('#journalRoot [data-journal-lines]')).toBeHidden();
+  await expect(date(page,'2026-10-06').locator('[data-journal-dot]')).toHaveCount(0);
+  expect(work(f,'2026-10-06')).toBeUndefined();
+  expect(f.writes.at(-1)).toMatchObject({method:'DELETE',query:{id:'eq.k6',kind:'eq.work',workspace_id:'eq.w'}});
+  expect(f.errors).toEqual([]);
+ });
+}
+
+test('예전 하루 한 줄 기록은 그날 첫 줄: 아래에 새 줄을 더하면 저장 순서대로 이어짐',async({page})=>{
  const f=await fixture(page);await openJournal(page,390);
- const input=page.locator('#journalRoot [data-journal-input]'),line=page.locator('#journalRoot [data-journal-line-status]');
- await input.fill('  교섭 준비 회의 정리  ');
- await expect(page.locator('#journalRoot [data-journal-count]')).toHaveText('11/300자');
- await input.press('Enter');
- await expect(line).toHaveText('한 줄을 저장했어요.');
- expect(f.writes).toHaveLength(1);
- expect(f.writes[0]).toMatchObject({method:'POST',body:{workspace_id:'w',kind:'work',journal_day:'2026-10-06',raw_text:'교섭 준비 회의 정리'}});
- expect(Object.keys(f.writes[0].body).sort()).toEqual(['journal_day','kind','raw_text','workspace_id']);
- await expect(date(page,'2026-10-06').locator('[data-journal-dot]')).toBeVisible();
- await expect(page.locator('#journalRoot [data-journal-save]')).toHaveText('고치기');
- await input.fill('교섭 준비 회의 정리, 자료 공유');
- await page.locator('#journalRoot [data-journal-save]').click();
- await expect(line).toHaveText('한 줄을 고쳤어요.');
- expect(f.writes[1]).toMatchObject({method:'PATCH',query:{kind:'eq.work',workspace_id:'eq.w'},body:{raw_text:'교섭 준비 회의 정리, 자료 공유'}});
- expect(f.writes[1].query.id).toBe('eq.'+f.rows.find(r=>r.kind==='work'&&r.journal_day==='2026-10-06').id);
- expect(f.rows.filter(r=>r.kind==='work'&&r.journal_day==='2026-10-06')).toHaveLength(1);
- // 같은 글이면 쓰지 않는다.
- await page.locator('#journalRoot [data-journal-save]').click();await expect(line).toHaveText('바뀐 내용이 없어요.');expect(f.writes).toHaveLength(2);
- // 쓰던 글은 날짜를 오가도 남는다(저장 전).
- await date(page,'2026-10-07').click();await input.fill('수요일 초안');
- await date(page,'2026-10-06').click();await expect(input).toHaveValue('교섭 준비 회의 정리, 자료 공유');
- await date(page,'2026-10-07').click();await expect(input).toHaveValue('수요일 초안');
- expect(f.writes).toHaveLength(2);expect(f.errors).toEqual([]);
+ await date(page,'2026-10-05').click();
+ await expect(items(page)).toHaveText(['월요일 한 줄']);
+ const input=page.locator('#journalRoot [data-journal-input]');
+ await input.fill('월요일 둘째 줄');await input.press('Enter');
+ await expect(items(page)).toHaveText(['월요일 한 줄','월요일 둘째 줄']);
+ expect(f.writes).toEqual([expect.objectContaining({method:'PATCH',query:expect.objectContaining({id:'eq.k5'}),body:expect.objectContaining({raw_text:'월요일 한 줄\n월요일 둘째 줄'})})]);
+ expect(f.errors).toEqual([]);
 });
 
-test('다른 기기가 먼저 쓴 날(409)은 그 행을 읽어 고친다',async({page})=>{
+test('서버 준비(DB 적용) 전: 첫 줄은 저장, 둘째 줄은 안내와 함께 입력칸에 그대로 남음',async({page})=>{
+ const f=await fixture(page,{oneLine:true});await openJournal(page,390);
+ const input=page.locator('#journalRoot [data-journal-input]'),line=page.locator('#journalRoot [data-journal-line-status]');
+ await input.fill('첫 줄');await input.press('Enter');
+ await expect(line).toHaveText('한 줄을 저장했어요.');await expect(items(page)).toHaveText(['첫 줄']);
+ await input.fill('둘째 줄');await input.press('Enter');
+ await expect(line).toHaveText('두 번째 줄부터는 서버 준비가 끝난 뒤 저장할 수 있어요. 지금은 하루 한 줄만 저장돼요.');
+ await expect(input).toHaveValue('둘째 줄');await expect(items(page)).toHaveText(['첫 줄']);
+ expect(work(f,'2026-10-06').raw_text).toBe('첫 줄');
+ // 한 줄짜리 날의 그 줄 고치기는 그대로 된다.
+ await page.locator('#journalRoot [data-journal-edit="0"]').click();
+ await page.locator('#journalRoot [data-journal-edit-input]').fill('첫 줄 고침');await page.locator('#journalRoot [data-journal-edit-input]').press('Enter');
+ await expect(items(page)).toHaveText(['첫 줄 고침']);
+ expect(f.errors).toEqual([]);
+});
+
+test('다른 기기가 먼저 쓴 날(409)은 그 행을 읽어 그 줄들 뒤에 더한다',async({page})=>{
  const f=await fixture(page);await openJournal(page,390);
  // 화면이 읽은 뒤 다른 기기가 같은 날 한 줄을 씀.
  f.rows.push({id:'k-other',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'다른 기기 한 줄',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
@@ -173,11 +274,17 @@ test('다른 기기가 먼저 쓴 날(409)은 그 행을 읽어 고친다',async
  await expect(page.locator('#journalRoot [data-journal-line-status]')).toHaveText('한 줄을 저장했어요.');
  expect(f.writes.map(w=>w.method)).toEqual(['POST','PATCH']);
  expect(f.writes[1].query.id).toBe('eq.k-other');
- expect(f.rows.filter(r=>r.kind==='work'&&r.journal_day==='2026-10-06').map(r=>r.raw_text)).toEqual(['이 기기 한 줄']);
+ expect(f.rows.filter(r=>r.kind==='work'&&r.journal_day==='2026-10-06').map(r=>r.raw_text)).toEqual(['다른 기기 한 줄\n이 기기 한 줄']);
+ await expect(items(page)).toHaveText(['다른 기기 한 줄','이 기기 한 줄']);
+ // 화면이 본 뒤 다른 기기가 줄을 더해도(updated_at이 달라져 조건부 PATCH가 빈 결과) 다시 읽어 그 뒤에 더한다.
+ const row=work(f,'2026-10-06');row.raw_text+='\n또 다른 기기';row.updated_at='2026-10-06T02:00:00Z';
+ await page.locator('#journalRoot [data-journal-input]').fill('셋째');await page.locator('#journalRoot [data-journal-input]').press('Enter');
+ await expect(items(page)).toHaveText(['다른 기기 한 줄','이 기기 한 줄','또 다른 기기','셋째']);
+ expect(row.raw_text).toBe('다른 기기 한 줄\n이 기기 한 줄\n또 다른 기기\n셋째');
  expect(f.errors).toEqual([]);
 });
 
-test('301자·줄바꿈·빈 줄은 저장하지 않고 이유를 보여 준다',async({page})=>{
+test('줄마다 300자: 301자·줄바꿈·빈 줄은 저장하지 않고 이유를 보여 준다',async({page})=>{
  const f=await fixture(page);await openJournal(page,390);
  const input=page.locator('#journalRoot [data-journal-input]'),line=page.locator('#journalRoot [data-journal-line-status]'),save=page.locator('#journalRoot [data-journal-save]');
  await input.fill('가'.repeat(301));
@@ -194,6 +301,11 @@ test('301자·줄바꿈·빈 줄은 저장하지 않고 이유를 보여 준다'
  // 딱 300자는 저장된다.
  await input.fill('나'.repeat(300));await save.click();await expect(line).toHaveText('한 줄을 저장했어요.');
  expect(f.writes).toHaveLength(1);expect([...f.writes[0].body.raw_text].length).toBe(300);
+ // 300자 제한은 줄마다: 둘째 줄도 300자까지.
+ await input.fill('다'.repeat(300));await save.click();await expect(line).toHaveText('한 줄을 저장했어요.');
+ expect(work(f,'2026-10-06').raw_text.split('\n').map(l=>[...l].length)).toEqual([300,300]);
+ await input.fill('라'.repeat(301));await save.click();await expect(line).toHaveText('한 줄은 300자까지 쓸 수 있어요.');
+ await expect(input).toHaveValue('라'.repeat(301));expect(f.writes).toHaveLength(2);
  expect(f.errors).toEqual([]);
 });
 
@@ -212,7 +324,7 @@ test('주 단위 넘기기: › 다음 주, ‹‹ 지난주(그 주 한 줄 점
  await date(page,'2026-09-29').click();
  await expect(group(page,'memos').locator('li')).toHaveText(['지난주 메모']);
  // 지난주 일정은 그 주 범위로 다시 읽는다.
- await date(page,'2026-09-30').click();await expect(page.locator('#journalRoot [data-journal-input]')).toHaveValue('지난주 수요일');
+ await date(page,'2026-09-30').click();await expect(items(page)).toHaveText(['지난주 수요일']);await expect(page.locator('#journalRoot [data-journal-input]')).toHaveValue('');
  await page.locator('#journalRoot [data-journal-today]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
  await expect(date(page,'2026-10-06')).toHaveAttribute('aria-pressed','true');
@@ -252,28 +364,37 @@ test('한 줄 목록을 못 읽어도 입력칸은 쓸 수 있다',async({page})
  expect(f.errors).toEqual([]);
 });
 
-test('[주간보고 초안 복사]: 이번 주 한 줄 7개 + 날짜별 재료 목록을 복사',async({page})=>{
+test('[주간보고 초안 복사]: 날짜마다 그날 줄들을 저장 순서대로 한 줄씩 + 날짜별 재료 목록을 복사',async({page})=>{
  const f=await fixture(page,{width:1280});
+ f.rows.push({id:'k8',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-08',raw_text:'목요일 첫 줄\n목요일 둘째 줄',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await openJournal(page,1280);
  await expect(group(page,'events').locator('li')).toHaveCount(2);
  await expect(group(page,'tasks').locator('li')).toHaveCount(1);
  await expect(group(page,'memos').locator('li')).toHaveCount(1);await expect(group(page,'notes').locator('li')).toHaveCount(1);
+ // 오늘 줄 두 개를 더한다(저장 순서대로 복사된다).
+ const input=page.locator('#journalRoot [data-journal-input]');
+ await input.fill('화요일 첫 줄');await input.press('Enter');await expect(items(page)).toHaveCount(1);
+ await input.fill('화요일 둘째 줄');await input.press('Enter');await expect(items(page)).toHaveCount(2);
  await page.locator('#journalRoot [data-journal-copy]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('이번 주 한 줄과 재료 목록을 복사했어요.');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  const lines=text.split('\n');
  expect(lines[0]).toBe('주간 업무일지 10월 5일(월) ~ 10월 11일(일)');
  expect(lines.filter(l=>l.startsWith('■ '))).toHaveLength(7);
- expect(lines.filter(l=>l.startsWith('한 줄: '))).toHaveLength(7);
+ expect(lines.filter(l=>l.startsWith('한 줄: '))).toHaveLength(9);
+ expect(lines.filter(l=>l==='한 줄: (없음)')).toHaveLength(4);
  expect(lines).toContain('한 줄: 월요일 한 줄');
+ const tue=lines.indexOf('■ 10월 6일(화)'),thu=lines.indexOf('■ 10월 8일(목)');
+ expect(lines.slice(tue+1,tue+3)).toEqual(['한 줄: 화요일 첫 줄','한 줄: 화요일 둘째 줄']);
+ expect(lines.slice(thu+1,thu+3)).toEqual(['한 줄: 목요일 첫 줄','한 줄: 목요일 둘째 줄']);
  expect(lines).toContain('- 일정: 10:00 오전 일정');
  expect(lines).toContain('- 일정: 15:00 금요일 일정');
  expect(lines).toContain('- 끝낸 할 일: 보도자료 배포');
  expect(lines).toContain('- 바구니 업데이트: 현장 간담회 메모');
  expect(lines).toContain('- 고친 노트: 교섭 정리 노트');
  expect(text).not.toContain('JOURNAL_SECRET');
- expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+ expect(f.writes.map(w=>w.method)).toEqual(['POST','PATCH']);expect(f.errors).toEqual([]);
 });
 
 // UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다(같은 바깥 폭 규칙 .view-wide). 하루 카드 안 4칸은 1280px 이상 한 줄, 그보다 좁으면 2열.

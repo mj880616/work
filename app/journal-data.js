@@ -1,13 +1,17 @@
-// JOURNAL-일지 2단계(업무일지): the only stored part is the day's "오늘 한 줄" — an app_notes row with kind=work, one per day
-// (journal_day, app_notes_journal_day_unique), raw_text one line of 1~300 characters, no attachments
-// (app_notes_work_line_check). It goes through the existing owner-RLS REST path like the diary rows (diary-data.js).
+// JOURNAL-일지 2단계(업무일지): the only stored part is the day's "오늘 한 줄" list — an app_notes row with kind=work, one per
+// day (journal_day, app_notes_journal_day_unique), no attachments. JOURNAL-오늘한줄목록: raw_text holds the day's lines in
+// saving order, joined by one "\n" (1~50 lines, each 1~300 characters, no empty line — app_notes_work_line_check after
+// 20261020051027_journal_work_lines; before it the database takes one line only). A day that had one line keeps it as line 1.
+// It goes through the existing owner-RLS REST path like the diary rows (diary-data.js); every edit of a known row is guarded
+// by its updated_at, so two devices never overwrite each other's lines silently.
 // The day's materials are never stored: the screen gathers them from the existing reads — basket memos (readBasket),
 // Google Calendar events and Google Tasks through their existing Edge calls, and notes by updated_at — and only shows them.
-// No browser storage, no new save path, no database change.
+// No browser storage, no new save path.
 import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} from './meeting-time.js';
 import {readBasket} from './basket-data.js';
 
 export const WORK_LINE_MAX = 300;
+export const WORK_LINES_PER_DAY = 50;
 const FIELDS = 'id,journal_day,raw_text,updated_at';
 const encode = encodeURIComponent;
 const dayKey = /^\d{4}-\d{2}-\d{2}$/;
@@ -29,15 +33,21 @@ export const weekDays = start => Array.from({length:7}, (_, i) => seoulDateKey(a
 export const shiftWeek = (start, step) => seoulDateKey(addSeoulDays(checkDay(start), step * 7));
 const dayStartIso = day => new Date(`${day}T00:00:00+09:00`).toISOString();
 
-// The database checks the same rule (app_notes_work_line_check); this gives the plain message first.
+// The database checks the same rule per line (app_notes_work_line_check); this gives the plain message first.
 export function validateWorkLine(text) {
   if (typeof text !== 'string') throw new Error('한 줄을 확인해 주세요.');
   if (/[\r\n]/.test(text)) throw Object.assign(new Error('한 줄로 써 주세요. 줄바꿈은 넣을 수 없어요.'), {code:'line_break'});
   const line = text.trim();
   if (!line) throw Object.assign(new Error('한 줄을 입력해 주세요.'), {code:'empty'});
-  // PostgreSQL length(text) counts Unicode characters, not UTF-16 code units.
+  // PostgreSQL counts Unicode characters, not UTF-16 code units.
   if ([...line].length > WORK_LINE_MAX) throw Object.assign(new Error(`한 줄은 ${WORK_LINE_MAX}자까지 쓸 수 있어요.`), {code:'too_long'});
   return line;
+}
+// The day's lines in saving order (oldest first). A row written before the list keeps its one line as line 1.
+export const workLines = row => String(row?.raw_text ?? '').split('\n').map(line => line.trim()).filter(Boolean);
+export function joinWorkLines(lines) {
+  if (lines.length > WORK_LINES_PER_DAY) throw Object.assign(new Error(`하루에 ${WORK_LINES_PER_DAY}줄까지 쓸 수 있어요.`), {code:'too_many'});
+  return lines.map(validateWorkLine).join('\n');
 }
 const one = rows => {
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없습니다. 접근 권한을 확인해 주세요.');
@@ -54,27 +64,46 @@ export async function readWorkDay(day, rt = window.KPTURuntime) {
   const rows = await rt.api(`${base(rt)}&journal_day=eq.${checkDay(day)}&select=${FIELDS}&limit=1`);
   return Array.isArray(rows) ? rows[0] || null : null;
 }
-function patch(row, raw_text, rt) {
-  return rt.api(`${base(rt)}&id=eq.${encode(row.id)}`, {method:'PATCH', prefer:'return=representation', body:{raw_text, updated_at:new Date().toISOString()}});
+// Line changes. Each takes the day's current lines and returns the new ones; a line is found again by its text when
+// another device moved it, and a line that is gone is reported instead of guessed.
+function locate(lines, index, before) {
+  if (lines[index] === before) return index;
+  const found = lines.indexOf(before);
+  if (found < 0) throw Object.assign(new Error('이 줄이 그사이 바뀌거나 지워졌어요. 다시 불러온 목록에서 확인해 주세요.'), {code:'line_missing'});
+  return found;
 }
-// Writing the same day again edits its line. A day the screen did not know yet (its week read failed, or another
-// device wrote it meanwhile) is refused by the unique index with 409; that day's row is then read and edited.
-export async function saveWorkLine({day, row = null, text}, rt = window.KPTURuntime) {
-  const line = validateWorkLine(text);
+export const addLine = text => lines => [...lines, validateWorkLine(text)];
+export const editLine = (index, before, text) => lines => { const next = [...lines]; next[locate(lines, index, before)] = validateWorkLine(text); return next; };
+export const removeLine = (index, before) => lines => { const next = [...lines]; next.splice(locate(lines, index, before), 1); return next; };
+export const restoreLine = (index, text) => lines => { const next = [...lines]; next.splice(Math.min(index, next.length), 0, validateWorkLine(text)); return next; };
+
+// One change of one day. Returns {row} — the saved row, or null when the day has no line left (its row is deleted).
+// A new day that another device wrote meanwhile (409), or a known row that changed (no row back from the guarded
+// write), is read again and the same change is applied once more on its current lines.
+export async function changeWorkDay({day, row = null, change}, rt = window.KPTURuntime) {
   checkDay(day);
-  if (row?.id) {
-    const rows = await patch(row, line, rt);
-    if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('이 날 한 줄이 그사이 지워졌어요. 다시 불러온 뒤 써 주세요.'), {code:'line_missing'});
-    return one(rows);
+  let current = row;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const next = change(workLines(current));
+    const raw_text = next.length ? joinWorkLines(next) : '';
+    try {
+      if (!current) {
+        if (!next.length) return {row:null};
+        return {row:one(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id:workspace(rt), kind:'work', journal_day:day, raw_text}}))};
+      }
+      const path = `${base(rt)}&id=eq.${encode(current.id)}&updated_at=eq.${encode(current.updated_at)}`;
+      const rows = next.length
+        ? await rt.api(path, {method:'PATCH', prefer:'return=representation', body:{raw_text, updated_at:new Date().toISOString()}})
+        : await rt.api(path, {method:'DELETE', prefer:'return=representation'});
+      if (Array.isArray(rows) && rows.length) return {row:next.length ? one(rows) : null};
+    } catch (error) {
+      // Before 20261020051027 the database takes one line a day only (app_notes_work_line_check).
+      if (error?.status === 400 && next.length > 1) throw Object.assign(new Error('두 번째 줄부터는 서버 준비가 끝난 뒤 저장할 수 있어요. 지금은 하루 한 줄만 저장돼요.'), {code:'lines_not_ready'});
+      if (current || error?.status !== 409) throw error;
+    }
+    current = await readWorkDay(day, rt);
   }
-  try {
-    return one(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id:workspace(rt), kind:'work', journal_day:day, raw_text:line}}));
-  } catch (error) {
-    if (error?.status !== 409) throw error;
-    const existing = await readWorkDay(day, rt);
-    if (!existing) throw error;
-    return one(await patch(existing, line, rt));
-  }
+  throw Object.assign(new Error('다른 기기에서 이 날 기록이 계속 바뀌고 있어요. 다시 불러온 목록에서 확인해 주세요.'), {code:'day_changed', row:current});
 }
 
 // Materials of one week. Each reader fails on its own; the screen shows the rest and names the group that failed.
@@ -142,14 +171,15 @@ export function dayMaterials(materials, day) {
 }
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 
-// [주간보고 초안] (this stage: copy only): the week's seven lines and the materials list as plain text.
+// [주간보고 초안] (this stage: copy only): each day's lines in saving order (one "한 줄:" row each) and the materials list.
 export function weeklyDraft({start, lines, materials}) {
   const days = weekDays(start);
   const out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, ''];
   for (const day of days) {
     out.push(`■ ${shortDay(day)}`);
-    const line = lines?.get?.(day)?.raw_text;
-    out.push(`한 줄: ${line || '(없음)'}`);
+    const list = workLines(lines?.get?.(day));
+    if (list.length) for (const line of list) out.push(`한 줄: ${line}`);
+    else out.push('한 줄: (없음)');
     for (const group of dayMaterials(materials, day)) for (const item of group.items) out.push(`- ${group.label}: ${item}`);
     out.push('');
   }
