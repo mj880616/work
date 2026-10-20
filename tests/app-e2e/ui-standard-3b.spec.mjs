@@ -280,11 +280,11 @@ for(const width of [1280,761])test(`바구니: 넓은 화면 ${width}에서 [⋯
  await page.evaluate(()=>window.KPTURouter.go('basket'));await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]'),menu=page.locator('#basketMoreMenu');
  await expect(more).toBeVisible();
- await expect(basket.locator('.basket-head [data-basket-more]')).toHaveCount(0);
+ await expect(basket.locator(':scope > .basket-head [data-basket-more]')).toHaveCount(0);
  await expect(basket.locator('.basket-switch-row [data-basket-more]')).toHaveCount(1);
  await expect(basket.locator('[data-basket-filter]')).toHaveText(['미분류 2','분류 완료','보류']);
  await expect(basket.locator('[data-basket-filter="classified"]')).toHaveAttribute('data-basket-filter','classified');
- const m=await box(more),last=await box(basket.locator('[data-basket-filter="archived"]')),kind=await box(basket.locator('.basket-kind-switch')),row=await box(basket.locator('.basket-switch-row')),head=await box(basket.locator('.basket-head'));
+ const m=await box(more),last=await box(basket.locator('[data-basket-filter="archived"]')),kind=await box(basket.locator('.basket-kind-switch')),row=await box(basket.locator('.basket-switch-row')),head=await box(basket.locator(':scope > .basket-head'));
  expect(m.top).toBeGreaterThanOrEqual(head.bottom-1);
  expect(Math.abs((m.top+m.bottom)/2-(kind.top+kind.bottom)/2)).toBeLessThanOrEqual(24);
  expect(m.left).toBeGreaterThan(last.right);expect(Math.abs(m.right-row.right)).toBeLessThanOrEqual(2);
@@ -295,7 +295,7 @@ for(const width of [1280,761])test(`바구니: 넓은 화면 ${width}에서 [⋯
  await basket.locator('[data-basket-kind="note"]').click();await expect(more).toBeHidden();
  await basket.locator('[data-basket-kind="memo"]').click();await expect(more).toBeVisible();
  // 폭을 760으로 줄이면 머리줄로 돌아간다.
- await page.setViewportSize({width:760,height:844});await expect(basket.locator('.basket-head [data-basket-more]')).toHaveCount(1);
+ await page.setViewportSize({width:760,height:844});await expect(basket.locator(':scope > .basket-head [data-basket-more]')).toHaveCount(1);
  await page.setViewportSize({width,height:900});await expect(basket.locator('.basket-switch-row [data-basket-more]')).toHaveCount(1);
  expect(errors).toEqual([]);
 });
