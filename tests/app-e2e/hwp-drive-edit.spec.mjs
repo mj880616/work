@@ -61,6 +61,8 @@ async function fixture(page,width,{open,library,basket,overwrite}={}){
 const press=async(page,locator,width)=>{await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();};
 async function editLibraryDocument(page,width){
   await page.evaluate(()=>window.KPTURouter.go('library'));
+  // UI-PC자료실 C: 이 HWP는 회의자료라 자료실 기본 상태([회의] 꺼짐)에서는 숨는다. [회의]를 켜고 시작한다.
+  await press(page,page.locator('#libraryCategoryFilter [data-lu-category="회의"]'),width);await expect(page.locator('#libraryCategoryFilter [data-lu-category="회의"]')).toHaveAttribute('aria-pressed','true');
   await press(page,page.locator(`[data-lu-menu="${docs[1].id}"]`),width);
   await expect(page.locator('#luMorePanel [data-lu-hwp-edit]')).toHaveCount(0);
   await page.keyboard.press('Escape');

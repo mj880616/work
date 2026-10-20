@@ -181,8 +181,24 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),
     // no longer copies of the home quick-input tabs (those became a small segment). Unselected chips are white with ink text,
     // the selected one is gray (종류 색 '그 밖'). The touch target stays 44px through ::after.
-    const tokens=await page.evaluate(()=>Object.fromEntries(['--kptu-ink','--kptu-surface','--ds-kind-other-ink','--ds-kind-other-soft'].map(n=>{const e=document.createElement('span');e.style.color=`var(${n})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return [n,c];})));
+    const tokens=await page.evaluate(()=>Object.fromEntries(['--kptu-ink','--kptu-surface','--kptu-muted','--ds-kind-other-ink','--ds-kind-other-soft'].map(n=>{const e=document.createElement('span');e.style.color=`var(${n})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return [n,c];})));
     for(const group of await groups.all()){
+      // UI-PC자료실: 자료실 분류 줄은 여러 개 켜고 끄는 토글(role=group, aria-pressed). 켠 칩은 회색, 꺼진 칩은 흐린 글자(보조 글자색)·흰 바탕.
+      if(await group.getAttribute('id')==='libraryCategoryFilter'){
+        await expect(group).toHaveAttribute('role','group');
+        const toggles=group.locator('button[aria-pressed]');
+        await expect(toggles).toHaveCount(8);
+        await expect(group.locator('button[aria-pressed="false"]')).toHaveText(['전체','회의']);
+        for(const toggle of await toggles.all()){
+          const on=await toggle.getAttribute('aria-pressed')==='true';
+          const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await toggle.evaluate(style);
+          expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' category chip style').toEqual(['13px','500','32px','12px','12px','999px']);
+          expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-kind-other-ink'],tokens['--ds-kind-other-soft']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);
+          expect((await toggle.boundingBox()).height,name+' category chip height').toBe(32);
+          expect(await toggle.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' category chip touch').toBe(44);
+        }
+        continue;
+      }
       await expect(group).toHaveAttribute('role','radiogroup');
       await expect(group.locator('[role="radio"][aria-checked="true"]')).toHaveCount(1);
       for(const radio of await group.getByRole('radio').all()){

@@ -8,7 +8,7 @@ import {mountCategoryEditor} from './document-category-editor.js';
 const LU_SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const LU_KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const LU_SESSION='kptu_collab_session_v1';
-let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategory='all',luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
+let luSession=null,luUser=null,luWorkspace=null,luRole=null,luDocuments=[],luUploadEntries=[],luCategoryOff=new Set(),luOrganization=null,luCategoryEditor=null,luEditOriginal=null,luEditBaseline=null;
 let luEditSequence=0,luEditView=0,luEditor=null,luEditObservedScope=null;const luEditAttempts=new Map();
 // These tokens own only the lifetime of in-flight UI work, not deletion authority.
 const luDeleteTokens=new Set();
@@ -36,19 +36,44 @@ function luRenderProjectFilter(){
   const host=document.querySelector('#documentProject');if(!host)return;
   const rows=luProjectRows(),known=new Set(rows.map(r=>r.value)),stale=[...new Set(luDocuments.map(d=>d.project_id).filter(id=>id&&!known.has(id)))].map(id=>({value:id,label:luProjectName(id),depth:0}));
   const current=host.value||'all';host.value=[...rows,...stale].some(r=>r.value===current)?current:'all';
-  if(!host.firstElementChild){const top=document.createElement('div'),sub=document.createElement('div');host.append(top,sub)}
+  // UI-PC자료실 거르기 줄: 줄마다 왼쪽 이름표(프로젝트·세부). 이름표는 보이는 글자일 뿐이고, 칩 묶음의 이름(aria-label)은 그대로다.
+  if(!host._luTop){const label=text=>{const s=document.createElement('span');s.className='lu-filter-label';s.setAttribute('aria-hidden','true');s.textContent=text;return s};host._luTop=document.createElement('div');host._luSub=document.createElement('div');host._luSubLabel=label('세부');host.replaceChildren(label('프로젝트'),host._luTop,host._luSubLabel,host._luSub)}
   const roots=[],children=new Map();let root=null;
   for(const row of rows){if(row.depth===0){root=row;roots.push(row);children.set(row.value,[])}else if(root)children.get(root.value).push(row)}
   roots.push(...stale);
   const selectedRoot=roots.find(r=>r.value===host.value||children.get(r.value)?.some(child=>child.value===host.value));
-  const [top,sub]=host.children;
+  const top=host._luTop,sub=host._luSub;
   const choose=value=>{host.value=value;luRenderLibrary()};
   renderFilterChips(top,{label:'프로젝트 필터',controls:'documentList',value:selectedRoot?.value||'all',options:[{value:'all',label:'전체'},...roots],onChange:choose});
-  const descendants=children.get(selectedRoot?.value)||[];sub.hidden=!descendants.length;
+  const descendants=children.get(selectedRoot?.value)||[];sub.hidden=host._luSubLabel.hidden=!descendants.length;
   if(descendants.length)renderFilterChips(sub,{label:'하위 프로젝트 필터',controls:'documentList',small:true,value:host.value,options:[{value:selectedRoot.value,label:'전체(이 프로젝트)'},...descendants.map(r=>({...r,label:r.label.replace(/^[　\s↳]+/u,'')}))],onChange:choose});
 }
 // UI-바구니첨부메모 ⑪: 거르는 칩은 분류 7개(저장 값은 그대로, 화면에서 7개로 대응).
-function luRenderCategoryFilter(){renderFilterChips(document.querySelector('#libraryCategoryFilter'),{label:'자료 분류',controls:'documentList',small:true,value:luCategory,options:[{value:'all',label:'전체'},...documentCategories().map(name=>({value:name,label:name}))],onChange:value=>{luCategory=value;luRenderLibrary()}})}
+// UI-PC자료실 C: 자료 분류 칩은 여러 개를 함께 켜고 끈다(aria-pressed). 자료실에 들어올 때마다 기본 상태 = [회의]만 꺼짐.
+// [전체]는 모두 켜졌을 때 눌림으로 보이고, 누르면 모두 켬 ↔ 기본 상태. 꺼 둔 분류는 이름으로 기억해 새로 만든 분류는 켜진 채로 보인다.
+const LU_DEFAULT_OFF=Object.freeze(['회의']);
+// 다른 화면이 담당조직으로 걸러 자료실을 열 때는 모든 분류를 켠 채 들어온다(들어올 때의 기본 상태 대신).
+let luEnterAllOn=false;
+function luResetCategories(){luCategoryOff=luEnterAllOn?new Set():new Set(LU_DEFAULT_OFF);luEnterAllOn=false}
+luResetCategories();
+// 분류 칩 기본 상태는 다른 화면에서 자료실로 들어올 때만 되돌린다. 로그인 정보 갱신 등으로 자료실을 그대로 다시 그릴 때는 고른 칩을 지킨다.
+let luEntering=false;
+const luCategoryShown=name=>!luCategoryOff.has(name);
+function luToggleCategory(value){const names=documentCategories();if(value==='all')luCategoryOff=names.every(luCategoryShown)?new Set(LU_DEFAULT_OFF):new Set();else if(luCategoryOff.has(value))luCategoryOff.delete(value);else luCategoryOff.add(value);luRenderLibrary()}
+function luRenderCategoryFilter(){
+  const host=document.querySelector('#libraryCategoryFilter');if(!host)return;
+  const names=documentCategories(),allOn=names.every(luCategoryShown);
+  host.classList.add('filter-chips','quick-mode-group','filter-chips-small');host.setAttribute('role','group');host.setAttribute('aria-label','자료 분류 (여러 개 고르기)');host.setAttribute('aria-controls','documentList');
+  const signature=JSON.stringify(names);
+  if(host._luSignature!==signature){
+    const focused=host.contains(document.activeElement)?document.activeElement?.dataset.luCategory:null;
+    host.replaceChildren(...['all',...names].map(value=>{const b=document.createElement('button');b.type='button';b.className='quick-pill-button';b.dataset.luCategory=value;b.textContent=value==='all'?'전체':value;return b}));
+    host._luSignature=signature;
+    if(focused)[...host.children].find(b=>b.dataset.luCategory===focused)?.focus({preventScroll:true});
+  }
+  for(const b of host.children)b.setAttribute('aria-pressed',String(b.dataset.luCategory==='all'?allOn:luCategoryShown(b.dataset.luCategory)));
+  if(!host._luBound){host._luBound=true;host.addEventListener('click',e=>{const b=e.target.closest('[data-lu-category]');if(b?.parentElement===host)luToggleCategory(b.dataset.luCategory)})}
+}
 // UI-바구니첨부메모 PR 3 ⑩: 담당조직 상세의 "전체 N개 보기"로 열면 자료실을 그 조직으로 거른다(새 화면 없음). [전체]를 누르면 거르기를 푼다.
 function luRenderOrganizationFilter(){
   const host=document.querySelector('#libraryOrganizationFilter');if(!host)return;
@@ -57,14 +82,13 @@ function luRenderOrganizationFilter(){
 }
 // 다른 화면에서 자료실을 한 조직으로 걸러 연다. 검색·프로젝트·분류 거르기는 비우고 보여 준다.
 function luShowOrganization(id,name){
-  luOrganization=typeof id==='string'&&id?{id,name:String(name||'')}:null;luCategory='all';
+  luOrganization=typeof id==='string'&&id?{id,name:String(name||'')}:null;luCategoryOff=new Set();luEnterAllOn=window.KPTURouter?.current!=='library';
   const search=document.querySelector('#documentSearch'),project=document.querySelector('#documentProject');if(search)search.value='';if(project)project.value='all';
   luRenderLibrary();
 }
-// 분류 목록이 바뀌면(추가·이름 바꾸기·삭제, 다른 화면에서 읽어 옴): 고르던 분류가 사라졌으면 [전체]로, 등록·수정 창의 고르기 목록을 새로 그린다.
+// 분류 목록이 바뀌면(추가·이름 바꾸기·삭제, 다른 화면에서 읽어 옴): 등록·수정 창의 고르기 목록을 새로 그린다. 꺼 둔 분류는 이름으로 기억하므로 따로 맞추지 않는다.
 function luRenderUploadCategory(){const s=document.querySelector('#docCategory');if(!s)return;const keep=s.value;s.innerHTML=categoryOptions('',{empty:'자동 분류'});s.value=documentCategories().includes(keep)?keep:'';}
 function luOnCategoriesChanged(){
-  if(luCategory!=='all'&&!documentCategories().includes(luCategory))luCategory='all';
   luRenderUploadCategory();
   const edit=document.querySelector('#libraryEditCategory'),modal=document.querySelector('#libraryEditModal');
   if(edit&&modal&&!modal.classList.contains('hidden')){const keep=edit.value;edit.innerHTML=categoryOptions(keep);}
@@ -158,14 +182,25 @@ async function luLoadDocuments(){if(!luWorkspace)return;luDocuments=await luApi(
 // UI-디자인기준 3/3: the kind comes from the file extension; a name without a known extension uses the type Drive reported (mime_type).
 const LU_KIND_MIME=[[/^application\/pdf$/,'PDF'],[/hwp|hancom|haansoft/,'HWP'],[/spreadsheet|ms-excel/,'XLS'],[/wordprocessing|msword|google-apps\.document/,'DOC'],[/presentation|powerpoint/,'PPT']];
 function luFileKind(name,mime){const ext=String(name||'').includes('.')?String(name).split('.').pop().toUpperCase():'';const byExt=({HWP:'HWP',HWPX:'HWP',PDF:'PDF',XLS:'XLS',XLSX:'XLS',DOC:'DOC',DOCX:'DOC',PPT:'PPT',PPTX:'PPT'})[ext];if(byExt)return byExt;const type=String(mime||'').toLowerCase();return LU_KIND_MIME.find(([re])=>re.test(type))?.[1]||'파일'}
-function luRowMeta(d){const date=/^\d{4}-(\d{2})-(\d{2})/.exec(d.document_date||'');return categoryTag(d.category)+(date?' '+date[1]+'.'+date[2]:'')}
+// UI-PC자료실: 줄 오른쪽의 짧은 날짜(월.일). 분류 꼬리표는 자료명 왼쪽으로 옮겼다.
+function luRowDate(d){const date=/^\d{4}-(\d{2})-(\d{2})/.exec(d.document_date||'');return date?date[1]+'.'+date[2]:''}
 // UI-바구니첨부메모 ⑩: 최신 위, 달별 묶음. 문서 날짜가 없으면 등록한 날로 본다.
 const luSortKey=d=>String(d.document_date||d.created_at||'').slice(0,10);
 function luMonthLabel(key){const m=/^(\d{4})-(\d{2})/.exec(key);return m?`${m[1]}년 ${Number(m[2])}월`:'날짜 없음'}
-function luRowHtml(d){return `<article class="lu-row" role="button" tabindex="0" data-lu-document="${luEsc(d.id)}">${(k=>`<span class="lu-file-kind" data-lu-kind="${k==='파일'?'other':k.toLowerCase()}">${k}</span>`)(luFileKind(d.file_name,d.mime_type))}<div class="lu-row-main"><h3 class="lu-row-title">${luEsc(d.title||d.file_name||'파일')}</h3><p class="lu-row-meta">${luRowMeta(d)}</p></div><button class="icon-btn lu-more-trigger" type="button" aria-label="자료 관리: ${luEsc(d.title||d.file_name||'파일')}" aria-expanded="false" aria-controls="luMorePanel" data-lu-menu="${luEsc(d.id)}">⋯</button></article>`}
+// UI-PC자료실: PC(761px 이상)는 파일 종류 → 분류 꼬리표 → 자료명 한 줄(…) → 날짜 → [펼치기] → ⋯. 줄을 누르면 지금처럼 연다.
+// 폰(760px 이하, M2)은 같은 줄을 두 단으로: 다듬은 이름(2줄까지)·오른쪽 날짜 / 아래 작은 줄에 종류·분류. 펼치기는 쓰지 않는다.
+const LU_PHONE=typeof matchMedia==='function'?matchMedia('(max-width:760px)'):null;
+const luPhone=()=>!!LU_PHONE?.matches;
+const LU_EXT=/\.(hwpx?|pdf|xlsx?|xlsm|docx?|pptx?|zip|txt|csv|jpe?g|png)$/i;
+// 폰 이름 다듬기(보이는 것만, 저장 이름과 검색 대상은 그대로): 앞의 날짜(YYMMDD·YYYYMMDD + 구분자)는 떼어 오른쪽 날짜로,
+// 밑줄은 띄어쓰기로, 끝의 확장자는 뺀다. 날짜 앞머리가 없으면 이름은 밑줄·확장자만 다듬는다. 자료 날짜가 있으면 그 날짜를 보인다.
+function luDisplayName(d){const raw=String(d.title||d.file_name||'파일');let name=raw.replace(LU_EXT,''),date='';const m=/^(?:20)?(\d{2})(\d{2})(\d{2})[_\-\s.]+(.+)$/.exec(name);if(m&&+m[2]>=1&&+m[2]<=12&&+m[3]>=1&&+m[3]<=31){date=m[2]+'.'+m[3];name=m[4]}name=name.replace(/_+/g,' ').replace(/\s+/g,' ').trim();return {name:name||raw,date:luRowDate(d)||date}}
+function luRowHtml(d){const raw=luEsc(d.title||d.file_name||'파일'),view=luPhone()?luDisplayName(d):{name:d.title||d.file_name||'파일',date:luRowDate(d)},date=luEsc(view.date);return `<article class="lu-row" role="button" tabindex="0" data-lu-document="${luEsc(d.id)}">${(k=>`<span class="lu-file-kind" data-lu-kind="${k==='파일'?'other':k.toLowerCase()}">${k}</span>`)(luFileKind(d.file_name,d.mime_type))}<span class="lu-row-tag">${categoryTag(d.category)}</span><h3 class="lu-row-title">${luEsc(view.name)}</h3>${date?`<span class="lu-row-date">${date}</span>`:''}<button class="icon-btn lu-expand" type="button" hidden aria-expanded="false" aria-label="전체 이름 보기" data-lu-expand="${luEsc(d.id)}"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="icon-btn lu-more-trigger" type="button" aria-label="자료 관리: ${raw}" aria-expanded="false" aria-controls="luMorePanel" data-lu-menu="${luEsc(d.id)}">⋯</button></article>`}
+// UI-PC자료실 C: 검색어가 있을 때 꺼 둔 분류에 걸린 자료 수를 목록 아래에 작게 알리고, [켜기]로 그 분류만 켠다.
+function luOffHint(hidden){if(!hidden.length)return '';const names=[...new Set(hidden.map(d=>categoryOf(d.category)))];return `<p class="lu-off-hint" role="status">${luEsc(names.join('·'))} 분류 ${hidden.length}건은 꺼져 있어요 <button type="button" class="lu-off-show" data-lu-show-off="${luEsc(JSON.stringify(names))}">켜기</button></p>`}
 function luGroupedRows(rows){const sorted=rows.map((d,i)=>({d,i,key:luSortKey(d)})).sort((a,b)=>a.key===b.key?a.i-b.i:!a.key?1:!b.key?-1:a.key<b.key?1:-1);let month=null;return sorted.map(({d,key})=>{const label=luMonthLabel(key),head=label!==month?`<h3 class="lu-month">${luEsc(label)}</h3>`:'';month=label;return head+luRowHtml(d)}).join('')}
-function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;luCloseMenu();luRenderProjectFilter();luRenderOrganizationFilter();luRenderCategoryFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all';const matches=luDocuments.filter(d=>(pid==='all'||d.project_id===pid)&&(!luOrganization||d.organization_id===luOrganization.id)&&(luCategory==='all'||categoryOf(d.category)===luCategory)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest and the [회의] category chip narrows to them.
-const rows=matches;box.innerHTML=rows.length?luGroupedRows(rows):'<div class="empty">자료가 없습니다.</div>'}
+function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;luCloseMenu();luRenderProjectFilter();luRenderOrganizationFilter();luRenderCategoryFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all';const found=luDocuments.filter(d=>(pid==='all'||d.project_id===pid)&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));const matches=found.filter(d=>luCategoryShown(categoryOf(d.category)));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
+const rows=matches;box.innerHTML=(rows.length?luGroupedRows(rows):'<div class="empty">자료가 없습니다.</div>')+(q?luOffHint(found.filter(d=>!luCategoryShown(categoryOf(d.category)))):'');luMarkLongNames(box)}
 // Account-menu pattern: consume the menu history entry before opening a successor.
 let luActiveMenu=null,luMenuPanel=null,luMenuPopover=false,luMenuClosing=null;
 function luCloseMenu(then,fromBack=false){
@@ -293,7 +328,12 @@ async function luManage(){luEnsureManageUi();const box=document.querySelector('#
 // show that document's row. Filters are cleared only when they hide it.
 // HWP-편집기 메뉴 입구: [자료실에 올리기]로 넘어온 파일을 기존 [+ 자료 등록] 창에 채워 연다. 프로젝트·분류와 [등록]은 사용자가 한다.
 function luOpenRequestedUpload(){if(window.KPTURouter?.current!=='library'||luUploading)return;const file=takeLibraryUploadRequest();const button=document.querySelector('#newDocumentBtn');if(!file||!button)return;button.click();luSetSelectedFiles([file]);luSetStatus(document.querySelector('#documentStatus'),'HWP 편집에서 고친 파일을 넣었어요. 프로젝트·분류를 고른 뒤 [등록]을 누르세요.')}
-function luRevealRequested(){const id=takeLibraryDocumentRequest();if(!id||window.KPTURouter?.current!=='library')return;const doc=luDocuments.find(d=>d.id===id);if(!doc)return;const find=()=>document.querySelector(`#documentList [data-lu-document="${CSS.escape(id)}"]`);let row=find();if(!row){const search=document.querySelector('#documentSearch'),project=document.querySelector('#documentProject');if(search)search.value='';if(project)project.value='all';luCategory='all';luOrganization=null;luRenderLibrary();row=find()}if(row){row.scrollIntoView({block:'center'});row.focus({preventScroll:true})}}
-function luBindList(){const list=document.querySelector('#documentList');if(!list||list.dataset.luBound)return;list.dataset.luBound='1';luBindMenu();list.addEventListener('click',async e=>{const menu=e.target.closest('[data-lu-menu]');if(menu){e.stopPropagation();luOpenMenu(menu);return}const card=e.target.closest('[data-lu-document]');if(card)await luOpenDocument(card.dataset.luDocument)});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-document]')){e.preventDefault();luOpenDocument(e.target.dataset.luDocument)}})}
-async function luInit(){if(!(await luContext()))return;luHandleDriveReturn();luEnhanceUpload();luEnsureManageUi();luBindList();await Promise.all([luLoadDocuments(),loadDocumentCategories()]);luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,showOrganization:luShowOrganization};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('')},true);luRenderUploadProject('');const manage=document.querySelector('#manageLibraryBtn');if(manage)manage.onclick=luManage;const search=document.querySelector('#documentSearch');if(search)search.oninput=luRenderLibrary;window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();luCategory='all';luRenderLibrary();void loadDocumentCategories();luLoadDocuments().then(()=>{luRenderLibrary();luRevealRequested()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadDocuments();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'&&luOrganization){luOrganization=null;luRenderLibrary()}})}
+function luRevealRequested(){const id=takeLibraryDocumentRequest();if(!id||window.KPTURouter?.current!=='library')return;const doc=luDocuments.find(d=>d.id===id);if(!doc)return;const find=()=>document.querySelector(`#documentList [data-lu-document="${CSS.escape(id)}"]`);let row=find();if(!row){const search=document.querySelector('#documentSearch'),project=document.querySelector('#documentProject');if(search)search.value='';if(project)project.value='all';luCategoryOff=new Set();luOrganization=null;luRenderLibrary();row=find()}if(row){row.scrollIntoView({block:'center'});row.focus({preventScroll:true})}}
+// UI-PC자료실 B안: 이름이 잘린 줄에만 ⋯ 왼쪽 작은 펼치기 버튼. 누르면 그 줄만 전체 이름을 펼치고(다시 누르면 접기), 자료는 열지 않는다.
+// 잘림 여부는 그린 뒤와 목록 폭이 바뀔 때 다시 잰다. 펼친 줄의 버튼은 접을 수 있게 남긴다.
+const luTruncated=el=>!!el&&(el.scrollWidth>el.clientWidth+1||el.scrollHeight>el.clientHeight+1);
+function luMarkLongNames(box){const phone=luPhone();box?.querySelectorAll('.lu-row').forEach(row=>{const button=row.querySelector('[data-lu-expand]');if(phone)row.classList.remove('lu-expanded');if(button){button.hidden=phone||!row.classList.contains('lu-expanded')&&!luTruncated(row.querySelector('.lu-row-title'));if(button.hidden)button.setAttribute('aria-expanded','false')}})}
+function luToggleName(button){const row=button.closest('.lu-row'),open=!row.classList.contains('lu-expanded');row.classList.toggle('lu-expanded',open);button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',open?'이름 접기':'전체 이름 보기');if(!open)luMarkLongNames(row.parentElement)}
+function luBindList(){const list=document.querySelector('#documentList');if(!list||list.dataset.luBound)return;list.dataset.luBound='1';luBindMenu();list.addEventListener('click',e=>{const show=e.target.closest('[data-lu-show-off]');if(!show)return;let names=[];try{names=JSON.parse(show.dataset.luShowOff)}catch{}names.forEach(n=>luCategoryOff.delete(n));luRenderLibrary()});if(typeof ResizeObserver==='function')new ResizeObserver(()=>luMarkLongNames(list)).observe(list);LU_PHONE?.addEventListener?.('change',luRenderLibrary);list.addEventListener('click',async e=>{const expand=e.target.closest('[data-lu-expand]');if(expand){e.stopPropagation();luToggleName(expand);return}const menu=e.target.closest('[data-lu-menu]');if(menu){e.stopPropagation();luOpenMenu(menu);return}const card=e.target.closest('[data-lu-document]');if(card)await luOpenDocument(card.dataset.luDocument)});list.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('[data-lu-document]')){e.preventDefault();luOpenDocument(e.target.dataset.luDocument)}})}
+async function luInit(){if(!(await luContext()))return;luHandleDriveReturn();luEnhanceUpload();luEnsureManageUi();luBindList();await Promise.all([luLoadDocuments(),loadDocumentCategories()]);luRenderUploadCategory();luRenderLibrary();window.KPTULibrary={render:luRenderLibrary,showOrganization:luShowOrganization};const save=document.querySelector('#saveDocumentBtn');if(save){const original=save.onclick;save.onclick=()=>luUploadOrOriginal(original)}const newDocument=document.querySelector('#newDocumentBtn');if(newDocument)newDocument.addEventListener('click',()=>{luResetUploadSelection();luRenderUploadProject('')},true);luRenderUploadProject('');const manage=document.querySelector('#manageLibraryBtn');if(manage)manage.onclick=luManage;const search=document.querySelector('#documentSearch');if(search)search.oninput=luRenderLibrary;window.addEventListener('kptu:before-view-change',e=>{if(e.detail?.view==='library')luEntering=window.KPTURouter?.current!=='library'});window.KPTURouter?.on('library',()=>{luOpenRequestedUpload();if(luEntering)luResetCategories();luEntering=false;luRenderLibrary();void loadDocumentCategories();luLoadDocuments().then(()=>{luRenderLibrary();luRevealRequested()}).catch(err=>console.error('library entry refresh failed',err))});window.addEventListener('kptu:edit-document',e=>{const id=e.detail?.id;if(id)luOpenEditById(id)});window.addEventListener('kptu:documents-changed',async()=>{await luLoadDocuments();luRenderLibrary()});window.addEventListener('kptu:project-catalog-updated',luOnProjectsChanged);window.addEventListener('kptu:document-categories-changed',luOnCategoriesChanged);window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!=='library'&&luOrganization){luOrganization=null;luRenderLibrary()}})}
 window.__KPTU_LIBRARY_UPLOAD_READY__=Promise.resolve().then(luInit).then(()=>true).catch(err=>{console.error('library upload init',err);return false});

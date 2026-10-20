@@ -152,11 +152,15 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
  await expect(page.locator('#libraryView')).not.toContainText('회의자료만');
  await expect(page.locator('#documentProject .filter-chips').first()).toBeVisible();
- const category=page.locator('#libraryCategoryFilter');await expect(category.getByRole('radio')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
- await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
+ // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글(aria-pressed). 들어올 때는 [회의]만 꺼져 회의 자료가 숨는다.
+ const category=page.locator('#libraryCategoryFilter');await expect(category.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
+ await expect(page.locator('[data-lu-document="meeting-doc"]')).toHaveCount(0);await expect(docRows.first()).toBeVisible();
  await capture(page,info,`library-all-${width}-${scheme}`);
- const meetingChip=category.getByRole('radio',{name:'회의',exact:true});await meetingChip.scrollIntoViewIfNeeded();
- await tap(page,meetingChip,width);await expect(meetingChip).toHaveAttribute('aria-checked','true');
+ const meetingChip=category.getByRole('button',{name:'회의',exact:true});await expect(meetingChip).toHaveAttribute('aria-pressed','false');await meetingChip.scrollIntoViewIfNeeded();
+ await tap(page,meetingChip,width);await expect(meetingChip).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();await expect(page.locator('[data-lu-document="meeting-doc-2"]')).toBeVisible();
+ // 다른 분류를 모두 끄면 회의 자료만 남는다.
+ for(const name of ['교섭','투쟁','교육','선전','정책','기타']){const chip=category.getByRole('button',{name,exact:true});await chip.scrollIntoViewIfNeeded();await tap(page,chip,width);await expect(chip).toHaveAttribute('aria-pressed','false')}
  await expect.poll(()=>docRows.evaluateAll(els=>els.map(el=>el.dataset.luDocument).sort())).toEqual(['meeting-doc','meeting-doc-2']);
  await capture(page,info,`library-meeting-${width}-${scheme}`);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);

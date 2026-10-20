@@ -48,9 +48,35 @@
 .lu-row:first-child{border-top:0}
 .lu-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
 .lu-file-kind{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:var(--kptu-radius-md);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px;font-weight:800}
-.lu-row-main{flex:1;min-width:0}
-.lu-row-title{margin:0;font-size:15px;font-weight:700;line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lu-row-meta{margin:2px 0 0;font-size:var(--kptu-text-meta);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lu-row-title{flex:1;min-width:0;margin:0;font-size:15px;font-weight:700;line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* UI-PC자료실: 분류 꼬리표는 자료명 왼쪽. 칸 폭은 기본 분류(두 글자)에 맞춘 40px로 고정해 이름 시작점을 맞추고,
+   직접 만든 긴 분류만 84px까지 늘린 뒤 …로 줄인다. 날짜는 줄 오른쪽 작은 글씨. */
+.lu-row-tag{flex:0 0 auto;min-width:40px;max-width:84px}
+.lu-row-tag .doc-category-tag{display:block;width:100%;line-height:20px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lu-row-date{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+/* 폰 M2: 두 단 격자 — 위 [이름(2줄까지) | 날짜 | ⋯], 아래 [종류 | 분류]. 종류는 상자 없이 색 글자. */
+@media(max-width:760px){
+  .lu-row-title{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
+  #appView #libraryView #documentList .lu-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;grid-template-areas:"title title title date menu" "kind tag . . menu";column-gap:6px;row-gap:3px;align-items:center}
+  #appView #libraryView #documentList .lu-row-title{grid-area:title}
+  #appView #libraryView #documentList .lu-row-date{grid-area:date;align-self:start;margin-top:2px;padding-left:4px}
+  #appView #libraryView #documentList .lu-more-trigger{grid-area:menu}
+  #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;height:auto;padding:0;background:transparent;font-size:11px;font-weight:var(--ds-weight-medium,500);line-height:18px}
+  #appView #libraryView #documentList .lu-row-tag{grid-area:tag;min-width:0}
+  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{height:18px;line-height:18px;font-size:11px}
+  #appView #libraryView #documentList .lu-expand{display:none}
+}
+/* B안 펼치기: 잘린 줄에만 ⋯ 왼쪽 작은 꺾쇠. 펼친 줄은 이름 전체를 여러 줄로 보이고 꺾쇠를 위로 돌린다. */
+.lu-expand{flex:none;color:var(--kptu-muted);border:0;background:transparent}
+.lu-expand[hidden]{display:none}
+/* PC(761px 이상): 꺾쇠가 없는 줄도 같은 자리를 비워 날짜 세로줄을 맞춘다. */
+@media(min-width:761px){.lu-expand[hidden]{display:block;visibility:hidden}}
+.lu-expand svg{display:block;transition:transform .15s}
+.lu-row.lu-expanded .lu-expand svg{transform:rotate(180deg)}
+.lu-row.lu-expanded{align-items:flex-start}
+.lu-row.lu-expanded :is(.lu-row-tag,.lu-row-date){margin-top:8px}
+.lu-row.lu-expanded .lu-row-title{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere;-webkit-line-clamp:unset;line-clamp:none}
+@media(prefers-reduced-motion:reduce){.lu-expand svg{transition:none}}
 .lu-more-trigger{flex:none;color:var(--kptu-muted);border:0;background:transparent}
 .lu-head-actions{display:flex;align-items:center;gap:8px}
 #libraryListCard .lu-head-actions button{margin:0}
@@ -93,3 +119,25 @@
 .dce-add-line .dce-input{flex:1 1 auto}
 .dce-status{min-height:1.4em;margin:6px 0 0;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 .dce-status.error{color:var(--kptu-danger)}
+
+/* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
+/* 꺼진 분류 칩은 흐리게: 글자는 보조 글자색(대비 4.5:1 이상), 테두리는 반쯤 옅게. 초점 표시는 공용 규칙 그대로. */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="false"]{color:var(--kptu-muted);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
+.lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-off-show{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
+
+/* UI-PC자료실 거르기 줄(PC 시안 A): 검색칸 아래 [프로젝트] → [세부](하위 프로젝트가 있을 때만) → [종류]를 한 줄씩 쌓고,
+   줄마다 왼쪽에 같은 폭의 이름표를 둔다. 담당조직으로 걸러 들어오면 그 줄도 같은 모양으로 끼운다.
+   폰(760px 이하)은 이름표 없이 지금처럼 줄마다 옆으로 밀어 본다(이름표가 칩 자리를 줄이므로). */
+#appView #libraryView .library-filter-toolbar #documentProject,
+#appView #libraryView .library-filter-toolbar .lu-filter-row{display:grid;grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,1fr);column-gap:8px;row-gap:0;align-items:center;flex:1 1 100%;min-width:0}
+#appView #libraryView .lu-filter-row:has(> [hidden]){display:none}
+#appView #libraryView .lu-filter-label{font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
+#appView #libraryView .lu-filter-label[hidden]{display:none}
+#appView #libraryView .lu-filter-row > .filter-chips{min-width:0}
+@media(max-width:760px){
+  #appView #libraryView .library-filter-toolbar #documentProject,
+  #appView #libraryView .library-filter-toolbar .lu-filter-row{grid-template-columns:minmax(0,1fr)}
+  #appView #libraryView .lu-filter-label{display:none}
+}

@@ -792,9 +792,9 @@
 /* UI-바구니거르기2: 그 아래 한 줄 더 — [담당조직]·[프로젝트]는 이름 칩, [자료실]은 분류 7개 칩. 같은 알약·옆으로 밀기. 위 줄과 붙인다. */
 #appView #basketView > .basket-place-filter.basket-sub-filter:not([hidden]){ margin-top:-4px; }
 #appView #basketView .basket-chip[data-chip-kind="task"] .basket-chip-dot{ background:var(--ds-kind-task-ink); }
-/* 자료실: 프로젝트 칩과 자료 종류 칩도 자리가 되면 한 줄(PC). */
+/* 자료실: 검색칸 아래 거르기 줄(프로젝트·세부·종류)은 한 줄에 하나씩 차례로 쌓는다(UI-PC자료실 거르기 줄, library-upload.css). */
 #appView #libraryView .library-filter-toolbar{ gap:0 12px; }
-#appView #libraryView .library-filter-toolbar #documentProject{ flex:0 1 auto; }
+#appView #libraryView .library-filter-toolbar #documentProject{ flex:1 1 100%; }
 
 /* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로), 자료실 [분류 수정], 담당조직 상세 [할 일 추가]·[기존 할 일 연결], 프로젝트 상세 할 일 [연결 해제]. */
 #appView #calendarView .calendar-toolbar button#calendarTodayBtn,

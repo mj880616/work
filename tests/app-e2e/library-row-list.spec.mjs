@@ -1,4 +1,5 @@
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
+import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
@@ -126,31 +127,35 @@ for(const width of [390,1440]){
   test('library rows show only compact fields, fit viewport and keep header actions '+width,async({page,browser})=>{
     await boot(page,{width});
     const rows=page.locator('.lu-row');await expect(rows).toHaveCount(10);
-    const kind=rows.first().locator('.lu-file-kind');
-    for(const [property,value]of [['width','36px'],['height','36px'],['border-radius','8px'],['font-size','11px']])await expect(kind).toHaveCSS(property,value);
-    // UI-디자인기준 3/3(8-9e-1): 상자 안 줄 단위(줄 최소 44px), 이름 13px·400, 보조 줄 12px.
-    await expect(rows.first()).toHaveCSS('gap','10px');await expect(rows.first()).toHaveCSS('padding','9px 0px');await expect(rows.first()).toHaveCSS('min-height','44px');
-    await expect(rows.first().locator('.lu-row-title')).toHaveCSS('font-size','13px');await expect(rows.first().locator('.lu-row-title')).toHaveCSS('font-weight','400');
-    await expect(rows.first().locator('.lu-row-meta')).toHaveCSS('font-size','12px');
+    const kind=rows.first().locator('.lu-file-kind'),title=rows.first().locator('.lu-row-title');
+    // UI-PC자료실: PC는 36px 종류 상자, 폰(M2)은 이름 아래 작은 줄의 색 글자(상자 없음).
+    if(width<761){for(const [property,value]of [['background-color','rgba(0, 0, 0, 0)'],['font-size','11px']])await expect(kind).toHaveCSS(property,value)}
+    else for(const [property,value]of [['width','36px'],['height','36px'],['border-radius','8px'],['font-size','11px']])await expect(kind).toHaveCSS(property,value);
+    // UI-디자인기준 3/3(8-9e-1): 상자 안 줄 단위(줄 최소 44px), 이름 13px·400, 보조 글자(날짜) 12px.
+    await expect(rows.first()).toHaveCSS(width<761?'column-gap':'gap',width<761?'6px':'10px');await expect(rows.first()).toHaveCSS('padding','9px 0px');await expect(rows.first()).toHaveCSS('min-height','44px');
+    await expect(title).toHaveCSS('font-size','13px');await expect(title).toHaveCSS('font-weight','400');
+    await expect(rows.first().locator('.lu-row-date')).toHaveCSS('font-size','12px');
     expect(await rows.locator('.lu-file-kind').allTextContents()).toEqual(['HWP','PDF','XLS','DOC','PPT','파일','HWP','XLS','DOC','PPT']);
-    // UI-바구니첨부메모 ⑪: 분류 꼬리표(정책자료 → 정책) + 날짜. 날짜 없는 자료는 등록일(같은 10.06)로 같은 달 묶음.
-    await expect(rows.first().locator('.lu-row-meta')).toHaveText('정책 10.06');
-    await expect(rows.nth(5).locator('.lu-row-meta')).toHaveText('정책');
-    await expect(rows.locator('.badges,.compact-entry-summary,.lu-document-actions')).toHaveCount(0);
+    // UI-바구니첨부메모 ⑪ + UI-PC자료실: 분류 꼬리표(정책자료 → 정책)와 오른쪽 날짜. 날짜 없는 자료는 날짜 칸이 없고, 등록일(같은 10.06)로 같은 달 묶음.
+    await expect(rows.first().locator('.doc-category-tag')).toHaveText('정책');await expect(rows.first().locator('.lu-row-date')).toHaveText('10.06');
+    await expect(rows.nth(5).locator('.doc-category-tag')).toHaveText('정책');await expect(rows.nth(5).locator('.lu-row-date')).toHaveCount(0);
+    await expect(rows.locator('.badges,.compact-entry-summary,.lu-document-actions,.lu-row-meta')).toHaveCount(0);
     await expect(page.locator('[data-lu-download]')).toBeHidden();
     await expect(page.locator('[data-lu-edit]')).toBeHidden();
     await expect(page.locator('[data-lu-delete]')).toBeHidden();
     expect(await rows.first().innerText()).not.toMatch(/출처|요약|2.0KB/);
-    await expect(page.locator('.lu-row-title').first()).toHaveCSS('white-space','nowrap');
-    await expect(page.locator('.lu-row-title').first()).toHaveCSS('text-overflow','ellipsis');
-    expect(await page.locator('.lu-row-title').first().evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true);
+    // PC는 이름 한 줄(…), 폰은 두 줄까지(…).
+    if(width<761){await expect(title).toHaveCSS('white-space','normal');await expect(title).toHaveCSS('-webkit-line-clamp','2');expect(await title.evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);expect(await title.evaluate(el=>Math.round(el.clientHeight/parseFloat(getComputedStyle(el).lineHeight)))).toBe(2)}
+    else{await expect(title).toHaveCSS('white-space','nowrap');await expect(title).toHaveCSS('text-overflow','ellipsis');expect(await title.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true)}
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
     expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['manageLibraryBtn','newDocumentBtn']);
     await page.locator('#manageLibraryBtn').click();await expect(page.locator('#libraryManageModal')).toBeVisible();
     await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
     const before=await browser.newPage();await boot(before,{width,main:true});
-    expect((await rows.first().boundingBox()).height).toBeLessThan((await before.locator('[data-lu-document]').first().boundingBox()).height);
+    // PC 줄은 예전보다 낮다. 폰(M2)은 이름 두 줄 + 종류·분류 줄이라 예전 줄보다 높을 수 있어, 두 단 높이(9+2줄+3+18+9px) 안인지 본다.
+    if(width<761)expect((await rows.first().boundingBox()).height).toBeLessThanOrEqual(9+2*13*1.4+3+18+9+1);
+    else expect((await rows.first().boundingBox()).height).toBeLessThan((await before.locator('[data-lu-document]').first().boundingBox()).height);
     // UI-디자인기준 3/3(8-9e-1): library and meeting rows are the same line rows in a 0.5px box (they used to match the old
     // meeting card row of main). Compare the real neighboring renderer with the same API data.
     const style=el=>el.evaluate(el=>{const s=getComputedStyle(el);return Object.fromEntries(['paddingTop','paddingBottom','minHeight','borderRadius','boxShadow','backgroundColor'].map(k=>[k,s[k]]))});
@@ -201,10 +206,11 @@ for(const width of [390,1440]){
 // UI-디자인기준 3/3(8-9e-1, 원장 CC18): the file kind keeps its own color (HWP 파랑) in every account theme.
 test('library file type keeps its kind color in all four themes and search/filter remain intact',async({page})=>{
   await boot(page);
+  // UI-PC자료실 M2: 폰(이 시험의 390px)은 종류를 색 글자로만 보인다(바탕 없음). PC 상자 색은 ui-standard-3a 1280에서 본다.
   for(const theme of ['olive','navy','terracotta','sand']){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     await expect(page.locator('.lu-file-kind').first()).toHaveAttribute('data-lu-kind','hwp');
-    expect(await page.locator('.lu-file-kind').first().evaluate(el=>{const s=getComputedStyle(el);const probe=document.createElement('span');probe.style.color='var(--ds-file-hwp-ink)';probe.style.backgroundColor='var(--ds-file-hwp-soft)';el.append(probe);const p=getComputedStyle(probe),match=s.color===p.color&&s.backgroundColor===p.backgroundColor;probe.remove();return match})).toBe(true);
+    expect(await page.locator('.lu-file-kind').first().evaluate(el=>{const s=getComputedStyle(el);const probe=document.createElement('span');probe.style.color='var(--ds-file-hwp-ink)';probe.style.backgroundColor='var(--ds-file-hwp-soft)';el.append(probe);const p=getComputedStyle(probe),match=s.color===p.color&&s.backgroundColor===(innerWidth<761?'rgba(0, 0, 0, 0)':p.backgroundColor);probe.remove();return match})).toBe(true);
   }
   await page.locator('#documentSearch').fill('목록에 표시하지 않을 출처');await expect(page.locator('.lu-row')).toHaveCount(10);
   await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('.lu-row')).toHaveCount(0);
@@ -250,42 +256,51 @@ for(const width of [390,1280]){
       await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
       const rows=page.locator('#documentList [data-lu-document]'),ids=()=>rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument));
-      const category=page.getByRole('radiogroup',{name:'자료 분류',exact:true});
-      // UI-바구니거르기: no [일반 자료|회의자료만] row; meeting-linked documents list with the rest.
+      // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글 묶음(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
+      const category=page.getByRole('group',{name:'자료 분류 (여러 개 고르기)',exact:true});
+      const pressed=name=>category.getByRole('button',{name,exact:true});
+      // UI-바구니거르기: no [일반 자료|회의자료만] row; meeting-linked documents list with the rest by their category.
       await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.getByRole('radiogroup',{name:'자료 종류',exact:true})).toHaveCount(0);
-      await expect(rows).toHaveCount(5);
-      expect(await ids()).toEqual(['ordinary-a','category-only','ordinary-b','meeting-a','meeting-b']);
+      expect(await ids()).toEqual(['ordinary-a','ordinary-b','meeting-a']);
+      await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');
       await expect(page.locator('#libraryMeetingToggle')).toHaveCount(0);
       // The project chip row and the category chip row stay; meeting documents are the [회의] category (회의자료·회의결과).
       await expect(page.locator('#documentProject')).toBeVisible();await expect(category).toHaveAttribute('aria-controls','documentList');
-      const meetingChip=category.getByRole('radio',{name:'회의',exact:true});
-      if(width===390)await meetingChip.tap();else await meetingChip.click();
-      await expect(category).toHaveJSProperty('value','회의');expect(await ids()).toEqual(['category-only','meeting-b']);
+      if(width===390)await pressed('회의').tap();else await pressed('회의').click();
+      await expect(pressed('회의')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');
+      expect(await ids()).toEqual(['ordinary-a','category-only','ordinary-b','meeting-a','meeting-b']);
+      await onlyLibraryCategories(page,['회의'],{tap:width===390});expect(await ids()).toEqual(['category-only','meeting-b']);
       await page.screenshot({path:`/tmp/library-two-meetings-${width}.png`,fullPage:true});
-      await category.locator('[aria-checked=true]').focus();await page.keyboard.press('Home');await page.keyboard.press('Enter');
-      await expect(category).toHaveJSProperty('value','all');await expect(rows).toHaveCount(5);await expect(category.locator('[aria-checked=true]')).toBeFocused();
+      // Keyboard: [전체] turns every category on, and pressing it again returns to the default (회의 off).
+      await pressed('전체').focus();await page.keyboard.press('Enter');
+      await expect(rows).toHaveCount(5);await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toBeFocused();
+      await page.keyboard.press('Space');await expect(rows).toHaveCount(3);await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();
       await selectFilter(page,'#documentProject','top-a');
       await page.locator('#documentSearch').fill('철도');
-      await expect(rows).toHaveCount(3);
-      await selectFilter(page,'#libraryCategoryFilter','회의');await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
-      await page.locator('#documentSearch').fill('회의 연결');await expect(rows).toHaveCount(0);
-      await selectFilter(page,'#libraryCategoryFilter','all');await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();
-      await page.locator('#documentSearch').fill('');await selectFilter(page,'#documentProject','all');
-      await expect(rows).toHaveCount(5);
+      // A search follows the chips; a hit in a switched-off category is reported below the list with [켜기].
+      await expect(rows).toHaveCount(2);await expect(page.locator('.lu-off-hint')).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');
+      await onlyLibraryCategories(page,['회의'],{tap:width===390});await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="category-only"]')).toBeVisible();
+      await expect(page.locator('.lu-off-hint')).toHaveText('정책·기타 분류 2건은 꺼져 있어요 켜기');
+      await page.locator('#documentSearch').fill('회의 연결');await expect(rows).toHaveCount(0);await expect(page.locator('.lu-off-hint')).toHaveText('기타 분류 1건은 꺼져 있어요 켜기');
+      await page.locator('.lu-off-hint button').click();await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();await expect(pressed('기타')).toHaveAttribute('aria-pressed','true');
+      await page.locator('#documentSearch').fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);await selectFilter(page,'#documentProject','all');
+      expect(await ids()).toEqual(['category-only','meeting-a','meeting-b']);
+      await pressed('전체').click();await expect(rows).toHaveCount(5);
       await page.locator('#manageLibraryBtn').click();
       await expect(page.locator('#libraryManageList [data-library-edit]')).toHaveCount(5);
       await page.locator('#libraryManageClose').click();
       const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));
       const before=await storageKeys();
-      await selectFilter(page,'#libraryCategoryFilter','회의');await selectFilter(page,'#libraryCategoryFilter','all');
+      await pressed('정책').click();await pressed('정책').click();
       expect(await storageKeys()).toEqual(before);
-      await selectFilter(page,'#libraryCategoryFilter','회의');
+      await pressed('정책').click();await expect(rows).toHaveCount(3);
+      // Every entry to the library starts from the default: only [회의] off.
       await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('library'));
-      await expect(rows).toHaveCount(5);await expect(category).toHaveJSProperty('value','all');
+      expect(await ids()).toEqual(['ordinary-a','ordinary-b','meeting-a']);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);
       // An old address or remembered view (?view=library) lands on the default list.
       await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await expect(rows).toHaveCount(5);await expect(category).toHaveJSProperty('value','all');await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
+      await expect(rows).toHaveCount(3);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
       expect(documentQueries.length).toBeGreaterThan(0);
       for(const params of documentQueries)expect(params.has('meeting_id')).toBe(false);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

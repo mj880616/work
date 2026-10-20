@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {showAllLibraryCategories} from './helpers/library-categories.mjs';
 import { readFileSync } from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
@@ -315,6 +316,7 @@ async function deleteConsumerFixture(page,view,width=390,{holdImport=false}={}){
   },view);
   // UI-바구니거르기: meeting documents list with the rest in the library (no [회의자료만] row).
   if(view!=='library'){await page.locator('[data-mrd-meeting="meeting-1"]').click();await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2)}
+  else await showAllLibraryCategories(page);// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다.
   expect(await page.evaluate(()=>({owner:window.KPTURuntime.session.read()?.user?.id,token:!!window.KPTURuntime.session.read()?.access_token,ctx:window.KPTURuntime.context.read()?.workspace?.id,view:window.KPTURouter.current}))).toEqual({owner:'owner',token:true,ctx:'ws',view});
   return state;
 }
@@ -408,6 +410,10 @@ for(const width of [390,1280])for(const view of ['library','meetings']){
       // Capture cache at the consumer's final checkpoint before restoring the
       // actual route's filter, so a later GET cannot mask optimistic removal.
       expect(state.settlementCacheIds).toContain('doc-0');
+      // UI-PC자료실: 다른 화면을 거쳐 다시 들어오면 분류 칩이 기본 상태([회의] 꺼짐)로 돌아가므로, 회의자료 분류인 doc-0을 보려면 다시 켠다.
+      // 로그인 정보 갱신(session cycle)은 들어오기가 아니라 칩이 그대로여야 한다.
+      if(departure==='route cycle')await showAllLibraryCategories(page);
+      else await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);
     }
     await expect(page.locator(view==='library'?'[data-lu-document="doc-0"]':'[data-mrd-delete-document="doc-0"]')).toHaveCount(1);
   });
