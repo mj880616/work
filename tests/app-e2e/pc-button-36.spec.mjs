@@ -64,7 +64,7 @@ async function measure(locator){
   return {height:r.height,top:r.top,font:getComputedStyle(el).fontSize,touch:Math.max(parseFloat(getComputedStyle(el,'::after').height)||0,parseFloat(getComputedStyle(el,'::after').minHeight)||0),above:hit(r.top-3),below:hit(r.bottom+3)};
  });
 }
-// 글자 크기는 바꾸지 않는다(일지 [저장]은 원래 12px): 높이·누르는 범위만 본다.
+// 글자 크기는 바꾸지 않는다(업무일지 [저장]은 원래 12px): 높이·누르는 범위만 본다.
 async function pcButton(locator,label){const m=await measure(locator);expect(m.height,label).toBe(36);expect(m.touch,label).toBeGreaterThanOrEqual(44);expect(m.above,label+' touch above').toBe(true);expect(m.below,label+' touch below').toBe(true);return m;}
 
 test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력칸도 같은 높이·같은 줄, 누르는 범위 44px',async({page})=>{
@@ -73,7 +73,7 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await open(page,'meetings');const meeting=await pcButton(page.locator('#newMeetingBtn'),'회의');
  await open(page,'library');await pcButton(page.locator('#newDocumentBtn'),'자료 등록');
  await open(page,'projects');await pcButton(page.locator('#newProjectBtn'),'프로젝트');
- await open(page,'journal');await pcButton(page.locator('#journalView [data-journal-save]'),'일지 저장');
+ await open(page,'journal');await pcButton(page.locator('#journalView [data-journal-save]'),'업무일지 저장');
  // 홈: 입력칸·[크게]·[📎 첨부]·[추가]가 한 줄에서 같은 높이.
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
  const hi=await measure(home.locator('[data-quick-input]')),hs=await pcButton(home.locator('[data-quick-save]'),'홈 추가'),hc=await pcButton(home.getByRole('button',{name:'파일 첨부',exact:true}),'홈 첨부');

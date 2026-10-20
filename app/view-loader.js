@@ -22,10 +22,10 @@ function style(path){
 const routeStyles={
   basket:['./basket.css','./markdown-view.css','./md-editor.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./ui-standard.css'],
   home:['./library-upload.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./ui-standard.css'],
-  calendar:['./choice-sheet.css','./calendar-ui.css','./ui-standard.css'],
+  calendar:['./choice-sheet.css','./calendar-ui.css','./view-wide.css','./ui-standard.css'],
   tasks:['./task-layout.css','./google-tasks.css','./ui-standard.css'],
-  journal:['./journal.css','./ui-standard.css'],
-  diary:['./diary.css','./ui-standard.css'],
+  journal:['./journal.css','./view-wide.css','./ui-standard.css'],
+  diary:['./diary.css','./view-wide.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./ui-standard.css'],
   meetings:['./filter-chips.css','./meeting-ui.css','./google-tasks.css','./ui-standard.css'],

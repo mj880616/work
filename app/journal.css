@@ -1,9 +1,9 @@
-/* JOURNAL-일지 2단계(업무일지): 일정 탭 [일지]. 색은 theme-tokens.css의 값만 쓴다(업무일지 초록 --ds-kind-journal-*).
-   이번 주 날짜 숫자 줄(월~일, 한 줄 쓴 날 초록 점) → 고른 날의 "오늘 한 줄" → 그날 재료 목록. 폰·PC 같은 배치, PC는 폭만 넓힌다. */
+/* JOURNAL-일지 2단계(업무일지): 일정 탭 [업무일지]. 색은 theme-tokens.css의 값만 쓴다(업무일지 초록 --ds-kind-journal-*).
+   이번 주 날짜 숫자 줄(월~일, 한 줄 쓴 날 초록 점) → 고른 날의 "오늘 한 줄" → 그날 재료 목록. 폰·PC 같은 배치.
+   UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다. 바깥 폭은 view-wide.css의 공용 규칙(.view-wide), 안쪽 제한(960px)은 없앴다. */
 #appView #journalView .journal{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
 @media(min-width:1024px){
-  main:has(#journalView:not(.hidden)){ max-width:1920px; padding-left:clamp(24px,2.2vw,42px); padding-right:clamp(24px,2.2vw,42px); }
-  #appView #journalView .journal{ max-width:960px; }
+  #appView #journalView .journal{ max-width:none; }
 }
 #appView #journalView .journal [hidden]{ display:none!important; }
 #appView #journalView .journal-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; min-height:var(--kptu-touch-target,44px); }
@@ -49,6 +49,8 @@
 #appView #journalView .journal-muted{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-row); }
 #appView #journalView .journal-failed{ color:var(--kptu-danger); }
 @media(min-width:761px){ #appView #journalView .journal-materials{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; } }
+/* UI-PC업무일지폭: 넓은 창(1280px~)에서는 하루 카드 안 4칸(일정·끝낸 할 일·바구니 업데이트·고친 노트)을 한 줄로. 그보다 좁으면 위 2열 그대로. */
+@media(min-width:1280px){ #appView #journalView .journal-materials{ grid-template-columns:repeat(4,minmax(0,1fr)); } }
 /* 폰: 전환 줄(아래 탭 위 한 줄)에 마지막 재료가 가리지 않게 아래 여백. [+]는 없다. */
 @media(max-width:760px){
   #appView #journalView.view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + 22px + env(safe-area-inset-bottom))!important; }

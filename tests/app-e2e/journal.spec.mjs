@@ -96,7 +96,7 @@ const date=(page,day)=>page.locator(`#journalRoot [data-journal-date="${day}"]`)
 const group=(page,key)=>page.locator(`#journalRoot [data-journal-group="${key}"]`);
 
 for(const width of [390,1280]){
- test(`[일지] 이번 주 날짜 줄·한 줄 쓴 날 초록 점·오늘 고름, 그날 재료(일정·끝낸 할 일·바구니 업데이트·고친 노트) ${width}`,async({page})=>{
+ test(`[업무일지] 이번 주 날짜 줄·한 줄 쓴 날 초록 점·오늘 고름, 그날 재료(일정·끝낸 할 일·바구니 업데이트·고친 노트) ${width}`,async({page})=>{
   const f=await fixture(page,{width});await openJournal(page,width);
   const row=page.locator('#journalRoot [data-journal-date]');
   await expect(row).toHaveCount(7);
@@ -274,4 +274,40 @@ test('[주간보고 초안 복사]: 이번 주 한 줄 7개 + 날짜별 재료 �
  expect(lines).toContain('- 고친 노트: 교섭 정리 노트');
  expect(text).not.toContain('JOURNAL_SECRET');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+// UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다(같은 바깥 폭 규칙 .view-wide). 하루 카드 안 4칸은 1280px 이상 한 줄, 그보다 좁으면 2열.
+// 폰은 그대로(가운데 760px 상한·1열).
+const journalBox=page=>page.evaluate(()=>{
+ const r=e=>e.getBoundingClientRect(),view=document.querySelector('#journalView'),cs=getComputedStyle(view),main=getComputedStyle(document.querySelector('main'));
+ const groups=[...document.querySelectorAll('#journalRoot [data-journal-group]')].map(r);
+ return {root:r(document.querySelector('#journalRoot')).width,panel:view.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),
+  right:r(document.querySelector('#journalRoot')).right,copy:r(document.querySelector('#journalRoot [data-journal-copy]')).right,days:r(document.querySelector('#journalRoot [data-journal-days]')).width,
+  rows:new Set(groups.map(g=>Math.round(g.y))).size,cols:new Set(groups.map(g=>Math.round(g.x))).size,
+  main:{max:main.maxWidth,pl:main.paddingLeft,pr:main.paddingRight},doc:document.documentElement.scrollWidth,vw:innerWidth};
+});
+for(const [width,cols] of [[1024,2],[1279,2],[1280,4],[1920,4]]){
+ test(`PC 업무일지 폭: 일기와 같은 바깥 폭, 날짜 줄·카드·[주간보고 초안 복사]가 끝까지, 하루 카드 ${cols}칸 ${width}`,async({page})=>{
+  const f=await fixture(page,{width});await openJournal(page,width);
+  await expect(group(page,'notes').locator('li')).toHaveCount(1);
+  const j=await journalBox(page);
+  expect(j.doc).toBeLessThanOrEqual(j.vw);
+  expect(Math.abs(j.root-j.panel)).toBeLessThan(2);expect(Math.abs(j.days-j.root)).toBeLessThan(2);expect(Math.abs(j.copy-j.right)).toBeLessThan(2);
+  expect(j.root).toBeGreaterThan(760);
+  expect(j.cols).toBe(cols);expect(j.rows).toBe(4/cols);
+  // 같은 창에서 [일기]로 옮겨도 바깥 폭(본문 칸 상한·좌우 여백)과 화면 칸 폭이 같다.
+  await page.locator('.app-nav [data-view="diary"]').click();await expect(page.locator('#diaryView')).toBeVisible();
+  const d=await page.evaluate(()=>{const view=document.querySelector('#diaryView'),cs=getComputedStyle(view),main=getComputedStyle(document.querySelector('main'));
+   return {root:document.querySelector('#diaryRoot').getBoundingClientRect().width,panel:view.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),main:{max:main.maxWidth,pl:main.paddingLeft,pr:main.paddingRight}};});
+  expect(d.main).toEqual(j.main);expect(Math.abs(d.panel-j.panel)).toBeLessThan(1);expect(Math.abs(d.root-j.root)).toBeLessThan(2);
+  expect(j.main.max).toBe('1920px');
+  expect(f.errors).toEqual([]);
+ });
+}
+test('폰 업무일지: 폭·1열 그대로 390',async({page})=>{
+ const f=await fixture(page,{width:390});await openJournal(page,390);
+ await expect(group(page,'notes').locator('li')).toHaveCount(1);
+ const j=await journalBox(page);
+ expect(j.doc).toBeLessThanOrEqual(j.vw);expect(j.cols).toBe(1);expect(j.rows).toBe(4);expect(Math.abs(j.root-j.panel)).toBeLessThan(2);
+ expect(f.errors).toEqual([]);
 });
