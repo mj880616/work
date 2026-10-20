@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 // UI-디자인손질(8-9e 후속): 메뉴 판(폰)·메뉴 [쓰기]·메모 [⋯]·상자 안쪽 여백·일정 하루 보기 할 일·담당조직 머리줄·
 // 성명·보도자료 제목·[AI 분류 요청]·앱 아이콘. Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
 test.use({locale:'ko-KR'});
@@ -53,7 +54,7 @@ async function boot(page,width,{dark=false}={}){
   return ok({});
  });
  await page.goto(testOrigin+'/app/');await enterLogin(page);
- await page.locator('#emailAuthToggle').click();await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('password123');await page.locator('#authSubmit').click();
+ await signInWithSession(page,user.email);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
  return {errors,state};
 }

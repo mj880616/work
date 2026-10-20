@@ -1,6 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 // TASK-조직상세 and TASK-조직순서 in the whole app: the organization detail shows the Google tasks linked to the organization,
 // adds a task already linked to it and links an existing one; the list and the editor follow the shared order.
@@ -57,10 +58,7 @@ async function mock(page,calls){
 async function openTeam(page,calls){
   await mock(page,calls);
   await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
   await clickView(page,'team');
   await expect(page.locator('#soOrganizationList .so-card')).toHaveCount(orgs.length+(calls.extraOrganizations||0),{timeout:10000});

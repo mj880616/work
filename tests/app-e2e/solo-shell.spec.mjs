@@ -1,6 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test, expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const supabase = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const person = {id: 'solo-shell-user', email: 'solo@example.org', user_metadata: {display_name: '김명진'}};
@@ -25,10 +26,7 @@ for (const width of [1280, 768, 390, 360]) {
     await page.setViewportSize({width, height: 844});
     await mockWorkspace(page);
     await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
-    await page.locator('#emailAuthToggle').click();
-    await page.locator('#authEmail').fill(person.email);
-    await page.locator('#authPassword').fill('password123');
-    await page.locator('#authSubmit').click();
+    await signInWithSession(page,person.email);
     await expect(page.locator('#appView')).toBeVisible();
     await clickView(page,'team');
     await expect(page.locator('#teamView')).toBeVisible();

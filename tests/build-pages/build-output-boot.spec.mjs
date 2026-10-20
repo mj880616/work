@@ -1,5 +1,6 @@
 import {clickView} from '../app-e2e/helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
+import { signInWithSession } from '../app-e2e/helpers/session-login.mjs';
 
 // CI-버전자동화: the scripts/build-pages.mjs output (hashed ?v=, what Pages deploys) boots and
 // switches views with the same mocked APIs as tests/app-e2e. Served at PAGES_BUILD_ORIGIN.
@@ -20,10 +21,7 @@ async function boot(page){
     return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.goto(origin+'/app/login/?return='+encodeURIComponent(origin+'/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
 }
 

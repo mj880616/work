@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -39,7 +40,7 @@ async function open(page,{view='list',recurring=false,partial=false,timed=false}
     return ok([]);
   });
   await page.goto(loginEntry(BASE+'/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();await page.locator('#authEmail').fill('qa@example.org');await page.locator('#authPassword').fill('password123');await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   await expect(page.locator('[data-google-event="move-event"]').first()).toBeVisible();
   return state;

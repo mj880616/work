@@ -36,11 +36,8 @@ async function mockApp(page,{spaces=[],tasks=[],calendarEvents=[]}={}){
 
 async function signIn(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
 }
@@ -48,6 +45,7 @@ async function signIn(page){
 
 
 import {execFileSync} from 'node:child_process';
+import { signInWithSession } from './helpers/session-login.mjs';
 // Compare retained styles on the same calendar day in both the historical device-time app and KST app.
 const fixtureNow=new Date('2026-10-05T03:00:00Z');
 const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(fixtureNow);

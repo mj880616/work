@@ -1,6 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {calendarToday} from './helpers/calendar-today.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -49,10 +50,7 @@ async function signIn(page,view,writes){
   });
   const returnTo=`${BASE}/app/?view=${view}`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('selection@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'selection@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator(`#${view}View`)).toBeVisible();
 }
