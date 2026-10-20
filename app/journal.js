@@ -8,8 +8,8 @@
 // Only the lines are saved (journal-data.js, kind=work). A material group that cannot be read shows its own notice and
 // [다시 시도]; the lines still work. A typed, unsaved line stays in memory per day until the owner changes.
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
-  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasks, readBasketMemos, readChangedNotes, dayMaterials, weeklyDraft, DONE_TASK_DAYS} from './journal-data.js';
-import {formatSeoulTime, seoulParts, seoulDateKey, addSeoulDays} from './meeting-time.js';
+  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketMemos, readChangedNotes, dayMaterials, weeklyDraft, DONE_TASK_DAYS, doneCoverFrom} from './journal-data.js';
+import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 
@@ -40,6 +40,7 @@ let owner = ownerScope(rt), epoch = 0;
 let start = weekStart(todayKey()), selected = todayKey();
 let lines = new Map(), linesState = 'loading';
 let materials = {};
+let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered (3 on an older Edge)
 let drafts = new Map(), saving = false;
 // The one line being edited in place: {day, index, before, value}.
 let editing = null;
@@ -123,8 +124,8 @@ function renderMaterials() {
       return box;
     }
     if (!group.items.length) {
-      const old = group.key === 'tasks' && selected < seoulDateKey(addSeoulDays(todayKey(), -(DONE_TASK_DAYS - 1)));
-      box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${old ? `Google 할 일은 최근 ${DONE_TASK_DAYS}일 안에 끝낸 것만 모여요.` : '없어요.'}</p>`);
+      const old = group.key === 'tasks' && selected < doneCoverFrom(doneDays);
+      box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${old ? `Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.` : '없어요.'}</p>`);
       return box;
     }
     const list = document.createElement('ul');
@@ -137,7 +138,7 @@ function render() { renderWeek(); renderLine({keepStatus:true}); renderMaterials
 
 const readers = {
   events: () => readWeekEvents(start, rt),
-  tasks: () => readDoneTasks(rt),
+  tasks: async () => { const read = await readDoneTasksWindow(rt); doneDays = read.days; return read.tasks; },
   memos: () => readBasketMemos(rt),
   notes: () => readChangedNotes(start, rt),
 };
@@ -287,7 +288,7 @@ async function deleteEdit() {
 }
 
 async function copyDraft() {
-  const text = weeklyDraft({start, lines, materials});
+  const text = weeklyDraft({start, lines, materials, doneDays});
   const ok = await copyText(text);
   const missing = Object.values(materials).some(state => state?.status !== 'ok');
   status.textContent = ok ? `이번 주 한 줄과 재료 목록을 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
@@ -338,7 +339,7 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
-  drafts = new Map(); lines = new Map(); materials = {}; saving = false; editing = null;
+  drafts = new Map(); lines = new Map(); materials = {}; doneDays = DONE_TASK_DAYS; saving = false; editing = null;
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'journal') enter();
 });

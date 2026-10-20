@@ -66,7 +66,7 @@ test('Google Tasks remains separate from the app task list',async({page})=>{
   await expect(page.locator('#gtTaskSection [data-gt-count]')).toHaveText('할 일 1개');
 });
 
-test('Google Tasks shows pending first and only completions from the last three days',async({page})=>{
+test('Google Tasks shows pending first and only completions from the recent window (default three days, completed_days 1 to 8)',async({page})=>{
   await mock(page);
   const recent=new Date(Date.now()-24*60*60*1000).toISOString();
   const old=new Date(Date.now()-5*24*60*60*1000).toISOString();
@@ -88,7 +88,18 @@ test('Google Tasks shows pending first and only completions from the last three 
   await expect(page.locator('[data-gt-show-completed]')).toHaveCount(0);
   expect(Number(await rows.nth(1).evaluate(el=>getComputedStyle(el).opacity))).toBeLessThan(0.7);
   const edge=readFileSync('supabase/functions/google-tasks/index.ts','utf8');
-  expect(edge).toContain("completedMin=new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
+  // The read window comes from the request (completedMs) and defaults to the 3-day constant; completedMin is derived from it.
+  expect(edge).toContain("completedMs=RECENT_COMPLETED_MS");
+  expect(edge).toContain("completedMin=new Date(Date.now()-completedMs).toISOString()");
+  // Run the real completedWindow() from the Edge source instead of matching its text.
+  const m=edge.match(/const RECENT_COMPLETED_MS=[^\n]*\n[\s\S]*?function completedWindow\(raw:unknown\)\{[^\n]*\}\n/);
+  expect(m).not.toBeNull();
+  const js=m[0].replace(/:unknown/g,'').replace(/ as number\|null/g,'').replace(/:number\|null/g,'').replace(/^\s*\/\/.*$/gm,'').replace(/const MAX_COMPLETED_DAYS=8;/,'const MAX_COMPLETED_DAYS=8;');
+  const completedWindow=new Function(js+';return completedWindow;')();
+  const DAY=24*60*60*1000;
+  for(const none of [undefined,null,'']) expect(completedWindow(none)).toEqual({ms:3*DAY,days:null});
+  for(let n=1;n<=8;n++){ expect(completedWindow(String(n))).toEqual({ms:n*DAY,days:n}); expect(completedWindow(n)).toEqual({ms:n*DAY,days:n}); }
+  for(const bad of ['0','9','-1','1.5','abc','3d','100']) expect(()=>completedWindow(bad)).toThrow('completed_days');
 });
 
 test('Google Tasks shows overdue first, then Korean today, tomorrow through +7 days, then recent completions whatever their due date, across a year boundary',async({browser})=>{
