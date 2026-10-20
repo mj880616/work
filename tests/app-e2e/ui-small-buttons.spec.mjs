@@ -1,8 +1,9 @@
 import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {noteMenuAction} from './helpers/note-menu.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
-// ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음.
+// ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음. 노트는 UI-노트메뉴정리로 이 줄이 없어지고 [⋯] 안으로 들어갔다.
 // ② 메뉴 [쓰기] 큰 편집기 서식 도구줄 버튼은 보이는 높이 28px(누르는 범위 44px).
 // ③ 폰(760px 이하): 일정 [달력|할 일|일지|일기]·바구니 [메모|노트] 전환은 아래 탭 6칸 바로 위 한 줄(알약, 32px, 고른 쪽 회색).
 //    자판이 뜨면 아래 탭과 함께 숨고, 공용 [+]는 전환 줄 바로 위. 노트·메모를 연 동안은 보이지 않는다. PC는 그대로 위.
@@ -65,19 +66,16 @@ for(const width of [390,1280]){
   const f=await fixture(page,{width});
   const primary=await paint(page,'backgroundColor','--kptu-primary'),surface=await paint(page,'backgroundColor','--kptu-surface');
   await go(page,'basket');
-  // 노트: [수정][연결하기] (UI-바구니상세개편: 복사는 제목 옆 작은 아이콘)
+  // 노트 (UI-노트메뉴정리): 본문 아래 [수정][연결하기] 줄이 없다. 수정·연결하기는 맨 위 한 줄의 [⋯] 안에 있다.
   await tap(page,page.locator('[data-basket-kind="note"]'),width);
   await tap(page,page.locator('[data-note-row="n1"]'),width);
-  const noteRow=page.locator('[data-note-read-actions]');
-  const note=await readRow(page,noteRow,['수정','연결하기'],width);
-  expect(note.map(b=>b.bg)).toEqual([surface,primary]);
-  // Width by the label, not the whole row.
-  expect(note.at(-1).right).toBeLessThan(width-40);
+  await expect(page.locator('[data-note-read-actions]')).toHaveCount(0);
+  await expect(page.locator('[data-note-detail]').getByRole('button',{name:'연결하기',exact:true})).toHaveCount(0);
   expect(await noWideScroll(page)).toBe(true);
-  // The buttons still do what they did: [수정] opens the edit view.
-  await tap(page,noteRow.getByRole('button',{name:'수정',exact:true}),width);
-  await expect(page.locator('[data-note-editor]')).toBeVisible();await expect(noteRow).toBeHidden();
-  await tap(page,page.locator('[data-note-cancel]'),width);await expect(noteRow).toBeVisible();
+  // The ⋯ still does what the buttons did: [수정] opens the edit view, [취소] returns to the read view.
+  await noteMenuAction(page,'data-note-edit',{width});
+  await expect(page.locator('[data-note-editor]')).toBeVisible();
+  await tap(page,page.locator('[data-note-cancel]'),width);await expect(page.locator('[data-note-more]')).toBeVisible();
   await tap(page,page.locator('[data-note-close]'),width);
   // 메모: [연결하기][할 일 만들기][노트로 옮기기] — 같은 규칙, [할 일 만들기]는 할 일 종류 색 그대로.
   await tap(page,page.locator('[data-basket-kind="memo"]'),width);
@@ -271,7 +269,7 @@ if(REVIEW){
    await page.locator('[data-basket-row="m1"]').click();await expect(page.locator('[data-basket-read-actions]')).toBeVisible();await shot('memo-read');
    await page.locator('[data-basket-close]').click();
    await page.locator('[data-basket-kind="note"]').click();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();await shot('basket-note-list');
-   await page.locator('[data-note-row="n1"]').click();await expect(page.locator('[data-note-read-actions]')).toBeVisible();await shot('note-read');
+   await page.locator('[data-note-row="n1"]').click();await expect(page.locator('[data-note-more]')).toBeVisible();await shot('note-read');
    await page.locator('[data-note-close]').click();
    await go(page,'calendar');await page.waitForTimeout(300);await shot('calendar');
    await go(page,'diary');await expect(page.locator('#diaryRoot [data-diary-day="2026-10-06"]')).toBeVisible();await shot('diary');

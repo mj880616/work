@@ -131,7 +131,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView :is(.note-search input,.note-editor input[type="text"],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 .note-dot { display:inline-block; flex-shrink:0; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--ds-kind-note-ink); vertical-align:middle; }
 .note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }
-.note-read-title { margin:8px 0 12px; font-size:20px; line-height:1.4; overflow-wrap:anywhere; }
 .basket-to-note { margin:12px 0; }
 .basket-to-note .basket-text-label { margin:0 0 6px; }
 .basket-to-note-help { margin:0; color:var(--kptu-muted); font-size:12px; }
