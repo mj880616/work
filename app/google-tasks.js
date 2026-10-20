@@ -423,6 +423,19 @@ function peekTasks(){const owner=currentOwner(),k=gtCacheKey(owner);if(!k)return
 let publishedReadSeq=0;
 async function listTasks({publish=false,fresh=false}={}){const owner=currentOwner(),epoch=sessionEpoch,since=toggleSeq,readSeq=publish?++publishedReadSeq:0;if(!owner)return {owner:'',status:'disconnected',tasks:[]};let d;try{d=await fetchOverview(fresh)}catch(e){if(/연결되지|재인증|TASKS_SCOPE_REQUIRED|권한/i.test(String(e?.message||e))&&stillCurrent(epoch,owner))return {owner,status:'disconnected',tasks:[]};throw e}if(!stillCurrent(epoch,owner))throw new Error('session changed');if(d?.connected===false||d?.needs_reconnect||d?.authorized===false)return {owner,status:'disconnected',tasks:[]};if(d?.error)throw new Error(d.error);const tasks=shownState(mergeToggles(d?.tasks||[],since));if(publish&&readSeq===publishedReadSeq){lastTasks=tasks;cacheOwnerId=shownOwner=owner;allPendingConfirmed=d?.pending_scope==='all';cacheWrite(owner,tasks);renderTasks(tasks)}return {owner,status:'ok',tasks}}
 // Used by the project detail (TASK-구현 PR 4) and the calendar (CAL-할일). The date rules are shared so other screens judge dates as this view does.
-window.KPTUGoogleTasks={invalidateAfterCreate:()=>{linkedCache.clear();fetchedOwner='';},openEditor:(task=null,opts={})=>openEditor(task,opts),mountLinked,openLinkPicker,toggleTask,waitForPendingToggles:()=>Promise.allSettled([...pendingToggles.values()].map(p=>p.saving).filter(Boolean)),peekTasks,listTasks,readLinks,describeTasks,taskMeta,subscribe:fn=>{stateListeners.add(fn);return()=>stateListeners.delete(fn)},taskState:id=>({task:lastTasks.find(t=>t.id===id),place:settling.get(id)?.before}),showUnlinked:()=>{unlinkedOnly=true;renderTasks(lastTasks);const heading=document.querySelector('[data-gt-unlinked-heading]');heading?.focus({preventScroll:true});heading?.scrollIntoView({block:'start'})},dueDateKey,completedRecently,isOverdue};
+// UI-할일조작통일: delete from another screen (the calendar date list) with the same Edge call as the editor's [삭제]. The caller asks first.
+// It waits for a toggle still being saved, and answers {ok:true} or {ok:false,message} so the caller can keep or restore its row.
+async function deleteTask(task){
+  const id=task?.id,owner=currentOwner(),epoch=sessionEpoch;
+  if(!id||!owner||pendingDeletes.has(id))return {ok:false,message:'할 일을 삭제하지 못했습니다.'};
+  try{
+    await pendingToggles.get(id)?.saving;
+    if(!stillCurrent(epoch,owner))return {ok:false,message:'로그인 정보가 바뀌어 삭제하지 않았습니다.'};
+    await rt.api(endpoint('delete'),{method:'POST',body:{action:'delete',task_list_id:task.taskListId||lastTasks.find(t=>t.id===id)?.taskListId,task_id:id}});
+  }catch(e){return {ok:false,message:'할 일을 삭제하지 못했습니다.'}}
+  if(stillCurrent(epoch,owner)){deletedTombstones.add(id);lastTasks=lastTasks.filter(t=>t.id!==id);cacheWrite(owner,lastTasks);tasksChanged()}
+  return {ok:true};
+}
+window.KPTUGoogleTasks={deleteTask,invalidateAfterCreate:()=>{linkedCache.clear();fetchedOwner='';},openEditor:(task=null,opts={})=>openEditor(task,opts),mountLinked,openLinkPicker,toggleTask,waitForPendingToggles:()=>Promise.allSettled([...pendingToggles.values()].map(p=>p.saving).filter(Boolean)),peekTasks,listTasks,readLinks,describeTasks,taskMeta,subscribe:fn=>{stateListeners.add(fn);return()=>stateListeners.delete(fn)},taskState:id=>({task:lastTasks.find(t=>t.id===id),place:settling.get(id)?.before}),showUnlinked:()=>{unlinkedOnly=true;renderTasks(lastTasks);const heading=document.querySelector('[data-gt-unlinked-heading]');heading?.focus({preventScroll:true});heading?.scrollIntoView({block:'start'})},dueDateKey,completedRecently,isOverdue};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>boot().catch(console.error),{once:true});else boot().catch(console.error);
 })();
