@@ -4,6 +4,7 @@ import { test, expect } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app='http://127.0.0.1:8123/app/';
@@ -36,10 +37,7 @@ async function mockApp(page,{archived=[]}={}){
 }
 async function signIn(page){
   await page.goto(loginEntry(app));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 

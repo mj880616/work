@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
+import { signInWithSession } from './session-login.mjs';
 
 const ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const NOW=Date.parse('2026-10-15T03:00:00.000Z');
@@ -55,10 +56,7 @@ export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks
     return ok([]);
   });
   await page.goto(loginEntry(ORIGIN+'/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   if(view==="month")await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
   if(view==="month")await expect(page.locator('#calendarGrid [data-google-event="blue-0"]')).toBeVisible();

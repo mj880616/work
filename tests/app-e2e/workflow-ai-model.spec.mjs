@@ -5,6 +5,7 @@ watchRetiredCollaboration(test);
 import { readFileSync, existsSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -60,10 +61,7 @@ async function mockApp(page,state){
 
 async function signIn(page){
   await page.goto(loginEntry(`${BASE}/app/`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('member@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'member@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 

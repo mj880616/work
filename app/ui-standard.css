@@ -1053,7 +1053,11 @@
 #appView #basketView .note-row-item > button.basket-row-copy{ right:var(--kptu-touch-target,44px); }
 #appView #basketView .note-row-item > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
 #appView #basketView .note-row-item:has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
-#appView #basketView button[data-note-row-more]{ font-size:22px; line-height:1; }
+#appView #basketView button:is([data-note-row-more],[data-basket-row-more]){ font-size:22px; line-height:1; }
+/* UI-업데이트목록메뉴: 업데이트 줄도 오른쪽 위에 [복사]·[⋯](각 44px). 복사할 글이 없으면 [복사]만 빠지고 [⋯]는 그 자리 그대로. */
+#appView #basketView .basket-row-item:has(> [data-basket-row-more]) > button.basket-row-copy{ right:var(--kptu-touch-target,44px); }
+#appView #basketView .basket-row-item:has(> [data-basket-row-more]) > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
+#appView #basketView .basket-row-item:has(> [data-basket-row-more]):has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
 #appView #basketView .note-row-item + .note-row-item{ border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #basketView .note-row .basket-title{ display:flex; align-items:center; gap:6px; min-width:0; }
 #appView #basketView .note-row .basket-title-text{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -1063,7 +1067,7 @@
 #appView #basketView .note-head-title{ flex:1; min-width:0; margin:0 4px 0 8px; font-size:15px; font-weight:var(--ds-weight-medium); line-height:1.3; overflow:hidden; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 #appView #basketView button:is(.basket-icon-button,[data-note-more]){ flex:none; }
 /* 노트 ⋯ 메뉴: 누른 ⋯ 바로 아래(자리가 없으면 위·옆)에 뜨는 작은 목록(anchored-popup.js가 자리를 잡는다). */
-#appView #basketView .note-pop-menu{ position:fixed; z-index:40; min-width:0; overflow:auto; }
+#appView #basketView :is(.note-pop-menu,.basket-row-pop-menu){ position:fixed; z-index:40; min-width:0; overflow:auto; }
 /* 사진 크게 보기: 화면 전체(×·Esc·뒤로 닫힘). */
 .basket-photo-view{ position:fixed; inset:0; z-index:1000; display:flex; flex-direction:column; background:var(--ds-photo-stage); color:var(--ds-photo-ink); }
 .basket-photo-bar{ display:flex; align-items:center; gap:8px; min-height:52px; padding:4px 8px 4px 16px; }

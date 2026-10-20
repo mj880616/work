@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -60,10 +61,7 @@ async function signIn(page,view,options){
   const state=await mock(page,options);
   const returnTo=`${BASE}/app/?view=${view}`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('lock@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'lock@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   if(view==='calendar'){
     // UI 공개만으로는 초기 status/events 조회가 끝났다고 볼 수 없다.

@@ -1,4 +1,5 @@
 import {openLegacyBoard} from './helpers/legacy-board.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { calendarToday } from './helpers/calendar-today.mjs';
@@ -166,12 +167,8 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   const returnTo='http://127.0.0.1:8123/app/';
   await page.goto(`http://127.0.0.1:8123/app/login/?return=${encodeURIComponent(returnTo)}`);
 
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({ timeout: 10000 });
-  await page.locator('#emailAuthToggle').click();
-  await expect(page.locator('#authEmail')).toBeVisible();
-  await page.locator('#authEmail').fill('e2e@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({ timeout: 10000 });
+  await signInWithSession(page,'e2e@example.org');
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
 
   await clickView(page,'calendar');

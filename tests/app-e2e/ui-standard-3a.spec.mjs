@@ -3,6 +3,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {openClassification} from './helpers/basket-more.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 // UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의를 새 기준(버튼 높이 하나·버튼 4종·모서리 8px·13px/500·0.5px 상자 안 줄 단위)으로,
 // 목록 줄 이름 13px·400(프로젝트 메인만 500)·보조 줄 12px 흐린 색, 담당조직 마지막 기록 점·보조 줄, 프로젝트 목록 오른쪽 D-day 하나,
 // 자료실 종류 색(확장자, 없으면 Drive 파일 종류), 바구니 [분류 결과 입력] 칸 제목.
@@ -50,7 +51,7 @@ async function boot(page,width){
   return ok({});
  });
  await page.goto(testOrigin+'/app/');await enterLogin(page);
- await page.locator('#emailAuthToggle').click();await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('password123');await page.locator('#authSubmit').click();
+ await signInWithSession(page,user.email);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
  return {calls,errors};
 }

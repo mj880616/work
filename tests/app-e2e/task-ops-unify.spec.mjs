@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 // UI-할일조작통일: (1) a home [오늘 할 일] row opens the task screen's editor and saves through the same Edge call,
 // (2) the calendar date list has a ⋯ menu per task with 완료 / 완료 취소 / 삭제 (확인 후 삭제). Only remote APIs are synthetic.
@@ -74,10 +75,7 @@ async function fixture(page, { width = 412, onDelete } = {}) {
     return ok([]);
   });
   await page.goto(loginEntry(ORIGIN + '/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   await page.locator('[data-calendar-view="month"]').click();
   await expect.poll(() => page.evaluate(() => window.KPTUCalendarMonthView?.dayEvents?.('2026-10-20').filter((e) => e.source === 'task').length ?? 0)).toBe(2);

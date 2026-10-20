@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const task=(id='saved')=>({id,title:'원래 할 일',notes:'서버 메모',due:null,status:'needsAction',taskListId:'@default',taskListTitle:'내 할 일'});
 async function tasks(page,{newTask=false}={}){
@@ -76,7 +77,7 @@ test('token refresh keeps an editor opened from calendar before the task list lo
 });
 
 test('logout and same-owner login use a fresh authenticated screen without old link callbacks',async({page})=>{
- const s=await tasks(page);let release;s.gate=new Promise(r=>release=r);await page.locator('input[value="p:child"]').check();await page.locator('#gtEditTitle').fill('이전 세션');await page.locator('#gtSaveBtn').click();await expect.poll(()=>s.calls.length).toBe(1);await page.evaluate(()=>window.KPTURuntime.session.write(null));await expect(page.locator('#emailAuthToggle')).toBeVisible();release();await page.locator('#emailAuthToggle').click();await page.locator('#authEmail').fill('home@example.org');await page.locator('#authPassword').fill('password123');await page.locator('#authSubmit').click();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);await expect(page.locator('#gtTaskModal')).toBeHidden();expect(s.calls.filter(x=>x.a==='link')).toHaveLength(0);
+ const s=await tasks(page);let release;s.gate=new Promise(r=>release=r);await page.locator('input[value="p:child"]').check();await page.locator('#gtEditTitle').fill('이전 세션');await page.locator('#gtSaveBtn').click();await expect.poll(()=>s.calls.length).toBe(1);await page.evaluate(()=>window.KPTURuntime.session.write(null));await expect(page.locator('#googleLoginBtn')).toBeVisible();release();await signInWithSession(page,'home@example.org');await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);await expect(page.locator('#gtTaskModal')).toBeHidden();expect(s.calls.filter(x=>x.a==='link')).toHaveLength(0);
 });
 test.describe('normal keyboard and touch saves',()=>{
  test.use({hasTouch:true});
