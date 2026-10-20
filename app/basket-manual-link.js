@@ -5,6 +5,7 @@ import {createChoiceSheet,projectRows,projectRow,orgGroupRows} from './choice-sh
 import {createGoogleTask} from './quick-save.js';
 import {dayKey} from './home-read-model.js';
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
+import {aiSummaryAllowed,aiSummaryMarkup,appliedText,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
 
 // BASKET-수동연결: the user picks destinations and writes each summary in the
 // basket read view. Writes reuse app_basket_confirm_links (owner RLS, INVOKER).
@@ -124,7 +125,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
       if(!existing){
         if(link.targets.length>=MANUAL_LINK_LIMIT){link.status=`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`;paint();return;}
         const name=kind==='organization'?choices.organizations.find(o=>o.id===value)?.name:choices.projects.find(x=>x.project.id===value)?.project.name;
-        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:!filesOnly(note())});link.status='';
+        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:!filesOnly(note()),ai:newAiState()});link.status='';
       }
       paint();
       // The sheet returns focus to its trigger once its history entry is gone; the new summary is
@@ -149,7 +150,7 @@ ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary>
 <div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 수 없어요.</p>`:''}
 <p class="basket-manual-hint">${only?'담당조직이나 프로젝트를 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
-<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>`:''}</div>`;}).join('')}</div>
+<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${esc(link.status)}</p>
 <div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm>${confirmLabel(n)}</button><button type="button" data-manual-cancel>취소</button></div></section>`;
   }
@@ -188,6 +189,31 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     host.querySelectorAll('button,input,textarea').forEach(el=>{el.disabled=busy;});
     const save=host.querySelector('[data-manual-task-save]');
     if(save&&task?.unknown)save.disabled=true;
+    // A summary being made keeps only its own [AI 요약] locked; the rest of the panel stays usable.
+    host.querySelectorAll('[data-manual-ai-run]').forEach(el=>{if(link.targets.find(t=>linkKey(t.kind,t.id)===el.dataset.manualAiRun)?.ai.busy)el.disabled=true;});
+  }
+  // AI-서버연동 S4: ask ai-assist for one summary. It only fills the box (or offers a proposal); [연결] still saves.
+  async function runAi(key){
+    const n=note(),t=link.targets.find(x=>linkKey(x.kind,x.id)===key);
+    if(mode!=='link'||!n||!t||!t.record||t.ai.busy||!aiSummaryAllowed(n))return;
+    const run=++t.ai.run,owner=scope(),id=n.id;
+    Object.assign(t.ai,{busy:true,status:'',retry:false,proposal:''});paint();
+    const result=await requestLinkSummary({noteId:id,targetKind:t.kind,targetId:t.id},{rt});
+    // A result for a removed pick, another note, a closed panel or another account is dropped.
+    if(t.ai.run!==run||mode!=='link'||noteId!==id||owner!==scope()||!link.targets.includes(t))return;
+    t.ai.busy=false;
+    const hadFocus=!document.activeElement||document.activeElement===document.body||host?.contains(document.activeElement);
+    if(!result.ok){t.ai.status=result.message;t.ai.retry=result.retry;paint();if(hadFocus)host?.querySelector(`[data-manual-ai-run="${CSS.escape(key)}"]`)?.focus();return;}
+    const placed=placeAiSummary(t.summary,result.summary,'연결');
+    if(placed.fill!==null)t.summary=placed.fill;
+    t.ai.proposal=placed.proposal;t.ai.status=placed.status;paint();
+    if(hadFocus)host?.querySelector(placed.fill!==null?`[data-manual-summary="${CSS.escape(key)}"]`:`[data-manual-ai-apply="${CSS.escape(key)}"]`)?.focus();
+  }
+  function applyAi(key,use){
+    const t=link.targets.find(x=>linkKey(x.kind,x.id)===key);if(!t||!t.ai.proposal)return;
+    if(use){t.summary=t.ai.proposal;t.ai.status=appliedText('연결');}else t.ai.status='';
+    t.ai.proposal='';paint();
+    host?.querySelector(use?`[data-manual-summary="${CSS.escape(key)}"]`:`[data-manual-ai-run="${CSS.escape(key)}"]`)?.focus();
   }
   function open(next){
     const n=getNote();if(!n||isBusy())return;
@@ -327,6 +353,9 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       if(b.dataset.manualPick)void sheet.open(b.dataset.manualPick,b);
       else if(b.dataset.manualRemove){link.targets=link.targets.filter(t=>linkKey(t.kind,t.id)!==b.dataset.manualRemove);link.status='';paint();host.querySelector('[data-manual-pick="organization"]')?.focus();}
       else if(b.dataset.manualRecord){const t=link.targets.find(x=>linkKey(x.kind,x.id)===b.dataset.manualRecord);if(t){t.record=!t.record;paint();if(t.record)host.querySelector(`[data-manual-summary="${CSS.escape(b.dataset.manualRecord)}"]`)?.focus();}}
+      else if(b.dataset.manualAiRun)void runAi(b.dataset.manualAiRun);
+      else if(b.dataset.manualAiApply)applyAi(b.dataset.manualAiApply,true);
+      else if(b.dataset.manualAiDismiss)applyAi(b.dataset.manualAiDismiss,false);
       else if(b.hasAttribute('data-manual-confirm'))void confirm();
       else if(b.hasAttribute('data-manual-cancel')||b.hasAttribute('data-manual-task-cancel'))cancel();
       else if(b.hasAttribute('data-manual-task-save'))void saveTask();

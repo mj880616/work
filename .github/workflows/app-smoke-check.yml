@@ -26,6 +26,8 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-when.test.mjs'
+      - 'tests/meeting-columns.test.mjs'
       - 'tests/pdf-lib-pin.test.mjs'
       - 'tests/markdown-view.test.mjs'
       - 'tests/html-frame.test.mjs'
@@ -62,6 +64,8 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-when.test.mjs'
+      - 'tests/meeting-columns.test.mjs'
       - 'tests/pdf-lib-pin.test.mjs'
       - 'tests/markdown-view.test.mjs'
       - 'tests/html-frame.test.mjs'
@@ -102,13 +106,16 @@ jobs:
         run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-ai-summary.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs
 
       - name: Check pinned HWP editor files
         run: node --test tests/hwp-lab-pin.test.mjs
 
       - name: Meeting files·text grouping and pinned PDF reader
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
+
+      - name: Meeting card time, kind colors and PC layout
+        run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs
 
       - name: Markdown display pin and safety unit tests
         run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs tests/html-frame.test.mjs

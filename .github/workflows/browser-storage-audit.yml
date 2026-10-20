@@ -77,11 +77,6 @@ jobs:
               'tests/app-e2e/mobile-ux-shell.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/calendar-google-loading.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/helpers/calendar-task-emphasis.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              # UI-PC회의: device-local "visible columns" preference only (hashes of hidden column keys,
-              # no meeting names), stored under the per-owner cache prefix that sign-out clears.
-              'app/meeting-columns.js':[r'mcStoreKey\(owner\)'],
-              # Read-only checks that only hashes are stored and that the key is removed when all columns show.
-              'tests/app-e2e/meeting-columns.spec.mjs':[r"includes\('meeting-columns'\)"],
               # UI-PC프로젝트좌우: device-local "last project seen" on the PC projects screen (one project id, no names or
               # content), stored under the per-owner cache prefix that sign-out clears.
               'app/project-system-v3.js':[r'lastKey\(\)'],

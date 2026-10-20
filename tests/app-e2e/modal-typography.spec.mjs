@@ -165,14 +165,13 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
   }
   if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
   else expect(await newStandard(page),name+' new standard').toEqual([]);
-  // UI-PC회의: PC(≥1024) 회의의 위쪽 칩은 "보일 열 고르기"(누름 버튼, aria-pressed). 같은 알약 모양(32px·13px/500·999px, 누르는 범위 44px).
+  // UI-PC회의 → MEET-결과정리 ⑤(시안 C): PC(≥1024) 회의는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록. 종류 줄은 목록 글자(13px)·누르는 높이 44px, 고른 종류 하나만 표시.
   if(name==='meetings'&&width>=1024){
-    await expect(page.locator('#meetingTypeFilter')).toBeHidden();
-    const chips=page.locator('#meetingColumnPicker button');await expect.poll(()=>chips.count()).toBeGreaterThan(0);
-    for(const chip of await chips.all()){
-      await expect(chip).toHaveAttribute('aria-pressed','true');
-      expect(await chip.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,Math.round(el.getBoundingClientRect().height),s.borderRadius,parseFloat(getComputedStyle(el,'::after').height)]})).toEqual(['13px','500',32,'999px',44]);
-    }
+    await expect(page.locator('#meetingTypeFilter')).toBeHidden();await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();
+    await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
+    const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
+    await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
+    for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
   }
   if(name==='library'||name==='meetings'&&width<1024){
     const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker)');
@@ -376,6 +375,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // MEET-기록보내기 1단계: 회의 결과 원문 줄에 [바구니에 담기] 버튼·안내·상태 줄이 생겼다. 위 묶음 비교에 결과 구역도 함께 넣어 양쪽 스타일로 비교한다.
   // UI-바구니첨부메모(2026-10-18 사용자 결정): 자료 등록·수정 창의 분류는 자유 입력 대신 7개 중 고르기. 현재 칸을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   for(const id of ['docCategory','libraryEditCategory']){const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.outerHTML=html},html)}
+  // MEET-결과정리 ③: 회의 만들기·수정 창의 차수 아래에 "짧은 이름" 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  for(const [round,shortName] of [['meetingRoundNo','meetingShortName'],['mrdEditRound','mrdEditShortName']]){const html=await page.locator('#'+shortName).evaluate(el=>el.closest('label').outerHTML);await original.locator('#'+round).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}
   // MEET-파일로만들기(2026-10-17 사용자 결정): 회의 [+] 창에 [직접 쓰기 | 파일·글로 만들기] 전환과 파일·글 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   const filesPanel=await page.locator('#meetingModal').evaluate(el=>[el.querySelector('.meeting-create-modes').outerHTML,el.querySelector('#mffPanel').outerHTML].join(''));
   await original.locator('#meetingModal .modal-head').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),filesPanel);
