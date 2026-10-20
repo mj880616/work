@@ -40,7 +40,8 @@ for(const width of [390,1280]){
   expect(await page.locator('#tasksView .home-quick').count()).toBe(1);
   // No [+] on [할 일].
   await expect(page.locator('#newTaskBtn')).toHaveCount(0);
-  expect((await input.boundingBox()).height).toBe(46);expect((await add.boundingBox()).height).toBe(46);
+  // UI-PC버튼36: PC(≥1024) input and [추가] are the input height 36px (touch area 44px), phone keeps 46px.
+  const h=width>=1024?36:46;expect((await input.boundingBox()).height).toBe(h);expect((await add.boundingBox()).height).toBe(h);
   // Empty or blank text sends nothing.
   await add.click();await input.fill('   ');await add.click();await input.press('Enter');
   await expect(todayGroup(page)).toContainText('오늘 항목');

@@ -87,10 +87,13 @@ for(const width of [390,1280]){
     for(const selector of ['[data-classification-close]','[data-classification-preview]','[data-classification-confirm]'])metrics.controls[selector]=await measure(page.locator(selector));
     await writeFile(info.outputPath(`metrics-${width}.json`),JSON.stringify(metrics,null,2));
 
-    // UI-버튼크기: 필터는 알약 칩(보이는 높이 32px·13px, 누르는 범위 44px), 분류 창 버튼은 [추가]와 같은 큰 버튼.
+    // UI-버튼크기: 필터는 알약 칩(보이는 높이 32px·13px, 누르는 범위 44px), 분류 창 버튼은 공용 큰 버튼(--ds-control-height).
+    // UI-PC버튼36: PC(≥1024) 홈 [추가]만 입력칸 높이(36px)라, 분류 창 버튼은 [추가]가 아니라 공용 기준값과 비교한다.
+    const bigHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
+    expect(homePrimary.height).toBe(width>=1024?36:bigHeight);
     for(const [selector,metric] of Object.entries(metrics.controls)){
       const filter=selector.startsWith('[data-basket-filter');
-      expect(Math.abs(metric.height-(filter?32:homePrimary.height)),selector).toBeLessThanOrEqual(1);
+      expect(Math.abs(metric.height-(filter?32:bigHeight)),selector).toBeLessThanOrEqual(1);
       expect(metric.fontSize).toBe('13px');
       expect(metric.borderRadius,selector).toBe(filter?'999px':'8px');
       expect(metric.touchHeight).toBeGreaterThanOrEqual(44);

@@ -17,7 +17,9 @@ for (const width of [390, 1280]) test(`basket attach button placement and shared
   const clip = quick.getByRole('button', { name: '파일 첨부', exact: true });
   await expect(clip).toBeVisible();
   const box = await clip.boundingBox(), input = await quick.locator('[data-quick-input]').boundingBox(), save = await quick.locator('[data-quick-save]').boundingBox();
-  expect(box.height).toBeGreaterThanOrEqual(44);
+  // UI-PC버튼36: on PC the button paints the input height (36px) and keeps a 44px touch area (::after).
+  expect(box.height).toBeGreaterThanOrEqual(width === 1280 ? 36 : 44);
+  if (width === 1280) expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
   expect(box.width).toBeGreaterThanOrEqual(44);
   if (width === 1280) {
     await expect(clip.locator('.basket-clip-label')).toBeVisible();
@@ -41,12 +43,12 @@ for (const width of [390, 1280]) test(`basket attach button placement and shared
   await (await chooser).setFiles([{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('a') }]);
   await expect(clip.locator('[data-basket-count]')).toHaveText('1');
   await quick.getByRole('button', { name: 'a.txt 선택 취소' }).click();
-  // Edit screen: labeled shared button in the tool row under the text.
+  // Edit screen (UI-업데이트편집한줄): the labeled button is first in the one button row, the same small size as [수정 저장].
   await page.locator('[data-basket-row="n"]').click();
   await noteAction(page, '[data-basket-edit]');
-  const editClip = page.locator('[data-basket-detail] .basket-editor-tools').getByRole('button', { name: '파일 첨부', exact: true });
+  const editClip = page.locator('[data-basket-detail] .basket-edit-actions').getByRole('button', { name: '파일 첨부', exact: true });
   await expect(editClip.locator('.basket-clip-label')).toBeVisible();
-  const eb = await editClip.boundingBox(), up = await page.locator('[data-basket-upload]').boundingBox();
-  expect(Math.abs(eb.height - up.height)).toBeLessThanOrEqual(1);
+  const eb = await editClip.boundingBox(), sv = await page.locator('[data-basket-save]').boundingBox();
+  expect(Math.abs(eb.height - sv.height)).toBeLessThanOrEqual(1);expect(Math.abs(eb.y - sv.y)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
 });

@@ -41,7 +41,7 @@ test('quick task none/today/custom due, Enter and failure retains content',async
 // BASKET-업데이트통합 PR 1: [업데이트] with no place saves to the basket; picking a place in ▾ saves that place's record.
 test('quick update with a chosen organization preserves multiline and saves without home record reads',async({page})=>{
  const {requests}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),input=q.locator('[data-quick-input]');
- await q.locator('[data-quick-mode="update"]').click();await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height','130px'); // UI-버튼크기: 5줄에서 멈춤
+ await q.locator('[data-quick-mode="update"]').click();await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height',page.viewportSize().width>=1024?'120px':'130px'); // UI-버튼크기: 5줄에서 멈춤(UI-PC버튼36: PC는 36px 한 줄에서 시작해 120px)
  await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
  await q.locator('[data-quick-mode="task"]').click();await expect(input).toHaveValue('첫 줄\n둘째 줄');await q.locator('[data-quick-mode="update"]').click();
  await q.locator('[data-quick-org]').click();await expect(page.getByRole('dialog')).toBeVisible();
@@ -71,8 +71,9 @@ test('mode memory failures default to update (basket), reload guard detects hidd
 });
 for(const width of [390,1440])test(`quick visual measurements and snapshot ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');
- // UI-디자인기준 1/3 보완: one control height for every mode, the [추가] height (--ds-control-height).
- await expect(q.locator('[data-quick-input]')).toHaveCSS('height','46px');await expect(q.locator('[data-quick-save]')).toHaveCSS('height','46px');
+ // UI-디자인기준 1/3 보완: one control height for every mode, the [추가] height (--ds-control-height; UI-PC버튼36: PC ≥1024 is the input height 36px).
+ const h=width>=1024?'36px':'46px';await expect(q.locator('[data-quick-input]')).toHaveCSS('height',h);await expect(q.locator('[data-quick-save]')).toHaveCSS('height',h);
+ if(width>=1024)expect(await q.locator('[data-quick-save]').evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});
  if(width===390){await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'));});await expect(page.locator('.mobile-tabs')).toBeHidden();const b=await q.locator('[data-quick-input]').boundingBox();expect(b.y+b.height).toBeLessThan(400);}

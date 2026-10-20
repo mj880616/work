@@ -102,7 +102,9 @@ test('the editor module is reusable: no basket imports, text and callbacks only,
   assert.doesNotMatch(src, /from '\.\/basket/);
   // UI-디자인손질 8: the optional save is the opener's own callback; the module itself still never saves or fetches.
   // BASKET-업데이트통합 PR 2: one save (the icon), draft/kinds/placeholder/noteTitle are labels and callbacks only.
-  assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null\} = \{\}\)/);
+  // UI-크게첨부: attach only hands the opener empty places for its own file part (mount); the module keeps no files.
+  assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null\} = \{\}\)/);
+  assert.match(src, /attach\.mount\(\{picker: attachRow\.querySelector\('\[data-md-attach-picker\]'\), files: attachRow\.querySelector\('\[data-md-attach-files\]'\), drop: panes\}\)/);
   assert.doesNotMatch(src, /KPTURuntime|\.api\(|fetch\(/);
   for (const file of ['app/md-editor.js', 'app/md-editor-ops.mjs', 'app/md-telegram.mjs', 'app/md-hangul.mjs', 'app/md-editor.css']) {
     // The SVG namespace name (UI-키보드하단바 share icon) is not a request.
@@ -128,7 +130,8 @@ test('editor head order and the bottom-tab leave question', () => {
   const src = readFileSync('app/md-editor.js', 'utf8');
   // × 닫기 → 저장 아이콘(모든 창에 하나, 저장하고 닫기) → [업데이트 ▾|노트] → [쓰기|미리보기] → 내보내기; (노트 제목 줄) → the format row before the text.
   assert.match(src, /head\.append\(name, done, \.\.\.\(saveButton \? \[saveButton\] : \[\]\), \.\.\.\(kindGroup \? \[kindGroup\] : \[\]\), modes, copy\)/);
-  assert.match(src, /shell\.append\(head, \.\.\.\(titleRow \? \[titleRow\] : \[\]\), bar, panes, status\)/);
+  // UI-크게첨부: the optional file row sits under the text, above the status line.
+  assert.match(src, /shell\.append\(head, \.\.\.\(titleRow \? \[titleRow\] : \[\]\), bar, panes, \.\.\.\(attachRow \? \[attachRow\] : \[\]\), status\)/);
   assert.match(src, /'저장 안 하고 닫을까요\?'/);
   assert.match(src, /\['stay', '계속 쓰기'\], \['leave', '저장 안 하고 이동'\]/);
   assert.match(src, /button\('', \{mdSaveIcon: ''\}, saveAria\(\)\)/);

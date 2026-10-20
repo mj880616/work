@@ -17,10 +17,12 @@ for(const width of [412,870,1280]){
   const q=page.locator('#tasksView .home-quick[data-home-quick]'),input=q.locator('[data-quick-input]'),plus=q.locator('[data-quick-detail]');
   await expect(plus).toBeVisible();
   await expect(plus).toHaveAttribute('aria-label','상세 설정으로 추가');
-  // Inside the input box at its right edge; touch area at least 44px; input and [추가] keep the shared 46px size.
-  const ib=await input.boundingBox(),pb=await plus.boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox();
-  expect(ib.height).toBe(46);expect(ab.height).toBe(46);
-  expect(pb.width).toBeGreaterThanOrEqual(44);expect(pb.height).toBeGreaterThanOrEqual(44);
+  // Inside the input box at its right edge; touch area at least 44px; input and [추가] share one height
+  // (46px; UI-PC버튼36: PC ≥1024 is the input height 36px and the touch area is the 44px ::after).
+  const ib=await input.boundingBox(),pb=await plus.boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox(),h=width>=1024?36:46;
+  expect(ib.height).toBe(h);expect(ab.height).toBe(h);expect(pb.height).toBe(h);
+  expect(pb.width).toBeGreaterThanOrEqual(44);
+  if(width>=1024)expect(await plus.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);else expect(pb.height).toBeGreaterThanOrEqual(44);
   expect(pb.x).toBeGreaterThanOrEqual(ib.x);
   expect(pb.x+pb.width).toBeLessThanOrEqual(ib.x+ib.width+0.5);
   expect(pb.x+pb.width).toBeGreaterThan(ib.x+ib.width-2);

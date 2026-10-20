@@ -20,7 +20,7 @@ async function open(page,width,dark=false){
  return errors;
 }
 // Every visible button-shaped control in a region: the same height, 13px, 500, 8px corners, no shadow or gradient.
-async function sameButtons(region,height){
+async function sameButtons(region,height,quickHeight=height){
  const all=await region.locator('button:visible,[data-basket-attachments] a:visible,[data-basket-more] > summary:visible').all();
  const shaped=[];
  for(const control of all){
@@ -38,15 +38,16 @@ async function sameButtons(region,height){
    // UI-버튼작게 ③: 폰 바구니 [메모|노트]는 아래 탭 위 알약 세그먼트(바깥 모서리 999px).
    const r=seg?.matches('.basket-kind-switch')&&innerWidth<761?'999px':'8px';
    if(seg){const cells=[...seg.querySelectorAll('button')],i=cells.indexOf(el);return {min:30,max:32,radius:i===0?`${r} 0px 0px ${r}`:i===cells.length-1?`0px ${r} ${r} 0px`:'0px'};}
-   // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px.
-   if(el.closest('.basket-read-actions'))return {min:32,max:32,radius:'8px'};
+   // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
+   if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};
    if(el.matches('[data-basket-filter]'))return {min:32,max:32,radius:'999px'};
    if(el.matches('.basket-more-trigger'))return {min:32,max:32,radius:'8px'};
    return null;
   });
   const label=await control.textContent();
   if(want){expect(s.height,label).toBeGreaterThanOrEqual(want.min);expect(s.height,label).toBeLessThanOrEqual(want.max);expect(s.radius,label).toBe(want.radius);expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
-  else{expect(Math.abs(s.height-height),label).toBeLessThanOrEqual(0.5);expect(s.radius,label).toBe('8px');}
+  // UI-PC버튼36: the quick input's [추가] is the input height on PC (quickHeight); other main buttons keep --ds-control-height.
+  else{const h=await control.evaluate(el=>el.matches('.home-quick-save'))?quickHeight:height;expect(Math.abs(s.height-h),label).toBeLessThanOrEqual(0.5);expect(s.radius,label).toBe('8px');}
   expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.shadow).toBe('none');expect(s.image).toBe('none');
  }
  return shaped;
@@ -55,8 +56,10 @@ async function sameButtons(region,height){
 for(const width of [390,1280])test(`home and basket buttons share the [추가] height and four kinds ${width}`,async({page})=>{
  const errors=await open(page,width);
  const quick=page.locator('#homeView .home-quick'),save=quick.locator('[data-quick-save]');
- const height=(await look(save)).height;
- expect(height).toBe(46);expect(height).toBe(parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height'))));
+ // UI-PC버튼36(2026-10-20): PC(≥1024) 빠른 입력 [추가]·입력칸은 입력칸 높이(--kptu-control-height 36px). 창·읽기·수정 화면 버튼은 그대로 --ds-control-height(46px).
+ const height=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
+ const quickHeight=width>=1024?parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))):height;
+ expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);if(width>=1024)expect(quickHeight).toBe(36);
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
  // Home tabs: one height; the selected tab is gray whichever it is (UI-선택표시통일 결정 B), the others white.
  const kinds={update:'--ds-kind-other',task:'--ds-kind-other'};
@@ -66,9 +69,10 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
   await expect(tab).toHaveAttribute('aria-pressed','true');
   const s=await look(tab);expect(s.bg).toBe(await token(page,kind+'-soft'));expect(s.fg).toBe(await token(page,kind+'-ink'));
   for(const other of Object.keys(kinds).filter(m=>m!==mode))expect((await look(quick.locator(`[data-quick-mode="${other}"]`))).bg).toBe(await token(page,'--kptu-surface'));
-  const filled=await look(save);expect(filled.height).toBe(height);expect(filled.bg).toBe(primary);expect(filled.fg).toBe(onPrimary);
-  if(mode!=='update')expect((await quick.locator('[data-quick-input]').boundingBox()).height).toBe(height);
-  await sameButtons(quick.locator('.home-quick-modes'),height);
+  const filled=await look(save);expect(filled.height).toBe(quickHeight);expect(filled.bg).toBe(primary);expect(filled.fg).toBe(onPrimary);
+  if(mode!=='update')expect((await quick.locator('[data-quick-input]').boundingBox()).height).toBe(quickHeight);
+  if(width>=1024)expect(await save.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
+  await sameButtons(quick.locator('.home-quick-modes'),height,quickHeight);
  }
  await quick.locator('[data-quick-mode="update"]').click();
  // 이름만 바꿈: 밀린 할 일도 그대로 보인다.
@@ -82,7 +86,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  // 8-9e-2: [⋯] is a button (aria-label 더보기) that opens a small menu under itself.
  await expect(more).toHaveJSProperty('tagName','BUTTON');await expect(more).toHaveAttribute('aria-label','더보기');await expect(more).toHaveAttribute('aria-expanded','false');
  for(const name of ['AI 분류 요청','분류 결과 입력','GPT 답변 가져오기'])await expect(basket.getByRole('button',{name,exact:true})).toHaveCount(0);
- await sameButtons(basket,height);
+ await sameButtons(basket,height,quickHeight);
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary)filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
  expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(await token(page,'--ds-kind-other-soft'));
@@ -91,7 +95,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  await more.focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('aria-expanded','true');
  await expect(page.locator('#basketMoreMenu').getByRole('button')).toHaveText(['AI 분류 요청','GPT 답변 가져오기']);
  expect((await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y).toBe(listTop);
- await sameButtons(basket,height);
+ await sameButtons(basket,height,quickHeight);
  await page.keyboard.press('Escape');await expect(more).toHaveAttribute('aria-expanded','false');await expect(more).toBeFocused();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 

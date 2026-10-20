@@ -934,7 +934,8 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
   await expect(menu).not.toHaveAttribute('open','');
   // PRJ-기록입력: each record line is one keyboard button that opens 수정·삭제.
   const input=page.locator('#ps3-progress [data-ps3-record-input] input');
-  await input.focus();await page.keyboard.press('Tab');await page.keyboard.press('Tab');
+  // UI-크게첨부: input → [크게] → [기록] → the first record line.
+  await input.focus();await page.keyboard.press('Tab');await expect(page.locator('#ps3-progress [data-ps3-record-big]')).toBeFocused();await page.keyboard.press('Tab');await page.keyboard.press('Tab');
   await expect(page.locator('[data-ps3-record-menu="pr-1"]')).toBeFocused();
   await page.keyboard.press('Tab');await expect(page.locator('[data-ps3-record-menu="keyboard-second"]')).toBeFocused();
   await page.keyboard.press('Enter');await expect(page.locator('#ps3RecordMenu button').first()).toBeFocused();
@@ -1202,7 +1203,7 @@ test('saveRecordInput creates once during repeated submits and retries after fai
   const state=baseState();await mockApp(page,state);
   const probe=await saveProbe(page,'app_project_progress_updates','write');
   await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
-  const form=page.locator('#ps3-progress [data-ps3-record-input]'),button=form.locator('button');
+  const form=page.locator('#ps3-progress [data-ps3-record-input]'),button=form.locator('button[type=submit]');
   await form.locator('input').fill('잠금 검증 기록');await button.click();await expect.poll(()=>probe.count).toBe(1);
   await expect(button).toBeDisabled();await form.dispatchEvent('submit');
   expect(probe.count).toBe(1);probe.release();await expect(page.locator('#toast')).toHaveText('기록했습니다.');await expect(button).toBeEnabled();await expect(form.locator('input')).toHaveValue('');
@@ -1337,12 +1338,12 @@ test('PRJ dirty record asks before closing project and keeps draft when discard 
 test('PRJ quick save unlocks while another record draft is dirty and preserves that draft',async({page})=>{
   const state=baseState(),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
   await recordAction(page,record,'수정');await record.locator('input').fill('수정 초안');
-  const quick=item.locator('[data-ps3-record-input]');await quick.locator('input').fill('동시에 추가 기록');await quick.locator('button').click();
-  await expect(page.locator('#toast')).toHaveText('기록했습니다.');await expect(quick.locator('button')).toBeEnabled();
+  const quick=item.locator('[data-ps3-record-input]');await quick.locator('input').fill('동시에 추가 기록');await quick.locator('button[type=submit]').click();
+  await expect(page.locator('#toast')).toHaveText('기록했습니다.');await expect(quick.locator('button[type=submit]')).toBeEnabled();
   await expect(quick.locator('input')).toHaveValue('');await expect(record.locator('input')).toHaveValue('수정 초안');
   await record.getByRole('button',{name:'취소',exact:true}).click();
   // A subsequent normal save refreshes all records without losing or duplicating the earlier save.
-  await quick.locator('input').fill('다음 기록');await quick.locator('button').click();await expect(item.locator('[data-ps3-record-count]')).toHaveText('3');
+  await quick.locator('input').fill('다음 기록');await quick.locator('button[type=submit]').click();await expect(item.locator('[data-ps3-record-count]')).toHaveText('3');
   expect(state.progress.filter(x=>x.summary==='동시에 추가 기록')).toHaveLength(1);
 });
 test('PRJ last record deletion leaves quick input visible',async({page})=>{
@@ -1355,7 +1356,7 @@ test('PRJ pending delete cannot be displaced by a task refresh',async({page})=>{
   const state=baseState(),item=await openRecords(page,state),probe=await saveProbe(page,'app_project_progress_updates','DELETE');
   page.once('dialog',d=>d.accept());await recordAction(page,item,'삭제');await expect.poll(()=>probe.count).toBe(1);
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:tasks-changed')));
-  const quick=item.locator('[data-ps3-record-input]');await quick.locator('input').fill('삭제 대기 중 기록');await quick.locator('button').click();
+  const quick=item.locator('[data-ps3-record-input]');await quick.locator('input').fill('삭제 대기 중 기록');await quick.locator('button[type=submit]').click();
   // Success toast is emitted only after refreshDetail resolves; it is the ordering barrier.
   await expect(page.locator('#toast')).toHaveText('기록했습니다.');
   await expect(item.locator('[data-ps3-record="pr-1"] [data-ps3-record-menu]')).toBeDisabled();
@@ -1375,7 +1376,7 @@ test('PRJ nested modal back preserves a pending delete result',async({page})=>{
   page.once('dialog',d=>d.accept());await recordAction(page,item,'삭제');await expect.poll(()=>probe.count).toBe(1);
   await page.locator('#ps3-children [data-ps3-child]').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();
   await page.goBack();await expect(page.locator('#ps3CreateModal')).toBeHidden();
-  const quick=item.locator('[data-ps3-record-input]');await quick.locator('input').fill('뒤로가기 경합 기록');await quick.locator('button').click();
+  const quick=item.locator('[data-ps3-record-input]');await quick.locator('input').fill('뒤로가기 경합 기록');await quick.locator('button[type=submit]').click();
   await expect(page.locator('#toast')).toHaveText('기록했습니다.');
   await expect(item.locator('[data-ps3-record="pr-1"] [data-ps3-record-menu]')).toBeDisabled();probe.release();
   await expect(item.locator('[data-ps3-record="pr-1"]')).toHaveCount(0);await expect(item.locator('[data-ps3-record]:not([data-ps3-record-kind="item"])')).toHaveCount(1);await expect(item.locator('[data-ps3-record="ws-1"]')).toHaveAttribute('data-ps3-record-kind','item');
@@ -1418,7 +1419,7 @@ for(const width of [390,1280])test(`D-4c single progress record has no duplicate
   await expect(item.locator('[data-ps3-record] .ps3-rec-summary')).toHaveText('국토부 후속협의 준비');
   await expect(item.locator('[data-ps3-record-menu]')).toBeVisible();
   await item.locator('[data-ps3-record-input] input').fill('두 번째 기록');
-  await item.locator('[data-ps3-record-input] button').click();
+  await item.locator('[data-ps3-record-input] button[type=submit]').click();
   await expect(item.locator('[data-ps3-record-count]')).toHaveText('2');
   await expect(item.locator('[data-ps3-record] .ps3-rec-summary')).toHaveText(['두 번째 기록','국토부 후속협의 준비']);
   page.once('dialog',d=>d.accept());await recordAction(page,item.locator('[data-ps3-record]').first(),'삭제');

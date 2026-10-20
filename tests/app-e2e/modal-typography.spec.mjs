@@ -86,7 +86,7 @@ const newStandard=p=>p.evaluate(()=>{
   if(text&&!['400','500'].includes(s.fontWeight))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px, 나머지 버튼은 46px.
-   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,.w1p-filter,#manageLibraryBtn')?32:innerWidth>=1024&&e.matches('#newMeetingBtn')?36:46;// UI-PC회의: PC [+ 회의 결과]는 입력칸 높이(36px).
+   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,.w1p-filter,#manageLibraryBtn')?32:innerWidth>=1024&&e.matches('#newMeetingBtn')?36:46;// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
    if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
   }
  }
@@ -107,7 +107,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','13px');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
-    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height','46px');
+    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height',width>=1024?'36px':'46px'); // UI-PC버튼36
     for(const selector of ['[data-gt-info]','[data-gt-menu]','[data-gt-toggle]']){
       const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
     }

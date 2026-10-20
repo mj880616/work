@@ -80,10 +80,12 @@ for(const width of [390,1280])test(`빠른 입력칸: 한 줄에서 시작해 5�
  const measure=()=>page.evaluate(()=>{const b=document.querySelector('#homeView [data-home-quick]'),i=b.querySelector('[data-quick-input]'),s=b.querySelector('[data-quick-save]').getBoundingClientRect(),r=i.getBoundingClientRect();return {h:r.height,scroll:i.scrollHeight>i.clientHeight,saveTop:s.top-r.top,saveH:s.height};});
  for(const [tab,mode] of [['update','basket'],['task','task']]){
   await box.locator(`[data-quick-mode="${tab}"]`).click();await expect(box).toHaveAttribute('data-mode',mode);
-  await input.fill('');expect(await measure(),mode+' empty').toEqual({h:46,scroll:false,saveTop:0,saveH:46});
-  await input.fill('첫 줄\n둘째 줄\n셋째 줄');expect(await measure(),mode+' 3 lines').toEqual({h:88,scroll:false,saveTop:0,saveH:46});
-  await input.fill('1\n2\n3\n4\n5\n6\n7');expect(await measure(),mode+' 7 lines').toEqual({h:130,scroll:true,saveTop:0,saveH:46});
-  await input.fill('');expect((await measure()).h,mode+' cleared').toBe(46);
+  // UI-PC버튼36: PC(≥1024) starts at the input height 36px (padding 7/6px), so 3 lines are 78px and 5 lines 120px; phone keeps 46/88/130.
+  const [one,three,five]=width>=1024?[36,78,120]:[46,88,130];
+  await input.fill('');expect(await measure(),mode+' empty').toEqual({h:one,scroll:false,saveTop:0,saveH:one});
+  await input.fill('첫 줄\n둘째 줄\n셋째 줄');expect(await measure(),mode+' 3 lines').toEqual({h:three,scroll:false,saveTop:0,saveH:one});
+  await input.fill('1\n2\n3\n4\n5\n6\n7');expect(await measure(),mode+' 7 lines').toEqual({h:five,scroll:true,saveTop:0,saveH:one});
+  await input.fill('');expect((await measure()).h,mode+' cleared').toBe(one);
  }
  expect(errors).toEqual([]);
 });

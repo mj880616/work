@@ -168,7 +168,7 @@ for(const width of [390,1440]){
         expect(archive.height).toBe(44);
         if(width!==390){
           expect(add.width).toBeGreaterThanOrEqual(44);
-          expect(add.height).toBe(46); // UI-디자인기준 2/3: 버튼 높이 하나(--ds-control-height)
+          expect(add.height).toBe(36); // UI-PC버튼36: PC(≥1024) 큰 버튼은 입력칸 높이(--kptu-control-height 36px), 누르는 범위 44px
           expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
           expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
         }
