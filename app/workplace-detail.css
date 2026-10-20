@@ -40,6 +40,14 @@
 #wdUpdates [data-link-summary-original] > summary{min-height:44px;align-content:center;cursor:pointer}
 #wdUpdates .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 #wdUpdates [data-link-summary-form] .basket-link-actions{justify-content:flex-end}
+/* AI-서버연동 S4: [AI 요약] under the summary box; a proposal never replaces the text until [이걸로 바꾸기]. */
+#wdUpdates .ai-summary-row,#wdUpdates .ai-summary-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+#wdUpdates [data-link-summary-ai-box] button{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
+#wdUpdates .ai-summary-status{min-width:0;font-size:var(--kptu-text-meta);color:var(--kptu-muted);overflow-wrap:anywhere}
+#wdUpdates .ai-summary-status:empty{display:none}
+#wdUpdates .ai-summary-proposal{margin-top:8px;padding:8px 10px;border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-md)}
+#wdUpdates .ai-summary-proposal p{margin:4px 0}
+#wdUpdates .ai-summary-proposal-label{color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
 
 /* UI-바구니첨부메모 PR 3 ⑨: 조직 상세 [자료] 묶음. 프로젝트 상세의 [자료]와 같은 모양(줄 + ⋯, 최근 5개, "전체 N개 보기 ›"). */
 #wdDocs .wd-head{align-items:center}

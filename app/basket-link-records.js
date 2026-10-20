@@ -1,6 +1,7 @@
 import {formatSeoulTime} from './meeting-time.js';
 import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {aiSummaryAllowed,aiSummaryMarkup,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -103,9 +104,44 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     if(!isCurrent())return;const record=getRecord(id);if(!record)return;
     const existing=formFor(id);if(existing){existing.querySelector('textarea')?.focus();return;}
     const row=[...host.querySelectorAll('[data-basket-link]')].find(row=>row.dataset.basketLink===id);if(!row)return;
-    const state={id,expected:record.summary??null,busy:false,needsReview:false,latest:null};states.set(id,state);
+    const state={id,expected:record.summary??null,busy:false,needsReview:false,latest:null,ai:newAiState(),aiTarget:null};states.set(id,state);
     row.insertAdjacentHTML('beforeend',`<form data-link-summary-form="${escape(id)}"><details data-link-summary-original><summary>원문 전체 보기</summary><pre class="basket-link-original">${escape(record.raw_text??'')}</pre></details><label>기록 요약<textarea data-link-summary-input rows="3"></textarea></label><p data-link-summary-status role="status" aria-live="polite"></p><div data-link-summary-latest hidden></div><button type="button" class="secondary" data-link-summary-current hidden>최신 요약 확인</button><div class="basket-link-actions"><button type="submit" class="primary" data-link-summary-save>저장</button><button type="button" class="ghost" data-link-summary-cancel>취소</button></div></form>`);
     const form=formFor(id),input=form.querySelector('textarea');input.value=record.summary??'';input.focus();
+    void aiGate(state,form,record);
+  }
+  // AI-서버연동 S4: [AI 요약] appears only for a note the server would summarize (not archived, not AI-excluded, not a diary).
+  async function aiGate(state,form,record){
+    const run=epoch,owner=scope(rt),workspaceId=contextFor(rt)?.workspace?.id,target=record.organization_id?{kind:'organization',id:record.organization_id}:record.project_id?{kind:'project',id:record.project_id}:null;
+    if(!target||!record.note_id||!workspaceId)return;
+    let note=null;
+    try{const rows=await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(record.note_id)}&workspace_id=eq.${encodeURIComponent(workspaceId)}&select=id,kind,archived_at,ai_export_allowed&limit=1`);note=Array.isArray(rows)&&rows.length===1&&rows[0]?.id===record.note_id?rows[0]:null;}catch{note=null;}
+    if(!note||!valid(state,run,owner)||!form.isConnected||!aiSummaryAllowed({...note,raw_text:record.raw_text}))return;
+    state.aiTarget={noteId:record.note_id,...target};
+    const box=document.createElement('div');box.dataset.linkSummaryAiBox='';form.querySelector('label')?.after(box);paintAi(state,form);
+  }
+  function paintAi(state,form,focus=''){
+    const box=form.querySelector('[data-link-summary-ai-box]');if(!box)return;
+    box.innerHTML=aiSummaryMarkup(state.ai,state.id,'data-link-summary',escape);
+    box.querySelectorAll('button').forEach(el=>{el.disabled=state.busy||(el.hasAttribute('data-link-summary-ai-run')&&state.ai.busy);});
+    if(focus)(focus==='input'?form.querySelector('textarea'):box.querySelector(`[data-link-summary-ai-${focus}]`))?.focus();
+  }
+  async function runAi(state,form){
+    if(state.ai.busy||!state.aiTarget)return;
+    const run=epoch,owner=scope(rt),seq=++state.ai.run;
+    Object.assign(state.ai,{busy:true,status:'',retry:false,proposal:''});paintAi(state,form);
+    const result=await requestLinkSummary({noteId:state.aiTarget.noteId,targetKind:state.aiTarget.kind,targetId:state.aiTarget.id},{rt});
+    if(!valid(state,run,owner)||state.ai.run!==seq||!form.isConnected)return;
+    state.ai.busy=false;
+    const keep=!document.activeElement||document.activeElement===document.body||form.contains(document.activeElement);
+    if(!result.ok){state.ai.status=result.message;state.ai.retry=result.retry;paintAi(state,form,keep?'run':'');return;}
+    const input=form.querySelector('textarea'),placed=placeAiSummary(input.value,result.summary,'저장');
+    if(placed.fill!==null)input.value=placed.fill;
+    state.ai.proposal=placed.proposal;state.ai.status=placed.status;paintAi(state,form,keep?(placed.fill!==null?'input':'apply'):'');
+  }
+  function applyAi(state,form,use){
+    if(!state.ai.proposal)return;
+    if(use){form.querySelector('textarea').value=state.ai.proposal;state.ai.status='제안으로 바꿨어요. 아직 저장 전이에요. 고친 뒤 [저장]을 눌러 주세요.';}else state.ai.status='';
+    state.ai.proposal='';paintAi(state,form,use?'input':'run');
   }
   async function latest(state,form,run,owner){
     try{
@@ -138,7 +174,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
       if(!valid(state,run,owner)){if(acknowledged)invalidate();return;}
       if(valid(state,run,owner)){status.textContent=SUMMARY_ERROR_TEXT.RESULT_UNKNOWN;state.needsReview=true;await latest(state,form,run,owner);invalidate();}
     }finally{
-      if(valid(state,run,owner)){state.busy=false;form.querySelectorAll('button,textarea').forEach(el=>el.disabled=false);}
+      if(valid(state,run,owner)){state.busy=false;form.querySelectorAll('button,textarea').forEach(el=>el.disabled=false);paintAi(state,form);}
     }
   }
   // Disconnect removes one link row; deleting the original removes the note and,
@@ -187,6 +223,8 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const button=event.target.closest?.('button');if(!button||!host.contains(button))return;
     if(button.dataset.basketLinkMenu){if(!button.disabled)recordMenu(host).open(button);return;}
     const form=button.closest('[data-link-summary-form]'),state=form&&states.get(form.dataset.linkSummaryForm);if(!state||state.busy)return;
+    if(button.hasAttribute('data-link-summary-ai-run')){void runAi(state,form);return;}
+    if(button.hasAttribute('data-link-summary-ai-apply')||button.hasAttribute('data-link-summary-ai-dismiss')){applyAi(state,form,button.hasAttribute('data-link-summary-ai-apply'));return;}
     if(button.hasAttribute('data-link-summary-cancel')){states.delete(state.id);form.remove();}
     if(button.hasAttribute('data-link-summary-current')&&state.latest){state.expected=state.latest.summary;state.needsReview=false;form.querySelector('[data-link-summary-status]').textContent='최신 요약을 확인했어요. 작성 중인 글을 저장하려면 저장을 눌러 주세요.';button.hidden=true;form.querySelector('textarea').focus();}
   }
