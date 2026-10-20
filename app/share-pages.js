@@ -6,6 +6,7 @@
 // drawn, kept in this module, logged or stored in the browser. Lists read only id·label·expiry·off·created.
 import {BLOCK_TYPES, BLOCK_LABELS, ITEM_FIELDS, LIMITS, newBlock, newItem, moveBlock, normalizeBlocks, pageProblem,
   labelProblem, expiresAt, linkState, shareUrl} from './share-pages-model.mjs';
+import {renderBlock} from './sr-render.mjs';
 import {copyText} from './md-editor.js';
 
 (() => {
@@ -107,34 +108,91 @@ function itemRow(block, b, i) {
   row.append(el('button', {type:'button', class:'sp-tool', dataset:{spItemDel:`${b}:${i}`}, 'aria-label':`${BLOCK_LABELS[block.type]} ${n}번째 줄 지우기`, text:'줄 삭제'}));
   return row;
 }
-function blockNode(block, b, count) {
+// SHARE-보이는편집: the blocks are shown exactly as the Web1 reader draws them (sr-render.mjs + sr-blocks.css, from the
+// saved form normalizeBlocks gives). Pressing a block turns only that block into its input fields in place; [완료] shows
+// it again as it will look, [취소] puts back what it was when opened. One block is open at a time (editing.open).
+function blockTools(block, b, count) {
   const label = BLOCK_LABELS[block.type], n = b + 1;
-  const tools = el('div', {class:'sp-block-tools', role:'group', 'aria-label':`${n}번째 블록 (${label}) 옮기기·지우기`},
+  return [
     el('button', {type:'button', class:'sp-tool', disabled:b === 0, dataset:{spMove:`${b}:-1`}, 'aria-label':`${n}번째 블록 ${label} 위로`, text:'위로'}),
     el('button', {type:'button', class:'sp-tool', disabled:b === count - 1, dataset:{spMove:`${b}:1`}, 'aria-label':`${n}번째 블록 ${label} 아래로`, text:'아래로'}),
-    el('button', {type:'button', class:'sp-tool sp-danger', dataset:{spBlockDel:String(b)}, 'aria-label':`${n}번째 블록 ${label} 지우기`, text:'삭제'}));
-  const box = el('section', {class:`sp-block sp-block-${block.type}`, 'aria-label':`${n}번째 블록 ${label}`, dataset:{spBlock:String(b), spType:block.type}},
+    el('button', {type:'button', class:'sp-tool sp-danger', dataset:{spBlockDel:String(b)}, 'aria-label':`${n}번째 블록 ${label} 지우기`, text:'삭제'})];
+}
+function editNode(block, b, count) {
+  const label = BLOCK_LABELS[block.type], n = b + 1;
+  const tools = el('div', {class:'sp-block-tools', role:'group', 'aria-label':`${n}번째 블록 (${label}) 옮기기·지우기`}, blockTools(block, b, count));
+  const box = el('section', {class:`sp-block sp-block-${block.type} is-editing`, 'aria-label':`${n}번째 블록 ${label}`, dataset:{spBlock:String(b), spType:block.type}},
     el('div', {class:'sp-block-head'}, el('h3', {text:label}), tools));
   if (block.type === 'summary') {
     box.append(el('textarea', {class:'sp-input', rows:2, maxLength:LIMITS.summary, placeholder:'예: 3차 교섭 결렬, 10월 말 조정 신청 예정',
       'aria-label':`${n}번째 블록 한 줄 현황 글`, value:block.text || '', dataset:{spB:String(b), spF:'text'}}));
     box.querySelector('textarea').value = block.text || '';
-    return box;
+  } else {
+    box.append(el('input', {type:'text', class:'sp-input sp-block-title', maxLength:LIMITS.blockTitle, value:block.title || '',
+      placeholder:`블록 제목 (비우면 "${label}")`, 'aria-label':`${n}번째 블록 제목`, dataset:{spB:String(b), spF:'title'}}));
+    box.append(el('ol', {class:'sp-items'}, block.items.map((_, i) => itemRow(block, b, i))));
+    box.append(el('button', {type:'button', class:'sp-tool sp-add-item', dataset:{spItemAdd:String(b)}, disabled:block.items.length >= LIMITS.items,
+      'aria-label':`${n}번째 블록 ${label}에 줄 추가`, text:'+ 줄 추가'}));
   }
-  box.append(el('input', {type:'text', class:'sp-input sp-block-title', maxLength:LIMITS.blockTitle, value:block.title || '',
-    placeholder:`블록 제목 (비우면 "${label}")`, 'aria-label':`${n}번째 블록 제목`, dataset:{spB:String(b), spF:'title'}}));
-  box.append(el('ol', {class:'sp-items'}, block.items.map((_, i) => itemRow(block, b, i))));
-  box.append(el('button', {type:'button', class:'sp-tool sp-add-item', dataset:{spItemAdd:String(b)}, disabled:block.items.length >= LIMITS.items,
-    'aria-label':`${n}번째 블록 ${label}에 줄 추가`, text:'+ 줄 추가'}));
+  box.append(el('div', {class:'sp-block-done'},
+    el('button', {type:'button', class:'sp-tool', dataset:{spCancel:String(b)}, 'aria-label':`${n}번째 블록 ${label} 고친 것 취소`, text:'취소'}),
+    el('button', {type:'button', class:'sp-tool sp-done', dataset:{spDone:String(b)}, 'aria-label':`${n}번째 블록 ${label} 고치기 완료`, text:'완료'})));
   return box;
+}
+function viewNode(block, b, count) {
+  const label = BLOCK_LABELS[block.type], n = b + 1;
+  const shown = normalizeBlocks([block])[0];
+  const drawn = renderBlock(shown) || el('p', {class:'sp-hint', text:'표시할 수 없는 블록이에요.'});
+  drawn.setAttribute('inert', '');
+  const empty = block.type === 'summary' ? !shown.text : !shown.items.length;
+  const box = el('div', {class:`sp-vblock${empty ? ' is-empty' : ''}`, role:'group', 'aria-label':`${n}번째 블록 ${label}`, dataset:{spBlock:String(b), spType:block.type}},
+    drawn,
+    empty ? el('p', {class:'sp-vblock-empty', 'aria-hidden':'true', text:'비어 있어요. 눌러서 채워 주세요.'}) : null,
+    el('button', {type:'button', class:'sp-vblock-edit', dataset:{spEdit:String(b)}, 'aria-label':`${n}번째 블록 ${label} 고치기`},
+      el('span', {class:'sp-vblock-hint', 'aria-hidden':'true', text:'고치기'})),
+    el('details', {class:'sp-more', dataset:{spMore:String(b)}},
+      el('summary', {class:'sp-more-button', 'aria-label':`${n}번째 블록 ${label} 메뉴`}, el('span', {'aria-hidden':'true', text:'⋯'})),
+      el('div', {class:'sp-more-panel', role:'group', 'aria-label':`${n}번째 블록 ${label} 옮기기·지우기`}, blockTools(block, b, count))));
+  return box;
+}
+// [+ 블록] between two blocks: the picked kind goes in at that place and opens.
+function insertSlot(at, count) {
+  return el('details', {class:'sp-slot', dataset:{spSlot:String(at)}},
+    el('summary', {class:'sp-slot-button', 'aria-label':`${at}번째와 ${at + 1}번째 블록 사이에 블록 넣기`}, el('span', {'aria-hidden':'true', text:'+ 블록'})),
+    el('div', {class:'sp-slot-panel', role:'group', 'aria-label':`${at}번째 블록 다음에 넣을 블록`}, BLOCK_TYPES.map(type =>
+      el('button', {type:'button', class:'sp-tool', disabled:count >= LIMITS.blocks, dataset:{spInsert:`${at}:${type}`},
+        'aria-label':`${at}번째 블록 다음에 ${BLOCK_LABELS[type]} 넣기`, text:BLOCK_LABELS[type]}))));
 }
 function renderBlocks() {
   const host = editorView.querySelector('[data-sp-blocks]');
   if (!host || !editing) return;
-  const count = editing.blocks.length;
-  host.replaceChildren(...(count ? editing.blocks.map((block, b) => blockNode(block, b, count))
+  const count = editing.blocks.length, nodes = [];
+  editing.blocks.forEach((block, b) => {
+    if (b > 0) nodes.push(insertSlot(b, count));
+    nodes.push(b === editing.open ? editNode(block, b, count) : viewNode(block, b, count));
+  });
+  host.replaceChildren(...(count ? nodes
     : [el('p', {class:'sp-empty', text:'아래 버튼으로 블록을 더해 보세요. 추천 순서: 한 줄 현황 → 진행 단계 → 일정 → 쟁점·요구 → 자료·링크 → 업데이트 기록.'})]));
   for (const button of editorView.querySelectorAll('[data-sp-add-block]')) button.disabled = count >= LIMITS.blocks;
+}
+function openBlock(index) {
+  if (!editing?.blocks[index]) return;
+  editing.open = index; editing.openBefore = JSON.parse(JSON.stringify(editing.blocks[index]));
+  renderBlocks();
+  editorView.querySelector(`[data-sp-block="${index}"]`)?.querySelector('input,textarea')?.focus();
+}
+function closeBlock({cancel = false} = {}) {
+  const index = editing?.open ?? -1;
+  if (index < 0) return;
+  if (cancel && editing.openBefore && editing.blocks[index]) editing.blocks[index] = editing.openBefore;
+  editing.open = -1; editing.openBefore = null;
+  renderBlocks();
+  editorView.querySelector(`[data-sp-edit="${index}"]`)?.focus();
+}
+function addBlock(type, at) {
+  if (!editing || editing.blocks.length >= LIMITS.blocks || !BLOCK_TYPES.includes(type)) return;
+  editing.blocks.splice(at, 0, newBlock(type));
+  openBlock(at);
 }
 function renderLinks() {
   const host = editorView.querySelector('[data-sp-links]');
@@ -177,12 +235,13 @@ async function paintProjects() {
 }
 function renderEditor() {
   if (!editing) return;
-  const title = el('input', {type:'text', class:'sp-input sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:'예: ○○민자철도 교섭 현황', dataset:{spTitle:''}});
+  // The title sits where the reader shows it, in the reader's title look (sr-title).
+  const title = el('input', {type:'text', class:'sr-title sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:'제목 (예: ○○민자철도 교섭 현황)',
+    'aria-label':'제목', dataset:{spTitle:''}});
   editorView.replaceChildren(
     el('div', {class:'sp-editor-head'},
       el('button', {type:'button', class:'sp-back', dataset:{spClose:''}, 'aria-label':'공유 페이지 목록으로'}, el('span', {'aria-hidden':'true', text:'‹'}), ' 공유 페이지'),
       el('h2', {class:'a11y-only', id:'spEditorTitle', text:editing.id ? '공유 페이지 고치기' : '새 공유 페이지'})),
-    el('label', {class:'sp-field'}, el('span', {text:'제목'}), title),
     el('div', {class:'sp-settings'},
       el('div', {class:'sp-field'}, el('span', {id:'spStatusLabel', text:'상태'}),
         el('div', {class:'sp-seg', role:'group', 'aria-labelledby':'spStatusLabel'},
@@ -190,9 +249,11 @@ function renderEditor() {
           el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'}))),
       el('label', {class:'sp-field'}, el('span', {text:'연결 프로젝트 (선택)'}), el('select', {class:'sp-input', dataset:{spProject:''}}))),
     el('p', {class:'sp-hint', text:'게시 상태일 때만 링크를 받은 사람이 볼 수 있어요. 초안으로 바꾸면 모든 링크에서 바로 안 보여요.'}),
-    el('div', {class:'sp-blocks', dataset:{spBlocks:''}}),
-    el('div', {class:'sp-add', role:'group', 'aria-label':'블록 추가'}, BLOCK_TYPES.map(type =>
-      el('button', {type:'button', class:'sp-tool', dataset:{spAddBlock:type}, text:`+ ${BLOCK_LABELS[type]}`}))),
+    el('section', {class:'sp-canvas', 'aria-labelledby':'spCanvasTitle'},
+      el('p', {class:'sp-canvas-cap', id:'spCanvasTitle', text:'받는 사람에게 보이는 모양 · 블록을 누르면 그 자리에서 고쳐요'}),
+      el('div', {class:'sr-wrap sp-canvas-page'}, title, el('div', {class:'sp-blocks', dataset:{spBlocks:''}})),
+      el('div', {class:'sp-add', role:'group', 'aria-label':'블록 추가'}, BLOCK_TYPES.map(type =>
+        el('button', {type:'button', class:'sp-tool', dataset:{spAddBlock:type}, text:`+ ${BLOCK_LABELS[type]}`})))),
     el('div', {class:'sp-save-row'},
       el('button', {type:'button', class:'primary', dataset:{spSave:''}, text:'저장'}),
       el('p', {class:'sp-status', role:'status', 'aria-live':'polite', dataset:{spStatusLine:''}})),
@@ -202,8 +263,10 @@ function renderEditor() {
 }
 function showEditor(page) {
   editing = {id:page?.id || null, title:page?.title || '', status:page?.status === 'published' ? 'published' : 'draft', project_id:page?.project_id || null,
-    blocks:Array.isArray(page?.blocks) ? structuredClone(page.blocks) : [], updated_at:page?.updated_at || null, links:[], linksState:page?.id ? 'loading' : 'none'};
-  if (!page) editing.blocks = [newBlock('summary')];
+    blocks:Array.isArray(page?.blocks) ? structuredClone(page.blocks) : [], updated_at:page?.updated_at || null, links:[], linksState:page?.id ? 'loading' : 'none',
+    open:-1, openBefore:null};
+  // A new page starts with an empty 한 줄 현황 already open.
+  if (!page) { editing.blocks = [newBlock('summary')]; editing.open = 0; }
   editing.saved = snapshotOf(editing);
   listView.hidden = true; editorView.hidden = false; view.dataset.spEditing = '1';
   layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
@@ -275,6 +338,7 @@ async function save() {
     Object.assign(page, {id:row.id, title:row.title, status:row.status, project_id:row.project_id || null,
       blocks:Array.isArray(row.blocks) ? structuredClone(row.blocks) : blocks, updated_at:row.updated_at});
     page.saved = snapshotOf(page);
+    page.open = -1; page.openBefore = null;
     if (first) { page.linksState = 'ready'; page.links = []; }
     renderEditor();
     editorStatus(page.status === 'published' ? '저장했어요. 게시 중이에요.' : '저장했어요. 아직 초안이라 링크로는 안 보여요.');
@@ -344,10 +408,16 @@ function hasContent(block) {
   if (block.type === 'summary') return !!String(block.text || '').trim();
   return !!String(block.title || '').trim() || (block.items || []).some(item => Object.values(item).some(v => String(v || '').trim()));
 }
+// After a move the same button keeps focus; in a shown block it is inside the ⋯ menu, which stays open for the next move.
 function focusAfterMove(index, delta) {
   const node = editorView.querySelector(`[data-sp-block="${index}"]`);
+  const menu = node?.querySelector('[data-sp-more]');
+  if (menu) menu.open = true;
   const same = node?.querySelector(`[data-sp-move="${index}:${delta}"]`);
   (same && !same.disabled ? same : node?.querySelector(`[data-sp-move="${index}:${-delta}"]`))?.focus();
+}
+function closeMenus(except) {
+  for (const menu of root.querySelectorAll('details.sp-more[open],details.sp-slot[open]')) if (menu !== except) menu.open = false;
 }
 
 root.addEventListener('click', event => {
@@ -361,24 +431,27 @@ root.addEventListener('click', event => {
   if ('spClose' in d) { closeEditor(); return; }
   if ('spSave' in d) { void save(); return; }
   if (d.spSetStatus) { editing.status = d.spSetStatus === 'published' ? 'published' : 'draft'; paintStatusButtons(); return; }
-  if (d.spAddBlock) {
-    if (editing.blocks.length >= LIMITS.blocks) return;
-    editing.blocks.push(newBlock(d.spAddBlock)); renderBlocks();
-    const last = editorView.querySelector(`[data-sp-block="${editing.blocks.length - 1}"]`);
-    last?.querySelector('input,textarea')?.focus();
-    return;
-  }
+  if (d.spAddBlock) { addBlock(d.spAddBlock, editing.blocks.length); return; }
+  if (d.spInsert) { const [at, type] = d.spInsert.split(':'); addBlock(type, Number(at)); return; }
+  if (d.spEdit !== undefined) { openBlock(Number(d.spEdit)); return; }
+  if (d.spDone !== undefined) { closeBlock(); return; }
+  if (d.spCancel !== undefined) { closeBlock({cancel:true}); return; }
   if (d.spMove) {
-    const [index, delta] = d.spMove.split(':').map(Number);
-    editing.blocks = moveBlock(editing.blocks, index, delta); renderBlocks(); focusAfterMove(index + delta, delta);
+    const [index, delta] = d.spMove.split(':').map(Number), to = index + delta;
+    if (to < 0 || to >= editing.blocks.length) return;
+    editing.blocks = moveBlock(editing.blocks, index, delta);
+    if (editing.open === index) editing.open = to; else if (editing.open === to) editing.open = index;
+    renderBlocks(); focusAfterMove(to, delta);
     return;
   }
   if (d.spBlockDel !== undefined) {
     const index = Number(d.spBlockDel), block = editing.blocks[index];
     if (!block || (hasContent(block) && !window.confirm(`${BLOCK_LABELS[block.type]} 블록을 지울까요?`))) return;
-    editing.blocks.splice(index, 1); renderBlocks();
-    const near = editorView.querySelector(`[data-sp-block="${Math.min(index, editing.blocks.length - 1)}"] [data-sp-block-del]`);
-    (near || editorView.querySelector('[data-sp-add-block]'))?.focus();
+    editing.blocks.splice(index, 1);
+    if (editing.open === index) { editing.open = -1; editing.openBefore = null; } else if (editing.open > index) editing.open--;
+    renderBlocks();
+    const near = editorView.querySelector(`[data-sp-block="${Math.min(index, editing.blocks.length - 1)}"]`);
+    (near?.querySelector('[data-sp-edit]') || near?.querySelector('[data-sp-block-del]') || editorView.querySelector('[data-sp-add-block]'))?.focus();
     return;
   }
   if (d.spItemAdd !== undefined) {
@@ -420,7 +493,15 @@ root.addEventListener('change', event => {
 });
 root.addEventListener('keydown', event => {
   if (event.key === 'Enter' && 'spLinkLabel' in (event.target.dataset || {})) { event.preventDefault(); void createLink(); }
+  if (event.key !== 'Escape' || !editing) return;
+  // Esc closes an open ⋯ / [+ 블록] menu (focus back on its button), otherwise finishes the open block keeping what was typed.
+  const menu = event.target.closest?.('details[open]');
+  if (menu && root.contains(menu)) { event.preventDefault(); menu.open = false; menu.querySelector('summary')?.focus(); return; }
+  if (editing.open >= 0 && event.target.closest?.('.sp-block.is-editing')) { event.preventDefault(); closeBlock(); }
 });
+// One menu open at a time; a press outside closes them.
+root.addEventListener('toggle', event => { if (event.target.open && event.target.matches?.('details.sp-more,details.sp-slot')) closeMenus(event.target); }, true);
+document.addEventListener('click', event => { if (editing && !event.target.closest?.('details.sp-more,details.sp-slot')) closeMenus(null); });
 // Leaving the menu keeps the editor as it is (nothing is lost); the router forgets our history entry.
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view !== 'pages') { layer = null; return; }

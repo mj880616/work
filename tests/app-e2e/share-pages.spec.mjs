@@ -120,8 +120,11 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   await editor.getByRole('button', {name:'3번째 블록 자료·링크 위로', exact:true}).click();
   await expect(editor.locator('[data-sp-block]').nth(1)).toHaveAttribute('data-sp-type', 'links');
   await expect(editor.getByRole('button', {name:'2번째 블록 자료·링크 위로', exact:true})).toBeFocused();
+  // SHARE-보이는편집: a block shown as it will look keeps 위로·아래로·삭제 in its ⋯ menu; the open block shows them in place.
+  await editor.getByLabel('1번째 블록 한 줄 현황 메뉴', {exact:true}).click();
   await expect(editor.getByRole('button', {name:'1번째 블록 한 줄 현황 위로', exact:true})).toBeDisabled();
   await editor.getByRole('button', {name:'2번째 블록 자료·링크 아래로', exact:true}).click();
+  await editor.getByLabel('2번째 블록 진행 단계 메뉴', {exact:true}).click();
   await editor.getByRole('button', {name:'2번째 블록 진행 단계 위로', exact:true}).click();
   expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(['stages', 'summary', 'links']);
   // Delete then re-add a block (an empty block goes without asking).

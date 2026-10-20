@@ -25,7 +25,6 @@
 #appView #pagesView .sp-field > span{ font-weight:var(--ds-weight-medium); }
 #appView #pagesView .sp-input{ box-sizing:border-box; width:100%; min-height:var(--ds-control-height); margin:0; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-text-read); font-weight:var(--ds-weight-regular); }
 #appView #pagesView textarea.sp-input{ min-height:0; line-height:1.5; }
-#appView #pagesView .sp-title{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
 #appView #pagesView .sp-settings{ display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; align-items:end; }
 #appView #pagesView .sp-seg{ box-sizing:border-box; display:inline-flex; align-self:flex-start; height:var(--ds-compact-height); padding:0; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); overflow:visible; background:var(--kptu-surface); }
 #appView #pagesView .sp-seg button{ position:relative; min-width:56px; margin:0; padding:0 var(--ds-compact-pad-x); border:0; border-radius:0; background:transparent; color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; cursor:pointer; -webkit-tap-highlight-color:transparent; }
@@ -69,12 +68,60 @@
 #appView #pagesView .sp-link-off .sp-link-name{ color:var(--kptu-muted); text-decoration:line-through; }
 #appView #pagesView .sp-link-actions{ display:flex; gap:6px; }
 
+/* SHARE-보이는편집: 본문은 읽기 화면과 같은 모양(sr-blocks.css, sr-render.mjs)으로 보이고, 블록을 누르면 그 블록만 그 자리에서
+   입력 칸으로 바뀐다. 가로 폭·글자·간격은 읽기 화면(.sr-wrap, 640px)과 같게 둔다. */
+#appView #pagesView .sp-canvas{ display:flex; flex-direction:column; gap:4px; max-width:640px; padding:0 0 12px; outline:var(--ds-line-width) dashed var(--kptu-border-strong); outline-offset:0; border-radius:var(--ds-radius-box); background:var(--kptu-bg); }
+#appView #pagesView .sp-canvas-cap{ margin:0; padding:10px 16px 0; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-muted); }
+#appView #pagesView .sp-canvas-page{ width:100%; margin:0; padding:4px 16px 4px; }
+#appView #pagesView .sp-canvas .sp-add{ padding:6px 16px 0; }
+#appView #pagesView .sp-canvas .sp-blocks{ gap:14px; }
+#appView #pagesView .sp-title{ box-sizing:border-box; display:block; width:100%; height:auto; min-height:0; margin:4px 0 0; padding:2px 0 4px; border:0; border-bottom:var(--ds-line-width) dashed var(--kptu-border-strong); border-radius:0; box-shadow:none; background:transparent; color:var(--kptu-ink); font:inherit; font-size:22px; font-weight:var(--ds-weight-medium); line-height:1.35; }
+#appView #pagesView .sp-title::placeholder{ color:var(--kptu-muted); }
+#appView #pagesView .sp-title:focus{ border-bottom-color:var(--kptu-primary); outline:none; }
+#appView #pagesView .sp-title:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+
+/* 보이는 블록: 블록 전체가 [고치기] 버튼 하나(키보드 Tab·Enter), 오른쪽 위 ⋯ = 위로·아래로·삭제. */
+#appView #pagesView .sp-vblock{ position:relative; }
+#appView #pagesView .sp-vblock-edit{ position:absolute; inset:0; z-index:1; display:block; width:auto; height:auto; min-height:0; margin:0; padding:0; border:0; border-radius:var(--ds-radius-box); background:transparent; box-shadow:none; color:inherit; font:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#appView #pagesView .sp-vblock-edit:hover{ outline:2px dashed var(--kptu-border-strong); outline-offset:3px; }
+#appView #pagesView .sp-vblock-edit:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:3px; }
+#appView #pagesView .sp-vblock-hint{ position:absolute; right:8px; bottom:8px; padding:2px 8px; border-radius:var(--ds-chip-radius); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); color:var(--kptu-ink); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1.6; opacity:0; }
+#appView #pagesView .sp-vblock-edit:is(:hover,:focus-visible) .sp-vblock-hint{ opacity:1; }
+#appView #pagesView .sp-vblock.is-empty > :is(.sr-block,.sr-summary){ padding-bottom:40px; }
+#appView #pagesView .sp-vblock-empty{ position:absolute; left:16px; bottom:12px; margin:0; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-muted); pointer-events:none; }
+#appView #pagesView .sp-vblock[data-sp-type="summary"] .sp-vblock-empty{ color:var(--kptu-on-primary); }
+#appView #pagesView :is(.sp-more,.sp-slot) > summary{ list-style:none; }
+#appView #pagesView :is(.sp-more,.sp-slot) > summary::-webkit-details-marker{ display:none; }
+#appView #pagesView .sp-more{ position:absolute; top:6px; right:6px; z-index:2; }
+#appView #pagesView .sp-more-button,#appView #pagesView .sp-slot-button{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; height:var(--ds-compact-height); min-width:var(--ds-compact-height); padding:0 8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#appView #pagesView :is(.sp-more-button,.sp-slot-button)::after{ content:""; position:absolute; left:-6px; right:-6px; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #pagesView :is(.sp-more-button,.sp-slot-button):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #pagesView :is(.sp-more-panel,.sp-slot-panel){ position:absolute; z-index:3; display:flex; flex-wrap:wrap; gap:6px; padding:8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); }
+#appView #pagesView .sp-more-panel{ top:calc(var(--ds-compact-height) + 6px); right:0; }
+
+/* 블록 사이 [+ 블록]: 읽기 화면의 블록 간격(14px)을 바꾸지 않게 간격 한가운데 겹쳐 둔다. */
+#appView #pagesView .sp-slot{ position:relative; z-index:2; height:0; margin:-7px 0; display:flex; justify-content:center; }
+#appView #pagesView .sp-slot-button{ position:absolute; top:0; left:50%; transform:translate(-50%,-50%); height:24px; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #pagesView .sp-slot[open] > .sp-slot-button,#appView #pagesView .sp-slot-button:hover{ color:var(--kptu-ink); border-color:var(--kptu-border-strong); }
+#appView #pagesView .sp-slot-panel{ top:16px; left:50%; transform:translateX(-50%); width:max-content; max-width:min(560px, calc(100vw - 48px)); justify-content:center; }
+
+/* 고치는 블록: 그 자리에서 입력 칸. */
+#appView #pagesView .sp-block.is-editing{ border-color:var(--kptu-primary); box-shadow:0 0 0 1px var(--kptu-primary); }
+#appView #pagesView .sp-block-done{ display:flex; justify-content:flex-end; gap:8px; padding-top:4px; }
+#appView #pagesView .sp-tool.sp-done{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+
 /* 이전 페이지(옛 Web1 카드 5개): 접어 둔다(S7). */
 #appView #pagesView .w1b-legacy > summary{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-section); color:var(--ds-section-ink); cursor:pointer; }
 #appView #pagesView .w1b-legacy[open] > summary{ margin-bottom:6px; }
 
+@media(min-width:761px){
+  #appView #pagesView .sp-title{ font-size:26px; }
+}
 @media(max-width:760px){
   #appView #pagesView .sp-settings{ grid-template-columns:1fr; }
+  #appView #pagesView .sp-canvas-cap{ padding:10px 12px 0; }
+  #appView #pagesView .sp-canvas-page{ padding:4px 12px; }
+  #appView #pagesView .sp-canvas .sp-add{ padding:6px 12px 0; }
   #appView #pagesView .sp-link-form{ grid-template-columns:1fr; }
   #appView #pagesView .sp-link-form button{ justify-self:start; }
 }
