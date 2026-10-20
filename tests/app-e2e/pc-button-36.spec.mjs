@@ -64,13 +64,15 @@ async function measure(locator){
 }
 // 글자 크기는 바꾸지 않는다(업무일지 [저장]은 원래 12px): 높이·누르는 범위만 본다.
 async function pcButton(locator,label){const m=await measure(locator);expect(m.height,label).toBe(36);expect(m.touch,label).toBeGreaterThanOrEqual(44);expect(m.above,label+' touch above').toBe(true);expect(m.below,label+' touch below').toBe(true);return m;}
+// UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC 프로젝트 화면 [+ 프로젝트]는 왼쪽 목록 머리의 낮은 버튼(--ds-compact-height 32px), 누르는 범위 44px 그대로.
+async function pcCompact(locator,label){const m=await measure(locator);expect(m.height,label).toBe(32);expect(m.touch,label).toBeGreaterThanOrEqual(44);expect(m.above,label+' touch above').toBe(true);expect(m.below,label+' touch below').toBe(true);return m;}
 
 test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력칸도 같은 높이·같은 줄, 누르는 범위 44px',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await boot(page,1280);
  await open(page,'meetings');const meeting=await pcButton(page.locator('#newMeetingBtn'),'회의');
  await open(page,'library');await pcButton(page.locator('#newDocumentBtn'),'자료 등록');
- await open(page,'projects');await pcButton(page.locator('#newProjectBtn'),'프로젝트');
+ await open(page,'projects');await pcCompact(page.locator('#newProjectBtn'),'프로젝트');
  await open(page,'journal');await pcButton(page.locator('#journalView [data-journal-save]'),'업무일지 저장');
  // 홈: 입력칸·[크게]·[📎 첨부]·[추가]가 한 줄에서 같은 높이.
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');

@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {expectProjectDetail} from './helpers/project-detail.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -42,8 +43,9 @@ async function openApp(page,view,{entryView='calendar'}={}){
   await page.evaluate(v=>window.KPTURouter.go(v,{source:'placement-test'}),view==='project_detail'?'projects':view);
   await expect(page.locator(`#${view==='project_detail'?'projects':view}View`)).toBeVisible({timeout:15000});
   if(view==='project_detail'){
-    await page.locator('#projectGrid [data-ps3-project]').first().click();
-    await expect(page.locator('#ps3DetailModal')).toBeVisible();
+    // UI-PC프로젝트좌우: PC(≥1024) shows the detail in the right pane; either way wait until this project is drawn.
+    await page.locator('#projectGrid .ps3-plist [data-ps3-project]').first().click();
+    await expectProjectDetail(page,project.id);
   }
 }
 
@@ -166,7 +168,9 @@ for(const width of [390,1440]){
         expect(archive.height).toBe(44);
         if(width!==390){
           expect(add.width).toBeGreaterThanOrEqual(44);
-          expect(add.height).toBe(36); // UI-PC버튼36: PC(≥1024) 큰 버튼은 입력칸 높이(--kptu-control-height 36px), 누르는 범위 44px
+          // UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC(≥1024) [+ 프로젝트]는 낮은 버튼(--ds-compact-height 32px), 누르는 범위 44px.
+          expect(add.height).toBe(32);
+          expect(await page.locator('#newProjectBtn').evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBeGreaterThanOrEqual(44);
           expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
           expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
         }
