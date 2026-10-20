@@ -66,7 +66,7 @@ for (const width of [390, 1280]) {
     expect(cb.x + cb.width).toBeLessThanOrEqual(mb.x + 1); const rb = await page.locator('[data-note-row="n-plain"]').boundingBox(); expect(mb.x + mb.width).toBeGreaterThan(rb.x + rb.width - 8);
     await press(page, more, width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu(page).locator('button')).toHaveText(['고정', '수정', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '삭제']);
     const m = await menu(page).boundingBox();
     expect(m.y).toBeGreaterThanOrEqual(mb.y + mb.height - 1); expect(m.y - (mb.y + mb.height)).toBeLessThanOrEqual(12);
     expect(m.x).toBeGreaterThanOrEqual(0); expect(m.x + m.width).toBeLessThanOrEqual(width);
@@ -137,7 +137,7 @@ for (const width of [390, 1280]) {
     // The connection state stays under the body.
     await expect(detail.locator('[data-note-meta]')).toContainText('연결 없음');
     await press(page, detail.locator('[data-note-more]'), width);
-    await expect(menu(page).locator('button')).toHaveText(['고정', '수정', '연결하기', '바구니로 돌리기', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '연결하기', '바구니로 돌리기', '삭제']);
     const mm = await menu(page).boundingBox();
     expect(mm.y).toBeGreaterThanOrEqual(more.y + more.height - 1); expect(mm.x + mm.width).toBeLessThanOrEqual(width);
     await page.screenshot({ path: info.outputPath(`note-detail-menu-${width}.png`) });

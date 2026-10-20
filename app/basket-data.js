@@ -162,23 +162,82 @@ export function sortNotes(notes) {
     return (pa ? time(pb) - time(pa) : 0) || time(b.updated_at) - time(a.updated_at) || String(b.id).localeCompare(String(a.id));
   });
 }
-export async function setNotePinned(note, pinned, rt = window.KPTURuntime, now = new Date()) {
+// Folder and pin share metadata: every metadata write here reads the row again, keeps the other keys, and only applies
+// while updated_at, pinned_at and folder are still what it read (so a pin never drops a folder and a move never drops a pin).
+const metaGuardValue = (key, value) => typeof value === 'string' ? `&metadata->>${key}=eq.${encodeURIComponent(value)}` : value == null ? `&metadata->>${key}=is.null` : '';
+async function patchNoteMetadata(note, change, rt) {
   const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(note.id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
   const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('노트를 찾지 못했어요.');
-  const fresh = rows[0], was = plainObject(fresh.metadata) ? fresh.metadata.pinned_at : undefined;
-  const metadata = {...(plainObject(fresh.metadata) ? fresh.metadata : {})};
-  if (pinned) metadata.pinned_at = now.toISOString(); else delete metadata.pinned_at;
-  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}&metadata->>pinned_at=${typeof was === 'string' ? 'eq.' + encodeURIComponent(was) : 'is.null'}`;
+  const fresh = rows[0], old = plainObject(fresh.metadata) ? fresh.metadata : {};
+  const metadata = change({...old});
+  if (metadata === null) return fresh;
+  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}`;
   const saved = await rt.api(`${base}&${guard}&select=id,updated_at,metadata`, {method:'PATCH', prefer:'return=representation', body:{metadata}});
   if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
   return saved[0];
+}
+export function setNotePinned(note, pinned, rt = window.KPTURuntime, now = new Date()) {
+  return patchNoteMetadata(note, metadata => {
+    if (pinned) metadata.pinned_at = now.toISOString(); else delete metadata.pinned_at;
+    return metadata;
+  }, rt);
+}
+// UI-노트폴더 1단계 (docs/design/note-folders.md 결정 1·3): a note's folder is one name in its existing metadata jsonb
+// (metadata.folder; no folder = "폴더 없음"). One level, 0 or 1 folder per note, names of 1~20 letters, at most 30 folders,
+// notes only. The folder list is the names the notes hold (no stored list, so a folder with no note is not kept).
+// A move is not an edit: updated_at is not touched.
+export const NOTE_FOLDER_LIMITS = Object.freeze({name:20, count:30});
+const RESERVED_FOLDER_NAMES = ['전체', '폴더 없음'];
+export function validateFolderName(name) {
+  const value = typeof name === 'string' ? name.trim() : '';
+  if (!value) throw new Error('폴더 이름을 입력해 주세요.');
+  if (/[\u0000-\u001f\u007f]/.test(value)) throw new Error('폴더 이름은 한 줄로 써 주세요.');
+  if ([...value].length > NOTE_FOLDER_LIMITS.name) throw new Error(`폴더 이름은 ${NOTE_FOLDER_LIMITS.name}자까지 쓸 수 있어요.`);
+  if (RESERVED_FOLDER_NAMES.includes(value)) throw new Error(`'${value}'은 폴더 이름으로 쓸 수 없어요.`);
+  return value;
+}
+const validFolder = value => { try { return typeof value === 'string' && validateFolderName(value) === value ? value : null; } catch { return null; } };
+export const noteFolder = note => plainObject(note?.metadata) ? validFolder(note.metadata.folder) : null;
+export function noteFolders(notes, extra = []) {
+  return [...new Set([...notes.map(noteFolder), ...extra.map(validFolder)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+}
+// A new folder name for the list `existing`: an existing name is reused; a new one counts toward the 30-folder limit.
+export function newFolderName(name, existing) {
+  const value = validateFolderName(name);
+  if (existing.includes(value)) return {name:value, isNew:false};
+  if (existing.length >= NOTE_FOLDER_LIMITS.count) throw new Error(`폴더는 ${NOTE_FOLDER_LIMITS.count}개까지 만들 수 있어요.`);
+  return {name:value, isNew:true};
+}
+// name null = "폴더 없음". from (optional): the folder the note must still be in (rename/delete of a folder note by note);
+// a note already in the target is left as it is (no write), so [다시 시도] only finishes the rest.
+export function setNoteFolder(note, name, rt = window.KPTURuntime, {from} = {}) {
+  const target = name == null ? null : validateFolderName(name);
+  return patchNoteMetadata(note, metadata => {
+    const now = typeof metadata.folder === 'string' ? metadata.folder : null;
+    if (now === target && (target !== null || !Object.hasOwn(metadata, 'folder'))) return null;
+    if (from !== undefined && now !== from) throw Object.assign(new Error('노트가 그사이 다른 폴더로 옮겨졌어요.'), {code:'folder_moved'});
+    if (target) metadata.folder = target; else delete metadata.folder;
+    return metadata;
+  }, rt);
 }
 export function moveToBasket(note, rt = window.KPTURuntime) {
   const text = String(note?.raw_text || '');
   if (!text.trim() && !note?.attachments?.length) throw new Error('본문과 첨부가 없는 노트는 바구니로 돌릴 수 없어요. 본문을 먼저 써 주세요.');
   if ([...text].length > 20000) throw new Error('바구니 업데이트는 20,000자까지라 이 노트는 돌릴 수 없어요. 본문을 줄여 주세요.');
-  return patchKind(note.id, 'note', {kind:'basket', title:null}, rt);
+  if (!plainObject(note?.metadata) || !Object.hasOwn(note.metadata, 'folder')) return patchKind(note.id, 'note', {kind:'basket', title:null}, rt);
+  return moveFolderNoteToBasket(note, rt);
+}
+// UI-노트폴더: updates have no folders, so the folder goes with the same guarded write (other metadata keys stay).
+async function moveFolderNoteToBasket(note, rt) {
+  const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(note.id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
+  const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('노트를 찾지 못했어요.');
+  const fresh = rows[0], metadata = {...(plainObject(fresh.metadata) ? fresh.metadata : {})}, was = metadata.folder;
+  delete metadata.folder;
+  const saved = await rt.api(`${base}&updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('folder', was)}`, {method:'PATCH', prefer:'return=representation', body:{kind:'basket', title:null, metadata, updated_at:new Date().toISOString()}});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
+  return saved[0];
 }
 // A memo counts as classified when it has a confirmed link or its files are a project's documents ([자료로 넣기]).
 export function noteState(note, links, docs = []) {
