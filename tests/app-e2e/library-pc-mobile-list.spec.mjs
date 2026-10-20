@@ -1,4 +1,4 @@
-// UI-PC자료실: PC 줄(B안 펼치기), 분류 칩 여러 개 고르기(기본 회의 꺼짐), 폰 줄(M2 이름 다듬기), 꺼진 칩 흐림.
+// UI-PC자료실: PC 줄(B안 펼치기), 분류 칩 여러 개 고르기(기본 회의 꺼짐), 폰 줄(M2 이름 다듬기), 꺼진 칩 흐림, 거르기 세 줄(이름표).
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 
@@ -17,6 +17,8 @@ function state(){
     doc('plain','참고 자료 목록 (가나다순)','기타','2026-10-07'),
     doc('not-a-date','123456_시험용_묶음','기타','2026-10-06')
   ];
+  // 하위가 없는 프로젝트(세부 줄 숨김 확인용).
+  s.spaces.push({...s.spaces.find(p=>p.id==='top-a'),id:'solo-1',name:'가상 단독 프로젝트',sort_order:80});
   return s;
 }
 async function boot(page,width,{scheme='light'}={}){
@@ -141,5 +143,55 @@ test('폰 M2: 이름 다듬기(날짜 앞머리 → 오른쪽 날짜, 밑줄 →
   // PC 폭으로 넓히면 원래 이름으로 다시 그린다.
   await page.setViewportSize({width:1280,height:900});await expect(name('prefixed')).toHaveText('261009_가상노조_교섭_본교섭_3차_요구안.hwp');
   await page.setViewportSize({width:390,height:844});await expect(name('prefixed')).toHaveText('가상노조 교섭 본교섭 3차 요구안');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
+});
+
+// UI-PC자료실 거르기 줄(PC 시안 A): 검색칸 아래 [프로젝트] → [세부](하위가 있을 때만) → [종류]가 한 줄씩, 줄마다 왼쪽 이름표.
+const box=locator=>locator.boundingBox();
+for(const scheme of ['light','dark'])test(`PC 거르기 세 줄: 이름표·차례·세부 줄 숨김·담당조직 줄 ${scheme}`,async({page})=>{
+  const {errors}=await boot(page,1280,{scheme});
+  const project=page.locator('#documentProject'),labels=page.locator('#libraryView .library-filter-toolbar .lu-filter-label:visible');
+  const projectChips=project.locator(':scope > .filter-chips').first(),subChips=project.locator('.filter-chips-small'),category=page.locator('#libraryCategoryFilter');
+  // 처음(프로젝트 전체): 세부 줄은 없고 이름표는 프로젝트·종류 둘.
+  await expect(labels).toHaveText(['프로젝트','종류']);await expect(subChips).toBeHidden();
+  const search=await box(page.locator('#documentSearch')),top=await box(projectChips),cat=await box(category);
+  expect(top.y).toBeGreaterThanOrEqual(search.y+search.height-1);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
+  // 이름표는 같은 왼쪽 열, 칩은 이름표 오른쪽에서 같은 x로 시작한다.
+  const labelBoxes=await labels.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),right:r.right,mid:r.top+r.height/2}}));
+  expect(new Set(labelBoxes.map(b=>b.x)).size).toBe(1);expect(Math.round(top.x)).toBe(Math.round(cat.x));expect(top.x).toBeGreaterThan(labelBoxes[0].right);
+  // 이름표는 그 줄 칩과 같은 높이(세로 가운데)에 선다.
+  expect(Math.abs(labelBoxes[0].mid-(top.y+top.height/2))).toBeLessThan(4);expect(Math.abs(labelBoxes[1].mid-(cat.y+cat.height/2))).toBeLessThan(4);
+  // 하위가 있는 프로젝트: 세부 줄이 프로젝트와 종류 사이에 생긴다.
+  await projectChips.locator('[data-filter-value="top-a"]').click();
+  await expect(labels).toHaveText(['프로젝트','세부','종류']);await expect(subChips).toBeVisible();
+  await expect(subChips.getByRole('radio').first()).toHaveText('전체(이 프로젝트)');await expect(subChips.getByRole('radio',{name:'국토부 대응',exact:true})).toBeVisible();
+  const sub=await box(subChips),top2=await box(projectChips),cat2=await box(category);
+  expect(sub.y).toBeGreaterThanOrEqual(top2.y+top2.height-1);expect(cat2.y).toBeGreaterThanOrEqual(sub.y+sub.height-1);expect(Math.round(sub.x)).toBe(Math.round(top2.x));
+  // 하위를 골라도 세부 줄은 남고, 하위가 없는 프로젝트를 고르면 세부 줄이 숨는다.
+  await subChips.getByRole('radio',{name:'국토부 대응',exact:true}).click();await expect(project).toHaveJSProperty('value','child-a1');await expect(labels).toHaveText(['프로젝트','세부','종류']);
+  await projectChips.locator('[data-filter-value="solo-1"]').click();await expect(project).toHaveJSProperty('value','solo-1');
+  await expect(labels).toHaveText(['프로젝트','종류']);await expect(subChips).toBeHidden();
+  // 칩 묶음의 이름(aria-label)은 그대로이고, 보이는 이름표는 읽기 도구에 겹쳐 읽히지 않는다.
+  await expect(project).toHaveAttribute('aria-label','프로젝트 필터');await expect(category).toHaveAttribute('aria-label','자료 분류 (여러 개 고르기)');
+  expect(await page.locator('#libraryView .lu-filter-label').evaluateAll(els=>els.every(el=>el.getAttribute('aria-hidden')==='true'))).toBe(true);
+  // 담당조직으로 걸러 들어오면 그 줄도 같은 모양(이름표 + 칩)으로 끼운다.
+  await page.evaluate(()=>{window.KPTULibrary.showOrganization('org-1','가상 지부')});
+  await expect(labels).toHaveText(['프로젝트','담당조직','종류']);await expect(page.locator('#libraryOrganizationFilter')).toBeVisible();
+  await page.locator('#libraryOrganizationFilter [data-filter-value="all"]').click();await expect(labels).toHaveText(['프로젝트','종류']);
+  // [+ 자료 등록]은 강조 버튼 그대로.
+  await expect(page.locator('#newDocumentBtn')).toHaveClass(/\bprimary\b/);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
+});
+
+test('폰 거르기 줄: 이름표 없이 줄마다 옆으로 밀기, 차례(프로젝트 → 세부 → 종류)는 같음',async({page})=>{
+  const {errors}=await boot(page,390);
+  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
+  const project=page.locator('#documentProject'),projectChips=project.locator(':scope > .filter-chips').first(),subChips=project.locator('.filter-chips-small'),category=page.locator('#libraryCategoryFilter');
+  await projectChips.locator('[data-filter-value="top-a"]').click();await expect(subChips).toBeVisible();
+  const top=await box(projectChips),sub=await box(subChips),cat=await box(category);
+  expect(sub.y).toBeGreaterThanOrEqual(top.y+top.height-1);expect(cat.y).toBeGreaterThanOrEqual(sub.y+sub.height-1);
+  // 칩 줄은 화면 폭을 다 쓰고, 넘치는 칩은 그 줄 안에서 옆으로 민다.
+  for(const b of [top,cat])expect(b.x).toBeLessThan(24);
+  await expect(category).toHaveCSS('overflow-x','auto');await expect(category).toHaveCSS('flex-wrap','nowrap');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });

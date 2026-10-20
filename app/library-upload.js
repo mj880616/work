@@ -36,15 +36,16 @@ function luRenderProjectFilter(){
   const host=document.querySelector('#documentProject');if(!host)return;
   const rows=luProjectRows(),known=new Set(rows.map(r=>r.value)),stale=[...new Set(luDocuments.map(d=>d.project_id).filter(id=>id&&!known.has(id)))].map(id=>({value:id,label:luProjectName(id),depth:0}));
   const current=host.value||'all';host.value=[...rows,...stale].some(r=>r.value===current)?current:'all';
-  if(!host.firstElementChild){const top=document.createElement('div'),sub=document.createElement('div');host.append(top,sub)}
+  // UI-PC자료실 거르기 줄: 줄마다 왼쪽 이름표(프로젝트·세부). 이름표는 보이는 글자일 뿐이고, 칩 묶음의 이름(aria-label)은 그대로다.
+  if(!host._luTop){const label=text=>{const s=document.createElement('span');s.className='lu-filter-label';s.setAttribute('aria-hidden','true');s.textContent=text;return s};host._luTop=document.createElement('div');host._luSub=document.createElement('div');host._luSubLabel=label('세부');host.replaceChildren(label('프로젝트'),host._luTop,host._luSubLabel,host._luSub)}
   const roots=[],children=new Map();let root=null;
   for(const row of rows){if(row.depth===0){root=row;roots.push(row);children.set(row.value,[])}else if(root)children.get(root.value).push(row)}
   roots.push(...stale);
   const selectedRoot=roots.find(r=>r.value===host.value||children.get(r.value)?.some(child=>child.value===host.value));
-  const [top,sub]=host.children;
+  const top=host._luTop,sub=host._luSub;
   const choose=value=>{host.value=value;luRenderLibrary()};
   renderFilterChips(top,{label:'프로젝트 필터',controls:'documentList',value:selectedRoot?.value||'all',options:[{value:'all',label:'전체'},...roots],onChange:choose});
-  const descendants=children.get(selectedRoot?.value)||[];sub.hidden=!descendants.length;
+  const descendants=children.get(selectedRoot?.value)||[];sub.hidden=host._luSubLabel.hidden=!descendants.length;
   if(descendants.length)renderFilterChips(sub,{label:'하위 프로젝트 필터',controls:'documentList',small:true,value:host.value,options:[{value:selectedRoot.value,label:'전체(이 프로젝트)'},...descendants.map(r=>({...r,label:r.label.replace(/^[　\s↳]+/u,'')}))],onChange:choose});
 }
 // UI-바구니첨부메모 ⑪: 거르는 칩은 분류 7개(저장 값은 그대로, 화면에서 7개로 대응).

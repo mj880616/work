@@ -126,3 +126,18 @@
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="false"]{color:var(--kptu-muted);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
 .lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-off-show{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
+
+/* UI-PC자료실 거르기 줄(PC 시안 A): 검색칸 아래 [프로젝트] → [세부](하위 프로젝트가 있을 때만) → [종류]를 한 줄씩 쌓고,
+   줄마다 왼쪽에 같은 폭의 이름표를 둔다. 담당조직으로 걸러 들어오면 그 줄도 같은 모양으로 끼운다.
+   폰(760px 이하)은 이름표 없이 지금처럼 줄마다 옆으로 밀어 본다(이름표가 칩 자리를 줄이므로). */
+#appView #libraryView .library-filter-toolbar #documentProject,
+#appView #libraryView .library-filter-toolbar .lu-filter-row{display:grid;grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,1fr);column-gap:8px;row-gap:0;align-items:center;flex:1 1 100%;min-width:0}
+#appView #libraryView .lu-filter-row:has(> [hidden]){display:none}
+#appView #libraryView .lu-filter-label{font-size:var(--ds-text-meta,12px);font-weight:600;line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
+#appView #libraryView .lu-filter-label[hidden]{display:none}
+#appView #libraryView .lu-filter-row > .filter-chips{min-width:0}
+@media(max-width:760px){
+  #appView #libraryView .library-filter-toolbar #documentProject,
+  #appView #libraryView .library-filter-toolbar .lu-filter-row{grid-template-columns:minmax(0,1fr)}
+  #appView #libraryView .lu-filter-label{display:none}
+}
