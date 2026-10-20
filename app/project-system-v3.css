@@ -272,3 +272,6 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #ps3DetailModal button.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
 .ps3-meetings-more>summary{list-style:none;cursor:pointer}
 .ps3-meetings-more>summary::-webkit-details-marker{display:none}
+/* UI-기록아이콘: 기록 줄 앞 업데이트·노트 아이콘(글자색 선 그림, 🧺 대신). */
+.ps3-rec-mark{display:inline-flex;vertical-align:-2px;color:var(--kptu-muted)}
+.ps3-rec-mark svg{display:block}

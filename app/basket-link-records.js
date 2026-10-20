@@ -29,14 +29,18 @@ export async function readRecordPages(path,rt=window.KPTURuntime){
     rows.push(...page);if(page.length<PAGE_SIZE)return rows;
   }
 }
-export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,dateOnly=false}={},rt=window.KPTURuntime){
+// UI-기록아이콘: noteKinds ['basket','note'] also returns links made from a note (app_notes kind=note, linked by the same
+// app_basket_confirm_links through the note's [연결하기]); each row then carries note_kind and the note's title. The default stays
+// basket updates only, so every other reader (journal, drive summary, dates) is unchanged. No new table, policy or RPC.
+export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,dateOnly=false,noteKinds=['basket']}={},rt=window.KPTURuntime){
   const context=contextFor(rt),workspaceId=context?.workspace?.id;
   if(!context?.user?.id||!workspaceId)throw changed();
   if(kind&&!['organization','project'].includes(kind))throw Error('연결할 곳을 확인해 주세요.');
   if(targetIds&&!targetIds.length)return [];
+  const kinds=noteKinds.filter(k=>['basket','note'].includes(k));if(!kinds.length)return [];const withNotes=kinds.includes('note');
   const owner=scope(rt),encode=encodeURIComponent,target=kind==='organization'?'organization_id':'project_id';
-  const fields=dateOnly?'id,workspace_id,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at)':'id,workspace_id,summary,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text)';
-  const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&note.kind=eq.basket&status=eq.confirmed&note_id=not.is.null&or=(organization_id.not.is.null,project_id.not.is.null)&select=${fields}&order=id.asc`;
+  const fields=dateOnly?'id,workspace_id,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at)':`id,workspace_id,summary,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title':''})`;
+  const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&note.kind=${kinds.length===1?'eq.'+kinds[0]:'in.('+kinds.join(',')+')'}&status=eq.confirmed&note_id=not.is.null&or=(organization_id.not.is.null,project_id.not.is.null)&select=${fields}&order=id.asc`;
   const batches=targetIds?Array.from({length:Math.ceil(targetIds.length/PAGE_SIZE)},(_,i)=>targetIds.slice(i*PAGE_SIZE,(i+1)*PAGE_SIZE)):[null];
   const rows=[];
   for(const ids of batches){
@@ -48,7 +52,8 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
       if(row.workspace_id!==workspaceId||row.status!=='confirmed'||!row.note_id||!note||note.workspace_id!==workspaceId||note.id!==row.note_id||(!row.organization_id&&!row.project_id))continue;
       if(linkId&&row.id!==linkId||kind&&!row[target]||targetIds&&!targetIds.includes(row[target]))continue;
       if(weekStart&&Date.parse(note.occurred_at)<Date.parse(weekStart)||weekEnd&&Date.parse(note.occurred_at)>=Date.parse(weekEnd))continue;
-      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,occurred_at:note.occurred_at,type:'basket'});
+      const noteKind=withNotes&&note.kind==='note'?'note':'basket';if(!kinds.includes(noteKind))continue;
+      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null}:{})});
     }
   }
   return rows;
@@ -73,12 +78,20 @@ export async function updateLinkSummary(id,expected,summary,rt=window.KPTURuntim
     return {ok:false,error:'RESULT_UNKNOWN'};
   }
 }
+// UI-기록아이콘(2026-10-18 결정): the mark in front of a linked record tells an update (바구니 업데이트) from a note (노트).
+// Two small line icons drawn in the text color replace the old 🧺; other marks (e.g. a meeting result's 🗒) stay as they are.
+const UPDATE_ICON='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5 6.5h6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+const NOTE_ICON='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M3.5 2.5h6l3 3v8h-9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 2.5v3h3M5.5 8.5h5M5.5 11h3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+export const isNoteRecord=row=>row?.note_kind==='note';
+export function recordMark(row,className='record-mark'){const note=isNoteRecord(row);return `<span class="${className}" data-record-mark="${note?'note':'update'}" role="img" aria-label="${note?'노트':'바구니 업데이트'}">${note?NOTE_ICON:UPDATE_ICON}</span>`;}
+// A note record shows the summary written when it was linked, else the note's title, else its opening text.
+export const recordText=row=>row.summary??(isNoteRecord(row)&&String(row.title||'').trim()?row.title:noteExcerpt(row.raw_text));
 // BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
 // [메모 열기]·[연결 해제] and, in organization detail, [요약 수정]·[원문 삭제].
 export function linkRecordHtml(row){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
-  const kind=row.organization_id?'organization':'project',href=`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>바구니 연결 · <time>${escape(date)}</time></small><p data-link-summary-text>${escape(row.summary??(noteExcerpt(row.raw_text)||'요약 없음'))}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'바구니 연결'} · <time>${escape(date)}</time></small><p data-link-summary-text>${escape(recordText(row)||'요약 없음')}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // One menu panel for every mounted record host (created on first use inside the open dialog).
@@ -88,7 +101,8 @@ function recordMenu(host){
   if(linkMenu)return linkMenu;
   linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'바구니 기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
     key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
-    render:()=>'<button type="button" data-basket-link-action="open">업데이트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button><button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
+    // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제] only (the note itself is managed on the note screen).
+    render:id=>[...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button><button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
     onAction:(button,active)=>{const host=hostOf(active.trigger);mountedHosts.get(host)?.(button.dataset.basketLinkAction,active.id);}});
   return linkMenu;
 }
@@ -209,16 +223,18 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
   }
   function action(name,id){
     const row=rowsFor('basketLink',id)[0];if(!row||!isCurrent())return;
-    if(name==='open'){openNote(row.dataset.basketLinkNote);return;}
+    const noteRow=row.dataset.basketLinkNoteKind==='note';
+    if(name==='open'){openNote(row.dataset.basketLinkNote,noteRow?'note':'basket');return;}
+    if(noteRow&&name!=='disconnect')return;
     if(name==='summary'){open(id);return;}
     if(name==='disconnect'||name==='note-delete')void act(id,name==='note-delete');
   }
-  function openNote(noteId){if(onOpenNote&&noteId)onOpenNote(noteId);else if(noteId)location.href=`./?view=basket&note=${encodeURIComponent(noteId)}`;}
+  function openNote(noteId,kind='basket'){if(onOpenNote&&noteId)onOpenNote(noteId,kind);else if(noteId)location.href=kind==='note'?'./?view=basket':`./?view=basket&note=${encodeURIComponent(noteId)}`;}
   function click(event){
     const link=event.target.closest?.('a[data-basket-link-open]');
     if(link&&host.contains(link)){
       if(!onOpenNote||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-      event.preventDefault();if(isCurrent())openNote(link.dataset.basketLinkOpen);return;
+      event.preventDefault();if(isCurrent())openNote(link.dataset.basketLinkOpen,link.closest('[data-basket-link]')?.dataset.basketLinkNoteKind==='note'?'note':'basket');return;
     }
     const button=event.target.closest?.('button');if(!button||!host.contains(button))return;
     if(button.dataset.basketLinkMenu){if(!button.disabled)recordMenu(host).open(button);return;}

@@ -17,7 +17,7 @@ async function ready(page,kind,width=390,history=false){
    const u=new URL(path,'https://fixture.invalid'),table=u.pathname.split('/').pop();
    if(table==='app_record_links'&&u.searchParams.get('note_id')==='not.is.null')t.reads.push(u.searchParams.get(kind==='organization'?'organization_id':'project_id'));
    const rows=await api(path,...args);
-   if(table===(kind==='organization'?'app_suborganizations':'app_project_comments')&&u.search.includes(t.b)&&!t.released){t.waiting=true;await new Promise(resolve=>t.release=resolve);if(t.fail)throw Error('합성 B 조회 실패');}
+   if(table===(kind==='organization'?'app_suborganizations':'app_project_milestones')&&u.search.includes(t.b)&&!t.released){t.waiting=true;await new Promise(resolve=>t.release=resolve);if(t.fail)throw Error('합성 B 조회 실패');}
    return rows;
   };
  },kind);

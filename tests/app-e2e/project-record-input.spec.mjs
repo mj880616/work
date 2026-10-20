@@ -118,11 +118,12 @@ test('PRJ-기록입력 one list: new, old item records, items and 🧺 basket li
   await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('4');
   await expect(lines(page)).toHaveCount(4);
   const texts=await lines(page).evaluateAll(xs=>xs.map(x=>x.innerText.replace(/\s+/g,' ').trim()));
-  expect(texts).toEqual(['10.3 토론회 발제자 확정','9.20 🧺 현장 간부 면담 결과 정리 ⋯','9.10 정책 대응 국토부 협의 시작 다음: 자료 요청','9.5 빈 옛 항목']);
+  expect(texts).toEqual(['10.3 토론회 발제자 확정','9.20 현장 간부 면담 결과 정리 ⋯','9.10 정책 대응 국토부 협의 시작 다음: 자료 요청','9.5 빈 옛 항목']);
   // 🧺 line: opens the original basket memo; its ⋯ holds only [메모 열기]·[연결 해제] (BUG-바구니연결해제), nothing to edit or delete.
   const basket=lines(page).nth(1).locator('a');
   await expect(basket).toHaveAttribute('href','./?view=basket&note=note-1');
-  await expect(basket.getByRole('img',{name:'바구니 업데이트'})).toBeVisible();
+  // UI-기록아이콘: the mark is the update icon (an outline drawing), no longer 🧺.
+  await expect(basket.getByRole('img',{name:'바구니 업데이트'})).toBeVisible();await expect(basket.locator('[data-record-mark="update"] svg')).toHaveCount(1);await expect(lines(page).nth(1)).not.toContainText('🧺');
   await expect(lines(page).nth(1).locator('button')).toHaveCount(1);await expect(lines(page).nth(1).getByRole('button',{name:'바구니 기록 메뉴'})).toBeVisible();
   await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-disconnect],#ps3Body [data-link-note-delete],#ps3BasketLinks')).toHaveCount(0);
   await basket.click();
