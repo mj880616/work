@@ -27,9 +27,11 @@ for(const width of [390,1280])test(`read actions: three buttons in one row, the 
  const {errors,actions}=await openNote(page,width);
  await expect(actions.getByRole('button')).toHaveText(['연결하기','할 일 만들기','노트로 옮기기']);
  const link=actions.locator('[data-basket-link-open]'),task=actions.locator('[data-basket-task-open]'),move=actions.locator('[data-basket-to-note]');
- await expect(link).toHaveClass(/\bprimary\b/);await expect(task).toHaveClass(/\bprimary\b/);await expect(move).not.toHaveClass(/\bprimary\b/);
- const color=l=>l.evaluate(el=>getComputedStyle(el).backgroundColor);
- expect(await color(link)).not.toBe(await color(task));
+ // UI-바구니상세버튼색: same background, border and text color on all three (same on 390 and 1280).
+ const paint=l=>l.evaluate(el=>{const s=getComputedStyle(el);return [s.backgroundColor,s.color,s.borderTopColor,s.borderTopWidth,s.borderTopStyle,s.fontWeight,s.fontSize,s.borderRadius];});
+ const plain=await paint(move);
+ expect(await paint(link)).toEqual(plain);expect(await paint(task)).toEqual(plain);
+ for(const b of [link,task,move])await expect(b).not.toHaveClass(/\bprimary\b/);
  const [bl,bt,bm]=await Promise.all([box(link),box(task),box(move)]);
  for(const [b,l] of [[bl,link],[bt,task],[bm,move]]){expect(b.height).toBe(32);expect(await l.evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');expect(Math.round(b.y)).toBe(Math.round(bl.y));}
  expect(bt.x).toBeGreaterThan(bl.x+bl.width);expect(bm.x).toBeGreaterThan(bt.x+bt.width);

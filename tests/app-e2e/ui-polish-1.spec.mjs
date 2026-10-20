@@ -165,12 +165,14 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
   const [b,header]=await Promise.all([rect(back),rect(page.locator('.mobile-shell-header'))]);
   expect(Math.abs((b.top+b.bottom)/2-(header.top+header.bottom)/2)).toBeLessThanOrEqual(6);
  }
- // Card's last row (UI-바구니상세개편): [연결하기](filled)·[할 일 만들기](task teal)·[노트로 옮기기]. No write-request candidate anywhere.
+ // Card's last row (UI-바구니상세개편): three buttons, one look (UI-바구니상세버튼색). No write-request candidate anywhere.
  await expect(detail.locator('[data-basket-read-actions] button')).toHaveText(['연결하기','할 일 만들기','노트로 옮기기']);
- const color=sel=>detail.locator(sel).evaluate(el=>getComputedStyle(el).backgroundColor);
+ const look=sel=>detail.locator(sel).evaluate(el=>{const s=getComputedStyle(el);return [s.backgroundColor,s.color,s.borderTopColor,s.borderTopWidth,s.borderTopStyle,s.fontWeight];});
  const token=name=>page.evaluate(name=>{const e=document.createElement('span');e.style.color=`var(${name})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},name);
- expect(await color('[data-basket-link-open]')).toBe(await token('--kptu-primary'));
- expect(await color('[data-basket-task-open]')).toBe(await token('--ds-kind-task-soft'));
+ const plain=await look('[data-basket-to-note]');
+ expect(plain[0]).toBe(await token('--kptu-surface'));
+ expect(await look('[data-basket-link-open]')).toEqual(plain);
+ expect(await look('[data-basket-task-open]')).toEqual(plain);
  await expect(page.locator('#basketView')).not.toContainText('쓰기요청');
  // One line under the text: colored-dot chips for each link, then the date.
  const meta=detail.locator('.basket-note-meta');

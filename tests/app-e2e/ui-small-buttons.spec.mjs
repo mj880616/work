@@ -62,9 +62,9 @@ async function readRow(page,actions,labels,width){
 }
 
 for(const width of [390,1280]){
- test(`① 읽기 화면 아래 버튼: 한 줄·32px·누르는 범위 44px, [연결하기]만 주 버튼 색 (노트·메모·첨부 메모) ${width}`,async({page})=>{
+ test(`① 읽기 화면 아래 버튼: 한 줄·32px·누르는 범위 44px, 세 버튼 같은 모양 (노트·메모·첨부 메모) ${width}`,async({page})=>{
   const f=await fixture(page,{width});
-  const primary=await paint(page,'backgroundColor','--kptu-primary'),surface=await paint(page,'backgroundColor','--kptu-surface');
+  const surface=await paint(page,'backgroundColor','--kptu-surface');
   await go(page,'basket');
   // 노트 (UI-노트메뉴정리): 본문 아래 [수정][연결하기] 줄이 없다. 수정·연결하기는 맨 위 한 줄의 [⋯] 안에 있다.
   await tap(page,page.locator('[data-basket-kind="note"]'),width);
@@ -77,13 +77,13 @@ for(const width of [390,1280]){
   await expect(page.locator('[data-note-editor]')).toBeVisible();
   await tap(page,page.locator('[data-note-cancel]'),width);await expect(page.locator('[data-note-more]')).toBeVisible();
   await tap(page,page.locator('[data-note-close]'),width);
-  // 메모: [연결하기][할 일 만들기][노트로 옮기기] — 같은 규칙, [할 일 만들기]는 할 일 종류 색 그대로.
+  // 메모: [연결하기][할 일 만들기][노트로 옮기기] — 같은 규칙, 세 버튼 모두 같은 모양(UI-바구니상세버튼색).
   await tap(page,page.locator('[data-basket-kind="memo"]'),width);
   await showBasketRow(page,'m1');
   await tap(page,page.locator('[data-basket-row="m1"]'),width);
   const memoRow=page.locator('[data-basket-read-actions]');
   const memo=await readRow(page,memoRow,['연결하기','할 일 만들기','노트로 옮기기'],width);
-  expect(memo[0].bg).toBe(primary);expect(memo[1].bg).toBe(await paint(page,'backgroundColor','--ds-kind-task-soft'));expect(memo[2].bg).toBe(surface);
+  expect(memo[0].bg).toBe(surface);expect(memo[1].bg).toBe(surface);expect(memo[2].bg).toBe(surface);
   await tap(page,memoRow.getByRole('button',{name:'할 일 만들기',exact:true}),width);
   await expect(page.locator('[data-basket-manual]')).toBeVisible();await expect(memoRow).toBeHidden();
   await page.keyboard.press('Escape');
