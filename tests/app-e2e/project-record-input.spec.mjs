@@ -184,10 +184,11 @@ test('PRJ-기록입력 groups: same line lists, small + beside the title, docume
 for(const scheme of ['light','dark'])for(const records of [false,true])test(`PRJ-기록입력 390 ${scheme} ${records?'mixed records':'no records'} fits the phone`,async({page})=>{
   await fixture(page,{scheme,records});
   if(!records){await expect(page.locator('#ps3-progress .ps3-rec-empty')).toHaveText('아직 기록이 없어요');await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('0')}
-  else{await page.locator('#ps3-progress [data-ps3-record-input] input').fill('오늘 새 기록');await page.locator('#ps3-progress [data-ps3-record-input] button').click();await expect(lines(page)).toHaveCount(5)}
+  else{await page.locator('#ps3-progress [data-ps3-record-input] input').fill('오늘 새 기록');await page.locator('#ps3-progress [data-ps3-record-input] button[type=submit]').click();await expect(lines(page)).toHaveCount(5)}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  const input=await page.locator('#ps3-progress [data-ps3-record-input] input').boundingBox(),button=await page.locator('#ps3-progress [data-ps3-record-input] button').boundingBox();
-  expect(Math.abs(input.height-button.height)).toBeLessThanOrEqual(1);
+  const input=await page.locator('#ps3-progress [data-ps3-record-input] input').boundingBox(),button=await page.locator('#ps3-progress [data-ps3-record-input] button[type=submit]').boundingBox(),big=await page.locator('#ps3-progress [data-ps3-record-big]').boundingBox();
+  // UI-크게첨부: [크게] sits between the input and [기록], all one height on one line.
+  expect(Math.abs(input.height-button.height)).toBeLessThanOrEqual(1);expect(Math.abs(big.height-button.height)).toBeLessThanOrEqual(1);expect(Math.abs(big.y-button.y)).toBeLessThanOrEqual(1);
   for(const row of await lines(page).all()){const box=await row.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44)}
   await capture(page,`detail-390-${scheme}-${records?'mixed':'empty'}`);
 });

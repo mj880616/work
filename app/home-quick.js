@@ -210,7 +210,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     if(owner!==quickScope()||saving)return;
     const places=projectChoices.length||orgChoices.groups.length?{projects:projectChoices,orgs:orgChoices}:null;
     ww.openWriteWindow({text:input.value,kind:'update',place:currentPlace(),places,draft:false,title:'크게 쓰기',sources:dependencies?.orgs?dependencies:null,
-      attachments:()=>upload.entries.length,
+      // UI-크게첨부: the window's [📎 첨부] works on this input's own file batch, so files chosen in either place go together.
+      upload:{getBatch:()=>upload,isBusy:()=>saving,onChange:()=>paint()},
       onInput:value=>{input.value=value;},
       // The basket screen's input has no ▾: a place chosen in the window is used for that one save only.
       onPlace:place=>{if(basketOnly)return;setPlace(place);if(mode!=='update')setMode('update');else paint();},

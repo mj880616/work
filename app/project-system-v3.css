@@ -212,7 +212,7 @@
 /* PRJ-기록입력: 머리줄 아래 요약 한 줄, 맨 위 입력칸 + [기록], 기록 목록 하나(최신 위·🧺 포함), 묶음 제목 옆 작은 +, 자료는 줄 누르기 + ⋯. */
 .ps3-head-summary{margin:2px 0 0;line-height:1.45;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps3-head-summary:empty{display:none}
-.ps3-record-input{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin:0 0 var(--kptu-space-3)}
+.ps3-record-input{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;margin:0 0 var(--kptu-space-3)}.ps3-record-big svg{flex:none}
 .ps3-record-input input{margin:0;min-width:0}
 .ps3-record-input+[data-ps3-save-state]:empty{display:none}
 .ps3-rec-list{display:grid}

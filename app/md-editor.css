@@ -83,6 +83,17 @@ html .modal.md-editor .md-editor-head > button.md-editor-icon::after { left:calc
 .md-editor-preview { padding:12px 14px; overflow:auto; font-size:var(--ds-text-read, 15px); line-height:1.65; background:var(--kptu-surface); }
 .md-editor[data-md-mode="write"]:not([data-md-wide="true"]) .md-editor-preview,
 .md-editor[data-md-mode="preview"]:not([data-md-wide="true"]) .md-editor-text { display:none; }
+/* UI-크게첨부: 본문 아래 [📎 첨부] 한 줄(바구니 첨부 부품 basket-upload.js 그대로). 고른 파일 목록은 그 옆·아래.
+   버튼은 머리줄과 같은 작은 버튼(보이는 32px, 누르는 범위 ::after 44px). [노트]를 고르면 줄이 숨는다. */
+.md-editor-attach { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:var(--kptu-touch-target, 44px); padding:0 8px; border-top:1px solid var(--kptu-border); box-sizing:border-box; }
+.md-editor-attach[hidden] { display:none; }
+.md-editor-attach [data-md-attach-files] { flex:1 1 220px; min-width:0; max-height:30vh; overflow:auto; }
+.md-editor-attach [data-md-attach-files]:not([hidden]) { padding:6px 0; }
+html .modal.md-editor .md-editor-attach .basket-clip-picker { width:auto; height:auto; flex:0 0 auto; }
+html .modal.md-editor .md-editor-attach .basket-clip { position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:var(--ds-compact-height, 32px); min-width:0; min-height:0; padding:0 var(--ds-compact-pad-x, 12px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border-strong)); border-radius:var(--ds-radius-control, 8px); font-size:var(--ds-compact-text, 13px); font-weight:var(--ds-weight-medium, 500); line-height:1; }
+html .modal.md-editor .md-editor-attach .basket-clip::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
+html .modal.md-editor .md-editor-attach .basket-clip-icon { color:var(--kptu-link); }
+html .modal.md-editor .md-editor-attach .basket-clip-count { top:-6px; right:-6px; }
 .md-editor-status { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }
 .md-editor-status:empty { display:none; }
 .md-editor-bar { border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface-subtle); }

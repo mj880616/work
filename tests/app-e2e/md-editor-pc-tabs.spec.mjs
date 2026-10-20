@@ -129,7 +129,8 @@ test('1280: 고치기로 연 편집기도 탭을 가리지 않고, 탭을 누르
 test('1280: Tab 키는 편집기 → 메뉴 → 편집기로 돌고 Enter로 탭을 쓸 수 있다',async({page})=>{
  const f=await fixture(page);
  const editor=await openWriter(page);
- const first=editor.locator('.md-editor-head button').first(),lastTool=editor.locator('.md-editor-preview');
+ // UI-크게첨부: the write window's last control is now [📎 첨부] under the text (the file input itself is tabindex -1).
+ const first=editor.locator('.md-editor-head button').first(),lastTool=editor.getByRole('button',{name:'파일 첨부',exact:true});
  await lastTool.focus();
  await page.keyboard.press('Tab');
  expect(await page.evaluate(()=>!!document.activeElement.closest('#appView>.app-nav'))).toBe(true);

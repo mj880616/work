@@ -27,7 +27,7 @@ const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 let notes = [], links = [], docs = [], filter = 'unclassified', place = 'all', sub = 'all', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
-let quick=null, bigWriter=null;
+let quick=null, bigWriter=null, bigPicker=null;
 let currentScope = scope(), retainedForTraversal = false;
 // BUG-뒤로가기: an opened memo is one router layer, so Back returns to the list at the same scroll.
 let noteLayer = null, listScroll = 0;
@@ -605,7 +605,10 @@ function openBigWriter() {
     // The one save icon is this view's own [수정 저장] (saveEdit): it saves and closes, and stays with a message on failure.
     save: {aria: '업데이트 저장', run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return saveEdit(); }},
     onInput: value => { if (same()) field.value = value; },
-    onClose: value => { bigWriter = null; if (!same()) return; field.value = value; field.focus(); },
+    // UI-크게첨부: [📎 첨부] under the text is the same picker part on this screen's own file batch (upload), so a file chosen
+    // in the window is the same selection as on the edit screen and is saved by the existing attachment path.
+    attach: {mount: ({picker, files, drop}) => { bigPicker = mountBasketPicker(picker, {id:'mdAttachFiles', filesHost:files, dropTarget:drop, getBatch:() => upload, isActive:() => same(), isBusy:() => busy, onChange:() => pickerFiles?.render(), onError:message => { const s = document.querySelector('#mdEditor .md-editor-status'); if (s) s.textContent = message; }}); }},
+    onClose: value => { bigWriter = null; bigPicker = null; if (!same()) return; field.value = value; pickerFiles?.render(); field.focus(); },
   });
 }
 function startEdit() {

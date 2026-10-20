@@ -123,9 +123,12 @@ export async function copyText(text, {html = null} = {}) {
 // placeholder (optional): (kind) => the text box placeholder.
 // noteTitle (optional): {kind, label, placeholder} shows a one-line title box under the head while that kind is chosen; its
 // value goes to save.run as the third argument ({title}).
+// attach (optional, UI-크게첨부): {mount({picker, files, drop}), show?(kind)} adds a row under the text for choosing files. The
+// opener mounts its own existing file part there (basket-upload.js mountBasketPicker) and keeps the files; this module only gives
+// the places. show(kind) hides the row for a kind that takes no files (노트).
 // Returns {close({silent}), paint(), kind}: silent closes without calling onClose; paint() redraws labels after the opener's
 // state (the chosen place) changed.
-export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null} = {}) {
+export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null} = {}) {
   current?.close({silent: true});
   const trigger = document.activeElement;
   const shell = document.createElement('div');
@@ -169,6 +172,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     const hint = placeholder?.(kind);
     if (hint != null) area.placeholder = hint;
     if (titleRow) titleRow.hidden = kind !== noteTitle.kind;
+    if (attachRow) attachRow.hidden = attach.show ? !attach.show(kind) : false;
   }
   function setKind(next) { if (next !== kind) status.textContent = ''; kind = next; paint(); }
   const modes = document.createElement('div');
@@ -204,11 +208,19 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   }
   const status = document.createElement('p');
   status.className = 'md-editor-status'; status.setAttribute('role', 'status');
+  // The file row (attach): [📎 첨부] and the chosen files, right under the text.
+  const attachRow = attach ? document.createElement('div') : null;
+  if (attachRow) {
+    attachRow.className = 'md-editor-attach';
+    const picker = document.createElement('div'), files = document.createElement('div');
+    picker.dataset.mdAttachPicker = ''; files.dataset.mdAttachFiles = '';
+    attachRow.append(picker, files);
+  }
   paint();
   const bar = document.createElement('div');
   // The format row sits right under the head; a choice row (제목·강조 상자·도식) opens under it.
   bar.className = 'md-editor-bar'; bar.append(tools, menu);
-  shell.append(head, ...(titleRow ? [titleRow] : []), bar, panes, status);
+  shell.append(head, ...(titleRow ? [titleRow] : []), bar, panes, ...(attachRow ? [attachRow] : []), status);
 
   let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false;
   const previewing = () => WIDE.matches || mode === 'preview';
@@ -383,6 +395,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   const handle = {close, exportAs, leaveChoice, paint, get text() { return area.value; }, get kind() { return kind; }, get closed() { return closed; }};
 
   document.body.append(shell);
+  if (attachRow) attach.mount({picker: attachRow.querySelector('[data-md-attach-picker]'), files: attachRow.querySelector('[data-md-attach-files]'), drop: panes});
   document.documentElement.classList.add('md-editor-open');
   onWide(); setMode('write', {focus: false});
   // companions: the wide menu is part of the Tab cycle (editor → menu → editor); on a phone there is none.
