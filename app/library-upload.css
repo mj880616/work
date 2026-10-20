@@ -103,3 +103,8 @@
 .dce-add-line .dce-input{flex:1 1 auto}
 .dce-status{min-height:1.4em;margin:6px 0 0;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 .dce-status.error{color:var(--kptu-danger)}
+
+/* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
+.lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-off-show{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
