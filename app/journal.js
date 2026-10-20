@@ -1,14 +1,16 @@
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
-// → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·바구니 메모·고친 노트), gathered
-// on screen and never stored. [주간보고 초안 복사] copies each day's lines and the materials list.
+// → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리),
+// gathered on screen and never stored. [주간보고 초안 복사] copies each day's lines and the materials list.
 // JOURNAL-오늘한줄목록: [저장] adds the typed line under the input (saving order, oldest first) and empties the input.
 // Pressing a line turns it into an edit box in place with [저장][취소][삭제]; a removed line can be put back for 5 seconds
-// ([되돌리기], the app's existing undo notice). No ⋯ menu or popup.
+// ([되돌리기], the app's existing undo notice). No ⋯ menu or popup. On a PC (≥1024) each line also has [수정][삭제], shown while
+// the pointer is over the line or focus is inside it (journal.css); the phone keeps pressing the line.
 // Only the lines are saved (journal-data.js, kind=work). A material group that cannot be read shows its own notice and
 // [다시 시도]; the lines still work. A typed, unsaved line stays in memory per day until the owner changes.
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
-  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketMemos, readChangedNotes, dayMaterials, weeklyDraft, DONE_TASK_DAYS, doneCoverFrom} from './journal-data.js';
+  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
+  readWeekMeetings, dayMaterials, weeklyDraft, DONE_TASK_DAYS, doneCoverFrom, GROUP_SOURCES} from './journal-data.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
@@ -29,7 +31,7 @@ root.innerHTML = `<div class="journal-head"><div class="journal-week-nav"><butto
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
 <section class="journal-day" data-journal-day aria-labelledby="journalDayTitle">
 <h3 id="journalDayTitle" tabindex="-1" data-journal-day-title></h3>
-<form class="journal-line" data-journal-line novalidate><label for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
+<form class="journal-line" data-journal-line novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <div class="journal-materials" data-journal-materials></div>
 </section>`;
@@ -92,7 +94,12 @@ function renderList() {
     button.disabled = saving || !!edit;
     button.textContent = text;
     button.setAttribute('aria-label', `${text} (눌러서 고치기)`);
-    item.append(button);
+    // PC: [수정][삭제] beside the line (hidden on the phone; shown on hover or keyboard focus — journal.css).
+    const actions = document.createElement('span');
+    actions.className = 'journal-line-actions';
+    actions.innerHTML = `<button type="button" class="mini" data-journal-edit-open="${index}" aria-label="${index + 1}번째 줄 수정">수정</button><button type="button" class="mini journal-delete" data-journal-line-delete="${index}" aria-label="${index + 1}번째 줄 삭제">삭제</button>`;
+    actions.querySelectorAll('button').forEach(b => { b.disabled = saving || !!edit; });
+    item.append(button, actions);
     return item;
   }));
   list.hidden = !items.length;
@@ -110,27 +117,33 @@ function count() {
   counter.textContent = `${n}/${WORK_LINE_MAX}자`;
   counter.classList.toggle('over', n > WORK_LINE_MAX || /[\r\n]/.test(input.value));
 }
+const itemList = texts => { const list = document.createElement('ul'); for (const text of texts) { const item = document.createElement('li'); item.textContent = text; list.append(item); } return list; };
 function renderMaterials() {
   const host = $('[data-journal-materials]');
   const groups = dayMaterials(materials, selected);
   host.replaceChildren(...groups.map(group => {
     const box = document.createElement('section');
     box.className = 'journal-group'; box.dataset.journalGroup = group.key;
-    const head = document.createElement('h4'); head.textContent = group.label; box.append(head);
+    const head = document.createElement('h4'); head.className = 'journal-heading'; head.textContent = group.label; box.append(head);
     if (group.loading) { box.insertAdjacentHTML('beforeend', '<p class="journal-muted">불러오는 중…</p>'); return box; }
+    if (group.key === 'orgs') {
+      for (const section of group.sections) {
+        const part = document.createElement('div');
+        part.className = 'journal-org'; part.dataset.journalOrg = section.name;
+        const name = document.createElement('p'); name.className = 'journal-org-name'; name.textContent = section.name;
+        part.append(name, itemList(section.items));
+        box.append(part);
+      }
+    } else if (group.items.length) box.append(itemList(group.items));
     if (group.failed) {
       box.dataset.failed = '';
-      box.insertAdjacentHTML('beforeend', `<p class="journal-muted journal-failed" data-journal-failed>${esc(group.label)}을(를) 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.</p><button type="button" class="mini" data-journal-retry="${group.key}">다시 시도</button>`);
+      box.insertAdjacentHTML('beforeend', `<p class="journal-muted journal-failed" data-journal-failed>${group.items.length ? `${esc(group.label)} 일부를` : `${esc(group.label)}을(를)`} 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.</p><button type="button" class="mini" data-journal-retry="${group.key}">다시 시도</button>`);
       return box;
     }
     if (!group.items.length) {
       const old = group.key === 'tasks' && selected < doneCoverFrom(doneDays);
       box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${old ? `Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.` : '없어요.'}</p>`);
-      return box;
     }
-    const list = document.createElement('ul');
-    for (const text of group.items) { const item = document.createElement('li'); item.textContent = text; list.append(item); }
-    box.append(list);
     return box;
   }));
 }
@@ -139,8 +152,10 @@ function render() { renderWeek(); renderLine({keepStatus:true}); renderMaterials
 const readers = {
   events: () => readWeekEvents(start, rt),
   tasks: async () => { const read = await readDoneTasksWindow(rt); doneDays = read.days; return read.tasks; },
-  memos: () => readBasketMemos(rt),
-  notes: () => readChangedNotes(start, rt),
+  basket: () => readBasketUpdates(rt),
+  orgUpdates: () => readOrgUpdates(start, rt),
+  projectUpdates: () => readProjectUpdates(start, rt),
+  meetings: () => readWeekMeetings(start, rt),
 };
 async function loadGroup(key, run = epoch, scope = owner) {
   materials[key] = {status:'loading'}; renderMaterials();
@@ -166,11 +181,12 @@ async function loadLines(run, scope) {
   }
   renderWeek(); renderLine();
 }
-// A new week reads its lines, events and notes; done tasks and basket memos are read once per visit (not per week).
+// A new week reads its lines and that week's events, organization/project records and meetings; done tasks and basket
+// updates are read once per visit (not per week).
 function loadWeek({shared = false} = {}) {
   const run = ++epoch, scope = owner = ownerScope(rt);
   lines = new Map(); status.textContent = ''; editing = null;
-  const keys = shared ? Object.keys(readers) : ['events', 'notes'];
+  const keys = shared ? Object.keys(readers) : ['events', 'orgUpdates', 'projectUpdates', 'meetings'];
   for (const key of keys) materials[key] = {status:'loading'};
   render();
   loadLines(run, scope);
@@ -266,25 +282,39 @@ async function saveEdit() {
   } else if (editing === edit) { edit.status = result.message; renderList(); root.querySelector('[data-journal-edit-input]')?.focus(); }
   else lineStatus.textContent = result.message;
 }
+// Removes one line right away and offers [되돌리기] for 5 seconds (the app's undo notice). From the edit box, or from [삭제] on a PC.
+async function removeWithUndo(day, index, before, {onStale, onDone, onFail} = {}) {
+  const result = await apply(day, removeLine(index, before), {onStale});
+  if (result.stale) return;
+  if (!result.ok) { onFail?.(result); return; }
+  onDone?.();
+  lineStatus.textContent = '';
+  input.focus();
+  const scope = owner;
+  offerUndoNotice({text:'한 줄을 지웠어요.', onUndo:async () => {
+    if (scope !== ownerScope(rt)) return {status:'stale'};
+    const back = await apply(day, restoreLine(index, before));
+    if (back.stale) return {status:'stale'};
+    return {status:back.ok ? 'restored' : 'failed', message:back.ok ? '지운 줄을 되돌렸어요.' : back.message};
+  }});
+}
 async function deleteEdit() {
   if (saving || !editing) return;
   const edit = editing;
   edit.status = '지우는 중…';
-  const result = await apply(edit.day, removeLine(edit.index, edit.before), {onStale:() => { if (editing === edit) editing = null; }});
-  if (result.stale) return;
-  if (result.ok) {
-    editing = null; renderList();
-    lineStatus.textContent = '';
-    input.focus();
-    const scope = owner;
-    offerUndoNotice({text:'한 줄을 지웠어요.', onUndo:async () => {
-      if (scope !== ownerScope(rt)) return {status:'stale'};
-      const back = await apply(edit.day, restoreLine(edit.index, edit.before));
-      if (back.stale) return {status:'stale'};
-      return {status:back.ok ? 'restored' : 'failed', message:back.ok ? '지운 줄을 되돌렸어요.' : back.message};
-    }});
-  } else if (editing === edit) { edit.status = result.message; renderList(); }
-  else lineStatus.textContent = result.message;
+  await removeWithUndo(edit.day, edit.index, edit.before, {
+    onStale:() => { if (editing === edit) editing = null; },
+    onDone:() => { editing = null; renderList(); },
+    onFail:result => { if (editing === edit) { edit.status = result.message; renderList(); } else lineStatus.textContent = result.message; },
+  });
+}
+async function deleteLine(index) {
+  if (saving || editing) return;
+  const day = selected, before = workLines(lines.get(day))[index];
+  if (before === undefined) return;
+  closeUndoNotice();
+  lineStatus.textContent = '지우는 중…';
+  await removeWithUndo(day, index, before, {onFail:result => { lineStatus.textContent = result.message; }});
 }
 
 async function copyDraft() {
@@ -301,9 +331,11 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-prev]')) return moveWeek(-1);
   if (button.matches('[data-journal-next]')) return moveWeek(1);
   if (button.matches('[data-journal-today]')) return goThisWeek();
-  if (button.matches('[data-journal-retry]')) return loadGroup(button.dataset.journalRetry);
+  if (button.matches('[data-journal-retry]')) { for (const key of GROUP_SOURCES[button.dataset.journalRetry] || []) if (materials[key]?.status === 'failed') loadGroup(key); return; }
   if (button.matches('[data-journal-copy]')) return copyDraft();
   if (button.matches('[data-journal-edit]')) return startEdit(Number(button.dataset.journalEdit));
+  if (button.matches('[data-journal-edit-open]')) return startEdit(Number(button.dataset.journalEditOpen));
+  if (button.matches('[data-journal-line-delete]')) return deleteLine(Number(button.dataset.journalLineDelete));
   if (button.matches('[data-journal-edit-save]')) return saveEdit();
   if (button.matches('[data-journal-edit-cancel]')) return cancelEdit();
   if (button.matches('[data-journal-edit-delete]')) return deleteEdit();
