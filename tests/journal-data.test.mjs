@@ -198,7 +198,7 @@ test('one day of materials in display order; a failed group is marked, the rest 
     meetings:{status:'ok', items:[{id:'m1', series_name:'기자회견', round_no:null, meeting_at:'2026-10-06T02:00:00Z'}, {id:'m2', title:'운영위', series_name:'운영위원회', round_no:3, meeting_at:'2026-10-05T23:30:00Z'}, {id:'m3', series_name:'다른 날', meeting_at:'2026-10-06T15:00:00Z'}]},
   };
   const day = m.dayMaterials(materials, '2026-10-06');
-  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '조직 소식', '회의·행사 결과']);
+  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '조직 소식', '회의·행사 결과', '프로젝트 소식', '할 일 예정', '자료실 새 자료', '공유 페이지']);
   assert.deepEqual(day[0].items, ['종일 종일', '00:30 새벽', '14:00 오후']);
   assert.deepEqual(day[1].failed, ['tasks']);
   assert.deepEqual(day[2].sections, [{name:'미분류', items:['첫 줄 메모', '첨부 2개']}]);
@@ -206,8 +206,14 @@ test('one day of materials in display order; a failed group is marked, the rest 
   assert.equal(m.dayMaterials({}, '2026-10-06')[0].loading, true);
   // 조직 소식 waits for its three reads, then shows what it could read and names the failed one.
   assert.equal(m.dayMaterials({...materials, orgUpdates:{status:'loading'}}, '2026-10-06')[2].loading, true);
-  const partial = m.dayMaterials({...materials, projectUpdates:{status:'failed'}}, '2026-10-06')[2];
-  assert.deepEqual(partial.failed, ['projectUpdates']); assert.deepEqual(partial.items, ['첫 줄 메모', '첨부 2개']);
+  const partial = m.dayMaterials({...materials, orgUpdates:{status:'failed'}}, '2026-10-06')[2];
+  assert.deepEqual(partial.failed, ['orgUpdates']); assert.deepEqual(partial.items, ['첫 줄 메모', '첨부 2개']);
+  // Project records left 조직 소식: a failed project read no longer marks it, it marks 프로젝트 소식 (which waits for its own reads).
+  const noProject = m.dayMaterials({...materials, projectUpdates:{status:'failed'}}, '2026-10-06');
+  assert.equal(noProject[2].failed, undefined); assert.deepEqual(noProject[4].failed, ['projectUpdates']);
+  // The new groups wait for their reads; a failed Google Tasks read marks both 끝낸 할 일 and 할 일 예정.
+  assert.equal(day[6].loading, true); assert.equal(day[7].loading, true);
+  assert.deepEqual(day[5].failed, ['tasks']);
 });
 
 test('조직 소식: every update of the day (basket, organization record, project record) by organization name, 미분류 last, one item each', async () => {
@@ -243,8 +249,14 @@ test('조직 소식: every update of the day (basket, organization record, proje
     {name:'가 조직', items:['안녕하세요, 위원장님.', '두 조직 공동 소식']},
     {name:'나 조직', items:['두 조직 공동 소식', '요약 한 줄', '첨부: 회의자료.pdf']},
     {name:'다 조직', items:['조직에 바로 쓴 업데이트']},
-    {name:'미분류', items:['사업 A · 사업 진행 메모', '보류한 업데이트', '사업 B · 프로젝트에 바로 쓴 업데이트', '아직 분류 안 함']},
+    {name:'미분류', items:['보류한 업데이트', '아직 분류 안 함']},
   ]);
+  // JOURNAL-주간보고허브: project records and updates sent only to a project are 프로젝트 소식, by project name, not 미분류.
+  assert.deepEqual(m.projectNewsOn({basket, orgUpdates, projectUpdates}, day), [
+    {name:'사업 A', items:['사업 진행 메모']},
+    {name:'사업 B', items:['프로젝트에 바로 쓴 업데이트']},
+  ]);
+  assert.equal(sections.flatMap(s => s.items).some(item => item.includes('사업 진행 메모') || item.includes('프로젝트에 바로 쓴')), false);
   // One update with several lines is one item: its body lines never become items of their own.
   const all = sections.flatMap(s => s.items);
   for (const line of ['다음 주 간담회 일정 공유드립니다.', '출처: 가상 소식지', '둘째 줄', '요약 둘째']) assert.equal(all.includes(line), false);
@@ -272,7 +284,8 @@ test('weekly draft: each day lines in saving order one per row, or (없음); mat
   const lines = new Map([['2026-10-06', {raw_text:'현장 회의 정리'}], ['2026-10-07', {raw_text:'첫 줄\n둘째 줄\n셋째 줄'}]]);
   const text = m.weeklyDraft({start:'2026-10-05', lines, materials:{events:{status:'ok', items:[{title:'회의', start:'2026-10-06T10:00:00+09:00', end:'2026-10-06T11:00:00+09:00'}]}, tasks:{status:'failed'},
     basket:{status:'ok', items:{notes:[{id:'b', raw_text:'조직 소식 원문\n둘째', occurred_at:'2026-10-06T01:00:00Z'}], links:[{note_id:'b', status:'confirmed', organization_id:'o', organization:{name:'가 조직'}}], docs:[]}},
-    orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, meetings:{status:'ok', items:[{series_name:'기자회견', meeting_at:'2026-10-06T05:00:00Z'}]}}});
+    orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, meetings:{status:'ok', items:[{series_name:'기자회견', meeting_at:'2026-10-06T05:00:00Z'}]},
+    documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]}}, today:'2026-10-06'});
   const rows = text.split('\n');
   assert.equal(rows[0], '주간 업무일지 10월 5일(월) ~ 10월 11일(일)');
   assert.equal(rows.filter(r => r.startsWith('■ ')).length, 7);
@@ -285,7 +298,8 @@ test('weekly draft: each day lines in saving order one per row, or (없음); mat
   assert.ok(rows.includes('- 조직 소식 · 가 조직: 조직 소식 원문'));
   assert.ok(rows.includes('- 회의·행사 결과: 14:00 기자회견'));
   assert.equal(rows.some(r => r.includes('바구니 업데이트') || r.includes('고친 노트') || (r.startsWith('- ') && r.includes('둘째'))), false);
-  assert.ok(text.includes('※ 끝낸 할 일은(는) 불러오지 못해 빠졌어요.'));
+  // One Google Tasks read feeds both task groups, so both are named.
+  assert.ok(text.includes('※ 끝낸 할 일, 할 일 예정은(는) 불러오지 못해 빠졌어요.'));
 });
 
 test('done tasks: the widest window is requested; the echoed days are used, an older Edge without an echo counts as 3 days', async () => {
@@ -327,4 +341,124 @@ test('weekly draft: the done-task note appears only when the week reaches before
   assert.equal(noteOf(m.weeklyDraft({...base, start:'2026-09-28', today:'2026-10-06'})), '※ 끝낸 할 일은 Google 할 일에서 최근 3일 안에 끝낸 것만 모여요.');
   // On a Sunday the 8-day window still holds the whole current week.
   assert.equal(noteOf(m.weeklyDraft({...base, start:'2026-10-05', doneDays:8, today:'2026-10-11'})), undefined);
+});
+
+// JOURNAL-주간보고허브 1단계: 프로젝트 소식·할 일 예정·자료실 새 자료·공유 페이지.
+test('hub reads: new documents and changed share pages of the week, this workspace, a few columns, capped, no long body', async () => {
+  const m = await mod;
+  const rt = runtime(path => path.startsWith('/rest/v1/app_documents?') ? [{id:'d1', created_at:'2026-10-06T00:00:00Z'}] : []);
+  const docs = await m.readWeekDocuments('2026-10-05', rt);
+  await m.readWeekSharePages('2026-10-05', rt);
+  const [doc, share] = rt.calls.map(params);
+  assert.ok(rt.calls[0].path.startsWith('/rest/v1/app_documents?')); assert.ok(rt.calls[1].path.startsWith('/rest/v1/app_share_pages?'));
+  assert.equal(doc.get('workspace_id'), 'eq.w'); assert.equal(share.get('workspace_id'), 'eq.w');
+  // The week in Korea time: Monday 00:00 KST up to (not including) next Monday 00:00 KST.
+  assert.deepEqual(doc.getAll('created_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
+  assert.deepEqual(share.getAll('updated_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
+  assert.equal(doc.get('select'), 'id,title,file_name,category,meeting_id,created_at');
+  assert.equal(share.get('select'), 'id,title,status,updated_at');
+  for (const q of [doc, share]) { assert.equal(q.get('limit'), String(m.WEEK_READ_CAP)); assert.equal(/blocks|content|text|\*/.test(q.get('select')), false); }
+  assert.equal(docs.capped, false);
+  const full = await m.readWeekDocuments('2026-10-05', runtime(() => Array.from({length:m.WEEK_READ_CAP}, (_, i) => ({id:`d${i}`}))));
+  assert.equal(full.capped, true);
+  await assert.rejects(m.readWeekSharePages('2026-10-05', runtime(() => ({message:'x'}))));
+});
+
+test('hub reads: one Google Tasks read gives done tasks and pending tasks with a due day (server range as it is)', async () => {
+  const m = await mod;
+  const read = await m.readDoneTasksWindow(runtime(() => ({completed_days:8, tasks:[
+    {id:'done', title:'끝', status:'completed', completed:'2026-10-06T03:00:00Z'},
+    {id:'due', title:'마감 있음', status:'needsAction', due:'2026-10-07T00:00:00.000Z'},
+    {id:'undated', title:'마감 없음', status:'needsAction', due:null},
+  ]})));
+  assert.deepEqual(read.tasks.map(t => t.id), ['done']);
+  assert.deepEqual(read.pending.map(t => t.id), ['due']);
+  assert.equal(m.dueDay({due:'2026-10-07T00:00:00.000Z'}), '2026-10-07');
+  assert.equal(m.dueDay({due:'x'}), '');
+  // Done tasks never show as pending, pending never as done (the screen keeps both in one list).
+  const all = [...read.tasks, ...read.pending];
+  assert.deepEqual(m.tasksOn(all, '2026-10-06').map(t => t.id), ['done']);
+  assert.deepEqual(m.pendingOn(all, '2026-10-07').map(t => t.id), ['due']);
+  assert.deepEqual(m.pendingOn(all, '2026-10-06'), []);
+  assert.equal(m.pendingCoverTo('2026-10-06'), '2026-10-12');
+});
+
+const hubMaterials = () => ({
+  events:{status:'ok', items:[]}, tasks:{status:'ok', items:[
+    {id:'t1', title:'끝낸 일', status:'completed', completed:'2026-10-06T01:00:00Z'},
+    {id:'t2', title:'나 예정', status:'needsAction', due:'2026-10-06T00:00:00.000Z'},
+    {id:'t3', title:'가 예정', status:'needsAction', due:'2026-10-06T00:00:00.000Z'},
+    {id:'t4', title:'다음 날 예정', status:'needsAction', due:'2026-10-07T00:00:00.000Z'},
+  ]},
+  basket:{status:'ok', items:{notes:[{id:'b1', raw_text:'사업으로 보낸 메모\n둘째', occurred_at:'2026-10-06T02:00:00Z'}],
+    links:[{note_id:'b1', status:'confirmed', project_id:'s1', project:{name:'가상 사업'}}], docs:[]}},
+  orgUpdates:{status:'ok', items:[]},
+  projectUpdates:{status:'ok', items:[{id:'p1', project_id:'s1', project:{name:'가상 사업'}, summary:'진행 기록\n둘째', effective_on:'2026-10-06', created_at:'2026-10-06T03:00:00Z'}]},
+  meetings:{status:'ok', items:[]},
+  documents:{status:'ok', items:[
+    {id:'d1', title:'교섭 요구안', category:'교섭자료', created_at:'2026-10-05T15:00:00Z'},
+    {id:'d2', title:'', file_name:'회의록.hwp', category:null, meeting_id:'m1', created_at:'2026-10-06T14:59:59Z'},
+    {id:'d3', title:'전날 23:59', category:'교육', created_at:'2026-10-05T14:59:59Z'},
+    {id:'d4', title:'다음 날 0시', category:'교육', created_at:'2026-10-06T15:00:00Z'},
+  ]},
+  sharePages:{status:'ok', items:[{id:'s1', title:'가상 안내 페이지', status:'published', updated_at:'2026-10-06T04:00:00Z'}, {id:'s2', title:'', status:'draft', updated_at:'2026-10-06T05:00:00Z'}]},
+});
+
+test('hub groups: each day shows its own items (Korea-time day edges), categories named, projects by name', async () => {
+  const m = await mod;
+  const day = m.dayMaterials(hubMaterials(), '2026-10-06');
+  const by = Object.fromEntries(day.map(g => [g.key, g]));
+  assert.deepEqual(by.projects.sections, [{name:'가상 사업', items:['사업으로 보낸 메모', '진행 기록']}]);
+  assert.deepEqual(by.orgs.items, []);
+  assert.deepEqual(by.due.items, ['가 예정', '나 예정']);
+  assert.deepEqual(by.tasks.items, ['끝낸 일']);
+  assert.deepEqual(by.docs.items, ['[교섭] 교섭 요구안', '[기타] 회의록.hwp · 회의자료']);
+  assert.deepEqual(by.shares.items, ['가상 안내 페이지 · 게시', '제목 없음 · 초안']);
+  assert.deepEqual(m.dayMaterials(hubMaterials(), '2026-10-05').find(g => g.key === 'docs').items, ['[교육] 전날 23:59']);
+  assert.deepEqual(m.dayMaterials(hubMaterials(), '2026-10-07').find(g => g.key === 'docs').items, ['[교육] 다음 날 0시']);
+  // Each group fails on its own: a failed document read leaves the others as they are.
+  const failed = m.dayMaterials({...hubMaterials(), documents:{status:'failed'}}, '2026-10-06');
+  assert.deepEqual(failed.find(g => g.key === 'docs').failed, ['documents']);
+  assert.deepEqual(failed.find(g => g.key === 'shares').items.length, 2);
+  // A capped week is marked on its group.
+  const many = Object.assign([...hubMaterials().documents.items], {capped:true});
+  assert.equal(m.dayMaterials({...hubMaterials(), documents:{status:'ok', items:many}}, '2026-10-06').find(g => g.key === 'docs').capped, true);
+});
+
+test('hub groups: an empty group is folded unless it is loading, failed or has a range note', async () => {
+  const m = await mod;
+  const range = {doneDays:3, today:'2026-10-06'};
+  const fold = (materials, day) => m.dayMaterials(materials, day).filter(g => m.isFolded(g, day, range)).map(g => g.key);
+  assert.deepEqual(fold(hubMaterials(), '2026-10-06'), ['events', 'orgs', 'meetings']);
+  assert.deepEqual(fold({...hubMaterials(), meetings:{status:'failed'}, events:{status:'loading'}}, '2026-10-06'), ['orgs']);
+  // Before the covered days, 끝낸 할 일 keeps its box with the range note; after the server's range, 할 일 예정 does.
+  const old = m.dayMaterials(hubMaterials(), '2026-10-01').find(g => g.key === 'tasks');
+  assert.equal(m.rangeNote(old, '2026-10-01', range), 'Google 할 일은 최근 3일 안에 끝낸 것만 모여요.');
+  assert.equal(m.isFolded(old, '2026-10-01', range), false);
+  const later = m.dayMaterials(hubMaterials(), '2026-10-13').find(g => g.key === 'due');
+  assert.equal(m.rangeNote(later, '2026-10-13', range), '할 일 예정은 오늘부터 7일 안 마감만 모여요.');
+  assert.equal(m.isFolded(m.dayMaterials(hubMaterials(), '2026-10-12').find(g => g.key === 'due'), '2026-10-12', range), true);
+});
+
+test('weekly draft with the hub groups: day by day, groups in screen order, sections named, range and cap notes', async () => {
+  const m = await mod;
+  const text = m.weeklyDraft({start:'2026-10-05', lines:new Map([['2026-10-06', {raw_text:'한 줄'}]]), materials:hubMaterials(), doneDays:8, today:'2026-10-06'});
+  const rows = text.split('\n');
+  const tue = rows.indexOf('■ 10월 6일(화)'), wed = rows.indexOf('■ 10월 7일(수)');
+  assert.deepEqual(rows.slice(tue + 1, wed), ['한 줄: 한 줄', '- 끝낸 할 일: 끝낸 일',
+    '- 프로젝트 소식 · 가상 사업: 사업으로 보낸 메모', '- 프로젝트 소식 · 가상 사업: 진행 기록',
+    '- 할 일 예정: 가 예정', '- 할 일 예정: 나 예정',
+    '- 자료실 새 자료: [교섭] 교섭 요구안', '- 자료실 새 자료: [기타] 회의록.hwp · 회의자료',
+    '- 공유 페이지: 가상 안내 페이지 · 게시', '- 공유 페이지: 제목 없음 · 초안', '']);
+  assert.ok(rows.slice(wed).includes('- 할 일 예정: 다음 날 예정'));
+  assert.equal(rows.some(r => r.includes('조직 소식 · 미분류')), false);
+  // The week ends on 10/11, inside today + 6 (10/12): no pending note. The next week reaches past it.
+  assert.equal(rows.some(r => r.startsWith('※ 할 일 예정은')), false);
+  const next = m.weeklyDraft({start:'2026-10-12', lines:new Map(), materials:hubMaterials(), doneDays:8, today:'2026-10-06'});
+  assert.ok(next.includes('※ 할 일 예정은 Google 할 일에서 오늘부터 7일 안 마감(지난 마감 포함)만 모여요.'));
+  const many = Object.assign([...hubMaterials().documents.items], {capped:true});
+  const full = m.weeklyDraft({start:'2026-10-05', lines:new Map(), materials:{...hubMaterials(), documents:{status:'ok', items:many}}, doneDays:8, today:'2026-10-06'});
+  assert.ok(full.includes(`※ 자료실 새 자료은(는) 이 주에 ${m.WEEK_READ_CAP}개가 넘어 앞의 ${m.WEEK_READ_CAP}개만 모였어요.`));
+  const failed = m.weeklyDraft({start:'2026-10-05', lines:new Map(), materials:{...hubMaterials(), sharePages:{status:'failed'}}, doneDays:8, today:'2026-10-06'});
+  assert.ok(failed.includes('※ 공유 페이지은(는) 불러오지 못해 빠졌어요.'));
 });

@@ -29,10 +29,13 @@ for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키
     expect(await group.evaluate(e=>{const b=e.querySelector('[aria-checked=true]'),p=getComputedStyle(b,'::after');return [parseFloat(p.height),getComputedStyle(b).borderRadius,e.getBoundingClientRect().height]})).toEqual([44,'999px',44]);
   }
   await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('library'));
-  // UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents list with the rest and the [회의] category chip narrows to them.
-  await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.locator('.lu-row')).toHaveCount(7);
-  const category=page.locator('#libraryCategoryFilter');await category.locator('[data-filter-value="회의"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
-  await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();await category.locator('[data-filter-value="all"]').click();
+  // UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents list with the rest.
+  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글이고, 들어올 때는 [회의]만 꺼져 있다(회의 자료 1건 숨김).
+  await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.locator('.lu-row')).toHaveCount(6);
+  const category=page.locator('#libraryCategoryFilter');await expect(category).toHaveAttribute('role','group');
+  await expect(category.locator('[data-lu-category="회의"]')).toHaveAttribute('aria-pressed','false');await expect(page.locator('[data-lu-document="meeting-doc"]')).toHaveCount(0);
+  await category.locator('[data-lu-category="회의"]').click();await expect(page.locator('.lu-row')).toHaveCount(7);
+  await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
   const project=page.locator('#documentProject');
   await project.locator('[data-filter-value="top-a"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(project.locator('.filter-chips-small')).toBeVisible();await expect(project.locator('.filter-chips-small').getByRole('radio')).toHaveText(['전체(이 프로젝트)','국토부 대응','산자부 대응']);
@@ -40,11 +43,14 @@ for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키
   await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','32px');
   await project.locator('[data-filter-value="child-a1"]').click();await expect(page.locator('.lu-row')).toHaveCount(2);
   await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();
-  await category.locator('[data-filter-value="회의"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
+  // [정책]을 끄면 회의 자료만 남고, 검색 중 [회의]를 끄면 목록 아래 안내와 [켜기]가 나온다.
+  await category.locator('[data-lu-category="정책"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
   await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
   await page.locator('#documentSearch').fill('회의');await expect(page.locator('.lu-row')).toHaveCount(1);
-  await category.locator('[data-filter-value="정책"]').click();await expect(page.locator('.lu-row')).toHaveCount(0);
-  await category.locator('[data-filter-value="all"]').click();
+  await category.locator('[data-lu-category="회의"]').click();await expect(page.locator('.lu-row')).toHaveCount(0);
+  await expect(page.locator('.lu-off-hint')).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');
+  await page.locator('.lu-off-hint button').click();await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-off-hint')).toHaveCount(0);
+  await category.locator('[data-lu-category="all"]').click();await expect(category.locator('[aria-pressed="false"]')).toHaveCount(0);
   await page.locator('#documentSearch').fill('');await project.locator('[data-filter-value="all"]').click();await expect(project.locator('.filter-chips-small')).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(7);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
@@ -58,5 +64,8 @@ for(const timezoneId of ['Europe/Rome','Asia/Seoul','UTC'])test.describe(timezon
 test('프로젝트 자료 전체 보기는 하위 알약과 같은 필터 결과로 이동',async({page})=>{
   const s=chipState(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=projects');
   await page.locator('[data-ps3-project="child-a1"]').first().click();await expect(page.locator('#ps3DetailModal')).toBeVisible();await page.locator('[data-ps3-library]').click();
-  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.locator('#documentProject')).toHaveJSProperty('value','child-a1');await expect(page.locator('.lu-row')).toHaveCount(2);await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();expect(errors).toEqual([]);
+  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.locator('#documentProject')).toHaveJSProperty('value','child-a1');
+  // UI-PC자료실 C: 프로젝트에서 들어와도 자료실 기본 상태([회의] 꺼짐)로 시작한다. [회의]를 켜면 그 프로젝트의 회의 자료가 같이 보인다.
+  await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();
+  await page.locator('#libraryCategoryFilter [data-lu-category="회의"]').click();await expect(page.locator('.lu-row')).toHaveCount(2);await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();expect(errors).toEqual([]);
 });

@@ -2,7 +2,8 @@
    이번 주 날짜 숫자 줄(월~일, 한 줄 쓴 날 초록 점) → 고른 날의 "오늘 한 줄" 입력칸과 그 아래 저장한 줄 목록 → 그날 재료 목록. 폰·PC 같은 배치.
    UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다. 바깥 폭은 view-wide.css의 공용 규칙(.view-wide), 안쪽 제한(960px)은 없앴다.
    JOURNAL-일지카드정리: 아래 칸은 일정·끝낸 할 일·조직 소식(조직 이름별 묶음)·회의·행사 결과. PC 모양(제목·글자 크기, 상자 없는 점 목록,
-   [수정][삭제])은 맨 아래 PC 묶음에만 있고, 폰 모양은 그대로다. */
+   [수정][삭제])은 맨 아래 PC 묶음에만 있고, 폰 모양은 그대로다.
+   JOURNAL-주간보고허브 1단계: 그 뒤에 프로젝트 소식(프로젝트 이름별)·할 일 예정·자료실 새 자료·공유 페이지. PC는 2칸씩 줄. */
 #appView #journalView .journal{ display:flex; flex-direction:column; gap:10px; max-width:760px; }
 @media(min-width:1024px){
   #appView #journalView .journal{ max-width:none; }
@@ -71,6 +72,8 @@
 #appView #journalView .journal-muted{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-row); }
 #appView #journalView .journal-failed{ color:var(--kptu-danger); }
 @media(min-width:761px){ #appView #journalView .journal-materials{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; } }
+/* JOURNAL-주간보고허브 1단계: 빈 묶음은 상자 대신 맨 아래 한 줄("기록 없는 묶음: …"). 2칸 줄에서는 두 칸을 다 쓴다. */
+#appView #journalView .journal-empty{ grid-column:1/-1; padding-top:8px; border-top:var(--ds-line-width) solid var(--ds-line); }
 /* 줄마다 [수정][삭제]는 PC에서만(아래). 폰은 줄을 눌러 고친다. */
 #appView #journalView .journal-line-actions{ display:none; }
 /* JOURNAL-일지카드정리(PC ≥1024, 시안 확정): 아래 4칸은 2칸씩 두 줄(761px부터의 2열 그대로, 넓은 창 4칸 한 줄은 없앰).

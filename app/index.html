@@ -127,7 +127,7 @@
   </section>
 
   <section id="libraryView" class="view-panel hidden">
-    <div class="toolbar library-filter-toolbar"><label class="a11y-only" for="documentSearch">자료 검색</label><input id="documentSearch" class="search" type="search" placeholder="제목·출처·태그 검색"><div id="documentProject" role="group" aria-label="프로젝트 필터" aria-controls="documentList"></div><div id="libraryOrganizationFilter" aria-label="담당조직 필터" aria-controls="documentList" hidden></div><div id="libraryCategoryFilter" aria-label="자료 분류" aria-controls="documentList"></div></div>
+    <div class="toolbar library-filter-toolbar"><label class="a11y-only" for="documentSearch">자료 검색</label><input id="documentSearch" class="search" type="search" placeholder="제목·출처·태그 검색"><div id="documentProject" role="group" aria-label="프로젝트 필터" aria-controls="documentList"></div><div class="lu-filter-row" data-lu-filter-row="organization"><span class="lu-filter-label" aria-hidden="true">담당조직</span><div id="libraryOrganizationFilter" aria-label="담당조직 필터" aria-controls="documentList" hidden></div></div><div class="lu-filter-row" data-lu-filter-row="category"><span class="lu-filter-label" aria-hidden="true">종류</span><div id="libraryCategoryFilter" aria-label="자료 분류" aria-controls="documentList"></div></div></div>
     <section id="libraryListCard" class="add-list-card"><div class="add-list-head"><h2>자료실</h2><div class="lu-head-actions"><button id="manageLibraryBtn" class="secondary" type="button">분류 수정</button><button id="newDocumentBtn" class="primary" type="button" aria-label="자료 등록">+ 자료 등록</button></div></div><div id="documentList" class="card-list"></div></section>
   </section>
 
