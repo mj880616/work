@@ -18,6 +18,7 @@ import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
+import {requestTagsHtml, normalizeRequests} from './update-requests.js';
 
 (() => {
 if (window.KPTUJournal) return;
@@ -121,7 +122,8 @@ function count() {
   counter.textContent = `${n}/${WORK_LINE_MAX}자`;
   counter.classList.toggle('over', n > WORK_LINE_MAX || /[\r\n]/.test(input.value));
 }
-const itemList = texts => { const list = document.createElement('ul'); for (const text of texts) { const item = document.createElement('li'); item.textContent = text; list.append(item); } return list; };
+// JOURNAL-요청표시: a marked update's item starts with the same small tags as the basket list (update-requests.js).
+const itemList = (texts, tags = []) => { const list = document.createElement('ul'); texts.forEach((text, i) => { const item = document.createElement('li'); item.innerHTML = requestTagsHtml(tags[i], esc); item.append(text); if (normalizeRequests(tags[i]).length) item.dataset.journalRequests = normalizeRequests(tags[i]).join(' '); list.append(item); }); return list; };
 function renderMaterials() {
   const host = $('[data-journal-materials]');
   const groups = dayMaterials(materials, selected), range = {doneDays};
@@ -136,7 +138,7 @@ function renderMaterials() {
         const part = document.createElement('div');
         part.className = 'journal-org'; part.dataset.journalOrg = section.name;
         const name = document.createElement('p'); name.className = 'journal-org-name'; name.textContent = section.name;
-        part.append(name, itemList(section.items));
+        part.append(name, itemList(section.items, section.tags));
         box.append(part);
       }
     } else if (group.items.length) box.append(itemList(group.items));
