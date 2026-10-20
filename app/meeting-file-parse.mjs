@@ -98,6 +98,20 @@ export function matchKind(name,kinds){
   return list.find(n=>nameKey(n)===k)||list.find(n=>{const o=nameKey(n);return o.length>=2&&k.length>=2&&(o.includes(k)||k.includes(o))})||'';
 }
 
+// MEET-파일이름인식(2026-10-20): 파일 이름 속 회의 이름을 등록된 회의 종류와 맞출 때 띄어쓰기·기호·꼬리말("회의"·"결과" 등) 차이를 무시한다.
+// 비교용 글자만 남긴다: 글자·숫자 외 기호와 공백을 지우고, 회의결과·회의록·회의자료·회의·결과·자료 같은 말을 뺀다. 짧은 별칭·줄임말은 맞추지 않는다.
+const KIND_TAIL=/회의결과|회의록|회의자료|속기록|녹취록|결과보고|안건지|회의|결과|자료집|자료|안건|첨부|붙임|최종본|수정본|최종|수정|초안/g;
+export const kindKey=text=>String(text||'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'').replace(KIND_TAIL,'');
+// 파일 이름 → 후보가 되는 등록 종류들. 종류 이름(비교용)이 파일 이름(날짜·차수 뺀 비교용) 안에 들어 있으면 후보다(2자 이상).
+// 0개 = 새로 만들기·직접 고르기, 1개 = 자동 선택, 2개 이상 = 자동 선택하지 않고 고르게 한다.
+export function kindCandidates(fileName,kinds){
+  let rest=String(fileName||'').replace(/\.(hwpx?|pdf|docx?|txt)$/i,'');
+  const {match:dm}=parseDate(rest);if(dm)rest=rest.replace(dm,' ');
+  const {match:rm}=parseRound(rest);if(rm)rest=rest.replace(rm,' ');
+  const f=kindKey(rest);if(!f)return [];
+  return [...new Set((kinds||[]).map(k=>String(k||'').trim()).filter(Boolean))].filter(k=>{const o=kindKey(k);return o.length>=2&&f.includes(o)});
+}
+
 const effective=item=>{const o=item.override||{};return {date:o.date||item.key?.date||'',round:o.round||item.key?.round||null,name:o.name||item.key?.name||'',time:o.time||item.key?.time||''}};
 const full=k=>!!(k.name&&(k.round||k.date));
 const gkey=k=>nameKey(k.name)+(k.round?'#r'+k.round:'#d'+k.date);

@@ -188,3 +188,37 @@ test('browser-e2e reports on every main PR and decides from the change scope', (
     assert.doesNotMatch(workflow(name), /^    name: browser-e2e\s*$/m, name);
   }
 });
+
+// A tag push (for example basket-pc-v1.2.3) must start only the workflows meant for tags.
+// `on.push` without branches, tags or tags-ignore also fires for every tag, so it is not allowed.
+const pushBlock = source => {
+  const on = source.match(/^on:\n((?:[ \t]+.*\n|[ \t]*\n|[ \t]*#.*\n)*)/m);
+  if (!on) return null;
+  const push = on[1].match(/^  push:[ \t]*\n((?:    .*\n|[ \t]*\n)*)/m);
+  return push ? push[1] : null;
+};
+
+test('only the intended workflows start on a tag push', () => {
+  const TAG_WORKFLOWS = ['basket-pc-release.yml'];
+  const startsOnTag = [];
+  for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name)).sort()) {
+    const source = workflow(name);
+    assert.doesNotMatch(source, /^on:[ \t]*\[?[^\n]*\bpush\b/m, `${name}: use the block form of on.push`);
+    const push = pushBlock(source);
+    if (push === null) continue;
+    const hasTags = /^    tags:/m.test(push);
+    const ignoresTags = /^    tags-ignore:\n      - '\*\*'\n/m.test(push);
+    const hasBranches = /^    branches(:|-ignore:)/m.test(push);
+    // a push filter with branches (and no tags) never matches a tag push
+    if (hasTags || (!hasBranches && !ignoresTags)) startsOnTag.push(name);
+  }
+  assert.deepEqual(startsOnTag, TAG_WORKFLOWS);
+});
+
+test('workflows that ignore tag pushes still run on branch pushes', () => {
+  for (const name of ['authz-security-check.yml', 'build-android-app.yml', 'package-pyhwp.yml', 'runtime-recovery-e2e.yml']) {
+    const push = pushBlock(workflow(name));
+    assert.match(push, /^    tags-ignore:\n      - '\*\*'\n    paths:/m, name);
+    assert.doesNotMatch(push, /branches/, name);
+  }
+});

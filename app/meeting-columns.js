@@ -4,6 +4,8 @@
 export const PC_QUERY='(min-width:1024px)';
 export const COLUMN_RECENT=4;
 export const NONE_KEY='__none__';
+// UI-회의자료표시(2026-10-20): 회의에 붙은 자료가 있으면 개수 없이 이 문구만 보인다(PC 열 카드·폰 목록 공통). 없으면 표시 없음.
+export const MEETING_DOCS_LABEL='회의자료 있음';
 
 const time=m=>{const t=new Date(m?.meeting_at).getTime();return Number.isFinite(t)?t:-Infinity};
 const round=m=>{const n=Number(m?.round_no);return Number.isFinite(n)?n:-Infinity};
@@ -49,8 +51,8 @@ export function columnsHtml(columns,{hidden=new Set(),expanded=new Set(),colorOf
     const label=c.name||'회의명 미지정',open=expanded.has(c.key),list=open?c.meetings:c.meetings.slice(0,COLUMN_RECENT),rest=c.meetings.length-COLUMN_RECENT,headId=`mcolHead${i}`;
     const cards=list.map(m=>{
       const r=Number(m.round_no),roundText=Number.isFinite(r)&&m.round_no!=null&&m.round_no!==''?`${r}차`:'차수 없음',when=whenOf(m),docs=docsOf(m);
-      const aria=[label,roundText,when,docs?`자료 ${docs}`:''].filter(Boolean).join(' · ');
-      return `<li><article class="mcol-card" data-mrd-meeting="${esc(m.id)}" role="button" tabindex="0" aria-label="${esc(aria)}"><b class="mcol-round">${esc(roundText)}</b><span class="mcol-meta"><span class="mcol-when">${esc(when)}</span>${docs?`<span class="mcol-docs">자료 ${docs}</span>`:''}</span></article></li>`;
+      const aria=[label,roundText,when,docs?MEETING_DOCS_LABEL:''].filter(Boolean).join(' · ');
+      return `<li><article class="mcol-card" data-mrd-meeting="${esc(m.id)}" role="button" tabindex="0" aria-label="${esc(aria)}"><b class="mcol-round">${esc(roundText)}</b><span class="mcol-meta"><span class="mcol-when">${esc(when)}</span>${docs?`<span class="mcol-docs">${MEETING_DOCS_LABEL}</span>`:''}</span></article></li>`;
     }).join('');
     return `<section class="mcol" data-meeting-column="${esc(c.key)}" style="--meeting-color:${esc(colorOf(c.name))}" aria-labelledby="${headId}">`
       +`<h3 class="mcol-head" id="${headId}"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name">${esc(label)}</span><span class="mcol-count" aria-label="${c.meetings.length}건">${c.meetings.length}</span></h3>`

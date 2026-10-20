@@ -34,9 +34,9 @@ for(const width of [1280,1440])test(`PC ${width}: 회의 유형별 열, 최근 �
   await expect(rail.locator('.mcol-count')).toHaveText('6');
   // 색 점은 지금 목록과 같은 회의 색.
   expect(await rail.locator('.mcol-dot').evaluate(e=>getComputedStyle(e).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
-  // 최신 위, 최근 4건, 차수 / 날짜·시각 / 자료 N.
+  // 최신 위, 최근 4건, 차수 / 날짜·시각 / 회의자료 있음.
   await expect(rail.locator('.mcol-card .mcol-round')).toHaveText(['6차','5차','4차','3차']);
-  await expect(rail.locator('[data-mrd-meeting="rail-6"] .mcol-docs')).toHaveText('자료 2');
+  await expect(rail.locator('[data-mrd-meeting="rail-6"] .mcol-docs')).toHaveText('회의자료 있음');
   await expect(rail.locator('[data-mrd-meeting="rail-5"] .mcol-docs')).toHaveCount(0);
   await expect(page.locator('[data-mrd-meeting="labor-2"] .mcol-when')).toContainText('10. 12. 오후 02:30');
   const more=rail.locator('[data-meeting-more]');await expect(more).toHaveText('더 보기 2');await expect(more).toHaveAttribute('aria-expanded','false');
@@ -135,5 +135,7 @@ test('폰 390: 지금 한 줄 목록 그대로(열 없음)',async({page})=>{
   await expect(page.locator('#meetingList .mcol')).toHaveCount(0);await expect(page.locator('#meetingColumnPicker')).toBeHidden();
   await expect(page.locator('#meetingTypeFilter')).toBeVisible();
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(s.meetings.length);
-  await expect(page.locator('[data-mrd-meeting="rail-6"] p')).toContainText('자료 2개');
+  await expect(page.locator('[data-mrd-meeting="rail-6"] p')).toContainText('회의자료 있음');
+  await expect(page.locator('[data-mrd-meeting="rail-6"] p')).not.toContainText('2개');
+  await expect(page.locator('[data-mrd-meeting="rail-5"] p')).not.toContainText('회의자료');
 });
