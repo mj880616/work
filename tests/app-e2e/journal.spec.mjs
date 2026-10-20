@@ -23,8 +23,8 @@ function validWork(row,oneLine){
  const lines=row.raw_text.split('\n');
  return lines.length<=50&&lines.every(l=>l.trim()&&[...l].length<=300);
 }
-async function fixture(page,{width=390,height=900,fail={},oneLine=false}={}){
- const rows=store(),writes=[],reads=[],errors=[];
+async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old'}={}){
+ const rows=store(),writes=[],reads=[],errors=[],taskCalls=[];
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width,height});
@@ -86,12 +86,23 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false}={}){
   const a=new URL(r.request().url()).searchParams.get('action');
   if(a!=='tasks')return r.fallback();
   if(!sources.tasks)return r.fulfill({status:500,json:{error:'QA failure'}});
-  return r.fulfill({json:{tasks:[
+  const asked=new URL(r.request().url()).searchParams.get('completed_days');taskCalls.push(asked);
+  const base=[
    {id:'t-done',title:'보도자료 배포',status:'completed',completed:'2026-10-06T00:10:00Z',taskListId:'@default'},
    {id:'t-open',title:'남은 할 일',status:'needsAction',due:'2026-10-07',taskListId:'@default'},
-  ],needs_reconnect:false}});
+  ];
+  // doneServer 'old' = the Edge before JOURNAL-끝낸할일범위: ignores completed_days, answers the last 3 days, no echo.
+  if(doneServer!=='new')return r.fulfill({json:{tasks:base,needs_reconnect:false}});
+  // 'new' = the widened Edge: the last completed_days days from 2026-10-06 10:00 KST (01:00Z), capped at 8, echoed back.
+  const days=Math.min(Number(asked)||3,8),since=Date.parse('2026-10-06T01:00:00Z')-days*86400000;
+  const more=[
+   {id:'t-prev',title:'지난주 수요일에 끝냄',status:'completed',completed:'2026-09-30T05:00:00Z',taskListId:'@default'},
+   {id:'t-sunday',title:'지난 일요일에 끝냄',status:'completed',completed:'2026-10-04T05:00:00Z',taskListId:'@default'},
+   {id:'t-too-old',title:'너무 오래전',status:'completed',completed:'2026-09-26T05:00:00Z',taskListId:'@default'},
+  ];
+  return r.fulfill({json:{tasks:[...base,...more].filter(t=>t.status!=='completed'||Date.parse(t.completed)>=since),needs_reconnect:false,completed_days:days}});
  });
- return {rows,writes,reads,errors,heal:key=>{sources[key]=true;delete fail[key];}};
+ return {rows,writes,reads,errors,taskCalls,heal:key=>{sources[key]=true;delete fail[key];}};
 }
 async function openJournal(page,width){
  if(width<=760){
@@ -431,4 +442,57 @@ test('폰 업무일지: 폭·1열 그대로 390',async({page})=>{
  const j=await journalBox(page);
  expect(j.doc).toBeLessThanOrEqual(j.vw);expect(j.cols).toBe(1);expect(j.rows).toBe(4);expect(Math.abs(j.root-j.panel)).toBeLessThan(2);
  expect(f.errors).toEqual([]);
+});
+
+test('[업무일지] 끝낸 할 일 범위: 넓어진 서버면 지난주 날짜(8일 안)에도 끝낸 할 일이 보이고 안내 문구가 없다',async({page})=>{
+ const f=await fixture(page,{width:390,doneServer:'new'});await openJournal(page,390);
+ // 한 번만 읽고, 최대 8일을 요청한다.
+ await expect(group(page,'tasks').locator('li')).toHaveText(['보도자료 배포']);
+ expect(f.taskCalls).toEqual(['8']);
+ // 일요일(10/4)에 끝낸 할 일은 이전 주에서, 수요일(9/30)에 끝낸 것은 9/30을 고르면 보인다.
+ await page.locator('#journalRoot [data-journal-prev]').click();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('9월 28일 ~ 10월 4일');
+ await date(page,'2026-09-30').click();
+ await expect(group(page,'tasks').locator('li')).toHaveText(['지난주 수요일에 끝냄']);
+ await date(page,'2026-10-04').click();
+ await expect(group(page,'tasks').locator('li')).toHaveText(['지난 일요일에 끝냄']);
+ await expect(page.locator('#journalRoot .journal-muted',{hasText:'안에 끝낸 것만'})).toHaveCount(0);
+ // 8일보다 앞(9/26)은 서버가 주지 않으므로 이 날만 안내가 나온다.
+ await date(page,'2026-09-28').click();
+ await expect(group(page,'tasks')).toContainText('최근 8일 안에 끝낸 것만 모여요.');
+ expect(f.taskCalls).toEqual(['8']);
+ expect(f.errors).toEqual([]);
+});
+
+test('[업무일지] 끝낸 할 일 범위: 옛 서버(기간을 무시하고 3일만 답함)면 지금처럼 3일 + 안내, 깨지지 않는다',async({page})=>{
+ const f=await fixture(page,{width:390,doneServer:'old'});await openJournal(page,390);
+ await expect(group(page,'tasks').locator('li')).toHaveText(['보도자료 배포']);
+ expect(f.taskCalls).toEqual(['8']);
+ await page.locator('#journalRoot [data-journal-prev]').click();
+ await date(page,'2026-09-30').click();
+ await expect(group(page,'tasks').locator('li')).toHaveCount(0);
+ await expect(group(page,'tasks')).toContainText('최근 3일 안에 끝낸 것만 모여요.');
+ expect(f.errors).toEqual([]);
+});
+
+test('[주간보고 초안 복사] 끝낸 할 일: 넓어진 서버면 지난주 전체가 들어가고 3일 안내는 없다, 옛 서버면 안내가 붙는다',async({page})=>{
+ const f=await fixture(page,{width:1280,doneServer:'new'});
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,1280);
+ await expect(group(page,'tasks').locator('li')).toHaveCount(1);
+ await page.locator('#journalRoot [data-journal-prev]').click();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('9월 28일 ~ 10월 4일');
+ await page.locator('#journalRoot [data-journal-copy]').click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
+ const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
+ expect(lines).toContain('- 끝낸 할 일: 지난주 수요일에 끝냄');
+ expect(lines).toContain('- 끝낸 할 일: 지난 일요일에 끝냄');
+ // 이 주의 월요일(9/28)은 8일 창(9/29~)보다 앞이라 안내가 붙는다.
+ expect(lines.some(l=>l.startsWith('※ 끝낸 할 일은 Google 할 일에서 최근 8일'))).toBe(true);
+ // 이번 주는 한 주 전체가 창 안이라 안내가 없다.
+ await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
+ await page.locator('#journalRoot [data-journal-copy]').click();
+ const now=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
+ expect(now.some(l=>l.startsWith('※ 끝낸 할 일은'))).toBe(false);
 });
