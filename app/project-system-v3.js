@@ -2,7 +2,7 @@ import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,
 import {bindDateTimeFields} from './time-input.js';
 import { dayKey, ranges } from './home-read-model.js';
 import { createAnchoredMenu } from './anchored-menu.js';
-import {readRecordPages,readLinkRecords} from './basket-link-records.js';
+import {readRecordPages,readLinkRecords,noteExcerpt} from './basket-link-records.js';
 import {categoryTag,loadDocumentCategories} from './document-categories.js';
 import {disconnectWithUndo} from './basket-record-delete.js';
 import {requestBasketNote,basketNoteHref} from './basket-note-tasks.js';
@@ -283,7 +283,7 @@ const recordButton=(id,date,text)=>`<button type="button" class="ps3-rec-line" d
 function progressRecord(u){const from=recordFrom(u);return recordButton(u.id,u.effective_on,`${from?`<span class="ps3-rec-from">${esc(from)}</span> `:''}<span class="ps3-rec-summary">${esc(u.summary||'')}</span>${u.next_step?` <span class="ps3-rec-next">다음: ${esc(u.next_step)}</span>`:''}`)}
 function itemRecord(w){return recordButton(w.id,keyOf(w.created_at),esc(w.title||''))}
 // BUG-바구니연결해제: tapping a 🧺 line opens the original note; its ⋯ holds [메모 열기]·[연결 해제] only (no summary edit or note delete here).
-function basketRecord(b){const text=b.summary??[...String(b.raw_text||'')].slice(0,120).join('');return `<div class="ps3-rec ps3-rec-basket" data-basket-link="${esc(b.id)}"><a class="ps3-rec-line" href="${esc(basketNoteHref(b.note_id))}" data-ps3-basket-note="${esc(b.note_id)}"><time>${esc(day(keyOf(b.occurred_at)))}</time><span class="ps3-rec-text"><span class="ps3-rec-mark" role="img" aria-label="바구니 업데이트">🧺</span> ${esc(text||'요약 없음')}</span></a><button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span aria-hidden="true">⋯</span></button></div>`}
+function basketRecord(b){const text=b.summary??noteExcerpt(b.raw_text);return `<div class="ps3-rec ps3-rec-basket" data-basket-link="${esc(b.id)}"><a class="ps3-rec-line" href="${esc(basketNoteHref(b.note_id))}" data-ps3-basket-note="${esc(b.note_id)}"><time>${esc(day(keyOf(b.occurred_at)))}</time><span class="ps3-rec-text"><span class="ps3-rec-mark" role="img" aria-label="바구니 업데이트">🧺</span> ${esc(text||'요약 없음')}</span></a><button type="button" class="ps3-rec-more" data-ps3-record-menu="basket:${esc(b.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><span aria-hidden="true">⋯</span></button></div>`}
 function recordItems(d){const used=new Set(d.progress.map(u=>u.workstream_id));return [
   ...d.progress.map(u=>({key:u.effective_on||'',at:Date.parse(u.created_at)||0,html:`<div class="ps3-rec" data-ps3-record="${esc(u.id)}">${progressRecord(u)}</div>`})),
   ...d.workstreams.filter(w=>!used.has(w.id)).map(w=>({key:keyOf(w.created_at),at:Date.parse(w.created_at)||0,html:`<div class="ps3-rec" data-ps3-record="${esc(w.id)}" data-ps3-record-kind="item">${itemRecord(w)}</div>`})),

@@ -212,7 +212,7 @@ test('an already filed memo (no record link) is not 미분류 on load, and follo
  expect(f.errors).toEqual([]);
 });
 
-test('[기록도 남기기] adds a required summary and also records the memo',async({page})=>{
+test('[기록도 남기기] adds an optional summary and also records the memo',async({page})=>{
  const f=await fixture(page,{width:1280}),detail=await openNote(page,ONLY,1280);
  await detail.getByRole('button',{name:'연결하기'}).click();await pick(page,detail,'project','합성 임단협',1280);
  const target=detail.locator(`[data-manual-target="project:${P}"]`);
@@ -220,8 +220,7 @@ test('[기록도 남기기] adds a required summary and also records the memo',a
  await expect(target.getByRole('button',{name:'기록도 남기기'})).toHaveAttribute('aria-pressed','true');
  await expect(target.locator('textarea')).toBeFocused();
  await expect(detail.getByRole('button',{name:'연결',exact:true})).toBeVisible();
- await detail.getByRole('button',{name:'연결',exact:true}).click();
- await expect(detail.locator('[data-manual-status]')).toContainText('요약');expect(f.rpc).toEqual([]);expect(f.calls('app_documents','PATCH')).toEqual([]);
+ // BASKET-연결요약선택: the summary is optional, so nothing is refused for a blank box; the written one is sent.
  await target.locator('textarea').fill('10/6 요구안 최종본 공유');
  await detail.getByRole('button',{name:'연결',exact:true}).click();
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요. 파일 2개를 합성 임단협 자료로 넣었어요.');

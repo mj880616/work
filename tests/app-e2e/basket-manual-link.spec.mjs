@@ -31,7 +31,7 @@ async function fixture(page,{linked=[]}={}){
   const body=route.request().postDataJSON();calls.push(body);
   if(rpc.next){const reply=rpc.next;rpc.next=null;if(reply.error==='NOTE_CHANGED')note.updated_at=changedStamp;return route.fulfill({json:reply});}
   if(body.p_note_updated_at!==note.updated_at)return route.fulfill({json:{ok:false,error:'NOTE_CHANGED',created:0,existing:0}});
-  for(const target of body.p_targets)links.push({id:'40000000-0000-4000-8000-'+String(links.length+1).padStart(12,'0'),workspace_id:'w',note_id:n,status:'confirmed',summary:target.summary,[target.kind==='project'?'project_id':'organization_id']:target.target_id});
+  for(const target of body.p_targets)links.push({id:'40000000-0000-4000-8000-'+String(links.length+1).padStart(12,'0'),workspace_id:'w',note_id:n,status:'confirmed',summary:target.summary??null,[target.kind==='project'?'project_id':'organization_id']:target.target_id});
   return route.fulfill({json:{ok:true,created:body.p_targets.length,existing:0}});
  });
  const google={fail:0};
@@ -99,12 +99,40 @@ test('an already linked place is shown as linked and cannot be chosen again; a r
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o2,reason:'직접 연결',summary:'새벽지부 요약'}]);expect(f.errors).toEqual([]);
 });
 
-test('an empty summary or no pick never calls the database',async({page})=>{
+test('no pick never calls the database',async({page})=>{
  const f=await fixture(page),detail=await openNote(page,1280);await detail.getByRole('button',{name:'연결하기'}).click();
  await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-manual-status]')).toHaveText('연결할 담당조직이나 프로젝트를 골라 주세요.');
- await pick(page,detail,'organization','합성 한빛지부',1280);await summary(detail,o,'organization').fill('   ');
- await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-manual-status]')).toHaveText('합성 한빛지부: 기록 요약을 입력해 주세요.');
- await expect(summary(detail,o,'organization')).toBeFocused();expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
+ expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+test('a summary over 2,000 characters never calls the database',async({page})=>{
+ const f=await fixture(page),detail=await openNote(page,1280);await detail.getByRole('button',{name:'연결하기'}).click();
+ await pick(page,detail,'organization','합성 한빛지부',1280);await summary(detail,o,'organization').evaluate((el,v)=>{el.removeAttribute('maxlength');el.value=v;el.dispatchEvent(new Event('input',{bubbles:true}));},'가'.repeat(2001));
+ await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-manual-status]')).toHaveText('합성 한빛지부: 기록 요약은 2,000자까지 쓸 수 있어요.');
+ expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+for(const [kind,name,id] of [['organization','합성 한빛지부',o],['project','합성 기자회견 준비',p]])test(`a blank summary still links the ${kind} and the record shows the update body`,async({page})=>{
+ const f=await fixture(page),detail=await openNote(page,1280);await detail.getByRole('button',{name:'연결하기'}).click();
+ await pick(page,detail,kind,name,1280);const box=summary(detail,id,kind);await expect(box).toHaveValue('');await expect(detail.locator('.basket-manual-summary')).toContainText('선택');
+ await box.fill('  \n ');
+ await detail.getByRole('button',{name:'연결',exact:true}).click();
+ await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요.');
+ expect(f.calls).toEqual([{p_note_id:n,p_note_updated_at:stamp,p_targets:[{kind,target_id:id,reason:'직접 연결'}]}]);
+ expect(f.links.at(-1).summary).toBeNull();
+ if(kind==='organization'){
+  await page.evaluate(async i=>{await window.KPTUViewLoader.load('team');await window.KPTUWorkplace.open(i);},id);await expect(page.locator('#wdModal')).toBeVisible();
+  await expect(page.locator('#wdUpdates [data-link-summary-text]')).toHaveText('10/20 기자회견 준비 회의 장소: 본사 앞 참석 30명');await expect(page.locator('#wdUpdates')).not.toContainText('요약 없음');
+ }
+ expect(f.errors).toEqual([]);
+});
+
+test('two destinations: the written summary is sent, the blank one is left out',async({page})=>{
+ const f=await fixture(page),detail=await openNote(page,1280);await detail.getByRole('button',{name:'연결하기'}).click();
+ await pick(page,detail,'organization','합성 한빛지부',1280);await pick(page,detail,'project','합성 기자회견 준비',1280);
+ await summary(detail,o,'organization').fill('조직 요약');
+ await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-basket-status]')).toHaveText('2곳에 연결했어요.');
+ expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o,reason:'직접 연결',summary:'조직 요약'},{kind:'project',target_id:p,reason:'직접 연결'}]);expect(f.errors).toEqual([]);
 });
 
 test('a note changed meanwhile is reloaded with the picks and summaries kept, then linked with the new version',async({page})=>{

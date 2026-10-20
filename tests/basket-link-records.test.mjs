@@ -59,3 +59,14 @@ test('organization date projection shares confirmed owner/workspace checks witho
  assert.equal(result.length,1);assert.equal(result[0].occurred_at,row.note.occurred_at);assert.equal(Object.hasOwn(result[0],'raw_text'),false);assert.equal(Object.hasOwn(result[0],'summary'),false);
  const q=new URL(calls[0],'http://fixture').searchParams;assert.doesNotMatch(q.get('select'),/raw_text|summary/);assert.equal(q.get('workspace_id'),'eq.workspace');assert.equal(q.get('note.workspace_id'),'eq.workspace');assert.equal(q.get('status'),'eq.confirmed');assert.equal(q.get('note_id'),'not.is.null');
 });
+test('a note without a written summary shows its opening text: whitespace collapsed, 120 characters, ellipsis only when cut',async()=>{
+  const {noteExcerpt,isBlankLinkSummary,linkRecordHtml}=await import('../app/basket-link-records.js');
+  assert.equal(noteExcerpt('10/20 기자회견\n장소: 본사 앞\n\n참석 30명'),'10/20 기자회견 장소: 본사 앞 참석 30명');
+  assert.equal(noteExcerpt('가'.repeat(120)),'가'.repeat(120));
+  assert.equal(noteExcerpt('가'.repeat(121)),'가'.repeat(120)+'…');
+  assert.equal(noteExcerpt(null),'');
+  assert.equal(isBlankLinkSummary(' \n'),true);assert.equal(isBlankLinkSummary(null),true);assert.equal(isBlankLinkSummary('글'),false);
+  const html=linkRecordHtml({id:'l',note_id:'n',organization_id:'o',project_id:null,occurred_at:'2026-10-20T01:00:00Z',summary:null,raw_text:'<b>본문</b> 앞부분'});
+  assert.match(html,/data-link-summary-text>&lt;b&gt;본문&lt;\/b&gt; 앞부분<\/p>/);
+  assert.doesNotMatch(html,/요약 없음/);
+});
