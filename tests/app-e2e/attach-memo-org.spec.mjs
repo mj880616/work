@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -229,7 +230,9 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`organiz
  await expect(page.locator('#libraryView')).toBeVisible();
  const orgChips=page.locator('#libraryOrganizationFilter');
  await expect(orgChips.getByRole('radio')).toHaveText(['전체','합성 한빛지부']);await expect(orgChips.getByRole('radio',{name:'합성 한빛지부'})).toHaveAttribute('aria-checked','true');
- await expect(page.locator('#libraryCategoryFilter').getByRole('radio')).toHaveText(['전체',...DEFAULT]);
+ // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글. 담당조직에서 들어오면 모든 분류가 켜진 채로 보인다.
+ await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT]);
+ await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);
  await expect(page.locator('#documentList > *')).toHaveText([/^2026년 10월$/,/합성 공문/,/합성 교섭 일정/,/합성 집회 계획/,/^2026년 9월$/,/합성 교육 안내/,/합성 요구안/,/합성 국토부 지침/]);
  await expect(page.locator('#documentList')).not.toContainText('다른 조직 자료');
  await expect(page.locator('#documentSearch')).toHaveValue('');
@@ -239,9 +242,9 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`organiz
  expect(await noWideScroll(page)).toBe(true);
  await capture(page,info,`library-org-${width}-${scheme}`);
  const chips=page.locator('#libraryCategoryFilter');
- await chips.getByRole('radio',{name:'교섭'}).click();await expect(page.locator('.lu-row')).toHaveCount(2);
- await chips.getByRole('radio',{name:'정책'}).click();await expect(page.locator('.lu-row')).toHaveText([/합성 국토부 지침/]);
- await chips.getByRole('radio',{name:'전체'}).click();await expect(page.locator('.lu-row')).toHaveCount(6);
+ await onlyLibraryCategories(page,['교섭']);await expect(page.locator('.lu-row')).toHaveCount(2);
+ await onlyLibraryCategories(page,['정책']);await expect(page.locator('.lu-row')).toHaveText([/합성 국토부 지침/]);
+ await chips.getByRole('button',{name:'전체'}).click();await expect(chips.locator('[aria-pressed="false"]')).toHaveCount(0);await expect(page.locator('.lu-row')).toHaveCount(6);
  // [전체] on the organization row lifts the filter: every document of the workspace shows.
  await orgChips.getByRole('radio',{name:'전체'}).click();
  await expect(orgChips).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(f.tables.app_documents.length);
@@ -321,7 +324,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  await expect(editor.locator('.dce-status')).toHaveText('‘홍보’ 분류를 추가했어요.');
  await expect(names(editor)).toHaveText([...DEFAULT,'홍보']);
  expect(f.server.rpc.at(-1)).toEqual({name:'app_document_category_add',body:{p_name:'홍보'}});
- await expect(page.locator('#libraryCategoryFilter').getByRole('radio')).toHaveText(['전체',...DEFAULT,'홍보']);
+ await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT,'홍보']);
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류',...DEFAULT,'홍보']);
  // Rename: the screen tells that this category's documents get the new name; the old stored values go along.
  await editor.getByRole('button',{name:'정책 이름 바꾸기'}).click();
@@ -346,10 +349,10 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`categor
  expect(f.tables.app_documents.find(d=>d.id==='e5').category).toBe('기타');
  // The library behind the window follows: 기타 now holds the deleted category's document and the field record.
  await tap(page,modal.locator('#libraryManageClose'),width);
- await expect(page.locator('#libraryCategoryFilter').getByRole('radio')).toHaveText(['전체','교섭','교육','선전','정책·법령','회의','기타','홍보']);
- await page.locator('#libraryCategoryFilter').getByRole('radio',{name:'기타'}).click();
+ await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체','교섭','교육','선전','정책·법령','회의','기타','홍보']);
+ await onlyLibraryCategories(page,['기타']);
  await expect(page.locator('.lu-row-title')).toHaveText(['합성 집회','합성 현장 기록']);
- await page.locator('#libraryCategoryFilter').getByRole('radio',{name:'정책·법령'}).click();
+ await onlyLibraryCategories(page,['정책·법령']);
  await expect(page.locator('.lu-row')).toHaveCount(3);
  // Only the three category functions were called; documents were never written by hand.
  expect(f.server.rpc.map(c=>c.name)).toEqual(['app_document_category_add','app_document_category_rename','app_document_category_delete']);
@@ -414,7 +417,7 @@ test('a changed list is the list every screen uses: upload form, edit form, proj
  const docs=editorDocs();docs.find(d=>d.id==='e1').project_id=P;
  const f=await fixture(page,{width:1280,docs,categories:['교섭','투쟁','교육','선전','정책','홍보','회의','기타']});
  await clickView(page,'library');
- await expect(page.locator('#libraryCategoryFilter').getByRole('radio')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','홍보','회의','기타']);
+ await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','홍보','회의','기타']);
  await page.locator('#newDocumentBtn').click();
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류','교섭','투쟁','교육','선전','정책','홍보','회의','기타']);
  await page.locator('[data-close="documentModal"]').click();

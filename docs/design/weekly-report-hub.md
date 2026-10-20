@@ -59,15 +59,23 @@
 
 ### 1.1 지금 업무일지에 모이는 것 (사실, `app/journal-data.js`)
 
-| 묶음 | 읽는 곳 | 그날로 보는 기준 | 비고 |
+이 표는 기획 당시(`fbf0eaa`)가 아니라 #822(JOURNAL-일지카드정리, merge `ddad13c`)와 이 문서 4절 1단계(JOURNAL-주간보고허브 1단계) 뒤의 모습이다. 기획 당시 있던 '바구니 업데이트'·'고친 노트'(`readChangedNotes`, kind=note) 칸은 #822에서 없어졌다. 바구니 업데이트는 조직 소식·프로젝트 소식 안으로 들어갔고, 노트는 더 읽지 않는다.
+
+| 묶음(화면 순서) | 읽는 곳 | 그날로 보는 기준 | 비고 |
 | --- | --- | --- | --- |
 | 오늘 한 줄(여러 줄) | `app_notes` kind=work, `readWorkWeek` | `journal_day` | 유일하게 저장하는 것. 하루 50줄·줄마다 300자 |
 | 일정 | Edge `google-calendar` action=events, `readWeekEvents` | 일정 시작 시각(서울), 종일 일정은 기간 | 주 단위로 읽음 |
-| 끝낸 할 일 | Edge `google-tasks` action=tasks, `readDoneTasks` | 완료 시각 | **서버가 최근 3일만 줌**(`RECENT_COMPLETED_MS`) → JOURNAL-끝낸할일범위 |
-| 바구니 업데이트 | `readBasket`(`app/basket-data.js`, kind=basket) | `occurred_at` | 바구니 전체를 읽고 화면이 날짜로 거름 |
-| 고친 노트 | `app_notes` kind=note, `readChangedNotes` | `updated_at` | 제목만 |
+| 끝낸 할 일 | Edge `google-tasks` action=tasks, `readDoneTasksWindow` | 완료 시각 | 최대 8일 요청. 옛 서버는 3일만 줌 → JOURNAL-끝낸할일범위(Edge 배포는 그 행) |
+| 조직 소식 | `readBasket`(조직으로 확정 연결·[자료로 넣기]한 바구니 업데이트, 아무 데도 안 보낸 것은 '미분류') + `app_suborganization_updates`(`readOrgUpdates`) | `occurred_at` | 조직 이름별. 업데이트 하나는 첫 줄 한 항목 |
+| 회의·행사 결과 | `app_meetings`(`readWeekMeetings`, 이름·회차·날짜만) | `meeting_at` | 회의 결과 글은 읽지 않음 |
+| 프로젝트 소식(1단계) | `app_project_progress_updates`(`readProjectUpdates`) + 프로젝트로만 보낸 바구니 업데이트 | `effective_on`, 바구니는 `occurred_at` | 프로젝트 이름별. #822에서는 조직 소식 '미분류'에 "프로젝트명 · 내용"으로 있었음 |
+| 할 일 예정(1단계) | 끝낸 할 일과 같은 Edge 응답의 미완료 할 일 | 마감일(`due`) | 서버 기본 범위 그대로: 지난 마감 + 오늘부터 7일 안. 마감 없는 할 일은 안 옴 |
+| 자료실 새 자료(1단계) | `app_documents`(`readWeekDocuments`, 제목·파일 이름·분류·회의 연결만) | `created_at`(올린 날) | 분류는 자료실 분류 이름으로 표시, 회의에 붙은 자료는 "회의자료" |
+| 공유 페이지(1단계) | `app_share_pages`(`readWeekSharePages`, 제목·상태만) | `updated_at`(고친 날) | 블록 본문은 읽지 않음 |
 
-[주간보고 초안 복사](`weeklyDraft`)는 이 다섯 묶음을 날짜순 글로 복사한다. 사업영역·조직 구분은 없다.
+읽기 부담: 모두 서울 시간 월~일 한 주로 자르고, 필요한 칸만 고르며, 자료실·공유 페이지는 한 주 300개까지(넘으면 그 묶음과 초안에 안내). 빈 묶음은 상자 대신 맨 아래 "기록 없는 묶음: …" 한 줄로 접고, 못 읽은 묶음은 그 상자에서 따로 [다시 시도]한다.
+
+[주간보고 초안 복사](`weeklyDraft`)는 날짜별(월~일)로 그날 한 줄 → 위 묶음을 화면 순서대로 글로 복사한다. 사업영역·조직 구분 정리는 2단계([주간 정리] 탭) 몫이다.
 
 ### 1.2 모일 수 있는데 안 모이는 것
 
