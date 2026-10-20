@@ -80,9 +80,11 @@ function syncMidNavigation(){
       return;
     }
     midActive=false;
-    homes.forEach((anchor,button)=>anchor.after(button));
+    // UI-PC일정묶음: 할 일·업무일지·일기 live in the PC sidebar's [일정] sub menu; back home they are sub rows again.
+    homes.forEach((anchor,button)=>{anchor.after(button);if(button.classList.contains('nav-sub-btn'))button.classList.remove('nav-btn')});
     phoneOnly.forEach(button=>button.hidden=false);
     mobileTrigger.classList.remove('nav-btn','mid-menu-trigger','active');mobileTrigger.removeAttribute('aria-current');
+    window.KPTURouter?.syncNavigation?.();
     if(homes.has(focus)){
       const target=mobileOpen&&menuQuery.matches?closeControl()
         :focus.getClientRects().length?focus:mobileQuery.matches?menuButton():pcFocusTarget();

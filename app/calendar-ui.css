@@ -90,7 +90,6 @@
 
 
 @media(min-width:1024px){
-  main:has(#calendarView:not(.hidden)){max-width:1920px;padding-left:clamp(24px,2.2vw,42px);padding-right:clamp(24px,2.2vw,42px)}
   #calendarView .calendar-toolbar{max-width:none;min-height:44px;gap:10px;margin:0 0 10px}
   #calendarView .calendar-toolbar #monthTitle{font-size:clamp(20px,1.3vw,24px);min-width:150px}
   #calendarView #prevMonthBtn,#calendarView #nextMonthBtn{width:38px;height:38px;min-width:38px;padding:0;font-size:24px;line-height:1}

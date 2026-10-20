@@ -126,17 +126,17 @@ async function photoFiles(page,n,{w=3000,h=1500}={}){
  const out=[];for(let i=0;i<n;i++)out.push({name:`IMG_${i+1}.png`,mimeType:'image/png',buffer:await pngFor(page,['#e85','#5a8','#58e'][i%3],w,h)});return out;
 }
 
-test('[일정] 머리줄 [달력|할 일|일지|일기]: 높이 32·고른 쪽 회색, [일지] 업무일지 화면, 탭은 마지막으로 본 쪽',async({page})=>{
+test('[일정] 머리줄 [달력|할 일|업무일지|일기]: 높이 32·고른 쪽 회색, [업무일지] 화면, 탭은 마지막으로 본 쪽',async({page})=>{
  const f=await fixture(page);
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  const sw=page.locator('#calendarView .schedule-switch');
- await expect(sw).toBeVisible();await expect(sw.locator('button')).toHaveText(['달력','할 일','일지','일기']);
+ await expect(sw).toBeVisible();await expect(sw.locator('button')).toHaveText(['달력','할 일','업무일지','일기']);
  // UI-버튼작게 ③: 폰은 아래 탭 바로 위 한 줄.
  const box=await sw.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
  expect(Math.round(box.height)).toBe(32);expect(Math.round(tabs.y-(box.y+box.height))).toBe(6);expect(box.x+box.width).toBeLessThanOrEqual(390);
  await sw.locator('[data-view="journal"]').click();
  await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#journalRoot [data-journal-input]')).toBeVisible();await expect(page.locator('#journalView')).not.toContainText('준비 중');
- const pressed=page.locator('#journalView .schedule-switch [aria-pressed="true"]');await expect(pressed).toHaveText('일지');
+ const pressed=page.locator('#journalView .schedule-switch [aria-pressed="true"]');await expect(pressed).toHaveText('업무일지');
  expect(await pressed.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-other-soft)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
  await page.locator('#journalView .schedule-switch [data-view="diary"]').click();await expect(page.locator('#diaryView')).toBeVisible();
  await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();

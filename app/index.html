@@ -51,10 +51,8 @@
     <button class="nav-btn" data-view="basket" type="button">바구니</button>
     <div class="nav-sub" role="group" aria-label="바구니"><button class="nav-sub-btn" data-basket-kind-nav="memo" type="button">업데이트</button><button class="nav-sub-btn" data-basket-kind-nav="note" type="button">노트</button></div>
     <button class="nav-btn nav-write" data-menu-write type="button">쓰기</button>
-    <button class="nav-btn" data-view="calendar" type="button">일정</button>
-    <button class="nav-btn" data-view="tasks" type="button">할 일</button>
-    <button class="nav-btn" data-view="journal" type="button">일지</button>
-    <button class="nav-btn" data-view="diary" type="button">일기</button>
+    <button class="nav-btn" data-view="calendar" data-nav-group="calendar tasks journal diary" type="button">일정</button>
+    <div class="nav-sub" role="group" aria-label="일정"><button class="nav-sub-btn" data-goto="calendar" type="button">달력</button><button class="nav-sub-btn" data-view="tasks" type="button">할 일</button><button class="nav-sub-btn" data-view="journal" type="button">업무일지</button><button class="nav-sub-btn" data-view="diary" type="button">일기</button></div>
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
     <button class="nav-btn" data-view="library" type="button">자료실</button>
     <button class="nav-btn" data-view="meetings" type="button">회의</button>
@@ -97,8 +95,8 @@
     <section class="add-list-card hwp-lab"><div class="hwp-lab-head"><h2 id="hwpLabTitle">HWP 편집</h2><div class="hwp-lab-actions hwp-file-actions"><button id="hwpLabPick" class="secondary" type="button">파일 선택</button><input id="hwpLabFile" class="a11y-only" type="file" tabindex="-1" aria-hidden="true"><button id="hwpLabSave" class="primary" type="button" disabled>내 기기에 저장</button><button id="hwpLabUpload" class="secondary" type="button" disabled>자료실에 올리기</button></div></div><p class="hwp-lab-note">한글이 없는 PC나 폰에서 내 기기의 HWP·HWPX를 열어 고칩니다. 고른 파일은 이 기기 브라우저 안에서만 열고 기기에 남기지 않습니다. 저장은 HWP로만 합니다(HWPX도 HWP로).</p><p id="hwpLabStatus" class="hwp-lab-status" role="status" aria-live="polite"></p><div id="hwpLabEditor" class="hwp-lab-editor"></div></section>
   </section>
 
-  <section id="calendarView" class="view-panel hidden">
-    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="true">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="false">일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
+  <section id="calendarView" class="view-panel view-wide hidden">
+    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="true">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="false">업무일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
     <div id="calendarCard" class="calendar-card">
       <div class="calendar-toolbar"><button id="prevMonthBtn" class="mini" type="button" aria-label="이전 달">‹</button><b id="monthTitle"></b><button id="nextMonthBtn" class="mini" type="button" aria-label="다음 달">›</button><button id="calendarTodayBtn" class="mini" type="button">오늘</button><span class="calendar-toolbar-divider" aria-hidden="true"></span><div class="calendar-view-switch" role="group" aria-label="일정 보기"><button type="button" class="mini" data-calendar-view="list" aria-label="목록 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><button type="button" class="mini" data-calendar-view="week" aria-label="주간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 7h21v10h-21zM4.5 7v10M7.5 7v10M10.5 7v10M13.5 7v10M16.5 7v10M19.5 7v10"/></svg></button><button type="button" class="mini" data-calendar-view="month" aria-label="월간 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v16H4zM8 3v4m8-4v4M4 10h16M4 15h16M9 10v11M15 10v11"/></svg></button></div><button id="newEventBtn" class="mini calendar-toolbar-add" type="button" aria-label="일정 등록"><span aria-hidden="true">+</span><span class="calendar-add-label" aria-hidden="true"> 일정 등록</span></button></div>
       <div id="calendarList" class="hidden" aria-label="목록 일정"></div>
@@ -108,18 +106,18 @@
   </section>
 
   <section id="tasksView" class="view-panel hidden">
-    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="true">할 일</button><button type="button" data-view="journal" aria-pressed="false">일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
+    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="true">할 일</button><button type="button" data-view="journal" aria-pressed="false">업무일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
     <div class="home-quick-placeholder" aria-hidden="true"></div>
     <div id="taskList" class="card-list"></div>
   </section>
 
-  <section id="journalView" class="view-panel hidden">
-    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="true">일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
+  <section id="journalView" class="view-panel view-wide hidden">
+    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="true">업무일지</button><button type="button" data-view="diary" aria-pressed="false">일기</button></div>
     <div id="journalRoot" class="journal"></div>
   </section>
 
-  <section id="diaryView" class="view-panel hidden">
-    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="false">일지</button><button type="button" data-view="diary" aria-pressed="true">일기</button></div>
+  <section id="diaryView" class="view-panel view-wide hidden">
+    <div class="schedule-switch" role="group" aria-label="일정 보기 전환"><button type="button" data-view="calendar" aria-pressed="false">달력</button><button type="button" data-view="tasks" aria-pressed="false">할 일</button><button type="button" data-view="journal" aria-pressed="false">업무일지</button><button type="button" data-view="diary" aria-pressed="true">일기</button></div>
     <div id="diaryRoot" class="diary"></div>
   </section>
 
