@@ -37,7 +37,9 @@ const below=async(trigger,sheet)=>{const t=await trigger.boundingBox(),d=await s
 test('PC 담당조직: 묶음 순서대로 한 줄씩(이름 왼쪽, 칩 오른쪽), 그 외는 맨 아래, 이름은 줄이지 않음, 누른 버튼 바로 아래',async({page})=>{
  const {trigger,sheet}=await homeOrgSheet(page,1280,[...NAMES,LONG]);
  await expect(sheet).toHaveClass(/home-choice-anchored/);
- const {d,gap}=await below(trigger,sheet);expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);expect(d.width).toBeLessThanOrEqual(480);
+ const {d,gap}=await below(trigger,sheet);expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);
+ // UI-기록할곳창PC: at 1280 the 기록할 곳 sheet is the wide split list (organizations left, projects right), up to 880px.
+ await expect(sheet).toHaveClass(/home-choice-split/);expect(d.width).toBeLessThanOrEqual(880);
  const groups=sheet.locator('[data-sheet-all] [data-sheet-group]');
  await expect(groups.locator('.home-choice-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도','그 외']);
  expect(await groups.evaluateAll(gs=>gs.map(g=>[...g.querySelectorAll('[data-sheet-value]')].map(b=>b.textContent)))).toEqual([NAMES.slice(0,1),NAMES.slice(1,5),NAMES.slice(5,9),NAMES.slice(9,13),[LONG]]);

@@ -63,7 +63,9 @@ for(const width of [390,1280]){
  });
  test(`basket validation and RLS failures keep draft and AI hidden ${width}`,async({page})=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page),q=quick(page),input=q.locator('[data-quick-input]');
-  for(const text of [' \n ','가'.repeat(20001)]){await input.fill(text);await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).not.toBeEmpty();}expect(f.writes).toHaveLength(0);
+  // UI-빈입력안내: blank text is a small hint under the input (no error status); too long text is still an error. Both keep the draft.
+  await input.fill(' \n ');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-hint]')).toHaveText('글을 입력해 주세요.');await expect(q.locator('[data-quick-status]')).toBeEmpty();await expect(input).toHaveValue(' \n ');
+  await input.fill('가'.repeat(20001));await expect(q.locator('[data-quick-hint]')).toBeEmpty();await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).not.toBeEmpty();await expect(input).toHaveValue('가'.repeat(20001));expect(f.writes).toHaveLength(0);
   f.setDenied(true);await input.fill(' 원문 유지\n ');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('RLS 거부');await expect(input).toHaveValue(' 원문 유지\n ');
   f.setDenied(false);await input.fill('가'.repeat(20000));await q.locator('[data-quick-save]').click();await expect(input).toHaveValue('');
   await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-row="n"]').click();
