@@ -69,6 +69,8 @@ async function size(el){return el.evaluate(el=>{const r=el.getBoundingClientRect
 async function standard(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();await expect(el).toHaveCSS('font-size','12px');const s=await size(el);expect(s.height,selector).toBeGreaterThanOrEqual(35);expect(s.height,selector).toBeLessThanOrEqual(37);expect(s.paddingLeft).toBe('12px');expect(s.paddingRight).toBe('12px');if(!selector.includes('press-type'))expect(s.radius).toBe('8px');}
 // UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트의 버튼은 새 기준(높이 --ds-control-height 46px·13px·모서리 8px·굵기 500)으로 바뀌었다.
 async function dsStandard(page,selector){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(46);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');}
+// UI-PC버튼36(2026-10-20): PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(--kptu-control-height 36px)·13px·8px·500, 누르는 범위 44px.
+async function pcAdd(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(36);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');expect(await el.evaluate(n=>getComputedStyle(n,'::after').minHeight),selector).toBe('44px');}
 // UI-디자인기준 3/3(8-9e-1): 회의·담당조직(·자료실)의 버튼도 새 기준.
 // UI-디자인기준 3/3 3부(8-9e-3): 일정 [Google Calendar] 설정 칸 버튼(2/3 원장 ③, calendar-health.js의 !important 정리)·성명 필터·공용 창 버튼도 새 기준.
 const dsViews=new Set(['projects','meetings','team','calendar','media']);
@@ -89,8 +91,8 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
    }else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
    else if(selector.includes('press-type'))await dsChip(page,selector);
-   // UI-PC회의(2026-10-20): PC 회의 [+ 회의 결과]는 공용 입력칸 높이(36px)·누르는 범위 44px.
-   else if(selector==='#newMeetingBtn'&&width>=1024){const s=await size(page.locator(selector));expect(s.height).toBe(36);expect(s.font).toBe('13px');expect(s.radius).toBe('8px');expect(s.weight).toBe('500');expect(await page.locator(selector).evaluate(n=>getComputedStyle(n,'::after').minHeight)).toBe('44px');}
+   // UI-PC회의(2026-10-20)·UI-PC버튼36: PC 회의 [+ 회의 결과]·[+ 프로젝트]는 공용 입력칸 높이(36px)·누르는 범위 44px.
+   else if(['#newMeetingBtn','#newProjectBtn'].includes(selector)&&width>=1024)await pcAdd(page,selector);
    else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }
@@ -98,7 +100,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  }
  for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="tasks"]','.app-nav [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
-  if(name==='library'){await (width<=760?phoneFab:dsStandard)(page,'#newDocumentBtn');continue}
+  if(name==='library'){if(width<=760)await phoneFab(page,'#newDocumentBtn');else if(width>=1024)await pcAdd(page,'#newDocumentBtn');else await dsStandard(page,'#newDocumentBtn');continue}
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
   if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());
    // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.

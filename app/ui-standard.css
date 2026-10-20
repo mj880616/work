@@ -1068,3 +1068,21 @@
 
 /* UI-노트고정(2026-10-20): 고정한 노트는 목록 맨 위, 제목 앞 점 대신 작은 핀 표시(노트 색). */
 #appView #basketView .note-row .note-pin{ display:inline-grid; place-items:center; flex:0 0 auto; width:14px; height:14px; margin-right:2px; color:var(--ds-kind-note-ink); }
+
+/* UI-PC버튼36(2026-10-20 사용자 결정): PC(≥1024)의 큰 버튼은 회의 [+ 회의 결과]와 같은 기존 공용 높이(--kptu-control-height 36px = 입력칸 높이).
+   목록 머리 추가 버튼([+ 프로젝트]·[+ 자료 등록]·[+ 노트]), 일지 [저장], 홈·바구니·할 일 빠른 입력 [추가]·[📎 첨부]와 같은 줄 입력칸·칸 안 아이콘.
+   공용 기준값(--ds-control-height 46px)은 그대로 두어 창(모달) 버튼·폰·중간 폭(761~1023)은 바뀌지 않는다. 누르는 범위는 ::after로 44px.
+   일정 머리줄([+ 일정 등록]·화살표)은 이번에 제외(다른 작업과 겹침). 바구니 업데이트 입력칸(여러 줄 72px)과 일지 입력칸(2줄)은 높이 그대로. */
+@media(min-width:1024px){
+  #appView #projectsView #newProjectBtn,#appView #libraryView #newDocumentBtn,#appView #basketView #newNoteBtn,
+  #appView #journalView .journal-line-row button[data-journal-save],
+  #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save,
+  #appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  /* 한 줄 입력칸: 글줄 21px + 위 7px·아래 6px + 테두리(화면에 1px씩) = 36px. 홈은 길게 쓰면 지금처럼 늘어나고 5줄에서 멈춘다(home-quick.js). */
+  #appView :is(#homeView,#tasksView) .home-quick[data-home-quick] [data-quick-input]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
+  #appView :is(#homeView,#basketView) .home-quick .home-quick-big,#appView #tasksView .home-quick .home-quick-detail{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  #appView #basketView .note-list-head .note-search input{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
+  #appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip::after,
+  #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,#appView #tasksView .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
+}
