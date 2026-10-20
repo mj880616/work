@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {openBasketMore,requestClassification,handoffLine} from './helpers/basket-more.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 // UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·프로젝트·담당조직·메뉴),
 // [일정] 탭 하나에 [달력 | 할 일], 홈·바구니 입력칸 하단 고정(자판 위로), 동그란 [+], 담당조직 추가 링크, 바구니 [⋯] 메뉴와
 // [분류 요청] → 조용히 복사 + 한 줄 알림 + [분류 결과 입력] 창(#577). PC(1280)는 그대로.
@@ -44,7 +45,7 @@ async function boot(page,width,{notes=[noteRow(1,'합성 메모 하나'),noteRow
   return ok({});
  });
  await page.goto(testOrigin+url);await enterLogin(page);
- await page.locator('#emailAuthToggle').click();await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('password123');await page.locator('#authSubmit').click();
+ await signInWithSession(page,user.email);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
  return {errors};
 }

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { openHome } from './helpers/home-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 // 묶음C-2: Google Tasks loads with one combined request, shows this device's last result first while a fresh copy
 // loads, keeps the last result when a refresh fails, drops the cache on sign-out or owner change, and still works
@@ -44,10 +45,7 @@ async function mockTasks(page,handler){
 
 async function login(page){
   await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await ready(page);
 }
 async function ready(page){

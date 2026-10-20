@@ -34,11 +34,8 @@ async function mockApp(page,{spaces=[],tasks=[]}={}){
 
 async function signIn(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
 }
@@ -46,6 +43,7 @@ async function signIn(page){
 
 
 import {execFileSync} from 'node:child_process';
+import { signInWithSession } from './helpers/session-login.mjs';
 const BASE='248451a0afab043321620d168ec9610451e8bbeb';
 const samples={
  // UI-디자인기준 2/3(8-9d): 프로젝트 목록 행 13px, 버튼 13px(새 기준).

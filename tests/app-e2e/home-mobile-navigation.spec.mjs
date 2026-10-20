@@ -2,6 +2,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {serveBuiltShell} from './helpers/built-shell.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 const app=testOrigin+'/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // 8-9e-2: 폰 하단 탭 6칸 중 화면 탭 다섯(메뉴 탭은 메뉴 창을 연다). 할 일은 [일정] 탭의 [할 일] 쪽.
@@ -20,10 +21,7 @@ async function open(page,url=app+'?view=home'){
     return ok({});
   });
   await page.goto(loginEntry(url));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}px`,async({page})=>{

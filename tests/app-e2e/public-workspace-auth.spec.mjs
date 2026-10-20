@@ -1,5 +1,6 @@
 import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const BASE='http://127.0.0.1:8123';
 const APP=`${BASE}/app/`;
@@ -59,10 +60,7 @@ async function mockSignedIn(page){
 
 async function signIn(page,returnTo=APP){
   await page.goto(`${APP}login/?return=${encodeURIComponent(returnTo)}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('member@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'member@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:20000});
 }
 
@@ -242,10 +240,7 @@ test('authenticated workspace initialization failure is explicit and retryable',
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{workspace_id:'w1',role:'owner',user_id:id,workspace:{id:'w1',slug:'private',name:'웹2'}}])});
   });
   await page.goto(`${APP}login/?return=${encodeURIComponent(APP)}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('member@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'member@example.org');
   await expect(page.locator('#bootView')).toBeVisible({timeout:20000});
   await expect(page.locator('#bootView')).toContainText('업무 공간을 열 수 없습니다.');
   await expect(page.locator('#bootRetryBtn')).toBeVisible();

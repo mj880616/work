@@ -1,6 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import {serveBuiltShell,shellVersion} from './helpers/built-shell.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const origin='http://127.0.0.1:8123';
 const current=shellVersion;
@@ -31,10 +32,7 @@ async function boot(page,{connected=false}={}){
     return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.goto(origin+'/app/login/?return='+encodeURIComponent(origin+'/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
 }
 async function visible(page){

@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const labels={library:['newDocumentBtn','+ 자료','+ 자료 등록'],meetings:['newMeetingBtn','+ 회의','+ 회의 결과'],projects:['newProjectBtn','+ 프로젝트','+ 프로젝트']};
@@ -23,10 +24,7 @@ async function boot(page,view){
     return ok([]);
   });
   await page.goto(loginEntry(`${BASE}/app/?view=${view}`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('labels@example.invalid');
-  await page.locator('#authPassword').fill('fixture-password');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'labels@example.invalid');
   await ready(page,view);
 }
 async function ready(page,view){

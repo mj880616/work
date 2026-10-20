@@ -2,6 +2,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 const loaderUrl=`${TEST_ORIGIN}/app/loader-v2.js?p6-startup-contract=1`;
@@ -190,10 +191,7 @@ async function loginWithMock(page){
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('test-password-value');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await page.waitForURL(`${TEST_ORIGIN}/app/`);
   await page.waitForFunction(()=>typeof window.__KPTU_STARTUP__?.marks?.homeUsable==='number');
 }

@@ -5,6 +5,7 @@ import { test, expect } from '@playwright/test';
 test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
 import { enterLogin } from './helpers/login-entry.mjs';
 import { calendarToday } from './helpers/calendar-today.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 test.use({ timezoneId: 'Asia/Seoul' });
 
@@ -42,11 +43,8 @@ async function mockApp(page){
 
 async function signIn(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('mobile@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,'mobile@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('body')).toHaveClass(/kptu-workspace-shell/,{timeout:10000});
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);

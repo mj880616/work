@@ -2,6 +2,7 @@ import {clickView} from './shell-navigation.mjs';
 import { expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import { enterLogin } from './login-entry.mjs';
+import { signInWithSession } from './session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -98,10 +99,7 @@ async function mockApp(page,state){
 async function signIn(page,target='http://127.0.0.1:8123/app/'){
   await page.goto(target);
   await enterLogin(page);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('owner@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'owner@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 
