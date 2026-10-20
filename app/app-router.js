@@ -172,19 +172,23 @@
 
   function keepActiveNavigationVisible(view,{behavior='smooth'}={}){
     const nav=document.querySelector('#appView>.app-nav')||document.querySelector('.app-nav');
-    const navButton=nav?[...nav.querySelectorAll('.nav-btn[data-view]')].find(btn=>btn.dataset.view===(NAV_ALIAS[view]||view)):null;
+    const navButton=nav?[...nav.querySelectorAll('.nav-btn[data-view],.nav-sub-btn[data-view]')].find(btn=>btn.dataset.view===(NAV_ALIAS[view]||view)):null;
     scrollControlIntoView(nav,navButton,behavior);
   }
 
   function syncNavigationState(view){
-    // Phone [일정] tab holds 달력(calendar), 할 일(tasks), 일지(journal) and 일기(diary): it opens the side seen last
+    // Phone [일정] tab holds 달력(calendar), 할 일(tasks), 업무일지(journal) and 일기(diary): it opens the side seen last
     // in this tab, so the tab, swipe order and current mark all follow one attribute.
     const schedule=document.querySelector('.mobile-tabs [data-mobile-schedule-tab]');
     if(schedule&&['calendar','tasks','journal','diary'].includes(view))schedule.dataset.view=view;
-    document.querySelectorAll('.app-nav .nav-btn,.mobile-tabs [data-view],.mobile-menu-panel [data-view]').forEach(btn=>{
-      const current=btn.dataset.view===(NAV_ALIAS[view]||view);
-      btn.classList.toggle('active',current);
-      if(current)btn.setAttribute('aria-current','page');
+    // UI-PC일정묶음: the PC sidebar [일정] heads a sub menu (달력·할 일·업무일지·일기). The head (data-nav-group) keeps the
+    // selected look for every screen of its group but is the current page only on its own screen (달력), like [바구니]
+    // over its sub rows. [달력] repeats the head's screen (data-goto), so it is marked as the current item, not a second page.
+    const target=NAV_ALIAS[view]||view;
+    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-tabs [data-view],.mobile-menu-panel [data-view]').forEach(btn=>{
+      const own=(btn.dataset.view||btn.dataset.goto)===target;
+      btn.classList.toggle('active',own||!!btn.dataset.navGroup?.split(' ').includes(target));
+      if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');
     });
     // UI-PC사이드바: on the PC sidebar the top line (icon + 홈) is the home menu, so it carries the home selection.
@@ -287,7 +291,9 @@
     if(appReady())handleUiReady();
   }
 
-  const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer}};
+  // syncNavigation: repaint the menu marks for the current view (topbar-actions.js calls it when the 761~1023px row hands
+  // its buttons back to the PC sidebar, whose [일정] head marks its whole group).
+  const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
   // currententrychange comes before popstate and names the entry left, so a traversal's

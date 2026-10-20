@@ -57,7 +57,8 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   await mockApp(page);
   await signIn(page);
   // UI-디자인손질 8: the sidebar also has [쓰기] (an action that opens the editor, not a view).
-  const nav=page.locator('.app-nav .nav-btn[data-view]');
+  // UI-PC일정묶음: 할 일·업무일지·일기 are sub rows under [일정]; the order of the views is unchanged.
+  const nav=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn)[data-view]');
   await expect(nav).toHaveCount(views.length);await expect(page.locator('.app-nav [data-menu-write]')).toHaveCount(1);
   expect(await nav.evaluateAll(nodes=>nodes.map(node=>node.dataset.view))).toEqual(views);
   await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop,#pagesMediaEntry')).toHaveCount(0);
@@ -105,7 +106,7 @@ for(const width of [390,360]){
     await page.setViewportSize({width,height:844});
     await mockApp(page);
     await signIn(page);
-    await expect(page.locator('.app-nav .nav-btn[data-view]')).toHaveCount(views.length);
+    await expect(page.locator('.app-nav :is(.nav-btn,.nav-sub-btn)[data-view]')).toHaveCount(views.length);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     await clickView(page,'media');
     await expect(page.locator('#mediaView')).toBeVisible();

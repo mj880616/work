@@ -44,9 +44,10 @@ test('1280: [쓰기]를 열어도 왼쪽 세로 메뉴가 보이고 누를 수 �
  expect(box.x).toBeGreaterThanOrEqual(side.r);expect(box.y).toBe(0);expect(Math.round(box.r)).toBe(1280);expect(Math.round(box.b)).toBe(800);
  await expect(editor).toHaveAttribute('data-md-nav','side');
  // 메뉴의 모든 탭이 보이고 가운데 점이 편집기 밖(실제로 눌림)에 있다.
- for(const tab of await nav(page).locator('.nav-btn:visible').all()){
+ // UI-PC일정묶음: the sub rows (바구니·일정 아래) count as tabs too.
+ for(const tab of await nav(page).locator(':is(.nav-btn,.nav-sub-btn):visible').all()){
   const r=await rect(tab);
-  expect(await tab.evaluate((el,[x,y])=>document.elementFromPoint(x,y)?.closest('.nav-btn')===el,[r.x+r.w/2,r.y+r.h/2]),await tab.textContent()).toBe(true);
+  expect(await tab.evaluate((el,[x,y])=>document.elementFromPoint(x,y)?.closest('.nav-btn,.nav-sub-btn')===el,[r.x+r.w/2,r.y+r.h/2]),await tab.textContent()).toBe(true);
  }
  // 대화상자 이름·역할은 그대로, 메뉴를 쓰는 동안은 모달이 아니다.
  await expect(editor).toHaveAttribute('role','dialog');await expect(editor).toHaveAttribute('aria-modal','false');
