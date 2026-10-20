@@ -58,8 +58,8 @@ for(const view of ['list','week','month'])test('move persists destination color 
   expect(state.writes[0]).toMatchObject({calendar_id:'source',event_id:'move-event',target_calendar_id:'target'});
   const root=view==='month'?'#calendarGrid':view==='week'?'#calendarWeek':'#calendarList';
   const moved=page.locator(root+' [data-google-event="move-event"]');await expect(moved.first()).toHaveAttribute('data-google-calendar','target');
-  const color=await moved.first().evaluate(el=>{const dot=el.querySelector('.clv-color');if(dot)return getComputedStyle(dot).backgroundColor;const probe=document.createElement('i');probe.style.backgroundColor=getComputedStyle(el).getPropertyValue('--cmv-google-source');el.append(probe);const color=getComputedStyle(probe).backgroundColor;probe.remove();return color});
-  expect(color).toBe('rgb(170, 85, 51)');
+  // The view owner re-renders after the save (event reload); find and read the current row in one page task, polling until it settles.
+  await expect.poll(()=>page.evaluate(sel=>{const el=document.querySelector(sel);if(!el)return null;const dot=el.querySelector('.clv-color');if(dot)return getComputedStyle(dot).backgroundColor;const probe=document.createElement('i');probe.style.backgroundColor=getComputedStyle(el).getPropertyValue('--cmv-google-source');el.append(probe);const color=getComputedStyle(probe).backgroundColor;probe.remove();return color},root+' [data-google-event="move-event"]')).toBe('rgb(170, 85, 51)');
   await edit(page);await expect(page.locator('#ciGoogleCalendar')).toHaveValue('target');
 });
 test('date dialog uses same editor and selection',async({page})=>{
