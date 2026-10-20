@@ -36,7 +36,9 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   expect(values.home.cardHeight).toBeLessThanOrEqual(160 + 16);
   expect(values.home.inputToLink).toBeLessThanOrEqual(8);
   expect(values.home.clip.width).toBeGreaterThanOrEqual(44);
-  expect(values.home.clip.height).toBeGreaterThanOrEqual(44);
+  // UI-PC버튼36: PC [📎 첨부] paints the input height (36px) with a 44px touch area (::after); the phone icon keeps 44px.
+  expect(values.home.clip.height).toBeGreaterThanOrEqual(width === 390 ? 44 : 36);
+  if (width !== 390) expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
   if (width === 390) {
     // Phone: the clip stays an icon inside the input's left edge (its "첨부" label is hidden).
     expect(values.home.clip.x).toBeGreaterThanOrEqual(values.home.input.x);
