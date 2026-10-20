@@ -80,7 +80,7 @@ for(const width of [390,1280]){
   });
   test(`meeting material deletion confirms, cancels and refreshes all three lists ${width}px`,async({page})=>{
     const state=await boot(page,width);
-    await expect(page.locator('#meetingList')).toContainText('자료 2');
+    await expect(page.locator('#meetingList')).toContainText('회의자료 있음');
     await page.locator('[data-mrd-meeting="meeting-1"]').click();
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     const remove=page.locator('[data-mrd-delete-document="doc-0"]');
@@ -96,7 +96,7 @@ for(const width of [390,1280]){
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
     expect(confirmed.map(d=>d.type)).toEqual(['confirm','alert']);
     await page.locator('#mrdClose').click();
-    await expect(page.locator('#meetingList')).toContainText('자료 1');
+    await expect(page.locator('#meetingList')).toContainText('회의자료 있음');
     await clickView(page,'library');
     await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
     await expect(page.locator('[data-lu-document]')).toHaveCount(1);
@@ -112,7 +112,7 @@ for(const width of [390,1280]){
     await expect.poll(()=>alerts).toEqual([DELETE_UNKNOWN]);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     await page.locator('#mrdClose').click();
-    await expect(page.locator('#meetingList')).toContainText('자료 2');
+    await expect(page.locator('#meetingList')).toContainText('회의자료 있음');
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
   });
 

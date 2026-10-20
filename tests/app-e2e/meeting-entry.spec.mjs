@@ -333,7 +333,7 @@ test('meeting names keep colors after reload and after older meetings are added'
   expect(await byId('a1').evaluate(el=>{const s=getComputedStyle(el.querySelector('.meeting-list-title'),'::before');return [s.width,s.height,s.borderRadius]})).toEqual(['8px','8px','50%']);
   expect(await stripe(byId('none'))).toBe(await neutral(page));
   // Second line: round · date · materials only.
-  await expect(byId('a3').locator('p')).toHaveText(/^3차 · .+ · 자료 1개$/);
+  await expect(byId('a3').locator('p')).toHaveText(/^3차 · .+ · 회의자료 있음$/);
   await expect(byId('a3').locator('p')).not.toContainText('메인');
   // Filtering does not reassign colors.
   await selectFilter(page,'#meetingTypeFilter',{label:'안전위원회'});
