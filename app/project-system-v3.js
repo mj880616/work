@@ -467,7 +467,7 @@ async function saveWs(){
 }
 async function delWs(){if(!editingWs||!confirm(`“${editingWs.title}” 진행상황을 삭제할까요?`))return;await api(`/rest/v1/app_project_workstreams?id=eq.${editingWs.id}`,{method:'DELETE'});closeModal('ps3WorkstreamModal');await refreshDetail()}
 // PRJ-기록입력: the top input writes a project record that belongs to no progress item; today's Seoul date, no status label.
-function prepareRecordInput(){const form=$('#ps3Body [data-ps3-record-input]');if(form)configureSaveEditor({key:'record-input',kind:'progress',form,projectId:current.id,workstreamId:null,button:form.querySelector('button'),status:saveStatus(form),fields:[form.querySelector('input')]})}
+function prepareRecordInput(){const form=$('#ps3Body [data-ps3-record-input]');if(form)configureSaveEditor({key:'record-input',kind:'progress',form,projectId:current.id,workstreamId:null,button:form.querySelector('button[type=submit]'),status:saveStatus(form),fields:[form.querySelector('input')]})}
 // UI-크게첨부: [크게] beside the record input opens the one write window (write-window.js) with this project chosen. Saving there
 // uses the window's existing saves (this project → saveProjectProgress, the same body as [기록]; another place, the basket or a
 // note as chosen) and closes; the detail then reloads. The input is one line, so a longer text closed without saving is kept in
