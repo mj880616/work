@@ -183,6 +183,72 @@ test('organization records are read in pages and in batches of 100 organizations
   assert.equal(rows.length, 300);
 });
 
+// ORG-담당13기준: 조직 소식 follows the one "내 담당 조직" rule (app/my-organizations.js). Only my organizations get their own
+// section; every other organization's update stays, under one '그 외' section, before '미분류'. Fake names only.
+test('organization read carries my organizations: my active assignments, or every active one when none or the read fails', async () => {
+  const m = await mod;
+  const orgs = [{id:'o1', name:'가상 담당 하나', active:true}, {id:'o2', name:'가상 담당 둘', active:null}, {id:'o3', name:'가상 다른 조직', active:true}, {id:'o4', name:'가상 비활성', active:false}];
+  const read = assign => { const rt = runtime(path => {
+    if (path.startsWith('/rest/v1/app_suborganizations?')) return orgs;
+    if (path.startsWith('/rest/v1/app_suborganization_assignees?')) { if (assign === 'fail') throw Object.assign(new Error('x'), {status:500}); return assign.map(organization_id => ({organization_id})); }
+    if (path.startsWith('/rest/v1/app_suborganization_updates?')) return orgs.map(o => ({id:'u' + o.id, organization_id:o.id, occurred_at:'2026-10-06T01:00:00Z', raw_text:o.name}));
+    return [];
+  }); return m.readOrgUpdates('2026-10-05', rt).then(rows => ({rows, rt})); };
+  const {rows, rt} = await read(['o1', 'o2', 'o4']);
+  assert.deepEqual([...rows.mine], ['o1', 'o2']);
+  assert.equal(rows.length, 4); // no record is dropped by the read
+  const org = params(rt.calls.find(c => c.path.startsWith('/rest/v1/app_suborganizations?')));
+  assert.equal(org.get('select'), 'id,name,active'); assert.equal(org.get('workspace_id'), 'eq.w');
+  const mine = params(rt.calls.find(c => c.path.startsWith('/rest/v1/app_suborganization_assignees?')));
+  assert.equal(mine.get('user_id'), 'eq.u'); assert.equal(mine.get('select'), 'organization_id');
+  assert.deepEqual([...(await read([])).rows.mine], ['o1', 'o2', 'o3']);
+  assert.deepEqual([...(await read('fail')).rows.mine], ['o1', 'o2', 'o3']);
+  assert.deepEqual([...(await read(['o4'])).rows.mine], ['o1', 'o2', 'o3']);
+});
+
+test('조직 소식: my organizations each by name, the others under one 그 외 (name · update), then 미분류; the weekly draft follows', async () => {
+  const m = await mod, day = '2026-10-06';
+  const basket = {
+    notes:[
+      {id:'n1', raw_text:'담당으로 보낸 메모', occurred_at:'2026-10-06T01:00:00Z'},
+      {id:'n2', raw_text:'다른 조직으로 보낸 메모', occurred_at:'2026-10-06T02:00:00Z'},
+      {id:'n3', raw_text:'아직 분류 안 함', occurred_at:'2026-10-06T03:00:00Z'},
+      {id:'n4', raw_text:'', attachments:[{drive_file_id:'F1', file_name:'가상 자료.pdf'}], occurred_at:'2026-10-06T04:00:00Z'},
+    ],
+    links:[
+      {note_id:'n1', status:'confirmed', organization_id:'o1', organization:{name:'가상 담당 하나'}},
+      {note_id:'n2', status:'confirmed', organization_id:'o3', organization:{name:'가상 다른 조직'}},
+    ],
+    docs:[{id:'d1', file_id:'F1', organization_id:'o4', organization:{name:'가상 비활성'}}],
+  };
+  const orgUpdates = Object.assign([
+    {id:'u1', organization_id:'o2', organization:{name:'가상 담당 둘'}, occurred_at:'2026-10-06T05:00:00Z', raw_text:'담당 조직 기록'},
+    {id:'u2', organization_id:'o3', organization:{name:'가상 다른 조직'}, occurred_at:'2026-10-06T06:00:00Z', raw_text:'다른 조직 기록\n둘째'},
+  ], {mine:new Set(['o1', 'o2'])});
+  const sections = m.orgNewsOn({basket, orgUpdates}, day);
+  assert.deepEqual(sections, [
+    {name:'가상 담당 둘', items:['담당 조직 기록']},
+    {name:'가상 담당 하나', items:['담당으로 보낸 메모']},
+    {name:'그 외', items:['가상 다른 조직 · 다른 조직으로 보낸 메모', '가상 비활성 · 첨부: 가상 자료.pdf', '가상 다른 조직 · 다른 조직 기록']},
+    {name:'미분류', items:['아직 분류 안 함']},
+  ]);
+  assert.equal(m.OTHERS, '그 외');
+  // Without the organization read (it failed) nothing is regrouped: every organization keeps its own section.
+  assert.deepEqual(m.orgNewsOn({basket}, day).map(s => s.name), ['가상 다른 조직', '가상 담당 하나', '가상 비활성', '미분류']);
+  const empty = {status:'ok', items:[]};
+  const text = m.weeklyDraft({start:'2026-10-05', lines:new Map(), today:day, materials:{events:empty, tasks:empty, basket:{status:'ok', items:basket},
+    orgUpdates:{status:'ok', items:orgUpdates}, projectUpdates:empty, meetings:empty, documents:empty, sharePages:empty}});
+  const rows = text.split('\n'), at = rows.indexOf('■ 10월 6일(화)');
+  assert.deepEqual(rows.slice(at + 2, at + 8), [
+    '- 조직 소식 · 가상 담당 둘: 담당 조직 기록',
+    '- 조직 소식 · 가상 담당 하나: 담당으로 보낸 메모',
+    '- 조직 소식 · 그 외: 가상 다른 조직 · 다른 조직으로 보낸 메모',
+    '- 조직 소식 · 그 외: 가상 비활성 · 첨부: 가상 자료.pdf',
+    '- 조직 소식 · 그 외: 가상 다른 조직 · 다른 조직 기록',
+    '- 조직 소식 · 미분류: 아직 분류 안 함',
+  ]);
+});
+
 test('one day of materials in display order; a failed group is marked, the rest stay', async () => {
   const m = await mod;
   const materials = {

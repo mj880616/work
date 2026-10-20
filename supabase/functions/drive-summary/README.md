@@ -15,6 +15,7 @@
 - 기간은 호출 시점 한국 날짜의 자정에서 28일을 뺀 시점부터 호출 시점까지다. 조직 `occurred_at`, 회의 `meeting_at`은 양 끝 포함, 진행 기록의 날짜 `effective_on`은 시작 날짜부터 오늘까지다. 주요 일정은 시작 경계 이후의 지난 일정과 모든 다가오는 일정이며 날짜 미정 일정은 제외한다. D-day는 한국 날짜 차이다.
 - DB는 GET만 사용하고 `kptu-work`를 기준으로 범위를 제한한다. 작업공간 열이 없는 조직 기록·프로젝트 세부 표는 FK 명시 `!inner` 관계와 연결된 작업공간 조건으로 제한한다. 페이지별 안정된 정렬로 전체 행을 읽고 상한 초과는 실패한다.
 - 조직은 앱의 13개 정의 및 미등록 이름 가나다순과 일치하는 테스트를 둔다. 현재 요약은 `recent_month_summary`다. `year_summary`·연혁·메모는 읽지 않는다.
+- ORG-담당13기준: 조직 사본은 바구니 담당조직 목록과 같은 "내 담당 조직"(활성 + 소유자 담당 연결, 담당 0개·조회 실패면 활성 전체, 화면 원본 `app/my-organizations.js`)만 조직별 절로 싣는다. 다른 조직(담당 밖·비활성)의 최근 4주 기록은 버리지 않고 맨 끝 "그 외" 절 한 곳에 `시각 · 조직 이름 · 기록`으로 싣는다. 그 외 기록이 없으면 절도 없다.
 - 프로젝트는 `app/project-catalog.js`와 같은 v2/management_version=2 및 하위 프로젝트 규칙으로 분류한다. 메타데이터는 분류용 두 scalar 키만 조회한다. 진행 기록은 summary/status_label/next_step, 단계는 workstream의 phase다. 미완료 할 일 수는 Google에 재조회하지 않은 `app_record_links`의 confirmed/미완료 상태 사본 기준이다. 자료는 개수만 제공한다.
 - 회의는 이름·일시·회차·연결 프로젝트 이름만 포함한다. transcript_text·notes·decisions는 조회하지 않는다. 할 일 본문·자료 원문·메모·연혁도 조회하지 않는다.
 - 기존 `public_policy_drive_config`의 Google 갱신 토큰을 쓴다. 새 OAuth 권한·scope 요청·토큰 저장을 추가하지 않는다. 기존 연결의 `drive.file`로 이 앱이 만든 파일만 다룬다.

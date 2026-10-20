@@ -10,6 +10,7 @@ const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 const DOC_MIME = 'application/vnd.google-apps.document';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const NOTICE = '이 문서는 Web2가 자동으로 만드는 읽기용 사본입니다. 직접 고쳐도 다음 갱신 때 덮어써집니다. 원본은 Web2입니다.';
+const OTHERS = '그 외';
 const TITLES = { org: '조직 업데이트 (읽기용 사본)', project: '프로젝트 현황 (읽기용 사본)' };
 const PHASE = { preparation: '준비', in_progress: '진행', consultation: '협의', execution: '실행', follow_up: '후속조치', done: '종료' };
 const CORS = {
@@ -58,12 +59,23 @@ function prepareDocuments(data, now) {
   const window = kstWindow(now);
   const top = `<html><head><meta charset="utf-8"></head><body>\n${paragraph(`마지막 갱신: ${kstText(now)} (KST)`)}\n${paragraph(NOTICE)}`;
   const wrap = (title, lines) => `${top}\n<h1>${escapeHtml(title)}</h1>\n${paragraph(`최근 4주: ${window.startDate} 00:00 ~ ${kstText(now)} (KST)`)}\n${lines.join('\n')}\n</body></html>`;
+  // ORG-담당13기준: the organization copy has one section per organization of mine (the same rule as the basket list,
+  // app/my-organizations.js). Other organizations get no section; their records of the 4 weeks stay under one "그 외".
+  const selected = selectBasketOrganizations(data.organizations, data.organizationAssignees || []);
+  const mine = new Set(selected.organizations.map(row => row.id));
   const org = [];
-  for (const row of data.organizations.slice().sort(compareOrganizations)) {
+  for (const row of selected.organizations.slice().sort(compareOrganizations)) {
     org.push(heading(row.name), paragraph(`현재 요약: ${row.recent_month_summary || '없음'}`));
     const updates = data.organizationUpdates.filter(u => u.organization_id === row.id).sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
     org.push(...updates.map(u => paragraph(`${kstText(u.occurred_at)} (KST) · ${u.raw_text || ''}`)));
     if (!updates.length) org.push(paragraph('최근 4주 기록 없음'));
+  }
+  const otherNames = new Map(data.organizations.filter(row => !mine.has(row.id)).map(row => [row.id, row.name]));
+  const others = data.organizationUpdates.filter(u => otherNames.has(u.organization_id))
+    .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at) || String(a.id).localeCompare(String(b.id)));
+  if (others.length) {
+    org.push(heading(OTHERS), paragraph('내 담당이 아닌 조직의 최근 4주 기록입니다.'));
+    org.push(...others.map(u => paragraph(`${kstText(u.occurred_at)} (KST) · ${otherNames.get(u.organization_id) || '이름 없는 조직'} · ${u.raw_text || ''}`)));
   }
   // Reuse the screen catalog with only the two existing JSON scalar columns.
   const project = [], projects = select(data.projects.map(p => ({...p, metadata: {project_system:p.project_system, management_version:p.management_version}})))
@@ -91,7 +103,6 @@ function prepareDocuments(data, now) {
     project.push(paragraph(`${m.series_name || m.title || '회의'} · ${kstText(m.meeting_at)} (KST) · ${m.round_no == null ? '회차 미지정' : `${m.round_no}회차`} · ${names.get(m.project_id) || '연결 프로젝트 없음'}`));
   }
   if (!data.meetings.length) project.push(paragraph('최근 4주 회의 없음'));
-  const selected = selectBasketOrganizations(data.organizations, data.organizationAssignees || []);
   return {org:wrap(TITLES.org,org),project,projects,selected,wrap,top,window};
 }
 function documentRenderer(data,now,notes,links) {

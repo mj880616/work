@@ -1,6 +1,7 @@
 {
   "base": "7ea59acac0becfa66ae1834489d8480803798b82",
   "renamed": "2026-10-16 UI-디자인기준-3(8-9e-1): project 문서의 안내 문장 속 버튼 이름만 'AI 정리 결과 넣기' -> '분류 결과 입력'. 그 문장을 되돌리면 base 해시와 같다.",
+  "org_mine": "2026-10-21 ORG-담당13기준: context org 문서는 담당이 아닌 조직(다른조직, 기록 없음) 절만 빠진다. 그 절을 담당조직 앞에 다시 넣으면 이전 해시 df77a2ca07829cd7ed55189e1b2caaa1af561ea130c0997996febdc6bc417d05와 같다(검사로 확인).",
   "golden": {
     "empty": {
       "org": "6451de5f7527b417c59bd7d260ffec4dfac54fa6540ece8c7d6cb6bc204deca1",
@@ -15,7 +16,7 @@
       "project": "aeb815aeef1ecd5432d5054a637aa152d351ababfb4baaba72236a8aeff6ee15"
     },
     "context": {
-      "org": "df77a2ca07829cd7ed55189e1b2caaa1af561ea130c0997996febdc6bc417d05",
+      "org": "bdaa5383836c3bc6fefd514f3df9f152a5bc45191a9fa959124e978046e06a30",
       "project": "d61803e11ba30d7123a9d0ce6fbd8737e88da5b8d2f1babbd149470b047c5fd9"
     },
     "hundred": {
