@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import {noteMenuAction} from './helpers/note-menu.mjs';
 // BUG-노트HTML표시: a note's .html attachment (ChatGPT HTML) shows in the same sandboxed frame as the memo read view
 // (html-frame.js, document-actions `html-view`), so a note made only of HTML no longer says "본문이 없는 노트입니다.".
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -90,14 +91,14 @@ for(const width of [390,1280]){
   expect(f.htmlCalls.map(c=>c.drive_file_id).sort()).toEqual(['both_a','both_b']);
   await expect(detail.locator('[data-basket-read-text]')).toBeFocused();
   // [수정] → [취소] keeps the frames (read once per opened note, not sent again).
-  await press(page,detail.getByRole('button',{name:'수정',exact:true}),width);
+  await noteMenuAction(page,'data-note-edit',{width});
   await expect(detail.locator('[data-note-read]')).toBeHidden();
   await expect(detail.locator('[data-basket-text]')).toHaveValue('## 요약\n\n- 첫 줄');
   await press(page,detail.locator('[data-note-cancel]'),width);
   await expect(detail.locator('[data-basket-html-views] iframe')).toHaveCount(2);
   expect(f.htmlCalls).toHaveLength(2);
   // Saving a new body keeps the frames under the new text.
-  await press(page,detail.getByRole('button',{name:'수정',exact:true}),width);
+  await noteMenuAction(page,'data-note-edit',{width});
   await detail.locator('[data-basket-text]').fill('새 본문');
   await press(page,detail.locator('[data-note-save]'),width);
   await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');

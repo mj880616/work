@@ -13,10 +13,13 @@ import { toTelegram } from './md-telegram.mjs';
 import { driveFileUrl, fileSize } from './basket-upload.js';
 import { fileLine } from './meeting-compact.js';
 import { paintHtmlAttachments } from './html-frame.js';
+import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
+import { notePreview, noteCopyPayload } from './note-preview.mjs';
 
 const chipKinds = [['project','프로젝트'], ['organization','담당조직'], ['meeting','회의'], ['document','자료실']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', dateStyle:'medium', timeStyle:'short'}).format(d); };
 // UI-바구니상세개편: [복사] on every note row and in the read view (same conversion as the write window's 텔레그램용 복사).
+const MORE_ICON = '<span aria-hidden="true">⋯</span>';
 const PIN_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 2.5h4M7 2.5v4l-2.5 3h7L9 6.5v-4M8 9.5v4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const COPY_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 function showToast(message, ms = 3200) {
@@ -25,13 +28,12 @@ function showToast(message, ms = 3200) {
   clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.add('hidden'), ms);
 }
 const normalize = value => String(value ?? '').replace(/\r\n?/g, '\n');
-
 export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = () => {}, onMovedToBasket = () => {}}) {
-  let notes = [], links = [], selected = null, editing = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null;
+  let linkOpen = false, notes = [], links = [], selected = null, editing = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null;
   // BUG-뒤로가기: an opened note is one router layer, so Back returns to the list at the same scroll.
   let layer = null, listScroll = 0;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-  host.innerHTML = `<div data-note-list><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><button type="button" id="newNoteBtn" class="primary" data-note-new aria-label="새 노트">+ 노트</button></div><p data-note-list-status role="status"></p><button type="button" data-note-retry hidden>다시 시도</button><div data-note-rows></div></div><div data-note-detail hidden></div>`;
+  host.innerHTML = `<div data-note-list><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><button type="button" id="newNoteBtn" class="primary" data-note-new aria-label="새 노트">+ 노트</button></div><p data-note-list-status role="status"></p><button type="button" data-note-retry hidden>다시 시도</button><div data-note-rows></div></div><div data-note-detail hidden></div><div id="noteDocMenu" class="basket-more-menu note-pop-menu" role="group" aria-label="노트 메뉴" hidden></div>`;
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
   // UI-노트고정: pinned notes first, then by last change.
   const sorted = () => sortNotes(notes);
@@ -45,11 +47,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function renderList() {
     const visible = sorted().filter(matches);
     host.querySelector('[data-note-rows]').innerHTML = visible.map(note => {
-      const lines = String(note.raw_text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-      // UI-바구니상세개편: a note without a title shows the start of its body in the title place (cut with …, by CSS).
-      const title = String(note.title || '').trim(), shown = title || lines[0] || '노트', preview = (title ? lines : lines.slice(1)).join(' ');
+      // UI-노트메뉴정리: a note without a title shows the start of its body in the title place; the preview is plain letters
+      // (no markdown marks) and leaves out a body first line that repeats the title.
+      const {shown, preview} = notePreview(note), name = [...shown].slice(0, 40).join('');
       const tags = chips(note);
-      return `<div class="basket-row-item note-row-item"><button type="button" class="basket-row-copy" data-note-row-copy="${esc(note.id)}" aria-label="${esc([...shown].slice(0, 40).join(''))} 복사"${String(note.raw_text || '').trim() ? '' : ' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"><b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : '<span class="note-dot" aria-hidden="true"></span>'}<span class="basket-title-text">${esc([...shown].slice(0, 80).join(''))}</span></b>${preview ? `<span class="basket-preview">${esc([...preview].slice(0, 120).join(''))}</span>` : ''}<time>고친 날 ${esc(day(note.updated_at))}</time>${note.attachments?.length ? `<span>첨부 ${note.attachments.length}개</span>` : ''}${tags ? `<span class="note-row-chips">${tags}</span>` : ''}</button></div>`;
+      return `<div class="basket-row-item note-row-item"><button type="button" class="basket-row-copy" data-note-row-copy="${esc(note.id)}" aria-label="${esc(name)} 복사"${noteCopyPayload(note) ? '' : ' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-note-row-more="${esc(note.id)}" aria-label="${esc(name)} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button><button type="button" class="basket-row note-row" data-note-row="${esc(note.id)}"><b class="basket-title">${notePinnedAt(note) ? `<span class="note-pin" data-note-pinned>${PIN_ICON}<span class="a11y-only">고정됨: </span></span>` : '<span class="note-dot" aria-hidden="true"></span>'}<span class="basket-title-text">${esc([...shown].slice(0, 80).join(''))}</span></b>${preview ? `<span class="basket-preview">${esc([...preview].slice(0, 120).join(''))}</span>` : ''}<time>고친 날 ${esc(day(note.updated_at))}</time>${note.attachments?.length ? `<span>첨부 ${note.attachments.length}개</span>` : ''}${tags ? `<span class="note-row-chips">${tags}</span>` : ''}</button></div>`;
     }).join('');
     if (!loaded) return;
     // UI-일기손질 ⑤: an empty note list stays empty (no guide sentence); only a search with no hit says so.
@@ -77,14 +79,40 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const textDirty = () => { if (!selected || !editing) return false; const f = fields(); return f.title.value !== (selected.title || '') || f.body.value !== normalize(selected.raw_text); };
   // A note with only HTML hides its empty body box; focus then goes to the HTML area.
   const readFocus = () => { const text = detail.querySelector('[data-basket-read-text]'); return text.hidden ? detail.querySelector('[data-basket-html-views]') : text; };
+  // The message goes to the open note's status line, or to the list's when the action came from a list row.
+  const report = text => { if (selected) say(text); else status.textContent = text; };
   const say = text => { const p = detail.querySelector('[data-basket-status]'); if (p) p.textContent = text; };
   const lock = value => { busy = value; detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => { el.disabled = value; }); if (!value) manual.controls(); };
-  const noteMenu = () => detail.querySelector('#noteDocMenu');
-  function setNoteMenu(open, {focus = false} = {}) {
-    const menu = noteMenu(), button = detail.querySelector('[data-note-more]');
-    if (!menu || menu.hidden === !open) return;
-    menu.hidden = !open; button.setAttribute('aria-expanded', String(open));
-    if (open) menu.querySelector('button:not(:disabled)')?.focus(); else if (focus) button.focus();
+  // UI-노트메뉴정리: one ⋯ menu for the list rows and the open note. 고정/고정 해제 · 수정 · (연결하기 · 바구니로 돌리기) · 삭제,
+  // in this order; the list rows leave out the two that need the open note. It opens where it was pressed (anchored-popup.js,
+  // PC and phone alike: a small list under the ⋯, kept inside the window) and closes on Esc, outside press, or choosing.
+  let menu = null;
+  const menuEl = () => host.querySelector('#noteDocMenu');
+  const menuItems = (note, from) => [
+    ['data-note-pin', notePinnedAt(note) ? '고정 해제' : '고정'], ['data-note-edit', '수정'],
+    ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '바구니로 돌리기']] : []),
+    ['data-note-delete', '삭제', 'basket-menu-danger']];
+  function closeMenu({focus = false} = {}) {
+    if (!menu) return null;
+    const closed = menu, el = menuEl(); menu = null; closed.stop();
+    // The items stay in the (hidden) menu until the next open: basket.js's own click handler runs after this one and must still see the pressed button inside this host.
+    el.hidden = true; clearAnchored(el);
+    closed.trigger.setAttribute('aria-expanded', 'false');
+    if (focus && closed.trigger.isConnected) closed.trigger.focus({preventScroll: true});
+    return closed;
+  }
+  function openMenu(trigger, note, from) {
+    if (!note) return;
+    if (menu?.trigger === trigger) { closeMenu({focus: true}); return; }
+    closeMenu();
+    const el = menuEl();
+    el.innerHTML = menuItems(note, from).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
+    el.hidden = false;
+    const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: 320});
+    place();
+    menu = {noteId: note.id, from, trigger, stop: followAnchor(el, trigger, {place, lost: () => closeMenu()})};
+    trigger.setAttribute('aria-expanded', 'true');
+    el.querySelector('button')?.focus({preventScroll: true});
   }
   const manual = mountManualLink({esc, rt, getNote:() => selected, getLinks:() => links, isBusy:() => busy, setBusy:lock,
     onLinked:linked, onNoteChanged:() => reload(), onModeChange:() => paintMode(), onTaskRecorded:() => {}, sheetId:'noteLinkChoice'});
@@ -115,8 +143,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function paintRead() {
     const title = detail.querySelector('[data-note-read-title]'), text = detail.querySelector('[data-basket-read-text]'), raw = selected.raw_text || '';
     title.textContent = selected.title || '노트';
-    detail.querySelector('[data-note-pin]').textContent = notePinnedAt(selected) ? '고정 해제' : '고정';
-    detail.querySelector('[data-note-telegram]').hidden = !String(selected.raw_text || '').trim() && !String(selected.title || '').trim();
+    detail.querySelector('[data-note-telegram]').hidden = !noteCopyPayload(selected);
     const owner = scope(), id = selected.id;
     // BUG-노트HTML표시: .html attachments show in the same sandboxed frames as the memo read view (html-frame.js),
     // under the body text. A note whose only content is HTML has no "no body" sentence.
@@ -130,14 +157,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function paintMode() {
     if (!selected) return;
     detail.querySelector('[data-note-read]').hidden = editing;
-    detail.querySelector('[data-note-read-actions]').hidden = editing || manual.isOpen();
-    detail.querySelector('[data-note-more-wrap]').hidden = editing; if (editing) setNoteMenu(false);
+    detail.querySelector('[data-note-head-main]').hidden = editing; if (editing) closeMenu();
+    // The link form was opened from the ⋯ menu; when it closes, focus goes back to the ⋯ (there is no [연결하기] button left to find).
+    const linking = manual.isOpen(); if (linkOpen && !linking && !editing) detail.querySelector('[data-note-more]')?.focus({preventScroll:true}); linkOpen = linking;
     detail.querySelector('[data-note-editor]').hidden = !editing; detail.querySelector('[data-note-edit-actions]').hidden = !editing;
   }
   function showDetail() {
     layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
-    ++epoch; editing = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
-    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="basket-note-more" data-note-more-wrap><button type="button" class="basket-more-trigger" data-note-more aria-label="이 노트 메뉴" aria-expanded="false" aria-controls="noteDocMenu"><span aria-hidden="true">⋯</span></button><div id="noteDocMenu" class="basket-more-menu" role="group" aria-label="이 노트" hidden><button type="button" data-note-pin>고정</button><button type="button" data-note-to-basket>바구니로 돌리기</button><button type="button" class="basket-menu-danger" data-note-delete>삭제</button></div></div></div><div class="basket-read note-read" data-note-read><div class="note-read-head"><h3 class="note-read-title" data-note-read-title></h3><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-note-read-actions><button type="button" data-note-edit>수정</button><button type="button" class="primary" data-basket-link-open>연결하기</button></div><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions" data-note-edit-actions hidden><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+    ++epoch; editing = false; linkOpen = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
+    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="note-head-main" data-note-head-main><h3 class="note-head-title" data-note-read-title></h3><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions" data-note-edit-actions hidden><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
     manual.attach(detail.querySelector('[data-basket-manual]'));
   }
   function open(id, {focus = true} = {}) {
@@ -170,7 +198,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!force && textDirty() && !window.confirm('고치던 노트를 버리고 목록으로 돌아갈까요?')) return false;
     if (!force && !textDirty() && manual.hasDraft() && !window.confirm('작성 중인 연결 입력을 버리고 목록으로 돌아갈까요?')) return false;
     bigWriter?.close({silent:true}); bigWriter = null;
-    const id = selected.id; ++epoch; selected = null; editing = false; manual.reset();
+    closeMenu(); const id = selected.id; ++epoch; selected = null; editing = false; manual.reset();
     detail.replaceChildren(); detail.hidden = true; list.hidden = false; onOpenChange(false); renderList();
     const opened = layer; layer = null; if (!fromBack) opened?.close();
     if (window.KPTURouter?.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
@@ -220,24 +248,24 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
   async function telegram(note = selected) {
-    if (!note) return;
-    const title = String(note.title || '').trim(), body = String(note.raw_text || '');
-    const ok = await copyText(toTelegram(title ? `# ${title}\n\n${body}` : body));
-    showToast(ok ? '복사했습니다' : '복사하지 못했어요. 다시 눌러 주세요.');
+    const payload = noteCopyPayload(note); if (!payload) return;
+    const ok = await copyText(payload.text);
+    showToast(ok ? payload.done : '복사하지 못했어요. 다시 눌러 주세요.');
   }
   // UI-노트고정: [고정]/[고정 해제] in the note's ⋯. The list puts pinned notes on top.
-  async function pin() {
-    if (!selected || editing || busy) return;
-    const note = selected, pinned = !notePinnedAt(note), run = ++epoch, owner = scope(); lock(true); say('');
+  async function pin(target = selected) {
+    if (!target || editing || busy) return;
+    const note = target, pinned = !notePinnedAt(note), run = ++epoch, owner = scope(); lock(true); report('');
     try {
       const saved = await setNotePinned(note, pinned, rt);
       if (run !== epoch || owner !== scope()) return;
       notes = notes.map(n => n.id === note.id ? {...n, metadata:saved.metadata, updated_at:saved.updated_at} : n);
-      selected = notes.find(n => n.id === note.id) || selected; renderList(); paintRead();
+      if (selected?.id === note.id) selected = notes.find(n => n.id === note.id) || selected;
+      renderList(); if (selected) paintRead();
       showToast(pinned ? '노트를 맨 위에 고정했어요.' : '고정을 풀었어요.');
     } catch (error) {
       if (run !== epoch || owner !== scope()) return;
-      say(error?.code === 'note_changed' ? error.message : pinned ? '고정하지 못했어요. 다시 시도해 주세요.' : '고정을 풀지 못했어요. 다시 시도해 주세요.');
+      report(error?.code === 'note_changed' ? error.message : pinned ? '고정하지 못했어요. 다시 시도해 주세요.' : '고정을 풀지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
   async function toBasket() {
@@ -254,10 +282,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       say(/바구니/.test(error?.message || '') ? error.message : '바구니로 돌리지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch && selected) lock(false); else busy = false; }
   }
-  async function remove() {
-    if (!selected || editing || busy) return;
-    const id = selected.id, run = ++epoch, owner = scope(); lock(true); say('');
-    const current = () => run === epoch && owner === scope() && selected?.id === id && window.KPTURouter.current === 'basket';
+  // [삭제] from the open note or from a list row: the same confirmation (what goes with it) and the same delete path.
+  async function remove(id = selected?.id) {
+    if (!id || editing || busy) return;
+    const fromList = !selected, run = ++epoch, owner = scope(); lock(true); report('');
+    const current = () => run === epoch && owner === scope() && window.KPTURouter.current === 'basket' && (fromList ? !selected : selected?.id === id);
     let result;
     try { result = await deleteNoteOriginal(id, {rt, isCurrent:current}); }
     catch { result = {status:'unknown', message:'결과를 확인하지 못했어요. 노트 다시 불러오기로 실제 상태를 확인해 주세요.'}; }
@@ -265,13 +294,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!current() || result.status === 'stale') return;
     if (['deleted', 'missing'].includes(result.status)) {
       notes = notes.filter(n => n.id !== id); links = links.filter(l => l.note_id !== id);
-      close({force:true}); status.textContent = String(result.message || '').replace('업데이트', '노트');
+      const message = String(result.message || '').replace('업데이트', '노트');
+      if (fromList) { renderList(); status.textContent = message; host.querySelector('[data-note-new]')?.focus({preventScroll:true}); return; }
+      close({force:true}); status.textContent = message;
       return;
     }
     lock(false);
-    if (result.status === 'cancelled') { detail.querySelector('[data-note-more]').focus(); return; }
-    say(result.message);
-    if (result.status === 'unknown') detail.querySelector('[data-note-reload]').hidden = false;
+    if (result.status === 'cancelled') { (fromList ? host.querySelector(`[data-note-row-more="${CSS.escape(id)}"]`) : detail.querySelector('[data-note-more]'))?.focus(); return; }
+    report(result.message);
+    if (result.status === 'unknown' && !fromList) detail.querySelector('[data-note-reload]').hidden = false;
   }
   async function reload() {
     if (!selected) return;
@@ -282,43 +313,51 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
 
   host.addEventListener('input', e => { if (e.target.matches('[data-note-search]')) { query = e.target.value.trim().toLowerCase(); renderList(); } });
+  // A menu item acts on the note the menu was opened for (a list row's note need not be open).
+  function menuAction(b, from) {
+    const note = notes.find(n => n.id === from.noteId); if (!note) return;
+    if (b.hasAttribute('data-note-pin')) void pin(note);
+    else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
+    else if (b.hasAttribute('data-basket-link-open')) say(manual.open('link') || '');
+    else if (b.hasAttribute('data-note-to-basket')) void toBasket();
+    else if (b.hasAttribute('data-note-delete')) void remove(note.id);
+  }
   host.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || b.disabled || !host.contains(b)) return;
-    if (b.hasAttribute('data-note-more')) { setNoteMenu(noteMenu()?.hidden ?? false); return; }
-    if (noteMenu()?.contains(b)) setNoteMenu(false, {focus:true});
+    if (b.closest('#noteDocMenu')) { const from = closeMenu({focus:true}); if (from && !busy) menuAction(b, from); return; }
+    if (b.hasAttribute('data-note-more')) { if (!busy && selected && !editing) openMenu(b, selected, 'detail'); return; }
+    if (b.hasAttribute('data-note-row-more')) { if (!busy && !selected) openMenu(b, notes.find(n => n.id === b.dataset.noteRowMore), 'list'); return; }
+    closeMenu();
     if (busy) return;
     if (b.hasAttribute('data-note-row-copy')) { void telegram(notes.find(n => n.id === b.dataset.noteRowCopy)); return; }
     if (b.hasAttribute('data-note-row')) open(b.dataset.noteRow);
     else if (b.hasAttribute('data-note-new')) openNew();
     else if (b.hasAttribute('data-note-retry')) void refresh();
     else if (b.hasAttribute('data-note-close')) close();
-    else if (b.hasAttribute('data-note-edit')) startEdit();
     else if (b.hasAttribute('data-note-cancel')) finishEdit();
     else if (b.hasAttribute('data-note-save')) void save();
     else if (b.hasAttribute('data-note-big-write')) openBigWriter();
     else if (b.hasAttribute('data-note-telegram')) void telegram();
-    else if (b.hasAttribute('data-basket-link-open')) say(manual.open('link') || '');
-    else if (b.hasAttribute('data-note-to-basket')) void toBasket();
-    else if (b.hasAttribute('data-note-pin')) void pin();
-    else if (b.hasAttribute('data-note-delete')) void remove();
     else if (b.hasAttribute('data-note-reload')) void reload();
   });
   host.addEventListener('keydown', e => {
-    if (e.key !== 'Escape' || !selected || busy) return;
+    if (e.key !== 'Escape') return;
+    if (menu) { e.preventDefault(); e.stopPropagation(); closeMenu({focus:true}); return; }
+    if (!selected || busy) return;
     e.preventDefault(); e.stopPropagation();
-    if (noteMenu() && !noteMenu().hidden) setNoteMenu(false, {focus:true});
-    else if (manual.isOpen()) manual.cancel();
+    if (manual.isOpen()) manual.cancel();
     else if (editing) finishEdit();
     else close();
   });
-  host.addEventListener('focusout', e => { const wrap = detail.querySelector('[data-note-more-wrap]'); if (wrap?.contains(e.target) && e.relatedTarget && !wrap.contains(e.relatedTarget)) setNoteMenu(false); });
-  document.addEventListener('click', e => { const wrap = detail.querySelector('[data-note-more-wrap]'); if (wrap && noteMenu() && !noteMenu().hidden && !wrap.contains(e.target)) setNoteMenu(false); });
+  // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.
+  host.addEventListener('focusout', e => { const el = menuEl(); if (menu && e.relatedTarget && !el.contains(e.relatedTarget) && e.relatedTarget !== menu.trigger) closeMenu(); });
+  document.addEventListener('click', e => { if (menu && !menuEl().contains(e.target) && !menu.trigger.contains(e.target)) closeMenu(); });
 
   return {
     // openId: a note just moved here from the basket opens once the list is read.
     show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
     close,
-    reset() { newDraft = ''; const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { closeMenu(); newDraft = ''; const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     hasDraft: () => textDirty() || (!!selected && manual.hasDraft()),
     isOpen: () => !!selected,

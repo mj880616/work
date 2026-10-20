@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {noteMenuAction} from './helpers/note-menu.mjs';
 // UI-일기손질: ① the shared round [+] never moves when a button is pressed (it used to jump while the finger was down,
 // because the swipe code put will-change:transform on the view panel and the fixed [+] then followed the panel),
 // ② today = filled purple circle on the day number, the chosen day = the cell border, ③ [+] in [일기] writes the chosen day,
@@ -184,7 +185,7 @@ for(const width of [390,1280])test(`⑥ an opened note draws only "‹ 노트" (
   return [...document.querySelectorAll('#basketView button,#basketView a')].filter(el=>el.getClientRects().length&&!el.closest('[data-note-detail]')).filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.height&&r.left<b.right&&r.right>b.left&&r.top<b.bottom&&r.bottom>b.top;}).map(el=>el.textContent.trim());});
  expect(overlap).toEqual([]);
  // Editing: the same — only the note's head.
- await page.locator('[data-note-edit]').click();
+ await noteMenuAction(page,'data-note-edit');
  await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();await expect(back).toBeVisible();
  await page.locator('[data-note-cancel]').click();
  // Files: the shared line (kind tag · name / size · small [Drive에서 열기]).
