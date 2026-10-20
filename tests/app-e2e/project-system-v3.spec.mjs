@@ -1,3 +1,4 @@
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
@@ -1063,7 +1064,7 @@ test('V3 project detail stays separate from the Web1-backed board',async({page})
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('독립 현장 공지');
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).not.toContainText('독립 현장 공지');
 });
@@ -1073,7 +1074,7 @@ test('Web1-backed board stays compact and excludes dedicated library and press s
   await mockApp(page,state);
   await page.setViewportSize({width:1440,height:900});
   await page.goto(testOrigin+'/app/');await signIn(page);
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
   await expect(page.locator('#web1BoardActive')).toContainText('민자철도 사업 현황');
   await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');

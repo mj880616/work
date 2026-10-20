@@ -97,6 +97,28 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  expect(errors).toEqual([]);
 });
 
+test('PC 1280: 공유 페이지 큰 버튼([새 공유 페이지]·[다시 불러오기]·[저장]·[링크 만들기])도 36px, 작은 보조 버튼은 그대로',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ let listFails=true;
+ const row={id:'sp-fixture',title:'Fixture share',status:'draft',project_id:null,blocks:[{type:'summary',text:'fixture'}],updated_at:'2026-10-20T01:00:00.000Z'};
+ await boot(page,1280);
+ await page.route(`${SB}/rest/v1/app_share_pages**`,route=>{
+  if(route.request().method()!=='GET')return route.fallback();
+  const id=new URL(route.request().url()).searchParams.get('id');
+  if(!id&&listFails)return route.fulfill({status:500,contentType:'application/json',body:'{"message":"fixture"}'});
+  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([row])});
+ });
+ await open(page,'pages');
+ const root=page.locator('#sharePagesRoot');
+ await pcButton(root.locator('[data-sp-new]'),'새 공유 페이지');await pcButton(root.locator('[data-sp-reload]'),'목록 다시 불러오기');
+ listFails=false;await root.locator('[data-sp-reload]').click();
+ await root.locator('[data-sp-open="sp-fixture"]').click();
+ await pcButton(root.locator('[data-sp-save]'),'공유 페이지 저장');await pcButton(root.locator('[data-sp-link-create]'),'링크 만들기');
+ expect((await measure(root.locator('[data-sp-add-block]').first())).height).toBe(32);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+ expect(errors).toEqual([]);
+});
+
 test('폰 390: 동그란 [+]·빠른 입력 [추가]는 그대로',async({page})=>{
  await boot(page,390);
  for(const [view,selector] of [['projects','#newProjectBtn'],['library','#newDocumentBtn'],['meetings','#newMeetingBtn']]){

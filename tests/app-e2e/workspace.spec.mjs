@@ -1,3 +1,4 @@
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { calendarToday } from './helpers/calendar-today.mjs';
@@ -217,7 +218,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#teamView')).toBeVisible();
   await expect(page.locator('#soOrganizationList')).toBeVisible();
 
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).toContainText('공공기관 인력확충');

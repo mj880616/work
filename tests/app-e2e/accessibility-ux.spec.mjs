@@ -1,3 +1,4 @@
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -96,7 +97,7 @@ test('library toolbar and Web1 board expose accessible navigation',async({page})
   await clickView(page,'library');
   await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
   await expect(page.locator('#documentProject')).toHaveAttribute('aria-label','프로젝트 필터');
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
   await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);
 });
