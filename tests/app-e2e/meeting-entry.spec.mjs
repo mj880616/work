@@ -299,7 +299,9 @@ const stripe=row=>row.evaluate(el=>getComputedStyle(el.querySelector('.meeting-l
 const rgb=hex=>`rgb(${[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', ')})`;
 
 const neutral=page=>page.evaluate(()=>{const probe=document.createElement('i');probe.style.color='#808080';document.body.append(probe);const c=getComputedStyle(probe).color;probe.remove();return c});
-const palette=()=>JSON.parse(read('app/team.js').match(/const MEETING_COLORS=(\[[^\]]+\])/)[1].replace(/'/g,'"'));
+// MEET-결과정리 ②: 회의 종류 색은 theme-tokens.css의 --ds-meeting-1~16(밝은 화면 값·어두운 화면 값). 시험 화면은 밝은 화면.
+const tokenPalette=dark=>{const css=read('app/theme-tokens.css'),at=css.indexOf('@media (prefers-color-scheme:dark)'),part=dark?css.slice(at):css.slice(0,at);return Array.from({length:16},(_,i)=>part.match(new RegExp(`--ds-meeting-${i+1}:(#[0-9a-f]{6})`))?.[1])};
+const palette=()=>tokenPalette(false);
 async function showMeetings(page,rows,docs=[]){
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)}));
   await page.route(`${SB}/rest/v1/app_documents**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(docs)}));
@@ -468,10 +470,13 @@ test('edit can replace a meeting name with an existing choice',async({page})=>{
 });
 
 });
-test('meeting palette has 8 distinct non-red colors visible on light and dark surfaces',async()=>{
-  const P=palette();
-  expect(P).toHaveLength(8);
-  expect(new Set(P).size).toBe(8);
+// MEET-결과정리 ②: 8색 하나를 밝은·어두운 화면에 같이 쓰던 것을, 화면마다 16색(같은 칸은 같은 색 계열)으로 나눴다.
+// 각 화면의 16색이 아래 기준(빨강 아님·바탕 대비 3:1·회색과 구별·서로 색차 20 이상)을 모두 지킨다.
+for(const dark of [false,true])test(`meeting palette has 16 distinct non-red colors visible on ${dark?'dark':'light'} surfaces`,async()=>{
+  const P=tokenPalette(dark);
+  expect(P).toHaveLength(16);
+  expect(P.every(Boolean)).toBe(true);
+  expect(new Set(P).size).toBe(16);
   const lin=c=>{c/=255;return c<=.03928?c/12.92:((c+.055)/1.055)**2.4};
   const parts=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
   const lum=hex=>{const [r,g,b]=parts(hex).map(lin);return .2126*r+.7152*g+.0722*b};
@@ -483,9 +488,7 @@ test('meeting palette has 8 distinct non-red colors visible on light and dark su
     const h=hue(color);
     expect(h,color).not.toBeNull();
     expect(h>=40&&h<=320,`${color} hue ${h}`).toBe(true);
-    expect(contrast(color,'#ffffff'),color).toBeGreaterThanOrEqual(3);
-    expect(contrast(color,'#1f2933'),color).toBeGreaterThanOrEqual(3);
-    expect(contrast(color,'#121212'),color).toBeGreaterThanOrEqual(3);
+    for(const surface of dark?['#1f2933','#121212','#1f1f1b','#292924']:['#ffffff','#fffefa','#f7f5ee','#f3f1ea'])expect(contrast(color,surface),`${color} on ${surface}`).toBeGreaterThanOrEqual(3);
     expect(dE(color,'#cfd6dc'),`${color} vs neutral`).toBeGreaterThan(30);
   }
   for(let i=0;i<P.length;i++)for(let j=i+1;j<P.length;j++)expect(dE(P[i],P[j]),`${P[i]} ${P[j]}`).toBeGreaterThanOrEqual(20);

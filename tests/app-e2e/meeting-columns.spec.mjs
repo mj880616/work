@@ -3,6 +3,7 @@
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
+import {testOrigin} from './helpers/test-origin.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -21,7 +22,7 @@ function columnState(){
 }
 async function open(page,s,width,height=900){
   await page.setViewportSize({width,height});await mockApp(page,s);
-  await signIn(page,'http://127.0.0.1:8123/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  await signIn(page,testOrigin+'/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
 }
 const kinds=page=>page.locator('#meetingList .mcol-kinds [data-meeting-kind]');
 const kindNames=page=>page.locator('#meetingList .mcol-kinds .mcol-name');

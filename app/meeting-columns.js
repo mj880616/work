@@ -26,9 +26,9 @@ export function meetingColumns(meetings,{nameOf,keyOf}){
 }
 
 // MEET-결과정리 ②: 회의 종류 색. 예전에는 이름 해시 % 8색이라 서로 다른 두 종류가 같은 색이 될 수 있었다.
-// 이제 종류마다 칸을 하나씩 나눠 준다: 색 칸은 theme-tokens.css의 --ds-meeting-1~16(8가지 색 × 진하기 2단, 밝은·어두운 화면 각각
+// 이제 종류마다 칸을 하나씩 나눠 준다: 색 칸은 theme-tokens.css의 --ds-meeting-1~16(빨강 계열 없이 서로 색차 25 이상, 밝은·어두운 화면 각각
 // 바탕 대비 3:1 이상). 처음 결과가 있는 순(오래된 종류 먼저 — 새 종류가 생겨도 기존 종류 색이 덜 바뀜)으로 이름 해시가 가리키는
-// 1단 칸을 먼저 쓰고, 이미 쓰였으면 1단의 다음 빈 칸, 1단이 다 차면 2단(명도 변형). 16종류를 넘으면 그때부터만 다시 돈다.
+// 1단 칸을 먼저 쓰고, 이미 쓰였으면 1단의 다음 빈 칸, 1단이 다 차면 2단(9~16 추가 색). 1단 순서는 예전 8색 계열과 같아 먼저 생긴 종류는 예전과 비슷한 색. 16종류를 넘으면 그때부터만 다시 돈다.
 export const MEETING_HUES=8,MEETING_PALETTE=16;
 export const meetingPaletteColor=index=>`var(--ds-meeting-${(((index%MEETING_PALETTE)+MEETING_PALETTE)%MEETING_PALETTE)+1})`;
 export function nameHash(key){let hash=0;for(const char of String(key))hash=(Math.imul(hash,31)+char.codePointAt(0))>>>0;return hash}

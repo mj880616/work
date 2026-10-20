@@ -126,7 +126,8 @@ function setupMeetingNamePicker(select,input,match,use,{current='',onChoose=()=>
   function update(){const custom=select.value==='__other__'||!names.length;input.classList.toggle('hidden',!custom);if(!custom)input.value=select.value;const equivalent=custom?names.find(name=>meetingNameKey(name)===meetingNameKey(input.value)&&name!==input.value.trim()):null;match.classList.toggle('hidden',!equivalent);match.querySelector('span').textContent=equivalent?`같은 회의가 있습니다: ${equivalent}`:'';use.onclick=()=>{select.value=equivalent;update()};if(custom)onCustom();else onChoose()}
   select.onchange=update;input.oninput=update;update();
 }
-function meetingDisplay(m){return {name:meetingName(m)||'회의명 미지정',meta:[m.round_no?`${m.round_no}차`:null,fmt(m.meeting_at)].filter(Boolean)}}
+// 다른 화면(자료실 회의 고르기 등)이 쓰는 회의 이름표도 회의 화면과 같은 차수·짧은 이름·회의 시각 규칙(MEET-결과정리 ①③).
+function meetingDisplay(m){return {name:meetingName(m)||'회의명 미지정',meta:meetingRowMeta(m)}}
 window.KPTUMeetingNames={installPicker:installMeetingNamePicker,setupPicker:setupMeetingNamePicker,label:m=>{const {name,meta}=meetingDisplay(m);return [name,...meta].join(' · ')}};
 // MEET-결과정리 ②: 종류마다 서로 다른 색 칸(meeting-columns.js assignMeetingColors). 회의 목록이 바뀔 때만 다시 나눈다.
 let meetingColorCache={source:null,slots:new Map()};

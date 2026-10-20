@@ -157,7 +157,10 @@ test('four cases, a result-less bundle, an existing meeting and a new kind are g
   ]));
   expect(f.uploads).toHaveLength(5);
   expect(f.uploads.some(u=>u.file.includes('7차'))).toBe(false);
-  await expect(page.locator('#meetingList [data-mrd-meeting]')).toHaveCount(6);
+  // MEET-결과정리 ⑤: PC 목록은 왼쪽 회의 종류(건수) + 고른 종류의 차수만 보이므로, 종류별 건수로 6건 모두 들어왔는지 본다.
+  await expect(page.locator('#meetingList [data-meeting-kind]')).toHaveCount(3);
+  await expect.poll(()=>page.locator('#meetingList [data-meeting-kind]').evaluateAll(list=>Object.fromEntries(list.map(b=>[b.querySelector('.mcol-name').textContent,Number(b.querySelector('.mcol-count').textContent)])))).toEqual({'중앙집행위원회':3,'본부 운영위원회':2,'대의원대회':1});
+  await expect(page.locator('#meetingList .mcol-detail [data-mrd-meeting]')).toHaveCount(3);
   expect(f.errors).toEqual([]);
 });
 
