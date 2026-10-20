@@ -199,3 +199,10 @@ div.gt-main{cursor:default}
   #gtDetailPane #gtTaskModal.gt-docked .gt-link-group>b,#gtDetailPane #gtTaskModal.gt-docked .gt-link-group>.gt-muted,#gtDetailPane #gtTaskModal.gt-docked .gt-link-group>.gt-org-group{grid-column:1 / -1}
   #gtDetailPane #gtTaskModal.gt-docked .gt-org-group{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--kptu-space-3)}
 }
+/* UI-할일조작통일: date list task row = the row button + a 44px ⋯ button on its right (menu: 완료·완료 취소·삭제). */
+#calendarDayTasks .gt-day-row{display:flex;align-items:center;min-width:0}
+#calendarDayTasks .gt-day-row>.cmv-task{flex:1 1 auto;min-width:0}
+#calendarDayTasks .gt-day-row[data-busy]{opacity:.55;pointer-events:none}
+#calendarDayTasks .gt-day-menu{flex:0 0 44px;width:44px;height:44px;min-height:44px;min-width:44px;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+#calendarDayTasks .gt-day-menu:hover{background:var(--kptu-surface-subtle)}
+#calendarDayTasks .gt-day-menu:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}

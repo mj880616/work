@@ -22,6 +22,13 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
     b.innerHTML=`<span class="cmv-day-time">${esc(time)}</span><span class="cmv-day-title">${esc(ev.title)}</span>`;
     b.setAttribute('aria-label',time+' '+ev.title);return b;
   }
+  // UI-할일조작통일: each task row sits beside a ⋯ button (완료·완료 취소·삭제). The menu itself belongs to calendar-tasks.js.
+  function taskLine(ev,row){
+    const wrap=document.createElement('div');wrap.className='gt-day-row';wrap.dataset.calendarTaskLine=ev.id;
+    const menu=document.createElement('button');menu.type='button';menu.className='gt-day-menu';menu.dataset.calendarTaskMenu=ev.id;
+    menu.textContent='⋯';menu.setAttribute('aria-label',(ev.title||'제목 없음')+' 메뉴');menu.setAttribute('aria-haspopup','menu');menu.setAttribute('aria-expanded','false');
+    wrap.append(row,menu);return wrap;
+  }
   let openSeq=0;
   function open(date,events=[]){
     const seq=++openSeq,owner=window.KPTURuntime?.session?.read?.()?.user?.id;
@@ -31,7 +38,7 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
     list.replaceChildren();
     const schedules=events.filter(e=>e.source!=='task'),tasks=events.filter(e=>e.source==='task');
     if(schedules.length){const section=document.createElement('section');section.id='calendarDayEvents';schedules.forEach(e=>section.append(eventRow(e)));list.append(section)}
-    if(tasks.length){const section=document.createElement('section');section.id='calendarDayTasks';const heading=document.createElement('h3');heading.textContent='할 일';section.append(heading);tasks.forEach(e=>section.append(eventRow(e)));list.append(section)}
+    if(tasks.length){const section=document.createElement('section');section.id='calendarDayTasks';const heading=document.createElement('h3');heading.textContent='할 일';section.append(heading);tasks.forEach(e=>section.append(taskLine(e,eventRow(e))));list.append(section)}
     if(tasks.length)window.KPTUGoogleTasks?.describeTasks?.(tasks.map(e=>({id:e.id,due:taskDate(e)}))).then(rows=>{if(seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;rows.forEach(t=>{const main=list.querySelector(`[data-calendar-task="${CSS.escape(t.id)}"] .gt-day-main`);if(!main)return;main.querySelector('.gt-meta')?.remove();main.insertAdjacentHTML('beforeend',window.KPTUGoogleTasks.taskMeta(t));})}).catch(()=>{});
     if(!events.length)list.innerHTML='<div class="empty compact">일정 없음</div>';
     // JOURNAL-일기: that day's diary first photo, small, on top of the list (opens [일기] on that day).

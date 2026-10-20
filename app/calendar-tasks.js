@@ -6,7 +6,7 @@ if(window.KPTUCalendarTasks)return;
 // Shown: every pending task with a due date (an overdue one stays on its due date) and tasks completed in the last 3 days
 // (faded), whatever their project or organization links. Tasks without a due date are not shown. A tap opens the existing
 // Google task editor (which also completes, un-completes and deletes). In the date list the row's circle completes or un-completes through
-// the task view's own toggle; nothing else here changes a task. Without Google or its Tasks permission the calendar
+// the task view's own toggle, and the row's ⋯ menu does the same plus 삭제 (UI-할일조조통일); nothing else here changes a task. Without Google or its Tasks permission the calendar
 // simply shows no tasks, with no error message.
 // The first calendar screen never waits for tasks: the view loader brings this module in after the first render, this device's
 // copy is shown at once, and the fresh read starts a moment later and only while the calendar is still shown.
@@ -81,9 +81,44 @@ async function toggleFromList(b){
   }catch{paint(done)}
   finally{delete b.dataset.busy}
 }
+// UI-할일조작통일: the ⋯ beside each task in the date list opens a small menu (완료 / 완료 취소, 삭제) where it was pressed
+// (the existing anchored menu, as in the task screen). 삭제 asks first, like the editor's [삭제], then removes the row.
+let menu=null,menuLoading=null;
+const notice=text=>{const t=document.querySelector('#toast');if(t){t.textContent=text;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),3200)}};
+const rowOf=id=>document.querySelector(`#calendarDayTasks [data-calendar-task="${CSS.escape(id)}"]`);
+async function deleteFromList(id){
+  const g=api(),raw=tasks.find(x=>x.id===id),line=document.querySelector(`#calendarDayTasks [data-calendar-task-line="${CSS.escape(id)}"]`);
+  if(!raw||!g?.deleteTask||line?.dataset.busy)return;
+  if(!window.confirm('이 Google 할 일을 삭제할까요?'))return;
+  if(line)line.dataset.busy='1';
+  const task=g.taskState?.(id)?.task||raw;
+  let r;try{r=await g.deleteTask(task)}catch{r={ok:false}}
+  if(!r?.ok){if(line)delete line.dataset.busy;notice(r?.message||'할 일을 삭제하지 못했습니다.');return}
+  tasks=tasks.filter(x=>x.id!==id);publish(tasks,Date.now());
+  const section=line?.parentElement;line?.remove();
+  if(section?.id==='calendarDayTasks'&&!section.querySelector('[data-calendar-task]'))section.remove();
+  const list=document.querySelector('#calendarDayList');
+  if(list&&!list.querySelector('#calendarDayEvents,#calendarDayTasks,#calendarDayDiary'))list.innerHTML='<div class="empty compact">일정 없음</div>';
+  notice('할 일을 삭제했습니다.');
+}
+async function openMenu(trigger){
+  const modal=trigger.closest('#calendarDayModal');if(!modal)return;
+  if(!menu){
+    menuLoading=menuLoading||import('./anchored-menu.js').then(({createAnchoredMenu})=>{
+      menu=createAnchoredMenu({id:'calendarTaskMenu',className:'gt-task-menu',label:'할 일 관리',historyKey:'kptuCalendarTaskMenu',parent:modal,key:t=>t.dataset.calendarTaskMenu,
+        render:id=>{const done=rowOf(id)?.classList.contains('cmv-task-done');return `<button type="button" data-calendar-menu-action="toggle">${done?'완료 취소':'완료'}</button>${api()?.deleteTask?'<button type="button" class="gt-menu-danger" data-calendar-menu-action="delete">삭제</button>':''}`},
+        onAction:(button,active)=>{const row=rowOf(active.id);if(button.dataset.calendarMenuAction==='delete')void deleteFromList(active.id);else if(row)void toggleFromList(row)}
+      });
+    });
+    await menuLoading;
+  }
+  menu.open(trigger);
+}
 function boot(){
   owner=currentOwner();
   document.addEventListener('click',e=>{
+    const m=e.target.closest?.('[data-calendar-task-menu]');
+    if(m){e.preventDefault();void openMenu(m);return}
     const b=e.target.closest?.('[data-calendar-task]');
     if(!b||window.KPTUCalendarMonthView?.suppressClick?.())return;
     if(e.target.closest('#calendarDayTasks .cmv-task-mark')){e.preventDefault();toggleFromList(b);return}

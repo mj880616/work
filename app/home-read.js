@@ -539,8 +539,8 @@ root.addEventListener("click", async (event) => {
   const editId = b.dataset.homeEdit;
   if (editId) {
     // 할 일 화면의 기존 수정 창을 그대로 연다.
-    const t = google?.taskState(editId)?.task;
-    if (t) google.openEditor(t);
+    const t = google?.taskState(editId)?.task || tasks.find((x) => x.id === editId);
+    if (t) google?.openEditor?.(t);
     return;
   }
   const id = b.dataset.homeToggle;

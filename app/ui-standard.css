@@ -564,6 +564,7 @@
 #calendarDayModal #calendarDayTasks > h3{ margin:12px 0 2px; font-size:var(--ds-text-section); color:var(--ds-kind-task-ink); }
 #calendarDayModal #calendarDayTasks .cal-event.cmv-task{ gap:10px; align-items:center; min-height:var(--kptu-touch-target,44px); padding:8px 0!important; border:0; border-radius:0!important; background:transparent; color:var(--kptu-ink); font-weight:var(--ds-weight-regular); box-shadow:none; }
 #calendarDayModal #calendarDayTasks .cal-event.cmv-task + .cal-event.cmv-task{ border-top:var(--ds-line-width) solid var(--ds-line); }
+#calendarDayModal #calendarDayTasks .gt-day-row + .gt-day-row{ border-top:var(--ds-line-width) solid var(--ds-line); }
 #calendarDayModal #calendarDayTasks .cal-event.cmv-task:hover{ background:var(--kptu-surface-subtle); }
 #calendarDayModal #calendarDayTasks .cmv-task-mark{ flex:0 0 18px; width:18px; height:18px; margin:0; font-size:11px; color:var(--kptu-muted); border:1.5px solid currentColor; }
 #calendarDayModal #calendarDayTasks .cmv-task-done .cmv-task-mark{ color:var(--kptu-surface); background:var(--kptu-muted); border-color:var(--kptu-muted); }
