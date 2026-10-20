@@ -52,8 +52,17 @@ const others=()=>({
   {id:'sp0',workspace_id:'w',title:'지난주 페이지',status:'draft',updated_at:'2026-09-30T04:00:00Z'},
  ],
 });
-async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old'}={}){
+// ORG-담당13기준: the organization read also asks for my assignment rows; o1·o2 are mine. outside:true adds two organizations
+// that are not mine (one active and unassigned, one assigned but inactive), each with a Tuesday record (fake names only).
+async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServer='old',outside=false}={}){
  const rows=store(),writes=[],reads=[],errors=[],taskCalls=[],more=others();
+ more.assignees=['o1','o2'].map(organization_id=>({organization_id,user_id:'home-test'}));
+ if(outside){
+  more.orgs.push({id:'o3',workspace_id:'w',name:'다 바깥 모임',active:true},{id:'o4',workspace_id:'w',name:'라 쉬는 모임',active:false});
+  more.assignees.push({organization_id:'o4',user_id:'home-test'});
+  more.orgUpdates.push({id:'u3',organization_id:'o3',occurred_at:'2026-10-06T03:00:00Z',raw_text:'바깥 모임 기록\n둘째 줄',detail_text:null},
+   {id:'u4',organization_id:'o4',occurred_at:'2026-10-06T04:00:00Z',raw_text:'쉬는 모임 기록',detail_text:null});
+ }
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width,height});
@@ -82,7 +91,8 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
   const offset=Number(q.get('offset')||0),limit=Number(q.get('limit')||1000);
   return r.fulfill({json:hit.slice(offset,offset+limit)});
  });
- await table('app_suborganizations',more.orgs,null,q=>q.get('select')==='id,name');
+ await table('app_suborganizations',more.orgs,null,q=>q.get('select')==='id,name,active');
+ await table('app_suborganization_assignees',more.assignees,null,q=>q.get('select')==='organization_id'&&q.has('user_id'));
  await table('app_record_links',more.links,'memos',q=>q.has('note_id'));
  await table('app_suborganization_updates',more.orgUpdates,'orgUpdates',q=>q.has('occurred_at'));
  await table('app_project_progress_updates',more.progress,'progress',q=>q.has('effective_on'));
@@ -520,6 +530,30 @@ test('[주간보고 초안 복사]: 날짜마다 그날 줄들을 저장 순서�
   '- 프로젝트 소식 · 가상 사업: 진행상황 업데이트','- 할 일 예정: 오늘 마감 할 일','- 자료실 새 자료: [교섭] 가상 교섭 요구안','- 공유 페이지: 가상 안내 페이지 · 게시','']);
  expect(text).not.toContain('JOURNAL_SECRET');
  expect(f.writes.map(w=>w.method)).toEqual(['POST','PATCH']);expect(f.errors).toEqual([]);
+});
+
+// ORG-담당13기준: 조직 소식과 주간보고 초안은 내 담당 조직(담당 사업장 ∩ 활성)만 조직 이름별로 두고, 나머지 조직의 기록은
+// 사라지지 않게 '그 외' 한 묶음(조직 이름 · 내용)으로 미분류 앞에 남긴다.
+test('[업무일지] 내 담당 조직만 이름별, 담당 밖·쉬는 조직 기록은 그 외 한 묶음 — 화면과 주간보고 초안이 같다',async({page})=>{
+ const f=await fixture(page,{width:390,outside:true});
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,390);
+ await expect(group(page,'orgs').locator('[data-journal-org] > .journal-org-name')).toHaveText(['가상 노동조합','나 지역 모임','그 외','미분류']);
+ await expect(group(page,'orgs').locator('[data-journal-org="그 외"] li')).toHaveText(['다 바깥 모임 · 바깥 모임 기록','라 쉬는 모임 · 쉬는 모임 기록']);
+ await expect(group(page,'orgs').locator('[data-journal-org="나 지역 모임"] li')).toHaveText(['조직 화면에서 쓴 업데이트']);
+ await expect(group(page,'orgs').locator('[data-journal-org="다 바깥 모임"]')).toHaveCount(0);
+ await expect(group(page,'orgs').locator('[data-journal-org="라 쉬는 모임"]')).toHaveCount(0);
+ // 읽기: 조직은 이 업무 공간, 담당 줄은 로그인한 나만. 기록은 담당 밖 조직 것까지 모두 읽는다(사라지지 않게).
+ expect(f.reads.find(q=>q.table==='app_suborganization_assignees')).toMatchObject({user_id:'eq.home-test',select:'organization_id'});
+ expect(f.reads.find(q=>q.table==='app_suborganizations')).toMatchObject({workspace_id:'eq.w',select:'id,name,active'});
+ expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2,o3,o4)'});
+ await page.locator('#journalRoot [data-journal-copy]').click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('이번 주 한 줄과 재료 목록을 복사했어요.');
+ const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
+ const tue=lines.indexOf('■ 10월 6일(화)'),orgLines=lines.slice(tue,lines.indexOf('■ 10월 7일(수)')).filter(l=>l.startsWith('- 조직 소식'));
+ expect(orgLines).toEqual(['- 조직 소식 · 가상 노동조합: 안녕하세요 위원장님','- 조직 소식 · 나 지역 모임: 조직 화면에서 쓴 업데이트',
+  '- 조직 소식 · 그 외: 다 바깥 모임 · 바깥 모임 기록','- 조직 소식 · 그 외: 라 쉬는 모임 · 쉬는 모임 기록','- 조직 소식 · 미분류: 현장 간담회 메모']);
+ expect(f.errors).toEqual([]);
 });
 
 // UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다(같은 바깥 폭 규칙 .view-wide). 폰은 그대로(가운데 760px 상한·1열).

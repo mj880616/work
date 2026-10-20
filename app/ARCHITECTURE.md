@@ -94,6 +94,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 - `notification-center-ui.js`: 전용 알림 화면
 - `suborganizations.js`, `suborganization-planned-assignee.js`: 산하조직 영역
 - `organization-order.js`: 담당조직 공통 순서·묶음(TASK-조직순서)의 유일한 정의. 담당조직 목록, 일정 등록·수정의 담당조직 체크, Google 할 일 편집창의 조직 선택이 이 모듈을 쓴다. 조직 상세의 연결된 할 일은 `google-tasks.js`가 그린다(TASK-조직상세).
+- `my-organizations.js`: "내 담당 조직"(ORG-담당13기준)의 유일한 정의. 원본은 소유자의 담당 연결(`app_suborganization_assignees`, 내 프로필 → 담당 사업장)과 활성 조직의 교집합이고, 담당 0개·조회 실패면 활성 전체다. 바구니 담당조직 목록(`basket-ai-handoff.js`·`basket-manual-link.js`)과 업무일지 조직 소식·주간보고 초안(`journal-data.js`, 담당 밖 조직 기록은 "그 외" 한 묶음)이 쓴다. Drive 사본(`supabase/functions/drive-summary/basket.mjs`)은 배포 사본을 두고 검사로 같음을 확인한다. 순서·묶음은 `organization-order.js`가 맡는다.
 
 ### 업무 기능
 
