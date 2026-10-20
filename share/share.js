@@ -2,11 +2,14 @@
 // The link value is read from the address after # (never sent to Pages, Cloudflare or search engines), posted once to
 // the share-page-read Edge function as {token}, and kept nowhere else: no storage, no logs, no other request.
 // Everything from the server is drawn with textContent; links open only http(s) addresses.
+// BUG-공유페이지삼성: the page area id must not look like a social-share widget ("#sharePage" is hidden by the
+// Fanboy social list that browser ad blockers use), one failing block draws a short notice instead of blanking the
+// page, and the syntax stays at what older Samsung Internet (Chromium 7x) can parse: no ?. ?? or replaceChildren.
 import {BLOCK_LABELS, safeUrl} from '../app/share-pages-model.mjs';
 
 const ENDPOINT = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/share-page-read';
 const TOKEN = /^[0-9a-f]{64}$/;
-const main = document.querySelector('#sharePage');
+const main = document.getElementById('srMain');
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -15,7 +18,7 @@ function el(tag, className, text) {
   return node;
 }
 const str = value => typeof value === 'string' ? value : '';
-const items = block => (Array.isArray(block?.items) ? block.items : []).filter(item => item && typeof item === 'object');
+const items = block => (block && Array.isArray(block.items) ? block.items : []).filter(item => item && typeof item === 'object');
 const heading = (block, type) => el('h2', 'sr-h', str(block.title).trim() || BLOCK_LABELS[type]);
 
 export function tokenFromHash(hash) {
@@ -98,11 +101,20 @@ function updates(block) {
 }
 const RENDER = {summary, stages, schedule, issues, links, updates};
 
+// One block that cannot be drawn shows this notice in its place; the title and the other blocks still show.
+export function renderBlockError(block) {
+  const box = el('section', 'sr-block sr-block-error');
+  box.setAttribute('role', 'note');
+  const label = block && Object.prototype.hasOwnProperty.call(BLOCK_LABELS, block.type) ? BLOCK_LABELS[block.type] : '';
+  box.append(el('p', '', (label ? label + ' ' : '') + '칸을 표시하지 못했어요. 새로고침하거나 보낸 사람에게 알려 주세요.'));
+  return box;
+}
 export function renderPage(page) {
-  const nodes = [el('h1', 'sr-title', str(page?.title))];
-  for (const block of Array.isArray(page?.blocks) ? page.blocks : []) {
-    const draw = RENDER[block?.type];
-    if (draw) nodes.push(draw(block));
+  const nodes = [el('h1', 'sr-title', str(page && page.title))];
+  for (const block of page && Array.isArray(page.blocks) ? page.blocks : []) {
+    const draw = block && Object.prototype.hasOwnProperty.call(RENDER, block.type) ? RENDER[block.type] : null;
+    if (!draw) continue;
+    try { nodes.push(draw(block)); } catch { nodes.push(renderBlockError(block)); }
   }
   return nodes;
 }
@@ -113,7 +125,8 @@ export function renderClosed() {
   return [box];
 }
 function show(nodes, title) {
-  main.replaceChildren(...nodes);
+  while (main.firstChild) main.removeChild(main.firstChild);
+  for (const node of nodes) main.appendChild(node);
   main.removeAttribute('aria-busy');
   document.title = title ? `${title} · 공유 페이지` : '공유 페이지';
 }
@@ -121,15 +134,19 @@ function show(nodes, title) {
 async function start() {
   const token = tokenFromHash(location.hash);
   if (!token) { show(renderClosed()); return; }
+  let page;
   try {
     const response = await fetch(ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token}),
       cache:'no-store', credentials:'omit', referrerPolicy:'no-referrer'});
     const data = response.ok ? await response.json() : null;
-    if (!data?.ok || !data.page || typeof data.page.title !== 'string' || !Array.isArray(data.page.blocks)) throw new Error('closed');
-    show(renderPage(data.page), data.page.title);
+    if (!data || !data.ok || !data.page || typeof data.page.title !== 'string' || !Array.isArray(data.page.blocks)) throw new Error('closed');
+    page = data.page;
   } catch {
     show(renderClosed());
+    return;
   }
+  // Drawing is outside the try above: a drawing problem is not a closed link (renderPage keeps each block apart).
+  show(renderPage(page), page.title);
 }
 if (main) {
   void start();

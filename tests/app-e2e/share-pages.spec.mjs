@@ -1,6 +1,6 @@
 // SHARE-현장공유 PR 2: Web2 "공유 페이지" editor (mock Supabase) and the Web1 reader (mock share-page-read).
 import {test, expect} from '@playwright/test';
-import {readFileSync} from 'node:fs';
+import {existsSync, readFileSync} from 'node:fs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
@@ -285,7 +285,7 @@ test('Web1 reader draws the page as text only, with noindex and no stored link v
   await expect(page.locator('.sr-foot')).toHaveText('링크를 받은 사람만 볼 수 있는 페이지');
   // XSS strings are plain text: no element was made from them and nothing ran.
   expect(await page.evaluate(() => window.__xss)).toBeUndefined();
-  await expect(page.locator('#sharePage img, #sharePage script')).toHaveCount(0);
+  await expect(page.locator('#srMain img, #srMain script')).toHaveCount(0);
   await expect(page.locator('.sr-issue-body')).toContainText('<img src=x');
   // The link value lives only in the address bar.
   // Nothing is kept in the browser (cookies or per-origin storage); the source check below covers the session kind too.
@@ -298,11 +298,71 @@ test('Web1 reader draws the page as text only, with noindex and no stored link v
   expect(errors).toEqual([]);
 });
 
+// BUG-공유페이지삼성: on Samsung Internet only the footer showed. Browser ad blockers apply Fanboy's social list, whose
+// generic hide rules include "###sharePage" and "##.sharePage"; the page area used to be <main id="sharePage">.
+const SOCIAL_HIDE = '#sharePage,.sharePage,.sharepage,#sharePageButtons,.share-page,[id^="share"],[class^="share"]{display:none!important}';
+test('Web1 reader stays visible under an ad blocker that hides share widgets', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  // Ad blockers inject their rules with extension rights, past the page CSP; a constructed sheet does the same here.
+  await page.addInitScript(css => { const sheet = new CSSStyleSheet(); sheet.replaceSync(css); document.adoptedStyleSheets = [sheet]; }, SOCIAL_HIDE);
+  const {errors} = await openReader(page, {reply:route => route.fulfill({status:200, contentType:'application/json', body:JSON.stringify({ok:true, page:samplePage})})});
+  await expect(page.locator('h1.sr-title')).toHaveText(samplePage.title);
+  // The rule is really in force: an element named like a share widget is hidden.
+  expect(await page.evaluate(() => { const p = document.createElement('p'); p.id = 'sharePage'; document.body.append(p); const d = getComputedStyle(p).display; p.remove(); return d; })).toBe('none');
+  await expect(page.locator('h1.sr-title')).toBeVisible();
+  await expect(page.locator('.sr-summary')).toBeVisible();
+  await expect(page.locator('.sr-issue-title')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Web1 reader draws on an older browser without the newer DOM and array helpers', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  await page.addInitScript(() => {
+    for (const [owner, key] of [[Element.prototype, 'replaceChildren'], [Document.prototype, 'replaceChildren'], [DocumentFragment.prototype, 'replaceChildren'],
+      [Array.prototype, 'at'], [Array.prototype, 'findLast'], [Array.prototype, 'toSorted'], [String.prototype, 'at'], [Object, 'hasOwn'],
+      [globalThis, 'structuredClone'], [Promise, 'withResolvers'], [URL, 'parse'], [URL, 'canParse']]) delete owner[key];
+  });
+  const {errors} = await openReader(page, {reply:route => route.fulfill({status:200, contentType:'application/json', body:JSON.stringify({ok:true, page:samplePage})})});
+  await expect(page.locator('h1.sr-title')).toHaveText(samplePage.title);
+  await expect(page.locator('.sr-summary')).toHaveText(samplePage.blocks[0].text);
+  await expect(page.locator('.sr-stage')).toHaveCount(3);
+  await expect(page.locator('.sr-link')).toHaveCount(1);
+  expect(await page.title()).toBe(samplePage.title + ' · 공유 페이지');
+  expect(errors).toEqual([]);
+});
+
+test('Web1 reader keeps the title and other blocks when one block cannot be drawn', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  // The schedule block needs a <table>; make that one element fail the way a missing browser feature would.
+  await page.addInitScript(() => {
+    const make = Document.prototype.createElement;
+    Document.prototype.createElement = function (tag, ...rest) {
+      if (String(tag).toLowerCase() === 'table') throw new TypeError('no table here');
+      return make.call(this, tag, ...rest);
+    };
+  });
+  const {errors} = await openReader(page, {reply:route => route.fulfill({status:200, contentType:'application/json', body:JSON.stringify({ok:true, page:samplePage})})});
+  await expect(page.locator('h1.sr-title')).toHaveText(samplePage.title);
+  await expect(page.locator('.sr-summary')).toHaveText(samplePage.blocks[0].text);
+  await expect(page.locator('.sr-schedule')).toHaveCount(0);
+  const notice = page.locator('.sr-block-error');
+  await expect(notice).toHaveCount(1);
+  await expect(notice).toHaveText('일정 칸을 표시하지 못했어요. 새로고침하거나 보낸 사람에게 알려 주세요.');
+  await expect(notice).toHaveAttribute('role', 'note');
+  // Blocks after the failing one still show, in order.
+  await expect(page.locator('#srMain > *')).toHaveCount(1 + samplePage.blocks.length);
+  await expect(page.locator('#srMain > *').nth(3)).toHaveClass(/sr-block-error/);
+  await expect(page.locator('.sr-issue-title')).toHaveText('인력 충원');
+  await expect(page.locator('.sr-update')).toHaveCount(1);
+  await expect(page.locator('.sr-closed')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('Web1 reader is a narrow centre column on PC', async ({page}) => {
   await page.setViewportSize({width:1440, height:900});
   await openReader(page, {reply:route => route.fulfill({status:200, contentType:'application/json', body:JSON.stringify({ok:true, page:samplePage})})});
   await expect(page.locator('h1.sr-title')).toBeVisible();
-  const box = await page.locator('#sharePage').boundingBox();
+  const box = await page.locator('#srMain').boundingBox();
   expect(box.width).toBeLessThanOrEqual(640);
   expect(Math.abs(box.x + box.width / 2 - 720)).toBeLessThan(2);
 });
@@ -332,5 +392,25 @@ test('Web1 reader source draws server content with textContent only and keeps no
   const html = readFileSync('share/index.html', 'utf8');
   expect(html).toMatch(/<meta name="robots" content="noindex,nofollow,noarchive">/);
   expect(html).toMatch(/Content-Security-Policy/);
-  expect(html).not.toMatch(/og:|twitter:|canonical/);
+  // Link previews get one fixed card for every share page: never the link value or anything from the page.
+  expect(html).not.toMatch(/canonical/);
+  const meta = [...html.matchAll(/<meta (?:property|name)="((?:og|twitter):[a-z:_]+)" content="([^"]*)">/g)].map(m => [m[1], m[2]]);
+  expect(Object.fromEntries(meta)).toEqual({
+    'og:type':'website', 'og:locale':'ko_KR', 'og:title':'공유 페이지', 'og:description':'링크를 받은 사람만 볼 수 있는 페이지',
+    'og:url':'https://work.bokdoong.com/work/share/', 'og:image':'https://work.bokdoong.com/work/app/icons/app-icon-512.png',
+    'og:image:width':'512', 'og:image:height':'512',
+    'twitter:card':'summary', 'twitter:title':'공유 페이지', 'twitter:description':'링크를 받은 사람만 볼 수 있는 페이지',
+  });
+  expect(existsSync('app/icons/app-icon-512.png')).toBe(true);
+  expect(html).not.toMatch(/#t=/);
+  // BUG-공유페이지삼성: ad blockers' social lists hide ids and classes such as #sharePage/.sharePage/.share-…, so the reader
+  // names nothing after "share" (the footer outside <main> stayed while the whole page area was hidden).
+  const names = [...(html + source).matchAll(/(?:id|class(?:Name)?)\s*=\s*"([^"]*)"|el\('[a-z0-9]+', '([^']*)'/g)].map(m => m[1] || m[2] || '');
+  expect(names.length).toBeGreaterThan(10);
+  for (const name of names) expect(name, name).not.toMatch(/share/i);
+  // Older Samsung Internet (Chromium 7x) cannot parse ?. or ?? and has no replaceChildren: one SyntaxError would stop the page.
+  for (const file of ['share/share.js', 'app/share-pages-model.mjs']) {
+    const code = readFileSync(file, 'utf8').replace(/^\s*\/\/.*$/gm, '');
+    expect(code, file).not.toMatch(/\?\.[\w[(]|\?\?|replaceChildren|structuredClone|\.findLast|\.toSorted|\.at\(/);
+  }
 });
