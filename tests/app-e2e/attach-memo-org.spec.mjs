@@ -161,14 +161,13 @@ for(const width of [390,1280])test(`files-only memo goes into the organization a
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`[기록도 남기기] on an organization adds a required summary and also records ${width}`,async({page})=>{
+for(const width of [390,1280])test(`[기록도 남기기] on an organization adds an optional summary and also records ${width}`,async({page})=>{
  const f=await fixture(page,{width}),detail=await openNote(page,ONLY,width);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);await pick(page,detail,'organization','합성 한빛지부',width);
  const target=detail.locator(`[data-manual-target="organization:${O}"]`);
  await tap(page,target.getByRole('button',{name:'기록도 남기기'}),width);
  await expect(target.locator('textarea')).toBeFocused();
- await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);
- await expect(detail.locator('[data-manual-status]')).toContainText('요약');expect(f.rpc).toEqual([]);expect(f.calls('app_documents','PATCH')).toEqual([]);
+ // BASKET-연결요약선택: the summary is optional, so nothing is refused for a blank box; the written one is sent.
  await target.locator('textarea').fill('한빛지부 요구안 전달');
  await tap(page,detail.getByRole('button',{name:'연결',exact:true}),width);
  await expect(detail.locator('[data-basket-status]')).toHaveText('1곳에 연결했어요. 파일 2개를 합성 한빛지부 자료로 넣었어요.');
