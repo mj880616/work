@@ -113,12 +113,17 @@ test('다른 고르기 시트(홈 [업데이트 ▾] 조직)도 아래 탭 위�
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('PC 폭에서는 고르기 시트 위치가 그대로(화면 맨 아래) 1280',async({page})=>{
+// UI-PC팝업위치: on a PC the same sheet opens as a small list right by [내보내기] (the bottom sheet stays phone only).
+test('PC 폭에서는 고르기 시트가 누른 버튼 바로 옆에 작은 목록으로 열림 1280',async({page})=>{
  await page.setViewportSize({width:1280,height:860});
  await openHome(page);
  await page.locator('#appView>.app-nav [data-menu-write]').click();
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
- await editor.getByRole('button',{name:'내보내기',exact:true}).click();
+ const trigger=editor.getByRole('button',{name:'내보내기',exact:true});await trigger.click();
  const sheet=page.locator('#mdExportSheet');await expect(sheet).toHaveAttribute('open','');await settle(sheet);
- const box=await sheet.boundingBox();expect(Math.round(box.y+box.height)).toBe(860);
+ await expect(sheet).toHaveClass(/home-choice-anchored/);
+ const t=await trigger.boundingBox(),box=await sheet.boundingBox();
+ expect(box.y).toBeGreaterThanOrEqual(t.y+t.height);expect(box.y-(t.y+t.height)).toBeLessThanOrEqual(12);
+ expect(box.width).toBeLessThanOrEqual(360);expect(box.x+box.width).toBeLessThanOrEqual(1280);expect(box.x).toBeGreaterThanOrEqual(0);
+ expect(Math.round(box.y+box.height)).toBeLessThan(860);
 });

@@ -200,3 +200,9 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .modal-action-footer{position:sticky;bottom:calc(-1 * var(--kptu-space-5));z-index:2;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);margin-top:var(--kptu-space-3);margin-bottom:calc(-1 * var(--kptu-space-5));padding:var(--kptu-space-2) 0 calc(var(--kptu-space-5) + var(--kptu-space-1) + env(safe-area-inset-bottom))}
 .modal-action-footer>.status{margin:0 0 var(--kptu-space-2);overflow-wrap:anywhere}
 .modal-action-footer[data-keyboard-open]{position:static}
+/* UI-팝업머리고정: one rule for every popup (.modal-card) on phone and PC. The title line with its close (×) stays at the top
+   while the body scrolls under it. The shadow is the card colour and covers the card's top padding above the stuck line, so
+   scrolled text never shows there; it is clipped by the card. :where keeps this at one class so a popup's own head rule
+   (project detail .ps3-modal-head, the PC task pane #gtDetailPane) still sets its own offset. Save stays where it is: in the
+   bottom row (.modal-action-footer) for popups, in the title line only for the PC task pane. */
+:where(.modal-card)>.modal-head:where(:not(.w1p-detail-head)){position:sticky;top:0;z-index:3;background:var(--kptu-surface);box-shadow:0 -24px 0 24px var(--kptu-surface)}

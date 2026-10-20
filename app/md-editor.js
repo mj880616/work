@@ -358,7 +358,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     e.preventDefault(); e.stopImmediatePropagation();
     // [쓰기] in the wide menu while the write window is already open: just go on writing.
     if (draft && tab.hasAttribute('data-menu-write')) { area.focus({preventScroll: true}); return; }
-    if (draft && (area.value.trim() || titleBox?.value.trim())) { leavingTab = tab; void leaveChoices().open('leave', leaveReturn); }
+    if (draft && (area.value.trim() || titleBox?.value.trim())) { leavingTab = tab; void leaveChoices().open('leave', leaveReturn, tab); }
     else leaveTo(tab);
   }
   function leaveChoice(value) {
