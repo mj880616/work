@@ -273,3 +273,10 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
   #ps3DetailPane>#ps3DetailModal.ps3-docked .ps3-modal-head{top:calc(var(--kptu-space-3) * -1);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3) var(--kptu-space-3) var(--kptu-space-3)}
   #ps3DetailPane>#ps3DetailModal.ps3-docked [data-ps3-close="ps3DetailModal"]{display:none}
 }
+
+/* PRJ-회의표시: 상세의 [회의] 줄(이 프로젝트에 연결된 회의, 최근 순). 자료 줄과 같은 줄 모양, 줄 전체가 버튼(누르면 회의 결과 창). */
+#ps3DetailModal button.ps3-line-main{width:100%;height:auto;min-height:var(--kptu-touch-target);margin:0;padding:8px 0;border:0;border-radius:var(--kptu-radius-none);background:transparent;box-shadow:none;font:inherit;text-align:left;cursor:pointer}
+#ps3DetailModal button.ps3-line-main:hover{background:var(--kptu-surface-subtle)}
+#ps3DetailModal button.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.ps3-meetings-more>summary{list-style:none;cursor:pointer}
+.ps3-meetings-more>summary::-webkit-details-marker{display:none}
