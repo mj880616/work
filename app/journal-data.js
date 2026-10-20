@@ -18,6 +18,7 @@
 import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} from './meeting-time.js';
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
+import {myOrganizationIds, OTHERS} from './my-organizations.js';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -165,14 +166,20 @@ async function pages(path, rt) {
 const inList = ids => `in.(${ids.map(encode).join(',')})`;
 const chunks = list => Array.from({length:Math.ceil(list.length / PAGE)}, (_, i) => list.slice(i * PAGE, (i + 1) * PAGE));
 // Organization records of the week (Korea time), only for this workspace's organizations, each with its organization's name.
+// ORG-담당13기준: the list also carries `mine`, the ids of my organizations (my-organizations.js: my assignment rows crossed
+// with active organizations; none or a failed assignment read → every active one). 조직 소식 keeps the others under "그 외".
 export async function readOrgUpdates(start, rt = window.KPTURuntime) {
-  const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
-  const orgs = await pages(`/rest/v1/app_suborganizations?workspace_id=eq.${encode(workspace(rt))}&select=id,name&order=id.asc`, rt);
+  const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1)), user = rt.context.read()?.user?.id;
+  const [orgs, assignees] = await Promise.all([
+    pages(`/rest/v1/app_suborganizations?workspace_id=eq.${encode(workspace(rt))}&select=id,name,active&order=id.asc`, rt),
+    user ? pages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encode(user)}&select=organization_id&order=organization_id.asc`, rt).catch(() => []) : [],
+  ]);
   const names = new Map(orgs.map(org => [org.id, org.name || '']));
   const rows = [];
   for (const ids of chunks([...names.keys()]))
     rows.push(...await pages(`/rest/v1/app_suborganization_updates?organization_id=${inList(ids)}&occurred_at=gte.${encode(from)}&occurred_at=lt.${encode(to)}&select=id,organization_id,occurred_at,raw_text,detail_text&order=occurred_at.asc,id.asc`, rt));
-  return rows.filter(row => names.has(row.organization_id)).map(row => ({...row, organization:{name:names.get(row.organization_id)}}));
+  return Object.assign(rows.filter(row => names.has(row.organization_id)).map(row => ({...row, organization:{name:names.get(row.organization_id)}})),
+    {mine:myOrganizationIds(orgs, assignees)});
 }
 // Project progress records of the week by their day (effective_on), only for this workspace's projects, with the project's name.
 export async function readProjectUpdates(start, rt = window.KPTURuntime) {
@@ -235,6 +242,9 @@ export function memoLine(memo) {
   return name ? (files.length > 1 ? `첨부: ${name} 외 ${files.length - 1}개` : `첨부: ${name}`) : `첨부 ${files.length}개`;
 }
 export const UNSORTED = '미분류';
+export {OTHERS};
+// '그 외' (records of organizations that are not mine) comes after the named sections, '미분류' last.
+const tail = name => name === UNSORTED ? 2 : name === OTHERS ? 1 : 0;
 const sectionsOf = entries => {
   const sections = new Map();
   for (const entry of entries.sort((a, b) => byTime(a.at, b.at) || 0)) {
@@ -242,7 +252,7 @@ const sectionsOf = entries => {
     sections.get(entry.name).push(entry.text);
   }
   return [...sections].map(([name, items]) => ({name, items}))
-    .sort((a, b) => (a.name === UNSORTED) - (b.name === UNSORTED) || a.name.localeCompare(b.name, 'ko'));
+    .sort((a, b) => tail(a.name) - tail(b.name) || a.name.localeCompare(b.name, 'ko'));
 };
 // Where each basket update of the day went: {orgs:[{name, text}], projects:[name], line, at}.
 function basketPlaces(basket, day) {
@@ -251,10 +261,10 @@ function basketPlaces(basket, day) {
     const confirmed = links.filter(link => link.note_id === memo.id && link.status === 'confirmed');
     const orgs = new Map(), projects = [];
     for (const link of confirmed) {
-      if (link.organization_id && !orgs.has(link.organization_id)) orgs.set(link.organization_id, {name:link.organization?.name || '조직', summary:firstLine(link.summary)});
+      if (link.organization_id && !orgs.has(link.organization_id)) orgs.set(link.organization_id, {id:link.organization_id, name:link.organization?.name || '조직', summary:firstLine(link.summary)});
       else if (link.project_id && !link.organization_id && link.project?.name) projects.push({name:link.project.name, summary:firstLine(link.summary)});
     }
-    for (const org of filedOrganizations(memo, docs)) if (!orgs.has(org.organization_id)) orgs.set(org.organization_id, {name:org.name, summary:''});
+    for (const org of filedOrganizations(memo, docs)) if (!orgs.has(org.organization_id)) orgs.set(org.organization_id, {id:org.organization_id, name:org.name, summary:''});
     for (const project of filedProjects(memo, docs)) if (!projects.some(p => p.name === project.name)) projects.push({name:project.name, summary:''});
     return {memo, orgs:[...orgs.values()], projects, line:memoLine(memo)};
   });
@@ -263,14 +273,21 @@ function basketPlaces(basket, day) {
 // A basket update goes under each organization it was sent to (a confirmed link, or its files filed as that organization's
 // documents); the link's summary is shown when there is one. One sent to no organization and no project is '미분류'.
 // An organization record goes under its organization. Project records and updates sent only to a project are 프로젝트 소식.
+// ORG-담당13기준: when the organization read gave my organizations (orgUpdates.mine), only those get their own section; an
+// update of any other organization goes under one '그 외' section as "조직 이름 · 내용", so it is still there. Without that
+// read (it failed) every organization keeps its own section as before.
 export function orgNewsOn({basket, orgUpdates} = {}, day) {
-  const entries = [];
-  const add = (name, at, text) => entries.push({name: String(name || '').trim() || UNSORTED, at, text});
+  const entries = [], mine = orgUpdates?.mine instanceof Set ? orgUpdates.mine : null;
+  const add = (id, name, at, text) => {
+    const label = String(name || '').trim();
+    if (id && mine && !mine.has(id)) entries.push({name:OTHERS, at, text:`${label || '조직'} · ${text}`});
+    else entries.push({name: label || UNSORTED, at, text});
+  };
   for (const {memo, orgs, projects, line} of basketPlaces(basket, day)) {
-    if (orgs.length) for (const org of orgs) add(org.name, memo.occurred_at, org.summary || line);
-    else if (!projects.length) add(UNSORTED, memo.occurred_at, line);
+    if (orgs.length) for (const org of orgs) add(org.id, org.name, memo.occurred_at, org.summary || line);
+    else if (!projects.length) add(null, UNSORTED, memo.occurred_at, line);
   }
-  for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) add(row.organization?.name, row.occurred_at, firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)');
+  for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) add(row.organization_id, row.organization?.name, row.occurred_at, firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)');
   return sectionsOf(entries);
 }
 // 프로젝트 소식 of one day: [{name, items:[text]}] — one section per project (by name). A project progress record goes under

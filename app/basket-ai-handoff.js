@@ -2,15 +2,11 @@ import {classificationFormat} from './basket-classification.js';
 import {readBasket,filedProjects} from './basket-data.js';
 import {effectiveOcrText} from './basket-ocr-text.mjs';
 import {readLinkRecords} from './basket-link-records.js';
+import {selectMyOrganizations} from './my-organizations.js';
 
-// Basket guidance only: active + actual owner assignment, matching home weekUpdates.
+// Basket guidance lists my organizations (ORG-담당13기준, my-organizations.js), matching home weekUpdates.
 // Keep browser/Edge deployment-local copies identical; regression tests compare them.
-export function selectBasketOrganizations(organizations, assignees) {
-  const active = organizations.filter(row => row.active !== false);
-  const assigned = new Set(assignees.map(row => row.organization_id));
-  const mine = active.filter(row => assigned.has(row.id));
-  return { organizations: mine.length ? mine : active, fallback: mine.length === 0 };
-}
+export const selectBasketOrganizations = selectMyOrganizations;
 
 // docs: the basket's filed documents (readBasket). A memo whose files went into a project ([자료로 넣기]) is not 미분류.
 export function selectHandoffNotes(notes,links,now,docs=[]) {
