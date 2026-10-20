@@ -9,6 +9,8 @@
 .ps3-prow+.ps3-prow{border-top:1px solid var(--kptu-border)}
 .ps3-prow:has(.ps3-prow-kids)>.ps3-prow-main{border-bottom:1px solid var(--kptu-border)}
 .ps3-kid-row.kptu-list-row{padding-left:calc(var(--kptu-space-4) * 2)}
+.ps3-kid-row.kptu-list-row[data-ps3-depth="2"]{padding-left:calc(var(--kptu-space-4) * 3)}
+.ps3-hier-sep{color:var(--kptu-muted);font-size:11px}
 .ps3-restore-line{display:flex;align-items:center;min-width:0}
 .ps3-restore-line>.kptu-list-row{flex:1;cursor:default}
 .ps3-restore-line .kptu-list-chevron{visibility:hidden}
@@ -122,16 +124,6 @@
   .ps3-type-control .mini{justify-self:start}
 }
 
-.ps3-memo-form{display:grid;gap:6px;margin:8px 0 12px}
-.ps3-memo-form textarea{width:100%;margin:0;resize:vertical}
-.ps3-memo-actions{display:flex;justify-content:flex-end;gap:6px}
-.ps3-memo-row{align-items:flex-start}
-.ps3-memo-row .ps3-row-main p{white-space:pre-wrap;margin:0 0 4px}
-.ps3-memo-row-actions{display:flex;gap:4px;flex:0 0 auto}
-@media(max-width:760px){
-  .ps3-memo-row{grid-template-columns:minmax(0,1fr)}
-  .ps3-memo-row-actions{justify-content:flex-start}
-}
 
 /* Task 16: summary-first project detail. One column on every width; desktop only gets more room. */
 .ps3-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--kptu-space-2)}
@@ -280,3 +272,6 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #ps3DetailModal button.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
 .ps3-meetings-more>summary{list-style:none;cursor:pointer}
 .ps3-meetings-more>summary::-webkit-details-marker{display:none}
+/* UI-기록아이콘: 기록 줄 앞 업데이트·노트 아이콘(글자색 선 그림, 🧺 대신). */
+.ps3-rec-mark{display:inline-flex;vertical-align:-2px;color:var(--kptu-muted)}
+.ps3-rec-mark svg{display:block}

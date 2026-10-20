@@ -97,15 +97,16 @@ test('normal fixture: Project edit preserves metadata and uses the current rende
   expect(state.tables.app_spaces[0].metadata.business).toEqual({keep:'exact'});expect(state.calls('app_spaces','PATCH')).toHaveLength(1);
 });
 test('normal fixture: exact author/project filters return only the requested existing memo',async({page})=>{
-  const state=await fixture(page);await openProject(page);await fold(page,'ps3-memos');
+  const state=await fixture(page);await openProject(page);
   const rows=await page.evaluate(async()=>window.KPTURuntime.api('/rest/v1/app_project_comments?id=eq.memo-a&project_id=eq.p&author_id=eq.home-test&select=*',{singleFlight:false}));
   expect(rows.map(row=>row.id)).toEqual(['memo-a']);
   const query=state.calls('app_project_comments','GET').at(-1).query;expect(query).toMatchObject({id:'eq.memo-a',project_id:'eq.p',author_id:'eq.home-test'});
 });
-test('normal adjacent draft: saving a memo preserves a different dirty progress record',async({page})=>{
-  const state=await fixture(page);await openProject(page);const row=await editRecord(page);await row.locator('input').fill('別の 수정 초안');await fold(page,'ps3-memos');
-  await page.locator('#ps3MemoBody').fill('추가 메모');await page.locator('[data-ps3-memo-save]').click();await expect(page.locator('#toast')).toContainText('메모를 저장');
-  await expect(row.locator('input')).toHaveValue('別の 수정 초안');expect(state.calls('app_project_comments','POST')).toHaveLength(1);
+// UI-프로젝트화면정리: the memo box is gone; the same rule is checked with the other editor in the detail, the top record input.
+test('normal adjacent draft: saving a top record preserves a different dirty progress record',async({page})=>{
+  const state=await fixture(page);await openProject(page);const row=await editRecord(page);await row.locator('input').fill('別の 수정 초안');
+  const top=page.locator('#ps3-progress [data-ps3-record-input]');await top.locator('input').fill('추가 기록');await top.locator('button[type=submit]').click();await expect(page.locator('#toast')).toContainText('기록했습니다');
+  await expect(row.locator('input')).toHaveValue('別の 수정 초안');expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);
 });
 
 for(const width of [390,1280])test(`Project PATCH failure keeps its current draft ${width}`,async({page})=>{
@@ -161,25 +162,6 @@ for(const width of [390,1280])test(`failed inline record PATCH keeps the exact d
   const state=await fixture(page,width);await openProject(page);const row=await editRecord(page);state.next('app_project_progress_updates','PATCH',{status:403,apply:false,response:{message:'record forbidden'}});await row.locator('input').fill('未保存 수정 글');await row.getByRole('button',{name:'저장',exact:true}).click();
   await expect(page.locator('#toast')).toContainText('수정 실패');await expect(row.locator('input')).toHaveValue('未保存 수정 글');expect(state.tables.app_project_progress_updates[0].summary).toBe('서버 진행 기록');
 });
-test('memo input added during its confirmed save remains a separate draft',async({page})=>{
-  const state=await fixture(page);await openProject(page);await fold(page,'ps3-memos');const first=state.next('app_project_comments','POST',{hold:true});await page.locator('#ps3MemoBody').fill('메모 제출');await page.locator('[data-ps3-memo-save]').click();await expect.poll(()=>first.claimed).toBe(true);await page.locator('#ps3MemoBody').fill('후속 未送信 메모');first.release();
-  await expect(page.locator('#toast')).toContainText('메모를 저장');observation('submitted memo versus later draft',state);await expect(page.locator('#ps3MemoBody')).toHaveValue('후속 未送信 메모');expect(state.calls('app_project_comments','POST')[0].body.body).toBe('메모 제출');
-});
-for(const mismatch of ['project_id','author_id'])test(`memo creation cannot confirm a returned row with mismatched ${mismatch}`,async({page})=>{
-  const state=await fixture(page);await openProject(page);await fold(page,'ps3-memos');await page.locator('#ps3MemoBody').fill('scope 확인할 메모');
-  const result={id:'returned-memo',project_id:'p',author_id:owner,body:'scope 확인할 메모',[mismatch]:'other-scope'};
-  const write=state.next('app_project_comments','POST',{response:[result]});await page.locator('[data-ps3-memo-save]').click();await expect.poll(()=>write.done).toBe(true);
-  observation('memo returned row '+mismatch+' mismatch',state);await expect(page.locator('#ps3MemoState')).toContainText('확인');await expect(page.locator('#ps3MemoBody')).toHaveValue('scope 확인할 메모');expect(state.calls('app_project_comments','POST')).toHaveLength(1);
-});
-test('unknown memo confirmation uses frozen scopes and rejects a returned wrong author',async({page})=>{
-  const state=await fixture(page);await openProject(page);await fold(page,'ps3-memos');await page.locator('#ps3MemoBody').fill('unknown 메모 초안');state.next('app_project_comments','POST',{status:503,apply:false,response:{message:'memo response lost'}});await page.locator('[data-ps3-memo-save]').click();await expect(page.locator('#ps3MemoState')).toContainText('memo response lost');
-  await expect(page.getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible();await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();
-  state.next('app_project_comments','GET',{when:r=>r.query.id==='eq.memo-a',response:[{...state.tables.app_project_comments[0],author_id:'other-owner'}]});
-  await page.getByRole('button',{name:'서버 메모 · 이 항목 사용',exact:true}).click();
-  await expect.poll(()=>state.calls('app_project_comments','GET').some(r=>r.query.id==='eq.memo-a')).toBe(true);
-  const exact=state.calls('app_project_comments','GET').find(r=>r.query.id==='eq.memo-a');expect(exact.query).toMatchObject({project_id:'eq.p',author_id:'eq.home-test',id:'eq.memo-a'});
-  await expect(page.locator('#ps3MemoBody')).toHaveValue('unknown 메모 초안');expect(state.calls('app_project_comments','POST')).toHaveLength(1);await expect(page.locator('#ps3MemoState')).toContainText('확인');
-});
 
 test('unknown Project create uses an explicitly selected exact existing row without a second POST',async({page})=>{
   const state=await fixture(page);await page.locator('#newProjectBtn').click();await page.locator('#ps3CreateName').fill('응답만 유실');state.next('app_spaces','POST',{status:503,apply:true,response:{message:'lost reply'}});await page.locator('#ps3CreateSave').click();await expect(page.locator('#ps3CreateStatus')).toContainText('lost reply');
@@ -202,9 +184,6 @@ test('same-ID WS close-reopen keeps the first request locked until result confir
 test('unknown top record blocks a changed title after a negative GET',async({page})=>{
   const state=await fixture(page);await openProject(page);const first=page.locator('[data-ps3-record-input]');state.next('app_project_progress_updates','POST',{status:503,apply:false,response:{message:'unknown quick'}});await first.locator('input').fill('불명 기록');await first.locator('button[type=submit]').click();await expect(page.locator('#toast')).toContainText('unknown quick');state.next('app_project_progress_updates','GET',{when:r=>r.query.author_id==='eq.home-test'&&r.query.workstream_id==='is.null',response:[]});await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await expect(page.locator('#ps3Body')).toContainText('목록에서 결과를 찾지 못했습니다');await first.locator('input').fill('새 제목');await first.locator('button[type=submit]').click();expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);await expect(first.locator('input')).toHaveValue('새 제목');
   expect(state.calls('app_project_progress_updates','GET').some(r=>r.query.workstream_id==='is.null'&&r.query.project_id==='eq.p')).toBe(true);
-});
-test('unknown memo survives closing and a new title without a second POST',async({page})=>{
-  const state=await fixture(page);await openProject(page);await fold(page,'ps3-memos');state.next('app_project_comments','POST',{status:503,apply:false,response:{message:'unknown memo'}});await page.locator('#ps3MemoBody').fill('응답 불명 메모');await page.locator('[data-ps3-memo-save]').click();await expect(page.locator('#ps3MemoState')).toContainText('unknown memo');page.once('dialog',d=>d.accept());await page.locator('[data-ps3-close="ps3DetailModal"]').click();await openProject(page);await fold(page,'ps3-memos');await page.locator('#ps3MemoBody').fill('새 제목 메모');await page.locator('[data-ps3-memo-save]').click();expect(state.calls('app_project_comments','POST')).toHaveLength(1);await expect(page.getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible();
 });
 for(const width of [390,1280])test(`Project footer stays reachable by touch and keyboard ${width}`,async({page})=>{
   await fixture(page,width);await editProject(page);const footer=page.locator('#ps3CreateModal .modal-action-footer'),button=page.locator('#ps3CreateSave');await expect(footer).toBeVisible();const box=await button.boundingBox();expect(await button.evaluate(b=>parseFloat(getComputedStyle(b,'::after').minHeight))).toBeGreaterThanOrEqual(44);// UI-디자인기준 3/3 3부(8-9e-3): 창 버튼은 보이는 높이 자체가 46px(≥44px)이라 누르는 범위가 버튼 안에 있다. 위·아래 끝 2px 안을 눌러도 이 버튼.

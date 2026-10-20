@@ -212,6 +212,10 @@
 #appView #projectsView .ps3-prow-kids .ps3-kid-row:last-child::before{ bottom:50%; }
 #appView #projectsView .ps3-prow-kids .ps3-kid-row::after{ top:50%; width:12px; border-top-width:1px; }
 #appView #projectsView .ps3-prow:has(.ps3-prow-kids) > .ps3-prow-main{ border-bottom:0; }
+/* PRJ-3단: 세 번째 단계(그 아래)는 16px 더 들이고 글자 한 단계 작게(12px). 가지 선도 그만큼 옮긴다. */
+#appView #projectsView .ps3-prow-kids .ps3-kid-row[data-ps3-depth="2"]{ padding-left:60px; }
+#appView #projectsView .ps3-prow-kids .ps3-kid-row[data-ps3-depth="2"]::before,#appView #projectsView .ps3-prow-kids .ps3-kid-row[data-ps3-depth="2"]::after{ left:40px; }
+#appView #projectsView .ps3-plist .ps3-kid-row[data-ps3-depth="2"] .kptu-list-name{ font-size:var(--ds-text-meta); }
 #appView #projectsView .ps3-dday{ display:inline-flex; align-items:center; min-height:22px; padding:0 8px; border-radius:var(--kptu-radius-pill,999px); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 #appView #projectsView .ps3-dday.ps3-dday-soon{ color:var(--kptu-danger); background:var(--kptu-danger-soft); }
 #appView #projectsView .ps3-dday.ps3-dday-none{ font-weight:var(--ds-weight-regular); color:var(--kptu-faint); background:transparent; }

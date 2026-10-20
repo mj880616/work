@@ -21,6 +21,9 @@ function luSize(n){n=Number(n)||0;if(!n)return'';if(n<1024)return n+'B';if(n<104
 function luCatalog(){const s=window.KPTUProjectCatalog?.snapshot?.();return s?.loaded&&s.workspaceId===luWorkspace&&s.userId===luUser?.id?s:null}
 async function luLoadProjects(force=false){const c=window.KPTUProjectCatalog;if(!c||!luWorkspace||!luUser?.id)return null;try{return await c.load({workspaceId:luWorkspace,userId:luUser.id,force})}catch(e){console.error('library project catalog load failed',e);return null}}
 function luProjectRows(){const c=window.KPTUProjectCatalog;return (luCatalog()?.tree||[]).map(({project,depth})=>({value:project.id,label:c.label(project.name||'이름 없는 프로젝트',depth),depth}))}
+// PRJ-3단 (명진 결정 2, 추천안): a project chosen in the filter shows its own documents and those of every project under it
+// (a 1st level → its 2nd and 3rd levels; a 2nd level → its 3rd level). A stale id (not in the tree) matches itself only.
+function luProjectScope(pid){if(!pid||pid==='all')return null;const rows=luProjectRows(),i=rows.findIndex(r=>r.value===pid),out=new Set([pid]);if(i>=0)for(let j=i+1;j<rows.length&&rows[j].depth>rows[i].depth;j++)out.add(rows[j].value);return out}
 function luIsSelectableProject(id){return !id||luProjectRows().some(r=>r.value===id)}
 function luProjectName(id){if(!id)return'';if(!luCatalog())return'프로젝트 연결';const d=window.KPTUProjectCatalog.describe(id);if(d.kind==='active')return d.name||'이름 없는 프로젝트';if(d.kind==='archived')return '[보관됨] '+(d.name||'이름 없는 프로젝트');if(d.kind==='legacy')return '[이전 공간] '+(d.name||'이름 없음');return '[확인할 수 없는 프로젝트]'}
 function luOption(value,label,selected,attrs=''){return `<option value="${luEsc(value)}"${value===selected?' selected':''}${attrs}>${luEsc(label)}</option>`}
@@ -46,7 +49,9 @@ function luRenderProjectFilter(){
   const choose=value=>{host.value=value;luRenderLibrary()};
   renderFilterChips(top,{label:'프로젝트 필터',controls:'documentList',value:selectedRoot?.value||'all',options:[{value:'all',label:'전체'},...roots],onChange:choose});
   const descendants=children.get(selectedRoot?.value)||[];sub.hidden=host._luSubLabel.hidden=!descendants.length;
-  if(descendants.length)renderFilterChips(sub,{label:'하위 프로젝트 필터',controls:'documentList',small:true,value:host.value,options:[{value:selectedRoot.value,label:'전체(이 프로젝트)'},...descendants.map(r=>({...r,label:r.label.replace(/^[　\s↳]+/u,'')}))],onChange:choose});
+  // PRJ-3단: the 세부 row holds the 2nd and 3rd levels under the chosen project; a 3rd-level chip is named "2단 › 3단".
+  const bare=r=>r.label.replace(/^[　\s↳]+/u,'');let second=null;
+  if(descendants.length)renderFilterChips(sub,{label:'하위 프로젝트 필터',controls:'documentList',small:true,value:host.value,options:[{value:selectedRoot.value,label:'전체(이 프로젝트)'},...descendants.map(r=>{if(r.depth<=1)second=r;return {...r,label:r.depth>=2&&second?bare(second)+' › '+bare(r):bare(r)}})],onChange:choose});
 }
 // UI-바구니첨부메모 ⑪: 거르는 칩은 분류 7개(저장 값은 그대로, 화면에서 7개로 대응).
 // UI-PC자료실 C: 자료 분류 칩은 여러 개를 함께 켜고 끈다(aria-pressed). 자료실에 들어올 때마다 기본 상태 = [회의]만 꺼짐.
@@ -199,7 +204,7 @@ function luRowHtml(d){const raw=luEsc(d.title||d.file_name||'파일'),view=luPho
 // UI-PC자료실 C: 검색어가 있을 때 꺼 둔 분류에 걸린 자료 수를 목록 아래에 작게 알리고, [켜기]로 그 분류만 켠다.
 function luOffHint(hidden){if(!hidden.length)return '';const names=[...new Set(hidden.map(d=>categoryOf(d.category)))];return `<p class="lu-off-hint" role="status">${luEsc(names.join('·'))} 분류 ${hidden.length}건은 꺼져 있어요 <button type="button" class="lu-off-show" data-lu-show-off="${luEsc(JSON.stringify(names))}">켜기</button></p>`}
 function luGroupedRows(rows){const sorted=rows.map((d,i)=>({d,i,key:luSortKey(d)})).sort((a,b)=>a.key===b.key?a.i-b.i:!a.key?1:!b.key?-1:a.key<b.key?1:-1);let month=null;return sorted.map(({d,key})=>{const label=luMonthLabel(key),head=label!==month?`<h3 class="lu-month">${luEsc(label)}</h3>`:'';month=label;return head+luRowHtml(d)}).join('')}
-function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;luCloseMenu();luRenderProjectFilter();luRenderOrganizationFilter();luRenderCategoryFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all';const found=luDocuments.filter(d=>(pid==='all'||d.project_id===pid)&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));const matches=found.filter(d=>luCategoryShown(categoryOf(d.category)));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
+function luRenderLibrary(){const box=document.querySelector('#documentList');if(!box)return;luCloseMenu();luRenderProjectFilter();luRenderOrganizationFilter();luRenderCategoryFilter();const q=(document.querySelector('#documentSearch')?.value||'').trim().toLowerCase(),pid=document.querySelector('#documentProject')?.value||'all',scope=luProjectScope(pid);const found=luDocuments.filter(d=>(!scope||scope.has(d.project_id))&&(!luOrganization||d.organization_id===luOrganization.id)&&(!q||[d.title,d.file_name,d.source,d.category,categoryOf(d.category),(d.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));const matches=found.filter(d=>luCategoryShown(categoryOf(d.category)));// UI-바구니거르기: the [일반 자료|회의자료만] row is gone; meeting documents show with the rest; the [회의] chip turns them on/off (UI-PC자료실 C: off by default).
 const rows=matches;box.innerHTML=(rows.length?luGroupedRows(rows):'<div class="empty">자료가 없습니다.</div>')+(q?luOffHint(found.filter(d=>!luCategoryShown(categoryOf(d.category)))):'');luMarkLongNames(box)}
 // Account-menu pattern: consume the menu history entry before opening a successor.
 let luActiveMenu=null,luMenuPanel=null,luMenuPopover=false,luMenuClosing=null;

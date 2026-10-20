@@ -31,7 +31,9 @@ export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = 
     if (rows.length < 100) break;
   }
   if (!isCurrent()) return null;
-  return {projects: window.KPTUProjectCatalog.tree(ps).filter(x => x.project.status === 'active'), orgs: order.withRecent(eligible, recent.map(r => r.organization_id), 3)};
+  // PRJ-3단: each row also carries its parents' names ("1단 › 2단"), shown on third-level rows while searching (choice-sheet.js).
+  const trail = [], projects = window.KPTUProjectCatalog.tree(ps).map(x => { trail.length = x.depth; const path = trail.join(' › '); trail.push(x.project.name || '이름 없는 프로젝트'); return {...x, path}; });
+  return {projects: projects.filter(x => x.project.status === 'active'), orgs: order.withRecent(eligible, recent.map(r => r.organization_id), 3)};
 }
 // A place that is no longer offered (organization unassigned, project archived) falls back to the basket.
 export function keepPlace(places, place) {

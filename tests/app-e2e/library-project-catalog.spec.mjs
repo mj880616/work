@@ -288,14 +288,15 @@ test('metadata edit keeps archived links and moves documents between parent, chi
   expect(state.patches.at(-1)).toMatchObject({id:'doc-a',body:{project_id:null}});
 });
 
-test('project filter uses exact project matches and keeps unlinked and stale documents reachable',async({page})=>{
+// PRJ-3단(명진 결정 2, 추천안): 큰 프로젝트를 고르면 그 아래 프로젝트 자료도 함께 보인다(하위를 고르면 그 하위만).
+test('project filter includes the projects under the chosen one and keeps unlinked and stale documents reachable',async({page})=>{
   const state=baseState();await mockApp(page,state);await page.setViewportSize({width:1440,height:900});
   await signIn(page,'http://127.0.0.1:8123/app/?view=library');
   await page.waitForFunction(()=>document.querySelector('#documentProject')?.querySelectorAll('[role=radio]').length>1);
   const shown=()=>page.locator('#documentList [data-lu-document]').evaluateAll(xs=>xs.map(x=>x.dataset.luDocument));
   await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(6);
   await selectFilter(page,'#documentProject','top-a');
-  expect(await shown()).toEqual(['doc-a']);
+  expect((await shown()).sort()).toEqual(['doc-a','doc-a1']);
   await selectFilter(page,'#documentProject','child-a1');
   expect(await shown()).toEqual(['doc-a1']);
   await selectFilter(page,'#documentProject','top-c');

@@ -68,3 +68,6 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 .wd-doc-all{display:flex;align-items:center;gap:4px;min-height:44px;margin-left:auto;border:0;background:transparent;color:var(--kptu-link);padding:0 4px;font-size:12px;font-weight:700;cursor:pointer}
 .wd-doc-all:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
 #wdDocBody .status{margin-top:4px}
+/* UI-기록아이콘: 연결 기록 머리 앞 업데이트·노트 아이콘. */
+#wdUpdates .basket-link-mark{display:inline-flex;vertical-align:-2px}
+#wdUpdates .basket-link-mark svg{display:block}

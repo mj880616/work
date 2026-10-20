@@ -106,6 +106,9 @@ export function requestBasketNoteFrom(id,from,rt=window.KPTURuntime){
   put('note',id,rt);const scope=scopeOf(rt);
   origin=id&&scope&&ORIGIN_VIEWS[from?.view]&&from.id?{note:id,view:from.view,id:from.id,name:String(from.name||''),scroll:from.scroll||null,scope,entry:globalThis.navigation?.currentEntry?.key||null}:null;
 }
+// UI-기록아이콘: a note (app_notes kind=note) opened from a project's or organization's record line opens on the basket's
+// [노트] side with the same return line and the same way back.
+export function requestNoteDocFrom(id,from,rt=window.KPTURuntime){requestBasketNoteFrom(id,from,rt);requests.note=null;put('notedoc',id,rt);}
 export const basketNoteOrigin=(noteId,rt=window.KPTURuntime)=>origin&&origin.note===noteId&&origin.scope===scopeOf(rt)?origin:null;
 // The opener takes its origin once, when its own screen shows again.
 export function takeBasketReturn(view,rt=window.KPTURuntime){const o=origin;if(!o||o.view!==view)return null;origin=null;return o.scope===scopeOf(rt)?o:null;}

@@ -37,7 +37,9 @@ for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키
   await category.locator('[data-lu-category="회의"]').click();await expect(page.locator('.lu-row')).toHaveCount(7);
   await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
   const project=page.locator('#documentProject');
-  await project.locator('[data-filter-value="top-a"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
+  // PRJ-3단(결정 2): 큰 프로젝트를 고르면 그 아래 프로젝트 자료(하위 자료·하위 회의 자료)도 함께 보인다.
+  await project.locator('[data-filter-value="top-a"]').click();await expect(page.locator('.lu-row')).toHaveCount(3);
+  await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
   await expect(project.locator('.filter-chips-small')).toBeVisible();await expect(project.locator('.filter-chips-small').getByRole('radio')).toHaveText(['전체(이 프로젝트)','국토부 대응','산자부 대응']);
   // UI-버튼크기: the second (child project) row uses the same 32px chip height.
   await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','32px');
