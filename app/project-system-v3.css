@@ -269,7 +269,7 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
   /* 상세 칸 안의 상세 창(같은 요소). */
   #ps3DetailPane>#ps3DetailModal.ps3-docked{position:static;inset:auto;display:block;padding:0;background:transparent;z-index:auto}
   #ps3DetailPane>#ps3DetailModal.ps3-docked.hidden{display:none}
-  #ps3DetailPane>#ps3DetailModal.ps3-docked>.ps3-detail-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked>.ps3-detail-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
   #ps3DetailPane>#ps3DetailModal.ps3-docked .ps3-modal-head{top:calc(var(--kptu-space-3) * -1);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3) var(--kptu-space-3) var(--kptu-space-3)}
   #ps3DetailPane>#ps3DetailModal.ps3-docked [data-ps3-close="ps3DetailModal"]{display:none}
 }

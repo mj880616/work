@@ -82,6 +82,9 @@ jobs:
               'app/meeting-columns.js':[r'mcStoreKey\(owner\)'],
               # Read-only checks that only hashes are stored and that the key is removed when all columns show.
               'tests/app-e2e/meeting-columns.spec.mjs':[r"includes\('meeting-columns'\)"],
+              # UI-PC프로젝트좌우: device-local "last project seen" on the PC projects screen (one project id, no names or
+              # content), stored under the per-owner cache prefix that sign-out clears.
+              'app/project-system-v3.js':[r'lastKey\(\)'],
               'app/library-upload.js':[r'LU_SESSION'],
               'app/suborganizations.js':[r'SO_SESSION'],
               'app/team.js':[r'SESSION_KEY'],
