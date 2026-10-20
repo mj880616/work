@@ -77,7 +77,12 @@ for(const width of [390,1280]){
   await expect(e.locator('.md-editor-status')).toHaveText('테스트 프로젝트 기록에 저장돼요.');
   await e.locator('[data-md-save-icon]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
   expect(f.projects).toHaveLength(1);expect(f.projects[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',summary:'프로젝트 진행'});
-  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 테스트 프로젝트');
+  // UI-기록할곳되돌리기: after the add, the home input goes back to the basket; the project just used is first on the 최근 line.
+  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택');
+  const home=page.locator('#homeChoiceSheet');await q.locator('[data-quick-org]').click();await expect(home).toBeVisible();
+  await expect(home.locator('[data-sheet-recent] [data-sheet-value]').first()).toHaveText('테스트 프로젝트');
+  await expect(home.locator('[data-sheet-basket] button')).toHaveAttribute('aria-pressed','true');
+  await page.keyboard.press('Escape');await expect(home).toBeHidden();
   expect(f.errors).toEqual([]);
  });
 

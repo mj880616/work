@@ -11,14 +11,14 @@ import { openMarkdownEditor } from './md-editor.js';
 import { createChoiceSheet } from './choice-sheet.js';
 import { createNoteDoc, noteTitleFromText, validateNoteText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js';
-import { readPlaces, placeSources, placeSheetHtml, placeFromValue, keepPlace, placeName, samePlace, saveUpdate } from './update-places.js';
+import { readPlaces, placeSources, placeSheetHtml, placeFromValue, keepPlace, placeName, samePlace, saveUpdate, rememberPlace } from './update-places.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 let sheet = null, active = null;
 function placeSheet() {
   sheet ||= createChoiceSheet({id:'mdPlaceSheet', titleId:'mdPlaceSheetTitle', historyKey:'kptuMdPlace',
     canOpen:() => !!active && !active.closed(), choices:() => active.load(),
-    render:() => ({title:'기록할 곳 선택', search:'조직·프로젝트 이름 검색', html:placeSheetHtml(active?.places, active?.place, esc)}),
+    render:() => ({title:'기록할 곳 선택', search:'조직·프로젝트 이름 검색', split:true, html:placeSheetHtml(active?.places, active?.place, esc)}),
     onSelect:(kind, value) => active?.choose(value), onError:error => active?.say(error?.message || '기록할 곳을 불러오지 못했어요.')});
   return sheet;
 }
@@ -85,6 +85,8 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
         if (result === undefined) result = await saveOwn(value, target);
         if (result?.ok === false) return result;
         saved = {kind:'update', place:target, name:label};
+        // UI-기록할곳되돌리기: a place picked here (not the opener's own record) comes first on the 최근 line next time.
+        if (!(ownPlace && samePlace(target, ownPlace))) rememberPlace(target);
         if (!target) window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
       }
     } catch (error) { return {ok:false, message:error?.message || '저장하지 못했어요. 다시 눌러 주세요.'}; }

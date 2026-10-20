@@ -163,4 +163,24 @@ public class SourceRulesTests
         Assert.DoesNotContain("ServerCertificateCustomValidationCallback", string.Join(" ", Sources().Select(File.ReadAllText)));
         Assert.DoesNotContain("DangerousAcceptAnyServerCertificateValidator", string.Join(" ", Sources().Select(File.ReadAllText)));
     }
+
+    [Fact]
+    public void Program_icon_holds_every_size_and_windows_use_it()
+    {
+        var ico = File.ReadAllBytes(Path.Combine(Root(), "src", "BasketDrop", "app.ico"));
+        Assert.Equal(1, BitConverter.ToUInt16(ico, 2)); // type: icon
+        var sizes = Enumerable.Range(0, BitConverter.ToUInt16(ico, 4))
+            .Select(i => ico[6 + 16 * i] == 0 ? 256 : (int)ico[6 + 16 * i]).OrderBy(x => x).ToArray();
+        Assert.Equal(new[] { 16, 20, 24, 32, 40, 48, 64, 256 }, sizes);
+
+        var csproj = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "BasketDrop.csproj"));
+        Assert.Contains("<ApplicationIcon>app.ico</ApplicationIcon>", csproj);
+        Assert.Contains("BasketDrop.app.ico", csproj);
+
+        var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
+        Assert.Contains("AppIcon.ForTray()", tray);
+        Assert.DoesNotContain("GetHicon", tray); // the old drawn "B" icon must not come back
+        foreach (var form in new[] { "PasteForm.cs", "StatusForm.cs" })
+            Assert.Contains("AppIcon.ForWindow()", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", form)));
+    }
 }

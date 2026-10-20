@@ -20,6 +20,7 @@ internal sealed class StatusForm : Form
         _history = history;
         _processor = processor;
         _kick = kick;
+        Icon = AppIcon.ForWindow();
         Text = "보낸 기록·대기열";
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(640, 460);
