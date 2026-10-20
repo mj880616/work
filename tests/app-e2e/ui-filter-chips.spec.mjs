@@ -55,7 +55,10 @@ for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
 for(const timezoneId of ['Europe/Rome','Asia/Seoul','UTC'])test.describe(timezoneId,()=>{test.use({timezoneId});test('회의 표시·새 입력·수정 왕복 한국 고정',async({page})=>{
-  const s=chipState();await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));await expect(page.locator('[data-mrd-meeting="meeting-0"] :is(p,.mcol-when)')).toContainText('10:00');
+  const s=chipState();await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  // MEET-결과정리 ⑤: PC는 왼쪽에서 고른 회의 종류의 차수만 오른쪽에 보이므로 궤도협의회를 고른다(폰은 한 줄 목록 그대로).
+  if(await page.locator('#meetingList [data-meeting-kind]').count())await page.locator('#meetingList [data-meeting-kind="궤도협의회"]').click();
+  await expect(page.locator('[data-mrd-meeting="meeting-0"] :is(p,.mcol-when)')).toContainText('10:00');
   await page.locator('[data-mrd-meeting="meeting-0"]').click();await expect(page.locator('#mrdMeta')).toContainText('10:00');await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T10:00');
   await fillDateTime(page,'#mrdEditAt','2026-10-11T00:30');await page.locator('#mrdSaveEdit').click();await expect.poll(()=>s.meetingWrites[0]?.meeting_at).toBe('2026-10-10T15:30:00.000Z');await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T00:30');await page.locator('#mrdClose').click();
   await page.locator('#newMeetingBtn').click();await page.locator('#meetingNameSelect').selectOption('궤도협의회');await fillDateTime(page,'#meetingAt','2026-10-11T10:00');await page.locator('#meetingTranscript').fill('새 원문');await page.locator('#saveMeetingBtn').click();await expect.poll(()=>s.meetingWrites.at(-1)?.meeting_at).toBe('2026-10-11T01:00:00.000Z');

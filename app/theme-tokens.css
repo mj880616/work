@@ -79,6 +79,11 @@
   --ds-project-yellow:#d9a400;--ds-project-yellow-soft:#ecd27a;
   --ds-project-red:#c8372b;--ds-project-red-soft:#eba39c;
   --ds-project-gray:#8a8679;--ds-project-gray-soft:#c9c5b8;
+  /* MEET-결과정리 ②: 회의 종류 색 칸 16개. 종류마다 다른 칸을 나눠 준다(meeting-columns.js). 점·목록 줄 앞 점에 쓴다.
+     빨강 계열(지우기·경고 색)은 쓰지 않고, 밝은 화면 바탕·옅은 바탕 모두와 대비 3:1 이상(그림 요소 기준), 16칸 서로 색차(ΔE) 25 이상.
+     1~8은 예전 8색과 같은 색 계열 순서(같은 이름은 예전과 비슷한 색), 9~16은 1~8 다음에 쓰는 추가 색. */
+  --ds-meeting-1:#2880c9;--ds-meeting-2:#179920;--ds-meeting-3:#d941cf;--ds-meeting-4:#038283;--ds-meeting-5:#af7a0d;--ds-meeting-6:#8b4679;--ds-meeting-7:#324903;--ds-meeting-8:#3468fa;
+  --ds-meeting-9:#29416f;--ds-meeting-10:#368c54;--ds-meeting-11:#7b0075;--ds-meeting-12:#758d14;--ds-meeting-13:#90844f;--ds-meeting-14:#5a14a6;--ds-meeting-15:#634303;--ds-meeting-16:#524ba5;
   /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·성명·보도자료·게시판 본문은 다크 모드에서도 밝게 둔다. */
   --ds-frame-paper:#ffffff;
 }
@@ -120,6 +125,9 @@
     --ds-project-yellow:#e8c650;--ds-project-yellow-soft:#7a6a2c;
     --ds-project-red:#ef867c;--ds-project-red-soft:#7f413b;
     --ds-project-gray:#a8a497;--ds-project-gray-soft:#5c5a52;
+    /* MEET-결과정리 ② 어두운 값: 같은 칸의 같은 색 계열, 어두운 바탕과 대비 3:1 이상, 16칸 서로 색차 25 이상. */
+    --ds-meeting-1:#68affc;--ds-meeting-2:#62d358;--ds-meeting-3:#fa63ee;--ds-meeting-4:#51b5b5;--ds-meeting-5:#efa91c;--ds-meeting-6:#c279ae;--ds-meeting-7:#6d843e;--ds-meeting-8:#4d70fb;
+    --ds-meeting-9:#7877ab;--ds-meeting-10:#6dc286;--ds-meeting-11:#ff97f4;--ds-meeting-12:#a9c04b;--ds-meeting-13:#c4b67f;--ds-meeting-14:#9f57ea;--ds-meeting-15:#98772c;--ds-meeting-16:#9184e5;
     /* 떠 있는 창·동그란 [+]의 그림자와 창 뒤 어둡게 하는 막은 어두운 바탕에서 보이도록 더 진하게. */
     --kptu-shadow-float:0 8px 24px rgba(0,0,0,.45);--kptu-shadow-modal:0 18px 48px rgba(0,0,0,.55);
   }
