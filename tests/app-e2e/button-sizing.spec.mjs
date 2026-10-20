@@ -1,6 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
+import { closeProjectDetail, expectProjectDetail } from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
@@ -69,6 +70,8 @@ async function standard(page,selector){const el=page.locator(selector);await exp
 async function dsStandard(page,selector){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(46);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');}
 // UI-PC버튼36(2026-10-20): PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(--kptu-control-height 36px)·13px·8px·500, 누르는 범위 44px.
 async function pcAdd(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(36);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');expect(await el.evaluate(n=>getComputedStyle(n,'::after').minHeight),selector).toBe('44px');}
+// UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC(≥1024) [+ 프로젝트]는 왼쪽 목록 머리의 낮은 버튼(--ds-compact-height 32px)·13px·8px·500, 누르는 범위 44px.
+async function pcCompactAdd(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(32);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');expect(await el.evaluate(n=>getComputedStyle(n,'::after').minHeight),selector).toBe('44px');}
 // UI-디자인기준 3/3(8-9e-1): 회의·담당조직(·자료실)의 버튼도 새 기준.
 // UI-디자인기준 3/3 3부(8-9e-3): 일정 [Google Calendar] 설정 칸 버튼(2/3 원장 ③, calendar-health.js의 !important 정리)·성명 필터·공용 창 버튼도 새 기준.
 const dsViews=new Set(['projects','meetings','team','calendar','media']);
@@ -90,7 +93,8 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
    }else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
    else if(selector.includes('press-type'))await dsChip(page,selector);
    // UI-PC회의(2026-10-20)·UI-PC버튼36: PC 회의 [+ 회의 결과]·[+ 프로젝트]는 공용 입력칸 높이(36px)·누르는 범위 44px.
-   else if(['#newMeetingBtn','#newProjectBtn'].includes(selector)&&width>=1024)await pcAdd(page,selector);
+   else if(selector==='#newMeetingBtn'&&width>=1024)await pcAdd(page,selector);
+   else if(selector==='#newProjectBtn'&&width>=1024)await pcCompactAdd(page,selector);
    else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }
@@ -156,11 +160,11 @@ for(const width of [390,1440])test('D-button real painted and pointer bounds in 
 
 for(const width of [390,1440])test('D-button project and organization detail and meeting input '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'projects');
- await page.locator('[data-ps3-project="type-project"]').click();await expect(page.locator('#ps3DetailModal')).toBeVisible();
+ await page.locator('#projectGrid .ps3-plist [data-ps3-project="type-project"]').click();await expectProjectDetail(page,'type-project');
  await page.locator('#ps3Menu .ps3-more>summary').click();
  // ⋯ 메뉴 안 항목은 버튼 모양이 아닌 메뉴(옛 크기 그대로). 창 안 [저장]·[삭제]는 새 기준.
  for(const selector of ['[data-ps3-toggle-done]','[data-ps3-edit-project]','[data-ps3-archive-project]','[data-ps3-delete-project]'])await standard(page,selector);
- await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden();
+ await closeProjectDetail(page);
  await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave');
  await page.locator('[data-wd-close="wdModal"]').click();await expect(page.locator('#wdModal')).toBeHidden();
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);

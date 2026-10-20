@@ -95,3 +95,35 @@ export const takeBasketKindRequest=(rt=window.KPTURuntime)=>take('kind',rt);
 export const requestTaskOpen=(id,rt=window.KPTURuntime)=>put('task',id,rt);
 export const takeTaskOpenRequest=(rt=window.KPTURuntime)=>take('task',rt);
 export const basketNoteHref=id=>`./?view=basket&note=${encodeURIComponent(id)}`;
+
+// UI-PC프로젝트좌우: a note opened from a 🧺 record of a project (projects view) or an organization (team view) remembers
+// where it came from, so the note screen offers "← (name)으로 돌아가기" and the opener reopens that project or
+// organization at the same scroll when the person comes back (the button, browser or phone back, or the tab itself).
+// It lives in this tab's memory only, bound to the signed-in user and workspace, and ends when another screen is chosen.
+const ORIGIN_VIEWS={projects:'프로젝트',team:'담당조직'};
+let origin=null;
+export function requestBasketNoteFrom(id,from,rt=window.KPTURuntime){
+  put('note',id,rt);const scope=scopeOf(rt);
+  origin=id&&scope&&ORIGIN_VIEWS[from?.view]&&from.id?{note:id,view:from.view,id:from.id,name:String(from.name||''),scroll:from.scroll||null,scope,entry:globalThis.navigation?.currentEntry?.key||null}:null;
+}
+export const basketNoteOrigin=(noteId,rt=window.KPTURuntime)=>origin&&origin.note===noteId&&origin.scope===scopeOf(rt)?origin:null;
+// The opener takes its origin once, when its own screen shows again.
+export function takeBasketReturn(view,rt=window.KPTURuntime){const o=origin;if(!o||o.view!==view)return null;origin=null;return o.scope===scopeOf(rt)?o:null;}
+// Korean particle after the name: 으로 after a final consonant other than ㄹ, 로 otherwise ("(으)로" when not Hangul).
+function toParticle(name){const c=String(name).trim().slice(-1).charCodeAt(0)-0xac00;if(!(c>=0&&c<11172))return '(으)로';const end=c%28;return end&&end!==8?'으로':'로';}
+// The line under the note screen's head. Phones keep the short label; wider screens name the project or organization.
+export function basketReturnHtml(noteId,rt=window.KPTURuntime,{narrow=globalThis.matchMedia?.('(max-width:760px)')?.matches}={}){
+  const o=basketNoteOrigin(noteId,rt);if(!o)return '';
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const kind=ORIGIN_VIEWS[o.view],label=narrow||!o.name?`${kind}${toParticle(kind)} 돌아가기`:`${o.name}${toParticle(o.name)} 돌아가기`;
+  return `<div class="basket-return"><button type="button" class="basket-return-btn" data-basket-return aria-label="${esc(o.name?`${o.name}(${kind})${toParticle(o.name)} 돌아가기`:label)}"><span aria-hidden="true">←</span> <span class="basket-return-text">${esc(label)}</span></button></div>`;
+}
+// Goes back to the opener's history entry when it is still behind this one (the same as back), else opens that screen.
+export function returnFromBasketNote(){
+  const o=origin;if(!o)return false;
+  const nav=globalThis.navigation,now=nav?.currentEntry,at=o.entry?nav?.entries?.().find(e=>e.key===o.entry):null;
+  if(now&&at&&Number.isInteger(at.index)&&at.index<now.index){history.go(at.index-now.index);return true;}
+  return !!window.KPTURouter?.go(o.view,{source:'delegated'});
+}
+globalThis.window?.addEventListener?.('kptu:view-changed',e=>{const view=e.detail?.view;if(origin&&view!=='basket'&&view!==origin.view)origin=null;});
+globalThis.document?.addEventListener?.('click',e=>{const b=e.target.closest?.('[data-basket-return]');if(!b)return;e.preventDefault();returnFromBasketNote();});

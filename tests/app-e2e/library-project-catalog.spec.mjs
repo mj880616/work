@@ -3,6 +3,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { expectProjectDetail, projectDetailDocked } from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -162,7 +163,8 @@ test('project screen and library expose the same active project set in the same 
   await page.evaluate(()=>{window.__spaceEvents=[];window.addEventListener('kptu:project-spaces-updated',e=>window.__spaceEvents.push(e.detail))});
   await clickView(page,'projects');
   await expect(page.locator('#projectGrid[data-ps3-ready="1"] .ps3-prow')).toHaveCount(3);
-  const grid=await page.locator('#projectGrid').evaluate(g=>[...g.querySelectorAll('[data-ps3-project]')].map(x=>x.dataset.ps3Project));
+  // UI-PC프로젝트좌우: the list is the left column (.ps3-plist); the detail pane beside it has its own child rows.
+  const grid=await page.locator('#projectGrid .ps3-plist').evaluate(g=>[...g.querySelectorAll('[data-ps3-project]')].map(x=>x.dataset.ps3Project));
   expect(grid).toEqual(EXPECTED.map(([id])=>id));
   // Existing event contract is unchanged: payload.spaces stays the owner-scoped app_spaces rows that team.js consumes.
   const owned=state.spaces.filter(x=>x.owner_id==='user-1').sort((a,b)=>a.sort_order-b.sort_order).map(x=>x.id);
@@ -314,8 +316,10 @@ test('project create, rename and archive refresh library selectors without reloa
   await page.locator('#ps3CreateName').fill('신규 하위 프로젝트');
   await page.locator('#ps3CreateParent').selectOption('top-b');
   await page.locator('#ps3CreateSave').click();
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await expect.poll(()=>state.spaces.some(x=>x.name==='신규 하위 프로젝트')).toBe(true);
   const created=state.spaces.find(x=>x.name==='신규 하위 프로젝트');
+  // UI-PC프로젝트좌우: on a PC the pane already shows a project; wait until the new one is shown (as the dialog opens elsewhere).
+  await expectProjectDetail(page,created.id);
   let values=await optionsOf(page,'#docProject');
   expect(values.map(o=>o.value)).toEqual(['','top-a','child-a1','child-a2','top-b','child-b1',created.id,'orphan-1']);
   expect(values.find(o=>o.value===created.id).text).toBe('　↳ 신규 하위 프로젝트');
@@ -329,8 +333,11 @@ test('project create, rename and archive refresh library selectors without reloa
   expect(values.find(o=>o.value===created.id).text).toBe('　↳ 이름 바뀐 하위 프로젝트');
 
   await page.locator('#ps3Menu .ps3-more > summary').click();
+  const docked=await projectDetailDocked(page);
   await page.locator('[data-ps3-archive-project]').click();
-  await expect(page.locator('#ps3DetailModal')).toBeHidden();
+  // UI-PC프로젝트좌우: the archived project's detail goes away — PC(≥1024) shows another project in the right pane, the dialog closes elsewhere.
+  if(docked){await expect(page.locator('#ps3Body')).not.toHaveAttribute('data-project',created.id);await expect(page.locator('#ps3Title')).not.toHaveText('이름 바뀐 하위 프로젝트');await expect(page.locator(`#projectGrid .ps3-plist [data-ps3-project="${created.id}"]`)).toHaveCount(0)}
+  else await expect(page.locator('#ps3DetailModal')).toBeHidden();
   await page.waitForFunction(id=>![...document.querySelector('#docProject').options].some(o=>o.value===id),created.id);
   values=await optionsOf(page,'#documentProject');
   expect(values.some(o=>o.value===created.id)).toBe(false);

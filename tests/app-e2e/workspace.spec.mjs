@@ -5,6 +5,7 @@ import { test, expect } from '@playwright/test';
 import { calendarToday } from './helpers/calendar-today.mjs';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
+import { closeProjectDetail, expectProjectDetail } from './helpers/project-detail.mjs';
 watchRetiredCollaboration(test);
 test.use({ timezoneId: 'Asia/Seoul' });
 
@@ -228,7 +229,9 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('#ps3CreateSave').dispatchEvent('click');
   await expect.poll(() => state.spaces.length).toBeGreaterThan(1);
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
-  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  const made = state.spaces.find(x => x.name === 'E2E 프로젝트');
+  await expectProjectDetail(page, made.id);
+  await closeProjectDetail(page);
 
   await clickView(page,'meetings');
   await expect(page.locator('#meetingsView')).toBeVisible();

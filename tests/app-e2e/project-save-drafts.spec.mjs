@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { openHome } from './helpers/home-entry.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
+import {closeProjectDetail} from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const sourceHead=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
@@ -60,7 +61,7 @@ async function fixture(page,width=390){
   return state;
 }
 async function openProject(page,id='p'){
-  await page.locator(`#projectGrid [data-ps3-project="${id}"]`).click();
+  await page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`).click();
   await expect(page.locator('#ps3Body')).toHaveAttribute('data-project',id);
 }
 async function editProject(page,id='p'){
@@ -68,7 +69,8 @@ async function editProject(page,id='p'){
   await expect(page.locator('#ps3CreateModal')).toBeVisible();
 }
 async function closeEditAndDetail(page){
-  await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  // UI-PC프로젝트좌우: on a PC the detail stays in the right pane; the next row click switches it.
+  await page.locator('[data-ps3-close="ps3CreateModal"]').click();await closeProjectDetail(page);
 }
 async function fold(page,id){const box=page.locator('#'+id);if(await box.getAttribute('open')===null)await box.locator(':scope > summary').click();}
 async function editRecord(page){

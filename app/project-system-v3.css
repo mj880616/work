@@ -244,3 +244,39 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 .ps3-line-main b{min-width:0;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps3-line-main small{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 #ps3DetailModal .ps3-line-more>summary{display:grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0;border-color:transparent;background:transparent;box-shadow:none;color:var(--kptu-muted)}
+
+/* UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(1024px~) 프로젝트 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#ps3DetailPane).
+   할 일 화면(google-tasks.css #gtDetailPane)과 같은 짜임: 화면 높이에 맞춘 한 페이지, 목록·상세 칸 안에서만 세로로 넘긴다.
+   상세 칸은 지금 상세 창(#ps3DetailModal)을 그 자리에 옮겨 그대로 쓴다(project-system-v3.js placeDetail). 창 겉모양만 칸에 맞추고
+   닫기 ×는 숨긴다(다른 프로젝트를 고르면 바뀜). 761~1023px·폰은 지금처럼 목록 + 상세 창. */
+#ps3DetailPane{display:none}
+@media(min-width:1024px){
+  html:has(#appView #projectsView:not(.hidden)) main{padding-bottom:12px}
+  html:has(#appView #projectsView:not(.hidden)) #appView>.app-nav{margin-bottom:0}
+  #appView #projectsView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:420px}
+  #appView #projectsView>.section-head{flex:none}
+  #appView #projectsView>.section-head.actions-only:not(:has(button)){display:none}
+  #appView #projectsView>#projectGrid[data-ps3-ready="1"]{flex:1 1 auto;min-height:0;grid-template-columns:minmax(280px,1fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
+  #appView #projectsView #projectGrid>.ps3-plist{grid-column:1;grid-row:1;align-self:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}
+  #appView #projectsView #projectGrid>.ps3-plist>.add-list-head{position:sticky;top:0;z-index:1;background:var(--kptu-surface)}
+  #appView #projectsView #projectGrid>#ps3DetailPane{grid-column:2;grid-row:1;display:block;min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #ps3DetailPane .ps3-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
+  #ps3DetailPane.has-project .ps3-pane-empty{display:none}
+  /* 고른 프로젝트 줄: 연한 초록(고르기 창의 고른 줄과 같음). */
+  #appView #projectsView .ps3-plist .kptu-list-row.is-selected{background:var(--kptu-primary-soft)}
+  /* "+ 프로젝트": 작은 버튼 높이(--ds-compact-height). */
+  #appView #projectsView .ps3-plist .ps3-project-toolbar button#newProjectBtn{height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 var(--ds-compact-pad-x)}
+  /* 상세 칸 안의 상세 창(같은 요소). */
+  #ps3DetailPane>#ps3DetailModal.ps3-docked{position:static;inset:auto;display:block;padding:0;background:transparent;z-index:auto}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked.hidden{display:none}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked>.ps3-detail-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked .ps3-modal-head{top:calc(var(--kptu-space-3) * -1);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3) var(--kptu-space-3) var(--kptu-space-3)}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked [data-ps3-close="ps3DetailModal"]{display:none}
+}
+
+/* PRJ-회의표시: 상세의 [회의] 줄(이 프로젝트에 연결된 회의, 최근 순). 자료 줄과 같은 줄 모양, 줄 전체가 버튼(누르면 회의 결과 창). */
+#ps3DetailModal button.ps3-line-main{width:100%;height:auto;min-height:var(--kptu-touch-target);margin:0;padding:8px 0;border:0;border-radius:var(--kptu-radius-none);background:transparent;box-shadow:none;font:inherit;text-align:left;cursor:pointer}
+#ps3DetailModal button.ps3-line-main:hover{background:var(--kptu-surface-subtle)}
+#ps3DetailModal button.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.ps3-meetings-more>summary{list-style:none;cursor:pointer}
+.ps3-meetings-more>summary::-webkit-details-marker{display:none}

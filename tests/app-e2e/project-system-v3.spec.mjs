@@ -8,6 +8,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { calendarToday, addCalendarDays } from './helpers/calendar-today.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -181,7 +182,9 @@ test('project list loads and its heading uses available width at desktop, tablet
       return {title:rect(title).width,card:rect(card).width,overflow:document.documentElement.scrollWidth-window.innerWidth,ready:grid.dataset.ps3Ready};
     });
     expect(layout.ready).toBe('1');
-    expect(layout.title,`project heading at ${width}px`).toBeGreaterThan(100);
+    // UI-PC프로젝트좌우: PC(≥1024) has no empty head bar above the split (its buttons live in the list head); the list column fills the screen.
+    if(width>=1024)expect(layout.title,`no empty project head at ${width}px`).toBe(0);
+    else expect(layout.title,`project heading at ${width}px`).toBeGreaterThan(100);
     expect(layout.card,`project card at ${width}px`).toBeGreaterThan(200);
     expect(layout.overflow,`horizontal overflow at ${width}px`).toBeLessThanOrEqual(1);
   }
@@ -631,7 +634,8 @@ test('project detail keeps one summary-first column at desktop and phone widths'
   await signIn(page);
   await expect(page.locator('#ps3-progress')).toBeVisible();
   const order=await page.locator('#ps3Body').evaluate(body=>[...body.children].map(x=>x.id||x.className));
-  expect(order).toEqual(['ps3-progress','ps3-children','ps3-tasks','ps3-documents','ps3-milestones','ps3-memos']);
+  // PRJ-회의표시: the 회의 section follows 자료.
+  expect(order).toEqual(['ps3-progress','ps3-children','ps3-tasks','ps3-documents','ps3-meetings','ps3-milestones','ps3-memos']);
   // PRJ-기록입력: the header shows one summary line instead of the stored objective text.
   await expect(page.locator('#ps3Summary')).toHaveText('하위 1 · 할 일 0');await expect(page.locator('.ps3-modal-head')).not.toContainText('목표 설명');
   await expect(page.locator('#ps3-milestones')).not.toHaveAttribute('open','');
@@ -641,6 +645,8 @@ test('project detail keeps one summary-first column at desktop and phone widths'
   await expect(page.locator('#ps3-documents .ps3-section-actions [data-ps3-global="document"]')).toHaveAccessibleName('자료 올리기');
   for(const width of [1280,360,390,412,430]){
     await page.setViewportSize({width,height:844});
+    // UI-PC프로젝트좌우: crossing 1024px moves the detail between the PC pane and the dialog; measure once it is shown again.
+    await expect(page.locator('#ps3Summary')).toBeVisible();
     const layout=await page.evaluate(()=>{
       const r=el=>el.getBoundingClientRect();
       const list=document.querySelector('#ps3-progress [data-ps3-records]');
@@ -767,9 +773,10 @@ test('V3 lists child projects with counts in the body and child returns to paren
   state.docs.push({id:'child-doc',project_id:'child-1',title:'토론회 자료집',category:'정책자료'});
   await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
   await expect(page.locator('[data-ps3-project="main-1"]')).toBeVisible();
-  await expect(page.locator('#projectGrid [data-project]')).toHaveCount(0);
-  await page.locator('[data-ps3-project="main-1"]').first().click();
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  // No legacy project cards (the detail body #ps3Body, in the PC pane, carries its own data-project).
+  await expect(page.locator('#projectGrid [data-project]:not(#ps3Body)')).toHaveCount(0);
+  await page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]').click();
+  await expectProjectDetail(page,'main-1');
   await expect(page.locator('#ps3Kicker,#ps3Body .ps3-detail-meta,.ps3-child-menu')).toHaveCount(0);
   await expect(page.locator('#ps3DetailModal .ps3-modal-head')).not.toContainText('상시사업·산업관리');
   await expect(page.locator('#ps3DetailModal .ps3-modal-head')).not.toContainText('PROJECT');
@@ -831,8 +838,8 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   const clipped=await list.locator('[data-ps3-project="main-2"] .ps3-prow-name').evaluate(e=>({clipped:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow}));expect(clipped).toEqual({clipped:true,ellipsis:'ellipsis'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   expect(state.summaryQueries).toHaveLength(1);expect(state.summaryQueries[0]['milestones.limit']).toBe('1');expect(state.summaryQueries[0]['progress.limit']).toBeUndefined();expect(state.summaryQueries[0].select).toBe('id,milestones:app_project_milestones!project_id(start_at)');
-  await child.press('Enter');await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');await page.locator('[data-ps3-close="ps3DetailModal"]').click();
-  await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  await child.press('Enter');await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');await closeProjectDetail(page);
+  await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');await closeProjectDetail(page);
   await page.locator('#ps3ArchiveBtn').click();await expect(page.locator('#ps3ArchiveModal')).toBeVisible();await expect(page.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
 });
 
@@ -853,29 +860,34 @@ for(const extra of [0,200])test(`D-project requests stay constant with ${extra} 
 test('D-project names appear before optional reads and survive failed metadata',async({page})=>{
  const state=baseState();state.summaryFail=true;let release;state.summaryDelay=new Promise(r=>release=r);
  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
- await expect(page.locator('#projectGrid [data-ps3-project]')).toHaveCount(2);await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
+ await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(2);await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
  release();await expect.poll(()=>state.summaryQueries?.length).toBe(1);
- await page.locator('#projectGrid [data-ps3-project="main-1"]').click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+ await page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]').click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
 });
 
 for(const failure of ['tasks','dates','both'])test(`D-project ${failure} failure preserves names and other metadata`,async({page})=>{
  const state=baseState();state.sessionUser=true;state.summaryFail=failure!=='tasks';state.gtOverviewFail=failure!=='dates';
  state.gtasks=[{id:'pending',status:'needsAction'}];state.links=[{google_task_id:'pending',project_id:'main-1',status:'confirmed'}];
  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
- const main=page.locator('#projectGrid [data-ps3-project="main-1"]');
+ const main=page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]');
  if(failure==='tasks')await expect(main.locator('.ps3-dday')).toHaveCount(1);
  // UI-디자인기준 3/3: the list no longer reads tasks for counts; a failed date read leaves the right side empty.
- if(failure!=='tasks'){await expect.poll(()=>state.summaryQueries?.length).toBe(1);await expect(main.locator('.ps3-prow-meta')).toBeEmpty();}
- await expect(page.locator('#projectGrid [data-ps3-project]')).toHaveCount(2);
+ // UI-PC프로젝트좌우: on a PC the first project opens in the pane and its own detail read fills its D-day; the other row shows the failed list read.
+ if(failure!=='tasks'){await expect.poll(()=>state.summaryQueries?.length).toBe(1);const listOnly=(await projectDetailDocked(page))?page.locator('#projectGrid .ps3-plist [data-ps3-project="child-1"]'):main;await expect(listOnly.locator('.ps3-prow-meta')).toBeEmpty();}
+ await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(2);
  await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
 });
 
-test('V3 generated dialogs expose consistent accessibility semantics',async({page})=>{
+for(const width of [390,1280])test(`V3 generated dialogs expose consistent accessibility semantics ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});
   const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
+  // UI-PC프로젝트좌우: on a PC the detail is the right pane — a labelled region, not a modal dialog.
+  if(width>=1024)await expectProjectDetail(page,'main-1');
   for(const id of ['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3MilestoneModal','ps3DeleteModal','ps3ArchiveModal']){
     const modal=page.locator('#'+id);
-    await expect(modal).toHaveAttribute('role','dialog');
-    await expect(modal).toHaveAttribute('aria-modal','true');
+    if(id==='ps3DetailModal'&&width>=1024){await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal',/.*/);await expect(page.locator('#ps3DetailPane')).toHaveAttribute('aria-label','프로젝트 상세')}
+    else{await expect(modal).toHaveAttribute('role','dialog');
+    await expect(modal).toHaveAttribute('aria-modal','true');}
     const labelledby=await modal.getAttribute('aria-labelledby');
     expect(labelledby,id).toBeTruthy();
     await expect(page.locator('#'+labelledby)).toHaveCount(1);
@@ -883,9 +895,16 @@ test('V3 generated dialogs expose consistent accessibility semantics',async({pag
   }
 });
 
-test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',async({page})=>{
+for(const width of [390,1280])test(`V3 detail and edit dialogs manage focus, Escape, and trigger restoration ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});
   const state=baseState();await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
-  const card=page.locator('[data-ps3-project="main-1"]').first();
+  const card=page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]');
+  if(width>=1024){
+    // UI-PC프로젝트좌우: the PC pane is not a dialog — choosing a row keeps focus on that row and Escape leaves the pane shown.
+    await expectProjectDetail(page,'main-1');
+    await card.focus();await card.click();await expect(card).toBeFocused();await expect(card).toHaveAttribute('aria-current','true');
+    await page.keyboard.press('Escape');await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect(card).toBeFocused();
+  }else{
   await card.focus();await card.click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
   await expect(page.locator('#ps3DetailModal .ps3-modal-head [data-ps3-close]')).toBeFocused();
@@ -894,6 +913,7 @@ test('V3 detail and edit dialogs manage focus, Escape, and trigger restoration',
   await expect(card).toBeFocused();
 
   await card.click();
+  }
   const childTrigger=page.locator('#ps3-children [data-ps3-child]');
   await childTrigger.focus();await childTrigger.click();
   await expect(page.locator('#ps3CreateName')).toBeFocused();
@@ -951,7 +971,8 @@ test('V3 creates and edits a project with the same final renderer',async({page})
   const made=state.spaces.find(x=>x.name==='인력확충 투쟁');
   expect(made.visibility).toBe('private');
   expect(state.workstreams.filter(x=>x.project_id===made.id)).toHaveLength(0);
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  // UI-PC프로젝트좌우: on a PC the pane already shows the first project; wait until the new one replaces it.
+  await expectProjectDetail(page,made.id);
   await openMenu(page);
   await page.locator('[data-ps3-edit-project]').click();
   await expect(page.locator('#ps3CreateHeading')).toHaveText('프로젝트 수정');
@@ -1061,7 +1082,7 @@ test('V3 project detail stays separate from the Web1-backed board',async({page})
   await expect(page.locator('#ps3-children [data-ps3-project="child-1"]')).toBeVisible();
   await expect(page.locator('#ps3-pages')).toHaveCount(0);
   await expect(page.locator('#ps3Body')).not.toContainText('독립 현장 공지');
-  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  await closeProjectDetail(page);
   await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).not.toContainText('독립 현장 공지');

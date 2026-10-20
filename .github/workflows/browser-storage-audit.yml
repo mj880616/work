@@ -77,6 +77,9 @@ jobs:
               'tests/app-e2e/mobile-ux-shell.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/calendar-google-loading.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/helpers/calendar-task-emphasis.mjs':[r"['\"]kptu-calendar-view['\"]"],
+              # UI-PC프로젝트좌우: device-local "last project seen" on the PC projects screen (one project id, no names or
+              # content), stored under the per-owner cache prefix that sign-out clears.
+              'app/project-system-v3.js':[r'lastKey\(\)'],
               'app/library-upload.js':[r'LU_SESSION'],
               'app/suborganizations.js':[r'SO_SESSION'],
               'app/team.js':[r'SESSION_KEY'],
