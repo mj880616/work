@@ -36,8 +36,7 @@
 }
 /* ① 채운 버튼: 빠른 입력 [추가], 읽기 [연결하기], 수정 [수정 저장], 패널 안 확정 버튼. 위 기본 규칙과 같은 우선순위로 맞춰 뒤에서 덮는다. */
 #appView :is(#homeView,#basketView) :is(.home-quick button.home-quick-save,button.primary,button.quick-pill-primary,button[data-basket-save]){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
-/* ② 종류 색: 읽기 화면 [할 일 만들기](할 일 색, UI-디자인손질 6). */
-#appView #basketView .basket-read-actions button.primary ~ button.primary{ color:var(--ds-kind-task-ink); background:var(--ds-kind-task-soft); border-color:var(--ds-kind-task-soft); }
+/* ② 종류 색: 바구니 읽기 화면 아래 버튼 줄은 종류 색 없이 세 버튼이 같은 기본 모양(UI-바구니상세버튼색). */
 /* 고른 쪽(UI-선택표시통일, 2026-10-17 사용자 결정 B): 전환 버튼·필터·날짜의 고른 쪽은 어디서든 회색(--ds-kind-other 옅은 바탕 + 진한 글자),
    안 고른 쪽은 흰 바탕(기본 ③). 고른 상태는 각 버튼의 aria-pressed/aria-checked가 기준이다. 홈 [업데이트 ▾]는 [업데이트]와 ▾ 두 버튼이 한 덩어리로 같이 칠해진다. */
 #appView #basketView .basket-filters [aria-pressed="true"],
@@ -810,7 +809,7 @@
 #ps3DetailModal button.mini[data-gt-linked-unlink]::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 
 /* UI-버튼작게 ①(2026-10-18 사용자 결정): 바구니 메모·노트 읽기 화면 아래 버튼(메모 [연결하기][할 일 만들기], 노트 [수정][텔레그램용 복사][연결하기])은
-   한 줄, 폭은 글자만큼, 보이는 높이 32px. 색은 그대로([연결하기]만 주 버튼 색, 메모 [할 일 만들기]는 할 일 종류 색). 누르는 범위는 ::after로 44px. */
+   한 줄, 폭은 글자만큼, 보이는 높이 32px. 색은 기본 버튼 모양 하나로 통일(UI-바구니상세버튼색, 2026-10-20). 누르는 범위는 ::after로 44px. */
 #appView #basketView .basket-read-actions:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); }
 #appView #basketView .basket-read-actions button{
   position:relative; flex:0 0 auto; width:auto; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x);

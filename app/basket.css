@@ -115,8 +115,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
    one readable line under the attachment card. */
 #basketView .basket-library-badge { display:inline-flex; align-items:center; min-height:24px; box-sizing:border-box; font-size:12px; }
 #basketView .basket-library-result { margin:0 2px 4px; font-size:14px; line-height:1.5; color:var(--kptu-muted); overflow-wrap:anywhere; }
-#basketView .basket-read-actions button.primary { color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); font-weight:700; }
-/* UI-디자인손질 6: the read view keeps two big buttons only, [연결하기]·[할 일 만들기], side by side. */
+/* UI-디자인손질 6: the read view keeps two big buttons only, [연결하기]·[할 일 만들기], side by side (UI-바구니상세버튼색: all three buttons share the plain button look). */
 #basketView .basket-read-actions:not([hidden]) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 
 /* MD-표시보완: .html 첨부 칸막이 자리(html-frame.js가 그린다). */

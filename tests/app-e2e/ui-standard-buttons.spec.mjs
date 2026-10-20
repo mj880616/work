@@ -108,9 +108,10 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  // UI-바구니상세개편: the file controls are small text links (12px, no box) under the name and size.
  for(const l of await detail.locator('.basket-file-link').all())expect(await l.evaluate(el=>[getComputedStyle(el).fontSize,getComputedStyle(el).borderTopStyle])).toEqual(['12px','none']);
  await sameButtons(detail,height);
- const link=await look(detail.locator('[data-basket-link-open]')),task=await look(detail.locator('[data-basket-task-open]'));
- expect(link.bg).toBe(primary);expect(link.fg).toBe(onPrimary);
- expect(task.bg).toBe(await token(page,'--ds-kind-task-soft'));expect(task.fg).toBe(await token(page,'--ds-kind-task-ink'));
+ // UI-바구니상세버튼색: [연결하기]·[할 일 만들기]·[노트로 옮기기] share background, border and text color.
+ const link=await look(detail.locator('[data-basket-link-open]')),task=await look(detail.locator('[data-basket-task-open]')),move=await look(detail.locator('[data-basket-to-note]'));
+ expect(move.bg).toBe(await token(page,'--kptu-surface'));
+ for(const b of [link,task])for(const k of ['bg','fg','border','fontWeight','shadow','image'])expect(b[k]).toBe(move[k]);
  await detail.locator('[data-basket-note-more]').click();
  const del=await look(detail.locator('[data-basket-delete]'));expect(del.fg).toBe(await token(page,'--kptu-danger'));
  // Edit view: [수정 저장] is the one filled button.
