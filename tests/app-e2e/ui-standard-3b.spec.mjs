@@ -222,7 +222,7 @@ test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  // 제목 오른쪽(폰 머리줄 "바구니"와 같은 줄).
  const title=await box(page.locator('[data-mobile-view-name]'));expect(m.right).toBeGreaterThan(300);expect(Math.abs((m.top+m.bottom)/2-(title.top+title.bottom)/2)).toBeLessThanOrEqual(4);
  await expect(handoffLine(page)).toBeHidden();
- const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','분류','보류']);
+ const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','분류 완료','보류']);
  // UI-버튼크기: 필터는 알약 칩(32px, 누르는 범위 44px), 폭 가득이 아니다.
  // UI-버튼작게 ③: 폰의 [메모 | 노트]는 아래 탭 바로 위 전환 줄로 내려가고, 위쪽 줄에는 필터만 왼쪽부터 남는다.
  const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]')),kinds=await box(basket.locator('.basket-kind-switch'));
@@ -270,5 +270,32 @@ test('바구니: 메모가 없으면 가운데 회색 "아직 메모가 없어�
  const empty=page.locator('#basketView [data-basket-list-status]');await expect(empty).toHaveText('아직 업데이트가 없어요');
  await expect(empty).toHaveCSS('text-align','center');expect(await empty.evaluate(el=>getComputedStyle(el).color)).toBe(await token(page,'--kptu-muted'));
  await expect(page.locator('#basketView [data-basket-filter="unclassified"]')).toHaveText('미분류 0');
+ expect(errors).toEqual([]);
+});
+
+// UI-바구니머리줄: 너비가 760px을 넘으면(폴드를 펼쳐 "PC 화면으로 보기"한 폭 포함) [⋯ 더보기]는 제목줄이 아니라
+// [업데이트|노트 · 미분류 · 분류 완료 · 보류] 줄의 오른쪽 끝에 있고, 메뉴는 그 버튼 아래로 열린다. 760px 이하(폰)는 머리줄 그대로.
+for(const width of [1280,761])test(`바구니: 넓은 화면 ${width}에서 [⋯ 더보기]는 필터 줄 오른쪽 끝, 메뉴는 버튼 아래`,async({page})=>{
+ const {errors}=await boot(page,width);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
+ const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]'),menu=page.locator('#basketMoreMenu');
+ await expect(more).toBeVisible();
+ await expect(basket.locator('.basket-head [data-basket-more]')).toHaveCount(0);
+ await expect(basket.locator('.basket-switch-row [data-basket-more]')).toHaveCount(1);
+ await expect(basket.locator('[data-basket-filter]')).toHaveText(['미분류 2','분류 완료','보류']);
+ await expect(basket.locator('[data-basket-filter="classified"]')).toHaveAttribute('data-basket-filter','classified');
+ const m=await box(more),last=await box(basket.locator('[data-basket-filter="archived"]')),kind=await box(basket.locator('.basket-kind-switch')),row=await box(basket.locator('.basket-switch-row')),head=await box(basket.locator('.basket-head'));
+ expect(m.top).toBeGreaterThanOrEqual(head.bottom-1);
+ expect(Math.abs((m.top+m.bottom)/2-(kind.top+kind.bottom)/2)).toBeLessThanOrEqual(24);
+ expect(m.left).toBeGreaterThan(last.right);expect(Math.abs(m.right-row.right)).toBeLessThanOrEqual(2);
+ await more.click();await expect(menu).toBeVisible();
+ const mb=await box(menu);expect(mb.top).toBeGreaterThanOrEqual(m.bottom);expect(mb.right).toBeLessThanOrEqual(m.right+1);
+ await expect(menu.getByRole('button')).toHaveText(['AI 분류 요청','GPT 답변 가져오기']);
+ await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ await basket.locator('[data-basket-kind="note"]').click();await expect(more).toBeHidden();
+ await basket.locator('[data-basket-kind="memo"]').click();await expect(more).toBeVisible();
+ // 폭을 760으로 줄이면 머리줄로 돌아간다.
+ await page.setViewportSize({width:760,height:844});await expect(basket.locator('.basket-head [data-basket-more]')).toHaveCount(1);
+ await page.setViewportSize({width,height:900});await expect(basket.locator('.basket-switch-row [data-basket-more]')).toHaveCount(1);
  expect(errors).toEqual([]);
 });

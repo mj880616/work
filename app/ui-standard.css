@@ -818,8 +818,10 @@
 #appView #basketView .basket-read-actions button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 
 @media(min-width:761px){
-  #appView #basketView .basket-head button.basket-more-trigger{ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
-  #appView #basketView .basket-head button.basket-more-trigger::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+  #appView #basketView button.basket-more-trigger{ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
+  #appView #basketView button.basket-more-trigger::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+  /* UI-바구니머리줄: 넓은 화면에서는 [⋯ 더보기]가 [업데이트|노트 · 미분류 · 분류 완료 · 보류] 줄 오른쪽 끝. 메뉴는 버튼 아래로 열린다. */
+  #appView #basketView .basket-switch-row > .basket-more{ margin-left:auto; }
 }
 
 /* 홈 빠른 입력칸(추가 요청): 세 모드 모두 처음엔 한 줄(46px, [추가]와 같은 높이·같은 줄)에서 시작해 길게 쓰면 늘어나고(home-quick.js),
