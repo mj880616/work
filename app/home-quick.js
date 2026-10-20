@@ -94,7 +94,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     render:kind=>{
       // BASKET-업데이트통합: [바구니(미분류)] (no place) is the first chip, on the recent line (update-places.js, shared with the write window).
       return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',html:kind==='org'?placeSheetHtml({projects:projectChoices,orgs:orgChoices},currentPlace(),esc):projectRows(projectChoices,project,esc)};
-    },anchored:kind=>kind==='org'&&window.matchMedia('(min-width:761px)').matches,
+    },
     onSelect:(kind,value)=>{if(kind==='org')setPlace(placeFromValue(value));else project=value;paint();}
   });
   const openSheet=kind=>picker.open(kind,kind==='org'?orgSelect:projectSelect);

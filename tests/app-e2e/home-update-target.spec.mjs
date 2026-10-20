@@ -77,7 +77,8 @@ for(const width of [870,1280])test(`wide screen opens the sheet beside the butto
  const gap=d.y>=t.y+t.height-1?d.y-(t.y+t.height):t.y-(d.y+d.height);
  expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);
  expect(d.x).toBeLessThanOrEqual(t.x+t.width);expect(d.x+d.width).toBeGreaterThanOrEqual(t.x);
- expect(d.width).toBeLessThanOrEqual(360);expect(d.x).toBeGreaterThanOrEqual(0);expect(d.x+d.width).toBeLessThanOrEqual(width);
+ // Organization chips get the wider list (480px, UI-PC팝업위치) so fewer lines need scrolling.
+ expect(d.width).toBeLessThanOrEqual(480);expect(d.x).toBeGreaterThanOrEqual(0);expect(d.x+d.width).toBeLessThanOrEqual(width);
  await page.keyboard.press('Escape');await expect(dialog(page)).toBeHidden();await expect(trigger).toBeFocused();
  await trigger.click();await expect(dialog(page)).toBeVisible();
  await page.mouse.click(2,2);await expect(dialog(page)).toBeHidden();
@@ -88,10 +89,14 @@ test('phone keeps the bottom sheet',async({page})=>{
  await expect(dialog(page)).not.toHaveClass(/home-choice-anchored/);
  const d=await dialog(page).boundingBox();expect(d.width).toBeGreaterThanOrEqual(400);expect(d.y+d.height).toBeGreaterThan(844-120);
 });
-test('other choice sheets stay bottom sheets on a wide screen',async({page})=>{
+// UI-PC팝업위치: every choice sheet opens by its button on a wide screen, not only [업데이트 ▾].
+test('other choice sheets also open beside their button on a wide screen',async({page})=>{
  const {q}=await ready(page,1280);
  await q.locator('[data-quick-mode="task"]').click();await q.locator('[data-quick-input]').focus();
- await q.locator('[data-quick-project]').click();await expect(dialog(page)).toBeVisible();
- await expect(dialog(page)).not.toHaveClass(/home-choice-anchored/);
- const d=await dialog(page).boundingBox();expect(d.y+d.height).toBeGreaterThan(844-20);
+ const trigger=q.locator('[data-quick-project]');
+ await trigger.click();await expect(dialog(page)).toBeVisible();
+ await expect(dialog(page)).toHaveClass(/home-choice-anchored/);
+ const t=await trigger.boundingBox(),d=await dialog(page).boundingBox();
+ const gap=d.y>=t.y+t.height-1?d.y-(t.y+t.height):t.y-(d.y+d.height);
+ expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);expect(d.width).toBeLessThanOrEqual(360);
 });
