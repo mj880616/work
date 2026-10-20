@@ -46,6 +46,8 @@ async function boot(page,width){
   if(path==='/rest/v1/app_suborganization_updates'){calls.updates++;return ok(updates);}
   if(path==='/rest/v1/app_documents')return ok(docs);
   if(path==='/rest/v1/app_spaces'){const select=q.get('select')||'';if(select.includes('milestones:')){calls.spaces.push(select);return ok([{id:'p1',milestones:[{start_at:'2026-10-18T01:00:00Z'}]},{id:'p1a',milestones:[]},{id:'p2',milestones:[{start_at:'2026-10-26T01:00:00Z'}]}]);}return ok(spaces);}
+  // UI-PC프로젝트좌우: PC opens the first project in the pane, whose own detail read (same dates as the list read) also paints its D-day.
+  if(path==='/rest/v1/app_project_milestones'){const id=(q.get('project_id')||'').slice(3),at={p1:'2026-10-18T01:00:00Z',p2:'2026-10-26T01:00:00Z'}[id];return ok(at?[{id:'ms-'+id,project_id:id,title:'합성 일정',start_at:at,status:'planned'}]:[]);}
   if(path==='/rest/v1/app_notes'){if(q.get('metadata'))return ok([]);return ok([note].slice(Number(q.get('offset')||0)));}
   if(path.startsWith('/rest/v1/'))return ok([]);
   return ok({});

@@ -634,7 +634,8 @@ test('project detail keeps one summary-first column at desktop and phone widths'
   await signIn(page);
   await expect(page.locator('#ps3-progress')).toBeVisible();
   const order=await page.locator('#ps3Body').evaluate(body=>[...body.children].map(x=>x.id||x.className));
-  expect(order).toEqual(['ps3-progress','ps3-children','ps3-tasks','ps3-documents','ps3-milestones','ps3-memos']);
+  // PRJ-회의표시: the 회의 section follows 자료.
+  expect(order).toEqual(['ps3-progress','ps3-children','ps3-tasks','ps3-documents','ps3-meetings','ps3-milestones','ps3-memos']);
   // PRJ-기록입력: the header shows one summary line instead of the stored objective text.
   await expect(page.locator('#ps3Summary')).toHaveText('하위 1 · 할 일 0');await expect(page.locator('.ps3-modal-head')).not.toContainText('목표 설명');
   await expect(page.locator('#ps3-milestones')).not.toHaveAttribute('open','');
