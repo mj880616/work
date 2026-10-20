@@ -19,6 +19,7 @@ import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} fro
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
+import {UPDATE_REQUESTS, noteRequests, requestPrefix} from './update-requests.js';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -245,13 +246,16 @@ export const UNSORTED = '미분류';
 export {OTHERS};
 // '그 외' (records of organizations that are not mine) comes after the named sections, '미분류' last.
 const tail = name => name === UNSORTED ? 2 : name === OTHERS ? 1 : 0;
+// JOURNAL-요청표시: a section whose items include a marked update also has `tags`, one list of request keys per item
+// (update-requests.js), so the card can put the same small tags before those items. Without a mark there is no `tags`.
 const sectionsOf = entries => {
   const sections = new Map();
   for (const entry of entries.sort((a, b) => byTime(a.at, b.at) || 0)) {
-    if (!sections.has(entry.name)) sections.set(entry.name, []);
-    sections.get(entry.name).push(entry.text);
+    if (!sections.has(entry.name)) sections.set(entry.name, {items:[], tags:[]});
+    sections.get(entry.name).items.push(entry.text);
+    sections.get(entry.name).tags.push(entry.requests || []);
   }
-  return [...sections].map(([name, items]) => ({name, items}))
+  return [...sections].map(([name, {items, tags}]) => tags.some(list => list.length) ? {name, items, tags} : {name, items})
     .sort((a, b) => tail(a.name) - tail(b.name) || a.name.localeCompare(b.name, 'ko'));
 };
 // Where each basket update of the day went: {orgs:[{name, text}], projects:[name], line, at}.
@@ -266,7 +270,7 @@ function basketPlaces(basket, day) {
     }
     for (const org of filedOrganizations(memo, docs)) if (!orgs.has(org.organization_id)) orgs.set(org.organization_id, {id:org.organization_id, name:org.name, summary:''});
     for (const project of filedProjects(memo, docs)) if (!projects.some(p => p.name === project.name)) projects.push({name:project.name, summary:''});
-    return {memo, orgs:[...orgs.values()], projects, line:memoLine(memo)};
+    return {memo, orgs:[...orgs.values()], projects, line:memoLine(memo), requests:noteRequests(memo)};
   });
 }
 // 조직 소식 of one day: [{name, items:[text]}] — one section per organization (by name), '미분류' last.
@@ -278,14 +282,14 @@ function basketPlaces(basket, day) {
 // read (it failed) every organization keeps its own section as before.
 export function orgNewsOn({basket, orgUpdates} = {}, day) {
   const entries = [], mine = orgUpdates?.mine instanceof Set ? orgUpdates.mine : null;
-  const add = (id, name, at, text) => {
+  const add = (id, name, at, text, requests) => {
     const label = String(name || '').trim();
-    if (id && mine && !mine.has(id)) entries.push({name:OTHERS, at, text:`${label || '조직'} · ${text}`});
-    else entries.push({name: label || UNSORTED, at, text});
+    if (id && mine && !mine.has(id)) entries.push({name:OTHERS, at, text:`${label || '조직'} · ${text}`, requests});
+    else entries.push({name: label || UNSORTED, at, text, requests});
   };
-  for (const {memo, orgs, projects, line} of basketPlaces(basket, day)) {
-    if (orgs.length) for (const org of orgs) add(org.id, org.name, memo.occurred_at, org.summary || line);
-    else if (!projects.length) add(null, UNSORTED, memo.occurred_at, line);
+  for (const {memo, orgs, projects, line, requests} of basketPlaces(basket, day)) {
+    if (orgs.length) for (const org of orgs) add(org.id, org.name, memo.occurred_at, org.summary || line, requests);
+    else if (!projects.length) add(null, UNSORTED, memo.occurred_at, line, requests);
   }
   for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) add(row.organization_id, row.organization?.name, row.occurred_at, firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)');
   return sectionsOf(entries);
@@ -295,9 +299,9 @@ export function orgNewsOn({basket, orgUpdates} = {}, day) {
 // project (an update sent to an organization stays in 조직 소식 only, so nothing shows twice).
 export function projectNewsOn({basket, projectUpdates} = {}, day) {
   const entries = [];
-  const add = (name, at, text) => entries.push({name: String(name || '').trim() || UNSORTED, at, text});
-  for (const {memo, orgs, projects, line} of basketPlaces(basket, day))
-    if (!orgs.length) for (const project of projects) add(project.name, memo.occurred_at, project.summary || line);
+  const add = (name, at, text, requests) => entries.push({name: String(name || '').trim() || UNSORTED, at, text, requests});
+  for (const {memo, orgs, projects, line, requests} of basketPlaces(basket, day))
+    if (!orgs.length) for (const project of projects) add(project.name, memo.occurred_at, project.summary || line, requests);
   for (const row of projectUpdates || []) if (row?.effective_on === day)
     add(row.project?.name, row.created_at || `${day}T23:59:59+09:00`, firstLine(row.summary) || '(빈 업데이트)');
   return sectionsOf(entries);
@@ -359,18 +363,38 @@ export function rangeNote(group, day, {doneDays = DONE_TASK_DAYS, today = todayK
 export const isFolded = (group, day, range) => !group.items.length && !group.loading && !group.failed && !rangeNote(group, day, range);
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 
-// [주간보고 초안] (this stage: copy only): day by day (Monday to Sunday), each day's lines in saving order (one "한 줄:" row
-// each) and that day's materials in group order. Empty groups add no row.
+// JOURNAL-요청표시: the week's updates marked as a request, one list per request kind (update-requests.js order), each item
+// "날짜 · 보낸 곳: 첫 줄" (보낸 곳: the organizations, else the projects it was sent to; none → no place), oldest first.
+export function weekRequests(basket, start) {
+  const out = Object.fromEntries(UPDATE_REQUESTS.map(request => [request.key, []]));
+  for (const day of weekDays(start)) for (const {orgs, projects, line, requests} of basketPlaces(basket, day)) {
+    const where = (orgs.length ? orgs : projects).map(place => place.name).filter(Boolean).join(', ');
+    for (const key of requests) out[key].push(`${shortDay(day)}${where ? ` · ${where}` : ''}: ${line}`);
+  }
+  return out;
+}
+// [주간보고 초안] (this stage: copy only): first the week's marked updates under "임원 일정 배정 요청" and "논의 요청" (the
+// weekly report starts with these two; "(없음)" when none), then day by day (Monday to Sunday), each day's lines in saving order
+// (one "한 줄:" row each) and that day's materials in group order. Empty groups add no row. A marked item keeps its tag.
 export function weeklyDraft({start, lines, materials, doneDays = DONE_TASK_DAYS, today = todayKey()}) {
   const days = weekDays(start);
   const out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, ''];
+  const basketRead = materials?.basket?.status === 'ok' ? materials.basket.items : null;
+  const marked = basketRead ? weekRequests(basketRead, start) : null;
+  for (const request of UPDATE_REQUESTS) {
+    out.push(`[${request.label}]`);
+    if (!marked) out.push('- (업데이트를 불러오지 못해 빠졌어요)');
+    else if (marked[request.key].length) for (const item of marked[request.key]) out.push(`- ${item}`);
+    else out.push('- (없음)');
+    out.push('');
+  }
   for (const day of days) {
     out.push(`■ ${shortDay(day)}`);
     const list = workLines(lines?.get?.(day));
     if (list.length) for (const line of list) out.push(`한 줄: ${line}`);
     else out.push('한 줄: (없음)');
     for (const group of dayMaterials(materials, day)) {
-      if (SECTIONED.has(group.key)) { for (const section of group.sections) for (const item of section.items) out.push(`- ${group.label} · ${section.name}: ${item}`); }
+      if (SECTIONED.has(group.key)) { for (const section of group.sections) section.items.forEach((item, i) => out.push(`- ${group.label} · ${section.name}: ${requestPrefix(section.tags?.[i])}${item}`)); }
       else for (const item of group.items) out.push(`- ${group.label}: ${item}`);
     }
     out.push('');

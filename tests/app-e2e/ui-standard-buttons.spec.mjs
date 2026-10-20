@@ -42,6 +42,8 @@ async function sameButtons(region,height,quickHeight=height){
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
    if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};
    if(el.matches('[data-basket-filter]'))return {min:32,max:32,radius:'999px'};
+   // JOURNAL-요청표시: 입력칸·업데이트 상세의 [임원 요청]·[논의 요청] 켜고 끄기는 32px 알약(누르는 범위 44px).
+   if(el.closest('.update-request-toggles'))return {min:32,max:32,radius:'999px'};
    if(el.matches('.basket-more-trigger'))return {min:32,max:32,radius:'8px'};
    return null;
   });

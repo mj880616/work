@@ -763,3 +763,38 @@ test('[주간보고 초안 복사] 끝낸 할 일: 넓어진 서버면 지난주
  const now=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  expect(now.some(l=>l.startsWith('※ 끝낸 할 일은'))).toBe(false);
 });
+
+// JOURNAL-요청표시: an update marked [임원 요청]·[논의 요청] (metadata.requests) carries the same small tags in the day card, and the
+// weekly report draft starts with the two request lists ("임원 일정 배정 요청", "논의 요청"), the week's marked updates in each.
+for(const width of [390,1280])test(`[업무일지] 요청 표시: 하루 카드 항목 앞 꼬리표, 초안 맨 앞 "임원 일정 배정 요청"·"논의 요청" 묶음 ${width}`,async({page},info)=>{
+ const f=await fixture(page,{width});
+ f.rows.find(r=>r.id==='b2').metadata={requests:['exec_schedule','discussion']};
+ f.rows.find(r=>r.id==='b1').metadata={requests:['discussion'],folder:'무시되는 값'};
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,width);
+ const orgs=group(page,'orgs');
+ await expect(orgs.locator('li')).toHaveCount(3);
+ const marked=orgs.locator('li[data-journal-requests]');
+ await expect(marked).toHaveCount(2);
+ await expect(marked.nth(0).locator('[data-request-tag]')).toHaveText(['임원 요청','논의 요청']);
+ await expect(marked.nth(0)).toContainText('안녕하세요 위원장님');
+ await expect(marked.nth(1).locator('[data-request-tag]')).toHaveText(['논의 요청']);
+ await expect(marked.nth(1)).toContainText('현장 간담회 메모');
+ // The organization's own record has no tag.
+ await expect(orgs.locator('li',{hasText:'조직 화면에서 쓴 업데이트'}).locator('[data-request-tag]')).toHaveCount(0);
+ await page.screenshot({path:info.outputPath(`journal-requests-${width}.png`)});
+ await page.locator('#journalRoot [data-journal-copy]').click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('이번 주 한 줄과 재료 목록을 복사했어요.');
+ const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
+ expect(lines.slice(0,9)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','',
+  '[임원 일정 배정 요청]','- 10월 6일(화) · 가상 노동조합: 안녕하세요 위원장님','',
+  '[논의 요청]','- 10월 6일(화) · 가상 노동조합: 안녕하세요 위원장님','- 10월 6일(화): 현장 간담회 메모','']);
+ expect(lines[9]).toBe('■ 10월 5일(월)');
+ expect(lines).toContain('- 조직 소식 · 가상 노동조합: [임원 요청] [논의 요청] 안녕하세요 위원장님');
+ expect(lines).toContain('- 조직 소식 · 미분류: [논의 요청] 현장 간담회 메모');
+ expect(lines).toContain('- 조직 소식 · 나 지역 모임: 조직 화면에서 쓴 업데이트');
+ // Last week's update (b0) is not in this week's lists.
+ expect(lines.some(l=>l.includes('지난주 메모'))).toBe(false);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});

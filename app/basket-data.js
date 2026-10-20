@@ -2,6 +2,7 @@
 // No note content or drafts are persisted in browser storage.
 import { noteTasks } from './basket-note-tasks.js';
 import { documentCategories, categoryOf } from './document-categories.js';
+import { normalizeRequests, requestsGuard } from './update-requests.js';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -18,11 +19,13 @@ function savedRow(rows) {
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없습니다. 접근 권한을 확인해 주세요.');
   return rows[0];
 }
-export async function createNote({raw_text, ai_export_allowed, occurred_at}, rt = window.KPTURuntime) {
+// JOURNAL-요청표시: requests (update-requests.js) marked in the input go into the new row's metadata in the same insert.
+export async function createNote({raw_text, ai_export_allowed, occurred_at, requests}, rt = window.KPTURuntime) {
   validateNoteText(raw_text);
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
-  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, raw_text, ...(ai_export_allowed === undefined ? {} : {ai_export_allowed}), ...(occurred_at === undefined ? {} : {occurred_at})}}));
+  const marks = normalizeRequests(requests);
+  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, raw_text, ...(ai_export_allowed === undefined ? {} : {ai_export_allowed}), ...(occurred_at === undefined ? {} : {occurred_at}), ...(marks.length ? {metadata:{requests:marks}} : {})}}));
 }
 export async function updateNote(id, changes, rt = window.KPTURuntime) {
   const body = {updated_at:new Date().toISOString()};
@@ -164,18 +167,36 @@ export function sortNotes(notes) {
 }
 // Folder and pin share metadata: every metadata write here reads the row again, keeps the other keys, and only applies
 // while updated_at, pinned_at and folder are still what it read (so a pin never drops a folder and a move never drops a pin).
+// JOURNAL-요청표시: an update's request marks (metadata.requests) go through the same write, and it also guards the marks and
+// the first recorded task (metadata.tasks, basket-note-tasks.js, which guards the marks in turn), so no writer drops another's.
 const metaGuardValue = (key, value) => typeof value === 'string' ? `&metadata->>${key}=eq.${encodeURIComponent(value)}` : value == null ? `&metadata->>${key}=is.null` : '';
-async function patchNoteMetadata(note, change, rt) {
-  const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(note.id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
+// The same guard as noteTaskGuard (basket-note-tasks.js) for the first recorded task.
+const taskGuard = id => `&metadata->tasks->0->>task_id=${id == null ? 'is.null' : 'eq.' + encodeURIComponent(typeof id === 'string' ? id : JSON.stringify(id))}`;
+const firstTaskId = metadata => { const first = Array.isArray(metadata.tasks) ? metadata.tasks[0] : null; return plainObject(first) ? first.task_id : null; };
+const ROW_WORDS = Object.freeze({note:{missing:'노트를 찾지 못했어요.', changed:'노트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'},
+  basket:{missing:'업데이트를 찾지 못했어요.', changed:'업데이트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'}});
+async function patchRowMetadata(note, kind, change, rt) {
+  const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(note.id)}&workspace_id=eq.${workspace(rt)}&kind=eq.${kind}`;
   const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});
-  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('노트를 찾지 못했어요.');
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error(ROW_WORDS[kind].missing);
   const fresh = rows[0], old = plainObject(fresh.metadata) ? fresh.metadata : {};
   const metadata = change({...old});
   if (metadata === null) return fresh;
-  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}`;
+  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}${requestsGuard(old)}${taskGuard(firstTaskId(old))}`;
   const saved = await rt.api(`${base}&${guard}&select=id,updated_at,metadata`, {method:'PATCH', prefer:'return=representation', body:{metadata}});
-  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error(ROW_WORDS[kind].changed), {code:'note_changed'});
   return saved[0];
+}
+const patchNoteMetadata = (note, change, rt) => patchRowMetadata(note, 'note', change, rt);
+// JOURNAL-요청표시: turn an update's request marks on or off (requests: the full list of marks it should have). Not an edit:
+// updated_at, the text and the attachments stay as they are. Nothing is written when the marks are already so.
+export function setUpdateRequests(note, requests, rt = window.KPTURuntime) {
+  const next = normalizeRequests(requests);
+  return patchRowMetadata(note, 'basket', metadata => {
+    if (JSON.stringify(metadata.requests ?? null) === JSON.stringify(next.length ? next : null)) return null;
+    if (next.length) metadata.requests = next; else delete metadata.requests;
+    return metadata;
+  }, rt);
 }
 export function setNotePinned(note, pinned, rt = window.KPTURuntime, now = new Date()) {
   return patchNoteMetadata(note, metadata => {
