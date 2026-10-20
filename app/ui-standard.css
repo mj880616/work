@@ -958,9 +958,10 @@
 #appView #tasksView .home-quick .home-quick-save{ box-sizing:border-box; position:relative; display:inline-flex; align-items:center; justify-content:center; height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:4px var(--ds-control-pad-x); font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); color:var(--kptu-on-primary); background:var(--kptu-primary); border:var(--ds-line-width) solid var(--kptu-primary); border-radius:var(--ds-radius-control); box-shadow:none; cursor:pointer; }
 /* UI-할일빠른추가상세: 입력 칸 안 오른쪽 끝 [+](상세 설정으로 추가). 보이는 그림은 16px, 누르는 범위는 44px 이상(입력 칸 높이 46px 전체). 글이 아이콘 밑으로 들어가지 않게 오른쪽을 비운다. */
 #appView #tasksView .home-quick [data-quick-input]{ padding-right:44px; }
-#appView #tasksView .home-quick .home-quick-detail{ box-sizing:border-box; position:absolute; top:0; right:0; z-index:1; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); cursor:pointer; }
-#appView #tasksView .home-quick .home-quick-detail:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
-#appView #tasksView .home-quick .home-quick-detail:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail{ box-sizing:border-box; position:absolute; top:0; right:0; z-index:1; display:grid; place-items:center; width:var(--kptu-touch-target,44px); min-width:var(--kptu-touch-target,44px); height:var(--ds-control-height); min-height:var(--ds-control-height); margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); cursor:pointer; }
+#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail[hidden]{ display:none; }
+#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 /* BASKET-업데이트통합 PR 2: 홈·바구니 입력 칸 안 오른쪽 끝 [크게](큰 창에서 쓰기). [할 일] 화면 [+]와 같은 자리·크기(그림 16px, 누르는 범위 44px).
    [할 일] 탭에서는 숨는다. 글이 아이콘 밑으로 들어가지 않게 오른쪽을 비운다. */
 #appView :is(#homeView,#basketView) .home-quick [data-quick-input]{ padding-right:44px; }
@@ -1103,14 +1104,14 @@
   #appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* 한 줄 입력칸: 글줄 21px + 위 7px·아래 6px + 테두리(화면에 1px씩) = 36px. 홈은 길게 쓰면 지금처럼 늘어나고 5줄에서 멈춘다(home-quick.js). */
   #appView :is(#homeView,#tasksView) .home-quick[data-home-quick] [data-quick-input]{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-big,#appView #tasksView .home-quick .home-quick-detail{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  #appView :is(#homeView,#basketView) .home-quick .home-quick-big,#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   #appView #basketView .note-list-head .note-search input{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* SHARE-현장공유 PR 2: 공유 페이지 화면의 큰 버튼([새 공유 페이지]·[저장]·[링크 만들기]·[다시 불러오기])도 같은 36px. 작은 보조 버튼(.sp-tool)은 그대로. */
   #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn){ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
   #appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip::after,
-  #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,#appView #tasksView .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
+  #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
 }
 
 /* UI-PC다듬기묶음 ②(2026-10-20 요청함 16:32): 일정 머리줄 [+ 일정 등록]은 UI-PC버튼36(#758)에서 제외돼 큰 버튼(--ds-control-height 46px)으로 남았고,

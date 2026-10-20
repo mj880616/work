@@ -62,6 +62,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     input.placeholder=mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
     box.querySelector('[data-quick-file-picker]').hidden=!toBasket();
     if(!taskOnly)box.querySelector('[data-quick-big]').hidden=mode==='task';
+    if(!taskOnly&&!basketOnly)box.querySelector('[data-quick-detail]').hidden=mode!=='task';
     box.querySelector('[data-quick-basket-options]').hidden=!toBasket()||!upload.entries.length;
     box.querySelectorAll('[data-quick-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quickMode===mode)));
     options.hidden=taskOnly||!expanded||mode!=='task';
@@ -233,12 +234,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   };
   // UI-할일빠른추가상세: [할 일] 화면의 입력 칸 안 오른쪽 끝 [+]는 새 창 없이 일정 화면의 기존 [할 일 등록] 창(프로젝트·날짜 등)을 연다.
   // 입력한 글은 그 창의 제목으로 미리 채운다. 입력 칸 글은 그 창에서 저장될 때 비운다(같은 글이 두 번 남지 않게). 저장 경로는 기존 그대로.
+  // UI-홈빠른입력상세(시안 A): 홈 빠른 입력도 [할 일] 모드에서 같은 [+]로 같은 창을 연다([업데이트] 모드에서는 숨는다). 바구니 화면은 없다.
   const detailBtn=box.querySelector('[data-quick-detail]');
-  if(!taskOnly)detailBtn.remove();
+  if(basketOnly)detailBtn.remove();
   else{
     let detailTitle=null;
     detailBtn.onclick=async()=>{
-      if(saving)return;
+      if(saving||mode!=='task')return;
       const title=input.value.trim();
       try{
         await window.KPTUDeferredFeatures?.loadView?.('calendar');
