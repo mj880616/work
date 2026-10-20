@@ -30,7 +30,7 @@ const routeStyles={
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./ui-standard.css'],
   meetings:['./filter-chips.css','./meeting-ui.css','./google-tasks.css','./ui-standard.css'],
   media:['./web1-press.css','./ui-standard.css'],
-  pages:['./web1-board.css','./ui-standard.css'],
+  pages:['./web1-board.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./workplace-detail.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css']
 };
@@ -127,6 +127,9 @@ async function media(){
   return {ok:true}
 }
 async function pages(){
+  // SHARE-현장공유 PR 2: my share pages (editor) on top, the old Web1 cards folded under "이전 페이지" below.
+  await projectCatalog();
+  await module('./share-pages.js');
   await module('./web1-board.js');
   return {ok:true}
 }

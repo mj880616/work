@@ -1,3 +1,4 @@
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -138,7 +139,7 @@ test('selected view survives refresh and page cards open inside the 게시판 ta
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
   await expect(page.locator('.app-nav [data-view="calendar"]')).toHaveClass(/active/);
 
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).toContainText('산별전환 업무 현황');
   await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');

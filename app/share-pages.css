@@ -1,0 +1,80 @@
+/* SHARE-현장공유 PR 2: "공유 페이지" 메뉴 위쪽(내 공유 페이지 목록·편집). 값은 theme-tokens.css의 공용 토큰만 쓴다.
+   큰 버튼(.primary/.secondary)은 ui-standard.css의 #pagesView 규칙(높이 하나)을 그대로 따르고, 이 파일은 칸 배치와
+   보조 버튼(.sp-tool: 보이는 32px, 누르는 범위 44px)만 정한다. */
+#appView #pagesView .sp-root{ margin-bottom:22px; }
+#appView #pagesView .sp-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+#appView #pagesView .sp-head h2{ margin:0; font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
+#appView #pagesView .sp-status{ margin:4px 0; min-height:0; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #pagesView .sp-status:empty{ display:none; }
+#appView #pagesView :is(.sp-empty,.sp-hint){ margin:6px 0; font-size:var(--ds-text-meta); line-height:1.6; color:var(--kptu-muted); }
+#appView #pagesView .sp-list{ list-style:none; margin:0; padding:0; overflow:hidden; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
+#appView #pagesView .sp-list li + li{ border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #pagesView .sp-row{ box-sizing:border-box; display:flex; align-items:center; gap:10px; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:var(--ds-row-pad-y) var(--ds-row-pad-x); border:0; border-radius:0; background:transparent; color:var(--kptu-ink); font:inherit; text-align:left; cursor:pointer; }
+#appView #pagesView .sp-row:hover{ background:var(--kptu-surface-subtle); }
+#appView #pagesView .sp-row:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+#appView #pagesView .sp-row-title{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }
+#appView #pagesView .sp-pill{ flex:none; padding:2px 8px; border-radius:var(--ds-chip-radius); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #pagesView .sp-pill.is-on{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); }
+
+/* 편집 */
+#appView #pagesView .sp-editor{ display:flex; flex-direction:column; gap:12px; max-width:760px; }
+#appView #pagesView .sp-editor[hidden]{ display:none; }
+#appView #pagesView .sp-editor-head{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); }
+#appView #pagesView .sp-back{ display:inline-flex; align-items:center; gap:4px; min-height:var(--kptu-touch-target,44px); margin:0; padding:0 4px; border:0; background:transparent; color:var(--kptu-link); font:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); cursor:pointer; }
+#appView #pagesView .sp-field{ display:flex; flex-direction:column; gap:4px; min-width:0; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #pagesView .sp-field > span{ font-weight:var(--ds-weight-medium); }
+#appView #pagesView .sp-input{ box-sizing:border-box; width:100%; min-height:var(--ds-control-height); margin:0; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-text-read); font-weight:var(--ds-weight-regular); }
+#appView #pagesView textarea.sp-input{ min-height:0; line-height:1.5; }
+#appView #pagesView .sp-title{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
+#appView #pagesView .sp-settings{ display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; align-items:end; }
+#appView #pagesView .sp-seg{ box-sizing:border-box; display:inline-flex; align-self:flex-start; height:var(--ds-compact-height); padding:0; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); overflow:visible; background:var(--kptu-surface); }
+#appView #pagesView .sp-seg button{ position:relative; min-width:56px; margin:0; padding:0 var(--ds-compact-pad-x); border:0; border-radius:0; background:transparent; color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#appView #pagesView .sp-seg button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
+#appView #pagesView .sp-seg button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #pagesView .sp-seg button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+
+/* 보조 버튼: 보이는 높이 32px, 누르는 범위 44px. */
+#appView #pagesView .sp-tool{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:none; height:var(--ds-compact-height); min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+#appView #pagesView .sp-tool::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #pagesView .sp-tool:disabled{ opacity:.45; cursor:default; }
+#appView #pagesView .sp-tool:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #pagesView .sp-danger{ color:var(--kptu-danger); border-color:var(--kptu-danger); }
+
+#appView #pagesView .sp-blocks{ display:flex; flex-direction:column; gap:10px; }
+#appView #pagesView .sp-block{ display:flex; flex-direction:column; gap:8px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
+#appView #pagesView .sp-block-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; min-height:var(--kptu-touch-target,44px); }
+#appView #pagesView .sp-block-head h3{ margin:0; font-size:var(--ds-text-section); color:var(--ds-section-ink); }
+#appView #pagesView .sp-block-tools{ display:flex; gap:6px; }
+#appView #pagesView .sp-items{ display:flex; flex-direction:column; gap:8px; margin:0; padding:0; list-style:none; }
+#appView #pagesView .sp-item{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px; align-items:start; padding-top:8px; border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #pagesView .sp-item > .sp-input{ grid-column:1; }
+#appView #pagesView .sp-item > .sp-tool{ grid-column:2; grid-row:1; margin-top:7px; }
+#appView #pagesView .sp-item-stages{ grid-template-columns:auto minmax(0,1fr) auto; align-items:center; }
+#appView #pagesView .sp-item-stages > .sp-input{ grid-column:2; }
+#appView #pagesView .sp-item-stages > .sp-tool{ grid-column:3; margin-top:0; }
+#appView #pagesView .sp-current{ display:inline-flex; align-items:center; gap:4px; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #pagesView .sp-current input{ width:18px; height:18px; min-height:0; margin:0; }
+#appView #pagesView .sp-add-item{ align-self:flex-start; }
+#appView #pagesView .sp-add{ display:flex; flex-wrap:wrap; gap:8px; padding:6px 0; }
+#appView #pagesView .sp-save-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+
+#appView #pagesView .sp-links{ display:flex; flex-direction:column; gap:8px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
+#appView #pagesView .sp-links h3{ margin:0; font-size:var(--ds-text-section); color:var(--ds-section-ink); }
+#appView #pagesView .sp-link-form{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,180px) auto; gap:8px; align-items:end; }
+#appView #pagesView .sp-link-list{ list-style:none; margin:0; padding:0; }
+#appView #pagesView .sp-link{ display:flex; align-items:center; gap:10px; min-height:var(--kptu-touch-target,44px); padding:6px 0; border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #pagesView .sp-link-main{ display:flex; flex-direction:column; flex:1 1 auto; min-width:0; }
+#appView #pagesView .sp-link-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-row); color:var(--kptu-ink); }
+#appView #pagesView .sp-link-meta{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #pagesView .sp-link-off .sp-link-name{ color:var(--kptu-muted); text-decoration:line-through; }
+#appView #pagesView .sp-link-actions{ display:flex; gap:6px; }
+
+/* 이전 페이지(옛 Web1 카드 5개): 접어 둔다(S7). */
+#appView #pagesView .w1b-legacy > summary{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-section); color:var(--ds-section-ink); cursor:pointer; }
+#appView #pagesView .w1b-legacy[open] > summary{ margin-bottom:6px; }
+
+@media(max-width:760px){
+  #appView #pagesView .sp-settings{ grid-template-columns:1fr; }
+  #appView #pagesView .sp-link-form{ grid-template-columns:1fr; }
+  #appView #pagesView .sp-link-form button{ justify-self:start; }
+}
