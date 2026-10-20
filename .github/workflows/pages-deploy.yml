@@ -5,9 +5,10 @@ name: Deploy GitHub Pages
 # since 3단계) and writes app/asset-manifest.json with scripts/build-pages.mjs, checks the result,
 # and only then deploys it.
 #
-# Safe before the switch: while Settings → Pages → Source is still "Deploy from a branch", the
-# build runs and is checked, but the deploy job is skipped (Pages build_type is not "workflow").
-# Production keeps serving the branch deployment until the owner changes Source to GitHub Actions.
+# Since 2단계 Pages Source is GitHub Actions and this workflow is the production deployment. The
+# deploy job still runs only while the Pages build_type is "workflow", so if Source is ever set back
+# to "Deploy from a branch" the build and checks run but nothing is deployed (the Summary says so).
+# workflow_dispatch with skip_deploy builds and checks without deploying.
 on:
   push:
     branches: [main]
