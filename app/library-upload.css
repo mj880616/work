@@ -61,7 +61,7 @@
   #appView #libraryView #documentList .lu-row-title{grid-area:title}
   #appView #libraryView #documentList .lu-row-date{grid-area:date;align-self:start;margin-top:2px;padding-left:4px}
   #appView #libraryView #documentList .lu-more-trigger{grid-area:menu}
-  #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;height:auto;padding:0;background:transparent;font-size:11px;font-weight:600;line-height:18px}
+  #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;height:auto;padding:0;background:transparent;font-size:11px;font-weight:var(--ds-weight-medium,500);line-height:18px}
   #appView #libraryView #documentList .lu-row-tag{grid-area:tag;min-width:0}
   #appView #libraryView #documentList .lu-row-tag .doc-category-tag{height:18px;line-height:18px;font-size:11px}
   #appView #libraryView #documentList .lu-expand{display:none}
@@ -133,7 +133,7 @@
 #appView #libraryView .library-filter-toolbar #documentProject,
 #appView #libraryView .library-filter-toolbar .lu-filter-row{display:grid;grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,1fr);column-gap:8px;row-gap:0;align-items:center;flex:1 1 100%;min-width:0}
 #appView #libraryView .lu-filter-row:has(> [hidden]){display:none}
-#appView #libraryView .lu-filter-label{font-size:var(--ds-text-meta,12px);font-weight:600;line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
+#appView #libraryView .lu-filter-label{font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
 #appView #libraryView .lu-filter-label[hidden]{display:none}
 #appView #libraryView .lu-filter-row > .filter-chips{min-width:0}
 @media(max-width:760px){

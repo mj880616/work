@@ -85,6 +85,9 @@ for(const width of [390,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여�
 test('분류 칩: 들어올 때마다 기본 상태, 다른 화면이 특정 자료·담당조직으로 열면 모두 켬',async({page})=>{
   const {errors}=await boot(page,1280);
   await chip(page,'all').click();await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','true');
+  // 자료실에 머문 채 다시 그리기(로그인 정보 갱신·같은 화면 다시 열기)는 들어오기가 아니므로 고른 칩을 지킨다.
+  await page.evaluate(()=>window.KPTURouter.go('library',{source:'session',updateUrl:false}));await page.evaluate(()=>window.KPTURouter.go('library'));
+  await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);expect(await ids(page)).toContain('meeting');
   await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('library'));await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');expect(await ids(page)).not.toContain('meeting');
   // 다른 화면에서 회의 자료 하나를 짚어 열면(바구니 등): 그 자료가 보이도록 모두 켜고 그 줄에 초점.
