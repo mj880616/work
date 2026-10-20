@@ -3,7 +3,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import { projectDetailDocked } from './helpers/project-detail.mjs';
+import { expectProjectDetail, projectDetailDocked } from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -316,8 +316,10 @@ test('project create, rename and archive refresh library selectors without reloa
   await page.locator('#ps3CreateName').fill('신규 하위 프로젝트');
   await page.locator('#ps3CreateParent').selectOption('top-b');
   await page.locator('#ps3CreateSave').click();
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  await expect.poll(()=>state.spaces.some(x=>x.name==='신규 하위 프로젝트')).toBe(true);
   const created=state.spaces.find(x=>x.name==='신규 하위 프로젝트');
+  // UI-PC프로젝트좌우: on a PC the pane already shows a project; wait until the new one is shown (as the dialog opens elsewhere).
+  await expectProjectDetail(page,created.id);
   let values=await optionsOf(page,'#docProject');
   expect(values.map(o=>o.value)).toEqual(['','top-a','child-a1','child-a2','top-b','child-b1',created.id,'orphan-1']);
   expect(values.find(o=>o.value===created.id).text).toBe('　↳ 신규 하위 프로젝트');
