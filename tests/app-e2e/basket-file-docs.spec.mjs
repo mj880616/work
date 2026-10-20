@@ -148,6 +148,27 @@ for(const width of [390,1280])test(`[자료로 넣기] puts the files into the p
  expect(f.errors).toEqual([]);
 });
 
+// UI-PC다듬기묶음 ④: [조직·프로젝트 자료로 넣기] 칸 버튼은 PC(≥1024)에서 작은 버튼 기준(보이는 32px, 누르는 범위 44px), 폰·중간 폭은 큰 버튼(46px) 그대로.
+for(const [width,painted] of [[1280,32],[1024,32],[900,46],[390,46]])test(`[자료로 넣기] panel buttons are small on PC only ${width}`,async({page})=>{
+ const f=await fixture(page,{width}),detail=await openNote(page,ONLY,width);
+ await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
+ await pick(page,detail,'project','합성 임단협',width);
+ const panel=detail.locator('[data-manual-link]');
+ const target=panel.locator(`[data-manual-target="project:${P}"]`);
+ await expect(target.getByRole('button',{name:'기록도 남기기'})).toBeVisible();
+ const measure=async locator=>{await locator.scrollIntoViewIfNeeded();return locator.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),x=r.left+r.width/2;return {h:r.height,touch:p.content!=='none'?parseFloat(p.height):r.height,above:document.elementFromPoint(x,r.top-4)?.closest('button')===el,below:document.elementFromPoint(x,r.bottom+4)?.closest('button')===el}})};
+ const buttons={'담당조직 고르기':panel.locator('[data-manual-pick="organization"]'),'프로젝트 고르기':panel.locator('[data-manual-pick="project"]'),'빼기':target.locator('[data-manual-remove]'),'기록도 남기기':target.locator('[data-manual-record]'),'자료로 넣기':panel.locator('[data-manual-confirm]'),'취소':panel.locator('[data-manual-cancel]')};
+ for(const [name,locator] of Object.entries(buttons)){
+  const m=await measure(locator);expect(m.h,name).toBe(painted);expect(m.touch,name).toBeGreaterThanOrEqual(44);
+  if(width>=1024){expect(m.above,name+' 위 3px 누름').toBe(true);expect(m.below,name+' 아래 3px 누름').toBe(true)}
+ }
+ await expect(buttons['자료로 넣기']).toHaveText('자료로 넣기');
+ // 같은 화면 위쪽 파일 줄 링크는 그대로(12px 글자 링크).
+ expect(await detail.locator('.basket-file-links > *').first().evaluate(el=>getComputedStyle(el).fontSize)).toBe('12px');
+ expect(await noWideScroll(page)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+
 // BUG-자료넣기미분류: [자료로 넣기] makes no record link, yet the memo leaves [미분류] and shows "○○ · 자료".
 const filedChip=(scope,project=P)=>scope.locator(`[data-basket-filed="${project}"]`);
 for(const width of [390,1280])test(`[자료로 넣기] takes the memo out of 미분류 with a "project · 자료" line, also after a reload ${width}`,async({page})=>{

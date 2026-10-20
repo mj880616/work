@@ -177,3 +177,44 @@ test('weekly draft: each day lines in saving order one per row, or (없음); mat
   assert.ok(rows.includes('- 일정: 10:00 회의'));
   assert.ok(text.includes('※ 끝낸 할 일은(는) 불러오지 못해 빠졌어요.'));
 });
+
+test('done tasks: the widest window is requested; the echoed days are used, an older Edge without an echo counts as 3 days', async () => {
+  const m = await mod;
+  const done = [{id:'t1', title:'끝', status:'completed', completed:'2026-10-01T03:00:00Z'}, {id:'t2', status:'needsAction'}, {id:'t3', status:'completed', completed:'not a date'}];
+  const wide = runtime(() => ({tasks:done, completed_days:8}));
+  const result = await m.readDoneTasksWindow(wide);
+  assert.equal(params(wide.calls[0]).get('action'), 'tasks');
+  assert.equal(params(wide.calls[0]).get('completed_days'), '8');
+  assert.equal(result.days, 8);
+  assert.deepEqual(result.tasks.map(t => t.id), ['t1']);
+  // An older Edge ignores the field and sends no echo: only the old 3 days can be trusted.
+  const old = await m.readDoneTasksWindow(runtime(() => ({tasks:done})));
+  assert.equal(old.days, 3);
+  // A nonsense echo is not trusted either.
+  for (const echo of [0, 9, 'x', null, 2.5]) assert.equal((await m.readDoneTasksWindow(runtime(() => ({tasks:done, completed_days:echo})))).days, 3);
+  // readDoneTasks keeps returning the list only, and still fails on a reconnect or error answer.
+  assert.deepEqual((await m.readDoneTasks(runtime(() => ({tasks:done, completed_days:8})))).map(t => t.id), ['t1']);
+  await assert.rejects(m.readDoneTasksWindow(runtime(() => ({tasks:[], error:'x'}))));
+  assert.equal(m.DONE_TASK_DAYS_MAX, 8);
+});
+
+test('done tasks: the first fully covered day follows the days the Edge covered', async () => {
+  const m = await mod;
+  assert.equal(m.doneCoverFrom(3, '2026-10-06'), '2026-10-04');
+  assert.equal(m.doneCoverFrom(8, '2026-10-06'), '2026-09-29');
+  assert.equal(m.doneCoverFrom(undefined, '2026-10-06'), '2026-10-04');
+});
+
+test('weekly draft: the done-task note appears only when the week reaches before the covered days', async () => {
+  const m = await mod;
+  const base = {lines:new Map(), materials:{tasks:{status:'ok', items:[]}}};
+  const noteOf = text => text.split('\n').find(l => l.startsWith('※ 끝낸 할 일은'));
+  // Today Tuesday 10/6: the 8-day window covers from 9/29, so this week (starts 10/5) is complete and last week is not.
+  assert.equal(noteOf(m.weeklyDraft({...base, start:'2026-10-05', doneDays:8, today:'2026-10-06'})), undefined);
+  assert.equal(noteOf(m.weeklyDraft({...base, start:'2026-09-28', doneDays:8, today:'2026-10-06'})), '※ 끝낸 할 일은 Google 할 일에서 최근 8일 안에 끝낸 것만 모여요.');
+  // An older Edge (3 days): Monday 10/5 is already covered on Tuesday 10/6; the week before is not.
+  assert.equal(noteOf(m.weeklyDraft({...base, start:'2026-10-05', today:'2026-10-06'})), undefined);
+  assert.equal(noteOf(m.weeklyDraft({...base, start:'2026-09-28', today:'2026-10-06'})), '※ 끝낸 할 일은 Google 할 일에서 최근 3일 안에 끝낸 것만 모여요.');
+  // On a Sunday the 8-day window still holds the whole current week.
+  assert.equal(noteOf(m.weeklyDraft({...base, start:'2026-10-05', doneDays:8, today:'2026-10-11'})), undefined);
+});

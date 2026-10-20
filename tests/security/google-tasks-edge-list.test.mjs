@@ -302,3 +302,90 @@ test('status and tasks actions stay available for older app versions', async () 
   const tasks = await call(h, 'tasks');
   assert.deepEqual(tasks.body.tasks.map(t => t.id), ['a']);
 });
+
+// JOURNAL-끝낸할일범위: completed_days (whole number 1..8) widens only the completed-task window of action=tasks / overview.
+// The cap is enforced by the server; no completed_days keeps the 3-day answer without any echo.
+const windowTasks = () => [
+  done('d1', 1), done('d2', 2), done('d4', 4), done('d7', 7), done('d10', 10), pending('p1', 1)
+];
+const completedIds = body => body.tasks.filter(t => t.status === 'completed').map(t => t.id).sort();
+
+test('completed_days: without it (or empty) the window stays 3 days and nothing is echoed', async () => {
+  for (const params of [{}, { completed_days: '' }]) {
+    for (const action of ['tasks', 'overview']) {
+      const h = harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }]);
+      const { status, body } = await call(h, action, params);
+      assert.equal(status, 200);
+      assert.deepEqual(completedIds(body), ['d1', 'd2']);
+      assert.equal('completed_days' in body, false);
+      assert.deepEqual(h.calls.filter(c => c.completedMin).map(c => c.completedMin), [iso(NOW - 3 * DAY)]);
+    }
+  }
+});
+
+test('completed_days: a requested window widens the completed read, is echoed, and leaves pending tasks alone', async () => {
+  for (const action of ['tasks', 'overview']) {
+    const h = harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }]);
+    const wide = await call(h, action, { completed_days: '8' });
+    assert.equal(wide.status, 200);
+    assert.deepEqual(completedIds(wide.body), ['d1', 'd2', 'd4', 'd7']);
+    assert.equal(wide.body.completed_days, 8);
+    assert.deepEqual(wide.body.tasks.filter(t => t.status !== 'completed').map(t => t.id), ['p1']);
+    assert.deepEqual(h.calls.filter(c => c.completedMin).map(c => c.completedMin), [iso(NOW - 8 * DAY)]);
+    const narrow = await call(harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }]), action, { completed_days: '1' });
+    assert.deepEqual(completedIds(narrow.body), ['d1']);
+    assert.equal(narrow.body.completed_days, 1);
+  }
+});
+
+test('completed_days: a POST body value is read the same way as the query value', async () => {
+  const h = harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }]);
+  const response = await h.handler(new Request('https://sb.example/functions/v1/google-tasks', {
+    method: 'POST', headers: { Authorization: 'Bearer token-a' }, body: JSON.stringify({ action: 'tasks', completed_days: 5 })
+  }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(completedIds(body), ['d1', 'd2', 'd4']);
+  assert.equal(body.completed_days, 5);
+});
+
+test('completed_days: values outside 1..8 or not whole numbers are rejected with 400 before Google is called', async () => {
+  for (const action of ['tasks', 'overview']) {
+    for (const bad of ['0', '9', '99', '-1', '3.5', 'abc', '1e1', '0x5', ' ', '8 days', '100']) {
+      const h = harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }]);
+      const { status, body } = await call(h, action, { completed_days: bad });
+      assert.equal(status, 400, `${action} completed_days=${JSON.stringify(bad)}`);
+      assert.ok(body.error);
+      assert.equal(h.calls.length + h.tokeninfo, 0, 'no Google call for a rejected value');
+    }
+  }
+  const h = harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }]);
+  const response = await h.handler(new Request('https://sb.example/functions/v1/google-tasks', {
+    method: 'POST', headers: { Authorization: 'Bearer token-a' }, body: JSON.stringify({ action: 'tasks', completed_days: 365 })
+  }));
+  assert.equal(response.status, 400);
+});
+
+test('completed_days: login and owner checks are unchanged (no token or a bad token is 401, no Google call)', async () => {
+  for (const headers of [{}, { Authorization: 'Bearer token-x' }]) {
+    for (const action of ['tasks', 'overview']) {
+      const h = harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }]);
+      const response = await h.handler(new Request(`https://sb.example/functions/v1/google-tasks?action=${action}&completed_days=8`, { headers }));
+      assert.equal(response.status, 401);
+      assert.equal(h.calls.length + h.tokeninfo, 0);
+    }
+  }
+  // Not connected / missing scope answers stay the same with the new field.
+  const none = await call(harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }], { connection: 'none' }), 'overview', { completed_days: '8' });
+  assert.equal(none.body.connected, false);
+  const readonly = await call(harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }], { scope: 'openid' }), 'overview', { completed_days: '8' });
+  assert.equal(readonly.body.needs_reconnect, true);
+  assert.deepEqual(readonly.body.tasks, []);
+});
+
+test('completed_days: other actions ignore it (linked/status are not widened)', async () => {
+  const h = harness([{ id: 'default', title: '내 할 일', tasks: windowTasks() }]);
+  const status = await call(h, 'status', { completed_days: '99' });
+  assert.equal(status.status, 200);
+  assert.equal(status.body.authorized, true);
+});

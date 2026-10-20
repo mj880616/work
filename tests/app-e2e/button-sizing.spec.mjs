@@ -114,11 +114,11 @@ for(const width of [390,760,761,1440])test('calendar controls paint 32px with re
  const button=page.locator('#newEventBtn');await expect(button).toBeVisible();
  if(width<=760){await phoneFab(page,'#newEventBtn');await expect(button).toHaveAttribute('aria-label','일정 등록');return;}
  const painted=await size(button),rect=await button.boundingBox();
- expect(painted.height).toBe(46);
+ expect(painted.height).toBe(width>=1024?32:46); // UI-PC다듬기묶음: PC(≥1024)는 같은 줄 [오늘]·보기 전환과 같은 32px
  expect(painted.font).toBe('13px');expect(painted.radius).toBe('8px');
  expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width<=760?'+':'+ 일정 등록');
  if(width<=760){expect(rect.width).toBeGreaterThanOrEqual(45);expect(rect.width).toBeLessThanOrEqual(47);}
- else{expect(painted.paddingLeft).toBe('14px');expect(painted.paddingRight).toBe('14px');}
+ else{const pad=width>=1024?'12px':'14px';expect(painted.paddingLeft).toBe(pad);expect(painted.paddingRight).toBe(pad);}
  const original=await browser.newPage({viewport:{width,height:900}});
  await baseline(original,'8d9a30626b11c0826def8393cefdf65934489d2f');await boot(original);await view(original,'calendar');
  for(const selector of ['#prevMonthBtn','#nextMonthBtn']){

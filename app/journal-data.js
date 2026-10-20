@@ -114,13 +114,21 @@ export async function readWeekEvents(start, rt = window.KPTURuntime) {
   if (!events || data?.connected === false || data?.needs_reconnect || data?.authorized === false || (data?.warning && !events.length)) throw new Error('calendar');
   return events;
 }
-// The google-tasks Edge returns pending tasks and the ones completed in the last 3 days only (RECENT_COMPLETED_MS).
+// JOURNAL-끝낸할일범위: the google-tasks Edge returns the tasks completed in the last `completed_days` days (whole number
+// 1..8, capped by the server). An older Edge ignores the field and answers the last 3 days without echoing it, so the days
+// actually covered are the echoed number or, without an echo, DONE_TASK_DAYS (3).
 export const DONE_TASK_DAYS = 3;
-export async function readDoneTasks(rt = window.KPTURuntime) {
-  const data = await rt.api('/functions/v1/google-tasks?action=tasks');
+export const DONE_TASK_DAYS_MAX = 8;
+export async function readDoneTasksWindow(rt = window.KPTURuntime, ask = DONE_TASK_DAYS_MAX) {
+  const data = await rt.api(`/functions/v1/google-tasks?action=tasks&completed_days=${ask}`);
   if (!Array.isArray(data?.tasks) || data?.needs_reconnect || data?.error) throw new Error('tasks');
-  return data.tasks.filter(task => task?.status === 'completed' && Number.isFinite(Date.parse(task.completed || '')));
+  const echoed = Number(data.completed_days);
+  const days = Number.isInteger(echoed) && echoed >= 1 && echoed <= DONE_TASK_DAYS_MAX ? echoed : DONE_TASK_DAYS;
+  return {days, tasks:data.tasks.filter(task => task?.status === 'completed' && Number.isFinite(Date.parse(task.completed || '')))};
 }
+export const readDoneTasks = async (rt = window.KPTURuntime) => (await readDoneTasksWindow(rt)).tasks;
+// The first day (Korea time) that the covered days reach completely; earlier days may be missing tasks.
+export const doneCoverFrom = (days = DONE_TASK_DAYS, today = todayKey()) => seoulDateKey(addSeoulDays(today, -((days || DONE_TASK_DAYS) - 1)));
 export async function readBasketMemos(rt = window.KPTURuntime) {
   return (await readBasket(rt)).notes;
 }
@@ -172,7 +180,7 @@ export function dayMaterials(materials, day) {
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 
 // [주간보고 초안] (this stage: copy only): each day's lines in saving order (one "한 줄:" row each) and the materials list.
-export function weeklyDraft({start, lines, materials}) {
+export function weeklyDraft({start, lines, materials, doneDays = DONE_TASK_DAYS, today = todayKey()}) {
   const days = weekDays(start);
   const out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, ''];
   for (const day of days) {
@@ -185,6 +193,6 @@ export function weeklyDraft({start, lines, materials}) {
   }
   const missing = GROUPS.filter(([key]) => materials?.[key]?.status !== 'ok').map(([, label]) => label);
   if (missing.length) out.push(`※ ${missing.join('·')}은(는) 불러오지 못해 빠졌어요.`);
-  out.push(`※ 끝낸 할 일은 Google 할 일에서 최근 ${DONE_TASK_DAYS}일 안에 끝낸 것만 모여요.`);
+  if (days[0] < doneCoverFrom(doneDays, today)) out.push(`※ 끝낸 할 일은 Google 할 일에서 최근 ${doneDays}일 안에 끝낸 것만 모여요.`);
   return out.join('\n').replace(/\n+$/, '') + '\n';
 }

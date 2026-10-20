@@ -1100,6 +1100,24 @@
   #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,#appView #tasksView .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
 }
 
+/* UI-PC다듬기묶음 ②(2026-10-20 요청함 16:32): 일정 머리줄 [+ 일정 등록]은 UI-PC버튼36(#758)에서 제외돼 큰 버튼(--ds-control-height 46px)으로 남았고,
+   같은 줄 [오늘]·보기 전환(목록·주·월)은 작은 보조 높이(--ds-compact-height 32px)라 PC에서만 키가 어긋났다. PC(≥1024)에서만 같은 줄 기준(32px, 글자·좌우 여백도 [오늘]과 같게)으로 맞춘다.
+   누르는 범위 44px은 calendar-ui.css의 머리줄 ::after 그대로. 폰(동그란 [+])·중간 폭(761~1023)은 그대로. */
+@media(min-width:1024px){
+  #appView #calendarView .calendar-toolbar button#newEventBtn{ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
+}
+
+/* UI-PC다듬기묶음 ④(2026-10-20 요청함 17:33): 바구니 [조직·프로젝트 자료로 넣기](파일만 있는 항목 상세, 글이 있으면 [조직·프로젝트에 연결]) 칸의 버튼 —
+   담당조직 고르기·프로젝트 고르기·빼기·기록도 남기기·자료로 넣기(채움)·취소 — 은 UI-PC버튼36(#758) 목록에 없어 큰 버튼(46px)으로 남았다.
+   PC(≥1024)에서만 같은 화면 위쪽 파일 줄([Drive에서 열기]·[자료실로 보내기]·[편집])과 맞춰 작은 버튼 기준(--ds-compact-*, 보이는 32px)으로 줄이고
+   누르는 범위는 ::after로 44px 유지. 색·고르기 창(팝업)은 그대로. 폰·중간 폭(761~1023)은 그대로. 같은 화면의 [Google 할 일 만들기] 칸은 이번 범위 밖. */
+@media(min-width:1024px){
+  #appView #basketView .basket-manual[data-manual-link] button:where(:not([hidden])){
+    position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
+  }
+  #appView #basketView .basket-manual[data-manual-link] button:where(:not([hidden]))::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+}
+
 /* UI-업데이트편집한줄(2026-10-20 사용자 결정): 바구니 업데이트 수정 화면 아래 버튼은 노트처럼 한 줄 —
    [📎 첨부] [큰 창에서 수정] [수정 저장] [취소](노트 [큰 창에서 수정][저장][취소] 순서에 첨부를 앞에). 공용 작은 버튼(--ds-compact-*, 보이는 32px),
    누르는 범위는 ::after로 44px. 360px 폰에서도 한 줄·글자 잘림 없이 들어가도록 [📎 첨부]는 그림 + 짧은 글자, 안쪽 여백만 줄인다.
