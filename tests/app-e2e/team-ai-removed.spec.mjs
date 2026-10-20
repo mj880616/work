@@ -1,6 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const app='http://127.0.0.1:8123/app/';
 const supabase='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -29,10 +30,7 @@ test('old AI addresses return to the default screen without team-ai requests or 
   });
 
   await page.goto(loginEntry(app));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
   await page.waitForLoadState('networkidle');
   await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);

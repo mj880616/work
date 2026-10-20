@@ -1,6 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 const app='http://127.0.0.1:8123/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 async function open(page,url=app+'?view=home'){
@@ -17,10 +18,7 @@ async function open(page,url=app+'?view=home'){
     return ok({});
   });
   await page.goto(loginEntry(url));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 const order=['홈','바구니','일정','할 일','업무일지','일기','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집'];

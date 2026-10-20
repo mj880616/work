@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const APP_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -45,10 +46,7 @@ async function openTasks(browser,{onDelete,onOverview,onToggle,reducedMotion='no
     return ok(route,{});
   });
   await page.goto(loginEntry(`${APP_ORIGIN}/app/`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));

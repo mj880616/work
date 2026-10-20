@@ -3,6 +3,7 @@ import {test,expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 // UI-디자인기준 3/3 3부(8-9e-3, 마지막): 남은 화면(HWP 편집 바깥 틀·성명·보도자료·게시판)·공용 셸(폰 머리줄·하단 탭·PC 사이드바·☰ 메뉴 판·계정 메뉴)·
 // 화면 색 창·공용 창(.modal)을 같은 기준(버튼 높이 하나·13px/500·모서리 8px, 0.5px 상자 안 44px 줄·이름 13px/400, 제목 18px/500)으로,
 // 다크 모드는 기기 설정만 따라 Web2 전체(창 포함)에 켠다. 칸막이(HWP 편집기·성명·게시판 본문 iframe) 바탕은 밝게 둔다.
@@ -52,7 +53,7 @@ async function boot(page,width,{dark=false}={}){
  });
  await page.route('https://raw.githubusercontent.com/**',route=>route.fulfill({status:200,contentType:'text/html',body:'<p>합성 본문</p>'}));
  await page.goto(testOrigin+'/app/');await enterLogin(page);
- await page.locator('#emailAuthToggle').click();await page.locator('#authEmail').fill(user.email);await page.locator('#authPassword').fill('password123');await page.locator('#authSubmit').click();
+ await signInWithSession(page,user.email);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
  return {errors};
 }

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 // UI-밀기전환: the phone tab swipe (mobile-swipe-navigation.js) works on empty space, ignores open windows, and leaves
 // text fields, text selection and sideways-scrolling rows alone. Real touch handlers; only the network is mocked.
@@ -31,10 +32,7 @@ async function openApp(page, width) {
   await page.setViewportSize({ width, height: 844 });
   await mockApp(page);
   await page.goto(loginEntry(`${ORIGIN}/app/?view=projects`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('swipe@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'swipe@example.org');
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
   await expect.poll(() => page.evaluate(() => !!window.__KPTU_MOBILE_SWIPE_NAV__), { timeout: 10000 }).toBe(true);
   // Startup marks kptu-ui-ready only after the requested view's module has loaded (loader-v2.js). Going to a view that

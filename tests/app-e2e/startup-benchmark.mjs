@@ -1,5 +1,6 @@
 import { chromium } from '@playwright/test';
 import { writeFileSync } from 'node:fs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'p6-benchmark-user',email:'p6@example.org',user_metadata:{display_name:'P6 측정'}};
@@ -102,10 +103,7 @@ async function coldLoad(page,base,view){
   const login=new URL('/app/login/',base);
   login.searchParams.set('return',url);
   await page.goto(login.href,{waitUntil:'domcontentloaded',timeout:30000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('benchmark-password');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await page.waitForURL(url,{timeout:30000});
   return waitForStartup(page);
 }

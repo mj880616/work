@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 // Existing month-view regressions choose month explicitly.
 test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -28,10 +29,7 @@ async function mockApp(page){
 async function login(page){
   await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
   await page.goto(loginEntry('http://127.0.0.1:8123/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('nav@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'nav@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_MOBILE_SWIPE_NAV__),{timeout:10000}).toBe(true);
 }

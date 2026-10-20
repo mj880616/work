@@ -2,6 +2,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const pressItems=JSON.parse(readFileSync(new URL('../../press/archive.json',import.meta.url),'utf8')).items;
 const pressCount=pressItems.length;
@@ -29,10 +30,7 @@ async function mockApp(page){
 }
 async function signIn(page){
   await page.goto(loginEntry(app));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 test('Web2 media tab reuses the self-hosted Web1 press archive without drafting workflow controls',async({page})=>{

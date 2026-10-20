@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {testOrigin} from './helpers/test-origin.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 // MEET-기록보내기 1단계: 회의 결과 읽기 창의 [바구니에 담기]. 합성 자료만 쓴다.
 test.use({timezoneId:'Asia/Seoul',hasTouch:true});
@@ -34,10 +35,7 @@ async function setup(page,row=meeting){
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const returnTo=`${BASE}/app/?view=meetings`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('meeting@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'meeting@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator('#meetingList [data-mrd-meeting]')).toHaveCount(1);
   await page.locator('[data-mrd-meeting="meeting-1"]').click();

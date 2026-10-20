@@ -166,7 +166,7 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 
 Playwright Chromium에서 Supabase 응답을 테스트 상태로 대체하고 아래 핵심 흐름을 실제 브라우저 클릭으로 확인함.
 
-- 이메일 로그인
+- 로그인(세션 주입 도우미 `tests/app-e2e/helpers/session-login.mjs`; 로그인 화면은 Google 버튼만 있음)
 - 메뉴 이동
 - 일정 저장
 - 할 일 저장

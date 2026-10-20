@@ -2,6 +2,7 @@ import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {test,expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -52,10 +53,7 @@ async function boot(page,width){
     return ok([]);
   });
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(BASE+'/app/?view=meetings')}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('owner@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'owner@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   return state;
 }

@@ -6,6 +6,7 @@ import {readFileSync} from 'node:fs';
 import {servePagesCors} from './helpers/hwp-editor.mjs';
 import {tinyPdf} from './helpers/tiny-pdf.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 test.setTimeout(120000);
@@ -57,10 +58,7 @@ async function fixture(page,{width=1280,scheme='light',failUpload=()=>false,extr
     return ok({});
   });
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(BASE+'/app/?view=meetings')}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#meetingsView')).toBeVisible({timeout:15000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await page.locator('#newMeetingBtn').click();

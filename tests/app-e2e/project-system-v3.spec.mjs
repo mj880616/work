@@ -7,6 +7,7 @@ watchRetiredCollaboration(test);
 import { enterLogin } from './helpers/login-entry.mjs';
 import { calendarToday, addCalendarDays } from './helpers/calendar-today.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -124,10 +125,7 @@ async function mockApp(page,state){
 
 async function signIn(page){
   await enterLogin(page);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('owner@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'owner@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 async function openFold(page,id){

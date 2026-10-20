@@ -2,6 +2,7 @@ import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -106,10 +107,7 @@ async function mockApp(page,state){
 async function signIn(page,target='http://127.0.0.1:8123/app/'){
   await page.goto(target);
   await enterLogin(page);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('owner@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'owner@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 const optionsOf=filterOptions;

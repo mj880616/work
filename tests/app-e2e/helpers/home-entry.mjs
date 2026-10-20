@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
+import { signInWithSession } from './session-login.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // Normalized Google Tasks create representation, matching the existing Edge contract.
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
@@ -192,10 +193,7 @@ export async function openHome(
     return ok(p.startsWith("/rest/") ? [] : {});
   });
   await page.goto(loginEntry(app+query));
-  await page.locator("#emailAuthToggle").click();
-  await page.locator("#authEmail").fill(user.email);
-  await page.locator("#authPassword").fill("password123");
-  await page.locator("#authSubmit").click();
+  await signInWithSession(page,user.email);
   await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/, {
     timeout: 20000,
   });
