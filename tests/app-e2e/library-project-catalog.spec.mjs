@@ -151,10 +151,10 @@ test('library selectors match the canonical project hierarchy on direct entry wi
   for(const hidden of ['child-a3','child-c1','other-owner'])expect(filter.some(o=>o.value===hidden)).toBe(false);
 
   // Project relationships remain in the canonical filter and metadata editor;
-  // the approved library row shows only date and category.
+  // the approved library row shows only date and category (UI-PC자료실: 분류 꼬리표 칸, 날짜 없으면 날짜 칸 없음).
   await expect(page.locator('#documentList .badges')).toHaveCount(0);
-  await expect(page.locator('[data-lu-document="doc-a"] .lu-row-meta')).toHaveText('정책');
-  await expect(page.locator('[data-lu-document="doc-a1"] .lu-row-meta')).toHaveText('정책');
+  await expect(page.locator('[data-lu-document="doc-a"] .doc-category-tag')).toHaveText('정책');await expect(page.locator('[data-lu-document="doc-a"] .lu-row-date')).toHaveCount(0);
+  await expect(page.locator('[data-lu-document="doc-a1"] .doc-category-tag')).toHaveText('정책');await expect(page.locator('[data-lu-document="doc-a1"] .lu-row-date')).toHaveCount(0);
 });
 
 test('project screen and library expose the same active project set in the same order',async({page})=>{
