@@ -58,7 +58,7 @@
 @media(max-width:760px){
   .lu-row-title{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
   #appView #libraryView #documentList .lu-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;grid-template-areas:"title title title date menu" "kind tag . . menu";column-gap:6px;row-gap:3px;align-items:center}
-  #appView #libraryView #documentList .lu-row-title{grid-area:title;font-size:14px}
+  #appView #libraryView #documentList .lu-row-title{grid-area:title}
   #appView #libraryView #documentList .lu-row-date{grid-area:date;align-self:start;margin-top:2px;padding-left:4px}
   #appView #libraryView #documentList .lu-more-trigger{grid-area:menu}
   #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;height:auto;padding:0;background:transparent;font-size:11px;font-weight:600;line-height:18px}

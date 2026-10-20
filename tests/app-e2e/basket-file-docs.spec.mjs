@@ -1,4 +1,5 @@
 import {showBasketRow} from './helpers/basket-more.mjs';
+import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
@@ -308,17 +309,20 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await section.getByRole('button',{name:'전체 5개 보기'}).click();
  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#documentProject')).toHaveJSProperty('value',P);
  const chips=page.locator('#libraryCategoryFilter');
- await expect(chips.getByRole('radio')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
+ // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
+ await expect(chips.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
+ await expect(chips.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);
  // Newest first, grouped by month (a missing document date uses the registration day).
  await expect(page.locator('#documentList > *')).toHaveText([/^2026년 10월$/,/교섭 요구안/,/기자회견 웹자보/,/^2026년 9월$/,/회의 메모/,/국토부 지침/,/^2026년 8월$/,/집회 계획/]);
  await expect(page.locator('[data-lu-document="d2"] .lu-file-kind')).toHaveText('HWP');
- await expect(page.locator('[data-lu-document="d2"] .lu-row-meta')).toHaveText('교섭 10.05');
+ // UI-PC자료실: 분류 꼬리표는 이름 왼쪽(폰은 이름 아래), 날짜는 오른쪽.
+ await expect(page.locator('[data-lu-document="d2"] .doc-category-tag')).toHaveText('교섭');await expect(page.locator('[data-lu-document="d2"] .lu-row-date')).toHaveText('10.05');
  await expect(page.locator('#documentList .doc-category-tag')).toHaveText(['교섭','선전','기타','정책','투쟁']);
  expect(await noWideScroll(page)).toBe(true);
  await capture(page,info,`library-${width}-${scheme}`);
- await chips.getByRole('radio',{name:'정책'}).click();await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-row')).toContainText('국토부 지침');
- await chips.getByRole('radio',{name:'투쟁'}).click();await expect(page.locator('.lu-row')).toHaveText([/집회 계획/]);
- await chips.getByRole('radio',{name:'전체'}).click();await page.locator('#documentSearch').fill('선전');await expect(page.locator('.lu-row')).toHaveText([/기자회견 웹자보/]);
+ await onlyLibraryCategories(page,['정책']);await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-row')).toContainText('국토부 지침');
+ await onlyLibraryCategories(page,['투쟁']);await expect(page.locator('.lu-row')).toHaveText([/집회 계획/]);
+ await chips.getByRole('button',{name:'전체'}).click();await expect(chips.locator('[aria-pressed="false"]')).toHaveCount(0);await page.locator('#documentSearch').fill('선전');await expect(page.locator('.lu-row')).toHaveText([/기자회견 웹자보/]);
 });
 
 test('the library forms choose one of the 7 categories; an old value is shown as its match and kept unless changed',async({page})=>{

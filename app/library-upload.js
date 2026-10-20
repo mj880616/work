@@ -51,7 +51,9 @@ function luRenderProjectFilter(){
 // UI-PC자료실 C: 자료 분류 칩은 여러 개를 함께 켜고 끈다(aria-pressed). 자료실에 들어올 때마다 기본 상태 = [회의]만 꺼짐.
 // [전체]는 모두 켜졌을 때 눌림으로 보이고, 누르면 모두 켬 ↔ 기본 상태. 꺼 둔 분류는 이름으로 기억해 새로 만든 분류는 켜진 채로 보인다.
 const LU_DEFAULT_OFF=Object.freeze(['회의']);
-function luResetCategories(){luCategoryOff=new Set(LU_DEFAULT_OFF)}
+// 다른 화면이 담당조직으로 걸러 자료실을 열 때는 모든 분류를 켠 채 들어온다(들어올 때의 기본 상태 대신).
+let luEnterAllOn=false;
+function luResetCategories(){luCategoryOff=luEnterAllOn?new Set():new Set(LU_DEFAULT_OFF);luEnterAllOn=false}
 luResetCategories();
 const luCategoryShown=name=>!luCategoryOff.has(name);
 function luToggleCategory(value){const names=documentCategories();if(value==='all')luCategoryOff=names.every(luCategoryShown)?new Set(LU_DEFAULT_OFF):new Set();else if(luCategoryOff.has(value))luCategoryOff.delete(value);else luCategoryOff.add(value);luRenderLibrary()}
@@ -77,7 +79,7 @@ function luRenderOrganizationFilter(){
 }
 // 다른 화면에서 자료실을 한 조직으로 걸러 연다. 검색·프로젝트·분류 거르기는 비우고 보여 준다.
 function luShowOrganization(id,name){
-  luOrganization=typeof id==='string'&&id?{id,name:String(name||'')}:null;luCategoryOff=new Set();
+  luOrganization=typeof id==='string'&&id?{id,name:String(name||'')}:null;luCategoryOff=new Set();luEnterAllOn=window.KPTURouter?.current!=='library';
   const search=document.querySelector('#documentSearch'),project=document.querySelector('#documentProject');if(search)search.value='';if(project)project.value='all';
   luRenderLibrary();
 }

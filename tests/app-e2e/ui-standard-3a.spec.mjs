@@ -128,17 +128,18 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  for(const [i,kind] of expected.entries()){
   await expect(kinds.nth(i)).toHaveAttribute('data-lu-kind',kind);
   const s=await look(kinds.nth(i)),name=kind==='other'?'--ds-kind-other':'--ds-file-'+kind;
-  expect(s.bg,kind).toBe(await token(page,name+'-soft'));expect(s.fg,kind).toBe(await token(page,name+'-ink'));
+  // UI-PC자료실 M2: 폰(760px 이하)은 종류를 상자 없이 색 글자로 이름 아래 작은 줄에 보인다. PC는 연한 바탕 + 진한 글자 상자.
+  expect(s.bg,kind).toBe(width<761?'rgba(0, 0, 0, 0)':await token(page,name+'-soft'));expect(s.fg,kind).toBe(await token(page,name+'-ink'));
  }
  // 다섯 종류와 회색은 서로 다른 색.
  expect(new Set(await Promise.all(['pdf','hwp','xls','doc','ppt'].map(k=>token(page,'--ds-file-'+k+'-ink')).concat([token(page,'--ds-kind-other-ink')]))).size).toBe(6);
- await rowText(page,rows.locator('.lu-row-title'));await metaText(page,rows.locator('.lu-row-meta'));
+ await rowText(page,rows.locator('.lu-row-title'));await metaText(page,rows.locator('.lu-row-date'));
  for(const row of await rows.all())expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
  const box=await look(page.locator('#libraryListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
  // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 회색(UI-선택표시통일).
  expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
- const selected=await look(page.locator('#libraryCategoryFilter [aria-checked="true"]'));
+ const selected=await look(page.locator('#libraryCategoryFilter [aria-pressed="true"]').first());
  expect(selected.bg).toBe(await token(page,'--ds-kind-other-soft'));expect(selected.fg).toBe(await token(page,'--ds-kind-other-ink'));
  const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  await noOverflow(page);
