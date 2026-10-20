@@ -38,8 +38,8 @@ async function sameButtons(region,height,quickHeight=height){
    // UI-버튼작게 ③: 폰 바구니 [메모|노트]는 아래 탭 위 알약 세그먼트(바깥 모서리 999px).
    const r=seg?.matches('.basket-kind-switch')&&innerWidth<761?'999px':'8px';
    if(seg){const cells=[...seg.querySelectorAll('button')],i=cells.indexOf(el);return {min:30,max:32,radius:i===0?`${r} 0px 0px ${r}`:i===cells.length-1?`0px ${r} ${r} 0px`:'0px'};}
-   // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px.
-   if(el.closest('.basket-read-actions'))return {min:32,max:32,radius:'8px'};
+   // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
+   if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};
    if(el.matches('[data-basket-filter]'))return {min:32,max:32,radius:'999px'};
    if(el.matches('.basket-more-trigger'))return {min:32,max:32,radius:'8px'};
    return null;

@@ -158,7 +158,7 @@ for(const width of [390,1280])test(`바구니 업데이트 수정 [큰 창에서
  await chooseFile(page,clip,'c.txt');await expect(clip.locator('[data-basket-count]')).toHaveText('1');
  await e.locator('[data-close="mdEditor"]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
  // The same selection on the edit screen; nothing uploaded until the existing [첨부 저장].
- await expect(detail.locator('.basket-editor-tools').getByRole('button',{name:'파일 첨부',exact:true}).locator('[data-basket-count]')).toHaveText('1');
+ await expect(detail.locator('.basket-edit-actions').getByRole('button',{name:'파일 첨부',exact:true}).locator('[data-basket-count]')).toHaveText('1');
  await expect(detail.locator('[data-basket-file]')).toHaveCount(1);expect(f.uploads).toHaveLength(0);
  expect(f.errors).toEqual([]);
 });

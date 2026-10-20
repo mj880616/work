@@ -55,10 +55,11 @@ for (const width of [390, 1280]) {
     values.detail = await detail.locator('[data-basket-file-picker]').evaluate(el => ({
       pickerHeight: el.getBoundingClientRect().height,
       zoneHeight: el.querySelector('[data-basket-clip]').getBoundingClientRect().height,
+      zoneTouch: parseFloat(getComputedStyle(el.querySelector('[data-basket-clip]'), '::after').height) || 0,
     }));
-    // UI-PC바구니첨부버튼: the edit screen's [📎 첨부] is the shared button (--ds-control-height 46px) on both widths.
+    // UI-업데이트편집한줄: the edit screen's [📎 첨부] is a small button (32px) in the one button row, touch area 44px.
     expect(values.detail.pickerHeight).toBeLessThanOrEqual(width === 390 ? 46 : 80);
-    expect(values.detail.zoneHeight).toBeGreaterThanOrEqual(44);
+    expect(values.detail.zoneHeight).toBe(32);expect(values.detail.zoneTouch).toBe(44);
     await saveShot('detail');
     await verifySelection(detail, 'detail');
     expect(errors).toEqual([]);
@@ -86,7 +87,9 @@ for (const width of [390, 1280]) {
       } else {
         await expect(zone).toHaveAccessibleName('파일 첨부');
         const button = await zone.boundingBox();
-        expect(button.height).toBeGreaterThanOrEqual(44);
+        // UI-업데이트편집한줄: on the edit screen it is a small 32px button whose touch area (::after) is 44px.
+        if (name === 'home') expect(button.height).toBeGreaterThanOrEqual(44);
+        else { expect(button.height).toBe(32); expect(await zone.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44); }
         expect(button.width).toBeGreaterThanOrEqual(44);
         await zone.focus();
         await expect(zone).toBeFocused();

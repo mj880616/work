@@ -55,7 +55,7 @@ for(const width of [390,1280]){
   await page.screenshot({path:info.outputPath(`basket-read-${width}.png`),fullPage:true});
   await noteAction(page,'[data-basket-edit]',{press:l=>press(page,l,width)});
   const text=detail.locator('[data-basket-text]');await expect(text).toBeFocused();await expect(text).toHaveValue(LONG);
-  await expect(read).toBeHidden();await expect(detail.locator('[data-basket-archive]')).toBeHidden();await expect(detail.locator('[data-basket-cancel]')).toBeVisible();await expect(detail.locator('[data-basket-upload]')).toBeVisible();
+  await expect(read).toBeHidden();await expect(detail.locator('[data-basket-archive]')).toBeHidden();await expect(detail.locator('[data-basket-cancel]')).toBeVisible();/* UI-업데이트편집한줄: [첨부 저장]은 파일을 고른 뒤에만 */await expect(detail.locator('[data-basket-upload]')).toBeHidden();await expect(detail.locator('[data-basket-edit-actions]').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath(`basket-edit-${width}.png`),fullPage:true});
   await text.fill('고친 원문\n둘째 줄');await press(page,detail.locator('[data-basket-save]'),width);
   await expect(read).toBeVisible();expect(await read.innerText()).toBe('고친 원문\n둘째 줄');await expect(text).toBeHidden();
