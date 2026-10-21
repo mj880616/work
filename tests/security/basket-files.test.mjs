@@ -146,6 +146,32 @@ test('existing note adds attachments while preserving raw text and AI flag',asyn
   assert.equal((await send(h,{fields:{note_id:NOTE,raw_text:'discard'}})).status,200);
   assert.equal(h.state.note.raw_text,'keep');assert.equal(h.state.note.ai_export_allowed,false);assert.equal(h.state.note.attachments.length,2);
 }));
+test('file names with ; = quotes and Korean reach the note intact; path parts and bad bodies are refused (BASKET-파일명파싱)',async()=>{
+  const raw=(cd,ct='multipart/form-data; boundary=B')=>new Request('https://synthetic.invalid/functions/v1/basket-files',{method:'POST',
+    headers:{Authorization:'Bearer synthetic-user-token','Content-Type':ct},
+    body:new TextEncoder().encode('--B\r\nContent-Disposition: '+cd+'\r\nContent-Type: application/x-hwp\r\n\r\nabc\r\n--B--\r\n')});
+  const star=`form-data; name="file"; filename="fallback.hwp"; filename*=UTF-8''${encodeURIComponent('별표; 이름=1.hwp')}`;
+  for(const [cd,name] of [['form-data; name="file"; filename="회의록; 최종=v2.hwp"','회의록; 최종=v2.hwp'],
+    ['form-data; name="file"; filename="say \\"hi\\".hwp"','say "hi".hwp'],[star,'별표; 이름=1.hwp'],
+    ['form-data; name="file"; filename="C:\\\\자료\\\\보고서.hwp"','보고서.hwp']])
+    await using({},async h=>{
+      const r=await h.handler(raw(cd));assert.equal(r.status,200,cd);
+      assert.deepEqual(h.state.note.attachments.map(a=>[a.file_name,a.size_bytes,a.mime_type]),[[name,3,'application/x-hwp']]);
+    });
+  await using({},async h=>{
+    const r=await h.handler(raw('form-data; name="file"; filename="/"'));
+    assert.equal(r.status,400);assert.equal((await r.json()).code,'file_metadata_invalid');assert.equal(h.calls.drive.length,0);
+  });
+  await using({},async h=>{
+    const r=await h.handler(raw('form-data; name="file"; filename="a.hwp"','multipart/form-data; boundary=Z'));
+    assert.equal(r.status,400);assert.equal((await r.json()).code,'invalid_request');assert.equal(h.calls.drive.length,0);
+  });
+  // A name of 255 characters after cleaning is still the limit.
+  await using({},async h=>{
+    const r=await h.handler(raw('form-data; name="file"; filename="'+'가'.repeat(252)+'.hw;"'));
+    assert.equal(r.status,400);assert.equal(h.calls.drive.length,0);
+  });
+});
 test('empty, oversized, invalid metadata, and over-count files refuse before Drive',async()=>{
   for(const files of [[],[new File([],'empty.txt')],[new File(['x'],'x'.repeat(256))],
     [new File([new Uint8Array(104857601)],'big.txt')],Array.from({length:21},()=>new File(['x'],'a.txt'))])
