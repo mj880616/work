@@ -1,8 +1,9 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from "@playwright/test";
 import { openHome } from './helpers/home-entry.mjs';
 import { loginEntry } from "./helpers/login-entry.mjs";
 import { mkdirSync, writeFileSync } from "node:fs";
-const app = "http://127.0.0.1:8123/app/",
+const app = `${appOrigin}/app/`,
   SB = "https://xmlkxfjeagycwttklxjw.supabase.co";
 for (const width of [390, 1440])
   test(`home reading cards, shared requests and snapshot ${width}`, async ({

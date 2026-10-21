@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
@@ -7,7 +8,7 @@ import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const app='http://127.0.0.1:8123/app/';
+const app=`${appOrigin}/app/`;
 const user={id:'board-user',email:'board@example.org',user_metadata:{display_name:'게시판 QA'}};
 const cases=[
   {title:'위험업무 2인1조 법제화',repo:'2in1/index.html',canonical:'https://work.bokdoong.com/work/2in1/',source:'2in1/index.html'},
@@ -311,7 +312,7 @@ test('a late first board response cannot replace the next detail',async({page})=
   await page.setViewportSize({width:390,height:900});
   const original=await browser.newPage({viewport:{width:390,height:900}});
   const cache=new Map();
-  await original.route(/^http:\/\/127\.0\.0\.1:8123\/app\//,route=>{
+  await original.route(new RegExp('^'+appOrigin.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')+"\\/app\\/"),route=>{
     let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
     if(!/\.(css|js|html)$/.test(path))return route.continue();
     if(!cache.has(path))cache.set(path,execFileSync('git',['show','589d7eee99eeaf88b4b87498d42842aa74d9f401:'+path],{encoding:'utf8'}));

@@ -1,6 +1,7 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 
-const BASE='http://127.0.0.1:8123';
+const BASE=appOrigin;
 const EDGE='https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/auth-handoff';
 const SESSION='kptu_collab_session_v1';
 

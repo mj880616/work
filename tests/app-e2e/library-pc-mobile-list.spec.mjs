@@ -1,8 +1,9 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 // UI-PC자료실: PC 줄(B안 펼치기), 분류 칩 여러 개 고르기(기본 회의 꺼짐), 폰 줄(M2 이름 다듬기), 꺼진 칩 흐림, 거르기 세 줄(이름표).
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 
-const OPEN='http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html';
+const OPEN=`${appOrigin}/tests/app-e2e/library-open-fixture.html`;
 const LONG='가상 예시 자료 — 아주 긴 이름이 줄 끝을 넘어갈 때 잘리는지 확인하기 위한 시험용 제목 '.repeat(4).trim();
 const doc=(id,title,category,date,extra={})=>({id,workspace_id:'workspace-1',project_id:'top-a',title,file_name:id+'.pdf',category,document_date:date,tags:[],drive_url:OPEN,created_at:'2026-10-01T00:00:00Z',...extra});
 function state(){
@@ -24,7 +25,7 @@ function state(){
 async function boot(page,width,{scheme='light'}={}){
   await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme:scheme});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
-  const s=state();await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+  const s=state();await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));await expect(page.locator('#documentList .lu-row').first()).toBeVisible();
   return {s,errors};
 }

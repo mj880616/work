@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test, expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
@@ -25,7 +26,7 @@ for (const width of [1280, 768, 390, 360]) {
   test(`solo workspace shell at ${width}px has no member or message UI`, async ({page}) => {
     await page.setViewportSize({width, height: 844});
     await mockWorkspace(page);
-    await page.goto(loginEntry('http://127.0.0.1:8123/app/'));
+    await page.goto(loginEntry(`${appOrigin}/app/`));
     await signInWithSession(page,person.email);
     await expect(page.locator('#appView')).toBeVisible();
     await clickView(page,'team');

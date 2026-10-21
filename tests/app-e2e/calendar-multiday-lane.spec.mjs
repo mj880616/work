@@ -1,8 +1,9 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 
 test.use({timezoneId:'Asia/Seoul'});
-const url='http://127.0.0.1:8123/tests/app-e2e/calendar-month-view-fixture.html';
+const url=`${appOrigin}/tests/app-e2e/calendar-month-view-fixture.html`;
 const event=(id,start,end,extra={})=>({id,calendarId:'cal-a',title:id,start,end,allDay:true,...extra});
 const trip=[
   event('Sirmione','2026-10-05','2026-10-07'),

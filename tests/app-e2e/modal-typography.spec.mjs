@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -53,12 +54,12 @@ const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}
 async function boot(page,tasks=[{id:'font-task',title:'Typography QA task',notes:'Typography QA notes',due:fixtureTaskDay(),status:'needsAction',taskListId:'@default',taskListTitle:'QA',source:'google-task'}],calendarEvents=[{id:'font-event',calendarId:'primary',title:'Typography QA event',start:fixtureTaskDay()+'T12:00:00+09:00',end:fixtureTaskDay()+'T13:00:00+09:00',color:'var(--kptu-primary)'}]){
  await page.clock.setFixedTime(fixtureNow);
  await mockApp(page,{tasks,calendarEvents,spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
- await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.goto(`${appOrigin}/app/`);await signIn(page);
 }
 async function view(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
 async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
  const cache=new Map();
- await page.route(/^http:\/\/127\.0\.0\.1:8123\/(?:app|press)\//,route=>{
+ await page.route(new RegExp('^'+appOrigin.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')+"\\/(?:app|press)\\/"),route=>{
   let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
   if(!/\.(css|js|html)$/.test(path))return route.continue();
   if(!cache.has(path))cache.set(path,execFileSync('git',['show',ref+':'+path],{encoding:'utf8'}));

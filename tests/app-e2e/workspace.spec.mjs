@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -165,8 +166,8 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   };
 
   await installSupabaseMock(page, state);
-  const returnTo='http://127.0.0.1:8123/app/';
-  await page.goto(`http://127.0.0.1:8123/app/login/?return=${encodeURIComponent(returnTo)}`);
+  const returnTo=`${appOrigin}/app/`;
+  await page.goto(`${appOrigin}/app/login/?return=${encodeURIComponent(returnTo)}`);
 
   await expect(page.locator('#googleLoginBtn')).toBeVisible({ timeout: 10000 });
   await signInWithSession(page,'e2e@example.org');

@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -43,7 +44,7 @@ test('9.29 forum checklist loads and saves shared state through authenticated se
     return json(route,[]);
   });
 
-  await page.goto('http://127.0.0.1:8123/private-rail/forum-0929/');
+  await page.goto(`${appOrigin}/private-rail/forum-0929/`);
 
   const row=page.locator('[data-key="field-seohae"]');
   await expect(row.locator('input[type="checkbox"]')).toBeChecked({timeout:10000});
@@ -72,7 +73,7 @@ test('9.29 forum checklist does not allow editing without a Web2 authenticated s
     return json(route,[],401);
   });
 
-  await page.goto('http://127.0.0.1:8123/private-rail/forum-0929/');
+  await page.goto(`${appOrigin}/private-rail/forum-0929/`);
   await expect(page.locator('#stateStatus')).toContainText('Web2 로그인', {timeout:10000});
   await expect(page.locator('.item input[type="checkbox"]').first()).toBeDisabled();
   await expect(page.locator('.item .memo').first()).toBeDisabled();
