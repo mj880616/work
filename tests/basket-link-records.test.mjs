@@ -70,11 +70,14 @@ test('a note without a written summary shows its opening text: whitespace collap
   assert.match(html,/data-link-summary-text>&lt;b&gt;본문&lt;\/b&gt; 앞부분<\/p>/);
   assert.doesNotMatch(html,/요약 없음/);
 });
+// UI-엔터저장: the summary box now follows the shared rule (app/enter-save.js; Ctrl/Cmd+Enter saves on PC, Enter and
+// Shift+Enter are new lines, a composing Enter is ignored). Its cases moved to tests/enter-save.test.mjs.
 test('UI-연결요약수정: Ctrl/Cmd+Enter saves, plain or Shift+Enter is a new line, IME composition Enter is ignored',async()=>{
-  const {isSaveShortcut,SUMMARY_BLANK_TEXT}=await import('../app/basket-link-records.js');
+  const {SUMMARY_BLANK_TEXT}=await import('../app/basket-link-records.js');
+  const {enterAction}=await import('../app/enter-save.js');
   const key=(o={})=>({key:'Enter',ctrlKey:false,metaKey:false,altKey:false,shiftKey:false,isComposing:false,keyCode:13,...o});
-  assert.equal(isSaveShortcut(key({ctrlKey:true})),true);
-  assert.equal(isSaveShortcut(key({metaKey:true})),true);
-  for(const o of [{},{shiftKey:true},{ctrlKey:true,shiftKey:true},{ctrlKey:true,altKey:true},{ctrlKey:true,isComposing:true},{ctrlKey:true,keyCode:229},{ctrlKey:true,key:'a'}])assert.equal(isSaveShortcut(key(o)),false,JSON.stringify(o));
+  assert.equal(enterAction(key({ctrlKey:true}),'multi'),true);
+  assert.equal(enterAction(key({metaKey:true}),'multi'),true);
+  for(const o of [{},{shiftKey:true},{ctrlKey:true,shiftKey:true},{ctrlKey:true,altKey:true},{ctrlKey:true,isComposing:true},{ctrlKey:true,keyCode:229},{ctrlKey:true,key:'a'}])assert.equal(enterAction(key(o),'multi'),false,JSON.stringify(o));
   assert.match(SUMMARY_BLANK_TEXT,/준비 중/);
 });
