@@ -163,7 +163,7 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   await editor.getByRole('button', {name:'○○지부 링크 복사', exact:true}).click();
   await expect(editor.locator('[data-sp-link-status]')).toContainText('링크를 복사했어요');
   expect(state.tokenReads).toBe(1);
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://work.bokdoong.com/work/share/#t=' + TOKEN);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://work.bokdoong.com/work/share/?t=' + TOKEN);
   expect(await page.content()).not.toContain(TOKEN);
   expect(logs.join('\n')).not.toContain(TOKEN);
   page.once('dialog', d => d.accept());
