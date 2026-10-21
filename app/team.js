@@ -1,7 +1,7 @@
 import {renderFilterChips} from './filter-chips.js';
 import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js';
 import './time-input.js';
-import {fileLine,bindDropTarget} from './meeting-compact.js';
+import {fileLine,bindDropTarget,dueText} from './meeting-compact.js';
 import {PC_QUERY,NONE_KEY,MEETING_DOCS_LABEL,meetingColumns,columnsHtml,pickMeeting,resultHtml,tasksHtml,assignMeetingColors,meetingPaletteColor,nameHash,MEETING_HUES,roundLabel,hasRound,meetingShortName} from './meeting-columns.js';
 import {formatMeetingWhen} from './meeting-when.js';
 import {placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
@@ -146,7 +146,7 @@ function meetingColumnList(){return meetingColumns(meetings,{nameOf:meetingName,
 function selectedMeetingColumn(columns=meetingColumnList()){return columns.find(c=>c.key===meetingSelectedKind)||columns[0]||null}
 function renderMeetingRows(box){renderMeetingTypeOptions();const filter=$('#meetingTypeFilter')?.value||'all';const rows=meetings.filter(m=>filter==='all'||(filter==='__none__'?!meetingName(m):meetingName(m)===filter));box.innerHTML=rows.map(m=>{const related=documents.filter(d=>d.meeting_id===m.id),color=meetingColor(meetingName(m)),name=meetingName(m)||'회의명 미지정',meta=[...meetingRowMeta(m),related.length?MEETING_DOCS_LABEL:null].filter(Boolean).join(' · ');return `<article class="item-card meeting-list-row" data-mrd-meeting="${esc(m.id)}"${color?` style="--meeting-color:${color}"`:''} role="button" tabindex="0"><div class="meeting-list-main"><div class="meeting-list-title"><h3>${esc(name)}</h3></div><p>${esc(meta)}</p></div></article>`}).join('')||'<div class="empty">조건에 맞는 회의 결과가 없습니다.</div>'}
 function meetingLegacyTitle(m){const name=meetingName(m),title=String(m?.title||'').trim();return title&&name&&title!==name?title:''}
-function meetingTaskDue(t){const v=String(t?.due||''),key=v.match(/^\d{4}-\d{2}-\d{2}/)?.[0]||(v&&!Number.isNaN(new Date(v).getTime())?seoulDateKey(new Date(v)):'');return key?formatMeetingTime(key,{month:'numeric',day:'numeric',weekday:'short'}):''}
+function meetingTaskDue(t){const v=String(t?.due||''),key=v.match(/^\d{4}-\d{2}-\d{2}/)?.[0]||(v&&!Number.isNaN(new Date(v).getTime())?seoulDateKey(new Date(v)):'');return dueText(key)}
 function meetingResult(m,{kindName}){return resultHtml(m,{kindName,when:formatMeetingWhen(m,{year:'numeric'}),project:m.project_id?spaces.find(x=>x.id===m.project_id)?.name||'':'',legacyTitle:meetingLegacyTitle(m),docs:documents.filter(d=>d.meeting_id===m.id),fileLine,tasksHtml:tasksHtml(meetingTaskCache.get(m.id),{dueOf:meetingTaskDue})})}
 // 오른쪽 후속 할 일: 고른 차수가 바뀌거나 할 일·회의가 바뀌면 다시 읽는다. 늦게 온 응답은 지금 고른 차수일 때만 그린다.
 async function loadMeetingTasks(id,{force=false}={}){if(!id||(!force&&meetingTaskCache.has(id)))return;const seq=++meetingTaskSeq;try{await window.KPTUGoogleTasks?.waitForPendingToggles?.();const d=await api('/functions/v1/google-tasks?action=linked&meeting_id='+encodeURIComponent(id));meetingTaskCache.set(id,Array.isArray(d?.tasks)?d.tasks:[])}catch(e){console.warn('meeting tasks read failed',e);if(seq===meetingTaskSeq||!meetingTaskCache.has(id))meetingTaskCache.set(id,'error')}paintMeetingTasks(id)}

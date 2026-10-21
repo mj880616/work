@@ -1,9 +1,10 @@
-// UI-PC회의(2026-10-20) → MEET-결과정리(2026-10-20 시안 C 승인): PC(≥1024) 회의 결과는 왼쪽 회의 종류 목록 + 오른쪽 고른 종류의 차수 목록,
-// 폰은 지금 한 줄 목록 그대로. ① 카드 시각(직접 지정 → 결과 글의 일시 → 날짜만) ② 종류별 색 겹침 없음 ③ 차수 대신 짧은 이름 ④ [+ 회의 결과] 하나.
+// UI-PC회의(2026-10-20) → MEET-결과정리(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥1024) 회의 결과는 왼쪽 회의 종류 / 가운데 차수·날짜·시간 /
+// 오른쪽 고른 차수의 회의 결과(읽기용, 고칠 때는 ⋯ → 수정) 3단, 폰은 지금 한 줄 목록 그대로. ① 카드 시각(직접 지정 → 결과 글의 일시 → 날짜만) ② 종류별 색 겹침 없음 ③ 차수 대신 짧은 이름 ④ [+ 회의 결과] 하나.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {selectMeetingRound,openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -20,18 +21,23 @@ function columnState(){
   s.docs.push({id:'rail-doc-1',workspace_id:s.workspace.id,project_id:null,title:'궤도 자료 1',meeting_id:'rail-6',category:'회의자료',tags:[]},{id:'rail-doc-2',workspace_id:s.workspace.id,project_id:null,title:'궤도 자료 2',meeting_id:'rail-6',category:'회의자료',tags:[]});
   return s;
 }
-async function open(page,s,width,height=900){
-  await page.setViewportSize({width,height});await mockApp(page,s);
+async function open(page,s,width,height=900,{routes=async()=>{}}={}){
+  await page.setViewportSize({width,height});await mockApp(page,s);await routes();
   await signIn(page,testOrigin+'/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
 }
 const kinds=page=>page.locator('#meetingList .mcol-kinds [data-meeting-kind]');
 const kindNames=page=>page.locator('#meetingList .mcol-kinds .mcol-name');
 const kind=(page,key)=>page.locator(`#meetingList [data-meeting-kind="${key}"]`);
-const detail=page=>page.locator('#meetingList .mcol-detail');
+const detail=page=>page.locator('#meetingList .mcol-rounds');
+const result=page=>page.locator('#meetingList #mcolResult');
+const round=(page,id)=>page.locator(`#meetingList [data-meeting-round="${id}"]`);
 
-for(const width of [1280,1440])test(`PC ${width}: 왼쪽 회의 종류 목록 + 오른쪽 차수 목록이 화면 아래 끝까지(시안 C)`,async({page})=>{
+for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 / 가운데 차수·날짜·시간 / 오른쪽 고른 차수의 결과(종류+차수 1/3, 결과 2/3)`,async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const s=columnState();await open(page,s,width);
+  const s=columnState();
+  s.meetings.find(m=>m.id==='labor-2').transcript_text='가상 노사협의회 2차 결과 원문\n둘째 줄';
+  s.meetings.find(m=>m.id==='rail-6').notes='가상 특이사항';
+  await open(page,s,width);
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(0);
   // 위쪽 회의 종류 칩 줄은 PC에서 없다(왼쪽 목록과 겹침).
   await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();await expect(page.locator('#meetingTypeFilter')).toBeHidden();
@@ -44,31 +50,66 @@ for(const width of [1280,1440])test(`PC ${width}: 왼쪽 회의 종류 목록 + 
   expect(await kind(page,'궤도협의회').locator('.mcol-dot').evaluate(e=>getComputedStyle(e).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
   await expect(detail(page).locator('.mcol-head .mcol-name')).toHaveText('노사협의회');
   await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['2차','1차']);
-  await expect(page.locator('[data-mrd-meeting="labor-2"] .mcol-when')).toContainText('10. 12. 오후 02:30');
-  // 종류를 고르면 오른쪽에 그 회의의 차수 전부(최신 위). 더 보기·가로 넘기기·칸마다 결과 등록 버튼 없음.
+  await expect(round(page,'labor-2').locator('.mcol-when')).toContainText('10. 12. 오후 02:30');
+  // 처음 열면 가장 최근 차수(노사협의회 2차)가 오른쪽에 바로 보인다. 창은 열리지 않는다.
+  await expect(round(page,'labor-2')).toHaveAttribute('aria-current','true');
+  await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
+  await expect(result(page).locator('h3')).toContainText('노사협의회');await expect(result(page).locator('h3 .mcol-result-round')).toHaveText('2차');
+  await expect(result(page).locator('.mcol-result-meta')).toContainText('2026. 10. 12. 오후 02:30');
+  await expect(result(page).locator('.mcol-text').first()).toHaveText('가상 노사협의회 2차 결과 원문\n둘째 줄');
+  await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  // 오른쪽은 읽기용: 입력칸·저장 버튼 없음, 고치는 곳은 머리의 ⋯ 하나.
+  await expect(result(page).locator('input,textarea,select,[contenteditable="true"]')).toHaveCount(0);
+  await expect(result(page).locator('button:not(.file-line-open)')).toHaveCount(1);await expect(result(page).locator('[data-meeting-more]')).toHaveAttribute('aria-label','회의 결과 관리');
+  // 종류를 고르면 가운데에 그 회의의 차수 전부(최신 위), 오른쪽은 그 종류의 가장 최근 차수. 가운데 줄에는 "회의자료 있음"이 없다(날짜·시간만).
   await kind(page,'궤도협의회').click();
   await expect(kind(page,'궤도협의회')).toHaveAttribute('aria-current','true');await expect(kind(page,'노사협의회')).not.toHaveAttribute('aria-current','true');
   await expect(kind(page,'궤도협의회')).toBeFocused();
   await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['6차','5차','4차','3차','2차','1차']);
-  await expect(page.locator('#meetingList :is([data-meeting-more],[data-meeting-add],.mcol-scroller)')).toHaveCount(0);
-  await expect(page.locator('[data-mrd-meeting="rail-6"] .mcol-docs')).toHaveText('회의자료 있음');
-  await expect(page.locator('[data-mrd-meeting="rail-5"] .mcol-docs')).toHaveCount(0);
-  // 배치: 종류 목록은 왼쪽, 차수 목록은 오른쪽, 둘 다 화면 아래 끝 가까이까지(빈 아래 1/3 없음), 가로 넘침 없음.
-  const g=await page.evaluate(()=>{const r=s=>document.querySelector(s).getBoundingClientRect();const k=r('#meetingList .mcol-kinds'),d=r('#meetingList .mcol-detail');return {k:{l:k.left,r:k.right,t:k.top,b:k.bottom},d:{l:d.left,r:d.right,t:d.top,b:d.bottom},vh:innerHeight,sw:document.documentElement.scrollWidth-innerWidth,sh:document.documentElement.scrollHeight-innerHeight}});
-  expect(g.k.r).toBeLessThanOrEqual(g.d.l);expect(Math.abs(g.k.t-g.d.t)).toBeLessThanOrEqual(1);
-  expect(g.d.r-g.d.l).toBeGreaterThan(g.k.r-g.k.l);
-  expect(g.vh-g.d.b).toBeLessThanOrEqual(40);expect(g.vh-g.k.b).toBeLessThanOrEqual(40);
+  await expect(page.locator('#meetingList :is([data-meeting-add],.mcol-scroller,.mcol-docs)')).toHaveCount(0);
+  await expect(detail(page)).not.toContainText('회의자료');
+  await expect(result(page)).toHaveAttribute('data-meeting-result','rail-6');
+  // 오른쪽에 회의자료(이름·크기)·특이사항이 결과 창처럼 보인다. 자료가 없는 차수는 "회의자료가 없습니다."
+  await expect(result(page).locator('.mcol-file')).toHaveCount(2);await expect(result(page).locator('.mcol-file').first()).toContainText('궤도 자료 1');
+  await expect(result(page).locator('.mcol-notes')).toHaveText('가상 특이사항');
+  // 차수를 고르면 오른쪽만 바뀐다(창 없이).
+  await round(page,'rail-5').click();
+  await expect(round(page,'rail-5')).toHaveAttribute('aria-current','true');await expect(round(page,'rail-6')).not.toHaveAttribute('aria-current','true');
+  await expect(round(page,'rail-5')).toBeFocused();
+  await expect(result(page)).toHaveAttribute('data-meeting-result','rail-5');await expect(result(page).locator('h3 .mcol-result-round')).toHaveText('5차');
+  await expect(result(page).locator('.mcol-file')).toHaveCount(0);await expect(result(page)).toContainText('회의자료가 없습니다.');
+  await expect(result(page).locator('.mcol-notes')).toHaveCount(0);
+  await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  // 배치: 종류 | 차수 | 결과 가로로 나란히, 위 끝 맞춤, 종류+차수 두 칸 합 : 결과 = 1 : 2, 셋 다 화면 아래 끝 가까이까지, 가로 넘침 없음.
+  const g=await page.evaluate(()=>{const r=s=>{const b=document.querySelector(s).getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom,w:b.width}};return {k:r('#meetingList .mcol-kinds'),d:r('#meetingList .mcol-rounds'),x:r('#meetingList .mcol-result'),vh:innerHeight,sw:document.documentElement.scrollWidth-innerWidth,sh:document.documentElement.scrollHeight-innerHeight}});
+  expect(g.k.r).toBeLessThanOrEqual(g.d.l);expect(g.d.r).toBeLessThanOrEqual(g.x.l);
+  expect(Math.abs(g.k.t-g.d.t)).toBeLessThanOrEqual(1);expect(Math.abs(g.k.t-g.x.t)).toBeLessThanOrEqual(1);
+  const lists=g.d.r-g.k.l;expect(Math.abs(g.x.w/lists-2)).toBeLessThan(0.08);
+  expect(Math.abs(g.k.w-g.d.w)).toBeLessThanOrEqual(1);
+  for(const box of [g.k,g.d,g.x])expect(g.vh-box.b).toBeLessThanOrEqual(40);
   expect(g.sw).toBeLessThanOrEqual(1);expect(g.sh).toBeLessThanOrEqual(1);
-  // 카드를 누르면 지금처럼 그 회의 결과 창. 키보드: 카드는 Enter로 연다.
-  await page.locator('[data-mrd-meeting="rail-6"]').click();await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await expect(page.locator('#mrdTitle')).toContainText('궤도협의회');
+  // ⋯ → [수정]: 누른 자리 바로 아래에 펼치고, 지금의 회의 결과 창(수정 단추가 있는 창)을 그 차수로 연다.
+  const more=result(page).locator('[data-meeting-more]');await more.click();
+  const menu=page.locator('#mcolMenu');await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
+  await expect(menu.locator('button')).toHaveText(['수정']);await expect(menu.locator('button')).toBeFocused();
+  const pos=await page.evaluate(()=>{const a=document.querySelector('#meetingList [data-meeting-more]').getBoundingClientRect(),b=document.querySelector('#mcolMenu').getBoundingClientRect();return {gap:b.top-a.bottom,right:b.right<=innerWidth,left:b.left>=0}});
+  expect(pos.gap).toBeGreaterThanOrEqual(0);expect(pos.gap).toBeLessThanOrEqual(12);expect(pos.right&&pos.left).toBe(true);
+  // Esc는 메뉴만 닫고 ⋯로 돌아간다. 바깥을 눌러도 닫힌다.
+  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(more).toHaveAttribute('aria-expanded','false');
+  await more.click();await expect(menu).toBeVisible();await result(page).locator('.mcol-text').first().click();await expect(menu).toBeHidden();
+  await more.click();await menu.locator('[data-meeting-menu="edit"]').click();
+  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await expect(page.locator('#mrdTitle')).toContainText('궤도협의회');await expect(page.locator('#mrdMeta')).toContainText('5차');
+  await expect(page.locator('#mrdEdit')).toBeVisible();
   await page.locator('#mrdClose').click();await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
-  await page.locator('[data-mrd-meeting="rail-3"]').focus();await page.keyboard.press('Enter');await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await page.locator('#mrdClose').click();
-  // 키보드: 종류 목록은 위·아래 화살표로 옮겨 다니고 Enter로 고른다.
+  // 키보드: 종류 목록은 위·아래 화살표로 옮겨 다니고 Enter로 고른다. 가운데 차수 목록도 화살표·Enter.
   await kind(page,'궤도협의회').focus();await page.keyboard.press('ArrowDown');await expect(kind(page,'__none__')).toBeFocused();
   await page.keyboard.press('End');await expect(kind(page,'안전위원회')).toBeFocused();await page.keyboard.press('Home');await expect(kind(page,'노사협의회')).toBeFocused();
-  await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
+  await kind(page,'궤도협의회').focus();await page.keyboard.press('Enter');
+  await round(page,'rail-6').focus();await page.keyboard.press('ArrowDown');await expect(round(page,'rail-5')).toBeFocused();await page.keyboard.press('End');await expect(round(page,'rail-1')).toBeFocused();
+  await page.keyboard.press('Enter');await expect(result(page)).toHaveAttribute('data-meeting-result','rail-1');await expect(round(page,'rail-1')).toBeFocused();
+  await kind(page,'안전위원회').focus();await page.keyboard.press('Enter');
   await expect(kind(page,'안전위원회')).toHaveAttribute('aria-current','true');await expect(kind(page,'안전위원회')).toBeFocused();
-  await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['3차']);
+  await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['3차']);await expect(result(page)).toHaveAttribute('data-meeting-result','safety-1');
   // 오른쪽 위 [+ 회의 결과] 하나, 높이는 입력칸과 같은 공용 기준(36px), 누르는 범위 44px.
   const add=page.locator('#newMeetingBtn');await expect(add).toBeVisible();
   const h=await add.evaluate(e=>({box:e.getBoundingClientRect().height,touch:parseFloat(getComputedStyle(e,'::after').height)||parseFloat(getComputedStyle(e,'::after').minHeight)}));
@@ -76,23 +117,52 @@ for(const width of [1280,1440])test(`PC ${width}: 왼쪽 회의 종류 목록 + 
   expect(errors).toEqual([]);
 });
 
-test('PC: 차수가 많으면 오른쪽 목록만 세로로 넘기고, 종류가 많으면 왼쪽 목록만 세로로 넘긴다',async({page})=>{
+test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 내려받기, 결과 창에서 고친 내용이 오른쪽에 반영',async({page})=>{
+  const s=columnState();
+  s.spaces.push({id:'project-meet',workspace_id:s.workspace.id,name:'가상 프로젝트',status:'active',parent_id:null,sort_order:99,owner_id:s.user.id});
+  Object.assign(s.meetings.find(m=>m.id==='labor-2'),{project_id:'project-meet'});
+  s.docs.push({id:'labor-doc',workspace_id:s.workspace.id,project_id:null,title:'가상 안건지',file_name:'가상 안건지.hwp',file_size:20480,meeting_id:'labor-2',category:'회의자료',tags:[]});
+  const reads=[];s.downloads=[];
+  const routes=()=>page.route('**/functions/v1/google-tasks**',route=>{const url=new URL(route.request().url());const action=url.searchParams.get('action');if(action==='linked'){reads.push(url.searchParams.get('meeting_id'));const id=url.searchParams.get('meeting_id');return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:id==='labor-2'?[{id:'t1',title:'가상 후속 할 일',due:'2026-10-25T00:00:00Z',status:'needsAction'},{id:'t2',title:'끝난 가상 할 일',status:'completed'}]:[]})})}return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[]})})});
+  await open(page,s,1440,900,{routes});
+  await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
+  await expect(result(page).locator('.mcol-result-meta')).toContainText('프로젝트 가상 프로젝트');
+  await expect(result(page).locator('.mcol-task')).toHaveCount(2);
+  await expect(result(page).locator('.mcol-task').first()).toContainText('가상 후속 할 일');await expect(result(page).locator('.mcol-task').first().locator('.mcol-task-due')).toHaveText('10. 25. (일)');
+  await expect(result(page).locator('.mcol-task.completed')).toContainText('끝난 가상 할 일');
+  // 같은 차수를 다시 그려도 할 일을 또 읽지 않는다(고른 차수가 바뀔 때만).
+  expect(reads.filter(id=>id==='labor-2').length).toBe(1);
+  await round(page,'labor-1').click();await expect(result(page).locator('.mcol-tasks')).toContainText('후속 할 일이 없습니다.');
+  await round(page,'labor-2').click();await expect(result(page).locator('.mcol-task')).toHaveCount(2);
+  // 결과 창(⋯ → 수정)에서 원문을 고쳐 저장하면 창을 닫은 뒤 오른쪽도 새 원문.
+  await openMeetingResult(page,'labor-2');await page.locator('#mrdEdit').click();await page.locator('#mrdEditTranscript').fill('고친 가상 원문');await page.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('고친 가상 원문');
+  await page.locator('#mrdClose').click();
+  await expect(result(page).locator('.mcol-text').first()).toHaveText('고친 가상 원문');await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
+  // 회의자료 이름을 누르면 내려받기(결과 창과 같은 경로). 다른 주소로 넘어가므로 맨 끝에 본다.
+  await result(page).locator('[data-meeting-doc="labor-doc"]').click();
+  await expect.poll(()=>s.downloads.at(-1)?.document_id).toBe('labor-doc');
+});
+
+test('PC: 차수가 많으면 가운데 목록만, 종류가 많으면 왼쪽 목록만, 결과 글이 길면 오른쪽 결과만 세로로 넘긴다',async({page})=>{
   const s=columnState();
   for(let n=7;n<=40;n++)s.meetings.push({id:`rail-${n}`,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:n,meeting_at:`2026-07-${String(1+n%28).padStart(2,'0')}T01:00:00Z`,transcript_text:'원문',created_by:s.user.id});
   for(let i=0;i<20;i++)s.meetings.push({id:`extra-${i}`,workspace_id:s.workspace.id,title:`추가 회의 ${i}`,series_name:`추가 회의 ${i}`,round_no:1,meeting_at:`2026-06-${String(i+1).padStart(2,'0')}T01:00:00Z`,transcript_text:'원문',created_by:s.user.id});
+  s.meetings.find(m=>m.id==='rail-6').transcript_text=Array.from({length:120},(_,i)=>`가상 결과 줄 ${i+1}`).join('\n');
   await open(page,s,1280,800);
   await kind(page,'궤도협의회').click();
   await expect(detail(page).locator('.mcol-card')).toHaveCount(40);
-  const list=page.locator('#meetingList .mcol-cards'),side=page.locator('#meetingList .mcol-kinds');
-  for(const box of [list,side]){
+  await round(page,'rail-6').click();
+  const list=page.locator('#meetingList .mcol-cards'),side=page.locator('#meetingList .mcol-kinds'),body=page.locator('#meetingList .mcol-result-body');
+  for(const box of [list,side,body]){
     const m=await box.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));
     expect(m.sh).toBeGreaterThan(m.ch);expect(m.oy).toBe('auto');
   }
   expect(await page.evaluate(()=>({w:document.documentElement.scrollWidth-innerWidth,h:document.documentElement.scrollHeight-innerHeight}))).toEqual({w:0,h:0});
-  // 맨 아래 카드에 키보드 포커스가 가면 목록이 그 카드를 보이게 넘긴다.
+  // 맨 아래 줄에 키보드 포커스가 가면 목록이 그 카드를 보이게 넘긴다.
   const last=detail(page).locator('.mcol-card').last();await last.focus();await expect(last).toBeFocused();
   expect(await last.evaluate(e=>{const a=e.getBoundingClientRect(),b=e.closest('.mcol-cards').getBoundingClientRect();return a.bottom<=b.bottom+1&&a.top>=b.top-1})).toBe(true);
-  // 다른 종류를 고르면 오른쪽 목록은 맨 위부터.
+  // 다른 종류를 고르면 가운데 목록은 맨 위부터.
   await list.evaluate(e=>{e.scrollTop=e.scrollHeight});await kind(page,'노사협의회').click();
   await expect.poll(()=>list.evaluate(e=>e.scrollTop)).toBe(0);
 });
@@ -149,13 +219,14 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   await open(page,s,1280);
   await expect(kind(page,'궤도협의회')).toHaveAttribute('aria-current','true');
   await expect(detail(page).locator('.mcol-card .mcol-round').first()).toHaveText('차수 없음');
-  const derived=page.locator('[data-mrd-meeting="rail-derived"]'),upload=page.locator('[data-mrd-meeting="rail-upload"]');
+  const derived=round(page,'rail-derived'),upload=round(page,'rail-upload');
   await expect(derived.locator('.mcol-round')).toHaveText('파생 간담회');await expect(derived.locator('.mcol-when')).toHaveText('10. 19. 오후 02:00');
   await expect(upload.locator('.mcol-round')).toHaveText('차수 없음');await expect(upload.locator('.mcol-when')).toHaveText('10. 20.');
   // 직접 지정한 시각은 그대로.
-  await expect(page.locator('[data-mrd-meeting="rail-6"] .mcol-when')).toHaveText('9. 6. 오전 10:00');
-  // 결과 창 머리 글자도 같은 규칙(연도 포함), 짧은 이름을 앞에.
-  await derived.click();await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
+  await expect(round(page,'rail-6').locator('.mcol-when')).toHaveText('9. 6. 오전 10:00');
+  // 오른쪽 결과 머리와 결과 창 머리 글자도 같은 규칙(연도 포함), 짧은 이름을 앞에.
+  await derived.click();await expect(result(page).locator('h3 .mcol-result-round')).toHaveText('파생 간담회');await expect(result(page).locator('.mcol-result-meta')).toContainText('2026. 10. 19. 오후 02:00');
+  await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
   await expect(page.locator('#mrdMeta')).not.toContainText('기존 제목');
   // 수정 창의 짧은 이름 칸: 지금 짧은 이름이 들어 있고, 바꾸면 제목(title)만 바뀐다(종류 이름·저장된 시각은 그대로).
   await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditShortName')).toHaveValue('파생 간담회');
@@ -163,11 +234,11 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('파생 토론회');
   expect(s.meetingWrites.at(-1).series_name).toBeUndefined();expect(s.meetingWrites.at(-1).meeting_at).toBe('2026-10-18T15:00:00.000Z');
   await page.locator('#mrdClose').click();
-  await expect(page.locator('[data-mrd-meeting="rail-derived"] .mcol-round')).toHaveText('파생 토론회');
+  await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('파생 토론회');await expect(result(page).locator('h3 .mcol-result-round')).toHaveText('파생 토론회');
   // 짧은 이름을 비우면 제목은 종류 이름과 같게 → 다시 '차수 없음'.
-  await page.locator('[data-mrd-meeting="rail-derived"]').click();await page.locator('#mrdEdit').click();await page.locator('#mrdEditShortName').fill('');await page.locator('#mrdSaveEdit').click();
+  await openMeetingResult(page,'rail-derived');await page.locator('#mrdEdit').click();await page.locator('#mrdEditShortName').fill('');await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('궤도협의회');await page.locator('#mrdClose').click();
-  await expect(page.locator('[data-mrd-meeting="rail-derived"] .mcol-round')).toHaveText('차수 없음');
+  await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('차수 없음');
 });
 
 test('③ 새 회의 결과에서 짧은 이름: 종류 이름은 그대로, 제목만 짧은 이름',async({page})=>{
@@ -177,7 +248,7 @@ test('③ 새 회의 결과에서 짧은 이름: 종류 이름은 그대로, 제
   await fillDateTime(page,'#meetingAt','2026-10-19T14:00');await page.locator('#meetingTranscript').fill('가상 원문');await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.series_name).toBe('궤도협의회');
   expect(s.meetingWrites.at(-1).title).toBe('파생 간담회');expect(s.meetingWrites.at(-1).round_no).toBeNull();
-  await expect(page.locator('[data-mrd-meeting="new-meeting"] .mcol-round')).toHaveText('파생 간담회');
+  await expect(round(page,'new-meeting').locator('.mcol-round')).toHaveText('파생 간담회');
   // 다시 열면 짧은 이름 칸은 비어 있다.
   await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingShortName')).toHaveValue('');
 });
