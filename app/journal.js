@@ -2,8 +2,9 @@
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
 // then 프로젝트 소식·할 일 예정·자료실 새 자료·공유 페이지 — JOURNAL-주간보고허브),
-// gathered on screen and never stored. [주간보고 초안 복사] copies the week as text in the weekly report form's order (the same
-// grouping as [주간 정리], journal-weekly.js weeklyReportText; 2026-10-21 사용자 승인).
+// gathered on screen and never stored. [주간 정리]'s [복사] (beside [주간보고 한글 파일 만들기], journal-hwpx.js) copies the week as
+// text in the weekly report form's order (journal-weekly.js weeklyReportText; 2026-10-21 사용자 승인). JOURNAL-주간정리다듬기
+// (2026-10-22 사용자 결정): the top row has no copy button on either side any more.
 // JOURNAL-오늘한줄목록: [저장] adds the typed line under the input (saving order, oldest first) and empties the input.
 // Pressing a line turns it into an edit box in place with [저장][취소][삭제]; a removed line can be put back for 5 seconds
 // ([되돌리기], the app's existing undo notice). No ⋯ menu or popup. On a PC (≥1024) each line also has [수정][삭제], shown while
@@ -46,7 +47,7 @@ const longDay = day => formatSeoulTime(day, {month:'long', day:'numeric', weekda
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const length = text => [...String(text ?? '')].length;
 
-root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" role="group" aria-label="업무일지 보기"><button type="button" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" data-journal-mode="week" aria-pressed="false">주간 정리</button></div><div class="journal-week-nav"><button type="button" class="mini" data-journal-prev aria-label="이전 주">‹</button><b data-journal-title aria-live="polite"></b><button type="button" class="mini" data-journal-next aria-label="다음 주">›</button><button type="button" class="mini" data-journal-today>이번 주</button></div><button type="button" class="secondary" data-journal-copy>주간보고 초안 복사</button></div>
+root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" role="group" aria-label="업무일지 보기"><button type="button" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" data-journal-mode="week" aria-pressed="false">주간 정리</button></div><div class="journal-week-nav"><button type="button" class="mini" data-journal-prev aria-label="이전 주">‹</button><b data-journal-title aria-live="polite"></b><button type="button" class="mini" data-journal-next aria-label="다음 주">›</button><button type="button" class="mini" data-journal-today>이번 주</button></div></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
 <section class="journal-day" data-journal-day aria-labelledby="journalDayTitle">
@@ -215,7 +216,6 @@ function renderMode() {
   $('[data-journal-day]').hidden = mode === 'week';
   radar?.setShown(mode === 'day');
   $('[data-journal-weekly-root]').hidden = mode !== 'week';
-  $('.journal-head').toggleAttribute('data-copy-hidden', mode === 'week');
 }
 function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;
@@ -436,7 +436,6 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-today]')) return goThisWeek();
   if (button.matches('[data-journal-retry]')) { for (const key of GROUP_SOURCES[button.dataset.journalRetry] || []) if (materials[key]?.status === 'failed') loadGroup(key); return; }
   if (button.matches('[data-journal-note-open]')) { requestNoteDocOpen(button.dataset.journalNoteOpen, rt); window.KPTURouter?.go('basket', {source:'delegated'}); return; }
-  if (button.matches('[data-journal-copy]')) return copyDraft();
   if (button.matches('[data-journal-edit]')) return startEdit(Number(button.dataset.journalEdit));
   if (button.matches('[data-journal-edit-open]')) return startEdit(Number(button.dataset.journalEditOpen));
   if (button.matches('[data-journal-line-delete]')) return deleteLine(Number(button.dataset.journalLineDelete));
