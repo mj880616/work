@@ -447,7 +447,8 @@ begin
 end
 $$;
 
--- 고친 때는 DB가 적는다.
+-- 고친 때는 DB가 적는다. 같은 거래 안에서 고쳐도 만든 때와 달라지도록 실제 시각(clock_timestamp)을 쓴다
+-- (되돌리기의 "고친 적 없는 행" 판단이 updated_at = created_at이기 때문).
 create function private.app_ledger_touch()
 returns trigger
 language plpgsql
@@ -455,7 +456,7 @@ security invoker
 set search_path = ''
 as $$
 begin
-  new := pg_catalog.jsonb_populate_record(new, pg_catalog.jsonb_build_object('updated_at', pg_catalog.now()));
+  new := pg_catalog.jsonb_populate_record(new, pg_catalog.jsonb_build_object('updated_at', pg_catalog.clock_timestamp()));
   return new;
 end
 $$;

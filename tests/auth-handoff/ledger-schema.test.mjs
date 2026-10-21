@@ -89,30 +89,30 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
   let imp,topic,org,orgB,src1,src2,evt,chg,dec,evd,com,oldDec;
   await t.test('import batch: legacy ids kept; new rows get the next number; no reuse and no other shape',async()=>{
    imp=(await one(`insert into public.app_ledger_imports(workspace_id,label,source_kind,file_sha256,row_counts) values($1,'시험 가져오기','sheet_csv',$2,'{"records":5}') returning id`,[WS_A,sha('a')])).id;
-   topic=(await one(`insert into public.app_ledger_topics(workspace_id,ledger_id,name,aliases,project_id,import_id) values($1,'TOP-0003','가상 철도 주제',array['가상선','테스트선'],$2,$3) returning id`,[WS_A,PROJECT_A,imp])).id;
-   org=(await one(`insert into public.app_ledger_organizations(workspace_id,ledger_id,name,aliases,suborganization_id,import_id) values($1,'ORG-0007','가 지부',array['가지부'],$2,$3) returning id`,[WS_A,ORG_A,imp])).id;
-   src1=(await one(`insert into public.app_ledger_sources(workspace_id,ledger_id,title,doc_type,source_date,processing_status,import_id) values($1,'SRC-0010','가상 회의자료','meeting_material','2026-03-02','partial',$2) returning id`,[WS_A,imp])).id;
-   src2=(await one(`insert into public.app_ledger_sources(workspace_id,ledger_id,title,doc_type,sensitivity,import_id) values($1,'SRC-0011','가상 통화 전사','call_transcript','S2',$2) returning id`,[WS_A,imp])).id;
-   evt=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,summary,event_status,date_start,date_precision,topic_id,import_id) values($1,'event','EVT-0012','가상 노선 운영 변경','가상 노선의 운영 방식이 바뀜','tracking','2026-03-01','month',$2,$3) returning id`,[WS_A,topic,imp])).id;
-   chg=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,date_start,date_precision,import_id) values($1,'change','CHG-0004','가상 노선 1차 협의','2026-03-15','day',$2) returning id`,[WS_A,imp])).id;
-   oldDec=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,date_start,date_end,date_precision,date_note,import_id) values($1,'decision','DEC-0001','옛 가상 방침','2025-01-01','2025-12-31','range','2025년 중',$2) returning id`,[WS_A,imp])).id;
-   dec=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,decision_type,decision_reason,date_start,date_precision,sensitivity,import_id) values($1,'decision','DEC-0002','가상 대응 방침','adopted','시험용 이유','2026-04-01','day','S2',$2) returning id`,[WS_A,imp])).id;
-   evd=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,evidence_type,confidence,verification,import_id) values($1,'evidence','EVD-0020','가상 통계 근거','statistics','high','partial',$2) returning id`,[WS_A,imp])).id;
-   com=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,counterparty,commitment_status,follow_up_on,import_id) values($1,'commitment','COM-0003','가상 기관 자료 제공 약속','가상 기관','waiting','2026-05-01',$2) returning id`,[WS_A,imp])).id;
+   topic=(await one(`insert into public.app_ledger_topics(workspace_id,ledger_id,name,aliases,project_id,import_id) values($1,'TOP-0903','가상 철도 주제',array['가상선','테스트선'],$2,$3) returning id`,[WS_A,PROJECT_A,imp])).id;
+   org=(await one(`insert into public.app_ledger_organizations(workspace_id,ledger_id,name,aliases,suborganization_id,import_id) values($1,'ORG-0907','가 지부',array['가지부'],$2,$3) returning id`,[WS_A,ORG_A,imp])).id;
+   src1=(await one(`insert into public.app_ledger_sources(workspace_id,ledger_id,title,doc_type,source_date,processing_status,import_id) values($1,'SRC-0910','가상 회의자료','meeting_material','2026-03-02','partial',$2) returning id`,[WS_A,imp])).id;
+   src2=(await one(`insert into public.app_ledger_sources(workspace_id,ledger_id,title,doc_type,sensitivity,import_id) values($1,'SRC-0911','가상 통화 전사','call_transcript','S2',$2) returning id`,[WS_A,imp])).id;
+   evt=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,summary,event_status,date_start,date_precision,topic_id,import_id) values($1,'event','EVT-0912','가상 노선 운영 변경','가상 노선의 운영 방식이 바뀜','tracking','2026-03-01','month',$2,$3) returning id`,[WS_A,topic,imp])).id;
+   chg=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,date_start,date_precision,import_id) values($1,'change','CHG-0904','가상 노선 1차 협의','2026-03-15','day',$2) returning id`,[WS_A,imp])).id;
+   oldDec=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,date_start,date_end,date_precision,date_note,import_id) values($1,'decision','DEC-0901','옛 가상 방침','2025-01-01','2025-12-31','range','2025년 중',$2) returning id`,[WS_A,imp])).id;
+   dec=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,decision_type,decision_reason,date_start,date_precision,sensitivity,import_id) values($1,'decision','DEC-0902','가상 대응 방침','adopted','시험용 이유','2026-04-01','day','S2',$2) returning id`,[WS_A,imp])).id;
+   evd=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,evidence_type,confidence,verification,import_id) values($1,'evidence','EVD-0920','가상 통계 근거','statistics','high','partial',$2) returning id`,[WS_A,imp])).id;
+   com=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,counterparty,commitment_status,follow_up_on,import_id) values($1,'commitment','COM-0903','가상 기관 자료 제공 약속','가상 기관','waiting','2026-05-01',$2) returning id`,[WS_A,imp])).id;
    // New rows without an id: next number after the highest imported one, 4 digits.
    const next=await one(`insert into public.app_ledger_records(workspace_id,kind,title,event_status) values($1,'event','새 가상 사건','watching') returning ledger_id`,[WS_A]);
-   assert.equal(next.ledger_id,'EVT-0013');
-   assert.equal((await one(`insert into public.app_ledger_sources(workspace_id,title) values($1,'새 가상 출처') returning ledger_id`,[WS_A])).ledger_id,'SRC-0012');
+   assert.equal(next.ledger_id,'EVT-0913');
+   assert.equal((await one(`insert into public.app_ledger_sources(workspace_id,title) values($1,'새 가상 출처') returning ledger_id`,[WS_A])).ledger_id,'SRC-0912');
    // A typed id is only accepted inside an import, with the scope prefix and canonical shape.
-   await assert.rejects(q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status) values($1,'event','EVT-0100','손으로 쓴 번호','tracking')`,[WS_A]),/LEDGER_ID_ASSIGNED_BY_DB/);
-   await assert.rejects(q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','DEC-0100','다른 접두어','tracking',$2)`,[WS_A,imp]),/LEDGER_ID_FORMAT/);
-   await assert.rejects(q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-00012','같은 번호 다른 모양','tracking',$2)`,[WS_A,imp]),/LEDGER_ID_FORMAT/);
-   await assert.rejects(q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-0012','같은 번호','tracking',$2)`,[WS_A,imp]),{code:'23505'});
+   await assert.rejects(q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status) values($1,'event','EVT-0990','손으로 쓴 번호','tracking')`,[WS_A]),/LEDGER_ID_ASSIGNED_BY_DB/);
+   await assert.rejects(q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','DEC-0990','다른 접두어','tracking',$2)`,[WS_A,imp]),/LEDGER_ID_FORMAT/);
+   await assert.rejects(q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-00912','같은 번호 다른 모양','tracking',$2)`,[WS_A,imp]),/LEDGER_ID_FORMAT/);
+   await assert.rejects(q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-0912','같은 번호','tracking',$2)`,[WS_A,imp]),{code:'23505'});
    // An imported lower number does not move the counter back; the counter can never decrease.
-   await q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-0002','빈 번호 채우기','closed',$2)`,[WS_A,imp]);
-   assert.equal((await one(`insert into public.app_ledger_records(workspace_id,kind,title,event_status) values($1,'event','다음 가상 사건','watching') returning ledger_id`,[WS_A])).ledger_id,'EVT-0014');
+   await q(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-0902','빈 번호 채우기','closed',$2)`,[WS_A,imp]);
+   assert.equal((await one(`insert into public.app_ledger_records(workspace_id,kind,title,event_status) values($1,'event','다음 가상 사건','watching') returning ledger_id`,[WS_A])).ledger_id,'EVT-0914');
    await assert.rejects(q(`update public.app_ledger_id_counters set last_number=1 where workspace_id=$1 and scope='event'`,[WS_A]),/LEDGER_ID_COUNTER_DECREASE/);
-   await assert.rejects(q(`update public.app_ledger_records set ledger_id='EVT-0099' where id=$1`,[evt]),{code:'42501'});
+   await assert.rejects(q(`update public.app_ledger_records set ledger_id='EVT-0999' where id=$1`,[evt]),{code:'42501'});
    // Another workspace has its own counter.
    assert.equal((await stranger(c=>c.query(`insert into public.app_ledger_records(workspace_id,kind,title,event_status) values($1,'event','남의 가상 사건','tracking') returning ledger_id`,[WS_B]))).rows[0].ledger_id,'EVT-0001');
   });
@@ -146,7 +146,7 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
    // One Web2 organisation maps to one ledger organisation.
    await assert.rejects(q(`insert into public.app_ledger_organizations(workspace_id,name,suborganization_id) values($1,'두 번째 연결',$2)`,[WS_A,ORG_A]),{code:'23505'});
    orgB=(await one(`insert into public.app_ledger_organizations(workspace_id,name) values($1,'나 지부') returning id, ledger_id`,[WS_A]));
-   assert.equal(orgB.ledger_id,'ORG-0008');orgB=orgB.id;
+   assert.equal(orgB.ledger_id,'ORG-0908');orgB=orgB.id;
   });
   await t.test('fixed lists and kind-specific fields are enforced',async()=>{
    const bad=[
@@ -200,10 +200,10 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
   });
   await t.test('candidates: three origins, decided once, S3 cannot be confirmed, decisions audited',async()=>{
    const cImp=(await one(`insert into public.app_ledger_imports(workspace_id,label,source_kind,file_sha256) values($1,'가상 대화 묶음','claude_file',$2) returning id`,[WS_A,sha('c')])).id;
-   const c1=(await one(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,payload,dedup_key) values($1,'web2_ai','event','가상 후보 1','{"summary":"요지"}','2026-04-02|ORG-0007|가상') returning id`,[WS_A])).id;
+   const c1=(await one(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,payload,dedup_key) values($1,'web2_ai','event','가상 후보 1','{"summary":"요지"}','2026-04-02|ORG-0907|가상') returning id`,[WS_A])).id;
    const c2=(await one(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,import_id,action,target_record_id) values($1,'claude_import','evidence','가상 후보 2',$2,'add_source',$3) returning id`,[WS_A,cImp,evd])).id;
    const c3=(await one(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,sensitivity) values($1,'user','event','가상 민감 후보','S3') returning id`,[WS_A])).id;
-   await assert.rejects(q(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,dedup_key) values($1,'web2_ai','event','같은 열쇠','2026-04-02|ORG-0007|가상')`,[WS_A]),{code:'23505'});
+   await assert.rejects(q(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,dedup_key) values($1,'web2_ai','event','같은 열쇠','2026-04-02|ORG-0907|가상')`,[WS_A]),{code:'23505'});
    const rec=(await one(`insert into public.app_ledger_records(workspace_id,kind,title,event_status) values($1,'event','가상 후보 1','tracking') returning id`,[WS_A])).id;
    await q(`update public.app_ledger_candidates set status='confirmed', result_record_id=$2, decided_at=now() where id=$1`,[c1,rec]);
    await q(`update public.app_ledger_candidates set status='discarded', discard_reason='중복', decided_at=now() where id=$1`,[c2]);
@@ -215,7 +215,7 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
    const audit=(await q(`select event, detail->'before'->>'status' s from public.app_ledger_audit where target_table='candidates' order by created_at`)).rows;
    assert.deepEqual(audit.map(r=>[r.event,r.s]),[['candidate_decided','pending'],['candidate_decided','pending'],['candidate_decided','pending']]);
    // After a decision the same dedup key can be proposed again (only one pending at a time).
-   await q(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,dedup_key) values($1,'web2_ai','event','다시 올라온 후보','2026-04-02|ORG-0007|가상')`,[WS_A]);
+   await q(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,dedup_key) values($1,'web2_ai','event','다시 올라온 후보','2026-04-02|ORG-0907|가상')`,[WS_A]);
   });
   await t.test('audit: edits keep the previous values; audit is append-only; legacy write requests stored once',async()=>{
    await q(`update public.app_ledger_records set summary='고친 요지', importance='high' where id=$1`,[evt]);
@@ -225,33 +225,33 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
    const upd=await one(`select updated_at>created_at changed from public.app_ledger_records where id=$1`,[evt]);assert.equal(upd.changed,true);
    await assert.rejects(q(`update public.app_ledger_audit set detail='{}' where target_id=$1`,[evt]),{code:'42501'});
    assert.equal((await q(`delete from public.app_ledger_audit where target_id=$1`,[evt])).rowCount,0);
-   await q(`insert into public.app_ledger_audit(workspace_id,event,legacy_id,import_id,occurred_at,detail) values($1,'legacy_write_request','WR-0001',$2,'2026-03-03','{"status":"완료"}')`,[WS_A,imp]);
-   await assert.rejects(q(`insert into public.app_ledger_audit(workspace_id,event,legacy_id,import_id) values($1,'legacy_write_request','WR-0001',$2)`,[WS_A,imp]),{code:'23505'});
+   await q(`insert into public.app_ledger_audit(workspace_id,event,legacy_id,import_id,occurred_at,detail) values($1,'legacy_write_request','WR-0901',$2,'2026-03-03','{"status":"완료"}')`,[WS_A,imp]);
+   await assert.rejects(q(`insert into public.app_ledger_audit(workspace_id,event,legacy_id,import_id) values($1,'legacy_write_request','WR-0901',$2)`,[WS_A,imp]),{code:'23505'});
    await assert.rejects(q(`insert into public.app_ledger_audit(workspace_id,event,legacy_id) values($1,'note','not an id')`,[WS_A]),{code:'23514'});
   });
   await t.test('search: words, ids, aliases, organisation, topic, period, sensitivity, scope, inactive, kinds; owner only',async()=>{
    const s=async(args,who=owner)=>(await who(c=>c.query(`select * from public.app_ledger_search(${args})`))).rows.map(r=>r.ledger_id).sort();
-   assert.deepEqual(await s(`'가상 노선'`),['CHG-0004','EVT-0012']);
-   assert.deepEqual(await s(`'evt-0012'`),['EVT-0012']);
-   assert.deepEqual(await s(`'테스트선'`),['EVT-0012']); // topic alias
-   assert.deepEqual(await s(`'가지부'`),['COM-0003','EVT-0012']); // organisation alias via link
-   assert.deepEqual(await s(`'SRC-0011'`),['EVT-0012']); // linked source id
-   assert.deepEqual(await s(`'회의자료'`),['DEC-0002','EVT-0012']); // linked source title
-   assert.deepEqual(await s(`'',p_organization_id=>'${org}'`),['COM-0003','EVT-0012']);
-   assert.deepEqual(await s(`'',p_organization_id=>'${ORG_A}'`),['COM-0003','EVT-0012']); // Web2 organisation id
-   assert.deepEqual(await s(`'',p_topic_id=>'${topic}'`),['EVT-0012']);
-   assert.deepEqual(await s(`'',p_date_from=>'2026-03-10',p_date_to=>'2026-03-31'`),['CHG-0004']);
-   assert.deepEqual(await s(`'방침'`),['DEC-0002']);
-   assert.deepEqual(await s(`'방침',p_include_inactive=>true`),['DEC-0001','DEC-0002']);
+   assert.deepEqual(await s(`'가상 노선'`),['CHG-0904','EVT-0912']);
+   assert.deepEqual(await s(`'evt-0912'`),['EVT-0912']);
+   assert.deepEqual(await s(`'테스트선'`),['EVT-0912']); // topic alias
+   assert.deepEqual(await s(`'가지부'`),['COM-0903','EVT-0912']); // organisation alias via link
+   assert.deepEqual(await s(`'SRC-0911'`),['EVT-0912']); // linked source id
+   assert.deepEqual(await s(`'회의자료'`),['DEC-0902','EVT-0912']); // linked source title
+   assert.deepEqual(await s(`'',p_organization_id=>'${org}'`),['COM-0903','EVT-0912']);
+   assert.deepEqual(await s(`'',p_organization_id=>'${ORG_A}'`),['COM-0903','EVT-0912']); // Web2 organisation id
+   assert.deepEqual(await s(`'',p_topic_id=>'${topic}'`),['EVT-0912']);
+   assert.deepEqual(await s(`'',p_date_from=>'2026-03-10',p_date_to=>'2026-03-31'`),['CHG-0904']);
+   assert.deepEqual(await s(`'방침'`),['DEC-0902']);
+   assert.deepEqual(await s(`'방침',p_include_inactive=>true`),['DEC-0901','DEC-0902']);
    assert.deepEqual(await s(`'방침',p_max_sensitivity=>'S1'`),[]);
-   assert.deepEqual(await s(`'',p_kinds=>array['commitment']`),['COM-0003']);
+   assert.deepEqual(await s(`'',p_kinds=>array['commitment']`),['COM-0903']);
    await q(`update public.app_ledger_records set scope='interest' where id=$1`,[com]);
    assert.deepEqual(await s(`'',p_kinds=>array['commitment']`),[]);
-   assert.deepEqual(await s(`'',p_kinds=>array['commitment'],p_scope=>'interest'`),['COM-0003']);
-   assert.deepEqual(await s(`'',p_kinds=>array['commitment'],p_scope=>null`),['COM-0003']);
+   assert.deepEqual(await s(`'',p_kinds=>array['commitment'],p_scope=>'interest'`),['COM-0903']);
+   assert.deepEqual(await s(`'',p_kinds=>array['commitment'],p_scope=>null`),['COM-0903']);
    assert.deepEqual(await s(`'50%_'`),[]); // no wildcard meaning
    const top=(await q(`select ledger_id,score,organizations from public.app_ledger_search('가상 노선 운영')`)).rows;
-   assert.equal(top[0].ledger_id,'EVT-0012');assert.deepEqual(top[0].organizations,['가 지부']);
+   assert.equal(top[0].ledger_id,'EVT-0912');assert.deepEqual(top[0].organizations,['가 지부']);
    assert.equal((await q(`select count(*)::int n from public.app_ledger_search('', p_limit=>2)`)).rows[0].n,2);
    for(const [args,msg] of [[`repeat('가',201)`,'BAD_QUERY'],[`'x',p_limit=>0`,'BAD_LIMIT'],[`'x',p_max_sensitivity=>'S3'`,'BAD_SENSITIVITY'],[`'x',p_kinds=>array['memo']`,'BAD_KIND'],[`'x',p_date_from=>'2026-02-01',p_date_to=>'2026-01-01'`,'BAD_PERIOD'],[`'x',p_scope=>'all'`,'BAD_SCOPE']])
     await assert.rejects(q(`select * from public.app_ledger_search(${args})`),new RegExp('LEDGER_SEARCH_'+msg));
@@ -260,15 +260,22 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
   await t.test('import batch: same file refused while applied; revert deletes only unedited rows of an unconfirmed batch',async()=>{
    await assert.rejects(q(`insert into public.app_ledger_imports(workspace_id,label,source_kind,file_sha256) values($1,'같은 파일','sheet_csv',$2)`,[WS_A,sha('a')]),{code:'23505'});
    // Hand-made rows (no batch) and edited imported rows cannot be deleted.
-   const hand=(await one(`select id from public.app_ledger_records where ledger_id='EVT-0013' and workspace_id=$1`,[WS_A])).id;
+   const hand=(await one(`select id from public.app_ledger_records where ledger_id='EVT-0913' and workspace_id=$1`,[WS_A])).id;
    assert.equal((await q(`delete from public.app_ledger_records where id=$1`,[hand])).rowCount,0);
    assert.equal((await q(`delete from public.app_ledger_records where id=$1`,[evt])).rowCount,0); // edited above
+   // Editing inside the same transaction as the insert also counts as edited.
+   const b0=(await one(`insert into public.app_ledger_imports(workspace_id,label,source_kind,file_sha256) values($1,'같은 거래 고침','sheet_csv',$2) returning id`,[WS_A,sha('d')])).id;
+   await owner(async c=>{
+    const r=(await c.query(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-0940','바로 고친 사건','tracking',$2) returning id`,[WS_A,b0])).rows[0].id;
+    await c.query(`update public.app_ledger_records set title='바로 고침' where id=$1`,[r]);
+    assert.equal((await c.query(`delete from public.app_ledger_records where id=$1`,[r])).rowCount,0);
+   });
    // A second batch: applied → revert (delete its unedited rows) → reverted; the same file may then be imported again.
    const b2=(await one(`insert into public.app_ledger_imports(workspace_id,label,source_kind,file_sha256) values($1,'둘째 묶음','sheet_csv',$2) returning id`,[WS_A,sha('b')])).id;
-   const r2=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-0050','되돌릴 가상 사건','tracking',$2) returning id`,[WS_A,b2])).id;
-   const s2=(await one(`insert into public.app_ledger_sources(workspace_id,ledger_id,title,import_id) values($1,'SRC-0050','되돌릴 가상 출처',$2) returning id`,[WS_A,b2])).id;
+   const r2=(await one(`insert into public.app_ledger_records(workspace_id,kind,ledger_id,title,event_status,import_id) values($1,'event','EVT-0950','되돌릴 가상 사건','tracking',$2) returning id`,[WS_A,b2])).id;
+   const s2=(await one(`insert into public.app_ledger_sources(workspace_id,ledger_id,title,import_id) values($1,'SRC-0950','되돌릴 가상 출처',$2) returning id`,[WS_A,b2])).id;
    await q(`insert into public.app_ledger_record_sources(workspace_id,record_id,source_id,import_id) values($1,$2,$3,$4)`,[WS_A,r2,s2,b2]);
-   await q(`insert into public.app_ledger_audit(workspace_id,event,legacy_id,import_id) values($1,'legacy_write_request','WR-0050',$2)`,[WS_A,b2]);
+   await q(`insert into public.app_ledger_audit(workspace_id,event,legacy_id,import_id) values($1,'legacy_write_request','WR-0950',$2)`,[WS_A,b2]);
    await owner(async c=>{
     await c.query(`delete from public.app_ledger_record_sources where import_id=$1`,[b2]);
     assert.equal((await c.query(`delete from public.app_ledger_records where import_id=$1`,[b2])).rowCount,1);
@@ -278,7 +285,7 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
    });
    // Deleted rows are kept in the audit record; their numbers are not reused.
    assert.equal((await one(`select count(*)::int n from public.app_ledger_audit where event='row_delete' and target_id=$1`,[r2])).n,1);
-   assert.equal((await one(`insert into public.app_ledger_records(workspace_id,kind,title,event_status) values($1,'event','번호 확인','watching') returning ledger_id`,[WS_A])).ledger_id,'EVT-0051');
+   assert.equal((await one(`insert into public.app_ledger_records(workspace_id,kind,title,event_status) values($1,'event','번호 확인','watching') returning ledger_id`,[WS_A])).ledger_id,'EVT-0951');
    await assert.rejects(q(`update public.app_ledger_imports set status='applied', decided_at=null where id=$1`,[b2]),/LEDGER_ALREADY_DECIDED/);
    await q(`insert into public.app_ledger_imports(workspace_id,label,source_kind,file_sha256) values($1,'같은 파일 다시','sheet_csv',$2)`,[WS_A,sha('b')]);
    // Confirming the first batch locks its rows: nothing can be deleted any more.
