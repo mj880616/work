@@ -507,14 +507,12 @@
 .account-panel{ border-radius:var(--ds-radius-box); box-shadow:var(--kptu-shadow-float); }
 .account-panel .account-action{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
 .account-panel [data-kptu-logout]{ color:var(--kptu-danger); }
-.account-panel [data-drive-summary-status]{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 
 /* ☰ 메뉴 판(폰 [메뉴] 탭·761~1023px ☰): 제목 18px, 항목은 메뉴 줄(44px·13px·400, 줄 사이 0.5px), "계정"은 섹션 이름. */
 #appView .mobile-menu-panel .mobile-menu-head b{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
 #appView .mobile-menu-panel :is(nav,#mobileAccountGroup) button{ min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
 #appView .mobile-menu-panel nav button:not([hidden]) ~ button:not([hidden]){ border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
 #appView .mobile-menu-panel h2{ margin:4px 0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--ds-section-ink); }
-#appView .mobile-menu-panel [data-drive-summary-status]{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 
 /* PC 사이드바: 0.5px 상자·모서리 12px·그림자 없음, 메뉴 줄 13px(고른 화면만 500, 연한 계정 색 바탕). */
 @media(min-width:1024px){
@@ -618,19 +616,8 @@
   /* 계정: 0.5px 상자 안 줄(44px)·줄 사이 이어진 0.5px 선. 사본 갱신 시각은 같은 줄 오른쪽에 작게, 사본 링크는 그 아래 보조 글자. */
   #appView .mobile-menu-panel #mobileAccountGroup{ overflow:hidden; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); }
   #appView .mobile-menu-panel #mobileAccountGroup > * + *{ border-top:var(--ds-line-width) solid var(--ds-line); }
-  #appView .mobile-menu-panel #mobileAccountGroup > [data-account-drive-slot]:empty{ display:none; }
   #appView .mobile-menu-panel #mobileAccountGroup button.account-action{ min-height:var(--kptu-touch-target,44px); padding:0 var(--ds-row-pad-x); border-radius:0; }
 }
-/* 사본 갱신 줄: 조직·프로젝트 사본 링크는 밑줄 없는 흐린 보조 글자(폰 메뉴 판·PC 계정 메뉴 공통).
-   폰 메뉴 판은 폭이 넉넉하므로 시각을 같은 줄 오른쪽에 작게 두고 링크 앞에 "사본 열기"를 붙인다(PC 계정 메뉴는 좁아 그대로 아래 줄). */
-[data-account-drive-slot] .drive-summary-links{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-[data-account-drive-slot] .drive-summary-links a{ color:inherit; text-decoration:none; }
-[data-account-drive-slot] .drive-summary-links a:hover,[data-account-drive-slot] .drive-summary-links a:focus-visible{ color:var(--kptu-ink); text-decoration:underline; text-underline-offset:2px; }
-#mobileAccountGroup [data-account-drive-slot]{ position:relative; }
-#mobileAccountGroup [data-account-drive-slot] .drive-summary-time{ position:absolute; top:calc(var(--kptu-touch-target,44px) / 2); right:var(--ds-row-pad-x); transform:translateY(-50%); font-size:11px; line-height:1; color:var(--kptu-muted); pointer-events:none; }
-#mobileAccountGroup [data-account-drive-slot] [data-drive-summary-status]{ padding:0 var(--ds-row-pad-x); }
-#mobileAccountGroup [data-account-drive-slot] [data-drive-summary-status]:not(:empty){ margin:-6px 0 0; padding-bottom:8px; }
-#mobileAccountGroup [data-account-drive-slot] .drive-summary-links::before{ content:"사본 열기 "; }
 @media(max-width:760px) and (prefers-reduced-motion:reduce){ #appView .mobile-menu-panel{ animation:none; transition:none; } }
 
 /* 6 바구니 메모 읽기·수정: 제목 자리 "‹ 바구니"와 이 메모의 [⋯](수정·원문 그대로 보기·보관·삭제). 연결·날짜는 본문 아래 한 줄. */

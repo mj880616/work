@@ -18,8 +18,7 @@ const accounts=logoutButtons.map(logout=>{
   const profile=document.createElement('button');profile.type='button';profile.className='account-action';profile.dataset.profileOpen='';profile.textContent='내 프로필';
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  const slot=document.createElement('div');slot.dataset.accountDriveSlot='';
-  logout.before(host);host.append(trigger);panel.append(profile,theme,slot,logout);document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(profile,theme,logout);document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
   return {host,trigger,panel,profile,theme,nativePopover};
 });
@@ -140,7 +139,7 @@ function syncMobile(){
   const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==target){
     if(activeAccount)closeAccount();
-    target.append(mobileAccount.profile,mobileAccount.theme,mobileAccount.panel.querySelector('[data-account-drive-slot]')||mobileGroup.querySelector('[data-account-drive-slot]'),logoutButtons[0]);
+    target.append(mobileAccount.profile,mobileAccount.theme,logoutButtons[0]);
   }
   syncKeyboard();
 }
