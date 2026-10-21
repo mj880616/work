@@ -116,7 +116,7 @@
 @media(hover:hover){ #appView #journalView .journal-note-open:hover{ text-decoration:underline; } }
 
 /* JOURNAL-주간보고허브 2단계: [하루 | 주간 정리] 전환(작은 세그먼트, 고른 쪽 회색 — ui-standard.css ①과 같은 모양)과 [주간 정리] 칸.
-   주간 정리는 상집보고 순서(1. 요청사항 → 2. 기본·영역·의제 사업 요약 표·회의 → 4. 산하 조직 현황 → 참고). PC는 넓게, 큰 버튼 없음. */
+   주간 정리는 상집보고 순서(1. 요청사항(재료 없음 자리) → 2. 기본·영역·의제 사업 요약 표·회의 → 4. 산하 조직 현황 → 참고). PC는 넓게, 큰 버튼 없음. */
 #appView #journalView .journal-mode-switch{ box-sizing:border-box; display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; flex:0 0 auto; height:var(--ds-compact-height);
   margin:0; padding:0; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
 #appView #journalView .journal-mode-switch button{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; width:auto; min-width:0; height:auto; min-height:0;
@@ -176,10 +176,8 @@
   #appView #journalView .journal-weekly-task{ font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
   #appView #journalView .journal-weekly-day{ min-width:0; }
 }
-/* PC: 1. 요청사항(두 칸 나란히)·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
+/* PC: 1. 요청사항·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
 @media(min-width:1024px){
   #appView #journalView .journal-weekly-body{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; align-items:start; }
   #appView #journalView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
-  #appView #journalView .journal-weekly-chapter[data-journal-weekly-chapter="requests"]{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 24px; }
-  #appView #journalView .journal-weekly-chapter[data-journal-weekly-chapter="requests"] > h4{ grid-column:1/-1; }
 }
