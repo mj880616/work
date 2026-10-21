@@ -3,6 +3,7 @@ import { createAnchoredMenu } from './anchored-menu.js';
 import { dayKey } from './home-read-model.js';
 import { createGoogleTask } from './quick-save.js';
 import { readTaskSourceNotes, requestBasketNote, takeTaskOpenRequest, basketNoteHref } from './basket-note-tasks.js';
+import { readTaskFiles, fileLinksHtml, openTaskFilesDialog } from './task-files.js';
 (()=>{
 'use strict';
 if(window.__KPTU_GOOGLE_TASKS__)return;
@@ -44,8 +45,9 @@ function section(){
   taskList.insertAdjacentElement('afterend',sec);
   sec.querySelector('[data-gt-info]').onclick=openScope;
   if(!taskMenu)taskMenu=createAnchoredMenu({id:'gtTaskMenu',className:'gt-task-menu',label:'할 일 관리',historyKey:'kptuTaskMenu',key:trigger=>trigger.dataset.gtMenu,onClose:()=>{if(taskRenderPending){taskRenderPending=false;renderTasks(lastTasks)}},
-    render:()=>'<button type="button" data-gt-menu-action="edit">편집</button><button type="button" class="gt-menu-danger" data-gt-menu-action="delete">삭제</button>',
-    onAction:(button,active)=>{active.trigger.focus({preventScroll:true});if(button.dataset.gtMenuAction==='edit'){const task=lastTasks.find(t=>t.id===active.id);if(task)openEditor(task,{docked:true})}else queueDelete(active.id)}
+    // TASK-파일붙이기: "파일 붙이기" only once the server and table answered action=files for this owner.
+    render:()=>'<button type="button" data-gt-menu-action="edit">편집</button>'+(filesSupported()?'<button type="button" data-gt-menu-action="files">파일 붙이기</button>':'')+'<button type="button" class="gt-menu-danger" data-gt-menu-action="delete">삭제</button>',
+    onAction:(button,active)=>{active.trigger.focus({preventScroll:true});const action=button.dataset.gtMenuAction,task=lastTasks.find(t=>t.id===active.id);if(action==='edit'){if(task)openEditor(task,{docked:true})}else if(action==='files'){if(task)openFiles(task)}else queueDelete(active.id)}
   });
   return sec;
 }
@@ -239,11 +241,11 @@ async function saveToggle(id,p,epoch,owner){p.busy=true;let failed=null;while((p
 // Overdue pending tasks (묶음C-4) come first in their own group, oldest due first; then today and tomorrow..+7 days; then every task completed
 // in the last 3 days whatever its due date (2026-09-27 decision: completing an overdue or undated task keeps it visible).
 const taskMeta=t=>{const date=dueDateKey(t.due)?`<span class="gt-due">${esc(due(t.due))}</span>`:'',names=(t.projectNames||[]).join(', ');return date||names?`<div class="gt-meta">${date}${names?`<span class="gt-project" title="${esc(names)}">${date?' · ':''}${esc(names)}</span>`:''}</div>`:''};
-const taskRow=(t,overdue=false,fx=null)=>`<div class="gt-row ${t.status==='completed'?'completed':'pending'}${overdue?' overdue':''}${fx?fx.cls:''}" data-google-task="${esc(t.id)}"${fx?` style="--gt-t:-${Math.max(0,Math.round(fx.t))}ms"`:''}><button class="gt-check" type="button" data-gt-toggle="${esc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button><button class="gt-main" type="button" data-gt-edit="${esc(t.id)}"><b>${esc(t.title||'제목 없음')}</b>${taskMeta(t)}</button><button class="icon-btn gt-menu-trigger" type="button" data-gt-menu="${esc(t.id)}" aria-label="할 일 관리: ${esc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="gtTaskMenu">⋯</button>${sourceLink(t.id)}</div>`;
+const taskRow=(t,overdue=false,fx=null)=>`<div class="gt-row ${t.status==='completed'?'completed':'pending'}${overdue?' overdue':''}${fx?fx.cls:''}" data-google-task="${esc(t.id)}"${fx?` style="--gt-t:-${Math.max(0,Math.round(fx.t))}ms"`:''}><button class="gt-check" type="button" data-gt-toggle="${esc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button><button class="gt-main" type="button" data-gt-edit="${esc(t.id)}"><b>${esc(t.title||'제목 없음')}</b>${taskMeta(t)}</button><button class="icon-btn gt-menu-trigger" type="button" data-gt-menu="${esc(t.id)}" aria-label="할 일 관리: ${esc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="gtTaskMenu">⋯</button>${sourceLink(t.id)}${fileLinks(t.id)}</div>`;
 // UI-PC할일: PC(≥1024) card in a due-date column. Same controls and data attributes as taskRow (completion circle, open, ⋯),
 // so toggling, the tap effect, the menu and the source link work unchanged; the meta line becomes due date + small link tags.
 const tagList=t=>[...(t.projectNames||[]).map(n=>['project',n]),...orgNamesOf(t).map(n=>['org',n])];
-const taskCard=(t,overdue=false,fx=null)=>{const date=dueDateKey(t.due)?`<span class="gt-due">${esc(due(t.due))}</span>`:'',tags=tagList(t).map(([kind,n])=>`<span class="gt-tag gt-tag-${kind}" title="${esc(n)}">${esc(n)}</span>`).join('');return `<li class="gt-row gt-card ${t.status==='completed'?'completed':'pending'}${overdue?' overdue':''}${fx?fx.cls:''}" data-google-task="${esc(t.id)}"${fx?` style="--gt-t:-${Math.max(0,Math.round(fx.t))}ms"`:''}><button class="gt-check" type="button" data-gt-toggle="${esc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button><button class="gt-main" type="button" data-gt-edit="${esc(t.id)}"><b>${esc(t.title||'제목 없음')}</b>${date||tags?`<span class="gt-meta">${date}${tags}</span>`:''}</button><button class="icon-btn gt-menu-trigger" type="button" data-gt-menu="${esc(t.id)}" aria-label="할 일 관리: ${esc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="gtTaskMenu">⋯</button>${sourceLink(t.id)}</li>`};
+const taskCard=(t,overdue=false,fx=null)=>{const date=dueDateKey(t.due)?`<span class="gt-due">${esc(due(t.due))}</span>`:'',tags=tagList(t).map(([kind,n])=>`<span class="gt-tag gt-tag-${kind}" title="${esc(n)}">${esc(n)}</span>`).join('');return `<li class="gt-row gt-card ${t.status==='completed'?'completed':'pending'}${overdue?' overdue':''}${fx?fx.cls:''}" data-google-task="${esc(t.id)}"${fx?` style="--gt-t:-${Math.max(0,Math.round(fx.t))}ms"`:''}><button class="gt-check" type="button" data-gt-toggle="${esc(t.id)}" aria-label="${t.status==='completed'?'완료 취소':'완료'}"></button><button class="gt-main" type="button" data-gt-edit="${esc(t.id)}"><b>${esc(t.title||'제목 없음')}</b>${date||tags?`<span class="gt-meta">${date}${tags}</span>`:''}</button><button class="icon-btn gt-menu-trigger" type="button" data-gt-menu="${esc(t.id)}" aria-label="할 일 관리: ${esc(t.title||'제목 없음')}" aria-expanded="false" aria-controls="gtTaskMenu">⋯</button>${sourceLink(t.id)}${fileLinks(t.id)}</li>`};
 // Organization names for the tags: the assigned organizations the editor already offers (loadTargets, cached per owner).
 let orgNameMap={owner:'',map:new Map(),loading:false};
 function orgNamesOf(t){const ids=t.orgIds||[];if(!ids.length)return[];const owner=currentOwner();if(orgNameMap.owner!==owner&&!orgNameMap.loading){orgNameMap.loading=true;loadTargets().then(targets=>{if(currentOwner()!==owner)return;orgNameMap={owner,map:new Map(targets.orgGroups.flat().map(o=>[o.key.slice(2),o.label])),loading:false};if(tasksViewShown()&&pcColumns())renderTasks(lastTasks)},()=>{orgNameMap.loading=false})}return orgNameMap.owner===owner?ids.map(id=>orgNameMap.map.get(id)).filter(Boolean):[]}
@@ -277,6 +279,28 @@ function paintSourceNote(task){
   const note=task?.id?sourceNoteOf(task.id):'';
   box.classList.toggle('hidden',!note);box.innerHTML=note?`이 할 일은 바구니 업데이트에서 만들었습니다. <a href="${esc(basketNoteHref(note))}" data-gt-source-note="${esc(note)}">출처 업데이트</a>`:'';
   box.querySelector('[data-gt-source-note]')?.addEventListener('click',openSourceNote);
+}
+// TASK-파일붙이기: task id -> attached files, read once per list load. A failure (older Edge, no table) hides the menu item and names.
+let taskFiles={owner:'',supported:false,map:new Map()};
+const filesSupported=()=>taskFiles.supported&&taskFiles.owner===currentOwner();
+const filesOf=id=>taskFiles.owner&&taskFiles.owner===currentOwner()?taskFiles.map.get(id)||[]:[];
+const fileLinks=id=>fileLinksHtml(filesOf(id));
+async function loadTaskFiles(owner,epoch,tasks){
+  let map=null;try{map=await readTaskFiles(tasks.map(t=>t.id),{rt})}catch{map=null}
+  if(!stillCurrent(epoch,owner))return false;
+  const before=taskFiles.supported+':'+JSON.stringify([...taskFiles.map]);
+  taskFiles=map?{owner,supported:true,map}:{owner,supported:false,map:new Map()};
+  return before!==taskFiles.supported+':'+JSON.stringify([...taskFiles.map]);
+}
+function openFiles(task){
+  const owner=currentOwner(),epoch=sessionEpoch;if(!owner||!filesSupported())return;
+  openTaskFilesDialog({task,files:filesOf(task.id),rt,isCurrent:()=>stillCurrent(epoch,owner),onChange:(files,fresh)=>{
+    if(!stillCurrent(epoch,owner))return;
+    const map=new Map(taskFiles.map);if(files.length)map.set(task.id,files);else map.delete(task.id);taskFiles={...taskFiles,map};
+    // The answer carries the task with its rebuilt notes (one link line per file). Keep this list's decorations.
+    const shown=lastTasks.find(t=>t.id===task.id);
+    if(shown&&fresh?.id===task.id)putTask({...shown,notes:fresh.notes??shown.notes,updated:fresh.updated??shown.updated},owner);else renderTasks(lastTasks);
+  }});
 }
 async function loadSourceNotes(owner,epoch){
   const map=await readTaskSourceNotes({rt});
@@ -374,6 +398,7 @@ async function load(force=false){
     if(loadSeq===seq)loadingEpoch=-1;
     // Source notes: one owner-scoped query per load. A failure only hides the links.
     void loadSourceNotes(owner,epoch).then(changed=>{if(changed&&seq===loadSeq)renderTasks(lastTasks)},()=>{}).finally(()=>{if(seq===loadSeq&&stillCurrent(epoch,owner))openRequestedTask()});
+    void loadTaskFiles(owner,epoch,lastTasks).then(changed=>{if(changed&&seq===loadSeq)renderTasks(lastTasks)},()=>{});
     try{const decorated=await describeTasks(fresh);if(seq!==loadSeq||!stillCurrent(epoch,owner))return;lastTasks=lastTasks.map(t=>{const d=decorated.find(x=>x.id===t.id);return {...t,unlinked:d?.unlinked||false,projectNames:d?.projectNames||[],orgIds:d?.orgIds||[]}});cacheWrite(owner,lastTasks);renderTasks(lastTasks)}catch{if(seq===loadSeq&&stillCurrent(epoch,owner))setSync('연결 표시를 확인하지 못했습니다.',true)}
   }catch(e){
     if(seq!==loadSeq||!stillCurrent(epoch,owner))return;

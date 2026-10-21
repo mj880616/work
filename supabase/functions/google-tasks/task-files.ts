@@ -2,6 +2,7 @@
 // and public.app_task_attachments (owner RLS) remembers which file belongs to which task. That table is reached only with
 // the caller's JWT (db), never the service role. The service role (admin) is used only where library-files and
 // basket-files already use it: owner membership, the Drive OAuth setting and the 자료실 folder ID.
+// The app reads the table itself (GET /rest/v1/app_task_attachments, owner RLS) to show file names under each task.
 // The task's notes get one line per file ("첨부: <name> <Drive link>") so the Google Tasks app shows a link instead of a file.
 // Those lines belong to the table: every Web2 save rebuilds them, so an editor opened before an attach never drops a line.
 import { createDriveUpload, UploadError } from "../_shared/drive-upload.ts";
@@ -12,7 +13,6 @@ export const MAX_FILE_BYTES = 100 * 1024 * 1024;
 export const TASK_FILES_FOLDER = "할 일 첨부";
 // Google Tasks keeps at most 8192 characters of notes.
 export const NOTES_MAX = 8192;
-const MAX_LIST_IDS = 100;
 const TASK_ID = /^[A-Za-z0-9_-]{1,200}$/;
 const FILE_ID = /^[A-Za-z0-9_-]{1,255}$/;
 const COLS = "google_task_id,drive_file_id,file_name,mime_type,size_bytes,created_at";
@@ -76,21 +76,6 @@ export function createTaskFiles(admin: UploadAdmin, deps: Deps) {
     return data;
   }
   const unavailable = () => fail(503, "task_files_unavailable", "할 일 파일 정보를 불러오지 못했습니다.");
-
-  // action=files&task_ids=a,b,c: attachments of up to 100 tasks. Also tells the app that this server and the table exist.
-  async function files(db: Db, raw: unknown): Promise<Result> {
-    const ids = [...new Set(String(raw || "").split(",").map((s) => s.trim()).filter(Boolean))];
-    if (ids.length > MAX_LIST_IDS || ids.some((id) => !TASK_ID.test(id))) {
-      return fail(400, "task_ids_invalid", "할 일 ID 형식이 올바르지 않습니다.");
-    }
-    if (!ids.length) return { status: 200, body: { files: [], max_files: MAX_TASK_FILES, max_bytes: MAX_FILE_BYTES } };
-    try {
-      const rows = await listFor(db, ids);
-      return { status: 200, body: { files: rows, max_files: MAX_TASK_FILES, max_bytes: MAX_FILE_BYTES } };
-    } catch {
-      return unavailable();
-    }
-  }
 
   // Rebuild the file lines of the task's notes from the table. Throws if the table cannot be read.
   async function notesFor(db: Db, taskId: string, notes: string, drop: string[] = []) {
@@ -262,5 +247,5 @@ export function createTaskFiles(admin: UploadAdmin, deps: Deps) {
     return { status: 200, body: { ok: true, files: notes.files, task: notes.task, notes_synced: notes.synced } };
   }
 
-  return { files, attach, detach, notesForUpdate, forget };
+  return { attach, detach, notesForUpdate, forget };
 }

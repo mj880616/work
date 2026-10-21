@@ -217,18 +217,17 @@ test('attach: a refused link row removes only the new Drive file; an unknown out
   assert.deepEqual(unknown.drive.deleted, []);
 });
 
-test('files: lists only the owner\'s rows for the asked tasks, rejects bad ids, and says 503 while the table is missing', async () => {
-  const h = harness({ files: [{ google_task_id: 'task-1', drive_file_id: 'f1', file_name: 'a' }, { google_task_id: 'task-2', drive_file_id: 'f2', file_name: 'b' }, { workspace_id: 'ws-b', google_task_id: 'task-1', drive_file_id: 'fx', file_name: 'x' }] });
-  const r = await h.get('files', { task_ids: 'task-1,task-3' });
-  assert.equal(r.status, 200);
-  assert.deepEqual(r.body.files.map(f => f.drive_file_id), ['f1']);
-  assert.equal(r.body.max_files, MAX_TASK_FILES);
-  assert.equal(h.googleCalls.length, 0, 'no Google call');
-  assert.equal((await h.get('files', { task_ids: 'a,b/c' })).status, 400);
-  assert.equal((await h.get('files', { task_ids: Array.from({ length: 101 }, (_, i) => 't' + i).join(',') })).status, 400);
-  assert.equal((await h.get('files', { task_ids: 'task-1' }, null)).status, 401);
-  const missing = await harness({ tableMissing: true }).get('files', { task_ids: 'task-1' });
-  assert.deepEqual([missing.status, missing.body.code], [503, 'task_files_unavailable']);
+test('the app reads the table itself: action=files is not an Edge action; attach and detach answer 503 while the table is missing', async () => {
+  const h = harness();
+  const r = await h.get('files', { task_ids: 'task-1' });
+  assert.notEqual(r.status, 200);
+  const missing = harness({ tableMissing: true });
+  const a = await missing.attach();
+  assert.deepEqual([a.status, a.body.code], [503, 'task_files_unavailable']);
+  assert.equal(missing.drive.calls.length, 0, 'no Drive call without the table');
+  const d = await missing.post('detach', { task_id: 'task-1', drive_file_id: 'f1' });
+  assert.deepEqual([d.status, d.body.code], [503, 'task_files_unavailable']);
+  assert.equal((await h.attach('task-1', undefined, null)).status, 401, 'no login, no attach');
 });
 
 test('update: an editor opened before the attach does not drop the file line; the user\'s new text is kept', async () => {
