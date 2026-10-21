@@ -106,6 +106,8 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
     return route.fulfill({status:200,contentType:'application/json',body:'[]'});
   });
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
+    // PC 3단(MEET-결과3단) 오른쪽 결과는 후속 할 일을 읽기(GET)로 따로 불러온다. 만들기 요청(POST)만 본다.
+    if(route.request().method()!=='POST')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[]})});
     savedTask=route.request().postDataJSON();
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,task:{id:'google-new'}})});
   });
@@ -552,8 +554,7 @@ test('meeting list filters title-only and series-only legacy rows by the display
 
 test('meeting detail shows one canonical heading while retaining a distinct legacy title in metadata',async({page})=>{
   await signIn(page);
-  const trigger=page.locator('[data-mrd-meeting="meeting-1"]');
-  await trigger.click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdTitle')).toHaveText('궤도협의회');
   await expect(page.locator('#mrdMeta')).toContainText('기존 제목: 접근성 회의');
   await expect(page.locator('#mrdMeta')).toContainText('1차');
