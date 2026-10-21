@@ -1,6 +1,6 @@
 begin;
 -- AI-서버연동 S7-a: 업무 원장(사건DB)을 Web2로 옮기기 위한 표·권한·검색 RPC. 설계: docs/design/ledger-web2.md
--- 새 표 10개 + 트리거 함수 5개 + 검색 함수 1개만 만든다. 기존 표·정책·함수·자료는 바꾸지 않는다.
+-- 새 표 10개 + 트리거 18개(트리거 함수 5개) + 검색 함수 1개만 만든다. 기존 표·정책·함수·자료는 바꾸지 않는다.
 -- 모든 표: RLS 켬, owner 정책(private.app_is_workspace_owner)만, PUBLIC·anon·service_role 권한 없음.
 --   authenticated는 필요한 동작·칸만. 원장 행(기록·출처·조직·주제)은 지우지 않고 대체·폐기 상태로 둔다
 --   (예외: 확인 전 가져오기 묶음 되돌리기, 제한 정책). 고침·지움은 감사 기록(app_ledger_audit)에 남는다.
@@ -31,7 +31,11 @@ begin
      or to_regclass('public.app_suborganizations') is null
      or to_regclass('public.app_meetings') is null
      or not exists (select 1 from pg_proc
-         where oid = to_regprocedure('private.app_is_workspace_owner(uuid)') and prosecdef) then
+         where oid = to_regprocedure('private.app_is_workspace_owner(uuid)') and prosecdef)
+     or not exists (select 1 from pg_proc
+         where oid = to_regprocedure('private.app_space_in_workspace(uuid,uuid)') and prosecdef)
+     or not exists (select 1 from pg_proc
+         where oid = to_regprocedure('private.app_meeting_in_workspace(uuid,uuid)') and prosecdef) then
     raise exception 'LEDGER_SCHEMA_PREREQUISITE_CHANGED; stop';
   end if;
 end
@@ -49,6 +53,7 @@ create table public.app_ledger_imports (
   status text not null default 'applied',
   created_at timestamptz not null default now(),
   decided_at timestamptz,
+  constraint app_ledger_imports_workspace_row_key unique (workspace_id, id),
   constraint app_ledger_imports_label_check check (char_length(btrim(label)) between 1 and 80 and label !~ '[[:cntrl:]]'),
   constraint app_ledger_imports_source_kind_check check (source_kind in ('sheet_csv', 'claude_file', 'other')),
   constraint app_ledger_imports_sha_check check (file_sha256 ~ '^[0-9a-f]{64}$'),
@@ -84,9 +89,11 @@ create table public.app_ledger_topics (
   project_id uuid references public.app_spaces(id) on delete set null,
   status text not null default 'active',
   sort_order integer not null default 0,
-  import_id uuid references public.app_ledger_imports(id),
+  import_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint app_ledger_topics_workspace_row_key unique (workspace_id, id),
+  constraint app_ledger_topics_import_fk foreign key (workspace_id, import_id) references public.app_ledger_imports(workspace_id, id),
   constraint app_ledger_topics_ledger_id_key unique (workspace_id, ledger_id),
   constraint app_ledger_topics_name_key unique (workspace_id, name),
   constraint app_ledger_topics_name_check check (char_length(btrim(name)) between 1 and 80 and name !~ '[[:cntrl:]]'),
@@ -107,9 +114,11 @@ create table public.app_ledger_organizations (
   suborganization_id uuid references public.app_suborganizations(id) on delete set null,
   note text not null default '',
   status text not null default 'active',
-  import_id uuid references public.app_ledger_imports(id),
+  import_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint app_ledger_organizations_workspace_row_key unique (workspace_id, id),
+  constraint app_ledger_organizations_import_fk foreign key (workspace_id, import_id) references public.app_ledger_imports(workspace_id, id),
   constraint app_ledger_organizations_ledger_id_key unique (workspace_id, ledger_id),
   constraint app_ledger_organizations_name_check check (char_length(btrim(name)) between 1 and 120 and name !~ '[[:cntrl:]]'),
   constraint app_ledger_organizations_aliases_check check (
@@ -136,9 +145,11 @@ create table public.app_ledger_sources (
   sensitivity text not null default 'S1',
   note text not null default '',
   status text not null default 'active',
-  import_id uuid references public.app_ledger_imports(id),
+  import_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint app_ledger_sources_workspace_row_key unique (workspace_id, id),
+  constraint app_ledger_sources_import_fk foreign key (workspace_id, import_id) references public.app_ledger_imports(workspace_id, id),
   constraint app_ledger_sources_ledger_id_key unique (workspace_id, ledger_id),
   constraint app_ledger_sources_title_check check (char_length(btrim(title)) between 1 and 300 and title !~ '[[:cntrl:]]'),
   constraint app_ledger_sources_doc_type_check check (doc_type in (
@@ -162,7 +173,7 @@ create table public.app_ledger_records (
   title text not null,
   summary text not null default '',
   scope text not null default 'work',
-  topic_id uuid references public.app_ledger_topics(id),
+  topic_id uuid,
   sensitivity text not null default 'S1',
   importance text not null default 'normal',
   validity text not null default 'current',
@@ -179,12 +190,16 @@ create table public.app_ledger_records (
   counterparty text,
   commitment_status text,
   follow_up_on date,
-  superseded_by uuid references public.app_ledger_records(id),
+  superseded_by uuid,
   supersede_reason text,
   note text not null default '',
-  import_id uuid references public.app_ledger_imports(id),
+  import_id uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint app_ledger_records_workspace_row_key unique (workspace_id, id),
+  constraint app_ledger_records_import_fk foreign key (workspace_id, import_id) references public.app_ledger_imports(workspace_id, id),
+  constraint app_ledger_records_topic_fk foreign key (workspace_id, topic_id) references public.app_ledger_topics(workspace_id, id),
+  constraint app_ledger_records_superseded_fk foreign key (workspace_id, superseded_by) references public.app_ledger_records(workspace_id, id),
   constraint app_ledger_records_ledger_id_key unique (workspace_id, ledger_id),
   constraint app_ledger_records_kind_check check (kind in ('event', 'change', 'decision', 'evidence', 'commitment')),
   constraint app_ledger_records_title_check check (char_length(btrim(title)) between 1 and 300 and title !~ '[[:cntrl:]]'),
@@ -243,12 +258,15 @@ create index app_ledger_records_follow_up_idx on public.app_ledger_records(works
 create table public.app_ledger_record_sources (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.app_workspaces(id) on delete cascade,
-  record_id uuid not null references public.app_ledger_records(id),
-  source_id uuid not null references public.app_ledger_sources(id),
+  record_id uuid not null,
+  source_id uuid not null,
   locator text not null default '',
   note text not null default '',
-  import_id uuid references public.app_ledger_imports(id),
+  import_id uuid,
   created_at timestamptz not null default now(),
+  constraint app_ledger_record_sources_import_fk foreign key (workspace_id, import_id) references public.app_ledger_imports(workspace_id, id),
+  constraint app_ledger_record_sources_record_fk foreign key (workspace_id, record_id) references public.app_ledger_records(workspace_id, id),
+  constraint app_ledger_record_sources_source_fk foreign key (workspace_id, source_id) references public.app_ledger_sources(workspace_id, id),
   constraint app_ledger_record_sources_key unique (record_id, source_id, locator),
   constraint app_ledger_record_sources_locator_check check (char_length(locator) <= 500 and locator !~ '[[:cntrl:]]'),
   constraint app_ledger_record_sources_note_check check (char_length(note) <= 500)
@@ -260,15 +278,19 @@ create index app_ledger_record_sources_source_idx on public.app_ledger_record_so
 create table public.app_ledger_links (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.app_workspaces(id) on delete cascade,
-  record_id uuid not null references public.app_ledger_records(id),
-  target_record_id uuid references public.app_ledger_records(id),
-  target_organization_id uuid references public.app_ledger_organizations(id),
+  record_id uuid not null,
+  target_record_id uuid,
+  target_organization_id uuid,
   target_project_id uuid references public.app_spaces(id) on delete cascade,
   target_meeting_id uuid references public.app_meetings(id) on delete cascade,
   relation text not null,
   note text not null default '',
-  import_id uuid references public.app_ledger_imports(id),
+  import_id uuid,
   created_at timestamptz not null default now(),
+  constraint app_ledger_links_import_fk foreign key (workspace_id, import_id) references public.app_ledger_imports(workspace_id, id),
+  constraint app_ledger_links_record_fk foreign key (workspace_id, record_id) references public.app_ledger_records(workspace_id, id),
+  constraint app_ledger_links_target_record_fk foreign key (workspace_id, target_record_id) references public.app_ledger_records(workspace_id, id),
+  constraint app_ledger_links_target_org_fk foreign key (workspace_id, target_organization_id) references public.app_ledger_organizations(workspace_id, id),
   constraint app_ledger_links_one_target check (
     num_nonnulls(target_record_id, target_organization_id, target_project_id, target_meeting_id) = 1),
   constraint app_ledger_links_not_self check (target_record_id is null or target_record_id <> record_id),
@@ -295,16 +317,19 @@ create table public.app_ledger_candidates (
   status text not null default 'pending',
   action text not null default 'new',
   kind text not null,
-  target_record_id uuid references public.app_ledger_records(id),
+  target_record_id uuid,
   title text not null,
   payload jsonb not null default '{}'::jsonb,
   sensitivity text not null default 'S1',
   dedup_key text,
-  import_id uuid references public.app_ledger_imports(id),
-  result_record_id uuid references public.app_ledger_records(id),
+  import_id uuid,
+  result_record_id uuid,
   discard_reason text,
   created_at timestamptz not null default now(),
   decided_at timestamptz,
+  constraint app_ledger_candidates_import_fk foreign key (workspace_id, import_id) references public.app_ledger_imports(workspace_id, id),
+  constraint app_ledger_candidates_target_fk foreign key (workspace_id, target_record_id) references public.app_ledger_records(workspace_id, id),
+  constraint app_ledger_candidates_result_fk foreign key (workspace_id, result_record_id) references public.app_ledger_records(workspace_id, id),
   constraint app_ledger_candidates_origin_check check (origin in ('web2_ai', 'claude_import', 'user')),
   constraint app_ledger_candidates_import_check check ((origin = 'claude_import') = (import_id is not null)),
   constraint app_ledger_candidates_status_check check (
@@ -335,10 +360,11 @@ create table public.app_ledger_audit (
   target_table text,
   target_id uuid,
   legacy_id text,
-  import_id uuid references public.app_ledger_imports(id),
+  import_id uuid,
   occurred_at timestamptz,
   detail jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
+  constraint app_ledger_audit_import_fk foreign key (workspace_id, import_id) references public.app_ledger_imports(workspace_id, id),
   constraint app_ledger_audit_event_check check (event in (
     'legacy_write_request', 'row_update', 'row_delete', 'candidate_decided', 'import_applied', 'import_confirmed',
     'import_reverted', 'note')),
@@ -370,6 +396,10 @@ declare
   v_number integer;
   v_id text := v_row ->> 'ledger_id';
 begin
+  -- 남의 작업공간이면 번호표를 보기 전에 권한 오류로 멈춘다(RLS와 같은 결과, 번호 존재 여부를 알리지 않음).
+  if current_user = 'authenticated' and not private.app_is_workspace_owner(new.workspace_id) then
+    raise exception using errcode = '42501', message = 'LEDGER_NOT_OWNER';
+  end if;
   select c.prefix, c.last_number into v_prefix, v_last
   from public.app_ledger_id_counters c
   where c.workspace_id = new.workspace_id and c.scope = v_scope
@@ -379,7 +409,7 @@ begin
   end if;
   if v_id is null then
     v_number := v_last + 1;
-    v_id := v_prefix || '-' || pg_catalog.lpad(v_number::text, 4, '0');
+    v_id := v_prefix || '-' || pg_catalog.lpad(v_number::text, greatest(4, pg_catalog.length(v_number::text)), '0');
     new := pg_catalog.jsonb_populate_record(new, pg_catalog.jsonb_build_object('ledger_id', v_id));
   else
     if v_row ->> 'import_id' is null then
@@ -388,7 +418,11 @@ begin
     if v_id !~ ('^' || v_prefix || '-[0-9]{4,6}$') then
       raise exception using errcode = '23514', message = 'LEDGER_ID_FORMAT: id must be ' || v_prefix || '-0000';
     end if;
-    v_number := pg_catalog.substring(v_id from '[0-9]+$')::integer;
+    v_number := pg_catalog."substring"(v_id, '[0-9]+$')::integer;
+    -- 같은 번호를 다른 모양(EVT-0012와 EVT-00012)으로 두 번 쓰지 못하게, 4자리 미만만 0으로 채운 모양만 받는다.
+    if v_id <> v_prefix || '-' || pg_catalog.lpad(v_number::text, greatest(4, pg_catalog.length(v_number::text)), '0') then
+      raise exception using errcode = '23514', message = 'LEDGER_ID_FORMAT: id must be ' || v_prefix || '-0000';
+    end if;
   end if;
   if v_number > v_last then
     update public.app_ledger_id_counters c set last_number = v_number
@@ -571,7 +605,8 @@ grant insert (workspace_id, event, target_table, target_id, legacy_id, import_id
 grant delete on table public.app_ledger_topics, public.app_ledger_organizations, public.app_ledger_sources,
   public.app_ledger_records, public.app_ledger_audit to authenticated;
 
--- 정책: 표마다 owner 하나. 다른 표를 가리키는 칸은 같은 workspace의 행만(깨진 참조·남의 행 연결 거절).
+-- 정책: 표마다 owner 하나. 원장 표끼리의 참조는 (workspace_id, id) 묶음 외래 키라 없는 행·남의 작업공간 행을 가리키면
+-- DB가 거절한다(23503). Web2 프로젝트·회의는 기존 같은-작업공간 확인 함수, 담당조직은 owner가 읽을 수 있는 행만.
 create policy ledger_imports_owner_all on public.app_ledger_imports for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
   with check (private.app_is_workspace_owner(workspace_id));
@@ -580,79 +615,35 @@ create policy ledger_id_counters_owner_all on public.app_ledger_id_counters for 
   with check (private.app_is_workspace_owner(workspace_id));
 create policy ledger_topics_owner_all on public.app_ledger_topics for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
-  with check (
-    private.app_is_workspace_owner(workspace_id)
-    and (project_id is null or exists (select 1 from public.app_spaces s
-      where s.id = project_id and s.workspace_id = app_ledger_topics.workspace_id))
-    and (import_id is null or exists (select 1 from public.app_ledger_imports i
-      where i.id = import_id and i.workspace_id = app_ledger_topics.workspace_id)));
+  with check (private.app_is_workspace_owner(workspace_id) and private.app_space_in_workspace(project_id, workspace_id));
 create policy ledger_organizations_owner_all on public.app_ledger_organizations for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
   with check (
     private.app_is_workspace_owner(workspace_id)
     and (suborganization_id is null or exists (select 1 from public.app_suborganizations o
-      where o.id = suborganization_id and o.workspace_id = app_ledger_organizations.workspace_id))
-    and (import_id is null or exists (select 1 from public.app_ledger_imports i
-      where i.id = import_id and i.workspace_id = app_ledger_organizations.workspace_id)));
+      where o.id = suborganization_id and o.workspace_id = app_ledger_organizations.workspace_id)));
 create policy ledger_sources_owner_all on public.app_ledger_sources for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
-  with check (
-    private.app_is_workspace_owner(workspace_id)
-    and (import_id is null or exists (select 1 from public.app_ledger_imports i
-      where i.id = import_id and i.workspace_id = app_ledger_sources.workspace_id)));
+  with check (private.app_is_workspace_owner(workspace_id));
 create policy ledger_records_owner_all on public.app_ledger_records for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
-  with check (
-    private.app_is_workspace_owner(workspace_id)
-    and (topic_id is null or exists (select 1 from public.app_ledger_topics t
-      where t.id = topic_id and t.workspace_id = app_ledger_records.workspace_id))
-    and (superseded_by is null or exists (select 1 from public.app_ledger_records r
-      where r.id = superseded_by and r.workspace_id = app_ledger_records.workspace_id))
-    and (import_id is null or exists (select 1 from public.app_ledger_imports i
-      where i.id = import_id and i.workspace_id = app_ledger_records.workspace_id)));
+  with check (private.app_is_workspace_owner(workspace_id));
 create policy ledger_record_sources_owner_all on public.app_ledger_record_sources for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
-  with check (
-    private.app_is_workspace_owner(workspace_id)
-    and exists (select 1 from public.app_ledger_records r
-      where r.id = record_id and r.workspace_id = app_ledger_record_sources.workspace_id)
-    and exists (select 1 from public.app_ledger_sources s
-      where s.id = source_id and s.workspace_id = app_ledger_record_sources.workspace_id)
-    and (import_id is null or exists (select 1 from public.app_ledger_imports i
-      where i.id = import_id and i.workspace_id = app_ledger_record_sources.workspace_id)));
+  with check (private.app_is_workspace_owner(workspace_id));
 create policy ledger_links_owner_all on public.app_ledger_links for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
   with check (
     private.app_is_workspace_owner(workspace_id)
-    and exists (select 1 from public.app_ledger_records r
-      where r.id = record_id and r.workspace_id = app_ledger_links.workspace_id)
-    and (target_record_id is null or exists (select 1 from public.app_ledger_records r
-      where r.id = target_record_id and r.workspace_id = app_ledger_links.workspace_id))
-    and (target_organization_id is null or exists (select 1 from public.app_ledger_organizations o
-      where o.id = target_organization_id and o.workspace_id = app_ledger_links.workspace_id))
-    and (target_project_id is null or exists (select 1 from public.app_spaces s
-      where s.id = target_project_id and s.workspace_id = app_ledger_links.workspace_id))
-    and (target_meeting_id is null or exists (select 1 from public.app_meetings m
-      where m.id = target_meeting_id and m.workspace_id = app_ledger_links.workspace_id))
-    and (import_id is null or exists (select 1 from public.app_ledger_imports i
-      where i.id = import_id and i.workspace_id = app_ledger_links.workspace_id)));
+    and private.app_space_in_workspace(target_project_id, workspace_id)
+    and private.app_meeting_in_workspace(target_meeting_id, workspace_id));
 create policy ledger_candidates_owner_all on public.app_ledger_candidates for all to authenticated
   using (private.app_is_workspace_owner(workspace_id))
-  with check (
-    private.app_is_workspace_owner(workspace_id)
-    and (target_record_id is null or exists (select 1 from public.app_ledger_records r
-      where r.id = target_record_id and r.workspace_id = app_ledger_candidates.workspace_id))
-    and (result_record_id is null or exists (select 1 from public.app_ledger_records r
-      where r.id = result_record_id and r.workspace_id = app_ledger_candidates.workspace_id))
-    and (import_id is null or exists (select 1 from public.app_ledger_imports i
-      where i.id = import_id and i.workspace_id = app_ledger_candidates.workspace_id)));
+  with check (private.app_is_workspace_owner(workspace_id));
 create policy ledger_audit_owner_read on public.app_ledger_audit for select to authenticated
   using (private.app_is_workspace_owner(workspace_id));
 create policy ledger_audit_owner_insert on public.app_ledger_audit for insert to authenticated
-  with check (
-    private.app_is_workspace_owner(workspace_id)
-    and (import_id is null or exists (select 1 from public.app_ledger_imports i
-      where i.id = import_id and i.workspace_id = app_ledger_audit.workspace_id)));
+  with check (private.app_is_workspace_owner(workspace_id));
 -- 감사 기록은 옛 쓰기요청 행만, 아직 확인 안 한 가져오기 묶음을 되돌릴 때만 지운다.
 create policy ledger_audit_owner_revert on public.app_ledger_audit for delete to authenticated
   using (
@@ -660,16 +651,16 @@ create policy ledger_audit_owner_revert on public.app_ledger_audit for delete to
     and event = 'legacy_write_request'
     and exists (select 1 from public.app_ledger_imports i where i.id = import_id and i.status = 'applied'));
 -- 제한 정책(AND로 걸림): 원장 행은 확인 전 가져오기 묶음에서 들어와 고친 적 없는 것만 지운다.
-create policy ledger_topics_revert_only as restrictive on public.app_ledger_topics for delete to authenticated
+create policy ledger_topics_revert_only on public.app_ledger_topics as restrictive for delete to authenticated
   using (updated_at = created_at and exists (select 1 from public.app_ledger_imports i
     where i.id = import_id and i.status = 'applied'));
-create policy ledger_organizations_revert_only as restrictive on public.app_ledger_organizations for delete to authenticated
+create policy ledger_organizations_revert_only on public.app_ledger_organizations as restrictive for delete to authenticated
   using (updated_at = created_at and exists (select 1 from public.app_ledger_imports i
     where i.id = import_id and i.status = 'applied'));
-create policy ledger_sources_revert_only as restrictive on public.app_ledger_sources for delete to authenticated
+create policy ledger_sources_revert_only on public.app_ledger_sources as restrictive for delete to authenticated
   using (updated_at = created_at and exists (select 1 from public.app_ledger_imports i
     where i.id = import_id and i.status = 'applied'));
-create policy ledger_records_revert_only as restrictive on public.app_ledger_records for delete to authenticated
+create policy ledger_records_revert_only on public.app_ledger_records as restrictive for delete to authenticated
   using (updated_at = created_at and exists (select 1 from public.app_ledger_imports i
     where i.id = import_id and i.status = 'applied'));
 

@@ -37,4 +37,4 @@ union all select 'functions are security invoker with empty search_path',case wh
 union all select 'only search is callable, by authenticated only',case when (select count(*) from f)=0 or (
   (select bool_and(has_function_privilege('authenticated',oid,'execute')=(proname='app_ledger_search')
      and not has_function_privilege('anon',oid,'execute') and not has_function_privilege('service_role',oid,'execute')) from f)) then '예' else '아니오' end
-union all select 'triggers in place',case when (select count(*) from t)=0 or (select count(*) from pg_trigger g join t on t.oid=g.tgrelid where not g.tgisinternal and g.tgenabled='O')=21 then '예' else '아니오' end;
+union all select 'triggers in place',case when (select count(*) from t)=0 or (select count(*) from pg_trigger g join t on t.oid=g.tgrelid where not g.tgisinternal and g.tgenabled='O')=18 then '예' else '아니오' end;
