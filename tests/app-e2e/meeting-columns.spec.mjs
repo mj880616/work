@@ -269,3 +269,28 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingNameSelect')).toHaveValue('__other__');await expect(page.locator('#meetingTitle')).toHaveValue('');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 });
+
+// UI-화면점검 ①: 1024~1279px에서는 회의 종류·차수 칸이 각각 120px 안팎이다. 글자는 줄임표(+title)로 줄이고, 고른 줄의 배경은 칸 안에 머문다(칸 밖으로 잘리지 않음).
+for(const width of [1024,1100,1279])test(`PC ${width}: 회의 종류·차수 칸 글자는 줄임표, 선택 배경이 칸 안에 머문다`,async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=columnState();
+  s.meetings.find(m=>m.id==='rail-6').series_name='아주 긴 이름의 가상 협의회 정기 회의';s.meetings.find(m=>m.id==='rail-6').title='아주 긴 이름의 가상 협의회 정기 회의';
+  await open(page,s,width);
+  const longKind=page.locator('#meetingList .mcol-kind',{hasText:'아주 긴 이름'});await longKind.click();
+  await expect(longKind).toHaveAttribute('aria-current','true');
+  const m=await page.evaluate(()=>{
+    const r=e=>e.getBoundingClientRect(),within=(e,box)=>r(e).left>=r(box).left-0.5&&r(e).right<=r(box).right+0.5;
+    const kinds=document.querySelector('#meetingList .mcol-kinds'),rounds=document.querySelector('#meetingList .mcol-rounds'),cards=document.querySelector('#meetingList .mcol-cards');
+    const names=[...document.querySelectorAll('#meetingList .mcol-kind')].map(b=>({text:b.querySelector('.mcol-name').textContent.trim(),title:b.querySelector('.mcol-name').title,inside:within(b,kinds),on:b.getAttribute('aria-current')==='true',count:within(b.querySelector('.mcol-count'),kinds),ell:getComputedStyle(b.querySelector('.mcol-name')).textOverflow,clipped:b.querySelector('.mcol-name').scrollWidth>b.querySelector('.mcol-name').clientWidth}));
+    const rows=[...document.querySelectorAll('#meetingList .mcol-card')].map(b=>{const w=b.querySelector('.mcol-when'),ro=b.querySelector('.mcol-round');return {inside:within(b,cards),insideRounds:within(b,rounds),whenEll:getComputedStyle(w).textOverflow,whenTitle:w.title,roundTitle:ro.title,whenInside:within(w,b),roundInside:within(ro,b)}});
+    return {names,rows,kindsOverflowX:kinds.scrollWidth-kinds.clientWidth,cardsOverflowX:cards.scrollWidth-cards.clientWidth,doc:document.documentElement.scrollWidth-innerWidth,
+      kindsW:r(kinds).width,roundsW:r(rounds).width,resultW:r(document.querySelector('#meetingList #mcolResult')).width};
+  });
+  for(const n of m.names){expect(n.inside,`${n.text} 종류 줄이 칸 안`).toBe(true);expect(n.count,`${n.text} 건수가 칸 안`).toBe(true);expect(n.ell).toBe('ellipsis');expect(n.title).toBe(n.text)}
+  expect(m.names.find(n=>n.on).clipped,'고른 긴 종류 이름은 줄임표로 줄어듦').toBe(true);
+  for(const n of m.rows){expect(n.inside).toBe(true);expect(n.insideRounds).toBe(true);expect(n.whenEll).toBe('ellipsis');expect(n.whenInside).toBe(true);expect(n.roundInside).toBe(true);expect(n.whenTitle).not.toBe('');expect(n.roundTitle).not.toBe('')}
+  expect(m.kindsOverflowX,'종류 칸 가로 넘침 없음').toBeLessThanOrEqual(0);expect(m.cardsOverflowX,'차수 칸 가로 넘침 없음').toBeLessThanOrEqual(0);expect(m.doc).toBeLessThanOrEqual(1);
+  // 비율은 그대로: 종류+차수(+칸 사이) 1/3 : 결과 2/3 근처(좁은 폭은 list-min 240px 때문에 1/3보다 조금 넓다).
+  expect(m.resultW).toBeGreaterThan((m.kindsW+m.roundsW)*1.5);
+  expect(errors).toEqual([]);
+});

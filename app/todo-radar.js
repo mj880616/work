@@ -142,7 +142,7 @@ export function mountRadar(host, {place}) {
     const titleId = place === 'home' ? 'home-radar-title' : 'journal-radar-title';
     const head = place === 'home'
       ? `<header><h3 id="${titleId}">챙길 것 <small data-home-count>${list.length || ''}</small></h3><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`
-      : `<header class="radar-head"><h4 id="${titleId}">그날 나온 챙길 것 <small>${list.length || ''}</small></h4><button type="button" class="mini" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`;
+      : `<header class="radar-head"><h4 id="${titleId}">그날 나온 챙길 것 <small>${list.length || ''}</small></h4><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`;
     const empty = state === 'failed' ? `<p class="radar-muted">챙길 것을 불러오지 못했어요. <button type="button" class="radar-link" data-radar-retry>다시 시도</button></p>`
       : !list.length && !promises.length ? `<p class="radar-muted">${state === 'loading' ? '불러오는 중…' : place === 'home' ? '챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>` : '';
     const more = place === 'home' && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="${all}">${all ? '접기' : `모두 보기 ${list.length}`}</button>` : '';

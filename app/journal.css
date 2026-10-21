@@ -131,6 +131,13 @@
 @media(hover:hover){ #appView #journalView .journal-mode-switch button:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
 #appView #journalView .journal-head{ justify-content:flex-start; }
 #appView #journalView .journal-head [data-journal-copy]{ margin-left:auto; }
+/* UI-화면점검 ④: 위 조작 줄은 하나의 작은 버튼 기준(--ds-compact-height 32px·--ds-compact-text 13px·500)으로 통일한다.
+   ‹ › [이번 주] [주간보고 초안 복사]는 [하루|주간 정리] 칸과 같은 높이·글자·굵기. 누르는 범위 44px은 ::after. */
+#appView #journalView .journal-head :is(.journal-week-nav .mini,[data-journal-copy]){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
+  height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin-top:0; margin-right:0; margin-bottom:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; }
+#appView #journalView .journal-head :is(.journal-week-nav .mini,[data-journal-copy])::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #journalView .journal-head :is([data-journal-prev],[data-journal-next]){ min-width:var(--ds-compact-height); padding:0; }
+#appView #journalView .journal-mode-switch button{ font-weight:var(--ds-weight-medium); }
 
 #appView #journalView .journal-weekly{ display:flex; flex-direction:column; gap:12px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #journalView .journal-weekly h3{ margin:0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--ds-kind-journal-ink); }
