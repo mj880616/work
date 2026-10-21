@@ -7,7 +7,7 @@ const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
 export async function openHome(
   page,
-  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null } = {},
 ) {
   await page.clock.setFixedTime(new Date("2026-10-06T01:00:00Z"));
   const requests = [],
@@ -195,6 +195,7 @@ export async function openHome(
       return ok([{ id: "m", series_name: "테스트 회의", title: "회차" }]);
     return ok(p.startsWith("/rest/") ? [] : {});
   });
+  await beforeLoad?.(); // routes added here take priority over the ones above
   await page.goto(loginEntry(app+query));
   await signInWithSession(page,user.email);
   await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/, {

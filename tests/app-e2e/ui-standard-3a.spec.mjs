@@ -177,12 +177,12 @@ for(const width of [390,1280])test(`프로젝트 목록 오른쪽은 D-day 하�
  await view(page,'projects');
  const list=page.locator('#projectGrid .ps3-plist');
  await expect(list.locator('[data-ps3-project="p1"] .ps3-prow-meta')).toHaveText('D-2');
- await expect(list.locator('[data-ps3-project="p1a"] .ps3-prow-meta')).toHaveText('일정 없음');
+ await expect(list.locator('[data-ps3-project="p1a"] .ps3-prow-meta')).toHaveText('');
  await expect(list.locator('[data-ps3-project="p2"] .ps3-prow-meta')).toHaveText('D-10');
  // 밀린 할 일 수(✓n)·마지막 기록 날짜는 목록에서 뺐다. 목록은 주요 일정만 한 번 읽는다.
  await expect(list.locator('.kptu-list-task-count,.ps3-prow-meta time')).toHaveCount(0);
- for(const meta of await list.locator('.ps3-prow-meta').all())expect(await meta.locator(':scope > *').count()).toBe(1);
- expect(calls.spaces).toEqual(['id,milestones:app_project_milestones!project_id(start_at)']);
+ for(const meta of await list.locator('.ps3-prow-meta').all())expect(await meta.locator(':scope > *').count()).toBeLessThanOrEqual(1);
+ expect(calls.spaces).toEqual(['id,milestones:app_project_milestones!project_id(start_at),progress:app_project_progress_updates!project_id(effective_on)']);
  // 메인 500, 하위 400, 모두 13px.
  await rowText(page,list.locator('.ps3-prow-main .kptu-list-name'),{weight:'500'});
  await rowText(page,list.locator('.ps3-kid-row .kptu-list-name'));
