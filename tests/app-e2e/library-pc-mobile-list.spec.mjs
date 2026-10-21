@@ -6,7 +6,7 @@ import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 const OPEN=`${appOrigin}/tests/app-e2e/library-open-fixture.html`;
 const LONG='가상 예시 자료 — 아주 긴 이름이 줄 끝을 넘어갈 때 잘리는지 확인하기 위한 시험용 제목 '.repeat(4).trim();
 const doc=(id,title,category,date,extra={})=>({id,workspace_id:'workspace-1',project_id:'top-a',title,file_name:id+'.pdf',category,document_date:date,tags:[],drive_url:OPEN,created_at:'2026-10-01T00:00:00Z',...extra});
-function state(){
+function state(extra=[]){
   const s=baseState();
   s.docs=[
     doc('long',LONG,'교섭','2026-10-15',{file_name:'long.hwp'}),
@@ -18,14 +18,15 @@ function state(){
     doc('plain','참고 자료 목록 (가나다순)','기타','2026-10-07'),
     doc('not-a-date','123456_시험용_묶음','기타','2026-10-06')
   ];
+  s.docs.push(...extra);
   // 하위가 없는 프로젝트(세부 줄 숨김 확인용).
   s.spaces.push({...s.spaces.find(p=>p.id==='top-a'),id:'solo-1',name:'가상 단독 프로젝트',sort_order:80});
   return s;
 }
-async function boot(page,width,{scheme='light'}={}){
+async function boot(page,width,{scheme='light',extra=[]}={}){
   await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme:scheme});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
-  const s=state();await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
+  const s=state(extra);await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));await expect(page.locator('#documentList .lu-row').first()).toBeVisible();
   return {s,errors};
 }
@@ -121,17 +122,23 @@ for(const scheme of ['light','dark'])test(`꺼진 분류 칩은 흐리게(글자
   expect(errors).toEqual([]);
 });
 
-for(const width of [1280,390])test(`자료 날짜 없는 자료: 올린 날을 흐리게 + 작은 올림 ${width}`,async({page})=>{
-  {
-    await boot(page,width);await chip(page,'all').click();
-    const up=page.locator('[data-lu-document="prefixed"] .lu-row-date'),dated=page.locator('[data-lu-document="short"] .lu-row-date');
-    if(width===1280){await expect(up).toHaveText('10.01 올림');}else{await expect(up).toHaveText('10.09');await expect(up).not.toHaveClass(/upload/)}
-    await expect(dated).toHaveText('10.14');await expect(dated).not.toHaveClass(/upload/);
-    if(width===1280){
-      const color=l=>l.evaluate(el=>getComputedStyle(el).color);expect(await color(up)).not.toBe(await color(dated));
-      await expect(up.locator('small')).toHaveText('올림');
-    }
-  }
+// 날짜 우선순위는 폰·PC 같다: 자료 날짜 → 이름 앞 날짜 → 올린 날 + 올림.
+for(const width of [1280,390])test(`날짜 우선순위(자료 날짜 → 이름 앞 날짜 → 올린 날 + 올림) ${width}`,async({page})=>{
+  const {errors}=await boot(page,width,{extra:[doc('no-date','가상 날짜 없는 참고자료','기타',null,{file_name:'nd.pdf'})]});await chip(page,'all').click();
+  const d=id=>page.locator(`[data-lu-document="${id}"] .lu-row-date`);
+  // 1) 자료 날짜가 있으면 그 날짜(이름 앞 날짜가 있어도 자료 날짜가 이긴다).
+  await expect(d('short')).toHaveText('10.14');await expect(d('short')).not.toHaveClass(/upload/);
+  await expect(d('dated-prefix')).toHaveText('10.08');await expect(d('dated-prefix')).not.toHaveClass(/upload/);
+  // 2) 자료 날짜가 없고 이름이 날짜로 시작하면 그 날짜, 올림 없음.
+  await expect(d('prefixed')).toHaveText('10.09');await expect(d('prefixed')).not.toHaveClass(/upload/);await expect(d('prefixed').locator('small')).toHaveCount(0);
+  // PC는 이름을 그대로 둔다(날짜만 같은 규칙).
+  if(width===1280)await expect(page.locator('[data-lu-document="prefixed"] .lu-row-title')).toHaveText('261009_가상노조_교섭_본교섭_3차_요구안.hwp');
+  // 3) 둘 다 없으면 올린 날을 흐리게 + 작은 올림.
+  await expect(d('no-date')).toHaveText('10.01 올림');await expect(d('no-date')).toHaveClass(/upload/);await expect(d('no-date').locator('small')).toHaveText('올림');
+  const color=l=>l.evaluate(el=>getComputedStyle(el).color);expect(await color(d('no-date'))).not.toBe(await color(d('short')));
+  // 날짜 모양이 아닌 숫자 앞머리(123456)는 이름 앞 날짜로 보지 않는다 → 자료 날짜.
+  await expect(d('not-a-date')).toHaveText('10.06');
+  expect(errors).toEqual([]);
 });
 
 test('폰 M2: 이름 다듬기(날짜 앞머리 → 오른쪽 날짜, 밑줄 → 띄어쓰기, 확장자 빼기), 원본 이름은 그대로 검색',async({page})=>{
