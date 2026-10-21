@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 // MEET-기록보내기 1단계: 회의 결과 읽기 창의 [바구니에 담기]. 합성 자료만 쓴다.
 test.use({timezoneId:'Asia/Seoul',hasTouch:true});
@@ -37,8 +38,8 @@ async function setup(page,row=meeting){
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
   await signInWithSession(page,'meeting@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
-  await expect(page.locator('#meetingList [data-mrd-meeting]')).toHaveCount(1);
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  // MEET-결과3단: 폰·중간 폭은 목록 줄, PC는 오른쪽 결과의 ⋯ → [수정]으로 같은 결과 창을 연다.
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdResult')).not.toBeEmpty();await expect(page.locator('#mrdResult')).not.toHaveText('');
   return {posts,errors,setFail:v=>failPost=v};
 }
@@ -134,7 +135,7 @@ test('after a successful send the button is disabled and says it is in the baske
   expect(f.posts).toHaveLength(1);
   // 창을 닫았다 다시 열면 원래대로(기억은 MEET 2단계).
   await page.locator('#mrdClose').click();
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdResult')).toContainText('첫째 줄 알파');
   await expect(button).toBeEnabled();await expect(button).toHaveText('바구니에 담기');
   expect(await keys()).toBe(before);// 브라우저 저장소로 담김 표시를 흉내 내지 않는다.
