@@ -146,15 +146,15 @@ div.gt-main{cursor:default}
 @media(min-width:1024px){
   html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) main{padding-bottom:12px}
   html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) #appView>.app-nav{margin-bottom:0}
-  #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:420px}
+  #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column}
   #appView #tasksView:has(#gtTaskSection.gt-pc)>.home-quick{flex:none;margin:0 0 var(--kptu-space-2);padding:6px}
-  #appView #tasksView #gtTaskSection.gt-pc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto minmax(0,1fr) auto;column-gap:var(--kptu-space-3);margin:0;padding:0;border:0;background:transparent}
+  #appView #tasksView #gtTaskSection.gt-pc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto auto auto;column-gap:var(--kptu-space-3);margin:0;padding:0;border:0;background:transparent}
   #appView #tasksView #gtTaskSection.gt-pc>.gt-head{grid-column:1 / -1;grid-row:1;min-height:32px}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody{grid-column:1;grid-row:2;min-height:0;margin:0}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-status{align-self:start}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-board{display:contents}
   #appView #tasksView #gtTaskSection.gt-pc>#gtUndoDeletes{grid-column:1;grid-row:3}
-  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   #appView #tasksView #gtDetailPane .gt-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
   #appView #tasksView #gtDetailPane.has-task .gt-pane-empty{display:none}
   /* 열 */
@@ -164,7 +164,7 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);margin:0;padding:0 4px;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--ds-section-ink)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-count{flex:none;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-col-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-top:var(--kptu-space-2);padding:0 2px 2px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-body{flex:0 0 auto;margin-top:var(--kptu-space-2);padding:0 2px 2px}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-empty{margin:0;padding:var(--kptu-space-2) 4px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-col-sub{margin:var(--kptu-space-3) 0 var(--kptu-space-1);padding:0 4px;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);color:var(--kptu-muted)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-cards+.gt-cards{margin-top:var(--kptu-space-2)}
@@ -231,4 +231,14 @@ div.gt-main{cursor:default}
   .gt-links .gt-link-opt[data-depth="2"]{padding-left:32px}
   .gt-links .gt-link-opt[data-depth="3"]{padding-left:48px}
   .gt-org-group-name{display:block;grid-column:1 / -1;padding:6px 0 0;font-size:11px;font-weight:500;color:var(--kptu-muted)}
+}
+
+/* TASK-화면다듬기: 수정 창 기한 줄. 기한 칸은 좁게, 오른쪽에 빠른 선택 버튼(PC만, 폰은 숨김). */
+.gt-due-quick{display:none}
+@media(min-width:1024px){
+  #gtTaskModal .gt-due-row{display:flex;align-items:flex-end;gap:var(--kptu-space-2);flex-wrap:wrap}
+  #gtTaskModal .gt-due-row>label{flex:0 0 auto;width:auto}
+  #gtTaskModal .gt-due-row>label input{width:11em;max-width:100%}
+  #gtTaskModal .gt-due-quick{display:flex;flex-wrap:wrap;gap:var(--kptu-space-1)}
+  #gtTaskModal .gt-due-quick button{min-height:36px;padding:0 10px;white-space:nowrap}
 }
