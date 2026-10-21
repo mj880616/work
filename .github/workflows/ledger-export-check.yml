@@ -1,0 +1,39 @@
+name: Ledger export check
+
+# AI-서버연동 S7-d: 매주 원장 Drive 내보내기가 됐는지 점검한다(내보내기 자체는 하지 않는다).
+# 원장 표는 service_role 권한이 없어 예약 경로가 원장을 읽을 수 없다. 내보내기는 Web2(소유자 로그인)가 매주 자동으로 한다.
+# 마지막 성공이 8일 넘었거나 마지막 실패가 더 최근이면 실패한다 → GitHub 실패 알림.
+# 시각(KST): 매주 월 07:43. 정각은 GitHub 예약이 몰려 늦어지므로 43분.
+# 비밀값은 drive-summary-refresh.yml과 같은 DRIVE_SUMMARY_CRON_SECRET(새 비밀값 없음).
+on:
+  schedule:
+    - cron: '43 22 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ledger-export-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.repository == 'mj880616/work'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Check weekly ledger export
+        env:
+          DRIVE_SUMMARY_CRON_SECRET: ${{ secrets.DRIVE_SUMMARY_CRON_SECRET }}
+        run: node scripts/ops/ledger-export-check.mjs

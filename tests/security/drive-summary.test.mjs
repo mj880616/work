@@ -168,6 +168,21 @@ function harness(options = {}) {
     assert.equal(h.uploads.length, 2); assert.ok(h.uploads.every(u => u.method === 'PATCH'));
     assert.equal(h.calls.filter(c => c.method === 'POST' && c.url.pathname === '/drive/v3/files').length, 0);
     assert.equal(h.files.get('folder').appProperties.extra, 'keep');
+    // S7-d + heartbeat: the copy path sends only its own key, never a stale snapshot of ledger/collector keys.
+    assert.deepEqual(h.patches.map(p => Object.keys(p.appProperties || {})), [['last_success_at']]);
+  });
+  test('copy rebuild does not roll back ledger export or heartbeat keys written while it ran', async () => {
+    const h = harness({ existing: true });
+    // Another call (ledger export / collector heartbeat) writes after the copy path read the folder.
+    const folder = h.files.get('folder');
+    const later = { ledger_last_success_at: '2026-10-03T15:29:00.000Z', collector_telegram_at: '2026-10-03T15:00:00.000Z', collector_telegram_count: '3', collector_telegram_reported_at: '2026-10-03T15:29:30.000Z' };
+    const response = await h.request({ Authorization: 'Bearer valid-owner' });
+    assert.equal(response.status, 200);
+    Object.assign(folder.appProperties, later);
+    // A second rebuild must keep the other paths' keys exactly (it only sends last_success_at).
+    assert.equal((await h.request({ Authorization: 'Bearer valid-owner' })).status, 200);
+    for (const [k, v] of Object.entries(later)) assert.equal(h.files.get('folder').appProperties[k], v, k);
+    assert.ok(h.patches.every(p => Object.keys(p.appProperties || {}).every(k => k === 'last_success_at')));
   });
   test('four weeks starts at KST midnight 28 days ago and excludes future records', async () => {
     const window = core.kstWindow(now);
