@@ -33,7 +33,7 @@
   /* 고른 조직 줄: 연한 초록(프로젝트 목록의 고른 줄과 같음). */
   #appView #teamView #soOrganizationList .kptu-list-row.is-selected{background:var(--kptu-primary-soft)}
   /* 상세 칸 안의 상세 창(같은 요소). */
-  #wdDetailPane>#wdModal.wd-docked{position:static;inset:auto;display:block;padding:0;background:transparent;z-index:auto}
+  #wdDetailPane>#wdModal.wd-docked{position:static;inset:auto;display:block;justify-items:normal;align-items:normal;padding:0;background:transparent;z-index:auto}
   #wdDetailPane>#wdModal.wd-docked.hidden{display:none}
   #wdDetailPane>#wdModal.wd-docked>.wd-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
   #wdDetailPane>#wdModal.wd-docked>.wd-card>.modal-head{top:calc(var(--kptu-space-3) * -1);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3)}

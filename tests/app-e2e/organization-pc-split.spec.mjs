@@ -60,6 +60,8 @@ test('PC 1280: list 1/3 on the left, the first organization on the right without
  expect(right.x).toBeGreaterThanOrEqual(list.x+list.width);expect(Math.abs(right.y-list.y)).toBeLessThanOrEqual(1);
  // 좌 1/3 : 우 2/3(--ds-split-*, UI-좌우비율): 오른쪽 폭이 왼쪽의 2배 안팎(틈 포함).
  expect(Math.abs(right.width/list.width-2)).toBeLessThan(0.1);
+ // The detail fills the pane's width (the dialog's centring does not shrink it into a narrow column).
+ const card=await modal.locator('.wd-card').boundingBox();expect(card.width).toBeGreaterThan(right.width-40);
  await expect(row(page,'oa')).toHaveAttribute('aria-current','true');await expect(row(page,'oa')).toHaveClass(/is-selected/);
  // The detail content is the same: input, tasks, documents, records, timeline, more.
  for(const id of ['#wdInboxText','#wdTasks','#wdDocs','#wdLog','#wdTime','#wdMore'])await expect(modal.locator(id)).toBeVisible();
