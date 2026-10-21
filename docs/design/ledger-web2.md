@@ -248,8 +248,9 @@ app_ledger_search(p_query, p_kinds, p_organization_id, p_topic_id, p_date_from, 
 
 ### 9.5 언제
 
-- **매주 1회 자동(앱)**: 소유자가 Web2를 열면(홈 상태 읽기와 같은 10분 간격) `GET ?action=status`의 `ledger.last_export_at`을 보고, 마지막 성공이 7일 넘었거나 없으면 내보내기를 한 번 부른다(`app/ledger-export.js`). 화면 표시 없음.
-- **수동**: [원장] 화면 목록 칸의 [지금 Drive로 내보내기].
+- **매주 1회 자동(앱)**: 소유자가 Web2를 열고 2분 뒤(시작 요청과 겹치지 않게, 한 탭에서 6시간에 한 번, 화면이 다시 보일 때도) `GET ?action=ledger_status`를 보고, 마지막 성공이 7일 넘었거나 없으면 내보내기를 한 번 부른다(`app/ledger-export.js`). 화면 표시 없음. 더 최근 실패가 있으면 하루 기다린다.
+- 상태 읽기 `GET ?action=ledger_status`: 소유자 JWT 또는 예약 비밀값, 폴더 속성의 시각 두 개와 단계 코드만 돌려준다(원장 읽기·쓰기 없음). 함수가 배포 전이면 405 → 앱은 칸을 숨기고 자동 실행도 하지 않는다.
+- **수동**: [원장] 화면 맨 아래 새 칸 `#ledgerExportRoot`(유일한 renderer `app/ledger-export.js`)의 [지금 Drive로 내보내기]. 마지막 내보내기 시각·최근 실패 단계를 보여 주고, 성공하면 읽기용 문서 링크를 보여 준다.
 - **매주 점검(예약 workflow)** `.github/workflows/ledger-export-check.yml` 월 07:43 KST: 예약 비밀값으로 `GET ?action=ledger_status`(시각·단계 코드만)를 읽어, 마지막 성공이 8일을 넘었거나 마지막 실패가 더 최근이면 workflow를 실패시킨다(GitHub 실패 알림 메일). 예약 경로는 원장을 읽거나 내보내지 않는다 — 사용자 토큰이 없기 때문이다. Web2를 일주일 넘게 열지 않으면 내보내기는 그만큼 밀리고 이 점검이 알린다.
 - 결과 기록: 사본 폴더 `appProperties`의 `ledger_last_success_at`·`ledger_last_failure_at`·`ledger_last_failure_summary`(기존 사본의 `last_*`와 다른 열쇠). 폴더 속성은 바꾸는 열쇠만 보낸다(Drive가 나머지를 보존).
 

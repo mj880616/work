@@ -1,11 +1,11 @@
 // AI-서버연동 S7-d: 원장 매주 Drive 내보내기(설계 docs/design/ledger-web2.md 9절).
-// ① 매주 1회 자동: 소유자가 Web2를 열면(한 탭에서 6시간에 한 번) drive-summary ?action=ledger_status를 보고
+// ① 매주 1회 자동: 소유자가 Web2를 열고 2분 뒤(시작 요청과 겹치지 않게, 한 탭에서 6시간에 한 번) drive-summary ?action=ledger_status를 보고
 //    마지막 성공이 7일 넘었으면 ?action=ledger_export를 한 번 부른다. 화면 표시 없음, 실패는 조용히(다음 날 다시).
 // ② 수동: [원장] 화면 #ledgerExportRoot 칸의 [지금 Drive로 내보내기]. 이 모듈이 그 칸의 유일한 renderer다.
 // 원장 표는 service_role 권한이 없어 예약 실행(GitHub)이 원장을 읽을 수 없다. 그래서 내보내기는 이 앱(소유자 로그인 토큰)이 부른다.
 // 요청에 본문 없음. 서버가 작업공간·소유자·폴더를 정한다. 응답의 내용·파일 ID는 그리지 않는다(시각·행 수·문서 링크만).
 // 함수가 배포 전이면 상태 읽기가 405 → 칸을 숨기고 자동 실행도 하지 않는다.
-import { ledgerFromStatus, exportDue, exportResult, failureText, CHECK_EVERY_MS } from './ledger-export-model.mjs';
+import { ledgerFromStatus, exportDue, exportResult, failureText, CHECK_EVERY_MS, START_DELAY_MS } from './ledger-export-model.mjs';
 import { formatSeoulTime } from './meeting-time.js';
 
 const rt = window.KPTURuntime;
@@ -19,7 +19,7 @@ const isOwner = () => {
 };
 const when = at => formatSeoulTime(at, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-let status = null, busy = false, message = '', link = '', lastCheck = 0, flight = null;
+let status = null, busy = false, message = '', link = '', lastCheck = 0, flight = null, started = false;
 
 async function readStatus() {
   try { status = ledgerFromStatus(await rt.api(STATUS, { refreshSession: false, singleFlight: false, timeoutMs: 30000 })); }
@@ -30,13 +30,13 @@ async function readStatus() {
 async function runExport() {
   let result;
   try { result = exportResult(await rt.api(EXPORT, { method: 'POST', refreshSession: false, singleFlight: false, timeoutMs: 150000 })); }
-  catch (e) { result = exportResult({ ok: false, error: /^[A-Z][A-Z0-9_]{0,63}$/.test(String(e?.message || '')) ? e.message : null }); }
+  catch { result = exportResult(null); }
   return result;
 }
 
 // ① 자동. 실패는 화면에 알리지 않는다(원장 원본은 그대로, 다음 날 또는 수동으로 다시).
 async function autoCheck() {
-  if (!isOwner() || flight || busy || Date.now() - lastCheck < CHECK_EVERY_MS) return flight;
+  if (!started || !isOwner() || flight || busy || Date.now() - lastCheck < CHECK_EVERY_MS) return flight;
   lastCheck = Date.now();
   flight = (async () => {
     try {
@@ -68,13 +68,17 @@ async function manual() {
   if (busy || !isOwner()) return;
   busy = true; message = ''; link = ''; render();
   if (flight) await flight;
-  const data = await rt.api(EXPORT, { method: 'POST', refreshSession: false, singleFlight: false, timeoutMs: 150000 }).catch(e => ({ ok: false, error: e?.message }));
+  // 실패 응답 본문은 runtime 오류에 남지 않는다 → 서버가 폴더에 적은 단계 코드(상태 읽기)로 안내한다.
+  const data = await rt.api(EXPORT, { method: 'POST', refreshSession: false, singleFlight: false, timeoutMs: 150000 }).catch(() => null);
   const result = exportResult(data);
-  if (result.ok) {
-    message = `내보냈습니다(${esc(when(result.at))}${result.records !== null ? `, 원장 기록 ${result.records}건` : ''}).`;
-    link = DOC.test(String(data?.documents?.ledger || '')) ? data.documents.ledger : '';
-  } else message = failureText(result.code);
   await readStatus();
+  if (result.ok) {
+    message = `내보냈습니다(${when(result.at)}${result.records !== null ? `, 원장 기록 ${result.records}건` : ''}).`;
+    link = DOC.test(String(data?.documents?.ledger || '')) ? data.documents.ledger : '';
+  } else {
+    const recorded = status && status.failedAt !== null && (status.successAt === null || status.failedAt > status.successAt) ? status.code : null;
+    message = failureText(result.code === 'NOT_DEPLOYED' ? 'NOT_DEPLOYED' : recorded || result.code);
+  }
   busy = false; render();
 }
 
@@ -95,7 +99,7 @@ function install() {
   window.addEventListener('kptu:session-changed', () => { status = null; message = ''; link = ''; lastCheck = 0; render(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void autoCheck(); });
   window.KPTULedgerExport = Object.freeze({ open: openView, check: autoCheck });
-  void autoCheck();
+  setTimeout(() => { started = true; void autoCheck(); }, START_DELAY_MS);
 }
 
 if (typeof window !== 'undefined' && rt) install();

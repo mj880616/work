@@ -3,6 +3,7 @@ const HOUR = 3600000, DAY = 24 * HOUR;
 export const WEEK_MS = 7 * DAY;
 export const RETRY_AFTER_FAILURE_MS = DAY; // 실패 뒤에는 하루 지나야 자동으로 다시 시도한다.
 export const CHECK_EVERY_MS = 6 * HOUR;    // 한 탭에서 상태를 묻는 간격.
+export const START_DELAY_MS = 2 * 60 * 1000; // 시작 요청(홈 읽기)과 겹치지 않게 연 뒤 2분 기다렸다 묻는다.
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/, CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 const time = v => (typeof v === 'string' && v.length <= 40 && ISO.test(v) && Number.isFinite(Date.parse(v))) ? Date.parse(v) : null;
 

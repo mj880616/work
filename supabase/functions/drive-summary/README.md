@@ -74,3 +74,18 @@ Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며
 - 응답: `{ok, checked_at, copy:{state, last_success_at, last_failure_at, last_failure_code}}`. 시각은 ISO 형식 검사, 코드는 `^[A-Z][A-Z0-9_]{0,63}$`(실패 시각이 있을 때만)를 통과한 값만 낸다. 폴더 이름·ID·문서 링크·다른 속성은 내지 않는다. 실패는 단계 코드만(`DRIVE_TOKEN_FAILED` 등), 실패 기록을 남기지 않는다.
 - CORS `Access-Control-Allow-Methods`에 GET을 더했다. 배포 전 앱이 먼저 나가도 옛 함수는 preflight에서 GET을 허락하지 않거나 405를 주므로 홈 칸은 조용히 숨는다(옛 POST 재생성으로 잘못 가지 않게 POST가 아닌 GET을 골랐다).
 - 화면: `app/collection-status.js`(홈 "마지막 수집 시각"). 텔레그램 수집·통화 전사는 바깥 프로그램이 만든 Drive 파일이라 `drive.file`로 못 읽으므로 "확인 불가"로만 표시한다. 권한을 넓히지 않는다.
+
+## S7-d 원장 매주 Drive 내보내기
+
+설계: `docs/design/ledger-web2.md` 9절. 코드: `ledger-export.mjs`(읽기·JSON·읽기용 문서, 순수) + `core.mjs`(경로·Drive).
+
+- `POST ?action=ledger_export`: **소유자 JWT만**. 예약 비밀값 헤더가 있으면 값과 무관하게 401. 원장 표(`app_ledger_*`)는 service_role 권한이 없으므로(의도) 호출자의 토큰 + `SUPABASE_ANON_KEY`로 읽는다(owner RLS 그대로). 기존 사본 표·Drive 설정 읽기는 지금처럼.
+- 읽는 표 8개(열 허용 목록, 감사·후보 제외), 표당 2만 행 넘으면 `LEDGER_READ_LIMIT`(잘린 백업 없음). 표가 없으면 `LEDGER_NOT_READY`(409).
+- 쓰는 것: 사본 폴더 아래 "원장 백업" 하위 폴더에 `원장-YYYY-MM-DD.json`(KST 날짜, 같은 날은 같은 ID에 덮어쓰기) → 사본 폴더에 Google 문서 "원장 (읽기용 사본)"(같은 ID 전체 교체) → 날짜 최근 8개 밖 JSON은 휴지통(`trashed=true`, 실패는 `trim_failed` 수만). 폴더·하위 폴더·두 파일 모두 공개 공유 검사.
+- S2는 문서에 ID·기준일·제목만. 요지는 600자까지. 문서가 4 MiB를 넘으면 진단 문서 + `LEDGER_DOC_LIMIT`(백업 JSON은 이미 올라감).
+- 결과: 폴더 `appProperties`의 `ledger_last_success_at`·`ledger_last_failure_at`·`ledger_last_failure_summary`만 PATCH(Drive가 다른 열쇠 보존).
+- 응답: `{ok, exported_at, counts, keep, trim_failed, documents:{ledger}}`. 실패는 단계 코드만.
+- `GET ?action=ledger_status`: 소유자 JWT **또는** 예약 비밀값. 폴더 속성의 세 값만(`{ok, checked_at, ledger:{state, last_success_at, last_failure_at, last_failure_code}}`). 만들기·쓰기·원장 읽기 없음.
+- 부르는 쪽: `app/ledger-export.js`(Web2를 열고 2분 뒤 7일 지났으면 자동 + [원장] 화면 [지금 Drive로 내보내기]), `.github/workflows/ledger-export-check.yml`(월 07:43 KST, `scripts/ops/ledger-export-check.mjs`로 상태만 점검, 8일 넘거나 최근 실패면 workflow 실패).
+- 시험: `node --test tests/security/drive-summary-ledger-export.test.mjs tests/security/ledger-export-check.test.mjs tests/ledger-export-model.test.mjs`, 화면 `tests/app-e2e/ledger-export.spec.mjs`.
+- 배포: 같은 함수 재배포(verify_jwt=false 유지). 새 비밀값 없음(`SUPABASE_ANON_KEY`는 Edge 기본 제공). 되돌리기: 이전 운영 소스(main `9c0bbf9`, v14)로 재배포.
