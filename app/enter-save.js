@@ -1,96 +1,105 @@
 // UI-엔터저장: one shared Enter-to-save rule for every add/edit window and side edit panel.
-// A window or panel opts in by declaration only: put data-enter-save on its root, and mark its save button
-// with data-enter-save-submit (or give the root's attribute a selector: data-enter-save="#saveBtn").
+// Opt in by declaration only, never by a per-screen key handler:
+//   data-enter-save              on the window/panel/form root. Its save button is the descendant marked
+//                                data-enter-save-submit, or the selector given as the value (data-enter-save="#saveBtn"),
+//                                or for a <form> its submit button. Roots may nest (an inline "add a line" row inside a
+//                                window): the nearest root wins.
+//   data-enter-field="off"       on a field or a region: Enter is not ours there (big editors, pickers with their own Enter).
+//   data-enter-field="single"    a <textarea> that holds one line (Enter saves, the line never gets a break).
+//   data-enter-field="multi"     an <input> that should follow the many-line rule.
+// Rule:
 //   one-line field (title, 차수, time, due…)   Enter = save (PC and phone)
-//   many-line field (textarea, contenteditable) Enter = new line; Ctrl+Enter (Cmd+Enter on Mac) = save on PC only
-// Never while Korean is being composed, never twice for one press, never when the save button is disabled or busy,
-// and never from a select, checkbox, button, date picker, an open autocomplete list, or a field that already used
-// the Enter (defaultPrevented). A field can opt out with data-enter-save="off"; an <input> that holds several lines'
-// worth of meaning can ask for the many-line rule with data-enter-save="multiline".
-// The save button shows a small hint on PC while a field in the window is focused: ↵ or Ctrl+↵ (⌘↵ on Mac).
+//   many-line field (textarea, contenteditable) Enter = new line; Ctrl+Enter (Cmd+Enter on Mac) = save, PC only
+// Never while Korean is being composed (isComposing / keyCode 229 — Chrome then sends a second, plain Enter once the
+// syllable is committed, and only that one saves, so nothing is left over), never twice for one press (repeat, and one
+// pending click per button), never when the save button is disabled, aria-disabled or aria-busy, and never from a
+// select, checkbox, radio, button, file or date picker, an input with an open suggestion list, or when another listener
+// already used the Enter (defaultPrevented).
+// While a field in a root is focused on PC, its save button carries data-enter-hint (↵, Ctrl+↵ or ⌘↵); ui-standard.css
+// draws it.
 
 const ONE_LINE_TYPES=new Set(['','text','search','email','url','tel','number','password']);
 
 // 'single' | 'multi' | null (Enter is not ours here).
 export function fieldKind(el){
   if(!el||el.nodeType!==1)return null;
-  const own=el.getAttribute('data-enter-save');
-  if(own==='off')return null;
-  if(el.closest?.('[data-enter-save="off"]'))return null;
+  if(el.closest('[data-enter-field="off"]'))return null;
+  const want=el.getAttribute('data-enter-field');
   const tag=el.tagName;
-  if(tag==='TEXTAREA')return el.readOnly||el.disabled?null:'multi';
+  if(tag==='TEXTAREA'){if(el.readOnly||el.disabled)return null;return want==='single'?'single':'multi'}
   if(el.isContentEditable)return 'multi';
-  if(tag!=='INPUT')return null;
-  if(el.readOnly||el.disabled)return null;
+  if(tag!=='INPUT'||el.readOnly||el.disabled)return null;
   const type=(el.getAttribute('type')||'').toLowerCase();
-  if(!ONE_LINE_TYPES.has(type))return null; // date/time pickers, checkbox, radio, file, range, color, buttons
-  if(el.getAttribute('list'))return null;    // a native suggestion list uses Enter to pick
+  if(!ONE_LINE_TYPES.has(type))return null; // date/datetime pickers, checkbox, radio, file, range, color, buttons, hidden
+  if(el.getAttribute('list'))return null;    // a native suggestion list picks with Enter
   if(el.getAttribute('aria-expanded')==='true'||el.getAttribute('aria-activedescendant'))return null; // open autocomplete
-  return own==='multiline'?'multi':'single';
+  return want==='multi'?'multi':'single';
 }
 
-const isMac=()=>typeof navigator!=='undefined'&&/Mac|iPhone|iPad|iPod/.test(navigator.platform||navigator.userAgent||'');
-
-// The pure decision for one keydown. `pc` is true on a device with a fine pointer and hover (a real keyboard).
+// The decision for one keydown. `pc`: a device with a fine pointer and hover (a real keyboard).
 export function enterAction(event,kind,{pc=true}={}){
   if(!event||event.key!=='Enter'||!kind)return false;
-  if(event.isComposing||event.keyCode===229)return false; // Korean (or any IME) still composing
+  if(event.isComposing||event.keyCode===229)return false;
   if(event.repeat||event.defaultPrevented)return false;
   if(event.shiftKey||event.altKey)return false;
-  const mod=!!(event.ctrlKey||event.metaKey);
   if(kind==='single')return true;
-  return mod&&pc;
+  return !!(event.ctrlKey||event.metaKey)&&pc;
 }
 
-export function hintText(kind,{pc=true,mac=isMac()}={}){
+export const isMacPlatform=nav=>/Mac|iPhone|iPad|iPod/.test(nav?.platform||nav?.userAgent||'');
+
+export function hintText(kind,{pc=true,mac=false}={}){
   if(!pc||!kind)return '';
   return kind==='single'?'↵':(mac?'⌘↵':'Ctrl+↵');
 }
 
+export const containerOf=el=>el?.closest?.('[data-enter-save]')||null;
+
 export function saveButtonFor(root){
   if(!root)return null;
-  const sel=root.getAttribute('data-enter-save');
-  if(sel&&sel!=='off'&&sel!=='multiline'&&sel.trim()){
-    try{const inside=root.querySelector(sel);if(inside)return inside;return root.ownerDocument.querySelector(sel)}catch{return null}
-  }
-  return [...root.querySelectorAll('[data-enter-save-submit]')].find(b=>b.closest('[data-enter-save]:not([data-enter-save="off"]):not([data-enter-save="multiline"])')===root)||null;
+  const sel=(root.getAttribute('data-enter-save')||'').trim();
+  if(sel){try{return root.querySelector(sel)||root.ownerDocument.querySelector(sel)}catch{return null}}
+  const own=[...root.querySelectorAll('[data-enter-save-submit]')].find(b=>containerOf(b)===root);
+  if(own)return own;
+  if(root.tagName==='FORM')return [...root.querySelectorAll('button[type="submit"],input[type="submit"]')].find(b=>containerOf(b)===root)||null;
+  return null;
 }
 
 export function buttonReady(button){
   if(!button||!button.isConnected)return false;
   if(button.disabled||button.getAttribute('aria-disabled')==='true'||button.getAttribute('aria-busy')==='true')return false;
   if(button.closest('.hidden,[hidden],[inert]'))return false;
-  return button.getClientRects?.().length!==0;
+  return !button.getClientRects||button.getClientRects().length>0;
 }
-
-export const containerOf=el=>el?.closest?.('[data-enter-save]:not([data-enter-save="off"]):not([data-enter-save="multiline"])')||null;
 
 export function installEnterSave(doc=globalThis.document){
   if(!doc||doc.__kptuEnterSave)return;doc.__kptuEnterSave=true;
-  const win=doc.defaultView;
-  const pcQuery=win?.matchMedia?.('(hover:hover) and (pointer:fine)');
+  const win=doc.defaultView||globalThis;
+  const pcQuery=win.matchMedia?.('(hover:hover) and (pointer:fine)');
   const pc=()=>!!pcQuery?.matches;
+  const mac=isMacPlatform(win.navigator);
   const pending=new WeakSet();
   let hinted=null;
   const clearHint=()=>{hinted?.removeAttribute('data-enter-hint');hinted=null};
   const paintHint=target=>{
-    const root=containerOf(target),button=root&&saveButtonFor(root),text=button?hintText(fieldKind(target),{pc:pc()}):'';
-    if(hinted&&hinted!==button)clearHint();
+    const root=containerOf(target),button=root&&saveButtonFor(root),text=button?hintText(fieldKind(target),{pc:pc(),mac}):'';
     if(!button||!text){clearHint();return}
+    if(hinted!==button)clearHint();
     button.setAttribute('data-enter-hint',text);hinted=button;
   };
   doc.addEventListener('focusin',e=>paintHint(e.target));
-  doc.addEventListener('focusout',e=>{if(!e.relatedTarget)queueMicrotask(()=>{if(!containerOf(doc.activeElement))clearHint()})});
+  doc.addEventListener('focusout',e=>{if(!e.relatedTarget)setTimeout(()=>{if(!containerOf(doc.activeElement))clearHint()},0)});
   doc.addEventListener('keydown',e=>{
     if(e.key!=='Enter')return;
     const target=e.target,root=containerOf(target);if(!root)return;
     const kind=fieldKind(target);
     if(!enterAction(e,kind,{pc:pc()}))return;
-    const button=saveButtonFor(root);if(!buttonReady(button)||pending.has(button))return;
+    // One-line fields never take a line break and never fall back to the browser's own form submit.
     e.preventDefault();
+    const button=saveButtonFor(root);if(!buttonReady(button)||pending.has(button))return;
     pending.add(button);
-    // Let other Enter listeners on this same press finish first (the time cell tidies 930 → 09:30 on Enter).
-    win.setTimeout(()=>{pending.delete(button);if(buttonReady(button))button.click()},0);
+    // Let other Enter listeners of this same press finish first (a time cell tidies 930 → 09:30 on Enter).
+    setTimeout(()=>{pending.delete(button);if(buttonReady(button))button.click()},0);
   });
 }
 
