@@ -162,7 +162,8 @@ async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); 
 // UI-프로필입구: [계정 ▾] → [내 프로필]. Like hwp, it stays out of loadAll; the module installs #profileView and loads its data on first open.
 async function profile(){ await module('./profile-settings.js','__KPTU_PROFILE_SETTINGS_READY__'); return {ok:true} }
 // AI-서버연동 S7-b: [원장](내 프로필 → 계정 → [원장], ?view=ledger). loadAll에 넣지 않고 열 때만 가져오기 화면과 검사기를 불러온다.
-async function ledger(){ await module('./ledger-import.js','__KPTU_LEDGER_IMPORT_READY__'); return {ok:true} }
+// S7-c: 같은 화면의 원장 후보 확정 칸과 목록·검색 칸(칸마다 모듈 하나). 표·함수가 없으면 각 칸이 조용히 숨는다.
+async function ledger(){ await module('./ledger-import.js','__KPTU_LEDGER_IMPORT_READY__'); await Promise.all([module('./ledger-candidates.js','__KPTU_LEDGER_CANDIDATES_READY__'),module('./ledger-browse.js','__KPTU_LEDGER_BROWSE_READY__')]); return {ok:true} }
 const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp'};

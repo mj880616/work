@@ -49,6 +49,38 @@
 #appView #ledgerView .lg-tool:disabled{ opacity:.45; cursor:default; }
 #appView #ledgerView :is(.lg-tool,.lg-select,.lg-input):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #ledgerView .lg-danger{ color:var(--kptu-danger); }
+#appView #ledgerView .lg-root[hidden]{ display:none; }
+/* S7-c 원장 목록·검색(#ledgerBrowseRoot)·원장 후보(#ledgerCandidatesRoot). */
+#appView #ledgerView .lb-form{ display:flex; flex-direction:column; gap:10px; }
+#appView #ledgerView .lb-row{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 12px; }
+#appView #ledgerView .lb-query{ flex:1 1 240px; }
+#appView #ledgerView .lb-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px 12px; }
+#appView #ledgerView .lb-select{ width:100%; max-width:none; min-height:var(--ds-control-height); }
+#appView #ledgerView .lb-kinds{ display:flex; flex-wrap:wrap; gap:4px 12px; margin:0; padding:0; border:0; }
+#appView #ledgerView .lb-kinds legend{ padding:0; margin-bottom:2px; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
+#appView #ledgerView .lb-chip{ display:inline-flex; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row); color:var(--kptu-ink); }
+#appView #ledgerView :is(.lb-list,.lc-list){ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+#appView #ledgerView :is(.lb-item,.lc-item){ border-top:var(--ds-line-width) solid var(--ds-line); min-width:0; }
+#appView #ledgerView :is(.lb-item,.lc-item):first-child{ border-top:0; }
+#appView #ledgerView .lb-head{ display:flex; flex-direction:column; align-items:stretch; gap:2px; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:10px 4px; border:0; background:none; color:var(--kptu-ink); font:inherit; text-align:left; cursor:pointer; }
+#appView #ledgerView .lb-head:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+#appView #ledgerView .lb-line{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+#appView #ledgerView .lb-id{ font-size:var(--ds-text-meta); color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+#appView #ledgerView .lb-title{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); overflow-wrap:anywhere; }
+#appView #ledgerView :is(.lb-meta,.lb-summary){ font-size:var(--ds-text-meta); line-height:1.6; color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #ledgerView .lb-detail{ display:flex; flex-direction:column; gap:6px; margin:0 0 12px; padding:12px; border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
+#appView #ledgerView .lb-detail:focus{ outline:none; }
+#appView #ledgerView .lb-text{ margin:0; font-size:var(--ds-text-read); line-height:1.7; color:var(--kptu-ink); white-space:pre-wrap; overflow-wrap:anywhere; }
+#appView #ledgerView .lb-fields{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:4px 16px; margin:0; }
+#appView #ledgerView .lb-fields div{ display:flex; gap:8px; min-width:0; font-size:var(--ds-text-meta); }
+#appView #ledgerView .lb-fields dt{ flex:none; color:var(--kptu-muted); }
+#appView #ledgerView .lb-fields dd{ margin:0; color:var(--kptu-ink); overflow-wrap:anywhere; }
+#appView #ledgerView .lb-detail a{ color:var(--kptu-primary-ink); overflow-wrap:anywhere; }
+#appView #ledgerView .lc-item{ display:flex; flex-direction:column; gap:6px; padding:12px 0; }
+#appView #ledgerView .lc-edit{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px 12px; padding:12px; border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
+#appView #ledgerView .lc-edit .lc-wide{ grid-column:1 / -1; }
+#appView #ledgerView .lc-textarea{ box-sizing:border-box; width:100%; min-height:96px; padding:8px var(--ds-control-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-read); line-height:1.6; resize:vertical; }
+#appView #ledgerView .lc-textarea:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media (max-width:760px){
   #appView #ledgerView .lg-card{ padding:12px; }
   #appView #ledgerView .lg-fields{ grid-template-columns:minmax(0,1fr); }

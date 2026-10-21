@@ -169,9 +169,11 @@ test('input validation: only the four known keys, UUIDs and target kinds; other 
   const bad=[{},[],req({extra:1}),req({note_id:'nope'}),req({target_id:'1'}),req({target_kind:'meeting'}),req({workspace_id:WS}),
     {kind:'link_summary',note_id:NOTE,target_kind:'organization'},'{"kind":',req({note_id:NOTE+' '})];
   for(const body of bad){const {handler,calls}=harness();await expectError(await post(handler,body),400,'invalid_request');assert.equal(calls.openai.length,0);}
-  for(const kind of ['todo_followups','ledger_candidates','weekly_polish','chat','LINK_SUMMARY']){
+  for(const kind of ['todo_followups','weekly_polish','chat','LINK_SUMMARY','LEDGER_CANDIDATES']){
     const {handler,calls}=harness();await expectError(await post(handler,{...req(),kind}),400,'unsupported_kind');assert.equal(calls.openai.length,0);
   }
+  // S7-c: ledger_candidates is a known kind now, but only as {kind} alone (see ai-assist-ledger-candidates.test.mjs).
+  {const {handler,calls}=harness();await expectError(await post(handler,{...req(),kind:'ledger_candidates'}),400,'invalid_request');assert.equal(calls.openai.length,0);}
   {const {handler}=harness();await expectError(await post(handler,req(),{type:'text/plain'}),400,'invalid_request');}
   {const {handler,calls}=harness();await expectError(await post(handler,JSON.stringify({...req(),pad:'x'.repeat(4000)})),400,'invalid_request');assert.equal(calls.openai.length,0);}
   {const {handler}=harness();await expectError(await handler(new Request(FN,{method:'POST',headers:{Authorization:'Bearer owner-token','Content-Type':'application/json','Content-Length':'5000'},body:'{}'})),413,'invalid_request');}

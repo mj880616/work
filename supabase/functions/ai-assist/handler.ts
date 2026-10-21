@@ -3,15 +3,21 @@
 // 서버 관리자 키를 쓰지 않는다. 재료·사용 기록은 모두 호출한 사람의 로그인 토큰으로 읽고 써서
 // 기존 소유자 전용 RLS(private.app_is_workspace_owner)가 그대로 걸린다.
 // 열쇠는 WEB2_OPENAI_API_KEY만 읽는다(옛 OPENAI_API_KEY는 읽지 않음, 결정 D2).
-// 쓰임 1(연결 요약, kind=link_summary)과 쓰임 2(챙길 것 찾기, kind=todo_radar, S5)만 처리하고 나머지 kind는 거절한다.
+// 쓰임 1(연결 요약, kind=link_summary), 쓰임 2(챙길 것 찾기, kind=todo_radar, S5), 쓰임 3(원장 후보 만들기,
+// kind=ledger_candidates, S7-c)만 처리하고 나머지 kind는 거절한다.
 // 연결 요약 답은 후보일 뿐 저장하지 않는다. 저장은 화면의 기존 저장 경로(app_basket_confirm_links 등)가 한다.
 // 챙길 것 찾기는 후보만 owner RLS 표 app_todo_candidates에 "대기"로 더한다(요약·출처·짧은 근거만, 원문 없음).
 // 할 일 만들기·원장 쓰기는 하지 않는다. 상대 약속(COM)은 저장하지 않고 응답으로만 돌려준다(화면 [원장으로 복사]).
+// 원장 후보 만들기는 후보만 owner RLS 표 app_ledger_candidates에 "대기"로 더한다. 원장 행은 명진이 화면에서 [확정]해야 생긴다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, TODO_RADAR_INSTRUCTIONS, TODO_RADAR_SCHEMA,
   type RadarSource,
 } from "./todo-radar.ts";
+import {
+  candidateRow, LEDGER_CANDIDATES_INSTRUCTIONS, LEDGER_CANDIDATES_SCHEMA, LEDGER_KNOWN_EVENTS, LEDGER_MAX_OUTPUT_TOKENS, ledgerMaterial,
+  parseLedgerCandidates, type KnownEvent,
+} from "./ledger-candidates.ts";
 
 export type Env = (name: string) => string | undefined;
 export type Log = (code: string, detail?: Record<string, unknown>) => void;
@@ -32,9 +38,10 @@ export const DEFAULT_PRICE_IN_KRW_PER_MTOK = 350;
 export const DEFAULT_PRICE_OUT_KRW_PER_MTOK = 2800;
 // Web2 월 추정 한도(D4 ②). OpenAI 쪽 월 한도(약 2만 원, D4 ①)보다 먼저 멈춘다.
 export const MONTHLY_LIMIT_KRW = 15000;
-// 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day).
+// 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
+// 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 50;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -85,6 +92,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   ai_invalid_response: "AI 답을 읽지 못했어요.",
   in_progress: "챙길 것을 찾는 중이에요. 잠시 뒤 다시 확인해 주세요.",
   radar_unavailable: "챙길 것 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  ledger_not_ready: "원장 후보 기능이 아직 준비되지 않았어요.",
+  ledger_unavailable: "원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   internal_error: "AI 요청을 처리하지 못했어요.",
 });
 
@@ -246,16 +255,22 @@ async function readBody(req: Request): Promise<unknown> {
 
 type LinkSummaryInput = { kind: "link_summary"; note_id: string; target_kind: "organization" | "project"; target_id: string };
 type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" };
+type LedgerCandidatesInput = { kind: "ledger_candidates" };
 
 // 화면은 ID만 보낸다(4.3). 모르는 키·잘못된 UUID는 거절.
 // 챙길 것 찾기는 글·ID 없이 "언제 찾나"만 보낸다: auto(하루 처음 열 때, 오늘 이미 찾았으면 건너뜀) / again([다시 찾기]).
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput {
+// 원장 후보 만들기도 글·ID 없이 kind 하나만 보낸다(재료는 서버가 로그인 토큰으로 읽음).
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
   if (b.kind === "todo_radar") {
     if (Object.keys(b).sort().join(",") !== "kind,mode" || (b.mode !== "auto" && b.mode !== "again")) throw new Fail(400, "invalid_request");
     return { kind: "todo_radar", mode: b.mode };
+  }
+  if (b.kind === "ledger_candidates") {
+    if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
+    return { kind: "ledger_candidates" };
   }
   if (b.kind !== "link_summary") throw new Fail(400, "unsupported_kind");
   const keys = Object.keys(b).sort();
@@ -718,6 +733,168 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
   }
 }
 
+// ---- 쓰임 3: 원장 후보 만들기(ledger_candidates, S7-c) ------------------------------------------------------------
+
+const LEDGER_RUN_USE = "ledger_candidates";
+type LedgerRuns = { runsToday: number; lastStartedAt: number };
+
+// 실행 표시는 원장 감사 기록(app_ledger_audit, 쌓기만 하는 owner 표)에 event=note로 남긴다. 숫자·시각만, 글은 없다.
+// 표가 없으면(원장 표 적용 전) 404 → 기능 준비 전.
+async function readLedgerRuns(ctx: Ctx, today: string): Promise<LedgerRuns> {
+  let rows: unknown;
+  try {
+    rows = await rest(ctx, `app_ledger_audit?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&event=eq.note&target_table=is.null&select=created_at,detail&order=created_at.desc&limit=50`);
+  } catch (e) {
+    if ((e as Error)?.message === "rest_404") throw new Fail(503, "ledger_not_ready");
+    throw new Fail(503, "ledger_unavailable");
+  }
+  if (!Array.isArray(rows)) throw new Fail(503, "ledger_unavailable");
+  let runsToday = 0, lastStartedAt = NaN;
+  for (const raw of rows as Record<string, unknown>[]) {
+    const d = raw?.detail as Record<string, unknown> | null;
+    if (!d || typeof d !== "object" || d.use !== LEDGER_RUN_USE) continue;
+    const started = timeOf(d.started_at);
+    if (!Number.isFinite(started)) continue;
+    if (kstDay(started) === today) runsToday++;
+    if (!Number.isFinite(lastStartedAt) || started > lastStartedAt) lastStartedAt = started;
+  }
+  return { runsToday, lastStartedAt };
+}
+
+async function readLedgerContext(ctx: Ctx): Promise<{ events: KnownEvent[]; orgBySuborg: Map<string, string> }> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  let events: unknown, orgs: unknown;
+  try {
+    events = await rest(ctx, `app_ledger_records?workspace_id=eq.${ws}&kind=eq.event&validity=in.(current,needs_check)&scope=eq.work&sensitivity=in.(S0,S1)&select=ledger_id,title&order=updated_at.desc&limit=${LEDGER_KNOWN_EVENTS}`);
+    orgs = await rest(ctx, `app_ledger_organizations?workspace_id=eq.${ws}&status=eq.active&suborganization_id=not.is.null&select=ledger_id,suborganization_id&limit=1000`);
+  } catch (e) {
+    if ((e as Error)?.message === "rest_404") throw new Fail(503, "ledger_not_ready");
+    throw new Fail(503, "ledger_unavailable");
+  }
+  if (!Array.isArray(events) || !Array.isArray(orgs)) throw new Fail(503, "ledger_unavailable");
+  return {
+    events: (events as Record<string, unknown>[]).filter((e) => typeof e.ledger_id === "string" && typeof e.title === "string")
+      .map((e) => ({ ledger_id: e.ledger_id as string, title: e.title as string })),
+    orgBySuborg: new Map((orgs as Record<string, unknown>[]).filter((o) => typeof o.ledger_id === "string" && isUuid(o.suborganization_id))
+      .map((o) => [String(o.suborganization_id).toLowerCase(), o.ledger_id as string])),
+  };
+}
+
+async function writeLedgerRun(ctx: Ctx, detail: Record<string, unknown>) {
+  await rest(ctx, "app_ledger_audit", {
+    method: "POST", prefer: "return=minimal",
+    body: { workspace_id: ctx.workspaceId, event: "note", detail: { use: LEDGER_RUN_USE, ...detail } },
+  });
+}
+
+// 같은 중복 열쇠의 후보(대기·확정·버림 모두)는 다시 넣지 않는다. 대기 후보끼리는 DB 유일 색인도 막는다.
+async function insertLedgerCandidates(ctx: Ctx, rows: Record<string, unknown>[]): Promise<number> {
+  if (!rows.length) return 0;
+  const keys = rows.map((r) => `"${String(r.dedup_key).replace(/["\\]/g, "")}"`).join(",");
+  const existing = await rest(ctx, `app_ledger_candidates?workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&dedup_key=in.(${encodeURIComponent(keys)})&select=dedup_key&limit=100`);
+  const known = new Set(Array.isArray(existing) ? (existing as Record<string, unknown>[]).map((r) => r.dedup_key) : []);
+  const fresh = rows.filter((r) => !known.has(r.dedup_key));
+  const send = async (list: Record<string, unknown>[]) => {
+    const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_ledger_candidates?select=id`, {
+      method: "POST",
+      headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(list),
+    });
+    if (r.status === 409) { try { await r.body?.cancel(); } catch { /* ignore */ } return -1; }
+    if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Error(`rest_${r.status}`); }
+    const out = await readBoundedJson(r, { maxBytes: 64 * 1024 });
+    return Array.isArray(out) ? out.length : 0;
+  };
+  if (!fresh.length) return 0;
+  const all = await send(fresh);
+  if (all >= 0) return all;
+  // 같은 때 다른 실행이 같은 후보를 넣었으면(409) 하나씩 넣고 겹친 것만 건너뛴다.
+  let added = 0;
+  for (const row of fresh) { const n = await send([row]); if (n > 0) added += n; }
+  return added;
+}
+
+async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const today = kstDay(started);
+  const runs = await readLedgerRuns(ctx, today);
+  if (runs.runsToday >= DAILY_LIMITS.ledger_candidates) throw new Fail(429, "daily_limit");
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "ledger_candidates", started, config.price);
+  const context = await readLedgerContext(ctx);
+  // 기준선: 지난번 성공한 실행의 시작 시각(없으면 최근 3일, 길어도 7일). 쓰임 2와 같은 재료 읽기.
+  const floor = started - RADAR_MAX_DAYS * 86400000;
+  const last = runs.lastStartedAt;
+  let since = Number.isFinite(last) ? last : started - RADAR_FIRST_DAYS * 86400000;
+  let partial = Number.isFinite(last) && last < floor;
+  if (since < floor) since = floor;
+  const loaded = await loadRadarSources(ctx, new Date(since).toISOString());
+  const packedResult = packSources(loaded.sources);
+  partial = partial || loaded.partial || packedResult.partial;
+  const packed = packedResult.packed;
+  const checkedAt = new Date(started).toISOString();
+
+  if (!packed.length) {
+    try { await writeLedgerRun(ctx, { started_at: checkedAt, partial, sources: 0, found: 0, added: 0, excluded: 0 }); }
+    catch { throw new Fail(503, "ledger_unavailable"); }
+    return json({ ok: true, kind: "ledger_candidates", added: 0, found: 0, excluded: 0, partial, checked_at: checkedAt });
+  }
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = ledgerMaterial(packed, context.events, today);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: LEDGER_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: LEDGER_CANDIDATES_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "ledger_candidates", strict: true, schema: LEDGER_CANDIDATES_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LEDGER_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseLedgerCandidates(result.raw, packed, context.events, today);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  const rows = parsed.items.map((i) => candidateRow(ctx.workspaceId, i, context.orgBySuborg));
+  let added = 0;
+  try {
+    added = await insertLedgerCandidates(ctx, rows);
+  } catch {
+    throw new Fail(503, "ledger_unavailable");
+  }
+  try {
+    await writeLedgerRun(ctx, { started_at: checkedAt, partial, sources: packed.length, found: rows.length, added, excluded: parsed.excluded });
+  } catch {
+    // 후보는 이미 저장됐다. 기준선만 못 남겼으므로 다음 실행이 같은 재료를 다시 보지만, 같은 열쇠의 후보는 다시 넣지 않는다.
+    deps.log("ledger_run_record_failed");
+  }
+  // 기록에는 숫자만 남긴다(재료·후보 글 없음).
+  deps.log("ledger_candidates_done", { sources: packed.length, found: parsed.items.length, added, dropped: parsed.dropped, excluded: parsed.excluded, partial });
+  return json({ ok: true, kind: "ledger_candidates", added, found: rows.length, excluded: parsed.excluded, partial, checked_at: checkedAt });
+}
+
 async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id`, {
     method: "POST",
@@ -754,6 +931,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
 
       const input = parseRequest(await readBody(req));
       if (input.kind === "todo_radar") return await runTodoRadar(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "ledger_candidates") return await runLedgerCandidates(ctx, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 
       const config = aiConfig(deps.env);
