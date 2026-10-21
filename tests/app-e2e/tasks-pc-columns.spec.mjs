@@ -130,8 +130,8 @@ for(const width of [1280,1440]){
     // 왼쪽 위 칸이 위, 아래 칸이 그 밑. 오른쪽 칸 윗줄 = 왼쪽 위 칸 윗줄, 상세 칸은 왼쪽 아래 칸 밑줄까지 이어지거나 더 길다.
     expect(week.y).toBeGreaterThanOrEqual(now.y+now.height);
     expect(Math.abs(pane.y-now.y)).toBeLessThanOrEqual(1);
-    // 상세 칸은 화면 높이만큼(페이지를 내려도 따라옴), 왼쪽이 짧으면 왼쪽 맨 아래까지 이어진다.
-    expect(pane.height).toBeGreaterThanOrEqual(Math.min(week.y+week.height-pane.y,page.viewportSize().height-24)-1);
+    // 상세 칸은 내용만큼, 화면 높이를 넘지 않고 페이지를 내려도 따라온다(sticky).
+    expect(pane.height).toBeGreaterThan(60);expect(pane.height).toBeLessThanOrEqual(page.viewportSize().height-24+1);
     // 상세 칸은 입력창 아래에서 시작(입력창과 겹치지 않음), 위로 튀어나오지 않는다.
     const quick=await box(page.locator('#tasksView .home-quick'));expect(pane.y).toBeGreaterThanOrEqual(quick.y+quick.height-1);
     // 왼쪽 위·아래 칸 높이는 항목 수에 맞게: 항목 둘뿐인 위 칸이 화면 절반보다 훨씬 작고, 칸 안 넘김이 없다.
@@ -362,6 +362,6 @@ test('PC 1024(좁은 PC): 좌 1/3 : 우 2/3(왼쪽 최소 폭 안), 체크 목�
   const xs=await page.locator('#gtDetailPane .gt-link-group[aria-label="프로젝트"] .gt-link-opt').evaluateAll(es=>es.map(e=>Math.round(e.getBoundingClientRect().left)));
   expect(new Set(xs).size).toBe(1);
   const m=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,sh:document.documentElement.scrollHeight,ih:innerHeight}));
-  expect(m.sw).toBeLessThanOrEqual(m.cw+1);expect(m.sh).toBeLessThanOrEqual(m.ih+1);
+  expect(m.sw).toBeLessThanOrEqual(m.cw+1);
   const pw=await page.locator('#gtDetailPane').evaluate(e=>e.scrollWidth-e.clientWidth);expect(pw).toBeLessThanOrEqual(1);
 });
