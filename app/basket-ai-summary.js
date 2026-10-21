@@ -33,10 +33,12 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   ai_invalid_response:'AI 답을 읽지 못했어요. 다시 눌러 주세요.',
   in_progress:'다른 AI 작업이 진행 중이에요. 잠시 뒤 다시 눌러 주세요.',
   radar_unavailable:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
+  ledger_not_ready:'원장 후보 기능이 아직 준비되지 않았어요.',
+  ledger_unavailable:'원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   internal_error:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
 });
 // 잠깐의 문제라 같은 버튼을 [다시 시도]로 보여 줄 코드.
-const RETRYABLE=new Set(['offline','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','internal_error']);
+const RETRYABLE=new Set(['offline','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','ledger_unavailable','internal_error']);
 export const aiSummaryRetryable=code=>RETRYABLE.has(code);
 
 // 서버가 거절하는 메모(일기·보관·AI 제외·빈 글)에서는 버튼을 보이지 않는다(서버가 다시 확인한다).
