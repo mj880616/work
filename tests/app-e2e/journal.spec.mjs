@@ -910,8 +910,14 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('다음 주 자료');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`weekly-tab-${width}.png`),fullPage:true});
- // [주간보고 초안 복사]는 주간 정리에서도 그대로(같은 글).
- await page.locator('#journalRoot [data-journal-copy]').click();
+ // [주간보고 초안 복사] (JOURNAL-복사버튼): 주간 정리에서는 위 줄 버튼이 빠지고 [주간보고 한글 파일 만들기] 옆 [복사]가 같은 글을 복사한다.
+ await expect(page.locator('#journalRoot [data-journal-copy]')).toBeHidden();
+ const copy=page.locator('#journalRoot [data-hwpx-copy]');
+ await expect(copy).toBeVisible();await expect(copy).toHaveText('복사');await expect(copy).toHaveAccessibleName('주간보고 초안 복사');
+ const startBox=await page.locator('#journalRoot [data-hwpx-start]').boundingBox(),copyBox=await copy.boundingBox();
+ expect(copyBox.x).toBeGreaterThan(startBox.x+startBox.width-1);expect(Math.abs((copyBox.y+copyBox.height/2)-(startBox.y+startBox.height/2))).toBeLessThan(startBox.height);
+ await page.locator('#journalRoot [data-hwpx-start]').focus();await page.keyboard.press('Tab');await expect(copy).toBeFocused();
+ await page.keyboard.press('Enter');
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  expect(lines.slice(0,4)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)','','1. 요청사항']);
@@ -1005,6 +1011,11 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
  });
  expect(metrics.bar.map(b=>b.name)).toEqual(['하루','주간 정리','이전 주','다음 주','이번 주','주간보고 초안 복사']);
  for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(500)}
+ // JOURNAL-복사버튼: [하루]는 그대로(위 줄 버튼), [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
+ await expect(page.locator('#journalRoot [data-journal-copy]')).toBeVisible();await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();
+ await page.locator('#journalRoot [data-journal-mode="week"]').click();
+ await expect(page.locator('#journalRoot [data-journal-copy]')).toBeHidden();await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
 

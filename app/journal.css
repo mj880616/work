@@ -158,7 +158,10 @@
 #appView #journalView .journal-weekly-others{ display:flex; flex-direction:column; gap:4px; margin-top:4px; }
 /* WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] 상자(journal-hwpx.js) */
 #appView #journalView .journal-hwpx{ display:flex; flex-direction:column; gap:8px; }
-#appView #journalView .journal-hwpx > [data-hwpx-start]{ align-self:flex-start; }
+#appView #journalView .journal-hwpx-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+#appView #journalView .journal-hwpx-bar > [data-hwpx-start]{ align-self:flex-start; }
+/* JOURNAL-복사버튼: 위 줄 [주간보고 초안 복사]는 [하루]에서만 보이고, [주간 정리]에서는 [한글 파일 만들기] 옆 [복사]를 쓴다. */
+#appView #journalView .journal-head[data-copy-hidden] [data-journal-copy]{ display:none; }
 #appView #journalView .journal-hwpx-panel{ display:flex; flex-direction:column; gap:10px; padding:10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
 #appView #journalView .journal-hwpx-panel h4{ margin:0; font-size:var(--ds-text-read); font-weight:700; color:var(--kptu-ink); }
 #appView #journalView .journal-hwpx-panel h4:focus{ outline:none; }
