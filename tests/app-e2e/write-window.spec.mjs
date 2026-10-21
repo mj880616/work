@@ -113,19 +113,23 @@ for(const width of [390,1280]){
  });
 }
 
-test('attachments in the home input go only with a basket update',async({page})=>{
- const f=await fixture(page,1280),q=quick(page);
- await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>r.fulfill({json:{ok:true}}));
+test('attachments in the home input go with a basket update or a note, never with an organization record',async({page})=>{
+ const f=await fixture(page,1280),q=quick(page),uploads=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const raw=r.request().postDataBuffer()?.toString('utf8')||'';uploads.push(raw);const id=raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1];return r.fulfill({json:{ok:true,note_id:id,attachments:[{drive_file_id:'f1',file_name:'메모.txt',mime_type:'text/plain',size_bytes:6}]}});});
  await q.locator('#quickBasketFiles').setInputFiles({name:'메모.txt',mimeType:'text/plain',buffer:Buffer.from('합성')});
  await q.locator('[data-quick-input]').fill('첨부와 함께');
  await q.locator('[data-quick-big]').click();
  const e=editor(page);await expect(e).toBeVisible();
- await e.locator('[data-md-kind="note"]').click();await e.locator('[data-md-save-icon]').click();
- await expect(e.locator('.md-editor-status')).toHaveText('첨부는 업데이트(바구니)로만 저장돼요. 업데이트로 바꾸거나 첨부를 빼 주세요.');
  await e.locator('[data-md-kind-menu]').click();await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();
  await e.locator('[data-md-save-icon]').click();
  await expect(e.locator('.md-editor-status')).toHaveText('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');
- expect(f.notes).toEqual([]);expect(f.orgs).toEqual([]);
- await e.locator('[data-close="mdEditor"]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('첨부와 함께');
+ expect(f.notes).toEqual([]);expect(f.orgs).toEqual([]);expect(uploads).toEqual([]);
+ // NOTE-파일붙이기: as a note, the note is made first and the home input's file goes up with its id; the home input empties.
+ await e.locator('[data-md-kind="note"]').click();
+ await expect(e.locator('.md-editor-tools [data-basket-clip]')).toBeVisible();
+ await e.locator('[data-md-save-icon]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
+ expect(f.notes).toEqual([{workspace_id:'w',kind:'note',title:'첨부와 함께',raw_text:'첨부와 함께',metadata:{markdown:false}}]);
+ expect(uploads).toHaveLength(1);expect(uploads[0]).toContain('filename="메모.txt"');expect(uploads[0]).toMatch(/name="note_id"\r\n\r\n/);expect(uploads[0]).not.toContain('name="raw_text"');
+ await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(q.locator('[data-basket-file]')).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });

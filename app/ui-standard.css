@@ -374,8 +374,7 @@
   #appView #basketView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px 44px; font-size:14px; line-height:21px; resize:none; overflow-y:auto; }
   #appView #basketView .home-quick [data-quick-file-picker]{ top:1px; left:1px; }
   #appView #basketView .home-quick .home-quick-entry{ align-items:stretch; }
-  /* BASKET-노트입력창: 노트 입력칸은 아직 첨부가 없어 클립 자리를 비우지 않는다(NOTE-파일붙이기에서 다시). */
-  #appView #basketView .home-quick[data-note-only] [data-quick-input]{ padding-left:10px; }
+  /* NOTE-파일붙이기: 노트 입력칸도 업데이트 입력칸처럼 왼쪽에 클립 자리(44px)를 둔다(위 규칙 그대로). */
 
   /* 바구니 머리줄: 폰 화면 제목은 위 머리줄("바구니")이 맡으므로 [⋯]를 그 오른쪽 자리로 올린다(☰가 빠진 자리). 작은 아이콘, 누르는 범위 44px. */
   #appView #basketView > .basket-head{ justify-content:flex-end; min-height:var(--kptu-touch-target,44px); margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; pointer-events:none; }
@@ -879,6 +878,10 @@
 #appView #basketView .note-files a.file-line-link::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #basketView .note-files a.file-line-link:hover{ background:var(--kptu-surface-subtle); }
 #appView #basketView .note-files a.file-line-link:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+/* NOTE-파일붙이기: 카드 끝 [Drive에서 열기] 옆 ⋯(항목 [빼기] 하나). 보이는 32px·누르는 범위 44px, 이름이 길어도 줄 밖으로 밀리지 않음. */
+#appView #basketView .note-files .file-line{ gap:6px; }
+#appView #basketView .note-files button.note-file-more{ position:relative; width:var(--ds-compact-height); height:var(--ds-compact-height); min-width:0; min-height:0; }
+#appView #basketView .note-files button.note-file-more::after{ content:""; position:absolute; left:-6px; right:-6px; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 
 /* ───────── UI-버튼작게 ③(2026-10-18 사용자 결정): 폰 전환 줄은 아래 탭 바로 위 ─────────
    폰(760px 이하)에서 일정 [달력 | 할 일 | 업무일지 | 일기]와 바구니 [업데이트 | 노트]를 화면 위에서 빼서 아래 탭 6칸 바로 위 한 줄에 둔다.

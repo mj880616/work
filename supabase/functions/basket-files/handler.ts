@@ -26,6 +26,10 @@ type Attachment = {
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_FILE = 100 * 1024 * 1024;
 const MAX_ATTACHMENTS = 20;
+// NOTE-파일붙이기: files attached to a note (kind=note) go into this folder inside the private "Web2 바구니" root, not into
+// 자료실 (the library list reads app_documents only, so these files never show there). The folder is chosen here from the
+// stored row's kind, never from the request. A shared folder is refused before any upload (ensurePrivateChildFolder).
+export const NOTE_FILES_FOLDER = "노트 첨부";
 const characters = (text: string) => [...text].length;
 function validateFiles(files: FormDataEntryValue[]): File[] {
   if (!files.length || files.some((f) => !(f instanceof File))) {
@@ -124,10 +128,11 @@ export function createBasketHandler(
       let rawText = "";
       let previous: Attachment[] = [];
       let updatedAt = "";
+      let noteKind = "";
       if (noteId) {
         stage = "note_lookup";
         const { data: note, error } = await admin.from("app_notes").select(
-          "id,attachments,updated_at",
+          "id,kind,attachments,updated_at",
         )
           .eq("id", noteId).eq("workspace_id", member.workspace_id)
           .maybeSingle();
@@ -139,6 +144,7 @@ export function createBasketHandler(
         ) throw new UploadError(409, "note_state_invalid", stage);
         previous = note.attachments;
         updatedAt = note.updated_at;
+        noteKind = typeof note.kind === "string" ? note.kind : "";
       } else {
         const raw = form.get("raw_text");
         if (raw !== null && typeof raw !== "string") {
@@ -159,10 +165,14 @@ export function createBasketHandler(
       stage = "drive_token";
       token = await drive.driveToken();
       stage = "drive_folder";
-      const folder = await drive.ensurePrivateRootFolder(
+      const root = await drive.ensurePrivateRootFolder(
         member.workspace_id,
         token,
       );
+      // The update CAS below (updated_at + attachments) refuses the save if the row changed kind after this read.
+      const folder = noteKind === "note"
+        ? await drive.ensurePrivateChildFolder(root, NOTE_FILES_FOLDER, token)
+        : root;
       const attachments = [...previous];
       for (const file of files) {
         stage = "drive_upload";

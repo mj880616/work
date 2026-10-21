@@ -145,7 +145,9 @@ export async function copyText(text, {html = null} = {}) {
 // value goes to save.run as the third argument ({title}).
 // attach (optional, UI-크게첨부): {mount({picker, files, drop}), show?(kind)} adds a row under the text for choosing files. The
 // opener mounts its own existing file part there (basket-upload.js mountBasketPicker) and keeps the files; this module only gives
-// the places. show(kind) hides the row for a kind that takes no files (노트).
+// the places. show(kind) hides the row for a kind that takes no files. inTools(kind) (NOTE-파일붙이기): the [📎 첨부] button goes
+// at the end of the format button row instead (the chosen files stay listed under the text). pending() (optional): the number of
+// chosen files not saved yet; with keepOpen they count as a change (✕ asks once).
 // markdown (optional, NOTE-마크다운선택): {value, show?(kind), onChange?(on)} adds a [☐ 마크다운] box at the start of the format row.
 // Off: the text is shown and saved as written — one wide text box, no preview, and the format buttons that work with letters
 // alone (• 목록·1. 번호·☐ 체크·구분선) put those letters in; the others ask to turn markdown on first. show(kind) hides the box for a
@@ -199,7 +201,12 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     const hint = placeholder?.(kind);
     if (hint != null) area.placeholder = hint;
     if (titleRow) titleRow.hidden = kind !== noteTitle.kind;
-    if (attachRow) attachRow.hidden = attach.show ? !attach.show(kind) : false;
+    if (attachRow) {
+      const shown = attach.show ? !!attach.show(kind) : true, inTools = shown && !!attach.inTools?.(kind);
+      if (inTools && pickerHost.parentNode !== tools) tools.append(pickerHost);
+      else if (!inTools && pickerHost.parentNode !== attachRow) attachRow.prepend(pickerHost);
+      attachRow.hidden = !shown; pickerHost.hidden = !shown; attachRow.toggleAttribute('data-md-attach-in-tools', inTools);
+    }
     if (mdRow) { mdRow.hidden = !markdownShown(); paintPlain(); }
   }
   function setKind(next) { if (next !== kind) status.textContent = ''; kind = next; paint(); }
@@ -248,12 +255,12 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   const status = document.createElement('p');
   status.className = 'md-editor-status'; status.setAttribute('role', 'status');
   // The file row (attach): [📎 첨부] and the chosen files, right under the text.
-  const attachRow = attach ? document.createElement('div') : null;
+  const attachRow = attach ? document.createElement('div') : null, pickerHost = attach ? document.createElement('div') : null;
   if (attachRow) {
     attachRow.className = 'md-editor-attach';
-    const picker = document.createElement('div'), files = document.createElement('div');
-    picker.dataset.mdAttachPicker = ''; files.dataset.mdAttachFiles = '';
-    attachRow.append(picker, files);
+    const files = document.createElement('div');
+    pickerHost.dataset.mdAttachPicker = ''; files.dataset.mdAttachFiles = '';
+    attachRow.append(pickerHost, files);
   }
   const bar = document.createElement('div'), toolRow = document.createElement('div');
   // The format row sits right under the head ([마크다운] box first, then the buttons); a choice row (제목·강조 상자·도식) opens under it.
@@ -265,7 +272,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   // What was last saved (keepOpen): the text, the title box and the markdown choice as they were.
   const snapshot = () => ({text: area.value, title: titleBox?.value ?? '', markdown: markdownValue()});
   let baseline = null;
-  const changed = () => { const now = snapshot(); return now.text !== baseline.text || now.title !== baseline.title || now.markdown !== baseline.markdown; };
+  const changed = () => { const now = snapshot(); return now.text !== baseline.text || now.title !== baseline.title || now.markdown !== baseline.markdown || (attach?.pending?.() || 0) > 0; };
   const previewing = () => !isPlain() && (WIDE.matches || mode === 'preview');
   // Off: one wide text box (no preview, no [쓰기|미리보기]).
   function paintPlain() {
@@ -491,7 +498,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   const handle = {close, exportAs, leaveChoice, closeChoice, markdownChoice, paint, get text() { return area.value; }, get kind() { return kind; }, get markdown() { return markdownValue(); }, get closed() { return closed; }};
 
   document.body.append(shell);
-  if (attachRow) attach.mount({picker: attachRow.querySelector('[data-md-attach-picker]'), files: attachRow.querySelector('[data-md-attach-files]'), drop: panes});
+  if (attachRow) attach.mount({picker: pickerHost, files: attachRow.querySelector('[data-md-attach-files]'), drop: panes});
   document.documentElement.classList.add('md-editor-open');
   paint(); baseline = snapshot();
   onWide(); setMode('write', {focus: false});

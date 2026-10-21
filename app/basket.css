@@ -158,5 +158,5 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
   #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head{ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; position:relative; z-index:2; }
   html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-detail]:not([hidden])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
 }
-/* BASKET-노트입력창: 노트 입력칸(PC)은 클립 없이 왼쪽 여백만. */
+/* BASKET-노트입력창: 노트 입력칸(PC)은 왼쪽 여백만(NOTE-파일붙이기: PC 클립은 입력칸 밖 [추가] 앞, 폰은 ui-standard.css가 클립 자리를 둔다). */
 #basketView .home-quick[data-note-only] [data-quick-input] { padding-left:10px; }

@@ -43,6 +43,15 @@ export function noteDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
     otherLinks?`회의·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
     attachments?`첨부 파일 ${attachments}개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).`:''].filter(Boolean).join(' ');
 }
+// NOTE-파일붙이기 (2026-10-22 사용자 결정): deleting a note (kind=note) removes the note and its links only; its files stay in
+// Drive as they are (no trash, no move), so the note path never calls the server's trash step.
+export function noteDocDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
+  return ['노트 원문을 지웁니다.',
+    `연결된 조직·프로젝트 ${places}곳에서도 사라집니다.`,
+    otherLinks?`회의·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
+    attachments?`첨부 파일 ${attachments}개는 노트에서만 빠지고 Drive에는 그대로 남아요.`:''].filter(Boolean).join(' ');
+}
+export const NOTE_DOC_DELETED=Object.freeze({plain:'노트를 지웠어요.',files:'노트를 지웠어요. 첨부 파일은 Drive에 그대로 남아 있어요.'});
 // Trash counts from the server. Unknown PATCH outcomes are named separately, never as success.
 export function noteDeleteResultText({failed=0,unknown=0}={}){
   if(!failed&&!unknown)return RECORD_DELETE_TEXT.NOTE_TRASHED;
@@ -230,12 +239,14 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
 }
 
 // describe: the confirmation text for a row that is not a basket memo (JOURNAL-일기: "…일기를 지웁니다").
-export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText}={}){
+// keepFiles (a note): the owner-RLS REST delete only; the files stay in Drive (NOTE-파일붙이기).
+export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false}={}){
   return remove('note',noteId,{rt,isCurrent,confirmText:async()=>{
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
     if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};
     return {text:describe(info),info};
   },write:async({message:{info},expectedSessionEpoch,path})=>{
+    if(keepFiles)return {status:'rest',message:info.attachments?NOTE_DOC_DELETED.files:NOTE_DOC_DELETED.plain};
     // No attachment: nothing to trash, the owner-RLS REST delete is enough.
     if(!info.attachments)return {status:'rest',message:RECORD_DELETE_TEXT.NOTE_DELETED_PLAIN};
     let reply;
