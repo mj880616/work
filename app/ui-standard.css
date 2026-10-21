@@ -175,7 +175,7 @@
 #appView #calendarView .calendar-toolbar-divider{ border-left-width:var(--ds-line-width); border-left-color:var(--ds-line); }
 
 /* 상자: 0.5px 선·모서리 12px·그림자·그라데이션 없음. */
-#appView #calendarView .calendar-card,#appView #tasksView #gtTaskSection,#appView #projectsView .ps3-plist,#ps3DetailModal .ps3-section{
+#appView #calendarView .calendar-card,#appView #tasksView #gtTaskSection,#appView #projectsView .ps3-plist{
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none;
 }
 
