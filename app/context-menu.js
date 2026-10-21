@@ -126,12 +126,15 @@ document.addEventListener('contextmenu', e => {
   if (!WIDE.matches || e.pointerType === 'touch') return;
   const target = e.target instanceof Element ? e.target : null;
   if (!target || target.closest(EDITABLE)) return;
-  // A link (<a href>) keeps the browser's own menu (open in a new tab, copy link address).
-  if (target.closest('a[href]')) return;
   const selection = window.getSelection?.();
   if (selection && !selection.isCollapsed && selection.toString().trim() !== '') return;
   const trigger = findTrigger(target);
   if (!trigger) return;
+  // A link (<a href>) inside the card keeps the browser's own menu (open in a new tab, copy link address). A card's own
+  // "open" line (a link that sits next to its ⋯ in the same row, e.g. a project record line) is the card itself, not a link
+  // in its text, so it still opens the ⋯ menu.
+  const link = target.closest('a[href]');
+  if (link && !link.parentElement?.contains(trigger)) return;
   // A right-click inside the already open context details menu keeps the browser's own menu.
   if (openDetails?.details.contains(target)) return;
   e.preventDefault();
