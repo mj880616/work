@@ -125,6 +125,8 @@
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
+  // ORG-사본자동갱신: 저장 뒤 Drive 읽기용 사본 자동 갱신(화면 표시 없음).
+  await import('./drive-summary.js').catch(err=>console.warn('drive summary refresh load failed',err?.name||'Error'));
 
   const mobileNavigationReady=import('./mobile-swipe-navigation.js').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{
