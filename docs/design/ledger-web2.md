@@ -396,3 +396,20 @@ union all select 'server version', current_setting('server_version');
 - 후보가 기존 기록과 같은 일인지(중복)는 사건 제목 목록과 중복 열쇠로만 줄인다. 같은 일이 다른 기록·제목으로 다시 후보가 될 수 있다(명진이 [버림]).
 - 번호표 접두어가 없으면 확정이 거절된다(시트 이전 전에는 확정 불가). 이전 전 시험 확정이 필요하면 번호표만 먼저 등록하는 방법을 따로 정해야 한다.
 
+
+## 16. 확정 되돌리기 (LEDGER-확정되돌리기, 2026-10-21)
+
+사용자 요청: 원장 후보 [확정]·[고쳐서 확정]을 뒤에 되돌릴 수 있게.
+
+- 화면(`app/ledger-candidates.js`): 확정 직후 알림 옆 [되돌리기] 10초(`UNDO_SECONDS`), 그 뒤에는 후보 칸 아래 "최근 확정 n건"(접힘, 최근 20건) 항목의 ⋯ 안 [확정 취소](확인 창). 취소 함수가 없으면(운영 미적용) 두 버튼과 최근 확정 칸만 숨고 확정·버림은 그대로.
+- 함수 `public.app_unconfirm_ledger_candidate(uuid)`(migration `20261021234000_ledger_candidate_undo`, SECURITY INVOKER·`search_path = ''`, authenticated만) 한 거래:
+  - 그 확정이 만든 기록-출처 연결·기록 간 연결을 지운다(확정 거래의 시각 = 후보 `decided_at` = 그 행들의 `created_at`으로 찾는다).
+  - 새 기록(new·supersede)은 **지우지 않고 폐기(retired)**. 원장 행 삭제는 S7-a 제한 정책(확인 전 가져오기 되돌리기만)이 막고, 정책을 넓히지 않기 위해서다. 고정 ID 번호는 다시 쓰지 않는다(다시 확정하면 새 번호, 폐기된 번호는 그대로 남음).
+  - 그 확정이 새로 만든 출처가 다른 곳에 안 쓰이고 고친 적 없으면 폐기.
+  - supersede였으면 대체된 기록을 확정 직전 값(그 확정의 감사 기록 `row_update` before)으로 되돌린다.
+  - 후보는 대기로. 고쳐서 확정한 제목·민감도·내용은 그대로 남아 다시 고칠 수 있다.
+  - 감사 기록: `note`(detail.action = `candidate_unconfirm`) 1행 + 기존 트리거의 `candidate_decided`(before = confirmed)·`row_update`·`row_delete`. 감사 기록은 지우지 않는다.
+- 거절(아무것도 안 바뀜, 화면은 이유 표시): 확정 뒤 그 기록·그 확정의 연결이 고쳐졌거나 기록에 연결이 더해짐(`LEDGER_UNDO_RECORD_CHANGED`), 다른 기록이 연결·대체로 가리키거나 다른 대기·확정 후보가 대상으로 삼음(`LEDGER_UNDO_REFERENCED`), 대체된 기록이 확정 뒤 고쳐짐(`LEDGER_UNDO_TARGET_CHANGED`), 가져오기 묶음에서 온 기록(`LEDGER_UNDO_IMPORTED`), 같은 중복 열쇠의 대기 후보가 있음(`LEDGER_UNDO_DUPLICATE_PENDING`).
+- 후보 잠금: 트리거 `app_ledger_candidates_guard`의 함수만 `private.app_guard_ledger_candidate()`로 바꾼다. 결정된 후보는 계속 못 바꾸고, "확정 → 대기"만 같은 거래 안에 위 `note` 감사 행(`created_at = now()`)이 있고 제목·내용·민감도·종류·대상이 그대로일 때 허용한다. PostgREST 요청 하나가 거래 하나라 화면·REST로는 이 함수 밖에서 열 수 없다. 가져오기 묶음 잠금(`app_ledger_imports_guard`)은 그대로.
+- 기간 제한(예: 확정 후 7일)은 넣지 않았다(추천안, 사용자 결정 대기).
+- 적용: 승인형 DB workflow(확장 규칙 통과, apply·dry-run) 또는 SQL Editor. 되돌리기는 짝 `docs/20261021234000_ledger_candidate_undo.rollback.sql`을 SQL Editor로(트리거를 다시 바꾸므로 workflow rollback 모드 대상 아님). 되돌려도 이미 취소한 후보·폐기된 기록은 그대로 남는다.

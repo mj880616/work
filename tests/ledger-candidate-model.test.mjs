@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { candidateProblem, candidateFilePayload, candidateView, editPayload, confirmError } from '../app/ledger-candidate-model.mjs';
+import { candidateProblem, candidateFilePayload, candidateView, editPayload, confirmError, undoError, UNDO_SECONDS } from '../app/ledger-candidate-model.mjs';
 
 // AI-서버연동 S7-c: 원장 후보 모양 검사·Claude 후보 파일 묶음·[고쳐서 확정] 내용. 가상 값만.
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -66,4 +66,17 @@ test('확정 오류는 일상어로', () => {
   assert.match(confirmError({ message: 'LEDGER_CANDIDATE_BROKEN_REF: record EVT-0999' }), /EVT-0999/);
   assert.match(confirmError({ message: 'LEDGER_ID_PREFIX_MISSING: no id prefix for event' }), /번호표/);
   assert.match(confirmError({ message: 'something else' }), /확정하지 못했습니다/);
+});
+
+test('확정 취소 오류는 일상어로, 되돌리기 시간은 10초', () => {
+  assert.equal(UNDO_SECONDS, 10);
+  assert.match(undoError({ message: 'LEDGER_UNDO_RECORD_CHANGED: the record was edited after confirmation' }), /확정 뒤 이 기록/);
+  assert.match(undoError({ message: 'LEDGER_UNDO_REFERENCED: another record' }), /가리키고 있어/);
+  assert.match(undoError({ message: 'LEDGER_UNDO_TARGET_CHANGED: x' }), /대체한 기록/);
+  assert.match(undoError({ message: 'LEDGER_UNDO_IMPORTED: x' }), /가져오기/);
+  assert.match(undoError({ message: 'LEDGER_UNDO_DUPLICATE_PENDING: x' }), /같은 내용의 대기 후보/);
+  assert.match(undoError({ message: 'LEDGER_UNDO_NOT_CONFIRMED: x' }), /이미 대기로/);
+  assert.match(undoError({ message: 'permission denied for function' }), /소유자만/);
+  assert.match(undoError({ status: 0, message: 'network' }), /연결이 끊겨/);
+  assert.match(undoError({ message: 'something else' }), /확정을 취소하지 못했습니다/);
 });
