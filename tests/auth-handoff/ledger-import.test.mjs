@@ -14,7 +14,7 @@ import pg from 'pg';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {readInputFiles,analyze,numberCheck} from '../../app/ledger-import-model.mjs';
-import {csvFiles,TABS} from '../ledger-import-fixture.mjs';
+import {csvFiles,TABS,REAL_TABS} from '../ledger-import-fixture.mjs';
 const version='20261021150000',name='ledger_import',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
@@ -194,6 +194,16 @@ test('S7-b ledger import functions: files, prechecks, dry-run, apply, duplicate 
   await t.test('another workspace is untouched; its owner sees nothing of this one',async()=>{
    assert.equal(await stranger(c=>c.query('select public.app_import_ledger_counts($1) r',[importId])).then(r=>r.rows[0].r),null);
    assert.equal((await pool.query(`select count(*)::int n from public.app_ledger_records where workspace_id=$1`,[WS_B])).rows[0].n,0);
+  });
+  await t.test('real sheet headers (synthetic content): the whole batch goes in; odd legacy ids kept in detail; number check matches',async()=>{
+   const real=await payloadFor(REAL_TABS,'실제 머리줄');
+   const done=await apply(real.payload,false,stranger,WS_B);
+   assert.equal(done.status,'applied');
+   assert.ok(numberCheck(done.file.report,done).every(r=>r.ok),JSON.stringify(numberCheck(done.file.report,done)));
+   const legacy=(await pool.query(`select legacy_id,detail->>'legacy_id_original' o from public.app_ledger_audit where import_id=$1 and event='legacy_write_request' order by created_at,legacy_id nulls last`,[done.import_id])).rows;
+   assert.deepEqual(legacy.map(r=>r.legacy_id).sort(),[null,null,'REQ-0901'].sort());
+   assert.ok(legacy.some(r=>r.o==='REQ-20260924042846-COL-1cVke0'));
+   assert.equal((await rpc('app_import_ledger_revert',[done.import_id],stranger)).status,'reverted');
   });
   await t.test('rollback: drops the four functions and the history row only; ledger rows stay; snapshot matches',async()=>{
    const rows=await ledgerRows();

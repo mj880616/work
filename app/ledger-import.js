@@ -302,7 +302,7 @@ function checkHtml(c) {
     <h3 id="lgCheckTitle">숫자 확인 — ${esc(c.label)} <span class="lg-pill">${esc(STATUS_LABEL[c.status] || c.status)}</span></h3>
     <p class="lg-note">탭마다 시트 행 수 = 들어간 수 + 민감 제외 + 거부 이어야 합니다. 들어간 수는 지금 DB에서 센 값입니다.</p>
     <div class="lg-table-wrap"><table class="lg-table" data-lg-numbers><thead><tr><th scope="col">탭</th><th scope="col">시트 행</th><th scope="col">들어간 수</th><th scope="col">민감 제외</th><th scope="col">거부</th><th scope="col">맞음</th></tr></thead><tbody>
-      ${rows.map(r => `<tr data-lg-tab="${esc(r.key)}"><th scope="row">${esc(r.label)}</th><td>${r.sheet}</td><td>${r.inserted}</td><td>${r.excluded}</td><td>${r.rejected}</td><td>${r.ok ? '맞음' : '<span class="lg-bad">다름</span>'}</td></tr>`).join('')}
+      ${rows.map(r => `<tr data-lg-tab="${esc(r.key)}"><th scope="row">${esc(r.label)}</th><td>${r.sheet}${r.shift ? ` <span class="lg-muted" title="한 행에 기록 여러 개(+) 또는 겹치거나 담을 수 없어 뺀 연결(−)">(연결 ${r.shift > 0 ? '+' : ''}${r.shift})</span>` : ''}</td><td>${r.inserted}</td><td>${r.excluded}</td><td>${r.rejected}</td><td>${r.ok ? '맞음' : '<span class="lg-bad">다름</span>'}</td></tr>`).join('')}
     </tbody></table></div>
     <p class="lg-note">연결: 기록-출처 ${c.record_sources ?? 0}, 기록 간 ${c.links_to_records ?? 0}, 조직연결 ${c.links_to_organizations ?? 0}. 가져온 뒤 고친 행 ${c.modified ?? 0}.</p>
     ${c.status === 'applied' ? `<div class="lg-actions">

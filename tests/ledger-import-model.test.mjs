@@ -196,3 +196,45 @@ test('number check: sheet rows = inserted + excluded + rejected per tab',async()
  const short=numberCheck(r.payload.report,{...db,records_by_kind:{...db.records_by_kind,event:1}});
  assert.deepEqual(short.find(x=>x.key==='event'),{key:'event',label:'사건',sheet:3,inserted:1,excluded:1,rejected:0,shift:0,ok:false});
 });
+
+test('real sheet headers (synthetic content): no rejection; titles, notes, links, legacy ids and IDX handled',async()=>{
+ const {REAL_TABS}=await import('./ledger-import-fixture.mjs');
+ const r=await run(csvFiles(REAL_TABS));
+ assert.deepEqual(r.summary.error,[]);assert.equal(r.ok,true);
+ for(const t of r.tabs)assert.deepEqual(t.missing,[],t.key);
+ const p=r.payload,rec=id=>p.records.find(x=>x.ledger_id===id);
+ assert.equal(tab(r,'change').importRows,2);assert.equal(tab(r,'decision').importRows,2);assert.equal(tab(r,'commitment').importRows,1);
+ assert.equal(tab(r,'write_request').importRows,3);assert.equal(tab(r,'org_link').importRows,5);
+ // 변화기록: 제목 = 새로 확인된 것(길면 앞 300자, 전체는 요지), 확인시각의 날짜, 상태 변화·출처유형은 비고, 출처명이 출처 제목이면 연결.
+ assert.equal(rec('CHG-0901').title,'가상 노선 1차 협의 결과가 새로 확인됨');
+ assert.deepEqual([rec('CHG-0901').date_start,rec('CHG-0901').date_precision,rec('CHG-0901').verification],['2026-09-24','day','verified']);
+ assert.match(rec('CHG-0901').note,/상태 변화: 협의 전 → 협의 중/);
+ assert.ok(p.record_sources.some(x=>x.record==='CHG-0901'&&x.source==='SRC-0901'));
+ assert.equal(rec('CHG-0902').title.length,300);assert.equal(rec('CHG-0902').summary.length,320);
+ assert.match(rec('CHG-0902').note,/출처명: 가상 신문 기사/);
+ // 결정: 제목 = 결정내용, 결정일, 회의명·결정주체·후속조치·태그는 비고, 출처ID + 근거위치, 관련업무 → 주제 대응표.
+ assert.equal(rec('DEC-0901').title,'옛 가상 방침을 채택');assert.equal(rec('DEC-0901').date_start,'2025-03-02');
+ assert.match(rec('DEC-0901').note,/회의명: 가상 회의 1차/);assert.equal(rec('DEC-0901').topic,'TOP-0902');
+ assert.deepEqual(p.record_sources.filter(x=>x.record==='DEC-0901').map(x=>[x.source,x.locator]),[['SRC-0901','3쪽']]);
+ assert.equal(p.record_sources.filter(x=>x.record==='DEC-0902').length,2);
+ // 약속: 제목 = 약속내용, 상대측 = 주체, 원문표현 = 요지, 읽을 수 없는 후속확인일은 비고, 대표관련기록 → 관련 연결.
+ const com=rec('COM-0901');
+ assert.deepEqual([com.title,com.counterparty,com.follow_up_on,com.commitment_status],['가상 자료 제공 약속','나 기관',null,'waiting']);
+ assert.match(com.note,/후속확인일: 2026-05 중/);assert.match(com.summary,/자료를 드리겠다/);
+ assert.ok(p.links.some(l=>l.record==='COM-0901'&&l.target_record==='EVT-0901'&&l.relation==='related'));
+ // 조직연결: 기록ID → 조직ID 방향. 결정·변화기록도 기록. 출처를 가리키는 행은 담을 칸이 없어 빠짐(알림), 한 행의 기록 여러 개는 연결 여러 개.
+ const orgLinks=p.links.filter(l=>l.target_organization);
+ assert.deepEqual(orgLinks.map(l=>`${l.record}>${l.target_organization}`).sort(),['CHG-0901>ORG-0901','DEC-0901>ORG-0901','DEC-0902>ORG-0901','DEC-0902>ORG-0902','EVT-0901>ORG-0901']);
+ assert.equal(reasons(r,'warning').link_kind_unsupported,1);
+ assert.match(orgLinks.find(l=>l.record==='EVT-0901').note,/활성여부: Y/);
+ assert.equal(tab(r,'org_link').linkShift,0);
+ // 쓰기요청: REQ-0901 모양은 legacy_id, 다른 모양은 원래 표기 보관. IDX 참조는 알림만.
+ assert.deepEqual(p.legacy_write_requests.map(x=>x.legacy_id),['REQ-0901',null,null]);
+ assert.equal(p.legacy_write_requests[1].detail.legacy_id_original,'REQ-20260924042846-COL-1cVke0');
+ assert.equal(p.legacy_write_requests[0].occurred_at,'2026-09-24T04:28:00+09:00');
+ assert.equal(p.legacy_write_requests[0].detail.results,'IDX-0927~IDX-0929');
+ assert.deepEqual(reasons(r,'warning'),{title_cut:1,source_text_kept:1,date_text_kept:1,link_kind_unsupported:1,legacy_id_kept:2,idx_ref_ignored:1});
+ // 숫자 확인(조직연결은 한 행 → 여러 연결·빠진 연결을 4번째 값으로 맞춤).
+ const db={topics:2,organizations:2,sources:2,records_by_kind:{event:2,change:2,decision:2,evidence:2,commitment:1},links_to_organizations:5,legacy_write_requests:3};
+ assert.ok(numberCheck(p.report,db).every(x=>x.ok),JSON.stringify(numberCheck(p.report,db)));
+});
