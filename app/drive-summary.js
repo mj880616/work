@@ -60,14 +60,14 @@ export function createRefresher({call,isOwner,now=()=>Date.now(),setTimer=setTim
     if(firstAt===null)firstAt=now();
     if(!flight)arm();
   }
-  async function run(){
+  async function run(leaving=false){
     if(flight||!dirty)return flight;
     if(!isOwner()){reset();return}
     cancelTimer();dirty=false;firstAt=null;
     const epoch=generation;
     flight=(async()=>{
       // 실패는 화면에 알리지 않는다. 원본 저장은 이미 끝났고 다음 저장이나 예약 실행이 다시 만든다.
-      try{await call()}catch{/* 사본 갱신 실패는 원본 저장 결과를 바꾸지 않는다. */}
+      try{await call({leaving})}catch{/* 사본 갱신 실패는 원본 저장 결과를 바꾸지 않는다. */}
       finally{
         flight=null;
         if(epoch===generation&&dirty&&isOwner()){firstAt??=now();arm()}
@@ -75,7 +75,8 @@ export function createRefresher({call,isOwner,now=()=>Date.now(),setTimer=setTim
     })();
     return flight;
   }
-  function flush(){if(timer!==null&&!flight)void run()}
+  // 화면이 가려지거나 닫힐 때: 기다리던 갱신을 바로 보낸다.
+  function flush(){if(timer!==null&&!flight)void run(true)}
   function reset(){cancelTimer();dirty=false;firstAt=null;generation++}
   return {saved,flush,reset,pending:()=>timer!==null||dirty,busy:()=>!!flight};
 }
@@ -87,8 +88,15 @@ function install(win){
     const c=rt.context?.read?.(),s=rt.session?.read?.();
     return !!s?.access_token&&c?.user?.id===s?.user?.id&&c?.workspace?.slug==='kptu-work'&&c?.membership?.role==='owner';
   };
-  // 본문 없이 부른다. 서버가 작업공간·소유자를 정한다.
-  const refresher=createRefresher({isOwner:owner,call:()=>rt.api('/functions/v1/drive-summary',{method:'POST',refreshSession:false,timeoutMs:120000})});
+  // 본문 없이 부른다. 서버가 작업공간·소유자를 정한다. 세션 갱신·로그아웃 같은 부작용은 없다.
+  // 화면을 떠나는 순간에는 탭이 닫혀도 요청이 나가도록 같은 주소·키·현재 토큰으로 keepalive 요청을 보낸다.
+  const call=async({leaving})=>{
+    if(!leaving)return rt.api('/functions/v1/drive-summary',{method:'POST',refreshSession:false,timeoutMs:120000});
+    const token=rt.session.read()?.access_token;
+    if(!token)return;
+    await fetch(rt.config.url+'/functions/v1/drive-summary',{method:'POST',headers:{apikey:rt.config.key,Authorization:'Bearer '+token},cache:'no-store',keepalive:true});
+  };
+  const refresher=createRefresher({isOwner:owner,call});
   win.KPTUDriveSummary=Object.freeze({saved:refresher.saved});
   win.addEventListener('kptu:api-saved',event=>{if(owner()&&affectsSummary(event.detail,rt.config.url))refresher.saved()});
   // 자료 삭제는 응답에 프로젝트가 없어서, 지운 쪽이 알고 있는 옛 프로젝트로 알린다.
