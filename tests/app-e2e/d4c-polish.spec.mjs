@@ -51,16 +51,20 @@ for(const width of [360,1280])test(`modal titles and organization group boxes ${
   async function groups(root,group,row){
     await expect(page.locator(root+' '+group)).toHaveCount(4);
     await expect(page.locator(root+' '+group).first()).toBeVisible();
-    const sizes=await page.locator(root+' '+group).evaluateAll((es,row)=>es.map(e=>({background:getComputedStyle(e).backgroundColor,border:getComputedStyle(e).borderTopWidth,children:[...e.querySelectorAll(row)].map(x=>({height:x.getBoundingClientRect().height,border:getComputedStyle(x).borderTopWidth,background:getComputedStyle(x).backgroundColor}))})),row);
+    const sizes=await page.locator(root+' '+group).evaluateAll((es,row)=>es.map(e=>({background:getComputedStyle(e).backgroundColor,border:getComputedStyle(e).borderTopWidth,children:[...e.querySelectorAll(row)].map(x=>({height:x.getBoundingClientRect().height,border:getComputedStyle(x).borderTopWidth,background:getComputedStyle(x).backgroundColor,selected:x.classList.contains('is-selected')}))})),row);
     expect(sizes.map(x=>x.children.length)).toEqual([1,2,2,1]);
-    for(const g of sizes){expect(g.border).toBe('1px');expect(g.background).not.toBe('rgba(0, 0, 0, 0)');for(const r of g.children){expect(r.height).toBeGreaterThanOrEqual(44);expect(r.border).toBe('0px');expect(r.background).toBe('rgba(0, 0, 0, 0)')}}
+    for(const g of sizes){expect(g.border).toBe('1px');expect(g.background).not.toBe('rgba(0, 0, 0, 0)');for(const r of g.children){expect(r.height).toBeGreaterThanOrEqual(44);expect(r.border).toBe('0px');if(!r.selected)expect(r.background).toBe('rgba(0, 0, 0, 0)')}}
+    // ORG-PC좌우: on a PC the 담당조직 list marks the organization shown on the right (light green); only that one row.
+    expect(sizes.flatMap(g=>g.children).filter(r=>r.selected).length).toBeLessThanOrEqual(1);
   }
   await page.locator('#newEventBtn').click();await groups('#soEventOrgChecks','.so-org-group','label');await page.locator('[data-close="eventModal"]').click();
   await page.locator('[data-google-event="blue-0"]').first().click();await groups('#soGoogleEditOrgChecks','.so-org-group','label');await title('ciGoogleModal');await page.locator('#ciGoogleClose').click();
   await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await groups('#gtEditLinkBody [aria-label="조직"]','.gt-org-group','label');await title('gtTaskModal');await page.locator('[data-gt-close]').click();
   await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'d4c-project'}));await title('gtPickModal');await page.locator('[data-gt-pick-close]').click();
   await page.evaluate(async()=>{await import('/app/task-layout.js');window.KPTUTaskLayout.openCreate()});await title('taskModal');await page.locator('[data-close="taskModal"]').click();
-  await page.evaluate(()=>window.KPTURouter.go('team'));await page.mouse.move(0,0);/* 마지막 클릭 위치가 담당조직 줄 위에 남아 hover 배경이 섞이지 않게 */await groups('#soOrganizationList','.so-group-card','.so-card');
+  // Entering the screen reloads and redraws the list; read the boxes after that redraw (on a PC the detail opened on the
+  // right, ORG-PC좌우, adds its own reads, so the redraw can land later than before).
+  await page.evaluate(()=>new Promise(resolve=>{addEventListener('kptu:suborganizations-rendered',()=>resolve(),{once:true});window.KPTURouter.go('team')}));await page.mouse.move(0,0);/* 마지막 클릭 위치가 담당조직 줄 위에 남아 hover 배경이 섞이지 않게 */await groups('#soOrganizationList','.so-group-card','.so-card');
   async function title(id){
     await expect(page.locator('#'+id)).toBeVisible();await expect(page.locator('#'+id+' .modal-head .eyebrow')).toHaveCount(0);await expect(page.locator('#'+id+' h2')).toBeVisible();
     expect(await page.locator('#'+id+' h2').evaluate(el=>el.getBoundingClientRect().top-el.closest('.modal-head').getBoundingClientRect().top)).toBeLessThanOrEqual(1);

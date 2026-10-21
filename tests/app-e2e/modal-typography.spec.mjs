@@ -81,7 +81,8 @@ const newStandard=p=>p.evaluate(()=>{
  const view=document.querySelector('.view-panel:not(.hidden)'),bad=[];
  for(const e of view.querySelectorAll('*')){
   // UI-PC프로젝트좌우: PC(≥1024) 프로젝트 화면 오른쪽 칸은 상세 창(#ps3DetailModal)을 그대로 옮긴 것이라 창 검사(D-6b·audit)가 맡는다.
-  if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only,#ps3DetailPane'))continue;
+  // ORG-PC좌우: 담당조직 화면 오른쪽 칸(#wdDetailPane)도 같은 상세 창(#wdModal)을 옮긴 것이다.
+  if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only,#ps3DetailPane,#wdDetailPane'))continue;
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
   if(text&&!['400','500'].includes(s.fontWeight))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
@@ -382,8 +383,12 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   await original.locator('#meetingModal .modal-head').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),filesPanel);
   // UI-바구니첨부메모 PR 3(2026-10-19): 담당조직 상세에 [자료] 묶음이 생기고, 자료실 [분류 수정] 창에 분류 목록 편집 칸과 '자료별 분류' 제목이 생겼다.
   // 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
-  const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
-  await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);
+  // ORG-PC좌우: on a PC (≥1024) the 담당조직 screen opens the first organization in its right pane, so the current detail
+  // carries that organization's drawn content (basic info rows etc.) that main never drew without a click. Like the project
+  // detail above, the current detail markup goes to main's side too and is compared under both style sets.
+  if(width>=1024){const html=await page.locator('#wdModal').evaluate(el=>el.outerHTML);await original.locator('#wdModal').evaluate((el,html)=>{el.outerHTML=html},html)}
+  else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
+  await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
   const manageParts=await page.locator('#libraryManageModal').evaluate(el=>[el.querySelector('#libraryCategoryEditor').outerHTML,el.querySelector('.library-manage-title').outerHTML].join(''));
   await original.locator('#libraryManageList').evaluate((el,html)=>el.insertAdjacentHTML('beforebegin',html),manageParts);
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);

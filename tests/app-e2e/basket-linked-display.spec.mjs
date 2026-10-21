@@ -7,6 +7,8 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-10-12T01:00:00Z'
 // record time (data-so-at), read here as the KST month.day the list used to print on the right.
 const recordDay=page=>page.locator('[data-so-dot][data-so-at]').evaluateAll(t=>t.map(e=>{const d=new Date(Date.parse(e.dataset.soAt)+9*3600000).toISOString();return Number(d.slice(5,7))+'.'+Number(d.slice(8,10))}).join(','));
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='30000000-0000-4000-8000-000000000001';
+// ORG-PC좌우: at PC width the 담당조직 screen also opens the first organization's detail on the right, which reads its own
+// records with their text (select …raw_text…). The list checks below count only the list's date reads (no text).
 async function fixture(page){
  await openHome(page);const errors=[],calls=[],links=[],taskLinks=[],linkReads=[],note={id:n,workspace_id:'w',occurred_at:stamp,updated_at:stamp,raw_text:'합성 원문 <script>만 표시</script>',ai_export_allowed:true,archived_at:null,attachments:[]};
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error')errors.push(e.text());});
@@ -17,7 +19,7 @@ async function fixture(page){
   return route.fulfill({json:rows.slice(Number(q.get('offset')||0),Number(q.get('offset')||0)+Number(q.get('limit')||rows.length))});
  });
  await page.route(SB+'/rest/v1/app_record_links?**',route=>{
-  const q=new URL(route.request().url()).searchParams;const basket=q.get('note_id')==='not.is.null';if(basket)linkReads.push(Object.fromEntries(q));let rows=q.has('google_task_id')?taskLinks:links;
+  const q=new URL(route.request().url()).searchParams;const basket=q.get('note_id')==='not.is.null';if(basket&&!/raw_text/.test(q.get('select')||''))linkReads.push(Object.fromEntries(q));let rows=q.has('google_task_id')?taskLinks:links;
   for(const key of ['id','organization_id','project_id','note_id']){const filter=q.get(key);if(filter?.startsWith('eq.'))rows=rows.filter(x=>x[key]===filter.slice(3));}
   const offset=Number(q.get('offset')||0),limit=Number(q.get('limit')||rows.length);return route.fulfill({json:rows.slice(offset,offset+limit).map(row=>({...row,note,organization:{name:'합성 한빛지부'},project:{name:'합성 기자회견 준비'}}))});
  });
@@ -74,7 +76,7 @@ test('list takes the newest occurred_at of legacy and note and preserves read fa
  await page.evaluate(()=>{__failListLinks=false;dispatchEvent(new Event('kptu:basket-links-changed'));});await expect.poll(()=>recordDay(page)).toBe('10.13');expect(f.errors).toEqual([]);
 });
 async function holdListRead(page){
- await page.evaluate(()=>{const api=KPTURuntime.api;window.__heldList={count:0};KPTURuntime.api=async(path,...args)=>{const result=await api(path,...args);if(path.includes('note_id=not.is.null')&&KPTURouter.current==='team'){const h=__heldList;h.count++;if(h.count===1){h.waiting=true;await new Promise(r=>h.release=r);}}return result;};dispatchEvent(new Event('kptu:basket-links-changed'));});
+ await page.evaluate(()=>{const api=KPTURuntime.api;window.__heldList={count:0};KPTURuntime.api=async(path,...args)=>{const result=await api(path,...args);if(path.includes('note_id=not.is.null')&&!path.includes('raw_text')&&KPTURouter.current==='team'){const h=__heldList;h.count++;if(h.count===1){h.waiting=true;await new Promise(r=>h.release=r);}}return result;};dispatchEvent(new Event('kptu:basket-links-changed'));});
  await expect.poll(()=>page.evaluate(()=>__heldList.waiting)).toBe(true);
 }
 test('list replays one fresh read after a change during an existing read',async({page})=>{
