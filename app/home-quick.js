@@ -72,6 +72,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'',updateProjectName=projectChoices.find(x=>x.project.id===updateProject)?.project.name||'',targetName=organization?orgName:updateProjectName;
     input.placeholder=noteOnly?'노트를 입력하세요':mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
     box.querySelector('[data-quick-file-picker]').hidden=!takesFiles();
+    // TASK-추가창파일: a task takes up to 10 files (the ⋯ → 파일 붙이기 limit), not the basket's 20; say where they go.
+    const fileHint=box.querySelector('[data-basket-hint]');if(fileHint)fileHint.textContent=mode==='task'?`파일당 100MB · ${MAX_TASK_FILES}개까지 · 추가하면 Drive "자료실/할 일 첨부"에 올라갑니다`:'파일당 100MiB · 20개까지';
     if(!taskOnly)box.querySelector('[data-quick-big]').hidden=mode==='task';
     if(!taskOnly&&!basketOnly&&!noteOnly)box.querySelector('[data-quick-detail]').hidden=mode!=='task';
     box.querySelector('[data-quick-basket-options]').hidden=!takesFiles()||!upload.entries.length;

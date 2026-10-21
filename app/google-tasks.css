@@ -246,7 +246,7 @@ div.gt-main{cursor:default}
 .gt-pick .gt-pick-btn{position:relative;display:inline-flex;align-items:center;gap:4px;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--kptu-text-meta)}
 .gt-pick .gt-pick-btn svg{color:var(--kptu-link)}
 .gt-pick .gt-pick-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
-.gt-pick-hint{min-width:0;color:var(--kptu-muted);font-size:11px;line-height:1.4}
+.gt-pick-hint{min-width:0;color:var(--kptu-muted);font-size:11px;line-height:1.4;word-break:keep-all}
 .gt-pick-list{list-style:none;margin:0;padding:0}
 .gt-pick-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);min-height:var(--kptu-touch-target,44px);border-top:1px solid var(--kptu-border)}
 .gt-pick-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--kptu-text-meta)}
