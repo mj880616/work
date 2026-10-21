@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { createTaskFiles } from '../../supabase/functions/google-tasks/task-files.ts';
 
 // 일정 인증-1: google-calendar and google-tasks (both verify_jwt=false, auth in code) answer 401 when the caller is not
 // logged in (no token, malformed, forged, or expired), so runtime-client.js refreshes the session once and retries.
@@ -70,7 +71,7 @@ function harness(name, { scope = 'openid https://www.googleapis.com/auth/tasks' 
     serve: fn => { handler = fn; }
   };
   const quiet = { log: () => {}, error: () => {}, warn: () => {} };
-  new Function('Deno', 'createClient', 'fetch', 'console', SOURCES[name])(Deno, () => client, fetchMock, quiet);
+  new Function('Deno', 'createClient', 'createTaskFiles', 'fetch', 'console', SOURCES[name])(Deno, () => client, createTaskFiles, fetchMock, quiet);
   return { handler, calls };
 }
 
