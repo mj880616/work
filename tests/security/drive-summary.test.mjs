@@ -118,16 +118,23 @@ function harness(options = {}) {
       if (options.statusFail) return reply({}, 503);
       const patch = JSON.parse(init.body);
       patches.push(patch);
-      Object.assign(files.get('folder'), patch);
+      // Drive v3 update merges appProperties per key; a null value clears that key.
+      const folder = files.get('folder'), { appProperties, ...rest } = patch;
+      Object.assign(folder, rest);
+      if (appProperties) {
+        folder.appProperties = { ...folder.appProperties };
+        for (const [key, value] of Object.entries(appProperties)) { if (value === null) delete folder.appProperties[key]; else folder.appProperties[key] = value; }
+      }
       return reply(files.get('folder'));
     }
     throw new Error(`Unhandled ${method} ${url}`);
   };
-  const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SERVICE_ROLE_KEY: 'test-service', DRIVE_SUMMARY_CRON_SECRET: options.noSecret ? undefined : 'right-secret' };
+  const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SERVICE_ROLE_KEY: 'test-service', DRIVE_SUMMARY_CRON_SECRET: options.noSecret ? undefined : 'right-secret', COLLECTOR_HEARTBEAT_SECRET: options.noHeartbeatSecret ? undefined : 'beat-secret' };
   const handler = core?.createHandler({ env, fetcher, now: () => now });
   const request = (headers = {}, method = 'POST', body) => handler(new Request('https://edge.test/drive-summary', { method, headers, body }));
   const statusRequest = (headers = {}, query = '?action=status') => handler(new Request(`https://edge.test/drive-summary${query}`, { method: 'GET', headers }));
-  return { calls, uploads, patches, files, request, statusRequest };
+  const heartbeatRequest = (headers = {}, body, query = '?action=heartbeat') => handler(new Request(`https://edge.test/drive-summary${query}`, { method: 'POST', headers, body: typeof body === 'string' || body === undefined ? body : JSON.stringify(body) }));
+  return { calls, uploads, patches, files, request, statusRequest, heartbeatRequest };
 }
 
   test('rejects anonymous, invalid JWT, non-owner, wrong/unset cron secret before Google/data reads', async () => {
@@ -664,7 +671,7 @@ test('status read: returns only the three folder values, never names, IDs, links
   assert.equal(response.status, 200);
   assert.deepEqual(result, { ok: true, checked_at: now.toISOString(), copy: {
     state: 'found', last_success_at: '2026-10-03T04:17:00.000Z', last_failure_at: '2026-10-02T21:17:05.120Z', last_failure_code: 'DRIVE_UPLOAD_FAILED',
-  } });
+  }, collectors: { telegram: null, transcript: null } });
   assert.doesNotMatch(JSON.stringify(result), /FORBIDDEN|folder"|docs\.google|읽기용 사본|kptu_/);
   assert.equal(writes(h).length, 0, 'no create, upload, or status PATCH');
   assert.equal(h.uploads.length, 0); assert.equal(h.patches.length, 0);
@@ -705,4 +712,94 @@ test('status read: CORS allows GET for the browser preflight, still no other met
   assert.equal(options.headers.get('Access-Control-Allow-Methods'), 'GET, POST, OPTIONS');
   for (const method of ['PUT', 'PATCH', 'DELETE']) assert.equal((await h.request({}, method)).status, 405);
   assert.equal(h.calls.length, 0);
+});
+
+// OPS-수집점검 2단계: POST ?action=heartbeat — collector secret only, strict {source,last_at,count?}, folder props only.
+const beat = { source: 'transcript', last_at: '2026-10-03T14:05:00+09:00', count: 4 };
+const googleCalls = h => h.calls.filter(c => c.url.hostname !== 'db.test');
+test('heartbeat: missing, wrong or unset secret, JWT-only and cron secret are refused before any I/O', async () => {
+  for (const [headers, options] of [
+    [{}, {}], [{ 'x-collector-heartbeat-secret': 'wrong' }, {}], [{ 'x-collector-heartbeat-secret': '' }, {}],
+    [{ 'x-collector-heartbeat-secret': 'beat-secret' }, { noHeartbeatSecret: true }],
+    [{ Authorization: 'Bearer valid-owner' }, {}],
+    [{ 'x-drive-summary-cron-secret': 'right-secret' }, {}],
+    [{ 'x-drive-summary-cron-secret': 'right-secret', 'x-collector-heartbeat-secret': 'beat-secret' }, {}],
+    [{ 'x-collector-heartbeat-secret': 'right-secret' }, {}],
+  ]) {
+    const h = harness({ existing: true, ...options }), response = await h.heartbeatRequest(headers, beat), result = await response.json();
+    assert.equal(response.status, 401, JSON.stringify(headers)); assert.deepEqual(result, { ok: false, error: 'UNAUTHORIZED' });
+    assert.equal(h.calls.length, 0);
+  }
+});
+test('heartbeat: records only this source\'s time, count and received time on the existing folder', async () => {
+  const h = harness({ existing: true, folderProps: { last_success_at: '2026-10-03T04:17:00.000Z', collector_telegram_at: '2026-10-03T10:00:00.000Z', collector_telegram_reported_at: '2026-10-03T10:00:00.000Z' } });
+  const response = await h.heartbeatRequest({ 'x-collector-heartbeat-secret': 'beat-secret', 'Content-Type': 'application/json' }, beat), result = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(result, { ok: true, source: 'transcript', recorded_at: now.toISOString() });
+  assert.deepEqual(h.patches, [{ appProperties: { collector_transcript_at: '2026-10-03T05:05:00.000Z', collector_transcript_count: '4', collector_transcript_reported_at: now.toISOString() } }]);
+  const props = h.files.get('folder').appProperties;
+  assert.equal(props.last_success_at, '2026-10-03T04:17:00.000Z', 'copy status untouched');
+  assert.equal(props.collector_telegram_at, '2026-10-03T10:00:00.000Z', 'other source untouched');
+  assert.equal(h.uploads.length, 0, 'no document rebuild');
+  assert.ok(h.calls.every(c => c.url.hostname !== 'db.test' || (c.method === 'GET' && /public_policy_drive_config/.test(c.url.pathname))), 'DB: Drive config read only');
+  assert.ok(h.calls.some(c => c.url.pathname.endsWith('/permissions')), 'sharing check kept');
+  assert.ok(!h.calls.some(c => c.method === 'POST' && c.url.hostname === 'www.googleapis.com'), 'never creates a folder');
+  const status = await (await h.statusRequest({ Authorization: 'Bearer valid-owner' })).json();
+  assert.deepEqual(status.collectors, {
+    telegram: { last_at: '2026-10-03T10:00:00.000Z', count: null, reported_at: '2026-10-03T10:00:00.000Z' },
+    transcript: { last_at: '2026-10-03T05:05:00.000Z', count: 4, reported_at: now.toISOString() },
+  });
+  // A later beat without count clears the earlier count.
+  await h.heartbeatRequest({ 'x-collector-heartbeat-secret': 'beat-secret' }, { source: 'transcript', last_at: '2026-10-03T06:00:00Z' });
+  assert.equal(h.files.get('folder').appProperties.collector_transcript_count, undefined);
+});
+test('heartbeat: malformed bodies are refused before Google; no content, names or IDs accepted', async () => {
+  const future = new Date(now.getTime() + 11 * 60000).toISOString();
+  for (const body of [
+    undefined, '', 'not json', '[]', 'null', JSON.stringify({ ...beat, source: 'drive' }), JSON.stringify({ ...beat, name: '파일 이름' }),
+    JSON.stringify({ ...beat, file_id: 'abc' }), JSON.stringify({ ...beat, text: '내용' }), JSON.stringify({ source: 'telegram' }),
+    JSON.stringify({ ...beat, last_at: '2026-10-03' }), JSON.stringify({ ...beat, last_at: 'yesterday' }), JSON.stringify({ ...beat, last_at: future }),
+    JSON.stringify({ ...beat, last_at: '2019-12-31T23:59:59Z' }), JSON.stringify({ ...beat, last_at: 1696300000000 }),
+    JSON.stringify({ ...beat, count: -1 }), JSON.stringify({ ...beat, count: 1.5 }), JSON.stringify({ ...beat, count: '4' }), JSON.stringify({ ...beat, count: 100001 }),
+    JSON.stringify({ ...beat, pad: 'x'.repeat(2000) }),
+  ]) {
+    const h = harness({ existing: true }), response = await h.heartbeatRequest({ 'x-collector-heartbeat-secret': 'beat-secret' }, body), result = await response.json();
+    assert.equal(response.status, 400, String(body).slice(0, 80)); assert.deepEqual(result, { ok: false, error: 'INVALID_BODY' });
+    assert.equal(googleCalls(h).length, 0); assert.equal(h.patches.length, 0);
+  }
+  assert.ok(core.parseHeartbeat(JSON.stringify({ source: 'telegram', last_at: '2026-10-03T15:39:00Z' }), now), 'within 10 minutes ahead is clock skew');
+});
+test('heartbeat: no folder is 409 without creating one; Drive failures give a stage code only', async () => {
+  const none = harness(), r = await none.heartbeatRequest({ 'x-collector-heartbeat-secret': 'beat-secret' }, beat);
+  assert.equal(r.status, 409); assert.deepEqual(await r.json(), { ok: false, error: 'COPY_FOLDER_MISSING' });
+  assert.equal(none.files.size, 0); assert.equal(writes(none).length, 0);
+  for (const [options, code] of [
+    [{ existing: true, public: true }, 'DRIVE_PUBLIC_SHARING_FOUND'], [{ existing: true, statusFail: true }, 'DRIVE_STATUS_WRITE_FAILED'],
+    [{ existing: true, duplicate: true }, 'DRIVE_DUPLICATE_MARKERS'], [{ existing: true, oauthFail: true }, 'DRIVE_TOKEN_FAILED'],
+  ]) {
+    const h = harness(options), response = await h.heartbeatRequest({ 'x-collector-heartbeat-secret': 'beat-secret' }, beat), result = await response.json();
+    assert.equal(response.status, 502); assert.deepEqual(result, { ok: false, error: code });
+    assert.doesNotMatch(JSON.stringify(result), /refresh secret|SECRET_RAW/);
+  }
+});
+test('heartbeat: the collector secret never reaches the rebuild path or the status read', async () => {
+  for (const headers of [{ 'x-collector-heartbeat-secret': 'beat-secret' }, { 'x-collector-heartbeat-secret': 'beat-secret', Authorization: 'Bearer valid-owner' }]) {
+    const h = harness({ existing: true }), response = await h.request(headers, 'POST', JSON.stringify(beat));
+    assert.equal(response.status, 401); assert.equal(h.calls.length, 0); assert.equal(h.uploads.length, 0);
+  }
+  const h = harness({ existing: true }), status = await h.statusRequest({ 'x-collector-heartbeat-secret': 'beat-secret' });
+  assert.equal(status.status, 401); assert.ok(googleCalls(h).length === 0);
+  // GET ?action=heartbeat is not a write path.
+  const get = harness({ existing: true }), g = await get.statusRequest({ 'x-collector-heartbeat-secret': 'beat-secret' }, '?action=heartbeat');
+  assert.equal(g.status, 405); assert.equal(get.calls.length, 0);
+  // CORS does not invite browsers to send the collector header.
+  const o = await harness().request({}, 'OPTIONS');
+  assert.doesNotMatch(o.headers.get('Access-Control-Allow-Headers'), /collector/);
+});
+test('status read: stored collector values with a bad shape are dropped', () => {
+  assert.deepEqual(core.collectorStatus({
+    collector_telegram_at: '파일 이름.txt', collector_telegram_reported_at: '2026-10-03T10:00:00.000Z',
+    collector_transcript_at: '2026-10-03T10:00:00.000Z', collector_transcript_reported_at: '2026-10-03T10:00:00.000Z', collector_transcript_count: '12; drop',
+  }), { telegram: null, transcript: { last_at: '2026-10-03T10:00:00.000Z', count: null, reported_at: '2026-10-03T10:00:00.000Z' } });
+  assert.deepEqual(core.collectorStatus(null), { telegram: null, transcript: null });
 });

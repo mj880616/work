@@ -74,3 +74,14 @@ Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며
 - 응답: `{ok, checked_at, copy:{state, last_success_at, last_failure_at, last_failure_code}}`. 시각은 ISO 형식 검사, 코드는 `^[A-Z][A-Z0-9_]{0,63}$`(실패 시각이 있을 때만)를 통과한 값만 낸다. 폴더 이름·ID·문서 링크·다른 속성은 내지 않는다. 실패는 단계 코드만(`DRIVE_TOKEN_FAILED` 등), 실패 기록을 남기지 않는다.
 - CORS `Access-Control-Allow-Methods`에 GET을 더했다. 배포 전 앱이 먼저 나가도 옛 함수는 preflight에서 GET을 허락하지 않거나 405를 주므로 홈 칸은 조용히 숨는다(옛 POST 재생성으로 잘못 가지 않게 POST가 아닌 GET을 골랐다).
 - 화면: `app/collection-status.js`(홈 "마지막 수집 시각"). 텔레그램 수집·통화 전사는 바깥 프로그램이 만든 Drive 파일이라 `drive.file`로 못 읽으므로 "확인 불가"로만 표시한다. 권한을 넓히지 않는다.
+
+## OPS-수집점검 2단계 (바깥 수집 점검 신호, heartbeat)
+
+- `POST /functions/v1/drive-summary?action=heartbeat`. 통화 전사용 Google 앱 스크립트(사용자 계정, Drive 전체 접근)가 1시간마다 부른다. Web2는 `drive.file`로 바깥 프로그램 파일을 못 읽으므로 **반대 방향 신호**를 받는다. 권한은 넓히지 않는다.
+- 인증: `x-collector-heartbeat-secret` 헤더를 새 비밀값 `COLLECTOR_HEARTBEAT_SECRET`과 기존 방식(SHA-256 고정 길이 전체 비교)으로 비교한다. 미설정·빈값·틀린 값 401. 예약 비밀값 헤더가 같이 오면 401, 사용자 JWT는 이 경로에서 받지 않는다. 반대로 이 헤더는 사본 재생성 POST·상태 읽기 GET에서 401이다(자격 섞임 방지). CORS 허용 헤더에 넣지 않는다(브라우저용 아님).
+- 본문: 정확히 `{source:'telegram'|'transcript', last_at:ISO 시각, count?:0~100000 정수}`, 1 KiB 이하. 다른 키(파일 이름·ID·내용 등)가 있으면 400 `INVALID_BODY`. 시각은 2020년 이후·서버 시각보다 10분 넘게 미래면 거절.
+- 하는 일은 하나: 기존 "Web2 읽기용 사본" 폴더(공유 검사 통과)의 `appProperties`에 그 출처 키 3개(`collector_<source>_at`·`_count`·`_reported_at`)만 PATCH한다(Drive는 appProperties를 키별로 합친다 → 사본 상태 키는 건드리지 않음). 폴더가 없으면 만들지 않고 409 `COPY_FOLDER_MISSING`. DB 쓰기·문서 재생성·Web2 기록 읽기 없음(DB는 기존과 같은 Drive 연결 설정 읽기만). **새 표·migration 없음.**
+- 상태 읽기 `GET ?action=status` 응답에 `collectors:{telegram, transcript}`(각 `{last_at, count, reported_at}` 또는 `null`)를 더했다. 저장값도 같은 형식 검사를 통과한 것만 낸다.
+- 화면 기준: 텔레그램 26시간(업무방 매일 07:30 1회 수집)·통화 전사 72시간(통화 없는 날·주말) 넘으면 주의, 신호(`reported_at`)가 3시간 넘게 없으면 "점검 신호 끊김"(`app/collection-status.js`).
+- 앱 스크립트 코드·설정 안내: `docs/ops/collector-heartbeat.gs`, `docs/ops/collector-heartbeat.md`.
+- 남은 위험: 사본 재생성(POST)의 `recordStatus`는 읽어 둔 폴더 속성 전체를 다시 보내므로, 재생성 도중(수 초) 신호가 들어오면 그 신호 하나가 옛 값으로 덮일 수 있다. 다음 시간 신호로 바로 회복된다. 비밀값이 새면 가짜 시각을 쓸 수 있을 뿐(읽기·내용·다른 키 쓰기 불가) — 비밀값 교체로 막는다.
