@@ -14,11 +14,13 @@ test('workflow files contain no direct repository push path', () => {
   }
 });
 
-test('Basket PC release workflow only runs for approved basket-pc-v tags and keeps its write access to one job', () => {
+test('Basket PC release workflow only runs for basket-pc-v tags or a manual run on main and keeps its write access to one job', () => {
   const source = workflow('basket-pc-release.yml');
-  // trigger: only a tag push of the app's own tag pattern, nothing a pull request or a branch push could start
-  assert.match(source, /^on:\n  push:\n    tags:\n      - 'basket-pc-v\*'\n\npermissions:/m);
-  assert.doesNotMatch(source, /pull_request|workflow_dispatch|schedule:|branches:|workflow_run/);
+  // trigger: a tag push of the app's own tag pattern, or a manual run with one version input; nothing a pull request or a branch push could start
+  assert.match(source, /^on:\n  push:\n    tags:\n      - 'basket-pc-v\*'\n  workflow_dispatch:\n    inputs:\n      version:\n(?:        .+\n)+\npermissions:/m);
+  assert.doesNotMatch(source, /pull_request|schedule:|branches:|workflow_run/);
+  const inputs = source.slice(source.indexOf('    inputs:\n'), source.indexOf('\npermissions:'));
+  assert.equal([...inputs.matchAll(/^      (\w+):$/gm)].map(m => m[1]).join(','), 'version');
   // default permission is read; write permissions exist only in the release job
   assert.match(source, /^permissions:\n  contents: read\n/m);
   const writes = source.match(/^\s+contents:\s*write\s*$/gm) ?? [];
@@ -32,10 +34,25 @@ test('Basket PC release workflow only runs for approved basket-pc-v tags and kee
   assert.match(source, /^    environment: basket-pc-release$/m);
   assert.match(source, /\^basket-pc-v\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\$/);
   assert.match(source, /git merge-base --is-ancestor "\$GITHUB_SHA" origin\/main/);
+  // manual run: main only, version shape checked, existing tag refused before approval and again right before the tag is made
+  assert.match(source, /\[ "\$GITHUB_REF" != "refs\/heads\/main" \]/);
+  assert.match(source, /"\$INPUT_VERSION" =~ \^\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\$/);
+  assert.match(source, /git ls-remote --tags origin "refs\/tags\/\$TAG"/);
+  assert.match(verifyJob, /ls-remote/);
+  // the tag is made only in the release job (after approval), only for a manual run, on the commit the verify job checked, through the REST API
+  const releaseJob = source.slice(source.indexOf('\n  release:\n'));
+  assert.match(releaseJob, /name: Create the tag[^\n]*\n\s+if: github\.event_name == 'workflow_dispatch'/);
+  assert.match(releaseJob, /gh api -X POST "repos\/\$GITHUB_REPOSITORY\/git\/refs" -f "ref=refs\/tags\/\$TAG" -f "sha=\$RELEASE_SHA"/);
+  assert.match(releaseJob, /ref: \$\{\{ needs\.verify\.outputs\.sha \}\}/);
+  assert.doesNotMatch(verifyJob, /git\/refs|git tag|git push/);
+  // the typed input is only read through an environment variable, never pasted into a script
+  assert.equal([...source.matchAll(/inputs\.version/g)].length, 1);
+  assert.match(source, /INPUT_VERSION: \$\{\{ inputs\.version \}\}/);
   // no secrets besides the run's own token, no production access, no repository push
   assert.doesNotMatch(source, /secrets\./);
   assert.doesNotMatch(source, /SUPABASE|CLOUDFLARE|production-edge/i);
-  assert.equal([...source.matchAll(/\$\{\{\s*([^}]+?)\s*\}\}/g)].map(m => m[1]).join(','), 'github.token');
+  assert.equal([...source.matchAll(/\$\{\{\s*([^}]+?)\s*\}\}/g)].map(m => m[1]).join(','),
+    'steps.check.outputs.tag,steps.check.outputs.version,steps.check.outputs.sha,inputs.version,needs.verify.outputs.tag,needs.verify.outputs.version,needs.verify.outputs.sha,needs.verify.outputs.sha,github.token,github.token');
   // every action pinned to a commit, the packaging tool pinned to a version
   for (const use of source.matchAll(/uses:\s*(\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/, use[1]);
   assert.match(source, /dotnet tool install vpk --version \d+\.\d+\.\d+ /);
