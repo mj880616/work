@@ -80,6 +80,9 @@ jobs:
               # UI-PC프로젝트좌우: device-local "last project seen" on the PC projects screen (one project id, no names or
               # content), stored under the per-owner cache prefix that sign-out clears.
               'app/project-system-v3.js':[r'lastKey\(\)'],
+              # UI-노트폴더 기억: device-local "last chosen note folder" (one folder choice string, no note content), stored under the
+              # per-owner cache prefix that sign-out and owner change clear (KPTURuntime.ownerCache).
+              'app/basket-notes.js':[r'localStorage\.(?:setItem|getItem)\(key'],
               'app/library-upload.js':[r'LU_SESSION'],
               'app/suborganizations.js':[r'SO_SESSION'],
               'app/team.js':[r'SESSION_KEY'],
@@ -116,6 +119,8 @@ jobs:
                       "const cache=await page.evaluate(()=>JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:home-test')));",
                   )
               ],
+              # UI-노트폴더 기억: read-only observation of the note-folder key through the browser context's saved state.
+              'tests/app-e2e/basket-note-folder.spec.mjs':[r'^\s*'+re.escape("const folderKeys = async page => (await page.context().storageState()).origins.flatMap(o => o.localStorage).filter(i => i.name.includes('note-folder')).map(i => [i.name, i.value]);")+r'\s*$'],
               'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
               # LIB: exact read-only assertion that disclosure never creates storage keys.
               'tests/app-e2e/library-row-list.spec.mjs':[r'^\s*'+re.escape('const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));')+r'\s*$'],
