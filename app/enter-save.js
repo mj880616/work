@@ -10,7 +10,9 @@
 //   data-enter-save-submit="nohint" an icon-only save button: same rule, no visible hint.
 // Rule:
 //   one-line field (title, 차수, time, due…)   Enter = save (PC and phone)
-//   many-line field (textarea, contenteditable) Enter = new line; Ctrl+Enter (Cmd+Enter on Mac) = save, PC only
+//   many-line field (textarea, contenteditable) Enter = new line; Ctrl+Enter (Cmd+Enter on Mac) = save
+//   A phone's on-screen keyboard has no Ctrl/Cmd, so there Enter in a many-line field only ever adds a line. A touch
+//   device with a real keyboard (tablet, touch laptop) gets the PC shortcut; only the hint is limited to PC.
 // Never while Korean is being composed (isComposing / keyCode 229 — Chrome then sends a second, plain Enter once the
 // syllable is committed, and only that one saves, so nothing is left over), never twice for one press (repeat, and one
 // pending click per button), never when the save button is disabled, aria-disabled or aria-busy, and never from a
@@ -37,14 +39,14 @@ export function fieldKind(el){
   return want==='multi'?'multi':'single';
 }
 
-// The decision for one keydown. `pc`: a device with a fine pointer and hover (a real keyboard).
-export function enterAction(event,kind,{pc=true}={}){
+// The decision for one keydown.
+export function enterAction(event,kind){
   if(!event||event.key!=='Enter'||!kind)return false;
   if(event.isComposing||event.keyCode===229)return false;
   if(event.repeat||event.defaultPrevented)return false;
   if(event.shiftKey||event.altKey)return false;
   if(kind==='single')return true;
-  return !!(event.ctrlKey||event.metaKey)&&pc;
+  return !!(event.ctrlKey||event.metaKey);
 }
 
 export const isMacPlatform=nav=>/Mac|iPhone|iPad|iPod/.test(nav?.platform||nav?.userAgent||'');
@@ -97,7 +99,7 @@ export function installEnterSave(doc=globalThis.document){
     if(e.key!=='Enter')return;
     const target=e.target,root=containerOf(target);if(!root)return;
     const kind=fieldKind(target);
-    if(!enterAction(e,kind,{pc:pc()}))return;
+    if(!enterAction(e,kind))return;
     const button=saveButtonFor(root);
     // A root whose save button is not on screen (a detail in read mode, an editor still closed) is not a save target.
     if(!shown(button))return;

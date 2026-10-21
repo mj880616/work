@@ -57,28 +57,25 @@ test('고르기·체크·버튼·날짜 고르기·자동완성 목록·끈 칸�
 });
 
 test('한 줄 칸: 엔터 = 저장(PC·폰), Shift·Alt+엔터는 아님', () => {
-  for (const pc of [true,false]) {
-    assert.equal(enterAction(key(),'single',{pc}),true);
-    assert.equal(enterAction(key({ctrlKey:true}),'single',{pc}),true);
-    assert.equal(enterAction(key({metaKey:true}),'single',{pc}),true);
-    assert.equal(enterAction(key({shiftKey:true}),'single',{pc}),false);
-    assert.equal(enterAction(key({altKey:true}),'single',{pc}),false);
-  }
+  assert.equal(enterAction(key(),'single'),true);
+  assert.equal(enterAction(key({ctrlKey:true}),'single'),true);
+  assert.equal(enterAction(key({metaKey:true}),'single'),true);
+  assert.equal(enterAction(key({shiftKey:true}),'single'),false);
+  assert.equal(enterAction(key({altKey:true}),'single'),false);
 });
 
-test('여러 줄 칸: 엔터 = 줄바꿈, Ctrl/Cmd+엔터 = 저장(PC만), 폰은 줄바꿈 그대로', () => {
-  assert.equal(enterAction(key(),'multi',{pc:true}),false);
-  assert.equal(enterAction(key({ctrlKey:true}),'multi',{pc:true}),true);
-  assert.equal(enterAction(key({metaKey:true}),'multi',{pc:true}),true);
-  assert.equal(enterAction(key({ctrlKey:true,shiftKey:true}),'multi',{pc:true}),false);
-  assert.equal(enterAction(key({ctrlKey:true,altKey:true}),'multi',{pc:true}),false);
-  assert.equal(enterAction(key({shiftKey:true}),'multi',{pc:true}),false);
-  for (const o of [{},{ctrlKey:true},{metaKey:true}]) assert.equal(enterAction(key(o),'multi',{pc:false}),false,JSON.stringify(o));
+test('여러 줄 칸: 엔터·Shift+엔터 = 줄바꿈, Ctrl/Cmd+엔터 = 저장', () => {
+  assert.equal(enterAction(key(),'multi'),false);
+  assert.equal(enterAction(key({shiftKey:true}),'multi'),false);
+  assert.equal(enterAction(key({ctrlKey:true}),'multi'),true);
+  assert.equal(enterAction(key({metaKey:true}),'multi'),true);
+  assert.equal(enterAction(key({ctrlKey:true,shiftKey:true}),'multi'),false);
+  assert.equal(enterAction(key({ctrlKey:true,altKey:true}),'multi'),false);
 });
 
 test('한글 조합 중 엔터·되풀이·이미 쓰인 엔터·다른 키는 저장 안 함', () => {
   for (const kind of ['single','multi']) for (const o of [{isComposing:true},{keyCode:229},{isComposing:true,ctrlKey:true},{keyCode:229,ctrlKey:true},{repeat:true,ctrlKey:true},{defaultPrevented:true,ctrlKey:true},{key:'a',ctrlKey:true},{key:'NumpadEnter'}])
-    assert.equal(enterAction(key(o),kind,{pc:true}),false,kind+' '+JSON.stringify(o));
+    assert.equal(enterAction(key(o),kind),false,kind+' '+JSON.stringify(o));
   assert.equal(enterAction(key(),null),false);
   assert.equal(enterAction(null,'single'),false);
 });
@@ -165,12 +162,16 @@ test('설치된 규칙: 저장 중이면 누르지 않고, 여러 줄은 PC Ctrl
   assert.equal(box.prevented,false);assert.equal(d.save.clicks,1);
 });
 
-test('설치된 규칙(폰): 한 줄 엔터는 저장, 여러 줄은 Ctrl+엔터도 줄바꿈 그대로', () => {
+test('설치된 규칙(폰): 한 줄 엔터는 저장, 여러 줄 엔터는 줄바꿈 그대로, 안내 없음', () => {
   const h=harness({pc:false}),d=dialog();
   h.withTimers(()=>h.fire('keydown',d.title));h.flush();
   assert.equal(d.save.clicks,1);
-  const multi=h.withTimers(()=>h.fire('keydown',d.body,{ctrlKey:true}));h.flush();
-  assert.equal(multi.prevented,false);assert.equal(d.save.clicks,1);
+  for (const o of [{},{shiftKey:true}]) { const multi=h.withTimers(()=>h.fire('keydown',d.body,o));h.flush();assert.equal(multi.prevented,false,JSON.stringify(o)); }
+  assert.equal(d.save.clicks,1);
+  h.fire('focusin',d.body);assert.equal(d.save.getAttribute('data-enter-hint'),null);
+  // A tablet with a real keyboard: Ctrl/Cmd+Enter is the same shortcut as on PC (an on-screen keyboard has no Ctrl/Cmd).
+  h.withTimers(()=>h.fire('keydown',d.body,{metaKey:true}));h.flush();
+  assert.equal(d.save.clicks,2);
 });
 
 test('설치된 규칙: 저장 버튼이 화면에 없으면(읽기 모드) 엔터를 건드리지 않음', () => {
