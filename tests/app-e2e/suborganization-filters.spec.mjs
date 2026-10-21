@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const canonical='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-canonical-fixture.html';
 
+async function deleteRecord(page,row){await row.getByRole('button',{name:'기록 메뉴'}).click();await page.locator('#wdUpMenu').getByRole('button',{name:'삭제',exact:true}).click()}
 async function openAssigned(page,suffix=''){
   await page.goto(canonical+suffix);
   await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
@@ -165,12 +166,14 @@ test('기록 삭제는 확인 후 해당 항목만 지우고, 취소하면 요�
   await expect(rows).toHaveCount(2);
   let asked='';
   page.once('dialog',d=>{asked=d.message();d.dismiss()});
-  await rows.nth(0).getByRole('button',{name:'기록 삭제'}).click();
-  expect(asked).toBe('이 기록을 삭제할까요?');
+  // ORG-기록수정삭제: [삭제] sits in the record's ⋯ (no separate red button) and still asks once more.
+  await expect(rows.nth(0).getByRole('button',{name:'기록 삭제'})).toHaveCount(0);
+  await deleteRecord(page,rows.nth(0));
+  await expect.poll(()=>asked).toBe('이 기록을 삭제할까요?');
   await expect(rows).toHaveCount(2);
   expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
   page.once('dialog',d=>d.accept());
-  await rows.nth(0).getByRole('button',{name:'기록 삭제'}).click();
+  await deleteRecord(page,rows.nth(0));
   await expect(rows).toHaveCount(1);
   await expect(rows.nth(0).locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
   await expect(page.locator('#toast')).toHaveText('기록을 삭제했습니다.');
@@ -204,14 +207,14 @@ test('삭제 요청이 실패하거나 지워진 행이 없으면 항목을 그�
   await openRail(page);
   page.on('dialog',d=>d.accept());
   const row=page.locator('#wdUpdates .wd-log-row');
-  const del=row.getByRole('button',{name:'기록 삭제'});
+  const del=row.getByRole('button',{name:'기록 메뉴'});
   await page.evaluate(()=>{window.__failDelete=true});
-  await del.click();
+  await deleteRecord(page,row);
   await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 네트워크 오류');
   await expect(row).toHaveCount(1);
   await expect(del).toBeEnabled();
   await page.evaluate(()=>{window.__failDelete=false;window.__deleteNoRows=true});
-  await del.click();
+  await deleteRecord(page,row);
   await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 권한이 없거나 이미 없는 항목입니다.');
   await expect(row).toHaveCount(1);
   await expect(row.locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
