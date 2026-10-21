@@ -974,13 +974,15 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   });
   await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();
+  // PC 3단(MEET-결과3단)은 오른쪽 결과도 후속 할 일을 읽으므로, 창을 연 뒤의 읽기 수를 기준으로 저장 때 다시 읽지 않는지 본다.
+  const readsBeforeSave=linkedReads;expect(readsBeforeSave).toBeGreaterThanOrEqual(1);
   await page.locator('#mrdEdit').click();
   await page.locator('#mrdEditProject').selectOption('child');
   await page.locator('#mrdSaveEdit').click();
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();
   expect(current.project_id).toBe('child');
   await expect(page.locator('#mrdEditor')).toBeHidden();
-  expect(linkedReads).toBe(1);
+  expect(linkedReads).toBe(readsBeforeSave);
   expect(linkChanges).toBe(0);
 });
 
