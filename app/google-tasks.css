@@ -74,7 +74,7 @@
 .gt-links{min-width:0;margin:var(--kptu-space-2) 0;padding:var(--kptu-space-2);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
 /* UI-화면점검 ③: legend는 짧은 이름만(다른 라벨과 같은 12px·500·흐린 색), 안내문은 legend 밖 아래 작은 글씨 — 폰에서 안내문이 꺾여 테두리선이 글자를 지나가던 문제. */
 #gtTaskModal .gt-links>.gt-links-legend{max-width:100%;padding:0 4px;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--kptu-muted)}
-.gt-links .gt-links-hint{margin:0 0 var(--kptu-space-2);font-size:11px;line-height:1.45;font-weight:var(--ds-weight-regular);color:var(--kptu-muted)}
+#gtTaskModal .gt-links .gt-links-hint{margin:0 0 var(--kptu-space-2);font-size:var(--ds-text-meta);line-height:1.45;font-weight:var(--ds-weight-regular);color:var(--kptu-muted)}
 .gt-link-body{display:grid;gap:var(--kptu-space-2);max-height:min(240px,40vh);overflow:auto}
 .gt-link-group{display:grid;justify-items:stretch;gap:2px;min-width:0;width:100%}.gt-link-group>b{font-size:11px;color:var(--kptu-muted)}
 .gt-links .gt-link-opt{display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;gap:8px;min-width:0;min-height:40px;margin:0;text-align:left;font-size:13px;font-weight:500;cursor:pointer}

@@ -179,6 +179,10 @@
      칸 안 글자는 줄임표로 줄인다(전체 글은 title). 1280px 이상 배치·비율은 그대로. */
   #meetingList :is(.mcol-kinds,.mcol-cards)>li,#meetingList .mcol-kinds ul>li{min-width:0}
   #meetingList .mcol-card{overflow:hidden}
+  @media(max-width:1279px){
+    #meetingList .mcol-kind{gap:6px;padding:0 var(--kptu-space-2)}
+    #meetingList .mcol-card{padding-right:var(--kptu-space-2)}
+  }
   /* 오른쪽 결과(읽기용): 머리(회의 이름·차수·시각·프로젝트 + ⋯) 고정, 몸통만 세로로 넘어간다. */
   #meetingList .mcol-result{display:flex;flex-direction:column}
   #meetingList .mcol-result-head{flex:none;display:flex;align-items:flex-start;gap:var(--kptu-space-2);padding:var(--kptu-space-3) var(--kptu-space-2) var(--kptu-space-2) var(--kptu-space-4);border-bottom:var(--ds-line-width) solid var(--ds-line)}

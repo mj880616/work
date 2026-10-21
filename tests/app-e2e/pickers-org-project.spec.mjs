@@ -158,13 +158,13 @@ for(const width of [390,1280])test(`할 일 수정 창 연결 fieldset legend: �
  await expect(page.locator('#gtEditLinkBody input[value="p:child"]')).toBeVisible();
  const m=await page.evaluate(()=>{
   const modal=document.querySelector('#gtTaskModal'),set=modal.querySelector('.gt-links'),legend=set.querySelector(':scope > legend'),hint=set.querySelector('.gt-links-hint'),label=modal.querySelector('label'),box=e=>e.getBoundingClientRect(),fs=e=>parseFloat(getComputedStyle(e).fontSize);
-  return {legendText:legend.textContent.trim(),legendSize:fs(legend),labelSize:fs(label),legendInsideSmall:!!legend.querySelector('small'),hintOutside:!legend.contains(hint),hintText:hint.textContent.trim(),hintSize:fs(hint),
+  return {legendText:legend.textContent.trim(),legendSize:fs(legend),labelSize:fs(label),legendInsideSmall:!!legend.querySelector('small'),hintOutside:!legend.contains(hint),hintText:hint.textContent.trim(),hintSize:fs(hint),noteSize:fs(modal.querySelector('.gt-scope-note')),hintWeight:Number(getComputedStyle(hint).fontWeight),
    legendH:box(legend).height,legendLineH:parseFloat(getComputedStyle(legend).lineHeight),hintBelow:box(hint).top>=box(legend).bottom-1,hintInside:box(hint).left>=box(set).left&&box(hint).right<=box(set).right,
    legendRight:box(legend).right,setRight:box(set).right,weight:Number(getComputedStyle(legend).fontWeight),labelWeight:Number(getComputedStyle(label).fontWeight)};
  });
  expect(m.legendText).toBe('연결할 프로젝트·조직');expect(m.legendInsideSmall).toBe(false);
  expect(m.legendSize).toBe(m.labelSize);expect(m.weight).toBe(m.labelWeight);
- expect(m.hintOutside).toBe(true);expect(m.hintText).toContain('고르지 않아도');expect(m.hintSize).toBeLessThan(m.legendSize);
+ expect(m.hintOutside).toBe(true);expect(m.hintText).toContain('고르지 않아도');expect(m.hintSize,'안내문은 같은 창의 다른 안내 글(.gt-scope-note)과 같은 크기이고 legend보다 크지 않다').toBe(m.noteSize);expect(m.hintSize).toBeLessThanOrEqual(m.legendSize);expect(m.hintWeight).toBeLessThan(m.weight);
  expect(m.legendH,'legend 한 줄').toBeLessThanOrEqual(m.legendLineH+1);expect(m.legendRight).toBeLessThanOrEqual(m.setRight);
  expect(m.hintBelow).toBe(true);expect(m.hintInside).toBe(true);
 });
