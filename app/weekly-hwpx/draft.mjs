@@ -24,6 +24,7 @@ const norm = s => String(s ?? '').replace(/\s+/g, '').replace(/[‧·․]/g, '·
 export const DRAFT_TEXT = Object.freeze({
   noSummary: '확정본에서 요약 표(사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당 팀원)를 찾지 못해 멈췄어요. 아무것도 만들지 않았어요.',
   notBlank: '확정본에서 빈 서식을 뽑았는데 원본 글이 남아 멈췄어요. 아무것도 만들지 않았어요.',
+  noForm: '확정본에서 양식 표를 찾지 못해 멈췄어요. 아무것도 만들지 않았어요.',
   invalid: '만든 파일이 한글 파일 규격 검사를 통과하지 못해 내려받지 않았어요.',
 });
 
@@ -33,7 +34,9 @@ export async function openConfirmed(bytes, zlib = browserZlib) { return openHwpx
 export function prepareConfirmed(pkg) {
   let team;
   try { team = readReport(pkg); } catch { throw Object.assign(new Error(DRAFT_TEXT.noSummary), {code: 'no_summary'}); }
-  const template = extractBlankTemplate(pkg);
+  let template;
+  // 양식 표(머리 칸 이름)를 찾지 못하면 멈춘다. 이유에는 양식 글자(표 머리 칸 이름)만 들어 있다.
+  try { template = extractBlankTemplate(pkg); } catch (e) { throw Object.assign(new Error(`${DRAFT_TEXT.noForm} (${e.message})`), {code: 'no_form'}); }
   const problems = assertBlank(template, {forbidden: reportWords(team)});
   if (problems.length) throw Object.assign(new Error(DRAFT_TEXT.notBlank), {code: 'not_blank', count: problems.length});
   return {team, template};

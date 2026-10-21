@@ -136,3 +136,15 @@ test('산하조직 표 줄별 테두리: 확정본 줄 테두리를 따르고, �
   // 머리 줄 테두리 견본과 다른 줄이 그대로 나오는지(줄별 차이)
   assert.deepEqual((await borderOf(['가짜조직 갑', '가짜조직 을', '가짜조직 병'])).map(r => r[0]), ['4', '7', '6']);
 });
+
+test('회의 결과 상자가 없는 주의 확정본도 빈 서식을 뽑는다(2열 표 칸으로 상자 견본, 머리 그대로)', async () => {
+  const {template} = prepareConfirmed(await openConfirmed(fakeBytes()));
+  const {buildReport} = await import('../app/weekly-hwpx/report.mjs');
+  const team = buildReport(template, {title: '가짜팀', summary: [{area: ['가짜영역'], rows: [{task: ['가짜과제'], progress: ['- 가짜 줄'], owner: [ME]}]}]}).pkg;
+  const bytes = packHwpx(team, zlib);
+  const again = prepareConfirmed(await openConfirmed(bytes));
+  assert.deepEqual(again.team.details, []);
+  const out = await buildHwpx(again.template, assembleDraft(startDraft(again.team, {me: ME, date: ''})));
+  assert.deepEqual(validateHwpx(out, zlib).errors, []);
+  assert.deepEqual(openHwpx(out, zlib).files.get('Contents/header.xml'), template.files.get('Contents/header.xml'));
+});
