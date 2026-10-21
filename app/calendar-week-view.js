@@ -1,7 +1,17 @@
 import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js';
 import {dayKey} from './home-read-model.js';
 import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus,weekBands} from './calendar-day-items.js';
-let focusKey=null;
+let focusKey=null,clipWatch=null;
+// 주간 칸: 제목이 2줄을 넘어 잘린 일정만 말풍선(시간+전체 제목)을 보이게 표시한다. 화면 읽기는 본문 전체 제목을 그대로 읽으므로 말풍선은 가린다.
+function addTips(rows){
+  for(const row of rows.querySelectorAll('.clv-event')){
+    const tip=document.createElement('span');tip.className='cwv-tip';tip.setAttribute('aria-hidden','true');
+    tip.textContent=`${row.querySelector('.clv-time')?.textContent||''} ${row.querySelector('.clv-title')?.textContent||''}`.trim();row.append(tip);
+  }
+}
+function markClipped(box){
+  for(const row of box.querySelectorAll('.cwv-items .clv-event')){const title=row.querySelector('.clv-title');row.classList.toggle('cwv-clipped',!!title&&title.scrollHeight>title.clientHeight+1)}
+}
 // Sole owner of the week DOM; view/range state remains in calendar-view.js.
 export function renderWeek(options,{start,tasks}){
   const box=document.querySelector('#calendarWeek');if(!box)return;
@@ -26,7 +36,7 @@ export function renderWeek(options,{start,tasks}){
     create.setAttribute('aria-label',formatSeoulTime(date,{month:'long',day:'numeric',weekday:'long'})+' 일정 추가');
     const rows=document.createElement('div');rows.className='cwv-items';
     const timed=items.filter(e=>e.source==='google'&&!keys.has('google:'+e.calendarId+':'+e.id)).sort((a,b)=>a.start-b.start||String(a.title).localeCompare(String(b.title),'ko'));
-    if(timed.length)appendDayRows(rows,date,timed);
+    if(timed.length){appendDayRows(rows,date,timed);addTips(rows)}
     section.append(header,create,rows);box.append(section);
   }
   const bands=document.createElement('div');bands.className='cwv-bands';
@@ -36,4 +46,6 @@ export function renderWeek(options,{start,tasks}){
     bands.append(button);
   }
   box.append(bands);restoreDayFocus(box,focusKey);
+  markClipped(box);
+  if(!clipWatch&&typeof ResizeObserver==='function'){clipWatch=new ResizeObserver(()=>{const current=document.querySelector('#calendarWeek');if(current)markClipped(current)});clipWatch.observe(box)}
 }
