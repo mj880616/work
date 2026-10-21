@@ -211,12 +211,57 @@ app_ledger_search(p_query, p_kinds, p_organization_id, p_topic_id, p_date_from, 
 ## 9. 매주 Drive 내보내기 (S7-d)
 
 - 목적: ① 백업 ② Claude가 원장을 읽는 길(MCP 전 단계).
-- 방식: 기존 `drive-summary`의 Drive 읽기용 사본 폴더(`drive.file`, 공유 금지 검사)에 **원장 내보내기 문서** 추가. 매주 1회 예약(ORG-사본자동갱신과 같은 예약 경로) + Web2 [지금 내보내기].
-- 형식(두 파일):
-  1. `원장-YYYY-MM-DD.json`: 표별 전체 행(감사 기록 제외), 내보낸 시각·행 수·sha256. 되살리기(복구)용.
-  2. `원장-읽기용` Google 문서(같은 이름 덮어쓰기): 주제별 → 종류별 기록 목록(ID·기준일·제목·요지·유효상태·연결 조직·출처 ID), 끝에 "기한 지난 약속" 표. Claude 읽기용.
-- S2(교섭·전략)는 읽기용 문서에 제목·ID만(요지 빼기) — MCP 원칙("S2 이상 요지만")과 맞춤. JSON 백업에는 모두.
-- 정지 지점: Edge 재배포(drive-summary), 예약 비밀값이 새로 필요하면 등록.
+- 2026-10-21 S7-d 구현으로 아래 9.1~9.7이 처음 초안(두 파일·S2 요지 빼기)을 구체화한다.
+
+### 9.1 무엇을
+
+| 표 | JSON 백업 | 읽기용 문서 |
+| --- | --- | --- |
+| 기록 `app_ledger_records` | 모든 행·모든 칸 | 업무(`scope=work`) 현재 기록 = 주제별 → 종류별. 관심(`interest`)은 맨 끝 "관심 정보" 절 한 곳(L1). 대체·폐기는 "대체·폐기" 절에 ID·제목·대체한 기록만 |
+| 출처 `app_ledger_sources` | 모든 행 | 기록 줄에 출처 ID만 |
+| 기록-출처·연결 | 모든 행 | 기록 줄에 연결 조직 이름(ORG ID)·소속 사건 ID |
+| 조직·주제 | 모든 행 | 절 제목·기록 줄 |
+| 번호표·가져오기 묶음 | 모든 행(되살릴 때 고정 ID·묶음 참조가 필요) | 없음 |
+| 후보·감사 기록 | **뺌**(후보는 확정 전 AI 글, 감사는 크기만 큼) | 없음 |
+
+- 민감도: S3은 원장에 없다(L9, DB CHECK). **S2(교섭·전략)는 읽기용 문서에 ID·기준일·제목만, 요지·비고·결정이유를 뺀다.** JSON 백업에는 S2도 모두 들어간다(사용자 혼자 보는 백업, 공개 공유 금지 검사 아래).
+- 기한 지난 약속: 문서 끝 "기한 지난 약속" 표(이행상태 대기 + 후속확인일 < 오늘 KST, 현재유효만). 저장하지 않고 내보낼 때 계산(3.1절과 같은 규칙).
+- 요지는 문서에서 기록당 600자까지만(넘으면 "…"), JSON에는 원문 그대로.
+
+### 9.2 어떤 형식
+
+- **JSON(기계용·되살리기)** `원장-YYYY-MM-DD.json`: `{format:"kptu-ledger-export", version:1, exported_at, workspace:"kptu-work", counts:{표:행 수}, sha256:{표: 그 표 행 배열 JSON의 sha256}, tables:{표:[행…]}}`. 행은 `id` 순서(번호표는 `scope`). 가져오기 파일(7.2) 모양과는 다르다(가져오기는 시트 탭 단위, 이것은 DB 표 단위). 되살리기 도구는 이번 범위가 아니다.
+- **Google 문서(사람·Claude 읽기용)** `원장 (읽기용 사본)`: 기존 두 사본과 같은 HTML → Google 문서 방식, 같은 ID에 전체 교체. 마크다운 파일보다 Google 문서를 고른 이유: 기존 Claude Drive 연결이 이미 두 사본을 Google 문서로 읽고 있고, 휴대폰에서도 바로 열린다.
+- 문서 상한은 UTF-8 4 MiB. 넘으면 문서는 "대상 축소 필요" 진단 문서로 바꾸고 `LEDGER_DOC_LIMIT`로 실패 기록하되, **JSON 백업은 먼저 올라간 상태로 남는다**(백업이 우선).
+
+### 9.3 어디로
+
+- 기존 "Web2 읽기용 사본" 폴더(`drive.file`, 이 앱이 만든 파일만). 읽기용 문서는 그 폴더 바로 아래(`appProperties.kptu_summary=ledger`), JSON은 그 안 하위 폴더 "원장 백업"(`kptu_summary=ledger_backup`) 아래(`kptu_summary=ledger_json`, `kptu_export_date=YYYY-MM-DD`).
+- 새 OAuth 권한·scope 없음. `permissions.create` 없음. 폴더·하위 폴더·문서·JSON 모두 올리기 전·후에 anyone/domain 공유를 검사하고 있으면 거절(`DRIVE_PUBLIC_SHARING_FOUND`), 기존 `assertPrivate` 그대로.
+- 같은 날짜에 다시 내보내면 그 날짜 JSON을 같은 ID에 덮어쓴다.
+
+### 9.4 누가·어떻게 읽나 (인증)
+
+- 원장 표는 service_role 권한이 없다(5절, 의도). 그래서 내보내기는 **소유자 로그인 토큰 경로만** 한다: `POST /functions/v1/drive-summary?action=ledger_export`, 서버가 기존 `authorize`로 소유자를 확인한 뒤 원장 표를 **그 사용자 토큰 + anon 키**로 읽는다(ai-assist와 같은 방식, owner RLS가 그대로 걸림). service_role로 원장 표를 읽지 않으며 DB 권한도 넓히지 않는다. Drive 토큰 설정(`public_policy_drive_config`)은 지금처럼 서버 키로 읽는다(기존 그대로).
+- 예약 비밀값(`x-drive-summary-cron-secret`)으로 `ledger_export`를 부르면 401(사용자 토큰이 없어 원장을 읽을 길이 없음, 비밀값이 맞아도 거절).
+- 서버 기록(log)·응답에 원장 내용·파일 ID를 내지 않는다. 응답은 `ok`, `exported_at`, 표별 행 수, 문서 링크만.
+
+### 9.5 언제
+
+- **매주 1회 자동(앱)**: 소유자가 Web2를 열면(홈 상태 읽기와 같은 10분 간격) `GET ?action=status`의 `ledger.last_export_at`을 보고, 마지막 성공이 7일 넘었거나 없으면 내보내기를 한 번 부른다(`app/ledger-export.js`). 화면 표시 없음.
+- **수동**: [원장] 화면 목록 칸의 [지금 Drive로 내보내기].
+- **매주 점검(예약 workflow)** `.github/workflows/ledger-export-check.yml` 월 07:43 KST: 예약 비밀값으로 `GET ?action=ledger_status`(시각·단계 코드만)를 읽어, 마지막 성공이 8일을 넘었거나 마지막 실패가 더 최근이면 workflow를 실패시킨다(GitHub 실패 알림 메일). 예약 경로는 원장을 읽거나 내보내지 않는다 — 사용자 토큰이 없기 때문이다. Web2를 일주일 넘게 열지 않으면 내보내기는 그만큼 밀리고 이 점검이 알린다.
+- 결과 기록: 사본 폴더 `appProperties`의 `ledger_last_success_at`·`ledger_last_failure_at`·`ledger_last_failure_summary`(기존 사본의 `last_*`와 다른 열쇠). 폴더 속성은 바꾸는 열쇠만 보낸다(Drive가 나머지를 보존).
+
+### 9.6 몇 개 보관
+
+- JSON은 날짜가 가장 최근인 **8개**(약 두 달)를 남기고, 더 오래된 것은 **휴지통으로**(`trashed=true`, 영구 삭제 아님, Drive가 30일 뒤 비움). 이 앱이 만든 표시(`kptu_summary=ledger_json`)가 있는 파일만 대상. 휴지통 보내기 실패는 내보내기 성공을 막지 않고 다음 번에 다시 한다.
+- 읽기용 문서는 1개(덮어쓰기).
+
+### 9.7 정지 지점·되돌리기
+
+- DB 변경 없음(migration 없음). Edge 재배포(`drive-summary`, verify_jwt=false 유지)만 정지 지점. 예약 비밀값은 기존 `DRIVE_SUMMARY_CRON_SECRET`을 그대로 쓴다(새 비밀값 없음).
+- 되돌리기: 이전 운영 소스(main `9c0bbf9`, 배포 v14)로 같은 Edge workflow 재배포. 옛 함수는 `?action=ledger_export`를 모르고 기존 POST(사본 두 개 갱신)로 처리하므로, 되돌린 뒤 앱이 부르면 사본 갱신만 일어난다(해 없음, 원장 파일은 안 생김). 만들어진 원장 파일은 사용자가 Drive에서 지운다.
 
 ## 10. 이전 당일 절차 (S7-b 완료 뒤)
 
