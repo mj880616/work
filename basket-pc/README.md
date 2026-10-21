@@ -40,7 +40,33 @@
 - 믿는 범위: 이 저장소의 릴리스 파일과 GitHub의 파일 서버뿐이다(`UpdatePolicy`, 시험으로 고정). `releases/latest`와 다른 태그·다른 저장소는 받지 않는다. 서명이 없어서 해시 목록과 파일이 같은 릴리스에 있으므로, 안전은 저장소 쓰기 권한·태그 보호·릴리스 승인에 기댄다.
 - 시작 시 자동 실행: 기본 켬. 현재 사용자 `Run` 항목(관리자 권한 불필요)이며 트레이 메뉴 [윈도우를 켤 때 자동 실행]으로 끄고 켠다. 켤 때마다 현재 설치 경로로 다시 맞춘다. 윈도우 설정 [앱 > 시작 프로그램]에서 끈 것은 다시 켜지 않는다. 설치한 프로그램에서만 동작하며 개발 빌드는 등록하지 않는다.
 - 제거: 시작 항목·우클릭 [보내기] 항목·저장된 로그인을 지운다. 대기열·기록 폴더는 남긴다.
-- 릴리스 만들기(사용자 승인 뒤): 태그 `basket-pc-vX.Y.Z`를 main의 커밋에 만들어 push하면 `Basket PC release` workflow가 `basket-pc-release` environment 승인을 기다렸다가 설치 파일·업데이트 묶음을 초안으로 올리고 모두 올라간 뒤 공개한다. workflow는 이 환경에서 쓰는 토큰 외 비밀값이 없다.
+- 새 판 내기: 아래 "새 판 내기"를 따른다. 사용자가 하는 일은 **태그 하나 만들기**뿐이고, 빌드·설치 파일·Release 만들기·파일 올리기는 `Basket PC release` workflow가 한다. 비밀값은 이 실행의 자체 토큰 외에 없다.
+
+## 새 판 내기
+
+태그 `basket-pc-vX.Y.Z`(예: `basket-pc-v0.1.2`)가 만들어지면 `Basket PC release` workflow가 저절로 시작한다. 태그는 **main에 이미 들어간 커밋**에만 만든다(아니면 workflow가 멈춘다). 먼저 올릴 변경이 main에 merge되어 있어야 한다.
+
+### 가장 쉬운 길: GitHub 웹 (PC·폰 모두 가능)
+
+1. 저장소 페이지 오른쪽의 [Releases] → [Draft a new release]를 누른다.
+2. [Choose a tag]에 새 태그 이름 `basket-pc-v0.1.2`를 입력하고 `Create new tag: basket-pc-v0.1.2 on publish`를 고른다. 이름은 반드시 `basket-pc-v` + 숫자.숫자.숫자 모양이다. 이전 판보다 큰 번호로 한다.
+3. [Target]은 `main`으로 둔다.
+4. 제목·설명은 비워 둬도 된다(workflow가 채운다).
+5. 아래의 **[Set as a pre-release] 체크를 켠다.** 파일이 올라오기 전의 빈 Release가 사용 중인 프로그램의 업데이트에 보이지 않게 하는 안전장치다. 이 체크 없이 [Set as the latest release]를 쓰지 않는다.
+6. [Publish release]를 누른다. (초안으로 저장만 하면 태그가 만들어지지 않아 시작되지 않는다.)
+7. 저장소 [Actions] 탭 → `Basket PC release` 실행을 연다. `verify`는 자동으로 끝나고, `release`가 **승인 대기**로 멈추면 [Review deployments] → `basket-pc-release` 체크 → [Approve and deploy]를 누른다.
+8. 15~20분쯤 뒤 [Releases]에 설치 파일(`BasketDropApp-win-Setup.exe`)이 붙은 공개 Release가 보이면 끝이다. workflow가 pre-release 표시를 풀고 공개한다. 사용 중인 프로그램은 12시간 안에 새 판을 받는다.
+
+### PC에서 명령으로
+
+main 최신 커밋에서 `git tag basket-pc-v0.1.2` 후 `git push origin basket-pc-v0.1.2`. 이 경우 빈 Release가 없어서 workflow가 직접 만든다. 7번 승인부터는 같다.
+
+### 실패했을 때
+
+- `verify` 실패("Tag must look like…" / "not on main"): 태그 이름이나 커밋을 고쳐야 한다. 잘못 만든 태그는 GitHub의 Releases에서 해당 Release를 지우고 태그도 지운 뒤 다시 만든다.
+- `release` 중간 실패: 공개 전에 멈추므로 사용자에게 보이지 않는다. 같은 실행을 [Re-run failed jobs]로 다시 돌린다(남은 초안은 workflow가 지우고 새로 만든다).
+- 같은 번호로 이미 파일이 올라간 공개 Release가 있으면 workflow가 거절한다. 새 번호로 낸다.
+- 이 흐름 전체에서 서명은 하지 않는다(위 "코드 서명" 참고). 승인자(`basket-pc-release` environment)와 태그 보호(`basket-pc-tags`)는 그대로 유지한다.
 
 ## 구조
 

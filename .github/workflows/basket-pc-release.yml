@@ -1,9 +1,13 @@
 name: Basket PC release
 
 # Builds the installer and the update packages for BASKET-PC드롭 and publishes them as a GitHub release.
-# It runs only for a tag basket-pc-vX.Y.Z that points at a commit already on main, and only after the
-# `basket-pc-release` environment is approved by its reviewer. No secret other than the run's own token is used.
-# Nothing here touches the database, the edge functions, the web hosting or any other production service.
+# The only thing a person does is create the tag basket-pc-vX.Y.Z on a commit that is already on main
+# (see "새 판 내기" in basket-pc/README.md). Everything else happens here: tag check, tests, build, installer,
+# provenance, release creation and file upload. A release that the person created by hand together with the tag
+# (empty, so it can be published from the GitHub page) is filled in and finished instead of failing.
+# The `basket-pc-release` environment still needs its reviewer's approval before the build starts.
+# No secret other than the run's own token is used. Nothing here touches the database, the edge functions,
+# the web hosting or any other production service.
 
 on:
   push:
@@ -18,16 +22,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    runs-on: windows-latest
-    timeout-minutes: 30
-    environment: basket-pc-release
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    env:
-      PACK_ID: BasketDropApp
+  # Cheap checks first, with read-only access, so a wrongly named tag fails before anyone is asked to approve.
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,7 +44,27 @@ jobs:
             echo "The tagged commit is not on main"
             exit 1
           fi
-          echo "VERSION=${GITHUB_REF_NAME#basket-pc-v}" >> "$GITHUB_ENV"
+
+  release:
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 30
+    environment: basket-pc-release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      PACK_ID: BasketDropApp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Read the version (the tag shape was already checked by the verify job)
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#basket-pc-v}" >> "$GITHUB_ENV"
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -68,12 +86,34 @@ jobs:
         with:
           subject-path: releases/*
 
-      - name: Publish the release (draft first, public only when every file is uploaded)
+      - name: Publish the release (hidden until every file is uploaded, then public)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" releases/* --verify-tag --draft --latest=false \
-            --title "Basket PC drop $VERSION" \
-            --notes "Installer: ${PACK_ID}-win-Setup.exe. The installed program updates itself from this repository's basket-pc-v releases."
-          gh release edit "$GITHUB_REF_NAME" --draft=false --latest=false
+          TAG="$GITHUB_REF_NAME"
+          TITLE="Basket PC drop $VERSION"
+          NOTES="Installer: ${PACK_ID}-win-Setup.exe. The installed program updates itself from this repository's basket-pc-v releases."
+          existing=0
+          # A release for this tag may already exist (made by hand with the tag, or left by an earlier failed run).
+          while IFS=$'\t' read -r id draft assets; do
+            [ -n "$id" ] || continue
+            if [ "$draft" = "true" ]; then
+              # a draft was never visible to the updater, so it is safe to replace
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id" > /dev/null
+            elif [ "$assets" != "0" ]; then
+              echo "A published release for $TAG already has files. Use a new version number."
+              exit 1
+            else
+              existing=1
+            fi
+          done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$TAG\") | [.id, .draft, (.assets | length)] | @tsv" | tr -d '\r')
+          if [ "$existing" = "1" ]; then
+            # keep the empty release hidden from the updater (pre-release) while the files are uploaded
+            gh release edit "$TAG" --prerelease --latest=false
+            gh release upload "$TAG" releases/*
+          else
+            gh release create "$TAG" releases/* --verify-tag --draft --latest=false --title "$TITLE" --notes "$NOTES"
+          fi
+          gh release edit "$TAG" --draft=false --prerelease=false --latest=false --title "$TITLE" --notes "$NOTES"

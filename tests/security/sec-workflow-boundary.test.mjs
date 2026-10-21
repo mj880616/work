@@ -23,6 +23,10 @@ test('Basket PC release workflow only runs for approved basket-pc-v tags and kee
   assert.match(source, /^permissions:\n  contents: read\n/m);
   const writes = source.match(/^\s+contents:\s*write\s*$/gm) ?? [];
   assert.equal(writes.length, 1);
+  // the read-only verify job checks the tag shape and main before anyone is asked to approve; release depends on it
+  assert.match(source, /^  verify:\n(?:(?!^  release:)[\s\S])*?^  release:\n    needs: verify\n/m);
+  const verifyJob = source.slice(source.indexOf('\n  verify:\n'), source.indexOf('\n  release:\n'));
+  assert.doesNotMatch(verifyJob, /environment:|permissions:|write/);
   assert.match(source, /^  release:\n[\s\S]*?^    permissions:\n      contents: write\n      id-token: write\n      attestations: write\n/m);
   // reviewer approval, tag check, main check
   assert.match(source, /^    environment: basket-pc-release$/m);
@@ -38,6 +42,10 @@ test('Basket PC release workflow only runs for approved basket-pc-v tags and kee
   // installer id differs from the data folder name, and releases are created as draft first, never as "latest"
   assert.match(source, /PACK_ID: BasketDropApp$/m);
   assert.match(source, /gh release create[\s\S]*--verify-tag --draft --latest=false/);
+  // a release made by hand with the tag is hidden (pre-release) while it is filled, a published one that already has files is refused
+  assert.match(source, /gh release edit "\$TAG" --prerelease --latest=false\n\s+gh release upload "\$TAG" releases\/\*/);
+  assert.match(source, /already has files\. Use a new version number/);
+  assert.match(source, /gh release edit "\$TAG" --draft=false --prerelease=false --latest=false/);
   assert.match(source, /actions\/attest-build-provenance@/);
 });
 
