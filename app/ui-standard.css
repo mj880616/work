@@ -1215,7 +1215,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 
 /* UI-엔터저장: enter-save.js가 창·옆 수정 칸의 칸에 초점이 있을 때 저장 버튼에 붙이는 작은 안내(↵ · Ctrl+↵ · ⌘↵).
    PC(마우스·자판)에서만 붙으므로 폰에는 보이지 않는다. 버튼 글자 앞에 작게. ::after는 버튼의 44px 누르는 범위가 쓰므로
-   ::before를 쓰고, 줄 높이 0이라 버튼 높이는 그대로다. */
+   ::before를 쓰고, 줄 높이 0이라 버튼 높이는 그대로다. 대체 글자 ""로 버튼 이름(화면 낭독)은 그대로 "저장". */
 @media (hover:hover) and (pointer:fine){
-  button[data-enter-hint]::before{ content:attr(data-enter-hint); display:inline; margin-right:6px; font-size:.78em; line-height:0; font-weight:var(--ds-weight-regular,400); opacity:.72; letter-spacing:0; pointer-events:none; }
+  button[data-enter-hint]::before{ content:attr(data-enter-hint) / ""; display:inline; margin-right:6px; font-size:.78em; line-height:0; font-weight:var(--ds-weight-regular,400); opacity:.72; letter-spacing:0; pointer-events:none; }
 }

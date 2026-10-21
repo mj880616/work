@@ -29,7 +29,7 @@ for(const width of [1280,390])test.describe(`${width}px`,()=>{
     await page.waitForTimeout(100);expect(s.writes).toEqual([]);await expect(page.locator('#eventModal')).toBeVisible();
     await memo.fill('첫 줄');await memo.press('Enter');await memo.pressSequentially('둘째 줄');
     await expect(memo).toHaveValue('첫 줄\n둘째 줄');expect(s.writes).toEqual([]);
-    if(!phone){await expect.poll(()=>hint(save)).toBe('Ctrl+↵');await title.focus();await expect.poll(()=>hint(save)).toBe('↵')}
+    if(!phone){await expect.poll(()=>hint(save)).toBe('Ctrl+↵');await title.focus();await expect.poll(()=>hint(save)).toBe('↵');await expect(save).toHaveAccessibleName('저장')}
     else{await title.focus();expect(await hint(save)).toBeNull()}
     // 930 is tidied to 09:30 by the time cell on the same Enter, then the save reads it.
     await start.fill('930');await start.press('Enter');
