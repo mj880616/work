@@ -35,6 +35,8 @@ on:
       - 'scripts/markdown/**'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'tests/ledger-import-model.test.mjs'
+      - 'tests/ledger-import-fixture.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -74,6 +76,8 @@ on:
       - 'scripts/markdown/**'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'tests/ledger-import-model.test.mjs'
+      - 'tests/ledger-import-fixture.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -127,6 +131,9 @@ jobs:
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
+
+      - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
+        run: node --test tests/ledger-import-model.test.mjs
 
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs

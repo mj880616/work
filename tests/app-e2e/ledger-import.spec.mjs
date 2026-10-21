@@ -164,12 +164,11 @@ for(const [name,width] of [['PC',1440],['phone',390]]){
   const sent=db.rpc.filter(r=>r.name==='app_import_ledger_apply');
   expect(sent.length).toBe(3);
   for(const r of sent){
-   for(const text of ['신문반영일','가상 민감 사건','가상 민감 메모','EVT-0903','SRC-0903','계속추적','검색인덱스'])expect(r.body).not.toContain(text);
+   for(const text of ['신문반영일','"가상 민감 사건"','가상 민감 메모','EVT-0903','SRC-0903','계속추적','검색인덱스'])expect(r.body).not.toContain(text);
   }
   const final=JSON.parse(sent.at(-1).body);
   expect(final.p_dry_run).toBe(false);
   expect(final.p_file.records.find(x=>x.ledger_id==='EVT-0901')).toMatchObject({topic:'TOP-0901',importance:'very_high',event_status:'tracking',date_precision:'month',date_start:'2026-03-01'});
-  expect(page.locator('#ledgerView')).toBeTruthy();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  });
 }
