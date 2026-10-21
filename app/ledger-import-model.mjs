@@ -142,6 +142,7 @@ export const REASONS = {
   id_padded: 'ID 숫자를 4자리로 맞춤', date_unknown: '날짜를 읽지 못해 "모름"으로 두고 원래 표기를 남김', web2_missing: 'Web2 담당조직을 찾지 못해 연결 없이 넣음',
   date_month_start: '날짜가 일 단위가 아니라 그 달·해 첫날로 넣음',
   title_cut: '제목이 길어 앞 300자만 제목으로(전체는 요지에)', source_text_kept: '출처가 ID가 아니라 글자라 비고에 남김',
+  source_title_prefix: '출처명이 출처 제목 앞부분과 같아(뒤 괄호만 다름) 그 출처에 연결',
   date_text_kept: '날짜 칸을 읽지 못해 비고에 남김', legacy_id_kept: '옛 쓰기요청 ID 모양이 달라 원래 표기로 보관',
   idx_ref_ignored: '검색인덱스(IDX) 참조는 가져오지 않음(L2)', link_kind_unsupported: '기록이 아닌 행(출처 등)을 가리키는 연결은 담을 칸이 없어 뺌',
   duplicate_link_skipped: '같은 연결이 두 번 — 한 번만 넣음'
@@ -291,7 +292,8 @@ export function normalizeId(raw) {
   if (m[2].length > 4 && m[2] !== number) return { error: 'bad_id' };
   return { id: `${m[1]}-${canonical}`, prefix: m[1], padded: m[2] !== canonical };
 }
-const REF_RE = /([A-Za-z]{2,6})-?(\d{1,6})(?:\s*[~∼〜]\s*(?:([A-Za-z]{2,6})-?)?(\d{1,6}))?/g;
+// 참조는 대문자 접두어 + 하이픈 + 숫자만(SRC-0034, EVT-12). "Web2"·"COVID19"처럼 하이픈 없는 낱말이나 낱말 중간은 ID가 아니다.
+const REF_RE = /(?<![A-Za-z0-9])([A-Z]{2,6})-(\d{1,6})(?![0-9A-Za-z])(?:\s*[~∼〜]\s*(?:([A-Z]{2,6})-)?(\d{1,6})(?![0-9A-Za-z]))?/g;
 // "SRC-0907~SRC-0909, SRC-0912" → 한 줄씩. 범위는 200개까지.
 export function expandRefs(text) {
   const out = []; let bad = false;
@@ -428,6 +430,7 @@ export function sheetToCanonical(input, mapping) {
     return (field === 'topic' ? null : GUESS[field]?.(raw)) ?? FALLBACK[field];
   };
   const textBy = new Map();
+  const sourceTitles = [];
   for (const key of TAB_ORDER) {
     const tab = byKey.get(key);
     if (!tab) continue;
@@ -473,6 +476,7 @@ export function sheetToCanonical(input, mapping) {
           drive_file_id: oneLine(get('drive_file_id')) || null, source_date: day.date, coverage: noCtrl(get('coverage')),
           processing_status: pick('processing_status', oneLine(get('processing_status'))), sensitivity: sens, note: noCtrl(get('note')), status: 'active' });
         textBy.set('source:' + norm(get('title')), id);
+        sourceTitles.push([oneLine(get('title')), id]);
       } else if (TABS[key].scope && KINDS.includes(TABS[key].scope)) {
         const kind = key;
         const date = parseLedgerDate(get('date'));
@@ -524,9 +528,20 @@ export function sheetToCanonical(input, mapping) {
         const locator = oneLine(get('locator')).slice(0, 500);
         const srcCells = [['출처', clean(get('sources'))], ['출처명', kind === 'change' ? clean(get('source_name')) : '']].filter(([, v]) => v);
         for (const [label, srcText] of srcCells) {
-          const refs = refsOf(srcText, issues, key, id);
+          let refs = refsOf(srcText, issues, key, id);
+          // 출처명 칸은 칸 전체가 ID 목록일 때만 ID로 본다(자유 글 속 낱말을 ID로 읽지 않음).
+          if (label === '출처명' && refs.ids.length && refs.rest) refs = { ids: [], bad: false, idx: false, rest: refs.rest };
           let ids = refs.ids;
-          if (!ids.length && !refs.idx) { const byTitle = textBy.get('source:' + norm(srcText)); ids = byTitle ? [byTitle] : []; }
+          if (!ids.length && !refs.idx) {
+            const byTitle = textBy.get('source:' + norm(srcText));
+            if (byTitle) ids = [byTitle];
+            else {
+              // 출처 제목 = 출처명 + 뒤 괄호 꼬리 하나(예: "… (2026-09-22 입력)")이고 그런 출처가 하나뿐이면 연결.
+              const name = oneLine(srcText);
+              const hits = sourceTitles.filter(([t]) => t.startsWith(name) && /^\s*[(（][^()（）]*[)）]$/.test(t.slice(name.length)));
+              if (name && hits.length === 1) { ids = [hits[0][1]]; issues.push({ level: 'warning', reason: 'source_title_prefix', tab: key, id: `${id} → ${hits[0][1]}` }); }
+            }
+          }
           if (refs.bad) { issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${id} 출처 "${oneLine(srcText).slice(0, 40)}" — 범위를 읽을 수 없음`, row: rowNo }); row.rejected = true; break; }
           if (!ids.length) {
             if (!refs.idx) { extra.push(`${label}: ${oneLine(srcText)}`); issues.push({ level: 'warning', reason: 'source_text_kept', tab: key, id }); }

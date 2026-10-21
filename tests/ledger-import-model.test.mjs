@@ -238,3 +238,26 @@ test('real sheet headers (synthetic content): no rejection; titles, notes, links
  const db={topics:2,organizations:2,sources:2,records_by_kind:{event:2,change:2,decision:2,evidence:2,commitment:1},links_to_organizations:5,legacy_write_requests:3};
  assert.ok(numberCheck(p.report,db).every(x=>x.ok),JSON.stringify(numberCheck(p.report,db)));
 });
+
+test('ids in free text: only UPPER-prefix + hyphen + digits; 출처명 is an id list only when the whole cell is ids; title prefix + bracket tail links',async()=>{
+ assert.deepEqual(expandRefs('Web2 가상 담당 현황 - 가 지부').ids,[]);
+ assert.deepEqual(expandRefs('COVID19 가상 기사, Web2').ids,[]);
+ assert.deepEqual(expandRefs('REQ-20260924042846-COL-1cVke0').ids,[]);
+ assert.deepEqual(expandRefs('SRC-0034, EVT-12').ids,['SRC-0034','EVT-0012']);
+ const sources=one('출처',[['ID','제목'],['SRC-0934','Web2 가상 담당 현황 - 가 지부(2026-09-22 입력)'],['SRC-0935','가상 겹침 제목 (1차)'],['SRC-0936','가상 겹침 제목 (2차)'],['SRC-0937','가상 정확한 제목']]);
+ const events=one('사건',[['ID','제목','상태'],['EVT-0930','가상 사건','진행']]);
+ const changes=one('변화기록',[['업데이트ID','사건ID','새로 확인된 것','출처명'],
+  ['CHG-0930','EVT-0930','가상 변화 하나','Web2 가상 담당 현황 - 가 지부'],
+  ['CHG-0931','EVT-0930','가상 변화 둘','COVID19 가상 기사'],
+  ['CHG-0932','EVT-0930','가상 변화 셋','가상 겹침 제목'],
+  ['CHG-0933','EVT-0930','가상 변화 넷','가상 정확한 제목'],
+  ['CHG-0934','EVT-0930','가상 변화 다섯','SRC-0937']]);
+ const r=await run([sources,events,changes]);
+ assert.deepEqual(r.summary.error,[]);assert.equal(r.ok,true);
+ const rs=id=>r.payload.record_sources.filter(x=>x.record===id).map(x=>x.source);
+ assert.deepEqual(rs('CHG-0930'),['SRC-0934']);
+ assert.deepEqual(rs('CHG-0931'),[]);assert.match(r.payload.records.find(x=>x.ledger_id==='CHG-0931').note,/출처명: COVID19 가상 기사/);
+ assert.deepEqual(rs('CHG-0932'),[]);
+ assert.deepEqual(rs('CHG-0933'),['SRC-0937']);assert.deepEqual(rs('CHG-0934'),['SRC-0937']);
+ assert.deepEqual(reasons(r,'warning'),{source_title_prefix:1,source_text_kept:2});
+});
