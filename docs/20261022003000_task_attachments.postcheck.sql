@@ -20,7 +20,7 @@ union all select 'service_role has no table or column privilege',case when (sele
   not has_table_privilege('service_role',(select att from t),'select,insert,update,delete,truncate,references,trigger')
   and not has_any_column_privilege('service_role',(select att from t),'select,insert,update,references')) then '예' else '아니오' end
 union all select 'no PUBLIC grant',case when (select att from t) is null or not exists(select 1 from pg_class where oid=(select att from t) and relacl::text ~ '(^|[{,])=') then '예' else '아니오' end
-union all select 'authenticated: select, insert columns, delete; no update',case when (select att from t) is null or (
+union all select 'authenticated: select, insert columns, delete, no update',case when (select att from t) is null or (
   has_table_privilege('authenticated',(select att from t),'select')
   and has_table_privilege('authenticated',(select att from t),'delete')
   and has_column_privilege('authenticated',(select att from t),'drive_file_id','insert')
