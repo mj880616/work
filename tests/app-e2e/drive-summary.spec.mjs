@@ -194,7 +194,7 @@ for(const [width,height,lateUpload] of [[1280,900,false],[390,844,false],[1280,9
   await accountButton(page).click();if(width<=760)await page.clock.fastForward(250);const button=menu.locator('[data-drive-summary-refresh]');await expect(button).toBeVisible();
   await expect.poll(async()=>{const r=await button.boundingBox();return r.x+r.width}).toBeLessThanOrEqual(width);
   const box=await button.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);
-  expect(await menu.locator('button').allTextContents()).toEqual(['화면 색','사본 갱신','로그아웃']);
+  expect(await menu.locator('button').allTextContents()).toEqual(['내 프로필','화면 색','사본 갱신','로그아웃']);
   await expect(button).toHaveText('사본 갱신');
   await expect(button).toHaveAttribute('aria-label','Drive 사본 지금 갱신');
   await expect(button).toHaveAttribute('title','Drive 사본 지금 갱신');

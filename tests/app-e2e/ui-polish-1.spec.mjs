@@ -79,7 +79,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
  // 계정 상자: 화면 색·사본 갱신(시각은 오른쪽 작게)·로그아웃(빨강), 사본 링크는 밑줄 없는 보조 글자.
  const account=page.locator('#mobileAccountGroup');
- await expect(account.locator('button')).toHaveText(['화면 색','사본 갱신','로그아웃']);
+ await expect(account.locator('button')).toHaveText(['내 프로필','화면 색','사본 갱신','로그아웃']);
  await account.locator('[data-drive-summary-refresh]').click();
  await open();
  const time=account.locator('.drive-summary-time');await expect(time).toBeVisible();
