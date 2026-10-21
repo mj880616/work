@@ -813,15 +813,15 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   await expect(page.locator('#newProjectBtn')).toHaveText('+ 프로젝트');
   await expect(list.locator('[data-ps3-kids-toggle]')).toHaveCount(0);
   await expect(child).toBeVisible();await expect(list.locator('[data-ps3-child]')).toHaveCount(0);
-  // UI-디자인기준 2/3(8-9d): 오른쪽 끝 알약은 다음 주요 일정 D-day(3일 이내 빨강), 읽은 뒤 없으면 흐린 "일정 없음".
+  // UI-디자인기준 2/3(8-9d): 오른쪽 끝 알약은 다음 주요 일정 D-day(3일 이내 빨강), 읽은 뒤 없으면 흐린 "최근 기록 날짜"(PRJ-화면다듬기), 기록도 없으면 빈칸.
   // UI-디자인기준 3/3(8-9e-1): 목록 오른쪽은 D-day 알약 하나만(밀린 할 일 수·마지막 기록 날짜는 상세에만).
   await expect(main.locator('.ps3-prow-meta')).toHaveText('D-day');
   await expect(child.locator('.ps3-prow-meta')).toHaveText('D-2');
   await expect(list.locator('.kptu-list-task-count,.ps3-prow-meta time,.ps3-prow-meta svg')).toHaveCount(0);
-  await expect(list.locator('[data-ps3-project="main-2"] .ps3-prow-meta')).toHaveText('일정 없음');
+  await expect(list.locator('[data-ps3-project="main-2"] .ps3-prow-meta')).toHaveText('');await expect(list).not.toContainText('일정 없음');
   await expect(main.locator('.ps3-dday')).toHaveClass(/ps3-dday-soon/);await expect(main.locator('.ps3-dday')).toHaveAttribute('aria-label','다음 주요 일정 오늘');
   await expect(child.locator('.ps3-dday')).toHaveClass(/ps3-dday-soon/);await expect(child.locator('.ps3-dday')).toHaveAttribute('aria-label','다음 주요 일정 2일 후');
-  await expect(list.locator('[data-ps3-project="main-2"] .ps3-dday')).toHaveClass(/ps3-dday-none/);
+  await expect(list.locator('[data-ps3-project="main-2"] .ps3-dday')).toHaveCount(0);
   for(const pill of await list.locator('.ps3-dday').all())expect(await pill.evaluate(e=>e===e.parentElement.lastElementChild)).toBe(true);
   // 위계: 메인 13px·500, 하위 13px·400, 하위 앞 가지 선.
   await expect(main.locator('.ps3-prow-name')).toHaveCSS('font-weight','500');await expect(child.locator('.ps3-prow-name')).toHaveCSS('font-weight','400');
@@ -834,7 +834,7 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   }
   const clipped=await list.locator('[data-ps3-project="main-2"] .ps3-prow-name').evaluate(e=>({clipped:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow}));expect(clipped).toEqual({clipped:true,ellipsis:'ellipsis'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
-  expect(state.summaryQueries).toHaveLength(1);expect(state.summaryQueries[0]['milestones.limit']).toBe('1');expect(state.summaryQueries[0]['progress.limit']).toBeUndefined();expect(state.summaryQueries[0].select).toBe('id,milestones:app_project_milestones!project_id(start_at)');
+  expect(state.summaryQueries).toHaveLength(1);expect(state.summaryQueries[0]['milestones.limit']).toBe('1');expect(state.summaryQueries[0]['progress.limit']).toBe('1');expect(state.summaryQueries[0].select).toBe('id,milestones:app_project_milestones!project_id(start_at),progress:app_project_progress_updates!project_id(effective_on)');
   await child.press('Enter');await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');await closeProjectDetail(page);
   await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');await closeProjectDetail(page);
   await page.locator('#ps3ArchiveBtn').click();await expect(page.locator('#ps3ArchiveModal')).toBeVisible();await expect(page.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
