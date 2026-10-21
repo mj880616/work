@@ -208,7 +208,7 @@
 .ps3-record-field{position:relative;display:flex;min-width:0}
 .ps3-record-input input{margin:0;min-width:0;width:100%;padding-right:44px}
 /* PRJ-화면다듬기: [⤢] sits inside the input like the basket/home quick input (44px touch width, icon only). */
-.ps3-record-big{position:absolute;top:0;right:0;z-index:1;display:grid;place-items:center;box-sizing:border-box;width:44px;min-width:44px;height:100%;min-height:0;margin:0;padding:0;border:0;border-radius:var(--ds-radius-control,8px);background:transparent;color:var(--kptu-muted);box-shadow:none;cursor:pointer}
+.ps3-record-big{position:absolute;top:0;right:0;z-index:1;display:grid;place-items:center;box-sizing:border-box;width:44px;min-width:44px;height:100%;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);box-shadow:none;cursor:pointer}
 .ps3-record-big:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
 .ps3-record-big:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 .ps3-record-big svg{flex:none}
