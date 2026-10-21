@@ -1,0 +1,56 @@
+/* AI-서버연동 S7-b: [원장] 화면(#ledgerView). 값은 theme-tokens.css의 공용 토큰만 쓴다. 큰 버튼(.primary/.secondary)은
+   ui-standard.css 규칙을 따르고, 이 파일은 칸 배치·표·작은 버튼(.lg-tool: 보이는 32px, 누르는 범위 44px)만 정한다. */
+#appView #ledgerView .lg-root{ display:flex; flex-direction:column; gap:16px; max-width:920px; }
+#appView #ledgerView .lg-card{ display:flex; flex-direction:column; gap:10px; min-width:0; padding:16px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
+#appView #ledgerView [data-lg-shell]{ display:flex; flex-direction:column; gap:16px; min-width:0; }
+#appView #ledgerView .lg-card h3{ margin:0; font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
+#appView #ledgerView .lg-card h4{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 0 0; font-size:var(--ds-text-row); color:var(--kptu-ink); }
+#appView #ledgerView .lg-card h5{ margin:6px 0 4px; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
+#appView #ledgerView :is(.lg-note,.lg-steps,.lg-list){ margin:0; font-size:var(--ds-text-meta); line-height:1.6; color:var(--kptu-muted); }
+#appView #ledgerView .lg-steps{ padding-left:20px; }
+#appView #ledgerView .lg-list{ padding-left:18px; }
+#appView #ledgerView .lg-list b{ color:var(--kptu-ink); font-weight:var(--ds-weight-medium); }
+#appView #ledgerView .lg-samples{ display:block; overflow-wrap:anywhere; }
+#appView #ledgerView .lg-notice{ display:flex; flex-direction:column; gap:6px; padding:16px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); color:var(--kptu-ink); font-size:var(--ds-text-row); }
+#appView #ledgerView .lg-notice p{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.6; }
+#appView #ledgerView .lg-fields{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; align-items:end; }
+#appView #ledgerView .lg-field{ display:flex; flex-direction:column; gap:4px; min-width:0; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #ledgerView .lg-field > span{ font-weight:var(--ds-weight-medium); }
+#appView #ledgerView .lg-field input[type="file"]{ min-height:var(--kptu-touch-target,44px); max-width:100%; font-size:var(--ds-text-meta); color:var(--kptu-ink); }
+#appView #ledgerView .lg-input{ box-sizing:border-box; width:100%; min-height:var(--ds-control-height); margin:0; padding:0 var(--ds-control-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-text-read); }
+#appView #ledgerView .lg-table-wrap{ max-width:100%; overflow-x:auto; }
+#appView #ledgerView .lg-table{ width:100%; border-collapse:collapse; font-size:var(--ds-text-meta); color:var(--kptu-ink); }
+#appView #ledgerView .lg-table caption{ padding:4px 0; text-align:left; color:var(--kptu-muted); }
+#appView #ledgerView .lg-table :is(th,td){ padding:6px 8px; border-bottom:var(--ds-line-width) solid var(--ds-line); text-align:left; vertical-align:middle; white-space:nowrap; }
+#appView #ledgerView .lg-table thead th{ font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
+#appView #ledgerView .lg-table tbody th{ font-weight:var(--ds-weight-regular); white-space:normal; overflow-wrap:anywhere; min-width:96px; }
+#appView #ledgerView .lg-table td{ font-variant-numeric:tabular-nums; }
+#appView #ledgerView .lg-sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+#appView #ledgerView .lg-select{ box-sizing:border-box; min-height:var(--ds-compact-height); max-width:220px; padding:0 8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-text-meta); }
+#appView #ledgerView .lg-map-field + .lg-map-field{ margin-top:8px; }
+#appView #ledgerView .lg-details summary{ min-height:var(--kptu-touch-target,44px); display:flex; align-items:center; cursor:pointer; font-size:var(--ds-text-row); color:var(--kptu-ink); }
+#appView #ledgerView .lg-check{ display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row); color:var(--kptu-ink); }
+#appView #ledgerView .lg-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+#appView #ledgerView .lg-pill{ flex:none; padding:2px 8px; border-radius:var(--ds-chip-radius); font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #ledgerView .lg-pill.is-ok{ color:var(--kptu-success); background:var(--kptu-success-soft); }
+#appView #ledgerView .lg-pill.is-bad{ color:var(--kptu-danger); background:var(--kptu-danger-soft); }
+#appView #ledgerView :is(.lg-error,.lg-bad){ color:var(--kptu-danger); }
+#appView #ledgerView .lg-error{ margin:0; font-size:var(--ds-text-row); line-height:1.6; overflow-wrap:anywhere; }
+#appView #ledgerView .lg-ok{ margin:0; font-size:var(--ds-text-row); color:var(--kptu-success); }
+#appView #ledgerView .lg-warn{ color:var(--kptu-warning); }
+#appView #ledgerView .lg-muted{ color:var(--kptu-muted); }
+#appView #ledgerView .lg-issues-error .lg-list{ color:var(--kptu-danger); }
+#appView #ledgerView .lg-imports{ list-style:none; margin:0; padding:0; }
+#appView #ledgerView .lg-imports li{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); border-top:var(--ds-line-width) solid var(--ds-line); font-size:var(--ds-text-row); }
+#appView #ledgerView .lg-imports li:first-child{ border-top:0; }
+#appView #ledgerView .lg-import-name{ flex:1 1 160px; min-width:0; overflow-wrap:anywhere; color:var(--kptu-ink); }
+#appView #ledgerView .lg-tool{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
+#appView #ledgerView .lg-tool::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #ledgerView .lg-tool:disabled{ opacity:.45; cursor:default; }
+#appView #ledgerView :is(.lg-tool,.lg-select,.lg-input):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #ledgerView .lg-danger{ color:var(--kptu-danger); }
+@media (max-width:760px){
+  #appView #ledgerView .lg-card{ padding:12px; }
+  #appView #ledgerView .lg-fields{ grid-template-columns:minmax(0,1fr); }
+  #appView #ledgerView .lg-select{ max-width:160px; }
+}
