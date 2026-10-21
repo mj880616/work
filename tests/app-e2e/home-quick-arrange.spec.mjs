@@ -20,10 +20,10 @@ async function open(page,width,dark){
  await page.reload();await page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt>0);
  return errors;
 }
-async function gray(page){return {bg:await token(page,'--ds-kind-other-soft','backgroundColor'),fg:await token(page,'--ds-kind-other-ink')};}
+async function gray(page){return {bg:await token(page,'--ds-select-bg','backgroundColor'),fg:await token(page,'--ds-select-ink')};}
 const shot=(info,name)=>process.env.KPTU_SHOT_DIR?`${process.env.KPTU_SHOT_DIR}/${name}.png`:info.outputPath(`${name}.png`);
 
-for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입력 배치와 고른 쪽 회색 ${width}${dark?' 다크':''}`,async({page},info)=>{
+for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입력 배치와 고른 쪽 테마 주 색 ${width}${dark?' 다크':''}`,async({page},info)=>{
  const errors=await open(page,width,dark),box=q(page),selected=await gray(page),white=await token(page,'--kptu-surface','backgroundColor');
  const modes=box.locator('.home-quick-modes'),update=box.locator('[data-quick-mode="update"]'),org=box.locator('[data-quick-org]'),input=box.locator('[data-quick-input]');
  // 안내 화살표 글자는 어느 모드에서도 없다.
@@ -42,7 +42,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  await page.screenshot({path:shot(info,`home-quick-task-${width}-${dark?'dark':'light'}`)});
  await input.fill('');
 
- // [업데이트 ▾]: 조직 줄 없이 [업데이트] 바로 오른쪽 ▾, 둘이 함께 회색. ▾ 누르는 범위 44px 이상.
+ // [업데이트 ▾]: 조직 줄 없이 [업데이트] 바로 오른쪽 ▾, 둘이 함께 테마 주 색. ▾ 누르는 범위 44px 이상.
  await update.click();await expect(box).toHaveAttribute('data-mode','basket');
  await expect(options).toBeHidden();await expect(box.locator('[data-quick-options]')).toBeHidden();
  await expect(box).not.toContainText('담당조직 기록');

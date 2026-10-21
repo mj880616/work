@@ -183,8 +183,8 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
     // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),
     // no longer copies of the home quick-input tabs (those became a small segment). Unselected chips are white with ink text,
-    // the selected one is gray (종류 색 '그 밖'). The touch target stays 44px through ::after.
-    const tokens=await page.evaluate(()=>Object.fromEntries(['--kptu-ink','--kptu-surface','--kptu-muted','--ds-kind-other-ink','--ds-kind-other-soft'].map(n=>{const e=document.createElement('span');e.style.color=`var(${n})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return [n,c];})));
+    // the selected one is the theme primary color (UI-테마선택색). The touch target stays 44px through ::after.
+    const tokens=await page.evaluate(()=>Object.fromEntries(['--kptu-ink','--kptu-surface','--kptu-muted','--ds-select-ink','--ds-select-bg'].map(n=>{const e=document.createElement('span');e.style.color=`var(${n})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return [n,c];})));
     for(const group of await groups.all()){
       // UI-PC자료실: 자료실 분류 줄은 여러 개 켜고 끄는 토글(role=group, aria-pressed). 켠 칩은 회색, 꺼진 칩은 흐린 글자(보조 글자색)·흰 바탕.
       if(await group.getAttribute('id')==='libraryCategoryFilter'){
@@ -196,7 +196,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
           const on=await toggle.getAttribute('aria-pressed')==='true';
           const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await toggle.evaluate(style);
           expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' category chip style').toEqual(['13px','500','32px','12px','12px','999px']);
-          expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-kind-other-ink'],tokens['--ds-kind-other-soft']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);
+          expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);
           expect((await toggle.boundingBox()).height,name+' category chip height').toBe(32);
           expect(await toggle.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' category chip touch').toBe(44);
         }
@@ -208,7 +208,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
         const selected=await radio.getAttribute('aria-checked')==='true';
         const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await radio.evaluate(style);
         expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' filter chip style').toEqual(['13px','500','32px','12px','12px','999px']);
-        expect([color,background],name+' filter chip color').toEqual(selected?[tokens['--ds-kind-other-ink'],tokens['--ds-kind-other-soft']]:[tokens['--kptu-ink'],tokens['--kptu-surface']]);
+        expect([color,background],name+' filter chip color').toEqual(selected?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:[tokens['--kptu-ink'],tokens['--kptu-surface']]);
         expect((await radio.boundingBox()).height,name+' filter height').toBe(32);
         expect(await radio.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' filter touch').toBe(44);
       }

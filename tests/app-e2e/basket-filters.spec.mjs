@@ -72,7 +72,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분
  await expect(unclassified).toHaveAttribute('aria-pressed','true');
  const look=l=>l.evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,h:el.getBoundingClientRect().height,touch:parseFloat(getComputedStyle(el,'::after').height)};});
  const token=name=>page.evaluate(n=>{const p=document.createElement('i');p.style.color=`var(${n})`;document.querySelector('#appView').append(p);const c=getComputedStyle(p).color;p.remove();return c;},name);
- const gray=await token('--ds-kind-other-soft');
+ const gray=await token('--ds-select-bg');
  expect((await look(unclassified)).bg).toBe(gray);expect((await look(classified)).bg).not.toBe(gray);
  expect((await look(unclassified)).h).toBe(32);expect((await look(unclassified)).touch).toBe(44);
  expect(await shown(page)).toEqual([PLAIN,SUGGEST]);
