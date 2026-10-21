@@ -34,7 +34,9 @@ const RECORD_COLUMNS = {
 };
 // 칸 이름(머리줄) → 필드. 앞에 있는 이름이 먼저 맞는다. drop은 알고 있지만 가져오지 않는 칸.
 export const COLUMNS = {
-  event: { id: ['ID', '사건ID'], ...RECORD_COLUMNS, title: ['제목', '사건명', '건명'], status: ['상태', '진행상태'], tracking: ['계속추적', '추적여부', '추적'] },
+  // 사건 = 사건ID·사건명·분야·상태·중요도·최초확인일·최종업데이트일·현재상태·왜 중요한가·영향 주체·조직·관련 업무·계속추적·확신도·태그.
+  event: { id: ['ID', '사건ID'], ...RECORD_COLUMNS, title: ['제목', '사건명', '건명'], date: ['기준일', '최초확인일', '날짜', '일자', '시점'],
+    summary: ['요지', '현재상태', '요약', '내용'], status: ['상태', '진행상태'], tracking: ['계속추적', '추적여부', '추적'], drop: ['최종업데이트일'] },
   // 실제 시트 머리줄(2026-10-21 확인, 구조만): 변화기록 = 업데이트ID·사건ID·확인시각·새로 확인된 것·이전 상태·새 상태·출처유형·출처명·출처URL·검증상태·신문반영일.
   change: { id: ['ID', '업데이트ID', '변화기록ID', '변화ID'], event: ['사건ID', '소속사건', '관련사건', '사건'], ...RECORD_COLUMNS,
     title: ['제목', '새로 확인된 것', '건명'], date: ['기준일', '확인시각', '날짜', '일자', '시점'], prev_state: ['이전 상태'], new_state: ['새 상태'],
@@ -43,19 +45,23 @@ export const COLUMNS = {
   decision: { id: ['ID', '결정ID'], ...RECORD_COLUMNS, title: ['제목', '결정내용', '결정사항', '건명'], date: ['기준일', '결정일', '날짜', '일자'],
     decision_type: ['결정유형', '유형'], decision_reason: ['결정이유', '이유'], meeting: ['회의명'], actor: ['결정주체'], related_org: ['관련조직'],
     follow: ['후속조치 요지', '후속조치'], web2: ['Web2연결ID'], tags: ['태그'], locator: ['근거위치'], drop: ['최종업데이트일'] },
-  evidence: { id: ['ID', '근거ID'], ...RECORD_COLUMNS, evidence_type: ['유형', '근거유형'], locator: ['근거위치', '위치'] },
+  // 근거 = 근거ID·제목·유형·기준일·핵심내용·활용가능업무·관련조직·출처ID·근거위치·확신도·유효상태·최종업데이트일·태그·대체기록ID·대체사유.
+  evidence: { id: ['ID', '근거ID'], ...RECORD_COLUMNS, summary: ['요지', '핵심내용', '요약', '내용'], evidence_type: ['유형', '근거유형'], locator: ['근거위치', '위치'], drop: ['최종업데이트일'] },
   // 약속 = 약속ID·주체·주체유형·약속내용·원문표현·기준일·기한·조건·후속확인일·중요도·이행상태·대표관련기록ID·출처ID·근거위치·GoogleTaskID·상태변경일·상태근거ID.
   commitment: { id: ['ID', '약속ID'], ...RECORD_COLUMNS, title: ['제목', '약속내용', '건명'], summary: ['요지', '원문표현', '요약', '내용'],
     counterparty: ['상대측', '주체', '상대방', '상대'], commitment_status: ['이행상태', '상태'], follow_up_on: ['후속확인일', '확인일', '기한'],
     actor_type: ['주체유형'], condition: ['기한·조건', '기한조건'], related: ['대표관련기록ID'], locator: ['근거위치'], google: ['GoogleTaskID'],
-    status_basis: ['상태근거ID'], drop: ['상태변경일'] },
+    status_basis: ['상태근거ID'] },
+  // 출처 = 출처ID·문서명·문서일자·문서종류·생산주체·원문URL·Drive파일ID·관련업무·관련조직·처리상태·처리일·처리범위·추출기록ID·비고·원문최종수정시각·수집대상ID.
   source: {
     id: ['ID', '출처ID'], title: ['제목', '출처명', '문서명', '자료명'], doc_type: ['문서종류', '종류', '유형'],
-    location: ['위치', '링크', 'URL', '경로', '주소'], drive_file_id: ['DriveID', '드라이브ID', '파일ID'],
-    date: ['날짜', '일자', '출처날짜', '작성일', '기준일'], coverage: ['처리범위'], processing_status: ['처리상태'],
+    location: ['위치', '원문URL', '링크', 'URL', '경로', '주소'], drive_file_id: ['Drive파일ID', 'DriveID', '드라이브ID', '파일ID'],
+    date: ['날짜', '문서일자', '일자', '출처날짜', '작성일', '기준일'], coverage: ['처리범위'], processing_status: ['처리상태'],
     sensitivity: ['민감도'], note: ['비고', '메모']
   },
-  organization: { id: ['ID', '조직ID'], name: ['조직명', '이름', '명칭'], aliases: ['별칭', '약칭'], web2: ['Web2연결ID', 'Web2ID', '웹2연결ID'], note: ['비고', '메모'] },
+  // 조직 = 조직ID·조직명·조직유형·상위조직/협의체·업무영역·사용자담당여부·검색별칭·주요상대기관·Web2연결ID·Drive폴더ID·Drive폴더URL·최초등록일·최종업데이트일·활성여부·비고.
+  organization: { id: ['ID', '조직ID'], name: ['조직명', '이름', '명칭'], aliases: ['별칭', '검색별칭', '약칭'], web2: ['Web2연결ID', 'Web2ID', '웹2연결ID'],
+    active: ['활성여부'], note: ['비고', '메모'], drop: ['최종업데이트일'] },
   // 조직연결 = 연결ID·조직ID·기록유형·기록ID·관계유형·기준일·활성여부·출처ID·최종업데이트일·비고.
   org_link: { link_id: ['ID', '연결ID'], record: ['기록ID', '원장ID', '대상ID', '사건ID', '기록'], organization: ['조직ID', '조직'], relation: ['관계유형', '관계'],
     note: ['비고', '메모'], record_type: ['기록유형'], date: ['기준일'], active: ['활성여부'], sources: ['출처ID'], drop: ['최종업데이트일'] },
@@ -387,9 +393,10 @@ function headerMap(key, header) {
       if (field !== 'drop') break;
     }
   }
-  const unknown = header.filter((h, i) => clean(h) && !used.has(i));
+  const unknownAt = header.map((h, i) => i).filter(i => clean(header[i]) && !used.has(i));
+  const unknown = unknownAt.map(i => header[i]);
   const missing = REQUIRED[key].filter(f => fields[f] === undefined);
-  return { fields, matched, dropped, unknown, missing };
+  return { fields, matched, dropped, unknown, unknownAt, missing };
 }
 
 function mappingKeyOf(field, row, get) {
@@ -449,6 +456,9 @@ export function sheetToCanonical(input, mapping) {
       info.sheetRows++;
       const rowNo = headerAt + 2 + index;
       const get = field => info.fields[field] === undefined ? '' : (r[info.fields[field]] ?? '');
+      // 원장에 맞는 칸이 없는 시트 칸은 버리지 않고 "칸이름: 값"으로 비고(쓰기요청은 detail)에 보존한다.
+      const leftover = info.unknownAt.map(i => [oneLine(header[i]), oneLine(r[i] ?? '')]).filter(([, v]) => v);
+      const leftoverLines = leftover.map(([h, v]) => `${h}: ${v}`);
       const personal = r.some(looksPersonal);
       const meta = { _tab: key, _row: rowNo, ...(personal ? { _personal: true } : {}) };
       const row = { key, rowNo };
@@ -462,11 +472,14 @@ export function sheetToCanonical(input, mapping) {
       }
       const id = idCheck.id;
       if (key === 'topic') {
-        out.topics.push({ ...meta, ledger_id: id, name: oneLine(get('name')), aliases: splitAliases(get('aliases')), description: noCtrl(get('description')), status: 'active', sort_order: out.topics.length });
+        out.topics.push({ ...meta, ledger_id: id, name: oneLine(get('name')), aliases: splitAliases(get('aliases')), description: [noCtrl(get('description')), ...leftoverLines].filter(Boolean).join('\n').slice(0, 500), status: 'active', sort_order: out.topics.length });
         textBy.set('topic:' + norm(get('name')), id);
       } else if (key === 'organization') {
         const web2 = oneLine(get('web2'));
-        out.organizations.push({ ...meta, ledger_id: id, name: oneLine(get('name')), aliases: splitAliases(get('aliases')), suborganization_id: web2 || null, note: noCtrl(get('note')), status: 'active' });
+        const active = oneLine(get('active'));
+        const orgStatus = /^(n|no|x|아니오|아니요|비활성|해산|폐지|false|0)$/i.test(active) ? 'retired' : 'active';
+        out.organizations.push({ ...meta, ledger_id: id, name: oneLine(get('name')), aliases: splitAliases(get('aliases')).slice(0, 20), suborganization_id: web2 || null,
+          note: [noCtrl(get('note')), ...leftoverLines].filter(Boolean).join('\n').slice(0, 2000), status: orgStatus });
       } else if (key === 'source') {
         const day = parseDay(get('date'));
         if (day.error) { issues.push({ level: 'error', reason: day.error, tab: key, id, row: rowNo }); row.rejected = true; continue; }
@@ -474,7 +487,8 @@ export function sheetToCanonical(input, mapping) {
         const sens = pick('sensitivity', oneLine(get('sensitivity')));
         out.sources.push({ ...meta, ledger_id: id, title: oneLine(get('title')), doc_type: pick('doc_type', oneLine(get('doc_type'))), location: oneLine(get('location')),
           drive_file_id: oneLine(get('drive_file_id')) || null, source_date: day.date, coverage: noCtrl(get('coverage')),
-          processing_status: pick('processing_status', oneLine(get('processing_status'))), sensitivity: sens, note: noCtrl(get('note')), status: 'active' });
+          processing_status: pick('processing_status', oneLine(get('processing_status'))), sensitivity: sens,
+          note: [noCtrl(get('note')), ...leftoverLines].filter(Boolean).join('\n').slice(0, 2000), status: 'active' });
         textBy.set('source:' + norm(get('title')), id);
         sourceTitles.push([oneLine(get('title')), id]);
       } else if (TABS[key].scope && KINDS.includes(TABS[key].scope)) {
@@ -490,7 +504,7 @@ export function sheetToCanonical(input, mapping) {
           issues.push({ level: 'warning', reason: 'title_cut', tab: key, id });
         }
         // 담을 칸이 따로 없는 시트 칸은 "이름: 값" 줄로 비고에 모은다(내용을 버리지 않음).
-        const extra = [];
+        const extra = [...leftoverLines];
         const keep = (label, field) => { const v = oneLine(get(field)); if (v) extra.push(`${label}: ${v}`); };
         if (kind === 'change') {
           const prev = oneLine(get('prev_state')), next = oneLine(get('new_state'));
@@ -573,7 +587,8 @@ export function sheetToCanonical(input, mapping) {
           row.rejected = true; continue;
         }
         const extra = [];
-        for (const [label, field] of [['기준일', 'date'], ['활성여부', 'active'], ['출처ID', 'sources']]) { const v = oneLine(get(field)); if (v) extra.push(`${label}: ${v}`); }
+        for (const [label, field] of [['연결ID', 'link_id'], ['기록유형', 'record_type'], ['기준일', 'date'], ['활성여부', 'active'], ['출처ID', 'sources']]) { const v = oneLine(get(field)); if (v) extra.push(`${label}: ${v}`); }
+        extra.push(...leftoverLines);
         const note = [noCtrl(get('note')), ...extra].filter(Boolean).join(' / ').slice(0, 500);
         for (const target of rec.ids) out.links.push({ ...meta, record: target, target_record: null, target_organization: org.ids[0], relation: pick('relation', oneLine(get('relation'))), note });
       } else if (key === 'write_request') {
@@ -590,6 +605,7 @@ export function sheetToCanonical(input, mapping) {
         }
         if (/IDX-?\d/i.test(`${get('targets')} ${get('results')}`)) issues.push({ level: 'warning', reason: 'idx_ref_ignored', tab: key, id: rawId.slice(0, 60) });
         if (!shaped) detail.legacy_id_original = rawId.slice(0, 200);
+        if (leftover.length) detail.extra = Object.fromEntries(leftover.map(([h, v]) => [h, v.slice(0, 2000)]));
         out.legacy_write_requests.push({ ...meta, legacy_id: shaped ? legacy : null, occurred_at: occurredAt(get('date')), detail });
       }
     }
