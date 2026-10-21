@@ -205,7 +205,7 @@
 .cwv-items .clv-event{position:relative;pointer-events:auto;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:2px;padding:8px 4px;box-sizing:border-box}
 .cwv-items .clv-time{flex:0 0 auto;line-height:16px}
 .cwv-items .clv-title{font-size:12px;line-height:16px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;white-space:normal;overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere}
-.cwv-tip{display:none;position:absolute;z-index:20;top:100%;left:0;box-sizing:border-box;width:max-content;max-width:220px;padding:6px 8px;border-radius:var(--kptu-radius-sm);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:16px;font-weight:400;white-space:normal;overflow-wrap:anywhere;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.cwv-tip{display:none;position:absolute;z-index:20;top:100%;left:0;box-sizing:border-box;width:max-content;max-width:220px;padding:6px 8px;border-radius:var(--kptu-radius-sm);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:16px;font-weight:400;white-space:normal;overflow-wrap:anywhere;pointer-events:none;box-shadow:var(--kptu-shadow-float)}
 .cwv-day:nth-child(n+5) .cwv-tip{left:auto;right:0}
 .cwv-items .clv-event.cwv-clipped:hover .cwv-tip,.cwv-items .clv-event.cwv-clipped:focus-visible .cwv-tip{display:block}
 .cwv-items .clv-color{display:none}
