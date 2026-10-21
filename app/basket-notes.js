@@ -4,6 +4,7 @@
 // (BASKET-노트입력창: the basket update input, home-quick.js, in its note mode) adds a note; its [크게] opens the shared
 // write window (write-window.js) with [노트] chosen.
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import { readNoteDocs, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, noteFolder, noteFolders, newFolderName, setNoteFolder, validateFolderName, NOTE_FOLDER_LIMITS } from './basket-data.js';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';

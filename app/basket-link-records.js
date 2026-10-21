@@ -1,3 +1,4 @@
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatSeoulTime} from './meeting-time.js';
 import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js';
 import {createAnchoredMenu} from './anchored-menu.js';

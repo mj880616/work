@@ -87,14 +87,18 @@ export function installEnterSave(doc=globalThis.document){
   const pending=new WeakSet();
   let hinted=null;
   const clearHint=()=>{hinted?.removeAttribute('data-enter-hint');hinted=null};
+  // The hint follows the last focused field of a root and stays while focus is anywhere in that root: pressing the save
+  // button (or a checkbox, a picker button) must not shrink the button under the pointer between press and release.
   const paintHint=target=>{
-    const root=containerOf(target),button=root&&saveButtonFor(root),text=button&&button.getAttribute('data-enter-save-submit')!=='nohint'?hintText(fieldKind(target),{pc:pc(),mac}):'';
+    const root=containerOf(target),button=root&&saveButtonFor(root),kind=fieldKind(target);
+    if(button&&!kind&&hinted===button)return;
+    const text=button&&button.getAttribute('data-enter-save-submit')!=='nohint'?hintText(kind,{pc:pc(),mac}):'';
     if(!button||!text){clearHint();return}
     if(hinted!==button)clearHint();
     button.setAttribute('data-enter-hint',text);hinted=button;
   };
   doc.addEventListener('focusin',e=>paintHint(e.target));
-  doc.addEventListener('focusout',e=>{if(!e.relatedTarget)setTimeout(()=>{if(!containerOf(doc.activeElement))clearHint()},0)});
+  doc.addEventListener('focusout',e=>{if(!e.relatedTarget)setTimeout(()=>{const root=containerOf(doc.activeElement);if(!root||saveButtonFor(root)!==hinted)clearHint()},0)});
   doc.addEventListener('keydown',e=>{
     if(e.key!=='Enter')return;
     const target=e.target,root=containerOf(target);if(!root)return;

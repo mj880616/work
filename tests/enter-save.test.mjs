@@ -186,7 +186,11 @@ test('설치된 규칙: 초점 칸에 따라 저장 버튼 안내가 바뀌고, 
   const h=harness({pc:true}),d=dialog();
   h.fire('focusin',d.title);assert.equal(d.save.getAttribute('data-enter-hint'),'↵');
   h.fire('focusin',d.body);assert.equal(d.save.getAttribute('data-enter-hint'),'Ctrl+↵');
-  h.fire('focusin',d.check);assert.equal(d.save.getAttribute('data-enter-hint'),null);
+  h.fire('focusin',d.save);assert.equal(d.save.getAttribute('data-enter-hint'),'Ctrl+↵','pressing the button keeps its size');
+  h.fire('focusin',d.check);assert.equal(d.save.getAttribute('data-enter-hint'),'Ctrl+↵','still inside the same window');
+  const other=dialog();h.fire('focusin',other.check);assert.equal(d.save.getAttribute('data-enter-hint'),null,'focus left the window');
+  h.fire('focusin',other.title);assert.equal(other.save.getAttribute('data-enter-hint'),'↵');
+  h.fire('focusin',new El('input'));assert.equal(other.save.getAttribute('data-enter-hint'),null,'a field outside any window');
   const icon=new El('button',{'data-enter-save-submit':'nohint'}),editor=new El('div',{'data-enter-save':''},[new El('textarea'),icon]);
   h.fire('focusin',editor.children[0]);assert.equal(icon.getAttribute('data-enter-hint'),null);
   const p=harness({pc:false}),e=dialog();

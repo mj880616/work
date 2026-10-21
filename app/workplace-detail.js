@@ -1,3 +1,4 @@
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {syncMoreToggle,bindMoreToggle} from './text-clamp.js';
 import {formatSeoulTime,seoulParts} from './meeting-time.js';
 import {readLinkRecords,readRecordPages,linkRecordHtml,mountLinkSummaryEditor} from './basket-link-records.js';

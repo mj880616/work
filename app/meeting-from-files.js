@@ -5,6 +5,7 @@
 //   파일은 회의자료 올리기와 같은 meeting-files Edge(자료실 '회의자료' 등록 포함). DB·Edge 변경 없음.
 // - 이 모듈은 #mffPanel 한 곳만 그린다. 창 열기·닫기·직접 쓰기 칸은 team.js가 그대로 맡고,
 //   어느 쪽을 보일지는 #meetingModal의 data-create-mode(이 모듈이 정함)와 meeting-ui.css가 정한다.
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {parseKey,roleOf,splitPasted,firstLineKey,mergeKey,matchKind,kindCandidates,nameKey,groupItems,findExisting,appendResult} from './meeting-file-parse.mjs';
 import {readFileText,createHwpReader,kindOf} from './meeting-file-text.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';

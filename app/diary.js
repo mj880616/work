@@ -2,6 +2,7 @@
 // month photo calendar → the chosen day below it (photos large, swipe sideways, and the text) → write/edit panel.
 // Rows, photos and photo views go through diary-data.js (owner RLS + basket-files); deleting uses the basket's
 // note-delete path (attachments to the Drive trash). Back closes the top open thing first (router layers).
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, dropEmptyDiary, uploadDiaryPhotos, photoElement,
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,

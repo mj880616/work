@@ -1,3 +1,4 @@
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {createAnchoredMenu} from './anchored-menu.js';
 import {dueText,bindDue,paintDue} from './meeting-compact.js';
 let twUser=null,twBound=false;
