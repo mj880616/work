@@ -242,12 +242,14 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     if(name==='summary'){open(id);return;}
     if(name==='disconnect'||name==='note-delete')void act(id,name==='note-delete');
   }
-  function openNote(noteId,kind='basket'){if(onOpenNote&&noteId)onOpenNote(noteId,kind);else if(noteId)location.href=kind==='note'?'./?view=basket':`./?view=basket&note=${encodeURIComponent(noteId)}`;}
+  // UI-모바일업데이트겹쳐보기: a tap on the line itself passes {line,linkId,trigger}, so a phone can show the record over the detail
+  // (record-sheet.js) instead of leaving; the ⋯ [업데이트 열기]/[노트 열기] passes nothing and still opens the full view.
+  function openNote(noteId,kind='basket',info=null){if(onOpenNote&&noteId)onOpenNote(noteId,kind,info);else if(noteId)location.href=kind==='note'?'./?view=basket':`./?view=basket&note=${encodeURIComponent(noteId)}`;}
   function click(event){
     const link=event.target.closest?.('a[data-basket-link-open]');
     if(link&&host.contains(link)){
       if(!onOpenNote||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-      event.preventDefault();if(isCurrent())openNote(link.dataset.basketLinkOpen,link.closest('[data-basket-link]')?.dataset.basketLinkNoteKind==='note'?'note':'basket');return;
+      event.preventDefault();const row=link.closest('[data-basket-link]');if(isCurrent())openNote(link.dataset.basketLinkOpen,row?.dataset.basketLinkNoteKind==='note'?'note':'basket',{line:true,linkId:row?.dataset.basketLink||null,trigger:link});return;
     }
     const button=event.target.closest?.('button');if(!button||!host.contains(button))return;
     if(button.dataset.basketLinkMenu){if(!button.disabled)recordMenu(host).open(button);return;}

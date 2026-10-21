@@ -76,3 +76,15 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 /* UI-기록아이콘: 연결 기록 머리 앞 업데이트·노트 아이콘. */
 #wdUpdates .basket-link-mark{display:inline-flex;vertical-align:-2px}
 #wdUpdates .basket-link-mark svg{display:block}
+/* ORG-기록수정삭제: a record written here has one ⋯ at its top right (same look as a basket-linked record), holding [수정]·[삭제].
+   [수정] opens a multi-line box in place with [저장]·[취소]. */
+#wdUpdates .wd-log-row .wd-rowtop{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px}
+#wdUpdates .wd-log-main{min-width:0}
+#wdUpdates .wd-log-main p{white-space:pre-wrap;overflow-wrap:anywhere}
+#wdUpdates .wd-up-more{width:44px;height:44px;min-height:44px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+#wdUpdates .wd-up-more:hover{background:var(--kptu-surface-subtle)}
+#wdUpdates .wd-up-editor{display:grid;gap:6px;margin-top:4px}
+#wdUpdates .wd-up-editor textarea{width:100%;box-sizing:border-box;min-height:96px;resize:vertical;font:inherit;font-size:var(--kptu-text-body);line-height:1.55}
+#wdUpdates .wd-up-editor .status:empty{display:none}
+#wdUpdates .wd-up-edit-actions{display:flex;justify-content:flex-end;gap:8px}
+#wdUpdates .wd-up-edit-actions button{min-height:44px;padding:6px 14px}
