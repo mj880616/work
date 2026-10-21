@@ -25,6 +25,22 @@ export function effectiveOwners(summary) {
   return out;
 }
 export const isMine = (owner, me) => owner.some(line => line.split(/[\/,·]/).some(n => n.trim() === me));
+// JOURNAL-주간정리다듬기 ②(2026-10-22 사용자 승인): 담당 팀원 칸의 내 이름은 직전 주 확정본에 쓴 표기를 그대로 쓴다.
+// 확정본 담당 칸의 이름 조각(/ , · 로 나눈 한 사람) 가운데 내 이름(프로필)과 띄어쓰기 없이 같거나, 한쪽이 다른 쪽을 품는(예: 성 없이 쓴
+// 이름, 직함을 붙인 이름) 조각이 하나뿐이면 그 표기. 없거나 여럿이면(누구인지 모름) null — 화면은 프로필 이름을 그대로 쓴다.
+// 이름은 코드에 두지 않는다(공개 저장소). 여러 사람이 함께 맡은 줄의 칸 글은 바꾸지 않는다(personalFromTeam이 그대로 옮김).
+export function ownerNotation(summary, name) {
+  const key = s => String(s ?? '').replace(/\s+/g, '');
+  const me = key(name);
+  if (!me) return null;
+  const tokens = new Set();
+  for (const e of effectiveOwners(summary ?? [])) for (const line of e.owner ?? []) for (const n of String(line).split(/[\/,·]/)) if (n.trim()) tokens.add(n.trim());
+  const exact = [...tokens].filter(t => key(t) === me);
+  if (exact.length === 1) return exact[0];
+  if (exact.length) return null;
+  const near = [...tokens].filter(t => { const k = key(t); return Math.min(k.length, me.length) >= 2 && (k.includes(me) || me.includes(k)); });
+  return near.length === 1 ? near[0] : null;
+}
 
 export function personalFromTeam(teamSummary, me) {
   const owners = new Map(effectiveOwners(teamSummary).map(e => [e.row, e.owner]));

@@ -61,6 +61,16 @@ async function fixture(page, width, { movedReadFails = false } = {}) {
   return { rows, writes, gets, errors };
 }
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
+// JOURNAL-주간정리다듬기 ①: the top-row copy button is gone; the draft is copied by [주간 정리]'s [복사] (beside [주간보고 한글 파일 만들기]).
+// This goes to [주간 정리], presses [복사], waits for the copy notice and comes back to [하루].
+const copyDraft = async (page, width) => {
+  await press(page, page.locator('#journalRoot [data-journal-mode="week"]'), width);
+  await page.locator('#journalRoot [data-journal-status]').evaluate(e => { e.textContent = ''; });
+  await press(page, page.locator('#journalRoot [data-hwpx-copy]'), width);
+  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
+  await press(page, page.locator('#journalRoot [data-journal-mode="day"]'), width);
+  await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
+};
 async function openJournal(page, width) {
   if (width <= 760) {
     await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
@@ -108,7 +118,7 @@ for (const width of [390, 1280]) {
     if (SHOT && width === 390) { await moved(page).scrollIntoViewIfNeeded(); await page.locator('#journalRoot [data-journal-day]').screenshot({ path: SHOT }); }
     await page.screenshot({ path: info.outputPath(`journal-moved-note-${width}.png`), fullPage: true });
     // The weekly draft does not carry the note line.
-    await press(page, page.locator('#journalRoot [data-journal-copy]'), width);
+    await copyDraft(page, width);
     await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
     const draft = await page.evaluate(() => navigator.clipboard.readText());
     expect(draft).not.toContain('노트:');
@@ -127,7 +137,7 @@ for (const width of [390, 1280]) {
     await expect(page.locator('#journalRoot [data-journal-line]')).toBeVisible();
     await expect(moved(page)).toHaveCount(0);
     await expect(page.locator('#journalRoot [data-journal-failed]')).toHaveCount(0);
-    await press(page, page.locator('#journalRoot [data-journal-copy]'), width);
+    await copyDraft(page, width);
     await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
     expect(f.errors).toEqual([]);
   });
